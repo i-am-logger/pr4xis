@@ -1,0 +1,18 @@
+[package]
+name = "praxis-legal"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Legal ontology and case lifecycle enforcement — evidence, authority, claims, motions, rulings"
+license = "CC-BY-NC-SA-4.0"
+keywords = ["legal", "ontology", "enforcement", "litigation", "case-management"]
+
+[dependencies]
+praxis-category = { path = "../praxis-category" }
+praxis-ontology = { path = "../praxis-ontology" }
+praxis-engine = { path = "../praxis-engine" }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1.6"

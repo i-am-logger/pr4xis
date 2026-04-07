@@ -1,0 +1,14 @@
+[package]
+name = "praxis-category"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Category theory primitives for Rust — categories, functors, natural transformations, with property-based validation"
+license = "CC-BY-NC-SA-4.0"
+keywords = ["category-theory", "mathematics", "formal-methods"]
+categories = ["data-structures", "mathematics"]
+
+[dependencies]
+
+[dev-dependencies]
+proptest = "1.6"

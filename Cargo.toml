@@ -1,0 +1,22 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/praxis-category",
+    "crates/praxis-ontology",
+    "crates/praxis-engine",
+    "crates/praxis-logic",
+    "crates/praxis-chess",
+    "crates/praxis-rubik",
+    "crates/praxis-elevator",
+    "crates/praxis-simon",
+    "crates/praxis-tetris",
+    "crates/praxis-traffic",
+    "crates/praxis-music",
+    "crates/praxis-http",
+    "crates/praxis-colors",
+    "crates/praxis-calculator",
+    "crates/praxis-legal",
+    "crates/praxis-puzzles",
+    "crates/praxis-math",
+    "crates/praxis-physics",
+]

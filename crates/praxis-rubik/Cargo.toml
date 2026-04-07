@@ -1,0 +1,16 @@
+[package]
+name = "praxis-rubik"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Rubik's cube rules enforcement via ontology — guarantees only valid moves, group theory"
+license = "CC-BY-NC-SA-4.0"
+keywords = ["rubik", "ontology", "group-theory", "enforcement"]
+
+[dependencies]
+praxis-category = { path = "../praxis-category" }
+praxis-ontology = { path = "../praxis-ontology" }
+praxis-engine = { path = "../praxis-engine" }
+
+[dev-dependencies]
+proptest = "1.6"

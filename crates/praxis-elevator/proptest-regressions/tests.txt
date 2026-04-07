@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 29ece4f82b0ce61d5702782ba7c5e726fd24b678a605b355069c2fd33cd7e47c # shrinks to requests = [Request { floor: 0, direction: Up, passenger_weight: 30, destination: 1 }]

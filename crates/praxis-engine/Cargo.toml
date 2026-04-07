@@ -1,0 +1,16 @@
+[package]
+name = "praxis-engine"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Runtime enforcement engine — situations, actions, preconditions, traces"
+license = "CC-BY-NC-SA-4.0"
+keywords = ["praxis", "state-machine", "enforcement", "runtime"]
+categories = ["data-structures"]
+
+[dependencies]
+praxis-category = { path = "../praxis-category" }
+praxis-ontology = { path = "../praxis-ontology" }
+
+[dev-dependencies]
+proptest = "1.6"

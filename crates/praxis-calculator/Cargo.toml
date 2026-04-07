@@ -1,0 +1,17 @@
+[package]
+name = "praxis-calculator"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Scientific calculator enforcement — domain constraints, order of operations, unit safety"
+license = "CC-BY-NC-SA-4.0"
+keywords = ["calculator", "math", "ontology", "enforcement"]
+
+[dependencies]
+praxis-category = { path = "../praxis-category" }
+praxis-ontology = { path = "../praxis-ontology" }
+praxis-engine = { path = "../praxis-engine" }
+praxis-math = { path = "../praxis-math" }
+
+[dev-dependencies]
+proptest = "1.6"
