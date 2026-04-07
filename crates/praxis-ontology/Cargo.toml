@@ -1,6 +1,6 @@
 [package]
 name = "praxis-ontology"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Define, validate, and enforce domain ontologies — what exists, how things relate, and what rules govern them"
