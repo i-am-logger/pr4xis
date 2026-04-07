@@ -1,0 +1,16 @@
+[package]
+name = "praxis-simon"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Simon Says sequence enforcement — memory game rules guaranteed by ontology"
+license = "CC-BY-NC-SA-4.0"
+keywords = ["simon-says", "ontology", "sequence", "enforcement"]
+
+[dependencies]
+praxis-category = { path = "../praxis-category" }
+praxis-ontology = { path = "../praxis-ontology" }
+praxis-engine = { path = "../praxis-engine" }
+
+[dev-dependencies]
+proptest = "1.6"
