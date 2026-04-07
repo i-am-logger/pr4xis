@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Format
+            command: cargo fmt --check
+          - name: Clippy
+            command: cargo clippy -- -D warnings
+          - name: Test
+            command: cargo test --workspace
+            rustflags: "-D warnings"
+          - name: Coverage
+            command: cargo llvm-cov --workspace --lcov --output-path lcov.info
+            master-only: true
+          - name: Test Results
+            command: cargo nextest run --workspace --profile ci
+            master-only: true
+    steps:
+      - uses: actions/checkout@v4
+        if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
+      - uses: dtolnay/rust-toolchain@stable
+        if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
+        with:
+          components: clippy, rustfmt, llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
+      - uses: taiki-e/install-action@cargo-llvm-cov
+        if: matrix.name == 'Coverage' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - uses: taiki-e/install-action@cargo-nextest
+        if: matrix.name == 'Test Results' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - name: Run ${{ matrix.name }}
+        if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
+        run: ${{ matrix.command }}
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags || '' }}
+      - name: Upload coverage to Codecov
+        if: matrix.name == 'Coverage' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: false
+      - name: Upload test results to Codecov
+        if: matrix.name == 'Test Results' && github.event_name == 'push' && github.ref == 'refs/heads/master' && !cancelled()
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: target/nextest/ci/junit.xml
+
+  release-please:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [check]
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      needs.check.result == 'success'
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: [release-please]
+    if: needs.release-please.outputs.releases_created == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-workspaces
+        run: cargo install cargo-workspaces
+      - name: Publish all crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo workspaces publish --from-git --token "$CARGO_REGISTRY_TOKEN"

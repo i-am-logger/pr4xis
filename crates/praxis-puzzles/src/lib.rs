@@ -1,0 +1,11 @@
+pub mod byzantine;
+pub mod hanoi;
+pub mod knights_tour;
+pub mod konigsberg;
+pub mod missionaries;
+pub mod monty_hall;
+pub mod n_queens;
+pub mod prisoner;
+pub mod river_crossing;
+pub mod sudoku;
+pub mod water_jugs;

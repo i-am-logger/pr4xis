@@ -1,0 +1,5 @@
+# Proptest configuration for the praxis workspace
+# Default: 256 cases per test
+# CI: consider increasing to 1000+
+cases = 256
+max_shrink_iters = 1000
