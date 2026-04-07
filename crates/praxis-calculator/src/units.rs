@@ -97,7 +97,7 @@ impl Unit {
 
     /// Factor to convert this unit to the base unit of its category.
     /// Temperature uses a different conversion path.
-    fn to_base(&self) -> f64 {
+    fn to_base(self) -> f64 {
         match self {
             // Length → meters
             Unit::Meter => 1.0,

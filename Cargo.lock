@@ -368,8 +368,6 @@ name = "praxis-logic"
 version = "0.1.0"
 dependencies = [
  "praxis-category",
- "praxis-engine",
- "praxis-ontology",
  "proptest",
 ]
 
@@ -398,6 +396,7 @@ name = "praxis-ontology"
 version = "0.1.0"
 dependencies = [
  "praxis-category",
+ "praxis-logic",
  "proptest",
 ]
 

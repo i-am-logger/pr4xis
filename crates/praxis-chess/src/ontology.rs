@@ -1,8 +1,8 @@
-use praxis_category::{Category, Entity, Relationship};
-use praxis_ontology::{Axiom, Quality};
 use crate::board::Board;
 use crate::piece::{Color, Piece, PieceKind};
 use crate::square::Square;
+use praxis_category::{Category, Entity, Relationship};
+use praxis_ontology::{Axiom, Quality};
 
 // =============================================================================
 // Relationship: SquareConnection (any square to any square — thin category)
@@ -16,8 +16,12 @@ pub struct SquareConnection {
 
 impl Relationship for SquareConnection {
     type Object = Square;
-    fn source(&self) -> Square { self.from }
-    fn target(&self) -> Square { self.to }
+    fn source(&self) -> Square {
+        self.from
+    }
+    fn target(&self) -> Square {
+        self.to
+    }
 }
 
 // =============================================================================
@@ -31,12 +35,20 @@ impl Category for ChessCategory {
     type Morphism = SquareConnection;
 
     fn identity(obj: &Square) -> SquareConnection {
-        SquareConnection { from: *obj, to: *obj }
+        SquareConnection {
+            from: *obj,
+            to: *obj,
+        }
     }
 
     fn compose(f: &SquareConnection, g: &SquareConnection) -> Option<SquareConnection> {
-        if f.to != g.from { return None; }
-        Some(SquareConnection { from: f.from, to: g.to })
+        if f.to != g.from {
+            return None;
+        }
+        Some(SquareConnection {
+            from: f.from,
+            to: g.to,
+        })
     }
 
     fn morphisms() -> Vec<SquareConnection> {
@@ -80,7 +92,11 @@ impl Quality for Mobility {
 
     fn get(&self, sq: &Square) -> Option<usize> {
         let moves = self.board.legal_moves(*sq);
-        if moves.is_empty() { None } else { Some(moves.len()) }
+        if moves.is_empty() {
+            None
+        } else {
+            Some(moves.len())
+        }
     }
 }
 
@@ -108,16 +124,18 @@ pub struct KingSafety {
 }
 
 impl Axiom<ChessCategory> for KingSafety {
-    fn description(&self) -> &str { "no legal move leaves the king in check" }
+    fn description(&self) -> &str {
+        "no legal move leaves the king in check"
+    }
 
     fn holds(&self) -> bool {
         let color = self.board.to_move;
         for sq in Square::variants() {
             for to in self.board.legal_moves(sq) {
-                if let Some(new_board) = self.board.apply_move(sq, to) {
-                    if new_board.in_check(color) {
-                        return false;
-                    }
+                if let Some(new_board) = self.board.apply_move(sq, to)
+                    && new_board.in_check(color)
+                {
+                    return false;
                 }
             }
         }
@@ -130,11 +148,23 @@ pub struct OneKingPerSide {
 }
 
 impl Axiom<ChessCategory> for OneKingPerSide {
-    fn description(&self) -> &str { "each side has exactly one king" }
+    fn description(&self) -> &str {
+        "each side has exactly one king"
+    }
 
     fn holds(&self) -> bool {
-        let wk = self.board.pieces(Color::White).iter().filter(|(_, p)| p.kind == PieceKind::King).count();
-        let bk = self.board.pieces(Color::Black).iter().filter(|(_, p)| p.kind == PieceKind::King).count();
+        let wk = self
+            .board
+            .pieces(Color::White)
+            .iter()
+            .filter(|(_, p)| p.kind == PieceKind::King)
+            .count();
+        let bk = self
+            .board
+            .pieces(Color::Black)
+            .iter()
+            .filter(|(_, p)| p.kind == PieceKind::King)
+            .count();
         wk == 1 && bk == 1
     }
 }
@@ -144,7 +174,9 @@ pub struct MaxPieces {
 }
 
 impl Axiom<ChessCategory> for MaxPieces {
-    fn description(&self) -> &str { "at most 32 pieces on the board" }
+    fn description(&self) -> &str {
+        "at most 32 pieces on the board"
+    }
 
     fn holds(&self) -> bool {
         let total = self.board.pieces(Color::White).len() + self.board.pieces(Color::Black).len();
@@ -163,7 +195,9 @@ mod tests {
 
     #[test]
     fn test_piece_at_quality() {
-        let quality = PieceAt { board: Board::starting() };
+        let quality = PieceAt {
+            board: Board::starting(),
+        };
         let king = quality.get(&Square::new(4, 0));
         assert_eq!(king.unwrap().kind, PieceKind::King);
         assert!(quality.get(&Square::new(4, 3)).is_none());
@@ -171,35 +205,57 @@ mod tests {
 
     #[test]
     fn test_mobility_quality() {
-        let quality = Mobility { board: Board::starting() };
+        let quality = Mobility {
+            board: Board::starting(),
+        };
         assert_eq!(quality.get(&Square::new(1, 0)), Some(2)); // knight b1
         assert_eq!(quality.get(&Square::new(0, 0)), None); // rook blocked
     }
 
     #[test]
     fn test_attacked_by_quality() {
-        let quality = AttackedBy { board: Board::starting(), by_color: Color::White };
+        let quality = AttackedBy {
+            board: Board::starting(),
+            by_color: Color::White,
+        };
         assert_eq!(quality.get(&Square::new(3, 2)), Some(true)); // d3 attacked by e2 pawn
     }
 
     #[test]
     fn test_king_safety_axiom() {
-        assert!(KingSafety { board: Board::starting() }.holds());
+        assert!(
+            KingSafety {
+                board: Board::starting()
+            }
+            .holds()
+        );
     }
 
     #[test]
     fn test_one_king_axiom() {
-        assert!(OneKingPerSide { board: Board::starting() }.holds());
+        assert!(
+            OneKingPerSide {
+                board: Board::starting()
+            }
+            .holds()
+        );
     }
 
     #[test]
     fn test_max_pieces_axiom() {
-        assert!(MaxPieces { board: Board::starting() }.holds());
+        assert!(
+            MaxPieces {
+                board: Board::starting()
+            }
+            .holds()
+        );
     }
 
     #[test]
     fn test_occupied_squares() {
-        let quality = PieceAt { board: Board::starting() };
+        let quality = PieceAt {
+            board: Board::starting(),
+        };
         let occupied = quality.individuals_with();
         assert_eq!(occupied.len(), 32); // 16 white + 16 black
     }

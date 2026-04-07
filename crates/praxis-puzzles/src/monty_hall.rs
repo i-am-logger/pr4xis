@@ -4,7 +4,7 @@ use praxis_engine::{Action, Engine, Precondition, PreconditionResult, Situation}
 /// Host always reveals a goat, player can switch.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
-    pub car_door: u8,         // 0-2: which door has the car
+    pub car_door: u8, // 0-2: which door has the car
     pub player_choice: Option<u8>,
     pub host_revealed: Option<u8>,
     pub final_choice: Option<u8>,
@@ -22,7 +22,13 @@ pub enum Phase {
 impl State {
     pub fn new(car_door: u8) -> Self {
         assert!(car_door < 3);
-        Self { car_door, player_choice: None, host_revealed: None, final_choice: None, phase: Phase::ChooseDoor }
+        Self {
+            car_door,
+            player_choice: None,
+            host_revealed: None,
+            final_choice: None,
+            phase: Phase::ChooseDoor,
+        }
     }
 
     pub fn won(&self) -> Option<bool> {
@@ -32,10 +38,14 @@ impl State {
 
 impl Situation for State {
     fn describe(&self) -> String {
-        format!("phase={:?} choice={:?} revealed={:?} final={:?}",
-            self.phase, self.player_choice, self.host_revealed, self.final_choice)
+        format!(
+            "phase={:?} choice={:?} revealed={:?} final={:?}",
+            self.phase, self.player_choice, self.host_revealed, self.final_choice
+        )
     }
-    fn is_terminal(&self) -> bool { self.phase == Phase::Resolved }
+    fn is_terminal(&self) -> bool {
+        self.phase == Phase::Resolved
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,22 +74,42 @@ impl Precondition<MontyAction> for MontyRules {
         match (s.phase, a) {
             (Phase::ChooseDoor, MontyAction::ChooseDoor(d)) => {
                 if *d >= 3 {
-                    PreconditionResult::violated("monty_rules", "door must be 0-2", &s.describe(), &a.describe())
+                    PreconditionResult::violated(
+                        "monty_rules",
+                        "door must be 0-2",
+                        &s.describe(),
+                        &a.describe(),
+                    )
                 } else {
                     PreconditionResult::satisfied("monty_rules", "valid door choice")
                 }
             }
             (Phase::HostReveals, MontyAction::HostReveal(d)) => {
                 if *d >= 3 {
-                    return PreconditionResult::violated("monty_rules", "door must be 0-2", &s.describe(), &a.describe());
+                    return PreconditionResult::violated(
+                        "monty_rules",
+                        "door must be 0-2",
+                        &s.describe(),
+                        &a.describe(),
+                    );
                 }
                 // Host can't reveal the car
                 if *d == s.car_door {
-                    return PreconditionResult::violated("monty_rules", "host cannot reveal the car", &s.describe(), &a.describe());
+                    return PreconditionResult::violated(
+                        "monty_rules",
+                        "host cannot reveal the car",
+                        &s.describe(),
+                        &a.describe(),
+                    );
                 }
                 // Host can't reveal player's choice
                 if Some(*d) == s.player_choice {
-                    return PreconditionResult::violated("monty_rules", "host cannot reveal player's door", &s.describe(), &a.describe());
+                    return PreconditionResult::violated(
+                        "monty_rules",
+                        "host cannot reveal player's door",
+                        &s.describe(),
+                        &a.describe(),
+                    );
                 }
                 PreconditionResult::satisfied("monty_rules", "host reveals a goat")
             }
@@ -89,12 +119,17 @@ impl Precondition<MontyAction> for MontyRules {
             (Phase::SwitchOrStay, MontyAction::Switch) => {
                 PreconditionResult::satisfied("monty_rules", "player switches")
             }
-            _ => PreconditionResult::violated("monty_rules",
+            _ => PreconditionResult::violated(
+                "monty_rules",
                 &format!("{:?} not valid in {:?} phase", a, s.phase),
-                &s.describe(), &a.describe()),
+                &s.describe(),
+                &a.describe(),
+            ),
         }
     }
-    fn describe(&self) -> &str { "Monty Hall game rules" }
+    fn describe(&self) -> &str {
+        "Monty Hall game rules"
+    }
 }
 
 fn apply_monty(s: &State, a: &MontyAction) -> State {
@@ -125,7 +160,11 @@ fn apply_monty(s: &State, a: &MontyAction) -> State {
 }
 
 pub fn new_game(car_door: u8) -> Engine<MontyAction> {
-    Engine::new(State::new(car_door), vec![Box::new(MontyRules)], apply_monty)
+    Engine::new(
+        State::new(car_door),
+        vec![Box::new(MontyRules)],
+        apply_monty,
+    )
 }
 
 #[cfg(test)]
@@ -137,9 +176,12 @@ mod tests {
     fn test_switch_wins_when_initial_wrong() {
         // Car behind door 2, player picks 0, host reveals 1
         let e = new_game(2)
-            .next(MontyAction::ChooseDoor(0)).unwrap()
-            .next(MontyAction::HostReveal(1)).unwrap()
-            .next(MontyAction::Switch).unwrap();
+            .next(MontyAction::ChooseDoor(0))
+            .unwrap()
+            .next(MontyAction::HostReveal(1))
+            .unwrap()
+            .next(MontyAction::Switch)
+            .unwrap();
         assert!(e.is_terminal());
         assert_eq!(e.situation().won(), Some(true));
     }
@@ -147,18 +189,24 @@ mod tests {
     #[test]
     fn test_stay_loses_when_initial_wrong() {
         let e = new_game(2)
-            .next(MontyAction::ChooseDoor(0)).unwrap()
-            .next(MontyAction::HostReveal(1)).unwrap()
-            .next(MontyAction::Stay).unwrap();
+            .next(MontyAction::ChooseDoor(0))
+            .unwrap()
+            .next(MontyAction::HostReveal(1))
+            .unwrap()
+            .next(MontyAction::Stay)
+            .unwrap();
         assert_eq!(e.situation().won(), Some(false));
     }
 
     #[test]
     fn test_stay_wins_when_initial_right() {
         let e = new_game(0)
-            .next(MontyAction::ChooseDoor(0)).unwrap()
-            .next(MontyAction::HostReveal(1)).unwrap()
-            .next(MontyAction::Stay).unwrap();
+            .next(MontyAction::ChooseDoor(0))
+            .unwrap()
+            .next(MontyAction::HostReveal(1))
+            .unwrap()
+            .next(MontyAction::Stay)
+            .unwrap();
         assert_eq!(e.situation().won(), Some(true));
     }
 

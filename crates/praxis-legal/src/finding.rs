@@ -26,6 +26,7 @@ pub struct Contradiction {
 
 /// A ruling on a motion.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum Ruling {
     Merits(MeritsRuling),
     Procedural(ProceduralRuling),
@@ -61,6 +62,7 @@ pub struct ProceduralRuling {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum ProceduralOutcome {
     DismissedWithPrejudice { reason: String },
     DismissedWithoutPrejudice { reason: String },

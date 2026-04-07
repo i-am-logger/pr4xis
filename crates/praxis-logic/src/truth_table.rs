@@ -1,5 +1,4 @@
 /// Truth tables as an ontology-driven proof mechanism.
-
 use crate::propositional::Connective;
 
 /// A truth table row.
@@ -12,10 +11,22 @@ pub struct Row {
 /// Generate full truth table for a binary connective.
 pub fn binary_truth_table(connective: Connective) -> Vec<Row> {
     vec![
-        Row { inputs: vec![true, true], output: connective.eval(true, true) },
-        Row { inputs: vec![true, false], output: connective.eval(true, false) },
-        Row { inputs: vec![false, true], output: connective.eval(false, true) },
-        Row { inputs: vec![false, false], output: connective.eval(false, false) },
+        Row {
+            inputs: vec![true, true],
+            output: connective.eval(true, true),
+        },
+        Row {
+            inputs: vec![true, false],
+            output: connective.eval(true, false),
+        },
+        Row {
+            inputs: vec![false, true],
+            output: connective.eval(false, true),
+        },
+        Row {
+            inputs: vec![false, false],
+            output: connective.eval(false, false),
+        },
     ]
 }
 
@@ -47,10 +58,10 @@ mod tests {
     #[test]
     fn test_and_truth_table() {
         let table = binary_truth_table(Connective::And);
-        assert_eq!(table[0].output, true);   // T && T
-        assert_eq!(table[1].output, false);  // T && F
-        assert_eq!(table[2].output, false);  // F && T
-        assert_eq!(table[3].output, false);  // F && F
+        assert_eq!(table[0].output, true); // T && T
+        assert_eq!(table[1].output, false); // T && F
+        assert_eq!(table[2].output, false); // F && T
+        assert_eq!(table[3].output, false); // F && F
     }
 
     #[test]
@@ -65,10 +76,10 @@ mod tests {
     #[test]
     fn test_implies_truth_table() {
         let table = binary_truth_table(Connective::Implies);
-        assert_eq!(table[0].output, true);   // T → T
-        assert_eq!(table[1].output, false);  // T → F
-        assert_eq!(table[2].output, true);   // F → T
-        assert_eq!(table[3].output, true);   // F → F
+        assert_eq!(table[0].output, true); // T → T
+        assert_eq!(table[1].output, false); // T → F
+        assert_eq!(table[2].output, true); // F → T
+        assert_eq!(table[3].output, true); // F → F
     }
 
     #[test]
@@ -83,7 +94,9 @@ mod tests {
     #[test]
     fn test_no_connective_is_tautology() {
         for c in Connective::variants() {
-            if c == Connective::Not { continue; } // unary
+            if c == Connective::Not {
+                continue;
+            } // unary
             assert!(!is_tautology(c), "{:?} should not be a tautology", c);
         }
     }
@@ -91,7 +104,9 @@ mod tests {
     #[test]
     fn test_all_connectives_satisfiable() {
         for c in Connective::variants() {
-            if c == Connective::Not { continue; }
+            if c == Connective::Not {
+                continue;
+            }
             assert!(is_satisfiable(c), "{:?} should be satisfiable", c);
         }
     }
@@ -99,8 +114,14 @@ mod tests {
     #[test]
     fn test_no_connective_is_contradiction() {
         for c in Connective::variants() {
-            if c == Connective::Not { continue; }
-            assert!(!is_contradiction(c), "{:?} should not be a contradiction", c);
+            if c == Connective::Not {
+                continue;
+            }
+            assert!(
+                !is_contradiction(c),
+                "{:?} should not be a contradiction",
+                c
+            );
         }
     }
 

@@ -11,16 +11,26 @@ pub struct State {
 
 impl State {
     pub fn initial() -> Self {
-        Self { missionaries_left: 3, cannibals_left: 3, boat_left: true }
+        Self {
+            missionaries_left: 3,
+            cannibals_left: 3,
+            boat_left: true,
+        }
     }
 
-    pub fn missionaries_right(&self) -> u8 { 3 - self.missionaries_left }
-    pub fn cannibals_right(&self) -> u8 { 3 - self.cannibals_left }
+    pub fn missionaries_right(&self) -> u8 {
+        3 - self.missionaries_left
+    }
+    pub fn cannibals_right(&self) -> u8 {
+        3 - self.cannibals_left
+    }
 
     pub fn is_safe(&self) -> bool {
         // On left: missionaries >= cannibals (or no missionaries)
-        let safe_left = self.missionaries_left == 0 || self.missionaries_left >= self.cannibals_left;
-        let safe_right = self.missionaries_right() == 0 || self.missionaries_right() >= self.cannibals_right();
+        let safe_left =
+            self.missionaries_left == 0 || self.missionaries_left >= self.cannibals_left;
+        let safe_right =
+            self.missionaries_right() == 0 || self.missionaries_right() >= self.cannibals_right();
         safe_left && safe_right
     }
 }
@@ -28,10 +38,15 @@ impl State {
 impl Situation for State {
     fn describe(&self) -> String {
         let boat = if self.boat_left { "<boat>" } else { "" };
-        format!("[{}M {}C {}] ~~~ [{}M {}C {}]",
-            self.missionaries_left, self.cannibals_left, boat,
-            self.missionaries_right(), self.cannibals_right(),
-            if !self.boat_left { "<boat>" } else { "" })
+        format!(
+            "[{}M {}C {}] ~~~ [{}M {}C {}]",
+            self.missionaries_left,
+            self.cannibals_left,
+            boat,
+            self.missionaries_right(),
+            self.cannibals_right(),
+            if !self.boat_left { "<boat>" } else { "" }
+        )
     }
     fn is_terminal(&self) -> bool {
         self.missionaries_left == 0 && self.cannibals_left == 0
@@ -46,8 +61,15 @@ pub struct Crossing {
 }
 
 impl Crossing {
-    pub fn new(m: u8, c: u8) -> Self { Self { missionaries: m, cannibals: c } }
-    pub fn total(&self) -> u8 { self.missionaries + self.cannibals }
+    pub fn new(m: u8, c: u8) -> Self {
+        Self {
+            missionaries: m,
+            cannibals: c,
+        }
+    }
+    pub fn total(&self) -> u8 {
+        self.missionaries + self.cannibals
+    }
 }
 
 impl Action for Crossing {
@@ -61,20 +83,37 @@ struct ValidCrossing;
 impl Precondition<Crossing> for ValidCrossing {
     fn check(&self, s: &State, a: &Crossing) -> PreconditionResult {
         if a.total() == 0 || a.total() > 2 {
-            return PreconditionResult::violated("valid_crossing", "boat holds 1-2 people", &s.describe(), &a.describe());
+            return PreconditionResult::violated(
+                "valid_crossing",
+                "boat holds 1-2 people",
+                &s.describe(),
+                &a.describe(),
+            );
         }
         if s.boat_left {
             if a.missionaries > s.missionaries_left || a.cannibals > s.cannibals_left {
-                return PreconditionResult::violated("valid_crossing", "not enough people on left bank", &s.describe(), &a.describe());
+                return PreconditionResult::violated(
+                    "valid_crossing",
+                    "not enough people on left bank",
+                    &s.describe(),
+                    &a.describe(),
+                );
             }
         } else {
             if a.missionaries > s.missionaries_right() || a.cannibals > s.cannibals_right() {
-                return PreconditionResult::violated("valid_crossing", "not enough people on right bank", &s.describe(), &a.describe());
+                return PreconditionResult::violated(
+                    "valid_crossing",
+                    "not enough people on right bank",
+                    &s.describe(),
+                    &a.describe(),
+                );
             }
         }
         PreconditionResult::satisfied("valid_crossing", "crossing is valid")
     }
-    fn describe(&self) -> &str { "boat holds 1-2, people must be available" }
+    fn describe(&self) -> &str {
+        "boat holds 1-2, people must be available"
+    }
 }
 
 struct SafeResult;
@@ -84,10 +123,17 @@ impl Precondition<Crossing> for SafeResult {
         if next.is_safe() {
             PreconditionResult::satisfied("safe_result", "missionaries safe on both banks")
         } else {
-            PreconditionResult::violated("safe_result", "cannibals would outnumber missionaries", &s.describe(), &a.describe())
+            PreconditionResult::violated(
+                "safe_result",
+                "cannibals would outnumber missionaries",
+                &s.describe(),
+                &a.describe(),
+            )
         }
     }
-    fn describe(&self) -> &str { "cannibals can't outnumber missionaries on either bank" }
+    fn describe(&self) -> &str {
+        "cannibals can't outnumber missionaries on either bank"
+    }
 }
 
 fn apply_mc(s: &State, a: &Crossing) -> State {
@@ -104,7 +150,11 @@ fn apply_mc(s: &State, a: &Crossing) -> State {
 }
 
 pub fn new_puzzle() -> Engine<Crossing> {
-    Engine::new(State::initial(), vec![Box::new(ValidCrossing), Box::new(SafeResult)], apply_mc)
+    Engine::new(
+        State::initial(),
+        vec![Box::new(ValidCrossing), Box::new(SafeResult)],
+        apply_mc,
+    )
 }
 
 #[cfg(test)]
@@ -115,17 +165,28 @@ mod tests {
     #[test]
     fn test_known_solution() {
         let e = new_puzzle()
-            .next(Crossing::new(1, 1)).unwrap()  // 2M2C | 1M1C
-            .next(Crossing::new(1, 0)).unwrap()  // 3M2C | 0M1C
-            .next(Crossing::new(0, 2)).unwrap()  // 3M0C | 0M3C
-            .next(Crossing::new(0, 1)).unwrap()  // 3M1C | 0M2C
-            .next(Crossing::new(2, 0)).unwrap()  // 1M1C | 2M2C
-            .next(Crossing::new(1, 1)).unwrap()  // 2M2C | 1M1C
-            .next(Crossing::new(2, 0)).unwrap()  // 0M2C | 3M1C
-            .next(Crossing::new(0, 1)).unwrap()  // 0M3C | 3M0C
-            .next(Crossing::new(0, 2)).unwrap()  // 0M1C | 3M2C
-            .next(Crossing::new(0, 1)).unwrap()  // 0M2C | 3M1C
-            .next(Crossing::new(0, 2)).unwrap();  // 0M0C | 3M3C
+            .next(Crossing::new(1, 1))
+            .unwrap() // 2M2C | 1M1C
+            .next(Crossing::new(1, 0))
+            .unwrap() // 3M2C | 0M1C
+            .next(Crossing::new(0, 2))
+            .unwrap() // 3M0C | 0M3C
+            .next(Crossing::new(0, 1))
+            .unwrap() // 3M1C | 0M2C
+            .next(Crossing::new(2, 0))
+            .unwrap() // 1M1C | 2M2C
+            .next(Crossing::new(1, 1))
+            .unwrap() // 2M2C | 1M1C
+            .next(Crossing::new(2, 0))
+            .unwrap() // 0M2C | 3M1C
+            .next(Crossing::new(0, 1))
+            .unwrap() // 0M3C | 3M0C
+            .next(Crossing::new(0, 2))
+            .unwrap() // 0M1C | 3M2C
+            .next(Crossing::new(0, 1))
+            .unwrap() // 0M2C | 3M1C
+            .next(Crossing::new(0, 2))
+            .unwrap(); // 0M0C | 3M3C
         assert!(e.is_terminal());
     }
 

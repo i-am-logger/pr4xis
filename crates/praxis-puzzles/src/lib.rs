@@ -1,11 +1,11 @@
-pub mod river_crossing;
+pub mod byzantine;
 pub mod hanoi;
-pub mod water_jugs;
+pub mod knights_tour;
+pub mod konigsberg;
 pub mod missionaries;
 pub mod monty_hall;
-pub mod byzantine;
-pub mod prisoner;
 pub mod n_queens;
-pub mod knights_tour;
+pub mod prisoner;
+pub mod river_crossing;
 pub mod sudoku;
-pub mod konigsberg;
+pub mod water_jugs;

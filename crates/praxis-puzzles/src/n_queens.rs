@@ -9,12 +9,18 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(n: usize) -> Self { Self { n, queens: vec![] } }
+    pub fn new(n: usize) -> Self {
+        Self { n, queens: vec![] }
+    }
 
     pub fn attacks(&self, row: usize, col: usize) -> bool {
         for (r, &c) in self.queens.iter().enumerate() {
-            if c == col { return true; }
-            if (r as i32 - row as i32).unsigned_abs() as usize == (c as i32 - col as i32).unsigned_abs() as usize {
+            if c == col {
+                return true;
+            }
+            if (r as i32 - row as i32).unsigned_abs() as usize
+                == (c as i32 - col as i32).unsigned_abs() as usize
+            {
                 return true;
             }
         }
@@ -24,36 +30,66 @@ impl State {
 
 impl Situation for State {
     fn describe(&self) -> String {
-        format!("{}x{} queens={:?} placed={}/{}", self.n, self.n, self.queens, self.queens.len(), self.n)
+        format!(
+            "{}x{} queens={:?} placed={}/{}",
+            self.n,
+            self.n,
+            self.queens,
+            self.queens.len(),
+            self.n
+        )
     }
-    fn is_terminal(&self) -> bool { self.queens.len() == self.n }
+    fn is_terminal(&self) -> bool {
+        self.queens.len() == self.n
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PlaceQueen { pub col: usize }
+pub struct PlaceQueen {
+    pub col: usize,
+}
 
 impl Action for PlaceQueen {
     type Sit = State;
-    fn describe(&self) -> String { format!("place queen at col {}", self.col) }
+    fn describe(&self) -> String {
+        format!("place queen at col {}", self.col)
+    }
 }
 
 struct NoAttack;
 impl Precondition<PlaceQueen> for NoAttack {
     fn check(&self, s: &State, a: &PlaceQueen) -> PreconditionResult {
         if a.col >= s.n {
-            return PreconditionResult::violated("no_attack", "column out of range", &s.describe(), &a.describe());
+            return PreconditionResult::violated(
+                "no_attack",
+                "column out of range",
+                &s.describe(),
+                &a.describe(),
+            );
         }
         if s.queens.len() >= s.n {
-            return PreconditionResult::violated("no_attack", "board is full", &s.describe(), &a.describe());
+            return PreconditionResult::violated(
+                "no_attack",
+                "board is full",
+                &s.describe(),
+                &a.describe(),
+            );
         }
         let row = s.queens.len();
         if s.attacks(row, a.col) {
-            PreconditionResult::violated("no_attack", &format!("queen at ({},{}) attacks existing queen", row, a.col), &s.describe(), &a.describe())
+            PreconditionResult::violated(
+                "no_attack",
+                &format!("queen at ({},{}) attacks existing queen", row, a.col),
+                &s.describe(),
+                &a.describe(),
+            )
         } else {
             PreconditionResult::satisfied("no_attack", &format!("({},{}) is safe", row, a.col))
         }
     }
-    fn describe(&self) -> &str { "queen must not attack any existing queen" }
+    fn describe(&self) -> &str {
+        "queen must not attack any existing queen"
+    }
 }
 
 fn apply_queen(s: &State, a: &PlaceQueen) -> State {
@@ -74,24 +110,36 @@ mod tests {
     #[test]
     fn test_4_queens_solution() {
         let e = new_puzzle(4)
-            .next(PlaceQueen { col: 1 }).unwrap()
-            .next(PlaceQueen { col: 3 }).unwrap()
-            .next(PlaceQueen { col: 0 }).unwrap()
-            .next(PlaceQueen { col: 2 }).unwrap();
+            .next(PlaceQueen { col: 1 })
+            .unwrap()
+            .next(PlaceQueen { col: 3 })
+            .unwrap()
+            .next(PlaceQueen { col: 0 })
+            .unwrap()
+            .next(PlaceQueen { col: 2 })
+            .unwrap();
         assert!(e.is_terminal());
     }
 
     #[test]
     fn test_8_queens_solution() {
         let e = new_puzzle(8)
-            .next(PlaceQueen { col: 0 }).unwrap()
-            .next(PlaceQueen { col: 4 }).unwrap()
-            .next(PlaceQueen { col: 7 }).unwrap()
-            .next(PlaceQueen { col: 5 }).unwrap()
-            .next(PlaceQueen { col: 2 }).unwrap()
-            .next(PlaceQueen { col: 6 }).unwrap()
-            .next(PlaceQueen { col: 1 }).unwrap()
-            .next(PlaceQueen { col: 3 }).unwrap();
+            .next(PlaceQueen { col: 0 })
+            .unwrap()
+            .next(PlaceQueen { col: 4 })
+            .unwrap()
+            .next(PlaceQueen { col: 7 })
+            .unwrap()
+            .next(PlaceQueen { col: 5 })
+            .unwrap()
+            .next(PlaceQueen { col: 2 })
+            .unwrap()
+            .next(PlaceQueen { col: 6 })
+            .unwrap()
+            .next(PlaceQueen { col: 1 })
+            .unwrap()
+            .next(PlaceQueen { col: 3 })
+            .unwrap();
         assert!(e.is_terminal());
     }
 

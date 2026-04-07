@@ -1,9 +1,11 @@
+use crate::color::SimonColor;
 use praxis_category::Entity;
 use praxis_ontology::Quality;
-use crate::color::SimonColor;
 
 impl Entity for SimonColor {
-    fn variants() -> Vec<Self> { SimonColor::all().to_vec() }
+    fn variants() -> Vec<Self> {
+        SimonColor::all().to_vec()
+    }
 }
 
 /// Quality: index position in the button array.
@@ -29,7 +31,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_4_colors() { assert_eq!(SimonColor::variants().len(), 4); }
+    fn test_4_colors() {
+        assert_eq!(SimonColor::variants().len(), 4);
+    }
 
     #[test]
     fn test_button_index() {

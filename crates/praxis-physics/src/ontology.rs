@@ -1,5 +1,4 @@
 /// Physics ontology: laws of physics as entities with relationships.
-
 use praxis_category::{Category, Entity, Relationship};
 use praxis_ontology::{Axiom, Quality};
 
@@ -7,34 +6,43 @@ use praxis_ontology::{Axiom, Quality};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PhysicsLaw {
     // Mechanics
-    NewtonFirst,     // inertia
-    NewtonSecond,    // F = ma
-    NewtonThird,     // action-reaction
+    NewtonFirst,  // inertia
+    NewtonSecond, // F = ma
+    NewtonThird,  // action-reaction
     // Conservation
     EnergyConservation,
     MomentumConservation,
     ChargeConservation,
     // Electromagnetism
-    GaussElectric,   // ∇⋅E = ρ/ε₀
-    GaussMagnetic,   // ∇⋅B = 0
-    FaradayLaw,      // ∇×E = -∂B/∂t
-    AmpereMaxwell,   // ∇×B = μ₀J + μ₀ε₀∂E/∂t
+    GaussElectric, // ∇⋅E = ρ/ε₀
+    GaussMagnetic, // ∇⋅B = 0
+    FaradayLaw,    // ∇×E = -∂B/∂t
+    AmpereMaxwell, // ∇×B = μ₀J + μ₀ε₀∂E/∂t
     // Relativity
-    SpeedOfLight,    // c is constant
-    MassEnergy,      // E = mc²
+    SpeedOfLight, // c is constant
+    MassEnergy,   // E = mc²
     // Quantum
-    Heisenberg,      // ΔxΔp ≥ ℏ/2
-    Planck,          // E = hf
+    Heisenberg, // ΔxΔp ≥ ℏ/2
+    Planck,     // E = hf
 }
 
 impl Entity for PhysicsLaw {
     fn variants() -> Vec<Self> {
         vec![
-            PhysicsLaw::NewtonFirst, PhysicsLaw::NewtonSecond, PhysicsLaw::NewtonThird,
-            PhysicsLaw::EnergyConservation, PhysicsLaw::MomentumConservation, PhysicsLaw::ChargeConservation,
-            PhysicsLaw::GaussElectric, PhysicsLaw::GaussMagnetic, PhysicsLaw::FaradayLaw, PhysicsLaw::AmpereMaxwell,
-            PhysicsLaw::SpeedOfLight, PhysicsLaw::MassEnergy,
-            PhysicsLaw::Heisenberg, PhysicsLaw::Planck,
+            PhysicsLaw::NewtonFirst,
+            PhysicsLaw::NewtonSecond,
+            PhysicsLaw::NewtonThird,
+            PhysicsLaw::EnergyConservation,
+            PhysicsLaw::MomentumConservation,
+            PhysicsLaw::ChargeConservation,
+            PhysicsLaw::GaussElectric,
+            PhysicsLaw::GaussMagnetic,
+            PhysicsLaw::FaradayLaw,
+            PhysicsLaw::AmpereMaxwell,
+            PhysicsLaw::SpeedOfLight,
+            PhysicsLaw::MassEnergy,
+            PhysicsLaw::Heisenberg,
+            PhysicsLaw::Planck,
         ]
     }
 }
@@ -48,8 +56,12 @@ pub struct Derives {
 
 impl Relationship for Derives {
     type Object = PhysicsLaw;
-    fn source(&self) -> PhysicsLaw { self.from }
-    fn target(&self) -> PhysicsLaw { self.to }
+    fn source(&self) -> PhysicsLaw {
+        self.from
+    }
+    fn target(&self) -> PhysicsLaw {
+        self.to
+    }
 }
 
 /// The physics domain as category.
@@ -60,12 +72,20 @@ impl Category for PhysicsCategory {
     type Morphism = Derives;
 
     fn identity(obj: &PhysicsLaw) -> Derives {
-        Derives { from: *obj, to: *obj }
+        Derives {
+            from: *obj,
+            to: *obj,
+        }
     }
 
     fn compose(f: &Derives, g: &Derives) -> Option<Derives> {
-        if f.to != g.from { return None; }
-        Some(Derives { from: f.from, to: g.to })
+        if f.to != g.from {
+            return None;
+        }
+        Some(Derives {
+            from: f.from,
+            to: g.to,
+        })
     }
 
     fn morphisms() -> Vec<Derives> {
@@ -78,7 +98,13 @@ impl Category for PhysicsCategory {
 
 /// Which branch of physics does this law belong to?
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Branch { Mechanics, Conservation, Electromagnetism, Relativity, Quantum }
+pub enum Branch {
+    Mechanics,
+    Conservation,
+    Electromagnetism,
+    Relativity,
+    Quantum,
+}
 
 #[derive(Debug, Clone)]
 pub struct LawBranch;
@@ -89,9 +115,16 @@ impl Quality for LawBranch {
 
     fn get(&self, law: &PhysicsLaw) -> Option<Branch> {
         Some(match law {
-            PhysicsLaw::NewtonFirst | PhysicsLaw::NewtonSecond | PhysicsLaw::NewtonThird => Branch::Mechanics,
-            PhysicsLaw::EnergyConservation | PhysicsLaw::MomentumConservation | PhysicsLaw::ChargeConservation => Branch::Conservation,
-            PhysicsLaw::GaussElectric | PhysicsLaw::GaussMagnetic | PhysicsLaw::FaradayLaw | PhysicsLaw::AmpereMaxwell => Branch::Electromagnetism,
+            PhysicsLaw::NewtonFirst | PhysicsLaw::NewtonSecond | PhysicsLaw::NewtonThird => {
+                Branch::Mechanics
+            }
+            PhysicsLaw::EnergyConservation
+            | PhysicsLaw::MomentumConservation
+            | PhysicsLaw::ChargeConservation => Branch::Conservation,
+            PhysicsLaw::GaussElectric
+            | PhysicsLaw::GaussMagnetic
+            | PhysicsLaw::FaradayLaw
+            | PhysicsLaw::AmpereMaxwell => Branch::Electromagnetism,
             PhysicsLaw::SpeedOfLight | PhysicsLaw::MassEnergy => Branch::Relativity,
             PhysicsLaw::Heisenberg | PhysicsLaw::Planck => Branch::Quantum,
         })
@@ -102,7 +135,9 @@ impl Quality for LawBranch {
 pub struct MaxwellDerivesC;
 
 impl Axiom<PhysicsCategory> for MaxwellDerivesC {
-    fn description(&self) -> &str { "Maxwell's 4 equations together derive c = 1/√(μ₀ε₀)" }
+    fn description(&self) -> &str {
+        "Maxwell's 4 equations together derive c = 1/√(μ₀ε₀)"
+    }
     fn holds(&self) -> bool {
         let c = super::maxwell::speed_of_light();
         (c - 2.998e8).abs() < 1e6
@@ -113,7 +148,9 @@ impl Axiom<PhysicsCategory> for MaxwellDerivesC {
 pub struct AllBranchesRepresented;
 
 impl Axiom<PhysicsCategory> for AllBranchesRepresented {
-    fn description(&self) -> &str { "every branch of physics has at least one law" }
+    fn description(&self) -> &str {
+        "every branch of physics has at least one law"
+    }
     fn holds(&self) -> bool {
         let branch = LawBranch;
         let branches: std::collections::HashSet<Branch> = PhysicsLaw::variants()
@@ -129,7 +166,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_14_laws() { assert_eq!(PhysicsLaw::variants().len(), 14); }
+    fn test_14_laws() {
+        assert_eq!(PhysicsLaw::variants().len(), 14);
+    }
 
     #[test]
     fn test_category_laws() {
@@ -137,15 +176,20 @@ mod tests {
     }
 
     #[test]
-    fn test_all_branches() { assert!(AllBranchesRepresented.holds()); }
+    fn test_all_branches() {
+        assert!(AllBranchesRepresented.holds());
+    }
 
     #[test]
-    fn test_maxwell_derives_c() { assert!(MaxwellDerivesC.holds()); }
+    fn test_maxwell_derives_c() {
+        assert!(MaxwellDerivesC.holds());
+    }
 
     #[test]
     fn test_4_maxwell_equations() {
         let branch = LawBranch;
-        let em_laws: Vec<_> = PhysicsLaw::variants().into_iter()
+        let em_laws: Vec<_> = PhysicsLaw::variants()
+            .into_iter()
             .filter(|l| branch.get(l) == Some(Branch::Electromagnetism))
             .collect();
         assert_eq!(em_laws.len(), 4);
@@ -154,7 +198,8 @@ mod tests {
     #[test]
     fn test_3_newton_laws() {
         let branch = LawBranch;
-        let mech: Vec<_> = PhysicsLaw::variants().into_iter()
+        let mech: Vec<_> = PhysicsLaw::variants()
+            .into_iter()
             .filter(|l| branch.get(l) == Some(Branch::Mechanics))
             .collect();
         assert_eq!(mech.len(), 3);

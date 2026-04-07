@@ -3,7 +3,6 @@
 /// - Axiom: a² + b² = c² must hold at all times
 /// - Actions: scale, set leg (hypotenuse is always derived)
 /// - Enforcement: the theorem is a precondition on every transformation
-
 use praxis_engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -15,8 +14,14 @@ pub struct Triangle {
 
 impl Triangle {
     pub fn from_legs(a: f64, b: f64) -> Result<Self, &'static str> {
-        if a <= 0.0 || b <= 0.0 { return Err("sides must be positive"); }
-        Ok(Self { a, b, c: (a * a + b * b).sqrt() })
+        if a <= 0.0 || b <= 0.0 {
+            return Err("sides must be positive");
+        }
+        Ok(Self {
+            a,
+            b,
+            c: (a * a + b * b).sqrt(),
+        })
     }
 
     pub fn theorem_holds(&self) -> bool {
@@ -33,10 +38,18 @@ impl Triangle {
 
 impl Situation for Triangle {
     fn describe(&self) -> String {
-        format!("a={:.4} b={:.4} c={:.4} (a²+b²={:.4} c²={:.4})",
-            self.a, self.b, self.c, self.a*self.a + self.b*self.b, self.c*self.c)
+        format!(
+            "a={:.4} b={:.4} c={:.4} (a²+b²={:.4} c²={:.4})",
+            self.a,
+            self.b,
+            self.c,
+            self.a * self.a + self.b * self.b,
+            self.c * self.c
+        )
     }
-    fn is_terminal(&self) -> bool { false }
+    fn is_terminal(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -68,10 +81,17 @@ impl Precondition<TriangleAction> for PositiveSides {
         if valid {
             PreconditionResult::satisfied("positive_sides", "all sides positive")
         } else {
-            PreconditionResult::violated("positive_sides", "sides must be positive", &tri.describe(), &action.describe())
+            PreconditionResult::violated(
+                "positive_sides",
+                "sides must be positive",
+                &tri.describe(),
+                &action.describe(),
+            )
         }
     }
-    fn describe(&self) -> &str { "all sides must be positive" }
+    fn describe(&self) -> &str {
+        "all sides must be positive"
+    }
 }
 
 struct PythagoreanTheorem;
@@ -79,28 +99,55 @@ impl Precondition<TriangleAction> for PythagoreanTheorem {
     fn check(&self, tri: &Triangle, action: &TriangleAction) -> PreconditionResult {
         let next = apply(tri, action);
         if next.theorem_holds() {
-            PreconditionResult::satisfied("pythagorean_theorem",
-                &format!("a²+b²={:.6} = c²={:.6}", next.a*next.a+next.b*next.b, next.c*next.c))
+            PreconditionResult::satisfied(
+                "pythagorean_theorem",
+                &format!(
+                    "a²+b²={:.6} = c²={:.6}",
+                    next.a * next.a + next.b * next.b,
+                    next.c * next.c
+                ),
+            )
         } else {
-            PreconditionResult::violated("pythagorean_theorem",
-                &format!("a²+b²={:.6} ≠ c²={:.6}", next.a*next.a+next.b*next.b, next.c*next.c),
-                &tri.describe(), &action.describe())
+            PreconditionResult::violated(
+                "pythagorean_theorem",
+                &format!(
+                    "a²+b²={:.6} ≠ c²={:.6}",
+                    next.a * next.a + next.b * next.b,
+                    next.c * next.c
+                ),
+                &tri.describe(),
+                &action.describe(),
+            )
         }
     }
-    fn describe(&self) -> &str { "a² + b² = c² must hold" }
+    fn describe(&self) -> &str {
+        "a² + b² = c² must hold"
+    }
 }
 
 fn apply(tri: &Triangle, action: &TriangleAction) -> Triangle {
     match action {
-        TriangleAction::Scale { factor } => Triangle { a: tri.a * factor, b: tri.b * factor, c: tri.c * factor },
-        TriangleAction::SetLegA { value } => Triangle::from_legs(*value, tri.b).unwrap_or_else(|_| tri.clone()),
-        TriangleAction::SetLegB { value } => Triangle::from_legs(tri.a, *value).unwrap_or_else(|_| tri.clone()),
+        TriangleAction::Scale { factor } => Triangle {
+            a: tri.a * factor,
+            b: tri.b * factor,
+            c: tri.c * factor,
+        },
+        TriangleAction::SetLegA { value } => {
+            Triangle::from_legs(*value, tri.b).unwrap_or_else(|_| tri.clone())
+        }
+        TriangleAction::SetLegB { value } => {
+            Triangle::from_legs(tri.a, *value).unwrap_or_else(|_| tri.clone())
+        }
     }
 }
 
 pub fn new_triangle(a: f64, b: f64) -> Result<Engine<TriangleAction>, &'static str> {
     let tri = Triangle::from_legs(a, b)?;
-    Ok(Engine::new(tri, vec![Box::new(PositiveSides), Box::new(PythagoreanTheorem)], apply))
+    Ok(Engine::new(
+        tri,
+        vec![Box::new(PositiveSides), Box::new(PythagoreanTheorem)],
+        apply,
+    ))
 }
 
 pub fn triples(max_c: u64) -> Vec<(u64, u64, u64)> {
@@ -109,8 +156,12 @@ pub fn triples(max_c: u64) -> Vec<(u64, u64, u64)> {
         for b in a..max_c {
             let c_sq = a * a + b * b;
             let c = (c_sq as f64).sqrt() as u64;
-            if c > max_c { break; }
-            if c * c == c_sq { result.push((a, b, c)); }
+            if c > max_c {
+                break;
+            }
+            if c * c == c_sq {
+                result.push((a, b, c));
+            }
         }
     }
     result
@@ -130,16 +181,20 @@ mod tests {
 
     #[test]
     fn test_scale_preserves_theorem() {
-        let e = new_triangle(3.0, 4.0).unwrap()
-            .next(TriangleAction::Scale { factor: 2.0 }).unwrap();
+        let e = new_triangle(3.0, 4.0)
+            .unwrap()
+            .next(TriangleAction::Scale { factor: 2.0 })
+            .unwrap();
         assert!(e.situation().theorem_holds());
         assert!((e.situation().a - 6.0).abs() < 1e-10);
     }
 
     #[test]
     fn test_set_leg_recomputes() {
-        let e = new_triangle(3.0, 4.0).unwrap()
-            .next(TriangleAction::SetLegA { value: 5.0 }).unwrap();
+        let e = new_triangle(3.0, 4.0)
+            .unwrap()
+            .next(TriangleAction::SetLegA { value: 5.0 })
+            .unwrap();
         assert!(e.situation().theorem_holds());
     }
 
@@ -147,13 +202,20 @@ mod tests {
     fn test_negative_blocked() {
         let e = new_triangle(3.0, 4.0).unwrap();
         assert!(e.next(TriangleAction::Scale { factor: -1.0 }).is_err());
-        assert!(new_triangle(3.0, 4.0).unwrap().next(TriangleAction::SetLegA { value: 0.0 }).is_err());
+        assert!(
+            new_triangle(3.0, 4.0)
+                .unwrap()
+                .next(TriangleAction::SetLegA { value: 0.0 })
+                .is_err()
+        );
     }
 
     #[test]
     fn test_undo_redo() {
-        let e = new_triangle(3.0, 4.0).unwrap()
-            .next(TriangleAction::Scale { factor: 2.0 }).unwrap();
+        let e = new_triangle(3.0, 4.0)
+            .unwrap()
+            .next(TriangleAction::Scale { factor: 2.0 })
+            .unwrap();
         let e = e.back().unwrap();
         assert!((e.situation().a - 3.0).abs() < 1e-10);
         let e = e.forward().unwrap();

@@ -2,6 +2,7 @@ use crate::calc::Calculator;
 use crate::op::{BinaryOp, UnaryOp};
 use crate::value::{AngleMode, Value};
 use praxis_engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use praxis_math::ontology::MathDomain;
 
 impl Situation for Calculator {
     fn describe(&self) -> String {
@@ -109,8 +110,120 @@ fn apply_calc(calc: &Calculator, action: &CalcAction) -> Calculator {
     next
 }
 
+/// Ontology-driven domain check: classifies the current value into the number
+/// hierarchy (N ⊂ Z ⊂ Q ⊂ R ⊂ C) and enforces that operations stay within
+/// supported domains.
+pub struct NumberDomainCheck;
+
+impl NumberDomainCheck {
+    /// Classify a calculator value into the smallest containing MathDomain.
+    fn classify(val: &Value) -> MathDomain {
+        match val {
+            Value::Rational(n, d) => {
+                if *d == 1 {
+                    if *n >= 0 {
+                        MathDomain::NaturalNumbers
+                    } else {
+                        MathDomain::Integers
+                    }
+                } else {
+                    MathDomain::Rationals
+                }
+            }
+            Value::Float(f) => {
+                if f.fract() == 0.0 {
+                    if *f >= 0.0 {
+                        MathDomain::NaturalNumbers
+                    } else {
+                        MathDomain::Integers
+                    }
+                } else {
+                    MathDomain::Reals
+                }
+            }
+        }
+    }
+
+    /// Does this operation require at least a certain domain?
+    fn required_domain(action: &CalcAction, val: &Value) -> Option<(MathDomain, &'static str)> {
+        match action {
+            CalcAction::Unary(UnaryOp::Factorial) => Some((
+                MathDomain::NaturalNumbers,
+                "factorial requires natural numbers",
+            )),
+            CalcAction::Unary(UnaryOp::Sqrt) if val.is_negative() => Some((
+                MathDomain::Complex,
+                "sqrt of negative requires complex numbers",
+            )),
+            CalcAction::Unary(UnaryOp::Ln | UnaryOp::Log10 | UnaryOp::Log2)
+                if !val.to_f64().is_sign_positive() || val.is_zero() =>
+            {
+                Some((
+                    MathDomain::Complex,
+                    "log of non-positive requires complex numbers",
+                ))
+            }
+            CalcAction::Binary(BinaryOp::Divide, rhs) if rhs.is_zero() => {
+                // Division by zero isn't in any domain
+                None // DomainCheck handles this
+            }
+            CalcAction::Binary(BinaryOp::Divide, _) => Some((
+                MathDomain::Rationals,
+                "division requires rationals or above",
+            )),
+            _ => None,
+        }
+    }
+}
+
+impl Precondition<CalcAction> for NumberDomainCheck {
+    fn check(&self, calc: &Calculator, action: &CalcAction) -> PreconditionResult {
+        let current_domain = Self::classify(&calc.display);
+
+        if let Some((required, reason)) = Self::required_domain(action, &calc.display) {
+            let current_order = domain_order(current_domain);
+            let required_order = domain_order(required);
+
+            if current_order > required_order {
+                return PreconditionResult::violated(
+                    "number_domain",
+                    &format!(
+                        "{} — value is in {:?} but operation needs {:?}",
+                        reason, current_domain, required
+                    ),
+                    &calc.describe(),
+                    &action.describe(),
+                );
+            }
+        }
+
+        PreconditionResult::satisfied(
+            "number_domain",
+            &format!("value in {:?}, operation valid", current_domain),
+        )
+    }
+
+    fn describe(&self) -> &str {
+        "operations must be valid within the number domain hierarchy (N ⊂ Z ⊂ Q ⊂ R ⊂ C)"
+    }
+}
+
+fn domain_order(d: MathDomain) -> u8 {
+    match d {
+        MathDomain::NaturalNumbers => 0,
+        MathDomain::Integers => 1,
+        MathDomain::Rationals => 2,
+        MathDomain::Reals => 3,
+        MathDomain::Complex => 4,
+    }
+}
+
 pub type CalcEngine = Engine<CalcAction>;
 
 pub fn new_calculator() -> CalcEngine {
-    Engine::new(Calculator::new(), vec![Box::new(DomainCheck)], apply_calc)
+    Engine::new(
+        Calculator::new(),
+        vec![Box::new(DomainCheck), Box::new(NumberDomainCheck)],
+        apply_calc,
+    )
 }

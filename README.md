@@ -12,6 +12,7 @@ Prove your domain is correct. Define rules as ontology, enforce them as axioms, 
 - **Property-based testing** — invariants verified across thousands of random inputs via proptest
 - **Category theory foundation** — identity, associativity, closure laws proven for domain models
 - **Ontology-driven physics** — Newton's laws, energy conservation, Heisenberg uncertainty as enforceable axioms
+- **Propositional logic** — 8 connectives, truth tables, De Morgan's proofs, NAND universality
 - **PGN parser** — replay authentic chess games from standard notation files
 
 ## Proofs
@@ -26,33 +27,42 @@ Prove your domain is correct. Define rules as ontology, enforce them as axioms, 
 | Energy conservation | KE + PE = constant after drop/rise, verified for all inputs | praxis-physics |
 | V = IR (Ohm's law) | Enforced as precondition on every circuit change | praxis-physics |
 | v < c (speed limit) | Engine blocks any velocity ≥ speed of light | praxis-physics |
+| c = 1/√(μ₀ε₀) (speed of light) | Derived from Maxwell's equations, not hardcoded | praxis-physics |
 | ΔxΔp ≥ ℏ/2 (Heisenberg) | Enforced: measuring position more precisely increases momentum uncertainty | praxis-physics |
 | a² + b² = c² | Pythagorean theorem enforced as precondition on every triangle transformation | praxis-math |
 | Roots satisfy ax²+bx+c=0 | Verified for all random coefficients via proptest | praxis-math |
 | Goldbach conjecture | Every even n > 2 decomposed into two primes (verified to 1000) | praxis-math |
 | Cassini's identity | F(n-1)F(n+1) - F(n)² = (-1)^n verified for n=1..25 | praxis-math |
-| De Morgan's laws | A∖(B∪C) = (A∖B)∩(A∖C) verified for random sets | praxis-math |
-| Category laws hold | Identity, associativity, closure verified exhaustively + proptest | rust-category |
-| NOT NOT x = x | Double negation elimination proven for all integers | rust-ontology |
-| A→B ≡ ¬A∨B | Implication equivalence verified by proptest | rust-ontology |
+| Binet's formula | φ^n/√5 matches fib(n) for n=0..25 | praxis-math |
+| De Morgan's laws (sets) | A∖(B∪C) = (A∖B)∩(A∖C) verified for random sets | praxis-math |
+| De Morgan's laws (logic) | !(A && B) == (!A \|\| !B) proven exhaustively | praxis-logic |
+| NAND is universal | NOT, AND, OR all expressed via NAND, proven exhaustively | praxis-logic |
+| Modus ponens | (A && (A → B)) → B proven by truth table | praxis-logic |
+| Category laws hold | Identity, associativity, closure verified exhaustively + proptest | praxis-category |
+| NOT NOT x = x | Double negation elimination proven for all integers | praxis-logic |
+| A→B ≡ ¬A∨B | Implication equivalence verified by proptest | praxis-logic |
+| N ⊂ Z ⊂ Q ⊂ R ⊂ C | Number hierarchy containment chain axiom | praxis-math |
 | N-Queens: no attacks | Every placement verified: no shared column or diagonal | praxis-puzzles |
 | Sudoku: no duplicates | Row, column, and box uniqueness enforced and tested | praxis-puzzles |
 | sin²+cos² = 1 | Pythagorean identity verified for all angles | praxis-calculator |
 
 ## Crates
 
+### Core
+
 | Crate | Purpose |
 |---|---|
-| `rust-category` | Category theory: Entity, Relationship, Category, Functor |
-| `rust-ontology` | Ontology: Ontology, Quality, Axiom, logical composition |
-| `rust-praxis` | Engine: Situation, Action, Precondition, Trace, back/forward |
+| `praxis-category` | Category theory: Entity, Relationship, Category, Functor, NaturalTransformation |
+| `praxis-logic` | Propositional logic + generic composition: Proposition, AllOf, AnyOf, Connective, truth tables |
+| `praxis-ontology` | Ontology: Quality, Axiom, Ontology validation (re-exports praxis-logic) |
+| `praxis-engine` | Runtime: Situation, Action, Precondition, Trace, back/forward |
 
-### Domain Crates
+### Domain (14 crates)
 
 | Crate | Domain | Key enforcement |
 |---|---|---|
 | `praxis-chess` | Chess | Check, checkmate, castling, en passant, promotion, pins, PGN replay |
-| `praxis-calculator` | Scientific calculator | Domain constraints, exact rationals, expression simplification |
+| `praxis-calculator` | Scientific calculator | Domain constraints, exact rationals, number domain ontology |
 | `praxis-rubik` | Rubik's cube | Group theory, 18 moves, color invariant |
 | `praxis-elevator` | Elevator dispatch | Capacity, direction commitment, no starvation |
 | `praxis-traffic` | Traffic signals | Intersection conflict prevention, timing |
@@ -63,12 +73,26 @@ Prove your domain is correct. Define rules as ontology, enforce them as axioms, 
 | `praxis-colors` | Color theory | WCAG contrast, mixing modes, blending |
 | `praxis-legal` | Legal cases | Case lifecycle, motions, rulings, rich state enums |
 | `praxis-puzzles` | Logic puzzles | 11 puzzles (see below) |
-| `praxis-math` | Mathematics | Pythagorean theorem, quadratic formula, Fibonacci, primes, set theory |
-| `praxis-physics` | Physics | Mechanics (F=ma), energy conservation, Ohm's law, relativity (E=mc²), quantum (Heisenberg) |
+| `praxis-math` | Mathematics | Pythagorean theorem, quadratic formula, Fibonacci, primes, Feynman path integrals |
+| `praxis-physics` | Physics | Mechanics (F=ma), Maxwell's equations, relativity (E=mc²), quantum (Heisenberg) |
 
 ### Puzzles
 
 River crossing, Tower of Hanoi, water jugs, missionaries & cannibals, Monty Hall, Byzantine generals, prisoner's dilemma, N-queens, knight's tour, Sudoku, bridges of Königsberg.
+
+## Dependency Graph
+
+```
+praxis-category          (math: Entity, Category, Functor)
+    ↓
+praxis-logic             (propositional logic + generic composition)
+    ↓
+praxis-ontology          (Quality, Axiom, Ontology validation)
+    ↓
+praxis-engine            (Situation, Action, Precondition, Trace)
+    ↓
+domain crates            (chess, physics, math, puzzles, ...)
+```
 
 ## Documentation
 
@@ -78,7 +102,7 @@ River crossing, Tower of Hanoi, water jugs, missionaries & cannibals, Monty Hall
 
 ## Testing
 
-687 tests with property-based testing ([proptest](https://github.com/proptest-rs/proptest)).
+787 tests with property-based testing ([proptest](https://github.com/proptest-rs/proptest)).
 
 ```bash
 cargo test --workspace

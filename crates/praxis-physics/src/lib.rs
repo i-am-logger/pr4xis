@@ -1,7 +1,7 @@
-pub mod mechanics;
-pub mod energy;
 pub mod electromagnetism;
+pub mod energy;
 pub mod maxwell;
-pub mod relativity;
-pub mod quantum;
+pub mod mechanics;
 pub mod ontology;
+pub mod quantum;
+pub mod relativity;

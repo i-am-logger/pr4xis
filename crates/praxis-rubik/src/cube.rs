@@ -18,8 +18,8 @@ impl Cube {
         let mut faces = [[Color::White; 9]; 6];
         for face in Face::all() {
             let color = Color::of_face(face);
-            for i in 0..9 {
-                faces[face as usize][i] = color;
+            for cell in &mut faces[face as usize] {
+                *cell = color;
             }
         }
         Self { faces }
@@ -127,6 +127,7 @@ impl Cube {
 
 /// Returns 4 strips of 3 sticker positions adjacent to the given face.
 /// The strips cycle CW when the face is rotated CW: a ← d ← c ← b ← a.
+#[allow(clippy::type_complexity)]
 fn adjacent_strips(
     face: Face,
 ) -> (

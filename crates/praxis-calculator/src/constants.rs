@@ -1,4 +1,5 @@
 use crate::value::Value;
+use praxis_math::fibonacci;
 
 /// Mathematical constants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,7 +17,7 @@ impl Constant {
         Value::Float(match self {
             Constant::Pi => std::f64::consts::PI,
             Constant::E => std::f64::consts::E,
-            Constant::GoldenRatio => 1.618033988749895,
+            Constant::GoldenRatio => fibonacci::golden_ratio(),
             Constant::Sqrt2 => std::f64::consts::SQRT_2,
             Constant::Ln2 => std::f64::consts::LN_2,
             Constant::Ln10 => std::f64::consts::LN_10,

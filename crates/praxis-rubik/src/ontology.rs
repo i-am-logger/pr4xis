@@ -1,8 +1,7 @@
-use praxis_category::{Category, Entity, Relationship};
-use praxis_ontology::{Axiom, Quality};
 use crate::cube::Cube;
 use crate::face::{Color, Face};
-use crate::moves::Move;
+use praxis_category::{Category, Entity, Relationship};
+use praxis_ontology::{Axiom, Quality};
 
 // =============================================================================
 // Entity: Face (6 faces of the cube)
@@ -27,8 +26,12 @@ pub struct FaceRotation {
 
 impl Relationship for FaceRotation {
     type Object = Face;
-    fn source(&self) -> Face { self.face }
-    fn target(&self) -> Face { self.target }
+    fn source(&self) -> Face {
+        self.face
+    }
+    fn target(&self) -> Face {
+        self.target
+    }
 }
 
 // =============================================================================
@@ -44,12 +47,20 @@ impl Category for RubikCategory {
     type Morphism = FaceRotation;
 
     fn identity(obj: &Face) -> FaceRotation {
-        FaceRotation { face: *obj, target: *obj }
+        FaceRotation {
+            face: *obj,
+            target: *obj,
+        }
     }
 
     fn compose(f: &FaceRotation, g: &FaceRotation) -> Option<FaceRotation> {
-        if f.target != g.face { return None; }
-        Some(FaceRotation { face: f.face, target: g.target })
+        if f.target != g.face {
+            return None;
+        }
+        Some(FaceRotation {
+            face: f.face,
+            target: g.target,
+        })
     }
 
     fn morphisms() -> Vec<FaceRotation> {
@@ -92,10 +103,14 @@ pub struct CentersFixed {
 }
 
 impl Axiom<RubikCategory> for CentersFixed {
-    fn description(&self) -> &str { "center stickers must match their face color" }
+    fn description(&self) -> &str {
+        "center stickers must match their face color"
+    }
 
     fn holds(&self) -> bool {
-        Face::all().iter().all(|&face| self.cube.get(face, 4) == Color::of_face(face))
+        Face::all()
+            .iter()
+            .all(|&face| self.cube.get(face, 4) == Color::of_face(face))
     }
 }
 
@@ -105,7 +120,9 @@ pub struct NinePerColor {
 }
 
 impl Axiom<RubikCategory> for NinePerColor {
-    fn description(&self) -> &str { "each color must have exactly 9 stickers" }
+    fn description(&self) -> &str {
+        "each color must have exactly 9 stickers"
+    }
 
     fn holds(&self) -> bool {
         self.cube.color_counts().iter().all(|&c| c == 9)
@@ -115,6 +132,7 @@ impl Axiom<RubikCategory> for NinePerColor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::moves::Move;
 
     #[test]
     fn test_face_entity() {
@@ -128,14 +146,18 @@ mod tests {
 
     #[test]
     fn test_center_color_quality() {
-        let quality = CenterColor { cube: Cube::solved() };
+        let quality = CenterColor {
+            cube: Cube::solved(),
+        };
         assert_eq!(quality.get(&Face::U), Some(Color::of_face(Face::U)));
         assert_eq!(quality.individuals_with().len(), 6);
     }
 
     #[test]
     fn test_centers_fixed_axiom() {
-        let axiom = CentersFixed { cube: Cube::solved() };
+        let axiom = CentersFixed {
+            cube: Cube::solved(),
+        };
         assert!(axiom.holds());
     }
 
@@ -148,7 +170,9 @@ mod tests {
 
     #[test]
     fn test_nine_per_color_axiom() {
-        let axiom = NinePerColor { cube: Cube::solved() };
+        let axiom = NinePerColor {
+            cube: Cube::solved(),
+        };
         assert!(axiom.holds());
     }
 

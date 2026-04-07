@@ -1,21 +1,29 @@
+use crate::request::Method;
 use praxis_category::{Category, Entity, Relationship};
 use praxis_ontology::{Axiom, Quality};
-use crate::connection::ConnectionState;
-use crate::request::Method;
 
 /// HTTP methods as entities.
 impl Entity for Method {
-    fn variants() -> Vec<Self> { Method::all() }
+    fn variants() -> Vec<Self> {
+        Method::all()
+    }
 }
 
 /// Relationship: method compatibility (can follow each other in a session).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MethodPair { pub first: Method, pub second: Method }
+pub struct MethodPair {
+    pub first: Method,
+    pub second: Method,
+}
 
 impl Relationship for MethodPair {
     type Object = Method;
-    fn source(&self) -> Method { self.first }
-    fn target(&self) -> Method { self.second }
+    fn source(&self) -> Method {
+        self.first
+    }
+    fn target(&self) -> Method {
+        self.second
+    }
 }
 
 pub struct HttpMethodCategory;
@@ -24,16 +32,33 @@ impl Category for HttpMethodCategory {
     type Object = Method;
     type Morphism = MethodPair;
 
-    fn identity(obj: &Method) -> MethodPair { MethodPair { first: *obj, second: *obj } }
+    fn identity(obj: &Method) -> MethodPair {
+        MethodPair {
+            first: *obj,
+            second: *obj,
+        }
+    }
 
     fn compose(f: &MethodPair, g: &MethodPair) -> Option<MethodPair> {
-        if f.second != g.first { return None; }
-        Some(MethodPair { first: f.first, second: g.second })
+        if f.second != g.first {
+            return None;
+        }
+        Some(MethodPair {
+            first: f.first,
+            second: g.second,
+        })
     }
 
     fn morphisms() -> Vec<MethodPair> {
         let m = Method::all();
-        m.iter().flat_map(|&a| m.iter().map(move |&b| MethodPair { first: a, second: b })).collect()
+        m.iter()
+            .flat_map(|&a| {
+                m.iter().map(move |&b| MethodPair {
+                    first: a,
+                    second: b,
+                })
+            })
+            .collect()
     }
 }
 
@@ -59,7 +84,11 @@ impl Quality for IsIdempotent {
     type Value = ();
 
     fn get(&self, method: &Method) -> Option<()> {
-        if method.is_idempotent() { Some(()) } else { None }
+        if method.is_idempotent() {
+            Some(())
+        } else {
+            None
+        }
     }
 }
 
@@ -67,9 +96,13 @@ impl Quality for IsIdempotent {
 pub struct SafeImpliesIdempotent;
 
 impl Axiom<HttpMethodCategory> for SafeImpliesIdempotent {
-    fn description(&self) -> &str { "all safe methods must be idempotent" }
+    fn description(&self) -> &str {
+        "all safe methods must be idempotent"
+    }
     fn holds(&self) -> bool {
-        Method::all().iter().all(|m| !m.is_safe() || m.is_idempotent())
+        Method::all()
+            .iter()
+            .all(|m| !m.is_safe() || m.is_idempotent())
     }
 }
 
@@ -78,7 +111,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_7_methods() { assert_eq!(Method::variants().len(), 7); }
+    fn test_7_methods() {
+        assert_eq!(Method::variants().len(), 7);
+    }
 
     #[test]
     fn test_category_laws() {
@@ -96,5 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn test_safe_implies_idempotent() { assert!(SafeImpliesIdempotent.holds()); }
+    fn test_safe_implies_idempotent() {
+        assert!(SafeImpliesIdempotent.holds());
+    }
 }

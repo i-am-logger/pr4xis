@@ -2,9 +2,7 @@
 /// - Entities: logical connectives (AND, OR, NOT, IMPLIES, IFF, XOR)
 /// - Axioms: De Morgan's, double negation, modus ponens, etc.
 /// - Proven via exhaustive truth table evaluation
-
 use praxis_category::Entity;
-use praxis_ontology::{Axiom, Quality};
 
 /// Logical connectives as entities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -22,9 +20,14 @@ pub enum Connective {
 impl Entity for Connective {
     fn variants() -> Vec<Self> {
         vec![
-            Connective::And, Connective::Or, Connective::Not,
-            Connective::Implies, Connective::Iff, Connective::Xor,
-            Connective::Nand, Connective::Nor,
+            Connective::And,
+            Connective::Or,
+            Connective::Not,
+            Connective::Implies,
+            Connective::Iff,
+            Connective::Xor,
+            Connective::Nand,
+            Connective::Nor,
         ]
     }
 }
@@ -46,67 +49,65 @@ impl Connective {
 
     /// Is this connective commutative? (a OP b = b OP a)
     pub fn is_commutative(&self) -> bool {
-        matches!(self, Connective::And | Connective::Or | Connective::Iff |
-                 Connective::Xor | Connective::Nand | Connective::Nor)
+        matches!(
+            self,
+            Connective::And
+                | Connective::Or
+                | Connective::Iff
+                | Connective::Xor
+                | Connective::Nand
+                | Connective::Nor
+        )
     }
 
     /// Arity: 1 for NOT, 2 for everything else.
     pub fn arity(&self) -> u8 {
-        match self { Connective::Not => 1, _ => 2 }
+        match self {
+            Connective::Not => 1,
+            _ => 2,
+        }
     }
-}
-
-/// Quality: is this connective commutative?
-#[derive(Debug, Clone)]
-pub struct IsCommutative;
-
-impl Quality for IsCommutative {
-    type Individual = Connective;
-    type Value = ();
-    fn get(&self, c: &Connective) -> Option<()> {
-        if c.is_commutative() { Some(()) } else { None }
-    }
-}
-
-/// Quality: arity.
-#[derive(Debug, Clone)]
-pub struct Arity;
-
-impl Quality for Arity {
-    type Individual = Connective;
-    type Value = u8;
-    fn get(&self, c: &Connective) -> Option<u8> { Some(c.arity()) }
 }
 
 // =============================================================================
 // Proof functions: verify logical laws by exhaustive truth table
+//
+// Clippy thinks these boolean expressions are "logic bugs" or can be simplified.
+// That's the point — we're PROVING these tautologies hold by evaluation, not simplifying them.
 // =============================================================================
 
+#[allow(clippy::nonminimal_bool, clippy::overly_complex_bool_expr)]
 /// Verify a tautology: f(a, b) is true for all (a, b).
 pub fn is_tautology(f: impl Fn(bool, bool) -> bool) -> bool {
     for &a in &[true, false] {
         for &b in &[true, false] {
-            if !f(a, b) { return false; }
+            if !f(a, b) {
+                return false;
+            }
         }
     }
     true
 }
 
+#[allow(clippy::nonminimal_bool, clippy::overly_complex_bool_expr)]
 /// De Morgan's law: !(A && B) == (!A || !B)
 pub fn de_morgan_and() -> bool {
     is_tautology(|a, b| !(a && b) == (!a || !b))
 }
 
+#[allow(clippy::nonminimal_bool, clippy::overly_complex_bool_expr)]
 /// De Morgan's law: !(A || B) == (!A && !B)
 pub fn de_morgan_or() -> bool {
     is_tautology(|a, b| !(a || b) == (!a && !b))
 }
 
+#[allow(clippy::nonminimal_bool, clippy::overly_complex_bool_expr)]
 /// Double negation: !!A == A
 pub fn double_negation() -> bool {
     [true, false].iter().all(|&a| !!a == a)
 }
 
+#[allow(clippy::nonminimal_bool, clippy::overly_complex_bool_expr)]
 /// Modus ponens: (A && (A → B)) → B
 pub fn modus_ponens() -> bool {
     is_tautology(|a, b| {
@@ -115,25 +116,29 @@ pub fn modus_ponens() -> bool {
     })
 }
 
+#[allow(clippy::nonminimal_bool, clippy::overly_complex_bool_expr)]
 /// Contrapositive: (A → B) == (!B → !A)
 pub fn contrapositive() -> bool {
     is_tautology(|a, b| {
-        let forward = !a || b;     // A → B
-        let contra = b || !a;      // !B → !A = B || !A
+        let forward = !a || b; // A → B
+        let contra = b || !a; // !B → !A = B || !A
         forward == contra
     })
 }
 
+#[allow(clippy::nonminimal_bool, clippy::overly_complex_bool_expr)]
 /// Excluded middle: A || !A
 pub fn excluded_middle() -> bool {
     [true, false].iter().all(|&a| a || !a)
 }
 
+#[allow(clippy::nonminimal_bool, clippy::overly_complex_bool_expr)]
 /// Non-contradiction: !(A && !A)
 pub fn non_contradiction() -> bool {
     [true, false].iter().all(|&a| !(a && !a))
 }
 
+#[allow(clippy::nonminimal_bool, clippy::overly_complex_bool_expr)]
 /// NAND is functionally complete: can express AND, OR, NOT.
 pub fn nand_is_universal() -> bool {
     let nand = |a: bool, b: bool| !(a && b);
@@ -144,7 +149,7 @@ pub fn nand_is_universal() -> bool {
     // OR = (A NAND A) NAND (B NAND B) = NOT A NAND NOT B
     let or_via_nand = |a: bool, b: bool| nand(nand(a, a), nand(b, b));
 
-    is_tautology(|a, b| not_via_nand(a) == !a)
+    is_tautology(|a, _b| not_via_nand(a) == !a)
         && is_tautology(|a, b| and_via_nand(a, b) == (a && b))
         && is_tautology(|a, b| or_via_nand(a, b) == (a || b))
 }
@@ -155,36 +160,58 @@ mod tests {
     use proptest::prelude::*;
 
     #[test]
-    fn test_8_connectives() { assert_eq!(Connective::variants().len(), 8); }
-
-    #[test]
-    fn test_commutative_quality() {
-        assert_eq!(IsCommutative.individuals_with().len(), 6); // AND, OR, IFF, XOR, NAND, NOR
+    fn test_8_connectives() {
+        assert_eq!(Connective::variants().len(), 8);
     }
 
     #[test]
-    fn test_de_morgan_and() { assert!(de_morgan_and()); }
+    fn test_commutative_connectives() {
+        let count = Connective::variants()
+            .iter()
+            .filter(|c| c.is_commutative())
+            .count();
+        assert_eq!(count, 6); // AND, OR, IFF, XOR, NAND, NOR
+    }
 
     #[test]
-    fn test_de_morgan_or() { assert!(de_morgan_or()); }
+    fn test_de_morgan_and() {
+        assert!(de_morgan_and());
+    }
 
     #[test]
-    fn test_double_negation() { assert!(double_negation()); }
+    fn test_de_morgan_or() {
+        assert!(de_morgan_or());
+    }
 
     #[test]
-    fn test_modus_ponens() { assert!(modus_ponens()); }
+    fn test_double_negation() {
+        assert!(double_negation());
+    }
 
     #[test]
-    fn test_contrapositive() { assert!(contrapositive()); }
+    fn test_modus_ponens() {
+        assert!(modus_ponens());
+    }
 
     #[test]
-    fn test_excluded_middle() { assert!(excluded_middle()); }
+    fn test_contrapositive() {
+        assert!(contrapositive());
+    }
 
     #[test]
-    fn test_non_contradiction() { assert!(non_contradiction()); }
+    fn test_excluded_middle() {
+        assert!(excluded_middle());
+    }
 
     #[test]
-    fn test_nand_universal() { assert!(nand_is_universal()); }
+    fn test_non_contradiction() {
+        assert!(non_contradiction());
+    }
+
+    #[test]
+    fn test_nand_universal() {
+        assert!(nand_is_universal());
+    }
 
     proptest! {
         /// Commutativity: verified by evaluation for commutative connectives

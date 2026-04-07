@@ -2,7 +2,6 @@
 /// - Situation: a system with mass, velocity, height
 /// - Axiom: total mechanical energy (KE + PE) is conserved
 /// - Actions: change velocity or height (energy transforms, total constant)
-
 use praxis_engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 pub const G: f64 = 9.81;
@@ -16,23 +15,45 @@ pub struct System {
 
 impl System {
     pub fn new(mass: f64, velocity: f64, height: f64) -> Result<Self, &'static str> {
-        if mass <= 0.0 { return Err("mass must be positive"); }
-        if height < 0.0 { return Err("height must be non-negative"); }
-        Ok(Self { mass, velocity, height })
+        if mass <= 0.0 {
+            return Err("mass must be positive");
+        }
+        if height < 0.0 {
+            return Err("height must be non-negative");
+        }
+        Ok(Self {
+            mass,
+            velocity,
+            height,
+        })
     }
 
-    pub fn kinetic_energy(&self) -> f64 { 0.5 * self.mass * self.velocity * self.velocity }
-    pub fn potential_energy(&self) -> f64 { self.mass * G * self.height }
-    pub fn total_energy(&self) -> f64 { self.kinetic_energy() + self.potential_energy() }
+    pub fn kinetic_energy(&self) -> f64 {
+        0.5 * self.mass * self.velocity * self.velocity
+    }
+    pub fn potential_energy(&self) -> f64 {
+        self.mass * G * self.height
+    }
+    pub fn total_energy(&self) -> f64 {
+        self.kinetic_energy() + self.potential_energy()
+    }
 }
 
 impl Situation for System {
     fn describe(&self) -> String {
-        format!("m={:.2} v={:.2} h={:.2} KE={:.2} PE={:.2} E={:.2}",
-            self.mass, self.velocity, self.height,
-            self.kinetic_energy(), self.potential_energy(), self.total_energy())
+        format!(
+            "m={:.2} v={:.2} h={:.2} KE={:.2} PE={:.2} E={:.2}",
+            self.mass,
+            self.velocity,
+            self.height,
+            self.kinetic_energy(),
+            self.potential_energy(),
+            self.total_energy()
+        )
     }
-    fn is_terminal(&self) -> bool { false }
+    fn is_terminal(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -62,14 +83,22 @@ impl Precondition<EnergyAction> for EnergyConservation {
         let e_after = next.total_energy();
         let scale = e_before.abs().max(1.0);
         if (e_before - e_after).abs() / scale < 1e-6 {
-            PreconditionResult::satisfied("energy_conservation", &format!("E={:.4} conserved", e_before))
+            PreconditionResult::satisfied(
+                "energy_conservation",
+                &format!("E={:.4} conserved", e_before),
+            )
         } else {
-            PreconditionResult::violated("energy_conservation",
+            PreconditionResult::violated(
+                "energy_conservation",
                 &format!("E changed: {:.4} → {:.4}", e_before, e_after),
-                &sys.describe(), &action.describe())
+                &sys.describe(),
+                &action.describe(),
+            )
         }
     }
-    fn describe(&self) -> &str { "KE + PE must remain constant" }
+    fn describe(&self) -> &str {
+        "KE + PE must remain constant"
+    }
 }
 
 /// Can't rise higher than KE allows, can't drop below ground.
@@ -79,28 +108,52 @@ impl Precondition<EnergyAction> for PhysicalConstraints {
         match action {
             EnergyAction::Drop { delta_h } => {
                 if *delta_h <= 0.0 {
-                    return PreconditionResult::violated("physical", "drop must be positive", &sys.describe(), &action.describe());
+                    return PreconditionResult::violated(
+                        "physical",
+                        "drop must be positive",
+                        &sys.describe(),
+                        &action.describe(),
+                    );
                 }
                 if *delta_h > sys.height {
-                    return PreconditionResult::violated("physical", "can't drop below ground", &sys.describe(), &action.describe());
+                    return PreconditionResult::violated(
+                        "physical",
+                        "can't drop below ground",
+                        &sys.describe(),
+                        &action.describe(),
+                    );
                 }
             }
             EnergyAction::Rise { delta_h } => {
                 if *delta_h <= 0.0 {
-                    return PreconditionResult::violated("physical", "rise must be positive", &sys.describe(), &action.describe());
+                    return PreconditionResult::violated(
+                        "physical",
+                        "rise must be positive",
+                        &sys.describe(),
+                        &action.describe(),
+                    );
                 }
                 // Check if enough KE to rise
                 let pe_needed = sys.mass * G * delta_h;
                 if pe_needed > sys.kinetic_energy() + 1e-6 {
-                    return PreconditionResult::violated("physical",
-                        &format!("need {:.2}J PE but only {:.2}J KE available", pe_needed, sys.kinetic_energy()),
-                        &sys.describe(), &action.describe());
+                    return PreconditionResult::violated(
+                        "physical",
+                        &format!(
+                            "need {:.2}J PE but only {:.2}J KE available",
+                            pe_needed,
+                            sys.kinetic_energy()
+                        ),
+                        &sys.describe(),
+                        &action.describe(),
+                    );
                 }
             }
         }
         PreconditionResult::satisfied("physical", "physically valid")
     }
-    fn describe(&self) -> &str { "must have enough energy and stay above ground" }
+    fn describe(&self) -> &str {
+        "must have enough energy and stay above ground"
+    }
 }
 
 fn apply_energy(sys: &System, action: &EnergyAction) -> System {
@@ -122,9 +175,17 @@ fn apply_energy(sys: &System, action: &EnergyAction) -> System {
     next
 }
 
-pub fn new_system(mass: f64, velocity: f64, height: f64) -> Result<Engine<EnergyAction>, &'static str> {
+pub fn new_system(
+    mass: f64,
+    velocity: f64,
+    height: f64,
+) -> Result<Engine<EnergyAction>, &'static str> {
     let sys = System::new(mass, velocity, height)?;
-    Ok(Engine::new(sys, vec![Box::new(PhysicalConstraints), Box::new(EnergyConservation)], apply_energy))
+    Ok(Engine::new(
+        sys,
+        vec![Box::new(PhysicalConstraints), Box::new(EnergyConservation)],
+        apply_energy,
+    ))
 }
 
 #[cfg(test)]
@@ -134,8 +195,10 @@ mod tests {
 
     #[test]
     fn test_drop_converts_pe_to_ke() {
-        let e = new_system(1.0, 0.0, 10.0).unwrap()
-            .next(EnergyAction::Drop { delta_h: 5.0 }).unwrap();
+        let e = new_system(1.0, 0.0, 10.0)
+            .unwrap()
+            .next(EnergyAction::Drop { delta_h: 5.0 })
+            .unwrap();
         assert!(e.situation().kinetic_energy() > 0.0);
         assert!((e.situation().height - 5.0).abs() < 1e-10);
     }
@@ -163,9 +226,12 @@ mod tests {
 
     #[test]
     fn test_rise_then_drop_roundtrip() {
-        let e = new_system(1.0, 10.0, 0.0).unwrap()
-            .next(EnergyAction::Rise { delta_h: 3.0 }).unwrap()
-            .next(EnergyAction::Drop { delta_h: 3.0 }).unwrap();
+        let e = new_system(1.0, 10.0, 0.0)
+            .unwrap()
+            .next(EnergyAction::Rise { delta_h: 3.0 })
+            .unwrap()
+            .next(EnergyAction::Drop { delta_h: 3.0 })
+            .unwrap();
         assert!((e.situation().velocity - 10.0).abs() < 0.01);
     }
 

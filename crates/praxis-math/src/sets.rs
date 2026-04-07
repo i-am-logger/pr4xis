@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use std::hash::Hash;
 
 /// Set operations with algebraic law enforcement.
-
 pub fn union<T: Eq + Hash + Clone>(a: &HashSet<T>, b: &HashSet<T>) -> HashSet<T> {
     a.union(b).cloned().collect()
 }

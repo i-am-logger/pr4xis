@@ -338,3 +338,54 @@ proptest! {
         }
     }
 }
+
+// =============================================================================
+// Engine tests — Situation/Action/Precondition/Trace
+// =============================================================================
+
+use crate::engine::*;
+
+#[test]
+fn engine_tick_sequence() {
+    let e = new_intersection(3, 1, 3);
+    let e = e.try_next(TrafficAction::Tick).unwrap();
+    let e = e.try_next(TrafficAction::Tick).unwrap();
+    assert_eq!(e.step(), 2);
+    assert!(!e.is_terminal());
+}
+
+#[test]
+fn engine_back_forward() {
+    let e = new_intersection(3, 1, 3);
+    let e = e.try_next(TrafficAction::Tick).unwrap();
+    let e = e.try_next(TrafficAction::Tick).unwrap();
+    assert_eq!(e.step(), 2);
+    let e = e.back().unwrap();
+    assert_eq!(e.step(), 1);
+    let e = e.forward().unwrap();
+    assert_eq!(e.step(), 2);
+}
+
+#[test]
+fn engine_advance_and_tick() {
+    let e = new_intersection(3, 1, 3);
+    // Tick through green duration
+    let mut e = e;
+    for _ in 0..3 {
+        e = e.try_next(TrafficAction::Tick).unwrap();
+    }
+    // Advance signal 0
+    let e = e
+        .try_next(TrafficAction::AdvanceSignal { direction: 0 })
+        .unwrap();
+    assert!(e.step() > 0);
+}
+
+#[test]
+fn engine_trace_records_actions() {
+    let e = new_intersection(3, 1, 3);
+    let e = e.try_next(TrafficAction::Tick).unwrap();
+    let e = e.try_next(TrafficAction::Tick).unwrap();
+    assert_eq!(e.trace().entries.len(), 2);
+    assert!(e.trace().entries.iter().all(|entry| entry.success));
+}

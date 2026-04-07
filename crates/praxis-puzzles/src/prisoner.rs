@@ -2,7 +2,10 @@ use praxis_engine::{Action, Engine, Precondition, PreconditionResult, Situation}
 
 /// Prisoner's Dilemma: two players cooperate or defect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Choice { Cooperate, Defect }
+pub enum Choice {
+    Cooperate,
+    Defect,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Round {
@@ -20,9 +23,20 @@ pub struct State {
     pub pending_a: Option<Choice>,
 }
 
+impl Default for State {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl State {
     pub fn new() -> Self {
-        Self { rounds: vec![], total_a: 0, total_b: 0, pending_a: None }
+        Self {
+            rounds: vec![],
+            total_a: 0,
+            total_b: 0,
+            pending_a: None,
+        }
     }
 
     fn payoff(a: Choice, b: Choice) -> (i32, i32) {
@@ -37,13 +51,24 @@ impl State {
 
 impl Situation for State {
     fn describe(&self) -> String {
-        format!("round={} A={} B={} pending={:?}", self.rounds.len() + 1, self.total_a, self.total_b, self.pending_a)
+        format!(
+            "round={} A={} B={} pending={:?}",
+            self.rounds.len() + 1,
+            self.total_a,
+            self.total_b,
+            self.pending_a
+        )
     }
-    fn is_terminal(&self) -> bool { false }
+    fn is_terminal(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PrisonerAction { PlayerA(Choice), PlayerB(Choice) }
+pub enum PrisonerAction {
+    PlayerA(Choice),
+    PlayerB(Choice),
+}
 
 impl Action for PrisonerAction {
     type Sit = State;
@@ -59,23 +84,46 @@ struct TurnOrder;
 impl Precondition<PrisonerAction> for TurnOrder {
     fn check(&self, s: &State, a: &PrisonerAction) -> PreconditionResult {
         match (s.pending_a, a) {
-            (None, PrisonerAction::PlayerA(_)) => PreconditionResult::satisfied("turn_order", "A goes first"),
-            (Some(_), PrisonerAction::PlayerB(_)) => PreconditionResult::satisfied("turn_order", "B goes after A"),
-            (None, PrisonerAction::PlayerB(_)) => PreconditionResult::violated("turn_order", "A must choose first", &s.describe(), &a.describe()),
-            (Some(_), PrisonerAction::PlayerA(_)) => PreconditionResult::violated("turn_order", "A already chose, waiting for B", &s.describe(), &a.describe()),
+            (None, PrisonerAction::PlayerA(_)) => {
+                PreconditionResult::satisfied("turn_order", "A goes first")
+            }
+            (Some(_), PrisonerAction::PlayerB(_)) => {
+                PreconditionResult::satisfied("turn_order", "B goes after A")
+            }
+            (None, PrisonerAction::PlayerB(_)) => PreconditionResult::violated(
+                "turn_order",
+                "A must choose first",
+                &s.describe(),
+                &a.describe(),
+            ),
+            (Some(_), PrisonerAction::PlayerA(_)) => PreconditionResult::violated(
+                "turn_order",
+                "A already chose, waiting for B",
+                &s.describe(),
+                &a.describe(),
+            ),
         }
     }
-    fn describe(&self) -> &str { "A chooses first, then B" }
+    fn describe(&self) -> &str {
+        "A chooses first, then B"
+    }
 }
 
 fn apply_prisoner(s: &State, a: &PrisonerAction) -> State {
     let mut n = s.clone();
     match a {
-        PrisonerAction::PlayerA(c) => { n.pending_a = Some(*c); }
+        PrisonerAction::PlayerA(c) => {
+            n.pending_a = Some(*c);
+        }
         PrisonerAction::PlayerB(b_choice) => {
             let a_choice = n.pending_a.unwrap();
             let (sa, sb) = State::payoff(a_choice, *b_choice);
-            n.rounds.push(Round { player_a: a_choice, player_b: *b_choice, score_a: sa, score_b: sb });
+            n.rounds.push(Round {
+                player_a: a_choice,
+                player_b: *b_choice,
+                score_a: sa,
+                score_b: sb,
+            });
             n.total_a += sa;
             n.total_b += sb;
             n.pending_a = None;
@@ -96,8 +144,10 @@ mod tests {
     #[test]
     fn test_mutual_cooperation() {
         let e = new_game()
-            .next(PrisonerAction::PlayerA(Choice::Cooperate)).unwrap()
-            .next(PrisonerAction::PlayerB(Choice::Cooperate)).unwrap();
+            .next(PrisonerAction::PlayerA(Choice::Cooperate))
+            .unwrap()
+            .next(PrisonerAction::PlayerB(Choice::Cooperate))
+            .unwrap();
         assert_eq!(e.situation().total_a, 3);
         assert_eq!(e.situation().total_b, 3);
     }
@@ -105,8 +155,10 @@ mod tests {
     #[test]
     fn test_betrayal() {
         let e = new_game()
-            .next(PrisonerAction::PlayerA(Choice::Cooperate)).unwrap()
-            .next(PrisonerAction::PlayerB(Choice::Defect)).unwrap();
+            .next(PrisonerAction::PlayerA(Choice::Cooperate))
+            .unwrap()
+            .next(PrisonerAction::PlayerB(Choice::Defect))
+            .unwrap();
         assert_eq!(e.situation().total_a, 0);
         assert_eq!(e.situation().total_b, 5);
     }
@@ -114,15 +166,21 @@ mod tests {
     #[test]
     fn test_mutual_defection() {
         let e = new_game()
-            .next(PrisonerAction::PlayerA(Choice::Defect)).unwrap()
-            .next(PrisonerAction::PlayerB(Choice::Defect)).unwrap();
+            .next(PrisonerAction::PlayerA(Choice::Defect))
+            .unwrap()
+            .next(PrisonerAction::PlayerB(Choice::Defect))
+            .unwrap();
         assert_eq!(e.situation().total_a, 1);
         assert_eq!(e.situation().total_b, 1);
     }
 
     #[test]
     fn test_b_cant_go_first() {
-        assert!(new_game().next(PrisonerAction::PlayerB(Choice::Cooperate)).is_err());
+        assert!(
+            new_game()
+                .next(PrisonerAction::PlayerB(Choice::Cooperate))
+                .is_err()
+        );
     }
 
     proptest! {

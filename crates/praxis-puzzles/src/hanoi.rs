@@ -12,11 +12,7 @@ pub struct State {
 impl State {
     pub fn new(num_disks: u8) -> Self {
         Self {
-            pegs: [
-                (1..=num_disks).rev().collect(),
-                vec![],
-                vec![],
-            ],
+            pegs: [(1..=num_disks).rev().collect(), vec![], vec![]],
             num_disks,
         }
     }
@@ -24,11 +20,15 @@ impl State {
 
 impl Situation for State {
     fn describe(&self) -> String {
-        format!("A:{:?} B:{:?} C:{:?}", self.pegs[0], self.pegs[1], self.pegs[2])
+        format!(
+            "A:{:?} B:{:?} C:{:?}",
+            self.pegs[0], self.pegs[1], self.pegs[2]
+        )
     }
 
     fn is_terminal(&self) -> bool {
-        self.pegs[0].is_empty() && self.pegs[1].is_empty()
+        self.pegs[0].is_empty()
+            && self.pegs[1].is_empty()
             && self.pegs[2].len() == self.num_disks as usize
     }
 }
@@ -41,7 +41,9 @@ pub struct Move {
 }
 
 impl Move {
-    pub fn new(from: usize, to: usize) -> Self { Self { from, to } }
+    pub fn new(from: usize, to: usize) -> Self {
+        Self { from, to }
+    }
 }
 
 impl Action for Move {
@@ -56,40 +58,64 @@ struct ValidMove;
 impl Precondition<Move> for ValidMove {
     fn check(&self, state: &State, action: &Move) -> PreconditionResult {
         if action.from >= 3 || action.to >= 3 {
-            return PreconditionResult::violated("valid_move", "peg index out of range", &state.describe(), &action.describe());
+            return PreconditionResult::violated(
+                "valid_move",
+                "peg index out of range",
+                &state.describe(),
+                &action.describe(),
+            );
         }
         if action.from == action.to {
-            return PreconditionResult::violated("valid_move", "same peg", &state.describe(), &action.describe());
+            return PreconditionResult::violated(
+                "valid_move",
+                "same peg",
+                &state.describe(),
+                &action.describe(),
+            );
         }
         let source = &state.pegs[action.from];
         if source.is_empty() {
-            return PreconditionResult::violated("valid_move", "source peg is empty", &state.describe(), &action.describe());
+            return PreconditionResult::violated(
+                "valid_move",
+                "source peg is empty",
+                &state.describe(),
+                &action.describe(),
+            );
         }
         let disk = *source.last().unwrap();
         let target = &state.pegs[action.to];
-        if let Some(&top) = target.last() {
-            if disk > top {
-                return PreconditionResult::violated(
-                    "valid_move",
-                    &format!("disk {} cannot go on top of disk {}", disk, top),
-                    &state.describe(), &action.describe(),
-                );
-            }
+        if let Some(&top) = target.last()
+            && disk > top
+        {
+            return PreconditionResult::violated(
+                "valid_move",
+                &format!("disk {} cannot go on top of disk {}", disk, top),
+                &state.describe(),
+                &action.describe(),
+            );
         }
         PreconditionResult::satisfied("valid_move", &format!("disk {} → peg", disk))
     }
-    fn describe(&self) -> &str { "cannot place larger disk on smaller disk" }
+    fn describe(&self) -> &str {
+        "cannot place larger disk on smaller disk"
+    }
 }
 
 fn apply_hanoi(state: &State, action: &Move) -> State {
     let mut next = state.clone();
-    let disk = next.pegs[action.from].pop().expect("precondition guarantees non-empty");
+    let disk = next.pegs[action.from]
+        .pop()
+        .expect("precondition guarantees non-empty");
     next.pegs[action.to].push(disk);
     next
 }
 
 pub fn new_puzzle(num_disks: u8) -> Engine<Move> {
-    Engine::new(State::new(num_disks), vec![Box::new(ValidMove)], apply_hanoi)
+    Engine::new(
+        State::new(num_disks),
+        vec![Box::new(ValidMove)],
+        apply_hanoi,
+    )
 }
 
 #[cfg(test)]
@@ -100,13 +126,20 @@ mod tests {
     #[test]
     fn test_3_disk_solution() {
         let e = new_puzzle(3)
-            .next(Move::new(0, 2)).unwrap()
-            .next(Move::new(0, 1)).unwrap()
-            .next(Move::new(2, 1)).unwrap()
-            .next(Move::new(0, 2)).unwrap()
-            .next(Move::new(1, 0)).unwrap()
-            .next(Move::new(1, 2)).unwrap()
-            .next(Move::new(0, 2)).unwrap();
+            .next(Move::new(0, 2))
+            .unwrap()
+            .next(Move::new(0, 1))
+            .unwrap()
+            .next(Move::new(2, 1))
+            .unwrap()
+            .next(Move::new(0, 2))
+            .unwrap()
+            .next(Move::new(1, 0))
+            .unwrap()
+            .next(Move::new(1, 2))
+            .unwrap()
+            .next(Move::new(0, 2))
+            .unwrap();
         assert!(e.is_terminal());
         assert_eq!(e.trace().successful_steps(), 7); // 2^3 - 1
     }

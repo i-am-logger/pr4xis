@@ -1,10 +1,12 @@
+use crate::piece::PieceKind;
 use praxis_category::Entity;
 use praxis_ontology::Quality;
-use crate::piece::{PieceKind, Rotation};
 
 /// Tetris piece kinds as entities.
 impl Entity for PieceKind {
-    fn variants() -> Vec<Self> { PieceKind::all().to_vec() }
+    fn variants() -> Vec<Self> {
+        PieceKind::all().to_vec()
+    }
 }
 
 /// Quality: number of cells (always 4 for tetrominoes).
@@ -34,11 +36,12 @@ impl Quality for RotationCount {
         let mut distinct = std::collections::HashSet::new();
         let mut current = p.clone();
         for _ in 0..4 {
-            let mut cells = current.cells();
+            let cells = current.cells();
             // Normalize: translate to origin
             let min_x = cells.iter().map(|c| c.0).min().unwrap();
             let min_y = cells.iter().map(|c| c.1).min().unwrap();
-            let normalized: Vec<(i32, i32)> = cells.iter().map(|c| (c.0 - min_x, c.1 - min_y)).collect();
+            let normalized: Vec<(i32, i32)> =
+                cells.iter().map(|c| (c.0 - min_x, c.1 - min_y)).collect();
             let mut sorted = normalized;
             sorted.sort();
             distinct.insert(sorted);
@@ -53,7 +56,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_7_piece_kinds() { assert_eq!(PieceKind::variants().len(), 7); }
+    fn test_7_piece_kinds() {
+        assert_eq!(PieceKind::variants().len(), 7);
+    }
 
     #[test]
     fn test_all_tetrominoes_have_4_cells() {

@@ -198,3 +198,61 @@ proptest! {
         prop_assert!(conn.apply(ConnectionAction::SendRequest).is_ok());
     }
 }
+
+// =============================================================================
+// Engine tests — Situation/Action/Precondition/Trace
+// =============================================================================
+
+use crate::engine::*;
+
+#[test]
+fn engine_full_request_cycle() {
+    let e = new_connection(3);
+    // Idle → Connecting → SendingRequest → AwaitingResponse → ReceivingResponse → Complete → Closed
+    let e = e.try_next(HttpAction(ConnectionAction::Connect)).unwrap();
+    let e = e
+        .try_next(HttpAction(ConnectionAction::SendRequest))
+        .unwrap();
+    let e = e
+        .try_next(HttpAction(ConnectionAction::ReceiveResponse))
+        .unwrap(); // Sending → Awaiting
+    let e = e
+        .try_next(HttpAction(ConnectionAction::ReceiveResponse))
+        .unwrap(); // Awaiting → Receiving
+    let e = e.try_next(HttpAction(ConnectionAction::Complete)).unwrap();
+    let e = e.try_next(HttpAction(ConnectionAction::Close)).unwrap();
+    assert!(e.is_terminal());
+    assert_eq!(e.step(), 6);
+}
+
+#[test]
+fn engine_invalid_transition_rejected() {
+    let e = new_connection(3);
+    // Can't send request before connecting
+    let result = e.try_next(HttpAction(ConnectionAction::SendRequest));
+    assert!(result.is_err());
+}
+
+#[test]
+fn engine_back_forward() {
+    let e = new_connection(3);
+    let e = e.try_next(HttpAction(ConnectionAction::Connect)).unwrap();
+    let e = e
+        .try_next(HttpAction(ConnectionAction::SendRequest))
+        .unwrap();
+    let e = e.back().unwrap();
+    assert_eq!(e.step(), 1);
+    let e = e.forward().unwrap();
+    assert_eq!(e.step(), 2);
+}
+
+#[test]
+fn engine_trace_on_failure() {
+    let e = new_connection(3);
+    let (e, _) = e
+        .next(HttpAction(ConnectionAction::SendRequest))
+        .unwrap_err();
+    // Trace records the failed attempt
+    assert_eq!(e.trace().entries.len(), 1);
+    assert!(!e.trace().entries[0].success);
+}

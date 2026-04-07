@@ -285,3 +285,66 @@ proptest! {
         }
     }
 }
+
+// =============================================================================
+// Engine tests — Situation/Action/Precondition/Trace
+// =============================================================================
+
+use crate::engine::*;
+
+#[test]
+fn engine_invert_twice_returns_original() {
+    let e = new_color(Rgb::new(100, 150, 200));
+    let e = e.try_next(ColorAction::Invert).unwrap();
+    let e = e.try_next(ColorAction::Invert).unwrap();
+    assert_eq!(*e.situation(), Rgb::new(100, 150, 200));
+}
+
+#[test]
+fn engine_blend_invalid_alpha_rejected() {
+    let e = new_color(Rgb::new(128, 128, 128));
+    let result = e.try_next(ColorAction::Blend {
+        color: Rgb::new(255, 0, 0),
+        alpha: 1.5,
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn engine_mix_and_back() {
+    let e = new_color(Rgb::new(255, 0, 0)); // Red
+    let e = e
+        .try_next(ColorAction::Mix {
+            color: Rgb::new(0, 0, 255),
+            mode: MixMode::Average,
+        })
+        .unwrap();
+    let mixed = *e.situation();
+    let e = e.back().unwrap();
+    assert_eq!(*e.situation(), Rgb::new(255, 0, 0));
+    let e = e.forward().unwrap();
+    assert_eq!(*e.situation(), mixed);
+}
+
+#[test]
+fn engine_set_channel() {
+    let e = new_color(Rgb::new(0, 0, 0));
+    let e = e
+        .try_next(ColorAction::SetChannel {
+            r: Some(255),
+            g: None,
+            b: None,
+        })
+        .unwrap();
+    assert_eq!(e.situation().r, 255);
+    assert_eq!(e.situation().g, 0);
+}
+
+#[test]
+fn engine_trace_records() {
+    let e = new_color(Rgb::new(128, 128, 128));
+    let e = e.try_next(ColorAction::Invert).unwrap();
+    let e = e.try_next(ColorAction::Grayscale).unwrap();
+    assert_eq!(e.trace().entries.len(), 2);
+    assert!(e.trace().entries.iter().all(|entry| entry.success));
+}

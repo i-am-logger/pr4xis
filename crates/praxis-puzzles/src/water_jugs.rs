@@ -12,13 +12,22 @@ pub struct State {
 
 impl State {
     pub fn new(cap_a: u32, cap_b: u32, target: u32) -> Self {
-        Self { jug_a: 0, jug_b: 0, cap_a, cap_b, target }
+        Self {
+            jug_a: 0,
+            jug_b: 0,
+            cap_a,
+            cap_b,
+            target,
+        }
     }
 }
 
 impl Situation for State {
     fn describe(&self) -> String {
-        format!("A={}/{} B={}/{} target={}", self.jug_a, self.cap_a, self.jug_b, self.cap_b, self.target)
+        format!(
+            "A={}/{} B={}/{} target={}",
+            self.jug_a, self.cap_a, self.jug_b, self.cap_b, self.target
+        )
     }
     fn is_terminal(&self) -> bool {
         self.jug_a == self.target || self.jug_b == self.target
@@ -37,7 +46,9 @@ pub enum JugAction {
 
 impl Action for JugAction {
     type Sit = State;
-    fn describe(&self) -> String { format!("{:?}", self) }
+    fn describe(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 struct NoOp;
@@ -45,12 +56,19 @@ impl Precondition<JugAction> for NoOp {
     fn check(&self, s: &State, a: &JugAction) -> PreconditionResult {
         let next = apply_jug(s, a);
         if next.jug_a == s.jug_a && next.jug_b == s.jug_b {
-            PreconditionResult::violated("no_op", "action has no effect", &s.describe(), &a.describe())
+            PreconditionResult::violated(
+                "no_op",
+                "action has no effect",
+                &s.describe(),
+                &a.describe(),
+            )
         } else {
             PreconditionResult::satisfied("no_op", "state changed")
         }
     }
-    fn describe(&self) -> &str { "action must change the state" }
+    fn describe(&self) -> &str {
+        "action must change the state"
+    }
 }
 
 fn apply_jug(s: &State, a: &JugAction) -> State {
@@ -80,7 +98,11 @@ pub fn new_classic() -> Engine<JugAction> {
 }
 
 pub fn new_puzzle(cap_a: u32, cap_b: u32, target: u32) -> Engine<JugAction> {
-    Engine::new(State::new(cap_a, cap_b, target), vec![Box::new(NoOp)], apply_jug)
+    Engine::new(
+        State::new(cap_a, cap_b, target),
+        vec![Box::new(NoOp)],
+        apply_jug,
+    )
 }
 
 #[cfg(test)]
@@ -90,21 +112,30 @@ mod tests {
 
     fn arb_action() -> impl Strategy<Value = JugAction> {
         prop_oneof![
-            Just(JugAction::FillA), Just(JugAction::FillB),
-            Just(JugAction::EmptyA), Just(JugAction::EmptyB),
-            Just(JugAction::PourAtoB), Just(JugAction::PourBtoA),
+            Just(JugAction::FillA),
+            Just(JugAction::FillB),
+            Just(JugAction::EmptyA),
+            Just(JugAction::EmptyB),
+            Just(JugAction::PourAtoB),
+            Just(JugAction::PourBtoA),
         ]
     }
 
     #[test]
     fn test_classic_solution() {
         let e = new_classic()
-            .next(JugAction::FillB).unwrap()      // A=0 B=5
-            .next(JugAction::PourBtoA).unwrap()    // A=3 B=2
-            .next(JugAction::EmptyA).unwrap()      // A=0 B=2
-            .next(JugAction::PourBtoA).unwrap()    // A=2 B=0
-            .next(JugAction::FillB).unwrap()       // A=2 B=5
-            .next(JugAction::PourBtoA).unwrap();    // A=3 B=4
+            .next(JugAction::FillB)
+            .unwrap() // A=0 B=5
+            .next(JugAction::PourBtoA)
+            .unwrap() // A=3 B=2
+            .next(JugAction::EmptyA)
+            .unwrap() // A=0 B=2
+            .next(JugAction::PourBtoA)
+            .unwrap() // A=2 B=0
+            .next(JugAction::FillB)
+            .unwrap() // A=2 B=5
+            .next(JugAction::PourBtoA)
+            .unwrap(); // A=3 B=4
         assert!(e.is_terminal());
         assert_eq!(e.situation().jug_b, 4);
     }

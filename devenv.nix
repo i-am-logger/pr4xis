@@ -4,10 +4,9 @@
 , ...
 }:
 let
-  cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-  packageName = cargoToml.package.name;
-  packageVersion = cargoToml.package.version;
-  packageDescription = cargoToml.package.description or "";
+  packageName = "praxis";
+  packageVersion = "0.1.0";
+  packageDescription = "Ontology-driven rule enforcement framework";
 in
 {
   # Set root explicitly for flake compatibility
@@ -27,12 +26,35 @@ in
   # Development scripts
   scripts.dev-test.exec = ''
     echo "Running tests..."
-    cargo test --all-features
+    cargo test --workspace
   '';
 
-  scripts.dev-run.exec = ''
-    echo "Running ${packageName}..."
-    cargo run --release
+  scripts.dev-fmt.exec = ''
+    echo "Checking formatting..."
+    cargo fmt --check
+  '';
+
+  scripts.dev-lint.exec = ''
+    echo "Running clippy..."
+    cargo clippy --quiet -- -D warnings
+  '';
+
+  scripts.dev-check.exec = ''
+    echo "Checking compilation..."
+    cargo check --quiet
+  '';
+
+  scripts.dev-ci.exec = ''
+    echo "Running full CI pipeline locally..."
+    echo "=== fmt ==="
+    cargo fmt --check || { echo "FAILED: fmt"; exit 1; }
+    echo "=== clippy ==="
+    cargo clippy --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
+    echo "=== check ==="
+    cargo check --quiet || { echo "FAILED: check"; exit 1; }
+    echo "=== test ==="
+    cargo test --workspace --quiet || { echo "FAILED: test"; exit 1; }
+    echo "=== ALL PASSED ==="
   '';
 
   scripts.dev-build.exec = ''
@@ -57,9 +79,12 @@ in
     } | ${pkgs.boxes}/bin/boxes -d stone -a l -i none
     echo
     echo "Available scripts:"
+    echo "  dev-ci        - Run full CI pipeline (fmt + clippy + check + test)"
     echo "  dev-test      - Run tests"
-    echo "  dev-run       - Run the application"
-    echo "  dev-build     - Build the application"
+    echo "  dev-fmt       - Check formatting"
+    echo "  dev-lint      - Run clippy"
+    echo "  dev-check     - Check compilation"
+    echo "  dev-build     - Build release"
     echo ""
   '';
 

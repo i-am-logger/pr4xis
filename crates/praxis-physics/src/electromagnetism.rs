@@ -2,7 +2,6 @@
 /// - Situation: Circuit (V, I, R)
 /// - Axiom: Ohm's law V=IR enforced on every change
 /// - Actions: set voltage, set resistance (current derived)
-
 use praxis_engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 pub const K_E: f64 = 8.988e9;
@@ -16,8 +15,14 @@ pub struct Circuit {
 
 impl Circuit {
     pub fn from_vr(voltage: f64, resistance: f64) -> Result<Self, &'static str> {
-        if resistance <= 0.0 { return Err("resistance must be positive"); }
-        Ok(Self { voltage, current: voltage / resistance, resistance })
+        if resistance <= 0.0 {
+            return Err("resistance must be positive");
+        }
+        Ok(Self {
+            voltage,
+            current: voltage / resistance,
+            resistance,
+        })
     }
 
     pub fn ohms_law_holds(&self) -> bool {
@@ -26,14 +31,24 @@ impl Circuit {
         (self.voltage - expected).abs() / scale < 1e-6
     }
 
-    pub fn power(&self) -> f64 { self.voltage * self.current }
+    pub fn power(&self) -> f64 {
+        self.voltage * self.current
+    }
 }
 
 impl Situation for Circuit {
     fn describe(&self) -> String {
-        format!("V={:.4} I={:.4} R={:.4} P={:.4}", self.voltage, self.current, self.resistance, self.power())
+        format!(
+            "V={:.4} I={:.4} R={:.4} P={:.4}",
+            self.voltage,
+            self.current,
+            self.resistance,
+            self.power()
+        )
     }
-    fn is_terminal(&self) -> bool { false }
+    fn is_terminal(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,7 +59,9 @@ pub enum CircuitAction {
 
 impl Action for CircuitAction {
     type Sit = Circuit;
-    fn describe(&self) -> String { format!("{:?}", self) }
+    fn describe(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 struct OhmsLaw;
@@ -57,37 +74,64 @@ impl Precondition<CircuitAction> for OhmsLaw {
             PreconditionResult::violated("ohms_law", "V≠IR", &c.describe(), &a.describe())
         }
     }
-    fn describe(&self) -> &str { "V = IR" }
+    fn describe(&self) -> &str {
+        "V = IR"
+    }
 }
 
 struct PositiveR;
 impl Precondition<CircuitAction> for PositiveR {
     fn check(&self, c: &Circuit, a: &CircuitAction) -> PreconditionResult {
-        if let CircuitAction::SetResistance(r) = a {
-            if *r <= 0.0 {
-                return PreconditionResult::violated("positive_r", "R must be > 0", &c.describe(), &a.describe());
-            }
+        if let CircuitAction::SetResistance(r) = a
+            && *r <= 0.0
+        {
+            return PreconditionResult::violated(
+                "positive_r",
+                "R must be > 0",
+                &c.describe(),
+                &a.describe(),
+            );
         }
         PreconditionResult::satisfied("positive_r", "R>0")
     }
-    fn describe(&self) -> &str { "R > 0" }
+    fn describe(&self) -> &str {
+        "R > 0"
+    }
 }
 
 fn apply_circuit(c: &Circuit, a: &CircuitAction) -> Circuit {
     match a {
-        CircuitAction::SetVoltage(v) => Circuit { voltage: *v, current: v / c.resistance, resistance: c.resistance },
-        CircuitAction::SetResistance(r) => if *r > 0.0 {
-            Circuit { voltage: c.voltage, current: c.voltage / r, resistance: *r }
-        } else { c.clone() },
+        CircuitAction::SetVoltage(v) => Circuit {
+            voltage: *v,
+            current: v / c.resistance,
+            resistance: c.resistance,
+        },
+        CircuitAction::SetResistance(r) => {
+            if *r > 0.0 {
+                Circuit {
+                    voltage: c.voltage,
+                    current: c.voltage / r,
+                    resistance: *r,
+                }
+            } else {
+                c.clone()
+            }
+        }
     }
 }
 
 pub fn new_circuit(voltage: f64, resistance: f64) -> Result<Engine<CircuitAction>, &'static str> {
     let c = Circuit::from_vr(voltage, resistance)?;
-    Ok(Engine::new(c, vec![Box::new(PositiveR), Box::new(OhmsLaw)], apply_circuit))
+    Ok(Engine::new(
+        c,
+        vec![Box::new(PositiveR), Box::new(OhmsLaw)],
+        apply_circuit,
+    ))
 }
 
-pub fn coulomb_force(q1: f64, q2: f64, r: f64) -> f64 { K_E * q1 * q2 / (r * r) }
+pub fn coulomb_force(q1: f64, q2: f64, r: f64) -> f64 {
+    K_E * q1 * q2 / (r * r)
+}
 
 #[cfg(test)]
 mod tests {
@@ -102,14 +146,21 @@ mod tests {
 
     #[test]
     fn test_change_voltage() {
-        let e = new_circuit(12.0, 4.0).unwrap()
-            .next(CircuitAction::SetVoltage(24.0)).unwrap();
+        let e = new_circuit(12.0, 4.0)
+            .unwrap()
+            .next(CircuitAction::SetVoltage(24.0))
+            .unwrap();
         assert!((e.situation().current - 6.0).abs() < 1e-10);
     }
 
     #[test]
     fn test_zero_r_blocked() {
-        assert!(new_circuit(12.0, 4.0).unwrap().next(CircuitAction::SetResistance(0.0)).is_err());
+        assert!(
+            new_circuit(12.0, 4.0)
+                .unwrap()
+                .next(CircuitAction::SetResistance(0.0))
+                .is_err()
+        );
     }
 
     proptest! {

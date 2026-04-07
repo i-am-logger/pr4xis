@@ -3,7 +3,6 @@
 /// - Axiom: v < c enforced, rest mass invariant
 /// - Actions: accelerate, set velocity
 /// - Derived: Lorentz factor, time dilation, length contraction, E=mc²
-
 use praxis_engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 pub const C: f64 = 299_792_458.0;
@@ -16,8 +15,13 @@ pub struct Body {
 
 impl Body {
     pub fn new(rest_mass: f64) -> Result<Self, &'static str> {
-        if rest_mass <= 0.0 { return Err("rest mass must be positive"); }
-        Ok(Self { rest_mass, velocity: 0.0 })
+        if rest_mass <= 0.0 {
+            return Err("rest mass must be positive");
+        }
+        Ok(Self {
+            rest_mass,
+            velocity: 0.0,
+        })
     }
 
     pub fn lorentz_factor(&self) -> f64 {
@@ -25,19 +29,38 @@ impl Body {
         1.0 / (1.0 - beta * beta).sqrt()
     }
 
-    pub fn rest_energy(&self) -> f64 { self.rest_mass * C * C }
-    pub fn total_energy(&self) -> f64 { self.lorentz_factor() * self.rest_mass * C * C }
-    pub fn kinetic_energy(&self) -> f64 { (self.lorentz_factor() - 1.0) * self.rest_mass * C * C }
-    pub fn momentum(&self) -> f64 { self.lorentz_factor() * self.rest_mass * self.velocity }
-    pub fn time_dilation(&self, proper_time: f64) -> f64 { proper_time * self.lorentz_factor() }
-    pub fn length_contraction(&self, proper_length: f64) -> f64 { proper_length / self.lorentz_factor() }
+    pub fn rest_energy(&self) -> f64 {
+        self.rest_mass * C * C
+    }
+    pub fn total_energy(&self) -> f64 {
+        self.lorentz_factor() * self.rest_mass * C * C
+    }
+    pub fn kinetic_energy(&self) -> f64 {
+        (self.lorentz_factor() - 1.0) * self.rest_mass * C * C
+    }
+    pub fn momentum(&self) -> f64 {
+        self.lorentz_factor() * self.rest_mass * self.velocity
+    }
+    pub fn time_dilation(&self, proper_time: f64) -> f64 {
+        proper_time * self.lorentz_factor()
+    }
+    pub fn length_contraction(&self, proper_length: f64) -> f64 {
+        proper_length / self.lorentz_factor()
+    }
 }
 
 impl Situation for Body {
     fn describe(&self) -> String {
-        format!("m₀={:.4} v={:.4} γ={:.6}", self.rest_mass, self.velocity, self.lorentz_factor())
+        format!(
+            "m₀={:.4} v={:.4} γ={:.6}",
+            self.rest_mass,
+            self.velocity,
+            self.lorentz_factor()
+        )
     }
-    fn is_terminal(&self) -> bool { false }
+    fn is_terminal(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -48,7 +71,9 @@ pub enum RelativityAction {
 
 impl Action for RelativityAction {
     type Sit = Body;
-    fn describe(&self) -> String { format!("{:?}", self) }
+    fn describe(&self) -> String {
+        format!("{:?}", self)
+    }
 }
 
 struct SpeedLimit;
@@ -56,12 +81,22 @@ impl Precondition<RelativityAction> for SpeedLimit {
     fn check(&self, body: &Body, a: &RelativityAction) -> PreconditionResult {
         let next = apply_rel(body, a);
         if next.velocity.abs() < C {
-            PreconditionResult::satisfied("speed_limit", &format!("|v|={:.4} < c", next.velocity.abs()))
+            PreconditionResult::satisfied(
+                "speed_limit",
+                &format!("|v|={:.4} < c", next.velocity.abs()),
+            )
         } else {
-            PreconditionResult::violated("speed_limit", "cannot reach speed of light", &body.describe(), &a.describe())
+            PreconditionResult::violated(
+                "speed_limit",
+                "cannot reach speed of light",
+                &body.describe(),
+                &a.describe(),
+            )
         }
     }
-    fn describe(&self) -> &str { "v < c" }
+    fn describe(&self) -> &str {
+        "v < c"
+    }
 }
 
 fn apply_rel(body: &Body, a: &RelativityAction) -> Body {
@@ -90,12 +125,20 @@ mod tests {
 
     #[test]
     fn test_speed_limit() {
-        assert!(new_body(1.0).unwrap().next(RelativityAction::SetVelocity { v: C }).is_err());
+        assert!(
+            new_body(1.0)
+                .unwrap()
+                .next(RelativityAction::SetVelocity { v: C })
+                .is_err()
+        );
     }
 
     #[test]
     fn test_time_dilation() {
-        let e = new_body(1.0).unwrap().next(RelativityAction::SetVelocity { v: C * 0.5 }).unwrap();
+        let e = new_body(1.0)
+            .unwrap()
+            .next(RelativityAction::SetVelocity { v: C * 0.5 })
+            .unwrap();
         assert!(e.situation().time_dilation(1.0) > 1.0);
     }
 

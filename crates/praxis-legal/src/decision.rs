@@ -18,6 +18,7 @@ pub enum MotionType {
 
 /// Motion status — rich state machine where each state carries HOW it got there.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum MotionStatus {
     Pending {
         filed: NaiveDate,

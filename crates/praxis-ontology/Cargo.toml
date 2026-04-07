@@ -10,6 +10,7 @@ categories = ["data-structures", "mathematics"]
 
 [dependencies]
 praxis-category = { path = "../praxis-category" }
+praxis-logic = { path = "../praxis-logic" }
 
 [dev-dependencies]
 proptest = "1.6"

@@ -1,5 +1,4 @@
 mod domain;
-pub mod logic;
 mod property;
 mod rule;
 pub mod validate;
@@ -20,13 +19,16 @@ pub mod ontology {
 }
 
 pub use axiom::Axiom;
-pub use logic::{
-    AllOf, AnyOf, Compare, CompareOp, Evaluation, Implies, Measurable, Not, Proposition, Threshold,
-};
 pub use ontology::Ontology;
 pub use quality::Quality;
 
-// Re-export rust-category for consumers that need the math layer
+// Re-export praxis-logic composition layer for consumers
+pub use praxis_logic::{
+    self as logic, AllOf, AnyOf, Compare, CompareOp, Evaluation, Implies, Measurable, Not,
+    Proposition, Threshold,
+};
+
+// Re-export praxis-category for consumers that need the math layer
 pub use praxis_category;
 
 #[cfg(test)]

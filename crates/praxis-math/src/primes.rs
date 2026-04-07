@@ -1,12 +1,19 @@
 /// Prime numbers and the Sieve of Eratosthenes.
-
 pub fn is_prime(n: u64) -> bool {
-    if n < 2 { return false; }
-    if n < 4 { return true; }
-    if n % 2 == 0 || n % 3 == 0 { return false; }
+    if n < 2 {
+        return false;
+    }
+    if n < 4 {
+        return true;
+    }
+    if n.is_multiple_of(2) || n.is_multiple_of(3) {
+        return false;
+    }
     let mut i = 5;
     while i * i <= n {
-        if n % i == 0 || n % (i + 2) == 0 { return false; }
+        if n.is_multiple_of(i) || n.is_multiple_of(i + 2) {
+            return false;
+        }
         i += 6;
     }
     true
@@ -16,7 +23,9 @@ pub fn is_prime(n: u64) -> bool {
 pub fn sieve(n: usize) -> Vec<u64> {
     let mut is_p = vec![true; n + 1];
     is_p[0] = false;
-    if n > 0 { is_p[1] = false; }
+    if n > 0 {
+        is_p[1] = false;
+    }
     for i in 2..=((n as f64).sqrt() as usize) {
         if is_p[i] {
             for j in (i * i..=n).step_by(i) {
@@ -24,14 +33,22 @@ pub fn sieve(n: usize) -> Vec<u64> {
             }
         }
     }
-    is_p.iter().enumerate().filter(|&(_, &p)| p).map(|(i, _)| i as u64).collect()
+    is_p.iter()
+        .enumerate()
+        .filter(|&(_, &p)| p)
+        .map(|(i, _)| i as u64)
+        .collect()
 }
 
 /// Goldbach's conjecture (unproven but verified): every even n > 2 is sum of two primes.
 pub fn goldbach(n: u64) -> Option<(u64, u64)> {
-    if n <= 2 || n % 2 != 0 { return None; }
+    if n <= 2 || !n.is_multiple_of(2) {
+        return None;
+    }
     for p in sieve(n as usize) {
-        if p > n / 2 { break; }
+        if p > n / 2 {
+            break;
+        }
         if is_prime(n - p) {
             return Some((p, n - p));
         }
@@ -44,13 +61,15 @@ pub fn factorize(mut n: u64) -> Vec<u64> {
     let mut factors = Vec::new();
     let mut d = 2;
     while d * d <= n {
-        while n % d == 0 {
+        while n.is_multiple_of(d) {
             factors.push(d);
             n /= d;
         }
         d += 1;
     }
-    if n > 1 { factors.push(n); }
+    if n > 1 {
+        factors.push(n);
+    }
     factors
 }
 

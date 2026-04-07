@@ -214,9 +214,15 @@ impl Default for OntologyRegistry {
 impl Entity for PhaseTag {
     fn variants() -> Vec<Self> {
         vec![
-            PhaseTag::PreFiling, PhaseTag::Filed, PhaseTag::Discovery,
-            PhaseTag::Motions, PhaseTag::PreTrial, PhaseTag::Trial,
-            PhaseTag::PostTrial, PhaseTag::Appeal, PhaseTag::Closed,
+            PhaseTag::PreFiling,
+            PhaseTag::Filed,
+            PhaseTag::Discovery,
+            PhaseTag::Motions,
+            PhaseTag::PreTrial,
+            PhaseTag::Trial,
+            PhaseTag::PostTrial,
+            PhaseTag::Appeal,
+            PhaseTag::Closed,
         ]
     }
 }
@@ -230,8 +236,12 @@ pub struct PhaseTransitionRel {
 
 impl Relationship for PhaseTransitionRel {
     type Object = PhaseTag;
-    fn source(&self) -> PhaseTag { self.from }
-    fn target(&self) -> PhaseTag { self.to }
+    fn source(&self) -> PhaseTag {
+        self.from
+    }
+    fn target(&self) -> PhaseTag {
+        self.to
+    }
 }
 
 /// The case lifecycle as a category.
@@ -242,12 +252,20 @@ impl Category for CaseLifecycleCategory {
     type Morphism = PhaseTransitionRel;
 
     fn identity(obj: &PhaseTag) -> PhaseTransitionRel {
-        PhaseTransitionRel { from: *obj, to: *obj }
+        PhaseTransitionRel {
+            from: *obj,
+            to: *obj,
+        }
     }
 
     fn compose(f: &PhaseTransitionRel, g: &PhaseTransitionRel) -> Option<PhaseTransitionRel> {
-        if f.to != g.from { return None; }
-        Some(PhaseTransitionRel { from: f.from, to: g.to })
+        if f.to != g.from {
+            return None;
+        }
+        Some(PhaseTransitionRel {
+            from: f.from,
+            to: g.to,
+        })
     }
 
     fn morphisms() -> Vec<PhaseTransitionRel> {
@@ -264,8 +282,13 @@ impl Category for CaseLifecycleCategory {
         for f in &direct {
             for g in &direct {
                 if f.to == g.from {
-                    let composed = PhaseTransitionRel { from: f.from, to: g.to };
-                    if !m.contains(&composed) { m.push(composed); }
+                    let composed = PhaseTransitionRel {
+                        from: f.from,
+                        to: g.to,
+                    };
+                    if !m.contains(&composed) {
+                        m.push(composed);
+                    }
                 }
             }
         }
@@ -289,9 +312,13 @@ impl Quality for IsTerminalPhase {
 pub struct OnlyClosedIsTerminal;
 
 impl Axiom<CaseLifecycleCategory> for OnlyClosedIsTerminal {
-    fn description(&self) -> &str { "only Closed is a terminal phase" }
+    fn description(&self) -> &str {
+        "only Closed is a terminal phase"
+    }
     fn holds(&self) -> bool {
-        PhaseTag::variants().iter().all(|p| p.is_terminal() == (*p == PhaseTag::Closed))
+        PhaseTag::variants()
+            .iter()
+            .all(|p| p.is_terminal() == (*p == PhaseTag::Closed))
     }
 }
 
@@ -299,8 +326,12 @@ impl Axiom<CaseLifecycleCategory> for OnlyClosedIsTerminal {
 pub struct NoDeadPhases;
 
 impl Axiom<CaseLifecycleCategory> for NoDeadPhases {
-    fn description(&self) -> &str { "every non-terminal phase has transitions" }
+    fn description(&self) -> &str {
+        "every non-terminal phase has transitions"
+    }
     fn holds(&self) -> bool {
-        PhaseTag::variants().iter().all(|p| p.is_terminal() || !p.valid_transitions().is_empty())
+        PhaseTag::variants()
+            .iter()
+            .all(|p| p.is_terminal() || !p.valid_transitions().is_empty())
     }
 }

@@ -1,15 +1,23 @@
 use praxis_category::{Category, Entity, Relationship};
 use praxis_ontology::{Axiom, Quality};
-use crate::signal::SignalState;
 
 /// Traffic directions at an intersection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TrafficDirection { North, South, East, West }
+pub enum TrafficDirection {
+    North,
+    South,
+    East,
+    West,
+}
 
 impl Entity for TrafficDirection {
     fn variants() -> Vec<Self> {
-        vec![TrafficDirection::North, TrafficDirection::South,
-             TrafficDirection::East, TrafficDirection::West]
+        vec![
+            TrafficDirection::North,
+            TrafficDirection::South,
+            TrafficDirection::East,
+            TrafficDirection::West,
+        ]
     }
 }
 
@@ -22,8 +30,12 @@ pub struct Conflict {
 
 impl Relationship for Conflict {
     type Object = TrafficDirection;
-    fn source(&self) -> TrafficDirection { self.a }
-    fn target(&self) -> TrafficDirection { self.b }
+    fn source(&self) -> TrafficDirection {
+        self.a
+    }
+    fn target(&self) -> TrafficDirection {
+        self.b
+    }
 }
 
 pub struct TrafficCategory;
@@ -37,13 +49,17 @@ impl Category for TrafficCategory {
     }
 
     fn compose(f: &Conflict, g: &Conflict) -> Option<Conflict> {
-        if f.b != g.a { return None; }
+        if f.b != g.a {
+            return None;
+        }
         Some(Conflict { a: f.a, b: g.b })
     }
 
     fn morphisms() -> Vec<Conflict> {
         let dirs = TrafficDirection::variants();
-        dirs.iter().flat_map(|&a| dirs.iter().map(move |&b| Conflict { a, b })).collect()
+        dirs.iter()
+            .flat_map(|&a| dirs.iter().map(move |&b| Conflict { a, b }))
+            .collect()
     }
 }
 
@@ -67,7 +83,9 @@ impl Quality for ConflictsWithNorth {
 pub struct OrthogonalConflicts;
 
 impl Axiom<TrafficCategory> for OrthogonalConflicts {
-    fn description(&self) -> &str { "north-south and east-west are orthogonal conflict pairs" }
+    fn description(&self) -> &str {
+        "north-south and east-west are orthogonal conflict pairs"
+    }
     fn holds(&self) -> bool {
         // NS don't conflict with each other, EW don't conflict with each other
         // NS conflicts with EW
@@ -82,7 +100,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_4_directions() { assert_eq!(TrafficDirection::variants().len(), 4); }
+    fn test_4_directions() {
+        assert_eq!(TrafficDirection::variants().len(), 4);
+    }
 
     #[test]
     fn test_category_laws() {
@@ -95,5 +115,7 @@ mod tests {
     }
 
     #[test]
-    fn test_orthogonal_conflicts() { assert!(OrthogonalConflicts.holds()); }
+    fn test_orthogonal_conflicts() {
+        assert!(OrthogonalConflicts.holds());
+    }
 }

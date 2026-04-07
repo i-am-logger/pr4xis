@@ -1,3 +1,20 @@
 {
-  ".": "0.1.0"
+  "crates/praxis-category": "0.1.0",
+  "crates/praxis-logic": "0.1.0",
+  "crates/praxis-ontology": "0.1.0",
+  "crates/praxis-engine": "0.1.0",
+  "crates/praxis-chess": "0.1.0",
+  "crates/praxis-calculator": "0.1.0",
+  "crates/praxis-rubik": "0.1.0",
+  "crates/praxis-elevator": "0.1.0",
+  "crates/praxis-traffic": "0.1.0",
+  "crates/praxis-tetris": "0.1.0",
+  "crates/praxis-simon": "0.1.0",
+  "crates/praxis-http": "0.1.0",
+  "crates/praxis-music": "0.1.0",
+  "crates/praxis-colors": "0.1.0",
+  "crates/praxis-legal": "0.1.0",
+  "crates/praxis-puzzles": "0.1.0",
+  "crates/praxis-math": "0.1.0",
+  "crates/praxis-physics": "0.1.0"
 }

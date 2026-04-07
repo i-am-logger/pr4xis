@@ -7,11 +7,10 @@
 /// Gauss (magnetic):    ∇⋅B = 0
 /// Faraday:             ∇×E = -∂B/∂t
 /// Ampère-Maxwell:      ∇×B = μ₀J + μ₀ε₀∂E/∂t
-
 use praxis_engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
-pub const EPSILON_0: f64 = 8.854e-12;  // vacuum permittivity (F/m)
-pub const MU_0: f64 = 1.257e-6;        // vacuum permeability (H/m)
+pub const EPSILON_0: f64 = 8.854e-12; // vacuum permittivity (F/m)
+pub const MU_0: f64 = 1.257e-6; // vacuum permeability (H/m)
 
 /// Speed of light derived from Maxwell's equations.
 pub fn speed_of_light() -> f64 {
@@ -27,10 +26,22 @@ pub struct Vec3 {
 }
 
 impl Vec3 {
-    pub fn zero() -> Self { Self { x: 0.0, y: 0.0, z: 0.0 } }
-    pub fn new(x: f64, y: f64, z: f64) -> Self { Self { x, y, z } }
-    pub fn magnitude(&self) -> f64 { (self.x * self.x + self.y * self.y + self.z * self.z).sqrt() }
-    pub fn dot(&self, other: &Vec3) -> f64 { self.x * other.x + self.y * other.y + self.z * other.z }
+    pub fn zero() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
+    }
+    pub fn new(x: f64, y: f64, z: f64) -> Self {
+        Self { x, y, z }
+    }
+    pub fn magnitude(&self) -> f64 {
+        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    }
+    pub fn dot(&self, other: &Vec3) -> f64 {
+        self.x * other.x + self.y * other.y + self.z * other.z
+    }
     pub fn cross(&self, other: &Vec3) -> Vec3 {
         Vec3 {
             x: self.y * other.z - self.z * other.y,
@@ -38,19 +49,31 @@ impl Vec3 {
             z: self.x * other.y - self.y * other.x,
         }
     }
-    pub fn scale(&self, s: f64) -> Vec3 { Vec3 { x: self.x * s, y: self.y * s, z: self.z * s } }
-    pub fn add(&self, other: &Vec3) -> Vec3 { Vec3 { x: self.x + other.x, y: self.y + other.y, z: self.z + other.z } }
+    pub fn scale(&self, s: f64) -> Vec3 {
+        Vec3 {
+            x: self.x * s,
+            y: self.y * s,
+            z: self.z * s,
+        }
+    }
+    pub fn add(&self, other: &Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
 }
 
 /// Electromagnetic field state at a point in space.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EMField {
-    pub e_field: Vec3,       // electric field (V/m)
-    pub b_field: Vec3,       // magnetic field (T)
-    pub charge_density: f64, // ρ (C/m³)
+    pub e_field: Vec3,         // electric field (V/m)
+    pub b_field: Vec3,         // magnetic field (T)
+    pub charge_density: f64,   // ρ (C/m³)
     pub current_density: Vec3, // J (A/m²)
-    pub div_e: f64,          // ∇⋅E (computed from field)
-    pub div_b: f64,          // ∇⋅B (should always be 0)
+    pub div_e: f64,            // ∇⋅E (computed from field)
+    pub div_b: f64,            // ∇⋅B (should always be 0)
 }
 
 impl EMField {
@@ -82,7 +105,8 @@ impl EMField {
 
     /// Energy density: u = ½(ε₀E² + B²/μ₀)
     pub fn energy_density(&self) -> f64 {
-        0.5 * (EPSILON_0 * self.e_field.magnitude().powi(2) + self.b_field.magnitude().powi(2) / MU_0)
+        0.5 * (EPSILON_0 * self.e_field.magnitude().powi(2)
+            + self.b_field.magnitude().powi(2) / MU_0)
     }
 
     /// Poynting vector: S = E × B / μ₀ (energy flux)
@@ -93,11 +117,19 @@ impl EMField {
 
 impl Situation for EMField {
     fn describe(&self) -> String {
-        format!("|E|={:.4} |B|={:.4} ρ={:.4e} ∇⋅E={:.4e} ∇⋅B={:.4e} u={:.4e}",
-            self.e_field.magnitude(), self.b_field.magnitude(),
-            self.charge_density, self.div_e, self.div_b, self.energy_density())
+        format!(
+            "|E|={:.4} |B|={:.4} ρ={:.4e} ∇⋅E={:.4e} ∇⋅B={:.4e} u={:.4e}",
+            self.e_field.magnitude(),
+            self.b_field.magnitude(),
+            self.charge_density,
+            self.div_e,
+            self.div_b,
+            self.energy_density()
+        )
     }
-    fn is_terminal(&self) -> bool { false }
+    fn is_terminal(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -119,7 +151,9 @@ impl Action for MaxwellAction {
             MaxwellAction::SetChargeDensity { rho } => format!("set ρ={:.4e}", rho),
             MaxwellAction::SetEField { e } => format!("set E=({:.4},{:.4},{:.4})", e.x, e.y, e.z),
             MaxwellAction::SetBField { b } => format!("set B=({:.4},{:.4},{:.4})", b.x, b.y, b.z),
-            MaxwellAction::SetCurrentDensity { j } => format!("set J=({:.4},{:.4},{:.4})", j.x, j.y, j.z),
+            MaxwellAction::SetCurrentDensity { j } => {
+                format!("set J=({:.4},{:.4},{:.4})", j.x, j.y, j.z)
+            }
         }
     }
 }
@@ -130,12 +164,26 @@ impl Precondition<MaxwellAction> for GaussElectric {
     fn check(&self, field: &EMField, action: &MaxwellAction) -> PreconditionResult {
         let next = apply_maxwell(field, action);
         if next.gauss_electric_holds() {
-            PreconditionResult::satisfied("gauss_electric", &format!("∇⋅E={:.4e} = ρ/ε₀={:.4e}", next.div_e, next.charge_density / EPSILON_0))
+            PreconditionResult::satisfied(
+                "gauss_electric",
+                &format!(
+                    "∇⋅E={:.4e} = ρ/ε₀={:.4e}",
+                    next.div_e,
+                    next.charge_density / EPSILON_0
+                ),
+            )
         } else {
-            PreconditionResult::violated("gauss_electric", "∇⋅E ≠ ρ/ε₀", &field.describe(), &action.describe())
+            PreconditionResult::violated(
+                "gauss_electric",
+                "∇⋅E ≠ ρ/ε₀",
+                &field.describe(),
+                &action.describe(),
+            )
         }
     }
-    fn describe(&self) -> &str { "∇⋅E = ρ/ε₀ (Gauss's law)" }
+    fn describe(&self) -> &str {
+        "∇⋅E = ρ/ε₀ (Gauss's law)"
+    }
 }
 
 /// Gauss's law for magnetism: ∇⋅B = 0 (no magnetic monopoles)
@@ -146,12 +194,20 @@ impl Precondition<MaxwellAction> for GaussMagnetic {
         if next.gauss_magnetic_holds() {
             PreconditionResult::satisfied("gauss_magnetic", "∇⋅B = 0 (no monopoles)")
         } else {
-            PreconditionResult::violated("gauss_magnetic",
-                &format!("∇⋅B = {:.4e} ≠ 0: magnetic monopoles don't exist", next.div_b),
-                &field.describe(), &action.describe())
+            PreconditionResult::violated(
+                "gauss_magnetic",
+                &format!(
+                    "∇⋅B = {:.4e} ≠ 0: magnetic monopoles don't exist",
+                    next.div_b
+                ),
+                &field.describe(),
+                &action.describe(),
+            )
         }
     }
-    fn describe(&self) -> &str { "∇⋅B = 0 (no magnetic monopoles)" }
+    fn describe(&self) -> &str {
+        "∇⋅B = 0 (no magnetic monopoles)"
+    }
 }
 
 /// Energy density must be non-negative.
@@ -160,35 +216,61 @@ impl Precondition<MaxwellAction> for NonNegativeEnergy {
     fn check(&self, field: &EMField, action: &MaxwellAction) -> PreconditionResult {
         let next = apply_maxwell(field, action);
         if next.energy_density() >= -1e-20 {
-            PreconditionResult::satisfied("energy_nonneg", &format!("u={:.4e} ≥ 0", next.energy_density()))
+            PreconditionResult::satisfied(
+                "energy_nonneg",
+                &format!("u={:.4e} ≥ 0", next.energy_density()),
+            )
         } else {
-            PreconditionResult::violated("energy_nonneg", "energy density cannot be negative", &field.describe(), &action.describe())
+            PreconditionResult::violated(
+                "energy_nonneg",
+                "energy density cannot be negative",
+                &field.describe(),
+                &action.describe(),
+            )
         }
     }
-    fn describe(&self) -> &str { "electromagnetic energy density must be non-negative" }
+    fn describe(&self) -> &str {
+        "electromagnetic energy density must be non-negative"
+    }
 }
 
 fn apply_maxwell(field: &EMField, action: &MaxwellAction) -> EMField {
     match action {
-        MaxwellAction::SetChargeDensity { rho } => {
-            EMField::new(field.e_field.clone(), field.b_field.clone(), *rho, field.current_density.clone())
-        }
-        MaxwellAction::SetEField { e } => {
-            EMField::new(e.clone(), field.b_field.clone(), field.charge_density, field.current_density.clone())
-        }
-        MaxwellAction::SetBField { b } => {
-            EMField::new(field.e_field.clone(), b.clone(), field.charge_density, field.current_density.clone())
-        }
-        MaxwellAction::SetCurrentDensity { j } => {
-            EMField::new(field.e_field.clone(), field.b_field.clone(), field.charge_density, j.clone())
-        }
+        MaxwellAction::SetChargeDensity { rho } => EMField::new(
+            field.e_field.clone(),
+            field.b_field.clone(),
+            *rho,
+            field.current_density.clone(),
+        ),
+        MaxwellAction::SetEField { e } => EMField::new(
+            e.clone(),
+            field.b_field.clone(),
+            field.charge_density,
+            field.current_density.clone(),
+        ),
+        MaxwellAction::SetBField { b } => EMField::new(
+            field.e_field.clone(),
+            b.clone(),
+            field.charge_density,
+            field.current_density.clone(),
+        ),
+        MaxwellAction::SetCurrentDensity { j } => EMField::new(
+            field.e_field.clone(),
+            field.b_field.clone(),
+            field.charge_density,
+            j.clone(),
+        ),
     }
 }
 
 pub fn new_field() -> Engine<MaxwellAction> {
     Engine::new(
         EMField::vacuum(),
-        vec![Box::new(GaussElectric), Box::new(GaussMagnetic), Box::new(NonNegativeEnergy)],
+        vec![
+            Box::new(GaussElectric),
+            Box::new(GaussMagnetic),
+            Box::new(NonNegativeEnergy),
+        ],
         apply_maxwell,
     )
 }
@@ -196,7 +278,11 @@ pub fn new_field() -> Engine<MaxwellAction> {
 pub fn new_field_with(e: Vec3, b: Vec3, rho: f64, j: Vec3) -> Engine<MaxwellAction> {
     Engine::new(
         EMField::new(e, b, rho, j),
-        vec![Box::new(GaussElectric), Box::new(GaussMagnetic), Box::new(NonNegativeEnergy)],
+        vec![
+            Box::new(GaussElectric),
+            Box::new(GaussMagnetic),
+            Box::new(NonNegativeEnergy),
+        ],
         apply_maxwell,
     )
 }
@@ -224,7 +310,8 @@ mod tests {
     #[test]
     fn test_charge_creates_divergence() {
         let e = new_field()
-            .next(MaxwellAction::SetChargeDensity { rho: 1e-6 }).unwrap();
+            .next(MaxwellAction::SetChargeDensity { rho: 1e-6 })
+            .unwrap();
         assert!(e.situation().div_e > 0.0);
         assert!(e.situation().gauss_electric_holds());
     }
@@ -239,7 +326,10 @@ mod tests {
     #[test]
     fn test_energy_density_nonneg() {
         let e = new_field()
-            .next(MaxwellAction::SetEField { e: Vec3::new(100.0, 0.0, 0.0) }).unwrap();
+            .next(MaxwellAction::SetEField {
+                e: Vec3::new(100.0, 0.0, 0.0),
+            })
+            .unwrap();
         assert!(e.situation().energy_density() > 0.0);
     }
 
@@ -249,7 +339,8 @@ mod tests {
         let field = EMField::new(
             Vec3::new(1.0, 0.0, 0.0), // E in x
             Vec3::new(0.0, 1.0, 0.0), // B in y
-            0.0, Vec3::zero(),
+            0.0,
+            Vec3::zero(),
         );
         let s = field.poynting_vector();
         // E×B = x×y = z
@@ -278,7 +369,10 @@ mod tests {
     #[test]
     fn test_undo_redo() {
         let e = new_field()
-            .next(MaxwellAction::SetEField { e: Vec3::new(100.0, 0.0, 0.0) }).unwrap();
+            .next(MaxwellAction::SetEField {
+                e: Vec3::new(100.0, 0.0, 0.0),
+            })
+            .unwrap();
         assert!(e.situation().e_field.magnitude() > 0.0);
         let e = e.back().unwrap();
         assert!((e.situation().e_field.magnitude() - 0.0).abs() < 1e-10);

@@ -1,7 +1,7 @@
+use crate::interval::Interval;
+use crate::note::Note;
 use praxis_category::Entity;
 use praxis_ontology::Quality;
-use crate::note::Note;
-use crate::interval::Interval;
 
 // Note pitch classes (0-11) are the entities
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -71,14 +71,14 @@ mod tests {
     #[test]
     fn test_natural_quality() {
         let quality = IsNatural;
-        assert_eq!(quality.get(&PitchClass(0)), Some(true));  // C
+        assert_eq!(quality.get(&PitchClass(0)), Some(true)); // C
         assert_eq!(quality.get(&PitchClass(1)), Some(false)); // C#
     }
 
     #[test]
     fn test_consonant_quality() {
         let quality = IsConsonant;
-        assert_eq!(quality.get(&PitchClass(7)), Some(true));  // perfect fifth
+        assert_eq!(quality.get(&PitchClass(7)), Some(true)); // perfect fifth
         assert_eq!(quality.get(&PitchClass(6)), Some(false)); // tritone
     }
 }

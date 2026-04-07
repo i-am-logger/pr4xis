@@ -19,13 +19,7 @@ pub fn parse_pgn_moves(pgn: &str) -> Result<Vec<(Square, Square)>, String> {
     // Tokenize: split on whitespace, filter out move numbers and results
     let tokens: Vec<&str> = move_text
         .split_whitespace()
-        .filter(|t| {
-            !t.ends_with('.')
-                && *t != "1-0"
-                && *t != "0-1"
-                && *t != "1/2-1/2"
-                && *t != "*"
-        })
+        .filter(|t| !t.ends_with('.') && *t != "1-0" && *t != "0-1" && *t != "1/2-1/2" && *t != "*")
         .collect();
 
     for token in tokens {
@@ -116,14 +110,12 @@ fn resolve_san(board: &Board, san: &str) -> Result<(Square, Square), String> {
         .map(|b| b - b'1');
 
     // For pawn captures, the first char is the source file
-    let pawn_source_file: Option<u8> = if piece_kind == PieceKind::Pawn
-        && disambig_start == 0
-        && san_clean.contains('x')
-    {
-        Some(bytes[0] - b'a')
-    } else {
-        disambig_file
-    };
+    let pawn_source_file: Option<u8> =
+        if piece_kind == PieceKind::Pawn && disambig_start == 0 && san_clean.contains('x') {
+            Some(bytes[0] - b'a')
+        } else {
+            disambig_file
+        };
 
     // Find the piece that can legally move to the target
     let candidates: Vec<Square> = Square::variants()
@@ -135,21 +127,21 @@ fn resolve_san(board: &Board, san: &str) -> Result<(Square, Square), String> {
                 }
                 // Check disambiguation
                 if piece_kind == PieceKind::Pawn {
-                    if let Some(f) = pawn_source_file {
-                        if sq.file != f {
-                            return false;
-                        }
+                    if let Some(f) = pawn_source_file
+                        && sq.file != f
+                    {
+                        return false;
                     }
                 } else {
-                    if let Some(f) = disambig_file {
-                        if sq.file != f {
-                            return false;
-                        }
+                    if let Some(f) = disambig_file
+                        && sq.file != f
+                    {
+                        return false;
                     }
-                    if let Some(r) = disambig_rank {
-                        if sq.rank != r {
-                            return false;
-                        }
+                    if let Some(r) = disambig_rank
+                        && sq.rank != r
+                    {
+                        return false;
                     }
                 }
                 // Check if the piece can legally reach the target
@@ -247,8 +239,7 @@ mod tests {
 
     fn load_game(filename: &str) -> String {
         let path = format!("{}/games/{}", env!("CARGO_MANIFEST_DIR"), filename);
-        std::fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("failed to read {}: {}", path, e))
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read {}: {}", path, e))
     }
 
     #[test]
@@ -269,20 +260,29 @@ mod tests {
     fn test_pgn_opera_game() {
         let pgn = load_game("opera_game.pgn");
         let board = replay_pgn(&pgn).unwrap();
-        assert!(board.is_checkmate(), "Opera Game should end in checkmate (Rd8#)");
+        assert!(
+            board.is_checkmate(),
+            "Opera Game should end in checkmate (Rd8#)"
+        );
     }
 
     #[test]
     fn test_pgn_immortal_game() {
         let pgn = load_game("immortal_game.pgn");
         let board = replay_pgn(&pgn).unwrap();
-        assert!(board.is_checkmate(), "Immortal Game should end in checkmate (Be7#)");
+        assert!(
+            board.is_checkmate(),
+            "Immortal Game should end in checkmate (Be7#)"
+        );
     }
 
     #[test]
     fn test_pgn_evergreen_game() {
         let pgn = load_game("evergreen_game.pgn");
         let board = replay_pgn(&pgn).unwrap();
-        assert!(board.is_checkmate(), "Evergreen Game should end in checkmate (Bxe7#)");
+        assert!(
+            board.is_checkmate(),
+            "Evergreen Game should end in checkmate (Bxe7#)"
+        );
     }
 }

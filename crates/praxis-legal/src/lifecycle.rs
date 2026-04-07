@@ -109,6 +109,7 @@ impl PhaseTag {
 
 /// Actions that advance the case lifecycle.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum CaseAction {
     File {
         court: Entity,

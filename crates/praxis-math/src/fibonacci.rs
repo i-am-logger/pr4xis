@@ -1,7 +1,8 @@
 /// Fibonacci sequence: F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2).
-
 pub fn fib(n: u64) -> u64 {
-    if n <= 1 { return n; }
+    if n <= 1 {
+        return n;
+    }
     let (mut a, mut b) = (0u64, 1u64);
     for _ in 2..=n {
         let next = a.saturating_add(b);
@@ -12,7 +13,9 @@ pub fn fib(n: u64) -> u64 {
 }
 
 /// Golden ratio: F(n+1)/F(n) → φ = (1+√5)/2
-pub fn golden_ratio() -> f64 { (1.0 + 5.0_f64.sqrt()) / 2.0 }
+pub fn golden_ratio() -> f64 {
+    (1.0 + 5.0_f64.sqrt()) / 2.0
+}
 
 /// Binet's formula: F(n) = (φⁿ - ψⁿ)/√5 where ψ = (1-√5)/2.
 pub fn binet(n: u64) -> f64 {
@@ -23,7 +26,9 @@ pub fn binet(n: u64) -> f64 {
 
 /// Cassini's identity: F(n-1)*F(n+1) - F(n)² = (-1)^n
 pub fn cassini(n: u64) -> i64 {
-    if n == 0 { return 0; }
+    if n == 0 {
+        return 0;
+    }
     let fn_1 = fib(n - 1) as i64;
     let fn_ = fib(n) as i64;
     let fn1 = fib(n + 1) as i64;

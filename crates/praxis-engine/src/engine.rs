@@ -14,6 +14,7 @@ use crate::trace::{Trace, TraceEntry};
 /// let engine = engine.forward()?;       // redo
 /// engine.trace().dump()                 // full history
 /// ```
+#[allow(clippy::type_complexity)]
 pub struct Engine<A: Action> {
     situation: A::Sit,
     past: Vec<A::Sit>,
@@ -76,6 +77,7 @@ impl<A: Action> Engine<A> {
     ///
     /// Checks all preconditions. If any fail, returns Err with the violations.
     /// If all pass, applies the action and records the trace.
+    #[allow(clippy::result_large_err)]
     pub fn next(mut self, action: A) -> Result<Self, (Self, Vec<PreconditionResult>)> {
         let situation_before = self.situation.describe();
         let action_desc = action.describe();

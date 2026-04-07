@@ -2,8 +2,6 @@
 ///
 /// This is the boolean composition layer for ANY ontology or enforcement engine.
 /// Compose rules with AND/OR/NOT to build complex enforcement.
-
-use std::cmp::Ordering;
 use std::fmt::Debug;
 
 /// A logical proposition that can be evaluated to true/false with a reason.
@@ -432,12 +430,18 @@ mod tests {
         type Context = i32;
         fn evaluate(&self, n: &i32) -> Evaluation {
             if *n > 0 {
-                Evaluation::Satisfied { reason: format!("{} > 0", n) }
+                Evaluation::Satisfied {
+                    reason: format!("{} > 0", n),
+                }
             } else {
-                Evaluation::Violated { reason: format!("{} <= 0", n) }
+                Evaluation::Violated {
+                    reason: format!("{} <= 0", n),
+                }
             }
         }
-        fn describe(&self) -> String { "is positive".into() }
+        fn describe(&self) -> String {
+            "is positive".into()
+        }
     }
 
     #[derive(Debug)]
@@ -447,12 +451,18 @@ mod tests {
         type Context = i32;
         fn evaluate(&self, n: &i32) -> Evaluation {
             if n % 2 == 0 {
-                Evaluation::Satisfied { reason: format!("{} is even", n) }
+                Evaluation::Satisfied {
+                    reason: format!("{} is even", n),
+                }
             } else {
-                Evaluation::Violated { reason: format!("{} is odd", n) }
+                Evaluation::Violated {
+                    reason: format!("{} is odd", n),
+                }
             }
         }
-        fn describe(&self) -> String { "is even".into() }
+        fn describe(&self) -> String {
+            "is even".into()
+        }
     }
 
     #[test]
@@ -501,8 +511,12 @@ mod tests {
 
     impl Measurable<i32> for ValueOf {
         type Value = i32;
-        fn measure(&self, n: &i32) -> i32 { *n }
-        fn name(&self) -> &str { "value" }
+        fn measure(&self, n: &i32) -> i32 {
+            *n
+        }
+        fn name(&self) -> &str {
+            "value"
+        }
     }
 
     #[test]

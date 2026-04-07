@@ -4,10 +4,16 @@ use praxis_engine::{Action, Engine, Precondition, PreconditionResult, Situation}
 /// Up to F are traitors who send conflicting messages.
 /// Consensus requires N > 3F.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Order { Attack, Retreat }
+pub enum Order {
+    Attack,
+    Retreat,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Loyalty { Loyal, Traitor }
+pub enum Loyalty {
+    Loyal,
+    Traitor,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
@@ -21,7 +27,12 @@ pub struct State {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ByzPhase { CommanderSends, LieutenantsSend, Decide, Resolved }
+pub enum ByzPhase {
+    CommanderSends,
+    LieutenantsSend,
+    Decide,
+    Resolved,
+}
 
 impl State {
     pub fn new(loyalties: Vec<Loyalty>) -> Self {
@@ -35,16 +46,28 @@ impl State {
         }
     }
 
-    pub fn n(&self) -> usize { self.generals.len() }
-    pub fn traitor_count(&self) -> usize { self.generals.iter().filter(|g| **g == Loyalty::Traitor).count() }
+    pub fn n(&self) -> usize {
+        self.generals.len()
+    }
+    pub fn traitor_count(&self) -> usize {
+        self.generals
+            .iter()
+            .filter(|g| **g == Loyalty::Traitor)
+            .count()
+    }
 
     /// Did all loyal generals reach the same decision?
     pub fn consensus_reached(&self) -> bool {
-        let loyal_decisions: Vec<Order> = self.generals.iter().zip(self.decisions.iter())
+        let loyal_decisions: Vec<Order> = self
+            .generals
+            .iter()
+            .zip(self.decisions.iter())
             .filter(|(g, d)| **g == Loyalty::Loyal && d.is_some())
             .map(|(_, d)| d.unwrap())
             .collect();
-        if loyal_decisions.is_empty() { return true; }
+        if loyal_decisions.is_empty() {
+            return true;
+        }
         loyal_decisions.iter().all(|d| *d == loyal_decisions[0])
     }
 }
@@ -52,9 +75,18 @@ impl State {
 impl Situation for State {
     fn describe(&self) -> String {
         let decided: usize = self.decisions.iter().filter(|d| d.is_some()).count();
-        format!("n={} traitors={} phase={:?} decided={}/{}", self.n(), self.traitor_count(), self.phase, decided, self.n())
+        format!(
+            "n={} traitors={} phase={:?} decided={}/{}",
+            self.n(),
+            self.traitor_count(),
+            self.phase,
+            decided,
+            self.n()
+        )
     }
-    fn is_terminal(&self) -> bool { self.phase == ByzPhase::Resolved }
+    fn is_terminal(&self) -> bool {
+        self.phase == ByzPhase::Resolved
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,7 +94,11 @@ pub enum ByzAction {
     /// Commander sends order to all lieutenants (traitor commander may lie)
     CommanderBroadcast(Order),
     /// Lieutenant i relays what they received to lieutenant j
-    Relay { from: usize, to: usize, claimed_order: Order },
+    Relay {
+        from: usize,
+        to: usize,
+        claimed_order: Order,
+    },
     /// General i makes a decision based on majority
     Decide(usize),
     /// Finalize
@@ -74,7 +110,14 @@ impl Action for ByzAction {
     fn describe(&self) -> String {
         match self {
             ByzAction::CommanderBroadcast(o) => format!("commander broadcasts {:?}", o),
-            ByzAction::Relay { from, to, claimed_order } => format!("general {} tells {} the order is {:?}", from, to, claimed_order),
+            ByzAction::Relay {
+                from,
+                to,
+                claimed_order,
+            } => format!(
+                "general {} tells {} the order is {:?}",
+                from, to, claimed_order
+            ),
             ByzAction::Decide(i) => format!("general {} decides", i),
             ByzAction::Resolve => "resolve".into(),
         }
@@ -85,29 +128,57 @@ struct ByzRules;
 impl Precondition<ByzAction> for ByzRules {
     fn check(&self, s: &State, a: &ByzAction) -> PreconditionResult {
         match (s.phase, a) {
-            (ByzPhase::CommanderSends, ByzAction::CommanderBroadcast(_)) =>
-                PreconditionResult::satisfied("byz_rules", "commander phase"),
-            (ByzPhase::LieutenantsSend, ByzAction::Relay { from, to, claimed_order }) => {
+            (ByzPhase::CommanderSends, ByzAction::CommanderBroadcast(_)) => {
+                PreconditionResult::satisfied("byz_rules", "commander phase")
+            }
+            (
+                ByzPhase::LieutenantsSend,
+                ByzAction::Relay {
+                    from,
+                    to,
+                    claimed_order,
+                },
+            ) => {
                 if *from >= s.n() || *to >= s.n() {
-                    return PreconditionResult::violated("byz_rules", "general index out of range", &s.describe(), &a.describe());
+                    return PreconditionResult::violated(
+                        "byz_rules",
+                        "general index out of range",
+                        &s.describe(),
+                        &a.describe(),
+                    );
                 }
                 // Loyal generals must relay truthfully
-                if s.generals[*from] == Loyalty::Loyal {
-                    if let Some(received) = s.messages[0][*from] {
-                        if *claimed_order != received {
-                            return PreconditionResult::violated("byz_rules",
-                                &format!("loyal general {} must relay truthfully (received {:?})", from, received),
-                                &s.describe(), &a.describe());
-                        }
-                    }
+                if s.generals[*from] == Loyalty::Loyal
+                    && let Some(received) = s.messages[0][*from]
+                    && *claimed_order != received
+                {
+                    return PreconditionResult::violated(
+                        "byz_rules",
+                        &format!(
+                            "loyal general {} must relay truthfully (received {:?})",
+                            from, received
+                        ),
+                        &s.describe(),
+                        &a.describe(),
+                    );
                 }
                 PreconditionResult::satisfied("byz_rules", "relay valid")
             }
             (ByzPhase::Decide, ByzAction::Decide(i)) => {
                 if *i >= s.n() {
-                    PreconditionResult::violated("byz_rules", "general index out of range", &s.describe(), &a.describe())
+                    PreconditionResult::violated(
+                        "byz_rules",
+                        "general index out of range",
+                        &s.describe(),
+                        &a.describe(),
+                    )
                 } else if s.decisions[*i].is_some() {
-                    PreconditionResult::violated("byz_rules", "already decided", &s.describe(), &a.describe())
+                    PreconditionResult::violated(
+                        "byz_rules",
+                        "already decided",
+                        &s.describe(),
+                        &a.describe(),
+                    )
                 } else {
                     PreconditionResult::satisfied("byz_rules", "can decide")
                 }
@@ -116,15 +187,25 @@ impl Precondition<ByzAction> for ByzRules {
                 if s.decisions.iter().all(|d| d.is_some()) {
                     PreconditionResult::satisfied("byz_rules", "all decided")
                 } else {
-                    PreconditionResult::violated("byz_rules", "not all generals decided", &s.describe(), &a.describe())
+                    PreconditionResult::violated(
+                        "byz_rules",
+                        "not all generals decided",
+                        &s.describe(),
+                        &a.describe(),
+                    )
                 }
             }
-            _ => PreconditionResult::violated("byz_rules",
+            _ => PreconditionResult::violated(
+                "byz_rules",
                 &format!("{:?} not valid in {:?} phase", a, s.phase),
-                &s.describe(), &a.describe()),
+                &s.describe(),
+                &a.describe(),
+            ),
         }
     }
-    fn describe(&self) -> &str { "Byzantine generals protocol rules" }
+    fn describe(&self) -> &str {
+        "Byzantine generals protocol rules"
+    }
 }
 
 fn apply_byz(s: &State, a: &ByzAction) -> State {
@@ -138,12 +219,23 @@ fn apply_byz(s: &State, a: &ByzAction) -> State {
                     n.messages[0][i] = Some(*order);
                 } else {
                     // Traitor commander can send different orders
-                    n.messages[0][i] = Some(if i % 2 == 0 { *order } else { match order { Order::Attack => Order::Retreat, Order::Retreat => Order::Attack }});
+                    n.messages[0][i] = Some(if i % 2 == 0 {
+                        *order
+                    } else {
+                        match order {
+                            Order::Attack => Order::Retreat,
+                            Order::Retreat => Order::Attack,
+                        }
+                    });
                 }
             }
             n.phase = ByzPhase::LieutenantsSend;
         }
-        ByzAction::Relay { from, to, claimed_order } => {
+        ByzAction::Relay {
+            from,
+            to,
+            claimed_order,
+        } => {
             n.messages[*from][*to] = Some(*claimed_order);
             // Check if all lieutenants have relayed to all others — advance phase
             let mut all_relayed = true;
@@ -164,10 +256,17 @@ fn apply_byz(s: &State, a: &ByzAction) -> State {
             let mut retreats = 0u32;
             for j in 0..n.n() {
                 if let Some(order) = n.messages[j][*i] {
-                    match order { Order::Attack => attacks += 1, Order::Retreat => retreats += 1 }
+                    match order {
+                        Order::Attack => attacks += 1,
+                        Order::Retreat => retreats += 1,
+                    }
                 }
             }
-            n.decisions[*i] = Some(if attacks >= retreats { Order::Attack } else { Order::Retreat });
+            n.decisions[*i] = Some(if attacks >= retreats {
+                Order::Attack
+            } else {
+                Order::Retreat
+            });
         }
         ByzAction::Resolve => {
             n.phase = ByzPhase::Resolved;
@@ -187,13 +286,34 @@ mod tests {
     #[test]
     fn test_4_generals_1_traitor_consensus() {
         // 4 generals, general 0 is commander (loyal), general 3 is traitor
-        let mut e = new_puzzle(vec![Loyalty::Loyal, Loyalty::Loyal, Loyalty::Loyal, Loyalty::Traitor]);
-        e = e.next(ByzAction::CommanderBroadcast(Order::Attack)).unwrap();
+        let mut e = new_puzzle(vec![
+            Loyalty::Loyal,
+            Loyalty::Loyal,
+            Loyalty::Loyal,
+            Loyalty::Traitor,
+        ]);
+        e = e
+            .next(ByzAction::CommanderBroadcast(Order::Attack))
+            .unwrap();
         // Loyal lieutenants relay truthfully
-        for from in 1..4 { for to in 1..4 { if from != to {
-            let order = if from == 3 { Order::Retreat } else { Order::Attack }; // traitor lies
-            e = e.next(ByzAction::Relay { from, to, claimed_order: order }).unwrap();
-        }}}
+        for from in 1..4 {
+            for to in 1..4 {
+                if from != to {
+                    let order = if from == 3 {
+                        Order::Retreat
+                    } else {
+                        Order::Attack
+                    }; // traitor lies
+                    e = e
+                        .next(ByzAction::Relay {
+                            from,
+                            to,
+                            claimed_order: order,
+                        })
+                        .unwrap();
+                }
+            }
+        }
         e = e.next(ByzAction::Decide(1)).unwrap();
         e = e.next(ByzAction::Decide(2)).unwrap();
         e = e.next(ByzAction::Decide(3)).unwrap();
@@ -203,10 +323,20 @@ mod tests {
 
     #[test]
     fn test_loyal_must_relay_truthfully() {
-        let e = new_puzzle(vec![Loyalty::Loyal, Loyalty::Loyal, Loyalty::Loyal, Loyalty::Traitor])
-            .next(ByzAction::CommanderBroadcast(Order::Attack)).unwrap();
+        let e = new_puzzle(vec![
+            Loyalty::Loyal,
+            Loyalty::Loyal,
+            Loyalty::Loyal,
+            Loyalty::Traitor,
+        ])
+        .next(ByzAction::CommanderBroadcast(Order::Attack))
+        .unwrap();
         // Loyal general 1 received Attack, tries to relay Retreat — should fail
-        let result = e.next(ByzAction::Relay { from: 1, to: 2, claimed_order: Order::Retreat });
+        let result = e.next(ByzAction::Relay {
+            from: 1,
+            to: 2,
+            claimed_order: Order::Retreat,
+        });
         assert!(result.is_err());
     }
 

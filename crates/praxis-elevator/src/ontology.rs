@@ -31,8 +31,12 @@ pub struct Travel {
 
 impl Relationship for Travel {
     type Object = Floor;
-    fn source(&self) -> Floor { self.from }
-    fn target(&self) -> Floor { self.to }
+    fn source(&self) -> Floor {
+        self.from
+    }
+    fn target(&self) -> Floor {
+        self.to
+    }
 }
 
 pub struct ElevatorCategory;
@@ -42,17 +46,28 @@ impl Category for ElevatorCategory {
     type Morphism = Travel;
 
     fn identity(obj: &Floor) -> Travel {
-        Travel { from: *obj, to: *obj }
+        Travel {
+            from: *obj,
+            to: *obj,
+        }
     }
 
     fn compose(f: &Travel, g: &Travel) -> Option<Travel> {
-        if f.to != g.from { return None; }
-        Some(Travel { from: f.from, to: g.to })
+        if f.to != g.from {
+            return None;
+        }
+        Some(Travel {
+            from: f.from,
+            to: g.to,
+        })
     }
 
     fn morphisms() -> Vec<Travel> {
         let floors = Floor::variants();
-        floors.iter().flat_map(|&a| floors.iter().map(move |&b| Travel { from: a, to: b })).collect()
+        floors
+            .iter()
+            .flat_map(|&a| floors.iter().map(move |&b| Travel { from: a, to: b }))
+            .collect()
     }
 }
 
@@ -80,7 +95,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_10_floors() { assert_eq!(Floor::variants().len(), 10); }
+    fn test_10_floors() {
+        assert_eq!(Floor::variants().len(), 10);
+    }
 
     #[test]
     fn test_category_laws() {
@@ -94,5 +111,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fully_connected() { assert!(all_floors_reachable()); }
+    fn test_fully_connected() {
+        assert!(all_floors_reachable());
+    }
 }

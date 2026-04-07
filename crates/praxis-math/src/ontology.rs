@@ -1,5 +1,4 @@
 /// Math ontology: mathematical domains as entities with axioms.
-
 use praxis_category::{Category, Entity, Relationship};
 use praxis_ontology::{Axiom, Quality};
 
@@ -16,8 +15,11 @@ pub enum MathDomain {
 impl Entity for MathDomain {
     fn variants() -> Vec<Self> {
         vec![
-            MathDomain::NaturalNumbers, MathDomain::Integers,
-            MathDomain::Rationals, MathDomain::Reals, MathDomain::Complex,
+            MathDomain::NaturalNumbers,
+            MathDomain::Integers,
+            MathDomain::Rationals,
+            MathDomain::Reals,
+            MathDomain::Complex,
         ]
     }
 }
@@ -31,8 +33,12 @@ pub struct Subset {
 
 impl Relationship for Subset {
     type Object = MathDomain;
-    fn source(&self) -> MathDomain { self.from }
-    fn target(&self) -> MathDomain { self.to }
+    fn source(&self) -> MathDomain {
+        self.from
+    }
+    fn target(&self) -> MathDomain {
+        self.to
+    }
 }
 
 pub struct NumberHierarchy;
@@ -42,17 +48,26 @@ impl Category for NumberHierarchy {
     type Morphism = Subset;
 
     fn identity(obj: &MathDomain) -> Subset {
-        Subset { from: *obj, to: *obj }
+        Subset {
+            from: *obj,
+            to: *obj,
+        }
     }
 
     fn compose(f: &Subset, g: &Subset) -> Option<Subset> {
-        if f.to != g.from { return None; }
-        Some(Subset { from: f.from, to: g.to })
+        if f.to != g.from {
+            return None;
+        }
+        Some(Subset {
+            from: f.from,
+            to: g.to,
+        })
     }
 
     fn morphisms() -> Vec<Subset> {
         let domains = MathDomain::variants();
-        domains.iter()
+        domains
+            .iter()
             .flat_map(|&a| domains.iter().map(move |&b| Subset { from: a, to: b }))
             .collect()
     }
@@ -113,7 +128,9 @@ impl Quality for SupportsNegativeSqrt {
 pub struct ContainmentChain;
 
 impl Axiom<NumberHierarchy> for ContainmentChain {
-    fn description(&self) -> &str { "N ⊂ Z ⊂ Q ⊂ R ⊂ C" }
+    fn description(&self) -> &str {
+        "N ⊂ Z ⊂ Q ⊂ R ⊂ C"
+    }
 
     fn holds(&self) -> bool {
         let order = DomainOrder;
@@ -162,6 +179,9 @@ mod tests {
     #[test]
     fn test_domain_ordering() {
         let order = DomainOrder;
-        assert!(order.get(&MathDomain::NaturalNumbers).unwrap() < order.get(&MathDomain::Complex).unwrap());
+        assert!(
+            order.get(&MathDomain::NaturalNumbers).unwrap()
+                < order.get(&MathDomain::Complex).unwrap()
+        );
     }
 }

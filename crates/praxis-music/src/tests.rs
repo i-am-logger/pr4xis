@@ -241,3 +241,68 @@ proptest! {
         prop_assert!(!Chord::new(root, ChordKind::Minor).has_tritone());
     }
 }
+
+// =============================================================================
+// Engine tests — Situation/Action/Precondition/Trace
+// =============================================================================
+
+use crate::engine::*;
+
+#[test]
+fn engine_transpose_in_scale() {
+    let e = new_music(Note(60)); // Middle C
+    let e = e
+        .try_next(MusicAction::SetScale {
+            kind: ScaleKind::Major,
+        })
+        .unwrap();
+    // Transpose up 2 semitones (C → D, which is in C Major)
+    let e = e.try_next(MusicAction::Transpose { semitones: 2 }).unwrap();
+    assert_eq!(e.situation().note, Note(62));
+}
+
+#[test]
+fn engine_transpose_outside_scale_rejected() {
+    let e = new_music(Note(60)); // Middle C
+    let e = e
+        .try_next(MusicAction::SetScale {
+            kind: ScaleKind::Major,
+        })
+        .unwrap();
+    // Transpose up 1 semitone (C → C#, NOT in C Major)
+    let result = e.try_next(MusicAction::Transpose { semitones: 1 });
+    assert!(result.is_err());
+}
+
+#[test]
+fn engine_out_of_range_rejected() {
+    let e = new_music(Note(125));
+    // Transpose beyond MIDI range
+    let result = e.try_next(MusicAction::Transpose { semitones: 10 });
+    assert!(result.is_err());
+}
+
+#[test]
+fn engine_back_forward() {
+    let e = new_music(Note(60));
+    let e = e.try_next(MusicAction::Transpose { semitones: 7 }).unwrap();
+    let e = e.try_next(MusicAction::Transpose { semitones: 5 }).unwrap();
+    let e = e.back().unwrap();
+    assert_eq!(e.situation().note, Note(67));
+    let e = e.forward().unwrap();
+    assert_eq!(e.situation().note, Note(72));
+}
+
+#[test]
+fn engine_clear_scale_allows_any() {
+    let e = new_music(Note(60));
+    let e = e
+        .try_next(MusicAction::SetScale {
+            kind: ScaleKind::Major,
+        })
+        .unwrap();
+    let e = e.try_next(MusicAction::ClearScale).unwrap();
+    // Now C# should be allowed (no scale)
+    let e = e.try_next(MusicAction::Transpose { semitones: 1 }).unwrap();
+    assert_eq!(e.situation().note, Note(61));
+}

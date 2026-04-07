@@ -285,3 +285,48 @@ proptest! {
         }
     }
 }
+
+// =============================================================================
+// Engine tests — Situation/Action/Precondition/Trace
+// =============================================================================
+
+use crate::engine::*;
+
+#[test]
+fn engine_play_round_one() {
+    let e = new_simon(42);
+    // Start input (transition from Showing → Inputting)
+    let e = e.try_next(SimonAction::StartInput).unwrap();
+    // Press the correct first color from the sequence
+    let correct_color = Game::new(42).sequence()[0];
+    let e = e.try_next(SimonAction::Press(correct_color)).unwrap();
+    // Round complete → next round
+    let e = e.try_next(SimonAction::NextRound).unwrap();
+    assert_eq!(e.step(), 3);
+}
+
+#[test]
+fn engine_invalid_state_rejected() {
+    let e = new_simon(42);
+    // Can't press before StartInput
+    let result = e.try_next(SimonAction::Press(SimonColor::Red));
+    assert!(result.is_err());
+}
+
+#[test]
+fn engine_back_forward() {
+    let e = new_simon(42);
+    let e = e.try_next(SimonAction::StartInput).unwrap();
+    let e = e.back().unwrap();
+    assert_eq!(e.step(), 0);
+    let e = e.forward().unwrap();
+    assert_eq!(e.step(), 1);
+}
+
+#[test]
+fn engine_trace() {
+    let e = new_simon(42);
+    let e = e.try_next(SimonAction::StartInput).unwrap();
+    assert_eq!(e.trace().entries.len(), 1);
+    assert!(e.trace().entries[0].success);
+}
