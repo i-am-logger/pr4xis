@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  devenv-checks:
+    name: Lint/UT
+    runs-on: ubuntu-latest
+    if: |
+      !(
+        (github.event_name == 'pull_request' && (startsWith(github.event.pull_request.title, 'release:') || startsWith(github.event.pull_request.title, 'chore: release'))) ||
+        (github.event_name == 'push' && (contains(github.event.head_commit.message, 'release-please--branches--master') || startsWith(github.event.head_commit.message, 'chore: release')))
+      )
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            extra-substituters = https://nix-community.cachix.org https://cache.nixos.org https://devenv.cachix.org
+            extra-trusted-public-keys = nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=
+
+      - name: Restore and save Nix store
+        uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock', 'devenv.lock', 'devenv.yaml') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          gc-max-store-size-linux: 2G
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      - name: Run format & lint checks
+        run: devenv test
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: [devenv-checks]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate coverage
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: false
+
+  test-results:
+    name: Test Results
+    runs-on: ubuntu-latest
+    needs: [devenv-checks]
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload test results to Codecov
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  release-please:
+    name: Release
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      (needs.devenv-checks.result == 'success' || needs.devenv-checks.result == 'skipped')
+    needs: [devenv-checks]
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: [release-please]
+    if: needs.release-please.outputs.release_created == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-workspaces
+        run: cargo install cargo-workspaces
+
+      - name: Publish all crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo workspaces publish --from-git --token "$CARGO_REGISTRY_TOKEN"
