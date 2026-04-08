@@ -102,7 +102,7 @@ pub struct CentersFixed {
     pub cube: Cube,
 }
 
-impl Axiom<RubikCategory> for CentersFixed {
+impl Axiom for CentersFixed {
     fn description(&self) -> &str {
         "center stickers must match their face color"
     }
@@ -119,7 +119,7 @@ pub struct NinePerColor {
     pub cube: Cube,
 }
 
-impl Axiom<RubikCategory> for NinePerColor {
+impl Axiom for NinePerColor {
     fn description(&self) -> &str {
         "each color must have exactly 9 stickers"
     }

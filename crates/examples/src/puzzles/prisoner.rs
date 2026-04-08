@@ -109,7 +109,7 @@ impl Precondition<PrisonerAction> for TurnOrder {
     }
 }
 
-fn apply_prisoner(s: &State, a: &PrisonerAction) -> State {
+fn apply_prisoner(s: &State, a: &PrisonerAction) -> Result<State, String> {
     let mut n = s.clone();
     match a {
         PrisonerAction::PlayerA(c) => {
@@ -129,7 +129,7 @@ fn apply_prisoner(s: &State, a: &PrisonerAction) -> State {
             n.pending_a = None;
         }
     }
-    n
+    Ok(n)
 }
 
 pub fn new_game() -> Engine<PrisonerAction> {

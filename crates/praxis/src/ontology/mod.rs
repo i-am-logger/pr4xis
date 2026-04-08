@@ -1,5 +1,6 @@
 mod domain;
 mod property;
+pub mod reasoning;
 mod rule;
 pub mod validate;
 

@@ -109,11 +109,11 @@ impl Precondition<KnightMove> for ValidKnightMove {
     }
 }
 
-fn apply_knight(s: &State, a: &KnightMove) -> State {
+fn apply_knight(s: &State, a: &KnightMove) -> Result<State, String> {
     let mut n = s.clone();
     n.position = a.to;
     n.visited.insert(a.to);
-    n
+    Ok(n)
 }
 
 pub fn new_puzzle(n: usize, start: (usize, usize)) -> Engine<KnightMove> {

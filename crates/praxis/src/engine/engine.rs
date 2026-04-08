@@ -3,6 +3,18 @@ use super::precondition::{Precondition, PreconditionResult};
 use super::situation::Situation;
 use super::trace::{Trace, TraceEntry};
 
+/// Error returned by `Engine::next()`.
+#[derive(Debug)]
+pub enum EngineError<A: Action> {
+    /// Preconditions blocked the action.
+    Violated {
+        engine: Engine<A>,
+        violations: Vec<PreconditionResult>,
+    },
+    /// Preconditions passed but apply contradicted them — ontological inconsistency.
+    LogicalError { engine: Engine<A>, reason: String },
+}
+
 /// The enforcement engine — applies actions to situations with precondition checking.
 ///
 /// Implements the `.next()` pattern with back/forward history:
@@ -20,7 +32,7 @@ pub struct Engine<A: Action> {
     past: Vec<A::Sit>,
     future: Vec<A::Sit>,
     preconditions: Vec<Box<dyn Precondition<A>>>,
-    apply_fn: Box<dyn Fn(&A::Sit, &A) -> A::Sit>,
+    apply_fn: Box<dyn Fn(&A::Sit, &A) -> Result<A::Sit, String>>,
     trace: Trace,
 }
 
@@ -31,7 +43,7 @@ impl<A: Action> std::fmt::Debug for Engine<A> {
             .field("step", &self.step())
             .field("back_depth", &self.back_depth())
             .field("forward_depth", &self.forward_depth())
-            .field("trace_entries", &self.trace.entries.len())
+            .field("trace_entries", &self.trace.entries().len())
             .finish()
     }
 }
@@ -41,7 +53,7 @@ impl<A: Action> Engine<A> {
     pub fn new(
         situation: A::Sit,
         preconditions: Vec<Box<dyn Precondition<A>>>,
-        apply_fn: impl Fn(&A::Sit, &A) -> A::Sit + 'static,
+        apply_fn: impl Fn(&A::Sit, &A) -> Result<A::Sit, String> + 'static,
     ) -> Self {
         Self {
             situation,
@@ -75,10 +87,11 @@ impl<A: Action> Engine<A> {
 
     /// Apply an action — the `.next()` method.
     ///
-    /// Checks all preconditions. If any fail, returns Err with the violations.
-    /// If all pass, applies the action and records the trace.
+    /// Checks all preconditions. If any fail, returns `EngineError::Violated`.
+    /// If all pass but apply fails, returns `EngineError::LogicalError`.
+    /// Both variants return the engine for rollback.
     #[allow(clippy::result_large_err)]
-    pub fn next(mut self, action: A) -> Result<Self, (Self, Vec<PreconditionResult>)> {
+    pub fn next(mut self, action: A) -> Result<Self, EngineError<A>> {
         let situation_before = self.situation.describe();
         let action_desc = action.describe();
         let step = self.step();
@@ -105,26 +118,46 @@ impl<A: Action> Engine<A> {
                 situation_after: None,
                 success: false,
             });
-            return Err((self, violations));
+            return Err(EngineError::Violated {
+                engine: self,
+                violations,
+            });
         }
 
-        // Apply the action — save current for undo, clear redo stack
-        let new_situation = (self.apply_fn)(&self.situation, &action);
-        let situation_after = new_situation.describe();
+        // Apply the action
+        match (self.apply_fn)(&self.situation, &action) {
+            Ok(new_situation) => {
+                let situation_after = new_situation.describe();
 
-        self.trace.record(TraceEntry {
-            step,
-            situation_before,
-            action: action_desc,
-            precondition_results: results,
-            situation_after: Some(situation_after),
-            success: true,
-        });
+                self.trace.record(TraceEntry {
+                    step,
+                    situation_before,
+                    action: action_desc,
+                    precondition_results: results,
+                    situation_after: Some(situation_after),
+                    success: true,
+                });
 
-        self.past.push(self.situation.clone());
-        self.future.clear();
-        self.situation = new_situation;
-        Ok(self)
+                self.past.push(self.situation.clone());
+                self.future.clear();
+                self.situation = new_situation;
+                Ok(self)
+            }
+            Err(reason) => {
+                self.trace.record(TraceEntry {
+                    step,
+                    situation_before,
+                    action: action_desc,
+                    precondition_results: results,
+                    situation_after: None,
+                    success: false,
+                });
+                Err(EngineError::LogicalError {
+                    engine: self,
+                    reason,
+                })
+            }
+        }
     }
 
     /// Go back one step. The current situation moves to the redo stack.
@@ -163,8 +196,8 @@ impl<A: Action> Engine<A> {
 
     /// Try to apply an action, returning the new engine or the violations as strings.
     pub fn try_next(self, action: A) -> Result<Self, Vec<String>> {
-        self.next(action).map_err(|(_, violations)| {
-            violations
+        self.next(action).map_err(|e| match e {
+            EngineError::Violated { violations, .. } => violations
                 .into_iter()
                 .map(|v| match v {
                     PreconditionResult::Violated { rule, reason, .. } => {
@@ -172,7 +205,10 @@ impl<A: Action> Engine<A> {
                     }
                     PreconditionResult::Satisfied { .. } => unreachable!(),
                 })
-                .collect()
+                .collect(),
+            EngineError::LogicalError { reason, .. } => {
+                vec![format!("logical error: {}", reason)]
+            }
         })
     }
 }

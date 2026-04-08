@@ -1,6 +1,6 @@
 use super::property::Quality;
-use super::rule::Axiom;
 use crate::category::{Category, Entity, Relationship};
+use crate::logic::Axiom;
 use crate::ontology::Ontology;
 use proptest::prelude::*;
 
@@ -128,7 +128,7 @@ impl Quality for Duration {
 
 struct GreenIsLongest;
 
-impl Axiom<TrafficLightCat> for GreenIsLongest {
+impl Axiom for GreenIsLongest {
     fn description(&self) -> &str {
         "green phase must be the longest"
     }
@@ -146,7 +146,7 @@ impl Axiom<TrafficLightCat> for GreenIsLongest {
 
 struct NoDeadStates;
 
-impl Axiom<TrafficLightCat> for NoDeadStates {
+impl Axiom for NoDeadStates {
     fn description(&self) -> &str {
         "every light has at least one outgoing transition"
     }
@@ -166,7 +166,7 @@ impl Ontology for TrafficLightOntology {
     type Cat = TrafficLightCat;
     type Qual = Duration;
 
-    fn axioms() -> Vec<Box<dyn Axiom<TrafficLightCat>>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(GreenIsLongest), Box::new(NoDeadStates)]
     }
 }

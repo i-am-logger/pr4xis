@@ -208,7 +208,7 @@ impl Precondition<ByzAction> for ByzRules {
     }
 }
 
-fn apply_byz(s: &State, a: &ByzAction) -> State {
+fn apply_byz(s: &State, a: &ByzAction) -> Result<State, String> {
     let mut n = s.clone();
     match a {
         ByzAction::CommanderBroadcast(order) => {
@@ -272,7 +272,7 @@ fn apply_byz(s: &State, a: &ByzAction) -> State {
             n.phase = ByzPhase::Resolved;
         }
     }
-    n
+    Ok(n)
 }
 
 pub fn new_puzzle(loyalties: Vec<Loyalty>) -> Engine<ByzAction> {

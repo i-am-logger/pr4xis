@@ -88,7 +88,7 @@ impl Precondition<SimonAction> for ValidState {
     }
 }
 
-fn apply_simon(game: &Game, action: &SimonAction) -> Game {
+fn apply_simon(game: &Game, action: &SimonAction) -> Result<Game, String> {
     let mut next = game.clone();
     match action {
         SimonAction::StartInput => {
@@ -101,7 +101,7 @@ fn apply_simon(game: &Game, action: &SimonAction) -> Game {
             let _ = next.next_round();
         }
     }
-    next
+    Ok(next)
 }
 
 pub type SimonEngine = Engine<SimonAction>;

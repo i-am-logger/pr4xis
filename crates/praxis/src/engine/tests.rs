@@ -91,14 +91,14 @@ impl Precondition<CounterAction> for NotAboveMax {
     }
 }
 
-fn counter_apply(situation: &Counter, action: &CounterAction) -> Counter {
+fn counter_apply(situation: &Counter, action: &CounterAction) -> Result<Counter, String> {
     let mut next = situation.clone();
     match action {
         CounterAction::Increment { by } => next.value += by,
         CounterAction::Decrement { by } => next.value -= by,
         CounterAction::Reset => next.value = 0,
     }
-    next
+    Ok(next)
 }
 
 fn make_engine(value: i32, max: i32) -> Engine<CounterAction> {
@@ -174,7 +174,11 @@ fn test_trace_records_success() {
 #[test]
 fn test_trace_records_violations() {
     let engine = make_engine(0, 10);
-    let (engine, violations) = engine.next(CounterAction::Decrement { by: 5 }).unwrap_err();
+    let EngineError::Violated { engine, violations } =
+        engine.next(CounterAction::Decrement { by: 5 }).unwrap_err()
+    else {
+        panic!("expected Violated")
+    };
     assert_eq!(violations.len(), 1);
     assert_eq!(engine.trace().violations(), 1);
 }
@@ -182,7 +186,11 @@ fn test_trace_records_violations() {
 #[test]
 fn test_violation_carries_context() {
     let engine = make_engine(2, 10);
-    let (_, violations) = engine.next(CounterAction::Decrement { by: 5 }).unwrap_err();
+    let EngineError::Violated { violations, .. } =
+        engine.next(CounterAction::Decrement { by: 5 }).unwrap_err()
+    else {
+        panic!("expected Violated")
+    };
     if let PreconditionResult::Violated { rule, reason, .. } = &violations[0] {
         assert_eq!(rule, "not_below_zero");
         assert!(reason.contains("2 - 5"));
@@ -464,7 +472,7 @@ proptest! {
     #[test]
     fn prop_trace_records_violations(value in 0..5i32) {
         let engine = make_engine(value, 10);
-        let (engine, _) = engine.next(CounterAction::Decrement { by: value + 1 }).unwrap_err();
+        let EngineError::Violated { engine, .. } = engine.next(CounterAction::Decrement { by: value + 1 }).unwrap_err() else { panic!("expected Violated") };
         prop_assert_eq!(engine.trace().violations(), 1);
     }
 
@@ -472,7 +480,7 @@ proptest! {
     #[test]
     fn prop_violation_has_rule(value in 0..5i32) {
         let engine = make_engine(value, 10);
-        let (_, violations) = engine.next(CounterAction::Decrement { by: value + 1 }).unwrap_err();
+        let EngineError::Violated { violations, .. } = engine.next(CounterAction::Decrement { by: value + 1 }).unwrap_err() else { panic!("expected Violated") };
         for v in &violations {
             prop_assert!(!v.rule().is_empty());
             prop_assert!(!v.reason().is_empty());
@@ -509,7 +517,7 @@ proptest! {
         for _ in 0..n {
             engine = engine.next(CounterAction::Increment { by: 1 }).unwrap();
         }
-        prop_assert_eq!(engine.trace().entries.len(), n);
+        prop_assert_eq!(engine.trace().entries().len(), n);
     }
 
     /// try_next Ok matches next Ok

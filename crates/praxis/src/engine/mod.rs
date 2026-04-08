@@ -5,7 +5,7 @@ mod situation;
 mod trace;
 
 pub use action::Action;
-pub use engine::Engine;
+pub use engine::{Engine, EngineError};
 pub use precondition::{Precondition, PreconditionResult};
 pub use situation::Situation;
 pub use trace::{Trace, TraceEntry};

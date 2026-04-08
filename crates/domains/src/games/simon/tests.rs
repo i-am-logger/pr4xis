@@ -323,6 +323,6 @@ fn engine_back_forward() {
 fn engine_trace() {
     let e = new_simon(42);
     let e = e.try_next(SimonAction::StartInput).unwrap();
-    assert_eq!(e.trace().entries.len(), 1);
-    assert!(e.trace().entries[0].success);
+    assert_eq!(e.trace().entries().len(), 1);
+    assert!(e.trace().entries()[0].success);
 }

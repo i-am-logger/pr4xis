@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
 
 /// Sudoku: 9x9 grid, digits 1-9, no repeats in row/col/box.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,10 +137,10 @@ impl Precondition<Place> for SudokuRules {
     }
 }
 
-fn apply_sudoku(s: &State, a: &Place) -> State {
+fn apply_sudoku(s: &State, a: &Place) -> Result<State, String> {
     let mut n = s.clone();
     n.grid[a.row][a.col] = a.val;
-    n
+    Ok(n)
 }
 
 pub fn new_puzzle(initial: [[u8; 9]; 9]) -> Engine<Place> {
@@ -293,7 +293,8 @@ mod tests {
                         }
                         e = next;
                     }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
         }

@@ -2,9 +2,9 @@
 
 ## Three-Layer Design
 
-Praxis separates concerns into three layers. Each layer depends only on the layer below it.
+Praxis separates concerns into three layers, all within the `praxis` crate. Each layer depends only on the layer below it.
 
-### Layer 1: rust-category (Mathematics)
+### Layer 1: praxis::category (Mathematics)
 
 Category theory primitives. Pure — no IO, no side effects.
 
@@ -17,7 +17,7 @@ Category theory primitives. Pure — no IO, no side effects.
 
 Validation functions verify category laws (identity, associativity, closure) exhaustively and via property-based testing.
 
-### Layer 2: rust-ontology (Structural Rules)
+### Layer 2: praxis::ontology (Structural Rules)
 
 Defines what things ARE — the static rules of a domain.
 
@@ -28,7 +28,7 @@ Defines what things ARE — the static rules of a domain.
 - `AllOf` / `AnyOf` / `Not` / `Implies` — logical composition
 - `Measurable` / `Compare` / `Threshold` — comparison propositions
 
-### Layer 3: rust-praxis (Runtime Enforcement)
+### Layer 3: praxis::engine (Runtime Enforcement)
 
 Defines how things CHANGE — the dynamic enforcement engine.
 
@@ -41,16 +41,28 @@ Defines how things CHANGE — the dynamic enforcement engine.
 ## Dependency Flow
 
 ```
-rust-category
-    ↓
-rust-ontology (depends on rust-category)
-    ↓
-rust-praxis (depends on rust-ontology, rust-category)
-    ↓
-praxis-* domain crates (depend on all three)
+praxis::category
+    |
+praxis::ontology (uses category)
+    |
+praxis::engine (uses ontology, category)
+    |
+praxis-domains (depends on praxis)
 ```
 
-Domain crates never depend on each other. Each is a standalone enforcement engine for its domain.
+Domain modules never depend on each other. Each is a standalone enforcement engine for its domain.
+
+## Domain Organization
+
+```
+praxis-domains
+├── science/         — math, physics, music, colors, calculator
+├── games/           — chess, rubik, tetris, simon
+└── systems/
+    ├── communication/protocols/ — http
+    ├── transportation/          — elevator, traffic
+    └── government/judicial/     — cases, motions, rulings
+```
 
 ## Engine Lifecycle
 
@@ -58,8 +70,8 @@ Domain crates never depend on each other. Each is a standalone enforcement engin
 1. Create Engine with initial Situation + Preconditions + apply function
 2. Call engine.next(action)
    a. All preconditions checked against current situation + action
-   b. If any violated → Err with violation details, trace records failure
-   c. If all satisfied → apply function produces new situation
+   b. If any violated -> Err with violation details, trace records failure
+   c. If all satisfied -> apply function produces new situation
    d. Previous situation pushed to history stack
    e. Trace records success with all precondition results
 3. Call engine.back() to undo (moves current to redo stack)

@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
 
 /// Missionaries and cannibals. Boat holds 2.
 /// Cannibals can't outnumber missionaries on either bank.
@@ -119,7 +119,7 @@ impl Precondition<Crossing> for ValidCrossing {
 struct SafeResult;
 impl Precondition<Crossing> for SafeResult {
     fn check(&self, s: &State, a: &Crossing) -> PreconditionResult {
-        let next = apply_mc(s, a);
+        let next = apply_mc(s, a).unwrap_or_else(|_| s.clone());
         if next.is_safe() {
             PreconditionResult::satisfied("safe_result", "missionaries safe on both banks")
         } else {
@@ -136,7 +136,7 @@ impl Precondition<Crossing> for SafeResult {
     }
 }
 
-fn apply_mc(s: &State, a: &Crossing) -> State {
+fn apply_mc(s: &State, a: &Crossing) -> Result<State, String> {
     let mut n = s.clone();
     if s.boat_left {
         n.missionaries_left = n.missionaries_left.saturating_sub(a.missionaries);
@@ -146,7 +146,7 @@ fn apply_mc(s: &State, a: &Crossing) -> State {
         n.cannibals_left = (n.cannibals_left + a.cannibals).min(3);
     }
     n.boat_left = !s.boat_left;
-    n
+    Ok(n)
 }
 
 pub fn new_puzzle() -> Engine<Crossing> {
@@ -213,7 +213,8 @@ mod tests {
             for (m, c) in crossings {
                 match e.next(Crossing::new(m, c)) {
                     Ok(next) => { prop_assert!(next.situation().is_safe()); e = next; }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
         }
@@ -229,7 +230,8 @@ mod tests {
                         prop_assert_eq!(s.cannibals_left + s.cannibals_right(), 3);
                         e = next;
                     }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
         }

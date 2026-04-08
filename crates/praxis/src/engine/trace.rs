@@ -14,7 +14,7 @@ pub struct TraceEntry {
 /// A trace of actions applied to situations — full history for debugging.
 #[derive(Debug, Clone, Default)]
 pub struct Trace {
-    pub entries: Vec<TraceEntry>,
+    entries: Vec<TraceEntry>,
 }
 
 impl Trace {
@@ -22,6 +22,11 @@ impl Trace {
         Self {
             entries: Vec::new(),
         }
+    }
+
+    /// All trace entries as a slice.
+    pub fn entries(&self) -> &[TraceEntry] {
+        &self.entries
     }
 
     pub fn record(&mut self, entry: TraceEntry) {

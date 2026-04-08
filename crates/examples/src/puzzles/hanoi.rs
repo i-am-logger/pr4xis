@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
 
 /// Tower of Hanoi: move N disks from peg A to peg C.
 /// Rule: never place a larger disk on a smaller one.
@@ -101,13 +101,13 @@ impl Precondition<Move> for ValidMove {
     }
 }
 
-fn apply_hanoi(state: &State, action: &Move) -> State {
+fn apply_hanoi(state: &State, action: &Move) -> Result<State, String> {
     let mut next = state.clone();
     let disk = next.pegs[action.from]
         .pop()
-        .expect("precondition guarantees non-empty");
+        .ok_or_else(|| "source peg is empty".to_string())?;
     next.pegs[action.to].push(disk);
-    next
+    Ok(next)
 }
 
 pub fn new_puzzle(num_disks: u8) -> Engine<Move> {
@@ -171,7 +171,8 @@ mod tests {
                         }
                         e = next;
                     }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
         }
@@ -188,7 +189,8 @@ mod tests {
                         prop_assert_eq!(count, total);
                         e = next;
                     }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
         }

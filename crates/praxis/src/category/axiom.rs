@@ -1,19 +1,7 @@
 use super::category::Category;
 use super::entity::Entity;
 use super::relationship::Relationship;
-
-/// An axiom is a constraint that must hold for a category to be valid.
-///
-/// Axioms go beyond the basic category laws (identity, associativity) to
-/// express domain-specific invariants. For example: "every mode must have
-/// an exit transition" or "no dead states exist."
-pub trait Axiom<C: Category> {
-    /// Human-readable description of this axiom.
-    fn description(&self) -> &str;
-
-    /// Check whether this axiom holds for the given category.
-    fn holds(&self) -> bool;
-}
+use crate::logic::Axiom;
 
 /// Every object has at least one outgoing morphism (no dead states).
 pub struct NoDeadStates<C: Category> {
@@ -34,7 +22,7 @@ impl<C: Category> Default for NoDeadStates<C> {
     }
 }
 
-impl<C: Category> Axiom<C> for NoDeadStates<C> {
+impl<C: Category> Axiom for NoDeadStates<C> {
     fn description(&self) -> &str {
         "every object has at least one outgoing morphism"
     }
@@ -65,7 +53,7 @@ impl<C: Category> Default for FullyConnected<C> {
     }
 }
 
-impl<C: Category> Axiom<C> for FullyConnected<C> {
+impl<C: Category> Axiom for FullyConnected<C> {
     fn description(&self) -> &str {
         "every object is reachable from every other object"
     }

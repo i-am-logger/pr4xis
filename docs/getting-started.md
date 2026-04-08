@@ -11,19 +11,19 @@ Praxis is a Rust framework for building domains where rules matter. You define y
 
 ## Using an Existing Domain
 
-Praxis ships with domain crates for chess, traffic lights, elevators, music theory, and more. Here is how to use the traffic domain:
+Praxis ships with domains for chess, traffic lights, elevators, music theory, and more. Here is how to use the traffic domain:
 
 Add the dependency:
 
 ```toml
 [dependencies]
-praxis-traffic = { git = "https://github.com/i-am-logger/praxis" }
+praxis-domains = { git = "https://github.com/i-am-logger/praxis" }
 ```
 
 Use it:
 
 ```rust
-use praxis_traffic::engine::{new_intersection, TrafficAction};
+use praxis_domains::systems::transportation::traffic::{new_intersection, TrafficAction};
 
 fn main() {
     // Create a 4-way intersection (green=5, yellow=2, red=3 ticks)
@@ -57,7 +57,7 @@ Add the engine crate:
 
 ```toml
 [dependencies]
-praxis-engine = { git = "https://github.com/i-am-logger/praxis" }
+praxis = { git = "https://github.com/i-am-logger/praxis" }
 ```
 
 ### Step 1: Define Your State
@@ -65,7 +65,7 @@ praxis-engine = { git = "https://github.com/i-am-logger/praxis" }
 A `Situation` is an immutable snapshot of the world. Implement the `Situation` trait for your state type.
 
 ```rust
-use praxis_engine::{Situation, Action, Precondition, PreconditionResult, Engine};
+use praxis::engine::{Situation, Action, Precondition, PreconditionResult, Engine};
 
 #[derive(Debug, Clone, PartialEq)]
 struct VendingMachine {
@@ -262,13 +262,13 @@ Every action is recorded, whether it succeeded or not. The trace tells you exact
 ```rust
     // Print the full trace
     println!("{}", engine.trace().dump());
-    // [OK] insert 100c | balance=0c, 3 items available, 0 dispensed → balance=100c, 3 items available, 0 dispensed
+    // [OK] insert 100c | balance=0c, 3 items available, 0 dispensed -> balance=100c, 3 items available, 0 dispensed
     //   + sufficient_funds: balance covers cost
     //   + item_exists: item is in stock
     //   + valid_coin: coin is accepted
-    // [OK] insert 25c | balance=100c, 3 items available, 0 dispensed → balance=125c, 3 items available, 0 dispensed
+    // [OK] insert 25c | balance=100c, 3 items available, 0 dispensed -> balance=125c, 3 items available, 0 dispensed
     //   ...
-    // [OK] select 'Soda' | balance=125c, 3 items available, 0 dispensed → balance=0c, 2 items available, 1 dispensed
+    // [OK] select 'Soda' | balance=125c, 3 items available, 0 dispensed -> balance=0c, 2 items available, 1 dispensed
     //   ...
 
     // You can also inspect programmatically
@@ -331,7 +331,7 @@ The engine keeps a full history. `back()` undoes the last action, `forward()` re
 
 ## Adding Ontology
 
-The engine handles runtime enforcement. If you also want to formally describe your domain's structure -- what things exist, how they relate, and what invariants hold -- you can layer in the ontology crates.
+The engine handles runtime enforcement. If you also want to formally describe your domain's structure -- what things exist, how they relate, and what invariants hold -- you can layer in the ontology modules.
 
 This is optional. Many domains work fine with just the engine. Ontology is useful when you want to verify structural properties at compile time or via tests, separate from runtime behavior.
 
@@ -340,7 +340,7 @@ This is optional. Many domains work fine with just the engine. Ontology is usefu
 An `Entity` is something that exists in your domain. It must be finite and enumerable.
 
 ```rust
-use praxis_category::Entity;
+use praxis::category::Entity;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum ItemType { Soda, Chips, Candy }
@@ -357,7 +357,7 @@ impl Entity for ItemType {
 A `Relationship` is a directed connection between entities. It forms the morphisms in your category.
 
 ```rust
-use praxis_category::Relationship;
+use praxis::category::Relationship;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct CheaperThan {
@@ -377,7 +377,7 @@ impl Relationship for CheaperThan {
 A `Category` ties entities and relationships together with identity and composition laws.
 
 ```rust
-use praxis_category::Category;
+use praxis::category::Category;
 
 struct ItemCategory;
 
@@ -416,7 +416,7 @@ impl Category for ItemCategory {
 A `Quality` is a property that an entity can have.
 
 ```rust
-use praxis_ontology::Quality;
+use praxis::ontology::Quality;
 
 #[derive(Debug, Clone)]
 struct PriceInCents;
@@ -440,7 +440,7 @@ impl Quality for PriceInCents {
 An `Axiom` is a domain invariant that must always hold.
 
 ```rust
-use praxis_ontology::Axiom;
+use praxis::ontology::Axiom;
 
 struct AllItemsHavePrices;
 
@@ -462,7 +462,7 @@ You can verify category laws and axioms in tests:
 ```rust
 #[test]
 fn test_category_laws() {
-    praxis_category::validate::check_category_laws::<ItemCategory>().unwrap();
+    praxis::category::validate::check_category_laws::<ItemCategory>().unwrap();
 }
 
 #[test]
@@ -473,6 +473,6 @@ fn test_all_items_priced() {
 
 ## Next Steps
 
-- [architecture.md](architecture.md) -- the three-layer design and how the crates compose
+- [architecture.md](architecture.md) -- the three-layer design and how the modules compose
 - [concepts.md](concepts.md) -- deeper explanation of situations, actions, preconditions, and traces
-- [domain-crates.md](domain-crates.md) -- reference for all built-in domain crates
+- [domain-crates.md](domain-crates.md) -- reference for all built-in domains

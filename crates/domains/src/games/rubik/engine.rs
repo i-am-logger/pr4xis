@@ -31,7 +31,7 @@ impl Action for RubikAction {
 pub struct ColorInvariant;
 
 impl Precondition<RubikAction> for ColorInvariant {
-    fn check(&self, cube: &Cube, _action: &RubikAction) -> PreconditionResult {
+    fn check(&self, cube: &Cube, action: &RubikAction) -> PreconditionResult {
         let counts = cube.color_counts();
         if counts.iter().all(|&c| c == 9) {
             PreconditionResult::satisfied("color_invariant", "9 of each color")
@@ -40,7 +40,7 @@ impl Precondition<RubikAction> for ColorInvariant {
                 "color_invariant",
                 "color counts corrupted",
                 &cube.describe(),
-                &_action.describe(),
+                &action.describe(),
             )
         }
     }
@@ -50,8 +50,8 @@ impl Precondition<RubikAction> for ColorInvariant {
     }
 }
 
-fn apply_rubik(cube: &Cube, action: &RubikAction) -> Cube {
-    cube.apply(action.0)
+fn apply_rubik(cube: &Cube, action: &RubikAction) -> Result<Cube, String> {
+    Ok(cube.apply(action.0))
 }
 
 pub type RubikEngine = Engine<RubikAction>;

@@ -1,7 +1,7 @@
 use crate::category::Category;
+use crate::logic::Axiom;
 
 use super::property::Quality;
-use super::rule::Axiom;
 
 /// An ontology: what exists, how things relate, and what rules govern them.
 ///
@@ -20,7 +20,7 @@ pub trait Ontology {
     type Qual: Quality<Individual = <Self::Cat as Category>::Object>;
 
     /// Axioms that must hold for this ontology to be valid.
-    fn axioms() -> Vec<Box<dyn Axiom<Self::Cat>>>;
+    fn axioms() -> Vec<Box<dyn Axiom>>;
 
     /// Validate the entire ontology: category laws + all axioms.
     fn validate() -> Result<(), Vec<String>>

@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Bank {
@@ -102,7 +102,7 @@ impl Precondition<Crossing> for ItemWithFarmer {
 struct SafeResult;
 impl Precondition<Crossing> for SafeResult {
     fn check(&self, s: &State, a: &Crossing) -> PreconditionResult {
-        let next = apply_crossing(s, a);
+        let next = apply_crossing(s, a).unwrap_or_else(|_| s.clone());
         if next.is_safe() {
             PreconditionResult::satisfied("safe_result", "no one gets eaten")
         } else {
@@ -119,7 +119,7 @@ impl Precondition<Crossing> for SafeResult {
     }
 }
 
-fn apply_crossing(s: &State, a: &Crossing) -> State {
+fn apply_crossing(s: &State, a: &Crossing) -> Result<State, String> {
     let mut n = s.clone();
     let dest = s.farmer.opposite();
     n.farmer = dest;
@@ -129,7 +129,7 @@ fn apply_crossing(s: &State, a: &Crossing) -> State {
         Crossing::WithGoat => n.goat = dest,
         Crossing::WithCabbage => n.cabbage = dest,
     }
-    n
+    Ok(n)
 }
 
 pub fn new_puzzle() -> Engine<Crossing> {
@@ -196,7 +196,8 @@ mod tests {
             for c in crossings {
                 match e.next(c) {
                     Ok(next) => { prop_assert!(next.situation().is_safe()); e = next; }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
         }

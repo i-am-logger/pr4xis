@@ -10,10 +10,6 @@
       "release-type": "rust",
       "component": "praxis"
     },
-    "crates/science": {
-      "release-type": "rust",
-      "component": "praxis-science"
-    },
     "crates/domains": {
       "release-type": "rust",
       "component": "praxis-domains"

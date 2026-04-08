@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
 use std::collections::HashSet;
 
 /// Bridges of Königsberg: traverse all edges exactly once.
@@ -153,12 +153,12 @@ impl Precondition<CrossBridge> for ValidCrossing {
     }
 }
 
-fn apply_crossing(s: &State, a: &CrossBridge) -> State {
+fn apply_crossing(s: &State, a: &CrossBridge) -> Result<State, String> {
     let mut n = s.clone();
     let (a_node, b_node) = s.graph.edges[a.edge_index];
     n.position = if a_node == s.position { b_node } else { a_node };
     n.traversed.insert(a.edge_index);
-    n
+    Ok(n)
 }
 
 pub fn new_konigsberg(start: usize) -> Engine<CrossBridge> {
@@ -220,9 +220,10 @@ mod tests {
                     count += 1;
                     e = next;
                 }
-                Err((prev, _)) => {
+                Err(EngineError::Violated { engine: prev, .. }) => {
                     e = prev;
                 }
+                Err(_) => unreachable!(),
             }
         }
         assert!(count < 7);
@@ -274,7 +275,8 @@ mod tests {
                         used.insert(edge);
                         e = next;
                     }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
         }
@@ -287,7 +289,8 @@ mod tests {
             for edge in edges {
                 match e.next(CrossBridge { edge_index: edge }) {
                     Ok(next) => { successes += 1; e = next; }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
             prop_assert_eq!(e.situation().traversed.len(), successes);

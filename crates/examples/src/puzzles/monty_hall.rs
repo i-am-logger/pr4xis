@@ -132,7 +132,7 @@ impl Precondition<MontyAction> for MontyRules {
     }
 }
 
-fn apply_monty(s: &State, a: &MontyAction) -> State {
+fn apply_monty(s: &State, a: &MontyAction) -> Result<State, String> {
     let mut n = s.clone();
     match a {
         MontyAction::ChooseDoor(d) => {
@@ -156,7 +156,7 @@ fn apply_monty(s: &State, a: &MontyAction) -> State {
             n.phase = Phase::Resolved;
         }
     }
-    n
+    Ok(n)
 }
 
 pub fn new_game(car_door: u8) -> Engine<MontyAction> {

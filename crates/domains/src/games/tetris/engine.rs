@@ -46,10 +46,10 @@ impl Precondition<TetrisAction> for GameActive {
     }
 }
 
-fn apply_tetris(game: &Game, action: &TetrisAction) -> Game {
+fn apply_tetris(game: &Game, action: &TetrisAction) -> Result<Game, String> {
     let mut next = game.clone();
     next.act(action.0);
-    next
+    Ok(next)
 }
 
 pub type TetrisEngine = Engine<TetrisAction>;

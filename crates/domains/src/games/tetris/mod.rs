@@ -10,5 +10,5 @@ pub use piece::{Piece, PieceKind, Rotation};
 
 #[cfg(test)]
 mod tests;
-pub use engine::*;
-pub use ontology::*;
+pub(crate) use engine::*;
+pub(crate) use ontology::*;

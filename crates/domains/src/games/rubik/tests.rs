@@ -341,7 +341,7 @@ fn engine_sequence_preserves_invariant() {
     }
     assert_eq!(e.step(), 6);
     // Color invariant holds throughout (precondition checked each step)
-    assert!(e.trace().entries.iter().all(|entry| entry.success));
+    assert!(e.trace().entries().iter().all(|entry| entry.success));
 }
 
 #[test]

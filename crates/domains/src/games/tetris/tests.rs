@@ -382,6 +382,6 @@ fn engine_trace_records() {
     let e = new_tetris(42);
     let e = e.try_next(TetrisAction(GameAction::MoveDown)).unwrap();
     let e = e.try_next(TetrisAction(GameAction::MoveDown)).unwrap();
-    assert_eq!(e.trace().entries.len(), 2);
-    assert!(e.trace().entries.iter().all(|entry| entry.success));
+    assert_eq!(e.trace().entries().len(), 2);
+    assert!(e.trace().entries().iter().all(|entry| entry.success));
 }

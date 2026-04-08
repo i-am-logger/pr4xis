@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
 
 /// Two jugs with different capacities. Measure a target amount.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -54,7 +54,7 @@ impl Action for JugAction {
 struct NoOp;
 impl Precondition<JugAction> for NoOp {
     fn check(&self, s: &State, a: &JugAction) -> PreconditionResult {
-        let next = apply_jug(s, a);
+        let next = apply_jug(s, a).unwrap_or_else(|_| s.clone());
         if next.jug_a == s.jug_a && next.jug_b == s.jug_b {
             PreconditionResult::violated(
                 "no_op",
@@ -71,7 +71,7 @@ impl Precondition<JugAction> for NoOp {
     }
 }
 
-fn apply_jug(s: &State, a: &JugAction) -> State {
+fn apply_jug(s: &State, a: &JugAction) -> Result<State, String> {
     let mut n = s.clone();
     match a {
         JugAction::FillA => n.jug_a = n.cap_a,
@@ -89,7 +89,7 @@ fn apply_jug(s: &State, a: &JugAction) -> State {
             n.jug_a += pour;
         }
     }
-    n
+    Ok(n)
 }
 
 /// Classic: 3L and 5L jugs, measure 4L.
@@ -158,7 +158,8 @@ mod tests {
                         prop_assert!(next.situation().jug_b <= next.situation().cap_b);
                         e = next;
                     }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
         }
@@ -170,9 +171,9 @@ mod tests {
             s.jug_a = a_start.min(3);
             s.jug_b = b_start.min(5);
             let total = s.jug_a + s.jug_b;
-            let poured = apply_jug(&s, &JugAction::PourAtoB);
+            let poured = apply_jug(&s, &JugAction::PourAtoB).unwrap();
             prop_assert_eq!(poured.jug_a + poured.jug_b, total);
-            let poured = apply_jug(&s, &JugAction::PourBtoA);
+            let poured = apply_jug(&s, &JugAction::PourBtoA).unwrap();
             prop_assert_eq!(poured.jug_a + poured.jug_b, total);
         }
     }

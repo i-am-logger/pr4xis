@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
 
 /// N-Queens: place N queens on NxN board with no attacks.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,10 +92,10 @@ impl Precondition<PlaceQueen> for NoAttack {
     }
 }
 
-fn apply_queen(s: &State, a: &PlaceQueen) -> State {
+fn apply_queen(s: &State, a: &PlaceQueen) -> Result<State, String> {
     let mut n = s.clone();
     n.queens.push(a.col);
-    n
+    Ok(n)
 }
 
 pub fn new_puzzle(n: usize) -> Engine<PlaceQueen> {
@@ -173,7 +173,8 @@ mod tests {
                         }
                         e = next;
                     }
-                    Err((prev, _)) => { e = prev; }
+                    Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
+                    Err(_) => unreachable!()
                 }
             }
         }
