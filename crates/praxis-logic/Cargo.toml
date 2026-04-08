@@ -1,6 +1,6 @@
 [package]
 name = "praxis-logic"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Formal logic: propositional logic, predicates, truth tables, proof rules"

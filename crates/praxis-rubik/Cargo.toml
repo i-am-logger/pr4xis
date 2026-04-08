@@ -1,6 +1,6 @@
 [package]
 name = "praxis-rubik"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Rubik's cube rules enforcement via ontology — guarantees only valid moves, group theory"
