@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["i-am-logger"]
 description = "Category theory primitives — categories, functors, natural transformations, with property-based validation"
 repository = "https://github.com/i-am-logger/praxis"
+homepage = "https://github.com/i-am-logger/praxis"
 license = "CC-BY-NC-SA-4.0"
 keywords = ["category-theory", "mathematics", "formal-methods"]
 categories = ["data-structures", "mathematics"]

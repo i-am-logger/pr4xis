@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["i-am-logger"]
 description = "Rubik's cube rules enforcement via ontology — guarantees only valid moves, group theory"
 repository = "https://github.com/i-am-logger/praxis"
+homepage = "https://github.com/i-am-logger/praxis"
 license = "CC-BY-NC-SA-4.0"
 keywords = ["rubik", "ontology", "group-theory", "enforcement"]
 

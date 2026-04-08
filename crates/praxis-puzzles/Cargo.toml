@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["i-am-logger"]
 description = "Classic logic puzzles with rule enforcement — river crossing, Tower of Hanoi, water jugs, missionaries, Monty Hall"
 repository = "https://github.com/i-am-logger/praxis"
+homepage = "https://github.com/i-am-logger/praxis"
 license = "CC-BY-NC-SA-4.0"
 keywords = ["puzzles", "logic", "ontology", "enforcement"]
 

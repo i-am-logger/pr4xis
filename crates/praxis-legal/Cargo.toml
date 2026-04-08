@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["i-am-logger"]
 description = "Legal ontology and case lifecycle enforcement — evidence, authority, claims, motions, rulings"
 repository = "https://github.com/i-am-logger/praxis"
+homepage = "https://github.com/i-am-logger/praxis"
 license = "CC-BY-NC-SA-4.0"
 keywords = ["legal", "ontology", "enforcement", "litigation", "case-management"]
 
