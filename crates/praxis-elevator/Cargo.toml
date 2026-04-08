@@ -1,6 +1,6 @@
 [package]
 name = "praxis-elevator"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Elevator dispatch rules enforcement via ontology — optimal multi-elevator scheduling with safety guarantees"
