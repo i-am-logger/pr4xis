@@ -1,6 +1,6 @@
 [package]
 name = "praxis-calculator"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Scientific calculator enforcement — domain constraints, order of operations, unit safety"
@@ -8,10 +8,10 @@ license = "CC-BY-NC-SA-4.0"
 keywords = ["calculator", "math", "ontology", "enforcement"]
 
 [dependencies]
-praxis-category = { path = "../praxis-category", version = "0.9.0" }
-praxis-ontology = { path = "../praxis-ontology", version = "0.8.0" }
-praxis-engine = { path = "../praxis-engine", version = "0.8.0" }
-praxis-math = { path = "../praxis-math", version = "0.8.0" }
+praxis-category = { path = "../praxis-category", version = "0.10.0" }
+praxis-ontology = { path = "../praxis-ontology", version = "0.9.0" }
+praxis-engine = { path = "../praxis-engine", version = "0.9.0" }
+praxis-math = { path = "../praxis-math", version = "0.9.0" }
 
 [dev-dependencies]
 proptest = "1.6"
