@@ -1,6 +1,6 @@
 [package]
 name = "praxis-rubik"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Rubik's cube rules enforcement via ontology — guarantees only valid moves, group theory"
@@ -8,9 +8,9 @@ license = "CC-BY-NC-SA-4.0"
 keywords = ["rubik", "ontology", "group-theory", "enforcement"]
 
 [dependencies]
-praxis-category = { path = "../praxis-category", version = "0.7.0" }
-praxis-ontology = { path = "../praxis-ontology", version = "0.6.0" }
-praxis-engine = { path = "../praxis-engine", version = "0.6.0" }
+praxis-category = { path = "../praxis-category", version = "0.8.0" }
+praxis-ontology = { path = "../praxis-ontology", version = "0.7.0" }
+praxis-engine = { path = "../praxis-engine", version = "0.7.0" }
 
 [dev-dependencies]
 proptest = "1.6"

@@ -1,6 +1,6 @@
 [package]
 name = "praxis-ontology"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Define, validate, and enforce domain ontologies — what exists, how things relate, and what rules govern them"
@@ -9,8 +9,8 @@ keywords = ["ontology", "domain-model", "type-system", "formal-methods"]
 categories = ["data-structures", "mathematics"]
 
 [dependencies]
-praxis-category = { path = "../praxis-category", version = "0.7.0" }
-praxis-logic = { path = "../praxis-logic", version = "0.6.0" }
+praxis-category = { path = "../praxis-category", version = "0.8.0" }
+praxis-logic = { path = "../praxis-logic", version = "0.7.0" }
 
 [dev-dependencies]
 proptest = "1.6"
