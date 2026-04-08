@@ -8,8 +8,8 @@ license = "CC-BY-NC-SA-4.0"
 keywords = ["puzzles", "logic", "ontology", "enforcement"]
 
 [dependencies]
-praxis-engine = { path = "../praxis-engine", version = "0.5.0" }
-praxis-math = { path = "../praxis-math", version = "0.5.0" }
+praxis-engine = { path = "../praxis-engine", version = "0.6.0" }
+praxis-math = { path = "../praxis-math", version = "0.6.0" }
 
 [dev-dependencies]
 proptest = "1.6"
