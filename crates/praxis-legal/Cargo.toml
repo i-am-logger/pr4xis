@@ -8,9 +8,9 @@ license = "CC-BY-NC-SA-4.0"
 keywords = ["legal", "ontology", "enforcement", "litigation", "case-management"]
 
 [dependencies]
-praxis-category = { path = "../praxis-category", version = "0.3.0" }
-praxis-ontology = { path = "../praxis-ontology", version = "0.2.2" }
-praxis-engine = { path = "../praxis-engine", version = "0.2.2" }
+praxis-category.workspace = true
+praxis-ontology.workspace = true
+praxis-engine.workspace = true
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 
