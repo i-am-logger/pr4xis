@@ -1,6 +1,6 @@
 [package]
 name = "praxis-logic"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Formal logic: propositional logic, predicates, truth tables, proof rules"
@@ -9,7 +9,7 @@ homepage = "https://github.com/i-am-logger/praxis"
 license = "CC-BY-NC-SA-4.0"
 
 [dependencies]
-praxis-category = { path = "../praxis-category", version = "0.11.0" }
+praxis-category = { path = "../praxis-category", version = "0.12.0" }
 
 [dev-dependencies]
 proptest = "1.6"

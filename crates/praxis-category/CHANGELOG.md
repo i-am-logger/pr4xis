@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.0](https://github.com/i-am-logger/praxis/compare/praxis-category-v0.11.0...praxis-category-v0.12.0) (2026-04-08)
+
+
+### Features
+
+* initial commit ([6829c19](https://github.com/i-am-logger/praxis/commit/6829c198a47ef9471bcbaf30748cab29833219c7))
+
+
+### Bug Fixes
+
+* add homepage metadata to all crates ([93dcfb6](https://github.com/i-am-logger/praxis/commit/93dcfb677d3a463def6909e9ae1aac0c7c15bcfe))
+* add repository field to praxis-category ([c3348e3](https://github.com/i-am-logger/praxis/commit/c3348e3ffa15f786102c66b4a391b0681912903d))
+* align inter-crate dependency versions to 0.2.1 ([7d8e9a4](https://github.com/i-am-logger/praxis/commit/7d8e9a46b497aa26a3ce155769ec1f9515b54a82))
+
 ## [0.11.0](https://github.com/i-am-logger/praxis/compare/praxis-category-v0.10.0...praxis-category-v0.11.0) (2026-04-08)
 
 
