@@ -1,6 +1,6 @@
 [package]
 name = "praxis-legal"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Legal ontology and case lifecycle enforcement — evidence, authority, claims, motions, rulings"
