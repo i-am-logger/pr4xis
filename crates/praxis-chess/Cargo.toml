@@ -4,6 +4,7 @@ version = "0.9.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Chess rules enforcement via ontology — guarantees no illegal moves"
+repository = "https://github.com/i-am-logger/praxis"
 license = "CC-BY-NC-SA-4.0"
 keywords = ["chess", "ontology", "rules", "enforcement"]
 

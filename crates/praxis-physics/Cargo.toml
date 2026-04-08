@@ -3,6 +3,8 @@ name = "praxis-physics"
 version = "0.9.0"
 edition = "2024"
 authors = ["i-am-logger"]
+description = "Physics enforcement — mechanics, electromagnetism, relativity, quantum uncertainty"
+repository = "https://github.com/i-am-logger/praxis"
 license = "CC-BY-NC-SA-4.0"
 
 [dependencies]
