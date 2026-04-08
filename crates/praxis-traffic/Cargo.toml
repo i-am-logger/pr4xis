@@ -1,6 +1,6 @@
 [package]
 name = "praxis-traffic"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2024"
 authors = ["i-am-logger"]
 license = "CC-BY-NC-SA-4.0"

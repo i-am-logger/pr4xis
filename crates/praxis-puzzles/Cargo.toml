@@ -1,6 +1,6 @@
 [package]
 name = "praxis-puzzles"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Classic logic puzzles with rule enforcement — river crossing, Tower of Hanoi, water jugs, missionaries, Monty Hall"
