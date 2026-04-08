@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/i-am-logger/praxis/compare/praxis-elevator-v0.2.1...praxis-elevator-v0.2.2) (2026-04-08)
+
+
+### Bug Fixes
+
+* align inter-crate dependency versions to 0.2.1 ([7d8e9a4](https://github.com/i-am-logger/praxis/commit/7d8e9a46b497aa26a3ce155769ec1f9515b54a82))
+
 ## [0.2.1](https://github.com/i-am-logger/praxis/compare/praxis-elevator-v0.2.0...praxis-elevator-v0.2.1) (2026-04-07)
 
 
