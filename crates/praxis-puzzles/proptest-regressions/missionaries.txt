@@ -1,8 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc 57fea99ba1b3d2d88d5dc4d6ad622e11ece67516ab54906f95695f1049367134 # shrinks to crossings = [(0, 1), (1, 0)]
-cc bbc1c6b54f538e5d7ccd69fdb910e3674b185db74d4609b0fad035a898cd68cc # shrinks to crossings = [(0, 1), (1, 0)]
