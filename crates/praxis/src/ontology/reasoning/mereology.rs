@@ -1,9 +1,10 @@
-use std::collections::{HashSet, VecDeque};
 use std::marker::PhantomData;
 
 use crate::category::Category;
 use crate::category::entity::Entity;
 use crate::category::relationship::Relationship;
+
+use super::graph;
 
 /// Domains implement this to declare their part-whole relationships.
 ///
@@ -63,50 +64,18 @@ impl<T: MereologyDef> Category for MereologyCategory<T> {
 
     fn morphisms() -> Vec<HasA<T::Entity>> {
         let entities = T::Entity::variants();
-        let direct = T::relations();
-
-        let mut parts_map: std::collections::HashMap<T::Entity, HashSet<T::Entity>> =
-            std::collections::HashMap::new();
-        for (whole, part) in &direct {
-            parts_map
-                .entry(whole.clone())
-                .or_default()
-                .insert(part.clone());
-        }
+        let adj = graph::adjacency_map(&T::relations());
 
         let mut morphisms = Vec::new();
         for entity in &entities {
-            // Identity
-            morphisms.push(HasA {
-                whole: entity.clone(),
-                part: entity.clone(),
-            });
-
-            // Transitive closure
-            let mut visited = HashSet::new();
-            let mut queue = VecDeque::new();
-            if let Some(direct_parts) = parts_map.get(entity) {
-                for p in direct_parts {
-                    if visited.insert(p.clone()) {
-                        queue.push_back(p.clone());
-                    }
-                }
-            }
-            while let Some(current) = queue.pop_front() {
+            morphisms.push(Self::identity(entity));
+            for part in graph::reachable(entity, &adj) {
                 morphisms.push(HasA {
                     whole: entity.clone(),
-                    part: current.clone(),
+                    part,
                 });
-                if let Some(next_parts) = parts_map.get(&current) {
-                    for p in next_parts {
-                        if visited.insert(p.clone()) {
-                            queue.push_back(p.clone());
-                        }
-                    }
-                }
             }
         }
-
         morphisms
     }
 }
@@ -115,66 +84,14 @@ impl<T: MereologyDef> Category for MereologyCategory<T> {
 
 /// All direct and transitive parts of a whole. Does not include the entity itself.
 pub fn parts_of<T: MereologyDef>(whole: &T::Entity) -> Vec<T::Entity> {
-    let direct = T::relations();
-    let mut parts_map: std::collections::HashMap<T::Entity, Vec<T::Entity>> =
-        std::collections::HashMap::new();
-    for (w, p) in &direct {
-        parts_map.entry(w.clone()).or_default().push(p.clone());
-    }
-
-    let mut result = Vec::new();
-    let mut visited = HashSet::new();
-    let mut queue = VecDeque::new();
-    if let Some(direct_parts) = parts_map.get(whole) {
-        for p in direct_parts {
-            if visited.insert(p.clone()) {
-                queue.push_back(p.clone());
-            }
-        }
-    }
-    while let Some(current) = queue.pop_front() {
-        result.push(current.clone());
-        if let Some(next_parts) = parts_map.get(&current) {
-            for p in next_parts {
-                if visited.insert(p.clone()) {
-                    queue.push_back(p.clone());
-                }
-            }
-        }
-    }
-    result
+    let adj = graph::adjacency_map(&T::relations());
+    graph::reachable(whole, &adj)
 }
 
 /// All wholes that transitively contain this part. Does not include the entity itself.
 pub fn whole_of<T: MereologyDef>(part: &T::Entity) -> Vec<T::Entity> {
-    let direct = T::relations();
-    let mut wholes_map: std::collections::HashMap<T::Entity, Vec<T::Entity>> =
-        std::collections::HashMap::new();
-    for (w, p) in &direct {
-        wholes_map.entry(p.clone()).or_default().push(w.clone());
-    }
-
-    let mut result = Vec::new();
-    let mut visited = HashSet::new();
-    let mut queue = VecDeque::new();
-    if let Some(direct_wholes) = wholes_map.get(part) {
-        for w in direct_wholes {
-            if visited.insert(w.clone()) {
-                queue.push_back(w.clone());
-            }
-        }
-    }
-    while let Some(current) = queue.pop_front() {
-        result.push(current.clone());
-        if let Some(next_wholes) = wholes_map.get(&current) {
-            for w in next_wholes {
-                if visited.insert(w.clone()) {
-                    queue.push_back(w.clone());
-                }
-            }
-        }
-    }
-    result
+    let adj = graph::reverse_adjacency_map(&T::relations());
+    graph::reachable(part, &adj)
 }
 
 // ---- Axioms ----
@@ -204,40 +121,10 @@ impl<T: MereologyDef> crate::logic::Axiom for NoCycles<T> {
     }
 
     fn holds(&self) -> bool {
-        let direct = T::relations();
-        let mut parts_map: std::collections::HashMap<T::Entity, Vec<T::Entity>> =
-            std::collections::HashMap::new();
-        for (whole, part) in &direct {
-            parts_map
-                .entry(whole.clone())
-                .or_default()
-                .push(part.clone());
-        }
-
-        for entity in T::Entity::variants() {
-            let mut visited = HashSet::new();
-            let mut queue = VecDeque::new();
-            if let Some(direct_parts) = parts_map.get(&entity) {
-                for p in direct_parts {
-                    if visited.insert(p.clone()) {
-                        queue.push_back(p.clone());
-                    }
-                }
-            }
-            while let Some(current) = queue.pop_front() {
-                if current == entity {
-                    return false;
-                }
-                if let Some(next_parts) = parts_map.get(&current) {
-                    for p in next_parts {
-                        if visited.insert(p.clone()) {
-                            queue.push_back(p.clone());
-                        }
-                    }
-                }
-            }
-        }
-        true
+        let adj = graph::adjacency_map(&T::relations());
+        T::Entity::variants()
+            .iter()
+            .all(|entity| !graph::has_cycle(entity, &adj))
     }
 }
 
@@ -268,22 +155,16 @@ impl<T: MereologyDef> crate::logic::Axiom for WeakSupplementation<T> {
 
     fn holds(&self) -> bool {
         let direct = T::relations();
-        let mut parts_map: std::collections::HashMap<T::Entity, Vec<T::Entity>> =
-            std::collections::HashMap::new();
-        for (whole, part) in &direct {
-            if whole != part {
-                parts_map
-                    .entry(whole.clone())
-                    .or_default()
-                    .push(part.clone());
-            }
+        let adj = graph::adjacency_map(
+            &direct
+                .iter()
+                .filter(|(w, p)| w != p)
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+        if adj.is_empty() {
+            return false;
         }
-
-        for parts in parts_map.values() {
-            if parts.len() < 2 {
-                return false;
-            }
-        }
-        true
+        adj.values().all(|parts| parts.len() >= 2)
     }
 }
