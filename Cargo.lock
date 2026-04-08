@@ -286,7 +286,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-calculator"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -297,14 +297,14 @@ dependencies = [
 
 [[package]]
 name = "praxis-category"
-version = "0.2.1"
+version = "0.8.0"
 dependencies = [
  "proptest",
 ]
 
 [[package]]
 name = "praxis-chess"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -314,7 +314,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-colors"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -324,7 +324,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-elevator"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -334,7 +334,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-engine"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-ontology",
@@ -343,7 +343,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-http"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -353,7 +353,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-legal"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "praxis-category",
@@ -365,7 +365,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-logic"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "proptest",
@@ -373,7 +373,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-math"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -383,7 +383,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-music"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -393,7 +393,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-ontology"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-logic",
@@ -402,7 +402,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-physics"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -413,7 +413,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-puzzles"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-engine",
  "praxis-math",
@@ -422,7 +422,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-rubik"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -432,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-simon"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-tetris"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",
@@ -452,7 +452,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-traffic"
-version = "0.2.1"
+version = "0.7.0"
 dependencies = [
  "praxis-category",
  "praxis-engine",

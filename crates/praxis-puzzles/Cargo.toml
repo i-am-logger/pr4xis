@@ -1,6 +1,6 @@
 [package]
 name = "praxis-puzzles"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Classic logic puzzles with rule enforcement — river crossing, Tower of Hanoi, water jugs, missionaries, Monty Hall"
@@ -8,8 +8,8 @@ license = "CC-BY-NC-SA-4.0"
 keywords = ["puzzles", "logic", "ontology", "enforcement"]
 
 [dependencies]
-praxis-engine = { path = "../praxis-engine", version = "0.6.0" }
-praxis-math = { path = "../praxis-math", version = "0.6.0" }
+praxis-engine = { path = "../praxis-engine", version = "0.7.0" }
+praxis-math = { path = "../praxis-math", version = "0.7.0" }
 
 [dev-dependencies]
 proptest = "1.6"
