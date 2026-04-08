@@ -22,8 +22,8 @@ members = [
 ]
 
 [workspace.dependencies]
-praxis-category = { path = "crates/praxis-category", version = "0.3.0" }
-praxis-logic = { path = "crates/praxis-logic", version = "0.2.2" }
-praxis-ontology = { path = "crates/praxis-ontology", version = "0.2.2" }
-praxis-engine = { path = "crates/praxis-engine", version = "0.2.2" }
-praxis-math = { path = "crates/praxis-math", version = "0.2.2" }
+praxis-category = { path = "crates/praxis-category" }
+praxis-logic = { path = "crates/praxis-logic" }
+praxis-ontology = { path = "crates/praxis-ontology" }
+praxis-engine = { path = "crates/praxis-engine" }
+praxis-math = { path = "crates/praxis-math" }
