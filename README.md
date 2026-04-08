@@ -7,6 +7,37 @@ Axiomatic intelligence. Provably correct reasoning by traversing and composing o
 
 1198 proofs across physics, chess, music theory, and more execute in under a second on a single core.
 
+## Architecture
+
+Praxis has four layers. Each layer depends only on the layers below it.
+
+```mermaid
+graph BT
+    E[praxis-domains] --> D[praxis::engine]
+    D --> C[praxis::ontology]
+    C --> B[praxis::category]
+    B --> A[praxis::logic]
+
+    A:::logic
+    B:::category
+    C:::ontology
+    D:::engine
+    E:::domains
+
+    classDef logic fill:#4a90d9,color:#fff
+    classDef category fill:#7b68ee,color:#fff
+    classDef ontology fill:#e67e22,color:#fff
+    classDef engine fill:#27ae60,color:#fff
+    classDef domains fill:#95a5a6,color:#fff
+```
+
+| Layer | Module | Purpose |
+|---|---|---|
+| **Logic** | `praxis::logic` | Axioms, propositions, truth tables — the logical foundation |
+| **Category** | `praxis::category` | Entity, Relationship, Category, Functor, Morphism — the mathematics |
+| **Ontology** | `praxis::ontology` | Ontology, Quality, Reasoning (taxonomy, causation, mereology, analogy) — what things ARE and how they relate |
+| **Engine** | `praxis::engine` | Situation, Action, Precondition, Engine, Trace — how things CHANGE |
+
 ## Quick Start
 
 ```rust

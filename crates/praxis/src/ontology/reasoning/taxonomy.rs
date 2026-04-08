@@ -1,10 +1,11 @@
-use std::collections::{HashSet, VecDeque};
 use std::marker::PhantomData;
 
 use crate::category::Category;
 use crate::category::entity::Entity;
 use crate::category::relationship::Relationship;
 use crate::ontology::Quality;
+
+use super::graph;
 
 /// Domains implement this to declare their is-a taxonomy.
 ///
@@ -64,50 +65,18 @@ impl<T: TaxonomyDef> Category for TaxonomyCategory<T> {
 
     fn morphisms() -> Vec<IsA<T::Entity>> {
         let entities = T::Entity::variants();
-        let direct = T::relations();
-
-        let mut parents_of: std::collections::HashMap<T::Entity, HashSet<T::Entity>> =
-            std::collections::HashMap::new();
-        for (child, parent) in &direct {
-            parents_of
-                .entry(child.clone())
-                .or_default()
-                .insert(parent.clone());
-        }
+        let adj = graph::adjacency_map(&T::relations());
 
         let mut morphisms = Vec::new();
         for entity in &entities {
-            // Identity
-            morphisms.push(IsA {
-                child: entity.clone(),
-                parent: entity.clone(),
-            });
-
-            // Transitive closure via BFS
-            let mut visited = HashSet::new();
-            let mut queue = VecDeque::new();
-            if let Some(direct_parents) = parents_of.get(entity) {
-                for p in direct_parents {
-                    if visited.insert(p.clone()) {
-                        queue.push_back(p.clone());
-                    }
-                }
-            }
-            while let Some(current) = queue.pop_front() {
+            morphisms.push(Self::identity(entity));
+            for ancestor in graph::reachable(entity, &adj) {
                 morphisms.push(IsA {
                     child: entity.clone(),
-                    parent: current.clone(),
+                    parent: ancestor,
                 });
-                if let Some(next_parents) = parents_of.get(&current) {
-                    for p in next_parents {
-                        if visited.insert(p.clone()) {
-                            queue.push_back(p.clone());
-                        }
-                    }
-                }
             }
         }
-
         morphisms
     }
 }
@@ -124,72 +93,14 @@ pub fn is_a<T: TaxonomyDef>(child: &T::Entity, ancestor: &T::Entity) -> bool {
 
 /// All ancestors of an entity (transitive). Does not include the entity itself.
 pub fn ancestors<T: TaxonomyDef>(entity: &T::Entity) -> Vec<T::Entity> {
-    let direct = T::relations();
-    let mut parents_of: std::collections::HashMap<T::Entity, Vec<T::Entity>> =
-        std::collections::HashMap::new();
-    for (child, parent) in &direct {
-        parents_of
-            .entry(child.clone())
-            .or_default()
-            .push(parent.clone());
-    }
-
-    let mut result = Vec::new();
-    let mut visited = HashSet::new();
-    let mut queue = VecDeque::new();
-    if let Some(direct_parents) = parents_of.get(entity) {
-        for p in direct_parents {
-            if visited.insert(p.clone()) {
-                queue.push_back(p.clone());
-            }
-        }
-    }
-    while let Some(current) = queue.pop_front() {
-        result.push(current.clone());
-        if let Some(next_parents) = parents_of.get(&current) {
-            for p in next_parents {
-                if visited.insert(p.clone()) {
-                    queue.push_back(p.clone());
-                }
-            }
-        }
-    }
-    result
+    let adj = graph::adjacency_map(&T::relations());
+    graph::reachable(entity, &adj)
 }
 
 /// All descendants of an entity (transitive). Does not include the entity itself.
 pub fn descendants<T: TaxonomyDef>(entity: &T::Entity) -> Vec<T::Entity> {
-    let direct = T::relations();
-    let mut children_of: std::collections::HashMap<T::Entity, Vec<T::Entity>> =
-        std::collections::HashMap::new();
-    for (child, parent) in &direct {
-        children_of
-            .entry(parent.clone())
-            .or_default()
-            .push(child.clone());
-    }
-
-    let mut result = Vec::new();
-    let mut visited = HashSet::new();
-    let mut queue = VecDeque::new();
-    if let Some(direct_children) = children_of.get(entity) {
-        for c in direct_children {
-            if visited.insert(c.clone()) {
-                queue.push_back(c.clone());
-            }
-        }
-    }
-    while let Some(current) = queue.pop_front() {
-        result.push(current.clone());
-        if let Some(next_children) = children_of.get(&current) {
-            for c in next_children {
-                if visited.insert(c.clone()) {
-                    queue.push_back(c.clone());
-                }
-            }
-        }
-    }
-    result
+    let adj = graph::reverse_adjacency_map(&T::relations());
+    graph::reachable(entity, &adj)
 }
 
 /// Inherit a quality from an ancestor: if the entity doesn't have the quality directly,
@@ -237,40 +148,10 @@ impl<T: TaxonomyDef> crate::logic::Axiom for NoCycles<T> {
     }
 
     fn holds(&self) -> bool {
-        let direct = T::relations();
-        let mut parents_of: std::collections::HashMap<T::Entity, Vec<T::Entity>> =
-            std::collections::HashMap::new();
-        for (child, parent) in &direct {
-            parents_of
-                .entry(child.clone())
-                .or_default()
-                .push(parent.clone());
-        }
-
-        for entity in T::Entity::variants() {
-            let mut visited = HashSet::new();
-            let mut queue = VecDeque::new();
-            if let Some(direct_parents) = parents_of.get(&entity) {
-                for p in direct_parents {
-                    if visited.insert(p.clone()) {
-                        queue.push_back(p.clone());
-                    }
-                }
-            }
-            while let Some(current) = queue.pop_front() {
-                if current == entity {
-                    return false;
-                }
-                if let Some(next_parents) = parents_of.get(&current) {
-                    for p in next_parents {
-                        if visited.insert(p.clone()) {
-                            queue.push_back(p.clone());
-                        }
-                    }
-                }
-            }
-        }
-        true
+        let adj = graph::adjacency_map(&T::relations());
+        T::Entity::variants()
+            .iter()
+            .all(|entity| !graph::has_cycle(entity, &adj))
     }
 }
 

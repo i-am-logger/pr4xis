@@ -7,7 +7,10 @@ use crate::ontology::Quality;
 
 use super::analogy::Analogy;
 use super::causation::{self, Asymmetric, CausalCategory, CausalDef, NoSelfCausation};
+use super::context::{self, ContextDef};
+use super::equivalence::{self, EquivalenceCategory, EquivalenceDef};
 use super::mereology::{self, MereologyCategory, MereologyDef, WeakSupplementation};
+use super::opposition::{self, OppositionDef};
 use super::taxonomy::{self, Antisymmetric, TaxonomyCategory, TaxonomyDef};
 
 // =============================================================================
@@ -648,6 +651,20 @@ mod prop {
         ]
     }
 
+    fn arb_word() -> impl Strategy<Value = Word> {
+        prop_oneof![
+            Just(Word::Big),
+            Just(Word::Large),
+            Just(Word::Huge),
+            Just(Word::Small),
+            Just(Word::Tiny),
+            Just(Word::Hot),
+            Just(Word::Cold),
+            Just(Word::Warm),
+            Just(Word::Cool),
+        ]
+    }
+
     proptest! {
         /// Taxonomy is reflexive: everything is-a itself.
         #[test]
@@ -724,5 +741,397 @@ mod prop {
             let result = taxonomy::inherit_quality::<AnimalTaxonomy, _>(&animal, &IsAlive);
             prop_assert_eq!(result, Some(true));
         }
+
+        /// Equivalence is reflexive.
+        #[test]
+        fn prop_equivalence_reflexive(word in arb_word()) {
+            prop_assert!(equivalence::are_equivalent::<WordSynonyms>(&word, &word));
+        }
+
+        /// Equivalence is symmetric.
+        #[test]
+        fn prop_equivalence_symmetric(a in arb_word(), b in arb_word()) {
+            if equivalence::are_equivalent::<WordSynonyms>(&a, &b) {
+                prop_assert!(equivalence::are_equivalent::<WordSynonyms>(&b, &a));
+            }
+        }
+
+        /// Equivalence is transitive.
+        #[test]
+        fn prop_equivalence_transitive(a in arb_word(), b in arb_word(), c in arb_word()) {
+            if equivalence::are_equivalent::<WordSynonyms>(&a, &b)
+                && equivalence::are_equivalent::<WordSynonyms>(&b, &c)
+            {
+                prop_assert!(equivalence::are_equivalent::<WordSynonyms>(&a, &c));
+            }
+        }
+
+        /// Opposition is symmetric.
+        #[test]
+        fn prop_opposition_symmetric(a in arb_word(), b in arb_word()) {
+            if opposition::are_opposed::<WordAntonyms>(&a, &b) {
+                prop_assert!(opposition::are_opposed::<WordAntonyms>(&b, &a));
+            }
+        }
+
+        /// Opposites are never equivalent.
+        #[test]
+        fn prop_opposites_not_equivalent(a in arb_word(), b in arb_word()) {
+            if opposition::are_opposed::<WordAntonyms>(&a, &b) {
+                prop_assert!(!equivalence::are_equivalent::<WordSynonyms>(&a, &b));
+            }
+        }
     }
+}
+
+// =============================================================================
+// Example domains: word semantics
+// =============================================================================
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Word {
+    Big,
+    Large,
+    Huge,
+    Small,
+    Tiny,
+    Hot,
+    Cold,
+    Warm,
+    Cool,
+}
+
+impl Entity for Word {
+    fn variants() -> Vec<Self> {
+        vec![
+            Word::Big,
+            Word::Large,
+            Word::Huge,
+            Word::Small,
+            Word::Tiny,
+            Word::Hot,
+            Word::Cold,
+            Word::Warm,
+            Word::Cool,
+        ]
+    }
+}
+
+struct WordSynonyms;
+
+impl EquivalenceDef for WordSynonyms {
+    type Entity = Word;
+    fn pairs() -> Vec<(Word, Word)> {
+        vec![
+            (Word::Big, Word::Large),
+            (Word::Large, Word::Huge), // transitive: Big ≡ Huge
+            (Word::Small, Word::Tiny),
+        ]
+    }
+}
+
+struct WordAntonyms;
+
+impl OppositionDef for WordAntonyms {
+    type Entity = Word;
+    fn pairs() -> Vec<(Word, Word)> {
+        vec![
+            (Word::Big, Word::Small),
+            (Word::Hot, Word::Cold),
+            (Word::Warm, Word::Cool),
+        ]
+    }
+}
+
+// ---- Disambiguation example ----
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum AmbiguousWord {
+    Bank,
+    Bat,
+    Spring,
+}
+
+impl Entity for AmbiguousWord {
+    fn variants() -> Vec<Self> {
+        vec![
+            AmbiguousWord::Bank,
+            AmbiguousWord::Bat,
+            AmbiguousWord::Spring,
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum ContextSignal {
+    Money,
+    River,
+    Sports,
+    Animal,
+    Season,
+    Water,
+}
+
+impl Entity for ContextSignal {
+    fn variants() -> Vec<Self> {
+        vec![
+            ContextSignal::Money,
+            ContextSignal::River,
+            ContextSignal::Sports,
+            ContextSignal::Animal,
+            ContextSignal::Season,
+            ContextSignal::Water,
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Meaning {
+    FinancialInstitution,
+    Riverbank,
+    BaseballBat,
+    FlyingMammal,
+    SpringSeason,
+    WaterSpring,
+}
+
+impl Entity for Meaning {
+    fn variants() -> Vec<Self> {
+        vec![
+            Meaning::FinancialInstitution,
+            Meaning::Riverbank,
+            Meaning::BaseballBat,
+            Meaning::FlyingMammal,
+            Meaning::SpringSeason,
+            Meaning::WaterSpring,
+        ]
+    }
+}
+
+struct WordContext;
+
+impl ContextDef for WordContext {
+    type Entity = AmbiguousWord;
+    type Signal = ContextSignal;
+    type Resolution = Meaning;
+
+    fn resolutions() -> Vec<(AmbiguousWord, ContextSignal, Meaning)> {
+        vec![
+            (
+                AmbiguousWord::Bank,
+                ContextSignal::Money,
+                Meaning::FinancialInstitution,
+            ),
+            (
+                AmbiguousWord::Bank,
+                ContextSignal::River,
+                Meaning::Riverbank,
+            ),
+            (
+                AmbiguousWord::Bat,
+                ContextSignal::Sports,
+                Meaning::BaseballBat,
+            ),
+            (
+                AmbiguousWord::Bat,
+                ContextSignal::Animal,
+                Meaning::FlyingMammal,
+            ),
+            (
+                AmbiguousWord::Spring,
+                ContextSignal::Season,
+                Meaning::SpringSeason,
+            ),
+            (
+                AmbiguousWord::Spring,
+                ContextSignal::Water,
+                Meaning::WaterSpring,
+            ),
+        ]
+    }
+}
+
+// =============================================================================
+// Equivalence tests
+// =============================================================================
+
+#[test]
+fn equivalence_category_laws() {
+    check_category_laws::<EquivalenceCategory<WordSynonyms>>().unwrap();
+}
+
+#[test]
+fn equivalence_direct() {
+    assert!(equivalence::are_equivalent::<WordSynonyms>(
+        &Word::Big,
+        &Word::Large
+    ));
+}
+
+#[test]
+fn equivalence_transitive() {
+    // Big ≡ Huge (via Big ≡ Large ≡ Huge)
+    assert!(equivalence::are_equivalent::<WordSynonyms>(
+        &Word::Big,
+        &Word::Huge
+    ));
+}
+
+#[test]
+fn equivalence_symmetric() {
+    assert!(equivalence::are_equivalent::<WordSynonyms>(
+        &Word::Large,
+        &Word::Big
+    ));
+}
+
+#[test]
+fn equivalence_not_equivalent() {
+    assert!(!equivalence::are_equivalent::<WordSynonyms>(
+        &Word::Big,
+        &Word::Small
+    ));
+}
+
+#[test]
+fn equivalence_class_big() {
+    let class = equivalence::equivalence_class::<WordSynonyms>(&Word::Big);
+    assert!(class.contains(&Word::Big));
+    assert!(class.contains(&Word::Large));
+    assert!(class.contains(&Word::Huge));
+    assert_eq!(class.len(), 3);
+}
+
+#[test]
+fn equivalence_all_classes() {
+    let classes = equivalence::all_classes::<WordSynonyms>();
+    // {Big, Large, Huge}, {Small, Tiny}, {Hot}, {Cold}, {Warm}, {Cool}
+    assert_eq!(classes.len(), 6);
+}
+
+#[test]
+fn equivalence_symmetric_axiom() {
+    let axiom = equivalence::Symmetric::<WordSynonyms>::new();
+    assert!(axiom.holds());
+}
+
+#[test]
+fn equivalence_no_self_equivalence_axiom() {
+    let axiom = equivalence::NoSelfEquivalence::<WordSynonyms>::new();
+    assert!(axiom.holds());
+}
+
+// =============================================================================
+// Opposition tests
+// =============================================================================
+
+#[test]
+fn opposition_direct() {
+    assert!(opposition::are_opposed::<WordAntonyms>(
+        &Word::Big,
+        &Word::Small
+    ));
+    assert!(opposition::are_opposed::<WordAntonyms>(
+        &Word::Hot,
+        &Word::Cold
+    ));
+}
+
+#[test]
+fn opposition_symmetric() {
+    assert!(opposition::are_opposed::<WordAntonyms>(
+        &Word::Small,
+        &Word::Big
+    ));
+}
+
+#[test]
+fn opposition_not_opposed() {
+    assert!(!opposition::are_opposed::<WordAntonyms>(
+        &Word::Big,
+        &Word::Hot
+    ));
+}
+
+#[test]
+fn opposition_irreflexive() {
+    let axiom = opposition::Irreflexive::<WordAntonyms>::new();
+    assert!(axiom.holds());
+}
+
+#[test]
+fn opposition_symmetric_axiom() {
+    let axiom = opposition::Symmetric::<WordAntonyms>::new();
+    assert!(axiom.holds());
+}
+
+#[test]
+fn opposition_exclusive_with_equivalence() {
+    let axiom = opposition::ExclusiveWithEquivalence::<WordAntonyms, _>::new(|a, b| {
+        equivalence::are_equivalent::<WordSynonyms>(a, b)
+    });
+    assert!(axiom.holds());
+}
+
+#[test]
+fn opposition_not_transitive() {
+    // Big opposes Small, Small opposes Big — but Big does NOT oppose Big
+    // This verifies opposition is not transitive
+    assert!(opposition::are_opposed::<WordAntonyms>(
+        &Word::Big,
+        &Word::Small
+    ));
+    assert!(!opposition::are_opposed::<WordAntonyms>(
+        &Word::Big,
+        &Word::Big
+    ));
+}
+
+// =============================================================================
+// Context tests
+// =============================================================================
+
+#[test]
+fn context_resolve_bank_money() {
+    let result = context::resolve::<WordContext>(&AmbiguousWord::Bank, &ContextSignal::Money);
+    assert_eq!(result, Some(Meaning::FinancialInstitution));
+}
+
+#[test]
+fn context_resolve_bank_river() {
+    let result = context::resolve::<WordContext>(&AmbiguousWord::Bank, &ContextSignal::River);
+    assert_eq!(result, Some(Meaning::Riverbank));
+}
+
+#[test]
+fn context_resolve_no_signal() {
+    // Bank + Sports → None (no resolution defined)
+    let result = context::resolve::<WordContext>(&AmbiguousWord::Bank, &ContextSignal::Sports);
+    assert_eq!(result, None);
+}
+
+#[test]
+fn context_interpretations() {
+    let interps = context::interpretations::<WordContext>(&AmbiguousWord::Bank);
+    assert_eq!(interps.len(), 2);
+}
+
+#[test]
+fn context_ambiguous_entities() {
+    let ambiguous = context::ambiguous_entities::<WordContext>();
+    assert!(ambiguous.contains(&AmbiguousWord::Bank));
+    assert!(ambiguous.contains(&AmbiguousWord::Bat));
+    assert!(ambiguous.contains(&AmbiguousWord::Spring));
+}
+
+#[test]
+fn context_deterministic_axiom() {
+    let axiom = context::Deterministic::<WordContext>::new();
+    assert!(axiom.holds());
+}
+
+#[test]
+fn context_true_ambiguity_axiom() {
+    let axiom = context::TrueAmbiguity::<WordContext>::new();
+    assert!(axiom.holds());
 }

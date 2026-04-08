@@ -53,7 +53,6 @@ pub fn is_satisfiable(connective: Connective) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::Entity;
 
     #[test]
     fn test_and_truth_table() {

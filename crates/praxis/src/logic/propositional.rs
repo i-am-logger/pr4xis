@@ -1,10 +1,9 @@
-/// Propositional logic as an ontology:
-/// - Entities: logical connectives (AND, OR, NOT, IMPLIES, IFF, XOR)
-/// - Axioms: De Morgan's, double negation, modus ponens, etc.
+/// Propositional logic:
+/// - Connectives: AND, OR, NOT, IMPLIES, IFF, XOR, NAND, NOR
+/// - Laws: De Morgan's, double negation, modus ponens, etc.
 /// - Proven via exhaustive truth table evaluation
-use crate::category::Entity;
 
-/// Logical connectives as entities.
+/// Logical connectives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Connective {
     And,
@@ -17,8 +16,9 @@ pub enum Connective {
     Nor,
 }
 
-impl Entity for Connective {
-    fn variants() -> Vec<Self> {
+impl Connective {
+    /// All connective variants.
+    pub fn variants() -> Vec<Self> {
         vec![
             Connective::And,
             Connective::Or,
@@ -30,9 +30,7 @@ impl Entity for Connective {
             Connective::Nor,
         ]
     }
-}
 
-impl Connective {
     /// Evaluate the connective for given inputs.
     pub fn eval(&self, a: bool, b: bool) -> bool {
         match self {

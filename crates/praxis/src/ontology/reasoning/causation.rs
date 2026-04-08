@@ -1,9 +1,10 @@
-use std::collections::{HashSet, VecDeque};
 use std::marker::PhantomData;
 
 use crate::category::Category;
 use crate::category::entity::Entity;
 use crate::category::relationship::Relationship;
+
+use super::graph;
 
 /// Domains implement this to declare their causal relationships.
 ///
@@ -63,50 +64,18 @@ impl<T: CausalDef> Category for CausalCategory<T> {
 
     fn morphisms() -> Vec<Causes<T::Entity>> {
         let entities = T::Entity::variants();
-        let direct = T::relations();
-
-        let mut effects_map: std::collections::HashMap<T::Entity, HashSet<T::Entity>> =
-            std::collections::HashMap::new();
-        for (cause, effect) in &direct {
-            effects_map
-                .entry(cause.clone())
-                .or_default()
-                .insert(effect.clone());
-        }
+        let adj = graph::adjacency_map(&T::relations());
 
         let mut morphisms = Vec::new();
         for entity in &entities {
-            // Identity
-            morphisms.push(Causes {
-                cause: entity.clone(),
-                effect: entity.clone(),
-            });
-
-            // Transitive closure
-            let mut visited = HashSet::new();
-            let mut queue = VecDeque::new();
-            if let Some(direct_effects) = effects_map.get(entity) {
-                for e in direct_effects {
-                    if visited.insert(e.clone()) {
-                        queue.push_back(e.clone());
-                    }
-                }
-            }
-            while let Some(current) = queue.pop_front() {
+            morphisms.push(Self::identity(entity));
+            for effect in graph::reachable(entity, &adj) {
                 morphisms.push(Causes {
                     cause: entity.clone(),
-                    effect: current.clone(),
+                    effect,
                 });
-                if let Some(next_effects) = effects_map.get(&current) {
-                    for e in next_effects {
-                        if visited.insert(e.clone()) {
-                            queue.push_back(e.clone());
-                        }
-                    }
-                }
             }
         }
-
         morphisms
     }
 }
@@ -115,66 +84,14 @@ impl<T: CausalDef> Category for CausalCategory<T> {
 
 /// All direct and transitive effects of a cause. Does not include the entity itself.
 pub fn effects_of<T: CausalDef>(cause: &T::Entity) -> Vec<T::Entity> {
-    let direct = T::relations();
-    let mut effects_map: std::collections::HashMap<T::Entity, Vec<T::Entity>> =
-        std::collections::HashMap::new();
-    for (c, e) in &direct {
-        effects_map.entry(c.clone()).or_default().push(e.clone());
-    }
-
-    let mut result = Vec::new();
-    let mut visited = HashSet::new();
-    let mut queue = VecDeque::new();
-    if let Some(direct_effects) = effects_map.get(cause) {
-        for e in direct_effects {
-            if visited.insert(e.clone()) {
-                queue.push_back(e.clone());
-            }
-        }
-    }
-    while let Some(current) = queue.pop_front() {
-        result.push(current.clone());
-        if let Some(next_effects) = effects_map.get(&current) {
-            for e in next_effects {
-                if visited.insert(e.clone()) {
-                    queue.push_back(e.clone());
-                }
-            }
-        }
-    }
-    result
+    let adj = graph::adjacency_map(&T::relations());
+    graph::reachable(cause, &adj)
 }
 
 /// All direct and transitive causes of an effect. Does not include the entity itself.
 pub fn causes_of<T: CausalDef>(effect: &T::Entity) -> Vec<T::Entity> {
-    let direct = T::relations();
-    let mut causes_map: std::collections::HashMap<T::Entity, Vec<T::Entity>> =
-        std::collections::HashMap::new();
-    for (c, e) in &direct {
-        causes_map.entry(e.clone()).or_default().push(c.clone());
-    }
-
-    let mut result = Vec::new();
-    let mut visited = HashSet::new();
-    let mut queue = VecDeque::new();
-    if let Some(direct_causes) = causes_map.get(effect) {
-        for c in direct_causes {
-            if visited.insert(c.clone()) {
-                queue.push_back(c.clone());
-            }
-        }
-    }
-    while let Some(current) = queue.pop_front() {
-        result.push(current.clone());
-        if let Some(next_causes) = causes_map.get(&current) {
-            for c in next_causes {
-                if visited.insert(c.clone()) {
-                    queue.push_back(c.clone());
-                }
-            }
-        }
-    }
-    result
+    let adj = graph::reverse_adjacency_map(&T::relations());
+    graph::reachable(effect, &adj)
 }
 
 // ---- Axioms ----
@@ -239,7 +156,6 @@ impl<T: CausalDef> crate::logic::Axiom for NoSelfCausation<T> {
     }
 
     fn holds(&self) -> bool {
-        let direct = T::relations();
-        direct.iter().all(|(cause, effect)| cause != effect)
+        T::relations().iter().all(|(cause, effect)| cause != effect)
     }
 }
