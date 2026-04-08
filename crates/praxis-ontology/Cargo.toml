@@ -9,8 +9,8 @@ keywords = ["ontology", "domain-model", "type-system", "formal-methods"]
 categories = ["data-structures", "mathematics"]
 
 [dependencies]
-praxis-category = { path = "../praxis-category", version = "0.2.1" }
-praxis-logic = { path = "../praxis-logic", version = "0.2.1" }
+praxis-category = { path = "../praxis-category", version = "0.3.0" }
+praxis-logic = { path = "../praxis-logic", version = "0.2.2" }
 
 [dev-dependencies]
 proptest = "1.6"

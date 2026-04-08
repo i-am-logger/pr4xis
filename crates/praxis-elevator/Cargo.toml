@@ -8,9 +8,9 @@ license = "CC-BY-NC-SA-4.0"
 keywords = ["elevator", "ontology", "scheduling", "dispatch", "enforcement"]
 
 [dependencies]
-praxis-category = { path = "../praxis-category", version = "0.2.1" }
-praxis-ontology = { path = "../praxis-ontology", version = "0.2.1" }
-praxis-engine = { path = "../praxis-engine", version = "0.2.1" }
+praxis-category = { path = "../praxis-category", version = "0.3.0" }
+praxis-ontology = { path = "../praxis-ontology", version = "0.2.2" }
+praxis-engine = { path = "../praxis-engine", version = "0.2.2" }
 
 [dev-dependencies]
 proptest = "1.6"
