@@ -1,82 +1,22 @@
 {
-  "packages": {
-    "crates/praxis-category": {
-      "release-type": "rust",
-      "component": "praxis-category"
-    },
-    "crates/praxis-logic": {
-      "release-type": "rust",
-      "component": "praxis-logic"
-    },
-    "crates/praxis-ontology": {
-      "release-type": "rust",
-      "component": "praxis-ontology"
-    },
-    "crates/praxis-engine": {
-      "release-type": "rust",
-      "component": "praxis-engine"
-    },
-    "crates/praxis-chess": {
-      "release-type": "rust",
-      "component": "praxis-chess"
-    },
-    "crates/praxis-calculator": {
-      "release-type": "rust",
-      "component": "praxis-calculator"
-    },
-    "crates/praxis-rubik": {
-      "release-type": "rust",
-      "component": "praxis-rubik"
-    },
-    "crates/praxis-elevator": {
-      "release-type": "rust",
-      "component": "praxis-elevator"
-    },
-    "crates/praxis-traffic": {
-      "release-type": "rust",
-      "component": "praxis-traffic"
-    },
-    "crates/praxis-tetris": {
-      "release-type": "rust",
-      "component": "praxis-tetris"
-    },
-    "crates/praxis-simon": {
-      "release-type": "rust",
-      "component": "praxis-simon"
-    },
-    "crates/praxis-http": {
-      "release-type": "rust",
-      "component": "praxis-http"
-    },
-    "crates/praxis-music": {
-      "release-type": "rust",
-      "component": "praxis-music"
-    },
-    "crates/praxis-colors": {
-      "release-type": "rust",
-      "component": "praxis-colors"
-    },
-    "crates/praxis-legal": {
-      "release-type": "rust",
-      "component": "praxis-legal"
-    },
-    "crates/praxis-puzzles": {
-      "release-type": "rust",
-      "component": "praxis-puzzles"
-    },
-    "crates/praxis-math": {
-      "release-type": "rust",
-      "component": "praxis-math"
-    },
-    "crates/praxis-physics": {
-      "release-type": "rust",
-      "component": "praxis-physics"
-    }
-  },
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": false,
   "include-component-in-tag": true,
   "pull-request-title-pattern": "release: ${version}",
-  "plugins": ["cargo-workspace"]
+  "plugins": ["cargo-workspace"],
+  "packages": {
+    "crates/praxis": {
+      "release-type": "rust",
+      "component": "praxis"
+    },
+    "crates/science": {
+      "release-type": "rust",
+      "component": "praxis-science"
+    },
+    "crates/domains": {
+      "release-type": "rust",
+      "component": "praxis-domains"
+    }
+  }
 }

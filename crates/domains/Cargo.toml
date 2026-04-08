@@ -1,0 +1,18 @@
+[package]
+name = "praxis-domains"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Applied domains — chess, calculator, elevator, legal, traffic, HTTP, games"
+license = "CC-BY-NC-SA-4.0"
+repository = "https://github.com/i-am-logger/praxis"
+homepage = "https://github.com/i-am-logger/praxis"
+
+[dependencies]
+praxis = { path = "../praxis" }
+praxis-science = { path = "../science" }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1.6"
