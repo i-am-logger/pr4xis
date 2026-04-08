@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/i-am-logger/praxis/compare/praxis-ontology-v0.5.0...praxis-ontology-v0.5.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* use path+version deps (release-please compatible) and native cargo publish ([a9fd7aa](https://github.com/i-am-logger/praxis/commit/a9fd7aa3be6268943002b013a0eda71c15ca2b7a))
+
 ## [0.5.0](https://github.com/i-am-logger/praxis/compare/praxis-ontology-v0.4.0...praxis-ontology-v0.5.0) (2026-04-08)
 
 
