@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["i-am-logger"]
 description = "Define, validate, and enforce domain ontologies — what exists, how things relate, and what rules govern them"
 repository = "https://github.com/i-am-logger/praxis"
+homepage = "https://github.com/i-am-logger/praxis"
 license = "CC-BY-NC-SA-4.0"
 keywords = ["ontology", "domain-model", "type-system", "formal-methods"]
 categories = ["data-structures", "mathematics"]

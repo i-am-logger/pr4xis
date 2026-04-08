@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["i-am-logger"]
 description = "Elevator dispatch rules enforcement via ontology — optimal multi-elevator scheduling with safety guarantees"
 repository = "https://github.com/i-am-logger/praxis"
+homepage = "https://github.com/i-am-logger/praxis"
 license = "CC-BY-NC-SA-4.0"
 keywords = ["elevator", "ontology", "scheduling", "dispatch", "enforcement"]
 
