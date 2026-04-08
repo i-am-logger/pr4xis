@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.11.0](https://github.com/i-am-logger/praxis/compare/praxis-colors-v0.10.0...praxis-colors-v0.11.0) (2026-04-08)
+
+
+### Features
+
+* initial commit ([6829c19](https://github.com/i-am-logger/praxis/commit/6829c198a47ef9471bcbaf30748cab29833219c7))
+
+
+### Bug Fixes
+
+* add homepage metadata to all crates ([93dcfb6](https://github.com/i-am-logger/praxis/commit/93dcfb677d3a463def6909e9ae1aac0c7c15bcfe))
+* add repository and description metadata to all crates ([9ba6816](https://github.com/i-am-logger/praxis/commit/9ba68166ca4eddda55dd8b7733c066f58c2d4f0a))
+* add version to inter-crate deps + fix CI publish output ([7429567](https://github.com/i-am-logger/praxis/commit/742956728f64fbd745f1f01fb8cdf4cb0a0474e1))
+* align dep versions with current crate versions (last manual fix) ([e48a2b8](https://github.com/i-am-logger/praxis/commit/e48a2b8712cdc96641a4fdab996001ee3b72dce2))
+* align inter-crate dep versions with release (category 0.3.0, others 0.2.2) ([cf3605e](https://github.com/i-am-logger/praxis/commit/cf3605e51d53a6d7c7443f6e5b01a8afdaba6bf0))
+* align inter-crate dependency versions to 0.2.1 ([7d8e9a4](https://github.com/i-am-logger/praxis/commit/7d8e9a46b497aa26a3ce155769ec1f9515b54a82))
+* use path+version deps (release-please compatible) and native cargo publish ([a9fd7aa](https://github.com/i-am-logger/praxis/commit/a9fd7aa3be6268943002b013a0eda71c15ca2b7a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * praxis-category bumped from 0.11.0 to 0.12.0
+    * praxis-ontology bumped from 0.10.0 to 0.11.0
+    * praxis-engine bumped from 0.10.0 to 0.11.0
+
 ## [0.10.0](https://github.com/i-am-logger/praxis/compare/praxis-colors-v0.9.0...praxis-colors-v0.10.0) (2026-04-08)
 
 
