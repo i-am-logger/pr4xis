@@ -247,6 +247,7 @@ proptest! {
 // =============================================================================
 
 use crate::engine::*;
+use praxis_engine::Precondition;
 
 #[test]
 fn engine_transpose_in_scale() {
@@ -305,4 +306,225 @@ fn engine_clear_scale_allows_any() {
     // Now C# should be allowed (no scale)
     let e = e.try_next(MusicAction::Transpose { semitones: 1 }).unwrap();
     assert_eq!(e.situation().note, Note(61));
+}
+
+// =============================================================================
+// Note::distance_to tests
+// =============================================================================
+
+#[test]
+fn test_distance_to_same_note() {
+    assert_eq!(Note::C4.distance_to(Note::C4), 0);
+}
+
+#[test]
+fn test_distance_to_ascending() {
+    // C4 to G4 = 7 semitones
+    assert_eq!(Note::C4.distance_to(Note::G4), 7);
+    // C4 to E4 = 4 semitones (major third)
+    assert_eq!(Note::C4.distance_to(Note::E4), 4);
+}
+
+#[test]
+fn test_distance_to_descending() {
+    // G4 to C4 = -7 semitones
+    assert_eq!(Note::G4.distance_to(Note::C4), -7);
+}
+
+#[test]
+fn test_distance_to_octave() {
+    assert_eq!(Note::C4.distance_to(Note(72)), 12); // C4 to C5
+    assert_eq!(Note(72).distance_to(Note::C4), -12); // C5 to C4
+}
+
+#[test]
+fn test_distance_to_extremes() {
+    assert_eq!(Note(0).distance_to(Note(127)), 127);
+    assert_eq!(Note(127).distance_to(Note(0)), -127);
+}
+
+// =============================================================================
+// Interval::name tests
+// =============================================================================
+
+#[test]
+fn test_interval_name_all_twelve() {
+    assert_eq!(Interval::UNISON.name(), "unison/octave");
+    assert_eq!(Interval::MINOR_SECOND.name(), "minor 2nd");
+    assert_eq!(Interval::MAJOR_SECOND.name(), "major 2nd");
+    assert_eq!(Interval::MINOR_THIRD.name(), "minor 3rd");
+    assert_eq!(Interval::MAJOR_THIRD.name(), "major 3rd");
+    assert_eq!(Interval::PERFECT_FOURTH.name(), "perfect 4th");
+    assert_eq!(Interval::TRITONE.name(), "tritone");
+    assert_eq!(Interval::PERFECT_FIFTH.name(), "perfect 5th");
+    assert_eq!(Interval::MINOR_SIXTH.name(), "minor 6th");
+    assert_eq!(Interval::MAJOR_SIXTH.name(), "major 6th");
+    assert_eq!(Interval::MINOR_SEVENTH.name(), "minor 7th");
+    assert_eq!(Interval::MAJOR_SEVENTH.name(), "major 7th");
+}
+
+#[test]
+fn test_interval_name_octave() {
+    // Octave (12) should map to 12 % 12 = 0, same as unison
+    assert_eq!(Interval::OCTAVE.name(), "unison/octave");
+}
+
+#[test]
+fn test_interval_name_wraps_beyond_octave() {
+    // 13 semitones = minor 2nd an octave up
+    assert_eq!(Interval(13).name(), "minor 2nd");
+    // 24 semitones = two octaves, maps to unison/octave
+    assert_eq!(Interval(24).name(), "unison/octave");
+}
+
+// =============================================================================
+// Chord::note_count tests
+// =============================================================================
+
+#[test]
+fn test_chord_note_count_triads() {
+    assert_eq!(Chord::new(Note::C4, ChordKind::Major).note_count(), 3);
+    assert_eq!(Chord::new(Note::C4, ChordKind::Minor).note_count(), 3);
+    assert_eq!(Chord::new(Note::C4, ChordKind::Diminished).note_count(), 3);
+    assert_eq!(Chord::new(Note::C4, ChordKind::Augmented).note_count(), 3);
+    assert_eq!(Chord::new(Note::C4, ChordKind::Sus2).note_count(), 3);
+    assert_eq!(Chord::new(Note::C4, ChordKind::Sus4).note_count(), 3);
+}
+
+#[test]
+fn test_chord_note_count_sevenths() {
+    assert_eq!(Chord::new(Note::C4, ChordKind::Major7).note_count(), 4);
+    assert_eq!(Chord::new(Note::C4, ChordKind::Minor7).note_count(), 4);
+    assert_eq!(Chord::new(Note::C4, ChordKind::Dominant7).note_count(), 4);
+    assert_eq!(Chord::new(Note::C4, ChordKind::Diminished7).note_count(), 4);
+}
+
+// =============================================================================
+// Chord::name tests
+// =============================================================================
+
+#[test]
+fn test_chord_name_all_kinds() {
+    let root = Note::C4;
+    assert_eq!(Chord::new(root, ChordKind::Major).name(), "C");
+    assert_eq!(Chord::new(root, ChordKind::Minor).name(), "Cm");
+    assert_eq!(Chord::new(root, ChordKind::Diminished).name(), "Cdim");
+    assert_eq!(Chord::new(root, ChordKind::Augmented).name(), "Caug");
+    assert_eq!(Chord::new(root, ChordKind::Major7).name(), "Cmaj7");
+    assert_eq!(Chord::new(root, ChordKind::Minor7).name(), "Cm7");
+    assert_eq!(Chord::new(root, ChordKind::Dominant7).name(), "C7");
+    assert_eq!(Chord::new(root, ChordKind::Diminished7).name(), "Cdim7");
+    assert_eq!(Chord::new(root, ChordKind::Sus2).name(), "Csus2");
+    assert_eq!(Chord::new(root, ChordKind::Sus4).name(), "Csus4");
+}
+
+#[test]
+fn test_chord_name_with_sharp_root() {
+    let fsharp = Note(66); // F#4
+    assert_eq!(Chord::new(fsharp, ChordKind::Minor).name(), "F#m");
+    assert_eq!(Chord::new(fsharp, ChordKind::Major7).name(), "F#maj7");
+}
+
+#[test]
+fn test_chord_name_various_roots() {
+    assert_eq!(Chord::new(Note::A4, ChordKind::Minor).name(), "Am");
+    assert_eq!(Chord::new(Note::G4, ChordKind::Dominant7).name(), "G7");
+    assert_eq!(Chord::new(Note::D4, ChordKind::Sus4).name(), "Dsus4");
+    assert_eq!(Chord::new(Note::E4, ChordKind::Augmented).name(), "Eaug");
+    assert_eq!(Chord::new(Note::B4, ChordKind::Diminished).name(), "Bdim");
+}
+
+// =============================================================================
+// Scale::degree_count tests
+// =============================================================================
+
+#[test]
+fn test_scale_degree_count_seven_note_scales() {
+    let root = Note::C4;
+    assert_eq!(Scale::new(root, ScaleKind::Major).degree_count(), 7);
+    assert_eq!(Scale::new(root, ScaleKind::NaturalMinor).degree_count(), 7);
+    assert_eq!(Scale::new(root, ScaleKind::HarmonicMinor).degree_count(), 7);
+    assert_eq!(Scale::new(root, ScaleKind::MelodicMinor).degree_count(), 7);
+    assert_eq!(Scale::new(root, ScaleKind::Dorian).degree_count(), 7);
+    assert_eq!(Scale::new(root, ScaleKind::Phrygian).degree_count(), 7);
+    assert_eq!(Scale::new(root, ScaleKind::Lydian).degree_count(), 7);
+    assert_eq!(Scale::new(root, ScaleKind::Mixolydian).degree_count(), 7);
+}
+
+#[test]
+fn test_scale_degree_count_pentatonic() {
+    assert_eq!(
+        Scale::new(Note::C4, ScaleKind::Pentatonic).degree_count(),
+        5
+    );
+}
+
+#[test]
+fn test_scale_degree_count_blues() {
+    assert_eq!(Scale::new(Note::C4, ScaleKind::Blues).degree_count(), 6);
+}
+
+#[test]
+fn test_scale_degree_count_chromatic() {
+    assert_eq!(
+        Scale::new(Note::C4, ScaleKind::Chromatic).degree_count(),
+        12
+    );
+}
+
+#[test]
+fn test_scale_degree_count_whole_tone() {
+    assert_eq!(Scale::new(Note::C4, ScaleKind::WholeTone).degree_count(), 6);
+}
+
+// =============================================================================
+// ScaleEnforcement::describe and RangeCheck::describe tests
+// =============================================================================
+
+#[test]
+fn test_scale_enforcement_describe() {
+    let precondition = ScaleEnforcement;
+    assert_eq!(
+        precondition.describe(),
+        "notes must be in the current scale (if set)"
+    );
+}
+
+#[test]
+fn test_range_check_describe() {
+    let precondition = RangeCheck;
+    assert_eq!(
+        precondition.describe(),
+        "notes must be within MIDI range 0-127"
+    );
+}
+
+// =============================================================================
+// Additional engine tests for MoveTo action paths
+// =============================================================================
+
+#[test]
+fn engine_move_to_in_scale() {
+    let e = new_music(Note(60));
+    let e = e
+        .try_next(MusicAction::SetScale {
+            kind: ScaleKind::Major,
+        })
+        .unwrap();
+    // Move to E4 (64), which is in C Major
+    let e = e.try_next(MusicAction::MoveTo { note: Note::E4 }).unwrap();
+    assert_eq!(e.situation().note, Note::E4);
+}
+
+#[test]
+fn engine_move_to_outside_scale_rejected() {
+    let e = new_music(Note(60));
+    let e = e
+        .try_next(MusicAction::SetScale {
+            kind: ScaleKind::Major,
+        })
+        .unwrap();
+    // Move to C#4 (61), which is NOT in C Major
+    let result = e.try_next(MusicAction::MoveTo { note: Note(61) });
+    assert!(result.is_err());
 }

@@ -14,3 +14,6 @@ pub use functor::Functor;
 pub use morphism::{Morphism, compose_all, direct_morphisms};
 pub use relationship::Relationship;
 pub use transformation::NaturalTransformation;
+
+#[cfg(test)]
+mod tests;
