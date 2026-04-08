@@ -20,10 +20,3 @@ members = [
     "crates/praxis-math",
     "crates/praxis-physics",
 ]
-
-[workspace.dependencies]
-praxis-category = { path = "crates/praxis-category" }
-praxis-logic = { path = "crates/praxis-logic" }
-praxis-ontology = { path = "crates/praxis-ontology" }
-praxis-engine = { path = "crates/praxis-engine" }
-praxis-math = { path = "crates/praxis-math" }

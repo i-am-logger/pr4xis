@@ -94,9 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: cargo-bins/cargo-binstall@main
-      - run: cargo binstall cargo-workspaces --no-confirm
       - name: Publish all crates
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo workspaces publish --from-git --publish-interval 10 --token "$CARGO_REGISTRY_TOKEN"
+        run: cargo publish --workspace
