@@ -314,4 +314,63 @@ mod tests {
     fn test_screen_dual_of_multiply() {
         assert!(ScreenDualOfMultiply.holds());
     }
+
+    // ── Property-based tests ──
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_luminance_bounded(r in 0u8..=255, g in 0u8..=255, b in 0u8..=255) {
+            let color = Rgb::new(r, g, b);
+            let l = relative_luminance(&color);
+            prop_assert!(l >= 0.0 && l <= 1.0, "luminance({:?}) = {} not in [0,1]", color, l);
+        }
+
+        #[test]
+        fn prop_contrast_ratio_bounded(
+            r1 in 0u8..=255, g1 in 0u8..=255, b1 in 0u8..=255,
+            r2 in 0u8..=255, g2 in 0u8..=255, b2 in 0u8..=255,
+        ) {
+            let a = Rgb::new(r1, g1, b1);
+            let b = Rgb::new(r2, g2, b2);
+            let cr = contrast_ratio(&a, &b);
+            prop_assert!(cr >= 1.0 && cr <= 21.1, "contrast({:?}, {:?}) = {}", a, b, cr);
+        }
+
+        #[test]
+        fn prop_contrast_symmetric(
+            r1 in 0u8..=255, g1 in 0u8..=255, b1 in 0u8..=255,
+            r2 in 0u8..=255, g2 in 0u8..=255, b2 in 0u8..=255,
+        ) {
+            let a = Rgb::new(r1, g1, b1);
+            let b = Rgb::new(r2, g2, b2);
+            prop_assert!((contrast_ratio(&a, &b) - contrast_ratio(&b, &a)).abs() < 1e-10);
+        }
+
+        #[test]
+        fn prop_contrast_identity(r in 0u8..=255, g in 0u8..=255, b in 0u8..=255) {
+            let color = Rgb::new(r, g, b);
+            let cr = contrast_ratio(&color, &color);
+            prop_assert!((cr - 1.0).abs() < 0.01, "contrast with self should be 1.0, got {}", cr);
+        }
+
+        #[test]
+        fn prop_luminance_monotone_gray(a in 0u8..=255, b in 0u8..=255) {
+            // For grayscale: brighter channel → higher luminance
+            let ca = Rgb::new(a, a, a);
+            let cb = Rgb::new(b, b, b);
+            if a <= b {
+                prop_assert!(relative_luminance(&ca) <= relative_luminance(&cb) + 1e-10);
+            }
+        }
+
+        #[test]
+        fn prop_dark_light_partition(r in 0u8..=255, g in 0u8..=255, b in 0u8..=255) {
+            // Every color is either dark or not dark (complete partition)
+            let color = Rgb::new(r, g, b);
+            let dark = is_dark(&color);
+            let l = relative_luminance(&color);
+            prop_assert_eq!(dark, l < 0.5);
+        }
+    }
 }

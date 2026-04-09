@@ -178,6 +178,45 @@ fn tokenize_and_reduce_adjective() {
 }
 
 // =============================================================================
+// Copula + adjective tests
+// =============================================================================
+
+#[test]
+fn a_dog_is_big() {
+    // a:NP/N + dog:N + is:(NP\S)/NP + big:N/N
+    // The copula takes a predicate NP — but adjective is N/N.
+    // For "is big", we need the adjective to combine with a silent N to form NP,
+    // or we need copula to take N/N as predicate.
+    // In Lambek grammar, "is" as copula: (NP\S)/NP, "big" needs to be NP.
+    // This is a known limitation — adjective predicates need special handling.
+    // For now test the tokenizer assigns correct types:
+    let tokens = tokenize::tokenize("a dog is big");
+    assert_eq!(tokens.len(), 4);
+    assert_eq!(tokens[0].lambek_type, english::determiner()); // a
+    assert_eq!(tokens[1].lambek_type, english::noun()); // dog
+    assert_eq!(tokens[2].lambek_type, english::copula()); // is
+    assert_eq!(tokens[3].lambek_type, english::adjective()); // big
+}
+
+#[test]
+fn is_a_dog_a_mammal_question() {
+    // Question formation: is at sentence start → question type
+    let tokens = tokenize::tokenize("is a dog a mammal");
+    assert_eq!(tokens.len(), 5);
+    assert_eq!(tokens[0].lambek_type, english::question_copula()); // is (question)
+    let result = reduce_sequence(&tokens);
+    assert!(result.success, "expected Q, got {:?}", result.remaining);
+    assert_eq!(result.final_type, Some(LambekType::q()));
+}
+
+#[test]
+fn what_is_a_dog() {
+    let tokens = tokenize::tokenize("what is a dog");
+    assert_eq!(tokens.len(), 4);
+    assert_eq!(tokens[0].lambek_type, english::wh_what()); // what
+}
+
+// =============================================================================
 // Type notation tests
 // =============================================================================
 
@@ -199,7 +238,10 @@ mod prop {
 
     fn arb_atomic() -> impl Strategy<Value = AtomicType> {
         prop_oneof![
-            Just(AtomicType::S),
+            Just(AtomicType::S(None)),
+            Just(AtomicType::S(Some(SentenceFeature::Dcl))),
+            Just(AtomicType::S(Some(SentenceFeature::Q))),
+            Just(AtomicType::S(Some(SentenceFeature::Adj))),
             Just(AtomicType::NP),
             Just(AtomicType::N),
             Just(AtomicType::PP),

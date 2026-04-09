@@ -1,10 +1,12 @@
 use super::engine::*;
 use super::phrase::*;
 use crate::science::linguistics::lexicon::pos::*;
-use crate::science::linguistics::lexicon::vocabulary;
+use crate::science::linguistics::lexicon::{function_words, vocabulary};
 
 fn word(text: &str) -> LexicalEntry {
-    vocabulary::lookup(text).unwrap_or_else(|| panic!("word '{}' not in vocabulary", text))
+    function_words::lookup(text)
+        .or_else(|| vocabulary::lookup(text))
+        .unwrap_or_else(|| panic!("word '{}' not in lexicon", text))
 }
 
 // =============================================================================

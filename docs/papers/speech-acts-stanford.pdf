@@ -1,0 +1,2696 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]> <html class="ie6 ie"> <![endif]-->
+<!--[if IE 7]>    <html class="ie7 ie"> <![endif]-->
+<!--[if IE 8]>    <html class="ie8 ie"> <![endif]-->
+<!--[if IE 9]>    <html class="ie9 ie"> <![endif]-->
+<!--[if !IE]> --> <html lang="en"> <!-- <![endif]-->
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>
+Speech Acts (Stanford Encyclopedia of Philosophy)
+</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="robots" content="noarchive, noodp" />
+<meta property="citation_title" content="Speech Acts" />
+<meta property="citation_author" content="Green, Mitchell" />
+<meta property="citation_publication_date" content="2007/07/03" />
+<meta name="DC.title" content="Speech Acts" />
+<meta name="DC.creator" content="Green, Mitchell" />
+<meta name="DCTERMS.issued" content="2007-07-03" />
+<meta name="DCTERMS.modified" content="2020-09-24" />
+
+<!-- NOTE: Import webfonts using this link: -->
+<link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,300,600,200&amp;subset=latin,latin-ext" rel="stylesheet" type="text/css" />
+
+<link rel="stylesheet" type="text/css" media="screen,handheld" href="../../css/bootstrap.min.css" />
+<link rel="stylesheet" type="text/css" media="screen,handheld" href="../../css/bootstrap-responsive.min.css" />
+<link rel="stylesheet" type="text/css" href="../../css/font-awesome.min.css" />
+<!--[if IE 7]> <link rel="stylesheet" type="text/css" href="../../css/font-awesome-ie7.min.css"> <![endif]-->
+<link rel="stylesheet" type="text/css" media="screen,handheld" href="../../css/style.css" />
+<link rel="stylesheet" type="text/css" media="print" href="../../css/print.css" />
+<link rel="stylesheet" type="text/css" href="../../css/entry.css" />
+<!--[if IE]> <link rel="stylesheet" type="text/css" href="../../css/ie.css" /> <![endif]-->
+<script type="text/javascript" src="../../js/jquery-1.9.1.min.js"></script>
+<script type="text/javascript" src="../../js/bootstrap.min.js"></script>
+
+<!-- NOTE: Javascript for sticky behavior needed on article and ToC pages -->
+<script type="text/javascript" src="../../js/jquery-scrolltofixed-min.js"></script>
+<script type="text/javascript" src="../../js/entry.js"></script>
+
+<!-- SEP custom script -->
+<script type="text/javascript" src="../../js/sep.js"></script>
+</head>
+
+<!-- NOTE: The nojs class is removed from the page if javascript is enabled. Otherwise, it drives the display when there is no javascript. -->
+<body class="nojs article" id="pagetopright">
+<div id="container">
+<div id="header-wrapper">
+  <div id="header">
+    <div id="branding">
+      <div id="site-logo"><a href="../../index.html"><img src="../../symbols/sep-man-red.png" alt="SEP home page" /></a></div>
+      <div id="site-title"><a href="../../index.html">Stanford Encyclopedia of Philosophy</a></div>
+    </div>
+    <div id="navigation">
+      <div class="navbar">
+        <div class="navbar-inner">
+          <div class="container">
+            <button class="btn btn-navbar collapsed" data-target=".collapse-main-menu" data-toggle="collapse" type="button"> <i class="icon-reorder"></i> Menu </button>
+            <div class="nav-collapse collapse-main-menu in collapse">
+              <ul class="nav">
+                <li class="dropdown open"><a id="drop1" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"><i class="icon-book"></i> Browse</a>
+                  <ul class="dropdown-menu" role="menu" aria-labelledby="drop1">
+                    <li role="menuitem"><a href="../../contents.html">Table of Contents</a></li>
+                    <li role="menuitem"><a href="../../new.html">What's New</a></li>
+                    <li role="menuitem"><a href="https://plato.stanford.edu/cgi-bin/encyclopedia/random">Random Entry</a></li>
+                    <li role="menuitem"><a href="../../published.html">Chronological</a></li>
+                    <li role="menuitem"><a href="../../archives/">Archives</a></li>
+                  </ul>
+                </li>
+                <li class="dropdown open"><a id="drop2" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"><i class="icon-info-sign"></i> About</a>
+                  <ul class="dropdown-menu" role="menu" aria-labelledby="drop2">
+                    <li role="menuitem"><a href="../../info.html">Editorial Information</a></li>
+                    <li role="menuitem"><a href="../../about.html">About the SEP</a></li>
+                    <li role="menuitem"><a href="../../board.html">Editorial Board</a></li>
+                    <li role="menuitem"><a href="../../cite.html">How to Cite the SEP</a></li>
+                    <li role="menuitem"><a href="../../special-characters.html">Special Characters</a></li>
+                    <li role="menuitem"><a href="../../tools/">Advanced Tools</a></li>
+                    <li role="menuitem"><a href="../../contact.html">Contact</a></li>
+                  </ul>
+                </li>
+                <li class="dropdown open"><a id="drop3" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"><i class="icon-leaf"></i> Support SEP</a>
+                  <ul class="dropdown-menu" role="menu" aria-labelledby="drop3">
+                    <li role="menuitem"><a href="../../support/">Support the SEP</a></li>
+                    <li role="menuitem"><a href="../../support/friends.html">PDFs for SEP Friends</a></li>
+                    <li role="menuitem"><a href="../../support/donate.html">Make a Donation</a></li>
+                    <li role="menuitem"><a href="../../support/sepia.html">SEPIA for Libraries</a></li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End navigation -->
+    
+    <div id="search">
+      <form id="search-form" method="get" action="../../search/searcher.py">
+        <input type="search" name="query" placeholder="Search SEP" />
+        <div class="search-btn-wrapper"><button class="btn search-btn" type="submit" aria-label="search"><i class="icon-search"></i></button></div>
+      </form>
+    </div>
+    <!-- End search --> 
+    
+  </div>
+  <!-- End header --> 
+</div>
+<!-- End header wrapper -->
+
+<div id="content">
+
+<!-- Begin article sidebar -->
+<div id="article-sidebar" class="sticky">
+  <div class="navbar">
+    <div class="navbar-inner">
+      <div class="container">
+        <button class="btn btn-navbar" data-target=".collapse-sidebar" data-toggle="collapse" type="button"> <i class="icon-reorder"></i> Entry Navigation </button>
+        <div id="article-nav" class="nav-collapse collapse-sidebar in collapse">
+          <ul class="nav">
+            <li><a href="#toc">Entry Contents</a></li>
+            <li><a href="#Bib">Bibliography</a></li>
+            <li><a href="#Aca">Academic Tools</a></li>
+            <li><a href="https://leibniz.stanford.edu/friends/preview/speech-acts/">Friends PDF Preview <i class="icon-external-link"></i></a></li>
+            <li><a href="https://plato.stanford.edu/cgi-bin/encyclopedia/archinfo.cgi?entry=speech-acts">Author and Citation Info <i class="icon-external-link"></i></a> </li>
+            <li><a href="#pagetopright" class="back-to-top">Back to Top <i class="icon-angle-up icon2x"></i></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- End article sidebar --> 
+
+<!-- NOTE: Article content must have two wrapper divs: id="article" and id="article-content" -->
+<div id="article">
+<div id="article-content">
+
+<!-- BEGIN ARTICLE HTML -->
+
+
+<div id="aueditable"><!--DO NOT MODIFY THIS LINE AND ABOVE-->
+
+<h1>Speech Acts</h1><div id="pubinfo"><em>First published Tue Jul 3, 2007; substantive revision Thu Sep 24, 2020</em></div>
+
+<div id="preamble">
+
+<p>
+
+We are attuned in everyday conversation not primarily to the sentences
+we utter to one another, but to the speech acts that those utterances
+are used to perform: requests, warnings, invitations, promises,
+apologies, predictions, and the like. Such acts are staples of
+communicative life, but only became a topic of sustained
+investigation, at least in the English-speaking world, in the middle
+of the twentieth 
+century.<sup>[<a href="notes.html#note-1" id="ref-1">1</a>]</sup> 
+Since that time &ldquo;speech act theory&rdquo; has become influential
+not only within philosophy, but also in linguistics, psychology, legal
+theory, artificial intelligence, literary theory, and feminist thought
+among other scholarly 
+ disciplines.<sup>[<a href="notes.html#note-2" id="ref-2">2</a>]</sup> 
+Recognition of the significance of speech
+acts has illuminated the ability of language to do other things than
+describe reality. In the process the boundaries among the philosophy
+of language, the philosophy of action, aesthetics, the philosophy of
+mind, political philosophy, and ethics have become less sharp. In
+addition, an appreciation of speech acts has helped lay bare a
+normative structure implicit in linguistic practice, including even
+that part of this practice concerned with describing reality. Much
+recent research aims at an accurate characterization of this normative
+structure underlying linguistic practice.</p>
+
+</div>
+
+<div id="toc">
+<!--Entry Contents-->
+<ul>
+<li><a href="#Int">1. Introduction</a></li>
+<li><a href="#ConForHowSayMakItSo">2. Content, Force, and How Saying Can Make It So</a>
+   <ul>
+   <li><a href="#IndForCon">2.1 The Independence of Force and Content</a></li>
+   <li><a href="#SayMakItSo">2.2 Can Saying Make it So?</a></li>
+   <li><a href="#ThePer">2.3 Theories of Performativity</a></li>
+   </ul></li>
+<li><a href="#AspIllFor">3. Aspects of Illocutionary Force</a>
+   <ul>
+   <li><a href="#DirFit">3.1 Direction of Fit</a></li>
+   <li><a href="#ConSat">3.2 Conditions of Satisfaction</a></li>
+   <li><a href="#SevComIllFor">3.3 Seven Components of Illocutionary Force</a></li>
+   <li><a href="#DirIndFor">3.4 Direct and Indirect Force</a></li>
+   </ul></li>
+<li><a href="#MooForCon">4. Mood, Force and Convention</a>
+   <ul>
+   <li><a href="#ForCon">4.1 Force Conventionalism</a></li>
+   <li><a href="#BioSpeForCon">4.2 A Biosemantic Species of Force Conventionalism</a></li>
+   <li><a href="#IntAltForCon">4.3 An Intentionalist Alternative to Force Conventionalism</a></li>
+   </ul></li>
+<li><a href="#SpeMeaFor">5. Speaker-Meaning and Force</a>
+   <ul>
+   <li><a href="#GriAccSpeMea">5.1 Grice&rsquo;s Account of Speaker Meaning</a></li>
+   <li><a href="#ObjGriAcc">5.2 Objections to Grice&rsquo;s Account</a></li>
+   <li><a href="#ForAspSpeMea">5.3 Force as an Aspect of Speaker Meaning</a></li>
+   </ul></li>
+<li><a href="#ForNorCon">6. Force, Norms, and Conversation</a>
+   <ul>
+   <li><a href="#SpeActCon">6.1 Speech Acts and Conversations</a></li>
+   <li><a href="#SpeActSco">6.2 Speech Acts and Scorekeeping</a></li>
+   </ul></li>
+<li><a href="#ForIndLogPerLan">7. Force-Indicators and the Logically Perfect Language</a></li>
+<li><a href="#DoSpeActHavLog">8. Do Speech Acts Have a Logic?</a></li>
+<li><a href="#SpeActSocIss">9. Speech Acts and Social Issues</a></li>
+<li><a href="#Bib">Bibliography</a>
+   <ul>
+   <li><a href="#FurRea">Further Reading</a></li>
+   </ul></li>
+<li><a href="#Aca">Academic Tools</a></li>
+<li><a href="#Oth">Other Internet Resources</a></li>
+<li><a href="#Rel">Related Entries</a></li>
+</ul>
+<!--Entry Contents-->
+
+<hr />
+</div>
+
+<div id="main-text">
+
+<h2><a name="Int">1. Introduction</a></h2>
+
+<p>
+
+Bertrand Russell&rsquo;s  <a href="../descriptions/">Theory of Descriptions</a> 
+was a paradigm for many philosophers in the twentieth century. One
+reason for this is that it suggested a way to respond to longstanding
+philosophical problems by showing them to be specious. Russell argued
+that such sentences as &lsquo;The present King of Singapore is
+bald,&rsquo; and, &lsquo;The round square is impossible,&rsquo;
+possess superficial grammatical forms that are misleading as to their
+underlying logical structure. In so doing he showed how such sentences
+can be meaningful without this fact obliging us to posit current
+Singaporean monarchs or round squares. Many philosophers in what came
+to be known as the Ordinary Language movement were inspired by this
+achievement to argue that classic philosophical problems (e.g., of
+free will, the relation of mind to body, truth, the nature of
+knowledge, and of right and wrong) likewise rested on a
+misunderstanding of the language in which these problem are
+couched. In <em>How to Do Things with Words</em>,
+ <a href="../austin-jl/">J.L. Austin</a> for instance writes,</p>
+
+<blockquote>
+&hellip;in recent years, many things which would once have been
+accepted without question as &lsquo;statements&rsquo; by both
+philosophers and grammarians have been scrutinized with new
+care&hellip; It has come to be commonly held that many utterances
+which look like statements are either not intended at all, or only
+intended in part, to record or impart straightforward information
+about the facts&hellip;Along these lines it has by now been shown
+piecemeal, or at least made to look likely, that many traditional
+philosophical perplexities have arisen through a mistake-the mistake
+of taking as straightforward statements of fact utterances which are
+<em><b>either</b></em> (in interesting non-grammatical ways)
+nonsensical or else intended as something quite different. Whatever we
+may think of any particular one of these views and
+suggestions&hellip;it cannot be doubted that they are producing a
+revolution in philosophy. (Austin 1962, pp. 1&ndash;2)
+</blockquote>
+
+<p>
+The Ordinary Language movement, with its broad claim that the meaning
+of an expression should be equated with its use, and its desire to
+transcend traditional philosophical perplexities, did not achieve the
+revolution of which Austin speaks. Nonetheless one of its enduring
+legacies is the notion of a speech act.</p>
+
+<p>
+One way of appreciating the distinctive features of speech acts is in
+contrast with other well-established phenomena within the philosophy
+of language and linguistics. Accordingly in this entry we will
+consider the relations among speech acts and: semantic content,
+grammatical mood, speaker-meaning, logically perfect languages,
+perlocutions,
+performatives, <a href="../presupposition/">presuppositions</a>,
+and <a href="../implicature/">implicature</a>. This will enable us to
+situate speech acts within their ecological niche.</p>
+
+<h2><a name="ConForHowSayMakItSo">2. Content, Force, and How Saying Can Make It So</a></h2>
+
+<p>
+
+Whereas an act of speech is any act of
+uttering<sup>[<a href="notes.html#note-3" id="ref-3">3</a>]</sup>
+meaningful words, &lsquo;speech act&rsquo; is a term of
+art. As a first approximation, speech acts are those acts that can (though need
+not) be performed by saying that one is doing so. On this conception,
+resigning, promising, asserting and asking are all speech acts, while
+convincing, insulting and growing six inches are not. One can, for
+instance, resign by saying, &ldquo;I resign&hellip;&rdquo;, although one
+can also resign from a position without describing oneself as doing
+so. However, this conception is too inclusive, since it also
+counts whispering as a speech act even though one can whisper a string
+of nonsense words without meaning anything. Instead a more accurate
+characterization of speech acts builds on Grice&rsquo;s notion of
+speaker meaning. This notion is discussed further in Section 5 below,
+but for now it is enough to note that in looking at my watch, I might
+be trying to tell the time; or I might be trying to indicate to you
+that it&rsquo;s time for us to leave. The latter (but not the former)
+is a case of speaker meaning.</p>
+
+<p>
+Accordingly, a <em>speech act</em> is a type of act that can be
+performed by speaker meaning that one is doing so. This conception
+still counts resigning, promising, asserting and asking as speech
+acts, while ruling out convincing, insulting and whispering. This
+definition leaves open the possibility of speech acts being performed
+wordlessly, as well as speech acts being performed without saying that
+you are doing so. Our characterization of speech acts captures this
+fact in emphasizing speaker meaning rather than the uttering of any
+words.</p>
+
+<p>
+Speech acts are thus also to be distinguished from
+performatives. &lsquo;Performative&rsquo; is another technical term,
+and as used here it refers in the first instance to a kind of
+sentence. A <em>performative sentence</em> is in the first person,
+present tense, indicative mood, active voice, that describes its
+speaker as performing a speech act. &lsquo;I assert that George is the
+culprit,&rsquo; is a performative sentence by this test. As we have
+seen, one can perform a speech act without uttering a
+performative. Further, since it is merely a type of sentence, one can
+utter a performative without performing a speech act. For instance,
+while talking in my sleep I might say, &ldquo;I hereby promise to
+climb the Eiffel Tower,&rdquo; without thereby making any promise. We
+may also define a <em>performative utterance</em> as an utterance of
+a performative sentence that is also a speech
+act.<sup>[<a href="notes.html#note-4" id="ref-4">4</a>]</sup></p>
+
+<p>
+More nomenclature: &lsquo;Speech act&rsquo; and
+&lsquo;illocution&rsquo; will here be used synonymously. The latter
+term is due to Austin, who used &lsquo;illocutionary force&rsquo; to
+refer to a dimension of communicative acts. (It is nowadays common
+also to use &lsquo;illocute&rsquo; as a verb meaning &lsquo;to perform
+a speech act.&rsquo;) Austin&rsquo;s reason for using
+&lsquo;force&rsquo; begins with the observation that, construed as a
+bit of observable behavior, the communicative significance of an act
+may be underdetermined by what has been said or observably done. I bow
+deeply before you. So far you may not know whether I am paying
+obeisance, responding to indigestion, or looking for a wayward contact
+lens. So too, an utterance of a meaningful sentence (which Austin
+calls a <em>locutionary act</em>) such as &lsquo;You&rsquo;ll be more
+punctual in the future,&rsquo; may leave you wondering whether I am
+making a prediction or issuing a command or even a threat. The
+colloquial question, &ldquo;What is the force of those words?&rdquo;
+is often used to elicit an answer. In asking such a question we
+acknowledge a grasp of those words&rsquo; meaning but seek to know how
+that meaning is to be taken&ndash;as a threat, as a prediction, or as
+a command.</p>
+
+<p>
+Or so it seems. In an early challenge to Austin, Cohen (1964) argues
+that the notion of illocutionary force is otiose provided we already
+have in place the notion of a sentence&rsquo;s meaning (Austin&rsquo;s locutionary
+meaning). Cohen contends that for a performative sentence such as
+&lsquo;I promise to read that novel,&rsquo; its meaning already
+guarantees that it is a promise. On the other hand, for a sentence
+that is not a performative, such as &lsquo;I will read that
+novel,&rsquo; if it is understood as being used to make a promise, the
+promise is still implicit in the sentence&rsquo;s meaning. In either case,
+Cohen concludes, meaning already guarantees force and so we do not
+require an extra-semantic notion to do so.</p>
+
+<p>
+Cohen&rsquo;s reasoning assumes that any utterance of &lsquo;I promise
+to read that novel&rsquo; is a promise. But as we have seen with the
+case of the somniloquist, neither a sentence, nor even the utterance
+of a sentence, is sufficient on its own for the performance of a
+speech act, be it a promise or some other. In a similar spirit to that
+of Cohen, Searle (1968, p. 407) observes that a serious and literal
+utterance of &lsquo;I promise to read that novel,&rsquo; made under
+what he terms &ldquo;conditions of successful utterance&rdquo;, also
+counts as a promise. Searle concludes from this that some locutionary
+acts are also illocutionary acts, and infers from this in turn that
+for some sentences, their locutionary meaning determines their
+illocutionary force. This last inference is, however, a <em>non
+sequitur</em>. As we have seen, the aforementioned sentence&rsquo;s
+meaning does not determine the illocutionary force with which it is
+uttered. Rather, when that sentence is uttered in such a way as to
+constitute a promise, what determines that force is the meaning of the
+sentence <em>together</em> with such factors as the speaker&rsquo;s
+being serious and other contextual conditions being met.</p>
+
+<p>
+We may thus agree with Searle that some locutionary acts are also
+illocutionary acts, without losing sight of our earlier observation
+that locutionary meaning underdetermines illocutionary force. This
+fact about underdetermination is implied by Davidson&rsquo;s Thesis of the
+Autonomy of Linguistic Meaning, according to which once a bit of
+language has acquired a conventional meaning, it can be used for any
+of a variety of extra-linguistic purposes (Davidson, 1979). Green 1997
+argues for a qualification of Davidson&rsquo;s Autonomy Thesis to recognize
+sentences having the feature that if they are used in a speech act
+all, then there is at least one other illocutionary force that their
+utterance must have. Even in light of this qualified version of the
+Autonomy Thesis, the most that can be said of, &lsquo;I promise to
+climb the Eiffel Tower,&rsquo; is that it is designed to be used to
+make promises, just as common nouns are designed to be used to refer
+to things and predicates are designed to characterize things referred
+to. Below (Section 6.3) we shall consider the view that force is a
+component of meaning, albeit not of a sentence&rsquo;s
+meaning.<sup>[<a href="notes.html#note-5" id="ref-5">5</a>]</sup></p>
+
+<h3><a name="IndForCon">2.1 The Independence of Force and Content</a></h3>
+
+<p>
+Let us return, then, to an elucidation of our distinction between what
+a speaker says and the force of her utterance. A grammatical sentence
+composed of meaningful words is commonly thought to express a
+&ldquo;content,&rdquo; which is determined by what that sentence
+literally means together with features of the context of
+utterance. Suppose I say to someone in a crowded subway, &ldquo;You&rsquo;re
+standing on my foot.&rdquo; I am most likely trying to convey the
+message that he should move. However, what I literally say is only
+that the addressee in question is standing on my foot. This is the
+content of my utterance. Many if not most utterances of grammatical
+sentences composed of meaningful words express more than those
+sentences&rsquo; contents. Pragmaticians, however, commonly distinguish
+content from other aspects of meaning conveyed by an utterance. On
+this way of thinking, two intertranslatable sentences of different
+languages will express the same content, and certain transformations
+of a sentence within a language are commonly thought to express the
+same content. Thus, &lsquo;Mary saw John,&rsquo; and &lsquo;John was
+seen by Mary,&rsquo; will express the same content even if a speaker&rsquo;s
+use of one rather than another of these will carry a distinctive
+suggestion. For indicative sentences, such contents are typically
+called <em>Propositions</em>. (In what follows I will capitalize this
+term to signify that it is in part technical.) Propositions, then, are
+the contents of indicative sentences, are what such sentences express,
+and, further, are often thought to be the primary bearers of truth
+value.</p>
+
+<p>
+Illocutionary force and semantic content are often taken to be
+distinct from one another, not just in the way that your left and
+right hand are distinct, but rather by virtue of falling into
+different categories. Stenius 1967 elucidates this distinction, noting
+that in chemical parlance a <em>radical</em> is a group of atoms
+normally incapable of independent existence, whereas a <em>functional
+group</em> is the grouping of those atoms in a compound that is
+responsible for certain of that compound&rsquo;s properties. Analogously, a
+Proposition is itself communicatively inert. For instance, merely
+expressing the Proposition that it is snowing is not to make a move in
+a &ldquo;language game&rdquo;. Rather, such a move is only made by
+putting forth a Proposition with an illocutionary force such as
+assertion, conjecture, command, etc. The chemical analogy gains
+further support from the fact that just as a chemist might isolate
+radicals held in common among various compounds, the student of
+language may isolate a common element held among &lsquo;Is the door
+shut?&rsquo;, &lsquo;Shut the door!&rsquo;, and &lsquo;The door is
+shut&rsquo;. This common element is the Proposition that the door is
+shut, queried in the first sentence, commanded to be made true in the
+second, and asserted in the third. According to the chemical analogy,
+then:</p>
+
+<blockquote>
+Illocutionary force : Propositional content :: functional group :
+radical
+</blockquote>
+
+<p>In light of this analogy we may see, following Stenius, that just
+as the grouping of a set of atoms is not itself another atom or set of
+atoms, so too the forwarding of a Proposition with a particular
+illocutionary force is not itself a further component of Propositional
+content.</p>
+
+<p>
+Encouraged by the chemical analogy, a central tenet in the study of
+speech acts is that content may remain fixed while force
+varies. The force of
+an utterance also underdetermines its content: Just from the fact that
+a speaker has made a promise, we cannot deduce what she has promised
+to do. For these reasons, students of speech acts contend that a given
+communicative act may be analyzed into two components: force and
+content. While semantics studies the contents of communicative acts,
+pragmatics studies their force.</p>
+
+<p>
+The force/content distinction also finds parallels in our
+understanding of mentality. Speech acts are not only moves in a
+&ldquo;language game.&rdquo; They also often purport to express of
+states of mind with analogous structural properties. An assertion that
+it is snowing purports to express the speaker&rsquo;s belief that it is
+snowing. A promise to read <em>Middlemarch</em> purports to express
+the speaker&rsquo;s intention to read <em>Middlemarch</em>. We find evidence
+for these relationships in the fact that it is in some sense absurd to
+say, &lsquo;It&rsquo;s snowing, but I don&rsquo;t believe that it is,&rsquo; and
+&lsquo;I promise to read <em>Middlemarch</em>, but I have no intention
+of doing 
+so.&rsquo;<sup>[<a href="notes.html#note-6" id="ref-6">6</a>]</sup> 
+Further, just as we may distinguish between
+an assert<em>ing</em> and what is assert<em>ed</em> (the so-called
+&ldquo;ing/ed ambiguity&rdquo; for verbs such as
+&lsquo;assert&rsquo;), and a promis<em>ing</em> from what is
+promis<em>ed</em>, we may also distinguish between a state of
+believing and what is believed, and a state or act of intending and
+what is intended. Searle 1983 delineates structural analogies between
+speech acts and the mental states they express. Pendlebury 1986
+succinctly explains the merits of this approach.</p>
+
+<p>
+In spite of these structural analogies, we may still wonder why an
+elucidation of the notion of force is important for a theory of
+communication. That <em>A</em> is an important component of
+communication, and that <em>A</em> underdetermines <em>B</em>, do not
+justify the conclusion that <em>B</em> is an important component of
+communication. Content also underdetermines the decibel level at which
+we speak but this fact does not justify adding decibel level to our
+repertoire of core concepts for pragmatics or the philosophy of
+language. Why should force be thought any more worthy of admission to
+this set of core concepts than decibel level? One reason for an
+asymmetry in our treatment of force and decibel level is that the
+former, but not the latter, seems to be a component of speaker
+meaning: Force is a feature not of what is said but of how what
+is said is meant; decibel level, by contrast, is a feature at most of
+the way in which something is said. This point is developed in Section
+5 below.</p>
+
+<p>
+We have spoken thus far as if the contents of speech acts must be
+Propositions, and indeed Searle routinely analyzes speech acts as
+having the form <i>F</i>(<i>p</i>) (e.g., 1975, p. 344), where
+&lsquo;<i>F</i>&rsquo; is the force component and
+&lsquo;<i>p</i>&rsquo; the Propositional content component. However,
+in the last two decades linguistic semantics has developed formal
+representations of contents for the two other major grammatical moods
+besides the indicative, namely the interrogative and the
+imperative. On the strength of the analyses of Hamblin (1958), Bell
+(1975), Pendlebury (1986) and others, one strategy for the semantics
+of interrogatives is to construe them as expressing sets of
+propositions rather than a single proposition, where each element of
+the putative set is a complete answer to the question at issue. Thus
+the content expressed by &lsquo;How many doors are shut?&rsquo; will
+be {&lt;No doors are shut&gt;, &lt;One door is shut&gt;, &hellip;}
+where the ellipsis will be filled by as many other Propositions as it
+is reasonable to interpret the questioner as asking after. Call such a
+set an <em>Interrogative</em>. A complete answer to an Interrogative
+is an element of the set by which it is defined; a partial answer is a
+subset of that set containing two or more members, as would naturally
+be expressed by the sentence &lsquo;Between two and four doors are
+shut.&rsquo; On the present conceptualization, just as we may
+distinguish between expressing and asserting a Propositional content,
+we may also distinguish between expressing an Interrogative and asking
+a question. One merely expresses an Interrogative in such an utterance
+as, &lsquo;John wonders how many doors are shut.&rsquo; In fact, a
+single utterance may express two Interrogatives while asking neither,
+as in &lsquo;How many doors are shut will depend on how many customers
+are trying on clothes.&rsquo; Asking a question is no less substantial
+a conversational move than is making an assertion.</p>
+
+<p>
+Similarly, work by Hamblin (1987), Belnap (1990), Portner (2004) and
+others suggests semantic analyses for sentences in the imperative
+mood: on one approach an imperative expresses a property, and when one
+speaker issues an imperative that her addressee accepts, that property
+is added to her &ldquo;to do list&rdquo;, itself a parameter of what
+we will later describe as conversational score (Section 7).</p>
+
+<p>
+In light of the above liberalization of the notion of sentential
+content to accommodate the contents of non-indicative sentences, we
+may rephrase Stenius&rsquo;s chemical analogy as follows:</p>
+
+<blockquote>
+	Illocutionary force : sentential content :: functional group :
+	radical
+</blockquote> 
+
+<p>
+with the understanding that different types of sentential content will
+correspond to the different grammatical moods. This refined analogy
+would in turn require there to be different types of
+radical.<sup>[<a href="notes.html#note-7" id="ref-7">7</a>]</sup></p>
+
+<h3><a name="SayMakItSo">2.2 Can Saying Make it So?</a></h3>
+
+<p>
+In some cases we can make something the case by saying that it
+is. Alas, I cannot lose ten pounds by saying that I am doing so, nor
+can I persuade you of a claim by saying that I am doing so. On the
+other hand I can promise to meet you tomorrow by uttering the words,
+&ldquo;I promise to meet you tomorrow,&rdquo; and if I have the
+authority to do so, I can even appoint you to an office by saying,
+&ldquo;I hereby appoint you.&rdquo; (I can also appoint you without
+making the force of my act explicit: I might just say, &ldquo;You are
+now Treasurer of the Corporation.&rdquo;) Only an appropriate
+authority, speaking at the appropriate time and place, can: christen a
+ship, pronounce a couple married, appoint someone to an administrative
+post, declare the proceedings open, or rescind an offer. Austin,
+in <em>How To Do Things With Words,</em> details the conditions that
+must be met for a given speech act to be
+performed <em>felicitously</em>.</p>
+
+<p>
+Failures of felicity fall into two classes: <em>misfires</em>
+and <em>abuses</em>. The former are cases in which the putative speech
+act fails to be performed at all. If I utter, before the QEII,
+&ldquo;I declare this ship the Noam Chomsky,&rdquo; I have not
+succeeded in naming anything because I lack the authority to do
+so. My act thus misfires in that I&rsquo;ve performed an act of speech but
+no speech act. Other attempts at speech acts might misfire because
+their addressee fails to respond with an appropriate <em>uptake</em>:
+I cannot bet you $100 on who will win the election unless you accept
+that bet. If you do not accept that bet, then I have tried to bet but
+have not succeeded in betting. As we will see in Section 9, a
+systematic unwillingness on the part of a speaker&rsquo;s interlocutors to
+respond with the requisite uptake may compromise that speaker&rsquo;s
+freedom of speech.</p>
+
+<p>
+Some speech acts can be performed&ndash;that is, not
+misfire&mdash;while still being less than felicitous. I promise to
+meet you for lunch tomorrow, but haven&rsquo;t the least intention of making
+good. Here I have promised all right, but the act is not felicitous
+because it is not sincere. My act is, more precisely,
+an <em>abuse</em> because although it is a speech act, it fails to
+live up to a standard appropriate for speech acts of its
+kind. Sincerity is a paradigm condition for the felicity of speech
+acts. Austin foresaw a program of research in which thousands of types
+of speech act would be studied in detail, with felicity conditions
+elucidated for each.<sup>[<a href="notes.html#note-8" id="ref-8">8</a>]</sup></p>
+
+<p>
+As observed by Sbis&agrave; 2007, not only can I perform a speech act
+by speaker meaning that I am doing so, I can also
+subsequently <em>rescind</em> that act. I cannot, it would seem,
+change the past, and so nothing I can do on Wednesday can change the
+fact that I made a promise or assertion on Monday. However, on
+Wednesday I may be able to <em>retract</em> a claim I made on
+Monday. I can&rsquo;t take back a punch or a burp; the most I can do is
+apologize for one of these infractions, and perhaps make amends. By
+contrast, not only can I apologize or make amends for a claim I now
+regret; I can also withdraw it. Likewise, you may allow me on
+Wednesday to retract the promise I made to you on Monday. In both
+these cases of assertion and promise, I am now no longer beholden to
+the commitments that the speech acts engender in spite of the fact
+that the past is fixed. Just as one can, under appropriate conditions,
+perform a speech act by speaker meaning that one is doing so, so too
+one can, under the right conditions, retract that very speech act.</p>
+
+<h3><a name="ThePer">2.3 Theories of Performativity</a></h3>
+
+<p>
+
+Austin famously denied that performatives are statements (1962,
+p. 6). This may be taken either as the denial that performative
+sentences, even those in the indicative grammatical mood, have truth
+value; or instead as the denial that utterances of performative
+sentences, even when such sentences have truth value, are
+assertions. One can consistently hold that an indicative sentence has
+truth value, and even that it may be uttered in such a way as to say
+something true, while denying that its utterance is an
+assertion. (Testing a microphone in a windowless room, I utter,
+&ldquo;It&rsquo;s raining,&rdquo; and it happens to be raining outside. Here
+I have said something true but have made no assertion.)</p>
+
+<p>
+Lemmon 1962 argues that performative utterances are true on the ground
+that they are instances of a wider class of sentences whose utterance
+guarantees their truth. If sound, this argument would show that
+performatives have truth value, but not that they are assertions. It
+also leaves unanswered the question why some verb phrases such as
+&lsquo;I promise&rsquo; may be used performatively while others cannot
+be so used. Sinnott-Armstrong 1994 also argues that performatives can
+have truth value without addressing the question whether they are also
+used to make assertions. Reimer 1995 argues that while performatives
+have truth values, they are not also assertions. Adopting a similar
+strategy, Jary 2007 aims to explain how utterances of such sentences
+as &ldquo;I order you to clean the kitchen,&rdquo; can succeed in
+being orders. In so doing he draws on Green&rsquo;s 2007 analysis of
+showing to argue that such utterances show (rather than merely
+describe) the force of the speaker&rsquo;s utterance. Because
+&lsquo;show&rsquo; is factive, if such an utterance shows its force,
+then it must have that force.</p>
+
+<p>
+Most challenges to Austin, however, construe performatives as
+assertions and attempt to explain their properties in that
+light. Ginet 1979 argues that performative verbs
+(&lsquo;promise,&rsquo; &lsquo;appoint&rsquo;, etc.) name the kinds of
+acts that one can perform by asserting that one is doing so, and
+elaborates on why this is so. In this way he offers an account of how
+performatives work that depends on the assumption that performative
+utterances are assertions. Starting from that same assumption, Bach
+1975 contends that &lsquo;I order you to clean the kitchen&rsquo; is
+an assertion, and proceeds to explain on this basis how the speaker is
+indirectly also issuing an order. This explanation depends on the
+speaker&rsquo;s being able to count on the addressee&rsquo;s ability
+to discern the speaker&rsquo;s communicative intention. In later work,
+such as Bach and Harnish 1978, and 1992, this view is refined with a
+notion of standardization, so that a sufficiently common practice of
+issuing assertions with performative effect enables speakers and
+hearers to bypass complex inferential reasoning and jump by default to
+a conclusion about the illocution being performed. Reimer 1995
+challenges Bach and Harnish on the ground that hearers do not seem to
+impute assertoric force to the indicative sentences speakers utter
+with performative effect; her criticism would evidently carry over to
+Ginet&rsquo;s proposal. Instead Reimer contends that
+performative utterances rest on systems of what she terms
+illocutionary conventions to achieve their performative effects.</p>
+
+<p>
+
+Searle 1969, p. 62&ndash;4, had argued that a performative formula such as
+&ldquo;I promise to&hellip;&rdquo; is an &ldquo;illocutionary force
+indicator&rdquo; in the sense that it is a device whose role is to
+make explicit the force of the speaker&rsquo;s utterance. Making something
+explicit, however, would seem to involve characterizing an independent
+event or state of affairs, and as a result Searle&rsquo;s account
+presupposes that speakers can imbue their utterances with the force of
+demotions and excommunications; yet this is what was to be
+explained. Realizing this, Searle and Vanderveken (1985) characterize
+performatives as speech acts having the force of
+declarations. Uncontroversial examples of this speech act are
+declaring war or adjourning a meeting. Searle 1989 then acknowledges
+that this account pushes us back to the question how certain
+expressions come to have the power to make declarations. In that same
+work he offers an answer that depends on the view that in uttering a
+sentence with a performative prefix, a speaker manifests an intention
+to perform an act of a certain kind: in uttering the words, &lsquo;I
+order you to close the door&rsquo;, I manifest an intention to order
+you to close the door, etc. Searle also takes it that manifesting an
+intention to perform a speech act is sufficient for the performance of
+that act. On this basis, Searle goes on to attempt to derive the
+assertoric nature of performatives, holding that when uttered in such
+a way as to say something true, they are also assertions.</p>
+
+<h2><a name="AspIllFor">3. Aspects of Illocutionary Force</a></h2>
+
+<p>
+
+Austin distinguishes illocutionary acts into five categories:
+verdictives (in which a speaker gives a verdict, e.g. acquitting and
+diagnosing), exercitives (in which speakers exercise powers, rights or
+influence, e.g. excommunicating and resigning), commissives (in which
+speakers commit themselves to causes or courses of action,
+e.g. promising and betting), behabitives (concerning attitudes and
+social behavior, e.g. apologizing and toasting), and expositives (in
+which speakers clarify how their utterances fit into lines of
+reasoning, e.g., postulating and defining).</p>
+
+<p>
+Searle (1975) criticizes Austin&rsquo;s taxonomy on two central
+grounds. First, Austin&rsquo;s methodology is unduly lexicographic,
+assuming that we can learn about the range and limits of illocutionary
+acts by studying illocutionary verbs in English or other natural
+languages. However, Searle observes, nothing rules out the possibility
+of there being illocutionary acts that are not named by a verb either
+in a particular language such as Swahili or Bengali, or indeed in any
+language at all; similarly, two non-synonymous illocutionary verbs may
+yet name one and the same illocutionary act.</p>
+
+<p>
+Second, Searle argues that the principles of distinction among
+Austin&rsquo;s categories are unclear. For instance, behavitives seem
+to be a heterogeneous group with little unifying principle. Similarly,
+&lsquo;describe&rsquo; appears both as a verdictive and as an
+expositive whereas one would expect taxonomic categories to be
+mutually exclusive. More generally, Austin&rsquo;s brief account of
+each category gives no direction as to why this way of delineating
+them does so along their most fundamental features. Searle offers a
+new categorization of speech acts based on relatively clear principles
+of distinction. To appreciate this it will help to explain some of the
+basic concepts he uses for this purpose.</p>
+
+<h3><a name="DirFit">3.1 Direction of Fit</a></h3>
+
+<p>
+
+Consider an example derived from Anscombe (1963): a woman sends her
+husband to the grocery store with a list of things to procure;
+unbeknownst to him he is also being trailed by a detective concerned
+to make a list of what the man buys. By the time the husband and
+detective are in the checkout line, their two lists contain exactly
+the same items. The contents of the two lists differ, however, along
+another dimension. For the contents of the husband&rsquo;s list guide what
+he puts in his shopping cart. Insofar, his list exhibits
+<em>world-to-word direction of fit</em>: It is, so to speak, the job
+of the items in his cart to conform to what is on his list. By
+contrast, it is the job of the detective&rsquo;s list to conform with the
+world, in particular to what is in the husband&rsquo;s cart. As such, the
+detective&rsquo;s list has <em>word-to-world direction of fit</em>: The onus
+is on those words to conform to how things are. Speech acts such as
+assertions and predictions have word-to-world direction of fit, while
+speech acts such as commands have world-to-word direction of fit.</p>
+
+<p>
+
+Not all speech acts appear to have direction of fit. I can thank you
+by saying &ldquo;Thank you,&rdquo; and it is widely agreed that
+thanking is a speech act. However, thanking seems to have neither of
+the directions of fit we have discussed thus far. Similarly, asking
+who is at the door is a speech act, but it does not seem to have
+either of the directions of fit we have thus far mentioned. Some would
+respond by construing questions as a form of imperative (e.g.,
+&ldquo;Tell me who is at the door!&rdquo;), and then ascribing the
+direction of fit characteristic of imperatives to questions. This
+leaves untouched, however, banal cases such as thanking or even,
+&ldquo;Hooray for Arsenal!&rdquo; Some authors, such as Searle and
+Vanderveken 1985, describe such cases as having &ldquo;null&rdquo;
+direction of fit. That characterization is evidently distinct from
+saying such speech acts have no direction of fit at
+all.<sup>[<a href="notes.html#note-9" id="ref-9">9</a>]</sup></p>
+
+<p>
+
+Direction of fit is also not so fine-grained as to enable us to
+distinguish speech acts meriting different treatment. Consider
+asserting that the center of the Milky Way is inhabited by a black
+hole, as opposed to conjecturing that the center of the Milky Way is
+so inhabited. These two acts are subject to different norms: The
+former purports to be a manifestation of knowledge, while the latter
+does not. This is suggested by the fact that it is appropriate to
+reply to the assertion with, &ldquo;How do you know?&rdquo;
+(Williamson 1996), while that is not an appropriate response to the
+conjecture (Green 2017). Nevertheless, both the assertion and
+conjecture have word-to-world direction of fit. Might there be other
+notions enabling us to mark differences between speech acts with the
+same direction of fit?</p>
+
+<h3><a name="ConSat">3.2 Conditions of Satisfaction</a></h3>
+
+<p>
+
+One suggestion might come from the related notion of <em>conditions of
+satisfaction</em>. This notion generalizes that of truth. As we saw in
+2.3, it is internal to the activity of assertion that it aims to
+capture how things are. When an assertion does so, not only is it
+true, it has hit its target; the aim of the assertion has been met. A
+similar point may be made of imperatives: it is internal to the
+activity of issuing an imperative that the world is enjoined to
+conform to it. The imperative is satisfied just in case it is
+fulfilled. Assertions and imperatives both have conditions of
+satisfaction&mdash;truth in the first place, and conformity in the
+second. In addition, it might be held that questions have answerhood
+as their conditions of satisfaction: A question hits its target just
+in case it finds an answer, often in a speech act, such as an
+assertion, that answers the question posed. Like the notion of
+direction of fit, however, the notion of conditions of satisfaction is
+too coarse-grained to enable us to make some valuable distinctions
+among speech acts. Just to use our earlier case again: an assertion
+and a conjecture that <em>P</em> have identical conditions of
+satisfaction, namely that <em>P</em> be the case. May we discern
+features distinguishing these two speech acts, in a way enabling us to
+make finer-grained distinctions among other speech acts as well? I
+shall return to this question in Sections 6&ndash;7.</p>
+
+<h3><a name="SevComIllFor">3.3 Seven Components of Illocutionary Force</a></h3>
+
+<p>
+
+In an attempt to systematize and deepen Austin&rsquo;s approach, Searle and
+Vanderveken 1985 distinguish between those illocutionary forces
+employed by speakers within a given linguistic community, and the set
+of all possible illocutionary forces. While a certain linguistic
+community may make no use of forces such as conjecturing or
+appointing, these two are among the set of all possible forces. (These
+authors appear to assume that while the set of possible forces may be
+infinite, it has a definite cardinality.) Searle and Vanderveken go on
+to define illocutionary force in terms of seven features, namely:</p>
+
+<ol>
+
+<li><em>Illocutionary point</em>: This is the characteristic aim of
+each type of speech act. For instance, the characteristic aim of an
+assertion is to describe how things are, and perhaps also to bring
+about belief in an addressee; the characteristic aim of a promise is
+to commit oneself to a future course of action.</li>
+
+<li><em>Degree of strength of the illocutionary point</em>: Two
+illocutions can have the same point but differ along the dimension of
+strength. For instance, requesting and insisting that the addressee do
+something both have the point of attempting to get the addressee to do
+that thing; however, the latter is stronger than the former.</li>
+
+<li><em>Mode of achievement</em>: This is the special way, if any, in
+which the illocutionary point of a speech act must be
+achieved. Testifying and asserting both have the point of describing
+how things are; however, the former also involves invoking one&rsquo;s
+authority as a witness while the latter does not. To testify is to
+assert <em>in one&rsquo;s capacity</em> as a witness. Commanding and
+requesting both aim to get the addressee to do something; yet only
+someone issuing a command does so in her capacity as a person
+in a position of authority.</li>
+
+<li><em>Content conditions</em>: Some illocutions can only be achieved
+with an appropriate propositional content. For instance, I can only
+promise what is in the future and under my control; or, at least, I
+cannot promise to do anything that it is obvious to myself and my
+promissee that I cannot do. So too, I can only apologize for what is
+in some sense under my control and already the case. (In light of our
+discussion above of semantics for non-indicative contents, this
+condition could be recast in terms of imperatival, interrogative, and
+propositional content conditions.)</li>
+
+<li><em>Preparatory conditions</em>: These are all other conditions
+that must be met for the speech act not to misfire. Such conditions
+often concern the social status of interlocutors. For instance, a
+person cannot bequeath an object unless she already owns it or has
+power of attorney; a person cannot marry a couple unless she is
+legally invested with the authority to do so.</li>
+
+<li><em>Sincerity conditions</em>: Many speech acts involve the
+expression of a psychological state. Assertion expresses belief;
+apology expresses regret, a promise expresses an intention, and so
+on. A speech act is sincere only if the speaker is in the
+psychological state that her speech act expresses.</li>
+
+<li><em>Degree of strength of the sincerity conditions</em>: Two
+speech acts might be the same along other dimensions, but express
+psychological states that differ from one another in the dimension of
+strength. Requesting and imploring both express desires, and are
+identical along the other six dimensions above; however, the latter
+expresses a stronger desire than the former.</li>
+
+</ol>
+
+<p>
+
+Searle and Vanderveken (1985) suggest, in light of these seven
+characteristics, that each illocutionary force may be defined as a
+septuple of values, each of which is a &ldquo;setting&rdquo; of a
+value within one of the seven characteristics. It follows, according
+to this suggestion, that two illocutionary forces
+<em>F</em><sub>1</sub> and <em>F</em><sub>2</sub> are identical just
+in case they correspond to the same septuple.</p>
+
+<h3><a name="DirIndFor">3.4 Direct and Indirect Force</a></h3>
+
+<p>
+
+I cannot slow the expansion of the universe or convince you of the
+truth of a claim by saying that I am doing so. However, these two
+cases differ in that the latter, but not the former, is a
+characteristic aim of a speech act. One characteristic aim of
+assertion is the production of belief in an addressee, whereas there
+is no speech act one of whose characteristic aims is the slowing of
+the universe&rsquo;s expansion. A type of speech act can have a
+characteristic aim without each speech act of that type being issued
+with that aim: Speakers sometimes make assertions without aiming to
+produce belief in anyone, even themselves. Instead, the view that a
+speech act-type has a characteristic aim is akin to the view that a
+biological trait has a function. The characteristic role of wings is
+to aid in flight even though some flightless creatures are winged.</p>
+
+<p>
+
+Austin called these characteristic aims of speech
+acts <em>perlocutions</em> (1962, p. 101). I can both urge and
+persuade you to shut the door, yet the former is an illocution while
+the latter is a perlocution. How can we tell the difference? We can do
+so by noting that under the right conditions, one can urge just by
+saying and speaker meaning, &ldquo;I hereby urge you to shut the door,&rdquo; while there
+are no circumstances in which I can persuade you just by saying,
+&ldquo;I hereby persuade you to shut the door.&rdquo; A characteristic
+aim of urging is, nevertheless, the production of a resolution to act
+(1962, p. 107). Cohen (1973) develops the idea of perlocutions as
+characteristic aims of speech acts.</p>
+
+<p>
+
+Perlocutions are characteristic aims of one or more illocution, but
+are not themselves illocutions. Nevertheless, one speech act can be
+performed by means of the performance of another. For instance, my
+remark that you are standing on my foot is normally taken as, in
+addition, a demand that you move; my question whether you can pass the
+salt is normally taken as a request that you do so. These are examples
+of so-called <em>indirect speech acts</em> (Searle 1979). Phrases that
+are commonly used in service of indirect speech acts are, &lsquo;Would
+you mind terribly if I&hellip;,&rsquo; &lsquo;Might I
+suggest&hellip;,&rsquo; and &lsquo;It seems to me that&hellip;&rsquo;,
+or simply &lsquo;please&rsquo;, as in &lsquo;Can you pass the salt,
+please?&rsquo; Observe that this last sentence, with its appended
+tag-question, cannot be interpreted as a request for information
+(about the addressee&rsquo;s salt-passing abilities), but can only be
+understood as a request. Asher and Lascarides (2001) provide a formal
+model of indirect speech acts on which some are conventionalized while
+others require Gricean reasoning for their interpretation.
+
+</p>
+
+<p>
+
+While indirect communication is ubiquitous, indirect speech acts are
+less common than might first appear. In asking whether you intend to
+quit smoking, I might be taken as well to be suggesting that you
+quit. However, while the embattled smoker might jump to this
+interpretation, we do well to consider what evidence would mandate
+it. After all, while I probably would not have asked whether you
+intended to quit smoking unless I hoped you would quit, I can evince
+such a hope without performing the speech act of suggesting. Evincing
+a psychological state, even if done intentionally, arguably does not
+constitute a speech act. Instead, intentionally evincing a
+psychological state may be understood as simply expressing that
+state (See Green 2020, ch. 2). </p>
+
+<p>
+
+Whether, in addition to a given speech act, I am also performing an
+indirect speech act would seem to depend on my intentions. My question
+whether you can pass the salt is also a request that you do so only if
+I intend to be so understood. What is more, this intention must be
+feasibly discernible on the part of one&rsquo;s audience. Even if, in
+remarking on the fine weather, I intend as well to request that you
+pass the salt, I will not have issued a request unless I have made
+that intention manifest in some way.</p>
+
+<p>
+
+How might I do this? One way is by making an inference to the best
+explanation. Perhaps the best explanation of my asking whether you can
+pass the salt is that I mean to be requesting that you do so, and
+perhaps the best explanation of my remarking that you are standing on
+my foot, particularly if I use a stentorian tone of voice, is that I
+mean to be demanding that you desist. By contrast, it is doubtful that
+the best explanation of my asking whether you intend to quit smoking
+is that I intend to suggest that you do so. Another explanation at
+least as plausible is my hope, or expression of hope, that you do
+so. Bertolet 1994 develops a more skeptical position than that
+suggested here, arguing that any alleged case of an indirect speech
+act can be construed just as an indication, by means of contextual
+clues, of the speaker&rsquo;s intentional state&mdash;hope, desire, etc., as
+the case may be. Postulation of a further speech act beyond what has
+been (relatively) explicitly performed is, he contends, explanatorily
+unmotivated. McGowan <em>et al</em>. (2009) reply by offering three
+conditions they take to be sufficient for a case of what they term
+linguistic communication. They would also argue that in, for instance,
+the smoking case, the speaker meets those three conditions, and thus
+counts as suggesting that the addressee quit smoking. Bertolet (2017)
+replies that these three conditions are not sufficient for an instance
+of speaker meaning, and given that (as we have seen) speaker meaning
+is a necessary condition for (non-conventional) speech acts, concludes
+that McGowan <em>et al</em>. have not established that the cases that
+concern them are indirect speech acts.</p>
+
+<p>
+
+These considerations suggest that indirect speech acts, if they do
+occur at all, can be explained within the framework of conversational
+implicature&ndash;that process by which we mean more (and on some
+occasions less) than we say, but in a way not due exclusively to the
+conventional meanings of our words. Conversational implicature, too,
+depends both upon communicative intentions and the availability of
+inference to the best explanation (Grice, 1989). In fact,
+Searle&rsquo;s 1979 influential account of indirect speech acts is
+couched in terms of conversational implicature (although he does not
+use this phrase). The study of speech acts is in this respect
+intertwined with the study of conversations; we return to this theme
+in Section 
+6.<sup>[<a href="notes.html#note-10" id="ref-10">10</a>]</sup></p>
+
+<h2><a name="MooForCon">4. Mood, Force and Convention</a></h2>
+
+<p>
+
+Not only does content underdetermine force; content together with
+grammatical mood does so as well. &lsquo;You&rsquo;ll be more punctual in
+the future&rsquo; is in the indicative grammatical mood, but as we
+have seen, that fact does not determine its force. The same may be
+said of other grammatical moods. Although I overhear you utter the
+words, &lsquo;shut the door&rsquo;, I cannot infer yet that you are
+issuing a command. Perhaps instead you are simply describing your own
+intention, in the course of saying, &ldquo;I intend to shut the
+door.&rdquo; If so, you&rsquo;ve used the imperative mood without issuing a
+command. So too with the interrogative mood: I overhear your words,
+&lsquo;who is on the phone.&rsquo; Thus far I don&rsquo;t know whether
+you&rsquo;ve asked a question, since you may have so spoken in the course of
+stating, &ldquo;John wonders who is on the phone.&rdquo; Might either
+or both of initial capitalization or final punctuation settle the
+issue? Apparently not: What puzzles Meredith is the following
+question: Who is on the phone?
+</p>
+
+<p>
+Mood together with content underdetermine force. On the other hand it
+is a plausible hypothesis that grammatical mood is one of the devices
+we use (together with contextual clues, intonation, and the like) to
+indicate the force with which we are expressing a content. Understood
+in this weak way, it is unexceptionable to construe the interrogative
+mood as used for asking questions, the imperatival mood as used for
+issuing commands, and so on. So understood, we might go on to ask how
+speakers indicate the force of their speech acts given that
+grammatical mood and content cannot be relied on alone to do so.</p>
+
+<h3><a name="ForCon">4.1 Force Conventionalism</a></h3>
+
+<p>
+
+One well known answer we may term <em>force
+conventionalism</em>. According to a strong version of this view, for
+every speech act that is performed, there is some convention that will
+have been invoked in order to make that speech act occur. This
+convention transcends those imbuing words with their literal
+meaning. Thus, force conventionalism implies that in order for use of
+&lsquo;I promise to meet you tomorrow at noon,&rsquo; to constitute a
+promise, not only must the words used possess their standard
+conventional meanings, there must also exist a convention to the
+effect that the use, under the right conditions, of some such words as
+these constitutes a promise. Austin seems to have held this
+view. For instance in his characterization of &ldquo;felicity
+conditions&rdquo; for speech acts, Austin holds that for each speech
+act</p>
+
+<blockquote>
+There must exist an accepted conventional procedure having a certain
+conventional effect, that procedure to include the uttering of certain
+words by certain persons in certain circumstances&hellip; (1962,
+p. 14).
+</blockquote>
+
+<p>Austin&rsquo;s student Searle follows him in this, writing</p>
+
+<blockquote>
+&hellip;utterance acts stand to propositional and illocutionary acts
+in the way in which, e.g., making an <em>X</em> on a ballot paper
+stands to voting.  (1969, p. 24)
+</blockquote>
+
+<p>Searle goes on to clarify this commitment in averring,</p>
+
+<blockquote>
+&hellip;the semantic structure of a language may be regarded as a
+conventional realization of a series of sets of underlying
+constitutive rules, and &hellip;speech acts are acts
+characteristically performed by uttering sentences in accordance with
+these sets of constitutive rules. (1969, p. 37)
+</blockquote>
+
+<p>Searle espouses a weaker form of force conventionalism than does
+Austin in leaving open the possibility that some speech acts can be
+performed without constitutive rules; Searle considers the case of a
+dog requesting to be let outside (1969, p. 39). Nevertheless Searle
+does contend that speech acts are characteristically performed by
+invoking constitutive rules.</p>
+
+<h3><a name="BioSpeForCon">4.2 A Biosemantic Species of Force Conventionalism</a></h3>
+
+<p>
+
+Millikan (1998) espouses a parsimonious conception of conventions that
+she terms &lsquo;natural conventions,&rsquo; and on the assumption
+that natural conventions are a type of convention, one would expect
+this strategy to make it easier to defend the view that speech acts
+are inherently conventional. For Millikan, a <em>natural
+convention</em> is constituted by patterns that are reproduced by
+virtue of the weight of 
+precedent.<sup>[<a href="notes.html#note-11" id="ref-11">11</a>]</sup> 
+A pattern is <em>reproduced</em> just in
+case it has a form that derives from a previous entity having, in
+certain respects, the same form, and in such a way that had the
+previous form been different in those respects, the current form would
+be different in those respects as well (1998, p.  163). Photocopying
+is one form of reproduction meeting these criteria; the retinotopic
+mapping from patterns of stimulation on the retina to patterns of
+stimulation in the visual cortex is evidently another. Millikan would
+not treat retinotopic mapping as a type of convention, however, since
+it would not seem to be perpetuated by virtue of the weight of
+precedent. The point is difficult to discern, however, since in her
+discussion of the matter Millikan discusses the conditions under which
+a pattern is <em>taken</em> to be conventional, rather than for it to
+be conventional, writing</p>
+
+<blockquote>
+To be thought of as conventional, a reproduced pattern must be
+perceived as proliferated due, in important part, to weight of
+precedent, not to its intrinsically superior capacity to produce a
+desired result, or due, say, to ignorance of alternatives (ibid,
+p. 166).
+</blockquote>
+
+<p>Millikan thus seems to characterize what it is for a pattern to
+have weight of precedent in terms of that pattern&rsquo;s being perceived to
+have such weight. This notion is not itself elucidated, and as a
+result the notion of weight of precedent is left obscure in her
+account. Nonetheless, she tells us that just as the conventions of
+chess dictate that when one&rsquo;s king is in check, one does what one can
+to get him out of check; so too the conventions of language dictate
+that when <i>A</i> tells <i>B</i> that <i>p</i>, <i>B</i> responds by
+believing that <i>p</i>. Millikan describes the hearer&rsquo;s response as a
+hidden, inner act that is not under <i>B</i>&rsquo;s voluntary control. Millikan
+also describes this response as being learned in the way that we learn
+what she calls &ldquo;natural sign patterns,&rdquo; such as our
+learning that the sound of crashing waves is an indication of a nearby
+coastline.</p>
+
+<p>
+
+On Millikan&rsquo;s view, then, <i>A</i>&rsquo;s assertion of <i>p</i> being
+followed by <i>B</i>&rsquo;s belief that <i>p</i> is a process that is not
+intrinsically superior to others that might have been followed. This
+may be doubted, however. What, after, all would be viable alternative
+responses? <em>Dis</em>believing <i>p</i>? Remaining neutral on the question
+of <i>p</i>? Scratching one&rsquo;s left earlobe? Any of these responses
+would tend to undermine the use of language as a means for transmission of
+information. What is more, if belief formation is not under the
+voluntary control of addressees, it is obscure how this aspect of
+communication could be conventional, any more than the pattern of
+stimulation of our visual cortex is conventional when that pattern
+results from an isomorphic pattern on the retina.</p>
+
+<h3><a name="IntAltForCon">4.3. An Intentionalist Alternative to Force Conventionalism</a></h3>
+
+<p>
+
+Force-conventionalism as espoused by Austin and later Searle has been
+challenged by <a href="../strawson/">Strawson</a>, who writes,</p>
+
+<blockquote>
+I do not want to deny that there may be conventional postures or
+procedures for entreating: one can, for example, kneel down, raise
+one&rsquo;s arms, and say, &ldquo;I entreat you.&rdquo; But I do want to
+deny that an act of entreaty can be performed only as conforming to
+such conventions&hellip;.[T]o suppose that there is always and necessarily
+a convention conformed to would be like supposing that there could be
+no love affairs which did not proceed on lines laid down in
+the <em>Roman de la Rose</em> or that every dispute between men must
+follow the pattern specified in Touchstone&rsquo;s speech about the
+countercheck quarrelsome and the lie direct. (1964, p. 444)
+</blockquote>
+
+<p>Strawson contends that rather than appealing to a series of
+extra-semantic conventions to account for the possibility of speech
+acts, we explain that possibility in terms of our ability to discern
+one another&rsquo;s communicative intentions. What makes an utterance
+of a sentence in the indicative mood a prediction rather than a
+command, for instance, is that it manifests an intention to be so
+taken; likewise for promises rather than predictions. This position is
+compatible with holding that in special cases linguistic communities
+have instituted conventions for particular speech acts such as
+appointing and excommunicating. So too, as Skinner (1970) observes,
+understanding the utterances of an historical figure crucially depends
+on sensitivity to conventions of the society in which they are
+made.</p>
+
+<p>
+
+Intending to make an assertion, promise, or request, however, is not
+enough to perform one of these acts. Those intentions must be
+efficacious. The same point applies to cases of trying to perform a
+speech act, even when what one is trying to do is clear to
+others. This fact emerges from reflecting on an oft-quoted passage
+from Searle:</p>
+
+<blockquote>
+Human communication has some extraordinary properties, not shared by
+most other kinds of human behavior. One of the most extraordinary is
+this: If I am trying to tell someone something, then (assuming certain
+conditions are satisfied) as soon as he recognizes that I am trying to
+tell him something and exactly what it is I am trying to tell him, I
+have succeeded in telling it to him. (1969, p. 47.)
+</blockquote>
+
+<p>As Green 2013 observes, the point may be doubted. Suppose I am
+trying to work up the courage to ask Sidney&rsquo;s hand in
+marriage. Sidney recognizes this fact on the basis of background
+knowledge, my visible embarrassment, and my fumbling in my pocket for
+an engagement ring. Here we cannot infer that I have succeeded in
+asking Sidney anything. Nothing short of coming out and saying it will
+do. Similarly, it might be common knowledge that my moribund uncle is
+trying, as he breathes his last, to bequeath me his fortune; still, I
+won&rsquo;t inherit a penny if he expires before saying what he was trying
+to.<sup>[<a href="notes.html#note-12" id="ref-12">12</a>]</sup> Closer
+to Searle&rsquo;s example, even if you were to find, on the basis of
+fMRI analysis of my neural activity, that I was trying to tell you
+that it&rsquo;s going to rain tomorrow, I still have not asserted
+anything about tomorrow&rsquo;s weather. (If I were completely
+paralyzed as a result of Locked-In Syndrome, then making such a neural
+effort might be the most I can hope to do; in that case, your fMRI
+information might be enough to justify you in taking me to have
+performed a speech act.)</p>
+
+<p>
+
+The gist of these examples is not the requirement that words be
+uttered in every speech act&mdash;we have already observed that speech
+acts can be performed silently. Rather, their gist is that speech acts
+involve intentional undertaking of a publicly accessible commitment;
+further, that commitment is not undertaken simply by virtue of my
+intending to undertake it, even when it is common knowledge that this
+is what I am trying to do. Can we, however, give a more illuminating
+characterization of the relevant intentions than merely saying that,
+for instance, to assert <em>P</em> one must intentionally put
+forth <em>P</em> as an assertion? Strawson (1964) proposes that we can
+do so with aid of the notion of speaker meaning&mdash;to which we now
+turn.</p>
+
+<h2><a name="SpeMeaFor">5. Speaker-Meaning and Force</a></h2>
+
+<p>
+
+As we have seen, that <em>A</em> is an important component of
+communication, and that <em>A</em> underdetermines <em>B</em>, do not
+justify the conclusion that <em>B</em> is an important component of
+communication. One reason for an asymmetry in our treatment of force
+and decibel level is that the former, but not the latter, seems
+crucial to how I mean what I say. I intend to speak at a certain
+volume, and sometimes succeed, but in most cases it is no part of how
+I mean what I say that I happen to be speaking at that volume. On the
+other hand, the force of my utterance is an aspect of what I mean. It
+is not, as we have seen, any aspect of what I say&mdash;that notion
+being closely associated with content. However, whether I mean what I
+say as an assertion, a conjecture, a promise or something else will be
+crucial to <em>how</em> I mean what I do.</p>
+
+<h3><a name="GriAccSpeMea">5.1 Grice&rsquo;s Account of Speaker Meaning</a></h3>
+
+<p>
+
+In his influential 1957 article, <a href="../grice/">Grice</a>
+distinguished between two uses of &lsquo;mean&rsquo;. One use is
+exemplified by remarks such as &lsquo;Those clouds mean rain,&rsquo;
+and &lsquo;Those spots mean measles.&rsquo; The notion of meaning in
+play in such cases Grice dubs &lsquo;natural meaning&rsquo;. Grice
+suggests that we may distinguish this use of &lsquo;mean&rsquo; from
+another use of the word more relevant to communication, exemplified
+in such utterances as</p>
+
+<blockquote>
+In saying &ldquo;You make a better door than a window&rdquo;, George
+meant that you should move,
+</blockquote>
+
+<p>and</p>
+
+<blockquote>
+In gesticulating that way, Salvatore means that there&rsquo;s quicksand over
+there,
+</blockquote>
+
+<p>Grice used the term &lsquo;non-natural meaning&rsquo; for this
+use of &lsquo;mean&rsquo;, and in more recent literature this jargon
+has been replaced with the term &lsquo;speaker
+meaning&rsquo;.<sup>[<a href="notes.html#note-13" id="ref-13">13</a>]</sup>
+ After distinguishing between natural and
+(what we shall hereafter call) speaker meaning, Grice attempts to
+characterize the latter. It is not enough that I do something that
+influences the beliefs of an observer: In putting on a coat I might
+lead an observer to conclude that I am going for a walk. Yet in such a
+case it is not plausible that I mean that I am going for a walk in the
+sense germane to speaker meaning. Might performing an action with an
+intention of influencing someone&rsquo;s beliefs be sufficient for speaker
+meaning? No: I might secretly leave Smith&rsquo;s handkerchief at the crime scene to
+make the police think that Smith is the culprit. However, whether or
+not I am successful in getting the authorities to think that Smith is
+the culprit, in this case it is not plausible that I mean that Smith
+is the culprit.</p>
+
+<p>
+
+What is missing in the handkerchief example is the element of
+overtness. This suggests another criterion: Performing an action with
+the, or an, intention of influencing someone&rsquo;s beliefs, while
+intending that this very intention be recognized. Grice contends that
+even here we do not have enough for speaker meaning. Herod presents
+Salome with St. John&rsquo;s severed head on a charger, intending that she
+discern that St. John is dead and intending that this very intention
+of his be recognized. Grice observes that in so doing Herod is
+not <em>telling</em> Salome anything, but is instead deliberately and
+openly letting her know something. Grice concludes that Herod&rsquo;s action
+is not a case of speaker meaning either. The problem is not that Herod
+is not using words; we have already considered communicators who mean things
+wordlessly. The problem seems to be that to infer what Herod intends
+her to, Salome does not have to take his word for anything. She can
+see the severed head for herself if she can bring herself to look. By
+contrast, in its central uses, telling requires a speaker to intend to
+convey information (or alleged information) in a way that relies
+crucially upon taking her at her word. Grice appears to assume that at
+least for the case in which what is meant is a proposition (rather
+than a question or an imperative), speaker meaning requires a telling
+in this central sense. What is more, this last example is a case of
+performing an action with an intention of influencing someone&rsquo;s
+beliefs, even while intending that this very intention be recognized;
+yet it is not a case of telling. Grice infers that it is not a case of
+speaker meaning either.</p>
+
+<p>
+
+Grice holds that for speaker meaning to occur, not only must one (a)
+intend to produce an effect on an audience, and (b) intend that this
+very intention be recognized by that audience, but <em>also</em> (c) intend this effect on the audience to be produced at least in
+part by their recognition of the speaker&rsquo;s intention. The intention to
+produce a belief or other attitude by means (at least in part) of
+recognition of this very intention, has come to be called
+a <em>reflexive communicative intention</em>.</p>
+
+<h3><a name="ObjGriAcc">5.2 Objections to Grice&rsquo;s Account</a></h3>
+
+<p>
+
+It may be doubted that speaker meaning requires reflexive communicative intentions. After all, a mathematics teacher who proves a theorem T for her class likely wants her pupils to believe T on the strength of her proof rather than their recognition of her intention that they come to believe T. (Vlach 1981) It may even be doubted that speaker meaning requires intentions to produce cognitive effects on addressees at all: Davis (1992) provides a range of cases such as speaking to pre-linguistic infants, uncooperative photocopy machines, and photos of deceased loved ones.<sup>[<a href="notes.html#note-14" id="ref-14">14</a>]</sup>,<sup>[<a href="notes.html#note-15" id="ref-15">15</a>]</sup> Instead of intentions to produce psychological effects in an addressee, some authors have advocated a construal of speaker meaning as overtly manifesting an aspect of one&rsquo;s commitments or state of mind (Green 2019). Compare my going to the closet to take out my overcoat (not a
+case of speaker meaning), with the following case: After heatedly
+arguing about the weather, I march to the closet while beadily meeting
+your stare, then storm out the front door while ostentatiously donning
+the coat. Here it is more plausible that I mean that it is raining
+outside, and the reason seems to be that I am making some attitude of
+mine overt: I am not only showing it, I am making clear my intention
+to do just that.
+</p>
+
+<h3><a name="ForAspSpeMea">5.3 Force as an Aspect of Speaker Meaning</a></h3>
+
+<p>
+
+How does this detour through speaker meaning help to elucidate the
+notion of force? One way of asserting that <em>P</em>, it seems, is
+overtly to manifest my commitment to <em>P</em>, and indeed commitment
+of a particular kind: commitment to defend <em>P</em> in response to
+challenges of the form, &ldquo;How do you know that?&rdquo; I must
+also overtly manifest my liability to be either right or wrong on the
+issue of <em>P</em> depending on whether <em>P</em> is the case. By
+contrast, I conjecture <em>P</em> by overtly manifesting my commitment
+to <em>P</em> in this same &ldquo;liability to error&rdquo; way, but I
+am not committed to responding to challenges demanding full
+justification. I must, however, give some reason for
+believing <em>P</em>; this much cannot, however, be said of a
+guess.</p>
+
+<p>
+
+We perform a speech act, then, when we overtly commit ourselves in a
+certain way to a content&mdash;where that way is an aspect of how we
+speaker-mean that content. One way to do that is to invoke a
+convention for undertaking commitment; another way is overtly to
+manifest one&rsquo;s intention to be so committed. We may elucidate the
+relevant forms of commitment by spelling out the norms underlying
+them. We have already adumbrated such an approach in our discussion of
+the differences among asserting and conjecturing. Developing that
+discussion a bit further, compare
+</p>
+
+<ul>
+<li>asserting</li>
+
+<li>conjecturing</li>
+
+<li>guessing</li>
+
+</ul>
+<p>
+
+All three of these acts have word-to-world direction of fit, and all
+three have conditions of satisfaction mandating that they are
+satisfied just in case the world is as their content says it
+is. Further, one who asserts, conjectures, or guesses that <em>P</em>
+is <em>right or wrong on the issue of P</em> depending on
+whether <em>P</em> is in fact so. However, as we move down the list we
+find a decreasing order of stringency in commitment. One who
+asserts <em>P</em> lays herself open to the challenge, &ldquo;How do
+you know that?&rdquo;, and she is obliged to retract <em>P</em> if she
+is unable to respond to that challenge adequately. By contrast, this
+challenge is inappropriate for either a conjecture or a guess. On the
+other hand, we may justifiably demand of the conjecturer that she give
+some reason for her conjecture; yet not even this much may be said of
+one who makes a guess. (The &ldquo;educated guess&rdquo; is
+intermediate between these two cases.)</p>
+
+<p>
+
+This illocutionary dimension of speaker meaning
+characterizes not what is meant, but rather how it is meant. Just as
+we may consider your remark, directed toward me, &ldquo;You&rsquo;re
+tired,&rdquo; and my remark, &ldquo;I&rsquo;m tired,&rdquo; as having said
+the same thing but in different ways; so too we may consider my
+assertion of <em>P</em>, followed by a retraction and then followed by
+a conjecture of <em>P</em>, as two consecutive cases in which I
+speaker-mean that <em>P</em> but do so in different ways. This idea
+will be developed further in Section 8 under the rubric of
+&ldquo;mode&rdquo; of illocutionary
+commitment.<sup>[<a href="notes.html#note-16" id="ref-16">16</a>]</sup>
+</p>
+
+<p>
+
+Speaker meaning, then, encompasses not just content but also force,
+and we may elucidate this in light of the normative structure
+characteristic of each speech act: When you overtly display a
+commitment characteristic of that speech act, you have performed that
+speech act. Is this a necessary condition as well? That depends on
+whether I can perform a speech act without intending to do so&mdash;a
+topic for Section 9 below. For now, however, compare the view at which
+we have arrived with Searle&rsquo;s view that one performs a speech act when
+others become aware of one&rsquo;s intention to perform that act. What is
+missing from Searle&rsquo;s characterization is the notion of overtness: The
+agent in question must not only make her intention to undertake a
+certain commitment manifest; she must also intend that that very
+intention be manifest. There is more to overtness than wearing one&rsquo;s
+heart (or mind) on one&rsquo;s sleeve.</p>
+
+<h2><a name="ForNorCon">6. Force, Norms, and Conversation</a></h2>
+
+<p>
+In elucidating this normative dimension of force, we have sought to
+characterize speech acts in terms of their conversational roles. That
+is not to say that speech acts can only be performed in the setting of
+a conversation: I can approach you, point out that your vehicle is
+blocking mine, and storm off. Here I have made an assertion but have
+not engaged in a conversation. Perhaps I can ask myself a question in
+the privacy of my study and leave it at that&ndash;not continuing into
+a conversation with myself. However, a speech act&rsquo;s &ldquo;ecological
+niche&rdquo; may nevertheless be the conversation. In that spirit,
+while we may be able to remove a speech act type from its environment
+and scrutinize it in isolated captivity, doing so may blind us to some
+of its distinctive features.</p>
+
+<h3><a name="SpeActCon">6.1 Speech Acts and Conversations</a></h3>
+
+<p>
+This ecological analogy sheds light on a dispute over the question
+whether speech acts can profitably be studied in isolation from the
+conversations in which they occur. An empiricist framework,
+exemplified in <a href="../mill/">John Stuart Mill&rsquo;s</a> <em>A System
+of Logic</em>, suggests attempting to discern the meaning of a word,
+for instance a proper name, in isolation. By
+contrast, <a href="../frege/">Gottlob Frege</a> (1884) enjoins us to
+understand a word&rsquo;s meaning in terms of the contribution it makes to
+an entire sentence. Such a method is indispensable for a proper
+treatment of such expressions as quantifiers, and represents a major
+advance over empiricist approaches. Yet students of speech acts have
+espoused going even further, insisting that the unit of significance
+is not the proposition but the speech act. Vanderveken writes,</p>
+
+<blockquote>
+Illocutionary acts are important for the purpose of philosophical
+semantics because they are the primary units of meaning in the use and
+comprehension of natural language. (Vanderveken, 1990, p. 1.)
+</blockquote>
+
+<p>Why not go even further, since speech acts characteristically occur
+in conversations? Is the unit of significance really the debate, the
+colloquy, the interrogation?</p>
+
+<p>
+Students of conversation analysis have contended precisely
+this, remarking that many speech acts fall naturally into
+pairs.<sup>[<a href="notes.html#note-17" id="ref-17">17</a>]</sup> For
+instance, questions pair naturally with assertions when the latter
+purport to be answers to those questions. Likewise, offers pair
+naturally with acceptances or rejections, and it is easy to multiply
+examples. Searle, who favors studying speech acts in isolation, has
+replied to these considerations (Searle 1992).  There he issues a
+challenge to students of conversation to provide an account of
+conversations parallel to that of speech acts, arguing as well that
+the prospects for such an account are dim. One of his reasons is that
+unlike speech acts conversations do not as such have a point or
+purpose. Green 1999 rejoins that many conversations may indeed be
+construed in teleological terms. For instance, many conversations may
+be construed as aimed at answering a question, even when that question
+concerns something as banal as the afternoon&rsquo;s weather or the
+location of the nearest subway station. Asher and Lascardes (2003)
+develop a systematic treatment of speech acts in their conversational
+setting that also responds to Searle&rsquo;s challenge. Additionally,
+Roberts (2004, 2012) develops a model of conversational kinematics
+according to which conversations are invariably aimed at answering
+what she terms a <em>question under discussion</em> (QUD). This view
+is best appreciated within the framework of the &ldquo;scorekeeping
+model&rdquo; of conversation, to which we now turn.</p>
+
+<h3><a name="SpeActSco">6.2 Speech Acts and Scorekeeping</a></h3>
+
+<p>
+Much literature concerned with speech acts is curiously disconnected
+from research in the semantics of natural language emphasizing
+pragmatic factors. For instance, Stalnaker (1972, 1973, 1974), Lewis
+(1979, 1980), Thomason (1990) and others have developed models of the
+kinematics of conversations aimed at understanding the role of
+quantification, presupposition (both semantic and pragmatic),
+anaphora, deixis, and vagueness in discourse. Such models typically
+construe conversations as involving an ever-developing set of
+Propositions that can be presupposed by interlocutors. This set of
+Propositions is the conversational<em> common ground</em>, defined as
+that set of Propositions that all interlocutors take to be true, while
+also taking it that all other interlocutors take them to be true. If a
+Proposition p is in a conversation&rsquo;s common ground, then a speaker may
+felicitously presuppose p&rsquo;s truth. Suppose then that the
+Proposition <em>that Singapore has a unique King</em> is in a
+conversation&rsquo;s common ground at given point; then a speaker may
+felicitously utter a sentence such as &lsquo;The present King of
+Singapore is wise,&rsquo; or &lsquo;Singapore&rsquo;s king is
+sleeping&rsquo;. Other parameters characterizing a conversation at a
+given point include the domain of discourse, a set of salient
+perceptible objects, standards of precision, time, world or situation,
+speaker, and addressee. The set of all values for these items at a
+given conversational moment is often referred to as
+&ldquo;conversational score&rdquo;.</p>
+
+<p>
+&ldquo;Scorekeeping&rdquo; approaches to language use typically
+construe a contribution to a conversation as a Proposition: If that
+&ldquo;assertion&rdquo; is accepted, then the score is updated by
+having the Proposition entered into common ground. In this spirit,
+MacFarlane (2011) considers an account of the speech act of assertion
+in terms an utterance&rsquo;s capacity to update conversational score. Such
+an approach will, however, face a difficulty in explaining how two
+speech acts with the same content, such as an assertion that the Milky
+Way contains a black hole, and a conjecture that it does, will make
+different conversational contributions. An enrichment of the
+scorekeeping model would include sensitivity to differences such as
+these.</p>
+
+<p>
+Another development in the scorekeeping model refines the teleological
+picture adumbrated above to incorporate Questions, construed (along
+the lines of Section 2.1) as sets of Propositions. When an
+interlocutor proffers an assertion that is not met with objections by
+others in the conversation, the Propositional content of that
+illocution will enter into common ground. When an interlocutor poses a
+question that is accepted by others, we may represent the change as an
+addition to Common Ground of the set of propositions that is the
+Interrogative content of that illocution. The presence of that
+Interrogative obliges interlocutors to work to rule all but one
+Proposition that is a complete answer to the Interrogative. Because
+Interrogatives stand in inferential relations to one another (Q1
+entails Q2 just in case any answer to Q1 is an answer to Q2), one
+strategy for answering a question is to divide it into tractable
+questions that it entails: &lsquo;How many covered bridges are there
+in Japan?&rsquo; can be answered by answering that question for each
+of that country&rsquo;s 47 prefectures. Roberts (2004, 2012) develops
+the Question Under Discussion model of conversational dynamics
+according to which common ground contains a partially ordered set of
+Interrogatives in addition to a set of Propositions. This teleological
+approach to conversation bids fair to enrich our understanding of the
+relations of speech acts to other central topics within pragmatics
+such as presupposition and 
+implicature.<sup>[<a href="notes.html#note-18" id="ref-18">18</a>]</sup></p>
+
+<h2><a name="ForIndLogPerLan">7. Force-Indicators and the Logically Perfect Language</a></h2>
+
+<p>
+Frege&rsquo;s <em>Begriffsschrift</em> (1879) constitutes history&rsquo;s first
+thoroughgoing attempt to formulate a rigorous formal system in which
+to carry out deductive reasoning. However, Frege did not see his
+Begriffsschrift as merely a tool for assessing the validity of
+arguments. Rather, he appears to have seen it as an organon for the
+acquisition of knowledge from unquestionable first principles; in
+addition he wanted to use it in order to help make clear the epistemic
+foundations on which our knowledge rests.  To this end his formal
+system contains not only symbols indicating the content of
+propositions (including logical constants), but also symbols
+indicating the force with which they are put forth. In particular,
+Frege insists that when using his formal system to acquire new
+knowledge from propositions already known, we use an assertion sign to
+indicate our acknowledgment of the truth of the proposition used as
+axioms or inferred therefrom. Frege thus employs what would now be
+called a <em>force indicator</em>: an expression whose use indicates
+the force with which an associated proposition is being put forth
+(Green 2002).</p>
+
+<p>
+Reichenbach expands upon Frege&rsquo;s idea in his 1947. In addition to
+using an assertion sign, Reichenbach also uses indicators of
+interrogative and imperatival force. Hare similarly introduces force
+indicators to lay bare the way in which ethical and cognate utterances
+are made (Hare 1970). Davidson (1979), however, challenges the value
+of this entire enterprise of introducing force-indicating devices into
+languages, formal or otherwise. Davidson&rsquo;s reason is that since
+natural language already contains many devices for indicating the
+force of one&rsquo;s speech act, the only interest a force indicator could
+have would be if it could guarantee the force of one&rsquo;s speech act. But
+nothing could do this: Any device purporting to be, say, an infallible
+indicator of assertoric force is liable to being used by a joker or
+actor to heighten the realism of their performance. Referring to the
+putative force-indicating device as a &lsquo;strengthened mood,&rsquo;
+he writes,</p>
+
+<blockquote>
+It is apparent that merely speaking the sentence in the strengthened
+mood cannot be counted on to result in an assertion: every joker,
+storyteller, and actor will immediately take advantage of the
+strengthened mood to simulate assertion. There is no point, then, in
+the strengthened mood; the available indicative does as well as
+language can do in the service of assertion (Davidson 1979, p. 311).
+</blockquote>
+
+<p> Hare 1989 replies that there could be a society with a convention that utterance
+of a certain expression constituted performance of a certain
+illocutionary act, even those utterances that occur on stage or as
+used by jokers or storytellers. Green 1997 questions the relevance of this observation to asserting, which as we have seen, which as we have
+seen, seem to require intentions for their performance. Just as no
+convention could make it the case that I believe that <em>P</em>, so
+too no convention could make it the case that I intend to put forth a
+certain sentence as an assertion.</p>
+
+<p>
+On the other hand, Green 1997 and Green 2000 also observe that even if
+there can be no force indicator in the sense Davidson criticizes,
+nothing prevents natural language from containing devices that
+indicate force conditional upon one&rsquo;s performing a speech act: such a
+force indicator would not show <em>whether</em> one is performing a
+speech act, but, given that one is doing so, it would
+show <em>which</em> speech act one is performing. For instance,
+parenthetical expressions such as, &lsquo;as is the case&rsquo; can
+occur in the antecedent of conditionals, as in: &lsquo;If, as is the
+case, the globe is warming, then Antarctica will melt.&rsquo; Use of
+the parenthetical cannot guarantee that the sentence or any part of it
+is being asserted, but if the entire sentence is being asserted, then,
+Green claims, use of the parenthetical guarantees that the speaker is
+also committed to the content of the antecedent. If this claim is
+correct, natural language already contains force indicators in this
+qualified sense. Whether it is worth introducing such force indicators
+into a logical notation remains an open question.</p>
+
+<p>Subsequent to Austin&rsquo;s introduction of the notion of a
+performative, it has also been suggested that what we might call
+performative sentential frames behave like force indicators: &lsquo;I
+claim that it is sunny,&rsquo; seems to be a prolix way of saying that
+it is sunny, where the &lsquo;I claim&rsquo; seems only to indicate
+how what follows is to be taken. On the approach of Urmson (1952), for
+instance, such a sentence should be understood on the model of
+&lsquo;It is sunny, I claim.&rsquo; Support for such an analysis may
+be found in the fact that a potential reply to that
+utterance is &lsquo;No it isn&rsquo;t; it&rsquo;s pouring
+outside!&rsquo;, while &lsquo;No you don&rsquo;t&rsquo; is not. Again, if the speaker does not believe it is sunny outside, she cannot dodge, she cannot dodge
+the accusation of lying by remarking that what she had asserted was
+that she claimed that it is sunny, and not anything about the
+weather.</p>
+
+<p>
+
+Nonetheless, drawing on Cohen 1964, Lycan 2018 objects to the view
+that such performative frames make no contribution to sentence or
+utterance meaning. If Marissa felicitously utters, &lsquo;I claim that
+it is sunny,&rsquo; while Abdul felicitously utters, &lsquo;I
+conjecture that it is sunny,&rsquo; the view implies that their
+utterances mean the same. The two speakers have clearly said different
+things, however. On the other hand, if we hold that the performative
+frame does contribute to the content of what Marissa and Abdul said,
+then, Lycan points out, it will be difficult to explain how their
+utterances commit either of them to any position about the weather. It
+evidently won&rsquo;t do to posit inference rules such as &lsquo;I state
+that <i>p</i>,&lsquo; <em>ergo</em>, &lsquo;<i>p</i>&rsquo;. We will
+consider a solution to what Lycan terms &ldquo;Cohen&rsquo;s Problem&rdquo;
+after developing a notion of illocutionary inference in the next
+section.</p>
+
+<h2><a name="DoSpeActHavLog">8. Do Speech Acts Have a Logic?</a></h2>
+
+<p>
+Students of speech acts contend, as we have seen, that the unit of
+communicative significance is the Illocution rather than the
+Proposition. This attitude prompts the question whether logic itself
+might be enriched by incorporating inferential relations among speech
+acts rather than just inferential relations among Propositions.
+Just as two event-types <em>E</em>1 and <em>E</em>2 (such as running
+quickly and running) could be logically related to one another in that
+it is not possible for one to occur without the other; so too speech
+act types <em>S</em><sub>1</sub> and <em>S</em><sub>2</sub> could be
+inferentially related to one another if it is not possible to perform
+one without performing the other. A warning that the bull is about to
+charge is also an assertion that the bull is about to charge but the
+converse is not true. This is in spite of the fact that these two
+speech acts have the same propositional content: That the bull is
+about to charge. If, therefore, warning implies asserting but not vice
+versa, then that inferential relation is not to be caught within the
+net of inferential relations among propositions.</p>
+
+<p>
+In their <em>Foundations of Illocutionary Logic</em> (1985), Searle
+and Vanderveken attempt a general treatment of logical relations among
+speech acts.  They describe their central question in terms of
+commitment:</p>
+
+<blockquote>
+A theory of illocutionary logic of the sort we are describing is
+essentially a theory of illocutionary commitment as determined by
+illocutionary force. The single most important question it must answer
+is this: Given that a speaker in a certain context of utterance
+performs a successful illocutionary act of a certain form, what other
+illocutions does the performance of that act commit him to? (1985,
+p. 6)
+</blockquote>
+
+<p>To explicate their notion of illocutionary commitment, these
+authors invoke their definition of illocutionary force in terms of the
+seven values mentioned in Section 2.3 above. On the basis of this
+definition, they define two notions pertinent to entailment relations
+among speech acts, namely <em>strong illocutionary commitment</em>
+and <em>weak illocutionary commitment</em>. According to the former
+definition, an illocutionary act <em>S</em><sub>1</sub> commits a
+speaker to another illocutionary act <em>S</em><sub>2</sub> iff it is
+not possible to perform <em>S</em><sub>1</sub> without
+performing <em>S</em><sub>2</sub>. Whether that relation holds between
+a pair of illocutionary acts depends on the particular septuples with
+which they are identified. Thus suppose that <em>S</em><sub>1</sub> is
+identical with &lt;IP<sub>1</sub>, Str<sub>1</sub>, Mode<sub>1</sub>,
+Cont<sub>1</sub>, Prep <sub>1</sub>, Sinc<sub>1</sub>,
+Stresinc<sub>1</sub>&gt; (corresponding to illocutionary point,
+strength, mode of achievement, propositional content, preparatory
+condition, sincerity condition, and strength of sincerity condition,
+respectively); and suppose that <em>S</em><sub>2</sub> is identical
+with &lt;IP<sub>1</sub>, Str<sub>2</sub>, Mode<sub>1</sub>,
+Cont<sub>1</sub>, Prep<sub>1</sub>, Sinc<sub>1</sub>,
+Stresinc<sub>1</sub>&gt;. Suppose further that Str<sub>1</sub> and
+Str<sub>2</sub> differ only in that 1 is stronger than 2. Then it will
+not be possible to perform <em>S</em><sub>1</sub> without
+performing <em>S</em><sub>2</sub>; whence the former strongly
+illocutionarily implies the latter. (This definition of strong
+illocutionary commitment generalizes in a straightforward way to the
+case in which a set of speech acts <em>S</em><sub>1</sub>,
+&hellip;, <em>S<sub>n</sub></em><sub>&minus;1</sub> implies a speech
+act <em>S<sub>n</sub></em>.)</p>
+
+<p>
+Searle and Vanderveken also define a notion of weak illocutionary
+commitment such that <em>S</em><sub>1</sub> weakly illocutionarily
+implies <em>S</em><sub>2</sub> iff every performance
+of <em>S</em><sub>1</sub> commits an agent to meeting the conditions
+laid down in the septuple identical to <em>S</em><sub>2</sub> (1985,
+p. 24). Searle and Vanderveken infer that this implies that
+if <em>P</em> logically entails <em>Q</em>, and an agent
+asserts <em>P</em>, then she is committed to believing
+that <em>Q</em>. These authors stress, however, that this does not
+mean that the agent who asserts <em>P</em> is committed
+to <em>cultivating</em> the belief <em>Q</em> when <em>P</em>
+implies <em>Q</em>. In lieu of that explication, however, it is
+unclear just what notion of commitment is at issue. It is unclear, for
+instance, what it could mean to be committed to believing <em>Q</em>
+(rather than just being committed to <em>Q</em>) if this is not to be
+explicated as being committed to cultivating the belief
+that <em>Q</em>.</p>
+
+<p>
+Other approaches attempt to circumvent such problems by reductively
+defining the notion of commitment in terms of obligations to action
+and liability to error and/or vindication. Performance of a speech act
+or set of speech acts can commit an agent to a distinct content, and
+do so relative to some force. If <em>P</em> and <em>Q</em> jointly
+imply <em>R</em>, then my asserting both <em>P</em> and <em>Q</em>
+commits me to <em>R</em>. That is not to say that I have also
+asserted <em>R</em>: if assertion were closed under deductive
+consequence I would assert infinitely many things just by virtue of
+asserting one. By contrast, if I conjecture <em>P</em> and <em>Q</em>,
+then I am once again committed to <em>R</em> but not in the way that I
+would have been had I asserted <em>P</em> and <em>Q</em>. For
+instance, in the assertion case, once my further commitment to <em>R</em> is
+made clear, it is within the rights of my addressee to ask how I know
+that <em>R</em> holds; this would not have been an acceptable reply to my
+merely conjecturing <em>P</em> and <em>Q</em>. Developing this theme,
+let <em>S</em> be an arbitrary speaker,
+&lt;&Delta;<em><sub>l</sub></em><em>A</em><em><sub>l</sub></em>,
+&hellip;, &Delta;<em><sub>n</sub></em><em>A</em><em><sub>n</sub></em>,
+&Delta;<em>B</em>&gt; a sequence of force/content pairs; then:</p>
+
+<blockquote>
+&lt;&Delta;<em><sub>l</sub>A<sub>l</sub></em>, &hellip;,
+&Delta;<em><sub>n</sub>A<sub>n</sub></em>, &Delta;<em>B</em>&gt;
+is <em>illocutionarily valid</em> iff if speaker <em>S</em> is
+committed to each <em>A<sub>i</sub></em> under mode
+&Delta;<em><sub>i</sub></em>, then <em>S</em> is committed
+to <em>B</em> under mode
+ &Delta;.<sup>[<a href="notes.html#note-19" id="ref-19">19</a>]</sup>
+</blockquote>
+
+<p>Because it concerns what force/content pairs commit an agent to
+what others, illocutionary validity is an essentially deontic notion:
+It will be cashed out in terms either of obligation to use a content
+in a certain way conversationally, or liability to error or
+vindication depending upon how the world is.</p>
+
+<p>
+Our discussion of the possibility of an illocutionary logic answers
+one question posed at the end of Section 6.3, namely whether it is
+possible to perform a speech act without intending to do so. This
+seems likely given Searle and Vanderveken&rsquo;s definition of strong
+illocutionary commitment: We need only imagine an agent performing
+some large number of speech acts, <em>S</em><sub>1</sub>,
+&hellip;, <em>S<sub>n</sub></em><sub>&minus;1</sub>, which, unbeknownst to
+her, jointly guarantee that she fulfills the seven conditions defining
+another speech act <em>S<sub>n</sub></em>. Even in such a case she
+performs <em>S<sub>n</sub></em> only by virtue of intentionally
+performing some other set of speech acts <em>S</em><sub>1</sub>,
+&hellip;, <em>S<sub>n</sub></em><sub>&minus;1</sub>; it is difficult to see
+how one can perform <em>S<sub>n</sub></em> while having no intention
+of performing a speech act at all.</p>
+
+<p>
+We are also in a position to make headway on Cohen&rsquo;s Problem as
+formulated by Lycan. As argued in Green 2000, in an assertion of
+&lsquo;I (hereby) assert that <i>p</i>&rsquo;, a speaker commits
+herself to <i>p</i> even though her words do not logically entail that
+Proposition; nor do they presuppose, or either conversationally or
+conventionally imply it. They do, however, illocutionarily entail it:
+anyone committed to &lsquo;I assert that <i>p</i>&rsquo;
+assertorically is thereby committed to <i>p</i> assertorically. By
+contrast, one committed to &lsquo;I assert that <i>p</i>&rsquo; as a
+supposition for the sake of argument is not thereby committed
+to <i>p</i>. Accordingly, such a phrase as &lsquo;I assert that&rsquo;
+is semantically opaque (making a non-trivial contribution to the truth
+conditions of the sentences in which it occurs) but pragmatically
+transparent in the sense that a speaker who undertakes assertoric
+commitment to a sentence in which it has widest scope is also
+assertorically committed to its complement. Analogous remarks apply to
+&lsquo;I conjecture that&rsquo; and the like.</p>
+
+<h2><a name="SpeActSocIss">9. Speech Acts and Social Issues</a></h2>
+
+<p>
+In a paradigmatic illocutionary event, a speaker has a choice of which
+if any speech act to perform and her addressee will do her charitable
+best to discern that speaker&rsquo;s intentions and, where necessary, which
+conventions she may be invoking. Pratt (1986) observes that this
+paradigm is not true to the facts of many areas of communicative
+life, writing</p>
+
+<blockquote>
+An account of linguistic interaction based on the idea of exchange
+glosses over the very basic facts that, to put it crudely, some people
+get to do more talking than others, some are supposed to do more
+listening, and not everybody&rsquo;s words are worth the same. (1986, p. 68)
+</blockquote>
+
+<p> Although Pratt intends this remark as a critique of speech act
+theory, it also suggests a way in which this theory might shed light
+on subtle forms of oppression. We saw in Section 2.2 that a putative
+bet can misfire if it is not accepted. In such a case the speaker
+attempts to bet but fails in that effort due to a lack of audience
+uptake. So too, a person may not be in the correct social position to, say, excommunicate or appoint, and her attempts to perform such illocutions will misfire. More momentously, a pattern of abuses
+of speech act institutions might deprive a person of an ability to
+perform speech acts: the inveterate promise-breaker will, in time, lead others
+in his community to be unwilling to accept any promises he tries to
+make. He can perform countless locutionary acts but will be unable to
+perform the illocutionary act of promising, at least in this
+community.</p>
+
+<p>
+A pattern of culpable behavior could make a speaker unable to perform one speech act type. Could a pattern of culpable
+behavior&ndash;intentional or inadvertent&mdash;on the part of others
+in a speaker&rsquo;s community achieve the same effect? This could happen if enough such speakers decide never
+to accept one person&rsquo;s bets, warnings, or promises. Beyond such
+hypothetical cases, it has been argued that patterns of social
+inequality can prevent members of certain groups from performing the speech acts they would choose to. Building on and refining
+McKinnon&rsquo;s (1993) claim that pornography silences women, Langton
+(1993), and Hornsby and Langton (1998) argue that the industry and
+consumption of pornography deprive women of the ability to perform the
+speech act of refusing sexual advances. Refusing is a speech act, but
+if large enough numbers of men deny uptake (with such thoughts as,
+&ldquo;By &lsquo;no&rsquo; she really means &lsquo;yes&rsquo;,&rdquo;
+etc.) then, these authors argue, women&rsquo;s attempts to refuse sexual
+advances will be characteristically inert with respect to the speech
+act of refusal. Women will still be able to attempt to refuse sexual
+advances, and can still try to prevent them by physical means, but a
+crucial illocutionary form of protection will be closed to them. So
+too, apartheid, Jim Crow, and even patterns of discrimination of which
+the perpetrators are not consciously aware, can deprive racial,
+religious, and ethnic minority groups of the ability to perform
+speech-act types requiring uptake. These phenomena are generally
+referred to as <em>illocutionary silencing</em>.</p>
+
+<p>
+Bird (2002) denies that the speech act of refusal requires
+uptake. Such an illocution is, he contends, like inviting and
+surrendering, which can occur whether or not their intended audiences
+grasp or accept the proffered illocutions. Similarly denying that the
+&ldquo;silencing&rdquo; argument should be cast in terms of speech
+acts, Maitra 2009 argues that the institution of pornography prevents
+speaker-meant instances of refusal from being understood. One can
+speaker-mean that she refuses, for instance, but patterns of cognitive
+and affective response will systematically prevent that refusal from
+being grasped. Broadening the scope of investigations of the
+interaction of injustice and illocutionary phenomena, McGowan 2009
+argues that some speech acts can not only cause but also constitute
+instances of oppression. Anderson, Haslanger and Langton (2012) provide overviews of research on racial, gender
+and related forms of oppression as they relate to speech acts. </p>
+
+<p>
+
+Although not inherently culpable, the practice of dogwhistling has
+also recently gained the interest of theorists of speech acts. As
+suggested by the metaphor, an agent dogwhistles just in case one or
+more dimensions of a speech act she performs is readily intelligible
+only to a proper subset of her addressees. Saul 2018 notes that in
+contemporary American politics, stating one&rsquo;s opposition to the
+Supreme Court case of Dred Scott seems to be a way of signaling one&rsquo;s
+anti-abortion sympathies. For those not in the know, however, a
+speaker&rsquo;s opposition to the Dred Scott appears to be an
+uncontroversial act of rejecting racism. The phenomenon of
+dogwhistling provides an apparent challenge to conceptions of speaker
+meaning in terms of overtness, since the dogwhistler would seem to
+speaker mean a content that is cryptic to all but her insider
+audience: is her utterance both overt and covert? Instead of adopting
+such a view, one who construes speech acts in terms of overtness could
+refine the notion of manifestness occuring in her account. What is
+manifest to one addressee may not be manifest to another, and a
+speaker may exploit this fact. Accordingly, someone who avows, &ldquo;I&rsquo;m
+against Dred Scott,&rdquo; may speaker-mean that she is both against Dred
+Scott and pro-life to one part of her audience, but only that she is
+against Dred Scott to another part.</p>
+
+</div>
+
+<div id="bibliography">
+
+<h2><a name="Bib">Bibliography</a></h2>
+
+<ul class="hanging">
+
+<li>Alston, W., 2000. <em>Illocutionary acts and sentence
+meaning</em>, Ithaca, NY: Cornell University Press.</li>
+
+<li>&ndash;&ndash;&ndash;, 1994. &lsquo;Illocutionary acts and
+linguistic meaning,&rsquo; in Tsohatzidis (ed.), pp. 29&ndash;49.</li>
+
+<li>Anderson, L, S. Haslanger, and R. Langton, 2012. &lsquo;Language
+and race,&rsquo; in D. Fara and G. Russell (eds.), <em>Routledge
+Companion to the Philosophy of Language</em> (London: Routledge),
+pp. 753&ndash;767.</li>
+
+<li>Anscombe, G.E.M., 1963. <em>Intention,</em> 2<sup>nd</sup>
+Edition. Ithaca, NY: Cornell University Press.</li>
+
+<li>Armstrong, D., 1971. &lsquo;Meaning and communication,&rsquo;
+<em>The Philosophical Review</em>, 80: 427&ndash;47.</li>
+
+<li>Asher, N. and A. Lascarides, 2001. &lsquo;Indirect Speech
+Acts,&rsquo; <em>Synthese</em>, 128: 183&ndash;228.</li>
+
+<li>&ndash;&ndash;&ndash;, 2003. <em>Logics of
+conversation</em>, Cambridge: Cambridge University Press.</li>
+
+<li>Austin, J.L., 1962. <em>How to do Things with Words</em>,
+2<sup>nd</sup> edition, J.O. Urmson and
+M. Sbis&aacute; (eds.), Cambridge, MA: Harvard University Press.</li>
+
+<li>&ndash;&ndash;&ndash;, 1970. <em>Philosophical Papers</em>, Edited
+by J. Urmson, and G. Warnock. Oxford: Oxford University Press.</li>
+
+<li>Avramides, A., 1989. <em>Meaning and Mind: An Examination of the
+Gricean Account of Language</em>, Cambridge, MA: MIT Press.</li>
+
+<li>Bach, K., 1975. &lsquo;Performatives are statements too,&rsquo;
+<em>Philosophical Studies</em>, 28: 229&ndash;36.</li>
+
+<li>&ndash;&ndash;&ndash;, 1994. &lsquo;Conversational
+impliciture,&rsquo; <em>Mind and Language</em>, 9: 124&ndash;162.</li>
+
+<li>&ndash;&ndash;&ndash; and R. Harnish, 1979. <em>Linguistic
+Communication and Speech Acts</em>, Cambridge: M.I.T. Press.</li>
+
+<li>Bell, M., 1975. &lsquo;Questioning,&rsquo; <em>The Philosophical
+Quarterly</em>, 25: 193&ndash;212.</li>
+
+<li>Belnap, N., 1990. &lsquo;Declaratives are not enough,&rsquo;
+<em>Philosophical Studies</em>, 59: 1&ndash;30.</li>
+
+<li>Bennett, J., 1976. <em>Linguistic Behaviour</em>, Cambridge:
+Cambridge University Press.</li>
+
+<li>Bertolet, R., 1994. &lsquo;Are there indirect speech acts?&rsquo;
+in in S. Tsohatzidis (ed.)  <em>Foundations of Speech Act Theory:
+Philosophical and Linguistic Perspectives</em> (London: Routledge),
+pp. 335&ndash;49.</li>
+
+<li>&ndash;&ndash;&ndash;, 2017. &lsquo;On the arguments for indirect speech ats,&rsquo; <em>Philosophia</em> vol. 45, pp. 533&ndash;40.</li>
+
+<li>Bird, A., 2002. &lsquo;Illocutionary silencing,&rsquo; <em>Pacific
+Philosophical Quarterly</em>, 83: 1&ndash;15.</li>
+
+<li>Brandom, R., 1983. &lsquo;Asserting,&rsquo; <em>No&ucirc;s</em>
+17: 637&ndash;650.</li>
+
+<li>&ndash;&ndash;&ndash;, 1994. <em>Making It Explicit</em>,
+Cambridge, MA: Harvard University Press.</li>
+
+<li>Callon, M., 2006. &lsquo;What does it mean to say that economics
+is performative?&rsquo; <em>Working Paper Series</em>, Centre de
+Sociologie de L&rsquo;Innovation, Ecole des Mines de Paris.</li>
+
+<li>Carston, R., 2003. <em>Thoughts and Utterances</em>, Oxford:
+Blackwell.</li>
+
+<li>Clark, H., 1996. <em>Using Language</em>, Cambridge: Cambridge
+University Press.</li>
+
+<li>Cohen, L.J., 1964. &lsquo;Do illocutionary forces exist?&rsquo;
+<em>The Philosophical Quarterly</em>, 14: 118&ndash;137.</li>
+
+<li>Cohen, P., J. Morgan, and M. Pollack (eds.), 1990. <em>Intentions
+in Communication</em>, Cambridge, MA: MIT Press.</li>
+
+<li>Cohen, T., 1973. &lsquo;Illocutions and perlocutions,&rsquo;
+<em>Foundations of Language</em>, 9: 492&ndash;503.</li>
+
+<li>Davidson, D., 1979. &lsquo;Moods and performances,&rsquo;
+reprinted in Davidson (1984) <em>Inquiries into Truth and
+Interpretation</em>, Oxford: Oxford University Press.</li>
+
+<li>Davis, W., 1992. &lsquo;Speaker meaning,&rsquo; <em>Linguistics
+and Philosophy</em>, 15: 223&ndash;53.</li>
+
+<li>&ndash;&ndash;&ndash;, 2003. <em>Meaning, Expression and
+Thought</em>, Cambridge: Cambridge University Press.</li>
+
+<li>Dummett, M.A.E., 1973. <em>Frege: Philosophy of Language.</em>
+London: Duckworth.</li>
+
+<li>&ndash;&ndash;&ndash;, 1993. &lsquo;Mood, force and
+convention,&rsquo; in his <em>The Seas of Language</em> (Oxford:
+Oxford University Press), pp. 202&ndash;23.</li>
+
+<li>Forguson, L.W., 1973. &lsquo;Locutionary and illocutionary
+acts,&rsquo; in G. Warnock (ed.), <em>Essays on J. L. Austin</em>,
+Oxford: Clarendon Press, 160&ndash;185.</li>
+
+<li>Frege, G., 1879.  <em>Begriffsschrift</em> in van Heijenoort (ed.)
+<em>From Frege to G&ouml;del: A Sourcebook in Mathematical Logic.</em>
+Cambridge, MA: Harvard University Press, 1976, pp. 1&ndash;82.</li>
+
+<li>Frege, G., 1884. <em>The Foundations of Arithmetic</em>,
+trans. J.L. Austen. Oxford: Basil Blackwell.</li>
+
+<li>&ndash;&ndash;&ndash;, <em>Posthumous Writings</em> H. Hermes,
+F. Kambartel and F. Kaulbach (eds.), Oxford: Blackwell, 1979.</li>
+
+<li>&ndash;&ndash;&ndash;,  <em>Philosophical and Mathematical
+Correspondence</em>, G. Gabriel, <em>et al</em>. (eds.), Chicago: 
+University of Chicago Press, 1980.</li>
+
+<li>&ndash;&ndash;&ndash;, &lsquo;The thought: a logical
+inquiry,&rsquo; <em>Collected Papers on Mathematics Logic and
+Philosophy</em>, edited by B. McGuinness, trans. by M.  Black <em>et
+al</em>., Oxford: Blackwell, 1984.</li>
+
+<li>Frye, M., 1976. &lsquo;On saying,&rsquo; <em>American
+Philosophical Quarterly</em> 13: 123&ndash;127.</li>
+
+<li>&ndash;&ndash;&ndash;, 1973. &lsquo;Force and meaning,&rsquo;
+<em>Journal of Philosophy</em>, 70: 281&ndash;94.</li>
+
+<li>Geach, P., 1972. &lsquo;Assertion,&rsquo; reprinted in his
+<em>Logic Matters</em>, Oxford: Blackwell: pp. 254&ndash;269.</li>
+
+<li>Ginet, C., 1979. &lsquo;Performativity,&rsquo; <em>Linguistics and
+Philosophy</em>, 3: 245&ndash;65.</li>
+
+<li>Gorman, D., 1999. &lsquo;The use and abuse of speech-act theory in
+criticism,&rsquo; <em>Poetics Today</em>, 20: 93&ndash;119.</li>
+
+<li>Green, M., 1997. &lsquo;On the autonomy of linguistic
+meaning,&rsquo; <em>Mind</em>, 106: 217&ndash;244.</li>
+
+<li>&ndash;&ndash;&ndash;, 1999. &lsquo;Illocutions, implicata, and
+what a conversation requires,&rsquo; <em>Pragmatics &amp;
+Cognition</em>, 7: 65&ndash;92.</li>
+
+<li>&ndash;&ndash;&ndash;, 2000. &lsquo;Illocutionary force and
+semantic content,&rsquo; <em>Linguistics and Philosophy</em>, 23:
+435&ndash;473.</li>
+
+<li>&ndash;&ndash;&ndash;, 2002. &lsquo;The inferential significance
+of Frege&rsquo;s assertion sign,&rsquo; <em>Facta Philosophica</em>, 4:
+201&ndash;29.</li>
+
+<li>&ndash;&ndash;&ndash;, 2007. <em>Self-Expression</em>, Oxford:
+Oxford University Press.</li>
+
+<li>&ndash;&ndash;&ndash;, 2017. &lsquo;Assertion,&rsquo;
+in <em>Oxford Handbooks Online</em>, Oxford: Oxford University
+Press, doi:10.1093/oxfordhb/9780199935314.013.8</li>
+
+<li>&ndash;&ndash;&ndash;, 2019. &lsquo;Assertions,&rsquo; in
+M. Sbis&agrave; and K. Turner (eds.) <em>Handbook of Pragmatics,
+Vol. II: Pragmatics of Speech Actions</em> (de Gruyter-Mouton),
+387&ndash;410.</li>
+
+<li>&ndash;&ndash;&ndash;, 2020, <em>The Philosophy of
+Language</em>, Oxford: Oxford University Press.</li>
+
+<li>Green, M. and J. Williams, 2007. &lsquo;Editor&rsquo;s
+introduction,&rsquo; in Green and Williams (eds.)  <em>Moore&rsquo;s
+Paradox: New Essays on Belief, Rationality and the First Person</em>
+(Oxford).</li>
+
+<li>Grice, H.P., 1957. &lsquo;Meaning,&rsquo; <em>The Philosophical
+Review</em> 66, No. 3: 377&ndash;88.</li>
+
+<li>&ndash;&ndash;&ndash;, 1989. <em>Studies in the Way of Words.</em>
+Cambridge: Harvard University Press.</li>
+
+<li>Hamblin, C.L., 1987. <em>Imperatives</em>, Oxford: Basil
+Blackwell.</li>
+
+<li>&ndash;&ndash;&ndash;, 1973. &lsquo;Questions in Montague
+english,&rsquo; <em>Foundations of Language</em>, 10:
+41&ndash;53.</li>
+
+<li>&ndash;&ndash;&ndash;, 1958.  &lsquo;Questions,&rsquo;
+<em>Australasian Journal of Philosophy</em>, 36: 159&ndash;68.</li>
+
+<li>Hajdin, M., 1991. &lsquo;Is there more to speech acts than
+illocutionary force and propositional content?&rsquo;
+<em>No&ucirc;s</em>, 25: 353&ndash;7.</li>
+
+<li>Hare, R., 1970. &lsquo;Meaning and Speech Acts,&rsquo; <em>The
+Philosophical Review</em>, 79: 3&ndash;24.</li>
+
+<li>&ndash;&ndash;&ndash;, 1989. &lsquo;Some Subatomic Particles of
+Logic,&rsquo; <em>Mind</em>, 98: 23&ndash;37.</li>
+
+<li>Harrah, D., 1980. &lsquo;On speech acts and their logic,&rsquo;
+<em>Pacific Philosophical Quarterly</em>, 61: 204&ndash;11.</li>
+
+<li>&ndash;&ndash;&ndash;, 1994. &lsquo;On the vectoring of speech
+acts,&rsquo; in S. Tsohatzidis (ed.)  <em>Foundations of Speech Act
+Theory: Philosophical and Linguistic Perspectives</em> (London:
+Routledge), pp. 374&ndash;392.</li>
+
+<li>Holdcroft, D., 1994. &lsquo;Indirect speech acts and propositional
+content,&rsquo; in S. Tsohatzidis (ed.)  <em>Foundations of Speech Act
+Theory: Philosophical and Linguistic Perspectives</em> (London:
+Routledge), pp. 350&ndash;64.</li>
+
+<li>Hornsby, J. and R. Langton, 1998. &lsquo;Free speech and
+illocution,&rsquo; <em>Legal Theory</em>, 4: 21&ndash;37.</li>
+
+<li>Humberstone, L., 1992. &lsquo;Direction of fit,&rsquo;
+<em>Mind</em>, 101: 59&ndash;83.</li>
+
+<li>Katz, J., 1977. <em>Propositional Structure and Illocutionary
+Force</em>, New York: Crowell.</li>
+
+<li>Kearns, J., 1997. &lsquo;Propositional logic of supposition and
+assertion,&rsquo; <em>Notre Dame Journal of Formal Logic</em>, 38:
+325&ndash;349.</li>
+
+<li>&ndash;&ndash;&ndash;, 1999. &lsquo;An illocutionary logical
+explanation of the surprise execution,&rsquo; <em>History and
+Philosophy of Logic</em>, 20: 195&ndash;214.</li>
+
+<li>&ndash;&ndash;&ndash;, 2006. &lsquo;Conditional assertion, denial,
+and supposition as illocutionary acts,&rsquo; <em>Linguistics and
+Philosophy</em>, 29: 455&ndash;85.</li>
+
+<li>K&ouml;nig, E. and P. Seimund, 2007. &lsquo;Speech act
+distinctions in grammar,&rsquo; in T. Shopen (ed.) <em>Language
+Typology and Semantic Description</em>, Cambridge: Cambridge
+University Press, pp. 276&ndash;324.</li>
+
+<li>Lakoff, G., 1972. &lsquo;Linguistics and natural logic,&rsquo; in
+Davidson and Harman (eds.), <em>Semantics of Natural Language</em>,
+Dordrecht: Reidel.</li>
+
+<li>Langton, R., 1993. &lsquo;Speech acts and unspeakable acts,&rsquo;
+<em>Philosophy and Public Affairs</em>, 22: 293&ndash;330.</li>
+
+<li>Lewis, D., 1979. &lsquo;Scorekeeping in a Language Game,&rsquo;
+<em>Journal of Philosophical Logic</em>, 8: 339&ndash;59; reprinted in
+Lewis 1983.</li>
+
+<li>&ndash;&ndash;&ndash;, 1980. &lsquo;Index, context, and
+content,&rsquo; in Stig Kanger and Sven Ohman (eds.), <em>Philosophy
+and Grammar</em>, Dordrecht: Reidel; reprinted in David Lewis, 1998,
+Papers in Philosophical Logic, Cambridge: Cambridge University
+Press.</li>
+
+<li>&ndash;&ndash;&ndash;, 1983. <em>Philosophical Papers</em> (Volume
+I), Oxford: Oxford University Press.</li>
+
+<li>Lycan, W., 2018. <em>Philosophy of Language: A Contemporary
+Introduction</em>, 3<sup>rd</sup> edition, London: Routledge.</li>
+
+<li>Maitra, I. 2009. &lsquo;Silencing speech,&rsquo;, <em>Canadian
+Journal of Philosophy</em>, vol. 39, pp. 309&ndash;38.</li>
+
+<li>McDowell, J., 1980. &lsquo;Meaning, communication, and
+knowledge,&rsquo; reprinted in <em>Meaning, Knowledge and
+Reality</em>, Cambridge: Harvard University Press.</li>
+
+<li>MacFarlane, J., 2011. &lsquo;What is assertion?&rsquo; in Brown
+and Cappelen (eds.) <em>Assertion: New Philosophical Essays</em>,
+Oxford: Oxford University Press, pp.  79&ndash;96.</li>
+
+<li>McKinnon, S., 1993. <em>Only Words</em>, Cambridge, MA: Harvard
+University Press).</li>
+
+<li>McGowan, M., Tam, S., and Hall, M. 2009. &lsquo;On indirect speech
+and linguistic communication: a response to Bertolet,&rsquo;
+<em>Philosophy</em> vol. 84, pp. 495&ndash;513.</li>
+
+<li>Miller, J.H., 2007. &lsquo;Performativity as
+Performance/Performativity as speech act: Derrida&rsquo;s special theory of
+performativity,&rsquo; <em>South Atlantic Quarterly</em>, 106:
+219&ndash;35.</li>
+
+<li> Millikan, R., 1998. &lsquo;Language conventions made
+simple,&rsquo; <em>Journal of Philosophy</em>, 95: 161&ndash;80.</li>
+
+<li>Mulligan, K. (ed.), 1987. <em>Speech Act and Sachverhalt: Reinach
+and the Foundations of Realist Phenomenology</em>, Dordrecht: Martinus
+Nijhof.</li>
+
+<li>Parret, H. and J. Verschueren (eds.), 1991. <em>(On) Searle on
+Conversation</em>, Amsterdam: J. Benjamins.</li>
+
+<li>Pendlebury, M., 1986. &lsquo;Against the power of force:
+reflections on the meaning of mood,&rsquo; <em>Mind</em>, 95:
+361&ndash;372.</li>
+
+<li>Portner, P., 2004. &lsquo;The semantics of imperatives within a
+theory of clause types,&rsquo; in R. Young (ed.) <em>SALT XIV</em>:
+232&ndash;52.</li>
+
+<li>Pratt, M.L., 1986. &lsquo;Ideology and speech-act theory,&rsquo;
+<em>Poetics Today</em>, 7: 59&ndash;72.</li>
+
+<li>Recanati, F., 1987. <em>Meaning and Force: The Pragmatics of
+Performative Utterances</em>, Cambridge: Cambridge University
+Press.</li>
+
+<li>Reichenbach, H., 1947. <em>Elements of Symbolic Logic</em>, New
+York: Macmillan.</li>
+
+<li>Reinach, A., 1913. &lsquo;Die apriorischen Grundlagen des
+b&uuml;rgerlichen Rechts,&rsquo; <em>Jahrbuch fur Philosophie und
+ph&auml;nomenologische Forschung</em>, 2: 685&ndash;847.</li>
+
+<li>Roberts, C., 2012. &lsquo;Information structure in discourse:
+towards an integrated formal theory of pragmatics,&rsquo;
+<em>Semantics and Pragmatics</em>, 5: 1&ndash;69.</li>
+
+<li>&ndash;&ndash;&ndash;, 2004. &lsquo;Context in dynamic
+interpretation,&rsquo; in Horn and Ward (eds.) <em>The Handbook of
+Pragmatics</em>, London: Routledge: 197&ndash;220.</li>
+
+<li>Sadock, J., 1974. <em>Toward a Theory of Linguistic Speech
+Acts</em>, New York: Academic Press.</li>
+
+<li>Saul, J, 2018. &lsquo;Dogwhistles, political manipulation, and the philosophy of language,&rsquo; in D. Fogal, D. Harris, and M. Moss (eds.)
+<em>New Work on Speech Acts</em>, Oxford: Oxford University Press, pp. 360&ndash;83.</li>
+
+<li>Sbis&agrave;, M., 2007. &lsquo;How to read Austin,&rsquo;
+<em>Pragmatics</em>, 17: 461&ndash;73.</li>
+
+<li>&ndash;&ndash;&ndash;, 1995. &lsquo;Speech act theory,&rsquo; in
+J. Verschueren, J. &Ouml;stman, and J. Blommaert (eds.) <em>Handbook
+of Pragmatics</em>, New York: John Benjamins, 495&ndash;506.</li>
+
+<li>Schiffer, S., 1972. <em>Meaning</em>, Oxford: Oxford University
+Press.</li>
+
+<li>Schuhmann, K. and Smith, B., 1990. &lsquo;Elements of speech act
+theory in the philosophy of Thomas Reid,&rsquo; <em>History of
+Philosophy Quarterly</em>, 7: 47&ndash;66.</li>
+
+<li>Searle, J., 1968. &lsquo;Austin on locutionary and illocutionary
+acts,&rsquo; <em>The Philosophical Review</em>, 77:
+405&ndash;424.</li>
+
+<li>&ndash;&ndash;&ndash;, 1969. <em>Speech acts: an essay in the
+philosophy of language.</em> Cambridge: Cambridge University
+Press.</li>
+
+<li>&ndash;&ndash;&ndash;, 1975. &lsquo;A taxonomy of illocutionary
+acts,&rsquo; in K. Gunderson (ed.), <em>Language, Mind and
+Knowledge</em>, Minneapolis, MN: University of Minnesota Press,
+344&ndash;369.</li>
+
+<li>&ndash;&ndash;&ndash;, 1979. &lsquo;Indirect speech acts,&rsquo;
+in his <em>Expression and Meaning: Studies in the Theory of Speech
+Acts</em>, Cambridge: Cambridge University Press.</li>
+
+<li>&ndash;&ndash;&ndash;, 1983. <em>Intentionality: An Essay in the
+Philosophy of Mind</em>, Cambridge: Cambridge University Press.</li>
+
+<li>&ndash;&ndash;&ndash;, 1986a. &lsquo;Meaning, communication, and
+representation,&rsquo; in R. Grandy and R. Warner (eds.),
+<em>Philosophical Grounds of Rationality: Intentions, Categories,
+Ends</em>, Oxford: Clarendon Press, 209&ndash;226.</li>
+
+<li>&ndash;&ndash;&ndash;, 1986b. &lsquo;Notes on conversation,&rsquo;
+in D.G. Ellis and W. A. Donohue (eds.), <em>Contemporary Issues in
+Language and Discourse Processes</em>, Hillsdale, NJ: Lawrence Erlbaum
+Associates 7&ndash;19.</li>
+
+<li>&ndash;&ndash;&ndash;, 1989. &lsquo;How performatives work,&rsquo;
+<em>Linguistics and Philosophy</em>, 12: 535&ndash;558.</li>
+
+<li>&ndash;&ndash;&ndash;, 1992. &lsquo;Conversation,&rsquo; in
+H. Parrett and J. Verschueren (eds.), <em>(On) Searle on
+Conversation</em>, New York: Benjamins, 7&ndash;30.</li>
+
+<li>&ndash;&ndash;&ndash;, 1999. <em>Mind, Language, and Society:
+Doing Philosophy in the Real World</em>, London: Weidenfeld and
+Nicolson.</li>
+
+<li>&ndash;&ndash;&ndash;, and D. Vanderveken, 1985. <em>Foundations
+of Illocutionary Logic</em>, Cambridge: Cambridge University
+Press.</li>
+
+<li>Shoham, Y., 1993. &lsquo;Agent-Oriented Programming,&rsquo;
+<em>Artificial Intelligence</em>, 60: 51&ndash;92.</li>
+
+<li>Skinner, Q., 1970. &lsquo;Conventions and the understanding of
+speech acts,&rsquo; <em>The Philosophical Quarterly</em>, 20:
+118&ndash;38.</li>
+
+<li>Smith, B., 1990. &lsquo;Toward a history of speech act
+theory,&rsquo; in A. Burkhardt (ed.), <em>Speech Acts, Meaning and
+Intentions: Critical Approaches to the Philosophy of John Searle</em>,
+Berlin: Walter de Gruyter, 29&ndash;61.</li>
+
+<li>&ndash;&ndash;&ndash; (ed.), 2003. <em>John Searle</em>,
+Cambridge: Cambridge University Press.</li>
+
+<li>Stalnaker, R., 1972. &lsquo;Pragmatics,&rsquo; in D. Davidson and
+G. Harman (eds.), <em>Semantics of Natural Language</em>, Dordrecht:
+D. Reidel, 380&ndash;397.</li>
+
+<li>&ndash;&ndash;&ndash;, 1973.  &lsquo;Presuppositions,&rsquo;
+<em>Journal of Philosophical Logic</em>, 2: 447&ndash;457.</li>
+
+<li>&ndash;&ndash;&ndash;, 1974. &lsquo;Pragmatic
+presuppositions,&rsquo; in M. Munitz and P. Unger (eds.),
+<em>Semantics and Philosophy</em>, New York: NYU Press,
+197&ndash;213.</li>
+
+<li>&ndash;&ndash;&ndash;, 1984. <em>Inquiry</em>, Cambridge, MA: MIT
+Press.</li>
+
+<li>Stenius, E., 1967. &lsquo;Mood and language-game,&rsquo;
+<em>Synthese</em>, 17: 254&ndash;274.</li>
+
+<li>Strawson, P., 1950. &lsquo;On referring,&rsquo; <em>Mind</em>,
+59: 320&ndash;44.</li>
+
+<li>&ndash;&ndash;&ndash;, 1964. &lsquo;Intention and convention in
+speech acts,&rsquo; <em>The Philosophical Review</em>, 73:
+439&ndash;60, reprinted in Strawson, <em>Logico-Linguistic
+Papers</em>, London: Methuen, 1971.</li>
+
+<li>&ndash;&ndash;&ndash;, 1970. &lsquo;Meaning and truth,&rsquo;
+reprinted in Strawson, <em>Logico-Linguistic Papers</em>, London:
+Methuen.</li>
+
+<li>&ndash;&ndash;&ndash;, 1973. &lsquo;Austin and &ldquo;locutionary
+meaning&rdquo;,&rsquo; in G. Warnock (ed.), <em>Essays on
+J. L. Austin</em>, Oxford: Clarendon Press, 46&ndash;68.</li>
+
+<li>Thomason, R., 1990. &lsquo;Accommodation, meaning and implicature:
+interdisciplinary foundations for pragmatics,&rsquo; in Cohen, Morgan
+and Pollock (eds.), <em>Intentions in Communication</em>, Cambridge,
+MA: MIT Press, pp. 325&ndash;364.</li>
+
+<li>Tsohatzidis, S.L. (ed.), 1994. <em>Foundations of Speech Act
+Theory: Philosophical and Linguistic Perspectives</em>, London:
+Routledge.</li>
+
+<li>Urmson, J.O., 1952. &lsquo;Parenthetical verbs,&rsquo;
+<em>Mind</em>, 61(244): 480&ndash;496.</li>
+
+<li>Vanderveken, D., 1990. <em>Meaning and Speech Acts, Vols I and
+II</em>, Cambridge: Cambridge University Press.</li>
+
+<li>Vendler, Z., 1972. <em>Res Cogitans</em>, Ithaca: Cornell.</li>
+
+<li>Vlach, F., 1981. &lsquo;Speaker meaning,&rsquo; <em>Linguistics and Philosophy</em>, vol. 4, pp. 359&ndash;91.</li>
+
+<li>Watson, G., 2004. &lsquo;Asserting and promising,&rsquo;
+<em>Philosophical Studies</em>, 117: 57&ndash;77.</li>
+
+<li>Williamson, T., 1996. &lsquo;Knowing and asserting,&rsquo; <em>The
+Philosophical Review</em>, 105: 489&ndash;523.</li>
+
+</ul>
+
+<h3><a name="FurRea">Further Reading</a></h3>
+
+<ul class="hanging">
+
+<li>Dummett, M., 1996. <em>Origins of Analytic Philosophy</em>, 
+Cambridge, MA: Harvard University Press.</li>
+
+<li>Furberg, M., 1971. <em>Saying and Meaning: A Main Theme in J. L.
+Austin&rsquo;s Philosophy</em>, Oxford: Blackwell.</li>
+
+<li>Grewendorf, G. and G. Meggle (eds.), 2002. <em>Speech Acts, Mind
+and Social Reality</em>, Dordrecht: Kluwer.</li>
+
+<li>Holdcroft, D., 1978. <em>Words and Deeds: Problems in the Theory of
+Speech Acts</em>, Oxford: Clarendon Press.</li>
+
+<li>Lepore, E. and van Gulick, R. (eds.), 1991. <em>John Searle and his
+Critics</em>, Oxford: Blackwell.</li>
+
+<li>Tsohatzidis, S. (ed.), 2007. <em>John Searle&rsquo;s Philosophy of
+Language: Force, Meaning and Mind</em>, Cambridge: Cambridge
+University Press.</li>
+
+<li>Warnock, G. (ed.), 1973. <em>Essays on J. L. Austin</em>, Oxford:
+Oxford University Press.</li>
+
+<li>&ndash;&ndash;&ndash;, 1989. <em>J. L. Austin</em>, New York:
+Routledge.</li>
+
+</ul>
+
+</div>
+
+<div id="academic-tools">
+
+<h2 id="Aca">Academic Tools</h2>
+
+<blockquote>
+<table class="vert-top">
+<tr>
+<td><img src="../../symbols/sepman-icon.jpg" alt="sep man icon" /></td>
+<td><a href="https://plato.stanford.edu/cgi-bin/encyclopedia/archinfo.cgi?entry=speech-acts" target="other">How to cite this entry</a>.</td>
+</tr>
+
+<tr>
+<td><img src="../../symbols/sepman-icon.jpg" alt="sep man icon" /></td>
+<td><a href="https://leibniz.stanford.edu/friends/preview/speech-acts/" target="other">Preview the PDF version of this entry</a> at the
+ <a href="https://leibniz.stanford.edu/friends/" target="other">Friends of the SEP Society</a>.</td>
+</tr>
+
+<tr>
+<td><img src="../../symbols/inpho.png" alt="inpho icon" /></td>
+<td><a href="https://www.inphoproject.org/entity?sep=speech-acts&amp;redirect=True" target="other">Look up topics and thinkers related to this entry</a>
+ at the Internet Philosophy Ontology Project (InPhO).</td>
+</tr>
+
+<tr>
+<td><img src="../../symbols/pp.gif" alt="phil papers icon" /></td>
+<td><a href="https://philpapers.org/sep/speech-acts/" target="other">Enhanced bibliography for this entry</a>
+at <a href="https://philpapers.org/" target="other">PhilPapers</a>, with links to its database.</td>
+</tr>
+
+</table>
+</blockquote>
+
+</div>
+
+
+<div id="other-internet-resources">
+
+<h2><a name="Oth">Other Internet Resources</a></h2>
+
+<ul>
+
+<!--LINK CHECKER COMMENTED OUT (Thu Oct 1 11:51:36 PDT 2015)
+
+<li><a href="http://www.meaning.ch/" target="other">Research project in the philosophy of language</a>,
+  maintained at the University of Berne, Switzerland. This site is devoted
+to some main themes of research stemming from Grices&rsquo; work on
+speaker meaning and implicature.</li>
+
+LINK CHECKER-->
+
+<li><a href="http://www.ucl.ac.uk/pals/research/linguistics/publications" target="other">Working Papers in Linguistics</a>,
+ University College London.</li>
+
+<li><a href="http://www.ling.ohio-state.edu/~croberts/QUDbib/" target="other">Question Under Discussion</a>,
+ collecting research germane to this approach to conversational
+kinematics.
+ .</li>
+
+<li>&lsquo;<a href="http://ontology.buffalo.edu/smith/articles/speechact.html" target="other">Toward a history of speech act theory</a>,&rsquo; 
+ a paper by Barry Smith (SUNY/Buffalo).</li>
+
+<li>&lsquo;<a href="http://www.oxfordbibliographies.com/view/document/obo-9780195396577/obo-9780195396577-0191.xml?rskey=mBJQBh&amp;result=5&amp;q=speech+acts#firstMatch" target="other">J.L. Austin</a>,&rsquo; 
+an annotated bibliography by Guy Longworth, <em>Oxford 
+Bibliographies Online</em>.</li>
+
+<li>&lsquo;<a href="http://www.oxfordbibliographies.com/view/document/obo-9780195396577/obo-9780195396577-0146.xml?rskey=S8LJRN&amp;result=1&amp;q=pragmatics#firstMatch" target="other">Pragmatics</a>,&rsquo; 
+an annotated bibliography by Mitchell S. Green, <em>Oxford 
+Bibliographies Online</em>.</li>
+
+</ul>
+
+</div>
+
+<div id="related-entries">
+
+<h2><a name="Rel">Related Entries</a></h2>
+
+<p>
+
+ <a href="../anaphora/">anaphora</a> |
+ <a href="../assertion/">assertion</a> |
+ <a href="../frege/">Frege, Gottlob</a> |
+ <a href="../grice/">Grice, Paul</a> |
+ <a href="../implicature/">implicature</a> |
+ <a href="../meaning/">meaning, theories of</a> |
+ <a href="../pragmatics/">pragmatics</a> |
+ <a href="../presupposition/">presupposition</a> |
+ <a href="../prop-attitude-reports/">propositional attitude reports</a> |
+ <a href="../propositions/">propositions</a> |
+ <a href="../vagueness/">vagueness</a>
+
+</p>
+
+</div>
+
+</div><!-- #aueditable --><!--DO NOT MODIFY THIS LINE AND BELOW-->
+
+<!-- END ARTICLE HTML -->
+
+</div> <!-- End article-content -->
+
+  <div id="article-copyright">
+    <p>
+ <a href="../../info.html#c">Copyright &copy; 2020</a> by
+
+<br />
+Mitchell Green
+&lt;<a href="m&#97;ilto:mitchell&#37;2egreen&#37;40uconn&#37;2eedu"><em>mitchell<abbr title=" dot ">&#46;</abbr>green<abbr title=" at ">&#64;</abbr>uconn<abbr title=" dot ">&#46;</abbr>edu</em></a>&gt;
+    </p>
+  </div>
+
+</div> <!-- End article -->
+
+<!-- NOTE: article banner is outside of the id="article" div. -->
+<div id="article-banner" class="scroll-block">
+  <div id="article-banner-content">
+    <a href="../../fundraising/">
+    Open access to the SEP is made possible by a world-wide funding initiative.<br />
+    The Encyclopedia Now Needs Your Support<br />
+    Please Read How You Can Help Keep the Encyclopedia Free</a>
+  </div>
+</div> <!-- End article-banner -->
+
+    </div> <!-- End content -->
+
+    <div id="footer">
+
+      <div id="footer-menu">
+        <div class="menu-block">
+          <h4><i class="icon-book"></i> Browse</h4>
+          <ul role="menu">
+            <li role="menuitem"><a href="../../contents.html">Table of Contents</a></li>
+            <li role="menuitem"><a href="../../new.html">What's New</a></li>
+            <li role="menuitem"><a href="https://plato.stanford.edu/cgi-bin/encyclopedia/random">Random Entry</a></li>
+            <li role="menuitem"><a href="../../published.html">Chronological</a></li>
+            <li role="menuitem"><a href="../../archives/">Archives</a></li>
+          </ul>
+        </div>
+        <div class="menu-block">
+          <h4><i class="icon-info-sign"></i> About</h4>
+          <ul role="menu">
+            <li role="menuitem"><a href="../../info.html">Editorial Information</a></li>
+            <li role="menuitem"><a href="../../about.html">About the SEP</a></li>
+            <li role="menuitem"><a href="../../board.html">Editorial Board</a></li>
+            <li role="menuitem"><a href="../../cite.html">How to Cite the SEP</a></li>
+            <li role="menuitem"><a href="../../special-characters.html">Special Characters</a></li>
+            <li role="menuitem"><a href="../../tools/">Advanced Tools</a></li>
+            <li role="menuitem"><a href="../../accessibility.html">Accessibility</a></li>
+            <li role="menuitem"><a href="../../contact.html">Contact</a></li>
+          </ul>
+        </div>
+        <div class="menu-block">
+          <h4><i class="icon-leaf"></i> Support SEP</h4>
+          <ul role="menu">
+            <li role="menuitem"><a href="../../support/">Support the SEP</a></li>
+            <li role="menuitem"><a href="../../support/friends.html">PDFs for SEP Friends</a></li>
+            <li role="menuitem"><a href="../../support/donate.html">Make a Donation</a></li>
+            <li role="menuitem"><a href="../../support/sepia.html">SEPIA for Libraries</a></li>
+          </ul>
+        </div>
+      </div> <!-- End footer menu -->
+
+      <div id="mirrors">
+        <div id="mirror-info">
+          <h4><i class="icon-globe"></i> Mirror Sites</h4>
+          <p>View this site from another server:</p>
+        </div>
+        <div class="btn-group open">
+          <a class="btn dropdown-toggle" data-toggle="dropdown" href="https://plato.stanford.edu/">
+            <span class="flag flag-usa"></span> USA (Main Site) <span class="caret"></span>
+            <span class="mirror-source">Philosophy, Stanford University</span>
+          </a>
+          <ul class="dropdown-menu">
+            <li><a href="../../mirrors.html">Info about mirror sites</a></li>
+          </ul>
+        </div>
+      </div> <!-- End mirrors -->
+      
+      <div id="site-credits">
+        <p>The Stanford Encyclopedia of Philosophy is <a href="../../info.html#c">copyright &copy; 2023</a> by <a href="https://mally.stanford.edu/">The Metaphysics Research Lab</a>, Department of Philosophy, Stanford University</p>
+        <p>Library of Congress Catalog Data: ISSN 1095-5054</p>
+      </div> <!-- End site credits -->
+
+    </div> <!-- End footer -->
+
+  </div> <!-- End container -->
+
+   <!-- NOTE: Script required for drop-down button to work (mirrors). -->
+  <script>
+    $('.dropdown-toggle').dropdown();
+  </script>
+
+</body>
+</html>

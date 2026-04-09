@@ -115,6 +115,46 @@ pub struct Pronoun {
     pub person: Person,
 }
 
+/// A copula: "is", "are", "was", "were".
+/// Links subject to predicate. OLiA: Copula.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Copula {
+    pub text: String,
+    pub number: Number,
+    pub person: Person,
+    pub tense: Tense,
+}
+
+/// An auxiliary verb: "has", "will", "can", "does".
+/// Modifies tense, aspect, mood. OLiA: AuxiliaryVerb.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Auxiliary {
+    pub text: String,
+    pub number: Option<Number>,
+    pub tense: Option<Tense>,
+}
+
+/// An interjection: "oh", "wow", "hello".
+/// OLiA: Interjection.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Interjection {
+    pub text: String,
+}
+
+/// A particle: "not", "to" (infinitive marker).
+/// OLiA: Particle.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Particle {
+    pub text: String,
+}
+
+/// A numeral: "one", "two", "first".
+/// OLiA: Numeral.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Numeral {
+    pub text: String,
+}
+
 /// A lexical entry — a word with its full part-of-speech structure.
 /// Each variant carries the rich type for that part of speech.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -127,6 +167,11 @@ pub enum LexicalEntry {
     Preposition(Preposition),
     Conjunction(Conjunction),
     Pronoun(Pronoun),
+    Copula(Copula),
+    Auxiliary(Auxiliary),
+    Interjection(Interjection),
+    Particle(Particle),
+    Numeral(Numeral),
 }
 
 impl LexicalEntry {
@@ -140,6 +185,11 @@ impl LexicalEntry {
             Self::Preposition(p) => &p.text,
             Self::Conjunction(c) => &c.text,
             Self::Pronoun(p) => &p.text,
+            Self::Copula(c) => &c.text,
+            Self::Auxiliary(a) => &a.text,
+            Self::Interjection(i) => &i.text,
+            Self::Particle(p) => &p.text,
+            Self::Numeral(n) => &n.text,
         }
     }
 
@@ -149,6 +199,8 @@ impl LexicalEntry {
             Self::Verb(v) => Some(v.number),
             Self::Determiner(d) => d.number,
             Self::Pronoun(p) => Some(p.number),
+            Self::Copula(c) => Some(c.number),
+            Self::Auxiliary(a) => a.number,
             _ => None,
         }
     }
@@ -158,6 +210,7 @@ impl LexicalEntry {
             Self::Noun(n) => Some(n.person),
             Self::Verb(v) => Some(v.person),
             Self::Pronoun(p) => Some(p.person),
+            Self::Copula(c) => Some(c.person),
             _ => None,
         }
     }
@@ -172,12 +225,20 @@ impl LexicalEntry {
             Self::Preposition(_) => PosTag::Preposition,
             Self::Conjunction(_) => PosTag::Conjunction,
             Self::Pronoun(_) => PosTag::Pronoun,
+            Self::Copula(_) => PosTag::Copula,
+            Self::Auxiliary(_) => PosTag::Auxiliary,
+            Self::Interjection(_) => PosTag::Interjection,
+            Self::Particle(_) => PosTag::Particle,
+            Self::Numeral(_) => PosTag::Numeral,
         }
     }
 }
 
 /// Part-of-speech tag — the category identifier (used by grammar layer).
 /// This is the Entity for category-theoretic operations.
+///
+/// Categories are aligned with OLiA (Ontologies of Linguistic Annotation).
+/// Reference: Chiarcos & Sukhareva, OLiA (Semantic Web journal, 2015)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PosTag {
     Noun,
@@ -188,6 +249,18 @@ pub enum PosTag {
     Preposition,
     Conjunction,
     Pronoun,
+    /// OLiA: Copula — a verb linking subject to predicate ("is", "are", "was").
+    Copula,
+    /// OLiA: AuxiliaryVerb — verb modifying tense/aspect/mood ("has", "will", "can").
+    Auxiliary,
+    /// OLiA: Article — a subclass of Determiner ("a", "an", "the").
+    Article,
+    /// OLiA: Interjection — standalone exclamation ("oh", "wow", "hello").
+    Interjection,
+    /// OLiA: Particle — function word with grammatical role ("not", "to").
+    Particle,
+    /// OLiA: Numeral — number words ("one", "two", "first").
+    Numeral,
 }
 
 impl Entity for PosTag {
@@ -201,6 +274,12 @@ impl Entity for PosTag {
             Self::Preposition,
             Self::Conjunction,
             Self::Pronoun,
+            Self::Copula,
+            Self::Auxiliary,
+            Self::Article,
+            Self::Interjection,
+            Self::Particle,
+            Self::Numeral,
         ]
     }
 }
@@ -209,7 +288,7 @@ impl PosTag {
     pub fn is_content(&self) -> bool {
         matches!(
             self,
-            Self::Noun | Self::Verb | Self::Adjective | Self::Adverb
+            Self::Noun | Self::Verb | Self::Adjective | Self::Adverb | Self::Interjection
         )
     }
 

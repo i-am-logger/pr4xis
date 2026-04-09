@@ -249,6 +249,74 @@ Foundational patterns for event-driven systems. Basis for the events ontology (E
 - [Exploring CQRS and Event Sourcing](https://download.microsoft.com/download/e/a/8/ea8c6e1f-01d8-43ba-992b-35cfcaa4fae3/cqrs_journey_guide.pdf) — Microsoft patterns & practices (PDF in docs/papers/)
 - Guizzardi et al., *Events as Entities in Ontology-Driven Conceptual Modeling* (2019) — formal event ontology based on UFO-B
 
+## RDF and OWL (Knowledge Representation Standards)
+
+The formal foundation for reading and exchanging ontologies. RDF provides the data model (triples: subject-predicate-object). OWL provides the ontology language built on RDF. Together they define how to express and share formal knowledge — what praxis reads when loading OLiA, WordNet-LMF, or any published ontology.
+
+**RDF (Resource Description Framework):**
+- Everything is a triple: (subject, predicate, object)
+- Subjects are IRIs or blank nodes; predicates are IRIs; objects are IRIs, blank nodes, or literals
+- An RDF graph is a set of triples — no ordering, no duplicates
+- RDFS adds: rdfs:Class (a set of resources), rdfs:subClassOf (taxonomy), rdf:type (instantiation), rdfs:domain/range (constraints)
+- The RDFS class hierarchy: Resource → Class → Datatype; Resource → Literal; Resource → Property
+
+**OWL 2 (Web Ontology Language):**
+- Built on RDF, adds formal logic (Description Logic SROIQ)
+- Entities: Classes, Object Properties, Data Properties, Annotation Properties, Named Individuals, Datatypes
+- Class expressions: intersection, union, complement, oneOf (enumeration), existential/universal restrictions, cardinality constraints
+- Property characteristics: functional, inverse functional, transitive, symmetric, asymmetric, reflexive, irreflexive
+- Axioms: SubClassOf, EquivalentClasses, DisjointClasses, SubPropertyOf, ClassAssertion, PropertyAssertion
+- Three profiles: OWL 2 EL (polynomial, for large ontologies like SNOMED CT), OWL 2 QL (LOGSPACE, for databases), OWL 2 RL (polynomial, for rule engines)
+
+**Key references:**
+- W3C, *RDF 1.1 Concepts and Abstract Syntax* (2014) — https://www.w3.org/TR/rdf11-concepts/
+- W3C, *RDF Schema 1.1* (2014) — https://www.w3.org/TR/rdf-schema/
+- W3C, *OWL 2 Web Ontology Language Structural Specification* (2012) — https://www.w3.org/TR/owl2-syntax/
+- W3C, *OWL 2 Web Ontology Language Primer* (2012) — https://www.w3.org/TR/owl2-primer/
+- W3C, *OWL 2 Web Ontology Language Direct Semantics* (2012) — https://www.w3.org/TR/owl2-direct-semantics/
+- W3C, *OWL 2 Web Ontology Language Profiles* (2012) — https://www.w3.org/TR/owl2-profiles/
+- Franz Baader et al., *An Introduction to Description Logics* (2003) — formal logic underlying OWL (PDF in docs/papers/)
+- Tim Berners-Lee, James Hendler, Ora Lassila, *The Semantic Web* (Scientific American, 2001) — the vision (PDF in docs/papers/)
+
+## OLiA (Ontologies of Linguistic Annotation)
+
+The formal standard for linguistic data categories. OLiA defines 1,300+ linguistic concepts in OWL/DL — every part of speech, morphological feature, and syntactic category across all natural languages. This is what praxis loads to KNOW what a Determiner, Copula, or Interrogative is — not from a hand-coded vocabulary, but from the research-grounded ontology.
+
+**Architecture (three tiers):**
+1. Reference Model (`olia.owl`) — universal linguistic data categories: MorphosyntacticCategory, MorphologicalFeature, SyntacticCategory
+2. Annotation Models — OWL formalizations of specific tagsets (Penn Treebank, Universal Dependencies, EAGLES)
+3. Linking Models — rdfs:subClassOf bridges from annotation models to reference model concepts
+
+**Key references:**
+- Christian Chiarcos & Maria Sukhareva, *OLiA — Ontologies of Linguistic Annotation* (Semantic Web journal, 2015) — the formal paper (PDF in docs/papers/)
+- Official URI: http://purl.org/olia/
+- GitHub: https://github.com/acoli-repo/olia
+
+## Spelling Error Ontology
+
+The science of misspelling. Spelling errors are classified on three orthogonal axes — every error is a point in this three-dimensional space.
+
+**Axis 1 — Etiology (WHY):** Competence errors (the writer doesn't know the spelling) vs performance errors (the writer knows but mistypes). This maps to the dual-route model of spelling production (Coltheart 1981).
+
+**Axis 2 — Linguistic Level (WHAT):** Phonological (sounds wrong), Orthographic (sounds right but spelled wrong), Morphological (morpheme boundary error), Visual (letter shape confusion). The POMAS framework (Silliman, Brimo 2013).
+
+**Axis 3 — Operation (HOW):** Substitution, Deletion, Insertion, Transposition, Run-on, Split. Damerau (1964): >80% of misspellings involve a single operation.
+
+**The noisy channel model** (Shannon 1948, applied by Kernighan, Church & Gale 1990): spelling correction IS a functor — the inverse of the error channel.
+
+**Orthographic Depth Hypothesis** (Katz & Frost 1992): shallow orthographies (Finnish, Spanish) produce mostly performance errors; deep orthographies (English, French) produce mostly competence errors.
+
+**Key references:**
+- Damerau, *A technique for computer detection of spelling errors* (1964) — the four basic edit operations
+- Kukich, *Techniques for automatically correcting words in text* (ACM Computing Surveys, 1992) — seminal survey
+- Brill & Moore, *An improved error model for noisy channel spelling correction* (ACL, 2000) — string-to-string model
+- Pollock & Zamora, *Collection and characterization of spelling errors in scientific text* (1983) — 50K+ errors analyzed
+- Coltheart, *Dual-route model of reading/spelling* (1981) — cognitive architecture
+- Caramazza & Miceli, *The structure of graphemic representations* (1990) — graphemic buffer
+- Wing & Baddeley, *Spelling errors in handwriting* (1980) — serial position effects
+- Katz & Frost, *Orthographic Depth Hypothesis* (1992) — writing system determines error patterns
+- Mitton, *English Spelling and the Computer* (1996) — Birkbeck corpus (36K misspellings)
+
 ## Where Praxis Extends Existing Work
 
 1. **Category theory + DOLCE synthesis.** Using category theory as the formal proof mechanism for upper ontological classification. Existing work uses either category theory OR formal ontology; praxis combines them with a verified functor.

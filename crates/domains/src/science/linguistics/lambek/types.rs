@@ -7,13 +7,40 @@
 //
 // Reference: Lambek, The Mathematics of Sentence Structure (1958)
 
+/// Sentence features — CCGbank's mechanism for distinguishing clause types.
+/// From Hockenmaier & Steedman (2007), CCGbank.
+///
+/// Rather than introducing new atomic types (AP, QP, etc.), CCG adds
+/// features to the sentence type S. This keeps the type system small
+/// while capturing syntactic distinctions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SentenceFeature {
+    /// S[dcl] — declarative finite clause: "the dog runs"
+    Dcl,
+    /// S[adj] — adjective-headed predicate: "big", "happy" (predicative)
+    Adj,
+    /// S[q] — yes/no question: "is it a dog?"
+    Q,
+    /// S[wq] — wh-question: "what is a dog?"
+    Wq,
+    /// S[b] — bare stem/infinitive: "run" in "can run"
+    Bare,
+    /// S[ng] — present participle: "running"
+    Ng,
+    /// S[pss] — passive participle: "seen" in "was seen"
+    Pss,
+    /// S[pt] — past participle: "gone" in "has gone"
+    Pt,
+    /// S[to] — to-infinitive: "to run"
+    To,
+}
+
 /// An atomic syntactic type — the base types from which complex types are built.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AtomicType {
-    /// S — a complete declarative sentence.
-    S,
-    /// Q — a question (interrogative sentence).
-    Q,
+    /// S — a sentence, optionally with a feature (S[dcl], S[adj], S[q], etc.).
+    /// None = unspecified S (matches any feature in reduction).
+    S(Option<SentenceFeature>),
     /// NP — a noun phrase.
     NP,
     /// N — a common noun.
@@ -51,12 +78,29 @@ impl LambekType {
         Self::Atom(a)
     }
 
+    /// S — unspecified sentence (matches any feature in reduction).
     pub fn s() -> Self {
-        Self::Atom(AtomicType::S)
+        Self::Atom(AtomicType::S(None))
     }
 
+    /// S[dcl] — declarative sentence.
+    pub fn s_dcl() -> Self {
+        Self::Atom(AtomicType::S(Some(SentenceFeature::Dcl)))
+    }
+
+    /// S[adj] — adjective-headed predicate.
+    pub fn s_adj() -> Self {
+        Self::Atom(AtomicType::S(Some(SentenceFeature::Adj)))
+    }
+
+    /// S[q] — yes/no question (replaces old Q atomic type).
     pub fn q() -> Self {
-        Self::Atom(AtomicType::Q)
+        Self::Atom(AtomicType::S(Some(SentenceFeature::Q)))
+    }
+
+    /// S[wq] — wh-question.
+    pub fn wq() -> Self {
+        Self::Atom(AtomicType::S(Some(SentenceFeature::Wq)))
     }
 
     pub fn np() -> Self {
@@ -90,8 +134,18 @@ impl LambekType {
     pub fn notation(&self) -> String {
         match self {
             Self::Atom(a) => match a {
-                AtomicType::S => "S".into(),
-                AtomicType::Q => "Q".into(),
+                AtomicType::S(None) => "S".into(),
+                AtomicType::S(Some(f)) => match f {
+                    SentenceFeature::Dcl => "S[dcl]".into(),
+                    SentenceFeature::Adj => "S[adj]".into(),
+                    SentenceFeature::Q => "S[q]".into(),
+                    SentenceFeature::Wq => "S[wq]".into(),
+                    SentenceFeature::Bare => "S[b]".into(),
+                    SentenceFeature::Ng => "S[ng]".into(),
+                    SentenceFeature::Pss => "S[pss]".into(),
+                    SentenceFeature::Pt => "S[pt]".into(),
+                    SentenceFeature::To => "S[to]".into(),
+                },
                 AtomicType::NP => "NP".into(),
                 AtomicType::N => "N".into(),
                 AtomicType::PP => "PP".into(),
@@ -118,23 +172,44 @@ impl LambekType {
     }
 }
 
+/// Check if two Lambek types match, with feature unification for S.
+/// S(None) matches any S(Some(_)) — unspecified S is a wildcard.
+pub fn types_match(a: &LambekType, b: &LambekType) -> bool {
+    match (a, b) {
+        (LambekType::Atom(AtomicType::S(f1)), LambekType::Atom(AtomicType::S(f2))) => {
+            // S(None) matches anything; S(Some(x)) matches S(Some(x)) or S(None)
+            f1 == f2 || f1.is_none() || f2.is_none()
+        }
+        (LambekType::Atom(a), LambekType::Atom(b)) => a == b,
+        (LambekType::RightDiv(a1, b1), LambekType::RightDiv(a2, b2)) => {
+            types_match(a1, a2) && types_match(b1, b2)
+        }
+        (LambekType::LeftDiv(a1, b1), LambekType::LeftDiv(a2, b2)) => {
+            types_match(a1, a2) && types_match(b1, b2)
+        }
+        _ => false,
+    }
+}
+
 /// Try to reduce two adjacent types via function application.
 ///
 /// Forward application (>): A/B + B → A
 /// Backward application (<): B + A\B → A  (note: A\B means "A on left gives B")
 ///
+/// Uses feature unification: S(None) matches any S(Some(_)).
+///
 /// Returns the result type if reduction succeeds, None if types don't combine.
 pub fn reduce(left: &LambekType, right: &LambekType) -> Option<LambekType> {
     // Forward application: (A/B) + B → A
     if let LambekType::RightDiv(a, b) = left
-        && b.as_ref() == right
+        && types_match(b, right)
     {
         return Some(*a.clone());
     }
 
     // Backward application: A + (A\B) → B
     if let LambekType::LeftDiv(a, b) = right
-        && a.as_ref() == left
+        && types_match(a, left)
     {
         return Some(*b.clone());
     }
@@ -200,33 +275,18 @@ pub mod english {
         LambekType::left_div(vp.clone(), vp)
     }
 
-    // ---- Question types ----
+    // ---- Predicate adjective (CCGbank: S[adj]\NP) ----
 
-    /// Question copula (sentence-initial "is"): ((Q/NP)/NP)
-    /// "is" in "is a dog a mammal?"
-    /// Takes two NPs: is + NP(subject) + NP(predicate) → Q
-    ///
-    /// Derivation: "is a dog a mammal"
-    ///   is:((Q/NP)/NP)  a:NP/N  dog:N  a:NP/N  mammal:N
-    ///   is:((Q/NP)/NP)  [a dog]:NP     [a mammal]:NP
-    ///   [is [a mammal]]:Q/NP            [a dog]:NP        ← forward: is takes predicate NP
-    ///   wait — need backward for subject. Let's use (Q\NP)/NP instead:
-    ///
-    /// Actually per CCG: sentence-initial "is" for yes/no questions
-    /// has type (S[q]/(S[b]\NP))/NP — but simplified for Lambek:
-    /// Use Q/NP/NP — takes predicate NP right, then subject NP right.
-    ///
-    /// Simpler approach: treat "is X a Y?" as the copula building
-    /// a declarative that then becomes a question.
-    /// Type: (Q/NP)/NP — takes predicate NP, then subject NP, produces Q.
-    pub fn question_copula() -> LambekType {
-        LambekType::right_div(
-            LambekType::right_div(LambekType::q(), LambekType::np()),
-            LambekType::np(),
-        )
+    /// Predicate adjective: S[adj]\NP — "big" in "a dog is big"
+    /// From Hockenmaier & Steedman (2007): predicative adjectives are
+    /// sentence-like, headed by the adjective feature.
+    pub fn predicate_adjective() -> LambekType {
+        LambekType::left_div(LambekType::np(), LambekType::s_adj())
     }
 
-    /// Copula in declarative: (NP\S)/NP — "is" in "a dog is a mammal"
+    // ---- Copula types (CCGbank: multiple entries per complement type) ----
+
+    /// Copula with NP complement: (S\NP)/NP — "is" in "a dog is a mammal"
     pub fn copula() -> LambekType {
         LambekType::right_div(
             LambekType::left_div(LambekType::np(), LambekType::s()),
@@ -234,11 +294,31 @@ pub mod english {
         )
     }
 
-    /// "what" as question word: Q/(S/NP) — "what is a dog?"
-    /// Takes a sentence-missing-NP on right, produces Q
+    /// Copula with adjective complement: (S[dcl]\NP)/(S[adj]\NP)
+    /// "is" in "a dog is big" — takes predicate adjective, produces declarative VP
+    pub fn copula_adj() -> LambekType {
+        LambekType::right_div(
+            LambekType::left_div(LambekType::np(), LambekType::s_dcl()),
+            predicate_adjective(),
+        )
+    }
+
+    // ---- Question types ----
+
+    /// Question copula (sentence-initial "is"): (S[q]/NP)/NP
+    /// "is" in "is a dog a mammal?" — takes two NPs, produces question.
+    pub fn question_copula() -> LambekType {
+        LambekType::right_div(
+            LambekType::right_div(LambekType::q(), LambekType::np()),
+            LambekType::np(),
+        )
+    }
+
+    /// "what" as question word: S[wq]/(S/NP) — "what is a dog?"
+    /// Takes a sentence-missing-NP on right, produces wh-question.
     pub fn wh_what() -> LambekType {
         LambekType::right_div(
-            LambekType::q(),
+            LambekType::wq(),
             LambekType::right_div(LambekType::s(), LambekType::np()),
         )
     }

@@ -3,10 +3,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use praxis_domains::science::cognition::epistemics;
+use praxis_domains::science::information::dialogue::engine::{self, DialogueAction};
 use praxis_domains::science::linguistics::english::English;
 use praxis_domains::science::linguistics::lambek::{
     LambekType, ReductionResult, TypedToken, montague, reduce_sequence, tokenize,
 };
+use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 use praxis_domains::technology::software::markup::xml::lmf;
 
 fn main() {
@@ -30,6 +32,9 @@ fn main() {
     println!("  type 'quit' to exit");
     println!();
 
+    // The dialogue engine — enforces conversation structure through ontology
+    let mut engine = engine::dialogue_engine();
+
     let stdin = io::stdin();
     let mut stdout = io::stdout();
 
@@ -47,60 +52,96 @@ fn main() {
             continue;
         }
         if input == "quit" || input == "exit" {
+            let _ = engine.next(DialogueAction::EndDialogue);
             break;
         }
 
-        let response = process(&english, input);
-        println!("{}", response);
+        // Process through the linguistics pipeline
+        let (response_text, user_act, sys_act) = process(&english, input);
+
+        // Feed through the dialogue engine — actions enforced by ontology
+        engine = match engine.next(DialogueAction::UserUtterance {
+            text: input.to_string(),
+            speech_act: user_act,
+        }) {
+            Ok(e) => e,
+            Err(praxis::engine::EngineError::Violated {
+                engine: e,
+                violations,
+            }) => {
+                for v in &violations {
+                    eprintln!("  [dialogue violation] {}", v.reason());
+                }
+                e
+            }
+            Err(praxis::engine::EngineError::LogicalError { engine: e, reason }) => {
+                eprintln!("  [dialogue error] {}", reason);
+                e
+            }
+        };
+
+        println!("{}", response_text);
         println!();
+
+        engine = match engine.next(DialogueAction::SystemResponse {
+            text: response_text,
+            speech_act: sys_act,
+        }) {
+            Ok(e) => e,
+            Err(praxis::engine::EngineError::Violated { engine: e, .. }) => e,
+            Err(praxis::engine::EngineError::LogicalError { engine: e, .. }) => e,
+        };
     }
 }
 
-/// The cybernetic loop with metacognitive monitoring.
+/// The linguistics pipeline: text → tokens → types → semantics → speech act → response.
 ///
 /// Object level: tokenize → parse → interpret → query → respond
 /// Meta level: monitor each step, evaluate failures, decide: respond or clarify
-fn process(en: &English, input: &str) -> String {
-    // Step 1: Text → Tokens
+fn process(en: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
     let tokens = tokenize::tokenize(input);
     if tokens.is_empty() {
-        return "I received empty input.".into();
+        return (
+            "I received empty input.".into(),
+            SpeechAct::Assertion,
+            SpeechAct::Assertion,
+        );
     }
 
-    // Step 2: Tokens → Types → Reduction
     let reduction = reduce_sequence(&tokens);
-
-    // Step 3: Reduction → Semantics (Montague functor)
     let meaning = montague::interpret(&tokens, en);
 
-    // Step 4: Metacognitive evaluation — what did we understand?
     match &meaning {
         montague::Sem::Question {
             predicate,
             arguments,
-        } => answer_question(en, predicate, arguments),
+        } => {
+            let response = answer_question(en, predicate, arguments);
+            (response, SpeechAct::Question, SpeechAct::Assertion)
+        }
 
         montague::Sem::Prop {
             predicate,
             arguments,
-        } => answer_statement(en, predicate, arguments),
+        } => {
+            let response = answer_statement(en, predicate, arguments);
+            (response, SpeechAct::Assertion, SpeechAct::Assertion)
+        }
 
         _ => {
-            // Object level failed — meta level takes over
-            attempt_partial_understanding(en, &tokens, &reduction, &meaning)
+            let response = attempt_partial_understanding(en, &tokens, &reduction, &meaning);
+            (response, SpeechAct::Assertion, SpeechAct::Assertion)
         }
     }
 }
 
 /// Meta-level: when full understanding fails, attempt partial understanding.
-/// Extract what we CAN understand and either answer or ask for clarification.
 fn attempt_partial_understanding(
     en: &English,
     tokens: &[TypedToken],
     reduction: &ReductionResult,
     meaning: &montague::Sem,
 ) -> String {
-    // Extract known words from tokens
     let known_words: Vec<&str> = tokens
         .iter()
         .filter(|t| !en.lookup(&t.word).is_empty())
@@ -113,7 +154,6 @@ fn attempt_partial_understanding(
         .map(|t| t.word.as_str())
         .collect();
 
-    // Epistemic classification
     let has_knowledge = !known_words.is_empty();
     let parsed = reduction.success;
     let query_result: Option<&str> = if parsed { Some("parsed") } else { None };
@@ -121,12 +161,9 @@ fn attempt_partial_understanding(
 
     match state {
         epistemics::EpistemicState::UnknownKnown => {
-            // I have the knowledge but couldn't parse the question
-            // Try to guess: if there's exactly one known noun, define it
             if known_words.len() == 1 {
                 return define_word(en, known_words[0]);
             }
-            // If there are two known nouns, try is_a
             let nouns: Vec<&str> = tokens
                 .iter()
                 .filter(|t| !en.lookup(&t.word).is_empty() && t.lambek_type == LambekType::n())
@@ -138,7 +175,6 @@ fn attempt_partial_understanding(
                     nouns[0], nouns[1]
                 );
             }
-            // Fall through to general clarification
             format!(
                 "I know the words {:?} but couldn't understand the sentence structure.\nCould you rephrase as 'is X a Y' or 'what is X'?",
                 known_words
@@ -146,7 +182,6 @@ fn attempt_partial_understanding(
         }
 
         epistemics::EpistemicState::KnownUnknown => {
-            // I know I don't know some words
             format!(
                 "I don't know the word(s): {:?}\nI know {} of the {} words you used.",
                 unknown_words,
@@ -156,12 +191,10 @@ fn attempt_partial_understanding(
         }
 
         epistemics::EpistemicState::KnownKnown => {
-            // Parsed and have knowledge but didn't match Q or Prop pattern
             format!("I understood: {}", meaning.describe())
         }
 
         epistemics::EpistemicState::UnknownUnknown => {
-            // Can't parse and don't recognize any words
             "I don't understand. Could you try a simpler question like 'is a dog a mammal'?".into()
         }
     }
@@ -201,7 +234,6 @@ fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -
             return format!("No, {} is not a {}.", child, parent_or_pred);
         }
 
-        // Try reverse
         if !parent_ids.is_empty() && !child_ids.is_empty() {
             for &cid in parent_ids {
                 for &pid in child_ids {
@@ -227,7 +259,6 @@ fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -
 fn answer_statement(en: &English, _predicate: &str, arguments: &[montague::Sem]) -> String {
     let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
-    // If there's a single entity, try to define it
     if entities.len() == 1 {
         let ids = en.lookup(&entities[0]);
         if !ids.is_empty() {
