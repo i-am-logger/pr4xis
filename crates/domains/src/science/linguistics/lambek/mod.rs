@@ -2,6 +2,7 @@ pub mod montague;
 pub mod pregroup;
 pub mod reduce;
 pub mod tokenize;
+pub mod turing_benchmark;
 pub mod types;
 
 pub use reduce::{ReductionResult, TypedToken, reduce_sequence};
