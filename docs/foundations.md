@@ -199,6 +199,56 @@ When a query fails, does it mean "false" or "I don't know"? The Open World Assum
 - [Open World Assumption — Wikipedia](https://en.wikipedia.org/wiki/Closed-world_assumption)
 - [Open World vs Closed World — Dataversity](https://www.dataversity.net/articles/introduction-to-open-world-assumption-vs-closed-world-assumption/)
 
+## Distinction (Spencer-Brown)
+
+The most fundamental concept. Before categories, before logic, before knowledge — there is distinction. The act of drawing a boundary that separates "this" from "not this."
+
+Spencer-Brown's *Laws of Form* (1969) starts with one instruction: "Draw a distinction." From that single act, all of logic, Boolean algebra, and self-reference emerge. Von Foerster recognized this as the foundation of second-order cybernetics — the observer draws the distinction between self and observed.
+
+In praxis, distinction is everywhere: Entity (this vs not-this), Boundary (inside vs outside), Opposition (A vs not-A), Bit (0 vs 1), Context (this meaning vs that meaning).
+
+**Key references:**
+- G. Spencer-Brown, *Laws of Form* (1969) — the founding text
+- Louis Kauffman, [*Laws of Form — An Exploration in Mathematics and Foundations*](http://homepages.math.uic.edu/~kauffman/Laws.pdf) (PDF in docs/papers/)
+- Robin Robertson, [*Some-thing from No-thing: Spencer-Brown's Laws of Form*](https://www.projectenportfolio.nl/images/1/16/Robertson-Laws_of_Form.pdf) (PDF in docs/papers/)
+- Francisco Varela, *A Calculus for Self-Reference* (1975) — extending Spencer-Brown to self-referential systems
+
+## Information Theory
+
+The science of quantifying, storing, and communicating information. Foundation for the information ontology (Bit, Byte, Reference, Text).
+
+**Key references:**
+- Claude Shannon, [*A Mathematical Theory of Communication*](https://people.math.harvard.edu/~ctm/home/text/others/shannon/entropy/entropy.pdf) (1948) — the founding paper (PDF in docs/papers/)
+- Alan Turing, *On Computable Numbers* (1936) — computability and information processing
+
+## Mereology
+
+The formal theory of parts and wholes. Foundation for the mereology reasoning ontology (has-a relationships).
+
+**Key references:**
+- Peter Simons, *Parts: A Study in Ontology* (1987, Oxford) — the standard reference
+- [Stanford Encyclopedia — Mereology](https://plato.stanford.edu/entries/mereology/) — comprehensive formal treatment
+- Winston, Chaffin, Herrmann, *A Taxonomy of Part-Whole Relations* (1987) — meronymic relation types
+
+## Concurrency Theory
+
+The formal theory of concurrent and parallel computation. Foundation for the concurrency ontology (Agent, SharedResource, Synchronization, Deadlock).
+
+**Key references:**
+- C.A.R. Hoare, [*Communicating Sequential Processes*](https://www.cs.cmu.edu/~crary/819-f09/Hoare78.pdf) (1978) — CSP (PDF in docs/papers/)
+- Robin Milner, *A Calculus of Communicating Systems* (1980) — CCS
+- Carl Hewitt, *A Universal Modular ACTOR Formalism* (1973) — Actor model
+
+## Event-Driven Architecture
+
+Foundational patterns for event-driven systems. Basis for the events ontology (Event, Command, EventLog, Handler, EventBus).
+
+**Key references:**
+- Martin Fowler, *Event Sourcing* (2005) — pattern description
+- Greg Young, *CQRS Documents* (2010) — Command Query Responsibility Segregation
+- [Exploring CQRS and Event Sourcing](https://download.microsoft.com/download/e/a/8/ea8c6e1f-01d8-43ba-992b-35cfcaa4fae3/cqrs_journey_guide.pdf) — Microsoft patterns & practices (PDF in docs/papers/)
+- Guizzardi et al., *Events as Entities in Ontology-Driven Conceptual Modeling* (2019) — formal event ontology based on UFO-B
+
 ## Where Praxis Extends Existing Work
 
 1. **Category theory + DOLCE synthesis.** Using category theory as the formal proof mechanism for upper ontological classification. Existing work uses either category theory OR formal ontology; praxis combines them with a verified functor.
