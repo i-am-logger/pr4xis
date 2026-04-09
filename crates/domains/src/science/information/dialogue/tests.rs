@@ -71,5 +71,35 @@ mod prop {
             let id = DialogueCategory::identity(&c);
             prop_assert_eq!(DialogueCategory::compose(&id, &id), Some(id));
         }
+
+        /// Participant can reach DialogueState (via Utterance).
+        #[test]
+        fn prop_participant_reaches_state(_dummy in 0..1i32) {
+            let m = DialogueCategory::morphisms();
+            let reaches = m.iter().any(|r|
+                r.from == DialogueConcept::Participant
+                && r.to == DialogueConcept::DialogueState);
+            prop_assert!(reaches);
+        }
+
+        /// Understanding leads to Grounding for all concepts that understand.
+        #[test]
+        fn prop_understanding_grounds(_dummy in 0..1i32) {
+            let m = DialogueCategory::morphisms();
+            let grounds = m.iter().any(|r|
+                r.from == DialogueConcept::Understanding
+                && r.to == DialogueConcept::Grounding);
+            prop_assert!(grounds);
+        }
+
+        /// Every concept has both Identity and Composed self-morphisms.
+        #[test]
+        fn prop_self_morphisms(c in arb_dialogue()) {
+            let m = DialogueCategory::morphisms();
+            let has_identity = m.iter().any(|r| r.from == c && r.to == c && r.kind == DialogueRelationKind::Identity);
+            let has_composed = m.iter().any(|r| r.from == c && r.to == c && r.kind == DialogueRelationKind::Composed);
+            prop_assert!(has_identity);
+            prop_assert!(has_composed);
+        }
     }
 }
