@@ -1,4 +1,3 @@
-pub mod lmf;
 pub mod ontology;
 pub mod reader;
 
