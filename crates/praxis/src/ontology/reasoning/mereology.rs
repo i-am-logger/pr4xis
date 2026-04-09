@@ -162,9 +162,6 @@ impl<T: MereologyDef> crate::logic::Axiom for WeakSupplementation<T> {
                 .cloned()
                 .collect::<Vec<_>>(),
         );
-        if adj.is_empty() {
-            return false;
-        }
         adj.values().all(|parts| parts.len() >= 2)
     }
 }

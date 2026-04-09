@@ -4,19 +4,22 @@ use super::composition::Evaluation;
 ///
 /// These operate on propositions and axioms to derive new knowledge.
 ///
-/// - **Deduction**: if A→B and A, then B (guaranteed truth)
+/// - **Deduction**: if A and A→B, then B (guaranteed truth via modus ponens)
 /// - **Induction**: observed pattern across instances → general rule (probable truth)
 /// - **Abduction**: observation + rule → best explanation (hypothesis)
 use super::composition::Proposition;
 use std::fmt::Debug;
 
-/// A deductive inference: given premises and a rule, derive a conclusion.
+/// A deductive inference: given premises, a rule (A→B), and a conclusion, derive truth.
 ///
-/// Modus ponens: if all premises hold and the rule (A→B) holds, the conclusion holds.
-/// The conclusion is guaranteed — deduction preserves truth.
+/// Modus ponens: if all premises hold and the rule holds, the conclusion is guaranteed.
+/// The rule must encode the logical connection between premises and conclusion
+/// (typically an `Implies` proposition). Without the rule, checking premises and
+/// conclusion independently would be a coincidence check, not entailment.
 #[derive(Debug)]
 pub struct Deduction<Ctx: Debug> {
     pub premises: Vec<Box<dyn Proposition<Context = Ctx>>>,
+    pub rule: Box<dyn Proposition<Context = Ctx>>,
     pub conclusion: Box<dyn Proposition<Context = Ctx>>,
     pub name: String,
 }
@@ -24,9 +27,9 @@ pub struct Deduction<Ctx: Debug> {
 /// Result of a deductive inference.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DeductionResult {
-    /// All premises hold, conclusion holds — valid deduction.
+    /// All premises hold, rule holds, conclusion holds — valid deduction.
     Valid { conclusion: String },
-    /// All premises hold but conclusion doesn't — the rule is unsound.
+    /// All premises hold but the rule doesn't — the implication is unsound.
     Unsound { conclusion: String, reason: String },
     /// Premises don't hold — deduction is vacuously valid but not applicable.
     Inapplicable {
@@ -39,10 +42,12 @@ impl<Ctx: Debug> Deduction<Ctx> {
     pub fn new(
         name: impl Into<String>,
         premises: Vec<Box<dyn Proposition<Context = Ctx>>>,
+        rule: Box<dyn Proposition<Context = Ctx>>,
         conclusion: Box<dyn Proposition<Context = Ctx>>,
     ) -> Self {
         Self {
             premises,
+            rule,
             conclusion,
             name: name.into(),
         }
@@ -61,16 +66,30 @@ impl<Ctx: Debug> Deduction<Ctx> {
             }
         }
 
-        // Premises hold — check conclusion
-        let result = self.conclusion.evaluate(context);
-        if result.is_satisfied() {
+        // Premises hold — check the rule (the logical connection A→B)
+        let rule_result = self.rule.evaluate(context);
+        if !rule_result.is_satisfied() {
+            return DeductionResult::Unsound {
+                conclusion: self.conclusion.describe(),
+                reason: rule_result.reason().to_string(),
+            };
+        }
+
+        // Rule holds — conclusion must follow (verify as safety check)
+        let conclusion_result = self.conclusion.evaluate(context);
+        if conclusion_result.is_satisfied() {
             DeductionResult::Valid {
                 conclusion: self.conclusion.describe(),
             }
         } else {
+            // Rule passed but conclusion failed — mismatch between rule and conclusion
             DeductionResult::Unsound {
                 conclusion: self.conclusion.describe(),
-                reason: result.reason().to_string(),
+                reason: format!(
+                    "rule '{}' passed but conclusion failed: {}",
+                    self.rule.describe(),
+                    conclusion_result.reason()
+                ),
             }
         }
     }
@@ -105,15 +124,8 @@ impl<Ctx: Debug> Induction<Ctx> {
 
     /// Test the hypothesis against a set of instances.
     /// Returns how many held and any counterexamples found.
+    /// Empty input returns supported=true (vacuous truth — no counterexamples exist).
     pub fn test(&self, instances: &[Ctx]) -> InductionResult {
-        if instances.is_empty() {
-            return InductionResult {
-                supported: false,
-                instances_checked: 0,
-                counterexamples: Vec::new(),
-            };
-        }
-
         let mut counterexamples = Vec::new();
 
         for instance in instances {
@@ -205,6 +217,7 @@ impl<Ctx: Debug> Abduction<Ctx> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::logic::composition::Implies;
     use proptest::prelude::*;
 
     // --- Test propositions ---
@@ -273,10 +286,11 @@ mod tests {
 
     #[test]
     fn test_deduction_valid() {
-        // If n > 0 then n > 0 (trivially valid)
+        // Modus ponens: if positive, and positive→positive, then positive
         let d = Deduction::new(
             "positive implies positive",
             vec![Box::new(IsPositive)],
+            Box::new(Implies::new(IsPositive, IsPositive)),
             Box::new(IsPositive),
         );
         let result = d.apply(&5);
@@ -288,6 +302,7 @@ mod tests {
         let d = Deduction::new(
             "positive implies even",
             vec![Box::new(IsPositive)],
+            Box::new(Implies::new(IsPositive, IsEven)),
             Box::new(IsEven),
         );
         // -4 is not positive, so premise doesn't hold
@@ -297,10 +312,11 @@ mod tests {
 
     #[test]
     fn test_deduction_unsound() {
-        // "If positive then even" — unsound for 3
+        // "If positive then even" — unsound for 3 (positive but odd)
         let d = Deduction::new(
             "positive implies even",
             vec![Box::new(IsPositive)],
+            Box::new(Implies::new(IsPositive, IsEven)),
             Box::new(IsEven),
         );
         let result = d.apply(&3);
@@ -313,6 +329,7 @@ mod tests {
         let d = Deduction::new(
             "small positive even",
             vec![Box::new(IsPositive), Box::new(IsEven)],
+            Box::new(LessThan(100)),
             Box::new(LessThan(100)),
         );
         assert!(matches!(d.apply(&4), DeductionResult::Valid { .. }));
@@ -344,8 +361,9 @@ mod tests {
     fn test_induction_empty() {
         let ind = Induction::new("no evidence", Box::new(IsPositive));
         let result = ind.test(&[]);
-        assert!(!result.supported);
+        assert!(result.supported); // vacuous truth
         assert_eq!(result.instances_checked, 0);
+        assert!(result.counterexamples.is_empty());
     }
 
     // --- Abduction tests ---
@@ -411,12 +429,13 @@ mod tests {
     }
 
     proptest! {
-        /// Deduction with identical premise and conclusion is always valid or inapplicable
+        /// Deduction with identical premise, tautological rule, and conclusion is always valid or inapplicable
         #[test]
         fn prop_deduction_tautology(n in -100..100i32) {
             let d = Deduction::new(
                 "tautology",
                 vec![Box::new(IsPositive)],
+                Box::new(Implies::new(IsPositive, IsPositive)),
                 Box::new(IsPositive),
             );
             let result = d.apply(&n);
