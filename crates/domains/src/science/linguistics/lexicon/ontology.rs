@@ -1,0 +1,104 @@
+use praxis::category::Category;
+use praxis::category::entity::Entity;
+use praxis::category::relationship::Relationship;
+use praxis::ontology::Quality;
+
+use super::pos::*;
+
+/// Relationship between parts of speech: which POS can modify/complement which.
+/// E.g., Adjective modifies Noun, Adverb modifies Verb.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Modifies {
+    pub modifier: PosTag,
+    pub head: PosTag,
+}
+
+impl Relationship for Modifies {
+    type Object = PosTag;
+    fn source(&self) -> PosTag {
+        self.modifier
+    }
+    fn target(&self) -> PosTag {
+        self.head
+    }
+}
+
+/// The lexical category: parts of speech and their modification relationships.
+pub struct LexicalCategory;
+
+impl Category for LexicalCategory {
+    type Object = PosTag;
+    type Morphism = Modifies;
+
+    fn identity(obj: &PosTag) -> Modifies {
+        Modifies {
+            modifier: *obj,
+            head: *obj,
+        }
+    }
+
+    fn compose(f: &Modifies, g: &Modifies) -> Option<Modifies> {
+        if f.head != g.modifier {
+            return None;
+        }
+        Some(Modifies {
+            modifier: f.modifier,
+            head: g.head,
+        })
+    }
+
+    fn morphisms() -> Vec<Modifies> {
+        let mut m = Vec::new();
+
+        // Identity for each POS
+        for pos in PosTag::variants() {
+            m.push(Modifies {
+                modifier: pos,
+                head: pos,
+            });
+        }
+
+        // Modification rules:
+        // Adjective modifies Noun
+        m.push(Modifies {
+            modifier: PosTag::Adjective,
+            head: PosTag::Noun,
+        });
+        // Adverb modifies Verb
+        m.push(Modifies {
+            modifier: PosTag::Adverb,
+            head: PosTag::Verb,
+        });
+        // Adverb modifies Adjective ("very big")
+        m.push(Modifies {
+            modifier: PosTag::Adverb,
+            head: PosTag::Adjective,
+        });
+        // Determiner modifies Noun
+        m.push(Modifies {
+            modifier: PosTag::Determiner,
+            head: PosTag::Noun,
+        });
+
+        // Transitive closure: Adverb → Adjective → Noun
+        m.push(Modifies {
+            modifier: PosTag::Adverb,
+            head: PosTag::Noun,
+        });
+
+        m
+    }
+}
+
+/// Quality: is this POS a content word or a function word?
+#[derive(Debug, Clone)]
+pub struct IsContentWord;
+
+impl Quality for IsContentWord {
+    type Individual = PosTag;
+    type Value = bool;
+
+    fn get(&self, pos: &PosTag) -> Option<bool> {
+        Some(pos.is_content())
+    }
+}

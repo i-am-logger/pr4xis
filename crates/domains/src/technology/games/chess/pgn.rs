@@ -239,7 +239,7 @@ mod tests {
 
     fn load_game(filename: &str) -> String {
         let path = format!(
-            "{}/src/games/chess/games/{}",
+            "{}/src/technology/games/chess/games/{}",
             env!("CARGO_MANIFEST_DIR"),
             filename
         );

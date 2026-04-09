@@ -1,3 +1,3 @@
-pub mod games;
+pub mod governance;
 pub mod science;
-pub mod systems;
+pub mod technology;

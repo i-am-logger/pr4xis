@@ -1,6 +1,7 @@
 mod domain;
 mod property;
 pub mod reasoning;
+pub mod upper;
 pub mod validate;
 
 pub use crate::logic::Axiom;

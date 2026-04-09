@@ -23,7 +23,7 @@ praxis-domains = { git = "https://github.com/i-am-logger/praxis" }
 Use it:
 
 ```rust
-use praxis_domains::systems::transportation::traffic::{new_intersection, TrafficAction};
+use praxis_domains::technology::hardware::traffic::{new_intersection, TrafficAction};
 
 fn main() {
     // Create a 4-way intersection (green=5, yellow=2, red=3 ticks)

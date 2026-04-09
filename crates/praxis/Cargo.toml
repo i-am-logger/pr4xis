@@ -9,7 +9,11 @@ repository = "https://github.com/i-am-logger/praxis"
 homepage = "https://github.com/i-am-logger/praxis"
 keywords = ["ontology", "category-theory", "enforcement", "state-machine", "formal-methods"]
 
+[features]
+codegen = ["dep:quick-xml"]
+
 [dependencies]
+quick-xml = { version = "0.37", features = ["serialize"], optional = true }
 
 [dev-dependencies]
 proptest = "1.6"

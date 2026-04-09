@@ -132,7 +132,7 @@ impl Axiom for NinePerColor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::games::rubik::moves::Move;
+    use crate::technology::games::rubik::moves::Move;
 
     #[test]
     fn test_face_entity() {
