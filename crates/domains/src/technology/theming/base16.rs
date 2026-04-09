@@ -130,6 +130,26 @@ impl Entity for SemanticRole {
 }
 
 impl ColorSlot {
+    /// Canonical key name as used in theme files (base00, base0A, etc).
+    ///
+    /// Source: tinted-theming convention — hex digits uppercase.
+    pub fn key(&self) -> &'static str {
+        match self {
+            Self::Base00 => "base00", Self::Base01 => "base01",
+            Self::Base02 => "base02", Self::Base03 => "base03",
+            Self::Base04 => "base04", Self::Base05 => "base05",
+            Self::Base06 => "base06", Self::Base07 => "base07",
+            Self::Base08 => "base08", Self::Base09 => "base09",
+            Self::Base0A => "base0A", Self::Base0B => "base0B",
+            Self::Base0C => "base0C", Self::Base0D => "base0D",
+            Self::Base0E => "base0E", Self::Base0F => "base0F",
+            Self::Base10 => "base10", Self::Base11 => "base11",
+            Self::Base12 => "base12", Self::Base13 => "base13",
+            Self::Base14 => "base14", Self::Base15 => "base15",
+            Self::Base16 => "base16", Self::Base17 => "base17",
+        }
+    }
+
     /// The semantic role of this slot per the base16/base24 spec.
     pub fn role(&self) -> SemanticRole {
         match self {
