@@ -131,6 +131,14 @@ name = "praxis"
 version = "0.2.0"
 
 [[package]]
+name = "praxis-chat"
+version = "0.1.0"
+dependencies = [
+ "praxis",
+ "praxis-domains",
+]
+
+[[package]]
 name = "praxis-domains"
 version = "0.2.0"
 dependencies = [
@@ -144,6 +152,7 @@ name = "praxis-wasm"
 version = "0.1.0"
 dependencies = [
  "praxis",
+ "praxis-chat",
  "praxis-domains",
  "wasm-bindgen",
 ]

@@ -7,3 +7,4 @@
 /// - WCAG 2.1: contrast requirements for accessibility
 pub mod base16;
 pub mod ontology;
+pub mod schemes;
