@@ -18,6 +18,66 @@ graph LR
     C -->|feedback| A
 ```
 
+## How domains compose
+
+Every domain is an ontology. Domains connect through **functors** — mathematically proven structure-preserving maps. If the functor laws hold, the domains share the same structure. Not by analogy — by proof.
+
+```mermaid
+graph TB
+    subgraph Science
+        Physics
+        Math
+        Colors[Colors/Quality]
+        Cognition
+    end
+
+    subgraph Language
+        Lexicon -->|pregroup| Grammar
+        Grammar -->|Montague| Semantics
+        Semantics --> Pragmatics
+        Pragmatics --> Discourse
+    end
+
+    subgraph Systems
+        Control[Control Systems]
+        SystemsThinking[Systems Thinking]
+        Communication
+        Events[Event-Driven]
+        Concurrency
+    end
+
+    subgraph Domains
+        Chess
+        Traffic
+        Judicial
+    end
+
+    Chess -->|functor| Events
+    Chess -->|functor| Concurrency
+    Traffic -->|functor| SystemsThinking
+    Events -->|functor| Concurrency
+    SystemsThinking -->|functor| Concurrency
+    Control -->|functor| Engine[Engine Pattern]
+    Communication -->|functor| Dialogue[Dialogue]
+    Dialogue --> Pragmatics
+```
+
+## The linguistics pipeline
+
+Text becomes understanding through a chain of functors. Each arrow is a proven structure-preserving map.
+
+```mermaid
+graph LR
+    Text -->|segment| Words
+    Words -->|Language::lexical_lookup| Types[Pregroup Types]
+    Types -->|contract| Parse[Grammatical?]
+    Parse -->|Montague functor| Meaning
+    Meaning -->|speech act| Intent
+    Intent -->|DRT + Centering| Response
+```
+
+`np · n^l · n · np^r · s` → contract `n^l·n` → contract `np·np^r` → `s` (sentence). That's "the dog runs" parsed by algebra.
+
 ## What it proves
 
 | Claim | How |
