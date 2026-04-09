@@ -1,0 +1,15 @@
+[package]
+name = "praxis-cli"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Praxis chatbot CLI — axiomatic intelligence via ontology"
+license = "CC-BY-NC-SA-4.0"
+
+[[bin]]
+name = "praxis"
+path = "src/main.rs"
+
+[dependencies]
+praxis = { path = "../praxis" }
+praxis-domains = { path = "../domains" }
