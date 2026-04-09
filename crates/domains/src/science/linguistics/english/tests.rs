@@ -221,4 +221,57 @@ fn load_full_english() {
     assert!(en.concept_count() > 100_000);
     assert!(en.word_count() > 50_000);
     assert!(en.taxonomy_count() > 80_000);
+
+    // Diagnose taxonomy: check "dog" senses and their parents
+    let dog_ids = en.lookup("dog");
+    eprintln!("\n=== Dog Taxonomy Diagnosis ===");
+    eprintln!("  'dog' has {} senses", dog_ids.len());
+    for &did in dog_ids {
+        let c = en.concept(did).unwrap();
+        let parents = en.parents(did);
+        let parent_names: Vec<String> = parents
+            .iter()
+            .filter_map(|&p| {
+                en.concept(p)
+                    .map(|c| c.lemmas.first().cloned().unwrap_or_default())
+            })
+            .collect();
+        eprintln!(
+            "  sense {}: {:?} ({}) → parents: {:?}",
+            did.value(),
+            c.pos,
+            c.definitions.first().unwrap_or(&String::new()),
+            parent_names
+        );
+    }
+
+    let mammal_ids = en.lookup("mammal");
+    eprintln!("  'mammal' has {} senses", mammal_ids.len());
+    for &mid in mammal_ids {
+        let c = en.concept(mid).unwrap();
+        eprintln!(
+            "  sense {}: {}",
+            mid.value(),
+            c.definitions.first().unwrap_or(&String::new())
+        );
+    }
+
+    // Check is_a for all dog×mammal pairs
+    let mut found = false;
+    for &did in dog_ids {
+        for &mid in mammal_ids {
+            let result = en.is_a(did, mid);
+            if result {
+                eprintln!(
+                    "  ✅ is_a(dog sense {}, mammal sense {}) = TRUE",
+                    did.value(),
+                    mid.value()
+                );
+                found = true;
+            }
+        }
+    }
+    if !found {
+        eprintln!("  ❌ No dog sense is-a any mammal sense!");
+    }
 }
