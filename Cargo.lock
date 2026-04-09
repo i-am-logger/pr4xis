@@ -293,10 +293,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "praxis-chat"
+version = "0.1.0"
+dependencies = [
+ "praxis",
+ "praxis-domains",
+]
+
+[[package]]
 name = "praxis-cli"
 version = "0.1.1"
 dependencies = [
  "praxis",
+ "praxis-chat",
  "praxis-domains",
 ]
 

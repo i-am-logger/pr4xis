@@ -1,0 +1,11 @@
+[package]
+name = "praxis-chat"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Praxis chat engine — shared logic for CLI and WASM"
+license = "CC-BY-NC-SA-4.0"
+
+[dependencies]
+praxis = { path = "../praxis" }
+praxis-domains = { path = "../domains" }

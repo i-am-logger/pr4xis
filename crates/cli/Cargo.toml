@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 praxis = { path = "../praxis" }
+praxis-chat = { path = "../chat" }
 praxis-domains = { path = "../domains" }
 
 [build-dependencies]
