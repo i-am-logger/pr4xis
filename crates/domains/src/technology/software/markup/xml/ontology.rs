@@ -332,6 +332,25 @@ impl XmlNode {
     }
 }
 
+impl XmlElement {
+    /// Look up an attribute by local name (ignoring prefix).
+    pub fn attribute(&self, name: &str) -> Option<&str> {
+        self.attributes
+            .iter()
+            .find(|a| a.name.local == name)
+            .map(|a| a.value.as_str())
+    }
+
+    /// Collect all text content from child nodes recursively.
+    pub fn text_content(&self) -> String {
+        self.children
+            .iter()
+            .map(|c| c.text_content())
+            .collect::<Vec<_>>()
+            .join("")
+    }
+}
+
 /// An XML document.
 #[derive(Debug, Clone, PartialEq)]
 pub struct XmlDocument {

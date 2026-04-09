@@ -85,6 +85,31 @@ impl Category for LexicalCategory {
             modifier: PosTag::Adverb,
             head: PosTag::Noun,
         });
+        // Auxiliary modifies Verb (OLiA: AuxiliaryVerb governs MainVerb)
+        m.push(Modifies {
+            modifier: PosTag::Auxiliary,
+            head: PosTag::Verb,
+        });
+        // Auxiliary modifies Copula ("has been")
+        m.push(Modifies {
+            modifier: PosTag::Auxiliary,
+            head: PosTag::Copula,
+        });
+        // Particle modifies Verb ("not run", "to go")
+        m.push(Modifies {
+            modifier: PosTag::Particle,
+            head: PosTag::Verb,
+        });
+        // Numeral modifies Noun ("three dogs")
+        m.push(Modifies {
+            modifier: PosTag::Numeral,
+            head: PosTag::Noun,
+        });
+        // Article modifies Noun (Article is-a Determiner)
+        m.push(Modifies {
+            modifier: PosTag::Article,
+            head: PosTag::Noun,
+        });
 
         m
     }

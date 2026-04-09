@@ -154,24 +154,22 @@ pub fn interpret(tokens: &[TypedToken], en: &English) -> Sem {
 /// The result domain is determined by the result type.
 fn apply(func: &Sem, arg: &Sem, result_type: &LambekType) -> Sem {
     match result_type {
-        // Result is S (proposition)
-        LambekType::Atom(super::types::AtomicType::S) => {
+        // Result is S (any feature) — check if question or proposition
+        LambekType::Atom(super::types::AtomicType::S(feature)) => {
             let predicate = extract_predicate(func);
             let mut arguments = extract_arguments(func);
             arguments.push(arg.clone());
-            Sem::Prop {
-                predicate,
-                arguments,
-            }
-        }
-        // Result is Q (question) — function applied to last argument produces a question
-        LambekType::Atom(super::types::AtomicType::Q) => {
-            let predicate = extract_predicate(func);
-            let mut arguments = extract_arguments(func);
-            arguments.push(arg.clone());
-            Sem::Question {
-                predicate,
-                arguments,
+            match feature {
+                Some(super::types::SentenceFeature::Q | super::types::SentenceFeature::Wq) => {
+                    Sem::Question {
+                        predicate,
+                        arguments,
+                    }
+                }
+                _ => Sem::Prop {
+                    predicate,
+                    arguments,
+                },
             }
         }
         // Result is NP (entity)

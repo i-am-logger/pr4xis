@@ -259,4 +259,65 @@ mod tests {
         let lc = LinearCombination::new(vec![0.5, 0.5, 0.5]); // sums to 1.5
         assert!(!ConvexWeights { combination: lc }.holds());
     }
+
+    // ── Property-based tests ──
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_piecewise_output_in_range(x in 0.0f64..=1.0) {
+            // sRGB linearize maps [0,1] → [0,1]
+            let f = Piecewise {
+                threshold: 0.04045,
+                below: |c| c / 12.92,
+                above: |c| ((c + 0.055) / 1.055).powf(2.4),
+            };
+            let y = f.eval(x);
+            prop_assert!(y >= 0.0 && y <= 1.0, "f({}) = {} not in [0,1]", x, y);
+        }
+
+        #[test]
+        fn prop_piecewise_monotone(a in 0.0f64..=1.0, b in 0.0f64..=1.0) {
+            // sRGB linearize is monotone: a <= b → f(a) <= f(b)
+            let f = Piecewise {
+                threshold: 0.04045,
+                below: |c| c / 12.92,
+                above: |c| ((c + 0.055) / 1.055).powf(2.4),
+            };
+            if a <= b {
+                prop_assert!(f.eval(a) <= f.eval(b) + 1e-10, "not monotone: f({}) > f({})", a, b);
+            }
+        }
+
+        #[test]
+        fn prop_linear_combination_homogeneous(k in 0.1f64..=10.0, x in 0.0f64..=1.0) {
+            // L(k*x) = k * L(x) when applied to uniform input
+            let lc = LinearCombination::new(vec![0.2126, 0.7152, 0.0722]);
+            let vals = vec![x, x, x];
+            let scaled_vals = vec![k * x, k * x, k * x];
+            let l = lc.eval(&vals);
+            let l_scaled = lc.eval(&scaled_vals);
+            prop_assert!((l_scaled - k * l).abs() < 1e-10);
+        }
+
+        #[test]
+        fn prop_interval_clamp_idempotent(x in -10.0f64..=10.0) {
+            let unit = Interval::UNIT;
+            let clamped = unit.clamp(x);
+            prop_assert_eq!(unit.clamp(clamped), clamped);
+        }
+
+        #[test]
+        fn prop_offset_ratio_symmetric(a in 0.0f64..=1.0, b in 0.0f64..=1.0) {
+            // ratio(a, b) == ratio(b, a) — commutative
+            let r = OffsetRatio { offset: 0.05 };
+            prop_assert!((r.eval(a, b) - r.eval(b, a)).abs() < 1e-10);
+        }
+
+        #[test]
+        fn prop_offset_ratio_always_ge_one(a in 0.0f64..=1.0, b in 0.0f64..=1.0) {
+            let r = OffsetRatio { offset: 0.05 };
+            prop_assert!(r.eval(a, b) >= 1.0 - 1e-10);
+        }
+    }
 }

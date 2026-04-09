@@ -1,3 +1,6 @@
+pub mod channel;
+pub mod distance;
+
 use super::symbols::character::{Direction, Script};
 use super::symbols::numeral::NumeralSystem;
 use super::symbols::punctuation::PunctuationMark;

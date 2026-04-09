@@ -150,55 +150,105 @@ pub fn english() -> Vec<LexicalEntry> {
         }));
     }
 
-    // Be/have (irregular, high frequency)
+    // Copulas (OLiA: Copula — links subject to predicate)
     entries.extend([
-        LexicalEntry::Verb(Verb {
+        LexicalEntry::Copula(Copula {
             text: "is".into(),
-            lemma: "be".into(),
             number: Number::Singular,
             person: Person::Third,
             tense: Tense::Present,
-            transitivity: Transitivity::Intransitive,
         }),
-        LexicalEntry::Verb(Verb {
+        LexicalEntry::Copula(Copula {
             text: "are".into(),
-            lemma: "be".into(),
             number: Number::Plural,
             person: Person::Third,
             tense: Tense::Present,
-            transitivity: Transitivity::Intransitive,
         }),
-        LexicalEntry::Verb(Verb {
+        LexicalEntry::Copula(Copula {
             text: "was".into(),
-            lemma: "be".into(),
             number: Number::Singular,
             person: Person::Third,
             tense: Tense::Past,
-            transitivity: Transitivity::Intransitive,
         }),
-        LexicalEntry::Verb(Verb {
+        LexicalEntry::Copula(Copula {
             text: "were".into(),
-            lemma: "be".into(),
             number: Number::Plural,
             person: Person::Third,
             tense: Tense::Past,
-            transitivity: Transitivity::Intransitive,
         }),
-        LexicalEntry::Verb(Verb {
+    ]);
+
+    // Auxiliaries (OLiA: AuxiliaryVerb — modifies tense/aspect/mood)
+    entries.extend([
+        LexicalEntry::Auxiliary(Auxiliary {
             text: "has".into(),
-            lemma: "have".into(),
-            number: Number::Singular,
-            person: Person::Third,
-            tense: Tense::Present,
-            transitivity: Transitivity::Transitive,
+            number: Some(Number::Singular),
+            tense: Some(Tense::Present),
         }),
-        LexicalEntry::Verb(Verb {
+        LexicalEntry::Auxiliary(Auxiliary {
             text: "have".into(),
-            lemma: "have".into(),
-            number: Number::Plural,
-            person: Person::Third,
-            tense: Tense::Present,
-            transitivity: Transitivity::Transitive,
+            number: Some(Number::Plural),
+            tense: Some(Tense::Present),
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "had".into(),
+            number: None,
+            tense: Some(Tense::Past),
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "do".into(),
+            number: Some(Number::Plural),
+            tense: Some(Tense::Present),
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "does".into(),
+            number: Some(Number::Singular),
+            tense: Some(Tense::Present),
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "did".into(),
+            number: None,
+            tense: Some(Tense::Past),
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "will".into(),
+            number: None,
+            tense: Some(Tense::Future),
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "would".into(),
+            number: None,
+            tense: None,
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "can".into(),
+            number: None,
+            tense: None,
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "could".into(),
+            number: None,
+            tense: None,
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "shall".into(),
+            number: None,
+            tense: None,
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "should".into(),
+            number: None,
+            tense: None,
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "may".into(),
+            number: None,
+            tense: None,
+        }),
+        LexicalEntry::Auxiliary(Auxiliary {
+            text: "might".into(),
+            number: None,
+            tense: None,
         }),
     ]);
 

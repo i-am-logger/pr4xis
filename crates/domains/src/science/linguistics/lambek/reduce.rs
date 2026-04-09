@@ -84,7 +84,11 @@ pub fn reduce_sequence(tokens: &[TypedToken]) -> ReductionResult {
         }
     }
 
-    let success = current.len() == 1 && current[0].lambek_type == LambekType::s();
+    let success = current.len() == 1
+        && matches!(
+            current[0].lambek_type,
+            LambekType::Atom(super::types::AtomicType::S(_))
+        );
     let final_type = if current.len() == 1 {
         Some(current[0].lambek_type.clone())
     } else {

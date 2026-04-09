@@ -1,4 +1,5 @@
 pub mod discourse;
+pub mod reference;
 pub mod speech_act;
 
 pub use discourse::{Discourse, Turn};
