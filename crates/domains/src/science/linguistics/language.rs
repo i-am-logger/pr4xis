@@ -59,32 +59,45 @@ pub struct EnglishLanguage {
     pub writing: WritingSystem,
     pub morphology: Vec<MorphologicalRule>,
     /// Function words — the closed class, built at construction time.
-    /// Classified by OLiA: Determiner, Copula, Auxiliary, Pronoun, etc.
     function_words: HashMap<String, Vec<LexicalEntry>>,
     /// All function word texts, for spelling correction.
     function_word_list: Vec<String>,
+    /// Verb transitivity from WordNet subcategorization frames.
+    /// Pre-computed at construction time from LMF Sense.subcat.
+    verb_transitivity: HashMap<String, Vec<Transitivity>>,
 }
 
 impl EnglishLanguage {
     /// Create English from a WordNet instance.
     /// Function words are constructed here — part of the language, not a separate file.
+    /// Verb transitivity is pre-computed from WordNet subcategorization frames.
     pub fn from_wordnet(
         wn: &crate::technology::software::markup::xml::lmf::ontology::WordNet,
     ) -> Self {
         let function_words = build_english_function_words();
         let function_word_list: Vec<String> = function_words.keys().cloned().collect();
+        let verb_transitivity = build_verb_transitivity(wn);
         Self {
             ontology: super::english::English::from_wordnet(wn),
             writing: super::orthography::english_writing_system(),
             morphology: super::morphology::english_rules(),
             function_words,
             function_word_list,
+            verb_transitivity,
         }
     }
 
     /// Access the underlying English ontology (for concept/taxonomy queries).
     pub fn english(&self) -> &super::english::English {
         &self.ontology
+    }
+
+    /// Get verb transitivity options for a word from pre-computed frames.
+    fn verb_transitivities(&self, word: &str) -> &[Transitivity] {
+        self.verb_transitivity
+            .get(word)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 }
 
@@ -116,7 +129,8 @@ impl Language for EnglishLanguage {
         if let Some(&cid) = concept_ids.first()
             && let Some(concept) = self.ontology.concept(cid)
         {
-            return lmf_pos_to_lexical_entries(word, concept.pos)
+            let transitivities = self.verb_transitivities(word);
+            return lmf_pos_to_lexical_entries(word, concept.pos, transitivities)
                 .into_iter()
                 .next();
         }
@@ -132,13 +146,18 @@ impl Language for EnglishLanguage {
             results.extend(entries.iter().cloned());
         }
 
-        // Content word entries from WordNet (all senses, all types)
+        // Content word entries from WordNet — use verb frames for transitivity
         let mut seen_pos = std::collections::HashSet::new();
         for &cid in self.ontology.lookup(word) {
             if let Some(concept) = self.ontology.concept(cid)
                 && seen_pos.insert(concept.pos)
             {
-                results.extend(lmf_pos_to_lexical_entries(word, concept.pos));
+                let transitivities = self.verb_transitivities(word);
+                results.extend(lmf_pos_to_lexical_entries(
+                    word,
+                    concept.pos,
+                    transitivities,
+                ));
             }
         }
 
@@ -161,13 +180,13 @@ impl Language for EnglishLanguage {
 }
 
 /// Map WordNet's LmfPos to ALL possible lexical entries.
-/// Verbs return BOTH transitive and intransitive — the grammar resolves
-/// which interpretation succeeds in context. This is how CCG works:
-/// lexical ambiguity is resolved by successful derivation.
-///
-/// "She runs" uses intransitive. "She runs the company" uses transitive.
-/// Same word, both valid — the ontology carries both.
-fn lmf_pos_to_lexical_entries(word: &str, pos: lmf::LmfPos) -> Vec<LexicalEntry> {
+/// For verbs, uses transitivity from WordNet subcategorization frames.
+/// If no frames are available, returns both transitive and intransitive.
+fn lmf_pos_to_lexical_entries(
+    word: &str,
+    pos: lmf::LmfPos,
+    verb_transitivities: &[Transitivity],
+) -> Vec<LexicalEntry> {
     match pos {
         lmf::LmfPos::Noun => vec![LexicalEntry::Noun(Noun {
             text: word.into(),
@@ -176,25 +195,44 @@ fn lmf_pos_to_lexical_entries(word: &str, pos: lmf::LmfPos) -> Vec<LexicalEntry>
             countability: Countability::Countable,
             kind: NounKind::Common,
         })],
-        lmf::LmfPos::Verb => vec![
-            // Both transitive and intransitive until verb frames disambiguate
-            LexicalEntry::Verb(Verb {
-                text: word.into(),
-                lemma: word.into(),
-                number: Number::Singular,
-                person: Person::Third,
-                tense: Tense::Present,
-                transitivity: Transitivity::Intransitive,
-            }),
-            LexicalEntry::Verb(Verb {
-                text: word.into(),
-                lemma: word.into(),
-                number: Number::Singular,
-                person: Person::Third,
-                tense: Tense::Present,
-                transitivity: Transitivity::Transitive,
-            }),
-        ],
+        lmf::LmfPos::Verb => {
+            if verb_transitivities.is_empty() {
+                // No frame data — return both (grammar resolves in context)
+                vec![
+                    LexicalEntry::Verb(Verb {
+                        text: word.into(),
+                        lemma: word.into(),
+                        number: Number::Singular,
+                        person: Person::Third,
+                        tense: Tense::Present,
+                        transitivity: Transitivity::Intransitive,
+                    }),
+                    LexicalEntry::Verb(Verb {
+                        text: word.into(),
+                        lemma: word.into(),
+                        number: Number::Singular,
+                        person: Person::Third,
+                        tense: Tense::Present,
+                        transitivity: Transitivity::Transitive,
+                    }),
+                ]
+            } else {
+                // Frame data available — return only the known transitivities
+                verb_transitivities
+                    .iter()
+                    .map(|&t| {
+                        LexicalEntry::Verb(Verb {
+                            text: word.into(),
+                            lemma: word.into(),
+                            number: Number::Singular,
+                            person: Person::Third,
+                            tense: Tense::Present,
+                            transitivity: t,
+                        })
+                    })
+                    .collect()
+            }
+        }
         lmf::LmfPos::Adjective => vec![LexicalEntry::Adjective(Adjective { text: word.into() })],
         lmf::LmfPos::Adverb => vec![LexicalEntry::Adverb(Adverb { text: word.into() })],
         lmf::LmfPos::Other => vec![LexicalEntry::Noun(Noun {
@@ -205,6 +243,38 @@ fn lmf_pos_to_lexical_entries(word: &str, pos: lmf::LmfPos) -> Vec<LexicalEntry>
             kind: NounKind::Common,
         })],
     }
+}
+
+/// Pre-compute verb transitivity from WordNet subcategorization frames.
+fn build_verb_transitivity(
+    wn: &crate::technology::software::markup::xml::lmf::ontology::WordNet,
+) -> HashMap<String, Vec<Transitivity>> {
+    let mut result: HashMap<String, Vec<Transitivity>> = HashMap::new();
+
+    for entry in &wn.entries {
+        if entry.lemma.pos != lmf::LmfPos::Verb {
+            continue;
+        }
+        let word = &entry.lemma.written_form;
+
+        for sense in &entry.senses {
+            for frame_id in &sense.subcat {
+                if let Some(vt) = lmf::VerbTransitivity::from_frame_id(frame_id) {
+                    let transitivity = match vt {
+                        lmf::VerbTransitivity::Intransitive => Transitivity::Intransitive,
+                        lmf::VerbTransitivity::Transitive => Transitivity::Transitive,
+                        lmf::VerbTransitivity::Ditransitive => Transitivity::Ditransitive,
+                    };
+                    let entry = result.entry(word.to_lowercase()).or_default();
+                    if !entry.contains(&transitivity) {
+                        entry.push(transitivity);
+                    }
+                }
+            }
+        }
+    }
+
+    result
 }
 
 /// Build the English closed-class function words.

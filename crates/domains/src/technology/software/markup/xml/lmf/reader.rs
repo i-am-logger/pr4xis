@@ -67,6 +67,9 @@ fn read_lexical_entry(
                 "Sense" => {
                     let sense_id = attr_value(child_elem, "id").unwrap_or_default();
                     let synset = attr_value(child_elem, "synset").unwrap_or_default();
+                    let subcat: Vec<String> = attr_value(child_elem, "subcat")
+                        .map(|s| s.split_whitespace().map(String::from).collect())
+                        .unwrap_or_default();
                     let mut relations = Vec::new();
                     for sense_child in &child_elem.children {
                         if let XmlNode::Element(rel_elem) = sense_child
@@ -86,6 +89,7 @@ fn read_lexical_entry(
                         id: sense_id,
                         synset,
                         relations,
+                        subcat,
                     });
                 }
                 "Form" => {

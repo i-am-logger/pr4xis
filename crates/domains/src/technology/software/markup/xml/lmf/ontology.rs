@@ -44,6 +44,9 @@ pub struct Sense {
     pub id: String,
     pub synset: String,
     pub relations: Vec<SenseRelation>,
+    /// Subcategorization frame IDs (verb frames for transitivity).
+    /// From LMF `subcat` attribute. E.g., ["vtai", "vtaa"] for transitive.
+    pub subcat: Vec<String>,
 }
 
 /// A morphological form — an inflected variant of a word.
@@ -214,6 +217,49 @@ impl LmfPos {
             Self::Adverb => "r",
             Self::Other => "x",
         }
+    }
+}
+
+/// Verb transitivity determined from WordNet subcategorization frames.
+/// The frame ID encodes the argument structure of the verb.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum VerbTransitivity {
+    Intransitive,
+    Transitive,
+    Ditransitive,
+}
+
+impl VerbTransitivity {
+    /// Determine transitivity from a WordNet subcategorization frame ID.
+    /// Frame IDs follow the pattern: v[ti][ai][ai][-suffix]
+    /// - "via" / "vii" = intransitive (Somebody/Something ----s)
+    /// - "vtaa" / "vtai" / "vtia" / "vtii" = transitive
+    /// - "ditransitive" = ditransitive
+    pub fn from_frame_id(frame_id: &str) -> Option<Self> {
+        match frame_id {
+            "ditransitive" => Some(Self::Ditransitive),
+            id if id.starts_with("vt") => Some(Self::Transitive),
+            id if id.starts_with("vi") => Some(Self::Intransitive),
+            _ => None,
+        }
+    }
+
+    /// Determine the best transitivity from a set of frame IDs.
+    /// If a verb has both transitive and intransitive frames, it's both.
+    /// Returns the "richest" (ditransitive > transitive > intransitive).
+    pub fn from_frame_ids(frame_ids: &[String]) -> Option<Self> {
+        let mut best = None;
+        for id in frame_ids {
+            if let Some(t) = Self::from_frame_id(id) {
+                best = Some(match (best, t) {
+                    (None, t) => t,
+                    (Some(Self::Ditransitive), _) | (_, Self::Ditransitive) => Self::Ditransitive,
+                    (Some(Self::Transitive), _) | (_, Self::Transitive) => Self::Transitive,
+                    (Some(Self::Intransitive), Self::Intransitive) => Self::Intransitive,
+                });
+            }
+        }
+        best
     }
 }
 
