@@ -30,7 +30,7 @@ pub fn parse_wordnet_xml(path: &Path) -> Result<OntologyBuilder, ParseError> {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
-                let is_empty = matches!(reader.read_event_into(&mut Vec::new()), Ok(_));
+                let is_empty = reader.read_event_into(&mut Vec::new()).is_ok();
                 let _ = is_empty; // we handle both start and empty the same way for attributes
 
                 match e.name().as_ref() {
