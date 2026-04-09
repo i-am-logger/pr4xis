@@ -173,7 +173,7 @@ Full lineage: `docs/foundations.md`
 
 # Live Demo
 
-<iframe src="../chat/" width="100%" height="500" style="border: 1px solid #30363d; border-radius: 8px; background: #0d1117;"></iframe>
+<iframe src="chat/" width="100%" height="500" style="border: 1px solid #30363d; border-radius: 8px; background: #0d1117;"></iframe>
 
 *107,000 concepts. 4.2MB. Running in your browser right now. No server.*
 
