@@ -21,8 +21,11 @@ The ontology IS the model. If praxis understands chess, it can prove every move 
 
 Praxis defines the rules of a domain as an **ontology** — a formal description of what exists and how things relate. Then it enforces those rules through an **engine** that checks every action against the rules before allowing it.
 
-```
-Define rules (ontology) → Check rules (engine) → Prove rules hold (tests)
+```mermaid
+graph LR
+    A[Define rules<br/><b>Ontology</b>] --> B[Check rules<br/><b>Engine</b>]
+    B --> C[Prove rules hold<br/><b>Tests</b>]
+    C -->|feedback| A
 ```
 
 The math underneath is **category theory** — the science of composition. Things compose (combine) while preserving structure. A dog is a mammal, and a mammal is an animal, therefore a dog is an animal. That composition is guaranteed by the mathematics, not by code.
