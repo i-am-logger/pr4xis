@@ -164,10 +164,11 @@ fn apply(func: &Sem, arg: &Sem, result_type: &LambekType) -> Sem {
                 arguments,
             }
         }
-        // Result is Q (question) — wraps a proposition as a question
+        // Result is Q (question) — function applied to last argument produces a question
         LambekType::Atom(super::types::AtomicType::Q) => {
-            let predicate = extract_predicate(arg);
-            let arguments = extract_arguments(arg);
+            let predicate = extract_predicate(func);
+            let mut arguments = extract_arguments(func);
+            arguments.push(arg.clone());
             Sem::Question {
                 predicate,
                 arguments,
