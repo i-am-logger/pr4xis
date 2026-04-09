@@ -1,0 +1,20 @@
+{
+  "name": "praxis-wasm",
+  "type": "module",
+  "collaborators": [
+    "i-am-logger"
+  ],
+  "description": "Praxis chatbot — WASM build for browser",
+  "version": "0.1.0",
+  "license": "CC-BY-NC-SA-4.0",
+  "files": [
+    "praxis_wasm_bg.wasm",
+    "praxis_wasm.js",
+    "praxis_wasm.d.ts"
+  ],
+  "main": "praxis_wasm.js",
+  "types": "praxis_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
