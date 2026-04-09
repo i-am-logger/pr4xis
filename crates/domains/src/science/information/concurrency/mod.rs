@@ -1,4 +1,4 @@
-pub mod concurrency;
+pub mod chess_functor;
 pub mod ontology;
 
 pub use ontology::*;
