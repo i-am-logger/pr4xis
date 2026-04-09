@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
 use crate::science::information::ontology::Reference;
+use crate::science::linguistics::lambek::pregroup::{self, PregroupType};
+use crate::science::linguistics::lexicon::pos::*;
+use crate::science::linguistics::morphology::MorphologicalRule;
+use crate::science::linguistics::orthography::WritingSystem;
 use crate::technology::software::markup::xml::lmf::ontology as lmf;
 
 // English language ontology — built from Open English WordNet 2025.
@@ -25,15 +29,27 @@ pub type SenseId = Reference<4>;
 /// This is the OUTPUT of the loading functor. All adjacency maps are
 /// built once during initialization. Queries return references, not
 /// freshly allocated collections.
+/// The English language — a complete ontology implementing the Language trait.
+///
+/// Built from WordNet via the `from_wordnet` functor. Contains:
+/// - Concepts (synsets) with taxonomy, mereology, opposition
+/// - Function words (closed class, from OLiA categories)
+/// - Verb transitivity (from WordNet subcategorization frames)
+/// - Writing system, morphological rules
+/// - Pregroup type assignments
+///
+/// This is ONE type, not two. The WordNet data and the Language interface
+/// are the same ontology — the functor from WordNet produces this.
 #[derive(Debug)]
 pub struct English {
+    // === WordNet concept data ===
     /// All concepts (synsets) indexed by ConceptId.
     pub concepts: Vec<Concept>,
     /// Word text → concept IDs (one word can mean multiple things).
     pub word_index: HashMap<String, Vec<ConceptId>>,
-    /// Pre-computed taxonomy: parent → children (is-a reversed for descendants).
+    /// Pre-computed taxonomy: parent → children.
     taxonomy_children: HashMap<ConceptId, Vec<ConceptId>>,
-    /// Pre-computed taxonomy: child → parents (is-a for ancestors).
+    /// Pre-computed taxonomy: child → parents.
     taxonomy_parents: HashMap<ConceptId, Vec<ConceptId>>,
     /// Pre-computed opposition: sense → opposite senses.
     opposition: HashMap<SenseId, Vec<SenseId>>,
@@ -43,6 +59,18 @@ pub struct English {
     synset_to_concept: HashMap<String, ConceptId>,
     /// Sense ID string → SenseId mapping.
     pub sense_to_id: HashMap<String, SenseId>,
+
+    // === Language trait data ===
+    /// Function words (closed class, OLiA-classified).
+    function_words: HashMap<String, Vec<LexicalEntry>>,
+    /// All function word texts (for spelling correction).
+    function_word_list: Vec<String>,
+    /// Verb transitivity from WordNet subcategorization frames.
+    verb_transitivity: HashMap<String, Vec<Transitivity>>,
+    /// Writing system.
+    writing: WritingSystem,
+    /// Morphological rules.
+    morphology: Vec<MorphologicalRule>,
 }
 
 /// A concept — a meaning in the English language.
@@ -165,6 +193,13 @@ impl English {
             }
         }
 
+        // Build Language data: function words, verb transitivity, writing, morphology
+        let function_words = crate::science::linguistics::language::build_english_function_words();
+        let function_word_list: Vec<String> = function_words.keys().cloned().collect();
+        let verb_transitivity = crate::science::linguistics::language::build_verb_transitivity(wn);
+        let writing = crate::science::linguistics::orthography::english_writing_system();
+        let morphology = crate::science::linguistics::morphology::english_rules();
+
         English {
             concepts,
             word_index,
@@ -174,6 +209,11 @@ impl English {
             mereology_parts,
             synset_to_concept,
             sense_to_id,
+            function_words,
+            function_word_list,
+            verb_transitivity,
+            writing,
+            morphology,
         }
     }
 
@@ -275,5 +315,97 @@ impl English {
     /// Total opposition relations.
     pub fn opposition_count(&self) -> usize {
         self.opposition.values().map(|v| v.len()).sum()
+    }
+
+    /// Get verb transitivity options from pre-computed frames.
+    fn verb_transitivities(&self, word: &str) -> &[Transitivity] {
+        self.verb_transitivity
+            .get(word)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
+    }
+}
+
+impl crate::science::linguistics::language::Language for English {
+    fn name(&self) -> &str {
+        "English"
+    }
+
+    fn code(&self) -> &str {
+        "en"
+    }
+
+    fn writing_system(&self) -> &WritingSystem {
+        &self.writing
+    }
+
+    fn morphological_rules(&self) -> &[MorphologicalRule] {
+        &self.morphology
+    }
+
+    fn lexical_lookup(&self, word: &str) -> Option<LexicalEntry> {
+        if let Some(entries) = self.function_words.get(word) {
+            return entries.first().cloned();
+        }
+        let concept_ids = self.lookup(word);
+        if let Some(&cid) = concept_ids.first()
+            && let Some(concept) = self.concept(cid)
+        {
+            let transitivities = self.verb_transitivities(word);
+            return crate::science::linguistics::language::lmf_pos_to_lexical_entries(
+                word,
+                concept.pos,
+                transitivities,
+            )
+            .into_iter()
+            .next();
+        }
+        None
+    }
+
+    fn lexical_lookup_all(&self, word: &str) -> Vec<LexicalEntry> {
+        let mut results = Vec::new();
+        if let Some(entries) = self.function_words.get(word) {
+            results.extend(entries.iter().cloned());
+        }
+        let mut seen_pos = std::collections::HashSet::new();
+        for &cid in self.lookup(word) {
+            if let Some(concept) = self.concept(cid)
+                && seen_pos.insert(concept.pos)
+            {
+                let transitivities = self.verb_transitivities(word);
+                results.extend(
+                    crate::science::linguistics::language::lmf_pos_to_lexical_entries(
+                        word,
+                        concept.pos,
+                        transitivities,
+                    ),
+                );
+            }
+        }
+        results
+    }
+
+    fn pregroup_types(&self, word: &str) -> Vec<PregroupType> {
+        self.lexical_lookup_all(word)
+            .iter()
+            .map(|entry| {
+                crate::science::linguistics::language::lexical_entry_to_pregroup(entry)
+            })
+            .collect()
+    }
+
+    fn known_words(&self) -> Vec<&str> {
+        let mut words: Vec<&str> = self.function_word_list.iter().map(|s| s.as_str()).collect();
+        words.extend(self.word_index.keys().map(|s| s.as_str()));
+        words
+    }
+
+    fn concept_count(&self) -> usize {
+        self.concepts.len()
+    }
+
+    fn word_count(&self) -> usize {
+        self.word_index.len() + self.function_word_list.len()
     }
 }

@@ -39,6 +39,23 @@ impl Rgb {
         Self { r, g, b }
     }
 
+    /// Parse hex color string (#RRGGBB or RRGGBB).
+    pub fn from_hex(hex: &str) -> Option<Self> {
+        let hex = hex.strip_prefix('#').unwrap_or(hex);
+        if hex.len() != 6 {
+            return None;
+        }
+        let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+        Some(Rgb::new(r, g, b))
+    }
+
+    /// Convert to hex string (#rrggbb).
+    pub fn to_hex(&self) -> String {
+        format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
+    }
+
     /// Luminance (perceived brightness, 0.0-1.0).
     pub fn luminance(&self) -> f64 {
         0.2126 * (self.r as f64 / 255.0)
