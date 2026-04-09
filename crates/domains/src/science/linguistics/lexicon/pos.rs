@@ -107,12 +107,31 @@ pub struct Conjunction {
     pub text: String,
 }
 
-/// A pronoun: "he", "she", "they".
+/// Pronoun kind — from OLiA classification.
+/// OLiA: PersonalPronoun, InterrogativePronoun, DemonstrativePronoun, etc.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PronounKind {
+    /// "he", "she", "it", "they" — refers to previously mentioned entities.
+    Personal,
+    /// "what", "who", "which" — asks for information.
+    Interrogative,
+    /// "this", "that" — points to entities.
+    Demonstrative,
+    /// "who", "which", "that" — introduces relative clauses.
+    Relative,
+    /// "myself", "themselves" — refers back to the subject.
+    Reflexive,
+    /// "someone", "anything" — refers to unspecified entities.
+    Indefinite,
+}
+
+/// A pronoun: "he", "she", "they", "what", "who".
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Pronoun {
     pub text: String,
     pub number: Number,
     pub person: Person,
+    pub kind: PronounKind,
 }
 
 /// A copula: "is", "are", "was", "were".
@@ -215,6 +234,25 @@ impl LexicalEntry {
         }
     }
 
+    /// Is this an anaphoric expression that needs resolution?
+    /// Personal pronouns are anaphoric — they refer to previously mentioned entities.
+    /// Interrogative pronouns are NOT anaphoric — they ask for new information.
+    pub fn is_anaphoric(&self) -> bool {
+        match self {
+            Self::Pronoun(p) => p.kind == PronounKind::Personal,
+            _ => false,
+        }
+    }
+
+    /// Is this an interrogative pronoun?
+    /// Determined by the OLiA classification, not by the word itself.
+    pub fn is_interrogative(&self) -> bool {
+        match self {
+            Self::Pronoun(p) => p.kind == PronounKind::Interrogative,
+            _ => false,
+        }
+    }
+
     pub fn pos_tag(&self) -> PosTag {
         match self {
             Self::Noun(_) => PosTag::Noun,
@@ -294,5 +332,36 @@ impl PosTag {
 
     pub fn is_function(&self) -> bool {
         !self.is_content()
+    }
+
+    /// Is this a copula? (OLiA: Copula)
+    pub fn is_copula(&self) -> bool {
+        matches!(self, Self::Copula)
+    }
+
+    /// Is this an auxiliary verb? (OLiA: AuxiliaryVerb)
+    pub fn is_auxiliary(&self) -> bool {
+        matches!(self, Self::Auxiliary)
+    }
+
+    /// Is this a pronoun? (OLiA: Pronoun)
+    pub fn is_pronoun(&self) -> bool {
+        matches!(self, Self::Pronoun)
+    }
+
+    /// Is this a noun? (OLiA: Noun)
+    pub fn is_noun(&self) -> bool {
+        matches!(self, Self::Noun)
+    }
+
+    /// Is this an adjective? (OLiA: Adjective)
+    pub fn is_adjective(&self) -> bool {
+        matches!(self, Self::Adjective)
+    }
+
+    /// Does this POS form questions when sentence-initial?
+    /// Copulas and auxiliaries trigger question formation.
+    pub fn is_question_forming(&self) -> bool {
+        matches!(self, Self::Copula | Self::Auxiliary)
     }
 }

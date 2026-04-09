@@ -1,3 +1,4 @@
+pub mod communication_functor;
 pub mod engine;
 pub mod ontology;
 

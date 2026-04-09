@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use praxis_domains::science::cognition::epistemics;
 use praxis_domains::science::information::dialogue::engine::{self, DialogueAction};
-use praxis_domains::science::linguistics::english::English;
 use praxis_domains::science::linguistics::lambek::{
-    LambekType, ReductionResult, TypedToken, montague, reduce_sequence, tokenize,
+    ReductionResult, TypedToken, montague, reduce_sequence, tokenize,
 };
+use praxis_domains::science::linguistics::language::{EnglishLanguage, Language};
 use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 use praxis_domains::technology::software::markup::xml::lmf;
 
@@ -15,8 +15,8 @@ fn main() {
     let wordnet_path = std::env::var("WORDNET_XML")
         .unwrap_or_else(|_| "crates/domains/data/wordnet/english-wordnet-2025.xml".into());
 
-    let english = match load_english(&wordnet_path) {
-        Ok(en) => Arc::new(en),
+    let language = match load_language(&wordnet_path) {
+        Ok(lang) => Arc::new(lang),
         Err(e) => {
             eprintln!("{}", e);
             std::process::exit(1);
@@ -26,13 +26,12 @@ fn main() {
     println!("praxis — axiomatic intelligence");
     println!(
         "  {} concepts, {} words",
-        english.concept_count(),
-        english.word_count()
+        language.concept_count(),
+        language.word_count()
     );
     println!("  type 'quit' to exit");
     println!();
 
-    // The dialogue engine — enforces conversation structure through ontology
     let mut engine = engine::dialogue_engine();
 
     let stdin = io::stdin();
@@ -56,10 +55,13 @@ fn main() {
             break;
         }
 
-        // Process through the linguistics pipeline
-        let (response_text, user_act, sys_act) = process(&english, input);
+        // DRT: resolve pronouns via Centering Theory before processing
+        let resolved_input = resolve_pronouns(input, engine.situation());
 
-        // Feed through the dialogue engine — actions enforced by ontology
+        // Process through the linguistics pipeline
+        let (response_text, user_act, sys_act) = process(&language, &resolved_input);
+
+        // Feed through the dialogue engine
         engine = match engine.next(DialogueAction::UserUtterance {
             text: input.to_string(),
             speech_act: user_act,
@@ -94,12 +96,9 @@ fn main() {
     }
 }
 
-/// The linguistics pipeline: text → tokens → types → semantics → speech act → response.
-///
-/// Object level: tokenize → parse → interpret → query → respond
-/// Meta level: monitor each step, evaluate failures, decide: respond or clarify
-fn process(en: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
-    let tokens = tokenize::tokenize(input);
+/// The linguistics pipeline: text → tokens → types → semantics → response.
+fn process(lang: &EnglishLanguage, input: &str) -> (String, SpeechAct, SpeechAct) {
+    let tokens = tokenize::tokenize(input, lang);
     if tokens.is_empty() {
         return (
             "I received empty input.".into(),
@@ -109,14 +108,14 @@ fn process(en: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
     }
 
     let reduction = reduce_sequence(&tokens);
-    let meaning = montague::interpret(&tokens, en);
+    let meaning = montague::interpret(&tokens, lang.english());
 
     match &meaning {
         montague::Sem::Question {
             predicate,
             arguments,
         } => {
-            let response = answer_question(en, predicate, arguments);
+            let response = answer_question(lang.english(), predicate, arguments);
             (response, SpeechAct::Question, SpeechAct::Assertion)
         }
 
@@ -124,20 +123,20 @@ fn process(en: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
             predicate,
             arguments,
         } => {
-            let response = answer_statement(en, predicate, arguments);
+            let response = answer_statement(lang.english(), predicate, arguments);
             (response, SpeechAct::Assertion, SpeechAct::Assertion)
         }
 
         _ => {
-            let response = attempt_partial_understanding(en, &tokens, &reduction, &meaning);
+            let response =
+                attempt_partial_understanding(lang.english(), &tokens, &reduction, &meaning);
             (response, SpeechAct::Assertion, SpeechAct::Assertion)
         }
     }
 }
 
-/// Meta-level: when full understanding fails, attempt partial understanding.
 fn attempt_partial_understanding(
-    en: &English,
+    en: &praxis_domains::science::linguistics::english::English,
     tokens: &[TypedToken],
     reduction: &ReductionResult,
     meaning: &montague::Sem,
@@ -166,7 +165,7 @@ fn attempt_partial_understanding(
             }
             let nouns: Vec<&str> = tokens
                 .iter()
-                .filter(|t| !en.lookup(&t.word).is_empty() && t.lambek_type == LambekType::n())
+                .filter(|t| !en.lookup(&t.word).is_empty() && t.lambek_type.is_noun())
                 .map(|t| t.word.as_str())
                 .collect();
             if nouns.len() >= 2 {
@@ -200,7 +199,11 @@ fn attempt_partial_understanding(
     }
 }
 
-fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -> String {
+fn answer_question(
+    en: &praxis_domains::science::linguistics::english::English,
+    predicate: &str,
+    arguments: &[montague::Sem],
+) -> String {
     let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
     if entities.len() >= 2 {
@@ -256,7 +259,11 @@ fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -
     )
 }
 
-fn answer_statement(en: &English, _predicate: &str, arguments: &[montague::Sem]) -> String {
+fn answer_statement(
+    en: &praxis_domains::science::linguistics::english::English,
+    _predicate: &str,
+    arguments: &[montague::Sem],
+) -> String {
     let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
     if entities.len() == 1 {
@@ -272,7 +279,7 @@ fn answer_statement(en: &English, _predicate: &str, arguments: &[montague::Sem])
     )
 }
 
-fn define_word(en: &English, word: &str) -> String {
+fn define_word(en: &praxis_domains::science::linguistics::english::English, word: &str) -> String {
     let ids = en.lookup(word);
     if ids.is_empty() {
         return format!("I don't know the word '{}'.", word);
@@ -305,7 +312,26 @@ fn extract_entity_name(sem: &montague::Sem) -> String {
     }
 }
 
-fn load_english(path: &str) -> Result<English, String> {
+/// Resolve pronouns using discourse state (DRT + Centering).
+fn resolve_pronouns(input: &str, state: &engine::DialogueState) -> String {
+    let words: Vec<&str> = input.split_whitespace().collect();
+    let resolved: Vec<String> = words
+        .iter()
+        .map(|&word| {
+            let clean = word
+                .trim_matches(|c: char| c.is_ascii_punctuation())
+                .to_lowercase();
+            if let Some(referent) = state.resolve_pronoun(&clean) {
+                referent.to_string()
+            } else {
+                word.to_string()
+            }
+        })
+        .collect();
+    resolved.join(" ")
+}
+
+fn load_language(path: &str) -> Result<EnglishLanguage, String> {
     if !Path::new(path).exists() {
         return Err(format!(
             "WordNet XML not found at: {}\nSet WORDNET_XML or download from:\n  https://github.com/globalwordnet/english-wordnet/releases",
@@ -317,7 +343,11 @@ fn load_english(path: &str) -> Result<English, String> {
     let xml = std::fs::read_to_string(path).map_err(|e| format!("Failed to read: {}", e))?;
     let wn =
         lmf::reader::read_wordnet(&xml).map_err(|e| format!("Failed to parse WordNet: {}", e))?;
-    let english = English::from_wordnet(&wn);
-    eprintln!("done ({} concepts)", english.concept_count());
-    Ok(english)
+    let language = EnglishLanguage::from_wordnet(&wn);
+    eprintln!(
+        "done ({} concepts, {} words)",
+        language.concept_count(),
+        language.word_count()
+    );
+    Ok(language)
 }
