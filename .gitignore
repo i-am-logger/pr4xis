@@ -29,3 +29,4 @@ roadmap.md
 *.pdf
 !docs/papers/*.pdf
 crates/domains/data/wordnet/*.xml
+crates/wasm/pkg/
