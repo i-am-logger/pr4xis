@@ -202,15 +202,28 @@ pub mod english {
 
     // ---- Question types ----
 
-    /// Yes/no question auxiliary (sentence-initial): Q/(NP\S)/NP
-    /// "is" in "is a dog a mammal?" — takes VP/NP on right, produces Q
-    /// Type: Q/S — takes a declarative sentence on right, produces a question
-    /// More precisely: the copula "is" in question position takes
-    /// subject NP + predicate NP and produces Q
+    /// Question copula (sentence-initial "is"): ((Q/NP)/NP)
+    /// "is" in "is a dog a mammal?"
+    /// Takes two NPs: is + NP(subject) + NP(predicate) → Q
+    ///
+    /// Derivation: "is a dog a mammal"
+    ///   is:((Q/NP)/NP)  a:NP/N  dog:N  a:NP/N  mammal:N
+    ///   is:((Q/NP)/NP)  [a dog]:NP     [a mammal]:NP
+    ///   [is [a mammal]]:Q/NP            [a dog]:NP        ← forward: is takes predicate NP
+    ///   wait — need backward for subject. Let's use (Q\NP)/NP instead:
+    ///
+    /// Actually per CCG: sentence-initial "is" for yes/no questions
+    /// has type (S[q]/(S[b]\NP))/NP — but simplified for Lambek:
+    /// Use Q/NP/NP — takes predicate NP right, then subject NP right.
+    ///
+    /// Simpler approach: treat "is X a Y?" as the copula building
+    /// a declarative that then becomes a question.
+    /// Type: (Q/NP)/NP — takes predicate NP, then subject NP, produces Q.
     pub fn question_copula() -> LambekType {
-        // Q/(NP\S) — takes a VP on right, but we also need the subject
-        // Simplified: Q/S — inverts a declarative to a question
-        LambekType::right_div(LambekType::q(), LambekType::s())
+        LambekType::right_div(
+            LambekType::right_div(LambekType::q(), LambekType::np()),
+            LambekType::np(),
+        )
     }
 
     /// Copula in declarative: (NP\S)/NP — "is" in "a dog is a mammal"
