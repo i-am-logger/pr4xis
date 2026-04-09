@@ -1,3 +1,4 @@
+pub mod integration_tests;
 pub mod montague;
 pub mod pregroup;
 pub mod reduce;
