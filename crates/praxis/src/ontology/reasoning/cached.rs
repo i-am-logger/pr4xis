@@ -232,4 +232,155 @@ mod tests {
         assert!(all_parts.contains(&Animal::Mammal));
         assert!(all_parts.contains(&Animal::Dog)); // transitive
     }
+
+    // ---- Property-based tests ----
+
+    mod prop {
+        use super::*;
+        use proptest::prelude::*;
+
+        fn arb_animal() -> impl Strategy<Value = Animal> {
+            prop_oneof![
+                Just(Animal::Dog),
+                Just(Animal::Cat),
+                Just(Animal::Mammal),
+                Just(Animal::Animal),
+            ]
+        }
+
+        fn taxonomy() -> CachedTaxonomy<Animal> {
+            CachedTaxonomy::new(&[
+                (Animal::Dog, Animal::Mammal),
+                (Animal::Cat, Animal::Mammal),
+                (Animal::Mammal, Animal::Animal),
+            ])
+        }
+
+        proptest! {
+            /// Taxonomy is reflexive: everything is-a itself.
+            #[test]
+            fn prop_taxonomy_reflexive(a in arb_animal()) {
+                let t = taxonomy();
+                prop_assert!(t.is_a(&a, &a));
+            }
+
+            /// Taxonomy is transitive: if A is-a B and B is-a C, then A is-a C.
+            #[test]
+            fn prop_taxonomy_transitive(a in arb_animal(), b in arb_animal(), c in arb_animal()) {
+                let t = taxonomy();
+                if t.is_a(&a, &b) && t.is_a(&b, &c) {
+                    prop_assert!(t.is_a(&a, &c));
+                }
+            }
+
+            /// Taxonomy is antisymmetric: if A is-a B and B is-a A, then A == B.
+            #[test]
+            fn prop_taxonomy_antisymmetric(a in arb_animal(), b in arb_animal()) {
+                let t = taxonomy();
+                if t.is_a(&a, &b) && t.is_a(&b, &a) {
+                    prop_assert_eq!(a, b);
+                }
+            }
+
+            /// Ancestors never include self.
+            #[test]
+            fn prop_ancestors_exclude_self(a in arb_animal()) {
+                let t = taxonomy();
+                prop_assert!(!t.ancestors(&a).contains(&a));
+            }
+
+            /// Descendants never include self.
+            #[test]
+            fn prop_descendants_exclude_self(a in arb_animal()) {
+                let t = taxonomy();
+                prop_assert!(!t.descendants(&a).contains(&a));
+            }
+
+            /// If A is a parent of B, then B is a child of A.
+            #[test]
+            fn prop_parent_child_inverse(a in arb_animal()) {
+                let t = taxonomy();
+                for parent in t.parents(&a) {
+                    prop_assert!(t.children(parent).contains(&a));
+                }
+            }
+
+            /// Equivalence is reflexive.
+            #[test]
+            fn prop_equivalence_reflexive(a in arb_animal()) {
+                let e = CachedEquivalence::new(&[(Animal::Dog, Animal::Cat)]);
+                prop_assert!(e.are_equivalent(&a, &a));
+            }
+
+            /// Equivalence is symmetric.
+            #[test]
+            fn prop_equivalence_symmetric(a in arb_animal(), b in arb_animal()) {
+                let e = CachedEquivalence::new(&[(Animal::Dog, Animal::Cat)]);
+                if e.are_equivalent(&a, &b) {
+                    prop_assert!(e.are_equivalent(&b, &a));
+                }
+            }
+
+            /// Opposition is symmetric.
+            #[test]
+            fn prop_opposition_symmetric(a in arb_animal(), b in arb_animal()) {
+                let o = CachedOpposition::new(&[(Animal::Dog, Animal::Cat)]);
+                if o.are_opposed(&a, &b) {
+                    prop_assert!(o.are_opposed(&b, &a));
+                }
+            }
+
+            /// Opposition is irreflexive: nothing opposes itself.
+            #[test]
+            fn prop_opposition_irreflexive(a in arb_animal()) {
+                let o = CachedOpposition::new(&[(Animal::Dog, Animal::Cat)]);
+                prop_assert!(!o.are_opposed(&a, &a));
+            }
+
+            /// Parts never include the whole itself.
+            #[test]
+            fn prop_parts_exclude_self(a in arb_animal()) {
+                let m = CachedMereology::new(&[
+                    (Animal::Animal, Animal::Mammal),
+                    (Animal::Mammal, Animal::Dog),
+                ]);
+                prop_assert!(!m.parts_of(&a).contains(&a));
+            }
+
+            /// Cached taxonomy gives same results as non-cached.
+            #[test]
+            fn prop_cached_matches_original(a in arb_animal(), b in arb_animal()) {
+                let relations = vec![
+                    (Animal::Dog, Animal::Mammal),
+                    (Animal::Cat, Animal::Mammal),
+                    (Animal::Mammal, Animal::Animal),
+                ];
+                let cached = CachedTaxonomy::new(&relations);
+                let original = crate::ontology::reasoning::taxonomy::is_a::<TestTaxonomy>(&a, &b);
+                prop_assert_eq!(cached.is_a(&a, &b), original);
+            }
+        }
+
+        // Helper for comparing cached vs original
+        use crate::category::Entity;
+        use crate::ontology::reasoning::taxonomy::TaxonomyDef;
+
+        impl Entity for Animal {
+            fn variants() -> Vec<Self> {
+                vec![Animal::Dog, Animal::Cat, Animal::Mammal, Animal::Animal]
+            }
+        }
+
+        struct TestTaxonomy;
+        impl TaxonomyDef for TestTaxonomy {
+            type Entity = Animal;
+            fn relations() -> Vec<(Animal, Animal)> {
+                vec![
+                    (Animal::Dog, Animal::Mammal),
+                    (Animal::Cat, Animal::Mammal),
+                    (Animal::Mammal, Animal::Animal),
+                ]
+            }
+        }
+    }
 }
