@@ -24,7 +24,10 @@ style: |
   .pass { color: #3fb950; }
   .fail { color: #f85149; }
   .ignore { color: #d29922; }
+  section::after { content: ''; background: url('../logo.jpg') no-repeat right 20px top 20px; background-size: 40px; position: absolute; top: 0; right: 0; width: 80px; height: 80px; }
 ---
+
+<video src="../logo.mp4" autoplay loop muted style="width:200px;margin:0 auto;display:block"></video>
 
 # Praxis
 
@@ -34,6 +37,14 @@ style: |
 
 > "Every good regulator of a system must be a model of that system."
 > — Conant & Ashby (1970)
+
+<div style="position:absolute;bottom:80px;display:flex;align-items:center;gap:1em">
+<img src="https://github.com/i-am-logger.png" style="width:60px;border-radius:50%;border:2px solid #30363d">
+<div>
+<div style="font-weight:bold;color:#f0f6fc">Logger</div>
+<div style="color:#8b949e;font-size:0.8em">i-am-logger</div>
+</div>
+</div>
 
 ---
 
@@ -186,3 +197,19 @@ Full lineage: `docs/foundations.md`
 - **Hebrew** — second language proves the architecture is language-agnostic
 
 **The name praxis is not marketing. It is a claim backed by 1,822 proofs.**
+
+---
+
+# Thank you
+
+<div style="display:flex;align-items:center;gap:1.5em;margin:2em 0">
+<img src="https://github.com/i-am-logger.png" style="width:120px;border-radius:50%;border:3px solid #30363d">
+<div>
+<div style="font-size:1.4em;font-weight:bold;color:#f0f6fc">Logger</div>
+<div style="color:#8b949e;font-size:1.1em">i-am-logger</div>
+</div>
+</div>
+
+[github.com/i-am-logger/praxis](https://github.com/i-am-logger/praxis)
+
+*Axiomatic intelligence. 1,822 proofs. Zero domain knowledge in code.*
