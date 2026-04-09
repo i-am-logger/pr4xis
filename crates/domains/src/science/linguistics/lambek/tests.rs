@@ -247,3 +247,7 @@ mod prop {
         }
     }
 }
+
+// Montague functor tests will go here once the type-driven
+// interpretation is implemented properly per the research.
+// See lambek/mod.rs for the TODO.
