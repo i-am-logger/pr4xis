@@ -56,8 +56,12 @@ fn main() {
             break;
         }
 
+        // DRT: resolve pronouns via Centering Theory before processing.
+        // "it" / "they" → backward_center from dialogue state.
+        let resolved_input = resolve_pronouns(input, engine.situation());
+
         // Process through the linguistics pipeline
-        let (response_text, user_act, sys_act) = process(&english, input);
+        let (response_text, user_act, sys_act) = process(&english, &resolved_input);
 
         // Feed through the dialogue engine — actions enforced by ontology
         engine = match engine.next(DialogueAction::UserUtterance {
@@ -303,6 +307,26 @@ fn extract_entity_name(sem: &montague::Sem) -> String {
             predicate.clone()
         }
     }
+}
+
+/// Resolve pronouns in input using discourse state (DRT + Centering).
+/// "it" → backward_center (most salient entity from previous turn).
+fn resolve_pronouns(input: &str, state: &engine::DialogueState) -> String {
+    let words: Vec<&str> = input.split_whitespace().collect();
+    let resolved: Vec<String> = words
+        .iter()
+        .map(|&word| {
+            let clean = word
+                .trim_matches(|c: char| c.is_ascii_punctuation())
+                .to_lowercase();
+            if let Some(referent) = state.resolve_pronoun(&clean) {
+                referent.to_string()
+            } else {
+                word.to_string()
+            }
+        })
+        .collect();
+    resolved.join(" ")
 }
 
 fn load_english(path: &str) -> Result<English, String> {

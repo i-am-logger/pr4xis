@@ -194,8 +194,23 @@ fn a_dog_is_big() {
     assert_eq!(tokens.len(), 4);
     assert_eq!(tokens[0].lambek_type, english::determiner()); // a
     assert_eq!(tokens[1].lambek_type, english::noun()); // dog
-    assert_eq!(tokens[2].lambek_type, english::copula()); // is
-    assert_eq!(tokens[3].lambek_type, english::adjective()); // big
+    // Post-processing assigns copula_adj + predicate_adjective (CCGbank)
+    assert_eq!(tokens[2].lambek_type, english::copula_adj()); // is → (S[dcl]\NP)/(S[adj]\NP)
+    assert_eq!(tokens[3].lambek_type, english::predicate_adjective()); // big → S[adj]\NP
+}
+
+#[test]
+fn a_dog_is_big_reduces() {
+    let tokens = tokenize::tokenize("a dog is big");
+    let result = reduce_sequence(&tokens);
+    assert!(result.success, "expected S, got {:?}", result.remaining);
+}
+
+#[test]
+fn spelling_correction_teh() {
+    // "teh" is distance 1 from "the" — performance error (transposition)
+    let tokens = tokenize::tokenize("teh dog runs");
+    assert_eq!(tokens[0].lambek_type, english::determiner());
 }
 
 #[test]

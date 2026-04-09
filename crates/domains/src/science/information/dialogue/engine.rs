@@ -12,6 +12,9 @@ use crate::science::linguistics::pragmatics::speech_act::{DialogueType, SpeechAc
 // not through custom parsing in the CLI.
 
 /// The situation in a dialogue — what the conversation looks like right now.
+///
+/// Includes DRT discourse referents and Centering Theory salience tracking.
+/// Kamp (1981), Grosz/Joshi/Weinstein (1995).
 #[derive(Debug, Clone, PartialEq)]
 pub struct DialogueState {
     pub turns: Vec<DialogueTurn>,
@@ -19,6 +22,21 @@ pub struct DialogueState {
     pub dialogue_type: DialogueType,
     pub expecting_response: bool,
     pub terminated: bool,
+    /// DRT: discourse referents introduced so far (accumulated across turns).
+    pub referents: Vec<DiscourseReferent>,
+    /// Centering: the backward-looking center — most salient entity from previous turn.
+    /// Pronouns ("it", "they") resolve to this.
+    pub backward_center: Option<String>,
+}
+
+/// A discourse referent — an entity introduced into the conversation.
+/// Kamp (1981): "an abstract placeholder that can be bound to entities."
+#[derive(Debug, Clone, PartialEq)]
+pub struct DiscourseReferent {
+    /// The word that introduced this referent.
+    pub word: String,
+    /// Which turn introduced it.
+    pub turn: usize,
 }
 
 /// A single turn in the dialogue.
@@ -43,7 +61,23 @@ impl DialogueState {
             dialogue_type: DialogueType::GoalDirected,
             expecting_response: false,
             terminated: false,
+            referents: Vec::new(),
+            backward_center: None,
         }
+    }
+
+    /// Resolve a pronoun to its antecedent via Centering Theory.
+    /// "it" / "they" → backward_center (most salient entity from previous turn).
+    pub fn resolve_pronoun(&self, pronoun: &str) -> Option<&str> {
+        match pronoun {
+            "it" | "they" | "them" | "its" | "their" => self.backward_center.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// Get the most recently introduced referent.
+    pub fn last_referent(&self) -> Option<&str> {
+        self.referents.last().map(|r| r.word.as_str())
     }
 
     pub fn turn_count(&self) -> usize {
@@ -113,12 +147,40 @@ pub fn apply_dialogue(
 
     match action {
         DialogueAction::UserUtterance { text, speech_act } => {
+            let turn_num = new_state.turns.len();
             new_state.turns.push(DialogueTurn {
                 speaker: Speaker::User,
                 text: text.clone(),
                 speech_act: *speech_act,
             });
             new_state.expecting_response = speech_act.expects_response();
+
+            // DRT: extract nouns as discourse referents.
+            // Centering: update backward center to most salient entity.
+            let words: Vec<&str> = text.split_whitespace().collect();
+            let mut new_referents = Vec::new();
+            for word in &words {
+                let clean = word
+                    .trim_matches(|c: char| c.is_ascii_punctuation())
+                    .to_lowercase();
+                if !clean.is_empty()
+                    && crate::science::linguistics::lexicon::vocabulary::lookup(&clean).is_some_and(
+                        |e| e.pos_tag() == crate::science::linguistics::lexicon::pos::PosTag::Noun,
+                    )
+                {
+                    new_referents.push(clean);
+                }
+            }
+            // Update backward center: first noun in this utterance (subject position = highest Cf rank)
+            if let Some(first_noun) = new_referents.first() {
+                new_state.backward_center = Some(first_noun.clone());
+            }
+            for noun in new_referents {
+                new_state.referents.push(DiscourseReferent {
+                    word: noun,
+                    turn: turn_num,
+                });
+            }
         }
         DialogueAction::SystemResponse { text, speech_act } => {
             new_state.turns.push(DialogueTurn {
