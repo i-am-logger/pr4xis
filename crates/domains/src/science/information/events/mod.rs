@@ -1,5 +1,5 @@
-pub mod concurrency;
-pub mod events;
+pub mod chess_functor;
+pub mod concurrent_functor;
 pub mod ontology;
 
 pub use ontology::*;
