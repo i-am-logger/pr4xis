@@ -1,5 +1,6 @@
 pub mod english;
 pub mod grammar;
+pub mod lambek;
 pub mod language;
 pub mod lexicon;
 pub mod morphology;
