@@ -2,8 +2,11 @@ use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::sync::Arc;
 
+use praxis_domains::science::cognition::epistemics;
 use praxis_domains::science::linguistics::english::English;
-use praxis_domains::science::linguistics::lambek::{montague, reduce_sequence, tokenize};
+use praxis_domains::science::linguistics::lambek::{
+    LambekType, ReductionResult, TypedToken, montague, reduce_sequence, tokenize,
+};
 use praxis_domains::technology::software::markup::xml::lmf;
 
 fn main() {
@@ -53,59 +56,121 @@ fn main() {
     }
 }
 
-/// The cybernetic loop: input → understand → reason → respond.
-/// If understanding fails → feedback (explain what went wrong).
+/// The cybernetic loop with metacognitive monitoring.
+///
+/// Object level: tokenize → parse → interpret → query → respond
+/// Meta level: monitor each step, evaluate failures, decide: respond or clarify
 fn process(en: &English, input: &str) -> String {
-    // Step 1: Text → Tokens (via lexicon ontology)
+    // Step 1: Text → Tokens
     let tokens = tokenize::tokenize(input);
     if tokens.is_empty() {
         return "I received empty input.".into();
     }
 
-    // Step 2-3: Tokens → Types → Reduction (Lambek grammar)
+    // Step 2: Tokens → Types → Reduction
     let reduction = reduce_sequence(&tokens);
 
-    // Step 4: Reduction → Semantics (Montague functor)
+    // Step 3: Reduction → Semantics (Montague functor)
     let meaning = montague::interpret(&tokens, en);
 
-    // Step 5-6: Semantics → Query → Result
+    // Step 4: Metacognitive evaluation — what did we understand?
     match &meaning {
         montague::Sem::Question {
             predicate,
             arguments,
         } => answer_question(en, predicate, arguments),
+
         montague::Sem::Prop {
             predicate,
             arguments,
-        } => answer_statement(predicate, arguments),
+        } => answer_statement(en, predicate, arguments),
+
         _ => {
-            if !reduction.success {
-                let types: Vec<String> = tokens
-                    .iter()
-                    .map(|t| format!("{}:{}", t.word, t.lambek_type.notation()))
-                    .collect();
-                format!(
-                    "I couldn't fully parse that. I see: {}\nCould you rephrase?",
-                    types.join(" + ")
-                )
-            } else {
-                format!(
-                    "I understood: {}\nBut I don't know how to respond yet.",
-                    meaning.describe()
-                )
+            // Object level failed — meta level takes over
+            attempt_partial_understanding(en, &tokens, &reduction, &meaning)
+        }
+    }
+}
+
+/// Meta-level: when full understanding fails, attempt partial understanding.
+/// Extract what we CAN understand and either answer or ask for clarification.
+fn attempt_partial_understanding(
+    en: &English,
+    tokens: &[TypedToken],
+    reduction: &ReductionResult,
+    meaning: &montague::Sem,
+) -> String {
+    // Extract known words from tokens
+    let known_words: Vec<&str> = tokens
+        .iter()
+        .filter(|t| !en.lookup(&t.word).is_empty())
+        .map(|t| t.word.as_str())
+        .collect();
+
+    let unknown_words: Vec<&str> = tokens
+        .iter()
+        .filter(|t| en.lookup(&t.word).is_empty())
+        .map(|t| t.word.as_str())
+        .collect();
+
+    // Epistemic classification
+    let has_knowledge = !known_words.is_empty();
+    let parsed = reduction.success;
+    let query_result: Option<&str> = if parsed { Some("parsed") } else { None };
+    let state = epistemics::classify_result(parsed, has_knowledge, query_result);
+
+    match state {
+        epistemics::EpistemicState::UnknownKnown => {
+            // I have the knowledge but couldn't parse the question
+            // Try to guess: if there's exactly one known noun, define it
+            if known_words.len() == 1 {
+                return define_word(en, known_words[0]);
             }
+            // If there are two known nouns, try is_a
+            let nouns: Vec<&str> = tokens
+                .iter()
+                .filter(|t| !en.lookup(&t.word).is_empty() && t.lambek_type == LambekType::n())
+                .map(|t| t.word.as_str())
+                .collect();
+            if nouns.len() >= 2 {
+                return format!(
+                    "I couldn't parse the full sentence, but I found two concepts.\nDid you mean: is {} a {}?",
+                    nouns[0], nouns[1]
+                );
+            }
+            // Fall through to general clarification
+            format!(
+                "I know the words {:?} but couldn't understand the sentence structure.\nCould you rephrase as 'is X a Y' or 'what is X'?",
+                known_words
+            )
+        }
+
+        epistemics::EpistemicState::KnownUnknown => {
+            // I know I don't know some words
+            format!(
+                "I don't know the word(s): {:?}\nI know {} of the {} words you used.",
+                unknown_words,
+                known_words.len(),
+                tokens.len()
+            )
+        }
+
+        epistemics::EpistemicState::KnownKnown => {
+            // Parsed and have knowledge but didn't match Q or Prop pattern
+            format!("I understood: {}", meaning.describe())
+        }
+
+        epistemics::EpistemicState::UnknownUnknown => {
+            // Can't parse and don't recognize any words
+            "I don't understand. Could you try a simpler question like 'is a dog a mammal'?".into()
         }
     }
 }
 
 fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -> String {
-    // Extract entity names from arguments
     let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
-    // Map predicate to ontology query
     if entities.len() >= 2 {
-        // Arguments from Montague: [subject, predicate] in consumption order
-        // "is a dog a mammal" → is(dog, mammal) → is_a(dog, mammal)
         let child = &entities[0];
         let parent_or_pred = &entities[1];
 
@@ -136,12 +201,10 @@ fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -
             return format!("No, {} is not a {}.", child, parent_or_pred);
         }
 
-        // Try reverse order
-        let child_ids = en.lookup(parent_or_pred);
-        let parent_ids = en.lookup(child);
-        if !child_ids.is_empty() && !parent_ids.is_empty() {
-            for &cid in child_ids {
-                for &pid in parent_ids {
+        // Try reverse
+        if !parent_ids.is_empty() && !child_ids.is_empty() {
+            for &cid in parent_ids {
+                for &pid in child_ids {
                     if en.is_a(cid, pid) {
                         return format!("Yes. {} is a {}.", parent_or_pred, child);
                     }
@@ -155,15 +218,27 @@ fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -
     }
 
     format!(
-        "I understood the question ?{}({}) but couldn't find an answer.",
+        "I understood the question but couldn't find an answer for: {}({})",
         predicate,
         entities.join(", ")
     )
 }
 
-fn answer_statement(predicate: &str, arguments: &[montague::Sem]) -> String {
+fn answer_statement(en: &English, _predicate: &str, arguments: &[montague::Sem]) -> String {
     let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
-    format!("I understood: {}({})", predicate, entities.join(", "))
+
+    // If there's a single entity, try to define it
+    if entities.len() == 1 {
+        let ids = en.lookup(&entities[0]);
+        if !ids.is_empty() {
+            return define_word(en, &entities[0]);
+        }
+    }
+
+    format!(
+        "I understood that as a statement about: {}",
+        entities.join(", ")
+    )
 }
 
 fn define_word(en: &English, word: &str) -> String {
