@@ -6,10 +6,15 @@ export class Praxis {
     [Symbol.dispose](): void;
     /**
      * Process input through the full praxis-chat pipeline.
+     * Returns JSON with response, timing, and token count.
      */
     chat(input: string): string;
     concept_count(): number;
     constructor();
+    /**
+     * The eigenform — the system describes itself through the SelfModel ontology.
+     */
+    self_describe(): string;
     word_count(): number;
 }
 
@@ -21,6 +26,7 @@ export interface InitOutput {
     readonly praxis_chat: (a: number, b: number, c: number) => [number, number];
     readonly praxis_concept_count: (a: number) => number;
     readonly praxis_new: () => number;
+    readonly praxis_self_describe: (a: number) => [number, number];
     readonly praxis_word_count: (a: number) => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;

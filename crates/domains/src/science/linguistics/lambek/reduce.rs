@@ -167,9 +167,15 @@ pub fn chart_reduce(words: &[String], type_sets: &[Vec<LambekType>]) -> Reductio
     }
 
     // Step 3: Check if S ∈ chart[0, n]
+    // Prefer featured S types (S[q], S[wq], S[dcl]) over bare S(None),
+    // because featured types carry more information.
     let sentence_type = chart[0][n]
         .iter()
-        .find(|t| matches!(t, LambekType::Atom(super::types::AtomicType::S(_))));
+        .filter(|t| matches!(t, LambekType::Atom(super::types::AtomicType::S(_))))
+        .max_by_key(|t| match t {
+            LambekType::Atom(super::types::AtomicType::S(Some(_))) => 1,
+            _ => 0,
+        });
 
     let success = sentence_type.is_some();
     let final_type = sentence_type.cloned();

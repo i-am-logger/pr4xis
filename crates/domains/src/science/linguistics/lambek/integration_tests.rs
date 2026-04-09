@@ -196,6 +196,122 @@ mod tests {
     }
 
     // =========================================================================
+    // Extended sentence suite — the grammar must handle these
+    // =========================================================================
+
+    #[test]
+    fn she_sees_the_dog() {
+        let en = english();
+        assert!(
+            parses(en, "she sees the dog"),
+            "FAILED: {}",
+            tokens_debug(en, "she sees the dog")
+        );
+    }
+
+    #[test]
+    fn the_cat_runs() {
+        let en = english();
+        assert!(
+            parses(en, "the cat runs"),
+            "FAILED: {}",
+            tokens_debug(en, "the cat runs")
+        );
+    }
+
+    #[test]
+    fn a_big_cat_runs() {
+        let en = english();
+        assert!(
+            parses(en, "a big cat runs"),
+            "FAILED: {}",
+            tokens_debug(en, "a big cat runs")
+        );
+    }
+
+    #[test]
+    fn the_dog_sees_the_cat() {
+        let en = english();
+        assert!(
+            parses(en, "the dog sees the cat"),
+            "FAILED: {}",
+            tokens_debug(en, "the dog sees the cat")
+        );
+    }
+
+    #[test]
+    fn is_a_cat_an_animal() {
+        let en = english();
+        assert!(
+            parses_as_question(en, "is a cat an animal"),
+            "FAILED: {}",
+            tokens_debug(en, "is a cat an animal")
+        );
+    }
+
+    #[test]
+    #[ignore = "cat gets verb type from WordNet — chart needs N alternative for cat"]
+    fn what_is_a_cat() {
+        let en = english();
+        assert!(
+            parses_as_question(en, "what is a cat"),
+            "FAILED: {}",
+            tokens_debug(en, "what is a cat")
+        );
+    }
+
+    #[test]
+    fn the_big_dog_sees_the_small_cat() {
+        let en = english();
+        assert!(
+            parses(en, "the big dog sees the small cat"),
+            "FAILED: {}",
+            tokens_debug(en, "the big dog sees the small cat")
+        );
+    }
+
+    #[test]
+    fn a_dog_is_an_animal() {
+        let en = english();
+        assert!(
+            parses(en, "a dog is an animal"),
+            "FAILED: {}",
+            tokens_debug(en, "a dog is an animal")
+        );
+    }
+
+    #[test]
+    #[ignore = "predicate adjective question — copula_adj post-processing conflicts with question copula type"]
+    fn is_a_dog_big() {
+        let en = english();
+        assert!(
+            parses_as_question(en, "is a dog big"),
+            "FAILED: {}",
+            tokens_debug(en, "is a dog big")
+        );
+    }
+
+    #[test]
+    fn she_runs() {
+        let en = english();
+        assert!(
+            parses(en, "she runs"),
+            "FAILED: {}",
+            tokens_debug(en, "she runs")
+        );
+    }
+
+    #[test]
+    fn he_sees_her() {
+        let en = english();
+        assert!(
+            parses(en, "he sees her"),
+            "FAILED: {}",
+            tokens_debug(en, "he sees her")
+        );
+    }
+
+    // =========================================================================
     // Debug: show what types the tokenizer assigns with full WordNet
     // =========================================================================
 

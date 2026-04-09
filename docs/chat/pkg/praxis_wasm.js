@@ -13,6 +13,7 @@ export class Praxis {
     }
     /**
      * Process input through the full praxis-chat pipeline.
+     * Returns JSON with response, timing, and token count.
      * @param {string} input
      * @returns {string}
      */
@@ -42,6 +43,22 @@ export class Praxis {
         this.__wbg_ptr = ret >>> 0;
         PraxisFinalization.register(this, this.__wbg_ptr, this);
         return this;
+    }
+    /**
+     * The eigenform — the system describes itself through the SelfModel ontology.
+     * @returns {string}
+     */
+    self_describe() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.praxis_self_describe(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
     }
     /**
      * @returns {number}
