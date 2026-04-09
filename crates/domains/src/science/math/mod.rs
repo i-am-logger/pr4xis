@@ -1,5 +1,6 @@
 pub mod feynman;
 pub mod fibonacci;
+pub mod functions;
 pub mod ontology;
 pub mod primes;
 pub mod pythagorean;
