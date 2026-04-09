@@ -1,4 +1,5 @@
 pub mod calculator;
+pub mod cognition;
 pub mod colors;
 pub mod information;
 pub mod linguistics;
