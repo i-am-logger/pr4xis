@@ -1,6 +1,6 @@
 [package]
 name = "praxis-domains"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Applied domains — chess, calculator, elevator, legal, traffic, HTTP, games, math, physics, music, colors"
