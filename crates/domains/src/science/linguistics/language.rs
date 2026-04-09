@@ -135,10 +135,10 @@ impl Language for EnglishLanguage {
         // Content word entries from WordNet (all senses, all types)
         let mut seen_pos = std::collections::HashSet::new();
         for &cid in self.ontology.lookup(word) {
-            if let Some(concept) = self.ontology.concept(cid) {
-                if seen_pos.insert(concept.pos) {
-                    results.extend(lmf_pos_to_lexical_entries(word, concept.pos));
-                }
+            if let Some(concept) = self.ontology.concept(cid)
+                && seen_pos.insert(concept.pos)
+            {
+                results.extend(lmf_pos_to_lexical_entries(word, concept.pos));
             }
         }
 
@@ -321,12 +321,25 @@ fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
         add(LexicalEntry::Particle(Particle { text: text.into() }));
     }
 
-    // ---- Interjections (OLiA: Interjection) ----
-    for text in [
-        "hello", "hi", "hey", "oh", "wow", "yes", "no", "please", "thanks", "goodbye", "bye",
+    // ---- Interjections (OLiA: Interjection) — classified by function ----
+    for (text, kind) in [
+        ("hello", InterjectionKind::Greeting),
+        ("hi", InterjectionKind::Greeting),
+        ("hey", InterjectionKind::Greeting),
+        ("goodbye", InterjectionKind::Farewell),
+        ("bye", InterjectionKind::Farewell),
+        ("quit", InterjectionKind::Farewell),
+        ("exit", InterjectionKind::Farewell),
+        ("oh", InterjectionKind::Expressive),
+        ("wow", InterjectionKind::Expressive),
+        ("yes", InterjectionKind::Response),
+        ("no", InterjectionKind::Response),
+        ("please", InterjectionKind::Politeness),
+        ("thanks", InterjectionKind::Politeness),
     ] {
         add(LexicalEntry::Interjection(Interjection {
             text: text.into(),
+            kind,
         }));
     }
 

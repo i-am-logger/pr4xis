@@ -50,7 +50,13 @@ fn main() {
         if input.is_empty() {
             continue;
         }
-        if input == "quit" || input == "exit" {
+
+        // Farewell detection through the language's lexicon.
+        // The LANGUAGE determines what counts as farewell, not the CLI.
+        let clean = input.trim().to_lowercase();
+        if let Some(entry) = language.lexical_lookup(&clean)
+            && entry.is_farewell()
+        {
             let _ = engine.next(DialogueAction::EndDialogue);
             break;
         }
@@ -342,10 +348,8 @@ fn resolve_pronouns(input: &str, state: &engine::DialogueState, language: &dyn L
             let is_anaphoric = language
                 .lexical_lookup(&clean)
                 .is_some_and(|e| e.is_anaphoric());
-            if is_anaphoric {
-                if let Some(referent) = state.resolve_anaphor() {
-                    return referent.to_string();
-                }
+            if is_anaphoric && let Some(referent) = state.resolve_anaphor() {
+                return referent.to_string();
             }
             word.to_string()
         })

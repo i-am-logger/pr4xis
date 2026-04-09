@@ -153,11 +153,27 @@ pub struct Auxiliary {
     pub tense: Option<Tense>,
 }
 
-/// An interjection: "oh", "wow", "hello".
+/// Interjection kind — classified by communicative function.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InterjectionKind {
+    /// "hello", "hi", "hey" — greeting/opening.
+    Greeting,
+    /// "goodbye", "bye" — farewell/closing.
+    Farewell,
+    /// "oh", "wow" — expressive.
+    Expressive,
+    /// "yes", "no" — response.
+    Response,
+    /// "please", "thanks" — politeness.
+    Politeness,
+}
+
+/// An interjection: "oh", "wow", "hello", "goodbye".
 /// OLiA: Interjection.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Interjection {
     pub text: String,
+    pub kind: InterjectionKind,
 }
 
 /// A particle: "not", "to" (infinitive marker).
@@ -240,6 +256,14 @@ impl LexicalEntry {
     pub fn is_anaphoric(&self) -> bool {
         match self {
             Self::Pronoun(p) => p.kind == PronounKind::Personal,
+            _ => false,
+        }
+    }
+
+    /// Is this a farewell interjection? ("goodbye", "bye")
+    pub fn is_farewell(&self) -> bool {
+        match self {
+            Self::Interjection(i) => i.kind == InterjectionKind::Farewell,
             _ => false,
         }
     }
