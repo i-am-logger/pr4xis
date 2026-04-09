@@ -1,14 +1,14 @@
 use super::reduce::*;
 use super::tokenize;
 use super::types::*;
-use crate::science::linguistics::language::EnglishLanguage;
+use crate::science::linguistics::language::English;
 use crate::technology::software::markup::xml::lmf;
 
 /// Sample English language for tokenizer tests.
 /// Content words come from this WordNet; function words are built automatically.
-fn sample_lang() -> EnglishLanguage {
+fn sample_lang() -> English {
     let wn = lmf::reader::read_wordnet(SAMPLE_TOKENIZE_LMF).unwrap();
-    EnglishLanguage::from_wordnet(&wn)
+    English::from_wordnet(&wn)
 }
 
 const SAMPLE_TOKENIZE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>

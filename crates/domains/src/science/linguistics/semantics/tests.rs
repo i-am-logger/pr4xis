@@ -1,10 +1,10 @@
 use super::interpret;
 use super::meaning::*;
 use crate::science::linguistics::grammar::phrase::*;
-use crate::science::linguistics::language::{EnglishLanguage, Language};
+use crate::science::linguistics::english::English;
 use crate::science::linguistics::lexicon::pos::*;
 
-fn sample_lang() -> EnglishLanguage {
+fn sample_lang() -> English {
     let wn = crate::technology::software::markup::xml::lmf::reader::read_wordnet(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <LexicalResource><Lexicon id="t" label="T" language="en" email="" license="" version="1.0" url="">
@@ -23,7 +23,7 @@ fn sample_lang() -> EnglishLanguage {
 </Lexicon></LexicalResource>"#,
     )
     .unwrap();
-    EnglishLanguage::from_wordnet(&wn)
+    English::from_wordnet(&wn)
 }
 
 fn word(text: &str) -> LexicalEntry {

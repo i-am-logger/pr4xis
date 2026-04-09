@@ -7,7 +7,8 @@ use praxis_domains::science::information::dialogue::engine::{self, DialogueActio
 use praxis_domains::science::linguistics::lambek::{
     ReductionResult, TypedToken, montague, reduce_sequence, tokenize,
 };
-use praxis_domains::science::linguistics::language::{EnglishLanguage, Language};
+use praxis_domains::science::linguistics::english::English;
+use praxis_domains::science::linguistics::language::Language;
 use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 use praxis_domains::technology::software::markup::xml::lmf;
 
@@ -118,7 +119,7 @@ fn main() {
 }
 
 /// The linguistics pipeline: text → tokens → types → semantics → response.
-fn process(lang: &EnglishLanguage, input: &str) -> (String, SpeechAct, SpeechAct) {
+fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
     let tokens = tokenize::tokenize(input, lang);
     if tokens.is_empty() {
         return (
@@ -129,14 +130,14 @@ fn process(lang: &EnglishLanguage, input: &str) -> (String, SpeechAct, SpeechAct
     }
 
     let reduction = reduce_sequence(&tokens);
-    let meaning = montague::interpret(&tokens, lang.english());
+    let meaning = montague::interpret(&tokens, lang);
 
     match &meaning {
         montague::Sem::Question {
             predicate,
             arguments,
         } => {
-            let response = answer_question(lang.english(), predicate, arguments);
+            let response = answer_question(lang, predicate, arguments);
             (response, SpeechAct::Question, SpeechAct::Assertion)
         }
 
@@ -144,13 +145,13 @@ fn process(lang: &EnglishLanguage, input: &str) -> (String, SpeechAct, SpeechAct
             predicate,
             arguments,
         } => {
-            let response = answer_statement(lang.english(), predicate, arguments);
+            let response = answer_statement(lang, predicate, arguments);
             (response, SpeechAct::Assertion, SpeechAct::Assertion)
         }
 
         _ => {
             let response =
-                attempt_partial_understanding(lang.english(), &tokens, &reduction, &meaning);
+                attempt_partial_understanding(lang, &tokens, &reduction, &meaning);
             (response, SpeechAct::Assertion, SpeechAct::Assertion)
         }
     }
@@ -357,7 +358,7 @@ fn resolve_pronouns(input: &str, state: &engine::DialogueState, language: &dyn L
     resolved.join(" ")
 }
 
-fn load_language(path: &str) -> Result<EnglishLanguage, String> {
+fn load_language(path: &str) -> Result<English, String> {
     if !Path::new(path).exists() {
         return Err(format!(
             "WordNet XML not found at: {}\nSet WORDNET_XML or download from:\n  https://github.com/globalwordnet/english-wordnet/releases",
@@ -369,7 +370,7 @@ fn load_language(path: &str) -> Result<EnglishLanguage, String> {
     let xml = std::fs::read_to_string(path).map_err(|e| format!("Failed to read: {}", e))?;
     let wn =
         lmf::reader::read_wordnet(&xml).map_err(|e| format!("Failed to parse WordNet: {}", e))?;
-    let language = EnglishLanguage::from_wordnet(&wn);
+    let language = English::from_wordnet(&wn);
     eprintln!(
         "done ({} concepts, {} words)",
         language.concept_count(),

@@ -4,12 +4,12 @@ use praxis::ontology::Quality;
 
 use super::ontology::*;
 use super::pos::*;
-use crate::science::linguistics::language::{EnglishLanguage, Language};
+use crate::science::linguistics::english::English;
 use crate::technology::software::markup::xml::lmf;
 
-fn sample_lang() -> EnglishLanguage {
+fn sample_lang() -> English {
     let wn = lmf::reader::read_wordnet(SAMPLE_LMF).unwrap();
-    EnglishLanguage::from_wordnet(&wn)
+    English::from_wordnet(&wn)
 }
 
 const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>

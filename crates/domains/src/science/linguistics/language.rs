@@ -195,7 +195,7 @@ impl Language for EnglishLanguage {
 /// Map WordNet's LmfPos to ALL possible lexical entries.
 /// For verbs, uses transitivity from WordNet subcategorization frames.
 /// If no frames are available, returns both transitive and intransitive.
-fn lmf_pos_to_lexical_entries(
+pub fn lmf_pos_to_lexical_entries(
     word: &str,
     pos: lmf::LmfPos,
     verb_transitivities: &[Transitivity],
@@ -260,7 +260,7 @@ fn lmf_pos_to_lexical_entries(
 
 /// Map a lexical entry to its pregroup type.
 /// This is the bridge between the lexicon ontology and the grammar ontology.
-fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
+pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
     use pregroup::{BasicType, PregroupElement};
 
     match entry {
@@ -333,7 +333,7 @@ fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
 }
 
 /// Pre-compute verb transitivity from WordNet subcategorization frames.
-fn build_verb_transitivity(
+pub fn build_verb_transitivity(
     wn: &crate::technology::software::markup::xml::lmf::ontology::WordNet,
 ) -> HashMap<String, Vec<Transitivity>> {
     let mut result: HashMap<String, Vec<Transitivity>> = HashMap::new();
@@ -366,7 +366,7 @@ fn build_verb_transitivity(
 
 /// Build the English closed-class function words.
 /// Classified by OLiA categories. Constructed once during language initialization.
-fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
+pub fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
     let mut map: HashMap<String, Vec<LexicalEntry>> = HashMap::new();
 
     let mut add = |entry: LexicalEntry| {
