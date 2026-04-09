@@ -138,84 +138,38 @@ pub fn english_function_words() -> Vec<LexicalEntry> {
         }));
     }
 
-    // ---- Pronouns (OLiA: Pronoun) ----
-    entries.extend([
-        LexicalEntry::Pronoun(Pronoun {
-            text: "i".into(),
-            number: Number::Singular,
-            person: Person::First,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "you".into(),
-            number: Number::Singular,
-            person: Person::Second,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "he".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "she".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "it".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "we".into(),
-            number: Number::Plural,
-            person: Person::First,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "they".into(),
-            number: Number::Plural,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "me".into(),
-            number: Number::Singular,
-            person: Person::First,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "him".into(),
+    // ---- Personal Pronouns (OLiA: PersonalPronoun) ----
+    for (text, number, person) in [
+        ("i", Number::Singular, Person::First),
+        ("you", Number::Singular, Person::Second),
+        ("he", Number::Singular, Person::Third),
+        ("she", Number::Singular, Person::Third),
+        ("it", Number::Singular, Person::Third),
+        ("we", Number::Plural, Person::First),
+        ("they", Number::Plural, Person::Third),
+        ("me", Number::Singular, Person::First),
+        ("him", Number::Singular, Person::Third),
+        ("her", Number::Singular, Person::Third),
+        ("us", Number::Plural, Person::First),
+        ("them", Number::Plural, Person::Third),
+    ] {
+        entries.push(LexicalEntry::Pronoun(Pronoun {
+            text: text.into(),
+            number,
+            person,
+            kind: PronounKind::Personal,
+        }));
+    }
+
+    // ---- Interrogative Pronouns (OLiA: InterrogativePronoun) ----
+    for text in ["what", "who", "which"] {
+        entries.push(LexicalEntry::Pronoun(Pronoun {
+            text: text.into(),
             number: Number::Singular,
             person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "her".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "us".into(),
-            number: Number::Plural,
-            person: Person::First,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "them".into(),
-            number: Number::Plural,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "what".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "who".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "which".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-    ]);
+            kind: PronounKind::Interrogative,
+        }));
+    }
 
     // ---- Prepositions (OLiA: Preposition) ----
     for text in [
