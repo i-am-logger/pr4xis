@@ -148,6 +148,24 @@ Distributional Compositional Categorical model. The syntax category is Lambek pr
 - Coecke & Kissinger, *Picturing Quantum Processes* (2017) — string diagrams (the visual language of DisCoCat)
 - Alexis Toumi et al., *DisCoPy* — open-source Python toolkit for computing with string diagrams and functors
 
+### Pregroup Grammars (the algebraic key)
+
+Lambek (1999) showed that parsing is a group-like computation. A pregroup is a partially ordered monoid where every element has left and right adjoints. Word types are products of basic types with adjoints; parsing is contraction of the product to the sentence type.
+
+**Why pregroups matter for praxis:**
+- Parsing IS algebra: multiply word types, contract using adjoint laws
+- The chart IS a semiring (Goodman 1999): `+` = all derivations, `×` = combining spans
+- The Montague functor IS a compact closed functor from the pregroup to vector spaces (DisCoCat)
+- Pregroups connect to our existing group theory ontology (Rubik's cube)
+
+**Key references:**
+- Lambek, *Type Grammar Revisited* (1999) — pregroups replace slash types with adjoints
+- Lambek, *Pregroups and Natural Language Processing* — parsing as group computation (PDF in docs/papers/)
+- Casadio & Lambek, *A Tale of Four Grammars* (Studia Logica, 2002) — the hierarchy AB → Lambek → Pregroup (PDF in docs/papers/)
+- Goodman, *Semiring Parsing* (Computational Linguistics, 1999) — chart as semiring (PDF in docs/papers/)
+- Yeung & Kartsaklis, *A CCG-Based Version of the DisCoCat Framework* (ACL, 2021) — CCG + DisCoCat (PDF in docs/papers/)
+- Pentus, *Lambek Grammars are Context Free* (1993) — free group interpretation
+
 ### Type-Logical Grammar
 
 Types-as-formulas, proofs-as-programs applied to natural language. A derivation of a sentence IS a proof that its types compose correctly. The Curry-Howard correspondence gives us: parsing = proof search, semantics = proof normalization.

@@ -37,12 +37,56 @@ pub fn tokenize(text: &str, language: &dyn Language) -> Vec<TypedToken> {
         .collect();
 
     // Post-processing: assign predicate adjective types based on context.
-    // When a copula is followed by an adjective, the adjective gets S[adj]\NP
-    // and the copula gets (S[dcl]\NP)/(S[adj]\NP).
-    // From Hockenmaier & Steedman (2007), CCGbank.
     assign_predicate_adjectives(&mut tokens);
 
     tokens
+}
+
+/// Tokenize with alternatives — returns tokens AND all possible types for each.
+/// Used by the ambiguity-aware reducer to try multiple type assignments.
+pub fn tokenize_with_alternatives(
+    text: &str,
+    language: &dyn Language,
+) -> (Vec<TypedToken>, Vec<Vec<LambekType>>) {
+    let cleaned = text
+        .trim()
+        .trim_end_matches(|c: char| c.is_ascii_punctuation());
+
+    let words: Vec<&str> = cleaned.split_whitespace().collect();
+
+    let mut tokens = Vec::new();
+    let mut alternatives = Vec::new();
+
+    for (i, word) in words.iter().enumerate() {
+        let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation());
+        if word_clean.is_empty() {
+            continue;
+        }
+        let lower = word_clean.to_lowercase();
+
+        // Get ALL entries from the language
+        let all_entries = language.lexical_lookup_all(&lower);
+
+        // Primary type assignment
+        let primary_type = assign_type(&lower, i, language);
+
+        // Alternative types from all entries
+        let alt_types: Vec<LambekType> = all_entries
+            .iter()
+            .map(pos_to_lambek)
+            .filter(|t| *t != primary_type)
+            .collect();
+
+        tokens.push(TypedToken {
+            word: lower,
+            lambek_type: primary_type,
+        });
+        alternatives.push(alt_types);
+    }
+
+    assign_predicate_adjectives(&mut tokens);
+
+    (tokens, alternatives)
 }
 
 /// Assign a Lambek type to a word using the language's lexicon.

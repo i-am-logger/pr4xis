@@ -102,3 +102,40 @@ pub fn reduce_sequence(tokens: &[TypedToken]) -> ReductionResult {
         remaining: current,
     }
 }
+
+/// Reduce with ambiguity: try alternative type assignments when the first fails.
+///
+/// This is how real CCG parsers work — words can have multiple types
+/// (e.g. "run" is both intransitive NP\S and transitive (NP\S)/NP),
+/// and the parser tries all combinations, keeping successful derivations.
+///
+/// `alternatives` provides a list of alternative types for each token index.
+/// If the first reduction fails, tries swapping in alternatives one at a time.
+pub fn reduce_with_alternatives(
+    tokens: &[TypedToken],
+    alternatives: &[Vec<super::types::LambekType>],
+) -> ReductionResult {
+    // First try with the default types
+    let result = reduce_sequence(tokens);
+    if result.success {
+        return result;
+    }
+
+    // Try swapping each token's type with its alternatives
+    for (idx, alt_types) in alternatives.iter().enumerate() {
+        for alt_type in alt_types {
+            if *alt_type == tokens[idx].lambek_type {
+                continue; // skip the type we already tried
+            }
+            let mut modified = tokens.to_vec();
+            modified[idx].lambek_type = alt_type.clone();
+            let result = reduce_sequence(&modified);
+            if result.success {
+                return result;
+            }
+        }
+    }
+
+    // No alternative succeeded — return the original failure
+    reduce_sequence(tokens)
+}
