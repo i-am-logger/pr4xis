@@ -42,9 +42,9 @@ The conceptual foundation. Systems thinking studies wholes, relationships, and p
 - Peter Senge, *The Fifth Discipline* (1990) — systems thinking in practice
 - Fritjof Capra & Pier Luigi Luisi, *The Systems View of Life* (2014) — synthesis across disciplines
 
-## Cybernetics
+## Control Systems and Cybernetics
 
-The science of control and communication in systems. Praxis's Engine is a cybernetic control loop; metacognition is second-order cybernetics.
+Control theory is the general science of feedback and regulation. Cybernetics is a specific type: control systems that involve communication (Wiener 1948). The distinction matters — not all control is cybernetic, and not all communication is control. Praxis's Engine is a cybernetic control loop; metacognition is second-order cybernetics.
 
 **Connections to praxis:**
 - Feedback loops → Engine (situation → precondition check → action → new situation)
@@ -52,10 +52,18 @@ The science of control and communication in systems. Praxis's Engine is a cybern
 - Autopoiesis → self-creating systems (praxis generating its own ontologies via codegen)
 - Second-order cybernetics → the observer is part of the system (praxis reasoning about itself via PraxisToDolce functor)
 
+**Three key theorems:**
+- **Requisite Variety** (Ashby 1956): a controller must have at least as many states as the disturbances it regulates. V(controller) >= V(disturbances).
+- **Good Regulator Theorem** (Conant & Ashby 1970): every effective controller must be (or contain) a model of its system. THIS IS WHY THE ENGINE NEEDS AN ONTOLOGY.
+- **Perceptual Control** (Powers 1973): systems control their inputs (perceptions), not their outputs (behavior). Behavior is the means, not the end.
+
 **Key references:**
-- Norbert Wiener, *Cybernetics* (1948) — the founding text
-- W. Ross Ashby, *An Introduction to Cybernetics* (1956) — requisite variety, homeostasis
-- Stafford Beer, *Brain of the Firm* (1972) — Viable System Model
+- Norbert Wiener, *Cybernetics* (1948) — the founding text; control + communication
+- W. Ross Ashby, *An Introduction to Cybernetics* (1956) — requisite variety, homeostasis (PDF in docs/papers/)
+- Roger Conant & W. Ross Ashby, *Every Good Regulator of a System Must Be a Model of That System* (1970) — the regulator theorem
+- William Powers, *Behavior: The Control of Perception* (1973) — perceptual control theory
+- Stafford Beer, *Brain of the Firm* (1972) — Viable System Model (5 recursive control levels)
+- Karl Åström & Richard Murray, *Feedback Systems* (2008) — modern treatment (free online)
 - Humberto Maturana & Francisco Varela, *Autopoiesis and Cognition* (1980) — self-creating systems
 - Heinz von Foerster, *Observing Systems* (1981) — second-order cybernetics
 - Gregory Bateson, *Steps to an Ecology of Mind* (1972) — patterns that connect
