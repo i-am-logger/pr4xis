@@ -1,6 +1,7 @@
 pub mod chess_functor;
 pub mod concurrent_functor;
 pub mod ontology;
+pub mod systems_functor;
 
 pub use ontology::*;
 
