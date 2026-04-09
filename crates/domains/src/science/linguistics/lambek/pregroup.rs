@@ -247,36 +247,40 @@ pub mod english {
         PregroupType::single(BasicType::NP)
     }
 
-    /// Determiner: n^r · np (takes N on right, produces NP)
+    /// Determiner: np · n^l (produces NP, takes N on right via left adjoint)
+    /// "the dog" = np · n^l · n → np (left contraction: n^l · n ≤ 1)
     pub fn determiner() -> PregroupType {
         PregroupType::new(vec![
-            PregroupElement::right_adj(BasicType::N),
             PregroupElement::basic(BasicType::NP),
+            PregroupElement::left_adj(BasicType::N),
         ])
     }
 
-    /// Intransitive verb: np^l · s (takes NP on left, produces S)
+    /// Intransitive verb: np^r · s (takes NP on left via right adjoint)
+    /// "she runs" = np · np^r · s → s (right contraction: np · np^r ≤ 1)
     pub fn intransitive_verb() -> PregroupType {
         PregroupType::new(vec![
-            PregroupElement::left_adj(BasicType::NP),
+            PregroupElement::right_adj(BasicType::NP),
             PregroupElement::basic(BasicType::S),
         ])
     }
 
-    /// Transitive verb: np^l · s · np^l (takes NP on left AND right, produces S)
+    /// Transitive verb: np^r · s · np^l (subject right adj, object left adj)
+    /// "she sees the dog" = np · np^r · s · np^l · np · n^l · n → s
     pub fn transitive_verb() -> PregroupType {
         PregroupType::new(vec![
-            PregroupElement::left_adj(BasicType::NP),
+            PregroupElement::right_adj(BasicType::NP),
             PregroupElement::basic(BasicType::S),
             PregroupElement::left_adj(BasicType::NP),
         ])
     }
 
-    /// Adjective: n^r · n (takes N on right, produces N — modifier)
+    /// Adjective: n · n^l (produces N, takes N on right — modifier)
+    /// "big dog" = n · n^l · n → n (left contraction: n^l · n ≤ 1)
     pub fn adjective() -> PregroupType {
         PregroupType::new(vec![
-            PregroupElement::right_adj(BasicType::N),
             PregroupElement::basic(BasicType::N),
+            PregroupElement::left_adj(BasicType::N),
         ])
     }
 }
@@ -358,6 +362,66 @@ impl Axiom for RightContraction {
 // Entity/Category trait pattern doesn't apply here. The algebraic
 // structure IS the ontology — expressed through the contraction/expansion
 // axioms and the parse function, not through finite morphism enumeration.
+
+// =============================================================================
+// Lambek → Pregroup functor (ontology evolution)
+// =============================================================================
+
+/// Map a Lambek type to a pregroup type.
+/// This IS the functor from the Lambek calculus to the free pregroup
+/// (Casadio & Lambek 2002, "A Tale of Four Grammars").
+///
+/// The mapping:
+///   A/B  →  A · B^l   (right division → product with left adjoint)
+///   B\A  →  B^r · A   (left division → right adjoint then result)
+///   Atom →  basic type
+///
+/// This preserves the reduction laws:
+///   (A/B) · B  →  A · B^l · B  →  A · 1  →  A  ✓
+///   B · (B\A)  →  B · B^r · A  →  1 · A  →  A  ✓
+pub fn lambek_to_pregroup(lambek: &super::types::LambekType) -> PregroupType {
+    use super::types::{AtomicType, LambekType};
+
+    match lambek {
+        LambekType::Atom(atom) => {
+            let base = match atom {
+                AtomicType::S(_) => BasicType::S,
+                AtomicType::NP => BasicType::NP,
+                AtomicType::N => BasicType::N,
+                AtomicType::PP => BasicType::PP,
+            };
+            PregroupType::single(base)
+        }
+        LambekType::RightDiv(a, b) => {
+            // A/B → A · B^l
+            let a_pg = lambek_to_pregroup(a);
+            let b_pg = lambek_to_pregroup(b);
+            let b_adj: Vec<PregroupElement> = b_pg
+                .elements
+                .iter()
+                .rev()
+                .map(|e| PregroupElement::new(e.base, e.exponent - 1))
+                .collect();
+            let mut elements = a_pg.elements;
+            elements.extend(b_adj);
+            PregroupType::new(elements)
+        }
+        LambekType::LeftDiv(a, b) => {
+            // A\B → A^r · B
+            let a_pg = lambek_to_pregroup(a);
+            let b_pg = lambek_to_pregroup(b);
+            let a_adj: Vec<PregroupElement> = a_pg
+                .elements
+                .iter()
+                .rev()
+                .map(|e| PregroupElement::new(e.base, e.exponent + 1))
+                .collect();
+            let mut elements = a_adj;
+            elements.extend(b_pg.elements);
+            PregroupType::new(elements)
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -612,5 +676,100 @@ mod tests {
             PregroupElement::left_adj(BasicType::N),
         ]);
         assert_eq!(det.notation(), "np · n^l");
+    }
+
+    // =========================================================================
+    // Lambek → Pregroup functor tests
+    // =========================================================================
+
+    use super::super::types::english as lambek_en;
+
+    #[test]
+    fn functor_noun() {
+        let pg = lambek_to_pregroup(&lambek_en::noun());
+        assert_eq!(pg, english::noun());
+    }
+
+    #[test]
+    fn functor_proper_noun() {
+        let pg = lambek_to_pregroup(&lambek_en::proper_noun());
+        assert_eq!(pg, english::proper_noun());
+    }
+
+    #[test]
+    fn functor_determiner() {
+        // Lambek: NP/N → pregroup: np · n^l
+        let pg = lambek_to_pregroup(&lambek_en::determiner());
+        assert_eq!(pg, english::determiner());
+    }
+
+    #[test]
+    fn functor_intransitive_verb() {
+        // Lambek: NP\S → pregroup: np^r · s
+        let pg = lambek_to_pregroup(&lambek_en::intransitive_verb());
+        assert_eq!(pg, english::intransitive_verb());
+    }
+
+    #[test]
+    fn functor_preserves_parsing() {
+        // If Lambek types parse, their pregroup images should also parse.
+        // "the dog runs": det + noun + iv
+        let lambek_types = vec![
+            lambek_en::determiner(),
+            lambek_en::noun(),
+            lambek_en::intransitive_verb(),
+        ];
+        let pregroup_types: Vec<PregroupType> =
+            lambek_types.iter().map(lambek_to_pregroup).collect();
+        assert!(
+            parse(&pregroup_types),
+            "functor should preserve parsing: {:?}",
+            pregroup_types
+                .iter()
+                .map(|t| t.notation())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn functor_transitive_parses() {
+        // "she sees the dog": np + tv + det + noun
+        let lambek_types = vec![
+            lambek_en::proper_noun(),
+            lambek_en::transitive_verb(),
+            lambek_en::determiner(),
+            lambek_en::noun(),
+        ];
+        let pregroup_types: Vec<PregroupType> =
+            lambek_types.iter().map(lambek_to_pregroup).collect();
+        assert!(
+            parse(&pregroup_types),
+            "transitive should parse: {:?}",
+            pregroup_types
+                .iter()
+                .map(|t| t.notation())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn functor_adjective_parses() {
+        // "the big dog runs": det + adj + noun + iv
+        let lambek_types = vec![
+            lambek_en::determiner(),
+            lambek_en::adjective(),
+            lambek_en::noun(),
+            lambek_en::intransitive_verb(),
+        ];
+        let pregroup_types: Vec<PregroupType> =
+            lambek_types.iter().map(lambek_to_pregroup).collect();
+        assert!(
+            parse(&pregroup_types),
+            "adjective should parse: {:?}",
+            pregroup_types
+                .iter()
+                .map(|t| t.notation())
+                .collect::<Vec<_>>()
+        );
     }
 }
