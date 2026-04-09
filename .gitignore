@@ -27,4 +27,5 @@ todo.md
 TODO.md
 roadmap.md
 *.pdf
+!docs/papers/*.pdf
 crates/domains/data/wordnet/*.xml
