@@ -159,6 +159,46 @@ Text → Tokens → SyntaxCategory → SemanticCategory → PragmaticCategory
 
 Every arrow is a functor. Every step preserves structure. This is the theoretical foundation for praxis's chatbot — no mechanical parsing, only ontological understanding through functors.
 
+## Metacognition and Self-Awareness
+
+The theoretical foundation for praxis knowing what it knows and — critically — what it DOESN'T know. A system that can reason about its own ontological gaps.
+
+### Second-Order Cybernetics (von Foerster)
+
+First-order cybernetics is "the cybernetics of observed systems." Second-order cybernetics is "the cybernetics of observing systems" — the observer enters the domain of observation. When praxis reasons about why its grammar failed to parse a sentence, it IS second-order cybernetics: the system observing its own observing.
+
+**Key references:**
+- Heinz von Foerster, *Observing Systems* (1981) — the founding text of second-order cybernetics
+- Ranulph Glanville, [*Second Order Cybernetics*](https://www.pangaro.com/glanville/Glanville-SECOND_ORDER_CYBERNETICS.pdf) (PDF) — comprehensive introduction
+- Humberto Maturana & Francisco Varela, *Autopoiesis and Cognition* (1980) — self-creating systems
+- Ernst von Glasersfeld, *Radical Constructivism* (1995) — knowledge as constructed, not discovered
+
+### Meta-Ontology for Introspection (MOI)
+
+An ontological model for tracing metacognitive experiences — what the system knew, when it knew it, and what happened when knowledge was insufficient. Directly applicable to praxis's self-diagnosis of grammar and ontology gaps.
+
+**Key references:**
+- Olivares-Alarcos et al., [*Towards an Ontology for Robot Introspection and Metacognition*](https://www.researchgate.net/publication/376738738_Towards_an_Ontology_for_Robot_Introspection_and_Metacognition) (2023) — formal introspection model
+
+### Metacognitive Bi-Level Architecture
+
+Metacognition is a two-level system: an object level (actual reasoning) and a meta level (monitors, evaluates, controls the object level). When praxis's grammar fails to parse, the meta level detects the failure, diagnoses the gap, and decides whether to ask for clarification or attempt repair.
+
+**Key references:**
+- Wang & Zhao, [*Metacognition in LLMs*](https://aclanthology.org/2025.emnlp-main.171.pdf) (EMNLP 2025) — metacognitive capabilities and limitations
+- Qi et al., [*Meta-R1: Empowering Large Reasoning Models with Metacognition*](https://arxiv.org/pdf/2508.17291) — metacognitive monitoring and control
+
+### Open World Assumption
+
+When a query fails, does it mean "false" or "I don't know"? The Open World Assumption (OWA) treats absence of knowledge as uncertainty, not falsity. Praxis must distinguish:
+- "Is a dog a mammal?" → YES (positive knowledge)
+- "Is a dog a vehicle?" → NO (explicit negative knowledge via taxonomy)
+- "Is a quark a boson?" → I DON'T KNOW (absent from ontology — open world)
+
+**Key references:**
+- [Open World Assumption — Wikipedia](https://en.wikipedia.org/wiki/Closed-world_assumption)
+- [Open World vs Closed World — Dataversity](https://www.dataversity.net/articles/introduction-to-open-world-assumption-vs-closed-world-assumption/)
+
 ## Where Praxis Extends Existing Work
 
 1. **Category theory + DOLCE synthesis.** Using category theory as the formal proof mechanism for upper ontological classification. Existing work uses either category theory OR formal ontology; praxis combines them with a verified functor.
