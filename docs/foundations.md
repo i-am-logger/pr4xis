@@ -109,6 +109,56 @@ The lexical database that praxis uses for the English language ontology.
 - Christiane Fellbaum (ed.), *WordNet: An Electronic Lexical Database* (1998) — comprehensive reference
 - John McCrae et al., *English WordNet: A New Open-Source Wordnet for English* (2020) — the open version praxis uses
 
+## Categorial Grammar and Compositional Semantics
+
+The formal foundation for praxis's language understanding pipeline. Semantics IS a functor from syntax to meaning — this is not metaphor, it's the literal mathematical framework.
+
+### Lambek Grammar (syntax as category)
+
+Words have types (noun, verb, etc.). Types combine via function application: a transitive verb is a function that takes a noun phrase on the right and returns a verb phrase. The grammar IS a category: types are objects, type reductions are morphisms, and composition is guaranteed by the calculus.
+
+**Key references:**
+- Joachim Lambek, *The Mathematics of Sentence Structure* (1958) — the founding paper; syntax as algebraic calculus
+- Joachim Lambek, *Type Grammar Revisited* (1999) — pregroup grammars, simplified Lambek calculus
+
+### Montague Semantics (meaning via functor)
+
+Every syntactic rule has a corresponding semantic rule. Interpretation IS a functor from the syntax category to a logic category. Compositionality: the meaning of the whole is a function of the meanings of the parts.
+
+**Key references:**
+- Richard Montague, *The Proper Treatment of Quantification in Ordinary English* (1973) — the founding paper
+- Barbara Partee, *Montague Grammar* (1976) — accessible introduction
+- Janssen, *Compositionality* (1997) — formal treatment of the compositionality principle
+
+### DisCoCat (the modern synthesis)
+
+Distributional Compositional Categorical model. The syntax category is Lambek pregroups, the semantics category is vector spaces (or logic), and the interpretation IS a functor preserving composition. This is exactly what praxis does — functors between categories — applied to language.
+
+**Key references:**
+- Bob Coecke, Mehrnoosh Sadrzadeh, Stephen Clark, *Mathematical Foundations for a Compositional Distributional Model of Meaning* (2010) — the DisCoCat paper
+- Giovanni de Felice, *Categorical Tools for Natural Language Processing* (2022, Oxford thesis) — comprehensive modern treatment
+- Coecke & Kissinger, *Picturing Quantum Processes* (2017) — string diagrams (the visual language of DisCoCat)
+- Alexis Toumi et al., *DisCoPy* — open-source Python toolkit for computing with string diagrams and functors
+
+### Type-Logical Grammar
+
+Types-as-formulas, proofs-as-programs applied to natural language. A derivation of a sentence IS a proof that its types compose correctly. The Curry-Howard correspondence gives us: parsing = proof search, semantics = proof normalization.
+
+**Key references:**
+- Glyn Morrill, *Type Logical Grammar* (1994) — the standard reference
+- Michael Moortgat, *Categorial Type Logics* (1997) — comprehensive survey
+- Stanford Encyclopedia entry on [Typelogical Grammar](https://plato.stanford.edu/entries/typelogical-grammar/)
+
+### The Pipeline (all functors)
+
+```
+Text → Tokens → SyntaxCategory → SemanticCategory → PragmaticCategory
+         ↑            ↑                 ↑                  ↑
+      Lexicon     Lambek grammar   Montague functor    Speech acts
+```
+
+Every arrow is a functor. Every step preserves structure. This is the theoretical foundation for praxis's chatbot — no mechanical parsing, only ontological understanding through functors.
+
 ## Where Praxis Extends Existing Work
 
 1. **Category theory + DOLCE synthesis.** Using category theory as the formal proof mechanism for upper ontological classification. Existing work uses either category theory OR formal ontology; praxis combines them with a verified functor.
@@ -120,3 +170,7 @@ The lexical database that praxis uses for the English language ontology.
 4. **Reasoning ontology as reusable patterns.** Taxonomy, mereology, causation, equivalence, opposition, context — formalized as generic category patterns that any domain instantiates. Individual patterns exist in the literature; the unified set with axioms and property-based testing is new.
 
 5. **Build-time ontology generation.** Using Rust's build system to parse authoritative data sources (WordNet, W3C specs) through ontological understanding (not mechanical parsing) and generate static, tested code. The "no mechanical processing" principle — every data interaction goes through an ontology.
+
+6. **Cross-domain functor proofs.** Proving that domains ARE instances of abstract ontologies: traffic IS a system (TrafficToSystems), chess IS concurrent (ChessToConcurrency), chess IS event-driven (ChessToEvents), systems ARE concurrent (SystemsToConcurrency), event-driven IS concurrent (EventsToConcurrency). The equivalence triangle System ↔ EventDriven ↔ Concurrent is proven by functor composition.
+
+7. **Lambek + Montague + DisCoCat in Rust with property-based testing.** Implementing categorial grammar, compositional semantics, and the syntax→semantics functor in Rust with exhaustive category law verification. Existing implementations (DisCoPy) are in Python without formal verification. Praxis proves the functor laws hold via property-based testing.
