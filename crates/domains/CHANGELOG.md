@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/i-am-logger/praxis/compare/praxis-domains-v0.2.0...praxis-domains-v0.3.0) (2026-04-09)
+
+
+### Features
+
+* control systems ontology + foundational cybernetics papers ([3c1eab1](https://github.com/i-am-logger/praxis/commit/3c1eab1c26fd31028078d9d7c668e2fff0c70a24))
+* math functions + sRGB color science + theming ontology ([deff009](https://github.com/i-am-logger/praxis/commit/deff0096e946d1cd72b293f2ee1bf55f89dd3642))
+
 ## [0.2.0](https://github.com/i-am-logger/praxis/compare/praxis-domains-v0.1.0...praxis-domains-v0.2.0) (2026-04-09)
 
 
