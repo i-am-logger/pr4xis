@@ -51,6 +51,17 @@ impl SchemeType {
     pub fn extends_base16(&self) -> bool {
         matches!(self, Self::Base24 | Self::Vogix16)
     }
+
+    /// Return the color slots used by this scheme type.
+    ///
+    /// Base16/Vogix16/Ansi16: only the 16 base16 slots (base00-base0F)
+    /// Base24: all 24 slots (base00-base17)
+    pub fn slots(&self) -> Vec<ColorSlot> {
+        match self {
+            Self::Base24 => ColorSlot::variants(),
+            _ => ColorSlot::variants().into_iter().filter(|s| s.is_base16()).collect(),
+        }
+    }
 }
 
 // ── Vogix16 semantic mapping ──
@@ -390,6 +401,35 @@ mod tests {
         assert_eq!(SchemeType::Base24.slot_count(), 24);
         assert_eq!(SchemeType::Vogix16.slot_count(), 16);
         assert_eq!(SchemeType::Ansi16.slot_count(), 16);
+    }
+
+    #[test]
+    fn test_base16_has_16_slots() {
+        assert_eq!(SchemeType::Base16.slots().len(), 16);
+    }
+
+    #[test]
+    fn test_base24_has_24_slots() {
+        assert_eq!(SchemeType::Base24.slots().len(), 24);
+    }
+
+    #[test]
+    fn test_vogix16_has_16_slots() {
+        assert_eq!(SchemeType::Vogix16.slots().len(), 16);
+    }
+
+    #[test]
+    fn test_ansi16_has_16_slots() {
+        assert_eq!(SchemeType::Ansi16.slots().len(), 16);
+    }
+
+    #[test]
+    fn test_base16_slots_are_subset_of_base24() {
+        let base16 = SchemeType::Base16.slots();
+        let base24 = SchemeType::Base24.slots();
+        for slot in &base16 {
+            assert!(base24.contains(slot), "{:?} missing from base24", slot);
+        }
     }
 
     #[test]
