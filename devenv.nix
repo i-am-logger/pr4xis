@@ -66,7 +66,16 @@ in
     echo "Building praxis-wasm..."
     cd crates/wasm
     wasm-pack build --target web --release
-    echo "WASM build at crates/wasm/pkg/"
+    echo "Copying WASM to docs/chat/pkg/..."
+    mkdir -p ../../docs/chat/pkg
+    cp -r pkg/* ../../docs/chat/pkg/
+    echo "WASM ready at docs/chat/"
+  '';
+
+  scripts.dev-site.exec = ''
+    echo "Building site..."
+    dev-wasm
+    echo "Site ready. Serve with: cd docs && python3 -m http.server"
   '';
 
   # Environment variables
