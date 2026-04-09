@@ -62,6 +62,13 @@ in
     cargo build --release
   '';
 
+  scripts.dev-wasm.exec = ''
+    echo "Building praxis-wasm..."
+    cd crates/wasm
+    wasm-pack build --target web --release
+    echo "WASM build at crates/wasm/pkg/"
+  '';
+
   # Environment variables
   env = {
     CARGO_TARGET_DIR = "./target";
@@ -120,10 +127,14 @@ in
     "test:unit" = {
       exec = "RUSTFLAGS='-D warnings' cargo test --quiet";
     };
+
+    "test:wasm" = {
+      exec = "cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet";
+    };
   };
 
   # https://devenv.sh/tests/
   # SKIP git-hooks during devenv test — hooks are a local pre-commit concern,
   # CI runs the same checks via tasks (fmt, clippy with -D warnings, tests).
-  enterTest = lib.mkForce "SKIP=clippy,rustfmt devenv tasks run test:fmt test:clippy test:check test:unit";
+  enterTest = lib.mkForce "SKIP=clippy,rustfmt devenv tasks run test:fmt test:clippy test:check test:unit test:wasm";
 }

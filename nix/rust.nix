@@ -1,5 +1,4 @@
-{ ...
-}:
+{ pkgs, ... }:
 
 {
   # Rust language configuration
@@ -15,5 +14,15 @@
       "rustfmt"
       "rust-analyzer"
     ];
+
+    targets = [
+      "wasm32-unknown-unknown"
+    ];
   };
+
+  # WASM tooling
+  packages = [
+    pkgs.wasm-pack
+    pkgs.wasm-bindgen-cli
+  ];
 }
