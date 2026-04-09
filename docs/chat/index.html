@@ -103,7 +103,7 @@
 </head>
 <body>
   <header>
-    <img src="../../docs/logo.jpeg" alt="Praxis" onerror="this.style.display='none'">
+    <img src="../logo.jpeg" alt="Praxis" onerror="this.style.display='none'">
     <h1>Praxis</h1>
     <span>Axiomatic intelligence — runs entirely in your browser</span>
     <div id="status" class="loading">Loading...</div>
@@ -120,6 +120,7 @@
 
   <script type="module">
     import init, { Praxis } from './pkg/praxis_wasm.js';
+    // pkg/ is copied from crates/wasm/pkg/ during build
 
     const chat = document.getElementById('chat');
     const input = document.getElementById('input');

@@ -171,9 +171,16 @@ Full lineage: `docs/foundations.md`
 
 ---
 
+# Live Demo
+
+<iframe src="../chat/" width="100%" height="500" style="border: 1px solid #30363d; border-radius: 8px; background: #0d1117;"></iframe>
+
+*107,000 concepts. 4.2MB. Running in your browser right now. No server.*
+
+---
+
 # What's next
 
-- **WASM chatbot** — praxis running entirely in the browser
 - **More ontologies** — each Turing test question that fails tells us what to build
 - **The paper** — "Praxis Architecture: Zero-Knowledge Code via Composable Domain Ontologies with Categorical Proof"
 - **Hebrew** — second language proves the architecture is language-agnostic

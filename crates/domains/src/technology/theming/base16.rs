@@ -1,20 +1,20 @@
-/// Base16 / Base24 color scheme slots.
+/// Color scheme slots — the universal set across Base16 and Base24.
 ///
-/// Source: tinted-theming/home styling.md
+/// Base16 defines 16 slots (base00-base0F):
+///   Source: tinted-theming/home styling.md
 ///   base00-base07: monotone ramp (background → foreground)
 ///   base08-base0F: chromatic accents (red → brown)
 ///
-/// Source: tinted-theming/base24 styling.md
+/// Base24 extends Base16 with 8 additional slots (base10-base17):
+///   Source: tinted-theming/base24 styling.md
 ///   base10-base11: darker backgrounds (panels, sidebars)
 ///   base12-base17: bright accent variants
 ///
-/// Source: ECMA-48 Section 8.3.117 (SGR)
-///   ANSI colors 0-7 (normal), 8-15 (bright)
+/// Use `is_base16()` to check if a slot belongs to the Base16 subset.
+/// Use `SchemeType::slots()` to get only the slots for a specific scheme.
 use praxis::category::Entity;
 
-/// A named slot in a base16/base24 color scheme.
-///
-/// 24 total: 00-0F (base16) + 10-17 (base24 extension).
+/// A named color slot. Base16 uses 16 (base00-0F), Base24 uses all 24.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ColorSlot {
     // ── Base16: monotone ramp (background → foreground) ──
