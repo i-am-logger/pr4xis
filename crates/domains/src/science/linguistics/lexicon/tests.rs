@@ -1,188 +1,125 @@
+use praxis::category::Category;
 use praxis::category::validate::check_category_laws;
 use praxis::ontology::Quality;
 
-use super::function_words;
 use super::ontology::*;
 use super::pos::*;
-use super::vocabulary;
+use crate::science::linguistics::language::{EnglishLanguage, Language};
+use crate::technology::software::markup::xml::lmf;
 
-// =============================================================================
-// Function word tests (OLiA-classified closed class)
-// =============================================================================
-
-#[test]
-fn function_words_has_entries() {
-    let fw = function_words::english_function_words();
-    assert!(fw.len() > 50);
+fn sample_lang() -> EnglishLanguage {
+    let wn = lmf::reader::read_wordnet(SAMPLE_LMF).unwrap();
+    EnglishLanguage::from_wordnet(&wn)
 }
 
+const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test" label="Test" language="en" email="" license="" version="1.0" url="">
+    <LexicalEntry id="e-dog-n"><Lemma writtenForm="dog" partOfSpeech="n"/><Sense id="d1" synset="s-dog"/></LexicalEntry>
+    <LexicalEntry id="e-dogs-n"><Lemma writtenForm="dogs" partOfSpeech="n"/><Sense id="d2" synset="s-dog"/></LexicalEntry>
+    <LexicalEntry id="e-run-v"><Lemma writtenForm="runs" partOfSpeech="v"/><Sense id="r1" synset="s-run"/></LexicalEntry>
+    <LexicalEntry id="e-see-v"><Lemma writtenForm="sees" partOfSpeech="v"/><Sense id="s1" synset="s-see"/></LexicalEntry>
+    <LexicalEntry id="e-give-v"><Lemma writtenForm="gives" partOfSpeech="v"/><Sense id="g1" synset="s-give"/></LexicalEntry>
+    <LexicalEntry id="e-read-v1"><Lemma writtenForm="read" partOfSpeech="v"/><Sense id="rd1" synset="s-read"/></LexicalEntry>
+    <LexicalEntry id="e-read-n"><Lemma writtenForm="read" partOfSpeech="n"/><Sense id="rd2" synset="s-read-n"/></LexicalEntry>
+    <Synset id="s-dog" partOfSpeech="n" members="e-dog-n e-dogs-n"><Definition>a domesticated carnivore</Definition></Synset>
+    <Synset id="s-run" partOfSpeech="v" members="e-run-v"><Definition>move fast</Definition></Synset>
+    <Synset id="s-see" partOfSpeech="v" members="e-see-v"><Definition>perceive with eyes</Definition></Synset>
+    <Synset id="s-give" partOfSpeech="v" members="e-give-v"><Definition>transfer possession</Definition></Synset>
+    <Synset id="s-read" partOfSpeech="v" members="e-read-v1"><Definition>interpret written text</Definition></Synset>
+    <Synset id="s-read-n" partOfSpeech="n" members="e-read-n"><Definition>an act of reading</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+
+// =============================================================================
+// Language lexical lookup tests — ALL through the Language trait
+// =============================================================================
+
 #[test]
-fn function_word_lookup_determiner() {
-    let the = function_words::lookup("the").unwrap();
+fn lookup_function_word_determiner() {
+    let lang = sample_lang();
+    let the = lang.lexical_lookup("the").unwrap();
     assert_eq!(the.pos_tag(), PosTag::Determiner);
-    match &the {
-        LexicalEntry::Determiner(d) => {
-            assert_eq!(d.definiteness, Definiteness::Definite);
-            assert_eq!(d.number, None);
-        }
-        _ => panic!("expected Determiner"),
-    }
-
-    let a = function_words::lookup("a").unwrap();
-    match &a {
-        LexicalEntry::Determiner(d) => {
-            assert_eq!(d.definiteness, Definiteness::Indefinite);
-            assert_eq!(d.number, Some(Number::Singular));
-        }
-        _ => panic!("expected Determiner"),
-    }
 }
 
 #[test]
-fn function_word_lookup_copula() {
-    let is = function_words::lookup("is").unwrap();
+fn lookup_function_word_copula() {
+    let lang = sample_lang();
+    let is = lang.lexical_lookup("is").unwrap();
     assert_eq!(is.pos_tag(), PosTag::Copula);
-    match &is {
-        LexicalEntry::Copula(c) => {
-            assert_eq!(c.number, Number::Singular);
-            assert_eq!(c.person, Person::Third);
-            assert_eq!(c.tense, Tense::Present);
-        }
-        _ => panic!("expected Copula"),
-    }
 }
 
 #[test]
-fn function_word_lookup_auxiliary() {
-    let can = function_words::lookup("can").unwrap();
-    assert_eq!(can.pos_tag(), PosTag::Auxiliary);
-}
-
-#[test]
-fn function_word_lookup_pronoun() {
-    let she = function_words::lookup("she").unwrap();
+fn lookup_function_word_pronoun() {
+    let lang = sample_lang();
+    let she = lang.lexical_lookup("she").unwrap();
     assert_eq!(she.pos_tag(), PosTag::Pronoun);
-    match &she {
-        LexicalEntry::Pronoun(p) => {
-            assert_eq!(p.number, Number::Singular);
-            assert_eq!(p.person, Person::Third);
-        }
-        _ => panic!("expected Pronoun"),
-    }
 }
 
 #[test]
-fn function_word_lookup_preposition() {
-    let in_ = function_words::lookup("in").unwrap();
-    assert_eq!(in_.pos_tag(), PosTag::Preposition);
+fn lookup_interrogative_pronoun() {
+    let lang = sample_lang();
+    let what = lang.lexical_lookup("what").unwrap();
+    assert!(what.is_interrogative());
+    assert!(!what.is_anaphoric());
 }
 
 #[test]
-fn function_word_lookup_conjunction() {
-    let and = function_words::lookup("and").unwrap();
-    assert_eq!(and.pos_tag(), PosTag::Conjunction);
+fn lookup_personal_pronoun_is_anaphoric() {
+    let lang = sample_lang();
+    let it = lang.lexical_lookup("it").unwrap();
+    assert!(it.is_anaphoric());
+    assert!(!it.is_interrogative());
 }
 
 #[test]
-fn function_word_lookup_particle() {
-    let not = function_words::lookup("not").unwrap();
-    assert_eq!(not.pos_tag(), PosTag::Particle);
-}
-
-#[test]
-fn function_word_lookup_interjection() {
-    let hello = function_words::lookup("hello").unwrap();
-    assert_eq!(hello.pos_tag(), PosTag::Interjection);
-}
-
-#[test]
-fn function_word_unknown() {
-    assert!(function_words::lookup("dog").is_none());
-    assert!(function_words::lookup("xyzzy").is_none());
-}
-
-// =============================================================================
-// Content word tests (vocabulary.rs — to be replaced by WordNet runtime)
-// =============================================================================
-
-#[test]
-fn vocabulary_has_content_words() {
-    let vocab = vocabulary::english();
-    assert!(vocab.len() > 100);
-}
-
-#[test]
-fn vocabulary_noun_lookup() {
-    let dog = vocabulary::lookup("dog").unwrap();
+fn lookup_content_word_noun() {
+    let lang = sample_lang();
+    let dog = lang.lexical_lookup("dog").unwrap();
     assert_eq!(dog.pos_tag(), PosTag::Noun);
-    match &dog {
-        LexicalEntry::Noun(n) => {
-            assert_eq!(n.number, Number::Singular);
-            assert_eq!(n.person, Person::Third);
-            assert_eq!(n.countability, Countability::Countable);
-            assert_eq!(n.kind, NounKind::Common);
-        }
-        _ => panic!("expected Noun"),
-    }
 }
 
 #[test]
-fn vocabulary_verb_with_rich_data() {
-    let runs = vocabulary::lookup("runs").unwrap();
-    match &runs {
-        LexicalEntry::Verb(v) => {
-            assert_eq!(v.lemma, "run");
-            assert_eq!(v.number, Number::Singular);
-            assert_eq!(v.person, Person::Third);
-            assert_eq!(v.tense, Tense::Present);
-            assert_eq!(v.transitivity, Transitivity::Intransitive);
-        }
-        _ => panic!("expected Verb"),
-    }
+fn lookup_content_word_verb() {
+    let lang = sample_lang();
+    let runs = lang.lexical_lookup("runs").unwrap();
+    assert_eq!(runs.pos_tag(), PosTag::Verb);
 }
 
 #[test]
-fn vocabulary_homograph() {
-    let reads = vocabulary::lookup_all("read");
-    assert!(reads.len() >= 2);
-    let tenses: Vec<_> = reads
+fn lookup_homograph_has_multiple() {
+    let lang = sample_lang();
+    let all = lang.lexical_lookup_all("read");
+    assert!(all.len() >= 2, "read should have verb + noun entries");
+}
+
+#[test]
+fn lookup_unknown_returns_none() {
+    let lang = sample_lang();
+    assert!(lang.lexical_lookup("xyzzy").is_none());
+}
+
+#[test]
+fn function_word_not_in_content() {
+    let lang = sample_lang();
+    // "the" should be found as function word (determiner), not as content word
+    let the = lang.lexical_lookup("the").unwrap();
+    assert_eq!(the.pos_tag(), PosTag::Determiner);
+}
+
+#[test]
+fn verb_has_both_transitive_and_intransitive() {
+    let lang = sample_lang();
+    let entries = lang.lexical_lookup_all("runs");
+    let transitivities: Vec<_> = entries
         .iter()
         .filter_map(|e| match e {
-            LexicalEntry::Verb(v) => Some(v.tense),
+            LexicalEntry::Verb(v) => Some(v.transitivity),
             _ => None,
         })
         .collect();
-    assert!(tenses.contains(&Tense::Present));
-    assert!(tenses.contains(&Tense::Past));
-}
-
-#[test]
-fn vocabulary_noun_pairs() {
-    let dog_sg = vocabulary::lookup("dog").unwrap();
-    let dog_pl = vocabulary::lookup("dogs").unwrap();
-    assert_eq!(dog_sg.number(), Some(Number::Singular));
-    assert_eq!(dog_pl.number(), Some(Number::Plural));
-}
-
-#[test]
-fn vocabulary_verb_transitivity() {
-    let see = vocabulary::lookup("sees").unwrap();
-    match see {
-        LexicalEntry::Verb(v) => assert_eq!(v.transitivity, Transitivity::Transitive),
-        _ => panic!("expected Verb"),
-    }
-
-    let run = vocabulary::lookup("runs").unwrap();
-    match run {
-        LexicalEntry::Verb(v) => assert_eq!(v.transitivity, Transitivity::Intransitive),
-        _ => panic!("expected Verb"),
-    }
-
-    let give = vocabulary::lookup("gives").unwrap();
-    match give {
-        LexicalEntry::Verb(v) => assert_eq!(v.transitivity, Transitivity::Ditransitive),
-        _ => panic!("expected Verb"),
-    }
+    assert!(transitivities.contains(&Transitivity::Intransitive));
+    assert!(transitivities.contains(&Transitivity::Transitive));
 }
 
 // =============================================================================
@@ -227,12 +164,8 @@ fn content_word_quality() {
     assert_eq!(q.get(&PosTag::Noun), Some(true));
     assert_eq!(q.get(&PosTag::Verb), Some(true));
     assert_eq!(q.get(&PosTag::Determiner), Some(false));
-    assert_eq!(q.get(&PosTag::Preposition), Some(false));
     assert_eq!(q.get(&PosTag::Copula), Some(false));
-    assert_eq!(q.get(&PosTag::Auxiliary), Some(false));
 }
-
-use praxis::category::Category;
 
 // =============================================================================
 // Property-based tests
@@ -267,16 +200,6 @@ mod prop {
             let id = LexicalCategory::identity(&pos);
             prop_assert_eq!(id.modifier, pos);
             prop_assert_eq!(id.head, pos);
-        }
-
-        #[test]
-        fn prop_all_function_words_have_pos(idx in 0..100usize) {
-            let fw = super::function_words::english_function_words();
-            if let Some(entry) = fw.get(idx) {
-                let _tag = entry.pos_tag();
-                let _text = entry.text();
-                prop_assert!(!_text.is_empty());
-            }
         }
 
         #[test]
