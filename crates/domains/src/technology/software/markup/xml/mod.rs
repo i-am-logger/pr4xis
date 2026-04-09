@@ -1,5 +1,5 @@
 pub mod ontology;
-pub mod xml;
+pub mod reader;
 
 pub use ontology::*;
 
