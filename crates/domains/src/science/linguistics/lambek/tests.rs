@@ -1,7 +1,7 @@
 use super::reduce::*;
 use super::tokenize;
 use super::types::*;
-use crate::science::linguistics::language::English;
+use crate::science::linguistics::english::English;
 use crate::technology::software::markup::xml::lmf;
 
 /// Sample English language for tokenizer tests.
@@ -359,7 +359,6 @@ mod prop {
 // =============================================================================
 
 use super::montague;
-use crate::science::linguistics::english::English;
 
 const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <LexicalResource>

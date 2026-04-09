@@ -1,3 +1,4 @@
+use crate::science::linguistics::language::Language;
 use praxis::category::Category;
 use praxis::category::validate::check_category_laws;
 use praxis::ontology::Quality;

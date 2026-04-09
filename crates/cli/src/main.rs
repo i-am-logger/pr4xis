@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use praxis_domains::science::cognition::epistemics;
 use praxis_domains::science::information::dialogue::engine::{self, DialogueAction};
+use praxis_domains::science::linguistics::english::English;
 use praxis_domains::science::linguistics::lambek::{
     ReductionResult, TypedToken, montague, reduce_sequence, tokenize,
 };
-use praxis_domains::science::linguistics::english::English;
 use praxis_domains::science::linguistics::language::Language;
 use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 use praxis_domains::technology::software::markup::xml::lmf;
@@ -150,8 +150,7 @@ fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
         }
 
         _ => {
-            let response =
-                attempt_partial_understanding(lang, &tokens, &reduction, &meaning);
+            let response = attempt_partial_understanding(lang, &tokens, &reduction, &meaning);
             (response, SpeechAct::Assertion, SpeechAct::Assertion)
         }
     }

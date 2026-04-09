@@ -1,7 +1,8 @@
 use super::interpret;
 use super::meaning::*;
-use crate::science::linguistics::grammar::phrase::*;
 use crate::science::linguistics::english::English;
+use crate::science::linguistics::grammar::phrase::*;
+use crate::science::linguistics::language::Language;
 use crate::science::linguistics::lexicon::pos::*;
 
 fn sample_lang() -> English {

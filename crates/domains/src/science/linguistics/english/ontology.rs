@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::science::information::ontology::Reference;
-use crate::science::linguistics::lambek::pregroup::{self, PregroupType};
+use crate::science::linguistics::lambek::pregroup::PregroupType;
 use crate::science::linguistics::lexicon::pos::*;
 use crate::science::linguistics::morphology::MorphologicalRule;
 use crate::science::linguistics::orthography::WritingSystem;
@@ -389,9 +389,7 @@ impl crate::science::linguistics::language::Language for English {
     fn pregroup_types(&self, word: &str) -> Vec<PregroupType> {
         self.lexical_lookup_all(word)
             .iter()
-            .map(|entry| {
-                crate::science::linguistics::language::lexical_entry_to_pregroup(entry)
-            })
+            .map(crate::science::linguistics::language::lexical_entry_to_pregroup)
             .collect()
     }
 
