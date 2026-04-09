@@ -5,6 +5,7 @@ use praxis::category::{Category, Functor};
 use super::chess_functor::*;
 use super::concurrent_functor::*;
 use super::ontology::*;
+use super::systems_functor::*;
 
 #[test]
 fn event_category_laws() {
@@ -83,7 +84,32 @@ fn event_bus_is_synchronization() {
     );
 }
 
-// === The full chain: Chess → EventDriven → Concurrent ===
+// === Every system IS event-driven ===
+
+#[test]
+fn systems_to_events_functor_laws() {
+    check_functor_laws::<SystemsToEvents>().unwrap();
+}
+
+#[test]
+fn transition_is_event() {
+    use crate::science::systems::ontology::SystemConcept;
+    assert_eq!(
+        SystemsToEvents::map_object(&SystemConcept::Transition),
+        EventConcept::Event
+    );
+}
+
+#[test]
+fn feedback_is_event_bus() {
+    use crate::science::systems::ontology::SystemConcept;
+    assert_eq!(
+        SystemsToEvents::map_object(&SystemConcept::Feedback),
+        EventConcept::EventBus
+    );
+}
+
+// === The full triangle: System ↔ EventDriven ↔ Concurrent ===
 
 #[test]
 fn chess_is_concurrent_via_events() {
