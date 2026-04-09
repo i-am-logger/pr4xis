@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use super::lexicon::pos::*;
 use super::morphology::MorphologicalRule;
 use super::orthography::WritingSystem;
+use crate::science::linguistics::lambek::pregroup::{self, PregroupType};
 use crate::technology::software::markup::xml::lmf::ontology as lmf;
 
 // The Language trait — the SINGLE interface for all lexical access.
@@ -38,6 +39,11 @@ pub trait Language {
 
     /// Look up all entries for a word (handles homographs).
     fn lexical_lookup_all(&self, word: &str) -> Vec<LexicalEntry>;
+
+    /// Get the pregroup type(s) for a word.
+    /// The pregroup type determines how the word composes grammatically.
+    /// Returns all possible types (verbs may be both transitive and intransitive).
+    fn pregroup_types(&self, word: &str) -> Vec<PregroupType>;
 
     /// Get all known words (for spelling correction candidate generation).
     fn known_words(&self) -> Vec<&str>;
@@ -164,6 +170,13 @@ impl Language for EnglishLanguage {
         results
     }
 
+    fn pregroup_types(&self, word: &str) -> Vec<PregroupType> {
+        self.lexical_lookup_all(word)
+            .iter()
+            .map(lexical_entry_to_pregroup)
+            .collect()
+    }
+
     fn known_words(&self) -> Vec<&str> {
         let mut words: Vec<&str> = self.function_word_list.iter().map(|s| s.as_str()).collect();
         words.extend(self.ontology.word_index.keys().map(|s| s.as_str()));
@@ -242,6 +255,80 @@ fn lmf_pos_to_lexical_entries(
             countability: Countability::Countable,
             kind: NounKind::Common,
         })],
+    }
+}
+
+/// Map a lexical entry to its pregroup type.
+/// This is the bridge between the lexicon ontology and the grammar ontology.
+fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
+    use pregroup::{BasicType, PregroupElement};
+
+    match entry {
+        LexicalEntry::Noun(_) => pregroup::english::noun(),
+        LexicalEntry::Verb(v) => match v.transitivity {
+            Transitivity::Intransitive => pregroup::english::intransitive_verb(),
+            Transitivity::Transitive => pregroup::english::transitive_verb(),
+            Transitivity::Ditransitive => {
+                // np^r · s · np^l · np^l (subject + two objects)
+                PregroupType::new(vec![
+                    PregroupElement::right_adj(BasicType::NP),
+                    PregroupElement::basic(BasicType::S),
+                    PregroupElement::left_adj(BasicType::NP),
+                    PregroupElement::left_adj(BasicType::NP),
+                ])
+            }
+        },
+        LexicalEntry::Determiner(_) => pregroup::english::determiner(),
+        LexicalEntry::Adjective(_) => pregroup::english::adjective(),
+        LexicalEntry::Adverb(_) => {
+            // Adverb modifies verb: (np^r · s)^r · np^r · s
+            // Simplified: s^r · np · np^r · s = modifier of VP
+            // For now, use simple s · s^l (sentence modifier)
+            PregroupType::new(vec![
+                PregroupElement::basic(BasicType::S),
+                PregroupElement::left_adj(BasicType::S),
+            ])
+        }
+        LexicalEntry::Preposition(_) => {
+            // pp · np^l (takes NP on right, produces PP)
+            PregroupType::new(vec![
+                PregroupElement::basic(BasicType::PP),
+                PregroupElement::left_adj(BasicType::NP),
+            ])
+        }
+        LexicalEntry::Pronoun(_) => pregroup::english::proper_noun(),
+        LexicalEntry::Conjunction(_) => {
+            // Simplified: s · s^l · s^l (joins two sentences)
+            PregroupType::new(vec![
+                PregroupElement::basic(BasicType::S),
+                PregroupElement::left_adj(BasicType::S),
+                PregroupElement::left_adj(BasicType::S),
+            ])
+        }
+        LexicalEntry::Copula(_) => {
+            // Copula with NP predicate: np^r · s · np^l (like transitive)
+            pregroup::english::transitive_verb()
+        }
+        LexicalEntry::Auxiliary(_) => {
+            // Auxiliary modifies VP: (np^r · s)^r · np^r · s
+            // Simplified: s · s^l (sentence-level modifier)
+            PregroupType::new(vec![
+                PregroupElement::basic(BasicType::S),
+                PregroupElement::left_adj(BasicType::S),
+            ])
+        }
+        LexicalEntry::Interjection(_) => {
+            // Standalone: s
+            PregroupType::single(BasicType::S)
+        }
+        LexicalEntry::Particle(_) => {
+            // Modifier: s · s^l
+            PregroupType::new(vec![
+                PregroupElement::basic(BasicType::S),
+                PregroupElement::left_adj(BasicType::S),
+            ])
+        }
+        LexicalEntry::Numeral(_) => pregroup::english::determiner(),
     }
 }
 
@@ -433,11 +520,22 @@ mod tests {
       <Lemma writtenForm="run" partOfSpeech="v"/>
       <Sense id="run-v-01" synset="s-run"/>
     </LexicalEntry>
+    <LexicalEntry id="e-runs-v">
+      <Lemma writtenForm="runs" partOfSpeech="v"/>
+      <Sense id="runs-v-01" subcat="via vtai" synset="s-run"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-sees-v">
+      <Lemma writtenForm="sees" partOfSpeech="v"/>
+      <Sense id="sees-v-01" subcat="vtai vtaa" synset="s-see"/>
+    </LexicalEntry>
     <Synset id="s-dog" ili="i1" partOfSpeech="n" members="e-dog-n">
       <Definition>a domesticated carnivore</Definition>
     </Synset>
-    <Synset id="s-run" ili="i2" partOfSpeech="v" members="e-run-v">
+    <Synset id="s-run" ili="i2" partOfSpeech="v" members="e-run-v e-runs-v">
       <Definition>move fast</Definition>
+    </Synset>
+    <Synset id="s-see" ili="i3" partOfSpeech="v" members="e-sees-v">
+      <Definition>perceive with eyes</Definition>
     </Synset>
   </Lexicon>
 </LexicalResource>"#;
@@ -519,5 +617,81 @@ mod tests {
         assert!(ws.recognizes('Z'));
         assert!(ws.recognizes('5'));
         assert!(ws.recognizes('.'));
+    }
+
+    // =========================================================================
+    // Pregroup pipeline tests — end-to-end through Language trait
+    // =========================================================================
+
+    use crate::science::linguistics::lambek::pregroup;
+
+    #[test]
+    fn pregroup_the_dog_runs() {
+        let wn = sample_wn();
+        let lang = EnglishLanguage::from_wordnet(&wn);
+
+        let words = ["the", "dog", "runs"];
+        let types: Vec<pregroup::PregroupType> = words
+            .iter()
+            .map(|w| {
+                let pts = lang.pregroup_types(w);
+                assert!(!pts.is_empty(), "'{}' should have pregroup types", w);
+                pts.into_iter().next().unwrap()
+            })
+            .collect();
+
+        assert!(
+            pregroup::parse(&types),
+            "the dog runs should parse: {}",
+            types
+                .iter()
+                .map(|t| t.notation())
+                .collect::<Vec<_>>()
+                .join(" | ")
+        );
+    }
+
+    #[test]
+    fn pregroup_she_sees_the_dog() {
+        let wn = sample_wn();
+        let lang = EnglishLanguage::from_wordnet(&wn);
+
+        let words = ["she", "sees", "the", "dog"];
+        let types: Vec<pregroup::PregroupType> = words
+            .iter()
+            .map(|w| {
+                let pts = lang.pregroup_types(w);
+                assert!(!pts.is_empty(), "'{}' should have pregroup types", w);
+                // For verbs with multiple types, prefer transitive (3 elements)
+                pts.iter()
+                    .find(|t| t.elements.len() == 3)
+                    .cloned()
+                    .unwrap_or_else(|| pts.into_iter().next().unwrap())
+            })
+            .collect();
+
+        assert!(
+            pregroup::parse(&types),
+            "she sees the dog should parse: {}",
+            types
+                .iter()
+                .map(|t| t.notation())
+                .collect::<Vec<_>>()
+                .join(" | ")
+        );
+    }
+
+    #[test]
+    fn every_function_word_has_pregroup_type() {
+        let wn = sample_wn();
+        let lang = EnglishLanguage::from_wordnet(&wn);
+        for word in ["the", "a", "is", "she", "it", "what", "and", "in", "not"] {
+            let pts = lang.pregroup_types(word);
+            assert!(
+                !pts.is_empty(),
+                "function word '{}' should have pregroup types",
+                word
+            );
+        }
     }
 }
