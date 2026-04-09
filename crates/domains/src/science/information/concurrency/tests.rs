@@ -4,6 +4,7 @@ use praxis::category::{Category, Functor};
 
 use super::chess_functor::*;
 use super::ontology::*;
+use super::systems_functor::*;
 
 // =============================================================================
 // Concurrency category tests
@@ -101,8 +102,36 @@ fn opponent_response_is_future() {
 // =============================================================================
 
 #[test]
-fn functor_laws_hold() {
+fn chess_functor_laws_hold() {
     check_functor_laws::<ChessToConcurrency>().unwrap();
+}
+
+// =============================================================================
+// THE PROOF: Every system IS concurrent
+// =============================================================================
+
+#[test]
+fn systems_functor_laws_hold() {
+    check_functor_laws::<SystemsToConcurrency>().unwrap();
+}
+
+#[test]
+fn feedback_is_synchronization() {
+    use crate::science::systems::ontology::SystemConcept;
+    assert_eq!(
+        SystemsToConcurrency::map_object(&SystemConcept::Feedback),
+        ConcurrencyConcept::Synchronization
+    );
+}
+
+#[test]
+fn emergence_is_race_condition() {
+    use crate::science::systems::ontology::SystemConcept;
+    // Emergence depends on interaction order — just like race conditions
+    assert_eq!(
+        SystemsToConcurrency::map_object(&SystemConcept::Emergence),
+        ConcurrencyConcept::RaceCondition
+    );
 }
 
 #[test]
@@ -210,9 +239,6 @@ mod prop {
         }
 
         /// Turn-taking (synchronization) prevents deadlock in chess.
-        /// Unlike general concurrency where deadlock can arise,
-        /// chess's strict alternation means stalemate is the only "deadlock" —
-        /// and it's a defined game state, not a system failure.
         #[test]
         fn prop_turn_taking_is_synchronization(_dummy in 0..1i32) {
             prop_assert_eq!(
@@ -220,5 +246,39 @@ mod prop {
                 ConcurrencyConcept::Synchronization
             );
         }
+
+        /// SystemsToConcurrency maps every system concept to a valid concurrency concept.
+        #[test]
+        fn prop_systems_functor_valid(concept in arb_system_concept()) {
+            let mapped = SystemsToConcurrency::map_object(&concept);
+            prop_assert!(ConcurrencyConcept::variants().contains(&mapped));
+        }
+
+        /// SystemsToConcurrency preserves identity.
+        #[test]
+        fn prop_systems_functor_preserves_identity(concept in arb_system_concept()) {
+            use crate::science::systems::ontology::SystemsCategory;
+            let sys_id = SystemsCategory::identity(&concept);
+            let mapped = SystemsToConcurrency::map_morphism(&sys_id);
+            let conc_id = ConcurrencyCategory::identity(&SystemsToConcurrency::map_object(&concept));
+            prop_assert_eq!(mapped, conc_id);
+        }
+    }
+
+    use crate::science::systems::ontology::SystemConcept;
+
+    fn arb_system_concept() -> impl Strategy<Value = SystemConcept> {
+        prop_oneof![
+            Just(SystemConcept::Component),
+            Just(SystemConcept::Interaction),
+            Just(SystemConcept::State),
+            Just(SystemConcept::Transition),
+            Just(SystemConcept::Constraint),
+            Just(SystemConcept::Feedback),
+            Just(SystemConcept::Homeostasis),
+            Just(SystemConcept::Emergence),
+            Just(SystemConcept::Boundary),
+            Just(SystemConcept::Controller),
+        ]
     }
 }

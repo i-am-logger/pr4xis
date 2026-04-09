@@ -241,6 +241,102 @@ impl Category for ConcurrencyCategory {
             kind: Composed,
         });
 
+        // Dense connectivity needed for systems functor
+        // Agent → State (agent's actions change state)
+        m.push(ConcurrencyRelation {
+            from: Agent,
+            to: State,
+            kind: Composed,
+        });
+        // State → Agent (state informs agent's decisions)
+        m.push(ConcurrencyRelation {
+            from: State,
+            to: Agent,
+            kind: Composed,
+        });
+        // State → SharedResource (state includes shared resources)
+        m.push(ConcurrencyRelation {
+            from: State,
+            to: SharedResource,
+            kind: Composed,
+        });
+        // State → Synchronization (state triggers synchronization)
+        m.push(ConcurrencyRelation {
+            from: State,
+            to: Synchronization,
+            kind: Composed,
+        });
+        // State → Protocol (state determines applicable protocol)
+        m.push(ConcurrencyRelation {
+            from: State,
+            to: Protocol,
+            kind: Composed,
+        });
+        // State → Action (state enables actions)
+        m.push(ConcurrencyRelation {
+            from: State,
+            to: Action,
+            kind: Composed,
+        });
+        // State → RaceCondition (state reveals race conditions)
+        m.push(ConcurrencyRelation {
+            from: State,
+            to: RaceCondition,
+            kind: Composed,
+        });
+        // State → Deadlock (state can be deadlocked)
+        m.push(ConcurrencyRelation {
+            from: State,
+            to: Deadlock,
+            kind: Composed,
+        });
+        // Synchronization → State (synchronization affects state)
+        m.push(ConcurrencyRelation {
+            from: Synchronization,
+            to: State,
+            kind: Composed,
+        });
+        // Synchronization → Action (synchronization enables/blocks actions)
+        m.push(ConcurrencyRelation {
+            from: Synchronization,
+            to: Action,
+            kind: Composed,
+        });
+        // Agent → Action (agent performs actions)
+        m.push(ConcurrencyRelation {
+            from: Agent,
+            to: Action,
+            kind: Composed,
+        });
+        // Agent → Synchronization (agent participates in synchronization)
+        m.push(ConcurrencyRelation {
+            from: Agent,
+            to: Synchronization,
+            kind: Composed,
+        });
+        // Protocol → SharedResource (protocol governs resource access)
+        m.push(ConcurrencyRelation {
+            from: Protocol,
+            to: SharedResource,
+            kind: Composed,
+        });
+        // SharedResource → State (shared resource is part of state)
+        m.push(ConcurrencyRelation {
+            from: SharedResource,
+            to: State,
+            kind: Composed,
+        });
+
+        // Self-composed morphisms (roundtrips: A→B→A produce Composed(A,A))
+        // Needed for closure when functor maps different source objects to same target
+        for c in ConcurrencyConcept::variants() {
+            m.push(ConcurrencyRelation {
+                from: c,
+                to: c,
+                kind: Composed,
+            });
+        }
+
         m
     }
 }

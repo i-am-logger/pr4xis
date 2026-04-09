@@ -370,6 +370,15 @@ impl Category for SystemsCategory {
             kind: Composed,
         });
 
+        // Self-composed morphisms (roundtrips produce Composed(X,X))
+        for c in SystemConcept::variants() {
+            m.push(SystemRelation {
+                from: c,
+                to: c,
+                kind: Composed,
+            });
+        }
+
         m
     }
 }

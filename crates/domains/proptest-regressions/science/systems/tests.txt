@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc e3178de767effc2bad0fc82bb3fe9fa06aabef4fdf49134009309c096db5c346 # shrinks to concept = Component
+cc 8ee1e40aa947f0379f74e75bd87095ea53777702bea84fefed833bcd318d4cd1 # shrinks to a = IntersectionState, b = Signal, c = IntersectionState
