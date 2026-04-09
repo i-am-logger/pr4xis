@@ -104,9 +104,10 @@ fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -
 
     // Map predicate to ontology query
     if entities.len() >= 2 {
-        // "is X a Y" → taxonomy query
-        let child = &entities[entities.len() - 1]; // last arg is usually the subject after inversion
-        let parent_or_pred = &entities[0];
+        // Arguments from Montague: [subject, predicate] in consumption order
+        // "is a dog a mammal" → is(dog, mammal) → is_a(dog, mammal)
+        let child = &entities[0];
+        let parent_or_pred = &entities[1];
 
         let child_ids = en.lookup(child);
         let parent_ids = en.lookup(parent_or_pred);
