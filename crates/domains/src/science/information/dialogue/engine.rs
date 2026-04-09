@@ -66,13 +66,11 @@ impl DialogueState {
         }
     }
 
-    /// Resolve a pronoun to its antecedent via Centering Theory.
-    /// "it" / "they" → backward_center (most salient entity from previous turn).
-    pub fn resolve_pronoun(&self, pronoun: &str) -> Option<&str> {
-        match pronoun {
-            "it" | "they" | "them" | "its" | "their" => self.backward_center.as_deref(),
-            _ => None,
-        }
+    /// Resolve an anaphoric expression to its antecedent via Centering Theory.
+    /// The caller determines whether a word is anaphoric (via the language's lexicon).
+    /// If it is, the backward_center provides the referent.
+    pub fn resolve_anaphor(&self) -> Option<&str> {
+        self.backward_center.as_deref()
     }
 
     /// Get the most recently introduced referent.
@@ -119,7 +117,13 @@ impl Situation for DialogueState {
 #[derive(Debug, Clone)]
 pub enum DialogueAction {
     /// User sends an utterance.
-    UserUtterance { text: String, speech_act: SpeechAct },
+    /// Referents are extracted by the caller using the language's lexicon.
+    UserUtterance {
+        text: String,
+        speech_act: SpeechAct,
+        /// Nouns/entities mentioned — extracted via language.lexical_lookup().
+        referents: Vec<String>,
+    },
     /// System responds.
     SystemResponse { text: String, speech_act: SpeechAct },
     /// End the dialogue.
@@ -146,7 +150,11 @@ pub fn apply_dialogue(
     let mut new_state = state.clone();
 
     match action {
-        DialogueAction::UserUtterance { text, speech_act } => {
+        DialogueAction::UserUtterance {
+            text,
+            speech_act,
+            referents,
+        } => {
             let turn_num = new_state.turns.len();
             new_state.turns.push(DialogueTurn {
                 speaker: Speaker::User,
@@ -155,29 +163,14 @@ pub fn apply_dialogue(
             });
             new_state.expecting_response = speech_act.expects_response();
 
-            // DRT: extract nouns as discourse referents.
-            // Centering: update backward center to most salient entity.
-            let words: Vec<&str> = text.split_whitespace().collect();
-            let mut new_referents = Vec::new();
-            for word in &words {
-                let clean = word
-                    .trim_matches(|c: char| c.is_ascii_punctuation())
-                    .to_lowercase();
-                if !clean.is_empty()
-                    && crate::science::linguistics::lexicon::vocabulary::lookup(&clean).is_some_and(
-                        |e| e.pos_tag() == crate::science::linguistics::lexicon::pos::PosTag::Noun,
-                    )
-                {
-                    new_referents.push(clean);
-                }
+            // DRT: add discourse referents (extracted by caller via language lexicon).
+            // Centering: first referent = subject position = highest Cf rank.
+            if let Some(first) = referents.first() {
+                new_state.backward_center = Some(first.clone());
             }
-            // Update backward center: first noun in this utterance (subject position = highest Cf rank)
-            if let Some(first_noun) = new_referents.first() {
-                new_state.backward_center = Some(first_noun.clone());
-            }
-            for noun in new_referents {
+            for noun in referents {
                 new_state.referents.push(DiscourseReferent {
-                    word: noun,
+                    word: noun.clone(),
                     turn: turn_num,
                 });
             }

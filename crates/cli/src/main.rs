@@ -55,16 +55,31 @@ fn main() {
             break;
         }
 
-        // DRT: resolve pronouns via Centering Theory before processing
-        let resolved_input = resolve_pronouns(input, engine.situation());
+        // DRT: resolve anaphoric expressions via language lexicon + Centering Theory
+        let resolved_input = resolve_pronouns(input, engine.situation(), language.as_ref());
 
         // Process through the linguistics pipeline
         let (response_text, user_act, sys_act) = process(&language, &resolved_input);
+
+        // Extract referents using the language's lexicon (not hardcoded)
+        let referents: Vec<String> = resolved_input
+            .split_whitespace()
+            .filter_map(|w| {
+                let clean = w
+                    .trim_matches(|c: char| c.is_ascii_punctuation())
+                    .to_lowercase();
+                language
+                    .lexical_lookup(&clean)
+                    .filter(|e| e.pos_tag().is_noun())
+                    .map(|_| clean)
+            })
+            .collect();
 
         // Feed through the dialogue engine
         engine = match engine.next(DialogueAction::UserUtterance {
             text: input.to_string(),
             speech_act: user_act,
+            referents,
         }) {
             Ok(e) => e,
             Err(praxis::engine::EngineError::Violated {
@@ -312,8 +327,10 @@ fn extract_entity_name(sem: &montague::Sem) -> String {
     }
 }
 
-/// Resolve pronouns using discourse state (DRT + Centering).
-fn resolve_pronouns(input: &str, state: &engine::DialogueState) -> String {
+/// Resolve anaphoric expressions using language lexicon + discourse state.
+/// The LANGUAGE determines which words are anaphoric (via PronounKind).
+/// The DISCOURSE STATE provides the referent (via Centering Theory).
+fn resolve_pronouns(input: &str, state: &engine::DialogueState, language: &dyn Language) -> String {
     let words: Vec<&str> = input.split_whitespace().collect();
     let resolved: Vec<String> = words
         .iter()
@@ -321,11 +338,16 @@ fn resolve_pronouns(input: &str, state: &engine::DialogueState) -> String {
             let clean = word
                 .trim_matches(|c: char| c.is_ascii_punctuation())
                 .to_lowercase();
-            if let Some(referent) = state.resolve_pronoun(&clean) {
-                referent.to_string()
-            } else {
-                word.to_string()
+            // Check the language's lexicon: is this word anaphoric?
+            let is_anaphoric = language
+                .lexical_lookup(&clean)
+                .is_some_and(|e| e.is_anaphoric());
+            if is_anaphoric {
+                if let Some(referent) = state.resolve_anaphor() {
+                    return referent.to_string();
+                }
             }
+            word.to_string()
         })
         .collect();
     resolved.join(" ")
