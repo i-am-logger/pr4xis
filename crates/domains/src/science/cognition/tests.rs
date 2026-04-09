@@ -233,5 +233,135 @@ mod prop {
             let reaches = m.iter().any(|r| r.from == MetaConcept::MetaLevel && r.to == c);
             prop_assert!(reaches, "MetaLevel should reach {:?}", c);
         }
+
+        // ---- Distinction property tests ----
+
+        /// Distinction identity is idempotent.
+        #[test]
+        fn prop_distinction_identity(e in arb_distinction()) {
+            let id = DistinctionCategory::identity(&e);
+            prop_assert_eq!(DistinctionCategory::compose(&id, &id), Some(id));
+        }
+
+        /// Boundary always separates into MarkedSpace AND UnmarkedSpace.
+        #[test]
+        fn prop_boundary_separates_both(_dummy in 0..1i32) {
+            let m = DistinctionCategory::morphisms();
+            let to_marked = m.iter().any(|r|
+                r.from == DistinctionElement::Boundary
+                && r.to == DistinctionElement::MarkedSpace);
+            let to_unmarked = m.iter().any(|r|
+                r.from == DistinctionElement::Boundary
+                && r.to == DistinctionElement::UnmarkedSpace);
+            prop_assert!(to_marked, "Boundary must separate to MarkedSpace");
+            prop_assert!(to_unmarked, "Boundary must separate to UnmarkedSpace");
+        }
+
+        /// Void reaches Mark (distinction can emerge from nothing).
+        #[test]
+        fn prop_void_reaches_mark(_dummy in 0..1i32) {
+            let m = DistinctionCategory::morphisms();
+            let reaches = m.iter().any(|r|
+                r.from == DistinctionElement::Void
+                && r.to == DistinctionElement::Mark);
+            prop_assert!(reaches);
+        }
+
+        /// ReEntry reaches both spaces (self-reference sees both sides).
+        #[test]
+        fn prop_reentry_reaches_both_spaces(_dummy in 0..1i32) {
+            let m = DistinctionCategory::morphisms();
+            let to_marked = m.iter().any(|r|
+                r.from == DistinctionElement::ReEntry
+                && r.to == DistinctionElement::MarkedSpace);
+            let to_unmarked = m.iter().any(|r|
+                r.from == DistinctionElement::ReEntry
+                && r.to == DistinctionElement::UnmarkedSpace);
+            prop_assert!(to_marked);
+            prop_assert!(to_unmarked);
+        }
+
+        // ---- Epistemic property tests ----
+
+        /// Observation then Learning gives UU → KK (composed transition).
+        #[test]
+        fn prop_observe_then_learn(_dummy in 0..1i32) {
+            let m = EpistemicCategory::morphisms();
+            let uu_to_kk = m.iter().any(|r|
+                r.from == EpistemicState::UnknownUnknown
+                && r.to == EpistemicState::KnownKnown);
+            prop_assert!(uu_to_kk, "UU should reach KK via observation+learning");
+        }
+
+        /// Forgetting is recoverable: KK → UK → KK via repair.
+        #[test]
+        fn prop_forgetting_recoverable(_dummy in 0..1i32) {
+            let m = EpistemicCategory::morphisms();
+            let forgets = m.iter().any(|r|
+                r.from == EpistemicState::KnownKnown
+                && r.to == EpistemicState::UnknownKnown
+                && r.kind == TransitionKind::Forgetting);
+            let repairs = m.iter().any(|r|
+                r.from == EpistemicState::UnknownKnown
+                && r.to == EpistemicState::KnownKnown
+                && r.kind == TransitionKind::Repair);
+            prop_assert!(forgets, "KK should be able to forget to UK");
+            prop_assert!(repairs, "UK should be repairable back to KK");
+        }
+
+        /// classify_result is exhaustive: every combination maps to a state.
+        #[test]
+        fn prop_classify_exhaustive(parsed in proptest::bool::ANY, exists in proptest::bool::ANY) {
+            let result: Option<&str> = if parsed && exists { Some("value") } else { None };
+            let _state = classify_result(parsed, exists, result);
+            // Should not panic — all combinations handled
+        }
+
+        // ---- Metacognition property tests ----
+
+        /// Gap always leads to either Repair or Clarification (never stuck).
+        #[test]
+        fn prop_gap_never_stuck(_dummy in 0..1i32) {
+            let m = MetaCognitionCategory::morphisms();
+            let to_repair = m.iter().any(|r|
+                r.from == MetaConcept::Gap && r.to == MetaConcept::Repair);
+            let to_clarification = m.iter().any(|r|
+                r.from == MetaConcept::Gap && r.to == MetaConcept::Clarification);
+            prop_assert!(to_repair || to_clarification,
+                "Gap must lead to Repair or Clarification");
+            prop_assert!(to_repair, "Gap must be able to trigger Repair");
+            prop_assert!(to_clarification, "Gap must be able to trigger Clarification");
+        }
+
+        /// Monitoring → Evaluation chain exists (you can't evaluate without monitoring first).
+        #[test]
+        fn prop_monitoring_before_evaluation(_dummy in 0..1i32) {
+            let m = MetaCognitionCategory::morphisms();
+            let chain = m.iter().any(|r|
+                r.from == MetaConcept::Monitoring
+                && r.to == MetaConcept::Evaluation);
+            prop_assert!(chain);
+        }
+
+        /// Evaluation → Control chain exists (evaluation informs control decisions).
+        #[test]
+        fn prop_evaluation_informs_control(_dummy in 0..1i32) {
+            let m = MetaCognitionCategory::morphisms();
+            let chain = m.iter().any(|r|
+                r.from == MetaConcept::Evaluation
+                && r.to == MetaConcept::Control);
+            prop_assert!(chain);
+        }
+    }
+
+    fn arb_distinction() -> impl Strategy<Value = DistinctionElement> {
+        prop_oneof![
+            Just(DistinctionElement::Void),
+            Just(DistinctionElement::Mark),
+            Just(DistinctionElement::Boundary),
+            Just(DistinctionElement::MarkedSpace),
+            Just(DistinctionElement::UnmarkedSpace),
+            Just(DistinctionElement::ReEntry),
+        ]
     }
 }
