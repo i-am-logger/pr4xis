@@ -2,10 +2,12 @@
 
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Rust](https://img.shields.io/badge/Rust-2024-orange?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Tests](https://img.shields.io/badge/tests-1790-brightgreen)](.)
 
 Axiomatic intelligence. Provably correct reasoning by traversing and composing ontologies. Define rules as category theory, enforce them as axioms, verify with property-based testing. From chess to quantum mechanics to natural language — if the rules can be stated, praxis proves they hold.
 
-1353 proofs across physics, chess, music theory, linguistics, and more execute in under a second on a single core.
+> "Every good regulator of a system must be a model of that system."
+> -- Conant & Ashby (1970)
 
 ## Architecture
 
@@ -169,7 +171,7 @@ Praxis draws from three intellectual traditions:
 
 ## Testing
 
-1353 tests with property-based testing ([proptest](https://github.com/proptest-rs/proptest)).
+Property-based testing with [proptest](https://github.com/proptest-rs/proptest).
 
 ```bash
 cargo test --workspace
