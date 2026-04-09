@@ -10,8 +10,10 @@
 /// An atomic syntactic type — the base types from which complex types are built.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AtomicType {
-    /// S — a complete sentence.
+    /// S — a complete declarative sentence.
     S,
+    /// Q — a question (interrogative sentence).
+    Q,
     /// NP — a noun phrase.
     NP,
     /// N — a common noun.
@@ -53,6 +55,10 @@ impl LambekType {
         Self::Atom(AtomicType::S)
     }
 
+    pub fn q() -> Self {
+        Self::Atom(AtomicType::Q)
+    }
+
     pub fn np() -> Self {
         Self::Atom(AtomicType::NP)
     }
@@ -85,6 +91,7 @@ impl LambekType {
         match self {
             Self::Atom(a) => match a {
                 AtomicType::S => "S".into(),
+                AtomicType::Q => "Q".into(),
                 AtomicType::NP => "NP".into(),
                 AtomicType::N => "N".into(),
                 AtomicType::PP => "PP".into(),
@@ -191,5 +198,35 @@ pub mod english {
     pub fn adverb() -> LambekType {
         let vp = LambekType::left_div(LambekType::np(), LambekType::s());
         LambekType::left_div(vp.clone(), vp)
+    }
+
+    // ---- Question types ----
+
+    /// Yes/no question auxiliary (sentence-initial): Q/(NP\S)/NP
+    /// "is" in "is a dog a mammal?" — takes VP/NP on right, produces Q
+    /// Type: Q/S — takes a declarative sentence on right, produces a question
+    /// More precisely: the copula "is" in question position takes
+    /// subject NP + predicate NP and produces Q
+    pub fn question_copula() -> LambekType {
+        // Q/(NP\S) — takes a VP on right, but we also need the subject
+        // Simplified: Q/S — inverts a declarative to a question
+        LambekType::right_div(LambekType::q(), LambekType::s())
+    }
+
+    /// Copula in declarative: (NP\S)/NP — "is" in "a dog is a mammal"
+    pub fn copula() -> LambekType {
+        LambekType::right_div(
+            LambekType::left_div(LambekType::np(), LambekType::s()),
+            LambekType::np(),
+        )
+    }
+
+    /// "what" as question word: Q/(S/NP) — "what is a dog?"
+    /// Takes a sentence-missing-NP on right, produces Q
+    pub fn wh_what() -> LambekType {
+        LambekType::right_div(
+            LambekType::q(),
+            LambekType::right_div(LambekType::s(), LambekType::np()),
+        )
     }
 }

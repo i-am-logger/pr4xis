@@ -38,6 +38,11 @@ pub enum Sem {
         predicate: String,
         arguments: Vec<Sem>,
     },
+    /// Question domain (Q): a proposition that asks for truth value or information.
+    Question {
+        predicate: String,
+        arguments: Vec<Sem>,
+    },
     /// Function domain (A/B or A\B): a function waiting for an argument.
     Func { word: String, body: Box<Sem> },
 }
@@ -54,8 +59,25 @@ impl Sem {
                 let args: Vec<String> = arguments.iter().map(|a| a.describe()).collect();
                 format!("{}({})", predicate, args.join(", "))
             }
+            Sem::Question {
+                predicate,
+                arguments,
+            } => {
+                let args: Vec<String> = arguments.iter().map(|a| a.describe()).collect();
+                format!("?{}({})", predicate, args.join(", "))
+            }
             Sem::Func { word, .. } => format!("λ.{}", word),
         }
+    }
+
+    /// Is this a question?
+    pub fn is_question(&self) -> bool {
+        matches!(self, Sem::Question { .. })
+    }
+
+    /// Is this a proposition?
+    pub fn is_proposition(&self) -> bool {
+        matches!(self, Sem::Prop { .. })
     }
 }
 
@@ -132,7 +154,7 @@ pub fn interpret(tokens: &[TypedToken], en: &English) -> Sem {
 /// The result domain is determined by the result type.
 fn apply(func: &Sem, arg: &Sem, result_type: &LambekType) -> Sem {
     match result_type {
-        // Result is S (proposition) — we're building a complete statement
+        // Result is S (proposition)
         LambekType::Atom(super::types::AtomicType::S) => {
             let predicate = extract_predicate(func);
             let mut arguments = extract_arguments(func);
@@ -142,7 +164,16 @@ fn apply(func: &Sem, arg: &Sem, result_type: &LambekType) -> Sem {
                 arguments,
             }
         }
-        // Result is NP (entity) — function produced an entity reference
+        // Result is Q (question) — wraps a proposition as a question
+        LambekType::Atom(super::types::AtomicType::Q) => {
+            let predicate = extract_predicate(arg);
+            let arguments = extract_arguments(arg);
+            Sem::Question {
+                predicate,
+                arguments,
+            }
+        }
+        // Result is NP (entity)
         LambekType::Atom(super::types::AtomicType::NP) => match arg {
             Sem::Pred { word } => Sem::Entity {
                 word: word.clone(),
@@ -175,7 +206,7 @@ fn extract_predicate(sem: &Sem) -> String {
         Sem::Pred { word } => word.clone(),
         Sem::Func { word, .. } => word.clone(),
         Sem::Entity { word, .. } => word.clone(),
-        Sem::Prop { predicate, .. } => predicate.clone(),
+        Sem::Prop { predicate, .. } | Sem::Question { predicate, .. } => predicate.clone(),
     }
 }
 
@@ -184,14 +215,14 @@ fn extract_word(sem: &Sem) -> String {
         Sem::Pred { word } => word.clone(),
         Sem::Func { word, .. } => word.clone(),
         Sem::Entity { word, .. } => word.clone(),
-        Sem::Prop { predicate, .. } => predicate.clone(),
+        Sem::Prop { predicate, .. } | Sem::Question { predicate, .. } => predicate.clone(),
     }
 }
 
 fn extract_arguments(sem: &Sem) -> Vec<Sem> {
     match sem {
         Sem::Func { body, .. } => vec![*body.clone()],
-        Sem::Prop { arguments, .. } => arguments.clone(),
+        Sem::Prop { arguments, .. } | Sem::Question { arguments, .. } => arguments.clone(),
         _ => Vec::new(),
     }
 }
