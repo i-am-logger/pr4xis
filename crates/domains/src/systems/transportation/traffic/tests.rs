@@ -333,8 +333,6 @@ proptest! {
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
-use praxis::engine::*;
-
 #[test]
 fn engine_tick_sequence() {
     let e = new_intersection(3, 1, 3);

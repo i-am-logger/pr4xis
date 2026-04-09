@@ -57,28 +57,28 @@ mod tests {
     #[test]
     fn test_and_truth_table() {
         let table = binary_truth_table(Connective::And);
-        assert_eq!(table[0].output, true); // T && T
-        assert_eq!(table[1].output, false); // T && F
-        assert_eq!(table[2].output, false); // F && T
-        assert_eq!(table[3].output, false); // F && F
+        assert!(table[0].output); // T && T
+        assert!(!table[1].output); // T && F
+        assert!(!table[2].output); // F && T
+        assert!(!table[3].output); // F && F
     }
 
     #[test]
     fn test_or_truth_table() {
         let table = binary_truth_table(Connective::Or);
-        assert_eq!(table[0].output, true);
-        assert_eq!(table[1].output, true);
-        assert_eq!(table[2].output, true);
-        assert_eq!(table[3].output, false);
+        assert!(table[0].output);
+        assert!(table[1].output);
+        assert!(table[2].output);
+        assert!(!table[3].output);
     }
 
     #[test]
     fn test_implies_truth_table() {
         let table = binary_truth_table(Connective::Implies);
-        assert_eq!(table[0].output, true); // T → T
-        assert_eq!(table[1].output, false); // T → F
-        assert_eq!(table[2].output, true); // F → T
-        assert_eq!(table[3].output, true); // F → F
+        assert!(table[0].output); // T -> T
+        assert!(!table[1].output); // T -> F
+        assert!(table[2].output); // F -> T
+        assert!(table[3].output); // F -> F
     }
 
     #[test]

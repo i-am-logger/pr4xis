@@ -9,6 +9,7 @@ pub use game::{ActionResult, Game, GameAction};
 pub use piece::{Piece, PieceKind, Rotation};
 
 #[cfg(test)]
-mod tests;
 pub(crate) use engine::*;
-pub(crate) use ontology::*;
+
+#[cfg(test)]
+mod tests;

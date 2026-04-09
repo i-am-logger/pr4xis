@@ -20,6 +20,7 @@ use super::taxonomy::{self, Antisymmetric, TaxonomyCategory, TaxonomyDef};
 // ---- Animal taxonomy ----
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[allow(clippy::enum_variant_names)]
 enum Animal {
     LivingThing,
     Animal,

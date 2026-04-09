@@ -204,8 +204,6 @@ proptest! {
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
-use praxis::engine::*;
-
 #[test]
 fn engine_full_request_cycle() {
     let e = new_connection(3);

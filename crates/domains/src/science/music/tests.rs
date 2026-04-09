@@ -124,10 +124,10 @@ proptest! {
 
     #[test]
     fn prop_transpose_inverse(note in arb_midi_note(), semitones in 1..12i16) {
-        if let Some(up) = note.transpose(semitones) {
-            if let Some(back) = up.transpose(-semitones) {
-                prop_assert_eq!(back, note);
-            }
+        if let Some(up) = note.transpose(semitones)
+            && let Some(back) = up.transpose(-semitones)
+        {
+            prop_assert_eq!(back, note);
         }
     }
 
@@ -247,7 +247,6 @@ proptest! {
 // =============================================================================
 
 use praxis::engine::Precondition;
-use praxis::engine::*;
 
 #[test]
 fn engine_transpose_in_scale() {

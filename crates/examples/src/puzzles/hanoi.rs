@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// Tower of Hanoi: move N disks from peg A to peg C.
 /// Rule: never place a larger disk on a smaller one.
@@ -121,6 +121,7 @@ pub fn new_puzzle(num_disks: u8) -> Engine<Move> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use praxis::engine::EngineError;
     use proptest::prelude::*;
 
     #[test]

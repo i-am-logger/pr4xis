@@ -1,3 +1,5 @@
+#[cfg(test)]
+use super::composition::Evaluation;
 /// Logical inference: deduction, induction, and abduction.
 ///
 /// These operate on propositions and axioms to derive new knowledge.
@@ -5,7 +7,7 @@
 /// - **Deduction**: if A→B and A, then B (guaranteed truth)
 /// - **Induction**: observed pattern across instances → general rule (probable truth)
 /// - **Abduction**: observation + rule → best explanation (hypothesis)
-use super::composition::{Evaluation, Proposition};
+use super::composition::Proposition;
 use std::fmt::Debug;
 
 /// A deductive inference: given premises and a rule, derive a conclusion.

@@ -9,6 +9,7 @@ pub use face::{Color, Face};
 pub use moves::Move;
 
 #[cfg(test)]
-mod tests;
 pub(crate) use engine::*;
-pub(crate) use ontology::*;
+
+#[cfg(test)]
+mod tests;

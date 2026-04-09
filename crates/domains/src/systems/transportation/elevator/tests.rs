@@ -312,8 +312,6 @@ proptest! {
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
-use praxis::engine::*;
-
 #[test]
 fn engine_request_dispatch_run() {
     let e = new_building(10, 2, 4);
