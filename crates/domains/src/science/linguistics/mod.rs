@@ -1,6 +1,9 @@
 pub mod english;
 pub mod grammar;
+pub mod language;
 pub mod lexicon;
+pub mod morphology;
+pub mod orthography;
 pub mod pragmatics;
 pub mod semantics;
 pub mod symbols;
