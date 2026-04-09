@@ -300,6 +300,27 @@ The formal standard for linguistic data categories. OLiA defines 1,300+ linguist
 - Official URI: http://purl.org/olia/
 - GitHub: https://github.com/acoli-repo/olia
 
+## Lexicon Ontology
+
+The formal structure of a language's word inventory. A lexicon is not a list — it is a structured mapping from forms to meanings where both sides have internal structure.
+
+**Three converging models:**
+- **LMF** (ISO 24613): Language → Lexicon → LexicalEntry → Form + Sense. The international standard.
+- **OntoLex-Lemon** (W3C 2016): Three-way bridge: ontology entity ↔ lexical sense ↔ lexical concept. Bridges lexicons and ontologies in RDF/OWL.
+- **Generative Lexicon** (Pustejovsky 1991): Each entry carries four qualia (Aristotle's aitia): FORMAL (is-a), CONSTITUTIVE (has-a), TELIC (purpose), AGENTIVE (origin).
+
+**Open class vs closed class** — nearly universal but not absolute. Open class (nouns, verbs) accepts new members; closed class (determiners, pronouns, copulas) is finite and fixed. In some languages adjectives are closed class. In Japanese pronouns are effectively open.
+
+**Language-agnostic design** — Hebrew uses consonantal roots + vowel patterns (binyanim), not "words." Chinese has no word boundaries. Turkish agglutinates. The `Language` trait provides `lexical_lookup` — each language implements its own segmentation and morphological analysis.
+
+**Key references:**
+- Pustejovsky, *The Generative Lexicon* (Computational Linguistics, 1991) — structured lexical entries (PDF in docs/papers/)
+- Jackendoff, *Foundations of Language* (2002) — the Parallel Architecture; the mental lexicon
+- OntoLex-Lemon, *W3C Community Report* (2016) — lexicon-ontology bridge in RDF/OWL
+- OntoLex-Lemon as bridge for WordNets (GWC 2019) — PDF in docs/papers/
+- ISO 24613 (LMF), *Lexical Markup Framework* (2019/2024) — international standard
+- Farrar & Langendoen, *GOLD: General Ontology for Linguistic Description* (2003)
+
 ## Spelling Error Ontology
 
 The science of misspelling. Spelling errors are classified on three orthogonal axes — every error is a point in this three-dimensional space.
@@ -324,6 +345,31 @@ The science of misspelling. Spelling errors are classified on three orthogonal a
 - Wing & Baddeley, *Spelling errors in handwriting* (1980) — serial position effects
 - Katz & Frost, *Orthographic Depth Hypothesis* (1992) — writing system determines error patterns
 - Mitton, *English Spelling and the Computer* (1996) — Birkbeck corpus (36K misspellings)
+
+## Ontological Architecture
+
+Praxis's architecture is a novel synthesis of five existing ideas that have never been combined:
+
+| Idea | Source | What it contributes |
+|---|---|---|
+| Ontology as runtime component | Guarino (1998) | The philosophical stance |
+| Functorial knowledge composition | Spivak (2012) | The mathematical mechanism |
+| Categorical software architecture | Fiadeiro (2005) | Categories for component composition |
+| Good Regulator Theorem | Conant & Ashby (1970) | The ontology MUST be a model of the system |
+| Ontology Design Patterns | Gangemi (2005) | Reusable ontological building blocks |
+
+**What is novel**: an architecture where the code contains zero domain knowledge, ALL intelligence lives in formally axiomatized ontologies, cross-domain composition is done via verified functors that preserve behavioral properties, and the architecture is justified by the Good Regulator Theorem.
+
+**Key references:**
+- Guarino, *Formal Ontology and Information Systems* (FOIS 1998) — defined ontology-driven systems
+- Spivak, *Ologs: A Categorical Framework for Knowledge Representation* (PLoS ONE, 2012)
+- Spivak, *Functorial Data Migration* (2010) — functors between database schemas
+- Fiadeiro, *Categories for Software Engineering* (Springer, 2005)
+- Goguen & Burstall, *Institutions: Abstract Model Theory* (JACM, 1992)
+- Gangemi, *Ontology Design Patterns for Semantic Web Content* (2005)
+- Guizzardi et al., *UFO: Unified Foundational Ontology* (2022) — OntoUML
+- W3C, *Ontology Driven Architectures* (Working Group Note, 2006)
+- Pan, Staab et al., *Ontology-Driven Software Development* (Springer, 2012)
 
 ## Where Praxis Extends Existing Work
 

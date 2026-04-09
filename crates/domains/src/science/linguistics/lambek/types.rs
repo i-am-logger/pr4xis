@@ -130,6 +130,21 @@ impl LambekType {
         matches!(self, Self::Atom(_))
     }
 
+    /// Is this a sentence type (any feature)?
+    pub fn is_sentence(&self) -> bool {
+        matches!(self, Self::Atom(AtomicType::S(_)))
+    }
+
+    /// Is this a noun type (N)?
+    pub fn is_noun(&self) -> bool {
+        matches!(self, Self::Atom(AtomicType::N))
+    }
+
+    /// Is this a noun phrase type (NP)?
+    pub fn is_noun_phrase(&self) -> bool {
+        matches!(self, Self::Atom(AtomicType::NP))
+    }
+
     /// Display the type in standard notation.
     pub fn notation(&self) -> String {
         match self {

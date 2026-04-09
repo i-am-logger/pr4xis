@@ -280,43 +280,22 @@ pub fn english() -> Vec<LexicalEntry> {
     }
 
     // ---- Pronouns ----
-    entries.extend([
-        LexicalEntry::Pronoun(Pronoun {
-            text: "I".into(),
-            number: Number::Singular,
-            person: Person::First,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "you".into(),
-            number: Number::Singular,
-            person: Person::Second,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "he".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "she".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "it".into(),
-            number: Number::Singular,
-            person: Person::Third,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "we".into(),
-            number: Number::Plural,
-            person: Person::First,
-        }),
-        LexicalEntry::Pronoun(Pronoun {
-            text: "they".into(),
-            number: Number::Plural,
-            person: Person::Third,
-        }),
-    ]);
+    for (text, num, per) in [
+        ("I", Number::Singular, Person::First),
+        ("you", Number::Singular, Person::Second),
+        ("he", Number::Singular, Person::Third),
+        ("she", Number::Singular, Person::Third),
+        ("it", Number::Singular, Person::Third),
+        ("we", Number::Plural, Person::First),
+        ("they", Number::Plural, Person::Third),
+    ] {
+        entries.push(LexicalEntry::Pronoun(Pronoun {
+            text: text.into(),
+            number: num,
+            person: per,
+            kind: PronounKind::Personal,
+        }));
+    }
 
     entries
 }
