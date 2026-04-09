@@ -21,6 +21,8 @@ in
   packages = [
     pkgs.git
     pkgs.pkg-config
+    pkgs.marp-cli
+    pkgs.miniserve
   ];
 
   # Development scripts
@@ -73,9 +75,24 @@ in
   '';
 
   scripts.dev-site.exec = ''
-    echo "Building site..."
+    echo "Building WASM..."
     dev-wasm
-    echo "Site ready. Serve with: cd docs && python3 -m http.server"
+    echo "Building presentation..."
+    marp docs/presentations/overview.md -o docs/index.html --html
+    echo "Site ready at docs/"
+  '';
+
+  scripts.dev-present.exec = ''
+    echo "Building presentation..."
+    marp docs/presentations/overview.md -o docs/index.html --html
+    echo ""
+    echo "Serving at http://localhost:8080"
+    echo "  Presentation: http://localhost:8080"
+    echo "  Chat: http://localhost:8080/chat/"
+    echo ""
+    echo "Press Ctrl+C to stop"
+    brave http://localhost:8080 2>/dev/null || xdg-open http://localhost:8080 2>/dev/null &
+    miniserve docs/ --port 8080 --index index.html
   '';
 
   # Environment variables
