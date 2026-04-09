@@ -59,7 +59,10 @@ impl SchemeType {
     pub fn slots(&self) -> Vec<ColorSlot> {
         match self {
             Self::Base24 => ColorSlot::variants(),
-            _ => ColorSlot::variants().into_iter().filter(|s| s.is_base16()).collect(),
+            _ => ColorSlot::variants()
+                .into_iter()
+                .filter(|s| s.is_base16())
+                .collect(),
         }
     }
 }

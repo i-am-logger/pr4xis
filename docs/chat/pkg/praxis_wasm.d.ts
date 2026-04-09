@@ -5,20 +5,11 @@ export class Praxis {
     free(): void;
     [Symbol.dispose](): void;
     /**
-     * Process an input and return a response.
+     * Process input through the full praxis-chat pipeline.
      */
     chat(input: string): string;
-    /**
-     * Get the number of concepts loaded.
-     */
     concept_count(): number;
-    /**
-     * Create a new Praxis instance.
-     */
     constructor();
-    /**
-     * Get the number of words loaded.
-     */
     word_count(): number;
 }
 

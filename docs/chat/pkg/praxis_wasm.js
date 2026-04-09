@@ -12,7 +12,7 @@ export class Praxis {
         wasm.__wbg_praxis_free(ptr, 0);
     }
     /**
-     * Process an input and return a response.
+     * Process input through the full praxis-chat pipeline.
      * @param {string} input
      * @returns {string}
      */
@@ -31,16 +31,12 @@ export class Praxis {
         }
     }
     /**
-     * Get the number of concepts loaded.
      * @returns {number}
      */
     concept_count() {
         const ret = wasm.praxis_concept_count(this.__wbg_ptr);
         return ret >>> 0;
     }
-    /**
-     * Create a new Praxis instance.
-     */
     constructor() {
         const ret = wasm.praxis_new();
         this.__wbg_ptr = ret >>> 0;
@@ -48,7 +44,6 @@ export class Praxis {
         return this;
     }
     /**
-     * Get the number of words loaded.
      * @returns {number}
      */
     word_count() {
