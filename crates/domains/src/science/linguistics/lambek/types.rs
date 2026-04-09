@@ -332,9 +332,11 @@ pub mod english {
     /// "what" as question word: S[wq]/(S/NP) — "what is a dog?"
     /// Takes a sentence-missing-NP on right, produces wh-question.
     pub fn wh_what() -> LambekType {
+        // CCGbank: S[wq]/(S[dcl]\NP) — takes a sentence-missing-subject on the right.
+        // "what is a dog" → what + [is a dog : NP\S] → S[wq]
         LambekType::right_div(
             LambekType::wq(),
-            LambekType::right_div(LambekType::s(), LambekType::np()),
+            LambekType::left_div(LambekType::np(), LambekType::s()),
         )
     }
 }

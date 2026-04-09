@@ -29,9 +29,20 @@ impl Praxis {
     }
 
     /// Process input through the full praxis-chat pipeline.
+    /// Returns JSON with response, timing, and token count.
     pub fn chat(&self, input: &str) -> String {
-        let (response, _, _) = praxis_chat::process(&self.english, input);
-        response
+        let result = praxis_chat::process_with_metadata(&self.english, input);
+        format!(
+            r#"{{"response":"{}","duration_us":{},"token_count":{},"tokens_per_sec":{}}}"#,
+            result.response.replace('"', "\\\"").replace('\n', "\\n"),
+            result.duration_us,
+            result.token_count,
+            if result.duration_us > 0 {
+                (result.token_count as u64 * 1_000_000) / result.duration_us
+            } else {
+                0
+            },
+        )
     }
 
     pub fn concept_count(&self) -> usize {
@@ -40,5 +51,10 @@ impl Praxis {
 
     pub fn word_count(&self) -> usize {
         self.english.word_count()
+    }
+
+    /// The eigenform — the system describes itself through the SelfModel ontology.
+    pub fn self_describe(&self) -> String {
+        praxis_chat::self_describe(&self.english)
     }
 }

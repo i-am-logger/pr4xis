@@ -214,6 +214,40 @@ Metacognition is a two-level system: an object level (actual reasoning) and a me
 - Wang & Zhao, [*Metacognition in LLMs*](https://aclanthology.org/2025.emnlp-main.171.pdf) (EMNLP 2025) — metacognitive capabilities and limitations
 - Qi et al., [*Meta-R1: Empowering Large Reasoning Models with Metacognition*](https://arxiv.org/pdf/2508.17291) — metacognitive monitoring and control
 
+### Self-Model and Self-Image
+
+Three cybernetic traditions converge on the necessity of self-models:
+
+**Representational** (Craik → Conant-Ashby → Powers → Metzinger): the system holds an explicit internal model of itself. Conant-Ashby (1970) proves this mathematically: any self-regulating system must contain a model of itself (homomorphism). Powers' PCT (1973) places self-image at Level 11 (System Concept) — the highest level of perceptual control.
+
+**Organizational** (Maturana-Varela autopoiesis, 1972/1980): the system does not *have* a model — it *is* its self-producing organization. Operational closure: processes produce the processes that produce them.
+
+**Reflexive** (von Foerster eigenform, 1981; Bateson double description, 1972): the observer must include itself. Self-image = eigenform (fixed point of recursive self-observation). Bateson: valid self-image requires "double description" — self AND context simultaneously.
+
+**Key references:**
+- Kenneth Craik, *The Nature of Explanation* (1943) — dual internal model (world + self)
+- Conant & Ashby, [*Every Good Regulator of a System Must Be a Model of That System*](https://pespmc1.vub.ac.be/books/Conant_Ashby.pdf) (1970)
+- William T. Powers, *Behavior: The Control of Perception* (1973) — PCT, 11-level hierarchy
+- Gregory Bateson, *Steps to an Ecology of Mind* (1972) — cybernetics of self, double description
+- Maturana & Varela, *Autopoiesis and Cognition* (1980) — operational closure
+- Thomas Metzinger, *Being No One* (2003) — Phenomenal Self-Model (PSM)
+- Maxwell Maltz, *Psycho-Cybernetics* (1960) — self-image as servo reference signal
+- Louis Kauffman, [*EigenForm*](http://homepages.math.uic.edu/~kauffman/Eigen.pdf) (2003) — fixed points of self-reference
+
+### Self-Description and Knowledge Base Introspection
+
+For a system to describe what it knows, it needs formal vocabularies for self-description.
+
+**Key references:**
+- W3C, [*VoID — Vocabulary of Interlinked Datasets*](https://www.w3.org/TR/void/) (2011) — describes what a knowledge graph contains
+- W3C, [*DCAT — Data Catalog Vocabulary v3*](https://www.w3.org/TR/vocab-dcat-3/) (2024) — catalogs of datasets
+- Herre & Loebe, *A Meta-ontological Architecture for Foundational Ontologies* (FOIS 2005) — using ontology's own categories to describe itself
+- Brian Cantwell Smith, *Reflection and Semantics in LISP* (POPL 1984) — causal connection requirement
+- Kephart & Chess, *The Vision of Autonomic Computing* (IEEE 2003) — MAPE-K, Ksys self-model
+- Lewis et al., *A Survey of Self-Awareness in Computing Systems* (IEEE 2011) — five awareness levels
+- IEEE 1872.2, *Autonomous Robotics Ontology* (2021) — SelfModel as required class
+- Nolte et al., *Towards an Ontology for Robot Introspection and Metacognition* (FOIS 2023) — MOI
+
 ### Open World Assumption
 
 When a query fails, does it mean "false" or "I don't know"? The Open World Assumption (OWA) treats absence of knowledge as uncertainty, not falsity. Praxis must distinguish:

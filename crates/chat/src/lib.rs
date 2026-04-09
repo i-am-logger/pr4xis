@@ -1,7 +1,11 @@
+use praxis::ontology::upper::being::Being;
 use praxis_domains::science::cognition::epistemics;
+use praxis_domains::science::information::knowledge::{
+    SelfModelInstance, VocabularyDescriptor, describe_knowledge_base,
+};
 use praxis_domains::science::linguistics::english::English;
 use praxis_domains::science::linguistics::lambek::{
-    ReductionResult, TypedToken, montague, reduce_sequence, tokenize,
+    ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize,
 };
 use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 
@@ -11,20 +15,68 @@ use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 // All intelligence comes from the Language ontology.
 // The chat engine is a functor: Input → Language → Response.
 
+/// Result of processing input through the linguistics pipeline.
+pub struct ProcessResult {
+    pub response: String,
+    pub user_act: SpeechAct,
+    pub system_act: SpeechAct,
+    /// Processing time in microseconds.
+    pub duration_us: u64,
+    /// Number of tokens processed.
+    pub token_count: usize,
+}
+
 /// Process input through the full linguistics pipeline.
 /// Returns (response_text, user_speech_act, system_speech_act).
 pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
-    let tokens = tokenize::tokenize(input, lang);
+    let result = process_with_metadata(lang, input);
+    (result.response, result.user_act, result.system_act)
+}
+
+/// Process with full metadata — timing, token count.
+pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
+    let start = std::time::Instant::now();
+
+    // Tokenize with ALL types per word (chart parser input).
+    let (tokens, alternatives) = tokenize::tokenize_with_alternatives(input, lang);
+    let token_count = tokens.len();
     if tokens.is_empty() {
-        return (
-            "I received empty input.".into(),
-            SpeechAct::Assertion,
-            SpeechAct::Assertion,
-        );
+        return ProcessResult {
+            response: "I received empty input.".into(),
+            user_act: SpeechAct::Assertion,
+            system_act: SpeechAct::Assertion,
+            duration_us: start.elapsed().as_micros() as u64,
+            token_count: 0,
+        };
     }
 
-    let reduction = reduce_sequence(&tokens);
-    let meaning = montague::interpret(&tokens, lang);
+    // CYK chart parser — tries all type combinations simultaneously.
+    let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
+    let type_sets: Vec<Vec<_>> = tokens
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let mut types = vec![t.lambek_type.clone()];
+            if let Some(alts) = alternatives.get(i) {
+                for alt in alts {
+                    if !types.contains(alt) {
+                        types.push(alt.clone());
+                    }
+                }
+            }
+            types
+        })
+        .collect();
+    let reduction = chart_reduce(&words, &type_sets);
+
+    // Montague uses WINNING types from chart backtracking.
+    let montague_tokens = if reduction.success && reduction.remaining.len() == tokens.len() {
+        &reduction.remaining
+    } else {
+        &tokens
+    };
+    let meaning = montague::interpret(montague_tokens, lang);
+    let duration_us = start.elapsed().as_micros() as u64;
 
     match &meaning {
         montague::Sem::Question {
@@ -32,7 +84,13 @@ pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
             arguments,
         } => {
             let response = answer_question(lang, predicate, arguments);
-            (response, SpeechAct::Question, SpeechAct::Assertion)
+            ProcessResult {
+                response,
+                user_act: SpeechAct::Question,
+                system_act: SpeechAct::Assertion,
+                duration_us,
+                token_count,
+            }
         }
 
         montague::Sem::Prop {
@@ -40,12 +98,24 @@ pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
             arguments,
         } => {
             let response = answer_statement(lang, predicate, arguments);
-            (response, SpeechAct::Assertion, SpeechAct::Assertion)
+            ProcessResult {
+                response,
+                user_act: SpeechAct::Assertion,
+                system_act: SpeechAct::Assertion,
+                duration_us,
+                token_count,
+            }
         }
 
         _ => {
             let response = attempt_partial_understanding(lang, &tokens, &reduction, &meaning);
-            (response, SpeechAct::Assertion, SpeechAct::Assertion)
+            ProcessResult {
+                response,
+                user_act: SpeechAct::Assertion,
+                system_act: SpeechAct::Assertion,
+                duration_us,
+                token_count,
+            }
         }
     }
 }
@@ -213,5 +283,104 @@ pub fn extract_entity_name(sem: &montague::Sem) -> String {
         montague::Sem::Prop { predicate, .. } | montague::Sem::Question { predicate, .. } => {
             predicate.clone()
         }
+    }
+}
+
+// =========================================================================
+// Self-description — through the SelfModel ontology
+// =========================================================================
+
+/// All loaded ontologies including language-specific runtime data.
+pub fn loaded_ontologies(lang: &English) -> Vec<VocabularyDescriptor> {
+    let mut ontologies = describe_knowledge_base();
+    ontologies.push(VocabularyDescriptor {
+        name: "English (WordNet)",
+        domain: "science.linguistics.english",
+        being: Being::SocialObject,
+        reason: "natural language is an evolved social convention",
+        source: "Open English WordNet 2025; Princeton WordNet",
+        concepts: lang.concept_count(),
+        morphisms: lang.word_count(),
+    });
+    ontologies
+}
+
+/// The eigenform — the system observes itself.
+///
+/// This IS the self-observation operator F from von Foerster.
+/// The result IS the fixed point X = F(X).
+/// The SelfModelInstance carries the complete self-description
+/// through the SelfModel ontology, not through hardcoded strings.
+pub fn observe_self(lang: &English) -> SelfModelInstance {
+    SelfModelInstance::observe(loaded_ontologies(lang))
+}
+
+/// JSON encoding of the eigenform for transport (WASM boundary).
+pub fn self_describe(lang: &English) -> String {
+    observe_self(lang).to_json()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_english() -> English {
+        // Use sample data for unit tests (fast, no WordNet needed)
+        English::sample()
+    }
+
+    #[test]
+    fn process_taxonomy_question() {
+        let en = sample_english();
+        let (response, user_act, _) = process(&en, "is a dog a mammal");
+        assert_eq!(user_act, SpeechAct::Question);
+        assert!(
+            response.contains("Yes") || response.contains("No") || response.contains("dog"),
+            "taxonomy question should get a substantive answer, got: {}",
+            response
+        );
+    }
+
+    #[test]
+    fn process_simple_sentence() {
+        let en = sample_english();
+        let (response, _, _) = process(&en, "the dog runs");
+        // Should either parse or give partial understanding — not crash
+        assert!(!response.is_empty());
+    }
+
+    #[test]
+    fn process_what_question() {
+        let en = sample_english();
+        let (response, _, _) = process(&en, "what is a dog");
+        // With sample data "what" may not be in lexicon — just verify no crash
+        assert!(!response.is_empty());
+    }
+
+    #[test]
+    fn process_empty_input() {
+        let en = sample_english();
+        let (response, _, _) = process(&en, "");
+        assert!(!response.is_empty());
+    }
+
+    #[test]
+    fn self_describe_has_ontologies() {
+        let en = sample_english();
+        let json = self_describe(&en);
+        assert!(json.contains("ontology_count"));
+        assert!(json.contains("Self-Model"));
+        assert!(json.contains("Knowledge Base"));
+    }
+
+    #[test]
+    fn self_describe_eigenform_is_stable() {
+        // Self(Self) = Self — calling observe_self twice gives same result
+        let en = sample_english();
+        let first = observe_self(&en);
+        let second = observe_self(&en);
+        assert_eq!(first.total_concepts, second.total_concepts);
+        assert_eq!(first.total_morphisms, second.total_morphisms);
+        assert_eq!(first.components.len(), second.components.len());
     }
 }

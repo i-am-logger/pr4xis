@@ -250,3 +250,79 @@ impl Classified for crate::governance::judicial::ontology::CaseLifecycleCategory
         "a court case is a social process unfolding over time"
     }
 }
+
+// =============================================================================
+// Newly classified domains
+// =============================================================================
+
+impl Classified for crate::science::information::communication::ontology::CommunicationCategory {
+    fn being() -> Being {
+        Being::AbstractObject
+    }
+    fn classification_reason() -> &'static str {
+        "communication is an abstract framework (Shannon 1948; Jakobson 1960)"
+    }
+}
+
+impl Classified for crate::science::systems::control::ControlCategory {
+    fn being() -> Being {
+        Being::AbstractObject
+    }
+    fn classification_reason() -> &'static str {
+        "control systems are abstract models of regulation (Wiener 1948; Conant-Ashby 1970)"
+    }
+}
+
+impl Classified for crate::science::linguistics::morphology::tense::TenseCategory {
+    fn being() -> Being {
+        Being::AbstractObject
+    }
+    fn classification_reason() -> &'static str {
+        "tense/aspect are abstract temporal relations (Reichenbach 1947)"
+    }
+}
+
+impl Classified for crate::science::linguistics::orthography::distance::SpellingErrorCategory {
+    fn being() -> Being {
+        Being::Quality
+    }
+    fn classification_reason() -> &'static str {
+        "spelling errors are measurable deviations in written language quality"
+    }
+}
+
+impl Classified for crate::science::linguistics::orthography::channel::ChannelCategory {
+    fn being() -> Being {
+        Being::AbstractObject
+    }
+    fn classification_reason() -> &'static str {
+        "the noisy channel is an abstract model (Shannon 1948; Kernighan 1990)"
+    }
+}
+
+impl Classified for crate::science::linguistics::pragmatics::reference::ReferenceCategory {
+    fn being() -> Being {
+        Being::AbstractObject
+    }
+    fn classification_reason() -> &'static str {
+        "discourse reference is an abstract framework (Kamp DRT 1981; Centering 1995)"
+    }
+}
+
+impl Classified for crate::science::information::knowledge::ontology::KnowledgeBaseCategory {
+    fn being() -> Being {
+        Being::AbstractObject
+    }
+    fn classification_reason() -> &'static str {
+        "knowledge base is an abstract self-describing framework (VoID 2011; Herre & Loebe 2005)"
+    }
+}
+
+impl Classified for crate::science::cognition::self_model::SelfModelCategory {
+    fn being() -> Being {
+        Being::MentalObject
+    }
+    fn classification_reason() -> &'static str {
+        "self-model is the system's eigenform (von Foerster 1981; IEEE AuR 2021; MAPE-K 2003)"
+    }
+}

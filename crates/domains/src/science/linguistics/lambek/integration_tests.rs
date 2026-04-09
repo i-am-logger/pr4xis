@@ -8,8 +8,8 @@ mod tests {
     use std::sync::OnceLock;
 
     use crate::science::linguistics::english::English;
-    use crate::science::linguistics::lambek::{montague, reduce_sequence, tokenize};
-    use crate::science::linguistics::language::Language;
+    use crate::science::linguistics::lambek::reduce::chart_reduce;
+    use crate::science::linguistics::lambek::tokenize;
     use crate::technology::software::markup::xml::lmf;
 
     /// Full English — loaded ONCE, shared across all tests.
@@ -40,15 +40,61 @@ mod tests {
     }
 
     fn parses(en: &English, input: &str) -> bool {
-        let tokens = tokenize::tokenize(input, en);
-        let result = reduce_sequence(&tokens);
-        result.success
+        // Use chart parser with ALL types per word (Goodman 1999, Moroz 2009).
+        // The grammar tries all type combinations simultaneously.
+        let (tokens, alternatives) = tokenize::tokenize_with_alternatives(input, en);
+        let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
+        let type_sets: Vec<Vec<crate::science::linguistics::lambek::types::LambekType>> = tokens
+            .iter()
+            .enumerate()
+            .map(|(i, t)| {
+                let mut types = vec![t.lambek_type.clone()];
+                if let Some(alts) = alternatives.get(i) {
+                    for alt in alts {
+                        if !types.contains(alt) {
+                            types.push(alt.clone());
+                        }
+                    }
+                }
+                types
+            })
+            .collect();
+        chart_reduce(&words, &type_sets).success
     }
 
     fn parses_as_question(en: &English, input: &str) -> bool {
-        let tokens = tokenize::tokenize(input, en);
-        let meaning = montague::interpret(&tokens, en);
-        meaning.is_question()
+        // Chart parser with ALL types per word.
+        let (tokens, alternatives) = tokenize::tokenize_with_alternatives(input, en);
+        let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
+        let type_sets: Vec<Vec<crate::science::linguistics::lambek::types::LambekType>> = tokens
+            .iter()
+            .enumerate()
+            .map(|(i, t)| {
+                let mut types = vec![t.lambek_type.clone()];
+                if let Some(alts) = alternatives.get(i) {
+                    for alt in alts {
+                        if !types.contains(alt) {
+                            types.push(alt.clone());
+                        }
+                    }
+                }
+                types
+            })
+            .collect();
+        let result = chart_reduce(&words, &type_sets);
+        // Check if the chart derives a question type (S[q] or S[wq])
+        result.success
+            && result.final_type.as_ref().is_some_and(|t| {
+                matches!(
+                    t,
+                    crate::science::linguistics::lambek::types::LambekType::Atom(
+                        crate::science::linguistics::lambek::types::AtomicType::S(Some(
+                            crate::science::linguistics::lambek::types::SentenceFeature::Q
+                                | crate::science::linguistics::lambek::types::SentenceFeature::Wq
+                        ))
+                    )
+                )
+            })
     }
 
     // =========================================================================
@@ -73,6 +119,40 @@ mod tests {
             "FAILED: {}",
             tokens_debug(en, "the big dog runs")
         );
+    }
+
+    #[test]
+    fn chart_parses_question() {
+        let en = english();
+        let (tokens, alts) = tokenize::tokenize_with_alternatives("is a dog a mammal", en);
+        let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
+        let type_sets: Vec<Vec<crate::science::linguistics::lambek::types::LambekType>> = tokens
+            .iter()
+            .enumerate()
+            .map(|(i, t)| {
+                let mut types = vec![t.lambek_type.clone()];
+                if let Some(a) = alts.get(i) {
+                    for alt in a {
+                        if !types.contains(alt) {
+                            types.push(alt.clone());
+                        }
+                    }
+                }
+                types
+            })
+            .collect();
+        eprintln!("Chart input:");
+        for (w, ts) in words.iter().zip(type_sets.iter()) {
+            let notations: Vec<_> = ts.iter().map(|t| t.notation()).collect();
+            eprintln!("  {}: {:?}", w, notations);
+        }
+        let result = chart_reduce(&words, &type_sets);
+        eprintln!(
+            "Chart result: success={}, type={:?}",
+            result.success,
+            result.final_type.as_ref().map(|t| t.notation())
+        );
+        assert!(result.success, "chart should parse 'is a dog a mammal'");
     }
 
     #[test]
@@ -132,6 +212,21 @@ mod tests {
         ];
         for s in sentences {
             eprintln!("  {}: {}", s, tokens_debug(en, s));
+        }
+
+        // Debug: show ALL types per word (chart input)
+        for s in ["the dog runs", "is a dog a mammal", "what is a dog"] {
+            eprintln!("\n  === Chart type sets: \"{}\" ===", s);
+            let (tokens, alts) = tokenize::tokenize_with_alternatives(s, en);
+            for (i, t) in tokens.iter().enumerate() {
+                let mut all = vec![t.lambek_type.notation()];
+                if let Some(a) = alts.get(i) {
+                    for alt in a {
+                        all.push(alt.notation());
+                    }
+                }
+                eprintln!("    {}: [{}]", t.word, all.join(", "));
+            }
         }
     }
 }

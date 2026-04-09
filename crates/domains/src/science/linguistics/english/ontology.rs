@@ -86,6 +86,31 @@ pub struct Concept {
 }
 
 impl English {
+    /// Minimal sample English for testing — no full WordNet needed.
+    pub fn sample() -> Self {
+        let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test" label="Test" language="en" email="" license="" version="1.0" url="">
+    <LexicalEntry id="e-dog-n"><Lemma writtenForm="dog" partOfSpeech="n"/><Sense id="dog-n-01" synset="s-dog"/></LexicalEntry>
+    <LexicalEntry id="e-cat-n"><Lemma writtenForm="cat" partOfSpeech="n"/><Sense id="cat-n-01" synset="s-cat"/></LexicalEntry>
+    <LexicalEntry id="e-mammal-n"><Lemma writtenForm="mammal" partOfSpeech="n"/><Sense id="mammal-n-01" synset="s-mammal"/></LexicalEntry>
+    <LexicalEntry id="e-animal-n"><Lemma writtenForm="animal" partOfSpeech="n"/><Sense id="animal-n-01" synset="s-animal"/></LexicalEntry>
+    <LexicalEntry id="e-run-v"><Lemma writtenForm="run" partOfSpeech="v"/><Sense id="run-v-01" synset="s-run" subcat="vtai"/></LexicalEntry>
+    <LexicalEntry id="e-see-v"><Lemma writtenForm="see" partOfSpeech="v"/><Sense id="see-v-01" synset="s-see" subcat="vtaa"/></LexicalEntry>
+    <LexicalEntry id="e-big-a"><Lemma writtenForm="big" partOfSpeech="a"/><Sense id="big-a-01" synset="s-big"/></LexicalEntry>
+    <Synset id="s-dog" ili="i1" partOfSpeech="n"><Definition>a domesticated canine</Definition><SynsetRelation relType="hypernym" target="s-mammal"/></Synset>
+    <Synset id="s-cat" ili="i2" partOfSpeech="n"><Definition>a small feline</Definition><SynsetRelation relType="hypernym" target="s-mammal"/></Synset>
+    <Synset id="s-mammal" ili="i3" partOfSpeech="n"><Definition>warm-blooded vertebrate</Definition><SynsetRelation relType="hypernym" target="s-animal"/></Synset>
+    <Synset id="s-animal" ili="i4" partOfSpeech="n"><Definition>a living organism</Definition></Synset>
+    <Synset id="s-run" ili="i5" partOfSpeech="v"><Definition>move fast on foot</Definition></Synset>
+    <Synset id="s-see" ili="i6" partOfSpeech="v"><Definition>perceive with the eyes</Definition></Synset>
+    <Synset id="s-big" ili="i7" partOfSpeech="a"><Definition>of considerable size</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+        let wn = crate::technology::software::markup::xml::lmf::reader::read_wordnet(xml).unwrap();
+        Self::from_wordnet(&wn)
+    }
+
     /// Build the English ontology from a WordNet instance.
     /// This is the functor: WordNet → English.
     /// Computes all adjacency maps ONCE (the initialization phase).
@@ -383,6 +408,32 @@ impl crate::science::linguistics::language::Language for English {
                 );
             }
         }
+
+        // Morphological stemming: if the word has a known suffix, try the stem.
+        // "runs" → strip "s" → "run" → lookup "run" → get verb entries.
+        // This IS the morphology functor: InflectedForm → Stem → LexicalEntry.
+        for rule in &self.morphology {
+            if let crate::science::linguistics::morphology::Affix::Suffix(suffix) = &rule.affix
+                && let Some(stem) = word.strip_suffix(suffix.text.as_str())
+                && !stem.is_empty()
+            {
+                for &cid in self.lookup(stem) {
+                    if let Some(concept) = self.concept(cid)
+                        && seen_pos.insert(concept.pos)
+                    {
+                        let transitivities = self.verb_transitivities(stem);
+                        results.extend(
+                            crate::science::linguistics::language::lmf_pos_to_lexical_entries(
+                                stem,
+                                concept.pos,
+                                transitivities,
+                            ),
+                        );
+                    }
+                }
+            }
+        }
+
         results
     }
 

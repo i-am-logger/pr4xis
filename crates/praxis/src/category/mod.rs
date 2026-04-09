@@ -1,3 +1,4 @@
+pub mod adjunction;
 #[allow(clippy::module_inception)]
 pub mod category;
 pub mod entity;
@@ -8,6 +9,7 @@ pub mod relationship;
 pub mod transformation;
 pub mod validate;
 
+pub use adjunction::Adjunction;
 pub use category::Category;
 pub use entity::Entity;
 pub use functor::Functor;

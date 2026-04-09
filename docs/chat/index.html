@@ -166,8 +166,20 @@
       addMessage(text, 'user');
       input.value = '';
 
-      const response = praxis.chat(text);
-      addMessage(response, 'system');
+      const raw = praxis.chat(text);
+      try {
+        const result = JSON.parse(raw);
+        const dur = result.duration_us < 1000
+          ? `${result.duration_us}µs`
+          : `${(result.duration_us / 1000).toFixed(1)}ms`;
+        addMessage(result.response, 'system');
+        addMessage(
+          `${result.token_count} tokens · ${dur} · single thread`,
+          'info'
+        );
+      } catch {
+        addMessage(raw, 'system');
+      }
       input.focus();
     }
 

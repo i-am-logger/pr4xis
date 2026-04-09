@@ -93,4 +93,17 @@ impl Being {
             Self::SocialObject | Self::MentalObject | Self::AbstractObject
         )
     }
+
+    /// Ontological label — the DOLCE name for this type of being.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::PhysicalEndurant => "Physical",
+            Self::SocialObject => "Social",
+            Self::MentalObject => "Mental",
+            Self::AbstractObject => "Abstract",
+            Self::Event => "Event",
+            Self::Process => "Process",
+            Self::Quality => "Quality",
+        }
+    }
 }
