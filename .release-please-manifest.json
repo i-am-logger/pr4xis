@@ -1,4 +1,6 @@
 {
-  "crates/praxis": "0.1.0",
-  "crates/domains": "0.1.0"
+  "crates/praxis": "0.2.0",
+  "crates/domains": "0.2.0",
+  "crates/cli": "0.1.1",
+  "crates/examples": "0.1.1"
 }

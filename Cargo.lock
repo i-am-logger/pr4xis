@@ -286,7 +286,7 @@ dependencies = [
 
 [[package]]
 name = "praxis"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "quick-xml",
@@ -294,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "praxis",
  "praxis-domains",
@@ -302,7 +302,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-domains"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "praxis",
@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-examples"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "praxis",
  "proptest",
