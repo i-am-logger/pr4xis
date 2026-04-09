@@ -248,6 +248,164 @@ mod prop {
     }
 }
 
-// Montague functor tests will go here once the type-driven
-// interpretation is implemented properly per the research.
-// See lambek/mod.rs for the TODO.
+// =============================================================================
+// Montague functor tests — type-driven interpretation
+// =============================================================================
+
+use super::montague;
+use crate::science::linguistics::english::English;
+use crate::technology::software::markup::xml::lmf;
+
+const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test" label="Test" language="en" email="" license="" version="1.0" url="">
+    <LexicalEntry id="e-dog-n">
+      <Lemma writtenForm="dog" partOfSpeech="n"/>
+      <Sense id="dog-n-01" synset="s-dog"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-run-v">
+      <Lemma writtenForm="run" partOfSpeech="v"/>
+      <Sense id="run-v-01" synset="s-run"/>
+    </LexicalEntry>
+    <Synset id="s-dog" partOfSpeech="n" members="e-dog-n">
+      <Definition>a domesticated carnivore</Definition>
+    </Synset>
+    <Synset id="s-run" partOfSpeech="v" members="e-run-v">
+      <Definition>move fast</Definition>
+    </Synset>
+  </Lexicon>
+</LexicalResource>"#;
+
+fn sample_english() -> English {
+    let wn = lmf::reader::read_wordnet(SAMPLE_LMF).unwrap();
+    English::from_wordnet(&wn)
+}
+
+#[test]
+fn montague_the_dog_runs() {
+    // the:NP/N + dog:N + runs:NP\S → S
+    // Semantics: the(dog) = entity, runs(entity) = proposition
+    let en = sample_english();
+    let tokens = vec![
+        TypedToken {
+            word: "the".into(),
+            lambek_type: english::determiner(),
+        },
+        TypedToken {
+            word: "dog".into(),
+            lambek_type: english::noun(),
+        },
+        TypedToken {
+            word: "runs".into(),
+            lambek_type: english::intransitive_verb(),
+        },
+    ];
+    let sem = montague::interpret(&tokens, &en);
+    match &sem {
+        montague::Sem::Prop {
+            predicate,
+            arguments,
+        } => {
+            assert!(
+                predicate.contains("run"),
+                "predicate should contain 'run', got '{}'",
+                predicate
+            );
+            assert!(!arguments.is_empty(), "should have arguments");
+        }
+        other => panic!("expected Prop, got {:?}", other),
+    }
+}
+
+#[test]
+fn montague_she_sees_the_dog() {
+    let en = sample_english();
+    let tokens = vec![
+        TypedToken {
+            word: "she".into(),
+            lambek_type: english::proper_noun(),
+        },
+        TypedToken {
+            word: "sees".into(),
+            lambek_type: english::transitive_verb(),
+        },
+        TypedToken {
+            word: "the".into(),
+            lambek_type: english::determiner(),
+        },
+        TypedToken {
+            word: "dog".into(),
+            lambek_type: english::noun(),
+        },
+    ];
+    let sem = montague::interpret(&tokens, &en);
+    match &sem {
+        montague::Sem::Prop {
+            predicate,
+            arguments,
+        } => {
+            assert!(
+                predicate.contains("see"),
+                "predicate should contain 'see', got '{}'",
+                predicate
+            );
+            assert!(
+                arguments.len() >= 2,
+                "transitive should have 2+ args, got {}",
+                arguments.len()
+            );
+        }
+        other => panic!("expected Prop, got {:?}", other),
+    }
+}
+
+#[test]
+fn montague_the_big_dog_runs() {
+    let en = sample_english();
+    let tokens = vec![
+        TypedToken {
+            word: "the".into(),
+            lambek_type: english::determiner(),
+        },
+        TypedToken {
+            word: "big".into(),
+            lambek_type: english::adjective(),
+        },
+        TypedToken {
+            word: "dog".into(),
+            lambek_type: english::noun(),
+        },
+        TypedToken {
+            word: "runs".into(),
+            lambek_type: english::intransitive_verb(),
+        },
+    ];
+    let sem = montague::interpret(&tokens, &en);
+    match &sem {
+        montague::Sem::Prop { .. } => {} // should produce a proposition
+        other => panic!("expected Prop, got {:?}", other),
+    }
+}
+
+#[test]
+fn montague_describe() {
+    let en = sample_english();
+    let tokens = vec![
+        TypedToken {
+            word: "the".into(),
+            lambek_type: english::determiner(),
+        },
+        TypedToken {
+            word: "dog".into(),
+            lambek_type: english::noun(),
+        },
+        TypedToken {
+            word: "runs".into(),
+            lambek_type: english::intransitive_verb(),
+        },
+    ];
+    let sem = montague::interpret(&tokens, &en);
+    let desc = sem.describe();
+    // Should be something like "runs(dog)" or "runs(dog, ...)"
+    assert!(!desc.is_empty());
+}
