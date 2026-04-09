@@ -476,10 +476,10 @@ proptest! {
     #[test]
     fn prop_cant_move_opponent(sq in arb_square()) {
         let board = Board::starting();
-        if let Some(p) = board.get(sq) {
-            if p.color != board.to_move {
-                prop_assert!(board.legal_moves(sq).is_empty());
-            }
+        if let Some(p) = board.get(sq)
+            && p.color != board.to_move
+        {
+            prop_assert!(board.legal_moves(sq).is_empty());
         }
     }
 
@@ -574,7 +574,7 @@ proptest! {
         let mut board = Board::empty(Color::White);
         board.set(sq, Some(Piece::new(PieceKind::Knight, Color::White)));
         let n = board.legal_moves(sq).len();
-        prop_assert!(n >= 2 && n <= 8);
+        prop_assert!((2..=8).contains(&n));
     }
 
     /// King moves at most 1 step
@@ -595,7 +595,7 @@ proptest! {
         let mut board = Board::empty(Color::White);
         board.set(sq, Some(Piece::new(PieceKind::King, Color::White)));
         let n = board.legal_moves(sq).len();
-        prop_assert!(n >= 3 && n <= 8);
+        prop_assert!((3..=8).contains(&n));
     }
 
     /// White pawn only moves forward (increasing rank)

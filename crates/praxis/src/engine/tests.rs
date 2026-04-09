@@ -48,15 +48,15 @@ struct NotBelowZero;
 
 impl Precondition<CounterAction> for NotBelowZero {
     fn check(&self, situation: &Counter, action: &CounterAction) -> PreconditionResult {
-        if let CounterAction::Decrement { by } = action {
-            if situation.value - by < 0 {
-                return PreconditionResult::violated(
-                    "not_below_zero",
-                    &format!("{} - {} would be negative", situation.value, by),
-                    &situation.describe(),
-                    &action.describe(),
-                );
-            }
+        if let CounterAction::Decrement { by } = action
+            && situation.value - by < 0
+        {
+            return PreconditionResult::violated(
+                "not_below_zero",
+                &format!("{} - {} would be negative", situation.value, by),
+                &situation.describe(),
+                &action.describe(),
+            );
         }
         PreconditionResult::satisfied("not_below_zero", "value stays >= 0")
     }
@@ -70,18 +70,18 @@ struct NotAboveMax;
 
 impl Precondition<CounterAction> for NotAboveMax {
     fn check(&self, situation: &Counter, action: &CounterAction) -> PreconditionResult {
-        if let CounterAction::Increment { by } = action {
-            if situation.value + by > situation.max {
-                return PreconditionResult::violated(
-                    "not_above_max",
-                    &format!(
-                        "{} + {} would exceed max {}",
-                        situation.value, by, situation.max
-                    ),
-                    &situation.describe(),
-                    &action.describe(),
-                );
-            }
+        if let CounterAction::Increment { by } = action
+            && situation.value + by > situation.max
+        {
+            return PreconditionResult::violated(
+                "not_above_max",
+                &format!(
+                    "{} + {} would exceed max {}",
+                    situation.value, by, situation.max
+                ),
+                &situation.describe(),
+                &action.describe(),
+            );
         }
         PreconditionResult::satisfied("not_above_max", "value stays <= max")
     }
@@ -525,8 +525,8 @@ proptest! {
     fn prop_try_next_consistent(value in 0..50i32, by in 1..10i32) {
         let engine1 = make_engine(value, 100);
         let engine2 = make_engine(value, 100);
-        let r1 = engine1.next(CounterAction::Increment { by: by }).map(|e| e.situation().value);
-        let r2 = engine2.try_next(CounterAction::Increment { by: by }).map(|e| e.situation().value);
+        let r1 = engine1.next(CounterAction::Increment { by }).map(|e| e.situation().value);
+        let r2 = engine2.try_next(CounterAction::Increment { by }).map(|e| e.situation().value);
         prop_assert_eq!(r1.is_ok(), r2.is_ok());
         if let (Ok(v1), Ok(v2)) = (r1, r2) {
             prop_assert_eq!(v1, v2);

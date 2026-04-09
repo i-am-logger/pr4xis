@@ -1,4 +1,5 @@
 mod action;
+#[allow(clippy::module_inception)]
 mod engine;
 mod precondition;
 mod situation;

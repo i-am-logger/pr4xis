@@ -474,7 +474,8 @@ proptest! {
     /// Severity ordering is total and transitive
     #[test]
     fn prop_severity_total(a in arb_severity(), b in arb_severity()) {
-        prop_assert!(a <= b || a > b);
+        // Total ordering: partial_cmp always returns Some
+        prop_assert!(a.partial_cmp(&b).is_some());
     }
 
     /// Source tier ordering
@@ -3415,7 +3416,7 @@ proptest! {
             Authority::ProfessionalBody { body: test_agency(), rule: test_statute() },
         ];
         let w = authorities[idx].weight();
-        prop_assert!(w >= 3 && w <= 10);
+        prop_assert!((3..=10).contains(&w));
     }
 
     /// Entity::name() always returns a non-empty string

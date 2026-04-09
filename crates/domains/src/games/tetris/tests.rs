@@ -255,15 +255,12 @@ proptest! {
             if game.game_over { break; }
             let result = game.act(GameAction::HardDrop);
             let count = game.board.filled_count();
-            match result {
-                ActionResult::Locked { lines_cleared } => {
-                    // Each lock adds 4 cells, each line clear removes WIDTH cells
-                    let expected_min = last_count + 4 - (lines_cleared as usize * WIDTH);
-                    prop_assert_eq!(count, expected_min,
-                        "filled count {} != expected {} (was {}, cleared {})",
-                        count, expected_min, last_count, lines_cleared);
-                }
-                _ => {}
+            if let ActionResult::Locked { lines_cleared } = result {
+                // Each lock adds 4 cells, each line clear removes WIDTH cells
+                let expected_min = last_count + 4 - (lines_cleared as usize * WIDTH);
+                prop_assert_eq!(count, expected_min,
+                    "filled count {} != expected {} (was {}, cleared {})",
+                    count, expected_min, last_count, lines_cleared);
             }
             last_count = count;
         }
@@ -353,8 +350,6 @@ proptest! {
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
-
-use praxis::engine::*;
 
 #[test]
 fn engine_move_and_drop() {

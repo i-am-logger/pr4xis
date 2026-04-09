@@ -453,7 +453,7 @@ proptest! {
     #[test]
     fn prop_tanh_bounded(x in -100.0..100.0f64) {
         let result = UnaryOp::Tanh.apply(&Value::Float(x), AngleMode::Radians).unwrap().to_f64();
-        prop_assert!(result >= -1.0 && result <= 1.0);
+        prop_assert!((-1.0..=1.0).contains(&result));
     }
 
     /// asinh(sinh(x)) = x
@@ -697,14 +697,14 @@ proptest! {
     #[test]
     fn prop_pi_value(_x in 0..1u8) {
         let pi = Constant::Pi.value().to_f64();
-        prop_assert!((pi - 3.14159265358979).abs() < 1e-10);
+        prop_assert!((pi - std::f64::consts::PI).abs() < 1e-10);
     }
 
     /// e is approximately 2.71828
     #[test]
     fn prop_e_value(_x in 0..1u8) {
         let e = Constant::E.value().to_f64();
-        prop_assert!((e - 2.71828182845904).abs() < 1e-10);
+        prop_assert!((e - std::f64::consts::E).abs() < 1e-10);
     }
 }
 
@@ -2413,7 +2413,7 @@ fn test_value_float_nan() {
 
 #[test]
 fn test_value_float_display() {
-    assert_eq!(format!("{}", Value::Float(3.14)), "3.14");
+    assert_eq!(format!("{}", Value::Float(3.15)), "3.15");
 }
 
 #[test]

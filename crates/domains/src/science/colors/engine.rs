@@ -66,7 +66,7 @@ pub struct ContrastCheck;
 impl Precondition<ColorAction> for ContrastCheck {
     fn check(&self, color: &Rgb, action: &ColorAction) -> PreconditionResult {
         // Apply the action speculatively to check the result
-        let result = apply_color(color, action).unwrap_or_else(|_| color.clone());
+        let result = apply_color(color, action).unwrap_or(*color);
         let contrast_black = result.contrast_ratio(Rgb::BLACK);
         let contrast_white = result.contrast_ratio(Rgb::WHITE);
         let best_contrast = contrast_black.max(contrast_white);

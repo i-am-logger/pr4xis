@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// Missionaries and cannibals. Boat holds 2.
 /// Cannibals can't outnumber missionaries on either bank.
@@ -160,6 +160,7 @@ pub fn new_puzzle() -> Engine<Crossing> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use praxis::engine::EngineError;
     use proptest::prelude::*;
 
     #[test]

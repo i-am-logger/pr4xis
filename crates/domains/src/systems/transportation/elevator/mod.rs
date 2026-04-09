@@ -1,5 +1,6 @@
 pub mod building;
 pub mod dispatch;
+#[allow(clippy::module_inception)]
 pub mod elevator;
 pub mod engine;
 pub mod ontology;
@@ -11,6 +12,7 @@ pub use elevator::{Direction, DoorState, Elevator};
 pub use request::Request;
 
 #[cfg(test)]
-mod tests;
 pub(crate) use engine::*;
-pub(crate) use ontology::*;
+
+#[cfg(test)]
+mod tests;

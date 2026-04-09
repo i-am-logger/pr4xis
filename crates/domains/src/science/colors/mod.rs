@@ -7,6 +7,7 @@ pub use mixing::{MixMode, blend, complement, mix, mix_many};
 pub use rgb::{Channel, Rgb};
 
 #[cfg(test)]
-mod tests;
 pub(crate) use engine::*;
-pub(crate) use ontology::*;
+
+#[cfg(test)]
+mod tests;

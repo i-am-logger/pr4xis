@@ -9,6 +9,7 @@ pub use game::{Game, GameState, RoundResult};
 pub use input::Input;
 
 #[cfg(test)]
-mod tests;
 pub(crate) use engine::*;
-pub(crate) use ontology::*;
+
+#[cfg(test)]
+mod tests;

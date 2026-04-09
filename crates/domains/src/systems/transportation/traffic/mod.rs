@@ -7,6 +7,7 @@ pub use intersection::{Intersection, IntersectionResult};
 pub use signal::{Signal, SignalAction, SignalState};
 
 #[cfg(test)]
-mod tests;
 pub(crate) use engine::*;
-pub(crate) use ontology::*;
+
+#[cfg(test)]
+mod tests;

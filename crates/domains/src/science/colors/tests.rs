@@ -94,7 +94,7 @@ proptest! {
     #[test]
     fn prop_luminance_range(c in arb_rgb()) {
         let l = c.luminance();
-        prop_assert!(l >= 0.0 && l <= 1.0, "luminance {} out of range", l);
+        prop_assert!((0.0..=1.0).contains(&l), "luminance {} out of range", l);
     }
 
     /// Black has luminance 0, white has luminance ~1
@@ -163,7 +163,7 @@ proptest! {
     #[test]
     fn prop_saturation_range(c in arb_rgb()) {
         let s = c.saturation();
-        prop_assert!(s >= 0.0 && s <= 1.0);
+        prop_assert!((0.0..=1.0).contains(&s));
     }
 
     /// Achromatic has 0 saturation
@@ -280,8 +280,6 @@ proptest! {
 // =============================================================================
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
-
-use praxis::engine::*;
 
 #[test]
 fn engine_invert_twice_returns_original() {

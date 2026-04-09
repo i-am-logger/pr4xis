@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, EngineError, Precondition, PreconditionResult, Situation};
+use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// N-Queens: place N queens on NxN board with no attacks.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,6 +105,7 @@ pub fn new_puzzle(n: usize) -> Engine<PlaceQueen> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use praxis::engine::EngineError;
     use proptest::prelude::*;
 
     #[test]

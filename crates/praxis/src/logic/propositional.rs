@@ -1,9 +1,7 @@
-/// Propositional logic:
-/// - Connectives: AND, OR, NOT, IMPLIES, IFF, XOR, NAND, NOR
-/// - Laws: De Morgan's, double negation, modus ponens, etc.
-/// - Proven via exhaustive truth table evaluation
-
-/// Logical connectives.
+/// Logical connectives: AND, OR, NOT, IMPLIES, IFF, XOR, NAND, NOR.
+///
+/// Laws (De Morgan's, double negation, modus ponens, etc.) are proven
+/// via exhaustive truth table evaluation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Connective {
     And,

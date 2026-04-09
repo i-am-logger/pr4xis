@@ -320,8 +320,6 @@ proptest! {
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
-use praxis::engine::*;
-
 #[test]
 fn engine_scramble_and_undo() {
     let e = new_cube();

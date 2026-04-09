@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 pub mod category;
 pub mod entity;
 pub mod functor;

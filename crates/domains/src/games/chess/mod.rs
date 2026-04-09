@@ -14,5 +14,3 @@ pub use square::Square;
 
 #[cfg(test)]
 mod tests;
-pub(crate) use engine::*;
-pub(crate) use ontology::*;
