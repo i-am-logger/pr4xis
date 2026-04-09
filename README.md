@@ -1,8 +1,12 @@
-# Praxis
+<p align="center">
+  <img src="docs/logo.jpeg" alt="Praxis" width="300"/>
+</p>
 
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-[![Rust](https://img.shields.io/badge/Rust-2024-orange?logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/proofs-1809-brightgreen)](.)
+<p align="center">
+  <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg" alt="License"/></a>
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024-orange?logo=rust&logoColor=white" alt="Rust"/></a>
+  <img src="https://img.shields.io/badge/proofs-1822-brightgreen" alt="Tests"/>
+</p>
 
 Aristotle classified knowledge into three kinds: **episteme** (knowing how things are), **techne** (knowing how to make things), and **praxis** (knowing how to do the right thing). This is praxis — a system that doesn't just compute, it understands what it's doing and can prove it's correct.
 
