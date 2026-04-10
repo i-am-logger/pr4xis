@@ -185,21 +185,34 @@
       const panel = document.createElement('div');
       panel.className = 'trace-panel';
 
-      // Parse "key: value | key: value" into labeled sections
+      // Parse "status:ontology:action:detail | ..." into colored rows
       const parts = trace.split(' | ');
       for (const part of parts) {
-        const sep = part.indexOf(': ');
+        const fields = part.split(':');
         const row = document.createElement('div');
         row.className = 'step';
-        if (sep > 0) {
-          const label = document.createElement('span');
-          label.style.color = '#8b949e';
-          label.textContent = part.substring(0, sep) + ': ';
-          const value = document.createElement('span');
-          value.style.color = '#79c0ff';
-          value.textContent = part.substring(sep + 2);
-          row.appendChild(label);
-          row.appendChild(value);
+        if (fields.length >= 4) {
+          const status = fields[0].trim();
+          const ontology = fields[1].trim();
+          const action = fields[2].trim();
+          const detail = fields.slice(3).join(':').trim();
+
+          const ontEl = document.createElement('span');
+          ontEl.style.fontWeight = '600';
+          ontEl.style.color = status === 'warn' ? '#d29922' : status === 'err' ? '#f85149' : '#7ee787';
+          ontEl.textContent = ontology;
+
+          const actEl = document.createElement('span');
+          actEl.style.color = '#8b949e';
+          actEl.textContent = ` → ${action}: `;
+
+          const detEl = document.createElement('span');
+          detEl.style.color = status === 'warn' ? '#d29922' : '#79c0ff';
+          detEl.textContent = detail;
+
+          row.appendChild(ontEl);
+          row.appendChild(actEl);
+          row.appendChild(detEl);
         } else {
           row.textContent = part;
         }

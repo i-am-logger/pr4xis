@@ -5,8 +5,9 @@ use praxis_domains::science::information::knowledge::{
 };
 use praxis_domains::science::linguistics::english::English;
 use praxis_domains::science::linguistics::lambek::{
-    ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize,
+    ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize, types,
 };
+use praxis_domains::science::linguistics::language::Language;
 use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 
 // Praxis Chat Engine — shared logic for CLI, WASM, and any frontend.
@@ -15,21 +16,83 @@ use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 // All intelligence comes from the Language ontology.
 // The chat engine is a functor: Input → Language → Response.
 
+/// A single step in the ontology trace.
+#[derive(Debug, Clone)]
+pub struct TraceStep {
+    pub ontology: String,
+    pub action: String,
+    pub detail: String,
+    pub status: TraceStatus,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraceStatus {
+    Ok,
+    Warning,
+    Error,
+}
+
+/// Collects trace steps as ontologies are invoked.
+#[derive(Debug, Clone, Default)]
+pub struct Trace {
+    pub steps: Vec<TraceStep>,
+}
+
+impl Trace {
+    pub fn ok(&mut self, ontology: &str, action: &str, detail: &str) {
+        self.steps.push(TraceStep {
+            ontology: ontology.into(),
+            action: action.into(),
+            detail: detail.into(),
+            status: TraceStatus::Ok,
+        });
+    }
+
+    pub fn warn(&mut self, ontology: &str, action: &str, detail: &str) {
+        self.steps.push(TraceStep {
+            ontology: ontology.into(),
+            action: action.into(),
+            detail: detail.into(),
+            status: TraceStatus::Warning,
+        });
+    }
+
+    pub fn error(&mut self, ontology: &str, action: &str, detail: &str) {
+        self.steps.push(TraceStep {
+            ontology: ontology.into(),
+            action: action.into(),
+            detail: detail.into(),
+            status: TraceStatus::Error,
+        });
+    }
+
+    /// Serialize to pipe-separated string for JSON transport.
+    /// Format: "status:ontology:action:detail | ..."
+    pub fn serialize(&self) -> String {
+        self.steps
+            .iter()
+            .map(|s| {
+                let status = match s.status {
+                    TraceStatus::Ok => "ok",
+                    TraceStatus::Warning => "warn",
+                    TraceStatus::Error => "err",
+                };
+                format!("{}:{}:{}:{}", status, s.ontology, s.action, s.detail)
+            })
+            .collect::<Vec<_>>()
+            .join(" | ")
+    }
+}
+
 /// Result of processing input through the linguistics pipeline.
 pub struct ProcessResult {
     pub response: String,
     pub user_act: SpeechAct,
     pub system_act: SpeechAct,
-    /// Processing time in microseconds.
     pub duration_us: u64,
-    /// Number of tokens processed.
     pub token_count: usize,
-    /// Whether the parser succeeded.
     pub parsed: bool,
-    /// Metacognition trace — the epistemic path taken.
-    pub trace: String,
-    /// Whether the response was generated from the ontology (true)
-    /// or is a hardcoded/fallback string (false).
+    pub trace: Trace,
     pub from_ontology: bool,
 }
 
@@ -42,14 +105,14 @@ pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
 
 /// Process with full metadata — timing, token count.
 pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
-    // Note: std::time::Instant panics on wasm32-unknown-unknown.
-    // Use a wrapper that returns 0 on unsupported platforms.
     let start = WasmSafeTimer::now();
+    let mut trace = Trace::default();
 
-    // Tokenize with ALL types per word (chart parser input).
+    // Step 1: Tokenize through Language ontology
     let (tokens, alternatives) = tokenize::tokenize_with_alternatives(input, lang);
     let token_count = tokens.len();
     if tokens.is_empty() {
+        trace.warn("Language", "tokenize", "empty input — no tokens produced");
         return ProcessResult {
             response: "Empty input received.".into(),
             user_act: SpeechAct::Assertion,
@@ -57,46 +120,76 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             duration_us: start.elapsed_us(),
             token_count: 0,
             parsed: false,
-            trace: "empty input".into(),
+            trace,
             from_ontology: false,
         };
     }
 
-    // CYK chart parser — tries all type combinations simultaneously.
+    let word_roles: Vec<String> = tokens
+        .iter()
+        .map(|t| {
+            let role = match &t.lambek_type {
+                _ if t.lambek_type.is_noun() => "noun",
+                _ if t.lambek_type.is_noun_phrase() => "noun phrase",
+                _ if t.lambek_type.is_sentence() => "sentence",
+                types::LambekType::RightDiv(a, _) if a.is_sentence() => "verb/copula",
+                types::LambekType::LeftDiv(_, b) if b.is_sentence() => "verb",
+                types::LambekType::RightDiv(a, _) if a.is_noun_phrase() => "determiner",
+                types::LambekType::RightDiv(a, _) if a.is_noun() => "adjective",
+                _ => "modifier",
+            };
+            format!("{} ({})", t.word, role)
+        })
+        .collect();
+    trace.ok("Language (English)", "tokenize", &word_roles.join(", "));
+
+    // Step 2: Parse through Lambek grammar
     let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
     let type_sets: Vec<Vec<_>> = tokens
         .iter()
         .enumerate()
         .map(|(i, t)| {
-            let mut types = vec![t.lambek_type.clone()];
+            let mut ts = vec![t.lambek_type.clone()];
             if let Some(alts) = alternatives.get(i) {
                 for alt in alts {
-                    if !types.contains(alt) {
-                        types.push(alt.clone());
+                    if !ts.contains(alt) {
+                        ts.push(alt.clone());
                     }
                 }
             }
-            types
+            ts
         })
         .collect();
     let reduction = chart_reduce(&words, &type_sets);
+    let parsed = reduction.success;
 
-    // Montague uses WINNING types from chart backtracking.
-    let montague_tokens = if reduction.success && reduction.remaining.len() == tokens.len() {
+    if parsed {
+        let final_type = reduction
+            .final_type
+            .as_ref()
+            .map(|t| t.notation())
+            .unwrap_or_default();
+        trace.ok(
+            "Lambek Grammar",
+            "CYK chart parse",
+            &format!("success → {final_type}"),
+        );
+    } else {
+        trace.warn(
+            "Lambek Grammar",
+            "CYK chart parse",
+            "failed — could not reduce to S",
+        );
+    }
+
+    // Step 3: Interpret through Montague semantics
+    let montague_tokens = if parsed && reduction.remaining.len() == tokens.len() {
         &reduction.remaining
     } else {
         &tokens
     };
     let meaning = montague::interpret(montague_tokens, lang);
-    let parsed = reduction.success;
-    let duration_us = start.elapsed_us();
 
-    // Build human-readable trace — each step on its own line
-    let word_list: Vec<&str> = tokens.iter().map(|t| t.word.as_str()).collect();
-    let type_list: Vec<String> = tokens
-        .iter()
-        .map(|t| format!("{} → {}", t.word, t.lambek_type.notation()))
-        .collect();
     let meaning_desc = match &meaning {
         montague::Sem::Question {
             predicate,
@@ -113,65 +206,109 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             format!("statement: {}({})", predicate, args.join(", "))
         }
         montague::Sem::Entity { word, .. } => format!("entity: {word}"),
-        montague::Sem::Pred { word } => format!("predicate: {word}"),
+        montague::Sem::Pred { word } => format!("concept: {word}"),
         montague::Sem::Func { word, .. } => format!("function: {word}"),
     };
-    let trace = format!(
-        "words: {} | types: {} | parse: {} | meaning: {}",
-        word_list.join(" "),
-        type_list.join(", "),
-        if parsed { "success" } else { "failed" },
-        meaning_desc,
-    );
+    trace.ok("Montague Semantics", "interpret", &meaning_desc);
 
-    match &meaning {
+    // Step 4: Generate response — which ontologies answer?
+    let (response, user_act, from_ontology) = match &meaning {
         montague::Sem::Question {
             predicate,
             arguments,
         } => {
-            let response = answer_question(lang, predicate, arguments);
-            ProcessResult {
-                response,
-                user_act: SpeechAct::Question,
-                system_act: SpeechAct::Assertion,
-                duration_us,
-                token_count,
-                parsed,
-                trace,
-                from_ontology: true,
-            }
+            let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
+            let content: Vec<&str> = entities
+                .iter()
+                .filter(|e| !lang.lookup(e).is_empty())
+                .map(|s| s.as_str())
+                .collect();
+            trace.ok(
+                "WordNet Taxonomy",
+                "is_a lookup",
+                &format!("entities: [{}]", content.join(", ")),
+            );
+            let r = answer_question(lang, predicate, arguments);
+            trace.ok(
+                "NLG Pipeline (Reiter-Dale)",
+                "realize",
+                "taxonomy response → SVO grammar",
+            );
+            (r, SpeechAct::Question, true)
         }
-
         montague::Sem::Prop {
             predicate,
             arguments,
         } => {
-            let response = answer_statement(lang, predicate, arguments);
-            ProcessResult {
-                response,
-                user_act: SpeechAct::Assertion,
-                system_act: SpeechAct::Assertion,
-                duration_us,
-                token_count,
-                parsed,
-                trace,
-                from_ontology: true,
-            }
+            let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
+            trace.ok(
+                "WordNet Lexicon",
+                "define",
+                &format!("about: [{}]", entities.join(", ")),
+            );
+            let r = answer_statement(lang, predicate, arguments);
+            trace.ok("NLG Pipeline", "realize", "statement → SVO grammar");
+            (r, SpeechAct::Assertion, true)
         }
-
         _ => {
-            let response = attempt_partial_understanding(lang, &tokens, &reduction, &meaning);
-            ProcessResult {
-                response,
-                user_act: SpeechAct::Assertion,
-                system_act: SpeechAct::Assertion,
-                duration_us,
-                token_count,
-                parsed,
-                trace,
-                from_ontology: parsed,
+            // Metacognition: classify epistemic state
+            let known: Vec<&str> = tokens
+                .iter()
+                .filter(|t| lang.lexical_lookup(&t.word).is_some())
+                .map(|t| t.word.as_str())
+                .collect();
+            let unknown: Vec<&str> = tokens
+                .iter()
+                .filter(|t| lang.lexical_lookup(&t.word).is_none())
+                .map(|t| t.word.as_str())
+                .collect();
+
+            if !unknown.is_empty() {
+                trace.warn(
+                    "Epistemics",
+                    "classify",
+                    &format!("known-unknown — missing words: [{}]", unknown.join(", ")),
+                );
+            } else if !parsed {
+                trace.warn(
+                    "Epistemics",
+                    "classify",
+                    &format!(
+                        "unknown-known — words known [{}] but parse failed",
+                        known.join(", ")
+                    ),
+                );
             }
+
+            let r = attempt_partial_understanding(lang, &tokens, &reduction, &meaning);
+            if !known.is_empty() {
+                trace.ok(
+                    "Metacognition",
+                    "explore concepts",
+                    &format!("exploring: [{}]", known.join(", ")),
+                );
+                trace.ok("WordNet Taxonomy", "LCA search", "finding common ancestors");
+            }
+            trace.ok(
+                "NLG Pipeline",
+                "realize",
+                "partial understanding → SVO grammar",
+            );
+            (r, SpeechAct::Assertion, parsed)
         }
+    };
+
+    let duration_us = start.elapsed_us();
+
+    ProcessResult {
+        response,
+        user_act,
+        system_act: SpeechAct::Assertion,
+        duration_us,
+        token_count,
+        parsed,
+        trace,
+        from_ontology,
     }
 }
 
@@ -181,8 +318,6 @@ fn attempt_partial_understanding(
     reduction: &ReductionResult,
     meaning: &montague::Sem,
 ) -> String {
-    use praxis_domains::science::linguistics::language::Language;
-
     // Check known/unknown through the Language trait — covers BOTH
     // function words (closed class) AND WordNet concepts (open class).
     let known_words: Vec<&str> = tokens
