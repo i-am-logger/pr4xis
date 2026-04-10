@@ -42,7 +42,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     let token_count = tokens.len();
     if tokens.is_empty() {
         return ProcessResult {
-            response: "I received empty input.".into(),
+            response: "Empty input received.".into(),
             user_act: SpeechAct::Assertion,
             system_act: SpeechAct::Assertion,
             duration_us: start.elapsed().as_micros() as u64,
@@ -143,6 +143,11 @@ fn attempt_partial_understanding(
     let query_result: Option<&str> = if parsed { Some("parsed") } else { None };
     let state = epistemics::classify_result(parsed, has_knowledge, query_result);
 
+    use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
+    use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
+
+    let frame = ResponseFrame::from_epistemic(&state);
+
     match state {
         epistemics::EpistemicState::UnknownKnown => {
             if known_words.len() == 1 {
@@ -153,35 +158,37 @@ fn attempt_partial_understanding(
                 .filter(|t| !en.lookup(&t.word).is_empty() && t.lambek_type.is_noun())
                 .map(|t| t.word.as_str())
                 .collect();
+            let mut content = ResponseContent::new(frame);
             if nouns.len() >= 2 {
-                return format!(
-                    "I couldn't parse the full sentence, but I found two concepts.\nDid you mean: is {} a {}?",
-                    nouns[0], nouns[1]
-                );
+                content = content.with_entity(nouns[0]).with_entity(nouns[1]);
+            } else {
+                for w in &known_words {
+                    content = content.with_entity(w);
+                }
             }
-            format!(
-                "I know the words {:?} but couldn't understand the sentence structure.\nCould you rephrase as 'is X a Y' or 'what is X'?",
-                known_words
-            )
+            realize::realize(&content)
         }
         epistemics::EpistemicState::KnownUnknown => {
-            format!(
-                "I don't know the word(s): {:?}\nI know {} of the {} words you used.",
-                unknown_words,
-                known_words.len(),
-                tokens.len()
-            )
+            let mut content = ResponseContent::new(frame);
+            for w in &unknown_words {
+                content = content.with_entity(w);
+            }
+            realize::realize(&content)
         }
         epistemics::EpistemicState::KnownKnown => {
-            format!("I understood: {}", meaning.describe())
+            let content = ResponseContent::new(frame).with_predicate(&meaning.describe());
+            realize::realize(&content)
         }
         epistemics::EpistemicState::UnknownUnknown => {
-            "I don't understand. Could you try a simpler question like 'is a dog a mammal'?".into()
+            realize::realize(&ResponseContent::new(frame))
         }
     }
 }
 
 pub fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -> String {
+    use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
+    use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
+
     let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
     if entities.len() >= 2 {
@@ -205,21 +212,28 @@ pub fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem
                             .and_then(|p| p.definitions.first())
                             .map(|d| d.as_str())
                             .unwrap_or("");
-                        return format!(
-                            "Yes. {} is a {}.\n  {} -- {}\n  {} -- {}",
-                            child, parent, child, c_def, parent, p_def
-                        );
+                        let content = ResponseContent::new(ResponseFrame::AssertKnowledge)
+                            .with_predicate("is_a")
+                            .with_entity(child)
+                            .with_entity(parent)
+                            .with_definition(child, c_def)
+                            .with_definition(parent, p_def);
+                        return realize::realize(&content);
                     }
                 }
             }
-            return format!("No, {} is not a {}.", child, parent);
+            return realize::realize_negation(child, parent);
         }
 
         if !parent_ids.is_empty() && !child_ids.is_empty() {
             for &cid in parent_ids {
                 for &pid in child_ids {
                     if en.is_a(cid, pid) {
-                        return format!("Yes. {} is a {}.", parent, child);
+                        let content = ResponseContent::new(ResponseFrame::AssertKnowledge)
+                            .with_predicate("is_a")
+                            .with_entity(parent)
+                            .with_entity(child);
+                        return realize::realize(&content);
                     }
                 }
             }
@@ -230,14 +244,17 @@ pub fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem
         return define_word(en, &entities[0]);
     }
 
-    format!(
-        "I understood the question but couldn't find an answer for: {}({})",
-        predicate,
-        entities.join(", ")
-    )
+    let mut content = ResponseContent::new(ResponseFrame::AcknowledgeGap).with_predicate(predicate);
+    for e in &entities {
+        content = content.with_entity(e);
+    }
+    realize::realize(&content)
 }
 
 pub fn answer_statement(en: &English, _predicate: &str, arguments: &[montague::Sem]) -> String {
+    use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
+    use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
+
     let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
     if entities.len() == 1 {
@@ -247,32 +264,32 @@ pub fn answer_statement(en: &English, _predicate: &str, arguments: &[montague::S
         }
     }
 
-    format!(
-        "I understood that as a statement about: {}",
-        entities.join(", ")
-    )
+    let mut content = ResponseContent::new(ResponseFrame::AssertKnowledge);
+    for e in &entities {
+        content = content.with_entity(e);
+    }
+    realize::realize(&content)
 }
 
 pub fn define_word(en: &English, word: &str) -> String {
+    use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
+    use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
+
     let ids = en.lookup(word);
     if ids.is_empty() {
-        return format!("I don't know the word '{}'.", word);
+        let content = ResponseContent::new(ResponseFrame::AcknowledgeGap).with_entity(word);
+        return realize::realize(&content);
     }
 
-    let mut lines = Vec::new();
-    for (i, &id) in ids.iter().take(5).enumerate() {
+    let mut content = ResponseContent::new(ResponseFrame::AssertKnowledge).with_entity(word);
+    for &id in ids.iter().take(5) {
         if let Some(concept) = en.concept(id) {
             for def in &concept.definitions {
-                lines.push(format!("  {}. {}", i + 1, def));
+                content = content.with_definition(word, def);
             }
         }
     }
-
-    if lines.is_empty() {
-        format!("I know '{}' but have no definition for it.", word)
-    } else {
-        format!("{}:\n{}", word, lines.join("\n"))
-    }
+    realize::realize(&content)
 }
 
 pub fn extract_entity_name(sem: &montague::Sem) -> String {

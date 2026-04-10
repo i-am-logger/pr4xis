@@ -9,3 +9,10 @@ license = "CC-BY-NC-SA-4.0"
 [dependencies]
 praxis = { path = "../praxis" }
 praxis-domains = { path = "../domains" }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "chat_benchmarks"
+harness = false
