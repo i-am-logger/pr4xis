@@ -62,8 +62,9 @@
       border: 1px solid #30363d;
     }
     .system.fallback {
-      border-color: #d29922;
-      color: #d29922;
+      border-color: #58a6ff;
+      color: #79c0ff;
+      font-style: italic;
     }
     .info {
       align-self: center;
@@ -137,9 +138,7 @@
   <div id="input-area">
     <input type="text" id="input" placeholder="Ask something... (try: is a dog a mammal?)" disabled>
     <button id="send" disabled>Send</button>
-    <label style="color:#8b949e;font-size:0.8em;display:flex;align-items:center;gap:4px;cursor:pointer">
-      <input type="checkbox" id="debug"> debug
-    </label>
+    <button id="trace-toggle" style="padding:0.5rem 0.8rem;background:none;border:1px solid #30363d;border-radius:8px;color:#8b949e;font-size:0.8em;cursor:pointer" title="Toggle pipeline trace">trace</button>
   </div>
 
   <script type="module">
@@ -201,7 +200,17 @@
       }
     }
 
-    const debugCheckbox = document.getElementById('debug');
+    const traceBtn = document.getElementById('trace-toggle');
+    let traceVisible = false;
+
+    traceBtn.addEventListener('click', () => {
+      traceVisible = !traceVisible;
+      traceBtn.style.borderColor = traceVisible ? '#7ee787' : '#30363d';
+      traceBtn.style.color = traceVisible ? '#7ee787' : '#8b949e';
+      document.querySelectorAll('.trace').forEach(el => {
+        el.style.display = traceVisible ? '' : 'none';
+      });
+    });
 
     function handleSend() {
       const text = input.value.trim();
@@ -216,27 +225,20 @@
         const dur = result.duration_us < 1000
           ? `${result.duration_us}µs`
           : `${(result.duration_us / 1000).toFixed(1)}ms`;
-        addMessage(result.response, result.from_ontology ? 'system' : 'system fallback');
+        addMessage(result.response, result.from_ontology === false ? 'system fallback' : 'system');
         addMessage(
           `${result.token_count} tokens · ${dur} · single thread\nin-browser · no server · no AI`,
           'info'
         );
         if (result.trace) {
           const traceEl = addTrace(result.trace);
-          traceEl.style.display = debugCheckbox.checked ? '' : 'none';
+          traceEl.style.display = traceVisible ? '' : 'none';
         }
       } catch {
         addMessage(raw, 'system');
       }
       input.focus();
     }
-
-    // Toggle all trace elements when debug checkbox changes
-    debugCheckbox.addEventListener('change', () => {
-      document.querySelectorAll('.trace').forEach(el => {
-        el.style.display = debugCheckbox.checked ? '' : 'none';
-      });
-    });
 
     send.addEventListener('click', handleSend);
     input.addEventListener('keydown', (e) => {
