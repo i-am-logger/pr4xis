@@ -624,6 +624,7 @@ mod tests {
             "is a dog a mammal?",
             "the dog runs",
             "what is a dog",
+            "is a dog an animal",
             "a dog and a cat",
             "dog cat",
         ];
