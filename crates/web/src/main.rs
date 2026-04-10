@@ -164,9 +164,11 @@ fn watch_and_rebuild(crates_dir: &Path) {
         if changed {
             eprintln!("rebuilding WASM...");
             let workspace = crates_dir.parent().unwrap();
+            // Inherit current PATH (from devenv shell) so wasm-pack is found
             let status = std::process::Command::new("wasm-pack")
                 .args(["build", "--target", "web", "--release"])
                 .current_dir(workspace.join("crates/wasm"))
+                .env("PATH", std::env::var("PATH").unwrap_or_default())
                 .status();
 
             match status {

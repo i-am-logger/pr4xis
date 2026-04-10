@@ -214,7 +214,7 @@
           : `${(result.duration_us / 1000).toFixed(1)}ms`;
         addMessage(result.response, 'system');
         addMessage(
-          `${result.token_count} tokens · ${dur} · single thread`,
+          `${result.token_count} tokens · ${dur} · single thread\nin-browser · no server · no AI`,
           'info'
         );
         if (result.trace) {
