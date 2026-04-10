@@ -39,7 +39,9 @@ pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
 
 /// Process with full metadata — timing, token count.
 pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
-    let start = std::time::Instant::now();
+    // Note: std::time::Instant panics on wasm32-unknown-unknown.
+    // Use a wrapper that returns 0 on unsupported platforms.
+    let start = WasmSafeTimer::now();
 
     // Tokenize with ALL types per word (chart parser input).
     let (tokens, alternatives) = tokenize::tokenize_with_alternatives(input, lang);
@@ -49,7 +51,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             response: "Empty input received.".into(),
             user_act: SpeechAct::Assertion,
             system_act: SpeechAct::Assertion,
-            duration_us: start.elapsed().as_micros() as u64,
+            duration_us: start.elapsed_us(),
             token_count: 0,
             parsed: false,
             trace: "empty input".into(),
@@ -83,7 +85,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     };
     let meaning = montague::interpret(montague_tokens, lang);
     let parsed = reduction.success;
-    let duration_us = start.elapsed().as_micros() as u64;
+    let duration_us = start.elapsed_us();
 
     let trace = format!(
         "tokens={} parsed={} meaning={:?}",
@@ -338,6 +340,38 @@ pub fn extract_entity_name(sem: &montague::Sem) -> String {
         }
         montague::Sem::Prop { predicate, .. } | montague::Sem::Question { predicate, .. } => {
             predicate.clone()
+        }
+    }
+}
+
+// =========================================================================
+// Timer — works on both native and WASM
+// =========================================================================
+
+/// WASM-safe timer. `std::time::Instant` panics on wasm32-unknown-unknown
+/// because the target has no system clock. This wrapper uses `Instant` on
+/// native and returns 0 on WASM.
+struct WasmSafeTimer {
+    #[cfg(not(target_arch = "wasm32"))]
+    start: std::time::Instant,
+}
+
+impl WasmSafeTimer {
+    fn now() -> Self {
+        Self {
+            #[cfg(not(target_arch = "wasm32"))]
+            start: std::time::Instant::now(),
+        }
+    }
+
+    fn elapsed_us(&self) -> u64 {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.start.elapsed().as_micros() as u64
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            0
         }
     }
 }
