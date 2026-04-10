@@ -227,7 +227,7 @@
           : `${(result.duration_us / 1000).toFixed(1)}ms`;
         addMessage(result.response, result.from_ontology === false ? 'system fallback' : 'system');
         addMessage(
-          `${result.token_count} tokens · ${dur} · single thread\nin-browser · no server · no AI`,
+          `${result.token_count} tokens · ${dur}\nin-browser · no server · single thread`,
           'info'
         );
         if (result.trace) {
