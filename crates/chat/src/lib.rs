@@ -184,18 +184,19 @@ fn attempt_partial_understanding(
             if known_words.len() == 1 {
                 return define_word(en, known_words[0]);
             }
+            // Find content words (nouns in WordNet)
             let nouns: Vec<&str> = tokens
                 .iter()
                 .filter(|t| !en.lookup(&t.word).is_empty() && t.lambek_type.is_noun())
                 .map(|t| t.word.as_str())
                 .collect();
-            let mut content = ResponseContent::new(frame);
             if nouns.len() >= 2 {
-                content = content.with_entity(nouns[0]).with_entity(nouns[1]);
-            } else {
-                for w in &known_words {
-                    content = content.with_entity(w);
-                }
+                // Explore what we KNOW about these concepts through the taxonomy
+                return explore_concepts(en, &nouns);
+            }
+            let mut content = ResponseContent::new(frame);
+            for w in &known_words {
+                content = content.with_entity(w);
             }
             realize::realize(&content)
         }
@@ -328,6 +329,140 @@ pub fn define_word(en: &English, word: &str) -> String {
         }
     }
     realize::realize(&content)
+}
+
+/// Explore what the system knows about multiple concepts.
+///
+/// Uses the associations ontology (taxonomy, mereology) to discover
+/// relationships between concepts — common ancestors, is-a chains,
+/// shared properties. This is metacognition: instead of guessing
+/// "did you mean is X a Y?", explore and report what we actually know.
+fn explore_concepts(en: &English, words: &[&str]) -> String {
+    let mut lines = Vec::new();
+
+    // Collect all concept IDs per word
+    let word_ids: Vec<(&str, Vec<_>)> = words.iter().map(|&w| (w, en.lookup(w).to_vec())).collect();
+
+    // For each concept, describe it
+    for (word, ids) in &word_ids {
+        if let Some(&id) = ids.first()
+            && let Some(concept) = en.concept(id)
+        {
+            let def = concept
+                .definitions
+                .first()
+                .map(|d| d.as_str())
+                .unwrap_or("");
+            if !def.is_empty() {
+                lines.push(format!("{word}: {def}"));
+            }
+
+            // Show taxonomy chain (what it IS)
+            let mut chain = Vec::new();
+            let mut current = id;
+            for _ in 0..5 {
+                let parents = en.parents(current);
+                if let Some(&parent) = parents.first() {
+                    if let Some(pc) = en.concept(parent) {
+                        let label = pc
+                            .lemmas
+                            .first()
+                            .map(|l| l.as_str())
+                            .unwrap_or(&pc.original_id);
+                        chain.push(label.to_string());
+                    }
+                    current = parent;
+                } else {
+                    break;
+                }
+            }
+            if !chain.is_empty() {
+                lines.push(format!("  {word} is a {}", chain.join(" → ")));
+            }
+        }
+    }
+
+    // Find common ancestors between pairs
+    if word_ids.len() >= 2 {
+        for i in 0..word_ids.len() {
+            for j in i + 1..word_ids.len() {
+                let (w1, ids1) = &word_ids[i];
+                let (w2, ids2) = &word_ids[j];
+                if let (Some(&id1), Some(&id2)) = (ids1.first(), ids2.first()) {
+                    // Check direct is-a
+                    if en.is_a(id1, id2) {
+                        lines.push(format!("{w1} is a {w2}"));
+                    } else if en.is_a(id2, id1) {
+                        lines.push(format!("{w2} is a {w1}"));
+                    } else {
+                        // Find lowest common ancestor
+                        if let Some(lca) = find_common_ancestor(en, id1, id2)
+                            && let Some(c) = en.concept(lca)
+                        {
+                            let label = c
+                                .lemmas
+                                .first()
+                                .map(|l| l.as_str())
+                                .unwrap_or(&c.original_id);
+                            lines.push(format!("both {w1} and {w2} are {label}"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if lines.is_empty() {
+        format!(
+            "I found {} concepts but couldn't determine their relationship.",
+            words.len()
+        )
+    } else {
+        lines.join("\n")
+    }
+}
+
+/// Find the lowest common ancestor of two concepts in the taxonomy.
+fn find_common_ancestor(
+    en: &English,
+    a: praxis_domains::science::linguistics::english::ConceptId,
+    b: praxis_domains::science::linguistics::english::ConceptId,
+) -> Option<praxis_domains::science::linguistics::english::ConceptId> {
+    use std::collections::HashSet;
+
+    // Collect all ancestors of A
+    let mut ancestors_a = HashSet::new();
+    let mut queue = std::collections::VecDeque::new();
+    ancestors_a.insert(a);
+    for &p in en.parents(a) {
+        queue.push_back(p);
+    }
+    while let Some(current) = queue.pop_front() {
+        if ancestors_a.insert(current) {
+            for &p in en.parents(current) {
+                queue.push_back(p);
+            }
+        }
+    }
+
+    // BFS up from B, first hit in ancestors_a is the LCA
+    let mut visited = HashSet::new();
+    let mut queue = std::collections::VecDeque::new();
+    for &p in en.parents(b) {
+        queue.push_back(p);
+    }
+    while let Some(current) = queue.pop_front() {
+        if ancestors_a.contains(&current) {
+            return Some(current);
+        }
+        if visited.insert(current) {
+            for &p in en.parents(current) {
+                queue.push_back(p);
+            }
+        }
+    }
+
+    None
 }
 
 pub fn extract_entity_name(sem: &montague::Sem) -> String {
@@ -489,6 +624,8 @@ mod tests {
             "is a dog a mammal?",
             "the dog runs",
             "what is a dog",
+            "a dog and a cat",
+            "dog cat",
         ];
         for input in &inputs {
             eprintln!("=== INPUT: {input:?} ===");
