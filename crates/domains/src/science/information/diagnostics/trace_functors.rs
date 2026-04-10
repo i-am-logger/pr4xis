@@ -37,13 +37,18 @@ pub fn pipeline_step_to_diagnostic(step: PipelineStep) -> DiagnosticConcept {
         PipelineStep::TaxonomyTraversal => DiagnosticConcept::Evidence,
         PipelineStep::CommonAncestor => DiagnosticConcept::Evidence,
 
+        // Metacognition cycle
+        PipelineStep::Metacognition => DiagnosticConcept::Residual,
+        PipelineStep::EpistemicClassification => DiagnosticConcept::Residual,
+
+        // Pragmatics
+        PipelineStep::SpeechActClassification => DiagnosticConcept::Hypothesis,
+        PipelineStep::ResponseFrameSelection => DiagnosticConcept::Diagnosis,
+
         // Response generation = diagnosis + remedy
         PipelineStep::ContentDetermination => DiagnosticConcept::Diagnosis,
         PipelineStep::DocumentPlanning => DiagnosticConcept::Diagnosis,
         PipelineStep::Realization => DiagnosticConcept::Remedy,
-
-        // Metacognition = residual detection
-        PipelineStep::EpistemicClassification => DiagnosticConcept::Residual,
     }
 }
 
@@ -59,6 +64,9 @@ pub fn pipeline_step_to_provenance(step: PipelineStep) -> ProvenanceConcept {
         | PipelineStep::EntityLookup
         | PipelineStep::TaxonomyTraversal
         | PipelineStep::CommonAncestor
+        | PipelineStep::Metacognition
+        | PipelineStep::SpeechActClassification
+        | PipelineStep::ResponseFrameSelection
         | PipelineStep::ContentDetermination
         | PipelineStep::DocumentPlanning
         | PipelineStep::Realization
@@ -84,6 +92,12 @@ pub enum PipelineStep {
     TaxonomyTraversal,
     /// WordNet Taxonomy: two concepts → lowest common ancestor
     CommonAncestor,
+    /// Metacognition: monitor → evaluate → control → repair cycle
+    Metacognition,
+    /// Pragmatics (Searle): classify the speech act
+    SpeechActClassification,
+    /// Pragmatics: select response frame from epistemic state
+    ResponseFrameSelection,
     /// NLG (Reiter-Dale): meaning → content selection
     ContentDetermination,
     /// NLG (RST): content → rhetorical structure
@@ -104,6 +118,9 @@ impl PipelineStep {
             Self::EntityLookup => "WordNet",
             Self::TaxonomyTraversal => "WordNet Taxonomy",
             Self::CommonAncestor => "WordNet Taxonomy",
+            Self::Metacognition => "Metacognition",
+            Self::SpeechActClassification => "Pragmatics (Searle)",
+            Self::ResponseFrameSelection => "Pragmatics",
             Self::ContentDetermination => "NLG (Reiter-Dale)",
             Self::DocumentPlanning => "Document Planning (RST)",
             Self::Realization => "SVO Grammar",
@@ -120,6 +137,9 @@ impl PipelineStep {
             Self::EntityLookup => "entity lookup",
             Self::TaxonomyTraversal => "is_a traversal",
             Self::CommonAncestor => "LCA search",
+            Self::Metacognition => "monitor → evaluate → control",
+            Self::SpeechActClassification => "classify speech act",
+            Self::ResponseFrameSelection => "select response frame",
             Self::ContentDetermination => "gather knowledge",
             Self::DocumentPlanning => "organize (RST)",
             Self::Realization => "realize",
