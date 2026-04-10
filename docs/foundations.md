@@ -12,12 +12,21 @@ The mathematical foundation. Category theory studies composition — how things 
 - Functors → structure-preserving maps (analogy, translation, ontology evolution)
 - Natural transformations → transformations between functors
 - Axioms → category laws (identity, associativity, closure) verified exhaustively
+- Category of elements (Grothendieck construction) → automatic trace schema derivation
+- Discrete fibrations → every presheaf IS a fibration (Riehl 2019)
+
+**Category of Elements (El)** — the construction that makes traceability automatic. Given a functor F: C → Set, El(F) has objects (c, x) where x ∈ F(c) and morphisms tracking how elements relate. Applied to ontology schemas: El unpacks the schema into individual observable elements, each decorated with PROV-O provenance. T(C) = El(C) +_O O_obs is the trace schema functor.
 
 **Key references:**
-- Saunders Mac Lane, *Categories for the Working Mathematician* (1971) — the foundational text
+- Saunders Mac Lane, *Categories for the Working Mathematician* (1971) — the foundational text (PDF in docs/papers/)
 - Steve Awodey, *Category Theory* (2010) — modern introduction
-- Emily Riehl, *Category Theory in Context* (2016) — accessible with rich examples
+- Emily Riehl, *Category Theory in Context* (2016) — accessible with rich examples (PDF in docs/papers/)
+- Emily Riehl, *Categorical Notions of Fibration* (2019) — discrete fibrations = Set-valued functors (PDF in docs/papers/)
 - Bartosz Milewski, *Category Theory for Programmers* (2019) — bridge to software engineering
+- Brendan Fong & David Spivak, *Seven Sketches in Compositionality* (2019) — applied category theory (PDF in docs/papers/)
+- Alexander Grothendieck, *SGA1: Revetements etales et groupe fondamental* (1961) — original fibered category definition
+- Spivak, *Functorial Data Migration* (2012) — El(I) for database instances
+- Spivak, *Category Theory for the Sciences* (2014) — pedagogical El treatment
 
 ## Systems Thinking
 

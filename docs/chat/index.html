@@ -98,25 +98,23 @@
     .trace-toggle:hover { color: #7ee787; }
     .trace-toggle.open { color: #7ee787; }
     .trace-panel {
-      align-self: flex-start;
-      max-width: 90%;
+      max-width: 100%;
       display: none;
-      background: #0d1117;
-      border-left: 2px solid #21262d;
-      margin-left: 1rem;
+      border-top: 1px solid #21262d;
+      margin-top: 0.5em;
       font-family: monospace;
       font-size: 0.72em;
-      color: #7ee787;
+      color: #8b949e;
       white-space: pre-wrap;
       word-break: break-all;
-      padding: 0.5rem 0.8rem;
+      padding: 0.5rem 0;
     }
     .trace-panel.open {
       display: block;
     }
-    .trace-panel .step { color: #79c0ff; margin-left: 0.5em; }
-    .trace-panel .step::before { content: '├─ '; color: #484f58; }
-    .trace-panel .step:last-child::before { content: '└─ '; color: #484f58; }
+    .trace-panel .step { color: #8b949e; margin-left: 0.5em; }
+    .trace-panel .step::before { content: '├─ '; color: #30363d; }
+    .trace-panel .step:last-child::before { content: '└─ '; color: #30363d; }
 
     #input-area {
       padding: 1rem 2rem;
@@ -234,17 +232,19 @@
           dirEl.style.color = '#484f58';
           dirEl.textContent = direction + ' ';
 
+          const lineColor = status === 'warn' ? '#d29922' : status === 'err' ? '#f85149' : '#8b949e';
+
           const ontEl = document.createElement('span');
           ontEl.style.fontWeight = '600';
-          ontEl.style.color = status === 'warn' ? '#d29922' : status === 'err' ? '#f85149' : isResponse ? '#3fb950' : '#7ee787';
+          ontEl.style.color = lineColor;
           ontEl.textContent = ontology;
 
           const actEl = document.createElement('span');
-          actEl.style.color = '#8b949e';
+          actEl.style.color = lineColor;
           actEl.textContent = ` → ${action}: `;
 
           const detEl = document.createElement('span');
-          detEl.style.color = status === 'warn' ? '#d29922' : '#79c0ff';
+          detEl.style.color = lineColor;
           detEl.textContent = detail;
 
           row.appendChild(dirEl);
@@ -267,8 +267,8 @@
         }
       });
 
-      chat.appendChild(btn);
-      chat.appendChild(panel);
+      // Return the elements for embedding inside the response bubble
+      return { btn, panel };
     }
 
     async function initialize() {
@@ -306,14 +306,17 @@
       try {
         const result = JSON.parse(raw);
         const dur = elapsed < 1 ? `${(elapsed * 1000).toFixed(0)}µs` : `${elapsed.toFixed(1)}ms`;
-        addMessage(result.response, result.from_ontology === false ? 'system fallback' : 'system');
-        addMessage(
-          `${result.token_count} tokens · ${dur}\nin-browser · no server · single thread`,
-          'info'
-        );
+        const msgDiv = addMessage(result.response, result.from_ontology === false ? 'system fallback' : 'system');
+        // Embed trace + stats INSIDE the response bubble
         if (result.trace) {
-          addTraceAccordion(result.trace);
+          const { btn, panel } = addTraceAccordion(result.trace);
+          msgDiv.appendChild(btn);
+          msgDiv.appendChild(panel);
         }
+        const statsEl = document.createElement('div');
+        statsEl.style.cssText = 'margin-top:0.5em; font-size:0.7em; color:#484f58; border-top:1px solid #21262d; padding-top:0.3em;';
+        statsEl.textContent = `${result.token_count} tokens · ${dur} · in-browser`;
+        msgDiv.appendChild(statsEl);
       } catch {
         addMessage(raw, 'system');
       }
