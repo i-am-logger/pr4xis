@@ -197,9 +197,15 @@
 
       // Parse "status:ontology:action:detail | ..." into colored rows
       // Response ontologies (NLG, Content Determination, Realization) use ←
-      const responseSteps = new Set(['NLG (Reiter-Dale)', 'Document Planning (RST)', 'SVO Grammar', 'Content Determination']);
+      const responseSteps = new Set(['Metacognition', 'Pragmatics (Searle)', 'Pragmatics', 'NLG (Reiter-Dale)', 'Document Planning (RST)', 'SVO Grammar', 'Content Determination']);
 
       const parts = trace.split(' | ');
+      // Add request header at start
+      const reqHeader = document.createElement('div');
+      reqHeader.style.cssText = 'border-top:1px dashed #30363d; margin:0.3em 0; padding-top:0.2em; color:#484f58; font-size:0.9em;';
+      reqHeader.textContent = '── request ──';
+      panel.appendChild(reqHeader);
+
       let lastDirection = '→';
       for (const part of parts) {
         const fields = part.split(':');

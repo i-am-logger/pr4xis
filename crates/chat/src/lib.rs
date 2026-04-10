@@ -1,6 +1,8 @@
 use praxis::ontology::upper::being::Being;
 use praxis_domains::science::cognition::epistemics;
-use praxis_domains::science::information::diagnostics::trace_functors::PipelineTrace;
+use praxis_domains::science::information::diagnostics::trace_functors::{
+    PipelineStep, PipelineTrace,
+};
 use praxis_domains::science::information::diagnostics::trace_impls;
 use praxis_domains::science::information::knowledge::{
     SelfModelInstance, VocabularyDescriptor, describe_knowledge_base,
@@ -103,31 +105,52 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     // The interpretation result IS Traceable via wrapper.
     trace.trace_result(&trace_impls::InterpretResult { meaning: &meaning });
 
-    // Step 4: Generate response — pure functions return results,
-    // caller applies trace functor. No &mut trace threading.
-    let (response_result, user_act) = match &meaning {
+    // Step 4: Metacognition — classify what we understood
+    let user_act = if meaning.is_question() {
+        SpeechAct::Question
+    } else {
+        SpeechAct::Assertion
+    };
+    trace.record(
+        PipelineStep::SpeechActClassification,
+        &format!("{:?}", user_act),
+        true,
+    );
+
+    // Step 5: Metacognition — decide response strategy
+    let metacog_decision = if meaning.is_question() {
+        "question detected → query ontology"
+    } else if meaning.is_proposition() {
+        "statement detected → acknowledge/elaborate"
+    } else if parsed {
+        "parsed but unrecognized form → partial understanding"
+    } else {
+        "parse failed → metacognitive repair (attempt partial understanding)"
+    };
+    trace.record(PipelineStep::Metacognition, metacog_decision, true);
+
+    // Step 6: Generate response — pure functions return results
+    let response_result = match &meaning {
         montague::Sem::Question {
             predicate,
             arguments,
-        } => {
-            let r = answer_question(lang, predicate, arguments);
-            (r, SpeechAct::Question)
-        }
+        } => answer_question(lang, predicate, arguments),
         montague::Sem::Prop {
             predicate,
             arguments,
-        } => {
-            let r = answer_statement(lang, predicate, arguments);
-            (r, SpeechAct::Assertion)
-        }
-        _ => {
-            let r = attempt_partial_understanding(lang, &tokens, &reduction, &meaning);
-            (r, SpeechAct::Assertion)
-        }
+        } => answer_statement(lang, predicate, arguments),
+        _ => attempt_partial_understanding(lang, &tokens, &reduction, &meaning),
     };
 
     // Apply the trace functor to the response result
     trace.trace_result(&response_result);
+
+    // Step 7: Realization trace
+    trace.record(
+        PipelineStep::Realization,
+        &format!("{} chars generated", response_result.response.len()),
+        true,
+    );
     let response = response_result.response;
     let from_ontology = response_result.from_ontology;
 
