@@ -219,12 +219,12 @@
       addMessage(text, 'user');
       input.value = '';
 
+      const t0 = performance.now();
       const raw = praxis.chat(text);
+      const elapsed = performance.now() - t0;
       try {
         const result = JSON.parse(raw);
-        const dur = result.duration_us < 1000
-          ? `${result.duration_us}µs`
-          : `${(result.duration_us / 1000).toFixed(1)}ms`;
+        const dur = elapsed < 1 ? `${(elapsed * 1000).toFixed(0)}µs` : `${elapsed.toFixed(1)}ms`;
         addMessage(result.response, result.from_ontology === false ? 'system fallback' : 'system');
         addMessage(
           `${result.token_count} tokens · ${dur}\nin-browser · no server · single thread`,
