@@ -1,5 +1,8 @@
 use praxis::ontology::upper::being::Being;
 use praxis_domains::science::cognition::epistemics;
+use praxis_domains::science::information::diagnostics::trace_functors::{
+    PipelineStep, PipelineTrace,
+};
 use praxis_domains::science::information::knowledge::{
     SelfModelInstance, VocabularyDescriptor, describe_knowledge_base,
 };
@@ -15,74 +18,16 @@ use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 // Zero I/O. Takes a string, returns a string.
 // All intelligence comes from the Language ontology.
 // The chat engine is a functor: Input → Language → Response.
+//
+// Trace is produced by applying trace functors to each pipeline step result.
+// The trace functor maps: PipelineStep → DiagnosticConcept → PROV Activity.
+// No manual trace.ok() — the functor provides ontology names and operations.
 
-/// A single step in the ontology trace.
-#[derive(Debug, Clone)]
-pub struct TraceStep {
-    pub ontology: String,
-    pub action: String,
-    pub detail: String,
-    pub status: TraceStatus,
-}
+/// Re-export for callers.
+pub use praxis_domains::science::information::diagnostics::trace_functors::PipelineTraceEntry;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TraceStatus {
-    Ok,
-    Warning,
-    Error,
-}
-
-/// Collects trace steps as ontologies are invoked.
-#[derive(Debug, Clone, Default)]
-pub struct Trace {
-    pub steps: Vec<TraceStep>,
-}
-
-impl Trace {
-    pub fn ok(&mut self, ontology: &str, action: &str, detail: &str) {
-        self.steps.push(TraceStep {
-            ontology: ontology.into(),
-            action: action.into(),
-            detail: detail.into(),
-            status: TraceStatus::Ok,
-        });
-    }
-
-    pub fn warn(&mut self, ontology: &str, action: &str, detail: &str) {
-        self.steps.push(TraceStep {
-            ontology: ontology.into(),
-            action: action.into(),
-            detail: detail.into(),
-            status: TraceStatus::Warning,
-        });
-    }
-
-    pub fn error(&mut self, ontology: &str, action: &str, detail: &str) {
-        self.steps.push(TraceStep {
-            ontology: ontology.into(),
-            action: action.into(),
-            detail: detail.into(),
-            status: TraceStatus::Error,
-        });
-    }
-
-    /// Serialize to pipe-separated string for JSON transport.
-    /// Format: "status:ontology:action:detail | ..."
-    pub fn serialize(&self) -> String {
-        self.steps
-            .iter()
-            .map(|s| {
-                let status = match s.status {
-                    TraceStatus::Ok => "ok",
-                    TraceStatus::Warning => "warn",
-                    TraceStatus::Error => "err",
-                };
-                format!("{}:{}:{}:{}", status, s.ontology, s.action, s.detail)
-            })
-            .collect::<Vec<_>>()
-            .join(" | ")
-    }
-}
+/// Alias — the trace is a PipelineTrace from the Diagnostics ontology.
+pub type Trace = PipelineTrace;
 
 /// Result of processing input through the linguistics pipeline.
 pub struct ProcessResult {
@@ -112,7 +57,11 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     let (tokens, alternatives) = tokenize::tokenize_with_alternatives(input, lang);
     let token_count = tokens.len();
     if tokens.is_empty() {
-        trace.warn("Language", "tokenize", "empty input — no tokens produced");
+        trace.record(
+            PipelineStep::Tokenize,
+            "empty input — no tokens produced",
+            false,
+        );
         return ProcessResult {
             response: "Empty input received.".into(),
             user_act: SpeechAct::Assertion,
@@ -141,7 +90,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             format!("{} ({})", t.word, role)
         })
         .collect();
-    trace.ok("Language (English)", "tokenize", &word_roles.join(", "));
+    trace.record(PipelineStep::Tokenize, &word_roles.join(", "), true);
 
     // Step 2: Parse through Lambek grammar
     let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
@@ -169,17 +118,13 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             .as_ref()
             .map(|t| t.notation())
             .unwrap_or_default();
-        trace.ok(
-            "Lambek Grammar",
-            "CYK chart parse",
+        trace.record(
+            PipelineStep::Parse,
             &format!("success → {final_type}"),
+            true,
         );
     } else {
-        trace.warn(
-            "Lambek Grammar",
-            "CYK chart parse",
-            "failed — could not reduce to S",
-        );
+        trace.record(PipelineStep::Parse, "failed — could not reduce to S", false);
     }
 
     // Step 3: Interpret through Montague semantics
@@ -209,7 +154,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
         montague::Sem::Pred { word } => format!("concept: {word}"),
         montague::Sem::Func { word, .. } => format!("function: {word}"),
     };
-    trace.ok("Montague Semantics", "interpret", &meaning_desc);
+    trace.record(PipelineStep::Interpret, &meaning_desc, true);
 
     // Step 4: Generate response — each function reports to trace
     let (response, user_act, from_ontology) = match &meaning {
@@ -272,14 +217,14 @@ fn attempt_partial_understanding(
     let parsed = reduction.success;
     let query_result: Option<&str> = if parsed { Some("parsed") } else { None };
     let state = epistemics::classify_result(parsed, has_knowledge, query_result);
-    trace.ok(
-        "Epistemics",
-        "classify",
+    trace.record(
+        PipelineStep::EpistemicClassification,
         &format!(
             "{state:?} — known: [{}], unknown: [{}]",
             known_words.join(", "),
             unknown_words.join(", ")
         ),
+        true,
     );
 
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
@@ -290,7 +235,7 @@ fn attempt_partial_understanding(
     match state {
         epistemics::EpistemicState::UnknownKnown => {
             if known_words.len() == 1 {
-                trace.ok("WordNet Lexicon", "define", known_words[0]);
+                trace.record(PipelineStep::EntityLookup, known_words[0], true);
                 return define_word(en, known_words[0], trace);
             }
             let nouns: Vec<&str> = tokens
