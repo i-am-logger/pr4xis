@@ -57,11 +57,19 @@
       color: #fff;
       margin-top: 0.5rem;
     }
+    .user::before {
+      content: '→ ';
+      opacity: 0.6;
+    }
     .system {
       align-self: flex-start;
       background: #0d1f0d;
       border: 1px solid #238636;
       color: #e6edf3;
+    }
+    .system::before {
+      content: '← ';
+      opacity: 0.6;
     }
     .system.fallback {
       background: #161b22;
