@@ -241,23 +241,7 @@ pub fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem
             for &cid in child_ids {
                 for &pid in parent_ids {
                     if en.is_a(cid, pid) {
-                        let c_def = en
-                            .concept(cid)
-                            .and_then(|c| c.definitions.first())
-                            .map(|d| d.as_str())
-                            .unwrap_or("");
-                        let p_def = en
-                            .concept(pid)
-                            .and_then(|p| p.definitions.first())
-                            .map(|d| d.as_str())
-                            .unwrap_or("");
-                        let content = ResponseContent::new(ResponseFrame::AssertKnowledge)
-                            .with_predicate("is_a")
-                            .with_entity(child)
-                            .with_entity(parent)
-                            .with_definition(child, c_def)
-                            .with_definition(parent, p_def);
-                        return realize::realize(&content);
+                        return build_taxonomy_response(en, child, parent, cid, pid);
                     }
                 }
             }
@@ -331,6 +315,85 @@ pub fn define_word(en: &English, word: &str) -> String {
     realize::realize(&content)
 }
 
+/// Build a rich taxonomy response showing the chain from child to parent,
+/// definitions, and some children (subtypes) of the child concept.
+fn build_taxonomy_response(
+    en: &English,
+    child_word: &str,
+    parent_word: &str,
+    child_id: praxis_domains::science::linguistics::english::ConceptId,
+    parent_id: praxis_domains::science::linguistics::english::ConceptId,
+) -> String {
+    use praxis_domains::science::linguistics::pragmatics::realize;
+
+    let mut lines = Vec::new();
+
+    // Assertion: "a dog is an animal"
+    lines.push(format!(
+        "Yes. {}.",
+        realize::sentence_copula(child_word, parent_word)
+    ));
+
+    // Taxonomy path: dog → mammal → animal
+    let mut chain = vec![child_word.to_string()];
+    let mut current = child_id;
+    for _ in 0..10 {
+        if current == parent_id {
+            break;
+        }
+        if let Some(&p) = en.parents(current).first() {
+            if let Some(c) = en.concept(p) {
+                let label = c
+                    .lemmas
+                    .first()
+                    .map(|l| l.as_str())
+                    .unwrap_or(&c.original_id);
+                chain.push(label.to_string());
+            }
+            current = p;
+        } else {
+            break;
+        }
+    }
+    if chain.len() > 2 {
+        lines.push(format!("  path: {}", chain.join(" → ")));
+    }
+
+    // Definitions
+    if let Some(c) = en.concept(child_id)
+        && let Some(def) = c.definitions.first()
+    {
+        lines.push(format!("  {child_word}: {def}"));
+    }
+    if let Some(c) = en.concept(parent_id)
+        && let Some(def) = c.definitions.first()
+    {
+        lines.push(format!("  {parent_word}: {def}"));
+    }
+
+    // Children (subtypes) of the child concept — "types of dog"
+    let children = en.children(child_id);
+    if !children.is_empty() {
+        let child_names: Vec<&str> = children
+            .iter()
+            .take(5)
+            .filter_map(|&id| {
+                en.concept(id)
+                    .and_then(|c| c.lemmas.first())
+                    .map(|l| l.as_str())
+            })
+            .collect();
+        if !child_names.is_empty() {
+            lines.push(format!(
+                "  types of {child_word}: {}",
+                child_names.join(", ")
+            ));
+        }
+    }
+
+    lines.join("\n")
+}
+
 /// Explore what the system knows about multiple concepts.
 ///
 /// Uses the associations ontology (taxonomy, mereology) to discover
@@ -338,74 +401,75 @@ pub fn define_word(en: &English, word: &str) -> String {
 /// shared properties. This is metacognition: instead of guessing
 /// "did you mean is X a Y?", explore and report what we actually know.
 fn explore_concepts(en: &English, words: &[&str]) -> String {
+    use praxis_domains::science::linguistics::pragmatics::realize;
+
     let mut lines = Vec::new();
 
     // Collect all concept IDs per word
     let word_ids: Vec<(&str, Vec<_>)> = words.iter().map(|&w| (w, en.lookup(w).to_vec())).collect();
 
-    // For each concept, describe it
+    // For each concept, describe it and trace taxonomy
     for (word, ids) in &word_ids {
         if let Some(&id) = ids.first()
             && let Some(concept) = en.concept(id)
         {
-            let def = concept
-                .definitions
-                .first()
-                .map(|d| d.as_str())
-                .unwrap_or("");
-            if !def.is_empty() {
+            if let Some(def) = concept.definitions.first() {
                 lines.push(format!("{word}: {def}"));
             }
 
-            // Show taxonomy chain (what it IS)
+            // Trace taxonomy chain through the ontology
             let mut chain = Vec::new();
             let mut current = id;
             for _ in 0..5 {
-                let parents = en.parents(current);
-                if let Some(&parent) = parents.first() {
-                    if let Some(pc) = en.concept(parent) {
-                        let label = pc
-                            .lemmas
-                            .first()
-                            .map(|l| l.as_str())
-                            .unwrap_or(&pc.original_id);
-                        chain.push(label.to_string());
-                    }
+                if let Some(&parent) = en.parents(current).first()
+                    && let Some(pc) = en.concept(parent)
+                {
+                    let label = pc
+                        .lemmas
+                        .first()
+                        .map(|l| l.as_str())
+                        .unwrap_or(&pc.original_id);
+                    chain.push(label.to_string());
                     current = parent;
                 } else {
                     break;
                 }
             }
             if !chain.is_empty() {
-                lines.push(format!("  {word} is a {}", chain.join(" → ")));
+                // Generate "word is a X → Y → Z" through grammar
+                let first = &chain[0];
+                let copula = realize::sentence_copula(word, first);
+                if chain.len() > 1 {
+                    lines.push(format!("  {copula} → {}", chain[1..].join(" → ")));
+                } else {
+                    lines.push(format!("  {copula}"));
+                }
             }
         }
     }
 
-    // Find common ancestors between pairs
+    // Find relationships between concept pairs through associations
     if word_ids.len() >= 2 {
         for i in 0..word_ids.len() {
             for j in i + 1..word_ids.len() {
                 let (w1, ids1) = &word_ids[i];
                 let (w2, ids2) = &word_ids[j];
                 if let (Some(&id1), Some(&id2)) = (ids1.first(), ids2.first()) {
-                    // Check direct is-a
                     if en.is_a(id1, id2) {
-                        lines.push(format!("{w1} is a {w2}"));
+                        lines.push(realize::sentence_copula(w1, w2));
                     } else if en.is_a(id2, id1) {
-                        lines.push(format!("{w2} is a {w1}"));
-                    } else {
-                        // Find lowest common ancestor
-                        if let Some(lca) = find_common_ancestor(en, id1, id2)
-                            && let Some(c) = en.concept(lca)
-                        {
-                            let label = c
-                                .lemmas
-                                .first()
-                                .map(|l| l.as_str())
-                                .unwrap_or(&c.original_id);
-                            lines.push(format!("both {w1} and {w2} are {label}"));
-                        }
+                        lines.push(realize::sentence_copula(w2, w1));
+                    } else if let Some(lca) = find_common_ancestor(en, id1, id2)
+                        && let Some(c) = en.concept(lca)
+                    {
+                        let label = c
+                            .lemmas
+                            .first()
+                            .map(|l| l.as_str())
+                            .unwrap_or(&c.original_id);
+                        let s1 = realize::sentence_copula(w1, label);
+                        let s2 = realize::sentence_copula(w2, label);
+                        lines.push(format!("{s1}, and {s2}"));
                     }
                 }
             }
@@ -413,10 +477,9 @@ fn explore_concepts(en: &English, words: &[&str]) -> String {
     }
 
     if lines.is_empty() {
-        format!(
-            "I found {} concepts but couldn't determine their relationship.",
-            words.len()
-        )
+        realize::realize(&realize::ResponseContent::new(
+            praxis_domains::science::linguistics::pragmatics::response::ResponseFrame::AcknowledgeGap,
+        ))
     } else {
         lines.join("\n")
     }

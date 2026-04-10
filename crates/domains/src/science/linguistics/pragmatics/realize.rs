@@ -80,7 +80,7 @@ pub fn realize(content: &ResponseContent) -> String {
 
 /// Build a copula sentence: "{subject} is {complement}"
 /// SVO: NP + (NP\S)/NP + NP → S
-fn sentence_copula(subject: &str, complement: &str) -> String {
+pub fn sentence_copula(subject: &str, complement: &str) -> String {
     let det = select_determiner(subject);
     let det2 = select_determiner(complement);
     let cop = select_copula(subject);
