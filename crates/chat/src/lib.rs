@@ -87,9 +87,16 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     let parsed = reduction.success;
     let duration_us = start.elapsed_us();
 
+    let token_strs: Vec<String> = tokens
+        .iter()
+        .map(|t| format!("{}:{:?}", t.word, t.lambek_type))
+        .collect();
     let trace = format!(
-        "tokens={} parsed={} meaning={:?}",
-        token_count, parsed, meaning
+        "tokenize: [{}] | parse: {} ({:?}) | interpret: {:?}",
+        token_strs.join(", "),
+        if parsed { "OK" } else { "FAIL" },
+        reduction.final_type,
+        meaning,
     );
 
     match &meaning {
