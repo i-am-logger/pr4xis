@@ -172,6 +172,7 @@
       }
       chat.appendChild(details);
       chat.scrollTop = chat.scrollHeight;
+      return details;
     }
 
     async function initialize() {
@@ -197,9 +198,6 @@
     }
 
     const debugCheckbox = document.getElementById('debug');
-    debugCheckbox.addEventListener('change', () => {
-      if (praxis) praxis.set_debug(debugCheckbox.checked);
-    });
 
     function handleSend() {
       const text = input.value.trim();
@@ -219,14 +217,22 @@
           `${result.token_count} tokens · ${dur} · single thread`,
           'info'
         );
-        if (debugCheckbox.checked && result.trace) {
-          addTrace(result.trace);
+        if (result.trace) {
+          const traceEl = addTrace(result.trace);
+          traceEl.style.display = debugCheckbox.checked ? '' : 'none';
         }
       } catch {
         addMessage(raw, 'system');
       }
       input.focus();
     }
+
+    // Toggle all trace elements when debug checkbox changes
+    debugCheckbox.addEventListener('change', () => {
+      document.querySelectorAll('.trace').forEach(el => {
+        el.style.display = debugCheckbox.checked ? '' : 'none';
+      });
+    });
 
     send.addEventListener('click', handleSend);
     input.addEventListener('keydown', (e) => {

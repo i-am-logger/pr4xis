@@ -24,7 +24,6 @@ mod codegen_output {
 #[wasm_bindgen]
 pub struct Praxis {
     english: English,
-    debug: bool,
 }
 
 impl Default for Praxis {
@@ -37,21 +36,10 @@ impl Default for Praxis {
 impl Praxis {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        // Better panic messages in browser console
         console_error_panic_hook::set_once();
         Self {
             english: language::from_codegen(&codegen_output::CODEGEN_DATA),
-            debug: false,
         }
-    }
-
-    /// Toggle debug mode — when on, responses include metacognition trace.
-    pub fn set_debug(&mut self, enabled: bool) {
-        self.debug = enabled;
-    }
-
-    pub fn is_debug(&self) -> bool {
-        self.debug
     }
 
     /// Process input through the full praxis-chat pipeline.
@@ -63,18 +51,11 @@ impl Praxis {
             0
         };
         let response = json_escape(&result.response);
-        if self.debug {
-            let trace = json_escape(&result.trace);
-            format!(
-                r#"{{"response":"{response}","duration_us":{},"token_count":{},"tokens_per_sec":{tps},"parsed":{},"trace":"{trace}"}}"#,
-                result.duration_us, result.token_count, result.parsed,
-            )
-        } else {
-            format!(
-                r#"{{"response":"{response}","duration_us":{},"token_count":{},"tokens_per_sec":{tps}}}"#,
-                result.duration_us, result.token_count,
-            )
-        }
+        let trace = json_escape(&result.trace);
+        format!(
+            r#"{{"response":"{response}","duration_us":{},"token_count":{},"tokens_per_sec":{tps},"parsed":{},"trace":"{trace}"}}"#,
+            result.duration_us, result.token_count, result.parsed,
+        )
     }
 
     pub fn concept_count(&self) -> usize {
