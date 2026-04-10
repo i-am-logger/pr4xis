@@ -357,11 +357,105 @@ impl Axiom for RightContraction {
     }
 }
 
-// NOTE: The pregroup forms a compact closed category, but its objects
-// (PregroupType) are infinite (arbitrary-length products). The finite
-// Entity/Category trait pattern doesn't apply here. The algebraic
-// structure IS the ontology — expressed through the contraction/expansion
-// axioms and the parse function, not through finite morphism enumeration.
+// =============================================================================
+// The pregroup as a Category
+// =============================================================================
+
+/// A morphism in the pregroup: a product that contracts from source to target.
+/// A/B = "takes B on right, produces A" = morphism from B to A.
+/// The product np · n^l is a morphism from N to NP.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PregroupMorphism {
+    pub source: BasicType,
+    pub target: BasicType,
+    pub product: PregroupType,
+}
+
+impl praxis::category::relationship::Relationship for PregroupMorphism {
+    type Object = BasicType;
+    fn source(&self) -> BasicType {
+        self.source
+    }
+    fn target(&self) -> BasicType {
+        self.target
+    }
+}
+
+/// The pregroup as a category.
+/// Objects: BasicType (S, NP, N, PP).
+/// Morphisms: PregroupType products that contract from source to target.
+/// Composition: product concatenation + contraction.
+pub struct PregroupCategory;
+
+impl praxis::category::Category for PregroupCategory {
+    type Object = BasicType;
+    type Morphism = PregroupMorphism;
+
+    fn identity(obj: &BasicType) -> PregroupMorphism {
+        // Identity is the empty product (1 in the pregroup monoid)
+        PregroupMorphism {
+            source: *obj,
+            target: *obj,
+            product: PregroupType::new(vec![]),
+        }
+    }
+
+    fn compose(f: &PregroupMorphism, g: &PregroupMorphism) -> Option<PregroupMorphism> {
+        if f.target != g.source {
+            return None;
+        }
+        // Identity handling
+        if f.product.is_identity() {
+            return Some(g.clone());
+        }
+        if g.product.is_identity() {
+            return Some(f.clone());
+        }
+        // Compose = concatenate products, then contract
+        let combined = f.product.product(&g.product);
+        let contracted = combined.contract();
+        Some(PregroupMorphism {
+            source: f.source,
+            target: g.target,
+            product: contracted,
+        })
+    }
+
+    fn morphisms() -> Vec<PregroupMorphism> {
+        let mut m = Vec::new();
+
+        // Identities
+        for b in BasicType::variants() {
+            m.push(PregroupMorphism {
+                source: b,
+                target: b,
+                product: PregroupType::single(b),
+            });
+        }
+
+        // Standard English type assignments as morphisms:
+        // Structural morphisms: for each pair (A, B) where A ≠ B,
+        // the product A^r · B is a morphism from A to B.
+        // These are the fundamental arrows the pregroup algebra provides.
+        let types = BasicType::variants();
+        for &src in &types {
+            for &tgt in &types {
+                if src != tgt {
+                    m.push(PregroupMorphism {
+                        source: src,
+                        target: tgt,
+                        product: PregroupType::new(vec![
+                            PregroupElement::right_adj(src),
+                            PregroupElement::basic(tgt),
+                        ]),
+                    });
+                }
+            }
+        }
+
+        m
+    }
+}
 
 // =============================================================================
 // Lambek → Pregroup functor (ontology evolution)
@@ -426,7 +520,13 @@ pub fn lambek_to_pregroup(lambek: &super::types::LambekType) -> PregroupType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use praxis::category::validate::check_category_laws;
     use praxis::logic::Axiom;
+
+    #[test]
+    fn pregroup_category_laws() {
+        check_category_laws::<PregroupCategory>().unwrap();
+    }
 
     #[test]
     fn left_contraction_holds() {
