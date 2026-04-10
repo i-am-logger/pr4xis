@@ -24,6 +24,7 @@ mod codegen_output {
 #[wasm_bindgen]
 pub struct Praxis {
     english: English,
+    debug: bool,
 }
 
 impl Default for Praxis {
@@ -36,11 +37,19 @@ impl Default for Praxis {
 impl Praxis {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        // Codegen → Language functor composition:
-        // Static arrays (codegen) → Language → English
         Self {
             english: language::from_codegen(&codegen_output::CODEGEN_DATA),
+            debug: false,
         }
+    }
+
+    /// Toggle debug mode — when on, responses include metacognition trace.
+    pub fn set_debug(&mut self, enabled: bool) {
+        self.debug = enabled;
+    }
+
+    pub fn is_debug(&self) -> bool {
+        self.debug
     }
 
     /// Process input through the full praxis-chat pipeline.
@@ -51,15 +60,25 @@ impl Praxis {
         } else {
             0
         };
-        format!(
-            r#"{{"response":"{}","duration_us":{},"token_count":{},"tokens_per_sec":{},"parsed":{},"trace":"{}"}}"#,
-            result.response.replace('"', "\\\"").replace('\n', "\\n"),
-            result.duration_us,
-            result.token_count,
-            tps,
-            result.parsed,
-            result.trace.replace('"', "\\\"").replace('\n', "\\n"),
-        )
+        if self.debug {
+            format!(
+                r#"{{"response":"{}","duration_us":{},"token_count":{},"tokens_per_sec":{},"parsed":{},"trace":"{}"}}"#,
+                result.response.replace('"', "\\\"").replace('\n', "\\n"),
+                result.duration_us,
+                result.token_count,
+                tps,
+                result.parsed,
+                result.trace.replace('"', "\\\"").replace('\n', "\\n"),
+            )
+        } else {
+            format!(
+                r#"{{"response":"{}","duration_us":{},"token_count":{},"tokens_per_sec":{}}}"#,
+                result.response.replace('"', "\\\"").replace('\n', "\\n"),
+                result.duration_us,
+                result.token_count,
+                tps,
+            )
+        }
     }
 
     pub fn concept_count(&self) -> usize {

@@ -116,6 +116,9 @@
   <div id="input-area">
     <input type="text" id="input" placeholder="Ask something... (try: is a dog a mammal?)" disabled>
     <button id="send" disabled>Send</button>
+    <label style="color:#8b949e;font-size:0.8em;display:flex;align-items:center;gap:4px;cursor:pointer">
+      <input type="checkbox" id="debug"> debug
+    </label>
   </div>
 
   <script type="module">
@@ -159,6 +162,11 @@
       }
     }
 
+    const debugCheckbox = document.getElementById('debug');
+    debugCheckbox.addEventListener('change', () => {
+      if (praxis) praxis.set_debug(debugCheckbox.checked);
+    });
+
     function handleSend() {
       const text = input.value.trim();
       if (!text || !praxis) return;
@@ -173,10 +181,12 @@
           ? `${result.duration_us}µs`
           : `${(result.duration_us / 1000).toFixed(1)}ms`;
         addMessage(result.response, 'system');
-        addMessage(
-          `${result.token_count} tokens · ${dur} · single thread`,
-          'info'
-        );
+        let meta = `${result.token_count} tokens · ${dur} · single thread`;
+        if (result.parsed !== undefined) meta += ` · parsed: ${result.parsed}`;
+        addMessage(meta, 'info');
+        if (result.trace) {
+          addMessage(`trace: ${result.trace}`, 'info');
+        }
       } catch {
         addMessage(raw, 'system');
       }
