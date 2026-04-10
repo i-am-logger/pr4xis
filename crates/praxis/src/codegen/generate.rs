@@ -155,7 +155,7 @@ fn write_entity_data(
         let def = entity
             .definitions
             .first()
-            .map(|d| d.replace('"', "\\\"").replace('\\', "\\\\"))
+            .map(|d| d.replace('\\', "\\\\").replace('"', "\\\""))
             .unwrap_or_default();
         writeln!(out, "    \"{def}\",").unwrap();
     }
@@ -218,7 +218,7 @@ fn write_word_index(out: &mut String, builder: &OntologyBuilder, id_map: &HashMa
 
     writeln!(out, "static WORD_INDEX: &[(&str, &[u32])] = &[").unwrap();
     for (word, ids) in &sorted_words {
-        let word_escaped = word.replace('"', "\\\"").replace('\\', "\\\\");
+        let word_escaped = word.replace('\\', "\\\\").replace('"', "\\\"");
         let id_list: Vec<String> = ids.iter().map(|id| id.to_string()).collect();
         writeln!(out, "    (\"{word_escaped}\", &[{}]),", id_list.join(", ")).unwrap();
     }
