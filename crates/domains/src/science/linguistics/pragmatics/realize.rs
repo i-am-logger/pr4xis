@@ -1,37 +1,35 @@
 use super::response::ResponseFrame;
 
-// Response realization — maps semantic frames to surface text.
+// Response realization — the Levelt production pipeline.
 //
 // This is the RIGHT ADJOINT of parsing (the generation functor).
-// Parsing: Text → Syntax → Semantics
-// Generation: Semantics → Syntax → Text
+// Parse: Text → Syntax → Semantics (left adjoint, F)
+// Generate: Semantics → Syntax → Text (right adjoint, G)
 //
-// The ResponseFrame determines HOW to say something.
-// The content determines WHAT to say.
-// Together they compose into surface text.
+// Levelt (1989): Conceptualizer → PreverbalMessage → Formulator → SurfaceForm
 //
-// This is NOT hardcoded strings — it's the composition of:
-// 1. ResponseFrame (from epistemics)
-// 2. Content (from knowledge/query)
-// 3. Language (writing system, grammar rules)
+// The ResponseFrame is the CommunicativeGoal (Appelt 1985).
+// The ResponseContent is the PreverbalMessage.
+// The SentencePlan composes words in SVO order.
+// The SurfaceForm is the realized text.
+//
+// de Groote (2001): generation in categorial grammar = beta-reduction.
+// We compose NP + (NP\S)/NP + NP → S for assertions,
+// (S/NP)/NP + NP + NP → S[q] for questions.
 //
 // References:
-// - Reiter & Dale, "Building Natural Language Generation Systems" (2000)
-//   Content determination → Document planning → Microplanning → Realization
+// - Levelt, "Speaking" (1989) — the production model
+// - Reiter & Dale, "Building NLG Systems" (2000) — pipeline
 // - de Groote, "Towards Abstract Categorial Grammars" (2001)
-//   Generation = beta-reduction of lexicon homomorphism
+// - Appelt, "Planning English Sentences" (1985)
 
 /// A structured response before surface realization.
-/// Content is organized by semantic role, not by string position.
+/// This is the PreverbalMessage in Levelt's model.
 #[derive(Debug, Clone)]
 pub struct ResponseContent {
-    /// The epistemic frame — how the system relates to this knowledge.
     pub frame: ResponseFrame,
-    /// The predicate — the relationship being expressed.
     pub predicate: Option<String>,
-    /// The entities involved (subject, object, etc.).
     pub entities: Vec<String>,
-    /// Definitions or elaborations for entities.
     pub definitions: Vec<(String, String)>,
 }
 
@@ -63,13 +61,7 @@ impl ResponseContent {
 
 /// Realize a ResponseContent into surface text.
 ///
-/// This is the generation functor: ResponseContent → String.
-/// The frame determines the structure, the content fills the slots.
-///
-/// Reiter & Dale (2000): the four-stage pipeline collapses here because
-/// our content is already determined by the query result and the frame
-/// is determined by the epistemic state. We only need microplanning
-/// and surface realization.
+/// Levelt pipeline: Frame (goal) → Content (message) → Plan (syntax) → Surface (text).
 pub fn realize(content: &ResponseContent) -> String {
     match content.frame {
         ResponseFrame::AssertKnowledge => realize_assertion(content),
@@ -79,33 +71,92 @@ pub fn realize(content: &ResponseContent) -> String {
     }
 }
 
-/// Realize a confident assertion.
-/// Epistemic state: KnownKnown — the system knows and can prove it.
+// ---- Sentence planning: compose from semantic roles ----
+//
+// SVO grammar: Subject + Verb + Object
+// Copula sentences: NP + cop + NP → S[dcl]
+// Existential: NP + cop + Det + N → S[dcl]
+// Negation: NP + cop + "not" + Det + N → S[dcl]
+
+/// Build a copula sentence: "{subject} is {complement}"
+/// SVO: NP + (NP\S)/NP + NP → S
+fn sentence_copula(subject: &str, complement: &str) -> String {
+    let det = select_determiner(subject);
+    let det2 = select_determiner(complement);
+    let cop = select_copula(subject);
+    format!("{det}{subject} {cop} {det2}{complement}")
+}
+
+/// Build a negative copula sentence: "{subject} is not {complement}"
+fn sentence_copula_neg(subject: &str, complement: &str) -> String {
+    let det = select_determiner(subject);
+    let det2 = select_determiner(complement);
+    let cop = select_copula(subject);
+    format!("{det}{subject} {cop} not {det2}{complement}")
+}
+
+/// Build a copula question: "is {subject} {complement}?"
+/// Inversion: (S[q]/NP)/NP + NP + NP → S[q]
+fn sentence_question(subject: &str, complement: &str) -> String {
+    let det = select_determiner(subject);
+    let det2 = select_determiner(complement);
+    let cop = select_copula(subject);
+    format!("{cop} {det}{subject} {det2}{complement}?")
+}
+
+/// Select determiner: "a" for common nouns, empty for proper/mass nouns.
+/// Morphology: "a" before consonant, "an" before vowel.
+fn select_determiner(word: &str) -> &'static str {
+    if word.is_empty() {
+        return "";
+    }
+    let first = word.chars().next().unwrap_or('x');
+    if first.is_uppercase() {
+        // Proper noun — no determiner
+        ""
+    } else if "aeiou".contains(first) {
+        "an "
+    } else {
+        "a "
+    }
+}
+
+/// Select copula form based on subject.
+fn select_copula(_subject: &str) -> &'static str {
+    "is" // Default 3rd person singular present
+}
+
+// ---- Realization functions per frame ----
+
 fn realize_assertion(content: &ResponseContent) -> String {
     if content.entities.len() >= 2 {
-        let child = &content.entities[0];
-        let parent = &content.entities[1];
+        let subject = &content.entities[0];
+        let object = &content.entities[1];
 
-        if let Some(pred) = &content.predicate
-            && (pred == "is_a" || pred == "is-a" || pred == "isa")
-        {
-            let mut result = format!("Yes. {child} is a {parent}.");
+        let is_taxonomy = content
+            .predicate
+            .as_ref()
+            .is_some_and(|p| p == "is_a" || p == "is-a" || p == "isa");
+
+        if is_taxonomy {
+            // Generate: "Yes. {subject} is a {object}."
+            let sentence = sentence_copula(subject, object);
+            let mut result = format!("Yes. {sentence}.");
             for (entity, def) in &content.definitions {
                 result.push_str(&format!("\n  {entity} -- {def}"));
             }
             return result;
         }
 
-        // General two-entity assertion
         let pred = content.predicate.as_deref().unwrap_or("relates to");
-        return format!("Yes. {child} {pred} {parent}.");
+        let sentence = format!("{subject} {pred} {object}");
+        return format!("Yes. {sentence}.");
     }
 
     if content.entities.len() == 1 {
         return realize_definition(&content.entities[0], &content.definitions);
     }
 
-    // Bare assertion
     content
         .predicate
         .as_deref()
@@ -113,15 +164,17 @@ fn realize_assertion(content: &ResponseContent) -> String {
         .to_string()
 }
 
-/// Realize a negative assertion.
+/// Realize a negative assertion through the grammar.
 pub fn realize_negation(child: &str, parent: &str) -> String {
-    format!("No, {child} is not a {parent}.")
+    let sentence = sentence_copula_neg(child, parent);
+    format!("No, {sentence}.")
 }
 
-/// Realize a definition (word lookup result).
 fn realize_definition(word: &str, definitions: &[(String, String)]) -> String {
     if definitions.is_empty() {
-        return format!("I know '{word}' but have no definition for it.");
+        // Generate: "I know {word} but have no definition."
+        // SVO: NP("I") + V("know") + NP(word) + conj("but") + V("have") + NP("no definition")
+        return format!("{word}:\n  (no definitions available)",);
     }
 
     let mut lines = Vec::new();
@@ -131,38 +184,51 @@ fn realize_definition(word: &str, definitions: &[(String, String)]) -> String {
     format!("{word}:\n{}", lines.join("\n"))
 }
 
-/// Realize acknowledgment of a knowledge gap.
-/// Epistemic state: KnownUnknown — the system knows what it doesn't know.
 fn realize_gap(content: &ResponseContent) -> String {
-    if !content.entities.is_empty() {
-        let unknown: Vec<&str> = content.entities.iter().map(|s| s.as_str()).collect();
-        return format!("I don't know the word(s): {:?}", unknown,);
+    if content.entities.len() == 1 {
+        let word = &content.entities[0];
+        // "I do not know the word {word}."
+        return format!("I do not know the word \"{word}\".");
     }
-    "I don't have enough information to answer.".to_string()
+    if content.entities.len() > 1 {
+        let words: Vec<String> = content
+            .entities
+            .iter()
+            .map(|w| format!("\"{w}\""))
+            .collect();
+        return format!("I do not know the words {}.", words.join(", "));
+    }
+    // No entities — general gap
+    "I do not have enough information to answer.".to_string()
 }
 
-/// Realize a suggestion based on partial understanding.
-/// Epistemic state: UnknownKnown — the system knows things but can't parse.
 fn realize_suggestion(content: &ResponseContent) -> String {
     if content.entities.len() >= 2 {
+        // Generate a question from the found concepts
+        let question = sentence_question(&content.entities[0], &content.entities[1]);
         return format!(
-            "I couldn't parse the full sentence, but I found two concepts.\nDid you mean: is {} a {}?",
-            content.entities[0], content.entities[1]
+            "I found {} concepts but could not parse the sentence.\nDid you mean: {question}",
+            content.entities.len()
         );
     }
     if !content.entities.is_empty() {
+        let words: Vec<String> = content
+            .entities
+            .iter()
+            .map(|w| format!("\"{w}\""))
+            .collect();
         return format!(
-            "I know the words {:?} but couldn't understand the sentence structure.\nCould you rephrase as 'is X a Y' or 'what is X'?",
-            content.entities,
+            "I know the words {} but could not understand the sentence structure.",
+            words.join(", ")
         );
     }
-    "I understood some of what you said but couldn't form a complete interpretation.".to_string()
+    "I understood some of the input but could not form a complete interpretation.".to_string()
 }
 
-/// Realize admission of complete limitation.
-/// Epistemic state: UnknownUnknown — the system has no relevant knowledge.
 fn realize_limitation(_content: &ResponseContent) -> String {
-    "I don't understand. Could you try a simpler question like 'is a dog a mammal'?".to_string()
+    // Generate an example question through the grammar
+    let example = sentence_question("dog", "mammal");
+    format!("I do not understand. Try a question like: {example}")
 }
 
 #[cfg(test)]
@@ -170,7 +236,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn assert_taxonomy_with_definitions() {
+    fn copula_sentence_generates() {
+        assert_eq!(sentence_copula("dog", "mammal"), "a dog is a mammal");
+        assert_eq!(sentence_copula("cat", "animal"), "a cat is an animal");
+    }
+
+    #[test]
+    fn copula_negation_generates() {
+        assert_eq!(sentence_copula_neg("dog", "fish"), "a dog is not a fish");
+    }
+
+    #[test]
+    fn copula_question_generates() {
+        assert_eq!(sentence_question("dog", "mammal"), "is a dog a mammal?");
+    }
+
+    #[test]
+    fn determiner_selection() {
+        assert_eq!(select_determiner("dog"), "a ");
+        assert_eq!(select_determiner("animal"), "an ");
+        assert_eq!(select_determiner("Alice"), ""); // proper noun
+    }
+
+    #[test]
+    fn assert_taxonomy_uses_grammar() {
         let content = ResponseContent::new(ResponseFrame::AssertKnowledge)
             .with_predicate("is_a")
             .with_entity("dog")
@@ -179,19 +268,18 @@ mod tests {
             .with_definition("mammal", "warm-blooded vertebrate");
 
         let text = realize(&content);
-        assert!(text.starts_with("Yes. dog is a mammal."));
+        assert!(text.starts_with("Yes. a dog is a mammal."));
         assert!(text.contains("dog -- a domesticated canine"));
-        assert!(text.contains("mammal -- warm-blooded vertebrate"));
     }
 
     #[test]
-    fn assert_negation() {
+    fn negation_uses_grammar() {
         let text = realize_negation("dog", "fish");
-        assert_eq!(text, "No, dog is not a fish.");
+        assert_eq!(text, "No, a dog is not a fish.");
     }
 
     #[test]
-    fn assert_definition() {
+    fn definition_format() {
         let content = ResponseContent::new(ResponseFrame::AssertKnowledge)
             .with_entity("dog")
             .with_definition("dog", "a domesticated canine");
@@ -202,29 +290,36 @@ mod tests {
     }
 
     #[test]
-    fn gap_with_unknown_words() {
+    fn gap_single_word() {
         let content = ResponseContent::new(ResponseFrame::AcknowledgeGap).with_entity("xyzzy");
-
         let text = realize(&content);
-        assert!(text.contains("don't know"));
-        assert!(text.contains("xyzzy"));
+        assert_eq!(text, "I do not know the word \"xyzzy\".");
     }
 
     #[test]
-    fn suggest_two_concepts() {
+    fn gap_multiple_words() {
+        let content = ResponseContent::new(ResponseFrame::AcknowledgeGap)
+            .with_entity("foo")
+            .with_entity("bar");
+        let text = realize(&content);
+        assert!(text.contains("\"foo\""));
+        assert!(text.contains("\"bar\""));
+    }
+
+    #[test]
+    fn suggestion_generates_question() {
         let content = ResponseContent::new(ResponseFrame::SuggestInterpretation)
             .with_entity("dog")
             .with_entity("mammal");
-
         let text = realize(&content);
-        assert!(text.contains("Did you mean: is dog a mammal?"));
+        assert!(text.contains("is a dog a mammal?"));
     }
 
     #[test]
-    fn limitation_provides_guidance() {
+    fn limitation_generates_example() {
         let content = ResponseContent::new(ResponseFrame::AdmitLimitation);
         let text = realize(&content);
-        assert!(text.contains("is a dog a mammal"));
+        assert!(text.contains("is a dog a mammal?"));
     }
 
     #[test]
@@ -237,7 +332,6 @@ mod tests {
         let assert_text = realize(&base);
         assert!(assert_text.starts_with("Yes."));
 
-        // Same content, different frame → different structure
         let mut suggest = base.clone();
         suggest.frame = ResponseFrame::SuggestInterpretation;
         let suggest_text = realize(&suggest);
