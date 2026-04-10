@@ -1,4 +1,5 @@
 pub mod discourse;
+pub mod generation;
 pub mod reference;
 pub mod response;
 pub mod speech_act;
