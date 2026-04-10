@@ -50,6 +50,16 @@ impl Functor for DialogueToCommunication {
             DialogueConcept::TurnManagement => CommunicationConcept::Feedback,
             // Grounding is feedback — confirms mutual understanding
             DialogueConcept::Grounding => CommunicationConcept::Feedback,
+            // QUD is context — the questions drive interpretation
+            DialogueConcept::QUD => CommunicationConcept::Context,
+            // CommonGround is context — shared beliefs
+            DialogueConcept::CommonGround => CommunicationConcept::Context,
+            // Intention is the message before it's encoded
+            DialogueConcept::Intention => CommunicationConcept::Message,
+            // GroundingAct is feedback — confirming understanding
+            DialogueConcept::GroundingAct => CommunicationConcept::Feedback,
+            // Repair is feedback — fixing misunderstanding
+            DialogueConcept::Repair => CommunicationConcept::Feedback,
         }
     }
 
@@ -67,6 +77,12 @@ impl Functor for DialogueToCommunication {
             DialogueRelationKind::Controls => CommunicationRelationKind::FlowsBack,
             DialogueRelationKind::ArisesFrom => CommunicationRelationKind::FlowsBack,
             DialogueRelationKind::Addresses => CommunicationRelationKind::Grounds,
+            DialogueRelationKind::RaisesOrResolves => CommunicationRelationKind::Grounds,
+            DialogueRelationKind::EstablishesIn => CommunicationRelationKind::Grounds,
+            DialogueRelationKind::Drives => CommunicationRelationKind::Produces,
+            DialogueRelationKind::Achieves => CommunicationRelationKind::FlowsBack,
+            DialogueRelationKind::Restores => CommunicationRelationKind::FlowsBack,
+            DialogueRelationKind::FormedFrom => CommunicationRelationKind::Grounds,
             DialogueRelationKind::Composed => CommunicationRelationKind::Composed,
         };
         CommunicationRelation { from, to, kind }

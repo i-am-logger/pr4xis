@@ -10,8 +10,9 @@ fn dialogue_category_laws() {
 }
 
 #[test]
-fn dialogue_has_10_concepts() {
-    assert_eq!(DialogueConcept::variants().len(), 10);
+fn dialogue_has_15_concepts() {
+    // 10 original + 5 new: QUD, CommonGround, Intention, GroundingAct, Repair
+    assert_eq!(DialogueConcept::variants().len(), 15);
 }
 
 #[test]
