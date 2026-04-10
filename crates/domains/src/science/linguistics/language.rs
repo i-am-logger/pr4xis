@@ -401,9 +401,135 @@ pub fn build_verb_transitivity(
     result
 }
 
-/// Build the English closed-class function words.
-/// Classified by OLiA categories. Constructed once during language initialization.
+/// Build function words from LMF data file.
+///
+/// Parses the same LMF format as WordNet — function words are DATA,
+/// not hardcoded Rust. The synset IDs encode linguistic features
+/// (OLiA categories: definite-det, personal-pron, greeting, etc.).
+///
+/// Falls back to embedded XML if the data file is not found.
 pub fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
+    // Try loading from data file first
+    let data_paths = [
+        "crates/domains/data/function-words/english.xml",
+        "data/function-words/english.xml",
+        "../domains/data/function-words/english.xml",
+    ];
+
+    for path in &data_paths {
+        if let Ok(xml) = std::fs::read_to_string(path)
+            && let Ok(wn) =
+                crate::technology::software::markup::xml::lmf::reader::read_wordnet(&xml)
+        {
+            return function_words_from_lmf(&wn);
+        }
+    }
+
+    // Fallback: embedded minimal LMF for when data file isn't available (tests, WASM)
+    build_english_function_words_embedded()
+}
+
+/// Parse function words from an LMF WordNet instance.
+/// Maps synset categories (from OLiA) to rich LexicalEntry types.
+fn function_words_from_lmf(
+    wn: &crate::technology::software::markup::xml::lmf::ontology::WordNet,
+) -> HashMap<String, Vec<LexicalEntry>> {
+    let mut map: HashMap<String, Vec<LexicalEntry>> = HashMap::new();
+
+    // Build synset → synset_id lookup
+    let synset_ids: HashMap<String, &str> = wn
+        .synsets
+        .iter()
+        .map(|s| (s.id.clone(), s.id.as_str()))
+        .collect();
+
+    for entry in &wn.entries {
+        let word = entry.lemma.written_form.to_lowercase();
+        let synset_id = entry
+            .senses
+            .first()
+            .map(|s| s.synset.as_str())
+            .unwrap_or("");
+
+        let lexical_entry = match entry.lemma.pos {
+            lmf::LmfPos::Determiner => {
+                let definiteness =
+                    if synset_id.contains("definite") && !synset_id.contains("indefinite") {
+                        Definiteness::Definite
+                    } else if synset_id.contains("demonstrative") {
+                        Definiteness::Demonstrative
+                    } else if synset_id.contains("universal") || synset_id.contains("negative") {
+                        Definiteness::Quantifier
+                    } else {
+                        Definiteness::Indefinite
+                    };
+                LexicalEntry::Determiner(Determiner {
+                    text: word.clone(),
+                    definiteness,
+                    number: None,
+                })
+            }
+            lmf::LmfPos::Copula => LexicalEntry::Copula(Copula {
+                text: word.clone(),
+                number: Number::Singular,
+                person: Person::Third,
+                tense: Tense::Present,
+            }),
+            lmf::LmfPos::Auxiliary => LexicalEntry::Auxiliary(Auxiliary {
+                text: word.clone(),
+                number: None,
+                tense: None,
+            }),
+            lmf::LmfPos::Pronoun => {
+                let kind = if synset_id.contains("interrogative") {
+                    PronounKind::Interrogative
+                } else {
+                    PronounKind::Personal
+                };
+                LexicalEntry::Pronoun(Pronoun {
+                    text: word.clone(),
+                    number: Number::Singular,
+                    person: Person::Third,
+                    kind,
+                })
+            }
+            lmf::LmfPos::Preposition => {
+                LexicalEntry::Preposition(Preposition { text: word.clone() })
+            }
+            lmf::LmfPos::Conjunction => {
+                LexicalEntry::Conjunction(Conjunction { text: word.clone() })
+            }
+            lmf::LmfPos::Particle => LexicalEntry::Particle(Particle { text: word.clone() }),
+            lmf::LmfPos::Interjection => {
+                let kind = if synset_id.contains("greeting") {
+                    InterjectionKind::Greeting
+                } else if synset_id.contains("farewell") {
+                    InterjectionKind::Farewell
+                } else if synset_id.contains("politeness") {
+                    InterjectionKind::Politeness
+                } else if synset_id.contains("response") {
+                    InterjectionKind::Response
+                } else {
+                    InterjectionKind::Expressive
+                };
+                LexicalEntry::Interjection(Interjection {
+                    text: word.clone(),
+                    kind,
+                })
+            }
+            _ => continue, // Skip non-function-word POS
+        };
+
+        let _ = synset_ids; // used for future feature expansion
+        map.entry(word).or_default().push(lexical_entry);
+    }
+
+    map
+}
+
+/// Embedded function words — used when data file is not available.
+/// Same content as data/function-words/english.xml, but inline.
+fn build_english_function_words_embedded() -> HashMap<String, Vec<LexicalEntry>> {
     let mut map: HashMap<String, Vec<LexicalEntry>> = HashMap::new();
 
     let mut add = |entry: LexicalEntry| {
