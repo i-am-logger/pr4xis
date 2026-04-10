@@ -95,7 +95,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     let word_list: Vec<&str> = tokens.iter().map(|t| t.word.as_str()).collect();
     let type_list: Vec<String> = tokens
         .iter()
-        .map(|t| format!("{} → {:?}", t.word, t.lambek_type))
+        .map(|t| format!("{} → {}", t.word, t.lambek_type.notation()))
         .collect();
     let meaning_desc = match &meaning {
         montague::Sem::Question {
