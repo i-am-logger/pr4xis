@@ -211,89 +211,24 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     };
     trace.ok("Montague Semantics", "interpret", &meaning_desc);
 
-    // Step 4: Generate response — which ontologies answer?
+    // Step 4: Generate response — each function reports to trace
     let (response, user_act, from_ontology) = match &meaning {
         montague::Sem::Question {
             predicate,
             arguments,
         } => {
-            let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
-            let content: Vec<&str> = entities
-                .iter()
-                .filter(|e| !lang.lookup(e).is_empty())
-                .map(|s| s.as_str())
-                .collect();
-            trace.ok(
-                "WordNet Taxonomy",
-                "is_a lookup",
-                &format!("entities: [{}]", content.join(", ")),
-            );
-            let r = answer_question(lang, predicate, arguments);
-            trace.ok(
-                "NLG Pipeline (Reiter-Dale)",
-                "realize",
-                "taxonomy response → SVO grammar",
-            );
+            let r = answer_question(lang, predicate, arguments, &mut trace);
             (r, SpeechAct::Question, true)
         }
         montague::Sem::Prop {
             predicate,
             arguments,
         } => {
-            let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
-            trace.ok(
-                "WordNet Lexicon",
-                "define",
-                &format!("about: [{}]", entities.join(", ")),
-            );
-            let r = answer_statement(lang, predicate, arguments);
-            trace.ok("NLG Pipeline", "realize", "statement → SVO grammar");
+            let r = answer_statement(lang, predicate, arguments, &mut trace);
             (r, SpeechAct::Assertion, true)
         }
         _ => {
-            // Metacognition: classify epistemic state
-            let known: Vec<&str> = tokens
-                .iter()
-                .filter(|t| lang.lexical_lookup(&t.word).is_some())
-                .map(|t| t.word.as_str())
-                .collect();
-            let unknown: Vec<&str> = tokens
-                .iter()
-                .filter(|t| lang.lexical_lookup(&t.word).is_none())
-                .map(|t| t.word.as_str())
-                .collect();
-
-            if !unknown.is_empty() {
-                trace.warn(
-                    "Epistemics",
-                    "classify",
-                    &format!("known-unknown — missing words: [{}]", unknown.join(", ")),
-                );
-            } else if !parsed {
-                trace.warn(
-                    "Epistemics",
-                    "classify",
-                    &format!(
-                        "unknown-known — words known [{}] but parse failed",
-                        known.join(", ")
-                    ),
-                );
-            }
-
-            let r = attempt_partial_understanding(lang, &tokens, &reduction, &meaning);
-            if !known.is_empty() {
-                trace.ok(
-                    "Metacognition",
-                    "explore concepts",
-                    &format!("exploring: [{}]", known.join(", ")),
-                );
-                trace.ok("WordNet Taxonomy", "LCA search", "finding common ancestors");
-            }
-            trace.ok(
-                "NLG Pipeline",
-                "realize",
-                "partial understanding → SVO grammar",
-            );
+            let r = attempt_partial_understanding(lang, &tokens, &reduction, &meaning, &mut trace);
             (r, SpeechAct::Assertion, parsed)
         }
     };
@@ -317,6 +252,7 @@ fn attempt_partial_understanding(
     tokens: &[TypedToken],
     reduction: &ReductionResult,
     meaning: &montague::Sem,
+    trace: &mut Trace,
 ) -> String {
     // Check known/unknown through the Language trait — covers BOTH
     // function words (closed class) AND WordNet concepts (open class).
@@ -336,6 +272,15 @@ fn attempt_partial_understanding(
     let parsed = reduction.success;
     let query_result: Option<&str> = if parsed { Some("parsed") } else { None };
     let state = epistemics::classify_result(parsed, has_knowledge, query_result);
+    trace.ok(
+        "Epistemics",
+        "classify",
+        &format!(
+            "{state:?} — known: [{}], unknown: [{}]",
+            known_words.join(", "),
+            unknown_words.join(", ")
+        ),
+    );
 
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
@@ -345,17 +290,16 @@ fn attempt_partial_understanding(
     match state {
         epistemics::EpistemicState::UnknownKnown => {
             if known_words.len() == 1 {
-                return define_word(en, known_words[0]);
+                trace.ok("WordNet Lexicon", "define", known_words[0]);
+                return define_word(en, known_words[0], trace);
             }
-            // Find content words (nouns in WordNet)
             let nouns: Vec<&str> = tokens
                 .iter()
                 .filter(|t| !en.lookup(&t.word).is_empty() && t.lambek_type.is_noun())
                 .map(|t| t.word.as_str())
                 .collect();
             if nouns.len() >= 2 {
-                // Explore what we KNOW about these concepts through the taxonomy
-                return explore_concepts(en, &nouns);
+                return explore_concepts(en, &nouns, trace);
             }
             let mut content = ResponseContent::new(frame);
             for w in &known_words {
@@ -380,7 +324,12 @@ fn attempt_partial_understanding(
     }
 }
 
-pub fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem]) -> String {
+pub fn answer_question(
+    en: &English,
+    predicate: &str,
+    arguments: &[montague::Sem],
+    _trace: &mut Trace,
+) -> String {
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
 
@@ -427,7 +376,7 @@ pub fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem
     }
 
     if entities.len() == 1 {
-        return define_word(en, &entities[0]);
+        return define_word(en, &entities[0], _trace);
     }
 
     let mut content = ResponseContent::new(ResponseFrame::AcknowledgeGap).with_predicate(predicate);
@@ -437,7 +386,12 @@ pub fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem
     realize::realize(&content)
 }
 
-pub fn answer_statement(en: &English, _predicate: &str, arguments: &[montague::Sem]) -> String {
+pub fn answer_statement(
+    en: &English,
+    _predicate: &str,
+    arguments: &[montague::Sem],
+    _trace: &mut Trace,
+) -> String {
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
 
@@ -446,7 +400,7 @@ pub fn answer_statement(en: &English, _predicate: &str, arguments: &[montague::S
     if entities.len() == 1 {
         let ids = en.lookup(&entities[0]);
         if !ids.is_empty() {
-            return define_word(en, &entities[0]);
+            return define_word(en, &entities[0], _trace);
         }
     }
 
@@ -457,7 +411,7 @@ pub fn answer_statement(en: &English, _predicate: &str, arguments: &[montague::S
     realize::realize(&content)
 }
 
-pub fn define_word(en: &English, word: &str) -> String {
+pub fn define_word(en: &English, word: &str, _trace: &mut Trace) -> String {
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
 
@@ -587,7 +541,7 @@ fn build_taxonomy_response(
 /// relationships between concepts — common ancestors, is-a chains,
 /// shared properties. This is metacognition: instead of guessing
 /// "did you mean is X a Y?", explore and report what we actually know.
-fn explore_concepts(en: &English, words: &[&str]) -> String {
+fn explore_concepts(en: &English, words: &[&str], _trace: &mut Trace) -> String {
     use praxis_domains::science::linguistics::pragmatics::realize;
 
     let mut lines = Vec::new();
