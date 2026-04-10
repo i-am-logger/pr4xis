@@ -30,3 +30,4 @@ roadmap.md
 !docs/papers/*.pdf
 crates/domains/data/wordnet/*.xml
 crates/wasm/pkg/
+docs/chat/pkg/
