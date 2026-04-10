@@ -28,6 +28,9 @@ pub struct ProcessResult {
     pub parsed: bool,
     /// Metacognition trace — the epistemic path taken.
     pub trace: String,
+    /// Whether the response was generated from the ontology (true)
+    /// or is a hardcoded/fallback string (false).
+    pub from_ontology: bool,
 }
 
 /// Process input through the full linguistics pipeline.
@@ -55,6 +58,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             token_count: 0,
             parsed: false,
             trace: "empty input".into(),
+            from_ontology: false,
         };
     }
 
@@ -113,6 +117,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
                 token_count,
                 parsed,
                 trace,
+                from_ontology: true,
             }
         }
 
@@ -129,6 +134,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
                 token_count,
                 parsed,
                 trace,
+                from_ontology: true,
             }
         }
 
@@ -142,6 +148,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
                 token_count,
                 parsed,
                 trace,
+                from_ontology: parsed,
             }
         }
     }
