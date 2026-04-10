@@ -103,27 +103,39 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     // The interpretation result IS Traceable via wrapper.
     trace.trace_result(&trace_impls::InterpretResult { meaning: &meaning });
 
-    // Step 4: Generate response — each function reports to trace
-    let (response, user_act, from_ontology) = match &meaning {
+    // Step 4: Generate response — pure functions return results,
+    // caller applies trace functor. No &mut trace threading.
+    let (response_result, user_act) = match &meaning {
         montague::Sem::Question {
             predicate,
             arguments,
         } => {
-            let r = answer_question(lang, predicate, arguments, &mut trace);
-            (r, SpeechAct::Question, true)
+            let r = answer_question(lang, predicate, arguments);
+            (r, SpeechAct::Question)
         }
         montague::Sem::Prop {
             predicate,
             arguments,
         } => {
-            let r = answer_statement(lang, predicate, arguments, &mut trace);
-            (r, SpeechAct::Assertion, true)
+            let r = answer_statement(lang, predicate, arguments);
+            (r, SpeechAct::Assertion)
         }
         _ => {
             let r = attempt_partial_understanding(lang, &tokens, &reduction, &meaning, &mut trace);
-            (r, SpeechAct::Assertion, parsed)
+            let rr = trace_impls::ResponseResult {
+                response: r,
+                entities_found: vec![],
+                taxonomy_checked: None,
+                from_ontology: parsed,
+            };
+            (rr, SpeechAct::Assertion)
         }
     };
+
+    // Apply the trace functor to the response result
+    trace.trace_result(&response_result);
+    let response = response_result.response;
+    let from_ontology = response_result.from_ontology;
 
     let duration_us = start.elapsed_us();
 
@@ -183,7 +195,7 @@ fn attempt_partial_understanding(
                     found: true,
                     concept_count: en.lookup(known_words[0]).len(),
                 });
-                return define_word(en, known_words[0], trace);
+                return define_word(en, known_words[0]);
             }
             let nouns: Vec<&str> = tokens
                 .iter()
@@ -220,14 +232,12 @@ pub fn answer_question(
     en: &English,
     predicate: &str,
     arguments: &[montague::Sem],
-    _trace: &mut Trace,
-) -> String {
+) -> trace_impls::ResponseResult {
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
 
     let all_entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
-    // Filter to content entities (in WordNet) — skip function words like "what", "is"
     let entities: Vec<String> = all_entities
         .iter()
         .filter(|e| !en.lookup(e).is_empty())
@@ -245,11 +255,21 @@ pub fn answer_question(
             for &cid in child_ids {
                 for &pid in parent_ids {
                     if en.is_a(cid, pid) {
-                        return build_taxonomy_response(en, child, parent, cid, pid);
+                        return trace_impls::ResponseResult {
+                            response: build_taxonomy_response(en, child, parent, cid, pid),
+                            entities_found: entities.clone(),
+                            taxonomy_checked: Some((child.clone(), parent.clone(), true)),
+                            from_ontology: true,
+                        };
                     }
                 }
             }
-            return realize::realize_negation(child, parent);
+            return trace_impls::ResponseResult {
+                response: realize::realize_negation(child, parent),
+                entities_found: entities.clone(),
+                taxonomy_checked: Some((child.clone(), parent.clone(), false)),
+                from_ontology: true,
+            };
         }
 
         if !parent_ids.is_empty() && !child_ids.is_empty() {
@@ -260,7 +280,12 @@ pub fn answer_question(
                             .with_predicate("is_a")
                             .with_entity(parent)
                             .with_entity(child);
-                        return realize::realize(&content);
+                        return trace_impls::ResponseResult {
+                            response: realize::realize(&content),
+                            entities_found: entities.clone(),
+                            taxonomy_checked: Some((parent.clone(), child.clone(), true)),
+                            from_ontology: true,
+                        };
                     }
                 }
             }
@@ -268,22 +293,32 @@ pub fn answer_question(
     }
 
     if entities.len() == 1 {
-        return define_word(en, &entities[0], _trace);
+        let response = define_word(en, &entities[0]);
+        return trace_impls::ResponseResult {
+            response,
+            entities_found: entities,
+            taxonomy_checked: None,
+            from_ontology: true,
+        };
     }
 
     let mut content = ResponseContent::new(ResponseFrame::AcknowledgeGap).with_predicate(predicate);
     for e in &entities {
         content = content.with_entity(e);
     }
-    realize::realize(&content)
+    trace_impls::ResponseResult {
+        response: realize::realize(&content),
+        entities_found: entities,
+        taxonomy_checked: None,
+        from_ontology: false,
+    }
 }
 
 pub fn answer_statement(
     en: &English,
     _predicate: &str,
     arguments: &[montague::Sem],
-    _trace: &mut Trace,
-) -> String {
+) -> trace_impls::ResponseResult {
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
 
@@ -292,7 +327,13 @@ pub fn answer_statement(
     if entities.len() == 1 {
         let ids = en.lookup(&entities[0]);
         if !ids.is_empty() {
-            return define_word(en, &entities[0], _trace);
+            let response = define_word(en, &entities[0]);
+            return trace_impls::ResponseResult {
+                response,
+                entities_found: entities,
+                taxonomy_checked: None,
+                from_ontology: true,
+            };
         }
     }
 
@@ -300,10 +341,15 @@ pub fn answer_statement(
     for e in &entities {
         content = content.with_entity(e);
     }
-    realize::realize(&content)
+    trace_impls::ResponseResult {
+        response: realize::realize(&content),
+        entities_found: entities,
+        taxonomy_checked: None,
+        from_ontology: true,
+    }
 }
 
-pub fn define_word(en: &English, word: &str, _trace: &mut Trace) -> String {
+pub fn define_word(en: &English, word: &str) -> String {
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
 

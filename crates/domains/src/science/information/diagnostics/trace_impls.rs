@@ -201,3 +201,41 @@ impl Traceable for RealizationResult {
         self.section_count > 0
     }
 }
+
+/// Traceable for the full response generation pipeline.
+/// Wraps the response text + what ontologies were consulted.
+pub struct ResponseResult {
+    pub response: String,
+    pub entities_found: Vec<String>,
+    pub taxonomy_checked: Option<(String, String, bool)>,
+    pub from_ontology: bool,
+}
+
+impl Traceable for ResponseResult {
+    fn step(&self) -> PipelineStep {
+        PipelineStep::ContentDetermination
+    }
+
+    fn trace_detail(&self) -> String {
+        let mut parts = Vec::new();
+        if !self.entities_found.is_empty() {
+            parts.push(format!("entities: [{}]", self.entities_found.join(", ")));
+        }
+        if let Some((child, parent, is_a)) = &self.taxonomy_checked {
+            if *is_a {
+                parts.push(format!("{child} is a {parent} ✓"));
+            } else {
+                parts.push(format!("{child} is NOT a {parent} ✗"));
+            }
+        }
+        if parts.is_empty() {
+            "no ontology data found".into()
+        } else {
+            parts.join(" → ")
+        }
+    }
+
+    fn trace_success(&self) -> bool {
+        self.from_ontology
+    }
+}
