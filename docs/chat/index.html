@@ -41,7 +41,7 @@
       padding: 1.5rem 2rem;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.5rem;
     }
     .message {
       max-width: 80%;
@@ -55,6 +55,7 @@
       align-self: flex-end;
       background: #1f6feb;
       color: #fff;
+      margin-top: 0.5rem;
     }
     .system {
       align-self: flex-start;
@@ -69,26 +70,48 @@
     .info {
       align-self: center;
       color: #8b949e;
-      font-size: 0.85em;
+      font-size: 0.8em;
       font-style: italic;
     }
-    .trace {
+
+    /* Trace: attached below each response, pulls down like accordion */
+    .trace-toggle {
       align-self: flex-start;
-      background: #0d1117;
-      border: 1px solid #21262d;
-      border-radius: 8px;
-      padding: 0.5rem 0.8rem;
-      font-family: monospace;
-      font-size: 0.75em;
-      color: #7ee787;
+      background: none;
+      border: none;
+      color: #484f58;
+      font-size: 0.7em;
+      cursor: pointer;
+      padding: 0.2rem 0;
+      margin-left: 0.5rem;
+    }
+    .trace-toggle:hover { color: #7ee787; }
+    .trace-toggle.open { color: #7ee787; }
+    .trace-panel {
+      align-self: flex-start;
       max-width: 90%;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.3s ease;
+      background: #0d1117;
+      border-left: 2px solid #21262d;
+      margin-left: 1rem;
+      font-family: monospace;
+      font-size: 0.72em;
+      color: #7ee787;
       white-space: pre-wrap;
       word-break: break-all;
+      padding: 0 0.8rem;
     }
-    .trace summary { cursor: pointer; color: #8b949e; }
-    .trace .step { margin-left: 1em; color: #79c0ff; }
-    .trace .step::before { content: '├─ '; color: #484f58; }
-    .trace .step:last-child::before { content: '└─ '; color: #484f58; }
+    .trace-panel.open {
+      max-height: 600px;
+      opacity: 1;
+      padding: 0.5rem 0.8rem;
+    }
+    .trace-panel .step { color: #79c0ff; margin-left: 0.5em; }
+    .trace-panel .step::before { content: '├─ '; color: #484f58; }
+    .trace-panel .step:last-child::before { content: '└─ '; color: #484f58; }
 
     #input-area {
       padding: 1rem 2rem;
@@ -138,12 +161,10 @@
   <div id="input-area">
     <input type="text" id="input" placeholder="Ask something... (try: is a dog a mammal?)" disabled>
     <button id="send" disabled>Send</button>
-    <button id="trace-toggle" style="padding:0.5rem 0.8rem;background:none;border:1px solid #30363d;border-radius:8px;color:#8b949e;font-size:0.8em;cursor:pointer" title="Toggle pipeline trace">trace</button>
   </div>
 
   <script type="module">
     import init, { Praxis } from './pkg/praxis_wasm.js';
-    // pkg/ is copied from crates/wasm/pkg/ during build
 
     const chat = document.getElementById('chat');
     const input = document.getElementById('input');
@@ -158,24 +179,35 @@
       div.textContent = text;
       chat.appendChild(div);
       chat.scrollTop = chat.scrollHeight;
+      return div;
     }
 
-    function addTrace(trace) {
+    function addTraceAccordion(trace) {
+      // Toggle button: "▶ trace" that opens the panel
+      const btn = document.createElement('button');
+      btn.className = 'trace-toggle';
+      btn.textContent = '▶ trace';
+
+      // Panel: slides down with the pipeline steps
+      const panel = document.createElement('div');
+      panel.className = 'trace-panel';
       const parts = trace.split(' | ');
-      const details = document.createElement('details');
-      details.className = 'message trace';
-      const summary = document.createElement('summary');
-      summary.textContent = 'pipeline trace';
-      details.appendChild(summary);
       for (const part of parts) {
         const step = document.createElement('div');
         step.className = 'step';
         step.textContent = part;
-        details.appendChild(step);
+        panel.appendChild(step);
       }
-      chat.appendChild(details);
-      chat.scrollTop = chat.scrollHeight;
-      return details;
+
+      btn.addEventListener('click', () => {
+        const isOpen = panel.classList.toggle('open');
+        btn.classList.toggle('open', isOpen);
+        btn.textContent = isOpen ? '▼ trace' : '▶ trace';
+        chat.scrollTop = chat.scrollHeight;
+      });
+
+      chat.appendChild(btn);
+      chat.appendChild(panel);
     }
 
     async function initialize() {
@@ -200,18 +232,6 @@
       }
     }
 
-    const traceBtn = document.getElementById('trace-toggle');
-    let traceVisible = false;
-
-    traceBtn.addEventListener('click', () => {
-      traceVisible = !traceVisible;
-      traceBtn.style.borderColor = traceVisible ? '#7ee787' : '#30363d';
-      traceBtn.style.color = traceVisible ? '#7ee787' : '#8b949e';
-      document.querySelectorAll('.trace').forEach(el => {
-        el.style.display = traceVisible ? '' : 'none';
-      });
-    });
-
     function handleSend() {
       const text = input.value.trim();
       if (!text || !praxis) return;
@@ -231,8 +251,7 @@
           'info'
         );
         if (result.trace) {
-          const traceEl = addTrace(result.trace);
-          traceEl.style.display = traceVisible ? '' : 'none';
+          addTraceAccordion(result.trace);
         }
       } catch {
         addMessage(raw, 'system');
