@@ -196,7 +196,11 @@
       panel.className = 'trace-panel';
 
       // Parse "status:ontology:action:detail | ..." into colored rows
+      // Response ontologies (NLG, Content Determination, Realization) use ←
+      const responseSteps = new Set(['NLG (Reiter-Dale)', 'Document Planning (RST)', 'SVO Grammar', 'Content Determination']);
+
       const parts = trace.split(' | ');
+      let lastDirection = '→';
       for (const part of parts) {
         const fields = part.split(':');
         const row = document.createElement('div');
@@ -207,9 +211,26 @@
           const action = fields[2].trim();
           const detail = fields.slice(3).join(':').trim();
 
+          // Direction: input pipeline → , response pipeline ←
+          const isResponse = responseSteps.has(ontology);
+          const direction = isResponse ? '←' : '→';
+
+          // Add separator when direction changes
+          if (direction !== lastDirection) {
+            const sep = document.createElement('div');
+            sep.style.cssText = 'border-top:1px dashed #30363d; margin:0.3em 0; padding-top:0.2em; color:#484f58; font-size:0.9em;';
+            sep.textContent = isResponse ? '── response ──' : '── input ──';
+            panel.appendChild(sep);
+            lastDirection = direction;
+          }
+
+          const dirEl = document.createElement('span');
+          dirEl.style.color = '#484f58';
+          dirEl.textContent = direction + ' ';
+
           const ontEl = document.createElement('span');
           ontEl.style.fontWeight = '600';
-          ontEl.style.color = status === 'warn' ? '#d29922' : status === 'err' ? '#f85149' : '#7ee787';
+          ontEl.style.color = status === 'warn' ? '#d29922' : status === 'err' ? '#f85149' : isResponse ? '#3fb950' : '#7ee787';
           ontEl.textContent = ontology;
 
           const actEl = document.createElement('span');
@@ -220,6 +241,7 @@
           detEl.style.color = status === 'warn' ? '#d29922' : '#79c0ff';
           detEl.textContent = detail;
 
+          row.appendChild(dirEl);
           row.appendChild(ontEl);
           row.appendChild(actEl);
           row.appendChild(detEl);
