@@ -121,14 +121,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             (r, SpeechAct::Assertion)
         }
         _ => {
-            let r = attempt_partial_understanding(lang, &tokens, &reduction, &meaning, &mut trace);
-            let rr = trace_impls::ResponseResult {
-                response: r,
-                entities_found: vec![],
-                taxonomy_checked: None,
-                from_ontology: parsed,
-            };
-            (rr, SpeechAct::Assertion)
+            let r = attempt_partial_understanding(lang, &tokens, &reduction, &meaning);
+            (r, SpeechAct::Assertion)
         }
     };
 
@@ -155,9 +149,8 @@ fn attempt_partial_understanding(
     en: &English,
     tokens: &[TypedToken],
     reduction: &ReductionResult,
-    meaning: &montague::Sem,
-    trace: &mut Trace,
-) -> String {
+    _meaning: &montague::Sem,
+) -> trace_impls::ResponseResult {
     // Check known/unknown through the Language trait — covers BOTH
     // function words (closed class) AND WordNet concepts (open class).
     let known_words: Vec<&str> = tokens
@@ -176,40 +169,33 @@ fn attempt_partial_understanding(
     let parsed = reduction.success;
     let query_result: Option<&str> = if parsed { Some("parsed") } else { None };
     let state = epistemics::classify_result(parsed, has_knowledge, query_result);
-    trace.trace_result(&trace_impls::EpistemicResult {
-        state,
-        known_words: known_words.iter().map(|s| s.to_string()).collect(),
-        unknown_words: unknown_words.iter().map(|s| s.to_string()).collect(),
-    });
 
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
 
     let frame = ResponseFrame::from_epistemic(&state);
+    let entities: Vec<String> = known_words.iter().map(|s| s.to_string()).collect();
 
-    match state {
+    let response = match state {
         epistemics::EpistemicState::UnknownKnown => {
             if known_words.len() == 1 {
-                trace.trace_result(&trace_impls::EntityLookupResult {
-                    word: known_words[0].to_string(),
-                    found: true,
-                    concept_count: en.lookup(known_words[0]).len(),
-                });
-                return define_word(en, known_words[0]);
+                define_word(en, known_words[0])
+            } else {
+                let nouns: Vec<&str> = tokens
+                    .iter()
+                    .filter(|t| !en.lookup(&t.word).is_empty() && t.lambek_type.is_noun())
+                    .map(|t| t.word.as_str())
+                    .collect();
+                if nouns.len() >= 2 {
+                    explore_concepts(en, &nouns)
+                } else {
+                    let mut content = ResponseContent::new(frame);
+                    for w in &known_words {
+                        content = content.with_entity(w);
+                    }
+                    realize::realize(&content)
+                }
             }
-            let nouns: Vec<&str> = tokens
-                .iter()
-                .filter(|t| !en.lookup(&t.word).is_empty() && t.lambek_type.is_noun())
-                .map(|t| t.word.as_str())
-                .collect();
-            if nouns.len() >= 2 {
-                return explore_concepts(en, &nouns, trace);
-            }
-            let mut content = ResponseContent::new(frame);
-            for w in &known_words {
-                content = content.with_entity(w);
-            }
-            realize::realize(&content)
         }
         epistemics::EpistemicState::KnownUnknown => {
             let mut content = ResponseContent::new(frame);
@@ -219,12 +205,19 @@ fn attempt_partial_understanding(
             realize::realize(&content)
         }
         epistemics::EpistemicState::KnownKnown => {
-            let content = ResponseContent::new(frame).with_predicate(&meaning.describe());
+            let content = ResponseContent::new(frame).with_predicate(&_meaning.describe());
             realize::realize(&content)
         }
         epistemics::EpistemicState::UnknownUnknown => {
             realize::realize(&ResponseContent::new(frame))
         }
+    };
+
+    trace_impls::ResponseResult {
+        response,
+        entities_found: entities,
+        taxonomy_checked: None,
+        from_ontology: has_knowledge,
     }
 }
 
@@ -479,7 +472,7 @@ fn build_taxonomy_response(
 /// relationships between concepts — common ancestors, is-a chains,
 /// shared properties. This is metacognition: instead of guessing
 /// "did you mean is X a Y?", explore and report what we actually know.
-fn explore_concepts(en: &English, words: &[&str], _trace: &mut Trace) -> String {
+fn explore_concepts(en: &English, words: &[&str]) -> String {
     use praxis_domains::science::linguistics::pragmatics::realize;
 
     let mut lines = Vec::new();
