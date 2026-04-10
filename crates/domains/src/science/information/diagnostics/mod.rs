@@ -1,3 +1,4 @@
+pub mod control_functor;
 pub mod metacognition_functor;
 pub mod ontology;
 pub mod trace_functors;
