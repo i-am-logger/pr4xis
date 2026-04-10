@@ -1,4 +1,5 @@
 pub mod discourse;
+pub mod drt_dialogue_functor;
 pub mod generation;
 pub mod nlg;
 pub mod realize;

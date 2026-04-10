@@ -1,4 +1,5 @@
 pub mod channel;
+pub mod channel_communication_functor;
 pub mod distance;
 
 use super::symbols::character::{Direction, Script};
