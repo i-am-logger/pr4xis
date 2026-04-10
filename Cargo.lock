@@ -567,6 +567,7 @@ name = "praxis-examples"
 version = "0.1.1"
 dependencies = [
  "praxis",
+ "praxis-domains",
  "proptest",
 ]
 

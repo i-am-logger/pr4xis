@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 praxis = { path = "../praxis" }
+praxis-domains = { path = "../domains" }
 
 [dev-dependencies]
 proptest = "1.6"
