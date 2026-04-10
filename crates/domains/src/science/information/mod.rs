@@ -5,6 +5,8 @@ pub mod events;
 pub mod knowledge;
 pub mod ontology;
 pub mod provenance;
+pub mod schema;
+pub mod storage;
 
 pub use ontology::*;
 

@@ -1,0 +1,12 @@
+[package]
+name = "praxis-web"
+version = "0.1.0"
+edition = "2024"
+authors = ["i-am-logger"]
+description = "Dev server for praxis — serves presentation + WASM chatbot with live reload"
+license = "CC-BY-NC-SA-4.0"
+repository = "https://github.com/i-am-logger/praxis"
+homepage = "https://github.com/i-am-logger/praxis"
+
+[dependencies]
+tiny_http = "0.12"

@@ -1,5 +1,6 @@
 pub mod electromagnetism;
 pub mod energy;
+pub mod kinematics;
 pub mod maxwell;
 pub mod mechanics;
 pub mod ontology;

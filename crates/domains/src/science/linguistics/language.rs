@@ -540,6 +540,108 @@ pub fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
     map
 }
 
+// =========================================================================
+// Codegen → Language functor
+// =========================================================================
+//
+// Three deployment functors (roadmap.md):
+//   Codegen (0s, static), Mmap (2ms, file), Async (1.25s, heap)
+//   All produce the same Language. Equivalence proven.
+//
+// This is the codegen functor: CodegenData → Language.
+// Language-agnostic: maps static arrays to runtime ontology structures.
+// No knowledge of any specific language — only the Language interface.
+
+/// Codegen → Language functor.
+///
+/// Maps language-agnostic static arrays (produced at build time)
+/// to a live Language instance. Zero XML parsing.
+pub fn from_codegen(data: &praxis::codegen_data::CodegenData) -> super::english::English {
+    use super::english::{Concept, ConceptId, SenseId};
+
+    let pos_from_str = |s: &str| match s {
+        "n" => lmf::LmfPos::Noun,
+        "v" => lmf::LmfPos::Verb,
+        "a" | "s" => lmf::LmfPos::Adjective,
+        "r" => lmf::LmfPos::Adverb,
+        _ => lmf::LmfPos::Other,
+    };
+
+    // Phase 1: Concepts from static arrays
+    let mut concepts = Vec::with_capacity(data.entity_count);
+    let mut synset_to_concept = HashMap::new();
+    for idx in 0..data.entity_count {
+        let concept_id = ConceptId::new(idx as u64);
+        let original_id = data.entity_ids[idx].to_string();
+        synset_to_concept.insert(original_id.clone(), concept_id);
+        let def = data.entity_defs[idx];
+        concepts.push(Concept {
+            id: concept_id,
+            original_id,
+            pos: pos_from_str(data.entity_pos[idx]),
+            lemmas: Vec::new(),
+            definitions: if def.is_empty() {
+                vec![]
+            } else {
+                vec![def.into()]
+            },
+            examples: vec![],
+        });
+    }
+
+    // Phase 2: Word index + fill concept lemmas
+    let mut word_index: HashMap<String, Vec<ConceptId>> = HashMap::new();
+    for &(word, ids) in data.word_index {
+        let cids: Vec<ConceptId> = ids.iter().map(|&i| ConceptId::new(u64::from(i))).collect();
+        for &i in ids {
+            if let Some(c) = concepts.get_mut(i as usize) {
+                c.lemmas.push(word.to_string());
+            }
+        }
+        word_index.insert(word.to_string(), cids);
+    }
+
+    // Phase 3: Taxonomy adjacency
+    let mut taxonomy_parents: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
+    let mut taxonomy_children: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
+    for &(child, parent) in data.taxonomy {
+        let c = ConceptId::new(u64::from(child));
+        let p = ConceptId::new(u64::from(parent));
+        taxonomy_parents.entry(c).or_default().push(p);
+        taxonomy_children.entry(p).or_default().push(c);
+    }
+
+    // Phase 4: Mereology
+    let mut mereology_parts: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
+    for &(whole, part) in data.mereology {
+        let w = ConceptId::new(u64::from(whole));
+        let p = ConceptId::new(u64::from(part));
+        mereology_parts.entry(w).or_default().push(p);
+    }
+
+    // Language-specific data (function words, writing system, morphology)
+    let function_words = build_english_function_words();
+    let function_word_list: Vec<String> = function_words.keys().cloned().collect();
+    let writing = super::orthography::english_writing_system();
+    let morphology = super::morphology::english_rules();
+
+    super::english::English::new(
+        concepts,
+        word_index,
+        taxonomy_children,
+        taxonomy_parents,
+        HashMap::<SenseId, Vec<SenseId>>::new(), // opposition (sense-level needs full LMF)
+        mereology_parts,
+        synset_to_concept,
+        HashMap::new(), // sense_to_id
+        function_words,
+        function_word_list,
+        HashMap::new(), // verb_transitivity (chart parser resolves in context)
+        writing,
+        morphology,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -78,6 +78,7 @@ pub fn generate_rust(builder: &OntologyBuilder, config: &GenerateConfig) -> Stri
     }
 
     write_stats(&mut out, builder);
+    write_codegen_data(&mut out, config, builder, &id_map);
 
     out
 }
@@ -309,6 +310,62 @@ fn write_relation_impl(
     writeln!(out).unwrap();
 
     eprintln!("  codegen: {struct_name} ({trait_name}) — {count} relations");
+}
+
+fn write_codegen_data(
+    out: &mut String,
+    config: &GenerateConfig,
+    builder: &OntologyBuilder,
+    id_map: &HashMap<&str, u32>,
+) {
+    // Write raw (u32, u32) relation arrays for CodegenData
+    let write_raw_relations = |out: &mut String,
+                               name: &str,
+                               relations: &[(String, String)],
+                               id_map: &HashMap<&str, u32>| {
+        writeln!(out, "static {name}: &[(u32, u32)] = &[").unwrap();
+        for (a, b) in relations {
+            if let (Some(&a_idx), Some(&b_idx)) = (id_map.get(a.as_str()), id_map.get(b.as_str())) {
+                writeln!(out, "    ({a_idx}, {b_idx}),").unwrap();
+            }
+        }
+        writeln!(out, "];").unwrap();
+        writeln!(out).unwrap();
+    };
+
+    write_raw_relations(out, "RAW_TAXONOMY", &builder.taxonomy, id_map);
+    write_raw_relations(out, "RAW_MEREOLOGY", &builder.mereology, id_map);
+    write_raw_relations(out, "RAW_OPPOSITION", &builder.opposition, id_map);
+    write_raw_relations(out, "RAW_EQUIVALENCE", &builder.equivalence, id_map);
+    write_raw_relations(out, "RAW_CAUSATION", &builder.causation, id_map);
+
+    writeln!(out).unwrap();
+    writeln!(
+        out,
+        "/// Language-agnostic codegen data — consumed by Language functor."
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "pub static CODEGEN_DATA: praxis::codegen_data::CodegenData = praxis::codegen_data::CodegenData {{"
+    )
+    .unwrap();
+    writeln!(out, "    entity_count: {},", builder.entities.len()).unwrap();
+    writeln!(out, "    entity_ids: ENTITY_IDS,").unwrap();
+    writeln!(out, "    entity_pos: ENTITY_POS,").unwrap();
+    writeln!(out, "    entity_labels: ENTITY_LABELS,").unwrap();
+    writeln!(out, "    entity_defs: ENTITY_DEFS,").unwrap();
+    writeln!(out, "    word_index: WORD_INDEX,").unwrap();
+    writeln!(out, "    taxonomy: RAW_TAXONOMY,").unwrap();
+    writeln!(out, "    mereology: RAW_MEREOLOGY,").unwrap();
+    writeln!(out, "    opposition: RAW_OPPOSITION,").unwrap();
+    writeln!(out, "    equivalence: RAW_EQUIVALENCE,").unwrap();
+    writeln!(out, "    causation: RAW_CAUSATION,").unwrap();
+    writeln!(out, "}};").unwrap();
+    writeln!(out).unwrap();
+
+    // Suppress unused warnings for the config entity type
+    let _ = config;
 }
 
 fn write_stats(out: &mut String, builder: &OntologyBuilder) {

@@ -6,6 +6,7 @@ members = [
     "crates/examples",
     "crates/cli",
     "crates/chat",
+    "crates/web",
 ]
 # praxis-wasm excluded from default workspace (needs wasm target)
 exclude = ["crates/wasm"]

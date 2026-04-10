@@ -4,9 +4,10 @@
 , ...
 }:
 let
-  packageName = "praxis";
-  packageVersion = "0.1.0";
-  packageDescription = "Ontology-driven rule enforcement framework";
+  cargoToml = builtins.fromTOML (builtins.readFile ./crates/praxis/Cargo.toml);
+  packageName = cargoToml.package.name;
+  packageVersion = cargoToml.package.version;
+  packageDescription = cargoToml.package.description or "";
 in
 {
   # Set root explicitly for flake compatibility
@@ -33,12 +34,13 @@ in
 
   scripts.dev-fmt.exec = ''
     echo "Checking formatting..."
-    cargo fmt --check
+    treefmt --fail-on-change
   '';
 
   scripts.dev-lint.exec = ''
     echo "Running clippy..."
     cargo clippy --quiet -- -D warnings
+    cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings
   '';
 
   scripts.dev-check.exec = ''
@@ -49,13 +51,17 @@ in
   scripts.dev-ci.exec = ''
     echo "Running full CI pipeline locally..."
     echo "=== fmt ==="
-    cargo fmt --check || { echo "FAILED: fmt"; exit 1; }
+    treefmt --fail-on-change || { echo "FAILED: fmt"; exit 1; }
     echo "=== clippy ==="
     cargo clippy --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
+    echo "=== clippy (wasm) ==="
+    cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
     echo "=== check ==="
     cargo check --quiet || { echo "FAILED: check"; exit 1; }
     echo "=== test ==="
     RUSTFLAGS="-D warnings" cargo test --workspace --quiet || { echo "FAILED: test"; exit 1; }
+    echo "=== wasm check ==="
+    RUSTFLAGS="-D warnings" cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet || { echo "FAILED: wasm check"; exit 1; }
     echo "=== ALL PASSED ==="
   '';
 
@@ -95,6 +101,18 @@ in
     miniserve docs/ --port 8080 --index index.html
   '';
 
+  scripts.dev-web.exec = ''
+    echo "Building WASM..."
+    dev-wasm
+    echo "Building presentation..."
+    marp docs/presentations/overview.md -o docs/index.html --html 2>/dev/null || true
+    echo ""
+    echo "Starting praxis-web with live reload..."
+    echo "Watching crates/ for changes — WASM rebuilds automatically."
+    echo ""
+    cargo run -p praxis-web --release
+  '';
+
   # Environment variables
   env = {
     CARGO_TARGET_DIR = "./target";
@@ -118,13 +136,45 @@ in
     echo "  dev-lint      - Run clippy"
     echo "  dev-check     - Check compilation"
     echo "  dev-build     - Build release"
+    echo "  dev-web       - Start dev server with live reload"
+    echo "  dev-wasm      - Build WASM"
     echo ""
   '';
+
+  # https://devenv.sh/integrations/treefmt/
+  treefmt = {
+    enable = true;
+    config = {
+      settings.global.excludes = [
+        ".devenv.flake.nix"
+        ".devenv/"
+      ];
+
+      programs = {
+        # Nix
+        nixpkgs-fmt.enable = true;
+        deadnix = {
+          enable = true;
+          no-underscore = true;
+        };
+        statix.enable = true;
+
+        # Rust — use devenv toolchain (supports edition 2024)
+        rustfmt = {
+          enable = true;
+          package = config.languages.rust.toolchainPackage;
+        };
+
+        # Shell
+        shellcheck.enable = true;
+        shfmt.enable = true;
+      };
+    };
+  };
 
   # https://devenv.sh/git-hooks/
   git-hooks.settings.rust.cargoManifestPath = "./Cargo.toml";
 
-  # Use the same Rust toolchain for git-hooks as for development
   git-hooks.tools = {
     cargo = lib.mkForce config.languages.rust.toolchainPackage;
     clippy = lib.mkForce config.languages.rust.toolchainPackage;
@@ -132,18 +182,18 @@ in
   };
 
   git-hooks.hooks = {
-    rustfmt.enable = true;
+    treefmt.enable = true;
     clippy.enable = true;
   };
 
   # https://devenv.sh/tasks/
   tasks = {
     "test:fmt" = {
-      exec = "cargo fmt --check";
+      exec = "treefmt --fail-on-change";
     };
 
     "test:clippy" = {
-      exec = "cargo clippy --quiet -- -D warnings";
+      exec = "cargo clippy --quiet -- -D warnings && cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings";
     };
 
     "test:check" = {
@@ -155,12 +205,10 @@ in
     };
 
     "test:wasm" = {
-      exec = "cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet";
+      exec = "RUSTFLAGS='-D warnings' cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet";
     };
   };
 
   # https://devenv.sh/tests/
-  # SKIP git-hooks during devenv test — hooks are a local pre-commit concern,
-  # CI runs the same checks via tasks (fmt, clippy with -D warnings, tests).
-  enterTest = lib.mkForce "SKIP=clippy,rustfmt devenv tasks run test:fmt test:clippy test:check test:unit test:wasm";
+  enterTest = lib.mkForce "devenv tasks run test:fmt test:clippy test:check test:unit test:wasm";
 }

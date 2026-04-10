@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 
 use praxis_domains::science::linguistics::english::English;
+use praxis_domains::science::linguistics::language;
 
 // Praxis WASM — the entire chatbot runs in the browser.
 //
@@ -11,12 +12,12 @@ use praxis_domains::science::linguistics::english::English;
 // No XML parsing at runtime. No include_str! of raw XML.
 // Same codegen functor as the CLI: WordNet XML → build.rs → Rust code → binary.
 //
-// TODO: bridge codegen output to Language trait for zero-cost init.
-// Currently: parse the codegen'd data into English at init (fast, no XML).
+// The codegen is language-agnostic: Data → CodegenData → Language functor.
 
-/// Generated English ontology — compiled at build time from WordNet XML.
+/// Generated ontology — compiled at build time from WordNet XML.
+/// Language-agnostic static data consumed by the Language functor.
 #[allow(dead_code)]
-mod english_codegen {
+mod codegen_output {
     include!(concat!(env!("OUT_DIR"), "/english_codegen.rs"));
 }
 
@@ -25,15 +26,20 @@ pub struct Praxis {
     english: English,
 }
 
+impl Default for Praxis {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl Praxis {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        // TODO: use English::from_codegen() once the bridge is built.
-        // For now, use sample data to avoid include_str! of 86MB XML.
-        // The codegen output is available via english_codegen:: module.
+        // Codegen → Language functor composition:
+        // Static arrays (codegen) → Language → English
         Self {
-            english: English::sample(),
+            english: language::from_codegen(&codegen_output::CODEGEN_DATA),
         }
     }
 

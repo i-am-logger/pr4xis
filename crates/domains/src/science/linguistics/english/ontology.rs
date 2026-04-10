@@ -86,6 +86,41 @@ pub struct Concept {
 }
 
 impl English {
+    /// Construct an English ontology from pre-computed parts.
+    /// Used by the Language module's deployment functors (codegen, mmap, async).
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        concepts: Vec<Concept>,
+        word_index: HashMap<String, Vec<ConceptId>>,
+        taxonomy_children: HashMap<ConceptId, Vec<ConceptId>>,
+        taxonomy_parents: HashMap<ConceptId, Vec<ConceptId>>,
+        opposition: HashMap<SenseId, Vec<SenseId>>,
+        mereology_parts: HashMap<ConceptId, Vec<ConceptId>>,
+        synset_to_concept: HashMap<String, ConceptId>,
+        sense_to_id: HashMap<String, SenseId>,
+        function_words: HashMap<String, Vec<LexicalEntry>>,
+        function_word_list: Vec<String>,
+        verb_transitivity: HashMap<String, Vec<Transitivity>>,
+        writing: WritingSystem,
+        morphology: Vec<MorphologicalRule>,
+    ) -> Self {
+        Self {
+            concepts,
+            word_index,
+            taxonomy_children,
+            taxonomy_parents,
+            opposition,
+            mereology_parts,
+            synset_to_concept,
+            sense_to_id,
+            function_words,
+            function_word_list,
+            verb_transitivity,
+            writing,
+            morphology,
+        }
+    }
+
     /// Minimal sample English for testing — no full WordNet needed.
     pub fn sample() -> Self {
         let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
