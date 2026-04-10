@@ -51,7 +51,7 @@ impl Praxis {
             0
         };
         let response = json_escape(&result.response);
-        let trace = json_escape(&result.trace);
+        let trace = json_escape(&result.trace.serialize());
         format!(
             r#"{{"response":"{response}","duration_us":{},"token_count":{},"tokens_per_sec":{tps},"parsed":{},"from_ontology":{},"trace":"{trace}"}}"#,
             result.duration_us, result.token_count, result.parsed, result.from_ontology,

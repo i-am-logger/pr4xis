@@ -145,6 +145,18 @@ impl LambekType {
         matches!(self, Self::Atom(AtomicType::NP))
     }
 
+    pub fn is_complex(&self) -> bool {
+        !self.is_atomic()
+    }
+
+    pub fn is_right_div(&self) -> bool {
+        matches!(self, Self::RightDiv(_, _))
+    }
+
+    pub fn is_left_div(&self) -> bool {
+        matches!(self, Self::LeftDiv(_, _))
+    }
+
     /// Display the type in standard notation.
     pub fn notation(&self) -> String {
         match self {
@@ -166,22 +178,30 @@ impl LambekType {
                 AtomicType::PP => "PP".into(),
             },
             Self::RightDiv(a, b) => {
-                let a_str = a.notation();
-                let b_str = b.notation();
-                if a.is_atomic() && b.is_atomic() {
-                    format!("{}/{}", a_str, b_str)
+                let a_str = if a.is_left_div() {
+                    format!("({})", a.notation())
                 } else {
-                    format!("({})/({})​", a_str, b_str)
-                }
+                    a.notation()
+                };
+                let b_str = if b.is_complex() {
+                    format!("({})", b.notation())
+                } else {
+                    b.notation()
+                };
+                format!("{a_str}/{b_str}")
             }
             Self::LeftDiv(a, b) => {
-                let a_str = a.notation();
-                let b_str = b.notation();
-                if a.is_atomic() && b.is_atomic() {
-                    format!("{}\\{}", a_str, b_str)
+                let a_str = if a.is_complex() {
+                    format!("({})", a.notation())
                 } else {
-                    format!("({})\\({})", a_str, b_str)
-                }
+                    a.notation()
+                };
+                let b_str = if b.is_right_div() {
+                    format!("({})", b.notation())
+                } else {
+                    b.notation()
+                };
+                format!("{a_str}\\{b_str}")
             }
         }
     }
