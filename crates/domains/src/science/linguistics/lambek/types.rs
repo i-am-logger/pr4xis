@@ -232,10 +232,15 @@ pub fn reduce(left: &LambekType, right: &LambekType) -> Option<LambekType> {
     None
 }
 
-// ---- Standard type assignments for English ----
+// ---- Standard Lambek type assignments for SVO languages ----
+//
+// These are the canonical type assignments from the Lambek calculus
+// literature for Subject-Verb-Object languages (English, French, etc.).
+// They follow Lambek (1958) and Moortgat (1997).
+// Language-agnostic: any SVO language uses these assignments.
 
-/// Type assignments for common English word categories.
-pub mod english {
+/// Lambek type assignments for SVO word order.
+pub mod svo {
     use super::*;
 
     /// Determiner: NP/N — "the", "a", "every"

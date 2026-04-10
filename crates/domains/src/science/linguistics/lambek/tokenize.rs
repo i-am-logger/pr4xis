@@ -1,6 +1,6 @@
 use super::reduce::TypedToken;
 use super::types::LambekType;
-use super::types::english as en_types;
+use super::types::svo as svo_types;
 use crate::science::linguistics::language::Language;
 use crate::science::linguistics::orthography::distance;
 
@@ -102,18 +102,18 @@ fn assign_type(word: &str, position: usize, language: &dyn Language) -> LambekTy
     // Question-forming: sentence-initial copulas/auxiliaries
     if position == 0 {
         if pos.is_some_and(|p| p.is_question_forming()) {
-            return en_types::question_copula();
+            return svo_types::question_copula();
         }
 
         // Interrogative pronouns at sentence start → wh-question type
         if first.is_some_and(|e| e.is_interrogative()) {
-            return en_types::wh_what();
+            return svo_types::wh_what();
         }
     }
 
     // Copula in non-initial position → copula type (NP complement default)
     if pos.is_some_and(|p| p.is_copula()) && position > 0 {
-        return en_types::copula();
+        return svo_types::copula();
     }
 
     // For verbs with multiple transitivity options, prefer transitive
@@ -129,7 +129,7 @@ fn assign_type(word: &str, position: usize, language: &dyn Language) -> LambekTy
     }
 
     // Unknown word — assume noun (open class default)
-    en_types::noun()
+    svo_types::noun()
 }
 
 /// Select the best lexical entry when multiple are available.
@@ -159,34 +159,35 @@ fn try_spelling_correction(word: &str, language: &dyn Language) -> Option<Lambek
 /// CCGbank: copula + adj → (S[dcl]\NP)/(S[adj]\NP) + S[adj]\NP
 fn assign_predicate_adjectives(tokens: &mut [TypedToken]) {
     for i in 0..tokens.len().saturating_sub(1) {
-        let is_copula = tokens[i].lambek_type == en_types::copula();
-        let is_adj = tokens[i + 1].lambek_type == en_types::adjective();
+        let is_copula = tokens[i].lambek_type == svo_types::copula();
+        let is_adj = tokens[i + 1].lambek_type == svo_types::adjective();
         if is_copula && is_adj {
-            tokens[i].lambek_type = en_types::copula_adj();
-            tokens[i + 1].lambek_type = en_types::predicate_adjective();
+            tokens[i].lambek_type = svo_types::copula_adj();
+            tokens[i + 1].lambek_type = svo_types::predicate_adjective();
         }
     }
 }
 
 /// Map a lexical entry's POS to its Lambek type.
+/// Uses SVO type assignments — standard for Subject-Verb-Object languages.
 fn pos_to_lambek(entry: &crate::science::linguistics::lexicon::pos::LexicalEntry) -> LambekType {
     use crate::science::linguistics::lexicon::pos::{LexicalEntry, Transitivity};
     match entry {
-        LexicalEntry::Noun(_) => en_types::noun(),
+        LexicalEntry::Noun(_) => svo_types::noun(),
         LexicalEntry::Verb(v) => match v.transitivity {
-            Transitivity::Intransitive => en_types::intransitive_verb(),
-            Transitivity::Transitive => en_types::transitive_verb(),
-            Transitivity::Ditransitive => en_types::ditransitive_verb(),
+            Transitivity::Intransitive => svo_types::intransitive_verb(),
+            Transitivity::Transitive => svo_types::transitive_verb(),
+            Transitivity::Ditransitive => svo_types::ditransitive_verb(),
         },
-        LexicalEntry::Determiner(_) | LexicalEntry::Numeral(_) => en_types::determiner(),
-        LexicalEntry::Adjective(_) => en_types::adjective(),
-        LexicalEntry::Adverb(_) => en_types::adverb(),
-        LexicalEntry::Preposition(_) => en_types::preposition(),
-        LexicalEntry::Pronoun(_) => en_types::proper_noun(),
-        LexicalEntry::Conjunction(_) => en_types::noun(),
-        LexicalEntry::Copula(_) => en_types::copula(),
-        LexicalEntry::Auxiliary(_) => en_types::intransitive_verb(),
-        LexicalEntry::Interjection(_) => en_types::noun(),
-        LexicalEntry::Particle(_) => en_types::adverb(),
+        LexicalEntry::Determiner(_) | LexicalEntry::Numeral(_) => svo_types::determiner(),
+        LexicalEntry::Adjective(_) => svo_types::adjective(),
+        LexicalEntry::Adverb(_) => svo_types::adverb(),
+        LexicalEntry::Preposition(_) => svo_types::preposition(),
+        LexicalEntry::Pronoun(_) => svo_types::proper_noun(),
+        LexicalEntry::Conjunction(_) => svo_types::noun(),
+        LexicalEntry::Copula(_) => svo_types::copula(),
+        LexicalEntry::Auxiliary(_) => svo_types::intransitive_verb(),
+        LexicalEntry::Interjection(_) => svo_types::noun(),
+        LexicalEntry::Particle(_) => svo_types::adverb(),
     }
 }

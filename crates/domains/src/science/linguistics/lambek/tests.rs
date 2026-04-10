@@ -38,36 +38,36 @@ const SAMPLE_TOKENIZE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 #[test]
 fn forward_application() {
     // NP/N + N → NP ("the" + "dog" → NP)
-    let result = reduce(&english::determiner(), &english::noun());
+    let result = reduce(&svo::determiner(), &svo::noun());
     assert_eq!(result, Some(LambekType::np()));
 }
 
 #[test]
 fn backward_application() {
     // NP + NP\S → S ("dog" + "runs" → S)
-    let result = reduce(&LambekType::np(), &english::intransitive_verb());
+    let result = reduce(&LambekType::np(), &svo::intransitive_verb());
     assert_eq!(result, Some(LambekType::s()));
 }
 
 #[test]
 fn no_reduction() {
     // N + NP → None (can't combine noun with noun phrase)
-    let result = reduce(&english::noun(), &LambekType::np());
+    let result = reduce(&svo::noun(), &LambekType::np());
     assert_eq!(result, None);
 }
 
 #[test]
 fn adjective_noun() {
     // N/N + N → N ("big" + "dog" → N)
-    let result = reduce(&english::adjective(), &english::noun());
+    let result = reduce(&svo::adjective(), &svo::noun());
     assert_eq!(result, Some(LambekType::n()));
 }
 
 #[test]
 fn transitive_verb_takes_object() {
     // (NP\S)/NP + NP → NP\S ("sees" + "dog" → VP)
-    let result = reduce(&english::transitive_verb(), &LambekType::np());
-    assert_eq!(result, Some(english::intransitive_verb()));
+    let result = reduce(&svo::transitive_verb(), &LambekType::np());
+    assert_eq!(result, Some(svo::intransitive_verb()));
 }
 
 // =============================================================================
@@ -80,15 +80,15 @@ fn the_dog_runs() {
     let tokens = vec![
         TypedToken {
             word: "the".into(),
-            lambek_type: english::determiner(),
+            lambek_type: svo::determiner(),
         },
         TypedToken {
             word: "dog".into(),
-            lambek_type: english::noun(),
+            lambek_type: svo::noun(),
         },
         TypedToken {
             word: "runs".into(),
-            lambek_type: english::intransitive_verb(),
+            lambek_type: svo::intransitive_verb(),
         },
     ];
     let result = reduce_sequence(&tokens);
@@ -102,19 +102,19 @@ fn the_big_dog_runs() {
     let tokens = vec![
         TypedToken {
             word: "the".into(),
-            lambek_type: english::determiner(),
+            lambek_type: svo::determiner(),
         },
         TypedToken {
             word: "big".into(),
-            lambek_type: english::adjective(),
+            lambek_type: svo::adjective(),
         },
         TypedToken {
             word: "dog".into(),
-            lambek_type: english::noun(),
+            lambek_type: svo::noun(),
         },
         TypedToken {
             word: "runs".into(),
-            lambek_type: english::intransitive_verb(),
+            lambek_type: svo::intransitive_verb(),
         },
     ];
     let result = reduce_sequence(&tokens);
@@ -127,19 +127,19 @@ fn she_sees_the_dog() {
     let tokens = vec![
         TypedToken {
             word: "she".into(),
-            lambek_type: english::proper_noun(),
+            lambek_type: svo::proper_noun(),
         },
         TypedToken {
             word: "sees".into(),
-            lambek_type: english::transitive_verb(),
+            lambek_type: svo::transitive_verb(),
         },
         TypedToken {
             word: "the".into(),
-            lambek_type: english::determiner(),
+            lambek_type: svo::determiner(),
         },
         TypedToken {
             word: "dog".into(),
-            lambek_type: english::noun(),
+            lambek_type: svo::noun(),
         },
     ];
     let result = reduce_sequence(&tokens);
@@ -152,11 +152,11 @@ fn dog_runs_not_sentence_alone() {
     let tokens = vec![
         TypedToken {
             word: "dog".into(),
-            lambek_type: english::noun(),
+            lambek_type: svo::noun(),
         },
         TypedToken {
             word: "runs".into(),
-            lambek_type: english::intransitive_verb(),
+            lambek_type: svo::intransitive_verb(),
         },
     ];
     let result = reduce_sequence(&tokens);
@@ -172,9 +172,9 @@ fn tokenize_simple() {
     let tokens = tokenize::tokenize("the dog runs", &sample_lang());
     assert_eq!(tokens.len(), 3);
     assert_eq!(tokens[0].word, "the");
-    assert_eq!(tokens[0].lambek_type, english::determiner());
+    assert_eq!(tokens[0].lambek_type, svo::determiner());
     assert_eq!(tokens[1].word, "dog");
-    assert_eq!(tokens[1].lambek_type, english::noun());
+    assert_eq!(tokens[1].lambek_type, svo::noun());
 }
 
 #[test]
@@ -200,19 +200,19 @@ fn tokenize_and_reduce_transitive() {
     let tokens = vec![
         TypedToken {
             word: "she".into(),
-            lambek_type: english::proper_noun(),
+            lambek_type: svo::proper_noun(),
         },
         TypedToken {
             word: "sees".into(),
-            lambek_type: english::transitive_verb(),
+            lambek_type: svo::transitive_verb(),
         },
         TypedToken {
             word: "the".into(),
-            lambek_type: english::determiner(),
+            lambek_type: svo::determiner(),
         },
         TypedToken {
             word: "dog".into(),
-            lambek_type: english::noun(),
+            lambek_type: svo::noun(),
         },
     ];
     let result = reduce_sequence(&tokens);
@@ -241,11 +241,11 @@ fn a_dog_is_big() {
     // For now test the tokenizer assigns correct types:
     let tokens = tokenize::tokenize("a dog is big", &sample_lang());
     assert_eq!(tokens.len(), 4);
-    assert_eq!(tokens[0].lambek_type, english::determiner()); // a
-    assert_eq!(tokens[1].lambek_type, english::noun()); // dog
+    assert_eq!(tokens[0].lambek_type, svo::determiner()); // a
+    assert_eq!(tokens[1].lambek_type, svo::noun()); // dog
     // Post-processing assigns copula_adj + predicate_adjective (CCGbank)
-    assert_eq!(tokens[2].lambek_type, english::copula_adj()); // is → (S[dcl]\NP)/(S[adj]\NP)
-    assert_eq!(tokens[3].lambek_type, english::predicate_adjective()); // big → S[adj]\NP
+    assert_eq!(tokens[2].lambek_type, svo::copula_adj()); // is → (S[dcl]\NP)/(S[adj]\NP)
+    assert_eq!(tokens[3].lambek_type, svo::predicate_adjective()); // big → S[adj]\NP
 }
 
 #[test]
@@ -259,7 +259,7 @@ fn a_dog_is_big_reduces() {
 fn spelling_correction_teh() {
     // "teh" is distance 1 from "the" — performance error (transposition)
     let tokens = tokenize::tokenize("teh dog runs", &sample_lang());
-    assert_eq!(tokens[0].lambek_type, english::determiner());
+    assert_eq!(tokens[0].lambek_type, svo::determiner());
 }
 
 #[test]
@@ -267,7 +267,7 @@ fn is_a_dog_a_mammal_question() {
     // Question formation: is at sentence start → question type
     let tokens = tokenize::tokenize("is a dog a mammal", &sample_lang());
     assert_eq!(tokens.len(), 5);
-    assert_eq!(tokens[0].lambek_type, english::question_copula()); // is (question)
+    assert_eq!(tokens[0].lambek_type, svo::question_copula()); // is (question)
     let result = reduce_sequence(&tokens);
     assert!(result.success, "expected Q, got {:?}", result.remaining);
     assert_eq!(result.final_type, Some(LambekType::q()));
@@ -277,7 +277,7 @@ fn is_a_dog_a_mammal_question() {
 fn what_is_a_dog() {
     let tokens = tokenize::tokenize("what is a dog", &sample_lang());
     assert_eq!(tokens.len(), 4);
-    assert_eq!(tokens[0].lambek_type, english::wh_what()); // what
+    assert_eq!(tokens[0].lambek_type, svo::wh_what()); // what
 }
 
 // =============================================================================
@@ -288,8 +288,8 @@ fn what_is_a_dog() {
 fn type_notation() {
     assert_eq!(LambekType::s().notation(), "S");
     assert_eq!(LambekType::np().notation(), "NP");
-    assert_eq!(english::determiner().notation(), "NP/N");
-    assert_eq!(english::intransitive_verb().notation(), "NP\\S");
+    assert_eq!(svo::determiner().notation(), "NP/N");
+    assert_eq!(svo::intransitive_verb().notation(), "NP\\S");
 }
 
 // =============================================================================
@@ -341,14 +341,14 @@ mod prop {
         /// Determiner + Noun always gives NP.
         #[test]
         fn prop_det_noun_gives_np(_dummy in 0..1i32) {
-            let result = reduce(&english::determiner(), &english::noun());
+            let result = reduce(&svo::determiner(), &svo::noun());
             prop_assert_eq!(result, Some(LambekType::np()));
         }
 
         /// NP + intransitive verb always gives S.
         #[test]
         fn prop_np_iv_gives_s(_dummy in 0..1i32) {
-            let result = reduce(&LambekType::np(), &english::intransitive_verb());
+            let result = reduce(&LambekType::np(), &svo::intransitive_verb());
             prop_assert_eq!(result, Some(LambekType::s()));
         }
     }
@@ -393,15 +393,15 @@ fn montague_the_dog_runs() {
     let tokens = vec![
         TypedToken {
             word: "the".into(),
-            lambek_type: english::determiner(),
+            lambek_type: svo::determiner(),
         },
         TypedToken {
             word: "dog".into(),
-            lambek_type: english::noun(),
+            lambek_type: svo::noun(),
         },
         TypedToken {
             word: "runs".into(),
-            lambek_type: english::intransitive_verb(),
+            lambek_type: svo::intransitive_verb(),
         },
     ];
     let sem = montague::interpret(&tokens, &en);
@@ -427,19 +427,19 @@ fn montague_she_sees_the_dog() {
     let tokens = vec![
         TypedToken {
             word: "she".into(),
-            lambek_type: english::proper_noun(),
+            lambek_type: svo::proper_noun(),
         },
         TypedToken {
             word: "sees".into(),
-            lambek_type: english::transitive_verb(),
+            lambek_type: svo::transitive_verb(),
         },
         TypedToken {
             word: "the".into(),
-            lambek_type: english::determiner(),
+            lambek_type: svo::determiner(),
         },
         TypedToken {
             word: "dog".into(),
-            lambek_type: english::noun(),
+            lambek_type: svo::noun(),
         },
     ];
     let sem = montague::interpret(&tokens, &en);
@@ -469,19 +469,19 @@ fn montague_the_big_dog_runs() {
     let tokens = vec![
         TypedToken {
             word: "the".into(),
-            lambek_type: english::determiner(),
+            lambek_type: svo::determiner(),
         },
         TypedToken {
             word: "big".into(),
-            lambek_type: english::adjective(),
+            lambek_type: svo::adjective(),
         },
         TypedToken {
             word: "dog".into(),
-            lambek_type: english::noun(),
+            lambek_type: svo::noun(),
         },
         TypedToken {
             word: "runs".into(),
-            lambek_type: english::intransitive_verb(),
+            lambek_type: svo::intransitive_verb(),
         },
     ];
     let sem = montague::interpret(&tokens, &en);
@@ -497,15 +497,15 @@ fn montague_describe() {
     let tokens = vec![
         TypedToken {
             word: "the".into(),
-            lambek_type: english::determiner(),
+            lambek_type: svo::determiner(),
         },
         TypedToken {
             word: "dog".into(),
-            lambek_type: english::noun(),
+            lambek_type: svo::noun(),
         },
         TypedToken {
             word: "runs".into(),
-            lambek_type: english::intransitive_verb(),
+            lambek_type: svo::intransitive_verb(),
         },
     ];
     let sem = montague::interpret(&tokens, &en);

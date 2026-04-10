@@ -301,10 +301,10 @@ pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
     use pregroup::{BasicType, PregroupElement};
 
     match entry {
-        LexicalEntry::Noun(_) => pregroup::english::noun(),
+        LexicalEntry::Noun(_) => pregroup::svo::noun(),
         LexicalEntry::Verb(v) => match v.transitivity {
-            Transitivity::Intransitive => pregroup::english::intransitive_verb(),
-            Transitivity::Transitive => pregroup::english::transitive_verb(),
+            Transitivity::Intransitive => pregroup::svo::intransitive_verb(),
+            Transitivity::Transitive => pregroup::svo::transitive_verb(),
             Transitivity::Ditransitive => {
                 // np^r · s · np^l · np^l (subject + two objects)
                 PregroupType::new(vec![
@@ -315,8 +315,8 @@ pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
                 ])
             }
         },
-        LexicalEntry::Determiner(_) => pregroup::english::determiner(),
-        LexicalEntry::Adjective(_) => pregroup::english::adjective(),
+        LexicalEntry::Determiner(_) => pregroup::svo::determiner(),
+        LexicalEntry::Adjective(_) => pregroup::svo::adjective(),
         LexicalEntry::Adverb(_) => {
             // Adverb modifies verb: (np^r · s)^r · np^r · s
             // Simplified: s^r · np · np^r · s = modifier of VP
@@ -333,7 +333,7 @@ pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
                 PregroupElement::left_adj(BasicType::NP),
             ])
         }
-        LexicalEntry::Pronoun(_) => pregroup::english::proper_noun(),
+        LexicalEntry::Pronoun(_) => pregroup::svo::proper_noun(),
         LexicalEntry::Conjunction(_) => {
             // Simplified: s · s^l · s^l (joins two sentences)
             PregroupType::new(vec![
@@ -344,7 +344,7 @@ pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
         }
         LexicalEntry::Copula(_) => {
             // Copula with NP predicate: np^r · s · np^l (like transitive)
-            pregroup::english::transitive_verb()
+            pregroup::svo::transitive_verb()
         }
         LexicalEntry::Auxiliary(_) => {
             // Auxiliary modifies VP: (np^r · s)^r · np^r · s
@@ -365,7 +365,7 @@ pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
                 PregroupElement::left_adj(BasicType::S),
             ])
         }
-        LexicalEntry::Numeral(_) => pregroup::english::determiner(),
+        LexicalEntry::Numeral(_) => pregroup::svo::determiner(),
     }
 }
 

@@ -234,7 +234,7 @@ impl PregroupType {
 // =============================================================================
 
 /// Pregroup types for English words, from Lambek (1999).
-pub mod english {
+pub mod svo {
     use super::*;
 
     /// Noun: n
@@ -598,7 +598,7 @@ mod tests {
                 PregroupElement::left_adj(BasicType::N),
             ]),
             // dog: n
-            english::noun(),
+            svo::noun(),
             // runs: np^r · s
             PregroupType::new(vec![
                 PregroupElement::right_adj(BasicType::NP),
@@ -620,7 +620,7 @@ mod tests {
         //   n^l · n ≤ 1 (left contraction): s · np^l · np
         //   np^l · np ≤ 1 (left contraction): s ✓
         let types = vec![
-            english::proper_noun(),
+            svo::proper_noun(),
             PregroupType::new(vec![
                 PregroupElement::right_adj(BasicType::NP),
                 PregroupElement::basic(BasicType::S),
@@ -630,7 +630,7 @@ mod tests {
                 PregroupElement::basic(BasicType::NP),
                 PregroupElement::left_adj(BasicType::N),
             ]),
-            english::noun(),
+            svo::noun(),
         ];
         assert!(parse(&types), "she sees the dog should parse");
     }
@@ -654,7 +654,7 @@ mod tests {
                 PregroupElement::basic(BasicType::N),
                 PregroupElement::left_adj(BasicType::N),
             ]),
-            english::noun(),
+            svo::noun(),
             PregroupType::new(vec![
                 PregroupElement::right_adj(BasicType::NP),
                 PregroupElement::basic(BasicType::S),
@@ -665,7 +665,7 @@ mod tests {
 
     #[test]
     fn bare_noun_doesnt_parse() {
-        let types = vec![english::noun()];
+        let types = vec![svo::noun()];
         assert!(!parse(&types), "bare noun should not parse as sentence");
     }
 
@@ -682,32 +682,32 @@ mod tests {
     // Lambek → Pregroup functor tests
     // =========================================================================
 
-    use super::super::types::english as lambek_en;
+    use super::super::types::svo as lambek_svo;
 
     #[test]
     fn functor_noun() {
-        let pg = lambek_to_pregroup(&lambek_en::noun());
-        assert_eq!(pg, english::noun());
+        let pg = lambek_to_pregroup(&lambek_svo::noun());
+        assert_eq!(pg, svo::noun());
     }
 
     #[test]
     fn functor_proper_noun() {
-        let pg = lambek_to_pregroup(&lambek_en::proper_noun());
-        assert_eq!(pg, english::proper_noun());
+        let pg = lambek_to_pregroup(&lambek_svo::proper_noun());
+        assert_eq!(pg, svo::proper_noun());
     }
 
     #[test]
     fn functor_determiner() {
         // Lambek: NP/N → pregroup: np · n^l
-        let pg = lambek_to_pregroup(&lambek_en::determiner());
-        assert_eq!(pg, english::determiner());
+        let pg = lambek_to_pregroup(&lambek_svo::determiner());
+        assert_eq!(pg, svo::determiner());
     }
 
     #[test]
     fn functor_intransitive_verb() {
         // Lambek: NP\S → pregroup: np^r · s
-        let pg = lambek_to_pregroup(&lambek_en::intransitive_verb());
-        assert_eq!(pg, english::intransitive_verb());
+        let pg = lambek_to_pregroup(&lambek_svo::intransitive_verb());
+        assert_eq!(pg, svo::intransitive_verb());
     }
 
     #[test]
@@ -715,9 +715,9 @@ mod tests {
         // If Lambek types parse, their pregroup images should also parse.
         // "the dog runs": det + noun + iv
         let lambek_types = vec![
-            lambek_en::determiner(),
-            lambek_en::noun(),
-            lambek_en::intransitive_verb(),
+            lambek_svo::determiner(),
+            lambek_svo::noun(),
+            lambek_svo::intransitive_verb(),
         ];
         let pregroup_types: Vec<PregroupType> =
             lambek_types.iter().map(lambek_to_pregroup).collect();
@@ -735,10 +735,10 @@ mod tests {
     fn functor_transitive_parses() {
         // "she sees the dog": np + tv + det + noun
         let lambek_types = vec![
-            lambek_en::proper_noun(),
-            lambek_en::transitive_verb(),
-            lambek_en::determiner(),
-            lambek_en::noun(),
+            lambek_svo::proper_noun(),
+            lambek_svo::transitive_verb(),
+            lambek_svo::determiner(),
+            lambek_svo::noun(),
         ];
         let pregroup_types: Vec<PregroupType> =
             lambek_types.iter().map(lambek_to_pregroup).collect();
@@ -756,10 +756,10 @@ mod tests {
     fn functor_adjective_parses() {
         // "the big dog runs": det + adj + noun + iv
         let lambek_types = vec![
-            lambek_en::determiner(),
-            lambek_en::adjective(),
-            lambek_en::noun(),
-            lambek_en::intransitive_verb(),
+            lambek_svo::determiner(),
+            lambek_svo::adjective(),
+            lambek_svo::noun(),
+            lambek_svo::intransitive_verb(),
         ];
         let pregroup_types: Vec<PregroupType> =
             lambek_types.iter().map(lambek_to_pregroup).collect();
