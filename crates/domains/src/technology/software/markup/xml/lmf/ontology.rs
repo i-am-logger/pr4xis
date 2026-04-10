@@ -177,12 +177,31 @@ impl SenseRelationType {
 }
 
 /// LMF part-of-speech tags.
+///
+/// Extended beyond WordNet's 4 open-class tags (n, v, a, r) to include
+/// closed-class function words, per Universal Dependencies and OLiA.
+///
+/// References:
+/// - WordNet-LMF: n, v, a, s, r
+/// - Universal Dependencies: DET, PRON, ADP, CCONJ, SCONJ, PART, AUX, INTJ
+/// - OLiA: Determiner, Pronoun, Copula, Auxiliary, Preposition, etc.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LmfPos {
+    // Open class (WordNet)
     Noun,
     Verb,
     Adjective,
     Adverb,
+    // Closed class (function words)
+    Determiner,
+    Pronoun,
+    Preposition,
+    Conjunction,
+    Particle,
+    Copula,
+    Auxiliary,
+    Interjection,
+    Numeral,
     Other,
 }
 
@@ -193,18 +212,39 @@ impl Entity for LmfPos {
             Self::Verb,
             Self::Adjective,
             Self::Adverb,
+            Self::Determiner,
+            Self::Pronoun,
+            Self::Preposition,
+            Self::Conjunction,
+            Self::Particle,
+            Self::Copula,
+            Self::Auxiliary,
+            Self::Interjection,
+            Self::Numeral,
             Self::Other,
         ]
     }
 }
 
 impl LmfPos {
+    /// Parse from LMF/Universal Dependencies POS tag string.
     pub fn parse(s: &str) -> Self {
         match s {
+            // WordNet open class
             "n" => Self::Noun,
             "v" => Self::Verb,
             "a" | "s" => Self::Adjective,
             "r" => Self::Adverb,
+            // Closed class (Universal Dependencies / OLiA tags)
+            "det" | "d" => Self::Determiner,
+            "pron" => Self::Pronoun,
+            "adp" | "prep" => Self::Preposition,
+            "cconj" | "sconj" | "conj" => Self::Conjunction,
+            "part" => Self::Particle,
+            "cop" => Self::Copula,
+            "aux" => Self::Auxiliary,
+            "intj" => Self::Interjection,
+            "num" => Self::Numeral,
             _ => Self::Other,
         }
     }
@@ -215,8 +255,30 @@ impl LmfPos {
             Self::Verb => "v",
             Self::Adjective => "a",
             Self::Adverb => "r",
+            Self::Determiner => "det",
+            Self::Pronoun => "pron",
+            Self::Preposition => "adp",
+            Self::Conjunction => "conj",
+            Self::Particle => "part",
+            Self::Copula => "cop",
+            Self::Auxiliary => "aux",
+            Self::Interjection => "intj",
+            Self::Numeral => "num",
             Self::Other => "x",
         }
+    }
+
+    /// Is this an open-class (content word) POS?
+    pub fn is_open_class(&self) -> bool {
+        matches!(
+            self,
+            Self::Noun | Self::Verb | Self::Adjective | Self::Adverb
+        )
+    }
+
+    /// Is this a closed-class (function word) POS?
+    pub fn is_closed_class(&self) -> bool {
+        !self.is_open_class() && *self != Self::Other
     }
 }
 

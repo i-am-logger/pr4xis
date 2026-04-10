@@ -248,6 +248,43 @@ pub fn lmf_pos_to_lexical_entries(
         }
         lmf::LmfPos::Adjective => vec![LexicalEntry::Adjective(Adjective { text: word.into() })],
         lmf::LmfPos::Adverb => vec![LexicalEntry::Adverb(Adverb { text: word.into() })],
+        lmf::LmfPos::Determiner | lmf::LmfPos::Numeral => {
+            vec![LexicalEntry::Determiner(Determiner {
+                text: word.into(),
+                definiteness: Definiteness::Indefinite,
+                number: None,
+            })]
+        }
+        lmf::LmfPos::Pronoun => vec![LexicalEntry::Pronoun(Pronoun {
+            text: word.into(),
+            kind: PronounKind::Personal,
+            number: Number::Singular,
+            person: Person::Third,
+        })],
+        lmf::LmfPos::Preposition => {
+            vec![LexicalEntry::Preposition(Preposition { text: word.into() })]
+        }
+        lmf::LmfPos::Conjunction => {
+            vec![LexicalEntry::Conjunction(Conjunction { text: word.into() })]
+        }
+        lmf::LmfPos::Particle => vec![LexicalEntry::Particle(Particle { text: word.into() })],
+        lmf::LmfPos::Copula => vec![LexicalEntry::Copula(Copula {
+            text: word.into(),
+            number: Number::Singular,
+            person: Person::Third,
+            tense: Tense::Present,
+        })],
+        lmf::LmfPos::Auxiliary => {
+            vec![LexicalEntry::Auxiliary(Auxiliary {
+                text: word.into(),
+                number: Some(Number::Singular),
+                tense: Some(Tense::Present),
+            })]
+        }
+        lmf::LmfPos::Interjection => vec![LexicalEntry::Interjection(Interjection {
+            text: word.into(),
+            kind: InterjectionKind::Expressive,
+        })],
         lmf::LmfPos::Other => vec![LexicalEntry::Noun(Noun {
             text: word.into(),
             number: Number::Singular,

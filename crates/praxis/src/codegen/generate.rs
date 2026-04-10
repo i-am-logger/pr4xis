@@ -148,6 +148,19 @@ fn write_entity_data(
     writeln!(out, "];").unwrap();
     writeln!(out).unwrap();
 
+    // Definitions (first definition per entity, empty string if none)
+    writeln!(out, "static ENTITY_DEFS: &[&str] = &[").unwrap();
+    for entity in &builder.entities {
+        let def = entity
+            .definitions
+            .first()
+            .map(|d| d.replace('"', "\\\"").replace('\\', "\\\\"))
+            .unwrap_or_default();
+        writeln!(out, "    \"{def}\",").unwrap();
+    }
+    writeln!(out, "];").unwrap();
+    writeln!(out).unwrap();
+
     // Lookup functions
     writeln!(out, "impl {ty} {{").unwrap();
     writeln!(out, "    pub fn label(&self) -> &'static str {{").unwrap();
@@ -170,6 +183,14 @@ fn write_entity_data(
     writeln!(
         out,
         "        ENTITY_POS.get(self.0 as usize).copied().unwrap_or(\"\")"
+    )
+    .unwrap();
+    writeln!(out, "    }}").unwrap();
+    writeln!(out).unwrap();
+    writeln!(out, "    pub fn definition(&self) -> &'static str {{").unwrap();
+    writeln!(
+        out,
+        "        ENTITY_DEFS.get(self.0 as usize).copied().unwrap_or(\"\")"
     )
     .unwrap();
     writeln!(out, "    }}").unwrap();

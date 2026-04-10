@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  English function words (closed class) in LMF format.
+  Same format as WordNet — processed by the same codegen functor.
+
+  Source: OLiA (Ontologies of Linguistic Annotation) POS taxonomy.
+  Reference: Chiarcos et al., "OLiA — Ontologies of Linguistic Annotation" (2015)
+
+  POS tags follow Universal Dependencies:
+    det = determiner, pron = pronoun, adp = preposition,
+    conj = conjunction, part = particle, cop = copula,
+    aux = auxiliary, intj = interjection, num = numeral
+-->
+<LexicalResource>
+  <Lexicon id="en-function" label="English Function Words" language="en" email="" license="CC-BY-4.0" version="1.0" url="">
+
+    <!-- Determiners (OLiA: Determiner) -->
+    <LexicalEntry id="fw-the"><Lemma writtenForm="the" partOfSpeech="det"/><Sense id="fw-the-1" synset="fw-definite-det"/></LexicalEntry>
+    <LexicalEntry id="fw-a"><Lemma writtenForm="a" partOfSpeech="det"/><Sense id="fw-a-1" synset="fw-indefinite-det"/></LexicalEntry>
+    <LexicalEntry id="fw-an"><Lemma writtenForm="an" partOfSpeech="det"/><Sense id="fw-an-1" synset="fw-indefinite-det"/></LexicalEntry>
+    <LexicalEntry id="fw-this"><Lemma writtenForm="this" partOfSpeech="det"/><Sense id="fw-this-1" synset="fw-demonstrative-det"/></LexicalEntry>
+    <LexicalEntry id="fw-that"><Lemma writtenForm="that" partOfSpeech="det"/><Sense id="fw-that-1" synset="fw-demonstrative-det"/></LexicalEntry>
+    <LexicalEntry id="fw-these"><Lemma writtenForm="these" partOfSpeech="det"/><Sense id="fw-these-1" synset="fw-demonstrative-det"/></LexicalEntry>
+    <LexicalEntry id="fw-those"><Lemma writtenForm="those" partOfSpeech="det"/><Sense id="fw-those-1" synset="fw-demonstrative-det"/></LexicalEntry>
+    <LexicalEntry id="fw-every"><Lemma writtenForm="every" partOfSpeech="det"/><Sense id="fw-every-1" synset="fw-universal-det"/></LexicalEntry>
+    <LexicalEntry id="fw-each"><Lemma writtenForm="each" partOfSpeech="det"/><Sense id="fw-each-1" synset="fw-universal-det"/></LexicalEntry>
+    <LexicalEntry id="fw-some"><Lemma writtenForm="some" partOfSpeech="det"/><Sense id="fw-some-1" synset="fw-indefinite-det"/></LexicalEntry>
+    <LexicalEntry id="fw-any"><Lemma writtenForm="any" partOfSpeech="det"/><Sense id="fw-any-1" synset="fw-indefinite-det"/></LexicalEntry>
+    <LexicalEntry id="fw-no-det"><Lemma writtenForm="no" partOfSpeech="det"/><Sense id="fw-no-det-1" synset="fw-negative-det"/></LexicalEntry>
+
+    <!-- Copulas (OLiA: Copula) -->
+    <LexicalEntry id="fw-is"><Lemma writtenForm="is" partOfSpeech="cop"/><Sense id="fw-is-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-are"><Lemma writtenForm="are" partOfSpeech="cop"/><Sense id="fw-are-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-am"><Lemma writtenForm="am" partOfSpeech="cop"/><Sense id="fw-am-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-was"><Lemma writtenForm="was" partOfSpeech="cop"/><Sense id="fw-was-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-were"><Lemma writtenForm="were" partOfSpeech="cop"/><Sense id="fw-were-1" synset="fw-copula"/></LexicalEntry>
+
+    <!-- Auxiliaries (OLiA: AuxiliaryVerb) -->
+    <LexicalEntry id="fw-has"><Lemma writtenForm="has" partOfSpeech="aux"/><Sense id="fw-has-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-have"><Lemma writtenForm="have" partOfSpeech="aux"/><Sense id="fw-have-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-had"><Lemma writtenForm="had" partOfSpeech="aux"/><Sense id="fw-had-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-do"><Lemma writtenForm="do" partOfSpeech="aux"/><Sense id="fw-do-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-does"><Lemma writtenForm="does" partOfSpeech="aux"/><Sense id="fw-does-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-did"><Lemma writtenForm="did" partOfSpeech="aux"/><Sense id="fw-did-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-will"><Lemma writtenForm="will" partOfSpeech="aux"/><Sense id="fw-will-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-would"><Lemma writtenForm="would" partOfSpeech="aux"/><Sense id="fw-would-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-can"><Lemma writtenForm="can" partOfSpeech="aux"/><Sense id="fw-can-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-could"><Lemma writtenForm="could" partOfSpeech="aux"/><Sense id="fw-could-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-shall"><Lemma writtenForm="shall" partOfSpeech="aux"/><Sense id="fw-shall-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-should"><Lemma writtenForm="should" partOfSpeech="aux"/><Sense id="fw-should-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-may"><Lemma writtenForm="may" partOfSpeech="aux"/><Sense id="fw-may-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-might"><Lemma writtenForm="might" partOfSpeech="aux"/><Sense id="fw-might-1" synset="fw-auxiliary"/></LexicalEntry>
+    <LexicalEntry id="fw-must"><Lemma writtenForm="must" partOfSpeech="aux"/><Sense id="fw-must-1" synset="fw-auxiliary"/></LexicalEntry>
+
+    <!-- Personal Pronouns (OLiA: PersonalPronoun) -->
+    <LexicalEntry id="fw-i"><Lemma writtenForm="i" partOfSpeech="pron"/><Sense id="fw-i-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-you"><Lemma writtenForm="you" partOfSpeech="pron"/><Sense id="fw-you-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-he"><Lemma writtenForm="he" partOfSpeech="pron"/><Sense id="fw-he-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-she"><Lemma writtenForm="she" partOfSpeech="pron"/><Sense id="fw-she-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-it"><Lemma writtenForm="it" partOfSpeech="pron"/><Sense id="fw-it-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-we"><Lemma writtenForm="we" partOfSpeech="pron"/><Sense id="fw-we-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-they"><Lemma writtenForm="they" partOfSpeech="pron"/><Sense id="fw-they-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-me"><Lemma writtenForm="me" partOfSpeech="pron"/><Sense id="fw-me-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-him"><Lemma writtenForm="him" partOfSpeech="pron"/><Sense id="fw-him-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-her"><Lemma writtenForm="her" partOfSpeech="pron"/><Sense id="fw-her-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-us"><Lemma writtenForm="us" partOfSpeech="pron"/><Sense id="fw-us-1" synset="fw-personal-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-them"><Lemma writtenForm="them" partOfSpeech="pron"/><Sense id="fw-them-1" synset="fw-personal-pron"/></LexicalEntry>
+
+    <!-- Interrogative Pronouns (OLiA: InterrogativePronoun) -->
+    <LexicalEntry id="fw-what"><Lemma writtenForm="what" partOfSpeech="pron"/><Sense id="fw-what-1" synset="fw-interrogative-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-who"><Lemma writtenForm="who" partOfSpeech="pron"/><Sense id="fw-who-1" synset="fw-interrogative-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-which"><Lemma writtenForm="which" partOfSpeech="pron"/><Sense id="fw-which-1" synset="fw-interrogative-pron"/></LexicalEntry>
+
+    <!-- Prepositions (OLiA: Adposition) -->
+    <LexicalEntry id="fw-in"><Lemma writtenForm="in" partOfSpeech="adp"/><Sense id="fw-in-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-on"><Lemma writtenForm="on" partOfSpeech="adp"/><Sense id="fw-on-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-at"><Lemma writtenForm="at" partOfSpeech="adp"/><Sense id="fw-at-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-with"><Lemma writtenForm="with" partOfSpeech="adp"/><Sense id="fw-with-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-to"><Lemma writtenForm="to" partOfSpeech="adp"/><Sense id="fw-to-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-from"><Lemma writtenForm="from" partOfSpeech="adp"/><Sense id="fw-from-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-by"><Lemma writtenForm="by" partOfSpeech="adp"/><Sense id="fw-by-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-for"><Lemma writtenForm="for" partOfSpeech="adp"/><Sense id="fw-for-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-of"><Lemma writtenForm="of" partOfSpeech="adp"/><Sense id="fw-of-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-about"><Lemma writtenForm="about" partOfSpeech="adp"/><Sense id="fw-about-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-into"><Lemma writtenForm="into" partOfSpeech="adp"/><Sense id="fw-into-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-through"><Lemma writtenForm="through" partOfSpeech="adp"/><Sense id="fw-through-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-during"><Lemma writtenForm="during" partOfSpeech="adp"/><Sense id="fw-during-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-before"><Lemma writtenForm="before" partOfSpeech="adp"/><Sense id="fw-before-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-after"><Lemma writtenForm="after" partOfSpeech="adp"/><Sense id="fw-after-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-above"><Lemma writtenForm="above" partOfSpeech="adp"/><Sense id="fw-above-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-below"><Lemma writtenForm="below" partOfSpeech="adp"/><Sense id="fw-below-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-between"><Lemma writtenForm="between" partOfSpeech="adp"/><Sense id="fw-between-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-under"><Lemma writtenForm="under" partOfSpeech="adp"/><Sense id="fw-under-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-over"><Lemma writtenForm="over" partOfSpeech="adp"/><Sense id="fw-over-1" synset="fw-preposition"/></LexicalEntry>
+
+    <!-- Conjunctions (OLiA: CoordinatingConjunction / SubordinatingConjunction) -->
+    <LexicalEntry id="fw-and"><Lemma writtenForm="and" partOfSpeech="conj"/><Sense id="fw-and-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-but"><Lemma writtenForm="but" partOfSpeech="conj"/><Sense id="fw-but-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-or"><Lemma writtenForm="or" partOfSpeech="conj"/><Sense id="fw-or-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-so"><Lemma writtenForm="so" partOfSpeech="conj"/><Sense id="fw-so-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-yet"><Lemma writtenForm="yet" partOfSpeech="conj"/><Sense id="fw-yet-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-nor"><Lemma writtenForm="nor" partOfSpeech="conj"/><Sense id="fw-nor-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-because"><Lemma writtenForm="because" partOfSpeech="conj"/><Sense id="fw-because-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-although"><Lemma writtenForm="although" partOfSpeech="conj"/><Sense id="fw-although-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-if"><Lemma writtenForm="if" partOfSpeech="conj"/><Sense id="fw-if-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-when"><Lemma writtenForm="when" partOfSpeech="conj"/><Sense id="fw-when-1" synset="fw-conjunction"/></LexicalEntry>
+
+    <!-- Particles -->
+    <LexicalEntry id="fw-not"><Lemma writtenForm="not" partOfSpeech="part"/><Sense id="fw-not-1" synset="fw-particle"/></LexicalEntry>
+    <LexicalEntry id="fw-to-part"><Lemma writtenForm="to" partOfSpeech="part"/><Sense id="fw-to-part-1" synset="fw-particle"/></LexicalEntry>
+
+    <!-- Interjections (OLiA: Interjection) -->
+    <LexicalEntry id="fw-hello"><Lemma writtenForm="hello" partOfSpeech="intj"/><Sense id="fw-hello-1" synset="fw-greeting"/></LexicalEntry>
+    <LexicalEntry id="fw-hi"><Lemma writtenForm="hi" partOfSpeech="intj"/><Sense id="fw-hi-1" synset="fw-greeting"/></LexicalEntry>
+    <LexicalEntry id="fw-hey"><Lemma writtenForm="hey" partOfSpeech="intj"/><Sense id="fw-hey-1" synset="fw-greeting"/></LexicalEntry>
+    <LexicalEntry id="fw-goodbye"><Lemma writtenForm="goodbye" partOfSpeech="intj"/><Sense id="fw-goodbye-1" synset="fw-farewell"/></LexicalEntry>
+    <LexicalEntry id="fw-bye"><Lemma writtenForm="bye" partOfSpeech="intj"/><Sense id="fw-bye-1" synset="fw-farewell"/></LexicalEntry>
+    <LexicalEntry id="fw-thanks"><Lemma writtenForm="thanks" partOfSpeech="intj"/><Sense id="fw-thanks-1" synset="fw-politeness"/></LexicalEntry>
+    <LexicalEntry id="fw-please"><Lemma writtenForm="please" partOfSpeech="intj"/><Sense id="fw-please-1" synset="fw-politeness"/></LexicalEntry>
+    <LexicalEntry id="fw-yes"><Lemma writtenForm="yes" partOfSpeech="intj"/><Sense id="fw-yes-1" synset="fw-response"/></LexicalEntry>
+    <LexicalEntry id="fw-no-intj"><Lemma writtenForm="no" partOfSpeech="intj"/><Sense id="fw-no-intj-1" synset="fw-response"/></LexicalEntry>
+    <LexicalEntry id="fw-ok"><Lemma writtenForm="ok" partOfSpeech="intj"/><Sense id="fw-ok-1" synset="fw-response"/></LexicalEntry>
+    <LexicalEntry id="fw-sorry"><Lemma writtenForm="sorry" partOfSpeech="intj"/><Sense id="fw-sorry-1" synset="fw-politeness"/></LexicalEntry>
+    <LexicalEntry id="fw-well"><Lemma writtenForm="well" partOfSpeech="intj"/><Sense id="fw-well-1" synset="fw-expressive"/></LexicalEntry>
+    <LexicalEntry id="fw-oh"><Lemma writtenForm="oh" partOfSpeech="intj"/><Sense id="fw-oh-1" synset="fw-expressive"/></LexicalEntry>
+
+    <!-- Synsets for function word categories -->
+    <Synset id="fw-definite-det" partOfSpeech="det"><Definition>definite determiner</Definition></Synset>
+    <Synset id="fw-indefinite-det" partOfSpeech="det"><Definition>indefinite determiner</Definition></Synset>
+    <Synset id="fw-demonstrative-det" partOfSpeech="det"><Definition>demonstrative determiner</Definition></Synset>
+    <Synset id="fw-universal-det" partOfSpeech="det"><Definition>universal determiner</Definition></Synset>
+    <Synset id="fw-negative-det" partOfSpeech="det"><Definition>negative determiner</Definition></Synset>
+    <Synset id="fw-copula" partOfSpeech="cop"><Definition>copular verb (linking verb)</Definition></Synset>
+    <Synset id="fw-auxiliary" partOfSpeech="aux"><Definition>auxiliary verb</Definition></Synset>
+    <Synset id="fw-personal-pron" partOfSpeech="pron"><Definition>personal pronoun</Definition></Synset>
+    <Synset id="fw-interrogative-pron" partOfSpeech="pron"><Definition>interrogative pronoun</Definition></Synset>
+    <Synset id="fw-preposition" partOfSpeech="adp"><Definition>preposition</Definition></Synset>
+    <Synset id="fw-conjunction" partOfSpeech="conj"><Definition>conjunction</Definition></Synset>
+    <Synset id="fw-particle" partOfSpeech="part"><Definition>particle</Definition></Synset>
+    <Synset id="fw-greeting" partOfSpeech="intj"><Definition>greeting interjection</Definition></Synset>
+    <Synset id="fw-farewell" partOfSpeech="intj"><Definition>farewell interjection</Definition></Synset>
+    <Synset id="fw-politeness" partOfSpeech="intj"><Definition>politeness interjection</Definition></Synset>
+    <Synset id="fw-response" partOfSpeech="intj"><Definition>response interjection</Definition></Synset>
+    <Synset id="fw-expressive" partOfSpeech="intj"><Definition>expressive interjection</Definition></Synset>
+
+  </Lexicon>
+</LexicalResource>
