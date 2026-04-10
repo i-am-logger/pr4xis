@@ -24,6 +24,10 @@ pub struct ProcessResult {
     pub duration_us: u64,
     /// Number of tokens processed.
     pub token_count: usize,
+    /// Whether the parser succeeded.
+    pub parsed: bool,
+    /// Metacognition trace — the epistemic path taken.
+    pub trace: String,
 }
 
 /// Process input through the full linguistics pipeline.
@@ -47,6 +51,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             system_act: SpeechAct::Assertion,
             duration_us: start.elapsed().as_micros() as u64,
             token_count: 0,
+            parsed: false,
+            trace: "empty input".into(),
         };
     }
 
@@ -76,7 +82,13 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
         &tokens
     };
     let meaning = montague::interpret(montague_tokens, lang);
+    let parsed = reduction.success;
     let duration_us = start.elapsed().as_micros() as u64;
+
+    let trace = format!(
+        "tokens={} parsed={} meaning={:?}",
+        token_count, parsed, meaning
+    );
 
     match &meaning {
         montague::Sem::Question {
@@ -90,6 +102,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
                 system_act: SpeechAct::Assertion,
                 duration_us,
                 token_count,
+                parsed,
+                trace,
             }
         }
 
@@ -104,6 +118,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
                 system_act: SpeechAct::Assertion,
                 duration_us,
                 token_count,
+                parsed,
+                trace,
             }
         }
 
@@ -115,6 +131,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
                 system_act: SpeechAct::Assertion,
                 duration_us,
                 token_count,
+                parsed,
+                trace,
             }
         }
     }
@@ -126,15 +144,19 @@ fn attempt_partial_understanding(
     reduction: &ReductionResult,
     meaning: &montague::Sem,
 ) -> String {
+    use praxis_domains::science::linguistics::language::Language;
+
+    // Check known/unknown through the Language trait — covers BOTH
+    // function words (closed class) AND WordNet concepts (open class).
     let known_words: Vec<&str> = tokens
         .iter()
-        .filter(|t| !en.lookup(&t.word).is_empty())
+        .filter(|t| en.lexical_lookup(&t.word).is_some())
         .map(|t| t.word.as_str())
         .collect();
 
     let unknown_words: Vec<&str> = tokens
         .iter()
-        .filter(|t| en.lookup(&t.word).is_empty())
+        .filter(|t| en.lexical_lookup(&t.word).is_none())
         .map(|t| t.word.as_str())
         .collect();
 
@@ -189,7 +211,14 @@ pub fn answer_question(en: &English, predicate: &str, arguments: &[montague::Sem
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
 
-    let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
+    let all_entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
+
+    // Filter to content entities (in WordNet) — skip function words like "what", "is"
+    let entities: Vec<String> = all_entities
+        .iter()
+        .filter(|e| !en.lookup(e).is_empty())
+        .cloned()
+        .collect();
 
     if entities.len() >= 2 {
         let child = &entities[0];
@@ -296,7 +325,17 @@ pub fn extract_entity_name(sem: &montague::Sem) -> String {
     match sem {
         montague::Sem::Entity { word, .. } => word.clone(),
         montague::Sem::Pred { word } => word.clone(),
-        montague::Sem::Func { word, .. } => word.clone(),
+        // For Func (e.g., "is" applied to "dog"), extract the content entity
+        // from the body, not the function word itself.
+        montague::Sem::Func { body, word, .. } => {
+            let inner = extract_entity_name(body);
+            // If the body yielded a real entity, use it; otherwise fall back to the func word
+            if !inner.is_empty() {
+                inner
+            } else {
+                word.clone()
+            }
+        }
         montague::Sem::Prop { predicate, .. } | montague::Sem::Question { predicate, .. } => {
             predicate.clone()
         }
@@ -379,6 +418,96 @@ mod tests {
         let en = sample_english();
         let (response, _, _) = process(&en, "");
         assert!(!response.is_empty());
+    }
+
+    #[test]
+    fn debug_function_words() {
+        use praxis_domains::science::linguistics::language::Language;
+        let en = sample_english();
+        eprintln!(
+            "word_count: {}, concept_count: {}",
+            en.word_count(),
+            en.concept_count()
+        );
+        for word in ["the", "is", "a", "what", "hello", "dog"] {
+            let lookup = en.lexical_lookup(word);
+            eprintln!("  lexical_lookup({word:?}) = {lookup:?}");
+        }
+    }
+
+    #[test]
+    fn debug_chat_responses() {
+        use praxis_domains::science::linguistics::lambek::{reduce::chart_reduce, tokenize};
+        use praxis_domains::science::linguistics::language::Language;
+
+        let en = sample_english();
+        let inputs = [
+            "dog",
+            "hello",
+            "is a dog a mammal",
+            "is a dog a mammal?",
+            "the dog runs",
+            "what is a dog",
+        ];
+        for input in &inputs {
+            eprintln!("=== INPUT: {input:?} ===");
+
+            // Metacognition: trace the pipeline
+            let (tokens, alts) = tokenize::tokenize_with_alternatives(input, &en);
+            eprintln!(
+                "  tokens: {:?}",
+                tokens
+                    .iter()
+                    .map(|t| format!("{}:{:?}", t.word, t.lambek_type))
+                    .collect::<Vec<_>>()
+            );
+
+            let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
+            let type_sets: Vec<Vec<_>> = tokens
+                .iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    let mut types = vec![t.lambek_type.clone()];
+                    if let Some(a) = alts.get(i) {
+                        types.extend(a.iter().cloned());
+                    }
+                    types
+                })
+                .collect();
+            let reduction = chart_reduce(&words, &type_sets);
+            eprintln!(
+                "  parsed: {}, final_type: {:?}",
+                reduction.success, reduction.final_type
+            );
+
+            // Known/unknown via Language trait
+            for t in &tokens {
+                let known = en.lexical_lookup(&t.word).is_some();
+                eprintln!("  word {}: known={}", t.word, known);
+            }
+
+            let montague_tokens = if reduction.success && reduction.remaining.len() == tokens.len()
+            {
+                &reduction.remaining
+            } else {
+                &tokens
+            };
+            let meaning = praxis_domains::science::linguistics::lambek::montague::interpret(
+                montague_tokens,
+                &en,
+            );
+            eprintln!("  meaning: {:?}", meaning);
+
+            let (response, user_act, _) = process(&en, input);
+            eprintln!("  user_act: {user_act:?}");
+            eprintln!("  RESPONSE: {response:?}");
+            eprintln!();
+
+            assert!(
+                !response.is_empty(),
+                "response for {input:?} should not be empty"
+            );
+        }
     }
 
     #[test]

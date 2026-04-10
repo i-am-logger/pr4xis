@@ -46,16 +46,19 @@ impl Praxis {
     /// Process input through the full praxis-chat pipeline.
     pub fn chat(&self, input: &str) -> String {
         let result = praxis_chat::process_with_metadata(&self.english, input);
+        let tps = if result.duration_us > 0 {
+            (result.token_count as u64 * 1_000_000) / result.duration_us
+        } else {
+            0
+        };
         format!(
-            r#"{{"response":"{}","duration_us":{},"token_count":{},"tokens_per_sec":{}}}"#,
+            r#"{{"response":"{}","duration_us":{},"token_count":{},"tokens_per_sec":{},"parsed":{},"trace":"{}"}}"#,
             result.response.replace('"', "\\\"").replace('\n', "\\n"),
             result.duration_us,
             result.token_count,
-            if result.duration_us > 0 {
-                (result.token_count as u64 * 1_000_000) / result.duration_us
-            } else {
-                0
-            },
+            tps,
+            result.parsed,
+            result.trace.replace('"', "\\\"").replace('\n', "\\n"),
         )
     }
 
