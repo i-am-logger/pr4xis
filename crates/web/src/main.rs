@@ -95,13 +95,17 @@ fn handle_request(root: &Path, request: tiny_http::Request) {
         let _ = request.respond(
             Response::from_string(injected)
                 .with_header(content_type(mime))
-                .with_header(no_cache()),
+                .with_header(no_cache())
+                .with_header(cross_origin_opener())
+                .with_header(cross_origin_embedder()),
         );
     } else {
         let _ = request.respond(
             Response::from_data(data)
                 .with_header(content_type(mime))
-                .with_header(cache_header(mime)),
+                .with_header(cache_header(mime))
+                .with_header(cross_origin_opener())
+                .with_header(cross_origin_embedder()),
         );
     }
 }
@@ -284,6 +288,16 @@ fn content_type(mime: &str) -> Header {
 fn no_cache() -> Header {
     Header::from_bytes("Cache-Control", "no-cache, no-store, must-revalidate")
         .expect("valid header")
+}
+
+/// Enable high-resolution performance.now() in browsers.
+/// Without these headers, timers are clamped to ~100µs (Spectre mitigation).
+fn cross_origin_opener() -> Header {
+    Header::from_bytes("Cross-Origin-Opener-Policy", "same-origin").expect("valid header")
+}
+
+fn cross_origin_embedder() -> Header {
+    Header::from_bytes("Cross-Origin-Embedder-Policy", "require-corp").expect("valid header")
 }
 
 fn cache_header(mime: &str) -> Header {
