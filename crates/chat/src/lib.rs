@@ -315,8 +315,13 @@ pub fn define_word(en: &English, word: &str) -> String {
     realize::realize(&content)
 }
 
-/// Build a rich taxonomy response showing the chain from child to parent,
-/// definitions, and some children (subtypes) of the child concept.
+/// Build a taxonomy response following the NLG pipeline.
+///
+/// Reiter & Dale (2000):
+/// 1. Content determination — gather facts from ontology
+/// 2. Document planning — organize with RST (assertion → evidence → elaboration)
+/// 3. Microplanning — referring expressions
+/// 4. Realization — compose through grammar
 fn build_taxonomy_response(
     en: &English,
     child_word: &str,
@@ -326,16 +331,11 @@ fn build_taxonomy_response(
 ) -> String {
     use praxis_domains::science::linguistics::pragmatics::realize;
 
-    let mut lines = Vec::new();
+    // ---- Stage 1: Content Determination ----
+    // Gather all relevant knowledge from the ontology.
 
-    // Assertion: "a dog is an animal"
-    lines.push(format!(
-        "Yes. {}.",
-        realize::sentence_copula(child_word, parent_word)
-    ));
-
-    // Taxonomy path: dog → mammal → animal
-    let mut chain = vec![child_word.to_string()];
+    // The taxonomy chain: how child relates to parent
+    let mut chain_ids = vec![(child_word.to_string(), child_id)];
     let mut current = child_id;
     for _ in 0..10 {
         if current == parent_id {
@@ -348,50 +348,74 @@ fn build_taxonomy_response(
                     .first()
                     .map(|l| l.as_str())
                     .unwrap_or(&c.original_id);
-                chain.push(label.to_string());
+                chain_ids.push((label.to_string(), p));
             }
             current = p;
         } else {
             break;
         }
     }
-    if chain.len() > 2 {
-        lines.push(format!("  path: {}", chain.join(" → ")));
-    }
 
-    // Definitions
-    if let Some(c) = en.concept(child_id)
-        && let Some(def) = c.definitions.first()
-    {
-        lines.push(format!("  {child_word}: {def}"));
-    }
-    if let Some(c) = en.concept(parent_id)
-        && let Some(def) = c.definitions.first()
-    {
-        lines.push(format!("  {parent_word}: {def}"));
-    }
+    // Definitions for each concept in the chain
+    let chain_defs: Vec<(&str, &str)> = chain_ids
+        .iter()
+        .filter_map(|(label, id)| {
+            en.concept(*id)
+                .and_then(|c| c.definitions.first())
+                .map(|def| (label.as_str(), def.as_str()))
+        })
+        .collect();
 
-    // Children (subtypes) of the child concept — "types of dog"
-    let children = en.children(child_id);
-    if !children.is_empty() {
-        let child_names: Vec<&str> = children
-            .iter()
-            .take(5)
-            .filter_map(|&id| {
-                en.concept(id)
-                    .and_then(|c| c.lemmas.first())
-                    .map(|l| l.as_str())
-            })
-            .collect();
-        if !child_names.is_empty() {
-            lines.push(format!(
-                "  types of {child_word}: {}",
-                child_names.join(", ")
+    // Children (subtypes) of the child concept
+    let subtypes: Vec<&str> = en
+        .children(child_id)
+        .iter()
+        .take(5)
+        .filter_map(|&id| {
+            en.concept(id)
+                .and_then(|c| c.lemmas.first())
+                .map(|l| l.as_str())
+        })
+        .collect();
+
+    // ---- Stage 2: Document Planning (RST) ----
+    // Organize as: Assertion (nucleus) → Evidence (satellite) → Elaboration
+
+    let mut sections = Vec::new();
+
+    // Nucleus: the direct assertion
+    sections.push(format!(
+        "Yes. {}.",
+        realize::sentence_copula(child_word, parent_word)
+    ));
+
+    // Evidence: HOW — the taxonomy path explains the connection
+    if chain_ids.len() > 2 {
+        let chain_labels: Vec<&str> = chain_ids.iter().map(|(l, _)| l.as_str()).collect();
+        let mut evidence_parts = Vec::new();
+        for i in 0..chain_labels.len() - 1 {
+            evidence_parts.push(realize::sentence_copula(
+                chain_labels[i],
+                chain_labels[i + 1],
             ));
         }
+        sections.push(evidence_parts.join(", and "));
     }
 
-    lines.join("\n")
+    // Elaboration: WHAT each concept means
+    for (label, def) in &chain_defs {
+        sections.push(format!("{label}: {def}"));
+    }
+
+    // Elaboration: subtypes
+    if !subtypes.is_empty() {
+        sections.push(format!("types of {child_word}: {}", subtypes.join(", ")));
+    }
+
+    // ---- Stage 3 & 4: Microplanning + Realization ----
+    // Already handled by realize::sentence_copula (determiner selection, grammar)
+
+    sections.join("\n")
 }
 
 /// Explore what the system knows about multiple concepts.
