@@ -1,5 +1,6 @@
 pub mod discourse;
 pub mod generation;
+pub mod nlg;
 pub mod realize;
 pub mod reference;
 pub mod response;
