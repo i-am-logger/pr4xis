@@ -10,6 +10,7 @@ license = "CC-BY-NC-SA-4.0"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+console_error_panic_hook = "0.1"
 praxis = { path = "../praxis" }
 praxis-chat = { path = "../chat" }
 praxis-domains = { path = "../domains" }
