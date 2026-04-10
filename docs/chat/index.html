@@ -67,6 +67,23 @@
       font-size: 0.85em;
       font-style: italic;
     }
+    .trace {
+      align-self: flex-start;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 0.5rem 0.8rem;
+      font-family: monospace;
+      font-size: 0.75em;
+      color: #7ee787;
+      max-width: 90%;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .trace summary { cursor: pointer; color: #8b949e; }
+    .trace .step { margin-left: 1em; color: #79c0ff; }
+    .trace .step::before { content: '├─ '; color: #484f58; }
+    .trace .step:last-child::before { content: '└─ '; color: #484f58; }
 
     #input-area {
       padding: 1rem 2rem;
@@ -140,6 +157,23 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
+    function addTrace(trace) {
+      const parts = trace.split(' | ');
+      const details = document.createElement('details');
+      details.className = 'message trace';
+      const summary = document.createElement('summary');
+      summary.textContent = 'pipeline trace';
+      details.appendChild(summary);
+      for (const part of parts) {
+        const step = document.createElement('div');
+        step.className = 'step';
+        step.textContent = part;
+        details.appendChild(step);
+      }
+      chat.appendChild(details);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
     async function initialize() {
       try {
         await init();
@@ -181,11 +215,12 @@
           ? `${result.duration_us}µs`
           : `${(result.duration_us / 1000).toFixed(1)}ms`;
         addMessage(result.response, 'system');
-        let meta = `${result.token_count} tokens · ${dur} · single thread`;
-        if (result.parsed !== undefined) meta += ` · parsed: ${result.parsed}`;
-        addMessage(meta, 'info');
-        if (result.trace) {
-          addMessage(`trace: ${result.trace}`, 'info');
+        addMessage(
+          `${result.token_count} tokens · ${dur} · single thread`,
+          'info'
+        );
+        if (debugCheckbox.checked && result.trace) {
+          addTrace(result.trace);
         }
       } catch {
         addMessage(raw, 'system');
