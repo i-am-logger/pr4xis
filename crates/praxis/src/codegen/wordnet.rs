@@ -29,132 +29,119 @@ pub fn parse_wordnet_xml(path: &Path) -> Result<OntologyBuilder, ParseError> {
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
-                let is_empty = reader.read_event_into(&mut Vec::new()).is_ok();
-                let _ = is_empty; // we handle both start and empty the same way for attributes
-
-                match e.name().as_ref() {
-                    b"Synset" => {
-                        let mut sb = SynsetBuilder::default();
+            Ok(Event::Empty(ref e)) | Ok(Event::Start(ref e)) => match e.name().as_ref() {
+                b"Synset" => {
+                    let mut sb = SynsetBuilder::default();
+                    for attr in e.attributes().flatten() {
+                        match attr.key.as_ref() {
+                            b"id" => sb.id = String::from_utf8_lossy(&attr.value).into(),
+                            b"partOfSpeech" => sb.pos = String::from_utf8_lossy(&attr.value).into(),
+                            b"ili" => sb.ili = Some(String::from_utf8_lossy(&attr.value).into()),
+                            _ => {}
+                        }
+                    }
+                    synset_pos.insert(sb.id.clone(), sb.pos.clone());
+                    state = ParseState::InSynset;
+                    current_synset = Some(sb);
+                }
+                b"Definition" if state == ParseState::InSynset => {
+                    state = ParseState::InDefinition;
+                }
+                b"Example" if state == ParseState::InSynset => {
+                    state = ParseState::InExample;
+                }
+                b"SynsetRelation" if state == ParseState::InSynset => {
+                    if let Some(ref mut synset) = current_synset {
+                        let mut rel_type = String::new();
+                        let mut target = String::new();
                         for attr in e.attributes().flatten() {
                             match attr.key.as_ref() {
-                                b"id" => sb.id = String::from_utf8_lossy(&attr.value).into(),
-                                b"partOfSpeech" => {
-                                    sb.pos = String::from_utf8_lossy(&attr.value).into()
+                                b"relType" => {
+                                    rel_type = String::from_utf8_lossy(&attr.value).into()
                                 }
-                                b"ili" => {
-                                    sb.ili = Some(String::from_utf8_lossy(&attr.value).into())
+                                b"target" => target = String::from_utf8_lossy(&attr.value).into(),
+                                _ => {}
+                            }
+                        }
+                        if !rel_type.is_empty() && !target.is_empty() {
+                            synset.relations.push((rel_type, target));
+                        }
+                    }
+                }
+                b"LexicalEntry" => {
+                    let mut eb = EntryBuilder::default();
+                    for attr in e.attributes().flatten() {
+                        if attr.key.as_ref() == b"id" {
+                            eb.id = String::from_utf8_lossy(&attr.value).into();
+                        }
+                    }
+                    state = ParseState::InEntry;
+                    current_entry = Some(eb);
+                }
+                b"Lemma" if state == ParseState::InEntry => {
+                    if let Some(ref mut entry) = current_entry {
+                        for attr in e.attributes().flatten() {
+                            match attr.key.as_ref() {
+                                b"writtenForm" => {
+                                    entry.lemma = String::from_utf8_lossy(&attr.value).into()
+                                }
+                                b"partOfSpeech" => {
+                                    entry.pos = String::from_utf8_lossy(&attr.value).into()
                                 }
                                 _ => {}
                             }
                         }
-                        synset_pos.insert(sb.id.clone(), sb.pos.clone());
-                        state = ParseState::InSynset;
-                        current_synset = Some(sb);
                     }
-                    b"Definition" if state == ParseState::InSynset => {
-                        state = ParseState::InDefinition;
-                    }
-                    b"Example" if state == ParseState::InSynset => {
-                        state = ParseState::InExample;
-                    }
-                    b"SynsetRelation" if state == ParseState::InSynset => {
-                        if let Some(ref mut synset) = current_synset {
-                            let mut rel_type = String::new();
-                            let mut target = String::new();
-                            for attr in e.attributes().flatten() {
-                                match attr.key.as_ref() {
-                                    b"relType" => {
-                                        rel_type = String::from_utf8_lossy(&attr.value).into()
-                                    }
-                                    b"target" => {
-                                        target = String::from_utf8_lossy(&attr.value).into()
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            if !rel_type.is_empty() && !target.is_empty() {
-                                synset.relations.push((rel_type, target));
-                            }
-                        }
-                    }
-                    b"LexicalEntry" => {
-                        let mut eb = EntryBuilder::default();
-                        for attr in e.attributes().flatten() {
-                            if attr.key.as_ref() == b"id" {
-                                eb.id = String::from_utf8_lossy(&attr.value).into();
-                            }
-                        }
-                        state = ParseState::InEntry;
-                        current_entry = Some(eb);
-                    }
-                    b"Lemma" if state == ParseState::InEntry => {
-                        if let Some(ref mut entry) = current_entry {
-                            for attr in e.attributes().flatten() {
-                                match attr.key.as_ref() {
-                                    b"writtenForm" => {
-                                        entry.lemma = String::from_utf8_lossy(&attr.value).into()
-                                    }
-                                    b"partOfSpeech" => {
-                                        entry.pos = String::from_utf8_lossy(&attr.value).into()
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
-                    }
-                    b"Form" if state == ParseState::InEntry => {
-                        if let Some(ref mut entry) = current_entry {
-                            for attr in e.attributes().flatten() {
-                                if attr.key.as_ref() == b"writtenForm" {
-                                    entry
-                                        .forms
-                                        .push(String::from_utf8_lossy(&attr.value).into());
-                                }
-                            }
-                        }
-                    }
-                    b"Sense" if state == ParseState::InEntry => {
-                        if let Some(ref mut entry) = current_entry {
-                            let mut synset_ref = String::new();
-                            let mut sense_id = String::new();
-                            for attr in e.attributes().flatten() {
-                                match attr.key.as_ref() {
-                                    b"synset" => {
-                                        synset_ref = String::from_utf8_lossy(&attr.value).into()
-                                    }
-                                    b"id" => sense_id = String::from_utf8_lossy(&attr.value).into(),
-                                    _ => {}
-                                }
-                            }
-                            if !synset_ref.is_empty() {
-                                entry.senses.push((sense_id, synset_ref));
-                            }
-                        }
-                    }
-                    b"SenseRelation" if state == ParseState::InEntry => {
-                        if let Some(ref mut entry) = current_entry {
-                            let mut rel_type = String::new();
-                            let mut target = String::new();
-                            for attr in e.attributes().flatten() {
-                                match attr.key.as_ref() {
-                                    b"relType" => {
-                                        rel_type = String::from_utf8_lossy(&attr.value).into()
-                                    }
-                                    b"target" => {
-                                        target = String::from_utf8_lossy(&attr.value).into()
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            if !rel_type.is_empty() && !target.is_empty() {
-                                entry.sense_relations.push((rel_type, target));
-                            }
-                        }
-                    }
-                    _ => {}
                 }
-            }
+                b"Form" if state == ParseState::InEntry => {
+                    if let Some(ref mut entry) = current_entry {
+                        for attr in e.attributes().flatten() {
+                            if attr.key.as_ref() == b"writtenForm" {
+                                entry
+                                    .forms
+                                    .push(String::from_utf8_lossy(&attr.value).into());
+                            }
+                        }
+                    }
+                }
+                b"Sense" if state == ParseState::InEntry => {
+                    if let Some(ref mut entry) = current_entry {
+                        let mut synset_ref = String::new();
+                        let mut sense_id = String::new();
+                        for attr in e.attributes().flatten() {
+                            match attr.key.as_ref() {
+                                b"synset" => {
+                                    synset_ref = String::from_utf8_lossy(&attr.value).into()
+                                }
+                                b"id" => sense_id = String::from_utf8_lossy(&attr.value).into(),
+                                _ => {}
+                            }
+                        }
+                        if !synset_ref.is_empty() {
+                            entry.senses.push((sense_id, synset_ref));
+                        }
+                    }
+                }
+                b"SenseRelation" if state == ParseState::InEntry => {
+                    if let Some(ref mut entry) = current_entry {
+                        let mut rel_type = String::new();
+                        let mut target = String::new();
+                        for attr in e.attributes().flatten() {
+                            match attr.key.as_ref() {
+                                b"relType" => {
+                                    rel_type = String::from_utf8_lossy(&attr.value).into()
+                                }
+                                b"target" => target = String::from_utf8_lossy(&attr.value).into(),
+                                _ => {}
+                            }
+                        }
+                        if !rel_type.is_empty() && !target.is_empty() {
+                            entry.sense_relations.push((rel_type, target));
+                        }
+                    }
+                }
+                _ => {}
+            },
             Ok(Event::Text(ref e)) => {
                 let text = e.unescape().unwrap_or_default().into_owned();
                 match state {
