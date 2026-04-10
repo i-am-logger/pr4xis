@@ -183,26 +183,38 @@
     }
 
     function addTraceAccordion(trace) {
-      // Toggle button: "▶ trace" that opens the panel
       const btn = document.createElement('button');
       btn.className = 'trace-toggle';
-      btn.textContent = '▶ trace';
+      btn.textContent = '▶ pipeline';
 
-      // Panel: slides down with the pipeline steps
       const panel = document.createElement('div');
       panel.className = 'trace-panel';
+
+      // Parse "key: value | key: value" into labeled sections
       const parts = trace.split(' | ');
       for (const part of parts) {
-        const step = document.createElement('div');
-        step.className = 'step';
-        step.textContent = part;
-        panel.appendChild(step);
+        const sep = part.indexOf(': ');
+        const row = document.createElement('div');
+        row.className = 'step';
+        if (sep > 0) {
+          const label = document.createElement('span');
+          label.style.color = '#8b949e';
+          label.textContent = part.substring(0, sep) + ': ';
+          const value = document.createElement('span');
+          value.style.color = '#79c0ff';
+          value.textContent = part.substring(sep + 2);
+          row.appendChild(label);
+          row.appendChild(value);
+        } else {
+          row.textContent = part;
+        }
+        panel.appendChild(row);
       }
 
       btn.addEventListener('click', () => {
         const isOpen = panel.classList.toggle('open');
         btn.classList.toggle('open', isOpen);
-        btn.textContent = isOpen ? '▼ trace' : '▶ trace';
+        btn.textContent = isOpen ? '▼ pipeline' : '▶ pipeline';
         chat.scrollTop = chat.scrollHeight;
       });
 

@@ -91,16 +91,37 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     let parsed = reduction.success;
     let duration_us = start.elapsed_us();
 
-    let token_strs: Vec<String> = tokens
+    // Build human-readable trace — each step on its own line
+    let word_list: Vec<&str> = tokens.iter().map(|t| t.word.as_str()).collect();
+    let type_list: Vec<String> = tokens
         .iter()
-        .map(|t| format!("{}:{:?}", t.word, t.lambek_type))
+        .map(|t| format!("{} → {:?}", t.word, t.lambek_type))
         .collect();
+    let meaning_desc = match &meaning {
+        montague::Sem::Question {
+            predicate,
+            arguments,
+        } => {
+            let args: Vec<String> = arguments.iter().map(|a| a.describe()).collect();
+            format!("question: {}({})", predicate, args.join(", "))
+        }
+        montague::Sem::Prop {
+            predicate,
+            arguments,
+        } => {
+            let args: Vec<String> = arguments.iter().map(|a| a.describe()).collect();
+            format!("statement: {}({})", predicate, args.join(", "))
+        }
+        montague::Sem::Entity { word, .. } => format!("entity: {word}"),
+        montague::Sem::Pred { word } => format!("predicate: {word}"),
+        montague::Sem::Func { word, .. } => format!("function: {word}"),
+    };
     let trace = format!(
-        "tokenize: [{}] | parse: {} ({:?}) | interpret: {:?}",
-        token_strs.join(", "),
-        if parsed { "OK" } else { "FAIL" },
-        reduction.final_type,
-        meaning,
+        "words: {} | types: {} | parse: {} | meaning: {}",
+        word_list.join(" "),
+        type_list.join(", "),
+        if parsed { "success" } else { "failed" },
+        meaning_desc,
     );
 
     match &meaning {
