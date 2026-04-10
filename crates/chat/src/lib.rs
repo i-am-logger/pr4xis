@@ -1,14 +1,13 @@
 use praxis::ontology::upper::being::Being;
 use praxis_domains::science::cognition::epistemics;
-use praxis_domains::science::information::diagnostics::trace_functors::{
-    PipelineStep, PipelineTrace,
-};
+use praxis_domains::science::information::diagnostics::trace_functors::PipelineTrace;
+use praxis_domains::science::information::diagnostics::trace_impls;
 use praxis_domains::science::information::knowledge::{
     SelfModelInstance, VocabularyDescriptor, describe_knowledge_base,
 };
 use praxis_domains::science::linguistics::english::English;
 use praxis_domains::science::linguistics::lambek::{
-    ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize, types,
+    ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize,
 };
 use praxis_domains::science::linguistics::language::Language;
 use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
@@ -56,12 +55,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     // Step 1: Tokenize through Language ontology
     let (tokens, alternatives) = tokenize::tokenize_with_alternatives(input, lang);
     let token_count = tokens.len();
+    trace.trace_result(&trace_impls::TokenizeResult { tokens: &tokens });
     if tokens.is_empty() {
-        trace.record(
-            PipelineStep::Tokenize,
-            "empty input — no tokens produced",
-            false,
-        );
         return ProcessResult {
             response: "Empty input received.".into(),
             user_act: SpeechAct::Assertion,
@@ -73,24 +68,6 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             from_ontology: false,
         };
     }
-
-    let word_roles: Vec<String> = tokens
-        .iter()
-        .map(|t| {
-            let role = match &t.lambek_type {
-                _ if t.lambek_type.is_noun() => "noun",
-                _ if t.lambek_type.is_noun_phrase() => "noun phrase",
-                _ if t.lambek_type.is_sentence() => "sentence",
-                types::LambekType::RightDiv(a, _) if a.is_sentence() => "verb/copula",
-                types::LambekType::LeftDiv(_, b) if b.is_sentence() => "verb",
-                types::LambekType::RightDiv(a, _) if a.is_noun_phrase() => "determiner",
-                types::LambekType::RightDiv(a, _) if a.is_noun() => "adjective",
-                _ => "modifier",
-            };
-            format!("{} ({})", t.word, role)
-        })
-        .collect();
-    trace.record(PipelineStep::Tokenize, &word_roles.join(", "), true);
 
     // Step 2: Parse through Lambek grammar
     let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
@@ -112,20 +89,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     let reduction = chart_reduce(&words, &type_sets);
     let parsed = reduction.success;
 
-    if parsed {
-        let final_type = reduction
-            .final_type
-            .as_ref()
-            .map(|t| t.notation())
-            .unwrap_or_default();
-        trace.record(
-            PipelineStep::Parse,
-            &format!("success → {final_type}"),
-            true,
-        );
-    } else {
-        trace.record(PipelineStep::Parse, "failed — could not reduce to S", false);
-    }
+    // The reduction result IS Traceable — it knows its own step and detail.
+    trace.trace_result(&reduction);
 
     // Step 3: Interpret through Montague semantics
     let montague_tokens = if parsed && reduction.remaining.len() == tokens.len() {
@@ -135,26 +100,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     };
     let meaning = montague::interpret(montague_tokens, lang);
 
-    let meaning_desc = match &meaning {
-        montague::Sem::Question {
-            predicate,
-            arguments,
-        } => {
-            let args: Vec<String> = arguments.iter().map(|a| a.describe()).collect();
-            format!("question: {}({})", predicate, args.join(", "))
-        }
-        montague::Sem::Prop {
-            predicate,
-            arguments,
-        } => {
-            let args: Vec<String> = arguments.iter().map(|a| a.describe()).collect();
-            format!("statement: {}({})", predicate, args.join(", "))
-        }
-        montague::Sem::Entity { word, .. } => format!("entity: {word}"),
-        montague::Sem::Pred { word } => format!("concept: {word}"),
-        montague::Sem::Func { word, .. } => format!("function: {word}"),
-    };
-    trace.record(PipelineStep::Interpret, &meaning_desc, true);
+    // The interpretation result IS Traceable via wrapper.
+    trace.trace_result(&trace_impls::InterpretResult { meaning: &meaning });
 
     // Step 4: Generate response — each function reports to trace
     let (response, user_act, from_ontology) = match &meaning {
@@ -217,15 +164,11 @@ fn attempt_partial_understanding(
     let parsed = reduction.success;
     let query_result: Option<&str> = if parsed { Some("parsed") } else { None };
     let state = epistemics::classify_result(parsed, has_knowledge, query_result);
-    trace.record(
-        PipelineStep::EpistemicClassification,
-        &format!(
-            "{state:?} — known: [{}], unknown: [{}]",
-            known_words.join(", "),
-            unknown_words.join(", ")
-        ),
-        true,
-    );
+    trace.trace_result(&trace_impls::EpistemicResult {
+        state,
+        known_words: known_words.iter().map(|s| s.to_string()).collect(),
+        unknown_words: unknown_words.iter().map(|s| s.to_string()).collect(),
+    });
 
     use praxis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
     use praxis_domains::science::linguistics::pragmatics::response::ResponseFrame;
@@ -235,7 +178,11 @@ fn attempt_partial_understanding(
     match state {
         epistemics::EpistemicState::UnknownKnown => {
             if known_words.len() == 1 {
-                trace.record(PipelineStep::EntityLookup, known_words[0], true);
+                trace.trace_result(&trace_impls::EntityLookupResult {
+                    word: known_words[0].to_string(),
+                    found: true,
+                    concept_count: en.lookup(known_words[0]).len(),
+                });
                 return define_word(en, known_words[0], trace);
             }
             let nouns: Vec<&str> = tokens

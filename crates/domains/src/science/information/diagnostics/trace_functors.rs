@@ -176,6 +176,23 @@ impl PipelineTraceEntry {
     }
 }
 
+/// The trace functor trait — maps a pipeline result to a trace entry.
+///
+/// Each pipeline result type implements this to describe itself
+/// for the trace. The functor extracts the detail and success status
+/// from the result — the caller doesn't construct the trace manually.
+///
+/// Categorically: this is a natural transformation from the result
+/// type's category to the Diagnostics category.
+pub trait Traceable {
+    /// Which pipeline step produced this result?
+    fn step(&self) -> PipelineStep;
+    /// Describe the result for the trace.
+    fn trace_detail(&self) -> String;
+    /// Did this step succeed?
+    fn trace_success(&self) -> bool;
+}
+
 /// A complete pipeline trace — the composition of all trace functor applications.
 #[derive(Debug, Clone, Default)]
 pub struct PipelineTrace {
@@ -184,9 +201,20 @@ pub struct PipelineTrace {
 
 impl PipelineTrace {
     /// Apply the trace functor to a pipeline step result and accumulate.
+    /// This is the low-level method — prefer `trace_result()` when possible.
     pub fn record(&mut self, step: PipelineStep, detail: &str, success: bool) {
         self.entries
             .push(PipelineTraceEntry::from_step(step, detail, success));
+    }
+
+    /// Apply the trace functor to any Traceable result.
+    /// The result knows its own step, detail, and success — no manual construction.
+    pub fn trace_result(&mut self, result: &dyn Traceable) {
+        self.entries.push(PipelineTraceEntry::from_step(
+            result.step(),
+            &result.trace_detail(),
+            result.trace_success(),
+        ));
     }
 
     /// Serialize the full trace for JSON transport.
