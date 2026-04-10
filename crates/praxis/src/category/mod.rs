@@ -6,6 +6,7 @@ pub mod functor;
 pub mod invariants;
 pub mod morphism;
 pub mod relationship;
+pub mod traced;
 pub mod transformation;
 pub mod validate;
 
