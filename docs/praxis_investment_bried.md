@@ -152,6 +152,6 @@ Category theory is universal.
 
 ## Tech
 
-Rust. Category theory. Zero runtime. CC-BY-NC-SA-4.0.
+Rust. Category theory. CC-BY-NC-SA-4.0.
 
 github.com/i-am-logger/pr4xis
