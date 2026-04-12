@@ -11,7 +11,8 @@
 //! - Duck 1990: acoustic properties of biological tissue
 //! - Cowin & Doty 2007: tissue mechanics
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -22,7 +23,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every biophysical entity in the domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum BiophysicsEntity {
     // Mechanical properties
     Viscoelasticity,
@@ -58,42 +59,6 @@ pub enum BiophysicsEntity {
     WaveProperty,
     PiezoelectricProperty,
     BiologicalMedium,
-}
-
-impl Entity for BiophysicsEntity {
-    fn variants() -> Vec<Self> {
-        use BiophysicsEntity::*;
-        vec![
-            Viscoelasticity,
-            Elasticity,
-            Viscosity,
-            StiffnessModulus,
-            StrainRate,
-            MechanicalStress,
-            MechanicalStrain,
-            MechanicalWave,
-            AcousticImpedance,
-            Attenuation,
-            Frequency,
-            Wavelength,
-            ResonanceFrequency,
-            PiezoelectricEffect,
-            DirectPiezoelectric,
-            ConversePiezoelectric,
-            CollagenPiezoelectricity,
-            MembraneCapacitance,
-            MembraneTension,
-            CellDeformation,
-            BoneMatrix,
-            SoftTissue,
-            FluidMedium,
-            CellMembrane,
-            MechanicalProperty,
-            WaveProperty,
-            PiezoelectricProperty,
-            BiologicalMedium,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -149,58 +114,11 @@ impl TaxonomyDef for BiophysicsTaxonomy {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the biophysics category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BiophysicsRelation {
-    pub from: BiophysicsEntity,
-    pub to: BiophysicsEntity,
-}
-
-impl Relationship for BiophysicsRelation {
-    type Object = BiophysicsEntity;
-
-    fn source(&self) -> BiophysicsEntity {
-        self.from
-    }
-
-    fn target(&self) -> BiophysicsEntity {
-        self.to
-    }
-}
-
-/// Discrete category over biophysics entities.
-pub struct BiophysicsCategory;
-
-impl Category for BiophysicsCategory {
-    type Object = BiophysicsEntity;
-    type Morphism = BiophysicsRelation;
-
-    fn identity(obj: &BiophysicsEntity) -> BiophysicsRelation {
-        BiophysicsRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &BiophysicsRelation, g: &BiophysicsRelation) -> Option<BiophysicsRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(BiophysicsRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<BiophysicsRelation> {
-        let variants = BiophysicsEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(BiophysicsRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over biophysics entities.
+    pub BiophysicsCategory {
+        entity: BiophysicsEntity,
+        relation: BiophysicsRelation,
     }
 }
 
@@ -209,7 +127,7 @@ impl Category for BiophysicsCategory {
 // ---------------------------------------------------------------------------
 
 /// Events in the biophysics causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum BiophysicsCausalEvent {
     /// External vibration applied to tissue
     ExternalVibration,
@@ -231,24 +149,6 @@ pub enum BiophysicsCausalEvent {
     ImpedanceMismatch,
     /// Wave reflects at impedance boundary
     WaveReflection,
-}
-
-impl Entity for BiophysicsCausalEvent {
-    fn variants() -> Vec<Self> {
-        use BiophysicsCausalEvent::*;
-        vec![
-            ExternalVibration,
-            WavePropagation,
-            TissueDeformation,
-            CellMembraneStrain,
-            MechanotransducerActivation,
-            BoneConductionTransmission,
-            PiezoelectricChargeGeneration,
-            LocalElectricField,
-            ImpedanceMismatch,
-            WaveReflection,
-        ]
-    }
 }
 
 /// Causal graph for biophysics.
@@ -573,6 +473,7 @@ impl Ontology for BiophysicsOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 

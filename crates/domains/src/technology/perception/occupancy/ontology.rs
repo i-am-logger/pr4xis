@@ -1,10 +1,11 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Cell states in a Bayesian occupancy grid.
 ///
 /// Source: Elfes (1989), "Using Occupancy Grids for Mobile Robot Perception and Navigation"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum CellState {
     /// Cell is free (unoccupied).
     Free,
@@ -14,62 +15,14 @@ pub enum CellState {
     Unknown,
 }
 
-impl Entity for CellState {
-    fn variants() -> Vec<Self> {
-        vec![Self::Free, Self::Occupied, Self::Unknown]
-    }
-}
-
-/// Transition between cell states upon sensor observation.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CellTransition {
-    pub from: CellState,
-    pub to: CellState,
-}
-
-impl Relationship for CellTransition {
-    type Object = CellState;
-    fn source(&self) -> CellState {
-        self.from
-    }
-    fn target(&self) -> CellState {
-        self.to
-    }
-}
-
-/// Category for occupancy grid cell state transitions.
-///
-/// All transitions are possible: a cell can go from any state to any state
-/// upon receiving new sensor evidence (Bayesian update).
-pub struct OccupancyCategory;
-
-impl Category for OccupancyCategory {
-    type Object = CellState;
-    type Morphism = CellTransition;
-
-    fn identity(obj: &CellState) -> CellTransition {
-        CellTransition {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &CellTransition, g: &CellTransition) -> Option<CellTransition> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(CellTransition {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<CellTransition> {
-        let states = CellState::variants();
-        states
-            .iter()
-            .flat_map(|&from| states.iter().map(move |&to| CellTransition { from, to }))
-            .collect()
+define_dense_category! {
+    /// Category for occupancy grid cell state transitions.
+    ///
+    /// All transitions are possible: a cell can go from any state to any state
+    /// upon receiving new sensor evidence (Bayesian update).
+    pub OccupancyCategory {
+        entity: CellState,
+        relation: CellTransition,
     }
 }
 

@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::quantity::dimension::Dimension;
@@ -12,7 +13,7 @@ use crate::science::math::quantity::value::Quantity;
 /// The 7 SI base dimensions — the basis of the dimension group.
 ///
 /// Source: BIPM SI Brochure (2019), Table 1.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum BaseDimension {
     Length,
     Mass,
@@ -24,65 +25,11 @@ pub enum BaseDimension {
     Dimensionless,
 }
 
-impl Entity for BaseDimension {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Length,
-            Self::Mass,
-            Self::Time,
-            Self::ElectricCurrent,
-            Self::Temperature,
-            Self::AmountOfSubstance,
-            Self::LuminousIntensity,
-            Self::Dimensionless,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DimensionRelation {
-    pub from: BaseDimension,
-    pub to: BaseDimension,
-}
-
-impl Relationship for DimensionRelation {
-    type Object = BaseDimension;
-    fn source(&self) -> BaseDimension {
-        self.from
-    }
-    fn target(&self) -> BaseDimension {
-        self.to
-    }
-}
-
-pub struct DimensionCategory;
-
-impl Category for DimensionCategory {
-    type Object = BaseDimension;
-    type Morphism = DimensionRelation;
-
-    fn identity(obj: &BaseDimension) -> DimensionRelation {
-        DimensionRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &DimensionRelation, g: &DimensionRelation) -> Option<DimensionRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(DimensionRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<DimensionRelation> {
-        let dims = BaseDimension::variants();
-        dims.iter()
-            .flat_map(|&from| dims.iter().map(move |&to| DimensionRelation { from, to }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over base dimension entities.
+    pub DimensionCategory {
+        entity: BaseDimension,
+        relation: DimensionRelation,
     }
 }
 

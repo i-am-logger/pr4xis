@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::linear_algebra::matrix::Matrix;
@@ -15,7 +16,7 @@ use crate::technology::sensor_fusion::state::estimate::StateEstimate;
 /// Phases in the sensor fusion lifecycle.
 ///
 /// Source: US DoD JDL (1999). "Data Fusion Lexicon."
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum FusionPhase {
     /// Filter initialized, waiting for first measurement.
     Initialized,
@@ -29,136 +30,11 @@ pub enum FusionPhase {
     Reset,
 }
 
-impl Entity for FusionPhase {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Initialized,
-            Self::Predicted,
-            Self::Updated,
-            Self::Diverged,
-            Self::Reset,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PhaseTransition {
-    pub from: FusionPhase,
-    pub to: FusionPhase,
-}
-
-impl Relationship for PhaseTransition {
-    type Object = FusionPhase;
-    fn source(&self) -> FusionPhase {
-        self.from
-    }
-    fn target(&self) -> FusionPhase {
-        self.to
-    }
-}
-
-/// Fusion phase category: the predict/update cycle.
-pub struct FusionCategory;
-
-impl Category for FusionCategory {
-    type Object = FusionPhase;
-    type Morphism = PhaseTransition;
-
-    fn identity(obj: &FusionPhase) -> PhaseTransition {
-        PhaseTransition {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &PhaseTransition, g: &PhaseTransition) -> Option<PhaseTransition> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(PhaseTransition {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<PhaseTransition> {
-        use FusionPhase::*;
-        let mut m = Vec::new();
-
-        for phase in FusionPhase::variants() {
-            m.push(FusionCategory::identity(&phase));
-        }
-
-        // Valid transitions: the predict/update cycle
-        m.push(PhaseTransition {
-            from: Initialized,
-            to: Predicted,
-        });
-        m.push(PhaseTransition {
-            from: Predicted,
-            to: Updated,
-        });
-        m.push(PhaseTransition {
-            from: Updated,
-            to: Predicted,
-        }); // cycle
-        m.push(PhaseTransition {
-            from: Predicted,
-            to: Diverged,
-        });
-        m.push(PhaseTransition {
-            from: Updated,
-            to: Diverged,
-        });
-        m.push(PhaseTransition {
-            from: Diverged,
-            to: Reset,
-        });
-        m.push(PhaseTransition {
-            from: Reset,
-            to: Initialized,
-        });
-
-        // Transitive closure
-        m.push(PhaseTransition {
-            from: Initialized,
-            to: Updated,
-        });
-        m.push(PhaseTransition {
-            from: Updated,
-            to: Updated,
-        });
-        m.push(PhaseTransition {
-            from: Updated,
-            to: Diverged,
-        });
-        m.push(PhaseTransition {
-            from: Initialized,
-            to: Diverged,
-        });
-        m.push(PhaseTransition {
-            from: Predicted,
-            to: Predicted,
-        });
-        m.push(PhaseTransition {
-            from: Diverged,
-            to: Initialized,
-        });
-        m.push(PhaseTransition {
-            from: Reset,
-            to: Predicted,
-        });
-        // Full reachability chains
-        for &from in &FusionPhase::variants() {
-            for &to in &FusionPhase::variants() {
-                let t = PhaseTransition { from, to };
-                if !m.contains(&t) {
-                    m.push(t);
-                }
-            }
-        }
-
-        m
+define_dense_category! {
+    /// Fusion phase category: the predict/update cycle.
+    pub FusionCategory {
+        entity: FusionPhase,
+        relation: PhaseTransition,
     }
 }
 

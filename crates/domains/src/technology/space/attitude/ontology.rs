@@ -1,10 +1,11 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Spacecraft attitude determination sensors.
 ///
 /// Source: Wertz (1978), *Spacecraft Attitude Determination and Control*
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AttitudeSensor {
     /// Star tracker: high-accuracy inertial attitude reference.
     StarTracker,
@@ -16,67 +17,14 @@ pub enum AttitudeSensor {
     Magnetometer,
 }
 
-impl Entity for AttitudeSensor {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::StarTracker,
-            Self::SunSensor,
-            Self::EarthHorizon,
-            Self::Magnetometer,
-        ]
-    }
-}
-
-/// Fusion relationship between attitude sensors.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SensorFusion {
-    pub from: AttitudeSensor,
-    pub to: AttitudeSensor,
-}
-
-impl Relationship for SensorFusion {
-    type Object = AttitudeSensor;
-    fn source(&self) -> AttitudeSensor {
-        self.from
-    }
-    fn target(&self) -> AttitudeSensor {
-        self.to
-    }
-}
-
-/// Category for attitude sensor fusion relationships.
-///
-/// All sensors can be fused with each other; the category is fully connected
-/// since any pair of vector observations can be combined for attitude determination.
-pub struct AttitudeCategory;
-
-impl Category for AttitudeCategory {
-    type Object = AttitudeSensor;
-    type Morphism = SensorFusion;
-
-    fn identity(obj: &AttitudeSensor) -> SensorFusion {
-        SensorFusion {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &SensorFusion, g: &SensorFusion) -> Option<SensorFusion> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(SensorFusion {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<SensorFusion> {
-        let sensors = AttitudeSensor::variants();
-        sensors
-            .iter()
-            .flat_map(|&from| sensors.iter().map(move |&to| SensorFusion { from, to }))
-            .collect()
+define_dense_category! {
+    /// Category for attitude sensor fusion relationships.
+    ///
+    /// All sensors can be fused with each other; the category is fully connected
+    /// since any pair of vector observations can be combined for attitude determination.
+    pub AttitudeCategory {
+        entity: AttitudeSensor,
+        relation: SensorFusion,
     }
 }
 

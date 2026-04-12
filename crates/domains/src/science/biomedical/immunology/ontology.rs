@@ -12,7 +12,8 @@
 //!   wound healing via shifts in macrophage polarization
 //! - Yu 2019: Mechanical loading promotes tissue repair through immune modulation
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -23,7 +24,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the immunology ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ImmunologyEntity {
     // Cells
     MacrophageM1,
@@ -54,36 +55,6 @@ pub enum ImmunologyEntity {
     StromalCell,
     InflammatoryState,
     Cytokine,
-}
-
-impl Entity for ImmunologyEntity {
-    fn variants() -> Vec<Self> {
-        use ImmunologyEntity::*;
-        vec![
-            MacrophageM1,
-            MacrophageM2,
-            Neutrophil,
-            TCell,
-            Monocyte,
-            MastCell,
-            Fibroblast,
-            AcuteInflammation,
-            ChronicInflammation,
-            Resolution,
-            Fibrosis,
-            TissueRepair,
-            ProInflammatoryCytokine,
-            AntiInflammatoryCytokine,
-            TNFAlpha,
-            IL6,
-            IL10,
-            TGFBeta,
-            ImmuneCell,
-            StromalCell,
-            InflammatoryState,
-            Cytokine,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +105,7 @@ impl TaxonomyDef for ImmunologyTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Events in the inflammatory causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ImmunologyEvent {
     TissueInjury,
     NeutrophilRecruitment,
@@ -150,28 +121,6 @@ pub enum ImmunologyEvent {
     FailedResolution,
     FibrosisProgression,
     MechanicalStimulation,
-}
-
-impl Entity for ImmunologyEvent {
-    fn variants() -> Vec<Self> {
-        use ImmunologyEvent::*;
-        vec![
-            TissueInjury,
-            NeutrophilRecruitment,
-            AcuteInflammationOnset,
-            MonocyteRecruitment,
-            M1Polarization,
-            ProInflammatoryResponse,
-            M1ToM2Transition,
-            AntiInflammatoryResponse,
-            TissueRemodeling,
-            RepairCompletion,
-            ChronicStimulus,
-            FailedResolution,
-            FibrosisProgression,
-            MechanicalStimulation,
-        ]
-    }
 }
 
 /// Causal graph for the inflammatory cascade.
@@ -218,58 +167,11 @@ impl CausalDef for InflammationCauses {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the immunology category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImmunologyRelation {
-    pub from: ImmunologyEntity,
-    pub to: ImmunologyEntity,
-}
-
-impl Relationship for ImmunologyRelation {
-    type Object = ImmunologyEntity;
-
-    fn source(&self) -> ImmunologyEntity {
-        self.from
-    }
-
-    fn target(&self) -> ImmunologyEntity {
-        self.to
-    }
-}
-
-/// Discrete category over immunology entities.
-pub struct ImmunologyCategory;
-
-impl Category for ImmunologyCategory {
-    type Object = ImmunologyEntity;
-    type Morphism = ImmunologyRelation;
-
-    fn identity(obj: &ImmunologyEntity) -> ImmunologyRelation {
-        ImmunologyRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &ImmunologyRelation, g: &ImmunologyRelation) -> Option<ImmunologyRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ImmunologyRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ImmunologyRelation> {
-        let variants = ImmunologyEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(ImmunologyRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over immunology entities.
+    pub ImmunologyCategory {
+        entity: ImmunologyEntity,
+        relation: ImmunologyRelation,
     }
 }
 
@@ -710,6 +612,7 @@ impl Ontology for ImmunologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
 
 // Markup language ontology.
@@ -17,7 +17,7 @@ use pr4xis::category::relationship::Relationship;
 ///
 /// Every markup document is a tree of nodes. The types of nodes
 /// are universal across all markup languages.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum NodeKind {
     /// The root of the document tree.
     Document,
@@ -33,19 +33,6 @@ pub enum NodeKind {
     Comment,
     /// A processing instruction — tells the processor how to handle the document.
     ProcessingInstruction,
-}
-
-impl Entity for NodeKind {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Document,
-            Self::Element,
-            Self::Attribute,
-            Self::Text,
-            Self::Comment,
-            Self::ProcessingInstruction,
-        ]
-    }
 }
 
 /// Containment relationships between node types.

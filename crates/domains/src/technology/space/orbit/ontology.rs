@@ -1,10 +1,11 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Classical orbital elements (Keplerian elements).
 ///
 /// Source: Vallado (2013), *Fundamentals of Astrodynamics and Applications*, 4th ed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum OrbitalElement {
     /// Semi-major axis (km).
     SemiMajorAxis,
@@ -20,68 +21,14 @@ pub enum OrbitalElement {
     TrueAnomaly,
 }
 
-impl Entity for OrbitalElement {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::SemiMajorAxis,
-            Self::Eccentricity,
-            Self::Inclination,
-            Self::RAAN,
-            Self::ArgPeriapsis,
-            Self::TrueAnomaly,
-        ]
-    }
-}
-
-/// Dependency between orbital elements.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ElementDependency {
-    pub from: OrbitalElement,
-    pub to: OrbitalElement,
-}
-
-impl Relationship for ElementDependency {
-    type Object = OrbitalElement;
-    fn source(&self) -> OrbitalElement {
-        self.from
-    }
-    fn target(&self) -> OrbitalElement {
-        self.to
-    }
-}
-
-/// Category for orbital element relationships.
-///
-/// All elements are needed to fully specify an orbit; they form
-/// a complete set with cross-dependencies.
-pub struct OrbitCategory;
-
-impl Category for OrbitCategory {
-    type Object = OrbitalElement;
-    type Morphism = ElementDependency;
-
-    fn identity(obj: &OrbitalElement) -> ElementDependency {
-        ElementDependency {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &ElementDependency, g: &ElementDependency) -> Option<ElementDependency> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ElementDependency {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ElementDependency> {
-        let elts = OrbitalElement::variants();
-        elts.iter()
-            .flat_map(|&from| elts.iter().map(move |&to| ElementDependency { from, to }))
-            .collect()
+define_dense_category! {
+    /// Category for orbital element relationships.
+    ///
+    /// All elements are needed to fully specify an orbit; they form
+    /// a complete set with cross-dependencies.
+    pub OrbitCategory {
+        entity: OrbitalElement,
+        relation: ElementDependency,
     }
 }
 

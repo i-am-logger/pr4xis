@@ -10,7 +10,8 @@
 //! - Jastreboff 1990: neurophysiological model of tinnitus
 //! - Eggermont & Roberts 2004: tinnitus neural mechanisms
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -20,7 +21,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // Entity
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum PathologyEntity {
     // Hearing loss types
     ConductiveHearingLoss,
@@ -71,57 +72,6 @@ pub enum PathologyEntity {
     DamageMechanism,
     PerceptualDeficit,
     ClinicalMeasure,
-}
-
-impl Entity for PathologyEntity {
-    fn variants() -> Vec<Self> {
-        use PathologyEntity::*;
-        vec![
-            ConductiveHearingLoss,
-            SensorineuralHearingLoss,
-            MixedHearingLoss,
-            AuditoryNeuropathy,
-            CentralAuditoryProcessingDisorder,
-            Otosclerosis,
-            Presbycusis,
-            NoiseInducedHearingLoss,
-            MenieresDisease,
-            AcousticNeuroma,
-            Tinnitus,
-            Hyperacusis,
-            SuddenSensorineuralLoss,
-            OtitisMedia,
-            TympanicPerforation,
-            Cholesteatoma,
-            HairCellLoss,
-            StereociliaDamage,
-            SynapticRibbonLoss,
-            StriaDysfunction,
-            OssicularFixation,
-            EndolymphaticHydrops,
-            DemyelinationVIII,
-            Excitotoxicity,
-            OxidativeStress,
-            ElevatedThreshold,
-            ReducedFrequencySelectivity,
-            LoudnessRecruitment,
-            PoorSpeechInNoise,
-            ReducedTemporalResolution,
-            AbnormalBinauralProcessing,
-            PhantomPercept,
-            Audiogram,
-            PureToneAverage,
-            SpeechReceptionThreshold,
-            OtoacousticEmission,
-            AuditoryBrainstemResponse,
-            HearingLoss,
-            PeripheralPathology,
-            CentralPathology,
-            DamageMechanism,
-            PerceptualDeficit,
-            ClinicalMeasure,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -188,7 +138,7 @@ impl TaxonomyDef for PathologyTaxonomy {
 // Causal graph
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum PathologyCausalEvent {
     NoiseExposure,
     AgingDegeneration,
@@ -206,30 +156,6 @@ pub enum PathologyCausalEvent {
     TemporalSmearing,
     TinnitusGeneration,
     CommunicationDifficulty,
-}
-
-impl Entity for PathologyCausalEvent {
-    fn variants() -> Vec<Self> {
-        use PathologyCausalEvent::*;
-        vec![
-            NoiseExposure,
-            AgingDegeneration,
-            Infection,
-            Autoimmune,
-            GeneticMutation,
-            OHCDamage,
-            IHCDamage,
-            SynapseLoss,
-            StriDegeneration,
-            MiddleEarDysfunction,
-            NeuralDegeneration,
-            ThresholdShift,
-            FrequencyResolutionLoss,
-            TemporalSmearing,
-            TinnitusGeneration,
-            CommunicationDifficulty,
-        ]
-    }
 }
 
 pub struct PathologyCausalGraph;
@@ -277,50 +203,11 @@ impl CausalDef for PathologyCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PathologyRelation {
-    pub from: PathologyEntity,
-    pub to: PathologyEntity,
-}
-
-impl Relationship for PathologyRelation {
-    type Object = PathologyEntity;
-    fn source(&self) -> PathologyEntity {
-        self.from
-    }
-    fn target(&self) -> PathologyEntity {
-        self.to
-    }
-}
-
-pub struct PathologyCategory;
-
-impl Category for PathologyCategory {
-    type Object = PathologyEntity;
-    type Morphism = PathologyRelation;
-
-    fn identity(obj: &PathologyEntity) -> PathologyRelation {
-        PathologyRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &PathologyRelation, g: &PathologyRelation) -> Option<PathologyRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(PathologyRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<PathologyRelation> {
-        let v = PathologyEntity::variants();
-        v.iter()
-            .flat_map(|&a| v.iter().map(move |&b| PathologyRelation { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over pathology entities.
+    pub PathologyCategory {
+        entity: PathologyEntity,
+        relation: PathologyRelation,
     }
 }
 
@@ -570,6 +457,7 @@ impl Ontology for PathologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

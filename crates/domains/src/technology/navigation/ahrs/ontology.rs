@@ -5,7 +5,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// AHRS filter types — methods for estimating attitude.
 ///
 /// Source: Madgwick (2010), Mahony et al. (2008), Titterton & Weston (2004) Chapter 10.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AhrsFilterType {
     /// Abstract filter.
     Filter,
@@ -19,22 +19,10 @@ pub enum AhrsFilterType {
     ExtendedKalmanFilter,
 }
 
-impl Entity for AhrsFilterType {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Filter,
-            Self::ComplementaryFilter,
-            Self::MahonyFilter,
-            Self::MadgwickFilter,
-            Self::ExtendedKalmanFilter,
-        ]
-    }
-}
-
 /// Attitude state: the three Euler angles.
 ///
 /// Source: Groves (2013) Section 2.2.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AttitudeState {
     /// Abstract attitude.
     Attitude,
@@ -44,12 +32,6 @@ pub enum AttitudeState {
     Pitch,
     /// Yaw: rotation about the down (z) axis (heading).
     Yaw,
-}
-
-impl Entity for AttitudeState {
-    fn variants() -> Vec<Self> {
-        vec![Self::Attitude, Self::Roll, Self::Pitch, Self::Yaw]
-    }
 }
 
 /// AHRS filter taxonomy: accuracy improvements.

@@ -14,7 +14,8 @@
 //! of an optimizer. It formalizes the reasoning that ontology_diagnostics uses
 //! when searching for optimal ontological configurations.
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -25,7 +26,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Components of the optimization methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum OptimizationEntity {
     // Methods (how you optimize)
     ExhaustiveSearch,
@@ -53,33 +54,6 @@ pub enum OptimizationEntity {
     OptimizationMethod,
     OptimizationComponent,
     OptimalityProperty,
-}
-
-impl Entity for OptimizationEntity {
-    fn variants() -> Vec<Self> {
-        use OptimizationEntity::*;
-        vec![
-            ExhaustiveSearch,
-            GradientDescent,
-            GeneticAlgorithm,
-            SimulatedAnnealing,
-            ParetoOptimization,
-            GridSearch,
-            ObjectiveFunction,
-            Constraint,
-            SearchSpace,
-            FeasibleRegion,
-            OptimalPoint,
-            ParetoFront,
-            Convergence,
-            LocalOptimum,
-            GlobalOptimum,
-            Tradeoff,
-            OptimizationMethod,
-            OptimizationComponent,
-            OptimalityProperty,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +97,7 @@ impl TaxonomyDef for OptimizationTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Steps in the optimization pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum OptimizationStep {
     /// Formulate the optimization problem.
     ProblemFormulation,
@@ -141,22 +115,6 @@ pub enum OptimizationStep {
     OptimalityAssessment,
     /// Select the best solution.
     SolutionSelection,
-}
-
-impl Entity for OptimizationStep {
-    fn variants() -> Vec<Self> {
-        use OptimizationStep::*;
-        vec![
-            ProblemFormulation,
-            SearchSpaceDefinition,
-            ConstraintSpecification,
-            ObjectiveEvaluation,
-            CandidateGeneration,
-            FeasibilityCheck,
-            OptimalityAssessment,
-            SolutionSelection,
-        ]
-    }
 }
 
 /// The optimization pipeline as a causal graph.
@@ -183,55 +141,11 @@ impl CausalDef for OptimizationCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OptimizationRelation {
-    pub from: OptimizationEntity,
-    pub to: OptimizationEntity,
-}
-
-impl Relationship for OptimizationRelation {
-    type Object = OptimizationEntity;
-    fn source(&self) -> OptimizationEntity {
-        self.from
-    }
-    fn target(&self) -> OptimizationEntity {
-        self.to
-    }
-}
-
-pub struct OptimizationCategory;
-
-impl Category for OptimizationCategory {
-    type Object = OptimizationEntity;
-    type Morphism = OptimizationRelation;
-
-    fn identity(obj: &OptimizationEntity) -> OptimizationRelation {
-        OptimizationRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &OptimizationRelation, g: &OptimizationRelation) -> Option<OptimizationRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(OptimizationRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<OptimizationRelation> {
-        let entities = OptimizationEntity::variants();
-        entities
-            .iter()
-            .flat_map(|&a| {
-                entities
-                    .iter()
-                    .map(move |&b| OptimizationRelation { from: a, to: b })
-            })
-            .collect()
+define_dense_category! {
+    /// Dense category over optimization entities.
+    pub OptimizationCategory {
+        entity: OptimizationEntity,
+        relation: OptimizationRelation,
     }
 }
 
@@ -471,6 +385,7 @@ impl Ontology for OptimizationOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

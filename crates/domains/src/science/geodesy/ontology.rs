@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Functor, Relationship};
+use pr4xis::category::{Category, Entity, Functor};
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::geodesy::conversion;
@@ -12,7 +13,7 @@ use crate::science::geodesy::ellipsoid;
 /// Coordinate systems used in geodesy and navigation.
 ///
 /// Source: Groves (2013), Chapter 2; Torge & Müller (2012), Chapter 5.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum CoordinateSystem {
     /// Geodetic (latitude, longitude, altitude on ellipsoid).
     Geodetic,
@@ -24,65 +25,11 @@ pub enum CoordinateSystem {
     ENU,
 }
 
-impl Entity for CoordinateSystem {
-    fn variants() -> Vec<Self> {
-        vec![Self::Geodetic, Self::ECEF, Self::NED, Self::ENU]
-    }
-}
-
-/// A conversion between coordinate systems (morphism).
-///
-/// Each conversion is a functor: it preserves geometric structure.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CoordinateConversion {
-    pub from: CoordinateSystem,
-    pub to: CoordinateSystem,
-}
-
-impl Relationship for CoordinateConversion {
-    type Object = CoordinateSystem;
-    fn source(&self) -> CoordinateSystem {
-        self.from
-    }
-    fn target(&self) -> CoordinateSystem {
-        self.to
-    }
-}
-
-/// The geodesy category: coordinate systems + conversions.
-pub struct GeodesyCategory;
-
-impl Category for GeodesyCategory {
-    type Object = CoordinateSystem;
-    type Morphism = CoordinateConversion;
-
-    fn identity(obj: &CoordinateSystem) -> CoordinateConversion {
-        CoordinateConversion {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &CoordinateConversion, g: &CoordinateConversion) -> Option<CoordinateConversion> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(CoordinateConversion {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<CoordinateConversion> {
-        let systems = CoordinateSystem::variants();
-        systems
-            .iter()
-            .flat_map(|&from| {
-                systems
-                    .iter()
-                    .map(move |&to| CoordinateConversion { from, to })
-            })
-            .collect()
+define_dense_category! {
+    /// The geodesy category: coordinate systems + conversions.
+    pub GeodesyCategory {
+        entity: CoordinateSystem,
+        relation: CoordinateConversion,
     }
 }
 

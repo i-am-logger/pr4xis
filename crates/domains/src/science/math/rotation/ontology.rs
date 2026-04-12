@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::rotation::dcm::Dcm;
@@ -9,7 +10,7 @@ use crate::science::math::rotation::quaternion::Quaternion;
 /// Each representation captures the same SO(3) element through a different
 /// mathematical formalism. The morphisms between them are the conversion
 /// functions (which preserve the rotation).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum RotationRepr {
     /// Unit quaternion (4 parameters, 1 constraint)
     Quaternion,
@@ -21,64 +22,11 @@ pub enum RotationRepr {
     AxisAngle,
 }
 
-impl Entity for RotationRepr {
-    fn variants() -> Vec<Self> {
-        vec![Self::Quaternion, Self::DCM, Self::Euler, Self::AxisAngle]
-    }
-}
-
-/// A conversion between rotation representations.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ReprConversion {
-    pub from: RotationRepr,
-    pub to: RotationRepr,
-}
-
-impl Relationship for ReprConversion {
-    type Object = RotationRepr;
-
-    fn source(&self) -> RotationRepr {
-        self.from
-    }
-
-    fn target(&self) -> RotationRepr {
-        self.to
-    }
-}
-
-/// The rotation representation category.
-///
-/// Objects: rotation representations (quaternion, DCM, Euler, axis-angle).
-/// Morphisms: conversions between any pair (indiscrete category).
-pub struct RotationCategory;
-
-impl Category for RotationCategory {
-    type Object = RotationRepr;
-    type Morphism = ReprConversion;
-
-    fn identity(obj: &RotationRepr) -> ReprConversion {
-        ReprConversion {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &ReprConversion, g: &ReprConversion) -> Option<ReprConversion> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ReprConversion {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ReprConversion> {
-        let reprs = RotationRepr::variants();
-        reprs
-            .iter()
-            .flat_map(|&from| reprs.iter().map(move |&to| ReprConversion { from, to }))
-            .collect()
+define_dense_category! {
+    /// The rotation representation category.
+    pub RotationCategory {
+        entity: RotationRepr,
+        relation: ReprConversion,
     }
 }
 

@@ -10,7 +10,8 @@
 //! - Adams & Levin 2013: Vmem manipulation via ion channel/pump cocktails
 //! - Chernet & Levin 2013: depolarization → oncogene-like transformation
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -21,7 +22,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the bioelectric pharmacology domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum PharmacologyEntity {
     // Drug classes
     IonChannelModulator,
@@ -57,44 +58,6 @@ pub enum PharmacologyEntity {
     Agent,
     Target,
     Effect,
-}
-
-impl Entity for PharmacologyEntity {
-    fn variants() -> Vec<Self> {
-        use PharmacologyEntity::*;
-        vec![
-            // Drug classes
-            IonChannelModulator,
-            GapJunctionModulator,
-            VoltageGatedBlocker,
-            VoltageGatedOpener,
-            MechanosensitiveModulator,
-            ProtonPumpInhibitor,
-            Morphoceutical,
-            // Agents
-            Ivermectin,
-            Decamethonium,
-            Glibenclamide,
-            Minoxidil,
-            Omeprazole,
-            // Targets
-            IonChannel,
-            GapJunction,
-            Transporter,
-            Receptor,
-            // Effects
-            Hyperpolarization,
-            Depolarization,
-            GapJunctionOpening,
-            GapJunctionClosing,
-            AntiInflammatory,
-            // Abstract
-            DrugClass,
-            Agent,
-            Target,
-            Effect,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +120,7 @@ impl TaxonomyDef for PharmacologyTaxonomy {
 /// Two causal chains:
 /// 1. Drug → target binding → channel state → ion flux → Vmem shift → signaling
 /// 2. GJ modulator → GJ state change → network change → collective reprogramming
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum PharmacologyEvent {
     DrugAdministration,
     TargetBinding,
@@ -169,24 +132,6 @@ pub enum PharmacologyEvent {
     GapJunctionStateChange,
     BioelectricNetworkChange,
     CollectiveReprogramming,
-}
-
-impl Entity for PharmacologyEvent {
-    fn variants() -> Vec<Self> {
-        use PharmacologyEvent::*;
-        vec![
-            DrugAdministration,
-            TargetBinding,
-            ChannelStateChange,
-            IonFluxChange,
-            VmemShift,
-            DownstreamSignaling,
-            GJModulatorBinding,
-            GapJunctionStateChange,
-            BioelectricNetworkChange,
-            CollectiveReprogramming,
-        ]
-    }
 }
 
 /// Causal definition for pharmacological events.
@@ -216,58 +161,11 @@ impl CausalDef for PharmacologyCauses {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the pharmacology category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PharmacologyRelation {
-    pub from: PharmacologyEntity,
-    pub to: PharmacologyEntity,
-}
-
-impl Relationship for PharmacologyRelation {
-    type Object = PharmacologyEntity;
-
-    fn source(&self) -> PharmacologyEntity {
-        self.from
-    }
-
-    fn target(&self) -> PharmacologyEntity {
-        self.to
-    }
-}
-
-/// Discrete category over pharmacology entities (full morphisms: all pairs).
-pub struct PharmacologyCategory;
-
-impl Category for PharmacologyCategory {
-    type Object = PharmacologyEntity;
-    type Morphism = PharmacologyRelation;
-
-    fn identity(obj: &PharmacologyEntity) -> PharmacologyRelation {
-        PharmacologyRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &PharmacologyRelation, g: &PharmacologyRelation) -> Option<PharmacologyRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(PharmacologyRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<PharmacologyRelation> {
-        let variants = PharmacologyEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(PharmacologyRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over pharmacology entities (full morphisms: all pairs).
+    pub PharmacologyCategory {
+        entity: PharmacologyEntity,
+        relation: PharmacologyRelation,
     }
 }
 
@@ -634,6 +532,7 @@ impl Ontology for PharmacologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

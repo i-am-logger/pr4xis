@@ -1,10 +1,11 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Target kinematic state components.
 ///
 /// Source: Bar-Shalom, Li & Kirubarajan (2001), Chapter 6.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum TargetStateComponent {
     /// Position (x, y, z).
     Position,
@@ -16,62 +17,10 @@ pub enum TargetStateComponent {
     TurnRate,
 }
 
-impl Entity for TargetStateComponent {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Position,
-            Self::Velocity,
-            Self::Acceleration,
-            Self::TurnRate,
-        ]
-    }
-}
-
-/// Relationship between state components (derivative chain).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct StateDerivative {
-    pub from: TargetStateComponent,
-    pub to: TargetStateComponent,
-}
-
-impl Relationship for StateDerivative {
-    type Object = TargetStateComponent;
-    fn source(&self) -> TargetStateComponent {
-        self.from
-    }
-    fn target(&self) -> TargetStateComponent {
-        self.to
-    }
-}
-
-pub struct TargetStateCategory;
-
-impl Category for TargetStateCategory {
-    type Object = TargetStateComponent;
-    type Morphism = StateDerivative;
-
-    fn identity(obj: &TargetStateComponent) -> StateDerivative {
-        StateDerivative {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &StateDerivative, g: &StateDerivative) -> Option<StateDerivative> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(StateDerivative {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<StateDerivative> {
-        let c = TargetStateComponent::variants();
-        c.iter()
-            .flat_map(|&from| c.iter().map(move |&to| StateDerivative { from, to }))
-            .collect()
+define_dense_category! {
+    pub TargetStateCategory {
+        entity: TargetStateComponent,
+        relation: StateDerivative,
     }
 }
 

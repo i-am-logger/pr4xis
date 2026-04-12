@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::linear_algebra::matrix::Matrix;
@@ -9,7 +10,7 @@ use crate::technology::sensor_fusion::state::estimate::StateEstimate;
 use crate::technology::sensor_fusion::state::information::InformationEstimate;
 
 /// State estimation concepts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum EstimationConcept {
     /// The state vector x̂.
     StateVector,
@@ -21,61 +22,10 @@ pub enum EstimationConcept {
     CRLB,
 }
 
-impl Entity for EstimationConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::StateVector,
-            Self::Covariance,
-            Self::InformationMatrix,
-            Self::CRLB,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EstimationRelation {
-    pub from: EstimationConcept,
-    pub to: EstimationConcept,
-}
-
-impl Relationship for EstimationRelation {
-    type Object = EstimationConcept;
-    fn source(&self) -> EstimationConcept {
-        self.from
-    }
-    fn target(&self) -> EstimationConcept {
-        self.to
-    }
-}
-
-pub struct EstimationCategory;
-
-impl Category for EstimationCategory {
-    type Object = EstimationConcept;
-    type Morphism = EstimationRelation;
-
-    fn identity(obj: &EstimationConcept) -> EstimationRelation {
-        EstimationRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &EstimationRelation, g: &EstimationRelation) -> Option<EstimationRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(EstimationRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<EstimationRelation> {
-        let c = EstimationConcept::variants();
-        c.iter()
-            .flat_map(|&from| c.iter().map(move |&to| EstimationRelation { from, to }))
-            .collect()
+define_dense_category! {
+    pub EstimationCategory {
+        entity: EstimationConcept,
+        relation: EstimationRelation,
     }
 }
 

@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::statistics::confidence;
@@ -8,7 +9,7 @@ use crate::science::math::statistics::estimator;
 // Entity: statistical concepts
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum StatisticalConcept {
     Estimator,
     Hypothesis,
@@ -18,72 +19,15 @@ pub enum StatisticalConcept {
     SignificanceLevel,
 }
 
-impl Entity for StatisticalConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Estimator,
-            Self::Hypothesis,
-            Self::ConfidenceInterval,
-            Self::TestStatistic,
-            Self::PValue,
-            Self::SignificanceLevel,
-        ]
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct StatisticalRelation {
-    pub from: StatisticalConcept,
-    pub to: StatisticalConcept,
-}
-
-impl Relationship for StatisticalRelation {
-    type Object = StatisticalConcept;
-    fn source(&self) -> StatisticalConcept {
-        self.from
-    }
-    fn target(&self) -> StatisticalConcept {
-        self.to
-    }
-}
-
-pub struct StatisticalCategory;
-
-impl Category for StatisticalCategory {
-    type Object = StatisticalConcept;
-    type Morphism = StatisticalRelation;
-
-    fn identity(obj: &StatisticalConcept) -> StatisticalRelation {
-        StatisticalRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &StatisticalRelation, g: &StatisticalRelation) -> Option<StatisticalRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(StatisticalRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<StatisticalRelation> {
-        let concepts = StatisticalConcept::variants();
-        concepts
-            .iter()
-            .flat_map(|&from| {
-                concepts
-                    .iter()
-                    .map(move |&to| StatisticalRelation { from, to })
-            })
-            .collect()
+define_dense_category! {
+    /// Discrete category over statistical concept entities.
+    pub StatisticalCategory {
+        entity: StatisticalConcept,
+        relation: StatisticalRelation,
     }
 }
 

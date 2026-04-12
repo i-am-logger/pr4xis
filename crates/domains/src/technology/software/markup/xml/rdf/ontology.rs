@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
 
 // RDF 1.1 Concepts and Abstract Syntax — W3C Recommendation (2014)
@@ -20,7 +20,7 @@ use pr4xis::category::relationship::Relationship;
 
 /// The kinds of nodes that can appear in an RDF graph.
 /// From W3C RDF 1.1 Concepts §1.2: "the abstract syntax of RDF."
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum RdfNodeKind {
     /// An IRI-identified resource (W3C RDF 1.1 §3.1).
     IriResource,
@@ -42,23 +42,6 @@ pub enum RdfNodeKind {
     Nil,
     /// rdf:List — a linked list node (W3C RDF 1.1 §5.1).
     List,
-}
-
-impl Entity for RdfNodeKind {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::IriResource,
-            Self::BlankNode,
-            Self::PlainLiteral,
-            Self::TypedLiteral,
-            Self::Statement,
-            Self::Class,
-            Self::Property,
-            Self::Datatype,
-            Self::Nil,
-            Self::List,
-        ]
-    }
 }
 
 impl RdfNodeKind {

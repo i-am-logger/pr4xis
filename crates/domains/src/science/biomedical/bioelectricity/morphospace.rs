@@ -13,7 +13,8 @@
 //! - Fields & Levin 2022: Competency in Navigating Arbitrary Spaces
 //! - Chernet & Levin 2013: Vmem manipulation suppresses tumors
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -24,7 +25,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the morphospace ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MorphospaceEntity {
     // Attractors
     Healthy,
@@ -46,30 +47,6 @@ pub enum MorphospaceEntity {
     Attractor,
     RepairPathway,
     BioelectricState,
-}
-
-impl Entity for MorphospaceEntity {
-    fn variants() -> Vec<Self> {
-        use MorphospaceEntity::*;
-        vec![
-            Healthy,
-            Inflamed,
-            Barretts,
-            Dysplastic,
-            Fibrotic,
-            BasalTurnover,
-            BioelectricRepair,
-            MechanicalStimulation,
-            CombinedTherapy,
-            PolarizedVmem,
-            DepolarizedVmem,
-            ConnectedNetwork,
-            DisconnectedNetwork,
-            Attractor,
-            RepairPathway,
-            BioelectricState,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -110,7 +87,7 @@ impl TaxonomyDef for MorphospaceTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Events in disease progression and repair.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MorphospaceEvent {
     // Disease
     AcidDamage,
@@ -127,27 +104,6 @@ pub enum MorphospaceEvent {
     PatternRecognition,
     MechanotransductionActivation,
     AutonomousRepair,
-}
-
-impl Entity for MorphospaceEvent {
-    fn variants() -> Vec<Self> {
-        use MorphospaceEvent::*;
-        vec![
-            AcidDamage,
-            ChronicInflammation,
-            GapJunctionLoss,
-            MetaplasticTransition,
-            DysplasticTransition,
-            FibroticRemodeling,
-            AcidRemoval,
-            BasalCellReplacement,
-            VmemRepolarization,
-            GapJunctionRestoration,
-            PatternRecognition,
-            MechanotransductionActivation,
-            AutonomousRepair,
-        ]
-    }
 }
 
 /// Causal graph for disease progression and repair pathways.
@@ -181,58 +137,11 @@ impl CausalDef for DiseaseProgressionCauses {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the morphospace category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MorphospaceRelation {
-    pub from: MorphospaceEntity,
-    pub to: MorphospaceEntity,
-}
-
-impl Relationship for MorphospaceRelation {
-    type Object = MorphospaceEntity;
-
-    fn source(&self) -> MorphospaceEntity {
-        self.from
-    }
-
-    fn target(&self) -> MorphospaceEntity {
-        self.to
-    }
-}
-
-/// Discrete category over morphospace entities.
-pub struct MorphospaceCategory;
-
-impl Category for MorphospaceCategory {
-    type Object = MorphospaceEntity;
-    type Morphism = MorphospaceRelation;
-
-    fn identity(obj: &MorphospaceEntity) -> MorphospaceRelation {
-        MorphospaceRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &MorphospaceRelation, g: &MorphospaceRelation) -> Option<MorphospaceRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(MorphospaceRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<MorphospaceRelation> {
-        let variants = MorphospaceEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(MorphospaceRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over morphospace entities.
+    pub MorphospaceCategory {
+        entity: MorphospaceEntity,
+        relation: MorphospaceRelation,
     }
 }
 
@@ -629,6 +538,7 @@ impl Ontology for MorphospaceOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

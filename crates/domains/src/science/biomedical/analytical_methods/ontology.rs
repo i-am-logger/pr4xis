@@ -12,7 +12,8 @@
 //! of analysis. It formalizes the reasoning that ontology_diagnostics uses
 //! when performing structural analysis.
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -23,7 +24,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Components of structural analysis methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AnalyticalEntity {
     // Methods (how you analyze)
     StructuralAnalysis,
@@ -51,33 +52,6 @@ pub enum AnalyticalEntity {
     AnalysisMethod,
     AnalysisComponent,
     AnalysisOutput,
-}
-
-impl Entity for AnalyticalEntity {
-    fn variants() -> Vec<Self> {
-        use AnalyticalEntity::*;
-        vec![
-            StructuralAnalysis,
-            PatternAnalysis,
-            StatisticalAnalysis,
-            ComparativeAnalysis,
-            AbsorptionAnalysis,
-            ClusterAnalysis,
-            FormalContext,
-            ConceptLattice,
-            GaloisConnection,
-            ObjectSet,
-            AttributeSet,
-            BinaryRelation,
-            Pattern,
-            Cluster,
-            Anomaly,
-            Invariant,
-            AnalysisMethod,
-            AnalysisComponent,
-            AnalysisOutput,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +95,7 @@ impl TaxonomyDef for AnalyticalTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Steps in the structural analysis pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AnalysisStep {
     /// Gather raw data from the domain.
     DataCollection,
@@ -139,22 +113,6 @@ pub enum AnalysisStep {
     ResultInterpretation,
     /// Update knowledge base with findings.
     KnowledgeUpdate,
-}
-
-impl Entity for AnalysisStep {
-    fn variants() -> Vec<Self> {
-        use AnalysisStep::*;
-        vec![
-            DataCollection,
-            ContextFormation,
-            DerivationComputation,
-            LatticeConstruction,
-            PatternExtraction,
-            AnomalyDetection,
-            ResultInterpretation,
-            KnowledgeUpdate,
-        ]
-    }
 }
 
 /// The analysis pipeline as a causal graph.
@@ -181,55 +139,11 @@ impl CausalDef for AnalysisCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AnalyticalRelation {
-    pub from: AnalyticalEntity,
-    pub to: AnalyticalEntity,
-}
-
-impl Relationship for AnalyticalRelation {
-    type Object = AnalyticalEntity;
-    fn source(&self) -> AnalyticalEntity {
-        self.from
-    }
-    fn target(&self) -> AnalyticalEntity {
-        self.to
-    }
-}
-
-pub struct AnalyticalCategory;
-
-impl Category for AnalyticalCategory {
-    type Object = AnalyticalEntity;
-    type Morphism = AnalyticalRelation;
-
-    fn identity(obj: &AnalyticalEntity) -> AnalyticalRelation {
-        AnalyticalRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &AnalyticalRelation, g: &AnalyticalRelation) -> Option<AnalyticalRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(AnalyticalRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<AnalyticalRelation> {
-        let entities = AnalyticalEntity::variants();
-        entities
-            .iter()
-            .flat_map(|&a| {
-                entities
-                    .iter()
-                    .map(move |&b| AnalyticalRelation { from: a, to: b })
-            })
-            .collect()
+define_dense_category! {
+    /// Dense category over analytical entities.
+    pub AnalyticalCategory {
+        entity: AnalyticalEntity,
+        relation: AnalyticalRelation,
     }
 }
 
@@ -480,6 +394,7 @@ impl Ontology for AnalyticalMethodsOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

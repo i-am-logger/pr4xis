@@ -15,7 +15,8 @@
 //! - Pickles 2012: Physiology of Hearing
 //! - Joris, Schreiner & Rees 2004: neural processing of amplitude-modulated sounds
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -26,7 +27,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the auditory neuroscience domain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum NeuralEntity {
     // Coding strategies
     RateCoding,
@@ -73,53 +74,6 @@ pub enum NeuralEntity {
     ProcessingStage,
     BinauralMechanism,
     HigherFunction,
-}
-
-impl Entity for NeuralEntity {
-    fn variants() -> Vec<Self> {
-        use NeuralEntity::*;
-        vec![
-            RateCoding,
-            TemporalCoding,
-            PhaseLocking,
-            PlaceCoding,
-            PopulationCoding,
-            SpikeTimingCode,
-            TonotopicMap,
-            FrequencyTuningCurve,
-            CharacteristicFrequency,
-            RateLevelFunction,
-            SpontaneousRate,
-            DynamicRange,
-            OnsetResponse,
-            SustainedResponse,
-            Adaptation,
-            Inhibition,
-            AuditoryNerveFiber,
-            CochlearNucleusProcessing,
-            SuperiorOliveProcessing,
-            LateralLemniscus,
-            InferiorColliculusProcessing,
-            MedialGeniculateProcessing,
-            AuditoryCortexProcessing,
-            BinauralProcessing,
-            CoincidenceDetection,
-            ExcitatoryInhibitory,
-            MedialSuperiorOlive,
-            LateralSuperiorOlive,
-            AuditorySceneAnalysis,
-            StreamSegregation,
-            GestaltGrouping,
-            EchoSuppression,
-            PrecedenceEffect,
-            MismatchNegativity,
-            CodingStrategy,
-            ResponseProperty,
-            ProcessingStage,
-            BinauralMechanism,
-            HigherFunction,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -181,7 +135,7 @@ impl TaxonomyDef for NeuralTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Causal events in the ascending auditory pathway.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum NeuralCausalEvent {
     AuditoryNerveInput,
     CochlearNucleusIntegration,
@@ -192,23 +146,6 @@ pub enum NeuralCausalEvent {
     CorticalAnalysis,
     StreamFormation,
     PerceptualBinding,
-}
-
-impl Entity for NeuralCausalEvent {
-    fn variants() -> Vec<Self> {
-        use NeuralCausalEvent::*;
-        vec![
-            AuditoryNerveInput,
-            CochlearNucleusIntegration,
-            BinauralConvergence,
-            LemniscalRelay,
-            MultisensoryIntegration,
-            ThalamicGating,
-            CorticalAnalysis,
-            StreamFormation,
-            PerceptualBinding,
-        ]
-    }
 }
 
 /// Ascending auditory pathway causal chain.
@@ -236,50 +173,11 @@ impl CausalDef for NeuralCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NeuralRelation {
-    pub from: NeuralEntity,
-    pub to: NeuralEntity,
-}
-
-impl Relationship for NeuralRelation {
-    type Object = NeuralEntity;
-    fn source(&self) -> NeuralEntity {
-        self.from
-    }
-    fn target(&self) -> NeuralEntity {
-        self.to
-    }
-}
-
-pub struct NeuroscienceCategory;
-
-impl Category for NeuroscienceCategory {
-    type Object = NeuralEntity;
-    type Morphism = NeuralRelation;
-
-    fn identity(obj: &NeuralEntity) -> NeuralRelation {
-        NeuralRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &NeuralRelation, g: &NeuralRelation) -> Option<NeuralRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(NeuralRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<NeuralRelation> {
-        let v = NeuralEntity::variants();
-        v.iter()
-            .flat_map(|&a| v.iter().map(move |&b| NeuralRelation { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over neural entities.
+    pub NeuroscienceCategory {
+        entity: NeuralEntity,
+        relation: NeuralRelation,
     }
 }
 
@@ -537,6 +435,7 @@ impl Ontology for NeuroscienceOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

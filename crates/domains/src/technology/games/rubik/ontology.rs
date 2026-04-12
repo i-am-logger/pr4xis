@@ -1,77 +1,18 @@
 use super::cube::Cube;
 use super::face::{Color, Face};
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Quality};
-
-// =============================================================================
-// Entity: Face (6 faces of the cube)
-// =============================================================================
-
-impl Entity for Face {
-    fn variants() -> Vec<Self> {
-        Face::all().to_vec()
-    }
-}
-
-// =============================================================================
-// Relationship: FaceRotation (a move affects a face)
-// =============================================================================
-
-/// A rotation of a face — the morphism in the Rubik category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FaceRotation {
-    pub face: Face,
-    pub target: Face,
-}
-
-impl Relationship for FaceRotation {
-    type Object = Face;
-    fn source(&self) -> Face {
-        self.face
-    }
-    fn target(&self) -> Face {
-        self.target
-    }
-}
 
 // =============================================================================
 // Category: RubikCategory (faces + rotations)
 // =============================================================================
 
-/// The Rubik category: faces are objects, rotations are morphisms.
-/// This is a thin category — one morphism per (source, target) pair.
-pub struct RubikCategory;
-
-impl Category for RubikCategory {
-    type Object = Face;
-    type Morphism = FaceRotation;
-
-    fn identity(obj: &Face) -> FaceRotation {
-        FaceRotation {
-            face: *obj,
-            target: *obj,
-        }
-    }
-
-    fn compose(f: &FaceRotation, g: &FaceRotation) -> Option<FaceRotation> {
-        if f.target != g.face {
-            return None;
-        }
-        Some(FaceRotation {
-            face: f.face,
-            target: g.target,
-        })
-    }
-
-    fn morphisms() -> Vec<FaceRotation> {
-        let faces = Face::all();
-        let mut m = Vec::new();
-        for &a in &faces {
-            for &b in &faces {
-                m.push(FaceRotation { face: a, target: b });
-            }
-        }
-        m
+define_dense_category! {
+    /// The Rubik category: faces are objects, rotations are morphisms.
+    /// This is a thin category — one morphism per (source, target) pair.
+    pub RubikCategory {
+        entity: Face,
+        relation: FaceRotation,
     }
 }
 
@@ -133,6 +74,7 @@ impl Axiom for NinePerColor {
 mod tests {
     use super::*;
     use crate::technology::games::rubik::moves::Move;
+    use pr4xis::category::{Category, Entity};
 
     #[test]
     fn test_face_entity() {

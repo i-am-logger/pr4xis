@@ -15,7 +15,7 @@
 use pr4xis::category::Entity;
 
 /// A named color slot. Base16 uses 16 (base00-0F), Base24 uses all 24.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ColorSlot {
     // ── Base16: monotone ramp (background → foreground) ──
     /// Default background
@@ -72,37 +72,6 @@ pub enum ColorSlot {
     Base16,
     /// Bright purple (variant of base0E)
     Base17,
-}
-
-impl Entity for ColorSlot {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Base00,
-            Self::Base01,
-            Self::Base02,
-            Self::Base03,
-            Self::Base04,
-            Self::Base05,
-            Self::Base06,
-            Self::Base07,
-            Self::Base08,
-            Self::Base09,
-            Self::Base0A,
-            Self::Base0B,
-            Self::Base0C,
-            Self::Base0D,
-            Self::Base0E,
-            Self::Base0F,
-            Self::Base10,
-            Self::Base11,
-            Self::Base12,
-            Self::Base13,
-            Self::Base14,
-            Self::Base15,
-            Self::Base16,
-            Self::Base17,
-        ]
-    }
 }
 
 /// Semantic role of a color slot.

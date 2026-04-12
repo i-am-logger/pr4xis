@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::linear_algebra::matrix::Matrix;
@@ -9,7 +10,7 @@ use crate::technology::sensor_fusion::observation::innovation::Innovation;
 use crate::technology::sensor_fusion::observation::observation_model::LinearObservationModel;
 
 /// Observation processing stages (JDL Level 0).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ObservationStage {
     /// Raw sensor data received.
     RawMeasurement,
@@ -25,71 +26,10 @@ pub enum ObservationStage {
     Rejected,
 }
 
-impl Entity for ObservationStage {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::RawMeasurement,
-            Self::Predicted,
-            Self::InnovationComputed,
-            Self::GateChecked,
-            Self::Accepted,
-            Self::Rejected,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ObservationTransition {
-    pub from: ObservationStage,
-    pub to: ObservationStage,
-}
-
-impl Relationship for ObservationTransition {
-    type Object = ObservationStage;
-    fn source(&self) -> ObservationStage {
-        self.from
-    }
-    fn target(&self) -> ObservationStage {
-        self.to
-    }
-}
-
-pub struct ObservationCategory;
-
-impl Category for ObservationCategory {
-    type Object = ObservationStage;
-    type Morphism = ObservationTransition;
-
-    fn identity(obj: &ObservationStage) -> ObservationTransition {
-        ObservationTransition {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(
-        f: &ObservationTransition,
-        g: &ObservationTransition,
-    ) -> Option<ObservationTransition> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ObservationTransition {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ObservationTransition> {
-        let all = ObservationStage::variants();
-        let m: Vec<ObservationTransition> = all
-            .iter()
-            .flat_map(|&from| {
-                all.iter()
-                    .map(move |&to| ObservationTransition { from, to })
-            })
-            .collect();
-        m
+define_dense_category! {
+    pub ObservationCategory {
+        entity: ObservationStage,
+        relation: ObservationTransition,
     }
 }
 

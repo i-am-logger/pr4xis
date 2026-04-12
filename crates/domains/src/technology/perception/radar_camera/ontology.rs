@@ -4,7 +4,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// Fusion pipeline stages for radar+camera sensor fusion.
 ///
 /// Source: Nobis et al. (2019), "A Deep Learning-based Radar and Camera Sensor Fusion Architecture"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum RadarCameraStage {
     /// Raw radar detections (range, Doppler, azimuth).
     RadarDetection,
@@ -16,18 +16,6 @@ pub enum RadarCameraStage {
     SpatialAssociation,
     /// Fused output with range from radar and classification from camera.
     FusedOutput,
-}
-
-impl Entity for RadarCameraStage {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::RadarDetection,
-            Self::CameraDetection,
-            Self::TemporalAlignment,
-            Self::SpatialAssociation,
-            Self::FusedOutput,
-        ]
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

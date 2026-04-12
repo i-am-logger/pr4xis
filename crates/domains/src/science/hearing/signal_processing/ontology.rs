@@ -9,7 +9,8 @@
 //! - Harris 1978: window functions
 //! - Welch 1967: spectral estimation
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
@@ -20,7 +21,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // Entity
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum SignalEntity {
     // Transforms
     FourierTransform,
@@ -70,54 +71,6 @@ pub enum SignalEntity {
     SamplingConcept,
     SignalOperation,
     AnalysisDomain,
-}
-
-impl Entity for SignalEntity {
-    fn variants() -> Vec<Self> {
-        use SignalEntity::*;
-        vec![
-            FourierTransform,
-            FFT,
-            InverseFFT,
-            ShortTimeFourierTransform,
-            WaveletTransform,
-            HilbertTransform,
-            CepstralAnalysis,
-            Spectrogram,
-            PowerSpectralDensity,
-            Autocorrelation,
-            Cepstrum,
-            MelFrequencyCepstrum,
-            LowPassFilter,
-            HighPassFilter,
-            BandPassFilter,
-            BandStopFilter,
-            FIRFilter,
-            IIRFilter,
-            GammatoneFilter,
-            Sampling,
-            NyquistFrequency,
-            Aliasing,
-            Quantization,
-            WindowFunction,
-            HannWindow,
-            HammingWindow,
-            BlackmanWindow,
-            RectangularWindow,
-            Convolution,
-            Correlation,
-            Decimation,
-            Interpolation,
-            TimeDomain,
-            FrequencyDomain,
-            Transform,
-            Representation,
-            Filter,
-            SamplingConcept,
-            SignalOperation,
-            AnalysisDomain,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -212,7 +165,7 @@ impl MereologyDef for SignalMereology {
 // ---------------------------------------------------------------------------
 
 /// Causal events in the signal processing pipeline.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum SignalCausalEvent {
     RawSignal,
     AntiAliasFiltering,
@@ -222,22 +175,6 @@ pub enum SignalCausalEvent {
     SpectralSmoothing,
     FeatureExtraction,
     PatternClassification,
-}
-
-impl Entity for SignalCausalEvent {
-    fn variants() -> Vec<Self> {
-        use SignalCausalEvent::*;
-        vec![
-            RawSignal,
-            AntiAliasFiltering,
-            Digitization,
-            WindowApplication,
-            SpectralTransform,
-            SpectralSmoothing,
-            FeatureExtraction,
-            PatternClassification,
-        ]
-    }
 }
 
 /// Causal graph for signal processing pipeline.
@@ -293,50 +230,11 @@ impl OppositionDef for SignalOpposition {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SignalRelation {
-    pub from: SignalEntity,
-    pub to: SignalEntity,
-}
-
-impl Relationship for SignalRelation {
-    type Object = SignalEntity;
-    fn source(&self) -> SignalEntity {
-        self.from
-    }
-    fn target(&self) -> SignalEntity {
-        self.to
-    }
-}
-
-pub struct SignalProcessingCategory;
-
-impl Category for SignalProcessingCategory {
-    type Object = SignalEntity;
-    type Morphism = SignalRelation;
-
-    fn identity(obj: &SignalEntity) -> SignalRelation {
-        SignalRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &SignalRelation, g: &SignalRelation) -> Option<SignalRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(SignalRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<SignalRelation> {
-        let v = SignalEntity::variants();
-        v.iter()
-            .flat_map(|&a| v.iter().map(move |&b| SignalRelation { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over signal processing entities.
+    pub SignalProcessingCategory {
+        entity: SignalEntity,
+        relation: SignalRelation,
     }
 }
 
@@ -623,6 +521,7 @@ impl Ontology for SignalProcessingOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;

@@ -8,7 +8,7 @@ use pr4xis::category::Entity;
 ///
 /// Source: Bar-Shalom et al. (2001), Section 6.2.
 ///         Groves (2013), Section 17.2.4 — "Time synchronization."
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum SyncStrategy {
     /// Use the measurement nearest in time to the target.
     /// Simple, no assumptions about dynamics.
@@ -22,16 +22,6 @@ pub enum SyncStrategy {
     /// Dangerous: error grows unboundedly with extrapolation distance.
     /// Only use when no future measurement is available (real-time).
     Extrapolation,
-}
-
-impl Entity for SyncStrategy {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::NearestNeighbor,
-            Self::LinearInterpolation,
-            Self::Extrapolation,
-        ]
-    }
 }
 
 /// Align a measurement value to a target time using interpolation.

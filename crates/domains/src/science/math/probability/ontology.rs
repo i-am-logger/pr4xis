@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::linear_algebra::matrix::Matrix;
@@ -14,7 +15,7 @@ use crate::science::math::probability::mahalanobis;
 // Entity: probability concepts
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ProbabilityConcept {
     SampleSpace,
     Event,
@@ -26,70 +27,11 @@ pub enum ProbabilityConcept {
     Entropy,
 }
 
-impl Entity for ProbabilityConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::SampleSpace,
-            Self::Event,
-            Self::ProbabilityMeasure,
-            Self::RandomVariable,
-            Self::Distribution,
-            Self::ConditionalProbability,
-            Self::BayesRule,
-            Self::Entropy,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ProbabilityRelation {
-    pub from: ProbabilityConcept,
-    pub to: ProbabilityConcept,
-}
-
-impl Relationship for ProbabilityRelation {
-    type Object = ProbabilityConcept;
-    fn source(&self) -> ProbabilityConcept {
-        self.from
-    }
-    fn target(&self) -> ProbabilityConcept {
-        self.to
-    }
-}
-
-pub struct ProbabilityCategory;
-
-impl Category for ProbabilityCategory {
-    type Object = ProbabilityConcept;
-    type Morphism = ProbabilityRelation;
-
-    fn identity(obj: &ProbabilityConcept) -> ProbabilityRelation {
-        ProbabilityRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &ProbabilityRelation, g: &ProbabilityRelation) -> Option<ProbabilityRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ProbabilityRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ProbabilityRelation> {
-        let concepts = ProbabilityConcept::variants();
-        concepts
-            .iter()
-            .flat_map(|&from| {
-                concepts
-                    .iter()
-                    .map(move |&to| ProbabilityRelation { from, to })
-            })
-            .collect()
+define_dense_category! {
+    /// Discrete category over probability concept entities.
+    pub ProbabilityCategory {
+        entity: ProbabilityConcept,
+        relation: ProbabilityRelation,
     }
 }
 

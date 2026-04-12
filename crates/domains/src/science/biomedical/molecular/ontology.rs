@@ -11,7 +11,8 @@
 //! - Inose 2009: Cx26/Cx43 in esophagus
 //! - Khalbuss 1995: acid effects on esophageal ion channels
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::context::{self, ContextDef};
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
@@ -25,7 +26,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Every molecular entity in the esophageal repair domain.
 #[allow(non_camel_case_types)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum MolecularEntity {
     // Ions
     Sodium,
@@ -62,41 +63,6 @@ pub enum MolecularEntity {
     GapJunction,
     Protein,
     SignalingMolecule,
-}
-
-impl Entity for MolecularEntity {
-    fn variants() -> Vec<Self> {
-        use MolecularEntity::*;
-        vec![
-            Sodium,
-            Potassium,
-            Calcium,
-            Chloride,
-            Proton,
-            Nav,
-            Kv,
-            Cav,
-            Piezo1,
-            Piezo2,
-            TRPV4,
-            GlyR,
-            GABA_A,
-            Cx26,
-            Cx43,
-            Collagen,
-            Mucin,
-            CalciumSignal,
-            NitricOxide,
-            Ion,
-            IonChannel,
-            VoltageGated,
-            Mechanosensitive,
-            LigandGated,
-            GapJunction,
-            Protein,
-            SignalingMolecule,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -204,7 +170,7 @@ impl Axiom for MolecularMereologyNoCycles {
 // ---------------------------------------------------------------------------
 
 /// Causal events in the mechanotransduction pathway.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum CausalEvent {
     MechanicalStress,
     Piezo1Opening,
@@ -221,29 +187,6 @@ pub enum CausalEvent {
     Cx43Upregulation,
     GapJunctionFormation,
     BioelectricCoupling,
-}
-
-impl Entity for CausalEvent {
-    fn variants() -> Vec<Self> {
-        use CausalEvent::*;
-        vec![
-            MechanicalStress,
-            Piezo1Opening,
-            TRPV4Opening,
-            CollagenPiezoelectric,
-            CalciumInflux,
-            VmemShift,
-            GeneExpression,
-            MorphologicalChange,
-            AcidExposure,
-            KvInhibition,
-            GlyRActivation,
-            ChlorideInflux,
-            Cx43Upregulation,
-            GapJunctionFormation,
-            BioelectricCoupling,
-        ]
-    }
 }
 
 /// Causal graph: mechanotransduction and bioelectric signaling pathways.
@@ -286,60 +229,13 @@ impl CausalDef for MechanotransductionCausalGraph {
 // Category (MolecularRelation morphism over MolecularEntity)
 // ---------------------------------------------------------------------------
 
-/// A morphism in the molecular category — a directed relation between entities.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MolecularRelation {
-    pub from: MolecularEntity,
-    pub to: MolecularEntity,
-}
-
-impl Relationship for MolecularRelation {
-    type Object = MolecularEntity;
-
-    fn source(&self) -> MolecularEntity {
-        self.from
-    }
-
-    fn target(&self) -> MolecularEntity {
-        self.to
-    }
-}
-
-/// Discrete category over molecular entities.
-///
-/// Every entity pair has a unique morphism; composition is transitive.
-pub struct MolecularCategory;
-
-impl Category for MolecularCategory {
-    type Object = MolecularEntity;
-    type Morphism = MolecularRelation;
-
-    fn identity(obj: &MolecularEntity) -> MolecularRelation {
-        MolecularRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &MolecularRelation, g: &MolecularRelation) -> Option<MolecularRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(MolecularRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<MolecularRelation> {
-        let variants = MolecularEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(MolecularRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over molecular entities.
+    ///
+    /// Every entity pair has a unique morphism; composition is transitive.
+    pub MolecularCategory {
+        entity: MolecularEntity,
+        relation: MolecularRelation,
     }
 }
 
@@ -690,7 +586,7 @@ impl Axiom for NernstPotentialsConsistent {
 //   - Some may have more (e.g., Piezo1 in development vs adult homeostasis)
 
 /// Functional context in which a molecular entity operates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum FunctionalContext {
     /// Constitutive mode: the molecule performs its baseline biological function.
     /// Kv maintains resting Vmem. Piezo1 senses mechanical environment.
@@ -702,17 +598,8 @@ pub enum FunctionalContext {
     Therapeutic,
 }
 
-impl Entity for FunctionalContext {
-    fn variants() -> Vec<Self> {
-        vec![
-            FunctionalContext::Constitutive,
-            FunctionalContext::Therapeutic,
-        ]
-    }
-}
-
 /// Resolved functional role after disambiguation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum FunctionalRole {
     /// Passive homeostatic function (maintains resting state).
     PassiveHomeostatic,
@@ -730,22 +617,6 @@ pub enum FunctionalRole {
     StructuralScaffold,
     /// Protective barrier (shields tissue from damage).
     ProtectiveBarrier,
-}
-
-impl Entity for FunctionalRole {
-    fn variants() -> Vec<Self> {
-        use FunctionalRole::*;
-        vec![
-            PassiveHomeostatic,
-            MechanicalSensor,
-            StructuralComponent,
-            InterCellularChannel,
-            TherapeuticTarget,
-            SignalMediator,
-            StructuralScaffold,
-            ProtectiveBarrier,
-        ]
-    }
 }
 
 /// Context-dependent disambiguation of molecular entities.
@@ -913,6 +784,7 @@ impl Ontology for MolecularOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;

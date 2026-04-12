@@ -9,7 +9,8 @@
 //! - Lisker & Abramson 1964: voice onset time
 //! - ANSI S3.5-1997: Speech Intelligibility Index
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
@@ -20,7 +21,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // Entity
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum SpeechEntity {
     // Acoustic parameters
     FundamentalFrequency,
@@ -64,49 +65,6 @@ pub enum SpeechEntity {
     Suprasegmental,
     IntelligibilityMetric,
     SpectralRegion,
-}
-
-impl Entity for SpeechEntity {
-    fn variants() -> Vec<Self> {
-        use SpeechEntity::*;
-        vec![
-            FundamentalFrequency,
-            Formant,
-            F1,
-            F2,
-            F3,
-            F4,
-            VoiceOnsetTime,
-            SpectralTilt,
-            Harmonics,
-            Vowel,
-            Consonant,
-            Plosive,
-            Fricative,
-            Nasal,
-            Approximant,
-            Affricate,
-            Voiced,
-            Voiceless,
-            Intonation,
-            Stress,
-            Rhythm,
-            Syllable,
-            Phoneme,
-            SpeechIntelligibilityIndex,
-            SignalToNoiseRatio,
-            SpeechReceptionThreshold,
-            ArticulationIndex,
-            LowFrequencySpeech,
-            MidFrequencySpeech,
-            HighFrequencySpeech,
-            AcousticParameter,
-            SpeechSound,
-            Suprasegmental,
-            IntelligibilityMetric,
-            SpectralRegion,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -197,7 +155,7 @@ impl MereologyDef for SpeechMereology {
 // ---------------------------------------------------------------------------
 
 /// Causal events in the speech production chain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum SpeechCausalEvent {
     CommunicativeIntent,
     ArticulatoryPlanning,
@@ -209,24 +167,6 @@ pub enum SpeechCausalEvent {
     ListenerPerception,
     CoarticulationEffect,
     FormantTransition,
-}
-
-impl Entity for SpeechCausalEvent {
-    fn variants() -> Vec<Self> {
-        use SpeechCausalEvent::*;
-        vec![
-            CommunicativeIntent,
-            ArticulatoryPlanning,
-            VocalFoldVibration,
-            GlottalPulse,
-            VocalTractFiltering,
-            FormantProduction,
-            AcousticRadiation,
-            ListenerPerception,
-            CoarticulationEffect,
-            FormantTransition,
-        ]
-    }
 }
 
 /// Causal graph for speech production pipeline.
@@ -279,50 +219,11 @@ impl OppositionDef for SpeechOpposition {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SpeechRelation {
-    pub from: SpeechEntity,
-    pub to: SpeechEntity,
-}
-
-impl Relationship for SpeechRelation {
-    type Object = SpeechEntity;
-    fn source(&self) -> SpeechEntity {
-        self.from
-    }
-    fn target(&self) -> SpeechEntity {
-        self.to
-    }
-}
-
-pub struct SpeechCategory;
-
-impl Category for SpeechCategory {
-    type Object = SpeechEntity;
-    type Morphism = SpeechRelation;
-
-    fn identity(obj: &SpeechEntity) -> SpeechRelation {
-        SpeechRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &SpeechRelation, g: &SpeechRelation) -> Option<SpeechRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(SpeechRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<SpeechRelation> {
-        let v = SpeechEntity::variants();
-        v.iter()
-            .flat_map(|&a| v.iter().map(move |&b| SpeechRelation { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over speech entities.
+    pub SpeechCategory {
+        entity: SpeechEntity,
+        relation: SpeechRelation,
     }
 }
 
@@ -592,6 +493,7 @@ impl Ontology for SpeechOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;

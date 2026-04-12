@@ -4,7 +4,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// SLAM graph components.
 ///
 /// Source: Grisetti et al. (2010), "A Tutorial on Graph-Based SLAM"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum SlamComponent {
     /// Robot pose node in the graph.
     Pose,
@@ -14,17 +14,6 @@ pub enum SlamComponent {
     Constraint,
     /// Loop closure: constraint linking current pose to a previously visited location.
     LoopClosure,
-}
-
-impl Entity for SlamComponent {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Pose,
-            Self::Landmark,
-            Self::Constraint,
-            Self::LoopClosure,
-        ]
-    }
 }
 
 /// Relationship between SLAM components.

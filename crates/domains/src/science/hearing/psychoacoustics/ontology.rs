@@ -17,7 +17,8 @@
 //! - Stevens 1957: sone scale
 //! - Rayleigh 1907: duplex theory
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -28,7 +29,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the psychoacoustics domain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum PsychoacousticEntity {
     // Perceptual dimensions
     Loudness,
@@ -76,51 +77,6 @@ pub enum PsychoacousticEntity {
     MaskingType,
     SpatialCue,
     TemporalMeasure,
-}
-
-impl Entity for PsychoacousticEntity {
-    fn variants() -> Vec<Self> {
-        use PsychoacousticEntity::*;
-        vec![
-            Loudness,
-            Pitch,
-            Timbre,
-            Duration,
-            Phon,
-            Sone,
-            EqualLoudnessContour,
-            LoudnessRecruitment,
-            PlacePitch,
-            TemporalPitch,
-            VirtualPitch,
-            Octave,
-            SimultaneousMasking,
-            ForwardMasking,
-            BackwardMasking,
-            InformationalMasking,
-            CriticalBand,
-            BarkScale,
-            ERBScale,
-            AuditoryFilter,
-            FrequencySelectivity,
-            TemporalResolution,
-            GapDetection,
-            TemporalIntegration,
-            SoundLocalization,
-            InterauralTimeDifference,
-            InterauralLevelDifference,
-            HeadRelatedTransferFunction,
-            AbsoluteThreshold,
-            DifferentialThreshold,
-            JustNoticeableDifference,
-            PerceptualDimension,
-            LoudnessMetric,
-            PitchMechanism,
-            MaskingType,
-            SpatialCue,
-            TemporalMeasure,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -171,61 +127,11 @@ impl TaxonomyDef for PsychoacousticTaxonomy {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the psychoacoustics category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PsychoacousticRelation {
-    pub from: PsychoacousticEntity,
-    pub to: PsychoacousticEntity,
-}
-
-impl Relationship for PsychoacousticRelation {
-    type Object = PsychoacousticEntity;
-
-    fn source(&self) -> PsychoacousticEntity {
-        self.from
-    }
-
-    fn target(&self) -> PsychoacousticEntity {
-        self.to
-    }
-}
-
-/// Discrete category over psychoacoustic entities.
-pub struct PsychoacousticsCategory;
-
-impl Category for PsychoacousticsCategory {
-    type Object = PsychoacousticEntity;
-    type Morphism = PsychoacousticRelation;
-
-    fn identity(obj: &PsychoacousticEntity) -> PsychoacousticRelation {
-        PsychoacousticRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(
-        f: &PsychoacousticRelation,
-        g: &PsychoacousticRelation,
-    ) -> Option<PsychoacousticRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(PsychoacousticRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<PsychoacousticRelation> {
-        let variants = PsychoacousticEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(PsychoacousticRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over psychoacoustic entities.
+    pub PsychoacousticsCategory {
+        entity: PsychoacousticEntity,
+        relation: PsychoacousticRelation,
     }
 }
 
@@ -234,7 +140,7 @@ impl Category for PsychoacousticsCategory {
 // ---------------------------------------------------------------------------
 
 /// Causal events in psychoacoustic processing.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum PsychoacousticCausalEvent {
     AcousticStimulus,
     CochlearFiltering,
@@ -245,23 +151,6 @@ pub enum PsychoacousticCausalEvent {
     AwareExperience,
     FrequencyAnalysis,
     PitchExtraction,
-}
-
-impl Entity for PsychoacousticCausalEvent {
-    fn variants() -> Vec<Self> {
-        use PsychoacousticCausalEvent::*;
-        vec![
-            AcousticStimulus,
-            CochlearFiltering,
-            NeuralTransduction,
-            BrainstemProcessing,
-            CorticalAnalysis,
-            PerceptFormation,
-            AwareExperience,
-            FrequencyAnalysis,
-            PitchExtraction,
-        ]
-    }
 }
 
 /// Causal graph for psychoacoustic processing from stimulus to experience.
@@ -618,6 +507,7 @@ impl Ontology for PsychoacousticsOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

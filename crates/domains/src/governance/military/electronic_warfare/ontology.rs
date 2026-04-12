@@ -1,10 +1,11 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Electronic warfare observable types for emitter geolocation.
 ///
 /// Source: Poisel (2012), *Electronic Warfare Target Location Methods*
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum EwObservable {
     /// Angle of Arrival (bearing to emitter).
     AOA,
@@ -16,61 +17,14 @@ pub enum EwObservable {
     SignalStrength,
 }
 
-impl Entity for EwObservable {
-    fn variants() -> Vec<Self> {
-        vec![Self::AOA, Self::TDOA, Self::FDOA, Self::SignalStrength]
-    }
-}
-
-/// Fusion relationship between EW observables.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EwFusionRelation {
-    pub from: EwObservable,
-    pub to: EwObservable,
-}
-
-impl Relationship for EwFusionRelation {
-    type Object = EwObservable;
-    fn source(&self) -> EwObservable {
-        self.from
-    }
-    fn target(&self) -> EwObservable {
-        self.to
-    }
-}
-
-/// Category for EW observable fusion.
-///
-/// All observables can be combined for improved geolocation;
-/// the category is fully connected.
-pub struct EwCategory;
-
-impl Category for EwCategory {
-    type Object = EwObservable;
-    type Morphism = EwFusionRelation;
-
-    fn identity(obj: &EwObservable) -> EwFusionRelation {
-        EwFusionRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &EwFusionRelation, g: &EwFusionRelation) -> Option<EwFusionRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(EwFusionRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<EwFusionRelation> {
-        let obs = EwObservable::variants();
-        obs.iter()
-            .flat_map(|&from| obs.iter().map(move |&to| EwFusionRelation { from, to }))
-            .collect()
+define_dense_category! {
+    /// Category for EW observable fusion.
+    ///
+    /// All observables can be combined for improved geolocation;
+    /// the category is fully connected.
+    pub EwCategory {
+        entity: EwObservable,
+        relation: EwFusionRelation,
     }
 }
 

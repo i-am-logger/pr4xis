@@ -20,7 +20,8 @@
 //!   - Loss ratio quantification
 //!   - This meta-ontology itself
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -31,7 +32,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Components of the ontology engineering methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MetaEntity {
     // Ontological structures (what you build)
     DomainOntology,
@@ -73,43 +74,6 @@ pub enum MetaEntity {
     Gap,
     Resolution,
     Verification,
-}
-
-impl Entity for MetaEntity {
-    fn variants() -> Vec<Self> {
-        use MetaEntity::*;
-        vec![
-            DomainOntology,
-            CategoryStructure,
-            TaxonomyStructure,
-            CausalStructure,
-            QualityStructure,
-            AxiomSet,
-            Functor,
-            Adjunction,
-            UnitMorphism,
-            CounitMorphism,
-            NaturalTransformation,
-            UnitGap,
-            CounitGap,
-            GranularityMismatch,
-            MissingDistinction,
-            InformationLoss,
-            CanonicalRepresentative,
-            ContextResolution,
-            OntologyEnrichment,
-            IntermediateDomain,
-            GranularityRefinement,
-            LiteratureVerification,
-            MachineProof,
-            PropertyTest,
-            Structure,
-            Connection,
-            Gap,
-            Resolution,
-            Verification,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -166,7 +130,7 @@ impl TaxonomyDef for MetaTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Steps in the gap detection methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MethodologyStep {
     /// Formalize two scientific domains as categories.
     FormalizeDomains,
@@ -196,28 +160,6 @@ pub enum MethodologyStep {
     RunMachineProofs,
     /// Assess whether loss ratio improved.
     AssessImprovement,
-}
-
-impl Entity for MethodologyStep {
-    fn variants() -> Vec<Self> {
-        use MethodologyStep::*;
-        vec![
-            FormalizeDomains,
-            ConstructFunctors,
-            VerifyFunctorLaws,
-            ConstructAdjunction,
-            ComputeUnit,
-            ComputeCounit,
-            DetectGaps,
-            ClassifyGaps,
-            ComputeLossRatios,
-            ProposeResolution,
-            VerifyAgainstLiterature,
-            ImplementResolution,
-            RunMachineProofs,
-            AssessImprovement,
-        ]
-    }
 }
 
 /// The gap detection pipeline as a causal graph.
@@ -255,55 +197,11 @@ impl CausalDef for MethodologyCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MetaRelation {
-    pub from: MetaEntity,
-    pub to: MetaEntity,
-}
-
-impl Relationship for MetaRelation {
-    type Object = MetaEntity;
-    fn source(&self) -> MetaEntity {
-        self.from
-    }
-    fn target(&self) -> MetaEntity {
-        self.to
-    }
-}
-
-pub struct MetaCategory;
-
-impl Category for MetaCategory {
-    type Object = MetaEntity;
-    type Morphism = MetaRelation;
-
-    fn identity(obj: &MetaEntity) -> MetaRelation {
-        MetaRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &MetaRelation, g: &MetaRelation) -> Option<MetaRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(MetaRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<MetaRelation> {
-        let entities = MetaEntity::variants();
-        entities
-            .iter()
-            .flat_map(|&a| {
-                entities
-                    .iter()
-                    .map(move |&b| MetaRelation { from: a, to: b })
-            })
-            .collect()
+define_dense_category! {
+    /// Dense category over meta-ontological entities.
+    pub MetaCategory {
+        entity: MetaEntity,
+        relation: MetaRelation,
     }
 }
 
@@ -683,6 +581,7 @@ impl Ontology for MetaOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

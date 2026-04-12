@@ -10,7 +10,8 @@
 //! - ASHA 2005: Guidelines for Manual Pure-Tone Threshold Audiometry
 //! - Kemp 1978: otoacoustic emissions discovery
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
@@ -21,7 +22,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // Entity
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum AudiologyEntity {
     // Pure tone audiometry
     PureToneAudiometry,
@@ -76,59 +77,6 @@ pub enum AudiologyEntity {
     EvokedPotentialTest,
     RehabilitationProcedure,
     ClinicalWorkflow,
-}
-
-impl Entity for AudiologyEntity {
-    fn variants() -> Vec<Self> {
-        use AudiologyEntity::*;
-        vec![
-            PureToneAudiometry,
-            AirConductionTest,
-            BoneConductionTest,
-            MaskingProcedure,
-            AirBoneGap,
-            PureToneAverage,
-            SpeechAudiometry,
-            SpeechRecognitionThreshold,
-            WordRecognitionScore,
-            SpeechInNoiseTest,
-            QuickSIN,
-            HINT,
-            Tympanometry,
-            TympanogramTypeA,
-            TympanogramTypeB,
-            TympanogramTypeC,
-            AcousticReflex,
-            AcousticReflexDecay,
-            StaticCompliance,
-            TransientOAE,
-            DistortionProductOAE,
-            OAEScreening,
-            AuditoryBrainstemResponse,
-            WaveI,
-            WaveIII,
-            WaveV,
-            ElectroCochleography,
-            AuditoryLateResponse,
-            AuralRehabilitation,
-            HearingAidFitting,
-            RealEarVerification,
-            CochlearImplantMapping,
-            AuditoryTraining,
-            CommunicationStrategy,
-            CaseHistory,
-            Otoscopy,
-            Referral,
-            Counseling,
-            DiagnosticTest,
-            SpeechTest,
-            ImmittanceTest,
-            EmissionTest,
-            EvokedPotentialTest,
-            RehabilitationProcedure,
-            ClinicalWorkflow,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +178,7 @@ impl MereologyDef for AudiologyMereology {
 // ---------------------------------------------------------------------------
 
 /// Clinical assessment workflow.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum AudiologyCausalEvent {
     PatientPresents,
     HistoryTaken,
@@ -243,25 +191,6 @@ pub enum AudiologyCausalEvent {
     TreatmentPlanDeveloped,
     DeviceFitted,
     OutcomeVerified,
-}
-
-impl Entity for AudiologyCausalEvent {
-    fn variants() -> Vec<Self> {
-        use AudiologyCausalEvent::*;
-        vec![
-            PatientPresents,
-            HistoryTaken,
-            OtoscopyPerformed,
-            PureToneCompleted,
-            SpeechTestCompleted,
-            ImmittanceCompleted,
-            OAECompleted,
-            DiagnosisMade,
-            TreatmentPlanDeveloped,
-            DeviceFitted,
-            OutcomeVerified,
-        ]
-    }
 }
 
 pub struct AudiologyCausalGraph;
@@ -292,50 +221,11 @@ impl CausalDef for AudiologyCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AudiologyRelation {
-    pub from: AudiologyEntity,
-    pub to: AudiologyEntity,
-}
-
-impl Relationship for AudiologyRelation {
-    type Object = AudiologyEntity;
-    fn source(&self) -> AudiologyEntity {
-        self.from
-    }
-    fn target(&self) -> AudiologyEntity {
-        self.to
-    }
-}
-
-pub struct AudiologyCategory;
-
-impl Category for AudiologyCategory {
-    type Object = AudiologyEntity;
-    type Morphism = AudiologyRelation;
-
-    fn identity(obj: &AudiologyEntity) -> AudiologyRelation {
-        AudiologyRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &AudiologyRelation, g: &AudiologyRelation) -> Option<AudiologyRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(AudiologyRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<AudiologyRelation> {
-        let v = AudiologyEntity::variants();
-        v.iter()
-            .flat_map(|&a| v.iter().map(move |&b| AudiologyRelation { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over audiology entities.
+    pub AudiologyCategory {
+        entity: AudiologyEntity,
+        relation: AudiologyRelation,
     }
 }
 
@@ -620,6 +510,7 @@ impl Ontology for AudiologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;

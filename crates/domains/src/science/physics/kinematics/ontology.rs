@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::geometry::point::Point3;
@@ -18,7 +19,7 @@ use crate::science::physics::kinematics::velocity::Velocity;
 /// position (0th), velocity (1st), acceleration (2nd), jerk (3rd).
 ///
 /// Source: physics.info/kinematics-calculus (The Physics Hypertextbook).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum KinematicQuantity {
     /// 0th derivative: where (meters).
     Position,
@@ -30,77 +31,11 @@ pub enum KinematicQuantity {
     Jerk,
 }
 
-impl Entity for KinematicQuantity {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Position,
-            Self::Velocity,
-            Self::Acceleration,
-            Self::Jerk,
-        ]
-    }
-}
-
-/// Derivative relationship: one quantity is the time derivative of another.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DerivativeRelation {
-    pub from: KinematicQuantity,
-    pub to: KinematicQuantity,
-}
-
-impl Relationship for DerivativeRelation {
-    type Object = KinematicQuantity;
-
-    fn source(&self) -> KinematicQuantity {
-        self.from
-    }
-
-    fn target(&self) -> KinematicQuantity {
-        self.to
-    }
-}
-
-/// The kinematics category.
-///
-/// Objects: kinematic quantities (position, velocity, acceleration, jerk).
-/// Morphisms: derivative/integral relationships between them.
-///
-/// d/dt: Position → Velocity → Acceleration → Jerk
-/// ∫dt:  Jerk → Acceleration → Velocity → Position
-pub struct KinematicsCategory;
-
-impl Category for KinematicsCategory {
-    type Object = KinematicQuantity;
-    type Morphism = DerivativeRelation;
-
-    fn identity(obj: &KinematicQuantity) -> DerivativeRelation {
-        DerivativeRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &DerivativeRelation, g: &DerivativeRelation) -> Option<DerivativeRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(DerivativeRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<DerivativeRelation> {
-        let quants = KinematicQuantity::variants();
-        // All pairs (indiscrete — derivatives/integrals connect everything)
-        quants
-            .iter()
-            .flat_map(|&from| {
-                quants
-                    .iter()
-                    .map(move |&to| DerivativeRelation { from, to })
-            })
-            .collect()
+define_dense_category! {
+    /// The kinematics category.
+    pub KinematicsCategory {
+        entity: KinematicQuantity,
+        relation: DerivativeRelation,
     }
 }
 

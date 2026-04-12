@@ -1,3 +1,5 @@
+use pr4xis::category::Entity;
+
 /// Time systems used in sensor fusion.
 ///
 /// Each system has its own epoch and tick rate.
@@ -9,7 +11,7 @@
 ///   - GPS Interface Control Document (IS-GPS-200)
 ///   - ITU-R TF.460 (UTC definition)
 ///   - NIST Special Publication on time and frequency
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum TimeSystem {
     /// International Atomic Time. Continuous, no leap seconds.
     /// Epoch: 1958-01-01T00:00:00.

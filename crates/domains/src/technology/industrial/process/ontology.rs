@@ -1,10 +1,11 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Process control variables.
 ///
 /// Source: Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ProcessVariable {
     /// Temperature (Kelvin or Celsius).
     Temperature,
@@ -16,62 +17,15 @@ pub enum ProcessVariable {
     Level,
 }
 
-impl Entity for ProcessVariable {
-    fn variants() -> Vec<Self> {
-        vec![Self::Temperature, Self::Pressure, Self::Flow, Self::Level]
-    }
-}
-
-/// Coupling between process variables.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ProcessCoupling {
-    pub from: ProcessVariable,
-    pub to: ProcessVariable,
-}
-
-impl Relationship for ProcessCoupling {
-    type Object = ProcessVariable;
-    fn source(&self) -> ProcessVariable {
-        self.from
-    }
-    fn target(&self) -> ProcessVariable {
-        self.to
-    }
-}
-
-/// Category for process variable interactions.
-///
-/// Process variables are typically coupled: pressure affects flow,
-/// temperature affects pressure, level depends on flow, etc.
-/// The category is fully connected (all couplings are possible).
-pub struct ProcessCategory;
-
-impl Category for ProcessCategory {
-    type Object = ProcessVariable;
-    type Morphism = ProcessCoupling;
-
-    fn identity(obj: &ProcessVariable) -> ProcessCoupling {
-        ProcessCoupling {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &ProcessCoupling, g: &ProcessCoupling) -> Option<ProcessCoupling> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ProcessCoupling {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ProcessCoupling> {
-        let vars = ProcessVariable::variants();
-        vars.iter()
-            .flat_map(|&from| vars.iter().map(move |&to| ProcessCoupling { from, to }))
-            .collect()
+define_dense_category! {
+    /// Category for process variable interactions.
+    ///
+    /// Process variables are typically coupled: pressure affects flow,
+    /// temperature affects pressure, level depends on flow, etc.
+    /// The category is fully connected (all couplings are possible).
+    pub ProcessCategory {
+        entity: ProcessVariable,
+        relation: ProcessCoupling,
     }
 }
 

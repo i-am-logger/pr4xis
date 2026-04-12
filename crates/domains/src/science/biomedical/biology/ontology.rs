@@ -3,7 +3,8 @@
 //! Models the hierarchy: Cell → Tissue → Organ → Organism
 //! using praxis taxonomy (is-a) and mereology (has-a).
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
@@ -15,7 +16,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every biological entity in the esophageal repair domain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum BiologicalEntity {
     // Cells
     SquamousEpithelial,
@@ -44,37 +45,6 @@ pub enum BiologicalEntity {
     Tissue,
     Organ,
     Organism,
-}
-
-impl Entity for BiologicalEntity {
-    fn variants() -> Vec<Self> {
-        use BiologicalEntity::*;
-        vec![
-            SquamousEpithelial,
-            ColumnarEpithelial,
-            GobletCell,
-            BasalStemCell,
-            Fibroblast,
-            MacrophageM1,
-            MacrophageM2,
-            Osteocyte,
-            SquamousEpithelium,
-            ColumnarEpithelium,
-            ConnectiveTissue,
-            SmoothMuscle,
-            NeuralTissue,
-            BoneMatrix,
-            Esophagus,
-            Heart,
-            Lung,
-            Brain,
-            Bone,
-            Cell,
-            Tissue,
-            Organ,
-            Organism,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -158,60 +128,13 @@ impl MereologyDef for BiologicalMereology {
 // Category (BiologicalRelation morphism over BiologicalEntity)
 // ---------------------------------------------------------------------------
 
-/// A morphism in the biology category — a directed relation between entities.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BiologicalRelation {
-    pub from: BiologicalEntity,
-    pub to: BiologicalEntity,
-}
-
-impl Relationship for BiologicalRelation {
-    type Object = BiologicalEntity;
-
-    fn source(&self) -> BiologicalEntity {
-        self.from
-    }
-
-    fn target(&self) -> BiologicalEntity {
-        self.to
-    }
-}
-
-/// Discrete category over biological entities.
-///
-/// Every entity pair has a unique morphism; composition is transitive.
-pub struct BiologyCategory;
-
-impl Category for BiologyCategory {
-    type Object = BiologicalEntity;
-    type Morphism = BiologicalRelation;
-
-    fn identity(obj: &BiologicalEntity) -> BiologicalRelation {
-        BiologicalRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &BiologicalRelation, g: &BiologicalRelation) -> Option<BiologicalRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(BiologicalRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<BiologicalRelation> {
-        let variants = BiologicalEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(BiologicalRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over biological entities.
+    ///
+    /// Every entity pair has a unique morphism; composition is transitive.
+    pub BiologyCategory {
+        entity: BiologicalEntity,
+        relation: BiologicalRelation,
     }
 }
 
@@ -504,7 +427,7 @@ impl Axiom for BiologicalOppositionIrreflexive {
 // ---------------------------------------------------------------------------
 
 /// Events in the biological causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum BiologicalCausalEvent {
     StemCellDivision,
     CellDifferentiation,
@@ -514,22 +437,6 @@ pub enum BiologicalCausalEvent {
     InflammationOnset,
     MetaplasticChange,
     FibrosisOnset,
-}
-
-impl Entity for BiologicalCausalEvent {
-    fn variants() -> Vec<Self> {
-        use BiologicalCausalEvent::*;
-        vec![
-            StemCellDivision,
-            CellDifferentiation,
-            TissueFormation,
-            OrganDevelopment,
-            AcidDamage,
-            InflammationOnset,
-            MetaplasticChange,
-            FibrosisOnset,
-        ]
-    }
 }
 
 /// Causal graph for biological development and pathology.
@@ -682,6 +589,7 @@ impl Ontology for BiologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;

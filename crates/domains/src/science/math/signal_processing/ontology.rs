@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::signal_processing::filter::FirstOrderLowPass;
@@ -8,7 +9,7 @@ use crate::science::math::signal_processing::sampling;
 // Entity: signal domain concepts
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum SignalDomainConcept {
     TimeDomain,
     FrequencyDomain,
@@ -18,68 +19,15 @@ pub enum SignalDomainConcept {
     AliasFrequency,
 }
 
-impl Entity for SignalDomainConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::TimeDomain,
-            Self::FrequencyDomain,
-            Self::SampleRate,
-            Self::Bandwidth,
-            Self::NyquistRate,
-            Self::AliasFrequency,
-        ]
-    }
-}
-
 // ---------------------------------------------------------------------------
-// Category: signal domain concepts with Fourier transform as functor
+// Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SignalRelation {
-    pub from: SignalDomainConcept,
-    pub to: SignalDomainConcept,
-}
-
-impl Relationship for SignalRelation {
-    type Object = SignalDomainConcept;
-    fn source(&self) -> SignalDomainConcept {
-        self.from
-    }
-    fn target(&self) -> SignalDomainConcept {
-        self.to
-    }
-}
-
-pub struct SignalCategory;
-
-impl Category for SignalCategory {
-    type Object = SignalDomainConcept;
-    type Morphism = SignalRelation;
-
-    fn identity(obj: &SignalDomainConcept) -> SignalRelation {
-        SignalRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &SignalRelation, g: &SignalRelation) -> Option<SignalRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(SignalRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<SignalRelation> {
-        let concepts = SignalDomainConcept::variants();
-        concepts
-            .iter()
-            .flat_map(|&from| concepts.iter().map(move |&to| SignalRelation { from, to }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over signal domain concept entities.
+    pub SignalCategory {
+        entity: SignalDomainConcept,
+        relation: SignalRelation,
     }
 }
 

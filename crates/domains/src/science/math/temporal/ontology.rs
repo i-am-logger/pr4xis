@@ -1,4 +1,4 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::temporal::allen::{self};
@@ -10,85 +10,15 @@ use crate::science::math::temporal::time_system::{self, TimeSystem};
 // Entity: time systems (objects in the time system category)
 // ---------------------------------------------------------------------------
 
-impl Entity for TimeSystem {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::TAI,
-            Self::UTC,
-            Self::GPS,
-            Self::TT,
-            Self::TCB,
-            Self::MET,
-            Self::Unix,
-        ]
-    }
-}
-
 // ---------------------------------------------------------------------------
-// Relationship: time system conversions (morphisms)
+// Category
 // ---------------------------------------------------------------------------
 
-/// A conversion between time systems (offset function).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TimeSystemConversion {
-    pub from: TimeSystem,
-    pub to: TimeSystem,
-}
-
-impl Relationship for TimeSystemConversion {
-    type Object = TimeSystem;
-
-    fn source(&self) -> TimeSystem {
-        self.from
-    }
-
-    fn target(&self) -> TimeSystem {
-        self.to
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Category: time systems connected by conversions
-// ---------------------------------------------------------------------------
-
-/// The time system category.
-///
-/// Objects: time systems (TAI, UTC, GPS, TT, ...).
-/// Morphisms: conversions between them.
-/// TAI is the universal reference — other systems are offsets from TAI.
-pub struct TimeSystemCategory;
-
-impl Category for TimeSystemCategory {
-    type Object = TimeSystem;
-    type Morphism = TimeSystemConversion;
-
-    fn identity(obj: &TimeSystem) -> TimeSystemConversion {
-        TimeSystemConversion {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &TimeSystemConversion, g: &TimeSystemConversion) -> Option<TimeSystemConversion> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(TimeSystemConversion {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<TimeSystemConversion> {
-        let systems = TimeSystem::variants();
-        systems
-            .iter()
-            .flat_map(|&from| {
-                systems
-                    .iter()
-                    .map(move |&to| TimeSystemConversion { from, to })
-            })
-            .collect()
+define_dense_category! {
+    /// The time system category.
+    pub TimeSystemCategory {
+        entity: TimeSystem,
+        relation: TimeSystemConversion,
     }
 }
 

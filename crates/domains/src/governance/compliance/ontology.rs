@@ -8,24 +8,6 @@ use crate::governance::compliance::law;
 // Entity: escalation levels are the objects in the compliance category
 // ---------------------------------------------------------------------------
 
-impl Entity for EscalationLevel {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Observe,
-            Self::Identify,
-            Self::Classify,
-            Self::Alert,
-            Self::Warn,
-            Self::ShowForce,
-            Self::NonLethal,
-            Self::WarningAction,
-            Self::Engage,
-            Self::Deescalate,
-            Self::Abort,
-        ]
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Relationship: permitted transitions between escalation levels
 // ---------------------------------------------------------------------------

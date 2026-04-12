@@ -12,7 +12,8 @@
 //! - Fields & Levin 2022: Competency in Navigating Arbitrary Spaces
 //! - Levin 2014: Molecular bioelectricity in developmental biology
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -23,25 +24,13 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Levels of competency in the TAME hierarchy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum CompetencyLevel {
     Molecular,
     Cellular,
     Tissue,
     Organ,
     Organism,
-}
-
-impl Entity for CompetencyLevel {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Molecular,
-            Self::Cellular,
-            Self::Tissue,
-            Self::Organ,
-            Self::Organism,
-        ]
-    }
 }
 
 /// TAME hierarchy: Molecular → Cellular → Tissue → Organ → Organism.
@@ -66,7 +55,7 @@ impl TaxonomyDef for TAMETaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Every bioelectric entity in the Levin framework.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum BioelectricEntity {
     // Signals
     MembranePotential,
@@ -92,33 +81,6 @@ pub enum BioelectricEntity {
     Network,
     Morphospace,
     Intervention,
-}
-
-impl Entity for BioelectricEntity {
-    fn variants() -> Vec<Self> {
-        use BioelectricEntity::*;
-        vec![
-            MembranePotential,
-            VoltageGradient,
-            BioelectricPrepattern,
-            TransepithelialPotential,
-            GapJunctionNetwork,
-            BioelectricCircuit,
-            CognitiveLightcone,
-            TargetMorphology,
-            CurrentMorphology,
-            MorphogeneticField,
-            IonChannelModulation,
-            GapJunctionModulation,
-            BioelectricCocktail,
-            MechanicalStimulation,
-            ProtonPumpInhibition,
-            Signal,
-            Network,
-            Morphospace,
-            Intervention,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -161,58 +123,11 @@ impl TaxonomyDef for BioelectricTaxonomy {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the bioelectric category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BioelectricRelation {
-    pub from: BioelectricEntity,
-    pub to: BioelectricEntity,
-}
-
-impl Relationship for BioelectricRelation {
-    type Object = BioelectricEntity;
-
-    fn source(&self) -> BioelectricEntity {
-        self.from
-    }
-
-    fn target(&self) -> BioelectricEntity {
-        self.to
-    }
-}
-
-/// Discrete category over bioelectric entities.
-pub struct BioelectricCategory;
-
-impl Category for BioelectricCategory {
-    type Object = BioelectricEntity;
-    type Morphism = BioelectricRelation;
-
-    fn identity(obj: &BioelectricEntity) -> BioelectricRelation {
-        BioelectricRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &BioelectricRelation, g: &BioelectricRelation) -> Option<BioelectricRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(BioelectricRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<BioelectricRelation> {
-        let variants = BioelectricEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(BioelectricRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over bioelectric entities.
+    pub BioelectricCategory {
+        entity: BioelectricEntity,
+        relation: BioelectricRelation,
     }
 }
 
@@ -359,7 +274,7 @@ impl Axiom for BioelectricOppositionIrreflexive {
 // ---------------------------------------------------------------------------
 
 /// Events in the bioelectric signal causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum BioelectricSignalEvent {
     IonChannelOpening,
     IonFlux,
@@ -368,21 +283,6 @@ pub enum BioelectricSignalEvent {
     PatternFormation,
     MorphogeneticInstruction,
     AnatomicalChange,
-}
-
-impl Entity for BioelectricSignalEvent {
-    fn variants() -> Vec<Self> {
-        use BioelectricSignalEvent::*;
-        vec![
-            IonChannelOpening,
-            IonFlux,
-            VmemChange,
-            GapJunctionPropagation,
-            PatternFormation,
-            MorphogeneticInstruction,
-            AnatomicalChange,
-        ]
-    }
 }
 
 /// Causal graph for bioelectric signaling.
@@ -651,6 +551,7 @@ impl Ontology for BioelectricOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 

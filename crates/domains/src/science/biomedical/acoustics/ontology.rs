@@ -12,7 +12,8 @@
 //! - Eeg-Olofsson 2008: bone-conducted sound measured by cochlear vibrations
 //! - Chang 2016: whole-head finite-element model
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -23,7 +24,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the acoustics domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AcousticsEntity {
     // Wave properties
     SoundWave,
@@ -57,40 +58,6 @@ pub enum AcousticsEntity {
     ConductionPath,
     TransducerType,
     AcousticMedium,
-}
-
-impl Entity for AcousticsEntity {
-    fn variants() -> Vec<Self> {
-        use AcousticsEntity::*;
-        vec![
-            SoundWave,
-            AcousticPressure,
-            AcousticIntensity,
-            AcousticFrequency,
-            AcousticWavelength,
-            AcousticAmplitude,
-            Waveform,
-            AcousticImpedance,
-            ImpedanceMismatch,
-            ReflectionCoefficient,
-            TransmissionCoefficient,
-            AirConduction,
-            BoneConduction,
-            SoftTissueConduction,
-            ElectroacousticTransducer,
-            PiezoelectricTransducer,
-            ElectromagneticTransducer,
-            Air,
-            Bone,
-            SoftTissue,
-            Fluid,
-            WaveProperty,
-            ImpedanceProperty,
-            ConductionPath,
-            TransducerType,
-            AcousticMedium,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -143,58 +110,11 @@ impl TaxonomyDef for AcousticsTaxonomy {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the acoustics category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AcousticsRelation {
-    pub from: AcousticsEntity,
-    pub to: AcousticsEntity,
-}
-
-impl Relationship for AcousticsRelation {
-    type Object = AcousticsEntity;
-
-    fn source(&self) -> AcousticsEntity {
-        self.from
-    }
-
-    fn target(&self) -> AcousticsEntity {
-        self.to
-    }
-}
-
-/// Discrete category over acoustics entities.
-pub struct AcousticsCategory;
-
-impl Category for AcousticsCategory {
-    type Object = AcousticsEntity;
-    type Morphism = AcousticsRelation;
-
-    fn identity(obj: &AcousticsEntity) -> AcousticsRelation {
-        AcousticsRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &AcousticsRelation, g: &AcousticsRelation) -> Option<AcousticsRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(AcousticsRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<AcousticsRelation> {
-        let variants = AcousticsEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(AcousticsRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over acoustics entities.
+    pub AcousticsCategory {
+        entity: AcousticsEntity,
+        relation: AcousticsRelation,
     }
 }
 
@@ -203,7 +123,7 @@ impl Category for AcousticsCategory {
 // ---------------------------------------------------------------------------
 
 /// Events in the acoustics causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AcousticsCausalEvent {
     /// Electrical signal drives the transducer
     ElectricalSignalInput,
@@ -225,24 +145,6 @@ pub enum AcousticsCausalEvent {
     BoneCoupledTransmission,
     /// Wave penetrates deep tissue layers
     DeepTissuePenetration,
-}
-
-impl Entity for AcousticsCausalEvent {
-    fn variants() -> Vec<Self> {
-        use AcousticsCausalEvent::*;
-        vec![
-            ElectricalSignalInput,
-            TransducerActivation,
-            SurfaceOscillation,
-            AcousticWaveGeneration,
-            MediumPropagation,
-            ImpedanceBoundary,
-            PartialReflection,
-            PartialTransmission,
-            BoneCoupledTransmission,
-            DeepTissuePenetration,
-        ]
-    }
 }
 
 /// Causal graph for acoustics.
@@ -568,6 +470,7 @@ impl Ontology for AcousticsOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 
