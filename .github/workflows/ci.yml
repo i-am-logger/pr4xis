@@ -118,9 +118,6 @@ jobs:
   release-please:
     name: Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     needs: [check]
     if: |
       always() &&
@@ -133,6 +130,7 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
 
