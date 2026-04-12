@@ -98,4 +98,57 @@ mod tests {
     fn unit_monoid() {
         assert_eq!(().combine(&()), ());
     }
+
+    mod prop {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            /// Vec monoid: left identity for any vec
+            #[test]
+            fn prop_vec_left_identity(v in proptest::collection::vec(any::<i32>(), 0..10)) {
+                prop_assert_eq!(Vec::<i32>::empty().combine(&v), v);
+            }
+
+            /// Vec monoid: right identity for any vec
+            #[test]
+            fn prop_vec_right_identity(v in proptest::collection::vec(any::<i32>(), 0..10)) {
+                prop_assert_eq!(v.combine(&Vec::<i32>::empty()), v);
+            }
+
+            /// Vec monoid: associativity for any three vecs
+            #[test]
+            fn prop_vec_associativity(
+                a in proptest::collection::vec(any::<i32>(), 0..5),
+                b in proptest::collection::vec(any::<i32>(), 0..5),
+                c in proptest::collection::vec(any::<i32>(), 0..5),
+            ) {
+                let ab_c = a.combine(&b).combine(&c);
+                let a_bc: Vec<i32> = b.combine(&c);
+                let a_bc = a.combine(&a_bc);
+                prop_assert_eq!(ab_c, a_bc);
+            }
+
+            /// String monoid: left identity
+            #[test]
+            fn prop_string_left_identity(s in ".*") {
+                prop_assert_eq!(String::empty().combine(&s), s);
+            }
+
+            /// String monoid: right identity
+            #[test]
+            fn prop_string_right_identity(s in ".*") {
+                prop_assert_eq!(s.combine(&String::empty()), s);
+            }
+
+            /// String monoid: associativity
+            #[test]
+            fn prop_string_associativity(a in ".*", b in ".*", c in ".*") {
+                prop_assert_eq!(
+                    a.combine(&b).combine(&c),
+                    a.combine(&b.combine(&c))
+                );
+            }
+        }
+    }
 }
