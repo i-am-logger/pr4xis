@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Durability ontology — data lifecycle and persistence guarantees.
 //
@@ -27,7 +26,7 @@ use pr4xis::category::relationship::Relationship;
 ///
 /// Each level subsumes all weaker guarantees.
 /// Ephemeral ⊂ Transient ⊂ Persistent ⊂ Durable ⊂ Replicated ⊂ Archived.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum DurabilityLevel {
     /// Data exists only for the duration of a computation.
     /// CPU registers, stack frames. Lost on function return.
@@ -55,19 +54,6 @@ pub enum DurabilityLevel {
     /// SNIA ILM (2004): cold/frozen storage tier.
     /// Write-once, read-many. Tape, optical, archival object storage.
     Archived,
-}
-
-impl Entity for DurabilityLevel {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Ephemeral,
-            Self::Transient,
-            Self::Persistent,
-            Self::Durable,
-            Self::Replicated,
-            Self::Archived,
-        ]
-    }
 }
 
 /// Buffer management strategy — Haerder & Reuter (1983) taxonomy.
@@ -122,120 +108,44 @@ pub enum CrashConsistency {
     Journaling,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DurabilityRelation {
-    pub from: DurabilityLevel,
-    pub to: DurabilityLevel,
-    pub kind: DurabilityRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum DurabilityRelationKind {
-    Identity,
-    /// Strengthening: from is strictly weaker than to.
-    /// from's data survives strictly fewer failure modes.
-    Strengthens,
-    Composed,
-}
-
-impl Relationship for DurabilityRelation {
-    type Object = DurabilityLevel;
-    fn source(&self) -> DurabilityLevel {
-        self.from
-    }
-    fn target(&self) -> DurabilityLevel {
-        self.to
-    }
-}
-
-pub struct DurabilityCategory;
-
-impl Category for DurabilityCategory {
-    type Object = DurabilityLevel;
-    type Morphism = DurabilityRelation;
-
-    fn identity(obj: &DurabilityLevel) -> DurabilityRelation {
-        DurabilityRelation {
-            from: *obj,
-            to: *obj,
-            kind: DurabilityRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &DurabilityRelation, g: &DurabilityRelation) -> Option<DurabilityRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == DurabilityRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == DurabilityRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(DurabilityRelation {
-            from: f.from,
-            to: g.to,
-            kind: DurabilityRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<DurabilityRelation> {
-        use DurabilityLevel as D;
-        use DurabilityRelationKind as R;
-        let mut m = Vec::new();
-
-        for d in DurabilityLevel::variants() {
-            m.push(DurabilityRelation {
-                from: d,
-                to: d,
-                kind: R::Identity,
-            });
-        }
-
-        // The chain: Ephemeral → Transient → Persistent → Durable → Replicated → Archived
-        // Direct edges (adjacent in the chain):
-        let chain = [
-            D::Ephemeral,
-            D::Transient,
-            D::Persistent,
-            D::Durable,
-            D::Replicated,
-            D::Archived,
-        ];
-        for i in 0..chain.len() - 1 {
-            m.push(DurabilityRelation {
-                from: chain[i],
-                to: chain[i + 1],
-                kind: R::Strengthens,
-            });
-        }
-
-        // Transitive closure (all non-adjacent pairs)
-        for i in 0..chain.len() {
-            for j in i + 2..chain.len() {
-                m.push(DurabilityRelation {
-                    from: chain[i],
-                    to: chain[j],
-                    kind: R::Composed,
-                });
-            }
-        }
-
-        for d in DurabilityLevel::variants() {
-            m.push(DurabilityRelation {
-                from: d,
-                to: d,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub DurabilityCategory {
+        entity: DurabilityLevel,
+        relation: DurabilityRelation,
+        kind: DurabilityRelationKind,
+        kinds: [
+            /// Strengthening: from is strictly weaker than to.
+            /// from's data survives strictly fewer failure modes.
+            Strengthens,
+        ],
+        edges: [
+            // The chain: Ephemeral → Transient → Persistent → Durable → Replicated → Archived
+            (Ephemeral, Transient, Strengthens),
+            (Transient, Persistent, Strengthens),
+            (Persistent, Durable, Strengthens),
+            (Durable, Replicated, Strengthens),
+            (Replicated, Archived, Strengthens),
+        ],
+        composed: [
+            // Transitive closure (all non-adjacent pairs)
+            (Ephemeral, Persistent),
+            (Ephemeral, Durable),
+            (Ephemeral, Replicated),
+            (Ephemeral, Archived),
+            (Transient, Durable),
+            (Transient, Replicated),
+            (Transient, Archived),
+            (Persistent, Replicated),
+            (Persistent, Archived),
+            (Durable, Archived),
+        ],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

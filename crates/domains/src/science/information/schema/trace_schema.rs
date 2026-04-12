@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Trace Schema Functor T: Sch → Sch
 //
@@ -33,7 +32,7 @@ use pr4xis::category::relationship::Relationship;
 /// For an ontology with N entity types and M morphism types,
 /// T automatically generates N access objects + M traversal objects
 /// + the fixed PROV-O objects.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum TraceSchemaElement {
     // === El(C): derived from the ontology schema ===
     /// An access to an entity type — records when a concept was queried.
@@ -66,192 +65,63 @@ pub enum TraceSchemaElement {
     Output,
 }
 
-impl Entity for TraceSchemaElement {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::EntityAccess,
-            Self::MorphismTraversal,
-            Self::Timestamp,
-            Self::Status,
-            Self::Agent,
-            Self::TraceContext,
-            Self::Input,
-            Self::Output,
-        ]
-    }
-}
-
-/// Relationships in the trace schema — the "foreign keys" of T(C).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TraceSchemaRelation {
-    pub from: TraceSchemaElement,
-    pub to: TraceSchemaElement,
-    pub kind: TraceSchemaRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TraceSchemaRelationKind {
-    Identity,
-    /// EntityAccess records which entity was accessed.
-    /// Foreign key back to the original schema: subject_A: Accessed_A → A.
-    RecordsSubject,
-    /// MorphismTraversal records source entity access.
-    /// source_f: Traversed_f → Accessed_A.
-    RecordsSource,
-    /// MorphismTraversal records target entity access.
-    /// target_f: Traversed_f → Accessed_B.
-    RecordsTarget,
-    /// Any trace element has a timestamp.
-    HasTimestamp,
-    /// Any trace element has a status.
-    HasStatus,
-    /// Any trace element was performed by an agent.
-    PerformedBy,
-    /// Any trace element exists within a trace context.
-    InContext,
-    /// Any trace element has an input.
-    HasInput,
-    /// Any trace element has an output.
-    HasOutput,
-    /// MorphismTraversal is a refinement of EntityAccess
-    /// (traversing a morphism implies accessing its endpoints).
-    Refines,
-    Composed,
-}
-
-impl Relationship for TraceSchemaRelation {
-    type Object = TraceSchemaElement;
-    fn source(&self) -> TraceSchemaElement {
-        self.from
-    }
-    fn target(&self) -> TraceSchemaElement {
-        self.to
-    }
-}
-
-/// The trace schema category T — the target of the trace schema functor.
-pub struct TraceSchemaCategory;
-
-impl Category for TraceSchemaCategory {
-    type Object = TraceSchemaElement;
-    type Morphism = TraceSchemaRelation;
-
-    fn identity(obj: &TraceSchemaElement) -> TraceSchemaRelation {
-        TraceSchemaRelation {
-            from: *obj,
-            to: *obj,
-            kind: TraceSchemaRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &TraceSchemaRelation, g: &TraceSchemaRelation) -> Option<TraceSchemaRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == TraceSchemaRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == TraceSchemaRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(TraceSchemaRelation {
-            from: f.from,
-            to: g.to,
-            kind: TraceSchemaRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<TraceSchemaRelation> {
-        use TraceSchemaElement::*;
-        use TraceSchemaRelationKind::*;
-        let mut m = Vec::new();
-
-        // Identities
-        for e in TraceSchemaElement::variants() {
-            m.push(TraceSchemaRelation {
-                from: e,
-                to: e,
-                kind: Identity,
-            });
-        }
-
-        // El(C) structure: access and traversal foreign keys
-        m.push(TraceSchemaRelation {
-            from: MorphismTraversal,
-            to: EntityAccess,
-            kind: RecordsSource,
-        });
-        m.push(TraceSchemaRelation {
-            from: MorphismTraversal,
-            to: EntityAccess,
-            kind: RecordsTarget,
-        });
-        m.push(TraceSchemaRelation {
-            from: MorphismTraversal,
-            to: EntityAccess,
-            kind: Refines,
-        });
-
-        // O_obs: PROV decorations on both EntityAccess and MorphismTraversal
-        for &traced in &[EntityAccess, MorphismTraversal] {
-            m.push(TraceSchemaRelation {
-                from: traced,
-                to: Timestamp,
-                kind: HasTimestamp,
-            });
-            m.push(TraceSchemaRelation {
-                from: traced,
-                to: Status,
-                kind: HasStatus,
-            });
-            m.push(TraceSchemaRelation {
-                from: traced,
-                to: Agent,
-                kind: PerformedBy,
-            });
-            m.push(TraceSchemaRelation {
-                from: traced,
-                to: TraceContext,
-                kind: InContext,
-            });
-            m.push(TraceSchemaRelation {
-                from: traced,
-                to: Input,
-                kind: HasInput,
-            });
-            m.push(TraceSchemaRelation {
-                from: traced,
-                to: Output,
-                kind: HasOutput,
-            });
-        }
-
-        // Composed
-        m.push(TraceSchemaRelation {
-            from: MorphismTraversal,
-            to: Timestamp,
-            kind: Composed,
-        });
-        m.push(TraceSchemaRelation {
-            from: MorphismTraversal,
-            to: Status,
-            kind: Composed,
-        });
-        m.push(TraceSchemaRelation {
-            from: MorphismTraversal,
-            to: Agent,
-            kind: Composed,
-        });
-
-        for e in TraceSchemaElement::variants() {
-            m.push(TraceSchemaRelation {
-                from: e,
-                to: e,
-                kind: Composed,
-            });
-        }
-
-        m
+define_category! {
+    /// The trace schema category T — the target of the trace schema functor.
+    pub TraceSchemaCategory {
+        entity: TraceSchemaElement,
+        relation: TraceSchemaRelation,
+        kind: TraceSchemaRelationKind,
+        kinds: [
+            /// EntityAccess records which entity was accessed.
+            /// Foreign key back to the original schema: subject_A: Accessed_A → A.
+            RecordsSubject,
+            /// MorphismTraversal records source entity access.
+            /// source_f: Traversed_f → Accessed_A.
+            RecordsSource,
+            /// MorphismTraversal records target entity access.
+            /// target_f: Traversed_f → Accessed_B.
+            RecordsTarget,
+            /// Any trace element has a timestamp.
+            HasTimestamp,
+            /// Any trace element has a status.
+            HasStatus,
+            /// Any trace element was performed by an agent.
+            PerformedBy,
+            /// Any trace element exists within a trace context.
+            InContext,
+            /// Any trace element has an input.
+            HasInput,
+            /// Any trace element has an output.
+            HasOutput,
+            /// MorphismTraversal is a refinement of EntityAccess
+            /// (traversing a morphism implies accessing its endpoints).
+            Refines,
+        ],
+        edges: [
+            // El(C) structure: access and traversal foreign keys
+            (MorphismTraversal, EntityAccess, RecordsSource),
+            (MorphismTraversal, EntityAccess, RecordsTarget),
+            (MorphismTraversal, EntityAccess, Refines),
+            // O_obs: PROV decorations on EntityAccess
+            (EntityAccess, Timestamp, HasTimestamp),
+            (EntityAccess, Status, HasStatus),
+            (EntityAccess, Agent, PerformedBy),
+            (EntityAccess, TraceContext, InContext),
+            (EntityAccess, Input, HasInput),
+            (EntityAccess, Output, HasOutput),
+            // O_obs: PROV decorations on MorphismTraversal
+            (MorphismTraversal, Timestamp, HasTimestamp),
+            (MorphismTraversal, Status, HasStatus),
+            (MorphismTraversal, Agent, PerformedBy),
+            (MorphismTraversal, TraceContext, InContext),
+            (MorphismTraversal, Input, HasInput),
+            (MorphismTraversal, Output, HasOutput),
+        ],
+        composed: [
+            (MorphismTraversal, Timestamp),
+            (MorphismTraversal, Status),
+            (MorphismTraversal, Agent),
+        ],
     }
 }
 
@@ -334,6 +204,7 @@ impl TraceInstance {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

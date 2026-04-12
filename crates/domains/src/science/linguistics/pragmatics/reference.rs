@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Discourse Reference Ontology — how language tracks entities across utterances.
 //
@@ -28,7 +27,7 @@ use pr4xis::category::relationship::Relationship;
 // - Heim, The Semantics of Definite and Indefinite Noun Phrases (1982)
 
 /// Core concepts of discourse reference.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ReferenceConcept {
     /// A discourse referent — an abstract placeholder for an entity
     /// introduced into the discourse model. NOT the real-world entity;
@@ -54,24 +53,9 @@ pub enum ReferenceConcept {
     Binding,
 }
 
-impl Entity for ReferenceConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Referent,
-            Self::DRS,
-            Self::Condition,
-            Self::Accessibility,
-            Self::CenteringState,
-            Self::Transition,
-            Self::AnaphoricExpression,
-            Self::Binding,
-        ]
-    }
-}
-
 /// Centering transition types — how topic/salience shifts between utterances.
 /// Grosz, Joshi, Weinstein (1995): preference ordering Continue > Retain > Shift.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum CenteringTransition {
     /// Same topic, expected to persist. Cb(U_n) = Cb(U_{n-1}) and Cb(U_n) = Cp(U_n).
     Continue,
@@ -83,203 +67,57 @@ pub enum CenteringTransition {
     RoughShift,
 }
 
-impl Entity for CenteringTransition {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Continue,
-            Self::Retain,
-            Self::SmoothShift,
-            Self::RoughShift,
-        ]
-    }
-}
-
-/// Relationships in the discourse reference category.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ReferenceRelation {
-    pub from: ReferenceConcept,
-    pub to: ReferenceConcept,
-    pub kind: ReferenceRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ReferenceRelationKind {
-    Identity,
-    /// NP introduces a new discourse referent into the DRS.
-    Introduces,
-    /// Anaphor resolves to an existing referent.
-    Resolves,
-    /// Condition constrains what a referent can denote.
-    Constrains,
-    /// DRS contains referents in its universe.
-    Contains,
-    /// DRS nesting: sub-DRS for negation, conditionals, quantifiers.
-    Subordinates,
-    /// Referents in source DRS are visible from target DRS.
-    Accessible,
-    /// Processing an utterance extends the DRS.
-    Updates,
-    /// Centering state ranks referents by salience.
-    Ranks,
-    /// Centering links adjacent utterance states.
-    Links,
-    /// Binding connects anaphor to resolved referent.
-    Binds,
-    Composed,
-}
-
-impl Relationship for ReferenceRelation {
-    type Object = ReferenceConcept;
-    fn source(&self) -> ReferenceConcept {
-        self.from
-    }
-    fn target(&self) -> ReferenceConcept {
-        self.to
-    }
-}
-
-pub struct ReferenceCategory;
-
-impl Category for ReferenceCategory {
-    type Object = ReferenceConcept;
-    type Morphism = ReferenceRelation;
-
-    fn identity(obj: &ReferenceConcept) -> ReferenceRelation {
-        ReferenceRelation {
-            from: *obj,
-            to: *obj,
-            kind: ReferenceRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &ReferenceRelation, g: &ReferenceRelation) -> Option<ReferenceRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == ReferenceRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == ReferenceRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(ReferenceRelation {
-            from: f.from,
-            to: g.to,
-            kind: ReferenceRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<ReferenceRelation> {
-        use ReferenceConcept::*;
-        use ReferenceRelationKind::*;
-
-        let mut m = Vec::new();
-
-        for c in ReferenceConcept::variants() {
-            m.push(ReferenceRelation {
-                from: c,
-                to: c,
-                kind: Identity,
-            });
-        }
-
-        // DRT structure
-        m.push(ReferenceRelation {
-            from: DRS,
-            to: Referent,
-            kind: Contains,
-        });
-        m.push(ReferenceRelation {
-            from: Condition,
-            to: Referent,
-            kind: Constrains,
-        });
-        m.push(ReferenceRelation {
-            from: DRS,
-            to: DRS,
-            kind: Subordinates,
-        });
-        m.push(ReferenceRelation {
-            from: Accessibility,
-            to: DRS,
-            kind: Accessible,
-        });
-
-        // Introduction and resolution
-        m.push(ReferenceRelation {
-            from: Referent,
-            to: DRS,
-            kind: Introduces,
-        });
-        m.push(ReferenceRelation {
-            from: AnaphoricExpression,
-            to: Referent,
-            kind: Resolves,
-        });
-
-        // Binding
-        m.push(ReferenceRelation {
-            from: Binding,
-            to: AnaphoricExpression,
-            kind: Binds,
-        });
-        m.push(ReferenceRelation {
-            from: Binding,
-            to: Referent,
-            kind: Binds,
-        });
-
-        // Centering
-        m.push(ReferenceRelation {
-            from: CenteringState,
-            to: Referent,
-            kind: Ranks,
-        });
-        m.push(ReferenceRelation {
-            from: CenteringState,
-            to: CenteringState,
-            kind: Links,
-        });
-        m.push(ReferenceRelation {
-            from: Transition,
-            to: CenteringState,
-            kind: Links,
-        });
-
-        // Update: utterance processing extends DRS
-        m.push(ReferenceRelation {
-            from: DRS,
-            to: Condition,
-            kind: Updates,
-        });
-
-        // Transitive
-        m.push(ReferenceRelation {
-            from: AnaphoricExpression,
-            to: DRS,
-            kind: Composed,
-        });
-        m.push(ReferenceRelation {
-            from: DRS,
-            to: Condition,
-            kind: Composed,
-        });
-        m.push(ReferenceRelation {
-            from: Accessibility,
-            to: Referent,
-            kind: Composed,
-        });
-
-        // Self-composed closure
-        for c in ReferenceConcept::variants() {
-            m.push(ReferenceRelation {
-                from: c,
-                to: c,
-                kind: Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub ReferenceCategory {
+        entity: ReferenceConcept,
+        relation: ReferenceRelation,
+        kind: ReferenceRelationKind,
+        kinds: [
+            /// NP introduces a new discourse referent into the DRS.
+            Introduces,
+            /// Anaphor resolves to an existing referent.
+            Resolves,
+            /// Condition constrains what a referent can denote.
+            Constrains,
+            /// DRS contains referents in its universe.
+            Contains,
+            /// DRS nesting: sub-DRS for negation, conditionals, quantifiers.
+            Subordinates,
+            /// Referents in source DRS are visible from target DRS.
+            Accessible,
+            /// Processing an utterance extends the DRS.
+            Updates,
+            /// Centering state ranks referents by salience.
+            Ranks,
+            /// Centering links adjacent utterance states.
+            Links,
+            /// Binding connects anaphor to resolved referent.
+            Binds,
+        ],
+        edges: [
+            // DRT structure
+            (DRS, Referent, Contains),
+            (Condition, Referent, Constrains),
+            (DRS, DRS, Subordinates),
+            (Accessibility, DRS, Accessible),
+            // Introduction and resolution
+            (Referent, DRS, Introduces),
+            (AnaphoricExpression, Referent, Resolves),
+            // Binding
+            (Binding, AnaphoricExpression, Binds),
+            (Binding, Referent, Binds),
+            // Centering
+            (CenteringState, Referent, Ranks),
+            (CenteringState, CenteringState, Links),
+            (Transition, CenteringState, Links),
+            // Update: utterance processing extends DRS
+            (DRS, Condition, Updates),
+        ],
+        composed: [
+            (AnaphoricExpression, DRS),
+            (DRS, Condition),
+            (Accessibility, Referent),
+        ],
     }
 }
 

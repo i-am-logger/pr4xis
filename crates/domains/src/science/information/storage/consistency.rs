@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Consistency ontology — the lattice of consistency models.
 //
@@ -29,7 +28,7 @@ use pr4xis::category::relationship::Relationship;
 /// Ordered from strongest to weakest. The morphisms are weakening maps:
 /// if model A is stronger than B, there exists a morphism A → B
 /// (every A-consistent history is also B-consistent).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ConsistencyModel {
     /// Operations appear atomic, ordered consistently with real-time.
     /// Herlihy & Wing (1990). Strongest achievable model.
@@ -66,229 +65,76 @@ pub enum ConsistencyModel {
     EventuallyConsistent,
 }
 
-impl Entity for ConsistencyModel {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Linearizable,
-            Self::SequentiallyConsistent,
-            Self::Serializable,
-            Self::Causal,
-            Self::Pram,
-            Self::MonotonicReads,
-            Self::ReadYourWrites,
-            Self::EventuallyConsistent,
-        ]
-    }
-}
+define_category! {
+    pub ConsistencyCategory {
+        entity: ConsistencyModel,
+        relation: ConsistencyRelation,
+        kind: ConsistencyRelationKind,
+        kinds: [
+            /// Weakening: from is strictly stronger than to.
+            /// Every history allowed under `from` is also allowed under `to`.
+            Weakens,
+        ],
+        edges: [
+            // The Viotti & Vukolic (2016) lattice — direct weakening edges:
+            //
+            //   Linearizable → SequentiallyConsistent → Causal → Pram → Eventual
+            //                                              ↓
+            //                                      MonotonicReads → Eventual
+            //                                      ReadYourWrites → Eventual
+            //
+            //   Serializable → Causal (in single-object case)
+            //
+            // Note: Linearizable and Serializable are INCOMPARABLE in general.
+            // Linearizable applies to single objects; Serializable to transactions.
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ConsistencyRelation {
-    pub from: ConsistencyModel,
-    pub to: ConsistencyModel,
-    pub kind: ConsistencyRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ConsistencyRelationKind {
-    Identity,
-    /// Weakening: from is strictly stronger than to.
-    /// Every history allowed under `from` is also allowed under `to`.
-    Weakens,
-    Composed,
-}
-
-impl Relationship for ConsistencyRelation {
-    type Object = ConsistencyModel;
-    fn source(&self) -> ConsistencyModel {
-        self.from
-    }
-    fn target(&self) -> ConsistencyModel {
-        self.to
-    }
-}
-
-pub struct ConsistencyCategory;
-
-impl Category for ConsistencyCategory {
-    type Object = ConsistencyModel;
-    type Morphism = ConsistencyRelation;
-
-    fn identity(obj: &ConsistencyModel) -> ConsistencyRelation {
-        ConsistencyRelation {
-            from: *obj,
-            to: *obj,
-            kind: ConsistencyRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &ConsistencyRelation, g: &ConsistencyRelation) -> Option<ConsistencyRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == ConsistencyRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == ConsistencyRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(ConsistencyRelation {
-            from: f.from,
-            to: g.to,
-            kind: ConsistencyRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<ConsistencyRelation> {
-        use ConsistencyModel as C;
-        use ConsistencyRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in ConsistencyModel::variants() {
-            m.push(ConsistencyRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // The Viotti & Vukolic (2016) lattice — direct weakening edges:
-        //
-        //   Linearizable → SequentiallyConsistent → Causal → Pram → Eventual
-        //                                              ↓
-        //                                      MonotonicReads → Eventual
-        //                                      ReadYourWrites → Eventual
-        //
-        //   Serializable → Causal (in single-object case)
-        //
-        // Note: Linearizable and Serializable are INCOMPARABLE in general.
-        // Linearizable applies to single objects; Serializable to transactions.
-
-        // Linearizable → SequentiallyConsistent (drop real-time)
-        m.push(ConsistencyRelation {
-            from: C::Linearizable,
-            to: C::SequentiallyConsistent,
-            kind: R::Weakens,
-        });
-
-        // SequentiallyConsistent → Causal (drop total order)
-        m.push(ConsistencyRelation {
-            from: C::SequentiallyConsistent,
-            to: C::Causal,
-            kind: R::Weakens,
-        });
-
-        // Serializable → Causal (in the single-object projection)
-        m.push(ConsistencyRelation {
-            from: C::Serializable,
-            to: C::Causal,
-            kind: R::Weakens,
-        });
-
-        // Causal → PRAM (causal implies PRAM — Ahamad et al.)
-        m.push(ConsistencyRelation {
-            from: C::Causal,
-            to: C::Pram,
-            kind: R::Weakens,
-        });
-
-        // Causal → MonotonicReads (causal implies monotonic reads)
-        m.push(ConsistencyRelation {
-            from: C::Causal,
-            to: C::MonotonicReads,
-            kind: R::Weakens,
-        });
-
-        // Causal → ReadYourWrites (causal implies read-your-writes)
-        m.push(ConsistencyRelation {
-            from: C::Causal,
-            to: C::ReadYourWrites,
-            kind: R::Weakens,
-        });
-
-        // PRAM → Eventual
-        m.push(ConsistencyRelation {
-            from: C::Pram,
-            to: C::EventuallyConsistent,
-            kind: R::Weakens,
-        });
-
-        // MonotonicReads → Eventual
-        m.push(ConsistencyRelation {
-            from: C::MonotonicReads,
-            to: C::EventuallyConsistent,
-            kind: R::Weakens,
-        });
-
-        // ReadYourWrites → Eventual
-        m.push(ConsistencyRelation {
-            from: C::ReadYourWrites,
-            to: C::EventuallyConsistent,
-            kind: R::Weakens,
-        });
-
-        // Transitive compositions (closure of the lattice)
-        // Linearizable → everything weaker
-        for target in [
-            C::Causal,
-            C::Pram,
-            C::MonotonicReads,
-            C::ReadYourWrites,
-            C::EventuallyConsistent,
-        ] {
-            m.push(ConsistencyRelation {
-                from: C::Linearizable,
-                to: target,
-                kind: R::Composed,
-            });
-        }
-        // SequentiallyConsistent → everything below Causal
-        for target in [
-            C::Pram,
-            C::MonotonicReads,
-            C::ReadYourWrites,
-            C::EventuallyConsistent,
-        ] {
-            m.push(ConsistencyRelation {
-                from: C::SequentiallyConsistent,
-                to: target,
-                kind: R::Composed,
-            });
-        }
-        // Serializable → below Causal
-        for target in [
-            C::Pram,
-            C::MonotonicReads,
-            C::ReadYourWrites,
-            C::EventuallyConsistent,
-        ] {
-            m.push(ConsistencyRelation {
-                from: C::Serializable,
-                to: target,
-                kind: R::Composed,
-            });
-        }
-        // Causal → Eventual
-        m.push(ConsistencyRelation {
-            from: C::Causal,
-            to: C::EventuallyConsistent,
-            kind: R::Composed,
-        });
-
-        for c in ConsistencyModel::variants() {
-            m.push(ConsistencyRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+            // Linearizable → SequentiallyConsistent (drop real-time)
+            (Linearizable, SequentiallyConsistent, Weakens),
+            // SequentiallyConsistent → Causal (drop total order)
+            (SequentiallyConsistent, Causal, Weakens),
+            // Serializable → Causal (in the single-object projection)
+            (Serializable, Causal, Weakens),
+            // Causal → PRAM (causal implies PRAM — Ahamad et al.)
+            (Causal, Pram, Weakens),
+            // Causal → MonotonicReads (causal implies monotonic reads)
+            (Causal, MonotonicReads, Weakens),
+            // Causal → ReadYourWrites (causal implies read-your-writes)
+            (Causal, ReadYourWrites, Weakens),
+            // PRAM → Eventual
+            (Pram, EventuallyConsistent, Weakens),
+            // MonotonicReads → Eventual
+            (MonotonicReads, EventuallyConsistent, Weakens),
+            // ReadYourWrites → Eventual
+            (ReadYourWrites, EventuallyConsistent, Weakens),
+        ],
+        composed: [
+            // Transitive compositions (closure of the lattice)
+            // Linearizable → everything weaker
+            (Linearizable, Causal),
+            (Linearizable, Pram),
+            (Linearizable, MonotonicReads),
+            (Linearizable, ReadYourWrites),
+            (Linearizable, EventuallyConsistent),
+            // SequentiallyConsistent → everything below Causal
+            (SequentiallyConsistent, Pram),
+            (SequentiallyConsistent, MonotonicReads),
+            (SequentiallyConsistent, ReadYourWrites),
+            (SequentiallyConsistent, EventuallyConsistent),
+            // Serializable → below Causal
+            (Serializable, Pram),
+            (Serializable, MonotonicReads),
+            (Serializable, ReadYourWrites),
+            (Serializable, EventuallyConsistent),
+            // Causal → Eventual
+            (Causal, EventuallyConsistent),
+        ],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

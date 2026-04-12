@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Self-Model — the system's formal model of itself.
 //
@@ -35,7 +34,7 @@ use pr4xis::category::relationship::Relationship;
 //  13. SOSA/OWL-S (W3C) — SystemCapability
 
 /// Concepts in the self-model.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum SelfModelConcept {
     /// The system's model of itself — the eigenform (IEEE AuR).
     SelfModel,
@@ -66,238 +65,68 @@ pub enum SelfModelConcept {
     DoubleDescription,
 }
 
-impl Entity for SelfModelConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::SelfModel,
-            Self::Component,
-            Self::Capability,
-            Self::Identity,
-            Self::AwarenessLevel,
-            Self::Eigenform,
-            Self::SelfBelief,
-            Self::Justification,
-            Self::OperationalClosure,
-            Self::DoubleDescription,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SelfModelRelation {
-    pub from: SelfModelConcept,
-    pub to: SelfModelConcept,
-    pub kind: SelfModelRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SelfModelRelationKind {
-    Identity,
-    /// SelfModel has Component (MOI hasComponent).
-    HasComponent,
-    /// Component has Capability (SOSA hasCapability).
-    HasCapability,
-    /// SelfModel has Identity (MAPE-K Ksys).
-    HasIdentity,
-    /// SelfModel has AwarenessLevel (Lewis).
-    HasAwarenessLevel,
-    /// SelfModel converges to Eigenform (fixed point).
-    ConvergesTo,
-    /// SelfBelief justified by Justification (BDI).
-    JustifiedBy,
-    /// SelfModel produces SelfBelief (introspection).
-    Produces,
-    /// Capability enabled by Component.
-    EnabledBy,
-    /// Eigenform re-enters SelfModel (Spencer-Brown ReEntry).
-    ReEnters,
-    /// SelfModel maintains OperationalClosure (Maturana-Varela).
-    /// The organization produces the processes that produce the organization.
-    Maintains,
-    /// DoubleDescription requires both SelfModel and context (Bateson).
-    /// "The unit of survival is organism plus environment."
-    Requires,
-    /// OperationalClosure grounds Eigenform (autopoiesis enables fixed point).
-    /// The system can observe itself BECAUSE it is operationally closed.
-    Grounds,
-    Composed,
-}
-
-impl Relationship for SelfModelRelation {
-    type Object = SelfModelConcept;
-    fn source(&self) -> SelfModelConcept {
-        self.from
-    }
-    fn target(&self) -> SelfModelConcept {
-        self.to
-    }
-}
-
-pub struct SelfModelCategory;
-
-impl Category for SelfModelCategory {
-    type Object = SelfModelConcept;
-    type Morphism = SelfModelRelation;
-
-    fn identity(obj: &SelfModelConcept) -> SelfModelRelation {
-        SelfModelRelation {
-            from: *obj,
-            to: *obj,
-            kind: SelfModelRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &SelfModelRelation, g: &SelfModelRelation) -> Option<SelfModelRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == SelfModelRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == SelfModelRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(SelfModelRelation {
-            from: f.from,
-            to: g.to,
-            kind: SelfModelRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<SelfModelRelation> {
-        use SelfModelConcept as C;
-        use SelfModelRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in SelfModelConcept::variants() {
-            m.push(SelfModelRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // Structure (MOI + MAPE-K + Lewis)
-        m.push(SelfModelRelation {
-            from: C::SelfModel,
-            to: C::Component,
-            kind: R::HasComponent,
-        });
-        m.push(SelfModelRelation {
-            from: C::SelfModel,
-            to: C::Identity,
-            kind: R::HasIdentity,
-        });
-        m.push(SelfModelRelation {
-            from: C::SelfModel,
-            to: C::AwarenessLevel,
-            kind: R::HasAwarenessLevel,
-        });
-        m.push(SelfModelRelation {
-            from: C::Component,
-            to: C::Capability,
-            kind: R::HasCapability,
-        });
-        m.push(SelfModelRelation {
-            from: C::Capability,
-            to: C::Component,
-            kind: R::EnabledBy,
-        });
-
-        // Eigenform loop (von Foerster + Spencer-Brown)
-        m.push(SelfModelRelation {
-            from: C::SelfModel,
-            to: C::Eigenform,
-            kind: R::ConvergesTo,
-        });
-        m.push(SelfModelRelation {
-            from: C::Eigenform,
-            to: C::SelfModel,
-            kind: R::ReEnters,
-        });
-
-        // Belief production (BDI)
-        m.push(SelfModelRelation {
-            from: C::SelfModel,
-            to: C::SelfBelief,
-            kind: R::Produces,
-        });
-        m.push(SelfModelRelation {
-            from: C::SelfBelief,
-            to: C::Justification,
-            kind: R::JustifiedBy,
-        });
-
-        // Autopoiesis (Maturana-Varela)
-        // SelfModel maintains OperationalClosure (the system IS its organization)
-        m.push(SelfModelRelation {
-            from: C::SelfModel,
-            to: C::OperationalClosure,
-            kind: R::Maintains,
-        });
-        // OperationalClosure grounds Eigenform (closure enables self-observation)
-        m.push(SelfModelRelation {
-            from: C::OperationalClosure,
-            to: C::Eigenform,
-            kind: R::Grounds,
-        });
-
-        // Double description (Bateson)
-        // DoubleDescription requires SelfModel (one view: self)
-        m.push(SelfModelRelation {
-            from: C::DoubleDescription,
-            to: C::SelfModel,
-            kind: R::Requires,
-        });
-        // DoubleDescription requires OperationalClosure (other view: context/environment)
-        m.push(SelfModelRelation {
-            from: C::DoubleDescription,
-            to: C::OperationalClosure,
-            kind: R::Requires,
-        });
-
-        // Transitive compositions
-        m.push(SelfModelRelation {
-            from: C::SelfModel,
-            to: C::Capability,
-            kind: R::Composed,
-        });
-        m.push(SelfModelRelation {
-            from: C::SelfModel,
-            to: C::Justification,
-            kind: R::Composed,
-        });
-        m.push(SelfModelRelation {
-            from: C::Eigenform,
-            to: C::Component,
-            kind: R::Composed,
-        });
-        m.push(SelfModelRelation {
-            from: C::Eigenform,
-            to: C::SelfBelief,
-            kind: R::Composed,
-        });
-        // SelfModel → Eigenform (through OperationalClosure → Eigenform)
-        m.push(SelfModelRelation {
-            from: C::OperationalClosure,
-            to: C::SelfModel,
-            kind: R::Composed,
-        });
-        m.push(SelfModelRelation {
-            from: C::DoubleDescription,
-            to: C::Eigenform,
-            kind: R::Composed,
-        });
-
-        for c in SelfModelConcept::variants() {
-            m.push(SelfModelRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub SelfModelCategory {
+        entity: SelfModelConcept,
+        relation: SelfModelRelation,
+        kind: SelfModelRelationKind,
+        kinds: [
+            /// SelfModel has Component (MOI hasComponent).
+            HasComponent,
+            /// Component has Capability (SOSA hasCapability).
+            HasCapability,
+            /// SelfModel has Identity (MAPE-K Ksys).
+            HasIdentity,
+            /// SelfModel has AwarenessLevel (Lewis).
+            HasAwarenessLevel,
+            /// SelfModel converges to Eigenform (fixed point).
+            ConvergesTo,
+            /// SelfBelief justified by Justification (BDI).
+            JustifiedBy,
+            /// SelfModel produces SelfBelief (introspection).
+            Produces,
+            /// Capability enabled by Component.
+            EnabledBy,
+            /// Eigenform re-enters SelfModel (Spencer-Brown ReEntry).
+            ReEnters,
+            /// SelfModel maintains OperationalClosure (Maturana-Varela).
+            /// The organization produces the processes that produce the organization.
+            Maintains,
+            /// DoubleDescription requires both SelfModel and context (Bateson).
+            /// "The unit of survival is organism plus environment."
+            Requires,
+            /// OperationalClosure grounds Eigenform (autopoiesis enables fixed point).
+            /// The system can observe itself BECAUSE it is operationally closed.
+            Grounds,
+        ],
+        edges: [
+            // Structure (MOI + MAPE-K + Lewis)
+            (SelfModel, Component, HasComponent),
+            (SelfModel, Identity, HasIdentity),
+            (SelfModel, AwarenessLevel, HasAwarenessLevel),
+            (Component, Capability, HasCapability),
+            (Capability, Component, EnabledBy),
+            // Eigenform loop (von Foerster + Spencer-Brown)
+            (SelfModel, Eigenform, ConvergesTo),
+            (Eigenform, SelfModel, ReEnters),
+            // Belief production (BDI)
+            (SelfModel, SelfBelief, Produces),
+            (SelfBelief, Justification, JustifiedBy),
+            // Autopoiesis (Maturana-Varela)
+            (SelfModel, OperationalClosure, Maintains),
+            (OperationalClosure, Eigenform, Grounds),
+            // Double description (Bateson)
+            (DoubleDescription, SelfModel, Requires),
+            (DoubleDescription, OperationalClosure, Requires),
+        ],
+        composed: [
+            (SelfModel, Capability),
+            (SelfModel, Justification),
+            (Eigenform, Component),
+            (Eigenform, SelfBelief),
+            (OperationalClosure, SelfModel),
+            (DoubleDescription, Eigenform),
+        ],
     }
 }
 
@@ -458,7 +287,7 @@ impl SelfModelToConcurrency {
 mod tests {
     use super::*;
     use pr4xis::category::Category;
-    use pr4xis::category::entity::Entity;
+    use pr4xis::category::Entity;
 
     #[test]
     fn category_identity_law() {

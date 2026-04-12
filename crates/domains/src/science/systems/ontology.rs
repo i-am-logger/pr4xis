@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Systems thinking ontology — the science of wholes, relationships, and patterns.
 //
@@ -20,7 +19,7 @@ use pr4xis::category::relationship::Relationship;
 /// These are the fundamental building blocks that every system exhibits.
 /// A traffic intersection, a chess game, a conversation, an economy —
 /// all are systems composed of these concepts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum SystemConcept {
     /// A component or element within the system.
     /// Traffic: a signal. Chess: a piece. Economy: a firm.
@@ -63,322 +62,100 @@ pub enum SystemConcept {
     Controller,
 }
 
-impl Entity for SystemConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Component,
-            Self::Interaction,
-            Self::State,
-            Self::Transition,
-            Self::Constraint,
-            Self::Feedback,
-            Self::Homeostasis,
-            Self::Emergence,
-            Self::Boundary,
-            Self::Controller,
-        ]
-    }
-}
+define_category! {
+    /// The systems thinking category.
+    ///
+    /// This IS the formal structure of systems thinking.
+    /// If the category laws hold, then systems thinking is
+    /// mathematically consistent as a theory.
+    pub SystemsCategory {
+        entity: SystemConcept,
+        relation: SystemRelation,
+        kind: SystemRelationKind,
+        kinds: [
+            /// Components compose into state.
+            ComposesInto,
+            /// Transitions change state.
+            Changes,
+            /// Constraints govern transitions.
+            Governs,
+            /// Feedback connects output to input.
+            FeedsBack,
+            /// Homeostasis stabilizes state via feedback.
+            Stabilizes,
+            /// Emergence arises from interactions.
+            ArisesFrom,
+            /// Controller regulates via constraints.
+            Regulates,
+            /// Boundary separates system from environment.
+            Separates,
+        ],
+        edges: [
+            // Components compose into State
+            (Component, State, ComposesInto),
+            // Interactions compose into State
+            (Interaction, State, ComposesInto),
+            // Transitions change State
+            (Transition, State, Changes),
+            // Constraints govern Transitions
+            (Constraint, Transition, Governs),
+            // Feedback connects State back to Transition (circular!)
+            (State, Feedback, FeedsBack),
+            (Feedback, Transition, FeedsBack),
+            // Homeostasis stabilizes State via Feedback
+            (Homeostasis, State, Stabilizes),
+            (Feedback, Homeostasis, Stabilizes),
+            // Emergence arises from Interactions
+            (Interaction, Emergence, ArisesFrom),
+            // Controller regulates via Constraints
+            (Controller, Constraint, Regulates),
+            // Boundary separates system
+            (Boundary, Component, Separates),
+            // Transition modifies Components (a signal advance changes the signal)
+            (Transition, Component, Changes),
+            // Feedback informs Controller (Ashby: the regulator receives information)
+            (Feedback, Controller, FeedsBack),
+        ],
+        composed: [
+            // The full cybernetic loop:
+            // State → Feedback → Controller → Constraint → Transition → Component → State
 
-/// Relationships between system concepts.
-///
-/// These encode how the concepts of systems thinking relate to each other.
-/// The morphisms ARE the theory — they state what systems thinking claims
-/// about how systems work.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SystemRelation {
-    pub from: SystemConcept,
-    pub to: SystemConcept,
-    pub kind: SystemRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SystemRelationKind {
-    Identity,
-    /// Components compose into state.
-    ComposesInto,
-    /// Transitions change state.
-    Changes,
-    /// Constraints govern transitions.
-    Governs,
-    /// Feedback connects output to input.
-    FeedsBack,
-    /// Homeostasis stabilizes state via feedback.
-    Stabilizes,
-    /// Emergence arises from interactions.
-    ArisesFrom,
-    /// Controller regulates via constraints.
-    Regulates,
-    /// Boundary separates system from environment.
-    Separates,
-    /// Composed relationship (transitive).
-    Composed,
-}
-
-impl Relationship for SystemRelation {
-    type Object = SystemConcept;
-    fn source(&self) -> SystemConcept {
-        self.from
-    }
-    fn target(&self) -> SystemConcept {
-        self.to
-    }
-}
-
-/// The systems thinking category.
-///
-/// This IS the formal structure of systems thinking.
-/// If the category laws hold, then systems thinking is
-/// mathematically consistent as a theory.
-pub struct SystemsCategory;
-
-impl Category for SystemsCategory {
-    type Object = SystemConcept;
-    type Morphism = SystemRelation;
-
-    fn identity(obj: &SystemConcept) -> SystemRelation {
-        SystemRelation {
-            from: *obj,
-            to: *obj,
-            kind: SystemRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &SystemRelation, g: &SystemRelation) -> Option<SystemRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == SystemRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == SystemRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(SystemRelation {
-            from: f.from,
-            to: g.to,
-            kind: SystemRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<SystemRelation> {
-        use SystemConcept::*;
-        use SystemRelationKind::*;
-
-        let mut m = Vec::new();
-
-        // Identity for each concept
-        for c in SystemConcept::variants() {
-            m.push(SystemRelation {
-                from: c,
-                to: c,
-                kind: Identity,
-            });
-        }
-
-        // Components compose into State
-        m.push(SystemRelation {
-            from: Component,
-            to: State,
-            kind: ComposesInto,
-        });
-        // Interactions compose into State
-        m.push(SystemRelation {
-            from: Interaction,
-            to: State,
-            kind: ComposesInto,
-        });
-        // Transitions change State
-        m.push(SystemRelation {
-            from: Transition,
-            to: State,
-            kind: Changes,
-        });
-        // Constraints govern Transitions
-        m.push(SystemRelation {
-            from: Constraint,
-            to: Transition,
-            kind: Governs,
-        });
-        // Feedback connects State back to Transition (circular!)
-        m.push(SystemRelation {
-            from: State,
-            to: Feedback,
-            kind: FeedsBack,
-        });
-        m.push(SystemRelation {
-            from: Feedback,
-            to: Transition,
-            kind: FeedsBack,
-        });
-        // Homeostasis stabilizes State via Feedback
-        m.push(SystemRelation {
-            from: Homeostasis,
-            to: State,
-            kind: Stabilizes,
-        });
-        m.push(SystemRelation {
-            from: Feedback,
-            to: Homeostasis,
-            kind: Stabilizes,
-        });
-        // Emergence arises from Interactions
-        m.push(SystemRelation {
-            from: Interaction,
-            to: Emergence,
-            kind: ArisesFrom,
-        });
-        // Controller regulates via Constraints
-        m.push(SystemRelation {
-            from: Controller,
-            to: Constraint,
-            kind: Regulates,
-        });
-        // Boundary separates system
-        m.push(SystemRelation {
-            from: Boundary,
-            to: Component,
-            kind: Separates,
-        });
-        // Transition modifies Components (a signal advance changes the signal)
-        m.push(SystemRelation {
-            from: Transition,
-            to: Component,
-            kind: Changes,
-        });
-        // Feedback informs Controller (Ashby: the regulator receives information)
-        m.push(SystemRelation {
-            from: Feedback,
-            to: Controller,
-            kind: FeedsBack,
-        });
-
-        // The full cybernetic loop:
-        // State → Feedback → Controller → Constraint → Transition → Component → State
-        //
-        // This means EVERYTHING is reachable from State — which is
-        // the defining property of a system: interconnectedness.
-
-        // Transitive compositions for closure
-        // State → Feedback → Transition
-        m.push(SystemRelation {
-            from: State,
-            to: Transition,
-            kind: Composed,
-        });
-        // State → Feedback → Homeostasis
-        m.push(SystemRelation {
-            from: State,
-            to: Homeostasis,
-            kind: Composed,
-        });
-        // State → Feedback → Controller
-        m.push(SystemRelation {
-            from: State,
-            to: Controller,
-            kind: Composed,
-        });
-        // State → ... → Constraint
-        m.push(SystemRelation {
-            from: State,
-            to: Constraint,
-            kind: Composed,
-        });
-        // State → ... → Component
-        m.push(SystemRelation {
-            from: State,
-            to: Component,
-            kind: Composed,
-        });
-        // State → ... → Interaction (Component participates in Interaction)
-        m.push(SystemRelation {
-            from: State,
-            to: Interaction,
-            kind: Composed,
-        });
-        // State → ... → Emergence
-        m.push(SystemRelation {
-            from: State,
-            to: Emergence,
-            kind: Composed,
-        });
-        // State → ... → Boundary
-        m.push(SystemRelation {
-            from: State,
-            to: Boundary,
-            kind: Composed,
-        });
-        // Feedback → Homeostasis → State
-        m.push(SystemRelation {
-            from: Feedback,
-            to: State,
-            kind: Composed,
-        });
-        // Controller → Constraint → Transition
-        m.push(SystemRelation {
-            from: Controller,
-            to: Transition,
-            kind: Composed,
-        });
-        // Controller → ... → State
-        m.push(SystemRelation {
-            from: Controller,
-            to: State,
-            kind: Composed,
-        });
-        // Controller → ... → Component
-        m.push(SystemRelation {
-            from: Controller,
-            to: Component,
-            kind: Composed,
-        });
-        // Constraint → Transition → State
-        m.push(SystemRelation {
-            from: Constraint,
-            to: State,
-            kind: Composed,
-        });
-        // Constraint → Transition → Component
-        m.push(SystemRelation {
-            from: Constraint,
-            to: Component,
-            kind: Composed,
-        });
-        // Transition → Component → State
-        m.push(SystemRelation {
-            from: Transition,
-            to: Component,
-            kind: Composed,
-        });
-        // Component → State → Feedback
-        m.push(SystemRelation {
-            from: Component,
-            to: Feedback,
-            kind: Composed,
-        });
-        // Interaction → State (via ComposesInto, already direct above)
-        // Interaction → Feedback
-        m.push(SystemRelation {
-            from: Interaction,
-            to: Feedback,
-            kind: Composed,
-        });
-        // Boundary → Component → State
-        m.push(SystemRelation {
-            from: Boundary,
-            to: State,
-            kind: Composed,
-        });
-
-        // Self-composed morphisms (roundtrips produce Composed(X,X))
-        for c in SystemConcept::variants() {
-            m.push(SystemRelation {
-                from: c,
-                to: c,
-                kind: Composed,
-            });
-        }
-
-        m
+            // State → Feedback → Transition
+            (State, Transition),
+            // State → Feedback → Homeostasis
+            (State, Homeostasis),
+            // State → Feedback → Controller
+            (State, Controller),
+            // State → ... → Constraint
+            (State, Constraint),
+            // State → ... → Component
+            (State, Component),
+            // State → ... → Interaction (Component participates in Interaction)
+            (State, Interaction),
+            // State → ... → Emergence
+            (State, Emergence),
+            // State → ... → Boundary
+            (State, Boundary),
+            // Feedback → Homeostasis → State
+            (Feedback, State),
+            // Controller → Constraint → Transition
+            (Controller, Transition),
+            // Controller → ... → State
+            (Controller, State),
+            // Controller → ... → Component
+            (Controller, Component),
+            // Constraint → Transition → State
+            (Constraint, State),
+            // Constraint → Transition → Component
+            (Constraint, Component),
+            // Transition → Component → State
+            (Transition, Component),
+            // Component → State → Feedback
+            (Component, Feedback),
+            // Interaction → Feedback
+            (Interaction, Feedback),
+            // Boundary → Component → State
+            (Boundary, State),
+        ],
     }
 }

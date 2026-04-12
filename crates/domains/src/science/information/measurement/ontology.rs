@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Measurement ontology — the science of quantification.
 //
@@ -23,7 +22,7 @@ use pr4xis::category::relationship::Relationship;
 // - QUDT (Quantities, Units, Dimensions, Types) — W3C ontology
 
 /// Concepts in the measurement ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MeasurementConcept {
     /// The specific quantity intended to be measured.
     /// VIM 2.3: "quantity intended to be measured."
@@ -74,20 +73,60 @@ pub enum MeasurementConcept {
     ScaleType,
 }
 
-impl Entity for MeasurementConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Measurand,
-            Self::Measurement,
-            Self::Result,
-            Self::Uncertainty,
-            Self::Unit,
-            Self::Procedure,
-            Self::Principle,
-            Self::Traceability,
-            Self::Indication,
-            Self::ScaleType,
-        ]
+define_category! {
+    pub MeasurementCategory {
+        entity: MeasurementConcept,
+        relation: MeasurementRelation,
+        kind: MeasurementRelationKind,
+        kinds: [
+            /// Measurement targets a Measurand.
+            Targets,
+            /// Measurement produces a Result.
+            Produces,
+            /// Result carries Uncertainty (VIM: non-negotiable).
+            Carries,
+            /// Result is expressed in a Unit.
+            ExpressedIn,
+            /// Measurement follows a Procedure.
+            Follows,
+            /// Procedure is based on a Principle.
+            BasedOn,
+            /// Result has Traceability to a reference.
+            TracesTo,
+            /// Measurement yields an Indication (raw output).
+            Yields,
+            /// Indication is corrected to produce Result.
+            CorrectedTo,
+            /// Result has a ScaleType (determines permissible operations).
+            HasScale,
+        ],
+        edges: [
+            // The measurement process: Measurement targets Measurand, produces Result
+            (Measurement, Measurand, Targets),
+            (Measurement, Result, Produces),
+            // Result MUST carry Uncertainty (VIM axiom)
+            (Result, Uncertainty, Carries),
+            // Result is expressed in Unit
+            (Result, Unit, ExpressedIn),
+            // Measurement follows Procedure based on Principle
+            (Measurement, Procedure, Follows),
+            (Procedure, Principle, BasedOn),
+            // Result has Traceability
+            (Result, Traceability, TracesTo),
+            // Measurement yields Indication, corrected to Result
+            (Measurement, Indication, Yields),
+            (Indication, Result, CorrectedTo),
+            // Result has ScaleType
+            (Result, ScaleType, HasScale),
+        ],
+        composed: [
+            // Measurement → Uncertainty (through Result)
+            (Measurement, Uncertainty),
+            // Measurement → Principle (through Procedure)
+            (Measurement, Principle),
+            // Measurement → Unit (through Result)
+            (Measurement, Unit),
+        ],
     }
 }
 
@@ -139,191 +178,10 @@ impl ScaleKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MeasurementRelation {
-    pub from: MeasurementConcept,
-    pub to: MeasurementConcept,
-    pub kind: MeasurementRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MeasurementRelationKind {
-    Identity,
-    /// Measurement targets a Measurand.
-    Targets,
-    /// Measurement produces a Result.
-    Produces,
-    /// Result carries Uncertainty (VIM: non-negotiable).
-    Carries,
-    /// Result is expressed in a Unit.
-    ExpressedIn,
-    /// Measurement follows a Procedure.
-    Follows,
-    /// Procedure is based on a Principle.
-    BasedOn,
-    /// Result has Traceability to a reference.
-    TracesTo,
-    /// Measurement yields an Indication (raw output).
-    Yields,
-    /// Indication is corrected to produce Result.
-    CorrectedTo,
-    /// Result has a ScaleType (determines permissible operations).
-    HasScale,
-    Composed,
-}
-
-impl Relationship for MeasurementRelation {
-    type Object = MeasurementConcept;
-    fn source(&self) -> MeasurementConcept {
-        self.from
-    }
-    fn target(&self) -> MeasurementConcept {
-        self.to
-    }
-}
-
-pub struct MeasurementCategory;
-
-impl Category for MeasurementCategory {
-    type Object = MeasurementConcept;
-    type Morphism = MeasurementRelation;
-
-    fn identity(obj: &MeasurementConcept) -> MeasurementRelation {
-        MeasurementRelation {
-            from: *obj,
-            to: *obj,
-            kind: MeasurementRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &MeasurementRelation, g: &MeasurementRelation) -> Option<MeasurementRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == MeasurementRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == MeasurementRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(MeasurementRelation {
-            from: f.from,
-            to: g.to,
-            kind: MeasurementRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<MeasurementRelation> {
-        use MeasurementConcept as C;
-        use MeasurementRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in MeasurementConcept::variants() {
-            m.push(MeasurementRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // The measurement process: Measurement targets Measurand, produces Result
-        m.push(MeasurementRelation {
-            from: C::Measurement,
-            to: C::Measurand,
-            kind: R::Targets,
-        });
-        m.push(MeasurementRelation {
-            from: C::Measurement,
-            to: C::Result,
-            kind: R::Produces,
-        });
-
-        // Result MUST carry Uncertainty (VIM axiom)
-        m.push(MeasurementRelation {
-            from: C::Result,
-            to: C::Uncertainty,
-            kind: R::Carries,
-        });
-
-        // Result is expressed in Unit
-        m.push(MeasurementRelation {
-            from: C::Result,
-            to: C::Unit,
-            kind: R::ExpressedIn,
-        });
-
-        // Measurement follows Procedure based on Principle
-        m.push(MeasurementRelation {
-            from: C::Measurement,
-            to: C::Procedure,
-            kind: R::Follows,
-        });
-        m.push(MeasurementRelation {
-            from: C::Procedure,
-            to: C::Principle,
-            kind: R::BasedOn,
-        });
-
-        // Result has Traceability
-        m.push(MeasurementRelation {
-            from: C::Result,
-            to: C::Traceability,
-            kind: R::TracesTo,
-        });
-
-        // Measurement yields Indication, corrected to Result
-        m.push(MeasurementRelation {
-            from: C::Measurement,
-            to: C::Indication,
-            kind: R::Yields,
-        });
-        m.push(MeasurementRelation {
-            from: C::Indication,
-            to: C::Result,
-            kind: R::CorrectedTo,
-        });
-
-        // Result has ScaleType
-        m.push(MeasurementRelation {
-            from: C::Result,
-            to: C::ScaleType,
-            kind: R::HasScale,
-        });
-
-        // Composed: Measurement → Uncertainty (through Result)
-        m.push(MeasurementRelation {
-            from: C::Measurement,
-            to: C::Uncertainty,
-            kind: R::Composed,
-        });
-        // Measurement → Principle (through Procedure)
-        m.push(MeasurementRelation {
-            from: C::Measurement,
-            to: C::Principle,
-            kind: R::Composed,
-        });
-        // Measurement → Unit (through Result)
-        m.push(MeasurementRelation {
-            from: C::Measurement,
-            to: C::Unit,
-            kind: R::Composed,
-        });
-
-        for c in MeasurementConcept::variants() {
-            m.push(MeasurementRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

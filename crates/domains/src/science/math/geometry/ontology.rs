@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::geometry::point::Point3;
@@ -15,7 +16,7 @@ use std::f64::consts::PI;
 ///
 /// Hilbert's primitive notions: Point, Line, Plane.
 /// Extended with derived objects: Segment, Ray, Angle, Triangle, Circle, Sphere.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum GeometricPrimitive {
     Point,
     Line,
@@ -29,247 +30,69 @@ pub enum GeometricPrimitive {
     Vector,
 }
 
-impl Entity for GeometricPrimitive {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Point,
-            Self::Line,
-            Self::Ray,
-            Self::Segment,
-            Self::Plane,
-            Self::Angle,
-            Self::Triangle,
-            Self::Circle,
-            Self::Sphere,
-            Self::Vector,
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Relationship: geometric relations (Hilbert's primitive relations)
-// ---------------------------------------------------------------------------
-
-/// Geometric relations between primitives.
-///
-/// Hilbert defines: Incidence, Betweenness, Congruence.
-/// Extended with: Containment, Parallelism, Perpendicularity.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct GeometricRelation {
-    pub from: GeometricPrimitive,
-    pub to: GeometricPrimitive,
-    pub kind: RelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum RelationKind {
-    /// Category identity morphism.
-    Identity,
-    /// Hilbert Group I: a point lies on a line/plane, a line lies in a plane.
-    Incidence,
-    /// Hilbert Group II: a point lies between two others on a line.
-    Betweenness,
-    /// Hilbert Group III: segments or angles are congruent.
-    Congruence,
-    /// Containment: one object contains another (plane contains line).
-    Containment,
-    /// Hilbert Group IV: lines that do not intersect.
-    Parallelism,
-    /// Lines/planes meeting at right angles.
-    Perpendicularity,
-    /// Object is defined from another (triangle from points).
-    Construction,
-}
-
-impl Relationship for GeometricRelation {
-    type Object = GeometricPrimitive;
-
-    fn source(&self) -> GeometricPrimitive {
-        self.from
-    }
-
-    fn target(&self) -> GeometricPrimitive {
-        self.to
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Category
 // ---------------------------------------------------------------------------
 
-/// The Euclidean geometry category.
-///
-/// Objects: geometric primitive types.
-/// Morphisms: geometric relations between them.
-pub struct GeometryCategory;
-
-impl Category for GeometryCategory {
-    type Object = GeometricPrimitive;
-    type Morphism = GeometricRelation;
-
-    fn identity(obj: &GeometricPrimitive) -> GeometricRelation {
-        GeometricRelation {
-            from: *obj,
-            to: *obj,
-            kind: RelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &GeometricRelation, g: &GeometricRelation) -> Option<GeometricRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        // Identity law: compose(f, id) = f, compose(id, g) = g
-        let kind = match (f.kind, g.kind) {
-            (RelationKind::Identity, k) => k,
-            (k, RelationKind::Identity) => k,
-            (_, k) => k,
-        };
-        Some(GeometricRelation {
-            from: f.from,
-            to: g.to,
-            kind,
-        })
-    }
-
-    fn morphisms() -> Vec<GeometricRelation> {
-        use GeometricPrimitive::*;
-        use RelationKind::*;
-
-        let mut m = Vec::new();
-
-        // Identity for all
-        for obj in GeometricPrimitive::variants() {
-            m.push(Self::identity(&obj));
-        }
-
-        // Hilbert I: Incidence relations
-        m.push(GeometricRelation {
-            from: Point,
-            to: Line,
-            kind: Incidence,
-        });
-        m.push(GeometricRelation {
-            from: Point,
-            to: Plane,
-            kind: Incidence,
-        });
-        m.push(GeometricRelation {
-            from: Line,
-            to: Plane,
-            kind: Incidence,
-        });
-        m.push(GeometricRelation {
-            from: Point,
-            to: Segment,
-            kind: Incidence,
-        });
-        m.push(GeometricRelation {
-            from: Point,
-            to: Circle,
-            kind: Incidence,
-        });
-        m.push(GeometricRelation {
-            from: Point,
-            to: Sphere,
-            kind: Incidence,
-        });
-
-        // Hilbert II: Betweenness
-        m.push(GeometricRelation {
-            from: Point,
-            to: Point,
-            kind: Betweenness,
-        });
-
-        // Hilbert III: Congruence
-        m.push(GeometricRelation {
-            from: Segment,
-            to: Segment,
-            kind: Congruence,
-        });
-        m.push(GeometricRelation {
-            from: Angle,
-            to: Angle,
-            kind: Congruence,
-        });
-        m.push(GeometricRelation {
-            from: Triangle,
-            to: Triangle,
-            kind: Congruence,
-        });
-
-        // Containment
-        m.push(GeometricRelation {
-            from: Plane,
-            to: Line,
-            kind: Containment,
-        });
-        m.push(GeometricRelation {
-            from: Plane,
-            to: Point,
-            kind: Containment,
-        });
-        m.push(GeometricRelation {
-            from: Line,
-            to: Point,
-            kind: Containment,
-        });
-
-        // Hilbert IV: Parallelism
-        m.push(GeometricRelation {
-            from: Line,
-            to: Line,
-            kind: Parallelism,
-        });
-        m.push(GeometricRelation {
-            from: Plane,
-            to: Plane,
-            kind: Parallelism,
-        });
-
-        // Perpendicularity
-        m.push(GeometricRelation {
-            from: Line,
-            to: Line,
-            kind: Perpendicularity,
-        });
-        m.push(GeometricRelation {
-            from: Plane,
-            to: Plane,
-            kind: Perpendicularity,
-        });
-        m.push(GeometricRelation {
-            from: Line,
-            to: Plane,
-            kind: Perpendicularity,
-        });
-
-        // Construction (derived objects from primitives)
-        m.push(GeometricRelation {
-            from: Point,
-            to: Triangle,
-            kind: Construction,
-        });
-        m.push(GeometricRelation {
-            from: Point,
-            to: Circle,
-            kind: Construction,
-        });
-        m.push(GeometricRelation {
-            from: Point,
-            to: Sphere,
-            kind: Construction,
-        });
-
-        // Transitive closure: Point → Line → Plane
-        m.push(GeometricRelation {
-            from: Point,
-            to: Plane,
-            kind: Containment,
-        });
-
-        m
+define_category! {
+    /// The Euclidean geometry category.
+    ///
+    /// Objects: geometric primitive types.
+    /// Morphisms: geometric relations between them.
+    pub GeometryCategory {
+        entity: GeometricPrimitive,
+        relation: GeometricRelation,
+        kind: RelationKind,
+        kinds: [
+            /// Hilbert Group I: a point lies on a line/plane, a line lies in a plane.
+            Incidence,
+            /// Hilbert Group II: a point lies between two others on a line.
+            Betweenness,
+            /// Hilbert Group III: segments or angles are congruent.
+            Congruence,
+            /// Containment: one object contains another (plane contains line).
+            Containment,
+            /// Hilbert Group IV: lines that do not intersect.
+            Parallelism,
+            /// Lines/planes meeting at right angles.
+            Perpendicularity,
+            /// Object is defined from another (triangle from points).
+            Construction,
+        ],
+        edges: [
+            // Hilbert I: Incidence relations
+            (Point, Line, Incidence),
+            (Point, Plane, Incidence),
+            (Line, Plane, Incidence),
+            (Point, Segment, Incidence),
+            (Point, Circle, Incidence),
+            (Point, Sphere, Incidence),
+            // Hilbert II: Betweenness
+            (Point, Point, Betweenness),
+            // Hilbert III: Congruence
+            (Segment, Segment, Congruence),
+            (Angle, Angle, Congruence),
+            (Triangle, Triangle, Congruence),
+            // Containment
+            (Plane, Line, Containment),
+            (Plane, Point, Containment),
+            (Line, Point, Containment),
+            // Hilbert IV: Parallelism
+            (Line, Line, Parallelism),
+            (Plane, Plane, Parallelism),
+            // Perpendicularity
+            (Line, Line, Perpendicularity),
+            (Plane, Plane, Perpendicularity),
+            (Line, Plane, Perpendicularity),
+            // Construction (derived objects from primitives)
+            (Point, Triangle, Construction),
+            (Point, Circle, Construction),
+            (Point, Sphere, Construction),
+        ],
+        composed: [
+            // Transitive closure: Point → Line → Plane
+            (Point, Plane),
+        ],
     }
 }
 

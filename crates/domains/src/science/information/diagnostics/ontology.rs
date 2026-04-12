@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Diagnostics ontology — the universal diagnostic cycle.
 //
@@ -27,7 +26,7 @@ use pr4xis::category::relationship::Relationship;
 // - Maes, "Computational Reflection" (1987, OOPSLA)
 
 /// Concepts in the diagnostic cycle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum DiagnosticConcept {
     /// Observable deviation from expected behavior.
     /// ISO 13374: State Detection. Reiter (1987): OBS.
@@ -77,20 +76,56 @@ pub enum DiagnosticConcept {
     TraceContext,
 }
 
-impl Entity for DiagnosticConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Symptom,
-            Self::Hypothesis,
-            Self::Test,
-            Self::Evidence,
-            Self::Diagnosis,
-            Self::Residual,
-            Self::FaultMode,
-            Self::Severity,
-            Self::Remedy,
-            Self::TraceContext,
-        ]
+define_category! {
+    pub DiagnosticCategory {
+        entity: DiagnosticConcept,
+        relation: DiagnosticRelation,
+        kind: DiagnosticRelationKind,
+        kinds: [
+            /// Residual triggers Symptom detection (FDI: r(t) ≠ 0).
+            Triggers,
+            /// Symptom generates Hypothesis (abductive inference).
+            Generates,
+            /// Hypothesis requires Test (to discriminate).
+            Requires,
+            /// Test produces Evidence.
+            Produces,
+            /// Evidence supports or refutes Hypothesis (Bayesian update).
+            Updates,
+            /// Hypothesis confirmed as Diagnosis (Reiter: minimal consistent).
+            Confirms,
+            /// Diagnosis identifies FaultMode.
+            Identifies,
+            /// Diagnosis has Severity.
+            HasSeverity,
+            /// Diagnosis prescribes Remedy.
+            Prescribes,
+            /// TraceContext contextualizes Symptom (links to observability data).
+            Contextualizes,
+        ],
+        edges: [
+            // The diagnostic cycle: Observation → Hypothesis → Test → Conclusion
+            (Residual, Symptom, Triggers),
+            (Symptom, Hypothesis, Generates),
+            (Hypothesis, Test, Requires),
+            (Test, Evidence, Produces),
+            (Evidence, Hypothesis, Updates),
+            (Hypothesis, Diagnosis, Confirms),
+            // Diagnosis outputs
+            (Diagnosis, FaultMode, Identifies),
+            (Diagnosis, Severity, HasSeverity),
+            (Diagnosis, Remedy, Prescribes),
+            // TraceContext links diagnosis to observability data
+            (TraceContext, Symptom, Contextualizes),
+            (TraceContext, Evidence, Contextualizes),
+        ],
+        composed: [
+            // Full diagnostic chain
+            (Residual, Diagnosis),
+            (Symptom, Diagnosis),
+            (Symptom, Remedy),
+            (TraceContext, Diagnosis),
+        ],
     }
 }
 
@@ -126,191 +161,10 @@ pub enum DiagnosticStatus {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DiagnosticRelation {
-    pub from: DiagnosticConcept,
-    pub to: DiagnosticConcept,
-    pub kind: DiagnosticRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum DiagnosticRelationKind {
-    Identity,
-    /// Residual triggers Symptom detection (FDI: r(t) ≠ 0).
-    Triggers,
-    /// Symptom generates Hypothesis (abductive inference).
-    Generates,
-    /// Hypothesis requires Test (to discriminate).
-    Requires,
-    /// Test produces Evidence.
-    Produces,
-    /// Evidence supports or refutes Hypothesis (Bayesian update).
-    Updates,
-    /// Hypothesis confirmed as Diagnosis (Reiter: minimal consistent).
-    Confirms,
-    /// Diagnosis identifies FaultMode.
-    Identifies,
-    /// Diagnosis has Severity.
-    HasSeverity,
-    /// Diagnosis prescribes Remedy.
-    Prescribes,
-    /// TraceContext contextualizes Symptom (links to observability data).
-    Contextualizes,
-    Composed,
-}
-
-impl Relationship for DiagnosticRelation {
-    type Object = DiagnosticConcept;
-    fn source(&self) -> DiagnosticConcept {
-        self.from
-    }
-    fn target(&self) -> DiagnosticConcept {
-        self.to
-    }
-}
-
-pub struct DiagnosticCategory;
-
-impl Category for DiagnosticCategory {
-    type Object = DiagnosticConcept;
-    type Morphism = DiagnosticRelation;
-
-    fn identity(obj: &DiagnosticConcept) -> DiagnosticRelation {
-        DiagnosticRelation {
-            from: *obj,
-            to: *obj,
-            kind: DiagnosticRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &DiagnosticRelation, g: &DiagnosticRelation) -> Option<DiagnosticRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == DiagnosticRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == DiagnosticRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(DiagnosticRelation {
-            from: f.from,
-            to: g.to,
-            kind: DiagnosticRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<DiagnosticRelation> {
-        use DiagnosticConcept as C;
-        use DiagnosticRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in DiagnosticConcept::variants() {
-            m.push(DiagnosticRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // The diagnostic cycle: Observation → Hypothesis → Test → Conclusion
-        m.push(DiagnosticRelation {
-            from: C::Residual,
-            to: C::Symptom,
-            kind: R::Triggers,
-        });
-        m.push(DiagnosticRelation {
-            from: C::Symptom,
-            to: C::Hypothesis,
-            kind: R::Generates,
-        });
-        m.push(DiagnosticRelation {
-            from: C::Hypothesis,
-            to: C::Test,
-            kind: R::Requires,
-        });
-        m.push(DiagnosticRelation {
-            from: C::Test,
-            to: C::Evidence,
-            kind: R::Produces,
-        });
-        m.push(DiagnosticRelation {
-            from: C::Evidence,
-            to: C::Hypothesis,
-            kind: R::Updates,
-        });
-        m.push(DiagnosticRelation {
-            from: C::Hypothesis,
-            to: C::Diagnosis,
-            kind: R::Confirms,
-        });
-
-        // Diagnosis outputs
-        m.push(DiagnosticRelation {
-            from: C::Diagnosis,
-            to: C::FaultMode,
-            kind: R::Identifies,
-        });
-        m.push(DiagnosticRelation {
-            from: C::Diagnosis,
-            to: C::Severity,
-            kind: R::HasSeverity,
-        });
-        m.push(DiagnosticRelation {
-            from: C::Diagnosis,
-            to: C::Remedy,
-            kind: R::Prescribes,
-        });
-
-        // TraceContext links diagnosis to observability data
-        m.push(DiagnosticRelation {
-            from: C::TraceContext,
-            to: C::Symptom,
-            kind: R::Contextualizes,
-        });
-        m.push(DiagnosticRelation {
-            from: C::TraceContext,
-            to: C::Evidence,
-            kind: R::Contextualizes,
-        });
-
-        // Composed: full diagnostic chain
-        m.push(DiagnosticRelation {
-            from: C::Residual,
-            to: C::Diagnosis,
-            kind: R::Composed,
-        });
-        m.push(DiagnosticRelation {
-            from: C::Symptom,
-            to: C::Diagnosis,
-            kind: R::Composed,
-        });
-        m.push(DiagnosticRelation {
-            from: C::Symptom,
-            to: C::Remedy,
-            kind: R::Composed,
-        });
-        m.push(DiagnosticRelation {
-            from: C::TraceContext,
-            to: C::Diagnosis,
-            kind: R::Composed,
-        });
-
-        for c in DiagnosticConcept::variants() {
-            m.push(DiagnosticRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

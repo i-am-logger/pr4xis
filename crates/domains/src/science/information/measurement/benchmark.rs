@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Benchmark ontology — the process of measuring system performance.
 //
@@ -17,7 +16,7 @@ use pr4xis::category::relationship::Relationship;
 // - ISO/IEC 14756:1999 — measurement and rating of computer performance
 
 /// Concepts in the benchmark process.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum BenchmarkConcept {
     /// The benchmark as a whole — a structured measurement protocol.
     /// ISO/IEC 14756: a complete specification of workload + measurement.
@@ -66,206 +65,64 @@ pub enum BenchmarkConcept {
     ConfidenceInterval,
 }
 
-impl Entity for BenchmarkConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Benchmark,
-            Self::Setup,
-            Self::Warmup,
-            Self::SteadyState,
-            Self::Iteration,
-            Self::Invocation,
-            Self::Baseline,
-            Self::Candidate,
-            Self::Regression,
-            Self::Improvement,
-            Self::EffectSize,
-            Self::ConfidenceInterval,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct BenchmarkRelation {
-    pub from: BenchmarkConcept,
-    pub to: BenchmarkConcept,
-    pub kind: BenchmarkRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum BenchmarkRelationKind {
-    Identity,
-    /// Benchmark contains this phase/component.
-    Contains,
-    /// Phase precedes another in the process.
-    Precedes,
-    /// Invocation contains Iterations.
-    ContainsIterations,
-    /// Baseline/Candidate produce EffectSize when compared.
-    ComparesTo,
-    /// EffectSize determines Regression or Improvement.
-    Determines,
-    /// Result requires ConfidenceInterval (Georges axiom).
-    Requires,
-    Composed,
-}
-
-impl Relationship for BenchmarkRelation {
-    type Object = BenchmarkConcept;
-    fn source(&self) -> BenchmarkConcept {
-        self.from
-    }
-    fn target(&self) -> BenchmarkConcept {
-        self.to
-    }
-}
-
-pub struct BenchmarkCategory;
-
-impl Category for BenchmarkCategory {
-    type Object = BenchmarkConcept;
-    type Morphism = BenchmarkRelation;
-
-    fn identity(obj: &BenchmarkConcept) -> BenchmarkRelation {
-        BenchmarkRelation {
-            from: *obj,
-            to: *obj,
-            kind: BenchmarkRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &BenchmarkRelation, g: &BenchmarkRelation) -> Option<BenchmarkRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == BenchmarkRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == BenchmarkRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(BenchmarkRelation {
-            from: f.from,
-            to: g.to,
-            kind: BenchmarkRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<BenchmarkRelation> {
-        use BenchmarkConcept as C;
-        use BenchmarkRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in BenchmarkConcept::variants() {
-            m.push(BenchmarkRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // Benchmark contains all phases
-        for phase in [C::Setup, C::Warmup, C::SteadyState, C::Invocation] {
-            m.push(BenchmarkRelation {
-                from: C::Benchmark,
-                to: phase,
-                kind: R::Contains,
-            });
-        }
-
-        // The process state machine: Setup → Warmup → SteadyState
-        // Georges et al. (2007): you MUST reach steady state before measuring.
-        m.push(BenchmarkRelation {
-            from: C::Setup,
-            to: C::Warmup,
-            kind: R::Precedes,
-        });
-        m.push(BenchmarkRelation {
-            from: C::Warmup,
-            to: C::SteadyState,
-            kind: R::Precedes,
-        });
-
-        // Invocation contains Iterations (Kalibera hierarchical design)
-        m.push(BenchmarkRelation {
-            from: C::Invocation,
-            to: C::Iteration,
-            kind: R::ContainsIterations,
-        });
-
-        // Baseline and Candidate are compared to produce EffectSize
-        m.push(BenchmarkRelation {
-            from: C::Baseline,
-            to: C::EffectSize,
-            kind: R::ComparesTo,
-        });
-        m.push(BenchmarkRelation {
-            from: C::Candidate,
-            to: C::EffectSize,
-            kind: R::ComparesTo,
-        });
-
-        // EffectSize determines Regression or Improvement
-        m.push(BenchmarkRelation {
-            from: C::EffectSize,
-            to: C::Regression,
-            kind: R::Determines,
-        });
-        m.push(BenchmarkRelation {
-            from: C::EffectSize,
-            to: C::Improvement,
-            kind: R::Determines,
-        });
-
-        // Every result requires ConfidenceInterval (Georges axiom)
-        m.push(BenchmarkRelation {
-            from: C::Baseline,
-            to: C::ConfidenceInterval,
-            kind: R::Requires,
-        });
-        m.push(BenchmarkRelation {
-            from: C::Candidate,
-            to: C::ConfidenceInterval,
-            kind: R::Requires,
-        });
-
-        // Composed: Benchmark → SteadyState (through Setup → Warmup)
-        m.push(BenchmarkRelation {
-            from: C::Benchmark,
-            to: C::Iteration,
-            kind: R::Composed,
-        });
-        m.push(BenchmarkRelation {
-            from: C::Setup,
-            to: C::SteadyState,
-            kind: R::Composed,
-        });
-        m.push(BenchmarkRelation {
-            from: C::Baseline,
-            to: C::Regression,
-            kind: R::Composed,
-        });
-        m.push(BenchmarkRelation {
-            from: C::Candidate,
-            to: C::Regression,
-            kind: R::Composed,
-        });
-
-        for c in BenchmarkConcept::variants() {
-            m.push(BenchmarkRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub BenchmarkCategory {
+        entity: BenchmarkConcept,
+        relation: BenchmarkRelation,
+        kind: BenchmarkRelationKind,
+        kinds: [
+            /// Benchmark contains this phase/component.
+            Contains,
+            /// Phase precedes another in the process.
+            Precedes,
+            /// Invocation contains Iterations.
+            ContainsIterations,
+            /// Baseline/Candidate produce EffectSize when compared.
+            ComparesTo,
+            /// EffectSize determines Regression or Improvement.
+            Determines,
+            /// Result requires ConfidenceInterval (Georges axiom).
+            Requires,
+        ],
+        edges: [
+            // Benchmark contains all phases
+            (Benchmark, Setup, Contains),
+            (Benchmark, Warmup, Contains),
+            (Benchmark, SteadyState, Contains),
+            (Benchmark, Invocation, Contains),
+            // The process state machine: Setup → Warmup → SteadyState
+            // Georges et al. (2007): you MUST reach steady state before measuring.
+            (Setup, Warmup, Precedes),
+            (Warmup, SteadyState, Precedes),
+            // Invocation contains Iterations (Kalibera hierarchical design)
+            (Invocation, Iteration, ContainsIterations),
+            // Baseline and Candidate are compared to produce EffectSize
+            (Baseline, EffectSize, ComparesTo),
+            (Candidate, EffectSize, ComparesTo),
+            // EffectSize determines Regression or Improvement
+            (EffectSize, Regression, Determines),
+            (EffectSize, Improvement, Determines),
+            // Every result requires ConfidenceInterval (Georges axiom)
+            (Baseline, ConfidenceInterval, Requires),
+            (Candidate, ConfidenceInterval, Requires),
+        ],
+        composed: [
+            // Benchmark → Iteration (through Invocation)
+            (Benchmark, Iteration),
+            // Setup → SteadyState (through Warmup)
+            (Setup, SteadyState),
+            // Baseline → Regression (through EffectSize)
+            (Baseline, Regression),
+            // Candidate → Regression (through EffectSize)
+            (Candidate, Regression),
+        ],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

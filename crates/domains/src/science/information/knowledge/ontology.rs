@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Knowledge Base ontology — a system's self-description of what it knows.
 //
@@ -14,7 +13,7 @@ use pr4xis::category::relationship::Relationship;
 // from the actual loaded state, not from static metadata.
 
 /// Concepts in the KnowledgeBase ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum KnowledgeConcept {
     /// The system as a whole (dcat:Catalog).
     KnowledgeBase,
@@ -30,160 +29,39 @@ pub enum KnowledgeConcept {
     DataSource,
 }
 
-impl Entity for KnowledgeConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::KnowledgeBase,
-            Self::Vocabulary,
-            Self::Schema,
-            Self::Entry,
-            Self::Descriptor,
-            Self::DataSource,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct KnowledgeRelation {
-    pub from: KnowledgeConcept,
-    pub to: KnowledgeConcept,
-    pub kind: KnowledgeRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum KnowledgeRelationKind {
-    Identity,
-    /// KnowledgeBase catalogs Vocabulary (dcat:dataset).
-    Catalogs,
-    /// Vocabulary conforms to Schema (dct:conformsTo).
-    ConformsTo,
-    /// Vocabulary contains Entry (void:entity).
-    Contains,
-    /// Vocabulary described by Descriptor (void statistics).
-    DescribedBy,
-    /// Vocabulary derived from DataSource (prov:wasDerivedFrom).
-    DerivedFrom,
-    /// Schema defines Entry (skos:inScheme inverse).
-    Defines,
-    Composed,
-}
-
-impl Relationship for KnowledgeRelation {
-    type Object = KnowledgeConcept;
-    fn source(&self) -> KnowledgeConcept {
-        self.from
-    }
-    fn target(&self) -> KnowledgeConcept {
-        self.to
-    }
-}
-
-pub struct KnowledgeBaseCategory;
-
-impl Category for KnowledgeBaseCategory {
-    type Object = KnowledgeConcept;
-    type Morphism = KnowledgeRelation;
-
-    fn identity(obj: &KnowledgeConcept) -> KnowledgeRelation {
-        KnowledgeRelation {
-            from: *obj,
-            to: *obj,
-            kind: KnowledgeRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &KnowledgeRelation, g: &KnowledgeRelation) -> Option<KnowledgeRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == KnowledgeRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == KnowledgeRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(KnowledgeRelation {
-            from: f.from,
-            to: g.to,
-            kind: KnowledgeRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<KnowledgeRelation> {
-        use KnowledgeConcept::*;
-        use KnowledgeRelationKind::*;
-        let mut m = Vec::new();
-
-        for c in KnowledgeConcept::variants() {
-            m.push(KnowledgeRelation {
-                from: c,
-                to: c,
-                kind: Identity,
-            });
-        }
-
-        m.push(KnowledgeRelation {
-            from: KnowledgeBase,
-            to: Vocabulary,
-            kind: Catalogs,
-        });
-        m.push(KnowledgeRelation {
-            from: Vocabulary,
-            to: Schema,
-            kind: ConformsTo,
-        });
-        m.push(KnowledgeRelation {
-            from: Vocabulary,
-            to: Entry,
-            kind: Contains,
-        });
-        m.push(KnowledgeRelation {
-            from: Vocabulary,
-            to: Descriptor,
-            kind: DescribedBy,
-        });
-        m.push(KnowledgeRelation {
-            from: Vocabulary,
-            to: DataSource,
-            kind: DerivedFrom,
-        });
-        m.push(KnowledgeRelation {
-            from: Schema,
-            to: Entry,
-            kind: Defines,
-        });
-
-        // Transitive
-        m.push(KnowledgeRelation {
-            from: KnowledgeBase,
-            to: Entry,
-            kind: Composed,
-        });
-        m.push(KnowledgeRelation {
-            from: KnowledgeBase,
-            to: Schema,
-            kind: Composed,
-        });
-        m.push(KnowledgeRelation {
-            from: KnowledgeBase,
-            to: Descriptor,
-            kind: Composed,
-        });
-        m.push(KnowledgeRelation {
-            from: KnowledgeBase,
-            to: DataSource,
-            kind: Composed,
-        });
-
-        for c in KnowledgeConcept::variants() {
-            m.push(KnowledgeRelation {
-                from: c,
-                to: c,
-                kind: Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub KnowledgeBaseCategory {
+        entity: KnowledgeConcept,
+        relation: KnowledgeRelation,
+        kind: KnowledgeRelationKind,
+        kinds: [
+            /// KnowledgeBase catalogs Vocabulary (dcat:dataset).
+            Catalogs,
+            /// Vocabulary conforms to Schema (dct:conformsTo).
+            ConformsTo,
+            /// Vocabulary contains Entry (void:entity).
+            Contains,
+            /// Vocabulary described by Descriptor (void statistics).
+            DescribedBy,
+            /// Vocabulary derived from DataSource (prov:wasDerivedFrom).
+            DerivedFrom,
+            /// Schema defines Entry (skos:inScheme inverse).
+            Defines,
+        ],
+        edges: [
+            (KnowledgeBase, Vocabulary, Catalogs),
+            (Vocabulary, Schema, ConformsTo),
+            (Vocabulary, Entry, Contains),
+            (Vocabulary, Descriptor, DescribedBy),
+            (Vocabulary, DataSource, DerivedFrom),
+            (Schema, Entry, Defines),
+        ],
+        composed: [
+            (KnowledgeBase, Entry),
+            (KnowledgeBase, Schema),
+            (KnowledgeBase, Descriptor),
+            (KnowledgeBase, DataSource),
+        ],
     }
 }
 

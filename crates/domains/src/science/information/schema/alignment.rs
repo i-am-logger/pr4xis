@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Ontology Alignment ontology — discovering connections between ontologies.
 //
@@ -23,7 +22,7 @@ use pr4xis::category::relationship::Relationship;
 // - OAEI (Ontology Alignment Evaluation Initiative) — evaluation metrics
 
 /// Concepts in the alignment ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AlignmentConcept {
     /// A set of correspondences between two ontologies.
     /// Euzenat & Shvaiko (2013): A ⊆ C (set of correspondences).
@@ -70,24 +69,6 @@ pub enum AlignmentConcept {
     /// Coherence check: alignment must not create unsatisfiable concepts.
     /// Meilicke et al. (2007): Mod(O1 + A + O2) must be non-empty.
     Coherence,
-}
-
-impl Entity for AlignmentConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Alignment,
-            Self::Correspondence,
-            Self::CorrespondenceRelation,
-            Self::Confidence,
-            Self::MatchingTechnique,
-            Self::Discovery,
-            Self::Evaluation,
-            Self::Refinement,
-            Self::Execution,
-            Self::Merge,
-            Self::Coherence,
-        ]
-    }
 }
 
 /// Semantic relations between aligned entities.
@@ -146,186 +127,62 @@ pub enum MatchingType {
     Compositional,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AlignmentRelation {
-    pub from: AlignmentConcept,
-    pub to: AlignmentConcept,
-    pub kind: AlignmentRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum AlignmentRelationKind {
-    Identity,
-    /// Alignment contains Correspondences.
-    Contains,
-    /// Correspondence has a CorrespondenceRelation and Confidence.
-    HasRelation,
-    HasConfidence,
-    /// Discovery produces Alignment.
-    Produces,
-    /// MatchingTechnique drives Discovery.
-    Drives,
-    /// Lifecycle: Discovery → Evaluation → Refinement → Execution.
-    Precedes,
-    /// Merge consumes Alignment (pushout of span).
-    Consumes,
-    /// Coherence validates Alignment.
-    Validates,
-    Composed,
-}
-
-impl Relationship for AlignmentRelation {
-    type Object = AlignmentConcept;
-    fn source(&self) -> AlignmentConcept {
-        self.from
-    }
-    fn target(&self) -> AlignmentConcept {
-        self.to
-    }
-}
-
-pub struct AlignmentCategory;
-
-impl Category for AlignmentCategory {
-    type Object = AlignmentConcept;
-    type Morphism = AlignmentRelation;
-
-    fn identity(obj: &AlignmentConcept) -> AlignmentRelation {
-        AlignmentRelation {
-            from: *obj,
-            to: *obj,
-            kind: AlignmentRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &AlignmentRelation, g: &AlignmentRelation) -> Option<AlignmentRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == AlignmentRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == AlignmentRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(AlignmentRelation {
-            from: f.from,
-            to: g.to,
-            kind: AlignmentRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<AlignmentRelation> {
-        use AlignmentConcept as C;
-        use AlignmentRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in AlignmentConcept::variants() {
-            m.push(AlignmentRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // Alignment contains Correspondences
-        m.push(AlignmentRelation {
-            from: C::Alignment,
-            to: C::Correspondence,
-            kind: R::Contains,
-        });
-
-        // Correspondence has relation and confidence
-        m.push(AlignmentRelation {
-            from: C::Correspondence,
-            to: C::CorrespondenceRelation,
-            kind: R::HasRelation,
-        });
-        m.push(AlignmentRelation {
-            from: C::Correspondence,
-            to: C::Confidence,
-            kind: R::HasConfidence,
-        });
-
-        // MatchingTechnique drives Discovery
-        m.push(AlignmentRelation {
-            from: C::MatchingTechnique,
-            to: C::Discovery,
-            kind: R::Drives,
-        });
-
-        // Discovery produces Alignment
-        m.push(AlignmentRelation {
-            from: C::Discovery,
-            to: C::Alignment,
-            kind: R::Produces,
-        });
-
-        // Lifecycle: Discovery → Evaluation → Refinement → Execution
-        m.push(AlignmentRelation {
-            from: C::Discovery,
-            to: C::Evaluation,
-            kind: R::Precedes,
-        });
-        m.push(AlignmentRelation {
-            from: C::Evaluation,
-            to: C::Refinement,
-            kind: R::Precedes,
-        });
-        m.push(AlignmentRelation {
-            from: C::Refinement,
-            to: C::Execution,
-            kind: R::Precedes,
-        });
-
-        // Merge consumes Alignment (pushout)
-        m.push(AlignmentRelation {
-            from: C::Merge,
-            to: C::Alignment,
-            kind: R::Consumes,
-        });
-
-        // Coherence validates Alignment
-        m.push(AlignmentRelation {
-            from: C::Coherence,
-            to: C::Alignment,
-            kind: R::Validates,
-        });
-
-        // Composed: Discovery → Alignment → Correspondence
-        m.push(AlignmentRelation {
-            from: C::Discovery,
-            to: C::Correspondence,
-            kind: R::Composed,
-        });
-        // MatchingTechnique → Alignment
-        m.push(AlignmentRelation {
-            from: C::MatchingTechnique,
-            to: C::Alignment,
-            kind: R::Composed,
-        });
-        // Discovery → Execution (full lifecycle)
-        m.push(AlignmentRelation {
-            from: C::Discovery,
-            to: C::Execution,
-            kind: R::Composed,
-        });
-
-        for c in AlignmentConcept::variants() {
-            m.push(AlignmentRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub AlignmentCategory {
+        entity: AlignmentConcept,
+        relation: AlignmentRelation,
+        kind: AlignmentRelationKind,
+        kinds: [
+            /// Alignment contains Correspondences.
+            Contains,
+            /// Correspondence has a CorrespondenceRelation and Confidence.
+            HasRelation,
+            HasConfidence,
+            /// Discovery produces Alignment.
+            Produces,
+            /// MatchingTechnique drives Discovery.
+            Drives,
+            /// Lifecycle: Discovery → Evaluation → Refinement → Execution.
+            Precedes,
+            /// Merge consumes Alignment (pushout of span).
+            Consumes,
+            /// Coherence validates Alignment.
+            Validates,
+        ],
+        edges: [
+            // Alignment contains Correspondences
+            (Alignment, Correspondence, Contains),
+            // Correspondence has relation and confidence
+            (Correspondence, CorrespondenceRelation, HasRelation),
+            (Correspondence, Confidence, HasConfidence),
+            // MatchingTechnique drives Discovery
+            (MatchingTechnique, Discovery, Drives),
+            // Discovery produces Alignment
+            (Discovery, Alignment, Produces),
+            // Lifecycle: Discovery → Evaluation → Refinement → Execution
+            (Discovery, Evaluation, Precedes),
+            (Evaluation, Refinement, Precedes),
+            (Refinement, Execution, Precedes),
+            // Merge consumes Alignment (pushout)
+            (Merge, Alignment, Consumes),
+            // Coherence validates Alignment
+            (Coherence, Alignment, Validates),
+        ],
+        composed: [
+            // Discovery → Alignment → Correspondence
+            (Discovery, Correspondence),
+            // MatchingTechnique → Alignment
+            (MatchingTechnique, Alignment),
+            // Discovery → Execution (full lifecycle)
+            (Discovery, Execution),
+        ],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Repository / Store ontology — where and how ontologies are persisted.
 //
@@ -21,7 +20,7 @@ use pr4xis::category::relationship::Relationship;
 // - Database theory: materialized views (Gupta & Mumick, 1995)
 
 /// Concepts in the Repository ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum RepositoryConcept {
     /// The abstract interface to stored ontologies.
     /// RDF4J (2004): "A Repository is the main access point."
@@ -75,182 +74,57 @@ pub enum RepositoryConcept {
     EndpointStore,
 }
 
-impl Entity for RepositoryConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Repository,
-            Self::Store,
-            Self::StoredOntology,
-            Self::Materialize,
-            Self::Realize,
-            Self::Equivalence,
-            Self::StaticStore,
-            Self::MappedStore,
-            Self::HeapStore,
-            Self::DatabaseStore,
-            Self::EndpointStore,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RepositoryRelation {
-    pub from: RepositoryConcept,
-    pub to: RepositoryConcept,
-    pub kind: RepositoryRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum RepositoryRelationKind {
-    Identity,
-    /// Repository contains Stores.
-    Contains,
-    /// Store holds StoredOntology.
-    Holds,
-    /// Materialize: live ontology → StoredOntology in a Store.
-    Materializes,
-    /// Realize: StoredOntology → live ontology from a Store.
-    Realizes,
-    /// Equivalence proves two StoredOntologies are isomorphic.
-    Proves,
-    /// Store specializes to specific backend (is-a).
-    SpecializesTo,
-    /// Materialize∘Realize = identity (roundtrip).
-    Roundtrip,
-    Composed,
-}
-
-impl Relationship for RepositoryRelation {
-    type Object = RepositoryConcept;
-    fn source(&self) -> RepositoryConcept {
-        self.from
-    }
-    fn target(&self) -> RepositoryConcept {
-        self.to
-    }
-}
-
-pub struct RepositoryCategory;
-
-impl Category for RepositoryCategory {
-    type Object = RepositoryConcept;
-    type Morphism = RepositoryRelation;
-
-    fn identity(obj: &RepositoryConcept) -> RepositoryRelation {
-        RepositoryRelation {
-            from: *obj,
-            to: *obj,
-            kind: RepositoryRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &RepositoryRelation, g: &RepositoryRelation) -> Option<RepositoryRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == RepositoryRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == RepositoryRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(RepositoryRelation {
-            from: f.from,
-            to: g.to,
-            kind: RepositoryRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<RepositoryRelation> {
-        use RepositoryConcept as C;
-        use RepositoryRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in RepositoryConcept::variants() {
-            m.push(RepositoryRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // Repository contains Stores
-        m.push(RepositoryRelation {
-            from: C::Repository,
-            to: C::Store,
-            kind: R::Contains,
-        });
-
-        // Store holds StoredOntology
-        m.push(RepositoryRelation {
-            from: C::Store,
-            to: C::StoredOntology,
-            kind: R::Holds,
-        });
-
-        // Materialize and Realize are the key operations
-        m.push(RepositoryRelation {
-            from: C::Materialize,
-            to: C::StoredOntology,
-            kind: R::Materializes,
-        });
-        m.push(RepositoryRelation {
-            from: C::Realize,
-            to: C::StoredOntology,
-            kind: R::Realizes,
-        });
-
-        // Equivalence proves isomorphism between stored ontologies
-        m.push(RepositoryRelation {
-            from: C::Equivalence,
-            to: C::StoredOntology,
-            kind: R::Proves,
-        });
-
-        // Store backend specializations (taxonomy)
-        for backend in [
-            C::StaticStore,
-            C::MappedStore,
-            C::HeapStore,
-            C::DatabaseStore,
-            C::EndpointStore,
-        ] {
-            m.push(RepositoryRelation {
-                from: backend,
-                to: C::Store,
-                kind: R::SpecializesTo,
-            });
-        }
-
-        // Materialize∘Realize = identity (the roundtrip axiom)
-        m.push(RepositoryRelation {
-            from: C::Materialize,
-            to: C::Realize,
-            kind: R::Roundtrip,
-        });
-
-        // Repository → StoredOntology (through Store)
-        m.push(RepositoryRelation {
-            from: C::Repository,
-            to: C::StoredOntology,
-            kind: R::Composed,
-        });
-
-        for c in RepositoryConcept::variants() {
-            m.push(RepositoryRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub RepositoryCategory {
+        entity: RepositoryConcept,
+        relation: RepositoryRelation,
+        kind: RepositoryRelationKind,
+        kinds: [
+            /// Repository contains Stores.
+            Contains,
+            /// Store holds StoredOntology.
+            Holds,
+            /// Materialize: live ontology → StoredOntology in a Store.
+            Materializes,
+            /// Realize: StoredOntology → live ontology from a Store.
+            Realizes,
+            /// Equivalence proves two StoredOntologies are isomorphic.
+            Proves,
+            /// Store specializes to specific backend (is-a).
+            SpecializesTo,
+            /// Materialize∘Realize = identity (roundtrip).
+            Roundtrip,
+        ],
+        edges: [
+            // Repository contains Stores
+            (Repository, Store, Contains),
+            // Store holds StoredOntology
+            (Store, StoredOntology, Holds),
+            // Materialize and Realize are the key operations
+            (Materialize, StoredOntology, Materializes),
+            (Realize, StoredOntology, Realizes),
+            // Equivalence proves isomorphism between stored ontologies
+            (Equivalence, StoredOntology, Proves),
+            // Store backend specializations (taxonomy)
+            (StaticStore, Store, SpecializesTo),
+            (MappedStore, Store, SpecializesTo),
+            (HeapStore, Store, SpecializesTo),
+            (DatabaseStore, Store, SpecializesTo),
+            (EndpointStore, Store, SpecializesTo),
+            // Materialize∘Realize = identity (the roundtrip axiom)
+            (Materialize, Realize, Roundtrip),
+        ],
+        composed: [
+            // Repository → StoredOntology (through Store)
+            (Repository, StoredOntology),
+        ],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

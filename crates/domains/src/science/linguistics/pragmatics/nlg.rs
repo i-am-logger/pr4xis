@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Natural Language Generation pipeline ontology.
 //
@@ -24,7 +23,7 @@ use pr4xis::category::relationship::Relationship;
 // - McKeown, "Text Generation" (1985) — rhetorical schemata
 
 /// Concepts in the NLG pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum NlgConcept {
     /// The communicative goal — what the system wants to achieve.
     /// Appelt (1985): a goal in the hearer's mental state.
@@ -76,213 +75,63 @@ pub enum NlgConcept {
     Monitor,
 }
 
-impl Entity for NlgConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::CommunicativeGoal,
-            Self::ContentDetermination,
-            Self::Message,
-            Self::DocumentPlanning,
-            Self::RhetoricalRelation,
-            Self::Microplanning,
-            Self::ReferringExpression,
-            Self::Realization,
-            Self::SurfaceText,
-            Self::KnowledgeGathering,
-            Self::Monitor,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NlgRelation {
-    pub from: NlgConcept,
-    pub to: NlgConcept,
-    pub kind: NlgRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum NlgRelationKind {
-    Identity,
-    /// CommunicativeGoal drives ContentDetermination.
-    Drives,
-    /// ContentDetermination gathers KnowledgeGathering.
-    Gathers,
-    /// ContentDetermination selects Messages.
-    Selects,
-    /// DocumentPlanning organizes Messages using RhetoricalRelation.
-    Organizes,
-    /// Microplanning produces ReferringExpressions from Messages.
-    Produces,
-    /// Realization generates SurfaceText from the plan.
-    Generates,
-    /// Monitor checks SurfaceText against CommunicativeGoal.
-    Checks,
-    /// Pipeline stages: each precedes the next.
-    Precedes,
-    Composed,
-}
-
-impl Relationship for NlgRelation {
-    type Object = NlgConcept;
-    fn source(&self) -> NlgConcept {
-        self.from
-    }
-    fn target(&self) -> NlgConcept {
-        self.to
-    }
-}
-
-pub struct NlgCategory;
-
-impl Category for NlgCategory {
-    type Object = NlgConcept;
-    type Morphism = NlgRelation;
-
-    fn identity(obj: &NlgConcept) -> NlgRelation {
-        NlgRelation {
-            from: *obj,
-            to: *obj,
-            kind: NlgRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &NlgRelation, g: &NlgRelation) -> Option<NlgRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == NlgRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == NlgRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(NlgRelation {
-            from: f.from,
-            to: g.to,
-            kind: NlgRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<NlgRelation> {
-        use NlgConcept as C;
-        use NlgRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in NlgConcept::variants() {
-            m.push(NlgRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // CommunicativeGoal drives ContentDetermination
-        m.push(NlgRelation {
-            from: C::CommunicativeGoal,
-            to: C::ContentDetermination,
-            kind: R::Drives,
-        });
-
-        // ContentDetermination gathers knowledge and selects messages
-        m.push(NlgRelation {
-            from: C::ContentDetermination,
-            to: C::KnowledgeGathering,
-            kind: R::Gathers,
-        });
-        m.push(NlgRelation {
-            from: C::ContentDetermination,
-            to: C::Message,
-            kind: R::Selects,
-        });
-
-        // DocumentPlanning organizes using RhetoricalRelation
-        m.push(NlgRelation {
-            from: C::DocumentPlanning,
-            to: C::Message,
-            kind: R::Organizes,
-        });
-        m.push(NlgRelation {
-            from: C::DocumentPlanning,
-            to: C::RhetoricalRelation,
-            kind: R::Organizes,
-        });
-
-        // Microplanning produces ReferringExpressions
-        m.push(NlgRelation {
-            from: C::Microplanning,
-            to: C::ReferringExpression,
-            kind: R::Produces,
-        });
-
-        // Realization generates SurfaceText
-        m.push(NlgRelation {
-            from: C::Realization,
-            to: C::SurfaceText,
-            kind: R::Generates,
-        });
-
-        // Monitor checks SurfaceText against CommunicativeGoal
-        m.push(NlgRelation {
-            from: C::Monitor,
-            to: C::SurfaceText,
-            kind: R::Checks,
-        });
-        m.push(NlgRelation {
-            from: C::Monitor,
-            to: C::CommunicativeGoal,
-            kind: R::Checks,
-        });
-
-        // Pipeline: CD → DP → MP → R
-        m.push(NlgRelation {
-            from: C::ContentDetermination,
-            to: C::DocumentPlanning,
-            kind: R::Precedes,
-        });
-        m.push(NlgRelation {
-            from: C::DocumentPlanning,
-            to: C::Microplanning,
-            kind: R::Precedes,
-        });
-        m.push(NlgRelation {
-            from: C::Microplanning,
-            to: C::Realization,
-            kind: R::Precedes,
-        });
-
-        // Composed: Goal → SurfaceText (full pipeline)
-        m.push(NlgRelation {
-            from: C::CommunicativeGoal,
-            to: C::SurfaceText,
-            kind: R::Composed,
-        });
-        m.push(NlgRelation {
-            from: C::ContentDetermination,
-            to: C::SurfaceText,
-            kind: R::Composed,
-        });
-        m.push(NlgRelation {
-            from: C::ContentDetermination,
-            to: C::Realization,
-            kind: R::Composed,
-        });
-
-        for c in NlgConcept::variants() {
-            m.push(NlgRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub NlgCategory {
+        entity: NlgConcept,
+        relation: NlgRelation,
+        kind: NlgRelationKind,
+        kinds: [
+            /// CommunicativeGoal drives ContentDetermination.
+            Drives,
+            /// ContentDetermination gathers KnowledgeGathering.
+            Gathers,
+            /// ContentDetermination selects Messages.
+            Selects,
+            /// DocumentPlanning organizes Messages using RhetoricalRelation.
+            Organizes,
+            /// Microplanning produces ReferringExpressions from Messages.
+            Produces,
+            /// Realization generates SurfaceText from the plan.
+            Generates,
+            /// Monitor checks SurfaceText against CommunicativeGoal.
+            Checks,
+            /// Pipeline stages: each precedes the next.
+            Precedes,
+        ],
+        edges: [
+            // CommunicativeGoal drives ContentDetermination
+            (CommunicativeGoal, ContentDetermination, Drives),
+            // ContentDetermination gathers knowledge and selects messages
+            (ContentDetermination, KnowledgeGathering, Gathers),
+            (ContentDetermination, Message, Selects),
+            // DocumentPlanning organizes using RhetoricalRelation
+            (DocumentPlanning, Message, Organizes),
+            (DocumentPlanning, RhetoricalRelation, Organizes),
+            // Microplanning produces ReferringExpressions
+            (Microplanning, ReferringExpression, Produces),
+            // Realization generates SurfaceText
+            (Realization, SurfaceText, Generates),
+            // Monitor checks SurfaceText against CommunicativeGoal
+            (Monitor, SurfaceText, Checks),
+            (Monitor, CommunicativeGoal, Checks),
+            // Pipeline: CD → DP → MP → R
+            (ContentDetermination, DocumentPlanning, Precedes),
+            (DocumentPlanning, Microplanning, Precedes),
+            (Microplanning, Realization, Precedes),
+        ],
+        composed: [
+            // Composed: Goal → SurfaceText (full pipeline)
+            (CommunicativeGoal, SurfaceText),
+            (ContentDetermination, SurfaceText),
+            (ContentDetermination, Realization),
+        ],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

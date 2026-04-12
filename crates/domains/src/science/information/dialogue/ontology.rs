@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Dialogue ontology — the science of conversation.
 //
@@ -22,7 +21,7 @@ use pr4xis::category::relationship::Relationship;
 // - Grice, Logic and Conversation (1975) — cooperative principle
 
 /// Core concepts of a dialogue system.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum DialogueConcept {
     /// A single utterance from a participant.
     Utterance,
@@ -70,282 +69,89 @@ pub enum DialogueConcept {
     Repair,
 }
 
-impl Entity for DialogueConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Utterance,
-            Self::Participant,
-            Self::DialogueAct,
-            Self::DialogueState,
-            Self::Topic,
-            Self::History,
-            Self::Understanding,
-            Self::Generation,
-            Self::TurnManagement,
-            Self::Grounding,
-            Self::QUD,
-            Self::CommonGround,
-            Self::Intention,
-            Self::GroundingAct,
-            Self::Repair,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DialogueRelation {
-    pub from: DialogueConcept,
-    pub to: DialogueConcept,
-    pub kind: DialogueRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum DialogueRelationKind {
-    Identity,
-    /// Participant produces Utterance.
-    Produces,
-    /// Utterance expresses DialogueAct.
-    Expresses,
-    /// Utterance updates DialogueState.
-    Updates,
-    /// Utterance appended to History.
-    AppendedTo,
-    /// Understanding interprets Utterance.
-    Interprets,
-    /// Generation creates Utterance.
-    Creates,
-    /// TurnManagement controls Participant.
-    Controls,
-    /// Grounding arises from shared Understanding.
-    ArisesFrom,
-    /// DialogueAct addresses Topic.
-    Addresses,
-    /// Utterance raises/resolves QUD (Ginzburg).
-    RaisesOrResolves,
-    /// Understanding updates CommonGround (Stalnaker).
-    EstablishesIn,
-    /// Intention drives Generation (Levelt).
-    Drives,
-    /// GroundingAct achieves Grounding (Traum).
-    Achieves,
-    /// Repair restores Understanding (Schegloff).
-    Restores,
-    /// Intention formed from DialogueState + QUD (what to say next).
-    FormedFrom,
-    Composed,
-}
-
-impl Relationship for DialogueRelation {
-    type Object = DialogueConcept;
-    fn source(&self) -> DialogueConcept {
-        self.from
-    }
-    fn target(&self) -> DialogueConcept {
-        self.to
-    }
-}
-
-pub struct DialogueCategory;
-
-impl Category for DialogueCategory {
-    type Object = DialogueConcept;
-    type Morphism = DialogueRelation;
-
-    fn identity(obj: &DialogueConcept) -> DialogueRelation {
-        DialogueRelation {
-            from: *obj,
-            to: *obj,
-            kind: DialogueRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &DialogueRelation, g: &DialogueRelation) -> Option<DialogueRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == DialogueRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == DialogueRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(DialogueRelation {
-            from: f.from,
-            to: g.to,
-            kind: DialogueRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<DialogueRelation> {
-        use DialogueConcept::*;
-        use DialogueRelationKind::*;
-
-        let mut m = Vec::new();
-
-        for c in DialogueConcept::variants() {
-            m.push(DialogueRelation {
-                from: c,
-                to: c,
-                kind: Identity,
-            });
-        }
-
-        // Participant produces Utterance
-        m.push(DialogueRelation {
-            from: Participant,
-            to: Utterance,
-            kind: Produces,
-        });
-        // Utterance expresses DialogueAct
-        m.push(DialogueRelation {
-            from: Utterance,
-            to: DialogueAct,
-            kind: Expresses,
-        });
-        // Utterance updates DialogueState
-        m.push(DialogueRelation {
-            from: Utterance,
-            to: DialogueState,
-            kind: Updates,
-        });
-        // Utterance appended to History
-        m.push(DialogueRelation {
-            from: Utterance,
-            to: History,
-            kind: AppendedTo,
-        });
-        // Understanding interprets Utterance
-        m.push(DialogueRelation {
-            from: Understanding,
-            to: Utterance,
-            kind: Interprets,
-        });
-        // Generation creates Utterance
-        m.push(DialogueRelation {
-            from: Generation,
-            to: Utterance,
-            kind: Creates,
-        });
-        // TurnManagement controls Participant
-        m.push(DialogueRelation {
-            from: TurnManagement,
-            to: Participant,
-            kind: Controls,
-        });
-        // Grounding arises from Understanding
-        m.push(DialogueRelation {
-            from: Understanding,
-            to: Grounding,
-            kind: ArisesFrom,
-        });
-        // DialogueAct addresses Topic
-        m.push(DialogueRelation {
-            from: DialogueAct,
-            to: Topic,
-            kind: Addresses,
-        });
-
-        // QUD: utterances raise or resolve questions (Ginzburg 2012)
-        m.push(DialogueRelation {
-            from: Utterance,
-            to: QUD,
-            kind: RaisesOrResolves,
-        });
-        // Understanding establishes facts in CommonGround (Stalnaker 2002)
-        m.push(DialogueRelation {
-            from: Understanding,
-            to: CommonGround,
-            kind: EstablishesIn,
-        });
-        // Intention drives Generation (Levelt 1989)
-        m.push(DialogueRelation {
-            from: Intention,
-            to: Generation,
-            kind: Drives,
-        });
-        // GroundingAct achieves Grounding (Traum 1994)
-        m.push(DialogueRelation {
-            from: GroundingAct,
-            to: Grounding,
-            kind: Achieves,
-        });
-        // Repair restores Understanding (Schegloff 1977)
-        m.push(DialogueRelation {
-            from: Repair,
-            to: Understanding,
-            kind: Restores,
-        });
-        // Intention formed from DialogueState + QUD
-        m.push(DialogueRelation {
-            from: DialogueState,
-            to: Intention,
-            kind: FormedFrom,
-        });
-        m.push(DialogueRelation {
-            from: QUD,
-            to: Intention,
-            kind: FormedFrom,
-        });
-
-        // Transitive
-        m.push(DialogueRelation {
-            from: Participant,
-            to: DialogueAct,
-            kind: Composed,
-        });
-        m.push(DialogueRelation {
-            from: Participant,
-            to: DialogueState,
-            kind: Composed,
-        });
-        m.push(DialogueRelation {
-            from: Participant,
-            to: History,
-            kind: Composed,
-        });
-        m.push(DialogueRelation {
-            from: TurnManagement,
-            to: Utterance,
-            kind: Composed,
-        });
-        m.push(DialogueRelation {
-            from: Understanding,
-            to: DialogueAct,
-            kind: Composed,
-        });
-        m.push(DialogueRelation {
-            from: Generation,
-            to: DialogueAct,
-            kind: Composed,
-        });
-        // Intention → Utterance (through Generation)
-        m.push(DialogueRelation {
-            from: Intention,
-            to: Utterance,
-            kind: Composed,
-        });
-        // DialogueState → Generation (through Intention)
-        m.push(DialogueRelation {
-            from: DialogueState,
-            to: Generation,
-            kind: Composed,
-        });
-        // Repair → Grounding (through Understanding → GroundingAct)
-        m.push(DialogueRelation {
-            from: Repair,
-            to: Grounding,
-            kind: Composed,
-        });
-
-        // Self-composed
-        for c in DialogueConcept::variants() {
-            m.push(DialogueRelation {
-                from: c,
-                to: c,
-                kind: Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub DialogueCategory {
+        entity: DialogueConcept,
+        relation: DialogueRelation,
+        kind: DialogueRelationKind,
+        kinds: [
+            /// Participant produces Utterance.
+            Produces,
+            /// Utterance expresses DialogueAct.
+            Expresses,
+            /// Utterance updates DialogueState.
+            Updates,
+            /// Utterance appended to History.
+            AppendedTo,
+            /// Understanding interprets Utterance.
+            Interprets,
+            /// Generation creates Utterance.
+            Creates,
+            /// TurnManagement controls Participant.
+            Controls,
+            /// Grounding arises from shared Understanding.
+            ArisesFrom,
+            /// DialogueAct addresses Topic.
+            Addresses,
+            /// Utterance raises/resolves QUD (Ginzburg).
+            RaisesOrResolves,
+            /// Understanding updates CommonGround (Stalnaker).
+            EstablishesIn,
+            /// Intention drives Generation (Levelt).
+            Drives,
+            /// GroundingAct achieves Grounding (Traum).
+            Achieves,
+            /// Repair restores Understanding (Schegloff).
+            Restores,
+            /// Intention formed from DialogueState + QUD (what to say next).
+            FormedFrom,
+        ],
+        edges: [
+            // Participant produces Utterance
+            (Participant, Utterance, Produces),
+            // Utterance expresses DialogueAct
+            (Utterance, DialogueAct, Expresses),
+            // Utterance updates DialogueState
+            (Utterance, DialogueState, Updates),
+            // Utterance appended to History
+            (Utterance, History, AppendedTo),
+            // Understanding interprets Utterance
+            (Understanding, Utterance, Interprets),
+            // Generation creates Utterance
+            (Generation, Utterance, Creates),
+            // TurnManagement controls Participant
+            (TurnManagement, Participant, Controls),
+            // Grounding arises from Understanding
+            (Understanding, Grounding, ArisesFrom),
+            // DialogueAct addresses Topic
+            (DialogueAct, Topic, Addresses),
+            // QUD: utterances raise or resolve questions (Ginzburg 2012)
+            (Utterance, QUD, RaisesOrResolves),
+            // Understanding establishes facts in CommonGround (Stalnaker 2002)
+            (Understanding, CommonGround, EstablishesIn),
+            // Intention drives Generation (Levelt 1989)
+            (Intention, Generation, Drives),
+            // GroundingAct achieves Grounding (Traum 1994)
+            (GroundingAct, Grounding, Achieves),
+            // Repair restores Understanding (Schegloff 1977)
+            (Repair, Understanding, Restores),
+            // Intention formed from DialogueState + QUD
+            (DialogueState, Intention, FormedFrom),
+            (QUD, Intention, FormedFrom),
+        ],
+        composed: [
+            (Participant, DialogueAct),
+            (Participant, DialogueState),
+            (Participant, History),
+            (TurnManagement, Utterance),
+            (Understanding, DialogueAct),
+            (Generation, DialogueAct),
+            // Intention → Utterance (through Generation)
+            (Intention, Utterance),
+            // DialogueState → Generation (through Intention)
+            (DialogueState, Generation),
+            // Repair → Grounding (through Understanding → GroundingAct)
+            (Repair, Grounding),
+        ],
     }
 }

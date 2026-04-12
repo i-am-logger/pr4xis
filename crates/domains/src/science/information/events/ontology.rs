@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Event-driven system ontology.
 //
@@ -21,7 +20,7 @@ use pr4xis::category::relationship::Relationship;
 // - Almeida & Falbo, Events as Entities in Ontology-Driven Modeling (2019)
 
 /// Core concepts of event-driven systems.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum EventConcept {
     /// Something that happened — an immutable fact.
     /// A move was made. A signal changed. A message arrived.
@@ -58,214 +57,65 @@ pub enum EventConcept {
     EventSchema,
 }
 
-impl Entity for EventConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Event,
-            Self::Command,
-            Self::State,
-            Self::Handler,
-            Self::EventLog,
-            Self::EventBus,
-            Self::Projection,
-            Self::Subscription,
-            Self::Saga,
-            Self::EventSchema,
-        ]
-    }
-}
-
-/// Relationships between event-driven concepts.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EventRelation {
-    pub from: EventConcept,
-    pub to: EventConcept,
-    pub kind: EventRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum EventRelationKind {
-    Identity,
-    /// Command triggers Event (if accepted).
-    Triggers,
-    /// Event is appended to EventLog.
-    AppendedTo,
-    /// Handler reacts to Event.
-    ReactsTo,
-    /// EventBus routes Event to Handler.
-    Routes,
-    /// Event changes State (via handler).
-    Changes,
-    /// Projection is derived from EventLog.
-    DerivedFrom,
-    /// Subscription listens to EventBus.
-    ListensTo,
-    /// Saga composes Events.
-    Composes,
-    /// EventSchema defines Event structure.
-    Defines,
-    /// Composed.
-    Composed,
-}
-
-impl Relationship for EventRelation {
-    type Object = EventConcept;
-    fn source(&self) -> EventConcept {
-        self.from
-    }
-    fn target(&self) -> EventConcept {
-        self.to
-    }
-}
-
-/// The event-driven category.
-pub struct EventCategory;
-
-impl Category for EventCategory {
-    type Object = EventConcept;
-    type Morphism = EventRelation;
-
-    fn identity(obj: &EventConcept) -> EventRelation {
-        EventRelation {
-            from: *obj,
-            to: *obj,
-            kind: EventRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &EventRelation, g: &EventRelation) -> Option<EventRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == EventRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == EventRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(EventRelation {
-            from: f.from,
-            to: g.to,
-            kind: EventRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<EventRelation> {
-        use EventConcept::*;
-        use EventRelationKind::*;
-
-        let mut m = Vec::new();
-
-        for c in EventConcept::variants() {
-            m.push(EventRelation {
-                from: c,
-                to: c,
-                kind: Identity,
-            });
-        }
-
-        // Command triggers Event
-        m.push(EventRelation {
-            from: Command,
-            to: Event,
-            kind: Triggers,
-        });
-        // Event appended to EventLog
-        m.push(EventRelation {
-            from: Event,
-            to: EventLog,
-            kind: AppendedTo,
-        });
-        // Handler reacts to Event
-        m.push(EventRelation {
-            from: Handler,
-            to: Event,
-            kind: ReactsTo,
-        });
-        // EventBus routes Event to Handler
-        m.push(EventRelation {
-            from: EventBus,
-            to: Handler,
-            kind: Routes,
-        });
-        // Event changes State
-        m.push(EventRelation {
-            from: Event,
-            to: State,
-            kind: Changes,
-        });
-        // Projection derived from EventLog
-        m.push(EventRelation {
-            from: Projection,
-            to: EventLog,
-            kind: DerivedFrom,
-        });
-        // Subscription listens to EventBus
-        m.push(EventRelation {
-            from: Subscription,
-            to: EventBus,
-            kind: ListensTo,
-        });
-        // Saga composes Events
-        m.push(EventRelation {
-            from: Saga,
-            to: Event,
-            kind: Composes,
-        });
-        // EventSchema defines Event
-        m.push(EventRelation {
-            from: EventSchema,
-            to: Event,
-            kind: Defines,
-        });
-
-        // Transitive
-        // Command → Event → State
-        m.push(EventRelation {
-            from: Command,
-            to: State,
-            kind: Composed,
-        });
-        // Command → Event → EventLog
-        m.push(EventRelation {
-            from: Command,
-            to: EventLog,
-            kind: Composed,
-        });
-        // EventBus → Handler → Event
-        m.push(EventRelation {
-            from: EventBus,
-            to: Event,
-            kind: Composed,
-        });
-        // Subscription → EventBus → Handler
-        m.push(EventRelation {
-            from: Subscription,
-            to: Handler,
-            kind: Composed,
-        });
-        // Saga → Event → State
-        m.push(EventRelation {
-            from: Saga,
-            to: State,
-            kind: Composed,
-        });
-        // Saga → Event → EventLog
-        m.push(EventRelation {
-            from: Saga,
-            to: EventLog,
-            kind: Composed,
-        });
-
-        // Self-composed (for functor closure)
-        for c in EventConcept::variants() {
-            m.push(EventRelation {
-                from: c,
-                to: c,
-                kind: Composed,
-            });
-        }
-
-        m
+define_category! {
+    /// The event-driven category.
+    pub EventCategory {
+        entity: EventConcept,
+        relation: EventRelation,
+        kind: EventRelationKind,
+        kinds: [
+            /// Command triggers Event (if accepted).
+            Triggers,
+            /// Event is appended to EventLog.
+            AppendedTo,
+            /// Handler reacts to Event.
+            ReactsTo,
+            /// EventBus routes Event to Handler.
+            Routes,
+            /// Event changes State (via handler).
+            Changes,
+            /// Projection is derived from EventLog.
+            DerivedFrom,
+            /// Subscription listens to EventBus.
+            ListensTo,
+            /// Saga composes Events.
+            Composes,
+            /// EventSchema defines Event structure.
+            Defines,
+        ],
+        edges: [
+            // Command triggers Event
+            (Command, Event, Triggers),
+            // Event appended to EventLog
+            (Event, EventLog, AppendedTo),
+            // Handler reacts to Event
+            (Handler, Event, ReactsTo),
+            // EventBus routes Event to Handler
+            (EventBus, Handler, Routes),
+            // Event changes State
+            (Event, State, Changes),
+            // Projection derived from EventLog
+            (Projection, EventLog, DerivedFrom),
+            // Subscription listens to EventBus
+            (Subscription, EventBus, ListensTo),
+            // Saga composes Events
+            (Saga, Event, Composes),
+            // EventSchema defines Event
+            (EventSchema, Event, Defines),
+        ],
+        composed: [
+            // Command → Event → State
+            (Command, State),
+            // Command → Event → EventLog
+            (Command, EventLog),
+            // EventBus → Handler → Event
+            (EventBus, Event),
+            // Subscription → EventBus → Handler
+            (Subscription, Handler),
+            // Saga → Event → State
+            (Saga, State),
+            // Saga → Event → EventLog
+            (Saga, EventLog),
+        ],
     }
 }

@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Control Systems Ontology — the science of feedback and regulation.
 //
@@ -30,7 +29,7 @@ use pr4xis::category::relationship::Relationship;
 // - Åström & Murray, Feedback Systems (2008) — modern treatment
 
 /// Core concepts of a control system.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ControlConcept {
     /// The system being controlled — the "thing in the world."
     Plant,
@@ -55,25 +54,8 @@ pub enum ControlConcept {
     FeedbackLoop,
 }
 
-impl Entity for ControlConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Plant,
-            Self::Controller,
-            Self::Sensor,
-            Self::Actuator,
-            Self::Setpoint,
-            Self::Error,
-            Self::Signal,
-            Self::Disturbance,
-            Self::Model,
-            Self::FeedbackLoop,
-        ]
-    }
-}
-
 /// Types of control systems — the taxonomy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ControlSystemKind {
     /// No feedback — controller acts "blind."
     OpenLoop,
@@ -91,199 +73,53 @@ pub enum ControlSystemKind {
     Adaptive,
 }
 
-impl Entity for ControlSystemKind {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::OpenLoop,
-            Self::ClosedLoop,
-            Self::Cybernetic,
-            Self::FirstOrderCybernetic,
-            Self::SecondOrderCybernetic,
-            Self::Adaptive,
-        ]
-    }
-}
-
-/// Relationships between control concepts.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ControlRelation {
-    pub from: ControlConcept,
-    pub to: ControlConcept,
-    pub kind: ControlRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ControlRelationKind {
-    Identity,
-    /// Sensor measures Plant output.
-    Measures,
-    /// Controller computes from Error.
-    ComputesFrom,
-    /// Actuator acts on Plant.
-    ActsOn,
-    /// Setpoint compared with Measured to produce Error.
-    ComparedWith,
-    /// Disturbance perturbs Plant.
-    Perturbs,
-    /// Model represents Plant inside Controller.
-    Represents,
-    /// FeedbackLoop closes the causal chain.
-    Closes,
-    /// Signal carries information between components.
-    Carries,
-    Composed,
-}
-
-impl Relationship for ControlRelation {
-    type Object = ControlConcept;
-    fn source(&self) -> ControlConcept {
-        self.from
-    }
-    fn target(&self) -> ControlConcept {
-        self.to
-    }
-}
-
-pub struct ControlCategory;
-
-impl Category for ControlCategory {
-    type Object = ControlConcept;
-    type Morphism = ControlRelation;
-
-    fn identity(obj: &ControlConcept) -> ControlRelation {
-        ControlRelation {
-            from: *obj,
-            to: *obj,
-            kind: ControlRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &ControlRelation, g: &ControlRelation) -> Option<ControlRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == ControlRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == ControlRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(ControlRelation {
-            from: f.from,
-            to: g.to,
-            kind: ControlRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<ControlRelation> {
-        use ControlConcept::*;
-        use ControlRelationKind::*;
-
-        let mut m = Vec::new();
-
-        for c in ControlConcept::variants() {
-            m.push(ControlRelation {
-                from: c,
-                to: c,
-                kind: Identity,
-            });
-        }
-
-        // The control loop: Controller → Actuator → Plant → Sensor → Error → Controller
-        m.push(ControlRelation {
-            from: Sensor,
-            to: Plant,
-            kind: Measures,
-        });
-        m.push(ControlRelation {
-            from: Controller,
-            to: Error,
-            kind: ComputesFrom,
-        });
-        m.push(ControlRelation {
-            from: Actuator,
-            to: Plant,
-            kind: ActsOn,
-        });
-        m.push(ControlRelation {
-            from: Setpoint,
-            to: Error,
-            kind: ComparedWith,
-        });
-        m.push(ControlRelation {
-            from: Controller,
-            to: Actuator,
-            kind: Carries,
-        });
-        m.push(ControlRelation {
-            from: Sensor,
-            to: Error,
-            kind: Carries,
-        });
-
-        // Disturbance perturbs plant
-        m.push(ControlRelation {
-            from: Disturbance,
-            to: Plant,
-            kind: Perturbs,
-        });
-
-        // Model represents plant inside controller (Conant-Ashby theorem)
-        m.push(ControlRelation {
-            from: Model,
-            to: Plant,
-            kind: Represents,
-        });
-        m.push(ControlRelation {
-            from: Controller,
-            to: Model,
-            kind: Carries,
-        });
-
-        // Feedback loop closes the causal chain
-        m.push(ControlRelation {
-            from: FeedbackLoop,
-            to: Sensor,
-            kind: Closes,
-        });
-        m.push(ControlRelation {
-            from: FeedbackLoop,
-            to: Controller,
-            kind: Closes,
-        });
-
-        // Transitive: the full loop
-        m.push(ControlRelation {
-            from: Controller,
-            to: Plant,
-            kind: Composed,
-        });
-        m.push(ControlRelation {
-            from: Sensor,
-            to: Controller,
-            kind: Composed,
-        });
-        m.push(ControlRelation {
-            from: Setpoint,
-            to: Controller,
-            kind: Composed,
-        });
-        m.push(ControlRelation {
-            from: Disturbance,
-            to: Error,
-            kind: Composed,
-        });
-
-        // Self-composed closure
-        for c in ControlConcept::variants() {
-            m.push(ControlRelation {
-                from: c,
-                to: c,
-                kind: Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub ControlCategory {
+        entity: ControlConcept,
+        relation: ControlRelation,
+        kind: ControlRelationKind,
+        kinds: [
+            /// Sensor measures Plant output.
+            Measures,
+            /// Controller computes from Error.
+            ComputesFrom,
+            /// Actuator acts on Plant.
+            ActsOn,
+            /// Setpoint compared with Measured to produce Error.
+            ComparedWith,
+            /// Disturbance perturbs Plant.
+            Perturbs,
+            /// Model represents Plant inside Controller.
+            Represents,
+            /// FeedbackLoop closes the causal chain.
+            Closes,
+            /// Signal carries information between components.
+            Carries,
+        ],
+        edges: [
+            // The control loop: Controller → Actuator → Plant → Sensor → Error → Controller
+            (Sensor, Plant, Measures),
+            (Controller, Error, ComputesFrom),
+            (Actuator, Plant, ActsOn),
+            (Setpoint, Error, ComparedWith),
+            (Controller, Actuator, Carries),
+            (Sensor, Error, Carries),
+            // Disturbance perturbs plant
+            (Disturbance, Plant, Perturbs),
+            // Model represents plant inside controller (Conant-Ashby theorem)
+            (Model, Plant, Represents),
+            (Controller, Model, Carries),
+            // Feedback loop closes the causal chain
+            (FeedbackLoop, Sensor, Closes),
+            (FeedbackLoop, Controller, Closes),
+        ],
+        composed: [
+            // Transitive: the full loop
+            (Controller, Plant),
+            (Sensor, Controller),
+            (Setpoint, Controller),
+            (Disturbance, Error),
+        ],
     }
 }
 

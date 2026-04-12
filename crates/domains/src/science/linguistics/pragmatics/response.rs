@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Response Generation ontology — the right adjoint of parsing.
 //
@@ -29,7 +28,7 @@ use pr4xis::category::relationship::Relationship;
 // - Lambek & Scott, "Introduction to Higher Order Categorical Logic" (1986)
 
 /// Concepts in response generation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ResponseConcept {
     /// The communicative intent — what the system wants to express.
     /// Determined by metacognition (gap → clarify, repair → suggest).
@@ -51,160 +50,43 @@ pub enum ResponseConcept {
     Context,
 }
 
-impl Entity for ResponseConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Intent,
-            Self::EpistemicFrame,
-            Self::Content,
-            Self::SpeechActType,
-            Self::SurfaceForm,
-            Self::Context,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ResponseRelation {
-    pub from: ResponseConcept,
-    pub to: ResponseConcept,
-    pub kind: ResponseRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ResponseRelationKind {
-    Identity,
-    /// Metacognition determines Intent.
-    Determines,
-    /// Epistemics frames the Content.
-    Frames,
-    /// Intent selects SpeechActType.
-    Selects,
-    /// Content realizes as SurfaceForm (the generation step).
-    Realizes,
-    /// Context constrains Intent.
-    Constrains,
-    /// SpeechActType shapes SurfaceForm.
-    Shapes,
-    Composed,
-}
-
-impl Relationship for ResponseRelation {
-    type Object = ResponseConcept;
-    fn source(&self) -> ResponseConcept {
-        self.from
-    }
-    fn target(&self) -> ResponseConcept {
-        self.to
-    }
-}
-
-pub struct ResponseCategory;
-
-impl Category for ResponseCategory {
-    type Object = ResponseConcept;
-    type Morphism = ResponseRelation;
-
-    fn identity(obj: &ResponseConcept) -> ResponseRelation {
-        ResponseRelation {
-            from: *obj,
-            to: *obj,
-            kind: ResponseRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &ResponseRelation, g: &ResponseRelation) -> Option<ResponseRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == ResponseRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == ResponseRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(ResponseRelation {
-            from: f.from,
-            to: g.to,
-            kind: ResponseRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<ResponseRelation> {
-        use ResponseConcept as C;
-        use ResponseRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in ResponseConcept::variants() {
-            m.push(ResponseRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // Metacognition → Intent (gap/repair/clarification determines what to say)
-        m.push(ResponseRelation {
-            from: C::Context,
-            to: C::Intent,
-            kind: R::Constrains,
-        });
-        // Epistemics frames Content (KK→assert, KU→ask, UK→suggest, UU→admit)
-        m.push(ResponseRelation {
-            from: C::EpistemicFrame,
-            to: C::Content,
-            kind: R::Frames,
-        });
-        // Intent selects SpeechActType (clarification→question, assertion→statement)
-        m.push(ResponseRelation {
-            from: C::Intent,
-            to: C::SpeechActType,
-            kind: R::Selects,
-        });
-        // Content realizes as SurfaceForm (the generation functor)
-        m.push(ResponseRelation {
-            from: C::Content,
-            to: C::SurfaceForm,
-            kind: R::Realizes,
-        });
-        // SpeechActType shapes SurfaceForm (question → interrogative form)
-        m.push(ResponseRelation {
-            from: C::SpeechActType,
-            to: C::SurfaceForm,
-            kind: R::Shapes,
-        });
-
-        // Transitive
-        m.push(ResponseRelation {
-            from: C::Context,
-            to: C::SpeechActType,
-            kind: R::Composed,
-        });
-        m.push(ResponseRelation {
-            from: C::Context,
-            to: C::SurfaceForm,
-            kind: R::Composed,
-        });
-        m.push(ResponseRelation {
-            from: C::Intent,
-            to: C::SurfaceForm,
-            kind: R::Composed,
-        });
-        m.push(ResponseRelation {
-            from: C::EpistemicFrame,
-            to: C::SurfaceForm,
-            kind: R::Composed,
-        });
-
-        for c in ResponseConcept::variants() {
-            m.push(ResponseRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub ResponseCategory {
+        entity: ResponseConcept,
+        relation: ResponseRelation,
+        kind: ResponseRelationKind,
+        kinds: [
+            /// Metacognition determines Intent.
+            Determines,
+            /// Epistemics frames the Content.
+            Frames,
+            /// Intent selects SpeechActType.
+            Selects,
+            /// Content realizes as SurfaceForm (the generation step).
+            Realizes,
+            /// Context constrains Intent.
+            Constrains,
+            /// SpeechActType shapes SurfaceForm.
+            Shapes,
+        ],
+        edges: [
+            // Metacognition → Intent (gap/repair/clarification determines what to say)
+            (Context, Intent, Constrains),
+            // Epistemics frames Content (KK→assert, KU→ask, UK→suggest, UU→admit)
+            (EpistemicFrame, Content, Frames),
+            // Intent selects SpeechActType (clarification→question, assertion→statement)
+            (Intent, SpeechActType, Selects),
+            // Content realizes as SurfaceForm (the generation functor)
+            (Content, SurfaceForm, Realizes),
+            // SpeechActType shapes SurfaceForm (question → interrogative form)
+            (SpeechActType, SurfaceForm, Shapes),
+        ],
+        composed: [
+            (Context, SpeechActType),
+            (Context, SurfaceForm),
+            (Intent, SurfaceForm),
+            (EpistemicFrame, SurfaceForm),
+        ],
     }
 }
 
@@ -250,7 +132,7 @@ impl ResponseFrame {
 mod tests {
     use super::*;
     use pr4xis::category::Category;
-    use pr4xis::category::entity::Entity;
+    use pr4xis::category::Entity;
 
     #[test]
     fn category_identity_law() {

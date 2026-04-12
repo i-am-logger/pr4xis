@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Grounding — the process of establishing mutual understanding.
 //
@@ -22,7 +21,7 @@ use pr4xis::category::relationship::Relationship;
 /// Every contribution passes through these states. The DU starts
 /// at S and must reach Grounded (F) for the content to enter
 /// common ground. If it reaches Dead (D), the content is abandoned.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum GroundingState {
     /// Initial state — no discourse unit initiated yet.
     Start,
@@ -42,30 +41,6 @@ pub enum GroundingState {
     /// Abandoned — the discourse unit was cancelled without grounding.
     /// Terminal failure state.
     Dead,
-}
-
-impl Entity for GroundingState {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Start,
-            Self::Initiated,
-            Self::RepairRequested,
-            Self::Acknowledged,
-            Self::Grounded,
-            Self::Dead,
-        ]
-    }
-}
-
-/// Grounding acts — actions that move a discourse unit through its lifecycle.
-///
-/// Each act transitions the DU from one state to another.
-/// The taxonomy is from Traum (1994).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct GroundingTransition {
-    pub from: GroundingState,
-    pub to: GroundingState,
-    pub act: GroundingAct,
 }
 
 /// The seven grounding acts from Traum (1994).
@@ -93,175 +68,61 @@ pub enum GroundingAct {
     Composed,
 }
 
-impl Relationship for GroundingTransition {
-    type Object = GroundingState;
-    fn source(&self) -> GroundingState {
-        self.from
-    }
-    fn target(&self) -> GroundingState {
-        self.to
-    }
-}
-
-pub struct GroundingCategory;
-
-impl Category for GroundingCategory {
-    type Object = GroundingState;
-    type Morphism = GroundingTransition;
-
-    fn identity(obj: &GroundingState) -> GroundingTransition {
-        GroundingTransition {
-            from: *obj,
-            to: *obj,
-            act: GroundingAct::Identity,
-        }
-    }
-
-    fn compose(f: &GroundingTransition, g: &GroundingTransition) -> Option<GroundingTransition> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.act == GroundingAct::Identity {
-            return Some(g.clone());
-        }
-        if g.act == GroundingAct::Identity {
-            return Some(f.clone());
-        }
-        Some(GroundingTransition {
-            from: f.from,
-            to: g.to,
-            act: GroundingAct::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<GroundingTransition> {
-        use GroundingAct as A;
-        use GroundingState as S;
-
-        let mut m = Vec::new();
-
-        // Identities
-        for s in GroundingState::variants() {
-            m.push(GroundingTransition {
-                from: s,
-                to: s,
-                act: A::Identity,
-            });
-        }
-
-        // S → Initiated (start a new contribution)
-        m.push(GroundingTransition {
-            from: S::Start,
-            to: S::Initiated,
-            act: A::Initiate,
-        });
-
-        // Initiated → Initiated (extend from same speaker)
-        m.push(GroundingTransition {
-            from: S::Initiated,
-            to: S::Initiated,
-            act: A::Continue,
-        });
-
-        // Initiated → Acknowledged (addressee signals understanding)
-        m.push(GroundingTransition {
-            from: S::Initiated,
-            to: S::Acknowledged,
-            act: A::Acknowledge,
-        });
-
-        // Initiated → RepairRequested (addressee signals non-understanding)
-        m.push(GroundingTransition {
-            from: S::Initiated,
-            to: S::RepairRequested,
-            act: A::RequestRepair,
-        });
-
-        // Initiated → Initiated (self-repair by presenter)
-        m.push(GroundingTransition {
-            from: S::Initiated,
-            to: S::Initiated,
-            act: A::Repair,
-        });
-
-        // Initiated → Dead (cancel without grounding)
-        m.push(GroundingTransition {
-            from: S::Initiated,
-            to: S::Dead,
-            act: A::Cancel,
-        });
-
-        // RepairRequested → Initiated (presenter repairs)
-        m.push(GroundingTransition {
-            from: S::RepairRequested,
-            to: S::Initiated,
-            act: A::Repair,
-        });
-
-        // RepairRequested → Dead (give up)
-        m.push(GroundingTransition {
-            from: S::RepairRequested,
-            to: S::Dead,
-            act: A::Cancel,
-        });
-
-        // Acknowledged → Grounded (mutual belief established)
-        m.push(GroundingTransition {
-            from: S::Acknowledged,
-            to: S::Grounded,
-            act: A::Acknowledge,
-        });
-
-        // Acknowledged → Initiated (re-opened for correction)
-        m.push(GroundingTransition {
-            from: S::Acknowledged,
-            to: S::Initiated,
-            act: A::Repair,
-        });
-
-        // Initiated → Initiated (request ack is a continuation)
-        m.push(GroundingTransition {
-            from: S::Initiated,
-            to: S::Initiated,
-            act: A::RequestAck,
-        });
-
-        // Composed transitions (transitive paths)
-        // Start → Grounded (clean path: Initiate then Acknowledge then Acknowledge)
-        m.push(GroundingTransition {
-            from: S::Start,
-            to: S::Grounded,
-            act: A::Composed,
-        });
-        // Start → Dead (initiate then cancel)
-        m.push(GroundingTransition {
-            from: S::Start,
-            to: S::Dead,
-            act: A::Composed,
-        });
-        // Start → Acknowledged (initiate then ack)
-        m.push(GroundingTransition {
-            from: S::Start,
-            to: S::Acknowledged,
-            act: A::Composed,
-        });
-        // RepairRequested → Grounded (repair then ack)
-        m.push(GroundingTransition {
-            from: S::RepairRequested,
-            to: S::Grounded,
-            act: A::Composed,
-        });
-
-        // Self-composed
-        for s in GroundingState::variants() {
-            m.push(GroundingTransition {
-                from: s,
-                to: s,
-                act: A::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub GroundingCategory {
+        entity: GroundingState,
+        relation: GroundingTransition,
+        kind: GroundingTransitionKind,
+        kinds: [
+            /// Start a new discourse unit.
+            Initiate,
+            /// Extend the current DU from the same speaker.
+            Continue,
+            /// Signal understanding of the DU content.
+            Acknowledge,
+            /// Correct or replace content of the DU.
+            Repair,
+            /// Request the other party to repair.
+            RequestRepair,
+            /// Request explicit acknowledgment.
+            RequestAck,
+            /// Abort the DU without grounding.
+            Cancel,
+        ],
+        edges: [
+            // S → Initiated (start a new contribution)
+            (Start, Initiated, Initiate),
+            // Initiated → Initiated (extend from same speaker)
+            (Initiated, Initiated, Continue),
+            // Initiated → Acknowledged (addressee signals understanding)
+            (Initiated, Acknowledged, Acknowledge),
+            // Initiated → RepairRequested (addressee signals non-understanding)
+            (Initiated, RepairRequested, RequestRepair),
+            // Initiated → Initiated (self-repair by presenter)
+            (Initiated, Initiated, Repair),
+            // Initiated → Dead (cancel without grounding)
+            (Initiated, Dead, Cancel),
+            // RepairRequested → Initiated (presenter repairs)
+            (RepairRequested, Initiated, Repair),
+            // RepairRequested → Dead (give up)
+            (RepairRequested, Dead, Cancel),
+            // Acknowledged → Grounded (mutual belief established)
+            (Acknowledged, Grounded, Acknowledge),
+            // Acknowledged → Initiated (re-opened for correction)
+            (Acknowledged, Initiated, Repair),
+            // Initiated → Initiated (request ack is a continuation)
+            (Initiated, Initiated, RequestAck),
+        ],
+        composed: [
+            // Start → Grounded (clean path: Initiate then Acknowledge then Acknowledge)
+            (Start, Grounded),
+            // Start → Dead (initiate then cancel)
+            (Start, Dead),
+            // Start → Acknowledged (initiate then ack)
+            (Start, Acknowledged),
+            // RepairRequested → Grounded (repair then ack)
+            (RepairRequested, Grounded),
+        ],
     }
 }
 
@@ -269,7 +130,7 @@ impl Category for GroundingCategory {
 mod tests {
     use super::*;
     use pr4xis::category::Category;
-    use pr4xis::category::entity::Entity;
+    use pr4xis::category::Entity;
 
     #[test]
     fn category_identity_law() {
@@ -277,7 +138,7 @@ mod tests {
             let id = GroundingCategory::identity(&s);
             assert_eq!(id.from, s);
             assert_eq!(id.to, s);
-            assert_eq!(id.act, GroundingAct::Identity);
+            assert_eq!(id.kind, GroundingTransitionKind::Identity);
         }
     }
 
@@ -302,16 +163,16 @@ mod tests {
         let morphisms = GroundingCategory::morphisms();
         assert!(morphisms.iter().any(|m| m.from == GroundingState::Start
             && m.to == GroundingState::Initiated
-            && m.act == GroundingAct::Initiate));
+            && m.kind == GroundingTransitionKind::Initiate));
         assert!(morphisms.iter().any(|m| m.from == GroundingState::Initiated
             && m.to == GroundingState::Acknowledged
-            && m.act == GroundingAct::Acknowledge));
+            && m.kind == GroundingTransitionKind::Acknowledge));
         assert!(
             morphisms
                 .iter()
                 .any(|m| m.from == GroundingState::Acknowledged
                     && m.to == GroundingState::Grounded
-                    && m.act == GroundingAct::Acknowledge)
+                    && m.kind == GroundingTransitionKind::Acknowledge)
         );
     }
 
@@ -321,12 +182,12 @@ mod tests {
         let initiate = GroundingTransition {
             from: GroundingState::Start,
             to: GroundingState::Initiated,
-            act: GroundingAct::Initiate,
+            kind: GroundingTransitionKind::Initiate,
         };
         let acknowledge = GroundingTransition {
             from: GroundingState::Initiated,
             to: GroundingState::Acknowledged,
-            act: GroundingAct::Acknowledge,
+            kind: GroundingTransitionKind::Acknowledge,
         };
         let composed = GroundingCategory::compose(&initiate, &acknowledge).unwrap();
         assert_eq!(composed.from, GroundingState::Start);
@@ -339,13 +200,13 @@ mod tests {
         let morphisms = GroundingCategory::morphisms();
         assert!(morphisms.iter().any(|m| m.from == GroundingState::Initiated
             && m.to == GroundingState::RepairRequested
-            && m.act == GroundingAct::RequestRepair));
+            && m.kind == GroundingTransitionKind::RequestRepair));
         assert!(
             morphisms
                 .iter()
                 .any(|m| m.from == GroundingState::RepairRequested
                     && m.to == GroundingState::Initiated
-                    && m.act == GroundingAct::Repair)
+                    && m.kind == GroundingTransitionKind::Repair)
         );
     }
 
@@ -358,8 +219,8 @@ mod tests {
             .filter(|m| {
                 m.from == GroundingState::Grounded
                     && m.to != GroundingState::Grounded
-                    && m.act != GroundingAct::Identity
-                    && m.act != GroundingAct::Composed
+                    && m.kind != GroundingTransitionKind::Identity
+                    && m.kind != GroundingTransitionKind::Composed
             })
             .collect();
         assert!(
@@ -378,8 +239,8 @@ mod tests {
             .filter(|m| {
                 m.from == GroundingState::Dead
                     && m.to != GroundingState::Dead
-                    && m.act != GroundingAct::Identity
-                    && m.act != GroundingAct::Composed
+                    && m.kind != GroundingTransitionKind::Identity
+                    && m.kind != GroundingTransitionKind::Composed
             })
             .collect();
         assert!(
@@ -394,7 +255,7 @@ mod tests {
         let morphisms = GroundingCategory::morphisms();
         let cancels: Vec<_> = morphisms
             .iter()
-            .filter(|m| m.act == GroundingAct::Cancel)
+            .filter(|m| m.kind == GroundingTransitionKind::Cancel)
             .collect();
         for c in &cancels {
             assert_eq!(

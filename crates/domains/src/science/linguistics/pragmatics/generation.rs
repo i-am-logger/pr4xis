@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Speech production ontology — the generation pipeline.
 //
@@ -24,7 +23,7 @@ use pr4xis::category::relationship::Relationship;
 // direction (find pre-image). Our Lambek grammar already has everything needed.
 
 /// Concepts in the speech production pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ProductionConcept {
     /// What the system wants to achieve by speaking.
     /// Appelt (1985): a goal in the hearer's mental state.
@@ -63,198 +62,56 @@ pub enum ProductionConcept {
     LexicalChoice,
 }
 
-impl Entity for ProductionConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::CommunicativeGoal,
-            Self::PreverbalMessage,
-            Self::SentencePlan,
-            Self::SurfaceForm,
-            Self::Monitor,
-            Self::Message,
-            Self::DocumentPlan,
-            Self::LexicalChoice,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ProductionRelation {
-    pub from: ProductionConcept,
-    pub to: ProductionConcept,
-    pub kind: ProductionRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ProductionRelationKind {
-    Identity,
-    /// CommunicativeGoal conceptualized into PreverbalMessage (Levelt macro+micro planning).
-    Conceptualizes,
-    /// PreverbalMessage formulated into SentencePlan (Levelt grammatical encoding).
-    Formulates,
-    /// SentencePlan realized as SurfaceForm (de Groote ACG beta-reduction).
-    Realizes,
-    /// Monitor checks SurfaceForm against PreverbalMessage (Levelt inner speech loop).
-    Monitors,
-    /// CommunicativeGoal selects Messages from knowledge base (Reiter-Dale content det.).
-    Selects,
-    /// Messages organized into DocumentPlan (RST / McKeown schemata).
-    Organizes,
-    /// DocumentPlan elaborated into PreverbalMessage (Levelt micro-planning per clause).
-    Elaborates,
-    /// SentencePlan uses LexicalChoice (Levelt lemma access).
-    UsesLexicon,
-    Composed,
-}
-
-impl Relationship for ProductionRelation {
-    type Object = ProductionConcept;
-    fn source(&self) -> ProductionConcept {
-        self.from
-    }
-    fn target(&self) -> ProductionConcept {
-        self.to
-    }
-}
-
-pub struct ProductionCategory;
-
-impl Category for ProductionCategory {
-    type Object = ProductionConcept;
-    type Morphism = ProductionRelation;
-
-    fn identity(obj: &ProductionConcept) -> ProductionRelation {
-        ProductionRelation {
-            from: *obj,
-            to: *obj,
-            kind: ProductionRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &ProductionRelation, g: &ProductionRelation) -> Option<ProductionRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == ProductionRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == ProductionRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(ProductionRelation {
-            from: f.from,
-            to: g.to,
-            kind: ProductionRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<ProductionRelation> {
-        use ProductionConcept as C;
-        use ProductionRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in ProductionConcept::variants() {
-            m.push(ProductionRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // The Levelt pipeline: Goal → PreverbalMessage → SentencePlan → SurfaceForm
-        m.push(ProductionRelation {
-            from: C::CommunicativeGoal,
-            to: C::PreverbalMessage,
-            kind: R::Conceptualizes,
-        });
-        m.push(ProductionRelation {
-            from: C::PreverbalMessage,
-            to: C::SentencePlan,
-            kind: R::Formulates,
-        });
-        m.push(ProductionRelation {
-            from: C::SentencePlan,
-            to: C::SurfaceForm,
-            kind: R::Realizes,
-        });
-
-        // Monitor loop: SurfaceForm → Monitor → PreverbalMessage (repair)
-        m.push(ProductionRelation {
-            from: C::Monitor,
-            to: C::SurfaceForm,
-            kind: R::Monitors,
-        });
-        m.push(ProductionRelation {
-            from: C::Monitor,
-            to: C::PreverbalMessage,
-            kind: R::Monitors,
-        });
-
-        // Content determination: Goal → Messages → DocumentPlan → PreverbalMessage
-        m.push(ProductionRelation {
-            from: C::CommunicativeGoal,
-            to: C::Message,
-            kind: R::Selects,
-        });
-        m.push(ProductionRelation {
-            from: C::Message,
-            to: C::DocumentPlan,
-            kind: R::Organizes,
-        });
-        m.push(ProductionRelation {
-            from: C::DocumentPlan,
-            to: C::PreverbalMessage,
-            kind: R::Elaborates,
-        });
-
-        // Lexical choice: SentencePlan uses LexicalChoice
-        m.push(ProductionRelation {
-            from: C::SentencePlan,
-            to: C::LexicalChoice,
-            kind: R::UsesLexicon,
-        });
-
-        // Transitive compositions
-        // Goal → SurfaceForm (full pipeline)
-        m.push(ProductionRelation {
-            from: C::CommunicativeGoal,
-            to: C::SurfaceForm,
-            kind: R::Composed,
-        });
-        // Goal → SentencePlan (through PreverbalMessage)
-        m.push(ProductionRelation {
-            from: C::CommunicativeGoal,
-            to: C::SentencePlan,
-            kind: R::Composed,
-        });
-        // Goal → DocumentPlan (through Messages)
-        m.push(ProductionRelation {
-            from: C::CommunicativeGoal,
-            to: C::DocumentPlan,
-            kind: R::Composed,
-        });
-        // PreverbalMessage → SurfaceForm (formulate then realize)
-        m.push(ProductionRelation {
-            from: C::PreverbalMessage,
-            to: C::SurfaceForm,
-            kind: R::Composed,
-        });
-        // DocumentPlan → SurfaceForm (through PreverbalMessage)
-        m.push(ProductionRelation {
-            from: C::DocumentPlan,
-            to: C::SurfaceForm,
-            kind: R::Composed,
-        });
-
-        for c in ProductionConcept::variants() {
-            m.push(ProductionRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub ProductionCategory {
+        entity: ProductionConcept,
+        relation: ProductionRelation,
+        kind: ProductionRelationKind,
+        kinds: [
+            /// CommunicativeGoal conceptualized into PreverbalMessage (Levelt macro+micro planning).
+            Conceptualizes,
+            /// PreverbalMessage formulated into SentencePlan (Levelt grammatical encoding).
+            Formulates,
+            /// SentencePlan realized as SurfaceForm (de Groote ACG beta-reduction).
+            Realizes,
+            /// Monitor checks SurfaceForm against PreverbalMessage (Levelt inner speech loop).
+            Monitors,
+            /// CommunicativeGoal selects Messages from knowledge base (Reiter-Dale content det.).
+            Selects,
+            /// Messages organized into DocumentPlan (RST / McKeown schemata).
+            Organizes,
+            /// DocumentPlan elaborated into PreverbalMessage (Levelt micro-planning per clause).
+            Elaborates,
+            /// SentencePlan uses LexicalChoice (Levelt lemma access).
+            UsesLexicon,
+        ],
+        edges: [
+            // The Levelt pipeline: Goal → PreverbalMessage → SentencePlan → SurfaceForm
+            (CommunicativeGoal, PreverbalMessage, Conceptualizes),
+            (PreverbalMessage, SentencePlan, Formulates),
+            (SentencePlan, SurfaceForm, Realizes),
+            // Monitor loop: SurfaceForm → Monitor → PreverbalMessage (repair)
+            (Monitor, SurfaceForm, Monitors),
+            (Monitor, PreverbalMessage, Monitors),
+            // Content determination: Goal → Messages → DocumentPlan → PreverbalMessage
+            (CommunicativeGoal, Message, Selects),
+            (Message, DocumentPlan, Organizes),
+            (DocumentPlan, PreverbalMessage, Elaborates),
+            // Lexical choice: SentencePlan uses LexicalChoice
+            (SentencePlan, LexicalChoice, UsesLexicon),
+        ],
+        composed: [
+            // Goal → SurfaceForm (full pipeline)
+            (CommunicativeGoal, SurfaceForm),
+            // Goal → SentencePlan (through PreverbalMessage)
+            (CommunicativeGoal, SentencePlan),
+            // Goal → DocumentPlan (through Messages)
+            (CommunicativeGoal, DocumentPlan),
+            // PreverbalMessage → SurfaceForm (formulate then realize)
+            (PreverbalMessage, SurfaceForm),
+            // DocumentPlan → SurfaceForm (through PreverbalMessage)
+            (DocumentPlan, SurfaceForm),
+        ],
     }
 }
 
@@ -262,7 +119,7 @@ impl Category for ProductionCategory {
 mod tests {
     use super::*;
     use pr4xis::category::Category;
-    use pr4xis::category::entity::Entity;
+    use pr4xis::category::Entity;
 
     #[test]
     fn category_identity_law() {

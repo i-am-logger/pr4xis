@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Epistemics — what you know about what you know.
 //
@@ -19,7 +18,7 @@ use pr4xis::category::relationship::Relationship;
 //   Failure to find ≠ falsity. "I don't know" is a valid epistemic state.
 
 /// Epistemic states — what the system knows about its own knowledge.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum EpistemicState {
     /// I know it and can access it. "Dogs are mammals" — in taxonomy, query works.
     KnownKnown,
@@ -31,149 +30,44 @@ pub enum EpistemicState {
     UnknownUnknown,
 }
 
-impl Entity for EpistemicState {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::KnownKnown,
-            Self::KnownUnknown,
-            Self::UnknownKnown,
-            Self::UnknownUnknown,
-        ]
-    }
-}
-
-/// Transitions between epistemic states — how knowledge awareness changes.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EpistemicTransition {
-    pub from: EpistemicState,
-    pub to: EpistemicState,
-    pub kind: TransitionKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TransitionKind {
-    Identity,
-    /// Self-observation: detecting that something is missing.
-    /// UnknownUnknown → KnownUnknown (I now know I don't know).
-    Observation,
-    /// Learning: acquiring new knowledge.
-    /// KnownUnknown → KnownKnown (I learned the answer).
-    Learning,
-    /// Repair: fixing an ontology gap that blocked access.
-    /// UnknownKnown → KnownKnown (the grammar now parses the question).
-    Repair,
-    /// Discovery: finding knowledge you didn't know you had.
-    /// UnknownKnown → KnownKnown (realized I could answer this all along).
-    Discovery,
-    /// Forgetting: knowledge becomes inaccessible.
-    /// KnownKnown → UnknownKnown (cache expired, index stale).
-    Forgetting,
-    Composed,
-}
-
-impl Relationship for EpistemicTransition {
-    type Object = EpistemicState;
-    fn source(&self) -> EpistemicState {
-        self.from
-    }
-    fn target(&self) -> EpistemicState {
-        self.to
-    }
-}
-
-pub struct EpistemicCategory;
-
-impl Category for EpistemicCategory {
-    type Object = EpistemicState;
-    type Morphism = EpistemicTransition;
-
-    fn identity(obj: &EpistemicState) -> EpistemicTransition {
-        EpistemicTransition {
-            from: *obj,
-            to: *obj,
-            kind: TransitionKind::Identity,
-        }
-    }
-
-    fn compose(f: &EpistemicTransition, g: &EpistemicTransition) -> Option<EpistemicTransition> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == TransitionKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == TransitionKind::Identity {
-            return Some(f.clone());
-        }
-        Some(EpistemicTransition {
-            from: f.from,
-            to: g.to,
-            kind: TransitionKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<EpistemicTransition> {
-        use EpistemicState::*;
-        use TransitionKind::*;
-
-        let mut m = Vec::new();
-
-        for s in EpistemicState::variants() {
-            m.push(EpistemicTransition {
-                from: s,
-                to: s,
-                kind: Identity,
-            });
-        }
-
-        // Self-observation: UU → KU (now I know I don't know)
-        m.push(EpistemicTransition {
-            from: UnknownUnknown,
-            to: KnownUnknown,
-            kind: Observation,
-        });
-        // Learning: KU → KK (acquired knowledge)
-        m.push(EpistemicTransition {
-            from: KnownUnknown,
-            to: KnownKnown,
-            kind: Learning,
-        });
-        // Repair: UK → KK (fixed the access gap)
-        m.push(EpistemicTransition {
-            from: UnknownKnown,
-            to: KnownKnown,
-            kind: Repair,
-        });
-        // Discovery: UK → KK (realized I had the answer)
-        m.push(EpistemicTransition {
-            from: UnknownKnown,
-            to: KnownKnown,
-            kind: Discovery,
-        });
-        // Forgetting: KK → UK (lost access)
-        m.push(EpistemicTransition {
-            from: KnownKnown,
-            to: UnknownKnown,
-            kind: Forgetting,
-        });
-
-        // Transitive: UU → KU → KK (observe then learn)
-        m.push(EpistemicTransition {
-            from: UnknownUnknown,
-            to: KnownKnown,
-            kind: Composed,
-        });
-
-        // Self-composed
-        for s in EpistemicState::variants() {
-            m.push(EpistemicTransition {
-                from: s,
-                to: s,
-                kind: Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub EpistemicCategory {
+        entity: EpistemicState,
+        relation: EpistemicTransition,
+        kind: TransitionKind,
+        kinds: [
+            /// Self-observation: detecting that something is missing.
+            /// UnknownUnknown → KnownUnknown (I now know I don't know).
+            Observation,
+            /// Learning: acquiring new knowledge.
+            /// KnownUnknown → KnownKnown (I learned the answer).
+            Learning,
+            /// Repair: fixing an ontology gap that blocked access.
+            /// UnknownKnown → KnownKnown (the grammar now parses the question).
+            Repair,
+            /// Discovery: finding knowledge you didn't know you had.
+            /// UnknownKnown → KnownKnown (realized I could answer this all along).
+            Discovery,
+            /// Forgetting: knowledge becomes inaccessible.
+            /// KnownKnown → UnknownKnown (cache expired, index stale).
+            Forgetting,
+        ],
+        edges: [
+            // Self-observation: UU → KU (now I know I don't know)
+            (UnknownUnknown, KnownUnknown, Observation),
+            // Learning: KU → KK (acquired knowledge)
+            (KnownUnknown, KnownKnown, Learning),
+            // Repair: UK → KK (fixed the access gap)
+            (UnknownKnown, KnownKnown, Repair),
+            // Discovery: UK → KK (realized I had the answer)
+            (UnknownKnown, KnownKnown, Discovery),
+            // Forgetting: KK → UK (lost access)
+            (KnownKnown, UnknownKnown, Forgetting),
+        ],
+        composed: [
+            // Transitive: UU → KU → KK (observe then learn)
+            (UnknownUnknown, KnownKnown),
+        ],
     }
 }
 

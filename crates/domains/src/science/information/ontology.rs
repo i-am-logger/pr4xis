@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Information ontology — the science of how knowledge is represented.
 //
@@ -18,7 +17,7 @@ use pr4xis::category::relationship::Relationship;
 ///
 /// These are the ontological concepts — what things ARE.
 /// Rust types (u8, u32, String) are implementations of these concepts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum InfoUnit {
     /// The fundamental unit of binary information. Two states: 0 or 1.
     /// Connects to logic: a Bit IS a truth value.
@@ -51,21 +50,6 @@ pub enum InfoUnit {
     Quantity,
 }
 
-impl Entity for InfoUnit {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Bit,
-            Self::Byte,
-            Self::Word,
-            Self::Reference,
-            Self::Sequence,
-            Self::Text,
-            Self::TruthValue,
-            Self::Quantity,
-        ]
-    }
-}
-
 impl InfoUnit {
     /// Is this an atomic unit (no internal structure)?
     pub fn is_atomic(&self) -> bool {
@@ -78,151 +62,46 @@ impl InfoUnit {
     }
 }
 
-/// Relationships between information units.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct InfoRelation {
-    pub from: InfoUnit,
-    pub to: InfoUnit,
-    pub kind: InfoRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum InfoRelationKind {
-    Identity,
-    /// Mereological: A has-a B (Byte has-a Bits).
-    ComposedOf,
-    /// Taxonomic: A is-a B (Reference is-a Word).
-    IsA,
-    /// Semantic equivalence (TruthValue is-like Bit).
-    Equivalent,
-    /// Composed (transitive).
-    Composed,
-}
-
-impl Relationship for InfoRelation {
-    type Object = InfoUnit;
-    fn source(&self) -> InfoUnit {
-        self.from
-    }
-    fn target(&self) -> InfoUnit {
-        self.to
-    }
-}
-
-/// The information category.
-pub struct InfoCategory;
-
-impl Category for InfoCategory {
-    type Object = InfoUnit;
-    type Morphism = InfoRelation;
-
-    fn identity(obj: &InfoUnit) -> InfoRelation {
-        InfoRelation {
-            from: *obj,
-            to: *obj,
-            kind: InfoRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &InfoRelation, g: &InfoRelation) -> Option<InfoRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == InfoRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == InfoRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(InfoRelation {
-            from: f.from,
-            to: g.to,
-            kind: InfoRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<InfoRelation> {
-        use InfoRelationKind::*;
-        use InfoUnit::*;
-
-        let mut m = Vec::new();
-
-        // Identity
-        for u in InfoUnit::variants() {
-            m.push(InfoRelation {
-                from: u,
-                to: u,
-                kind: Identity,
-            });
-        }
-
-        // Composition (has-a / mereology)
-        // Byte is composed of Bits
-        m.push(InfoRelation {
-            from: Byte,
-            to: Bit,
-            kind: ComposedOf,
-        });
-        // Word is composed of Bytes
-        m.push(InfoRelation {
-            from: Word,
-            to: Byte,
-            kind: ComposedOf,
-        });
-        // Text is composed of a Sequence
-        m.push(InfoRelation {
-            from: Text,
-            to: Sequence,
-            kind: ComposedOf,
-        });
-
-        // Taxonomy (is-a)
-        // Reference is-a Word (a word used as an address)
-        m.push(InfoRelation {
-            from: Reference,
-            to: Word,
-            kind: IsA,
-        });
-        // Text is-a Sequence (of characters)
-        m.push(InfoRelation {
-            from: Text,
-            to: Sequence,
-            kind: IsA,
-        });
-        // Quantity is-a Sequence (of digits)
-        m.push(InfoRelation {
-            from: Quantity,
-            to: Sequence,
-            kind: IsA,
-        });
-        // TruthValue equivalent to Bit (semantically)
-        m.push(InfoRelation {
-            from: TruthValue,
-            to: Bit,
-            kind: Equivalent,
-        });
-
-        // Transitive closure
-        // Word composed of Bits (via Bytes)
-        m.push(InfoRelation {
-            from: Word,
-            to: Bit,
-            kind: Composed,
-        });
-        // Reference composed of Bytes (via Word)
-        m.push(InfoRelation {
-            from: Reference,
-            to: Byte,
-            kind: Composed,
-        });
-        // Reference composed of Bits
-        m.push(InfoRelation {
-            from: Reference,
-            to: Bit,
-            kind: Composed,
-        });
-
-        m
+define_category! {
+    /// The information category.
+    pub InfoCategory {
+        entity: InfoUnit,
+        relation: InfoRelation,
+        kind: InfoRelationKind,
+        kinds: [
+            /// Mereological: A has-a B (Byte has-a Bits).
+            ComposedOf,
+            /// Taxonomic: A is-a B (Reference is-a Word).
+            IsA,
+            /// Semantic equivalence (TruthValue is-like Bit).
+            Equivalent,
+        ],
+        edges: [
+            // Composition (has-a / mereology)
+            // Byte is composed of Bits
+            (Byte, Bit, ComposedOf),
+            // Word is composed of Bytes
+            (Word, Byte, ComposedOf),
+            // Text is composed of a Sequence
+            (Text, Sequence, ComposedOf),
+            // Taxonomy (is-a)
+            // Reference is-a Word (a word used as an address)
+            (Reference, Word, IsA),
+            // Text is-a Sequence (of characters)
+            (Text, Sequence, IsA),
+            // Quantity is-a Sequence (of digits)
+            (Quantity, Sequence, IsA),
+            // TruthValue equivalent to Bit (semantically)
+            (TruthValue, Bit, Equivalent),
+        ],
+        composed: [
+            // Word composed of Bits (via Bytes)
+            (Word, Bit),
+            // Reference composed of Bytes (via Word)
+            (Reference, Byte),
+            // Reference composed of Bits
+            (Reference, Bit),
+        ],
     }
 }
 

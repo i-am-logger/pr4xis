@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Instance ontology — the Spivak instance functor formalized.
 //
@@ -20,7 +19,7 @@ use pr4xis::category::relationship::Relationship;
 // - Baader et al., "The Description Logic Handbook" (2003) — ABox
 
 /// Concepts in the Instance ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum InstanceConcept {
     /// A functor I: Schema → Set — the populated data.
     /// Spivak (2012): "An instance on C is a functor I: C → Set."
@@ -63,202 +62,63 @@ pub enum InstanceConcept {
     MigrationAdjunction,
 }
 
-impl Entity for InstanceConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Instance,
-            Self::Population,
-            Self::Assignment,
-            Self::Individual,
-            Self::InstanceConstraint,
-            Self::DeltaMigration,
-            Self::SigmaMigration,
-            Self::PiMigration,
-            Self::MigrationAdjunction,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct InstanceRelation {
-    pub from: InstanceConcept,
-    pub to: InstanceConcept,
-    pub kind: InstanceRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum InstanceRelationKind {
-    Identity,
-    /// Instance contains Population (one per entity type).
-    Contains,
-    /// Instance contains Assignment (one per morphism type).
-    ContainsAssignment,
-    /// Population contains Individuals.
-    ContainsIndividuals,
-    /// Assignment maps between Populations (function between sets).
-    MapsBetween,
-    /// Instance must satisfy InstanceConstraint.
-    Satisfies,
-    /// DeltaMigration pulls Instance back along a schema mapping.
-    PullsBack,
-    /// SigmaMigration pushes Instance forward (coproduct).
-    PushesForwardLeft,
-    /// PiMigration pushes Instance forward (product).
-    PushesForwardRight,
-    /// The adjunction ΣF ⊣ ΔF ⊣ ΠF.
-    AdjointTo,
-    Composed,
-}
-
-impl Relationship for InstanceRelation {
-    type Object = InstanceConcept;
-    fn source(&self) -> InstanceConcept {
-        self.from
-    }
-    fn target(&self) -> InstanceConcept {
-        self.to
-    }
-}
-
-pub struct InstanceCategory;
-
-impl Category for InstanceCategory {
-    type Object = InstanceConcept;
-    type Morphism = InstanceRelation;
-
-    fn identity(obj: &InstanceConcept) -> InstanceRelation {
-        InstanceRelation {
-            from: *obj,
-            to: *obj,
-            kind: InstanceRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &InstanceRelation, g: &InstanceRelation) -> Option<InstanceRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == InstanceRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == InstanceRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(InstanceRelation {
-            from: f.from,
-            to: g.to,
-            kind: InstanceRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<InstanceRelation> {
-        use InstanceConcept as C;
-        use InstanceRelationKind as R;
-        let mut m = Vec::new();
-
-        for c in InstanceConcept::variants() {
-            m.push(InstanceRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // Instance contains Populations and Assignments
-        m.push(InstanceRelation {
-            from: C::Instance,
-            to: C::Population,
-            kind: R::Contains,
-        });
-        m.push(InstanceRelation {
-            from: C::Instance,
-            to: C::Assignment,
-            kind: R::ContainsAssignment,
-        });
-
-        // Population contains Individuals
-        m.push(InstanceRelation {
-            from: C::Population,
-            to: C::Individual,
-            kind: R::ContainsIndividuals,
-        });
-
-        // Assignment maps between Populations
-        m.push(InstanceRelation {
-            from: C::Assignment,
-            to: C::Population,
-            kind: R::MapsBetween,
-        });
-
-        // Instance satisfies InstanceConstraint
-        m.push(InstanceRelation {
-            from: C::Instance,
-            to: C::InstanceConstraint,
-            kind: R::Satisfies,
-        });
-
-        // Migration functors operate on Instances
-        m.push(InstanceRelation {
-            from: C::DeltaMigration,
-            to: C::Instance,
-            kind: R::PullsBack,
-        });
-        m.push(InstanceRelation {
-            from: C::SigmaMigration,
-            to: C::Instance,
-            kind: R::PushesForwardLeft,
-        });
-        m.push(InstanceRelation {
-            from: C::PiMigration,
-            to: C::Instance,
-            kind: R::PushesForwardRight,
-        });
-
-        // The adjunction: ΣF ⊣ ΔF ⊣ ΠF
-        m.push(InstanceRelation {
-            from: C::SigmaMigration,
-            to: C::MigrationAdjunction,
-            kind: R::AdjointTo,
-        });
-        m.push(InstanceRelation {
-            from: C::DeltaMigration,
-            to: C::MigrationAdjunction,
-            kind: R::AdjointTo,
-        });
-        m.push(InstanceRelation {
-            from: C::PiMigration,
-            to: C::MigrationAdjunction,
-            kind: R::AdjointTo,
-        });
-
-        // Composed: Instance → Individual (through Population)
-        m.push(InstanceRelation {
-            from: C::Instance,
-            to: C::Individual,
-            kind: R::Composed,
-        });
-        // Migration → Population (through Instance)
-        m.push(InstanceRelation {
-            from: C::DeltaMigration,
-            to: C::Population,
-            kind: R::Composed,
-        });
-
-        for c in InstanceConcept::variants() {
-            m.push(InstanceRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub InstanceCategory {
+        entity: InstanceConcept,
+        relation: InstanceRelation,
+        kind: InstanceRelationKind,
+        kinds: [
+            /// Instance contains Population (one per entity type).
+            Contains,
+            /// Instance contains Assignment (one per morphism type).
+            ContainsAssignment,
+            /// Population contains Individuals.
+            ContainsIndividuals,
+            /// Assignment maps between Populations (function between sets).
+            MapsBetween,
+            /// Instance must satisfy InstanceConstraint.
+            Satisfies,
+            /// DeltaMigration pulls Instance back along a schema mapping.
+            PullsBack,
+            /// SigmaMigration pushes Instance forward (coproduct).
+            PushesForwardLeft,
+            /// PiMigration pushes Instance forward (product).
+            PushesForwardRight,
+            /// The adjunction ΣF ⊣ ΔF ⊣ ΠF.
+            AdjointTo,
+        ],
+        edges: [
+            // Instance contains Populations and Assignments
+            (Instance, Population, Contains),
+            (Instance, Assignment, ContainsAssignment),
+            // Population contains Individuals
+            (Population, Individual, ContainsIndividuals),
+            // Assignment maps between Populations
+            (Assignment, Population, MapsBetween),
+            // Instance satisfies InstanceConstraint
+            (Instance, InstanceConstraint, Satisfies),
+            // Migration functors operate on Instances
+            (DeltaMigration, Instance, PullsBack),
+            (SigmaMigration, Instance, PushesForwardLeft),
+            (PiMigration, Instance, PushesForwardRight),
+            // The adjunction: ΣF ⊣ ΔF ⊣ ΠF
+            (SigmaMigration, MigrationAdjunction, AdjointTo),
+            (DeltaMigration, MigrationAdjunction, AdjointTo),
+            (PiMigration, MigrationAdjunction, AdjointTo),
+        ],
+        composed: [
+            // Instance → Individual (through Population)
+            (Instance, Individual),
+            // Migration → Population (through Instance)
+            (DeltaMigration, Population),
+        ],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

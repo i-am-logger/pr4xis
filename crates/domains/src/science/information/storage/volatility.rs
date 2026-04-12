@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Volatility ontology — storage media hierarchy and persistence domains.
 //
@@ -19,7 +18,7 @@ use pr4xis::category::relationship::Relationship;
 ///
 /// Ordered by latency (fastest first) and partitioned into
 /// volatile (loses data on power loss) and non-volatile.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum StorageMedia {
     /// CPU register — ~0.3ns, volatile.
     /// Fastest, smallest, most ephemeral.
@@ -39,7 +38,7 @@ pub enum StorageMedia {
     /// The boundary between volatile and non-volatile.
     PersistentMemory,
 
-    /// Flash / NVMe SSD — ~10µs, non-volatile.
+    /// Flash / NVMe SSD — ~10us, non-volatile.
     /// Block-addressable. Write endurance limited.
     Flash,
 
@@ -51,20 +50,6 @@ pub enum StorageMedia {
     /// Sequential only. Highest density, lowest cost per byte.
     /// Archival / cold storage.
     Tape,
-}
-
-impl Entity for StorageMedia {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Register,
-            Self::Cache,
-            Self::Dram,
-            Self::PersistentMemory,
-            Self::Flash,
-            Self::Disk,
-            Self::Tape,
-        ]
-    }
 }
 
 /// Is this storage media volatile?
@@ -81,123 +66,53 @@ impl StorageMedia {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct VolatilityRelation {
-    pub from: StorageMedia,
-    pub to: StorageMedia,
-    pub kind: VolatilityRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum VolatilityRelationKind {
-    Identity,
-    /// from is faster (lower latency) than to — can be cached by to.
-    /// This is "can serve as cache for" in the hierarchy.
-    FasterThan,
-    /// from is in the same volatility class as to.
-    SameVolatility,
-    Composed,
-}
-
-impl Relationship for VolatilityRelation {
-    type Object = StorageMedia;
-    fn source(&self) -> StorageMedia {
-        self.from
-    }
-    fn target(&self) -> StorageMedia {
-        self.to
-    }
-}
-
-pub struct VolatilityCategory;
-
-impl Category for VolatilityCategory {
-    type Object = StorageMedia;
-    type Morphism = VolatilityRelation;
-
-    fn identity(obj: &StorageMedia) -> VolatilityRelation {
-        VolatilityRelation {
-            from: *obj,
-            to: *obj,
-            kind: VolatilityRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &VolatilityRelation, g: &VolatilityRelation) -> Option<VolatilityRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == VolatilityRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == VolatilityRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(VolatilityRelation {
-            from: f.from,
-            to: g.to,
-            kind: VolatilityRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<VolatilityRelation> {
-        use StorageMedia as S;
-        use VolatilityRelationKind as R;
-        let mut m = Vec::new();
-
-        for s in StorageMedia::variants() {
-            m.push(VolatilityRelation {
-                from: s,
-                to: s,
-                kind: R::Identity,
-            });
-        }
-
-        // The latency hierarchy (direct edges):
-        // Register → Cache → DRAM → PersistentMemory → Flash → Disk → Tape
-        let hierarchy = [
-            S::Register,
-            S::Cache,
-            S::Dram,
-            S::PersistentMemory,
-            S::Flash,
-            S::Disk,
-            S::Tape,
-        ];
-        for i in 0..hierarchy.len() - 1 {
-            m.push(VolatilityRelation {
-                from: hierarchy[i],
-                to: hierarchy[i + 1],
-                kind: R::FasterThan,
-            });
-        }
-
-        // Transitive closure
-        for i in 0..hierarchy.len() {
-            for j in i + 2..hierarchy.len() {
-                m.push(VolatilityRelation {
-                    from: hierarchy[i],
-                    to: hierarchy[j],
-                    kind: R::Composed,
-                });
-            }
-        }
-
-        for s in StorageMedia::variants() {
-            m.push(VolatilityRelation {
-                from: s,
-                to: s,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub VolatilityCategory {
+        entity: StorageMedia,
+        relation: VolatilityRelation,
+        kind: VolatilityRelationKind,
+        kinds: [
+            /// from is faster (lower latency) than to — can be cached by to.
+            /// This is "can serve as cache for" in the hierarchy.
+            FasterThan,
+            /// from is in the same volatility class as to.
+            SameVolatility,
+        ],
+        edges: [
+            // The latency hierarchy (direct edges):
+            // Register → Cache → DRAM → PersistentMemory → Flash → Disk → Tape
+            (Register, Cache, FasterThan),
+            (Cache, Dram, FasterThan),
+            (Dram, PersistentMemory, FasterThan),
+            (PersistentMemory, Flash, FasterThan),
+            (Flash, Disk, FasterThan),
+            (Disk, Tape, FasterThan),
+        ],
+        composed: [
+            // Transitive closure
+            (Register, Dram),
+            (Register, PersistentMemory),
+            (Register, Flash),
+            (Register, Disk),
+            (Register, Tape),
+            (Cache, PersistentMemory),
+            (Cache, Flash),
+            (Cache, Disk),
+            (Cache, Tape),
+            (Dram, Flash),
+            (Dram, Disk),
+            (Dram, Tape),
+            (PersistentMemory, Disk),
+            (PersistentMemory, Tape),
+            (Flash, Tape),
+        ],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

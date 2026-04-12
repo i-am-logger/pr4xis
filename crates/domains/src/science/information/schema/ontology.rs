@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity;
+use pr4xis::define_category;
 
 // Schema ontology — ontology structure as data (the M2 level).
 //
@@ -24,7 +23,7 @@ use pr4xis::category::relationship::Relationship;
 ///
 /// These are the meta-level building blocks. Every praxis ontology
 /// (chess, linguistics, systems, ...) is an instance of this schema.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum SchemaConcept {
     /// A category used as a schema — the TBox (Baader 2003).
     /// Spivak (2012): "A schema is a small category C."
@@ -76,221 +75,69 @@ pub enum SchemaConcept {
     Algebra,
 }
 
-impl Entity for SchemaConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Schema,
-            Self::EntityType,
-            Self::MorphismType,
-            Self::PathEquation,
-            Self::Axiom,
-            Self::Instance,
-            Self::Population,
-            Self::SchemaMapping,
-            Self::Transform,
-            Self::Presentation,
-            Self::Algebra,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SchemaRelation {
-    pub from: SchemaConcept,
-    pub to: SchemaConcept,
-    pub kind: SchemaRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SchemaRelationKind {
-    Identity,
-    /// Schema contains EntityTypes — "has object" in categorical terms.
-    ContainsEntity,
-    /// Schema contains MorphismTypes — "has morphism".
-    ContainsMorphism,
-    /// Schema contains PathEquations — "has equation".
-    ContainsEquation,
-    /// Schema contains Axioms — "has constraint".
-    ContainsAxiom,
-    /// EntityType participates in MorphismType (as source or target).
-    Participates,
-    /// Instance is a functor FROM Schema (Spivak: I: C → Set).
-    InstantiatedFrom,
-    /// Instance assigns Population to EntityType (Spivak: I(c)).
-    Assigns,
-    /// SchemaMapping connects two Schemas (functor F: C → D).
-    Maps,
-    /// Transform connects two Instances (natural transformation).
-    Transforms,
-    /// Presentation evaluates to Algebra (CQL: initial algebra).
-    Evaluates,
-    /// Algebra is presented by Presentation (CQL: generators+equations).
-    Presents,
-    Composed,
-}
-
-impl Relationship for SchemaRelation {
-    type Object = SchemaConcept;
-    fn source(&self) -> SchemaConcept {
-        self.from
-    }
-    fn target(&self) -> SchemaConcept {
-        self.to
-    }
-}
-
-pub struct SchemaCategory;
-
-impl Category for SchemaCategory {
-    type Object = SchemaConcept;
-    type Morphism = SchemaRelation;
-
-    fn identity(obj: &SchemaConcept) -> SchemaRelation {
-        SchemaRelation {
-            from: *obj,
-            to: *obj,
-            kind: SchemaRelationKind::Identity,
-        }
-    }
-
-    fn compose(f: &SchemaRelation, g: &SchemaRelation) -> Option<SchemaRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == SchemaRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == SchemaRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(SchemaRelation {
-            from: f.from,
-            to: g.to,
-            kind: SchemaRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<SchemaRelation> {
-        use SchemaConcept as C;
-        use SchemaRelationKind as R;
-        let mut m = Vec::new();
-
-        // Identities
-        for c in SchemaConcept::variants() {
-            m.push(SchemaRelation {
-                from: c,
-                to: c,
-                kind: R::Identity,
-            });
-        }
-
-        // Schema contains its structural components
-        m.push(SchemaRelation {
-            from: C::Schema,
-            to: C::EntityType,
-            kind: R::ContainsEntity,
-        });
-        m.push(SchemaRelation {
-            from: C::Schema,
-            to: C::MorphismType,
-            kind: R::ContainsMorphism,
-        });
-        m.push(SchemaRelation {
-            from: C::Schema,
-            to: C::PathEquation,
-            kind: R::ContainsEquation,
-        });
-        m.push(SchemaRelation {
-            from: C::Schema,
-            to: C::Axiom,
-            kind: R::ContainsAxiom,
-        });
-
-        // EntityType participates in MorphismType
-        m.push(SchemaRelation {
-            from: C::EntityType,
-            to: C::MorphismType,
-            kind: R::Participates,
-        });
-
-        // Instance is a functor from Schema
-        m.push(SchemaRelation {
-            from: C::Instance,
-            to: C::Schema,
-            kind: R::InstantiatedFrom,
-        });
-
-        // Instance assigns Population to EntityType
-        m.push(SchemaRelation {
-            from: C::Instance,
-            to: C::Population,
-            kind: R::Assigns,
-        });
-        m.push(SchemaRelation {
-            from: C::Population,
-            to: C::EntityType,
-            kind: R::Participates,
-        });
-
-        // SchemaMapping connects two Schemas
-        m.push(SchemaRelation {
-            from: C::SchemaMapping,
-            to: C::Schema,
-            kind: R::Maps,
-        });
-
-        // Transform connects two Instances
-        m.push(SchemaRelation {
-            from: C::Transform,
-            to: C::Instance,
-            kind: R::Transforms,
-        });
-
-        // Presentation ↔ Algebra (CQL evaluation/presentation adjunction)
-        m.push(SchemaRelation {
-            from: C::Presentation,
-            to: C::Algebra,
-            kind: R::Evaluates,
-        });
-        m.push(SchemaRelation {
-            from: C::Algebra,
-            to: C::Presentation,
-            kind: R::Presents,
-        });
-
-        // Transitive: Schema → Instance → Population (through schema and instance)
-        m.push(SchemaRelation {
-            from: C::Schema,
-            to: C::Instance,
-            kind: R::Composed,
-        });
-        m.push(SchemaRelation {
-            from: C::Schema,
-            to: C::Population,
-            kind: R::Composed,
-        });
-        m.push(SchemaRelation {
-            from: C::SchemaMapping,
-            to: C::Instance,
-            kind: R::Composed,
-        });
-
-        // Self-compositions
-        for c in SchemaConcept::variants() {
-            m.push(SchemaRelation {
-                from: c,
-                to: c,
-                kind: R::Composed,
-            });
-        }
-
-        m
+define_category! {
+    pub SchemaCategory {
+        entity: SchemaConcept,
+        relation: SchemaRelation,
+        kind: SchemaRelationKind,
+        kinds: [
+            /// Schema contains EntityTypes — "has object" in categorical terms.
+            ContainsEntity,
+            /// Schema contains MorphismTypes — "has morphism".
+            ContainsMorphism,
+            /// Schema contains PathEquations — "has equation".
+            ContainsEquation,
+            /// Schema contains Axioms — "has constraint".
+            ContainsAxiom,
+            /// EntityType participates in MorphismType (as source or target).
+            Participates,
+            /// Instance is a functor FROM Schema (Spivak: I: C → Set).
+            InstantiatedFrom,
+            /// Instance assigns Population to EntityType (Spivak: I(c)).
+            Assigns,
+            /// SchemaMapping connects two Schemas (functor F: C → D).
+            Maps,
+            /// Transform connects two Instances (natural transformation).
+            Transforms,
+            /// Presentation evaluates to Algebra (CQL: initial algebra).
+            Evaluates,
+            /// Algebra is presented by Presentation (CQL: generators+equations).
+            Presents,
+        ],
+        edges: [
+            // Schema contains its structural components
+            (Schema, EntityType, ContainsEntity),
+            (Schema, MorphismType, ContainsMorphism),
+            (Schema, PathEquation, ContainsEquation),
+            (Schema, Axiom, ContainsAxiom),
+            // EntityType participates in MorphismType
+            (EntityType, MorphismType, Participates),
+            // Instance is a functor from Schema
+            (Instance, Schema, InstantiatedFrom),
+            // Instance assigns Population to EntityType
+            (Instance, Population, Assigns),
+            (Population, EntityType, Participates),
+            // SchemaMapping connects two Schemas
+            (SchemaMapping, Schema, Maps),
+            // Transform connects two Instances
+            (Transform, Instance, Transforms),
+            // Presentation ↔ Algebra (CQL evaluation/presentation adjunction)
+            (Presentation, Algebra, Evaluates),
+            (Algebra, Presentation, Presents),
+        ],
+        composed: [
+            // Schema → Instance → Population (through schema and instance)
+            (Schema, Instance),
+            (Schema, Population),
+            (SchemaMapping, Instance),
+        ],
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]
