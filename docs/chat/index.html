@@ -151,7 +151,7 @@
 </head>
 <body>
   <header>
-    <img src="../praxis-logo-dark.jpg" alt="Pr4xis" onerror="this.style.display='none'">
+    <img src="./praxis-logo-dark.jpg" alt="Pr4xis" onerror="this.style.display='none'">
     <h1>Pr4xis</h1>
     <span>Axiomatic intelligence — runs entirely in your browser</span>
     <div id="status" class="loading">Loading...</div>
@@ -167,7 +167,7 @@
   </div>
 
   <script type="module">
-    import init, { Pr4xis } from '/chat/pkg/pr4xis_wasm.js';
+    import init, { Pr4xis } from './pkg/pr4xis_wasm.js';
 
     const chat = document.getElementById('chat');
     const input = document.getElementById('input');

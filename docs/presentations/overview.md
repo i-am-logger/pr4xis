@@ -24,10 +24,10 @@ style: |
   .pass { color: #3fb950; }
   .fail { color: #f85149; }
   .ignore { color: #d29922; }
-  section::after { content: ''; background: url('../praxis-logo-dark.jpg') no-repeat right 20px top 20px; background-size: 40px; position: absolute; top: 0; right: 0; width: 80px; height: 80px; }
+  section::after { content: ''; background: url('../../praxis-logo-dark.jpg') no-repeat right 20px top 20px; background-size: 40px; position: absolute; top: 0; right: 0; width: 80px; height: 80px; }
 ---
 
-<video src="../praxis-logo-video-dark.mp4" autoplay loop muted style="width:200px;margin:0 auto;display:block"></video>
+<video src="../../praxis-logo-video-dark.mp4" autoplay loop muted style="width:200px;margin:0 auto;display:block"></video>
 
 # Praxis
 
@@ -184,7 +184,7 @@ Full lineage: `docs/foundations.md`
 
 # Live Demo
 
-<iframe src="chat/index.html" width="100%" height="500" style="border: 1px solid #30363d; border-radius: 8px; background: #0d1117;"></iframe>
+<iframe src="../../index.html" width="100%" height="500" style="border: 1px solid #30363d; border-radius: 8px; background: #0d1117;"></iframe>
 
 *107,000 concepts. 4.2MB. Running in your browser right now. No server.*
 

@@ -277,7 +277,14 @@
       "Bash(sed -i 's|praxis_domains::|pr4xis_domains::|g' crates/chat/src/lib.rs crates/examples/src/sensor_fusion/falling_object.rs)",
       "Bash(sed -i 's|eprintln!\\(\"praxis-web\"\\)|eprintln!\\(\"pr4xis-web\"\\)|g' crates/web/src/main.rs)",
       "Bash(cargo generate-lockfile:*)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(sed -i 's|docs/logo.jpg|docs/praxis-logo-light.jpg|' README.md)",
+      "Bash(sed -i 's|url\\('\\\\''../logo.jpg'\\\\''\\)|url\\('\\\\''../praxis-logo-dark.jpg'\\\\''\\)|' docs/presentations/overview.md)",
+      "Bash(sed -i 's|src=\"../logo.mp4\"|src=\"../praxis-logo-video-dark.mp4\"|' docs/presentations/overview.md)",
+      "Bash(sed -i 's|src=\"logo.jpg\"|src=\"../praxis-logo-dark.jpg\"|' docs/chat/index.html)",
+      "Bash(sed -i 's|url\\('\\\\''../praxis-logo-dark.jpg'\\\\''\\)|url\\('\\\\''../../praxis-logo-dark.jpg'\\\\''\\)|' docs/presentations/overview.md)",
+      "Bash(sed -i 's|src=\"../praxis-logo-video-dark.mp4\"|src=\"../../praxis-logo-video-dark.mp4\"|' docs/presentations/overview.md)",
+      "Bash(sed -i 's|src=\"chat/index.html\"|src=\"../../index.html\"|' docs/presentations/overview.md)"
     ]
   }
 }
