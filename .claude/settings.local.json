@@ -295,7 +295,12 @@
       "Bash(sed -i 's|crate::natural::biomedical::optimization|crate::formal::optimization|g' crates/domains/src/formal/meta/gap_analysis.rs)",
       "Bash(sed -i 's|crate::natural::biomedical::recommendation|crate::formal::recommendation|g' crates/domains/src/formal/meta/gap_analysis.rs)",
       "Bash(sed -i 's|crate::natural::biomedical::analytical_methods|crate::formal::analytical_methods|g' crates/domains/src/formal/meta/gap_analysis.rs)",
-      "Bash(sed -i 's|crate::natural::biomedical::derivation|crate::formal::derivation|g' crates/domains/src/formal/meta/gap_analysis.rs)"
+      "Bash(sed -i 's|crate::natural::biomedical::derivation|crate::formal::derivation|g' crates/domains/src/formal/meta/gap_analysis.rs)",
+      "Bash(sed -i 's|use pr4xis::category::free::Free;|use pr4xis::category::free::Chain;|' crates/pr4xis/src/category/free.rs)",
+      "Bash(sed -i 's|let program = Free::pure\\(42\\)|let \\(result, steps\\) = Chain::start\\(42\\)|' crates/pr4xis/src/category/free.rs)",
+      "Bash(sed -i 's|    \\\\.bind\\(|x| Free::lift\\(format!\\(\"computed {}\", x\\)\\)\\)|    .then\\(\"format\", |x| format!\\(\"computed {}\", x\\)\\)|' crates/pr4xis/src/category/free.rs)",
+      "Bash(sed -i 's|    \\\\.bind\\(|msg| Free::pure\\(msg\\\\.len\\(\\)\\)\\);|    .then\\(\"length\", |msg| msg.len\\(\\)\\)|' crates/pr4xis/src/category/free.rs)",
+      "Bash(sed -i 's|let result = program\\\\.run\\(\\);|    .run\\(\\);|' crates/pr4xis/src/category/free.rs)"
     ]
   }
 }
