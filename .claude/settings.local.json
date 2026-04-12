@@ -290,7 +290,12 @@
       "Bash(gh release:*)",
       "Bash(RUSTFLAGS=\"-D warnings\" cargo test -p pr4xis-domains --lib --no-run)",
       "Bash(sed -i '/use pr4xis::category::Category;/d' crates/domains/src/applied/hardware/traffic/ontology.rs crates/domains/src/natural/colors/ontology.rs)",
-      "Bash(sed -i 's/use pr4xis::category::{Category, Entity}/use pr4xis::category::Entity/' crates/domains/src/social/games/rubik/ontology.rs crates/domains/src/social/software/protocols/http/ontology.rs)"
+      "Bash(sed -i 's/use pr4xis::category::{Category, Entity}/use pr4xis::category::Entity/' crates/domains/src/social/games/rubik/ontology.rs crates/domains/src/social/software/protocols/http/ontology.rs)",
+      "Bash(sed -i 's|crate::natural::biomedical::ontology_diagnostics|crate::formal::meta::ontology_diagnostics|g' crates/domains/src/formal/meta/gap_analysis.rs crates/domains/src/formal/meta/ontology_diagnostics/collapse_patterns.rs)",
+      "Bash(sed -i 's|crate::natural::biomedical::optimization|crate::formal::optimization|g' crates/domains/src/formal/meta/gap_analysis.rs)",
+      "Bash(sed -i 's|crate::natural::biomedical::recommendation|crate::formal::recommendation|g' crates/domains/src/formal/meta/gap_analysis.rs)",
+      "Bash(sed -i 's|crate::natural::biomedical::analytical_methods|crate::formal::analytical_methods|g' crates/domains/src/formal/meta/gap_analysis.rs)",
+      "Bash(sed -i 's|crate::natural::biomedical::derivation|crate::formal::derivation|g' crates/domains/src/formal/meta/gap_analysis.rs)"
     ]
   }
 }
