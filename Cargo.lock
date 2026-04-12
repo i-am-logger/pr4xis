@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "praxis"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "proptest",
  "quick-xml",
@@ -535,7 +535,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-chat"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "criterion",
  "praxis",
@@ -544,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "praxis",
  "praxis-chat",
@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-domains"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "criterion",
@@ -564,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "praxis-examples"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "praxis",
  "praxis-domains",

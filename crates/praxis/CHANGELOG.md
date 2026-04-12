@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/i-am-logger/pr4xis/compare/praxis-v0.2.0...praxis-v0.3.0) (2026-04-12)
+
+
+### Features
+
+* build.rs embeds English into binary via codegen ([a15f414](https://github.com/i-am-logger/pr4xis/commit/a15f41467789efc285ef7ba10a46ed6c2ae4a4b1))
+* Diagnostics ontology + TracedCategory (writer monad on categories) ([b3beba6](https://github.com/i-am-logger/pr4xis/commit/b3beba6b9e28c2426850fa88fea98a3133b8edea))
+* function words as LMF data, extend LmfPos with closed-class types ([0cbffab](https://github.com/i-am-logger/pr4xis/commit/0cbffab9585a3e3f7c202a498e28d3f733c66db9))
+* merge sensor-fusion ontologies, add schema/storage/consistency ontologies, praxis-web ([a2fe629](https://github.com/i-am-logger/pr4xis/commit/a2fe629aedbe2363a33b76772e997d1558e14259))
+* self-model ontology, CYK chart parser, adjunction, response generation ([0f67d8d](https://github.com/i-am-logger/pr4xis/commit/0f67d8d629065b3e76d3acd4567a03e9cc346c7e))
+
+
+### Bug Fixes
+
+* codegen was discarding all WordNet definitions (critical bug) ([69ef7d8](https://github.com/i-am-logger/pr4xis/commit/69ef7d819d62852ba3937efd9b76a092ef96ba3e))
+
 ## [0.2.0](https://github.com/i-am-logger/praxis/compare/praxis-v0.1.0...praxis-v0.2.0) (2026-04-09)
 
 
