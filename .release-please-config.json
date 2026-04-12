@@ -6,13 +6,13 @@
   "pull-request-title-pattern": "release: ${version}",
   "plugins": ["cargo-workspace"],
   "packages": {
-    "crates/praxis": {
+    "crates/pr4xis": {
       "release-type": "rust",
-      "component": "praxis"
+      "component": "pr4xis"
     },
     "crates/domains": {
       "release-type": "rust",
-      "component": "praxis-domains"
+      "component": "pr4xis-domains"
     }
   }
 }
