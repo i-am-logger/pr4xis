@@ -76,8 +76,8 @@ jobs:
   pages:
     name: Deploy Pages
     runs-on: ubuntu-latest
-    needs: [check]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.check.result == 'success'
+    needs: [release-please]
+    if: needs.release-please.outputs.release_created == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
