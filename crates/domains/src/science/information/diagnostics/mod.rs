@@ -5,3 +5,6 @@ pub mod trace_functors;
 pub mod trace_impls;
 
 pub use ontology::*;
+
+#[cfg(test)]
+mod tests;

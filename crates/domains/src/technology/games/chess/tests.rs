@@ -1,4 +1,6 @@
+use super::ontology::{ChessCategory, SquareConnection};
 use super::*;
+use praxis::category::Category;
 use praxis::engine::EngineError;
 use proptest::prelude::*;
 
@@ -391,6 +393,67 @@ fn test_fifty_move_rule() {
     assert!(board.is_fifty_move_rule());
     board.halfmove_clock = 99;
     assert!(!board.is_fifty_move_rule());
+}
+
+// =============================================================================
+// Category law tests (sampled — full 4096-morphism check is O(n³))
+// =============================================================================
+
+#[test]
+fn chess_category_identity_law() {
+    // ChessCategory is a thin (indiscrete) category: every pair of squares
+    // has exactly one morphism. Identity law holds because compose(id_a, f) = f.
+    let sample = [
+        Square::new(0, 0),
+        Square::new(3, 3),
+        Square::new(7, 7),
+        Square::new(4, 0),
+    ];
+    for &sq in &sample {
+        let id = ChessCategory::identity(&sq);
+        for &other in &sample {
+            let f = SquareConnection {
+                from: sq,
+                to: other,
+            };
+            let left = ChessCategory::compose(&id, &f).unwrap();
+            assert_eq!(left, f, "left identity failed for {:?}", sq);
+
+            let right = ChessCategory::compose(&f, &ChessCategory::identity(&other)).unwrap();
+            assert_eq!(right, f, "right identity failed for {:?}", sq);
+        }
+    }
+}
+
+#[test]
+fn chess_category_associativity() {
+    let sample = [
+        Square::new(0, 0),
+        Square::new(3, 3),
+        Square::new(7, 7),
+        Square::new(4, 0),
+    ];
+    for &a in &sample {
+        for &b in &sample {
+            for &c in &sample {
+                for &d in &sample {
+                    let f = SquareConnection { from: a, to: b };
+                    let g = SquareConnection { from: b, to: c };
+                    let h = SquareConnection { from: c, to: d };
+
+                    let fg = ChessCategory::compose(&f, &g).unwrap();
+                    let gh = ChessCategory::compose(&g, &h).unwrap();
+                    let fg_h = ChessCategory::compose(&fg, &h).unwrap();
+                    let f_gh = ChessCategory::compose(&f, &gh).unwrap();
+                    assert_eq!(
+                        fg_h, f_gh,
+                        "associativity: ({:?}���{:?})∘{:?} != {:?}∘({:?}∘{:?})",
+                        f, g, h, f, g, h
+                    );
+                }
+            }
+        }
+    }
 }
 
 // =============================================================================

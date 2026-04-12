@@ -194,6 +194,25 @@ impl PipelineTraceEntry {
             self.detail
         )
     }
+
+    /// Get the functor connections for this trace entry.
+    pub fn functor_connections(&self) -> Vec<FunctorConnection> {
+        functor_connections(self.step)
+    }
+
+    /// Serialize with functor connections visible.
+    pub fn serialize_with_functors(&self) -> String {
+        let base = self.serialize();
+        let conns = self.functor_connections();
+        if conns.is_empty() {
+            return base;
+        }
+        let chain: Vec<String> = conns
+            .iter()
+            .map(|c| format!("→{}", c.target_ontology))
+            .collect();
+        format!("{} [{}]", base, chain.join(", "))
+    }
 }
 
 /// The trace functor trait — maps a pipeline result to a trace entry.
@@ -211,6 +230,94 @@ pub trait Traceable {
     fn trace_detail(&self) -> String;
     /// Did this step succeed?
     fn trace_success(&self) -> bool;
+}
+
+/// Functor-derived connection: an ontology that participates via a proven functor.
+///
+/// When a pipeline step uses ontology X, and functor F: X → Y exists,
+/// then Y also participates. This makes the functor connections visible
+/// in the trace — showing that communication IS control, DRT IS dialogue, etc.
+#[derive(Debug, Clone)]
+pub struct FunctorConnection {
+    pub target_ontology: &'static str,
+    pub functor_name: &'static str,
+    pub reference: &'static str,
+}
+
+/// For each pipeline step, return the ontologies that participate
+/// through proven functor connections.
+pub fn functor_connections(step: PipelineStep) -> Vec<FunctorConnection> {
+    match step {
+        PipelineStep::Tokenize => vec![
+            FunctorConnection {
+                target_ontology: "Communication (Shannon)",
+                functor_name: "NoisyChannel→Communication",
+                reference: "Shannon 1948",
+            },
+            FunctorConnection {
+                target_ontology: "Control (Wiener)",
+                functor_name: "Communication→Control",
+                reference: "Wiener 1948",
+            },
+        ],
+        PipelineStep::Parse => vec![FunctorConnection {
+            target_ontology: "Communication (Shannon)",
+            functor_name: "NoisyChannel→Communication",
+            reference: "Shannon 1948",
+        }],
+        PipelineStep::Interpret => vec![
+            FunctorConnection {
+                target_ontology: "DRT (Kamp)",
+                functor_name: "Reference→Dialogue",
+                reference: "Kamp 1981",
+            },
+            FunctorConnection {
+                target_ontology: "Dialogue (Grosz)",
+                functor_name: "Dialogue→Communication",
+                reference: "Grosz 1995",
+            },
+        ],
+        PipelineStep::Metacognition | PipelineStep::EpistemicClassification => vec![
+            FunctorConnection {
+                target_ontology: "Diagnostics (Reiter)",
+                functor_name: "Diagnostics→Metacognition",
+                reference: "Reiter 1987",
+            },
+            FunctorConnection {
+                target_ontology: "Control (Wiener)",
+                functor_name: "Diagnostics→Control",
+                reference: "Gertler 1998",
+            },
+        ],
+        PipelineStep::SpeechActClassification | PipelineStep::ResponseFrameSelection => {
+            vec![FunctorConnection {
+                target_ontology: "Communication (Jakobson)",
+                functor_name: "Dialogue→Communication",
+                reference: "Jakobson 1960",
+            }]
+        }
+        PipelineStep::ContentDetermination
+        | PipelineStep::DocumentPlanning
+        | PipelineStep::Realization => vec![FunctorConnection {
+            target_ontology: "Communication (Shannon)",
+            functor_name: "NLG→Communication",
+            reference: "Reiter & Dale 2000",
+        }],
+        PipelineStep::EntityLookup
+        | PipelineStep::TaxonomyTraversal
+        | PipelineStep::CommonAncestor => vec![
+            FunctorConnection {
+                target_ontology: "Schema (Spivak)",
+                functor_name: "Systems→Schema",
+                reference: "Spivak 2012",
+            },
+            FunctorConnection {
+                target_ontology: "TraceSchema",
+                functor_name: "Schema→TraceSchema",
+                reference: "Spivak 2012 + PROV-O",
+            },
+        ],
+    }
 }
 
 /// A complete pipeline trace — the composition of all trace functor applications.
@@ -244,6 +351,32 @@ impl PipelineTrace {
             .map(|e| e.serialize())
             .collect::<Vec<_>>()
             .join(" | ")
+    }
+
+    /// Serialize with functor connections visible in each entry.
+    pub fn serialize_with_functors(&self) -> String {
+        self.entries
+            .iter()
+            .map(|e| e.serialize_with_functors())
+            .collect::<Vec<_>>()
+            .join(" | ")
+    }
+
+    /// Collect all unique ontology names that participated (direct + via functors).
+    pub fn all_participating_ontologies(&self) -> Vec<&'static str> {
+        let mut ontologies = Vec::new();
+        for entry in &self.entries {
+            let name = entry.ontology();
+            if !ontologies.contains(&name) {
+                ontologies.push(name);
+            }
+            for conn in entry.functor_connections() {
+                if !ontologies.contains(&conn.target_ontology) {
+                    ontologies.push(conn.target_ontology);
+                }
+            }
+        }
+        ontologies
     }
 }
 
@@ -387,5 +520,108 @@ mod tests {
             pipeline_step_to_diagnostic(PipelineStep::Realization),
             DiagnosticConcept::Remedy
         );
+    }
+
+    // --- Functor connection tests ---
+
+    #[test]
+    fn tokenize_connects_to_communication() {
+        let conns = functor_connections(PipelineStep::Tokenize);
+        assert!(
+            conns
+                .iter()
+                .any(|c| c.target_ontology == "Communication (Shannon)")
+        );
+    }
+
+    #[test]
+    fn tokenize_connects_to_control() {
+        let conns = functor_connections(PipelineStep::Tokenize);
+        assert!(
+            conns
+                .iter()
+                .any(|c| c.target_ontology == "Control (Wiener)")
+        );
+    }
+
+    #[test]
+    fn interpret_connects_to_drt_and_dialogue() {
+        let conns = functor_connections(PipelineStep::Interpret);
+        assert!(conns.iter().any(|c| c.target_ontology == "DRT (Kamp)"));
+        assert!(
+            conns
+                .iter()
+                .any(|c| c.target_ontology == "Dialogue (Grosz)")
+        );
+    }
+
+    #[test]
+    fn metacognition_connects_to_diagnostics_and_control() {
+        let conns = functor_connections(PipelineStep::Metacognition);
+        assert!(
+            conns
+                .iter()
+                .any(|c| c.target_ontology == "Diagnostics (Reiter)")
+        );
+        assert!(
+            conns
+                .iter()
+                .any(|c| c.target_ontology == "Control (Wiener)")
+        );
+    }
+
+    #[test]
+    fn all_participating_ontologies_includes_functors() {
+        let mut trace = PipelineTrace::default();
+        trace.record(PipelineStep::Tokenize, "5 tokens", true);
+        trace.record(PipelineStep::Parse, "success", true);
+        trace.record(PipelineStep::Interpret, "question", true);
+        trace.record(PipelineStep::Metacognition, "classified", true);
+
+        let all = trace.all_participating_ontologies();
+        // Direct ontologies
+        assert!(all.contains(&"Language (English)"));
+        assert!(all.contains(&"Lambek Grammar"));
+        assert!(all.contains(&"Montague Semantics"));
+        assert!(all.contains(&"Metacognition"));
+        // Via functors
+        assert!(all.contains(&"Communication (Shannon)"));
+        assert!(all.contains(&"Control (Wiener)"));
+        assert!(all.contains(&"DRT (Kamp)"));
+        assert!(all.contains(&"Dialogue (Grosz)"));
+        assert!(all.contains(&"Diagnostics (Reiter)"));
+    }
+
+    #[test]
+    fn serialize_with_functors_shows_connections() {
+        let entry = PipelineTraceEntry::from_step(PipelineStep::Tokenize, "5 tokens", true);
+        let s = entry.serialize_with_functors();
+        assert!(s.contains("→Communication (Shannon)"));
+        assert!(s.contains("→Control (Wiener)"));
+    }
+
+    #[test]
+    fn every_step_has_functor_connections() {
+        // Every pipeline step should connect to at least one other ontology via functor
+        let steps = [
+            PipelineStep::Tokenize,
+            PipelineStep::Parse,
+            PipelineStep::Interpret,
+            PipelineStep::EntityLookup,
+            PipelineStep::TaxonomyTraversal,
+            PipelineStep::Metacognition,
+            PipelineStep::SpeechActClassification,
+            PipelineStep::ContentDetermination,
+            PipelineStep::Realization,
+            PipelineStep::EpistemicClassification,
+        ];
+        for step in steps {
+            let conns = functor_connections(step);
+            assert!(
+                !conns.is_empty(),
+                "{:?} should have functor connections",
+                step
+            );
+        }
     }
 }

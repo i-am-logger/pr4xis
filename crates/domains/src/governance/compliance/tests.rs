@@ -696,3 +696,96 @@ fn meta_axiom_classified_entity_unknown_constructor_is_consistent() {
         "validated construction must produce same entity"
     );
 }
+
+mod prop {
+    use super::*;
+    use praxis::category::Category;
+    use proptest::prelude::*;
+
+    fn arb_escalation() -> impl Strategy<Value = EscalationLevel> {
+        prop_oneof![
+            Just(EscalationLevel::Observe),
+            Just(EscalationLevel::Identify),
+            Just(EscalationLevel::Classify),
+            Just(EscalationLevel::Alert),
+            Just(EscalationLevel::Warn),
+            Just(EscalationLevel::ShowForce),
+            Just(EscalationLevel::NonLethal),
+            Just(EscalationLevel::WarningAction),
+            Just(EscalationLevel::Engage),
+            Just(EscalationLevel::Deescalate),
+            Just(EscalationLevel::Abort),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn prop_identity_idempotent(level in arb_escalation()) {
+            let id = ComplianceCategory::identity(&level);
+            prop_assert_eq!(ComplianceCategory::compose(&id, &id), Some(id));
+        }
+
+        /// Every level has an identity morphism.
+        #[test]
+        fn prop_identity_exists(level in arb_escalation()) {
+            let id = ComplianceCategory::identity(&level);
+            prop_assert_eq!(id.from, level);
+            prop_assert_eq!(id.to, level);
+        }
+
+        /// Composition with identity preserves any morphism.
+        #[test]
+        fn prop_left_identity(level in arb_escalation()) {
+            let m = ComplianceCategory::morphisms();
+            let id = ComplianceCategory::identity(&level);
+            for morph in m.iter().filter(|r| r.from == level) {
+                let composed = ComplianceCategory::compose(&id, morph);
+                prop_assert_eq!(composed.as_ref().map(|r| (r.from, r.to)), Some((morph.from, morph.to)));
+            }
+        }
+
+        /// LOAC: protected entities can never meet engagement threshold.
+        #[test]
+        fn prop_protected_never_engageable(
+            entity_type in prop_oneof![
+                Just(EntityType::Person),
+                Just(EntityType::Structure),
+                Just(EntityType::GroundVehicle),
+                Just(EntityType::Aircraft),
+                Just(EntityType::Watercraft),
+            ],
+            iff in prop_oneof![
+                Just(IffClassification::Unknown),
+                Just(IffClassification::Friend),
+                Just(IffClassification::Neutral),
+                Just(IffClassification::Hostile),
+            ]
+        ) {
+            let entity = ClassifiedEntity {
+                entity_type,
+                iff,
+                protected_status: ProtectedStatus::Protected,
+                confidence: Confidence::PositiveId,
+            };
+            prop_assert!(entity.is_protected());
+            prop_assert!(!entity.meets_engagement_threshold());
+        }
+
+        /// Abort always available from any escalation level.
+        #[test]
+        fn prop_abort_always_available(_dummy in 0..1i32) {
+            prop_assert!(AbortAlwaysAvailable.holds());
+        }
+
+        /// All 6 LOAC axioms hold.
+        #[test]
+        fn prop_all_axioms_hold(_dummy in 0..1i32) {
+            prop_assert!(DistinctionPrinciple.holds());
+            prop_assert!(CivilianPresumption.holds());
+            prop_assert!(HumanInTheLoop.holds());
+            prop_assert!(SequentialEscalation.holds());
+            prop_assert!(AdvanceWarning.holds());
+            prop_assert!(AbortAlwaysAvailable.holds());
+        }
+    }
+}

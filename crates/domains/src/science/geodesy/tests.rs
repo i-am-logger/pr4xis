@@ -1,4 +1,4 @@
-use praxis::category::validate::check_category_laws;
+use praxis::category::validate::{check_category_laws, check_functor_laws};
 use praxis::ontology::{Axiom, Ontology};
 
 use crate::science::geodesy::ontology::*;
@@ -6,6 +6,11 @@ use crate::science::geodesy::ontology::*;
 #[test]
 fn geodesy_category_laws() {
     check_category_laws::<GeodesyCategory>().unwrap();
+}
+
+#[test]
+fn ned_to_enu_functor_laws() {
+    check_functor_laws::<NedToEnuFunctor>().unwrap();
 }
 
 #[test]

@@ -74,3 +74,84 @@ fn metalingual_focuses_on_code() {
         CommunicationConcept::Code
     );
 }
+
+mod prop {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn arb_communication() -> impl Strategy<Value = CommunicationConcept> {
+        prop_oneof![
+            Just(CommunicationConcept::Sender),
+            Just(CommunicationConcept::Receiver),
+            Just(CommunicationConcept::Message),
+            Just(CommunicationConcept::Channel),
+            Just(CommunicationConcept::Code),
+            Just(CommunicationConcept::Noise),
+            Just(CommunicationConcept::Feedback),
+            Just(CommunicationConcept::Context),
+        ]
+    }
+
+    fn arb_jakobson() -> impl Strategy<Value = JakobsonFunction> {
+        prop_oneof![
+            Just(JakobsonFunction::Referential),
+            Just(JakobsonFunction::Emotive),
+            Just(JakobsonFunction::Conative),
+            Just(JakobsonFunction::Phatic),
+            Just(JakobsonFunction::Metalingual),
+            Just(JakobsonFunction::Poetic),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn prop_identity_idempotent(c in arb_communication()) {
+            let id = CommunicationCategory::identity(&c);
+            prop_assert_eq!(CommunicationCategory::compose(&id, &id), Some(id));
+        }
+
+        /// Every concept has both Identity and Composed self-morphisms.
+        #[test]
+        fn prop_self_morphisms(c in arb_communication()) {
+            let m = CommunicationCategory::morphisms();
+            let has_identity = m.iter().any(|r| r.from == c && r.to == c && r.kind == CommunicationRelationKind::Identity);
+            let has_composed = m.iter().any(|r| r.from == c && r.to == c && r.kind == CommunicationRelationKind::Composed);
+            prop_assert!(has_identity);
+            prop_assert!(has_composed);
+        }
+
+        /// Jakobson: every function focuses on exactly one communication component.
+        #[test]
+        fn prop_jakobson_focuses_valid(f in arb_jakobson()) {
+            let component = f.focused_component();
+            prop_assert!(CommunicationConcept::variants().contains(&component));
+        }
+
+        /// Jakobson bijection: no two functions focus on the same component.
+        #[test]
+        fn prop_jakobson_injective(f1 in arb_jakobson(), f2 in arb_jakobson()) {
+            if f1 != f2 {
+                prop_assert_ne!(f1.focused_component(), f2.focused_component());
+            }
+        }
+
+        /// Shannon's chain: Sender → Message → Channel exists.
+        #[test]
+        fn prop_shannon_chain(_dummy in 0..1i32) {
+            let m = CommunicationCategory::morphisms();
+            prop_assert!(m.iter().any(|r| r.from == CommunicationConcept::Sender && r.to == CommunicationConcept::Message));
+            prop_assert!(m.iter().any(|r| r.from == CommunicationConcept::Message && r.to == CommunicationConcept::Channel));
+        }
+
+        /// Composition with identity preserves any morphism.
+        #[test]
+        fn prop_left_identity(c in arb_communication()) {
+            let m = CommunicationCategory::morphisms();
+            let id = CommunicationCategory::identity(&c);
+            for morph in m.iter().filter(|r| r.from == c) {
+                let composed = CommunicationCategory::compose(&id, morph);
+                prop_assert_eq!(composed.as_ref().map(|r| (r.from, r.to)), Some((morph.from, morph.to)));
+            }
+        }
+    }
+}

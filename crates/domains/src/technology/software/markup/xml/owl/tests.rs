@@ -283,3 +283,78 @@ fn owl_concept_classification() {
 fn owl_restriction_needs_property_axiom() {
     assert!(RestrictionNeedsProperty.holds());
 }
+
+#[test]
+fn category_laws() {
+    use praxis::category::validate::check_category_laws;
+    check_category_laws::<OwlCategory>().unwrap();
+}
+
+mod prop {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn arb_owl() -> impl Strategy<Value = OwlConcept> {
+        prop_oneof![
+            Just(OwlConcept::Class),
+            Just(OwlConcept::Restriction),
+            Just(OwlConcept::UnionOf),
+            Just(OwlConcept::IntersectionOf),
+            Just(OwlConcept::ComplementOf),
+            Just(OwlConcept::OneOf),
+            Just(OwlConcept::ObjectProperty),
+            Just(OwlConcept::DatatypeProperty),
+            Just(OwlConcept::AnnotationProperty),
+            Just(OwlConcept::FunctionalProperty),
+            Just(OwlConcept::InverseFunctionalProperty),
+            Just(OwlConcept::TransitiveProperty),
+            Just(OwlConcept::SymmetricProperty),
+            Just(OwlConcept::AsymmetricProperty),
+            Just(OwlConcept::ReflexiveProperty),
+            Just(OwlConcept::IrreflexiveProperty),
+            Just(OwlConcept::NamedIndividual),
+            Just(OwlConcept::SomeValuesFrom),
+            Just(OwlConcept::AllValuesFrom),
+            Just(OwlConcept::HasValue),
+            Just(OwlConcept::MinCardinality),
+            Just(OwlConcept::MaxCardinality),
+            Just(OwlConcept::ExactCardinality),
+            Just(OwlConcept::Ontology),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn prop_identity_idempotent(c in arb_owl()) {
+            let id = OwlCategory::identity(&c);
+            prop_assert_eq!(OwlCategory::compose(&id, &id), Some(id));
+        }
+
+        /// OWL 2 §8: class expressions are class expressions.
+        #[test]
+        fn prop_class_expression_classification(c in arb_owl()) {
+            if c.is_class_expression() {
+                prop_assert!(!c.is_property());
+            }
+        }
+
+        /// OWL 2 §9: properties are properties.
+        #[test]
+        fn prop_property_classification(c in arb_owl()) {
+            if c.is_property() {
+                prop_assert!(!c.is_class_expression());
+            }
+        }
+
+        /// Composition with identity preserves any morphism.
+        #[test]
+        fn prop_left_identity(c in arb_owl()) {
+            let m = OwlCategory::morphisms();
+            let id = OwlCategory::identity(&c);
+            for morph in m.iter().filter(|r| r.source == c) {
+                let composed = OwlCategory::compose(&id, morph);
+                prop_assert_eq!(composed.as_ref().map(|r| (r.source, r.target)), Some((morph.source, morph.target)));
+            }
+        }
+    }
+}

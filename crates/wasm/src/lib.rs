@@ -51,9 +51,12 @@ impl Praxis {
             0
         };
         let response = json_escape(&result.response);
-        let trace = json_escape(&result.trace.serialize());
+        let trace = json_escape(&result.trace.serialize_with_functors());
+        let ontologies = result.trace.all_participating_ontologies();
+        let ontology_count = ontologies.len();
+        let ontology_list = json_escape(&ontologies.join(", "));
         format!(
-            r#"{{"response":"{response}","duration_us":{},"token_count":{},"tokens_per_sec":{tps},"parsed":{},"from_ontology":{},"trace":"{trace}"}}"#,
+            r#"{{"response":"{response}","duration_us":{},"token_count":{},"tokens_per_sec":{tps},"parsed":{},"from_ontology":{},"ontology_count":{ontology_count},"ontologies":"{ontology_list}","trace":"{trace}"}}"#,
             result.duration_us, result.token_count, result.parsed, result.from_ontology,
         )
     }

@@ -2515,6 +2515,12 @@ fn test_phase_transition_rel_source_target() {
 }
 
 #[test]
+fn case_lifecycle_category_laws() {
+    use praxis::category::validate::check_category_laws;
+    check_category_laws::<CaseLifecycleCategory>().unwrap();
+}
+
+#[test]
 fn test_case_lifecycle_category_identity() {
     let id = CaseLifecycleCategory::identity(&PhaseTag::Discovery);
     assert_eq!(id.from, PhaseTag::Discovery);

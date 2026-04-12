@@ -141,3 +141,65 @@ fn morphism_set_is_nonempty() {
     let morphisms = RdfCategory::morphisms();
     assert!(morphisms.len() > 10);
 }
+
+#[test]
+fn category_laws() {
+    use praxis::category::validate::check_category_laws;
+    check_category_laws::<RdfCategory>().unwrap();
+}
+
+mod prop {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn arb_rdf() -> impl Strategy<Value = RdfNodeKind> {
+        prop_oneof![
+            Just(RdfNodeKind::IriResource),
+            Just(RdfNodeKind::BlankNode),
+            Just(RdfNodeKind::PlainLiteral),
+            Just(RdfNodeKind::TypedLiteral),
+            Just(RdfNodeKind::Statement),
+            Just(RdfNodeKind::Class),
+            Just(RdfNodeKind::Property),
+            Just(RdfNodeKind::Datatype),
+            Just(RdfNodeKind::Nil),
+            Just(RdfNodeKind::List),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn prop_identity_idempotent(c in arb_rdf()) {
+            let id = RdfCategory::identity(&c);
+            prop_assert_eq!(RdfCategory::compose(&id, &id), Some(id));
+        }
+
+        /// RDF 1.1 §3.3: literals can never be subjects.
+        #[test]
+        fn prop_literals_cannot_be_subjects(c in arb_rdf()) {
+            if c.is_literal() {
+                prop_assert!(!c.can_be_subject());
+            }
+        }
+
+        /// RDFS: resources can be subjects.
+        #[test]
+        fn prop_resources_can_be_subjects(_dummy in 0..1i32) {
+            prop_assert!(RdfNodeKind::IriResource.can_be_subject());
+            prop_assert!(RdfNodeKind::BlankNode.can_be_subject());
+            prop_assert!(RdfNodeKind::Class.can_be_subject());
+            prop_assert!(RdfNodeKind::Property.can_be_subject());
+        }
+
+        /// Composition with identity preserves any morphism.
+        #[test]
+        fn prop_left_identity(c in arb_rdf()) {
+            let m = RdfCategory::morphisms();
+            let id = RdfCategory::identity(&c);
+            for morph in m.iter().filter(|r| r.source == c) {
+                let composed = RdfCategory::compose(&id, morph);
+                prop_assert_eq!(composed.as_ref().map(|r| (r.source, r.target)), Some((morph.source, morph.target)));
+            }
+        }
+    }
+}

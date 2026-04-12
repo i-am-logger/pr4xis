@@ -1,7 +1,7 @@
-use crate::science::information::schema::ontology::{
-    SchemaConcept, SchemaRelation, SchemaRelationKind,
-};
-use crate::science::systems::ontology::SystemConcept;
+use praxis::category::Functor;
+
+use crate::science::information::schema::ontology::*;
+use crate::science::systems::ontology::*;
 
 // SystemsToSchema functor — proves every ontology IS a system.
 //
@@ -10,89 +10,89 @@ use crate::science::systems::ontology::SystemConcept;
 // interactions (morphisms), constraints (axioms), feedback (validation),
 // emergence (composed behavior), and homeostasis (consistency).
 //
-// The functor preserves the categorical structure: composition of system
-// concepts maps to composition of schema concepts.
+// The mapping:
+//   Component   → EntityType (a system component IS an entity type)
+//   Interaction → MorphismType (interactions ARE typed relationships)
+//   State       → Instance (system state IS an instance)
+//   Transition  → Transform (transitions ARE natural transformations)
+//   Constraint  → Axiom (system constraints ARE axioms)
+//   Feedback    → PathEquation (feedback loops ARE compositional constraints)
+//   Homeostasis → Schema (maintaining structure IS the schema itself)
+//   Emergence   → Algebra (emergent properties ARE the evaluated algebra)
+//   Boundary    → Presentation (system boundary IS the syntactic form)
+//   Controller  → SchemaMapping (the controller maps between schemas)
 //
 // References:
 // - von Bertalanffy, "General System Theory" (1968) — systems as wholes
 // - Spivak, "Functorial Data Migration" (2012) — schema as category
 // - Meadows, "Thinking in Systems" (2008) — feedback, emergence, boundaries
 
-/// Map a SystemConcept to its Schema equivalent.
-///
-/// This is the object mapping of the SystemsToSchema functor.
-/// Every system concept has a corresponding schema concept.
-pub fn map_system_to_schema(system: SystemConcept) -> SchemaConcept {
-    match system {
-        // Component → EntityType: a system component IS an entity type
-        SystemConcept::Component => SchemaConcept::EntityType,
+pub struct SystemsToSchema;
 
-        // Interaction → MorphismType: interactions ARE typed relationships
-        SystemConcept::Interaction => SchemaConcept::MorphismType,
+impl Functor for SystemsToSchema {
+    type Source = SystemsCategory;
+    type Target = SchemaCategory;
 
-        // State → Instance: system state IS an instance (populated schema)
-        SystemConcept::State => SchemaConcept::Instance,
-
-        // Transition → Transform: state transitions ARE natural transformations
-        SystemConcept::Transition => SchemaConcept::Transform,
-
-        // Constraint → Axiom: system constraints ARE axioms
-        SystemConcept::Constraint => SchemaConcept::Axiom,
-
-        // Feedback → PathEquation: feedback loops ARE compositional constraints
-        SystemConcept::Feedback => SchemaConcept::PathEquation,
-
-        // Homeostasis → Schema: maintaining stable structure IS the schema itself
-        SystemConcept::Homeostasis => SchemaConcept::Schema,
-
-        // Emergence → Algebra: emergent properties ARE the evaluated algebra
-        SystemConcept::Emergence => SchemaConcept::Algebra,
-
-        // Boundary → Presentation: system boundary IS the syntactic form
-        SystemConcept::Boundary => SchemaConcept::Presentation,
-
-        // Controller → SchemaMapping: the controller maps between schemas
-        SystemConcept::Controller => SchemaConcept::SchemaMapping,
+    fn map_object(obj: &SystemConcept) -> SchemaConcept {
+        match obj {
+            SystemConcept::Component => SchemaConcept::EntityType,
+            SystemConcept::Interaction => SchemaConcept::MorphismType,
+            SystemConcept::State => SchemaConcept::Instance,
+            SystemConcept::Transition => SchemaConcept::Transform,
+            SystemConcept::Constraint => SchemaConcept::Axiom,
+            SystemConcept::Feedback => SchemaConcept::PathEquation,
+            SystemConcept::Homeostasis => SchemaConcept::Schema,
+            SystemConcept::Emergence => SchemaConcept::Algebra,
+            SystemConcept::Boundary => SchemaConcept::Presentation,
+            SystemConcept::Controller => SchemaConcept::SchemaMapping,
+        }
     }
-}
 
-/// Map a system relation to a schema relation.
-///
-/// This is the morphism mapping of the SystemsToSchema functor.
-/// Preserves source and target through the object mapping.
-pub fn map_system_relation_to_schema(from: SystemConcept, to: SystemConcept) -> SchemaRelation {
-    SchemaRelation {
-        from: map_system_to_schema(from),
-        to: map_system_to_schema(to),
-        kind: SchemaRelationKind::Composed,
+    fn map_morphism(m: &SystemRelation) -> SchemaRelation {
+        let from = Self::map_object(&m.from);
+        let to = Self::map_object(&m.to);
+        let kind = match m.kind {
+            SystemRelationKind::Identity => SchemaRelationKind::Identity,
+            SystemRelationKind::ComposesInto => SchemaRelationKind::Participates,
+            SystemRelationKind::Changes => SchemaRelationKind::Transforms,
+            SystemRelationKind::Governs => SchemaRelationKind::ContainsAxiom,
+            SystemRelationKind::FeedsBack => SchemaRelationKind::ContainsEquation,
+            SystemRelationKind::Stabilizes => SchemaRelationKind::ContainsEquation,
+            SystemRelationKind::ArisesFrom => SchemaRelationKind::Evaluates,
+            SystemRelationKind::Regulates => SchemaRelationKind::Maps,
+            SystemRelationKind::Separates => SchemaRelationKind::Presents,
+            SystemRelationKind::Composed => SchemaRelationKind::Composed,
+        };
+        SchemaRelation { from, to, kind }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use praxis::category::Functor;
     use praxis::category::entity::Entity;
+    use praxis::category::validate::check_functor_laws;
 
-    // --- Functor law: every system concept maps to a schema concept ---
+    #[test]
+    fn functor_laws() {
+        check_functor_laws::<SystemsToSchema>().unwrap();
+    }
 
     #[test]
     fn all_system_concepts_map() {
         for concept in SystemConcept::variants() {
-            let _ = map_system_to_schema(concept);
-            // Should not panic — every system concept has a mapping
+            let _ = SystemsToSchema::map_object(&concept);
         }
     }
-
-    // --- Functor law: mapping is total (covers all 10 system concepts) ---
 
     #[test]
     fn mapping_is_total() {
         assert_eq!(SystemConcept::variants().len(), 10);
         let mapped: std::collections::HashSet<SchemaConcept> = SystemConcept::variants()
             .into_iter()
-            .map(map_system_to_schema)
+            .map(|c| SystemsToSchema::map_object(&c))
             .collect();
-        // At least 8 distinct targets (some may map to same schema concept)
         assert!(
             mapped.len() >= 8,
             "functor should map to at least 8 distinct schema concepts, got {}",
@@ -100,92 +100,43 @@ mod tests {
         );
     }
 
-    // --- von Bertalanffy: components ARE entities ---
-
     #[test]
     fn component_maps_to_entity_type() {
         assert_eq!(
-            map_system_to_schema(SystemConcept::Component),
+            SystemsToSchema::map_object(&SystemConcept::Component),
             SchemaConcept::EntityType
         );
     }
 
-    // --- von Bertalanffy: interactions ARE morphisms ---
-
     #[test]
     fn interaction_maps_to_morphism_type() {
         assert_eq!(
-            map_system_to_schema(SystemConcept::Interaction),
+            SystemsToSchema::map_object(&SystemConcept::Interaction),
             SchemaConcept::MorphismType
         );
     }
 
-    // --- Spivak: state IS an instance ---
-
     #[test]
     fn state_maps_to_instance() {
         assert_eq!(
-            map_system_to_schema(SystemConcept::State),
+            SystemsToSchema::map_object(&SystemConcept::State),
             SchemaConcept::Instance
         );
     }
 
-    // --- Meadows: constraints ARE axioms ---
-
     #[test]
     fn constraint_maps_to_axiom() {
         assert_eq!(
-            map_system_to_schema(SystemConcept::Constraint),
+            SystemsToSchema::map_object(&SystemConcept::Constraint),
             SchemaConcept::Axiom
         );
     }
 
-    // --- Meadows: feedback loops ARE path equations ---
-
-    #[test]
-    fn feedback_maps_to_path_equation() {
-        assert_eq!(
-            map_system_to_schema(SystemConcept::Feedback),
-            SchemaConcept::PathEquation
-        );
-    }
-
-    // --- Emergence IS the algebra (evaluated result) ---
-
     #[test]
     fn emergence_maps_to_algebra() {
         assert_eq!(
-            map_system_to_schema(SystemConcept::Emergence),
+            SystemsToSchema::map_object(&SystemConcept::Emergence),
             SchemaConcept::Algebra
         );
-    }
-
-    // --- Functor preserves morphism structure ---
-
-    #[test]
-    fn relation_mapping_preserves_endpoints() {
-        let from = SystemConcept::Component;
-        let to = SystemConcept::Interaction;
-        let schema_rel = map_system_relation_to_schema(from, to);
-        assert_eq!(schema_rel.from, map_system_to_schema(from));
-        assert_eq!(schema_rel.to, map_system_to_schema(to));
-    }
-
-    // --- The mapping proves: an ontology IS a system ---
-    // (Every system concept has a schema counterpart, and the
-    //  structural relationships are preserved.)
-
-    #[test]
-    fn ontology_is_a_system() {
-        // The fact that this functor exists and is total
-        // IS the proof that every ontology is a system.
-        // Systems have components, interactions, state, transitions,
-        // constraints, feedback, homeostasis, emergence, boundaries.
-        // Ontologies have all of these — through the schema.
-        let concepts = SystemConcept::variants();
-        let schema_concepts: Vec<SchemaConcept> =
-            concepts.iter().map(|c| map_system_to_schema(*c)).collect();
-        // All mapped successfully — QED.
-        assert_eq!(concepts.len(), schema_concepts.len());
     }
 }

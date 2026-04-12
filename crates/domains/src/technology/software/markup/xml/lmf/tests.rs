@@ -184,6 +184,54 @@ fn lmf_pos_roundtrip() {
     }
 }
 
+mod prop {
+    use super::*;
+    use praxis::category::entity::Entity;
+    use proptest::prelude::*;
+
+    fn arb_pos() -> impl Strategy<Value = LmfPos> {
+        prop_oneof![
+            Just(LmfPos::Noun),
+            Just(LmfPos::Verb),
+            Just(LmfPos::Adjective),
+            Just(LmfPos::Adverb),
+            Just(LmfPos::Determiner),
+            Just(LmfPos::Pronoun),
+            Just(LmfPos::Preposition),
+            Just(LmfPos::Conjunction),
+            Just(LmfPos::Particle),
+            Just(LmfPos::Copula),
+            Just(LmfPos::Auxiliary),
+            Just(LmfPos::Interjection),
+            Just(LmfPos::Numeral),
+            Just(LmfPos::Other),
+        ]
+    }
+
+    proptest! {
+        /// Every POS tag round-trips through parse(to_tag()).
+        #[test]
+        fn prop_pos_roundtrip(pos in arb_pos()) {
+            prop_assert_eq!(LmfPos::parse(pos.to_tag()), pos);
+        }
+
+        /// Open class POS: Noun, Verb, Adjective, Adverb.
+        #[test]
+        fn prop_open_class_is_content(pos in arb_pos()) {
+            let is_open = matches!(pos, LmfPos::Noun | LmfPos::Verb | LmfPos::Adjective | LmfPos::Adverb);
+            if is_open {
+                prop_assert!(pos.is_open_class());
+            }
+        }
+
+        /// Entity variants() includes every POS.
+        #[test]
+        fn prop_all_variants_exist(pos in arb_pos()) {
+            prop_assert!(LmfPos::variants().contains(&pos));
+        }
+    }
+}
+
 // =============================================================================
 // Full WordNet load test (only runs if data file exists)
 // =============================================================================
