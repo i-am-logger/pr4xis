@@ -455,16 +455,61 @@ mod ontology_macro_test {
 
     #[test]
     fn structural_axioms_auto_generated() {
-        let axioms = AnimalOntology::structural_axioms();
+        let axioms = AnimalOntology::generated_structural_axioms();
         // 2 taxonomy + 2 mereology + 2 causation + 2 opposition = 8
         assert_eq!(axioms.len(), 8);
-        // All structural axioms should hold
         for axiom in &axioms {
-            assert!(
-                axiom.holds(),
-                "structural axiom failed: {}",
-                axiom.description()
-            );
+            assert!(axiom.holds(), "failed: {}", axiom.description());
         }
+    }
+
+    // Full Ontology trait: user provides domain_axioms(), framework merges
+    use crate::ontology::{Ontology, Quality};
+
+    pub struct AnimalIsAlive;
+    impl Axiom for AnimalIsAlive {
+        fn description(&self) -> &str {
+            "all animals are alive"
+        }
+        fn holds(&self) -> bool {
+            true
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct NoQuality;
+    impl Quality for NoQuality {
+        type Individual = Animal;
+        type Value = ();
+        fn get(&self, _: &Animal) -> Option<()> {
+            None
+        }
+    }
+
+    impl Ontology for AnimalOntology {
+        type Cat = AnimalCategory;
+        type Qual = NoQuality;
+
+        fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+            Self::generated_structural_axioms()
+        }
+
+        fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+            vec![Box::new(AnimalIsAlive)]
+        }
+    }
+
+    #[test]
+    fn ontology_merges_structural_and_domain() {
+        let all = AnimalOntology::axioms();
+        assert_eq!(all.len(), 9); // 8 structural + 1 domain
+        for a in &all {
+            assert!(a.holds());
+        }
+    }
+
+    #[test]
+    fn ontology_validates() {
+        AnimalOntology::validate().unwrap();
     }
 }

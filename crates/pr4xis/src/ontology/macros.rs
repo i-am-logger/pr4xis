@@ -237,10 +237,10 @@ macro_rules! define_ontology {
         pub struct $ont_name;
 
         impl $ont_name {
-            /// Structural axioms — auto-generated from declared reasoning systems.
-            /// Merged internally with domain axioms in Ontology::axioms().
+            /// Structural axioms — auto-generated. Used internally by Ontology trait.
+            /// Override `structural_axioms()` in your `impl Ontology` to wire this in.
             #[doc(hidden)]
-            pub fn structural_axioms() -> Vec<Box<dyn $crate::ontology::Axiom>> {
+            pub fn generated_structural_axioms() -> Vec<Box<dyn $crate::ontology::Axiom>> {
                 let mut axioms: Vec<Box<dyn $crate::ontology::Axiom>> = Vec::new();
 
                 $(
