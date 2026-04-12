@@ -286,7 +286,8 @@
       "Bash(sed -i 's|src=\"../praxis-logo-video-dark.mp4\"|src=\"../../praxis-logo-video-dark.mp4\"|' docs/presentations/overview.md)",
       "Bash(sed -i 's|src=\"chat/index.html\"|src=\"../../index.html\"|' docs/presentations/overview.md)",
       "Bash(gh pr:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(gh release:*)"
     ]
   }
 }

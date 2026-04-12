@@ -529,6 +529,7 @@ dependencies = [
 name = "pr4xis"
 version = "0.5.0"
 dependencies = [
+ "pr4xis-derive",
  "proptest",
  "quick-xml",
 ]
@@ -549,6 +550,15 @@ dependencies = [
  "pr4xis",
  "pr4xis-chat",
  "pr4xis-domains",
+]
+
+[[package]]
+name = "pr4xis-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

@@ -1,42 +1,21 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::Entity; // trait + derive macro
+use pr4xis::define_category;
 
 // Communication ontology — the science of information transfer.
 //
-// Communication is the foundational process that underlies:
-//   - Dialogue (conversation between agents)
-//   - HTTP (request/response between client/server)
-//   - Events (producer/consumer through bus)
-//   - Spelling (writer → channel → reader, with noise)
-//   - XML/markup (encoding information in a code)
-//
-// Each of these is an INSTANCE of communication — connected by functors.
-//
 // Two foundational models:
-//
-// Shannon (1948), "A Mathematical Theory of Communication":
-//   Source → Encoder → Channel → Decoder → Destination
-//   + Noise (interference in the channel)
-//   Mathematical: capacity, entropy, redundancy
-//
-// Jakobson (1960), "Linguistics and Poetics":
-//   Sender → Message → Receiver
-//   + Context (referential function)
-//   + Code (metalingual function)
-//   + Channel/Contact (phatic function)
-//   Each component has a corresponding language function.
+//   Shannon (1948): Source → Encoder → Channel → Decoder → Destination + Noise
+//   Jakobson (1960): Sender → Message → Receiver + Context/Code/Channel functions
 //
 // References:
 // - Shannon, A Mathematical Theory of Communication (1948)
 // - Jakobson, Linguistics and Poetics (1960)
 // - Lasswell, The Structure and Function of Communication in Society (1948)
-// - Schramm, How Communication Works (1954)
 // - Wiener, Cybernetics (1948) — feedback in communication
 
 /// Core concepts of communication.
 /// Unified from Shannon (1948) and Jakobson (1960).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum CommunicationConcept {
     /// The agent producing the message (Shannon: source; Jakobson: addresser).
     Sender,
@@ -56,210 +35,61 @@ pub enum CommunicationConcept {
     Context,
 }
 
-impl Entity for CommunicationConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Sender,
-            Self::Receiver,
-            Self::Message,
-            Self::Channel,
-            Self::Code,
-            Self::Noise,
-            Self::Feedback,
-            Self::Context,
-        ]
-    }
-}
-
-/// Relationships between communication concepts.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CommunicationRelation {
-    pub from: CommunicationConcept,
-    pub to: CommunicationConcept,
-    pub kind: CommunicationRelationKind,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CommunicationRelationKind {
-    Identity,
-    /// Sender produces Message.
-    Produces,
-    /// Message is transmitted through Channel.
-    TransmittedThrough,
-    /// Receiver interprets Message.
-    Interprets,
-    /// Code encodes/decodes Message.
-    EncodesDecodes,
-    /// Noise corrupts Message in Channel.
-    Corrupts,
-    /// Feedback flows from Receiver to Sender.
-    FlowsBack,
-    /// Context grounds Message interpretation.
-    Grounds,
-    /// Sender and Receiver share Code.
-    Shares,
-    Composed,
-}
-
-impl Relationship for CommunicationRelation {
-    type Object = CommunicationConcept;
-    fn source(&self) -> CommunicationConcept {
-        self.from
-    }
-    fn target(&self) -> CommunicationConcept {
-        self.to
-    }
-}
-
-pub struct CommunicationCategory;
-
-impl Category for CommunicationCategory {
-    type Object = CommunicationConcept;
-    type Morphism = CommunicationRelation;
-
-    fn identity(obj: &CommunicationConcept) -> CommunicationRelation {
-        CommunicationRelation {
-            from: *obj,
-            to: *obj,
-            kind: CommunicationRelationKind::Identity,
-        }
-    }
-
-    fn compose(
-        f: &CommunicationRelation,
-        g: &CommunicationRelation,
-    ) -> Option<CommunicationRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        if f.kind == CommunicationRelationKind::Identity {
-            return Some(g.clone());
-        }
-        if g.kind == CommunicationRelationKind::Identity {
-            return Some(f.clone());
-        }
-        Some(CommunicationRelation {
-            from: f.from,
-            to: g.to,
-            kind: CommunicationRelationKind::Composed,
-        })
-    }
-
-    fn morphisms() -> Vec<CommunicationRelation> {
-        use CommunicationConcept::*;
-        use CommunicationRelationKind::*;
-
-        let mut m = Vec::new();
-
-        for c in CommunicationConcept::variants() {
-            m.push(CommunicationRelation {
-                from: c,
-                to: c,
-                kind: Identity,
-            });
-        }
-
-        // Shannon's chain: Sender → Message → Channel → Receiver
-        m.push(CommunicationRelation {
-            from: Sender,
-            to: Message,
-            kind: Produces,
-        });
-        m.push(CommunicationRelation {
-            from: Message,
-            to: Channel,
-            kind: TransmittedThrough,
-        });
-        m.push(CommunicationRelation {
-            from: Receiver,
-            to: Message,
-            kind: Interprets,
-        });
-
-        // Code encodes and decodes the message
-        m.push(CommunicationRelation {
-            from: Code,
-            to: Message,
-            kind: EncodesDecodes,
-        });
-
-        // Noise corrupts message in channel
-        m.push(CommunicationRelation {
-            from: Noise,
-            to: Channel,
-            kind: Corrupts,
-        });
-
-        // Feedback: receiver → sender (Wiener's cybernetic loop)
-        m.push(CommunicationRelation {
-            from: Feedback,
-            to: Sender,
-            kind: FlowsBack,
-        });
-        m.push(CommunicationRelation {
-            from: Receiver,
-            to: Feedback,
-            kind: Produces,
-        });
-
-        // Context grounds interpretation
-        m.push(CommunicationRelation {
-            from: Context,
-            to: Message,
-            kind: Grounds,
-        });
-
-        // Sender and Receiver share Code
-        m.push(CommunicationRelation {
-            from: Sender,
-            to: Code,
-            kind: Shares,
-        });
-        m.push(CommunicationRelation {
-            from: Receiver,
-            to: Code,
-            kind: Shares,
-        });
-
-        // Transitive compositions
-        m.push(CommunicationRelation {
-            from: Sender,
-            to: Channel,
-            kind: Composed,
-        });
-        m.push(CommunicationRelation {
-            from: Sender,
-            to: Receiver,
-            kind: Composed,
-        });
-        m.push(CommunicationRelation {
-            from: Noise,
-            to: Message,
-            kind: Composed,
-        });
-        m.push(CommunicationRelation {
-            from: Receiver,
-            to: Sender,
-            kind: Composed,
-        });
-
-        // Self-composed closure
-        for c in CommunicationConcept::variants() {
-            m.push(CommunicationRelation {
-                from: c,
-                to: c,
-                kind: Composed,
-            });
-        }
-
-        m
+define_category! {
+    /// Communication category — Shannon (1948) + Jakobson (1960).
+    pub CommunicationCategory {
+        entity: CommunicationConcept,
+        relation: CommunicationRelation,
+        kind: CommunicationRelationKind,
+        kinds: [
+            /// Sender produces Message.
+            Produces,
+            /// Message is transmitted through Channel.
+            TransmittedThrough,
+            /// Receiver interprets Message.
+            Interprets,
+            /// Code encodes/decodes Message.
+            EncodesDecodes,
+            /// Noise corrupts Message in Channel.
+            Corrupts,
+            /// Feedback flows from Receiver to Sender.
+            FlowsBack,
+            /// Context grounds Message interpretation.
+            Grounds,
+            /// Sender and Receiver share Code.
+            Shares,
+        ],
+        edges: [
+            // Shannon's chain: Sender → Message → Channel → Receiver
+            (Sender, Message, Produces),
+            (Message, Channel, TransmittedThrough),
+            (Receiver, Message, Interprets),
+            // Code encodes/decodes
+            (Code, Message, EncodesDecodes),
+            // Noise corrupts
+            (Noise, Channel, Corrupts),
+            // Wiener's cybernetic feedback loop
+            (Feedback, Sender, FlowsBack),
+            (Receiver, Feedback, Produces),
+            // Context grounds interpretation
+            (Context, Message, Grounds),
+            // Shared code
+            (Sender, Code, Shares),
+            (Receiver, Code, Shares),
+        ],
+        composed: [
+            (Sender, Channel),
+            (Sender, Receiver),
+            (Noise, Message),
+            (Receiver, Sender),
+        ],
     }
 }
 
 /// Jakobson's six language functions (1960).
 /// Each communication component has a corresponding function when
 /// the communicative act focuses on that component.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum JakobsonFunction {
     /// Focus on Context → referential (informative).
     Referential,
@@ -273,19 +103,6 @@ pub enum JakobsonFunction {
     Metalingual,
     /// Focus on Message → poetic (the form of the message itself).
     Poetic,
-}
-
-impl Entity for JakobsonFunction {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Referential,
-            Self::Emotive,
-            Self::Conative,
-            Self::Phatic,
-            Self::Metalingual,
-            Self::Poetic,
-        ]
-    }
 }
 
 impl JakobsonFunction {
