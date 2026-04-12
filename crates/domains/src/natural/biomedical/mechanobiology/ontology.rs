@@ -13,10 +13,10 @@
 //! - Coste 2010: Piezo1 discovery (2021 Nobel Prize)
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -59,58 +59,6 @@ pub enum MechanobiologyEntity {
 // Taxonomy (is-a)
 // ---------------------------------------------------------------------------
 
-/// Subsumption hierarchy for mechanobiology entities.
-pub struct MechanobiologyTaxonomy;
-
-impl TaxonomyDef for MechanobiologyTaxonomy {
-    type Entity = MechanobiologyEntity;
-
-    fn relations() -> Vec<(MechanobiologyEntity, MechanobiologyEntity)> {
-        use MechanobiologyEntity::*;
-        vec![
-            // Forces is-a MechanicalForce
-            (MembraneTension, MechanicalForce),
-            (ShearStress, MechanicalForce),
-            (CompressiveStress, MechanicalForce),
-            (TensileStress, MechanicalForce),
-            (SubstrateStiffness, MechanicalForce),
-            // Channel states is-a ChannelState
-            (OpenState, ChannelState),
-            (ClosedState, ChannelState),
-            (InactivatedState, ChannelState),
-            // Mechanotransduction components -> ChannelState (channel-related)
-            (MechanosensitiveChannel, ChannelState),
-            (ChannelConformation, ChannelState),
-            // Frequency properties is-a FrequencyProperty
-            (FrequencyFiltering, FrequencyProperty),
-            (ActivationThreshold, FrequencyProperty),
-            (InactivationKinetics, FrequencyProperty),
-            (RecoveryTime, FrequencyProperty),
-            // Cellular responses is-a CellularResponse
-            (CalciumTransient, CellularResponse),
-            (CytoskeletalRemodeling, CellularResponse),
-            (FocalAdhesion, CellularResponse),
-            (Mechanoadaptation, CellularResponse),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over mechanobiology entities.
-    pub MechanobiologyCategory {
-        entity: MechanobiologyEntity,
-        relation: MechanobiologyRelation,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
 /// Events in the mechanobiology causal chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MechanobiologyCausalEvent {
@@ -136,33 +84,48 @@ pub enum MechanobiologyCausalEvent {
     ThresholdShift,
 }
 
-/// Causal graph for mechanobiology.
-///
-/// MechanicalLoad -> MembraneDeformation -> ChannelGating -> IonInflux ->
-///   IntracellularSignaling
-/// RepetitiveStimulus -> ChannelInactivation -> FrequencyDependentResponse
-///   (Lewis 2017: Piezo channels are frequency filters)
-/// SustainedForce -> ThresholdShift (mechanoadaptation)
-pub struct MechanobiologyCauses;
+define_ontology! {
+    /// Mechanobiology ontology: forces, channels, frequency response.
+    pub MechanobiologyOntologyMeta for MechanobiologyCategory {
+        entity: MechanobiologyEntity,
+        relation: MechanobiologyRelation,
 
-impl CausalDef for MechanobiologyCauses {
-    type Entity = MechanobiologyCausalEvent;
+        taxonomy: MechanobiologyTaxonomy [
+            (MembraneTension, MechanicalForce),
+            (ShearStress, MechanicalForce),
+            (CompressiveStress, MechanicalForce),
+            (TensileStress, MechanicalForce),
+            (SubstrateStiffness, MechanicalForce),
+            (OpenState, ChannelState),
+            (ClosedState, ChannelState),
+            (InactivatedState, ChannelState),
+            (MechanosensitiveChannel, ChannelState),
+            (ChannelConformation, ChannelState),
+            (FrequencyFiltering, FrequencyProperty),
+            (ActivationThreshold, FrequencyProperty),
+            (InactivationKinetics, FrequencyProperty),
+            (RecoveryTime, FrequencyProperty),
+            (CalciumTransient, CellularResponse),
+            (CytoskeletalRemodeling, CellularResponse),
+            (FocalAdhesion, CellularResponse),
+            (Mechanoadaptation, CellularResponse),
+        ],
 
-    fn relations() -> Vec<(MechanobiologyCausalEvent, MechanobiologyCausalEvent)> {
-        use MechanobiologyCausalEvent::*;
-        vec![
-            // Main chain: load -> deformation -> gating -> influx -> signaling
+        causation: MechanobiologyCauses for MechanobiologyCausalEvent [
             (MechanicalLoad, MembraneDeformation),
             (MembraneDeformation, ChannelGating),
             (ChannelGating, IonInflux),
             (IonInflux, IntracellularSignaling),
-            // Frequency filtering path (Lewis 2017)
             (RepetitiveStimulus, ChannelInactivation),
             (ChannelInactivation, FrequencyDependentResponse),
-            // Mechanoadaptation path
             (SustainedForce, MembraneDeformation),
             (SustainedForce, ThresholdShift),
-        ]
+        ],
+
+        opposition: MechanobiologyOpposition [
+            (OpenState, ClosedState),
+            (ActivationThreshold, Mechanoadaptation),
+        ],
     }
 }
 
@@ -269,20 +232,6 @@ impl Quality for RequiresMembraneTension {
 /// - OpenState <-> ClosedState: channel is either open or closed
 /// - ActivationThreshold <-> Mechanoadaptation: threshold vs adaptation
 ///   (sustained force shifts the threshold -- mechanoadaptation)
-pub struct MechanobiologyOpposition;
-
-impl OppositionDef for MechanobiologyOpposition {
-    type Entity = MechanobiologyEntity;
-
-    fn pairs() -> Vec<(MechanobiologyEntity, MechanobiologyEntity)> {
-        use MechanobiologyEntity::*;
-        vec![
-            (OpenState, ClosedState),
-            (ActivationThreshold, Mechanoadaptation),
-        ]
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------
@@ -461,6 +410,7 @@ impl Ontology for MechanobiologyOntology {
 mod tests {
     use super::*;
     use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::causation::CausalDef;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 
     // -- Axiom tests --

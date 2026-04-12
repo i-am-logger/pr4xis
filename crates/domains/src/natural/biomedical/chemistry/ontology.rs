@@ -5,10 +5,10 @@
 //! reactions, phase transitions, and diffusion.
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -62,61 +62,6 @@ pub enum ChemistryEntity {
 /// States -> StateOfMatter with Gel -> Colloid -> Liquid sub-hierarchy.
 /// Bonds -> ChemicalBond, properties -> PhysicalProperty,
 /// solutions -> SolutionComponent.
-pub struct ChemistryTaxonomy;
-
-impl TaxonomyDef for ChemistryTaxonomy {
-    type Entity = ChemistryEntity;
-
-    fn relations() -> Vec<(ChemistryEntity, ChemistryEntity)> {
-        use ChemistryEntity::*;
-        vec![
-            // States of matter is-a StateOfMatter
-            (Solid, StateOfMatter),
-            (Liquid, StateOfMatter),
-            (Gas, StateOfMatter),
-            (Plasma, StateOfMatter),
-            (Colloid, StateOfMatter),
-            // Gel is-a Colloid (a gel is a type of colloid)
-            (Gel, Colloid),
-            // Colloid is related to Liquid (colloids are liquid-based)
-            (Colloid, Liquid),
-            // Bonds is-a ChemicalBond
-            (IonicBond, ChemicalBond),
-            (CovalentBond, ChemicalBond),
-            (HydrogenBond, ChemicalBond),
-            (VanDerWaals, ChemicalBond),
-            (Metallic, ChemicalBond),
-            // Properties is-a PhysicalProperty
-            (PH, PhysicalProperty),
-            (Concentration, PhysicalProperty),
-            (Osmolarity, PhysicalProperty),
-            (Temperature, PhysicalProperty),
-            (Pressure, PhysicalProperty),
-            // Solutions is-a SolutionComponent
-            (Solvent, SolutionComponent),
-            (Solute, SolutionComponent),
-            (Electrolyte, SolutionComponent),
-            (Buffer, SolutionComponent),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over chemistry entities.
-    pub ChemistryCategory {
-        entity: ChemistryEntity,
-        relation: ChemistryRelation,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
 /// Events in the chemistry causal chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ChemistryCausalEvent {
@@ -138,21 +83,49 @@ pub enum ChemistryCausalEvent {
 /// AcidBaseReaction -> PHChange -> ProteinDenaturation
 /// TemperatureChange -> PhaseTransition
 /// ConcentrationGradient -> Diffusion
-pub struct ChemistryCauses;
+define_ontology! {
+    /// Chemistry ontology: matter, bonding, properties, solutions.
+    pub ChemistryOntologyMeta for ChemistryCategory {
+        entity: ChemistryEntity,
+        relation: ChemistryRelation,
 
-impl CausalDef for ChemistryCauses {
-    type Entity = ChemistryCausalEvent;
+        taxonomy: ChemistryTaxonomy [
+            (Solid, StateOfMatter),
+            (Liquid, StateOfMatter),
+            (Gas, StateOfMatter),
+            (Plasma, StateOfMatter),
+            (Colloid, StateOfMatter),
+            (Gel, Colloid),
+            (Colloid, Liquid),
+            (IonicBond, ChemicalBond),
+            (CovalentBond, ChemicalBond),
+            (HydrogenBond, ChemicalBond),
+            (VanDerWaals, ChemicalBond),
+            (Metallic, ChemicalBond),
+            (PH, PhysicalProperty),
+            (Concentration, PhysicalProperty),
+            (Osmolarity, PhysicalProperty),
+            (Temperature, PhysicalProperty),
+            (Pressure, PhysicalProperty),
+            (Solvent, SolutionComponent),
+            (Solute, SolutionComponent),
+            (Electrolyte, SolutionComponent),
+            (Buffer, SolutionComponent),
+        ],
 
-    fn relations() -> Vec<(ChemistryCausalEvent, ChemistryCausalEvent)> {
-        use ChemistryCausalEvent::*;
-        vec![
+        causation: ChemistryCauses for ChemistryCausalEvent [
             (Dissolution, IonDissociation),
             (IonDissociation, ElectrolyteFormation),
             (AcidBaseReaction, PHChange),
             (PHChange, ProteinDenaturation),
             (TemperatureChange, PhaseTransition),
             (ConcentrationGradient, Diffusion),
-        ]
+        ],
+
+        opposition: ChemistryOpposition [
+            (Solvent, Solute),
+            (IonicBond, CovalentBond),
+        ],
     }
 }
 
@@ -228,17 +201,6 @@ impl Quality for BondStrength {
 ///
 /// - Solvent ↔ Solute: the dissolving agent vs the dissolved substance
 /// - IonicBond ↔ CovalentBond: electrostatic transfer vs shared electrons
-pub struct ChemistryOpposition;
-
-impl OppositionDef for ChemistryOpposition {
-    type Entity = ChemistryEntity;
-
-    fn pairs() -> Vec<(ChemistryEntity, ChemistryEntity)> {
-        use ChemistryEntity::*;
-        vec![(Solvent, Solute), (IonicBond, CovalentBond)]
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------

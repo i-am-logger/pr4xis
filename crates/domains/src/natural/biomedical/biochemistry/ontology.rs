@@ -12,10 +12,10 @@
 //! - Krebs 1957: ATP in phosphorylation cascades
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -53,46 +53,7 @@ pub enum BiochemistryEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
-// ---------------------------------------------------------------------------
-
-/// Subsumption hierarchy for biochemistry entities.
-pub struct BiochemistryTaxonomy;
-
-impl TaxonomyDef for BiochemistryTaxonomy {
-    type Entity = BiochemistryEntity;
-
-    fn relations() -> Vec<(BiochemistryEntity, BiochemistryEntity)> {
-        use BiochemistryEntity::*;
-        vec![
-            // Signaling molecules is-a SignalingMolecule
-            (CalciumIon, SignalingMolecule),
-            (Calmodulin, SignalingMolecule),
-            (CaMKII, SignalingMolecule),
-            (CREB, SignalingMolecule),
-            (NitricOxide, SignalingMolecule),
-            (CAMP, SignalingMolecule),
-            (IP3, SignalingMolecule),
-            // Processes is-a BiochemicalProcess
-            (SignalTransduction, BiochemicalProcess),
-            (PhosphorylationCascade, BiochemicalProcess),
-            (GeneTranscription, BiochemicalProcess),
-            (ProteinSynthesis, BiochemicalProcess),
-            (SecondMessenger, BiochemicalProcess),
-            // Metabolites is-a EnergyMetabolite
-            (ATP, EnergyMetabolite),
-            (ADP, EnergyMetabolite),
-            // Metabolic processes is-a BiochemicalProcess
-            (Glycolysis, BiochemicalProcess),
-            (OxidativePhosphorylation, BiochemicalProcess),
-            // ProteinKinaseC is a signaling molecule
-            (ProteinKinaseC, SignalingMolecule),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
+// Causal event
 // ---------------------------------------------------------------------------
 
 /// Causal events in biochemical signaling cascades relevant to bioelectric repair.
@@ -124,50 +85,54 @@ pub enum BiochemistryCausalEvent {
     EnergyRelease,
 }
 
-/// Causal graph: biochemical signaling cascades.
-///
-/// Main pathway: CalciumEntry -> CalmodulinActivation -> CaMKIIPhosphorylation
-///               -> CREBActivation -> GeneExpressionChange -> ProteinSynthesisChange
-/// PKC branch:   CalciumEntry -> PKCActivation -> DownstreamSignaling
-/// NO branch:    CalciumEntry -> NOSynthaseActivation -> NOProduction (vasodilation)
-/// Energy:       ATPHydrolysis -> EnergyRelease
-pub struct BiochemistryCauses;
+// ---------------------------------------------------------------------------
+// Category + Reasoning (generated)
+// ---------------------------------------------------------------------------
 
-impl CausalDef for BiochemistryCauses {
-    type Entity = BiochemistryCausalEvent;
+define_ontology! {
+    /// Biochemistry ontology: signaling, processes, metabolites.
+    pub BiochemistryOntologyMeta for BiochemistryCategory {
+        entity: BiochemistryEntity,
+        relation: BiochemistryRelation,
 
-    fn relations() -> Vec<(BiochemistryCausalEvent, BiochemistryCausalEvent)> {
-        use BiochemistryCausalEvent::*;
-        vec![
-            // Main calcium-calmodulin-CaMKII-CREB pathway
+        taxonomy: BiochemistryTaxonomy [
+            (CalciumIon, SignalingMolecule),
+            (Calmodulin, SignalingMolecule),
+            (CaMKII, SignalingMolecule),
+            (CREB, SignalingMolecule),
+            (NitricOxide, SignalingMolecule),
+            (CAMP, SignalingMolecule),
+            (IP3, SignalingMolecule),
+            (SignalTransduction, BiochemicalProcess),
+            (PhosphorylationCascade, BiochemicalProcess),
+            (GeneTranscription, BiochemicalProcess),
+            (ProteinSynthesis, BiochemicalProcess),
+            (SecondMessenger, BiochemicalProcess),
+            (ATP, EnergyMetabolite),
+            (ADP, EnergyMetabolite),
+            (Glycolysis, BiochemicalProcess),
+            (OxidativePhosphorylation, BiochemicalProcess),
+            (ProteinKinaseC, SignalingMolecule),
+        ],
+
+        causation: BiochemistryCauses for BiochemistryCausalEvent [
             (CalciumEntry, CalmodulinActivation),
             (CalmodulinActivation, CaMKIIPhosphorylation),
             (CaMKIIPhosphorylation, CREBActivation),
             (CREBActivation, GeneExpressionChange),
             (GeneExpressionChange, ProteinSynthesisChange),
-            // PKC branch
             (CalciumEntry, PKCActivation),
             (PKCActivation, DownstreamSignaling),
-            // Nitric oxide / vasodilation branch
             (CalciumEntry, NOSynthaseActivation),
             (NOSynthaseActivation, NOProduction),
-            // Energy metabolism
             (ATPHydrolysis, EnergyRelease),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over biochemistry entities.
-    ///
-    /// Every entity pair has a unique morphism; composition is transitive.
-    pub BiochemistryCategory {
-        entity: BiochemistryEntity,
-        relation: BiochemistryRelation,
+        opposition: BiochemistryOpposition [
+            (ATP, ADP),
+            (Glycolysis, OxidativePhosphorylation),
+            (PhosphorylationCascade, GeneTranscription),
+        ],
     }
 }
 
@@ -288,30 +253,6 @@ impl Quality for IsReversible {
             OxidativePhosphorylation => Some(false), // directional electron transport
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition (semantic contrasts)
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in the biochemistry domain.
-///
-/// - ATP <-> ADP: charged vs discharged energy currency
-/// - Glycolysis <-> OxidativePhosphorylation: anaerobic vs aerobic
-/// - PhosphorylationCascade <-> GeneTranscription: fast signaling vs slow expression
-pub struct BiochemistryOpposition;
-
-impl OppositionDef for BiochemistryOpposition {
-    type Entity = BiochemistryEntity;
-
-    fn pairs() -> Vec<(BiochemistryEntity, BiochemistryEntity)> {
-        use BiochemistryEntity::*;
-        vec![
-            (ATP, ADP),
-            (Glycolysis, OxidativePhosphorylation),
-            (PhosphorylationCascade, GeneTranscription),
-        ]
     }
 }
 

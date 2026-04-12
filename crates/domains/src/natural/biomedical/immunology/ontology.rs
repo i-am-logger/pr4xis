@@ -13,10 +13,10 @@
 //! - Yu 2019: Mechanical loading promotes tissue repair through immune modulation
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -66,44 +66,6 @@ pub enum ImmunologyEntity {
 /// Cells -> ImmuneCell, states -> InflammatoryState, cytokines -> Cytokine.
 /// TNFAlpha/IL6 -> ProInflammatoryCytokine -> Cytokine.
 /// IL10/TGFBeta -> AntiInflammatoryCytokine -> Cytokine.
-pub struct ImmunologyTaxonomy;
-
-impl TaxonomyDef for ImmunologyTaxonomy {
-    type Entity = ImmunologyEntity;
-
-    fn relations() -> Vec<(ImmunologyEntity, ImmunologyEntity)> {
-        use ImmunologyEntity::*;
-        vec![
-            // Cells is-a ImmuneCell
-            (MacrophageM1, ImmuneCell),
-            (MacrophageM2, ImmuneCell),
-            (Neutrophil, ImmuneCell),
-            (TCell, ImmuneCell),
-            (Monocyte, ImmuneCell),
-            (MastCell, ImmuneCell),
-            (Fibroblast, StromalCell),
-            // States is-a InflammatoryState
-            (AcuteInflammation, InflammatoryState),
-            (ChronicInflammation, InflammatoryState),
-            (Resolution, InflammatoryState),
-            (Fibrosis, InflammatoryState),
-            (TissueRepair, InflammatoryState),
-            // Specific cytokines is-a Pro/Anti-inflammatory
-            (TNFAlpha, ProInflammatoryCytokine),
-            (IL6, ProInflammatoryCytokine),
-            (IL10, AntiInflammatoryCytokine),
-            (TGFBeta, AntiInflammatoryCytokine),
-            // Pro/Anti-inflammatory is-a Cytokine
-            (ProInflammatoryCytokine, Cytokine),
-            (AntiInflammatoryCytokine, Cytokine),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal Events
-// ---------------------------------------------------------------------------
-
 /// Events in the inflammatory causal chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ImmunologyEvent {
@@ -136,15 +98,34 @@ pub enum ImmunologyEvent {
 ///
 /// Vibration intervention (Weinheimer-Haus 2014):
 ///   MechanicalStimulation -> M1ToM2Transition
-pub struct InflammationCauses;
+define_ontology! {
+    /// Immunology ontology: inflammation, macrophages, cytokines.
+    pub ImmunologyOntologyMeta for ImmunologyCategory {
+        entity: ImmunologyEntity,
+        relation: ImmunologyRelation,
 
-impl CausalDef for InflammationCauses {
-    type Entity = ImmunologyEvent;
+        taxonomy: ImmunologyTaxonomy [
+            (MacrophageM1, ImmuneCell),
+            (MacrophageM2, ImmuneCell),
+            (Neutrophil, ImmuneCell),
+            (TCell, ImmuneCell),
+            (Monocyte, ImmuneCell),
+            (MastCell, ImmuneCell),
+            (Fibroblast, StromalCell),
+            (AcuteInflammation, InflammatoryState),
+            (ChronicInflammation, InflammatoryState),
+            (Resolution, InflammatoryState),
+            (Fibrosis, InflammatoryState),
+            (TissueRepair, InflammatoryState),
+            (TNFAlpha, ProInflammatoryCytokine),
+            (IL6, ProInflammatoryCytokine),
+            (IL10, AntiInflammatoryCytokine),
+            (TGFBeta, AntiInflammatoryCytokine),
+            (ProInflammatoryCytokine, Cytokine),
+            (AntiInflammatoryCytokine, Cytokine),
+        ],
 
-    fn relations() -> Vec<(ImmunologyEvent, ImmunologyEvent)> {
-        use ImmunologyEvent::*;
-        vec![
-            // Normal healing cascade
+        causation: InflammationCauses for ImmunologyEvent [
             (TissueInjury, NeutrophilRecruitment),
             (NeutrophilRecruitment, AcuteInflammationOnset),
             (AcuteInflammationOnset, MonocyteRecruitment),
@@ -154,24 +135,18 @@ impl CausalDef for InflammationCauses {
             (M1ToM2Transition, AntiInflammatoryResponse),
             (AntiInflammatoryResponse, TissueRemodeling),
             (TissueRemodeling, RepairCompletion),
-            // Pathological path
             (ChronicStimulus, FailedResolution),
             (FailedResolution, FibrosisProgression),
-            // Vibration intervention (Weinheimer-Haus 2014)
             (MechanicalStimulation, M1ToM2Transition),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over immunology entities.
-    pub ImmunologyCategory {
-        entity: ImmunologyEntity,
-        relation: ImmunologyRelation,
+        opposition: ImmunologyOpposition [
+            (MacrophageM1, MacrophageM2),
+            (AcuteInflammation, Resolution),
+            (ChronicInflammation, TissueRepair),
+            (ProInflammatoryCytokine, AntiInflammatoryCytokine),
+            (TNFAlpha, IL10),
+        ],
     }
 }
 
@@ -341,23 +316,6 @@ impl Quality for IsModulableByVibration {
 /// - ChronicInflammation ↔ TissueRepair: pathological persistence vs healing
 /// - ProInflammatoryCytokine ↔ AntiInflammatoryCytokine: opposing signaling classes
 /// - TNFAlpha ↔ IL10: canonical pro- vs anti-inflammatory cytokines
-pub struct ImmunologyOpposition;
-
-impl OppositionDef for ImmunologyOpposition {
-    type Entity = ImmunologyEntity;
-
-    fn pairs() -> Vec<(ImmunologyEntity, ImmunologyEntity)> {
-        use ImmunologyEntity::*;
-        vec![
-            (MacrophageM1, MacrophageM2),
-            (AcuteInflammation, Resolution),
-            (ChronicInflammation, TissueRepair),
-            (ProInflammatoryCytokine, AntiInflammatoryCytokine),
-            (TNFAlpha, IL10),
-        ]
-    }
-}
-
 /// Axiom: immunology opposition is symmetric.
 pub struct ImmunologyOppositionSymmetric;
 

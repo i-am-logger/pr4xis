@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::ontology::reasoning::taxonomy::{NoCycles, TaxonomyCategory, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::taxonomy::{NoCycles, TaxonomyDef};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// AHRS filter types — methods for estimating attitude.
@@ -34,17 +35,20 @@ pub enum AttitudeState {
     Yaw,
 }
 
-/// AHRS filter taxonomy: accuracy improvements.
-///
-/// ComplementaryFilter → MahonyFilter → MadgwickFilter → EKF
-pub struct AhrsFilterTaxonomy;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl TaxonomyDef for AhrsFilterTaxonomy {
-    type Entity = AhrsFilterType;
+define_ontology! {
+    /// The AHRS ontology.
+    ///
+    /// Source: Madgwick (2010), Mahony et al. (2008),
+    ///         Titterton & Weston (2004) Chapter 10.
+    pub AhrsOntology for AhrsCategory {
+        entity: AhrsFilterType,
+        relation: AhrsRelation,
 
-    fn relations() -> Vec<(AhrsFilterType, AhrsFilterType)> {
-        use AhrsFilterType::*;
-        vec![
+        taxonomy: AhrsFilterTaxonomy [
             (ComplementaryFilter, Filter),
             (MahonyFilter, Filter),
             (MadgwickFilter, Filter),
@@ -53,11 +57,11 @@ impl TaxonomyDef for AhrsFilterTaxonomy {
             (MahonyFilter, ComplementaryFilter),
             (MadgwickFilter, MahonyFilter),
             (ExtendedKalmanFilter, MadgwickFilter),
-        ]
+        ],
     }
 }
 
-/// Attitude state taxonomy.
+/// Attitude state taxonomy (secondary entity type — manual impl).
 pub struct AttitudeStateTaxonomy;
 
 impl TaxonomyDef for AttitudeStateTaxonomy {
@@ -225,17 +229,11 @@ impl Axiom for GyroIntegrationDrifts {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
 
-/// The AHRS ontology.
-///
-/// Source: Madgwick (2010), Mahony et al. (2008),
-///         Titterton & Weston (2004) Chapter 10.
-pub struct AhrsOntology;
-
 impl Ontology for AhrsOntology {
-    type Cat = TaxonomyCategory<AhrsFilterTaxonomy>;
+    type Cat = AhrsCategory;
     type Qual = AttitudeAccuracy;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {

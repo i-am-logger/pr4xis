@@ -14,10 +14,10 @@
 //! - Chernet & Levin 2013: Vmem manipulation suppresses tumors
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -50,40 +50,7 @@ pub enum MorphospaceEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
-// ---------------------------------------------------------------------------
-
-/// Subsumption hierarchy for morphospace entities.
-pub struct MorphospaceTaxonomy;
-
-impl TaxonomyDef for MorphospaceTaxonomy {
-    type Entity = MorphospaceEntity;
-
-    fn relations() -> Vec<(MorphospaceEntity, MorphospaceEntity)> {
-        use MorphospaceEntity::*;
-        vec![
-            // Attractors is-a Attractor
-            (Healthy, Attractor),
-            (Inflamed, Attractor),
-            (Barretts, Attractor),
-            (Dysplastic, Attractor),
-            (Fibrotic, Attractor),
-            // Repair pathways is-a RepairPathway
-            (BasalTurnover, RepairPathway),
-            (BioelectricRepair, RepairPathway),
-            (MechanicalStimulation, RepairPathway),
-            (CombinedTherapy, RepairPathway),
-            // Properties is-a BioelectricState
-            (PolarizedVmem, BioelectricState),
-            (DepolarizedVmem, BioelectricState),
-            (ConnectedNetwork, BioelectricState),
-            (DisconnectedNetwork, BioelectricState),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph (disease progression + repair)
+// Causal event
 // ---------------------------------------------------------------------------
 
 /// Events in disease progression and repair.
@@ -106,22 +73,38 @@ pub enum MorphospaceEvent {
     AutonomousRepair,
 }
 
-/// Causal graph for disease progression and repair pathways.
-pub struct DiseaseProgressionCauses;
+// ---------------------------------------------------------------------------
+// Category + Reasoning (generated)
+// ---------------------------------------------------------------------------
 
-impl CausalDef for DiseaseProgressionCauses {
-    type Entity = MorphospaceEvent;
+define_ontology! {
+    /// Morphospace attractor landscape ontology.
+    pub MorphospaceOntologyMeta for MorphospaceCategory {
+        entity: MorphospaceEntity,
+        relation: MorphospaceRelation,
 
-    fn relations() -> Vec<(MorphospaceEvent, MorphospaceEvent)> {
-        use MorphospaceEvent::*;
-        vec![
-            // Disease progression
+        taxonomy: MorphospaceTaxonomy [
+            (Healthy, Attractor),
+            (Inflamed, Attractor),
+            (Barretts, Attractor),
+            (Dysplastic, Attractor),
+            (Fibrotic, Attractor),
+            (BasalTurnover, RepairPathway),
+            (BioelectricRepair, RepairPathway),
+            (MechanicalStimulation, RepairPathway),
+            (CombinedTherapy, RepairPathway),
+            (PolarizedVmem, BioelectricState),
+            (DepolarizedVmem, BioelectricState),
+            (ConnectedNetwork, BioelectricState),
+            (DisconnectedNetwork, BioelectricState),
+        ],
+
+        causation: DiseaseProgressionCauses for MorphospaceEvent [
             (AcidDamage, ChronicInflammation),
             (ChronicInflammation, GapJunctionLoss),
             (GapJunctionLoss, FibroticRemodeling),
             (ChronicInflammation, MetaplasticTransition),
             (MetaplasticTransition, DysplasticTransition),
-            // Repair pathways
             (AcidRemoval, BasalCellReplacement),
             (BasalCellReplacement, AutonomousRepair),
             (VmemRepolarization, PatternRecognition),
@@ -129,19 +112,14 @@ impl CausalDef for DiseaseProgressionCauses {
             (GapJunctionRestoration, PatternRecognition),
             (MechanotransductionActivation, VmemRepolarization),
             (MechanotransductionActivation, GapJunctionRestoration),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over morphospace entities.
-    pub MorphospaceCategory {
-        entity: MorphospaceEntity,
-        relation: MorphospaceRelation,
+        opposition: MorphospaceOpposition [
+            (Healthy, Dysplastic),
+            (PolarizedVmem, DepolarizedVmem),
+            (ConnectedNetwork, DisconnectedNetwork),
+            (BasalTurnover, BioelectricRepair),
+        ],
     }
 }
 
@@ -250,32 +228,6 @@ impl Quality for PathwayIsHardwareAccessible {
             CombinedTherapy => Some(false),
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition (semantic contrasts)
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in the morphospace: entities that are semantic opposites.
-///
-/// - Healthy ↔ Dysplastic: most polarized vs most depolarized attractor
-/// - PolarizedVmem ↔ DepolarizedVmem: opposite bioelectric states
-/// - ConnectedNetwork ↔ DisconnectedNetwork: opposite network topologies
-/// - BasalTurnover ↔ BioelectricRepair: GJ-independent vs GJ-dependent repair
-pub struct MorphospaceOpposition;
-
-impl OppositionDef for MorphospaceOpposition {
-    type Entity = MorphospaceEntity;
-
-    fn pairs() -> Vec<(MorphospaceEntity, MorphospaceEntity)> {
-        use MorphospaceEntity::*;
-        vec![
-            (Healthy, Dysplastic),
-            (PolarizedVmem, DepolarizedVmem),
-            (ConnectedNetwork, DisconnectedNetwork),
-            (BasalTurnover, BioelectricRepair),
-        ]
     }
 }
 

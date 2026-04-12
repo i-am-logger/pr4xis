@@ -10,11 +10,11 @@
 //! - Chasin 2006: Musicians and the Prevention of Hearing Loss
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::mereology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -69,96 +69,7 @@ pub enum DeviceEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-pub struct DeviceTaxonomy;
-
-impl TaxonomyDef for DeviceTaxonomy {
-    type Entity = DeviceEntity;
-
-    fn relations() -> Vec<(DeviceEntity, DeviceEntity)> {
-        use DeviceEntity::*;
-        vec![
-            // Hearing aid types
-            (BehindTheEar, HearingAid),
-            (InTheEar, HearingAid),
-            (CompletelyInCanal, HearingAid),
-            (ReceiverInCanal, HearingAid),
-            (CROS, HearingAid),
-            (BiCROS, HearingAid),
-            // Implantable devices
-            (CochlearImplant, ImplantableDevice),
-            (BoneAnchoredHearingAid, ImplantableDevice),
-            (MiddleEarImplant, ImplantableDevice),
-            (AuditoryBrainstemImplant, ImplantableDevice),
-            // BC devices
-            (BoneConductionHeadphone, BCDevice),
-            (SoftbandBAHA, BCDevice),
-            (AdhesiveBC, BCDevice),
-            (BoneAnchoredHearingAid, BCDevice),
-            // Signal processing features
-            (DirectionalMicrophone, SignalProcessingFeature),
-            (NoiseSuppression, SignalProcessingFeature),
-            (FeedbackCancellation, SignalProcessingFeature),
-            (FrequencyCompression, SignalProcessingFeature),
-            (WideAdaptiveDynamicRange, SignalProcessingFeature),
-            (Telecoil, SignalProcessingFeature),
-            (BluetoothStreaming, SignalProcessingFeature),
-            // Diagnostic equipment
-            (Audiometer, DiagnosticEquipment),
-            (Tympanometer, DiagnosticEquipment),
-            (OAEProbe, DiagnosticEquipment),
-            (ABRSystem, DiagnosticEquipment),
-            (RealEarMeasurement, DiagnosticEquipment),
-            // Components
-            (Microphone, DeviceComponent),
-            (Amplifier, DeviceComponent),
-            (Receiver, DeviceComponent),
-            (ElectrodeArray, DeviceComponent),
-            (SpeechProcessor, DeviceComponent),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Mereology (has-a / part-whole)
-// ---------------------------------------------------------------------------
-
-/// Part-whole relationships for hearing devices.
-///
-/// Devices are composed of their functional components:
-/// - BTE hearing aids contain microphone, amplifier, and receiver
-/// - Cochlear implants contain electrode array, speech processor, and microphone
-/// - Hearing aids (abstract) contain signal processing features
-///
-/// Dillon 2012; Zeng et al. 2008.
-pub struct DeviceMereology;
-
-impl MereologyDef for DeviceMereology {
-    type Entity = DeviceEntity;
-
-    fn relations() -> Vec<(DeviceEntity, DeviceEntity)> {
-        use DeviceEntity::*;
-        vec![
-            // BTE hearing aid components
-            (BehindTheEar, Microphone),
-            (BehindTheEar, Amplifier),
-            (BehindTheEar, Receiver),
-            // Cochlear implant components
-            (CochlearImplant, ElectrodeArray),
-            (CochlearImplant, SpeechProcessor),
-            (CochlearImplant, Microphone),
-            // Hearing aid signal processing features
-            (HearingAid, DirectionalMicrophone),
-            (HearingAid, NoiseSuppression),
-            (HearingAid, FeedbackCancellation),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
+// Causal event entity
 // ---------------------------------------------------------------------------
 
 /// Causal events in the hearing device fitting pipeline.
@@ -173,40 +84,61 @@ pub enum DeviceCausalEvent {
     OutcomeImprovement,
 }
 
-/// Causal graph for the hearing device fitting pipeline.
-pub struct DeviceCausalGraph;
-
-impl CausalDef for DeviceCausalGraph {
-    type Entity = DeviceCausalEvent;
-
-    fn relations() -> Vec<(DeviceCausalEvent, DeviceCausalEvent)> {
-        use DeviceCausalEvent::*;
-        vec![
-            // Diagnosis determines device selection
-            (HearingLossDiagnosis, DeviceSelection),
-            // Device selection leads to custom ear mold
-            (DeviceSelection, CustomMolding),
-            // Custom mold enables initial fitting
-            (CustomMolding, InitialFitting),
-            // Initial fitting verified with real-ear measurement
-            (InitialFitting, RealEarVerification),
-            // Verification guides fine-tuning adjustments
-            (RealEarVerification, FineTuning),
-            // Fine-tuning produces outcome improvement
-            (FineTuning, OutcomeImprovement),
-        ]
-    }
-}
-
 // ---------------------------------------------------------------------------
-// Category
+// Ontology (define_ontology! macro)
 // ---------------------------------------------------------------------------
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over hearing device entities.
-    pub DeviceCategory {
+    pub DeviceOntology for DeviceCategory {
         entity: DeviceEntity,
         relation: DeviceRelation,
+
+        taxonomy: DeviceTaxonomy [
+            (BehindTheEar, HearingAid), (InTheEar, HearingAid),
+            (CompletelyInCanal, HearingAid), (ReceiverInCanal, HearingAid),
+            (CROS, HearingAid), (BiCROS, HearingAid),
+            (CochlearImplant, ImplantableDevice), (BoneAnchoredHearingAid, ImplantableDevice),
+            (MiddleEarImplant, ImplantableDevice), (AuditoryBrainstemImplant, ImplantableDevice),
+            (BoneConductionHeadphone, BCDevice), (SoftbandBAHA, BCDevice),
+            (AdhesiveBC, BCDevice), (BoneAnchoredHearingAid, BCDevice),
+            (DirectionalMicrophone, SignalProcessingFeature),
+            (NoiseSuppression, SignalProcessingFeature),
+            (FeedbackCancellation, SignalProcessingFeature),
+            (FrequencyCompression, SignalProcessingFeature),
+            (WideAdaptiveDynamicRange, SignalProcessingFeature),
+            (Telecoil, SignalProcessingFeature),
+            (BluetoothStreaming, SignalProcessingFeature),
+            (Audiometer, DiagnosticEquipment), (Tympanometer, DiagnosticEquipment),
+            (OAEProbe, DiagnosticEquipment), (ABRSystem, DiagnosticEquipment),
+            (RealEarMeasurement, DiagnosticEquipment),
+            (Microphone, DeviceComponent), (Amplifier, DeviceComponent),
+            (Receiver, DeviceComponent), (ElectrodeArray, DeviceComponent),
+            (SpeechProcessor, DeviceComponent),
+        ],
+
+        mereology: DeviceMereology [
+            (BehindTheEar, Microphone), (BehindTheEar, Amplifier), (BehindTheEar, Receiver),
+            (CochlearImplant, ElectrodeArray), (CochlearImplant, SpeechProcessor),
+            (CochlearImplant, Microphone),
+            (HearingAid, DirectionalMicrophone), (HearingAid, NoiseSuppression),
+            (HearingAid, FeedbackCancellation),
+        ],
+
+        causation: DeviceCausalGraph for DeviceCausalEvent [
+            (HearingLossDiagnosis, DeviceSelection),
+            (DeviceSelection, CustomMolding),
+            (CustomMolding, InitialFitting),
+            (InitialFitting, RealEarVerification),
+            (RealEarVerification, FineTuning),
+            (FineTuning, OutcomeImprovement),
+        ],
+
+        opposition: DeviceOpposition [
+            (CochlearImplant, HearingAid),
+            (BehindTheEar, CompletelyInCanal),
+            (DirectionalMicrophone, Telecoil),
+        ],
     }
 }
 
@@ -231,7 +163,7 @@ impl Quality for MaxGainDB {
             InTheEar => Some(55.0),
             BehindTheEar => Some(75.0),
             ReceiverInCanal => Some(60.0),
-            CochlearImplant => Some(120.0), // bypasses hair cells entirely
+            CochlearImplant => Some(120.0),
             BoneAnchoredHearingAid => Some(45.0),
             BoneConductionHeadphone => Some(30.0),
             _ => None,
@@ -240,12 +172,6 @@ impl Quality for MaxGainDB {
 }
 
 /// Battery life in days for hearing devices.
-///
-/// - BehindTheEar: ~7 days (disposable zinc-air)
-/// - CochlearImplant: ~1 day (rechargeable)
-/// - CompletelyInCanal: ~5 days (smaller battery)
-///
-/// Dillon 2012, Ch. 2.
 #[derive(Debug, Clone)]
 pub struct BatteryLifeDays;
 
@@ -257,7 +183,7 @@ impl Quality for BatteryLifeDays {
         use DeviceEntity::*;
         match individual {
             BehindTheEar => Some(7.0),
-            CochlearImplant => Some(1.0), // rechargeable, daily charge
+            CochlearImplant => Some(1.0),
             CompletelyInCanal => Some(5.0),
             _ => None,
         }
@@ -288,30 +214,6 @@ impl Quality for RequiresSurgery {
 }
 
 // ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in hearing devices.
-///
-/// - CochlearImplant vs HearingAid: bypass vs amplify (different treatment categories)
-/// - BehindTheEar vs CompletelyInCanal: largest vs smallest form factor
-/// - DirectionalMicrophone vs Telecoil: spatial vs electromagnetic input
-pub struct DeviceOpposition;
-
-impl OppositionDef for DeviceOpposition {
-    type Entity = DeviceEntity;
-
-    fn pairs() -> Vec<(DeviceEntity, DeviceEntity)> {
-        use DeviceEntity::*;
-        vec![
-            (CochlearImplant, HearingAid),
-            (BehindTheEar, CompletelyInCanal),
-            (DirectionalMicrophone, Telecoil),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------
 
@@ -325,7 +227,6 @@ impl Axiom for DeviceTaxonomyIsDAG {
     }
 }
 
-/// Mereology is a DAG.
 pub struct DeviceMereologyIsDAG;
 impl Axiom for DeviceMereologyIsDAG {
     fn description(&self) -> &str {
@@ -336,9 +237,6 @@ impl Axiom for DeviceMereologyIsDAG {
     }
 }
 
-/// BTE hearing aid contains microphone, amplifier, and receiver.
-///
-/// Dillon 2012, Ch. 1.
 pub struct BTEContainsComponents;
 impl Axiom for BTEContainsComponents {
     fn description(&self) -> &str {
@@ -351,7 +249,6 @@ impl Axiom for BTEContainsComponents {
     }
 }
 
-/// CI provides highest gain (bypasses damaged hair cells).
 pub struct CIHighestGain;
 impl Axiom for CIHighestGain {
     fn description(&self) -> &str {
@@ -359,13 +256,10 @@ impl Axiom for CIHighestGain {
     }
     fn holds(&self) -> bool {
         use DeviceEntity::*;
-        let ci = MaxGainDB.get(&CochlearImplant).unwrap();
-        let bte = MaxGainDB.get(&BehindTheEar).unwrap();
-        ci > bte
+        MaxGainDB.get(&CochlearImplant).unwrap() > MaxGainDB.get(&BehindTheEar).unwrap()
     }
 }
 
-/// All implantable devices require surgery.
 pub struct ImplantablesRequireSurgery;
 impl Axiom for ImplantablesRequireSurgery {
     fn description(&self) -> &str {
@@ -384,7 +278,6 @@ impl Axiom for ImplantablesRequireSurgery {
     }
 }
 
-/// No conventional hearing aid requires surgery.
 pub struct HearingAidsNoSurgery;
 impl Axiom for HearingAidsNoSurgery {
     fn description(&self) -> &str {
@@ -398,7 +291,6 @@ impl Axiom for HearingAidsNoSurgery {
     }
 }
 
-/// BAHA is both implantable AND a BC device.
 pub struct BAHADualClassification;
 impl Axiom for BAHADualClassification {
     fn description(&self) -> &str {
@@ -411,7 +303,6 @@ impl Axiom for BAHADualClassification {
     }
 }
 
-/// BTE has longest battery life among compared devices (Dillon 2012).
 pub struct BTELongestBattery;
 impl Axiom for BTELongestBattery {
     fn description(&self) -> &str {
@@ -426,7 +317,6 @@ impl Axiom for BTELongestBattery {
     }
 }
 
-/// Causal graph is asymmetric.
 pub struct DeviceCausalGraphIsAsymmetric;
 impl Axiom for DeviceCausalGraphIsAsymmetric {
     fn description(&self) -> &str {
@@ -437,7 +327,6 @@ impl Axiom for DeviceCausalGraphIsAsymmetric {
     }
 }
 
-/// No event causes itself.
 pub struct DeviceCausalGraphNoSelfCause;
 impl Axiom for DeviceCausalGraphNoSelfCause {
     fn description(&self) -> &str {
@@ -448,7 +337,6 @@ impl Axiom for DeviceCausalGraphNoSelfCause {
     }
 }
 
-/// Opposition is symmetric.
 pub struct DeviceOppositionSymmetric;
 impl Axiom for DeviceOppositionSymmetric {
     fn description(&self) -> &str {
@@ -459,7 +347,6 @@ impl Axiom for DeviceOppositionSymmetric {
     }
 }
 
-/// Opposition is irreflexive.
 pub struct DeviceOppositionIrreflexive;
 impl Axiom for DeviceOppositionIrreflexive {
     fn description(&self) -> &str {
@@ -470,7 +357,6 @@ impl Axiom for DeviceOppositionIrreflexive {
     }
 }
 
-/// Diagnosis transitively causes outcome improvement.
 pub struct DiagnosisCausesOutcome;
 impl Axiom for DiagnosisCausesOutcome {
     fn description(&self) -> &str {
@@ -478,16 +364,14 @@ impl Axiom for DiagnosisCausesOutcome {
     }
     fn holds(&self) -> bool {
         use DeviceCausalEvent::*;
-        let effects = causation::effects_of::<DeviceCausalGraph>(&HearingLossDiagnosis);
-        effects.contains(&OutcomeImprovement)
+        causation::effects_of::<DeviceCausalGraph>(&HearingLossDiagnosis)
+            .contains(&OutcomeImprovement)
     }
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-pub struct DeviceOntology;
 
 impl Ontology for DeviceOntology {
     type Cat = DeviceCategory;

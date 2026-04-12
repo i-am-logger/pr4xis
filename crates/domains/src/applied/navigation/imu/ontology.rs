@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::ontology::reasoning::taxonomy::{self, NoCycles, TaxonomyCategory, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// IMU measurement types — what the accelerometer and gyroscope measure.
@@ -24,24 +25,33 @@ pub enum ImuMeasurement {
     GyroscopeScaleFactor,
 }
 
-/// IMU measurement taxonomy.
-pub struct ImuTaxonomy;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl TaxonomyDef for ImuTaxonomy {
-    type Entity = ImuMeasurement;
+define_ontology! {
+    /// The IMU ontology.
+    ///
+    /// Source: Titterton & Weston, *Strapdown Inertial Navigation Technology* (2004).
+    ///         Groves, *Principles of GNSS, Inertial, and Multisensor Integrated Navigation* (2013).
+    pub ImuOntology for ImuCategory {
+        entity: ImuMeasurement,
+        relation: ImuRelation,
 
-    fn relations() -> Vec<(ImuMeasurement, ImuMeasurement)> {
-        use ImuMeasurement::*;
-        vec![
+        taxonomy: ImuTaxonomy [
             (SpecificForce, Measurement),
             (AngularRate, Measurement),
             (AccelerometerBias, SpecificForce),
             (GyroscopeBias, AngularRate),
             (AccelerometerScaleFactor, SpecificForce),
             (GyroscopeScaleFactor, AngularRate),
-        ]
+        ],
     }
 }
+
+// ---------------------------------------------------------------------------
+// Qualities
+// ---------------------------------------------------------------------------
 
 /// Quality: SI unit of each measurement.
 #[derive(Debug, Clone)]
@@ -76,7 +86,7 @@ impl Axiom for ImuTaxonomyIsDAG {
         "IMU measurement taxonomy is a DAG"
     }
     fn holds(&self) -> bool {
-        NoCycles::<ImuTaxonomy>::default().holds()
+        taxonomy::NoCycles::<ImuTaxonomy>::default().holds()
     }
 }
 
@@ -132,17 +142,11 @@ impl Axiom for GyroscopeBodyFrame {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
 
-/// The IMU ontology.
-///
-/// Source: Titterton & Weston, *Strapdown Inertial Navigation Technology* (2004).
-///         Groves, *Principles of GNSS, Inertial, and Multisensor Integrated Navigation* (2013).
-pub struct ImuOntology;
-
 impl Ontology for ImuOntology {
-    type Cat = TaxonomyCategory<ImuTaxonomy>;
+    type Cat = ImuCategory;
     type Qual = MeasurementUnit;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {

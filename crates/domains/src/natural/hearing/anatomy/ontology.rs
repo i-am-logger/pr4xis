@@ -1,7 +1,7 @@
 //! Auditory anatomy ontology.
 //!
 //! Models the structural hierarchy of the human auditory system:
-//! Ear → Outer/Middle/Inner → individual structures → cell types.
+//! Ear -> Outer/Middle/Inner -> individual structures -> cell types.
 //!
 //! Taxonomy: structure-type hierarchy (e.g., Malleus is-a Ossicle).
 //! Mereology: part-whole (e.g., MiddleEar has-a Malleus).
@@ -14,10 +14,10 @@
 //! - Hudspeth 2014: Integrating the active process of hair cells
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::mereology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -80,18 +80,16 @@ pub enum AuditoryEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
+// Ontology (define_ontology! macro)
 // ---------------------------------------------------------------------------
 
-/// Subsumption hierarchy for auditory anatomy.
-pub struct AuditoryTaxonomy;
+define_ontology! {
+    /// Discrete category over auditory anatomy entities.
+    pub AnatomyOntology for AnatomyCategory {
+        entity: AuditoryEntity,
+        relation: AuditoryRelation,
 
-impl TaxonomyDef for AuditoryTaxonomy {
-    type Entity = AuditoryEntity;
-
-    fn relations() -> Vec<(AuditoryEntity, AuditoryEntity)> {
-        use AuditoryEntity::*;
-        vec![
+        taxonomy: AuditoryTaxonomy [
             // Ear divisions
             (OuterEar, Ear),
             (MiddleEar, Ear),
@@ -131,23 +129,9 @@ impl TaxonomyDef for AuditoryTaxonomy {
             (SuperiorOlivaryComplex, AuditoryNucleus),
             (InferiorColliculus, AuditoryNucleus),
             (MedialGeniculateBody, AuditoryNucleus),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Mereology (has-a / part-whole)
-// ---------------------------------------------------------------------------
-
-/// Part-whole relationships for auditory anatomy.
-pub struct AuditoryMereology;
-
-impl MereologyDef for AuditoryMereology {
-    type Entity = AuditoryEntity;
-
-    fn relations() -> Vec<(AuditoryEntity, AuditoryEntity)> {
-        use AuditoryEntity::*;
-        vec![
+        mereology: AuditoryMereology [
             // Ear has all divisions
             (Ear, OuterEar),
             (Ear, MiddleEar),
@@ -186,21 +170,15 @@ impl MereologyDef for AuditoryMereology {
             (OrganOfCorti, InnerHairCell),
             (OrganOfCorti, OuterHairCell),
             (OrganOfCorti, SupportingCell),
-            // Neural pathway (Cochlea → nerve → brain)
+            // Neural pathway (Cochlea -> nerve -> brain)
             (Cochlea, SpiralGanglionNeuron),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over auditory anatomy entities.
-    pub AnatomyCategory {
-        entity: AuditoryEntity,
-        relation: AuditoryRelation,
+        opposition: AnatomyOpposition [
+            (OuterEar, InnerEar),
+            (Endolymph, Perilymph),
+            (InnerHairCell, OuterHairCell),
+        ],
     }
 }
 
@@ -299,30 +277,6 @@ impl Quality for CharacteristicFrequency {
             Stapes => Some(1000.0),           // middle ear peak
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in auditory anatomy.
-///
-/// - OuterEar vs InnerEar: external sound collection vs internal transduction
-/// - Endolymph vs Perilymph: high-K+ vs low-K+ cochlear fluid
-/// - InnerHairCell vs OuterHairCell: sensory transduction vs cochlear amplifier
-pub struct AnatomyOpposition;
-
-impl OppositionDef for AnatomyOpposition {
-    type Entity = AuditoryEntity;
-
-    fn pairs() -> Vec<(AuditoryEntity, AuditoryEntity)> {
-        use AuditoryEntity::*;
-        vec![
-            (OuterEar, InnerEar),
-            (Endolymph, Perilymph),
-            (InnerHairCell, OuterHairCell),
-        ]
     }
 }
 
@@ -501,11 +455,8 @@ impl Axiom for HairCellsAreMechanicallyActive {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-/// Top-level auditory anatomy ontology.
-pub struct AnatomyOntology;
 
 impl Ontology for AnatomyOntology {
     type Cat = AnatomyCategory;

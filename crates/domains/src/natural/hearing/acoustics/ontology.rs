@@ -12,11 +12,11 @@
 //! - von Békésy 1960: Experiments in Hearing
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::mereology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -63,18 +63,36 @@ pub enum AcousticEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
+// Causal event entity
 // ---------------------------------------------------------------------------
 
-/// Subsumption hierarchy for acoustic entities.
-pub struct AcousticTaxonomy;
+/// Causal events in acoustic wave propagation.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+pub enum AcousticCausalEvent {
+    SourceVibration,
+    MediumCoupling,
+    WavePropagation,
+    BoundaryEncounter,
+    ImpedanceTransition,
+    EnergyReflection,
+    EnergyTransmission,
+    EnergyAbsorption,
+    WaveAttenuation,
+    ResonantAmplification,
+    ReceiverExcitation,
+}
 
-impl TaxonomyDef for AcousticTaxonomy {
-    type Entity = AcousticEntity;
+// ---------------------------------------------------------------------------
+// Ontology (define_ontology! macro)
+// ---------------------------------------------------------------------------
 
-    fn relations() -> Vec<(AcousticEntity, AcousticEntity)> {
-        use AcousticEntity::*;
-        vec![
+define_ontology! {
+    /// Discrete category over acoustic entities.
+    pub AcousticsOntology for AcousticsCategory {
+        entity: AcousticEntity,
+        relation: AcousticRelation,
+
+        taxonomy: AcousticTaxonomy [
             // Wave types is-a Wave
             (SoundWave, Wave),
             (LongitudinalWave, Wave),
@@ -115,62 +133,18 @@ impl TaxonomyDef for AcousticTaxonomy {
             (Absorption, AcousticPhenomenon),
             (Attenuation, AcousticPhenomenon),
             (ImpedanceMismatch, AcousticPhenomenon),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Mereology (has-a / part-whole)
-// ---------------------------------------------------------------------------
-
-/// Part-whole relationships for acoustic entities.
-pub struct AcousticMereology;
-
-impl MereologyDef for AcousticMereology {
-    type Entity = AcousticEntity;
-
-    fn relations() -> Vec<(AcousticEntity, AcousticEntity)> {
-        use AcousticEntity::*;
-        vec![
+        mereology: AcousticMereology [
             // A sound wave has-a frequency, amplitude, wavelength, phase, intensity
             (SoundWave, Frequency),
             (SoundWave, Amplitude),
             (SoundWave, Wavelength),
             (SoundWave, Phase),
             (SoundWave, Intensity),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
-/// Causal events in acoustic wave propagation.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
-pub enum AcousticCausalEvent {
-    SourceVibration,
-    MediumCoupling,
-    WavePropagation,
-    BoundaryEncounter,
-    ImpedanceTransition,
-    EnergyReflection,
-    EnergyTransmission,
-    EnergyAbsorption,
-    WaveAttenuation,
-    ResonantAmplification,
-    ReceiverExcitation,
-}
-
-/// Causal graph for acoustic wave propagation.
-pub struct AcousticCausalGraph;
-
-impl CausalDef for AcousticCausalGraph {
-    type Entity = AcousticCausalEvent;
-
-    fn relations() -> Vec<(AcousticCausalEvent, AcousticCausalEvent)> {
-        use AcousticCausalEvent::*;
-        vec![
+        causation: AcousticCausalGraph for AcousticCausalEvent [
             // Source vibration couples into medium
             (SourceVibration, MediumCoupling),
             // Medium coupling initiates wave propagation
@@ -191,19 +165,13 @@ impl CausalDef for AcousticCausalGraph {
             (EnergyTransmission, ReceiverExcitation),
             // Resonance amplifies receiver excitation
             (ResonantAmplification, ReceiverExcitation),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over acoustic entities.
-    pub AcousticsCategory {
-        entity: AcousticEntity,
-        relation: AcousticRelation,
+        opposition: AcousticOpposition [
+            (Reflection, Refraction),
+            (Absorption, Resonance),
+            (LongitudinalWave, TransverseWave),
+        ],
     }
 }
 
@@ -306,30 +274,6 @@ impl Quality for MediumPhase {
             SoftTissue => Some(MediumState::Liquid), // acoustically liquid-like
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in acoustics.
-///
-/// - Reflection vs Transmission: energy splits at boundary
-/// - Absorption vs Resonance: energy damped vs amplified
-/// - LongitudinalWave vs TransverseWave: compression vs shear
-pub struct AcousticOpposition;
-
-impl OppositionDef for AcousticOpposition {
-    type Entity = AcousticEntity;
-
-    fn pairs() -> Vec<(AcousticEntity, AcousticEntity)> {
-        use AcousticEntity::*;
-        vec![
-            (Reflection, Refraction),
-            (Absorption, Resonance),
-            (LongitudinalWave, TransverseWave),
-        ]
     }
 }
 
@@ -526,11 +470,8 @@ impl Axiom for AcousticOppositionIrreflexive {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-/// Top-level acoustics ontology.
-pub struct AcousticsOntology;
 
 impl Ontology for AcousticsOntology {
     type Cat = AcousticsCategory;

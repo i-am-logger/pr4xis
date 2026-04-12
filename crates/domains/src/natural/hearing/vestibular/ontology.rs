@@ -12,27 +12,21 @@
 //! - Hudspeth & Corey 1977: hair cell transduction in bullfrog sacculus
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::mereology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
-
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum VestibularEntity {
-    // Semicircular canals
     LateralCanal,
     AnteriorCanal,
     PosteriorCanal,
     Ampulla,
     Cupula,
     CrisaAmpullaris,
-    // Otolith organs
     Utricle,
     Saccule,
     Macula,
@@ -40,12 +34,10 @@ pub enum VestibularEntity {
     OtolithMembrane,
     StriolarRegion,
     ExtrastriolarRegion,
-    // Hair cells
     TypeIHairCell,
     TypeIIHairCell,
     CalyxEnding,
     BoutonEnding,
-    // Neural
     VestibularNerve,
     ScarpaGanglion,
     VestibularNuclei,
@@ -53,20 +45,16 @@ pub enum VestibularEntity {
     LateralVestibularNucleus,
     SuperiorVestibularNucleus,
     CerebellumVestibular,
-    // Reflexes
     VestibuloOcularReflex,
     VestibuloSpinalReflex,
     VestibuloColicReflex,
-    // Stimuli
     AngularAcceleration,
     LinearAcceleration,
     GravityVector,
     HeadTilt,
-    // Disorders
     BPPV,
     VestibularNeuritis,
     Vertigo,
-    // Abstract categories
     SemicircularCanal,
     OtolithOrgan,
     VestibularHairCell,
@@ -74,85 +62,6 @@ pub enum VestibularEntity {
     VestibularStimulus,
     VestibularDisorder,
 }
-
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-pub struct VestibularTaxonomy;
-
-impl TaxonomyDef for VestibularTaxonomy {
-    type Entity = VestibularEntity;
-
-    fn relations() -> Vec<(VestibularEntity, VestibularEntity)> {
-        use VestibularEntity::*;
-        vec![
-            // Canals
-            (LateralCanal, SemicircularCanal),
-            (AnteriorCanal, SemicircularCanal),
-            (PosteriorCanal, SemicircularCanal),
-            // Otolith organs
-            (Utricle, OtolithOrgan),
-            (Saccule, OtolithOrgan),
-            // Hair cells
-            (TypeIHairCell, VestibularHairCell),
-            (TypeIIHairCell, VestibularHairCell),
-            // Reflexes
-            (VestibuloOcularReflex, VestibularReflex),
-            (VestibuloSpinalReflex, VestibularReflex),
-            (VestibuloColicReflex, VestibularReflex),
-            // Stimuli
-            (AngularAcceleration, VestibularStimulus),
-            (LinearAcceleration, VestibularStimulus),
-            (GravityVector, VestibularStimulus),
-            (HeadTilt, VestibularStimulus),
-            // Disorders
-            (BPPV, VestibularDisorder),
-            (VestibularNeuritis, VestibularDisorder),
-            (Vertigo, VestibularDisorder),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Mereology
-// ---------------------------------------------------------------------------
-
-pub struct VestibularMereology;
-
-impl MereologyDef for VestibularMereology {
-    type Entity = VestibularEntity;
-
-    fn relations() -> Vec<(VestibularEntity, VestibularEntity)> {
-        use VestibularEntity::*;
-        vec![
-            // Each canal has an ampulla
-            (LateralCanal, Ampulla),
-            (AnteriorCanal, Ampulla),
-            (PosteriorCanal, Ampulla),
-            // Ampulla contains crista and cupula
-            (Ampulla, CrisaAmpullaris),
-            (Ampulla, Cupula),
-            // Crista contains hair cells
-            (CrisaAmpullaris, TypeIHairCell),
-            (CrisaAmpullaris, TypeIIHairCell),
-            // Otolith organs contain macula
-            (Utricle, Macula),
-            (Saccule, Macula),
-            // Macula contains otoconia and hair cells
-            (Macula, Otoconia),
-            (Macula, OtolithMembrane),
-            (Macula, TypeIHairCell),
-            (Macula, TypeIIHairCell),
-            (Macula, StriolarRegion),
-            (Macula, ExtrastriolarRegion),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum VestibularCausalEvent {
@@ -170,105 +79,91 @@ pub enum VestibularCausalEvent {
     PosturalAdjustment,
 }
 
-pub struct VestibularCausalGraph;
+define_ontology! {
+    /// Discrete category over vestibular entities.
+    pub VestibularOntology for VestibularCategory {
+        entity: VestibularEntity,
+        relation: VestibularRelation,
 
-impl CausalDef for VestibularCausalGraph {
-    type Entity = VestibularCausalEvent;
+        taxonomy: VestibularTaxonomy [
+            (LateralCanal, SemicircularCanal), (AnteriorCanal, SemicircularCanal),
+            (PosteriorCanal, SemicircularCanal),
+            (Utricle, OtolithOrgan), (Saccule, OtolithOrgan),
+            (TypeIHairCell, VestibularHairCell), (TypeIIHairCell, VestibularHairCell),
+            (VestibuloOcularReflex, VestibularReflex),
+            (VestibuloSpinalReflex, VestibularReflex),
+            (VestibuloColicReflex, VestibularReflex),
+            (AngularAcceleration, VestibularStimulus),
+            (LinearAcceleration, VestibularStimulus),
+            (GravityVector, VestibularStimulus), (HeadTilt, VestibularStimulus),
+            (BPPV, VestibularDisorder), (VestibularNeuritis, VestibularDisorder),
+            (Vertigo, VestibularDisorder),
+        ],
 
-    fn relations() -> Vec<(VestibularCausalEvent, VestibularCausalEvent)> {
-        use VestibularCausalEvent::*;
-        vec![
-            // Canal pathway: rotation → endolymph → cupula → hair cell
-            (HeadRotation, EndolymphFlow),
-            (EndolymphFlow, CupulaDeflection),
+        mereology: VestibularMereology [
+            (LateralCanal, Ampulla), (AnteriorCanal, Ampulla), (PosteriorCanal, Ampulla),
+            (Ampulla, CrisaAmpullaris), (Ampulla, Cupula),
+            (CrisaAmpullaris, TypeIHairCell), (CrisaAmpullaris, TypeIIHairCell),
+            (Utricle, Macula), (Saccule, Macula),
+            (Macula, Otoconia), (Macula, OtolithMembrane),
+            (Macula, TypeIHairCell), (Macula, TypeIIHairCell),
+            (Macula, StriolarRegion), (Macula, ExtrastriolarRegion),
+        ],
+
+        causation: VestibularCausalGraph for VestibularCausalEvent [
+            (HeadRotation, EndolymphFlow), (EndolymphFlow, CupulaDeflection),
             (CupulaDeflection, CanalHairCellActivation),
-            // Otolith pathway: linear motion → otoconia → macula hair cell
-            (HeadLinearMotion, OtoconiaShear),
-            (OtoconiaShear, MaculaHairCellActivation),
-            // Both converge on vestibular nerve
+            (HeadLinearMotion, OtoconiaShear), (OtoconiaShear, MaculaHairCellActivation),
             (CanalHairCellActivation, VestibularAfferentFiring),
             (MaculaHairCellActivation, VestibularAfferentFiring),
-            // Central processing
             (VestibularAfferentFiring, VestibularNucleiProcessing),
-            // Reflex outputs
             (VestibularNucleiProcessing, VORActivation),
             (VORActivation, EyeMovementCompensation),
             (VestibularNucleiProcessing, PosturalAdjustment),
-        ]
+        ],
+
+        opposition: VestibularOpposition [
+            (AngularAcceleration, LinearAcceleration),
+            (TypeIHairCell, TypeIIHairCell),
+            (VestibuloOcularReflex, VestibuloSpinalReflex),
+        ],
     }
 }
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over vestibular entities.
-    pub VestibularCategory {
-        entity: VestibularEntity,
-        relation: VestibularRelation,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Time constant (seconds) of the canal/cupula system.
-///
-/// Mechanical time constant: ~5-7 seconds (Rabbitt et al. 2004)
-/// Neural time constant (velocity storage): ~15-20 seconds
 #[derive(Debug, Clone)]
 pub struct TimeConstant;
-
 impl Quality for TimeConstant {
     type Individual = VestibularEntity;
     type Value = f64;
-
     fn get(&self, individual: &VestibularEntity) -> Option<f64> {
         use VestibularEntity::*;
         match individual {
-            Cupula => Some(6.0), // seconds, mechanical
+            Cupula => Some(6.0),
             LateralCanal => Some(6.0),
-            VestibularNuclei => Some(17.0), // seconds, velocity storage
+            VestibularNuclei => Some(17.0),
             _ => None,
         }
     }
 }
 
-/// VOR gain (eye velocity / head velocity). Ideally 1.0.
-///
-/// Leigh & Zee 2015: The Neurology of Eye Movements.
 #[derive(Debug, Clone)]
 pub struct VORGain;
-
 impl Quality for VORGain {
     type Individual = VestibularEntity;
     type Value = f64;
-
     fn get(&self, individual: &VestibularEntity) -> Option<f64> {
-        use VestibularEntity::*;
         match individual {
-            VestibuloOcularReflex => Some(1.0), // ideal gain
+            VestibularEntity::VestibuloOcularReflex => Some(1.0),
             _ => None,
         }
     }
 }
 
-/// The plane of rotation to which each semicircular canal is most sensitive.
-///
-/// - LateralCanal: horizontal plane (yaw)
-/// - AnteriorCanal: sagittal plane (pitch)
-/// - PosteriorCanal: coronal plane (roll)
-///
-/// Goldberg et al. 2012, Ch. 2.
 #[derive(Debug, Clone)]
 pub struct CanalSensitivity;
-
 impl Quality for CanalSensitivity {
     type Individual = VestibularEntity;
     type Value = &'static str;
-
     fn get(&self, individual: &VestibularEntity) -> Option<&'static str> {
         use VestibularEntity::*;
         match individual {
@@ -280,34 +175,6 @@ impl Quality for CanalSensitivity {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in the vestibular system.
-///
-/// - AngularAcceleration vs LinearAcceleration: rotational vs translational
-/// - TypeIHairCell vs TypeIIHairCell: Type I (calyx) vs Type II (bouton)
-/// - VestibuloOcularReflex vs VestibuloSpinalReflex: eye vs posture compensation
-pub struct VestibularOpposition;
-
-impl OppositionDef for VestibularOpposition {
-    type Entity = VestibularEntity;
-
-    fn pairs() -> Vec<(VestibularEntity, VestibularEntity)> {
-        use VestibularEntity::*;
-        vec![
-            (AngularAcceleration, LinearAcceleration),
-            (TypeIHairCell, TypeIIHairCell),
-            (VestibuloOcularReflex, VestibuloSpinalReflex),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
 pub struct VestibularTaxonomyIsDAG;
 impl Axiom for VestibularTaxonomyIsDAG {
     fn description(&self) -> &str {
@@ -317,7 +184,6 @@ impl Axiom for VestibularTaxonomyIsDAG {
         taxonomy::NoCycles::<VestibularTaxonomy>::new().holds()
     }
 }
-
 pub struct VestibularMereologyIsDAG;
 impl Axiom for VestibularMereologyIsDAG {
     fn description(&self) -> &str {
@@ -327,7 +193,6 @@ impl Axiom for VestibularMereologyIsDAG {
         mereology::NoCycles::<VestibularMereology>::new().holds()
     }
 }
-
 pub struct VestibularCausalIsAsymmetric;
 impl Axiom for VestibularCausalIsAsymmetric {
     fn description(&self) -> &str {
@@ -337,8 +202,6 @@ impl Axiom for VestibularCausalIsAsymmetric {
         causation::Asymmetric::<VestibularCausalGraph>::new().holds()
     }
 }
-
-/// Three semicircular canals are classified.
 pub struct ThreeCanals;
 impl Axiom for ThreeCanals {
     fn description(&self) -> &str {
@@ -351,8 +214,6 @@ impl Axiom for ThreeCanals {
             .all(|c| taxonomy::is_a::<VestibularTaxonomy>(c, &SemicircularCanal))
     }
 }
-
-/// Two otolith organs are classified.
 pub struct TwoOtolithOrgans;
 impl Axiom for TwoOtolithOrgans {
     fn description(&self) -> &str {
@@ -364,8 +225,6 @@ impl Axiom for TwoOtolithOrgans {
             && taxonomy::is_a::<VestibularTaxonomy>(&Saccule, &OtolithOrgan)
     }
 }
-
-/// Head rotation transitively causes eye movement compensation (VOR).
 pub struct RotationCausesVOR;
 impl Axiom for RotationCausesVOR {
     fn description(&self) -> &str {
@@ -377,8 +236,6 @@ impl Axiom for RotationCausesVOR {
             .contains(&EyeMovementCompensation)
     }
 }
-
-/// Canals contain hair cells (via ampulla → crista).
 pub struct CanalsContainHairCells;
 impl Axiom for CanalsContainHairCells {
     fn description(&self) -> &str {
@@ -390,8 +247,6 @@ impl Axiom for CanalsContainHairCells {
         parts.contains(&TypeIHairCell) && parts.contains(&TypeIIHairCell)
     }
 }
-
-/// Opposition is symmetric.
 pub struct VestibularOppositionSymmetric;
 impl Axiom for VestibularOppositionSymmetric {
     fn description(&self) -> &str {
@@ -401,8 +256,6 @@ impl Axiom for VestibularOppositionSymmetric {
         opposition::Symmetric::<VestibularOpposition>::new().holds()
     }
 }
-
-/// Opposition is irreflexive.
 pub struct VestibularOppositionIrreflexive;
 impl Axiom for VestibularOppositionIrreflexive {
     fn description(&self) -> &str {
@@ -412,8 +265,6 @@ impl Axiom for VestibularOppositionIrreflexive {
         opposition::Irreflexive::<VestibularOpposition>::new().holds()
     }
 }
-
-/// Each canal has a distinct sensitivity plane (Goldberg et al. 2012).
 pub struct ThreeDistinctCanalPlanes;
 impl Axiom for ThreeDistinctCanalPlanes {
     fn description(&self) -> &str {
@@ -427,8 +278,6 @@ impl Axiom for ThreeDistinctCanalPlanes {
         lat != ant && ant != post && lat != post
     }
 }
-
-/// VOR gain is unity.
 pub struct VORGainIsUnity;
 impl Axiom for VORGainIsUnity {
     fn description(&self) -> &str {
@@ -439,16 +288,9 @@ impl Axiom for VORGainIsUnity {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
-pub struct VestibularOntology;
-
 impl Ontology for VestibularOntology {
     type Cat = VestibularCategory;
     type Qual = TimeConstant;
-
     fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(VestibularTaxonomyIsDAG),
@@ -522,7 +364,6 @@ mod tests {
             &VestibularEntity::LinearAcceleration
         ));
     }
-
     #[test]
     fn test_category_laws() {
         check_category_laws::<VestibularCategory>().unwrap();
@@ -539,7 +380,6 @@ mod tests {
     fn test_causal_laws() {
         check_category_laws::<CausalCategory<VestibularCausalGraph>>().unwrap();
     }
-
     #[test]
     fn test_three_distinct_canal_planes() {
         assert!(ThreeDistinctCanalPlanes.holds());
@@ -558,7 +398,6 @@ mod tests {
             Some("coronal/roll")
         );
     }
-
     #[test]
     fn test_cupula_time_constant() {
         assert_eq!(TimeConstant.get(&VestibularEntity::Cupula), Some(6.0));

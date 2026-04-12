@@ -9,9 +9,9 @@
 //! - Bhatt et al. 2015: bioimpedance spectroscopy
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -58,15 +58,13 @@ pub enum ElectrophysiologyEntity {
 // ---------------------------------------------------------------------------
 
 /// Subsumption hierarchy for electrophysiology entities.
-pub struct ElectrophysiologyTaxonomy;
+define_ontology! {
+    /// Electrophysiology ontology: techniques, quantities, recording modes.
+    pub ElectrophysiologyOntologyMeta for ElectrophysiologyCategory {
+        entity: ElectrophysiologyEntity,
+        relation: ElectrophysiologyRelation,
 
-impl TaxonomyDef for ElectrophysiologyTaxonomy {
-    type Entity = ElectrophysiologyEntity;
-
-    fn relations() -> Vec<(ElectrophysiologyEntity, ElectrophysiologyEntity)> {
-        use ElectrophysiologyEntity::*;
-        vec![
-            // Techniques is-a MeasurementTechnique
+        taxonomy: ElectrophysiologyTaxonomy [
             (PatchClamp, MeasurementTechnique),
             (SharpElectrode, MeasurementTechnique),
             (VoltageSensitiveDye, MeasurementTechnique),
@@ -75,33 +73,25 @@ impl TaxonomyDef for ElectrophysiologyTaxonomy {
             (ExtracellularRecording, MeasurementTechnique),
             (MultiElectrodeArray, MeasurementTechnique),
             (OpticalMapping, MeasurementTechnique),
-            // Quantities is-a MeasuredQuantity
             (RestingPotential, MeasuredQuantity),
             (ActionPotential, MeasuredQuantity),
             (TransepithelialPotential, MeasuredQuantity),
             (FieldPotential, MeasuredQuantity),
             (Impedance, MeasuredQuantity),
             (IntracellularCalcium, MeasuredQuantity),
-            // Recording modes is-a RecordingMode
             (WholeCell, RecordingMode),
             (CellAttached, RecordingMode),
             (InsideOut, RecordingMode),
             (OutsideOut, RecordingMode),
             (CurrentClamp, RecordingMode),
             (VoltageClamp, RecordingMode),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over electrophysiology entities.
-    pub ElectrophysiologyCategory {
-        entity: ElectrophysiologyEntity,
-        relation: ElectrophysiologyRelation,
+        opposition: ElectrophysiologyOpposition [
+            (PatchClamp, OpticalMapping),
+            (CurrentClamp, VoltageClamp),
+            (RestingPotential, ActionPotential),
+        ],
     }
 }
 
@@ -267,21 +257,6 @@ impl Quality for RequiresContactWithCell {
 /// - PatchClamp ↔ OpticalMapping: invasive/single-cell vs non-invasive/spatial
 /// - CurrentClamp ↔ VoltageClamp: measure voltage vs measure current
 /// - RestingPotential ↔ ActionPotential: steady-state vs transient
-pub struct ElectrophysiologyOpposition;
-
-impl OppositionDef for ElectrophysiologyOpposition {
-    type Entity = ElectrophysiologyEntity;
-
-    fn pairs() -> Vec<(ElectrophysiologyEntity, ElectrophysiologyEntity)> {
-        use ElectrophysiologyEntity::*;
-        vec![
-            (PatchClamp, OpticalMapping),
-            (CurrentClamp, VoltageClamp),
-            (RestingPotential, ActionPotential),
-        ]
-    }
-}
-
 /// Axiom: electrophysiology opposition is symmetric.
 pub struct ElectrophysiologyOppositionSymmetric;
 

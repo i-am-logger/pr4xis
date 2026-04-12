@@ -13,10 +13,10 @@
 //! when performing structural analysis.
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -54,46 +54,6 @@ pub enum AnalyticalEntity {
     AnalysisOutput,
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-/// Classification of analytical entities.
-pub struct AnalyticalTaxonomy;
-
-impl TaxonomyDef for AnalyticalTaxonomy {
-    type Entity = AnalyticalEntity;
-
-    fn relations() -> Vec<(AnalyticalEntity, AnalyticalEntity)> {
-        use AnalyticalEntity::*;
-        vec![
-            // Methods → AnalysisMethod
-            (StructuralAnalysis, AnalysisMethod),
-            (PatternAnalysis, AnalysisMethod),
-            (StatisticalAnalysis, AnalysisMethod),
-            (ComparativeAnalysis, AnalysisMethod),
-            (AbsorptionAnalysis, AnalysisMethod),
-            (ClusterAnalysis, AnalysisMethod),
-            // Components → AnalysisComponent
-            (FormalContext, AnalysisComponent),
-            (ConceptLattice, AnalysisComponent),
-            (GaloisConnection, AnalysisComponent),
-            (ObjectSet, AnalysisComponent),
-            (AttributeSet, AnalysisComponent),
-            (BinaryRelation, AnalysisComponent),
-            // Outputs → AnalysisOutput
-            (Pattern, AnalysisOutput),
-            (Cluster, AnalysisOutput),
-            (Anomaly, AnalysisOutput),
-            (Invariant, AnalysisOutput),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph: the analysis pipeline
-// ---------------------------------------------------------------------------
-
 /// Steps in the structural analysis pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AnalysisStep {
@@ -115,15 +75,39 @@ pub enum AnalysisStep {
     KnowledgeUpdate,
 }
 
-/// The analysis pipeline as a causal graph.
-pub struct AnalysisCausalGraph;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl CausalDef for AnalysisCausalGraph {
-    type Entity = AnalysisStep;
+define_ontology! {
+    /// Dense category over analytical entities.
+    pub AnalyticalMethodsOntology for AnalyticalCategory {
+        entity: AnalyticalEntity,
+        relation: AnalyticalRelation,
 
-    fn relations() -> Vec<(AnalysisStep, AnalysisStep)> {
-        use AnalysisStep::*;
-        vec![
+        taxonomy: AnalyticalTaxonomy [
+            // Methods → AnalysisMethod
+            (StructuralAnalysis, AnalysisMethod),
+            (PatternAnalysis, AnalysisMethod),
+            (StatisticalAnalysis, AnalysisMethod),
+            (ComparativeAnalysis, AnalysisMethod),
+            (AbsorptionAnalysis, AnalysisMethod),
+            (ClusterAnalysis, AnalysisMethod),
+            // Components → AnalysisComponent
+            (FormalContext, AnalysisComponent),
+            (ConceptLattice, AnalysisComponent),
+            (GaloisConnection, AnalysisComponent),
+            (ObjectSet, AnalysisComponent),
+            (AttributeSet, AnalysisComponent),
+            (BinaryRelation, AnalysisComponent),
+            // Outputs → AnalysisOutput
+            (Pattern, AnalysisOutput),
+            (Cluster, AnalysisOutput),
+            (Anomaly, AnalysisOutput),
+            (Invariant, AnalysisOutput),
+        ],
+
+        causation: AnalysisCausalGraph for AnalysisStep [
             (DataCollection, ContextFormation),
             (ContextFormation, DerivationComputation),
             (DerivationComputation, LatticeConstruction),
@@ -131,19 +115,14 @@ impl CausalDef for AnalysisCausalGraph {
             (PatternExtraction, AnomalyDetection),
             (AnomalyDetection, ResultInterpretation),
             (ResultInterpretation, KnowledgeUpdate),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Dense category over analytical entities.
-    pub AnalyticalCategory {
-        entity: AnalyticalEntity,
-        relation: AnalyticalRelation,
+        opposition: AnalyticalOpposition [
+            // Structure vs distribution (different lenses on data)
+            (StructuralAnalysis, StatisticalAnalysis),
+            // Regular vs irregular (what you find)
+            (Pattern, Anomaly),
+        ],
     }
 }
 
@@ -221,27 +200,6 @@ impl Quality for Complexity {
             AbsorptionAnalysis => Some(ComplexityClass::Quadratic),
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Semantic contrasts in analytical methods.
-pub struct AnalyticalOpposition;
-
-impl OppositionDef for AnalyticalOpposition {
-    type Entity = AnalyticalEntity;
-
-    fn pairs() -> Vec<(AnalyticalEntity, AnalyticalEntity)> {
-        use AnalyticalEntity::*;
-        vec![
-            // Structure vs distribution (different lenses on data)
-            (StructuralAnalysis, StatisticalAnalysis),
-            // Regular vs irregular (what you find)
-            (Pattern, Anomaly),
-        ]
     }
 }
 
@@ -364,10 +322,8 @@ impl Axiom for AnalyticalOppositionIrreflexive {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-pub struct AnalyticalMethodsOntology;
 
 impl Ontology for AnalyticalMethodsOntology {
     type Cat = AnalyticalCategory;

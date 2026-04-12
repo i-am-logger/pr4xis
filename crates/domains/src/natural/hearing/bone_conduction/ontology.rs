@@ -2,9 +2,9 @@
 //!
 //! Models how vibration reaches the cochlea through bone rather than air.
 //! Three primary mechanisms (Stenfelt 2011; Tonndorf 1966):
-//!   1. Osseotympanic: ear canal wall vibration → eardrum vibration
-//!   2. Inertial: skull vibration → ossicular chain inertia → oval window
-//!   3. Compressional: skull vibration → cochlear wall compression → fluid motion
+//!   1. Osseotympanic: ear canal wall vibration -> eardrum vibration
+//!   2. Inertial: skull vibration -> ossicular chain inertia -> oval window
+//!   3. Compressional: skull vibration -> cochlear wall compression -> fluid motion
 //!
 //! Additional: distortional mode (skull deformation at low frequencies).
 //!
@@ -17,10 +17,10 @@
 //! - Reinfeldt et al. 2015: estimation of BC pathways
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -69,46 +69,7 @@ pub enum BoneCondEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
-// ---------------------------------------------------------------------------
-
-/// Subsumption hierarchy for bone conduction entities.
-pub struct BoneCondTaxonomy;
-
-impl TaxonomyDef for BoneCondTaxonomy {
-    type Entity = BoneCondEntity;
-
-    fn relations() -> Vec<(BoneCondEntity, BoneCondEntity)> {
-        use BoneCondEntity::*;
-        vec![
-            // BC mechanisms
-            (OsseotympanicBC, BCMechanism),
-            (InertialBC, BCMechanism),
-            (CompressionalBC, BCMechanism),
-            (DistortionalBC, BCMechanism),
-            // Transducer types
-            (BoneAnchoredDevice, BCTransducer),
-            (PercutaneousImplant, BCTransducer),
-            (TranscutaneousDevice, BCTransducer),
-            (SkinDriveTransducer, BCTransducer),
-            (PiezoelectricTransducer, BCTransducer),
-            (ElectromagneticTransducer, BCTransducer),
-            // Application sites
-            (Mastoid, ApplicationSite),
-            (Forehead, ApplicationSite),
-            (TemporalBone, ApplicationSite),
-            (Vertex, ApplicationSite),
-            (Teeth, ApplicationSite),
-            // BC phenomena
-            (OcclusionEffect, BCPhenomenon),
-            (TranscranialAttenuation, BCPhenomenon),
-            (SkullResonance, BCPhenomenon),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
+// Causal event entity
 // ---------------------------------------------------------------------------
 
 /// Causal events in bone conduction hearing.
@@ -136,20 +97,43 @@ pub enum BCCausalEvent {
     CochlearResponse,
 }
 
-/// Causal graph for bone conduction pathways.
-///
-/// All three mechanisms originate from skull vibration but take
-/// different pathways to reach the cochlea.
-/// Stenfelt 2011; Tonndorf 1966.
-pub struct BCCausalGraph;
+// ---------------------------------------------------------------------------
+// Ontology (define_ontology! macro)
+// ---------------------------------------------------------------------------
 
-impl CausalDef for BCCausalGraph {
-    type Entity = BCCausalEvent;
+define_ontology! {
+    /// Discrete category over bone conduction entities.
+    pub BoneConductionOntology for BoneConductionCategory {
+        entity: BoneCondEntity,
+        relation: BoneCondRelation,
 
-    fn relations() -> Vec<(BCCausalEvent, BCCausalEvent)> {
-        use BCCausalEvent::*;
-        vec![
-            // Common: transducer → skull
+        taxonomy: BoneCondTaxonomy [
+            // BC mechanisms
+            (OsseotympanicBC, BCMechanism),
+            (InertialBC, BCMechanism),
+            (CompressionalBC, BCMechanism),
+            (DistortionalBC, BCMechanism),
+            // Transducer types
+            (BoneAnchoredDevice, BCTransducer),
+            (PercutaneousImplant, BCTransducer),
+            (TranscutaneousDevice, BCTransducer),
+            (SkinDriveTransducer, BCTransducer),
+            (PiezoelectricTransducer, BCTransducer),
+            (ElectromagneticTransducer, BCTransducer),
+            // Application sites
+            (Mastoid, ApplicationSite),
+            (Forehead, ApplicationSite),
+            (TemporalBone, ApplicationSite),
+            (Vertex, ApplicationSite),
+            (Teeth, ApplicationSite),
+            // BC phenomena
+            (OcclusionEffect, BCPhenomenon),
+            (TranscranialAttenuation, BCPhenomenon),
+            (SkullResonance, BCPhenomenon),
+        ],
+
+        causation: BCCausalGraph for BCCausalEvent [
+            // Common: transducer -> skull
             (TransducerActivation, SkullCoupling),
             (SkullCoupling, SkullWavePropagation),
             // Osseotympanic pathway
@@ -171,19 +155,13 @@ impl CausalDef for BCCausalGraph {
             (SkullWavePropagation, SkullModeDeformation),
             (SkullModeDeformation, InnerEarDistortion),
             (InnerEarDistortion, CochlearResponse),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over bone conduction entities.
-    pub BoneConductionCategory {
-        entity: BoneCondEntity,
-        relation: BoneCondRelation,
+        opposition: BoneCondOpposition [
+            (OsseotympanicBC, CompressionalBC),
+            (PercutaneousImplant, TranscutaneousDevice),
+            (Mastoid, Forehead),
+        ],
     }
 }
 
@@ -301,30 +279,6 @@ impl Quality for RequiresSurgery {
             ElectromagneticTransducer => Some(false),
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in bone conduction.
-///
-/// - OsseotympanicBC vs CompressionalBC: low-frequency vs high-frequency dominant
-/// - PercutaneousImplant vs TranscutaneousDevice: through-skin vs across-skin
-/// - Mastoid vs Forehead: lateral vs midline application
-pub struct BoneCondOpposition;
-
-impl OppositionDef for BoneCondOpposition {
-    type Entity = BoneCondEntity;
-
-    fn pairs() -> Vec<(BoneCondEntity, BoneCondEntity)> {
-        use BoneCondEntity::*;
-        vec![
-            (OsseotympanicBC, CompressionalBC),
-            (PercutaneousImplant, TranscutaneousDevice),
-            (Mastoid, Forehead),
-        ]
     }
 }
 
@@ -505,11 +459,8 @@ impl Axiom for MidlineSitesSymmetric {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-/// Top-level bone conduction ontology.
-pub struct BoneConductionOntology;
 
 impl Ontology for BoneConductionOntology {
     type Cat = BoneConductionCategory;
