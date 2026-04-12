@@ -20,9 +20,12 @@ fn main() {
     let workspace = find_workspace_root();
     let root = workspace.join("docs");
     eprintln!("pr4xis-web");
-    eprintln!("  http://localhost:{port}/          — presentation");
-    eprintln!("  http://localhost:{port}/chat/     — WASM chatbot");
+    eprintln!("  http://localhost:{port}/                — WASM chatbot");
+    eprintln!("  http://localhost:{port}/decks/technical — presentation");
     eprintln!();
+
+    // Build presentation on startup.
+    build_presentation(&workspace);
 
     // Watch for .rs file changes in crates/ — trigger WASM rebuild.
     let crates_dir = workspace.join("crates");
@@ -57,9 +60,25 @@ fn handle_request(root: &Path, request: tiny_http::Request) {
         return;
     }
 
-    // Resolve file path.
+    // Route: / serves chat, /pkg/ serves WASM, /decks/technical serves presentation
+    let workspace = root.parent().unwrap();
     let rel = url.trim_start_matches('/');
-    let mut path = root.join(rel);
+    let mut path = if rel.is_empty() || rel == "index.html" {
+        // Root → chat UI
+        root.join("chat/index.html")
+    } else if let Some(rest) = rel.strip_prefix("pkg/") {
+        // /pkg/* → WASM build output
+        workspace.join("crates/wasm/pkg").join(rest)
+    } else if rel == "decks/technical"
+        || rel == "decks/technical/"
+        || rel == "decks/technical/index.html"
+    {
+        // /decks/technical → compiled presentation
+        workspace.join("target/pages/decks/technical/index.html")
+    } else {
+        // Everything else → docs/
+        root.join(rel)
+    };
 
     // Directory → index.html
     if path.is_dir() {
@@ -177,16 +196,6 @@ fn watch_and_rebuild(crates_dir: &Path) {
 
             match status {
                 Ok(s) if s.success() => {
-                    // Copy built WASM to docs/chat/pkg/
-                    let src = workspace.join("crates/wasm/pkg");
-                    let dst = workspace.join("docs/chat/pkg");
-                    let _ = fs::create_dir_all(&dst);
-                    if let Ok(entries) = fs::read_dir(&src) {
-                        for entry in entries.flatten() {
-                            let target = dst.join(entry.file_name());
-                            let _ = fs::copy(entry.path(), target);
-                        }
-                    }
                     eprintln!("  WASM rebuilt OK");
                     RELOAD_COUNTER.fetch_add(1, Ordering::Relaxed);
                 }
@@ -243,6 +252,25 @@ fn inject_livereload(html: &str) -> String {
         out
     } else {
         format!("{html}\n{script}")
+    }
+}
+
+/// Build the Marp presentation into target/pages/decks/technical/.
+fn build_presentation(workspace: &Path) {
+    let out_dir = workspace.join("target/pages/decks/technical");
+    let _ = fs::create_dir_all(&out_dir);
+    let status = std::process::Command::new("marp")
+        .args(["docs/presentations/overview.md", "--html", "-o"])
+        .arg(out_dir.join("index.html"))
+        .current_dir(workspace)
+        .env("PATH", std::env::var("PATH").unwrap_or_default())
+        .status();
+    match status {
+        Ok(s) if s.success() => eprintln!("  presentation built OK"),
+        Ok(s) => eprintln!("  marp failed (exit {s}) — install with: npm i -g @marp-team/marp-cli"),
+        Err(_) => eprintln!(
+            "  marp not found — presentation will 404. Install: npm i -g @marp-team/marp-cli"
+        ),
     }
 }
 

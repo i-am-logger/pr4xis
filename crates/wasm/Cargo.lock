@@ -144,14 +144,14 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "pr4xis"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "quick-xml",
 ]
 
 [[package]]
 name = "pr4xis-chat"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "pr4xis",
  "pr4xis-domains",
@@ -159,7 +159,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-domains"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "chrono",
  "pr4xis",

@@ -74,40 +74,16 @@ in
     echo "Building pr4xis-wasm..."
     cd crates/wasm
     wasm-pack build --target web --release
-    echo "Copying WASM to docs/chat/pkg/..."
-    mkdir -p ../../docs/chat/pkg
-    cp -r pkg/* ../../docs/chat/pkg/
-    echo "WASM ready at docs/chat/"
-  '';
-
-  scripts.dev-site.exec = ''
-    echo "Building WASM..."
-    dev-wasm
-    echo "Building presentation..."
-    marp docs/presentations/overview.md -o docs/index.html --html
-    echo "Site ready at docs/"
-  '';
-
-  scripts.dev-present.exec = ''
-    echo "Building presentation..."
-    marp docs/presentations/overview.md -o docs/index.html --html
-    echo ""
-    echo "Serving at http://localhost:8080"
-    echo "  Presentation: http://localhost:8080"
-    echo "  Chat: http://localhost:8080/chat/"
-    echo ""
-    echo "Press Ctrl+C to stop"
-    brave http://localhost:8080 2>/dev/null || xdg-open http://localhost:8080 2>/dev/null &
-    miniserve docs/ --port 8080 --index index.html
+    echo "WASM ready at crates/wasm/pkg/"
   '';
 
   scripts.dev-web.exec = ''
     echo "Building WASM..."
     dev-wasm
-    echo "Building presentation..."
-    marp docs/presentations/overview.md -o docs/index.html --html 2>/dev/null || true
     echo ""
     echo "Starting pr4xis-web with live reload..."
+    echo "  /                — WASM chatbot"
+    echo "  /decks/technical — presentation"
     echo "Watching crates/ for changes — WASM rebuilds automatically."
     echo ""
     cargo run -p pr4xis-web --release
@@ -136,7 +112,7 @@ in
     echo "  dev-lint      - Run clippy"
     echo "  dev-check     - Check compilation"
     echo "  dev-build     - Build release"
-    echo "  dev-web       - Start dev server with live reload"
+    echo "  dev-web       - Start dev server (/ = chatbot, /decks/technical = presentation)"
     echo "  dev-wasm      - Build WASM"
     echo ""
   '';
