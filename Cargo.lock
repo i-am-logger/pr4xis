@@ -535,7 +535,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-chat"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "pr4xis",
@@ -544,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-cli"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "pr4xis",
  "pr4xis-chat",
@@ -564,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-examples"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "pr4xis",
  "pr4xis-domains",

@@ -1,0 +1,30 @@
+# Changelog
+
+## [0.2.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.1.6...pr4xis-cli-v0.2.0) (2026-04-12)
+
+
+### Features
+
+* build.rs embeds English into binary via codegen ([a15f414](https://github.com/i-am-logger/pr4xis/commit/a15f41467789efc285ef7ba10a46ed6c2ae4a4b1))
+* chatbot CLI wired through Lambek/Montague pipeline — no hardcoding ([ba6b538](https://github.com/i-am-logger/pr4xis/commit/ba6b53835fe56c7d0c7c9eea6cc8e125035d0bae))
+* dialogue ontology + chatbot CLI — praxis can chat ([b62fd99](https://github.com/i-am-logger/pr4xis/commit/b62fd99d4243ef8c39bb99c506aa298cc5a6ccb7))
+* integrate ontologies via functors, wire into chatbot pipeline ([3527502](https://github.com/i-am-logger/pr4xis/commit/3527502c2c7dbf18c8f26553ddbca423f6af0ae6))
+* metacognitive chatbot — epistemics classifies failures, suggests repairs ([989a73b](https://github.com/i-am-logger/pr4xis/commit/989a73b33d732273494c06e060447a67c2332212))
+* praxis-chat + praxis-wasm crates, logo in README ([d492e89](https://github.com/i-am-logger/pr4xis/commit/d492e89f10341fe5f34d23493269368f0aa56d77))
+* rename praxis → pr4xis across entire codebase ([5e971f7](https://github.com/i-am-logger/pr4xis/commit/5e971f77ac3041a5e35209216d09f41e55cf8a0d))
+* Rgb::from_hex and to_hex for color parsing ([79b88cc](https://github.com/i-am-logger/pr4xis/commit/79b88cc9d5f96521065b62a5673eb4be9906bc60))
+
+
+### Bug Fixes
+
+* remove all hardcoded pronoun/noun matching from dialogue engine ([fac095f](https://github.com/i-am-logger/pr4xis/commit/fac095f6a20509360e2c6dddada83e599c72977d))
+* remove hardcoded quit/exit — farewell detection through language lexicon ([1bb193b](https://github.com/i-am-logger/pr4xis/commit/1bb193bf68d6c16bfe609f839aec456d08bf0603))
+* taxonomy query works — 'is a dog a mammal' answered correctly ([27043ce](https://github.com/i-am-logger/pr4xis/commit/27043cec07a98102b1a72ba3d65c5bbc9207bca4))
+* update release-please config for pr4xis rename + add version to path deps ([ff60744](https://github.com/i-am-logger/pr4xis/commit/ff60744ee9dbdd64d2a964b39c286253216e9a58))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis-chat bumped from 0.1.5 to 0.2.0
