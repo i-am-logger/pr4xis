@@ -1,6 +1,6 @@
 [package]
 name = "praxis"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Prove your domain is correct — ontology-driven rule enforcement with category theory, logical composition, and runtime state machines"
