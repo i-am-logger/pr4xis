@@ -14,8 +14,6 @@
 use pr4xis::category::Entity;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -260,45 +258,6 @@ impl Quality for IsReversible {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// The biochemistry taxonomy has no cycles (is a DAG).
-pub struct BiochemistryTaxonomyIsDAG;
-
-impl Axiom for BiochemistryTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "biochemistry taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<BiochemistryTaxonomy>::new().holds()
-    }
-}
-
-/// The causal graph is asymmetric: if A causes B then B does not cause A.
-pub struct BiochemistryCausalAsymmetric;
-
-impl Axiom for BiochemistryCausalAsymmetric {
-    fn description(&self) -> &str {
-        "biochemistry causal graph is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<BiochemistryCauses>::new().holds()
-    }
-}
-
-/// No event directly causes itself.
-pub struct BiochemistryCausalNoSelfCause;
-
-impl Axiom for BiochemistryCausalNoSelfCause {
-    fn description(&self) -> &str {
-        "no biochemical event directly causes itself"
-    }
-
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<BiochemistryCauses>::new().holds()
-    }
-}
-
 /// CalciumEntry transitively causes GeneExpressionChange (the full signaling cascade).
 pub struct CalciumEntryCausesGeneExpression;
 
@@ -368,32 +327,6 @@ impl Axiom for PhosphorylationRequiresATP {
     }
 }
 
-/// Biochemistry opposition is symmetric.
-pub struct BiochemistryOppositionSymmetric;
-
-impl Axiom for BiochemistryOppositionSymmetric {
-    fn description(&self) -> &str {
-        "biochemistry opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<BiochemistryOpposition>::new().holds()
-    }
-}
-
-/// Biochemistry opposition is irreflexive (nothing opposes itself).
-pub struct BiochemistryOppositionIrreflexive;
-
-impl Axiom for BiochemistryOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "biochemistry opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<BiochemistryOpposition>::new().holds()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Ontology
 // ---------------------------------------------------------------------------
@@ -405,18 +338,17 @@ impl Ontology for BiochemistryOntology {
     type Cat = BiochemistryCategory;
     type Qual = IsSecondMessenger;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        BiochemistryOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(BiochemistryTaxonomyIsDAG),
-            Box::new(BiochemistryCausalAsymmetric),
-            Box::new(BiochemistryCausalNoSelfCause),
             Box::new(CalciumEntryCausesGeneExpression),
             Box::new(CalciumEntryCausesNOProduction),
             Box::new(CalciumIsSecondMessenger),
             Box::new(CaMKIIIsKinase),
             Box::new(PhosphorylationRequiresATP),
-            Box::new(BiochemistryOppositionSymmetric),
-            Box::new(BiochemistryOppositionIrreflexive),
         ]
     }
 }
@@ -430,37 +362,12 @@ mod tests {
     use super::*;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
+    use pr4xis::ontology::reasoning::opposition;
+    use pr4xis::ontology::reasoning::taxonomy;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
 
     // -- Axiom tests --
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(
-            BiochemistryTaxonomyIsDAG.holds(),
-            "{}",
-            BiochemistryTaxonomyIsDAG.description()
-        );
-    }
-
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(
-            BiochemistryCausalAsymmetric.holds(),
-            "{}",
-            BiochemistryCausalAsymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_causal_no_self_cause() {
-        assert!(
-            BiochemistryCausalNoSelfCause.holds(),
-            "{}",
-            BiochemistryCausalNoSelfCause.description()
-        );
-    }
 
     #[test]
     fn test_calcium_entry_causes_gene_expression() {
@@ -500,24 +407,6 @@ mod tests {
             PhosphorylationRequiresATP.holds(),
             "{}",
             PhosphorylationRequiresATP.description()
-        );
-    }
-
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(
-            BiochemistryOppositionSymmetric.holds(),
-            "{}",
-            BiochemistryOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(
-            BiochemistryOppositionIrreflexive.holds(),
-            "{}",
-            BiochemistryOppositionIrreflexive.description()
         );
     }
 

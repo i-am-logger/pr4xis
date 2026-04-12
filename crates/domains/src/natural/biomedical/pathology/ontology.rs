@@ -21,8 +21,6 @@
 use pr4xis::category::Entity;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -336,45 +334,6 @@ impl Quality for BarrettsStage {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Axiom: pathology taxonomy is a directed acyclic graph.
-pub struct PathologyTaxonomyIsDAG;
-
-impl Axiom for PathologyTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "pathology taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<PathologyTaxonomy>::new().holds()
-    }
-}
-
-/// Axiom: disease progression causal graph is asymmetric.
-pub struct DiseaseProgressionCausalAsymmetric;
-
-impl Axiom for DiseaseProgressionCausalAsymmetric {
-    fn description(&self) -> &str {
-        "disease progression causal graph is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<DiseaseProgressionCauses>::new().holds()
-    }
-}
-
-/// Axiom: no disease progression event directly causes itself.
-pub struct DiseaseProgressionNoSelfCausation;
-
-impl Axiom for DiseaseProgressionNoSelfCausation {
-    fn description(&self) -> &str {
-        "no disease progression event directly causes itself"
-    }
-
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<DiseaseProgressionCauses>::new().holds()
-    }
-}
-
 /// Axiom: tissue insult transitively causes neoplastic transformation (full progression).
 pub struct TissueInsultCausesNeoplasia;
 
@@ -458,32 +417,6 @@ impl Axiom for MetaplasiaIsReversible {
     }
 }
 
-/// Axiom: pathology opposition is symmetric.
-pub struct PathologyOppositionSymmetric;
-
-impl Axiom for PathologyOppositionSymmetric {
-    fn description(&self) -> &str {
-        "pathology opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<PathologyOpposition>::new().holds()
-    }
-}
-
-/// Axiom: pathology opposition is irreflexive (nothing opposes itself).
-pub struct PathologyOppositionIrreflexive;
-
-impl Axiom for PathologyOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "pathology opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<PathologyOpposition>::new().holds()
-    }
-}
-
 /// Axiom: acute injury is reversible, neoplasia is not.
 pub struct AcuteReversibleNeoplasiaIrreversible;
 
@@ -509,19 +442,18 @@ impl Ontology for PathologyOntology {
     type Cat = PathologyCategory;
     type Qual = IsReversible;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        PathologyOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(PathologyTaxonomyIsDAG),
-            Box::new(DiseaseProgressionCausalAsymmetric),
-            Box::new(DiseaseProgressionNoSelfCausation),
             Box::new(TissueInsultCausesNeoplasia),
             Box::new(TissueInsultCausesStricture),
             Box::new(DysplasiaIsPremalignant),
             Box::new(NormalHasNoMalignantPotential),
             Box::new(NeoplasiaIsMalignant),
             Box::new(MetaplasiaIsReversible),
-            Box::new(PathologyOppositionSymmetric),
-            Box::new(PathologyOppositionIrreflexive),
             Box::new(AcuteReversibleNeoplasiaIrreversible),
         ]
     }
@@ -535,36 +467,11 @@ impl Ontology for PathologyOntology {
 mod tests {
     use super::*;
     use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::opposition;
+    use pr4xis::ontology::reasoning::taxonomy;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 
     // -- Axiom tests --
-
-    #[test]
-    fn test_pathology_taxonomy_is_dag() {
-        assert!(
-            PathologyTaxonomyIsDAG.holds(),
-            "{}",
-            PathologyTaxonomyIsDAG.description()
-        );
-    }
-
-    #[test]
-    fn test_disease_progression_causal_asymmetric() {
-        assert!(
-            DiseaseProgressionCausalAsymmetric.holds(),
-            "{}",
-            DiseaseProgressionCausalAsymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_disease_progression_no_self_causation() {
-        assert!(
-            DiseaseProgressionNoSelfCausation.holds(),
-            "{}",
-            DiseaseProgressionNoSelfCausation.description()
-        );
-    }
 
     #[test]
     fn test_tissue_insult_causes_neoplasia() {
@@ -617,24 +524,6 @@ mod tests {
             MetaplasiaIsReversible.holds(),
             "{}",
             MetaplasiaIsReversible.description()
-        );
-    }
-
-    #[test]
-    fn test_pathology_opposition_symmetric() {
-        assert!(
-            PathologyOppositionSymmetric.holds(),
-            "{}",
-            PathologyOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_pathology_opposition_irreflexive() {
-        assert!(
-            PathologyOppositionIrreflexive.holds(),
-            "{}",
-            PathologyOppositionIrreflexive.description()
         );
     }
 

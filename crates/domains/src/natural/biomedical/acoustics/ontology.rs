@@ -15,8 +15,6 @@
 use pr4xis::category::Entity;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -244,32 +242,6 @@ impl Quality for FrequencyRange {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Axiom: acoustics taxonomy is a DAG.
-pub struct AcousticsTaxonomyIsDAG;
-
-impl Axiom for AcousticsTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "acoustics taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<AcousticsTaxonomy>::new().holds()
-    }
-}
-
-/// Axiom: acoustics causal graph is asymmetric.
-pub struct AcousticsCausalAsymmetric;
-
-impl Axiom for AcousticsCausalAsymmetric {
-    fn description(&self) -> &str {
-        "acoustics causal graph is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<AcousticsCauses>::new().holds()
-    }
-}
-
 /// Axiom: bone impedance >> air impedance (~4000x mismatch, Stenfelt 2005).
 pub struct BoneImpedanceFarExceedsAir;
 
@@ -364,32 +336,6 @@ impl Axiom for ImpedanceBoundaryCausesBranch {
     }
 }
 
-/// Axiom: acoustics opposition is symmetric.
-pub struct AcousticsOppositionSymmetric;
-
-impl Axiom for AcousticsOppositionSymmetric {
-    fn description(&self) -> &str {
-        "acoustics opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<AcousticsOpposition>::new().holds()
-    }
-}
-
-/// Axiom: acoustics opposition is irreflexive.
-pub struct AcousticsOppositionIrreflexive;
-
-impl Axiom for AcousticsOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "acoustics opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<AcousticsOpposition>::new().holds()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Ontology
 // ---------------------------------------------------------------------------
@@ -401,18 +347,18 @@ impl Ontology for AcousticsOntology {
     type Cat = AcousticsCategory;
     type Qual = ImpedanceValue;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        AcousticsOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(AcousticsTaxonomyIsDAG),
-            Box::new(AcousticsCausalAsymmetric),
             Box::new(BoneImpedanceFarExceedsAir),
             Box::new(BoneImpedanceExceedsSoftTissue),
             Box::new(BoneConductionHighEfficiency),
             Box::new(AirConductionLowEfficiency),
             Box::new(ElectricalSignalCausesDeepPenetration),
             Box::new(ImpedanceBoundaryCausesBranch),
-            Box::new(AcousticsOppositionSymmetric),
-            Box::new(AcousticsOppositionIrreflexive),
         ]
     }
 }
@@ -426,27 +372,11 @@ mod tests {
     use super::*;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalDef;
+    use pr4xis::ontology::reasoning::opposition;
+    use pr4xis::ontology::reasoning::taxonomy;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 
     // -- Axiom tests --
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(
-            AcousticsTaxonomyIsDAG.holds(),
-            "{}",
-            AcousticsTaxonomyIsDAG.description()
-        );
-    }
-
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(
-            AcousticsCausalAsymmetric.holds(),
-            "{}",
-            AcousticsCausalAsymmetric.description()
-        );
-    }
 
     #[test]
     fn test_bone_impedance_far_exceeds_air() {
@@ -499,24 +429,6 @@ mod tests {
             ImpedanceBoundaryCausesBranch.holds(),
             "{}",
             ImpedanceBoundaryCausesBranch.description()
-        );
-    }
-
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(
-            AcousticsOppositionSymmetric.holds(),
-            "{}",
-            AcousticsOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(
-            AcousticsOppositionIrreflexive.holds(),
-            "{}",
-            AcousticsOppositionIrreflexive.description()
         );
     }
 

@@ -15,7 +15,6 @@
 use pr4xis::category::Entity;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -311,79 +310,15 @@ impl Quality for IsModulableByVibration {
 
 /// Opposition pairs in the immunology domain.
 ///
-/// - MacrophageM1 ↔ MacrophageM2: pro-inflammatory vs pro-repair phenotypes
-/// - AcuteInflammation ↔ Resolution: onset vs resolution of inflammation
-/// - ChronicInflammation ↔ TissueRepair: pathological persistence vs healing
-/// - ProInflammatoryCytokine ↔ AntiInflammatoryCytokine: opposing signaling classes
-/// - TNFAlpha ↔ IL10: canonical pro- vs anti-inflammatory cytokines
-/// Axiom: immunology opposition is symmetric.
-pub struct ImmunologyOppositionSymmetric;
-
-impl Axiom for ImmunologyOppositionSymmetric {
-    fn description(&self) -> &str {
-        "immunology opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<ImmunologyOpposition>::new().holds()
-    }
-}
-
-/// Axiom: immunology opposition is irreflexive (nothing opposes itself).
-pub struct ImmunologyOppositionIrreflexive;
-
-impl Axiom for ImmunologyOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "immunology opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<ImmunologyOpposition>::new().holds()
-    }
-}
+/// - MacrophageM1 <-> MacrophageM2: pro-inflammatory vs pro-repair phenotypes
+/// - AcuteInflammation <-> Resolution: onset vs resolution of inflammation
+/// - ChronicInflammation <-> TissueRepair: pathological persistence vs healing
+/// - ProInflammatoryCytokine <-> AntiInflammatoryCytokine: opposing signaling classes
+/// - TNFAlpha <-> IL10: canonical pro- vs anti-inflammatory cytokines
 
 // ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------
-
-/// Axiom: immunology taxonomy is a DAG (no cycles).
-pub struct ImmunologyTaxonomyIsDAG;
-
-impl Axiom for ImmunologyTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "immunology taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<ImmunologyTaxonomy>::new().holds()
-    }
-}
-
-/// Axiom: causal graph is asymmetric (if A causes B, B does not cause A).
-pub struct CausalAsymmetry;
-
-impl Axiom for CausalAsymmetry {
-    fn description(&self) -> &str {
-        "inflammatory causation is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<InflammationCauses>::new().holds()
-    }
-}
-
-/// Axiom: no event directly causes itself.
-pub struct CausalNoSelfCausation;
-
-impl Axiom for CausalNoSelfCausation {
-    fn description(&self) -> &str {
-        "no inflammatory event directly causes itself"
-    }
-
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<InflammationCauses>::new().holds()
-    }
-}
 
 /// Axiom: tissue injury transitively causes repair completion (normal healing).
 pub struct InjuryCausesRepair;
@@ -544,11 +479,12 @@ impl Ontology for ImmunologyOntology {
     type Cat = ImmunologyCategory;
     type Qual = IsProInflammatory;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        ImmunologyOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(ImmunologyTaxonomyIsDAG),
-            Box::new(CausalAsymmetry),
-            Box::new(CausalNoSelfCausation),
             Box::new(InjuryCausesRepair),
             Box::new(ChronicStimulusCausesFibrosis),
             Box::new(VibrationCausesM1ToM2),
@@ -557,8 +493,6 @@ impl Ontology for ImmunologyOntology {
             Box::new(M1ToM2LeadsToRepair),
             Box::new(AllImmuneCellsClassified),
             Box::new(InflammationTimeScales),
-            Box::new(ImmunologyOppositionSymmetric),
-            Box::new(ImmunologyOppositionIrreflexive),
         ]
     }
 }
@@ -572,32 +506,10 @@ mod tests {
     use super::*;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
+    use pr4xis::ontology::reasoning::opposition;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 
     // -- Axiom tests --
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(
-            ImmunologyTaxonomyIsDAG.holds(),
-            "{}",
-            ImmunologyTaxonomyIsDAG.description()
-        );
-    }
-
-    #[test]
-    fn test_causal_asymmetry() {
-        assert!(CausalAsymmetry.holds(), "{}", CausalAsymmetry.description());
-    }
-
-    #[test]
-    fn test_causal_no_self_causation() {
-        assert!(
-            CausalNoSelfCausation.holds(),
-            "{}",
-            CausalNoSelfCausation.description()
-        );
-    }
 
     #[test]
     fn test_injury_causes_repair() {
@@ -672,24 +584,6 @@ mod tests {
     }
 
     // -- Opposition tests --
-
-    #[test]
-    fn test_immunology_opposition_symmetric() {
-        assert!(
-            ImmunologyOppositionSymmetric.holds(),
-            "{}",
-            ImmunologyOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_immunology_opposition_irreflexive() {
-        assert!(
-            ImmunologyOppositionIrreflexive.holds(),
-            "{}",
-            ImmunologyOppositionIrreflexive.description()
-        );
-    }
 
     #[test]
     fn test_m1_opposes_m2() {
