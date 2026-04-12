@@ -13,10 +13,10 @@
 /// Source: Madgwick (2010), Mahony et al. (2008), Groves (2013) Chapter 5.
 #[cfg(test)]
 mod tests {
-    use pr4xis_domains::science::math::geometry::point::Point3;
-    use pr4xis_domains::science::math::rotation::quaternion::Quaternion;
-    use pr4xis_domains::science::physics::kinematics::velocity::Velocity;
-    use pr4xis_domains::technology::navigation::imu::strapdown::*;
+    use pr4xis_domains::applied::navigation::imu::strapdown::*;
+    use pr4xis_domains::formal::math::geometry::point::Point3;
+    use pr4xis_domains::formal::math::rotation::quaternion::Quaternion;
+    use pr4xis_domains::natural::physics::kinematics::velocity::Velocity;
 
     #[test]
     fn stationary_imu_preserves_attitude() {

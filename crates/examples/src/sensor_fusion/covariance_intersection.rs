@@ -12,7 +12,7 @@
 ///         in the presence of unknown correlations."
 #[cfg(test)]
 mod tests {
-    use pr4xis_domains::science::math::probability::gaussian::Gaussian1D;
+    use pr4xis_domains::formal::math::probability::gaussian::Gaussian1D;
 
     #[test]
     fn gaussian_fusion_reduces_uncertainty() {

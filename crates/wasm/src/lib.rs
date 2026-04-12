@@ -1,7 +1,7 @@
 use wasm_bindgen::prelude::*;
 
-use pr4xis_domains::science::linguistics::english::English;
-use pr4xis_domains::science::linguistics::language;
+use pr4xis_domains::cognitive::linguistics::english::English;
+use pr4xis_domains::cognitive::linguistics::language;
 
 // Pr4xis WASM — the entire chatbot runs in the browser.
 //
