@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/i-am-logger/pr4xis/compare/praxis-domains-v0.3.0...praxis-domains-v0.3.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* add WordNet XML (LFS) + tinted-schemes submodule for CI ([eaf6b97](https://github.com/i-am-logger/pr4xis/commit/eaf6b97d96c9ac85f5f3fc6b0bec848b4952786c))
+
 ## [0.3.0](https://github.com/i-am-logger/pr4xis/compare/praxis-domains-v0.2.0...praxis-domains-v0.3.0) (2026-04-12)
 
 
