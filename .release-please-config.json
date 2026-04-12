@@ -13,6 +13,18 @@
     "crates/domains": {
       "release-type": "rust",
       "component": "pr4xis-domains"
+    },
+    "crates/chat": {
+      "release-type": "rust",
+      "component": "pr4xis-chat"
+    },
+    "crates/cli": {
+      "release-type": "rust",
+      "component": "pr4xis-cli"
+    },
+    "crates/examples": {
+      "release-type": "rust",
+      "component": "pr4xis-examples"
     }
   }
 }
