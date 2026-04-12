@@ -107,7 +107,6 @@ impl Axiom for AllBranchesRepresented {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
 
     #[test]
     fn test_14_laws() {

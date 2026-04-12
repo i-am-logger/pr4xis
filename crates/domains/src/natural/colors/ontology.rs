@@ -93,7 +93,6 @@ impl Axiom for ComplementsAddToWhite {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
 
     #[test]
     fn test_8_colors() {

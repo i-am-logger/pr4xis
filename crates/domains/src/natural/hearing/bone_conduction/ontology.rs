@@ -539,7 +539,6 @@ impl Ontology for BoneConductionOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

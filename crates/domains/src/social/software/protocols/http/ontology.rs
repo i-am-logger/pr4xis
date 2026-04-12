@@ -56,7 +56,7 @@ impl Axiom for SafeImpliesIdempotent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::{Category, Entity};
+    use pr4xis::category::Entity;
 
     #[test]
     fn test_7_methods() {

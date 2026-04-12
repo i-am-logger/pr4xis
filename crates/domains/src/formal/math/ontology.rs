@@ -102,7 +102,6 @@ impl Axiom for ContainmentChain {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
 
     #[test]
     fn test_5_domains() {

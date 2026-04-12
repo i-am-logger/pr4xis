@@ -287,7 +287,10 @@
       "Bash(sed -i 's|src=\"chat/index.html\"|src=\"../../index.html\"|' docs/presentations/overview.md)",
       "Bash(gh pr:*)",
       "Bash(gh api:*)",
-      "Bash(gh release:*)"
+      "Bash(gh release:*)",
+      "Bash(RUSTFLAGS=\"-D warnings\" cargo test -p pr4xis-domains --lib --no-run)",
+      "Bash(sed -i '/use pr4xis::category::Category;/d' crates/domains/src/applied/hardware/traffic/ontology.rs crates/domains/src/natural/colors/ontology.rs)",
+      "Bash(sed -i 's/use pr4xis::category::{Category, Entity}/use pr4xis::category::Entity/' crates/domains/src/social/games/rubik/ontology.rs crates/domains/src/social/software/protocols/http/ontology.rs)"
     ]
   }
 }
