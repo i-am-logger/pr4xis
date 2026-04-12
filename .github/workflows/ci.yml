@@ -13,6 +13,8 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  pages: write
+  id-token: write
 
 jobs:
   check:
@@ -70,6 +72,48 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/nextest/ci/junit.xml
           report_type: test_results
+
+  pages:
+    name: Deploy Pages
+    runs-on: ubuntu-latest
+    needs: [check]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.check.result == 'success'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Build WASM
+        run: |
+          cd crates/wasm
+          wasm-pack build --target web --release
+      - name: Build presentation
+        run: npx @marp-team/marp-cli docs/presentations/overview.md --html -o docs/presentations/index.html
+      - name: Assemble pages
+        run: |
+          mkdir -p pages/pkg pages/decks/technical
+          cp docs/chat/index.html pages/index.html
+          cp -r crates/wasm/pkg/* pages/pkg/
+          cp docs/presentations/index.html pages/decks/technical/index.html
+          cp docs/praxis-logo-dark.jpg pages/praxis-logo-dark.jpg
+          cp docs/praxis-logo-light.jpg pages/praxis-logo-light.jpg
+          cp docs/praxis-logo-video-dark.mp4 pages/praxis-logo-video-dark.mp4
+          cp docs/praxis-logo-video-light.mp4 pages/praxis-logo-video-light.mp4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   release-please:
     name: Release
