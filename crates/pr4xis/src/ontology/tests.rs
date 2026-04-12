@@ -362,6 +362,7 @@ fn test_axiom_no_dead_states() {
 mod ontology_macro_test {
     use crate::category::Entity;
     use crate::category::validate::check_category_laws;
+    use crate::logic::Axiom;
     use crate::ontology::reasoning::mereology::{self, MereologyDef};
     use crate::ontology::reasoning::opposition::OppositionDef;
     use crate::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -383,32 +384,33 @@ mod ontology_macro_test {
         Death,
     }
 
+    // New ontological style: concepts, is_a, has_a, causes, opposes
     define_ontology! {
         /// Test animal ontology.
         pub AnimalOntology for AnimalCategory {
-            entity: Animal,
+            concepts: Animal,
             relation: AnimalRelation,
 
-            taxonomy: AnimalTaxonomy [
+            is_a: AnimalTaxonomy [
                 (Dog, Mammal),
                 (Cat, Mammal),
                 (Dog, Pet),
                 (Cat, Pet),
             ],
 
-            mereology: AnimalMereology [
+            has_a: AnimalMereology [
                 (Dog, Tail),
                 (Cat, Tail),
                 (Dog, Fur),
                 (Cat, Fur),
             ],
 
-            causation: AnimalCausal for AnimalEvent [
+            causes: AnimalCausal for AnimalEvent [
                 (Birth, Growth),
                 (Growth, Death),
             ],
 
-            opposition: AnimalOpposition [
+            opposes: AnimalOpposition [
                 (Dog, Cat),
             ],
         }
@@ -449,5 +451,20 @@ mod ontology_macro_test {
         let meta = AnimalOntology::meta();
         assert_eq!(meta.name, "AnimalOntology");
         assert!(meta.module_path.contains("ontology_macro_test"));
+    }
+
+    #[test]
+    fn structural_axioms_auto_generated() {
+        let axioms = AnimalOntology::structural_axioms();
+        // 2 taxonomy + 2 mereology + 2 causation + 2 opposition = 8
+        assert_eq!(axioms.len(), 8);
+        // All structural axioms should hold
+        for axiom in &axioms {
+            assert!(
+                axiom.holds(),
+                "structural axiom failed: {}",
+                axiom.description()
+            );
+        }
     }
 }

@@ -1,88 +1,69 @@
-// Declarative macro for defining complete ontologies.
-//
-// Generates: Category + reasoning systems (Taxonomy, Mereology, Causation,
-// Opposition) + Ontology trait impl with automatic axiom collection.
+// Declarative macro for defining ontologies.
 //
 // The user declares domain knowledge. The macro generates structure.
-// Qualities, custom axioms, and functors stay hand-written.
+// Two API styles:
+//   - Ontological: concepts, is_a, has_a, causes, opposes
+//   - Named: entity, relation + taxonomy, mereology, causation, opposition
+//
+// Both generate: Category, reasoning systems, structural axioms, OntologyMeta.
+// Domain-specific axioms and qualities stay hand-written.
 
-/// Define a complete ontology from domain knowledge.
+/// Define an ontology from domain knowledge.
 ///
-/// Generates the Category, reasoning system impls (TaxonomyDef, MereologyDef,
-/// CausalDef, OppositionDef), and Ontology trait impl with standard axioms.
-///
-/// # Dense category example (biomedical)
+/// # Ontological style (preferred)
 ///
 /// ```ignore
 /// define_ontology! {
-///     pub BiologyOntology for BiologyCategory {
-///         entity: BiologicalEntity,
+///     pub Biology for BiologyCategory {
+///         concepts: BiologicalEntity,
 ///         relation: BiologicalRelation,
 ///
-///         taxonomy: BiologicalTaxonomy [
-///             (SquamousEpithelial, Cell),
-///             (Fibroblast, Cell),
+///         is_a: BiologicalTaxonomy [
+///             (Cell, Tissue),
 ///         ],
 ///
-///         mereology: BiologicalMereology [
-///             (Organism, Esophagus),
-///             (Esophagus, SquamousEpithelium),
+///         has_a: BiologicalMereology [
+///             (Organism, Organ),
 ///         ],
 ///
-///         causation: BiologicalCausalGraph for BiologicalCausalEvent [
-///             (StemCellDivision, CellDifferentiation),
+///         causes: BiologicalCausalGraph for BiologicalCausalEvent [
+///             (Injury, Repair),
 ///         ],
 ///
-///         opposition: BiologicalOpposition [
-///             (MacrophageM1, MacrophageM2),
+///         opposes: BiologicalOpposition [
+///             (Growth, Decay),
 ///         ],
-///     }
-/// }
-/// ```
-///
-/// # Kinded category example (information)
-///
-/// ```ignore
-/// define_ontology! {
-///     pub CommunicationOntology for CommunicationCategory {
-///         entity: CommunicationConcept,
-///         relation: CommunicationRelation,
-///         kind: CommunicationRelationKind,
-///         kinds: [Produces, Interprets, Corrupts],
-///         edges: [(Sender, Message, Produces)],
-///         composed: [(Sender, Receiver)],
 ///     }
 /// }
 /// ```
 #[macro_export]
 macro_rules! define_ontology {
     // =========================================================================
-    // Pattern A: Dense category + reasoning systems
+    // Ontological style: concepts + is_a/has_a/causes/opposes (dense category)
     // =========================================================================
     (
         $(#[$ont_meta:meta])*
         pub $ont_name:ident for $cat_name:ident {
-            entity: $entity:ident,
+            concepts: $entity:ident,
             relation: $relation:ident,
 
-            $(taxonomy: $tax_name:ident [
+            $(is_a: $tax_name:ident [
                 $(($tax_child:ident, $tax_parent:ident)),* $(,)?
             ],)?
 
-            $(mereology: $mer_name:ident [
+            $(has_a: $mer_name:ident [
                 $(($mer_whole:ident, $mer_part:ident)),* $(,)?
             ],)?
 
-            $(causation: $caus_name:ident for $caus_entity:ident [
+            $(causes: $caus_name:ident for $caus_entity:ident [
                 $(($caus_cause:ident, $caus_effect:ident)),* $(,)?
             ],)?
 
-            $(opposition: $opp_name:ident [
+            $(opposes: $opp_name:ident [
                 $(($opp_a:ident, $opp_b:ident)),* $(,)?
             ],)?
         }
     ) => {
-        // Generate dense category
         $crate::define_dense_category! {
             $(#[$ont_meta])*
             pub $cat_name {
@@ -92,25 +73,21 @@ macro_rules! define_ontology {
         }
 
         define_ontology!(@reasoning $ont_name, $cat_name, $entity,
-            $(taxonomy: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
-            $(mereology: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
-            $(causation: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
-            $(opposition: $opp_name [ $(($opp_a, $opp_b)),* ],)?
+            $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
+            $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
+            $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
+            $(opposes: $opp_name [ $(($opp_a, $opp_b)),* ],)?
         );
     };
 
     // =========================================================================
-    // Pattern B: Kinded category + reasoning systems
+    // Legacy named style: entity + taxonomy/mereology/causation/opposition (dense)
     // =========================================================================
     (
         $(#[$ont_meta:meta])*
         pub $ont_name:ident for $cat_name:ident {
             entity: $entity:ident,
             relation: $relation:ident,
-            kind: $kind:ident,
-            kinds: [$($(#[$kind_meta:meta])* $domain_kind:ident),* $(,)?],
-            edges: [$(($e_from:ident, $e_to:ident, $e_kind:ident)),* $(,)?],
-            composed: [$(($c_from:ident, $c_to:ident)),* $(,)?],
 
             $(taxonomy: $tax_name:ident [
                 $(($tax_child:ident, $tax_parent:ident)),* $(,)?
@@ -129,7 +106,52 @@ macro_rules! define_ontology {
             ],)?
         }
     ) => {
-        // Generate kinded category
+        $crate::define_dense_category! {
+            $(#[$ont_meta])*
+            pub $cat_name {
+                entity: $entity,
+                relation: $relation,
+            }
+        }
+
+        define_ontology!(@reasoning $ont_name, $cat_name, $entity,
+            $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
+            $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
+            $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
+            $(opposes: $opp_name [ $(($opp_a, $opp_b)),* ],)?
+        );
+    };
+
+    // =========================================================================
+    // Kinded style: explicit relation types (communication/information)
+    // =========================================================================
+    (
+        $(#[$ont_meta:meta])*
+        pub $ont_name:ident for $cat_name:ident {
+            concepts: $entity:ident,
+            relation: $relation:ident,
+            kind: $kind:ident,
+            kinds: [$($(#[$kind_meta:meta])* $domain_kind:ident),* $(,)?],
+            edges: [$(($e_from:ident, $e_to:ident, $e_kind:ident)),* $(,)?],
+            composed: [$(($c_from:ident, $c_to:ident)),* $(,)?],
+
+            $(is_a: $tax_name:ident [
+                $(($tax_child:ident, $tax_parent:ident)),* $(,)?
+            ],)?
+
+            $(has_a: $mer_name:ident [
+                $(($mer_whole:ident, $mer_part:ident)),* $(,)?
+            ],)?
+
+            $(causes: $caus_name:ident for $caus_entity:ident [
+                $(($caus_cause:ident, $caus_effect:ident)),* $(,)?
+            ],)?
+
+            $(opposes: $opp_name:ident [
+                $(($opp_a:ident, $opp_b:ident)),* $(,)?
+            ],)?
+        }
+    ) => {
         $crate::define_category! {
             $(#[$ont_meta])*
             pub $cat_name {
@@ -143,23 +165,23 @@ macro_rules! define_ontology {
         }
 
         define_ontology!(@reasoning $ont_name, $cat_name, $entity,
-            $(taxonomy: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
-            $(mereology: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
-            $(causation: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
-            $(opposition: $opp_name [ $(($opp_a, $opp_b)),* ],)?
+            $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
+            $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
+            $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
+            $(opposes: $opp_name [ $(($opp_a, $opp_b)),* ],)?
         );
     };
 
     // =========================================================================
-    // Internal: generate reasoning systems + Ontology impl
+    // Internal: generate reasoning systems + structural axioms + meta
     // =========================================================================
     (@reasoning $ont_name:ident, $cat_name:ident, $entity:ident,
-        $(taxonomy: $tax_name:ident [ $(($tax_child:ident, $tax_parent:ident)),* ],)?
-        $(mereology: $mer_name:ident [ $(($mer_whole:ident, $mer_part:ident)),* ],)?
-        $(causation: $caus_name:ident for $caus_entity:ident [ $(($caus_cause:ident, $caus_effect:ident)),* ],)?
-        $(opposition: $opp_name:ident [ $(($opp_a:ident, $opp_b:ident)),* ],)?
+        $(is_a: $tax_name:ident [ $(($tax_child:ident, $tax_parent:ident)),* ],)?
+        $(has_a: $mer_name:ident [ $(($mer_whole:ident, $mer_part:ident)),* ],)?
+        $(causes: $caus_name:ident for $caus_entity:ident [ $(($caus_cause:ident, $caus_effect:ident)),* ],)?
+        $(opposes: $opp_name:ident [ $(($opp_a:ident, $opp_b:ident)),* ],)?
     ) => {
-        // --- Taxonomy ---
+        // --- Taxonomy (is-a) ---
         $(
             pub struct $tax_name;
             impl $crate::ontology::reasoning::taxonomy::TaxonomyDef for $tax_name {
@@ -172,7 +194,7 @@ macro_rules! define_ontology {
             }
         )?
 
-        // --- Mereology ---
+        // --- Mereology (has-a) ---
         $(
             pub struct $mer_name;
             impl $crate::ontology::reasoning::mereology::MereologyDef for $mer_name {
@@ -185,7 +207,7 @@ macro_rules! define_ontology {
             }
         )?
 
-        // --- Causation ---
+        // --- Causation (causes) ---
         $(
             pub struct $caus_name;
             impl $crate::ontology::reasoning::causation::CausalDef for $caus_name {
@@ -198,7 +220,7 @@ macro_rules! define_ontology {
             }
         )?
 
-        // --- Opposition ---
+        // --- Opposition (opposes) ---
         $(
             pub struct $opp_name;
             impl $crate::ontology::reasoning::opposition::OppositionDef for $opp_name {
@@ -211,10 +233,55 @@ macro_rules! define_ontology {
             }
         )?
 
-        // --- Ontology struct + meta ---
+        // --- Ontology struct ---
         pub struct $ont_name;
 
         impl $ont_name {
+            /// Structural axioms — auto-generated from declared reasoning systems.
+            /// Merged internally with domain axioms in Ontology::axioms().
+            #[doc(hidden)]
+            pub fn structural_axioms() -> Vec<Box<dyn $crate::ontology::Axiom>> {
+                let mut axioms: Vec<Box<dyn $crate::ontology::Axiom>> = Vec::new();
+
+                $(
+                    axioms.push(Box::new(
+                        $crate::ontology::reasoning::taxonomy::NoCycles::<$tax_name>::new()
+                    ));
+                    axioms.push(Box::new(
+                        $crate::ontology::reasoning::taxonomy::Antisymmetric::<$tax_name>::new()
+                    ));
+                )?
+
+                $(
+                    axioms.push(Box::new(
+                        $crate::ontology::reasoning::mereology::NoCycles::<$mer_name>::new()
+                    ));
+                    axioms.push(Box::new(
+                        $crate::ontology::reasoning::mereology::WeakSupplementation::<$mer_name>::new()
+                    ));
+                )?
+
+                $(
+                    axioms.push(Box::new(
+                        $crate::ontology::reasoning::causation::Asymmetric::<$caus_name>::new()
+                    ));
+                    axioms.push(Box::new(
+                        $crate::ontology::reasoning::causation::NoSelfCausation::<$caus_name>::new()
+                    ));
+                )?
+
+                $(
+                    axioms.push(Box::new(
+                        $crate::ontology::reasoning::opposition::Symmetric::<$opp_name>::new()
+                    ));
+                    axioms.push(Box::new(
+                        $crate::ontology::reasoning::opposition::Irreflexive::<$opp_name>::new()
+                    ));
+                )?
+
+                axioms
+            }
+
             /// Ontology metadata for tracing and introspection.
             pub const fn meta() -> $crate::ontology::OntologyMeta {
                 $crate::ontology::OntologyMeta {
