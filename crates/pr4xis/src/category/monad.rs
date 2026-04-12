@@ -163,4 +163,54 @@ mod tests {
         assert_eq!(result.value, 42);
         assert_eq!(result.log, vec!["initial"]);
     }
+
+    mod prop {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            /// Writer left identity: bind(pure(a), f) = f(a)
+            #[test]
+            fn prop_writer_left_identity(a in -100..100i32) {
+                let f = |x: i32| Writer::new(x * 2, vec![x]);
+                let left = Writer::<Vec<i32>, i32>::pure(a).bind(&f);
+                let right = f(a);
+                prop_assert_eq!(left.value, right.value);
+                prop_assert_eq!(left.log, right.log);
+            }
+
+            /// Writer right identity: bind(m, pure) = m
+            #[test]
+            fn prop_writer_right_identity(a in -100..100i32, log_val in -100..100i32) {
+                let m = Writer::new(a, vec![log_val]);
+                let result = Writer::new(a, vec![log_val]).bind(Writer::<Vec<i32>, i32>::pure);
+                prop_assert_eq!(m.value, result.value);
+                prop_assert_eq!(m.log, result.log);
+            }
+
+            /// Monoid identity: pure produces empty log
+            #[test]
+            fn prop_writer_pure_empty_log(a in -100..100i32) {
+                let w = Writer::<Vec<i32>, i32>::pure(a);
+                prop_assert!(w.log.is_empty());
+                prop_assert_eq!(w.value, a);
+            }
+
+            /// Tell only appends, doesn't change value
+            #[test]
+            fn prop_writer_tell_preserves_value(a in -100..100i32, entry in -100..100i32) {
+                let w = Writer::<Vec<i32>, i32>::pure(a).tell(vec![entry]);
+                prop_assert_eq!(w.value, a);
+                prop_assert_eq!(w.log, vec![entry]);
+            }
+
+            /// Map preserves log
+            #[test]
+            fn prop_writer_map_preserves_log(a in -100..100i32, log_val in -100..100i32) {
+                let w = Writer::new(a, vec![log_val]).map(|x| x + 1);
+                prop_assert_eq!(w.value, a + 1);
+                prop_assert_eq!(w.log, vec![log_val]);
+            }
+        }
+    }
 }
