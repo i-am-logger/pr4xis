@@ -6,6 +6,8 @@ pub mod category;
 pub mod entity;
 pub mod functor;
 pub mod invariants;
+pub mod monad;
+pub mod monoid;
 pub mod morphism;
 pub mod relationship;
 pub mod traced;
@@ -20,6 +22,8 @@ pub use entity::Entity;
 // The derive macro and the trait share the name but different namespaces.
 pub use functor::Functor;
 pub use invariants::{FullyConnected, NoDeadStates};
+pub use monad::Writer;
+pub use monoid::Monoid;
 pub use morphism::{Morphism, compose_all, direct_morphisms};
 #[doc(hidden)]
 pub use pr4xis_derive::Entity;
