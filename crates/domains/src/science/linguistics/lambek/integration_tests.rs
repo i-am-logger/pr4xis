@@ -15,19 +15,32 @@ mod tests {
     /// Full English — loaded ONCE, shared across all tests.
     static ENGLISH: OnceLock<English> = OnceLock::new();
 
-    fn english() -> &'static English {
-        ENGLISH.get_or_init(|| {
-            let path = concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/data/wordnet/english-wordnet-2025.xml"
-            );
-            if !std::path::Path::new(path).exists() {
-                panic!("Full WordNet required for integration tests");
-            }
+    fn english() -> Option<&'static English> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/wordnet/english-wordnet-2025.xml"
+        );
+        if !std::path::Path::new(path).exists() {
+            return None;
+        }
+        Some(ENGLISH.get_or_init(|| {
             let xml = std::fs::read_to_string(path).unwrap();
             let wn = lmf::reader::read_wordnet(&xml).unwrap();
             English::from_wordnet(&wn)
-        })
+        }))
+    }
+
+    /// Skip test if WordNet data is not available (CI).
+    macro_rules! require_wordnet {
+        () => {
+            match english() {
+                Some(en) => en,
+                None => {
+                    eprintln!("SKIP: WordNet data not available");
+                    return;
+                }
+            }
+        };
     }
 
     fn tokens_debug(en: &English, input: &str) -> String {
@@ -103,7 +116,7 @@ mod tests {
 
     #[test]
     fn the_dog_runs() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "the dog runs"),
             "FAILED: {}",
@@ -113,7 +126,7 @@ mod tests {
 
     #[test]
     fn the_big_dog_runs() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "the big dog runs"),
             "FAILED: {}",
@@ -123,7 +136,7 @@ mod tests {
 
     #[test]
     fn chart_parses_question() {
-        let en = english();
+        let en = require_wordnet!();
         let (tokens, alts) = tokenize::tokenize_with_alternatives("is a dog a mammal", en);
         let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
         let type_sets: Vec<Vec<crate::science::linguistics::lambek::types::LambekType>> = tokens
@@ -157,7 +170,7 @@ mod tests {
 
     #[test]
     fn is_a_dog_a_mammal() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses_as_question(en, "is a dog a mammal"),
             "FAILED: {}",
@@ -167,7 +180,7 @@ mod tests {
 
     #[test]
     fn is_a_dog_an_animal() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses_as_question(en, "is a dog an animal"),
             "FAILED: {}",
@@ -177,7 +190,7 @@ mod tests {
 
     #[test]
     fn what_is_a_dog() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses_as_question(en, "what is a dog"),
             "FAILED: {}",
@@ -187,7 +200,7 @@ mod tests {
 
     #[test]
     fn a_dog_is_big() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "a dog is big"),
             "FAILED: {}",
@@ -201,7 +214,7 @@ mod tests {
 
     #[test]
     fn she_sees_the_dog() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "she sees the dog"),
             "FAILED: {}",
@@ -211,7 +224,7 @@ mod tests {
 
     #[test]
     fn the_cat_runs() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "the cat runs"),
             "FAILED: {}",
@@ -221,7 +234,7 @@ mod tests {
 
     #[test]
     fn a_big_cat_runs() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "a big cat runs"),
             "FAILED: {}",
@@ -231,7 +244,7 @@ mod tests {
 
     #[test]
     fn the_dog_sees_the_cat() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "the dog sees the cat"),
             "FAILED: {}",
@@ -241,7 +254,7 @@ mod tests {
 
     #[test]
     fn is_a_cat_an_animal() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses_as_question(en, "is a cat an animal"),
             "FAILED: {}",
@@ -252,7 +265,7 @@ mod tests {
     #[test]
     #[ignore = "cat gets verb type from WordNet — chart needs N alternative for cat"]
     fn what_is_a_cat() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses_as_question(en, "what is a cat"),
             "FAILED: {}",
@@ -262,7 +275,7 @@ mod tests {
 
     #[test]
     fn the_big_dog_sees_the_small_cat() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "the big dog sees the small cat"),
             "FAILED: {}",
@@ -272,7 +285,7 @@ mod tests {
 
     #[test]
     fn a_dog_is_an_animal() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "a dog is an animal"),
             "FAILED: {}",
@@ -283,7 +296,7 @@ mod tests {
     #[test]
     #[ignore = "predicate adjective question — copula_adj post-processing conflicts with question copula type"]
     fn is_a_dog_big() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses_as_question(en, "is a dog big"),
             "FAILED: {}",
@@ -293,7 +306,7 @@ mod tests {
 
     #[test]
     fn she_runs() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "she runs"),
             "FAILED: {}",
@@ -303,7 +316,7 @@ mod tests {
 
     #[test]
     fn he_sees_her() {
-        let en = english();
+        let en = require_wordnet!();
         assert!(
             parses(en, "he sees her"),
             "FAILED: {}",
@@ -317,7 +330,7 @@ mod tests {
 
     #[test]
     fn debug_token_types() {
-        let en = english();
+        let en = require_wordnet!();
         let sentences = [
             "the dog runs",
             "is a dog a mammal",
