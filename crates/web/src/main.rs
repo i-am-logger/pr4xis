@@ -86,7 +86,7 @@ fn handle_request(root: &Path, request: tiny_http::Request) {
     }
 
     // 404
-    if !path.exists() || !path.starts_with(root) {
+    if !path.exists() {
         let _ = request.respond(
             Response::from_string("404 Not Found")
                 .with_status_code(StatusCode(404))
