@@ -440,9 +440,12 @@ impl Ontology for ElectrophysiologyOntology {
     type Cat = ElectrophysiologyCategory;
     type Qual = IsInvasive;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        ElectrophysiologyOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(TaxonomyIsDAG),
             Box::new(CategoryLawsHold),
             Box::new(NonInvasiveMethodExists),
             Box::new(MultiscaleMethods),
@@ -451,8 +454,6 @@ impl Ontology for ElectrophysiologyOntology {
             Box::new(BioimpedanceNonInvasive),
             Box::new(OpticalMethodsNoContact),
             Box::new(VmemAndNonVmemTechniques),
-            Box::new(ElectrophysiologyOppositionSymmetric),
-            Box::new(ElectrophysiologyOppositionIrreflexive),
         ]
     }
 }

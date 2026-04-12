@@ -153,18 +153,6 @@ impl Axiom for CelestialObservableTaxonomyIsDAG {
     }
 }
 
-/// Celestial sensor taxonomy is a DAG.
-pub struct CelestialSensorTaxonomyIsDAG;
-
-impl Axiom for CelestialSensorTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "celestial sensor taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        NoCycles::<CelestialSensorTaxonomy>::default().holds()
-    }
-}
-
 /// Two star sightings determine a position fix.
 ///
 /// Each star observation defines a circle of position on the Earth's surface.
@@ -254,11 +242,14 @@ impl Ontology for CelestialOntology {
     type Cat = CelestialCategory;
     type Qual = AngularAccuracy;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(CelestialBodyTaxonomyIsDAG),
             Box::new(CelestialObservableTaxonomyIsDAG),
-            Box::new(CelestialSensorTaxonomyIsDAG),
             Box::new(TwoSightsFix),
             Box::new(StarTrackerMostAccurate),
             Box::new(AtmosphericRefraction),

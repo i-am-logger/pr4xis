@@ -23,11 +23,6 @@ fn imu_ontology_validates() {
 }
 
 #[test]
-fn imu_taxonomy_is_dag() {
-    assert!(ImuTaxonomyIsDAG.holds());
-}
-
-#[test]
 fn bias_is_a_measurement() {
     assert!(BiasIsAMeasurement.holds());
 }

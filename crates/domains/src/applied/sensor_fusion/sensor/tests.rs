@@ -15,11 +15,6 @@ fn sensor_ontology_validates() {
 }
 
 #[test]
-fn taxonomy_is_dag() {
-    assert!(TaxonomyIsDAG.holds());
-}
-
-#[test]
 fn accelerometer_is_sensor() {
     assert!(AccelerometerIsSensor.holds());
 }

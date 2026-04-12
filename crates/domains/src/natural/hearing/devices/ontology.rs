@@ -17,29 +17,21 @@ use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum DeviceEntity {
-    // Hearing aids
     BehindTheEar,
     InTheEar,
     CompletelyInCanal,
     ReceiverInCanal,
     CROS,
     BiCROS,
-    // Implantable devices
     CochlearImplant,
     BoneAnchoredHearingAid,
     MiddleEarImplant,
     AuditoryBrainstemImplant,
-    // Non-surgical BC devices
     BoneConductionHeadphone,
     SoftbandBAHA,
     AdhesiveBC,
-    // Signal processing features
     DirectionalMicrophone,
     NoiseSuppression,
     FeedbackCancellation,
@@ -47,19 +39,16 @@ pub enum DeviceEntity {
     WideAdaptiveDynamicRange,
     Telecoil,
     BluetoothStreaming,
-    // Audiometric equipment
     Audiometer,
     Tympanometer,
     OAEProbe,
     ABRSystem,
     RealEarMeasurement,
-    // Components
     Microphone,
     Amplifier,
     Receiver,
     ElectrodeArray,
     SpeechProcessor,
-    // Abstract categories
     HearingAid,
     ImplantableDevice,
     BCDevice,
@@ -68,11 +57,6 @@ pub enum DeviceEntity {
     DeviceComponent,
 }
 
-// ---------------------------------------------------------------------------
-// Causal event entity
-// ---------------------------------------------------------------------------
-
-/// Causal events in the hearing device fitting pipeline.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum DeviceCausalEvent {
     HearingLossDiagnosis,
@@ -84,78 +68,37 @@ pub enum DeviceCausalEvent {
     OutcomeImprovement,
 }
 
-// ---------------------------------------------------------------------------
-// Ontology (define_ontology! macro)
-// ---------------------------------------------------------------------------
-
 define_ontology! {
     /// Discrete category over hearing device entities.
     pub DeviceOntology for DeviceCategory {
-        entity: DeviceEntity,
-        relation: DeviceRelation,
-
+        entity: DeviceEntity, relation: DeviceRelation,
         taxonomy: DeviceTaxonomy [
-            (BehindTheEar, HearingAid), (InTheEar, HearingAid),
-            (CompletelyInCanal, HearingAid), (ReceiverInCanal, HearingAid),
-            (CROS, HearingAid), (BiCROS, HearingAid),
-            (CochlearImplant, ImplantableDevice), (BoneAnchoredHearingAid, ImplantableDevice),
-            (MiddleEarImplant, ImplantableDevice), (AuditoryBrainstemImplant, ImplantableDevice),
-            (BoneConductionHeadphone, BCDevice), (SoftbandBAHA, BCDevice),
-            (AdhesiveBC, BCDevice), (BoneAnchoredHearingAid, BCDevice),
-            (DirectionalMicrophone, SignalProcessingFeature),
-            (NoiseSuppression, SignalProcessingFeature),
-            (FeedbackCancellation, SignalProcessingFeature),
-            (FrequencyCompression, SignalProcessingFeature),
-            (WideAdaptiveDynamicRange, SignalProcessingFeature),
-            (Telecoil, SignalProcessingFeature),
-            (BluetoothStreaming, SignalProcessingFeature),
-            (Audiometer, DiagnosticEquipment), (Tympanometer, DiagnosticEquipment),
-            (OAEProbe, DiagnosticEquipment), (ABRSystem, DiagnosticEquipment),
-            (RealEarMeasurement, DiagnosticEquipment),
-            (Microphone, DeviceComponent), (Amplifier, DeviceComponent),
-            (Receiver, DeviceComponent), (ElectrodeArray, DeviceComponent),
-            (SpeechProcessor, DeviceComponent),
+            (BehindTheEar, HearingAid), (InTheEar, HearingAid), (CompletelyInCanal, HearingAid), (ReceiverInCanal, HearingAid), (CROS, HearingAid), (BiCROS, HearingAid),
+            (CochlearImplant, ImplantableDevice), (BoneAnchoredHearingAid, ImplantableDevice), (MiddleEarImplant, ImplantableDevice), (AuditoryBrainstemImplant, ImplantableDevice),
+            (BoneConductionHeadphone, BCDevice), (SoftbandBAHA, BCDevice), (AdhesiveBC, BCDevice), (BoneAnchoredHearingAid, BCDevice),
+            (DirectionalMicrophone, SignalProcessingFeature), (NoiseSuppression, SignalProcessingFeature), (FeedbackCancellation, SignalProcessingFeature), (FrequencyCompression, SignalProcessingFeature), (WideAdaptiveDynamicRange, SignalProcessingFeature), (Telecoil, SignalProcessingFeature), (BluetoothStreaming, SignalProcessingFeature),
+            (Audiometer, DiagnosticEquipment), (Tympanometer, DiagnosticEquipment), (OAEProbe, DiagnosticEquipment), (ABRSystem, DiagnosticEquipment), (RealEarMeasurement, DiagnosticEquipment),
+            (Microphone, DeviceComponent), (Amplifier, DeviceComponent), (Receiver, DeviceComponent), (ElectrodeArray, DeviceComponent), (SpeechProcessor, DeviceComponent),
         ],
-
         mereology: DeviceMereology [
             (BehindTheEar, Microphone), (BehindTheEar, Amplifier), (BehindTheEar, Receiver),
-            (CochlearImplant, ElectrodeArray), (CochlearImplant, SpeechProcessor),
-            (CochlearImplant, Microphone),
-            (HearingAid, DirectionalMicrophone), (HearingAid, NoiseSuppression),
-            (HearingAid, FeedbackCancellation),
+            (CochlearImplant, ElectrodeArray), (CochlearImplant, SpeechProcessor), (CochlearImplant, Microphone),
+            (HearingAid, DirectionalMicrophone), (HearingAid, NoiseSuppression), (HearingAid, FeedbackCancellation),
         ],
-
         causation: DeviceCausalGraph for DeviceCausalEvent [
-            (HearingLossDiagnosis, DeviceSelection),
-            (DeviceSelection, CustomMolding),
-            (CustomMolding, InitialFitting),
-            (InitialFitting, RealEarVerification),
-            (RealEarVerification, FineTuning),
-            (FineTuning, OutcomeImprovement),
+            (HearingLossDiagnosis, DeviceSelection), (DeviceSelection, CustomMolding), (CustomMolding, InitialFitting), (InitialFitting, RealEarVerification), (RealEarVerification, FineTuning), (FineTuning, OutcomeImprovement),
         ],
-
         opposition: DeviceOpposition [
-            (CochlearImplant, HearingAid),
-            (BehindTheEar, CompletelyInCanal),
-            (DirectionalMicrophone, Telecoil),
+            (CochlearImplant, HearingAid), (BehindTheEar, CompletelyInCanal), (DirectionalMicrophone, Telecoil),
         ],
     }
 }
 
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Maximum gain (dB) typically provided by device type.
-///
-/// Dillon 2012, Table 1.1.
 #[derive(Debug, Clone)]
 pub struct MaxGainDB;
-
 impl Quality for MaxGainDB {
     type Individual = DeviceEntity;
     type Value = f64;
-
     fn get(&self, individual: &DeviceEntity) -> Option<f64> {
         use DeviceEntity::*;
         match individual {
@@ -171,14 +114,11 @@ impl Quality for MaxGainDB {
     }
 }
 
-/// Battery life in days for hearing devices.
 #[derive(Debug, Clone)]
 pub struct BatteryLifeDays;
-
 impl Quality for BatteryLifeDays {
     type Individual = DeviceEntity;
     type Value = f64;
-
     fn get(&self, individual: &DeviceEntity) -> Option<f64> {
         use DeviceEntity::*;
         match individual {
@@ -190,50 +130,23 @@ impl Quality for BatteryLifeDays {
     }
 }
 
-/// Whether the device requires surgery.
 #[derive(Debug, Clone)]
 pub struct RequiresSurgery;
-
 impl Quality for RequiresSurgery {
     type Individual = DeviceEntity;
     type Value = bool;
-
     fn get(&self, individual: &DeviceEntity) -> Option<bool> {
         use DeviceEntity::*;
         match individual {
-            CochlearImplant => Some(true),
-            BoneAnchoredHearingAid => Some(true),
-            MiddleEarImplant => Some(true),
-            AuditoryBrainstemImplant => Some(true),
+            CochlearImplant
+            | BoneAnchoredHearingAid
+            | MiddleEarImplant
+            | AuditoryBrainstemImplant => Some(true),
             BehindTheEar | InTheEar | CompletelyInCanal | ReceiverInCanal => Some(false),
             BoneConductionHeadphone | SoftbandBAHA | AdhesiveBC => Some(false),
             CROS | BiCROS => Some(false),
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
-pub struct DeviceTaxonomyIsDAG;
-impl Axiom for DeviceTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "device taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<DeviceTaxonomy>::new().holds()
-    }
-}
-
-pub struct DeviceMereologyIsDAG;
-impl Axiom for DeviceMereologyIsDAG {
-    fn description(&self) -> &str {
-        "device mereology is a DAG"
-    }
-    fn holds(&self) -> bool {
-        mereology::NoCycles::<DeviceMereology>::new().holds()
     }
 }
 
@@ -248,7 +161,6 @@ impl Axiom for BTEContainsComponents {
         parts.contains(&Microphone) && parts.contains(&Amplifier) && parts.contains(&Receiver)
     }
 }
-
 pub struct CIHighestGain;
 impl Axiom for CIHighestGain {
     fn description(&self) -> &str {
@@ -259,7 +171,6 @@ impl Axiom for CIHighestGain {
         MaxGainDB.get(&CochlearImplant).unwrap() > MaxGainDB.get(&BehindTheEar).unwrap()
     }
 }
-
 pub struct ImplantablesRequireSurgery;
 impl Axiom for ImplantablesRequireSurgery {
     fn description(&self) -> &str {
@@ -277,7 +188,6 @@ impl Axiom for ImplantablesRequireSurgery {
         .all(|d| RequiresSurgery.get(d) == Some(true))
     }
 }
-
 pub struct HearingAidsNoSurgery;
 impl Axiom for HearingAidsNoSurgery {
     fn description(&self) -> &str {
@@ -290,7 +200,6 @@ impl Axiom for HearingAidsNoSurgery {
             .all(|d| RequiresSurgery.get(d) == Some(false))
     }
 }
-
 pub struct BAHADualClassification;
 impl Axiom for BAHADualClassification {
     fn description(&self) -> &str {
@@ -302,7 +211,6 @@ impl Axiom for BAHADualClassification {
             && taxonomy::is_a::<DeviceTaxonomy>(&BoneAnchoredHearingAid, &BCDevice)
     }
 }
-
 pub struct BTELongestBattery;
 impl Axiom for BTELongestBattery {
     fn description(&self) -> &str {
@@ -316,47 +224,6 @@ impl Axiom for BTELongestBattery {
         bte > ci && bte > cic
     }
 }
-
-pub struct DeviceCausalGraphIsAsymmetric;
-impl Axiom for DeviceCausalGraphIsAsymmetric {
-    fn description(&self) -> &str {
-        "device causal graph is asymmetric"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<DeviceCausalGraph>::new().holds()
-    }
-}
-
-pub struct DeviceCausalGraphNoSelfCause;
-impl Axiom for DeviceCausalGraphNoSelfCause {
-    fn description(&self) -> &str {
-        "no device fitting event causes itself"
-    }
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<DeviceCausalGraph>::new().holds()
-    }
-}
-
-pub struct DeviceOppositionSymmetric;
-impl Axiom for DeviceOppositionSymmetric {
-    fn description(&self) -> &str {
-        "device opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<DeviceOpposition>::new().holds()
-    }
-}
-
-pub struct DeviceOppositionIrreflexive;
-impl Axiom for DeviceOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "device opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<DeviceOpposition>::new().holds()
-    }
-}
-
 pub struct DiagnosisCausesOutcome;
 impl Axiom for DiagnosisCausesOutcome {
     fn description(&self) -> &str {
@@ -369,29 +236,21 @@ impl Axiom for DiagnosisCausesOutcome {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Ontology impl
-// ---------------------------------------------------------------------------
-
 impl Ontology for DeviceOntology {
     type Cat = DeviceCategory;
     type Qual = MaxGainDB;
-
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(DeviceTaxonomyIsDAG),
-            Box::new(DeviceMereologyIsDAG),
             Box::new(BTEContainsComponents),
             Box::new(CIHighestGain),
             Box::new(ImplantablesRequireSurgery),
             Box::new(HearingAidsNoSurgery),
             Box::new(BAHADualClassification),
             Box::new(BTELongestBattery),
-            Box::new(DeviceCausalGraphIsAsymmetric),
-            Box::new(DeviceCausalGraphNoSelfCause),
             Box::new(DiagnosisCausesOutcome),
-            Box::new(DeviceOppositionSymmetric),
-            Box::new(DeviceOppositionIrreflexive),
         ]
     }
 }
@@ -404,15 +263,6 @@ mod tests {
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(DeviceTaxonomyIsDAG.holds());
-    }
-    #[test]
-    fn test_mereology_is_dag() {
-        assert!(DeviceMereologyIsDAG.holds());
-    }
     #[test]
     fn test_bte_contains_components() {
         assert!(BTEContainsComponents.holds());
@@ -434,24 +284,8 @@ mod tests {
         assert!(BAHADualClassification.holds());
     }
     #[test]
-    fn test_causal_graph_asymmetric() {
-        assert!(DeviceCausalGraphIsAsymmetric.holds());
-    }
-    #[test]
-    fn test_causal_graph_no_self_cause() {
-        assert!(DeviceCausalGraphNoSelfCause.holds());
-    }
-    #[test]
     fn test_diagnosis_causes_outcome() {
         assert!(DiagnosisCausesOutcome.holds());
-    }
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(DeviceOppositionSymmetric.holds());
-    }
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(DeviceOppositionIrreflexive.holds());
     }
     #[test]
     fn test_ci_opposes_hearing_aid() {
@@ -460,7 +294,6 @@ mod tests {
             &DeviceEntity::HearingAid
         ));
     }
-
     #[test]
     fn test_category_laws() {
         check_category_laws::<DeviceCategory>().unwrap();
@@ -477,7 +310,6 @@ mod tests {
     fn test_mereology_category_laws() {
         check_category_laws::<MereologyCategory<DeviceMereology>>().unwrap();
     }
-
     #[test]
     fn test_bte_longest_battery() {
         assert!(BTELongestBattery.holds());
@@ -493,7 +325,6 @@ mod tests {
             Some(1.0)
         );
     }
-
     #[test]
     fn test_entity_count() {
         assert_eq!(DeviceEntity::variants().len(), 36);
@@ -502,14 +333,8 @@ mod tests {
     fn test_ontology_validates() {
         DeviceOntology::validate().unwrap();
     }
-
     fn arb_entity() -> impl Strategy<Value = DeviceEntity> {
         (0..DeviceEntity::variants().len()).prop_map(|i| DeviceEntity::variants()[i])
     }
-    proptest! {
-        #[test]
-        fn prop_taxonomy_reflexive(entity in arb_entity()) {
-            prop_assert!(taxonomy::is_a::<DeviceTaxonomy>(&entity, &entity));
-        }
-    }
+    proptest! { #[test] fn prop_taxonomy_reflexive(entity in arb_entity()) { prop_assert!(taxonomy::is_a::<DeviceTaxonomy>(&entity, &entity)); } }
 }

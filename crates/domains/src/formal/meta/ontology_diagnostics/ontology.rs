@@ -299,42 +299,6 @@ impl Quality for IsAutomated {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Axiom: meta taxonomy is a DAG.
-pub struct MetaTaxonomyIsDAG;
-
-impl Axiom for MetaTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "meta-ontology taxonomy has no cycles"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<MetaTaxonomy>::default().holds()
-    }
-}
-
-/// Axiom: methodology causal graph is asymmetric.
-pub struct MethodologyIsAsymmetric;
-
-impl Axiom for MethodologyIsAsymmetric {
-    fn description(&self) -> &str {
-        "methodology pipeline has no circular causation"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<MethodologyCausalGraph>::default().holds()
-    }
-}
-
-/// Axiom: no self-causation in methodology.
-pub struct MethodologyNoSelfCausation;
-
-impl Axiom for MethodologyNoSelfCausation {
-    fn description(&self) -> &str {
-        "no methodology step causes itself"
-    }
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<MethodologyCausalGraph>::default().holds()
-    }
-}
-
 /// Axiom: formalize domains transitively leads to assess improvement.
 /// The full pipeline is connected end-to-end.
 pub struct PipelineIsComplete;
@@ -453,29 +417,6 @@ impl Axiom for HighLossSuggestsIntermediateDomain {
     }
 }
 
-/// Axiom: opposition is symmetric and irreflexive.
-pub struct MetaOppositionSymmetric;
-
-impl Axiom for MetaOppositionSymmetric {
-    fn description(&self) -> &str {
-        "meta-ontology opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<MetaOpposition>::new().holds()
-    }
-}
-
-pub struct MetaOppositionIrreflexive;
-
-impl Axiom for MetaOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "meta-ontology opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<MetaOpposition>::new().holds()
-    }
-}
-
 /// EMPIRICAL AXIOM: every adjunction between domains at different scales has gaps.
 ///
 /// This is our core empirical finding, proven by gap_analysis.rs across
@@ -511,11 +452,12 @@ impl Ontology for MetaOntology {
     type Cat = MetaCategory;
     type Qual = IsAutoDetectable;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(MetaTaxonomyIsDAG),
-            Box::new(MethodologyIsAsymmetric),
-            Box::new(MethodologyNoSelfCausation),
             Box::new(PipelineIsComplete),
             Box::new(GapDetectionRequiresBothDirections),
             Box::new(LiteratureBeforeImplementation),
@@ -523,8 +465,6 @@ impl Ontology for MetaOntology {
             Box::new(ContextResolutionPreservesFunctors),
             Box::new(EnrichmentMayBreakFunctors),
             Box::new(HighLossSuggestsIntermediateDomain),
-            Box::new(MetaOppositionSymmetric),
-            Box::new(MetaOppositionIrreflexive),
             Box::new(EveryAdjunctionHasGaps),
         ]
     }
@@ -575,21 +515,6 @@ mod tests {
     // -- Individual axiom tests --
 
     #[test]
-    fn test_taxonomy_dag() {
-        assert!(MetaTaxonomyIsDAG.holds());
-    }
-
-    #[test]
-    fn test_methodology_asymmetric() {
-        assert!(MethodologyIsAsymmetric.holds());
-    }
-
-    #[test]
-    fn test_methodology_no_self_causation() {
-        assert!(MethodologyNoSelfCausation.holds());
-    }
-
-    #[test]
     fn test_pipeline_complete() {
         assert!(PipelineIsComplete.holds());
     }
@@ -622,16 +547,6 @@ mod tests {
     #[test]
     fn test_high_loss_intermediate() {
         assert!(HighLossSuggestsIntermediateDomain.holds());
-    }
-
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(MetaOppositionSymmetric.holds());
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(MetaOppositionIrreflexive.holds());
     }
 
     #[test]

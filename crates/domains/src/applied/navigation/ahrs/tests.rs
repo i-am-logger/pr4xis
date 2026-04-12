@@ -25,11 +25,6 @@ fn ahrs_ontology_validates() {
 }
 
 #[test]
-fn ahrs_filter_taxonomy_is_dag() {
-    assert!(AhrsFilterTaxonomyIsDAG.holds());
-}
-
-#[test]
 fn attitude_state_taxonomy_is_dag() {
     assert!(AttitudeStateTaxonomyIsDAG.holds());
 }

@@ -120,18 +120,6 @@ impl Quality for UpdateRate {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Odometry source taxonomy is a DAG.
-pub struct OdometrySourceTaxonomyIsDAG;
-
-impl Axiom for OdometrySourceTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "odometry source taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        NoCycles::<OdometrySourceTaxonomy>::default().holds()
-    }
-}
-
 /// Odometry state taxonomy is a DAG.
 pub struct OdometryStateTaxonomyIsDAG;
 
@@ -232,9 +220,12 @@ impl Ontology for OdometryOntology {
     type Cat = OdometryCategory;
     type Qual = DriftRate;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(OdometrySourceTaxonomyIsDAG),
             Box::new(OdometryStateTaxonomyIsDAG),
             Box::new(DriftIsUnbounded),
             Box::new(RelativeMotionOnly),

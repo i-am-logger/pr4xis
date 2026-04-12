@@ -386,18 +386,18 @@ impl Ontology for MechanobiologyOntology {
     type Cat = MechanobiologyCategory;
     type Qual = ActivationThresholdValue;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        MechanobiologyOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(MechanobiologyTaxonomyIsDAG),
-            Box::new(MechanobiologyCausalAsymmetric),
             Box::new(MechanicalLoadCausesSignaling),
             Box::new(RepetitiveStimulusCausesFrequencyResponse),
             Box::new(MechanosensitiveChannelIsFrequencyDependent),
             Box::new(ChannelGatingRequiresTension),
             Box::new(SustainedForceCausesAdaptation),
             Box::new(OpenOpposesClosedState),
-            Box::new(MechanobiologyOppositionSymmetric),
-            Box::new(MechanobiologyOppositionIrreflexive),
         ]
     }
 }

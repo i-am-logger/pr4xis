@@ -337,17 +337,15 @@ impl Ontology for ChemistryOntology {
     type Cat = ChemistryCategory;
     type Qual = ConductsElectricity;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        ChemistryOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(ChemistryTaxonomyIsDAG),
-            Box::new(ChemistryTaxonomyAntisymmetric),
-            Box::new(ChemistryCausalAsymmetric),
-            Box::new(ChemistryCausalNoSelfCausation),
             Box::new(DissolutionCausesIonDissociation),
             Box::new(AcidBaseCausesPHChange),
             Box::new(ElectrolytesConductElectricity),
-            Box::new(ChemistryOppositionSymmetric),
-            Box::new(ChemistryOppositionIrreflexive),
         ]
     }
 }

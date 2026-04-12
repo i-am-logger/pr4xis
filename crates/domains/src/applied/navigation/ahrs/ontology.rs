@@ -123,18 +123,6 @@ impl Quality for ComputationalCost {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// AHRS filter taxonomy is a DAG.
-pub struct AhrsFilterTaxonomyIsDAG;
-
-impl Axiom for AhrsFilterTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "AHRS filter taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        NoCycles::<AhrsFilterTaxonomy>::default().holds()
-    }
-}
-
 /// Attitude state taxonomy is a DAG.
 pub struct AttitudeStateTaxonomyIsDAG;
 
@@ -236,9 +224,12 @@ impl Ontology for AhrsOntology {
     type Cat = AhrsCategory;
     type Qual = AttitudeAccuracy;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(AhrsFilterTaxonomyIsDAG),
             Box::new(AttitudeStateTaxonomyIsDAG),
             Box::new(GravityGivesLevelAttitude),
             Box::new(MagnetometerGivesHeading),

@@ -128,18 +128,6 @@ impl Quality for CouplingBandwidth {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Coupling taxonomy is a DAG.
-pub struct CouplingTaxonomyIsDAG;
-
-impl Axiom for CouplingTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "coupling level taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        NoCycles::<CouplingTaxonomy>::default().holds()
-    }
-}
-
 /// INS/GNSS state taxonomy is a DAG.
 pub struct InsGnssStateTaxonomyIsDAG;
 
@@ -235,9 +223,12 @@ impl Ontology for InsGnssOntology {
     type Cat = InsGnssCategory;
     type Qual = ErrorStateDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(CouplingTaxonomyIsDAG),
             Box::new(InsGnssStateTaxonomyIsDAG),
             Box::new(CoastingDegrades),
             Box::new(GnssUpdateReducesError),

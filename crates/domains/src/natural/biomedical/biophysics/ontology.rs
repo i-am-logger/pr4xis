@@ -392,18 +392,17 @@ impl Ontology for BiophysicsOntology {
     type Cat = BiophysicsCategory;
     type Qual = AcousticImpedanceValue;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        BiophysicsOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(BiophysicsTaxonomyIsDAG),
-            Box::new(BiophysicsCausalAsymmetric),
-            Box::new(BiophysicsCausalNoSelfCausation),
             Box::new(VibrationCausesMechanotransduction),
             Box::new(PiezoelectricFollowsDeformation),
             Box::new(BoneMatrixIsPiezoelectric),
             Box::new(BoneImpedanceGreaterThanSoftTissue),
             Box::new(ImpedanceMismatchCausesReflection),
-            Box::new(BiophysicsOppositionSymmetric),
-            Box::new(BiophysicsOppositionIrreflexive),
         ]
     }
 }

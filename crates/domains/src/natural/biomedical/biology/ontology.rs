@@ -488,20 +488,17 @@ impl Ontology for BiologyOntology {
     type Cat = BiologyCategory;
     type Qual = OrganizationLevelQuality;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        BiologyOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(TaxonomyIsDAG),
-            Box::new(TaxonomyIsAntisymmetric),
-            Box::new(MereologyIsDAG),
             Box::new(AllCellsAreCell),
             Box::new(EsophagusHasSquamousEpithelium),
             Box::new(EpitheliumHasStemCells),
             Box::new(AllLevelsRepresented),
             Box::new(MechanosensitivityIsMultiscale),
-            Box::new(BiologicalOppositionSymmetric),
-            Box::new(BiologicalOppositionIrreflexive),
-            Box::new(BiologicalCausalAsymmetric),
-            Box::new(BiologicalCausalNoSelfCausation),
             Box::new(MacrophageM1CrossDomainEquivalence),
             Box::new(MacrophageM2CrossDomainEquivalence),
             Box::new(FibroblastCrossDomainEquivalence),

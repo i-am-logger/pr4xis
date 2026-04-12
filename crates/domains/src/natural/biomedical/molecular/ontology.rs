@@ -684,21 +684,19 @@ impl Ontology for MolecularOntology {
     type Cat = MolecularCategory;
     type Qual = IonSelectivity;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        MolecularOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(MolecularTaxonomyIsDAG),
             Box::new(Piezo1IsMechanosensitiveChannel),
             Box::new(TRPV4InEsophagus),
             Box::new(MechanosensitiveChannelsPassCalcium),
-            Box::new(CausalGraphIsAsymmetric),
-            Box::new(CausalGraphNoSelfCause),
             Box::new(MechanicalStressCausesMorphology),
             Box::new(AcidCausesVmemShift),
             Box::new(GlyRCausesHyperpolarization),
             Box::new(NernstPotentialsConsistent),
-            Box::new(MolecularOppositionSymmetric),
-            Box::new(MolecularOppositionIrreflexive),
-            Box::new(MolecularMereologyNoCycles),
             Box::new(MolecularContextDeterministic),
             Box::new(MolecularContextTrueAmbiguity),
             Box::new(KvDualRole),

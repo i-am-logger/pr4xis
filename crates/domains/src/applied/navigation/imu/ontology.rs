@@ -78,18 +78,6 @@ impl Quality for MeasurementUnit {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// IMU taxonomy is a DAG.
-pub struct ImuTaxonomyIsDAG;
-
-impl Axiom for ImuTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "IMU measurement taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<ImuTaxonomy>::default().holds()
-    }
-}
-
 /// Accelerometer bias is-a SpecificForce (it's an error IN specific force).
 pub struct BiasIsAMeasurement;
 
@@ -149,9 +137,12 @@ impl Ontology for ImuOntology {
     type Cat = ImuCategory;
     type Qual = MeasurementUnit;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(ImuTaxonomyIsDAG),
             Box::new(BiasIsAMeasurement),
             Box::new(SpecificForceDefinition),
             Box::new(GyroscopeBodyFrame),

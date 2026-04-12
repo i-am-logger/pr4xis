@@ -2,14 +2,6 @@
 //!
 //! Models auditory perception: how physical sound becomes subjective experience.
 //!
-//! Key concepts:
-//! - Loudness: perceived intensity (sones), equal-loudness contours (phons)
-//! - Pitch: perceived frequency, related to place on basilar membrane
-//! - Timbre: spectral shape distinguishing instruments at same pitch/loudness
-//! - Masking: one sound rendering another inaudible
-//! - Critical bands: frequency resolution of cochlear filters (Bark scale)
-//! - Sound localization: ITD and ILD cues
-//!
 //! References:
 //! - Fletcher & Munson 1933: equal-loudness contours
 //! - Zwicker & Fastl 2007: psychoacoustic models
@@ -24,7 +16,6 @@ use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Every entity in the psychoacoustics domain.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum PsychoacousticEntity {
     Loudness,
@@ -65,7 +56,6 @@ pub enum PsychoacousticEntity {
     SpatialCue,
     TemporalMeasure,
 }
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum PsychoacousticCausalEvent {
     AcousticStimulus,
@@ -78,47 +68,24 @@ pub enum PsychoacousticCausalEvent {
     FrequencyAnalysis,
     PitchExtraction,
 }
-
 define_ontology! {
     /// Discrete category over psychoacoustic entities.
     pub PsychoacousticsOntology for PsychoacousticsCategory {
-        entity: PsychoacousticEntity,
-        relation: PsychoacousticRelation,
-
+        entity: PsychoacousticEntity, relation: PsychoacousticRelation,
         taxonomy: PsychoacousticTaxonomy [
-            (Loudness, PerceptualDimension), (Pitch, PerceptualDimension),
-            (Timbre, PerceptualDimension), (Duration, PerceptualDimension),
-            (Phon, LoudnessMetric), (Sone, LoudnessMetric),
-            (EqualLoudnessContour, LoudnessMetric), (LoudnessRecruitment, LoudnessMetric),
-            (PlacePitch, PitchMechanism), (TemporalPitch, PitchMechanism),
-            (VirtualPitch, PitchMechanism),
-            (SimultaneousMasking, MaskingType), (ForwardMasking, MaskingType),
-            (BackwardMasking, MaskingType), (InformationalMasking, MaskingType),
-            (InterauralTimeDifference, SpatialCue), (InterauralLevelDifference, SpatialCue),
-            (HeadRelatedTransferFunction, SpatialCue),
-            (TemporalResolution, TemporalMeasure), (GapDetection, TemporalMeasure),
-            (TemporalIntegration, TemporalMeasure),
+            (Loudness, PerceptualDimension), (Pitch, PerceptualDimension), (Timbre, PerceptualDimension), (Duration, PerceptualDimension),
+            (Phon, LoudnessMetric), (Sone, LoudnessMetric), (EqualLoudnessContour, LoudnessMetric), (LoudnessRecruitment, LoudnessMetric),
+            (PlacePitch, PitchMechanism), (TemporalPitch, PitchMechanism), (VirtualPitch, PitchMechanism),
+            (SimultaneousMasking, MaskingType), (ForwardMasking, MaskingType), (BackwardMasking, MaskingType), (InformationalMasking, MaskingType),
+            (InterauralTimeDifference, SpatialCue), (InterauralLevelDifference, SpatialCue), (HeadRelatedTransferFunction, SpatialCue),
+            (TemporalResolution, TemporalMeasure), (GapDetection, TemporalMeasure), (TemporalIntegration, TemporalMeasure),
         ],
-
         causation: PsychoacousticCausalGraph for PsychoacousticCausalEvent [
-            (AcousticStimulus, CochlearFiltering),
-            (CochlearFiltering, NeuralTransduction),
-            (NeuralTransduction, BrainstemProcessing),
-            (BrainstemProcessing, CorticalAnalysis),
-            (CorticalAnalysis, PerceptFormation),
-            (PerceptFormation, AwareExperience),
-            (CochlearFiltering, FrequencyAnalysis),
-            (FrequencyAnalysis, PitchExtraction),
+            (AcousticStimulus, CochlearFiltering), (CochlearFiltering, NeuralTransduction), (NeuralTransduction, BrainstemProcessing), (BrainstemProcessing, CorticalAnalysis), (CorticalAnalysis, PerceptFormation), (PerceptFormation, AwareExperience), (CochlearFiltering, FrequencyAnalysis), (FrequencyAnalysis, PitchExtraction),
         ],
-
-        opposition: PsychoacousticOpposition [
-            (PlacePitch, TemporalPitch),
-            (SimultaneousMasking, ForwardMasking),
-            (InterauralTimeDifference, InterauralLevelDifference),
-        ],
+        opposition: PsychoacousticOpposition [ (PlacePitch, TemporalPitch), (SimultaneousMasking, ForwardMasking), (InterauralTimeDifference, InterauralLevelDifference) ],
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct HearingThresholdDB;
 impl Quality for HearingThresholdDB {
@@ -133,7 +100,6 @@ impl Quality for HearingThresholdDB {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct CriticalBandwidth;
 impl Quality for CriticalBandwidth {
@@ -148,7 +114,6 @@ impl Quality for CriticalBandwidth {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct GapDetectionThreshold;
 impl Quality for GapDetectionThreshold {
@@ -163,7 +128,6 @@ impl Quality for GapDetectionThreshold {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ITDThreshold;
 impl Quality for ITDThreshold {
@@ -179,24 +143,6 @@ impl Quality for ITDThreshold {
     }
 }
 
-pub struct PsychoacousticTaxonomyIsDAG;
-impl Axiom for PsychoacousticTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "psychoacoustic taxonomy is a directed acyclic graph"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<PsychoacousticTaxonomy>::new().holds()
-    }
-}
-pub struct PsychoacousticTaxonomyIsAntisymmetric;
-impl Axiom for PsychoacousticTaxonomyIsAntisymmetric {
-    fn description(&self) -> &str {
-        "psychoacoustic taxonomy is antisymmetric"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::Antisymmetric::<PsychoacousticTaxonomy>::new().holds()
-    }
-}
 pub struct FourPerceptualDimensions;
 impl Axiom for FourPerceptualDimensions {
     fn description(&self) -> &str {
@@ -242,24 +188,6 @@ impl Axiom for ThreeSpatialCues {
         .all(|c| taxonomy::is_a::<PsychoacousticTaxonomy>(c, &SpatialCue))
     }
 }
-pub struct PsychoacousticOppositionSymmetric;
-impl Axiom for PsychoacousticOppositionSymmetric {
-    fn description(&self) -> &str {
-        "psychoacoustic opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<PsychoacousticOpposition>::new().holds()
-    }
-}
-pub struct PsychoacousticOppositionIrreflexive;
-impl Axiom for PsychoacousticOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "psychoacoustic opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<PsychoacousticOpposition>::new().holds()
-    }
-}
 pub struct ITDOpposesILD;
 impl Axiom for ITDOpposesILD {
     fn description(&self) -> &str {
@@ -271,24 +199,6 @@ impl Axiom for ITDOpposesILD {
             &InterauralTimeDifference,
             &InterauralLevelDifference,
         )
-    }
-}
-pub struct PsychoacousticCausalGraphIsAsymmetric;
-impl Axiom for PsychoacousticCausalGraphIsAsymmetric {
-    fn description(&self) -> &str {
-        "psychoacoustic causal graph is asymmetric"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<PsychoacousticCausalGraph>::new().holds()
-    }
-}
-pub struct PsychoacousticCausalGraphNoSelfCause;
-impl Axiom for PsychoacousticCausalGraphNoSelfCause {
-    fn description(&self) -> &str {
-        "no psychoacoustic event causes itself"
-    }
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<PsychoacousticCausalGraph>::new().holds()
     }
 }
 pub struct StimulusCausesExperience;
@@ -306,18 +216,15 @@ impl Axiom for StimulusCausesExperience {
 impl Ontology for PsychoacousticsOntology {
     type Cat = PsychoacousticsCategory;
     type Qual = HearingThresholdDB;
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(PsychoacousticTaxonomyIsDAG),
-            Box::new(PsychoacousticTaxonomyIsAntisymmetric),
             Box::new(FourPerceptualDimensions),
             Box::new(FourMaskingTypes),
             Box::new(ThreeSpatialCues),
-            Box::new(PsychoacousticOppositionSymmetric),
-            Box::new(PsychoacousticOppositionIrreflexive),
             Box::new(ITDOpposesILD),
-            Box::new(PsychoacousticCausalGraphIsAsymmetric),
-            Box::new(PsychoacousticCausalGraphNoSelfCause),
             Box::new(StimulusCausesExperience),
         ]
     }
@@ -330,90 +237,25 @@ mod tests {
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(
-            PsychoacousticTaxonomyIsDAG.holds(),
-            "{}",
-            PsychoacousticTaxonomyIsDAG.description()
-        );
-    }
-    #[test]
-    fn test_taxonomy_is_antisymmetric() {
-        assert!(
-            PsychoacousticTaxonomyIsAntisymmetric.holds(),
-            "{}",
-            PsychoacousticTaxonomyIsAntisymmetric.description()
-        );
-    }
     #[test]
     fn test_four_perceptual_dimensions() {
-        assert!(
-            FourPerceptualDimensions.holds(),
-            "{}",
-            FourPerceptualDimensions.description()
-        );
+        assert!(FourPerceptualDimensions.holds());
     }
     #[test]
     fn test_four_masking_types() {
-        assert!(
-            FourMaskingTypes.holds(),
-            "{}",
-            FourMaskingTypes.description()
-        );
+        assert!(FourMaskingTypes.holds());
     }
     #[test]
     fn test_three_spatial_cues() {
-        assert!(
-            ThreeSpatialCues.holds(),
-            "{}",
-            ThreeSpatialCues.description()
-        );
-    }
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(
-            PsychoacousticOppositionSymmetric.holds(),
-            "{}",
-            PsychoacousticOppositionSymmetric.description()
-        );
-    }
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(
-            PsychoacousticOppositionIrreflexive.holds(),
-            "{}",
-            PsychoacousticOppositionIrreflexive.description()
-        );
+        assert!(ThreeSpatialCues.holds());
     }
     #[test]
     fn test_itd_opposes_ild() {
-        assert!(ITDOpposesILD.holds(), "{}", ITDOpposesILD.description());
-    }
-    #[test]
-    fn test_causal_graph_asymmetric() {
-        assert!(
-            PsychoacousticCausalGraphIsAsymmetric.holds(),
-            "{}",
-            PsychoacousticCausalGraphIsAsymmetric.description()
-        );
-    }
-    #[test]
-    fn test_causal_graph_no_self_cause() {
-        assert!(
-            PsychoacousticCausalGraphNoSelfCause.holds(),
-            "{}",
-            PsychoacousticCausalGraphNoSelfCause.description()
-        );
+        assert!(ITDOpposesILD.holds());
     }
     #[test]
     fn test_stimulus_causes_experience() {
-        assert!(
-            StimulusCausesExperience.holds(),
-            "{}",
-            StimulusCausesExperience.description()
-        );
+        assert!(StimulusCausesExperience.holds());
     }
     #[test]
     fn test_psychoacoustics_category_laws() {
@@ -498,15 +340,9 @@ mod tests {
     fn test_ontology_validates() {
         PsychoacousticsOntology::validate().unwrap();
     }
-
     fn arb_psychoacoustic_entity() -> impl Strategy<Value = PsychoacousticEntity> {
         (0..PsychoacousticEntity::variants().len())
             .prop_map(|i| PsychoacousticEntity::variants()[i])
     }
-    proptest! {
-        #[test]
-        fn prop_taxonomy_reflexive(entity in arb_psychoacoustic_entity()) {
-            prop_assert!(taxonomy::is_a::<PsychoacousticTaxonomy>(&entity, &entity));
-        }
-    }
+    proptest! { #[test] fn prop_taxonomy_reflexive(entity in arb_psychoacoustic_entity()) { prop_assert!(taxonomy::is_a::<PsychoacousticTaxonomy>(&entity, &entity)); } }
 }

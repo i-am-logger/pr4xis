@@ -15,7 +15,6 @@ use pr4xis::category::Entity;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::mereology;
-use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -281,45 +280,6 @@ impl Quality for MediumPhase {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// The taxonomy has no cycles.
-pub struct AcousticTaxonomyIsDAG;
-
-impl Axiom for AcousticTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "acoustic taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<AcousticTaxonomy>::new().holds()
-    }
-}
-
-/// The taxonomy is antisymmetric.
-pub struct AcousticTaxonomyIsAntisymmetric;
-
-impl Axiom for AcousticTaxonomyIsAntisymmetric {
-    fn description(&self) -> &str {
-        "acoustic taxonomy is antisymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::Antisymmetric::<AcousticTaxonomy>::new().holds()
-    }
-}
-
-/// The mereology has no cycles.
-pub struct AcousticMereologyIsDAG;
-
-impl Axiom for AcousticMereologyIsDAG {
-    fn description(&self) -> &str {
-        "acoustic mereology is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        mereology::NoCycles::<AcousticMereology>::new().holds()
-    }
-}
-
 /// Sound speed in bone > sound speed in air (fundamental to bone conduction).
 ///
 /// Stenfelt & Goode 2005: cortical bone ~4080 m/s vs air 343 m/s.
@@ -402,32 +362,6 @@ impl Axiom for OnlySolidsHaveShearWaves {
     }
 }
 
-/// Causal graph is asymmetric.
-pub struct AcousticCausalGraphIsAsymmetric;
-
-impl Axiom for AcousticCausalGraphIsAsymmetric {
-    fn description(&self) -> &str {
-        "acoustic causal graph is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<AcousticCausalGraph>::new().holds()
-    }
-}
-
-/// No event causes itself.
-pub struct AcousticCausalGraphNoSelfCause;
-
-impl Axiom for AcousticCausalGraphNoSelfCause {
-    fn description(&self) -> &str {
-        "no acoustic event causes itself"
-    }
-
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<AcousticCausalGraph>::new().holds()
-    }
-}
-
 /// Source vibration transitively causes receiver excitation.
 pub struct SourceCausesReceiver;
 
@@ -443,32 +377,6 @@ impl Axiom for SourceCausesReceiver {
     }
 }
 
-/// Opposition is symmetric.
-pub struct AcousticOppositionSymmetric;
-
-impl Axiom for AcousticOppositionSymmetric {
-    fn description(&self) -> &str {
-        "acoustic opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<AcousticOpposition>::new().holds()
-    }
-}
-
-/// Opposition is irreflexive.
-pub struct AcousticOppositionIrreflexive;
-
-impl Axiom for AcousticOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "acoustic opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<AcousticOpposition>::new().holds()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Ontology impl
 // ---------------------------------------------------------------------------
@@ -477,20 +385,17 @@ impl Ontology for AcousticsOntology {
     type Cat = AcousticsCategory;
     type Qual = SpeedOfSound;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(AcousticTaxonomyIsDAG),
-            Box::new(AcousticTaxonomyIsAntisymmetric),
-            Box::new(AcousticMereologyIsDAG),
             Box::new(BoneFasterThanAir),
             Box::new(BoneAirImpedanceMismatch),
             Box::new(SoftTissueMatchesWater),
             Box::new(OnlySolidsHaveShearWaves),
-            Box::new(AcousticCausalGraphIsAsymmetric),
-            Box::new(AcousticCausalGraphNoSelfCause),
             Box::new(SourceCausesReceiver),
-            Box::new(AcousticOppositionSymmetric),
-            Box::new(AcousticOppositionIrreflexive),
         ]
     }
 }
@@ -509,33 +414,6 @@ mod tests {
     use proptest::prelude::*;
 
     // -- Axiom tests --
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(
-            AcousticTaxonomyIsDAG.holds(),
-            "{}",
-            AcousticTaxonomyIsDAG.description()
-        );
-    }
-
-    #[test]
-    fn test_taxonomy_is_antisymmetric() {
-        assert!(
-            AcousticTaxonomyIsAntisymmetric.holds(),
-            "{}",
-            AcousticTaxonomyIsAntisymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_mereology_is_dag() {
-        assert!(
-            AcousticMereologyIsDAG.holds(),
-            "{}",
-            AcousticMereologyIsDAG.description()
-        );
-    }
 
     #[test]
     fn test_bone_faster_than_air() {
@@ -574,47 +452,11 @@ mod tests {
     }
 
     #[test]
-    fn test_causal_graph_asymmetric() {
-        assert!(
-            AcousticCausalGraphIsAsymmetric.holds(),
-            "{}",
-            AcousticCausalGraphIsAsymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_causal_graph_no_self_cause() {
-        assert!(
-            AcousticCausalGraphNoSelfCause.holds(),
-            "{}",
-            AcousticCausalGraphNoSelfCause.description()
-        );
-    }
-
-    #[test]
     fn test_source_causes_receiver() {
         assert!(
             SourceCausesReceiver.holds(),
             "{}",
             SourceCausesReceiver.description()
-        );
-    }
-
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(
-            AcousticOppositionSymmetric.holds(),
-            "{}",
-            AcousticOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(
-            AcousticOppositionIrreflexive.holds(),
-            "{}",
-            AcousticOppositionIrreflexive.description()
         );
     }
 

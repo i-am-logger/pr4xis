@@ -208,30 +208,6 @@ impl Quality for HandlesMultiObjective {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Axiom: taxonomy is a DAG.
-pub struct OptimizationTaxonomyIsDAG;
-
-impl Axiom for OptimizationTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "optimization taxonomy has no cycles"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<OptimizationTaxonomy>::default().holds()
-    }
-}
-
-/// Axiom: causal graph is asymmetric.
-pub struct OptimizationCausalAsymmetric;
-
-impl Axiom for OptimizationCausalAsymmetric {
-    fn description(&self) -> &str {
-        "optimization pipeline has no circular causation"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<OptimizationCausalGraph>::default().holds()
-    }
-}
-
 /// Axiom: problem formulation transitively causes solution selection.
 pub struct FormulationCausesSolution;
 
@@ -288,30 +264,6 @@ impl Axiom for ParetoMultiObjectiveGradientNot {
     }
 }
 
-/// Axiom: opposition is symmetric.
-pub struct OptimizationOppositionSymmetric;
-
-impl Axiom for OptimizationOppositionSymmetric {
-    fn description(&self) -> &str {
-        "optimization opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<OptimizationOpposition>::new().holds()
-    }
-}
-
-/// Axiom: opposition is irreflexive.
-pub struct OptimizationOppositionIrreflexive;
-
-impl Axiom for OptimizationOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "optimization opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<OptimizationOpposition>::new().holds()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Ontology impl
 // ---------------------------------------------------------------------------
@@ -320,16 +272,16 @@ impl Ontology for OptimizationOntology {
     type Cat = OptimizationCategory;
     type Qual = GuaranteesGlobal;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(OptimizationTaxonomyIsDAG),
-            Box::new(OptimizationCausalAsymmetric),
             Box::new(FormulationCausesSolution),
             Box::new(ExhaustiveGuaranteesGradientDoesNot),
             Box::new(ExactExponentialHeuristicPolynomial),
             Box::new(ParetoMultiObjectiveGradientNot),
-            Box::new(OptimizationOppositionSymmetric),
-            Box::new(OptimizationOppositionIrreflexive),
         ]
     }
 }
@@ -379,16 +331,6 @@ mod tests {
     // -- Individual axiom tests --
 
     #[test]
-    fn test_taxonomy_dag() {
-        assert!(OptimizationTaxonomyIsDAG.holds());
-    }
-
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(OptimizationCausalAsymmetric.holds());
-    }
-
-    #[test]
     fn test_formulation_causes_solution() {
         assert!(FormulationCausesSolution.holds());
     }
@@ -406,16 +348,6 @@ mod tests {
     #[test]
     fn test_pareto_multi_objective() {
         assert!(ParetoMultiObjectiveGradientNot.holds());
-    }
-
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(OptimizationOppositionSymmetric.holds());
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(OptimizationOppositionIrreflexive.holds());
     }
 
     // -- Taxonomy tests --

@@ -25,11 +25,6 @@ fn gnss_ontology_validates() {
 }
 
 #[test]
-fn gnss_observable_taxonomy_is_dag() {
-    assert!(GnssObservableTaxonomyIsDAG.holds());
-}
-
-#[test]
 fn gnss_constellation_taxonomy_is_dag() {
     assert!(GnssConstellationTaxonomyIsDAG.holds());
 }

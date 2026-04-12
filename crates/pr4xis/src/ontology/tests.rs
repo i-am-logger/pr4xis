@@ -456,8 +456,8 @@ mod ontology_macro_test {
     #[test]
     fn structural_axioms_auto_generated() {
         let axioms = AnimalOntology::generated_structural_axioms();
-        // 2 taxonomy + 2 mereology + 2 causation + 2 opposition = 8
-        assert_eq!(axioms.len(), 8);
+        // 2 taxonomy + 1 mereology + 2 causation + 2 opposition = 7
+        assert_eq!(axioms.len(), 7);
         for axiom in &axioms {
             assert!(axiom.holds(), "failed: {}", axiom.description());
         }
@@ -502,7 +502,7 @@ mod ontology_macro_test {
     #[test]
     fn ontology_merges_structural_and_domain() {
         let all = AnimalOntology::axioms();
-        assert_eq!(all.len(), 9); // 8 structural + 1 domain
+        assert_eq!(all.len(), 8); // 7 structural + 1 domain
         for a in &all {
             assert!(a.holds());
         }

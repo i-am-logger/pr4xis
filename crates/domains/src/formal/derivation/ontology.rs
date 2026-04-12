@@ -206,30 +206,6 @@ impl Quality for RequiresAllPremises {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Axiom: taxonomy is a DAG.
-pub struct DerivationTaxonomyIsDAG;
-
-impl Axiom for DerivationTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "derivation taxonomy has no cycles"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<DerivationTaxonomy>::default().holds()
-    }
-}
-
-/// Axiom: causal graph is asymmetric.
-pub struct DerivationCausalAsymmetric;
-
-impl Axiom for DerivationCausalAsymmetric {
-    fn description(&self) -> &str {
-        "derivation pipeline has no circular causation"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<DerivationCausalGraph>::default().holds()
-    }
-}
-
 /// Axiom: premise establishment transitively causes knowledge extension.
 pub struct PremiseCausesKnowledge;
 
@@ -285,30 +261,6 @@ impl Axiom for DeductionRequiresAllAbductionNot {
     }
 }
 
-/// Axiom: opposition is symmetric.
-pub struct DerivationOppositionSymmetric;
-
-impl Axiom for DerivationOppositionSymmetric {
-    fn description(&self) -> &str {
-        "derivation opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<DerivationOpposition>::new().holds()
-    }
-}
-
-/// Axiom: opposition is irreflexive.
-pub struct DerivationOppositionIrreflexive;
-
-impl Axiom for DerivationOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "derivation opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<DerivationOpposition>::new().holds()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Ontology impl
 // ---------------------------------------------------------------------------
@@ -317,16 +269,16 @@ impl Ontology for DerivationOntology {
     type Cat = DerivationCategory;
     type Qual = IsMonotonic;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(DerivationTaxonomyIsDAG),
-            Box::new(DerivationCausalAsymmetric),
             Box::new(PremiseCausesKnowledge),
             Box::new(DeductionMonotonicAbductionNot),
             Box::new(DeductionPreservesTruthInductionNot),
             Box::new(DeductionRequiresAllAbductionNot),
-            Box::new(DerivationOppositionSymmetric),
-            Box::new(DerivationOppositionIrreflexive),
         ]
     }
 }
@@ -376,16 +328,6 @@ mod tests {
     // -- Individual axiom tests --
 
     #[test]
-    fn test_taxonomy_dag() {
-        assert!(DerivationTaxonomyIsDAG.holds());
-    }
-
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(DerivationCausalAsymmetric.holds());
-    }
-
-    #[test]
     fn test_premise_causes_knowledge() {
         assert!(PremiseCausesKnowledge.holds());
     }
@@ -403,16 +345,6 @@ mod tests {
     #[test]
     fn test_deduction_requires_all_abduction_not() {
         assert!(DeductionRequiresAllAbductionNot.holds());
-    }
-
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(DerivationOppositionSymmetric.holds());
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(DerivationOppositionIrreflexive.holds());
     }
 
     // -- Taxonomy tests --

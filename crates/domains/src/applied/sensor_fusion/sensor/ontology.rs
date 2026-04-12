@@ -94,17 +94,6 @@ impl Quality for IsProprioceptive {
 // Axioms
 // ---------------------------------------------------------------------------
 
-pub struct TaxonomyIsDAG;
-
-impl Axiom for TaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "sensor taxonomy is a DAG (no cycles)"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<SensorTaxonomy>::default().holds()
-    }
-}
-
 pub struct AccelerometerIsSensor;
 
 impl Axiom for AccelerometerIsSensor {
@@ -160,9 +149,12 @@ impl Ontology for SensorOntology {
     type Cat = SensorCategory;
     type Qual = IsProprioceptive;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(TaxonomyIsDAG),
             Box::new(AccelerometerIsSensor),
             Box::new(ImuComposition),
             Box::new(RadarDualClassification),

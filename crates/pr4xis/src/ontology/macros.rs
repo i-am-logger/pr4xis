@@ -256,9 +256,8 @@ macro_rules! define_ontology {
                     axioms.push(Box::new(
                         $crate::ontology::reasoning::mereology::NoCycles::<$mer_name>::new()
                     ));
-                    axioms.push(Box::new(
-                        $crate::ontology::reasoning::mereology::WeakSupplementation::<$mer_name>::new()
-                    ));
+                    // WeakSupplementation not auto-included — not all mereologies satisfy it.
+                    // Add manually in domain_axioms() if your domain requires it.
                 )?
 
                 $(

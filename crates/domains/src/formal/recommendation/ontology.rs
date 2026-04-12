@@ -202,30 +202,6 @@ impl Quality for RequiresExpertValidation {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Axiom: taxonomy is a DAG.
-pub struct RecommendationTaxonomyIsDAG;
-
-impl Axiom for RecommendationTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "recommendation taxonomy has no cycles"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<RecommendationTaxonomy>::default().holds()
-    }
-}
-
-/// Axiom: causal graph is asymmetric.
-pub struct RecommendationCausalAsymmetric;
-
-impl Axiom for RecommendationCausalAsymmetric {
-    fn description(&self) -> &str {
-        "recommendation pipeline has no circular causation"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<RecommendationCausalGraph>::default().holds()
-    }
-}
-
 /// Axiom: evidence gathering transitively causes action proposal.
 pub struct EvidenceCausesAction;
 
@@ -281,30 +257,6 @@ impl Axiom for RejectReversibleAcceptNot {
     }
 }
 
-/// Axiom: opposition is symmetric.
-pub struct RecommendationOppositionSymmetric;
-
-impl Axiom for RecommendationOppositionSymmetric {
-    fn description(&self) -> &str {
-        "recommendation opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<RecommendationOpposition>::new().holds()
-    }
-}
-
-/// Axiom: opposition is irreflexive.
-pub struct RecommendationOppositionIrreflexive;
-
-impl Axiom for RecommendationOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "recommendation opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<RecommendationOpposition>::new().holds()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Ontology impl
 // ---------------------------------------------------------------------------
@@ -313,16 +265,16 @@ impl Ontology for RecommendationOntology {
     type Cat = RecommendationCategory;
     type Qual = ConfidenceLevel;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(RecommendationTaxonomyIsDAG),
-            Box::new(RecommendationCausalAsymmetric),
             Box::new(EvidenceCausesAction),
             Box::new(AcceptAndRejectAreOutcomes),
             Box::new(PrescriptionsNeedExperts),
             Box::new(RejectReversibleAcceptNot),
-            Box::new(RecommendationOppositionSymmetric),
-            Box::new(RecommendationOppositionIrreflexive),
         ]
     }
 }
@@ -372,16 +324,6 @@ mod tests {
     // -- Individual axiom tests --
 
     #[test]
-    fn test_taxonomy_dag() {
-        assert!(RecommendationTaxonomyIsDAG.holds());
-    }
-
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(RecommendationCausalAsymmetric.holds());
-    }
-
-    #[test]
     fn test_evidence_causes_action() {
         assert!(EvidenceCausesAction.holds());
     }
@@ -399,16 +341,6 @@ mod tests {
     #[test]
     fn test_reject_reversible_accept_not() {
         assert!(RejectReversibleAcceptNot.holds());
-    }
-
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(RecommendationOppositionSymmetric.holds());
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(RecommendationOppositionIrreflexive.holds());
     }
 
     // -- Taxonomy tests --

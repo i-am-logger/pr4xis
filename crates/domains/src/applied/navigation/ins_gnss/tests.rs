@@ -26,11 +26,6 @@ fn ins_gnss_ontology_validates() {
 }
 
 #[test]
-fn coupling_taxonomy_is_dag() {
-    assert!(CouplingTaxonomyIsDAG.holds());
-}
-
-#[test]
 fn ins_gnss_state_taxonomy_is_dag() {
     assert!(InsGnssStateTaxonomyIsDAG.holds());
 }

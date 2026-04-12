@@ -131,18 +131,6 @@ impl Quality for SignalStrength {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// GNSS observable taxonomy is a DAG.
-pub struct GnssObservableTaxonomyIsDAG;
-
-impl Axiom for GnssObservableTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "GNSS observable taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        NoCycles::<GnssObservableTaxonomy>::default().holds()
-    }
-}
-
 /// GNSS constellation taxonomy is a DAG.
 pub struct GnssConstellationTaxonomyIsDAG;
 
@@ -333,9 +321,12 @@ impl Ontology for GnssOntology {
     type Cat = GnssCategory;
     type Qual = SignalStrength;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(GnssObservableTaxonomyIsDAG),
             Box::new(GnssConstellationTaxonomyIsDAG),
             Box::new(MinimumSatellites),
             Box::new(DopGeometry),

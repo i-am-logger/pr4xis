@@ -3,7 +3,7 @@
 //! Models hearing disorders, their mechanisms, and perceptual consequences.
 //!
 //! Key references:
-//! - Møller 2006: Hearing: Anatomy, Physiology, and Disorders
+//! - Moller 2006: Hearing: Anatomy, Physiology, and Disorders
 //! - Gates & Mills 2005: Presbycusis (Lancet)
 //! - Henderson et al. 2006: noise-induced hearing loss mechanisms
 //! - Merchant & Rosowski 2008: conductive hearing loss
@@ -63,7 +63,6 @@ pub enum PathologyEntity {
     PerceptualDeficit,
     ClinicalMeasure,
 }
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum PathologyCausalEvent {
     NoiseExposure,
@@ -83,61 +82,29 @@ pub enum PathologyCausalEvent {
     TinnitusGeneration,
     CommunicationDifficulty,
 }
-
 define_ontology! {
     /// Discrete category over pathology entities.
     pub PathologyOntology for PathologyCategory {
-        entity: PathologyEntity,
-        relation: PathologyRelation,
-
+        entity: PathologyEntity, relation: PathologyRelation,
         taxonomy: PathologyTaxonomy [
-            (ConductiveHearingLoss, HearingLoss), (SensorineuralHearingLoss, HearingLoss),
-            (MixedHearingLoss, HearingLoss), (AuditoryNeuropathy, HearingLoss),
-            (CentralAuditoryProcessingDisorder, HearingLoss),
-            (Otosclerosis, PeripheralPathology), (Presbycusis, PeripheralPathology),
-            (NoiseInducedHearingLoss, PeripheralPathology), (MenieresDisease, PeripheralPathology),
-            (Tinnitus, PeripheralPathology), (Hyperacusis, PeripheralPathology),
-            (SuddenSensorineuralLoss, PeripheralPathology), (OtitisMedia, PeripheralPathology),
-            (TympanicPerforation, PeripheralPathology), (Cholesteatoma, PeripheralPathology),
-            (AcousticNeuroma, CentralPathology),
-            (CentralAuditoryProcessingDisorder, CentralPathology),
-            (HairCellLoss, DamageMechanism), (StereociliaDamage, DamageMechanism),
-            (SynapticRibbonLoss, DamageMechanism), (StriaDysfunction, DamageMechanism),
-            (OssicularFixation, DamageMechanism), (EndolymphaticHydrops, DamageMechanism),
-            (DemyelinationVIII, DamageMechanism), (Excitotoxicity, DamageMechanism),
-            (OxidativeStress, DamageMechanism),
-            (ElevatedThreshold, PerceptualDeficit), (ReducedFrequencySelectivity, PerceptualDeficit),
-            (LoudnessRecruitment, PerceptualDeficit), (PoorSpeechInNoise, PerceptualDeficit),
-            (ReducedTemporalResolution, PerceptualDeficit),
-            (AbnormalBinauralProcessing, PerceptualDeficit), (PhantomPercept, PerceptualDeficit),
-            (Audiogram, ClinicalMeasure), (PureToneAverage, ClinicalMeasure),
-            (SpeechReceptionThreshold, ClinicalMeasure), (OtoacousticEmission, ClinicalMeasure),
-            (AuditoryBrainstemResponse, ClinicalMeasure),
+            (ConductiveHearingLoss, HearingLoss), (SensorineuralHearingLoss, HearingLoss), (MixedHearingLoss, HearingLoss), (AuditoryNeuropathy, HearingLoss), (CentralAuditoryProcessingDisorder, HearingLoss),
+            (Otosclerosis, PeripheralPathology), (Presbycusis, PeripheralPathology), (NoiseInducedHearingLoss, PeripheralPathology), (MenieresDisease, PeripheralPathology), (Tinnitus, PeripheralPathology), (Hyperacusis, PeripheralPathology), (SuddenSensorineuralLoss, PeripheralPathology), (OtitisMedia, PeripheralPathology), (TympanicPerforation, PeripheralPathology), (Cholesteatoma, PeripheralPathology),
+            (AcousticNeuroma, CentralPathology), (CentralAuditoryProcessingDisorder, CentralPathology),
+            (HairCellLoss, DamageMechanism), (StereociliaDamage, DamageMechanism), (SynapticRibbonLoss, DamageMechanism), (StriaDysfunction, DamageMechanism), (OssicularFixation, DamageMechanism), (EndolymphaticHydrops, DamageMechanism), (DemyelinationVIII, DamageMechanism), (Excitotoxicity, DamageMechanism), (OxidativeStress, DamageMechanism),
+            (ElevatedThreshold, PerceptualDeficit), (ReducedFrequencySelectivity, PerceptualDeficit), (LoudnessRecruitment, PerceptualDeficit), (PoorSpeechInNoise, PerceptualDeficit), (ReducedTemporalResolution, PerceptualDeficit), (AbnormalBinauralProcessing, PerceptualDeficit), (PhantomPercept, PerceptualDeficit),
+            (Audiogram, ClinicalMeasure), (PureToneAverage, ClinicalMeasure), (SpeechReceptionThreshold, ClinicalMeasure), (OtoacousticEmission, ClinicalMeasure), (AuditoryBrainstemResponse, ClinicalMeasure),
         ],
-
         causation: PathologyCausalGraph for PathologyCausalEvent [
             (NoiseExposure, OHCDamage), (NoiseExposure, IHCDamage), (NoiseExposure, SynapseLoss),
-            (AgingDegeneration, OHCDamage), (AgingDegeneration, StriDegeneration),
-            (AgingDegeneration, NeuralDegeneration),
-            (Infection, MiddleEarDysfunction),
-            (GeneticMutation, OHCDamage), (GeneticMutation, IHCDamage),
-            (OHCDamage, ThresholdShift), (OHCDamage, FrequencyResolutionLoss),
-            (OHCDamage, TinnitusGeneration),
-            (IHCDamage, ThresholdShift), (SynapseLoss, TemporalSmearing),
-            (StriDegeneration, ThresholdShift), (MiddleEarDysfunction, ThresholdShift),
-            (ThresholdShift, CommunicationDifficulty),
-            (FrequencyResolutionLoss, CommunicationDifficulty),
-            (TemporalSmearing, CommunicationDifficulty),
+            (AgingDegeneration, OHCDamage), (AgingDegeneration, StriDegeneration), (AgingDegeneration, NeuralDegeneration),
+            (Infection, MiddleEarDysfunction), (GeneticMutation, OHCDamage), (GeneticMutation, IHCDamage),
+            (OHCDamage, ThresholdShift), (OHCDamage, FrequencyResolutionLoss), (OHCDamage, TinnitusGeneration),
+            (IHCDamage, ThresholdShift), (SynapseLoss, TemporalSmearing), (StriDegeneration, ThresholdShift), (MiddleEarDysfunction, ThresholdShift),
+            (ThresholdShift, CommunicationDifficulty), (FrequencyResolutionLoss, CommunicationDifficulty), (TemporalSmearing, CommunicationDifficulty),
         ],
-
-        opposition: PathologyOpposition [
-            (ConductiveHearingLoss, SensorineuralHearingLoss),
-            (Tinnitus, Hyperacusis),
-            (HairCellLoss, SynapticRibbonLoss),
-        ],
+        opposition: PathologyOpposition [ (ConductiveHearingLoss, SensorineuralHearingLoss), (Tinnitus, Hyperacusis), (HairCellLoss, SynapticRibbonLoss) ],
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct TypicalSeverityDB;
 impl Quality for TypicalSeverityDB {
@@ -158,7 +125,6 @@ impl Quality for TypicalSeverityDB {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct PrevalencePercent;
 impl Quality for PrevalencePercent {
@@ -174,7 +140,6 @@ impl Quality for PrevalencePercent {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct OAEsPresent;
 impl Quality for OAEsPresent {
@@ -193,33 +158,6 @@ impl Quality for OAEsPresent {
     }
 }
 
-pub struct PathologyTaxonomyIsDAG;
-impl Axiom for PathologyTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "pathology taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<PathologyTaxonomy>::new().holds()
-    }
-}
-pub struct PathologyCausalGraphIsAsymmetric;
-impl Axiom for PathologyCausalGraphIsAsymmetric {
-    fn description(&self) -> &str {
-        "pathology causal graph is asymmetric"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<PathologyCausalGraph>::new().holds()
-    }
-}
-pub struct PathologyCausalNoSelfCause;
-impl Axiom for PathologyCausalNoSelfCause {
-    fn description(&self) -> &str {
-        "no pathology event causes itself"
-    }
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<PathologyCausalGraph>::new().holds()
-    }
-}
 pub struct NoiseCausesDifficulty;
 impl Axiom for NoiseCausesDifficulty {
     fn description(&self) -> &str {
@@ -249,24 +187,6 @@ impl Axiom for FiveHearingLossTypes {
         .all(|t| taxonomy::is_a::<PathologyTaxonomy>(t, &HearingLoss))
     }
 }
-pub struct PathologyOppositionSymmetric;
-impl Axiom for PathologyOppositionSymmetric {
-    fn description(&self) -> &str {
-        "pathology opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<PathologyOpposition>::new().holds()
-    }
-}
-pub struct PathologyOppositionIrreflexive;
-impl Axiom for PathologyOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "pathology opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<PathologyOpposition>::new().holds()
-    }
-}
 pub struct PresbycusisMostPrevalent;
 impl Axiom for PresbycusisMostPrevalent {
     fn description(&self) -> &str {
@@ -294,17 +214,15 @@ impl Axiom for NeuropathyHasOAEs {
 impl Ontology for PathologyOntology {
     type Cat = PathologyCategory;
     type Qual = TypicalSeverityDB;
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(PathologyTaxonomyIsDAG),
-            Box::new(PathologyCausalGraphIsAsymmetric),
-            Box::new(PathologyCausalNoSelfCause),
             Box::new(NoiseCausesDifficulty),
             Box::new(FiveHearingLossTypes),
             Box::new(PresbycusisMostPrevalent),
             Box::new(NeuropathyHasOAEs),
-            Box::new(PathologyOppositionSymmetric),
-            Box::new(PathologyOppositionIrreflexive),
         ]
     }
 }
@@ -316,19 +234,6 @@ mod tests {
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(PathologyTaxonomyIsDAG.holds());
-    }
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(PathologyCausalGraphIsAsymmetric.holds());
-    }
-    #[test]
-    fn test_causal_no_self() {
-        assert!(PathologyCausalNoSelfCause.holds());
-    }
     #[test]
     fn test_noise_causes_difficulty() {
         assert!(NoiseCausesDifficulty.holds());
@@ -340,14 +245,6 @@ mod tests {
     #[test]
     fn test_neuropathy_has_oaes() {
         assert!(NeuropathyHasOAEs.holds());
-    }
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(PathologyOppositionSymmetric.holds());
-    }
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(PathologyOppositionIrreflexive.holds());
     }
     #[test]
     fn test_conductive_opposes_sensorineural() {
@@ -401,14 +298,8 @@ mod tests {
     fn test_ontology_validates() {
         PathologyOntology::validate().unwrap();
     }
-
     fn arb_entity() -> impl Strategy<Value = PathologyEntity> {
         (0..PathologyEntity::variants().len()).prop_map(|i| PathologyEntity::variants()[i])
     }
-    proptest! {
-        #[test]
-        fn prop_taxonomy_reflexive(entity in arb_entity()) {
-            prop_assert!(taxonomy::is_a::<PathologyTaxonomy>(&entity, &entity));
-        }
-    }
+    proptest! { #[test] fn prop_taxonomy_reflexive(entity in arb_entity()) { prop_assert!(taxonomy::is_a::<PathologyTaxonomy>(&entity, &entity)); } }
 }

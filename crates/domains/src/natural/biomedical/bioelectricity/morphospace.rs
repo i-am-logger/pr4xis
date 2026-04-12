@@ -464,21 +464,21 @@ impl Ontology for MorphospaceOntology {
     type Cat = MorphospaceCategory;
     type Qual = DiseaseSeverity;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        MorphospaceOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(MorphospaceTaxonomyIsDAG),
             Box::new(AllAttractorsHaveVmemRanges),
             Box::new(HealthyIsMostPolarized),
             Box::new(SeverityIncreasesWithDepolarization),
-            Box::new(DiseaseProgressionIsAsymmetric),
             Box::new(AcidCausesDysplasia),
             Box::new(MechanicalStimulationCausesRepair),
             Box::new(AcidRemovalCausesRepair),
             Box::new(TwoMechanismGJRequirement),
             Box::new(OnlyMechanicalIsHardwareAccessible),
             Box::new(FiveAttractorStates),
-            Box::new(MorphospaceOppositionSymmetric),
-            Box::new(MorphospaceOppositionIrreflexive),
         ]
     }
 }

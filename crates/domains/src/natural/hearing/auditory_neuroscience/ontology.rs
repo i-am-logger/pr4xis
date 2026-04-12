@@ -22,21 +22,14 @@ use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
-
-/// Every entity in the auditory neuroscience domain.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum NeuralEntity {
-    // Coding strategies
     RateCoding,
     TemporalCoding,
     PhaseLocking,
     PlaceCoding,
     PopulationCoding,
     SpikeTimingCode,
-    // Neural response properties
     TonotopicMap,
     FrequencyTuningCurve,
     CharacteristicFrequency,
@@ -47,7 +40,6 @@ pub enum NeuralEntity {
     SustainedResponse,
     Adaptation,
     Inhibition,
-    // Processing stages
     AuditoryNerveFiber,
     CochlearNucleusProcessing,
     SuperiorOliveProcessing,
@@ -55,20 +47,17 @@ pub enum NeuralEntity {
     InferiorColliculusProcessing,
     MedialGeniculateProcessing,
     AuditoryCortexProcessing,
-    // Binaural processing
     BinauralProcessing,
     CoincidenceDetection,
     ExcitatoryInhibitory,
     MedialSuperiorOlive,
     LateralSuperiorOlive,
-    // Higher processing
     AuditorySceneAnalysis,
     StreamSegregation,
     GestaltGrouping,
     EchoSuppression,
     PrecedenceEffect,
     MismatchNegativity,
-    // Abstract categories
     CodingStrategy,
     ResponseProperty,
     ProcessingStage,
@@ -76,11 +65,6 @@ pub enum NeuralEntity {
     HigherFunction,
 }
 
-// ---------------------------------------------------------------------------
-// Causal event entity
-// ---------------------------------------------------------------------------
-
-/// Causal events in the ascending auditory pathway.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum NeuralCausalEvent {
     AuditoryNerveInput,
@@ -94,91 +78,31 @@ pub enum NeuralCausalEvent {
     PerceptualBinding,
 }
 
-// ---------------------------------------------------------------------------
-// Ontology (define_ontology! macro)
-// ---------------------------------------------------------------------------
-
 define_ontology! {
     /// Discrete category over neural entities.
     pub NeuroscienceOntology for NeuroscienceCategory {
-        entity: NeuralEntity,
-        relation: NeuralRelation,
-
+        entity: NeuralEntity, relation: NeuralRelation,
         taxonomy: NeuralTaxonomy [
-            // Coding strategies
-            (RateCoding, CodingStrategy),
-            (TemporalCoding, CodingStrategy),
-            (PhaseLocking, CodingStrategy),
-            (PlaceCoding, CodingStrategy),
-            (PopulationCoding, CodingStrategy),
-            (SpikeTimingCode, CodingStrategy),
-            // Response properties
-            (TonotopicMap, ResponseProperty),
-            (FrequencyTuningCurve, ResponseProperty),
-            (CharacteristicFrequency, ResponseProperty),
-            (RateLevelFunction, ResponseProperty),
-            (SpontaneousRate, ResponseProperty),
-            (DynamicRange, ResponseProperty),
-            (OnsetResponse, ResponseProperty),
-            (SustainedResponse, ResponseProperty),
-            (Adaptation, ResponseProperty),
-            (Inhibition, ResponseProperty),
-            // Processing stages
-            (AuditoryNerveFiber, ProcessingStage),
-            (CochlearNucleusProcessing, ProcessingStage),
-            (SuperiorOliveProcessing, ProcessingStage),
-            (LateralLemniscus, ProcessingStage),
-            (InferiorColliculusProcessing, ProcessingStage),
-            (MedialGeniculateProcessing, ProcessingStage),
-            (AuditoryCortexProcessing, ProcessingStage),
-            // Binaural mechanisms
-            (CoincidenceDetection, BinauralMechanism),
-            (ExcitatoryInhibitory, BinauralMechanism),
-            (MedialSuperiorOlive, BinauralMechanism),
-            (LateralSuperiorOlive, BinauralMechanism),
-            // Higher functions
-            (AuditorySceneAnalysis, HigherFunction),
-            (StreamSegregation, HigherFunction),
-            (GestaltGrouping, HigherFunction),
-            (EchoSuppression, HigherFunction),
-            (PrecedenceEffect, HigherFunction),
-            (MismatchNegativity, HigherFunction),
+            (RateCoding, CodingStrategy), (TemporalCoding, CodingStrategy), (PhaseLocking, CodingStrategy), (PlaceCoding, CodingStrategy), (PopulationCoding, CodingStrategy), (SpikeTimingCode, CodingStrategy),
+            (TonotopicMap, ResponseProperty), (FrequencyTuningCurve, ResponseProperty), (CharacteristicFrequency, ResponseProperty), (RateLevelFunction, ResponseProperty), (SpontaneousRate, ResponseProperty), (DynamicRange, ResponseProperty), (OnsetResponse, ResponseProperty), (SustainedResponse, ResponseProperty), (Adaptation, ResponseProperty), (Inhibition, ResponseProperty),
+            (AuditoryNerveFiber, ProcessingStage), (CochlearNucleusProcessing, ProcessingStage), (SuperiorOliveProcessing, ProcessingStage), (LateralLemniscus, ProcessingStage), (InferiorColliculusProcessing, ProcessingStage), (MedialGeniculateProcessing, ProcessingStage), (AuditoryCortexProcessing, ProcessingStage),
+            (CoincidenceDetection, BinauralMechanism), (ExcitatoryInhibitory, BinauralMechanism), (MedialSuperiorOlive, BinauralMechanism), (LateralSuperiorOlive, BinauralMechanism),
+            (AuditorySceneAnalysis, HigherFunction), (StreamSegregation, HigherFunction), (GestaltGrouping, HigherFunction), (EchoSuppression, HigherFunction), (PrecedenceEffect, HigherFunction), (MismatchNegativity, HigherFunction),
         ],
-
         causation: NeuralCausalGraph for NeuralCausalEvent [
-            (AuditoryNerveInput, CochlearNucleusIntegration),
-            (CochlearNucleusIntegration, BinauralConvergence),
-            (BinauralConvergence, LemniscalRelay),
-            (LemniscalRelay, MultisensoryIntegration),
-            (MultisensoryIntegration, ThalamicGating),
-            (ThalamicGating, CorticalAnalysis),
-            (CorticalAnalysis, StreamFormation),
-            (StreamFormation, PerceptualBinding),
+            (AuditoryNerveInput, CochlearNucleusIntegration), (CochlearNucleusIntegration, BinauralConvergence), (BinauralConvergence, LemniscalRelay), (LemniscalRelay, MultisensoryIntegration), (MultisensoryIntegration, ThalamicGating), (ThalamicGating, CorticalAnalysis), (CorticalAnalysis, StreamFormation), (StreamFormation, PerceptualBinding),
         ],
-
         opposition: NeuralOpposition [
-            (RateCoding, TemporalCoding),
-            (OnsetResponse, SustainedResponse),
-            (Inhibition, Adaptation),
+            (RateCoding, TemporalCoding), (OnsetResponse, SustainedResponse), (Inhibition, Adaptation),
         ],
     }
 }
 
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Phase locking limit (Hz) -- frequency above which phase locking degrades.
-///
-/// Auditory nerve: ~4-5 kHz (Palmer & Russell 1986)
-/// MSO neurons: ~1.5 kHz (Goldberg & Brown 1969)
 #[derive(Debug, Clone)]
 pub struct PhaseLockingLimit;
-
 impl Quality for PhaseLockingLimit {
     type Individual = NeuralEntity;
     type Value = f64;
-
     fn get(&self, individual: &NeuralEntity) -> Option<f64> {
         use NeuralEntity::*;
         match individual {
@@ -190,37 +114,26 @@ impl Quality for PhaseLockingLimit {
     }
 }
 
-/// Synaptic delay (ms) from one processing stage to the next.
-///
-/// - AuditoryNerveFiber -> CochlearNucleus: ~0.8 ms
-/// - SuperiorOliveProcessing (SOC): ~1.2 ms
-///
-/// Kandel et al. 2021, Ch. 30.
 #[derive(Debug, Clone)]
 pub struct SynapticDelay;
-
 impl Quality for SynapticDelay {
     type Individual = NeuralEntity;
     type Value = f64;
-
     fn get(&self, individual: &NeuralEntity) -> Option<f64> {
         use NeuralEntity::*;
         match individual {
-            CochlearNucleusProcessing => Some(0.8), // AN->CN delay
-            SuperiorOliveProcessing => Some(1.2),   // CN->SOC delay
+            CochlearNucleusProcessing => Some(0.8),
+            SuperiorOliveProcessing => Some(1.2),
             _ => None,
         }
     }
 }
 
-/// Whether this stage preserves tonotopic organization.
 #[derive(Debug, Clone)]
 pub struct IsTonotopic;
-
 impl Quality for IsTonotopic {
     type Individual = NeuralEntity;
     type Value = bool;
-
     fn get(&self, individual: &NeuralEntity) -> Option<bool> {
         use NeuralEntity::*;
         match individual {
@@ -228,48 +141,15 @@ impl Quality for IsTonotopic {
             | CochlearNucleusProcessing
             | InferiorColliculusProcessing
             | MedialGeniculateProcessing
-            | AuditoryCortexProcessing => Some(true),
-            SuperiorOliveProcessing => Some(true),
+            | AuditoryCortexProcessing
+            | SuperiorOliveProcessing => Some(true),
             _ => None,
         }
     }
 }
 
-// ---------------------------------------------------------------------------
 // Axioms
-// ---------------------------------------------------------------------------
 
-pub struct NeuralTaxonomyIsDAG;
-impl Axiom for NeuralTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "neural taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<NeuralTaxonomy>::new().holds()
-    }
-}
-
-pub struct NeuralCausalGraphIsAsymmetric;
-impl Axiom for NeuralCausalGraphIsAsymmetric {
-    fn description(&self) -> &str {
-        "neural causal graph is asymmetric"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<NeuralCausalGraph>::new().holds()
-    }
-}
-
-pub struct NeuralCausalGraphNoSelfCause;
-impl Axiom for NeuralCausalGraphNoSelfCause {
-    fn description(&self) -> &str {
-        "no neural event causes itself"
-    }
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<NeuralCausalGraph>::new().holds()
-    }
-}
-
-/// Auditory nerve input transitively causes perceptual binding.
 pub struct InputCausesBinding;
 impl Axiom for InputCausesBinding {
     fn description(&self) -> &str {
@@ -281,7 +161,6 @@ impl Axiom for InputCausesBinding {
     }
 }
 
-/// Six coding strategies are classified.
 pub struct SixCodingStrategies;
 impl Axiom for SixCodingStrategies {
     fn description(&self) -> &str {
@@ -302,31 +181,6 @@ impl Axiom for SixCodingStrategies {
     }
 }
 
-/// Opposition is symmetric.
-pub struct NeuralOppositionSymmetric;
-impl Axiom for NeuralOppositionSymmetric {
-    fn description(&self) -> &str {
-        "neural opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<NeuralOpposition>::new().holds()
-    }
-}
-
-/// Opposition is irreflexive.
-pub struct NeuralOppositionIrreflexive;
-impl Axiom for NeuralOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "neural opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<NeuralOpposition>::new().holds()
-    }
-}
-
-/// SOC synaptic delay is longer than CN delay (further from periphery).
-///
-/// Kandel et al. 2021.
 pub struct SOCDelayLongerThanCN;
 impl Axiom for SOCDelayLongerThanCN {
     fn description(&self) -> &str {
@@ -339,9 +193,6 @@ impl Axiom for SOCDelayLongerThanCN {
     }
 }
 
-/// All processing stages from AN to cortex are tonotopic.
-///
-/// Kandel et al. 2021, Ch. 30.
 pub struct AllStagesAreTonotopic;
 impl Axiom for AllStagesAreTonotopic {
     fn description(&self) -> &str {
@@ -362,32 +213,23 @@ impl Axiom for AllStagesAreTonotopic {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Ontology impl
-// ---------------------------------------------------------------------------
-
 impl Ontology for NeuroscienceOntology {
     type Cat = NeuroscienceCategory;
     type Qual = PhaseLockingLimit;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(NeuralTaxonomyIsDAG),
-            Box::new(NeuralCausalGraphIsAsymmetric),
-            Box::new(NeuralCausalGraphNoSelfCause),
             Box::new(InputCausesBinding),
             Box::new(SixCodingStrategies),
             Box::new(SOCDelayLongerThanCN),
             Box::new(AllStagesAreTonotopic),
-            Box::new(NeuralOppositionSymmetric),
-            Box::new(NeuralOppositionIrreflexive),
         ]
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -397,18 +239,6 @@ mod tests {
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
 
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(NeuralTaxonomyIsDAG.holds());
-    }
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(NeuralCausalGraphIsAsymmetric.holds());
-    }
-    #[test]
-    fn test_causal_no_self() {
-        assert!(NeuralCausalGraphNoSelfCause.holds());
-    }
     #[test]
     fn test_input_causes_binding() {
         assert!(InputCausesBinding.holds());
@@ -422,21 +252,12 @@ mod tests {
         assert!(AllStagesAreTonotopic.holds());
     }
     #[test]
-    fn test_opposition_symmetric() {
-        assert!(NeuralOppositionSymmetric.holds());
-    }
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(NeuralOppositionIrreflexive.holds());
-    }
-    #[test]
     fn test_rate_opposes_temporal_coding() {
         assert!(opposition::are_opposed::<NeuralOpposition>(
             &NeuralEntity::RateCoding,
             &NeuralEntity::TemporalCoding
         ));
     }
-
     #[test]
     fn test_category_laws() {
         check_category_laws::<NeuroscienceCategory>().unwrap();
@@ -449,7 +270,6 @@ mod tests {
     fn test_causal_category_laws() {
         check_category_laws::<CausalCategory<NeuralCausalGraph>>().unwrap();
     }
-
     #[test]
     fn test_soc_delay_longer_than_cn() {
         assert!(SOCDelayLongerThanCN.holds());
@@ -468,7 +288,6 @@ mod tests {
             Some(1.2)
         );
     }
-
     #[test]
     fn test_phase_locking_limit_an() {
         assert_eq!(
@@ -476,12 +295,10 @@ mod tests {
             Some(4000.0)
         );
     }
-
     #[test]
     fn test_entity_count() {
         assert_eq!(NeuralEntity::variants().len(), 39);
     }
-
     #[test]
     fn test_ontology_validates() {
         NeuroscienceOntology::validate().unwrap();
@@ -490,11 +307,7 @@ mod tests {
     fn arb_entity() -> impl Strategy<Value = NeuralEntity> {
         (0..NeuralEntity::variants().len()).prop_map(|i| NeuralEntity::variants()[i])
     }
-
     proptest! {
-        #[test]
-        fn prop_taxonomy_reflexive(entity in arb_entity()) {
-            prop_assert!(taxonomy::is_a::<NeuralTaxonomy>(&entity, &entity));
-        }
+        #[test] fn prop_taxonomy_reflexive(entity in arb_entity()) { prop_assert!(taxonomy::is_a::<NeuralTaxonomy>(&entity, &entity)); }
     }
 }

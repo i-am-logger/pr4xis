@@ -207,30 +207,6 @@ impl Quality for Complexity {
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Axiom: taxonomy is a DAG.
-pub struct AnalyticalTaxonomyIsDAG;
-
-impl Axiom for AnalyticalTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "analytical methods taxonomy has no cycles"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<AnalyticalTaxonomy>::default().holds()
-    }
-}
-
-/// Axiom: causal graph is asymmetric (no circular causation).
-pub struct AnalysisCausalAsymmetric;
-
-impl Axiom for AnalysisCausalAsymmetric {
-    fn description(&self) -> &str {
-        "analysis pipeline has no circular causation"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<AnalysisCausalGraph>::default().holds()
-    }
-}
-
 /// Axiom: data collection transitively causes knowledge update.
 pub struct DataCollectionCausesKnowledgeUpdate;
 
@@ -297,30 +273,6 @@ impl Axiom for SomeMethodsAutomatableSomeNot {
     }
 }
 
-/// Axiom: opposition is symmetric.
-pub struct AnalyticalOppositionSymmetric;
-
-impl Axiom for AnalyticalOppositionSymmetric {
-    fn description(&self) -> &str {
-        "analytical opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<AnalyticalOpposition>::new().holds()
-    }
-}
-
-/// Axiom: opposition is irreflexive.
-pub struct AnalyticalOppositionIrreflexive;
-
-impl Axiom for AnalyticalOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "analytical opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<AnalyticalOpposition>::new().holds()
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Ontology impl
 // ---------------------------------------------------------------------------
@@ -329,16 +281,16 @@ impl Ontology for AnalyticalMethodsOntology {
     type Cat = AnalyticalCategory;
     type Qual = IsAutomatable;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(AnalyticalTaxonomyIsDAG),
-            Box::new(AnalysisCausalAsymmetric),
             Box::new(DataCollectionCausesKnowledgeUpdate),
             Box::new(GaloisConnectionIsComponent),
             Box::new(PatternAndAnomalyAreOutputs),
             Box::new(SomeMethodsAutomatableSomeNot),
-            Box::new(AnalyticalOppositionSymmetric),
-            Box::new(AnalyticalOppositionIrreflexive),
         ]
     }
 }
@@ -388,16 +340,6 @@ mod tests {
     // -- Individual axiom tests --
 
     #[test]
-    fn test_taxonomy_dag() {
-        assert!(AnalyticalTaxonomyIsDAG.holds());
-    }
-
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(AnalysisCausalAsymmetric.holds());
-    }
-
-    #[test]
     fn test_data_collection_causes_knowledge_update() {
         assert!(DataCollectionCausesKnowledgeUpdate.holds());
     }
@@ -415,16 +357,6 @@ mod tests {
     #[test]
     fn test_some_methods_automatable_some_not() {
         assert!(SomeMethodsAutomatableSomeNot.holds());
-    }
-
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(AnalyticalOppositionSymmetric.holds());
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(AnalyticalOppositionIrreflexive.holds());
     }
 
     // -- Taxonomy tests --

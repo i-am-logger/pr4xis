@@ -17,10 +17,6 @@ use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum EnvironmentEntity {
     ReverberationTime,
@@ -85,48 +81,22 @@ pub enum EnvironmentCausalEvent {
 define_ontology! {
     /// Discrete category over environmental acoustics entities.
     pub EnvironmentalAcousticsOntology for EnvironmentalAcousticsCategory {
-        entity: EnvironmentEntity,
-        relation: EnvironmentRelation,
-
+        entity: EnvironmentEntity, relation: EnvironmentRelation,
         taxonomy: EnvironmentTaxonomy [
-            (ReverberationTime, RoomParameter), (RT60, ReverberationTime),
-            (EarlyDecayTime, RoomParameter), (Clarity, RoomParameter),
-            (Definition, RoomParameter), (SpeechTransmissionIndex, RoomParameter),
-            (CenterTime, RoomParameter), (LateralFraction, RoomParameter),
-            (SoundAbsorption, AcousticProperty), (AbsorptionCoefficient, AcousticProperty),
-            (SoundDiffusion, AcousticProperty), (SoundInsulation, AcousticProperty),
-            (TransmissionLoss, AcousticProperty), (FlankingTransmission, AcousticProperty),
-            (SoundPressureLevel, NoiseMeasure), (AWeighting, NoiseMeasure),
-            (CWeighting, NoiseMeasure), (EquivalentContinuousLevel, NoiseMeasure),
-            (PeakSoundLevel, NoiseMeasure), (SoundExposureLevel, NoiseMeasure),
-            (NoiseDose, NoiseMeasure), (TimeWeightedAverage, NoiseMeasure),
-            (OSHALimit, NoiseStandard), (NIOSHLimit, NoiseStandard),
-            (ExchangeRate, NoiseStandard), (PermissibleExposureLimit, NoiseStandard),
-            (ActionLevel, NoiseStandard),
-            (Keynote, SoundscapeElement), (SoundSignal, SoundscapeElement),
-            (Soundmark, SoundscapeElement), (BackgroundNoise, SoundscapeElement),
+            (ReverberationTime, RoomParameter), (RT60, ReverberationTime), (EarlyDecayTime, RoomParameter), (Clarity, RoomParameter), (Definition, RoomParameter), (SpeechTransmissionIndex, RoomParameter), (CenterTime, RoomParameter), (LateralFraction, RoomParameter),
+            (SoundAbsorption, AcousticProperty), (AbsorptionCoefficient, AcousticProperty), (SoundDiffusion, AcousticProperty), (SoundInsulation, AcousticProperty), (TransmissionLoss, AcousticProperty), (FlankingTransmission, AcousticProperty),
+            (SoundPressureLevel, NoiseMeasure), (AWeighting, NoiseMeasure), (CWeighting, NoiseMeasure), (EquivalentContinuousLevel, NoiseMeasure), (PeakSoundLevel, NoiseMeasure), (SoundExposureLevel, NoiseMeasure), (NoiseDose, NoiseMeasure), (TimeWeightedAverage, NoiseMeasure),
+            (OSHALimit, NoiseStandard), (NIOSHLimit, NoiseStandard), (ExchangeRate, NoiseStandard), (PermissibleExposureLimit, NoiseStandard), (ActionLevel, NoiseStandard),
+            (Keynote, SoundscapeElement), (SoundSignal, SoundscapeElement), (Soundmark, SoundscapeElement), (BackgroundNoise, SoundscapeElement),
             (SpeechRoom, RoomType), (MusicHall, RoomType), (WorshipSpace, RoomType),
-            (SoundLevelMeter, MeasurementDevice), (Dosimeter, MeasurementDevice),
-            (CalibrationSource, MeasurementDevice),
+            (SoundLevelMeter, MeasurementDevice), (Dosimeter, MeasurementDevice), (CalibrationSource, MeasurementDevice),
         ],
-
         causation: EnvironmentCausalGraph for EnvironmentCausalEvent [
-            (NoiseSource, SoundPropagation), (SoundPropagation, WorkerExposure),
-            (WorkerExposure, DoseAccumulation), (DoseAccumulation, ThresholdShift),
-            (ThresholdShift, HearingDamageRisk), (SoundPropagation, RoomReverberation),
-            (RoomReverberation, SpeechIntelligibilityReduction),
+            (NoiseSource, SoundPropagation), (SoundPropagation, WorkerExposure), (WorkerExposure, DoseAccumulation), (DoseAccumulation, ThresholdShift), (ThresholdShift, HearingDamageRisk), (SoundPropagation, RoomReverberation), (RoomReverberation, SpeechIntelligibilityReduction),
         ],
-
-        opposition: EnvironmentOpposition [
-            (SoundAbsorption, SoundDiffusion),
-            (AWeighting, CWeighting),
-        ],
+        opposition: EnvironmentOpposition [ (SoundAbsorption, SoundDiffusion), (AWeighting, CWeighting) ],
     }
 }
-
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
 pub struct RegulatoryLimitDB;
@@ -144,7 +114,6 @@ impl Quality for RegulatoryLimitDB {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct ExchangeRateDB;
 impl Quality for ExchangeRateDB {
@@ -159,7 +128,6 @@ impl Quality for ExchangeRateDB {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct IdealRT60Seconds;
 impl Quality for IdealRT60Seconds {
@@ -176,10 +144,6 @@ impl Quality for IdealRT60Seconds {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
 pub struct SpeechRoomShortestRT60;
 impl Axiom for SpeechRoomShortestRT60 {
     fn description(&self) -> &str {
@@ -193,17 +157,6 @@ impl Axiom for SpeechRoomShortestRT60 {
         s < m && m < w
     }
 }
-
-pub struct EnvironmentTaxonomyIsDAG;
-impl Axiom for EnvironmentTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "environmental acoustics taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<EnvironmentTaxonomy>::new().holds()
-    }
-}
-
 pub struct NIOSHStricterThanOSHA;
 impl Axiom for NIOSHStricterThanOSHA {
     fn description(&self) -> &str {
@@ -214,7 +167,6 @@ impl Axiom for NIOSHStricterThanOSHA {
         RegulatoryLimitDB.get(&NIOSHLimit).unwrap() < RegulatoryLimitDB.get(&OSHALimit).unwrap()
     }
 }
-
 pub struct NIOSHUsesEqualEnergy;
 impl Axiom for NIOSHUsesEqualEnergy {
     fn description(&self) -> &str {
@@ -225,7 +177,6 @@ impl Axiom for NIOSHUsesEqualEnergy {
         ExchangeRateDB.get(&NIOSHLimit).unwrap() < ExchangeRateDB.get(&OSHALimit).unwrap()
     }
 }
-
 pub struct RT60Subsumption;
 impl Axiom for RT60Subsumption {
     fn description(&self) -> &str {
@@ -238,37 +189,6 @@ impl Axiom for RT60Subsumption {
             && taxonomy::is_a::<EnvironmentTaxonomy>(&RT60, &RoomParameter)
     }
 }
-
-pub struct EnvironmentOppositionSymmetric;
-impl Axiom for EnvironmentOppositionSymmetric {
-    fn description(&self) -> &str {
-        "environmental opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<EnvironmentOpposition>::new().holds()
-    }
-}
-
-pub struct EnvironmentCausalGraphIsAsymmetric;
-impl Axiom for EnvironmentCausalGraphIsAsymmetric {
-    fn description(&self) -> &str {
-        "environmental causal graph is asymmetric"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<EnvironmentCausalGraph>::new().holds()
-    }
-}
-
-pub struct EnvironmentCausalGraphNoSelfCause;
-impl Axiom for EnvironmentCausalGraphNoSelfCause {
-    fn description(&self) -> &str {
-        "no environmental causal event causes itself"
-    }
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<EnvironmentCausalGraph>::new().holds()
-    }
-}
-
 pub struct NoiseCausesHearingDamage;
 impl Axiom for NoiseCausesHearingDamage {
     fn description(&self) -> &str {
@@ -283,15 +203,14 @@ impl Axiom for NoiseCausesHearingDamage {
 impl Ontology for EnvironmentalAcousticsOntology {
     type Cat = EnvironmentalAcousticsCategory;
     type Qual = RegulatoryLimitDB;
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(EnvironmentTaxonomyIsDAG),
             Box::new(NIOSHStricterThanOSHA),
             Box::new(NIOSHUsesEqualEnergy),
             Box::new(RT60Subsumption),
-            Box::new(EnvironmentOppositionSymmetric),
-            Box::new(EnvironmentCausalGraphIsAsymmetric),
-            Box::new(EnvironmentCausalGraphNoSelfCause),
             Box::new(SpeechRoomShortestRT60),
             Box::new(NoiseCausesHearingDamage),
         ]
@@ -305,11 +224,6 @@ mod tests {
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
-
-    #[test]
-    fn test_taxonomy_dag() {
-        assert!(EnvironmentTaxonomyIsDAG.holds());
-    }
     #[test]
     fn test_niosh_stricter() {
         assert!(NIOSHStricterThanOSHA.holds());
@@ -321,18 +235,6 @@ mod tests {
     #[test]
     fn test_rt60_subsumption() {
         assert!(RT60Subsumption.holds());
-    }
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(EnvironmentOppositionSymmetric.holds());
-    }
-    #[test]
-    fn test_causal_graph_asymmetric() {
-        assert!(EnvironmentCausalGraphIsAsymmetric.holds());
-    }
-    #[test]
-    fn test_causal_graph_no_self_cause() {
-        assert!(EnvironmentCausalGraphNoSelfCause.holds());
     }
     #[test]
     fn test_noise_causes_hearing_damage() {
@@ -390,14 +292,8 @@ mod tests {
     fn test_ontology_validates() {
         EnvironmentalAcousticsOntology::validate().unwrap();
     }
-
     fn arb_entity() -> impl Strategy<Value = EnvironmentEntity> {
         (0..EnvironmentEntity::variants().len()).prop_map(|i| EnvironmentEntity::variants()[i])
     }
-    proptest! {
-        #[test]
-        fn prop_taxonomy_reflexive(entity in arb_entity()) {
-            prop_assert!(taxonomy::is_a::<EnvironmentTaxonomy>(&entity, &entity));
-        }
-    }
+    proptest! { #[test] fn prop_taxonomy_reflexive(entity in arb_entity()) { prop_assert!(taxonomy::is_a::<EnvironmentTaxonomy>(&entity, &entity)); } }
 }

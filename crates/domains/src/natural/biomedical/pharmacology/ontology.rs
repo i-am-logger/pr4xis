@@ -467,10 +467,12 @@ impl Ontology for PharmacologyOntology {
     type Cat = PharmacologyCategory;
     type Qual = IsMorphoceutical;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        PharmacologyOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(PharmacologyTaxonomyIsDAG),
-            Box::new(PharmacologyCausalAsymmetry),
             Box::new(DrugAdministrationCausesVmemShift),
             Box::new(GJModulatorCausesCollectiveReprogramming),
             Box::new(IvermectinIsHyperpolarizing),
@@ -478,8 +480,6 @@ impl Ontology for PharmacologyOntology {
             Box::new(MorphoceuticalsTargetAnatomy),
             Box::new(MechanosensitiveIsEndogenous),
             Box::new(EveryAgentHasTarget),
-            Box::new(PharmacologyOppositionSymmetric),
-            Box::new(PharmacologyOppositionIrreflexive),
         ]
     }
 }

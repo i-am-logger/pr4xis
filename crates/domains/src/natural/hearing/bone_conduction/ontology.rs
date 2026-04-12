@@ -23,19 +23,12 @@ use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
-
-/// Every entity in the bone conduction domain.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum BoneCondEntity {
-    // Mechanisms
     OsseotympanicBC,
     InertialBC,
     CompressionalBC,
     DistortionalBC,
-    // Physical processes
     SkullVibration,
     EarCanalWallVibration,
     OssicularInertia,
@@ -43,152 +36,80 @@ pub enum BoneCondEntity {
     FluidInertia,
     SkullDeformation,
     SoundRadiation,
-    // Transducer types
     BoneAnchoredDevice,
     PercutaneousImplant,
     TranscutaneousDevice,
     SkinDriveTransducer,
     PiezoelectricTransducer,
     ElectromagneticTransducer,
-    // Skull regions
     Mastoid,
     Forehead,
     TemporalBone,
     Vertex,
     Teeth,
-    // BC-specific phenomena
     OcclusionEffect,
     TranscranialAttenuation,
     SkullResonance,
     ForceLevel,
-    // Abstract categories
     BCMechanism,
     BCTransducer,
     ApplicationSite,
     BCPhenomenon,
 }
 
-// ---------------------------------------------------------------------------
-// Causal event entity
-// ---------------------------------------------------------------------------
-
-/// Causal events in bone conduction hearing.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum BCCausalEvent {
     TransducerActivation,
     SkullCoupling,
     SkullWavePropagation,
-    // Osseotympanic pathway
     EarCanalWallMotion,
     TympanicMembraneResponse,
     OsseotympanicStimulation,
-    // Inertial pathway
     OssicularLag,
     StapesDisplacement,
     OvalWindowDrive,
-    // Compressional pathway
     CochlearBoneCompression,
     DifferentialFluidFlow,
     BasilarMembraneExcitation,
-    // Distortional pathway
     SkullModeDeformation,
     InnerEarDistortion,
-    // Common endpoint
     CochlearResponse,
 }
-
-// ---------------------------------------------------------------------------
-// Ontology (define_ontology! macro)
-// ---------------------------------------------------------------------------
 
 define_ontology! {
     /// Discrete category over bone conduction entities.
     pub BoneConductionOntology for BoneConductionCategory {
-        entity: BoneCondEntity,
-        relation: BoneCondRelation,
-
+        entity: BoneCondEntity, relation: BoneCondRelation,
         taxonomy: BoneCondTaxonomy [
-            // BC mechanisms
-            (OsseotympanicBC, BCMechanism),
-            (InertialBC, BCMechanism),
-            (CompressionalBC, BCMechanism),
-            (DistortionalBC, BCMechanism),
-            // Transducer types
-            (BoneAnchoredDevice, BCTransducer),
-            (PercutaneousImplant, BCTransducer),
-            (TranscutaneousDevice, BCTransducer),
-            (SkinDriveTransducer, BCTransducer),
-            (PiezoelectricTransducer, BCTransducer),
-            (ElectromagneticTransducer, BCTransducer),
-            // Application sites
-            (Mastoid, ApplicationSite),
-            (Forehead, ApplicationSite),
-            (TemporalBone, ApplicationSite),
-            (Vertex, ApplicationSite),
-            (Teeth, ApplicationSite),
-            // BC phenomena
-            (OcclusionEffect, BCPhenomenon),
-            (TranscranialAttenuation, BCPhenomenon),
-            (SkullResonance, BCPhenomenon),
+            (OsseotympanicBC, BCMechanism), (InertialBC, BCMechanism), (CompressionalBC, BCMechanism), (DistortionalBC, BCMechanism),
+            (BoneAnchoredDevice, BCTransducer), (PercutaneousImplant, BCTransducer), (TranscutaneousDevice, BCTransducer), (SkinDriveTransducer, BCTransducer), (PiezoelectricTransducer, BCTransducer), (ElectromagneticTransducer, BCTransducer),
+            (Mastoid, ApplicationSite), (Forehead, ApplicationSite), (TemporalBone, ApplicationSite), (Vertex, ApplicationSite), (Teeth, ApplicationSite),
+            (OcclusionEffect, BCPhenomenon), (TranscranialAttenuation, BCPhenomenon), (SkullResonance, BCPhenomenon),
         ],
-
         causation: BCCausalGraph for BCCausalEvent [
-            // Common: transducer -> skull
-            (TransducerActivation, SkullCoupling),
-            (SkullCoupling, SkullWavePropagation),
-            // Osseotympanic pathway
-            (SkullWavePropagation, EarCanalWallMotion),
-            (EarCanalWallMotion, TympanicMembraneResponse),
-            (TympanicMembraneResponse, OsseotympanicStimulation),
-            (OsseotympanicStimulation, CochlearResponse),
-            // Inertial pathway
-            (SkullWavePropagation, OssicularLag),
-            (OssicularLag, StapesDisplacement),
-            (StapesDisplacement, OvalWindowDrive),
-            (OvalWindowDrive, CochlearResponse),
-            // Compressional pathway
-            (SkullWavePropagation, CochlearBoneCompression),
-            (CochlearBoneCompression, DifferentialFluidFlow),
-            (DifferentialFluidFlow, BasilarMembraneExcitation),
-            (BasilarMembraneExcitation, CochlearResponse),
-            // Distortional pathway
-            (SkullWavePropagation, SkullModeDeformation),
-            (SkullModeDeformation, InnerEarDistortion),
-            (InnerEarDistortion, CochlearResponse),
+            (TransducerActivation, SkullCoupling), (SkullCoupling, SkullWavePropagation),
+            (SkullWavePropagation, EarCanalWallMotion), (EarCanalWallMotion, TympanicMembraneResponse), (TympanicMembraneResponse, OsseotympanicStimulation), (OsseotympanicStimulation, CochlearResponse),
+            (SkullWavePropagation, OssicularLag), (OssicularLag, StapesDisplacement), (StapesDisplacement, OvalWindowDrive), (OvalWindowDrive, CochlearResponse),
+            (SkullWavePropagation, CochlearBoneCompression), (CochlearBoneCompression, DifferentialFluidFlow), (DifferentialFluidFlow, BasilarMembraneExcitation), (BasilarMembraneExcitation, CochlearResponse),
+            (SkullWavePropagation, SkullModeDeformation), (SkullModeDeformation, InnerEarDistortion), (InnerEarDistortion, CochlearResponse),
         ],
-
         opposition: BoneCondOpposition [
-            (OsseotympanicBC, CompressionalBC),
-            (PercutaneousImplant, TranscutaneousDevice),
-            (Mastoid, Forehead),
+            (OsseotympanicBC, CompressionalBC), (PercutaneousImplant, TranscutaneousDevice), (Mastoid, Forehead),
         ],
     }
 }
 
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Dominant frequency range (Hz) where each BC mechanism contributes most.
-///
-/// - Osseotympanic: < 1000 Hz (low frequencies, Stenfelt & Reinfeldt 2007)
-/// - Inertial: 100-3000 Hz (broad range, Stenfelt 2011)
-/// - Compressional: > 4000 Hz (high frequencies, Stenfelt 2015)
-/// - Distortional: < 400 Hz (very low, skull modes, Stenfelt 2011)
 #[derive(Debug, Clone, PartialEq)]
 pub struct FrequencyRange {
     pub low: f64,
     pub high: f64,
 }
 
-/// Quality: dominant frequency range for each BC mechanism.
 #[derive(Debug, Clone)]
 pub struct DominantFrequencyRange;
-
 impl Quality for DominantFrequencyRange {
     type Individual = BoneCondEntity;
     type Value = FrequencyRange;
-
     fn get(&self, individual: &BoneCondEntity) -> Option<FrequencyRange> {
         use BoneCondEntity::*;
         match individual {
@@ -213,43 +134,29 @@ impl Quality for DominantFrequencyRange {
     }
 }
 
-/// Transcranial attenuation at the application site (dB).
-///
-/// How much the signal is attenuated crossing the skull to the contralateral ear.
-/// Stenfelt 2012: varies by frequency and site.
 #[derive(Debug, Clone)]
 pub struct TranscranialAttenuationDB;
-
 impl Quality for TranscranialAttenuationDB {
     type Individual = BoneCondEntity;
     type Value = f64;
-
     fn get(&self, individual: &BoneCondEntity) -> Option<f64> {
         use BoneCondEntity::*;
         match individual {
-            Mastoid => Some(10.0),      // ~10 dB average (Stenfelt 2012)
-            Forehead => Some(0.0),      // ~0 dB (midline, symmetric)
-            TemporalBone => Some(12.0), // ~12 dB
-            Vertex => Some(0.0),        // ~0 dB (midline)
-            Teeth => Some(5.0),         // ~5 dB (near midline)
+            Mastoid => Some(10.0),
+            Forehead => Some(0.0),
+            TemporalBone => Some(12.0),
+            Vertex => Some(0.0),
+            Teeth => Some(5.0),
             _ => None,
         }
     }
 }
 
-/// Skull resonance frequency (Hz) at each application site.
-///
-/// - Mastoid: ~200 Hz
-/// - Forehead: ~800 Hz
-///
-/// Stenfelt 2011.
 #[derive(Debug, Clone)]
 pub struct SkullResonanceFrequency;
-
 impl Quality for SkullResonanceFrequency {
     type Individual = BoneCondEntity;
     type Value = f64;
-
     fn get(&self, individual: &BoneCondEntity) -> Option<f64> {
         use BoneCondEntity::*;
         match individual {
@@ -260,79 +167,30 @@ impl Quality for SkullResonanceFrequency {
     }
 }
 
-/// Whether the application site requires surgical implantation.
 #[derive(Debug, Clone)]
 pub struct RequiresSurgery;
-
 impl Quality for RequiresSurgery {
     type Individual = BoneCondEntity;
     type Value = bool;
-
     fn get(&self, individual: &BoneCondEntity) -> Option<bool> {
         use BoneCondEntity::*;
         match individual {
-            BoneAnchoredDevice => Some(true),   // BAHA: percutaneous abutment
-            PercutaneousImplant => Some(true),  // through-skin fixture
-            TranscutaneousDevice => Some(true), // internal magnet
-            SkinDriveTransducer => Some(false), // headband, no surgery
-            PiezoelectricTransducer => Some(false),
-            ElectromagneticTransducer => Some(false),
+            BoneAnchoredDevice | PercutaneousImplant | TranscutaneousDevice => Some(true),
+            SkinDriveTransducer | PiezoelectricTransducer | ElectromagneticTransducer => {
+                Some(false)
+            }
             _ => None,
         }
     }
 }
 
-// ---------------------------------------------------------------------------
 // Axioms
-// ---------------------------------------------------------------------------
 
-/// Taxonomy is a DAG.
-pub struct BCTaxonomyIsDAG;
-
-impl Axiom for BCTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "bone conduction taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<BoneCondTaxonomy>::new().holds()
-    }
-}
-
-/// Causal graph is asymmetric.
-pub struct BCCausalGraphIsAsymmetric;
-
-impl Axiom for BCCausalGraphIsAsymmetric {
-    fn description(&self) -> &str {
-        "bone conduction causal graph is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<BCCausalGraph>::new().holds()
-    }
-}
-
-/// No event causes itself.
-pub struct BCCausalGraphNoSelfCause;
-
-impl Axiom for BCCausalGraphNoSelfCause {
-    fn description(&self) -> &str {
-        "no bone conduction event causes itself"
-    }
-
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<BCCausalGraph>::new().holds()
-    }
-}
-
-/// All four BC mechanisms are classified as BCMechanism.
 pub struct FourBCMechanisms;
-
 impl Axiom for FourBCMechanisms {
     fn description(&self) -> &str {
         "all four BC mechanisms (osseotympanic, inertial, compressional, distortional) are classified"
     }
-
     fn holds(&self) -> bool {
         use BoneCondEntity::*;
         [OsseotympanicBC, InertialBC, CompressionalBC, DistortionalBC]
@@ -341,99 +199,50 @@ impl Axiom for FourBCMechanisms {
     }
 }
 
-/// Transducer activation transitively causes cochlear response.
-///
-/// This is the fundamental claim of bone conduction hearing.
-/// Stenfelt & Goode 2005.
 pub struct TransducerCausesCochlearResponse;
-
 impl Axiom for TransducerCausesCochlearResponse {
     fn description(&self) -> &str {
         "transducer activation transitively causes cochlear response"
     }
-
     fn holds(&self) -> bool {
         use BCCausalEvent::*;
-        let effects = causation::effects_of::<BCCausalGraph>(&TransducerActivation);
-        effects.contains(&CochlearResponse)
+        causation::effects_of::<BCCausalGraph>(&TransducerActivation).contains(&CochlearResponse)
     }
 }
 
-/// All three main pathways converge on cochlear response.
-///
-/// Stenfelt 2011: osseotympanic, inertial, and compressional all reach cochlea.
 pub struct AllPathwaysConverge;
-
 impl Axiom for AllPathwaysConverge {
     fn description(&self) -> &str {
         "osseotympanic, inertial, and compressional pathways all reach cochlear response"
     }
-
     fn holds(&self) -> bool {
         use BCCausalEvent::*;
-        let osseotympanic = causation::effects_of::<BCCausalGraph>(&OsseotympanicStimulation);
-        let inertial = causation::effects_of::<BCCausalGraph>(&OvalWindowDrive);
-        let compressional = causation::effects_of::<BCCausalGraph>(&BasilarMembraneExcitation);
-        osseotympanic.contains(&CochlearResponse)
-            && inertial.contains(&CochlearResponse)
-            && compressional.contains(&CochlearResponse)
+        causation::effects_of::<BCCausalGraph>(&OsseotympanicStimulation)
+            .contains(&CochlearResponse)
+            && causation::effects_of::<BCCausalGraph>(&OvalWindowDrive).contains(&CochlearResponse)
+            && causation::effects_of::<BCCausalGraph>(&BasilarMembraneExcitation)
+                .contains(&CochlearResponse)
     }
 }
 
-/// Inertial BC covers the speech frequency range (100-3000 Hz).
-///
-/// This makes it the most important mechanism for speech perception
-/// through bone conduction. Stenfelt 2011.
 pub struct InertialCoversSpeechRange;
-
 impl Axiom for InertialCoversSpeechRange {
     fn description(&self) -> &str {
         "inertial BC covers the speech frequency range (100-3000 Hz)"
     }
-
     fn holds(&self) -> bool {
-        use BoneCondEntity::*;
-        let freq = DominantFrequencyRange;
-        let inertial = freq.get(&InertialBC).unwrap();
-        // Speech frequencies: ~300-3000 Hz
+        let inertial = DominantFrequencyRange
+            .get(&BoneCondEntity::InertialBC)
+            .unwrap();
         inertial.low <= 300.0 && inertial.high >= 3000.0
     }
 }
 
-/// Opposition is symmetric.
-pub struct BCOppositionSymmetric;
-
-impl Axiom for BCOppositionSymmetric {
-    fn description(&self) -> &str {
-        "bone conduction opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<BoneCondOpposition>::new().holds()
-    }
-}
-
-/// Opposition is irreflexive.
-pub struct BCOppositionIrreflexive;
-
-impl Axiom for BCOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "bone conduction opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<BoneCondOpposition>::new().holds()
-    }
-}
-
-/// Forehead resonance frequency is higher than mastoid (Stenfelt 2011).
 pub struct ForeheadResonanceHigherThanMastoid;
-
 impl Axiom for ForeheadResonanceHigherThanMastoid {
     fn description(&self) -> &str {
         "forehead skull resonance frequency is higher than mastoid"
     }
-
     fn holds(&self) -> bool {
         use BoneCondEntity::*;
         SkullResonanceFrequency.get(&Forehead).unwrap()
@@ -441,16 +250,11 @@ impl Axiom for ForeheadResonanceHigherThanMastoid {
     }
 }
 
-/// Midline sites (forehead, vertex) have zero transcranial attenuation.
-///
-/// Stenfelt 2012.
 pub struct MidlineSitesSymmetric;
-
 impl Axiom for MidlineSitesSymmetric {
     fn description(&self) -> &str {
         "midline application sites have zero transcranial attenuation"
     }
-
     fn holds(&self) -> bool {
         use BoneCondEntity::*;
         TranscranialAttenuationDB.get(&Forehead) == Some(0.0)
@@ -458,34 +262,25 @@ impl Axiom for MidlineSitesSymmetric {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Ontology impl
-// ---------------------------------------------------------------------------
-
 impl Ontology for BoneConductionOntology {
     type Cat = BoneConductionCategory;
     type Qual = TranscranialAttenuationDB;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(BCTaxonomyIsDAG),
-            Box::new(BCCausalGraphIsAsymmetric),
-            Box::new(BCCausalGraphNoSelfCause),
             Box::new(FourBCMechanisms),
             Box::new(TransducerCausesCochlearResponse),
             Box::new(AllPathwaysConverge),
             Box::new(InertialCoversSpeechRange),
             Box::new(ForeheadResonanceHigherThanMastoid),
             Box::new(MidlineSitesSymmetric),
-            Box::new(BCOppositionSymmetric),
-            Box::new(BCOppositionIrreflexive),
         ]
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -495,96 +290,26 @@ mod tests {
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
 
-    // -- Axiom tests --
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(BCTaxonomyIsDAG.holds(), "{}", BCTaxonomyIsDAG.description());
-    }
-
-    #[test]
-    fn test_causal_graph_asymmetric() {
-        assert!(
-            BCCausalGraphIsAsymmetric.holds(),
-            "{}",
-            BCCausalGraphIsAsymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_causal_graph_no_self_cause() {
-        assert!(
-            BCCausalGraphNoSelfCause.holds(),
-            "{}",
-            BCCausalGraphNoSelfCause.description()
-        );
-    }
-
     #[test]
     fn test_four_bc_mechanisms() {
-        assert!(
-            FourBCMechanisms.holds(),
-            "{}",
-            FourBCMechanisms.description()
-        );
+        assert!(FourBCMechanisms.holds());
     }
-
     #[test]
     fn test_transducer_causes_cochlear_response() {
-        assert!(
-            TransducerCausesCochlearResponse.holds(),
-            "{}",
-            TransducerCausesCochlearResponse.description()
-        );
+        assert!(TransducerCausesCochlearResponse.holds());
     }
-
     #[test]
     fn test_all_pathways_converge() {
-        assert!(
-            AllPathwaysConverge.holds(),
-            "{}",
-            AllPathwaysConverge.description()
-        );
+        assert!(AllPathwaysConverge.holds());
     }
-
     #[test]
     fn test_inertial_has_broadest_range() {
-        assert!(
-            InertialCoversSpeechRange.holds(),
-            "{}",
-            InertialCoversSpeechRange.description()
-        );
+        assert!(InertialCoversSpeechRange.holds());
     }
-
     #[test]
     fn test_midline_sites_symmetric() {
-        assert!(
-            MidlineSitesSymmetric.holds(),
-            "{}",
-            MidlineSitesSymmetric.description()
-        );
+        assert!(MidlineSitesSymmetric.holds());
     }
-
-    // -- Opposition tests --
-
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(
-            BCOppositionSymmetric.holds(),
-            "{}",
-            BCOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(
-            BCOppositionIrreflexive.holds(),
-            "{}",
-            BCOppositionIrreflexive.description()
-        );
-    }
-
     #[test]
     fn test_osseotympanic_opposes_compressional() {
         assert!(opposition::are_opposed::<BoneCondOpposition>(
@@ -592,26 +317,18 @@ mod tests {
             &BoneCondEntity::CompressionalBC
         ));
     }
-
-    // -- Category law tests --
-
     #[test]
     fn test_bone_conduction_category_laws() {
         check_category_laws::<BoneConductionCategory>().unwrap();
     }
-
     #[test]
     fn test_taxonomy_category_laws() {
         check_category_laws::<TaxonomyCategory<BoneCondTaxonomy>>().unwrap();
     }
-
     #[test]
     fn test_causal_category_laws() {
         check_category_laws::<CausalCategory<BCCausalGraph>>().unwrap();
     }
-
-    // -- Taxonomy tests --
-
     #[test]
     fn test_inertial_is_bc_mechanism() {
         assert!(taxonomy::is_a::<BoneCondTaxonomy>(
@@ -619,7 +336,6 @@ mod tests {
             &BoneCondEntity::BCMechanism
         ));
     }
-
     #[test]
     fn test_mastoid_is_application_site() {
         assert!(taxonomy::is_a::<BoneCondTaxonomy>(
@@ -627,7 +343,6 @@ mod tests {
             &BoneCondEntity::ApplicationSite
         ));
     }
-
     #[test]
     fn test_baha_is_transducer() {
         assert!(taxonomy::is_a::<BoneCondTaxonomy>(
@@ -635,29 +350,15 @@ mod tests {
             &BoneCondEntity::BCTransducer
         ));
     }
-
-    // -- Causal chain tests --
-
     #[test]
     fn test_skull_wave_has_multiple_pathways() {
         use BCCausalEvent::*;
         let effects = causation::effects_of::<BCCausalGraph>(&SkullWavePropagation);
-        // Should reach all pathway-specific events
-        assert!(
-            effects.contains(&EarCanalWallMotion),
-            "should reach osseotympanic"
-        );
-        assert!(effects.contains(&OssicularLag), "should reach inertial");
-        assert!(
-            effects.contains(&CochlearBoneCompression),
-            "should reach compressional"
-        );
-        assert!(
-            effects.contains(&SkullModeDeformation),
-            "should reach distortional"
-        );
+        assert!(effects.contains(&EarCanalWallMotion));
+        assert!(effects.contains(&OssicularLag));
+        assert!(effects.contains(&CochlearBoneCompression));
+        assert!(effects.contains(&SkullModeDeformation));
     }
-
     #[test]
     fn test_cochlear_response_has_multiple_causes() {
         use BCCausalEvent::*;
@@ -667,14 +368,10 @@ mod tests {
         assert!(causes.contains(&BasilarMembraneExcitation));
         assert!(causes.contains(&InnerEarDistortion));
     }
-
-    // -- Quality tests --
-
     #[test]
     fn test_forehead_resonance_higher_than_mastoid() {
         assert!(ForeheadResonanceHigherThanMastoid.holds());
     }
-
     #[test]
     fn test_mastoid_resonance_frequency() {
         assert_eq!(
@@ -682,7 +379,6 @@ mod tests {
             Some(200.0)
         );
     }
-
     #[test]
     fn test_forehead_resonance_frequency() {
         assert_eq!(
@@ -690,7 +386,6 @@ mod tests {
             Some(800.0)
         );
     }
-
     #[test]
     fn test_mastoid_attenuation() {
         assert_eq!(
@@ -698,7 +393,6 @@ mod tests {
             Some(10.0)
         );
     }
-
     #[test]
     fn test_baha_requires_surgery() {
         assert_eq!(
@@ -706,7 +400,6 @@ mod tests {
             Some(true)
         );
     }
-
     #[test]
     fn test_skin_drive_no_surgery() {
         assert_eq!(
@@ -714,12 +407,10 @@ mod tests {
             Some(false)
         );
     }
-
     #[test]
     fn test_entity_count() {
         assert_eq!(BoneCondEntity::variants().len(), 30);
     }
-
     #[test]
     fn test_ontology_validates() {
         BoneConductionOntology::validate().unwrap();
@@ -728,11 +419,7 @@ mod tests {
     fn arb_bc_entity() -> impl Strategy<Value = BoneCondEntity> {
         (0..BoneCondEntity::variants().len()).prop_map(|i| BoneCondEntity::variants()[i])
     }
-
     proptest! {
-        #[test]
-        fn prop_taxonomy_reflexive(entity in arb_bc_entity()) {
-            prop_assert!(taxonomy::is_a::<BoneCondTaxonomy>(&entity, &entity));
-        }
+        #[test] fn prop_taxonomy_reflexive(entity in arb_bc_entity()) { prop_assert!(taxonomy::is_a::<BoneCondTaxonomy>(&entity, &entity)); }
     }
 }

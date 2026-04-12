@@ -8,7 +8,7 @@
 //! - Goldberg et al. 2012: The Vestibular System
 //! - Angelaki & Cullen 2008: multisensory integration
 //! - Rabbitt et al. 2004: semicircular canal biomechanics
-//! - Fernández & Goldberg 1971: vestibular afferent physiology
+//! - Fernandez & Goldberg 1971: vestibular afferent physiology
 //! - Hudspeth & Corey 1977: hair cell transduction in bullfrog sacculus
 
 use pr4xis::category::Entity;
@@ -62,7 +62,6 @@ pub enum VestibularEntity {
     VestibularStimulus,
     VestibularDisorder,
 }
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum VestibularCausalEvent {
     HeadRotation,
@@ -78,58 +77,34 @@ pub enum VestibularCausalEvent {
     EyeMovementCompensation,
     PosturalAdjustment,
 }
-
 define_ontology! {
     /// Discrete category over vestibular entities.
     pub VestibularOntology for VestibularCategory {
-        entity: VestibularEntity,
-        relation: VestibularRelation,
-
+        entity: VestibularEntity, relation: VestibularRelation,
         taxonomy: VestibularTaxonomy [
-            (LateralCanal, SemicircularCanal), (AnteriorCanal, SemicircularCanal),
-            (PosteriorCanal, SemicircularCanal),
+            (LateralCanal, SemicircularCanal), (AnteriorCanal, SemicircularCanal), (PosteriorCanal, SemicircularCanal),
             (Utricle, OtolithOrgan), (Saccule, OtolithOrgan),
             (TypeIHairCell, VestibularHairCell), (TypeIIHairCell, VestibularHairCell),
-            (VestibuloOcularReflex, VestibularReflex),
-            (VestibuloSpinalReflex, VestibularReflex),
-            (VestibuloColicReflex, VestibularReflex),
-            (AngularAcceleration, VestibularStimulus),
-            (LinearAcceleration, VestibularStimulus),
-            (GravityVector, VestibularStimulus), (HeadTilt, VestibularStimulus),
-            (BPPV, VestibularDisorder), (VestibularNeuritis, VestibularDisorder),
-            (Vertigo, VestibularDisorder),
+            (VestibuloOcularReflex, VestibularReflex), (VestibuloSpinalReflex, VestibularReflex), (VestibuloColicReflex, VestibularReflex),
+            (AngularAcceleration, VestibularStimulus), (LinearAcceleration, VestibularStimulus), (GravityVector, VestibularStimulus), (HeadTilt, VestibularStimulus),
+            (BPPV, VestibularDisorder), (VestibularNeuritis, VestibularDisorder), (Vertigo, VestibularDisorder),
         ],
-
         mereology: VestibularMereology [
             (LateralCanal, Ampulla), (AnteriorCanal, Ampulla), (PosteriorCanal, Ampulla),
             (Ampulla, CrisaAmpullaris), (Ampulla, Cupula),
             (CrisaAmpullaris, TypeIHairCell), (CrisaAmpullaris, TypeIIHairCell),
             (Utricle, Macula), (Saccule, Macula),
-            (Macula, Otoconia), (Macula, OtolithMembrane),
-            (Macula, TypeIHairCell), (Macula, TypeIIHairCell),
-            (Macula, StriolarRegion), (Macula, ExtrastriolarRegion),
+            (Macula, Otoconia), (Macula, OtolithMembrane), (Macula, TypeIHairCell), (Macula, TypeIIHairCell), (Macula, StriolarRegion), (Macula, ExtrastriolarRegion),
         ],
-
         causation: VestibularCausalGraph for VestibularCausalEvent [
-            (HeadRotation, EndolymphFlow), (EndolymphFlow, CupulaDeflection),
-            (CupulaDeflection, CanalHairCellActivation),
+            (HeadRotation, EndolymphFlow), (EndolymphFlow, CupulaDeflection), (CupulaDeflection, CanalHairCellActivation),
             (HeadLinearMotion, OtoconiaShear), (OtoconiaShear, MaculaHairCellActivation),
-            (CanalHairCellActivation, VestibularAfferentFiring),
-            (MaculaHairCellActivation, VestibularAfferentFiring),
-            (VestibularAfferentFiring, VestibularNucleiProcessing),
-            (VestibularNucleiProcessing, VORActivation),
-            (VORActivation, EyeMovementCompensation),
-            (VestibularNucleiProcessing, PosturalAdjustment),
+            (CanalHairCellActivation, VestibularAfferentFiring), (MaculaHairCellActivation, VestibularAfferentFiring),
+            (VestibularAfferentFiring, VestibularNucleiProcessing), (VestibularNucleiProcessing, VORActivation), (VORActivation, EyeMovementCompensation), (VestibularNucleiProcessing, PosturalAdjustment),
         ],
-
-        opposition: VestibularOpposition [
-            (AngularAcceleration, LinearAcceleration),
-            (TypeIHairCell, TypeIIHairCell),
-            (VestibuloOcularReflex, VestibuloSpinalReflex),
-        ],
+        opposition: VestibularOpposition [ (AngularAcceleration, LinearAcceleration), (TypeIHairCell, TypeIIHairCell), (VestibuloOcularReflex, VestibuloSpinalReflex) ],
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct TimeConstant;
 impl Quality for TimeConstant {
@@ -145,7 +120,6 @@ impl Quality for TimeConstant {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct VORGain;
 impl Quality for VORGain {
@@ -158,7 +132,6 @@ impl Quality for VORGain {
         }
     }
 }
-
 #[derive(Debug, Clone)]
 pub struct CanalSensitivity;
 impl Quality for CanalSensitivity {
@@ -175,33 +148,6 @@ impl Quality for CanalSensitivity {
     }
 }
 
-pub struct VestibularTaxonomyIsDAG;
-impl Axiom for VestibularTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "vestibular taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<VestibularTaxonomy>::new().holds()
-    }
-}
-pub struct VestibularMereologyIsDAG;
-impl Axiom for VestibularMereologyIsDAG {
-    fn description(&self) -> &str {
-        "vestibular mereology is a DAG"
-    }
-    fn holds(&self) -> bool {
-        mereology::NoCycles::<VestibularMereology>::new().holds()
-    }
-}
-pub struct VestibularCausalIsAsymmetric;
-impl Axiom for VestibularCausalIsAsymmetric {
-    fn description(&self) -> &str {
-        "vestibular causal graph is asymmetric"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<VestibularCausalGraph>::new().holds()
-    }
-}
 pub struct ThreeCanals;
 impl Axiom for ThreeCanals {
     fn description(&self) -> &str {
@@ -247,24 +193,6 @@ impl Axiom for CanalsContainHairCells {
         parts.contains(&TypeIHairCell) && parts.contains(&TypeIIHairCell)
     }
 }
-pub struct VestibularOppositionSymmetric;
-impl Axiom for VestibularOppositionSymmetric {
-    fn description(&self) -> &str {
-        "vestibular opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<VestibularOpposition>::new().holds()
-    }
-}
-pub struct VestibularOppositionIrreflexive;
-impl Axiom for VestibularOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "vestibular opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<VestibularOpposition>::new().holds()
-    }
-}
 pub struct ThreeDistinctCanalPlanes;
 impl Axiom for ThreeDistinctCanalPlanes {
     fn description(&self) -> &str {
@@ -291,19 +219,17 @@ impl Axiom for VORGainIsUnity {
 impl Ontology for VestibularOntology {
     type Cat = VestibularCategory;
     type Qual = TimeConstant;
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(VestibularTaxonomyIsDAG),
-            Box::new(VestibularMereologyIsDAG),
-            Box::new(VestibularCausalIsAsymmetric),
             Box::new(ThreeCanals),
             Box::new(TwoOtolithOrgans),
             Box::new(RotationCausesVOR),
             Box::new(CanalsContainHairCells),
             Box::new(ThreeDistinctCanalPlanes),
             Box::new(VORGainIsUnity),
-            Box::new(VestibularOppositionSymmetric),
-            Box::new(VestibularOppositionIrreflexive),
         ]
     }
 }
@@ -316,19 +242,6 @@ mod tests {
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
-
-    #[test]
-    fn test_taxonomy_dag() {
-        assert!(VestibularTaxonomyIsDAG.holds());
-    }
-    #[test]
-    fn test_mereology_dag() {
-        assert!(VestibularMereologyIsDAG.holds());
-    }
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(VestibularCausalIsAsymmetric.holds());
-    }
     #[test]
     fn test_three_canals() {
         assert!(ThreeCanals.holds());
@@ -348,14 +261,6 @@ mod tests {
     #[test]
     fn test_vor_gain_unity() {
         assert!(VORGainIsUnity.holds());
-    }
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(VestibularOppositionSymmetric.holds());
-    }
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(VestibularOppositionIrreflexive.holds());
     }
     #[test]
     fn test_angular_opposes_linear_acceleration() {
@@ -410,14 +315,8 @@ mod tests {
     fn test_ontology_validates() {
         VestibularOntology::validate().unwrap();
     }
-
     fn arb_entity() -> impl Strategy<Value = VestibularEntity> {
         (0..VestibularEntity::variants().len()).prop_map(|i| VestibularEntity::variants()[i])
     }
-    proptest! {
-        #[test]
-        fn prop_taxonomy_reflexive(entity in arb_entity()) {
-            prop_assert!(taxonomy::is_a::<VestibularTaxonomy>(&entity, &entity));
-        }
-    }
+    proptest! { #[test] fn prop_taxonomy_reflexive(entity in arb_entity()) { prop_assert!(taxonomy::is_a::<VestibularTaxonomy>(&entity, &entity)); } }
 }

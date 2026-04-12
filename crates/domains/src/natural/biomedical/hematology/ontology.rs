@@ -408,20 +408,17 @@ impl Ontology for HematologyOntology {
     type Cat = HematologyCategory;
     type Qual = NormalConcentration;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        HematologyOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(HematologyTaxonomyIsDAG),
-            Box::new(HematologyTaxonomyAntisymmetric),
-            Box::new(HematologyMereologyIsDAG),
-            Box::new(HematologyCausalAsymmetric),
-            Box::new(HematologyCausalNoSelfCausation),
             Box::new(WholeBloodContainsPlasma),
             Box::new(PlasmaContainsAllElectrolytes),
             Box::new(SodiumIsDominantCation),
             Box::new(BloodPHRegulated),
             Box::new(HemorrhageCausesElectrolyteImbalance),
-            Box::new(HematologyOppositionSymmetric),
-            Box::new(HematologyOppositionIrreflexive),
         ]
     }
 }

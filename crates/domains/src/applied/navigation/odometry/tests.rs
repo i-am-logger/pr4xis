@@ -25,11 +25,6 @@ fn odometry_ontology_validates() {
 }
 
 #[test]
-fn odometry_source_taxonomy_is_dag() {
-    assert!(OdometrySourceTaxonomyIsDAG.holds());
-}
-
-#[test]
 fn odometry_state_taxonomy_is_dag() {
     assert!(OdometryStateTaxonomyIsDAG.holds());
 }

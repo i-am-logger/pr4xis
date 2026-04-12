@@ -40,11 +40,6 @@ fn celestial_observable_taxonomy_is_dag() {
 }
 
 #[test]
-fn celestial_sensor_taxonomy_is_dag() {
-    assert!(CelestialSensorTaxonomyIsDAG.holds());
-}
-
-#[test]
 fn two_sights_fix_axiom() {
     assert!(TwoSightsFix.holds());
 }

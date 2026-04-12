@@ -470,7 +470,11 @@ impl Ontology for BioelectricOntology {
     type Cat = BioelectricCategory;
     type Qual = OperatingLevel;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        BioelectricOntologyMeta::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(BioelectricCodeAxiom),
             Box::new(GapJunctionCommunicationAxiom),
@@ -479,12 +483,7 @@ impl Ontology for BioelectricOntology {
             Box::new(TAMEHierarchyAxiom),
             Box::new(CognitiveLightconeAxiom),
             Box::new(MechanicalStimulationIsHardwareAccessible),
-            Box::new(BioelectricTaxonomyIsDAG),
             Box::new(AllTAMELevelsRepresented),
-            Box::new(BioelectricOppositionSymmetric),
-            Box::new(BioelectricOppositionIrreflexive),
-            Box::new(BioelectricSignalCausalAsymmetric),
-            Box::new(BioelectricSignalCausalNoSelfCausation),
             Box::new(TargetMorphologyCrossDomainEquivalence),
         ]
     }

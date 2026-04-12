@@ -18,27 +18,20 @@ use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum AudiologyEntity {
-    // Pure tone audiometry
     PureToneAudiometry,
     AirConductionTest,
     BoneConductionTest,
     MaskingProcedure,
     AirBoneGap,
     PureToneAverage,
-    // Speech audiometry
     SpeechAudiometry,
     SpeechRecognitionThreshold,
     WordRecognitionScore,
     SpeechInNoiseTest,
     QuickSIN,
     HINT,
-    // Immittance
     Tympanometry,
     TympanogramTypeA,
     TympanogramTypeB,
@@ -46,30 +39,25 @@ pub enum AudiologyEntity {
     AcousticReflex,
     AcousticReflexDecay,
     StaticCompliance,
-    // Otoacoustic emissions
     TransientOAE,
     DistortionProductOAE,
     OAEScreening,
-    // Evoked potentials
     AuditoryBrainstemResponse,
     WaveI,
     WaveIII,
     WaveV,
     ElectroCochleography,
     AuditoryLateResponse,
-    // Rehabilitation
     AuralRehabilitation,
     HearingAidFitting,
     RealEarVerification,
     CochlearImplantMapping,
     AuditoryTraining,
     CommunicationStrategy,
-    // Workflow
     CaseHistory,
     Otoscopy,
     Referral,
     Counseling,
-    // Abstract categories
     DiagnosticTest,
     SpeechTest,
     ImmittanceTest,
@@ -79,11 +67,6 @@ pub enum AudiologyEntity {
     ClinicalWorkflow,
 }
 
-// ---------------------------------------------------------------------------
-// Causal event entity
-// ---------------------------------------------------------------------------
-
-/// Clinical assessment workflow.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum AudiologyCausalEvent {
     PatientPresents,
@@ -99,10 +82,6 @@ pub enum AudiologyCausalEvent {
     OutcomeVerified,
 }
 
-// ---------------------------------------------------------------------------
-// Ontology (define_ontology! macro)
-// ---------------------------------------------------------------------------
-
 define_ontology! {
     /// Discrete category over audiology entities.
     pub AudiologyOntology for AudiologyCategory {
@@ -110,106 +89,47 @@ define_ontology! {
         relation: AudiologyRelation,
 
         taxonomy: AudiologyTaxonomy [
-            // Diagnostic tests
-            (PureToneAudiometry, DiagnosticTest),
-            (AirConductionTest, PureToneAudiometry),
-            (BoneConductionTest, PureToneAudiometry),
-            // Speech tests
-            (SpeechAudiometry, SpeechTest),
-            (SpeechRecognitionThreshold, SpeechTest),
-            (WordRecognitionScore, SpeechTest),
-            (SpeechInNoiseTest, SpeechTest),
-            (QuickSIN, SpeechInNoiseTest),
-            (HINT, SpeechInNoiseTest),
-            // Immittance tests
-            (Tympanometry, ImmittanceTest),
-            (AcousticReflex, ImmittanceTest),
-            (AcousticReflexDecay, ImmittanceTest),
-            // Tympanogram types (Jerger 1970)
-            (TympanogramTypeA, Tympanometry),
-            (TympanogramTypeB, Tympanometry),
-            (TympanogramTypeC, Tympanometry),
-            // Emission tests
-            (TransientOAE, EmissionTest),
-            (DistortionProductOAE, EmissionTest),
-            (OAEScreening, EmissionTest),
-            // Evoked potentials
-            (AuditoryBrainstemResponse, EvokedPotentialTest),
-            (ElectroCochleography, EvokedPotentialTest),
-            (AuditoryLateResponse, EvokedPotentialTest),
-            // ABR waves
-            (WaveI, AuditoryBrainstemResponse),
-            (WaveIII, AuditoryBrainstemResponse),
-            (WaveV, AuditoryBrainstemResponse),
-            // Rehabilitation
-            (AuralRehabilitation, RehabilitationProcedure),
-            (HearingAidFitting, RehabilitationProcedure),
-            (RealEarVerification, RehabilitationProcedure),
-            (CochlearImplantMapping, RehabilitationProcedure),
-            (AuditoryTraining, RehabilitationProcedure),
-            (CommunicationStrategy, RehabilitationProcedure),
-            // Clinical workflow
-            (CaseHistory, ClinicalWorkflow),
-            (Otoscopy, ClinicalWorkflow),
-            (Referral, ClinicalWorkflow),
-            (Counseling, ClinicalWorkflow),
+            (PureToneAudiometry, DiagnosticTest), (AirConductionTest, PureToneAudiometry), (BoneConductionTest, PureToneAudiometry),
+            (SpeechAudiometry, SpeechTest), (SpeechRecognitionThreshold, SpeechTest), (WordRecognitionScore, SpeechTest),
+            (SpeechInNoiseTest, SpeechTest), (QuickSIN, SpeechInNoiseTest), (HINT, SpeechInNoiseTest),
+            (Tympanometry, ImmittanceTest), (AcousticReflex, ImmittanceTest), (AcousticReflexDecay, ImmittanceTest),
+            (TympanogramTypeA, Tympanometry), (TympanogramTypeB, Tympanometry), (TympanogramTypeC, Tympanometry),
+            (TransientOAE, EmissionTest), (DistortionProductOAE, EmissionTest), (OAEScreening, EmissionTest),
+            (AuditoryBrainstemResponse, EvokedPotentialTest), (ElectroCochleography, EvokedPotentialTest), (AuditoryLateResponse, EvokedPotentialTest),
+            (WaveI, AuditoryBrainstemResponse), (WaveIII, AuditoryBrainstemResponse), (WaveV, AuditoryBrainstemResponse),
+            (AuralRehabilitation, RehabilitationProcedure), (HearingAidFitting, RehabilitationProcedure),
+            (RealEarVerification, RehabilitationProcedure), (CochlearImplantMapping, RehabilitationProcedure),
+            (AuditoryTraining, RehabilitationProcedure), (CommunicationStrategy, RehabilitationProcedure),
+            (CaseHistory, ClinicalWorkflow), (Otoscopy, ClinicalWorkflow), (Referral, ClinicalWorkflow), (Counseling, ClinicalWorkflow),
         ],
 
         mereology: AudiologyMereology [
-            // Diagnostic test battery
-            (DiagnosticTest, PureToneAudiometry),
-            (DiagnosticTest, SpeechAudiometry),
-            // Pure tone audiometry components
-            (PureToneAudiometry, AirConductionTest),
-            (PureToneAudiometry, BoneConductionTest),
-            (PureToneAudiometry, MaskingProcedure),
-            // ABR wave components
-            (AuditoryBrainstemResponse, WaveI),
-            (AuditoryBrainstemResponse, WaveIII),
-            (AuditoryBrainstemResponse, WaveV),
+            (DiagnosticTest, PureToneAudiometry), (DiagnosticTest, SpeechAudiometry),
+            (PureToneAudiometry, AirConductionTest), (PureToneAudiometry, BoneConductionTest), (PureToneAudiometry, MaskingProcedure),
+            (AuditoryBrainstemResponse, WaveI), (AuditoryBrainstemResponse, WaveIII), (AuditoryBrainstemResponse, WaveV),
         ],
 
         causation: AudiologyCausalGraph for AudiologyCausalEvent [
-            (PatientPresents, HistoryTaken),
-            (HistoryTaken, OtoscopyPerformed),
-            (OtoscopyPerformed, PureToneCompleted),
-            (OtoscopyPerformed, ImmittanceCompleted),
-            (PureToneCompleted, SpeechTestCompleted),
-            (PureToneCompleted, OAECompleted),
-            (SpeechTestCompleted, DiagnosisMade),
-            (ImmittanceCompleted, DiagnosisMade),
-            (OAECompleted, DiagnosisMade),
-            (DiagnosisMade, TreatmentPlanDeveloped),
-            (TreatmentPlanDeveloped, DeviceFitted),
-            (DeviceFitted, OutcomeVerified),
+            (PatientPresents, HistoryTaken), (HistoryTaken, OtoscopyPerformed),
+            (OtoscopyPerformed, PureToneCompleted), (OtoscopyPerformed, ImmittanceCompleted),
+            (PureToneCompleted, SpeechTestCompleted), (PureToneCompleted, OAECompleted),
+            (SpeechTestCompleted, DiagnosisMade), (ImmittanceCompleted, DiagnosisMade), (OAECompleted, DiagnosisMade),
+            (DiagnosisMade, TreatmentPlanDeveloped), (TreatmentPlanDeveloped, DeviceFitted), (DeviceFitted, OutcomeVerified),
         ],
 
         opposition: AudiologyOpposition [
-            (AirConductionTest, BoneConductionTest),
-            (TransientOAE, DistortionProductOAE),
-            (PureToneAudiometry, SpeechAudiometry),
+            (AirConductionTest, BoneConductionTest), (TransientOAE, DistortionProductOAE), (PureToneAudiometry, SpeechAudiometry),
         ],
     }
 }
 
-// ---------------------------------------------------------------------------
 // Qualities
-// ---------------------------------------------------------------------------
 
-/// ABR wave latency (milliseconds).
-///
-/// - Wave I: ~1.5 ms (distal auditory nerve)
-/// - Wave III: ~3.5 ms (cochlear nucleus)
-/// - Wave V: ~5.5 ms (lateral lemniscus/inferior colliculus)
-///
-/// Jewett & Williston 1971; Stach 2010.
 #[derive(Debug, Clone)]
 pub struct ABRLatencyMs;
-
 impl Quality for ABRLatencyMs {
     type Individual = AudiologyEntity;
     type Value = f64;
-
     fn get(&self, individual: &AudiologyEntity) -> Option<f64> {
         use AudiologyEntity::*;
         match individual {
@@ -221,18 +141,11 @@ impl Quality for ABRLatencyMs {
     }
 }
 
-/// Typical test duration in minutes.
-///
-/// - PureToneAudiometry: ~20 min (Stach 2010)
-/// - ABR: ~30 min (Stach 2010)
-/// - Tympanometry: ~2 min (Stach 2010)
 #[derive(Debug, Clone)]
 pub struct TestDurationMinutes;
-
 impl Quality for TestDurationMinutes {
     type Individual = AudiologyEntity;
     type Value = f64;
-
     fn get(&self, individual: &AudiologyEntity) -> Option<f64> {
         use AudiologyEntity::*;
         match individual {
@@ -244,56 +157,26 @@ impl Quality for TestDurationMinutes {
     }
 }
 
-/// Whether the test requires patient cooperation (behavioral vs objective).
 #[derive(Debug, Clone)]
 pub struct RequiresCooperation;
-
 impl Quality for RequiresCooperation {
     type Individual = AudiologyEntity;
     type Value = bool;
-
     fn get(&self, individual: &AudiologyEntity) -> Option<bool> {
         use AudiologyEntity::*;
         match individual {
             PureToneAudiometry | AirConductionTest | BoneConductionTest => Some(true),
             SpeechAudiometry | SpeechRecognitionThreshold | WordRecognitionScore => Some(true),
-            AuditoryBrainstemResponse => Some(false), // objective
-            TransientOAE | DistortionProductOAE | OAEScreening => Some(false), // objective
-            Tympanometry => Some(false),              // objective
+            AuditoryBrainstemResponse => Some(false),
+            TransientOAE | DistortionProductOAE | OAEScreening => Some(false),
+            Tympanometry => Some(false),
             _ => None,
         }
     }
 }
 
-// ---------------------------------------------------------------------------
 // Axioms
-// ---------------------------------------------------------------------------
 
-pub struct AudiologyTaxonomyIsDAG;
-impl Axiom for AudiologyTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "audiology taxonomy is a DAG"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<AudiologyTaxonomy>::new().holds()
-    }
-}
-
-/// Mereology is a DAG.
-pub struct AudiologyMereologyIsDAG;
-impl Axiom for AudiologyMereologyIsDAG {
-    fn description(&self) -> &str {
-        "audiology mereology is a DAG"
-    }
-    fn holds(&self) -> bool {
-        mereology::NoCycles::<AudiologyMereology>::new().holds()
-    }
-}
-
-/// Diagnostic test transitively contains air and bone conduction tests.
-///
-/// DiagnosticTest has-a PureToneAudiometry, which has-a AirConductionTest
-/// and BoneConductionTest.
 pub struct DiagnosticTestContainsConductionTests;
 impl Axiom for DiagnosticTestContainsConductionTests {
     fn description(&self) -> &str {
@@ -306,19 +189,6 @@ impl Axiom for DiagnosticTestContainsConductionTests {
     }
 }
 
-pub struct AudiologyCausalIsAsymmetric;
-impl Axiom for AudiologyCausalIsAsymmetric {
-    fn description(&self) -> &str {
-        "audiology causal graph is asymmetric"
-    }
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<AudiologyCausalGraph>::new().holds()
-    }
-}
-
-/// ABR wave latencies are ordered: I < III < V.
-///
-/// Jewett & Williston 1971.
 pub struct ABRWavesOrdered;
 impl Axiom for ABRWavesOrdered {
     fn description(&self) -> &str {
@@ -332,7 +202,6 @@ impl Axiom for ABRWavesOrdered {
     }
 }
 
-/// Three tympanogram types are classified (Jerger 1970).
 pub struct ThreeTympanogramTypes;
 impl Axiom for ThreeTympanogramTypes {
     fn description(&self) -> &str {
@@ -346,7 +215,6 @@ impl Axiom for ThreeTympanogramTypes {
     }
 }
 
-/// ABR takes longer than tympanometry (Stach 2010).
 pub struct ABRLongerThanTympanometry;
 impl Axiom for ABRLongerThanTympanometry {
     fn description(&self) -> &str {
@@ -359,7 +227,6 @@ impl Axiom for ABRLongerThanTympanometry {
     }
 }
 
-/// ABR is an objective test (no cooperation needed).
 pub struct ABRIsObjective;
 impl Axiom for ABRIsObjective {
     fn description(&self) -> &str {
@@ -370,7 +237,6 @@ impl Axiom for ABRIsObjective {
     }
 }
 
-/// Patient presentation transitively causes outcome verification.
 pub struct FullClinicalPathway;
 impl Axiom for FullClinicalPathway {
     fn description(&self) -> &str {
@@ -382,29 +248,6 @@ impl Axiom for FullClinicalPathway {
     }
 }
 
-/// Opposition is symmetric.
-pub struct AudiologyOppositionSymmetric;
-impl Axiom for AudiologyOppositionSymmetric {
-    fn description(&self) -> &str {
-        "audiology opposition is symmetric"
-    }
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<AudiologyOpposition>::new().holds()
-    }
-}
-
-/// Opposition is irreflexive.
-pub struct AudiologyOppositionIrreflexive;
-impl Axiom for AudiologyOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "audiology opposition is irreflexive"
-    }
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<AudiologyOpposition>::new().holds()
-    }
-}
-
-/// QuickSIN is-a speech-in-noise test is-a speech test.
 pub struct QuickSINSubsumption;
 impl Axiom for QuickSINSubsumption {
     fn description(&self) -> &str {
@@ -418,28 +261,25 @@ impl Axiom for QuickSINSubsumption {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Ontology impl
-// ---------------------------------------------------------------------------
 
 impl Ontology for AudiologyOntology {
     type Cat = AudiologyCategory;
     type Qual = ABRLatencyMs;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
-            Box::new(AudiologyTaxonomyIsDAG),
-            Box::new(AudiologyMereologyIsDAG),
             Box::new(DiagnosticTestContainsConductionTests),
-            Box::new(AudiologyCausalIsAsymmetric),
             Box::new(ABRWavesOrdered),
             Box::new(ThreeTympanogramTypes),
             Box::new(ABRLongerThanTympanometry),
             Box::new(ABRIsObjective),
             Box::new(FullClinicalPathway),
             Box::new(QuickSINSubsumption),
-            Box::new(AudiologyOppositionSymmetric),
-            Box::new(AudiologyOppositionIrreflexive),
         ]
     }
 }
@@ -454,20 +294,8 @@ mod tests {
     use proptest::prelude::*;
 
     #[test]
-    fn test_taxonomy_dag() {
-        assert!(AudiologyTaxonomyIsDAG.holds());
-    }
-    #[test]
-    fn test_mereology_is_dag() {
-        assert!(AudiologyMereologyIsDAG.holds());
-    }
-    #[test]
     fn test_diagnostic_test_contains_conduction_tests() {
         assert!(DiagnosticTestContainsConductionTests.holds());
-    }
-    #[test]
-    fn test_causal_asymmetric() {
-        assert!(AudiologyCausalIsAsymmetric.holds());
     }
     #[test]
     fn test_abr_waves_ordered() {
@@ -488,14 +316,6 @@ mod tests {
     #[test]
     fn test_quicksin_subsumption() {
         assert!(QuickSINSubsumption.holds());
-    }
-    #[test]
-    fn test_opposition_symmetric() {
-        assert!(AudiologyOppositionSymmetric.holds());
-    }
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(AudiologyOppositionIrreflexive.holds());
     }
     #[test]
     fn test_air_opposes_bone_conduction() {
@@ -521,7 +341,6 @@ mod tests {
     fn test_mereology_category_laws() {
         check_category_laws::<MereologyCategory<AudiologyMereology>>().unwrap();
     }
-
     #[test]
     fn test_abr_longer_than_tympanometry() {
         assert!(ABRLongerThanTympanometry.holds());
@@ -557,9 +376,6 @@ mod tests {
         (0..AudiologyEntity::variants().len()).prop_map(|i| AudiologyEntity::variants()[i])
     }
     proptest! {
-        #[test]
-        fn prop_taxonomy_reflexive(entity in arb_entity()) {
-            prop_assert!(taxonomy::is_a::<AudiologyTaxonomy>(&entity, &entity));
-        }
+        #[test] fn prop_taxonomy_reflexive(entity in arb_entity()) { prop_assert!(taxonomy::is_a::<AudiologyTaxonomy>(&entity, &entity)); }
     }
 }
