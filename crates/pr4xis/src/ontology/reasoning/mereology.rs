@@ -165,3 +165,52 @@ impl<T: MereologyDef> crate::logic::Axiom for WeakSupplementation<T> {
         adj.values().all(|parts| parts.len() >= 2)
     }
 }
+
+// ---- Algebraic structure integrations ----
+
+/// Unfold a mereology tree from a root using anamorphism.
+///
+/// Produces a Cofree tree where each node carries an entity
+/// and its children are its direct parts.
+///
+/// Reference: Meijer, Fokkinga & Paterson (1991)
+pub fn unfold_mereology<T: MereologyDef + 'static>()
+-> crate::category::algebra::Coalgebra<T::Entity, T::Entity>
+where
+    T::Entity: Clone + std::fmt::Debug,
+{
+    let relations = T::relations();
+    crate::category::algebra::Coalgebra::new(move |whole: &T::Entity| {
+        let parts: Vec<T::Entity> = relations
+            .iter()
+            .filter(|(w, _)| w == whole)
+            .map(|(_, part)| part.clone())
+            .collect();
+        (whole.clone(), parts)
+    })
+}
+
+/// Lens into the mereology of an entity: view/modify its parts.
+///
+/// Reference: van Laarhoven (2009), Pickering et al. (2017)
+pub fn parts_lens<T: MereologyDef + 'static>()
+-> crate::category::optics::Lens<T::Entity, Vec<T::Entity>>
+where
+    T::Entity: Clone + std::fmt::Debug,
+{
+    crate::category::optics::Lens::new(
+        |whole: &T::Entity| parts_of::<T>(whole),
+        |_whole: &T::Entity, _new_parts: Vec<T::Entity>| {
+            // Mereology is declarative — can't "set" parts at runtime.
+            // Return the whole unchanged (read-only lens).
+            _whole.clone()
+        },
+    )
+}
+
+/// Yoneda profile for mereology.
+pub fn yoneda_profile<T: MereologyDef>(
+    entity: &T::Entity,
+) -> crate::category::yoneda::YonedaProfile<MereologyCategory<T>> {
+    crate::category::yoneda::YonedaProfile::of(entity)
+}

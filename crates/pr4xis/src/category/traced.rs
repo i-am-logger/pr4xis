@@ -127,6 +127,45 @@ where
     }
 }
 
+// ---- Algebraic structure integrations ----
+
+/// Convert a flat trace (Vec<TraceRecord>) into a Cofree tree.
+///
+/// The Cofree comonad gives each trace record its full context.
+/// The root is the first record, children are subsequent records.
+///
+/// Reference: Uustalu & Vene, "Comonadic Notions of Computation" (2008)
+pub fn trace_to_cofree(records: &[TraceRecord]) -> super::comonad::Cofree<TraceRecord> {
+    if records.is_empty() {
+        return super::comonad::Cofree::leaf(TraceRecord {
+            ontology: "empty".into(),
+            operation: "none".into(),
+            detail: "no trace".into(),
+            status: TraceRecordStatus::Ok,
+        });
+    }
+    if records.len() == 1 {
+        return super::comonad::Cofree::leaf(records[0].clone());
+    }
+    super::comonad::Cofree::node(
+        records[0].clone(),
+        records[1..]
+            .iter()
+            .map(|r| super::comonad::Cofree::leaf(r.clone()))
+            .collect(),
+    )
+}
+
+/// Fold a trace tree using a catamorphism to produce a summary.
+///
+/// Reference: Meijer, Fokkinga & Paterson (1991)
+pub fn fold_trace<F: 'static>(
+    tree: &super::comonad::Cofree<TraceRecord>,
+    alg: &super::algebra::Algebra<TraceRecord, F>,
+) -> F {
+    super::algebra::cata(alg, tree)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -325,5 +364,93 @@ mod tests {
         let original_log = traced.log.clone();
         let result = traced.bind(TracedMorphism::<TestMorph>::pure);
         assert_eq!(result.log, original_log);
+    }
+
+    // --- Algebraic integration tests ---
+
+    #[test]
+    fn trace_to_cofree_tree() {
+        let records = vec![
+            TraceRecord {
+                ontology: "Language".into(),
+                operation: "tokenize".into(),
+                detail: "5 tokens".into(),
+                status: TraceRecordStatus::Ok,
+            },
+            TraceRecord {
+                ontology: "Grammar".into(),
+                operation: "parse".into(),
+                detail: "S[dcl]".into(),
+                status: TraceRecordStatus::Ok,
+            },
+        ];
+
+        let tree = trace_to_cofree(&records);
+        assert_eq!(tree.extract().ontology, "Language");
+        assert_eq!(tree.tail.len(), 1);
+        assert_eq!(tree.tail[0].extract().ontology, "Grammar");
+    }
+
+    #[test]
+    fn fold_trace_counts_steps() {
+        let records = vec![
+            TraceRecord {
+                ontology: "A".into(),
+                operation: "op".into(),
+                detail: "d".into(),
+                status: TraceRecordStatus::Ok,
+            },
+            TraceRecord {
+                ontology: "B".into(),
+                operation: "op".into(),
+                detail: "d".into(),
+                status: TraceRecordStatus::Ok,
+            },
+            TraceRecord {
+                ontology: "C".into(),
+                operation: "op".into(),
+                detail: "d".into(),
+                status: TraceRecordStatus::Warning,
+            },
+        ];
+
+        let tree = trace_to_cofree(&records);
+        let count_alg =
+            crate::category::algebra::Algebra::new(|_record: &TraceRecord, children: &[usize]| {
+                1 + children.iter().sum::<usize>()
+            });
+        let total = fold_trace(&tree, &count_alg);
+        assert_eq!(total, 3);
+    }
+
+    #[test]
+    fn fold_trace_collects_ontologies() {
+        let records = vec![
+            TraceRecord {
+                ontology: "Language".into(),
+                operation: "tok".into(),
+                detail: "d".into(),
+                status: TraceRecordStatus::Ok,
+            },
+            TraceRecord {
+                ontology: "Grammar".into(),
+                operation: "parse".into(),
+                detail: "d".into(),
+                status: TraceRecordStatus::Ok,
+            },
+        ];
+
+        let tree = trace_to_cofree(&records);
+        let collect_alg = crate::category::algebra::Algebra::new(
+            |record: &TraceRecord, children: &[Vec<String>]| {
+                let mut names = vec![record.ontology.clone()];
+                for c in children {
+                    names.extend(c.iter().cloned());
+                }
+                names
+            },
+        );
+        let names = fold_trace(&tree, &collect_alg);
+        assert_eq!(names, vec!["Language", "Grammar"]);
     }
 }
