@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.4.0...pr4xis-v0.5.0) (2026-04-12)
+
+
+### Features
+
+* rename praxis → pr4xis across entire codebase ([5e971f7](https://github.com/i-am-logger/pr4xis/commit/5e971f77ac3041a5e35209216d09f41e55cf8a0d))
+
 ## [0.4.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.3.0...pr4xis-v0.4.0) (2026-04-12)
 
 
