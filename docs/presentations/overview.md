@@ -24,10 +24,10 @@ style: |
   .pass { color: #3fb950; }
   .fail { color: #f85149; }
   .ignore { color: #d29922; }
-  section::after { content: ''; background: url('../logo.jpg') no-repeat right 20px top 20px; background-size: 40px; position: absolute; top: 0; right: 0; width: 80px; height: 80px; }
+  section::after { content: ''; background: url('../praxis-logo-dark.jpg') no-repeat right 20px top 20px; background-size: 40px; position: absolute; top: 0; right: 0; width: 80px; height: 80px; }
 ---
 
-<video src="../logo.mp4" autoplay loop muted style="width:200px;margin:0 auto;display:block"></video>
+<video src="../praxis-logo-video-dark.mp4" autoplay loop muted style="width:200px;margin:0 auto;display:block"></video>
 
 # Praxis
 
