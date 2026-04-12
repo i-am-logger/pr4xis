@@ -383,7 +383,7 @@ impl PipelineTrace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::entity::Entity;
+    use pr4xis::category::entity::Entity;
 
     #[test]
     fn pipeline_steps_map_to_diagnostics() {

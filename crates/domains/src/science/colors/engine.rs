@@ -1,6 +1,6 @@
 use super::mixing::{MixMode, blend, mix};
 use super::rgb::Rgb;
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 impl Situation for Rgb {
     fn describe(&self) -> String {

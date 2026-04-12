@@ -1,5 +1,5 @@
-use praxis::category::validate::check_category_laws;
-use praxis::ontology::{Axiom, Ontology};
+use pr4xis::category::validate::check_category_laws;
+use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::technology::sensor_fusion::frame::boresight::Boresight;
 use crate::technology::sensor_fusion::frame::lever_arm::LeverArm;
@@ -96,7 +96,7 @@ fn lever_arm_velocity_correction_orthogonal() {
 #[cfg(test)]
 mod proptest_proofs {
     use super::*;
-    use praxis::category::Category;
+    use pr4xis::category::Category;
     use proptest::prelude::*;
 
     fn arb_frame() -> impl Strategy<Value = ReferenceFrame> {

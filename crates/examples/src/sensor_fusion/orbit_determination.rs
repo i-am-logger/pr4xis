@@ -9,9 +9,9 @@
 /// Source: Vallado (2013), *Fundamentals of Astrodynamics and Applications*.
 #[cfg(test)]
 mod tests {
-    use praxis_domains::science::geodesy::conversion;
-    use praxis_domains::science::geodesy::coordinate::Geodetic;
-    use praxis_domains::science::geodesy::ellipsoid;
+    use pr4xis_domains::science::geodesy::conversion;
+    use pr4xis_domains::science::geodesy::coordinate::Geodetic;
+    use pr4xis_domains::science::geodesy::ellipsoid;
 
     #[test]
     fn ground_station_to_ecef() {

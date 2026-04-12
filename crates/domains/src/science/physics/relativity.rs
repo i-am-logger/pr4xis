@@ -3,7 +3,7 @@
 /// - Axiom: v < c enforced, rest mass invariant
 /// - Actions: accelerate, set velocity
 /// - Derived: Lorentz factor, time dilation, length contraction, E=mc²
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 pub const C: f64 = 299_792_458.0;
 

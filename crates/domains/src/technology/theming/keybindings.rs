@@ -10,7 +10,7 @@
 /// - Harel, "Statecharts" (1987): mode-scoped keybindings
 /// - XKB specification: modifier model (Shift, Ctrl, Alt, Super, Hyper)
 use super::modes::ModeId;
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 use std::collections::{HashMap, HashSet};
 
 /// A physical key identifier.

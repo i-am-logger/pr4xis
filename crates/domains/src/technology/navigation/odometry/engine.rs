@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Situation};
+use pr4xis::engine::{Action, Situation};
 
 /// Odometry pose: 2D position + heading.
 #[derive(Debug, Clone, PartialEq)]

@@ -11,12 +11,12 @@
 //! - Fernández & Goldberg 1971: vestibular afferent physiology
 //! - Hudspeth & Corey 1977: hair cell transduction in bullfrog sacculus
 
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::reasoning::causation::{self, CausalDef};
-use praxis::ontology::reasoning::mereology::{self, MereologyDef};
-use praxis::ontology::reasoning::opposition::{self, OppositionDef};
-use praxis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::reasoning::causation::{self, CausalDef};
+use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
+use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
+use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
 // Entity
@@ -578,10 +578,10 @@ impl Ontology for VestibularOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_category_laws;
-    use praxis::ontology::reasoning::causation::CausalCategory;
-    use praxis::ontology::reasoning::mereology::MereologyCategory;
-    use praxis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::causation::CausalCategory;
+    use pr4xis::ontology::reasoning::mereology::MereologyCategory;
+    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
 
     #[test]

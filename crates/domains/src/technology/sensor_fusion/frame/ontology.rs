@@ -1,5 +1,5 @@
-use praxis::category::{Category, Entity};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::{Category, Entity};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::technology::sensor_fusion::frame::reference::ReferenceFrame;
 use crate::technology::sensor_fusion::frame::transform::FrameTransform;

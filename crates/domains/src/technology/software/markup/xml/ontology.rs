@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
 
 use super::super::ontology::{MarkupNode, NodeKind};
 
@@ -391,7 +391,7 @@ fn find_elements_recursive<'a>(
 /// W3C well-formedness axiom: an XML document must have exactly one root element.
 pub struct SingleRootElement;
 
-impl praxis::logic::Axiom for SingleRootElement {
+impl pr4xis::logic::Axiom for SingleRootElement {
     fn description(&self) -> &str {
         "an XML document must have exactly one root element (W3C XML 1.0 §2.1)"
     }
@@ -404,7 +404,7 @@ impl praxis::logic::Axiom for SingleRootElement {
 /// W3C well-formedness axiom: element tags must be properly nested.
 pub struct ProperNesting;
 
-impl praxis::logic::Axiom for ProperNesting {
+impl pr4xis::logic::Axiom for ProperNesting {
     fn description(&self) -> &str {
         "XML elements must be properly nested — no overlapping tags (W3C XML 1.0 §2.4)"
     }

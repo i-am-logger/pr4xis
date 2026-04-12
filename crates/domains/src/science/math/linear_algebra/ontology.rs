@@ -1,5 +1,5 @@
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::linear_algebra::decomposition;
 use crate::science::math::linear_algebra::determinant;

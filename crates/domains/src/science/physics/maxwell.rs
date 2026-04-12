@@ -7,7 +7,7 @@
 /// Gauss (magnetic):    ∇⋅B = 0
 /// Faraday:             ∇×E = -∂B/∂t
 /// Ampère-Maxwell:      ∇×B = μ₀J + μ₀ε₀∂E/∂t
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 pub const EPSILON_0: f64 = 8.854e-12; // vacuum permittivity (F/m)
 pub const MU_0: f64 = 1.257e-6; // vacuum permeability (H/m)

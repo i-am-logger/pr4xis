@@ -1,6 +1,6 @@
 use super::cube::Cube;
 use super::moves::Move;
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 impl Situation for Cube {
     fn describe(&self) -> String {

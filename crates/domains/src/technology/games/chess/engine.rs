@@ -1,7 +1,7 @@
 use super::board::Board;
 use super::piece::Color;
 use super::square::Square;
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 // =============================================================================
 // Situation: Board

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Praxis — Axiomatic Intelligence</title>
+  <title>Pr4xis — Axiomatic Intelligence</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -151,8 +151,8 @@
 </head>
 <body>
   <header>
-    <img src="logo.jpg" alt="Praxis" onerror="this.style.display='none'">
-    <h1>Praxis</h1>
+    <img src="logo.jpg" alt="Pr4xis" onerror="this.style.display='none'">
+    <h1>Pr4xis</h1>
     <span>Axiomatic intelligence — runs entirely in your browser</span>
     <div id="status" class="loading">Loading...</div>
   </header>
@@ -167,14 +167,14 @@
   </div>
 
   <script type="module">
-    import init, { Praxis } from '/chat/pkg/praxis_wasm.js';
+    import init, { Pr4xis } from '/chat/pkg/pr4xis_wasm.js';
 
     const chat = document.getElementById('chat');
     const input = document.getElementById('input');
     const send = document.getElementById('send');
     const status = document.getElementById('status');
 
-    let praxis = null;
+    let pr4xis = null;
 
     function addMessage(text, cls) {
       const div = document.createElement('div');
@@ -274,12 +274,12 @@
     async function initialize() {
       try {
         await init();
-        praxis = new Praxis();
-        status.textContent = `${praxis.concept_count().toLocaleString()} concepts`;
+        pr4xis = new Pr4xis();
+        status.textContent = `${pr4xis.concept_count().toLocaleString()} concepts`;
         status.className = 'ready';
         addMessage(
-          `praxis — axiomatic intelligence\n` +
-          `  ${praxis.concept_count().toLocaleString()} concepts, ${praxis.word_count().toLocaleString()} words\n` +
+          `pr4xis — axiomatic intelligence\n` +
+          `  ${pr4xis.concept_count().toLocaleString()} concepts, ${pr4xis.word_count().toLocaleString()} words\n` +
           `  running entirely in your browser — no server`,
           'info'
         );
@@ -295,13 +295,13 @@
 
     function handleSend() {
       const text = input.value.trim();
-      if (!text || !praxis) return;
+      if (!text || !pr4xis) return;
 
       addMessage(text, 'user');
       input.value = '';
 
       const t0 = performance.now();
-      const raw = praxis.chat(text);
+      const raw = pr4xis.chat(text);
       const elapsed = performance.now() - t0;
       try {
         const result = JSON.parse(raw);

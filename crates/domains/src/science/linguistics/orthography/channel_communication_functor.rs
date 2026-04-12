@@ -1,4 +1,4 @@
-use praxis::category::Functor;
+use pr4xis::category::Functor;
 
 use super::channel::*;
 use crate::science::information::communication::ontology::*;
@@ -54,7 +54,7 @@ impl Functor for ChannelToCommunication {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_functor_laws;
+    use pr4xis::category::validate::check_functor_laws;
 
     #[test]
     fn functor_laws() {

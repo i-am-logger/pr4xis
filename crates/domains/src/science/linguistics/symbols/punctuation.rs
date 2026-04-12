@@ -1,4 +1,4 @@
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 /// Punctuation — written marks that structure and modify meaning.
 ///

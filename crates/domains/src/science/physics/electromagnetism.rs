@@ -2,7 +2,7 @@
 /// - Situation: Circuit (V, I, R)
 /// - Axiom: Ohm's law V=IR enforced on every change
 /// - Actions: set voltage, set resistance (current derived)
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 pub const K_E: f64 = 8.988e9;
 

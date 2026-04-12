@@ -11,8 +11,8 @@
 /// Vogix16 adds semantic names to Base16 slots.
 /// Ansi16 maps to terminal SGR codes (ECMA-48).
 use super::base16::ColorSlot;
-use praxis::category::Entity;
-use praxis::ontology::Axiom;
+use pr4xis::category::Entity;
+use pr4xis::ontology::Axiom;
 
 /// Color scheme type — each defines a different mapping/naming convention
 /// over the same underlying color slots.

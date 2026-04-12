@@ -1,7 +1,7 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
-use praxis::ontology::Quality;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::Quality;
 
 use super::pos::*;
 

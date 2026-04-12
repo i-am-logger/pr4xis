@@ -1,12 +1,12 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/praxis",
+    "crates/pr4xis",
     "crates/domains",
     "crates/examples",
     "crates/cli",
     "crates/chat",
     "crates/web",
 ]
-# praxis-wasm excluded from default workspace (needs wasm target)
+# pr4xis-wasm excluded from default workspace (needs wasm target)
 exclude = ["crates/wasm"]

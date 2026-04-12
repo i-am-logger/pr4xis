@@ -1,4 +1,4 @@
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 /// Grammatical number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

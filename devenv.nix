@@ -4,7 +4,7 @@
 , ...
 }:
 let
-  cargoToml = builtins.fromTOML (builtins.readFile ./crates/praxis/Cargo.toml);
+  cargoToml = builtins.fromTOML (builtins.readFile ./crates/pr4xis/Cargo.toml);
   packageName = cargoToml.package.name;
   packageVersion = cargoToml.package.version;
   packageDescription = cargoToml.package.description or "";
@@ -71,7 +71,7 @@ in
   '';
 
   scripts.dev-wasm.exec = ''
-    echo "Building praxis-wasm..."
+    echo "Building pr4xis-wasm..."
     cd crates/wasm
     wasm-pack build --target web --release
     echo "Copying WASM to docs/chat/pkg/..."
@@ -107,10 +107,10 @@ in
     echo "Building presentation..."
     marp docs/presentations/overview.md -o docs/index.html --html 2>/dev/null || true
     echo ""
-    echo "Starting praxis-web with live reload..."
+    echo "Starting pr4xis-web with live reload..."
     echo "Watching crates/ for changes — WASM rebuilds automatically."
     echo ""
-    cargo run -p praxis-web --release
+    cargo run -p pr4xis-web --release
   '';
 
   # Environment variables

@@ -1,6 +1,6 @@
 use super::color::SimonColor;
 use super::game::{Game, GameState};
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 impl Situation for Game {
     fn describe(&self) -> String {

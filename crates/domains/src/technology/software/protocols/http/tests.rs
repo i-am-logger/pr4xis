@@ -1,5 +1,5 @@
 use super::*;
-use praxis::engine::EngineError;
+use pr4xis::engine::EngineError;
 use proptest::prelude::*;
 
 fn arb_method() -> impl Strategy<Value = Method> {

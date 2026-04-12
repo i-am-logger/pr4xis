@@ -1,4 +1,4 @@
-use praxis::category::validate::check_category_laws;
+use pr4xis::category::validate::check_category_laws;
 
 use super::ontology::*;
 
@@ -129,7 +129,7 @@ fn comment_is_preserved() {
     assert_eq!(node.value.as_deref(), Some("this is a comment"));
 }
 
-use praxis::category::Category;
+use pr4xis::category::Category;
 
 // =============================================================================
 // Property-based tests

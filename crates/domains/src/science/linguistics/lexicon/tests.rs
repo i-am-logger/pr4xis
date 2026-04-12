@@ -1,7 +1,7 @@
 use crate::science::linguistics::language::Language;
-use praxis::category::Category;
-use praxis::category::validate::check_category_laws;
-use praxis::ontology::Quality;
+use pr4xis::category::Category;
+use pr4xis::category::validate::check_category_laws;
+use pr4xis::ontology::Quality;
 
 use super::ontology::*;
 use super::pos::*;

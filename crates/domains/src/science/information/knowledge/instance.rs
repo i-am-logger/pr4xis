@@ -24,7 +24,7 @@ impl SelfModelInstance {
         let total_concepts = components.iter().map(|v| v.concepts).sum();
         let total_morphisms = components.iter().map(|v| v.morphisms).sum();
         Self {
-            name: "praxis",
+            name: "pr4xis",
             version: env!("CARGO_PKG_VERSION"),
             awareness: AwarenessLevel::MetaSelf,
             components,

@@ -25,7 +25,7 @@
 //! - Mac Lane 1971: Categories for the Working Mathematician, Ch. IV
 //! - Awodey 2010: Category Theory, Ch. 9
 
-use praxis::category::{Adjunction, Functor, Relationship};
+use pr4xis::category::{Adjunction, Functor, Relationship};
 
 // =============================================================================
 // 1. Analysis ⊣ Synthesis (Acoustics ↔ Signal Processing)
@@ -516,9 +516,9 @@ impl Adjunction for DiagnosisTreatment {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_functor_laws;
-    use praxis::category::{Category, Entity};
-    use praxis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::{Category, Entity};
+    use pr4xis::ontology::reasoning::analogy::Analogy;
 
     // -- Right adjoint functor law tests --
 

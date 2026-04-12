@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Bank {
@@ -143,7 +143,7 @@ pub fn new_puzzle() -> Engine<Crossing> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::engine::EngineError;
+    use pr4xis::engine::EngineError;
     use proptest::prelude::*;
 
     fn arb_crossing() -> impl Strategy<Value = Crossing> {

@@ -12,11 +12,11 @@
 //! - Fields & Levin 2022: Competency in Navigating Arbitrary Spaces
 //! - Levin 2014: Molecular bioelectricity in developmental biology
 
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::reasoning::causation::{self, CausalDef};
-use praxis::ontology::reasoning::opposition::{self, OppositionDef};
-use praxis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::reasoning::causation::{self, CausalDef};
+use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
+use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
 // TAME Competency Levels
@@ -607,7 +607,7 @@ impl Axiom for TargetMorphologyCrossDomainEquivalence {
     fn holds(&self) -> bool {
         use crate::science::biomedical::bioelectricity::regeneration_functor::BioelectricToRegeneration;
         use crate::science::biomedical::regeneration::ontology::RegenerationEntity;
-        use praxis::category::Functor;
+        use pr4xis::category::Functor;
         BioelectricToRegeneration::map_object(&BioelectricEntity::TargetMorphology)
             == RegenerationEntity::TargetMorphology
     }
@@ -651,8 +651,8 @@ impl Ontology for BioelectricOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_category_laws;
-    use praxis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 
     // -- Axiom tests --
 
@@ -989,7 +989,7 @@ mod tests {
 
     #[test]
     fn test_bioelectric_signal_causal_category_laws() {
-        use praxis::ontology::reasoning::causation::CausalCategory;
+        use pr4xis::ontology::reasoning::causation::CausalCategory;
         check_category_laws::<CausalCategory<BioelectricSignalCausalGraph>>().unwrap();
     }
 

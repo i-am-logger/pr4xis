@@ -1,4 +1,4 @@
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 /// A special symbol — a character whose meaning is defined
 /// by the language that uses it, not by universal convention.

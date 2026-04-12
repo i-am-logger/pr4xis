@@ -248,7 +248,7 @@ mod tests {
         // "Are you a computer?"
         // Needs: self-model ontology (praxis knowing what it IS)
         // Source: Every Loebner Prize (Shah & Pell 2003)
-        todo!("self-model ontology: I am praxis, an ontological reasoning system");
+        todo!("self-model ontology: I am pr4xis, an ontological reasoning system");
     }
 
     #[test]

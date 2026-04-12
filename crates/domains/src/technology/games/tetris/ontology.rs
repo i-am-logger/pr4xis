@@ -1,6 +1,6 @@
 use super::piece::PieceKind;
-use praxis::category::Entity;
-use praxis::ontology::Quality;
+use pr4xis::category::Entity;
+use pr4xis::ontology::Quality;
 
 /// Tetris piece kinds as entities.
 impl Entity for PieceKind {

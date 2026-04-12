@@ -1,4 +1,4 @@
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 /// A numeral system — how numbers are represented in writing.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

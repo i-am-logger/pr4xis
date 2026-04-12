@@ -1,4 +1,4 @@
-use praxis::ontology::{Axiom, Ontology};
+use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::science::math::rigid_motion::ontology::{
     Associativity, CompositionConsistency, IdentityElement, InverseExists, RigidMotionOntology,

@@ -9,12 +9,12 @@
 //! - Lisker & Abramson 1964: voice onset time
 //! - ANSI S3.5-1997: Speech Intelligibility Index
 
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::reasoning::causation::{self, CausalDef};
-use praxis::ontology::reasoning::mereology::{self, MereologyDef};
-use praxis::ontology::reasoning::opposition::{self, OppositionDef};
-use praxis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::reasoning::causation::{self, CausalDef};
+use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
+use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
+use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
 // Entity
@@ -592,10 +592,10 @@ impl Ontology for SpeechOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_category_laws;
-    use praxis::ontology::reasoning::causation::CausalCategory;
-    use praxis::ontology::reasoning::mereology::MereologyCategory;
-    use praxis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::causation::CausalCategory;
+    use pr4xis::ontology::reasoning::mereology::MereologyCategory;
+    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
 
     #[test]

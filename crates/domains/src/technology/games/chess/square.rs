@@ -1,4 +1,4 @@
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Square {

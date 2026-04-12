@@ -1,5 +1,5 @@
-use praxis::category::validate::check_category_laws;
-use praxis::ontology::{Axiom, Ontology};
+use pr4xis::category::validate::check_category_laws;
+use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::technology::perception::occupancy::engine::OccupancyGrid;
 use crate::technology::perception::occupancy::ontology::*;

@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
 
 // RDF 1.1 Concepts and Abstract Syntax — W3C Recommendation (2014)
 // https://www.w3.org/TR/rdf11-concepts/
@@ -266,7 +266,7 @@ impl RdfVocabulary {
 /// W3C axiom: Literals cannot be subjects (RDF 1.1 §3).
 pub struct LiteralsCannotBeSubjects;
 
-impl praxis::logic::Axiom for LiteralsCannotBeSubjects {
+impl pr4xis::logic::Axiom for LiteralsCannotBeSubjects {
     fn description(&self) -> &str {
         "RDF literals cannot appear in subject position (W3C RDF 1.1 §3)"
     }
@@ -279,7 +279,7 @@ impl praxis::logic::Axiom for LiteralsCannotBeSubjects {
 /// W3C axiom: Predicates must be IRIs — they are Properties (RDF 1.1 §3).
 pub struct PredicatesMustBeProperties;
 
-impl praxis::logic::Axiom for PredicatesMustBeProperties {
+impl pr4xis::logic::Axiom for PredicatesMustBeProperties {
     fn description(&self) -> &str {
         "RDF predicates must be IRI references (rdf:Property), not blank nodes or literals (W3C RDF 1.1 §3)"
     }

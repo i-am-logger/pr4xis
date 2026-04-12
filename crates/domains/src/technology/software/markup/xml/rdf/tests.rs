@@ -1,7 +1,7 @@
 use super::ontology::*;
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::logic::Axiom;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::logic::Axiom;
 
 // =============================================================================
 // Category law tests
@@ -144,7 +144,7 @@ fn morphism_set_is_nonempty() {
 
 #[test]
 fn category_laws() {
-    use praxis::category::validate::check_category_laws;
+    use pr4xis::category::validate::check_category_laws;
     check_category_laws::<RdfCategory>().unwrap();
 }
 

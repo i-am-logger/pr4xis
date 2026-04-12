@@ -1,6 +1,6 @@
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
-use praxis::category::{Category, Functor};
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
+use pr4xis::category::{Category, Functor};
 
 use super::control::*;
 
@@ -284,7 +284,7 @@ impl Functor for ControlToEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::{check_category_laws, check_functor_laws};
+    use pr4xis::category::validate::{check_category_laws, check_functor_laws};
 
     #[test]
     fn engine_category_laws() {

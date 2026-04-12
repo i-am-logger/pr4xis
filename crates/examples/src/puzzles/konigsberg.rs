@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 use std::collections::HashSet;
 
 /// Bridges of Königsberg: traverse all edges exactly once.
@@ -180,7 +180,7 @@ pub fn new_graph(graph: Graph, start: usize) -> Engine<CrossBridge> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::engine::EngineError;
+    use pr4xis::engine::EngineError;
     use proptest::prelude::*;
 
     #[test]

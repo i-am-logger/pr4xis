@@ -1,7 +1,7 @@
 use super::authority::Authority;
 use super::lifecycle::PhaseTag;
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::{Axiom, Quality};
 use std::collections::HashMap;
 
 /// Valence of a legal term.

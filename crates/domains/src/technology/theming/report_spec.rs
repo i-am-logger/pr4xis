@@ -15,7 +15,7 @@ use super::visualization::{
     AccuracyRank, DataLevel, GeomType, InteractionLevel, PerceptualTask, VisualVariable,
     suitable_encodings, suitable_geoms,
 };
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::ontology::{Axiom, Quality};
 
 /// A data field in the report — name + measurement level.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -285,7 +285,7 @@ impl Axiom for OverrideWarns {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::Entity;
+    use pr4xis::category::Entity;
 
     #[test]
     fn test_theme_report_has_8_fields() {

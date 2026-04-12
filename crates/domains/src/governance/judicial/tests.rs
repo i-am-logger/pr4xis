@@ -1,9 +1,9 @@
 use super::*;
 use chrono::{NaiveDate, Utc};
-use praxis::category::{Category, Entity as CategoryEntity};
-use praxis::engine::{Action, EngineError, Precondition, Situation};
-use praxis::logic::Axiom;
-use praxis::ontology::Quality;
+use pr4xis::category::{Category, Entity as CategoryEntity};
+use pr4xis::engine::{Action, EngineError, Precondition, Situation};
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Quality;
 use proptest::prelude::*;
 
 fn date(y: i32, m: u32, d: u32) -> NaiveDate {
@@ -2505,7 +2505,7 @@ fn test_phase_tag_entity_variants() {
 
 #[test]
 fn test_phase_transition_rel_source_target() {
-    use praxis::category::Relationship;
+    use pr4xis::category::Relationship;
     let rel = PhaseTransitionRel {
         from: PhaseTag::Filed,
         to: PhaseTag::Discovery,
@@ -2516,7 +2516,7 @@ fn test_phase_transition_rel_source_target() {
 
 #[test]
 fn case_lifecycle_category_laws() {
-    use praxis::category::validate::check_category_laws;
+    use pr4xis::category::validate::check_category_laws;
     check_category_laws::<CaseLifecycleCategory>().unwrap();
 }
 

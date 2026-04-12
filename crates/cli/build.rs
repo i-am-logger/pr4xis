@@ -12,10 +12,10 @@ fn main() {
     println!("cargo:rerun-if-changed={}", wordnet_path);
 
     let path = Path::new(wordnet_path);
-    let builder = praxis::codegen::wordnet::parse_wordnet_xml(path)
+    let builder = pr4xis::codegen::wordnet::parse_wordnet_xml(path)
         .expect("failed to parse WordNet XML at build time");
 
-    let config = praxis::codegen::GenerateConfig::new("english_codegen", "ConceptId")
+    let config = pr4xis::codegen::GenerateConfig::new("english_codegen", "ConceptId")
         .taxonomy("EnglishTaxonomy")
         .equivalence("EnglishEquivalence")
         .opposition("EnglishOpposition")

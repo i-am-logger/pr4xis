@@ -1,9 +1,9 @@
 use wasm_bindgen::prelude::*;
 
-use praxis_domains::science::linguistics::english::English;
-use praxis_domains::science::linguistics::language;
+use pr4xis_domains::science::linguistics::english::English;
+use pr4xis_domains::science::linguistics::language;
 
-// Praxis WASM — the entire chatbot runs in the browser.
+// Pr4xis WASM — the entire chatbot runs in the browser.
 //
 // No server. No API. The ontology IS in the binary.
 // The browser IS the runtime.
@@ -22,18 +22,18 @@ mod codegen_output {
 }
 
 #[wasm_bindgen]
-pub struct Praxis {
+pub struct Pr4xis {
     english: English,
 }
 
-impl Default for Praxis {
+impl Default for Pr4xis {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[wasm_bindgen]
-impl Praxis {
+impl Pr4xis {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         console_error_panic_hook::set_once();
@@ -42,9 +42,9 @@ impl Praxis {
         }
     }
 
-    /// Process input through the full praxis-chat pipeline.
+    /// Process input through the full pr4xis-chat pipeline.
     pub fn chat(&self, input: &str) -> String {
-        let result = praxis_chat::process_with_metadata(&self.english, input);
+        let result = pr4xis_chat::process_with_metadata(&self.english, input);
         let tps = if result.duration_us > 0 {
             (result.token_count as u64 * 1_000_000) / result.duration_us
         } else {
@@ -71,7 +71,7 @@ impl Praxis {
 
     /// The eigenform — the system describes itself through the SelfModel ontology.
     pub fn self_describe(&self) -> String {
-        praxis_chat::self_describe(&self.english)
+        pr4xis_chat::self_describe(&self.english)
     }
 }
 

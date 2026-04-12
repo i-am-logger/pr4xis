@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::validate::check_category_laws;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::validate::check_category_laws;
 
 use super::ontology::*;
 
@@ -48,7 +48,7 @@ fn turn_management_controls_participant() {
 
 mod prop {
     use super::*;
-    use praxis::category::Category;
+    use pr4xis::category::Category;
     use proptest::prelude::*;
 
     fn arb_dialogue() -> impl Strategy<Value = DialogueConcept> {

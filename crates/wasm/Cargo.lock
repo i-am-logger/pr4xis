@@ -143,37 +143,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "praxis"
-version = "0.2.0"
+name = "pr4xis"
+version = "0.3.0"
 dependencies = [
  "quick-xml",
 ]
 
 [[package]]
-name = "praxis-chat"
-version = "0.1.0"
+name = "pr4xis-chat"
+version = "0.1.1"
 dependencies = [
- "praxis",
- "praxis-domains",
+ "pr4xis",
+ "pr4xis-domains",
 ]
 
 [[package]]
-name = "praxis-domains"
-version = "0.2.0"
+name = "pr4xis-domains"
+version = "0.3.0"
 dependencies = [
  "chrono",
- "praxis",
+ "pr4xis",
  "serde",
 ]
 
 [[package]]
-name = "praxis-wasm"
+name = "pr4xis-wasm"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
- "praxis",
- "praxis-chat",
- "praxis-domains",
+ "pr4xis",
+ "pr4xis-chat",
+ "pr4xis-domains",
  "wasm-bindgen",
 ]
 

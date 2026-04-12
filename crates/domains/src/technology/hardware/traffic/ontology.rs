@@ -1,5 +1,5 @@
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::{Axiom, Quality};
 
 /// Traffic directions at an intersection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_category_laws() {
-        praxis::category::validate::check_category_laws::<TrafficCategory>().unwrap();
+        pr4xis::category::validate::check_category_laws::<TrafficCategory>().unwrap();
     }
 
     #[test]

@@ -1,6 +1,6 @@
-use praxis::category::Entity;
-use praxis::ontology::reasoning::taxonomy::{self, NoCycles, TaxonomyCategory, TaxonomyDef};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::Entity;
+use pr4xis::ontology::reasoning::taxonomy::{self, NoCycles, TaxonomyCategory, TaxonomyDef};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Coupling level for INS/GNSS integration.
 ///

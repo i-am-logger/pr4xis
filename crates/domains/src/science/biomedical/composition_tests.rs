@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod tests {
-    use praxis::category::{Category, Entity, Functor};
+    use pr4xis::category::{Category, Entity, Functor};
 
     // -----------------------------------------------------------------------
     // Test 1: pharmacology -> molecular -> bioelectricity

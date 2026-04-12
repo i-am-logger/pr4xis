@@ -1,5 +1,5 @@
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::governance::compliance::escalation::EscalationLevel;
 use crate::governance::compliance::law;

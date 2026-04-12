@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// Two jugs with different capacities. Measure a target amount.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -108,7 +108,7 @@ pub fn new_puzzle(cap_a: u32, cap_b: u32, target: u32) -> Engine<JugAction> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::engine::EngineError;
+    use pr4xis::engine::EngineError;
     use proptest::prelude::*;
 
     fn arb_action() -> impl Strategy<Value = JugAction> {

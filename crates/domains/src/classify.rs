@@ -3,11 +3,11 @@
 // Each domain declares what type of Being it models, per DOLCE upper ontology.
 // Reference: Masolo et al., WonderWeb Deliverable D18 (2003)
 //
-// The Classified trait lives in praxis::ontology::upper::classify.
+// The Classified trait lives in pr4xis::ontology::upper::classify.
 // These impls apply it to domain categories.
 
-use praxis::ontology::upper::being::Being;
-use praxis::ontology::upper::classify::Classified;
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 
 // =============================================================================
 // Science domains

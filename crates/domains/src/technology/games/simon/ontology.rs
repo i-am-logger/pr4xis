@@ -1,6 +1,6 @@
 use super::color::SimonColor;
-use praxis::category::Entity;
-use praxis::ontology::Quality;
+use pr4xis::category::Entity;
+use pr4xis::ontology::Quality;
 
 impl Entity for SimonColor {
     fn variants() -> Vec<Self> {

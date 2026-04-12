@@ -12,7 +12,7 @@
 ///
 /// Use `is_base16()` to check if a slot belongs to the Base16 subset.
 /// Use `SchemeType::slots()` to get only the slots for a specific scheme.
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 /// A named color slot. Base16 uses 16 (base00-0F), Base24 uses all 24.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

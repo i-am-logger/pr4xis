@@ -14,9 +14,9 @@
 #[cfg(test)]
 mod tests {
 
-    use praxis_domains::science::math::linear_algebra::positive_definite;
+    use pr4xis_domains::science::math::linear_algebra::positive_definite;
 
-    use praxis_domains::technology::tracking::single_target::engine::*;
+    use pr4xis_domains::technology::tracking::single_target::engine::*;
 
     #[test]
     fn constant_velocity_tracker_converges() {

@@ -5,7 +5,7 @@
 /// - Actions: add path, compute amplitude
 ///
 /// Simplified: discrete paths on a grid, each path has a phase.
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// A path from point A to point B through intermediate points.
 #[derive(Debug, Clone, PartialEq)]

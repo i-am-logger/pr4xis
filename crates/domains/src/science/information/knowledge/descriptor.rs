@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::ontology::upper::being::Being;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::ontology::upper::being::Being;
 
 // Vocabulary descriptors — runtime instances of the KnowledgeBase ontology.
 //
@@ -249,7 +249,7 @@ fn descriptor<C, E>(
     source: &'static str,
 ) -> VocabularyDescriptor
 where
-    C: Category + praxis::ontology::upper::classify::Classified,
+    C: Category + pr4xis::ontology::upper::classify::Classified,
     E: Entity,
 {
     VocabularyDescriptor {

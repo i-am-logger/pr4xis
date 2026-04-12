@@ -13,7 +13,7 @@
 //! NOVEL CONTRIBUTION: this is a machine-verifiable methodology for
 //! detecting incompleteness in scientific ontologies.
 
-use praxis::category::{Entity, Functor};
+use pr4xis::category::{Entity, Functor};
 
 use crate::science::biomedical::bioelectricity::biology_functor::BioelectricToBiology;
 use crate::science::biomedical::bioelectricity::molecular_functor::BioelectricToMolecular;
@@ -294,7 +294,7 @@ mod tests {
     use crate::science::biomedical::molecular::ontology::{
         FunctionalContext, MolecularFunctionalContext,
     };
-    use praxis::ontology::reasoning::context;
+    use pr4xis::ontology::reasoning::context;
 
     // -----------------------------------------------------------------------
     // Molecular-Bioelectric gap analysis
@@ -619,7 +619,7 @@ mod tests {
         use crate::science::biomedical::biophysics::ontology::BiophysicsEntity;
         use crate::science::biomedical::mechanobiology::molecular_functor::MechanobiologyToMolecular;
         use crate::science::biomedical::mechanobiology::ontology::MechanobiologyEntity;
-        use praxis::category::Entity;
+        use pr4xis::category::Entity;
 
         // Measure collapse at each hop by counting unique targets
 

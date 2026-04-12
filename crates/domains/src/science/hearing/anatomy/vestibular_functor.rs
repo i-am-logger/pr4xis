@@ -4,7 +4,7 @@
 
 use crate::science::hearing::anatomy::ontology::*;
 use crate::science::hearing::vestibular::ontology::*;
-use praxis::category::{Functor, Relationship};
+use pr4xis::category::{Functor, Relationship};
 
 pub struct AnatomyToVestibular;
 
@@ -72,9 +72,9 @@ impl Functor for AnatomyToVestibular {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::Entity;
-    use praxis::category::validate::check_functor_laws;
-    use praxis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::Entity;
+    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
@@ -99,7 +99,7 @@ mod tests {
         }
     }
 
-    use praxis::category::Category;
+    use pr4xis::category::Category;
     use proptest::prelude::*;
 
     fn arb_auditory_entity() -> impl Strategy<Value = AuditoryEntity> {

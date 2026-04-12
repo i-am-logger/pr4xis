@@ -7,7 +7,7 @@
 ///
 /// These are building blocks for domain-specific formulas
 /// (color science, physics, signal processing).
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 
 /// A piecewise function on ℝ: applies different rules based on a threshold.
 ///

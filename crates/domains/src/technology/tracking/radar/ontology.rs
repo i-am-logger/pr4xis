@@ -1,5 +1,5 @@
-use praxis::category::Entity;
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::Entity;
+use pr4xis::ontology::{Axiom, Quality};
 
 /// Radar measurement components.
 ///

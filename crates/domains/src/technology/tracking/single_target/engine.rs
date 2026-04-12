@@ -17,7 +17,7 @@ pub fn new_cv_tracker_1d(
     initial_uncertainty: f64,
     _process_noise_intensity: f64,
     _measurement_noise: f64,
-) -> praxis::engine::Engine<FusionAction> {
+) -> pr4xis::engine::Engine<FusionAction> {
     let state = StateEstimate::new(
         Vector::new(vec![initial_pos, initial_vel]),
         Matrix::diagonal(&[initial_uncertainty, initial_uncertainty]),

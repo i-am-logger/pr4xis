@@ -1,8 +1,8 @@
 use super::ontology::*;
 use super::reader;
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::logic::Axiom;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::logic::Axiom;
 
 const SAMPLE_OWL: &str = r#"<?xml version="1.0"?>
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -286,7 +286,7 @@ fn owl_restriction_needs_property_axiom() {
 
 #[test]
 fn category_laws() {
-    use praxis::category::validate::check_category_laws;
+    use pr4xis::category::validate::check_category_laws;
     check_category_laws::<OwlCategory>().unwrap();
 }
 

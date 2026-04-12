@@ -3,7 +3,7 @@
 /// - Axiom: a² + b² = c² must hold at all times
 /// - Actions: scale, set leg (hypotenuse is always derived)
 /// - Enforcement: the theorem is a precondition on every transformation
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Triangle {

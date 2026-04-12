@@ -246,7 +246,7 @@ proptest! {
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
-use praxis::engine::Precondition;
+use pr4xis::engine::Precondition;
 
 #[test]
 fn engine_transpose_in_scale() {

@@ -1,7 +1,7 @@
 use super::board::Board;
 use super::piece::{Color, PieceKind};
 use super::square::Square;
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 /// Parse a PGN game string into a sequence of (from, to) coordinate moves.
 /// Handles SAN notation: e4, Nf3, Bxc4, O-O, O-O-O, Qh5+, Rd8#, etc.

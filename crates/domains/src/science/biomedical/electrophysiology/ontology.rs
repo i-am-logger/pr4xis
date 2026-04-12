@@ -8,10 +8,10 @@
 //! - Neher & Sakmann 1976: patch clamp technique
 //! - Bhatt et al. 2015: bioimpedance spectroscopy
 
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::reasoning::opposition::{self, OppositionDef};
-use praxis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
+use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
 // Entity
@@ -414,7 +414,7 @@ impl Axiom for CategoryLawsHold {
     }
 
     fn holds(&self) -> bool {
-        use praxis::category::validate::check_category_laws;
+        use pr4xis::category::validate::check_category_laws;
         check_category_laws::<ElectrophysiologyCategory>().is_ok()
     }
 }
@@ -569,8 +569,8 @@ impl Ontology for ElectrophysiologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_category_laws;
-    use praxis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
 
     // -- Entity count --

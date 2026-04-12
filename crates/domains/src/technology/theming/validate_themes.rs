@@ -6,8 +6,8 @@ use crate::science::colors::srgb;
 ///
 /// Loads base16/base24 YAML themes from the tinted-schemes dataset
 /// and validates each against the ontology axioms.
-use praxis::category::Entity;
-use praxis::ontology::Axiom;
+use pr4xis::category::Entity;
+use pr4xis::ontology::Axiom;
 use std::path::Path;
 /// Result of validating a single theme variant.
 #[derive(Debug)]

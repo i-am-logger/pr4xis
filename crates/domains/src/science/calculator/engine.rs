@@ -2,7 +2,7 @@ use super::calc::Calculator;
 use super::op::{BinaryOp, UnaryOp};
 use super::value::{AngleMode, Value};
 use crate::science::math::ontology::MathDomain;
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 impl Situation for Calculator {
     fn describe(&self) -> String {

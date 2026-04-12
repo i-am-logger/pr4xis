@@ -1,4 +1,4 @@
-use praxis::category::Relationship;
+use pr4xis::category::Relationship;
 
 use crate::technology::sensor_fusion::frame::reference::ReferenceFrame;
 

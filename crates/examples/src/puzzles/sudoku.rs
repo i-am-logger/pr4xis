@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// Sudoku: 9x9 grid, digits 1-9, no repeats in row/col/box.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,7 +158,7 @@ pub fn new_empty() -> Engine<Place> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::engine::EngineError;
+    use pr4xis::engine::EngineError;
     use proptest::prelude::*;
 
     #[test]

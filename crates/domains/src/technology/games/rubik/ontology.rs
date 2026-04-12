@@ -1,7 +1,7 @@
 use super::cube::Cube;
 use super::face::{Color, Face};
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::{Axiom, Quality};
 
 // =============================================================================
 // Entity: Face (6 faces of the cube)
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_rubik_category_laws() {
-        praxis::category::validate::check_category_laws::<RubikCategory>().unwrap();
+        pr4xis::category::validate::check_category_laws::<RubikCategory>().unwrap();
     }
 
     #[test]

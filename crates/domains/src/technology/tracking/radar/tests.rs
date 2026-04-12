@@ -1,7 +1,7 @@
 use crate::technology::tracking::radar::coordinate::*;
 use crate::technology::tracking::radar::engine::is_scan_rate_adequate;
 use crate::technology::tracking::radar::ontology::*;
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 
 #[test]
 fn range_non_negative() {

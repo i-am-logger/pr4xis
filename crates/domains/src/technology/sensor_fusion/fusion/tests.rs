@@ -1,8 +1,8 @@
 use crate::science::math::linear_algebra::matrix::Matrix;
 use crate::science::math::linear_algebra::positive_definite;
 use crate::science::math::linear_algebra::vector_space::Vector;
-use praxis::category::validate::check_category_laws;
-use praxis::ontology::{Axiom, Ontology};
+use pr4xis::category::validate::check_category_laws;
+use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::technology::sensor_fusion::fusion::engine::{FusionAction, new_fusion_engine};
 use crate::technology::sensor_fusion::fusion::ontology::*;

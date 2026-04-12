@@ -1,7 +1,7 @@
 use super::building::Building;
 use super::elevator::DoorState;
 use super::request::Request;
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 impl Situation for Building {
     fn describe(&self) -> String {

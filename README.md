@@ -101,8 +101,8 @@ graph LR
 ## Quick start
 
 ```rust
-use praxis::engine::Engine;
-use praxis_domains::technology::games::chess::{new_game, ChessAction, Square};
+use pr4xis::engine::Engine;
+use pr4xis_domains::technology::games::chess::{new_game, ChessAction, Square};
 
 let game = new_game()
     .next(ChessAction::new(Square::new(4, 1), Square::new(4, 3)))?  // e4
@@ -126,9 +126,9 @@ game.trace().dump()    // full history — every check, every result
 
 | Crate | Purpose |
 |---|---|
-| `praxis` | Core — category theory, ontology, reasoning, logic, engine |
-| `praxis-domains` | 123 domain ontologies with 61 proven cross-domain functors |
-| `praxis-examples` | 11 classic puzzles solved through ontological reasoning |
+| `pr4xis` | Core — category theory, ontology, reasoning, logic, engine |
+| `pr4xis-domains` | 123 domain ontologies with 61 proven cross-domain functors |
+| `pr4xis-examples` | 11 classic puzzles solved through ontological reasoning |
 
 ## Principles
 

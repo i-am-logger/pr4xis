@@ -1,5 +1,5 @@
 #![allow(clippy::needless_range_loop)]
-use praxis::engine::{Action, Situation};
+use pr4xis::engine::{Action, Situation};
 
 /// A GNSS pseudorange measurement from a single satellite.
 #[derive(Debug, Clone, PartialEq)]

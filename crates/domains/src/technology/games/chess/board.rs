@@ -1,6 +1,6 @@
 use super::piece::{Color, Piece, PieceKind};
 use super::square::Square;
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 /// A chess board with full rule enforcement.
 ///

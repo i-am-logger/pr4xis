@@ -5,8 +5,8 @@
 use super::base16::{ColorSlot, Polarity, SemanticRole};
 use crate::science::colors::rgb::Rgb;
 use crate::science::colors::srgb;
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::{Axiom, Quality};
 use std::collections::HashMap;
 
 /// A concrete color palette: binds each slot to an Rgb color.
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn test_category_laws() {
-        praxis::category::validate::check_category_laws::<ThemingCategory>().unwrap();
+        pr4xis::category::validate::check_category_laws::<ThemingCategory>().unwrap();
     }
 
     #[test]

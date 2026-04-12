@@ -2,7 +2,7 @@
 /// - Situation: a system with mass, velocity, height
 /// - Axiom: total mechanical energy (KE + PE) is conserved
 /// - Actions: change velocity or height (energy transforms, total constant)
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 pub const G: f64 = 9.81;
 

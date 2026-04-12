@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
 
 // OWL 2 Web Ontology Language — W3C Recommendation (2012)
 // https://www.w3.org/TR/owl2-syntax/
@@ -496,7 +496,7 @@ impl OwlOntology {
 /// W3C OWL 2 §5.8.1: Restriction must relate to a property.
 pub struct RestrictionNeedsProperty;
 
-impl praxis::logic::Axiom for RestrictionNeedsProperty {
+impl pr4xis::logic::Axiom for RestrictionNeedsProperty {
     fn description(&self) -> &str {
         "every owl:Restriction must have exactly one owl:onProperty (W3C OWL 2 §8.2)"
     }

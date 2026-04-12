@@ -2,7 +2,7 @@
 /// - Situation: a quantum particle (position uncertainty, momentum uncertainty)
 /// - Axiom: Heisenberg ΔxΔp ≥ ℏ/2 enforced
 /// - Actions: measure position (reduces Δx, increases Δp), measure momentum
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 pub const H: f64 = 6.626e-34;
 pub const HBAR: f64 = 1.055e-34;

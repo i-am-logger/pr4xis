@@ -1,5 +1,5 @@
-use praxis::category::entity::Entity;
-use praxis::logic::Axiom;
+use pr4xis::category::entity::Entity;
+use pr4xis::logic::Axiom;
 
 // Pregroup Grammar Ontology — parsing as group algebra.
 //
@@ -371,7 +371,7 @@ pub struct PregroupMorphism {
     pub product: PregroupType,
 }
 
-impl praxis::category::relationship::Relationship for PregroupMorphism {
+impl pr4xis::category::relationship::Relationship for PregroupMorphism {
     type Object = BasicType;
     fn source(&self) -> BasicType {
         self.source
@@ -387,7 +387,7 @@ impl praxis::category::relationship::Relationship for PregroupMorphism {
 /// Composition: product concatenation + contraction.
 pub struct PregroupCategory;
 
-impl praxis::category::Category for PregroupCategory {
+impl pr4xis::category::Category for PregroupCategory {
     type Object = BasicType;
     type Morphism = PregroupMorphism;
 
@@ -520,8 +520,8 @@ pub fn lambek_to_pregroup(lambek: &super::types::LambekType) -> PregroupType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_category_laws;
-    use praxis::logic::Axiom;
+    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::logic::Axiom;
 
     #[test]
     fn pregroup_category_laws() {
