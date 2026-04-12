@@ -13,7 +13,6 @@ use pr4xis::category::Entity;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::mereology;
-use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -261,6 +260,7 @@ mod tests {
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;
+    use pr4xis::ontology::reasoning::opposition;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
     #[test]

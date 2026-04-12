@@ -84,19 +84,19 @@ pub enum ImmunologyEvent {
     MechanicalStimulation,
 }
 
-/// Causal graph for the inflammatory cascade.
-///
-/// Normal healing path:
-///   TissueInjury -> NeutrophilRecruitment -> AcuteInflammationOnset
-///   -> MonocyteRecruitment -> M1Polarization -> ProInflammatoryResponse
-///   -> M1ToM2Transition -> AntiInflammatoryResponse -> TissueRemodeling
-///   -> RepairCompletion
-///
-/// Pathological path:
-///   ChronicStimulus -> FailedResolution -> FibrosisProgression
-///
-/// Vibration intervention (Weinheimer-Haus 2014):
-///   MechanicalStimulation -> M1ToM2Transition
+// Causal graph for the inflammatory cascade.
+//
+// Normal healing path:
+//   TissueInjury -> NeutrophilRecruitment -> AcuteInflammationOnset
+//   -> MonocyteRecruitment -> M1Polarization -> ProInflammatoryResponse
+//   -> M1ToM2Transition -> AntiInflammatoryResponse -> TissueRemodeling
+//   -> RepairCompletion
+//
+// Pathological path:
+//   ChronicStimulus -> FailedResolution -> FibrosisProgression
+//
+// Vibration intervention (Weinheimer-Haus 2014):
+//   MechanicalStimulation -> M1ToM2Transition
 define_ontology! {
     /// Immunology ontology: inflammation, macrophages, cytokines.
     pub ImmunologyOntologyMeta for ImmunologyCategory {
@@ -308,13 +308,13 @@ impl Quality for IsModulableByVibration {
 // Opposition (semantic contrasts)
 // ---------------------------------------------------------------------------
 
-/// Opposition pairs in the immunology domain.
-///
-/// - MacrophageM1 <-> MacrophageM2: pro-inflammatory vs pro-repair phenotypes
-/// - AcuteInflammation <-> Resolution: onset vs resolution of inflammation
-/// - ChronicInflammation <-> TissueRepair: pathological persistence vs healing
-/// - ProInflammatoryCytokine <-> AntiInflammatoryCytokine: opposing signaling classes
-/// - TNFAlpha <-> IL10: canonical pro- vs anti-inflammatory cytokines
+// Opposition pairs in the immunology domain.
+//
+// - MacrophageM1 <-> MacrophageM2: pro-inflammatory vs pro-repair phenotypes
+// - AcuteInflammation <-> Resolution: onset vs resolution of inflammation
+// - ChronicInflammation <-> TissueRepair: pathological persistence vs healing
+// - ProInflammatoryCytokine <-> AntiInflammatoryCytokine: opposing signaling classes
+// - TNFAlpha <-> IL10: canonical pro- vs anti-inflammatory cytokines
 
 // ---------------------------------------------------------------------------
 // Axioms

@@ -80,12 +80,12 @@ pub enum HematologyCausalEvent {
     FibrinFormation,
 }
 
-/// Causal graph for hematology.
-///
-/// Hemorrhage -> PlasmaVolumeLoss -> ElectrolyteImbalance
-/// Inflammation -> AcutePhaseResponse -> AlbuminDecrease
-/// AcidBaseDisturbance -> BicarbonateBuffering -> PHCorrection
-/// CoagulationCascade -> FibrinFormation
+// Causal graph for hematology.
+//
+// Hemorrhage -> PlasmaVolumeLoss -> ElectrolyteImbalance
+// Inflammation -> AcutePhaseResponse -> AlbuminDecrease
+// AcidBaseDisturbance -> BicarbonateBuffering -> PHCorrection
+// CoagulationCascade -> FibrinFormation
 define_ontology! {
     /// Hematology ontology: blood, plasma, electrolytes, properties.
     pub HematologyOntologyMeta for HematologyCategory {
@@ -213,13 +213,14 @@ impl Quality for AffectsOsmolarity {
 // Opposition
 // ---------------------------------------------------------------------------
 
-/// Opposition pairs in hematology.
-///
-/// - Hemorrhage ↔ CoagulationCascade (bleeding vs clotting) — modeled via
-///   causal events, but also as entity-level opposition using Platelet vs
-///   the abstract BloodComponent to capture the semantic contrast.
-/// - Albumin ↔ Globulin (transport vs immune function)
-/// - RedBloodCell ↔ WhiteBloodCell (oxygen transport vs immune defense)
+// Opposition pairs in hematology.
+//
+// - Hemorrhage ↔ CoagulationCascade (bleeding vs clotting) — modeled via
+//   causal events, but also as entity-level opposition using Platelet vs
+//   the abstract BloodComponent to capture the semantic contrast.
+// - Albumin ↔ Globulin (transport vs immune function)
+// - RedBloodCell ↔ WhiteBloodCell (oxygen transport vs immune defense)
+
 // ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------

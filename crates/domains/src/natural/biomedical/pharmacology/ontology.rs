@@ -282,11 +282,12 @@ impl Quality for IsEndogenouslyDerivable {
 // Opposition (semantic contrasts)
 // ---------------------------------------------------------------------------
 
-/// Opposition pairs in the pharmacology domain.
-///
-/// - Hyperpolarization ↔ Depolarization: opposite Vmem effects
-/// - GapJunctionOpening ↔ GapJunctionClosing: opposite GJ modulations
-/// - VoltageGatedBlocker ↔ VoltageGatedOpener: opposite drug classes
+// Opposition pairs in the pharmacology domain.
+//
+// - Hyperpolarization ↔ Depolarization: opposite Vmem effects
+// - GapJunctionOpening ↔ GapJunctionClosing: opposite GJ modulations
+// - VoltageGatedBlocker ↔ VoltageGatedOpener: opposite drug classes
+
 /// Axiom: pharmacology opposition is symmetric.
 pub struct PharmacologyOppositionSymmetric;
 

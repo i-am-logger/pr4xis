@@ -52,6 +52,11 @@ impl<T: Clone + Debug> NonEmpty<T> {
         1 + self.tail.len()
     }
 
+    /// NonEmpty is never empty — always has at least one element.
+    pub fn is_empty(&self) -> bool {
+        false
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         std::iter::once(&self.head).chain(self.tail.iter())
     }

@@ -303,11 +303,12 @@ impl Quality for ExpressedInEsophagus {
 // Opposition (semantic contrasts)
 // ---------------------------------------------------------------------------
 
-/// Opposition pairs in the molecular domain.
-///
-/// - Sodium ↔ Potassium: depolarizing vs repolarizing primary ions
-/// - Calcium ↔ Chloride: excitatory vs inhibitory signaling ions
-/// - Nav ↔ Kv: depolarization channel vs repolarization channel
+// Opposition pairs in the molecular domain.
+//
+// - Sodium ↔ Potassium: depolarizing vs repolarizing primary ions
+// - Calcium ↔ Chloride: excitatory vs inhibitory signaling ions
+// - Nav ↔ Kv: depolarization channel vs repolarization channel
+
 /// Axiom: molecular opposition is symmetric.
 pub struct MolecularOppositionSymmetric;
 

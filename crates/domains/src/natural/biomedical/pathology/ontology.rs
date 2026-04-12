@@ -112,16 +112,16 @@ pub enum PathologyCausalEvent {
     HighGradeProgression,
 }
 
-/// Causal graph for disease progression.
-///
-/// Main pathway: TissueInsult -> AcuteResponse -> ChronicAdaptation
-///               -> MetaplasticTransformation -> DysplasticProgression
-///               -> NeoplasticTransformation
-///
-/// Fibrotic branch: ChronicAdaptation -> FibroticRemodeling -> StrictureFormation
-///
-/// Dysplasia staging: DysplasticProgression -> LowGradeProgression
-///                    -> HighGradeProgression -> NeoplasticTransformation
+// Causal graph for disease progression.
+//
+// Main pathway: TissueInsult -> AcuteResponse -> ChronicAdaptation
+//               -> MetaplasticTransformation -> DysplasticProgression
+//               -> NeoplasticTransformation
+//
+// Fibrotic branch: ChronicAdaptation -> FibroticRemodeling -> StrictureFormation
+//
+// Dysplasia staging: DysplasticProgression -> LowGradeProgression
+//                    -> HighGradeProgression -> NeoplasticTransformation
 define_ontology! {
     /// Pathology ontology: disease states, staging, progression.
     pub PathologyOntologyMeta for PathologyCategory {
@@ -324,12 +324,13 @@ impl Quality for BarrettsStage {
 // Opposition (semantic contrasts)
 // ---------------------------------------------------------------------------
 
-/// Opposition pairs in pathology.
-///
-/// - Normal vs Neoplasia: health vs disease endpoint
-/// - Benign vs Malignant: non-progressive vs invasive
-/// - LowGrade vs HighGrade: mild vs severe dysplasia
-/// - Inflammation vs CellularAdaptation: acute vs chronic response
+// Opposition pairs in pathology.
+//
+// - Normal vs Neoplasia: health vs disease endpoint
+// - Benign vs Malignant: non-progressive vs invasive
+// - LowGrade vs HighGrade: mild vs severe dysplasia
+// - Inflammation vs CellularAdaptation: acute vs chronic response
+
 // ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------

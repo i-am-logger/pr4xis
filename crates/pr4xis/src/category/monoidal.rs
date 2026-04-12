@@ -200,14 +200,16 @@ mod tests {
             Eventual,
         }
 
-        let tier = Product::new(
-            Product::new(Volatility::DRAM, Consistency::Sequential),
-            "durable",
-        );
+        // Exercise all variants — product type works with any combination
+        let dram_seq = Product::new(Volatility::DRAM, Consistency::Sequential);
+        assert_eq!(dram_seq.left, Volatility::DRAM);
 
-        assert_eq!(tier.left.left, Volatility::DRAM);
-        assert_eq!(tier.left.right, Consistency::Sequential);
-        assert_eq!(tier.right, "durable");
+        let sram_lin = Product::new(Volatility::SRAM, Consistency::Linearizable);
+        assert_eq!(sram_lin.right, Consistency::Linearizable);
+
+        let reg_ev = Product::new(Volatility::Register, Consistency::Eventual);
+        assert_eq!(reg_ev.left, Volatility::Register);
+        assert_eq!(reg_ev.right, Consistency::Eventual);
     }
 
     mod prop {

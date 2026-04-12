@@ -49,6 +49,7 @@ use std::sync::Arc;
 /// assert_eq!(older.name, "Alice");
 /// ```
 #[derive(Clone)]
+#[allow(clippy::type_complexity)]
 pub struct Lens<S, A> {
     getter: Arc<dyn Fn(&S) -> A>,
     setter: Arc<dyn Fn(&S, A) -> S>,
@@ -108,6 +109,7 @@ impl<S: 'static, A: 'static> Lens<S, A> {
 ///
 /// `Prism<S, A>` can try to get an `A` from `S` (may fail),
 /// and can always construct an `S` from an `A`.
+#[allow(clippy::type_complexity)]
 pub struct Prism<S, A> {
     preview: Box<dyn Fn(&S) -> Option<A>>,
     review: Box<dyn Fn(A) -> S>,
@@ -247,7 +249,7 @@ mod tests {
 
         let ceo_lens = Lens::new(
             |c: &Company| c.ceo.clone(),
-            |c: &Company, p: Person| Company { ceo: p },
+            |_c: &Company, p: Person| Company { ceo: p },
         );
 
         let ceo_age = ceo_lens.compose(&age_lens());
@@ -292,7 +294,7 @@ mod tests {
 
     #[test]
     fn prism_enum_variant() {
-        #[derive(Clone, Debug)]
+        #[derive(Clone, Debug, PartialEq)]
         enum Shape {
             Circle(f64),
             Rect(f64, f64),
@@ -308,6 +310,17 @@ mod tests {
 
         assert_eq!(circle_prism.preview(&Shape::Circle(5.0)), Some(5.0));
         assert_eq!(circle_prism.preview(&Shape::Rect(3.0, 4.0)), None);
+
+        // Rect prism — exercises the other variant
+        let rect_prism = Prism::new(
+            |s: &Shape| match s {
+                Shape::Rect(w, h) => Some((*w, *h)),
+                _ => None,
+            },
+            |(w, h)| Shape::Rect(w, h),
+        );
+        assert_eq!(rect_prism.preview(&Shape::Rect(3.0, 4.0)), Some((3.0, 4.0)));
+        assert_eq!(rect_prism.review((5.0, 6.0)), Shape::Rect(5.0, 6.0));
     }
 
     // --- Practical: ontology taxonomy view ---

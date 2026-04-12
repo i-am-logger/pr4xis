@@ -57,7 +57,7 @@ pub enum ElectrophysiologyEntity {
 // Taxonomy (is-a)
 // ---------------------------------------------------------------------------
 
-/// Subsumption hierarchy for electrophysiology entities.
+// Subsumption hierarchy for electrophysiology entities.
 define_ontology! {
     /// Electrophysiology ontology: techniques, quantities, recording modes.
     pub ElectrophysiologyOntologyMeta for ElectrophysiologyCategory {
@@ -252,11 +252,12 @@ impl Quality for RequiresContactWithCell {
 // Opposition (semantic contrasts)
 // ---------------------------------------------------------------------------
 
-/// Opposition pairs in the electrophysiology domain.
-///
-/// - PatchClamp ↔ OpticalMapping: invasive/single-cell vs non-invasive/spatial
-/// - CurrentClamp ↔ VoltageClamp: measure voltage vs measure current
-/// - RestingPotential ↔ ActionPotential: steady-state vs transient
+// Opposition pairs in the electrophysiology domain.
+//
+// - PatchClamp ↔ OpticalMapping: invasive/single-cell vs non-invasive/spatial
+// - CurrentClamp ↔ VoltageClamp: measure voltage vs measure current
+// - RestingPotential ↔ ActionPotential: steady-state vs transient
+
 /// Axiom: electrophysiology opposition is symmetric.
 pub struct ElectrophysiologyOppositionSymmetric;
 

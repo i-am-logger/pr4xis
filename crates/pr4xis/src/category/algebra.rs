@@ -39,6 +39,7 @@ use std::fmt::Debug;
 ///
 /// assert_eq!(sum_alg.apply(&10, &[1, 2, 3]), 16);
 /// ```
+#[allow(clippy::type_complexity)]
 pub struct Algebra<A, F> {
     f: Box<dyn Fn(&A, &[F]) -> F>,
 }
@@ -75,6 +76,7 @@ impl<A: 'static, F: 'static> Algebra<A, F> {
 /// assert_eq!(val, 3);
 /// assert_eq!(children, vec![2]);
 /// ```
+#[allow(clippy::type_complexity)]
 pub struct Coalgebra<S, A> {
     f: Box<dyn Fn(&S) -> (A, Vec<S>)>,
 }
