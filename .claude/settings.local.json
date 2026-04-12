@@ -284,7 +284,8 @@
       "Bash(sed -i 's|src=\"logo.jpg\"|src=\"../praxis-logo-dark.jpg\"|' docs/chat/index.html)",
       "Bash(sed -i 's|url\\('\\\\''../praxis-logo-dark.jpg'\\\\''\\)|url\\('\\\\''../../praxis-logo-dark.jpg'\\\\''\\)|' docs/presentations/overview.md)",
       "Bash(sed -i 's|src=\"../praxis-logo-video-dark.mp4\"|src=\"../../praxis-logo-video-dark.mp4\"|' docs/presentations/overview.md)",
-      "Bash(sed -i 's|src=\"chat/index.html\"|src=\"../../index.html\"|' docs/presentations/overview.md)"
+      "Bash(sed -i 's|src=\"chat/index.html\"|src=\"../../index.html\"|' docs/presentations/overview.md)",
+      "Bash(gh pr:*)"
     ]
   }
 }

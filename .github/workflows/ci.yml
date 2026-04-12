@@ -118,6 +118,9 @@ jobs:
   release-please:
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     needs: [check]
     if: |
       always() &&
