@@ -268,7 +268,16 @@
       "Bash(cp /home/logger/Code/github/logger/pssst/crates/domains/src/science/adjunctions.rs /home/logger/Code/github/logger/praxis/crates/domains/src/science/hearing/adjunctions.rs)",
       "Bash(gh run:*)",
       "Bash(git lfs:*)",
-      "Bash(git submodule:*)"
+      "Bash(git submodule:*)",
+      "Bash(sed -i 's|praxis_domains::|pr4xis_domains::|g' crates/domains/benches/ontology_benchmarks.rs)",
+      "Bash(sed -i 's|name: \"praxis\"|name: \"pr4xis\"|g' crates/domains/src/science/information/knowledge/instance.rs)",
+      "Bash(sed -i 's|I am praxis, an|I am pr4xis, an|g' crates/domains/src/science/linguistics/lambek/turing_benchmark.rs)",
+      "Bash(sed -i 's|use praxis_chat as chat|use pr4xis_chat as chat|g' crates/cli/src/main.rs)",
+      "Bash(sed -i 's|println!\\(\"praxis —|println!\\(\"pr4xis —|g' crates/cli/src/main.rs)",
+      "Bash(sed -i 's|praxis_domains::|pr4xis_domains::|g' crates/chat/src/lib.rs crates/examples/src/sensor_fusion/falling_object.rs)",
+      "Bash(sed -i 's|eprintln!\\(\"praxis-web\"\\)|eprintln!\\(\"pr4xis-web\"\\)|g' crates/web/src/main.rs)",
+      "Bash(cargo generate-lockfile:*)",
+      "Bash(git rebase:*)"
     ]
   }
 }

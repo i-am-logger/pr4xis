@@ -1,5 +1,5 @@
 use super::lifecycle::{Case, CaseAction, PhaseTag};
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 impl Situation for Case {
     fn describe(&self) -> String {

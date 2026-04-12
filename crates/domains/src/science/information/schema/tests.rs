@@ -1,5 +1,5 @@
 use super::ontology::*;
-use praxis::category::Category;
+use pr4xis::category::Category;
 
 mod prop {
     use super::*;

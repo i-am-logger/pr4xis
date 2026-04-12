@@ -9,7 +9,7 @@ use super::base16::Polarity;
 /// - Base16 spec: variants are polarity-tagged (dark/light)
 /// - Vogix16 spec: variants have explicit ordering by luminance
 /// - WCAG 2.1: polarity derived from base00 relative luminance
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 
 /// Variant metadata — properties of a single theme variant.
 #[derive(Debug, Clone, PartialEq)]

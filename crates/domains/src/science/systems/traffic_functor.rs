@@ -1,6 +1,6 @@
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
-use praxis::category::{Category, Functor};
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
+use pr4xis::category::{Category, Functor};
 
 use super::ontology::{SystemConcept, SystemRelation, SystemRelationKind, SystemsCategory};
 

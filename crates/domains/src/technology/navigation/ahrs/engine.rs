@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Situation};
+use pr4xis::engine::{Action, Situation};
 
 /// AHRS attitude estimate (Euler angles in radians).
 #[derive(Debug, Clone, PartialEq)]

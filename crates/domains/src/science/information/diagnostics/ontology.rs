@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
 
 // Diagnostics ontology — the universal diagnostic cycle.
 //
@@ -311,7 +311,7 @@ impl Category for DiagnosticCategory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_category_laws;
+    use pr4xis::category::validate::check_category_laws;
 
     #[test]
     fn category_laws_hold() {

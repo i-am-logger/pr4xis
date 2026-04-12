@@ -1,5 +1,5 @@
 [package]
-name = "praxis-wasm"
+name = "pr4xis-wasm"
 version = "0.1.0"
 edition = "2024"
 authors = ["i-am-logger"]
@@ -11,10 +11,10 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 console_error_panic_hook = "0.1"
-praxis = { path = "../praxis" }
-praxis-chat = { path = "../chat" }
-praxis-domains = { path = "../domains" }
+pr4xis = { path = "../pr4xis" }
+pr4xis-chat = { path = "../chat" }
+pr4xis-domains = { path = "../domains" }
 wasm-bindgen = "0.2"
 
 [build-dependencies]
-praxis = { path = "../praxis", features = ["codegen"] }
+pr4xis = { path = "../pr4xis", features = ["codegen"] }

@@ -13,7 +13,7 @@
 /// - vim modal editing (Normal/Insert/Visual/Command)
 /// - Hyprland submaps (https://wiki.hypr.land/Configuring/Binds/#submaps)
 /// - macOS Mission Control (Desktop mode inspiration)
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 use std::collections::{HashMap, HashSet};
 /// A mode definition — part of a user-configured mode graph.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

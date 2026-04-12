@@ -1,5 +1,5 @@
 use super::*;
-use praxis::engine::{Action, EngineError};
+use pr4xis::engine::{Action, EngineError};
 use proptest::prelude::*;
 
 fn arb_int() -> impl Strategy<Value = i64> {
@@ -2322,7 +2322,7 @@ fn test_calc_action_describe() {
 
 #[test]
 fn test_calculator_situation_describe() {
-    use praxis::engine::Situation;
+    use pr4xis::engine::Situation;
     let calc = Calculator::new();
     let desc = calc.describe();
     assert!(desc.contains("display=0"));
@@ -2332,7 +2332,7 @@ fn test_calculator_situation_describe() {
 
 #[test]
 fn test_calculator_situation_not_terminal() {
-    use praxis::engine::Situation;
+    use pr4xis::engine::Situation;
     let calc = Calculator::new();
     assert!(!calc.is_terminal());
 }
@@ -2533,7 +2533,7 @@ fn test_engine_angle_mode_with_trig() {
 #[test]
 fn test_domain_check_describe() {
     use super::engine::DomainCheck;
-    use praxis::engine::Precondition;
+    use pr4xis::engine::Precondition;
     let dc = DomainCheck;
     assert!(dc.describe().contains("domain"));
 }
@@ -2541,7 +2541,7 @@ fn test_domain_check_describe() {
 #[test]
 fn test_number_domain_check_describe() {
     use super::engine::NumberDomainCheck;
-    use praxis::engine::Precondition;
+    use pr4xis::engine::Precondition;
     let ndc = NumberDomainCheck;
     assert!(ndc.describe().contains("domain hierarchy"));
 }
@@ -2553,7 +2553,7 @@ fn test_number_domain_check_describe() {
 #[test]
 fn test_domain_check_satisfied_for_non_math_actions() {
     use super::engine::DomainCheck;
-    use praxis::engine::Precondition;
+    use pr4xis::engine::Precondition;
     let calc = Calculator::new();
     let dc = DomainCheck;
     let result = dc.check(&calc, &CalcAction::Clear);
@@ -2571,7 +2571,7 @@ fn test_domain_check_satisfied_for_non_math_actions() {
 #[test]
 fn test_domain_check_satisfied_for_valid_unary() {
     use super::engine::DomainCheck;
-    use praxis::engine::Precondition;
+    use pr4xis::engine::Precondition;
     let mut calc = Calculator::new();
     calc.enter(Value::int(4));
     let dc = DomainCheck;
@@ -2582,7 +2582,7 @@ fn test_domain_check_satisfied_for_valid_unary() {
 #[test]
 fn test_domain_check_violated_for_invalid_unary() {
     use super::engine::DomainCheck;
-    use praxis::engine::Precondition;
+    use pr4xis::engine::Precondition;
     let mut calc = Calculator::new();
     calc.enter(Value::int(-4));
     let dc = DomainCheck;
@@ -2593,7 +2593,7 @@ fn test_domain_check_violated_for_invalid_unary() {
 #[test]
 fn test_domain_check_satisfied_for_valid_binary() {
     use super::engine::DomainCheck;
-    use praxis::engine::Precondition;
+    use pr4xis::engine::Precondition;
     let mut calc = Calculator::new();
     calc.enter(Value::int(10));
     let dc = DomainCheck;
@@ -2604,7 +2604,7 @@ fn test_domain_check_satisfied_for_valid_binary() {
 #[test]
 fn test_domain_check_violated_for_div_by_zero() {
     use super::engine::DomainCheck;
-    use praxis::engine::Precondition;
+    use pr4xis::engine::Precondition;
     let mut calc = Calculator::new();
     calc.enter(Value::int(10));
     let dc = DomainCheck;

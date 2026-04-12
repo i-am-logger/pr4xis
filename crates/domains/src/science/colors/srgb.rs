@@ -8,7 +8,7 @@
 /// - W3C WCAG 2.1: relative luminance, contrast ratio, compliance levels
 use super::rgb::Rgb;
 use crate::science::math::functions::{Interval, LinearCombination, OffsetRatio, Piecewise};
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 
 /// sRGB electro-optical transfer function (EOTF).
 /// Converts gamma-encoded sRGB [0,1] to linear light [0,1].

@@ -11,16 +11,16 @@
 /// Source: Maybeck (1979), Vol 1, Chapter 1.
 #[cfg(test)]
 mod tests {
-    use praxis_domains::science::math::linear_algebra::matrix::Matrix;
-    use praxis_domains::science::math::linear_algebra::vector_space::Vector;
-    use praxis_domains::technology::sensor_fusion::fusion::engine::{
+    use pr4xis_domains::science::math::linear_algebra::matrix::Matrix;
+    use pr4xis_domains::science::math::linear_algebra::vector_space::Vector;
+    use pr4xis_domains::technology::sensor_fusion::fusion::engine::{
         FusionAction, new_fusion_engine,
     };
-    use praxis_domains::technology::sensor_fusion::state::estimate::StateEstimate;
+    use pr4xis_domains::technology::sensor_fusion::state::estimate::StateEstimate;
 
     #[test]
     fn falling_object_with_altimeter() {
-        let g = praxis_domains::science::math::quantity::constants::standard_gravity().value;
+        let g = pr4xis_domains::science::math::quantity::constants::standard_gravity().value;
         let h0 = 1000.0; // initial height
         let v0 = 0.0; // dropped from rest
 

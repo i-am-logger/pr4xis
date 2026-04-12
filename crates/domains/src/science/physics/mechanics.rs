@@ -3,7 +3,7 @@
 /// - Axioms: F=ma, mass conservation
 /// - Actions: apply force, free fall
 /// - Enforcement: Newton's laws are preconditions
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 pub const G: f64 = 6.674e-11;
 pub const EARTH_G: f64 = 9.81;

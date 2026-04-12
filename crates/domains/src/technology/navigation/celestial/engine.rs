@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Situation};
+use pr4xis::engine::{Action, Situation};
 
 /// A celestial observation: measured altitude and azimuth of a body.
 #[derive(Debug, Clone, PartialEq)]

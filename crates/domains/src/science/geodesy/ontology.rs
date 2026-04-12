@@ -1,5 +1,5 @@
-use praxis::category::{Category, Entity, Functor, Relationship};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::{Category, Entity, Functor, Relationship};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::geodesy::conversion;
 use crate::science::geodesy::coordinate::{Geodetic, Ned};

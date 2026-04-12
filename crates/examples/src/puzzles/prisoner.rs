@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// Prisoner's Dilemma: two players cooperate or defect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

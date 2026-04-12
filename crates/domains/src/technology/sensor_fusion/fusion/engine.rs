@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 use crate::science::math::linear_algebra::matrix::Matrix;
 use crate::science::math::linear_algebra::positive_definite;

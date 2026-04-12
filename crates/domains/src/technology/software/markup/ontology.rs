@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
 
 // Markup language ontology.
 //
@@ -271,7 +271,7 @@ impl MarkupNode {
 /// These are the universal axioms that ALL markup languages share.
 pub struct WellFormedDocument;
 
-impl praxis::logic::Axiom for WellFormedDocument {
+impl pr4xis::logic::Axiom for WellFormedDocument {
     fn description(&self) -> &str {
         "a well-formed markup document has exactly one root element"
     }

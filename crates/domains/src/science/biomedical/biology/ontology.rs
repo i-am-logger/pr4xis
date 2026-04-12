@@ -3,12 +3,12 @@
 //! Models the hierarchy: Cell → Tissue → Organ → Organism
 //! using praxis taxonomy (is-a) and mereology (has-a).
 
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::reasoning::causation::{self, CausalDef};
-use praxis::ontology::reasoning::mereology::{self, MereologyDef};
-use praxis::ontology::reasoning::opposition::{self, OppositionDef};
-use praxis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
-use praxis::ontology::{Axiom, Ontology, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::reasoning::causation::{self, CausalDef};
+use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
+use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
+use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
 // Entity
@@ -600,7 +600,7 @@ impl Axiom for MacrophageM1CrossDomainEquivalence {
     fn holds(&self) -> bool {
         use crate::science::biomedical::immunology::biology_functor::ImmunologyToBiology;
         use crate::science::biomedical::immunology::ontology::ImmunologyEntity;
-        use praxis::category::Functor;
+        use pr4xis::category::Functor;
         ImmunologyToBiology::map_object(&ImmunologyEntity::MacrophageM1)
             == BiologicalEntity::MacrophageM1
     }
@@ -618,7 +618,7 @@ impl Axiom for MacrophageM2CrossDomainEquivalence {
     fn holds(&self) -> bool {
         use crate::science::biomedical::immunology::biology_functor::ImmunologyToBiology;
         use crate::science::biomedical::immunology::ontology::ImmunologyEntity;
-        use praxis::category::Functor;
+        use pr4xis::category::Functor;
         ImmunologyToBiology::map_object(&ImmunologyEntity::MacrophageM2)
             == BiologicalEntity::MacrophageM2
     }
@@ -636,7 +636,7 @@ impl Axiom for FibroblastCrossDomainEquivalence {
     fn holds(&self) -> bool {
         use crate::science::biomedical::immunology::biology_functor::ImmunologyToBiology;
         use crate::science::biomedical::immunology::ontology::ImmunologyEntity;
-        use praxis::category::Functor;
+        use pr4xis::category::Functor;
         ImmunologyToBiology::map_object(&ImmunologyEntity::Fibroblast)
             == BiologicalEntity::Fibroblast
     }
@@ -682,10 +682,10 @@ impl Ontology for BiologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_category_laws;
-    use praxis::ontology::reasoning::causation::CausalCategory;
-    use praxis::ontology::reasoning::mereology::MereologyCategory;
-    use praxis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::causation::CausalCategory;
+    use pr4xis::ontology::reasoning::mereology::MereologyCategory;
+    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;
 
     // -- Axiom tests --

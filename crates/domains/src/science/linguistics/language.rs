@@ -682,7 +682,7 @@ fn build_english_function_words_embedded() -> HashMap<String, Vec<LexicalEntry>>
 ///
 /// Maps language-agnostic static arrays (produced at build time)
 /// to a live Language instance. Zero XML parsing.
-pub fn from_codegen(data: &praxis::codegen_data::CodegenData) -> super::english::English {
+pub fn from_codegen(data: &pr4xis::codegen_data::CodegenData) -> super::english::English {
     use super::english::{Concept, ConceptId, SenseId};
 
     let pos_from_str = |s: &str| match s {

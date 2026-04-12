@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// Byzantine Generals: N generals must agree on Attack or Retreat.
 /// Up to F are traitors who send conflicting messages.

@@ -1,4 +1,4 @@
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 /// Semantic role — the function an entity plays in a proposition.
 /// "The dog chased the cat" → dog=Agent, cat=Patient, chased=Predicate.

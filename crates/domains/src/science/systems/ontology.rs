@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
 
 // Systems thinking ontology — the science of wholes, relationships, and patterns.
 //

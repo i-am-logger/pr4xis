@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Situation};
+use pr4xis::engine::{Action, Situation};
 
 use crate::technology::navigation::imu::strapdown::{ImuSample, NavState, mechanize};
 

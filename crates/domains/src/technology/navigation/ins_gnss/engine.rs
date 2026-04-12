@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Situation};
+use pr4xis::engine::{Action, Situation};
 
 use crate::technology::navigation::ins_gnss::coupling::{
     CouplingMode, coasting_position_error, scalar_kalman_update,

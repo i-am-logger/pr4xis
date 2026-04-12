@@ -1,4 +1,4 @@
-use praxis::category::Functor;
+use pr4xis::category::Functor;
 
 use crate::science::information::schema::ontology::*;
 use crate::science::systems::ontology::*;
@@ -70,9 +70,9 @@ impl Functor for SystemsToSchema {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::Functor;
-    use praxis::category::entity::Entity;
-    use praxis::category::validate::check_functor_laws;
+    use pr4xis::category::Functor;
+    use pr4xis::category::entity::Entity;
+    use pr4xis::category::validate::check_functor_laws;
 
     #[test]
     fn functor_laws() {

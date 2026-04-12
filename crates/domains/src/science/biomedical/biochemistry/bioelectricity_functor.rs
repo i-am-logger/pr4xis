@@ -8,7 +8,7 @@
 //! (two hops) should have lower information loss than the direct
 //! molecular → bioelectricity functor (one hop).
 
-use praxis::category::{Functor, Relationship};
+use pr4xis::category::{Functor, Relationship};
 
 use crate::science::biomedical::biochemistry::ontology::{
     BiochemistryCategory, BiochemistryEntity, BiochemistryRelation,
@@ -69,9 +69,9 @@ impl Functor for BiochemistryToBioelectric {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_functor_laws;
-    use praxis::category::{Category, Entity};
-    use praxis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::{Category, Entity};
+    use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {

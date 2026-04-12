@@ -13,9 +13,9 @@
 ///         Mahalanobis (1936).
 #[cfg(test)]
 mod tests {
-    use praxis_domains::science::math::linear_algebra::matrix::Matrix;
-    use praxis_domains::science::math::linear_algebra::vector_space::Vector;
-    use praxis_domains::science::math::probability::mahalanobis;
+    use pr4xis_domains::science::math::linear_algebra::matrix::Matrix;
+    use pr4xis_domains::science::math::linear_algebra::vector_space::Vector;
+    use pr4xis_domains::science::math::probability::mahalanobis;
 
     #[test]
     fn measurement_at_mean_always_passes_gate() {

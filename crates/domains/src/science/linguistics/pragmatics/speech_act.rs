@@ -1,4 +1,4 @@
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 // Speech act taxonomy — Searle's 5 illocutionary types.
 //

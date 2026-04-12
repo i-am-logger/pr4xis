@@ -1,6 +1,6 @@
 use super::rgb::Rgb;
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::{Axiom, Quality};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PrimaryColor {
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_category_laws() {
-        praxis::category::validate::check_category_laws::<ColorCategory>().unwrap();
+        pr4xis::category::validate::check_category_laws::<ColorCategory>().unwrap();
     }
 
     #[test]

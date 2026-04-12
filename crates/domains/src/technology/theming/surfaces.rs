@@ -17,8 +17,8 @@ use crate::science::colors::Rgb;
 /// - Mac Lane, "Categories for the Working Mathematician" (1971): functors, natural transformations
 /// - Harel, "Statecharts" (1987): parallel regions (surfaces update simultaneously)
 /// - Czaplicki & Chong, "Async FRP for GUIs" (2013): sync vs async propagation
-use praxis::category::Entity;
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::Entity;
+use pr4xis::ontology::{Axiom, Quality};
 use std::collections::HashMap;
 /// A surface capability — what a rendering target can express.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -270,7 +270,7 @@ fn test_palette_light() -> Palette {
 }
 /// Build an example terminal surface functor.
 pub fn terminal_functor() -> SurfaceFunctor {
-    use praxis::category::Entity;
+    use pr4xis::category::Entity;
 
     let mut mappings = Vec::new();
 

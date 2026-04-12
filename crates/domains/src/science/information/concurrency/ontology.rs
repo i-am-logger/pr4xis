@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
 
 // Concurrency ontology — the science of simultaneous activity.
 //

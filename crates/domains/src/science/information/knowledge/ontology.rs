@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
 
 // Knowledge Base ontology — a system's self-description of what it knows.
 //
@@ -190,8 +190,8 @@ impl Category for KnowledgeBaseCategory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::Category;
-    use praxis::category::entity::Entity;
+    use pr4xis::category::Category;
+    use pr4xis::category::entity::Entity;
 
     #[test]
     fn category_identity_law() {

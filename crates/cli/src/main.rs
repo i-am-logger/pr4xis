@@ -2,12 +2,12 @@ use std::io::{self, BufRead, Write};
 use std::path::Path;
 use std::sync::Arc;
 
-use praxis_chat as chat;
-use praxis_domains::science::information::dialogue::engine::{self, DialogueAction};
-use praxis_domains::science::linguistics::english::English;
-use praxis_domains::science::linguistics::language::Language;
-use praxis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
-use praxis_domains::technology::software::markup::xml::lmf;
+use pr4xis_chat as chat;
+use pr4xis_domains::science::information::dialogue::engine::{self, DialogueAction};
+use pr4xis_domains::science::linguistics::english::English;
+use pr4xis_domains::science::linguistics::language::Language;
+use pr4xis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
+use pr4xis_domains::technology::software::markup::xml::lmf;
 
 fn main() {
     let wordnet_path = std::env::var("WORDNET_XML")
@@ -21,7 +21,7 @@ fn main() {
         }
     };
 
-    println!("praxis — axiomatic intelligence");
+    println!("pr4xis — axiomatic intelligence");
     println!(
         "  {} concepts, {} words",
         language.concept_count(),
@@ -85,8 +85,8 @@ fn main() {
             referents,
         }) {
             Ok(e) => e,
-            Err(praxis::engine::EngineError::Violated { engine: e, .. }) => e,
-            Err(praxis::engine::EngineError::LogicalError { engine: e, .. }) => e,
+            Err(pr4xis::engine::EngineError::Violated { engine: e, .. }) => e,
+            Err(pr4xis::engine::EngineError::LogicalError { engine: e, .. }) => e,
         };
 
         println!("{}", response_text);
@@ -97,8 +97,8 @@ fn main() {
             speech_act: SpeechAct::Assertion,
         }) {
             Ok(e) => e,
-            Err(praxis::engine::EngineError::Violated { engine: e, .. }) => e,
-            Err(praxis::engine::EngineError::LogicalError { engine: e, .. }) => e,
+            Err(pr4xis::engine::EngineError::Violated { engine: e, .. }) => e,
+            Err(pr4xis::engine::EngineError::LogicalError { engine: e, .. }) => e,
         };
     }
 }

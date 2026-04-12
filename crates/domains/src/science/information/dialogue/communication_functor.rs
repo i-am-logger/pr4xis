@@ -1,4 +1,4 @@
-use praxis::category::Functor;
+use pr4xis::category::Functor;
 
 use super::ontology::*;
 use crate::science::information::communication::ontology::*;
@@ -92,8 +92,8 @@ impl Functor for DialogueToCommunication {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::entity::Entity;
-    use praxis::category::validate::check_functor_laws;
+    use pr4xis::category::entity::Entity;
+    use pr4xis::category::validate::check_functor_laws;
 
     #[test]
     fn functor_laws() {

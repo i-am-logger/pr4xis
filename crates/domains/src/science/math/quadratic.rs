@@ -2,7 +2,7 @@
 /// - Situation: coefficients (a, b, c) and derived roots
 /// - Axioms: roots satisfy equation, Vieta's formulas, discriminant consistency
 /// - Actions: modify coefficients (roots auto-recomputed)
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Roots {

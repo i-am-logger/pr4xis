@@ -1,5 +1,5 @@
 [package]
-name = "praxis-chat"
+name = "pr4xis-chat"
 version = "0.1.2"
 edition = "2024"
 authors = ["i-am-logger"]
@@ -7,8 +7,8 @@ description = "Praxis chat engine — shared logic for CLI and WASM"
 license = "CC-BY-NC-SA-4.0"
 
 [dependencies]
-praxis = { path = "../praxis" }
-praxis-domains = { path = "../domains" }
+pr4xis = { path = "../pr4xis" }
+pr4xis-domains = { path = "../domains" }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

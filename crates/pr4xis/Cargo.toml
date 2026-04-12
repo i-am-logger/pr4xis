@@ -1,12 +1,12 @@
 [package]
-name = "praxis"
+name = "pr4xis"
 version = "0.3.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Prove your domain is correct — ontology-driven rule enforcement with category theory, logical composition, and runtime state machines"
 license = "CC-BY-NC-SA-4.0"
-repository = "https://github.com/i-am-logger/praxis"
-homepage = "https://github.com/i-am-logger/praxis"
+repository = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://github.com/i-am-logger/pr4xis"
 keywords = ["ontology", "category-theory", "enforcement", "state-machine", "formal-methods"]
 
 [features]

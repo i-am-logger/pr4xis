@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 use crate::science::linguistics::pragmatics::speech_act::{DialogueType, SpeechAct};
 

@@ -1,6 +1,6 @@
-use praxis::category::{Category, Entity, FullyConnected, Relationship};
-use praxis::logic::Axiom;
-use praxis::ontology::Quality;
+use pr4xis::category::{Category, Entity, FullyConnected, Relationship};
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Quality;
 
 /// Floors are the entities of the elevator ontology.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_category_laws() {
-        praxis::category::validate::check_category_laws::<ElevatorCategory>().unwrap();
+        pr4xis::category::validate::check_category_laws::<ElevatorCategory>().unwrap();
     }
 
     #[test]

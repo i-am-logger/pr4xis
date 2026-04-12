@@ -1,6 +1,6 @@
 use crate::science::math::linear_algebra::positive_definite;
-use praxis::category::validate::check_category_laws;
-use praxis::ontology::Ontology;
+use pr4xis::category::validate::check_category_laws;
+use pr4xis::ontology::Ontology;
 
 use crate::technology::tracking::single_target::engine::*;
 use crate::technology::tracking::single_target::motion_model;

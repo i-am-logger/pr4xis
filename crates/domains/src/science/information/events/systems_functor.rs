@@ -1,4 +1,4 @@
-use praxis::category::Functor;
+use pr4xis::category::Functor;
 
 use super::ontology::*;
 use crate::science::systems::ontology::*;

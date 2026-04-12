@@ -1,7 +1,7 @@
 use super::ontology::{ChessCategory, SquareConnection};
 use super::*;
-use praxis::category::Category;
-use praxis::engine::EngineError;
+use pr4xis::category::Category;
+use pr4xis::engine::EngineError;
 use proptest::prelude::*;
 
 fn arb_square() -> impl Strategy<Value = Square> {
@@ -802,7 +802,7 @@ proptest! {
     /// 64 squares total
     #[test]
     fn prop_64_squares(_sq in arb_square()) {
-        use praxis::category::Entity;
+        use pr4xis::category::Entity;
         prop_assert_eq!(Square::variants().len(), 64);
     }
 }

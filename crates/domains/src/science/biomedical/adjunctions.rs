@@ -15,8 +15,8 @@
 //! 3. BiologyToBioelectric ⊣ BioelectricToBiology
 //!    Biology ⇄ Bioelectric: biological structures ↔ bioelectric roles
 
-use praxis::category::Adjunction;
-use praxis::category::Functor;
+use pr4xis::category::Adjunction;
+use pr4xis::category::Functor;
 
 use crate::science::biomedical::bioelectricity::biology_functor::BioelectricToBiology;
 use crate::science::biomedical::bioelectricity::molecular_functor::BioelectricToMolecular;
@@ -156,7 +156,7 @@ mod tests {
     use crate::science::biomedical::biology::ontology::BiologyCategory;
     use crate::science::biomedical::molecular::ontology::MolecularCategory;
     use crate::science::biomedical::pharmacology::ontology::PharmacologyCategory;
-    use praxis::category::{Category, Entity};
+    use pr4xis::category::{Category, Entity};
 
     // -----------------------------------------------------------------------
     // Adjunction 1: MolecularBioelectricAdjunction

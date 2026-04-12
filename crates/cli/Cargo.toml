@@ -1,5 +1,5 @@
 [package]
-name = "praxis-cli"
+name = "pr4xis-cli"
 version = "0.1.3"
 edition = "2024"
 authors = ["i-am-logger"]
@@ -7,13 +7,13 @@ description = "Praxis chatbot CLI — axiomatic intelligence via ontology"
 license = "CC-BY-NC-SA-4.0"
 
 [[bin]]
-name = "praxis"
+name = "pr4xis"
 path = "src/main.rs"
 
 [dependencies]
-praxis = { path = "../praxis" }
-praxis-chat = { path = "../chat" }
-praxis-domains = { path = "../domains" }
+pr4xis = { path = "../pr4xis" }
+pr4xis-chat = { path = "../chat" }
+pr4xis-domains = { path = "../domains" }
 
 [build-dependencies]
-praxis = { path = "../praxis", features = ["codegen"] }
+pr4xis = { path = "../pr4xis", features = ["codegen"] }

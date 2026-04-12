@@ -1,4 +1,4 @@
-use praxis::category::Entity;
+use pr4xis::category::Entity;
 
 // WordNet Lexical Markup Framework (LMF) ontology.
 //

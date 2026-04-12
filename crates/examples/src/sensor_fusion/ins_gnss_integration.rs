@@ -12,13 +12,13 @@
 /// Source: Groves (2013), Chapter 14.
 #[cfg(test)]
 mod tests {
-    use praxis_domains::science::math::linear_algebra::matrix::Matrix;
-    use praxis_domains::science::math::linear_algebra::positive_definite;
-    use praxis_domains::science::math::linear_algebra::vector_space::Vector;
-    use praxis_domains::technology::sensor_fusion::fusion::engine::{
+    use pr4xis_domains::science::math::linear_algebra::matrix::Matrix;
+    use pr4xis_domains::science::math::linear_algebra::positive_definite;
+    use pr4xis_domains::science::math::linear_algebra::vector_space::Vector;
+    use pr4xis_domains::technology::sensor_fusion::fusion::engine::{
         FusionAction, new_fusion_engine,
     };
-    use praxis_domains::technology::sensor_fusion::state::estimate::StateEstimate;
+    use pr4xis_domains::technology::sensor_fusion::state::estimate::StateEstimate;
 
     #[test]
     fn ins_gnss_loosely_coupled() {

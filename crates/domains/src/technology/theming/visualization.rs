@@ -9,8 +9,8 @@
 /// - Munzner, "Visualization Analysis and Design" (2014): channel effectiveness
 /// - Shneiderman, "The Eyes Have It" (1996): overview-zoom-filter-detail mantra
 /// - Wickham, "Layered Grammar of Graphics" (2010): compositional pipeline
-use praxis::category::Entity;
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::Entity;
+use pr4xis::ontology::{Axiom, Quality};
 
 // ══════════════════════════════════════════════
 // Bertin's Visual Variables

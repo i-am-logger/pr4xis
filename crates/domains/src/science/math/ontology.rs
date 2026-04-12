@@ -1,6 +1,6 @@
 /// Math ontology: mathematical domains as entities with axioms.
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::{Axiom, Quality};
 
 /// Mathematical domains as entities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_category_laws() {
-        praxis::category::validate::check_category_laws::<NumberHierarchy>().unwrap();
+        pr4xis::category::validate::check_category_laws::<NumberHierarchy>().unwrap();
     }
 
     #[test]

@@ -1,6 +1,6 @@
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::relationship::Relationship;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::relationship::Relationship;
 
 // Information ontology — the science of how knowledge is represented.
 //
@@ -43,7 +43,7 @@ pub enum InfoUnit {
     Text,
 
     /// A true/false value. Semantically equivalent to a single Bit.
-    /// Connects to praxis::logic: TruthValue IS a proposition's result.
+    /// Connects to pr4xis::logic: TruthValue IS a proposition's result.
     TruthValue,
 
     /// A quantity — a numeric value representing magnitude.

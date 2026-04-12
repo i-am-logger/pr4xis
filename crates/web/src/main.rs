@@ -19,7 +19,7 @@ fn main() {
 
     let workspace = find_workspace_root();
     let root = workspace.join("docs");
-    eprintln!("praxis-web");
+    eprintln!("pr4xis-web");
     eprintln!("  http://localhost:{port}/          — presentation");
     eprintln!("  http://localhost:{port}/chat/     — WASM chatbot");
     eprintln!();

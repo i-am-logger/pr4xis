@@ -1,6 +1,6 @@
-use praxis::category::entity::Entity;
-use praxis::category::validate::{check_category_laws, check_functor_laws};
-use praxis::category::{Category, Functor};
+use pr4xis::category::entity::Entity;
+use pr4xis::category::validate::{check_category_laws, check_functor_laws};
+use pr4xis::category::{Category, Functor};
 
 use super::chess_functor::*;
 use super::concurrent_functor::*;

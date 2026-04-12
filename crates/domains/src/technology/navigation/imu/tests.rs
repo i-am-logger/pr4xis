@@ -1,6 +1,6 @@
-use praxis::category::validate::check_category_laws;
-use praxis::ontology::reasoning::taxonomy::TaxonomyCategory;
-use praxis::ontology::{Axiom, Ontology};
+use pr4xis::category::validate::check_category_laws;
+use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::science::math::geometry::point::Point3;
 use crate::science::math::rotation::quaternion::Quaternion;

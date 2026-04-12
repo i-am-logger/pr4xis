@@ -1,4 +1,4 @@
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 
 use crate::governance::compliance::classification::*;
 use crate::governance::compliance::escalation::*;

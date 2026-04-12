@@ -10,7 +10,7 @@ use super::schemes::SchemeType;
 /// - Base16 builder spec: theme structure requirements
 /// - tinted-theming: directory-based theme organization
 use super::variants::VariantSet;
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 use std::collections::HashMap;
 
 /// A complete theme package — name, scheme, variants, palettes.

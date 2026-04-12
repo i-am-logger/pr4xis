@@ -1,7 +1,7 @@
 use super::ontology::*;
-use praxis::category::Category;
-use praxis::category::entity::Entity;
-use praxis::category::validate::check_category_laws;
+use pr4xis::category::Category;
+use pr4xis::category::entity::Entity;
+use pr4xis::category::validate::check_category_laws;
 
 #[test]
 fn category_laws() {

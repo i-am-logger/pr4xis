@@ -1,8 +1,8 @@
 use super::board::Board;
 use super::piece::{Color, Piece, PieceKind};
 use super::square::Square;
-use praxis::category::{Category, Entity, Relationship};
-use praxis::ontology::{Axiom, Quality};
+use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::{Axiom, Quality};
 
 // =============================================================================
 // Relationship: SquareConnection (any square to any square — thin category)

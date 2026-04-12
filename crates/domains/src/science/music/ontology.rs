@@ -1,7 +1,7 @@
 use super::interval::Interval;
 use super::note::Note;
-use praxis::category::Entity;
-use praxis::ontology::Quality;
+use pr4xis::category::Entity;
+use pr4xis::ontology::Quality;
 
 // Note pitch classes (0-11) are the entities
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

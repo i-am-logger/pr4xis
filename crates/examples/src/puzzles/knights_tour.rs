@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 use std::collections::HashSet;
 
 /// Knight's Tour: visit every square on NxN board exactly once.

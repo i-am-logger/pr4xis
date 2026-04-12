@@ -9,7 +9,7 @@ use crate::science::math::functions::Interval;
 /// - GLSL: intensity is a blend factor [0=original, 1=full monochrome]
 /// - Rec. 709: brightness is a luminance multiplier
 /// - Color science: saturation adjustment on the tint hue
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 
 /// A shader parameter with formal bounds and semantics.
 #[derive(Debug, Clone)]

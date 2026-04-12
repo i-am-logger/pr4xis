@@ -9,7 +9,7 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use praxis::category::{Functor, Relationship};
+use pr4xis::category::{Functor, Relationship};
 
 use crate::science::biomedical::biology::ontology::{
     BiologicalEntity, BiologicalRelation, BiologyCategory,
@@ -65,9 +65,9 @@ impl Functor for ImmunologyToBiology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use praxis::category::validate::check_functor_laws;
-    use praxis::category::{Category, Entity};
-    use praxis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::{Category, Entity};
+    use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {

@@ -1,4 +1,4 @@
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// Monty Hall: 3 doors, 1 car, 2 goats.
 /// Host always reveals a goat, player can switch.

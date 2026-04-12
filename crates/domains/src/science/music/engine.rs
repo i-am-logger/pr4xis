@@ -1,6 +1,6 @@
 use super::note::Note;
 use super::scale::{Scale, ScaleKind};
-use praxis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 /// Musical state: a current note in a scale context.
 #[derive(Debug, Clone, PartialEq)]

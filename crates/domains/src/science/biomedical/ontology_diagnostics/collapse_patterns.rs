@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use praxis::category::{Entity, Functor};
+use pr4xis::category::{Entity, Functor};
 
 use crate::science::biomedical::acoustics::biophysics_functor::AcousticsToBiophysics;
 use crate::science::biomedical::acoustics::ontology::AcousticsEntity;

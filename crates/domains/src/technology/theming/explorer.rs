@@ -10,7 +10,7 @@
 /// - Beck et al., "Dynamic Graph Visualization" (2017): temporal animation
 /// - W3C PROV-O: provenance data model
 use super::report::ThemePalette;
-use praxis::ontology::Axiom;
+use pr4xis::ontology::Axiom;
 
 /// A concept node in the ontology graph.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
