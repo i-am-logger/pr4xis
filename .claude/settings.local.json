@@ -300,7 +300,10 @@
       "Bash(sed -i 's|let program = Free::pure\\(42\\)|let \\(result, steps\\) = Chain::start\\(42\\)|' crates/pr4xis/src/category/free.rs)",
       "Bash(sed -i 's|    \\\\.bind\\(|x| Free::lift\\(format!\\(\"computed {}\", x\\)\\)\\)|    .then\\(\"format\", |x| format!\\(\"computed {}\", x\\)\\)|' crates/pr4xis/src/category/free.rs)",
       "Bash(sed -i 's|    \\\\.bind\\(|msg| Free::pure\\(msg\\\\.len\\(\\)\\)\\);|    .then\\(\"length\", |msg| msg.len\\(\\)\\)|' crates/pr4xis/src/category/free.rs)",
-      "Bash(sed -i 's|let result = program\\\\.run\\(\\);|    .run\\(\\);|' crates/pr4xis/src/category/free.rs)"
+      "Bash(sed -i 's|let result = program\\\\.run\\(\\);|    .run\\(\\);|' crates/pr4xis/src/category/free.rs)",
+      "Bash(sed -i '/Compose two lenses/,/^    }/d' crates/pr4xis/src/category/optics.rs)",
+      "Bash(sed -i '/use std::fmt::Debug;/d' crates/pr4xis/src/category/optics.rs)",
+      "Bash(sed -i '/fn lens_compose/,/^    }/d' crates/pr4xis/src/category/optics.rs)"
     ]
   }
 }
