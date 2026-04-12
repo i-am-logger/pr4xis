@@ -1,7 +1,9 @@
+pub mod biomedical;
 pub mod calculator;
 pub mod cognition;
 pub mod colors;
 pub mod geodesy;
+pub mod hearing;
 pub mod information;
 pub mod linguistics;
 pub mod math;
