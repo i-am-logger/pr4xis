@@ -11,8 +11,8 @@
 /// Source: Murray, Li & Sastry (1994), Chapter 2.
 #[cfg(test)]
 mod tests {
-    use pr4xis_domains::science::math::rigid_motion::pose::Pose;
-    use pr4xis_domains::science::math::rotation::quaternion::Quaternion;
+    use pr4xis_domains::formal::math::rigid_motion::pose::Pose;
+    use pr4xis_domains::formal::math::rotation::quaternion::Quaternion;
 
     #[test]
     fn three_frame_chain_is_associative() {

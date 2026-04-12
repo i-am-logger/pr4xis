@@ -1,6 +1,6 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-use pr4xis_domains::science::linguistics::english::English;
+use pr4xis_domains::cognitive::linguistics::english::English;
 
 fn bench_chat(c: &mut Criterion) {
     let en = English::sample();

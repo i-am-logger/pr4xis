@@ -1,18 +1,18 @@
 use pr4xis::ontology::upper::being::Being;
-use pr4xis_domains::science::cognition::epistemics;
-use pr4xis_domains::science::information::diagnostics::trace_functors::{
-    PipelineStep, PipelineTrace,
-};
-use pr4xis_domains::science::information::diagnostics::trace_impls;
-use pr4xis_domains::science::information::knowledge::{
-    SelfModelInstance, VocabularyDescriptor, describe_knowledge_base,
-};
-use pr4xis_domains::science::linguistics::english::English;
-use pr4xis_domains::science::linguistics::lambek::{
+use pr4xis_domains::cognitive::cognition::epistemics;
+use pr4xis_domains::cognitive::linguistics::english::English;
+use pr4xis_domains::cognitive::linguistics::lambek::{
     ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize,
 };
-use pr4xis_domains::science::linguistics::language::Language;
-use pr4xis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
+use pr4xis_domains::cognitive::linguistics::language::Language;
+use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
+use pr4xis_domains::formal::information::diagnostics::trace_functors::{
+    PipelineStep, PipelineTrace,
+};
+use pr4xis_domains::formal::information::diagnostics::trace_impls;
+use pr4xis_domains::formal::information::knowledge::{
+    SelfModelInstance, VocabularyDescriptor, describe_knowledge_base,
+};
 
 // Praxis Chat Engine — shared logic for CLI, WASM, and any frontend.
 //
@@ -25,7 +25,7 @@ use pr4xis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
 // No manual trace.ok() — the functor provides ontology names and operations.
 
 /// Re-export for callers.
-pub use pr4xis_domains::science::information::diagnostics::trace_functors::PipelineTraceEntry;
+pub use pr4xis_domains::formal::information::diagnostics::trace_functors::PipelineTraceEntry;
 
 /// Alias — the trace is a PipelineTrace from the Diagnostics ontology.
 pub type Trace = PipelineTrace;
@@ -193,8 +193,8 @@ fn attempt_partial_understanding(
     let query_result: Option<&str> = if parsed { Some("parsed") } else { None };
     let state = epistemics::classify_result(parsed, has_knowledge, query_result);
 
-    use pr4xis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
-    use pr4xis_domains::science::linguistics::pragmatics::response::ResponseFrame;
+    use pr4xis_domains::cognitive::linguistics::pragmatics::realize::{self, ResponseContent};
+    use pr4xis_domains::cognitive::linguistics::pragmatics::response::ResponseFrame;
 
     let frame = ResponseFrame::from_epistemic(&state);
     let entities: Vec<String> = known_words.iter().map(|s| s.to_string()).collect();
@@ -249,8 +249,8 @@ pub fn answer_question(
     predicate: &str,
     arguments: &[montague::Sem],
 ) -> trace_impls::ResponseResult {
-    use pr4xis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
-    use pr4xis_domains::science::linguistics::pragmatics::response::ResponseFrame;
+    use pr4xis_domains::cognitive::linguistics::pragmatics::realize::{self, ResponseContent};
+    use pr4xis_domains::cognitive::linguistics::pragmatics::response::ResponseFrame;
 
     let all_entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
@@ -335,8 +335,8 @@ pub fn answer_statement(
     _predicate: &str,
     arguments: &[montague::Sem],
 ) -> trace_impls::ResponseResult {
-    use pr4xis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
-    use pr4xis_domains::science::linguistics::pragmatics::response::ResponseFrame;
+    use pr4xis_domains::cognitive::linguistics::pragmatics::realize::{self, ResponseContent};
+    use pr4xis_domains::cognitive::linguistics::pragmatics::response::ResponseFrame;
 
     let entities: Vec<String> = arguments.iter().map(extract_entity_name).collect();
 
@@ -366,8 +366,8 @@ pub fn answer_statement(
 }
 
 pub fn define_word(en: &English, word: &str) -> String {
-    use pr4xis_domains::science::linguistics::pragmatics::realize::{self, ResponseContent};
-    use pr4xis_domains::science::linguistics::pragmatics::response::ResponseFrame;
+    use pr4xis_domains::cognitive::linguistics::pragmatics::realize::{self, ResponseContent};
+    use pr4xis_domains::cognitive::linguistics::pragmatics::response::ResponseFrame;
 
     let ids = en.lookup(word);
     if ids.is_empty() {
@@ -397,10 +397,10 @@ fn build_taxonomy_response(
     en: &English,
     child_word: &str,
     parent_word: &str,
-    child_id: pr4xis_domains::science::linguistics::english::ConceptId,
-    parent_id: pr4xis_domains::science::linguistics::english::ConceptId,
+    child_id: pr4xis_domains::cognitive::linguistics::english::ConceptId,
+    parent_id: pr4xis_domains::cognitive::linguistics::english::ConceptId,
 ) -> String {
-    use pr4xis_domains::science::linguistics::pragmatics::realize;
+    use pr4xis_domains::cognitive::linguistics::pragmatics::realize;
 
     // ---- Stage 1: Content Determination ----
     // Gather all relevant knowledge from the ontology.
@@ -496,7 +496,7 @@ fn build_taxonomy_response(
 /// shared properties. This is metacognition: instead of guessing
 /// "did you mean is X a Y?", explore and report what we actually know.
 fn explore_concepts(en: &English, words: &[&str]) -> String {
-    use pr4xis_domains::science::linguistics::pragmatics::realize;
+    use pr4xis_domains::cognitive::linguistics::pragmatics::realize;
 
     let mut lines = Vec::new();
 
@@ -573,7 +573,7 @@ fn explore_concepts(en: &English, words: &[&str]) -> String {
 
     if lines.is_empty() {
         realize::realize(&realize::ResponseContent::new(
-            pr4xis_domains::science::linguistics::pragmatics::response::ResponseFrame::AcknowledgeGap,
+            pr4xis_domains::cognitive::linguistics::pragmatics::response::ResponseFrame::AcknowledgeGap,
         ))
     } else {
         lines.join("\n")
@@ -583,9 +583,9 @@ fn explore_concepts(en: &English, words: &[&str]) -> String {
 /// Find the lowest common ancestor of two concepts in the taxonomy.
 fn find_common_ancestor(
     en: &English,
-    a: pr4xis_domains::science::linguistics::english::ConceptId,
-    b: pr4xis_domains::science::linguistics::english::ConceptId,
-) -> Option<pr4xis_domains::science::linguistics::english::ConceptId> {
+    a: pr4xis_domains::cognitive::linguistics::english::ConceptId,
+    b: pr4xis_domains::cognitive::linguistics::english::ConceptId,
+) -> Option<pr4xis_domains::cognitive::linguistics::english::ConceptId> {
     use std::collections::HashSet;
 
     // Collect all ancestors of A

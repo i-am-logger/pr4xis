@@ -23,7 +23,7 @@ fn bench_category_laws(c: &mut Criterion) {
     // Core praxis ontologies
     group.bench_function("systems", |b| {
         b.iter(|| {
-            check_category_laws::<pr4xis_domains::science::systems::ontology::SystemsCategory>()
+            check_category_laws::<pr4xis_domains::formal::systems::ontology::SystemsCategory>()
         })
     });
 
@@ -31,85 +31,87 @@ fn bench_category_laws(c: &mut Criterion) {
     group.bench_function("schema", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::information::schema::ontology::SchemaCategory,
+                pr4xis_domains::formal::information::schema::ontology::SchemaCategory,
             >()
         })
     });
     group.bench_function("instance", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::information::schema::instance::InstanceCategory,
+                pr4xis_domains::formal::information::schema::instance::InstanceCategory,
             >()
         })
     });
     group.bench_function("repository", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::information::storage::ontology::RepositoryCategory,
+                pr4xis_domains::formal::information::storage::ontology::RepositoryCategory,
             >()
         })
     });
     group.bench_function("consistency", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::information::storage::consistency::ConsistencyCategory,
+                pr4xis_domains::formal::information::storage::consistency::ConsistencyCategory,
             >()
         })
     });
     group.bench_function("durability", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::information::storage::durability::DurabilityCategory,
+                pr4xis_domains::formal::information::storage::durability::DurabilityCategory,
             >()
         })
     });
     group.bench_function("volatility", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::information::storage::volatility::VolatilityCategory,
+                pr4xis_domains::formal::information::storage::volatility::VolatilityCategory,
             >()
         })
     });
     group.bench_function("measurement", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::information::measurement::ontology::MeasurementCategory,
+                pr4xis_domains::formal::information::measurement::ontology::MeasurementCategory,
             >()
         })
     });
     group.bench_function("benchmark", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::information::measurement::benchmark::BenchmarkCategory,
+                pr4xis_domains::formal::information::measurement::benchmark::BenchmarkCategory,
             >()
         })
     });
 
     // Math ontologies (from sensor-fusion)
     group.bench_function("geometry", |b| {
-        b.iter(|| check_category_laws::<pr4xis_domains::science::math::geometry::ontology::GeometryCategory>())
+        b.iter(|| check_category_laws::<pr4xis_domains::formal::math::geometry::ontology::GeometryCategory>())
     });
     group.bench_function("linear_algebra", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::math::linear_algebra::ontology::LinearAlgebraCategory,
+                pr4xis_domains::formal::math::linear_algebra::ontology::LinearAlgebraCategory,
             >()
         })
     });
     group.bench_function("probability", |b| {
         b.iter(|| {
             check_category_laws::<
-                pr4xis_domains::science::math::probability::ontology::ProbabilityCategory,
+                pr4xis_domains::formal::math::probability::ontology::ProbabilityCategory,
             >()
         })
     });
     group.bench_function("rotation", |b| {
-        b.iter(|| check_category_laws::<pr4xis_domains::science::math::rotation::ontology::RotationCategory>())
+        b.iter(|| check_category_laws::<pr4xis_domains::formal::math::rotation::ontology::RotationCategory>())
     });
 
     // Technology ontologies
     group.bench_function("chess", |b| {
-        b.iter(|| check_category_laws::<pr4xis_domains::technology::games::chess::ontology::ChessCategory>())
+        b.iter(|| {
+            check_category_laws::<pr4xis_domains::social::games::chess::ontology::ChessCategory>()
+        })
     });
 
     group.finish();
@@ -124,35 +126,33 @@ fn bench_morphisms(c: &mut Criterion) {
 
     group.bench_function("systems", |b| {
         b.iter(|| {
-            black_box(pr4xis_domains::science::systems::ontology::SystemsCategory::morphisms())
+            black_box(pr4xis_domains::formal::systems::ontology::SystemsCategory::morphisms())
         })
     });
     group.bench_function("schema", |b| {
         b.iter(|| {
             black_box(
-                pr4xis_domains::science::information::schema::ontology::SchemaCategory::morphisms(),
+                pr4xis_domains::formal::information::schema::ontology::SchemaCategory::morphisms(),
             )
         })
     });
     group.bench_function("consistency", |b| {
-        b.iter(|| black_box(pr4xis_domains::science::information::storage::consistency::ConsistencyCategory::morphisms()))
+        b.iter(|| black_box(pr4xis_domains::formal::information::storage::consistency::ConsistencyCategory::morphisms()))
     });
     group.bench_function("geometry", |b| {
         b.iter(|| {
             black_box(
-                pr4xis_domains::science::math::geometry::ontology::GeometryCategory::morphisms(),
+                pr4xis_domains::formal::math::geometry::ontology::GeometryCategory::morphisms(),
             )
         })
     });
     group.bench_function("chess", |b| {
         b.iter(|| {
-            black_box(
-                pr4xis_domains::technology::games::chess::ontology::ChessCategory::morphisms(),
-            )
+            black_box(pr4xis_domains::social::games::chess::ontology::ChessCategory::morphisms())
         })
     });
     group.bench_function("measurement", |b| {
-        b.iter(|| black_box(pr4xis_domains::science::information::measurement::ontology::MeasurementCategory::morphisms()))
+        b.iter(|| black_box(pr4xis_domains::formal::information::measurement::ontology::MeasurementCategory::morphisms()))
     });
 
     group.finish();
@@ -166,29 +166,29 @@ fn bench_variants(c: &mut Criterion) {
     let mut group = c.benchmark_group("variants");
 
     group.bench_function("system_concepts", |b| {
-        b.iter(|| black_box(pr4xis_domains::science::systems::ontology::SystemConcept::variants()))
+        b.iter(|| black_box(pr4xis_domains::formal::systems::ontology::SystemConcept::variants()))
     });
     group.bench_function("schema_concepts", |b| {
         b.iter(|| {
             black_box(
-                pr4xis_domains::science::information::schema::ontology::SchemaConcept::variants(),
+                pr4xis_domains::formal::information::schema::ontology::SchemaConcept::variants(),
             )
         })
     });
     group.bench_function("consistency_models", |b| {
-        b.iter(|| black_box(pr4xis_domains::science::information::storage::consistency::ConsistencyModel::variants()))
+        b.iter(|| black_box(pr4xis_domains::formal::information::storage::consistency::ConsistencyModel::variants()))
     });
     group.bench_function("storage_media", |b| {
         b.iter(|| {
             black_box(
-                pr4xis_domains::science::information::storage::volatility::StorageMedia::variants(),
+                pr4xis_domains::formal::information::storage::volatility::StorageMedia::variants(),
             )
         })
     });
     group.bench_function("geometric_primitives", |b| {
         b.iter(|| {
             black_box(
-                pr4xis_domains::science::math::geometry::ontology::GeometricPrimitive::variants(),
+                pr4xis_domains::formal::math::geometry::ontology::GeometricPrimitive::variants(),
             )
         })
     });

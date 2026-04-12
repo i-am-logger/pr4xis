@@ -354,3 +354,162 @@ fn test_axiom_green_is_longest() {
 fn test_axiom_no_dead_states() {
     assert!(NoDeadStates.holds());
 }
+
+// =============================================================================
+// define_ontology! macro test
+// =============================================================================
+
+mod ontology_macro_test {
+    use crate::category::Entity;
+    use crate::category::validate::check_category_laws;
+    use crate::logic::Axiom;
+    use crate::ontology::reasoning::mereology::{self, MereologyDef};
+    use crate::ontology::reasoning::opposition::OppositionDef;
+    use crate::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+    pub enum Animal {
+        Dog,
+        Cat,
+        Mammal,
+        Pet,
+        Tail,
+        Fur,
+    }
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+    pub enum AnimalEvent {
+        Birth,
+        Growth,
+        Death,
+    }
+
+    // New ontological style: concepts, is_a, has_a, causes, opposes
+    define_ontology! {
+        /// Test animal ontology.
+        pub AnimalOntology for AnimalCategory {
+            concepts: Animal,
+            relation: AnimalRelation,
+
+            is_a: AnimalTaxonomy [
+                (Dog, Mammal),
+                (Cat, Mammal),
+                (Dog, Pet),
+                (Cat, Pet),
+            ],
+
+            has_a: AnimalMereology [
+                (Dog, Tail),
+                (Cat, Tail),
+                (Dog, Fur),
+                (Cat, Fur),
+            ],
+
+            causes: AnimalCausal for AnimalEvent [
+                (Birth, Growth),
+                (Growth, Death),
+            ],
+
+            opposes: AnimalOpposition [
+                (Dog, Cat),
+            ],
+        }
+    }
+
+    #[test]
+    fn macro_generates_category() {
+        check_category_laws::<AnimalCategory>().unwrap();
+    }
+
+    #[test]
+    fn macro_generates_taxonomy() {
+        let rels = AnimalTaxonomy::relations();
+        assert!(rels.contains(&(Animal::Dog, Animal::Mammal)));
+        assert!(taxonomy::is_a::<AnimalTaxonomy>(
+            &Animal::Dog,
+            &Animal::Mammal
+        ));
+    }
+
+    #[test]
+    fn macro_generates_mereology() {
+        let rels = AnimalMereology::relations();
+        assert!(rels.contains(&(Animal::Dog, Animal::Tail)));
+        let parts = mereology::parts_of::<AnimalMereology>(&Animal::Dog);
+        assert!(parts.contains(&Animal::Tail));
+        assert!(parts.contains(&Animal::Fur));
+    }
+
+    #[test]
+    fn macro_generates_opposition() {
+        let pairs = AnimalOpposition::pairs();
+        assert!(pairs.contains(&(Animal::Dog, Animal::Cat)));
+    }
+
+    #[test]
+    fn macro_generates_meta() {
+        let meta = AnimalOntology::meta();
+        assert_eq!(meta.name, "AnimalOntology");
+        assert!(meta.module_path.contains("ontology_macro_test"));
+    }
+
+    #[test]
+    fn structural_axioms_auto_generated() {
+        let axioms = AnimalOntology::generated_structural_axioms();
+        // 2 taxonomy + 1 mereology + 2 causation + 2 opposition = 7
+        assert_eq!(axioms.len(), 7);
+        for axiom in &axioms {
+            assert!(axiom.holds(), "failed: {}", axiom.description());
+        }
+    }
+
+    // Full Ontology trait: user provides domain_axioms(), framework merges
+    use crate::ontology::{Ontology, Quality};
+
+    pub struct AnimalIsAlive;
+    impl Axiom for AnimalIsAlive {
+        fn description(&self) -> &str {
+            "all animals are alive"
+        }
+        fn holds(&self) -> bool {
+            true
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct NoQuality;
+    impl Quality for NoQuality {
+        type Individual = Animal;
+        type Value = ();
+        fn get(&self, _: &Animal) -> Option<()> {
+            None
+        }
+    }
+
+    impl Ontology for AnimalOntology {
+        type Cat = AnimalCategory;
+        type Qual = NoQuality;
+
+        fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+            Self::generated_structural_axioms()
+        }
+
+        fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+            vec![Box::new(AnimalIsAlive)]
+        }
+    }
+
+    #[test]
+    fn ontology_merges_structural_and_domain() {
+        let all = AnimalOntology::axioms();
+        assert_eq!(all.len(), 8); // 7 structural + 1 domain
+        for a in &all {
+            assert!(a.holds());
+        }
+    }
+
+    #[test]
+    fn ontology_validates() {
+        AnimalOntology::validate().unwrap();
+    }
+}

@@ -14,7 +14,7 @@ use pr4xis::ontology::upper::classify::Classified;
 // =============================================================================
 
 /// Physics laws are timeless mathematical truths.
-impl Classified for crate::science::physics::ontology::PhysicsCategory {
+impl Classified for crate::natural::physics::ontology::PhysicsCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -24,7 +24,7 @@ impl Classified for crate::science::physics::ontology::PhysicsCategory {
 }
 
 /// Mathematics is pure abstraction.
-impl Classified for crate::science::math::ontology::NumberHierarchy {
+impl Classified for crate::formal::math::ontology::NumberHierarchy {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -34,7 +34,7 @@ impl Classified for crate::science::math::ontology::NumberHierarchy {
 }
 
 /// Colors (as perceived) are qualities inhering in physical objects.
-impl Classified for crate::science::colors::ontology::ColorCategory {
+impl Classified for crate::natural::colors::ontology::ColorCategory {
     fn being() -> Being {
         Being::Quality
     }
@@ -44,7 +44,7 @@ impl Classified for crate::science::colors::ontology::ColorCategory {
 }
 
 /// Systems thinking is an abstract framework for understanding wholes.
-impl Classified for crate::science::systems::ontology::SystemsCategory {
+impl Classified for crate::formal::systems::ontology::SystemsCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -54,7 +54,7 @@ impl Classified for crate::science::systems::ontology::SystemsCategory {
 }
 
 /// Information theory is abstract (Shannon 1948).
-impl Classified for crate::science::information::ontology::InfoCategory {
+impl Classified for crate::formal::information::ontology::InfoCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -64,7 +64,7 @@ impl Classified for crate::science::information::ontology::InfoCategory {
 }
 
 /// Event-driven architecture is an abstract pattern.
-impl Classified for crate::science::information::events::ontology::EventCategory {
+impl Classified for crate::formal::information::events::ontology::EventCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -74,7 +74,7 @@ impl Classified for crate::science::information::events::ontology::EventCategory
 }
 
 /// Concurrency is an abstract model of parallel computation.
-impl Classified for crate::science::information::concurrency::ontology::ConcurrencyCategory {
+impl Classified for crate::formal::information::concurrency::ontology::ConcurrencyCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -84,7 +84,7 @@ impl Classified for crate::science::information::concurrency::ontology::Concurre
 }
 
 /// Dialogue is a process (extended over time).
-impl Classified for crate::science::information::dialogue::ontology::DialogueCategory {
+impl Classified for crate::formal::information::dialogue::ontology::DialogueCategory {
     fn being() -> Being {
         Being::Process
     }
@@ -94,7 +94,7 @@ impl Classified for crate::science::information::dialogue::ontology::DialogueCat
 }
 
 /// Distinction (Spencer-Brown) is the most abstract concept.
-impl Classified for crate::science::cognition::distinction::DistinctionCategory {
+impl Classified for crate::cognitive::cognition::distinction::DistinctionCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -104,7 +104,7 @@ impl Classified for crate::science::cognition::distinction::DistinctionCategory 
 }
 
 /// Epistemics is a mental/cognitive framework.
-impl Classified for crate::science::cognition::epistemics::EpistemicCategory {
+impl Classified for crate::cognitive::cognition::epistemics::EpistemicCategory {
     fn being() -> Being {
         Being::MentalObject
     }
@@ -114,7 +114,7 @@ impl Classified for crate::science::cognition::epistemics::EpistemicCategory {
 }
 
 /// Metacognition is thinking about thinking — a mental process.
-impl Classified for crate::science::cognition::metacognition::MetaCognitionCategory {
+impl Classified for crate::cognitive::cognition::metacognition::MetaCognitionCategory {
     fn being() -> Being {
         Being::MentalObject
     }
@@ -124,7 +124,7 @@ impl Classified for crate::science::cognition::metacognition::MetaCognitionCateg
 }
 
 /// Provenance tracks origin of knowledge — an abstract framework.
-impl Classified for crate::science::information::provenance::ontology::ProvenanceCategory {
+impl Classified for crate::formal::information::provenance::ontology::ProvenanceCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -134,7 +134,7 @@ impl Classified for crate::science::information::provenance::ontology::Provenanc
 }
 
 /// English lexical categories are a social convention.
-impl Classified for crate::science::linguistics::lexicon::ontology::LexicalCategory {
+impl Classified for crate::cognitive::linguistics::lexicon::ontology::LexicalCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -148,7 +148,7 @@ impl Classified for crate::science::linguistics::lexicon::ontology::LexicalCateg
 // =============================================================================
 
 /// Chess rules are an agreed-upon social object.
-impl Classified for crate::technology::games::chess::ontology::ChessCategory {
+impl Classified for crate::social::games::chess::ontology::ChessCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -158,7 +158,7 @@ impl Classified for crate::technology::games::chess::ontology::ChessCategory {
 }
 
 /// Rubik's cube rules are an engineered social object.
-impl Classified for crate::technology::games::rubik::ontology::RubikCategory {
+impl Classified for crate::social::games::rubik::ontology::RubikCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -168,7 +168,7 @@ impl Classified for crate::technology::games::rubik::ontology::RubikCategory {
 }
 
 /// HTTP specification is an agreed-upon standard (W3C/IETF).
-impl Classified for crate::technology::software::protocols::http::ontology::HttpMethodCategory {
+impl Classified for crate::social::software::protocols::http::ontology::HttpMethodCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -178,7 +178,7 @@ impl Classified for crate::technology::software::protocols::http::ontology::Http
 }
 
 /// XML specification is a W3C standard.
-impl Classified for crate::technology::software::markup::xml::ontology::XmlCategory {
+impl Classified for crate::social::software::markup::xml::ontology::XmlCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -188,7 +188,7 @@ impl Classified for crate::technology::software::markup::xml::ontology::XmlCateg
 }
 
 /// Markup in general is a social convention for structuring documents.
-impl Classified for crate::technology::software::markup::ontology::MarkupCategory {
+impl Classified for crate::social::software::markup::ontology::MarkupCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -198,7 +198,7 @@ impl Classified for crate::technology::software::markup::ontology::MarkupCategor
 }
 
 /// RDF is a W3C standard data model.
-impl Classified for crate::technology::software::markup::xml::rdf::ontology::RdfCategory {
+impl Classified for crate::social::software::markup::xml::rdf::ontology::RdfCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -208,7 +208,7 @@ impl Classified for crate::technology::software::markup::xml::rdf::ontology::Rdf
 }
 
 /// OWL is a W3C standard ontology language.
-impl Classified for crate::technology::software::markup::xml::owl::ontology::OwlCategory {
+impl Classified for crate::social::software::markup::xml::owl::ontology::OwlCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -218,7 +218,7 @@ impl Classified for crate::technology::software::markup::xml::owl::ontology::Owl
 }
 
 /// Traffic rules are an engineered social system.
-impl Classified for crate::technology::hardware::traffic::ontology::TrafficCategory {
+impl Classified for crate::applied::hardware::traffic::ontology::TrafficCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -228,7 +228,7 @@ impl Classified for crate::technology::hardware::traffic::ontology::TrafficCateg
 }
 
 /// Elevator rules are an engineered system.
-impl Classified for crate::technology::hardware::elevator::ontology::ElevatorCategory {
+impl Classified for crate::applied::hardware::elevator::ontology::ElevatorCategory {
     fn being() -> Being {
         Being::SocialObject
     }
@@ -242,7 +242,7 @@ impl Classified for crate::technology::hardware::elevator::ontology::ElevatorCat
 // =============================================================================
 
 /// Judicial proceedings are social processes (extended over time).
-impl Classified for crate::governance::judicial::ontology::CaseLifecycleCategory {
+impl Classified for crate::social::judicial::ontology::CaseLifecycleCategory {
     fn being() -> Being {
         Being::Process
     }
@@ -255,7 +255,7 @@ impl Classified for crate::governance::judicial::ontology::CaseLifecycleCategory
 // Newly classified domains
 // =============================================================================
 
-impl Classified for crate::science::information::communication::ontology::CommunicationCategory {
+impl Classified for crate::formal::information::communication::ontology::CommunicationCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -264,7 +264,7 @@ impl Classified for crate::science::information::communication::ontology::Commun
     }
 }
 
-impl Classified for crate::science::systems::control::ControlCategory {
+impl Classified for crate::formal::systems::control::ControlCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -273,7 +273,7 @@ impl Classified for crate::science::systems::control::ControlCategory {
     }
 }
 
-impl Classified for crate::science::linguistics::morphology::tense::TenseCategory {
+impl Classified for crate::cognitive::linguistics::morphology::tense::TenseCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -282,7 +282,7 @@ impl Classified for crate::science::linguistics::morphology::tense::TenseCategor
     }
 }
 
-impl Classified for crate::science::linguistics::orthography::distance::SpellingErrorCategory {
+impl Classified for crate::cognitive::linguistics::orthography::distance::SpellingErrorCategory {
     fn being() -> Being {
         Being::Quality
     }
@@ -291,7 +291,7 @@ impl Classified for crate::science::linguistics::orthography::distance::Spelling
     }
 }
 
-impl Classified for crate::science::linguistics::orthography::channel::ChannelCategory {
+impl Classified for crate::cognitive::linguistics::orthography::channel::ChannelCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -300,7 +300,7 @@ impl Classified for crate::science::linguistics::orthography::channel::ChannelCa
     }
 }
 
-impl Classified for crate::science::linguistics::pragmatics::reference::ReferenceCategory {
+impl Classified for crate::cognitive::linguistics::pragmatics::reference::ReferenceCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -309,7 +309,7 @@ impl Classified for crate::science::linguistics::pragmatics::reference::Referenc
     }
 }
 
-impl Classified for crate::science::information::knowledge::ontology::KnowledgeBaseCategory {
+impl Classified for crate::formal::information::knowledge::ontology::KnowledgeBaseCategory {
     fn being() -> Being {
         Being::AbstractObject
     }
@@ -318,7 +318,7 @@ impl Classified for crate::science::information::knowledge::ontology::KnowledgeB
     }
 }
 
-impl Classified for crate::science::cognition::self_model::SelfModelCategory {
+impl Classified for crate::cognitive::cognition::self_model::SelfModelCategory {
     fn being() -> Being {
         Being::MentalObject
     }

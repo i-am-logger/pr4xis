@@ -11,7 +11,7 @@
 /// Source: Bar-Shalom et al. (2001), Chapter 10.
 #[cfg(test)]
 mod tests {
-    use pr4xis_domains::technology::tracking::radar::coordinate::*;
+    use pr4xis_domains::applied::tracking::radar::coordinate::*;
 
     #[test]
     fn track_target_at_known_position() {

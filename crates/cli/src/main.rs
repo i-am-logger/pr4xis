@@ -3,11 +3,11 @@ use std::path::Path;
 use std::sync::Arc;
 
 use pr4xis_chat as chat;
-use pr4xis_domains::science::information::dialogue::engine::{self, DialogueAction};
-use pr4xis_domains::science::linguistics::english::English;
-use pr4xis_domains::science::linguistics::language::Language;
-use pr4xis_domains::science::linguistics::pragmatics::speech_act::SpeechAct;
-use pr4xis_domains::technology::software::markup::xml::lmf;
+use pr4xis_domains::cognitive::linguistics::english::English;
+use pr4xis_domains::cognitive::linguistics::language::Language;
+use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
+use pr4xis_domains::formal::information::dialogue::engine::{self, DialogueAction};
+use pr4xis_domains::social::software::markup::xml::lmf;
 
 fn main() {
     let wordnet_path = std::env::var("WORDNET_XML")
