@@ -13,10 +13,10 @@
 //! - Chang 2016: whole-head finite-element model
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -61,18 +61,45 @@ pub enum AcousticsEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
+// Causal event
 // ---------------------------------------------------------------------------
 
-/// Subsumption hierarchy for acoustics entities.
-pub struct AcousticsTaxonomy;
+/// Events in the acoustics causal chain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+pub enum AcousticsCausalEvent {
+    /// Electrical signal drives the transducer
+    ElectricalSignalInput,
+    /// Transducer converts electrical to mechanical energy
+    TransducerActivation,
+    /// Surface oscillation at the transducer-tissue interface
+    SurfaceOscillation,
+    /// Acoustic wave launched into medium
+    AcousticWaveGeneration,
+    /// Wave propagates through a medium
+    MediumPropagation,
+    /// Wave encounters impedance boundary between media
+    ImpedanceBoundary,
+    /// Partial reflection at impedance boundary
+    PartialReflection,
+    /// Partial transmission through impedance boundary
+    PartialTransmission,
+    /// Vibration coupled into bone for efficient transmission
+    BoneCoupledTransmission,
+    /// Wave penetrates deep tissue layers
+    DeepTissuePenetration,
+}
 
-impl TaxonomyDef for AcousticsTaxonomy {
-    type Entity = AcousticsEntity;
+// ---------------------------------------------------------------------------
+// Category + Reasoning (generated)
+// ---------------------------------------------------------------------------
 
-    fn relations() -> Vec<(AcousticsEntity, AcousticsEntity)> {
-        use AcousticsEntity::*;
-        vec![
+define_ontology! {
+    /// Acoustics ontology: wave properties, impedance, conduction, transduction, media.
+    pub AcousticsOntologyMeta for AcousticsCategory {
+        entity: AcousticsEntity,
+        relation: AcousticsRelation,
+
+        taxonomy: AcousticsTaxonomy [
             // Wave properties is-a WaveProperty
             (SoundWave, WaveProperty),
             (AcousticPressure, WaveProperty),
@@ -102,65 +129,9 @@ impl TaxonomyDef for AcousticsTaxonomy {
             (Bone, AcousticMedium),
             (SoftTissue, AcousticMedium),
             (Fluid, AcousticMedium),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over acoustics entities.
-    pub AcousticsCategory {
-        entity: AcousticsEntity,
-        relation: AcousticsRelation,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
-/// Events in the acoustics causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum AcousticsCausalEvent {
-    /// Electrical signal drives the transducer
-    ElectricalSignalInput,
-    /// Transducer converts electrical to mechanical energy
-    TransducerActivation,
-    /// Surface oscillation at the transducer-tissue interface
-    SurfaceOscillation,
-    /// Acoustic wave launched into medium
-    AcousticWaveGeneration,
-    /// Wave propagates through a medium
-    MediumPropagation,
-    /// Wave encounters impedance boundary between media
-    ImpedanceBoundary,
-    /// Partial reflection at impedance boundary
-    PartialReflection,
-    /// Partial transmission through impedance boundary
-    PartialTransmission,
-    /// Vibration coupled into bone for efficient transmission
-    BoneCoupledTransmission,
-    /// Wave penetrates deep tissue layers
-    DeepTissuePenetration,
-}
-
-/// Causal graph for acoustics.
-///
-/// ElectricalSignalInput -> TransducerActivation -> SurfaceOscillation ->
-///   AcousticWaveGeneration -> MediumPropagation -> ImpedanceBoundary ->
-///   PartialReflection + PartialTransmission
-/// BoneCoupledTransmission -> DeepTissuePenetration
-pub struct AcousticsCauses;
-
-impl CausalDef for AcousticsCauses {
-    type Entity = AcousticsCausalEvent;
-
-    fn relations() -> Vec<(AcousticsCausalEvent, AcousticsCausalEvent)> {
-        use AcousticsCausalEvent::*;
-        vec![
+        causation: AcousticsCauses for AcousticsCausalEvent [
             // Main chain: electrical -> transducer -> oscillation -> wave
             (ElectricalSignalInput, TransducerActivation),
             (TransducerActivation, SurfaceOscillation),
@@ -174,7 +145,12 @@ impl CausalDef for AcousticsCauses {
             // Bone conduction path (bypasses air mismatch)
             (PartialTransmission, BoneCoupledTransmission),
             (BoneCoupledTransmission, DeepTissuePenetration),
-        ]
+        ],
+
+        opposition: AcousticsOpposition [
+            (AirConduction, BoneConduction),
+            (ReflectionCoefficient, TransmissionCoefficient),
+        ],
     }
 }
 
@@ -261,28 +237,6 @@ impl Quality for FrequencyRange {
             Waveform => Some((20.0, 120.0)),             // therapeutic range
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition (semantic contrasts)
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in the acoustics domain.
-///
-/// - AirConduction <-> BoneConduction: inefficient air path vs efficient bone path
-/// - ReflectionCoefficient <-> TransmissionCoefficient: energy reflected vs transmitted
-pub struct AcousticsOpposition;
-
-impl OppositionDef for AcousticsOpposition {
-    type Entity = AcousticsEntity;
-
-    fn pairs() -> Vec<(AcousticsEntity, AcousticsEntity)> {
-        use AcousticsEntity::*;
-        vec![
-            (AirConduction, BoneConduction),
-            (ReflectionCoefficient, TransmissionCoefficient),
-        ]
     }
 }
 
@@ -471,6 +425,7 @@ impl Ontology for AcousticsOntology {
 mod tests {
     use super::*;
     use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::causation::CausalDef;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 
     // -- Axiom tests --

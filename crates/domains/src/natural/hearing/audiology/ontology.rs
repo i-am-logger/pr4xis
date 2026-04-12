@@ -11,11 +11,11 @@
 //! - Kemp 1978: otoacoustic emissions discovery
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::mereology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -80,17 +80,36 @@ pub enum AudiologyEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy
+// Causal event entity
 // ---------------------------------------------------------------------------
 
-pub struct AudiologyTaxonomy;
+/// Clinical assessment workflow.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+pub enum AudiologyCausalEvent {
+    PatientPresents,
+    HistoryTaken,
+    OtoscopyPerformed,
+    PureToneCompleted,
+    SpeechTestCompleted,
+    ImmittanceCompleted,
+    OAECompleted,
+    DiagnosisMade,
+    TreatmentPlanDeveloped,
+    DeviceFitted,
+    OutcomeVerified,
+}
 
-impl TaxonomyDef for AudiologyTaxonomy {
-    type Entity = AudiologyEntity;
+// ---------------------------------------------------------------------------
+// Ontology (define_ontology! macro)
+// ---------------------------------------------------------------------------
 
-    fn relations() -> Vec<(AudiologyEntity, AudiologyEntity)> {
-        use AudiologyEntity::*;
-        vec![
+define_ontology! {
+    /// Discrete category over audiology entities.
+    pub AudiologyOntology for AudiologyCategory {
+        entity: AudiologyEntity,
+        relation: AudiologyRelation,
+
+        taxonomy: AudiologyTaxonomy [
             // Diagnostic tests
             (PureToneAudiometry, DiagnosticTest),
             (AirConductionTest, PureToneAudiometry),
@@ -134,30 +153,9 @@ impl TaxonomyDef for AudiologyTaxonomy {
             (Otoscopy, ClinicalWorkflow),
             (Referral, ClinicalWorkflow),
             (Counseling, ClinicalWorkflow),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Mereology (has-a / part-whole)
-// ---------------------------------------------------------------------------
-
-/// Part-whole relationships for audiological assessment.
-///
-/// Diagnostic tests are composed of their constituent procedures:
-/// - Diagnostic test battery includes pure tone and speech audiometry
-/// - Pure tone audiometry includes air conduction, bone conduction, and masking
-/// - ABR contains waves I, III, and V
-///
-/// Katz et al. 2015; Stach 2010.
-pub struct AudiologyMereology;
-
-impl MereologyDef for AudiologyMereology {
-    type Entity = AudiologyEntity;
-
-    fn relations() -> Vec<(AudiologyEntity, AudiologyEntity)> {
-        use AudiologyEntity::*;
-        vec![
+        mereology: AudiologyMereology [
             // Diagnostic test battery
             (DiagnosticTest, PureToneAudiometry),
             (DiagnosticTest, SpeechAudiometry),
@@ -169,38 +167,9 @@ impl MereologyDef for AudiologyMereology {
             (AuditoryBrainstemResponse, WaveI),
             (AuditoryBrainstemResponse, WaveIII),
             (AuditoryBrainstemResponse, WaveV),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
-/// Clinical assessment workflow.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
-pub enum AudiologyCausalEvent {
-    PatientPresents,
-    HistoryTaken,
-    OtoscopyPerformed,
-    PureToneCompleted,
-    SpeechTestCompleted,
-    ImmittanceCompleted,
-    OAECompleted,
-    DiagnosisMade,
-    TreatmentPlanDeveloped,
-    DeviceFitted,
-    OutcomeVerified,
-}
-
-pub struct AudiologyCausalGraph;
-
-impl CausalDef for AudiologyCausalGraph {
-    type Entity = AudiologyCausalEvent;
-
-    fn relations() -> Vec<(AudiologyCausalEvent, AudiologyCausalEvent)> {
-        use AudiologyCausalEvent::*;
-        vec![
+        causation: AudiologyCausalGraph for AudiologyCausalEvent [
             (PatientPresents, HistoryTaken),
             (HistoryTaken, OtoscopyPerformed),
             (OtoscopyPerformed, PureToneCompleted),
@@ -213,19 +182,13 @@ impl CausalDef for AudiologyCausalGraph {
             (DiagnosisMade, TreatmentPlanDeveloped),
             (TreatmentPlanDeveloped, DeviceFitted),
             (DeviceFitted, OutcomeVerified),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over audiology entities.
-    pub AudiologyCategory {
-        entity: AudiologyEntity,
-        relation: AudiologyRelation,
+        opposition: AudiologyOpposition [
+            (AirConductionTest, BoneConductionTest),
+            (TransientOAE, DistortionProductOAE),
+            (PureToneAudiometry, SpeechAudiometry),
+        ],
     }
 }
 
@@ -299,30 +262,6 @@ impl Quality for RequiresCooperation {
             Tympanometry => Some(false),              // objective
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in audiology.
-///
-/// - AirConductionTest vs BoneConductionTest: two audiometric methods
-/// - TransientOAE vs DistortionProductOAE: two emission types
-/// - PureToneAudiometry vs SpeechAudiometry: tone vs speech testing
-pub struct AudiologyOpposition;
-
-impl OppositionDef for AudiologyOpposition {
-    type Entity = AudiologyEntity;
-
-    fn pairs() -> Vec<(AudiologyEntity, AudiologyEntity)> {
-        use AudiologyEntity::*;
-        vec![
-            (AirConductionTest, BoneConductionTest),
-            (TransientOAE, DistortionProductOAE),
-            (PureToneAudiometry, SpeechAudiometry),
-        ]
     }
 }
 
@@ -480,10 +419,8 @@ impl Axiom for QuickSINSubsumption {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-pub struct AudiologyOntology;
 
 impl Ontology for AudiologyOntology {
     type Cat = AudiologyCategory;

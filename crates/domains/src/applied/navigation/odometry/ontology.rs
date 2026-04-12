@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::ontology::reasoning::taxonomy::{NoCycles, TaxonomyCategory, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::taxonomy::{NoCycles, TaxonomyDef};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Odometry source types — how relative motion is measured.
@@ -35,24 +36,29 @@ pub enum OdometryState {
     Velocity,
 }
 
-/// Odometry source taxonomy: all sources provide relative motion estimates.
-pub struct OdometrySourceTaxonomy;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl TaxonomyDef for OdometrySourceTaxonomy {
-    type Entity = OdometrySource;
+define_ontology! {
+    /// The odometry ontology.
+    ///
+    /// Source: Borenstein et al. (1996), Thrun, Burgard & Fox (2005) Chapter 5,
+    ///         Scaramuzza & Fraundorfer (2011).
+    pub OdometryOntology for OdometryCategory {
+        entity: OdometrySource,
+        relation: OdometryRelation,
 
-    fn relations() -> Vec<(OdometrySource, OdometrySource)> {
-        use OdometrySource::*;
-        vec![
+        taxonomy: OdometrySourceTaxonomy [
             (WheelEncoder, Source),
             (VisualOdometry, Source),
             (InertialOdometry, Source),
             (LaserOdometry, Source),
-        ]
+        ],
     }
 }
 
-/// Odometry state taxonomy.
+/// Odometry state taxonomy (secondary entity type — manual impl).
 pub struct OdometryStateTaxonomy;
 
 impl TaxonomyDef for OdometryStateTaxonomy {
@@ -219,17 +225,11 @@ impl Axiom for SlipCorruptsWheelOdometry {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
 
-/// The odometry ontology.
-///
-/// Source: Borenstein et al. (1996), Thrun, Burgard & Fox (2005) Chapter 5,
-///         Scaramuzza & Fraundorfer (2011).
-pub struct OdometryOntology;
-
 impl Ontology for OdometryOntology {
-    type Cat = TaxonomyCategory<OdometrySourceTaxonomy>;
+    type Cat = OdometryCategory;
     type Qual = DriftRate;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {

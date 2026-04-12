@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::ontology::reasoning::taxonomy::{self, NoCycles, TaxonomyCategory, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::taxonomy::{self, NoCycles, TaxonomyDef};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Coupling level for INS/GNSS integration.
@@ -37,28 +38,30 @@ pub enum InsGnssState {
     Initializing,
 }
 
-/// Coupling level taxonomy: hierarchy of integration tightness.
-///
-/// Loosely → Tightly → Deeply: each IS-A more integrated version.
-pub struct CouplingTaxonomy;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl TaxonomyDef for CouplingTaxonomy {
-    type Entity = CouplingLevel;
+define_ontology! {
+    /// The INS/GNSS integration ontology.
+    ///
+    /// Source: Groves (2013) Chapters 14-17, Titterton & Weston (2004) Chapter 13.
+    pub InsGnssOntology for InsGnssCategory {
+        entity: CouplingLevel,
+        relation: InsGnssRelation,
 
-    fn relations() -> Vec<(CouplingLevel, CouplingLevel)> {
-        use CouplingLevel::*;
-        vec![
+        taxonomy: CouplingTaxonomy [
             (LooselyCoupled, Coupling),
             (TightlyCoupled, Coupling),
             (DeeplyCoupled, Coupling),
             // Tighter coupling extends looser coupling
             (TightlyCoupled, LooselyCoupled),
             (DeeplyCoupled, TightlyCoupled),
-        ]
+        ],
     }
 }
 
-/// INS/GNSS state taxonomy.
+/// INS/GNSS state taxonomy (secondary entity type — manual impl).
 pub struct InsGnssStateTaxonomy;
 
 impl TaxonomyDef for InsGnssStateTaxonomy {
@@ -225,16 +228,11 @@ impl Axiom for TighterCouplingBetter {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
 
-/// The INS/GNSS integration ontology.
-///
-/// Source: Groves (2013) Chapters 14-17, Titterton & Weston (2004) Chapter 13.
-pub struct InsGnssOntology;
-
 impl Ontology for InsGnssOntology {
-    type Cat = TaxonomyCategory<CouplingTaxonomy>;
+    type Cat = InsGnssCategory;
     type Qual = ErrorStateDescription;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {

@@ -16,10 +16,10 @@
 //! - Joris, Schreiner & Rees 2004: neural processing of amplitude-modulated sounds
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -77,17 +77,34 @@ pub enum NeuralEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
+// Causal event entity
 // ---------------------------------------------------------------------------
 
-pub struct NeuralTaxonomy;
+/// Causal events in the ascending auditory pathway.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+pub enum NeuralCausalEvent {
+    AuditoryNerveInput,
+    CochlearNucleusIntegration,
+    BinauralConvergence,
+    LemniscalRelay,
+    MultisensoryIntegration,
+    ThalamicGating,
+    CorticalAnalysis,
+    StreamFormation,
+    PerceptualBinding,
+}
 
-impl TaxonomyDef for NeuralTaxonomy {
-    type Entity = NeuralEntity;
+// ---------------------------------------------------------------------------
+// Ontology (define_ontology! macro)
+// ---------------------------------------------------------------------------
 
-    fn relations() -> Vec<(NeuralEntity, NeuralEntity)> {
-        use NeuralEntity::*;
-        vec![
+define_ontology! {
+    /// Discrete category over neural entities.
+    pub NeuroscienceOntology for NeuroscienceCategory {
+        entity: NeuralEntity,
+        relation: NeuralRelation,
+
+        taxonomy: NeuralTaxonomy [
             // Coding strategies
             (RateCoding, CodingStrategy),
             (TemporalCoding, CodingStrategy),
@@ -126,37 +143,9 @@ impl TaxonomyDef for NeuralTaxonomy {
             (EchoSuppression, HigherFunction),
             (PrecedenceEffect, HigherFunction),
             (MismatchNegativity, HigherFunction),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
-/// Causal events in the ascending auditory pathway.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
-pub enum NeuralCausalEvent {
-    AuditoryNerveInput,
-    CochlearNucleusIntegration,
-    BinauralConvergence,
-    LemniscalRelay,
-    MultisensoryIntegration,
-    ThalamicGating,
-    CorticalAnalysis,
-    StreamFormation,
-    PerceptualBinding,
-}
-
-/// Ascending auditory pathway causal chain.
-pub struct NeuralCausalGraph;
-
-impl CausalDef for NeuralCausalGraph {
-    type Entity = NeuralCausalEvent;
-
-    fn relations() -> Vec<(NeuralCausalEvent, NeuralCausalEvent)> {
-        use NeuralCausalEvent::*;
-        vec![
+        causation: NeuralCausalGraph for NeuralCausalEvent [
             (AuditoryNerveInput, CochlearNucleusIntegration),
             (CochlearNucleusIntegration, BinauralConvergence),
             (BinauralConvergence, LemniscalRelay),
@@ -165,19 +154,13 @@ impl CausalDef for NeuralCausalGraph {
             (ThalamicGating, CorticalAnalysis),
             (CorticalAnalysis, StreamFormation),
             (StreamFormation, PerceptualBinding),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over neural entities.
-    pub NeuroscienceCategory {
-        entity: NeuralEntity,
-        relation: NeuralRelation,
+        opposition: NeuralOpposition [
+            (RateCoding, TemporalCoding),
+            (OnsetResponse, SustainedResponse),
+            (Inhibition, Adaptation),
+        ],
     }
 }
 
@@ -185,7 +168,7 @@ define_dense_category! {
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Phase locking limit (Hz) — frequency above which phase locking degrades.
+/// Phase locking limit (Hz) -- frequency above which phase locking degrades.
 ///
 /// Auditory nerve: ~4-5 kHz (Palmer & Russell 1986)
 /// MSO neurons: ~1.5 kHz (Goldberg & Brown 1969)
@@ -223,8 +206,8 @@ impl Quality for SynapticDelay {
     fn get(&self, individual: &NeuralEntity) -> Option<f64> {
         use NeuralEntity::*;
         match individual {
-            CochlearNucleusProcessing => Some(0.8), // AN→CN delay
-            SuperiorOliveProcessing => Some(1.2),   // CN→SOC delay
+            CochlearNucleusProcessing => Some(0.8), // AN->CN delay
+            SuperiorOliveProcessing => Some(1.2),   // CN->SOC delay
             _ => None,
         }
     }
@@ -249,30 +232,6 @@ impl Quality for IsTonotopic {
             SuperiorOliveProcessing => Some(true),
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in auditory neuroscience.
-///
-/// - RateCoding vs TemporalCoding: two competing coding strategies
-/// - OnsetResponse vs SustainedResponse: transient vs sustained firing
-/// - Inhibition vs Adaptation: two forms of response reduction (different mechanisms)
-pub struct NeuralOpposition;
-
-impl OppositionDef for NeuralOpposition {
-    type Entity = NeuralEntity;
-
-    fn pairs() -> Vec<(NeuralEntity, NeuralEntity)> {
-        use NeuralEntity::*;
-        vec![
-            (RateCoding, TemporalCoding),
-            (OnsetResponse, SustainedResponse),
-            (Inhibition, Adaptation),
-        ]
     }
 }
 
@@ -404,10 +363,8 @@ impl Axiom for AllStagesAreTonotopic {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-pub struct NeuroscienceOntology;
 
 impl Ontology for NeuroscienceOntology {
     type Cat = NeuroscienceCategory;

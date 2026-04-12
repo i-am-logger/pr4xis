@@ -13,9 +13,9 @@
 //! - Levin 2014: Molecular bioelectricity in developmental biology
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
+use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -84,50 +84,46 @@ pub enum BioelectricEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
+// Category + Reasoning (generated)
 // ---------------------------------------------------------------------------
 
-/// Subsumption hierarchy for bioelectric entities.
-pub struct BioelectricTaxonomy;
+define_ontology! {
+    /// Core Levin bioelectric framework.
+    pub BioelectricOntologyMeta for BioelectricCategory {
+        entity: BioelectricEntity,
+        relation: BioelectricRelation,
 
-impl TaxonomyDef for BioelectricTaxonomy {
-    type Entity = BioelectricEntity;
-
-    fn relations() -> Vec<(BioelectricEntity, BioelectricEntity)> {
-        use BioelectricEntity::*;
-        vec![
-            // Signals is-a Signal
+        taxonomy: BioelectricTaxonomy [
             (MembranePotential, Signal),
             (VoltageGradient, Signal),
             (BioelectricPrepattern, Signal),
             (TransepithelialPotential, Signal),
-            // Networks is-a Network
             (GapJunctionNetwork, Network),
             (BioelectricCircuit, Network),
             (CognitiveLightcone, Network),
-            // Morphospace is-a Morphospace
             (TargetMorphology, Morphospace),
             (CurrentMorphology, Morphospace),
             (MorphogeneticField, Morphospace),
-            // Interventions is-a Intervention
             (IonChannelModulation, Intervention),
             (GapJunctionModulation, Intervention),
             (BioelectricCocktail, Intervention),
             (MechanicalStimulation, Intervention),
             (ProtonPumpInhibition, Intervention),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
+        causation: BioelectricSignalCausalGraph for BioelectricSignalEvent [
+            (IonChannelOpening, IonFlux),
+            (IonFlux, VmemChange),
+            (VmemChange, GapJunctionPropagation),
+            (GapJunctionPropagation, PatternFormation),
+            (PatternFormation, MorphogeneticInstruction),
+            (MorphogeneticInstruction, AnatomicalChange),
+        ],
 
-define_dense_category! {
-    /// Discrete category over bioelectric entities.
-    pub BioelectricCategory {
-        entity: BioelectricEntity,
-        relation: BioelectricRelation,
+        opposition: BioelectricOpposition [
+            (IonChannelModulation, ProtonPumpInhibition),
+            (Signal, Intervention),
+        ],
     }
 }
 
@@ -220,29 +216,6 @@ impl Quality for RequiresGapJunctions {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Opposition (semantic contrasts)
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in the bioelectric framework.
-///
-/// - IonChannelModulation ↔ ProtonPumpInhibition: direct bioelectric intervention
-///   vs indirect acid removal
-/// - Signal ↔ Intervention: what IS (observable) vs what you DO (action)
-pub struct BioelectricOpposition;
-
-impl OppositionDef for BioelectricOpposition {
-    type Entity = BioelectricEntity;
-
-    fn pairs() -> Vec<(BioelectricEntity, BioelectricEntity)> {
-        use BioelectricEntity::*;
-        vec![
-            (IonChannelModulation, ProtonPumpInhibition),
-            (Signal, Intervention),
-        ]
-    }
-}
-
 /// Axiom: bioelectric opposition is symmetric.
 pub struct BioelectricOppositionSymmetric;
 
@@ -269,10 +242,6 @@ impl Axiom for BioelectricOppositionIrreflexive {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
 /// Events in the bioelectric signal causal chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum BioelectricSignalEvent {
@@ -283,29 +252,6 @@ pub enum BioelectricSignalEvent {
     PatternFormation,
     MorphogeneticInstruction,
     AnatomicalChange,
-}
-
-/// Causal graph for bioelectric signaling.
-///
-/// IonChannelOpening → IonFlux → VmemChange
-/// VmemChange → GapJunctionPropagation → PatternFormation
-/// PatternFormation → MorphogeneticInstruction → AnatomicalChange
-pub struct BioelectricSignalCausalGraph;
-
-impl CausalDef for BioelectricSignalCausalGraph {
-    type Entity = BioelectricSignalEvent;
-
-    fn relations() -> Vec<(BioelectricSignalEvent, BioelectricSignalEvent)> {
-        use BioelectricSignalEvent::*;
-        vec![
-            (IonChannelOpening, IonFlux),
-            (IonFlux, VmemChange),
-            (VmemChange, GapJunctionPropagation),
-            (GapJunctionPropagation, PatternFormation),
-            (PatternFormation, MorphogeneticInstruction),
-            (MorphogeneticInstruction, AnatomicalChange),
-        ]
-    }
 }
 
 /// Axiom: bioelectric signal causal graph is asymmetric.

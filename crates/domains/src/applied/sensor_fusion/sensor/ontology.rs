@@ -1,20 +1,19 @@
-use pr4xis::ontology::reasoning::taxonomy::{self, NoCycles, TaxonomyCategory, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::applied::sensor_fusion::sensor::modality::SensorType;
 
 // ---------------------------------------------------------------------------
-// Taxonomy: is-a hierarchy using praxis reasoning
+// Ontology (category + reasoning)
 // ---------------------------------------------------------------------------
 
-pub struct SensorTaxonomy;
+define_ontology! {
+    pub SensorOntology for SensorCategory {
+        entity: SensorType,
+        relation: SensorRelation,
 
-impl TaxonomyDef for SensorTaxonomy {
-    type Entity = SensorType;
-
-    fn relations() -> Vec<(SensorType, SensorType)> {
-        use SensorType::*;
-        vec![
+        taxonomy: SensorTaxonomy [
             (ProprioceptiveSensor, Sensor),
             (ExteroceptiveSensor, Sensor),
             (ActiveSensor, Sensor),
@@ -45,29 +44,27 @@ impl TaxonomyDef for SensorTaxonomy {
             (IMU, ProprioceptiveSensor),
             (AHRS, ProprioceptiveSensor),
             (INS, ProprioceptiveSensor),
-        ]
+        ],
+
+        mereology: SensorMereology [
+            (IMU, Accelerometer),
+            (IMU, Gyroscope),
+            (AHRS, Accelerometer),
+            (AHRS, Gyroscope),
+            (AHRS, Magnetometer),
+            (INS, Accelerometer),
+            (INS, Gyroscope),
+        ],
     }
 }
 
 // ---------------------------------------------------------------------------
-// Mereology: has-a
+// Mereology helper
 // ---------------------------------------------------------------------------
 
-fn mereology_relations() -> Vec<(SensorType, SensorType)> {
-    use SensorType::*;
-    vec![
-        (IMU, Accelerometer),
-        (IMU, Gyroscope),
-        (AHRS, Accelerometer),
-        (AHRS, Gyroscope),
-        (AHRS, Magnetometer),
-        (INS, Accelerometer),
-        (INS, Gyroscope),
-    ]
-}
-
 pub fn parts_of(whole: SensorType) -> Vec<SensorType> {
-    mereology_relations()
+    use pr4xis::ontology::reasoning::mereology::MereologyDef;
+    SensorMereology::relations()
         .into_iter()
         .filter(|(w, _)| *w == whole)
         .map(|(_, p)| p)
@@ -94,7 +91,7 @@ impl Quality for IsProprioceptive {
 }
 
 // ---------------------------------------------------------------------------
-// Axioms — using praxis reasoning
+// Axioms
 // ---------------------------------------------------------------------------
 
 pub struct TaxonomyIsDAG;
@@ -104,7 +101,7 @@ impl Axiom for TaxonomyIsDAG {
         "sensor taxonomy is a DAG (no cycles)"
     }
     fn holds(&self) -> bool {
-        NoCycles::<SensorTaxonomy>::default().holds()
+        taxonomy::NoCycles::<SensorTaxonomy>::default().holds()
     }
 }
 
@@ -156,13 +153,11 @@ impl Axiom for CameraIsPassive {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology — uses TaxonomyCategory from praxis reasoning
+// Ontology impl
 // ---------------------------------------------------------------------------
 
-pub struct SensorOntology;
-
 impl Ontology for SensorOntology {
-    type Cat = TaxonomyCategory<SensorTaxonomy>;
+    type Cat = SensorCategory;
     type Qual = IsProprioceptive;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {

@@ -13,10 +13,10 @@
 //! uses when suggesting resolutions.
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -53,45 +53,6 @@ pub enum RecommendationEntity {
     DecisionOutcome,
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-/// Classification of recommendation entities.
-pub struct RecommendationTaxonomy;
-
-impl TaxonomyDef for RecommendationTaxonomy {
-    type Entity = RecommendationEntity;
-
-    fn relations() -> Vec<(RecommendationEntity, RecommendationEntity)> {
-        use RecommendationEntity::*;
-        vec![
-            // Types → RecommendationType
-            (Suggestion, RecommendationType),
-            (Ranking, RecommendationType),
-            (Classification, RecommendationType),
-            (Warning, RecommendationType),
-            (Prescription, RecommendationType),
-            // Components → DecisionComponent
-            (Alternative, DecisionComponent),
-            (Criterion, DecisionComponent),
-            (Weight, DecisionComponent),
-            (Threshold, DecisionComponent),
-            (Evidence, DecisionComponent),
-            (Confidence, DecisionComponent),
-            // Outcomes → DecisionOutcome
-            (Accept, DecisionOutcome),
-            (Reject, DecisionOutcome),
-            (Defer, DecisionOutcome),
-            (Escalate, DecisionOutcome),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph: the recommendation pipeline
-// ---------------------------------------------------------------------------
-
 /// Steps in the recommendation pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum RecommendationStep {
@@ -113,15 +74,38 @@ pub enum RecommendationStep {
     ActionProposal,
 }
 
-/// The recommendation pipeline as a causal graph.
-pub struct RecommendationCausalGraph;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl CausalDef for RecommendationCausalGraph {
-    type Entity = RecommendationStep;
+define_ontology! {
+    /// Dense category over recommendation entities.
+    pub RecommendationOntology for RecommendationCategory {
+        entity: RecommendationEntity,
+        relation: RecommendationRelation,
 
-    fn relations() -> Vec<(RecommendationStep, RecommendationStep)> {
-        use RecommendationStep::*;
-        vec![
+        taxonomy: RecommendationTaxonomy [
+            // Types → RecommendationType
+            (Suggestion, RecommendationType),
+            (Ranking, RecommendationType),
+            (Classification, RecommendationType),
+            (Warning, RecommendationType),
+            (Prescription, RecommendationType),
+            // Components → DecisionComponent
+            (Alternative, DecisionComponent),
+            (Criterion, DecisionComponent),
+            (Weight, DecisionComponent),
+            (Threshold, DecisionComponent),
+            (Evidence, DecisionComponent),
+            (Confidence, DecisionComponent),
+            // Outcomes → DecisionOutcome
+            (Accept, DecisionOutcome),
+            (Reject, DecisionOutcome),
+            (Defer, DecisionOutcome),
+            (Escalate, DecisionOutcome),
+        ],
+
+        causation: RecommendationCausalGraph for RecommendationStep [
             (EvidenceGathering, CriteriaEvaluation),
             (CriteriaEvaluation, AlternativeScoring),
             (AlternativeScoring, ThresholdComparison),
@@ -129,19 +113,14 @@ impl CausalDef for RecommendationCausalGraph {
             (OutcomeSelection, ConfidenceAssessment),
             (ConfidenceAssessment, RecommendationFormulation),
             (RecommendationFormulation, ActionProposal),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Dense category over recommendation entities.
-    pub RecommendationCategory {
-        entity: RecommendationEntity,
-        relation: RecommendationRelation,
+        opposition: RecommendationOpposition [
+            // Accept vs reject (proceed vs stop)
+            (Accept, Reject),
+            // Suggestion vs warning (positive vs cautionary)
+            (Suggestion, Warning),
+        ],
     }
 }
 
@@ -216,27 +195,6 @@ impl Quality for RequiresExpertValidation {
             Classification => Some(false), // classifications are descriptive
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Semantic contrasts in recommendation.
-pub struct RecommendationOpposition;
-
-impl OppositionDef for RecommendationOpposition {
-    type Entity = RecommendationEntity;
-
-    fn pairs() -> Vec<(RecommendationEntity, RecommendationEntity)> {
-        use RecommendationEntity::*;
-        vec![
-            // Accept vs reject (proceed vs stop)
-            (Accept, Reject),
-            // Suggestion vs warning (positive vs cautionary)
-            (Suggestion, Warning),
-        ]
     }
 }
 
@@ -348,10 +306,8 @@ impl Axiom for RecommendationOppositionIrreflexive {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-pub struct RecommendationOntology;
 
 impl Ontology for RecommendationOntology {
     type Cat = RecommendationCategory;

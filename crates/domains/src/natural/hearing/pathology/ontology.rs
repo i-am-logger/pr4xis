@@ -11,25 +11,19 @@
 //! - Eggermont & Roberts 2004: tinnitus neural mechanisms
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
-
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum PathologyEntity {
-    // Hearing loss types
     ConductiveHearingLoss,
     SensorineuralHearingLoss,
     MixedHearingLoss,
     AuditoryNeuropathy,
     CentralAuditoryProcessingDisorder,
-    // Specific conditions
     Otosclerosis,
     Presbycusis,
     NoiseInducedHearingLoss,
@@ -41,7 +35,6 @@ pub enum PathologyEntity {
     OtitisMedia,
     TympanicPerforation,
     Cholesteatoma,
-    // Damage mechanisms
     HairCellLoss,
     StereociliaDamage,
     SynapticRibbonLoss,
@@ -51,7 +44,6 @@ pub enum PathologyEntity {
     DemyelinationVIII,
     Excitotoxicity,
     OxidativeStress,
-    // Perceptual consequences
     ElevatedThreshold,
     ReducedFrequencySelectivity,
     LoudnessRecruitment,
@@ -59,13 +51,11 @@ pub enum PathologyEntity {
     ReducedTemporalResolution,
     AbnormalBinauralProcessing,
     PhantomPercept,
-    // Clinical measures
     Audiogram,
     PureToneAverage,
     SpeechReceptionThreshold,
     OtoacousticEmission,
     AuditoryBrainstemResponse,
-    // Abstract categories
     HearingLoss,
     PeripheralPathology,
     CentralPathology,
@@ -73,70 +63,6 @@ pub enum PathologyEntity {
     PerceptualDeficit,
     ClinicalMeasure,
 }
-
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-pub struct PathologyTaxonomy;
-
-impl TaxonomyDef for PathologyTaxonomy {
-    type Entity = PathologyEntity;
-
-    fn relations() -> Vec<(PathologyEntity, PathologyEntity)> {
-        use PathologyEntity::*;
-        vec![
-            // Hearing loss types
-            (ConductiveHearingLoss, HearingLoss),
-            (SensorineuralHearingLoss, HearingLoss),
-            (MixedHearingLoss, HearingLoss),
-            (AuditoryNeuropathy, HearingLoss),
-            (CentralAuditoryProcessingDisorder, HearingLoss),
-            // Peripheral conditions
-            (Otosclerosis, PeripheralPathology),
-            (Presbycusis, PeripheralPathology),
-            (NoiseInducedHearingLoss, PeripheralPathology),
-            (MenieresDisease, PeripheralPathology),
-            (Tinnitus, PeripheralPathology),
-            (Hyperacusis, PeripheralPathology),
-            (SuddenSensorineuralLoss, PeripheralPathology),
-            (OtitisMedia, PeripheralPathology),
-            (TympanicPerforation, PeripheralPathology),
-            (Cholesteatoma, PeripheralPathology),
-            // Central conditions
-            (AcousticNeuroma, CentralPathology),
-            (CentralAuditoryProcessingDisorder, CentralPathology),
-            // Damage mechanisms
-            (HairCellLoss, DamageMechanism),
-            (StereociliaDamage, DamageMechanism),
-            (SynapticRibbonLoss, DamageMechanism),
-            (StriaDysfunction, DamageMechanism),
-            (OssicularFixation, DamageMechanism),
-            (EndolymphaticHydrops, DamageMechanism),
-            (DemyelinationVIII, DamageMechanism),
-            (Excitotoxicity, DamageMechanism),
-            (OxidativeStress, DamageMechanism),
-            // Perceptual deficits
-            (ElevatedThreshold, PerceptualDeficit),
-            (ReducedFrequencySelectivity, PerceptualDeficit),
-            (LoudnessRecruitment, PerceptualDeficit),
-            (PoorSpeechInNoise, PerceptualDeficit),
-            (ReducedTemporalResolution, PerceptualDeficit),
-            (AbnormalBinauralProcessing, PerceptualDeficit),
-            (PhantomPercept, PerceptualDeficit),
-            // Clinical measures
-            (Audiogram, ClinicalMeasure),
-            (PureToneAverage, ClinicalMeasure),
-            (SpeechReceptionThreshold, ClinicalMeasure),
-            (OtoacousticEmission, ClinicalMeasure),
-            (AuditoryBrainstemResponse, ClinicalMeasure),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum PathologyCausalEvent {
@@ -158,162 +84,114 @@ pub enum PathologyCausalEvent {
     CommunicationDifficulty,
 }
 
-pub struct PathologyCausalGraph;
+define_ontology! {
+    /// Discrete category over pathology entities.
+    pub PathologyOntology for PathologyCategory {
+        entity: PathologyEntity,
+        relation: PathologyRelation,
 
-impl CausalDef for PathologyCausalGraph {
-    type Entity = PathologyCausalEvent;
+        taxonomy: PathologyTaxonomy [
+            (ConductiveHearingLoss, HearingLoss), (SensorineuralHearingLoss, HearingLoss),
+            (MixedHearingLoss, HearingLoss), (AuditoryNeuropathy, HearingLoss),
+            (CentralAuditoryProcessingDisorder, HearingLoss),
+            (Otosclerosis, PeripheralPathology), (Presbycusis, PeripheralPathology),
+            (NoiseInducedHearingLoss, PeripheralPathology), (MenieresDisease, PeripheralPathology),
+            (Tinnitus, PeripheralPathology), (Hyperacusis, PeripheralPathology),
+            (SuddenSensorineuralLoss, PeripheralPathology), (OtitisMedia, PeripheralPathology),
+            (TympanicPerforation, PeripheralPathology), (Cholesteatoma, PeripheralPathology),
+            (AcousticNeuroma, CentralPathology),
+            (CentralAuditoryProcessingDisorder, CentralPathology),
+            (HairCellLoss, DamageMechanism), (StereociliaDamage, DamageMechanism),
+            (SynapticRibbonLoss, DamageMechanism), (StriaDysfunction, DamageMechanism),
+            (OssicularFixation, DamageMechanism), (EndolymphaticHydrops, DamageMechanism),
+            (DemyelinationVIII, DamageMechanism), (Excitotoxicity, DamageMechanism),
+            (OxidativeStress, DamageMechanism),
+            (ElevatedThreshold, PerceptualDeficit), (ReducedFrequencySelectivity, PerceptualDeficit),
+            (LoudnessRecruitment, PerceptualDeficit), (PoorSpeechInNoise, PerceptualDeficit),
+            (ReducedTemporalResolution, PerceptualDeficit),
+            (AbnormalBinauralProcessing, PerceptualDeficit), (PhantomPercept, PerceptualDeficit),
+            (Audiogram, ClinicalMeasure), (PureToneAverage, ClinicalMeasure),
+            (SpeechReceptionThreshold, ClinicalMeasure), (OtoacousticEmission, ClinicalMeasure),
+            (AuditoryBrainstemResponse, ClinicalMeasure),
+        ],
 
-    fn relations() -> Vec<(PathologyCausalEvent, PathologyCausalEvent)> {
-        use PathologyCausalEvent::*;
-        vec![
-            // Noise → OHC and IHC damage
-            (NoiseExposure, OHCDamage),
-            (NoiseExposure, IHCDamage),
-            (NoiseExposure, SynapseLoss),
-            // Aging → multiple degeneration pathways
-            (AgingDegeneration, OHCDamage),
-            (AgingDegeneration, StriDegeneration),
+        causation: PathologyCausalGraph for PathologyCausalEvent [
+            (NoiseExposure, OHCDamage), (NoiseExposure, IHCDamage), (NoiseExposure, SynapseLoss),
+            (AgingDegeneration, OHCDamage), (AgingDegeneration, StriDegeneration),
             (AgingDegeneration, NeuralDegeneration),
-            // Infection → middle ear
             (Infection, MiddleEarDysfunction),
-            // Genetic → various
-            (GeneticMutation, OHCDamage),
-            (GeneticMutation, IHCDamage),
-            // OHC damage → loss of amplification
-            (OHCDamage, ThresholdShift),
-            (OHCDamage, FrequencyResolutionLoss),
+            (GeneticMutation, OHCDamage), (GeneticMutation, IHCDamage),
+            (OHCDamage, ThresholdShift), (OHCDamage, FrequencyResolutionLoss),
             (OHCDamage, TinnitusGeneration),
-            // IHC damage → severe threshold shift
-            (IHCDamage, ThresholdShift),
-            // Synapse loss → temporal smearing
-            (SynapseLoss, TemporalSmearing),
-            // Stria → reduced EP → threshold shift
-            (StriDegeneration, ThresholdShift),
-            // Middle ear → conductive loss
-            (MiddleEarDysfunction, ThresholdShift),
-            // Perceptual consequences
+            (IHCDamage, ThresholdShift), (SynapseLoss, TemporalSmearing),
+            (StriDegeneration, ThresholdShift), (MiddleEarDysfunction, ThresholdShift),
             (ThresholdShift, CommunicationDifficulty),
             (FrequencyResolutionLoss, CommunicationDifficulty),
             (TemporalSmearing, CommunicationDifficulty),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over pathology entities.
-    pub PathologyCategory {
-        entity: PathologyEntity,
-        relation: PathologyRelation,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Typical hearing loss severity (dB HL) for each condition.
-///
-/// WHO grading: mild 26-40, moderate 41-60, severe 61-80, profound >80.
-#[derive(Debug, Clone)]
-pub struct TypicalSeverityDB;
-
-impl Quality for TypicalSeverityDB {
-    type Individual = PathologyEntity;
-    type Value = f64;
-
-    fn get(&self, individual: &PathologyEntity) -> Option<f64> {
-        use PathologyEntity::*;
-        match individual {
-            Otosclerosis => Some(40.0),            // moderate conductive
-            Presbycusis => Some(45.0),             // moderate SNHL
-            NoiseInducedHearingLoss => Some(50.0), // moderate SNHL (4 kHz notch)
-            MenieresDisease => Some(40.0),         // fluctuating, low-frequency
-            OtitisMedia => Some(25.0),             // mild conductive
-            TympanicPerforation => Some(30.0),     // mild-moderate conductive
-            AcousticNeuroma => Some(55.0),         // unilateral SNHL
-            SuddenSensorineuralLoss => Some(60.0), // variable, often severe
-            _ => None,
-        }
-    }
-}
-
-/// Prevalence (percent) of hearing conditions in their target populations.
-///
-/// - Presbycusis: ~33% of adults over 65 (Gates & Mills 2005)
-/// - NoiseInducedHearingLoss: ~12% of exposed workers (WHO 2021)
-/// - Tinnitus: ~15% of adults (WHO 2021)
-#[derive(Debug, Clone)]
-pub struct PrevalencePercent;
-
-impl Quality for PrevalencePercent {
-    type Individual = PathologyEntity;
-    type Value = f64;
-
-    fn get(&self, individual: &PathologyEntity) -> Option<f64> {
-        use PathologyEntity::*;
-        match individual {
-            Presbycusis => Some(33.0),             // age > 65
-            NoiseInducedHearingLoss => Some(12.0), // exposed workers
-            Tinnitus => Some(15.0),                // general adult population
-            _ => None,
-        }
-    }
-}
-
-/// Whether OAEs are present (indicates OHC function).
-///
-/// Kemp 1978: OAEs as indicator of OHC function.
-#[derive(Debug, Clone)]
-pub struct OAEsPresent;
-
-impl Quality for OAEsPresent {
-    type Individual = PathologyEntity;
-    type Value = bool;
-
-    fn get(&self, individual: &PathologyEntity) -> Option<bool> {
-        use PathologyEntity::*;
-        match individual {
-            ConductiveHearingLoss => Some(true), // OHCs intact, but OAEs may not pass middle ear
-            SensorineuralHearingLoss => Some(false), // OHC damage → no OAEs
-            AuditoryNeuropathy => Some(true),    // OHCs intact, neural problem
-            NoiseInducedHearingLoss => Some(false), // OHC damage
-            Presbycusis => Some(false),          // OHC loss
-            _ => None,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in hearing pathology.
-///
-/// - ConductiveHearingLoss vs SensorineuralHearingLoss: middle ear vs inner ear
-/// - Tinnitus vs Hyperacusis: phantom sound vs sound sensitivity
-/// - HairCellLoss vs SynapticRibbonLoss: sensory vs neural damage
-pub struct PathologyOpposition;
-
-impl OppositionDef for PathologyOpposition {
-    type Entity = PathologyEntity;
-
-    fn pairs() -> Vec<(PathologyEntity, PathologyEntity)> {
-        use PathologyEntity::*;
-        vec![
+        opposition: PathologyOpposition [
             (ConductiveHearingLoss, SensorineuralHearingLoss),
             (Tinnitus, Hyperacusis),
             (HairCellLoss, SynapticRibbonLoss),
-        ]
+        ],
     }
 }
 
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
+#[derive(Debug, Clone)]
+pub struct TypicalSeverityDB;
+impl Quality for TypicalSeverityDB {
+    type Individual = PathologyEntity;
+    type Value = f64;
+    fn get(&self, individual: &PathologyEntity) -> Option<f64> {
+        use PathologyEntity::*;
+        match individual {
+            Otosclerosis => Some(40.0),
+            Presbycusis => Some(45.0),
+            NoiseInducedHearingLoss => Some(50.0),
+            MenieresDisease => Some(40.0),
+            OtitisMedia => Some(25.0),
+            TympanicPerforation => Some(30.0),
+            AcousticNeuroma => Some(55.0),
+            SuddenSensorineuralLoss => Some(60.0),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PrevalencePercent;
+impl Quality for PrevalencePercent {
+    type Individual = PathologyEntity;
+    type Value = f64;
+    fn get(&self, individual: &PathologyEntity) -> Option<f64> {
+        use PathologyEntity::*;
+        match individual {
+            Presbycusis => Some(33.0),
+            NoiseInducedHearingLoss => Some(12.0),
+            Tinnitus => Some(15.0),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct OAEsPresent;
+impl Quality for OAEsPresent {
+    type Individual = PathologyEntity;
+    type Value = bool;
+    fn get(&self, individual: &PathologyEntity) -> Option<bool> {
+        use PathologyEntity::*;
+        match individual {
+            ConductiveHearingLoss => Some(true),
+            SensorineuralHearingLoss => Some(false),
+            AuditoryNeuropathy => Some(true),
+            NoiseInducedHearingLoss => Some(false),
+            Presbycusis => Some(false),
+            _ => None,
+        }
+    }
+}
 
 pub struct PathologyTaxonomyIsDAG;
 impl Axiom for PathologyTaxonomyIsDAG {
@@ -324,7 +202,6 @@ impl Axiom for PathologyTaxonomyIsDAG {
         taxonomy::NoCycles::<PathologyTaxonomy>::new().holds()
     }
 }
-
 pub struct PathologyCausalGraphIsAsymmetric;
 impl Axiom for PathologyCausalGraphIsAsymmetric {
     fn description(&self) -> &str {
@@ -334,7 +211,6 @@ impl Axiom for PathologyCausalGraphIsAsymmetric {
         causation::Asymmetric::<PathologyCausalGraph>::new().holds()
     }
 }
-
 pub struct PathologyCausalNoSelfCause;
 impl Axiom for PathologyCausalNoSelfCause {
     fn description(&self) -> &str {
@@ -344,8 +220,6 @@ impl Axiom for PathologyCausalNoSelfCause {
         causation::NoSelfCausation::<PathologyCausalGraph>::new().holds()
     }
 }
-
-/// Noise exposure transitively causes communication difficulty.
 pub struct NoiseCausesDifficulty;
 impl Axiom for NoiseCausesDifficulty {
     fn description(&self) -> &str {
@@ -357,8 +231,6 @@ impl Axiom for NoiseCausesDifficulty {
             .contains(&CommunicationDifficulty)
     }
 }
-
-/// Five hearing loss types are classified.
 pub struct FiveHearingLossTypes;
 impl Axiom for FiveHearingLossTypes {
     fn description(&self) -> &str {
@@ -377,8 +249,6 @@ impl Axiom for FiveHearingLossTypes {
         .all(|t| taxonomy::is_a::<PathologyTaxonomy>(t, &HearingLoss))
     }
 }
-
-/// Opposition is symmetric.
 pub struct PathologyOppositionSymmetric;
 impl Axiom for PathologyOppositionSymmetric {
     fn description(&self) -> &str {
@@ -388,8 +258,6 @@ impl Axiom for PathologyOppositionSymmetric {
         opposition::Symmetric::<PathologyOpposition>::new().holds()
     }
 }
-
-/// Opposition is irreflexive.
 pub struct PathologyOppositionIrreflexive;
 impl Axiom for PathologyOppositionIrreflexive {
     fn description(&self) -> &str {
@@ -399,8 +267,6 @@ impl Axiom for PathologyOppositionIrreflexive {
         opposition::Irreflexive::<PathologyOpposition>::new().holds()
     }
 }
-
-/// Presbycusis is the most prevalent condition (Gates & Mills 2005).
 pub struct PresbycusisMostPrevalent;
 impl Axiom for PresbycusisMostPrevalent {
     fn description(&self) -> &str {
@@ -414,10 +280,6 @@ impl Axiom for PresbycusisMostPrevalent {
         p > n && p > t
     }
 }
-
-/// Auditory neuropathy has present OAEs (distinguishes it from SNHL).
-///
-/// Starr et al. 1996.
 pub struct NeuropathyHasOAEs;
 impl Axiom for NeuropathyHasOAEs {
     fn description(&self) -> &str {
@@ -429,16 +291,9 @@ impl Axiom for NeuropathyHasOAEs {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
-pub struct PathologyOntology;
-
 impl Ontology for PathologyOntology {
     type Cat = PathologyCategory;
     type Qual = TypicalSeverityDB;
-
     fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(PathologyTaxonomyIsDAG),
@@ -501,7 +356,6 @@ mod tests {
             &PathologyEntity::SensorineuralHearingLoss
         ));
     }
-
     #[test]
     fn test_category_laws() {
         check_category_laws::<PathologyCategory>().unwrap();
@@ -514,7 +368,6 @@ mod tests {
     fn test_causal_category_laws() {
         check_category_laws::<CausalCategory<PathologyCausalGraph>>().unwrap();
     }
-
     #[test]
     fn test_presbycusis_most_prevalent() {
         assert!(PresbycusisMostPrevalent.holds());
@@ -533,7 +386,6 @@ mod tests {
             Some(15.0)
         );
     }
-
     #[test]
     fn test_otosclerosis_severity() {
         assert_eq!(
@@ -541,7 +393,6 @@ mod tests {
             Some(40.0)
         );
     }
-
     #[test]
     fn test_entity_count() {
         assert_eq!(PathologyEntity::variants().len(), 43);

@@ -4,11 +4,11 @@
 //! using praxis taxonomy (is-a) and mereology (has-a).
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::mereology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -48,19 +48,33 @@ pub enum BiologicalEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
+// Causal event
 // ---------------------------------------------------------------------------
 
-/// Subsumption hierarchy for biological entities.
-pub struct BiologicalTaxonomy;
+/// Events in the biological causal chain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+pub enum BiologicalCausalEvent {
+    StemCellDivision,
+    CellDifferentiation,
+    TissueFormation,
+    OrganDevelopment,
+    AcidDamage,
+    InflammationOnset,
+    MetaplasticChange,
+    FibrosisOnset,
+}
 
-impl TaxonomyDef for BiologicalTaxonomy {
-    type Entity = BiologicalEntity;
+// ---------------------------------------------------------------------------
+// Category + Reasoning (generated)
+// ---------------------------------------------------------------------------
 
-    fn relations() -> Vec<(BiologicalEntity, BiologicalEntity)> {
-        use BiologicalEntity::*;
-        vec![
-            // All cell types is-a Cell
+define_ontology! {
+    /// Biological organization ontology: Cell -> Tissue -> Organ -> Organism.
+    pub BiologyOntologyMeta for BiologyCategory {
+        entity: BiologicalEntity,
+        relation: BiologicalRelation,
+
+        taxonomy: BiologicalTaxonomy [
             (SquamousEpithelial, Cell),
             (ColumnarEpithelial, Cell),
             (GobletCell, Cell),
@@ -69,72 +83,53 @@ impl TaxonomyDef for BiologicalTaxonomy {
             (MacrophageM1, Cell),
             (MacrophageM2, Cell),
             (Osteocyte, Cell),
-            // All tissue types is-a Tissue
             (SquamousEpithelium, Tissue),
             (ColumnarEpithelium, Tissue),
             (ConnectiveTissue, Tissue),
             (SmoothMuscle, Tissue),
             (NeuralTissue, Tissue),
             (BoneMatrix, Tissue),
-            // All organs is-a Organ
             (Esophagus, Organ),
             (Heart, Organ),
             (Lung, Organ),
             (Brain, Organ),
             (Bone, Organ),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Mereology (has-a / part-whole)
-// ---------------------------------------------------------------------------
-
-/// Part-whole relationships for biological entities.
-pub struct BiologicalMereology;
-
-impl MereologyDef for BiologicalMereology {
-    type Entity = BiologicalEntity;
-
-    fn relations() -> Vec<(BiologicalEntity, BiologicalEntity)> {
-        use BiologicalEntity::*;
-        vec![
-            // Organism has-a all organs
+        mereology: BiologicalMereology [
             (Organism, Esophagus),
             (Organism, Heart),
             (Organism, Lung),
             (Organism, Brain),
             (Organism, Bone),
-            // Esophagus composition
             (Esophagus, SquamousEpithelium),
             (Esophagus, ConnectiveTissue),
             (Esophagus, SmoothMuscle),
             (Esophagus, NeuralTissue),
-            // Bone composition
             (Bone, BoneMatrix),
             (Bone, ConnectiveTissue),
-            // Tissue → cell composition
             (SquamousEpithelium, SquamousEpithelial),
             (SquamousEpithelium, BasalStemCell),
             (ColumnarEpithelium, ColumnarEpithelial),
             (ColumnarEpithelium, GobletCell),
             (ConnectiveTissue, Fibroblast),
             (BoneMatrix, Osteocyte),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category (BiologicalRelation morphism over BiologicalEntity)
-// ---------------------------------------------------------------------------
+        causation: BiologicalCausalGraph for BiologicalCausalEvent [
+            (StemCellDivision, CellDifferentiation),
+            (CellDifferentiation, TissueFormation),
+            (TissueFormation, OrganDevelopment),
+            (AcidDamage, InflammationOnset),
+            (InflammationOnset, MetaplasticChange),
+            (InflammationOnset, FibrosisOnset),
+        ],
 
-define_dense_category! {
-    /// Discrete category over biological entities.
-    ///
-    /// Every entity pair has a unique morphism; composition is transitive.
-    pub BiologyCategory {
-        entity: BiologicalEntity,
-        relation: BiologicalRelation,
+        opposition: BiologicalOpposition [
+            (SquamousEpithelial, ColumnarEpithelial),
+            (MacrophageM1, MacrophageM2),
+            (Cell, Organism),
+        ],
     }
 }
 
@@ -372,30 +367,6 @@ impl Axiom for MechanosensitivityIsMultiscale {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Opposition (semantic contrasts)
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in the biological domain.
-///
-/// - SquamousEpithelial ↔ ColumnarEpithelial: normal esophageal lining vs Barrett's metaplasia
-/// - MacrophageM1 ↔ MacrophageM2: pro-inflammatory vs pro-repair phenotypes
-/// - Cell ↔ Organism: micro scale vs macro scale
-pub struct BiologicalOpposition;
-
-impl OppositionDef for BiologicalOpposition {
-    type Entity = BiologicalEntity;
-
-    fn pairs() -> Vec<(BiologicalEntity, BiologicalEntity)> {
-        use BiologicalEntity::*;
-        vec![
-            (SquamousEpithelial, ColumnarEpithelial),
-            (MacrophageM1, MacrophageM2),
-            (Cell, Organism),
-        ]
-    }
-}
-
 /// Axiom: biological opposition is symmetric.
 pub struct BiologicalOppositionSymmetric;
 
@@ -419,49 +390,6 @@ impl Axiom for BiologicalOppositionIrreflexive {
 
     fn holds(&self) -> bool {
         opposition::Irreflexive::<BiologicalOpposition>::new().holds()
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
-/// Events in the biological causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum BiologicalCausalEvent {
-    StemCellDivision,
-    CellDifferentiation,
-    TissueFormation,
-    OrganDevelopment,
-    AcidDamage,
-    InflammationOnset,
-    MetaplasticChange,
-    FibrosisOnset,
-}
-
-/// Causal graph for biological development and pathology.
-///
-/// Normal development: StemCellDivision → CellDifferentiation → TissueFormation → OrganDevelopment
-/// Pathological path: AcidDamage → InflammationOnset → MetaplasticChange
-/// Fibrotic path: InflammationOnset → FibrosisOnset
-pub struct BiologicalCausalGraph;
-
-impl CausalDef for BiologicalCausalGraph {
-    type Entity = BiologicalCausalEvent;
-
-    fn relations() -> Vec<(BiologicalCausalEvent, BiologicalCausalEvent)> {
-        use BiologicalCausalEvent::*;
-        vec![
-            // Normal development
-            (StemCellDivision, CellDifferentiation),
-            (CellDifferentiation, TissueFormation),
-            (TissueFormation, OrganDevelopment),
-            // Pathological path
-            (AcidDamage, InflammationOnset),
-            (InflammationOnset, MetaplasticChange),
-            // Fibrotic path
-            (InflammationOnset, FibrosisOnset),
-        ]
     }
 }
 

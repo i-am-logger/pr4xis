@@ -10,20 +10,15 @@
 //! - Welch 1967: spectral estimation
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::mereology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
-
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum SignalEntity {
-    // Transforms
     FourierTransform,
     FFT,
     InverseFFT,
@@ -31,13 +26,11 @@ pub enum SignalEntity {
     WaveletTransform,
     HilbertTransform,
     CepstralAnalysis,
-    // Representations
     Spectrogram,
     PowerSpectralDensity,
     Autocorrelation,
     Cepstrum,
     MelFrequencyCepstrum,
-    // Filters
     LowPassFilter,
     HighPassFilter,
     BandPassFilter,
@@ -45,26 +38,21 @@ pub enum SignalEntity {
     FIRFilter,
     IIRFilter,
     GammatoneFilter,
-    // Sampling
     Sampling,
     NyquistFrequency,
     Aliasing,
     Quantization,
-    // Windowing
     WindowFunction,
     HannWindow,
     HammingWindow,
     BlackmanWindow,
     RectangularWindow,
-    // Operations
     Convolution,
     Correlation,
     Decimation,
     Interpolation,
-    // Domains
     TimeDomain,
     FrequencyDomain,
-    // Abstract categories
     Transform,
     Representation,
     Filter,
@@ -73,98 +61,6 @@ pub enum SignalEntity {
     AnalysisDomain,
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-pub struct SignalTaxonomy;
-
-impl TaxonomyDef for SignalTaxonomy {
-    type Entity = SignalEntity;
-
-    fn relations() -> Vec<(SignalEntity, SignalEntity)> {
-        use SignalEntity::*;
-        vec![
-            // Transforms
-            (FourierTransform, Transform),
-            (FFT, FourierTransform),
-            (InverseFFT, Transform),
-            (ShortTimeFourierTransform, Transform),
-            (WaveletTransform, Transform),
-            (HilbertTransform, Transform),
-            (CepstralAnalysis, Transform),
-            // Representations
-            (Spectrogram, Representation),
-            (PowerSpectralDensity, Representation),
-            (Autocorrelation, Representation),
-            (Cepstrum, Representation),
-            (MelFrequencyCepstrum, Representation),
-            // Filters
-            (LowPassFilter, Filter),
-            (HighPassFilter, Filter),
-            (BandPassFilter, Filter),
-            (BandStopFilter, Filter),
-            (FIRFilter, Filter),
-            (IIRFilter, Filter),
-            (GammatoneFilter, Filter),
-            (GammatoneFilter, BandPassFilter),
-            // Sampling concepts
-            (Sampling, SamplingConcept),
-            (NyquistFrequency, SamplingConcept),
-            (Aliasing, SamplingConcept),
-            (Quantization, SamplingConcept),
-            // Windows
-            (HannWindow, WindowFunction),
-            (HammingWindow, WindowFunction),
-            (BlackmanWindow, WindowFunction),
-            (RectangularWindow, WindowFunction),
-            // Operations
-            (Convolution, SignalOperation),
-            (Correlation, SignalOperation),
-            (Decimation, SignalOperation),
-            (Interpolation, SignalOperation),
-            // Domains
-            (TimeDomain, AnalysisDomain),
-            (FrequencyDomain, AnalysisDomain),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Mereology (has-a / part-whole)
-// ---------------------------------------------------------------------------
-
-/// Part-whole relationships for signal processing.
-///
-/// Computational representations are composed of their constituent components:
-/// - Spectrogram is composed of window function, frequency domain, and time domain
-/// - Mel-frequency cepstrum contains cepstral analysis and bandpass filter
-///
-/// Oppenheim & Schafer 2010; Harris 1978.
-pub struct SignalMereology;
-
-impl MereologyDef for SignalMereology {
-    type Entity = SignalEntity;
-
-    fn relations() -> Vec<(SignalEntity, SignalEntity)> {
-        use SignalEntity::*;
-        vec![
-            // Spectrogram composition
-            (Spectrogram, WindowFunction),
-            (Spectrogram, FrequencyDomain),
-            (Spectrogram, TimeDomain),
-            // Mel-frequency cepstrum components
-            (MelFrequencyCepstrum, CepstralAnalysis),
-            (MelFrequencyCepstrum, BandPassFilter),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
-/// Causal events in the signal processing pipeline.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum SignalCausalEvent {
     RawSignal,
@@ -177,77 +73,51 @@ pub enum SignalCausalEvent {
     PatternClassification,
 }
 
-/// Causal graph for signal processing pipeline.
-pub struct SignalCausalGraph;
-
-impl CausalDef for SignalCausalGraph {
-    type Entity = SignalCausalEvent;
-
-    fn relations() -> Vec<(SignalCausalEvent, SignalCausalEvent)> {
-        use SignalCausalEvent::*;
-        vec![
-            // Raw signal passes through anti-alias filter
-            (RawSignal, AntiAliasFiltering),
-            // Anti-alias filtered signal is digitized
-            (AntiAliasFiltering, Digitization),
-            // Digitized signal gets windowed
-            (Digitization, WindowApplication),
-            // Windowed signal undergoes spectral transform
-            (WindowApplication, SpectralTransform),
-            // Spectral data feeds feature extraction
-            (SpectralTransform, FeatureExtraction),
-            // Features drive pattern classification
-            (FeatureExtraction, PatternClassification),
-            // Spectral data can also be smoothed first
-            (SpectralTransform, SpectralSmoothing),
-            // Smoothed spectrum also feeds feature extraction
-            (SpectralSmoothing, FeatureExtraction),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-pub struct SignalOpposition;
-
-impl OppositionDef for SignalOpposition {
-    type Entity = SignalEntity;
-
-    fn pairs() -> Vec<(SignalEntity, SignalEntity)> {
-        use SignalEntity::*;
-        vec![
-            (TimeDomain, FrequencyDomain),
-            (LowPassFilter, HighPassFilter),
-            (Decimation, Interpolation),
-            (FFT, InverseFFT),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
+define_ontology! {
     /// Discrete category over signal processing entities.
-    pub SignalProcessingCategory {
+    pub SignalProcessingOntology for SignalProcessingCategory {
         entity: SignalEntity,
         relation: SignalRelation,
+
+        taxonomy: SignalTaxonomy [
+            (FourierTransform, Transform), (FFT, FourierTransform), (InverseFFT, Transform),
+            (ShortTimeFourierTransform, Transform), (WaveletTransform, Transform),
+            (HilbertTransform, Transform), (CepstralAnalysis, Transform),
+            (Spectrogram, Representation), (PowerSpectralDensity, Representation),
+            (Autocorrelation, Representation), (Cepstrum, Representation),
+            (MelFrequencyCepstrum, Representation),
+            (LowPassFilter, Filter), (HighPassFilter, Filter), (BandPassFilter, Filter),
+            (BandStopFilter, Filter), (FIRFilter, Filter), (IIRFilter, Filter),
+            (GammatoneFilter, Filter), (GammatoneFilter, BandPassFilter),
+            (Sampling, SamplingConcept), (NyquistFrequency, SamplingConcept),
+            (Aliasing, SamplingConcept), (Quantization, SamplingConcept),
+            (HannWindow, WindowFunction), (HammingWindow, WindowFunction),
+            (BlackmanWindow, WindowFunction), (RectangularWindow, WindowFunction),
+            (Convolution, SignalOperation), (Correlation, SignalOperation),
+            (Decimation, SignalOperation), (Interpolation, SignalOperation),
+            (TimeDomain, AnalysisDomain), (FrequencyDomain, AnalysisDomain),
+        ],
+
+        mereology: SignalMereology [
+            (Spectrogram, WindowFunction), (Spectrogram, FrequencyDomain),
+            (Spectrogram, TimeDomain),
+            (MelFrequencyCepstrum, CepstralAnalysis), (MelFrequencyCepstrum, BandPassFilter),
+        ],
+
+        causation: SignalCausalGraph for SignalCausalEvent [
+            (RawSignal, AntiAliasFiltering), (AntiAliasFiltering, Digitization),
+            (Digitization, WindowApplication), (WindowApplication, SpectralTransform),
+            (SpectralTransform, FeatureExtraction), (FeatureExtraction, PatternClassification),
+            (SpectralTransform, SpectralSmoothing), (SpectralSmoothing, FeatureExtraction),
+        ],
+
+        opposition: SignalOpposition [
+            (TimeDomain, FrequencyDomain), (LowPassFilter, HighPassFilter),
+            (Decimation, Interpolation), (FFT, InverseFFT),
+        ],
     }
 }
 
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Computational complexity (Big-O notation exponent for N-point operation).
-///
-/// - FFT: O(N log N), Cooley & Tukey 1965
-/// - DFT: O(N^2)
-/// - Convolution (direct): O(N^2)
-/// - Convolution (FFT): O(N log N)
 #[derive(Debug, Clone, PartialEq)]
 pub struct Complexity {
     pub order: &'static str,
@@ -255,11 +125,9 @@ pub struct Complexity {
 
 #[derive(Debug, Clone)]
 pub struct ComputationalComplexity;
-
 impl Quality for ComputationalComplexity {
     type Individual = SignalEntity;
     type Value = Complexity;
-
     fn get(&self, individual: &SignalEntity) -> Option<Complexity> {
         use SignalEntity::*;
         match individual {
@@ -272,46 +140,28 @@ impl Quality for ComputationalComplexity {
     }
 }
 
-/// Sidelobe level (dB) for window functions.
-///
-/// Harris 1978.
 #[derive(Debug, Clone)]
 pub struct SidelobeLevel;
-
 impl Quality for SidelobeLevel {
     type Individual = SignalEntity;
     type Value = f64;
-
     fn get(&self, individual: &SignalEntity) -> Option<f64> {
         use SignalEntity::*;
         match individual {
-            RectangularWindow => Some(-13.0), // worst sidelobes
+            RectangularWindow => Some(-13.0),
             HannWindow => Some(-31.5),
             HammingWindow => Some(-42.0),
-            BlackmanWindow => Some(-58.0), // best sidelobes
+            BlackmanWindow => Some(-58.0),
             _ => None,
         }
     }
 }
 
-/// Normalized mainlobe bandwidth (Hz*N product) for window functions.
-///
-/// Measures the width of the main spectral lobe; higher values mean
-/// wider mainlobe (poorer frequency resolution) but better sidelobe
-/// suppression.
-///
-/// - Rectangular: 1.0
-/// - Hann: 2.0
-/// - Blackman: 3.0
-///
-/// Harris 1978, Table I.
 #[derive(Debug, Clone)]
 pub struct MainlobeBandwidth;
-
 impl Quality for MainlobeBandwidth {
     type Individual = SignalEntity;
     type Value = f64;
-
     fn get(&self, individual: &SignalEntity) -> Option<f64> {
         use SignalEntity::*;
         match individual {
@@ -323,13 +173,6 @@ impl Quality for MainlobeBandwidth {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
-/// Rectangular window has narrowest mainlobe (best frequency resolution).
-///
-/// Harris 1978.
 pub struct RectangularNarrowestMainlobe;
 impl Axiom for RectangularNarrowestMainlobe {
     fn description(&self) -> &str {
@@ -337,13 +180,12 @@ impl Axiom for RectangularNarrowestMainlobe {
     }
     fn holds(&self) -> bool {
         use SignalEntity::*;
-        let rect = MainlobeBandwidth.get(&RectangularWindow).unwrap();
-        let hann = MainlobeBandwidth.get(&HannWindow).unwrap();
-        let blackman = MainlobeBandwidth.get(&BlackmanWindow).unwrap();
-        rect < hann && hann < blackman
+        let r = MainlobeBandwidth.get(&RectangularWindow).unwrap();
+        let h = MainlobeBandwidth.get(&HannWindow).unwrap();
+        let b = MainlobeBandwidth.get(&BlackmanWindow).unwrap();
+        r < h && h < b
     }
 }
-
 pub struct SignalTaxonomyIsDAG;
 impl Axiom for SignalTaxonomyIsDAG {
     fn description(&self) -> &str {
@@ -353,8 +195,6 @@ impl Axiom for SignalTaxonomyIsDAG {
         taxonomy::NoCycles::<SignalTaxonomy>::new().holds()
     }
 }
-
-/// Mereology is a DAG.
 pub struct SignalMereologyIsDAG;
 impl Axiom for SignalMereologyIsDAG {
     fn description(&self) -> &str {
@@ -364,11 +204,6 @@ impl Axiom for SignalMereologyIsDAG {
         mereology::NoCycles::<SignalMereology>::new().holds()
     }
 }
-
-/// Spectrogram contains both time and frequency domain representations.
-///
-/// A spectrogram is a time-frequency representation that combines windowed
-/// segments (time domain) with spectral analysis (frequency domain).
 pub struct SpectrogramContainsDomains;
 impl Axiom for SpectrogramContainsDomains {
     fn description(&self) -> &str {
@@ -382,8 +217,6 @@ impl Axiom for SpectrogramContainsDomains {
             && parts.contains(&WindowFunction)
     }
 }
-
-/// FFT is-a FourierTransform is-a Transform (two-level subsumption).
 pub struct FFTSubsumption;
 impl Axiom for FFTSubsumption {
     fn description(&self) -> &str {
@@ -396,8 +229,6 @@ impl Axiom for FFTSubsumption {
             && taxonomy::is_a::<SignalTaxonomy>(&FFT, &Transform)
     }
 }
-
-/// Time and frequency domains are opposed.
 pub struct DomainsOpposed;
 impl Axiom for DomainsOpposed {
     fn description(&self) -> &str {
@@ -410,10 +241,6 @@ impl Axiom for DomainsOpposed {
         )
     }
 }
-
-/// Blackman window has best (most negative) sidelobes.
-///
-/// Harris 1978.
 pub struct BlackmanBestSidelobes;
 impl Axiom for BlackmanBestSidelobes {
     fn description(&self) -> &str {
@@ -422,16 +249,10 @@ impl Axiom for BlackmanBestSidelobes {
     fn holds(&self) -> bool {
         use SignalEntity::*;
         let s = SidelobeLevel;
-        let blackman = s.get(&BlackmanWindow).unwrap();
-        let hann = s.get(&HannWindow).unwrap();
-        let rect = s.get(&RectangularWindow).unwrap();
-        blackman < hann && hann < rect
+        s.get(&BlackmanWindow).unwrap() < s.get(&HannWindow).unwrap()
+            && s.get(&HannWindow).unwrap() < s.get(&RectangularWindow).unwrap()
     }
 }
-
-/// Gammatone filter is both a Filter and a BandPassFilter.
-///
-/// Patterson et al. 1992: gammatone as auditory filter model.
 pub struct GammatoneIsBandpass;
 impl Axiom for GammatoneIsBandpass {
     fn description(&self) -> &str {
@@ -444,7 +265,6 @@ impl Axiom for GammatoneIsBandpass {
         )
     }
 }
-
 pub struct SignalOppositionSymmetric;
 impl Axiom for SignalOppositionSymmetric {
     fn description(&self) -> &str {
@@ -454,8 +274,6 @@ impl Axiom for SignalOppositionSymmetric {
         opposition::Symmetric::<SignalOpposition>::new().holds()
     }
 }
-
-/// Causal graph is asymmetric.
 pub struct SignalCausalGraphIsAsymmetric;
 impl Axiom for SignalCausalGraphIsAsymmetric {
     fn description(&self) -> &str {
@@ -465,8 +283,6 @@ impl Axiom for SignalCausalGraphIsAsymmetric {
         causation::Asymmetric::<SignalCausalGraph>::new().holds()
     }
 }
-
-/// No event causes itself.
 pub struct SignalCausalGraphNoSelfCause;
 impl Axiom for SignalCausalGraphNoSelfCause {
     fn description(&self) -> &str {
@@ -476,8 +292,6 @@ impl Axiom for SignalCausalGraphNoSelfCause {
         causation::NoSelfCausation::<SignalCausalGraph>::new().holds()
     }
 }
-
-/// Raw signal transitively causes pattern classification.
 pub struct RawSignalCausesClassification;
 impl Axiom for RawSignalCausesClassification {
     fn description(&self) -> &str {
@@ -485,21 +299,13 @@ impl Axiom for RawSignalCausesClassification {
     }
     fn holds(&self) -> bool {
         use SignalCausalEvent::*;
-        let effects = causation::effects_of::<SignalCausalGraph>(&RawSignal);
-        effects.contains(&PatternClassification)
+        causation::effects_of::<SignalCausalGraph>(&RawSignal).contains(&PatternClassification)
     }
 }
-
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
-pub struct SignalProcessingOntology;
 
 impl Ontology for SignalProcessingOntology {
     type Cat = SignalProcessingCategory;
     type Qual = SidelobeLevel;
-
     fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(SignalTaxonomyIsDAG),
@@ -571,7 +377,6 @@ mod tests {
     fn test_raw_signal_causes_classification() {
         assert!(RawSignalCausesClassification.holds());
     }
-
     #[test]
     fn test_category_laws() {
         check_category_laws::<SignalProcessingCategory>().unwrap();
@@ -588,7 +393,6 @@ mod tests {
     fn test_mereology_category_laws() {
         check_category_laws::<MereologyCategory<SignalMereology>>().unwrap();
     }
-
     #[test]
     fn test_rectangular_narrowest_mainlobe() {
         assert!(RectangularNarrowestMainlobe.holds());
@@ -607,7 +411,6 @@ mod tests {
             Some(3.0)
         );
     }
-
     #[test]
     fn test_fft_complexity() {
         assert_eq!(
@@ -618,7 +421,6 @@ mod tests {
             "N log N"
         );
     }
-
     #[test]
     fn test_entity_count() {
         assert_eq!(SignalEntity::variants().len(), 40);

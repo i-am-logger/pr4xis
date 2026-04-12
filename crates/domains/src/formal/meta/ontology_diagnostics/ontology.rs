@@ -21,10 +21,10 @@
 //!   - This meta-ontology itself
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -76,59 +76,6 @@ pub enum MetaEntity {
     Verification,
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-/// Classification of meta-ontological entities.
-pub struct MetaTaxonomy;
-
-impl TaxonomyDef for MetaTaxonomy {
-    type Entity = MetaEntity;
-
-    fn relations() -> Vec<(MetaEntity, MetaEntity)> {
-        use MetaEntity::*;
-        vec![
-            // Structures
-            (DomainOntology, Structure),
-            (CategoryStructure, Structure),
-            (TaxonomyStructure, Structure),
-            (CausalStructure, Structure),
-            (QualityStructure, Structure),
-            (AxiomSet, Structure),
-            // Connections
-            (Functor, Connection),
-            (Adjunction, Connection),
-            (UnitMorphism, Connection),
-            (CounitMorphism, Connection),
-            (NaturalTransformation, Connection),
-            // Adjunction components
-            (UnitMorphism, Adjunction),
-            (CounitMorphism, Adjunction),
-            // Gaps
-            (UnitGap, Gap),
-            (CounitGap, Gap),
-            (GranularityMismatch, Gap),
-            (MissingDistinction, Gap),
-            (InformationLoss, Gap),
-            (CanonicalRepresentative, Gap),
-            // Resolutions
-            (ContextResolution, Resolution),
-            (OntologyEnrichment, Resolution),
-            (IntermediateDomain, Resolution),
-            (GranularityRefinement, Resolution),
-            // Verification
-            (LiteratureVerification, Verification),
-            (MachineProof, Verification),
-            (PropertyTest, Verification),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph: the gap detection pipeline
-// ---------------------------------------------------------------------------
-
 /// Steps in the gap detection methodology.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MethodologyStep {
@@ -162,15 +109,52 @@ pub enum MethodologyStep {
     AssessImprovement,
 }
 
-/// The gap detection pipeline as a causal graph.
-pub struct MethodologyCausalGraph;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl CausalDef for MethodologyCausalGraph {
-    type Entity = MethodologyStep;
+define_ontology! {
+    /// Dense category over meta-ontological entities.
+    pub MetaOntology for MetaCategory {
+        entity: MetaEntity,
+        relation: MetaRelation,
 
-    fn relations() -> Vec<(MethodologyStep, MethodologyStep)> {
-        use MethodologyStep::*;
-        vec![
+        taxonomy: MetaTaxonomy [
+            // Structures
+            (DomainOntology, Structure),
+            (CategoryStructure, Structure),
+            (TaxonomyStructure, Structure),
+            (CausalStructure, Structure),
+            (QualityStructure, Structure),
+            (AxiomSet, Structure),
+            // Connections
+            (Functor, Connection),
+            (Adjunction, Connection),
+            (UnitMorphism, Connection),
+            (CounitMorphism, Connection),
+            (NaturalTransformation, Connection),
+            // Adjunction components
+            (UnitMorphism, Adjunction),
+            (CounitMorphism, Adjunction),
+            // Gaps
+            (UnitGap, Gap),
+            (CounitGap, Gap),
+            (GranularityMismatch, Gap),
+            (MissingDistinction, Gap),
+            (InformationLoss, Gap),
+            (CanonicalRepresentative, Gap),
+            // Resolutions
+            (ContextResolution, Resolution),
+            (OntologyEnrichment, Resolution),
+            (IntermediateDomain, Resolution),
+            (GranularityRefinement, Resolution),
+            // Verification
+            (LiteratureVerification, Verification),
+            (MachineProof, Verification),
+            (PropertyTest, Verification),
+        ],
+
+        causation: MethodologyCausalGraph for MethodologyStep [
             // Build phase
             (FormalizeDomains, ConstructFunctors),
             (ConstructFunctors, VerifyFunctorLaws),
@@ -189,19 +173,18 @@ impl CausalDef for MethodologyCausalGraph {
             (VerifyAgainstLiterature, ImplementResolution),
             (ImplementResolution, RunMachineProofs),
             (RunMachineProofs, AssessImprovement),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Dense category over meta-ontological entities.
-    pub MetaCategory {
-        entity: MetaEntity,
-        relation: MetaRelation,
+        opposition: MetaOpposition [
+            // Gap vs Resolution (problem vs solution)
+            (Gap, Resolution),
+            // Unit vs Counit (forward vs backward round-trip)
+            (UnitGap, CounitGap),
+            // Automated vs manual verification
+            (MachineProof, LiteratureVerification),
+            // Context resolution preserves functors; enrichment may break them
+            (ContextResolution, OntologyEnrichment),
+        ],
     }
 }
 
@@ -309,31 +292,6 @@ impl Quality for IsAutomated {
             LiteratureVerification => Some(false), // requires human reading
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Semantic contrasts in ontology engineering.
-pub struct MetaOpposition;
-
-impl OppositionDef for MetaOpposition {
-    type Entity = MetaEntity;
-
-    fn pairs() -> Vec<(MetaEntity, MetaEntity)> {
-        use MetaEntity::*;
-        vec![
-            // Gap vs Resolution (problem vs solution)
-            (Gap, Resolution),
-            // Unit vs Counit (forward vs backward round-trip)
-            (UnitGap, CounitGap),
-            // Automated vs manual verification
-            (MachineProof, LiteratureVerification),
-            // Context resolution preserves functors; enrichment may break them
-            (ContextResolution, OntologyEnrichment),
-        ]
     }
 }
 
@@ -546,10 +504,8 @@ impl Axiom for EveryAdjunctionHasGaps {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-pub struct MetaOntology;
 
 impl Ontology for MetaOntology {
     type Cat = MetaCategory;

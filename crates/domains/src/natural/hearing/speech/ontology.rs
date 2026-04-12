@@ -10,20 +10,15 @@
 //! - ANSI S3.5-1997: Speech Intelligibility Index
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::mereology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
-
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum SpeechEntity {
-    // Acoustic parameters
     FundamentalFrequency,
     Formant,
     F1,
@@ -33,7 +28,6 @@ pub enum SpeechEntity {
     VoiceOnsetTime,
     SpectralTilt,
     Harmonics,
-    // Speech sounds
     Vowel,
     Consonant,
     Plosive,
@@ -41,25 +35,20 @@ pub enum SpeechEntity {
     Nasal,
     Approximant,
     Affricate,
-    // Voicing
     Voiced,
     Voiceless,
-    // Suprasegmentals
     Intonation,
     Stress,
     Rhythm,
     Syllable,
     Phoneme,
-    // Intelligibility
     SpeechIntelligibilityIndex,
     SignalToNoiseRatio,
     SpeechReceptionThreshold,
     ArticulationIndex,
-    // Spectral regions
     LowFrequencySpeech,
     MidFrequencySpeech,
     HighFrequencySpeech,
-    // Abstract categories
     AcousticParameter,
     SpeechSound,
     Suprasegmental,
@@ -67,94 +56,6 @@ pub enum SpeechEntity {
     SpectralRegion,
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-pub struct SpeechTaxonomy;
-
-impl TaxonomyDef for SpeechTaxonomy {
-    type Entity = SpeechEntity;
-
-    fn relations() -> Vec<(SpeechEntity, SpeechEntity)> {
-        use SpeechEntity::*;
-        vec![
-            // Acoustic parameters
-            (FundamentalFrequency, AcousticParameter),
-            (Formant, AcousticParameter),
-            (F1, Formant),
-            (F2, Formant),
-            (F3, Formant),
-            (F4, Formant),
-            (VoiceOnsetTime, AcousticParameter),
-            (SpectralTilt, AcousticParameter),
-            (Harmonics, AcousticParameter),
-            // Speech sounds
-            (Vowel, SpeechSound),
-            (Consonant, SpeechSound),
-            (Plosive, Consonant),
-            (Fricative, Consonant),
-            (Nasal, Consonant),
-            (Approximant, Consonant),
-            (Affricate, Consonant),
-            // Suprasegmentals
-            (Intonation, Suprasegmental),
-            (Stress, Suprasegmental),
-            (Rhythm, Suprasegmental),
-            // Intelligibility metrics
-            (SpeechIntelligibilityIndex, IntelligibilityMetric),
-            (SignalToNoiseRatio, IntelligibilityMetric),
-            (SpeechReceptionThreshold, IntelligibilityMetric),
-            (ArticulationIndex, IntelligibilityMetric),
-            // Spectral regions
-            (LowFrequencySpeech, SpectralRegion),
-            (MidFrequencySpeech, SpectralRegion),
-            (HighFrequencySpeech, SpectralRegion),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Mereology (has-a / part-whole)
-// ---------------------------------------------------------------------------
-
-/// Part-whole relationships for speech acoustics.
-///
-/// Phonemes are composed of vowels and consonants; syllables contain phonemes;
-/// vowels are characterised by formant frequencies; consonants by voice onset
-/// time; and acoustic parameters include fundamental frequency and spectral
-/// tilt.
-pub struct SpeechMereology;
-
-impl MereologyDef for SpeechMereology {
-    type Entity = SpeechEntity;
-
-    fn relations() -> Vec<(SpeechEntity, SpeechEntity)> {
-        use SpeechEntity::*;
-        vec![
-            // Phoneme composition
-            (Phoneme, Vowel),
-            (Phoneme, Consonant),
-            // Syllable contains phonemes
-            (Syllable, Phoneme),
-            // Vowel characterised by formant frequencies
-            (Vowel, F1),
-            (Vowel, F2),
-            (Vowel, F3),
-            // Consonant characterised by voice onset time
-            (Consonant, VoiceOnsetTime),
-            // Acoustic parameter composition
-            (AcousticParameter, FundamentalFrequency),
-            (AcousticParameter, SpectralTilt),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
-/// Causal events in the speech production chain.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum SpeechCausalEvent {
     CommunicativeIntent,
@@ -169,112 +70,86 @@ pub enum SpeechCausalEvent {
     FormantTransition,
 }
 
-/// Causal graph for speech production pipeline.
-pub struct SpeechCausalGraph;
-
-impl CausalDef for SpeechCausalGraph {
-    type Entity = SpeechCausalEvent;
-
-    fn relations() -> Vec<(SpeechCausalEvent, SpeechCausalEvent)> {
-        use SpeechCausalEvent::*;
-        vec![
-            // Intent initiates articulatory planning
-            (CommunicativeIntent, ArticulatoryPlanning),
-            // Articulatory plan activates vocal fold vibration
-            (ArticulatoryPlanning, VocalFoldVibration),
-            // Vocal fold vibration generates glottal pulse
-            (VocalFoldVibration, GlottalPulse),
-            // Glottal pulse filtered by vocal tract
-            (GlottalPulse, VocalTractFiltering),
-            // Vocal tract filtering produces formants
-            (VocalTractFiltering, FormantProduction),
-            // Formants radiate acoustically
-            (FormantProduction, AcousticRadiation),
-            // Acoustic radiation reaches listener
-            (AcousticRadiation, ListenerPerception),
-            // Articulatory planning also causes coarticulation
-            (ArticulatoryPlanning, CoarticulationEffect),
-            // Coarticulation produces formant transitions
-            (CoarticulationEffect, FormantTransition),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-pub struct SpeechOpposition;
-
-impl OppositionDef for SpeechOpposition {
-    type Entity = SpeechEntity;
-
-    fn pairs() -> Vec<(SpeechEntity, SpeechEntity)> {
-        use SpeechEntity::*;
-        vec![(Voiced, Voiceless), (Vowel, Consonant)]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
+define_ontology! {
     /// Discrete category over speech entities.
-    pub SpeechCategory {
+    pub SpeechOntology for SpeechCategory {
         entity: SpeechEntity,
         relation: SpeechRelation,
+
+        taxonomy: SpeechTaxonomy [
+            (FundamentalFrequency, AcousticParameter), (Formant, AcousticParameter),
+            (F1, Formant), (F2, Formant), (F3, Formant), (F4, Formant),
+            (VoiceOnsetTime, AcousticParameter), (SpectralTilt, AcousticParameter),
+            (Harmonics, AcousticParameter),
+            (Vowel, SpeechSound), (Consonant, SpeechSound),
+            (Plosive, Consonant), (Fricative, Consonant), (Nasal, Consonant),
+            (Approximant, Consonant), (Affricate, Consonant),
+            (Intonation, Suprasegmental), (Stress, Suprasegmental), (Rhythm, Suprasegmental),
+            (SpeechIntelligibilityIndex, IntelligibilityMetric),
+            (SignalToNoiseRatio, IntelligibilityMetric),
+            (SpeechReceptionThreshold, IntelligibilityMetric),
+            (ArticulationIndex, IntelligibilityMetric),
+            (LowFrequencySpeech, SpectralRegion), (MidFrequencySpeech, SpectralRegion),
+            (HighFrequencySpeech, SpectralRegion),
+        ],
+
+        mereology: SpeechMereology [
+            (Phoneme, Vowel), (Phoneme, Consonant), (Syllable, Phoneme),
+            (Vowel, F1), (Vowel, F2), (Vowel, F3),
+            (Consonant, VoiceOnsetTime),
+            (AcousticParameter, FundamentalFrequency), (AcousticParameter, SpectralTilt),
+        ],
+
+        causation: SpeechCausalGraph for SpeechCausalEvent [
+            (CommunicativeIntent, ArticulatoryPlanning),
+            (ArticulatoryPlanning, VocalFoldVibration),
+            (VocalFoldVibration, GlottalPulse),
+            (GlottalPulse, VocalTractFiltering),
+            (VocalTractFiltering, FormantProduction),
+            (FormantProduction, AcousticRadiation),
+            (AcousticRadiation, ListenerPerception),
+            (ArticulatoryPlanning, CoarticulationEffect),
+            (CoarticulationEffect, FormantTransition),
+        ],
+
+        opposition: SpeechOpposition [
+            (Voiced, Voiceless), (Vowel, Consonant),
+        ],
     }
 }
 
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Typical frequency (Hz) for speech parameters.
-///
-/// - F0 male: ~120 Hz, F0 female: ~220 Hz (Peterson & Barney 1952)
-/// - F1: 250-900 Hz (vowel height)
-/// - F2: 800-2500 Hz (vowel frontness)
-/// - F3: 1800-3500 Hz (rhoticity)
 #[derive(Debug, Clone)]
 pub struct TypicalFrequency;
-
 impl Quality for TypicalFrequency {
     type Individual = SpeechEntity;
     type Value = f64;
-
     fn get(&self, individual: &SpeechEntity) -> Option<f64> {
         use SpeechEntity::*;
         match individual {
-            FundamentalFrequency => Some(150.0), // average adult
-            F1 => Some(500.0),                   // average across vowels
-            F2 => Some(1500.0),                  // average across vowels
+            FundamentalFrequency => Some(150.0),
+            F1 => Some(500.0),
+            F2 => Some(1500.0),
             F3 => Some(2500.0),
             F4 => Some(3500.0),
-            LowFrequencySpeech => Some(250.0),   // 125-500 Hz
-            MidFrequencySpeech => Some(1500.0),  // 500-3000 Hz
-            HighFrequencySpeech => Some(5000.0), // 3000-8000 Hz
+            LowFrequencySpeech => Some(250.0),
+            MidFrequencySpeech => Some(1500.0),
+            HighFrequencySpeech => Some(5000.0),
             _ => None,
         }
     }
 }
 
-/// Frequency range for spectral regions (Hz).
 #[derive(Debug, Clone, PartialEq)]
 pub struct FreqRange {
     pub low: f64,
     pub high: f64,
 }
 
-/// Quality: frequency range for spectral regions.
 #[derive(Debug, Clone)]
 pub struct SpectralRange;
-
 impl Quality for SpectralRange {
     type Individual = SpeechEntity;
     type Value = FreqRange;
-
     fn get(&self, individual: &SpeechEntity) -> Option<FreqRange> {
         use SpeechEntity::*;
         match individual {
@@ -295,35 +170,22 @@ impl Quality for SpectralRange {
     }
 }
 
-/// Voice onset time (ms) for consonant categories.
-///
-/// Voiced plosives: ~0 ms (prevoiced in some languages)
-/// Voiceless unaspirated: ~20 ms
-/// Voiceless aspirated: ~70 ms
-///
-/// Lisker & Abramson, *Word*, 1964.
 #[derive(Debug, Clone)]
 pub struct TypicalVOT;
-
 impl Quality for TypicalVOT {
     type Individual = SpeechEntity;
     type Value = f64;
-
     fn get(&self, individual: &SpeechEntity) -> Option<f64> {
         use SpeechEntity::*;
         match individual {
-            Voiced => Some(0.0),          // ms, prevoiced
-            Voiceless => Some(70.0),      // ms, aspirated
-            Plosive => Some(35.0),        // ms, average across voicing
-            VoiceOnsetTime => Some(35.0), // ms, reference value
+            Voiced => Some(0.0),
+            Voiceless => Some(70.0),
+            Plosive => Some(35.0),
+            VoiceOnsetTime => Some(35.0),
             _ => None,
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
 
 pub struct SpeechTaxonomyIsDAG;
 impl Axiom for SpeechTaxonomyIsDAG {
@@ -334,10 +196,6 @@ impl Axiom for SpeechTaxonomyIsDAG {
         taxonomy::NoCycles::<SpeechTaxonomy>::new().holds()
     }
 }
-
-/// F1 < F2 < F3 < F4 (formant ordering).
-///
-/// Fant 1960.
 pub struct FormantsAreOrdered;
 impl Axiom for FormantsAreOrdered {
     fn description(&self) -> &str {
@@ -351,8 +209,6 @@ impl Axiom for FormantsAreOrdered {
             && f.get(&F3).unwrap() < f.get(&F4).unwrap()
     }
 }
-
-/// All formants (F1-F4) are classified as Formant is-a AcousticParameter.
 pub struct FormantsClassified;
 impl Axiom for FormantsClassified {
     fn description(&self) -> &str {
@@ -366,8 +222,6 @@ impl Axiom for FormantsClassified {
         })
     }
 }
-
-/// Five consonant manner classes are classified.
 pub struct FiveConsonantManners;
 impl Axiom for FiveConsonantManners {
     fn description(&self) -> &str {
@@ -380,8 +234,6 @@ impl Axiom for FiveConsonantManners {
             .all(|c| taxonomy::is_a::<SpeechTaxonomy>(c, &Consonant))
     }
 }
-
-/// Voiced opposes voiceless.
 pub struct VoicedOpposesVoiceless;
 impl Axiom for VoicedOpposesVoiceless {
     fn description(&self) -> &str {
@@ -391,8 +243,6 @@ impl Axiom for VoicedOpposesVoiceless {
         opposition::are_opposed::<SpeechOpposition>(&SpeechEntity::Voiced, &SpeechEntity::Voiceless)
     }
 }
-
-/// Mereology is a DAG.
 pub struct SpeechMereologyIsDAG;
 impl Axiom for SpeechMereologyIsDAG {
     fn description(&self) -> &str {
@@ -402,10 +252,6 @@ impl Axiom for SpeechMereologyIsDAG {
         mereology::NoCycles::<SpeechMereology>::new().holds()
     }
 }
-
-/// Syllable transitively contains vowels and consonants (via Phoneme).
-///
-/// A syllable has phonemes, and phonemes have vowels and consonants.
 pub struct SyllableContainsVowelsAndConsonants;
 impl Axiom for SyllableContainsVowelsAndConsonants {
     fn description(&self) -> &str {
@@ -417,7 +263,6 @@ impl Axiom for SyllableContainsVowelsAndConsonants {
         parts.contains(&Vowel) && parts.contains(&Consonant)
     }
 }
-
 pub struct SpeechOppositionSymmetric;
 impl Axiom for SpeechOppositionSymmetric {
     fn description(&self) -> &str {
@@ -427,8 +272,6 @@ impl Axiom for SpeechOppositionSymmetric {
         opposition::Symmetric::<SpeechOpposition>::new().holds()
     }
 }
-
-/// Causal graph is asymmetric.
 pub struct SpeechCausalGraphIsAsymmetric;
 impl Axiom for SpeechCausalGraphIsAsymmetric {
     fn description(&self) -> &str {
@@ -438,8 +281,6 @@ impl Axiom for SpeechCausalGraphIsAsymmetric {
         causation::Asymmetric::<SpeechCausalGraph>::new().holds()
     }
 }
-
-/// No event causes itself.
 pub struct SpeechCausalGraphNoSelfCause;
 impl Axiom for SpeechCausalGraphNoSelfCause {
     fn description(&self) -> &str {
@@ -449,8 +290,6 @@ impl Axiom for SpeechCausalGraphNoSelfCause {
         causation::NoSelfCausation::<SpeechCausalGraph>::new().holds()
     }
 }
-
-/// Communicative intent transitively causes listener perception.
 pub struct IntentCausesPerception;
 impl Axiom for IntentCausesPerception {
     fn description(&self) -> &str {
@@ -458,21 +297,14 @@ impl Axiom for IntentCausesPerception {
     }
     fn holds(&self) -> bool {
         use SpeechCausalEvent::*;
-        let effects = causation::effects_of::<SpeechCausalGraph>(&CommunicativeIntent);
-        effects.contains(&ListenerPerception)
+        causation::effects_of::<SpeechCausalGraph>(&CommunicativeIntent)
+            .contains(&ListenerPerception)
     }
 }
-
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
-pub struct SpeechOntology;
 
 impl Ontology for SpeechOntology {
     type Cat = SpeechCategory;
     type Qual = TypicalFrequency;
-
     fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(SpeechTaxonomyIsDAG),
@@ -543,7 +375,6 @@ mod tests {
     fn test_intent_causes_perception() {
         assert!(IntentCausesPerception.holds());
     }
-
     #[test]
     fn test_category_laws() {
         check_category_laws::<SpeechCategory>().unwrap();
@@ -560,7 +391,6 @@ mod tests {
     fn test_mereology_category_laws() {
         check_category_laws::<MereologyCategory<SpeechMereology>>().unwrap();
     }
-
     #[test]
     fn test_f0_value() {
         assert_eq!(
@@ -568,7 +398,6 @@ mod tests {
             Some(150.0)
         );
     }
-
     #[test]
     fn test_entity_count() {
         assert_eq!(SpeechEntity::variants().len(), 35);

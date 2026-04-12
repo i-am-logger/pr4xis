@@ -13,19 +13,14 @@
 //! - McDermott & Oxenham 2008: music perception review
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
-
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum MusicEntity {
-    // Pitch perception
     PitchHeight,
     PitchChroma,
     OctaveEquivalence,
@@ -33,7 +28,6 @@ pub enum MusicEntity {
     RelativePitch,
     MelodicContour,
     IntervalPerception,
-    // Harmony
     Consonance,
     Dissonance,
     RoughnessModel,
@@ -43,7 +37,6 @@ pub enum MusicEntity {
     Chord,
     Tonality,
     KeySense,
-    // Rhythm & meter
     Beat,
     Meter,
     Tempo,
@@ -51,22 +44,18 @@ pub enum MusicEntity {
     Groove,
     Entrainment,
     TemporalExpectation,
-    // Timbre
     SpectralCentroid,
     AttackTime,
     SpectralFlux,
     InstrumentIdentification,
-    // Expectation & emotion
     MusicalExpectation,
     Surprise,
     Tension,
     Resolution,
     MusicalEmotion,
-    // Memory
     EarWorm,
     MusicalMemory,
     TonalSchemaMemory,
-    // Abstract categories
     PitchPercept,
     HarmonicPercept,
     RhythmicPercept,
@@ -74,64 +63,6 @@ pub enum MusicEntity {
     AffectiveResponse,
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-pub struct MusicTaxonomy;
-
-impl TaxonomyDef for MusicTaxonomy {
-    type Entity = MusicEntity;
-
-    fn relations() -> Vec<(MusicEntity, MusicEntity)> {
-        use MusicEntity::*;
-        vec![
-            // Pitch percepts
-            (PitchHeight, PitchPercept),
-            (PitchChroma, PitchPercept),
-            (OctaveEquivalence, PitchPercept),
-            (AbsolutePitch, PitchPercept),
-            (RelativePitch, PitchPercept),
-            (MelodicContour, PitchPercept),
-            (IntervalPerception, PitchPercept),
-            // Harmonic percepts
-            (Consonance, HarmonicPercept),
-            (Dissonance, HarmonicPercept),
-            (RoughnessModel, HarmonicPercept),
-            (HarmonicSeries, HarmonicPercept),
-            (VirtualPitchPercept, HarmonicPercept),
-            (MissingFundamental, HarmonicPercept),
-            (Chord, HarmonicPercept),
-            (Tonality, HarmonicPercept),
-            (KeySense, HarmonicPercept),
-            // Rhythmic percepts
-            (Beat, RhythmicPercept),
-            (Meter, RhythmicPercept),
-            (Tempo, RhythmicPercept),
-            (Syncopation, RhythmicPercept),
-            (Groove, RhythmicPercept),
-            (Entrainment, RhythmicPercept),
-            (TemporalExpectation, RhythmicPercept),
-            // Timbre percepts
-            (SpectralCentroid, TimbrePercept),
-            (AttackTime, TimbrePercept),
-            (SpectralFlux, TimbrePercept),
-            (InstrumentIdentification, TimbrePercept),
-            // Affective responses
-            (MusicalExpectation, AffectiveResponse),
-            (Surprise, AffectiveResponse),
-            (Tension, AffectiveResponse),
-            (Resolution, AffectiveResponse),
-            (MusicalEmotion, AffectiveResponse),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
-/// Causal events in music perception processing.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum MusicCausalEvent {
     AuditoryInput,
@@ -147,153 +78,93 @@ pub enum MusicCausalEvent {
     EmotionalResponse,
 }
 
-/// Causal graph for music perception processing pipeline.
-pub struct MusicCausalGraph;
-
-impl CausalDef for MusicCausalGraph {
-    type Entity = MusicCausalEvent;
-
-    fn relations() -> Vec<(MusicCausalEvent, MusicCausalEvent)> {
-        use MusicCausalEvent::*;
-        vec![
-            // Auditory input drives pitch extraction and onset detection
-            (AuditoryInput, PitchExtraction),
-            (AuditoryInput, OnsetDetection),
-            // Pitch extraction feeds harmonic grouping and melodic tracking
-            (PitchExtraction, HarmonicGrouping),
-            (PitchExtraction, MelodicTracking),
-            // Onset detection drives beat induction
-            (OnsetDetection, BeatInduction),
-            // Beat induction establishes metric framing
-            (BeatInduction, MetricFraming),
-            // Harmonic grouping yields tonal interpretation
-            (HarmonicGrouping, TonalInterpretation),
-            // Melodic tracking forms musical expectations
-            (MelodicTracking, MusicalExpectationFormation),
-            // Metric framing enables groove perception
-            (MetricFraming, GroovePerception),
-            // Tonal interpretation and expectation both produce emotional response
-            (TonalInterpretation, EmotionalResponse),
-            (MusicalExpectationFormation, EmotionalResponse),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in music perception.
-///
-/// - Consonance ↔ Dissonance (Helmholtz 1863; Plomp & Levelt 1965)
-/// - Tension ↔ Resolution (Lerdahl & Jackendoff 1983)
-/// - AbsolutePitch ↔ RelativePitch (Levitin & Rogers 2005)
-pub struct MusicOpposition;
-
-impl OppositionDef for MusicOpposition {
-    type Entity = MusicEntity;
-
-    fn pairs() -> Vec<(MusicEntity, MusicEntity)> {
-        use MusicEntity::*;
-        vec![
-            (Consonance, Dissonance),
-            (Tension, Resolution),
-            (AbsolutePitch, RelativePitch),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
+define_ontology! {
     /// Discrete category over music perception entities.
-    pub MusicPerceptionCategory {
+    pub MusicPerceptionOntology for MusicPerceptionCategory {
         entity: MusicEntity,
         relation: MusicRelation,
+
+        taxonomy: MusicTaxonomy [
+            (PitchHeight, PitchPercept), (PitchChroma, PitchPercept),
+            (OctaveEquivalence, PitchPercept), (AbsolutePitch, PitchPercept),
+            (RelativePitch, PitchPercept), (MelodicContour, PitchPercept),
+            (IntervalPerception, PitchPercept),
+            (Consonance, HarmonicPercept), (Dissonance, HarmonicPercept),
+            (RoughnessModel, HarmonicPercept), (HarmonicSeries, HarmonicPercept),
+            (VirtualPitchPercept, HarmonicPercept), (MissingFundamental, HarmonicPercept),
+            (Chord, HarmonicPercept), (Tonality, HarmonicPercept), (KeySense, HarmonicPercept),
+            (Beat, RhythmicPercept), (Meter, RhythmicPercept), (Tempo, RhythmicPercept),
+            (Syncopation, RhythmicPercept), (Groove, RhythmicPercept),
+            (Entrainment, RhythmicPercept), (TemporalExpectation, RhythmicPercept),
+            (SpectralCentroid, TimbrePercept), (AttackTime, TimbrePercept),
+            (SpectralFlux, TimbrePercept), (InstrumentIdentification, TimbrePercept),
+            (MusicalExpectation, AffectiveResponse), (Surprise, AffectiveResponse),
+            (Tension, AffectiveResponse), (Resolution, AffectiveResponse),
+            (MusicalEmotion, AffectiveResponse),
+        ],
+
+        causation: MusicCausalGraph for MusicCausalEvent [
+            (AuditoryInput, PitchExtraction), (AuditoryInput, OnsetDetection),
+            (PitchExtraction, HarmonicGrouping), (PitchExtraction, MelodicTracking),
+            (OnsetDetection, BeatInduction), (BeatInduction, MetricFraming),
+            (HarmonicGrouping, TonalInterpretation),
+            (MelodicTracking, MusicalExpectationFormation),
+            (MetricFraming, GroovePerception),
+            (TonalInterpretation, EmotionalResponse),
+            (MusicalExpectationFormation, EmotionalResponse),
+        ],
+
+        opposition: MusicOpposition [
+            (Consonance, Dissonance), (Tension, Resolution), (AbsolutePitch, RelativePitch),
+        ],
     }
 }
 
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Frequency ratio for consonant intervals.
-///
-/// Simple integer ratios = more consonant (Helmholtz 1863).
-/// - Octave: 2:1
-/// - Perfect fifth: 3:2
-/// - Perfect fourth: 4:3
-/// - Major third: 5:4
 #[derive(Debug, Clone)]
 pub struct ConsonanceRanking;
-
 impl Quality for ConsonanceRanking {
     type Individual = MusicEntity;
     type Value = u32;
-
     fn get(&self, individual: &MusicEntity) -> Option<u32> {
         use MusicEntity::*;
         match individual {
-            Consonance => Some(1),        // most consonant
-            Dissonance => Some(10),       // most dissonant
-            OctaveEquivalence => Some(1), // octave = most consonant interval
+            Consonance => Some(1),
+            Dissonance => Some(10),
+            OctaveEquivalence => Some(1),
             _ => None,
         }
     }
 }
 
-/// Preferred tempo range (BPM).
-///
-/// Spontaneous motor tempo ~120 BPM (Fraisse 1982).
-/// Preferred range: 80-160 BPM (van Noorden & Moelants 1999).
 #[derive(Debug, Clone)]
 pub struct PreferredTempoBPM;
-
 impl Quality for PreferredTempoBPM {
     type Individual = MusicEntity;
     type Value = f64;
-
     fn get(&self, individual: &MusicEntity) -> Option<f64> {
         use MusicEntity::*;
         match individual {
-            Tempo => Some(120.0),       // spontaneous motor tempo
-            Beat => Some(120.0),        // preferred beat rate
-            Entrainment => Some(120.0), // natural entrainment rate
+            Tempo => Some(120.0),
+            Beat => Some(120.0),
+            Entrainment => Some(120.0),
             _ => None,
         }
     }
 }
 
-/// Octave frequency ratio.
-///
-/// The octave is defined by a 2:1 frequency ratio, the most fundamental
-/// interval in music perception. Octave equivalence means notes separated
-/// by this ratio are perceived as having the same pitch chroma.
-///
-/// Helmholtz 1863, Ch. 10.
 #[derive(Debug, Clone)]
 pub struct OctaveRatio;
-
 impl Quality for OctaveRatio {
     type Individual = MusicEntity;
     type Value = f64;
-
     fn get(&self, individual: &MusicEntity) -> Option<f64> {
-        use MusicEntity::*;
         match individual {
-            OctaveEquivalence => Some(2.0), // the 2:1 frequency ratio
+            MusicEntity::OctaveEquivalence => Some(2.0),
             _ => None,
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
-/// Octave ratio is exactly 2.0 (Helmholtz 1863).
 pub struct OctaveRatioIsTwo;
 impl Axiom for OctaveRatioIsTwo {
     fn description(&self) -> &str {
@@ -303,7 +174,6 @@ impl Axiom for OctaveRatioIsTwo {
         OctaveRatio.get(&MusicEntity::OctaveEquivalence) == Some(2.0)
     }
 }
-
 pub struct MusicTaxonomyIsDAG;
 impl Axiom for MusicTaxonomyIsDAG {
     fn description(&self) -> &str {
@@ -313,10 +183,6 @@ impl Axiom for MusicTaxonomyIsDAG {
         taxonomy::NoCycles::<MusicTaxonomy>::new().holds()
     }
 }
-
-/// Consonance and dissonance are opposed.
-///
-/// Helmholtz 1863; Plomp & Levelt 1965.
 pub struct ConsonanceOpposesDissonance;
 impl Axiom for ConsonanceOpposesDissonance {
     fn description(&self) -> &str {
@@ -329,10 +195,6 @@ impl Axiom for ConsonanceOpposesDissonance {
         )
     }
 }
-
-/// Tension and resolution are opposed.
-///
-/// Lerdahl & Jackendoff 1983.
 pub struct TensionOpposesResolution;
 impl Axiom for TensionOpposesResolution {
     fn description(&self) -> &str {
@@ -342,7 +204,6 @@ impl Axiom for TensionOpposesResolution {
         opposition::are_opposed::<MusicOpposition>(&MusicEntity::Tension, &MusicEntity::Resolution)
     }
 }
-
 pub struct MusicOppositionSymmetric;
 impl Axiom for MusicOppositionSymmetric {
     fn description(&self) -> &str {
@@ -352,7 +213,6 @@ impl Axiom for MusicOppositionSymmetric {
         opposition::Symmetric::<MusicOpposition>::new().holds()
     }
 }
-
 pub struct MusicOppositionIrreflexive;
 impl Axiom for MusicOppositionIrreflexive {
     fn description(&self) -> &str {
@@ -362,8 +222,6 @@ impl Axiom for MusicOppositionIrreflexive {
         opposition::Irreflexive::<MusicOpposition>::new().holds()
     }
 }
-
-/// Consonance is more consonant than dissonance (ranking order).
 pub struct ConsonanceRankedHigher;
 impl Axiom for ConsonanceRankedHigher {
     fn description(&self) -> &str {
@@ -374,8 +232,6 @@ impl Axiom for ConsonanceRankedHigher {
         ConsonanceRanking.get(&Consonance).unwrap() < ConsonanceRanking.get(&Dissonance).unwrap()
     }
 }
-
-/// Five perceptual categories are represented.
 pub struct FivePerceptualCategories;
 impl Axiom for FivePerceptualCategories {
     fn description(&self) -> &str {
@@ -383,7 +239,6 @@ impl Axiom for FivePerceptualCategories {
     }
     fn holds(&self) -> bool {
         use MusicEntity::*;
-        // At least one entity in each category
         taxonomy::is_a::<MusicTaxonomy>(&PitchHeight, &PitchPercept)
             && taxonomy::is_a::<MusicTaxonomy>(&Consonance, &HarmonicPercept)
             && taxonomy::is_a::<MusicTaxonomy>(&Beat, &RhythmicPercept)
@@ -391,8 +246,6 @@ impl Axiom for FivePerceptualCategories {
             && taxonomy::is_a::<MusicTaxonomy>(&MusicalEmotion, &AffectiveResponse)
     }
 }
-
-/// Causal graph is asymmetric.
 pub struct MusicCausalGraphIsAsymmetric;
 impl Axiom for MusicCausalGraphIsAsymmetric {
     fn description(&self) -> &str {
@@ -402,8 +255,6 @@ impl Axiom for MusicCausalGraphIsAsymmetric {
         causation::Asymmetric::<MusicCausalGraph>::new().holds()
     }
 }
-
-/// No event causes itself.
 pub struct MusicCausalGraphNoSelfCause;
 impl Axiom for MusicCausalGraphNoSelfCause {
     fn description(&self) -> &str {
@@ -413,8 +264,6 @@ impl Axiom for MusicCausalGraphNoSelfCause {
         causation::NoSelfCausation::<MusicCausalGraph>::new().holds()
     }
 }
-
-/// Auditory input transitively causes emotional response.
 pub struct InputCausesEmotion;
 impl Axiom for InputCausesEmotion {
     fn description(&self) -> &str {
@@ -422,21 +271,13 @@ impl Axiom for InputCausesEmotion {
     }
     fn holds(&self) -> bool {
         use MusicCausalEvent::*;
-        let effects = causation::effects_of::<MusicCausalGraph>(&AuditoryInput);
-        effects.contains(&EmotionalResponse)
+        causation::effects_of::<MusicCausalGraph>(&AuditoryInput).contains(&EmotionalResponse)
     }
 }
-
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
-pub struct MusicPerceptionOntology;
 
 impl Ontology for MusicPerceptionOntology {
     type Cat = MusicPerceptionCategory;
     type Qual = PreferredTempoBPM;
-
     fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(MusicTaxonomyIsDAG),
@@ -502,7 +343,6 @@ mod tests {
     fn test_input_causes_emotion() {
         assert!(InputCausesEmotion.holds());
     }
-
     #[test]
     fn test_category_laws() {
         check_category_laws::<MusicPerceptionCategory>().unwrap();
@@ -515,7 +355,6 @@ mod tests {
     fn test_causal_category_laws() {
         check_category_laws::<CausalCategory<MusicCausalGraph>>().unwrap();
     }
-
     #[test]
     fn test_octave_ratio_is_two() {
         assert!(OctaveRatioIsTwo.holds());

@@ -15,10 +15,10 @@
 //! when searching for optimal ontological configurations.
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -56,46 +56,6 @@ pub enum OptimizationEntity {
     OptimalityProperty,
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-/// Classification of optimization entities.
-pub struct OptimizationTaxonomy;
-
-impl TaxonomyDef for OptimizationTaxonomy {
-    type Entity = OptimizationEntity;
-
-    fn relations() -> Vec<(OptimizationEntity, OptimizationEntity)> {
-        use OptimizationEntity::*;
-        vec![
-            // Methods → OptimizationMethod
-            (ExhaustiveSearch, OptimizationMethod),
-            (GradientDescent, OptimizationMethod),
-            (GeneticAlgorithm, OptimizationMethod),
-            (SimulatedAnnealing, OptimizationMethod),
-            (ParetoOptimization, OptimizationMethod),
-            (GridSearch, OptimizationMethod),
-            // Components → OptimizationComponent
-            (ObjectiveFunction, OptimizationComponent),
-            (Constraint, OptimizationComponent),
-            (SearchSpace, OptimizationComponent),
-            (FeasibleRegion, OptimizationComponent),
-            (OptimalPoint, OptimizationComponent),
-            (ParetoFront, OptimizationComponent),
-            // Properties → OptimalityProperty
-            (Convergence, OptimalityProperty),
-            (LocalOptimum, OptimalityProperty),
-            (GlobalOptimum, OptimalityProperty),
-            (Tradeoff, OptimalityProperty),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph: the optimization pipeline
-// ---------------------------------------------------------------------------
-
 /// Steps in the optimization pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum OptimizationStep {
@@ -117,15 +77,39 @@ pub enum OptimizationStep {
     SolutionSelection,
 }
 
-/// The optimization pipeline as a causal graph.
-pub struct OptimizationCausalGraph;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl CausalDef for OptimizationCausalGraph {
-    type Entity = OptimizationStep;
+define_ontology! {
+    /// Dense category over optimization entities.
+    pub OptimizationOntology for OptimizationCategory {
+        entity: OptimizationEntity,
+        relation: OptimizationRelation,
 
-    fn relations() -> Vec<(OptimizationStep, OptimizationStep)> {
-        use OptimizationStep::*;
-        vec![
+        taxonomy: OptimizationTaxonomy [
+            // Methods → OptimizationMethod
+            (ExhaustiveSearch, OptimizationMethod),
+            (GradientDescent, OptimizationMethod),
+            (GeneticAlgorithm, OptimizationMethod),
+            (SimulatedAnnealing, OptimizationMethod),
+            (ParetoOptimization, OptimizationMethod),
+            (GridSearch, OptimizationMethod),
+            // Components → OptimizationComponent
+            (ObjectiveFunction, OptimizationComponent),
+            (Constraint, OptimizationComponent),
+            (SearchSpace, OptimizationComponent),
+            (FeasibleRegion, OptimizationComponent),
+            (OptimalPoint, OptimizationComponent),
+            (ParetoFront, OptimizationComponent),
+            // Properties → OptimalityProperty
+            (Convergence, OptimalityProperty),
+            (LocalOptimum, OptimalityProperty),
+            (GlobalOptimum, OptimalityProperty),
+            (Tradeoff, OptimalityProperty),
+        ],
+
+        causation: OptimizationCausalGraph for OptimizationStep [
             (ProblemFormulation, SearchSpaceDefinition),
             (SearchSpaceDefinition, ConstraintSpecification),
             (ConstraintSpecification, ObjectiveEvaluation),
@@ -133,19 +117,14 @@ impl CausalDef for OptimizationCausalGraph {
             (CandidateGeneration, FeasibilityCheck),
             (FeasibilityCheck, OptimalityAssessment),
             (OptimalityAssessment, SolutionSelection),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Dense category over optimization entities.
-    pub OptimizationCategory {
-        entity: OptimizationEntity,
-        relation: OptimizationRelation,
+        opposition: OptimizationOpposition [
+            // Local vs global (partial vs complete optimality)
+            (LocalOptimum, GlobalOptimum),
+            // Exact vs heuristic (guaranteed vs approximate)
+            (ExhaustiveSearch, GeneticAlgorithm),
+        ],
     }
 }
 
@@ -222,27 +201,6 @@ impl Quality for HandlesMultiObjective {
             GridSearch => Some(true),          // can evaluate multiple objectives
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Semantic contrasts in optimization.
-pub struct OptimizationOpposition;
-
-impl OppositionDef for OptimizationOpposition {
-    type Entity = OptimizationEntity;
-
-    fn pairs() -> Vec<(OptimizationEntity, OptimizationEntity)> {
-        use OptimizationEntity::*;
-        vec![
-            // Local vs global (partial vs complete optimality)
-            (LocalOptimum, GlobalOptimum),
-            // Exact vs heuristic (guaranteed vs approximate)
-            (ExhaustiveSearch, GeneticAlgorithm),
-        ]
     }
 }
 
@@ -355,10 +313,8 @@ impl Axiom for OptimizationOppositionIrreflexive {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-pub struct OptimizationOntology;
 
 impl Ontology for OptimizationOntology {
     type Cat = OptimizationCategory;

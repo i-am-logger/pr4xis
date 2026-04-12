@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::ontology::reasoning::taxonomy::{NoCycles, TaxonomyCategory, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::taxonomy::{NoCycles, TaxonomyDef};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Celestial body types.
@@ -51,7 +52,27 @@ pub enum CelestialSensor {
     HorizonSensor,
 }
 
-/// Celestial body taxonomy.
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
+
+define_ontology! {
+    /// The celestial navigation ontology.
+    ///
+    /// Source: Wertz (2001), Bowditch (2002), Groves (2013) Section 6.5.
+    pub CelestialOntology for CelestialCategory {
+        entity: CelestialSensor,
+        relation: CelestialRelation,
+
+        taxonomy: CelestialSensorTaxonomy [
+            (StarTracker, Sensor),
+            (SunSensor, Sensor),
+            (HorizonSensor, Sensor),
+        ],
+    }
+}
+
+/// Celestial body taxonomy (secondary entity type — manual impl).
 pub struct CelestialBodyTaxonomy;
 
 impl TaxonomyDef for CelestialBodyTaxonomy {
@@ -63,7 +84,7 @@ impl TaxonomyDef for CelestialBodyTaxonomy {
     }
 }
 
-/// Celestial observable taxonomy.
+/// Celestial observable taxonomy (secondary entity type — manual impl).
 pub struct CelestialObservableTaxonomy;
 
 impl TaxonomyDef for CelestialObservableTaxonomy {
@@ -76,22 +97,6 @@ impl TaxonomyDef for CelestialObservableTaxonomy {
             (Azimuth, Observable),
             (HourAngle, Observable),
             (Declination, Observable),
-        ]
-    }
-}
-
-/// Celestial sensor taxonomy.
-pub struct CelestialSensorTaxonomy;
-
-impl TaxonomyDef for CelestialSensorTaxonomy {
-    type Entity = CelestialSensor;
-
-    fn relations() -> Vec<(CelestialSensor, CelestialSensor)> {
-        use CelestialSensor::*;
-        vec![
-            (StarTracker, Sensor),
-            (SunSensor, Sensor),
-            (HorizonSensor, Sensor),
         ]
     }
 }
@@ -242,16 +247,11 @@ fn approximate_refraction_arcmin(altitude_deg: f64) -> f64 {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
 
-/// The celestial navigation ontology.
-///
-/// Source: Wertz (2001), Bowditch (2002), Groves (2013) Section 6.5.
-pub struct CelestialOntology;
-
 impl Ontology for CelestialOntology {
-    type Cat = TaxonomyCategory<CelestialSensorTaxonomy>;
+    type Cat = CelestialCategory;
     type Qual = AngularAccuracy;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {

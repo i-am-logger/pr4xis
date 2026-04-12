@@ -1,6 +1,7 @@
 #![allow(clippy::needless_range_loop)]
 use pr4xis::category::Entity;
-use pr4xis::ontology::reasoning::taxonomy::{self, NoCycles, TaxonomyCategory, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::taxonomy::{self, NoCycles, TaxonomyDef};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// GNSS observable types — what a GNSS receiver measures.
@@ -39,24 +40,28 @@ pub enum GnssConstellation {
     SBAS,
 }
 
-/// GNSS observable taxonomy: observables compose into a position fix.
-pub struct GnssObservableTaxonomy;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl TaxonomyDef for GnssObservableTaxonomy {
-    type Entity = GnssObservable;
+define_ontology! {
+    /// The GNSS ontology.
+    ///
+    /// Source: IS-GPS-200 (2022), Groves (2013), Misra & Enge (2011).
+    pub GnssOntology for GnssCategory {
+        entity: GnssObservable,
+        relation: GnssRelation,
 
-    fn relations() -> Vec<(GnssObservable, GnssObservable)> {
-        use GnssObservable::*;
-        vec![
+        taxonomy: GnssObservableTaxonomy [
             (Pseudorange, Observable),
             (CarrierPhase, Observable),
             (Doppler, Observable),
             (NavigationMessage, Observable),
-        ]
+        ],
     }
 }
 
-/// GNSS constellation taxonomy: all constellations are-a Constellation.
+/// GNSS constellation taxonomy (secondary entity type — manual impl).
 pub struct GnssConstellationTaxonomy;
 
 impl TaxonomyDef for GnssConstellationTaxonomy {
@@ -321,16 +326,11 @@ fn invert_4x4(m: &[[f64; 4]; 4]) -> Option<[[f64; 4]; 4]> {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
 
-/// The GNSS ontology.
-///
-/// Source: IS-GPS-200 (2022), Groves (2013), Misra & Enge (2011).
-pub struct GnssOntology;
-
 impl Ontology for GnssOntology {
-    type Cat = TaxonomyCategory<GnssObservableTaxonomy>;
+    type Cat = GnssCategory;
     type Qual = SignalStrength;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {

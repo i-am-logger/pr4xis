@@ -6,11 +6,11 @@
 //! (osmotic pressure, oncotic pressure, pH, hematocrit, viscosity).
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::mereology;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -64,94 +64,6 @@ pub enum HematologyEntity {
 /// Components -> BloodComponent, proteins -> PlasmaProtein,
 /// electrolytes -> PlasmaElectrolyte, properties -> BloodProperty.
 /// Serum is plasma minus clotting factors (both are BloodComponent).
-pub struct HematologyTaxonomy;
-
-impl TaxonomyDef for HematologyTaxonomy {
-    type Entity = HematologyEntity;
-
-    fn relations() -> Vec<(HematologyEntity, HematologyEntity)> {
-        use HematologyEntity::*;
-        vec![
-            // Blood components is-a BloodComponent
-            (WholeBlood, BloodComponent),
-            (BloodPlasma, BloodComponent),
-            (Serum, BloodComponent),
-            (RedBloodCell, BloodComponent),
-            (WhiteBloodCell, BloodComponent),
-            (Platelet, BloodComponent),
-            // Proteins is-a PlasmaProtein
-            (Albumin, PlasmaProtein),
-            (Globulin, PlasmaProtein),
-            (Fibrinogen, PlasmaProtein),
-            (Immunoglobulin, PlasmaProtein),
-            // Electrolytes is-a PlasmaElectrolyte
-            (SodiumPlasma, PlasmaElectrolyte),
-            (PotassiumPlasma, PlasmaElectrolyte),
-            (CalciumPlasma, PlasmaElectrolyte),
-            (ChloridePlasma, PlasmaElectrolyte),
-            (BicarbonatePlasma, PlasmaElectrolyte),
-            // Properties is-a BloodProperty
-            (OsmoticPressure, BloodProperty),
-            (OncoticPressure, BloodProperty),
-            (BloodPH, BloodProperty),
-            (Hematocrit, BloodProperty),
-            (Viscosity, BloodProperty),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Mereology (has-a / part-whole)
-// ---------------------------------------------------------------------------
-
-/// Part-whole relationships for hematology entities.
-///
-/// WholeBlood has-a BloodPlasma, RedBloodCell, WhiteBloodCell, Platelet.
-/// BloodPlasma has-a all proteins and electrolytes.
-pub struct HematologyMereology;
-
-impl MereologyDef for HematologyMereology {
-    type Entity = HematologyEntity;
-
-    fn relations() -> Vec<(HematologyEntity, HematologyEntity)> {
-        use HematologyEntity::*;
-        vec![
-            // WholeBlood has-a cellular components and plasma
-            (WholeBlood, BloodPlasma),
-            (WholeBlood, RedBloodCell),
-            (WholeBlood, WhiteBloodCell),
-            (WholeBlood, Platelet),
-            // BloodPlasma has-a proteins
-            (BloodPlasma, Albumin),
-            (BloodPlasma, Globulin),
-            (BloodPlasma, Fibrinogen),
-            (BloodPlasma, Immunoglobulin),
-            // BloodPlasma has-a electrolytes
-            (BloodPlasma, SodiumPlasma),
-            (BloodPlasma, PotassiumPlasma),
-            (BloodPlasma, CalciumPlasma),
-            (BloodPlasma, ChloridePlasma),
-            (BloodPlasma, BicarbonatePlasma),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over hematology entities.
-    pub HematologyCategory {
-        entity: HematologyEntity,
-        relation: HematologyRelation,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
 /// Events in the hematology causal chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum HematologyCausalEvent {
@@ -174,14 +86,52 @@ pub enum HematologyCausalEvent {
 /// Inflammation -> AcutePhaseResponse -> AlbuminDecrease
 /// AcidBaseDisturbance -> BicarbonateBuffering -> PHCorrection
 /// CoagulationCascade -> FibrinFormation
-pub struct HematologyCauses;
+define_ontology! {
+    /// Hematology ontology: blood, plasma, electrolytes, properties.
+    pub HematologyOntologyMeta for HematologyCategory {
+        entity: HematologyEntity,
+        relation: HematologyRelation,
 
-impl CausalDef for HematologyCauses {
-    type Entity = HematologyCausalEvent;
+        taxonomy: HematologyTaxonomy [
+            (WholeBlood, BloodComponent),
+            (BloodPlasma, BloodComponent),
+            (Serum, BloodComponent),
+            (RedBloodCell, BloodComponent),
+            (WhiteBloodCell, BloodComponent),
+            (Platelet, BloodComponent),
+            (Albumin, PlasmaProtein),
+            (Globulin, PlasmaProtein),
+            (Fibrinogen, PlasmaProtein),
+            (Immunoglobulin, PlasmaProtein),
+            (SodiumPlasma, PlasmaElectrolyte),
+            (PotassiumPlasma, PlasmaElectrolyte),
+            (CalciumPlasma, PlasmaElectrolyte),
+            (ChloridePlasma, PlasmaElectrolyte),
+            (BicarbonatePlasma, PlasmaElectrolyte),
+            (OsmoticPressure, BloodProperty),
+            (OncoticPressure, BloodProperty),
+            (BloodPH, BloodProperty),
+            (Hematocrit, BloodProperty),
+            (Viscosity, BloodProperty),
+        ],
 
-    fn relations() -> Vec<(HematologyCausalEvent, HematologyCausalEvent)> {
-        use HematologyCausalEvent::*;
-        vec![
+        mereology: HematologyMereology [
+            (WholeBlood, BloodPlasma),
+            (WholeBlood, RedBloodCell),
+            (WholeBlood, WhiteBloodCell),
+            (WholeBlood, Platelet),
+            (BloodPlasma, Albumin),
+            (BloodPlasma, Globulin),
+            (BloodPlasma, Fibrinogen),
+            (BloodPlasma, Immunoglobulin),
+            (BloodPlasma, SodiumPlasma),
+            (BloodPlasma, PotassiumPlasma),
+            (BloodPlasma, CalciumPlasma),
+            (BloodPlasma, ChloridePlasma),
+            (BloodPlasma, BicarbonatePlasma),
+        ],
+
+        causation: HematologyCauses for HematologyCausalEvent [
             (Hemorrhage, PlasmaVolumeLoss),
             (PlasmaVolumeLoss, ElectrolyteImbalance),
             (Inflammation, AcutePhaseResponse),
@@ -189,7 +139,12 @@ impl CausalDef for HematologyCauses {
             (AcidBaseDisturbance, BicarbonateBuffering),
             (BicarbonateBuffering, PHCorrection),
             (CoagulationCascade, FibrinFormation),
-        ]
+        ],
+
+        opposition: HematologyOpposition [
+            (Albumin, Globulin),
+            (RedBloodCell, WhiteBloodCell),
+        ],
     }
 }
 
@@ -265,17 +220,6 @@ impl Quality for AffectsOsmolarity {
 ///   the abstract BloodComponent to capture the semantic contrast.
 /// - Albumin ↔ Globulin (transport vs immune function)
 /// - RedBloodCell ↔ WhiteBloodCell (oxygen transport vs immune defense)
-pub struct HematologyOpposition;
-
-impl OppositionDef for HematologyOpposition {
-    type Entity = HematologyEntity;
-
-    fn pairs() -> Vec<(HematologyEntity, HematologyEntity)> {
-        use HematologyEntity::*;
-        vec![(Albumin, Globulin), (RedBloodCell, WhiteBloodCell)]
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------

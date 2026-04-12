@@ -19,10 +19,10 @@
 //! - Binns et al. 2019: bioelectric reversal of metaplasia
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -89,56 +89,6 @@ pub enum PathologyEntity {
 // Taxonomy (is-a)
 // ---------------------------------------------------------------------------
 
-/// Subsumption hierarchy for pathology entities.
-pub struct PathologyTaxonomy;
-
-impl TaxonomyDef for PathologyTaxonomy {
-    type Entity = PathologyEntity;
-
-    fn relations() -> Vec<(PathologyEntity, PathologyEntity)> {
-        use PathologyEntity::*;
-        vec![
-            // Disease states is-a DiseaseState
-            (Normal, DiseaseState),
-            (AcuteInjury, DiseaseState),
-            (ChronicInjury, DiseaseState),
-            (Metaplasia, DiseaseState),
-            (Dysplasia, DiseaseState),
-            (Neoplasia, DiseaseState),
-            (Fibrosis, DiseaseState),
-            (Stricture, DiseaseState),
-            // Stages is-a Stage
-            (LowGrade, Stage),
-            (HighGrade, Stage),
-            // Classifications is-a Classification
-            (Benign, Classification),
-            (Premalignant, Classification),
-            (Malignant, Classification),
-            // Processes is-a PathologicalProcess
-            (Inflammation, PathologicalProcess),
-            (CellularAdaptation, PathologicalProcess),
-            (AtypicalGrowth, PathologicalProcess),
-            (Invasion, PathologicalProcess),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over pathology entities.
-    pub PathologyCategory {
-        entity: PathologyEntity,
-        relation: PathologyRelation,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
 /// Events in the disease progression causal chain.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum PathologyCausalEvent {
@@ -174,28 +124,51 @@ pub enum PathologyCausalEvent {
 ///
 /// Dysplasia staging: DysplasticProgression -> LowGradeProgression
 ///                    -> HighGradeProgression -> NeoplasticTransformation
-pub struct DiseaseProgressionCauses;
+define_ontology! {
+    /// Pathology ontology: disease states, staging, progression.
+    pub PathologyOntologyMeta for PathologyCategory {
+        entity: PathologyEntity,
+        relation: PathologyRelation,
 
-impl CausalDef for DiseaseProgressionCauses {
-    type Entity = PathologyCausalEvent;
+        taxonomy: PathologyTaxonomy [
+            (Normal, DiseaseState),
+            (AcuteInjury, DiseaseState),
+            (ChronicInjury, DiseaseState),
+            (Metaplasia, DiseaseState),
+            (Dysplasia, DiseaseState),
+            (Neoplasia, DiseaseState),
+            (Fibrosis, DiseaseState),
+            (Stricture, DiseaseState),
+            (LowGrade, Stage),
+            (HighGrade, Stage),
+            (Benign, Classification),
+            (Premalignant, Classification),
+            (Malignant, Classification),
+            (Inflammation, PathologicalProcess),
+            (CellularAdaptation, PathologicalProcess),
+            (AtypicalGrowth, PathologicalProcess),
+            (Invasion, PathologicalProcess),
+        ],
 
-    fn relations() -> Vec<(PathologyCausalEvent, PathologyCausalEvent)> {
-        use PathologyCausalEvent::*;
-        vec![
-            // Main progression pathway
+        causation: DiseaseProgressionCauses for PathologyCausalEvent [
             (TissueInsult, AcuteResponse),
             (AcuteResponse, ChronicAdaptation),
             (ChronicAdaptation, MetaplasticTransformation),
             (MetaplasticTransformation, DysplasticProgression),
             (DysplasticProgression, NeoplasticTransformation),
-            // Fibrotic branch
             (ChronicAdaptation, FibroticRemodeling),
             (FibroticRemodeling, StrictureFormation),
-            // Dysplasia staging branch
             (DysplasticProgression, LowGradeProgression),
             (LowGradeProgression, HighGradeProgression),
             (HighGradeProgression, NeoplasticTransformation),
-        ]
+        ],
+
+        opposition: PathologyOpposition [
+            (Normal, Neoplasia),
+            (Benign, Malignant),
+            (LowGrade, HighGrade),
+            (Inflammation, CellularAdaptation),
+        ],
     }
 }
 
@@ -359,22 +332,6 @@ impl Quality for BarrettsStage {
 /// - Benign vs Malignant: non-progressive vs invasive
 /// - LowGrade vs HighGrade: mild vs severe dysplasia
 /// - Inflammation vs CellularAdaptation: acute vs chronic response
-pub struct PathologyOpposition;
-
-impl OppositionDef for PathologyOpposition {
-    type Entity = PathologyEntity;
-
-    fn pairs() -> Vec<(PathologyEntity, PathologyEntity)> {
-        use PathologyEntity::*;
-        vec![
-            (Normal, Neoplasia),
-            (Benign, Malignant),
-            (LowGrade, HighGrade),
-            (Inflammation, CellularAdaptation),
-        ]
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------

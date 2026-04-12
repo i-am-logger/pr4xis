@@ -14,10 +14,10 @@
 //! uses when constructing proof chains for axiom verification.
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -54,45 +54,6 @@ pub enum DerivationEntity {
     LogicalProperty,
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy
-// ---------------------------------------------------------------------------
-
-/// Classification of derivation entities.
-pub struct DerivationTaxonomy;
-
-impl TaxonomyDef for DerivationTaxonomy {
-    type Entity = DerivationEntity;
-
-    fn relations() -> Vec<(DerivationEntity, DerivationEntity)> {
-        use DerivationEntity::*;
-        vec![
-            // Types → DerivationType
-            (Deduction, DerivationType),
-            (Induction, DerivationType),
-            (Abduction, DerivationType),
-            (Analogy, DerivationType),
-            (Composition, DerivationType),
-            // Components → DerivationComponent
-            (Premise, DerivationComponent),
-            (Conclusion, DerivationComponent),
-            (InferenceRule, DerivationComponent),
-            (Evidence, DerivationComponent),
-            (Justification, DerivationComponent),
-            (ProofStep, DerivationComponent),
-            // Properties → LogicalProperty
-            (Soundness, LogicalProperty),
-            (Completeness, LogicalProperty),
-            (Validity, LogicalProperty),
-            (Decidability, LogicalProperty),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph: the derivation pipeline
-// ---------------------------------------------------------------------------
-
 /// Steps in the derivation pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum DerivationStep {
@@ -114,15 +75,38 @@ pub enum DerivationStep {
     KnowledgeExtension,
 }
 
-/// The derivation pipeline as a causal graph.
-pub struct DerivationCausalGraph;
+// ---------------------------------------------------------------------------
+// Ontology (category + reasoning)
+// ---------------------------------------------------------------------------
 
-impl CausalDef for DerivationCausalGraph {
-    type Entity = DerivationStep;
+define_ontology! {
+    /// Dense category over derivation entities.
+    pub DerivationOntology for DerivationCategory {
+        entity: DerivationEntity,
+        relation: DerivationRelation,
 
-    fn relations() -> Vec<(DerivationStep, DerivationStep)> {
-        use DerivationStep::*;
-        vec![
+        taxonomy: DerivationTaxonomy [
+            // Types → DerivationType
+            (Deduction, DerivationType),
+            (Induction, DerivationType),
+            (Abduction, DerivationType),
+            (Analogy, DerivationType),
+            (Composition, DerivationType),
+            // Components → DerivationComponent
+            (Premise, DerivationComponent),
+            (Conclusion, DerivationComponent),
+            (InferenceRule, DerivationComponent),
+            (Evidence, DerivationComponent),
+            (Justification, DerivationComponent),
+            (ProofStep, DerivationComponent),
+            // Properties → LogicalProperty
+            (Soundness, LogicalProperty),
+            (Completeness, LogicalProperty),
+            (Validity, LogicalProperty),
+            (Decidability, LogicalProperty),
+        ],
+
+        causation: DerivationCausalGraph for DerivationStep [
             (PremiseEstablishment, RuleApplication),
             (RuleApplication, IntermediateConclusion),
             (IntermediateConclusion, ChainExtension),
@@ -130,19 +114,14 @@ impl CausalDef for DerivationCausalGraph {
             (ValidityCheck, SoundnessVerification),
             (SoundnessVerification, ProofCompletion),
             (ProofCompletion, KnowledgeExtension),
-        ]
-    }
-}
+        ],
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Dense category over derivation entities.
-    pub DerivationCategory {
-        entity: DerivationEntity,
-        relation: DerivationRelation,
+        opposition: DerivationOpposition [
+            // Deduction vs abduction (certain→certain vs uncertain→plausible)
+            (Deduction, Abduction),
+            // Soundness vs completeness (all proved are true vs all true are provable)
+            (Soundness, Completeness),
+        ],
     }
 }
 
@@ -220,27 +199,6 @@ impl Quality for RequiresAllPremises {
             Analogy => Some(false),    // partial similarity suffices
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition
-// ---------------------------------------------------------------------------
-
-/// Semantic contrasts in derivation.
-pub struct DerivationOpposition;
-
-impl OppositionDef for DerivationOpposition {
-    type Entity = DerivationEntity;
-
-    fn pairs() -> Vec<(DerivationEntity, DerivationEntity)> {
-        use DerivationEntity::*;
-        vec![
-            // Deduction vs abduction (certain→certain vs uncertain→plausible)
-            (Deduction, Abduction),
-            // Soundness vs completeness (all proved are true vs all true are provable)
-            (Soundness, Completeness),
-        ]
     }
 }
 
@@ -352,10 +310,8 @@ impl Axiom for DerivationOppositionIrreflexive {
 }
 
 // ---------------------------------------------------------------------------
-// Ontology
+// Ontology impl
 // ---------------------------------------------------------------------------
-
-pub struct DerivationOntology;
 
 impl Ontology for DerivationOntology {
     type Cat = DerivationCategory;

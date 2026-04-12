@@ -12,10 +12,10 @@
 //! - Cowin & Doty 2007: tissue mechanics
 
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::reasoning::causation::{self, CausalDef};
-use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::define_ontology;
+use pr4xis::ontology::reasoning::causation;
+use pr4xis::ontology::reasoning::opposition;
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // ---------------------------------------------------------------------------
@@ -62,68 +62,7 @@ pub enum BiophysicsEntity {
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
-// ---------------------------------------------------------------------------
-
-/// Subsumption hierarchy for biophysics entities.
-pub struct BiophysicsTaxonomy;
-
-impl TaxonomyDef for BiophysicsTaxonomy {
-    type Entity = BiophysicsEntity;
-
-    fn relations() -> Vec<(BiophysicsEntity, BiophysicsEntity)> {
-        use BiophysicsEntity::*;
-        vec![
-            // Mechanical properties is-a MechanicalProperty
-            (Viscoelasticity, MechanicalProperty),
-            (Elasticity, MechanicalProperty),
-            (Viscosity, MechanicalProperty),
-            (StiffnessModulus, MechanicalProperty),
-            (StrainRate, MechanicalProperty),
-            (MechanicalStress, MechanicalProperty),
-            (MechanicalStrain, MechanicalProperty),
-            // Wave properties is-a WaveProperty
-            (MechanicalWave, WaveProperty),
-            (AcousticImpedance, WaveProperty),
-            (Attenuation, WaveProperty),
-            (Frequency, WaveProperty),
-            (Wavelength, WaveProperty),
-            (ResonanceFrequency, WaveProperty),
-            // Piezoelectric is-a PiezoelectricProperty
-            (PiezoelectricEffect, PiezoelectricProperty),
-            (DirectPiezoelectric, PiezoelectricProperty),
-            (ConversePiezoelectric, PiezoelectricProperty),
-            (CollagenPiezoelectricity, PiezoelectricProperty),
-            // Subtypes within piezoelectric
-            (DirectPiezoelectric, PiezoelectricEffect),
-            (ConversePiezoelectric, PiezoelectricEffect),
-            // Membrane biophysics is-a MechanicalProperty
-            (MembraneCapacitance, MechanicalProperty),
-            (MembraneTension, MechanicalProperty),
-            (CellDeformation, MechanicalProperty),
-            // Media is-a BiologicalMedium
-            (BoneMatrix, BiologicalMedium),
-            (SoftTissue, BiologicalMedium),
-            (FluidMedium, BiologicalMedium),
-            (CellMembrane, BiologicalMedium),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_dense_category! {
-    /// Discrete category over biophysics entities.
-    pub BiophysicsCategory {
-        entity: BiophysicsEntity,
-        relation: BiophysicsRelation,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Causal graph
+// Causal event
 // ---------------------------------------------------------------------------
 
 /// Events in the biophysics causal chain.
@@ -151,35 +90,62 @@ pub enum BiophysicsCausalEvent {
     WaveReflection,
 }
 
-/// Causal graph for biophysics.
-///
-/// ExternalVibration -> WavePropagation -> TissueDeformation ->
-///   CellMembraneStrain -> MechanotransducerActivation
-/// ExternalVibration -> BoneConductionTransmission -> WavePropagation
-/// TissueDeformation -> PiezoelectricChargeGeneration -> LocalElectricField
-/// ImpedanceMismatch -> WaveReflection
-pub struct BiophysicsCauses;
+// ---------------------------------------------------------------------------
+// Category + Reasoning (generated)
+// ---------------------------------------------------------------------------
 
-impl CausalDef for BiophysicsCauses {
-    type Entity = BiophysicsCausalEvent;
+define_ontology! {
+    /// Biophysics ontology: mechanics, waves, piezoelectricity, media.
+    pub BiophysicsOntologyMeta for BiophysicsCategory {
+        entity: BiophysicsEntity,
+        relation: BiophysicsRelation,
 
-    fn relations() -> Vec<(BiophysicsCausalEvent, BiophysicsCausalEvent)> {
-        use BiophysicsCausalEvent::*;
-        vec![
-            // Main chain: vibration -> wave -> deformation -> strain -> activation
+        taxonomy: BiophysicsTaxonomy [
+            (Viscoelasticity, MechanicalProperty),
+            (Elasticity, MechanicalProperty),
+            (Viscosity, MechanicalProperty),
+            (StiffnessModulus, MechanicalProperty),
+            (StrainRate, MechanicalProperty),
+            (MechanicalStress, MechanicalProperty),
+            (MechanicalStrain, MechanicalProperty),
+            (MechanicalWave, WaveProperty),
+            (AcousticImpedance, WaveProperty),
+            (Attenuation, WaveProperty),
+            (Frequency, WaveProperty),
+            (Wavelength, WaveProperty),
+            (ResonanceFrequency, WaveProperty),
+            (PiezoelectricEffect, PiezoelectricProperty),
+            (DirectPiezoelectric, PiezoelectricProperty),
+            (ConversePiezoelectric, PiezoelectricProperty),
+            (CollagenPiezoelectricity, PiezoelectricProperty),
+            (DirectPiezoelectric, PiezoelectricEffect),
+            (ConversePiezoelectric, PiezoelectricEffect),
+            (MembraneCapacitance, MechanicalProperty),
+            (MembraneTension, MechanicalProperty),
+            (CellDeformation, MechanicalProperty),
+            (BoneMatrix, BiologicalMedium),
+            (SoftTissue, BiologicalMedium),
+            (FluidMedium, BiologicalMedium),
+            (CellMembrane, BiologicalMedium),
+        ],
+
+        causation: BiophysicsCauses for BiophysicsCausalEvent [
             (ExternalVibration, WavePropagation),
             (WavePropagation, TissueDeformation),
             (TissueDeformation, CellMembraneStrain),
             (CellMembraneStrain, MechanotransducerActivation),
-            // Bone conduction path
             (ExternalVibration, BoneConductionTransmission),
             (BoneConductionTransmission, WavePropagation),
-            // Piezoelectric path
             (TissueDeformation, PiezoelectricChargeGeneration),
             (PiezoelectricChargeGeneration, LocalElectricField),
-            // Impedance reflection
             (ImpedanceMismatch, WaveReflection),
-        ]
+        ],
+
+        opposition: BiophysicsOpposition [
+            (DirectPiezoelectric, ConversePiezoelectric),
+            (Elasticity, Viscosity),
+            (MechanicalStress, MechanicalStrain),
+        ],
     }
 }
 
@@ -263,30 +229,6 @@ impl Quality for FrequencyRange {
             ResonanceFrequency => Some((20.0, 120.0)), // 20-120 Hz therapeutic range
             _ => None,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Opposition (semantic contrasts)
-// ---------------------------------------------------------------------------
-
-/// Opposition pairs in the biophysics domain.
-///
-/// - DirectPiezoelectric <-> ConversePiezoelectric: strain->voltage vs voltage->strain
-/// - Elasticity <-> Viscosity: energy storage vs energy dissipation
-/// - MechanicalStress <-> MechanicalStrain: cause vs effect in materials
-pub struct BiophysicsOpposition;
-
-impl OppositionDef for BiophysicsOpposition {
-    type Entity = BiophysicsEntity;
-
-    fn pairs() -> Vec<(BiophysicsEntity, BiophysicsEntity)> {
-        use BiophysicsEntity::*;
-        vec![
-            (DirectPiezoelectric, ConversePiezoelectric),
-            (Elasticity, Viscosity),
-            (MechanicalStress, MechanicalStrain),
-        ]
     }
 }
 
@@ -474,6 +416,7 @@ impl Ontology for BiophysicsOntology {
 mod tests {
     use super::*;
     use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::causation::CausalDef;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 
     // -- Axiom tests --
