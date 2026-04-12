@@ -16,29 +16,15 @@ mod tests {
     use crate::science::linguistics::lambek::{montague, tokenize};
     use crate::technology::software::markup::xml::lmf;
 
-    fn english() -> Option<English> {
+    fn english() -> English {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/data/wordnet/english-wordnet-2025.xml"
         );
-        if !std::path::Path::new(path).exists() {
-            return None;
-        }
-        let xml = std::fs::read_to_string(path).unwrap();
+        let xml = std::fs::read_to_string(path)
+            .expect("WordNet XML not found — ensure Git LFS is pulled");
         let wn = lmf::reader::read_wordnet(&xml).unwrap();
-        Some(English::from_wordnet(&wn))
-    }
-
-    macro_rules! require_wordnet {
-        () => {
-            match english() {
-                Some(en) => en,
-                None => {
-                    eprintln!("SKIP: WordNet data not available");
-                    return;
-                }
-            }
-        };
+        English::from_wordnet(&wn)
     }
 
     /// Process input through the full pipeline and return the semantic result.
@@ -60,7 +46,7 @@ mod tests {
 
     #[test]
     fn taxonomy_is_a_dog_a_mammal() {
-        let en = require_wordnet!();
+        let en = english();
         let dog = en.lookup("dog");
         let mammal = en.lookup("mammal");
         assert!(!dog.is_empty() && !mammal.is_empty());
@@ -77,7 +63,7 @@ mod tests {
 
     #[test]
     fn taxonomy_is_a_dog_an_animal() {
-        let en = require_wordnet!();
+        let en = english();
         let dog = en.lookup("dog");
         let animal = en.lookup("animal");
         assert!(!dog.is_empty() && !animal.is_empty());
@@ -94,7 +80,7 @@ mod tests {
 
     #[test]
     fn taxonomy_what_is_a_dog() {
-        let en = require_wordnet!();
+        let en = english();
         let ids = en.lookup("dog");
         assert!(!ids.is_empty());
         let concept = en.concept(ids[0]).unwrap();
@@ -115,7 +101,7 @@ mod tests {
         // "is a dog a mammal" should produce a Question semantic
         // Currently fails with full WordNet because verb frame data
         // changes type assignments. Needs pregroup parser (#71).
-        let en = require_wordnet!();
+        let en = english();
         let sem = understand(&en, "is a dog a mammal");
         assert!(sem.is_question(), "got: {}", sem.describe());
     }
@@ -123,7 +109,7 @@ mod tests {
     #[test]
     #[ignore = "needs pregroup pipeline wired into CLI (#71)"]
     fn grammar_parses_what_question() {
-        let en = require_wordnet!();
+        let en = english();
         let sem = understand(&en, "what is a dog");
         assert!(sem.is_question(), "got: {}", sem.describe());
     }

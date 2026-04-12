@@ -38,6 +38,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
+        with:
+          lfs: true
+          submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
         with:

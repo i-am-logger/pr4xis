@@ -349,7 +349,7 @@ palette:
     #[test]
     fn test_scan_real_themes() {
         let base16_dir =
-            std::path::Path::new(env!("HOME")).join("Code/github/logger/tinted-schemes/base16");
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("data/tinted-schemes/base16");
 
         if !base16_dir.exists() {
             return; // skip if dataset not available
@@ -414,17 +414,14 @@ palette:
 
     #[test]
     fn test_scan_all_datasets() {
-        let home = std::path::Path::new(env!("HOME"));
+        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("data");
         let datasets = [
+            ("base16", data_dir.join("tinted-schemes/base16")),
+            ("base24", data_dir.join("tinted-schemes/base24")),
             (
-                "base16",
-                home.join("Code/github/logger/tinted-schemes/base16"),
+                "vogix16",
+                std::path::Path::new(env!("HOME")).join("Code/github/logger/vogix16-themes"),
             ),
-            (
-                "base24",
-                home.join("Code/github/logger/tinted-schemes/base24"),
-            ),
-            ("vogix16", home.join("Code/github/logger/vogix16-themes")),
         ];
 
         println!("\n╔═══════════════════════════════════════════════════════════╗");
@@ -490,9 +487,9 @@ palette:
         }
         println!("╚═══════════════════════════════════════════════════════════╝\n");
 
-        if grand_total == 0 {
-            eprintln!("SKIP: no theme datasets found (CI)");
-            return;
-        }
+        assert!(
+            grand_total > 0,
+            "should find at least some themes — ensure git submodules are initialized"
+        );
     }
 }
