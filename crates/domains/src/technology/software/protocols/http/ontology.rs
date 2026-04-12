@@ -1,64 +1,11 @@
 use super::request::Method;
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Quality};
 
-/// HTTP methods as entities.
-impl Entity for Method {
-    fn variants() -> Vec<Self> {
-        Method::all()
-    }
-}
-
-/// Relationship: method compatibility (can follow each other in a session).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MethodPair {
-    pub first: Method,
-    pub second: Method,
-}
-
-impl Relationship for MethodPair {
-    type Object = Method;
-    fn source(&self) -> Method {
-        self.first
-    }
-    fn target(&self) -> Method {
-        self.second
-    }
-}
-
-pub struct HttpMethodCategory;
-
-impl Category for HttpMethodCategory {
-    type Object = Method;
-    type Morphism = MethodPair;
-
-    fn identity(obj: &Method) -> MethodPair {
-        MethodPair {
-            first: *obj,
-            second: *obj,
-        }
-    }
-
-    fn compose(f: &MethodPair, g: &MethodPair) -> Option<MethodPair> {
-        if f.second != g.first {
-            return None;
-        }
-        Some(MethodPair {
-            first: f.first,
-            second: g.second,
-        })
-    }
-
-    fn morphisms() -> Vec<MethodPair> {
-        let m = Method::all();
-        m.iter()
-            .flat_map(|&a| {
-                m.iter().map(move |&b| MethodPair {
-                    first: a,
-                    second: b,
-                })
-            })
-            .collect()
+define_dense_category! {
+    pub HttpMethodCategory {
+        entity: Method,
+        relation: MethodPair,
     }
 }
 
@@ -109,6 +56,7 @@ impl Axiom for SafeImpliesIdempotent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::{Category, Entity};
 
     #[test]
     fn test_7_methods() {

@@ -6,7 +6,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 ///
 /// Source: Borenstein et al. (1996) "Where am I?",
 ///         Thrun, Burgard & Fox (2005) Chapter 5.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum OdometrySource {
     /// Abstract odometry source.
     Source,
@@ -20,22 +20,10 @@ pub enum OdometrySource {
     LaserOdometry,
 }
 
-impl Entity for OdometrySource {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Source,
-            Self::WheelEncoder,
-            Self::VisualOdometry,
-            Self::InertialOdometry,
-            Self::LaserOdometry,
-        ]
-    }
-}
-
 /// Odometry state: what dead reckoning estimates.
 ///
 /// Source: Borenstein et al. (1996).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum OdometryState {
     /// Abstract state.
     State,
@@ -45,12 +33,6 @@ pub enum OdometryState {
     Heading,
     /// Forward velocity.
     Velocity,
-}
-
-impl Entity for OdometryState {
-    fn variants() -> Vec<Self> {
-        vec![Self::State, Self::Position2D, Self::Heading, Self::Velocity]
-    }
 }
 
 /// Odometry source taxonomy: all sources provide relative motion estimates.

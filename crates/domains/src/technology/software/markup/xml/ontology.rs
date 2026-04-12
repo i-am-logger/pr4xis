@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
 
 use super::super::ontology::{MarkupNode, NodeKind};
@@ -12,7 +12,7 @@ use super::super::ontology::{MarkupNode, NodeKind};
 // through the symbols it uses and the rules it imposes.
 
 /// XML-specific element types — extensions of the base markup NodeKind.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum XmlNodeKind {
     /// The XML document (has prolog + root element).
     Document,
@@ -34,23 +34,6 @@ pub enum XmlNodeKind {
     DocType,
     /// A namespace declaration: `xmlns:prefix="uri"`.
     Namespace,
-}
-
-impl Entity for XmlNodeKind {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Document,
-            Self::Element,
-            Self::Attribute,
-            Self::Text,
-            Self::CData,
-            Self::Comment,
-            Self::ProcessingInstruction,
-            Self::XmlDeclaration,
-            Self::DocType,
-            Self::Namespace,
-        ]
-    }
 }
 
 /// XML containment relationships.

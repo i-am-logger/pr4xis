@@ -5,7 +5,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// Celestial body types.
 ///
 /// Source: Wertz (2001) "Space Mission Engineering", Bowditch (2002).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum CelestialBody {
     /// Abstract celestial body.
     Body,
@@ -19,16 +19,10 @@ pub enum CelestialBody {
     Planet,
 }
 
-impl Entity for CelestialBody {
-    fn variants() -> Vec<Self> {
-        vec![Self::Body, Self::Sun, Self::Moon, Self::Star, Self::Planet]
-    }
-}
-
 /// Celestial observable types — what is measured.
 ///
 /// Source: Bowditch (2002) Chapter 17.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum CelestialObservable {
     /// Abstract observable.
     Observable,
@@ -42,22 +36,10 @@ pub enum CelestialObservable {
     Declination,
 }
 
-impl Entity for CelestialObservable {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Observable,
-            Self::Altitude,
-            Self::Azimuth,
-            Self::HourAngle,
-            Self::Declination,
-        ]
-    }
-}
-
 /// Celestial sensor types.
 ///
 /// Source: Wertz (2001) Chapter 7.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum CelestialSensor {
     /// Abstract sensor.
     Sensor,
@@ -67,17 +49,6 @@ pub enum CelestialSensor {
     SunSensor,
     /// Horizon sensor: measures Earth limb.
     HorizonSensor,
-}
-
-impl Entity for CelestialSensor {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Sensor,
-            Self::StarTracker,
-            Self::SunSensor,
-            Self::HorizonSensor,
-        ]
-    }
 }
 
 /// Celestial body taxonomy.

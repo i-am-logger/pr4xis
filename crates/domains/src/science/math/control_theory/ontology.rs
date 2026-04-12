@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::control_theory::feedback;
@@ -9,7 +10,7 @@ use crate::science::math::control_theory::stability;
 // Entity: control system concepts
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ControlConcept {
     Plant,
     Controller,
@@ -20,69 +21,15 @@ pub enum ControlConcept {
     Feedback,
 }
 
-impl Entity for ControlConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Plant,
-            Self::Controller,
-            Self::Sensor,
-            Self::Actuator,
-            Self::Reference,
-            Self::Error,
-            Self::Feedback,
-        ]
-    }
-}
-
 // ---------------------------------------------------------------------------
-// Category: control loop components with signal flow as morphisms
+// Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ControlRelation {
-    pub from: ControlConcept,
-    pub to: ControlConcept,
-}
-
-impl Relationship for ControlRelation {
-    type Object = ControlConcept;
-    fn source(&self) -> ControlConcept {
-        self.from
-    }
-    fn target(&self) -> ControlConcept {
-        self.to
-    }
-}
-
-pub struct ControlCategory;
-
-impl Category for ControlCategory {
-    type Object = ControlConcept;
-    type Morphism = ControlRelation;
-
-    fn identity(obj: &ControlConcept) -> ControlRelation {
-        ControlRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &ControlRelation, g: &ControlRelation) -> Option<ControlRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ControlRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ControlRelation> {
-        let concepts = ControlConcept::variants();
-        concepts
-            .iter()
-            .flat_map(|&from| concepts.iter().map(move |&to| ControlRelation { from, to }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over control theory entities.
+    pub ControlCategory {
+        entity: ControlConcept,
+        relation: ControlRelation,
     }
 }
 

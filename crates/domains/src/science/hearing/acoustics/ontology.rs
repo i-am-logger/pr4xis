@@ -11,7 +11,8 @@
 //! - Stenfelt & Goode 2005: bone vs air conduction impedance
 //! - von Békésy 1960: Experiments in Hearing
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
@@ -23,7 +24,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the acoustics domain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum AcousticEntity {
     // Wave properties
     Frequency,
@@ -59,43 +60,6 @@ pub enum AcousticEntity {
     AcousticPhenomenon,
     Solid,
     BoneTissue,
-}
-
-impl Entity for AcousticEntity {
-    fn variants() -> Vec<Self> {
-        use AcousticEntity::*;
-        vec![
-            Frequency,
-            Amplitude,
-            Wavelength,
-            Phase,
-            Intensity,
-            SoundWave,
-            LongitudinalWave,
-            TransverseWave,
-            ShearWave,
-            Air,
-            Water,
-            CorticalBone,
-            CancellousBone,
-            SoftTissue,
-            Cartilage,
-            Fluid,
-            Resonance,
-            Reflection,
-            Refraction,
-            Diffraction,
-            Absorption,
-            Attenuation,
-            ImpedanceMismatch,
-            Wave,
-            Medium,
-            WaveProperty,
-            AcousticPhenomenon,
-            Solid,
-            BoneTissue,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +147,7 @@ impl MereologyDef for AcousticMereology {
 // ---------------------------------------------------------------------------
 
 /// Causal events in acoustic wave propagation.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum AcousticCausalEvent {
     SourceVibration,
     MediumCoupling,
@@ -196,25 +160,6 @@ pub enum AcousticCausalEvent {
     WaveAttenuation,
     ResonantAmplification,
     ReceiverExcitation,
-}
-
-impl Entity for AcousticCausalEvent {
-    fn variants() -> Vec<Self> {
-        use AcousticCausalEvent::*;
-        vec![
-            SourceVibration,
-            MediumCoupling,
-            WavePropagation,
-            BoundaryEncounter,
-            ImpedanceTransition,
-            EnergyReflection,
-            EnergyTransmission,
-            EnergyAbsorption,
-            WaveAttenuation,
-            ResonantAmplification,
-            ReceiverExcitation,
-        ]
-    }
 }
 
 /// Causal graph for acoustic wave propagation.
@@ -254,58 +199,11 @@ impl CausalDef for AcousticCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the acoustics category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AcousticRelation {
-    pub from: AcousticEntity,
-    pub to: AcousticEntity,
-}
-
-impl Relationship for AcousticRelation {
-    type Object = AcousticEntity;
-
-    fn source(&self) -> AcousticEntity {
-        self.from
-    }
-
-    fn target(&self) -> AcousticEntity {
-        self.to
-    }
-}
-
-/// Discrete category over acoustic entities.
-pub struct AcousticsCategory;
-
-impl Category for AcousticsCategory {
-    type Object = AcousticEntity;
-    type Morphism = AcousticRelation;
-
-    fn identity(obj: &AcousticEntity) -> AcousticRelation {
-        AcousticRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &AcousticRelation, g: &AcousticRelation) -> Option<AcousticRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(AcousticRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<AcousticRelation> {
-        let variants = AcousticEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(AcousticRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over acoustic entities.
+    pub AcousticsCategory {
+        entity: AcousticEntity,
+        relation: AcousticRelation,
     }
 }
 
@@ -663,6 +561,7 @@ impl Ontology for AcousticsOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;

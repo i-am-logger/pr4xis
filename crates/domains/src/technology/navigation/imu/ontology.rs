@@ -6,7 +6,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 ///
 /// Source: Titterton & Weston, *Strapdown Inertial Navigation Technology* (2004), Chapter 4.
 ///         Groves (2013), Chapter 4.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ImuMeasurement {
     /// Abstract IMU measurement.
     Measurement,
@@ -22,20 +22,6 @@ pub enum ImuMeasurement {
     AccelerometerScaleFactor,
     /// Gyroscope scale factor error: multiplicative error.
     GyroscopeScaleFactor,
-}
-
-impl Entity for ImuMeasurement {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Measurement,
-            Self::SpecificForce,
-            Self::AngularRate,
-            Self::AccelerometerBias,
-            Self::GyroscopeBias,
-            Self::AccelerometerScaleFactor,
-            Self::GyroscopeScaleFactor,
-        ]
-    }
 }
 
 /// IMU measurement taxonomy.

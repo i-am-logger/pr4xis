@@ -1,5 +1,7 @@
+use pr4xis::category::Entity;
+
 /// HTTP methods with their semantic properties.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum Method {
     Get,
     Post,

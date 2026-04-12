@@ -1,8 +1,9 @@
 use super::rgb::Rgb;
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Quality};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum PrimaryColor {
     Black,
     Red,
@@ -29,65 +30,15 @@ impl PrimaryColor {
     }
 }
 
-impl Entity for PrimaryColor {
-    fn variants() -> Vec<Self> {
-        vec![
-            PrimaryColor::Black,
-            PrimaryColor::Red,
-            PrimaryColor::Green,
-            PrimaryColor::Blue,
-            PrimaryColor::Yellow,
-            PrimaryColor::Cyan,
-            PrimaryColor::Magenta,
-            PrimaryColor::White,
-        ]
-    }
-}
+// ---------------------------------------------------------------------------
+// Category
+// ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ColorMix {
-    pub from: PrimaryColor,
-    pub to: PrimaryColor,
-}
-
-impl Relationship for ColorMix {
-    type Object = PrimaryColor;
-    fn source(&self) -> PrimaryColor {
-        self.from
-    }
-    fn target(&self) -> PrimaryColor {
-        self.to
-    }
-}
-
-pub struct ColorCategory;
-
-impl Category for ColorCategory {
-    type Object = PrimaryColor;
-    type Morphism = ColorMix;
-
-    fn identity(obj: &PrimaryColor) -> ColorMix {
-        ColorMix {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &ColorMix, g: &ColorMix) -> Option<ColorMix> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ColorMix {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ColorMix> {
-        let c = PrimaryColor::variants();
-        c.iter()
-            .flat_map(|&a| c.iter().map(move |&b| ColorMix { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over primary color entities.
+    pub ColorCategory {
+        entity: PrimaryColor,
+        relation: ColorMix,
     }
 }
 
@@ -142,6 +93,7 @@ impl Axiom for ComplementsAddToWhite {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
 
     #[test]
     fn test_8_colors() {

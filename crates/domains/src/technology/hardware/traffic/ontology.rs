@@ -1,8 +1,9 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Quality};
 
 /// Traffic directions at an intersection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum TrafficDirection {
     North,
     South,
@@ -10,56 +11,10 @@ pub enum TrafficDirection {
     West,
 }
 
-impl Entity for TrafficDirection {
-    fn variants() -> Vec<Self> {
-        vec![
-            TrafficDirection::North,
-            TrafficDirection::South,
-            TrafficDirection::East,
-            TrafficDirection::West,
-        ]
-    }
-}
-
-/// Conflict relationship: two directions that cannot both be green.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Conflict {
-    pub a: TrafficDirection,
-    pub b: TrafficDirection,
-}
-
-impl Relationship for Conflict {
-    type Object = TrafficDirection;
-    fn source(&self) -> TrafficDirection {
-        self.a
-    }
-    fn target(&self) -> TrafficDirection {
-        self.b
-    }
-}
-
-pub struct TrafficCategory;
-
-impl Category for TrafficCategory {
-    type Object = TrafficDirection;
-    type Morphism = Conflict;
-
-    fn identity(obj: &TrafficDirection) -> Conflict {
-        Conflict { a: *obj, b: *obj }
-    }
-
-    fn compose(f: &Conflict, g: &Conflict) -> Option<Conflict> {
-        if f.b != g.a {
-            return None;
-        }
-        Some(Conflict { a: f.a, b: g.b })
-    }
-
-    fn morphisms() -> Vec<Conflict> {
-        let dirs = TrafficDirection::variants();
-        dirs.iter()
-            .flat_map(|&a| dirs.iter().map(move |&b| Conflict { a, b }))
-            .collect()
+define_dense_category! {
+    pub TrafficCategory {
+        entity: TrafficDirection,
+        relation: Conflict,
     }
 }
 
@@ -98,6 +53,7 @@ impl Axiom for OrthogonalConflicts {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
 
     #[test]
     fn test_4_directions() {

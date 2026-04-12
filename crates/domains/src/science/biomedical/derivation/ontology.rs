@@ -13,7 +13,8 @@
 //! of a theorem prover. It formalizes the reasoning that ontology_diagnostics
 //! uses when constructing proof chains for axiom verification.
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -24,7 +25,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Components of logical derivation methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum DerivationEntity {
     // Types of derivation (how you reason)
     Deduction,
@@ -51,32 +52,6 @@ pub enum DerivationEntity {
     DerivationType,
     DerivationComponent,
     LogicalProperty,
-}
-
-impl Entity for DerivationEntity {
-    fn variants() -> Vec<Self> {
-        use DerivationEntity::*;
-        vec![
-            Deduction,
-            Induction,
-            Abduction,
-            Analogy,
-            Composition,
-            Premise,
-            Conclusion,
-            InferenceRule,
-            Evidence,
-            Justification,
-            ProofStep,
-            Soundness,
-            Completeness,
-            Validity,
-            Decidability,
-            DerivationType,
-            DerivationComponent,
-            LogicalProperty,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -119,7 +94,7 @@ impl TaxonomyDef for DerivationTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Steps in the derivation pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum DerivationStep {
     /// Establish premises (axioms, assumptions, given facts).
     PremiseEstablishment,
@@ -137,22 +112,6 @@ pub enum DerivationStep {
     ProofCompletion,
     /// Extract new knowledge from the completed proof.
     KnowledgeExtension,
-}
-
-impl Entity for DerivationStep {
-    fn variants() -> Vec<Self> {
-        use DerivationStep::*;
-        vec![
-            PremiseEstablishment,
-            RuleApplication,
-            IntermediateConclusion,
-            ChainExtension,
-            ValidityCheck,
-            SoundnessVerification,
-            ProofCompletion,
-            KnowledgeExtension,
-        ]
-    }
 }
 
 /// The derivation pipeline as a causal graph.
@@ -179,55 +138,11 @@ impl CausalDef for DerivationCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DerivationRelation {
-    pub from: DerivationEntity,
-    pub to: DerivationEntity,
-}
-
-impl Relationship for DerivationRelation {
-    type Object = DerivationEntity;
-    fn source(&self) -> DerivationEntity {
-        self.from
-    }
-    fn target(&self) -> DerivationEntity {
-        self.to
-    }
-}
-
-pub struct DerivationCategory;
-
-impl Category for DerivationCategory {
-    type Object = DerivationEntity;
-    type Morphism = DerivationRelation;
-
-    fn identity(obj: &DerivationEntity) -> DerivationRelation {
-        DerivationRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &DerivationRelation, g: &DerivationRelation) -> Option<DerivationRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(DerivationRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<DerivationRelation> {
-        let entities = DerivationEntity::variants();
-        entities
-            .iter()
-            .flat_map(|&a| {
-                entities
-                    .iter()
-                    .map(move |&b| DerivationRelation { from: a, to: b })
-            })
-            .collect()
+define_dense_category! {
+    /// Dense category over derivation entities.
+    pub DerivationCategory {
+        entity: DerivationEntity,
+        relation: DerivationRelation,
     }
 }
 
@@ -467,6 +382,7 @@ impl Ontology for DerivationOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

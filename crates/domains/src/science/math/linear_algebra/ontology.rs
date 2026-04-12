@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::science::math::linear_algebra::decomposition;
@@ -12,7 +13,7 @@ use crate::science::math::linear_algebra::vector_space::Vector;
 // Entity: algebraic structures
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AlgebraicStructure {
     Scalar,
     Vector,
@@ -25,71 +26,11 @@ pub enum AlgebraicStructure {
     UpperTriangular,
 }
 
-impl Entity for AlgebraicStructure {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Scalar,
-            Self::Vector,
-            Self::Matrix,
-            Self::SymmetricMatrix,
-            Self::PositiveDefiniteMatrix,
-            Self::DiagonalMatrix,
-            Self::IdentityMatrix,
-            Self::LowerTriangular,
-            Self::UpperTriangular,
-        ]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AlgebraicRelation {
-    pub from: AlgebraicStructure,
-    pub to: AlgebraicStructure,
-}
-
-impl Relationship for AlgebraicRelation {
-    type Object = AlgebraicStructure;
-    fn source(&self) -> AlgebraicStructure {
-        self.from
-    }
-    fn target(&self) -> AlgebraicStructure {
-        self.to
-    }
-}
-
-pub struct LinearAlgebraCategory;
-
-impl Category for LinearAlgebraCategory {
-    type Object = AlgebraicStructure;
-    type Morphism = AlgebraicRelation;
-
-    fn identity(obj: &AlgebraicStructure) -> AlgebraicRelation {
-        AlgebraicRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &AlgebraicRelation, g: &AlgebraicRelation) -> Option<AlgebraicRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(AlgebraicRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<AlgebraicRelation> {
-        let structs = AlgebraicStructure::variants();
-        structs
-            .iter()
-            .flat_map(|&from| {
-                structs
-                    .iter()
-                    .map(move |&to| AlgebraicRelation { from, to })
-            })
-            .collect()
+define_dense_category! {
+    /// Discrete category over algebraic structure entities.
+    pub LinearAlgebraCategory {
+        entity: AlgebraicStructure,
+        relation: AlgebraicRelation,
     }
 }
 

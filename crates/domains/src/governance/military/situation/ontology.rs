@@ -5,7 +5,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 ///
 /// Source: Steinberg & Bowman (2008), "Revisions to the JDL Data Fusion Model"
 ///         Llinas & Hall (2001), "Introduction to Multi-Sensor Data Fusion"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum SituationElement {
     /// Identified entity (JDL Level 1 output).
     Entity,
@@ -15,17 +15,6 @@ pub enum SituationElement {
     Intent,
     /// Environmental context affecting the situation.
     Environment,
-}
-
-impl Entity for SituationElement {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Entity,
-            Self::Relationship,
-            Self::Intent,
-            Self::Environment,
-        ]
-    }
 }
 
 /// Assessment dependency between situation elements.

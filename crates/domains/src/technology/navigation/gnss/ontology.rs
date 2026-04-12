@@ -6,7 +6,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// GNSS observable types — what a GNSS receiver measures.
 ///
 /// Source: IS-GPS-200 (2022), Groves (2013) Chapter 8.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum GnssObservable {
     /// Abstract observable.
     Observable,
@@ -20,22 +20,10 @@ pub enum GnssObservable {
     NavigationMessage,
 }
 
-impl Entity for GnssObservable {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Observable,
-            Self::Pseudorange,
-            Self::CarrierPhase,
-            Self::Doppler,
-            Self::NavigationMessage,
-        ]
-    }
-}
-
 /// GNSS constellation types.
 ///
 /// Source: Kaplan & Hegarty (2006).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum GnssConstellation {
     /// Abstract constellation.
     Constellation,
@@ -49,19 +37,6 @@ pub enum GnssConstellation {
     BeiDou,
     /// Satellite-Based Augmentation Systems.
     SBAS,
-}
-
-impl Entity for GnssConstellation {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Constellation,
-            Self::GPS,
-            Self::GLONASS,
-            Self::Galileo,
-            Self::BeiDou,
-            Self::SBAS,
-        ]
-    }
 }
 
 /// GNSS observable taxonomy: observables compose into a position fix.

@@ -19,7 +19,8 @@
 //! - Kumar & Brockes 2012: nerve dependence in amphibian regeneration
 //! - Oviedo et al. 2010: gap junctions in planarian regeneration
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -32,7 +33,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// Every entity in the regeneration ontology.
 ///
 /// Covers regeneration types, pattern concepts, body axes, and structures.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum RegenerationEntity {
     // Regeneration types
     /// Regrowth via blastema formation (e.g. salamander limb).
@@ -80,33 +81,6 @@ pub enum RegenerationEntity {
     PatternConcept,
     /// Abstract: a physical structure involved in regeneration.
     Structure,
-}
-
-impl Entity for RegenerationEntity {
-    fn variants() -> Vec<Self> {
-        use RegenerationEntity::*;
-        vec![
-            Epimorphic,
-            Morphallactic,
-            Compensatory,
-            StemCellMediated,
-            EpithelialRestitution,
-            TargetMorphology,
-            AnatomicalPolarity,
-            AnteriorPosteriorAxis,
-            DorsalVentralAxis,
-            LeftRightAxis,
-            PatternMemory,
-            Bistability,
-            Blastema,
-            WoundEpithelium,
-            NerveSupply,
-            RegenerationType,
-            BodyAxis,
-            PatternConcept,
-            Structure,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +134,7 @@ impl TaxonomyDef for RegenerationTaxonomy {
 ///
 /// Models the temporal sequence from injury through restoration, including
 /// bioelectric and gap-junction-mediated signaling pathways.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum RegenerationEvent {
     /// Tissue damage initiating the regeneration cascade.
     Injury,
@@ -184,25 +158,6 @@ pub enum RegenerationEvent {
     CollectiveDecision,
     /// Nerve-derived signals maintaining blastema growth.
     NerveSignaling,
-}
-
-impl Entity for RegenerationEvent {
-    fn variants() -> Vec<Self> {
-        use RegenerationEvent::*;
-        vec![
-            Injury,
-            WoundClosure,
-            BlastemaFormation,
-            PatternSpecification,
-            Differentiation,
-            MorphologicalRestoration,
-            BioelectricSignal,
-            PolarityDetermination,
-            GapJunctionCommunication,
-            CollectiveDecision,
-            NerveSignaling,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -247,58 +202,11 @@ impl CausalDef for RegenerationCauses {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the regeneration category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RegenerationRelation {
-    pub from: RegenerationEntity,
-    pub to: RegenerationEntity,
-}
-
-impl Relationship for RegenerationRelation {
-    type Object = RegenerationEntity;
-
-    fn source(&self) -> RegenerationEntity {
-        self.from
-    }
-
-    fn target(&self) -> RegenerationEntity {
-        self.to
-    }
-}
-
-/// Discrete category over regeneration entities (full morphism set).
-pub struct RegenerationCategory;
-
-impl Category for RegenerationCategory {
-    type Object = RegenerationEntity;
-    type Morphism = RegenerationRelation;
-
-    fn identity(obj: &RegenerationEntity) -> RegenerationRelation {
-        RegenerationRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &RegenerationRelation, g: &RegenerationRelation) -> Option<RegenerationRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(RegenerationRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<RegenerationRelation> {
-        let variants = RegenerationEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(RegenerationRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over regeneration entities (full morphism set).
+    pub RegenerationCategory {
+        entity: RegenerationEntity,
+        relation: RegenerationRelation,
     }
 }
 
@@ -735,6 +643,7 @@ impl Ontology for RegenerationOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

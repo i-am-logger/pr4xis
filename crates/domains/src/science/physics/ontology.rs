@@ -1,9 +1,10 @@
 /// Physics ontology: laws of physics as entities with relationships.
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Quality};
 
 /// The fundamental laws as entities.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum PhysicsLaw {
     // Mechanics
     NewtonFirst,  // inertia
@@ -14,85 +15,27 @@ pub enum PhysicsLaw {
     MomentumConservation,
     ChargeConservation,
     // Electromagnetism
-    GaussElectric, // ∇⋅E = ρ/ε₀
-    GaussMagnetic, // ∇⋅B = 0
-    FaradayLaw,    // ∇×E = -∂B/∂t
-    AmpereMaxwell, // ∇×B = μ₀J + μ₀ε₀∂E/∂t
+    GaussElectric, // div E = rho/eps0
+    GaussMagnetic, // div B = 0
+    FaradayLaw,    // curl E = -dB/dt
+    AmpereMaxwell, // curl B = mu0 J + mu0 eps0 dE/dt
     // Relativity
     SpeedOfLight, // c is constant
-    MassEnergy,   // E = mc²
+    MassEnergy,   // E = mc^2
     // Quantum
-    Heisenberg, // ΔxΔp ≥ ℏ/2
+    Heisenberg, // dx dp >= hbar/2
     Planck,     // E = hf
 }
 
-impl Entity for PhysicsLaw {
-    fn variants() -> Vec<Self> {
-        vec![
-            PhysicsLaw::NewtonFirst,
-            PhysicsLaw::NewtonSecond,
-            PhysicsLaw::NewtonThird,
-            PhysicsLaw::EnergyConservation,
-            PhysicsLaw::MomentumConservation,
-            PhysicsLaw::ChargeConservation,
-            PhysicsLaw::GaussElectric,
-            PhysicsLaw::GaussMagnetic,
-            PhysicsLaw::FaradayLaw,
-            PhysicsLaw::AmpereMaxwell,
-            PhysicsLaw::SpeedOfLight,
-            PhysicsLaw::MassEnergy,
-            PhysicsLaw::Heisenberg,
-            PhysicsLaw::Planck,
-        ]
-    }
-}
+// ---------------------------------------------------------------------------
+// Category
+// ---------------------------------------------------------------------------
 
-/// Relationship: one law derives from or depends on another.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Derives {
-    pub from: PhysicsLaw,
-    pub to: PhysicsLaw,
-}
-
-impl Relationship for Derives {
-    type Object = PhysicsLaw;
-    fn source(&self) -> PhysicsLaw {
-        self.from
-    }
-    fn target(&self) -> PhysicsLaw {
-        self.to
-    }
-}
-
-/// The physics domain as category.
-pub struct PhysicsCategory;
-
-impl Category for PhysicsCategory {
-    type Object = PhysicsLaw;
-    type Morphism = Derives;
-
-    fn identity(obj: &PhysicsLaw) -> Derives {
-        Derives {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &Derives, g: &Derives) -> Option<Derives> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(Derives {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<Derives> {
-        let laws = PhysicsLaw::variants();
-        laws.iter()
-            .flat_map(|&a| laws.iter().map(move |&b| Derives { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over PhysicsLaw entities.
+    pub PhysicsCategory {
+        entity: PhysicsLaw,
+        relation: Derives,
     }
 }
 
@@ -136,7 +79,7 @@ pub struct MaxwellDerivesC;
 
 impl Axiom for MaxwellDerivesC {
     fn description(&self) -> &str {
-        "Maxwell's 4 equations together derive c = 1/√(μ₀ε₀)"
+        "Maxwell's 4 equations together derive c = 1/sqrt(mu0 eps0)"
     }
     fn holds(&self) -> bool {
         let c = super::maxwell::speed_of_light();
@@ -164,6 +107,7 @@ impl Axiom for AllBranchesRepresented {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
 
     #[test]
     fn test_14_laws() {

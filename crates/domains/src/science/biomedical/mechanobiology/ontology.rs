@@ -12,7 +12,8 @@
 //! - PMID:37459546 (2023): Piezo1 membrane stretch threshold lambda=1.9
 //! - Coste 2010: Piezo1 discovery (2021 Nobel Prize)
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -23,7 +24,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the mechanobiology domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MechanobiologyEntity {
     // Forces
     MembraneTension,
@@ -52,36 +53,6 @@ pub enum MechanobiologyEntity {
     ChannelState,
     FrequencyProperty,
     CellularResponse,
-}
-
-impl Entity for MechanobiologyEntity {
-    fn variants() -> Vec<Self> {
-        use MechanobiologyEntity::*;
-        vec![
-            MembraneTension,
-            ShearStress,
-            CompressiveStress,
-            TensileStress,
-            SubstrateStiffness,
-            MechanosensitiveChannel,
-            ChannelConformation,
-            OpenState,
-            ClosedState,
-            InactivatedState,
-            FrequencyFiltering,
-            ActivationThreshold,
-            InactivationKinetics,
-            RecoveryTime,
-            CalciumTransient,
-            CytoskeletalRemodeling,
-            FocalAdhesion,
-            Mechanoadaptation,
-            MechanicalForce,
-            ChannelState,
-            FrequencyProperty,
-            CellularResponse,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -128,61 +99,11 @@ impl TaxonomyDef for MechanobiologyTaxonomy {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the mechanobiology category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MechanobiologyRelation {
-    pub from: MechanobiologyEntity,
-    pub to: MechanobiologyEntity,
-}
-
-impl Relationship for MechanobiologyRelation {
-    type Object = MechanobiologyEntity;
-
-    fn source(&self) -> MechanobiologyEntity {
-        self.from
-    }
-
-    fn target(&self) -> MechanobiologyEntity {
-        self.to
-    }
-}
-
-/// Discrete category over mechanobiology entities.
-pub struct MechanobiologyCategory;
-
-impl Category for MechanobiologyCategory {
-    type Object = MechanobiologyEntity;
-    type Morphism = MechanobiologyRelation;
-
-    fn identity(obj: &MechanobiologyEntity) -> MechanobiologyRelation {
-        MechanobiologyRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(
-        f: &MechanobiologyRelation,
-        g: &MechanobiologyRelation,
-    ) -> Option<MechanobiologyRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(MechanobiologyRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<MechanobiologyRelation> {
-        let variants = MechanobiologyEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(MechanobiologyRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over mechanobiology entities.
+    pub MechanobiologyCategory {
+        entity: MechanobiologyEntity,
+        relation: MechanobiologyRelation,
     }
 }
 
@@ -191,7 +112,7 @@ impl Category for MechanobiologyCategory {
 // ---------------------------------------------------------------------------
 
 /// Events in the mechanobiology causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MechanobiologyCausalEvent {
     /// External mechanical load applied to tissue
     MechanicalLoad,
@@ -213,24 +134,6 @@ pub enum MechanobiologyCausalEvent {
     SustainedForce,
     /// Threshold shifts with chronic loading
     ThresholdShift,
-}
-
-impl Entity for MechanobiologyCausalEvent {
-    fn variants() -> Vec<Self> {
-        use MechanobiologyCausalEvent::*;
-        vec![
-            MechanicalLoad,
-            MembraneDeformation,
-            ChannelGating,
-            IonInflux,
-            IntracellularSignaling,
-            RepetitiveStimulus,
-            ChannelInactivation,
-            FrequencyDependentResponse,
-            SustainedForce,
-            ThresholdShift,
-        ]
-    }
 }
 
 /// Causal graph for mechanobiology.
@@ -557,6 +460,7 @@ impl Ontology for MechanobiologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 

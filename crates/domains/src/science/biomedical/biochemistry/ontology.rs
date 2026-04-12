@@ -11,7 +11,8 @@
 //! - Ignarro 1987: nitric oxide as signaling molecule
 //! - Krebs 1957: ATP in phosphorylation cascades
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -22,7 +23,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every biochemistry entity in the bioelectric repair signaling domain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum BiochemistryEntity {
     // Signaling molecules
     CalciumIon,
@@ -49,34 +50,6 @@ pub enum BiochemistryEntity {
     SignalingMolecule,
     BiochemicalProcess,
     EnergyMetabolite,
-}
-
-impl Entity for BiochemistryEntity {
-    fn variants() -> Vec<Self> {
-        use BiochemistryEntity::*;
-        vec![
-            CalciumIon,
-            Calmodulin,
-            CaMKII,
-            ProteinKinaseC,
-            CREB,
-            NitricOxide,
-            CAMP,
-            IP3,
-            SignalTransduction,
-            PhosphorylationCascade,
-            GeneTranscription,
-            ProteinSynthesis,
-            SecondMessenger,
-            ATP,
-            ADP,
-            Glycolysis,
-            OxidativePhosphorylation,
-            SignalingMolecule,
-            BiochemicalProcess,
-            EnergyMetabolite,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +96,7 @@ impl TaxonomyDef for BiochemistryTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Causal events in biochemical signaling cascades relevant to bioelectric repair.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum BiochemistryCausalEvent {
     /// Calcium enters cell through ion channels
     CalciumEntry,
@@ -149,26 +122,6 @@ pub enum BiochemistryCausalEvent {
     ATPHydrolysis,
     /// Energy released from ATP hydrolysis
     EnergyRelease,
-}
-
-impl Entity for BiochemistryCausalEvent {
-    fn variants() -> Vec<Self> {
-        use BiochemistryCausalEvent::*;
-        vec![
-            CalciumEntry,
-            CalmodulinActivation,
-            CaMKIIPhosphorylation,
-            CREBActivation,
-            GeneExpressionChange,
-            ProteinSynthesisChange,
-            PKCActivation,
-            DownstreamSignaling,
-            NOSynthaseActivation,
-            NOProduction,
-            ATPHydrolysis,
-            EnergyRelease,
-        ]
-    }
 }
 
 /// Causal graph: biochemical signaling cascades.
@@ -205,63 +158,16 @@ impl CausalDef for BiochemistryCauses {
 }
 
 // ---------------------------------------------------------------------------
-// Category (BiochemistryRelation morphism over BiochemistryEntity)
+// Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the biochemistry category -- a directed relation between entities.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BiochemistryRelation {
-    pub from: BiochemistryEntity,
-    pub to: BiochemistryEntity,
-}
-
-impl Relationship for BiochemistryRelation {
-    type Object = BiochemistryEntity;
-
-    fn source(&self) -> BiochemistryEntity {
-        self.from
-    }
-
-    fn target(&self) -> BiochemistryEntity {
-        self.to
-    }
-}
-
-/// Discrete category over biochemistry entities.
-///
-/// Every entity pair has a unique morphism; composition is transitive.
-pub struct BiochemistryCategory;
-
-impl Category for BiochemistryCategory {
-    type Object = BiochemistryEntity;
-    type Morphism = BiochemistryRelation;
-
-    fn identity(obj: &BiochemistryEntity) -> BiochemistryRelation {
-        BiochemistryRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &BiochemistryRelation, g: &BiochemistryRelation) -> Option<BiochemistryRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(BiochemistryRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<BiochemistryRelation> {
-        let variants = BiochemistryEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(BiochemistryRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over biochemistry entities.
+    ///
+    /// Every entity pair has a unique morphism; composition is transitive.
+    pub BiochemistryCategory {
+        entity: BiochemistryEntity,
+        relation: BiochemistryRelation,
     }
 }
 
@@ -581,6 +487,7 @@ impl Ontology for BiochemistryOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

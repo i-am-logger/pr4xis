@@ -8,7 +8,8 @@
 //! - Neher & Sakmann 1976: patch clamp technique
 //! - Bhatt et al. 2015: bioimpedance spectroscopy
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -18,7 +19,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the electrophysiology domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ElectrophysiologyEntity {
     // Measurement techniques
     PatchClamp,
@@ -50,37 +51,6 @@ pub enum ElectrophysiologyEntity {
     MeasurementTechnique,
     MeasuredQuantity,
     RecordingMode,
-}
-
-impl Entity for ElectrophysiologyEntity {
-    fn variants() -> Vec<Self> {
-        use ElectrophysiologyEntity::*;
-        vec![
-            PatchClamp,
-            SharpElectrode,
-            VoltageSensitiveDye,
-            CalciumImaging,
-            Bioimpedance,
-            ExtracellularRecording,
-            MultiElectrodeArray,
-            OpticalMapping,
-            RestingPotential,
-            ActionPotential,
-            TransepithelialPotential,
-            FieldPotential,
-            Impedance,
-            IntracellularCalcium,
-            WholeCell,
-            CellAttached,
-            InsideOut,
-            OutsideOut,
-            CurrentClamp,
-            VoltageClamp,
-            MeasurementTechnique,
-            MeasuredQuantity,
-            RecordingMode,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -127,61 +97,11 @@ impl TaxonomyDef for ElectrophysiologyTaxonomy {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the electrophysiology category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ElectrophysiologyRelation {
-    pub from: ElectrophysiologyEntity,
-    pub to: ElectrophysiologyEntity,
-}
-
-impl Relationship for ElectrophysiologyRelation {
-    type Object = ElectrophysiologyEntity;
-
-    fn source(&self) -> ElectrophysiologyEntity {
-        self.from
-    }
-
-    fn target(&self) -> ElectrophysiologyEntity {
-        self.to
-    }
-}
-
-/// Discrete category over electrophysiology entities.
-pub struct ElectrophysiologyCategory;
-
-impl Category for ElectrophysiologyCategory {
-    type Object = ElectrophysiologyEntity;
-    type Morphism = ElectrophysiologyRelation;
-
-    fn identity(obj: &ElectrophysiologyEntity) -> ElectrophysiologyRelation {
-        ElectrophysiologyRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(
-        f: &ElectrophysiologyRelation,
-        g: &ElectrophysiologyRelation,
-    ) -> Option<ElectrophysiologyRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ElectrophysiologyRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ElectrophysiologyRelation> {
-        let variants = ElectrophysiologyEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(ElectrophysiologyRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over electrophysiology entities.
+    pub ElectrophysiologyCategory {
+        entity: ElectrophysiologyEntity,
+        relation: ElectrophysiologyRelation,
     }
 }
 
@@ -569,6 +489,7 @@ impl Ontology for ElectrophysiologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
     use proptest::prelude::*;

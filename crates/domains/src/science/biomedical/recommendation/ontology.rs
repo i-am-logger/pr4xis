@@ -12,7 +12,8 @@
 //! of a recommender system. It formalizes the reasoning that ontology_diagnostics
 //! uses when suggesting resolutions.
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -23,7 +24,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Components of the recommendation methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum RecommendationEntity {
     // Types of recommendation (what you produce)
     Suggestion,
@@ -50,32 +51,6 @@ pub enum RecommendationEntity {
     RecommendationType,
     DecisionComponent,
     DecisionOutcome,
-}
-
-impl Entity for RecommendationEntity {
-    fn variants() -> Vec<Self> {
-        use RecommendationEntity::*;
-        vec![
-            Suggestion,
-            Ranking,
-            Classification,
-            Warning,
-            Prescription,
-            Alternative,
-            Criterion,
-            Weight,
-            Threshold,
-            Evidence,
-            Confidence,
-            Accept,
-            Reject,
-            Defer,
-            Escalate,
-            RecommendationType,
-            DecisionComponent,
-            DecisionOutcome,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +93,7 @@ impl TaxonomyDef for RecommendationTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Steps in the recommendation pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum RecommendationStep {
     /// Collect evidence relevant to the decision.
     EvidenceGathering,
@@ -136,22 +111,6 @@ pub enum RecommendationStep {
     RecommendationFormulation,
     /// Propose concrete action to the user.
     ActionProposal,
-}
-
-impl Entity for RecommendationStep {
-    fn variants() -> Vec<Self> {
-        use RecommendationStep::*;
-        vec![
-            EvidenceGathering,
-            CriteriaEvaluation,
-            AlternativeScoring,
-            ThresholdComparison,
-            OutcomeSelection,
-            ConfidenceAssessment,
-            RecommendationFormulation,
-            ActionProposal,
-        ]
-    }
 }
 
 /// The recommendation pipeline as a causal graph.
@@ -178,58 +137,11 @@ impl CausalDef for RecommendationCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RecommendationRelation {
-    pub from: RecommendationEntity,
-    pub to: RecommendationEntity,
-}
-
-impl Relationship for RecommendationRelation {
-    type Object = RecommendationEntity;
-    fn source(&self) -> RecommendationEntity {
-        self.from
-    }
-    fn target(&self) -> RecommendationEntity {
-        self.to
-    }
-}
-
-pub struct RecommendationCategory;
-
-impl Category for RecommendationCategory {
-    type Object = RecommendationEntity;
-    type Morphism = RecommendationRelation;
-
-    fn identity(obj: &RecommendationEntity) -> RecommendationRelation {
-        RecommendationRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(
-        f: &RecommendationRelation,
-        g: &RecommendationRelation,
-    ) -> Option<RecommendationRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(RecommendationRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<RecommendationRelation> {
-        let entities = RecommendationEntity::variants();
-        entities
-            .iter()
-            .flat_map(|&a| {
-                entities
-                    .iter()
-                    .map(move |&b| RecommendationRelation { from: a, to: b })
-            })
-            .collect()
+define_dense_category! {
+    /// Dense category over recommendation entities.
+    pub RecommendationCategory {
+        entity: RecommendationEntity,
+        relation: RecommendationRelation,
     }
 }
 
@@ -466,6 +378,7 @@ impl Ontology for RecommendationOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

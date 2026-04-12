@@ -12,7 +12,8 @@
 //! - Patel 2008: Music, Language, and the Brain
 //! - McDermott & Oxenham 2008: music perception review
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -22,7 +23,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // Entity
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum MusicEntity {
     // Pitch perception
     PitchHeight,
@@ -71,54 +72,6 @@ pub enum MusicEntity {
     RhythmicPercept,
     TimbrePercept,
     AffectiveResponse,
-}
-
-impl Entity for MusicEntity {
-    fn variants() -> Vec<Self> {
-        use MusicEntity::*;
-        vec![
-            PitchHeight,
-            PitchChroma,
-            OctaveEquivalence,
-            AbsolutePitch,
-            RelativePitch,
-            MelodicContour,
-            IntervalPerception,
-            Consonance,
-            Dissonance,
-            RoughnessModel,
-            HarmonicSeries,
-            VirtualPitchPercept,
-            MissingFundamental,
-            Chord,
-            Tonality,
-            KeySense,
-            Beat,
-            Meter,
-            Tempo,
-            Syncopation,
-            Groove,
-            Entrainment,
-            TemporalExpectation,
-            SpectralCentroid,
-            AttackTime,
-            SpectralFlux,
-            InstrumentIdentification,
-            MusicalExpectation,
-            Surprise,
-            Tension,
-            Resolution,
-            MusicalEmotion,
-            EarWorm,
-            MusicalMemory,
-            TonalSchemaMemory,
-            PitchPercept,
-            HarmonicPercept,
-            RhythmicPercept,
-            TimbrePercept,
-            AffectiveResponse,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +132,7 @@ impl TaxonomyDef for MusicTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Causal events in music perception processing.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum MusicCausalEvent {
     AuditoryInput,
     PitchExtraction,
@@ -192,25 +145,6 @@ pub enum MusicCausalEvent {
     MusicalExpectationFormation,
     GroovePerception,
     EmotionalResponse,
-}
-
-impl Entity for MusicCausalEvent {
-    fn variants() -> Vec<Self> {
-        use MusicCausalEvent::*;
-        vec![
-            AuditoryInput,
-            PitchExtraction,
-            OnsetDetection,
-            HarmonicGrouping,
-            MelodicTracking,
-            BeatInduction,
-            MetricFraming,
-            TonalInterpretation,
-            MusicalExpectationFormation,
-            GroovePerception,
-            EmotionalResponse,
-        ]
-    }
 }
 
 /// Causal graph for music perception processing pipeline.
@@ -273,50 +207,11 @@ impl OppositionDef for MusicOpposition {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MusicRelation {
-    pub from: MusicEntity,
-    pub to: MusicEntity,
-}
-
-impl Relationship for MusicRelation {
-    type Object = MusicEntity;
-    fn source(&self) -> MusicEntity {
-        self.from
-    }
-    fn target(&self) -> MusicEntity {
-        self.to
-    }
-}
-
-pub struct MusicPerceptionCategory;
-
-impl Category for MusicPerceptionCategory {
-    type Object = MusicEntity;
-    type Morphism = MusicRelation;
-
-    fn identity(obj: &MusicEntity) -> MusicRelation {
-        MusicRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &MusicRelation, g: &MusicRelation) -> Option<MusicRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(MusicRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<MusicRelation> {
-        let v = MusicEntity::variants();
-        v.iter()
-            .flat_map(|&a| v.iter().map(move |&b| MusicRelation { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over music perception entities.
+    pub MusicPerceptionCategory {
+        entity: MusicEntity,
+        relation: MusicRelation,
     }
 }
 
@@ -562,6 +457,7 @@ impl Ontology for MusicPerceptionOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

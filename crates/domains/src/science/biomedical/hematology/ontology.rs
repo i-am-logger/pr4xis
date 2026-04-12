@@ -5,7 +5,8 @@
 //! plasma electrolytes (Na+, K+, Ca2+, Cl-, HCO3-), and blood properties
 //! (osmotic pressure, oncotic pressure, pH, hematocrit, viscosity).
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
@@ -17,7 +18,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the hematology ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum HematologyEntity {
     // Blood components
     WholeBlood,
@@ -52,38 +53,6 @@ pub enum HematologyEntity {
     PlasmaProtein,
     PlasmaElectrolyte,
     BloodProperty,
-}
-
-impl Entity for HematologyEntity {
-    fn variants() -> Vec<Self> {
-        use HematologyEntity::*;
-        vec![
-            WholeBlood,
-            BloodPlasma,
-            Serum,
-            RedBloodCell,
-            WhiteBloodCell,
-            Platelet,
-            Albumin,
-            Globulin,
-            Fibrinogen,
-            Immunoglobulin,
-            SodiumPlasma,
-            PotassiumPlasma,
-            CalciumPlasma,
-            ChloridePlasma,
-            BicarbonatePlasma,
-            OsmoticPressure,
-            OncoticPressure,
-            BloodPH,
-            Hematocrit,
-            Viscosity,
-            BloodComponent,
-            PlasmaProtein,
-            PlasmaElectrolyte,
-            BloodProperty,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -171,58 +140,11 @@ impl MereologyDef for HematologyMereology {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the hematology category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HematologyRelation {
-    pub from: HematologyEntity,
-    pub to: HematologyEntity,
-}
-
-impl Relationship for HematologyRelation {
-    type Object = HematologyEntity;
-
-    fn source(&self) -> HematologyEntity {
-        self.from
-    }
-
-    fn target(&self) -> HematologyEntity {
-        self.to
-    }
-}
-
-/// Discrete category over hematology entities.
-pub struct HematologyCategory;
-
-impl Category for HematologyCategory {
-    type Object = HematologyEntity;
-    type Morphism = HematologyRelation;
-
-    fn identity(obj: &HematologyEntity) -> HematologyRelation {
-        HematologyRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &HematologyRelation, g: &HematologyRelation) -> Option<HematologyRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(HematologyRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<HematologyRelation> {
-        let variants = HematologyEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(HematologyRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over hematology entities.
+    pub HematologyCategory {
+        entity: HematologyEntity,
+        relation: HematologyRelation,
     }
 }
 
@@ -231,7 +153,7 @@ impl Category for HematologyCategory {
 // ---------------------------------------------------------------------------
 
 /// Events in the hematology causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum HematologyCausalEvent {
     Hemorrhage,
     PlasmaVolumeLoss,
@@ -244,25 +166,6 @@ pub enum HematologyCausalEvent {
     PHCorrection,
     CoagulationCascade,
     FibrinFormation,
-}
-
-impl Entity for HematologyCausalEvent {
-    fn variants() -> Vec<Self> {
-        use HematologyCausalEvent::*;
-        vec![
-            Hemorrhage,
-            PlasmaVolumeLoss,
-            ElectrolyteImbalance,
-            Inflammation,
-            AcutePhaseResponse,
-            AlbuminDecrease,
-            AcidBaseDisturbance,
-            BicarbonateBuffering,
-            PHCorrection,
-            CoagulationCascade,
-            FibrinFormation,
-        ]
-    }
 }
 
 /// Causal graph for hematology.
@@ -586,6 +489,7 @@ impl Ontology for HematologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;

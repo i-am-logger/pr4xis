@@ -1,4 +1,4 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::technology::sensor_fusion::time::synchronization::SyncStrategy;
@@ -7,72 +7,18 @@ use crate::technology::sensor_fusion::time::synchronization::SyncStrategy;
 // Category: sensor time synchronization strategies
 // ---------------------------------------------------------------------------
 
-/// Relationship: one sync strategy can be degraded to another.
-///
-/// Interpolation -> NearestNeighbor (drop second measurement)
-/// Extrapolation -> NearestNeighbor (use only known measurement)
-/// Any strategy -> itself (identity)
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SyncDegradation {
-    pub from: SyncStrategy,
-    pub to: SyncStrategy,
-}
-
-impl Relationship for SyncDegradation {
-    type Object = SyncStrategy;
-
-    fn source(&self) -> SyncStrategy {
-        self.from
-    }
-
-    fn target(&self) -> SyncStrategy {
-        self.to
-    }
-}
-
-/// Category of synchronization strategies ordered by information content.
-///
-/// Objects: sync strategies.
-/// Morphisms: degradation paths (losing information).
-///
-/// LinearInterpolation uses the most information (two measurements).
-/// NearestNeighbor uses one measurement.
-/// Extrapolation is the most dangerous (model-dependent).
-pub struct SensorTimeCategory;
-
-impl Category for SensorTimeCategory {
-    type Object = SyncStrategy;
-    type Morphism = SyncDegradation;
-
-    fn identity(obj: &SyncStrategy) -> SyncDegradation {
-        SyncDegradation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &SyncDegradation, g: &SyncDegradation) -> Option<SyncDegradation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(SyncDegradation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<SyncDegradation> {
-        let strategies = SyncStrategy::variants();
-        // Full category: all pairs (every strategy can "degrade" to every other
-        // for structural completeness — the axioms encode the actual ordering).
-        strategies
-            .iter()
-            .flat_map(|&from| {
-                strategies
-                    .iter()
-                    .map(move |&to| SyncDegradation { from, to })
-            })
-            .collect()
+define_dense_category! {
+    /// Category of synchronization strategies ordered by information content.
+    ///
+    /// Objects: sync strategies.
+    /// Morphisms: degradation paths (losing information).
+    ///
+    /// LinearInterpolation uses the most information (two measurements).
+    /// NearestNeighbor uses one measurement.
+    /// Extrapolation is the most dangerous (model-dependent).
+    pub SensorTimeCategory {
+        entity: SyncStrategy,
+        relation: SyncDegradation,
     }
 }
 

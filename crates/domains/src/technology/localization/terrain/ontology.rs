@@ -1,10 +1,11 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Terrain feature types for terrain-relative navigation.
 ///
 /// Source: Goldstein (1987), "Terrain Aided Navigation"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum TerrainFeature {
     /// Local maximum in elevation.
     Peak,
@@ -16,62 +17,14 @@ pub enum TerrainFeature {
     Saddle,
 }
 
-impl Entity for TerrainFeature {
-    fn variants() -> Vec<Self> {
-        vec![Self::Peak, Self::Valley, Self::Ridge, Self::Saddle]
-    }
-}
-
-/// Topological relationship between terrain features.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TerrainRelation {
-    pub from: TerrainFeature,
-    pub to: TerrainFeature,
-}
-
-impl Relationship for TerrainRelation {
-    type Object = TerrainFeature;
-    fn source(&self) -> TerrainFeature {
-        self.from
-    }
-    fn target(&self) -> TerrainFeature {
-        self.to
-    }
-}
-
-/// Category for terrain feature relationships.
-///
-/// Ridges connect peaks through saddles; valleys lie between ridges.
-/// All features can relate to all other features in a DEM.
-pub struct TerrainCategory;
-
-impl Category for TerrainCategory {
-    type Object = TerrainFeature;
-    type Morphism = TerrainRelation;
-
-    fn identity(obj: &TerrainFeature) -> TerrainRelation {
-        TerrainRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &TerrainRelation, g: &TerrainRelation) -> Option<TerrainRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(TerrainRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<TerrainRelation> {
-        let features = TerrainFeature::variants();
-        features
-            .iter()
-            .flat_map(|&from| features.iter().map(move |&to| TerrainRelation { from, to }))
-            .collect()
+define_dense_category! {
+    /// Category for terrain feature relationships.
+    ///
+    /// Ridges connect peaks through saddles; valleys lie between ridges.
+    /// All features can relate to all other features in a DEM.
+    pub TerrainCategory {
+        entity: TerrainFeature,
+        relation: TerrainRelation,
     }
 }
 

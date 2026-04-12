@@ -10,7 +10,8 @@
 //! - ISO 3382-1:2009: room acoustic parameters
 //! - Schafer 1977: The Soundscape
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -20,7 +21,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // Entity
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum EnvironmentEntity {
     // Room acoustics parameters
     ReverberationTime,
@@ -75,59 +76,6 @@ pub enum EnvironmentEntity {
     SoundscapeElement,
     MeasurementDevice,
     RoomType,
-}
-
-impl Entity for EnvironmentEntity {
-    fn variants() -> Vec<Self> {
-        use EnvironmentEntity::*;
-        vec![
-            ReverberationTime,
-            RT60,
-            EarlyDecayTime,
-            Clarity,
-            Definition,
-            SpeechTransmissionIndex,
-            CenterTime,
-            LateralFraction,
-            SoundAbsorption,
-            AbsorptionCoefficient,
-            SoundDiffusion,
-            SoundInsulation,
-            TransmissionLoss,
-            FlankingTransmission,
-            SoundPressureLevel,
-            AWeighting,
-            CWeighting,
-            EquivalentContinuousLevel,
-            PeakSoundLevel,
-            SoundExposureLevel,
-            NoiseDose,
-            TimeWeightedAverage,
-            OSHALimit,
-            NIOSHLimit,
-            ExchangeRate,
-            PermissibleExposureLimit,
-            ActionLevel,
-            Soundscape,
-            Keynote,
-            SoundSignal,
-            Soundmark,
-            BackgroundNoise,
-            SpeechRoom,
-            MusicHall,
-            WorshipSpace,
-            SoundLevelMeter,
-            Dosimeter,
-            CalibrationSource,
-            RoomParameter,
-            AcousticProperty,
-            NoiseMeasure,
-            NoiseStandard,
-            SoundscapeElement,
-            MeasurementDevice,
-            RoomType,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +143,7 @@ impl TaxonomyDef for EnvironmentTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Causal events in environmental noise exposure and room acoustics.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum EnvironmentCausalEvent {
     NoiseSource,
     SoundPropagation,
@@ -205,22 +153,6 @@ pub enum EnvironmentCausalEvent {
     HearingDamageRisk,
     RoomReverberation,
     SpeechIntelligibilityReduction,
-}
-
-impl Entity for EnvironmentCausalEvent {
-    fn variants() -> Vec<Self> {
-        use EnvironmentCausalEvent::*;
-        vec![
-            NoiseSource,
-            SoundPropagation,
-            WorkerExposure,
-            DoseAccumulation,
-            ThresholdShift,
-            HearingDamageRisk,
-            RoomReverberation,
-            SpeechIntelligibilityReduction,
-        ]
-    }
 }
 
 /// Causal graph for noise exposure and room acoustic effects.
@@ -269,53 +201,11 @@ impl OppositionDef for EnvironmentOpposition {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EnvironmentRelation {
-    pub from: EnvironmentEntity,
-    pub to: EnvironmentEntity,
-}
-
-impl Relationship for EnvironmentRelation {
-    type Object = EnvironmentEntity;
-    fn source(&self) -> EnvironmentEntity {
-        self.from
-    }
-    fn target(&self) -> EnvironmentEntity {
-        self.to
-    }
-}
-
-pub struct EnvironmentalAcousticsCategory;
-
-impl Category for EnvironmentalAcousticsCategory {
-    type Object = EnvironmentEntity;
-    type Morphism = EnvironmentRelation;
-
-    fn identity(obj: &EnvironmentEntity) -> EnvironmentRelation {
-        EnvironmentRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &EnvironmentRelation, g: &EnvironmentRelation) -> Option<EnvironmentRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(EnvironmentRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<EnvironmentRelation> {
-        let v = EnvironmentEntity::variants();
-        v.iter()
-            .flat_map(|&a| {
-                v.iter()
-                    .map(move |&b| EnvironmentRelation { from: a, to: b })
-            })
-            .collect()
+define_dense_category! {
+    /// Discrete category over environmental acoustics entities.
+    pub EnvironmentalAcousticsCategory {
+        entity: EnvironmentEntity,
+        relation: EnvironmentRelation,
     }
 }
 
@@ -535,6 +425,7 @@ impl Ontology for EnvironmentalAcousticsOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

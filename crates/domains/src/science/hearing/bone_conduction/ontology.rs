@@ -16,7 +16,8 @@
 //! - Stenfelt 2015: inner ear compressional mechanism
 //! - Reinfeldt et al. 2015: estimation of BC pathways
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -27,7 +28,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the bone conduction domain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum BoneCondEntity {
     // Mechanisms
     OsseotympanicBC,
@@ -65,44 +66,6 @@ pub enum BoneCondEntity {
     BCTransducer,
     ApplicationSite,
     BCPhenomenon,
-}
-
-impl Entity for BoneCondEntity {
-    fn variants() -> Vec<Self> {
-        use BoneCondEntity::*;
-        vec![
-            OsseotympanicBC,
-            InertialBC,
-            CompressionalBC,
-            DistortionalBC,
-            SkullVibration,
-            EarCanalWallVibration,
-            OssicularInertia,
-            CochlearWallCompression,
-            FluidInertia,
-            SkullDeformation,
-            SoundRadiation,
-            BoneAnchoredDevice,
-            PercutaneousImplant,
-            TranscutaneousDevice,
-            SkinDriveTransducer,
-            PiezoelectricTransducer,
-            ElectromagneticTransducer,
-            Mastoid,
-            Forehead,
-            TemporalBone,
-            Vertex,
-            Teeth,
-            OcclusionEffect,
-            TranscranialAttenuation,
-            SkullResonance,
-            ForceLevel,
-            BCMechanism,
-            BCTransducer,
-            ApplicationSite,
-            BCPhenomenon,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +112,7 @@ impl TaxonomyDef for BoneCondTaxonomy {
 // ---------------------------------------------------------------------------
 
 /// Causal events in bone conduction hearing.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum BCCausalEvent {
     TransducerActivation,
     SkullCoupling,
@@ -171,29 +134,6 @@ pub enum BCCausalEvent {
     InnerEarDistortion,
     // Common endpoint
     CochlearResponse,
-}
-
-impl Entity for BCCausalEvent {
-    fn variants() -> Vec<Self> {
-        use BCCausalEvent::*;
-        vec![
-            TransducerActivation,
-            SkullCoupling,
-            SkullWavePropagation,
-            EarCanalWallMotion,
-            TympanicMembraneResponse,
-            OsseotympanicStimulation,
-            OssicularLag,
-            StapesDisplacement,
-            OvalWindowDrive,
-            CochlearBoneCompression,
-            DifferentialFluidFlow,
-            BasilarMembraneExcitation,
-            SkullModeDeformation,
-            InnerEarDistortion,
-            CochlearResponse,
-        ]
-    }
 }
 
 /// Causal graph for bone conduction pathways.
@@ -239,58 +179,11 @@ impl CausalDef for BCCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the bone conduction category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BoneCondRelation {
-    pub from: BoneCondEntity,
-    pub to: BoneCondEntity,
-}
-
-impl Relationship for BoneCondRelation {
-    type Object = BoneCondEntity;
-
-    fn source(&self) -> BoneCondEntity {
-        self.from
-    }
-
-    fn target(&self) -> BoneCondEntity {
-        self.to
-    }
-}
-
-/// Discrete category over bone conduction entities.
-pub struct BoneConductionCategory;
-
-impl Category for BoneConductionCategory {
-    type Object = BoneCondEntity;
-    type Morphism = BoneCondRelation;
-
-    fn identity(obj: &BoneCondEntity) -> BoneCondRelation {
-        BoneCondRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &BoneCondRelation, g: &BoneCondRelation) -> Option<BoneCondRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(BoneCondRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<BoneCondRelation> {
-        let variants = BoneCondEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(BoneCondRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over bone conduction entities.
+    pub BoneConductionCategory {
+        entity: BoneCondEntity,
+        relation: BoneCondRelation,
     }
 }
 
@@ -646,6 +539,7 @@ impl Ontology for BoneConductionOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

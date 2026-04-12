@@ -8,7 +8,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// performance in degraded GNSS environments but requiring more complexity.
 ///
 /// Source: Groves (2013) Chapter 14.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum CouplingLevel {
     /// Abstract coupling.
     Coupling,
@@ -20,21 +20,10 @@ pub enum CouplingLevel {
     DeeplyCoupled,
 }
 
-impl Entity for CouplingLevel {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Coupling,
-            Self::LooselyCoupled,
-            Self::TightlyCoupled,
-            Self::DeeplyCoupled,
-        ]
-    }
-}
-
 /// INS/GNSS system state.
 ///
 /// Source: Groves (2013) Section 14.2.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum InsGnssState {
     /// Abstract state.
     State,
@@ -46,18 +35,6 @@ pub enum InsGnssState {
     GnssReacquired,
     /// System initializing (alignment).
     Initializing,
-}
-
-impl Entity for InsGnssState {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::State,
-            Self::NavigationMode,
-            Self::Coasting,
-            Self::GnssReacquired,
-            Self::Initializing,
-        ]
-    }
 }
 
 /// Coupling level taxonomy: hierarchy of integration tightness.

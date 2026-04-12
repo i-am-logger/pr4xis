@@ -5,7 +5,7 @@ use pr4xis::category::Entity;
 /// Each frame defines a coordinate system with an origin and orientation.
 /// Frames are the objects in the FrameCategory — transforms between them
 /// are the morphisms.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ReferenceFrame {
     /// Earth-Centered Earth-Fixed: origin at Earth's center, rotates with Earth
     ECEF,
@@ -27,21 +27,4 @@ pub enum ReferenceFrame {
     Radar,
     /// GNSS: antenna phase center
     GNSS,
-}
-
-impl Entity for ReferenceFrame {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::ECEF,
-            Self::ECI,
-            Self::NED,
-            Self::ENU,
-            Self::Body,
-            Self::IMU,
-            Self::Camera,
-            Self::LiDAR,
-            Self::Radar,
-            Self::GNSS,
-        ]
-    }
 }

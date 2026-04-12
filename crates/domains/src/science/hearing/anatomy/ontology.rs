@@ -13,7 +13,8 @@
 //! - von Békésy 1960: Experiments in Hearing
 //! - Hudspeth 2014: Integrating the active process of hair cells
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -24,7 +25,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every anatomical entity in the auditory system.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum AuditoryEntity {
     // Outer ear
     Pinna,
@@ -76,57 +77,6 @@ pub enum AuditoryEntity {
     CochlearFluid,
     CochlearMembrane,
     AuditoryNucleus,
-}
-
-impl Entity for AuditoryEntity {
-    fn variants() -> Vec<Self> {
-        use AuditoryEntity::*;
-        vec![
-            Pinna,
-            EarCanal,
-            TympanicMembrane,
-            Malleus,
-            Incus,
-            Stapes,
-            OvalWindow,
-            RoundWindow,
-            EustachianTube,
-            TensorTympani,
-            Stapedius,
-            Cochlea,
-            BasilarMembrane,
-            OrganOfCorti,
-            TectorialMembrane,
-            ScalaVestibuli,
-            ScalaMedia,
-            ScalaTympani,
-            Endolymph,
-            Perilymph,
-            StriVascularis,
-            ReissnersMembrane,
-            Vestibule,
-            SemicircularCanals,
-            InnerHairCell,
-            OuterHairCell,
-            SupportingCell,
-            SpiralGanglionNeuron,
-            AuditoryNerve,
-            CochlearNucleus,
-            SuperiorOlivaryComplex,
-            InferiorColliculus,
-            MedialGeniculateBody,
-            AuditoryCortex,
-            Ear,
-            OuterEar,
-            MiddleEar,
-            InnerEar,
-            Ossicle,
-            HairCell,
-            CochlearFluid,
-            CochlearMembrane,
-            AuditoryNucleus,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -246,58 +196,11 @@ impl MereologyDef for AuditoryMereology {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the anatomy category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AuditoryRelation {
-    pub from: AuditoryEntity,
-    pub to: AuditoryEntity,
-}
-
-impl Relationship for AuditoryRelation {
-    type Object = AuditoryEntity;
-
-    fn source(&self) -> AuditoryEntity {
-        self.from
-    }
-
-    fn target(&self) -> AuditoryEntity {
-        self.to
-    }
-}
-
-/// Discrete category over auditory entities.
-pub struct AnatomyCategory;
-
-impl Category for AnatomyCategory {
-    type Object = AuditoryEntity;
-    type Morphism = AuditoryRelation;
-
-    fn identity(obj: &AuditoryEntity) -> AuditoryRelation {
-        AuditoryRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &AuditoryRelation, g: &AuditoryRelation) -> Option<AuditoryRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(AuditoryRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<AuditoryRelation> {
-        let variants = AuditoryEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(AuditoryRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over auditory anatomy entities.
+    pub AnatomyCategory {
+        entity: AuditoryEntity,
+        relation: AuditoryRelation,
     }
 }
 
@@ -632,6 +535,7 @@ impl Ontology for AnatomyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

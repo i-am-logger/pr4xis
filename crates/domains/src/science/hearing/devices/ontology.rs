@@ -9,7 +9,8 @@
 //! - Håkansson et al. 2010: BC hearing devices review
 //! - Chasin 2006: Musicians and the Prevention of Hearing Loss
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
@@ -20,7 +21,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // Entity
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum DeviceEntity {
     // Hearing aids
     BehindTheEar,
@@ -65,50 +66,6 @@ pub enum DeviceEntity {
     SignalProcessingFeature,
     DiagnosticEquipment,
     DeviceComponent,
-}
-
-impl Entity for DeviceEntity {
-    fn variants() -> Vec<Self> {
-        use DeviceEntity::*;
-        vec![
-            BehindTheEar,
-            InTheEar,
-            CompletelyInCanal,
-            ReceiverInCanal,
-            CROS,
-            BiCROS,
-            CochlearImplant,
-            BoneAnchoredHearingAid,
-            MiddleEarImplant,
-            AuditoryBrainstemImplant,
-            BoneConductionHeadphone,
-            SoftbandBAHA,
-            AdhesiveBC,
-            DirectionalMicrophone,
-            NoiseSuppression,
-            FeedbackCancellation,
-            FrequencyCompression,
-            WideAdaptiveDynamicRange,
-            Telecoil,
-            BluetoothStreaming,
-            Audiometer,
-            Tympanometer,
-            OAEProbe,
-            ABRSystem,
-            RealEarMeasurement,
-            Microphone,
-            Amplifier,
-            Receiver,
-            ElectrodeArray,
-            SpeechProcessor,
-            HearingAid,
-            ImplantableDevice,
-            BCDevice,
-            SignalProcessingFeature,
-            DiagnosticEquipment,
-            DeviceComponent,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -205,7 +162,7 @@ impl MereologyDef for DeviceMereology {
 // ---------------------------------------------------------------------------
 
 /// Causal events in the hearing device fitting pipeline.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum DeviceCausalEvent {
     HearingLossDiagnosis,
     DeviceSelection,
@@ -214,21 +171,6 @@ pub enum DeviceCausalEvent {
     RealEarVerification,
     FineTuning,
     OutcomeImprovement,
-}
-
-impl Entity for DeviceCausalEvent {
-    fn variants() -> Vec<Self> {
-        use DeviceCausalEvent::*;
-        vec![
-            HearingLossDiagnosis,
-            DeviceSelection,
-            CustomMolding,
-            InitialFitting,
-            RealEarVerification,
-            FineTuning,
-            OutcomeImprovement,
-        ]
-    }
 }
 
 /// Causal graph for the hearing device fitting pipeline.
@@ -260,50 +202,11 @@ impl CausalDef for DeviceCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DeviceRelation {
-    pub from: DeviceEntity,
-    pub to: DeviceEntity,
-}
-
-impl Relationship for DeviceRelation {
-    type Object = DeviceEntity;
-    fn source(&self) -> DeviceEntity {
-        self.from
-    }
-    fn target(&self) -> DeviceEntity {
-        self.to
-    }
-}
-
-pub struct DeviceCategory;
-
-impl Category for DeviceCategory {
-    type Object = DeviceEntity;
-    type Morphism = DeviceRelation;
-
-    fn identity(obj: &DeviceEntity) -> DeviceRelation {
-        DeviceRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &DeviceRelation, g: &DeviceRelation) -> Option<DeviceRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(DeviceRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<DeviceRelation> {
-        let v = DeviceEntity::variants();
-        v.iter()
-            .flat_map(|&a| v.iter().map(move |&b| DeviceRelation { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over hearing device entities.
+    pub DeviceCategory {
+        entity: DeviceEntity,
+        relation: DeviceRelation,
     }
 }
 
@@ -612,6 +515,7 @@ impl Ontology for DeviceOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;

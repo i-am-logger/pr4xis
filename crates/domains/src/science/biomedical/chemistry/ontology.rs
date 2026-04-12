@@ -4,7 +4,8 @@
 //! and solution components. Causal chains cover dissolution, acid-base
 //! reactions, phase transitions, and diffusion.
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -15,7 +16,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the chemistry ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ChemistryEntity {
     // States of matter
     Solid,
@@ -50,38 +51,6 @@ pub enum ChemistryEntity {
     ChemicalBond,
     PhysicalProperty,
     SolutionComponent,
-}
-
-impl Entity for ChemistryEntity {
-    fn variants() -> Vec<Self> {
-        use ChemistryEntity::*;
-        vec![
-            Solid,
-            Liquid,
-            Gas,
-            Plasma,
-            Gel,
-            Colloid,
-            IonicBond,
-            CovalentBond,
-            HydrogenBond,
-            VanDerWaals,
-            Metallic,
-            PH,
-            Concentration,
-            Osmolarity,
-            Temperature,
-            Pressure,
-            Solvent,
-            Solute,
-            Electrolyte,
-            Buffer,
-            StateOfMatter,
-            ChemicalBond,
-            PhysicalProperty,
-            SolutionComponent,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -136,58 +105,11 @@ impl TaxonomyDef for ChemistryTaxonomy {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the chemistry category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChemistryRelation {
-    pub from: ChemistryEntity,
-    pub to: ChemistryEntity,
-}
-
-impl Relationship for ChemistryRelation {
-    type Object = ChemistryEntity;
-
-    fn source(&self) -> ChemistryEntity {
-        self.from
-    }
-
-    fn target(&self) -> ChemistryEntity {
-        self.to
-    }
-}
-
-/// Discrete category over chemistry entities.
-pub struct ChemistryCategory;
-
-impl Category for ChemistryCategory {
-    type Object = ChemistryEntity;
-    type Morphism = ChemistryRelation;
-
-    fn identity(obj: &ChemistryEntity) -> ChemistryRelation {
-        ChemistryRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &ChemistryRelation, g: &ChemistryRelation) -> Option<ChemistryRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(ChemistryRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<ChemistryRelation> {
-        let variants = ChemistryEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(ChemistryRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over chemistry entities.
+    pub ChemistryCategory {
+        entity: ChemistryEntity,
+        relation: ChemistryRelation,
     }
 }
 
@@ -196,7 +118,7 @@ impl Category for ChemistryCategory {
 // ---------------------------------------------------------------------------
 
 /// Events in the chemistry causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum ChemistryCausalEvent {
     Dissolution,
     IonDissociation,
@@ -208,24 +130,6 @@ pub enum ChemistryCausalEvent {
     PhaseTransition,
     ConcentrationGradient,
     Diffusion,
-}
-
-impl Entity for ChemistryCausalEvent {
-    fn variants() -> Vec<Self> {
-        use ChemistryCausalEvent::*;
-        vec![
-            Dissolution,
-            IonDissociation,
-            ElectrolyteFormation,
-            AcidBaseReaction,
-            PHChange,
-            ProteinDenaturation,
-            TemperatureChange,
-            PhaseTransition,
-            ConcentrationGradient,
-            Diffusion,
-        ]
-    }
 }
 
 /// Causal graph for chemistry.
@@ -493,6 +397,7 @@ impl Ontology for ChemistryOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

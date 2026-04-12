@@ -1,10 +1,11 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// AUV navigation sensor types.
 ///
 /// Source: Kinsey et al. (2006), "A Survey of Underwater Vehicle Navigation"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AuvSensor {
     /// Doppler Velocity Log: measures velocity relative to seabed.
     DVL,
@@ -16,66 +17,14 @@ pub enum AuvSensor {
     ADCP,
 }
 
-impl Entity for AuvSensor {
-    fn variants() -> Vec<Self> {
-        vec![Self::DVL, Self::DepthSensor, Self::Compass, Self::ADCP]
-    }
-}
-
-/// Relationship between AUV sensors (data flow in navigation filter).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AuvSensorRelation {
-    pub from: AuvSensor,
-    pub to: AuvSensor,
-}
-
-impl Relationship for AuvSensorRelation {
-    type Object = AuvSensor;
-    fn source(&self) -> AuvSensor {
-        self.from
-    }
-    fn target(&self) -> AuvSensor {
-        self.to
-    }
-}
-
-/// Category for AUV sensor fusion.
-///
-/// All sensors can be fused in the navigation filter; the category
-/// is fully connected since measurements can be correlated.
-pub struct AuvCategory;
-
-impl Category for AuvCategory {
-    type Object = AuvSensor;
-    type Morphism = AuvSensorRelation;
-
-    fn identity(obj: &AuvSensor) -> AuvSensorRelation {
-        AuvSensorRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &AuvSensorRelation, g: &AuvSensorRelation) -> Option<AuvSensorRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(AuvSensorRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<AuvSensorRelation> {
-        let sensors = AuvSensor::variants();
-        sensors
-            .iter()
-            .flat_map(|&from| {
-                sensors
-                    .iter()
-                    .map(move |&to| AuvSensorRelation { from, to })
-            })
-            .collect()
+define_dense_category! {
+    /// Category for AUV sensor fusion.
+    ///
+    /// All sensors can be fused in the navigation filter; the category
+    /// is fully connected since measurements can be correlated.
+    pub AuvCategory {
+        entity: AuvSensor,
+        relation: AuvSensorRelation,
     }
 }
 

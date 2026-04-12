@@ -1,6 +1,9 @@
 use pr4xis::category::{Category, Entity, Relationship};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
+// NOTE: TrackLifecycleCategory has non-Cartesian morphisms (specific transitions).
+// Only Entity derive was added; Category impl remains manual.
+
 /// Track lifecycle states.
 ///
 /// A track goes through a defined lifecycle. The ontology enforces
@@ -8,7 +11,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 ///
 /// Source: Bar-Shalom et al. (2001), Chapter 7.
 ///         Blackman & Popoli (1999), *Design and Analysis of Modern Tracking Systems*.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum TrackState {
     /// New track, not yet confirmed. Awaiting M-of-N confirmation.
     Tentative,
@@ -18,17 +21,6 @@ pub enum TrackState {
     Coasting,
     /// Deleted: too many consecutive misses. Terminal state.
     Deleted,
-}
-
-impl Entity for TrackState {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Tentative,
-            Self::Confirmed,
-            Self::Coasting,
-            Self::Deleted,
-        ]
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
 
 // OWL 2 Web Ontology Language — W3C Recommendation (2012)
@@ -28,7 +28,7 @@ use pr4xis::category::relationship::Relationship;
 /// Each variant maps to a specific IRI in the OWL 2 namespace.
 /// This is NOT string matching — each concept has an identity (its IRI)
 /// defined by the W3C spec.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum OwlConcept {
     // === Class expressions (W3C OWL 2 §8) ===
     /// owl:Class — a named class (W3C OWL 2 §8.1)
@@ -89,37 +89,6 @@ pub enum OwlConcept {
     // === Ontology header (W3C OWL 2 §3) ===
     /// owl:Ontology — the ontology node itself
     Ontology,
-}
-
-impl Entity for OwlConcept {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Class,
-            Self::Restriction,
-            Self::UnionOf,
-            Self::IntersectionOf,
-            Self::ComplementOf,
-            Self::OneOf,
-            Self::ObjectProperty,
-            Self::DatatypeProperty,
-            Self::AnnotationProperty,
-            Self::FunctionalProperty,
-            Self::InverseFunctionalProperty,
-            Self::TransitiveProperty,
-            Self::SymmetricProperty,
-            Self::AsymmetricProperty,
-            Self::ReflexiveProperty,
-            Self::IrreflexiveProperty,
-            Self::NamedIndividual,
-            Self::SomeValuesFrom,
-            Self::AllValuesFrom,
-            Self::HasValue,
-            Self::MinCardinality,
-            Self::MaxCardinality,
-            Self::ExactCardinality,
-            Self::Ontology,
-        ]
-    }
 }
 
 impl OwlConcept {

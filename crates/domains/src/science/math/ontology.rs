@@ -1,9 +1,10 @@
 /// Math ontology: mathematical domains as entities with axioms.
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Quality};
 
 /// Mathematical domains as entities.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum MathDomain {
     NaturalNumbers,
     Integers,
@@ -12,64 +13,15 @@ pub enum MathDomain {
     Complex,
 }
 
-impl Entity for MathDomain {
-    fn variants() -> Vec<Self> {
-        vec![
-            MathDomain::NaturalNumbers,
-            MathDomain::Integers,
-            MathDomain::Rationals,
-            MathDomain::Reals,
-            MathDomain::Complex,
-        ]
-    }
-}
+// ---------------------------------------------------------------------------
+// Category
+// ---------------------------------------------------------------------------
 
-/// Subset relationship between domains: N ⊂ Z ⊂ Q ⊂ R ⊂ C.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Subset {
-    pub from: MathDomain,
-    pub to: MathDomain,
-}
-
-impl Relationship for Subset {
-    type Object = MathDomain;
-    fn source(&self) -> MathDomain {
-        self.from
-    }
-    fn target(&self) -> MathDomain {
-        self.to
-    }
-}
-
-pub struct NumberHierarchy;
-
-impl Category for NumberHierarchy {
-    type Object = MathDomain;
-    type Morphism = Subset;
-
-    fn identity(obj: &MathDomain) -> Subset {
-        Subset {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &Subset, g: &Subset) -> Option<Subset> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(Subset {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<Subset> {
-        let domains = MathDomain::variants();
-        domains
-            .iter()
-            .flat_map(|&a| domains.iter().map(move |&b| Subset { from: a, to: b }))
-            .collect()
+define_dense_category! {
+    /// Discrete category over MathDomain entities.
+    pub NumberHierarchy {
+        entity: MathDomain,
+        relation: Subset,
     }
 }
 
@@ -124,12 +76,12 @@ impl Quality for SupportsNegativeSqrt {
     }
 }
 
-/// Axiom: N ⊂ Z ⊂ Q ⊂ R ⊂ C (strict containment chain).
+/// Axiom: N < Z < Q < R < C (strict containment chain).
 pub struct ContainmentChain;
 
 impl Axiom for ContainmentChain {
     fn description(&self) -> &str {
-        "N ⊂ Z ⊂ Q ⊂ R ⊂ C"
+        "N < Z < Q < R < C"
     }
 
     fn holds(&self) -> bool {
@@ -150,6 +102,7 @@ impl Axiom for ContainmentChain {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
 
     #[test]
     fn test_5_domains() {

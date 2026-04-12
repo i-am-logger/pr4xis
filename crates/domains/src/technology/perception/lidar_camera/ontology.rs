@@ -4,7 +4,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// Fusion pipeline stages for LiDAR+camera sensor fusion.
 ///
 /// Source: Caltagirone et al. (2019), "LiDAR-Camera Fusion for Road Detection"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum FusionStage {
     /// Raw detection from individual sensors.
     Detection,
@@ -14,17 +14,6 @@ pub enum FusionStage {
     Association,
     /// Final fused output combining both modalities.
     Fusion,
-}
-
-impl Entity for FusionStage {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Detection,
-            Self::Projection,
-            Self::Association,
-            Self::Fusion,
-        ]
-    }
 }
 
 /// A pipeline transition between fusion stages.

@@ -1,10 +1,11 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Acoustic positioning system types.
 ///
 /// Source: Milne (1983), *Underwater Acoustic Positioning Systems*
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum AcousticSystem {
     /// Ultra-Short Baseline: single transceiver with multiple elements.
     USBL,
@@ -14,62 +15,14 @@ pub enum AcousticSystem {
     SBL,
 }
 
-impl Entity for AcousticSystem {
-    fn variants() -> Vec<Self> {
-        vec![Self::USBL, Self::LBL, Self::SBL]
-    }
-}
-
-/// Relationship between acoustic system types (interoperability).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AcousticRelation {
-    pub from: AcousticSystem,
-    pub to: AcousticSystem,
-}
-
-impl Relationship for AcousticRelation {
-    type Object = AcousticSystem;
-    fn source(&self) -> AcousticSystem {
-        self.from
-    }
-    fn target(&self) -> AcousticSystem {
-        self.to
-    }
-}
-
-/// Category for acoustic positioning systems.
-///
-/// All systems can provide position fixes that feed into each other
-/// (e.g., USBL calibrated against LBL, SBL combined with LBL).
-pub struct AcousticCategory;
-
-impl Category for AcousticCategory {
-    type Object = AcousticSystem;
-    type Morphism = AcousticRelation;
-
-    fn identity(obj: &AcousticSystem) -> AcousticRelation {
-        AcousticRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &AcousticRelation, g: &AcousticRelation) -> Option<AcousticRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(AcousticRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<AcousticRelation> {
-        let systems = AcousticSystem::variants();
-        systems
-            .iter()
-            .flat_map(|&from| systems.iter().map(move |&to| AcousticRelation { from, to }))
-            .collect()
+define_dense_category! {
+    /// Category for acoustic positioning systems.
+    ///
+    /// All systems can provide position fixes that feed into each other
+    /// (e.g., USBL calibrated against LBL, SBL combined with LBL).
+    pub AcousticCategory {
+        entity: AcousticSystem,
+        relation: AcousticRelation,
     }
 }
 

@@ -18,7 +18,8 @@
 //! - Chernet & Levin 2013: repolarization suppresses tumors
 //! - Binns et al. 2019: bioelectric reversal of metaplasia
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
 use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
@@ -29,7 +30,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the pathology ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum PathologyEntity {
     // Disease states
     /// Healthy tissue with normal morphology and Vmem.
@@ -84,35 +85,6 @@ pub enum PathologyEntity {
     PathologicalProcess,
 }
 
-impl Entity for PathologyEntity {
-    fn variants() -> Vec<Self> {
-        use PathologyEntity::*;
-        vec![
-            Normal,
-            AcuteInjury,
-            ChronicInjury,
-            Metaplasia,
-            Dysplasia,
-            Neoplasia,
-            Fibrosis,
-            Stricture,
-            LowGrade,
-            HighGrade,
-            Benign,
-            Premalignant,
-            Malignant,
-            Inflammation,
-            CellularAdaptation,
-            AtypicalGrowth,
-            Invasion,
-            DiseaseState,
-            Stage,
-            Classification,
-            PathologicalProcess,
-        ]
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Taxonomy (is-a)
 // ---------------------------------------------------------------------------
@@ -155,58 +127,11 @@ impl TaxonomyDef for PathologyTaxonomy {
 // Category
 // ---------------------------------------------------------------------------
 
-/// A morphism in the pathology category.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PathologyRelation {
-    pub from: PathologyEntity,
-    pub to: PathologyEntity,
-}
-
-impl Relationship for PathologyRelation {
-    type Object = PathologyEntity;
-
-    fn source(&self) -> PathologyEntity {
-        self.from
-    }
-
-    fn target(&self) -> PathologyEntity {
-        self.to
-    }
-}
-
-/// Discrete category over pathology entities.
-pub struct PathologyCategory;
-
-impl Category for PathologyCategory {
-    type Object = PathologyEntity;
-    type Morphism = PathologyRelation;
-
-    fn identity(obj: &PathologyEntity) -> PathologyRelation {
-        PathologyRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &PathologyRelation, g: &PathologyRelation) -> Option<PathologyRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(PathologyRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<PathologyRelation> {
-        let variants = PathologyEntity::variants();
-        let mut morphisms = Vec::new();
-        for &from in &variants {
-            for &to in &variants {
-                morphisms.push(PathologyRelation { from, to });
-            }
-        }
-        morphisms
+define_dense_category! {
+    /// Discrete category over pathology entities.
+    pub PathologyCategory {
+        entity: PathologyEntity,
+        relation: PathologyRelation,
     }
 }
 
@@ -215,7 +140,7 @@ impl Category for PathologyCategory {
 // ---------------------------------------------------------------------------
 
 /// Events in the disease progression causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum PathologyCausalEvent {
     /// Initial tissue damage from exogenous or endogenous insult.
     TissueInsult,
@@ -237,24 +162,6 @@ pub enum PathologyCausalEvent {
     LowGradeProgression,
     /// Severe dysplastic changes approaching carcinoma in situ.
     HighGradeProgression,
-}
-
-impl Entity for PathologyCausalEvent {
-    fn variants() -> Vec<Self> {
-        use PathologyCausalEvent::*;
-        vec![
-            TissueInsult,
-            AcuteResponse,
-            ChronicAdaptation,
-            MetaplasticTransformation,
-            DysplasticProgression,
-            NeoplasticTransformation,
-            FibroticRemodeling,
-            StrictureFormation,
-            LowGradeProgression,
-            HighGradeProgression,
-        ]
-    }
 }
 
 /// Causal graph for disease progression.
@@ -670,6 +577,7 @@ impl Ontology for PathologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 

@@ -11,7 +11,8 @@
 //! - Fernández & Goldberg 1971: vestibular afferent physiology
 //! - Hudspeth & Corey 1977: hair cell transduction in bullfrog sacculus
 
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::Entity;
+use pr4xis::define_dense_category;
 use pr4xis::ontology::reasoning::causation::{self, CausalDef};
 use pr4xis::ontology::reasoning::mereology::{self, MereologyDef};
 use pr4xis::ontology::reasoning::opposition::{self, OppositionDef};
@@ -22,7 +23,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // Entity
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum VestibularEntity {
     // Semicircular canals
     LateralCanal,
@@ -72,54 +73,6 @@ pub enum VestibularEntity {
     VestibularReflex,
     VestibularStimulus,
     VestibularDisorder,
-}
-
-impl Entity for VestibularEntity {
-    fn variants() -> Vec<Self> {
-        use VestibularEntity::*;
-        vec![
-            LateralCanal,
-            AnteriorCanal,
-            PosteriorCanal,
-            Ampulla,
-            Cupula,
-            CrisaAmpullaris,
-            Utricle,
-            Saccule,
-            Macula,
-            Otoconia,
-            OtolithMembrane,
-            StriolarRegion,
-            ExtrastriolarRegion,
-            TypeIHairCell,
-            TypeIIHairCell,
-            CalyxEnding,
-            BoutonEnding,
-            VestibularNerve,
-            ScarpaGanglion,
-            VestibularNuclei,
-            MedialVestibularNucleus,
-            LateralVestibularNucleus,
-            SuperiorVestibularNucleus,
-            CerebellumVestibular,
-            VestibuloOcularReflex,
-            VestibuloSpinalReflex,
-            VestibuloColicReflex,
-            AngularAcceleration,
-            LinearAcceleration,
-            GravityVector,
-            HeadTilt,
-            BPPV,
-            VestibularNeuritis,
-            Vertigo,
-            SemicircularCanal,
-            OtolithOrgan,
-            VestibularHairCell,
-            VestibularReflex,
-            VestibularStimulus,
-            VestibularDisorder,
-        ]
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +154,7 @@ impl MereologyDef for VestibularMereology {
 // Causal graph
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
 pub enum VestibularCausalEvent {
     HeadRotation,
     EndolymphFlow,
@@ -215,26 +168,6 @@ pub enum VestibularCausalEvent {
     VORActivation,
     EyeMovementCompensation,
     PosturalAdjustment,
-}
-
-impl Entity for VestibularCausalEvent {
-    fn variants() -> Vec<Self> {
-        use VestibularCausalEvent::*;
-        vec![
-            HeadRotation,
-            EndolymphFlow,
-            CupulaDeflection,
-            CanalHairCellActivation,
-            HeadLinearMotion,
-            OtoconiaShear,
-            MaculaHairCellActivation,
-            VestibularAfferentFiring,
-            VestibularNucleiProcessing,
-            VORActivation,
-            EyeMovementCompensation,
-            PosturalAdjustment,
-        ]
-    }
 }
 
 pub struct VestibularCausalGraph;
@@ -269,53 +202,11 @@ impl CausalDef for VestibularCausalGraph {
 // Category
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VestibularRelation {
-    pub from: VestibularEntity,
-    pub to: VestibularEntity,
-}
-
-impl Relationship for VestibularRelation {
-    type Object = VestibularEntity;
-    fn source(&self) -> VestibularEntity {
-        self.from
-    }
-    fn target(&self) -> VestibularEntity {
-        self.to
-    }
-}
-
-pub struct VestibularCategory;
-
-impl Category for VestibularCategory {
-    type Object = VestibularEntity;
-    type Morphism = VestibularRelation;
-
-    fn identity(obj: &VestibularEntity) -> VestibularRelation {
-        VestibularRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &VestibularRelation, g: &VestibularRelation) -> Option<VestibularRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(VestibularRelation {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<VestibularRelation> {
-        let v = VestibularEntity::variants();
-        v.iter()
-            .flat_map(|&a| {
-                v.iter()
-                    .map(move |&b| VestibularRelation { from: a, to: b })
-            })
-            .collect()
+define_dense_category! {
+    /// Discrete category over vestibular entities.
+    pub VestibularCategory {
+        entity: VestibularEntity,
+        relation: VestibularRelation,
     }
 }
 
@@ -578,6 +469,7 @@ impl Ontology for VestibularOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Category;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation::CausalCategory;
     use pr4xis::ontology::reasoning::mereology::MereologyCategory;
