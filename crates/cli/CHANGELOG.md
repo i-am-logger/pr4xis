@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.2.0...pr4xis-cli-v0.3.0) (2026-04-12)
+
+
+### Features
+
+* restructure to academic hierarchy (DOLCE-aligned) ([44997fa](https://github.com/i-am-logger/pr4xis/commit/44997fae2ed61f693b592839cc8f27efb4cc35bc))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.5.0 to 0.6.0
+    * pr4xis-chat bumped from 0.2.0 to 0.3.0
+    * pr4xis-domains bumped from 0.6.0 to 0.7.0
+  * build-dependencies
+    * pr4xis bumped from 0.5.0 to 0.6.0
+
 ## [0.2.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.1.6...pr4xis-cli-v0.2.0) (2026-04-12)
 
 
