@@ -13,6 +13,7 @@ keywords = ["ontology", "category-theory", "enforcement", "state-machine", "form
 codegen = ["dep:quick-xml"]
 
 [dependencies]
+pr4xis-derive = { version = "0.1.0", path = "../pr4xis-derive" }
 quick-xml = { version = "0.37", features = ["serialize"], optional = true }
 
 [dev-dependencies]
