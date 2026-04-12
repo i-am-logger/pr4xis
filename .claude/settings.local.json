@@ -303,7 +303,12 @@
       "Bash(sed -i 's|let result = program\\\\.run\\(\\);|    .run\\(\\);|' crates/pr4xis/src/category/free.rs)",
       "Bash(sed -i '/Compose two lenses/,/^    }/d' crates/pr4xis/src/category/optics.rs)",
       "Bash(sed -i '/use std::fmt::Debug;/d' crates/pr4xis/src/category/optics.rs)",
-      "Bash(sed -i '/fn lens_compose/,/^    }/d' crates/pr4xis/src/category/optics.rs)"
+      "Bash(sed -i '/fn lens_compose/,/^    }/d' crates/pr4xis/src/category/optics.rs)",
+      "Bash(sed -i '/^pub struct Algebra/i #[allow\\(clippy::type_complexity\\)]' crates/pr4xis/src/category/algebra.rs)",
+      "Bash(sed -i '/^pub struct Coalgebra/i #[allow\\(clippy::type_complexity\\)]' crates/pr4xis/src/category/algebra.rs)",
+      "Bash(sed -i '/^pub struct Prism/i #[allow\\(clippy::type_complexity\\)]' crates/pr4xis/src/category/optics.rs)",
+      "Bash(sed -i '/^pub struct Lens/i #[allow\\(clippy::type_complexity\\)]' crates/pr4xis/src/category/optics.rs)",
+      "Bash(RUSTFLAGS=\"-D warnings\" cargo test -p pr4xis --lib --no-run)"
     ]
   }
 }

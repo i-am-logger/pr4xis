@@ -227,11 +227,12 @@ impl Quality for RequiresMembraneTension {
 // Opposition (semantic contrasts)
 // ---------------------------------------------------------------------------
 
-/// Opposition pairs in the mechanobiology domain.
-///
-/// - OpenState <-> ClosedState: channel is either open or closed
-/// - ActivationThreshold <-> Mechanoadaptation: threshold vs adaptation
-///   (sustained force shifts the threshold -- mechanoadaptation)
+// Opposition pairs in the mechanobiology domain.
+//
+// - OpenState <-> ClosedState: channel is either open or closed
+// - ActivationThreshold <-> Mechanoadaptation: threshold vs adaptation
+//   (sustained force shifts the threshold -- mechanoadaptation)
+
 // ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------

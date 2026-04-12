@@ -77,12 +77,12 @@ pub enum ChemistryCausalEvent {
     Diffusion,
 }
 
-/// Causal graph for chemistry.
-///
-/// Dissolution -> IonDissociation -> ElectrolyteFormation
-/// AcidBaseReaction -> PHChange -> ProteinDenaturation
-/// TemperatureChange -> PhaseTransition
-/// ConcentrationGradient -> Diffusion
+// Causal graph for chemistry.
+//
+// Dissolution -> IonDissociation -> ElectrolyteFormation
+// AcidBaseReaction -> PHChange -> ProteinDenaturation
+// TemperatureChange -> PhaseTransition
+// ConcentrationGradient -> Diffusion
 define_ontology! {
     /// Chemistry ontology: matter, bonding, properties, solutions.
     pub ChemistryOntologyMeta for ChemistryCategory {
@@ -197,10 +197,11 @@ impl Quality for BondStrength {
 // Opposition
 // ---------------------------------------------------------------------------
 
-/// Opposition pairs in chemistry.
-///
-/// - Solvent ↔ Solute: the dissolving agent vs the dissolved substance
-/// - IonicBond ↔ CovalentBond: electrostatic transfer vs shared electrons
+// Opposition pairs in chemistry.
+//
+// - Solvent ↔ Solute: the dissolving agent vs the dissolved substance
+// - IonicBond ↔ CovalentBond: electrostatic transfer vs shared electrons
+
 // ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------
