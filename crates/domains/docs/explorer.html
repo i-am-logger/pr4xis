@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vogix Ontology Explorer</title>
+<style>
+:root {
+  --bg:#0d1117; --fg:#c9d1d9; --fg2:#8b949e; --border:#30363d;
+  --pass:#3fb950; --fail:#f85149; --warn:#d29922;
+  --accent:#58a6ff; --card:#161b22; --hover:#1c2128;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--fg); font-family:'Inter',system-ui,sans-serif; overflow:hidden; }
+#explorer { width:100vw; height:100vh; }
+svg { width:100%; height:100%; }
+
+.controls {
+  position:fixed; top:1rem; left:1rem; z-index:10;
+  background:var(--card); border:1px solid var(--border); border-radius:6px;
+  padding:0.75rem 1rem; font-size:0.8rem; max-width:320px;
+}
+.controls h2 { font-size:0.9rem; margin-bottom:0.5rem; }
+.controls p { color:var(--fg2); font-size:0.7rem; margin-bottom:0.5rem; }
+.controls button {
+  background:var(--bg); border:1px solid var(--border); color:var(--fg);
+  padding:0.3rem 0.6rem; border-radius:3px; cursor:pointer; font-size:0.7rem;
+  margin-right:0.25rem;
+}
+.controls button:hover { border-color:var(--accent); }
+.controls button.active { background:var(--accent); color:var(--bg); }
+#trace-info { margin-top:0.5rem; font-size:0.7rem; color:var(--fg2); }
+#step-desc { color:var(--fg); font-weight:600; }
+
+.legend {
+  position:fixed; bottom:1rem; left:1rem; z-index:10;
+  background:var(--card); border:1px solid var(--border); border-radius:6px;
+  padding:0.5rem 0.75rem; font-size:0.65rem;
+}
+.legend-item { display:flex; align-items:center; gap:0.4rem; margin:0.2rem 0; }
+.legend-dot { width:10px; height:10px; border-radius:50%; }
+
+/* Node styles */
+.node { cursor:pointer; }
+.node circle { stroke-width:1.5; transition:r 0.3s, opacity 0.3s; }
+.node text { font-size:7px; fill:var(--fg2); pointer-events:none; }
+.node.active circle { filter:drop-shadow(0 0 6px var(--accent)); }
+.node.satisfied circle { filter:drop-shadow(0 0 8px var(--pass)); }
+.node.violated circle { filter:drop-shadow(0 0 8px var(--fail)); }
+
+.link { stroke-opacity:0.3; fill:none; }
+.link-label { font-size:5px; fill:var(--fg2); opacity:0.5; }
+
+.tooltip {
+  position:fixed; display:none; background:var(--card); border:1px solid var(--border);
+  border-radius:4px; padding:0.4rem 0.6rem; font-size:0.75rem; z-index:20;
+  pointer-events:none;
+}
+</style>
+</head>
+<body>
+<div id="explorer">
+<svg></svg>
+</div>
+
+<div class="controls">
+  <h2>Ontology Explorer</h2>
+  <p id="graph-info"></p>
+  <div id="trace-controls" style="display:none">
+    <button onclick="resetTrace()">Reset</button>
+    <button onclick="stepTrace()">Step</button>
+    <button onclick="playTrace()">Play</button>
+    <div id="trace-info">
+      <div id="step-desc"></div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Entity</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>Axiom</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--pass)"></div>Quality</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--fg2)"></div>Value</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--fail)"></div>Relationship</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ── Minimal self-contained force simulation (no external deps) ──
+const G = {nodes:[{"id":"color_slot","label":"ColorSlot","kind":"entity"},{"id":"scheme_type","label":"SchemeType","kind":"entity"},{"id":"polarity","label":"Polarity","kind":"entity"},{"id":"palette","label":"Palette","kind":"entity"},{"id":"semantic_role","label":"SemanticRole","kind":"entity"},{"id":"vogix16","label":"Vogix16Semantic","kind":"entity"},{"id":"ansi16","label":"Ansi16Color","kind":"entity"},{"id":"base00","label":"base00","kind":"value"},{"id":"base01","label":"base01","kind":"value"},{"id":"base02","label":"base02","kind":"value"},{"id":"base03","label":"base03","kind":"value"},{"id":"base04","label":"base04","kind":"value"},{"id":"base05","label":"base05","kind":"value"},{"id":"base06","label":"base06","kind":"value"},{"id":"base07","label":"base07","kind":"value"},{"id":"base08","label":"base08","kind":"value"},{"id":"base09","label":"base09","kind":"value"},{"id":"base0A","label":"base0A","kind":"value"},{"id":"base0B","label":"base0B","kind":"value"},{"id":"base0C","label":"base0C","kind":"value"},{"id":"base0D","label":"base0D","kind":"value"},{"id":"base0E","label":"base0E","kind":"value"},{"id":"base0F","label":"base0F","kind":"value"},{"id":"ax_mono","label":"LuminanceMonotonicity","kind":"axiom"},{"id":"ax_wcag","label":"WcagForegroundContrast","kind":"axiom"},{"id":"ax_bright","label":"BrightVariantBrighter","kind":"axiom"},{"id":"ax_bijection_v","label":"Vogix16Bijection","kind":"axiom"},{"id":"ax_bijection_a","label":"Ansi16Bijection","kind":"axiom"},{"id":"q_luminance","label":"RelativeLuminance","kind":"quality"},{"id":"q_contrast","label":"ContrastRatio","kind":"quality"}],links:[{"source":"palette","target":"color_slot","label":"contains","kind":"has_a"},{"source":"palette","target":"polarity","label":"has polarity","kind":"has_a"},{"source":"scheme_type","target":"color_slot","label":"defines slots","kind":"has_a"},{"source":"color_slot","target":"semantic_role","label":"has role","kind":"has_a"},{"source":"vogix16","target":"color_slot","label":"maps to","kind":"is_a"},{"source":"ansi16","target":"color_slot","label":"maps to","kind":"is_a"},{"source":"ax_mono","target":"q_luminance","label":"uses","kind":"depends_on"},{"source":"ax_mono","target":"base00","label":"evaluates","kind":"evaluates"},{"source":"ax_mono","target":"base01","label":"evaluates","kind":"evaluates"},{"source":"ax_mono","target":"base02","label":"evaluates","kind":"evaluates"},{"source":"ax_mono","target":"base03","label":"evaluates","kind":"evaluates"},{"source":"ax_mono","target":"base04","label":"evaluates","kind":"evaluates"},{"source":"ax_mono","target":"base05","label":"evaluates","kind":"evaluates"},{"source":"ax_mono","target":"base06","label":"evaluates","kind":"evaluates"},{"source":"ax_mono","target":"base07","label":"evaluates","kind":"evaluates"},{"source":"ax_wcag","target":"q_contrast","label":"uses","kind":"depends_on"},{"source":"ax_wcag","target":"base00","label":"evaluates bg","kind":"evaluates"},{"source":"ax_wcag","target":"base05","label":"evaluates fg","kind":"evaluates"},{"source":"ax_bright","target":"base08","label":"evaluates","kind":"evaluates"},{"source":"ax_bright","target":"base09","label":"evaluates","kind":"evaluates"},{"source":"ax_bright","target":"base0A","label":"evaluates","kind":"evaluates"},{"source":"ax_bright","target":"base0B","label":"evaluates","kind":"evaluates"},{"source":"ax_bright","target":"base0C","label":"evaluates","kind":"evaluates"},{"source":"ax_bright","target":"base0D","label":"evaluates","kind":"evaluates"},{"source":"ax_bright","target":"base0E","label":"evaluates","kind":"evaluates"},{"source":"ax_bright","target":"base0F","label":"evaluates","kind":"evaluates"},{"source":"ax_bijection_v","target":"vogix16","label":"maps","kind":"evaluates"},{"source":"ax_bijection_v","target":"color_slot","label":"to","kind":"evaluates"},{"source":"ax_bijection_a","target":"ansi16","label":"maps","kind":"evaluates"},{"source":"ax_bijection_a","target":"color_slot","label":"to","kind":"evaluates"}]};
+const T = {"question":"Does catppuccin-mocha satisfy luminance monotonicity?","steps":[{"step":0,"activated":["palette"],"state":"evaluating","desc":"Load palette"},{"step":1,"activated":["base00","base01","base02","base03","base04","base05","base06","base07"],"state":"evaluating","desc":"Extract base00-base07 ramp slots"},{"step":2,"activated":["q_luminance"],"state":"evaluating","desc":"Compute relative luminance per slot (WCAG 2.1)"},{"step":3,"activated":["ax_mono"],"state":"evaluating","desc":"Check luminance ordering"},{"step":4,"activated":["ax_mono"],"state":"violated","desc":"Monotonicity violated ✗ — break detected"}],"result":"violated"};
+const style = getComputedStyle(document.documentElement);
+const colors = {
+  entity: style.getPropertyValue('--accent').trim(),
+  axiom: style.getPropertyValue('--warn').trim(),
+  quality: style.getPropertyValue('--pass').trim(),
+  value: style.getPropertyValue('--fg2').trim(),
+  relationship: style.getPropertyValue('--fail').trim(),
+};
+const activation = {
+  inactive: style.getPropertyValue('--fg2').trim(),
+  evaluating: style.getPropertyValue('--accent').trim(),
+  satisfied: style.getPropertyValue('--pass').trim(),
+  violated: style.getPropertyValue('--fail').trim(),
+  intermediate: style.getPropertyValue('--accent').trim(),
+};
+
+const kindColor = k => colors[k] || colors.value;
+const kindRadius = k => ({ entity:8, axiom:10, quality:7, value:4, relationship:6 })[k] || 5;
+
+const W = window.innerWidth, H = window.innerHeight;
+const svg = document.querySelector('svg');
+svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+// Build id→node index map
+const idxMap = {};
+G.nodes.forEach((n,i) => { n.x = W/2 + (Math.random()-0.5)*200; n.y = H/2 + (Math.random()-0.5)*200; n.vx=0; n.vy=0; idxMap[n.id]=i; });
+G.links.forEach(l => { l.si = idxMap[l.source]; l.ti = idxMap[l.target]; });
+
+// Create SVG elements
+const ns = 'http://www.w3.org/2000/svg';
+const linkG = document.createElementNS(ns,'g');
+const nodeG = document.createElementNS(ns,'g');
+svg.appendChild(linkG); svg.appendChild(nodeG);
+
+const linkEls = G.links.map(l => {
+  const line = document.createElementNS(ns,'line');
+  line.setAttribute('class','link');
+  line.setAttribute('stroke', l.kind==='evaluates'?'var(--warn)':l.kind==='depends_on'?'var(--accent)':'var(--border)');
+  line.setAttribute('stroke-width', l.kind==='evaluates'?1.5:1);
+  linkG.appendChild(line);
+  return line;
+});
+
+const nodeEls = G.nodes.map(n => {
+  const g = document.createElementNS(ns,'g');
+  g.setAttribute('class','node');
+  const c = document.createElementNS(ns,'circle');
+  c.setAttribute('r', kindRadius(n.kind));
+  c.setAttribute('fill', kindColor(n.kind));
+  c.setAttribute('stroke', 'var(--bg)');
+  c.setAttribute('stroke-width', '1.5');
+  c.setAttribute('opacity', '0.85');
+  g.appendChild(c);
+  const t = document.createElementNS(ns,'text');
+  t.textContent = n.label;
+  t.setAttribute('dx', kindRadius(n.kind)+3);
+  t.setAttribute('dy', 3);
+  t.style.fontSize = '7px';
+  t.style.fill = 'var(--fg2)';
+  t.style.pointerEvents = 'none';
+  g.appendChild(t);
+  nodeG.appendChild(g);
+  return { g, c, n };
+});
+
+// Tooltip + drag
+const tooltip = document.getElementById('tooltip');
+let dragNode = null, dragOff = [0,0];
+nodeEls.forEach(el => {
+  el.g.addEventListener('mouseover', e => {
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX+10)+'px';
+    tooltip.style.top = (e.clientY-10)+'px';
+    tooltip.innerHTML = `<strong>${el.n.label}</strong><br><span style="color:var(--fg2)">${el.n.kind}</span>`;
+  });
+  el.g.addEventListener('mouseout', () => tooltip.style.display='none');
+  el.g.addEventListener('mousedown', e => {
+    dragNode = el.n; dragOff = [e.clientX-el.n.x, e.clientY-el.n.y]; e.preventDefault();
+    if (settled) { settled = false; requestAnimationFrame(tick); }
+  });
+});
+document.addEventListener('mousemove', e => {
+  if (dragNode) { dragNode.x = e.clientX-dragOff[0]; dragNode.y = e.clientY-dragOff[1]; dragNode.vx=0; dragNode.vy=0; }
+});
+document.addEventListener('mouseup', () => { dragNode=null; });
+
+// Force simulation (velocity verlet)
+let alpha = 1;
+let settled = false;
+function tick() {
+  if (settled && !dragNode) return; // Stop after settling to save CPU
+  alpha *= 0.99;
+  if (alpha < 0.002 && !dragNode) { settled = true; }
+  if (dragNode) { settled = false; alpha = Math.max(alpha, 0.1); }
+  const nodes = G.nodes;
+  // Charge (repulsion)
+  for (let i=0; i<nodes.length; i++) {
+    for (let j=i+1; j<nodes.length; j++) {
+      let dx = nodes[j].x-nodes[i].x, dy = nodes[j].y-nodes[i].y;
+      let d2 = dx*dx+dy*dy+1;
+      let f = -120*alpha/d2;
+      let fx = dx/Math.sqrt(d2)*f, fy = dy/Math.sqrt(d2)*f;
+      nodes[i].vx -= fx; nodes[i].vy -= fy;
+      nodes[j].vx += fx; nodes[j].vy += fy;
+    }
+  }
+  // Links (attraction)
+  G.links.forEach(l => {
+    const s = nodes[l.si], t = nodes[l.ti];
+    let dx = t.x-s.x, dy = t.y-s.y;
+    let d = Math.sqrt(dx*dx+dy*dy)+0.1;
+    let f = (d-60)*0.05*alpha;
+    let fx = dx/d*f, fy = dy/d*f;
+    s.vx += fx; s.vy += fy;
+    t.vx -= fx; t.vy -= fy;
+  });
+  // Center
+  nodes.forEach(n => { n.vx += (W/2-n.x)*0.01*alpha; n.vy += (H/2-n.y)*0.01*alpha; });
+  // Integrate + dampen
+  nodes.forEach(n => {
+    if (n === dragNode) return;
+    n.vx *= 0.6; n.vy *= 0.6;
+    n.x += n.vx; n.y += n.vy;
+  });
+  // Render
+  linkEls.forEach((el,i) => {
+    const l = G.links[i];
+    el.setAttribute('x1', nodes[l.si].x); el.setAttribute('y1', nodes[l.si].y);
+    el.setAttribute('x2', nodes[l.ti].x); el.setAttribute('y2', nodes[l.ti].y);
+  });
+  nodeEls.forEach(el => {
+    el.g.setAttribute('transform', `translate(${el.n.x},${el.n.y})`);
+  });
+  requestAnimationFrame(tick);
+}
+tick();
+
+document.getElementById('graph-info').textContent =
+  `${G.nodes.length} nodes, ${G.links.length} edges`;
+
+// ── Trace playback (neural activation animation) ──
+let traceStep = -1;
+let playing = false;
+
+if (T) {
+  document.getElementById('trace-controls').style.display = 'block';
+  document.getElementById('trace-info').innerHTML =
+    `<em>${T.question}</em>`;
+}
+
+function resetTrace() {
+  traceStep = -1;
+  playing = false;
+  node.classed('active', false).classed('satisfied', false).classed('violated', false);
+  node.selectAll('circle').attr('opacity', 0.85).attr('r', d => kindRadius(d.kind));
+  document.getElementById('step-desc').textContent = '';
+}
+
+function stepTrace() {
+  if (!T || traceStep >= T.steps.length - 1) return;
+  traceStep++;
+  const s = T.steps[traceStep];
+  const ids = new Set(s.activated);
+
+  node.each(function(d) {
+    const el = d3.select(this);
+    if (ids.has(d.id)) {
+      el.classed('active', s.state === 'evaluating')
+        .classed('satisfied', s.state === 'satisfied')
+        .classed('violated', s.state === 'violated');
+      el.select('circle')
+        .transition().duration(400)
+        .attr('r', kindRadius(d.kind) * 1.6)
+        .attr('opacity', 1)
+        .attr('fill', activation[s.state] || activation.evaluating)
+        .transition().duration(600)
+        .attr('r', kindRadius(d.kind) * 1.2);
+    }
+  });
+
+  document.getElementById('step-desc').textContent =
+    `Step ${s.step + 1}/${T.steps.length}: ${s.desc}`;
+}
+
+function playTrace() {
+  if (playing) return;
+  playing = true;
+  resetTrace();
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i >= T.steps.length) { clearInterval(interval); playing = false; return; }
+    traceStep = i - 1;
+    stepTrace();
+    i++;
+  }, 1200);
+}
+</script>
+</body>
+</html>

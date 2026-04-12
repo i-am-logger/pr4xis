@@ -148,7 +148,7 @@ impl ReasoningTrace {
 }
 
 /// The ontology graph — nodes and edges forming the knowledge structure.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct OntologyGraph {
     pub nodes: Vec<ConceptNode>,
     pub edges: Vec<ConceptEdge>,
@@ -156,10 +156,7 @@ pub struct OntologyGraph {
 
 impl OntologyGraph {
     pub fn new() -> Self {
-        Self {
-            nodes: Vec::new(),
-            edges: Vec::new(),
-        }
+        Self::default()
     }
 
     pub fn add_node(&mut self, id: impl Into<String>, label: impl Into<String>, kind: ConceptKind) {

@@ -5,8 +5,8 @@
 <p align="center">
   <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg" alt="License"/></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024-orange?logo=rust&logoColor=white" alt="Rust"/></a>
-  <img src="https://img.shields.io/badge/proofs-3117-brightgreen" alt="Tests"/>
-  <img src="https://img.shields.io/badge/functors-18-blue" alt="Functors"/>
+  <img src="https://img.shields.io/badge/proofs-4707-brightgreen" alt="Tests"/>
+  <img src="https://img.shields.io/badge/functors-61-blue" alt="Functors"/>
 </p>
 
 Aristotle classified knowledge into three kinds: **episteme** (knowing how things are), **techne** (knowing how to make things), and **praxis** (knowing how to do the right thing). This is praxis — a system that doesn't just compute, it understands what it's doing and can prove it's correct.
@@ -127,7 +127,7 @@ game.trace().dump()    // full history — every check, every result
 | Crate | Purpose |
 |---|---|
 | `praxis` | Core — category theory, ontology, reasoning, logic, engine |
-| `praxis-domains` | 89 domain ontologies with 18 proven cross-domain functors |
+| `praxis-domains` | 123 domain ontologies with 61 proven cross-domain functors |
 | `praxis-examples` | 11 classic puzzles solved through ontological reasoning |
 
 ## Principles
