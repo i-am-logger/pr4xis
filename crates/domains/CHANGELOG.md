@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.7.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.6.0...pr4xis-domains-v0.7.0) (2026-04-12)
+
+
+### Features
+
+* complete algebraic structure library — 7 new structures ([281f9e3](https://github.com/i-am-logger/pr4xis/commit/281f9e3087a97a988c33bd9deff27956a9cce759))
+* define_ontology! clean API — concepts/is_a/has_a/causes/opposes + auto structural axioms ([366f284](https://github.com/i-am-logger/pr4xis/commit/366f28459f606ef56323910decd72b9be085e624))
+* define_ontology! macro — generates Category + Taxonomy + Mereology + Causation + Opposition + OntologyMeta ([07a1b54](https://github.com/i-am-logger/pr4xis/commit/07a1b549ecac1d321d679bddc6dfcaee9cb14138))
+* derive macros — #[derive(Entity)] + define_category! + define_dense_category! ([e598947](https://github.com/i-am-logger/pr4xis/commit/e598947d89ff36d1e4d84ac09ad1720915034483))
+* F-algebra, MonoidalCategory, Optics, MonadTransformer (4 structures) ([22211e2](https://github.com/i-am-logger/pr4xis/commit/22211e2c6d9a71e29d126e066622a74d58d39948))
+* integrate algebraic structures into reasoning + tracing ([5f9651d](https://github.com/i-am-logger/pr4xis/commit/5f9651d18238565f7b4f5915327da23e1dfde594))
+* integrate Kleisli + anamorphism + Yoneda into causation reasoning ([393d94c](https://github.com/i-am-logger/pr4xis/commit/393d94cf10050d43ec7cd663833596c0bc3ce4b3))
+* migrate ~65 Pattern B ontologies to define_dense_category! (-5325 lines) ([638f7a5](https://github.com/i-am-logger/pr4xis/commit/638f7a5e5f40cb2c5ea896d0a65cb6cc71a4913a))
+* migrate 30 Pattern A ontologies to define_category! macro (-4404 lines) ([527ad7f](https://github.com/i-am-logger/pr4xis/commit/527ad7f0e773ff5b89ea05b5db9128756419bca4))
+* migrate 41 ontologies to define_ontology! macro (-3163 lines) ([f261830](https://github.com/i-am-logger/pr4xis/commit/f2618306508c5e7745a903a946220965fb522541))
+* migrate Ontology impls to structural + domain axiom split ([8a79323](https://github.com/i-am-logger/pr4xis/commit/8a793238c6d70160acc9cedf4e1341de9836386e))
+* migrate remaining 5 biomedical Ontology impls to structural + domain split ([e3a7653](https://github.com/i-am-logger/pr4xis/commit/e3a76532fea89dc093df0ae6c36cec8905ef6090))
+* Monoid + Writer monad + TracedCategory refactor (Moggi 1991, Mac Lane 1971) ([32b6292](https://github.com/i-am-logger/pr4xis/commit/32b6292239c77d0306b15aa2ad16271b1a48e60b))
+* Ontology trait — structural + domain axioms merged via monoid ([32ac02b](https://github.com/i-am-logger/pr4xis/commit/32ac02b9ff557fb01d7c9bcc04c227fd07476992))
+* Reader + State monads with property-based tests ([3d1b01e](https://github.com/i-am-logger/pr4xis/commit/3d1b01ef72d751e31a2829d9eac120d87c2ccdef))
+* restructure to academic hierarchy (DOLCE-aligned) ([44997fa](https://github.com/i-am-logger/pr4xis/commit/44997fae2ed61f693b592839cc8f27efb4cc35bc))
+
+
+### Bug Fixes
+
+* clippy clean — no dead code, no unused imports, no stubs ([def3e3e](https://github.com/i-am-logger/pr4xis/commit/def3e3ef7ea816f16826184f6fa77c833d938df9))
+* qualify kind refs in define_category! macro (avoid Identity ambiguity) + LOC badge ([4ab4d34](https://github.com/i-am-logger/pr4xis/commit/4ab4d34b2aab9a77d1082288a8bf616940e55e39))
+* remove unused Category imports from test modules (clippy -D warnings) ([5d8a1f8](https://github.com/i-am-logger/pr4xis/commit/5d8a1f85dcd55869c2cd56b7ed1bf0f10b68c398))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.5.0 to 0.6.0
+
 ## [0.6.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.5.0...pr4xis-domains-v0.6.0) (2026-04-12)
 
 
