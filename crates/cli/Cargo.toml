@@ -1,6 +1,6 @@
 [package]
 name = "pr4xis-cli"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Praxis chatbot CLI — axiomatic intelligence via ontology"
