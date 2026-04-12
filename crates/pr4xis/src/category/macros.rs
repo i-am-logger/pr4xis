@@ -83,26 +83,24 @@ macro_rules! define_category {
             fn morphisms() -> Vec<$relation> {
                 #[allow(unused_imports)]
                 use $entity::*;
-                #[allow(unused_imports)]
-                use $kind::*;
                 use $crate::category::Entity;
 
                 let mut m = Vec::new();
 
                 // Phase 1: Identity morphisms
                 for c in $entity::variants() {
-                    m.push($relation { from: c, to: c, kind: Identity });
+                    m.push($relation { from: c, to: c, kind: $kind::Identity });
                 }
 
                 // Phase 2: Domain edges
-                $(m.push($relation { from: $e_from, to: $e_to, kind: $e_kind });)*
+                $(m.push($relation { from: $e_from, to: $e_to, kind: $kind::$e_kind });)*
 
                 // Phase 3: Composed (transitive) edges
-                $(m.push($relation { from: $c_from, to: $c_to, kind: Composed });)*
+                $(m.push($relation { from: $c_from, to: $c_to, kind: $kind::Composed });)*
 
                 // Phase 4: Self-composed closure
                 for c in $entity::variants() {
-                    m.push($relation { from: c, to: c, kind: Composed });
+                    m.push($relation { from: c, to: c, kind: $kind::Composed });
                 }
 
                 m

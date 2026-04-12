@@ -7,6 +7,7 @@
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024-orange?logo=rust&logoColor=white" alt="Rust"/></a>
   <img src="https://img.shields.io/badge/proofs-4707-brightgreen" alt="Tests"/>
   <img src="https://img.shields.io/badge/functors-61-blue" alt="Functors"/>
+  <img src="https://img.shields.io/badge/lines-146K-yellow" alt="Lines of Code"/>
 </p>
 
 Aristotle classified knowledge into three kinds: **episteme** (knowing how things are), **techne** (knowing how to make things), and **praxis** (knowing how to do the right thing). This is praxis — a system that doesn't just compute, it understands what it's doing and can prove it's correct.
