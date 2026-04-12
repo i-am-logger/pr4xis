@@ -1,25 +1,27 @@
 use super::category::Category;
+use super::monad::Writer;
+use super::monoid::Monoid;
 
-// Traced Category — the writer monad on categories.
+// Traced Category — the writer monad applied to categories.
 //
 // Lifts any Category C into a traced version where compose()
-// automatically produces provenance records. The trace emerges
-// from composition itself — no manual instrumentation.
+// automatically accumulates provenance records through the
+// Writer monad. The trace emerges from composition itself.
 //
-// Categorically: this is the Joyal-Street-Verity (1996) trace operator
-// applied to categories. Every morphism carries a trace wire.
-// Composition composes both the morphism AND the trace.
+// TracedMorphism<M> = Writer<Vec<TraceRecord>, M>
 //
-// Also: Moggi (1991) writer monad. G(A) = F(A) × Trace.
-// The natural transformation F ⟹ G lifts bare computation to traced.
+// The monoid is Vec<TraceRecord> (concatenation).
+// The monad is Writer: bind sequences computations and accumulates logs.
+//
+// Categorically: this is Joyal-Street-Verity (1996) trace operator.
+// Algebraically: this is Moggi (1991) writer monad.
 //
 // References:
-// - Joyal, Street & Verity, "Traced Monoidal Categories" (1996,
-//   Math. Proc. Cambridge Phil. Soc.)
-// - Moggi, "Notions of Computation and Monads" (1991, Inf. & Comp.)
-// - W3C PROV-O (2013) — the trace records are PROV Activities
+// - Joyal, Street & Verity, "Traced Monoidal Categories" (1996)
+// - Moggi, "Notions of Computation and Monads" (1991)
+// - W3C PROV-O (2013) — trace records are PROV Activities
 
-/// A trace record produced by a single composition step.
+/// A trace record produced by a single computation step.
 /// Aligned with W3C PROV-O: this is a prov:Activity.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TraceRecord {
@@ -40,57 +42,46 @@ pub enum TraceRecordStatus {
     Error,
 }
 
-/// A traced morphism: the original morphism paired with provenance.
+/// A traced morphism: the writer monad Writer<Vec<TraceRecord>, M>.
 ///
-/// This is the writer monad: (Morphism, Vec<TraceRecord>).
-/// The Vec accumulates trace records through composition.
-#[derive(Debug, Clone)]
-pub struct TracedMorphism<M> {
-    pub morphism: M,
-    pub trace: Vec<TraceRecord>,
+/// The morphism carries its provenance. Composition concatenates traces
+/// via the Vec monoid — no manual instrumentation needed.
+pub type TracedMorphism<M> = Writer<Vec<TraceRecord>, M>;
+
+/// Convenience constructors for traced morphisms.
+pub trait TracedMorphismExt<M: Clone + std::fmt::Debug> {
+    /// Create a traced morphism with an initial trace record.
+    fn traced(morphism: M, ontology: &str, operation: &str, detail: &str) -> TracedMorphism<M>;
+
+    /// Create from a bare morphism with no trace.
+    fn bare(morphism: M) -> TracedMorphism<M>;
+
+    /// Add a trace record.
+    fn record(&mut self, ontology: &str, operation: &str, detail: &str);
+
+    /// Add a warning trace record.
+    fn warn(&mut self, ontology: &str, operation: &str, detail: &str);
 }
 
-/// A traced category: wraps any Category C so that compose()
-/// automatically produces trace records.
-///
-/// Joyal-Street-Verity: Tr^U_{A,B}: C(A⊗U, B⊗U) → C(A, B)
-/// where U = Vec<TraceRecord> (the trace accumulator).
-///
-/// Usage:
-/// ```ignore
-/// // Any category can be traced:
-/// let f = TracedMorphism::new(morphism_f, "MyOntology", "lookup", "found 3 results");
-/// let g = TracedMorphism::new(morphism_g, "MyOntology", "compose", "applied rule");
-/// let h = TracedMorphism::compose::<MyCategory>(&f, &g);
-/// // h.trace contains BOTH f's and g's records + the composition record
-/// ```
-pub struct TracedCategory<C: Category>(std::marker::PhantomData<C>);
-
-impl<M: Clone> TracedMorphism<M> {
-    /// Create a traced morphism with an initial trace record.
-    pub fn new(morphism: M, ontology: &str, operation: &str, detail: &str) -> Self {
-        Self {
+impl<M: Clone + std::fmt::Debug> TracedMorphismExt<M> for TracedMorphism<M> {
+    fn traced(morphism: M, ontology: &str, operation: &str, detail: &str) -> Self {
+        Writer::new(
             morphism,
-            trace: vec![TraceRecord {
+            vec![TraceRecord {
                 ontology: ontology.into(),
                 operation: operation.into(),
                 detail: detail.into(),
                 status: TraceRecordStatus::Ok,
             }],
-        }
+        )
     }
 
-    /// Create from a bare morphism with no trace.
-    pub fn bare(morphism: M) -> Self {
-        Self {
-            morphism,
-            trace: Vec::new(),
-        }
+    fn bare(morphism: M) -> Self {
+        Writer::pure(morphism)
     }
 
-    /// Add a trace record.
-    pub fn record(&mut self, ontology: &str, operation: &str, detail: &str) {
-        self.trace.push(TraceRecord {
+    fn record(&mut self, ontology: &str, operation: &str, detail: &str) {
+        self.log.push(TraceRecord {
             ontology: ontology.into(),
             operation: operation.into(),
             detail: detail.into(),
@@ -98,9 +89,8 @@ impl<M: Clone> TracedMorphism<M> {
         });
     }
 
-    /// Add a warning trace record.
-    pub fn warn(&mut self, ontology: &str, operation: &str, detail: &str) {
-        self.trace.push(TraceRecord {
+    fn warn(&mut self, ontology: &str, operation: &str, detail: &str) {
+        self.log.push(TraceRecord {
             ontology: ontology.into(),
             operation: operation.into(),
             detail: detail.into(),
@@ -109,6 +99,12 @@ impl<M: Clone> TracedMorphism<M> {
     }
 }
 
+/// A traced category: wraps any Category C with the writer monad.
+///
+/// Every morphism becomes Writer<Vec<TraceRecord>, M>.
+/// Composition accumulates traces via the Vec monoid.
+pub struct TracedCategory<C: Category>(std::marker::PhantomData<C>);
+
 impl<C: Category> TracedCategory<C>
 where
     C::Morphism: Clone,
@@ -116,27 +112,18 @@ where
 {
     /// Compose two traced morphisms.
     ///
-    /// The writer monad bind: (M, T₁) >>= (M, T₂) = (M∘M, T₁ ++ T₂ ++ [compose record])
-    /// Trace accumulates through composition — no manual instrumentation.
+    /// Writer bind: (m₁, w₁) >>= (m₂, w₂) → (m₁∘m₂, w₁ ++ w₂)
     pub fn compose(
         f: &TracedMorphism<C::Morphism>,
         g: &TracedMorphism<C::Morphism>,
     ) -> Option<TracedMorphism<C::Morphism>> {
-        let composed = C::compose(&f.morphism, &g.morphism)?;
-
-        // Accumulate traces: f's trace + g's trace
-        let mut trace = f.trace.clone();
-        trace.extend(g.trace.iter().cloned());
-
-        Some(TracedMorphism {
-            morphism: composed,
-            trace,
-        })
+        let composed = C::compose(&f.value, &g.value)?;
+        Some(Writer::new(composed, f.log.combine(&g.log)))
     }
 
-    /// Identity with trace.
+    /// Identity with empty trace.
     pub fn identity(obj: &C::Object) -> TracedMorphism<C::Morphism> {
-        TracedMorphism::bare(C::identity(obj))
+        Writer::pure(C::identity(obj))
     }
 }
 
@@ -146,7 +133,6 @@ mod tests {
     use crate::category::entity::Entity;
     use crate::category::relationship::Relationship;
 
-    // A minimal test category
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum TestObj {
         A,
@@ -215,7 +201,7 @@ mod tests {
 
     #[test]
     fn traced_compose_accumulates_records() {
-        let f = TracedMorphism::new(
+        let f = TracedMorphism::traced(
             TestMorph {
                 from: TestObj::A,
                 to: TestObj::B,
@@ -224,7 +210,7 @@ mod tests {
             "step1",
             "A → B",
         );
-        let g = TracedMorphism::new(
+        let g = TracedMorphism::traced(
             TestMorph {
                 from: TestObj::B,
                 to: TestObj::C,
@@ -235,25 +221,24 @@ mod tests {
         );
 
         let h = TracedCategory::<TestCat>::compose(&f, &g).unwrap();
-        assert_eq!(h.morphism.from, TestObj::A);
-        assert_eq!(h.morphism.to, TestObj::C);
-        // Trace has BOTH records — accumulated through composition
-        assert_eq!(h.trace.len(), 2);
-        assert_eq!(h.trace[0].operation, "step1");
-        assert_eq!(h.trace[1].operation, "step2");
+        assert_eq!(h.value.from, TestObj::A);
+        assert_eq!(h.value.to, TestObj::C);
+        assert_eq!(h.log.len(), 2);
+        assert_eq!(h.log[0].operation, "step1");
+        assert_eq!(h.log[1].operation, "step2");
     }
 
     #[test]
     fn traced_identity_has_no_trace() {
         let id = TracedCategory::<TestCat>::identity(&TestObj::A);
-        assert_eq!(id.morphism.from, TestObj::A);
-        assert_eq!(id.morphism.to, TestObj::A);
-        assert!(id.trace.is_empty());
+        assert_eq!(id.value.from, TestObj::A);
+        assert_eq!(id.value.to, TestObj::A);
+        assert!(id.log.is_empty());
     }
 
     #[test]
     fn traced_compose_with_identity_preserves_trace() {
-        let f = TracedMorphism::new(
+        let f = TracedMorphism::traced(
             TestMorph {
                 from: TestObj::A,
                 to: TestObj::B,
@@ -265,13 +250,13 @@ mod tests {
         let id = TracedCategory::<TestCat>::identity(&TestObj::B);
 
         let h = TracedCategory::<TestCat>::compose(&f, &id).unwrap();
-        assert_eq!(h.trace.len(), 1); // only f's record
-        assert_eq!(h.trace[0].detail, "found");
+        assert_eq!(h.log.len(), 1);
+        assert_eq!(h.log[0].detail, "found");
     }
 
     #[test]
     fn trace_records_have_status() {
-        let mut f = TracedMorphism::new(
+        let mut f = TracedMorphism::traced(
             TestMorph {
                 from: TestObj::A,
                 to: TestObj::B,
@@ -282,14 +267,14 @@ mod tests {
         );
         f.warn("Test", "parse", "ambiguous — multiple parses");
 
-        assert_eq!(f.trace.len(), 2);
-        assert_eq!(f.trace[0].status, TraceRecordStatus::Ok);
-        assert_eq!(f.trace[1].status, TraceRecordStatus::Warning);
+        assert_eq!(f.log.len(), 2);
+        assert_eq!(f.log[0].status, TraceRecordStatus::Ok);
+        assert_eq!(f.log[1].status, TraceRecordStatus::Warning);
     }
 
     #[test]
     fn compose_incompatible_returns_none() {
-        let f = TracedMorphism::new(
+        let f = TracedMorphism::traced(
             TestMorph {
                 from: TestObj::A,
                 to: TestObj::B,
@@ -298,7 +283,7 @@ mod tests {
             "step1",
             "A → B",
         );
-        let g = TracedMorphism::new(
+        let g = TracedMorphism::traced(
             TestMorph {
                 from: TestObj::A,
                 to: TestObj::C,
@@ -307,7 +292,38 @@ mod tests {
             "step2",
             "A → C",
         );
-        // B ≠ A, so composition fails
         assert!(TracedCategory::<TestCat>::compose(&f, &g).is_none());
+    }
+
+    // --- Writer monad law verification for TracedCategory ---
+
+    #[test]
+    fn writer_monad_left_identity() {
+        // pure(m) >>= f = f(m)
+        let m = TestMorph {
+            from: TestObj::A,
+            to: TestObj::B,
+        };
+        let traced = TracedMorphism::<TestMorph>::bare(m.clone());
+        let result = traced.bind(|morph| TracedMorphism::traced(morph, "Test", "step", "applied"));
+        assert_eq!(result.value, m);
+        assert_eq!(result.log.len(), 1);
+    }
+
+    #[test]
+    fn writer_monad_right_identity() {
+        // m >>= pure = m
+        let traced = TracedMorphism::traced(
+            TestMorph {
+                from: TestObj::A,
+                to: TestObj::B,
+            },
+            "Test",
+            "step",
+            "done",
+        );
+        let original_log = traced.log.clone();
+        let result = traced.bind(TracedMorphism::<TestMorph>::pure);
+        assert_eq!(result.log, original_log);
     }
 }
