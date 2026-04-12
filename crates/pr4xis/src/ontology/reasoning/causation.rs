@@ -159,3 +159,57 @@ impl<T: CausalDef> crate::logic::Axiom for NoSelfCausation<T> {
         T::relations().iter().all(|(cause, effect)| cause != effect)
     }
 }
+
+// ---- Algebraic structure integrations ----
+
+/// Unfold a causal chain from a root cause using anamorphism.
+///
+/// Produces a Cofree tree where each node is a causal event
+/// and children are its direct effects.
+///
+/// Reference: Meijer, Fokkinga & Paterson (1991)
+pub fn unfold_causal<T: CausalDef + 'static>()
+-> crate::category::algebra::Coalgebra<T::Entity, T::Entity>
+where
+    T::Entity: Clone + std::fmt::Debug,
+{
+    let relations = T::relations();
+    crate::category::algebra::Coalgebra::new(move |cause: &T::Entity| {
+        let effects: Vec<T::Entity> = relations
+            .iter()
+            .filter(|(c, _)| c == cause)
+            .map(|(_, effect)| effect.clone())
+            .collect();
+        (cause.clone(), effects)
+    })
+}
+
+/// Kleisli morphism for causal reasoning: cause → Maybe(effect).
+///
+/// Composition may fail if the causal chain is broken.
+/// This IS the Kleisli category for Maybe applied to causation.
+///
+/// Reference: Kleisli (1965)
+pub fn causal_kleisli<T: CausalDef>(
+    cause: &T::Entity,
+) -> crate::category::kleisli::KleisliMorphism<CausalCategory<T>>
+where
+    T::Entity: Clone + PartialEq,
+{
+    let effects = effects_of::<T>(cause);
+    if let Some(first_effect) = effects.first() {
+        crate::category::kleisli::KleisliMorphism::total(Causes {
+            cause: cause.clone(),
+            effect: first_effect.clone(),
+        })
+    } else {
+        crate::category::kleisli::KleisliMorphism::zero(cause.clone(), cause.clone())
+    }
+}
+
+/// Yoneda profile for causation.
+pub fn yoneda_profile<T: CausalDef>(
+    entity: &T::Entity,
+) -> crate::category::yoneda::YonedaProfile<CausalCategory<T>> {
+    crate::category::yoneda::YonedaProfile::of(entity)
+}
