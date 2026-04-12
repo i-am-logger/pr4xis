@@ -354,3 +354,100 @@ fn test_axiom_green_is_longest() {
 fn test_axiom_no_dead_states() {
     assert!(NoDeadStates.holds());
 }
+
+// =============================================================================
+// define_ontology! macro test
+// =============================================================================
+
+mod ontology_macro_test {
+    use crate::category::Entity;
+    use crate::category::validate::check_category_laws;
+    use crate::ontology::reasoning::mereology::{self, MereologyDef};
+    use crate::ontology::reasoning::opposition::OppositionDef;
+    use crate::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+    pub enum Animal {
+        Dog,
+        Cat,
+        Mammal,
+        Pet,
+        Tail,
+        Fur,
+    }
+
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+    pub enum AnimalEvent {
+        Birth,
+        Growth,
+        Death,
+    }
+
+    define_ontology! {
+        /// Test animal ontology.
+        pub AnimalOntology for AnimalCategory {
+            entity: Animal,
+            relation: AnimalRelation,
+
+            taxonomy: AnimalTaxonomy [
+                (Dog, Mammal),
+                (Cat, Mammal),
+                (Dog, Pet),
+                (Cat, Pet),
+            ],
+
+            mereology: AnimalMereology [
+                (Dog, Tail),
+                (Cat, Tail),
+                (Dog, Fur),
+                (Cat, Fur),
+            ],
+
+            causation: AnimalCausal for AnimalEvent [
+                (Birth, Growth),
+                (Growth, Death),
+            ],
+
+            opposition: AnimalOpposition [
+                (Dog, Cat),
+            ],
+        }
+    }
+
+    #[test]
+    fn macro_generates_category() {
+        check_category_laws::<AnimalCategory>().unwrap();
+    }
+
+    #[test]
+    fn macro_generates_taxonomy() {
+        let rels = AnimalTaxonomy::relations();
+        assert!(rels.contains(&(Animal::Dog, Animal::Mammal)));
+        assert!(taxonomy::is_a::<AnimalTaxonomy>(
+            &Animal::Dog,
+            &Animal::Mammal
+        ));
+    }
+
+    #[test]
+    fn macro_generates_mereology() {
+        let rels = AnimalMereology::relations();
+        assert!(rels.contains(&(Animal::Dog, Animal::Tail)));
+        let parts = mereology::parts_of::<AnimalMereology>(&Animal::Dog);
+        assert!(parts.contains(&Animal::Tail));
+        assert!(parts.contains(&Animal::Fur));
+    }
+
+    #[test]
+    fn macro_generates_opposition() {
+        let pairs = AnimalOpposition::pairs();
+        assert!(pairs.contains(&(Animal::Dog, Animal::Cat)));
+    }
+
+    #[test]
+    fn macro_generates_meta() {
+        let meta = AnimalOntology::meta();
+        assert_eq!(meta.name, "AnimalOntology");
+        assert!(meta.module_path.contains("ontology_macro_test"));
+    }
+}
