@@ -74,7 +74,7 @@ impl Axiom for NinePerColor {
 mod tests {
     use super::*;
     use crate::social::games::rubik::moves::Move;
-    use pr4xis::category::{Category, Entity};
+    use pr4xis::category::Entity;
 
     #[test]
     fn test_face_entity() {
