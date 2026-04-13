@@ -174,7 +174,7 @@ impl Ontology for ComplianceOntology {
     type Cat = ComplianceCategory;
     type Qual = RequiredAuthorization;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(law::DistinctionPrinciple),
             Box::new(law::CivilianPresumption),
@@ -183,5 +183,20 @@ impl Ontology for ComplianceOntology {
             Box::new(law::AdvanceWarning),
             Box::new(law::AbortAlwaysAvailable),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<ComplianceCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        ComplianceOntology::validate().unwrap();
     }
 }

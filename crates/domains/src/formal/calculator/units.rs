@@ -170,7 +170,12 @@ fn convert_temperature(value: f64, from: Unit, to: Unit) -> Result<f64, CalcErro
         Unit::Celsius => value + 273.15,
         Unit::Fahrenheit => (value - 32.0) * 5.0 / 9.0 + 273.15,
         Unit::Kelvin => value,
-        _ => unreachable!(),
+        _ => {
+            return Err(CalcError::InvalidDomain {
+                op: "temperature conversion".into(),
+                value,
+            });
+        }
     };
 
     if kelvin < 0.0 {
@@ -180,12 +185,15 @@ fn convert_temperature(value: f64, from: Unit, to: Unit) -> Result<f64, CalcErro
         });
     }
 
-    Ok(match to {
-        Unit::Celsius => kelvin - 273.15,
-        Unit::Fahrenheit => (kelvin - 273.15) * 9.0 / 5.0 + 32.0,
-        Unit::Kelvin => kelvin,
-        _ => unreachable!(),
-    })
+    match to {
+        Unit::Celsius => Ok(kelvin - 273.15),
+        Unit::Fahrenheit => Ok((kelvin - 273.15) * 9.0 / 5.0 + 32.0),
+        Unit::Kelvin => Ok(kelvin),
+        _ => Err(CalcError::InvalidDomain {
+            op: "temperature conversion".into(),
+            value: kelvin,
+        }),
+    }
 }
 
 /// Combinatorics: n choose r.

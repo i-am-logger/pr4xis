@@ -1,6 +1,7 @@
 use pr4xis::category::Category;
 use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // RDF 1.1 Concepts and Abstract Syntax — W3C Recommendation (2014)
 // https://www.w3.org/TR/rdf11-concepts/
@@ -270,5 +271,52 @@ impl pr4xis::logic::Axiom for PredicatesMustBeProperties {
     fn holds(&self) -> bool {
         // Properties are IRIs, and only IRI-identified things can be predicates
         RdfNodeKind::Property.is_resource()
+    }
+}
+
+/// Quality: can this RDF node kind appear as a subject?
+#[derive(Debug, Clone)]
+pub struct CanBeSubject;
+
+impl Quality for CanBeSubject {
+    type Individual = RdfNodeKind;
+    type Value = ();
+
+    fn get(&self, kind: &RdfNodeKind) -> Option<()> {
+        if kind.can_be_subject() {
+            Some(())
+        } else {
+            None
+        }
+    }
+}
+
+/// The RDF ontology.
+pub struct RdfOntology;
+
+impl Ontology for RdfOntology {
+    type Cat = RdfCategory;
+    type Qual = CanBeSubject;
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![
+            Box::new(LiteralsCannotBeSubjects),
+            Box::new(PredicatesMustBeProperties),
+        ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<RdfCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        RdfOntology::validate().unwrap();
     }
 }

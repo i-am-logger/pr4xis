@@ -173,7 +173,7 @@ mod tests {
                         e = next;
                     }
                     Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
-                    Err(_) => unreachable!()
+                    Err(e) => panic!("{e:?}")
                 }
             }
         }
@@ -191,7 +191,7 @@ mod tests {
                         e = next;
                     }
                     Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
-                    Err(_) => unreachable!()
+                    Err(e) => panic!("{e:?}")
                 }
             }
         }

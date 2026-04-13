@@ -1,6 +1,7 @@
 use pr4xis::category::Category;
 use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // Markup language ontology.
 //
@@ -283,4 +284,47 @@ pub fn is_well_formed(doc: &MarkupNode) -> bool {
         .collect();
     // Standard markup: exactly one root element
     element_children.len() == 1
+}
+
+/// Quality: can this node kind contain children?
+#[derive(Debug, Clone)]
+pub struct CanContainChildren;
+
+impl Quality for CanContainChildren {
+    type Individual = NodeKind;
+    type Value = ();
+
+    fn get(&self, kind: &NodeKind) -> Option<()> {
+        match kind {
+            NodeKind::Document | NodeKind::Element => Some(()),
+            _ => None,
+        }
+    }
+}
+
+/// The markup ontology.
+pub struct MarkupOntology;
+
+impl Ontology for MarkupOntology {
+    type Cat = MarkupCategory;
+    type Qual = CanContainChildren;
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![Box::new(WellFormedDocument)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<MarkupCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        MarkupOntology::validate().unwrap();
+    }
 }

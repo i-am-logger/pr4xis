@@ -1,7 +1,7 @@
 /// Math ontology: mathematical domains as entities with axioms.
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::{Axiom, Quality};
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Mathematical domains as entities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
@@ -17,10 +17,10 @@ pub enum MathDomain {
 // Category
 // ---------------------------------------------------------------------------
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over MathDomain entities.
-    pub NumberHierarchy {
-        entity: MathDomain,
+    pub MathOntology for NumberHierarchy {
+        concepts: MathDomain,
         relation: Subset,
     }
 }
@@ -73,6 +73,19 @@ impl Quality for SupportsNegativeSqrt {
             MathDomain::Complex => Some(()),
             _ => None,
         }
+    }
+}
+
+impl Ontology for MathOntology {
+    type Cat = NumberHierarchy;
+    type Qual = DomainOrder;
+
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![Box::new(ContainmentChain)]
     }
 }
 
@@ -135,5 +148,10 @@ mod tests {
             order.get(&MathDomain::NaturalNumbers).unwrap()
                 < order.get(&MathDomain::Complex).unwrap()
         );
+    }
+
+    #[test]
+    fn ontology_validates() {
+        MathOntology::validate().unwrap();
     }
 }

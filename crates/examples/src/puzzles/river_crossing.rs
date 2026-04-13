@@ -198,7 +198,7 @@ mod tests {
                 match e.next(c) {
                     Ok(next) => { prop_assert!(next.situation().is_safe()); e = next; }
                     Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
-                    Err(_) => unreachable!()
+                    Err(e) => panic!("{e:?}")
                 }
             }
         }

@@ -162,3 +162,19 @@ impl Ontology for SensorOntology {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<SensorCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        SensorOntology::validate().unwrap();
+    }
+}

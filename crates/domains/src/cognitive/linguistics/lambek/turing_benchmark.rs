@@ -33,12 +33,6 @@ mod tests {
         montague::interpret(&tokens, en)
     }
 
-    /// Check if the pipeline produces a question.
-    #[allow(dead_code)]
-    fn is_question(en: &English, input: &str) -> bool {
-        understand(en, input).is_question()
-    }
-
     // =========================================================================
     // LEVEL 1: Taxonomy questions — SHOULD PASS NOW
     // Ontology: WordNet taxonomy (107K concepts)

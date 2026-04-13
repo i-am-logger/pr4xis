@@ -215,7 +215,7 @@ mod tests {
                 match e.next(Crossing::new(m, c)) {
                     Ok(next) => { prop_assert!(next.situation().is_safe()); e = next; }
                     Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
-                    Err(_) => unreachable!()
+                    Err(e) => panic!("{e:?}")
                 }
             }
         }
@@ -232,7 +232,7 @@ mod tests {
                         e = next;
                     }
                     Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
-                    Err(_) => unreachable!()
+                    Err(e) => panic!("{e:?}")
                 }
             }
         }

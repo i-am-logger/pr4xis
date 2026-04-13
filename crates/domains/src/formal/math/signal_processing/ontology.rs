@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::signal_processing::filter::FirstOrderLowPass;
@@ -23,10 +23,10 @@ pub enum SignalDomainConcept {
 // Category
 // ---------------------------------------------------------------------------
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over signal domain concept entities.
-    pub SignalCategory {
-        entity: SignalDomainConcept,
+    pub SignalProcessingOntology for SignalCategory {
+        concepts: SignalDomainConcept,
         relation: SignalRelation,
     }
 }
@@ -139,19 +139,15 @@ impl Axiom for BandwidthPositive {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// The signal processing ontology.
-///
-/// Founded on:
-///   - Shannon, C.E. (1949). "Communication in the Presence of Noise." Proc. IRE.
-///   - Nyquist, H. (1928). "Certain Topics in Telegraph Transmission Theory." Trans. AIEE.
-///   - Oppenheim & Willsky (1997). *Signals and Systems* (2nd ed.).
-pub struct SignalProcessingOntology;
-
 impl Ontology for SignalProcessingOntology {
     type Cat = SignalCategory;
     type Qual = ConceptDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(NyquistTheorem),
             Box::new(AliasingOccursBelowNyquist),
@@ -167,4 +163,19 @@ impl Ontology for SignalProcessingOntology {
 /// Create a first-order low-pass filter for axiom testing convenience.
 pub fn test_low_pass_filter(alpha: f64) -> FirstOrderLowPass {
     FirstOrderLowPass::from_alpha(alpha)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<SignalCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        SignalProcessingOntology::validate().unwrap();
+    }
 }

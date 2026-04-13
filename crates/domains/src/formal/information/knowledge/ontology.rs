@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Knowledge Base ontology — a system's self-description of what it knows.
 //
@@ -29,9 +30,9 @@ pub enum KnowledgeConcept {
     DataSource,
 }
 
-define_category! {
-    pub KnowledgeBaseCategory {
-        entity: KnowledgeConcept,
+define_ontology! {
+    pub KnowledgeOntology for KnowledgeBaseCategory {
+        concepts: KnowledgeConcept,
         relation: KnowledgeRelation,
         kind: KnowledgeRelationKind,
         kinds: [
@@ -65,11 +66,45 @@ define_category! {
     }
 }
 
+/// Whether a knowledge concept is structural (schema-level) or instance-level.
+#[derive(Debug, Clone)]
+pub struct IsStructural;
+
+impl Quality for IsStructural {
+    type Individual = KnowledgeConcept;
+    type Value = bool;
+
+    fn get(&self, individual: &KnowledgeConcept) -> Option<bool> {
+        match individual {
+            KnowledgeConcept::KnowledgeBase => Some(true),
+            KnowledgeConcept::Vocabulary => Some(true),
+            KnowledgeConcept::Schema => Some(true),
+            KnowledgeConcept::Entry => Some(false),
+            KnowledgeConcept::Descriptor => Some(false),
+            KnowledgeConcept::DataSource => Some(false),
+        }
+    }
+}
+
+impl Ontology for KnowledgeOntology {
+    type Cat = KnowledgeBaseCategory;
+    type Qual = IsStructural;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use pr4xis::category::Category;
     use pr4xis::category::entity::Entity;
+
+    #[test]
+    fn ontology_validates() {
+        KnowledgeOntology::validate().unwrap();
+    }
 
     #[test]
     fn category_identity_law() {

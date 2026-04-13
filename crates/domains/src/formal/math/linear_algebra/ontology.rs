@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::linear_algebra::decomposition;
@@ -26,10 +26,10 @@ pub enum AlgebraicStructure {
     UpperTriangular,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over algebraic structure entities.
-    pub LinearAlgebraCategory {
-        entity: AlgebraicStructure,
+    pub LinearAlgebraOntology for LinearAlgebraCategory {
+        concepts: AlgebraicStructure,
         relation: AlgebraicRelation,
     }
 }
@@ -325,13 +325,15 @@ impl Axiom for JosephPreservesPsd {
     }
 }
 
-pub struct LinearAlgebraOntology;
-
 impl Ontology for LinearAlgebraOntology {
     type Cat = LinearAlgebraCategory;
     type Qual = StructureDimension;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(MultiplicationAssociativity),
             Box::new(MultiplicationIdentity),
@@ -405,4 +407,19 @@ fn canonical_vectors() -> Vec<Vector> {
         Vector::new(vec![0.0, 1.0, 0.0]),
         Vector::new(vec![1.0, 2.0, 3.0]),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<LinearAlgebraCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        LinearAlgebraOntology::validate().unwrap();
+    }
 }

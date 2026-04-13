@@ -55,7 +55,7 @@ impl Interval {
             9 => "major 6th",
             10 => "minor 7th",
             11 => "major 7th",
-            _ => unreachable!(),
+            n => panic!("modulo 12 returned {n}, expected 0..=11"),
         }
     }
 }

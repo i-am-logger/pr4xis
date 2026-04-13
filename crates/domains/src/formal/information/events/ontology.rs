@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Event-driven system ontology.
 //
@@ -57,10 +58,10 @@ pub enum EventConcept {
     EventSchema,
 }
 
-define_category! {
+define_ontology! {
     /// The event-driven category.
-    pub EventCategory {
-        entity: EventConcept,
+    pub EventOntology for EventCategory {
+        concepts: EventConcept,
         relation: EventRelation,
         kind: EventRelationKind,
         kinds: [
@@ -117,5 +118,50 @@ define_category! {
             // Saga → Event → EventLog
             (Saga, EventLog),
         ],
+    }
+}
+
+/// Whether an event concept is immutable (core event sourcing property).
+#[derive(Debug, Clone)]
+pub struct IsImmutable;
+
+impl Quality for IsImmutable {
+    type Individual = EventConcept;
+    type Value = bool;
+
+    fn get(&self, individual: &EventConcept) -> Option<bool> {
+        match individual {
+            EventConcept::Event => Some(true),
+            EventConcept::EventLog => Some(true),
+            EventConcept::EventSchema => Some(true),
+            EventConcept::State => Some(false),
+            EventConcept::Projection => Some(false),
+            _ => None,
+        }
+    }
+}
+
+impl Ontology for EventOntology {
+    type Cat = EventCategory;
+    type Qual = IsImmutable;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::validate::check_category_laws;
+
+    #[test]
+    fn category_laws() {
+        check_category_laws::<EventCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        EventOntology::validate().unwrap();
     }
 }

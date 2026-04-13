@@ -215,12 +215,28 @@ impl Ontology for FrameOntology {
     type Cat = FrameCategory;
     type Qual = FrameConvention;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(TransformsComposeAssociatively),
             Box::new(IdentityExists),
             Box::new(TransformsInvertible),
             Box::new(AllFramesRightHanded),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<FrameCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        FrameOntology::validate().unwrap();
     }
 }

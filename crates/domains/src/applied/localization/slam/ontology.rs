@@ -183,10 +183,26 @@ impl Ontology for SlamOntology {
     type Cat = SlamCategory;
     type Qual = ComponentRole;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(ConstraintReducesUncertainty),
             Box::new(LoopClosureConnectsPoses),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<SlamCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        SlamOntology::validate().unwrap();
     }
 }

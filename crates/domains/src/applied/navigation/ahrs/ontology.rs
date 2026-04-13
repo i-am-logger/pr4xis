@@ -237,3 +237,19 @@ impl Ontology for AhrsOntology {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<AhrsCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        AhrsOntology::validate().unwrap();
+    }
+}

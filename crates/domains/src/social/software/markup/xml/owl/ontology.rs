@@ -1,6 +1,7 @@
 use pr4xis::category::Category;
 use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // OWL 2 Web Ontology Language — W3C Recommendation (2012)
 // https://www.w3.org/TR/owl2-syntax/
@@ -476,5 +477,49 @@ impl pr4xis::logic::Axiom for RestrictionNeedsProperty {
         morphisms
             .iter()
             .any(|m| m.source == OwlConcept::Restriction && m.target == OwlConcept::ObjectProperty)
+    }
+}
+
+/// Quality: is this OWL concept a class expression?
+#[derive(Debug, Clone)]
+pub struct IsClassExpression;
+
+impl Quality for IsClassExpression {
+    type Individual = OwlConcept;
+    type Value = ();
+
+    fn get(&self, concept: &OwlConcept) -> Option<()> {
+        if concept.is_class_expression() {
+            Some(())
+        } else {
+            None
+        }
+    }
+}
+
+/// The OWL metamodel ontology.
+pub struct OwlMetaOntology;
+
+impl Ontology for OwlMetaOntology {
+    type Cat = OwlCategory;
+    type Qual = IsClassExpression;
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![Box::new(RestrictionNeedsProperty)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<OwlCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        OwlMetaOntology::validate().unwrap();
     }
 }

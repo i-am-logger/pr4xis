@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::quantity::dimension::Dimension;
@@ -25,10 +25,10 @@ pub enum BaseDimension {
     Dimensionless,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over base dimension entities.
-    pub DimensionCategory {
-        entity: BaseDimension,
+    pub QuantityOntology for DimensionCategory {
+        concepts: BaseDimension,
         relation: DimensionRelation,
     }
 }
@@ -217,21 +217,15 @@ impl Axiom for IncompatibleUnitConversionFails {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// The quantity ontology — dimensional analysis as formal algebra.
-///
-/// Founded on:
-///   - BIPM SI Brochure (2019). International System of Units.
-///   - Tao, T. (2012). "A mathematical formalization of dimensional analysis."
-///   - Hart, J. (2021). "Dimensioned Algebra." ArXiv 2108.08703.
-///   - QUDT (qudt.org). Quantities, Units, Dimensions and Types.
-///   - Sonin, A.A. "The Physical Basis of Dimensional Analysis." MIT.
-pub struct QuantityOntology;
-
 impl Ontology for QuantityOntology {
     type Cat = DimensionCategory;
     type Qual = DimensionSymbol;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(DimensionCommutativity),
             Box::new(DimensionAssociativity),
@@ -257,4 +251,19 @@ fn canonical_dimensions() -> Vec<Dimension> {
         Dimension::ENERGY,
         Dimension::FREQUENCY,
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<DimensionCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        QuantityOntology::validate().unwrap();
+    }
 }

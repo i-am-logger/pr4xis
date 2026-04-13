@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Diagnostics ontology — the universal diagnostic cycle.
 //
@@ -76,9 +77,9 @@ pub enum DiagnosticConcept {
     TraceContext,
 }
 
-define_category! {
-    pub DiagnosticCategory {
-        entity: DiagnosticConcept,
+define_ontology! {
+    pub DiagnosticOntology for DiagnosticCategory {
+        concepts: DiagnosticConcept,
         relation: DiagnosticRelation,
         kind: DiagnosticRelationKind,
         kinds: [
@@ -129,6 +130,37 @@ define_category! {
     }
 }
 
+/// Diagnostic status quality — the status associated with each concept.
+#[derive(Debug, Clone)]
+pub struct DiagnosticStatusQuality;
+
+impl Quality for DiagnosticStatusQuality {
+    type Individual = DiagnosticConcept;
+    type Value = DiagnosticStatus;
+
+    fn get(&self, individual: &DiagnosticConcept) -> Option<DiagnosticStatus> {
+        match individual {
+            DiagnosticConcept::Residual => Some(DiagnosticStatus::Healthy),
+            DiagnosticConcept::Symptom => Some(DiagnosticStatus::Investigating),
+            DiagnosticConcept::Hypothesis => Some(DiagnosticStatus::Investigating),
+            DiagnosticConcept::Test => Some(DiagnosticStatus::Investigating),
+            DiagnosticConcept::Evidence => Some(DiagnosticStatus::Investigating),
+            DiagnosticConcept::Diagnosis => Some(DiagnosticStatus::Diagnosed),
+            DiagnosticConcept::Remedy => Some(DiagnosticStatus::Remediated),
+            _ => None,
+        }
+    }
+}
+
+impl Ontology for DiagnosticOntology {
+    type Cat = DiagnosticCategory;
+    type Qual = DiagnosticStatusQuality;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
 /// Observability level — can the system's state be reconstructed from output?
 ///
 /// Kalman (1960): observability = full rank of [C; CA; CA²; ...; CA^(n-1)].
@@ -170,6 +202,11 @@ mod tests {
     #[test]
     fn category_laws_hold() {
         check_category_laws::<DiagnosticCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        DiagnosticOntology::validate().unwrap();
     }
 
     #[test]

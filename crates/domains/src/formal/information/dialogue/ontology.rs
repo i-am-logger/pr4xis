@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Dialogue ontology — the science of conversation.
 //
@@ -69,9 +70,9 @@ pub enum DialogueConcept {
     Repair,
 }
 
-define_category! {
-    pub DialogueCategory {
-        entity: DialogueConcept,
+define_ontology! {
+    pub DialogueOntology for DialogueCategory {
+        concepts: DialogueConcept,
         relation: DialogueRelation,
         kind: DialogueRelationKind,
         kinds: [
@@ -153,5 +154,49 @@ define_category! {
             // Repair → Grounding (through Understanding → GroundingAct)
             (Repair, Grounding),
         ],
+    }
+}
+
+/// Whether a dialogue concept is agent-facing (produced/consumed by participants).
+#[derive(Debug, Clone)]
+pub struct IsAgentFacing;
+
+impl Quality for IsAgentFacing {
+    type Individual = DialogueConcept;
+    type Value = bool;
+
+    fn get(&self, individual: &DialogueConcept) -> Option<bool> {
+        match individual {
+            DialogueConcept::Participant => Some(true),
+            DialogueConcept::Utterance => Some(true),
+            DialogueConcept::DialogueAct => Some(true),
+            DialogueConcept::Intention => Some(true),
+            _ => Some(false),
+        }
+    }
+}
+
+impl Ontology for DialogueOntology {
+    type Cat = DialogueCategory;
+    type Qual = IsAgentFacing;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::validate::check_category_laws;
+
+    #[test]
+    fn category_laws() {
+        check_category_laws::<DialogueCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        DialogueOntology::validate().unwrap();
     }
 }

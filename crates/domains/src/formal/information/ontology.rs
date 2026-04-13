@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Information ontology — the science of how knowledge is represented.
 //
@@ -62,10 +63,10 @@ impl InfoUnit {
     }
 }
 
-define_category! {
+define_ontology! {
     /// The information category.
-    pub InfoCategory {
-        entity: InfoUnit,
+    pub InformationOntology for InfoCategory {
+        concepts: InfoUnit,
         relation: InfoRelation,
         kind: InfoRelationKind,
         kinds: [
@@ -102,6 +103,49 @@ define_category! {
             // Reference composed of Bits
             (Reference, Bit),
         ],
+    }
+}
+
+/// Size in bits for each information unit.
+#[derive(Debug, Clone)]
+pub struct BitSize;
+
+impl Quality for BitSize {
+    type Individual = InfoUnit;
+    type Value = usize;
+
+    fn get(&self, individual: &InfoUnit) -> Option<usize> {
+        match individual {
+            InfoUnit::Bit => Some(1),
+            InfoUnit::TruthValue => Some(1),
+            InfoUnit::Byte => Some(8),
+            _ => None, // variable-size or architecture-dependent
+        }
+    }
+}
+
+impl Ontology for InformationOntology {
+    type Cat = InfoCategory;
+    type Qual = BitSize;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::validate::check_category_laws;
+
+    #[test]
+    fn category_laws() {
+        check_category_laws::<InfoCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        InformationOntology::validate().unwrap();
     }
 }
 

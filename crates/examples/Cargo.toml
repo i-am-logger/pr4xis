@@ -6,10 +6,15 @@ authors = ["i-am-logger"]
 description = "Example puzzles and reference implementations"
 license = "CC-BY-NC-SA-4.0"
 publish = false
+repository = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://github.com/i-am-logger/pr4xis"
 
 [dependencies]
 pr4xis = { version = "0.6.0", path = "../pr4xis" }
 pr4xis-domains = { version = "0.7.0", path = "../domains" }
+
+[lints]
+workspace = true
 
 [dev-dependencies]
 proptest = "1.6"

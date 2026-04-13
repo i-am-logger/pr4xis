@@ -1,7 +1,7 @@
 use super::authority::Authority;
 use super::lifecycle::PhaseTag;
 use pr4xis::category::{Category, Entity, Relationship};
-use pr4xis::ontology::{Axiom, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 use std::collections::HashMap;
 
 /// Valence of a legal term.
@@ -333,5 +333,32 @@ impl Axiom for NoDeadPhases {
         PhaseTag::variants()
             .iter()
             .all(|p| p.is_terminal() || !p.valid_transitions().is_empty())
+    }
+}
+
+/// The judicial case lifecycle ontology.
+pub struct CaseLifecycleOntology;
+
+impl Ontology for CaseLifecycleOntology {
+    type Cat = CaseLifecycleCategory;
+    type Qual = IsTerminalPhase;
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![Box::new(OnlyClosedIsTerminal), Box::new(NoDeadPhases)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<CaseLifecycleCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        CaseLifecycleOntology::validate().unwrap();
     }
 }

@@ -185,7 +185,7 @@ impl SenseRelationType {
 /// - WordNet-LMF: n, v, a, s, r
 /// - Universal Dependencies: DET, PRON, ADP, CCONJ, SCONJ, PART, AUX, INTJ
 /// - OLiA: Determiner, Pronoun, Copula, Auxiliary, Preposition, etc.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum LmfPos {
     // Open class (WordNet)
     Noun,
@@ -203,27 +203,6 @@ pub enum LmfPos {
     Interjection,
     Numeral,
     Other,
-}
-
-impl Entity for LmfPos {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Noun,
-            Self::Verb,
-            Self::Adjective,
-            Self::Adverb,
-            Self::Determiner,
-            Self::Pronoun,
-            Self::Preposition,
-            Self::Conjunction,
-            Self::Particle,
-            Self::Copula,
-            Self::Auxiliary,
-            Self::Interjection,
-            Self::Numeral,
-            Self::Other,
-        ]
-    }
 }
 
 impl LmfPos {
@@ -410,5 +389,74 @@ impl WordNet {
                     .map(move |r| (s.id.as_str(), r.target.as_str()))
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::Entity;
+
+    #[test]
+    fn lmf_pos_entity_variants() {
+        let variants = LmfPos::variants();
+        assert_eq!(variants.len(), 14);
+    }
+
+    #[test]
+    fn pos_parse_roundtrip() {
+        for pos in LmfPos::variants() {
+            let tag = pos.to_tag();
+            let parsed = LmfPos::parse(tag);
+            assert_eq!(
+                parsed, pos,
+                "roundtrip failed for {:?} -> {} -> {:?}",
+                pos, tag, parsed
+            );
+        }
+    }
+
+    #[test]
+    fn open_closed_partition() {
+        for pos in LmfPos::variants() {
+            if pos != LmfPos::Other {
+                assert!(
+                    pos.is_open_class() ^ pos.is_closed_class(),
+                    "{:?} must be exactly one of open/closed",
+                    pos
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn synset_relation_taxonomy() {
+        assert!(SynsetRelationType::Hypernym.is_taxonomy());
+        assert!(SynsetRelationType::InstanceHypernym.is_taxonomy());
+        assert!(!SynsetRelationType::Causes.is_taxonomy());
+    }
+
+    #[test]
+    fn synset_relation_mereology() {
+        assert!(SynsetRelationType::HoloPart.is_mereology());
+        assert!(SynsetRelationType::MeroPart.is_mereology());
+        assert!(!SynsetRelationType::Hypernym.is_mereology());
+    }
+
+    #[test]
+    fn verb_transitivity_from_frame() {
+        assert_eq!(
+            VerbTransitivity::from_frame_id("vtai"),
+            Some(VerbTransitivity::Transitive)
+        );
+        assert_eq!(
+            VerbTransitivity::from_frame_id("via"),
+            Some(VerbTransitivity::Intransitive)
+        );
+        assert_eq!(
+            VerbTransitivity::from_frame_id("ditransitive"),
+            Some(VerbTransitivity::Ditransitive)
+        );
+        assert_eq!(VerbTransitivity::from_frame_id("unknown"), None);
     }
 }

@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Measurement ontology — the science of quantification.
 //
@@ -73,9 +74,9 @@ pub enum MeasurementConcept {
     ScaleType,
 }
 
-define_category! {
-    pub MeasurementCategory {
-        entity: MeasurementConcept,
+define_ontology! {
+    pub MeasurementOntology for MeasurementCategory {
+        concepts: MeasurementConcept,
         relation: MeasurementRelation,
         kind: MeasurementRelationKind,
         kinds: [
@@ -127,6 +128,32 @@ define_category! {
             // Measurement → Unit (through Result)
             (Measurement, Unit),
         ],
+    }
+}
+
+/// The Stevens scale kind associated with each measurement concept.
+#[derive(Debug, Clone)]
+pub struct ScaleKindQuality;
+
+impl Quality for ScaleKindQuality {
+    type Individual = MeasurementConcept;
+    type Value = ScaleKind;
+
+    fn get(&self, individual: &MeasurementConcept) -> Option<ScaleKind> {
+        match individual {
+            MeasurementConcept::ScaleType => None, // meta-concept, not a measurement itself
+            MeasurementConcept::Result => Some(ScaleKind::Ratio), // default: results are ratio-scale
+            _ => None,
+        }
+    }
+}
+
+impl Ontology for MeasurementOntology {
+    type Cat = MeasurementCategory;
+    type Qual = ScaleKindQuality;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
     }
 }
 
@@ -187,6 +214,11 @@ mod tests {
     #[test]
     fn category_laws_hold() {
         check_category_laws::<MeasurementCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        MeasurementOntology::validate().unwrap();
     }
 
     #[test]

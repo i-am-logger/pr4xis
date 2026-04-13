@@ -5,6 +5,8 @@ edition = "2024"
 authors = ["i-am-logger"]
 description = "pr4xis chatbot — WASM build for browser"
 license = "CC-BY-NC-SA-4.0"
+repository = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://github.com/i-am-logger/pr4xis"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -15,6 +17,17 @@ pr4xis = { path = "../pr4xis" }
 pr4xis-chat = { path = "../chat" }
 pr4xis-domains = { path = "../domains" }
 wasm-bindgen = "0.2"
+
+[lints.rust]
+dead_code = "deny"
+unused_imports = "deny"
+unused_variables = "deny"
+unused_must_use = "deny"
+
+[lints.clippy]
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
 
 [build-dependencies]
 pr4xis = { path = "../pr4xis", features = ["codegen"] }

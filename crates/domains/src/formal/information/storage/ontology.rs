@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Repository / Store ontology — where and how ontologies are persisted.
 //
@@ -74,9 +75,9 @@ pub enum RepositoryConcept {
     EndpointStore,
 }
 
-define_category! {
-    pub RepositoryCategory {
-        entity: RepositoryConcept,
+define_ontology! {
+    pub StorageOntology for RepositoryCategory {
+        concepts: RepositoryConcept,
         relation: RepositoryRelation,
         kind: RepositoryRelationKind,
         kinds: [
@@ -121,6 +122,35 @@ define_category! {
     }
 }
 
+/// Whether a store backend supports hot reload.
+#[derive(Debug, Clone)]
+pub struct SupportsHotReload;
+
+impl Quality for SupportsHotReload {
+    type Individual = RepositoryConcept;
+    type Value = bool;
+
+    fn get(&self, individual: &RepositoryConcept) -> Option<bool> {
+        match individual {
+            RepositoryConcept::StaticStore => Some(false),
+            RepositoryConcept::MappedStore => Some(true),
+            RepositoryConcept::HeapStore => Some(true),
+            RepositoryConcept::DatabaseStore => Some(true),
+            RepositoryConcept::EndpointStore => Some(true),
+            _ => None,
+        }
+    }
+}
+
+impl Ontology for StorageOntology {
+    type Cat = RepositoryCategory;
+    type Qual = SupportsHotReload;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,6 +160,11 @@ mod tests {
     #[test]
     fn category_laws_hold() {
         check_category_laws::<RepositoryCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        StorageOntology::validate().unwrap();
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Concurrency ontology — the science of simultaneous activity.
 //
@@ -55,10 +56,10 @@ pub enum ConcurrencyConcept {
     Message,
 }
 
-define_category! {
+define_ontology! {
     /// The concurrency category.
-    pub ConcurrencyCategory {
-        entity: ConcurrencyConcept,
+    pub ConcurrencyOntology for ConcurrencyCategory {
+        concepts: ConcurrencyConcept,
         relation: ConcurrencyRelation,
         kind: ConcurrencyRelationKind,
         kinds: [
@@ -124,5 +125,47 @@ define_category! {
             (Protocol, SharedResource),
             (SharedResource, State),
         ],
+    }
+}
+
+/// Whether a concurrency concept represents a hazard.
+#[derive(Debug, Clone)]
+pub struct IsHazard;
+
+impl Quality for IsHazard {
+    type Individual = ConcurrencyConcept;
+    type Value = bool;
+
+    fn get(&self, individual: &ConcurrencyConcept) -> Option<bool> {
+        match individual {
+            ConcurrencyConcept::Deadlock => Some(true),
+            ConcurrencyConcept::RaceCondition => Some(true),
+            _ => Some(false),
+        }
+    }
+}
+
+impl Ontology for ConcurrencyOntology {
+    type Cat = ConcurrencyCategory;
+    type Qual = IsHazard;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::validate::check_category_laws;
+
+    #[test]
+    fn category_laws() {
+        check_category_laws::<ConcurrencyCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        ConcurrencyOntology::validate().unwrap();
     }
 }

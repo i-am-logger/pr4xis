@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Systems thinking ontology — the science of wholes, relationships, and patterns.
 //
@@ -62,14 +63,14 @@ pub enum SystemConcept {
     Controller,
 }
 
-define_category! {
+define_ontology! {
     /// The systems thinking category.
     ///
     /// This IS the formal structure of systems thinking.
     /// If the category laws hold, then systems thinking is
     /// mathematically consistent as a theory.
-    pub SystemsCategory {
-        entity: SystemConcept,
+    pub SystemsOntology for SystemsCategory {
+        concepts: SystemConcept,
         relation: SystemRelation,
         kind: SystemRelationKind,
         kinds: [
@@ -157,5 +158,51 @@ define_category! {
             // Boundary → Component → State
             (Boundary, State),
         ],
+    }
+}
+
+/// Whether a systems concept is part of the cybernetic feedback loop.
+#[derive(Debug, Clone)]
+pub struct IsCyberneticLoop;
+
+impl Quality for IsCyberneticLoop {
+    type Individual = SystemConcept;
+    type Value = bool;
+
+    fn get(&self, individual: &SystemConcept) -> Option<bool> {
+        match individual {
+            SystemConcept::State => Some(true),
+            SystemConcept::Feedback => Some(true),
+            SystemConcept::Controller => Some(true),
+            SystemConcept::Constraint => Some(true),
+            SystemConcept::Transition => Some(true),
+            SystemConcept::Homeostasis => Some(true),
+            _ => Some(false),
+        }
+    }
+}
+
+impl Ontology for SystemsOntology {
+    type Cat = SystemsCategory;
+    type Qual = IsCyberneticLoop;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::validate::check_category_laws;
+
+    #[test]
+    fn category_laws() {
+        check_category_laws::<SystemsCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        SystemsOntology::validate().unwrap();
     }
 }

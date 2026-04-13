@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Cell states in a Bayesian occupancy grid.
@@ -15,12 +15,12 @@ pub enum CellState {
     Unknown,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Category for occupancy grid cell state transitions.
     ///
     /// All transitions are possible: a cell can go from any state to any state
     /// upon receiving new sensor evidence (Bayesian update).
-    pub OccupancyCategory {
+    pub OccupancyOntology for OccupancyCategory {
         entity: CellState,
         relation: CellTransition,
     }
@@ -81,16 +81,34 @@ impl Axiom for LogOddsUpdateDeterministic {
     }
 }
 
-pub struct OccupancyOntology;
-
 impl Ontology for OccupancyOntology {
     type Cat = OccupancyCategory;
     type Qual = OccupancyProbability;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(ProbabilityBounded),
             Box::new(LogOddsUpdateDeterministic),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<OccupancyCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        OccupancyOntology::validate().unwrap();
     }
 }

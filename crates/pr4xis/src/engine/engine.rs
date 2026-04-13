@@ -199,11 +199,11 @@ impl<A: Action> Engine<A> {
         self.next(action).map_err(|e| match e {
             EngineError::Violated { violations, .. } => violations
                 .into_iter()
-                .map(|v| match v {
+                .filter_map(|v| match v {
                     PreconditionResult::Violated { rule, reason, .. } => {
-                        format!("{}: {}", rule, reason)
+                        Some(format!("{}: {}", rule, reason))
                     }
-                    PreconditionResult::Satisfied { .. } => unreachable!(),
+                    PreconditionResult::Satisfied { .. } => None,
                 })
                 .collect(),
             EngineError::LogicalError { reason, .. } => {

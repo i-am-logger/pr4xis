@@ -1,4 +1,4 @@
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::applied::sensor_fusion::time::synchronization::SyncStrategy;
@@ -7,7 +7,7 @@ use crate::applied::sensor_fusion::time::synchronization::SyncStrategy;
 // Category: sensor time synchronization strategies
 // ---------------------------------------------------------------------------
 
-define_dense_category! {
+define_ontology! {
     /// Category of synchronization strategies ordered by information content.
     ///
     /// Objects: sync strategies.
@@ -16,7 +16,7 @@ define_dense_category! {
     /// LinearInterpolation uses the most information (two measurements).
     /// NearestNeighbor uses one measurement.
     /// Extrapolation is the most dangerous (model-dependent).
-    pub SensorTimeCategory {
+    pub SensorTimeOntology for SensorTimeCategory {
         entity: SyncStrategy,
         relation: SyncDegradation,
     }
@@ -108,17 +108,35 @@ impl Axiom for NearestNeighborBounded {
 /// Founded on:
 ///   - Bar-Shalom et al. (2001), Chapter 6 — "Tracking with Multiple Sensors."
 ///   - Groves (2013), Chapter 17 — "Multi-sensor integration."
-pub struct SensorTimeOntology;
-
 impl Ontology for SensorTimeOntology {
     type Cat = SensorTimeCategory;
     type Qual = ErrorBoundedness;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(InterpolationBounded),
             Box::new(ExtrapolationUnbounded),
             Box::new(NearestNeighborBounded),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<SensorTimeCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        SensorTimeOntology::validate().unwrap();
     }
 }

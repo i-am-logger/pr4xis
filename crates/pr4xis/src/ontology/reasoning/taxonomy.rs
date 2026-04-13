@@ -192,6 +192,25 @@ impl<T: TaxonomyDef> crate::logic::Axiom for Antisymmetric<T> {
 
 // ---- Algebraic structure integrations ----
 
+/// Query two entities independently using the applicative functor.
+///
+/// Child and parent lookups don't depend on each other — this is applicative,
+/// not monadic. Using Ap::map2 makes the independence explicit and enables
+/// future parallelization.
+///
+/// Reference: McBride & Paterson, "Applicative Programming with Effects" (2008)
+#[allow(clippy::type_complexity)]
+pub fn applicative_is_a<T: TaxonomyDef>(
+    child: &T::Entity,
+    ancestor: &T::Entity,
+) -> crate::category::Ap<crate::category::Product<Vec<T::Entity>, Vec<T::Entity>>> {
+    let child_ancestors = crate::category::Ap::pure(ancestors::<T>(child));
+    let ancestor_descendants = crate::category::Ap::pure(descendants::<T>(ancestor));
+    child_ancestors.map2(ancestor_descendants, |anc, desc| {
+        crate::category::Product::new(anc, desc)
+    })
+}
+
 /// Galois connection for taxonomy: descendants ⊣ ancestors.
 ///
 /// The pair (descendants, ancestors) forms a Galois connection where:

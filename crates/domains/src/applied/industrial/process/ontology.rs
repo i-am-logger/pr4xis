@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Process control variables.
@@ -17,13 +17,13 @@ pub enum ProcessVariable {
     Level,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Category for process variable interactions.
     ///
     /// Process variables are typically coupled: pressure affects flow,
     /// temperature affects pressure, level depends on flow, etc.
     /// The category is fully connected (all couplings are possible).
-    pub ProcessCategory {
+    pub ProcessOntology for ProcessCategory {
         entity: ProcessVariable,
         relation: ProcessCoupling,
     }
@@ -75,16 +75,34 @@ impl Axiom for PressureNonNegative {
     }
 }
 
-pub struct ProcessOntology;
-
 impl Ontology for ProcessOntology {
     type Cat = ProcessCategory;
     type Qual = PhysicalUnit;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(TemperatureAboveAbsoluteZero),
             Box::new(PressureNonNegative),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<ProcessCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        ProcessOntology::validate().unwrap();
     }
 }

@@ -1,13 +1,5 @@
 use super::piece::PieceKind;
-use pr4xis::category::Entity;
 use pr4xis::ontology::Quality;
-
-/// Tetris piece kinds as entities.
-impl Entity for PieceKind {
-    fn variants() -> Vec<Self> {
-        PieceKind::all().to_vec()
-    }
-}
 
 /// Quality: number of cells (always 4 for tetrominoes).
 #[derive(Debug, Clone)]
@@ -54,6 +46,7 @@ impl Quality for RotationCount {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Entity;
 
     #[test]
     fn test_7_piece_kinds() {

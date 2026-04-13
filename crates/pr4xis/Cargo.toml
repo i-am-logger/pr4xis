@@ -16,5 +16,8 @@ codegen = ["dep:quick-xml"]
 pr4xis-derive = { version = "0.1.0", path = "../pr4xis-derive" }
 quick-xml = { version = "0.37", features = ["serialize"], optional = true }
 
+[lints]
+workspace = true
+
 [dev-dependencies]
 proptest = "1.6"

@@ -1,11 +1,24 @@
 use super::request::Method;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::{Axiom, Quality};
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-define_dense_category! {
-    pub HttpMethodCategory {
-        entity: Method,
+define_ontology! {
+    pub HttpMethodOntology for HttpMethodCategory {
+        concepts: Method,
         relation: MethodPair,
+    }
+}
+
+impl Ontology for HttpMethodOntology {
+    type Cat = HttpMethodCategory;
+    type Qual = IsSafe;
+
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![Box::new(SafeImpliesIdempotent)]
     }
 }
 
@@ -81,5 +94,10 @@ mod tests {
     #[test]
     fn test_safe_implies_idempotent() {
         assert!(SafeImpliesIdempotent.holds());
+    }
+
+    #[test]
+    fn ontology_validates() {
+        HttpMethodOntology::validate().unwrap();
     }
 }

@@ -1,5 +1,6 @@
 use pr4xis::category::Entity; // trait + derive macro
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Communication ontology — the science of information transfer.
 //
@@ -35,10 +36,10 @@ pub enum CommunicationConcept {
     Context,
 }
 
-define_category! {
+define_ontology! {
     /// Communication category — Shannon (1948) + Jakobson (1960).
-    pub CommunicationCategory {
-        entity: CommunicationConcept,
+    pub CommunicationOntology for CommunicationCategory {
+        concepts: CommunicationConcept,
         relation: CommunicationRelation,
         kind: CommunicationRelationKind,
         kinds: [
@@ -86,6 +87,36 @@ define_category! {
     }
 }
 
+/// Jakobson function mapping — which language function does a concept serve?
+#[derive(Debug, Clone)]
+pub struct CommunicationFunctionQuality;
+
+impl Quality for CommunicationFunctionQuality {
+    type Individual = CommunicationConcept;
+    type Value = JakobsonFunction;
+
+    fn get(&self, individual: &CommunicationConcept) -> Option<JakobsonFunction> {
+        match individual {
+            CommunicationConcept::Context => Some(JakobsonFunction::Referential),
+            CommunicationConcept::Sender => Some(JakobsonFunction::Emotive),
+            CommunicationConcept::Receiver => Some(JakobsonFunction::Conative),
+            CommunicationConcept::Channel => Some(JakobsonFunction::Phatic),
+            CommunicationConcept::Code => Some(JakobsonFunction::Metalingual),
+            CommunicationConcept::Message => Some(JakobsonFunction::Poetic),
+            _ => None,
+        }
+    }
+}
+
+impl Ontology for CommunicationOntology {
+    type Cat = CommunicationCategory;
+    type Qual = CommunicationFunctionQuality;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
 /// Jakobson's six language functions (1960).
 /// Each communication component has a corresponding function when
 /// the communicative act focuses on that component.
@@ -116,5 +147,21 @@ impl JakobsonFunction {
             Self::Metalingual => CommunicationConcept::Code,
             Self::Poetic => CommunicationConcept::Message,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::validate::check_category_laws;
+
+    #[test]
+    fn category_laws() {
+        check_category_laws::<CommunicationCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        CommunicationOntology::validate().unwrap();
     }
 }
