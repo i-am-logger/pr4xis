@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Schema ontology — ontology structure as data (the M2 level).
 //
@@ -75,9 +76,9 @@ pub enum SchemaConcept {
     Algebra,
 }
 
-define_category! {
-    pub SchemaCategory {
-        entity: SchemaConcept,
+define_ontology! {
+    pub SchemaOntology for SchemaCategory {
+        concepts: SchemaConcept,
         relation: SchemaRelation,
         kind: SchemaRelationKind,
         kinds: [
@@ -134,6 +135,51 @@ define_category! {
     }
 }
 
+/// MDA level (M0..M3) for each schema concept.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MdaLevel {
+    /// M0: runtime instances (data).
+    M0,
+    /// M1: models (schemas, instances).
+    M1,
+    /// M2: meta-models (schema of schemas).
+    M2,
+}
+
+/// Which MDA level does each schema concept live at?
+#[derive(Debug, Clone)]
+pub struct MdaLevelQuality;
+
+impl Quality for MdaLevelQuality {
+    type Individual = SchemaConcept;
+    type Value = MdaLevel;
+
+    fn get(&self, individual: &SchemaConcept) -> Option<MdaLevel> {
+        match individual {
+            SchemaConcept::Schema => Some(MdaLevel::M2),
+            SchemaConcept::EntityType => Some(MdaLevel::M2),
+            SchemaConcept::MorphismType => Some(MdaLevel::M2),
+            SchemaConcept::PathEquation => Some(MdaLevel::M2),
+            SchemaConcept::Axiom => Some(MdaLevel::M2),
+            SchemaConcept::Instance => Some(MdaLevel::M1),
+            SchemaConcept::Population => Some(MdaLevel::M0),
+            SchemaConcept::SchemaMapping => Some(MdaLevel::M2),
+            SchemaConcept::Transform => Some(MdaLevel::M1),
+            SchemaConcept::Presentation => Some(MdaLevel::M1),
+            SchemaConcept::Algebra => Some(MdaLevel::M1),
+        }
+    }
+}
+
+impl Ontology for SchemaOntology {
+    type Cat = SchemaCategory;
+    type Qual = MdaLevelQuality;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,6 +189,11 @@ mod tests {
     #[test]
     fn category_laws_hold() {
         check_category_laws::<SchemaCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        SchemaOntology::validate().unwrap();
     }
 
     #[test]

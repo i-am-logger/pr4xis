@@ -256,3 +256,19 @@ impl Ontology for CelestialOntology {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<CelestialCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        CelestialOntology::validate().unwrap();
+    }
+}

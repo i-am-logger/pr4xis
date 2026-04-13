@@ -1,12 +1,5 @@
 use super::color::SimonColor;
-use pr4xis::category::Entity;
 use pr4xis::ontology::Quality;
-
-impl Entity for SimonColor {
-    fn variants() -> Vec<Self> {
-        SimonColor::all().to_vec()
-    }
-}
 
 /// Quality: index position in the button array.
 #[derive(Debug, Clone)]
@@ -29,6 +22,7 @@ impl Quality for ButtonIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Entity;
 
     #[test]
     fn test_4_colors() {

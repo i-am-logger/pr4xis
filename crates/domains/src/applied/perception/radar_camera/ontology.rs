@@ -177,10 +177,26 @@ impl Ontology for RadarCameraOntology {
     type Cat = RadarCameraCategory;
     type Qual = StageDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(BothModalitiesRequired),
             Box::new(FusedOutputIsTerminal),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<RadarCameraCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        RadarCameraOntology::validate().unwrap();
     }
 }

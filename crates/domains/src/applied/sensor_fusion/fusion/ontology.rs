@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
@@ -30,9 +30,9 @@ pub enum FusionPhase {
     Reset,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Fusion phase category: the predict/update cycle.
-    pub FusionCategory {
+    pub FusionOntology for FusionCategory {
         entity: FusionPhase,
         relation: PhaseTransition,
     }
@@ -202,13 +202,15 @@ impl Axiom for CovarianceInvariant {
 ///   - US DoD JDL (1999). "Data Fusion Lexicon." (fusion levels)
 ///
 /// Key property: DETERMINISM — the engine is a pure function.
-pub struct FusionOntology;
-
 impl Ontology for FusionOntology {
     type Cat = FusionCategory;
     type Qual = PhaseDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(Determinism),
             Box::new(PredictIncreasesUncertainty),
@@ -231,6 +233,22 @@ fn run_sequence(initial: &StateEstimate, actions: &[FusionAction]) -> FusionStat
         state = apply_fusion(&state, action).unwrap();
     }
     state
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<FusionCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        FusionOntology::validate().unwrap();
+    }
 }
 
 fn determinism_test_cases() -> Vec<(StateEstimate, Vec<FusionAction>)> {

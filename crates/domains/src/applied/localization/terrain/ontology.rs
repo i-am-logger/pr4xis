@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Terrain feature types for terrain-relative navigation.
@@ -17,12 +17,12 @@ pub enum TerrainFeature {
     Saddle,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Category for terrain feature relationships.
     ///
     /// Ridges connect peaks through saddles; valleys lie between ridges.
     /// All features can relate to all other features in a DEM.
-    pub TerrainCategory {
+    pub TerrainOntology for TerrainCategory {
         entity: TerrainFeature,
         relation: TerrainRelation,
     }
@@ -78,13 +78,31 @@ impl Axiom for PeakCurvatureNegative {
     }
 }
 
-pub struct TerrainOntology;
-
 impl Ontology for TerrainOntology {
     type Cat = TerrainCategory;
     type Qual = CurvatureSignature;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(ElevationBounded), Box::new(PeakCurvatureNegative)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<TerrainCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        TerrainOntology::validate().unwrap();
     }
 }

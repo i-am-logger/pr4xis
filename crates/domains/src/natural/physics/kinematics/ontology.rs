@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::geometry::point::Point3;
@@ -31,10 +31,10 @@ pub enum KinematicQuantity {
     Jerk,
 }
 
-define_dense_category! {
+define_ontology! {
     /// The kinematics category.
-    pub KinematicsCategory {
-        entity: KinematicQuantity,
+    pub KinematicsOntology for KinematicsCategory {
+        concepts: KinematicQuantity,
         relation: DerivativeRelation,
     }
 }
@@ -240,19 +240,21 @@ impl Axiom for VelocityAdditionCommutative {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// The kinematics ontology — classical mechanics of motion.
-///
-/// Founded on:
-///   - Goldstein, H. (2002). *Classical Mechanics* (3rd ed.)
-///   - Newton's laws of motion (Principia, 1687)
-///   - Bar-Shalom et al. (2001). Motion models for tracking
-pub struct KinematicsOntology;
-
+// The kinematics ontology -- classical mechanics of motion.
+//
+// Founded on:
+//   - Goldstein, H. (2002). *Classical Mechanics* (3rd ed.)
+//   - Newton's laws of motion (Principia, 1687)
+//   - Bar-Shalom et al. (2001). Motion models for tracking
 impl Ontology for KinematicsOntology {
     type Cat = KinematicsCategory;
     type Qual = DerivativeOrder;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(VelocityIsDerivativeOfPosition),
             Box::new(AccelerationIsDerivativeOfVelocity),
@@ -263,5 +265,20 @@ impl Ontology for KinematicsOntology {
             Box::new(SpeedNonNegative),
             Box::new(VelocityAdditionCommutative),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<KinematicsCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        KinematicsOntology::validate().unwrap();
     }
 }

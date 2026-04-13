@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Electronic warfare observable types for emitter geolocation.
@@ -17,13 +17,13 @@ pub enum EwObservable {
     SignalStrength,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Category for EW observable fusion.
     ///
     /// All observables can be combined for improved geolocation;
     /// the category is fully connected.
-    pub EwCategory {
-        entity: EwObservable,
+    pub EwOntology for EwCategory {
+        concepts: EwObservable,
         relation: EwFusionRelation,
     }
 }
@@ -74,13 +74,30 @@ impl Axiom for TdoaRequiresSensorPair {
     }
 }
 
-pub struct EwOntology;
-
 impl Ontology for EwOntology {
     type Cat = EwCategory;
     type Qual = ObservableGeometry;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(AoaBounded), Box::new(TdoaRequiresSensorPair)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<EwCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        EwOntology::validate().unwrap();
     }
 }

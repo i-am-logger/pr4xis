@@ -1,5 +1,7 @@
+use pr4xis::category::Entity;
+
 /// The four Simon Says colors/buttons.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum SimonColor {
     Red,
     Blue,

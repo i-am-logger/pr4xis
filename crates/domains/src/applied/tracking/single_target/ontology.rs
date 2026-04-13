@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Target kinematic state components.
@@ -17,8 +17,8 @@ pub enum TargetStateComponent {
     TurnRate,
 }
 
-define_dense_category! {
-    pub TargetStateCategory {
+define_ontology! {
+    pub SingleTargetOntology for TargetStateCategory {
         entity: TargetStateComponent,
         relation: StateDerivative,
     }
@@ -53,13 +53,31 @@ impl Axiom for VelocityDerivesFromPosition {
     }
 }
 
-pub struct SingleTargetOntology;
-
 impl Ontology for SingleTargetOntology {
     type Cat = TargetStateCategory;
     type Qual = ComponentDimension;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(VelocityDerivesFromPosition)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<TargetStateCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        SingleTargetOntology::validate().unwrap();
     }
 }

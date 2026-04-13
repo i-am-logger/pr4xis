@@ -951,7 +951,7 @@ proptest! {
         match result {
             Ok(e) => prop_assert_eq!(e.trace().entries().len(), 1),
             Err(EngineError::Violated { engine: e, .. }) => prop_assert_eq!(e.trace().entries().len(), 1),
-            Err(_) => unreachable!(),
+            Err(e) => panic!("{e:?}"),
         }
     }
 

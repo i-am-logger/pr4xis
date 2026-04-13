@@ -11,3 +11,14 @@ members = [
 ]
 # pr4xis-wasm excluded from default workspace (needs wasm target)
 exclude = ["crates/wasm"]
+
+[workspace.lints.rust]
+dead_code = "deny"
+unused_imports = "deny"
+unused_variables = "deny"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"

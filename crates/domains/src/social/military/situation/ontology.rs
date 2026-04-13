@@ -166,10 +166,25 @@ impl Ontology for SituationOntology {
     type Cat = SituationCategory;
     type Qual = JdlLevel;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(EntityIdentificationFirst),
             Box::new(IntentRequiresRelationship),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<SituationCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        SituationOntology::validate().unwrap();
     }
 }

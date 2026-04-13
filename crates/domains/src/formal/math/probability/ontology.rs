@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
@@ -27,10 +27,10 @@ pub enum ProbabilityConcept {
     Entropy,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over probability concept entities.
-    pub ProbabilityCategory {
-        entity: ProbabilityConcept,
+    pub ProbabilityOntology for ProbabilityCategory {
+        concepts: ProbabilityConcept,
         relation: ProbabilityRelation,
     }
 }
@@ -359,21 +359,15 @@ impl Axiom for UniformMaximizesEntropy {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// The probability ontology.
-///
-/// Founded on:
-///   - Kolmogorov, A.N. (1933). *Grundbegriffe der Wahrscheinlichkeitsrechnung*
-///   - Bayes, T. (1763). "An Essay towards solving a Problem in the Doctrine of Chances"
-///   - Shannon, C.E. (1948). "A Mathematical Theory of Communication"
-///   - Mahalanobis, P.C. (1936). "On the generalized distance in statistics"
-///   - Fisher, R.A. (1925). "Theory of Statistical Estimation"
-pub struct ProbabilityOntology;
-
 impl Ontology for ProbabilityOntology {
     type Cat = ProbabilityCategory;
     type Qual = ConceptDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             // Kolmogorov axioms
             Box::new(NonNegativity),
@@ -412,4 +406,19 @@ fn canonical_distributions() -> Vec<DiscreteDistribution> {
         DiscreteDistribution::new(vec![0.1, 0.2, 0.3, 0.4]).unwrap(),
         DiscreteDistribution::new(vec![1.0]).unwrap(),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<ProbabilityCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        ProbabilityOntology::validate().unwrap();
+    }
 }

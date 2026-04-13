@@ -34,7 +34,7 @@ impl StatusCode {
             300..=399 => StatusClass::Redirection,
             400..=499 => StatusClass::ClientError,
             500..=599 => StatusClass::ServerError,
-            _ => unreachable!(),
+            code => panic!("StatusCode({code}) outside valid 100-599 range"),
         }
     }
 

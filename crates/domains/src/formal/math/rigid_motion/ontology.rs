@@ -113,13 +113,23 @@ impl Ontology for RigidMotionOntology {
     type Cat = RotationCategory;
     type Qual = crate::formal::math::rotation::ontology::ParameterCount;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(Associativity),
             Box::new(IdentityElement),
             Box::new(InverseExists),
             Box::new(CompositionConsistency),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ontology_validates() {
+        RigidMotionOntology::validate().unwrap();
     }
 }
 

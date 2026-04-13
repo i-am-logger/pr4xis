@@ -1,4 +1,4 @@
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::temporal::allen::{self};
@@ -14,10 +14,10 @@ use crate::formal::math::temporal::time_system::{self, TimeSystem};
 // Category
 // ---------------------------------------------------------------------------
 
-define_dense_category! {
+define_ontology! {
     /// The time system category.
-    pub TimeSystemCategory {
-        entity: TimeSystem,
+    pub TimeOntology for TimeSystemCategory {
+        concepts: TimeSystem,
         relation: TimeSystemConversion,
     }
 }
@@ -290,21 +290,15 @@ impl Axiom for TtTaiConversion {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// The time ontology.
-///
-/// Founded on:
-///   - Allen, J.F. (1983) "Maintaining Knowledge about Temporal Intervals"
-///   - W3C OWL-Time (2017) formal specification of temporal entities
-///   - IAU resolutions on time scales (2000, 2006)
-///   - Riley, W.J. (2008) "Handbook of Frequency Stability Analysis" (NIST SP 1065)
-///   - Allan, D.W. (1966) "Statistics of Atomic Frequency Standards"
-pub struct TimeOntology;
-
 impl Ontology for TimeOntology {
     type Cat = TimeSystemCategory;
     type Qual = HasLeapSeconds;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(TotalOrder),
             Box::new(DurationNonNegativity),
@@ -349,4 +343,19 @@ fn canonical_intervals() -> Vec<Interval> {
         Interval::new(Instant::new(3.0, s), Instant::new(10.0, s)).unwrap(),
         Interval::new(Instant::new(20.0, s), Instant::new(30.0, s)).unwrap(),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<TimeSystemCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        TimeOntology::validate().unwrap();
+    }
 }

@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::control_theory::feedback;
@@ -25,10 +25,10 @@ pub enum ControlConcept {
 // Category
 // ---------------------------------------------------------------------------
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over control theory entities.
-    pub ControlCategory {
-        entity: ControlConcept,
+    pub ControlTheoryOntology for ControlCategory {
+        concepts: ControlConcept,
         relation: ControlRelation,
     }
 }
@@ -179,23 +179,34 @@ impl Axiom for BIBOStabilityDefinition {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// The control theory ontology.
-///
-/// Founded on:
-///   - Åström & Murray (2008). *Feedback Systems*. Princeton University Press.
-///   - Ogata (2010). *Modern Control Engineering* (5th ed.).
-///   - Lyapunov, A.M. (1892). "The General Problem of the Stability of Motion."
-pub struct ControlTheoryOntology;
-
 impl Ontology for ControlTheoryOntology {
     type Cat = ControlCategory;
     type Qual = ConceptDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(NegativeFeedbackStabilizes),
             Box::new(ErrorConvergesToZero),
             Box::new(BIBOStabilityDefinition),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<ControlCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        ControlTheoryOntology::validate().unwrap();
     }
 }

@@ -1,7 +1,7 @@
 /// Physics ontology: laws of physics as entities with relationships.
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::{Axiom, Quality};
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// The fundamental laws as entities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
@@ -31,11 +31,24 @@ pub enum PhysicsLaw {
 // Category
 // ---------------------------------------------------------------------------
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over PhysicsLaw entities.
-    pub PhysicsCategory {
-        entity: PhysicsLaw,
+    pub PhysicsOntology for PhysicsCategory {
+        concepts: PhysicsLaw,
         relation: Derives,
+    }
+}
+
+impl Ontology for PhysicsOntology {
+    type Cat = PhysicsCategory;
+    type Qual = LawBranch;
+
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![Box::new(MaxwellDerivesC), Box::new(AllBranchesRepresented)]
     }
 }
 
@@ -146,5 +159,10 @@ mod tests {
             .filter(|l| branch.get(l) == Some(Branch::Mechanics))
             .collect();
         assert_eq!(mech.len(), 3);
+    }
+
+    #[test]
+    fn ontology_validates() {
+        PhysicsOntology::validate().unwrap();
     }
 }

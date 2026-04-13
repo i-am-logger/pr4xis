@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::geometry::point::Point3;
@@ -34,13 +34,13 @@ pub enum GeometricPrimitive {
 // Category
 // ---------------------------------------------------------------------------
 
-define_category! {
+define_ontology! {
     /// The Euclidean geometry category.
     ///
     /// Objects: geometric primitive types.
     /// Morphisms: geometric relations between them.
-    pub GeometryCategory {
-        entity: GeometricPrimitive,
+    pub EuclideanGeometryOntology for GeometryCategory {
+        concepts: GeometricPrimitive,
         relation: GeometricRelation,
         kind: RelationKind,
         kinds: [
@@ -477,17 +477,15 @@ impl Axiom for BetweennessSymmetry {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// The Euclidean geometry ontology.
-///
-/// Founded on Hilbert's axiom system (Grundlagen der Geometrie, 1899)
-/// with metric space axioms and vector space axioms for R³.
-pub struct EuclideanGeometryOntology;
-
 impl Ontology for EuclideanGeometryOntology {
     type Cat = GeometryCategory;
     type Qual = Dimension;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             // Metric space axioms
             Box::new(MetricNonNegativity),
@@ -569,4 +567,19 @@ fn canonical_triangles() -> Vec<Triangle> {
             Point3::new(0.0, 0.0, 3.0),
         ),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<GeometryCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        EuclideanGeometryOntology::validate().unwrap();
+    }
 }

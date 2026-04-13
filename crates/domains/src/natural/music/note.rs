@@ -47,7 +47,7 @@ impl Note {
             9 => "A",
             10 => "A#",
             11 => "B",
-            _ => unreachable!(),
+            n => panic!("pitch_class returned {n}, expected 0..=11"),
         }
     }
 

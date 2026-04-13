@@ -1,18 +1,61 @@
 use super::cube::Cube;
 use super::face::{Color, Face};
-use pr4xis::define_dense_category;
-use pr4xis::ontology::{Axiom, Quality};
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // =============================================================================
-// Category: RubikCategory (faces + rotations)
+// Category + Ontology: RubikCategory (faces + rotations)
 // =============================================================================
 
-define_dense_category! {
+define_ontology! {
     /// The Rubik category: faces are objects, rotations are morphisms.
     /// This is a thin category — one morphism per (source, target) pair.
-    pub RubikCategory {
-        entity: Face,
+    pub RubikOntology for RubikCategory {
+        concepts: Face,
         relation: FaceRotation,
+    }
+}
+
+// =============================================================================
+// Quality: FaceIndex (ordinal position of each face)
+// =============================================================================
+
+#[derive(Debug, Clone)]
+pub struct FaceIndex;
+
+impl Quality for FaceIndex {
+    type Individual = Face;
+    type Value = usize;
+
+    fn get(&self, face: &Face) -> Option<usize> {
+        Some(match face {
+            Face::U => 0,
+            Face::D => 1,
+            Face::F => 2,
+            Face::B => 3,
+            Face::L => 4,
+            Face::R => 5,
+        })
+    }
+}
+
+impl Ontology for RubikOntology {
+    type Cat = RubikCategory;
+    type Qual = FaceIndex;
+
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![
+            Box::new(CentersFixed {
+                cube: Cube::solved(),
+            }),
+            Box::new(NinePerColor {
+                cube: Cube::solved(),
+            }),
+        ]
     }
 }
 
@@ -123,5 +166,10 @@ mod tests {
         let cube = Cube::solved().apply(Move::R).apply(Move::U).apply(Move::F);
         let axiom = NinePerColor { cube };
         assert!(axiom.holds());
+    }
+
+    #[test]
+    fn ontology_validates() {
+        RubikOntology::validate().unwrap();
     }
 }

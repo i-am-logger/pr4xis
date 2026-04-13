@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
@@ -26,8 +26,8 @@ pub enum ObservationStage {
     Rejected,
 }
 
-define_dense_category! {
-    pub ObservationCategory {
+define_ontology! {
+    pub ObservationOntology for ObservationCategory {
         entity: ObservationStage,
         relation: ObservationTransition,
     }
@@ -89,16 +89,34 @@ impl Axiom for GateAcceptsMean {
     }
 }
 
-pub struct ObservationOntology;
-
 impl Ontology for ObservationOntology {
     type Cat = ObservationCategory;
     type Qual = StageDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(InnovationZeroAtPrediction),
             Box::new(GateAcceptsMean),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<ObservationCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        ObservationOntology::validate().unwrap();
     }
 }

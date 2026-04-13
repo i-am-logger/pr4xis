@@ -1,6 +1,7 @@
 use pr4xis::category::Category;
 use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use super::super::ontology::{MarkupNode, NodeKind};
 
@@ -394,5 +395,52 @@ impl pr4xis::logic::Axiom for ProperNesting {
 
     fn holds(&self) -> bool {
         true // structural — enforced by the tree representation (can't overlap in a tree)
+    }
+}
+
+/// Quality: is this XML node kind a content node (can appear inside elements)?
+#[derive(Debug, Clone)]
+pub struct IsContentNode;
+
+impl Quality for IsContentNode {
+    type Individual = XmlNodeKind;
+    type Value = ();
+
+    fn get(&self, kind: &XmlNodeKind) -> Option<()> {
+        match kind {
+            XmlNodeKind::Element
+            | XmlNodeKind::Text
+            | XmlNodeKind::CData
+            | XmlNodeKind::Comment
+            | XmlNodeKind::ProcessingInstruction => Some(()),
+            _ => None,
+        }
+    }
+}
+
+/// The XML ontology.
+pub struct XmlOntology;
+
+impl Ontology for XmlOntology {
+    type Cat = XmlCategory;
+    type Qual = IsContentNode;
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![Box::new(SingleRootElement), Box::new(ProperNesting)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<XmlCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        XmlOntology::validate().unwrap();
     }
 }

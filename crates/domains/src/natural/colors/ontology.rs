@@ -1,7 +1,7 @@
 use super::rgb::Rgb;
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
-use pr4xis::ontology::{Axiom, Quality};
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum PrimaryColor {
@@ -34,11 +34,24 @@ impl PrimaryColor {
 // Category
 // ---------------------------------------------------------------------------
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over primary color entities.
-    pub ColorCategory {
-        entity: PrimaryColor,
+    pub ColorOntology for ColorCategory {
+        concepts: PrimaryColor,
         relation: ColorMix,
+    }
+}
+
+impl Ontology for ColorOntology {
+    type Cat = ColorCategory;
+    type Qual = Luminance;
+
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+        vec![Box::new(ComplementsAddToWhite)]
     }
 }
 
@@ -118,5 +131,10 @@ mod tests {
     #[test]
     fn test_complements() {
         assert!(ComplementsAddToWhite.holds());
+    }
+
+    #[test]
+    fn ontology_validates() {
+        ColorOntology::validate().unwrap();
     }
 }

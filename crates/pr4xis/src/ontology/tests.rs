@@ -166,7 +166,7 @@ impl Ontology for TrafficLightOntology {
     type Cat = TrafficLightCat;
     type Qual = Duration;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(GreenIsLongest), Box::new(NoDeadStates)]
     }
 }

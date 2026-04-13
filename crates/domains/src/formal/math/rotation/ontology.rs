@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::rotation::dcm::Dcm;
@@ -22,10 +22,10 @@ pub enum RotationRepr {
     AxisAngle,
 }
 
-define_dense_category! {
+define_ontology! {
     /// The rotation representation category.
-    pub RotationCategory {
-        entity: RotationRepr,
+    pub RotationOntology for RotationCategory {
+        concepts: RotationRepr,
         relation: ReprConversion,
     }
 }
@@ -192,14 +192,15 @@ impl Axiom for QuaternionDcmRoundtrip {
     }
 }
 
-/// The rotation ontology — SO(3) as a praxis ontology.
-pub struct RotationOntology;
-
 impl Ontology for RotationOntology {
     type Cat = RotationCategory;
     type Qual = ParameterCount;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(UnitNormClosure),
             Box::new(Associativity),
@@ -230,4 +231,19 @@ fn canonical_rotations() -> Vec<Quaternion> {
             Quaternion::from_axis_angle([s, s, s], 2.0 * PI / 3.0)
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<RotationCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        RotationOntology::validate().unwrap();
+    }
 }

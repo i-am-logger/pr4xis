@@ -187,11 +187,27 @@ impl Ontology for MultiTargetOntology {
     type Cat = TrackLifecycleCategory;
     type Qual = TrackStateDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(DeletedIsAbsorbing),
             Box::new(TrackStartsTentative),
             Box::new(ReDetectionPossible),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<TrackLifecycleCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        MultiTargetOntology::validate().unwrap();
     }
 }

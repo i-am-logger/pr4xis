@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Spacecraft attitude determination sensors.
@@ -17,12 +17,12 @@ pub enum AttitudeSensor {
     Magnetometer,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Category for attitude sensor fusion relationships.
     ///
     /// All sensors can be fused with each other; the category is fully connected
     /// since any pair of vector observations can be combined for attitude determination.
-    pub AttitudeCategory {
+    pub AttitudeOntology for AttitudeCategory {
         entity: AttitudeSensor,
         relation: SensorFusion,
     }
@@ -77,16 +77,34 @@ impl Axiom for StarTrackerMostAccurate {
     }
 }
 
-pub struct AttitudeOntology;
-
 impl Ontology for AttitudeOntology {
     type Cat = AttitudeCategory;
     type Qual = SensorAccuracy;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(QuaternionUnitNorm),
             Box::new(StarTrackerMostAccurate),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<AttitudeCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        AttitudeOntology::validate().unwrap();
     }
 }

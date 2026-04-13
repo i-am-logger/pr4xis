@@ -224,7 +224,7 @@ mod tests {
                 Err(EngineError::Violated { engine: prev, .. }) => {
                     e = prev;
                 }
-                Err(_) => unreachable!(),
+                Err(e) => panic!("{e:?}"),
             }
         }
         assert!(count < 7);
@@ -277,7 +277,7 @@ mod tests {
                         e = next;
                     }
                     Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
-                    Err(_) => unreachable!()
+                    Err(e) => panic!("{e:?}")
                 }
             }
         }
@@ -291,7 +291,7 @@ mod tests {
                 match e.next(CrossBridge { edge_index: edge }) {
                     Ok(next) => { successes += 1; e = next; }
                     Err(EngineError::Violated { engine: prev, .. }) => { e = prev; }
-                    Err(_) => unreachable!()
+                    Err(e) => panic!("{e:?}")
                 }
             }
             prop_assert_eq!(e.situation().traversed.len(), successes);

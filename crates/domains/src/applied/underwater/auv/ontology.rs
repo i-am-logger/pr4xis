@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// AUV navigation sensor types.
@@ -17,12 +17,12 @@ pub enum AuvSensor {
     ADCP,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Category for AUV sensor fusion.
     ///
     /// All sensors can be fused in the navigation filter; the category
     /// is fully connected since measurements can be correlated.
-    pub AuvCategory {
+    pub AuvOntology for AuvCategory {
         entity: AuvSensor,
         relation: AuvSensorRelation,
     }
@@ -74,13 +74,31 @@ impl Axiom for DvlRequiresBottomLock {
     }
 }
 
-pub struct AuvOntology;
-
 impl Ontology for AuvOntology {
     type Cat = AuvCategory;
     type Qual = MeasuredQuantity;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(DepthNonNegative), Box::new(DvlRequiresBottomLock)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<AuvCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        AuvOntology::validate().unwrap();
     }
 }

@@ -168,6 +168,24 @@ impl<T: MereologyDef> crate::logic::Axiom for WeakSupplementation<T> {
 
 // ---- Algebraic structure integrations ----
 
+/// Query whole and part relationships independently using applicative.
+///
+/// The parts and wholes of two entities are independent queries —
+/// neither depends on the other's result. This is applicative, not monadic.
+///
+/// Reference: McBride & Paterson, "Applicative Programming with Effects" (2008)
+#[allow(clippy::type_complexity)]
+pub fn applicative_parts_wholes<T: MereologyDef>(
+    entity_a: &T::Entity,
+    entity_b: &T::Entity,
+) -> crate::category::Ap<crate::category::Product<Vec<T::Entity>, Vec<T::Entity>>> {
+    let parts_a = crate::category::Ap::pure(parts_of::<T>(entity_a));
+    let wholes_b = crate::category::Ap::pure(whole_of::<T>(entity_b));
+    parts_a.map2(wholes_b, |parts, wholes| {
+        crate::category::Product::new(parts, wholes)
+    })
+}
+
 /// Unfold a mereology tree from a root using anamorphism.
 ///
 /// Produces a Cofree tree where each node carries an entity

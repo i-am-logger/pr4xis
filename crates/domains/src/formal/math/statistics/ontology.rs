@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::statistics::confidence;
@@ -23,10 +23,10 @@ pub enum StatisticalConcept {
 // Category
 // ---------------------------------------------------------------------------
 
-define_dense_category! {
+define_ontology! {
     /// Discrete category over statistical concept entities.
-    pub StatisticalCategory {
-        entity: StatisticalConcept,
+    pub StatisticsOntology for StatisticalCategory {
+        concepts: StatisticalConcept,
         relation: StatisticalRelation,
     }
 }
@@ -164,23 +164,34 @@ impl Axiom for TypeITypeIITradeoff {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// The statistics ontology.
-///
-/// Founded on:
-///   - Fisher, R.A. (1925). "Theory of Statistical Estimation."
-///   - Neyman, J. & Pearson, E.S. (1933). "On the Problem of the Most Efficient Tests."
-///   - Student (Gosset) (1908). "The Probable Error of a Mean." Biometrika.
-pub struct StatisticsOntology;
-
 impl Ontology for StatisticsOntology {
     type Cat = StatisticalCategory;
     type Qual = ConceptDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(MSEDecomposition),
             Box::new(ConfidenceMonotonicity),
             Box::new(TypeITypeIITradeoff),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<StatisticalCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        StatisticsOntology::validate().unwrap();
     }
 }

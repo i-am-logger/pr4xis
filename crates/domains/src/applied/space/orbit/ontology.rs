@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Classical orbital elements (Keplerian elements).
@@ -21,12 +21,12 @@ pub enum OrbitalElement {
     TrueAnomaly,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Category for orbital element relationships.
     ///
     /// All elements are needed to fully specify an orbit; they form
     /// a complete set with cross-dependencies.
-    pub OrbitCategory {
+    pub OrbitOntology for OrbitCategory {
         entity: OrbitalElement,
         relation: ElementDependency,
     }
@@ -83,16 +83,34 @@ impl Axiom for SemiMajorAxisPositive {
     }
 }
 
-pub struct OrbitOntology;
-
 impl Ontology for OrbitOntology {
     type Cat = OrbitCategory;
     type Qual = ElementUnit;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(EccentricityBounded),
             Box::new(SemiMajorAxisPositive),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<OrbitCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        OrbitOntology::validate().unwrap();
     }
 }

@@ -8,5 +8,8 @@ license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
 
+[lints]
+workspace = true
+
 [dependencies]
 tiny_http = "0.12"

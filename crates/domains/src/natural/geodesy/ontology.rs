@@ -1,5 +1,5 @@
 use pr4xis::category::{Category, Entity, Functor};
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::natural::geodesy::conversion;
@@ -25,10 +25,10 @@ pub enum CoordinateSystem {
     ENU,
 }
 
-define_dense_category! {
+define_ontology! {
     /// The geodesy category: coordinate systems + conversions.
-    pub GeodesyCategory {
-        entity: CoordinateSystem,
+    pub GeodesyOntology for GeodesyCategory {
+        concepts: CoordinateSystem,
         relation: CoordinateConversion,
     }
 }
@@ -310,20 +310,22 @@ impl Axiom for NedEnuFunctorIdentity {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// The geodesy ontology.
-///
-/// Founded on:
-///   - NIMA TR8350.2 (2000). WGS84 specification.
-///   - Torge & Müller (2012). *Geodesy* (4th ed.).
-///   - Bowring, B.R. (1976). Geodetic ↔ ECEF conversion.
-///   - Groves (2013). Navigation coordinate frames.
-pub struct GeodesyOntology;
-
+// The geodesy ontology.
+//
+// Founded on:
+//   - NIMA TR8350.2 (2000). WGS84 specification.
+//   - Torge & Müller (2012). *Geodesy* (4th ed.).
+//   - Bowring, B.R. (1976). Geodetic ↔ ECEF conversion.
+//   - Groves (2013). Navigation coordinate frames.
 impl Ontology for GeodesyOntology {
     type Cat = GeodesyCategory;
     type Qual = ComponentCount;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(GeodeticEcefRoundtrip),
             Box::new(NedEnuRoundtrip),
@@ -359,4 +361,19 @@ fn canonical_geodetic_points() -> Vec<Geodetic> {
         // High altitude (aircraft)
         Geodetic::new(51.5_f64.to_radians(), -0.1_f64.to_radians(), 10000.0),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<GeodesyCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        GeodesyOntology::validate().unwrap();
+    }
 }

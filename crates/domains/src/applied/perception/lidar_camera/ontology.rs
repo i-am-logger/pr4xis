@@ -155,10 +155,26 @@ impl Ontology for LidarCameraOntology {
     type Cat = LidarCameraCategory;
     type Qual = StageDescription;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(ProjectionPreservesOrdering),
             Box::new(PipelineIsSequential),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<LidarCameraCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        LidarCameraOntology::validate().unwrap();
     }
 }

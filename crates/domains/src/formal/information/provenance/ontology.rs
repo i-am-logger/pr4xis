@@ -1,5 +1,6 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
+use pr4xis::ontology::{Ontology, Quality};
 
 // Provenance ontology — tracking the origin and history of knowledge.
 //
@@ -54,9 +55,9 @@ pub enum ProvenanceConcept {
     Citation,
 }
 
-define_category! {
-    pub ProvenanceCategory {
-        entity: ProvenanceConcept,
+define_ontology! {
+    pub ProvenanceOntology for ProvenanceCategory {
+        concepts: ProvenanceConcept,
         relation: ProvenanceRelation,
         kind: ProvenanceRelationKind,
         kinds: [
@@ -106,5 +107,48 @@ define_category! {
             (Branch, Repository),
             (Tag, Repository),
         ],
+    }
+}
+
+/// Whether a provenance concept is from the W3C PROV-O core (vs. extension).
+#[derive(Debug, Clone)]
+pub struct IsProvOCore;
+
+impl Quality for IsProvOCore {
+    type Individual = ProvenanceConcept;
+    type Value = bool;
+
+    fn get(&self, individual: &ProvenanceConcept) -> Option<bool> {
+        match individual {
+            ProvenanceConcept::Artifact => Some(true),
+            ProvenanceConcept::Activity => Some(true),
+            ProvenanceConcept::Agent => Some(true),
+            _ => Some(false),
+        }
+    }
+}
+
+impl Ontology for ProvenanceOntology {
+    type Cat = ProvenanceCategory;
+    type Qual = IsProvOCore;
+
+    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        Self::generated_structural_axioms()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::validate::check_category_laws;
+
+    #[test]
+    fn category_laws() {
+        check_category_laws::<ProvenanceCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        ProvenanceOntology::validate().unwrap();
     }
 }

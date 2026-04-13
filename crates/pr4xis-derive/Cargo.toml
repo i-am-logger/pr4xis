@@ -5,9 +5,14 @@ edition = "2024"
 authors = ["i-am-logger"]
 description = "Derive macros for pr4xis ontology traits"
 license = "CC-BY-NC-SA-4.0"
+repository = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://github.com/i-am-logger/pr4xis"
 
 [lib]
 proc-macro = true
+
+[lints]
+workspace = true
 
 [dependencies]
 syn = { version = "2", features = ["full"] }

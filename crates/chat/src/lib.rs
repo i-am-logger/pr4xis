@@ -1,3 +1,4 @@
+use pr4xis::category::{Ap, Monoid, NonEmpty, Product};
 use pr4xis::ontology::upper::being::Being;
 use pr4xis_domains::cognitive::cognition::epistemics;
 use pr4xis_domains::cognitive::linguistics::english::English;
@@ -7,7 +8,7 @@ use pr4xis_domains::cognitive::linguistics::lambek::{
 use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 use pr4xis_domains::formal::information::diagnostics::trace_functors::{
-    PipelineStep, PipelineTrace,
+    PipelineStep, PipelineTrace, TracedPipeline,
 };
 use pr4xis_domains::formal::information::diagnostics::trace_impls;
 use pr4xis_domains::formal::information::knowledge::{
@@ -71,9 +72,14 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
         };
     }
 
+    // Convert to NonEmpty — we've proven tokens is non-empty above.
+    // NonEmpty<T> is a semigroup under concatenation (no identity needed).
+    // This makes it impossible to accidentally lose the non-empty guarantee.
+    let ne_tokens = NonEmpty::of(tokens[0].clone(), tokens[1..].to_vec());
+
     // Step 2: Parse through Lambek grammar
-    let words: Vec<String> = tokens.iter().map(|t| t.word.clone()).collect();
-    let type_sets: Vec<Vec<_>> = tokens
+    let words: Vec<String> = ne_tokens.iter().map(|t| t.word.clone()).collect();
+    let type_sets: Vec<Vec<_>> = ne_tokens
         .iter()
         .enumerate()
         .map(|(i, t)| {
@@ -95,7 +101,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     trace.trace_result(&reduction);
 
     // Step 3: Interpret through Montague semantics
-    let montague_tokens = if parsed && reduction.remaining.len() == tokens.len() {
+    let montague_tokens = if parsed && reduction.remaining.len() == ne_tokens.len() {
         &reduction.remaining
     } else {
         &tokens
@@ -145,13 +151,19 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     // Apply the trace functor to the response result
     trace.trace_result(&response_result);
 
-    // Step 7: Realization trace
-    trace.record(
-        PipelineStep::Realization,
-        &format!("{} chars generated", response_result.response.len()),
-        true,
+    // Step 7: Realization trace — compose using Monoid::combine.
+    // The response trace is a TracedPipeline<String> = Writer<PipelineTrace, String>.
+    // We extract its trace and combine it with the main pipeline trace via the monoid.
+    let realization_trace: TracedPipeline<String> = pr4xis::category::Writer::new(
+        response_result.response.clone(),
+        PipelineTrace::single(
+            PipelineStep::Realization,
+            &format!("{} chars generated", response_result.response.len()),
+            true,
+        ),
     );
-    let response = response_result.response;
+    trace = trace.combine(&realization_trace.log);
+    let response = realization_trace.value;
     let from_ontology = response_result.from_ontology;
 
     let duration_us = start.elapsed_us();
@@ -264,8 +276,17 @@ pub fn answer_question(
         let child = &entities[0];
         let parent = &entities[1];
 
-        let child_ids = en.lookup(child);
-        let parent_ids = en.lookup(parent);
+        // Applicative: child and parent lookups are independent computations.
+        // Using Ap::map2 makes this independence explicit — neither lookup
+        // depends on the other's result.
+        // Reference: McBride & Paterson, "Applicative Programming with Effects" (2008)
+        let lookups = Ap::pure(en.lookup(child).to_vec())
+            .map2(Ap::pure(en.lookup(parent).to_vec()), |c, p| {
+                Product::new(c, p)
+            });
+
+        let child_ids = &lookups.value.left;
+        let parent_ids = &lookups.value.right;
 
         if !child_ids.is_empty() && !parent_ids.is_empty() {
             for &cid in child_ids {
@@ -718,6 +739,80 @@ mod tests {
         // Use sample data for unit tests (fast, no WordNet needed)
         English::sample()
     }
+
+    // --- Algebraic structure integration tests ---
+
+    #[test]
+    fn pipeline_trace_is_monoid() {
+        // PipelineTrace forms a monoid under concatenation.
+        // This enables Writer<PipelineTrace, A> — the pipeline IS a writer monad.
+        let empty = PipelineTrace::empty();
+        let t1 = PipelineTrace::single(PipelineStep::Tokenize, "5 tokens", true);
+        let t2 = PipelineTrace::single(PipelineStep::Parse, "success", true);
+
+        // Left identity: empty ++ t = t
+        assert_eq!(empty.combine(&t1).entries.len(), 1);
+        // Right identity: t ++ empty = t
+        assert_eq!(t1.combine(&empty).entries.len(), 1);
+        // Associativity
+        let t3 = PipelineTrace::single(PipelineStep::Interpret, "question", true);
+        assert_eq!(
+            t1.combine(&t2).combine(&t3).entries.len(),
+            t1.combine(&t2.combine(&t3)).entries.len()
+        );
+    }
+
+    #[test]
+    fn traced_pipeline_is_writer_monad() {
+        // TracedPipeline<A> = Writer<PipelineTrace, A>
+        // Monadic bind composes pipeline steps and accumulates trace.
+        let step1: TracedPipeline<usize> = pr4xis::category::Writer::new(
+            5,
+            PipelineTrace::single(PipelineStep::Tokenize, "5 tokens", true),
+        );
+
+        let result = step1
+            .bind(|count| {
+                pr4xis::category::Writer::new(
+                    count > 0,
+                    PipelineTrace::single(PipelineStep::Parse, "parsed", true),
+                )
+            })
+            .bind(|parsed| {
+                let msg = if parsed { "question" } else { "unknown" };
+                pr4xis::category::Writer::new(
+                    msg,
+                    PipelineTrace::single(PipelineStep::Interpret, msg, parsed),
+                )
+            });
+
+        assert_eq!(result.value, "question");
+        assert_eq!(result.log.entries.len(), 3);
+        // Trace accumulated through bind — no manual trace.record() needed
+    }
+
+    #[test]
+    fn applicative_combines_independent_lookups() {
+        // Ap::map2 combines independent lookups (child + parent).
+        // This is applicative, not monadic — neither depends on the other.
+        let child_ids = Ap::pure(vec![1, 2]);
+        let parent_ids = Ap::pure(vec![3, 4, 5]);
+        let combined = child_ids.map2(parent_ids, |c, p| Product::new(c, p));
+        assert_eq!(combined.value.left.len(), 2);
+        assert_eq!(combined.value.right.len(), 3);
+    }
+
+    #[test]
+    fn nonempty_tokens_guarantee() {
+        // After empty check, tokens form a NonEmpty — guaranteed at least one.
+        // NonEmpty is a semigroup (can combine without needing identity).
+        let en = sample_english();
+        let result = process_with_metadata(&en, "dog");
+        assert!(result.token_count > 0);
+        // The pipeline used NonEmpty internally after the empty check
+    }
+
+    // --- Pipeline tests ---
 
     #[test]
     fn process_taxonomy_question() {

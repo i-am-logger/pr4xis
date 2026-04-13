@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Structural health monitoring sensor types.
@@ -15,11 +15,11 @@ pub enum StructuralSensor {
     CrackSensor,
 }
 
-define_dense_category! {
+define_ontology! {
     /// Category for structural sensor fusion.
     ///
     /// All sensors contribute to damage assessment; the category is fully connected.
-    pub StructuralCategory {
+    pub StructuralOntology for StructuralCategory {
         entity: StructuralSensor,
         relation: StructuralRelation,
     }
@@ -76,13 +76,31 @@ impl Axiom for CrackMonotonicity {
     }
 }
 
-pub struct StructuralOntology;
-
 impl Ontology for StructuralOntology {
     type Cat = StructuralCategory;
     type Qual = SensorMeasurand;
 
-    fn axioms() -> Vec<Box<dyn Axiom>> {
+    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
+        Self::generated_structural_axioms()
+    }
+
+    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(StrainBoundedElastic), Box::new(CrackMonotonicity)]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::ontology::Ontology;
+
+    #[test]
+    fn category_laws() {
+        pr4xis::category::validate::check_category_laws::<StructuralCategory>().unwrap();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        StructuralOntology::validate().unwrap();
     }
 }

@@ -5,6 +5,8 @@ edition = "2024"
 authors = ["i-am-logger"]
 description = "Praxis chatbot CLI — axiomatic intelligence via ontology"
 license = "CC-BY-NC-SA-4.0"
+repository = "https://github.com/i-am-logger/pr4xis"
+homepage = "https://github.com/i-am-logger/pr4xis"
 
 [[bin]]
 name = "pr4xis"
@@ -14,6 +16,9 @@ path = "src/main.rs"
 pr4xis = { version = "0.6.0", path = "../pr4xis" }
 pr4xis-chat = { version = "0.3.0", path = "../chat" }
 pr4xis-domains = { version = "0.7.0", path = "../domains" }
+
+[lints]
+workspace = true
 
 [build-dependencies]
 pr4xis = { version = "0.6.0", path = "../pr4xis", features = ["codegen"] }
