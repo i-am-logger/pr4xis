@@ -96,7 +96,7 @@ fn dolce_has_event_part_of_process() {
 }
 
 // =============================================================================
-// Praxis meta-category tests
+// Own meta-category tests
 // =============================================================================
 
 #[test]
@@ -105,7 +105,7 @@ fn own_meta_category_laws() {
 }
 
 #[test]
-fn praxis_has_7_types() {
+fn own_has_7_types() {
     assert_eq!(OwnType::variants().len(), 7);
 }
 
@@ -147,8 +147,8 @@ fn functor_maps_quality_to_quality() {
 #[test]
 fn functor_preserves_identity() {
     for t in OwnType::variants() {
-        let praxis_id = OwnMetaCategory::identity(&t);
-        let mapped = OwnToDolce::map_morphism(&praxis_id);
+        let own_id = OwnMetaCategory::identity(&t);
+        let mapped = OwnToDolce::map_morphism(&own_id);
         let dolce_id = DolceCategory::identity(&OwnToDolce::map_object(&t));
         assert_eq!(mapped, dolce_id, "identity not preserved for {:?}", t);
     }
@@ -197,7 +197,7 @@ mod prop {
             prop_assert_eq!(count, 1);
         }
 
-        /// Functor maps every praxis type to a valid Being.
+        /// Functor maps every OwnType to a valid Being.
         #[test]
         fn prop_functor_maps_to_valid_being(t in arb_own_type()) {
             let being = OwnToDolce::map_object(&t);
@@ -207,8 +207,8 @@ mod prop {
         /// Functor preserves identity for all types.
         #[test]
         fn prop_functor_preserves_identity(t in arb_own_type()) {
-            let praxis_id = OwnMetaCategory::identity(&t);
-            let mapped = OwnToDolce::map_morphism(&praxis_id);
+            let own_id = OwnMetaCategory::identity(&t);
+            let mapped = OwnToDolce::map_morphism(&own_id);
             let dolce_id = DolceCategory::identity(&OwnToDolce::map_object(&t));
             prop_assert_eq!(mapped, dolce_id);
         }

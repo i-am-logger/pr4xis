@@ -374,7 +374,7 @@ The formal structure of a language's word inventory. A lexicon is not a list —
 **Key references:**
 - Pustejovsky, *The Generative Lexicon* (Computational Linguistics, 1991) — structured lexical entries- Jackendoff, *Foundations of Language* (2002) — the Parallel Architecture; the mental lexicon
 - OntoLex-Lemon, *W3C Community Report* (2016) — lexicon-ontology bridge in RDF/OWL
-- OntoLex-Lemon as bridge for WordNets (GWC 2019) — PDF in docs/papers/
+- OntoLex-Lemon as bridge for WordNets (GWC 2019)
 - ISO 24613 (LMF), *Lexical Markup Framework* (2019/2024) — international standard
 - Farrar & Langendoen, *GOLD: General Ontology for Linguistic Description* (2003)
 

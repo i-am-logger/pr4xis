@@ -5,7 +5,7 @@ use crate::category::{Category, Functor};
 use super::being::Being;
 use super::category::{DolceCategory, OntologicalRelation, RelationKind};
 
-/// The own meta-category: our current type system modeled as a category.
+/// The workspace's own meta-category: our current type system modeled as a category.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OwnType {
     Entity,
@@ -31,7 +31,7 @@ impl Entity for OwnType {
     }
 }
 
-/// Relationships between own types.
+/// Relationships between our own types.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OwnRelation {
     pub from: OwnType,
@@ -49,7 +49,7 @@ impl Relationship for OwnRelation {
     }
 }
 
-/// The own meta-category.
+/// The workspace's own meta-category.
 pub struct OwnMetaCategory;
 
 impl Category for OwnMetaCategory {
