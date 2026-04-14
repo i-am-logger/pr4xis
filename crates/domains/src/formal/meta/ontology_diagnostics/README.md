@@ -101,11 +101,11 @@ graph LR
 | ContextResolution | Moderate (40-80%) | Moderate collapse, add disambiguating context |
 | IntermediateDomain | High (>80%) | Severe collapse, domains too far apart in granularity |
 
-## Novel Contributions
+## Methodological ideas encoded
 
-This meta-ontology encodes several novel methodological ideas:
+This meta-ontology encodes several methodological ideas:
 
-1. **Adjunction-based gap detection**: using unit/counit deviation from identity to find missing ontological distinctions automatically
+1. **Adjunction-based gap detection**: using unit/counit deviation from identity to find missing ontological distinctions
 2. **ContextDef resolution**: resolving detected gaps without breaking existing functors
 3. **Loss ratio quantification**: measuring information loss as a fraction of collapsing entities
 4. **The meta-ontology itself**: formalizing the methodology as a domain subject to the same verification

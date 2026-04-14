@@ -1,6 +1,6 @@
-# Novel Contributions — Draft Papers
+# Draft Papers
 
-Original research on ontological structure, gap detection, and machine-checkable scientific knowledge representation. All three papers are **drafts**, intended for publication. Every numerical claim in every paper is paired with a `cargo test` command that re-derives it from the live codebase — see the "Code & Verification" section at the end of each paper.
+Drafts on ontological structure, gap detection, and machine-checkable scientific knowledge representation. Every numerical claim in every paper is paired with a `cargo test` command that re-derives it from the live codebase — see the "Code & Verification" section at the end of each paper.
 
 | # | Paper | Focus |
 |---|-------|---|
@@ -25,11 +25,11 @@ For the per-claim test index, see the "Code & Verification" section at the botto
 
 ## Status
 
-- **Paper 1** — first complete draft. Awaits literature-review pass and one final scan for stale subset counts. Target: submit Q3 2026.
-- **Paper 2** — first complete draft. Awaits the methodology generalization section to be fleshed out with at least one non-biomedical adjunction example.
-- **Paper 3** — first complete draft. Awaits the threshold-validation section to be expanded once more adjunctions are measured (currently 3; ideally 5+).
+- **Paper 1** — draft. Awaits a literature-review pass and one scan for stale subset counts.
+- **Paper 2** — draft. Awaits the methodology generalization section to be fleshed out with at least one non-biomedical adjunction example.
+- **Paper 3** — draft. Awaits the threshold-validation section to be expanded once more adjunctions are measured (currently 3).
 
-A fourth paper on the syntrometric logic lineage (the structural alignment with Heim's syntrometry, formalized as a pr4xis ontology with a verified functor) is tracked in [#62](https://github.com/i-am-logger/pr4xis/issues/62) — not yet drafted, will become Paper 4 in this directory once #62 lands.
+A fourth draft on the syntrometric logic lineage (the structural alignment with Heim's syntrometry, formalized as a pr4xis ontology with a verified functor) is tracked in [#62](https://github.com/i-am-logger/pr4xis/issues/62) — not yet drafted, will land in this directory once #62 lands.
 
 ## Related
 
