@@ -57,9 +57,15 @@ stateDiagram-v2
 
 A new `next()` after `back()` clears the redo stack and starts a new branch from that point. Verified by `cargo test -p pr4xis test_back_forward_roundtrip` and `cargo test -p pr4xis test_next_after_back_clears_future`.
 
-### `pr4xis::codegen` — build-time generation
+### `pr4xis::codegen` — declarative ontology data delivery
 
-Depends on ontology. Compiles declarative ontology specs into Rust at build time, eliminating runtime XML parsing and large startup costs. The reference instance is `codegen::wordnet`, which converts the WordNet XML dictionary into a compiled English ontology of ~107K concepts that the chat demo loads as static data. The codegen layer is what makes the [WASM browser demo](https://pr4xis.dev) viable — the browser never has to parse 100K WordNet entries at startup.
+Depends on ontology. The mechanism for getting authoritative ontology data into the runtime. The layer name is `codegen` after the build-time path, but **codegen is one of several delivery options** — all of them are functors from the same `OntologyBuilder` source category, with categorical equivalence proven so that the choice between them is operational rather than semantic.
+
+- **Build-time codegen** — the reference instance is `codegen::wordnet`, which converts the WordNet XML dictionary into a compiled English ontology of ~107K concepts emitted as static Rust. This is the path the WASM browser demo uses, so the browser never has to parse 100K WordNet entries at startup.
+- **Runtime async loading** — load ontology data from a file or stream asynchronously at runtime, materializing the same `OntologyBuilder` structure the codegen path produces.
+- **Memory-mapped files** — mmap a precomputed ontology binary directly into memory, getting the data without parsing or copying.
+
+All three produce the same ontology because each is a verified functor from the same source. The choice depends on deployment: build-time codegen for static binaries, async loading for hot reloading or for ontologies too large to embed, mmap for very large ontologies that need to share memory across processes.
 
 ## The Ontology trait
 

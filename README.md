@@ -14,9 +14,25 @@ pr4xis is **axiomatic intelligence** — the inverse of statistical AI. Where LL
 
 The substrate is the point. Scientific [ontologies](https://en.wikipedia.org/wiki/Ontology_(information_science)) already exist — [WordNet](https://wordnet.princeton.edu/) for language, [BioPortal](https://bioportal.bioontology.org/) for biomedicine, the [Gene Ontology](https://geneontology.org/), [DOLCE](https://www.loa.istc.cnr.it/dolce/overview.html) as an upper layer, hundreds more. They have been accumulating for decades. What does not exist is a way to **compose** them with proof: to take two ontologies built by two different research communities and verify that the structure of one maps faithfully into the other. pr4xis is that missing substrate. Ontologies are categories, the maps between them are functors, the functors are checked at compile and test time, and the verification holds across one or one hundred composed domains.
 
-## Mathematical roots
+## Try it now
 
-pr4xis shares structural DNA with the modernized syntrometric logic tradition (Heim 1980, reformulated categorically in 2025): both treat domains as categories with structure-preserving functors between them, use Kripke-style aspect-relative semantics, ground part/whole reasoning in classical extensional mereology, and model self-reference as a natural transformation. To our knowledge, pr4xis is the first executable, test-verified instance of this categorical reading. It does not adopt Heim's physical-metaphysical claims.
+The pr4xis workspace runs as a live web demo at **[pr4xis.dev](https://pr4xis.dev)** — entirely in the browser via WebAssembly, no server, no GPU, no API key. The demo loads the English ontology (WordNet, ~107K concepts) at startup and runs the full linguistics pipeline — tokenization, [Lambek pregroup parsing](https://en.wikipedia.org/wiki/Pregroup_grammar), [Montague semantics](https://en.wikipedia.org/wiki/Montague_grammar), taxonomy traversal, response generation — on a single browser thread.
+
+It is a working surface, not a polished product. Some queries return responses that are technically correct but not yet rendered in human-readable form; some queries hit grammar gaps that the system cannot currently parse. These are tracked as open issues, not papered over. If you find a query that breaks, [file an issue](https://github.com/i-am-logger/pr4xis/issues) — broken queries are bug reports, not user error.
+
+## A concrete result you can verify
+
+A pr4xis [adjunction](https://en.wikipedia.org/wiki/Adjoint_functors) automatically detected that the molecular biology ontology had collapsed two functionally distinct roles of voltage-gated potassium channels (Kv) into a single entity. Categorical math surfaced the gap; a `ContextDef` resolution disambiguated the two roles; the gap closed. **85.2%** of molecular entities collapse in the Molecular ⊣ Bioelectric round-trip — every collapse is a missing distinction the math detected.
+
+Re-derive this in 5 seconds:
+
+```
+cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture
+```
+
+Full story, all percentages, the Kv discovery in detail: [Gap Detection in Scientific Ontologies](docs/research/gap-detection.md).
+
+## The name
 
 The name comes from Aristotle's three kinds of knowledge: **episteme** (knowing how things are), **techne** (knowing how to make things), and **praxis** — the doing itself, done well. pr4xis is the doing: a system that *does* the right thing, and can *prove* it.
 
@@ -24,6 +40,8 @@ The name comes from Aristotle's three kinds of knowledge: **episteme** (knowing 
 > — Conant & Ashby (1970)
 
 The Good Regulator Theorem is the cybernetic justification for the entire architecture: any system that effectively controls another system must contain a model of that system. In pr4xis, the ontology *is* the model. This is why "domain knowledge lives in composable ontologies, not in mechanical processing logic" is not an aesthetic preference — it is the only architecture that satisfies the theorem.
+
+pr4xis sits in a sixty-year intellectual lineage that runs from G. Spencer-Brown's *Laws of Form* (1969) through Burkhard Heim's syntrometric logic to contemporary applied category theory. The mathematics is covered in [Foundations](docs/understand/foundations.md); investors and engineers should not need it to evaluate the project.
 
 ## The problem
 
@@ -33,7 +51,7 @@ Two failures in current AI infrastructure point at the same gap.
 
 **Scientific ontologies do not compose.** Hundreds of formal ontologies exist across science — WordNet, BioPortal, the Gene Ontology, DOLCE, the dozens of OBO Foundry ontologies, Cyc, SUMO. They are rich, well-curated, and almost entirely siloed. There is no executable substrate that lets you take WordNet's lexical taxonomy, compose it with a biomedical mereology, and verify that the composition preserves both structures. Building such a substrate has been a research goal for sixty years and an engineering reality for none of them.
 
-pr4xis fills the second gap, which lets it solve the first.
+pr4xis is that substrate. The workspace today contains 106 ontologies authored directly in pr4xis — WordNet integrated via codegen, plus a biomedical stack (biology, molecular, bioelectricity, biochemistry, immunology, pharmacology, pathology, mechanobiology, and more), sensor fusion, navigation, linguistics, formal mathematics, music, colors, and dozens of others — composed through 61 verified functors. **Many more ontologies are still to be added.** The bigger opportunity, and the bigger reason pr4xis exists, is integration with the existing accumulated work: importing BioPortal, the Gene Ontology, OBO Foundry, DOLCE, and the rest as composable categories alongside what's already here. The substrate makes that integration machine-checkable instead of merely hopeful.
 
 ## What pr4xis is
 
@@ -43,7 +61,7 @@ A five-layer stack written in Rust:
 2. **category** — entities, relationships, categories, morphisms, functors, natural transformations, with category laws verified at test time
 3. **ontology** — categories of concepts plus reasoning systems for taxonomy, mereology, causation, opposition, and a trait that ties them together
 4. **engine** — runtime enforcement: situations, actions, preconditions, traces, undo and redo
-5. **codegen** — build-time generation of ontologies from declarative source
+5. **codegen** — declarative ontology data delivery. Several mechanisms are supported and treated as functors from the same `OntologyBuilder` source: build-time generation that emits static Rust (the path the WASM browser demo uses for WordNet), runtime async loading from a file or stream, and memory-mapped binary files. The choice between them is operational (footprint, startup time, deployment constraints), not semantic — categorical equivalence is proven, so all three produce the same ontology.
 
 Every domain is an ontology; every ontology is a category; every cross-domain claim is a functor whose laws are verified by tests. The contrast with statistical AI is not philosophical — it is a row-by-row substitution:
 
@@ -76,30 +94,7 @@ Every number in this section is paired with the exact command that re-derives it
 | Crates in the workspace | **8** | `ls crates/` → `chat`, `cli`, `domains`, `examples`, `pr4xis` (core), `pr4xis-derive` (proc macros), `wasm`, `web` |
 | Architecture layers | **5** | logic → category → ontology → engine → codegen — top-level modules under `crates/pr4xis/src/` |
 
-The pr4xis workspace also runs as a live web demo at [pr4xis.dev](https://pr4xis.dev), entirely in the browser via WebAssembly — no server, no GPU, no API key. The demo loads the English ontology (WordNet) at startup and runs the full linguistics pipeline — tokenization, [Lambek pregroup parsing](https://en.wikipedia.org/wiki/Pregroup_grammar), [Montague semantics](https://en.wikipedia.org/wiki/Montague_grammar), taxonomy traversal, response generation — on a single browser thread.
-
-It is a working surface, not a polished product. Some queries return responses that are technically correct but not yet rendered in human-readable form; some queries hit grammar gaps that the system cannot currently parse. These are tracked as open issues, not papered over.
-
-The codebase uses [property-based testing](https://en.wikipedia.org/wiki/Software_testing#Property_testing) extensively: invariants are expressed as properties that must hold for all generated inputs, not just hand-picked examples.
-
-### A concrete result: gap detection in biomedical ontologies
-
-The substrate's most distinctive capability is **automated detection of missing distinctions** in scientific ontologies via categorical [adjunctions](https://en.wikipedia.org/wiki/Adjoint_functors). We have run this analysis end-to-end on the biomedical stack and the numbers are concrete, current, and re-derivable from a single command.
-
-```
-cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture
-```
-
-The command produces this output (abridged):
-
-| Adjunction | Round-trip unit loss | What the loss means |
-|---|---|---|
-| Molecular ⊣ Bioelectric | **85.2%** | 85.2% of molecular entities lose their identity when round-tripped through the bioelectric layer — each collapsed entity is a missing distinction the math detected automatically |
-| Biology ⊣ Bioelectric | **82.6%** | 82.6% of biological entities collapse the same way at the bioelectric scale |
-| Pharmacology ⊣ Molecular | **68.0%** | 68.0% of pharmacological entities collapse at the molecular scale |
-| End-to-end (acoustics → biophysics → molecular → bioelectricity) | **92.3%** | 26 acoustic concepts compress to **2** distinct bioelectric concepts across four domains — each domain is a lossy compression of the one below it, quantified categorically for what we believe is the first time |
-
-The most striking single discovery: voltage-gated potassium channels (Kv) serve two functionally different roles — homeostatic and therapeutic — that the molecular ontology had collapsed into one entity. The adjunction surfaced this gap; a `ContextDef` resolution disambiguated the two roles; the gap closed. This specific case is verified by `cargo test -p pr4xis-domains test_kv_gap_is_resolved_by_context`.
+The codebase uses [property-based testing](https://en.wikipedia.org/wiki/Software_testing#Property_testing) extensively: invariants are expressed as properties that must hold for all generated inputs, not just hand-picked examples. The full gap-detection story (the bioelectricity adjunctions, the Kv discovery, the per-adjunction collapse percentages) lives at [Gap Detection in Scientific Ontologies](docs/research/gap-detection.md).
 
 ## Quick start
 
