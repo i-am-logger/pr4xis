@@ -41,7 +41,7 @@ pr4xis solves both. It runs on formal scientific knowledge humans have already a
 |   | LLMs | pr4xis |
 |---|---|---|
 | **How it knows** | Learned from training data | Derived from accepted axioms |
-| **Correctness** | Probable | Provable |
+| **Correctness** | Approximate — best guess from training patterns | Proven — every claim verified by math |
 | **Hallucination** | Inherent — no ground truth | Impossible — every claim traces to a proof |
 | **Determinism** | Stochastic — depends on temperature and seed | Absolute — same input, same proof, every time |
 | **Traceability** | Opaque — billions of weights, no audit trail | Full proof path from conclusion back to its axioms |
