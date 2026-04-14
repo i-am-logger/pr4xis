@@ -20,6 +20,11 @@ pr4xis shares structural DNA with the modernized syntrometric logic tradition (H
 
 The name comes from Aristotle's three kinds of knowledge: **episteme** (knowing how things are), **techne** (knowing how to make things), and **praxis** — the doing itself, done well. pr4xis is the doing: a system that *does* the right thing, and can *prove* it.
 
+> "Every good regulator of a system must be a model of that system."
+> — Conant & Ashby (1970)
+
+The Good Regulator Theorem is the cybernetic justification for the entire architecture: any system that effectively controls another system must contain a model of that system. In pr4xis, the ontology *is* the model. This is why "domain knowledge lives in composable ontologies, not in mechanical processing logic" is not an aesthetic preference — it is the only architecture that satisfies the theorem.
+
 ## The problem
 
 Two failures in current AI infrastructure point at the same gap.
@@ -146,11 +151,12 @@ The same `Engine` pattern works for any domain: traffic signals, elevator dispat
 
 Foreclosing the obvious hostile readings.
 
-- **Not an LLM replacement.** pr4xis does not generate creative text, complete code, or carry on small talk. It answers questions whose answers are derivable from its loaded ontologies, and tells you when they are not.
 - **Not a knowledge graph database.** Knowledge graphs store facts; pr4xis proves theorems. The reasoning systems verify that the stored structure satisfies category laws and the relevant axioms (no cycles in taxonomies, antisymmetric is-a relations, weak supplementation in mereologies, and so on).
 - **Not a theorem prover for pure mathematics.** Coq, Lean, and Agda do this and do it well. pr4xis is a substrate for *applied* domain knowledge — an executable place to put scientific ontologies that already exist, with categorical machinery doing the cross-domain bookkeeping.
 - **Not a magic ontology generator.** Humans still author ontologies, with assistive tooling planned. The substrate verifies the structure; it does not invent the content.
 - **Not Heim's physics-of-everything.** The lineage section above acknowledges intellectual debt to the modernized syntrometric logic tradition. It does not endorse Heim's twelve-dimensional spacetime, particle mass formulas, or teleological cosmology.
+
+(pr4xis *is* a new way to do AI — see the opening and the comparison table above. It is not a complement to statistical AI; it is the alternative for tasks where accuracy and verifiability matter. Any framing that suggests otherwise is wrong.)
 
 ## Where this matters
 
@@ -184,15 +190,18 @@ Open issues, particularly the in-progress docs reorg and per-ontology authoring 
 
 ## Documentation
 
-| Document | What it covers |
-|---|---|
-| [Foundations](docs/foundations.md) | Academic lineage — every ontology traced to its source paper |
-| [Architecture](docs/architecture.md) | The five-layer stack: logic, category, ontology, engine, codegen |
-| [Concepts](docs/concepts.md) | What ontologies are and how they compose via functors |
-| [Domains](docs/domain-crates.md) | Catalog of available domains |
-| [Investor brief](docs/praxis_investment_brief.md) | The same content as this README, framed for investors |
+The docs tree follows a [Diátaxis](https://diataxis.fr/)-inspired layout: each section serves a different reader intent.
 
-Note: the docs tree is currently being reorganized. Some docs above contain stale claims that are being audited and updated. Track the reorg in [issue #55](https://github.com/i-am-logger/pr4xis/issues/55).
+| Section | What it covers |
+|---|---|
+| [Architecture](docs/understand/architecture.md) | The five-layer Rust stack: logic → category → ontology → engine → codegen |
+| [Concepts](docs/understand/concepts.md) | What ontologies are, why category theory, how functors and adjunctions work |
+| [Foundations](docs/understand/foundations.md) | Academic lineage — every ontology traced to its source paper, plus the Spencer-Brown / Heim distinction-calculus tradition |
+| [Domain catalog](docs/reference/domain-catalog.md) | The current organization of the 106 ontologies (canonical source: the codebase itself) |
+| [Paper outline](docs/research/paper-outline.md) | Draft outline for the architecture paper |
+| [Investor brief](docs/praxis_investment_brief.md) | Now a redirect to this README — the README serves all audiences |
+
+The reorganization is partial: `docs/why/`, `docs/learn/`, and `docs/use/` are scaffolded but not yet populated. Track progress in [issue #55](https://github.com/i-am-logger/pr4xis/issues/55).
 
 ## License
 
