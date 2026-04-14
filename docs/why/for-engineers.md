@@ -44,7 +44,7 @@ The composition patterns:
    cd pr4xis
    cargo test --workspace
    ```
-2. Open one of the existing ontologies (`crates/domains/src/social/games/chess/ontology.rs` is a good starter — small, illustrative). Notice that it's a single `define_ontology!` block.
+2. Open one of the existing ontologies (`crates/domains/src/social/judicial/ontology.rs` is a good starter — lifecycle of a legal case modeled as a kinded relation graph). Notice that it's a single `define_ontology!` block.
 3. Run the WASM demo: [pr4xis.dev](https://pr4xis.dev). Try a few queries. File issues on the ones that break.
 4. If your domain isn't covered: [build your own ontology from a paper](../use/build-ontology-from-paper.md).
 
