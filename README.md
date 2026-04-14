@@ -10,11 +10,9 @@
 
 # pr4xis — Axiomatic Intelligence
 
-> **pr4xis is the inverse of statistical AI.** Every answer traces back to a published axiom. Nothing is guessed. Same input, same proof, every time.
+**pr4xis is a new kind of AI: axiomatic, not statistical.** LLMs predict the next token from training data. pr4xis derives the next claim from accepted axioms — the same way mathematicians prove theorems. Same input, same proof, every time. When it doesn't know, it says so. When it's wrong, the failed axiom is named.
 
-Hundreds of formal knowledge bases already exist — [WordNet](https://wordnet.princeton.edu/), [BioPortal](https://bioportal.bioontology.org/), the [Gene Ontology](https://geneontology.org/), [DOLCE](https://www.loa.istc.cnr.it/dolce/overview.html), and many more. Each is years of careful curation by domain experts. **They are almost entirely unable to talk to each other.**
-
-pr4xis is the engineering substrate that makes them combinable, with mathematical proof that every connection is sound. When pr4xis says a fact from one domain supports a claim in another, it is a proof, not a guess — and you can ask which axiom that proof rests on.
+Its axioms are not invented. They come from the formal scientific knowledge humans have already accumulated — [WordNet](https://wordnet.princeton.edu/) for language, [BioPortal](https://bioportal.bioontology.org/) for biomedicine, the [Gene Ontology](https://geneontology.org/), [DOLCE](https://www.loa.istc.cnr.it/dolce/overview.html) as a foundational layer, plus the 106 domain ontologies pr4xis has built on top. Each is years of careful work by domain experts. pr4xis is the engineering substrate that makes them work together with mathematical proof that every connection is sound — so the AI inherits, on day one, the rigor of every published source it stands on.
 
 ## A concrete result you can verify
 
