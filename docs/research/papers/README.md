@@ -2,11 +2,11 @@
 
 Original research on ontological structure, gap detection, and machine-checkable scientific knowledge representation. All three papers are **drafts**, intended for publication. Every numerical claim in every paper is paired with a `cargo test` command that re-derives it from the live codebase — see the "Code & Verification" section at the end of each paper.
 
-| # | Paper | Target venue | Focus |
-|---|-------|---|---|
-| 1 | [Categorical Bioelectricity](01-categorical-bioelectricity.md) | Biosystems / J. Theoretical Biology / Entropy | First category-theoretic formalization of Levin's bioelectric framework — 14 biomedical domains as formal ontologies, 21 cross-domain functors, 3 adjunctions |
-| 2 | [Adjunction Information Loss](02-adjunction-information-loss.md) | Biosystems / J. Theoretical Biology / Applied Category Theory | A general methodology for using categorical adjunctions to automatically detect missing distinctions in scientific ontologies; applied to the biomedical stack with measured loss percentages |
-| 3 | [Ontology Diagnostics](03-ontology-diagnostics.md) | Applied Category Theory / FOIS | A formal meta-ontology — an ontology about ontology engineering — that captures the gap-detection methodology as 29 entities, 14 pipeline steps, and 13 axioms |
+| # | Paper | Focus |
+|---|-------|---|
+| 1 | [Categorical Bioelectricity](01-categorical-bioelectricity.md) | First category-theoretic formalization of Levin's bioelectric framework — 14 biomedical domains as formal ontologies, 21 cross-domain functors, 3 adjunctions |
+| 2 | [Adjunction Information Loss](02-adjunction-information-loss.md) | A general methodology for using categorical adjunctions to automatically detect missing distinctions in scientific ontologies; applied to the biomedical stack with measured loss percentages |
+| 3 | [Ontology Diagnostics](03-ontology-diagnostics.md) | A formal meta-ontology — an ontology about ontology engineering — that captures the gap-detection methodology as 29 entities, 14 pipeline steps, and 13 axioms |
 
 ## Reproducibility
 
