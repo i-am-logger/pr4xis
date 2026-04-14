@@ -11,8 +11,8 @@
 /// - ReportSpec determines encoding (Cleveland-McGill) and geom (Grammar of Graphics)
 /// - ThemePalette colors the report using the selected theme's own palette
 /// - Shneiderman's mantra: overview → zoom+filter → details-on-demand
-use super::report_spec::{ReportSpec, theme_report_fields};
-use super::validate_themes::ThemeResult;
+use super::spec::{ReportSpec, theme_report_fields};
+use super::validator::ThemeResult;
 
 /// CSS color variables derived from a theme palette.
 /// Maps base16 semantic roles to report UI roles.
@@ -564,7 +564,7 @@ mod tests {
 
     #[test]
     fn test_generate_real_report() {
-        use crate::applied::theming::validate_themes::scan_themes;
+        use crate::applied::hmi::report::validator::scan_themes;
 
         let home = std::path::Path::new(env!("HOME"));
         let datasets = [
