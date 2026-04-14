@@ -5,9 +5,9 @@ use crate::category::{Category, Functor};
 use super::being::Being;
 use super::category::{DolceCategory, OntologicalRelation, RelationKind};
 
-/// The praxis meta-category: our current type system modeled as a category.
+/// The workspace's own meta-category: our current type system modeled as a category.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Pr4xisType {
+pub enum OwnType {
     Entity,
     Situation,
     Action,
@@ -17,7 +17,7 @@ pub enum Pr4xisType {
     Proposition,
 }
 
-impl Entity for Pr4xisType {
+impl Entity for OwnType {
     fn variants() -> Vec<Self> {
         vec![
             Self::Entity,
@@ -31,40 +31,40 @@ impl Entity for Pr4xisType {
     }
 }
 
-/// Relationships between praxis types.
+/// Relationships between our own types.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PraxisRelation {
-    pub from: Pr4xisType,
-    pub to: Pr4xisType,
+pub struct OwnRelation {
+    pub from: OwnType,
+    pub to: OwnType,
     pub name: &'static str,
 }
 
-impl Relationship for PraxisRelation {
-    type Object = Pr4xisType;
-    fn source(&self) -> Pr4xisType {
+impl Relationship for OwnRelation {
+    type Object = OwnType;
+    fn source(&self) -> OwnType {
         self.from
     }
-    fn target(&self) -> Pr4xisType {
+    fn target(&self) -> OwnType {
         self.to
     }
 }
 
-/// The praxis meta-category.
-pub struct Pr4xisMetaCategory;
+/// The workspace's own meta-category.
+pub struct OwnMetaCategory;
 
-impl Category for Pr4xisMetaCategory {
-    type Object = Pr4xisType;
-    type Morphism = PraxisRelation;
+impl Category for OwnMetaCategory {
+    type Object = OwnType;
+    type Morphism = OwnRelation;
 
-    fn identity(obj: &Pr4xisType) -> PraxisRelation {
-        PraxisRelation {
+    fn identity(obj: &OwnType) -> OwnRelation {
+        OwnRelation {
             from: *obj,
             to: *obj,
             name: "identity",
         }
     }
 
-    fn compose(f: &PraxisRelation, g: &PraxisRelation) -> Option<PraxisRelation> {
+    fn compose(f: &OwnRelation, g: &OwnRelation) -> Option<OwnRelation> {
         if f.to != g.from {
             return None;
         }
@@ -74,71 +74,71 @@ impl Category for Pr4xisMetaCategory {
         if g.name == "identity" {
             return Some(f.clone());
         }
-        Some(PraxisRelation {
+        Some(OwnRelation {
             from: f.from,
             to: g.to,
             name: "composed",
         })
     }
 
-    fn morphisms() -> Vec<PraxisRelation> {
+    fn morphisms() -> Vec<OwnRelation> {
         let mut m = Vec::new();
-        for t in Pr4xisType::variants() {
+        for t in OwnType::variants() {
             m.push(Self::identity(&t));
         }
-        m.push(PraxisRelation {
-            from: Pr4xisType::Action,
-            to: Pr4xisType::Situation,
+        m.push(OwnRelation {
+            from: OwnType::Action,
+            to: OwnType::Situation,
             name: "operates_on",
         });
-        m.push(PraxisRelation {
-            from: Pr4xisType::Quality,
-            to: Pr4xisType::Entity,
+        m.push(OwnRelation {
+            from: OwnType::Quality,
+            to: OwnType::Entity,
             name: "inheres_in",
         });
-        m.push(PraxisRelation {
-            from: Pr4xisType::Axiom,
-            to: Pr4xisType::CategoryType,
+        m.push(OwnRelation {
+            from: OwnType::Axiom,
+            to: OwnType::CategoryType,
             name: "constrains",
         });
-        m.push(PraxisRelation {
-            from: Pr4xisType::Proposition,
-            to: Pr4xisType::Entity,
+        m.push(OwnRelation {
+            from: OwnType::Proposition,
+            to: OwnType::Entity,
             name: "evaluates",
         });
         // Composed morphisms for closure
-        m.push(PraxisRelation {
-            from: Pr4xisType::Action,
-            to: Pr4xisType::Entity,
+        m.push(OwnRelation {
+            from: OwnType::Action,
+            to: OwnType::Entity,
             name: "composed",
         });
         m
     }
 }
 
-/// Functor from praxis types to DOLCE Being types.
+/// Functor from own types to DOLCE Being types.
 ///
 /// This is the structure-preserving map that proves our type system
 /// correctly aligns with the DOLCE upper ontology.
-pub struct Pr4xisToDolce;
+pub struct OwnToDolce;
 
-impl Functor for Pr4xisToDolce {
-    type Source = Pr4xisMetaCategory;
+impl Functor for OwnToDolce {
+    type Source = OwnMetaCategory;
     type Target = DolceCategory;
 
-    fn map_object(obj: &Pr4xisType) -> Being {
+    fn map_object(obj: &OwnType) -> Being {
         match obj {
-            Pr4xisType::Entity => Being::AbstractObject,
-            Pr4xisType::Situation => Being::SocialObject,
-            Pr4xisType::Action => Being::Event,
-            Pr4xisType::Quality => Being::Quality,
-            Pr4xisType::CategoryType => Being::AbstractObject,
-            Pr4xisType::Axiom => Being::AbstractObject,
-            Pr4xisType::Proposition => Being::AbstractObject,
+            OwnType::Entity => Being::AbstractObject,
+            OwnType::Situation => Being::SocialObject,
+            OwnType::Action => Being::Event,
+            OwnType::Quality => Being::Quality,
+            OwnType::CategoryType => Being::AbstractObject,
+            OwnType::Axiom => Being::AbstractObject,
+            OwnType::Proposition => Being::AbstractObject,
         }
     }
 
-    fn map_morphism(m: &PraxisRelation) -> OntologicalRelation {
+    fn map_morphism(m: &OwnRelation) -> OntologicalRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
         let kind = if m.name == "identity" || from == to {

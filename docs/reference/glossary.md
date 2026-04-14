@@ -78,7 +78,7 @@ A word the README uses for "the engineering layer that makes ontologies composab
 
 ## DOLCE
 
-A foundational ontology from Masolo et al. (2003) that classifies all of being into Endurants (physical objects, social objects, mental objects), Perdurants (events, processes), and Qualities. pr4xis uses DOLCE as the upper layer that every domain ontology classifies its concepts against, and there is a `Pr4xisToDolce` functor that proves the workspace's own type system maps faithfully into DOLCE.
+A foundational ontology from Masolo et al. (2003) that classifies all of being into Endurants (physical objects, social objects, mental objects), Perdurants (events, processes), and Qualities. pr4xis uses DOLCE as the upper layer that every domain ontology classifies its concepts against, and there is an `OwnToDolce` functor that proves the workspace's own type system maps faithfully into DOLCE.
 
 ## WordNet
 
