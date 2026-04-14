@@ -7,12 +7,13 @@ Key references:
 - Joyner 2008: *Adventures in Group Theory* (cube group and move notation)
 - Singmaster 1981: *Notes on Rubik's Magic Cube*
 
-## Entities
+## Entities (6)
 
 | Category | Entities |
 |---|---|
 | Faces (6) | U, D, F, B, L, R |
-| Colors (6) | White, Yellow, Green, Blue, Red, Orange |
+
+The `Color` enum (White, Yellow, Green, Blue, Red, Orange) is not an ontology entity — it is data carried by the cube-state qualities.
 
 ## Category
 
