@@ -7,7 +7,7 @@ use super::category::{DolceCategory, OntologicalRelation, RelationKind};
 
 /// The praxis meta-category: our current type system modeled as a category.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum PraxisType {
+pub enum Pr4xisType {
     Entity,
     Situation,
     Action,
@@ -17,7 +17,7 @@ pub enum PraxisType {
     Proposition,
 }
 
-impl Entity for PraxisType {
+impl Entity for Pr4xisType {
     fn variants() -> Vec<Self> {
         vec![
             Self::Entity,
@@ -34,29 +34,29 @@ impl Entity for PraxisType {
 /// Relationships between praxis types.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PraxisRelation {
-    pub from: PraxisType,
-    pub to: PraxisType,
+    pub from: Pr4xisType,
+    pub to: Pr4xisType,
     pub name: &'static str,
 }
 
 impl Relationship for PraxisRelation {
-    type Object = PraxisType;
-    fn source(&self) -> PraxisType {
+    type Object = Pr4xisType;
+    fn source(&self) -> Pr4xisType {
         self.from
     }
-    fn target(&self) -> PraxisType {
+    fn target(&self) -> Pr4xisType {
         self.to
     }
 }
 
 /// The praxis meta-category.
-pub struct PraxisMetaCategory;
+pub struct Pr4xisMetaCategory;
 
-impl Category for PraxisMetaCategory {
-    type Object = PraxisType;
+impl Category for Pr4xisMetaCategory {
+    type Object = Pr4xisType;
     type Morphism = PraxisRelation;
 
-    fn identity(obj: &PraxisType) -> PraxisRelation {
+    fn identity(obj: &Pr4xisType) -> PraxisRelation {
         PraxisRelation {
             from: *obj,
             to: *obj,
@@ -83,33 +83,33 @@ impl Category for PraxisMetaCategory {
 
     fn morphisms() -> Vec<PraxisRelation> {
         let mut m = Vec::new();
-        for t in PraxisType::variants() {
+        for t in Pr4xisType::variants() {
             m.push(Self::identity(&t));
         }
         m.push(PraxisRelation {
-            from: PraxisType::Action,
-            to: PraxisType::Situation,
+            from: Pr4xisType::Action,
+            to: Pr4xisType::Situation,
             name: "operates_on",
         });
         m.push(PraxisRelation {
-            from: PraxisType::Quality,
-            to: PraxisType::Entity,
+            from: Pr4xisType::Quality,
+            to: Pr4xisType::Entity,
             name: "inheres_in",
         });
         m.push(PraxisRelation {
-            from: PraxisType::Axiom,
-            to: PraxisType::CategoryType,
+            from: Pr4xisType::Axiom,
+            to: Pr4xisType::CategoryType,
             name: "constrains",
         });
         m.push(PraxisRelation {
-            from: PraxisType::Proposition,
-            to: PraxisType::Entity,
+            from: Pr4xisType::Proposition,
+            to: Pr4xisType::Entity,
             name: "evaluates",
         });
         // Composed morphisms for closure
         m.push(PraxisRelation {
-            from: PraxisType::Action,
-            to: PraxisType::Entity,
+            from: Pr4xisType::Action,
+            to: Pr4xisType::Entity,
             name: "composed",
         });
         m
@@ -120,21 +120,21 @@ impl Category for PraxisMetaCategory {
 ///
 /// This is the structure-preserving map that proves our type system
 /// correctly aligns with the DOLCE upper ontology.
-pub struct PraxisToDolce;
+pub struct Pr4xisToDolce;
 
-impl Functor for PraxisToDolce {
-    type Source = PraxisMetaCategory;
+impl Functor for Pr4xisToDolce {
+    type Source = Pr4xisMetaCategory;
     type Target = DolceCategory;
 
-    fn map_object(obj: &PraxisType) -> Being {
+    fn map_object(obj: &Pr4xisType) -> Being {
         match obj {
-            PraxisType::Entity => Being::AbstractObject,
-            PraxisType::Situation => Being::SocialObject,
-            PraxisType::Action => Being::Event,
-            PraxisType::Quality => Being::Quality,
-            PraxisType::CategoryType => Being::AbstractObject,
-            PraxisType::Axiom => Being::AbstractObject,
-            PraxisType::Proposition => Being::AbstractObject,
+            Pr4xisType::Entity => Being::AbstractObject,
+            Pr4xisType::Situation => Being::SocialObject,
+            Pr4xisType::Action => Being::Event,
+            Pr4xisType::Quality => Being::Quality,
+            Pr4xisType::CategoryType => Being::AbstractObject,
+            Pr4xisType::Axiom => Being::AbstractObject,
+            Pr4xisType::Proposition => Being::AbstractObject,
         }
     }
 

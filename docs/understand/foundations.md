@@ -69,7 +69,7 @@ Control theory is the general science of feedback and regulation. Cybernetics is
 - Feedback loops → Engine (situation → precondition check → action → new situation)
 - Requisite variety (Ashby) → ontology must be as complex as the domain it models
 - Autopoiesis → self-creating systems (pr4xis generating its own ontologies via codegen)
-- Second-order cybernetics → the observer is part of the system (pr4xis reasoning about itself via PraxisToDolce functor)
+- Second-order cybernetics → the observer is part of the system (pr4xis reasoning about itself via Pr4xisToDolce functor)
 
 **Three key theorems:**
 - **Requisite Variety** (Ashby 1956): a controller must have at least as many states as the disturbances it regulates. V(controller) >= V(disturbances).
@@ -432,7 +432,7 @@ pr4xis's architecture is a novel synthesis of five existing ideas that have neve
 
 1. **Category theory + DOLCE synthesis.** Using category theory as the formal proof mechanism for upper ontological classification. Existing work uses either category theory OR formal ontology; pr4xis combines them with a verified functor.
 
-2. **Self-application.** Using the system's own tools (functors) to evolve its own ontology. The PraxisToDolce functor is pr4xis reasoning about itself — second-order cybernetics formalized in code.
+2. **Self-application.** Using the system's own tools (functors) to evolve its own ontology. The Pr4xisToDolce functor is pr4xis reasoning about itself — second-order cybernetics formalized in code.
 
 3. **Ontology evolution via functor.** When transforming ontologies, create the new one alongside and prove the mapping. This pattern is implicit in categorical database migration (Spivak) but pr4xis applies it to ontological evolution explicitly.
 
@@ -454,5 +454,4 @@ pr4xis's architecture is a novel synthesis of five existing ideas that have neve
 ---
 
 - **Document date:** 2026-04-14
-- **Note on paper paths:** This document used to point at `docs/papers/*.pdf` for several references. Those parentheticals have been removed; per [#57](https://github.com/i-am-logger/pr4xis/issues/57), the actual PDFs will move to live alongside the ontologies that cite them, with `citings.md` files pointing at them. Until then, citations in this document are by author/year only.
-- **Note on identifier inconsistency:** The codebase still has a few `Praxis*` identifiers (e.g., `PraxisToDolce`, `PraxisMetaCategory`, `PraxisType`) that were not renamed during the workspace `praxis` → `pr4xis` rename. These should be cleaned up in a follow-up. References to those identifiers in this document use the current code names, not the workspace name.
+- **Note on paper paths:** This document used to point at `docs/papers/*.pdf` for several references. Per [#57](https://github.com/i-am-logger/pr4xis/issues/57), the PDFs live alongside the ontologies that cite them via per-ontology `citings.md` files; this document cites sources by author/year only.

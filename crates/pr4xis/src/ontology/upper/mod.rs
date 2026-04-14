@@ -7,7 +7,7 @@
 /// - [`Being`] — the top-level types of being (DOLCE-inspired)
 /// - [`DolceCategory`] — Being as a category with ontological relations
 /// - [`Classified`] — trait for domains to declare their ontological type
-/// - [`PraxisToDolce`] — functor proving our type system maps to DOLCE
+/// - [`Pr4xisToDolce`] — functor proving our type system maps to DOLCE
 ///
 /// # Pattern: Ontology Evolution via Functor
 ///
@@ -27,7 +27,7 @@ pub mod functor;
 pub use being::Being;
 pub use category::{DolceCategory, OntologicalRelation};
 pub use classify::Classified;
-pub use functor::{PraxisMetaCategory, PraxisToDolce, PraxisType};
+pub use functor::{Pr4xisMetaCategory, Pr4xisToDolce, Pr4xisType};
 
 #[cfg(test)]
 mod tests;

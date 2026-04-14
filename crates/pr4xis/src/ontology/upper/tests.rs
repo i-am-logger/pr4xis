@@ -4,7 +4,7 @@ use crate::category::{Category, Functor};
 
 use super::being::Being;
 use super::category::{DolceCategory, RelationKind};
-use super::functor::{PraxisMetaCategory, PraxisToDolce, PraxisType};
+use super::functor::{Pr4xisMetaCategory, Pr4xisToDolce, Pr4xisType};
 
 // =============================================================================
 // Being tests
@@ -100,13 +100,13 @@ fn dolce_has_event_part_of_process() {
 // =============================================================================
 
 #[test]
-fn praxis_meta_category_laws() {
-    check_category_laws::<PraxisMetaCategory>().unwrap();
+fn pr4xis_meta_category_laws() {
+    check_category_laws::<Pr4xisMetaCategory>().unwrap();
 }
 
 #[test]
 fn praxis_has_7_types() {
-    assert_eq!(PraxisType::variants().len(), 7);
+    assert_eq!(Pr4xisType::variants().len(), 7);
 }
 
 // =============================================================================
@@ -115,13 +115,13 @@ fn praxis_has_7_types() {
 
 #[test]
 fn functor_laws_hold() {
-    check_functor_laws::<PraxisToDolce>().unwrap();
+    check_functor_laws::<Pr4xisToDolce>().unwrap();
 }
 
 #[test]
 fn functor_maps_entity_to_abstract() {
     assert_eq!(
-        PraxisToDolce::map_object(&PraxisType::Entity),
+        Pr4xisToDolce::map_object(&Pr4xisType::Entity),
         Being::AbstractObject
     );
 }
@@ -129,30 +129,30 @@ fn functor_maps_entity_to_abstract() {
 #[test]
 fn functor_maps_situation_to_social_object() {
     assert_eq!(
-        PraxisToDolce::map_object(&PraxisType::Situation),
+        Pr4xisToDolce::map_object(&Pr4xisType::Situation),
         Being::SocialObject
     );
 }
 
 #[test]
 fn functor_maps_action_to_event() {
-    assert_eq!(PraxisToDolce::map_object(&PraxisType::Action), Being::Event);
+    assert_eq!(Pr4xisToDolce::map_object(&Pr4xisType::Action), Being::Event);
 }
 
 #[test]
 fn functor_maps_quality_to_quality() {
     assert_eq!(
-        PraxisToDolce::map_object(&PraxisType::Quality),
+        Pr4xisToDolce::map_object(&Pr4xisType::Quality),
         Being::Quality
     );
 }
 
 #[test]
 fn functor_preserves_identity() {
-    for t in PraxisType::variants() {
-        let praxis_id = PraxisMetaCategory::identity(&t);
-        let mapped = PraxisToDolce::map_morphism(&praxis_id);
-        let dolce_id = DolceCategory::identity(&PraxisToDolce::map_object(&t));
+    for t in Pr4xisType::variants() {
+        let praxis_id = Pr4xisMetaCategory::identity(&t);
+        let mapped = Pr4xisToDolce::map_morphism(&praxis_id);
+        let dolce_id = DolceCategory::identity(&Pr4xisToDolce::map_object(&t));
         assert_eq!(mapped, dolce_id, "identity not preserved for {:?}", t);
     }
 }
@@ -177,15 +177,15 @@ mod prop {
         ]
     }
 
-    fn arb_praxis_type() -> impl Strategy<Value = PraxisType> {
+    fn arb_pr4xis_type() -> impl Strategy<Value = Pr4xisType> {
         prop_oneof![
-            Just(PraxisType::Entity),
-            Just(PraxisType::Situation),
-            Just(PraxisType::Action),
-            Just(PraxisType::Quality),
-            Just(PraxisType::CategoryType),
-            Just(PraxisType::Axiom),
-            Just(PraxisType::Proposition),
+            Just(Pr4xisType::Entity),
+            Just(Pr4xisType::Situation),
+            Just(Pr4xisType::Action),
+            Just(Pr4xisType::Quality),
+            Just(Pr4xisType::CategoryType),
+            Just(Pr4xisType::Axiom),
+            Just(Pr4xisType::Proposition),
         ]
     }
 
@@ -202,17 +202,17 @@ mod prop {
 
         /// Functor maps every praxis type to a valid Being.
         #[test]
-        fn prop_functor_maps_to_valid_being(t in arb_praxis_type()) {
-            let being = PraxisToDolce::map_object(&t);
+        fn prop_functor_maps_to_valid_being(t in arb_pr4xis_type()) {
+            let being = Pr4xisToDolce::map_object(&t);
             prop_assert!(Being::variants().contains(&being));
         }
 
         /// Functor preserves identity for all types.
         #[test]
-        fn prop_functor_preserves_identity(t in arb_praxis_type()) {
-            let praxis_id = PraxisMetaCategory::identity(&t);
-            let mapped = PraxisToDolce::map_morphism(&praxis_id);
-            let dolce_id = DolceCategory::identity(&PraxisToDolce::map_object(&t));
+        fn prop_functor_preserves_identity(t in arb_pr4xis_type()) {
+            let praxis_id = Pr4xisMetaCategory::identity(&t);
+            let mapped = Pr4xisToDolce::map_morphism(&praxis_id);
+            let dolce_id = DolceCategory::identity(&Pr4xisToDolce::map_object(&t));
             prop_assert_eq!(mapped, dolce_id);
         }
 
@@ -227,18 +227,18 @@ mod prop {
         /// Functor preserves composition for any composable pair.
         #[test]
         fn prop_functor_preserves_composition(
-            a in arb_praxis_type(),
-            b in arb_praxis_type(),
-            c in arb_praxis_type()
+            a in arb_pr4xis_type(),
+            b in arb_pr4xis_type(),
+            c in arb_pr4xis_type()
         ) {
-            let morphisms = PraxisMetaCategory::morphisms();
+            let morphisms = Pr4xisMetaCategory::morphisms();
             if let Some(f) = morphisms.iter().find(|m| m.from == a && m.to == b) {
                 if let Some(g) = morphisms.iter().find(|m| m.from == b && m.to == c) {
-                    if let Some(gf) = PraxisMetaCategory::compose(f, g) {
-                        let mapped_gf = PraxisToDolce::map_morphism(&gf);
+                    if let Some(gf) = Pr4xisMetaCategory::compose(f, g) {
+                        let mapped_gf = Pr4xisToDolce::map_morphism(&gf);
                         let composed_mapped = DolceCategory::compose(
-                            &PraxisToDolce::map_morphism(f),
-                            &PraxisToDolce::map_morphism(g),
+                            &Pr4xisToDolce::map_morphism(f),
+                            &Pr4xisToDolce::map_morphism(g),
                         );
                         prop_assert_eq!(Some(mapped_gf), composed_mapped);
                     }
