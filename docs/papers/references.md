@@ -2,6 +2,12 @@
 
 Primary academic sources for the ontologies in this repository.
 
+**Relationship to per-ontology `citings.md` files.** Each ontology under `crates/domains/src/` now has its own `citings.md` listing the sources it actually stands on (see issue #57). This file is the workspace-wide cross-reference: it collects the sources that appear in *multiple* per-ontology bibliographies and provides their full bibliographic entries in one place. When you add a citation to an ontology's `citings.md`, check whether the full entry belongs here too — if another ontology already cites it, move the full entry here and replace the per-ontology form with a pointer.
+
+**Coverage gap.** The sections below were written before the per-ontology rollout and cover only 14 domains (geometry, rotation, time, linear algebra, probability, kinematics, geodesy, sensor fusion, military standards, clock characterization, signal processing, statistics, control theory). The rollout produced ~100 per-ontology `citings.md` files covering the full `formal/natural/applied/social/cognitive` tree; many of the sources in those files are not yet represented here. Filling the gap is tracked under [issue #57](https://github.com/i-am-logger/pr4xis/issues/57) as a follow-up sweep.
+
+---
+
 ## Geometry
 
 - Hilbert, D. (1899). *Grundlagen der Geometrie*. Teubner, Leipzig. [The axiomatic foundation of Euclidean geometry — 20 axioms in 5 groups: incidence, order, congruence, parallelism, continuity.]

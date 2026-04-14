@@ -1,4 +1,5 @@
-use pr4xis::category::{Ap, Monoid, NonEmpty, Product};
+use pr4xis::category::{Ap, NonEmpty, Product, Writer};
+pub use pr4xis::ontology::OntologyMeta;
 use pr4xis::ontology::upper::being::Being;
 use pr4xis_domains::cognitive::cognition::epistemics;
 use pr4xis_domains::cognitive::linguistics::english::English;
@@ -7,6 +8,7 @@ use pr4xis_domains::cognitive::linguistics::lambek::{
 };
 use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
+use pr4xis_domains::formal::information::diagnostics::DiagnosticOntology;
 use pr4xis_domains::formal::information::diagnostics::trace_functors::{
     PipelineStep, PipelineTrace, TracedPipeline,
 };
@@ -14,6 +16,13 @@ use pr4xis_domains::formal::information::diagnostics::trace_impls;
 use pr4xis_domains::formal::information::knowledge::{
     SelfModelInstance, VocabularyDescriptor, describe_knowledge_base,
 };
+
+/// The Diagnostics ontology governs the trace — every PipelineTraceEntry is
+/// a Diagnostic concept. `TRACE_META` is pulled from `define_ontology!`-generated
+/// `meta()` so the chat engine's trace attribution flows from the ontology itself,
+/// not from hardcoded strings. Public so callers can inspect which ontology
+/// authorizes the trace semantics.
+pub const TRACE_META: OntologyMeta = DiagnosticOntology::meta();
 
 // Praxis Chat Engine — shared logic for CLI, WASM, and any frontend.
 //
@@ -51,14 +60,21 @@ pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
 }
 
 /// Process with full metadata — timing, token count.
+///
+/// The pipeline IS a writer monad computation: TracedPipeline<A> = Writer<PipelineTrace, A>.
+/// Each stage returns a traced value, and composition through `.bind()` / `.tell()`
+/// accumulates trace entries automatically via the PipelineTrace monoid.
+/// No mutation. No manual trace.record() calls.
+///
+/// Reference: Moggi, "Notions of Computation and Monads" (1991).
 pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     let start = WasmSafeTimer::now();
-    let mut trace = Trace::default();
 
-    // Step 1: Tokenize through Language ontology
+    // Stage 1: Tokenize through the Language ontology.
+    // The TokenizeResult is Traceable — the writer log is derived from it.
     let (tokens, alternatives) = tokenize::tokenize_with_alternatives(input, lang);
     let token_count = tokens.len();
-    trace.trace_result(&trace_impls::TokenizeResult { tokens: &tokens });
+
     if tokens.is_empty() {
         return ProcessResult {
             response: "Empty input received.".into(),
@@ -67,17 +83,13 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             duration_us: start.elapsed_us(),
             token_count: 0,
             parsed: false,
-            trace,
+            trace: PipelineTrace::from_traceable(&trace_impls::TokenizeResult { tokens: &tokens }),
             from_ontology: false,
         };
     }
 
-    // Convert to NonEmpty — we've proven tokens is non-empty above.
-    // NonEmpty<T> is a semigroup under concatenation (no identity needed).
-    // This makes it impossible to accidentally lose the non-empty guarantee.
+    // NonEmpty semigroup: the empty-check above proves the invariant.
     let ne_tokens = NonEmpty::of(tokens[0].clone(), tokens[1..].to_vec());
-
-    // Step 2: Parse through Lambek grammar
     let words: Vec<String> = ne_tokens.iter().map(|t| t.word.clone()).collect();
     let type_sets: Vec<Vec<_>> = ne_tokens
         .iter()
@@ -94,13 +106,12 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
             ts
         })
         .collect();
+
+    // Stage 2: Parse through Lambek grammar. Chart reduction returns a Traceable.
     let reduction = chart_reduce(&words, &type_sets);
     let parsed = reduction.success;
 
-    // The reduction result IS Traceable — it knows its own step and detail.
-    trace.trace_result(&reduction);
-
-    // Step 3: Interpret through Montague semantics
+    // Stage 3: Interpret through Montague semantics.
     let montague_tokens = if parsed && reduction.remaining.len() == ne_tokens.len() {
         &reduction.remaining
     } else {
@@ -108,22 +119,14 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     };
     let meaning = montague::interpret(montague_tokens, lang);
 
-    // The interpretation result IS Traceable via wrapper.
-    trace.trace_result(&trace_impls::InterpretResult { meaning: &meaning });
-
-    // Step 4: Metacognition — classify what we understood
+    // Stage 4: Classify the speech act through pragmatics.
     let user_act = if meaning.is_question() {
         SpeechAct::Question
     } else {
         SpeechAct::Assertion
     };
-    trace.record(
-        PipelineStep::SpeechActClassification,
-        &format!("{:?}", user_act),
-        true,
-    );
 
-    // Step 5: Metacognition — decide response strategy
+    // Stage 5: Metacognitive decision — which branch of repair/response to take.
     let metacog_decision = if meaning.is_question() {
         "question detected → query ontology"
     } else if meaning.is_proposition() {
@@ -133,9 +136,8 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     } else {
         "parse failed → metacognitive repair (attempt partial understanding)"
     };
-    trace.record(PipelineStep::Metacognition, metacog_decision, true);
 
-    // Step 6: Generate response — pure functions return results
+    // Stage 6: Generate the response through NLG.
     let response_result = match &meaning {
         montague::Sem::Question {
             predicate,
@@ -148,34 +150,47 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
         _ => attempt_partial_understanding(lang, &tokens, &reduction, &meaning),
     };
 
-    // Apply the trace functor to the response result
-    trace.trace_result(&response_result);
-
-    // Step 7: Realization trace — compose using Monoid::combine.
-    // The response trace is a TracedPipeline<String> = Writer<PipelineTrace, String>.
-    // We extract its trace and combine it with the main pipeline trace via the monoid.
-    let realization_trace: TracedPipeline<String> = pr4xis::category::Writer::new(
-        response_result.response.clone(),
-        PipelineTrace::single(
-            PipelineStep::Realization,
-            &format!("{} chars generated", response_result.response.len()),
+    // Build the trace by threading TracedPipeline<()> through each stage.
+    // `.tell()` is the writer monad's log-append operation; each call concatenates
+    // a single trace entry via the PipelineTrace monoid (Vec concatenation).
+    // The final log IS the full pipeline trace, accumulated by composition, not mutation.
+    let response_len = response_result.response.len();
+    let pipeline: TracedPipeline<()> = Writer::pure(())
+        .tell(PipelineTrace::from_traceable(
+            &trace_impls::TokenizeResult { tokens: &tokens },
+        ))
+        .tell(PipelineTrace::from_traceable(&reduction))
+        .tell(PipelineTrace::from_traceable(
+            &trace_impls::InterpretResult { meaning: &meaning },
+        ))
+        .tell(PipelineTrace::single(
+            PipelineStep::SpeechActClassification,
+            &format!("{:?}", user_act),
             true,
-        ),
-    );
-    trace = trace.combine(&realization_trace.log);
-    let response = realization_trace.value;
-    let from_ontology = response_result.from_ontology;
+        ))
+        .tell(PipelineTrace::single(
+            PipelineStep::Metacognition,
+            metacog_decision,
+            true,
+        ))
+        .tell(PipelineTrace::from_traceable(&response_result))
+        .tell(PipelineTrace::single(
+            PipelineStep::Realization,
+            &format!("{response_len} chars generated"),
+            true,
+        ));
 
-    let duration_us = start.elapsed_us();
+    let from_ontology = response_result.from_ontology;
+    let response = response_result.response;
 
     ProcessResult {
         response,
         user_act,
         system_act: SpeechAct::Assertion,
-        duration_us,
+        duration_us: start.elapsed_us(),
         token_count,
         parsed,
-        trace,
+        trace: pipeline.log,
         from_ontology,
     }
 }
@@ -734,6 +749,7 @@ pub fn self_describe(lang: &English) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Monoid;
 
     fn sample_english() -> English {
         // Use sample data for unit tests (fast, no WordNet needed)
@@ -867,5 +883,65 @@ mod tests {
         assert_eq!(first.total_concepts, second.total_concepts);
         assert_eq!(first.total_morphisms, second.total_morphisms);
         assert_eq!(first.components.len(), second.components.len());
+    }
+
+    // --- Phase 2: OntologyMeta + TracedPipeline integration tests ---
+
+    #[test]
+    fn trace_meta_is_from_diagnostic_ontology() {
+        // TRACE_META comes from DiagnosticOntology::meta() — generated by
+        // define_ontology!. The ontology identifies itself through the macro,
+        // not through hand-written strings.
+        assert_eq!(TRACE_META.name, "DiagnosticOntology");
+        assert!(TRACE_META.module_path.contains("diagnostics"));
+    }
+
+    #[test]
+    fn pipeline_trace_accumulates_through_writer_composition() {
+        // After the refactor, `process_with_metadata` builds its trace through
+        // `TracedPipeline<()>` composition — each `.tell()` call combines a
+        // single PipelineTrace via the Vec monoid. No mutation.
+        let en = sample_english();
+        let result = process_with_metadata(&en, "is a dog a mammal");
+
+        // The full pipeline fires: tokenize → parse → interpret → speech act
+        // → metacognition → response → realization. Seven entries minimum.
+        assert!(
+            result.trace.entries.len() >= 7,
+            "expected full pipeline trace, got {} entries",
+            result.trace.entries.len()
+        );
+
+        // First entry is always Tokenize — the writer log respects order
+        // because Vec::combine concatenates left-to-right.
+        assert_eq!(result.trace.entries[0].step, PipelineStep::Tokenize);
+        // Last entry is Realization — the final step of the writer chain.
+        let last = result.trace.entries.last().unwrap();
+        assert_eq!(last.step, PipelineStep::Realization);
+    }
+
+    #[test]
+    fn empty_input_still_produces_traceable_output() {
+        // Empty-branch early return: the trace carries the tokenize result
+        // constructed via `PipelineTrace::from_traceable`, not a mutation.
+        let en = sample_english();
+        let result = process_with_metadata(&en, "");
+        assert_eq!(result.token_count, 0);
+        assert_eq!(result.trace.entries.len(), 1);
+        assert_eq!(result.trace.entries[0].step, PipelineStep::Tokenize);
+    }
+
+    #[test]
+    fn writer_tell_preserves_trace_order() {
+        // The writer monad's `tell` preserves order because Vec monoid
+        // concatenation is left-associative. Verifying directly:
+        let pipeline: TracedPipeline<()> = Writer::pure(())
+            .tell(PipelineTrace::single(PipelineStep::Tokenize, "a", true))
+            .tell(PipelineTrace::single(PipelineStep::Parse, "b", true))
+            .tell(PipelineTrace::single(PipelineStep::Interpret, "c", true));
+        assert_eq!(pipeline.log.entries.len(), 3);
+        assert_eq!(pipeline.log.entries[0].step, PipelineStep::Tokenize);
+        assert_eq!(pipeline.log.entries[1].step, PipelineStep::Parse);
+        assert_eq!(pipeline.log.entries[2].step, PipelineStep::Interpret);
     }
 }

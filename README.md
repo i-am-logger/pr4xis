@@ -3,149 +3,120 @@
 </p>
 
 <p align="center">
-  <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg" alt="License"/></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-2024-orange?logo=rust&logoColor=white" alt="Rust"/></a>
-  <img src="https://img.shields.io/badge/proofs-4710-brightgreen" alt="Tests"/>
-  <img src="https://img.shields.io/badge/functors-61-blue" alt="Functors"/>
-  <img src="https://img.shields.io/badge/lines-136K-yellow" alt="Lines of Code"/>
+  <a href="https://nixos.org/"><img src="https://img.shields.io/badge/built_with-nix-5277C3?logo=nixos&logoColor=white" alt="Built with Nix"/></a>
+  <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg" alt="License"/></a>
 </p>
 
-Aristotle classified knowledge into three kinds: **episteme** (knowing how things are), **techne** (knowing how to make things), and **praxis** (knowing how to do the right thing). This is praxis — a system that doesn't just compute, it understands what it's doing and can prove it's correct.
+<p align="center">
+  <a href="https://github.com/i-am-logger/pr4xis/actions/workflows/ci.yml"><img src="https://github.com/i-am-logger/pr4xis/actions/workflows/ci.yml/badge.svg?branch=master" alt="CI"/></a>
+  <a href="https://codecov.io/gh/i-am-logger/praxis"><img src="https://codecov.io/gh/i-am-logger/praxis/branch/master/graph/badge.svg" alt="Coverage"/></a>
+  <a href="https://pr4xis.dev"><img src="https://img.shields.io/badge/demo-pr4xis.dev-blue" alt="Live Demo"/></a>
+</p>
 
-> "Every good regulator of a system must be a model of that system."
-> — Conant & Ashby (1970)
+# pr4xis — Axiomatic Intelligence
 
-The code contains **zero domain knowledge**. All intelligence lives in composable ontologies — formal descriptions of what exists and how things relate. Every transformation between domains is a mathematically proven functor. Every claim has a proof. 1,809 of them.
+**pr4xis is a new kind of AI: axiomatic, not statistical.** Where LLMs predict the next token from training data, pr4xis derives the next claim from accepted axioms — the same way mathematicians prove theorems.
 
-```mermaid
-graph LR
-    A[Define rules<br/><b>Ontology</b>] --> B[Check rules<br/><b>Engine</b>]
-    B --> C[Prove rules hold<br/><b>Tests</b>]
-    C -->|feedback| A
-```
+Aristotle named three kinds of knowing:
 
-## How domains compose
+- **episteme** — knowing how things are
+- **techne** — knowing how to make things
+- **praxis** — *the doing itself, done well*
 
-Every domain is an ontology. Domains connect through **functors** — mathematically proven structure-preserving maps. If the functor laws hold, the domains share the same structure. Not by analogy — by proof.
+pr4xis is the doing.
 
-```mermaid
-graph TB
-    subgraph Science
-        Physics
-        Math
-        Colors[Colors/Quality]
-        Cognition
-    end
+The mathematical foundation runs from G. Spencer-Brown's *Laws of Form* (1969) through Heim's syntrometric logic to contemporary applied category theory — see [Foundations](docs/understand/foundations.md) for the academic lineage.
 
-    subgraph Language
-        Lexicon -->|pregroup| Grammar
-        Grammar -->|Montague| Semantics
-        Semantics --> Pragmatics
-        Pragmatics --> Discourse
-    end
+## The problem
 
-    subgraph Systems
-        Control[Control Systems]
-        SystemsThinking[Systems Thinking]
-        Communication
-        Events[Event-Driven]
-        Concurrency
-    end
+- **LLMs hallucinate by design.** Next-token prediction has no ground truth. When wrong, they cannot tell you which axiom failed because there are no axioms. For creative writing, this is fine. For domains where it kills people, it is unworkable.
+- **Scientific knowledge is siloed.** WordNet, BioPortal, the Gene Ontology, DOLCE, OBO Foundry — rich, well-curated, almost entirely unable to be combined and trusted. Decades of expert curation, no executable substrate to compose them.
 
-    subgraph Domains
-        Chess
-        Traffic
-        Judicial
-    end
+pr4xis solves both. It runs on formal scientific knowledge humans have already accumulated and on the 106 domain ontologies built directly in the workspace, with mathematical proof that every connection is sound. **Many more ontologies are still to be added** — the substrate exists precisely so that integration with BioPortal, the Gene Ontology, OBO Foundry, and the rest can be machine-checkable instead of merely hopeful.
 
-    Chess -->|functor| Events
-    Chess -->|functor| Concurrency
-    Traffic -->|functor| SystemsThinking
-    Events -->|functor| Concurrency
-    SystemsThinking -->|functor| Concurrency
-    Control -->|functor| Engine[Engine Pattern]
-    Communication -->|functor| Dialogue[Dialogue]
-    Dialogue --> Pragmatics
-```
+## Where this matters
 
-## The linguistics pipeline
+- **Safety-critical engineering** — aerospace navigation, sensor fusion, biomedical decision support, industrial process control. pr4xis already includes the foundational ontologies for orbital mechanics, attitude estimation, multi-target tracking, Kalman filtering, AHRS, SLAM, and more.
+- **LLM verification** — pr4xis as a deterministic checker behind a generative front end. The LLM produces text; pr4xis verifies which claims actually hold.
+- **Long-lived knowledge bases** — personal research notes, organizational SOPs, academic literature. The substrate keeps a knowledge base machine-checkable as it grows.
 
-Text becomes understanding through a chain of functors. Each arrow is a proven structure-preserving map.
+## pr4xis vs LLMs
 
-```mermaid
-graph LR
-    Text -->|segment| Words
-    Words -->|Language::lexical_lookup| Types[Pregroup Types]
-    Types -->|contract| Parse[Grammatical?]
-    Parse -->|Montague functor| Meaning
-    Meaning -->|speech act| Intent
-    Intent -->|DRT + Centering| Response
-```
+|   | LLMs | pr4xis |
+|---|---|---|
+| **How it knows** | Learned from training data | Derived from accepted axioms |
+| **Correctness** | Approximate — best guess from training patterns | Proven — every claim verified by math |
+| **Hallucination** | Inherent — no ground truth | Impossible — every claim traces to a proof |
+| **Determinism** | Stochastic — depends on temperature and seed | Absolute — same input, same proof, every time |
+| **Traceability** | Opaque — billions of weights, no audit trail | Full proof path from conclusion back to its axioms |
+| **When wrong** | Confidently wrong, hard to find why | The failing axiom is named |
+| **Cross-domain reasoning** | Implicit blending, no guarantees | Proven connections between domains |
+| **Undo / redo / branch** | None — each completion is final | Built in: undo, redo, branch from any prior state |
+| **Missing knowledge** | Doesn't know what it doesn't know | Detects gaps automatically |
 
-`np · n^l · n · np^r · s` → contract `n^l·n` → contract `np·np^r` → `s` (sentence). That's "the dog runs" parsed by algebra.
+## Demo
 
-## What it proves
+Try it now: **[pr4xis.dev](https://pr4xis.dev)** — runs entirely in the browser. No server, no GPU, no API key. If a query breaks, [file an issue](https://github.com/i-am-logger/pr4xis/issues) — broken queries are bug reports, not user error.
 
-| Claim | How |
-|---|---|
-| A dog is an animal | Taxonomy: dog → mammal → animal (WordNet, 107K concepts) |
-| Chess rules are complete | 5 famous games (1851-1858) replayed to checkmate |
-| "the dog runs" is grammatical | Pregroup algebra: np·n^l · n · np^r·s contracts to s |
-| F = ma | Property test: Dv = (F/m)*Dt for all random inputs |
-| Energy is conserved | KE + PE = constant for all inputs |
-| Nothing exceeds light speed | Engine blocks any velocity >= c |
-| Dialogue IS communication | Functor laws verified: identity + composition preserved |
-| The Engine IS a control system | Functor: Plant→Situation, Model→Ontology (Conant-Ashby) |
-| Edit distance is a metric | Triangle inequality proven by property-based testing |
-| Spelling correction is an adjunction | Channel F⊣Correction G: G∘F ≠ Id (information loss) |
+## Get started
 
-## Quick start
+Install, run the CLI, and write your first interaction with the engine: **[docs/learn/get-started.md](docs/learn/get-started.md)**.
 
-```rust
-use pr4xis::engine::Engine;
-use pr4xis_domains::technology::games::chess::{new_game, ChessAction, Square};
+## Contributing
 
-let game = new_game()
-    .next(ChessAction::new(Square::new(4, 1), Square::new(4, 3)))?  // e4
-    .next(ChessAction::new(Square::new(4, 6), Square::new(4, 4)))?; // e5
-
-game.situation()       // current board
-game.back()?           // undo
-game.trace().dump()    // full history — every check, every result
-```
+- **Try the demo** at [pr4xis.dev](https://pr4xis.dev) and [file issues](https://github.com/i-am-logger/pr4xis/issues) for what breaks.
+- **Contribute an ontology** if you work in a domain that could be encoded as one. Existing ontologies under `crates/domains/src/` are the working examples.
+- **Partner on a safety-critical deployment** in aerospace, biomedical, industrial, or legal.
 
 ## Documentation
 
-| Document | What it covers |
+**For a specific audience:**
+
+| Doc | Audience |
 |---|---|
-| [Foundations](docs/foundations.md) | Academic lineage — every ontology traced to its source paper |
-| [Architecture](docs/architecture.md) | Five layers: logic, category, ontology, engine, codegen |
-| [Concepts](docs/concepts.md) | What ontologies are and how they compose via functors |
-| [Domains](docs/domain-crates.md) | Physics, chess, music, linguistics, traffic, law, and more |
+| [for engineers](docs/why/for-engineers.md) | What pr4xis does for your stack, how it composes, what to do first |
+| [for researchers](docs/why/for-researchers.md) | The novelty claim, the academic lineage, the open research directions |
 
-## Crates
+**To get started:**
 
-| Crate | Purpose |
+| Doc | What it covers |
 |---|---|
-| `pr4xis` | Core — category theory, ontology, reasoning, logic, engine |
-| `pr4xis-domains` | 123 domain ontologies with 61 proven cross-domain functors |
-| `pr4xis-examples` | 11 classic puzzles solved through ontological reasoning |
+| [Get started](docs/learn/get-started.md) | Three-step tutorial: install → first query → first ontology |
 
-## Principles
+**To go deeper:**
 
-- **Nothing mechanical.** Every interaction with data goes through an ontology. No blind parsing.
-- **Research first.** Every ontology is grounded in academic papers. Bugs are ontology gaps.
-- **Composition over custom code.** Existing ontologies compose via functors. Extend, don't reinvent.
-- **Nothing here until there's a proof.** This document describes only what the codebase demonstrates.
+| Doc | What it covers |
+|---|---|
+| [Architecture](docs/understand/architecture.md) | The five-layer Rust stack, the engine, how everything fits together |
+| [Concepts](docs/understand/concepts.md) | Categories, functors, adjunctions, gap detection — explained for engineers |
+| [Evolution](docs/understand/evolution.md) | How ontologies grow without breaking — transform via functor, never rewrite |
+| [Foundations](docs/understand/foundations.md) | Academic lineage from Spencer-Brown to applied category theory |
 
-## Testing
+**To contribute:**
 
-```bash
-cargo test --workspace   # 1,809 proofs
-```
+| Doc | What it covers |
+|---|---|
+| [Build an ontology from a paper](docs/use/build-ontology-from-paper.md) | The contributor authoring workflow, end to end |
+| [Compose via functor](docs/use/compose-via-functor.md) | How to write a verified cross-domain functor |
+| [Write axioms](docs/use/write-axioms.md) | How to write a domain axiom the engine enforces |
 
-Property-based testing with [proptest](https://github.com/proptest-rs/proptest).
+**Reference and research:**
+
+| Doc | What it covers |
+|---|---|
+| [Glossary](docs/reference/glossary.md) | Every pr4xis term, in plain English |
+| [Domain catalog](docs/reference/domain-catalog.md) | The 106 ontologies in the workspace and how they are organized |
+| [Gap detection](docs/research/gap-detection.md) | The bioelectricity Kv discovery — a concrete result you can verify |
+| [Novelty](docs/research/novelty.md) | What is new about pr4xis, what is prior art, what is pending verification |
+| [Draft papers](docs/research/papers/) | Three drafts: categorical bioelectricity, adjunction-based gap detection, and the ontology-diagnostics meta-ontology |
+| [Paper outline](docs/research/paper-outline.md) | Draft architecture paper |
 
 ## License
 
 CC BY-NC-SA 4.0 — see [LICENSE](LICENSE).
+
+---
+
+- **Repo:** [github.com/i-am-logger/pr4xis](https://github.com/i-am-logger/pr4xis)
+- **Document date:** 2026-04-14

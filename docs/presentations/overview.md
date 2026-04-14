@@ -29,11 +29,11 @@ style: |
 
 <video src="../../praxis-logo-video-dark.mp4" autoplay loop muted style="width:200px;margin:0 auto;display:block"></video>
 
-# Praxis
+# pr4xis
 
 **Axiomatic intelligence.**
 
-*Knowing how to do the right thing — with proof.*
+*Doing the right thing — with proof.*
 
 > "Every good regulator of a system must be a model of that system."
 > — Conant & Ashby (1970)
@@ -48,18 +48,19 @@ style: |
 
 ---
 
-# What is Praxis?
+# What is pr4xis?
 
-Aristotle classified knowledge into three kinds:
+Aristotle named three kinds of knowing:
 
-- **Episteme** — knowing how things ARE (science)
-- **Techne** — knowing how to MAKE things (technology)
-- **Praxis** — knowing how to DO the right thing (action with understanding)
+- **episteme** — knowing how things ARE (science)
+- **techne** — knowing how to MAKE things (technology)
+- **praxis** — *the doing itself, done well*
 
-**The code contains zero domain knowledge.**
-All intelligence lives in composable ontologies.
-Every transformation is a proven functor.
-Every claim has a proof. **1,822 of them.**
+pr4xis is the doing.
+
+**Domain knowledge lives in composable ontologies.**
+Not in mechanical processing logic. No parser-with-special-cases, no rules with hardcoded strings.
+Every transformation is a proven functor. Every claim traces to an axiom.
 
 ---
 
@@ -84,9 +85,9 @@ Conant-Ashby (1970) proven in code: `Model → Ontology`.
 | **Category** | Entities, relationships, composition, functors |
 | **Ontology** | Domain knowledge, reasoning patterns, DOLCE |
 | **Engine** | Situations, actions, preconditions, enforcement |
-| **Codegen** | Build-time ontology generation from data sources |
+| **Codegen** | Declarative ontology delivery — build-time, async runtime, mmap (proven equivalent as functors) |
 
-Zero domain logic in framework code. Adding chess, physics, or English changes nothing in the engine.
+No domain logic in framework code. Adding chess, physics, or English changes nothing in the engine.
 
 ---
 
@@ -140,30 +141,30 @@ Questions from real competitions (Loebner Prize, Winograd Schema Challenge).
 
 ---
 
-# Praxis vs LLMs
+# pr4xis vs LLMs
 
-| | LLMs | Praxis |
+| | LLMs | pr4xis |
 |---|---|---|
-| **Method** | Statistical prediction | Ontological reasoning |
-| **Knowledge** | Training data (terabytes) | Formal ontologies (megabytes) |
-| **Correctness** | Probable | Provable |
-| **Hardware** | GPU clusters | Single core, <5 seconds |
-| **Hallucination** | Frequent | Impossible (axiom-checked) |
-| **Explainability** | Opaque weights | Full trace of every step |
-| **Language** | Python/CUDA | Rust |
-| **Proofs** | 0 | 1,822 |
+| **How it knows** | Learned from training data | Derived from accepted axioms |
+| **Correctness** | Approximate — best guess from patterns | Proven — every claim verified by math |
+| **Hallucination** | Inherent — no ground truth | Impossible — every claim traces to a proof |
+| **Determinism** | Stochastic | Absolute — same input, same proof |
+| **Traceability** | Opaque weights | Full proof path back to axioms |
+| **When wrong** | Confidently wrong, hard to find why | The failing axiom is named |
+| **Cross-domain reasoning** | Implicit blending | Proven connections between domains |
+| **Missing knowledge** | Doesn't know what it doesn't know | Detects gaps automatically |
 
 ---
 
-# Novel Contribution
+# Contributions
 
-**Praxis Architecture** — a synthesis that doesn't exist in the literature:
+**pr4xis architecture** — a synthesis built on a sixty-year intellectual lineage:
 
-1. **Zero domain logic in code** — all in ontologies (Guarino 1998 proposed, never built)
-2. **Functorial composition** — between behavioral ontologies (Spivak did data, not behavior)
-3. **Conant-Ashby as design principle** — never applied to software architecture
-4. **DOLCE + category theory unified** — always used separately before
-5. **Composable proof chains** — if A IS B and B IS C, then A IS C (automatic)
+1. **Domain knowledge in composable ontologies** — every domain is a category in the formal sense (Guarino 1998 framing; Spivak ologs as prior art)
+2. **Functorial composition between behavioral ontologies** — extending Spivak's data-migration pattern from schemas to behavior
+3. **Conant-Ashby as architectural justification** — the engine *is* a model because the theorem requires it
+4. **DOLCE as upper layer with category theory as the substrate** — both used together
+5. **Composable proof chains** — if A IS B and B IS C, then A IS C, by functor composition
 
 ---
 
@@ -178,7 +179,7 @@ Questions from real competitions (Loebner Prize, Winograd Schema Challenge).
 - **Information** — Shannon, Damerau, Brill & Moore
 - **Metacognition** — von Foerster, Spencer-Brown
 
-Full lineage: `docs/foundations.md`
+Full lineage: `docs/understand/foundations.md`
 
 ---
 
@@ -186,17 +187,18 @@ Full lineage: `docs/foundations.md`
 
 <iframe src="../../index.html" width="100%" height="500" style="border: 1px solid #30363d; border-radius: 8px; background: #0d1117;"></iframe>
 
-*107,000 concepts. 4.2MB. Running in your browser right now. No server.*
+*~107,000 WordNet concepts. Running in your browser right now. No server, no GPU, no API key.*
 
 ---
 
 # What's next
 
-- **More ontologies** — each Turing test question that fails tells us what to build
-- **The paper** — "Praxis Architecture: Zero-Knowledge Code via Composable Domain Ontologies with Categorical Proof"
-- **Hebrew** — second language proves the architecture is language-agnostic
+- **More ontologies** — each grammar gap and missing concept is a research task
+- **More functors** — importing BioPortal, the Gene Ontology, OBO Foundry, DOLCE as composable categories
+- **Hebrew** — a second language proves the architecture is language-agnostic
+- **Drafts in flight** — three research papers on bioelectricity, gap detection, and ontology diagnostics; see `docs/research/papers/`
 
-**The name praxis is not marketing. It is a claim backed by 1,822 proofs.**
+**The name pr4xis is not marketing. It is a claim backed by `cargo test --workspace`.**
 
 ---
 
@@ -210,6 +212,6 @@ Full lineage: `docs/foundations.md`
 </div>
 </div>
 
-[github.com/i-am-logger/praxis](https://github.com/i-am-logger/praxis)
+[github.com/i-am-logger/pr4xis](https://github.com/i-am-logger/pr4xis)
 
-*Axiomatic intelligence. 1,822 proofs. Zero domain knowledge in code.*
+*Axiomatic intelligence. Domain knowledge in composable ontologies. Every claim has a proof.*
