@@ -4,7 +4,7 @@
 
 ## Abstract
 
-Color theming systems (Base16, Base24, ANSI terminal palettes) underpin the visual identity of modern desktop environments, terminal emulators, and code editors. Despite widespread adoption, no formal ontology exists for these systems — slot semantics, contrast requirements, luminance ordering, and scheme compatibility are specified informally in README files and convention. We present the first formal ontology for color theming, built on category theory and ontology-driven rule enforcement. We define color slots as entities with semantic roles (background, foreground, accent), palette axioms that enforce WCAG 2.1 accessibility and luminance monotonicity, and scheme morphisms that map between Base16, Base24, Vogix16, and ANSI16 naming conventions. Our ontology is implemented in Rust using the Praxis framework, verified with 1800+ automated proofs including property-based testing, and deployed in Vogix, a runtime theme management system for NixOS. We demonstrate that the ontology catches invalid themes at load time, ensures accessibility compliance across all scheme types, and enables provably correct theme propagation from a single source of truth to heterogeneous surfaces (terminal emulators, window managers, hardware RGB devices).
+Color theming systems (Base16, Base24, ANSI terminal palettes) underpin the visual identity of modern desktop environments, terminal emulators, and code editors. Despite widespread adoption, no formal ontology exists for these systems in the literature we surveyed — slot semantics, contrast requirements, luminance ordering, and scheme compatibility are specified informally in README files and convention. We present a formal ontology for color theming, built on category theory and ontology-driven rule enforcement. We define color slots as entities with semantic roles (background, foreground, accent), palette axioms that enforce WCAG 2.1 accessibility and luminance monotonicity, and scheme morphisms that map between Base16, Base24, Vogix16, and ANSI16 naming conventions. Our ontology is implemented in Rust using the pr4xis framework[^V-pr4xis], verified by automated tests including property-based testing[^V-tests], and deployed in Vogix, a runtime theme management system for NixOS. We demonstrate that the ontology catches invalid themes at load time, ensures accessibility compliance across all scheme types, and enables provably correct theme propagation from a single source of truth to heterogeneous surfaces (terminal emulators, window managers, hardware RGB devices).
 
 ## 1. Introduction
 
@@ -25,7 +25,7 @@ We present:
 1. A **category-theoretic formalization** of color theming, where color slots are objects, scheme mappings are morphisms, and composition laws guarantee consistency.
 2. **Palette axioms** derived from established standards: luminance monotonicity (Base16 spec), WCAG 2.1 contrast ratios (W3C), and bright variant ordering (Base24 spec).
 3. A **scheme taxonomy** with formally verified bijections between Base16, Base24, Vogix16, and ANSI16.
-4. An **implementation** in Rust using the Praxis ontology framework [4], with 44 theming tests, 12 property-based proofs, and 6 axiom verifications.
+4. An **implementation** in Rust using the pr4xis ontology framework[^V-pr4xis][4], with theming tests, property-based proofs, and axiom verifications[^V-tests].
 5. A **runtime enforcement** architecture where theme changes are state machine transitions validated against the ontology before application.
 
 ### 1.3 Related Work
@@ -165,9 +165,9 @@ Bright variants must have equal or higher luminance than their base counterparts
 
 ## 4. Implementation
 
-### 4.1 Praxis Framework
+### 4.1 pr4xis framework
 
-The ontology is implemented in Rust using the Praxis framework [4], which provides:
+The ontology is implemented in Rust using the pr4xis framework[^V-pr4xis][4], which provides:
 - `Entity` trait: finite, enumerable domain objects
 - `Relationship` trait: directed connections (morphisms)
 - `Category` trait: with `identity`, `compose`, `morphisms` and law verification
@@ -179,30 +179,31 @@ The ontology is implemented in Rust using the Praxis framework [4], which provid
 ### 4.2 Crate Structure
 
 ```
-praxis/crates/domains/src/
-├── science/
-│   ├── math/functions.rs      # Piecewise, LinearCombination, Interval, OffsetRatio
-│   └── colors/
-│       ├── rgb.rs              # Rgb type with from_hex, hue, saturation
-│       ├── srgb.rs             # Linearization, luminance, contrast (built on math)
-│       ├── mixing.rs           # Blend modes: multiply, screen, additive
-│       └── ontology.rs         # PrimaryColor category, Luminance quality
-└── technology/theming/
-    ├── base16.rs               # 24 ColorSlot entities, SemanticRole, Polarity
+pr4xis/crates/domains/src/
+├── natural/colors/
+│   ├── rgb.rs                  # Rgb type with from_hex, hue, saturation
+│   ├── srgb.rs                 # Linearization, luminance, contrast
+│   ├── mixing.rs               # Blend modes: multiply, screen, additive
+│   └── ontology.rs             # PrimaryColor category, Luminance quality
+├── formal/math/                 # Piecewise, LinearCombination, Interval, OffsetRatio
+└── applied/theming/
+    ├── base16.rs               # ColorSlot entities, SemanticRole, Polarity
     ├── schemes.rs              # SchemeType, Vogix16Semantic, Ansi16Color
     └── ontology.rs             # ThemingCategory, palette axioms, detect_polarity
 ```
 
+(Paths reflect the current organization after the workspace reorg. The earlier `science/` and `technology/` paths in older drafts are obsolete.)
+
 ### 4.3 Verification Results
 
-| Module | Unit Tests | Property Tests | Axioms | Total |
-|--------|-----------|----------------|--------|-------|
-| math::functions | 7 | 6 | 3 | 16 |
-| colors::srgb | 15 | 6 | 6 | 27 |
-| theming::base16 | 10 | 0 | 0 | 10 |
-| theming::schemes | 16 | 6 | 4 | 26 |
-| theming::ontology | 7 | 0 | 3 | 10 |
-| **Total** | **55** | **18** | **16** | **89** |
+The ontology is verified by automated tests covering:
+
+- **Color science** — sRGB linearization continuity, BT.709 luma convexity, luminance/contrast bounds, screen-multiply duality
+- **Palette structure** — luminance monotonicity, WCAG foreground contrast, bright-variant ordering
+- **Scheme morphisms** — Vogix16, ANSI16, and Base24 bijections; round-trip identity; SGR range conformance
+- **Category laws** — identity, composition, associativity for the theming category
+
+The live test count and coverage are re-derivable[^V-tests] from the codebase. Specific counts (55 unit tests, 18 property tests, 16 axioms, 89 total) are at-drafting-time snapshots; the test runner output is the source of truth.
 
 Property-based tests (via proptest) verify axioms hold for arbitrary inputs:
 - Luminance bounded [0,1] for any RGB triple
@@ -215,7 +216,7 @@ Property-based tests (via proptest) verify axioms hold for arbitrary inputs:
 
 The Vogix runtime theme manager uses the ontology at three points:
 
-1. **Theme loading:** Raw color maps are converted to praxis Palettes and validated against Axioms 6–8. Invalid themes are rejected with specific axiom failure messages.
+1. **Theme loading:** Raw color maps are converted to pr4xis Palettes and validated against Axioms 6–8. Invalid themes are rejected with specific axiom failure messages.
 
 2. **Shader generation:** The monochromatic screen shader preserves functional colors (accents) through the tint. Functional slots are discovered via the ontology (SemanticRole::Accent and BrightAccent) across all scheme naming conventions.
 
@@ -237,9 +238,9 @@ Our formalization reveals that the Base16 specification [1] does not require WCA
 
 ## 6. Conclusion
 
-We presented the first formal ontology for color theming systems, built on category theory and implemented in Rust with automated verification. The ontology captures slot semantics, palette invariants, and scheme morphisms that existing specifications leave informal. Our implementation in the Praxis framework provides 89 verified proofs and runtime enforcement in a production theme manager.
+We presented a formal ontology for color theming systems, built on category theory and implemented in Rust with automated verification. The ontology captures slot semantics, palette invariants, and scheme morphisms that existing specifications leave informal. Our implementation in the pr4xis framework provides verified proofs[^V-tests] and runtime enforcement in a production theme manager.
 
-The conspicuous absence of formal theming ontologies in the literature suggests this work addresses a genuine gap. As theming systems grow more complex (hardware RGB, shader integration, cross-device synchronization), formal foundations become essential for correctness.
+The conspicuous absence of formal theming ontologies in the literature we surveyed suggests this work addresses a genuine gap. As theming systems grow more complex (hardware RGB, shader integration, cross-device synchronization), formal foundations become essential for correctness.
 
 ## References
 
@@ -249,7 +250,7 @@ The conspicuous absence of formal theming ontologies in the literature suggests 
 
 [3] ECMA International, "ECMA-48: Control Functions for Coded Character Sets," 5th Ed., 1991.
 
-[4] Praxis Framework, https://github.com/i-am-logger/praxis
+[4] pr4xis framework, https://github.com/i-am-logger/pr4xis
 
 [5] Y. Ohno, "CIE Fundamentals for Color Measurements," NIST, 2000.
 
@@ -270,3 +271,9 @@ The conspicuous absence of formal theming ontologies in the literature suggests 
 [13] M. Beaudouin-Lafon, "Instrumental Interaction," CHI 2000.
 
 [14] W3C, "Compositing and Blending Level 1," https://www.w3.org/TR/compositing-1/
+
+## Verification Footnotes
+
+[^V-pr4xis]: The pr4xis framework source: https://github.com/i-am-logger/pr4xis. The theming ontology specifically lives at `crates/domains/src/applied/theming/`.
+
+[^V-tests]: Re-derive the test count and coverage by running `cargo test -p pr4xis-domains theming`. Specific test counts cited in the original draft (1800+, 89, 44, 12, 6, 55, 18, 16) are at-drafting-time snapshots; the live values come from the test runner output, not the prose. Numerical claims have been softened throughout to reflect this — only the test command is authoritative.
