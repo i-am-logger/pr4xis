@@ -89,7 +89,7 @@ Proven functors include:
 - Systems IS Concurrent (SystemsToConcurrency)
 - Dialogue IS Communication (DialogueToCommunication)
 - Control IS Engine (ControlToEngine)
-- pr4xis types IS DOLCE (Pr4xisToDolce)
+- pr4xis types IS DOLCE (OwnToDolce)
 
 ### 4.2 Composable Proof Chains
 

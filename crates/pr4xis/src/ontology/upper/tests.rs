@@ -4,7 +4,7 @@ use crate::category::{Category, Functor};
 
 use super::being::Being;
 use super::category::{DolceCategory, RelationKind};
-use super::functor::{Pr4xisMetaCategory, Pr4xisToDolce, Pr4xisType};
+use super::functor::{OwnMetaCategory, OwnToDolce, OwnType};
 
 // =============================================================================
 // Being tests
@@ -96,17 +96,17 @@ fn dolce_has_event_part_of_process() {
 }
 
 // =============================================================================
-// Praxis meta-category tests
+// Own meta-category tests
 // =============================================================================
 
 #[test]
-fn pr4xis_meta_category_laws() {
-    check_category_laws::<Pr4xisMetaCategory>().unwrap();
+fn own_meta_category_laws() {
+    check_category_laws::<OwnMetaCategory>().unwrap();
 }
 
 #[test]
-fn praxis_has_7_types() {
-    assert_eq!(Pr4xisType::variants().len(), 7);
+fn own_has_7_types() {
+    assert_eq!(OwnType::variants().len(), 7);
 }
 
 // =============================================================================
@@ -115,13 +115,13 @@ fn praxis_has_7_types() {
 
 #[test]
 fn functor_laws_hold() {
-    check_functor_laws::<Pr4xisToDolce>().unwrap();
+    check_functor_laws::<OwnToDolce>().unwrap();
 }
 
 #[test]
 fn functor_maps_entity_to_abstract() {
     assert_eq!(
-        Pr4xisToDolce::map_object(&Pr4xisType::Entity),
+        OwnToDolce::map_object(&OwnType::Entity),
         Being::AbstractObject
     );
 }
@@ -129,30 +129,27 @@ fn functor_maps_entity_to_abstract() {
 #[test]
 fn functor_maps_situation_to_social_object() {
     assert_eq!(
-        Pr4xisToDolce::map_object(&Pr4xisType::Situation),
+        OwnToDolce::map_object(&OwnType::Situation),
         Being::SocialObject
     );
 }
 
 #[test]
 fn functor_maps_action_to_event() {
-    assert_eq!(Pr4xisToDolce::map_object(&Pr4xisType::Action), Being::Event);
+    assert_eq!(OwnToDolce::map_object(&OwnType::Action), Being::Event);
 }
 
 #[test]
 fn functor_maps_quality_to_quality() {
-    assert_eq!(
-        Pr4xisToDolce::map_object(&Pr4xisType::Quality),
-        Being::Quality
-    );
+    assert_eq!(OwnToDolce::map_object(&OwnType::Quality), Being::Quality);
 }
 
 #[test]
 fn functor_preserves_identity() {
-    for t in Pr4xisType::variants() {
-        let praxis_id = Pr4xisMetaCategory::identity(&t);
-        let mapped = Pr4xisToDolce::map_morphism(&praxis_id);
-        let dolce_id = DolceCategory::identity(&Pr4xisToDolce::map_object(&t));
+    for t in OwnType::variants() {
+        let own_id = OwnMetaCategory::identity(&t);
+        let mapped = OwnToDolce::map_morphism(&own_id);
+        let dolce_id = DolceCategory::identity(&OwnToDolce::map_object(&t));
         assert_eq!(mapped, dolce_id, "identity not preserved for {:?}", t);
     }
 }
@@ -177,15 +174,15 @@ mod prop {
         ]
     }
 
-    fn arb_pr4xis_type() -> impl Strategy<Value = Pr4xisType> {
+    fn arb_own_type() -> impl Strategy<Value = OwnType> {
         prop_oneof![
-            Just(Pr4xisType::Entity),
-            Just(Pr4xisType::Situation),
-            Just(Pr4xisType::Action),
-            Just(Pr4xisType::Quality),
-            Just(Pr4xisType::CategoryType),
-            Just(Pr4xisType::Axiom),
-            Just(Pr4xisType::Proposition),
+            Just(OwnType::Entity),
+            Just(OwnType::Situation),
+            Just(OwnType::Action),
+            Just(OwnType::Quality),
+            Just(OwnType::CategoryType),
+            Just(OwnType::Axiom),
+            Just(OwnType::Proposition),
         ]
     }
 
@@ -200,19 +197,19 @@ mod prop {
             prop_assert_eq!(count, 1);
         }
 
-        /// Functor maps every praxis type to a valid Being.
+        /// Functor maps every OwnType to a valid Being.
         #[test]
-        fn prop_functor_maps_to_valid_being(t in arb_pr4xis_type()) {
-            let being = Pr4xisToDolce::map_object(&t);
+        fn prop_functor_maps_to_valid_being(t in arb_own_type()) {
+            let being = OwnToDolce::map_object(&t);
             prop_assert!(Being::variants().contains(&being));
         }
 
         /// Functor preserves identity for all types.
         #[test]
-        fn prop_functor_preserves_identity(t in arb_pr4xis_type()) {
-            let praxis_id = Pr4xisMetaCategory::identity(&t);
-            let mapped = Pr4xisToDolce::map_morphism(&praxis_id);
-            let dolce_id = DolceCategory::identity(&Pr4xisToDolce::map_object(&t));
+        fn prop_functor_preserves_identity(t in arb_own_type()) {
+            let own_id = OwnMetaCategory::identity(&t);
+            let mapped = OwnToDolce::map_morphism(&own_id);
+            let dolce_id = DolceCategory::identity(&OwnToDolce::map_object(&t));
             prop_assert_eq!(mapped, dolce_id);
         }
 
@@ -227,18 +224,18 @@ mod prop {
         /// Functor preserves composition for any composable pair.
         #[test]
         fn prop_functor_preserves_composition(
-            a in arb_pr4xis_type(),
-            b in arb_pr4xis_type(),
-            c in arb_pr4xis_type()
+            a in arb_own_type(),
+            b in arb_own_type(),
+            c in arb_own_type()
         ) {
-            let morphisms = Pr4xisMetaCategory::morphisms();
+            let morphisms = OwnMetaCategory::morphisms();
             if let Some(f) = morphisms.iter().find(|m| m.from == a && m.to == b) {
                 if let Some(g) = morphisms.iter().find(|m| m.from == b && m.to == c) {
-                    if let Some(gf) = Pr4xisMetaCategory::compose(f, g) {
-                        let mapped_gf = Pr4xisToDolce::map_morphism(&gf);
+                    if let Some(gf) = OwnMetaCategory::compose(f, g) {
+                        let mapped_gf = OwnToDolce::map_morphism(&gf);
                         let composed_mapped = DolceCategory::compose(
-                            &Pr4xisToDolce::map_morphism(f),
-                            &Pr4xisToDolce::map_morphism(g),
+                            &OwnToDolce::map_morphism(f),
+                            &OwnToDolce::map_morphism(g),
                         );
                         prop_assert_eq!(Some(mapped_gf), composed_mapped);
                     }
