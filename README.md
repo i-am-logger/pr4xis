@@ -15,7 +15,7 @@
 
 **pr4xis is a new kind of AI: axiomatic, not statistical.** Where LLMs predict the next token from training data, pr4xis derives the next claim from accepted axioms — the same way mathematicians prove theorems.
 
-Aristotle's three kinds of knowledge are:
+Aristotle named three kinds of knowing:
 
 - **episteme** — knowing how things are
 - **techne** — knowing how to make things
