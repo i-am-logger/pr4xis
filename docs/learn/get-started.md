@@ -1,71 +1,28 @@
 # Get Started
 
-This page walks you through running pr4xis locally and writing your first interaction with the substrate. It assumes you have a recent Rust toolchain and `cargo`.
+This is the entry point for new users learning pr4xis. It is a three-step tutorial sequence — each step is a short, focused page you can complete in 10 minutes or less. By the end you will have pr4xis built locally, made your first query against the engine, and written your own minimal `define_ontology!` block.
 
-## 1. Install
+## The sequence
 
-```bash
-git clone https://github.com/i-am-logger/pr4xis
-cd pr4xis
-cargo test --workspace
-```
+1. **[01 — Install](01-install.md)** — clone, build, run the test suite. Verifies your environment.
+2. **[02 — First Query](02-first-query.md)** — interact with the engine through the CLI chatbot or the WASM browser demo, and learn how to read the trace.
+3. **[03 — Your First Ontology](03-first-ontology.md)** — write a minimal `define_ontology!` block of your own, and watch the categorical machinery validate it.
 
-The full test suite runs in under a minute on a single core. If anything fails, [file an issue](https://github.com/i-am-logger/pr4xis/issues).
+Each page links forward to the next, and back to this index. You can also jump straight in if you already know what you need.
 
-If you use Nix, the workspace is set up with `devenv` — `devenv shell` will drop you into a configured environment.
+## After the tutorial
 
-## 2. Try the CLI chatbot
+Once you have completed the three steps, the next layer of docs depends on what you want to do:
 
-```bash
-cargo run -p pr4xis-cli
-```
+- **Use pr4xis as a library** in your own service or research project → [Architecture](../understand/architecture.md)
+- **Add a real ontology from a published paper** → [Build an ontology from a paper](../use/build-ontology-from-paper.md)
+- **Compose two ontologies with a verified functor** → [Compose via functor](../use/compose-via-functor.md)
+- **Write a domain axiom** → [Write axioms](../use/write-axioms.md)
+- **Understand the categorical machinery deeply** → [Concepts](../understand/concepts.md), [Foundations](../understand/foundations.md)
+- **See the most distinctive concrete result** → [Gap detection](../research/gap-detection.md)
 
-This loads the local English ontology (the same WordNet used by the WASM demo at [pr4xis.dev](https://pr4xis.dev)) and starts a chat loop. You can ask taxonomy questions, definitions, and simple compositional queries.
+If you get stuck, [file an issue](https://github.com/i-am-logger/pr4xis/issues) — broken queries are bug reports, not user error.
 
-The CLI is a working surface, not a polished product. If a query parses but produces an unhelpful answer, that is a bug — file an issue with the exact input.
+---
 
-## 3. Use the engine in your own code
-
-The substrate's central pattern is **runtime axiom enforcement**: an `Engine` carries a situation and a list of preconditions, and any action that violates a precondition is *blocked, named, and recoverable* — never silently approximated. The chess domain is a clean illustration:
-
-```rust
-use pr4xis_domains::social::games::chess::{new_game, ChessAction, Square};
-
-fn main() {
-    // A new game starts with the full rules of chess as preconditions.
-    let game = new_game();
-
-    // e2-e4: legal opening move, accepted.
-    let game = game
-        .next(ChessAction::new(Square::new(4, 1), Square::new(4, 3)))
-        .unwrap();
-
-    // An illegal move is BLOCKED. The failing precondition is named,
-    // the engine is recoverable, nothing is approximated away.
-    let illegal = ChessAction::new(Square::new(0, 0), Square::new(7, 7));
-    assert!(game.next(illegal).is_err());  // axiom violation, not a wrong answer
-}
-```
-
-This exact pattern is verified by `cargo test -p pr4xis-domains test_engine_illegal_move_blocked` (and many other engine tests in `crates/domains/src/social/games/chess/tests.rs`).
-
-The same `Engine` pattern works for any domain in the workspace: traffic signals, elevator dispatch, HTTP state machines, judicial workflows, sensor fusion gates, orbital mechanics, and dozens more. A precondition that holds is a proof; a precondition that fails is a blocked action with a named cause.
-
-## 4. Browse the 106 ontologies
-
-Every ontology in the workspace lives at exactly one path under `crates/domains/src/`. To list them:
-
-```bash
-find crates/domains/src -name ontology.rs
-```
-
-The current organization (formal / applied / social / natural / cognitive) is described in the [Domain catalog](../reference/domain-catalog.md). Each ontology is a self-contained `define_ontology!` block — open one to see the pattern.
-
-## 5. Where to go next
-
-- **[Concepts](../understand/concepts.md)** — what an ontology is in pr4xis, why category theory, how functors and adjunctions work
-- **[Architecture](../understand/architecture.md)** — the five-layer Rust stack and how the engine actually runs
-- **[Foundations](../understand/foundations.md)** — academic lineage, source papers, the Spencer-Brown / Heim distinction-calculus tradition
-- **[Gap detection](../research/gap-detection.md)** — a concrete result: pr4xis automatically detected a missing distinction in molecular biology that experts had collapsed into one entity
-
-If you want to contribute an ontology of your own, the existing ones under `crates/domains/src/` are the working examples. A dedicated authoring guide is tracked in [#44](https://github.com/i-am-logger/pr4xis/issues/44).
+- **Document date:** 2026-04-14

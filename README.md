@@ -68,14 +68,44 @@ Install, run the CLI, and write your first interaction with the engine: **[docs/
 
 ## Documentation
 
+**For a specific audience:**
+
+| Doc | Audience |
+|---|---|
+| [for engineers](docs/why/for-engineers.md) | What pr4xis does for your stack, how it composes, what to do first |
+| [for researchers](docs/why/for-researchers.md) | The novelty claim, the academic lineage, the open research directions |
+
+**To get started:**
+
 | Doc | What it covers |
 |---|---|
-| [Get started](docs/learn/get-started.md) | Install, run the CLI, write your first engine interaction |
-| [Architecture](docs/understand/architecture.md) | How pr4xis works under the hood — the five-layer stack, the engine, the verification commands |
+| [Get started](docs/learn/get-started.md) | Three-step tutorial: install → first query → first ontology |
+
+**To go deeper:**
+
+| Doc | What it covers |
+|---|---|
+| [Architecture](docs/understand/architecture.md) | The five-layer Rust stack, the engine, how everything fits together |
 | [Concepts](docs/understand/concepts.md) | Categories, functors, adjunctions, gap detection — explained for engineers |
+| [Evolution](docs/understand/evolution.md) | How ontologies grow without breaking — transform via functor, never rewrite |
 | [Foundations](docs/understand/foundations.md) | Academic lineage from Spencer-Brown to applied category theory |
-| [Gap detection](docs/research/gap-detection.md) | A concrete result — pr4xis automatically detected a missing distinction in molecular biology that experts had collapsed into one entity |
+
+**To contribute:**
+
+| Doc | What it covers |
+|---|---|
+| [Build an ontology from a paper](docs/use/build-ontology-from-paper.md) | The contributor authoring workflow, end to end |
+| [Compose via functor](docs/use/compose-via-functor.md) | How to write a verified cross-domain functor |
+| [Write axioms](docs/use/write-axioms.md) | How to write a domain axiom the engine enforces |
+
+**Reference and research:**
+
+| Doc | What it covers |
+|---|---|
+| [Glossary](docs/reference/glossary.md) | Every pr4xis term, in plain English |
 | [Domain catalog](docs/reference/domain-catalog.md) | The 106 ontologies in the workspace and how they are organized |
+| [Gap detection](docs/research/gap-detection.md) | The bioelectricity Kv discovery — a concrete result you can verify |
+| [Novelty](docs/research/novelty.md) | What is new about pr4xis, what is prior art, what is pending verification |
 | [Paper outline](docs/research/paper-outline.md) | Draft architecture paper |
 
 ## License
