@@ -15,11 +15,26 @@
 
 **pr4xis is a new kind of AI: axiomatic, not statistical.** Where LLMs predict the next token from training data, pr4xis derives the next claim from accepted axioms — the same way mathematicians prove theorems.
 
-The name comes from Aristotle's three kinds of knowledge: **episteme** (knowing how things are), **techne** (knowing how to make things), and **praxis** — *the doing itself, done well*. pr4xis is the doing.
+Aristotle's three kinds of knowledge are:
 
-## Demo
+- **episteme** — knowing how things are
+- **techne** — knowing how to make things
+- **praxis** — *the doing itself, done well*
 
-Try it now: **[pr4xis.dev](https://pr4xis.dev)** — runs entirely in the browser. No server, no GPU, no API key. If a query breaks, [file an issue](https://github.com/i-am-logger/pr4xis/issues) — broken queries are bug reports, not user error.
+pr4xis is the doing.
+
+## The problem
+
+- **LLMs hallucinate by design.** Next-token prediction has no ground truth. When wrong, they cannot tell you which axiom failed because there are no axioms. For creative writing, this is fine. For domains where it kills people, it is unworkable.
+- **Scientific knowledge is siloed.** WordNet, BioPortal, the Gene Ontology, DOLCE, OBO Foundry — rich, well-curated, almost entirely unable to be combined and trusted. Decades of expert curation, no executable substrate to compose them.
+
+pr4xis solves both. It runs on formal scientific knowledge humans have already accumulated and on the 106 domain ontologies built directly in the workspace, with mathematical proof that every connection is sound. **Many more ontologies are still to be added** — the substrate exists precisely so that integration with BioPortal, the Gene Ontology, OBO Foundry, and the rest can be machine-checkable instead of merely hopeful.
+
+## Where this matters
+
+- **Safety-critical engineering** — aerospace navigation, sensor fusion, biomedical decision support, industrial process control. pr4xis already includes the foundational ontologies for orbital mechanics, attitude estimation, multi-target tracking, Kalman filtering, AHRS, SLAM, and more.
+- **LLM verification** — pr4xis as a deterministic checker behind a generative front end. The LLM produces text; pr4xis verifies which claims actually hold.
+- **Long-lived knowledge bases** — personal research notes, organizational SOPs, academic literature. The substrate keeps a knowledge base machine-checkable as it grows.
 
 ## pr4xis vs LLMs
 
@@ -36,49 +51,13 @@ Try it now: **[pr4xis.dev](https://pr4xis.dev)** — runs entirely in the browse
 | **Missing knowledge** | Doesn't know what it doesn't know | Detects gaps automatically |
 | **Compute footprint** | GPU clusters, terabytes of weights | Single core, one Rust binary, megabytes |
 
-## The problem
+## Demo
 
-- **LLMs hallucinate by design.** Next-token prediction has no ground truth. When wrong, they cannot tell you which axiom failed because there are no axioms. For creative writing, this is fine. For domains where it kills people, it is unworkable.
-- **Scientific knowledge is siloed.** WordNet, BioPortal, the Gene Ontology, DOLCE, OBO Foundry, Cyc, SUMO — rich, well-curated, almost entirely unable to be combined and trusted. Decades of expert curation, no executable substrate to compose them.
+Try it now: **[pr4xis.dev](https://pr4xis.dev)** — runs entirely in the browser. No server, no GPU, no API key. If a query breaks, [file an issue](https://github.com/i-am-logger/pr4xis/issues) — broken queries are bug reports, not user error.
 
-pr4xis solves both. It runs on formal scientific knowledge humans have already accumulated and on the 106 domain ontologies built directly in the workspace, with mathematical proof that every connection is sound. **Many more ontologies are still to be added** — the substrate exists precisely so that integration with BioPortal, the Gene Ontology, OBO Foundry, and the rest can be machine-checkable instead of merely hopeful.
+## Get started
 
-## Quick start
-
-```bash
-git clone https://github.com/i-am-logger/pr4xis
-cd pr4xis
-cargo test --workspace       # 4,855 verified claims
-cargo run -p pr4xis-cli      # local CLI chatbot
-```
-
-Or just open **[pr4xis.dev](https://pr4xis.dev)** — no install required.
-
-## A minimal example
-
-```rust
-use pr4xis_domains::social::games::chess::{new_game, ChessAction, Square};
-
-fn main() {
-    let game = new_game();
-    let game = game
-        .next(ChessAction::new(Square::new(4, 1), Square::new(4, 3)))  // e2-e4
-        .unwrap();
-
-    // An illegal move is BLOCKED — the failing rule is named, the engine
-    // is recoverable, and nothing is approximated away.
-    let illegal = ChessAction::new(Square::new(0, 0), Square::new(7, 7));
-    assert!(game.next(illegal).is_err());  // axiom violation, not a wrong answer
-}
-```
-
-The same pattern works for traffic signals, elevators, HTTP state machines, judicial workflows, sensor fusion, orbital mechanics, and every other domain in the workspace.
-
-## Where this matters
-
-- **Safety-critical engineering** — aerospace navigation, sensor fusion, biomedical decision support, industrial process control. pr4xis already includes the foundational ontologies for orbital mechanics, attitude estimation, multi-target tracking, Kalman filtering, AHRS, SLAM, and more.
-- **LLM verification** — pr4xis as a deterministic checker behind a generative front end. The LLM produces text; pr4xis verifies which claims actually hold.
-- **Long-lived knowledge bases** — personal research notes, organizational SOPs, academic literature. The substrate keeps a knowledge base machine-checkable as it grows.
+Install, run the CLI, and write your first interaction with the engine: **[docs/learn/get-started.md](docs/learn/get-started.md)**.
 
 ## Contributing
 
@@ -90,6 +69,7 @@ The same pattern works for traffic signals, elevators, HTTP state machines, judi
 
 | Doc | What it covers |
 |---|---|
+| [Get started](docs/learn/get-started.md) | Install, run the CLI, write your first engine interaction |
 | [Architecture](docs/understand/architecture.md) | How pr4xis works under the hood — the five-layer stack, the engine, the verification commands |
 | [Concepts](docs/understand/concepts.md) | Categories, functors, adjunctions, gap detection — explained for engineers |
 | [Foundations](docs/understand/foundations.md) | Academic lineage from Spencer-Brown to applied category theory |
