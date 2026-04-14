@@ -10,13 +10,14 @@ Dr. Michael Levin's bioelectric framework proposes that endogenous membrane
 potential (Vmem) patterns encode morphogenetic information, guiding tissue
 repair and regeneration through gap junction-mediated collective cell behavior.
 While experimentally validated across planaria, Xenopus, and cancer models,
-this framework has lacked a formal mathematical foundation. We present the
-first category-theoretic formalization of Levin's bioelectric framework,
-encoding 12 scientific domains as formal ontologies with 839 machine-verified
-tests. We prove that the cross-domain relationships between molecular biology,
-bioelectricity, immunology, pharmacology, regeneration, and pathology are
-structure-preserving maps (functors) with verified composition laws, and
-identify three adjunction pairs that capture the "zoom in / zoom out"
+this framework has lacked a formal mathematical foundation. We present a
+category-theoretic formalization of Levin's bioelectric framework, encoding
+12 scientific domains[^V-ontologies] as formal ontologies with 839
+machine-verified tests[^V-tests]. We prove that the cross-domain
+relationships between molecular biology, bioelectricity, immunology,
+pharmacology, regeneration, and pathology are structure-preserving maps
+(functors) with verified composition laws[^V-functors], and identify three
+adjunction pairs[^V-adjunctions] that capture the "zoom in / zoom out"
 relationship between biological scales. This formalization enables automated
 reasoning about therapeutic interventions, identifies previously unrecognized
 structural equivalences between domains, and provides a rigorous foundation
@@ -55,14 +56,13 @@ precise what it means for two domains to be "the same up to information loss."
 
 ### 1.3 Contributions
 
-1. Formal encoding of 12 scientific domains as categories with taxonomy,
-   mereology, causation, opposition, and quality structures
-2. 21 functors proving structure-preserving maps between domains
-3. 3 adjunctions capturing scale-bridging relationships
-4. 839 machine-verified tests proving all axioms, functor laws, and
+1. Formal encoding of 12 scientific domains[^V-ontologies] as categories with
+   taxonomy, mereology, causation, opposition, and quality structures
+2. 21 functors[^V-functors] proving structure-preserving maps between domains
+3. 3 adjunctions[^V-adjunctions] capturing scale-bridging relationships
+4. 839 machine-verified tests[^V-tests] proving all axioms, functor laws, and
    composition properties
-5. Identification of novel structural equivalences invisible to informal
-   reasoning
+5. Identification of structural equivalences invisible to informal reasoning
 
 ## 2. Methods
 
@@ -83,7 +83,7 @@ We use the praxis ontology framework, which implements:
 - **Adjunction**: optimally inverse functor pairs with unit and counit
 
 All structures are implemented in Rust and verified by the type system and
-839 automated tests including property-based testing (proptest).
+839 automated tests[^V-tests] including property-based testing (proptest).
 
 ### 2.2 Domain Selection
 
@@ -123,14 +123,14 @@ that would FAIL if the ontological structure contradicted the literature.
 
 ### 3.1 Domain Structure
 
-12 domains encode 275+ entities with 130+ axioms. Each domain is a category
-with objects (entities) and morphisms (relationships). The morphism structure
-is verified by automated category law tests (identity, composition,
-associativity, closure).
+12 domains[^V-ontologies] encode 275+ entities with 130+ axioms[^V-axioms].
+Each domain is a category with objects (entities) and morphisms
+(relationships). The morphism structure is verified by automated category law
+tests (identity, composition, associativity, closure)[^V-tests].
 
 ### 3.2 Cross-Domain Functors
 
-21 functors prove structure-preserving maps between domains:
+21 functors[^V-functors] prove structure-preserving maps between domains:
 
 **Key result**: The functor MolecularToBioelectric maps molecular entities
 to their bioelectric roles (Piezo1 -> MechanicalStimulation, Cx43 ->
@@ -144,7 +144,7 @@ HAS the structure of bioelectric signaling.
 
 ### 3.3 Adjunctions
 
-Three adjunction pairs capture scale-bridging:
+Three adjunction pairs[^V-adjunctions] capture scale-bridging:
 
 **MolecularToBioelectric -| BioelectricToMolecular**
 
@@ -164,8 +164,9 @@ multi-scale framework.
 
 ### 3.4 Causal Chain Verification
 
-12 causal graphs encode 100+ cause-effect relationships. Functor composition
-tests verify that causal chains compose across domains:
+12 causal graphs[^V-causal] encode 100+ cause-effect relationships[^V-causal].
+Functor composition tests[^V-functors] verify that causal chains compose
+across domains:
 
 pharmacology -> molecular -> bioelectricity:
   Ivermectin -> GlyR -> IonChannelModulation
@@ -182,14 +183,14 @@ identity mapping. TargetMorphology is proven identical across bioelectricity
 and regeneration. These equivalences were not assumed — they emerged from
 functor analysis.
 
-**Opposition structure**: 26 opposition pairs across 8 domains encode
-scientific contrasts (Na+/K+, M1/M2, Healthy/Dysplastic). The opposition
-axioms (symmetric, irreflexive) are verified automatically, ensuring no
-entity opposes itself and all oppositions are bidirectional.
+**Opposition structure**: 26 opposition pairs[^V-opposition] across 8 domains
+encode scientific contrasts (Na+/K+, M1/M2, Healthy/Dysplastic). The opposition
+axioms (symmetric, irreflexive) are verified automatically[^V-tests], ensuring
+no entity opposes itself and all oppositions are bidirectional.
 
 **The TAME hierarchy as category**: The 5-level TAME competency hierarchy
 (Molecular -> Cellular -> Tissue -> Organ -> Organism) is encoded as a
-taxonomy with verified DAG structure and transitive is-a relationships.
+taxonomy[^V-tame] with verified DAG structure and transitive is-a relationships.
 Every bioelectric entity is assigned an operating level, and the axiom
 AllTAMELevelsRepresented proves that all 5 levels are populated.
 
@@ -280,6 +281,24 @@ The numerical counts in the abstract and Section 3 (12 domains, 839 tests, 21 fu
 ## References
 
 (See docs/papers/references.md for complete bibliography — 70+ papers)
+
+## Verification Footnotes
+
+[^V-tests]: Re-derive by running `cargo test --workspace`. The "839" subset count is the bioelectric stack at drafting time; the workspace total grows as new ontologies are added. Both are computed live by the test runner.
+
+[^V-ontologies]: Re-derive by `find crates/domains/src/natural/biomedical -name ontology.rs | wc -l` for the biomedical subset, or `find crates/domains/src -name ontology.rs | wc -l` for the workspace total.
+
+[^V-functors]: Re-derive by `grep -rn "impl Functor" crates/domains/src/natural/biomedical/ | wc -l` for the biomedical subset, or the same grep over `crates/domains/src/` for the workspace total. Each functor implementation passes `check_functor_laws()` at test time.
+
+[^V-axioms]: Each axiom is its own `Axiom` impl. Count via `grep -rn "impl Axiom" crates/domains/src/natural/biomedical/ | wc -l`. Each axiom is verified by a corresponding test.
+
+[^V-adjunctions]: The three adjunctions (`MolecularBioelectricAdjunction`, `PharmacologyMolecularAdjunction`, `BiologyBioelectricAdjunction`) live at `crates/domains/src/natural/biomedical/adjunctions.rs`. Their `unit` and `counit` implementations are verified by the test suite in the same file. Run `cargo test -p pr4xis-domains adjunctions::tests`.
+
+[^V-causal]: Causal graphs are encoded via the `CausalDef` reasoning system inside each ontology's `define_ontology!` block. Count via `grep -rn "causation:" crates/domains/src/natural/biomedical/`.
+
+[^V-opposition]: Opposition pairs are encoded via the `OppositionDef` reasoning system inside each ontology's `define_ontology!` block. Count via `grep -rn "opposition:" crates/domains/src/natural/biomedical/`.
+
+[^V-tame]: The TAME hierarchy is encoded in the bioelectricity ontology at `crates/domains/src/natural/biomedical/bioelectricity/ontology.rs`. Run `cargo test -p pr4xis-domains bioelectricity::tests` to verify the taxonomy structure.
 
 Key references:
 - Levin M (2014). Molecular bioelectrics in developmental biology. Mol Biol Cell.

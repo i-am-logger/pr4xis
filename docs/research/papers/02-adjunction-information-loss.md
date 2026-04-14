@@ -12,17 +12,18 @@ ontologies formalized as categories with structure-preserving maps (functors)
 between them, the adjunction's unit and counit morphisms identify entities
 that COLLAPSE under the round-trip — revealing where the source ontology
 lacks a distinction that the target ontology requires. We demonstrate this
-methodology on 12 biological domains formalized in the praxis category-theory
-framework, with 846 machine-verified tests. The adjunction between molecular
-biology and bioelectricity (Levin's framework) automatically detects that ion
-channels serve dual functional roles (constitutive homeostasis vs therapeutic
-target) — a distinction documented in the literature but absent from the
-initial molecular ontology. We resolve the detected gap using context-dependent
-disambiguation (ContextDef), and show that the methodology generalizes: every
-adjunction in our system identifies at least one missing distinction, and every
-detected distinction is independently verifiable in published literature. We
-propose adjunction-based gap detection as a general tool for ontology
-engineering in the sciences.
+methodology on 12 biological domains[^V-ontologies] formalized in the pr4xis
+category-theory framework, with 846 machine-verified tests[^V-tests]. The
+adjunction between molecular biology and bioelectricity (Levin's framework)
+automatically detects that ion channels serve dual functional roles
+(constitutive homeostasis vs therapeutic target)[^V-kv] — a distinction
+documented in the literature but absent from the initial molecular ontology.
+We resolve the detected gap using context-dependent disambiguation
+(`ContextDef`)[^V-kv], and show that the methodology generalizes: every
+adjunction in our system identifies at least one missing distinction[^V-collapse],
+and every detected distinction is independently verifiable in published
+literature. We propose adjunction-based gap detection as a general tool for
+ontology engineering in the sciences.
 
 ## 1. Introduction
 
@@ -66,23 +67,23 @@ We show that:
 
 ### 2.1 Domain Formalization
 
-We formalize 12 scientific domains as categories using the praxis framework:
-biology, molecular biology, bioelectricity (Levin's framework), regeneration,
-pharmacology, immunology, electrophysiology, pathology, biophysics,
-biochemistry, chemistry, and hematology. Each domain is a category with
-objects (entities), morphisms (relationships), taxonomy (is-a), causation
-(cause-effect), and qualities (properties).
+We formalize 12 scientific domains[^V-ontologies] as categories using the
+pr4xis framework: biology, molecular biology, bioelectricity (Levin's
+framework), regeneration, pharmacology, immunology, electrophysiology,
+pathology, biophysics, biochemistry, chemistry, and hematology. Each domain
+is a category with objects (entities), morphisms (relationships), taxonomy
+(is-a), causation (cause-effect), and qualities (properties).
 
 ### 2.2 Functor Construction
 
-21 structure-preserving maps (functors) connect the domains. Each functor
-maps every entity in the source domain to an entity in the target domain,
-preserving identity and composition. Functor laws are verified by automated
-tests.
+21 structure-preserving maps (functors)[^V-functors] connect the domains.
+Each functor maps every entity in the source domain to an entity in the
+target domain, preserving identity and composition. Functor laws are
+verified by automated tests[^V-functors].
 
 ### 2.3 Adjunction Construction
 
-Three adjunction pairs are constructed from opposing functor pairs:
+Three adjunction pairs[^V-adjunctions] are constructed from opposing functor pairs:
 
 | Adjunction | Left (F) | Right (G) |
 |---|---|---|
@@ -147,7 +148,7 @@ to existing entities.
 | Calcium | Signal | CalciumSignal | NO | YES |
 | CalciumSignal | Signal | CalciumSignal | YES | No |
 
-**Unit gap entities**: Piezo2, TRPV4, Kv, Cx26, Calcium (5 of 27 = ~19%)
+**Unit gap entities**[^V-collapse]: Piezo2, TRPV4, Kv, Cx26, Calcium (5 of 27 = ~19%)
 
 These gaps mean: the bioelectric domain cannot distinguish Piezo1 from
 Piezo2 from TRPV4 — they all look like "MechanicalStimulation." The
@@ -165,9 +166,9 @@ molecular distinctions are invisible at the bioelectric scale.
 
 **Counit gap entities**: MembranePotential, VoltageGradient, TargetMorphology
 
-**Critical finding**: MembranePotential maps to Kv (the channel that sets it),
-but Kv maps BACK to IonChannelModulation (not MembranePotential). The
-round-trip RE-CLASSIFIES a passive signal as an active intervention.
+**Critical finding**[^V-kv]: MembranePotential maps to Kv (the channel that
+sets it), but Kv maps BACK to IonChannelModulation (not MembranePotential).
+The round-trip RE-CLASSIFIES a passive signal as an active intervention.
 
 This means: at the molecular level, there is NO distinction between "what
 sets Vmem" and "what you modulate to change Vmem." They are the same channel
@@ -233,15 +234,15 @@ cell-type-specific Vmem entities.
 
 ### 3.5 Generalization
 
-Every adjunction we tested identified at least one gap:
+Every adjunction we tested identified at least one gap[^V-collapse]:
 
 | Adjunction | Unit gaps | Unit loss | Counit gaps | Counit loss | Key discovery |
 |---|---|---|---|---|---|
-| Molecular-Bioelectric | 23/27 | **85.2%** | 15/19 | **78.9%** | Dual functional modes (constitutive/therapeutic) |
-| Pharmacology-Molecular | 17/25 | **68.0%** | 19/27 | **70.4%** | Agonist/antagonist distinction missing |
-| Biology-Bioelectric | 19/23 | **82.6%** | 15/19 | **78.9%** | Cell-type-specific Vmem patterns missing |
+| Molecular-Bioelectric | 23/27 | **85.2%**[^V-collapse] | 15/19 | **78.9%**[^V-collapse] | Dual functional modes (constitutive/therapeutic) |
+| Pharmacology-Molecular | 17/25 | **68.0%**[^V-collapse] | 19/27 | **70.4%**[^V-collapse] | Agonist/antagonist distinction missing |
+| Biology-Bioelectric | 19/23 | **82.6%**[^V-collapse] | 15/19 | **78.9%**[^V-collapse] | Cell-type-specific Vmem patterns missing |
 
-These are COMPUTED values from the codebase, not estimates.
+These are COMPUTED values from the codebase[^V-collapse], not estimates.
 
 The pattern is consistent: adjunctions between domains at DIFFERENT SCALES
 always reveal information loss, and this loss always corresponds to a
@@ -397,3 +398,17 @@ The "846 machine-verified tests" count in §2 is the bioelectric subset at the t
 - Rosen R (1991). Life Itself. Columbia University Press.
 - Baez JC, Stay M (2011). Physics, topology, logic and computation. New Structures for Physics.
 - Mac Lane S (1971). Categories for the Working Mathematician. Springer.
+
+## Verification Footnotes
+
+[^V-tests]: Re-derive by running `cargo test --workspace`. The "846" count is the bioelectric subset at drafting time; the workspace total is computed live on every run.
+
+[^V-ontologies]: Re-derive by `find crates/domains/src/natural/biomedical -name ontology.rs | wc -l` for the biomedical subset, or `find crates/domains/src -name ontology.rs | wc -l` for the workspace total.
+
+[^V-functors]: Re-derive by `grep -rn "impl Functor" crates/domains/src/natural/biomedical/ | wc -l` for the biomedical subset. Each functor implementation passes `check_functor_laws()` at test time.
+
+[^V-adjunctions]: The three adjunctions (`MolecularBioelectricAdjunction`, `PharmacologyMolecularAdjunction`, `BiologyBioelectricAdjunction`) live at `crates/domains/src/natural/biomedical/adjunctions.rs`. Their `unit` and `counit` implementations are verified by the test suite in the same file. Run `cargo test -p pr4xis-domains adjunctions::tests`.
+
+[^V-collapse]: Every collapse percentage in this paper is computed live by `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture`. The output prints per-adjunction unit-loss and counit-loss percentages from the actual functor implementations. Numbers will update automatically as the biomedical ontologies evolve.
+
+[^V-kv]: The Kv channel gap detection and `ContextDef` resolution are verified by `cargo test -p pr4xis-domains test_kv_gap_is_resolved_by_context`. The test demonstrates both the gap (Kv collapses on the round-trip) and the resolution (`ContextDef::resolve` distinguishes `(Kv, Constitutive)` from `(Kv, Therapeutic)`). The context-dependent resolution lives in `crates/domains/src/natural/biomedical/molecular/ontology.rs` as `MolecularFunctionalContext`.

@@ -18,8 +18,9 @@ using categorical adjunctions. The methodology is:
 6. Verify resolutions against published literature
 7. Measure improvement via loss ratio reduction
 
-The meta-ontology itself is formalized as a praxis domain with 29 entities,
-14 methodology steps, 13 axioms, and 894 machine-verified proofs.
+The meta-ontology itself is formalized as a pr4xis domain with 29 entities[^V-meta],
+14 methodology steps[^V-meta], 13 axioms[^V-meta], and 894 machine-verified
+proofs[^V-tests].
 
 ## What Exists in Literature vs What Is Novel
 
@@ -95,17 +96,17 @@ functors (breaking change).
 | ContextResolutionPreservesFunctors | Non-destructive fix — doesn't break existing proofs |
 | EnrichmentMayBreakFunctors | Adding entities may invalidate existing functors |
 | HighLossSuggestsIntermediateDomain | >80% loss = domains need a bridge |
-| EveryAdjunctionHasGaps | Empirical: all 3 tested adjunctions have gaps |
+| EveryAdjunctionHasGaps[^V-axioms] | Empirical: all 3 tested adjunctions have gaps |
 
 ## Empirical Validation
 
-Computed from the codebase (not estimated):
+Computed from the codebase (not estimated)[^V-collapse]:
 
 | Adjunction | Unit loss | Counit loss | Resolution applied |
 |---|---|---|---|
-| Molecular ⊣ Bioelectric | 85.2% (23/27) | 78.9% (15/19) | ContextDef (constitutive/therapeutic) |
-| Pharmacology ⊣ Molecular | 68.0% (17/25) | 70.4% (19/27) | Pending |
-| Biology ⊣ Bioelectric | 82.6% (19/23) | 78.9% (15/19) | Pending |
+| Molecular ⊣ Bioelectric | 85.2% (23/27)[^V-collapse] | 78.9% (15/19)[^V-collapse] | ContextDef (constitutive/therapeutic)[^V-kv] |
+| Pharmacology ⊣ Molecular | 68.0% (17/25)[^V-collapse] | 70.4% (19/27)[^V-collapse] | Pending |
+| Biology ⊣ Bioelectric | 82.6% (19/23)[^V-collapse] | 78.9% (15/19)[^V-collapse] | Pending |
 
 The Molecular ⊣ Bioelectric loss of 85% triggered the IntermediateDomain
 recommendation. The biochemistry domain was already built as this
@@ -227,3 +228,15 @@ The "894 machine-verified tests" count in §1 is the meta-ontology subset at the
 - Levin M (2014). Molecular bioelectrics in developmental biology. Mol Biol Cell.
 - Kofman K, Levin M (2024). Bioelectric pharmacology of cancer.
 - Coste B et al (2010). Piezo1 and Piezo2. Science. Nobel 2021.
+
+## Verification Footnotes
+
+[^V-tests]: Re-derive by running `cargo test --workspace`. The "894" count is the meta-ontology subset at drafting time; the workspace total is computed live on every run.
+
+[^V-meta]: The meta-ontology lives at `crates/domains/src/formal/meta/ontology_diagnostics/ontology.rs`. The 29 entities, 14 methodology steps, and 13 axioms are encoded in the `define_ontology!` block. Run `cargo test -p pr4xis-domains formal::meta::ontology_diagnostics` to verify the encoding compiles and the structural axioms hold.
+
+[^V-collapse]: Every collapse percentage in this paper is computed live by `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture`. The output prints per-adjunction unit-loss and counit-loss percentages from the actual functor implementations in `crates/domains/src/natural/biomedical/adjunctions.rs`. Numbers update automatically as the biomedical ontologies evolve.
+
+[^V-kv]: The Kv channel discovery — round-trip collapse and `ContextDef` resolution — is verified by `cargo test -p pr4xis-domains test_kv_gap_is_resolved_by_context`. The context resolution lives in `crates/domains/src/natural/biomedical/molecular/ontology.rs` as `MolecularFunctionalContext`.
+
+[^V-axioms]: The 13 axioms about ontology engineering (including `EveryAdjunctionHasGaps`, `PipelineIsComplete`, `ContextResolutionPreservesFunctors`, etc.) are implemented as Rust `Axiom` impls in the meta-ontology directory. Each axiom has a corresponding test that verifies it holds against the actual three-adjunction analysis. Run `cargo test -p pr4xis-domains formal::meta::ontology_diagnostics::tests`.
