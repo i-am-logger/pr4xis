@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.7.0...pr4xis-domains-v0.8.0) (2026-04-13)
+
+
+### Features
+
+* enforce ontology patterns — define_ontology! everywhere, 4851 tests ([63031ee](https://github.com/i-am-logger/pr4xis/commit/63031ee4bc8b96f874b9e3b0e192e881494265f0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.6.0 to 0.7.0
+
 ## [0.7.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.6.0...pr4xis-domains-v0.7.0) (2026-04-12)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.6.0...pr4xis-v0.7.0) (2026-04-13)
+
+
+### Features
+
+* enforce ontology patterns — define_ontology! everywhere, 4851 tests ([63031ee](https://github.com/i-am-logger/pr4xis/commit/63031ee4bc8b96f874b9e3b0e192e881494265f0))
+
 ## [0.6.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.5.0...pr4xis-v0.6.0) (2026-04-12)
 
 
