@@ -112,9 +112,20 @@ in
     echo "  dev-lint      - Run clippy"
     echo "  dev-check     - Check compilation"
     echo "  dev-build     - Build release"
+    echo "  dev-data      - Fetch external data (WordNet, etc.) via 'pr4xis update'"
     echo "  dev-web       - Start dev server (/ = chatbot, /decks/technical = presentation)"
     echo "  dev-wasm      - Build WASM"
     echo ""
+  '';
+
+  scripts.dev-data.exec = ''
+    echo "Fetching external data via 'pr4xis update'..."
+    cargo run -p pr4xis-cli --release --quiet -- update || {
+      echo "pr4xis update: one or more datasets could not be materialized."
+      echo "If this is a fresh clone and the upstream release is not yet published,"
+      echo "obtain the files manually and re-run 'pr4xis update --check'."
+      exit 1
+    }
   '';
 
   # https://devenv.sh/integrations/treefmt/

@@ -7,13 +7,13 @@ use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, CompositeIdentity, IdentityClaim, IdentityConcept,
 };
 
-/// The placeholder SHA-256 for English WordNet 2025. Will be replaced with
-/// the real hash once the `data-v1` GitHub Release is created and the
-/// `english-wordnet-2025.xml.gz` asset is uploaded. Until then, the
-/// `RawHash` claim will fail verification by design — `VerificationFailClosed`
-/// keeps pr4xis from using the file until the real hash lands.
-const WORDNET_2025_SHA256_PLACEHOLDER: &str =
-    "0000000000000000000000000000000000000000000000000000000000000000";
+/// SHA-256 of the decompressed English WordNet 2025 XML payload (the bytes
+/// after `gunzip`). Computed from the canonical file that ships with pr4xis.
+/// The `data-v1` GitHub Release must upload the gzipped form of exactly these
+/// bytes so the post-gunzip hash matches; `fetch.rs` runs the extractor after
+/// decompression, so the check is against the uncompressed content.
+const WORDNET_2025_SHA256: &str =
+    "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2";
 
 /// Managed external data sources. Order is stable for reporting.
 pub const DATA_SOURCES: &[RegistryEntry] = &[RegistryEntry {
@@ -56,7 +56,7 @@ pub fn resolve_identity(name: &str) -> Option<CompositeIdentity> {
             // ContentHash: belt-and-braces cryptographic integrity
             IdentityClaim {
                 concept: IdentityConcept::RawHash,
-                data: ClaimData::Sha256(WORDNET_2025_SHA256_PLACEHOLDER.into()),
+                data: ClaimData::Sha256(WORDNET_2025_SHA256.into()),
             },
         ])),
         _ => None,
