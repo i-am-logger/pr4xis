@@ -1,5 +1,7 @@
-use super::base16::ColorSlot;
-use super::ontology::{LuminanceMonotonicity, Palette, WcagForegroundContrast};
+use crate::applied::hmi::theming::base16::ColorSlot;
+use crate::applied::hmi::theming::ontology::{
+    LuminanceMonotonicity, Palette, WcagForegroundContrast,
+};
 use crate::natural::colors::Rgb;
 use crate::natural::colors::srgb;
 /// Theme validation against praxis axioms — for evaluation.

@@ -11,7 +11,7 @@
 /// - Bertin (1967): visual variable suitability per data level
 /// - Munzner (2014): channel effectiveness
 /// - Shneiderman (1996): interaction level hierarchy
-use super::visualization::{
+use crate::applied::hmi::visualization::ontology::{
     AccuracyRank, DataLevel, GeomType, InteractionLevel, PerceptualTask, VisualVariable,
     suitable_encodings, suitable_geoms,
 };

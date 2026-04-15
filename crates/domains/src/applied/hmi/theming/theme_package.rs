@@ -153,7 +153,7 @@ impl Axiom for VariantOrdersUnique {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::applied::theming::base16::ColorSlot;
+    use crate::applied::hmi::theming::base16::ColorSlot;
     use crate::natural::colors::Rgb;
 
     fn make_palette(bg: Rgb, fg: Rgb) -> Palette {

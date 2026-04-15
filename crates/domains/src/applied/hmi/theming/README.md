@@ -44,23 +44,21 @@ Objects: `ColorSlot`. Morphisms: `BrightVariantOf { bright, base }`. Identity: s
 
 ## Functors
 
-No cross-domain functors yet — see [Compose via functor](../../../../../docs/use/compose-via-functor.md) to add one. The theming ontology composes against `natural/colors` (sRGB, relative luminance, WCAG) rather than exposing functors of its own.
+No cross-domain functors yet — see [Compose via functor](../../../../../../docs/use/compose-via-functor.md) to add one. The theming ontology composes against `natural/colors` (sRGB, relative luminance, WCAG) rather than exposing functors of its own.
 
 ## Files
 
 - `ontology.rs` -- `Palette`, `ThemingCategory`, `SlotRole`/`AnsiIndex`/`RampPosition` qualities, palette axioms, `detect_polarity`
 - `base16.rs` -- `ColorSlot`, `SemanticRole`, `Polarity`, slot metadata (ANSI index, ramp position, bright-variant-of)
-- `schemes.rs` -- bundled base16/base24 color schemes
-- `variants.rs` -- theme variants (dark/light, high-contrast, etc.)
-- `theme_package.rs` -- composite theme package structure
-- `shader_params.rs` -- shader uniforms derived from a palette
-- `surfaces.rs` -- rendering surfaces (terminal, editor, web) the theme targets
-- `modes.rs` -- mode graph (Harel statecharts) for UI modes
-- `keybindings.rs` -- keybinding tables tied to modes
-- `visualization.rs` -- Bertin / Cleveland-McGill visual variables
-- `report.rs` -- theme report types
-- `report_spec.rs` -- report specification
-- `validate_themes.rs` -- end-to-end theme validation pass
-- `explorer.rs` -- self-referential theme-explorer UI
-- `papers/draft-color-theming-ontology.md` -- draft paper on the theming ontology (not modified here)
+- `schemes.rs` -- `SchemeType` taxonomy (Base16, Base24, Vogix16, Ansi16) and scheme-to-scheme mappings
+- `variants.rs` -- theme variant metadata (polarity-tagged dark/light, luminance ordering, navigation)
+- `theme_package.rs` -- composite theme package structure (name, scheme, variants, palettes)
+- `README.md` -- this file
+- `citings.md` -- per-ontology bibliography
+- `papers/draft-color-theming-ontology.md` -- draft paper on the theming ontology
+- `papers/cleveland-mcgill-graphical-perception-1984.pdf` -- Cleveland-McGill perceptual accuracy ranking
+- `papers/harel-statecharts-1987.pdf` -- Harel statecharts
+- `papers/porter-duff-compositing-1984.pdf` -- Porter-Duff compositing operators
 - `mod.rs` -- module declarations
+
+The broader HMI stack — surfaces, visualization, input (modes + keybindings), report, explorer — now lives in sibling sub-directories under `applied/hmi/`. See the parent [`applied/hmi/mod.rs`](../mod.rs) for the full list.

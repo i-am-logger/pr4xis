@@ -9,7 +9,7 @@
 /// - Wongsuphasawat et al., "TensorFlow Graph Visualizer" (VAST 2017): dataflow
 /// - Beck et al., "Dynamic Graph Visualization" (2017): temporal animation
 /// - W3C PROV-O: provenance data model
-use super::report::ThemePalette;
+use crate::applied::hmi::report::generator::ThemePalette;
 use pr4xis::ontology::Axiom;
 
 /// A concept node in the ontology graph.
