@@ -1,5 +1,5 @@
-use super::base16::ColorSlot;
-use super::ontology::Palette;
+use crate::applied::hmi::theming::base16::ColorSlot;
+use crate::applied::hmi::theming::ontology::Palette;
 use crate::natural::colors::Rgb;
 /// Surface ontology — abstract rendering targets for color themes.
 ///
