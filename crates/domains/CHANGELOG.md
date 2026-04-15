@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.8.0...pr4xis-domains-v0.9.0) (2026-04-15)
+
+
+### Features
+
+* staging ontology — Futamura's partial-evaluation framework as a meta-ontology ([#67](https://github.com/i-am-logger/pr4xis/issues/67)) ([7d824bb](https://github.com/i-am-logger/pr4xis/commit/7d824bbd59ab3ded3073a9b1780e9375aa27851e))
+
 ## [0.8.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.7.0...pr4xis-domains-v0.8.0) (2026-04-13)
 
 
