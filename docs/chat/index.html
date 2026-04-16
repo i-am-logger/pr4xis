@@ -173,6 +173,12 @@
     .ont-card .domain { color: #484f58; font-size: 0.7em; font-family: monospace; }
     .ont-card .counts { color: #8b949e; font-size: 0.75em; margin-top: 0.3rem; }
     .ont-card .source { color: #484f58; font-size: 0.65em; font-style: italic; margin-top: 0.2rem; }
+    .badge {
+      display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px;
+      font-size: 0.65em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .badge-embedded { background: #1f6feb33; color: #58a6ff; border: 1px solid #1f6feb; }
+    .badge-codegen { background: #23863633; color: #3fb950; border: 1px solid #238636; }
 
     #send {
       padding: 0.7rem 1.5rem;
@@ -333,7 +339,7 @@
           `  running entirely in your browser — no server`,
           'info'
         );
-        renderDashboard(pr4xis);
+        await renderDashboard(pr4xis);
         input.disabled = false;
         send.disabled = false;
         input.focus();
@@ -387,13 +393,21 @@
       });
     });
 
-    function renderDashboard(pr4xis) {
+    async function renderDashboard(pr4xis) {
       const raw = pr4xis.self_describe();
       let data;
       try { data = JSON.parse(raw); } catch { return; }
 
       const dash = document.getElementById('dashboard');
       dash.innerHTML = '';
+
+      // Fetch WASM binary size
+      let wasmSize = '?';
+      try {
+        const resp = await fetch('./pkg/pr4xis_wasm_bg.wasm', { method: 'HEAD' });
+        const bytes = parseInt(resp.headers.get('content-length') || '0', 10);
+        if (bytes > 0) wasmSize = (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      } catch { /* offline or CORS — leave as ? */ }
 
       // Summary bar
       const summary = document.createElement('div');
@@ -402,6 +416,7 @@
         { value: data.ontology_count, label: 'ontologies' },
         { value: data.total_concepts.toLocaleString(), label: 'concepts' },
         { value: data.total_morphisms.toLocaleString(), label: 'morphisms' },
+        { value: wasmSize, label: 'wasm binary' },
         { value: data.version, label: 'version' },
         { value: data.awareness, label: 'awareness' },
       ].forEach(({ value, label }) => {
@@ -410,6 +425,23 @@
         stat.innerHTML = `<div class="value">${value}</div><div class="label">${label}</div>`;
         summary.appendChild(stat);
       });
+
+      // Deployment badges + note
+      const badges = document.createElement('div');
+      badges.style.cssText = 'display:flex; gap:0.5rem; flex-wrap:wrap; padding-top:0.8rem; align-items:center;';
+      badges.innerHTML =
+        '<span class="badge badge-embedded">embedded in binary</span>' +
+        '<span class="badge badge-codegen">build-time codegen</span>' +
+        '<span class="badge badge-embedded">no server — runs in your browser</span>';
+      summary.appendChild(badges);
+
+      const note = document.createElement('div');
+      note.style.cssText = 'color:#484f58; font-size:0.75em; padding-top:0.5rem;';
+      note.textContent = 'Structural definitions compiled into the WASM binary. ' +
+        'Concept/morphism counts reflect the category structure. ' +
+        'English WordNet (107k synsets) loaded via build-time codegen from the upstream Global WordNet Association release.';
+      summary.appendChild(note);
+
       dash.appendChild(summary);
 
       // Group ontologies by DOLCE being
