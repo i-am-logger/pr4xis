@@ -721,7 +721,7 @@ pub fn loaded_ontologies(lang: &English) -> Vec<VocabularyDescriptor> {
     let mut ontologies = describe_knowledge_base();
     ontologies.push(VocabularyDescriptor {
         name: "English (WordNet)",
-        domain: "science.linguistics.english",
+        domain: "cognitive.linguistics.english",
         being: Being::SocialObject,
         reason: "natural language is an evolved social convention",
         source: "Open English WordNet 2025; Princeton WordNet",

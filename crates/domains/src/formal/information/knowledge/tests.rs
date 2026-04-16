@@ -53,6 +53,57 @@ fn schema_defines_entry() {
         && r.kind == KnowledgeRelationKind::Defines));
 }
 
+// =============================================================================
+// Knowledge-base descriptor registry tests
+// =============================================================================
+
+#[test]
+fn describe_knowledge_base_has_108_ontologies() {
+    let descriptors = super::descriptor::describe_knowledge_base();
+    assert_eq!(
+        descriptors.len(),
+        108,
+        "describe_knowledge_base() should return 108 ontologies; got {}. \
+         If you added a new ontology, add a descriptor::<C, E>() entry.",
+        descriptors.len()
+    );
+}
+
+#[test]
+fn describe_knowledge_base_names_are_unique() {
+    let descriptors = super::descriptor::describe_knowledge_base();
+    let mut seen = std::collections::HashSet::new();
+    for d in &descriptors {
+        assert!(
+            seen.insert((d.name, d.domain)),
+            "duplicate (name, domain): ({}, {})",
+            d.name,
+            d.domain
+        );
+    }
+}
+
+#[test]
+fn describe_knowledge_base_no_stale_science_prefix() {
+    let descriptors = super::descriptor::describe_knowledge_base();
+    for d in &descriptors {
+        assert!(
+            !d.domain.starts_with("science."),
+            "stale domain prefix: {} has domain '{}' — should use cognitive/formal/natural/social/applied",
+            d.name,
+            d.domain
+        );
+    }
+}
+
+#[test]
+fn every_descriptor_has_nonzero_concepts() {
+    let descriptors = super::descriptor::describe_knowledge_base();
+    for d in &descriptors {
+        assert!(d.concepts > 0, "{} ({}) has 0 concepts", d.name, d.domain);
+    }
+}
+
 mod prop {
     use super::*;
     use proptest::prelude::*;
