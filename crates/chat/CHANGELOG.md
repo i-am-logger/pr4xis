@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.5.0...pr4xis-chat-v0.6.0) (2026-04-16)
+
+
+### Features
+
+* Ontolex-Lemon, consciousness C1×C2, complete functor chain, Vocabulary API ([#88](https://github.com/i-am-logger/pr4xis/issues/88)) ([#104](https://github.com/i-am-logger/pr4xis/issues/104)) ([d3a5a46](https://github.com/i-am-logger/pr4xis/commit/d3a5a46aca23292c85078390499b696c9bff3c0e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.8.0 to 0.9.0
+    * pr4xis-domains bumped from 0.11.0 to 0.12.0
+
 ## [0.5.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.4.2...pr4xis-chat-v0.5.0) (2026-04-16)
 
 

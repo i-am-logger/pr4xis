@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.8.0...pr4xis-v0.9.0) (2026-04-16)
+
+
+### Features
+
+* Ontolex-Lemon, consciousness C1×C2, complete functor chain, Vocabulary API ([#88](https://github.com/i-am-logger/pr4xis/issues/88)) ([#104](https://github.com/i-am-logger/pr4xis/issues/104)) ([d3a5a46](https://github.com/i-am-logger/pr4xis/commit/d3a5a46aca23292c85078390499b696c9bff3c0e))
+
 ## [0.8.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.7.0...pr4xis-v0.8.0) (2026-04-16)
 
 
