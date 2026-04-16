@@ -415,8 +415,8 @@
         }
         const statsEl = document.createElement('div');
         statsEl.style.cssText = 'margin-top:0.5em; font-size:0.7em; color:#484f58; border-top:1px solid #21262d; padding-top:0.3em;';
-        const ontCount = result.ontology_count || '?';
-        statsEl.textContent = `${result.token_count} tokens · ${ontCount} ontologies · ${dur} · in-browser`;
+        const ontCount = Array.isArray(result.ontologies) ? result.ontologies.length : '?';
+        statsEl.textContent = `${ontCount} ontologies · ${dur} · in-browser`;
         msgDiv.appendChild(statsEl);
       } catch {
         addMessage(raw, 'system');
