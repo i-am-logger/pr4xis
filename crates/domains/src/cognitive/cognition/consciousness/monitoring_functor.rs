@@ -1,84 +1,54 @@
-// Monitoring functor: Consciousness → Metacognition.
+// C2 → Metacognition functor.
 //
-// Nelson & Narens (1990): information flows UP from object-level to
-// meta-level via monitoring. The global workspace (Baars) makes
-// processing visible to metacognitive monitors.
+// C2 (self-monitoring) maps directly to Metacognition because
+// they ARE the same dimension (Dehaene, Lau & Kouider 2017).
 //
-// The mapping follows Koriat (2007):
-// - AccessConsciousness → information-based monitoring (Trace)
-// - PhenomenalConsciousness → experience-based monitoring (EpistemicAssessment)
-// - GlobalWorkspace → ObjectLevel (what's being monitored)
-// - Attention → Monitoring (the monitor's focus)
-// - BroadcastMessage → Evaluation (what gets assessed)
+// C2's self-monitoring IS Nelson-Narens metacognition:
+// HigherOrderRepresentation → MetaLevel
+// FirstOrderState → ObjectLevel
+// AccessConsciousness → Trace (what's reportable)
+// CauseEffectStructure → Evaluation
+// Mechanism → Monitoring
+// Repertoire → Control
+// PhenomenalConsciousness → EpistemicAssessment
 //
-// This is the LEFT adjoint of the Monitoring ⊣ Control adjunction.
-// The RIGHT adjoint (Control: Metacognition → Consciousness) goes
-// in the reverse direction.
-//
-// Source: Nelson & Narens (1990); Koriat (2007); Baars (2005)
+// Source: Dehaene et al. (2017); Nelson & Narens (1990); Koriat (2007)
 
 use pr4xis::category::Functor;
 
-use super::ontology::*;
+use super::ontology::{C2Category, C2Concept, C2Relation, C2RelationKind};
 use crate::cognitive::cognition::metacognition::{
     MetaCognitionCategory, MetaConcept, MetaRelation, MetaRelationKind,
 };
 
-pub struct MonitoringFunctor;
+pub struct C2ToMetacognition;
 
-impl Functor for MonitoringFunctor {
-    type Source = ConsciousnessCategory;
+impl Functor for C2ToMetacognition {
+    type Source = C2Category;
     type Target = MetaCognitionCategory;
 
-    fn map_object(obj: &ConsciousnessConcept) -> MetaConcept {
+    fn map_object(obj: &C2Concept) -> MetaConcept {
         match obj {
-            // GWT → Nelson-Narens mapping:
-            // GlobalWorkspace IS the ObjectLevel being monitored
-            ConsciousnessConcept::GlobalWorkspace => MetaConcept::ObjectLevel,
-            // Attention IS Monitoring (Nelson & Narens: the monitor)
-            ConsciousnessConcept::Attention => MetaConcept::Monitoring,
-            // BroadcastMessage IS what gets Evaluated
-            ConsciousnessConcept::BroadcastMessage => MetaConcept::Evaluation,
-            // Coalition IS ObjectLevel (competing processes = object-level activity)
-            ConsciousnessConcept::Coalition => MetaConcept::ObjectLevel,
-            // ConsciousAccess IS Trace (entering awareness = being recorded)
-            ConsciousnessConcept::ConsciousAccess => MetaConcept::Trace,
-            // UnconsciousProcessor IS Gap (below monitoring threshold)
-            ConsciousnessConcept::UnconsciousProcessor => MetaConcept::Gap,
-
-            // Higher-Order → Nelson-Narens mapping:
-            // HigherOrderRepresentation IS MetaLevel (Rosenthal = Nelson meta-level)
-            ConsciousnessConcept::HigherOrderRepresentation => MetaConcept::MetaLevel,
-            // FirstOrderState IS ObjectLevel (what higher-order observes)
-            ConsciousnessConcept::FirstOrderState => MetaConcept::ObjectLevel,
-
-            // Koriat (2007) mapping:
-            // AccessConsciousness → Trace (information-based monitoring)
-            ConsciousnessConcept::AccessConsciousness => MetaConcept::Trace,
-            // PhenomenalConsciousness → EpistemicAssessment (experience-based)
-            ConsciousnessConcept::PhenomenalConsciousness => MetaConcept::EpistemicAssessment,
-
-            // IIT mapping (Tononi → Nelson-Narens):
-            // IntegratedInformation → EpistemicAssessment (Φ = degree of knowing)
-            ConsciousnessConcept::IntegratedInformation => MetaConcept::EpistemicAssessment,
-            // CauseEffectStructure → Evaluation (qualitative assessment of what's happening)
-            ConsciousnessConcept::CauseEffectStructure => MetaConcept::Evaluation,
-            // Mechanism → Monitoring (the mechanism that does the observing)
-            ConsciousnessConcept::Mechanism => MetaConcept::Monitoring,
-            // Repertoire → Control (possible states → possible actions)
-            ConsciousnessConcept::Repertoire => MetaConcept::Control,
+            C2Concept::HigherOrderRepresentation => MetaConcept::MetaLevel,
+            C2Concept::FirstOrderState => MetaConcept::ObjectLevel,
+            C2Concept::AccessConsciousness => MetaConcept::Trace,
+            C2Concept::CauseEffectStructure => MetaConcept::Evaluation,
+            C2Concept::Mechanism => MetaConcept::Monitoring,
+            C2Concept::Repertoire => MetaConcept::Control,
+            C2Concept::PhenomenalConsciousness => MetaConcept::EpistemicAssessment,
         }
     }
 
-    fn map_morphism(m: &ConsciousnessRelation) -> MetaRelation {
+    fn map_morphism(m: &C2Relation) -> MetaRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
-        let kind = if from == to && m.from == m.to {
-            MetaRelationKind::Identity
-        } else if from == to {
-            MetaRelationKind::Composed
-        } else {
-            MetaRelationKind::Composed
+        let kind = match m.kind {
+            C2RelationKind::Identity => MetaRelationKind::Identity,
+            C2RelationKind::Represents => MetaRelationKind::Observes,
+            C2RelationKind::Generates => MetaRelationKind::Records,
+            C2RelationKind::HasComponent => MetaRelationKind::Assesses,
+            C2RelationKind::Enables => MetaRelationKind::Classifies,
+            C2RelationKind::Composed => MetaRelationKind::Composed,
         };
         MetaRelation { from, to, kind }
     }
@@ -90,8 +60,7 @@ mod tests {
     use pr4xis::category::validate::check_functor_laws;
 
     #[test]
-    #[ignore = "IIT CauseEffectStructure↔Mechanism cycle has no metacognitive counterpart — genuine structural gap (#97)"]
     fn functor_laws() {
-        check_functor_laws::<MonitoringFunctor>().unwrap();
+        check_functor_laws::<C2ToMetacognition>().unwrap();
     }
 }

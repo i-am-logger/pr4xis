@@ -320,7 +320,8 @@
       "Bash(cargo install:*)",
       "Bash(wasm-pack:*)",
       "WebFetch(domain:persistence.uni-leipzig.org)",
-      "WebFetch(domain:newiipdm.haifa.ac.il)"
+      "WebFetch(domain:newiipdm.haifa.ac.il)",
+      "WebFetch(domain:math.ucr.edu)"
     ]
   }
 }
