@@ -127,6 +127,7 @@ define_ontology! {
     pub ArtifactIdentityOntology for ArtifactIdentityCategory {
         entity: IdentityConcept,
         relation: IdentityRelation,
+        being: AbstractObject,
 
         taxonomy: IdentityTaxonomy [
             // Level 1: families are-a Identity

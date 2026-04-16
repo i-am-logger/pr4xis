@@ -161,6 +161,7 @@ define_ontology! {
     pub StagingOntology for StagingCategory {
         entity: StageConcept,
         relation: StagingRelation,
+        being: AbstractObject,
 
         taxonomy: StagingTaxonomy [
             // Program kinds

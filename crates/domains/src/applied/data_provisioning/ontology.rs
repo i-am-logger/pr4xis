@@ -111,6 +111,7 @@ define_ontology! {
     pub DataProvisioningOntology for DataProvisioningCategory {
         entity: ProvisioningConcept,
         relation: ProvisioningRelation,
+        being: Process,
 
         taxonomy: ProvisioningTaxonomy [
             // Dataset-state taxonomy: every lifecycle state is-a DataSource

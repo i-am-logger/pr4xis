@@ -17,6 +17,7 @@
 ///     pub Biology for BiologyCategory {
 ///         concepts: BiologicalEntity,
 ///         relation: BiologicalRelation,
+///         being: AbstractObject,    // optional — DOLCE upper-ontology classification
 ///
 ///         is_a: BiologicalTaxonomy [
 ///             (Cell, Tissue),
@@ -36,6 +37,11 @@
 ///     }
 /// }
 /// ```
+///
+/// The `being:` clause generates `impl Classified for <Category>` so each
+/// ontology classifies itself per DOLCE (Masolo et al., WonderWeb D18, 2003).
+/// Variants: `AbstractObject`, `SocialObject`, `MentalObject`,
+/// `PhysicalEndurant`, `Process`, `Event`, `Quality`.
 #[macro_export]
 macro_rules! define_ontology {
     // =========================================================================
@@ -46,6 +52,8 @@ macro_rules! define_ontology {
         pub $ont_name:ident for $cat_name:ident {
             concepts: $entity:ident,
             relation: $relation:ident,
+
+            $(being: $being:ident,)?
 
             $(is_a: $tax_name:ident [
                 $(($tax_child:ident, $tax_parent:ident)),* $(,)?
@@ -73,6 +81,7 @@ macro_rules! define_ontology {
         }
 
         define_ontology!(@reasoning $ont_name, $cat_name, $entity,
+            $(being: $being,)?
             $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
             $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
             $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
@@ -88,6 +97,8 @@ macro_rules! define_ontology {
         pub $ont_name:ident for $cat_name:ident {
             entity: $entity:ident,
             relation: $relation:ident,
+
+            $(being: $being:ident,)?
 
             $(taxonomy: $tax_name:ident [
                 $(($tax_child:ident, $tax_parent:ident)),* $(,)?
@@ -115,6 +126,7 @@ macro_rules! define_ontology {
         }
 
         define_ontology!(@reasoning $ont_name, $cat_name, $entity,
+            $(being: $being,)?
             $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
             $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
             $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
@@ -134,6 +146,8 @@ macro_rules! define_ontology {
             kinds: [$($(#[$kind_meta:meta])* $domain_kind:ident),* $(,)?],
             edges: [$(($e_from:ident, $e_to:ident, $e_kind:ident)),* $(,)?],
             composed: [$(($c_from:ident, $c_to:ident)),* $(,)?],
+
+            $(being: $being:ident,)?
 
             $(is_a: $tax_name:ident [
                 $(($tax_child:ident, $tax_parent:ident)),* $(,)?
@@ -165,6 +179,7 @@ macro_rules! define_ontology {
         }
 
         define_ontology!(@reasoning $ont_name, $cat_name, $entity,
+            $(being: $being,)?
             $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
             $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
             $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
@@ -176,6 +191,7 @@ macro_rules! define_ontology {
     // Internal: generate reasoning systems + structural axioms + meta
     // =========================================================================
     (@reasoning $ont_name:ident, $cat_name:ident, $entity:ident,
+        $(being: $being:ident,)?
         $(is_a: $tax_name:ident [ $(($tax_child:ident, $tax_parent:ident)),* ],)?
         $(has_a: $mer_name:ident [ $(($mer_whole:ident, $mer_part:ident)),* ],)?
         $(causes: $caus_name:ident for $caus_entity:ident [ $(($caus_cause:ident, $caus_effect:ident)),* ],)?
@@ -229,6 +245,18 @@ macro_rules! define_ontology {
                     #[allow(unused_imports)]
                     use $entity::*;
                     vec![$(($opp_a, $opp_b)),*]
+                }
+            }
+        )?
+
+        // --- DOLCE classification (when `being:` is declared) ---
+        $(
+            impl $crate::ontology::upper::classify::Classified for $cat_name {
+                fn being() -> $crate::ontology::upper::being::Being {
+                    $crate::ontology::upper::being::Being::$being
+                }
+                fn classification_reason() -> &'static str {
+                    concat!("DOLCE D18 ", stringify!($being), "; ", module_path!())
                 }
             }
         )?
