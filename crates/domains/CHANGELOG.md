@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.10.0...pr4xis-domains-v0.11.0) (2026-04-16)
+
+
+### Features
+
+* define_ontology! being: clause + register all 108 ontologies ([#76](https://github.com/i-am-logger/pr4xis/issues/76)) ([#84](https://github.com/i-am-logger/pr4xis/issues/84)) ([1b27fc9](https://github.com/i-am-logger/pr4xis/commit/1b27fc974e1a4b018542ad4ea6ae57e3f4d9f561))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.7.0 to 0.8.0
+
 ## [0.10.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.9.0...pr4xis-domains-v0.10.0) (2026-04-16)
 
 

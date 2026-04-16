@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.3](https://github.com/i-am-logger/pr4xis/compare/pr4xis-examples-v0.4.2...pr4xis-examples-v0.4.3) (2026-04-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.7.0 to 0.8.0
+    * pr4xis-domains bumped from 0.10.0 to 0.11.0
+
 ## [0.4.2](https://github.com/i-am-logger/pr4xis/compare/pr4xis-examples-v0.4.1...pr4xis-examples-v0.4.2) (2026-04-16)
 
 
