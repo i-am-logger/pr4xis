@@ -312,7 +312,9 @@
       "Bash(git apply:*)",
       "Bash(gh issue:*)",
       "WebFetch(domain:john.mccr.ae)",
-      "Bash(GIT_EDITOR=true git rebase --continue)"
+      "WebFetch(domain:www.isibang.ac.in)",
+      "WebFetch(domain:oa.upm.es)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
