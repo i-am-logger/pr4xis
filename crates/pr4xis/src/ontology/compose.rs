@@ -130,6 +130,7 @@ impl Ontology {
             being: None,
             concepts: BTreeMap::new(),
             edges: BTreeSet::new(),
+            base_level: 0,
             provenance: Vec::new(),
         }
     }
@@ -270,9 +271,10 @@ impl Ontology {
             }
         }
 
+        let all_kept: BTreeSet<String> = concepts.keys().cloned().collect();
         let mut edges = self.edges.clone();
         for e in &other.edges {
-            if selected_set.contains(&e.from) || selected_set.contains(&e.to) {
+            if all_kept.contains(&e.from) && all_kept.contains(&e.to) {
                 edges.insert(e.clone());
             }
         }
@@ -357,6 +359,9 @@ impl Ontology {
     }
 
     /// Produce a Vocabulary from this runtime Ontology.
+    ///
+    /// Leaks the name and source strings once per call. For long-running
+    /// processes, call this once and cache the result.
     pub fn vocabulary(&self) -> Vocabulary {
         Vocabulary {
             ontology_name: Box::leak(self.name.clone().into_boxed_str()),
@@ -426,6 +431,7 @@ impl Ontology {
                 .filter(|e| e.kind != EdgeKind::Identity)
                 .cloned()
                 .collect(),
+            base_level: self.level,
             provenance: {
                 let mut p = self.provenance.clone();
                 if !p.contains(&self.name) {
@@ -626,7 +632,7 @@ fn merge_provenance(
     provenance
 }
 
-/// Builder for constructing a Ontology step by step.
+/// Builder for constructing an Ontology step by step.
 ///
 /// The builder IS the formation process (C-K Theory, Hatchuel & Weil 2009):
 /// each method call expands the concept space or adds structure.
@@ -636,6 +642,7 @@ pub struct OntologyBuilder {
     being: Option<Being>,
     concepts: BTreeMap<String, Concept>,
     edges: BTreeSet<Edge>,
+    base_level: usize,
     provenance: Vec<String>,
 }
 
@@ -777,7 +784,7 @@ impl OntologyBuilder {
             being: self.being,
             concepts: self.concepts,
             edges: self.edges,
-            level: 0,
+            level: self.base_level,
             staging: Staging::Composed,
             provenance: self.provenance,
         }
