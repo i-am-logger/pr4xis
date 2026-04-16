@@ -1,3 +1,4 @@
+pub mod consciousness;
 pub mod distinction;
 pub mod epistemics;
 pub mod metacognition;
