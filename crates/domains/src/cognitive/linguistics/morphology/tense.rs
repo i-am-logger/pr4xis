@@ -1,6 +1,8 @@
 use pr4xis::category::Category;
 use pr4xis::category::entity::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 
 // Tense/Aspect ontology — the temporal structure of events in language.
 //
@@ -190,6 +192,15 @@ impl Category for TenseCategory {
         }
 
         m
+    }
+}
+
+impl Classified for TenseCategory {
+    fn being() -> Being {
+        Being::AbstractObject
+    }
+    fn classification_reason() -> &'static str {
+        "tense/aspect are abstract temporal relations (Reichenbach 1947)"
     }
 }
 

@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Speech production ontology — the generation pipeline.
 //
@@ -62,9 +62,10 @@ pub enum ProductionConcept {
     LexicalChoice,
 }
 
-define_category! {
-    pub ProductionCategory {
-        entity: ProductionConcept,
+define_ontology! {
+    /// Speech Production — the Levelt pipeline (1989) with NLG extensions.
+    pub ProductionOntology for ProductionCategory {
+        concepts: ProductionConcept,
         relation: ProductionRelation,
         kind: ProductionRelationKind,
         kinds: [
@@ -112,6 +113,9 @@ define_category! {
             // DocumentPlan → SurfaceForm (through PreverbalMessage)
             (DocumentPlan, SurfaceForm),
         ],
+
+        being: Process,
+        source: "Levelt (1989); de Groote (2001)",
     }
 }
 

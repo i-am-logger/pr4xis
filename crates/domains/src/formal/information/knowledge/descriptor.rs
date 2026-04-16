@@ -9,26 +9,14 @@ pub fn describe_knowledge_base() -> Vec<OntologyDescriptor> {
 fn build_descriptors() -> Vec<OntologyDescriptor> {
     vec![
         // =================================================================
-        // Cognitive — Cognition (manual: use define_dense_category!)
+        // Cognitive — Cognition (define_ontology!)
         // =================================================================
-        manual::<
-            crate::cognitive::cognition::distinction::DistinctionCategory,
-            crate::cognitive::cognition::distinction::DistinctionElement,
-        >("Distinction", "pr4xis_domains::cognitive::cognition::distinction", "Spencer-Brown (1969)", Being::AbstractObject),
-        manual::<
-            crate::cognitive::cognition::epistemics::EpistemicCategory,
-            crate::cognitive::cognition::epistemics::EpistemicState,
-        >("Epistemics", "pr4xis_domains::cognitive::cognition::epistemics", "von Foerster (1981)", Being::MentalObject),
-        manual::<
-            crate::cognitive::cognition::metacognition::MetaCognitionCategory,
-            crate::cognitive::cognition::metacognition::MetaConcept,
-        >("Metacognition", "pr4xis_domains::cognitive::cognition::metacognition", "von Foerster (1981); Olivares-Alarcos MOI (2023)", Being::MentalObject),
-        manual::<
-            crate::cognitive::cognition::self_model::SelfModelCategory,
-            crate::cognitive::cognition::self_model::SelfModelConcept,
-        >("Self-Model", "pr4xis_domains::cognitive::cognition::self_model", "von Foerster (1981); IEEE AuR (2021); MAPE-K (2003)", Being::MentalObject),
+        crate::cognitive::cognition::distinction::DistinctionOntology::descriptor(),
+        crate::cognitive::cognition::epistemics::EpistemicOntology::descriptor(),
+        crate::cognitive::cognition::metacognition::MetaCognitionOntology::descriptor(),
+        crate::cognitive::cognition::self_model::SelfModelOntology::descriptor(),
         // =================================================================
-        // Cognitive — Linguistics (manual: various lower-level macros)
+        // Cognitive — Linguistics (mixed: define_ontology! + manual)
         // =================================================================
         manual::<
             crate::cognitive::linguistics::lexicon::ontology::LexicalCategory,
@@ -42,26 +30,11 @@ fn build_descriptors() -> Vec<OntologyDescriptor> {
             crate::cognitive::linguistics::orthography::distance::SpellingErrorCategory,
             crate::cognitive::linguistics::orthography::distance::SpellingErrorConcept,
         >("Spelling Errors", "pr4xis_domains::cognitive::linguistics::orthography::distance", "Damerau (1964); Brill & Moore (2000)", Being::Quality),
-        manual::<
-            crate::cognitive::linguistics::orthography::channel::ChannelCategory,
-            crate::cognitive::linguistics::orthography::channel::ChannelConcept,
-        >("Noisy Channel", "pr4xis_domains::cognitive::linguistics::orthography::channel", "Shannon (1948); Kernighan et al. (1990)", Being::AbstractObject),
-        manual::<
-            crate::cognitive::linguistics::pragmatics::reference::ReferenceCategory,
-            crate::cognitive::linguistics::pragmatics::reference::ReferenceConcept,
-        >("Discourse Reference", "pr4xis_domains::cognitive::linguistics::pragmatics::reference", "Kamp (1981); Grosz, Joshi & Weinstein (1995)", Being::AbstractObject),
-        manual::<
-            crate::cognitive::linguistics::pragmatics::generation::ProductionCategory,
-            crate::cognitive::linguistics::pragmatics::generation::ProductionConcept,
-        >("Speech Production", "pr4xis_domains::cognitive::linguistics::pragmatics::generation", "Levelt (1989); de Groote (2001)", Being::Process),
-        manual::<
-            crate::cognitive::linguistics::pragmatics::nlg::NlgCategory,
-            crate::cognitive::linguistics::pragmatics::nlg::NlgConcept,
-        >("NLG Pipeline", "pr4xis_domains::cognitive::linguistics::pragmatics::nlg", "Reiter & Dale (2000)", Being::AbstractObject),
-        manual::<
-            crate::cognitive::linguistics::pragmatics::response::ResponseCategory,
-            crate::cognitive::linguistics::pragmatics::response::ResponseConcept,
-        >("Response Generation", "pr4xis_domains::cognitive::linguistics::pragmatics::response", "Reiter & Dale (2000); Lambek & Scott (1986)", Being::Process),
+        crate::cognitive::linguistics::orthography::channel::ChannelOntology::descriptor(),
+        crate::cognitive::linguistics::pragmatics::reference::ReferenceOntology::descriptor(),
+        crate::cognitive::linguistics::pragmatics::generation::ProductionOntology::descriptor(),
+        crate::cognitive::linguistics::pragmatics::nlg::NlgOntology::descriptor(),
+        crate::cognitive::linguistics::pragmatics::response::ResponseOntology::descriptor(),
         // =================================================================
         // Formal — Mathematics (macro-generated)
         // =================================================================
@@ -96,13 +69,10 @@ fn build_descriptors() -> Vec<OntologyDescriptor> {
         crate::formal::information::schema::ontology::SchemaOntology::descriptor(),
         crate::formal::information::storage::ontology::StorageOntology::descriptor(),
         // =================================================================
-        // Formal — Systems (macro-generated + manual)
+        // Formal — Systems (macro-generated)
         // =================================================================
         crate::formal::systems::ontology::SystemsOntology::descriptor(),
-        manual::<
-            crate::formal::systems::control::ControlCategory,
-            crate::formal::systems::control::ControlConcept,
-        >("Control Systems", "pr4xis_domains::formal::systems::control", "Wiener (1948); Conant & Ashby (1970)", Being::AbstractObject),
+        crate::formal::systems::control::ControlOntology::descriptor(),
         // =================================================================
         // Formal — Other (macro-generated)
         // =================================================================
@@ -166,12 +136,9 @@ fn build_descriptors() -> Vec<OntologyDescriptor> {
         // =================================================================
         crate::applied::perception::occupancy::ontology::OccupancyOntology::descriptor(),
         // =================================================================
-        // Applied — Hardware (manual)
+        // Applied — Hardware (mixed: define_ontology! + manual)
         // =================================================================
-        manual::<
-            crate::applied::hardware::traffic::ontology::TrafficCategory,
-            crate::applied::hardware::traffic::ontology::TrafficDirection,
-        >("Traffic", "pr4xis_domains::applied::hardware::traffic", "Highway Capacity Manual (TRB); Webster (1958)", Being::SocialObject),
+        crate::applied::hardware::traffic::ontology::TrafficOntology::descriptor(),
         manual::<
             crate::applied::hardware::elevator::ontology::ElevatorCategory,
             crate::applied::hardware::elevator::ontology::Floor,

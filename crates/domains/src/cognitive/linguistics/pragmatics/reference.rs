@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Discourse Reference Ontology — how language tracks entities across utterances.
 //
@@ -67,9 +67,10 @@ pub enum CenteringTransition {
     RoughShift,
 }
 
-define_category! {
-    pub ReferenceCategory {
-        entity: ReferenceConcept,
+define_ontology! {
+    /// Discourse Reference — DRT + Centering (Kamp 1981; Grosz et al. 1995).
+    pub ReferenceOntology for ReferenceCategory {
+        concepts: ReferenceConcept,
         relation: ReferenceRelation,
         kind: ReferenceRelationKind,
         kinds: [
@@ -118,6 +119,9 @@ define_category! {
             (DRS, Condition),
             (Accessibility, Referent),
         ],
+
+        being: AbstractObject,
+        source: "Kamp (1981); Grosz, Joshi & Weinstein (1995)",
     }
 }
 

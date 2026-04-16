@@ -1,6 +1,8 @@
 use pr4xis::category::{Category, Entity, FullyConnected, Relationship};
 use pr4xis::logic::Axiom;
 use pr4xis::ontology::Quality;
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 
 /// Floors are the entities of the elevator ontology.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -69,6 +71,15 @@ impl Category for ElevatorCategory {
             .iter()
             .flat_map(|&a| floors.iter().map(move |&b| Travel { from: a, to: b }))
             .collect()
+    }
+}
+
+impl Classified for ElevatorCategory {
+    fn being() -> Being {
+        Being::SocialObject
+    }
+    fn classification_reason() -> &'static str {
+        "elevator operation rules are engineered specifications"
     }
 }
 

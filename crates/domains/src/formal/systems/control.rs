@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Control Systems Ontology — the science of feedback and regulation.
 //
@@ -73,9 +73,10 @@ pub enum ControlSystemKind {
     Adaptive,
 }
 
-define_category! {
-    pub ControlCategory {
-        entity: ControlConcept,
+define_ontology! {
+    /// Control Systems — feedback and regulation (Wiener 1948; Conant & Ashby 1970).
+    pub ControlOntology for ControlCategory {
+        concepts: ControlConcept,
         relation: ControlRelation,
         kind: ControlRelationKind,
         kinds: [
@@ -120,6 +121,9 @@ define_category! {
             (Setpoint, Controller),
             (Disturbance, Error),
         ],
+
+        being: AbstractObject,
+        source: "Wiener (1948); Conant & Ashby (1970)",
     }
 }
 

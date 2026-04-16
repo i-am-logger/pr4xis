@@ -1,6 +1,8 @@
 use pr4xis::category::Category;
 use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // RDF 1.1 Concepts and Abstract Syntax — W3C Recommendation (2014)
@@ -168,6 +170,15 @@ impl Category for RdfCategory {
         }
 
         m
+    }
+}
+
+impl Classified for RdfCategory {
+    fn being() -> Being {
+        Being::SocialObject
+    }
+    fn classification_reason() -> &'static str {
+        "RDF is a W3C standard — an agreed-upon data model"
     }
 }
 

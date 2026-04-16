@@ -2,6 +2,8 @@ use super::board::Board;
 use super::piece::{Color, Piece, PieceKind};
 use super::square::Square;
 use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Quality};
 
 // =============================================================================
@@ -60,6 +62,15 @@ impl Category for ChessCategory {
             }
         }
         m
+    }
+}
+
+impl Classified for ChessCategory {
+    fn being() -> Being {
+        Being::SocialObject
+    }
+    fn classification_reason() -> &'static str {
+        "chess rules are agreed-upon social conventions"
     }
 }
 

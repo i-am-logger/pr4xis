@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Distinction — the most fundamental act of cognition.
 //
@@ -32,9 +32,10 @@ pub enum DistinctionElement {
     ReEntry,
 }
 
-define_category! {
-    pub DistinctionCategory {
-        entity: DistinctionElement,
+define_ontology! {
+    /// Distinction — the most fundamental cognitive act (Spencer-Brown 1969).
+    pub DistinctionOntology for DistinctionCategory {
+        concepts: DistinctionElement,
         relation: DistinctionRelation,
         kind: DistinctionRelationKind,
         kinds: [
@@ -69,6 +70,9 @@ define_category! {
             (ReEntry, MarkedSpace),
             (ReEntry, UnmarkedSpace),
         ],
+
+        being: AbstractObject,
+        source: "Spencer-Brown (1969)",
     }
 }
 

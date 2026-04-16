@@ -1,5 +1,3 @@
-pub mod classify;
-
 // Academic discipline hierarchy (DOLCE-aligned)
 pub mod applied; // Process — engineering, navigation, sensors, robotics
 pub mod cognitive; // MentalObject — linguistics, cognition
