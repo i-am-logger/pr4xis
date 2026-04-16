@@ -135,6 +135,51 @@
     }
     #input:focus { border-color: #58a6ff; }
     #input::placeholder { color: #484f58; }
+
+    /* Tab bar */
+    .tabs { display: flex; border-bottom: 1px solid #21262d; }
+    .tab {
+      padding: 0.6rem 1.5rem; background: none; border: none; border-bottom: 2px solid transparent;
+      color: #8b949e; font-size: 0.9em; cursor: pointer; font-weight: 600;
+    }
+    .tab:hover { color: #c9d1d9; }
+    .tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+    .tab-content { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
+    .tab-content.active { display: flex; }
+
+    /* Dashboard */
+    #dashboard { padding: 1.5rem 2rem; gap: 1rem; }
+    .dash-summary {
+      display: flex; gap: 1.5rem; flex-wrap: wrap; padding-bottom: 1rem;
+      border-bottom: 1px solid #21262d;
+    }
+    .dash-stat {
+      text-align: center; min-width: 100px;
+    }
+    .dash-stat .value { font-size: 2em; font-weight: 700; color: #58a6ff; }
+    .dash-stat .label { font-size: 0.75em; color: #8b949e; text-transform: uppercase; }
+    .dash-group { margin-top: 1rem; }
+    .dash-group-title {
+      font-size: 0.85em; font-weight: 600; color: #7ee787; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 0.5rem;
+    }
+    .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.5rem; }
+    .ont-card {
+      background: #161b22; border: 1px solid #21262d; border-radius: 8px;
+      padding: 0.7rem 1rem; cursor: default; transition: border-color 0.15s;
+    }
+    .ont-card:hover { border-color: #58a6ff; }
+    .ont-card .name { font-weight: 600; color: #c9d1d9; font-size: 0.9em; }
+    .ont-card .domain { color: #484f58; font-size: 0.7em; font-family: monospace; }
+    .ont-card .counts { color: #8b949e; font-size: 0.75em; margin-top: 0.3rem; }
+    .ont-card .source { color: #484f58; font-size: 0.65em; font-style: italic; margin-top: 0.2rem; }
+    .badge {
+      display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px;
+      font-size: 0.65em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .badge-embedded { background: #1f6feb33; color: #58a6ff; border: 1px solid #1f6feb; }
+    .badge-codegen { background: #23863633; color: #3fb950; border: 1px solid #238636; }
+
     #send {
       padding: 0.7rem 1.5rem;
       background: #238636;
@@ -157,8 +202,19 @@
     <div id="status" class="loading">Loading...</div>
   </header>
 
-  <div id="chat">
-    <div class="message info">Loading English ontology (107,000 concepts)...</div>
+  <div class="tabs">
+    <button class="tab active" data-tab="chat-tab">Chat</button>
+    <button class="tab" data-tab="dashboard">Dashboard</button>
+  </div>
+
+  <div id="chat-tab" class="tab-content active">
+    <div id="chat" style="flex:1;overflow-y:auto;padding:1.5rem 2rem 3rem;display:flex;flex-direction:column;gap:0.5rem;">
+      <div class="message info">Loading English ontology (107,000 concepts)...</div>
+    </div>
+  </div>
+
+  <div id="dashboard" class="tab-content">
+    <div class="message info">Loading ontology inventory...</div>
   </div>
 
   <div id="input-area">
@@ -283,6 +339,7 @@
           `  running entirely in your browser — no server`,
           'info'
         );
+        await renderDashboard(pr4xis);
         input.disabled = false;
         send.disabled = false;
         input.focus();
@@ -322,6 +379,109 @@
         addMessage(raw, 'system');
       }
       input.focus();
+    }
+
+    // Tab switching
+    const inputArea = document.getElementById('input-area');
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+        inputArea.style.display = tab.dataset.tab === 'chat-tab' ? 'flex' : 'none';
+      });
+    });
+
+    async function renderDashboard(pr4xis) {
+      const raw = pr4xis.self_describe();
+      let data;
+      try { data = JSON.parse(raw); } catch { return; }
+
+      const dash = document.getElementById('dashboard');
+      dash.innerHTML = '';
+
+      // Fetch WASM binary size
+      let wasmSize = '?';
+      try {
+        const resp = await fetch('./pkg/pr4xis_wasm_bg.wasm', { method: 'HEAD' });
+        const bytes = parseInt(resp.headers.get('content-length') || '0', 10);
+        if (bytes > 0) wasmSize = (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      } catch { /* offline or CORS — leave as ? */ }
+
+      // Summary bar
+      const summary = document.createElement('div');
+      summary.className = 'dash-summary';
+      [
+        { value: data.ontology_count, label: 'ontologies' },
+        { value: data.total_concepts.toLocaleString(), label: 'concepts' },
+        { value: data.total_morphisms.toLocaleString(), label: 'morphisms' },
+        { value: wasmSize, label: 'wasm binary' },
+        { value: data.version, label: 'version' },
+        { value: data.awareness, label: 'awareness' },
+      ].forEach(({ value, label }) => {
+        const stat = document.createElement('div');
+        stat.className = 'dash-stat';
+        stat.innerHTML = `<div class="value">${value}</div><div class="label">${label}</div>`;
+        summary.appendChild(stat);
+      });
+
+      // Deployment badges + note
+      const badges = document.createElement('div');
+      badges.style.cssText = 'display:flex; gap:0.5rem; flex-wrap:wrap; padding-top:0.8rem; align-items:center;';
+      badges.innerHTML =
+        '<span class="badge badge-embedded">embedded in binary</span>' +
+        '<span class="badge badge-codegen">build-time codegen</span>' +
+        '<span class="badge badge-embedded">no server — runs in your browser</span>';
+      summary.appendChild(badges);
+
+      const note = document.createElement('div');
+      note.style.cssText = 'color:#484f58; font-size:0.75em; padding-top:0.5rem;';
+      note.textContent = 'Structural definitions compiled into the WASM binary. ' +
+        'Concept/morphism counts reflect the category structure. ' +
+        'English WordNet (107k synsets) loaded via build-time codegen from the upstream Global WordNet Association release.';
+      summary.appendChild(note);
+
+      dash.appendChild(summary);
+
+      // Group ontologies by DOLCE being
+      const groups = {};
+      for (const o of data.ontologies) {
+        const key = o.being || 'unclassified';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(o);
+      }
+
+      // Render each group
+      const beingOrder = ['Abstract', 'Social', 'Mental', 'Physical', 'Process', 'Event', 'Quality', 'unclassified'];
+      for (const being of beingOrder) {
+        const onts = groups[being];
+        if (!onts || onts.length === 0) continue;
+
+        const group = document.createElement('div');
+        group.className = 'dash-group';
+
+        const title = document.createElement('div');
+        title.className = 'dash-group-title';
+        title.textContent = `${being} (${onts.length})`;
+        group.appendChild(title);
+
+        const grid = document.createElement('div');
+        grid.className = 'dash-grid';
+
+        for (const o of onts.sort((a, b) => a.name.localeCompare(b.name))) {
+          const card = document.createElement('div');
+          card.className = 'ont-card';
+          card.innerHTML =
+            `<div class="name">${o.name}</div>` +
+            `<div class="domain">${o.domain}</div>` +
+            `<div class="counts">${o.concepts} concepts · ${o.morphisms} morphisms</div>` +
+            `<div class="source">${o.source}</div>`;
+          grid.appendChild(card);
+        }
+        group.appendChild(grid);
+        dash.appendChild(group);
+      }
     }
 
     send.addEventListener('click', handleSend);
