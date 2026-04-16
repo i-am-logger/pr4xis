@@ -12,7 +12,8 @@
 use super::decoders::{has_decoder_for, xml_lmf};
 use super::ontology::{
     ContentType, DataProvisioningCategory, DataProvisioningOntology, DecoderTotalityPerContentType,
-    IsUsableLocally, ProvisioningConcept, RegistryUniquenessByName, TriggersUpdate,
+    EveryDataSourceHasIdentity, IdentityClaimsUseLeaves, IsUsableLocally, ProvisioningConcept,
+    RegistryUniquenessByName, TriggersUpdate,
 };
 use super::registry::{DATA_SOURCES, by_name, resolve_identity};
 use crate::cognitive::linguistics::english::English;
@@ -21,6 +22,7 @@ use crate::formal::meta::artifact_identity::ontology::{
 };
 use crate::formal::meta::artifact_identity::schemes::{raw_hash, xml_element_attribute};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
+use proptest::prelude::*;
 
 // =============================================================================
 // Category laws and validation
@@ -108,14 +110,8 @@ fn stale_and_missing_trigger_update() {
 
 #[test]
 fn axiom_every_datasource_has_identity() {
-    // Note: this axiom reads from const DATA_SOURCES, where identity is an
-    // empty placeholder (non-const limitation). The real identity lives in
-    // resolve_identity and we check it separately.
     assert!(!DATA_SOURCES.is_empty());
-    for entry in DATA_SOURCES {
-        let resolved = resolve_identity(entry.name).expect("every entry has resolved identity");
-        assert!(!resolved.0.is_empty());
-    }
+    assert!(EveryDataSourceHasIdentity.holds());
 }
 
 #[test]
@@ -130,14 +126,17 @@ fn axiom_decoder_totality_per_content_type() {
 
 #[test]
 fn axiom_identity_claims_use_leaves() {
-    // The const DATA_SOURCES have empty identity, so we check the resolved
-    // identities against the leaf-only constraint.
-    use crate::formal::meta::artifact_identity::ontology::is_leaf;
-    for entry in DATA_SOURCES {
-        let resolved = resolve_identity(entry.name).unwrap();
-        for claim in &resolved.0 {
-            assert!(is_leaf(&claim.concept), "{:?} is not a leaf", claim.concept);
-        }
+    assert!(IdentityClaimsUseLeaves.holds());
+}
+
+#[test]
+fn all_domain_axioms_hold() {
+    for axiom in DataProvisioningOntology::domain_axioms() {
+        assert!(
+            axiom.holds(),
+            "domain axiom failed: {}",
+            axiom.description()
+        );
     }
 }
 
@@ -253,4 +252,66 @@ fn full_chain_rejects_wrong_version() {
     let result = xml_element_attribute::verify(&claim, corrupted.as_bytes());
     let is_mismatch = matches!(result, VerificationResult::Mismatch { .. });
     assert!(is_mismatch, "expected Mismatch, got {:?}", result);
+}
+
+// =============================================================================
+// Property-based tests
+// =============================================================================
+
+/// Every `ContentType` is either a real wired decoder or is not. The
+/// invariant: `has_decoder_for` returns a stable truth value per variant,
+/// independent of call order, and is true only for variants that actually
+/// have a dispatch arm.
+fn every_content_type() -> Vec<ContentType> {
+    vec![
+        ContentType::XmlLmf,
+        ContentType::Pdf,
+        ContentType::Plaintext,
+        ContentType::Json,
+        ContentType::Video,
+        ContentType::Audio,
+        ContentType::Binary,
+    ]
+}
+
+proptest! {
+    /// `has_decoder_for` must be a pure function of the variant. Calling it
+    /// many times for the same variant must return the same answer. This
+    /// guards against someone accidentally introducing statefulness in
+    /// decoder dispatch.
+    #[test]
+    fn prop_has_decoder_for_is_pure(idx in 0usize..7) {
+        let variant = every_content_type()[idx];
+        let first = has_decoder_for(variant);
+        for _ in 0..16 {
+            prop_assert_eq!(first, has_decoder_for(variant));
+        }
+    }
+
+    /// `by_name` never panics and returns `None` for random names that
+    /// aren't in the registry. The only name that should resolve in the
+    /// current registry is "wordnet".
+    #[test]
+    fn prop_by_name_misses_random_strings(name in "[a-z]{1,20}") {
+        if name != "wordnet" {
+            prop_assert!(by_name(&name).is_none());
+        } else {
+            prop_assert!(by_name(&name).is_some());
+        }
+    }
+
+    /// Every resolved identity claim on every registered entry must use a
+    /// leaf `IdentityConcept`. Repeats the `IdentityClaimsUseLeaves` axiom
+    /// over a proptest loop as a regression guard against accidentally
+    /// adding a family-level concept to the registry.
+    #[test]
+    fn prop_all_resolved_claims_use_leaves(_seed in any::<u64>()) {
+        use crate::formal::meta::artifact_identity::ontology::is_leaf;
+        for entry in DATA_SOURCES {
+            let resolved = resolve_identity(entry.name).unwrap();
+            for claim in &resolved.0 {
+                prop_assert!(is_leaf(&claim.concept));
+            }
+        }
+    }
 }

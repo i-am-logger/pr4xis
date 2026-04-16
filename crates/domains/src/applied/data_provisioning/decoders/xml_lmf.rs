@@ -28,6 +28,24 @@ use crate::social::software::markup::xml::lmf::reader as lmf_reader;
 ///
 /// Returns a `DecodeError` if the bytes are not valid UTF-8 or if the XML
 /// cannot be parsed as LMF.
+///
+/// # Example
+///
+/// ```
+/// use pr4xis_domains::applied::data_provisioning::decoders::xml_lmf;
+///
+/// let xml = br#"<?xml version="1.0" encoding="UTF-8"?>
+/// <LexicalResource>
+///   <Lexicon id="oewn" label="English WordNet" language="en" email="t@e" license="CC" version="2025" url="https://en-word.net/">
+///     <LexicalEntry id="e1"><Lemma writtenForm="dog" partOfSpeech="n"/><Sense id="s1" synset="d1"/></LexicalEntry>
+///     <Synset id="d1" ili="i1" partOfSpeech="n"><Definition>a dog</Definition></Synset>
+///   </Lexicon>
+/// </LexicalResource>"#;
+///
+/// let wordnet = xml_lmf::decode(xml).expect("valid LMF");
+/// assert_eq!(wordnet.entries.len(), 1);
+/// assert_eq!(wordnet.synsets.len(), 1);
+/// ```
 pub fn decode(bytes: &[u8]) -> Result<WordNet, DecodeError> {
     let text = std::str::from_utf8(bytes).map_err(|_| DecodeError::NotUtf8)?;
     lmf_reader::read_wordnet(text).map_err(|e| DecodeError::Lmf(e.to_string()))

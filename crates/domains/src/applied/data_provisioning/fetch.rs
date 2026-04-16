@@ -288,3 +288,259 @@ fn run_extractor(claim: &IdentityClaim, bytes: &[u8]) -> VerificationResult {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Unit tests for fetch dispatch. Network is not exercised — every test
+    //! goes through the non-network branches (check / offline / verify).
+
+    use super::*;
+    use proptest::prelude::*;
+    use sha2::{Digest, Sha256};
+
+    const SAMPLE_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="oewn" label="English WordNet" language="en" email="t@e" license="CC" version="2025" url="https://en-word.net/">
+    <LexicalEntry id="e-dog-n"><Lemma writtenForm="dog" partOfSpeech="n"/><Sense id="s1" synset="d1"/></LexicalEntry>
+    <Synset id="d1" ili="i1" partOfSpeech="n"><Definition>a dog</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+
+    fn sample_sha256() -> String {
+        let mut h = Sha256::new();
+        h.update(SAMPLE_XML.as_bytes());
+        hex::encode(h.finalize())
+    }
+
+    #[test]
+    fn run_extractor_raw_hash_verifies() {
+        let claim = IdentityClaim {
+            concept: IdentityConcept::RawHash,
+            data: ClaimData::Sha256(sample_sha256()),
+        };
+        let result = run_extractor(&claim, SAMPLE_XML.as_bytes());
+        assert!(matches!(result, VerificationResult::Verified(_)));
+    }
+
+    #[test]
+    fn run_extractor_raw_hash_mismatch() {
+        let claim = IdentityClaim {
+            concept: IdentityConcept::RawHash,
+            data: ClaimData::Sha256(
+                "0000000000000000000000000000000000000000000000000000000000000000".into(),
+            ),
+        };
+        let result = run_extractor(&claim, SAMPLE_XML.as_bytes());
+        assert!(matches!(result, VerificationResult::Mismatch { .. }));
+    }
+
+    #[test]
+    fn run_extractor_xml_attribute_verifies() {
+        let claim = IdentityClaim {
+            concept: IdentityConcept::XmlElementAttribute,
+            data: ClaimData::XmlAttribute {
+                element: "Lexicon",
+                attribute: "version",
+                expected: "2025".into(),
+            },
+        };
+        let result = run_extractor(&claim, SAMPLE_XML.as_bytes());
+        assert!(matches!(result, VerificationResult::Verified(_)));
+    }
+
+    #[test]
+    fn run_extractor_xml_attribute_mismatch() {
+        let claim = IdentityClaim {
+            concept: IdentityConcept::XmlElementAttribute,
+            data: ClaimData::XmlAttribute {
+                element: "Lexicon",
+                attribute: "version",
+                expected: "2099".into(),
+            },
+        };
+        let result = run_extractor(&claim, SAMPLE_XML.as_bytes());
+        assert!(matches!(result, VerificationResult::Mismatch { .. }));
+    }
+
+    #[test]
+    fn run_extractor_stub_concept_is_unverifiable() {
+        let claim = IdentityClaim {
+            concept: IdentityConcept::Doi,
+            data: ClaimData::Stub {
+                reason: "test".into(),
+            },
+        };
+        let result = run_extractor(&claim, b"anything");
+        assert!(matches!(result, VerificationResult::Unverifiable { .. }));
+    }
+
+    #[test]
+    fn run_extractor_wrong_data_shape_is_unverifiable() {
+        let claim = IdentityClaim {
+            concept: IdentityConcept::RawHash,
+            data: ClaimData::Stub {
+                reason: "wrong shape".into(),
+            },
+        };
+        let result = run_extractor(&claim, b"bytes");
+        assert!(matches!(result, VerificationResult::Unverifiable { .. }));
+    }
+
+    #[test]
+    fn verify_bytes_fails_on_unknown_entry() {
+        let bogus = RegistryEntry {
+            name: "not-in-registry",
+            description: "test",
+            remote_location: "",
+            local_path: "",
+            content_type: super::super::ontology::ContentType::Binary,
+            identity: crate::formal::meta::artifact_identity::ontology::CompositeIdentity(
+                Vec::new(),
+            ),
+            gzipped: false,
+        };
+        let bogus_static: &'static RegistryEntry = Box::leak(Box::new(bogus));
+        let result = verify_bytes(bogus_static, b"bytes");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn verify_bytes_passes_on_real_wordnet_entry() {
+        let wordnet = super::super::registry::by_name("wordnet").expect("wordnet registered");
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let path = workspace_root.join(wordnet.local_path);
+        if !path.exists() {
+            eprintln!("skipping: wordnet file not on disk at {}", path.display());
+            return;
+        }
+        let bytes = fs::read(&path).expect("read wordnet file");
+        let result = verify_bytes(wordnet, &bytes);
+        assert!(
+            result.is_ok(),
+            "real wordnet bytes should verify against pinned identity: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn fetch_entry_check_only_missing_returns_missing() {
+        let tmp = tempdir_path();
+        let wordnet = super::super::registry::by_name("wordnet").unwrap();
+        let opts = FetchOptions {
+            check: true,
+            force: false,
+            offline: false,
+        };
+        let outcome = fetch_entry(wordnet, opts, &tmp);
+        assert!(matches!(outcome, FetchOutcome::MissingAndCheckOnly { .. }));
+    }
+
+    #[test]
+    fn fetch_entry_offline_missing_returns_offline() {
+        let tmp = tempdir_path();
+        let wordnet = super::super::registry::by_name("wordnet").unwrap();
+        let opts = FetchOptions {
+            check: false,
+            force: false,
+            offline: true,
+        };
+        let outcome = fetch_entry(wordnet, opts, &tmp);
+        assert!(matches!(outcome, FetchOutcome::MissingAndOffline { .. }));
+    }
+
+    #[test]
+    fn fetch_outcome_is_ok_only_for_success_variants() {
+        assert!(FetchOutcome::AlreadyVerified { name: "x" }.is_ok());
+        assert!(
+            FetchOutcome::Fetched {
+                name: "x",
+                path: PathBuf::new(),
+                bytes: 0,
+            }
+            .is_ok()
+        );
+        assert!(
+            !FetchOutcome::MissingAndCheckOnly {
+                name: "x",
+                path: PathBuf::new(),
+            }
+            .is_ok()
+        );
+        assert!(
+            !FetchOutcome::MissingAndOffline {
+                name: "x",
+                path: PathBuf::new(),
+            }
+            .is_ok()
+        );
+        assert!(
+            !FetchOutcome::VerificationFailed {
+                name: "x",
+                path: PathBuf::new(),
+                reason: String::new(),
+            }
+            .is_ok()
+        );
+        assert!(
+            !FetchOutcome::FetchError {
+                name: "x",
+                reason: String::new(),
+            }
+            .is_ok()
+        );
+    }
+
+    /// Isolated temp directory per test, under the system tempdir. No
+    /// `tempfile` crate dependency — we just use an ad-hoc pid+nanos name
+    /// and skip cleanup (tests don't write here anyway).
+    fn tempdir_path() -> PathBuf {
+        let base = std::env::temp_dir();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        base.join(format!(
+            "pr4xis-fetch-test-{}-{}",
+            std::process::id(),
+            nanos
+        ))
+    }
+
+    proptest! {
+        /// Random byte payloads verified against a freshly computed sha256
+        /// must always yield `Verified`. Guards `run_extractor`'s RawHash
+        /// arm against subtle hashing bugs.
+        #[test]
+        fn prop_raw_hash_round_trip(bytes in prop::collection::vec(any::<u8>(), 0..1024)) {
+            let mut h = Sha256::new();
+            h.update(&bytes);
+            let hex = hex::encode(h.finalize());
+            let claim = IdentityClaim {
+                concept: IdentityConcept::RawHash,
+                data: ClaimData::Sha256(hex),
+            };
+            let result = run_extractor(&claim, &bytes);
+            let is_verified = matches!(result, VerificationResult::Verified(_));
+            prop_assert!(is_verified);
+        }
+
+        /// Random byte payloads against a frozen wrong hash must always
+        /// yield `Mismatch`. Guards against false positives.
+        #[test]
+        fn prop_raw_hash_detects_wrong_hash(bytes in prop::collection::vec(any::<u8>(), 1..1024)) {
+            let claim = IdentityClaim {
+                concept: IdentityConcept::RawHash,
+                data: ClaimData::Sha256(
+                    "0000000000000000000000000000000000000000000000000000000000000000".into(),
+                ),
+            };
+            let result = run_extractor(&claim, &bytes);
+            let is_mismatch = matches!(result, VerificationResult::Mismatch { .. });
+            prop_assert!(is_mismatch);
+        }
+    }
+}

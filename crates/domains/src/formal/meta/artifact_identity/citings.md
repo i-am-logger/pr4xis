@@ -7,21 +7,24 @@ Every published source this ontology stands on, organized by the family it groun
 ### Dolstra 2006 — *The Purely Functional Software Deployment Model*
 
 - **Citation**: Dolstra, E. (2006). *The Purely Functional Software Deployment Model*. PhD thesis, Utrecht University.
-- **Local PDF**: [`papers/dolstra-2006-purely-functional-deployment.pdf`](papers/dolstra-2006-purely-functional-deployment.pdf) *(pending verification — the current file is a placeholder; the actual 275-page thesis should be at [edolstra.github.io/pubs/phd-thesis.pdf](https://edolstra.github.io/pubs/phd-thesis.pdf))*
+- **Local PDF**: [`papers/dolstra-2006-purely-functional-deployment.pdf`](papers/dolstra-2006-purely-functional-deployment.pdf)
+- **Upstream**: [edolstra.github.io/pubs/phd-thesis.pdf](https://edolstra.github.io/pubs/phd-thesis.pdf)
 - **Grounds**: `ContentHash::RawHash` and `ContentHash::NixStorePath`. Specifically: §4 on content-addressed stores (`/nix/store/{hash}-name`), §5-6 on fixed-output derivations (a build spec that declares an output hash; materialization fails if the actual hash doesn't match), §7-8 on the formal integrity and reproducibility proofs. The axiom `ContentHashIsInjective` is Dolstra's strict claim generalized.
 - **Cited at**: `ontology.rs` module doc, `ContentHashIsInjective` axiom description
 
 ### Benet 2014 — *IPFS: Content Addressed, Versioned, P2P File System*
 
 - **Citation**: Benet, J. (2014). *IPFS — Content Addressed, Versioned, P2P File System*. arXiv:1407.3561.
-- **URL**: [arxiv.org/abs/1407.3561](https://arxiv.org/abs/1407.3561)
+- **Local PDF**: [`papers/benet-2014-ipfs.pdf`](papers/benet-2014-ipfs.pdf)
+- **Upstream**: [arxiv.org/abs/1407.3561](https://arxiv.org/abs/1407.3561)
 - **Grounds**: `ContentHash::IpfsCid` — the IPFS content identifier scheme. Extends Dolstra's single-machine content-addressing to a distributed P2P system.
 - **Cited at**: `IdentityConcept::IpfsCid` doc comment
 
 ### W3C Subresource Integrity (2016)
 
 - **Citation**: W3C Recommendation 23 June 2016. *Subresource Integrity*.
-- **URL**: [w3.org/TR/SRI](https://www.w3.org/TR/SRI/)
+- **Local copy**: [`papers/w3c-sri-2016.html`](papers/w3c-sri-2016.html) *(the W3C publishes this only as HTML; vendored as-is so local browsing doesn't depend on w3.org)*
+- **Upstream**: [w3.org/TR/SRI](https://www.w3.org/TR/SRI/)
 - **Grounds**: `ContentHash::RawHash` as a web standard. The `<script integrity="sha384-...">` mechanism is direct precedent for hash-verified external resources over HTTP, which is the pattern `applied/data_provisioning/fetch.rs` implements.
 - **Cited at**: `ontology.rs` module doc, `RawHash` scheme file
 
@@ -128,7 +131,8 @@ Every published source this ontology stands on, organized by the family it groun
 ### Global WordNet Association — WN-LMF 1.3 schema
 
 - **Citation**: Global WordNet Association (2020+). *WordNet Lexical Markup Framework (WN-LMF) Schema, version 1.3*.
-- **URL**: [globalwordnet.github.io/schemas](https://globalwordnet.github.io/schemas/)
+- **Local copy**: [`papers/wn-lmf-1.3-schema.html`](papers/wn-lmf-1.3-schema.html) *(published by GWA only as HTML; vendored as-is)*
+- **Upstream**: [globalwordnet.github.io/schemas](https://globalwordnet.github.io/schemas/)
 - **Grounds**: The `<Lexicon version="...">` attribute that `applied/data_provisioning/`'s WordNet `RegistryEntry` uses as its `XmlElementAttribute` identity claim. Specific, concrete, directly referenced by the code.
 - **Cited at**: `XmlElementAttribute` doc comment, `ontology.rs` module doc
 
@@ -144,6 +148,7 @@ Every published source this ontology stands on, organized by the family it groun
 ### Wilkinson et al. 2016 — FAIR Guiding Principles
 
 - **Citation**: Wilkinson, M. D., Dumontier, M., Aalbersberg, I. J. et al. (2016). *The FAIR Guiding Principles for scientific data management and stewardship*. Scientific Data 3, 160018.
+- **Local PDF**: [`papers/wilkinson-2016-fair.pdf`](papers/wilkinson-2016-fair.pdf)
 - **DOI**: [10.1038/sdata.2016.18](https://doi.org/10.1038/sdata.2016.18)
 - **Grounds**: F1 — "(meta)data are assigned a globally unique and persistent identifier" — is the principle every `IdentityScheme` must satisfy. Different schemes satisfy F1 in different ways (hash, DOI, version string, etc.); the ontology treats them all as F1-compliant at the top level.
 - **Cited at**: `ontology.rs` module doc
@@ -156,10 +161,11 @@ Every published source this ontology stands on, organized by the family it groun
 
 ## Pending verification
 
-- [ ] Replace the Dolstra PDF placeholder with the actual 275-page thesis
-- [ ] Vendor the Benet 2014 IPFS paper
-- [ ] Vendor the Wilkinson 2016 FAIR paper
-- [ ] Vendor the WN-LMF 1.3 schema spec PDF
+- [x] Dolstra 2006 — vendored at `papers/dolstra-2006-purely-functional-deployment.pdf`
+- [x] Benet 2014 IPFS — vendored at `papers/benet-2014-ipfs.pdf`
+- [x] Wilkinson 2016 FAIR — vendored at `papers/wilkinson-2016-fair.pdf`
+- [x] W3C SRI 2016 — vendored at `papers/w3c-sri-2016.html` (HTML-only upstream)
+- [x] WN-LMF 1.3 schema — vendored at `papers/wn-lmf-1.3-schema.html` (HTML-only upstream)
 - [ ] Vendor the Sigstore whitepaper (tracked in #70)
 - [ ] Cross-check every citation here against `docs/papers/references.md`
 - [ ] Add code-level citations (`// Source: ...`) in the stub extractor files when real implementations land
