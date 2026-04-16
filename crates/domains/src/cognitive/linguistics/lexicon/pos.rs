@@ -301,7 +301,7 @@ impl LexicalEntry {
 ///
 /// Categories are aligned with OLiA (Ontologies of Linguistic Annotation).
 /// Reference: Chiarcos & Sukhareva, OLiA (Semantic Web journal, 2015)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum PosTag {
     Noun,
     Verb,
@@ -323,27 +323,6 @@ pub enum PosTag {
     Particle,
     /// OLiA: Numeral — number words ("one", "two", "first").
     Numeral,
-}
-
-impl Entity for PosTag {
-    fn variants() -> Vec<Self> {
-        vec![
-            Self::Noun,
-            Self::Verb,
-            Self::Determiner,
-            Self::Adjective,
-            Self::Adverb,
-            Self::Preposition,
-            Self::Conjunction,
-            Self::Pronoun,
-            Self::Copula,
-            Self::Auxiliary,
-            Self::Article,
-            Self::Interjection,
-            Self::Particle,
-            Self::Numeral,
-        ]
-    }
 }
 
 impl PosTag {
