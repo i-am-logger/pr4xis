@@ -1,4 +1,5 @@
 use crate::cognitive::cognition::self_model::AwarenessLevel;
+use crate::formal::information::schema::transport::{Present, Presentation, SchemaValue};
 use pr4xis::ontology::OntologyDescriptor;
 
 // SelfModelInstance — runtime eigenform of the SelfModel ontology.
@@ -33,24 +34,56 @@ impl SelfModelInstance {
         }
     }
 
-    /// JSON encoding — transport only, not the self-knowledge.
+    /// Transport via Schema Presentation → JSON surface.
     pub fn to_json(&self) -> String {
-        let onto_json: Vec<String> = self.components.iter().map(|v| {
-            format!(
-                r#"{{"name":"{}","domain":"{}","being":"{}","source":"{}","concepts":{},"morphisms":{}}}"#,
-                v.name(), v.domain(), v.being.map_or("Unknown", |b| b.label()), v.source.0.value, v.concept_count, v.morphism_count,
-            )
-        }).collect();
+        self.present().to_json()
+    }
+}
 
-        format!(
-            r#"{{"name":"{}","version":"{}","awareness":"{}","ontology_count":{},"total_concepts":{},"total_morphisms":{},"ontologies":[{}]}}"#,
-            self.name,
-            self.version,
-            self.awareness.label(),
-            self.components.len(),
-            self.total_concepts,
-            self.total_morphisms,
-            onto_json.join(","),
-        )
+/// Presents morphism: Algebra → Presentation (Spivak).
+/// The SelfModelInstance IS the Algebra (live runtime form).
+/// present() produces the Presentation (transport form).
+impl Present for SelfModelInstance {
+    fn present(&self) -> Presentation {
+        let mut p = Presentation::new();
+        p.set("name", SchemaValue::Text(self.name.into()));
+        p.set("version", SchemaValue::Text(self.version.into()));
+        p.set(
+            "awareness",
+            SchemaValue::Text(self.awareness.label().into()),
+        );
+        p.set(
+            "ontology_count",
+            SchemaValue::Unsigned(self.components.len() as u64),
+        );
+        p.set(
+            "total_concepts",
+            SchemaValue::Unsigned(self.total_concepts as u64),
+        );
+        p.set(
+            "total_morphisms",
+            SchemaValue::Unsigned(self.total_morphisms as u64),
+        );
+
+        let ontologies: Vec<SchemaValue> = self
+            .components
+            .iter()
+            .map(|v| {
+                let mut ont = Presentation::new();
+                ont.set("name", SchemaValue::Text(v.name().into()));
+                ont.set("domain", SchemaValue::Text(v.domain()));
+                ont.set(
+                    "being",
+                    SchemaValue::Text(v.being.map_or("Unknown", |b| b.label()).into()),
+                );
+                ont.set("source", SchemaValue::Text(v.source.0.value.into()));
+                ont.set("concepts", SchemaValue::Unsigned(v.concept_count as u64));
+                ont.set("morphisms", SchemaValue::Unsigned(v.morphism_count as u64));
+                SchemaValue::Record(ont)
+            })
+            .collect();
+
+        p.set("ontologies", SchemaValue::List(ontologies));
+        p
     }
 }
