@@ -28,6 +28,11 @@ in
 
   # Development scripts
   scripts.dev-test.exec = ''
+    echo "Fetching external data (mirrors CI)..."
+    cargo run -p pr4xis-cli --release --quiet -- update || {
+      echo "pr4xis update failed — aborting dev-test to match CI behavior."
+      exit 1
+    }
     echo "Running tests..."
     RUSTFLAGS="-D warnings" cargo test --workspace
   '';
@@ -58,6 +63,8 @@ in
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
     echo "=== check ==="
     cargo check --quiet || { echo "FAILED: check"; exit 1; }
+    echo "=== fetch external data (mirrors CI) ==="
+    cargo run -p pr4xis-cli --release --quiet -- update || { echo "FAILED: pr4xis update"; exit 1; }
     echo "=== test ==="
     RUSTFLAGS="-D warnings" cargo test --workspace --quiet || { echo "FAILED: test"; exit 1; }
     echo "=== wasm check ==="
@@ -112,9 +119,20 @@ in
     echo "  dev-lint      - Run clippy"
     echo "  dev-check     - Check compilation"
     echo "  dev-build     - Build release"
+    echo "  dev-data      - Fetch external data (WordNet, etc.) via 'pr4xis update'"
     echo "  dev-web       - Start dev server (/ = chatbot, /decks/technical = presentation)"
     echo "  dev-wasm      - Build WASM"
     echo ""
+  '';
+
+  scripts.dev-data.exec = ''
+    echo "Fetching external data via 'pr4xis update'..."
+    cargo run -p pr4xis-cli --release --quiet -- update || {
+      echo "pr4xis update: one or more datasets could not be materialized."
+      echo "If this is a fresh clone and the upstream release is not yet published,"
+      echo "obtain the files manually and re-run 'pr4xis update --check'."
+      exit 1
+    }
   '';
 
   # https://devenv.sh/integrations/treefmt/

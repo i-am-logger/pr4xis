@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v4
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
         with:
-          lfs: true
+          lfs: false
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
@@ -53,6 +53,9 @@ jobs:
         if: matrix.name == 'Coverage' && github.event_name == 'push' && github.ref == 'refs/heads/master'
       - uses: taiki-e/install-action@cargo-nextest
         if: matrix.name == 'Test Results' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - name: Fetch external data via pr4xis update
+        if: "(matrix.name == 'Test' || matrix.name == 'Coverage' || matrix.name == 'Test Results') && (!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master'))"
+        run: cargo run -p pr4xis-cli --release -- update
       - name: Run ${{ matrix.name }}
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
         run: ${{ matrix.command }}
@@ -84,7 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:

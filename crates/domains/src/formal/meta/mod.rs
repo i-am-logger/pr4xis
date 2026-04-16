@@ -6,6 +6,7 @@
 /// Key references:
 /// - Guarino, "Formal Ontology in Information Systems" (1998)
 /// - Herre & Loebe, "A Meta-ontological Architecture" (FOIS 2005)
+pub mod artifact_identity;
 pub mod gap_analysis;
 pub mod ontology_diagnostics;
 pub mod staging;

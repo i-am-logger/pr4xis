@@ -15,7 +15,9 @@ path = "src/main.rs"
 [dependencies]
 pr4xis = { version = "0.7.0", path = "../pr4xis" }
 pr4xis-chat = { version = "0.4.1", path = "../chat" }
-pr4xis-domains = { version = "0.9.0", path = "../domains" }
+pr4xis-domains = { version = "0.9.0", path = "../domains", features = ["fetch"] }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
 
 [lints]
 workspace = true

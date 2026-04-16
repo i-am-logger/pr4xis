@@ -12,6 +12,21 @@ homepage = "https://github.com/i-am-logger/pr4xis"
 pr4xis = { version = "0.7.0", path = "../pr4xis" }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
+sha2 = "0.10"
+hex = "0.4"
+anyhow = "1"
+
+# Network + compression — optional, behind the "fetch" feature. Excluded from
+# the default feature set because `ureq` transitively pulls in `ring` via
+# rustls, which does not build on wasm32 without additional getrandom config.
+# The WASM crate depends on pr4xis-domains with default-features, so default
+# features must stay wasm-compatible.
+ureq = { version = "2", default-features = false, features = ["tls"], optional = true }
+flate2 = { version = "1", optional = true }
+
+[features]
+default = []
+fetch = ["dep:ureq", "dep:flate2"]
 
 [lints]
 workspace = true

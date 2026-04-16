@@ -1,5 +1,6 @@
 /// Applied sciences — engineering and technology.
 /// DOLCE: Process.
+pub mod data_provisioning;
 pub mod hardware;
 pub mod hmi;
 pub mod industrial;
