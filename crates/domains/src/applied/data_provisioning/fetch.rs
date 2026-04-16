@@ -12,15 +12,20 @@
 //! - `FetchOutcome` — the structured result of a single fetch
 //! - `fetch_entry(entry, opts, workspace_root)` — the per-entry work
 //! - `fetch_all(opts, workspace_root)` — every entry in `DATA_SOURCES`
-//! - `check_entry(entry, workspace_root)` — identity check without network
 //!
 //! The implementation is intentionally linear and does not retry or cache.
 //! Every call is a clean `HTTP GET → verify → write`. Re-running after a
-//! successful fetch short-circuits via `check_entry` unless `force` is set,
-//! so invocations are idempotent.
+//! successful fetch short-circuits via a local re-verification unless
+//! `force` is set, so invocations are idempotent.
+//!
+//! **Flag precedence.** `--check` is a read-only mode and always wins:
+//! `--check --force` ignores `force` and only verifies the current file.
+//! `--offline` blocks network access: if a local file exists it is still
+//! verified, and verification failure is reported as `VerificationFailed`
+//! (not `MissingAndOffline`, which is reserved for actually-absent files).
 
 use super::ontology::RegistryEntry;
-use super::registry::{DATA_SOURCES, by_name, resolve_identity};
+use super::registry::{DATA_SOURCES, resolve_identity};
 use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
 };
@@ -78,9 +83,9 @@ impl FetchOutcome {
     }
 }
 
-/// Fetch every registered entry. Stops on the first error only if every
-/// subsequent entry also errors — otherwise runs through all entries and
-/// returns a vector of outcomes so the caller can report each one.
+/// Fetch every registered entry. Runs through every entry regardless of
+/// per-entry failures so the caller gets a full report — one outcome per
+/// registered dataset, in registry order.
 pub fn fetch_all(opts: FetchOptions, workspace_root: &Path) -> Vec<FetchOutcome> {
     DATA_SOURCES
         .iter()
@@ -88,7 +93,9 @@ pub fn fetch_all(opts: FetchOptions, workspace_root: &Path) -> Vec<FetchOutcome>
         .collect()
 }
 
-/// Fetch a single entry. See module docs for the contract.
+/// Fetch a single entry. See module docs for the contract and flag
+/// precedence (`check` dominates `force`; `offline` never changes to
+/// `MissingAndOffline` when a local file is present).
 pub fn fetch_entry(
     entry: &'static RegistryEntry,
     opts: FetchOptions,
@@ -96,28 +103,40 @@ pub fn fetch_entry(
 ) -> FetchOutcome {
     let path = workspace_root.join(entry.local_path);
 
+    // `--check` is read-only and always wins over `--force`.
+    if opts.check {
+        return if path.exists() {
+            match verify_local(entry, &path) {
+                Ok(()) => FetchOutcome::AlreadyVerified { name: entry.name },
+                Err(reason) => FetchOutcome::VerificationFailed {
+                    name: entry.name,
+                    path,
+                    reason,
+                },
+            }
+        } else {
+            FetchOutcome::MissingAndCheckOnly {
+                name: entry.name,
+                path,
+            }
+        };
+    }
+
     if path.exists() && !opts.force {
         return match verify_local(entry, &path) {
             Ok(()) => FetchOutcome::AlreadyVerified { name: entry.name },
-            Err(reason) if opts.check => FetchOutcome::VerificationFailed {
+            // Local file exists but verification failed: report the
+            // failure reason. `offline` does NOT mask it — the file is
+            // not missing, it's unverified.
+            Err(reason) if opts.offline => FetchOutcome::VerificationFailed {
                 name: entry.name,
                 path,
                 reason,
-            },
-            Err(_) if opts.offline => FetchOutcome::MissingAndOffline {
-                name: entry.name,
-                path,
             },
             Err(_) => do_fetch(entry, &path),
         };
     }
 
-    if opts.check {
-        return FetchOutcome::MissingAndCheckOnly {
-            name: entry.name,
-            path,
-        };
-    }
     if opts.offline {
         return FetchOutcome::MissingAndOffline {
             name: entry.name,
@@ -126,32 +145,6 @@ pub fn fetch_entry(
     }
 
     do_fetch(entry, &path)
-}
-
-/// Identity check only — no network, no disk write. Used by the CLI's
-/// `--check` mode when the caller just wants a report.
-pub fn check_entry(name: &str, workspace_root: &Path) -> FetchOutcome {
-    let Some(entry) = by_name(name) else {
-        return FetchOutcome::FetchError {
-            name: "",
-            reason: format!("unknown dataset: {name}"),
-        };
-    };
-    let path = workspace_root.join(entry.local_path);
-    if !path.exists() {
-        return FetchOutcome::MissingAndCheckOnly {
-            name: entry.name,
-            path,
-        };
-    }
-    match verify_local(entry, &path) {
-        Ok(()) => FetchOutcome::AlreadyVerified { name: entry.name },
-        Err(reason) => FetchOutcome::VerificationFailed {
-            name: entry.name,
-            path,
-            reason,
-        },
-    }
 }
 
 // --------------------------------------------------------------------------
@@ -234,9 +227,11 @@ fn verify_local(entry: &'static RegistryEntry, path: &Path) -> Result<(), String
 }
 
 /// Run every declared identity claim against the given bytes. All claims
-/// must verify (`CompositeRequiresAll`); the first failure wins the rejection.
-/// Claims with stub extractors are skipped — they can't pass or fail today,
-/// so they don't block fetching, but also don't count as verification.
+/// must verify (`CompositeRequiresAll`); the first failure wins the
+/// rejection. A stub extractor returns `Unverifiable`, which is a
+/// rejection here — the pipeline is fail-closed, so a claim we cannot
+/// evaluate is treated as a failure, not a skip. This keeps
+/// `VerificationFailClosed` honest.
 fn verify_bytes(entry: &'static RegistryEntry, bytes: &[u8]) -> Result<(), String> {
     let identity = resolve_identity(entry.name)
         .ok_or_else(|| format!("no resolved identity for {}", entry.name))?;

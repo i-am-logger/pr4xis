@@ -12,7 +12,6 @@
 //! workspace already depends on.
 
 use super::super::ontology::{ClaimData, IdentityClaim, VerificationResult};
-use crate::social::software::markup::xml::ontology::XmlNode;
 use crate::social::software::markup::xml::reader as xml_reader;
 
 /// Verify an `XmlElementAttribute` claim against raw bytes.
@@ -86,11 +85,4 @@ pub fn verify(claim: &IdentityClaim, bytes: &[u8]) -> VerificationResult {
             ),
         },
     }
-}
-
-// Helper: ensure the unused XmlNode import pulls its weight (the existing
-// XML reader uses this type) — keeps the module's import surface honest.
-#[allow(dead_code)]
-fn _xml_node_type_witness() -> Option<XmlNode> {
-    None
 }

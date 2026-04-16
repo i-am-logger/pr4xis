@@ -28,6 +28,11 @@ in
 
   # Development scripts
   scripts.dev-test.exec = ''
+    echo "Fetching external data (mirrors CI)..."
+    cargo run -p pr4xis-cli --release --quiet -- update || {
+      echo "pr4xis update failed — aborting dev-test to match CI behavior."
+      exit 1
+    }
     echo "Running tests..."
     RUSTFLAGS="-D warnings" cargo test --workspace
   '';
@@ -58,6 +63,8 @@ in
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
     echo "=== check ==="
     cargo check --quiet || { echo "FAILED: check"; exit 1; }
+    echo "=== fetch external data (mirrors CI) ==="
+    cargo run -p pr4xis-cli --release --quiet -- update || { echo "FAILED: pr4xis update"; exit 1; }
     echo "=== test ==="
     RUSTFLAGS="-D warnings" cargo test --workspace --quiet || { echo "FAILED: test"; exit 1; }
     echo "=== wasm check ==="

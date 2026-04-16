@@ -25,9 +25,10 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every node in the three-level identity taxonomy — the abstract root, the
-/// four families, and the 22 leaf schemes. Leaf concepts are the ones that
-/// concrete `IdentityClaim` instances reference; family and root concepts
-/// exist so family-level axioms can apply to every descendant at once.
+/// four families, and the 20 leaf schemes (25 entities total). Leaf concepts
+/// are the ones that concrete `IdentityClaim` instances reference; family
+/// and root concepts exist so family-level axioms can apply to every
+/// descendant at once.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
 pub enum IdentityConcept {
     // --- Root ---
@@ -339,12 +340,17 @@ impl Quality for VerifiabilityOffline {
 // Universal domain axioms
 // ---------------------------------------------------------------------------
 
-/// Every `IdentityConcept` leaf that a verifier is asked to handle must have
-/// a defined extractor. The initial PR implements two real extractors
-/// (`RawHash`, `XmlElementAttribute`); the other 20 leaves return
-/// `Unverifiable { reason: "not yet implemented" }` from their stub
-/// extractors, which still counts as "defined" — the axiom only requires
-/// that a function exists, not that it returns Verified.
+/// Every `IdentityConcept` leaf has a defined extractor. The initial PR
+/// implements two real extractors (`RawHash`, `XmlElementAttribute`); the
+/// other 18 leaves return `Unverifiable { reason: "not yet implemented" }`
+/// from their stub extractors, which still counts as "defined" — the
+/// axiom only requires that a function exists, not that it returns
+/// Verified.
+///
+/// The axiom is backed by `schemes::extractor_exists_for`, whose match
+/// arm is exhaustive over every `IdentityConcept` leaf. Adding a new leaf
+/// without a corresponding arm is a compile error, so this invariant is
+/// enforced by the type system in addition to the runtime assertion below.
 pub struct EverySchemeHasAnExtractor;
 
 impl Axiom for EverySchemeHasAnExtractor {
@@ -353,22 +359,11 @@ impl Axiom for EverySchemeHasAnExtractor {
     }
 
     fn holds(&self) -> bool {
-        // We check that every leaf (non-family, non-root concept) can be
-        // routed to one of the scheme modules. This is a structural check:
-        // the match in schemes::dispatch_extractor covers every leaf or the
-        // Rust compiler refuses to build. If the module compiles, this axiom
-        // holds.
-        for concept in IdentityConcept::variants() {
-            if is_leaf(&concept) {
-                // The dispatcher itself is in the schemes module; we trust
-                // the compiler to catch missing variants. Here we just ensure
-                // the leaf is not one of the family or root concepts.
-                if !is_leaf(&concept) {
-                    return false;
-                }
-            }
-        }
-        true
+        use crate::formal::meta::artifact_identity::schemes;
+        IdentityConcept::variants()
+            .iter()
+            .filter(|c| is_leaf(c))
+            .all(schemes::extractor_exists_for)
     }
 }
 

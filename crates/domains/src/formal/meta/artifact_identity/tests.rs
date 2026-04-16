@@ -389,8 +389,9 @@ proptest! {
         };
         let first = raw_hash::verify(&claim, &bytes);
         let second = raw_hash::verify(&claim, &bytes);
-        prop_assert_eq!(format!("{:?}", first), format!("{:?}", second));
-        prop_assert!(matches!(first, VerificationResult::Verified(_)));
+        prop_assert_eq!(&first, &second);
+        let is_verified = matches!(first, VerificationResult::Verified(_));
+        prop_assert!(is_verified);
     }
 
     /// Corrupting any single byte causes the RawHash claim to return
@@ -420,7 +421,7 @@ proptest! {
     }
 
     /// Stub extractors always return Unverifiable. This is the structural
-    /// witness that the 20 stubbed leaves satisfy VerificationFailClosed
+    /// witness that the 18 stubbed leaves satisfy VerificationFailClosed
     /// (they never return Verified, so they never silently let bad data
     /// through).
     #[test]

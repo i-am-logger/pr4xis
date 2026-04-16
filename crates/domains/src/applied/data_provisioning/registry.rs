@@ -8,18 +8,22 @@ use crate::formal::meta::artifact_identity::ontology::{
 };
 
 /// SHA-256 of the decompressed English WordNet 2025 XML payload (the bytes
-/// after `gunzip`). Computed from the canonical file that ships with pr4xis.
-/// The `data-v1` GitHub Release must upload the gzipped form of exactly these
-/// bytes so the post-gunzip hash matches; `fetch.rs` runs the extractor after
-/// decompression, so the check is against the uncompressed content.
+/// after `gunzip`). This hash pins the exact release from the upstream
+/// Global WordNet Association / Open English WordNet repository at
+/// <https://github.com/globalwordnet/english-wordnet/releases/tag/2025-edition>.
+///
+/// `fetch.rs` downloads the gzipped asset, decompresses, then verifies
+/// against this hash. If the upstream ever re-publishes a different byte
+/// sequence under the same tag, verification fails and pr4xis refuses the
+/// update — `VerificationFailClosed`.
 const WORDNET_2025_SHA256: &str =
     "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2";
 
 /// Managed external data sources. Order is stable for reporting.
 pub const DATA_SOURCES: &[RegistryEntry] = &[RegistryEntry {
     name: "wordnet",
-    description: "English WordNet 2025 — Global WordNet Association WN-LMF 1.3",
-    remote_location: "https://github.com/i-am-logger/pr4xis/releases/download/data-v1/english-wordnet-2025.xml.gz",
+    description: "Open English WordNet 2025 — Global WordNet Association WN-LMF 1.3",
+    remote_location: "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz",
     local_path: "crates/domains/data/wordnet/english-wordnet-2025.xml",
     content_type: ContentType::XmlLmf,
     gzipped: true,

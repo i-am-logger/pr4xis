@@ -59,7 +59,7 @@ The English ontology. `English::from_wordnet` is the final stage of the XmlLmf d
 ## Pending verification
 
 - [ ] Cross-check every transitive citation with `docs/papers/references.md`
-- [ ] Once the real `data-v1` GitHub Release is created, update `registry.rs` with the real sha256 and document it here under "verification history"
+- [x] Registry pins the real sha256 `6f49adeec1…` of the decompressed upstream asset at `github.com/globalwordnet/english-wordnet/releases/tag/2025-edition`
 - [ ] Add a code-level comment in `registry.rs` pointing to this citings file
 - [ ] When new content types land (Pdf, Video, etc.), add their grounding sources to the "Composition inputs" section above
 

@@ -64,14 +64,14 @@ The concrete list of managed datasets lives in `registry.rs` as a const `DATA_SO
 ### `wordnet` — English WordNet 2025
 
 - **Content type**: `XmlLmf`
-- **Remote location**: `https://github.com/i-am-logger/pr4xis/releases/download/data-v1/english-wordnet-2025.xml.gz` *(pending creation — release does not yet exist)*
+- **Remote location**: `https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz` *(upstream — Global WordNet Association / Open English WordNet; pr4xis does not re-host)*
 - **Local path**: `crates/domains/data/wordnet/english-wordnet-2025.xml`
 - **Identity** (composite, both must verify):
   - `XmlElementAttribute`: `<Lexicon version="2025">` (self-description — what the upstream itself declares)
-  - `RawHash`: sha256 placeholder until the real release is uploaded
+  - `RawHash`: sha256 `6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2` (the decompressed bytes) — authoritative, pinned in `registry.rs` as `WORDNET_2025_SHA256`
 - **Gzipped**: yes
 
-The `RawHash` claim will fail verification until the real release is created and its hash is filled in. This is deliberate — `VerificationFailClosed` ensures pr4xis won't use the file until the real hash lands.
+Both claims are enforced by `CompositeRequiresAll`: `fetch.rs` runs the declared `XmlElementAttribute` and `RawHash` extractors against the downloaded bytes, and `VerificationFailClosed` rejects the file if either claim fails. If the upstream ever re-publishes different bytes under the same tag, the fetch fails; updating to a new edition is a deliberate code change, not a silent drift.
 
 ## Content type polymorphism
 
