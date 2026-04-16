@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.7.0...pr4xis-v0.8.0) (2026-04-16)
+
+
+### Features
+
+* define_ontology! being: clause + register all 108 ontologies ([#76](https://github.com/i-am-logger/pr4xis/issues/76)) ([#84](https://github.com/i-am-logger/pr4xis/issues/84)) ([1b27fc9](https://github.com/i-am-logger/pr4xis/commit/1b27fc974e1a4b018542ad4ea6ae57e3f4d9f561))
+
 ## [0.7.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.6.0...pr4xis-v0.7.0) (2026-04-13)
 
 
