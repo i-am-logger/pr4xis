@@ -314,7 +314,9 @@
       "WebFetch(domain:john.mccr.ae)",
       "WebFetch(domain:www.isibang.ac.in)",
       "WebFetch(domain:oa.upm.es)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(cargo tree:*)",
+      "Bash(cargo update:*)"
     ]
   }
 }

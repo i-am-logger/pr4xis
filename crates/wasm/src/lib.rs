@@ -2,6 +2,7 @@ use wasm_bindgen::prelude::*;
 
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::language;
+use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
 
 #[allow(dead_code)]
 mod codegen_output {
@@ -19,19 +20,6 @@ impl Default for Pr4xis {
     }
 }
 
-#[derive(serde::Serialize)]
-struct ChatResponse<'a> {
-    response: &'a str,
-    duration_us: u64,
-    token_count: usize,
-    tokens_per_sec: u64,
-    parsed: bool,
-    from_ontology: bool,
-    ontology_count: usize,
-    ontologies: &'a str,
-    trace: &'a str,
-}
-
 #[wasm_bindgen]
 impl Pr4xis {
     #[wasm_bindgen(constructor)]
@@ -44,25 +32,25 @@ impl Pr4xis {
 
     pub fn chat(&self, input: &str) -> String {
         let result = pr4xis_chat::process_with_metadata(&self.english, input);
-        let tps = if result.duration_us > 0 {
-            (result.token_count as u64 * 1_000_000) / result.duration_us
-        } else {
-            0
-        };
+        let ontologies = result.trace.all_participating_ontologies();
         let trace = result.trace.serialize_with_functors();
-        let ontologies = result.trace.all_participating_ontologies().join(", ");
-        let resp = ChatResponse {
-            response: &result.response,
-            duration_us: result.duration_us,
-            token_count: result.token_count,
-            tokens_per_sec: tps,
-            parsed: result.parsed,
-            from_ontology: result.from_ontology,
-            ontology_count: result.trace.all_participating_ontologies().len(),
-            ontologies: &ontologies,
-            trace: &trace,
-        };
-        serde_json::to_string(&resp).unwrap_or_default()
+
+        let mut p = Presentation::new();
+        p.set("response", SchemaValue::Text(result.response));
+        p.set("duration_us", SchemaValue::Unsigned(result.duration_us));
+        p.set("parsed", SchemaValue::Boolean(result.parsed));
+        p.set("from_ontology", SchemaValue::Boolean(result.from_ontology));
+        p.set(
+            "ontologies",
+            SchemaValue::List(
+                ontologies
+                    .into_iter()
+                    .map(|o| SchemaValue::Text(o.to_string()))
+                    .collect(),
+            ),
+        );
+        p.set("trace", SchemaValue::Text(trace));
+        p.to_json()
     }
 
     pub fn concept_count(&self) -> usize {
