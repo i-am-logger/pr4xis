@@ -513,3 +513,100 @@ mod ontology_macro_test {
         AnimalOntology::validate().unwrap();
     }
 }
+
+// =============================================================================
+// proc macro ontology! — Communication as proof of concept
+// =============================================================================
+
+mod proc_macro_test {
+    use crate as pr4xis;
+    use crate::category::Entity;
+    use crate::category::validate::check_category_laws;
+
+    pr4xis_derive::ontology! {
+        name: "Communication",
+        source: "Shannon (1948); Jakobson (1960)",
+        being: AbstractObject,
+
+        concepts: [Sender, Receiver, Message, Channel, Code, Noise, Feedback, Context],
+
+        labels: {
+            Sender: ("en", "Sender", "The agent producing the message"),
+            Receiver: ("en", "Receiver", "The agent interpreting the message"),
+            Message: ("en", "Message", "The information being communicated"),
+            Channel: ("en", "Channel", "The medium of transmission"),
+            Code: ("en", "Code", "The shared encoding/decoding system"),
+            Noise: ("en", "Noise", "Interference corrupting the message"),
+            Feedback: ("en", "Feedback", "Receiver's response to sender"),
+            Context: ("en", "Context", "Shared referential frame"),
+        },
+
+        edges: [
+            (Sender, Message, Produces),
+            (Message, Channel, TransmittedThrough),
+            (Receiver, Message, Interprets),
+            (Code, Message, EncodesDecodes),
+            (Noise, Channel, Corrupts),
+            (Feedback, Sender, FlowsBack),
+            (Receiver, Feedback, Produces),
+            (Context, Message, Grounds),
+            (Sender, Code, Shares),
+            (Receiver, Code, Shares),
+        ],
+
+        composed: [
+            (Sender, Channel),
+            (Sender, Receiver),
+            (Noise, Message),
+            (Receiver, Sender),
+        ],
+
+        opposes: [(Noise, Code)],
+    }
+
+    #[test]
+    fn proc_macro_generates_entity() {
+        let concepts = CommunicationConcept::variants();
+        assert_eq!(concepts.len(), 8);
+    }
+
+    #[test]
+    fn proc_macro_generates_category() {
+        check_category_laws::<CommunicationCategory>().unwrap();
+    }
+
+    #[test]
+    fn proc_macro_generates_vocabulary() {
+        let vocab = CommunicationOntology::vocabulary();
+        assert_eq!(vocab.concept_count, 8);
+        assert!(vocab.morphism_count > 0);
+        assert_eq!(vocab.source, "Shannon (1948); Jakobson (1960)");
+    }
+
+    #[test]
+    fn proc_macro_validates_concept_names() {
+        let sender = CommunicationConcept::Sender;
+        assert_eq!(sender.name(), "Sender");
+    }
+
+    #[test]
+    fn proc_macro_labels() {
+        let labels = CommunicationOntology::labels();
+        assert_eq!(labels.len(), 8);
+        let sender_label = labels
+            .iter()
+            .find(|(c, _, _, _)| *c == CommunicationConcept::Sender);
+        assert!(sender_label.is_some());
+        let (_, lang, label, def) = sender_label.unwrap();
+        assert_eq!(*lang, "en");
+        assert_eq!(*label, "Sender");
+        assert!(def.contains("agent"));
+    }
+
+    #[test]
+    fn proc_macro_opposition() {
+        use crate::ontology::reasoning::opposition::OppositionDef;
+        let pairs = CommunicationOpposition::pairs();
+        assert!(pairs.contains(&(CommunicationConcept::Noise, CommunicationConcept::Code)));
+    }
+}
