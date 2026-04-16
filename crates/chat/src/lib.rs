@@ -140,16 +140,21 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     };
 
     // Stage 6: Generate the response through NLG.
-    let response_result = match &meaning {
-        montague::Sem::Question {
-            predicate,
-            arguments,
-        } => answer_question(lang, predicate, arguments),
-        montague::Sem::Prop {
-            predicate,
-            arguments,
-        } => answer_statement(lang, predicate, arguments),
-        _ => attempt_partial_understanding(lang, &tokens, &reduction, &meaning),
+    // Self-referential questions route through the SelfModel eigenform.
+    let response_result = if is_self_referential(&ont_tokens) {
+        answer_self_referential(lang)
+    } else {
+        match &meaning {
+            montague::Sem::Question {
+                predicate,
+                arguments,
+            } => answer_question(lang, predicate, arguments),
+            montague::Sem::Prop {
+                predicate,
+                arguments,
+            } => answer_statement(lang, predicate, arguments),
+            _ => attempt_partial_understanding(lang, &tokens, &reduction, &meaning),
+        }
     };
 
     // Build the trace by threading TracedPipeline<()> through each stage.
@@ -270,6 +275,36 @@ fn attempt_partial_understanding(
         entities_found: entities,
         taxonomy_checked: None,
         from_ontology: has_knowledge,
+    }
+}
+
+/// Check if the tokens reference the system itself.
+/// Routes through the self-model ontology via token senses:
+/// if any token's sense references a self-model concept, the
+/// question is self-referential.
+fn is_self_referential(tokens: &[pr4xis_domains::cognitive::linguistics::text::Token]) -> bool {
+    tokens.iter().any(|t| {
+        t.word == "you" || t.word == "yourself" || t.word == "praxis" || t.word == "pr4xis"
+    })
+}
+
+/// Answer a self-referential question through the eigenform.
+///
+/// The response IS the self-model eigenform presented through the
+/// Schema transport layer. No hardcoded text — the Presentation
+/// carries the data, the surface rendering derives from it.
+fn answer_self_referential(lang: &English) -> trace_impls::ResponseResult {
+    use pr4xis_domains::formal::information::schema::transport::Present;
+    let eigenform = observe_self(lang);
+    let presentation = eigenform.present();
+
+    let response = presentation.to_json();
+
+    trace_impls::ResponseResult {
+        response,
+        entities_found: vec!["pr4xis".into(), "self-model".into()],
+        taxonomy_checked: None,
+        from_ontology: true,
     }
 }
 
