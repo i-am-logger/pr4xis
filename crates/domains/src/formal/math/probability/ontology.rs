@@ -32,6 +32,8 @@ define_ontology! {
     pub ProbabilityOntology for ProbabilityCategory {
         concepts: ProbabilityConcept,
         relation: ProbabilityRelation,
+        being: AbstractObject,
+        source: "Kolmogorov (1933); Shannon (1948)",
     }
 }
 

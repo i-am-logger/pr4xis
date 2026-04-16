@@ -102,6 +102,8 @@ define_ontology! {
     pub ImmunologyOntologyMeta for ImmunologyCategory {
         entity: ImmunologyEntity,
         relation: ImmunologyRelation,
+        being: AbstractObject,
+        source: "Weinheimer-Haus (2014); Yu (2019)",
 
         taxonomy: ImmunologyTaxonomy [
             (MacrophageM1, ImmuneCell),

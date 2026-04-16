@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, FullyConnected, Relationship};
+use pr4xis::category::{Entity, FullyConnected};
+use pr4xis::define_ontology;
 use pr4xis::logic::Axiom;
 use pr4xis::ontology::Quality;
 
@@ -23,52 +24,14 @@ impl Entity for Floor {
     }
 }
 
-/// Travel between floors.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Travel {
-    pub from: Floor,
-    pub to: Floor,
-}
-
-impl Relationship for Travel {
-    type Object = Floor;
-    fn source(&self) -> Floor {
-        self.from
-    }
-    fn target(&self) -> Floor {
-        self.to
-    }
-}
-
-pub struct ElevatorCategory;
-
-impl Category for ElevatorCategory {
-    type Object = Floor;
-    type Morphism = Travel;
-
-    fn identity(obj: &Floor) -> Travel {
-        Travel {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &Travel, g: &Travel) -> Option<Travel> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(Travel {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<Travel> {
-        let floors = Floor::variants();
-        floors
-            .iter()
-            .flat_map(|&a| floors.iter().map(move |&b| Travel { from: a, to: b }))
-            .collect()
+define_ontology! {
+    /// The elevator category: floors are objects, travel is the morphism.
+    /// Fully connected — any floor can reach any floor.
+    pub ElevatorOntology for ElevatorCategory {
+        concepts: Floor,
+        relation: Travel,
+        being: SocialObject,
+        source: "Mandel (1989); Barney & Dos Santos (1985)",
     }
 }
 

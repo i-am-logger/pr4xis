@@ -25,6 +25,8 @@ define_ontology! {
     pub TerrainOntology for TerrainCategory {
         entity: TerrainFeature,
         relation: TerrainRelation,
+        being: PhysicalEndurant,
+        source: "Goldstein (1987)",
     }
 }
 

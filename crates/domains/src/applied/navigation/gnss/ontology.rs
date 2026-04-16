@@ -51,6 +51,8 @@ define_ontology! {
     pub GnssOntology for GnssCategory {
         entity: GnssObservable,
         relation: GnssRelation,
+        being: Process,
+        source: "IS-GPS-200 (2022); Groves (2013)",
 
         taxonomy: GnssObservableTaxonomy [
             (Pseudorange, Observable),

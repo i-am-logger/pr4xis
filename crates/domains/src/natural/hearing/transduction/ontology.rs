@@ -80,6 +80,8 @@ define_ontology! {
     /// Discrete category over transduction entities.
     pub TransductionOntology for TransductionCategory {
         entity: TransductionEntity, relation: TransductionRelation,
+        being: Process,
+        source: "Hudspeth (1989); Fettiplace & Kim (2014)",
         taxonomy: TransductionTaxonomy [
             (TMC1, METComponent), (TMC2, METComponent), (TMIE, METComponent), (LHFPL5, METComponent),
             (METChannel, IonChannel), (Cadherin23, TipLinkProtein), (Protocadherin15, TipLinkProtein),

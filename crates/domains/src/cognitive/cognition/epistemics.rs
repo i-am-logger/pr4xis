@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Epistemics — what you know about what you know.
 //
@@ -30,9 +30,10 @@ pub enum EpistemicState {
     UnknownUnknown,
 }
 
-define_category! {
-    pub EpistemicCategory {
-        entity: EpistemicState,
+define_ontology! {
+    /// Epistemics — second-order knowledge states (von Foerster 1981).
+    pub EpistemicOntology for EpistemicCategory {
+        concepts: EpistemicState,
         relation: EpistemicTransition,
         kind: TransitionKind,
         kinds: [
@@ -68,6 +69,9 @@ define_category! {
             // Transitive: UU → KU → KK (observe then learn)
             (UnknownUnknown, KnownKnown),
         ],
+
+        being: MentalObject,
+        source: "von Foerster (1981)",
     }
 }
 

@@ -22,6 +22,8 @@ define_ontology! {
     pub MathOntology for NumberHierarchy {
         concepts: MathDomain,
         relation: Subset,
+        being: AbstractObject,
+        source: "Landau (1930)",
     }
 }
 

@@ -154,6 +154,8 @@ define_ontology! {
             // Repair → Grounding (through Understanding → GroundingAct)
             (Repair, Grounding),
         ],
+        being: Process,
+        source: "Austin (1962); Traum (1994); Clark (1996)",
     }
 }
 

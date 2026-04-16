@@ -82,6 +82,8 @@ define_ontology! {
     pub DerivationOntology for DerivationCategory {
         entity: DerivationEntity,
         relation: DerivationRelation,
+        being: AbstractObject,
+        source: "Gentzen (1935); Prawitz (1965)",
 
         taxonomy: DerivationTaxonomy [
             // Types → DerivationType

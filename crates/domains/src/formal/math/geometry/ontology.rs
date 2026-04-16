@@ -93,6 +93,8 @@ define_ontology! {
             // Transitive closure: Point → Line → Plane
             (Point, Plane),
         ],
+        being: AbstractObject,
+        source: "Hilbert (1899); Avigad et al. (2009)",
     }
 }
 

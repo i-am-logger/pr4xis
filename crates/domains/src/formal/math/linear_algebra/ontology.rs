@@ -31,6 +31,8 @@ define_ontology! {
     pub LinearAlgebraOntology for LinearAlgebraCategory {
         concepts: AlgebraicStructure,
         relation: AlgebraicRelation,
+        being: AbstractObject,
+        source: "Strang; Golub & Van Loan",
     }
 }
 

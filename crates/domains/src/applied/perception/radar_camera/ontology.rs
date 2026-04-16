@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::{Category, Entity};
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Fusion pipeline stages for radar+camera sensor fusion.
@@ -18,102 +19,37 @@ pub enum RadarCameraStage {
     FusedOutput,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RadarCameraStep {
-    pub from: RadarCameraStage,
-    pub to: RadarCameraStage,
-}
-
-impl Relationship for RadarCameraStep {
-    type Object = RadarCameraStage;
-    fn source(&self) -> RadarCameraStage {
-        self.from
-    }
-    fn target(&self) -> RadarCameraStage {
-        self.to
-    }
-}
-
-/// Category for radar-camera fusion pipeline.
-///
-/// Both RadarDetection and CameraDetection feed into TemporalAlignment,
-/// then SpatialAssociation, then FusedOutput. All transitive closures included.
-pub struct RadarCameraCategory;
-
-impl Category for RadarCameraCategory {
-    type Object = RadarCameraStage;
-    type Morphism = RadarCameraStep;
-
-    fn identity(obj: &RadarCameraStage) -> RadarCameraStep {
-        RadarCameraStep {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &RadarCameraStep, g: &RadarCameraStep) -> Option<RadarCameraStep> {
-        if f.to != g.from {
-            return None;
-        }
-        let step = RadarCameraStep {
-            from: f.from,
-            to: g.to,
-        };
-        if Self::morphisms().contains(&step) {
-            Some(step)
-        } else {
-            None
-        }
-    }
-
-    fn morphisms() -> Vec<RadarCameraStep> {
-        use RadarCameraStage::*;
-        let mut m = Vec::new();
-        // Identities
-        for s in Self::Object::variants() {
-            m.push(Self::identity(&s));
-        }
-        // Radar path: RadarDetection -> TemporalAlignment -> SpatialAssociation -> FusedOutput
-        m.push(RadarCameraStep {
-            from: RadarDetection,
-            to: TemporalAlignment,
-        });
-        // Camera path: CameraDetection -> TemporalAlignment -> SpatialAssociation -> FusedOutput
-        m.push(RadarCameraStep {
-            from: CameraDetection,
-            to: TemporalAlignment,
-        });
-        // Common path
-        m.push(RadarCameraStep {
-            from: TemporalAlignment,
-            to: SpatialAssociation,
-        });
-        m.push(RadarCameraStep {
-            from: SpatialAssociation,
-            to: FusedOutput,
-        });
-        // Transitive closures
-        m.push(RadarCameraStep {
-            from: RadarDetection,
-            to: SpatialAssociation,
-        });
-        m.push(RadarCameraStep {
-            from: RadarDetection,
-            to: FusedOutput,
-        });
-        m.push(RadarCameraStep {
-            from: CameraDetection,
-            to: SpatialAssociation,
-        });
-        m.push(RadarCameraStep {
-            from: CameraDetection,
-            to: FusedOutput,
-        });
-        m.push(RadarCameraStep {
-            from: TemporalAlignment,
-            to: FusedOutput,
-        });
-        m
+define_ontology! {
+    /// Category for radar-camera fusion pipeline.
+    ///
+    /// Both RadarDetection and CameraDetection feed into TemporalAlignment,
+    /// then SpatialAssociation, then FusedOutput.
+    pub RadarCameraOntologyMeta for RadarCameraCategory {
+        concepts: RadarCameraStage,
+        relation: RadarCameraStep,
+        kind: RadarCameraStepKind,
+        kinds: [
+            /// Pipeline progression step.
+            Precedes,
+        ],
+        edges: [
+            // Radar and camera both feed into temporal alignment
+            (RadarDetection, TemporalAlignment, Precedes),
+            (CameraDetection, TemporalAlignment, Precedes),
+            // Common path
+            (TemporalAlignment, SpatialAssociation, Precedes),
+            (SpatialAssociation, FusedOutput, Precedes),
+        ],
+        composed: [
+            // Transitive closures
+            (RadarDetection, SpatialAssociation),
+            (RadarDetection, FusedOutput),
+            (CameraDetection, SpatialAssociation),
+            (CameraDetection, FusedOutput),
+            (TemporalAlignment, FusedOutput),
+        ],
+        being: Process,
+        source: "Nobis et al. (2019)",
     }
 }
 

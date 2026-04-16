@@ -79,6 +79,8 @@ define_ontology! {
     /// Discrete category over bone conduction entities.
     pub BoneConductionOntology for BoneConductionCategory {
         entity: BoneCondEntity, relation: BoneCondRelation,
+        being: PhysicalEndurant,
+        source: "Stenfelt & Goode (2005); Tonndorf (1966)",
         taxonomy: BoneCondTaxonomy [
             (OsseotympanicBC, BCMechanism), (InertialBC, BCMechanism), (CompressionalBC, BCMechanism), (DistortionalBC, BCMechanism),
             (BoneAnchoredDevice, BCTransducer), (PercutaneousImplant, BCTransducer), (TranscutaneousDevice, BCTransducer), (SkinDriveTransducer, BCTransducer), (PiezoelectricTransducer, BCTransducer), (ElectromagneticTransducer, BCTransducer),

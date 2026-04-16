@@ -27,6 +27,8 @@ define_ontology! {
     pub RotationOntology for RotationCategory {
         concepts: RotationRepr,
         relation: ReprConversion,
+        being: AbstractObject,
+        source: "Hamilton (1844); Shoemake (1985)",
     }
 }
 

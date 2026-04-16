@@ -23,6 +23,8 @@ define_ontology! {
     pub AcousticOntology for AcousticCategory {
         entity: AcousticSystem,
         relation: AcousticRelation,
+        being: PhysicalEndurant,
+        source: "Milne (1983); Kinsey et al. (2006)",
     }
 }
 

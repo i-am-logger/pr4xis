@@ -63,6 +63,8 @@ define_ontology! {
     pub CelestialOntology for CelestialCategory {
         entity: CelestialSensor,
         relation: CelestialRelation,
+        being: Process,
+        source: "Bowditch (2002); Wertz (2001)",
 
         taxonomy: CelestialSensorTaxonomy [
             (StarTracker, Sensor),

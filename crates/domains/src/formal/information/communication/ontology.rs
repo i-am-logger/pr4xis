@@ -84,6 +84,8 @@ define_ontology! {
             (Noise, Message),
             (Receiver, Sender),
         ],
+        being: AbstractObject,
+        source: "Shannon (1948); Jakobson (1960)",
     }
 }
 

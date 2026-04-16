@@ -26,6 +26,8 @@ define_ontology! {
     pub ProcessOntology for ProcessCategory {
         entity: ProcessVariable,
         relation: ProcessCoupling,
+        being: Process,
+        source: "Ogunnaike & Ray (1994); Seborg et al. (2011)",
     }
 }
 

@@ -6,6 +6,8 @@ use super::base16::{ColorSlot, Polarity, SemanticRole};
 use crate::natural::colors::rgb::Rgb;
 use crate::natural::colors::srgb;
 use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Quality};
 use std::collections::HashMap;
 
@@ -136,6 +138,15 @@ impl Category for ThemingCategory {
             }
         }
         morphisms
+    }
+}
+
+impl Classified for ThemingCategory {
+    fn being() -> Being {
+        Being::Quality
+    }
+    fn classification_reason() -> &'static str {
+        "theming is visual quality specification (base16, color palettes)"
     }
 }
 

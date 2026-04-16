@@ -36,6 +36,8 @@ define_ontology! {
     pub KinematicsOntology for KinematicsCategory {
         concepts: KinematicQuantity,
         relation: DerivativeRelation,
+        being: AbstractObject,
+        source: "Newton (1687); Bar-Shalom et al. (2001)",
     }
 }
 

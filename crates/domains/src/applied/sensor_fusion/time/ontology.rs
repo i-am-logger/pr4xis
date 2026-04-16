@@ -19,6 +19,8 @@ define_ontology! {
     pub SensorTimeOntology for SensorTimeCategory {
         entity: SyncStrategy,
         relation: SyncDegradation,
+        being: AbstractObject,
+        source: "Bar-Shalom et al. (2001); Groves (2013)",
     }
 }
 

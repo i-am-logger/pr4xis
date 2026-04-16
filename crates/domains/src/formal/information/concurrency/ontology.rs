@@ -125,6 +125,8 @@ define_ontology! {
             (Protocol, SharedResource),
             (SharedResource, State),
         ],
+        being: AbstractObject,
+        source: "Hoare CSP (1978); Hewitt (1973)",
     }
 }
 

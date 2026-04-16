@@ -132,6 +132,8 @@ define_ontology! {
             (Schema, Population),
             (SchemaMapping, Instance),
         ],
+        being: AbstractObject,
+        source: "Spivak (2012)",
     }
 }
 

@@ -28,6 +28,8 @@ define_ontology! {
     pub SignalProcessingOntology for SignalCategory {
         concepts: SignalDomainConcept,
         relation: SignalRelation,
+        being: AbstractObject,
+        source: "Shannon (1949); Nyquist (1928)",
     }
 }
 

@@ -80,6 +80,8 @@ define_ontology! {
     /// Discrete category over music perception entities.
     pub MusicPerceptionOntology for MusicPerceptionCategory {
         entity: MusicEntity, relation: MusicRelation,
+        being: MentalObject,
+        source: "Helmholtz (1863); Krumhansl (1990)",
         taxonomy: MusicTaxonomy [
             (PitchHeight, PitchPercept), (PitchChroma, PitchPercept), (OctaveEquivalence, PitchPercept), (AbsolutePitch, PitchPercept), (RelativePitch, PitchPercept), (MelodicContour, PitchPercept), (IntervalPerception, PitchPercept),
             (Consonance, HarmonicPercept), (Dissonance, HarmonicPercept), (RoughnessModel, HarmonicPercept), (HarmonicSeries, HarmonicPercept), (VirtualPitchPercept, HarmonicPercept), (MissingFundamental, HarmonicPercept), (Chord, HarmonicPercept), (Tonality, HarmonicPercept), (KeySense, HarmonicPercept),

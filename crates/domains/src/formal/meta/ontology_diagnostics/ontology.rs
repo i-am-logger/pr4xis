@@ -117,6 +117,8 @@ define_ontology! {
     pub MetaOntology for MetaCategory {
         entity: MetaEntity,
         relation: MetaRelation,
+        being: AbstractObject,
+        source: "Herre & Loebe (2005)",
 
         taxonomy: MetaTaxonomy [
             // Structures

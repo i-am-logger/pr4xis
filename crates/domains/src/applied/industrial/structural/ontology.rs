@@ -22,6 +22,8 @@ define_ontology! {
     pub StructuralOntology for StructuralCategory {
         entity: StructuralSensor,
         relation: StructuralRelation,
+        being: PhysicalEndurant,
+        source: "Farrar & Worden (2007); Paris & Erdogan (1963)",
     }
 }
 

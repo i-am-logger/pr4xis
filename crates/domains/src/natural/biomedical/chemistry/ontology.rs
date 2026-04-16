@@ -88,6 +88,8 @@ define_ontology! {
     pub ChemistryOntologyMeta for ChemistryCategory {
         entity: ChemistryEntity,
         relation: ChemistryRelation,
+        being: AbstractObject,
+        source: "citings pending",
 
         taxonomy: ChemistryTaxonomy [
             (Solid, StateOfMatter),

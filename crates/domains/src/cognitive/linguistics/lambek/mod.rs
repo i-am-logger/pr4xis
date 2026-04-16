@@ -7,6 +7,7 @@ pub mod turing_benchmark;
 pub mod types;
 
 pub use reduce::{ReductionResult, TypedToken, reduce_sequence};
+pub use tokenize::tokenize_ontological;
 pub use types::LambekType;
 
 #[cfg(test)]

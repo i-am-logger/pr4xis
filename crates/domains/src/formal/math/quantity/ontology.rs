@@ -30,6 +30,8 @@ define_ontology! {
     pub QuantityOntology for DimensionCategory {
         concepts: BaseDimension,
         relation: DimensionRelation,
+        being: AbstractObject,
+        source: "BIPM SI Brochure (2019)",
     }
 }
 

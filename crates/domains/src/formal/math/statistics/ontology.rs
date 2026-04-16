@@ -28,6 +28,8 @@ define_ontology! {
     pub StatisticsOntology for StatisticalCategory {
         concepts: StatisticalConcept,
         relation: StatisticalRelation,
+        being: AbstractObject,
+        source: "Fisher (1925); Neyman & Pearson (1933)",
     }
 }
 

@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Durability ontology — data lifecycle and persistence guarantees.
 //
@@ -108,9 +108,9 @@ pub enum CrashConsistency {
     Journaling,
 }
 
-define_category! {
-    pub DurabilityCategory {
-        entity: DurabilityLevel,
+define_ontology! {
+    pub DurabilityOntology for DurabilityCategory {
+        concepts: DurabilityLevel,
         relation: DurabilityRelation,
         kind: DurabilityRelationKind,
         kinds: [
@@ -139,6 +139,8 @@ define_category! {
             (Persistent, Archived),
             (Durable, Archived),
         ],
+        being: AbstractObject,
+        source: "Haerder & Reuter (1983); Pelley et al. (2014)",
     }
 }
 

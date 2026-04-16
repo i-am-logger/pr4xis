@@ -39,6 +39,8 @@ define_ontology! {
     pub ColorOntology for ColorCategory {
         concepts: PrimaryColor,
         relation: ColorMix,
+        being: Quality,
+        source: "IEC 61966-2-1 (sRGB); W3C WCAG 2.1",
     }
 }
 

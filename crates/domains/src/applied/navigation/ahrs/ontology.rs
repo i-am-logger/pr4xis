@@ -47,6 +47,8 @@ define_ontology! {
     pub AhrsOntology for AhrsCategory {
         entity: AhrsFilterType,
         relation: AhrsRelation,
+        being: Process,
+        source: "Madgwick (2010); Mahony et al. (2008)",
 
         taxonomy: AhrsFilterTaxonomy [
             (ComplementaryFilter, Filter),

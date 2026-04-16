@@ -1,6 +1,8 @@
 use pr4xis::category::Category;
 use pr4xis::category::entity::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 
 // Spelling Error Ontology — the science of misspelling.
 //
@@ -331,6 +333,15 @@ impl Category for SpellingErrorCategory {
         });
 
         m
+    }
+}
+
+impl Classified for SpellingErrorCategory {
+    fn being() -> Being {
+        Being::Quality
+    }
+    fn classification_reason() -> &'static str {
+        "spelling errors are measurable deviations in written language quality"
     }
 }
 

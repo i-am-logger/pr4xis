@@ -36,6 +36,8 @@ define_ontology! {
     pub PhysicsOntology for PhysicsCategory {
         concepts: PhysicsLaw,
         relation: Derives,
+        being: AbstractObject,
+        source: "Newton (1687); Maxwell (1865)",
     }
 }
 

@@ -81,6 +81,8 @@ define_ontology! {
     /// Discrete category over neural entities.
     pub NeuroscienceOntology for NeuroscienceCategory {
         entity: NeuralEntity, relation: NeuralRelation,
+        being: AbstractObject,
+        source: "Kandel et al. (2021); Schnupp et al. (2011)",
         taxonomy: NeuralTaxonomy [
             (RateCoding, CodingStrategy), (TemporalCoding, CodingStrategy), (PhaseLocking, CodingStrategy), (PlaceCoding, CodingStrategy), (PopulationCoding, CodingStrategy), (SpikeTimingCode, CodingStrategy),
             (TonotopicMap, ResponseProperty), (FrequencyTuningCurve, ResponseProperty), (CharacteristicFrequency, ResponseProperty), (RateLevelFunction, ResponseProperty), (SpontaneousRate, ResponseProperty), (DynamicRange, ResponseProperty), (OnsetResponse, ResponseProperty), (SustainedResponse, ResponseProperty), (Adaptation, ResponseProperty), (Inhibition, ResponseProperty),

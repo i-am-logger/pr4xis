@@ -112,6 +112,7 @@ define_ontology! {
         entity: ProvisioningConcept,
         relation: ProvisioningRelation,
         being: Process,
+        source: "Wilkinson FAIR (2016); Dolstra Nix (2006)",
 
         taxonomy: ProvisioningTaxonomy [
             // Dataset-state taxonomy: every lifecycle state is-a DataSource

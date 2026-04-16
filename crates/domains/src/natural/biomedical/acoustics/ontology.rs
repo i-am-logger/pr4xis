@@ -96,6 +96,8 @@ define_ontology! {
     pub AcousticsOntologyMeta for AcousticsCategory {
         entity: AcousticsEntity,
         relation: AcousticsRelation,
+        being: Quality,
+        source: "citings pending",
 
         taxonomy: AcousticsTaxonomy [
             // Wave properties is-a WaveProperty

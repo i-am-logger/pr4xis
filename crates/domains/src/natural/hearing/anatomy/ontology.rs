@@ -80,6 +80,8 @@ define_ontology! {
     pub AnatomyOntology for AnatomyCategory {
         entity: AuditoryEntity,
         relation: AuditoryRelation,
+        being: PhysicalEndurant,
+        source: "Pickles (2012); von Bekesy (1960)",
 
         taxonomy: AuditoryTaxonomy [
             (OuterEar, Ear), (MiddleEar, Ear), (InnerEar, Ear),

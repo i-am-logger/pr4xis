@@ -25,6 +25,8 @@ define_ontology! {
     pub AuvOntology for AuvCategory {
         entity: AuvSensor,
         relation: AuvSensorRelation,
+        being: PhysicalEndurant,
+        source: "Kinsey et al. (2006); Paull et al. (2014)",
     }
 }
 

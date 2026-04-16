@@ -84,6 +84,8 @@ define_ontology! {
     pub OptimizationOntology for OptimizationCategory {
         entity: OptimizationEntity,
         relation: OptimizationRelation,
+        being: AbstractObject,
+        source: "Boyd & Vandenberghe (2004); Pareto (1906)",
 
         taxonomy: OptimizationTaxonomy [
             // Methods → OptimizationMethod

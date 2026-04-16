@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Response Generation ontology — the right adjoint of parsing.
 //
@@ -50,9 +50,10 @@ pub enum ResponseConcept {
     Context,
 }
 
-define_category! {
-    pub ResponseCategory {
-        entity: ResponseConcept,
+define_ontology! {
+    /// Response Generation — the right adjoint of parsing (Reiter & Dale 2000).
+    pub ResponseOntology for ResponseCategory {
+        concepts: ResponseConcept,
         relation: ResponseRelation,
         kind: ResponseRelationKind,
         kinds: [
@@ -87,6 +88,9 @@ define_category! {
             (Intent, SurfaceForm),
             (EpistemicFrame, SurfaceForm),
         ],
+
+        being: Process,
+        source: "Reiter & Dale (2000); Lambek & Scott (1986)",
     }
 }
 

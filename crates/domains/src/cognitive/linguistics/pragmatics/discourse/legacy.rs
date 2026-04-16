@@ -1,4 +1,4 @@
-use super::speech_act::{Intent, SpeechAct};
+use super::super::speech_act::{Intent, SpeechAct};
 use crate::cognitive::linguistics::semantics::meaning::MeaningRep;
 
 /// A discourse turn — one utterance in a conversation with its full analysis.

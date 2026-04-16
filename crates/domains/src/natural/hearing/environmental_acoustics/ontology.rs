@@ -81,6 +81,8 @@ define_ontology! {
     /// Discrete category over environmental acoustics entities.
     pub EnvironmentalAcousticsOntology for EnvironmentalAcousticsCategory {
         entity: EnvironmentEntity, relation: EnvironmentRelation,
+        being: Quality,
+        source: "Kuttruff (2009); Sabine (1922)",
         taxonomy: EnvironmentTaxonomy [
             (ReverberationTime, RoomParameter), (RT60, ReverberationTime), (EarlyDecayTime, RoomParameter), (Clarity, RoomParameter), (Definition, RoomParameter), (SpeechTransmissionIndex, RoomParameter), (CenterTime, RoomParameter), (LateralFraction, RoomParameter),
             (SoundAbsorption, AcousticProperty), (AbsorptionCoefficient, AcousticProperty), (SoundDiffusion, AcousticProperty), (SoundInsulation, AcousticProperty), (TransmissionLoss, AcousticProperty), (FlankingTransmission, AcousticProperty),

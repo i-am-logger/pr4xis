@@ -113,6 +113,8 @@ define_ontology! {
     pub MolecularOntologyMeta for MolecularCategory {
         entity: MolecularEntity,
         relation: MolecularRelation,
+        being: AbstractObject,
+        source: "Coste (2010); Fukada & Yasuda (1957)",
 
         taxonomy: MolecularTaxonomy [
             (Sodium, Ion),

@@ -1,6 +1,8 @@
 use super::authority::Authority;
 use super::lifecycle::PhaseTag;
 use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use std::collections::HashMap;
 
@@ -293,6 +295,15 @@ impl Category for CaseLifecycleCategory {
             }
         }
         m
+    }
+}
+
+impl Classified for CaseLifecycleCategory {
+    fn being() -> Being {
+        Being::Process
+    }
+    fn classification_reason() -> &'static str {
+        "a court case is a social process unfolding over time"
     }
 }
 

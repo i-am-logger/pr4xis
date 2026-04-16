@@ -145,6 +145,8 @@ define_ontology! {
     pub RegenerationOntologyMeta for RegenerationCategory {
         entity: RegenerationEntity,
         relation: RegenerationRelation,
+        being: Process,
+        source: "Levin (2012); Kumar & Brockes (2012)",
 
         taxonomy: RegenerationTaxonomy [
             (Epimorphic, RegenerationType),

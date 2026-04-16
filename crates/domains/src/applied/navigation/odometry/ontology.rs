@@ -48,6 +48,8 @@ define_ontology! {
     pub OdometryOntology for OdometryCategory {
         entity: OdometrySource,
         relation: OdometryRelation,
+        being: Process,
+        source: "Borenstein et al. (1996); Thrun et al. (2005)",
 
         taxonomy: OdometrySourceTaxonomy [
             (WheelEncoder, Source),

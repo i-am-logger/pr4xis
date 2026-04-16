@@ -9,7 +9,7 @@ pub mod validate;
 
 pub use crate::logic::Axiom;
 pub use domain::Ontology;
-pub use meta::OntologyMeta;
+pub use meta::{OntologyMeta, Vocabulary};
 pub use property::Quality;
 
 #[cfg(test)]

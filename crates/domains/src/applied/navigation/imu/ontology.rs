@@ -37,6 +37,8 @@ define_ontology! {
     pub ImuOntology for ImuCategory {
         entity: ImuMeasurement,
         relation: ImuRelation,
+        being: PhysicalEndurant,
+        source: "Titterton & Weston (2004); Groves (2013)",
 
         taxonomy: ImuTaxonomy [
             (SpecificForce, Measurement),

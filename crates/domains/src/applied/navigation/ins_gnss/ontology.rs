@@ -49,6 +49,8 @@ define_ontology! {
     pub InsGnssOntology for InsGnssCategory {
         entity: CouplingLevel,
         relation: InsGnssRelation,
+        being: Process,
+        source: "Groves (2013); Titterton & Weston (2004)",
 
         taxonomy: CouplingTaxonomy [
             (LooselyCoupled, Coupling),

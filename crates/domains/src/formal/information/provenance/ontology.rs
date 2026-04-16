@@ -107,6 +107,8 @@ define_ontology! {
             (Branch, Repository),
             (Tag, Repository),
         ],
+        being: AbstractObject,
+        source: "W3C PROV-O (2013)",
     }
 }
 

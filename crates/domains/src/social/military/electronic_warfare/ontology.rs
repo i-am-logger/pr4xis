@@ -25,6 +25,8 @@ define_ontology! {
     pub EwOntology for EwCategory {
         concepts: EwObservable,
         relation: EwFusionRelation,
+        being: SocialObject,
+        source: "Poisel (2012); JP 3-13.1",
     }
 }
 

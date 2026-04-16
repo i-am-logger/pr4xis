@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Instance ontology — the Spivak instance functor formalized.
 //
@@ -62,9 +62,9 @@ pub enum InstanceConcept {
     MigrationAdjunction,
 }
 
-define_category! {
-    pub InstanceCategory {
-        entity: InstanceConcept,
+define_ontology! {
+    pub InstanceOntology for InstanceCategory {
+        concepts: InstanceConcept,
         relation: InstanceRelation,
         kind: InstanceRelationKind,
         kinds: [
@@ -112,6 +112,8 @@ define_category! {
             // Migration → Population (through Instance)
             (DeltaMigration, Population),
         ],
+        being: AbstractObject,
+        source: "Spivak (2012)",
     }
 }
 

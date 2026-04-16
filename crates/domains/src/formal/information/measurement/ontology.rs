@@ -128,6 +128,8 @@ define_ontology! {
             // Measurement → Unit (through Result)
             (Measurement, Unit),
         ],
+        being: Quality,
+        source: "JCGM 200:2012 (VIM); Stevens (1946)",
     }
 }
 

@@ -127,6 +127,8 @@ define_ontology! {
     pub PathologyOntologyMeta for PathologyCategory {
         entity: PathologyEntity,
         relation: PathologyRelation,
+        being: AbstractObject,
+        source: "Levin (2014); Chernet & Levin (2013)",
 
         taxonomy: PathologyTaxonomy [
             (Normal, DiseaseState),

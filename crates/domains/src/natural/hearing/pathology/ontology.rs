@@ -85,6 +85,8 @@ define_ontology! {
     /// Discrete category over pathology entities.
     pub PathologyOntology for PathologyCategory {
         entity: PathologyEntity, relation: PathologyRelation,
+        being: AbstractObject,
+        source: "Moller (2006); Gates & Mills (2005)",
         taxonomy: PathologyTaxonomy [
             (ConductiveHearingLoss, HearingLoss), (SensorineuralHearingLoss, HearingLoss), (MixedHearingLoss, HearingLoss), (AuditoryNeuropathy, HearingLoss), (CentralAuditoryProcessingDisorder, HearingLoss),
             (Otosclerosis, PeripheralPathology), (Presbycusis, PeripheralPathology), (NoiseInducedHearingLoss, PeripheralPathology), (MenieresDisease, PeripheralPathology), (Tinnitus, PeripheralPathology), (Hyperacusis, PeripheralPathology), (SuddenSensorineuralLoss, PeripheralPathology), (OtitisMedia, PeripheralPathology), (TympanicPerforation, PeripheralPathology), (Cholesteatoma, PeripheralPathology),

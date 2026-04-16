@@ -71,6 +71,8 @@ define_ontology! {
     /// Discrete category over hearing device entities.
     pub DeviceOntology for DeviceCategory {
         entity: DeviceEntity, relation: DeviceRelation,
+        being: PhysicalEndurant,
+        source: "Dillon (2012); Zeng et al. (2008)",
         taxonomy: DeviceTaxonomy [
             (BehindTheEar, HearingAid), (InTheEar, HearingAid), (CompletelyInCanal, HearingAid), (ReceiverInCanal, HearingAid), (CROS, HearingAid), (BiCROS, HearingAid),
             (CochlearImplant, ImplantableDevice), (BoneAnchoredHearingAid, ImplantableDevice), (MiddleEarImplant, ImplantableDevice), (AuditoryBrainstemImplant, ImplantableDevice),

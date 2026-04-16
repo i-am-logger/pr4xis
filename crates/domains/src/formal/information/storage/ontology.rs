@@ -119,6 +119,8 @@ define_ontology! {
             // Repository → StoredOntology (through Store)
             (Repository, StoredOntology),
         ],
+        being: AbstractObject,
+        source: "RDF4J; Spivak (2012)",
     }
 }
 

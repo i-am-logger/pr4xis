@@ -21,6 +21,8 @@ define_ontology! {
     pub SingleTargetOntology for TargetStateCategory {
         entity: TargetStateComponent,
         relation: StateDerivative,
+        being: Process,
+        source: "Bar-Shalom et al. (2001); Li & Jilkov (2003)",
     }
 }
 

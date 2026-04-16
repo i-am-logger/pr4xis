@@ -162,6 +162,7 @@ define_ontology! {
         entity: StageConcept,
         relation: StagingRelation,
         being: AbstractObject,
+        source: "Futamura (1971); Jones, Gomard & Sestoft (1993)",
 
         taxonomy: StagingTaxonomy [
             // Program kinds

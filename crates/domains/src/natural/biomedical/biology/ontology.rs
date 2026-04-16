@@ -73,6 +73,8 @@ define_ontology! {
     pub BiologyOntologyMeta for BiologyCategory {
         entity: BiologicalEntity,
         relation: BiologicalRelation,
+        being: AbstractObject,
+        source: "Hooper (1956)",
 
         taxonomy: BiologicalTaxonomy [
             (SquamousEpithelial, Cell),

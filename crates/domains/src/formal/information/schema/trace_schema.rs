@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Trace Schema Functor T: Sch → Sch
 //
@@ -65,10 +65,10 @@ pub enum TraceSchemaElement {
     Output,
 }
 
-define_category! {
+define_ontology! {
     /// The trace schema category T — the target of the trace schema functor.
-    pub TraceSchemaCategory {
-        entity: TraceSchemaElement,
+    pub TraceSchemaOntology for TraceSchemaCategory {
+        concepts: TraceSchemaElement,
         relation: TraceSchemaRelation,
         kind: TraceSchemaRelationKind,
         kinds: [
@@ -122,6 +122,8 @@ define_category! {
             (MorphismTraversal, Status),
             (MorphismTraversal, Agent),
         ],
+        being: AbstractObject,
+        source: "W3C PROV-O (2013)",
     }
 }
 

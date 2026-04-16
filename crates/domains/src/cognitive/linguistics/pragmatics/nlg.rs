@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Natural Language Generation pipeline ontology.
 //
@@ -75,9 +75,10 @@ pub enum NlgConcept {
     Monitor,
 }
 
-define_category! {
-    pub NlgCategory {
-        entity: NlgConcept,
+define_ontology! {
+    /// NLG Pipeline — four-stage generation (Reiter & Dale 2000).
+    pub NlgOntology for NlgCategory {
+        concepts: NlgConcept,
         relation: NlgRelation,
         kind: NlgRelationKind,
         kinds: [
@@ -125,6 +126,9 @@ define_category! {
             (ContentDetermination, SurfaceText),
             (ContentDetermination, Realization),
         ],
+
+        being: AbstractObject,
+        source: "Reiter & Dale (2000)",
     }
 }
 

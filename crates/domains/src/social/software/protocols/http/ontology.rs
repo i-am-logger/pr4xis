@@ -6,6 +6,8 @@ define_ontology! {
     pub HttpMethodOntology for HttpMethodCategory {
         concepts: Method,
         relation: MethodPair,
+        being: SocialObject,
+        source: "RFC 9110 (2022); Fielding (2000)",
     }
 }
 

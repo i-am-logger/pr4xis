@@ -35,6 +35,8 @@ define_ontology! {
     pub FusionOntology for FusionCategory {
         entity: FusionPhase,
         relation: PhaseTransition,
+        being: Process,
+        source: "Kalman (1960); Bar-Shalom et al. (2001)",
     }
 }
 

@@ -5,8 +5,13 @@
 ///
 /// Used by both category-level structural checks (e.g. "no dead states")
 /// and domain-level invariants (e.g. "energy is conserved").
+///
+/// The axiom's identity is its Rust type. Its human-readable name and
+/// description live in the Lemon lexicon as LexicalEntries pointing to
+/// this axiom via LexicalSense → reference. `description()` is a
+/// transitional fallback until the lexicon is wired.
 pub trait Axiom {
-    /// Human-readable description of this axiom.
+    /// English fallback — will be replaced by Lemon lexicon lookup.
     fn description(&self) -> &str;
 
     /// Verify this axiom holds.

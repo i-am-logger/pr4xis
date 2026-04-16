@@ -19,6 +19,8 @@ define_ontology! {
     pub TimeOntology for TimeSystemCategory {
         concepts: TimeSystem,
         relation: TimeSystemConversion,
+        being: AbstractObject,
+        source: "Allen (1983); BIPM (UTC/TAI)",
     }
 }
 

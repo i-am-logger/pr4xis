@@ -23,6 +23,8 @@ define_ontology! {
     pub OccupancyOntology for OccupancyCategory {
         entity: CellState,
         relation: CellTransition,
+        being: Process,
+        source: "Elfes (1989); Thrun et al. (2005)",
     }
 }
 

@@ -103,6 +103,8 @@ define_ontology! {
             // Reference composed of Bits
             (Reference, Bit),
         ],
+        being: AbstractObject,
+        source: "Shannon (1948); Turing (1936)",
     }
 }
 

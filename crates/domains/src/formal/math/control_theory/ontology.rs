@@ -30,6 +30,8 @@ define_ontology! {
     pub ControlTheoryOntology for ControlCategory {
         concepts: ControlConcept,
         relation: ControlRelation,
+        being: AbstractObject,
+        source: "Astrom & Murray (2008); Lyapunov (1892)",
     }
 }
 

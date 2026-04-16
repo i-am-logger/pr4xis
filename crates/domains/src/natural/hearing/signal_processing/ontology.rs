@@ -75,6 +75,8 @@ define_ontology! {
     /// Discrete category over signal processing entities.
     pub SignalProcessingOntology for SignalProcessingCategory {
         entity: SignalEntity, relation: SignalRelation,
+        being: AbstractObject,
+        source: "Oppenheim & Schafer (2010); Cooley & Tukey (1965)",
         taxonomy: SignalTaxonomy [
             (FourierTransform, Transform), (FFT, FourierTransform), (InverseFFT, Transform), (ShortTimeFourierTransform, Transform), (WaveletTransform, Transform), (HilbertTransform, Transform), (CepstralAnalysis, Transform),
             (Spectrogram, Representation), (PowerSpectralDensity, Representation), (Autocorrelation, Representation), (Cepstrum, Representation), (MelFrequencyCepstrum, Representation),

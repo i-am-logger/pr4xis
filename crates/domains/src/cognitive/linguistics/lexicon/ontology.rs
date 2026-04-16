@@ -2,6 +2,8 @@ use pr4xis::category::Category;
 use pr4xis::category::entity::Entity;
 use pr4xis::category::relationship::Relationship;
 use pr4xis::ontology::Quality;
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 
 use super::pos::*;
 
@@ -112,6 +114,15 @@ impl Category for LexicalCategory {
         });
 
         m
+    }
+}
+
+impl Classified for LexicalCategory {
+    fn being() -> Being {
+        Being::SocialObject
+    }
+    fn classification_reason() -> &'static str {
+        "language categories are evolved social conventions"
     }
 }
 

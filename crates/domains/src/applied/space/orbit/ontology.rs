@@ -29,6 +29,8 @@ define_ontology! {
     pub OrbitOntology for OrbitCategory {
         entity: OrbitalElement,
         relation: ElementDependency,
+        being: Process,
+        source: "Vallado (2013); Battin (1999)",
     }
 }
 

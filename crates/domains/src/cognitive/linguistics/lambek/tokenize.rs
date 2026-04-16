@@ -2,7 +2,10 @@ use super::reduce::TypedToken;
 use super::types::LambekType;
 use super::types::svo as svo_types;
 use crate::cognitive::linguistics::language::Language;
+use crate::cognitive::linguistics::lemon::lexicon::ConceptRef;
 use crate::cognitive::linguistics::orthography::distance;
+use crate::cognitive::linguistics::text::Token;
+use pr4xis::category::entity::Entity;
 
 /// Tokenize text into typed tokens using a language's lexicon.
 ///
@@ -87,6 +90,62 @@ pub fn tokenize_with_alternatives(
     assign_predicate_adjectives(&mut tokens);
 
     (tokens, alternatives)
+}
+
+/// Tokenize into ontological Tokens — Word occurrences connected through
+/// Lemon (sense), Lambek (grammar type), and OLiA (POS annotation).
+///
+/// This is the Parse functor's first stage: Surface → typed tokens.
+/// Each token carries its lexical sense (which ontology concept the word
+/// references) and its POS tag, in addition to the Lambek type.
+pub fn tokenize_ontological(text: &str, language: &dyn Language) -> Vec<Token> {
+    let cleaned = text
+        .trim()
+        .trim_end_matches(|c: char| c.is_ascii_punctuation());
+
+    let words: Vec<&str> = cleaned.split_whitespace().collect();
+
+    let mut tokens: Vec<Token> = words
+        .iter()
+        .enumerate()
+        .filter_map(|(i, word)| {
+            let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation());
+            if word_clean.is_empty() {
+                return None;
+            }
+            let lower = word_clean.to_lowercase();
+            let lambek_type = assign_type(&lower, i, language);
+
+            let entry = language.lexical_lookup(&lower);
+            let pos = entry.as_ref().map(|e| e.pos_tag());
+            let sense = pos.map(|p| ConceptRef {
+                ontology: "cognitive.linguistics.lexicon",
+                concept: p.name(),
+            });
+
+            Some(Token {
+                word: lower,
+                lambek_type,
+                sense,
+                pos,
+            })
+        })
+        .collect();
+
+    assign_predicate_adjectives_typed(&mut tokens);
+    tokens
+}
+
+/// Post-processing for ontological tokens (same logic as assign_predicate_adjectives).
+fn assign_predicate_adjectives_typed(tokens: &mut [Token]) {
+    for i in 0..tokens.len().saturating_sub(1) {
+        let is_copula = tokens[i].lambek_type == svo_types::copula();
+        let is_adj = tokens[i + 1].lambek_type == svo_types::adjective();
+        if is_copula && is_adj {
+            tokens[i].lambek_type = svo_types::copula_adj();
+            tokens[i + 1].lambek_type = svo_types::predicate_adjective();
+        }
+    }
 }
 
 /// Assign a Lambek type to a word using the language's lexicon.

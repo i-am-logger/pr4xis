@@ -63,6 +63,8 @@ define_ontology! {
     pub ElectrophysiologyOntologyMeta for ElectrophysiologyCategory {
         entity: ElectrophysiologyEntity,
         relation: ElectrophysiologyRelation,
+        being: Quality,
+        source: "Neher & Sakmann (1976); Levin (2024)",
 
         taxonomy: ElectrophysiologyTaxonomy [
             (PatchClamp, MeasurementTechnique),

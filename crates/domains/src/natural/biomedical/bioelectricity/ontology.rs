@@ -92,6 +92,8 @@ define_ontology! {
     pub BioelectricOntologyMeta for BioelectricCategory {
         entity: BioelectricEntity,
         relation: BioelectricRelation,
+        being: AbstractObject,
+        source: "Levin (2019); Fields & Levin (2022)",
 
         taxonomy: BioelectricTaxonomy [
             (MembranePotential, Signal),

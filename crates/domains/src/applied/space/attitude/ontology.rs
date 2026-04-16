@@ -25,6 +25,8 @@ define_ontology! {
     pub AttitudeOntology for AttitudeCategory {
         entity: AttitudeSensor,
         relation: SensorFusion,
+        being: Process,
+        source: "Wertz (1978); Markley & Crassidis (2014)",
     }
 }
 

@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Grounding — the process of establishing mutual understanding.
 //
@@ -68,9 +68,9 @@ pub enum GroundingAct {
     Composed,
 }
 
-define_category! {
-    pub GroundingCategory {
-        entity: GroundingState,
+define_ontology! {
+    pub DialogueGroundingOntology for GroundingCategory {
+        concepts: GroundingState,
         relation: GroundingTransition,
         kind: GroundingTransitionKind,
         kinds: [
@@ -123,6 +123,8 @@ define_category! {
             // RepairRequested → Grounded (repair then ack)
             (RepairRequested, Grounded),
         ],
+        being: Process,
+        source: "Clark (1996); Traum (1994)",
     }
 }
 

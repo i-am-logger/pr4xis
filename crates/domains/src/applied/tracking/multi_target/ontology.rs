@@ -1,8 +1,6 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::{Category, Entity};
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
-
-// NOTE: TrackLifecycleCategory has non-Cartesian morphisms (specific transitions).
-// Only Entity derive was added; Category impl remains manual.
 
 /// Track lifecycle states.
 ///
@@ -23,97 +21,44 @@ pub enum TrackState {
     Deleted,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TrackTransition {
-    pub from: TrackState,
-    pub to: TrackState,
-}
-
-impl Relationship for TrackTransition {
-    type Object = TrackState;
-    fn source(&self) -> TrackState {
-        self.from
-    }
-    fn target(&self) -> TrackState {
-        self.to
-    }
-}
-
-/// Track lifecycle category.
-///
-/// Deleted is an absorbing state — no transitions out.
-pub struct TrackLifecycleCategory;
-
-impl Category for TrackLifecycleCategory {
-    type Object = TrackState;
-    type Morphism = TrackTransition;
-
-    fn identity(obj: &TrackState) -> TrackTransition {
-        TrackTransition {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &TrackTransition, g: &TrackTransition) -> Option<TrackTransition> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(TrackTransition {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<TrackTransition> {
-        use TrackState::*;
-        let mut m = Vec::new();
-        for s in TrackState::variants() {
-            m.push(Self::identity(&s));
-        }
-        // Valid transitions
-        m.push(TrackTransition {
-            from: Tentative,
-            to: Confirmed,
-        }); // M-of-N success
-        m.push(TrackTransition {
-            from: Tentative,
-            to: Deleted,
-        }); // failed confirmation
-        m.push(TrackTransition {
-            from: Confirmed,
-            to: Coasting,
-        }); // missed detection
-        m.push(TrackTransition {
-            from: Confirmed,
-            to: Deleted,
-        }); // lost
-        m.push(TrackTransition {
-            from: Coasting,
-            to: Confirmed,
-        }); // re-detection
-        m.push(TrackTransition {
-            from: Coasting,
-            to: Deleted,
-        }); // too many misses
-        // Transitive
-        m.push(TrackTransition {
-            from: Tentative,
-            to: Coasting,
-        });
-        m.push(TrackTransition {
-            from: Tentative,
-            to: Tentative,
-        });
-        m.push(TrackTransition {
-            from: Confirmed,
-            to: Confirmed,
-        });
-        m.push(TrackTransition {
-            from: Coasting,
-            to: Coasting,
-        });
-        m
+define_ontology! {
+    /// Track lifecycle category.
+    ///
+    /// Deleted is an absorbing state — no transitions out.
+    pub MultiTargetOntologyMeta for TrackLifecycleCategory {
+        concepts: TrackState,
+        relation: TrackTransition,
+        kind: TrackTransitionKind,
+        kinds: [
+            /// M-of-N confirmation success.
+            Confirm,
+            /// Missed detection — begin coasting.
+            Miss,
+            /// Re-detection during coasting.
+            ReDetect,
+            /// Track deletion (failed confirmation or too many misses).
+            Delete,
+        ],
+        edges: [
+            // Tentative -> Confirmed (M-of-N success)
+            (Tentative, Confirmed, Confirm),
+            // Tentative -> Deleted (failed confirmation)
+            (Tentative, Deleted, Delete),
+            // Confirmed -> Coasting (missed detection)
+            (Confirmed, Coasting, Miss),
+            // Confirmed -> Deleted (lost)
+            (Confirmed, Deleted, Delete),
+            // Coasting -> Confirmed (re-detection)
+            (Coasting, Confirmed, ReDetect),
+            // Coasting -> Deleted (too many misses)
+            (Coasting, Deleted, Delete),
+        ],
+        composed: [
+            // Tentative -> Coasting (through Confirmed)
+            (Tentative, Coasting),
+        ],
+        being: Process,
+        source: "Bar-Shalom et al. (2001)",
     }
 }
 

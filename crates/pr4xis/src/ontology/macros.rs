@@ -17,31 +17,19 @@
 ///     pub Biology for BiologyCategory {
 ///         concepts: BiologicalEntity,
 ///         relation: BiologicalRelation,
-///         being: AbstractObject,    // optional — DOLCE upper-ontology classification
+///         being: AbstractObject,
+///         source: "Euclid; Hilbert (1899)",
 ///
 ///         is_a: BiologicalTaxonomy [
 ///             (Cell, Tissue),
-///         ],
-///
-///         has_a: BiologicalMereology [
-///             (Organism, Organ),
-///         ],
-///
-///         causes: BiologicalCausalGraph for BiologicalCausalEvent [
-///             (Injury, Repair),
-///         ],
-///
-///         opposes: BiologicalOpposition [
-///             (Growth, Decay),
 ///         ],
 ///     }
 /// }
 /// ```
 ///
-/// The `being:` clause generates `impl Classified for <Category>` so each
-/// ontology classifies itself per DOLCE (Masolo et al., WonderWeb D18, 2003).
-/// Variants: `AbstractObject`, `SocialObject`, `MentalObject`,
-/// `PhysicalEndurant`, `Process`, `Event`, `Quality`.
+/// `being:` classifies per DOLCE (Masolo et al., WonderWeb D18, 2003).
+/// `source:` captures the primary citation.
+/// Both are optional. When present, they flow into `fn vocabulary()`.
 #[macro_export]
 macro_rules! define_ontology {
     // =========================================================================
@@ -54,6 +42,7 @@ macro_rules! define_ontology {
             relation: $relation:ident,
 
             $(being: $being:ident,)?
+            $(source: $source:expr,)?
 
             $(is_a: $tax_name:ident [
                 $(($tax_child:ident, $tax_parent:ident)),* $(,)?
@@ -82,6 +71,7 @@ macro_rules! define_ontology {
 
         define_ontology!(@reasoning $ont_name, $cat_name, $entity,
             $(being: $being,)?
+            $(source: $source,)?
             $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
             $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
             $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
@@ -99,6 +89,7 @@ macro_rules! define_ontology {
             relation: $relation:ident,
 
             $(being: $being:ident,)?
+            $(source: $source:expr,)?
 
             $(taxonomy: $tax_name:ident [
                 $(($tax_child:ident, $tax_parent:ident)),* $(,)?
@@ -127,6 +118,7 @@ macro_rules! define_ontology {
 
         define_ontology!(@reasoning $ont_name, $cat_name, $entity,
             $(being: $being,)?
+            $(source: $source,)?
             $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
             $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
             $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
@@ -148,6 +140,7 @@ macro_rules! define_ontology {
             composed: [$(($c_from:ident, $c_to:ident)),* $(,)?],
 
             $(being: $being:ident,)?
+            $(source: $source:expr,)?
 
             $(is_a: $tax_name:ident [
                 $(($tax_child:ident, $tax_parent:ident)),* $(,)?
@@ -180,6 +173,7 @@ macro_rules! define_ontology {
 
         define_ontology!(@reasoning $ont_name, $cat_name, $entity,
             $(being: $being,)?
+            $(source: $source,)?
             $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
             $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
             $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
@@ -188,10 +182,11 @@ macro_rules! define_ontology {
     };
 
     // =========================================================================
-    // Internal: generate reasoning systems + structural axioms + meta
+    // Internal: generate reasoning systems + structural axioms + meta + vocabulary
     // =========================================================================
     (@reasoning $ont_name:ident, $cat_name:ident, $entity:ident,
         $(being: $being:ident,)?
+        $(source: $source:expr,)?
         $(is_a: $tax_name:ident [ $(($tax_child:ident, $tax_parent:ident)),* ],)?
         $(has_a: $mer_name:ident [ $(($mer_whole:ident, $mer_part:ident)),* ],)?
         $(causes: $caus_name:ident for $caus_entity:ident [ $(($caus_cause:ident, $caus_effect:ident)),* ],)?
@@ -314,6 +309,27 @@ macro_rules! define_ontology {
                 $crate::ontology::OntologyMeta {
                     name: stringify!($ont_name),
                     module_path: module_path!(),
+                }
+            }
+
+            /// Runtime Vocabulary — instance of Knowledge::Vocabulary (VoID).
+            #[allow(dead_code, unused_assignments)]
+            pub fn vocabulary() -> $crate::ontology::Vocabulary {
+                let mut _being: Option<$crate::ontology::upper::being::Being> = None;
+                $(
+                    _being = Some($crate::ontology::upper::being::Being::$being);
+                )?
+                let mut _source: &'static str = "";
+                $(
+                    _source = $source;
+                )?
+                $crate::ontology::Vocabulary {
+                    ontology_name: stringify!($ont_name),
+                    module_path: module_path!(),
+                    source: _source,
+                    being: _being,
+                    concept_count: <$entity as $crate::category::entity::Entity>::variants().len(),
+                    morphism_count: <$cat_name as $crate::category::Category>::morphisms().len(),
                 }
             }
         }

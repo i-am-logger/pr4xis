@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Metacognition — the system observing its own reasoning.
 //
@@ -41,9 +41,10 @@ pub enum MetaConcept {
     EpistemicAssessment,
 }
 
-define_category! {
-    pub MetaCognitionCategory {
-        entity: MetaConcept,
+define_ontology! {
+    /// Metacognition — the system observing its own reasoning (von Foerster 1981).
+    pub MetaCognitionOntology for MetaCognitionCategory {
+        concepts: MetaConcept,
         relation: MetaRelation,
         kind: MetaRelationKind,
         kinds: [
@@ -97,5 +98,8 @@ define_category! {
             (Evaluation, Clarification),
             (Evaluation, Control),
         ],
+
+        being: MentalObject,
+        source: "von Foerster (1981); Olivares-Alarcos MOI (2023)",
     }
 }

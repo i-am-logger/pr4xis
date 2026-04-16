@@ -83,6 +83,8 @@ define_ontology! {
     pub AnalyticalMethodsOntology for AnalyticalCategory {
         entity: AnalyticalEntity,
         relation: AnalyticalRelation,
+        being: AbstractObject,
+        source: "Wille (1982); Ganter & Wille (1999)",
 
         taxonomy: AnalyticalTaxonomy [
             // Methods → AnalysisMethod

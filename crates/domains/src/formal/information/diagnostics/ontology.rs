@@ -127,6 +127,8 @@ define_ontology! {
             (Symptom, Remedy),
             (TraceContext, Diagnosis),
         ],
+        being: AbstractObject,
+        source: "Reiter (1987); Gertler (1998)",
     }
 }
 

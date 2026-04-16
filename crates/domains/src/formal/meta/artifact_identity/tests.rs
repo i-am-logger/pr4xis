@@ -29,6 +29,30 @@ fn ontology_validates() {
 }
 
 // =============================================================================
+// Macro-generated descriptor
+// =============================================================================
+
+#[test]
+fn descriptor_from_macro() {
+    let d = ArtifactIdentityOntology::vocabulary();
+    assert_eq!(d.name(), "ArtifactIdentityOntology");
+    assert!(d.module_path.contains("artifact_identity"));
+    assert_eq!(d.source, "Dolstra (2006); Wilkinson FAIR F1 (2016)");
+    assert_eq!(
+        d.being,
+        Some(pr4xis::ontology::upper::being::Being::AbstractObject)
+    );
+    assert_eq!(d.concept_count, IdentityConcept::variants().len());
+    assert!(d.concept_count > 0);
+    assert!(d.morphism_count > 0);
+    let domain = d.domain();
+    assert!(
+        domain.contains("formal.meta.artifact_identity"),
+        "domain was: {domain}"
+    );
+}
+
+// =============================================================================
 // Entity surface — 25 total (1 root + 4 families + 20 leaves)
 // =============================================================================
 

@@ -80,6 +80,8 @@ define_ontology! {
     /// Discrete category over vestibular entities.
     pub VestibularOntology for VestibularCategory {
         entity: VestibularEntity, relation: VestibularRelation,
+        being: PhysicalEndurant,
+        source: "Goldberg et al. (2012); Angelaki & Cullen (2008)",
         taxonomy: VestibularTaxonomy [
             (LateralCanal, SemicircularCanal), (AnteriorCanal, SemicircularCanal), (PosteriorCanal, SemicircularCanal),
             (Utricle, OtolithOrgan), (Saccule, OtolithOrgan),

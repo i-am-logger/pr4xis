@@ -72,6 +72,8 @@ define_ontology! {
     /// Discrete category over speech entities.
     pub SpeechOntology for SpeechCategory {
         entity: SpeechEntity, relation: SpeechRelation,
+        being: Process,
+        source: "Fant (1960); Peterson & Barney (1952)",
         taxonomy: SpeechTaxonomy [
             (FundamentalFrequency, AcousticParameter), (Formant, AcousticParameter), (F1, Formant), (F2, Formant), (F3, Formant), (F4, Formant), (VoiceOnsetTime, AcousticParameter), (SpectralTilt, AcousticParameter), (Harmonics, AcousticParameter),
             (Vowel, SpeechSound), (Consonant, SpeechSound), (Plosive, Consonant), (Fricative, Consonant), (Nasal, Consonant), (Approximant, Consonant), (Affricate, Consonant),

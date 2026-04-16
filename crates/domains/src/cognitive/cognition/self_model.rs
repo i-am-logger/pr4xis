@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Self-Model — the system's formal model of itself.
 //
@@ -65,9 +65,10 @@ pub enum SelfModelConcept {
     DoubleDescription,
 }
 
-define_category! {
-    pub SelfModelCategory {
-        entity: SelfModelConcept,
+define_ontology! {
+    /// Self-Model — the system's eigenform (von Foerster 1981; IEEE AuR 2021).
+    pub SelfModelOntology for SelfModelCategory {
+        concepts: SelfModelConcept,
         relation: SelfModelRelation,
         kind: SelfModelRelationKind,
         kinds: [
@@ -127,6 +128,9 @@ define_category! {
             (OperationalClosure, SelfModel),
             (DoubleDescription, Eigenform),
         ],
+
+        being: MentalObject,
+        source: "von Foerster (1981); IEEE AuR (2021); MAPE-K (2003)",
     }
 }
 

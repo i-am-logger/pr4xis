@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Noisy Channel Model — spelling correction as categorical adjunction.
 //
@@ -37,9 +37,10 @@ pub enum ChannelConcept {
     ConfusionMatrix,
 }
 
-define_category! {
-    pub ChannelCategory {
-        entity: ChannelConcept,
+define_ontology! {
+    /// Noisy Channel Model — spelling correction as categorical adjunction (Shannon 1948).
+    pub ChannelOntology for ChannelCategory {
+        concepts: ChannelConcept,
         relation: ChannelRelation,
         kind: ChannelRelationKind,
         kinds: [
@@ -79,6 +80,9 @@ define_category! {
             (Word, Word),
             (ConfusionMatrix, Observation),
         ],
+
+        being: AbstractObject,
+        source: "Shannon (1948); Kernighan et al. (1990)",
     }
 }
 

@@ -82,6 +82,8 @@ define_ontology! {
     pub MorphospaceOntologyMeta for MorphospaceCategory {
         entity: MorphospaceEntity,
         relation: MorphospaceRelation,
+        being: AbstractObject,
+        source: "Fields & Levin (2022); Chernet & Levin (2013)",
 
         taxonomy: MorphospaceTaxonomy [
             (Healthy, Attractor),

@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_dense_category;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Quality};
 
 /// Traffic directions at an intersection.
@@ -11,10 +11,14 @@ pub enum TrafficDirection {
     West,
 }
 
-define_dense_category! {
-    pub TrafficCategory {
-        entity: TrafficDirection,
+define_ontology! {
+    /// Traffic — intersection conflict model (Highway Capacity Manual; Webster 1958).
+    pub TrafficOntology for TrafficCategory {
+        concepts: TrafficDirection,
         relation: Conflict,
+
+        being: SocialObject,
+        source: "Highway Capacity Manual (TRB); Webster (1958)",
     }
 }
 

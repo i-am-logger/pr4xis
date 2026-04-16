@@ -30,6 +30,8 @@ define_ontology! {
     pub ObservationOntology for ObservationCategory {
         entity: ObservationStage,
         relation: ObservationTransition,
+        being: Event,
+        source: "JDL (1999); Bar-Shalom et al. (2001)",
     }
 }
 

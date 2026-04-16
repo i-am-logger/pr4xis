@@ -82,6 +82,8 @@ define_ontology! {
     pub RecommendationOntology for RecommendationCategory {
         entity: RecommendationEntity,
         relation: RecommendationRelation,
+        being: AbstractObject,
+        source: "Von Neumann & Morgenstern (1944); Keeney & Raiffa (1976)",
 
         taxonomy: RecommendationTaxonomy [
             // Types → RecommendationType

@@ -26,6 +26,8 @@ define_ontology! {
     pub StateEstimationOntology for EstimationCategory {
         entity: EstimationConcept,
         relation: EstimationRelation,
+        being: AbstractObject,
+        source: "Kalman (1960); Maybeck (1979)",
     }
 }
 

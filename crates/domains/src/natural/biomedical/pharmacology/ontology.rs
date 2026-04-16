@@ -94,6 +94,8 @@ define_ontology! {
     pub PharmacologyOntologyMeta for PharmacologyCategory {
         entity: PharmacologyEntity,
         relation: PharmacologyRelation,
+        being: Process,
+        source: "Kofman & Levin (2024); Adams & Levin (2013)",
 
         taxonomy: PharmacologyTaxonomy [
             (IonChannelModulator, DrugClass),

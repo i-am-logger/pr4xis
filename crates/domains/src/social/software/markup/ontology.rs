@@ -1,6 +1,8 @@
 use pr4xis::category::Category;
 use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // Markup language ontology.
@@ -147,6 +149,15 @@ impl Category for MarkupCategory {
         });
 
         m
+    }
+}
+
+impl Classified for MarkupCategory {
+    fn being() -> Being {
+        Being::SocialObject
+    }
+    fn classification_reason() -> &'static str {
+        "markup languages are social conventions for document structure"
     }
 }
 

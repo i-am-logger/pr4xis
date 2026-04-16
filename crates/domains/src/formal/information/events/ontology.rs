@@ -118,6 +118,8 @@ define_ontology! {
             // Saga → Event → EventLog
             (Saga, EventLog),
         ],
+        being: AbstractObject,
+        source: "Fowler (2005); Guizzardi et al. UFO-B (2013)",
     }
 }
 

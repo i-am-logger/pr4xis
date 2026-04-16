@@ -91,6 +91,8 @@ define_ontology! {
     pub HematologyOntologyMeta for HematologyCategory {
         entity: HematologyEntity,
         relation: HematologyRelation,
+        being: AbstractObject,
+        source: "citings pending",
 
         taxonomy: HematologyTaxonomy [
             (WholeBlood, BloodComponent),

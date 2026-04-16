@@ -92,6 +92,8 @@ define_ontology! {
     pub BiochemistryOntologyMeta for BiochemistryCategory {
         entity: BiochemistryEntity,
         relation: BiochemistryRelation,
+        being: AbstractObject,
+        source: "Bhatt (2000); Sheng & Greenberg (1990)",
 
         taxonomy: BiochemistryTaxonomy [
             (CalciumIon, SignalingMolecule),

@@ -1,6 +1,8 @@
 use pr4xis::category::Category;
 use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // OWL 2 Web Ontology Language — W3C Recommendation (2012)
@@ -126,6 +128,15 @@ impl OwlConcept {
                 | Self::ReflexiveProperty
                 | Self::IrreflexiveProperty
         )
+    }
+}
+
+impl Classified for OwlCategory {
+    fn being() -> Being {
+        Being::SocialObject
+    }
+    fn classification_reason() -> &'static str {
+        "OWL is a W3C standard — an agreed-upon ontology language"
     }
 }
 

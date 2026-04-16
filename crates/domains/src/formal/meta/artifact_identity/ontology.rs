@@ -128,6 +128,7 @@ define_ontology! {
         entity: IdentityConcept,
         relation: IdentityRelation,
         being: AbstractObject,
+        source: "Dolstra (2006); Wilkinson FAIR F1 (2016)",
 
         taxonomy: IdentityTaxonomy [
             // Level 1: families are-a Identity

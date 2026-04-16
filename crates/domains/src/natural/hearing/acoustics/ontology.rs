@@ -88,6 +88,8 @@ define_ontology! {
     pub AcousticsOntology for AcousticsCategory {
         entity: AcousticEntity,
         relation: AcousticRelation,
+        being: Quality,
+        source: "Kinsler et al. (2000); Pierce (2019)",
 
         taxonomy: AcousticTaxonomy [
             // Wave types is-a Wave

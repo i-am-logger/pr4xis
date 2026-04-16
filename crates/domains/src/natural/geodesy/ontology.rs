@@ -30,6 +30,8 @@ define_ontology! {
     pub GeodesyOntology for GeodesyCategory {
         concepts: CoordinateSystem,
         relation: CoordinateConversion,
+        being: AbstractObject,
+        source: "NIMA TR8350.2 (2000); Torge & Muller (2012)",
     }
 }
 

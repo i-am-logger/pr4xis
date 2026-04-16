@@ -99,6 +99,8 @@ define_ontology! {
     pub BiophysicsOntologyMeta for BiophysicsCategory {
         entity: BiophysicsEntity,
         relation: BiophysicsRelation,
+        being: Quality,
+        source: "Fukada & Yasuda (1957); Duck (1990)",
 
         taxonomy: BiophysicsTaxonomy [
             (Viscoelasticity, MechanicalProperty),

@@ -86,6 +86,8 @@ define_ontology! {
     pub AudiologyOntology for AudiologyCategory {
         entity: AudiologyEntity,
         relation: AudiologyRelation,
+        being: Process,
+        source: "Katz et al. (2015); Jerger (1970)",
 
         taxonomy: AudiologyTaxonomy [
             (PureToneAudiometry, DiagnosticTest), (AirConductionTest, PureToneAudiometry), (BoneConductionTest, PureToneAudiometry),

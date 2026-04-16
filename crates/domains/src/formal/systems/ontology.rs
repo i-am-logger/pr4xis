@@ -158,6 +158,8 @@ define_ontology! {
             // Boundary → Component → State
             (Boundary, State),
         ],
+        being: AbstractObject,
+        source: "von Bertalanffy (1968); Ashby (1956)",
     }
 }
 

@@ -63,6 +63,8 @@ define_ontology! {
             (KnowledgeBase, Descriptor),
             (KnowledgeBase, DataSource),
         ],
+        being: AbstractObject,
+        source: "W3C VoID (2011); Herre & Loebe (2005)",
     }
 }
 

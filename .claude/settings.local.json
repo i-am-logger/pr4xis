@@ -308,7 +308,20 @@
       "Bash(sed -i '/^pub struct Coalgebra/i #[allow\\(clippy::type_complexity\\)]' crates/pr4xis/src/category/algebra.rs)",
       "Bash(sed -i '/^pub struct Prism/i #[allow\\(clippy::type_complexity\\)]' crates/pr4xis/src/category/optics.rs)",
       "Bash(sed -i '/^pub struct Lens/i #[allow\\(clippy::type_complexity\\)]' crates/pr4xis/src/category/optics.rs)",
-      "Bash(RUSTFLAGS=\"-D warnings\" cargo test -p pr4xis --lib --no-run)"
+      "Bash(RUSTFLAGS=\"-D warnings\" cargo test -p pr4xis --lib --no-run)",
+      "Bash(git apply:*)",
+      "Bash(gh issue:*)",
+      "WebFetch(domain:john.mccr.ae)",
+      "WebFetch(domain:www.isibang.ac.in)",
+      "WebFetch(domain:oa.upm.es)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(cargo tree:*)",
+      "Bash(cargo update:*)",
+      "Bash(cargo install:*)",
+      "Bash(wasm-pack:*)",
+      "WebFetch(domain:persistence.uni-leipzig.org)",
+      "WebFetch(domain:newiipdm.haifa.ac.il)",
+      "WebFetch(domain:math.ucr.edu)"
     ]
   }
 }

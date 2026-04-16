@@ -13,6 +13,8 @@ define_ontology! {
     pub RubikOntology for RubikCategory {
         concepts: Face,
         relation: FaceRotation,
+        being: SocialObject,
+        source: "Joyner (2008); Singmaster (1981)",
     }
 }
 

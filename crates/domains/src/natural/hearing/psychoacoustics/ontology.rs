@@ -72,6 +72,8 @@ define_ontology! {
     /// Discrete category over psychoacoustic entities.
     pub PsychoacousticsOntology for PsychoacousticsCategory {
         entity: PsychoacousticEntity, relation: PsychoacousticRelation,
+        being: MentalObject,
+        source: "Fletcher & Munson (1933); Zwicker & Fastl (2007)",
         taxonomy: PsychoacousticTaxonomy [
             (Loudness, PerceptualDimension), (Pitch, PerceptualDimension), (Timbre, PerceptualDimension), (Duration, PerceptualDimension),
             (Phon, LoudnessMetric), (Sone, LoudnessMetric), (EqualLoudnessContour, LoudnessMetric), (LoudnessRecruitment, LoudnessMetric),

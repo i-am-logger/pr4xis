@@ -12,6 +12,8 @@ define_ontology! {
     pub SensorOntology for SensorCategory {
         entity: SensorType,
         relation: SensorRelation,
+        being: PhysicalEndurant,
+        source: "Groves (2013); Bar-Shalom et al. (2001)",
 
         taxonomy: SensorTaxonomy [
             (ProprioceptiveSensor, Sensor),

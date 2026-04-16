@@ -1,6 +1,8 @@
 use pr4xis::category::Category;
 use pr4xis::category::Entity;
 use pr4xis::category::relationship::Relationship;
+use pr4xis::ontology::upper::being::Being;
+use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use super::super::ontology::{MarkupNode, NodeKind};
@@ -157,6 +159,15 @@ impl Category for XmlCategory {
         }
 
         m
+    }
+}
+
+impl Classified for XmlCategory {
+    fn being() -> Being {
+        Being::SocialObject
+    }
+    fn classification_reason() -> &'static str {
+        "XML is a W3C standard — an agreed-upon markup language"
     }
 }
 

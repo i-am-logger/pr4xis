@@ -89,6 +89,8 @@ define_ontology! {
     pub MechanobiologyOntologyMeta for MechanobiologyCategory {
         entity: MechanobiologyEntity,
         relation: MechanobiologyRelation,
+        being: Quality,
+        source: "citings pending",
 
         taxonomy: MechanobiologyTaxonomy [
             (MembraneTension, MechanicalForce),

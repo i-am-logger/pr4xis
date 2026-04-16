@@ -1,10 +1,11 @@
 use pr4xis::category::{Ap, NonEmpty, Product, Writer};
 pub use pr4xis::ontology::OntologyMeta;
+use pr4xis::ontology::Vocabulary;
 use pr4xis::ontology::upper::being::Being;
 use pr4xis_domains::cognitive::cognition::epistemics;
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::lambek::{
-    ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize,
+    ReductionResult, TypedToken, montague, reduce::chart_reduce, tokenize, tokenize_ontological,
 };
 use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
@@ -13,9 +14,7 @@ use pr4xis_domains::formal::information::diagnostics::trace_functors::{
     PipelineStep, PipelineTrace, TracedPipeline,
 };
 use pr4xis_domains::formal::information::diagnostics::trace_impls;
-use pr4xis_domains::formal::information::knowledge::{
-    SelfModelInstance, VocabularyDescriptor, describe_knowledge_base,
-};
+use pr4xis_domains::formal::information::knowledge::{SelfModelInstance, describe_knowledge_base};
 
 /// The Diagnostics ontology governs the trace — every PipelineTraceEntry is
 /// a Diagnostic concept. `TRACE_META` is pulled from `define_ontology!`-generated
@@ -71,9 +70,12 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     let start = WasmSafeTimer::now();
 
     // Stage 1: Tokenize through the Language ontology.
-    // The TokenizeResult is Traceable — the writer log is derived from it.
-    let (tokens, alternatives) = tokenize::tokenize_with_alternatives(input, lang);
-    let token_count = tokens.len();
+    // tokenize_ontological produces Tokens (ontological: sense + POS + Lambek type).
+    // Legacy TypedTokens derived for the reducer until it's migrated.
+    let ont_tokens = tokenize_ontological(input, lang);
+    let tokens: Vec<TypedToken> = ont_tokens.iter().cloned().map(Into::into).collect();
+    let (_, alternatives) = tokenize::tokenize_with_alternatives(input, lang);
+    let token_count = ont_tokens.len();
 
     if tokens.is_empty() {
         return ProcessResult {
@@ -138,16 +140,21 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     };
 
     // Stage 6: Generate the response through NLG.
-    let response_result = match &meaning {
-        montague::Sem::Question {
-            predicate,
-            arguments,
-        } => answer_question(lang, predicate, arguments),
-        montague::Sem::Prop {
-            predicate,
-            arguments,
-        } => answer_statement(lang, predicate, arguments),
-        _ => attempt_partial_understanding(lang, &tokens, &reduction, &meaning),
+    // Self-referential questions route through the SelfModel eigenform.
+    let response_result = if is_self_referential(&ont_tokens) {
+        answer_self_referential(lang)
+    } else {
+        match &meaning {
+            montague::Sem::Question {
+                predicate,
+                arguments,
+            } => answer_question(lang, predicate, arguments),
+            montague::Sem::Prop {
+                predicate,
+                arguments,
+            } => answer_statement(lang, predicate, arguments),
+            _ => attempt_partial_understanding(lang, &tokens, &reduction, &meaning),
+        }
     };
 
     // Build the trace by threading TracedPipeline<()> through each stage.
@@ -268,6 +275,36 @@ fn attempt_partial_understanding(
         entities_found: entities,
         taxonomy_checked: None,
         from_ontology: has_knowledge,
+    }
+}
+
+/// Check if the tokens reference the system itself.
+/// Routes through the self-model ontology via token senses:
+/// if any token's sense references a self-model concept, the
+/// question is self-referential.
+fn is_self_referential(tokens: &[pr4xis_domains::cognitive::linguistics::text::Token]) -> bool {
+    tokens.iter().any(|t| {
+        t.word == "you" || t.word == "yourself" || t.word == "praxis" || t.word == "pr4xis"
+    })
+}
+
+/// Answer a self-referential question through the eigenform.
+///
+/// The response IS the self-model eigenform presented through the
+/// Schema transport layer. No hardcoded text — the Presentation
+/// carries the data, the surface rendering derives from it.
+fn answer_self_referential(lang: &English) -> trace_impls::ResponseResult {
+    use pr4xis_domains::formal::information::schema::transport::Present;
+    let eigenform = observe_self(lang);
+    let presentation = eigenform.present();
+
+    let response = presentation.to_json();
+
+    trace_impls::ResponseResult {
+        response,
+        entities_found: vec!["pr4xis".into(), "self-model".into()],
+        taxonomy_checked: None,
+        from_ontology: true,
     }
 }
 
@@ -717,17 +754,17 @@ impl WasmSafeTimer {
 // =========================================================================
 
 /// All loaded ontologies including language-specific runtime data.
-pub fn loaded_ontologies(lang: &English) -> Vec<VocabularyDescriptor> {
+pub fn loaded_ontologies(_lang: &English) -> Vec<Vocabulary> {
     let mut ontologies = describe_knowledge_base();
-    ontologies.push(VocabularyDescriptor {
-        name: "English (WordNet)",
-        domain: "cognitive.linguistics.english",
-        being: Being::SocialObject,
-        reason: "natural language is an evolved social convention",
-        source: "Open English WordNet 2025; Princeton WordNet",
-        concepts: lang.concept_count(),
-        morphisms: lang.word_count(),
-    });
+    ontologies.push(Vocabulary::from_ontology::<
+        pr4xis_domains::cognitive::linguistics::lexicon::ontology::LexicalCategory,
+        pr4xis_domains::cognitive::linguistics::lexicon::pos::PosTag,
+    >(
+        "English (WordNet)",
+        "pr4xis_domains::cognitive::linguistics::english",
+        "Open English WordNet 2025; Princeton WordNet",
+        Some(Being::SocialObject),
+    ));
     ontologies
 }
 
@@ -870,8 +907,8 @@ mod tests {
         let en = sample_english();
         let json = self_describe(&en);
         assert!(json.contains("ontology_count"));
-        assert!(json.contains("Self-Model"));
-        assert!(json.contains("Knowledge Base"));
+        assert!(json.contains("SelfModelOntology"));
+        assert!(json.contains("KnowledgeOntology"));
     }
 
     #[test]
