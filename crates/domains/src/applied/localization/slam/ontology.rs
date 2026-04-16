@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::{Category, Entity};
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// SLAM graph components.
@@ -16,107 +17,40 @@ pub enum SlamComponent {
     LoopClosure,
 }
 
-/// Relationship between SLAM components.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SlamRelation {
-    pub from: SlamComponent,
-    pub to: SlamComponent,
-}
-
-impl Relationship for SlamRelation {
-    type Object = SlamComponent;
-    fn source(&self) -> SlamComponent {
-        self.from
-    }
-    fn target(&self) -> SlamComponent {
-        self.to
-    }
-}
-
-/// Category for SLAM graph structure.
-///
-/// Poses observe landmarks via constraints. Loop closures connect poses.
-pub struct SlamCategory;
-
-impl Category for SlamCategory {
-    type Object = SlamComponent;
-    type Morphism = SlamRelation;
-
-    fn identity(obj: &SlamComponent) -> SlamRelation {
-        SlamRelation {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &SlamRelation, g: &SlamRelation) -> Option<SlamRelation> {
-        if f.to != g.from {
-            return None;
-        }
-        let rel = SlamRelation {
-            from: f.from,
-            to: g.to,
-        };
-        if Self::morphisms().contains(&rel) {
-            Some(rel)
-        } else {
-            None
-        }
-    }
-
-    fn morphisms() -> Vec<SlamRelation> {
-        use SlamComponent::*;
-        let mut m = Vec::new();
-        // Identities
-        for s in SlamComponent::variants() {
-            m.push(SlamRelation { from: s, to: s });
-        }
-        // Pose <-> Landmark via Constraint
-        m.push(SlamRelation {
-            from: Pose,
-            to: Constraint,
-        });
-        m.push(SlamRelation {
-            from: Constraint,
-            to: Landmark,
-        });
-        m.push(SlamRelation {
-            from: Pose,
-            to: Landmark,
-        }); // transitive
-        // Pose -> LoopClosure -> Pose
-        m.push(SlamRelation {
-            from: Pose,
-            to: LoopClosure,
-        });
-        m.push(SlamRelation {
-            from: LoopClosure,
-            to: Pose,
-        });
-        // Constraint -> Constraint (chaining)
-        // LoopClosure -> LoopClosure (chaining)
-        // Transitive: Pose -> LoopClosure -> Pose -> Constraint -> Landmark
-        m.push(SlamRelation {
-            from: LoopClosure,
-            to: Constraint,
-        });
-        m.push(SlamRelation {
-            from: LoopClosure,
-            to: Landmark,
-        });
-        m.push(SlamRelation {
-            from: Pose,
-            to: Pose,
-        }); // already identity, but explicit
-        m.push(SlamRelation {
-            from: LoopClosure,
-            to: LoopClosure,
-        }); // already identity
-        m.push(SlamRelation {
-            from: Constraint,
-            to: Constraint,
-        }); // already identity
-        m
+define_ontology! {
+    /// Category for SLAM graph structure.
+    ///
+    /// Poses observe landmarks via constraints. Loop closures connect poses.
+    pub SlamOntologyMeta for SlamCategory {
+        concepts: SlamComponent,
+        relation: SlamRelation,
+        kind: SlamRelationKind,
+        kinds: [
+            /// Pose observes landmark via constraint.
+            Observes,
+            /// Constraint links to a landmark.
+            Links,
+            /// Loop closure connects poses.
+            Closes,
+        ],
+        edges: [
+            // Pose <-> Landmark via Constraint
+            (Pose, Constraint, Observes),
+            (Constraint, Landmark, Links),
+            // Pose -> LoopClosure -> Pose
+            (Pose, LoopClosure, Closes),
+            (LoopClosure, Pose, Closes),
+            // Transitive: LoopClosure -> Constraint, LoopClosure -> Landmark
+            (LoopClosure, Constraint, Observes),
+        ],
+        composed: [
+            // Pose -> Landmark (through Constraint)
+            (Pose, Landmark),
+            // LoopClosure -> Landmark (through Pose/Constraint)
+            (LoopClosure, Landmark),
+        ],
+        being: Process,
+        source: "Durrant-Whyte & Bailey (2006)",
     }
 }
 

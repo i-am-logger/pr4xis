@@ -18,14 +18,17 @@ fn build_descriptors() -> Vec<Vocabulary> {
         // =================================================================
         // Cognitive — Linguistics (mixed: define_ontology! + manual)
         // =================================================================
+        // Lexicon: manual — POS-specific modification rules in morphisms()
         manual::<
             crate::cognitive::linguistics::lexicon::ontology::LexicalCategory,
             crate::cognitive::linguistics::lexicon::pos::PosTag,
         >("Lexicon", "pr4xis_domains::cognitive::linguistics::lexicon", "Lambek (1958); Chiarcos & Sukhareva OLiA (2015)", Being::SocialObject),
+        // Tense: manual — computes 3x4 tense-aspect grid shifts algorithmically
         manual::<
             crate::cognitive::linguistics::morphology::tense::TenseCategory,
             crate::cognitive::linguistics::morphology::tense::TenseAspect,
         >("Tense & Aspect", "pr4xis_domains::cognitive::linguistics::morphology::tense", "Reichenbach (1947); Comrie (1976)", Being::AbstractObject),
+        // SpellingErrors: manual — specific error chain morphisms (etiology->operation->observation)
         manual::<
             crate::cognitive::linguistics::orthography::distance::SpellingErrorCategory,
             crate::cognitive::linguistics::orthography::distance::SpellingErrorConcept,
@@ -85,7 +88,7 @@ fn build_descriptors() -> Vec<Vocabulary> {
         // =================================================================
         crate::applied::data_provisioning::ontology::DataProvisioningOntology::vocabulary(),
         // =================================================================
-        // Applied — HMI (manual)
+        // Applied — HMI (manual: bright_variant_of() method drives morphisms)
         // =================================================================
         manual::<
             crate::applied::hmi::theming::ontology::ThemingCategory,
@@ -136,13 +139,10 @@ fn build_descriptors() -> Vec<Vocabulary> {
         // =================================================================
         crate::applied::perception::occupancy::ontology::OccupancyOntology::vocabulary(),
         // =================================================================
-        // Applied — Hardware (mixed: define_ontology! + manual)
+        // Applied — Hardware (define_ontology!)
         // =================================================================
         crate::applied::hardware::traffic::ontology::TrafficOntology::vocabulary(),
-        manual::<
-            crate::applied::hardware::elevator::ontology::ElevatorCategory,
-            crate::applied::hardware::elevator::ontology::Floor,
-        >("Elevator", "pr4xis_domains::applied::hardware::elevator", "Mandel (1989); Barney & Dos Santos (1985)", Being::SocialObject),
+        crate::applied::hardware::elevator::ontology::ElevatorOntology::vocabulary(),
         // =================================================================
         // Natural — Physics (macro-generated)
         // =================================================================
@@ -192,18 +192,12 @@ fn build_descriptors() -> Vec<Vocabulary> {
         crate::natural::hearing::transduction::ontology::TransductionOntology::vocabulary(),
         crate::natural::hearing::vestibular::ontology::VestibularOntology::vocabulary(),
         // =================================================================
-        // Social — Games (manual)
+        // Social — Games (define_ontology!)
         // =================================================================
-        manual::<
-            crate::social::games::chess::ontology::ChessCategory,
-            crate::social::games::chess::square::Square,
-        >("Chess", "pr4xis_domains::social::games::chess", "FIDE Laws of Chess; Shannon (1950)", Being::SocialObject),
-        manual::<
-            crate::social::games::rubik::ontology::RubikCategory,
-            crate::social::games::rubik::Face,
-        >("Rubik's Cube", "pr4xis_domains::social::games::rubik", "Joyner (2008); Singmaster (1981)", Being::SocialObject),
+        crate::social::games::chess::ontology::ChessOntology::vocabulary(),
+        crate::social::games::rubik::ontology::RubikOntology::vocabulary(),
         // =================================================================
-        // Social — Judicial (manual)
+        // Social — Judicial (manual: uses valid_transitions() + algorithmic closure)
         // =================================================================
         manual::<
             crate::social::judicial::ontology::CaseLifecycleCategory,
@@ -214,12 +208,11 @@ fn build_descriptors() -> Vec<Vocabulary> {
         // =================================================================
         crate::social::military::electronic_warfare::ontology::EwOntology::vocabulary(),
         // =================================================================
-        // Social — Software (manual)
+        // Social — Software (mixed: define_ontology! + manual)
         // =================================================================
-        manual::<
-            crate::social::software::protocols::http::ontology::HttpMethodCategory,
-            crate::social::software::protocols::http::Method,
-        >("HTTP", "pr4xis_domains::social::software::protocols::http", "RFC 9110 (2022); Fielding (2000)", Being::SocialObject),
+        crate::social::software::protocols::http::ontology::HttpMethodOntology::vocabulary(),
+        // Markup/XML/RDF/OWL: manual — complex containment/structural rules
+        // with custom morphisms() per W3C spec constraints
         manual::<
             crate::social::software::markup::ontology::MarkupCategory,
             crate::social::software::markup::ontology::NodeKind,
@@ -245,40 +238,16 @@ fn build_descriptors() -> Vec<Vocabulary> {
         crate::cognitive::linguistics::pragmatics::grounding::ontology::GroundingOntology::vocabulary(),
         crate::cognitive::linguistics::pragmatics::fragment::ontology::FragmentOntology::vocabulary(),
         // =================================================================
-        // Sub-ontologies (define_category! — not yet migrated to define_ontology!)
+        // Sub-ontologies (migrated to define_ontology!)
         // =================================================================
-        manual::<
-            crate::formal::information::schema::alignment::AlignmentCategory,
-            crate::formal::information::schema::alignment::AlignmentConcept,
-        >("Schema Alignment", "pr4xis_domains::formal::information::schema::alignment", "Spivak (2012); Euzenat & Shvaiko (2013)", Being::AbstractObject),
-        manual::<
-            crate::formal::information::schema::instance::InstanceCategory,
-            crate::formal::information::schema::instance::InstanceConcept,
-        >("Schema Instance", "pr4xis_domains::formal::information::schema::instance", "Spivak (2012)", Being::AbstractObject),
-        manual::<
-            crate::formal::information::schema::trace_schema::TraceSchemaCategory,
-            crate::formal::information::schema::trace_schema::TraceSchemaElement,
-        >("Trace Schema", "pr4xis_domains::formal::information::schema::trace_schema", "W3C PROV-O (2013)", Being::AbstractObject),
-        manual::<
-            crate::formal::information::storage::consistency::ConsistencyCategory,
-            crate::formal::information::storage::consistency::ConsistencyModel,
-        >("Consistency", "pr4xis_domains::formal::information::storage::consistency", "Viotti & Vukolic (2016); Herlihy & Wing (1990)", Being::AbstractObject),
-        manual::<
-            crate::formal::information::storage::durability::DurabilityCategory,
-            crate::formal::information::storage::durability::DurabilityLevel,
-        >("Durability", "pr4xis_domains::formal::information::storage::durability", "Haerder & Reuter (1983); Pelley et al. (2014)", Being::AbstractObject),
-        manual::<
-            crate::formal::information::storage::volatility::VolatilityCategory,
-            crate::formal::information::storage::volatility::StorageMedia,
-        >("Volatility", "pr4xis_domains::formal::information::storage::volatility", "Pelley et al. (2014)", Being::AbstractObject),
-        manual::<
-            crate::formal::information::measurement::benchmark::BenchmarkCategory,
-            crate::formal::information::measurement::benchmark::BenchmarkConcept,
-        >("Benchmark", "pr4xis_domains::formal::information::measurement::benchmark", "JCGM 200:2012 (VIM)", Being::AbstractObject),
-        manual::<
-            crate::formal::information::dialogue::grounding::GroundingCategory,
-            crate::formal::information::dialogue::grounding::GroundingState,
-        >("Dialogue Grounding", "pr4xis_domains::formal::information::dialogue::grounding", "Clark (1996); Traum (1994)", Being::Process),
+        crate::formal::information::schema::alignment::AlignmentOntology::vocabulary(),
+        crate::formal::information::schema::instance::InstanceOntology::vocabulary(),
+        crate::formal::information::schema::trace_schema::TraceSchemaOntology::vocabulary(),
+        crate::formal::information::storage::consistency::ConsistencyOntology::vocabulary(),
+        crate::formal::information::storage::durability::DurabilityOntology::vocabulary(),
+        crate::formal::information::storage::volatility::VolatilityOntology::vocabulary(),
+        crate::formal::information::measurement::benchmark::BenchmarkOntology::vocabulary(),
+        crate::formal::information::dialogue::grounding::DialogueGroundingOntology::vocabulary(),
         // =================================================================
         // Session ontologies — consciousness, pipeline, planning, text, algebra
         // =================================================================
@@ -289,36 +258,26 @@ fn build_descriptors() -> Vec<Vocabulary> {
         crate::cognitive::linguistics::text::ontology::TextOntology::vocabulary(),
         crate::formal::meta::algebra::ontology::AlgebraOntology::vocabulary(),
         // =================================================================
-        // Pre-existing unregistered — manual Category impls
+        // Converted to define_ontology!
         // =================================================================
-        manual::<
-            crate::applied::localization::slam::ontology::SlamCategory,
-            crate::applied::localization::slam::ontology::SlamComponent,
-        >("SLAM", "pr4xis_domains::applied::localization::slam", "Durrant-Whyte & Bailey (2006)", Being::Process),
-        manual::<
-            crate::applied::perception::lidar_camera::ontology::LidarCameraCategory,
-            crate::applied::perception::lidar_camera::ontology::FusionStage,
-        >("Lidar-Camera Fusion", "pr4xis_domains::applied::perception::lidar_camera", "Qi et al. (2018)", Being::Process),
-        manual::<
-            crate::applied::perception::radar_camera::ontology::RadarCameraCategory,
-            crate::applied::perception::radar_camera::ontology::RadarCameraStage,
-        >("Radar-Camera Fusion", "pr4xis_domains::applied::perception::radar_camera", "Nobis et al. (2019)", Being::Process),
+        crate::applied::localization::slam::ontology::SlamOntologyMeta::vocabulary(),
+        crate::applied::perception::lidar_camera::ontology::LidarCameraOntologyMeta::vocabulary(),
+        crate::applied::perception::radar_camera::ontology::RadarCameraOntologyMeta::vocabulary(),
+        crate::applied::tracking::multi_target::ontology::MultiTargetOntologyMeta::vocabulary(),
+        crate::social::military::situation::ontology::SituationOntologyMeta::vocabulary(),
+        // =================================================================
+        // Remaining manual — complex compose/morphisms logic
+        // =================================================================
+        // Reference Frame: uses external FrameTransform type with custom new()
         manual::<
             crate::applied::sensor_fusion::frame::ontology::FrameCategory,
             crate::applied::sensor_fusion::frame::reference::ReferenceFrame,
         >("Reference Frame", "pr4xis_domains::applied::sensor_fusion::frame", "Sola et al. (2018)", Being::AbstractObject),
-        manual::<
-            crate::applied::tracking::multi_target::ontology::TrackLifecycleCategory,
-            crate::applied::tracking::multi_target::ontology::TrackState,
-        >("Multi-Target Tracking", "pr4xis_domains::applied::tracking::multi_target", "Bar-Shalom et al. (2001)", Being::Process),
+        // Compliance: algorithmic escalation ladder + de-escalation/abort patterns
         manual::<
             crate::social::compliance::ontology::ComplianceCategory,
             crate::social::compliance::escalation::EscalationLevel,
         >("Compliance", "pr4xis_domains::social::compliance", "ISO 37301 (2021)", Being::SocialObject),
-        manual::<
-            crate::social::military::situation::ontology::SituationCategory,
-            crate::social::military::situation::ontology::SituationElement,
-        >("Situation Awareness", "pr4xis_domains::social::military::situation", "Endsley (1995); JDL (1999)", Being::Process),
     ]
 }
 

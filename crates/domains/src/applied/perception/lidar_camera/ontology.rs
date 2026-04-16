@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::{Category, Entity};
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Fusion pipeline stages for LiDAR+camera sensor fusion.
@@ -16,74 +17,31 @@ pub enum FusionStage {
     Fusion,
 }
 
-/// A pipeline transition between fusion stages.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PipelineStep {
-    pub from: FusionStage,
-    pub to: FusionStage,
-}
-
-impl Relationship for PipelineStep {
-    type Object = FusionStage;
-    fn source(&self) -> FusionStage {
-        self.from
-    }
-    fn target(&self) -> FusionStage {
-        self.to
-    }
-}
-
-/// Category for the LiDAR-camera fusion pipeline.
-///
-/// The pipeline is a linear chain: Detection -> Projection -> Association -> Fusion.
-/// All transitive compositions are included for closure.
-pub struct LidarCameraCategory;
-
-impl Category for LidarCameraCategory {
-    type Object = FusionStage;
-    type Morphism = PipelineStep;
-
-    fn identity(obj: &FusionStage) -> PipelineStep {
-        PipelineStep {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &PipelineStep, g: &PipelineStep) -> Option<PipelineStep> {
-        if f.to != g.from {
-            return None;
-        }
-        let step = PipelineStep {
-            from: f.from,
-            to: g.to,
-        };
-        // Only allow valid pipeline progressions (forward or identity)
-        if Self::morphisms().contains(&step) {
-            Some(step)
-        } else {
-            None
-        }
-    }
-
-    fn morphisms() -> Vec<PipelineStep> {
-        use FusionStage::*;
-        let stages = [Detection, Projection, Association, Fusion];
-        let mut m = Vec::new();
-        // Identities
-        for &s in &stages {
-            m.push(PipelineStep { from: s, to: s });
-        }
-        // Forward steps (direct and transitive)
-        for i in 0..stages.len() {
-            for j in (i + 1)..stages.len() {
-                m.push(PipelineStep {
-                    from: stages[i],
-                    to: stages[j],
-                });
-            }
-        }
-        m
+define_ontology! {
+    /// Category for the LiDAR-camera fusion pipeline.
+    ///
+    /// The pipeline is a linear chain: Detection -> Projection -> Association -> Fusion.
+    /// All transitive compositions are included for closure.
+    pub LidarCameraOntologyMeta for LidarCameraCategory {
+        concepts: FusionStage,
+        relation: PipelineStep,
+        kind: PipelineStepKind,
+        kinds: [
+            /// Sequential pipeline step.
+            Precedes,
+        ],
+        edges: [
+            (Detection, Projection, Precedes),
+            (Projection, Association, Precedes),
+            (Association, Fusion, Precedes),
+        ],
+        composed: [
+            (Detection, Association),
+            (Detection, Fusion),
+            (Projection, Fusion),
+        ],
+        being: Process,
+        source: "Qi et al. (2018)",
     }
 }
 

@@ -1,4 +1,5 @@
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::{Category, Entity};
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// JDL Level 2 situation assessment elements.
@@ -17,90 +18,36 @@ pub enum SituationElement {
     Environment,
 }
 
-/// Assessment dependency between situation elements.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AssessmentDependency {
-    pub from: SituationElement,
-    pub to: SituationElement,
-}
-
-impl Relationship for AssessmentDependency {
-    type Object = SituationElement;
-    fn source(&self) -> SituationElement {
-        self.from
-    }
-    fn target(&self) -> SituationElement {
-        self.to
-    }
-}
-
-/// Category for situation assessment dependencies.
-///
-/// Entity identification must precede relationship assessment,
-/// which precedes intent inference. Environment informs all levels.
-pub struct SituationCategory;
-
-impl Category for SituationCategory {
-    type Object = SituationElement;
-    type Morphism = AssessmentDependency;
-
-    fn identity(obj: &SituationElement) -> AssessmentDependency {
-        AssessmentDependency {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &AssessmentDependency, g: &AssessmentDependency) -> Option<AssessmentDependency> {
-        if f.to != g.from {
-            return None;
-        }
-        let dep = AssessmentDependency {
-            from: f.from,
-            to: g.to,
-        };
-        if Self::morphisms().contains(&dep) {
-            Some(dep)
-        } else {
-            None
-        }
-    }
-
-    fn morphisms() -> Vec<AssessmentDependency> {
-        use SituationElement::*;
-        let mut m = Vec::new();
-        // Identities
-        for s in SituationElement::variants() {
-            m.push(AssessmentDependency { from: s, to: s });
-        }
-        // Entity -> Relationship -> Intent (assessment chain)
-        m.push(AssessmentDependency {
-            from: Entity,
-            to: Relationship,
-        });
-        m.push(AssessmentDependency {
-            from: Relationship,
-            to: Intent,
-        });
-        m.push(AssessmentDependency {
-            from: Entity,
-            to: Intent,
-        }); // transitive
-
-        // Environment informs all elements
-        m.push(AssessmentDependency {
-            from: Environment,
-            to: Entity,
-        });
-        m.push(AssessmentDependency {
-            from: Environment,
-            to: Relationship,
-        });
-        m.push(AssessmentDependency {
-            from: Environment,
-            to: Intent,
-        });
-        m
+define_ontology! {
+    /// Category for situation assessment dependencies.
+    ///
+    /// Entity identification must precede relationship assessment,
+    /// which precedes intent inference. Environment informs all levels.
+    pub SituationOntologyMeta for SituationCategory {
+        concepts: SituationElement,
+        relation: AssessmentDependency,
+        kind: AssessmentDependencyKind,
+        kinds: [
+            /// Assessment chain dependency.
+            Precedes,
+            /// Environment informs a level.
+            Informs,
+        ],
+        edges: [
+            // Entity -> Relationship -> Intent (assessment chain)
+            (Entity, Relationship, Precedes),
+            (Relationship, Intent, Precedes),
+            // Environment informs all elements
+            (Environment, Entity, Informs),
+            (Environment, Relationship, Informs),
+            (Environment, Intent, Informs),
+        ],
+        composed: [
+            // Entity -> Intent (through Relationship)
+            (Entity, Intent),
+        ],
+        being: Process,
+        source: "Endsley (1995); JDL (1999)",
     }
 }
 

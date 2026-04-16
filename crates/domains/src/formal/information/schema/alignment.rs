@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Ontology Alignment ontology — discovering connections between ontologies.
 //
@@ -127,9 +127,9 @@ pub enum MatchingType {
     Compositional,
 }
 
-define_category! {
-    pub AlignmentCategory {
-        entity: AlignmentConcept,
+define_ontology! {
+    pub AlignmentOntology for AlignmentCategory {
+        concepts: AlignmentConcept,
         relation: AlignmentRelation,
         kind: AlignmentRelationKind,
         kinds: [
@@ -176,6 +176,8 @@ define_category! {
             // Discovery → Execution (full lifecycle)
             (Discovery, Execution),
         ],
+        being: AbstractObject,
+        source: "Spivak (2012); Euzenat & Shvaiko (2013)",
     }
 }
 

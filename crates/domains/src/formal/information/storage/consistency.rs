@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Consistency ontology — the lattice of consistency models.
 //
@@ -65,9 +65,9 @@ pub enum ConsistencyModel {
     EventuallyConsistent,
 }
 
-define_category! {
-    pub ConsistencyCategory {
-        entity: ConsistencyModel,
+define_ontology! {
+    pub ConsistencyOntology for ConsistencyCategory {
+        concepts: ConsistencyModel,
         relation: ConsistencyRelation,
         kind: ConsistencyRelationKind,
         kinds: [
@@ -128,6 +128,8 @@ define_category! {
             // Causal → Eventual
             (Causal, EventuallyConsistent),
         ],
+        being: AbstractObject,
+        source: "Viotti & Vukolic (2016); Herlihy & Wing (1990)",
     }
 }
 

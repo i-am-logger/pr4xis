@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Benchmark ontology — the process of measuring system performance.
 //
@@ -65,9 +65,9 @@ pub enum BenchmarkConcept {
     ConfidenceInterval,
 }
 
-define_category! {
-    pub BenchmarkCategory {
-        entity: BenchmarkConcept,
+define_ontology! {
+    pub BenchmarkOntology for BenchmarkCategory {
+        concepts: BenchmarkConcept,
         relation: BenchmarkRelation,
         kind: BenchmarkRelationKind,
         kinds: [
@@ -116,6 +116,8 @@ define_category! {
             // Candidate → Regression (through EffectSize)
             (Candidate, Regression),
         ],
+        being: AbstractObject,
+        source: "JCGM 200:2012 (VIM)",
     }
 }
 

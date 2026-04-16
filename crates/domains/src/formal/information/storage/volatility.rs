@@ -1,5 +1,5 @@
 use pr4xis::category::Entity;
-use pr4xis::define_category;
+use pr4xis::define_ontology;
 
 // Volatility ontology — storage media hierarchy and persistence domains.
 //
@@ -66,9 +66,9 @@ impl StorageMedia {
     }
 }
 
-define_category! {
-    pub VolatilityCategory {
-        entity: StorageMedia,
+define_ontology! {
+    pub VolatilityOntology for VolatilityCategory {
+        concepts: StorageMedia,
         relation: VolatilityRelation,
         kind: VolatilityRelationKind,
         kinds: [
@@ -106,6 +106,8 @@ define_category! {
             (PersistentMemory, Tape),
             (Flash, Tape),
         ],
+        being: AbstractObject,
+        source: "Pelley et al. (2014)",
     }
 }
 

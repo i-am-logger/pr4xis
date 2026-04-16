@@ -1,76 +1,22 @@
 use super::board::Board;
 use super::piece::{Color, Piece, PieceKind};
 use super::square::Square;
-use pr4xis::category::{Category, Entity, Relationship};
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::category::Entity;
+use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Quality};
 
 // =============================================================================
-// Relationship: SquareConnection (any square to any square — thin category)
+// Category: ChessCategory (squares + connections — fully connected)
 // =============================================================================
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SquareConnection {
-    pub from: Square,
-    pub to: Square,
-}
-
-impl Relationship for SquareConnection {
-    type Object = Square;
-    fn source(&self) -> Square {
-        self.from
-    }
-    fn target(&self) -> Square {
-        self.to
-    }
-}
-
-// =============================================================================
-// Category: ChessCategory (squares + connections)
-// =============================================================================
-
-pub struct ChessCategory;
-
-impl Category for ChessCategory {
-    type Object = Square;
-    type Morphism = SquareConnection;
-
-    fn identity(obj: &Square) -> SquareConnection {
-        SquareConnection {
-            from: *obj,
-            to: *obj,
-        }
-    }
-
-    fn compose(f: &SquareConnection, g: &SquareConnection) -> Option<SquareConnection> {
-        if f.to != g.from {
-            return None;
-        }
-        Some(SquareConnection {
-            from: f.from,
-            to: g.to,
-        })
-    }
-
-    fn morphisms() -> Vec<SquareConnection> {
-        let squares = Square::variants();
-        let mut m = Vec::new();
-        for &a in &squares {
-            for &b in &squares {
-                m.push(SquareConnection { from: a, to: b });
-            }
-        }
-        m
-    }
-}
-
-impl Classified for ChessCategory {
-    fn being() -> Being {
-        Being::SocialObject
-    }
-    fn classification_reason() -> &'static str {
-        "chess rules are agreed-upon social conventions"
+define_ontology! {
+    /// The chess category: squares are objects, connections are morphisms.
+    /// Fully connected — any square can reach any square.
+    pub ChessOntology for ChessCategory {
+        concepts: Square,
+        relation: SquareConnection,
+        being: SocialObject,
+        source: "FIDE Laws of Chess; Shannon (1950)",
     }
 }
 
