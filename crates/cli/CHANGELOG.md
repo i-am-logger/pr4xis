@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.4.1...pr4xis-cli-v0.5.0) (2026-04-16)
+
+
+### Features
+
+* artifact_identity + data_provisioning — ontological external-data subsystem, no more LFS ([#71](https://github.com/i-am-logger/pr4xis/issues/71)) ([94be051](https://github.com/i-am-logger/pr4xis/commit/94be051131eaf8dfb960b4bf91f8be8af07f0ac6))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis-chat bumped from 0.4.1 to 0.4.2
+    * pr4xis-domains bumped from 0.9.0 to 0.10.0
+
 ## [0.4.1](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.4.0...pr4xis-cli-v0.4.1) (2026-04-15)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.9.0...pr4xis-domains-v0.10.0) (2026-04-16)
+
+
+### Features
+
+* artifact_identity + data_provisioning — ontological external-data subsystem, no more LFS ([#71](https://github.com/i-am-logger/pr4xis/issues/71)) ([94be051](https://github.com/i-am-logger/pr4xis/commit/94be051131eaf8dfb960b4bf91f8be8af07f0ac6))
+
 ## [0.9.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.8.0...pr4xis-domains-v0.9.0) (2026-04-15)
 
 
