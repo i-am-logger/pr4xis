@@ -318,7 +318,8 @@
       "Bash(cargo tree:*)",
       "Bash(cargo update:*)",
       "Bash(cargo install:*)",
-      "Bash(wasm-pack:*)"
+      "Bash(wasm-pack:*)",
+      "WebFetch(domain:persistence.uni-leipzig.org)"
     ]
   }
 }
