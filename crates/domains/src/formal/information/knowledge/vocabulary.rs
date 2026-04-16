@@ -1,95 +1,31 @@
 // Vocabulary — runtime instance of KnowledgeConcept::Vocabulary.
 //
-// An ontology's self-description as an instance of the Knowledge
-// category. Not a custom struct — an instance of Vocabulary with
-// morphisms to DataSource, Entry, Descriptor, Schema.
+// The Vocabulary struct lives in pr4xis core (pr4xis::ontology::Vocabulary).
+// This module provides KnowledgeBase (the catalog of all Vocabulary instances)
+// and the present() transport via Schema Presentation.
 //
 // Each ontology produces a Vocabulary through define_ontology!'s
-// descriptor() method. The SelfModel eigenform IS the KnowledgeBase
+// vocabulary() method. The SelfModel eigenform IS the KnowledgeBase
 // that catalogs all Vocabulary instances.
 //
 // Source: W3C VoID (2011); Spivak (2012)
 
 use crate::formal::information::schema::transport::{Presentation, SchemaValue};
+use pr4xis::ontology::Vocabulary;
 
-/// A Vocabulary instance — an ontology describing itself.
-///
-/// Instance of KnowledgeConcept::Vocabulary. The fields correspond
-/// to morphisms in the Knowledge category:
-///   Vocabulary →(DerivedFrom)→ DataSource = source
-///   Vocabulary →(Contains)→ Entry = concepts (counted)
-///   Vocabulary →(DescribedBy)→ Descriptor = statistics
-///   Vocabulary →(ConformsTo)→ Schema = structure
-///
-/// Every field is populated from the ontology's own traits:
-///   Entity::variants().len() = concept count
-///   Category::morphisms().len() = morphism count
-///   Classified::being() = DOLCE classification
-///   define_ontology! source: = primary citation
-#[derive(Debug, Clone)]
-pub struct Vocabulary {
-    /// The ontology's module path — its identity.
-    pub module_path: &'static str,
-    /// DerivedFrom → DataSource: primary citation.
-    pub source: &'static str,
-    /// DOLCE Being classification.
-    pub being: Option<pr4xis::ontology::upper::being::Being>,
-    /// Contains → Entry count (void:classes).
-    pub concept_count: usize,
-    /// DescribedBy → Descriptor morphism count (void:properties).
-    pub morphism_count: usize,
-}
-
-impl Vocabulary {
-    /// Domain path derived from module_path.
-    pub fn domain(&self) -> String {
-        let s = self.module_path;
-        let s = s.strip_prefix("pr4xis_domains::").unwrap_or(s);
-        let s = s.strip_suffix("::ontology").unwrap_or(s);
-        s.replace("::", ".")
-    }
-
-    /// The ontology struct name (from module path).
-    pub fn name(&self) -> &str {
-        self.module_path
-            .rsplit("::")
-            .nth(1)
-            .unwrap_or(self.module_path)
-    }
-
-    /// Present as a Schema Presentation for transport.
-    pub fn present(&self) -> Presentation {
-        let mut p = Presentation::new();
-        p.set("module_path", self.module_path.into());
-        p.set("domain", SchemaValue::Text(self.domain()));
-        p.set("source", self.source.into());
-        p.set(
-            "being",
-            self.being.map_or(SchemaValue::Absent, |b| b.label().into()),
-        );
-        p.set("concept_count", (self.concept_count as u64).into());
-        p.set("morphism_count", (self.morphism_count as u64).into());
-        p
-    }
-
-    /// Construct from any Category + Entity + Classified ontology.
-    pub fn from_ontology<C, E>(
-        module_path: &'static str,
-        source: &'static str,
-        being: Option<pr4xis::ontology::upper::being::Being>,
-    ) -> Self
-    where
-        C: pr4xis::category::Category,
-        E: pr4xis::category::entity::Entity,
-    {
-        Self {
-            module_path,
-            source,
-            being,
-            concept_count: E::variants().len(),
-            morphism_count: C::morphisms().len(),
-        }
-    }
+/// Present a Vocabulary as a Schema Presentation for transport.
+pub fn present_vocabulary(v: &Vocabulary) -> Presentation {
+    let mut p = Presentation::new();
+    p.set("module_path", v.module_path.into());
+    p.set("domain", SchemaValue::Text(v.domain()));
+    p.set("source", v.source.into());
+    p.set(
+        "being",
+        v.being.map_or(SchemaValue::Absent, |b| b.label().into()),
+    );
+    p.set("concept_count", (v.concept_count as u64).into());
+    p.set("morphism_count", (v.morphism_count as u64).into());
+    p
 }
 
 /// The KnowledgeBase — catalogs all Vocabulary instances.
@@ -130,7 +66,7 @@ impl KnowledgeBase {
             SchemaValue::List(
                 self.vocabularies
                     .iter()
-                    .map(|v| SchemaValue::Record(v.present()))
+                    .map(|v| SchemaValue::Record(present_vocabulary(v)))
                     .collect(),
             ),
         );
@@ -148,6 +84,7 @@ mod tests {
             crate::formal::information::knowledge::ontology::KnowledgeBaseCategory,
             crate::formal::information::knowledge::ontology::KnowledgeConcept,
         >(
+            "KnowledgeOntology",
             "pr4xis_domains::formal::information::knowledge::ontology",
             "W3C VoID (2011)",
             Some(pr4xis::ontology::upper::being::Being::AbstractObject),
@@ -163,6 +100,7 @@ mod tests {
             crate::formal::information::knowledge::ontology::KnowledgeBaseCategory,
             crate::formal::information::knowledge::ontology::KnowledgeConcept,
         >(
+            "KnowledgeOntology",
             "pr4xis_domains::formal::information::knowledge::ontology",
             "W3C VoID (2011)",
             Some(pr4xis::ontology::upper::being::Being::AbstractObject),

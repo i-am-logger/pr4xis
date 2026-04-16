@@ -1,20 +1,20 @@
-use pr4xis::ontology::OntologyDescriptor;
+use pr4xis::ontology::Vocabulary;
 use pr4xis::ontology::upper::being::Being;
 
-pub fn describe_knowledge_base() -> Vec<OntologyDescriptor> {
-    static CACHE: std::sync::OnceLock<Vec<OntologyDescriptor>> = std::sync::OnceLock::new();
+pub fn describe_knowledge_base() -> Vec<Vocabulary> {
+    static CACHE: std::sync::OnceLock<Vec<Vocabulary>> = std::sync::OnceLock::new();
     CACHE.get_or_init(build_descriptors).clone()
 }
 
-fn build_descriptors() -> Vec<OntologyDescriptor> {
+fn build_descriptors() -> Vec<Vocabulary> {
     vec![
         // =================================================================
         // Cognitive — Cognition (define_ontology!)
         // =================================================================
-        crate::cognitive::cognition::distinction::DistinctionOntology::descriptor(),
-        crate::cognitive::cognition::epistemics::EpistemicOntology::descriptor(),
-        crate::cognitive::cognition::metacognition::MetaCognitionOntology::descriptor(),
-        crate::cognitive::cognition::self_model::SelfModelOntology::descriptor(),
+        crate::cognitive::cognition::distinction::DistinctionOntology::vocabulary(),
+        crate::cognitive::cognition::epistemics::EpistemicOntology::vocabulary(),
+        crate::cognitive::cognition::metacognition::MetaCognitionOntology::vocabulary(),
+        crate::cognitive::cognition::self_model::SelfModelOntology::vocabulary(),
         // =================================================================
         // Cognitive — Linguistics (mixed: define_ontology! + manual)
         // =================================================================
@@ -30,60 +30,60 @@ fn build_descriptors() -> Vec<OntologyDescriptor> {
             crate::cognitive::linguistics::orthography::distance::SpellingErrorCategory,
             crate::cognitive::linguistics::orthography::distance::SpellingErrorConcept,
         >("Spelling Errors", "pr4xis_domains::cognitive::linguistics::orthography::distance", "Damerau (1964); Brill & Moore (2000)", Being::Quality),
-        crate::cognitive::linguistics::orthography::channel::ChannelOntology::descriptor(),
-        crate::cognitive::linguistics::pragmatics::reference::ReferenceOntology::descriptor(),
-        crate::cognitive::linguistics::pragmatics::generation::ProductionOntology::descriptor(),
-        crate::cognitive::linguistics::pragmatics::nlg::NlgOntology::descriptor(),
-        crate::cognitive::linguistics::pragmatics::response::ResponseOntology::descriptor(),
+        crate::cognitive::linguistics::orthography::channel::ChannelOntology::vocabulary(),
+        crate::cognitive::linguistics::pragmatics::reference::ReferenceOntology::vocabulary(),
+        crate::cognitive::linguistics::pragmatics::generation::ProductionOntology::vocabulary(),
+        crate::cognitive::linguistics::pragmatics::nlg::NlgOntology::vocabulary(),
+        crate::cognitive::linguistics::pragmatics::response::ResponseOntology::vocabulary(),
         // =================================================================
         // Formal — Mathematics (macro-generated)
         // =================================================================
-        crate::formal::math::ontology::MathOntology::descriptor(),
-        crate::formal::math::geometry::ontology::EuclideanGeometryOntology::descriptor(),
-        crate::formal::math::linear_algebra::ontology::LinearAlgebraOntology::descriptor(),
-        crate::formal::math::probability::ontology::ProbabilityOntology::descriptor(),
-        crate::formal::math::quantity::ontology::QuantityOntology::descriptor(),
-        crate::formal::math::rotation::ontology::RotationOntology::descriptor(),
-        crate::formal::math::signal_processing::ontology::SignalProcessingOntology::descriptor(),
-        crate::formal::math::statistics::ontology::StatisticsOntology::descriptor(),
-        crate::formal::math::temporal::ontology::TimeOntology::descriptor(),
-        crate::formal::math::control_theory::ontology::ControlTheoryOntology::descriptor(),
+        crate::formal::math::ontology::MathOntology::vocabulary(),
+        crate::formal::math::geometry::ontology::EuclideanGeometryOntology::vocabulary(),
+        crate::formal::math::linear_algebra::ontology::LinearAlgebraOntology::vocabulary(),
+        crate::formal::math::probability::ontology::ProbabilityOntology::vocabulary(),
+        crate::formal::math::quantity::ontology::QuantityOntology::vocabulary(),
+        crate::formal::math::rotation::ontology::RotationOntology::vocabulary(),
+        crate::formal::math::signal_processing::ontology::SignalProcessingOntology::vocabulary(),
+        crate::formal::math::statistics::ontology::StatisticsOntology::vocabulary(),
+        crate::formal::math::temporal::ontology::TimeOntology::vocabulary(),
+        crate::formal::math::control_theory::ontology::ControlTheoryOntology::vocabulary(),
         // =================================================================
         // Formal — Meta (macro-generated)
         // =================================================================
-        crate::formal::meta::artifact_identity::ontology::ArtifactIdentityOntology::descriptor(),
-        crate::formal::meta::staging::ontology::StagingOntology::descriptor(),
-        crate::formal::meta::ontology_diagnostics::ontology::MetaOntology::descriptor(),
+        crate::formal::meta::artifact_identity::ontology::ArtifactIdentityOntology::vocabulary(),
+        crate::formal::meta::staging::ontology::StagingOntology::vocabulary(),
+        crate::formal::meta::ontology_diagnostics::ontology::MetaOntology::vocabulary(),
         // =================================================================
         // Formal — Information (macro-generated)
         // =================================================================
-        crate::formal::information::ontology::InformationOntology::descriptor(),
-        crate::formal::information::communication::ontology::CommunicationOntology::descriptor(),
-        crate::formal::information::dialogue::ontology::DialogueOntology::descriptor(),
-        crate::formal::information::events::ontology::EventOntology::descriptor(),
-        crate::formal::information::concurrency::ontology::ConcurrencyOntology::descriptor(),
-        crate::formal::information::provenance::ontology::ProvenanceOntology::descriptor(),
-        crate::formal::information::knowledge::ontology::KnowledgeOntology::descriptor(),
-        crate::formal::information::diagnostics::ontology::DiagnosticOntology::descriptor(),
-        crate::formal::information::measurement::ontology::MeasurementOntology::descriptor(),
-        crate::formal::information::schema::ontology::SchemaOntology::descriptor(),
-        crate::formal::information::storage::ontology::StorageOntology::descriptor(),
+        crate::formal::information::ontology::InformationOntology::vocabulary(),
+        crate::formal::information::communication::ontology::CommunicationOntology::vocabulary(),
+        crate::formal::information::dialogue::ontology::DialogueOntology::vocabulary(),
+        crate::formal::information::events::ontology::EventOntology::vocabulary(),
+        crate::formal::information::concurrency::ontology::ConcurrencyOntology::vocabulary(),
+        crate::formal::information::provenance::ontology::ProvenanceOntology::vocabulary(),
+        crate::formal::information::knowledge::ontology::KnowledgeOntology::vocabulary(),
+        crate::formal::information::diagnostics::ontology::DiagnosticOntology::vocabulary(),
+        crate::formal::information::measurement::ontology::MeasurementOntology::vocabulary(),
+        crate::formal::information::schema::ontology::SchemaOntology::vocabulary(),
+        crate::formal::information::storage::ontology::StorageOntology::vocabulary(),
         // =================================================================
         // Formal — Systems (macro-generated)
         // =================================================================
-        crate::formal::systems::ontology::SystemsOntology::descriptor(),
-        crate::formal::systems::control::ControlOntology::descriptor(),
+        crate::formal::systems::ontology::SystemsOntology::vocabulary(),
+        crate::formal::systems::control::ControlOntology::vocabulary(),
         // =================================================================
         // Formal — Other (macro-generated)
         // =================================================================
-        crate::formal::analytical_methods::ontology::AnalyticalMethodsOntology::descriptor(),
-        crate::formal::derivation::ontology::DerivationOntology::descriptor(),
-        crate::formal::optimization::ontology::OptimizationOntology::descriptor(),
-        crate::formal::recommendation::ontology::RecommendationOntology::descriptor(),
+        crate::formal::analytical_methods::ontology::AnalyticalMethodsOntology::vocabulary(),
+        crate::formal::derivation::ontology::DerivationOntology::vocabulary(),
+        crate::formal::optimization::ontology::OptimizationOntology::vocabulary(),
+        crate::formal::recommendation::ontology::RecommendationOntology::vocabulary(),
         // =================================================================
         // Applied — Data Provisioning (macro-generated)
         // =================================================================
-        crate::applied::data_provisioning::ontology::DataProvisioningOntology::descriptor(),
+        crate::applied::data_provisioning::ontology::DataProvisioningOntology::vocabulary(),
         // =================================================================
         // Applied — HMI (manual)
         // =================================================================
@@ -94,51 +94,51 @@ fn build_descriptors() -> Vec<OntologyDescriptor> {
         // =================================================================
         // Applied — Navigation (macro-generated)
         // =================================================================
-        crate::applied::navigation::ahrs::ontology::AhrsOntology::descriptor(),
-        crate::applied::navigation::celestial::ontology::CelestialOntology::descriptor(),
-        crate::applied::navigation::gnss::ontology::GnssOntology::descriptor(),
-        crate::applied::navigation::imu::ontology::ImuOntology::descriptor(),
-        crate::applied::navigation::ins_gnss::ontology::InsGnssOntology::descriptor(),
-        crate::applied::navigation::odometry::ontology::OdometryOntology::descriptor(),
+        crate::applied::navigation::ahrs::ontology::AhrsOntology::vocabulary(),
+        crate::applied::navigation::celestial::ontology::CelestialOntology::vocabulary(),
+        crate::applied::navigation::gnss::ontology::GnssOntology::vocabulary(),
+        crate::applied::navigation::imu::ontology::ImuOntology::vocabulary(),
+        crate::applied::navigation::ins_gnss::ontology::InsGnssOntology::vocabulary(),
+        crate::applied::navigation::odometry::ontology::OdometryOntology::vocabulary(),
         // =================================================================
         // Applied — Sensor Fusion (macro-generated)
         // =================================================================
-        crate::applied::sensor_fusion::fusion::ontology::FusionOntology::descriptor(),
-        crate::applied::sensor_fusion::observation::ontology::ObservationOntology::descriptor(),
-        crate::applied::sensor_fusion::sensor::ontology::SensorOntology::descriptor(),
-        crate::applied::sensor_fusion::state::ontology::StateEstimationOntology::descriptor(),
-        crate::applied::sensor_fusion::time::ontology::SensorTimeOntology::descriptor(),
+        crate::applied::sensor_fusion::fusion::ontology::FusionOntology::vocabulary(),
+        crate::applied::sensor_fusion::observation::ontology::ObservationOntology::vocabulary(),
+        crate::applied::sensor_fusion::sensor::ontology::SensorOntology::vocabulary(),
+        crate::applied::sensor_fusion::state::ontology::StateEstimationOntology::vocabulary(),
+        crate::applied::sensor_fusion::time::ontology::SensorTimeOntology::vocabulary(),
         // =================================================================
         // Applied — Space (macro-generated)
         // =================================================================
-        crate::applied::space::attitude::ontology::AttitudeOntology::descriptor(),
-        crate::applied::space::orbit::ontology::OrbitOntology::descriptor(),
+        crate::applied::space::attitude::ontology::AttitudeOntology::vocabulary(),
+        crate::applied::space::orbit::ontology::OrbitOntology::vocabulary(),
         // =================================================================
         // Applied — Tracking (macro-generated)
         // =================================================================
-        crate::applied::tracking::single_target::ontology::SingleTargetOntology::descriptor(),
+        crate::applied::tracking::single_target::ontology::SingleTargetOntology::vocabulary(),
         // =================================================================
         // Applied — Underwater (macro-generated)
         // =================================================================
-        crate::applied::underwater::acoustic::ontology::AcousticOntology::descriptor(),
-        crate::applied::underwater::auv::ontology::AuvOntology::descriptor(),
+        crate::applied::underwater::acoustic::ontology::AcousticOntology::vocabulary(),
+        crate::applied::underwater::auv::ontology::AuvOntology::vocabulary(),
         // =================================================================
         // Applied — Industrial (macro-generated)
         // =================================================================
-        crate::applied::industrial::process::ontology::ProcessOntology::descriptor(),
-        crate::applied::industrial::structural::ontology::StructuralOntology::descriptor(),
+        crate::applied::industrial::process::ontology::ProcessOntology::vocabulary(),
+        crate::applied::industrial::structural::ontology::StructuralOntology::vocabulary(),
         // =================================================================
         // Applied — Localization (macro-generated)
         // =================================================================
-        crate::applied::localization::terrain::ontology::TerrainOntology::descriptor(),
+        crate::applied::localization::terrain::ontology::TerrainOntology::vocabulary(),
         // =================================================================
         // Applied — Perception (macro-generated)
         // =================================================================
-        crate::applied::perception::occupancy::ontology::OccupancyOntology::descriptor(),
+        crate::applied::perception::occupancy::ontology::OccupancyOntology::vocabulary(),
         // =================================================================
         // Applied — Hardware (mixed: define_ontology! + manual)
         // =================================================================
-        crate::applied::hardware::traffic::ontology::TrafficOntology::descriptor(),
+        crate::applied::hardware::traffic::ontology::TrafficOntology::vocabulary(),
         manual::<
             crate::applied::hardware::elevator::ontology::ElevatorCategory,
             crate::applied::hardware::elevator::ontology::Floor,
@@ -146,51 +146,51 @@ fn build_descriptors() -> Vec<OntologyDescriptor> {
         // =================================================================
         // Natural — Physics (macro-generated)
         // =================================================================
-        crate::natural::physics::ontology::PhysicsOntology::descriptor(),
-        crate::natural::physics::kinematics::ontology::KinematicsOntology::descriptor(),
+        crate::natural::physics::ontology::PhysicsOntology::vocabulary(),
+        crate::natural::physics::kinematics::ontology::KinematicsOntology::vocabulary(),
         // =================================================================
         // Natural — Geodesy (macro-generated)
         // =================================================================
-        crate::natural::geodesy::ontology::GeodesyOntology::descriptor(),
+        crate::natural::geodesy::ontology::GeodesyOntology::vocabulary(),
         // =================================================================
         // Natural — Colors (macro-generated)
         // =================================================================
-        crate::natural::colors::ontology::ColorOntology::descriptor(),
+        crate::natural::colors::ontology::ColorOntology::vocabulary(),
         // =================================================================
         // Natural — Biomedical (macro-generated)
         // =================================================================
-        crate::natural::biomedical::acoustics::ontology::AcousticsOntologyMeta::descriptor(),
-        crate::natural::biomedical::biochemistry::ontology::BiochemistryOntologyMeta::descriptor(),
-        crate::natural::biomedical::bioelectricity::ontology::BioelectricOntologyMeta::descriptor(),
-        crate::natural::biomedical::bioelectricity::morphospace::MorphospaceOntologyMeta::descriptor(),
-        crate::natural::biomedical::biology::ontology::BiologyOntologyMeta::descriptor(),
-        crate::natural::biomedical::biophysics::ontology::BiophysicsOntologyMeta::descriptor(),
-        crate::natural::biomedical::chemistry::ontology::ChemistryOntologyMeta::descriptor(),
-        crate::natural::biomedical::electrophysiology::ontology::ElectrophysiologyOntologyMeta::descriptor(),
-        crate::natural::biomedical::hematology::ontology::HematologyOntologyMeta::descriptor(),
-        crate::natural::biomedical::immunology::ontology::ImmunologyOntologyMeta::descriptor(),
-        crate::natural::biomedical::mechanobiology::ontology::MechanobiologyOntologyMeta::descriptor(),
-        crate::natural::biomedical::molecular::ontology::MolecularOntologyMeta::descriptor(),
-        crate::natural::biomedical::pathology::ontology::PathologyOntologyMeta::descriptor(),
-        crate::natural::biomedical::pharmacology::ontology::PharmacologyOntologyMeta::descriptor(),
-        crate::natural::biomedical::regeneration::ontology::RegenerationOntologyMeta::descriptor(),
+        crate::natural::biomedical::acoustics::ontology::AcousticsOntologyMeta::vocabulary(),
+        crate::natural::biomedical::biochemistry::ontology::BiochemistryOntologyMeta::vocabulary(),
+        crate::natural::biomedical::bioelectricity::ontology::BioelectricOntologyMeta::vocabulary(),
+        crate::natural::biomedical::bioelectricity::morphospace::MorphospaceOntologyMeta::vocabulary(),
+        crate::natural::biomedical::biology::ontology::BiologyOntologyMeta::vocabulary(),
+        crate::natural::biomedical::biophysics::ontology::BiophysicsOntologyMeta::vocabulary(),
+        crate::natural::biomedical::chemistry::ontology::ChemistryOntologyMeta::vocabulary(),
+        crate::natural::biomedical::electrophysiology::ontology::ElectrophysiologyOntologyMeta::vocabulary(),
+        crate::natural::biomedical::hematology::ontology::HematologyOntologyMeta::vocabulary(),
+        crate::natural::biomedical::immunology::ontology::ImmunologyOntologyMeta::vocabulary(),
+        crate::natural::biomedical::mechanobiology::ontology::MechanobiologyOntologyMeta::vocabulary(),
+        crate::natural::biomedical::molecular::ontology::MolecularOntologyMeta::vocabulary(),
+        crate::natural::biomedical::pathology::ontology::PathologyOntologyMeta::vocabulary(),
+        crate::natural::biomedical::pharmacology::ontology::PharmacologyOntologyMeta::vocabulary(),
+        crate::natural::biomedical::regeneration::ontology::RegenerationOntologyMeta::vocabulary(),
         // =================================================================
         // Natural — Hearing (macro-generated)
         // =================================================================
-        crate::natural::hearing::acoustics::ontology::AcousticsOntology::descriptor(),
-        crate::natural::hearing::anatomy::ontology::AnatomyOntology::descriptor(),
-        crate::natural::hearing::audiology::ontology::AudiologyOntology::descriptor(),
-        crate::natural::hearing::auditory_neuroscience::ontology::NeuroscienceOntology::descriptor(),
-        crate::natural::hearing::bone_conduction::ontology::BoneConductionOntology::descriptor(),
-        crate::natural::hearing::devices::ontology::DeviceOntology::descriptor(),
-        crate::natural::hearing::environmental_acoustics::ontology::EnvironmentalAcousticsOntology::descriptor(),
-        crate::natural::hearing::music_perception::ontology::MusicPerceptionOntology::descriptor(),
-        crate::natural::hearing::pathology::ontology::PathologyOntology::descriptor(),
-        crate::natural::hearing::psychoacoustics::ontology::PsychoacousticsOntology::descriptor(),
-        crate::natural::hearing::signal_processing::ontology::SignalProcessingOntology::descriptor(),
-        crate::natural::hearing::speech::ontology::SpeechOntology::descriptor(),
-        crate::natural::hearing::transduction::ontology::TransductionOntology::descriptor(),
-        crate::natural::hearing::vestibular::ontology::VestibularOntology::descriptor(),
+        crate::natural::hearing::acoustics::ontology::AcousticsOntology::vocabulary(),
+        crate::natural::hearing::anatomy::ontology::AnatomyOntology::vocabulary(),
+        crate::natural::hearing::audiology::ontology::AudiologyOntology::vocabulary(),
+        crate::natural::hearing::auditory_neuroscience::ontology::NeuroscienceOntology::vocabulary(),
+        crate::natural::hearing::bone_conduction::ontology::BoneConductionOntology::vocabulary(),
+        crate::natural::hearing::devices::ontology::DeviceOntology::vocabulary(),
+        crate::natural::hearing::environmental_acoustics::ontology::EnvironmentalAcousticsOntology::vocabulary(),
+        crate::natural::hearing::music_perception::ontology::MusicPerceptionOntology::vocabulary(),
+        crate::natural::hearing::pathology::ontology::PathologyOntology::vocabulary(),
+        crate::natural::hearing::psychoacoustics::ontology::PsychoacousticsOntology::vocabulary(),
+        crate::natural::hearing::signal_processing::ontology::SignalProcessingOntology::vocabulary(),
+        crate::natural::hearing::speech::ontology::SpeechOntology::vocabulary(),
+        crate::natural::hearing::transduction::ontology::TransductionOntology::vocabulary(),
+        crate::natural::hearing::vestibular::ontology::VestibularOntology::vocabulary(),
         // =================================================================
         // Social — Games (manual)
         // =================================================================
@@ -212,7 +212,7 @@ fn build_descriptors() -> Vec<OntologyDescriptor> {
         // =================================================================
         // Social — Military (macro-generated)
         // =================================================================
-        crate::social::military::electronic_warfare::ontology::EwOntology::descriptor(),
+        crate::social::military::electronic_warfare::ontology::EwOntology::vocabulary(),
         // =================================================================
         // Social — Software (manual)
         // =================================================================
@@ -239,11 +239,11 @@ fn build_descriptors() -> Vec<OntologyDescriptor> {
         // =================================================================
         // New this session — Lemon, OMV, NL ontologies
         // =================================================================
-        crate::cognitive::linguistics::lemon::ontology::LemonOntology::descriptor(),
-        crate::formal::meta::omv::ontology::OmvOntology::descriptor(),
-        crate::cognitive::linguistics::pragmatics::discourse::ontology::DiscourseOntology::descriptor(),
-        crate::cognitive::linguistics::pragmatics::grounding::ontology::GroundingOntology::descriptor(),
-        crate::cognitive::linguistics::pragmatics::fragment::ontology::FragmentOntology::descriptor(),
+        crate::cognitive::linguistics::lemon::ontology::LemonOntology::vocabulary(),
+        crate::formal::meta::omv::ontology::OmvOntology::vocabulary(),
+        crate::cognitive::linguistics::pragmatics::discourse::ontology::DiscourseOntology::vocabulary(),
+        crate::cognitive::linguistics::pragmatics::grounding::ontology::GroundingOntology::vocabulary(),
+        crate::cognitive::linguistics::pragmatics::fragment::ontology::FragmentOntology::vocabulary(),
         // =================================================================
         // Sub-ontologies (define_category! — not yet migrated to define_ontology!)
         // =================================================================
@@ -282,12 +282,12 @@ fn build_descriptors() -> Vec<OntologyDescriptor> {
         // =================================================================
         // Session ontologies — consciousness, pipeline, planning, text, algebra
         // =================================================================
-        crate::cognitive::cognition::consciousness::ontology::C1Ontology::descriptor(),
-        crate::cognitive::cognition::consciousness::ontology::C2Ontology::descriptor(),
-        crate::cognitive::linguistics::pipeline::ontology::PipelineOntology::descriptor(),
-        crate::cognitive::linguistics::pragmatics::planning::ontology::PlanningOntology::descriptor(),
-        crate::cognitive::linguistics::text::ontology::TextOntology::descriptor(),
-        crate::formal::meta::algebra::ontology::AlgebraOntology::descriptor(),
+        crate::cognitive::cognition::consciousness::ontology::C1Ontology::vocabulary(),
+        crate::cognitive::cognition::consciousness::ontology::C2Ontology::vocabulary(),
+        crate::cognitive::linguistics::pipeline::ontology::PipelineOntology::vocabulary(),
+        crate::cognitive::linguistics::pragmatics::planning::ontology::PlanningOntology::vocabulary(),
+        crate::cognitive::linguistics::text::ontology::TextOntology::vocabulary(),
+        crate::formal::meta::algebra::ontology::AlgebraOntology::vocabulary(),
         // =================================================================
         // Pre-existing unregistered — manual Category impls
         // =================================================================
@@ -327,6 +327,6 @@ fn manual<C: pr4xis::category::Category, E: pr4xis::category::entity::Entity>(
     module_path: &'static str,
     source: &'static str,
     being: Being,
-) -> OntologyDescriptor {
-    OntologyDescriptor::manual::<C, E>(name, module_path, source, Some(being))
+) -> Vocabulary {
+    Vocabulary::from_ontology::<C, E>(name, module_path, source, Some(being))
 }

@@ -30,7 +30,7 @@ pub trait Entity: Sized + Clone + Eq + Hash + Debug + 'static {
 /// descriptions are metadata ABOUT the entity, not behavior OF it.
 ///
 /// The derive macro generates a const `<TypeName>_META: &[EntityMeta]`
-/// for each entity enum. The descriptor system reads it.
+/// for each entity enum. The vocabulary system reads it.
 #[derive(Debug, Clone)]
 pub struct EntityMeta {
     pub name: &'static str,

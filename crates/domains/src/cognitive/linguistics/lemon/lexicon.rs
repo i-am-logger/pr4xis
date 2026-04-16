@@ -96,7 +96,7 @@ impl Lexicon {
     }
 
     /// The label for an ontology concept — the canonical form of its entry.
-    /// This IS what replaces OntologyDescriptor.name() and Axiom.description().
+    /// This IS what replaces Vocabulary.name() and Axiom.description().
     pub fn label_for(&self, ontology: &str, concept: &str) -> Option<&str> {
         self.entries_for_concept(ontology, concept)
             .first()

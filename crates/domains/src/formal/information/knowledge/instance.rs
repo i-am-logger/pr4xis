@@ -1,6 +1,6 @@
 use crate::cognitive::cognition::self_model::AwarenessLevel;
 use crate::formal::information::schema::transport::{Present, Presentation, SchemaValue};
-use pr4xis::ontology::OntologyDescriptor;
+use pr4xis::ontology::Vocabulary;
 
 // SelfModelInstance — runtime eigenform of the SelfModel ontology.
 //
@@ -14,14 +14,14 @@ pub struct SelfModelInstance {
     pub name: &'static str,
     pub version: &'static str,
     pub awareness: AwarenessLevel,
-    pub components: Vec<OntologyDescriptor>,
+    pub components: Vec<Vocabulary>,
     pub total_concepts: usize,
     pub total_morphisms: usize,
 }
 
 impl SelfModelInstance {
     /// The self-observation operator F. X = F(X).
-    pub fn observe(components: Vec<OntologyDescriptor>) -> Self {
+    pub fn observe(components: Vec<Vocabulary>) -> Self {
         let total_concepts = components.iter().map(|v| v.concept_count).sum();
         let total_morphisms = components.iter().map(|v| v.morphism_count).sum();
         Self {
@@ -76,7 +76,7 @@ impl Present for SelfModelInstance {
                     "being",
                     SchemaValue::Text(v.being.map_or("Unknown", |b| b.label()).into()),
                 );
-                ont.set("source", SchemaValue::Text(v.source.0.value.into()));
+                ont.set("source", SchemaValue::Text(v.source.into()));
                 ont.set("concepts", SchemaValue::Unsigned(v.concept_count as u64));
                 ont.set("morphisms", SchemaValue::Unsigned(v.morphism_count as u64));
                 SchemaValue::Record(ont)

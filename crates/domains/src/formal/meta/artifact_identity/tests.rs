@@ -34,10 +34,10 @@ fn ontology_validates() {
 
 #[test]
 fn descriptor_from_macro() {
-    let d = ArtifactIdentityOntology::descriptor();
+    let d = ArtifactIdentityOntology::vocabulary();
     assert_eq!(d.name(), "ArtifactIdentityOntology");
     assert!(d.module_path.contains("artifact_identity"));
-    assert_eq!(d.source.0.value, "Dolstra (2006); Wilkinson FAIR F1 (2016)");
+    assert_eq!(d.source, "Dolstra (2006); Wilkinson FAIR F1 (2016)");
     assert_eq!(
         d.being,
         Some(pr4xis::ontology::upper::being::Being::AbstractObject)

@@ -29,7 +29,7 @@
 ///
 /// `being:` classifies per DOLCE (Masolo et al., WonderWeb D18, 2003).
 /// `source:` captures the primary citation.
-/// Both are optional. When present, they flow into `fn descriptor()`.
+/// Both are optional. When present, they flow into `fn vocabulary()`.
 #[macro_export]
 macro_rules! define_ontology {
     // =========================================================================
@@ -182,7 +182,7 @@ macro_rules! define_ontology {
     };
 
     // =========================================================================
-    // Internal: generate reasoning systems + structural axioms + meta + descriptor
+    // Internal: generate reasoning systems + structural axioms + meta + vocabulary
     // =========================================================================
     (@reasoning $ont_name:ident, $cat_name:ident, $entity:ident,
         $(being: $being:ident,)?
@@ -312,10 +312,9 @@ macro_rules! define_ontology {
                 }
             }
 
-            /// Runtime descriptor — instance of Knowledge::Vocabulary.
-            /// Computed from actual Category/Entity impls (eigenform).
+            /// Runtime Vocabulary — instance of Knowledge::Vocabulary (VoID).
             #[allow(dead_code, unused_assignments)]
-            pub fn descriptor() -> $crate::ontology::OntologyDescriptor {
+            pub fn vocabulary() -> $crate::ontology::Vocabulary {
                 let mut _being: Option<$crate::ontology::upper::being::Being> = None;
                 $(
                     _being = Some($crate::ontology::upper::being::Being::$being);
@@ -324,18 +323,11 @@ macro_rules! define_ontology {
                 $(
                     _source = $source;
                 )?
-                $crate::ontology::OntologyDescriptor {
-                    label: $crate::ontology::Label(
-                        $crate::ontology::Annotation::new(stringify!($ont_name))
-                    ),
-                    description: $crate::ontology::Description(
-                        $crate::ontology::Annotation::new("")
-                    ),
-                    source: $crate::ontology::Citation(
-                        $crate::ontology::Annotation::new(_source)
-                    ),
-                    being: _being,
+                $crate::ontology::Vocabulary {
+                    ontology_name: stringify!($ont_name),
                     module_path: module_path!(),
+                    source: _source,
+                    being: _being,
                     concept_count: <$entity as $crate::category::entity::Entity>::variants().len(),
                     morphism_count: <$cat_name as $crate::category::Category>::morphisms().len(),
                 }

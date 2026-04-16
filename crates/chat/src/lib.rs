@@ -1,6 +1,6 @@
 use pr4xis::category::{Ap, NonEmpty, Product, Writer};
-use pr4xis::ontology::OntologyDescriptor;
 pub use pr4xis::ontology::OntologyMeta;
+use pr4xis::ontology::Vocabulary;
 use pr4xis::ontology::upper::being::Being;
 use pr4xis_domains::cognitive::cognition::epistemics;
 use pr4xis_domains::cognitive::linguistics::english::English;
@@ -754,9 +754,9 @@ impl WasmSafeTimer {
 // =========================================================================
 
 /// All loaded ontologies including language-specific runtime data.
-pub fn loaded_ontologies(_lang: &English) -> Vec<OntologyDescriptor> {
+pub fn loaded_ontologies(_lang: &English) -> Vec<Vocabulary> {
     let mut ontologies = describe_knowledge_base();
-    ontologies.push(OntologyDescriptor::manual::<
+    ontologies.push(Vocabulary::from_ontology::<
         pr4xis_domains::cognitive::linguistics::lexicon::ontology::LexicalCategory,
         pr4xis_domains::cognitive::linguistics::lexicon::pos::PosTag,
     >(
