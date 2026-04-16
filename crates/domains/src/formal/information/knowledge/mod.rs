@@ -1,5 +1,6 @@
 pub mod descriptor;
 pub mod instance;
+pub mod lemon_functor;
 pub mod ontology;
 
 pub use descriptor::describe_knowledge_base;
