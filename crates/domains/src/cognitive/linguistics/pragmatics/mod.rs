@@ -4,6 +4,7 @@ pub mod fragment;
 pub mod generation;
 pub mod grounding;
 pub mod nlg;
+pub mod planning;
 pub mod realize;
 pub mod reference;
 pub mod response;
