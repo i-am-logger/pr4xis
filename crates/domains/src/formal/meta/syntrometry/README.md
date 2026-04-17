@@ -35,13 +35,13 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry
 
 ### Primary: `Syntrometry → Pr4xisSubstrate`
 
-Object-level equivalence. Every Heim concept has a unique pr4xis-substrate target and every substrate primitive has a unique Heim representative.
+13 of 14 concepts round-trip cleanly. `Dialektik` intentionally collapses to `SubCategory` because opposition-structure is carried by the dedicated [Dialectics](../../logic/dialectics/) ontology (Aristotle / Hegel / Marx / Adorno / Priest), not by the core substrate. Reach it via the `SyntrometryToDialectics` cross-functor.
 
 | Syntrometry | Pr4xis substrate |
 |---|---|
 | `Predicate`     | `SubEntity` |
 | `Predikatrix`   | `SubOntology` |
-| `Dialektik`     | `SubOppositionCategory` |
+| `Dialektik`     | `SubCategory` (collapses — handled by Dialectics cross-functor) |
 | `Koordination`  | `SubMorphism` |
 | `Aspekt`        | `SubProductCategory` |
 | `Syntrix`       | `SubCategory` |
@@ -54,7 +54,7 @@ Object-level equivalence. Every Heim concept has a unique pr4xis-substrate targe
 | `Transzendenzstufe` | `SubStagingLevel` |
 | `Metroplex`     | `SubSystemOfSystems` |
 
-Gap analysis: **0% unit loss, 0% counit loss** — verified by `test_syntrometry_substrate_is_object_equivalence`.
+Gap analysis: **~7% unit loss (1/14 — Dialektik), 0% counit loss** — verified by `test_syntrometry_substrate_dialektik_collapses`. The one collapse is intentional and preserved at full resolution by the Dialectics cross-functor.
 
 ### Cross-functors into existing pr4xis ontologies
 
@@ -62,6 +62,7 @@ Each of the five cross-functors below passes `check_functor_laws` and carries it
 
 | Functor | Target | Headline mapping |
 |---|---|---|
+| `Syntrometry → Dialectics` | `formal::logic::dialectics` (Hegel / Aristotle / Priest) | `Dialektik` ↦ `DialecticalMoment`, `Synkolator` ↦ `Sublation`, `Telecenter` ↦ `Synthesis` |
 | `Syntrometry → MetaOntology` | `formal::meta::ontology_diagnostics` | `Synkolator` / `Korporator` ↦ `Functor`, `Maxime` ↦ `PropertyTest` |
 | `Syntrometry → Staging` | `formal::meta::staging` (Futamura 1971) | `Transzendenzstufe` ↦ `Interpreter`, `Metroplex` ↦ `CompilerGenerator` |
 | `Syntrometry → Algebra` | `formal::meta::algebra` (Goguen / Zimmermann) | `Korporator` ↦ `Mapping`, `Aspekt` ↦ `Product`, `Telecenter` ↦ `Pushout` |

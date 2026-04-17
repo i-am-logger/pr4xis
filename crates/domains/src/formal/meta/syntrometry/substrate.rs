@@ -30,10 +30,17 @@ pr4xis::ontology! {
         SubStagingLevel,
         SubSystemOfSystems,
 
-        // Refined sub-kinds of SubCategory / SubMorphism / SubEntity — the
-        // distinctions that give the primary lineage functor object-level
-        // equivalence with Syntrometry.
-        SubOppositionCategory,
+        // Refined sub-kinds of SubCategory / SubMorphism / SubEntity —
+        // each grounded in a literature-named construction (Mac Lane §II.3
+        // product categories, CEM mereology, staging level).
+        //
+        // The former SubOppositionCategory is removed: opposition-structure
+        // is the subject of a dedicated Dialectics ontology (Hegel /
+        // Aristotle / Priest) that the `Syntrometry → Dialectics`
+        // cross-functor maps `Dialektik` into directly. The primary
+        // substrate now leaves `Dialektik` to collapse to `SubCategory`
+        // (≈7% unit loss) — an honest statement that the core substrate
+        // doesn't carry opposition structure; Dialectics does.
         SubProductCategory,
         SubLeveledEntity,
         SubMereologicalMorphism,
@@ -52,7 +59,6 @@ pr4xis::ontology! {
         SubStagingLevel: ("en", "StagingLevel", "A single grade of the Futamura-projection staging hierarchy / C1 vs C2 consciousness split. The transcendence-level primitive."),
         SubSystemOfSystems: ("en", "SystemOfSystems", "The hierarchical composition primitive — what system-of-systems ontologies formalise. Graded composition of sub-systems."),
 
-        SubOppositionCategory: ("en", "OppositionCategory", "A Category whose morphisms carry a binary-opposition structure — the refinement that distinguishes Dialektik from an unstructured Category."),
         SubProductCategory: ("en", "ProductCategory", "A Category that is the product of two or more component categories (Mac Lane Ch. II §3). Receives Heim's Aspekt = [D × K × P]."),
         SubLeveledEntity: ("en", "LeveledEntity", "An Entity that carries a grade/level index within a leveled-category tower. Receives Heim's SyntrixLevel."),
         SubMereologicalMorphism: ("en", "MereologicalMorphism", "A Morphism that additionally satisfies CEM mereological axioms (Weak Supplementation etc.). Receives Heim's Part."),
@@ -63,7 +69,6 @@ pr4xis::ontology! {
         // to Source = Target (Mac Lane Ch. II §1).
         (SubEndofunctor, SubFunctor),
         // Sub-kinds of the core primitives.
-        (SubOppositionCategory, SubCategory),
         (SubProductCategory, SubCategory),
         (SubLeveledEntity, SubEntity),
         (SubMereologicalMorphism, SubMorphism),
@@ -95,7 +100,6 @@ impl Quality for SubstrateLocation {
                 "formal::meta::staging + cognitive::cognition::consciousness (C1/C2)"
             }
             P::SubSystemOfSystems => "system-of-systems composition (tracked as issue #94)",
-            P::SubOppositionCategory => "pr4xis::ontology::reasoning::opposition",
             P::SubProductCategory => "pr4xis::category::monoidal::Product",
             P::SubLeveledEntity => "formal::meta::staging (grade-indexed entities)",
             P::SubMereologicalMorphism => "pr4xis::ontology::reasoning::mereology",

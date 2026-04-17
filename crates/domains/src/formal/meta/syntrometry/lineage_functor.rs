@@ -58,10 +58,14 @@ fn map_concept(c: &SyntrometryConcept) -> Pr4xisSubstrateConcept {
         S::Metroplex => P::SubSystemOfSystems,
         // Refined distinctions — the substrate sub-kinds preserve these
         // without collapsing them to their parent.
-        S::Dialektik => P::SubOppositionCategory,
         S::Aspekt => P::SubProductCategory,
         S::SyntrixLevel => P::SubLeveledEntity,
         S::Part => P::SubMereologicalMorphism,
+        // Dialektik intentionally collapses to the plain SubCategory in
+        // the primary substrate — opposition structure lives in the
+        // dedicated Dialectics ontology, reached via the
+        // `SyntrometryToDialectics` cross-functor.
+        S::Dialektik => P::SubCategory,
     }
 }
 

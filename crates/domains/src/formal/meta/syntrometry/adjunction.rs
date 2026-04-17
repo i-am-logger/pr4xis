@@ -67,13 +67,12 @@ mod tests {
         }
     }
 
-    /// The lineage is an equivalence at the object level.
-    /// Every syntrometric concept has a distinct substrate target and
-    /// round-trips back to itself. The remaining "adjunction" is trivial
-    /// in the Cat-sense but the *content* is the full Heim ↔ pr4xis
-    /// correspondence.
+    /// 13 of the 14 syntrometric concepts round-trip cleanly through the
+    /// substrate. Dialektik intentionally collapses to Syntrix because
+    /// opposition-structure is carried by the dedicated Dialectics
+    /// ontology, not by the core substrate.
     #[test]
-    fn unit_is_an_object_equivalence() {
+    fn unit_collapses_only_dialektik() {
         let collapses: Vec<_> = SyntrometryConcept::variants()
             .into_iter()
             .filter(|obj| {
@@ -81,17 +80,18 @@ mod tests {
                 source != rt
             })
             .collect();
-        assert!(
-            collapses.is_empty(),
-            "lineage must be an equivalence; residual collapses: {:?}",
+        assert_eq!(
+            collapses,
+            vec![SyntrometryConcept::Dialektik],
+            "only Dialektik should collapse (opposition lives in Dialectics); got {:?}",
             collapses
         );
     }
 
-    /// All 14 syntrometric concepts are round-trip fixed points after
-    /// substrate enrichment.
+    /// 13 of the 14 concepts are round-trip fixed points; Dialektik is
+    /// the intentional exception.
     #[test]
-    fn unit_preserves_all_concepts() {
+    fn unit_preserves_thirteen_concepts() {
         let preserved: Vec<_> = SyntrometryConcept::variants()
             .into_iter()
             .filter(|obj| {
@@ -99,12 +99,6 @@ mod tests {
                 source == rt
             })
             .collect();
-        assert_eq!(
-            preserved.len(),
-            SyntrometryConcept::variants().len(),
-            "all {} concepts should be preserved; got {}",
-            SyntrometryConcept::variants().len(),
-            preserved.len()
-        );
+        assert_eq!(preserved.len(), 13);
     }
 }

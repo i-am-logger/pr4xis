@@ -26,6 +26,7 @@ The primary `Syntrometry → Pr4xisSubstrate` functor is an **object-level equiv
 - `Syntrometry → Staging` — Futamura (1971) projection levels
 - `Syntrometry → Algebra` — Goguen/Zimmermann ontology composition primitives
 - `Syntrometry → C1` — Dehaene (2014) Global Workspace Theory; `Maxime` ↦ `Attention`, `Metroplex` ↦ `GlobalWorkspace`. Heim anticipated the attention/workspace split GWT formalises 34 years later.
+- `Syntrometry → Dialectics` — Heim's `Dialektik` ↦ Hegel's `DialecticalMoment`; the opposition-structure primitive routed through the dedicated Dialectics ontology (Aristotle / Hegel / Marx / Adorno / Priest) rather than through an ad-hoc substrate slot.
 - `Distinction → Syntrometry` — Spencer-Brown (1969) → Heim, the historical direction; `ReEntry` ↦ `Synkolator` preserving the self-application edge structure.
 
 Per-functor collapse profiles and gap-analysis numbers live in the [per-ontology README](../../crates/domains/src/formal/meta/syntrometry/README.md).

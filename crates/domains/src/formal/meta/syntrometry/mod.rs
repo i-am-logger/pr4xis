@@ -12,6 +12,7 @@
 pub mod adjunction;
 pub mod algebra_functor;
 pub mod consciousness_functor;
+pub mod dialectics_functor;
 pub mod distinction_functor;
 pub mod lineage_functor;
 pub mod meta_ontology_functor;
