@@ -663,8 +663,7 @@ impl Vocabulary {
     }
 
     /// Typed concept names — calculated each call for static ontologies,
-    /// captured from the instance for runtime ontologies.
-    /// Call `.len()` for the count.
+    /// cloned from the captured list for runtime ontologies.
     pub fn concepts(&self) -> Vec<ConceptName> {
         match &self.source_of_truth {
             Source::Static { concepts, .. } => concepts(),
@@ -672,11 +671,28 @@ impl Vocabulary {
         }
     }
 
-    /// Full morphisms with source/target/kind. Call `.len()` for the count.
+    /// Full morphisms with source/target/kind.
     pub fn morphisms(&self) -> Vec<Morphism> {
         match &self.source_of_truth {
             Source::Static { morphisms, .. } => morphisms(),
             Source::Captured { morphisms, .. } => morphisms.clone(),
+        }
+    }
+
+    /// Non-allocating count of concepts — for hot paths where only the count is needed.
+    /// Captured variant returns the stored length without cloning.
+    pub fn concept_count(&self) -> usize {
+        match &self.source_of_truth {
+            Source::Static { concepts, .. } => concepts().len(),
+            Source::Captured { concepts, .. } => concepts.len(),
+        }
+    }
+
+    /// Non-allocating count of morphisms.
+    pub fn morphism_count(&self) -> usize {
+        match &self.source_of_truth {
+            Source::Static { morphisms, .. } => morphisms().len(),
+            Source::Captured { morphisms, .. } => morphisms.len(),
         }
     }
 
@@ -694,19 +710,36 @@ impl Vocabulary {
             being,
             source_of_truth: Source::Static {
                 concepts: || {
-                    <E as crate::category::entity::Entity>::variants()
+                    use crate::category::Entity;
+                    <E as Entity>::variants()
                         .iter()
-                        .map(|v| ConceptName::new(format!("{v:?}")))
+                        .map(|v| {
+                            let name = v.name();
+                            if name.is_empty() {
+                                // Fallback when derive hasn't set name() — use Debug
+                                ConceptName::new(format!("{v:?}"))
+                            } else {
+                                ConceptName::new(name.to_string())
+                            }
+                        })
                         .collect()
                 },
                 morphisms: || {
-                    use crate::category::Relationship;
+                    use crate::category::{Entity, Relationship};
+                    let name_of = |e: &<C as crate::category::Category>::Object| -> String {
+                        let n = e.name();
+                        if n.is_empty() {
+                            format!("{e:?}")
+                        } else {
+                            n.to_string()
+                        }
+                    };
                     <C as crate::category::Category>::morphisms()
                         .iter()
                         .map(|m| {
                             Morphism::new(
-                                ConceptName::new(format!("{:?}", m.source())),
-                                ConceptName::new(format!("{:?}", m.target())),
+                                ConceptName::new(name_of(&m.source())),
+                                ConceptName::new(name_of(&m.target())),
                                 MorphismKind::Custom(Cow::Owned(format!("{m:?}"))),
                             )
                         })

@@ -218,10 +218,37 @@ impl Parse for OntologyDef {
 pub fn generate(def: OntologyDef) -> TokenStream {
     let pr4xis = crate::pr4xis_crate();
     let name_str = def.name.value();
-    let ont_name = format_ident!("{}Ontology", name_str);
-    let cat_name = format_ident!("{}Category", name_str);
-    let entity_name = format_ident!("{}Concept", name_str);
-    let relation_name = format_ident!("{}Relation", name_str);
+
+    // Validate name forms a valid Rust identifier when suffixed.
+    let make_ident = |suffix: &str| -> Result<Ident, syn::Error> {
+        let candidate = format!("{name_str}{suffix}");
+        syn::parse_str::<Ident>(&candidate).map_err(|_| {
+            syn::Error::new_spanned(
+                &def.name,
+                format!(
+                    "ontology name '{name_str}' must form valid Rust identifiers; \
+                     '{candidate}' is not a valid identifier (only ASCII letters, digits, \
+                     and underscores; cannot start with a digit)"
+                ),
+            )
+        })
+    };
+    let ont_name = match make_ident("Ontology") {
+        Ok(i) => i,
+        Err(e) => return e.to_compile_error(),
+    };
+    let cat_name = match make_ident("Category") {
+        Ok(i) => i,
+        Err(e) => return e.to_compile_error(),
+    };
+    let entity_name = match make_ident("Concept") {
+        Ok(i) => i,
+        Err(e) => return e.to_compile_error(),
+    };
+    let relation_name = match make_ident("Relation") {
+        Ok(i) => i,
+        Err(e) => return e.to_compile_error(),
+    };
 
     let concept_idents = &def.concepts;
     let concept_names: Vec<String> = concept_idents.iter().map(|c| c.to_string()).collect();

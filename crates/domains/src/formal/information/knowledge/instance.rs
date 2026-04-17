@@ -22,8 +22,8 @@ pub struct SelfModelInstance {
 impl SelfModelInstance {
     /// The self-observation operator F. X = F(X).
     pub fn observe(components: Vec<Vocabulary>) -> Self {
-        let total_concepts = components.iter().map(|v| v.concepts().len()).sum();
-        let total_morphisms = components.iter().map(|v| v.morphisms().len()).sum();
+        let total_concepts = components.iter().map(|v| v.concept_count()).sum();
+        let total_morphisms = components.iter().map(|v| v.morphism_count()).sum();
         Self {
             name: "pr4xis",
             version: env!("CARGO_PKG_VERSION"),
@@ -77,10 +77,10 @@ impl Present for SelfModelInstance {
                     SchemaValue::Text(v.being.map_or("Unknown", |b| b.label()).into()),
                 );
                 ont.set("source", SchemaValue::Text(v.source.as_str().to_string()));
-                ont.set("concepts", SchemaValue::Unsigned(v.concepts().len() as u64));
+                ont.set("concepts", SchemaValue::Unsigned(v.concept_count() as u64));
                 ont.set(
                     "morphisms",
-                    SchemaValue::Unsigned(v.morphisms().len() as u64),
+                    SchemaValue::Unsigned(v.morphism_count() as u64),
                 );
                 SchemaValue::Record(ont)
             })

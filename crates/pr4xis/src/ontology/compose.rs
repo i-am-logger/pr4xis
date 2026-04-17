@@ -637,7 +637,9 @@ impl Ontology {
             being: self.being,
             concepts,
             edges,
-            level: self.level + 1,
+            // Modification operations (evolve/without/restrict/rename) preserve
+            // synkolation level — that's reserved for Korporator composition (couple/compose).
+            level: self.level,
             staging: Staging::Composed,
             provenance,
         }
