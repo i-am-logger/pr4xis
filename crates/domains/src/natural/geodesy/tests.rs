@@ -1,4 +1,4 @@
-use pr4xis::category::validate::{check_category_laws, check_functor_laws};
+use pr4xis::category::validate::{check_category_laws, check_endofunctor_laws};
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::natural::geodesy::ontology::*;
@@ -9,8 +9,8 @@ fn geodesy_category_laws() {
 }
 
 #[test]
-fn ned_to_enu_functor_laws() {
-    check_functor_laws::<NedToEnuFunctor>().unwrap();
+fn ned_to_enu_endofunctor_laws() {
+    check_endofunctor_laws::<NedToEnuFunctor>().unwrap();
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use pr4xis::category::{Category, Entity, Functor};
+use pr4xis::category::{Category, Endofunctor, Entity, Functor};
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -84,6 +84,10 @@ impl Functor for NedToEnuFunctor {
             to: Self::map_object(&m.to),
         }
     }
+}
+
+impl Endofunctor for NedToEnuFunctor {
+    type Category = GeodesyCategory;
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ pub mod applicative;
 #[allow(clippy::module_inception)]
 pub mod category;
 pub mod comonad;
+pub mod endofunctor;
 pub mod entity;
 pub mod free;
 pub mod functor;
@@ -32,6 +33,7 @@ pub use algebra::{Algebra, Coalgebra};
 pub use applicative::Ap;
 pub use category::Category;
 pub use comonad::{Cofree, Focused};
+pub use endofunctor::Endofunctor;
 pub use entity::Entity;
 pub use free::Chain;
 pub use functor::Functor;
