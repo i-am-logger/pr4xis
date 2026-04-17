@@ -58,14 +58,14 @@ Heim's syntrometric primitives — `Predicate`, `Predikatrix`, `Dialektik`, `Koo
 
 ### Measured information-loss profile
 
-The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) reports the round-trip collapse:
+The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) reports the round-trip collapse (Phase 1 + Phase 2):
 
 | Direction | Loss | Concepts that collapse |
 |---|---|---|
-| Unit (Syntrometry → Pr4xisSubstrate → Syntrometry) | **40%** | `Dialektik → Syntrix`, `Aspekt → Syntrix`, `SyntrixLevel → Predicate`, `Part → Koordination` |
-| Counit (Pr4xisSubstrate → Syntrometry → Pr4xisSubstrate) | **0%** | none (substrate is closed under the forward map) |
+| Unit (Syntrometry → Pr4xisSubstrate → Syntrometry) | **28.6%** (4/14) | `Dialektik → Syntrix`, `Aspekt → Syntrix`, `SyntrixLevel → Predicate`, `Part → Koordination` |
+| Counit (Pr4xisSubstrate → Syntrometry → Pr4xisSubstrate) | **0%** (0/10) | none (substrate is closed under the forward map) |
 
-The four collapses are the specific distinctions Heim carries that pr4xis's current core substrate does not — actionable Phase 2 targets.
+Phase 2 added the teleological concepts (Telecenter, Maxime, Transzendenzstufe, Metroplex) with matching substrate targets, so all four round-trip cleanly. The four remaining unit collapses are the distinctions Heim carries that pr4xis's core substrate still does not — actionable Phase 3 targets.
 
 ### Phase 1 concept mapping
 

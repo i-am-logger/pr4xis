@@ -44,12 +44,18 @@ fn map_concept(c: &SyntrometryConcept) -> Pr4xisSubstrateConcept {
     use Pr4xisSubstrateConcept as P;
     use SyntrometryConcept as S;
     match c {
+        // Phase 1 mappings.
         S::Predicate | S::SyntrixLevel => P::SubEntity,
         S::Predikatrix => P::SubOntology,
         S::Dialektik | S::Aspekt | S::Syntrix => P::SubCategory,
         S::Koordination | S::Part => P::SubMorphism,
         S::Synkolator => P::SubEndofunctor,
         S::Korporator => P::SubFunctor,
+        // Phase 2 teleological / hierarchical mappings.
+        S::Telecenter => P::SubEigenform,
+        S::Maxime => P::SubIntention,
+        S::Transzendenzstufe => P::SubStagingLevel,
+        S::Metroplex => P::SubSystemOfSystems,
     }
 }
 

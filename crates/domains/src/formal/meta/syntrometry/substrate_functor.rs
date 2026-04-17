@@ -34,12 +34,18 @@ pub fn map_substrate(c: &Pr4xisSubstrateConcept) -> SyntrometryConcept {
     use Pr4xisSubstrateConcept as P;
     use SyntrometryConcept as S;
     match c {
+        // Phase 1 reverse.
         P::SubEntity => S::Predicate,
         P::SubMorphism => S::Koordination,
         P::SubCategory => S::Syntrix,
         P::SubFunctor => S::Korporator,
         P::SubEndofunctor => S::Synkolator,
         P::SubOntology => S::Predikatrix,
+        // Phase 2 reverse.
+        P::SubEigenform => S::Telecenter,
+        P::SubIntention => S::Maxime,
+        P::SubStagingLevel => S::Transzendenzstufe,
+        P::SubSystemOfSystems => S::Metroplex,
     }
 }
 

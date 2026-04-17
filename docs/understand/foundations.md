@@ -20,7 +20,7 @@ The lineage claim is **verified, not asserted**. Heim's syntrometric primitives 
 cargo test -p pr4xis-domains -- formal::meta::syntrometry::lineage_functor::tests::lineage_functor_laws_pass
 ```
 
-The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) measures **40% unit loss** on the round trip — four specific distinctions Heim's vocabulary carries that pr4xis's core substrate does not (`Dialektik`, `Aspekt`, `SyntrixLevel`, `Part`). Those are the first-pass targets of Phase 2.
+The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) measures **28.6% unit loss** on the round trip (Phase 1 + Phase 2) — four specific distinctions Heim's vocabulary carries that pr4xis's core substrate does not (`Dialektik`, `Aspekt`, `SyntrixLevel`, `Part`). Phase 2 added the teleological primitives (Telecenter/Maxime/Transzendenzstufe/Metroplex) with matching substrate targets, so those four round-trip cleanly; the remaining four are actionable Phase 3 targets.
 
 ## Modern Foundations (Section by Section)
 

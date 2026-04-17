@@ -15,12 +15,20 @@ pr4xis::ontology! {
     being: AbstractObject,
 
     concepts: [
+        // Phase 1 — categorical core primitives.
         SubEntity,
         SubMorphism,
         SubCategory,
         SubFunctor,
         SubEndofunctor,
         SubOntology,
+
+        // Phase 2 — architectural primitives already present in pr4xis
+        // elsewhere in the workspace; mirrored here as the functor target.
+        SubEigenform,
+        SubIntention,
+        SubStagingLevel,
+        SubSystemOfSystems,
     ],
 
     labels: {
@@ -30,6 +38,11 @@ pr4xis::ontology! {
         SubFunctor: ("en", "Functor", "The pr4xis::category::Functor trait — a structure-preserving map Source → Target."),
         SubEndofunctor: ("en", "Endofunctor", "The pr4xis::category::Endofunctor trait — a Functor specialised to Source = Target."),
         SubOntology: ("en", "Ontology", "The pr4xis::ontology::Ontology trait — a Category + reasoning systems (taxonomy, mereology, causation, opposition) + axioms."),
+
+        SubEigenform: ("en", "Eigenform", "Von Foerster's X = F(X) — a fixed-point / goal-attractor in the substrate. Maps to the self_model ontology's eigenform + any CommunicativeGoal / Colimit construction."),
+        SubIntention: ("en", "Intention", "The BDI (Bratman 1987) commitment-to-plan + the C1 attention selection (Dehaene GWT). The extremal-selection primitive in the substrate."),
+        SubStagingLevel: ("en", "StagingLevel", "A single grade of the Futamura-projection staging hierarchy / C1 vs C2 consciousness split. The transcendence-level primitive."),
+        SubSystemOfSystems: ("en", "SystemOfSystems", "The hierarchical composition primitive — what system-of-systems ontologies formalise. Graded composition of sub-systems."),
     },
 
     is_a: [
@@ -56,6 +69,14 @@ impl Quality for SubstrateLocation {
             P::SubFunctor => "pr4xis::category::functor",
             P::SubEndofunctor => "pr4xis::category::endofunctor",
             P::SubOntology => "pr4xis::ontology",
+            P::SubEigenform => "cognitive::cognition::self_model (+ algebra::Colimit)",
+            P::SubIntention => {
+                "cognitive::linguistics::pragmatics + cognitive::cognition::consciousness (C1)"
+            }
+            P::SubStagingLevel => {
+                "formal::meta::staging + cognitive::cognition::consciousness (C1/C2)"
+            }
+            P::SubSystemOfSystems => "system-of-systems composition (tracked as issue #94)",
         })
     }
 }

@@ -109,9 +109,10 @@ proptest! {
         prop_assert!(SyntrometryConcept::variants().contains(&rt));
     }
 
-    /// The six canonical concepts — Predicate, Koordination, Syntrix,
-    /// Korporator, Synkolator, Predikatrix — are fixed points of the
-    /// round-trip. Sampling any one must reproduce it.
+    /// The ten canonical concepts — Phase 1's six (Predicate, Koordination,
+    /// Syntrix, Korporator, Synkolator, Predikatrix) plus Phase 2's four
+    /// (Telecenter, Maxime, Transzendenzstufe, Metroplex) — are fixed
+    /// points of the round-trip. Sampling any one must reproduce it.
     #[test]
     fn canonical_concepts_are_round_trip_fixed_points(c in prop_oneof![
         Just(SyntrometryConcept::Predicate),
@@ -120,6 +121,10 @@ proptest! {
         Just(SyntrometryConcept::Korporator),
         Just(SyntrometryConcept::Synkolator),
         Just(SyntrometryConcept::Predikatrix),
+        Just(SyntrometryConcept::Telecenter),
+        Just(SyntrometryConcept::Maxime),
+        Just(SyntrometryConcept::Transzendenzstufe),
+        Just(SyntrometryConcept::Metroplex),
     ]) {
         let (source, rt) = unit_pair(&c);
         prop_assert_eq!(source, rt);
