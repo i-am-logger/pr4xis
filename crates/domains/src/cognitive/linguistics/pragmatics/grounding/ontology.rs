@@ -1,132 +1,107 @@
-// Conversation Grounding — how participants establish mutual understanding.
-//
-// Grounding is the process by which conversational participants ensure
-// their contributions are understood. Every utterance must be grounded
-// before the conversation can advance — this is what distinguishes
-// dialogue from monologue.
-//
-// Clark & Schaefer (1989): contributions have two phases — presentation
-// and acceptance. The contribution is grounded when accepted.
-//
-// Clark "Using Language" (1996): grounding is a joint activity with
-// grounding criteria (evidence of understanding) that vary by medium.
-//
-// Traum (1994): computational grounding acts — acknowledge, continue,
-// initiate, repair, request clarification.
-//
-// Ginzburg "The Interactive Stance" (2012) KoS: information states,
-// dialogue gameboards, QUD (Questions Under Discussion) stack.
+//! Conversation Grounding — how participants establish mutual understanding.
+//!
+//! Grounding is the process by which conversational participants ensure
+//! their contributions are understood. Every utterance must be grounded
+//! before the conversation can advance — this is what distinguishes
+//! dialogue from monologue.
+//!
+//! Clark & Schaefer (1989): contributions have two phases — presentation
+//! and acceptance. The contribution is grounded when accepted.
+//!
+//! Clark "Using Language" (1996): grounding is a joint activity with
+//! grounding criteria (evidence of understanding) that vary by medium.
+//!
+//! Traum (1994): computational grounding acts — acknowledge, continue,
+//! initiate, repair, request clarification.
+//!
+//! Ginzburg "The Interactive Stance" (2012) KoS: information states,
+//! dialogue gameboards, QUD (Questions Under Discussion) stack.
 
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Concepts in the Conversation Grounding ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum GroundingConcept {
-    // === Clark & Schaefer (1989) contribution model ===
-    /// Shared knowledge/beliefs between participants (Stalnaker 2002).
-    CommonGround,
-    /// The process of establishing mutual understanding.
-    Grounding,
-    /// An act that advances or maintains the grounding process.
-    GroundingAct,
-    /// Phase 1: speaker presents new content.
-    Presentation,
-    /// Phase 2: addressee signals understanding.
-    Acceptance,
-    /// A unit of discourse that has been jointly accepted.
-    Contribution,
+pr4xis::ontology! {
+    name: "Grounding",
+    source: "Clark & Schaefer (1989); Clark (1996); Traum (1994); Ginzburg (2012)",
+    being: Process,
 
-    // === Traum (1994) grounding acts ===
-    /// Explicit signal of understanding (nod, "uh-huh", paraphrase).
-    Acknowledgment,
-    /// Implicit grounding by continuing the conversation.
-    Continuation,
-    /// Starting a new contribution.
-    Initiation,
-    /// Third-party or self-repair of a misunderstanding.
-    Repair,
-    /// Requesting clarification of a previous utterance.
-    ClarificationRequest,
+    concepts: [
+        CommonGround,
+        Grounding,
+        GroundingAct,
+        Presentation,
+        Acceptance,
+        Contribution,
+        Acknowledgment,
+        Continuation,
+        Initiation,
+        Repair,
+        ClarificationRequest,
+        GroundingCriterion,
+        Evidence,
+        InfoState,
+        DialogueGameBoard,
+        LatestMove,
+        Pending,
+        MaxQUD,
+        Commitment,
+    ],
 
-    // === Clark (1996) grounding criteria ===
-    /// The standard of evidence required for grounding.
-    GroundingCriterion,
-    /// Evidence that the addressee understood (verbal, gestural, etc.).
-    Evidence,
+    labels: {
+        CommonGround: ("en", "Common ground", "Shared knowledge/beliefs between participants (Stalnaker 2002)."),
+        Grounding: ("en", "Grounding", "The process of establishing mutual understanding."),
+        GroundingAct: ("en", "Grounding act", "An act that advances or maintains the grounding process."),
+        Presentation: ("en", "Presentation", "Phase 1: speaker presents new content."),
+        Acceptance: ("en", "Acceptance", "Phase 2: addressee signals understanding."),
+        Contribution: ("en", "Contribution", "A unit of discourse that has been jointly accepted."),
+        Acknowledgment: ("en", "Acknowledgment", "Explicit signal of understanding (nod, 'uh-huh', paraphrase)."),
+        Continuation: ("en", "Continuation", "Implicit grounding by continuing the conversation."),
+        Initiation: ("en", "Initiation", "Starting a new contribution."),
+        Repair: ("en", "Repair", "Third-party or self-repair of a misunderstanding."),
+        ClarificationRequest: ("en", "Clarification request", "Requesting clarification of a previous utterance."),
+        GroundingCriterion: ("en", "Grounding criterion", "The standard of evidence required for grounding."),
+        Evidence: ("en", "Evidence", "Evidence that the addressee understood (verbal, gestural, etc.)."),
+        InfoState: ("en", "Info state", "The participant's private + shared information state."),
+        DialogueGameBoard: ("en", "Dialogue game board", "The public record of the dialogue state (QUD, moves, commitments)."),
+        LatestMove: ("en", "Latest move", "The most recent move in the dialogue."),
+        Pending: ("en", "Pending", "Content awaiting grounding (not yet integrated into common ground)."),
+        MaxQUD: ("en", "Max QUD", "The current Question Under Discussion driving the dialogue."),
+        Commitment: ("en", "Commitment", "A participant's commitment to a proposition."),
+    },
 
-    // === Ginzburg (2012) KoS framework ===
-    /// The participant's private + shared information state.
-    InfoState,
-    /// The public record of the dialogue state (QUD, moves, commitments).
-    DialogueGameBoard,
-    /// The most recent move in the dialogue.
-    LatestMove,
-    /// Content awaiting grounding (not yet integrated into common ground).
-    Pending,
-    /// The current Question Under Discussion driving the dialogue.
-    MaxQUD,
-    /// A participant's commitment to a proposition.
-    Commitment,
-}
+    is_a: [
+        (Acknowledgment, GroundingAct),
+        (Continuation, GroundingAct),
+        (Initiation, GroundingAct),
+        (Repair, GroundingAct),
+        (ClarificationRequest, GroundingAct),
+        (Presentation, Grounding),
+        (Acceptance, Grounding),
+        (GroundingCriterion, Grounding),
+        (Evidence, Grounding),
+    ],
 
-define_ontology! {
-    /// Conversation Grounding — mutual understanding in dialogue.
-    pub GroundingOntology for GroundingCategory {
-        concepts: GroundingConcept,
-        relation: GroundingRelation,
+    has_a: [
+        (CommonGround, Contribution),
+        (CommonGround, Commitment),
+        (InfoState, DialogueGameBoard),
+        (DialogueGameBoard, LatestMove),
+        (DialogueGameBoard, Pending),
+        (DialogueGameBoard, MaxQUD),
+    ],
 
-        being: Process,
-        source: "Clark & Schaefer (1989); Clark (1996); Traum (1994); Ginzburg (2012)",
+    causes: [
+        (Presentation, Acceptance),
+        (Presentation, Repair),
+        (ClarificationRequest, Repair),
+        (Acceptance, Contribution),
+        (GroundingAct, InfoState),
+    ],
 
-        is_a: GroundingTaxonomy [
-            // Grounding acts are specializations
-            (Acknowledgment, GroundingAct),
-            (Continuation, GroundingAct),
-            (Initiation, GroundingAct),
-            (Repair, GroundingAct),
-            (ClarificationRequest, GroundingAct),
-            // Presentation and Acceptance are phases of Grounding
-            (Presentation, Grounding),
-            (Acceptance, Grounding),
-            // Grounding criterion and evidence relate to the process
-            (GroundingCriterion, Grounding),
-            (Evidence, Grounding),
-        ],
-
-        has_a: GroundingMereology [
-            // Common ground is composed of grounded contributions
-            (CommonGround, Contribution),
-            (CommonGround, Commitment),
-            // InfoState has a dialogue gameboard
-            (InfoState, DialogueGameBoard),
-            // Dialogue gameboard has its components
-            (DialogueGameBoard, LatestMove),
-            (DialogueGameBoard, Pending),
-            (DialogueGameBoard, MaxQUD),
-        ],
-
-        causes: GroundingCausation for GroundingConcept [
-            // Presentation causes Acceptance (or Repair)
-            (Presentation, Acceptance),
-            (Presentation, Repair),
-            (ClarificationRequest, Repair),
-            // Acceptance causes update to CommonGround
-            (Acceptance, Contribution),
-            // Grounding act causes update to InfoState
-            (GroundingAct, InfoState),
-        ],
-
-        opposes: GroundingOpposition [
-            // Presentation vs Acceptance: speaker vs addressee phase
-            (Presentation, Acceptance),
-            // Acceptance vs Repair: understanding vs misunderstanding
-            (Acceptance, Repair),
-            // Pending vs Contribution: ungrounded vs grounded
-            (Pending, Contribution),
-        ],
-    }
+    opposes: [
+        (Presentation, Acceptance),
+        (Acceptance, Repair),
+        (Pending, Contribution),
+    ],
 }
 
 /// Whether a concept is from the Clark/Traum model vs Ginzburg KoS.

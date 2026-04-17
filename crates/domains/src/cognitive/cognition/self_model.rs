@@ -184,8 +184,8 @@ impl AwarenessLevel {
 pub struct SelfModelToMetacognition;
 
 impl SelfModelToMetacognition {
-    pub fn map_object(obj: &SelfModelConcept) -> super::metacognition::MetaConcept {
-        use super::metacognition::MetaConcept as M;
+    pub fn map_object(obj: &SelfModelConcept) -> super::metacognition::MetaCognitionConcept {
+        use super::metacognition::MetaCognitionConcept as M;
         match obj {
             SelfModelConcept::SelfModel => M::MetaLevel,
             SelfModelConcept::Component => M::ObjectLevel,
@@ -218,8 +218,8 @@ impl SelfModelToMetacognition {
 pub struct SelfModelToEpistemics;
 
 impl SelfModelToEpistemics {
-    pub fn map_object(obj: &SelfModelConcept) -> super::epistemics::EpistemicState {
-        use super::epistemics::EpistemicState as E;
+    pub fn map_object(obj: &SelfModelConcept) -> super::epistemics::EpistemicConcept {
+        use super::epistemics::EpistemicConcept as E;
         match obj {
             // The system with a self-model knows itself
             SelfModelConcept::SelfModel => E::KnownKnown,
@@ -399,12 +399,12 @@ mod tests {
 
     #[test]
     fn functor_to_metacognition_covers_all_concepts() {
-        // Every SelfModel concept maps to a valid MetaConcept
+        // Every SelfModel concept maps to a valid MetaCognitionConcept
         for obj in SelfModelConcept::variants() {
             let mapped = SelfModelToMetacognition::map_object(&obj);
             assert!(
-                super::super::metacognition::MetaConcept::variants().contains(&mapped),
-                "{:?} maps to {:?} which is not a valid MetaConcept",
+                super::super::metacognition::MetaCognitionConcept::variants().contains(&mapped),
+                "{:?} maps to {:?} which is not a valid MetaCognitionConcept",
                 obj,
                 mapped
             );
@@ -415,7 +415,10 @@ mod tests {
     fn functor_to_epistemics_self_model_is_known_known() {
         // A system with a self-model knows itself — KnownKnown
         let state = SelfModelToEpistemics::map_object(&SelfModelConcept::SelfModel);
-        assert_eq!(state, super::super::epistemics::EpistemicState::KnownKnown);
+        assert_eq!(
+            state,
+            super::super::epistemics::EpistemicConcept::KnownKnown
+        );
     }
 
     #[test]
@@ -424,7 +427,7 @@ mod tests {
         let state = SelfModelToEpistemics::map_object(&SelfModelConcept::Justification);
         assert_eq!(
             state,
-            super::super::epistemics::EpistemicState::KnownUnknown
+            super::super::epistemics::EpistemicConcept::KnownUnknown
         );
     }
 

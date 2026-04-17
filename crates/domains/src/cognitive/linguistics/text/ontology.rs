@@ -1,72 +1,65 @@
-// Text Occurrence — where linguistic units live in text.
-//
-// Bridges NIF (text position), Lemon (lexicon), OLiA (annotation),
-// and Lambek (grammar) into a unified model of typed tokens.
-//
-// A Word is NOT a string. It's a text occurrence at a position in a
-// Context, connected to a LexicalEntry in a Lexicon (via Lemon),
-// carrying a grammatical type (via Lambek), and annotated with
-// linguistic features (via OLiA).
-//
-// Source: Hellmann et al. NIF (2013); Chiarcos & Sukhareva OLiA (2015);
-//         Coecke, Sadrzadeh & Clark DisCoCat (2010)
+//! Text Occurrence — where linguistic units live in text.
+//!
+//! Bridges NIF (text position), Lemon (lexicon), OLiA (annotation),
+//! and Lambek (grammar) into a unified model of typed tokens.
+//!
+//! A Word is NOT a string. It's a text occurrence at a position in a
+//! Context, connected to a LexicalEntry in a Lexicon (via Lemon),
+//! carrying a grammatical type (via Lambek), and annotated with
+//! linguistic features (via OLiA).
+//!
+//! Source: Hellmann et al. NIF (2013); Chiarcos & Sukhareva OLiA (2015);
+//!         Coecke, Sadrzadeh & Clark DisCoCat (2010)
 
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Concepts in the Text Occurrence ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum TextConcept {
-    // === NIF structural concepts (Hellmann 2013) ===
-    /// nif:Context — the reference text containing all occurrences.
-    Context,
-    /// nif:Word — a token occurrence at a position in Context.
-    Word,
-    /// nif:Sentence — a sequence of Words forming a grammatical unit.
-    Sentence,
-    /// nif:Phrase — a contiguous span of Words (NP, VP, etc.).
-    Phrase,
-    /// A position range in the Context (beginIndex, endIndex).
-    Span,
+pr4xis::ontology! {
+    name: "Text",
+    source: "Hellmann NIF (2013); Chiarcos OLiA (2015); Coecke DisCoCat (2010)",
+    being: AbstractObject,
 
-    // === Bridging concepts (functors to other ontologies) ===
-    /// The lexicon entry this Word maps to (Lemon functor target).
-    LexiconReference,
-    /// The grammatical type assigned (Lambek functor target).
-    GrammaticalType,
-    /// The ontology concept referenced through meaning (DisCoCat target).
-    MeaningReference,
-    /// Linguistic annotation — POS, morphology, dependency (OLiA).
-    Annotation,
-}
+    concepts: [
+        // NIF structural concepts (Hellmann 2013)
+        Context,
+        Word,
+        Sentence,
+        Phrase,
+        Span,
+        // Bridging concepts (functors to other ontologies)
+        LexiconReference,
+        GrammaticalType,
+        MeaningReference,
+        Annotation,
+    ],
 
-define_ontology! {
-    /// Text Occurrence — typed tokens in context.
-    pub TextOntology for TextCategory {
-        concepts: TextConcept,
-        relation: TextRelation,
+    labels: {
+        Context: ("en", "Context", "nif:Context — the reference text containing all occurrences."),
+        Word: ("en", "Word", "nif:Word — a token occurrence at a position in Context."),
+        Sentence: ("en", "Sentence", "nif:Sentence — a sequence of Words forming a grammatical unit."),
+        Phrase: ("en", "Phrase", "nif:Phrase — a contiguous span of Words (NP, VP, etc.)."),
+        Span: ("en", "Span", "A position range in the Context (beginIndex, endIndex)."),
+        LexiconReference: ("en", "Lexicon reference", "The lexicon entry this Word maps to (Lemon functor target)."),
+        GrammaticalType: ("en", "Grammatical type", "The grammatical type assigned (Lambek functor target)."),
+        MeaningReference: ("en", "Meaning reference", "The ontology concept referenced through meaning (DisCoCat target)."),
+        Annotation: ("en", "Annotation", "Linguistic annotation — POS, morphology, dependency (OLiA)."),
+    },
 
-        being: AbstractObject,
-        source: "Hellmann NIF (2013); Chiarcos OLiA (2015); Coecke DisCoCat (2010)",
+    is_a: [
+        (Word, Span),
+        (Sentence, Span),
+        (Phrase, Span),
+    ],
 
-        is_a: TextTaxonomy [
-            (Word, Span),
-            (Sentence, Span),
-            (Phrase, Span),
-        ],
-
-        has_a: TextMereology [
-            (Context, Sentence),
-            (Sentence, Word),
-            (Phrase, Word),
-            (Word, Span),
-            (Word, LexiconReference),
-            (Word, GrammaticalType),
-            (Word, MeaningReference),
-            (Word, Annotation),
-        ],
-    }
+    has_a: [
+        (Context, Sentence),
+        (Sentence, Word),
+        (Phrase, Word),
+        (Word, Span),
+        (Word, LexiconReference),
+        (Word, GrammaticalType),
+        (Word, MeaningReference),
+        (Word, Annotation),
+    ],
 }
 
 /// Whether a concept is NIF-structural vs a bridging reference.

@@ -234,7 +234,7 @@ fn attempt_partial_understanding(
     let entities: Vec<String> = known_words.iter().map(|s| s.to_string()).collect();
 
     let response = match state {
-        epistemics::EpistemicState::UnknownKnown => {
+        epistemics::EpistemicConcept::UnknownKnown => {
             if known_words.len() == 1 {
                 define_word(en, known_words[0])
             } else {
@@ -254,18 +254,18 @@ fn attempt_partial_understanding(
                 }
             }
         }
-        epistemics::EpistemicState::KnownUnknown => {
+        epistemics::EpistemicConcept::KnownUnknown => {
             let mut content = ResponseContent::new(frame);
             for w in &unknown_words {
                 content = content.with_entity(w);
             }
             realize::realize(&content)
         }
-        epistemics::EpistemicState::KnownKnown => {
+        epistemics::EpistemicConcept::KnownKnown => {
             let content = ResponseContent::new(frame).with_predicate(&_meaning.describe());
             realize::realize(&content)
         }
-        epistemics::EpistemicState::UnknownUnknown => {
+        epistemics::EpistemicConcept::UnknownUnknown => {
             realize::realize(&ResponseContent::new(frame))
         }
     };

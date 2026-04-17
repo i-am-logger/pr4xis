@@ -15,10 +15,10 @@
 use pr4xis::category::Functor;
 
 use crate::cognitive::cognition::epistemics::{
-    EpistemicCategory, EpistemicState, EpistemicTransition, TransitionKind,
+    EpistemicCategory, EpistemicConcept, EpistemicRelation, EpistemicRelationKind,
 };
 use crate::cognitive::cognition::metacognition::{
-    MetaCognitionCategory, MetaConcept, MetaRelation,
+    MetaCognitionCategory, MetaCognitionConcept, MetaCognitionRelation,
 };
 
 pub struct MetacognitionToEpistemics;
@@ -27,50 +27,50 @@ impl Functor for MetacognitionToEpistemics {
     type Source = MetaCognitionCategory;
     type Target = EpistemicCategory;
 
-    fn map_object(obj: &MetaConcept) -> EpistemicState {
+    fn map_object(obj: &MetaCognitionConcept) -> EpistemicConcept {
         match obj {
             // MetaLevel IS knowing-that-you-know
-            MetaConcept::MetaLevel => EpistemicState::KnownKnown,
+            MetaCognitionConcept::MetaLevel => EpistemicConcept::KnownKnown,
             // ObjectLevel may be inaccessible (processing without awareness)
-            MetaConcept::ObjectLevel => EpistemicState::UnknownKnown,
+            MetaCognitionConcept::ObjectLevel => EpistemicConcept::UnknownKnown,
             // Monitoring IS self-observation
-            MetaConcept::Monitoring => EpistemicState::KnownKnown,
+            MetaCognitionConcept::Monitoring => EpistemicConcept::KnownKnown,
             // Evaluation produces knowledge
-            MetaConcept::Evaluation => EpistemicState::KnownKnown,
+            MetaCognitionConcept::Evaluation => EpistemicConcept::KnownKnown,
             // Control directs learning
-            MetaConcept::Control => EpistemicState::KnownKnown,
+            MetaCognitionConcept::Control => EpistemicConcept::KnownKnown,
             // Trace IS evidence of knowledge
-            MetaConcept::Trace => EpistemicState::KnownKnown,
+            MetaCognitionConcept::Trace => EpistemicConcept::KnownKnown,
             // Gap IS knowing you don't know (Rumsfeld's known unknown)
-            MetaConcept::Gap => EpistemicState::KnownUnknown,
+            MetaCognitionConcept::Gap => EpistemicConcept::KnownUnknown,
             // Repair maps directly
-            MetaConcept::Repair => EpistemicState::KnownKnown,
+            MetaCognitionConcept::Repair => EpistemicConcept::KnownKnown,
             // Clarification = acknowledging ignorance
-            MetaConcept::Clarification => EpistemicState::KnownUnknown,
+            MetaCognitionConcept::Clarification => EpistemicConcept::KnownUnknown,
             // EpistemicAssessment IS already epistemic
-            MetaConcept::EpistemicAssessment => EpistemicState::KnownKnown,
+            MetaCognitionConcept::EpistemicAssessment => EpistemicConcept::KnownKnown,
         }
     }
 
-    fn map_morphism(m: &MetaRelation) -> EpistemicTransition {
+    fn map_morphism(m: &MetaCognitionRelation) -> EpistemicRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
         let kind = if from == to && m.from == m.to {
-            TransitionKind::Identity
+            EpistemicRelationKind::Identity
         } else if from == to {
-            TransitionKind::Composed
+            EpistemicRelationKind::Composed
         } else {
             match (&from, &to) {
-                (EpistemicState::UnknownKnown, EpistemicState::KnownKnown) => {
-                    TransitionKind::Repair
+                (EpistemicConcept::UnknownKnown, EpistemicConcept::KnownKnown) => {
+                    EpistemicRelationKind::Repair
                 }
-                (EpistemicState::KnownUnknown, EpistemicState::KnownKnown) => {
-                    TransitionKind::Learning
+                (EpistemicConcept::KnownUnknown, EpistemicConcept::KnownKnown) => {
+                    EpistemicRelationKind::Learning
                 }
-                _ => TransitionKind::Composed,
+                _ => EpistemicRelationKind::Composed,
             }
         };
-        EpistemicTransition { from, to, kind }
+        EpistemicRelation { from, to, kind }
     }
 }
 

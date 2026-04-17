@@ -27,39 +27,39 @@ impl Functor for DiagnosticsToMetacognition {
     type Source = DiagnosticCategory;
     type Target = MetaCognitionCategory;
 
-    fn map_object(obj: &DiagnosticConcept) -> MetaConcept {
+    fn map_object(obj: &DiagnosticConcept) -> MetaCognitionConcept {
         match obj {
-            DiagnosticConcept::Symptom => MetaConcept::Gap,
-            DiagnosticConcept::Hypothesis => MetaConcept::Evaluation,
-            DiagnosticConcept::Test => MetaConcept::Control,
-            DiagnosticConcept::Evidence => MetaConcept::Monitoring,
-            DiagnosticConcept::Diagnosis => MetaConcept::EpistemicAssessment,
-            DiagnosticConcept::Residual => MetaConcept::Trace,
-            DiagnosticConcept::FaultMode => MetaConcept::Gap,
-            DiagnosticConcept::Severity => MetaConcept::Evaluation,
-            DiagnosticConcept::Remedy => MetaConcept::Repair,
-            DiagnosticConcept::TraceContext => MetaConcept::Trace,
+            DiagnosticConcept::Symptom => MetaCognitionConcept::Gap,
+            DiagnosticConcept::Hypothesis => MetaCognitionConcept::Evaluation,
+            DiagnosticConcept::Test => MetaCognitionConcept::Control,
+            DiagnosticConcept::Evidence => MetaCognitionConcept::Monitoring,
+            DiagnosticConcept::Diagnosis => MetaCognitionConcept::EpistemicAssessment,
+            DiagnosticConcept::Residual => MetaCognitionConcept::Trace,
+            DiagnosticConcept::FaultMode => MetaCognitionConcept::Gap,
+            DiagnosticConcept::Severity => MetaCognitionConcept::Evaluation,
+            DiagnosticConcept::Remedy => MetaCognitionConcept::Repair,
+            DiagnosticConcept::TraceContext => MetaCognitionConcept::Trace,
         }
     }
 
-    fn map_morphism(m: &DiagnosticRelation) -> MetaRelation {
+    fn map_morphism(m: &DiagnosticRelation) -> MetaCognitionRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
         let kind = match m.kind {
-            DiagnosticRelationKind::Identity => MetaRelationKind::Identity,
-            DiagnosticRelationKind::Triggers => MetaRelationKind::Detects,
-            DiagnosticRelationKind::Generates => MetaRelationKind::Detects,
-            DiagnosticRelationKind::Requires => MetaRelationKind::Decides,
-            DiagnosticRelationKind::Produces => MetaRelationKind::Observes,
-            DiagnosticRelationKind::Updates => MetaRelationKind::Observes,
-            DiagnosticRelationKind::Confirms => MetaRelationKind::Assesses,
-            DiagnosticRelationKind::Identifies => MetaRelationKind::Detects,
-            DiagnosticRelationKind::HasSeverity => MetaRelationKind::Assesses,
-            DiagnosticRelationKind::Prescribes => MetaRelationKind::Triggers,
-            DiagnosticRelationKind::Contextualizes => MetaRelationKind::Observes,
-            DiagnosticRelationKind::Composed => MetaRelationKind::Composed,
+            DiagnosticRelationKind::Identity => MetaCognitionRelationKind::Identity,
+            DiagnosticRelationKind::Triggers => MetaCognitionRelationKind::Detects,
+            DiagnosticRelationKind::Generates => MetaCognitionRelationKind::Detects,
+            DiagnosticRelationKind::Requires => MetaCognitionRelationKind::Decides,
+            DiagnosticRelationKind::Produces => MetaCognitionRelationKind::Observes,
+            DiagnosticRelationKind::Updates => MetaCognitionRelationKind::Observes,
+            DiagnosticRelationKind::Confirms => MetaCognitionRelationKind::Assesses,
+            DiagnosticRelationKind::Identifies => MetaCognitionRelationKind::Detects,
+            DiagnosticRelationKind::HasSeverity => MetaCognitionRelationKind::Assesses,
+            DiagnosticRelationKind::Prescribes => MetaCognitionRelationKind::Triggers,
+            DiagnosticRelationKind::Contextualizes => MetaCognitionRelationKind::Observes,
+            DiagnosticRelationKind::Composed => MetaCognitionRelationKind::Composed,
         };
-        MetaRelation { from, to, kind }
+        MetaCognitionRelation { from, to, kind }
     }
 }
 
@@ -77,7 +77,7 @@ mod tests {
     fn symptom_is_gap() {
         assert_eq!(
             DiagnosticsToMetacognition::map_object(&DiagnosticConcept::Symptom),
-            MetaConcept::Gap
+            MetaCognitionConcept::Gap
         );
     }
 
@@ -85,7 +85,7 @@ mod tests {
     fn remedy_is_repair() {
         assert_eq!(
             DiagnosticsToMetacognition::map_object(&DiagnosticConcept::Remedy),
-            MetaConcept::Repair
+            MetaCognitionConcept::Repair
         );
     }
 
@@ -93,7 +93,7 @@ mod tests {
     fn diagnosis_is_epistemic_assessment() {
         assert_eq!(
             DiagnosticsToMetacognition::map_object(&DiagnosticConcept::Diagnosis),
-            MetaConcept::EpistemicAssessment
+            MetaCognitionConcept::EpistemicAssessment
         );
     }
 }

@@ -18,7 +18,7 @@ use pr4xis::category::Functor;
 
 use super::ontology::{C2Category, C2Concept, C2Relation, C2RelationKind};
 use crate::cognitive::cognition::metacognition::{
-    MetaCognitionCategory, MetaConcept, MetaRelation, MetaRelationKind,
+    MetaCognitionCategory, MetaCognitionConcept, MetaCognitionRelation, MetaCognitionRelationKind,
 };
 
 pub struct C2ToMetacognition;
@@ -27,30 +27,30 @@ impl Functor for C2ToMetacognition {
     type Source = C2Category;
     type Target = MetaCognitionCategory;
 
-    fn map_object(obj: &C2Concept) -> MetaConcept {
+    fn map_object(obj: &C2Concept) -> MetaCognitionConcept {
         match obj {
-            C2Concept::HigherOrderRepresentation => MetaConcept::MetaLevel,
-            C2Concept::FirstOrderState => MetaConcept::ObjectLevel,
-            C2Concept::AccessConsciousness => MetaConcept::Trace,
-            C2Concept::CauseEffectStructure => MetaConcept::Evaluation,
-            C2Concept::Mechanism => MetaConcept::Monitoring,
-            C2Concept::Repertoire => MetaConcept::Control,
-            C2Concept::PhenomenalConsciousness => MetaConcept::EpistemicAssessment,
+            C2Concept::HigherOrderRepresentation => MetaCognitionConcept::MetaLevel,
+            C2Concept::FirstOrderState => MetaCognitionConcept::ObjectLevel,
+            C2Concept::AccessConsciousness => MetaCognitionConcept::Trace,
+            C2Concept::CauseEffectStructure => MetaCognitionConcept::Evaluation,
+            C2Concept::Mechanism => MetaCognitionConcept::Monitoring,
+            C2Concept::Repertoire => MetaCognitionConcept::Control,
+            C2Concept::PhenomenalConsciousness => MetaCognitionConcept::EpistemicAssessment,
         }
     }
 
-    fn map_morphism(m: &C2Relation) -> MetaRelation {
+    fn map_morphism(m: &C2Relation) -> MetaCognitionRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
         let kind = match m.kind {
-            C2RelationKind::Identity => MetaRelationKind::Identity,
-            C2RelationKind::Represents => MetaRelationKind::Observes,
-            C2RelationKind::Generates => MetaRelationKind::Records,
-            C2RelationKind::HasComponent => MetaRelationKind::Assesses,
-            C2RelationKind::Enables => MetaRelationKind::Classifies,
-            C2RelationKind::Composed => MetaRelationKind::Composed,
+            C2RelationKind::Identity => MetaCognitionRelationKind::Identity,
+            C2RelationKind::Represents => MetaCognitionRelationKind::Observes,
+            C2RelationKind::Generates => MetaCognitionRelationKind::Records,
+            C2RelationKind::HasComponent => MetaCognitionRelationKind::Assesses,
+            C2RelationKind::Enables => MetaCognitionRelationKind::Classifies,
+            C2RelationKind::Composed => MetaCognitionRelationKind::Composed,
         };
-        MetaRelation { from, to, kind }
+        MetaCognitionRelation { from, to, kind }
     }
 }
 

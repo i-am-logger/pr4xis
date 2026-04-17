@@ -14,7 +14,7 @@
 use pr4xis::category::Functor;
 
 use crate::cognitive::cognition::epistemics::{
-    EpistemicCategory, EpistemicState, EpistemicTransition, TransitionKind,
+    EpistemicCategory, EpistemicConcept, EpistemicRelation, EpistemicRelationKind,
 };
 use crate::cognitive::linguistics::pragmatics::planning::ontology::{
     PlanningCategory, PlanningConcept, PlanningRelation, PlanningRelationKind,
@@ -26,26 +26,26 @@ impl Functor for EpistemicsToPlanning {
     type Source = EpistemicCategory;
     type Target = PlanningCategory;
 
-    fn map_object(obj: &EpistemicState) -> PlanningConcept {
+    fn map_object(obj: &EpistemicConcept) -> PlanningConcept {
         match obj {
-            EpistemicState::KnownKnown => PlanningConcept::Belief,
-            EpistemicState::KnownUnknown => PlanningConcept::Desire,
-            EpistemicState::UnknownKnown => PlanningConcept::Precondition,
-            EpistemicState::UnknownUnknown => PlanningConcept::CommunicativeGoal,
+            EpistemicConcept::KnownKnown => PlanningConcept::Belief,
+            EpistemicConcept::KnownUnknown => PlanningConcept::Desire,
+            EpistemicConcept::UnknownKnown => PlanningConcept::Precondition,
+            EpistemicConcept::UnknownUnknown => PlanningConcept::CommunicativeGoal,
         }
     }
 
-    fn map_morphism(m: &EpistemicTransition) -> PlanningRelation {
+    fn map_morphism(m: &EpistemicRelation) -> PlanningRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
         let kind = match m.kind {
-            TransitionKind::Identity => PlanningRelationKind::Identity,
-            TransitionKind::Observation => PlanningRelationKind::Produces,
-            TransitionKind::Learning => PlanningRelationKind::Produces,
-            TransitionKind::Repair => PlanningRelationKind::Produces,
-            TransitionKind::Discovery => PlanningRelationKind::Produces,
-            TransitionKind::Forgetting => PlanningRelationKind::Updates,
-            TransitionKind::Composed => PlanningRelationKind::Composed,
+            EpistemicRelationKind::Identity => PlanningRelationKind::Identity,
+            EpistemicRelationKind::Observation => PlanningRelationKind::Produces,
+            EpistemicRelationKind::Learning => PlanningRelationKind::Produces,
+            EpistemicRelationKind::Repair => PlanningRelationKind::Produces,
+            EpistemicRelationKind::Discovery => PlanningRelationKind::Produces,
+            EpistemicRelationKind::Forgetting => PlanningRelationKind::Updates,
+            EpistemicRelationKind::Composed => PlanningRelationKind::Composed,
         };
         PlanningRelation { from, to, kind }
     }

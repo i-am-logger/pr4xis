@@ -17,14 +17,14 @@ fn distinction_category_laws() {
 
 #[test]
 fn distinction_has_6_elements() {
-    assert_eq!(DistinctionElement::variants().len(), 6);
+    assert_eq!(DistinctionConcept::variants().len(), 6);
 }
 
 #[test]
 fn mark_creates_boundary() {
     let m = DistinctionCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == DistinctionElement::Mark
-        && r.to == DistinctionElement::Boundary
+    assert!(m.iter().any(|r| r.from == DistinctionConcept::Mark
+        && r.to == DistinctionConcept::Boundary
         && r.kind == DistinctionRelationKind::Creates));
 }
 
@@ -33,15 +33,15 @@ fn void_precedes_mark() {
     let m = DistinctionCategory::morphisms();
     assert!(
         m.iter()
-            .any(|r| r.from == DistinctionElement::Void && r.to == DistinctionElement::Mark)
+            .any(|r| r.from == DistinctionConcept::Void && r.to == DistinctionConcept::Mark)
     );
 }
 
 #[test]
 fn reentry_is_self_reference() {
     let m = DistinctionCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == DistinctionElement::ReEntry
-        && r.to == DistinctionElement::Mark
+    assert!(m.iter().any(|r| r.from == DistinctionConcept::ReEntry
+        && r.to == DistinctionConcept::Mark
         && r.kind == DistinctionRelationKind::AppliesTo));
 }
 
@@ -69,55 +69,55 @@ fn epistemic_category_laws() {
 
 #[test]
 fn epistemic_has_4_states() {
-    assert_eq!(EpistemicState::variants().len(), 4);
+    assert_eq!(EpistemicConcept::variants().len(), 4);
 }
 
 #[test]
 fn observation_detects_gap() {
     let m = EpistemicCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == EpistemicState::UnknownUnknown
-        && r.to == EpistemicState::KnownUnknown
-        && r.kind == TransitionKind::Observation));
+    assert!(m.iter().any(|r| r.from == EpistemicConcept::UnknownUnknown
+        && r.to == EpistemicConcept::KnownUnknown
+        && r.kind == EpistemicRelationKind::Observation));
 }
 
 #[test]
 fn learning_fills_gap() {
     let m = EpistemicCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == EpistemicState::KnownUnknown
-        && r.to == EpistemicState::KnownKnown
-        && r.kind == TransitionKind::Learning));
+    assert!(m.iter().any(|r| r.from == EpistemicConcept::KnownUnknown
+        && r.to == EpistemicConcept::KnownKnown
+        && r.kind == EpistemicRelationKind::Learning));
 }
 
 #[test]
 fn repair_fixes_access() {
     let m = EpistemicCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == EpistemicState::UnknownKnown
-        && r.to == EpistemicState::KnownKnown
-        && r.kind == TransitionKind::Repair));
+    assert!(m.iter().any(|r| r.from == EpistemicConcept::UnknownKnown
+        && r.to == EpistemicConcept::KnownKnown
+        && r.kind == EpistemicRelationKind::Repair));
 }
 
 #[test]
 fn classify_known_known() {
     let state = classify_result(true, true, Some("dog is a mammal"));
-    assert_eq!(state, EpistemicState::KnownKnown);
+    assert_eq!(state, EpistemicConcept::KnownKnown);
 }
 
 #[test]
 fn classify_known_unknown() {
     let state = classify_result::<&str>(true, false, None);
-    assert_eq!(state, EpistemicState::KnownUnknown);
+    assert_eq!(state, EpistemicConcept::KnownUnknown);
 }
 
 #[test]
 fn classify_unknown_known() {
     let state = classify_result::<&str>(false, true, None);
-    assert_eq!(state, EpistemicState::UnknownKnown);
+    assert_eq!(state, EpistemicConcept::UnknownKnown);
 }
 
 #[test]
 fn classify_unknown_unknown() {
     let state = classify_result::<&str>(false, false, None);
-    assert_eq!(state, EpistemicState::UnknownUnknown);
+    assert_eq!(state, EpistemicConcept::UnknownUnknown);
 }
 
 // =============================================================================
@@ -131,23 +131,23 @@ fn metacognition_category_laws() {
 
 #[test]
 fn metacognition_has_10_concepts() {
-    assert_eq!(MetaConcept::variants().len(), 10);
+    assert_eq!(MetaCognitionConcept::variants().len(), 10);
 }
 
 #[test]
 fn meta_observes_object() {
     let m = MetaCognitionCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == MetaConcept::MetaLevel
-        && r.to == MetaConcept::ObjectLevel
-        && r.kind == MetaRelationKind::Observes));
+    assert!(m.iter().any(|r| r.from == MetaCognitionConcept::MetaLevel
+        && r.to == MetaCognitionConcept::ObjectLevel
+        && r.kind == MetaCognitionRelationKind::Observes));
 }
 
 #[test]
 fn evaluation_detects_gap() {
     let m = MetaCognitionCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == MetaConcept::Evaluation
-        && r.to == MetaConcept::Gap
-        && r.kind == MetaRelationKind::Detects));
+    assert!(m.iter().any(|r| r.from == MetaCognitionConcept::Evaluation
+        && r.to == MetaCognitionConcept::Gap
+        && r.kind == MetaCognitionRelationKind::Detects));
 }
 
 #[test]
@@ -155,22 +155,19 @@ fn gap_triggers_repair_or_clarification() {
     let m = MetaCognitionCategory::morphisms();
     assert!(
         m.iter()
-            .any(|r| r.from == MetaConcept::Gap && r.to == MetaConcept::Repair)
+            .any(|r| r.from == MetaCognitionConcept::Gap && r.to == MetaCognitionConcept::Repair)
     );
-    assert!(
-        m.iter()
-            .any(|r| r.from == MetaConcept::Gap && r.to == MetaConcept::Clarification)
-    );
+    assert!(m.iter().any(
+        |r| r.from == MetaCognitionConcept::Gap && r.to == MetaCognitionConcept::Clarification
+    ));
 }
 
 #[test]
 fn meta_reaches_clarification() {
     // The full loop: MetaLevel → ... → Clarification
     let m = MetaCognitionCategory::morphisms();
-    assert!(
-        m.iter()
-            .any(|r| r.from == MetaConcept::MetaLevel && r.to == MetaConcept::Clarification)
-    );
+    assert!(m.iter().any(|r| r.from == MetaCognitionConcept::MetaLevel
+        && r.to == MetaCognitionConcept::Clarification));
 }
 
 // =============================================================================
@@ -181,27 +178,27 @@ mod prop {
     use super::*;
     use proptest::prelude::*;
 
-    fn arb_epistemic() -> impl Strategy<Value = EpistemicState> {
+    fn arb_epistemic() -> impl Strategy<Value = EpistemicConcept> {
         prop_oneof![
-            Just(EpistemicState::KnownKnown),
-            Just(EpistemicState::KnownUnknown),
-            Just(EpistemicState::UnknownKnown),
-            Just(EpistemicState::UnknownUnknown),
+            Just(EpistemicConcept::KnownKnown),
+            Just(EpistemicConcept::KnownUnknown),
+            Just(EpistemicConcept::UnknownKnown),
+            Just(EpistemicConcept::UnknownUnknown),
         ]
     }
 
-    fn arb_meta() -> impl Strategy<Value = MetaConcept> {
+    fn arb_meta() -> impl Strategy<Value = MetaCognitionConcept> {
         prop_oneof![
-            Just(MetaConcept::ObjectLevel),
-            Just(MetaConcept::MetaLevel),
-            Just(MetaConcept::Monitoring),
-            Just(MetaConcept::Evaluation),
-            Just(MetaConcept::Control),
-            Just(MetaConcept::Trace),
-            Just(MetaConcept::Gap),
-            Just(MetaConcept::Repair),
-            Just(MetaConcept::Clarification),
-            Just(MetaConcept::EpistemicAssessment),
+            Just(MetaCognitionConcept::ObjectLevel),
+            Just(MetaCognitionConcept::MetaLevel),
+            Just(MetaCognitionConcept::Monitoring),
+            Just(MetaCognitionConcept::Evaluation),
+            Just(MetaCognitionConcept::Control),
+            Just(MetaCognitionConcept::Trace),
+            Just(MetaCognitionConcept::Gap),
+            Just(MetaCognitionConcept::Repair),
+            Just(MetaCognitionConcept::Clarification),
+            Just(MetaCognitionConcept::EpistemicAssessment),
         ]
     }
 
@@ -222,7 +219,7 @@ mod prop {
         #[test]
         fn prop_known_known_reachable(s in arb_epistemic()) {
             let m = EpistemicCategory::morphisms();
-            let reaches = m.iter().any(|r| r.from == s && r.to == EpistemicState::KnownKnown);
+            let reaches = m.iter().any(|r| r.from == s && r.to == EpistemicConcept::KnownKnown);
             prop_assert!(reaches, "{:?} should be able to reach KnownKnown", s);
         }
 
@@ -230,7 +227,7 @@ mod prop {
         #[test]
         fn prop_meta_reaches_all(c in arb_meta()) {
             let m = MetaCognitionCategory::morphisms();
-            let reaches = m.iter().any(|r| r.from == MetaConcept::MetaLevel && r.to == c);
+            let reaches = m.iter().any(|r| r.from == MetaCognitionConcept::MetaLevel && r.to == c);
             prop_assert!(reaches, "MetaLevel should reach {:?}", c);
         }
 
@@ -248,11 +245,11 @@ mod prop {
         fn prop_boundary_separates_both(_dummy in 0..1i32) {
             let m = DistinctionCategory::morphisms();
             let to_marked = m.iter().any(|r|
-                r.from == DistinctionElement::Boundary
-                && r.to == DistinctionElement::MarkedSpace);
+                r.from == DistinctionConcept::Boundary
+                && r.to == DistinctionConcept::MarkedSpace);
             let to_unmarked = m.iter().any(|r|
-                r.from == DistinctionElement::Boundary
-                && r.to == DistinctionElement::UnmarkedSpace);
+                r.from == DistinctionConcept::Boundary
+                && r.to == DistinctionConcept::UnmarkedSpace);
             prop_assert!(to_marked, "Boundary must separate to MarkedSpace");
             prop_assert!(to_unmarked, "Boundary must separate to UnmarkedSpace");
         }
@@ -262,8 +259,8 @@ mod prop {
         fn prop_void_reaches_mark(_dummy in 0..1i32) {
             let m = DistinctionCategory::morphisms();
             let reaches = m.iter().any(|r|
-                r.from == DistinctionElement::Void
-                && r.to == DistinctionElement::Mark);
+                r.from == DistinctionConcept::Void
+                && r.to == DistinctionConcept::Mark);
             prop_assert!(reaches);
         }
 
@@ -272,11 +269,11 @@ mod prop {
         fn prop_reentry_reaches_both_spaces(_dummy in 0..1i32) {
             let m = DistinctionCategory::morphisms();
             let to_marked = m.iter().any(|r|
-                r.from == DistinctionElement::ReEntry
-                && r.to == DistinctionElement::MarkedSpace);
+                r.from == DistinctionConcept::ReEntry
+                && r.to == DistinctionConcept::MarkedSpace);
             let to_unmarked = m.iter().any(|r|
-                r.from == DistinctionElement::ReEntry
-                && r.to == DistinctionElement::UnmarkedSpace);
+                r.from == DistinctionConcept::ReEntry
+                && r.to == DistinctionConcept::UnmarkedSpace);
             prop_assert!(to_marked);
             prop_assert!(to_unmarked);
         }
@@ -288,8 +285,8 @@ mod prop {
         fn prop_observe_then_learn(_dummy in 0..1i32) {
             let m = EpistemicCategory::morphisms();
             let uu_to_kk = m.iter().any(|r|
-                r.from == EpistemicState::UnknownUnknown
-                && r.to == EpistemicState::KnownKnown);
+                r.from == EpistemicConcept::UnknownUnknown
+                && r.to == EpistemicConcept::KnownKnown);
             prop_assert!(uu_to_kk, "UU should reach KK via observation+learning");
         }
 
@@ -298,13 +295,13 @@ mod prop {
         fn prop_forgetting_recoverable(_dummy in 0..1i32) {
             let m = EpistemicCategory::morphisms();
             let forgets = m.iter().any(|r|
-                r.from == EpistemicState::KnownKnown
-                && r.to == EpistemicState::UnknownKnown
-                && r.kind == TransitionKind::Forgetting);
+                r.from == EpistemicConcept::KnownKnown
+                && r.to == EpistemicConcept::UnknownKnown
+                && r.kind == EpistemicRelationKind::Forgetting);
             let repairs = m.iter().any(|r|
-                r.from == EpistemicState::UnknownKnown
-                && r.to == EpistemicState::KnownKnown
-                && r.kind == TransitionKind::Repair);
+                r.from == EpistemicConcept::UnknownKnown
+                && r.to == EpistemicConcept::KnownKnown
+                && r.kind == EpistemicRelationKind::Repair);
             prop_assert!(forgets, "KK should be able to forget to UK");
             prop_assert!(repairs, "UK should be repairable back to KK");
         }
@@ -324,9 +321,9 @@ mod prop {
         fn prop_gap_never_stuck(_dummy in 0..1i32) {
             let m = MetaCognitionCategory::morphisms();
             let to_repair = m.iter().any(|r|
-                r.from == MetaConcept::Gap && r.to == MetaConcept::Repair);
+                r.from == MetaCognitionConcept::Gap && r.to == MetaCognitionConcept::Repair);
             let to_clarification = m.iter().any(|r|
-                r.from == MetaConcept::Gap && r.to == MetaConcept::Clarification);
+                r.from == MetaCognitionConcept::Gap && r.to == MetaCognitionConcept::Clarification);
             prop_assert!(to_repair || to_clarification,
                 "Gap must lead to Repair or Clarification");
             prop_assert!(to_repair, "Gap must be able to trigger Repair");
@@ -338,8 +335,8 @@ mod prop {
         fn prop_monitoring_before_evaluation(_dummy in 0..1i32) {
             let m = MetaCognitionCategory::morphisms();
             let chain = m.iter().any(|r|
-                r.from == MetaConcept::Monitoring
-                && r.to == MetaConcept::Evaluation);
+                r.from == MetaCognitionConcept::Monitoring
+                && r.to == MetaCognitionConcept::Evaluation);
             prop_assert!(chain);
         }
 
@@ -348,20 +345,20 @@ mod prop {
         fn prop_evaluation_informs_control(_dummy in 0..1i32) {
             let m = MetaCognitionCategory::morphisms();
             let chain = m.iter().any(|r|
-                r.from == MetaConcept::Evaluation
-                && r.to == MetaConcept::Control);
+                r.from == MetaCognitionConcept::Evaluation
+                && r.to == MetaCognitionConcept::Control);
             prop_assert!(chain);
         }
     }
 
-    fn arb_distinction() -> impl Strategy<Value = DistinctionElement> {
+    fn arb_distinction() -> impl Strategy<Value = DistinctionConcept> {
         prop_oneof![
-            Just(DistinctionElement::Void),
-            Just(DistinctionElement::Mark),
-            Just(DistinctionElement::Boundary),
-            Just(DistinctionElement::MarkedSpace),
-            Just(DistinctionElement::UnmarkedSpace),
-            Just(DistinctionElement::ReEntry),
+            Just(DistinctionConcept::Void),
+            Just(DistinctionConcept::Mark),
+            Just(DistinctionConcept::Boundary),
+            Just(DistinctionConcept::MarkedSpace),
+            Just(DistinctionConcept::UnmarkedSpace),
+            Just(DistinctionConcept::ReEntry),
         ]
     }
 }

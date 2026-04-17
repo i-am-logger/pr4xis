@@ -108,7 +108,7 @@ impl Traceable for InterpretResult<'_> {
 
 /// Traceable for epistemic classification.
 pub struct EpistemicResult {
-    pub state: crate::cognitive::cognition::epistemics::EpistemicState,
+    pub state: crate::cognitive::cognition::epistemics::EpistemicConcept,
     pub known_words: Vec<String>,
     pub unknown_words: Vec<String>,
 }

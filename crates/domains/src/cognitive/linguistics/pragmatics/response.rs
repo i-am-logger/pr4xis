@@ -1,97 +1,59 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Response Generation ontology — the right adjoint of parsing.
+//!
+//! Parsing: Text → Syntax → Semantics (left adjoint, F)
+//! Generation: Semantics → Syntax → Text (right adjoint, G)
+//! Together: Parse ⊣ Generate (adjunction)
+//!
+//! The unit η: Id → G∘F means: parse then generate ≈ paraphrase.
+//! The counit ε: F∘G → Id means: generate then parse ≈ comprehension check.
+//! G∘F ≠ Id: paraphrase loses information (many texts → one meaning).
+//! F∘G ≠ Id: a meaning can be expressed many ways.
+//!
+//! This ontology defines the concepts for generating responses from
+//! ontological states. It composes:
+//! - Metacognition (what happened: gap, repair, clarification)
+//! - Epistemics (what the system knows: KK, KU, UK, UU)
+//! - SelfModel (what the system IS: components, capabilities)
+//! - Speech acts (what kind of response: assertion, question)
+//!
+//! The response is NOT a hardcoded string. It is composed from
+//! ontological concepts that are then realized through the Language.
+//!
+//! References:
+//! - Reiter & Dale, "Building Natural Language Generation Systems" (2000)
+//! - White, "Efficient Realization of Coordinate Structures in CCG" (2006)
+//! - Lambek & Scott, "Introduction to Higher Order Categorical Logic" (1986)
 
-// Response Generation ontology — the right adjoint of parsing.
-//
-// Parsing: Text → Syntax → Semantics (left adjoint, F)
-// Generation: Semantics → Syntax → Text (right adjoint, G)
-// Together: Parse ⊣ Generate (adjunction)
-//
-// The unit η: Id → G∘F means: parse then generate ≈ paraphrase.
-// The counit ε: F∘G → Id means: generate then parse ≈ comprehension check.
-// G∘F ≠ Id: paraphrase loses information (many texts → one meaning).
-// F∘G ≠ Id: a meaning can be expressed many ways.
-//
-// This ontology defines the concepts for generating responses from
-// ontological states. It composes:
-// - Metacognition (what happened: gap, repair, clarification)
-// - Epistemics (what the system knows: KK, KU, UK, UU)
-// - SelfModel (what the system IS: components, capabilities)
-// - Speech acts (what kind of response: assertion, question)
-//
-// The response is NOT a hardcoded string. It is composed from
-// ontological concepts that are then realized through the Language.
-//
-// References:
-// - Reiter & Dale, "Building Natural Language Generation Systems" (2000)
-// - White, "Efficient Realization of Coordinate Structures in CCG" (2006)
-// - Lambek & Scott, "Introduction to Higher Order Categorical Logic" (1986)
+pr4xis::ontology! {
+    name: "Response",
+    source: "Reiter & Dale (2000); Lambek & Scott (1986)",
+    being: Process,
 
-/// Concepts in response generation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum ResponseConcept {
-    /// The communicative intent — what the system wants to express.
-    /// Determined by metacognition (gap → clarify, repair → suggest).
-    Intent,
-    /// The epistemic frame — the system's knowledge state about this exchange.
-    /// From epistemics: KnownKnown, KnownUnknown, UnknownKnown, UnknownUnknown.
-    EpistemicFrame,
-    /// The content — the actual information to convey.
-    /// From self-model, knowledge base, or query results.
-    Content,
-    /// The speech act type — assertion, question, directive, etc.
-    /// From speech_act.rs.
-    SpeechActType,
-    /// The surface form — the linguistic realization.
-    /// The right adjoint maps intent → text through the Language.
-    SurfaceForm,
-    /// The context — what was said before, what the user asked.
-    /// From dialogue state.
-    Context,
-}
+    concepts: [Intent, EpistemicFrame, Content, SpeechActType, SurfaceForm, Context],
 
-define_ontology! {
-    /// Response Generation — the right adjoint of parsing (Reiter & Dale 2000).
-    pub ResponseOntology for ResponseCategory {
-        concepts: ResponseConcept,
-        relation: ResponseRelation,
-        kind: ResponseRelationKind,
-        kinds: [
-            /// Metacognition determines Intent.
-            Determines,
-            /// Epistemics frames the Content.
-            Frames,
-            /// Intent selects SpeechActType.
-            Selects,
-            /// Content realizes as SurfaceForm (the generation step).
-            Realizes,
-            /// Context constrains Intent.
-            Constrains,
-            /// SpeechActType shapes SurfaceForm.
-            Shapes,
-        ],
-        edges: [
-            // Metacognition → Intent (gap/repair/clarification determines what to say)
-            (Context, Intent, Constrains),
-            // Epistemics frames Content (KK→assert, KU→ask, UK→suggest, UU→admit)
-            (EpistemicFrame, Content, Frames),
-            // Intent selects SpeechActType (clarification→question, assertion→statement)
-            (Intent, SpeechActType, Selects),
-            // Content realizes as SurfaceForm (the generation functor)
-            (Content, SurfaceForm, Realizes),
-            // SpeechActType shapes SurfaceForm (question → interrogative form)
-            (SpeechActType, SurfaceForm, Shapes),
-        ],
-        composed: [
-            (Context, SpeechActType),
-            (Context, SurfaceForm),
-            (Intent, SurfaceForm),
-            (EpistemicFrame, SurfaceForm),
-        ],
+    labels: {
+        Intent: ("en", "Intent", "The communicative intent — what the system wants to express. Determined by metacognition."),
+        EpistemicFrame: ("en", "Epistemic frame", "The system's knowledge state about this exchange (KK/KU/UK/UU)."),
+        Content: ("en", "Content", "The actual information to convey. From self-model, knowledge base, or query results."),
+        SpeechActType: ("en", "Speech act type", "Assertion, question, directive, etc. From speech_act.rs."),
+        SurfaceForm: ("en", "Surface form", "The linguistic realization. The right adjoint maps intent → text through the Language."),
+        Context: ("en", "Context", "What was said before, what the user asked. From dialogue state."),
+    },
 
-        being: Process,
-        source: "Reiter & Dale (2000); Lambek & Scott (1986)",
-    }
+    edges: [
+        // Context constrains Intent
+        (Context, Intent, Constrains),
+        // EpistemicFrame determines Intent (knowledge state → response intent)
+        (EpistemicFrame, Intent, Determines),
+        // Epistemics frames Content (KK→assert, KU→ask, UK→suggest, UU→admit)
+        (EpistemicFrame, Content, Frames),
+        // Intent selects SpeechActType (clarification→question, assertion→statement)
+        (Intent, SpeechActType, Selects),
+        // Content realizes as SurfaceForm (the generation functor)
+        (Content, SurfaceForm, Realizes),
+        // SpeechActType shapes SurfaceForm (question → interrogative form)
+        (SpeechActType, SurfaceForm, Shapes),
+    ],
 }
 
 // =========================================================================
@@ -121,13 +83,15 @@ pub enum ResponseFrame {
 
 impl ResponseFrame {
     /// Map from epistemic state to response frame.
-    pub fn from_epistemic(state: &crate::cognitive::cognition::epistemics::EpistemicState) -> Self {
-        use crate::cognitive::cognition::epistemics::EpistemicState;
+    pub fn from_epistemic(
+        state: &crate::cognitive::cognition::epistemics::EpistemicConcept,
+    ) -> Self {
+        use crate::cognitive::cognition::epistemics::EpistemicConcept;
         match state {
-            EpistemicState::KnownKnown => Self::AssertKnowledge,
-            EpistemicState::KnownUnknown => Self::AcknowledgeGap,
-            EpistemicState::UnknownKnown => Self::SuggestInterpretation,
-            EpistemicState::UnknownUnknown => Self::AdmitLimitation,
+            EpistemicConcept::KnownKnown => Self::AssertKnowledge,
+            EpistemicConcept::KnownUnknown => Self::AcknowledgeGap,
+            EpistemicConcept::UnknownKnown => Self::SuggestInterpretation,
+            EpistemicConcept::UnknownUnknown => Self::AdmitLimitation,
         }
     }
 }
@@ -186,21 +150,21 @@ mod tests {
 
     #[test]
     fn epistemic_frames_map_correctly() {
-        use crate::cognitive::cognition::epistemics::EpistemicState;
+        use crate::cognitive::cognition::epistemics::EpistemicConcept;
         assert_eq!(
-            ResponseFrame::from_epistemic(&EpistemicState::KnownKnown),
+            ResponseFrame::from_epistemic(&EpistemicConcept::KnownKnown),
             ResponseFrame::AssertKnowledge
         );
         assert_eq!(
-            ResponseFrame::from_epistemic(&EpistemicState::KnownUnknown),
+            ResponseFrame::from_epistemic(&EpistemicConcept::KnownUnknown),
             ResponseFrame::AcknowledgeGap
         );
         assert_eq!(
-            ResponseFrame::from_epistemic(&EpistemicState::UnknownKnown),
+            ResponseFrame::from_epistemic(&EpistemicConcept::UnknownKnown),
             ResponseFrame::SuggestInterpretation
         );
         assert_eq!(
-            ResponseFrame::from_epistemic(&EpistemicState::UnknownUnknown),
+            ResponseFrame::from_epistemic(&EpistemicConcept::UnknownUnknown),
             ResponseFrame::AdmitLimitation
         );
     }

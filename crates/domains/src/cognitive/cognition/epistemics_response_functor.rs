@@ -12,7 +12,7 @@
 use pr4xis::category::Functor;
 
 use crate::cognitive::cognition::epistemics::{
-    EpistemicCategory, EpistemicState, EpistemicTransition,
+    EpistemicCategory, EpistemicConcept, EpistemicRelation,
 };
 use crate::cognitive::linguistics::pragmatics::response::{
     ResponseCategory, ResponseConcept, ResponseRelation, ResponseRelationKind,
@@ -24,20 +24,20 @@ impl Functor for EpistemicsToResponse {
     type Source = EpistemicCategory;
     type Target = ResponseCategory;
 
-    fn map_object(obj: &EpistemicState) -> ResponseConcept {
+    fn map_object(obj: &EpistemicConcept) -> ResponseConcept {
         match obj {
             // KnownKnown → SpeechActType (we know → we can assert)
-            EpistemicState::KnownKnown => ResponseConcept::SpeechActType,
+            EpistemicConcept::KnownKnown => ResponseConcept::SpeechActType,
             // KnownUnknown → EpistemicFrame (we know what we don't know)
-            EpistemicState::KnownUnknown => ResponseConcept::EpistemicFrame,
+            EpistemicConcept::KnownUnknown => ResponseConcept::EpistemicFrame,
             // UnknownKnown → Content (knowledge exists but needs surfacing)
-            EpistemicState::UnknownKnown => ResponseConcept::Content,
+            EpistemicConcept::UnknownKnown => ResponseConcept::Content,
             // UnknownUnknown → Context (we need more context)
-            EpistemicState::UnknownUnknown => ResponseConcept::Context,
+            EpistemicConcept::UnknownUnknown => ResponseConcept::Context,
         }
     }
 
-    fn map_morphism(m: &EpistemicTransition) -> ResponseRelation {
+    fn map_morphism(m: &EpistemicRelation) -> ResponseRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
         let kind = if from == to && m.from == m.to {
