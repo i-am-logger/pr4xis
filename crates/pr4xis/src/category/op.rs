@@ -19,7 +19,7 @@ use super::relationship::Relationship;
 /// # Laws
 ///
 /// When `C` satisfies the category laws, `Op<C>` does automatically. Verified
-/// by [`crate::category::validate::check_category_laws::<Op<C>>()`].
+/// by [`crate::category::validate::check_category_laws`] applied to `Op<C>`.
 pub struct Op<C>(PhantomData<C>);
 
 /// A morphism in `Op<C>`: the same underlying `C::Morphism`, but [`source`](Relationship::source)
