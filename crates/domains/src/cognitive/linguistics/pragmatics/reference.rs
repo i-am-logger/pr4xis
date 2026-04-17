@@ -1,56 +1,76 @@
+//! Discourse Reference Ontology — how language tracks entities across utterances.
+//!
+//! Two foundational theories compose here:
+//!
+//! DRT (Discourse Representation Theory) — Kamp (1981), Kamp & Reyle (1993):
+//!   Meaning is not static truth conditions but DYNAMIC UPDATE to a discourse model.
+//!   Indefinites ("a dog") introduce new discourse referents.
+//!   Pronouns ("it") resolve to existing accessible referents.
+//!   Accessibility is structural: determined by DRS nesting.
+//!
+//! Centering Theory — Grosz, Joshi, Weinstein (1995):
+//!   Local discourse coherence is tracked by salience ranking.
+//!   Cf (forward-looking centers): entities in current utterance, ranked by grammar.
+//!   Cb (backward-looking center): most salient entity from previous utterance.
+//!   Transitions: Continue > Retain > Smooth Shift > Rough Shift.
+//!
+//! Together: DRT says what CAN be resolved; Centering says what SHOULD be resolved.
+//!
+//! References:
+//! - Kamp, A Theory of Truth and Semantic Representation (1981)
+//! - Kamp & Reyle, From Discourse to Logic (1993)
+//! - Grosz, Joshi, Weinstein, Centering (Computational Linguistics, 1995)
+//! - Van der Sandt, Presupposition Projection as Anaphora Resolution (1992)
+//! - Heim, The Semantics of Definite and Indefinite Noun Phrases (1982)
+
 use pr4xis::category::Entity;
-use pr4xis::define_ontology;
 
-// Discourse Reference Ontology — how language tracks entities across utterances.
-//
-// Two foundational theories compose here:
-//
-// DRT (Discourse Representation Theory) — Kamp (1981), Kamp & Reyle (1993):
-//   Meaning is not static truth conditions but DYNAMIC UPDATE to a discourse model.
-//   Indefinites ("a dog") introduce new discourse referents.
-//   Pronouns ("it") resolve to existing accessible referents.
-//   Accessibility is structural: determined by DRS nesting.
-//
-// Centering Theory — Grosz, Joshi, Weinstein (1995):
-//   Local discourse coherence is tracked by salience ranking.
-//   Cf (forward-looking centers): entities in current utterance, ranked by grammar.
-//   Cb (backward-looking center): most salient entity from previous utterance.
-//   Transitions: Continue > Retain > Smooth Shift > Rough Shift.
-//
-// Together: DRT says what CAN be resolved; Centering says what SHOULD be resolved.
-//
-// References:
-// - Kamp, A Theory of Truth and Semantic Representation (1981)
-// - Kamp & Reyle, From Discourse to Logic (1993)
-// - Grosz, Joshi, Weinstein, Centering (Computational Linguistics, 1995)
-// - Van der Sandt, Presupposition Projection as Anaphora Resolution (1992)
-// - Heim, The Semantics of Definite and Indefinite Noun Phrases (1982)
+pr4xis::ontology! {
+    name: "Reference",
+    source: "Kamp (1981); Grosz, Joshi & Weinstein (1995)",
+    being: AbstractObject,
 
-/// Core concepts of discourse reference.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum ReferenceConcept {
-    /// A discourse referent — an abstract placeholder for an entity
-    /// introduced into the discourse model. NOT the real-world entity;
-    /// a mediating representation that accumulates conditions.
-    Referent,
-    /// A Discourse Representation Structure — the discourse model at a point.
-    /// Contains a universe of referents and conditions on them.
-    DRS,
-    /// A condition on referents within a DRS: predicates, relations, nested DRSs.
-    Condition,
-    /// The structural context determining which referents are visible.
-    /// DRS nesting defines accessibility (Kamp & Reyle 1993).
-    Accessibility,
-    /// The salience state of an utterance (Grosz, Joshi, Weinstein 1995).
-    /// Contains Cf (forward-looking centers), Cp (preferred), Cb (backward-looking).
-    CenteringState,
-    /// The coherence relationship between adjacent utterances.
-    /// Continue, Retain, Smooth Shift, Rough Shift.
-    Transition,
-    /// A linguistic expression requiring resolution: pronouns, definites, demonstratives.
-    AnaphoricExpression,
-    /// The resolved link between an anaphor and its antecedent referent.
-    Binding,
+    concepts: [
+        Referent,
+        DRS,
+        Condition,
+        Accessibility,
+        CenteringState,
+        Transition,
+        AnaphoricExpression,
+        Binding,
+    ],
+
+    labels: {
+        Referent: ("en", "Discourse referent", "Abstract placeholder for an entity introduced into the discourse model."),
+        DRS: ("en", "Discourse Representation Structure", "The discourse model at a point. Universe of referents + conditions."),
+        Condition: ("en", "Condition", "A condition on referents within a DRS: predicates, relations, nested DRSs."),
+        Accessibility: ("en", "Accessibility", "Structural context determining which referents are visible (Kamp & Reyle 1993)."),
+        CenteringState: ("en", "Centering state", "Cf (forward-looking), Cp (preferred), Cb (backward-looking) (Grosz et al. 1995)."),
+        Transition: ("en", "Centering transition", "Continue / Retain / Smooth Shift / Rough Shift — coherence relationship."),
+        AnaphoricExpression: ("en", "Anaphoric expression", "Linguistic expression requiring resolution: pronouns, definites, demonstratives."),
+        Binding: ("en", "Binding", "The resolved link between an anaphor and its antecedent referent."),
+    },
+
+    edges: [
+        // DRT structure
+        (DRS, Referent, Contains),
+        (Condition, Referent, Constrains),
+        (DRS, DRS, Subordinates),
+        (Accessibility, DRS, Accessible),
+        // Introduction and resolution
+        (Referent, DRS, Introduces),
+        (AnaphoricExpression, Referent, Resolves),
+        // Binding
+        (Binding, AnaphoricExpression, Binds),
+        (Binding, Referent, Binds),
+        // Centering
+        (CenteringState, Referent, Ranks),
+        (CenteringState, CenteringState, Links),
+        (Transition, CenteringState, Links),
+        // Update: utterance processing extends DRS
+        (DRS, Condition, Updates),
+    ],
 }
 
 /// Centering transition types — how topic/salience shifts between utterances.
@@ -65,64 +85,6 @@ pub enum CenteringTransition {
     SmoothShift,
     /// New topic, not yet clearly established. Cb changes, Cb ≠ Cp.
     RoughShift,
-}
-
-define_ontology! {
-    /// Discourse Reference — DRT + Centering (Kamp 1981; Grosz et al. 1995).
-    pub ReferenceOntology for ReferenceCategory {
-        concepts: ReferenceConcept,
-        relation: ReferenceRelation,
-        kind: ReferenceRelationKind,
-        kinds: [
-            /// NP introduces a new discourse referent into the DRS.
-            Introduces,
-            /// Anaphor resolves to an existing referent.
-            Resolves,
-            /// Condition constrains what a referent can denote.
-            Constrains,
-            /// DRS contains referents in its universe.
-            Contains,
-            /// DRS nesting: sub-DRS for negation, conditionals, quantifiers.
-            Subordinates,
-            /// Referents in source DRS are visible from target DRS.
-            Accessible,
-            /// Processing an utterance extends the DRS.
-            Updates,
-            /// Centering state ranks referents by salience.
-            Ranks,
-            /// Centering links adjacent utterance states.
-            Links,
-            /// Binding connects anaphor to resolved referent.
-            Binds,
-        ],
-        edges: [
-            // DRT structure
-            (DRS, Referent, Contains),
-            (Condition, Referent, Constrains),
-            (DRS, DRS, Subordinates),
-            (Accessibility, DRS, Accessible),
-            // Introduction and resolution
-            (Referent, DRS, Introduces),
-            (AnaphoricExpression, Referent, Resolves),
-            // Binding
-            (Binding, AnaphoricExpression, Binds),
-            (Binding, Referent, Binds),
-            // Centering
-            (CenteringState, Referent, Ranks),
-            (CenteringState, CenteringState, Links),
-            (Transition, CenteringState, Links),
-            // Update: utterance processing extends DRS
-            (DRS, Condition, Updates),
-        ],
-        composed: [
-            (AnaphoricExpression, DRS),
-            (DRS, Condition),
-            (Accessibility, Referent),
-        ],
-
-        being: AbstractObject,
-        source: "Kamp (1981); Grosz, Joshi & Weinstein (1995)",
-    }
 }
 
 #[cfg(test)]
@@ -180,7 +142,6 @@ mod tests {
 
     #[test]
     fn accessibility_reaches_referents() {
-        // Accessibility → DRS → Referent (transitive through composition)
         let morphisms = ReferenceCategory::morphisms();
         assert!(
             morphisms
