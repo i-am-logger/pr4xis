@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.11.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.10.0...pr4xis-v0.11.0) (2026-04-17)
+
+
+### Features
+
+* **#124:** Endofunctor trait — first-class C → C functor ([#127](https://github.com/i-am-logger/pr4xis/issues/127)) ([d88b21d](https://github.com/i-am-logger/pr4xis/commit/d88b21d45372d33b82f76e5a6eaee885692dec19))
+* **#130:** Category::Op&lt;C&gt; + empirical 4th failure mode discovery ([#133](https://github.com/i-am-logger/pr4xis/issues/133)) ([ceeb01d](https://github.com/i-am-logger/pr4xis/commit/ceeb01d81e4100d405def3423d6b487f1a8376df))
+* **#131:** TerminalFunctor helper — reusable one-object collapse ([#134](https://github.com/i-am-logger/pr4xis/issues/134)) ([6d01283](https://github.com/i-am-logger/pr4xis/commit/6d01283bb914f29fc06faeedfea91d78648de31b))
+
 ## [0.10.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.9.0...pr4xis-v0.10.0) (2026-04-17)
 
 

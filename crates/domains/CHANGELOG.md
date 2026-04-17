@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.14.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.13.0...pr4xis-domains-v0.14.0) (2026-04-17)
+
+
+### Features
+
+* **#122:** Dependability ontology — Avizienis-Laprie-Randell-Landwehr (2004) ([#125](https://github.com/i-am-logger/pr4xis/issues/125)) ([29a99da](https://github.com/i-am-logger/pr4xis/commit/29a99daba4cbfbb6d6b7d2900e82697204aec01e))
+* **#123:** Resilience ontology — Nygard/Brooker/Armstrong/Patterson ([#128](https://github.com/i-am-logger/pr4xis/issues/128)) ([cad2f89](https://github.com/i-am-logger/pr4xis/commit/cad2f89613cd80e9cf04d081a2c7c7b3405b92ac))
+* **#124:** Endofunctor trait — first-class C → C functor ([#127](https://github.com/i-am-logger/pr4xis/issues/127)) ([d88b21d](https://github.com/i-am-logger/pr4xis/commit/d88b21d45372d33b82f76e5a6eaee885692dec19))
+* **#130:** Category::Op&lt;C&gt; + empirical 4th failure mode discovery ([#133](https://github.com/i-am-logger/pr4xis/issues/133)) ([ceeb01d](https://github.com/i-am-logger/pr4xis/commit/ceeb01d81e4100d405def3423d6b487f1a8376df))
+* **#131:** TerminalFunctor helper — reusable one-object collapse ([#134](https://github.com/i-am-logger/pr4xis/issues/134)) ([6d01283](https://github.com/i-am-logger/pr4xis/commit/6d01283bb914f29fc06faeedfea91d78648de31b))
+* **#62:** Heim syntrometric lineage — consolidated stack ([#143](https://github.com/i-am-logger/pr4xis/issues/143)) ([21b1b81](https://github.com/i-am-logger/pr4xis/commit/21b1b81607861b0d8a6ecb15b9dc55a2288f0f99))
+* **#62:** Heim syntrometry Phase 1 — lineage verified by functor laws ([#135](https://github.com/i-am-logger/pr4xis/issues/135)) ([599ef24](https://github.com/i-am-logger/pr4xis/commit/599ef2408e06acbbde7ebff85ef029e9a87e2ac8))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.10.0 to 0.11.0
+
 ## [0.13.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.12.0...pr4xis-domains-v0.13.0) (2026-04-17)
 
 
