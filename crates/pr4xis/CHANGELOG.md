@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.9.0...pr4xis-v0.10.0) (2026-04-17)
+
+
+### Features
+
+* compose API — runtime ontology composition via Korporator ([#103](https://github.com/i-am-logger/pr4xis/issues/103)) ([#108](https://github.com/i-am-logger/pr4xis/issues/108)) ([848d986](https://github.com/i-am-logger/pr4xis/commit/848d986457f82a758f3315c049063b53962ed00f))
+* ontology! proc macro — fluent syntax with static codegen ([#103](https://github.com/i-am-logger/pr4xis/issues/103)) ([#109](https://github.com/i-am-logger/pr4xis/issues/109)) ([b66edcc](https://github.com/i-am-logger/pr4xis/commit/b66edccb3725a5f417bd63febf240ee1a81017a0))
+* typed Vocabulary — OntologyName, ModulePath, structured Citation ([#111](https://github.com/i-am-logger/pr4xis/issues/111)) ([a05b34c](https://github.com/i-am-logger/pr4xis/commit/a05b34c061a8c0c784a72c20a8afe1deec7fae7b))
+
 ## [0.9.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.8.0...pr4xis-v0.9.0) (2026-04-16)
 
 
