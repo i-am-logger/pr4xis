@@ -652,5 +652,14 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 &[#(#label_entries,)*]
             }
         }
+
+        // Auto-register this ontology into the global VOCABULARIES slice.
+        // On wasm32, linkme is unsupported — registration is skipped.
+        #[cfg(not(target_arch = "wasm32"))]
+        pr4xis::paste::paste! {
+            #[pr4xis::linkme::distributed_slice(pr4xis::ontology::VOCABULARIES)]
+            #[linkme(crate = pr4xis::linkme)]
+            static [<_REGISTER_ #ont_name:snake:upper>]: fn() -> pr4xis::ontology::Vocabulary = #ont_name::vocabulary;
+        }
     }
 }

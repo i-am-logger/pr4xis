@@ -30,6 +30,41 @@
 /// `being:` classifies per DOLCE (Masolo et al., WonderWeb D18, 2003).
 /// `source:` captures the primary citation.
 /// Both are optional. When present, they flow into `fn vocabulary()`.
+/// Manually register an ontology's Vocabulary into the global registry.
+///
+/// Used by ontologies that provide Category/Entity impls manually (not via
+/// `define_ontology!` / `ontology!` macro). On native targets, emits a
+/// `#[distributed_slice]` entry so the ontology shows up in
+/// `describe_knowledge_base()`. On wasm32, this is a no-op (linkme is
+/// unsupported there; wasm consumers build the registry via
+/// `pr4xis::ontology::registry::collect_all`).
+#[macro_export]
+macro_rules! register_manual {
+    (
+        ident: $ident:ident,
+        category: $cat:ty,
+        entity: $entity:ty,
+        name: $name:expr,
+        module: $module:expr,
+        source: $source:expr,
+        being: $being:ident,
+    ) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::VOCABULARIES)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_MANUAL_REGISTER_ $ident>]: fn() -> $crate::ontology::Vocabulary = || {
+                $crate::ontology::Vocabulary::from_ontology::<$cat, $entity>(
+                    $name,
+                    $module,
+                    $source,
+                    Some($crate::ontology::upper::being::Being::$being),
+                )
+            };
+        }
+    };
+}
+
 #[macro_export]
 macro_rules! define_ontology {
     // =========================================================================
@@ -330,6 +365,16 @@ macro_rules! define_ontology {
                     _being,
                 )
             }
+        }
+
+        // Auto-register this ontology into the global VOCABULARIES slice.
+        // Collected at link time via linkme::distributed_slice.
+        // On wasm32, linkme is unsupported — registration is skipped.
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::VOCABULARIES)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_ $ont_name:snake:upper>]: fn() -> $crate::ontology::Vocabulary = $ont_name::vocabulary;
         }
     };
 }

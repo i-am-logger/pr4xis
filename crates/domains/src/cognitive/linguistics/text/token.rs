@@ -107,8 +107,8 @@ mod tests {
             word: "dog".into(),
             lambek_type: LambekType::n(),
             sense: Some(ConceptRef {
-                ontology: "biology",
-                concept: "Canine",
+                ontology: "biology".to_string(),
+                concept: "Canine".to_string(),
             }),
             pos: None,
         };
@@ -122,8 +122,8 @@ mod tests {
             word: "runs".into(),
             lambek_type: LambekType::n(),
             sense: Some(ConceptRef {
-                ontology: "test",
-                concept: "Run",
+                ontology: "test".to_string(),
+                concept: "Run".to_string(),
             }),
             pos: None,
         };

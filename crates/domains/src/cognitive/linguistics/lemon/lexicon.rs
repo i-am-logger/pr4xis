@@ -20,7 +20,7 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone)]
 pub struct Form {
     pub written_rep: String,
-    pub lang: &'static str,
+    pub lang: String,
 }
 
 /// A LexicalSense — bridges entry to ontology concept (ontolex:LexicalSense).
@@ -31,11 +31,11 @@ pub struct Sense {
 }
 
 /// Reference to an ontology concept — the target of ontolex:reference.
-/// Identified by ontology name + concept name (both from the type system).
+/// Identified by ontology name + concept name.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ConceptRef {
-    pub ontology: &'static str,
-    pub concept: &'static str,
+    pub ontology: String,
+    pub concept: String,
 }
 
 /// A LexicalEntry — unit of the lexicon (ontolex:LexicalEntry).
@@ -52,30 +52,39 @@ pub struct LexicalEntry {
 /// The entries are indexed by their canonical form's written representation.
 #[derive(Debug, Clone)]
 pub struct Lexicon {
-    pub lang: &'static str,
+    pub lang: String,
     entries: BTreeMap<String, LexicalEntry>,
 }
 
 impl Lexicon {
-    pub fn new(lang: &'static str) -> Self {
+    pub fn new(lang: impl Into<String>) -> Self {
         Self {
-            lang,
+            lang: lang.into(),
             entries: BTreeMap::new(),
         }
     }
 
     /// Add an entry for an ontology concept.
-    pub fn add_entry(&mut self, written_rep: &str, ontology: &'static str, concept: &'static str) {
+    pub fn add_entry(
+        &mut self,
+        written_rep: impl Into<String>,
+        ontology: impl Into<String>,
+        concept: impl Into<String>,
+    ) {
+        let written_rep = written_rep.into();
         let entry = LexicalEntry {
             canonical_form: Form {
-                written_rep: written_rep.to_string(),
-                lang: self.lang,
+                written_rep: written_rep.clone(),
+                lang: self.lang.clone(),
             },
             senses: vec![Sense {
-                reference: ConceptRef { ontology, concept },
+                reference: ConceptRef {
+                    ontology: ontology.into(),
+                    concept: concept.into(),
+                },
             }],
         };
-        self.entries.insert(written_rep.to_string(), entry);
+        self.entries.insert(written_rep, entry);
     }
 
     /// Look up an entry by its canonical written form.
@@ -119,10 +128,15 @@ impl Lexicon {
 /// The canonical form is the variant name. The sense references
 /// the ontology concept.
 pub fn build_english_terminology() -> Lexicon {
-    // Placeholder — entries are registered by individual ontologies via add_entry.
-    // Pre-populating from describe_knowledge_base() is deferred until ConceptRef
-    // accepts owned strings (tracked as part of the Vocabulary redesign).
-    Lexicon::new("en")
+    let mut lex = Lexicon::new("en");
+
+    let descriptors = crate::formal::information::knowledge::describe_knowledge_base();
+    for desc in &descriptors {
+        let name = desc.name().to_string();
+        lex.add_entry(name.clone(), name.clone(), name);
+    }
+
+    lex
 }
 
 #[cfg(test)]
@@ -130,7 +144,6 @@ mod lexicon_tests {
     use super::*;
 
     #[test]
-    #[ignore = "build_english_terminology is a placeholder — requires Lexicon to accept owned concept names (Vocabulary redesign follow-up)"]
     fn english_terminology_is_nonempty() {
         let lex = build_english_terminology();
         assert!(
@@ -141,14 +154,12 @@ mod lexicon_tests {
     }
 
     #[test]
-    #[ignore = "build_english_terminology is a placeholder — requires Lexicon to accept owned concept names (Vocabulary redesign follow-up)"]
     fn can_lookup_knowledge_ontology() {
         let lex = build_english_terminology();
         assert!(lex.lookup("KnowledgeOntology").is_some());
     }
 
     #[test]
-    #[ignore = "build_english_terminology is a placeholder — requires Lexicon to accept owned concept names (Vocabulary redesign follow-up)"]
     fn label_for_returns_canonical_form() {
         let lex = build_english_terminology();
         let label = lex.label_for("KnowledgeOntology", "KnowledgeOntology");

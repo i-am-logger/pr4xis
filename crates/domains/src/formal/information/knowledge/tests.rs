@@ -59,7 +59,7 @@ fn schema_defines_entry() {
 
 #[test]
 fn describe_knowledge_base_is_nonempty() {
-    let descriptors = super::descriptor::describe_knowledge_base();
+    let descriptors = super::describe_knowledge_base();
     assert!(
         descriptors.len() > 100,
         "describe_knowledge_base() returned only {} ontologies — likely missing registrations",
@@ -69,7 +69,7 @@ fn describe_knowledge_base_is_nonempty() {
 
 #[test]
 fn describe_knowledge_base_names_are_unique() {
-    let descriptors = super::descriptor::describe_knowledge_base();
+    let descriptors = super::describe_knowledge_base();
     let mut seen = std::collections::HashSet::new();
     for d in &descriptors {
         assert!(
@@ -83,7 +83,7 @@ fn describe_knowledge_base_names_are_unique() {
 
 #[test]
 fn describe_knowledge_base_no_stale_science_prefix() {
-    let descriptors = super::descriptor::describe_knowledge_base();
+    let descriptors = super::describe_knowledge_base();
     for d in &descriptors {
         assert!(
             !d.domain().starts_with("science."),
@@ -96,7 +96,7 @@ fn describe_knowledge_base_no_stale_science_prefix() {
 
 #[test]
 fn every_descriptor_has_nonzero_concepts() {
-    let descriptors = super::descriptor::describe_knowledge_base();
+    let descriptors = super::describe_knowledge_base();
     for d in &descriptors {
         assert!(
             d.concepts().len() > 0,
@@ -262,7 +262,7 @@ mod compose {
 
     #[test]
     fn compose_from_vocabulary_bridge() {
-        let descriptors = super::super::descriptor::describe_knowledge_base();
+        let descriptors = super::super::describe_knowledge_base();
         let first = &descriptors[0];
 
         let syntrix = pr4xis::ontology::compose::from_vocabulary(first);
