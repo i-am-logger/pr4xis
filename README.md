@@ -32,7 +32,7 @@ The mathematical foundation runs from G. Spencer-Brown's *Laws of Form* (1969) t
 cargo test -p pr4xis-domains -- syntrometry
 ```
 
-runs the whole suite — the primary `Syntrometry → Pr4xisSubstrate` functor (object-level equivalence; 0% loss), the `Distinction → Syntrometry` embedding (Spencer-Brown → Heim), and cross-functors into `MetaOntology`, `Staging` (Futamura), `Algebra` (Goguen/Zimmermann), and `C1` (Dehaene GWT). Heim anticipated each of these constructions.
+runs the whole suite — the primary `Syntrometry → Pr4xisSubstrate` functor (14 of 18 concepts round-trip as fixed points; four intentional collapses whose richer semantics lives in the dedicated Dialectics and Kripke ontologies), the `Distinction → Syntrometry` embedding (Spencer-Brown → Heim), and cross-functors into `MetaOntology`, `Staging` (Futamura), `Algebra` (Goguen/Zimmermann), `Dialectics` (Hegel/Aristotle/Marx/Adorno/Priest), `Kripke` (possible-worlds semantics), and `C1` (Dehaene GWT).
 
 ## The problem
 

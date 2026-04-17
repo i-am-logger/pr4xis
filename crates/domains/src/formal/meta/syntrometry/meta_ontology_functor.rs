@@ -25,10 +25,20 @@
 //! | `Transzendenzstufe` | `IntermediateDomain` | A grade between two abstract levels |
 //! | `Metroplex`     | `Structure`          | The top-level abstract container |
 //!
-//! The collapses (SyntrixLevel → CategoryStructure, Korporator → Functor)
-//! are honest: pr4xis's meta-ontology deliberately doesn't distinguish
-//! endofunctor-on-a-Syntrix from a general functor at that level of
-//! abstraction. Those distinctions live in Pr4xisSubstrate (Phases 1-3).
+//! The functor has six intentional collapses out of 18 concepts — pairs
+//! that share a diagnostic role land at the same `MetaEntity` bucket:
+//!
+//! - `Synkolator` / `Korporator` / `SequencePermutation` /
+//!   `OrientationPermutation` → `Functor`
+//! - `Syntrix` / `SyntrixLevel` → `CategoryStructure`
+//! - `Predicate` / `Aspektivsystem` → `DomainOntology`
+//! - `Koordination` / `Reflexivity` → `NaturalTransformation`
+//!
+//! These are honest: pr4xis's meta-ontology deliberately doesn't
+//! distinguish endofunctor-on-a-Syntrix from a general functor at that
+//! level of abstraction. The finer distinctions live in Pr4xisSubstrate
+//! (where e.g. `SubEndofunctor` ⊂ `SubFunctor`) and in the dedicated
+//! Dialectics / Kripke ontologies.
 
 use pr4xis::category::{Category, Functor};
 

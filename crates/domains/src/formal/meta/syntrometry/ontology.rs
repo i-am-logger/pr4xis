@@ -161,10 +161,11 @@ pr4xis::ontology! {
         // Transzendenzstufe is a structural index into a Metroplex — each
         // level corresponds to a grade of Syntrix within the hierarchy.
         (Transzendenzstufe, Syntrix, Grades),
-        // A Telecenter can be realised as a fixed point of a Synkolator
-        // (Eigenform X = F(X)) — this is the categorical content that
-        // justifies the pr4xis mapping to Eigenform / colimit.
-        (Synkolator, Telecenter, FixedPointOf),
+        // A Telecenter is a fixed-point of a Synkolator (Eigenform
+        // X = F(X)) — this is the categorical content that justifies
+        // the pr4xis mapping to Eigenform / colimit. Reads as
+        // "Telecenter is a FixedPointOf Synkolator".
+        (Telecenter, Synkolator, FixedPointOf),
     ],
 }
 
@@ -270,7 +271,7 @@ impl Axiom for SyntrixIsLeveled {
     }
 }
 
-///a Metroplex mereologically contains Syntrices organised
+/// A Metroplex mereologically contains Syntrices organised
 /// by Transzendenzstufen. Both parts must be present.
 pub struct MetroplexContainsSyntrixAndLevels;
 
@@ -285,7 +286,7 @@ impl Axiom for MetroplexContainsSyntrixAndLevels {
     }
 }
 
-///every Maxime ConvergesToward a Telecenter. The pair
+/// Every Maxime ConvergesToward a Telecenter. The pair
 /// (Maxime, Telecenter) must exist with the ConvergesToward kind —
 /// otherwise the teleological selection claim of Maximentelezentrik
 /// is unencoded.
@@ -304,20 +305,23 @@ impl Axiom for MaximeConvergesTowardTelecenter {
     }
 }
 
-///a Telecenter is a fixed-point of a Synkolator — the
-/// categorical content of the eigenform / goal-attractor mapping.
+/// A Telecenter is a fixed-point of a Synkolator — the categorical
+/// content of the eigenform / goal-attractor mapping. Encoded as
+/// `(Telecenter, Synkolator, FixedPointOf)` so `(from, to, kind)`
+/// reads "Telecenter is a FixedPointOf Synkolator", preserving the
+/// intended subject/object roles.
 pub struct TelecenterIsSynkolatorFixedPoint;
 
 impl Axiom for TelecenterIsSynkolatorFixedPoint {
     fn description(&self) -> &str {
-        "Synkolator carries a FixedPointOf edge into Telecenter (eigenform X=F(X))"
+        "Telecenter is a FixedPointOf Synkolator (eigenform X=F(X))"
     }
     fn holds(&self) -> bool {
         use SyntrometryConcept as S;
         use SyntrometryRelationKind as K;
         SyntrometryCategory::morphisms()
             .iter()
-            .any(|r| r.from == S::Synkolator && r.to == S::Telecenter && r.kind == K::FixedPointOf)
+            .any(|r| r.from == S::Telecenter && r.to == S::Synkolator && r.kind == K::FixedPointOf)
     }
 }
 

@@ -14,7 +14,7 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry
 
 ## Entities
 
-### Syntrometry (14)
+### Syntrometry (18)
 
 | Family | Entities |
 |---|---|
@@ -22,6 +22,9 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry
 | Syntrometric structures (4) | `Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator` |
 | Mereology (1) | `Part` |
 | Teleological / hierarchical (4) | `Telecenter`, `Maxime`, `Transzendenzstufe`, `Metroplex` |
+| Permutation operators (2) | `SequencePermutation` (C), `OrientationPermutation` (c) |
+| Multi-aspect (1) | `Aspektivsystem` |
+| Self-observation (1) | `Reflexivity` (ρ) |
 
 ### Pr4xis-substrate (14)
 
@@ -32,11 +35,11 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry
 | Refined sub-kinds (3) | `SubProductCategory`, `SubGradedObject`, `SubObject` |
 | Natural transformation (1) | `SubNaturalTransformation` |
 
-## Lineage mappings (six verified functors)
+## Lineage mappings (eight verified functors)
 
 ### Primary: `Syntrometry → Pr4xisSubstrate`
 
-13 of 14 concepts round-trip cleanly. `Dialektik` intentionally collapses to `SubCategory` because opposition-structure is carried by the dedicated [Dialectics](../../logic/dialectics/) ontology (Aristotle / Hegel / Marx / Adorno / Priest), not by the core substrate. Reach it via the `SyntrometryToDialectics` cross-functor.
+14 of 18 concepts round-trip cleanly. Four concepts — `Dialektik`, `SequencePermutation`, `OrientationPermutation`, `Aspektivsystem` — intentionally collapse to a substrate parent because their richer semantics lives in dedicated cross-functor targets (Dialectics, Kripke).
 
 | Syntrometry | Pr4xis substrate |
 |---|---|
@@ -46,24 +49,29 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry
 | `Koordination`  | `SubMorphism` |
 | `Aspekt`        | `SubProductCategory` |
 | `Syntrix`       | `SubCategory` |
-| `SyntrixLevel`  | `SubLeveledEntity` |
+| `SyntrixLevel`  | `SubGradedObject` |
 | `Synkolator`    | `SubEndofunctor` |
 | `Korporator`    | `SubFunctor` |
-| `Part`          | `SubMereologicalMorphism` |
+| `Part`          | `SubObject` |
 | `Telecenter`    | `SubEigenform` |
 | `Maxime`        | `SubIntention` |
 | `Transzendenzstufe` | `SubStagingLevel` |
 | `Metroplex`     | `SubSystemOfSystems` |
+| `SequencePermutation` | `SubEndofunctor` (collapses with Synkolator) |
+| `OrientationPermutation` | `SubEndofunctor` (collapses) |
+| `Aspektivsystem` | `SubOntology` (collapses — handled by Kripke cross-functor) |
+| `Reflexivity`   | `SubNaturalTransformation` |
 
-Gap analysis: **~7% unit loss (1/14 — Dialektik), 0% counit loss** — verified by `test_syntrometry_substrate_dialektik_collapses`. The one collapse is intentional and preserved at full resolution by the Dialectics cross-functor.
+Gap analysis: **4 intentional unit collapses out of 18, 0% counit loss** — verified by `test_syntrometry_substrate_intentional_collapses`. Each collapsed concept is preserved at full resolution by a dedicated cross-functor.
 
 ### Cross-functors into existing pr4xis ontologies
 
-Each of the five cross-functors below passes `check_functor_laws` and carries its own collapse profile, demonstrating that Heim's vocabulary aligns with pr4xis's meta-ontology, composition, staging, and cognitive layers:
+Each of the seven cross-functors below passes `check_functor_laws` and carries its own collapse profile, demonstrating that Heim's vocabulary aligns with pr4xis's meta-ontology, composition, staging, cognitive, logical, and modal layers. The last row — `Distinction → Syntrometry` — runs in the historical direction (Spencer-Brown 1969 → Heim, embedding the earlier distinction calculus into the richer syntrometric vocabulary):
 
 | Functor | Target | Headline mapping |
 |---|---|---|
 | `Syntrometry → Dialectics` | `formal::logic::dialectics` (Hegel / Aristotle / Priest) | `Dialektik` ↦ `DialecticalMoment`, `Synkolator` ↦ `Sublation`, `Telecenter` ↦ `Synthesis` |
+| `Syntrometry → Kripke` | `formal::logic::kripke` (Kripke 1959/63) | `Aspekt` ↦ `KripkeFrame`, `Aspektivsystem` ↦ `AccessibilityRelation`, `Reflexivity` ↦ `Reflexive` |
 | `Syntrometry → MetaOntology` | `formal::meta::ontology_diagnostics` | `Synkolator` / `Korporator` ↦ `Functor`, `Maxime` ↦ `PropertyTest` |
 | `Syntrometry → Staging` | `formal::meta::staging` (Futamura 1971) | `Transzendenzstufe` ↦ `Interpreter`, `Metroplex` ↦ `CompilerGenerator` |
 | `Syntrometry → Algebra` | `formal::meta::algebra` (Goguen / Zimmermann) | `Korporator` ↦ `Mapping`, `Aspekt` ↦ `Product`, `Telecenter` ↦ `Pushout` |

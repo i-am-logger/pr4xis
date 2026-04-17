@@ -42,9 +42,9 @@ After subtracting the prior art, the things we believe pr4xis contributes — pe
 
 5. **The explicit codegen / async / mmap functor equivalence.** Three different mechanisms for delivering ontology data into the runtime, all proven equivalent as functors from the same source. This is a small-but-load-bearing piece of infrastructure that lets the same ontology run as a static binary, an asynchronously loaded resource, or a memory-mapped file without semantic drift.
 
-## The Heim lineage — machine-verified across six functors
+## The Heim lineage — machine-verified across eight functors
 
-The most prominent lineage claim in the project is the structural alignment with the **modernized syntrometric logic tradition** (Heim 1980, reformulated categorically in 2025). Per the project's core principle — every claim must be machine-checkable — this is operationalised as six tested theorems spanning the substrate, the meta-ontology layer, the composition layer, and the cognitive layer.
+The most prominent lineage claim in the project is the structural alignment with the **modernized syntrometric logic tradition** (Heim 1980, reformulated categorically in 2025). Per the project's core principle — every claim must be machine-checkable — this is operationalised as eight tested theorems (one primary lineage functor + seven cross-functors, including the historical-direction `Distinction → Syntrometry` embedding) spanning the substrate, meta-ontology layer, composition layer, cognitive layer, and modal/dialectical logic layers.
 
 ### Verify
 
@@ -54,15 +54,15 @@ cargo test -p pr4xis-domains -- syntrometry
 
 ### What the test proves
 
-Heim's syntrometric primitives — `Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`, `Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`, `Part` — are encoded as a pr4xis ontology at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/). A `Functor: Syntrometry → Pr4xisSubstrate` carries each Heim concept to its pr4xis-core counterpart. `check_functor_laws` verifies identity preservation + composition preservation exhaustively over every morphism. The structural alignment is no longer argued — it is proven.
+Heim's 18 syntrometric primitives — distinction primitives (`Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`), structures (`Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`), mereology (`Part`), teleological/hierarchical (`Telecenter`, `Maxime`, `Transzendenzstufe`, `Metroplex`), permutation operators (`SequencePermutation` C, `OrientationPermutation` c), multi-aspect (`Aspektivsystem`), self-observation (`Reflexivity` ρ) — are encoded as a pr4xis ontology at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/). A `Functor: Syntrometry → Pr4xisSubstrate` carries each Heim concept to its pr4xis-core counterpart. `check_functor_laws` verifies identity preservation + composition preservation exhaustively over every morphism. The structural alignment is no longer argued — it is proven.
 
 ### Measured information-loss profile
 
-The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) on the primary lineage functor reports **0% unit loss and 0% counit loss** — every Heim concept has a unique pr4xis-substrate target and every substrate primitive has a unique Heim representative. Object-level equivalence.
+The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) on the primary lineage functor reports **4 intentional unit collapses out of 18 concepts** (Dialektik, SequencePermutation, OrientationPermutation, Aspektivsystem) and **0% counit loss** (the substrate is closed under the round-trip). The four collapses are honest: each of these concepts has a richer dedicated home — `Dialektik` → the Dialectics ontology, `Aspektivsystem` → the Kripke ontology, the permutations → endomorphism-class at the substrate level. Full precision is preserved by the corresponding cross-functors below.
 
-### Cross-functors to existing pr4xis ontologies
+### Cross-functors to existing and new pr4xis ontologies
 
-The primary lineage is the Heim ↔ Pr4xisSubstrate bijection above. Beyond that, five further functors demonstrate that Heim's vocabulary aligns with ontologies pr4xis already had for other reasons:
+The primary lineage maps Heim into pr4xis's categorical substrate; cross-functors preserve richer structure by routing into dedicated ontologies:
 
 - **`Syntrometry → MetaOntology`** (ontology_diagnostics) — Heim's categorical primitives match the meta-ontology vocabulary pr4xis uses to diagnose gaps across ontology pairs.
 - **`Syntrometry → Staging`** (Futamura 1971) — Transzendenzstufen ↦ Futamura projection levels.

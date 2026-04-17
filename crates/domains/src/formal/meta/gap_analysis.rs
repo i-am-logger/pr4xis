@@ -798,14 +798,9 @@ mod tests {
     // Syntrometry → MetaOntology cross-functor collapse (Phase 4)
     // -----------------------------------------------------------------------
 
-    /// Count how many distinct `MetaEntity` values the 14 syntrometric
-    /// concepts land at under the cross-functor. Expected: 12 out of 14 land
-    /// uniquely; SyntrixLevel/Syntrix both go to CategoryStructure and
-    /// Synkolator/Korporator both go to Functor — the two intentional
-    /// collapses documented in meta_ontology_functor.rs.
-    /// Phase 5: Syntrometry → Staging collapses Heim's finer grain into
-    /// Futamura's coarser vocabulary. Expected 6+ collapses (many concepts
-    /// land at Program).
+    /// Syntrometry → Staging collapses Heim's finer grain into Futamura's
+    /// coarser vocabulary. Expected 6+ collapses (many concepts land at
+    /// Program).
     #[test]
     fn test_syntrometry_to_staging_collapse_is_measured() {
         use crate::formal::meta::staging::ontology::StageConcept;
@@ -860,8 +855,12 @@ mod tests {
         assert!(collapse < total, "functor is not trivial");
     }
 
+    /// Syntrometry → MetaOntology intentionally collapses 6 of 18 concepts
+    /// — pairs that share a diagnostic role collapse to the same `MetaEntity`
+    /// bucket (e.g., Synkolator/Korporator/permutations → Functor;
+    /// Koordination/Reflexivity → NaturalTransformation).
     #[test]
-    fn test_syntrometry_to_meta_ontology_collapse_is_two() {
+    fn test_syntrometry_to_meta_ontology_collapse_is_six() {
         use crate::formal::meta::ontology_diagnostics::ontology::MetaEntity;
         use crate::formal::meta::syntrometry::meta_ontology_functor::SyntrometryToMetaOntology;
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
