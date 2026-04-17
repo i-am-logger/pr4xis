@@ -19,7 +19,7 @@
 
 pr4xis::ontology! {
     name: "Durability",
-    source: "Haerder & Reuter (1983); Pelley et al. (2014)",
+    source: "Haerder & Reuter (1983); Pillai et al. (2014); Pelley et al. (2014)",
     being: AbstractObject,
 
     concepts: [Ephemeral, Transient, Persistent, Durable, Replicated, Archived],
