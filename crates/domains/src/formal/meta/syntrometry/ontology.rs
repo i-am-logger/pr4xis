@@ -1,4 +1,4 @@
-//! Syntrometry ontology — Heim's syntrometric primitives, Phase 1.
+//! Syntrometry ontology — Heim's syntrometric primitives.
 //!
 //! Encodes the core of Burkhard Heim's *Syntrometrische Maximentelezentrik*
 //! (the logical foundation underneath Heim theory proper) as a pr4xis
@@ -9,17 +9,11 @@
 //! > — §1, §2 (especially §2.2 "The Syntrix as the Category of Leveled Structures").
 //!
 //! The goal is to *verify* the lineage claim — pr4xis's categorical substrate
-//! is claimed to instantiate Heim's syntrometric structure — not to assert it.
-//! Phase 1 encodes the distinction primitives (Predicate, Predikatrix,
-//! Dialektik, Koordination, Aspekt), the syntrometric structures (Syntrix,
-//! SyntrixLevel, Synkolator, Korporator), and the mereological primitive
-//! (Part), plus their structural relations. A companion module
-//! `lineage_functor` maps Syntrometry → a small pr4xis-substrate ontology
-//! and verifies the functor laws.
-//!
-//! Phase 2 (deferred): telecenters, transzendenzstufen, maximes — the
-//! teleological concepts that map to goal-directed planning architecture
-//! (see memory: `project_heim_transport.md`).
+//! is claimed to instantiate Heim's syntrometric structure — not to assert
+//! it. The companion module `lineage_functor` maps Syntrometry → the pr4xis
+//! substrate and verifies the functor laws; five further cross-functors
+//! align Heim's vocabulary with pr4xis's meta, composition, staging, and
+//! cognitive ontologies.
 
 use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -45,6 +39,26 @@ pr4xis::ontology! {
 
         // === CEM mereology primitive ===
         Part,
+
+        // === Teleological / hierarchical (§§ Telezentrik + Metroplextheorie) ===
+        // The "metaphysical" concepts that are actually architecture.
+        Telecenter,
+        Maxime,
+        Transzendenzstufe,
+        Metroplex,
+
+        // === Permutation operators (§1) ===
+        // Heim's two operators on predicate sequences and orientations.
+        // C (capital) permutes predicate SEQUENCES; c (lowercase) permutes
+        // orientations within a single predicate.
+        SequencePermutation,
+        OrientationPermutation,
+
+        // === Multi-aspect structure (§2) ===
+        Aspektivsystem,
+
+        // === Self-observation (reflexivity ρ) ===
+        Reflexivity,
     ],
 
     labels: {
@@ -60,6 +74,15 @@ pr4xis::ontology! {
         Korporator: ("en", "Korporator", "A structure-mapping functor between Syntrices: K: Syntrix_1 → Syntrix_2. The general case of cross-syntrix composition — Synkolator is the endomorphism specialisation."),
 
         Part: ("en", "Part", "The mereological part-of primitive Part(A, B). Classical Extensional Mereology (CEM) as used by Heim; must satisfy Weak Supplementation."),
+
+        SequencePermutation: ("en", "Sequence permutation C", "Heim §1: the operator C that permutes predicate sequences within a Predikatrix. Categorically an automorphism on the sequence-ordering — composition under associativity of the underlying Koordination."),
+        OrientationPermutation: ("en", "Orientation permutation c", "Heim §1: the operator c that permutes the orientation (direction) of an individual predicate. Paired with C to give the full Heim permutation algebra C/c."),
+        Aspektivsystem: ("en", "Aspektivsystem", "Heim §2: a structured system of Aspekts with aspect-relative relations between them. Aspektrelativität (aspect-relative truth) is the property an Aspektivsystem exhibits — different Aspekts see different facets of the same underlying distinction-system. Maps via Kripke semantics to pr4xis's 'multiple ontologies viewing the same domain via functors' pattern."),
+        Reflexivity: ("en", "Reflexivity ρ", "Heim: the self-observation natural transformation — a Syntrix observing itself. Categorically a natural transformation ρ : Id ⇒ Synkolator (or Synkolator ⇒ Id), encoding von Foerster's eigenform operationally."),
+        Telecenter: ("en", "Telecenter", "A goal-attractor — an organising target that convergent syntrometric activity tends toward. Categorically a colimit / fixed-point; cybernetically an Ashby 'good regulator' attractor; in pr4xis maps to CommunicativeGoal / Eigenform (X = F(X)). Source: Heim Telezentrik."),
+        Maxime: ("en", "Maxime", "An extremal of expedient ideas — the selection operator choosing among candidate Aspekts which ones actualise toward a Telecenter. Cybernetically Conant-Ashby 'every regulator is a model of its system'; in pr4xis maps to BDI Intention / C1 Attention / Optimization. Source: Heim Maximentelezentrik."),
+        Transzendenzstufe: ("en", "Transzendenzstufe", "A transcendence-level — a qualitative leap between grades of abstraction within a Metroplex hierarchy. In pr4xis maps to Staging levels (Futamura projections) / Metroplex grades / C1 vs C2 consciousness split. Source: Heim §§ Metroplextheorie."),
+        Metroplex: ("en", "Metroplex", "The hierarchical container organising Syntrices into Transzendenzstufen. In pr4xis maps to system-of-systems composition. Source: Heim §§ Metroplextheorie."),
     },
 
     is_a: [
@@ -86,6 +109,17 @@ pr4xis::ontology! {
         // A SyntrixLevel is a Predikatrix-at-a-given-grade; mereologically
         // it contains the same predicates its parent Predikatrix would.
         (SyntrixLevel, Predicate),
+
+        // === Teleological + hierarchical structure ===
+        // A Metroplex contains Syntrices organised by Transzendenzstufen.
+        (Metroplex, Syntrix),
+        (Metroplex, Transzendenzstufe),
+        // A Telecenter carries Maximes (the selection operators that
+        // actualise which Aspekts converge toward the Telecenter).
+        (Telecenter, Maxime),
+
+        // Aspektivsystem contains Aspekts by definition — a system-of-aspects.
+        (Aspektivsystem, Aspekt),
     ],
 
     edges: [
@@ -105,6 +139,32 @@ pr4xis::ontology! {
         // === Syntrometric operators ===
         (Synkolator, Syntrix, EndomorphismOn),
         (Korporator, Syntrix, MapsBetween),
+
+        // === Permutation operators (C/c) ===
+        (SequencePermutation, Koordination, Permutes),
+        (OrientationPermutation, Predicate, Permutes),
+
+        // === Multi-aspect structure ===
+        // Aspektivsystem organises Aspekts at the categorical level.
+        (Aspektivsystem, Syntrix, OrganisesOver),
+
+        // === Self-observation (Reflexivity ρ) ===
+        // Reflexivity is a natural transformation on Synkolator — the
+        // Syntrix observes itself via the endofunctor.
+        (Reflexivity, Synkolator, NaturallyTransforms),
+
+        // === Teleological / hierarchical ===
+        // A Maxime selects among candidate Aspekts for a Telecenter.
+        (Maxime, Aspekt, Selects),
+        // Maximes are oriented toward a Telecenter — the target of selection.
+        (Maxime, Telecenter, ConvergesToward),
+        // Transzendenzstufe is a structural index into a Metroplex — each
+        // level corresponds to a grade of Syntrix within the hierarchy.
+        (Transzendenzstufe, Syntrix, Grades),
+        // A Telecenter can be realised as a fixed point of a Synkolator
+        // (Eigenform X = F(X)) — this is the categorical content that
+        // justifies the pr4xis mapping to Eigenform / colimit.
+        (Synkolator, Telecenter, FixedPointOf),
     ],
 }
 
@@ -126,6 +186,12 @@ impl Quality for SyntrometryCategoryOf {
                 "syntrometric-structure"
             }
             S::Part => "mereology",
+            S::Telecenter | S::Maxime | S::Transzendenzstufe | S::Metroplex => {
+                "teleological-hierarchical"
+            }
+            S::SequencePermutation | S::OrientationPermutation => "permutation-operator",
+            S::Aspektivsystem => "multi-aspect",
+            S::Reflexivity => "self-observation",
         })
     }
 }
@@ -204,6 +270,57 @@ impl Axiom for SyntrixIsLeveled {
     }
 }
 
+///a Metroplex mereologically contains Syntrices organised
+/// by Transzendenzstufen. Both parts must be present.
+pub struct MetroplexContainsSyntrixAndLevels;
+
+impl Axiom for MetroplexContainsSyntrixAndLevels {
+    fn description(&self) -> &str {
+        "Metroplex contains {Syntrix, Transzendenzstufe} (Heim Metroplextheorie)"
+    }
+    fn holds(&self) -> bool {
+        let parts = direct_parts_of(SyntrometryConcept::Metroplex);
+        parts.contains(&SyntrometryConcept::Syntrix)
+            && parts.contains(&SyntrometryConcept::Transzendenzstufe)
+    }
+}
+
+///every Maxime ConvergesToward a Telecenter. The pair
+/// (Maxime, Telecenter) must exist with the ConvergesToward kind —
+/// otherwise the teleological selection claim of Maximentelezentrik
+/// is unencoded.
+pub struct MaximeConvergesTowardTelecenter;
+
+impl Axiom for MaximeConvergesTowardTelecenter {
+    fn description(&self) -> &str {
+        "Maxime carries a ConvergesToward edge into Telecenter (Heim Telezentrik)"
+    }
+    fn holds(&self) -> bool {
+        use SyntrometryConcept as S;
+        use SyntrometryRelationKind as K;
+        SyntrometryCategory::morphisms()
+            .iter()
+            .any(|r| r.from == S::Maxime && r.to == S::Telecenter && r.kind == K::ConvergesToward)
+    }
+}
+
+///a Telecenter is a fixed-point of a Synkolator — the
+/// categorical content of the eigenform / goal-attractor mapping.
+pub struct TelecenterIsSynkolatorFixedPoint;
+
+impl Axiom for TelecenterIsSynkolatorFixedPoint {
+    fn description(&self) -> &str {
+        "Synkolator carries a FixedPointOf edge into Telecenter (eigenform X=F(X))"
+    }
+    fn holds(&self) -> bool {
+        use SyntrometryConcept as S;
+        use SyntrometryRelationKind as K;
+        SyntrometryCategory::morphisms()
+            .iter()
+            .any(|r| r.from == S::Synkolator && r.to == S::Telecenter && r.kind == K::FixedPointOf)
+    }
+}
+
 impl Ontology for SyntrometryOntology {
     type Cat = SyntrometryCategory;
     type Qual = SyntrometryCategoryOf;
@@ -217,6 +334,9 @@ impl Ontology for SyntrometryOntology {
             Box::new(AspektIsTripleProduct),
             Box::new(SynkolatorIsKorporator),
             Box::new(SyntrixIsLeveled),
+            Box::new(MetroplexContainsSyntrixAndLevels),
+            Box::new(MaximeConvergesTowardTelecenter),
+            Box::new(TelecenterIsSynkolatorFixedPoint),
         ]
     }
 }
@@ -260,6 +380,33 @@ mod tests {
             SyntrixIsLeveled.holds(),
             "{}",
             SyntrixIsLeveled.description()
+        );
+    }
+
+    #[test]
+    fn metroplex_contains_syntrix_and_levels_holds() {
+        assert!(
+            MetroplexContainsSyntrixAndLevels.holds(),
+            "{}",
+            MetroplexContainsSyntrixAndLevels.description()
+        );
+    }
+
+    #[test]
+    fn maxime_converges_toward_telecenter_holds() {
+        assert!(
+            MaximeConvergesTowardTelecenter.holds(),
+            "{}",
+            MaximeConvergesTowardTelecenter.description()
+        );
+    }
+
+    #[test]
+    fn telecenter_is_synkolator_fixed_point_holds() {
+        assert!(
+            TelecenterIsSynkolatorFixedPoint.holds(),
+            "{}",
+            TelecenterIsSynkolatorFixedPoint.description()
         );
     }
 }

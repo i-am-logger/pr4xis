@@ -14,13 +14,23 @@ Before going section by section through the modern category-theoretic and cybern
 
 The honest claim: pr4xis is the first **executable, machine-checkable** instance of this tradition across many domains. It does not adopt Heim's physical-metaphysical claims (twelve-dimensional spacetime, particle mass formulas, teleological cosmology). The structural overlap with the modernized syntrometric logic is concrete and verifiable: both treat domains as categories with structure-preserving functors between them, use Kripke-style aspect-relative semantics, ground part/whole reasoning in classical extensional mereology, and model self-reference as a natural transformation.
 
-The lineage claim is **verified, not asserted**. Heim's syntrometric primitives — `Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`, `Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`, `Part` — are encoded as an ontology at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/), and a `Functor: Syntrometry → Pr4xisSubstrate` is checked against the category-theoretic laws by:
+The lineage claim is **verified, not asserted**. Heim's 18 syntrometric primitives — distinction primitives (`Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`), structures (`Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`), mereology (`Part`), teleological/hierarchical concepts (`Telecenter`, `Maxime`, `Transzendenzstufe`, `Metroplex`), permutation operators (`SequencePermutation` C, `OrientationPermutation` c), multi-aspect structure (`Aspektivsystem`), and self-observation (`Reflexivity` ρ) — are encoded at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/). Cross-functors verify the lineage at test time:
 
 ```
-cargo test -p pr4xis-domains -- formal::meta::syntrometry::lineage_functor::tests::lineage_functor_laws_pass
+cargo test -p pr4xis-domains -- syntrometry
 ```
 
-The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) measures **40% unit loss** on the round trip — four specific distinctions Heim's vocabulary carries that pr4xis's core substrate does not (`Dialektik`, `Aspekt`, `SyntrixLevel`, `Part`). Those are the first-pass targets of Phase 2.
+The primary `Syntrometry → Pr4xisSubstrate` functor has four intentional collapses out of 18 concepts — `Dialektik`, `SequencePermutation`, `OrientationPermutation`, and `Aspektivsystem` each collapse to a substrate parent because their full semantic content lives in dedicated cross-functor targets (Dialectics, Kripke, etc.). 14 of 18 round-trip as fixed points; counit loss is 0%. Seven cross-functors align Heim's vocabulary with pr4xis's existing and new ontologies:
+
+- `Syntrometry → MetaOntology` (pr4xis's gap-detection meta-ontology)
+- `Syntrometry → Staging` — Futamura (1971) projection levels
+- `Syntrometry → Algebra` — Goguen/Zimmermann ontology composition primitives
+- `Syntrometry → C1` — Dehaene (2014) Global Workspace Theory; `Maxime` ↦ `Attention`, `Metroplex` ↦ `GlobalWorkspace`. Heim anticipated the attention/workspace split GWT formalises 34 years later.
+- `Syntrometry → Dialectics` — Heim's `Dialektik` ↦ Hegel's `DialecticalMoment`; opposition structure is carried by a dedicated Dialectics ontology (Aristotle, Hegel, Marx, Adorno, Priest).
+- `Syntrometry → Kripke` — `Aspekt` ↦ `KripkeFrame`, `Aspektivsystem` ↦ `AccessibilityRelation`. Heim's Aspektrelativität is structurally Kripke-style possible-worlds semantics (Kripke 1959, 1963).
+- `Distinction → Syntrometry` — Spencer-Brown (1969) → Heim, the historical direction; `ReEntry` ↦ `Synkolator` preserving the self-application edge structure.
+
+Per-functor collapse profiles and gap-analysis numbers live in the [per-ontology README](../../crates/domains/src/formal/meta/syntrometry/README.md).
 
 ## Modern Foundations (Section by Section)
 

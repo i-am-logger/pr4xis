@@ -44,12 +44,36 @@ fn map_concept(c: &SyntrometryConcept) -> Pr4xisSubstrateConcept {
     use Pr4xisSubstrateConcept as P;
     use SyntrometryConcept as S;
     match c {
-        S::Predicate | S::SyntrixLevel => P::SubEntity,
+        // Core primitives each land at a distinct substrate target.
+        S::Predicate => P::SubEntity,
         S::Predikatrix => P::SubOntology,
-        S::Dialektik | S::Aspekt | S::Syntrix => P::SubCategory,
-        S::Koordination | S::Part => P::SubMorphism,
+        S::Syntrix => P::SubCategory,
+        S::Koordination => P::SubMorphism,
         S::Synkolator => P::SubEndofunctor,
         S::Korporator => P::SubFunctor,
+        // Teleological / hierarchical concepts.
+        S::Telecenter => P::SubEigenform,
+        S::Maxime => P::SubIntention,
+        S::Transzendenzstufe => P::SubStagingLevel,
+        S::Metroplex => P::SubSystemOfSystems,
+        // Refined distinctions — the substrate sub-kinds preserve these
+        // without collapsing them to their parent.
+        S::Aspekt => P::SubProductCategory,
+        S::SyntrixLevel => P::SubGradedObject,
+        S::Part => P::SubObject,
+        // Dialektik intentionally collapses to the plain SubCategory in
+        // the primary substrate — opposition structure lives in the
+        // dedicated Dialectics ontology, reached via the
+        // `SyntrometryToDialectics` cross-functor.
+        S::Dialektik => P::SubCategory,
+        // Permutation operators are endomorphism-like (automorphisms on the
+        // predicate-sequence / orientation structure).
+        S::SequencePermutation | S::OrientationPermutation => P::SubEndofunctor,
+        // Aspektivsystem is a structured multi-aspect collection = a small
+        // ontology at the substrate level.
+        S::Aspektivsystem => P::SubOntology,
+        // Reflexivity is a natural transformation (Mac Lane Ch. II §4).
+        S::Reflexivity => P::SubNaturalTransformation,
     }
 }
 
