@@ -1,162 +1,83 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Dialogue ontology — the science of conversation.
+//!
+//! A dialogue IS:
+//! - An event-driven system (utterances are events)
+//! - Concurrent (two+ agents, turn-taking)
+//! - A system (feedback: listen → understand → respond)
+//! - Linguistic (uses grammar, semantics, pragmatics)
+//!
+//! References:
+//! - Austin, How to Do Things with Words (1962) — speech acts
+//! - Searle, Speech Acts (1969) — illocutionary force
+//! - Jurafsky & Martin, Speech and Language Processing — dialogue acts
+//! - Traum, A Computational Theory of Grounding (1994)
+//! - Ginzburg, The Interactive Stance (2012) — KoS, QUD
+//! - Clark, Using Language (1996) — grounding, common ground
+//! - Stalnaker, Common Ground (2002) — context set, assertion
+//! - Levelt, Speaking (1989) — speech production model
+//! - Grice, Logic and Conversation (1975) — cooperative principle
+
 use pr4xis::ontology::{Ontology, Quality};
 
-// Dialogue ontology — the science of conversation.
-//
-// A dialogue IS:
-// - An event-driven system (utterances are events)
-// - Concurrent (two+ agents, turn-taking)
-// - A system (feedback: listen → understand → respond)
-// - Linguistic (uses grammar, semantics, pragmatics)
-//
-// References:
-// - Austin, How to Do Things with Words (1962) — speech acts
-// - Searle, Speech Acts (1969) — illocutionary force
-// - Jurafsky & Martin, Speech and Language Processing — dialogue acts
-// - Traum, A Computational Theory of Grounding (1994)
-// - Ginzburg, The Interactive Stance (2012) — KoS, QUD
-// - Clark, Using Language (1996) — grounding, common ground
-// - Stalnaker, Common Ground (2002) — context set, assertion
-// - Levelt, Speaking (1989) — speech production model
-// - Grice, Logic and Conversation (1975) — cooperative principle
+pr4xis::ontology! {
+    name: "Dialogue",
+    source: "Austin (1962); Traum (1994); Clark (1996); Ginzburg (2012); Stalnaker (2002); Levelt (1989)",
+    being: Process,
 
-/// Core concepts of a dialogue system.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum DialogueConcept {
-    /// A single utterance from a participant.
-    Utterance,
-    /// The speaker/listener — an agent in the conversation.
-    Participant,
-    /// What the speaker intends to achieve with an utterance.
-    /// Inform, question, request, confirm, deny, etc.
-    DialogueAct,
-    /// The shared knowledge between participants at a point in time.
-    /// What's been said, what's understood, what's expected.
-    DialogueState,
-    /// The topic currently being discussed.
-    Topic,
-    /// The conversational context — everything said so far.
-    History,
-    /// Understanding an utterance — parsing, meaning extraction, intent recognition.
-    Understanding,
-    /// Generating a response — selecting content, constructing utterance.
-    Generation,
-    /// The mechanism controlling who speaks when.
-    TurnManagement,
-    /// A successful exchange — both parties understand each other.
-    /// Traum (1994): Initiate → Acknowledge → Ground.
-    Grounding,
+    concepts: [
+        Utterance,
+        Participant,
+        DialogueAct,
+        DialogueState,
+        Topic,
+        History,
+        Understanding,
+        Generation,
+        TurnManagement,
+        Grounding,
+        QUD,
+        CommonGround,
+        Intention,
+        GroundingAct,
+        Repair,
+    ],
 
-    // === New concepts from literature ===
-    /// Questions Under Discussion — the stack that drives interpretation.
-    /// Ginzburg (2012): QUD is a priority queue of open questions.
-    /// Every utterance either raises a question or resolves one.
-    QUD,
-    /// Shared beliefs between participants (Stalnaker 2002).
-    /// The context set — propositions both participants accept as true.
-    /// Assertion = proposal to add to common ground.
-    CommonGround,
-    /// What the speaker wants to achieve BEFORE formulating words.
-    /// Levelt (1989): the preverbal message from the Conceptualizer.
-    /// Contains: topic, focus, mood, speech act type, propositional content.
-    Intention,
-    /// The act of establishing mutual understanding.
-    /// Traum (1994): Initiate, Continue, Acknowledge, Repair, ReqRepair.
-    /// Clark (1996): presentation + acceptance.
-    GroundingAct,
-    /// When understanding fails and needs correction.
-    /// Schegloff et al. (1977): self-repair, other-repair, other-initiated self-repair.
-    Repair,
-}
+    labels: {
+        Utterance: ("en", "Utterance", "A single utterance from a participant."),
+        Participant: ("en", "Participant", "The speaker/listener — an agent in the conversation."),
+        DialogueAct: ("en", "Dialogue act", "What the speaker intends to achieve with an utterance (inform, question, request, confirm, deny)."),
+        DialogueState: ("en", "Dialogue state", "The shared knowledge between participants at a point in time."),
+        Topic: ("en", "Topic", "The topic currently being discussed."),
+        History: ("en", "History", "The conversational context — everything said so far."),
+        Understanding: ("en", "Understanding", "Parsing, meaning extraction, intent recognition."),
+        Generation: ("en", "Generation", "Selecting content, constructing utterance."),
+        TurnManagement: ("en", "Turn management", "The mechanism controlling who speaks when."),
+        Grounding: ("en", "Grounding", "A successful exchange — both parties understand each other. Traum (1994): Initiate → Acknowledge → Ground."),
+        QUD: ("en", "Question Under Discussion", "Ginzburg (2012): priority queue of open questions. Every utterance raises or resolves one."),
+        CommonGround: ("en", "Common ground", "Stalnaker (2002): propositions both participants accept as true. Assertion = proposal to add to common ground."),
+        Intention: ("en", "Intention", "Levelt (1989): the preverbal message from the Conceptualizer. Contains topic, focus, mood, speech act type, propositional content."),
+        GroundingAct: ("en", "Grounding act", "Traum (1994): Initiate, Continue, Acknowledge, Repair, ReqRepair. Clark (1996): presentation + acceptance."),
+        Repair: ("en", "Repair", "Schegloff et al. (1977): self-repair, other-repair, other-initiated self-repair."),
+    },
 
-define_ontology! {
-    pub DialogueOntology for DialogueCategory {
-        concepts: DialogueConcept,
-        relation: DialogueRelation,
-        kind: DialogueRelationKind,
-        kinds: [
-            /// Participant produces Utterance.
-            Produces,
-            /// Utterance expresses DialogueAct.
-            Expresses,
-            /// Utterance updates DialogueState.
-            Updates,
-            /// Utterance appended to History.
-            AppendedTo,
-            /// Understanding interprets Utterance.
-            Interprets,
-            /// Generation creates Utterance.
-            Creates,
-            /// TurnManagement controls Participant.
-            Controls,
-            /// Grounding arises from shared Understanding.
-            ArisesFrom,
-            /// DialogueAct addresses Topic.
-            Addresses,
-            /// Utterance raises/resolves QUD (Ginzburg).
-            RaisesOrResolves,
-            /// Understanding updates CommonGround (Stalnaker).
-            EstablishesIn,
-            /// Intention drives Generation (Levelt).
-            Drives,
-            /// GroundingAct achieves Grounding (Traum).
-            Achieves,
-            /// Repair restores Understanding (Schegloff).
-            Restores,
-            /// Intention formed from DialogueState + QUD (what to say next).
-            FormedFrom,
-        ],
-        edges: [
-            // Participant produces Utterance
-            (Participant, Utterance, Produces),
-            // Utterance expresses DialogueAct
-            (Utterance, DialogueAct, Expresses),
-            // Utterance updates DialogueState
-            (Utterance, DialogueState, Updates),
-            // Utterance appended to History
-            (Utterance, History, AppendedTo),
-            // Understanding interprets Utterance
-            (Understanding, Utterance, Interprets),
-            // Generation creates Utterance
-            (Generation, Utterance, Creates),
-            // TurnManagement controls Participant
-            (TurnManagement, Participant, Controls),
-            // Grounding arises from Understanding
-            (Understanding, Grounding, ArisesFrom),
-            // DialogueAct addresses Topic
-            (DialogueAct, Topic, Addresses),
-            // QUD: utterances raise or resolve questions (Ginzburg 2012)
-            (Utterance, QUD, RaisesOrResolves),
-            // Understanding establishes facts in CommonGround (Stalnaker 2002)
-            (Understanding, CommonGround, EstablishesIn),
-            // Intention drives Generation (Levelt 1989)
-            (Intention, Generation, Drives),
-            // GroundingAct achieves Grounding (Traum 1994)
-            (GroundingAct, Grounding, Achieves),
-            // Repair restores Understanding (Schegloff 1977)
-            (Repair, Understanding, Restores),
-            // Intention formed from DialogueState + QUD
-            (DialogueState, Intention, FormedFrom),
-            (QUD, Intention, FormedFrom),
-        ],
-        composed: [
-            (Participant, DialogueAct),
-            (Participant, DialogueState),
-            (Participant, History),
-            (TurnManagement, Utterance),
-            (Understanding, DialogueAct),
-            (Generation, DialogueAct),
-            // Intention → Utterance (through Generation)
-            (Intention, Utterance),
-            // DialogueState → Generation (through Intention)
-            (DialogueState, Generation),
-            // Repair → Grounding (through Understanding → GroundingAct)
-            (Repair, Grounding),
-        ],
-        being: Process,
-        source: "Austin (1962); Traum (1994); Clark (1996)",
-    }
+    edges: [
+        (Participant, Utterance, Produces),
+        (Utterance, DialogueAct, Expresses),
+        (Utterance, DialogueState, Updates),
+        (Utterance, History, AppendedTo),
+        (Understanding, Utterance, Interprets),
+        (Generation, Utterance, Creates),
+        (TurnManagement, Participant, Controls),
+        (Understanding, Grounding, ArisesFrom),
+        (DialogueAct, Topic, Addresses),
+        (Utterance, QUD, RaisesOrResolves),
+        (Understanding, CommonGround, EstablishesIn),
+        (Intention, Generation, Drives),
+        (GroundingAct, Grounding, Achieves),
+        (Repair, Understanding, Restores),
+        (DialogueState, Intention, FormedFrom),
+        (QUD, Intention, FormedFrom),
+    ],
 }
 
 /// Whether a dialogue concept is agent-facing (produced/consumed by participants).
