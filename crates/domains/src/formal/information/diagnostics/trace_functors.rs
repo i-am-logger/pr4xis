@@ -1,4 +1,15 @@
 use super::ontology::DiagnosticConcept;
+use crate::cognitive::cognition::epistemics::EpistemicOntology;
+use crate::cognitive::cognition::metacognition::MetaCognitionOntology;
+use crate::cognitive::linguistics::lambek::LambekOntology;
+use crate::cognitive::linguistics::lemon::ontology::LemonOntology;
+use crate::cognitive::linguistics::pragmatics::discourse::ontology::DiscourseOntology;
+use crate::cognitive::linguistics::pragmatics::generation::ProductionOntology;
+use crate::cognitive::linguistics::pragmatics::nlg::NlgOntology;
+use crate::cognitive::linguistics::pragmatics::planning::ontology::PlanningOntology;
+use crate::cognitive::linguistics::pragmatics::response::ResponseOntology;
+use crate::cognitive::linguistics::semantics::MontagueOntology;
+use crate::cognitive::linguistics::wordnet::WordNetOntology;
 use crate::formal::information::provenance::ontology::ProvenanceConcept;
 
 // Trace functors — map domain ontology results to diagnostic/provenance records.
@@ -110,21 +121,25 @@ pub enum PipelineStep {
 
 impl PipelineStep {
     /// Which ontology does this step belong to?
+    ///
+    /// Each step resolves to an ontology's `meta().name` — the name is
+    /// owned by the ontology, not this match. Changing the ontology name
+    /// in one place propagates here.
     pub fn ontology_name(&self) -> &'static str {
         match self {
-            Self::Tokenize => "Language (English)",
-            Self::Parse => "Lambek Grammar",
-            Self::Interpret => "Montague Semantics",
-            Self::EntityLookup => "WordNet",
-            Self::TaxonomyTraversal => "WordNet Taxonomy",
-            Self::CommonAncestor => "WordNet Taxonomy",
-            Self::Metacognition => "Metacognition",
-            Self::SpeechActClassification => "Pragmatics (Searle)",
-            Self::ResponseFrameSelection => "Pragmatics",
-            Self::ContentDetermination => "NLG (Reiter-Dale)",
-            Self::DocumentPlanning => "Document Planning (RST)",
-            Self::Realization => "SVO Grammar",
-            Self::EpistemicClassification => "Epistemics",
+            Self::Tokenize => LemonOntology::meta().name,
+            Self::Parse => LambekOntology::meta().name,
+            Self::Interpret => MontagueOntology::meta().name,
+            Self::EntityLookup => WordNetOntology::meta().name,
+            Self::TaxonomyTraversal => WordNetOntology::meta().name,
+            Self::CommonAncestor => WordNetOntology::meta().name,
+            Self::Metacognition => MetaCognitionOntology::meta().name,
+            Self::SpeechActClassification => PlanningOntology::meta().name,
+            Self::ResponseFrameSelection => ResponseOntology::meta().name,
+            Self::ContentDetermination => NlgOntology::meta().name,
+            Self::DocumentPlanning => DiscourseOntology::meta().name,
+            Self::Realization => ProductionOntology::meta().name,
+            Self::EpistemicClassification => EpistemicOntology::meta().name,
         }
     }
 
@@ -581,7 +596,7 @@ mod tests {
     #[test]
     fn trace_entry_from_step() {
         let entry = PipelineTraceEntry::from_step(PipelineStep::Parse, "success → S[q]", true);
-        assert_eq!(entry.ontology(), "Lambek Grammar");
+        assert_eq!(entry.ontology(), LambekOntology::meta().name);
         assert_eq!(entry.operation(), "CYK chart parse");
         assert!(entry.success);
     }
@@ -594,18 +609,19 @@ mod tests {
         trace.record(PipelineStep::Interpret, "question: is(dog, animal)", true);
 
         assert_eq!(trace.entries.len(), 3);
-        assert_eq!(trace.entries[0].ontology(), "Language (English)");
-        assert_eq!(trace.entries[1].ontology(), "Lambek Grammar");
-        assert_eq!(trace.entries[2].ontology(), "Montague Semantics");
+        assert_eq!(trace.entries[0].ontology(), LemonOntology::meta().name);
+        assert_eq!(trace.entries[1].ontology(), LambekOntology::meta().name);
+        assert_eq!(trace.entries[2].ontology(), MontagueOntology::meta().name);
     }
 
     #[test]
     fn serialize_format() {
         let entry = PipelineTraceEntry::from_step(PipelineStep::Parse, "failed", false);
-        assert_eq!(
-            entry.serialize(),
-            "warn:Lambek Grammar:CYK chart parse:failed"
+        let expected = format!(
+            "warn:{}:CYK chart parse:failed",
+            LambekOntology::meta().name
         );
+        assert_eq!(entry.serialize(), expected);
     }
 
     #[test]
@@ -736,11 +752,11 @@ mod tests {
         trace.record(PipelineStep::Metacognition, "classified", true);
 
         let all = trace.all_participating_ontologies();
-        // Direct ontologies
-        assert!(all.contains(&"Language (English)"));
-        assert!(all.contains(&"Lambek Grammar"));
-        assert!(all.contains(&"Montague Semantics"));
-        assert!(all.contains(&"Metacognition"));
+        // Direct ontologies — names come from each ontology's meta().
+        assert!(all.contains(&LemonOntology::meta().name));
+        assert!(all.contains(&LambekOntology::meta().name));
+        assert!(all.contains(&MontagueOntology::meta().name));
+        assert!(all.contains(&MetaCognitionOntology::meta().name));
         // Via functors
         assert!(all.contains(&"Communication (Shannon)"));
         assert!(all.contains(&"Control (Wiener)"));

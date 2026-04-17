@@ -1,11 +1,13 @@
 pub mod integration_tests;
 pub mod montague;
+pub mod ontology;
 pub mod pregroup;
 pub mod reduce;
 pub mod tokenize;
 pub mod turing_benchmark;
 pub mod types;
 
+pub use ontology::{LambekCategory, LambekConcept, LambekOntology, LambekRelation};
 pub use reduce::{ReductionResult, TypedToken, reduce_sequence};
 pub use tokenize::tokenize_ontological;
 pub use types::LambekType;

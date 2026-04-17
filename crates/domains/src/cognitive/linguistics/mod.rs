@@ -12,3 +12,4 @@ pub mod pragmatics;
 pub mod semantics;
 pub mod symbols;
 pub mod text;
+pub mod wordnet;
