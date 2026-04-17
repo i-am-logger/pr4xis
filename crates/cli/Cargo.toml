@@ -1,6 +1,6 @@
 [package]
 name = "pr4xis-cli"
-version = "0.5.4"
+version = "0.5.5"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Praxis chatbot CLI — axiomatic intelligence via ontology"
@@ -14,8 +14,8 @@ path = "src/main.rs"
 
 [dependencies]
 pr4xis = { version = "0.11.0", path = "../pr4xis" }
-pr4xis-chat = { version = "0.6.2", path = "../chat" }
-pr4xis-domains = { version = "0.14.0", path = "../domains", features = ["fetch"] }
+pr4xis-chat = { version = "0.6.3", path = "../chat" }
+pr4xis-domains = { version = "0.15.0", path = "../domains", features = ["fetch"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 
