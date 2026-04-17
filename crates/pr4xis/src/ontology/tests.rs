@@ -578,9 +578,9 @@ mod proc_macro_test {
     #[test]
     fn proc_macro_generates_vocabulary() {
         let vocab = CommunicationOntology::vocabulary();
-        assert_eq!(vocab.concept_count, 8);
-        assert!(vocab.morphism_count > 0);
-        assert_eq!(vocab.source, "Shannon (1948); Jakobson (1960)");
+        assert_eq!(vocab.concepts().len(), 8);
+        assert!(vocab.morphisms().len() > 0);
+        assert_eq!(vocab.source.as_str(), "Shannon (1948); Jakobson (1960)");
     }
 
     #[test]
@@ -653,8 +653,8 @@ mod proc_macro_dense_test {
     #[test]
     fn dense_vocabulary() {
         let vocab = BiologyOntology::vocabulary();
-        assert_eq!(vocab.concept_count, 4);
-        assert_eq!(vocab.source, "Mayr (1982)");
+        assert_eq!(vocab.concepts().len(), 4);
+        assert_eq!(vocab.source.as_str(), "Mayr (1982)");
     }
 
     #[test]
@@ -669,5 +669,69 @@ mod proc_macro_dense_test {
     fn dense_labels() {
         let labels = BiologyOntology::labels();
         assert_eq!(labels.len(), 2);
+    }
+}
+
+// =============================================================================
+// proc macro transitive closure — morphisms() must be closed under compose()
+// =============================================================================
+
+mod proc_macro_closure_test {
+    use crate as pr4xis;
+    use crate::category::Category;
+
+    pr4xis::ontology! {
+        name: "ChainedEdges",
+        concepts: [A, B, C, D],
+        edges: [
+            (A, B, Step1),
+            (B, C, Step2),
+            (C, D, Step3),
+        ],
+    }
+
+    #[test]
+    fn transitive_closure_is_in_morphisms() {
+        let morphisms = ChainedEdgesCategory::morphisms();
+        let ac = morphisms
+            .iter()
+            .find(|m| m.from == ChainedEdgesConcept::A && m.to == ChainedEdgesConcept::C);
+        assert!(
+            ac.is_some(),
+            "(A, C) should be in morphisms() via transitive closure"
+        );
+        let ad = morphisms
+            .iter()
+            .find(|m| m.from == ChainedEdgesConcept::A && m.to == ChainedEdgesConcept::D);
+        assert!(
+            ad.is_some(),
+            "(A, D) should be in morphisms() via transitive closure"
+        );
+        let bd = morphisms
+            .iter()
+            .find(|m| m.from == ChainedEdgesConcept::B && m.to == ChainedEdgesConcept::D);
+        assert!(
+            bd.is_some(),
+            "(B, D) should be in morphisms() via transitive closure"
+        );
+    }
+
+    #[test]
+    fn compose_output_is_in_morphisms() {
+        let morphisms = ChainedEdgesCategory::morphisms();
+        for f in &morphisms {
+            for g in &morphisms {
+                if let Some(composed) = ChainedEdgesCategory::compose(f, g) {
+                    let found = morphisms
+                        .iter()
+                        .any(|m| m.from == composed.from && m.to == composed.to);
+                    assert!(
+                        found,
+                        "compose({:?}, {:?}) = {:?} not in morphisms()",
+                        f, g, composed
+                    );
+                }
+            }
+        }
     }
 }

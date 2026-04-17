@@ -7,7 +7,7 @@ use std::hash::Hash;
 /// values of its type, enabling exhaustive validation of ontology properties.
 ///
 /// Can be derived for enums with unit variants:
-/// ```
+/// ```ignore
 /// use pr4xis::category::Entity;
 ///
 /// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]

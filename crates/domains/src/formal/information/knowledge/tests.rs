@@ -59,7 +59,7 @@ fn schema_defines_entry() {
 
 #[test]
 fn describe_knowledge_base_is_nonempty() {
-    let descriptors = super::descriptor::describe_knowledge_base();
+    let descriptors = super::describe_knowledge_base();
     assert!(
         descriptors.len() > 100,
         "describe_knowledge_base() returned only {} ontologies — likely missing registrations",
@@ -69,7 +69,7 @@ fn describe_knowledge_base_is_nonempty() {
 
 #[test]
 fn describe_knowledge_base_names_are_unique() {
-    let descriptors = super::descriptor::describe_knowledge_base();
+    let descriptors = super::describe_knowledge_base();
     let mut seen = std::collections::HashSet::new();
     for d in &descriptors {
         assert!(
@@ -83,7 +83,7 @@ fn describe_knowledge_base_names_are_unique() {
 
 #[test]
 fn describe_knowledge_base_no_stale_science_prefix() {
-    let descriptors = super::descriptor::describe_knowledge_base();
+    let descriptors = super::describe_knowledge_base();
     for d in &descriptors {
         assert!(
             !d.domain().starts_with("science."),
@@ -96,10 +96,10 @@ fn describe_knowledge_base_no_stale_science_prefix() {
 
 #[test]
 fn every_descriptor_has_nonzero_concepts() {
-    let descriptors = super::descriptor::describe_knowledge_base();
+    let descriptors = super::describe_knowledge_base();
     for d in &descriptors {
         assert!(
-            d.concept_count > 0,
+            d.concepts().len() > 0,
             "{} ({}) has 0 concepts",
             d.name(),
             d.domain()
@@ -143,13 +143,13 @@ mod compose {
         assert!(shared.contains("Cell"));
 
         let biochem = bio.compose(&chem);
-        assert_eq!(biochem.concept_count(), 5);
+        assert_eq!(biochem.concepts().len(), 5);
         assert!(biochem.name().contains("&"));
         assert_eq!(biochem.level(), 1);
         assert!(biochem.validate().is_ok());
 
         let vocab = biochem.vocabulary();
-        assert_eq!(vocab.concept_count, 5);
+        assert_eq!(vocab.concepts().len(), 5);
     }
 
     #[test]
@@ -167,7 +167,7 @@ mod compose {
             .build();
 
         let coupled = physics.couple(&music);
-        assert_eq!(coupled.concept_count(), 4);
+        assert_eq!(coupled.concepts().len(), 4);
         assert!(coupled.concept("Force").is_some());
         assert!(coupled.concept("Pitch").is_some());
         assert!(coupled.name().contains("||"));
@@ -225,7 +225,7 @@ mod compose {
             .build();
 
         let sensors = nav.specialize("Sensor").unwrap();
-        assert_eq!(sensors.concept_count(), 4);
+        assert_eq!(sensors.concepts().len(), 4);
         assert!(sensors.concept("GNSS").is_some());
         assert!(sensors.concept("Fusion").is_none());
     }
@@ -244,11 +244,11 @@ mod compose {
         let base = RuntimeOntology::create("Base").concept("X").build();
 
         let partial = base.couple_partial(&full, &["A", "B"]);
-        assert!(partial.concept_names().contains("A"));
-        assert!(partial.concept_names().contains("B"));
-        assert!(partial.concept_names().contains("X"));
-        assert!(!partial.concept_names().contains("C"));
-        assert!(!partial.concept_names().contains("D"));
+        assert!(partial.concepts().contains_key("A"));
+        assert!(partial.concepts().contains_key("B"));
+        assert!(partial.concepts().contains_key("X"));
+        assert!(!partial.concepts().contains_key("C"));
+        assert!(!partial.concepts().contains_key("D"));
 
         let ab_edges: Vec<_> = partial
             .edges()
@@ -262,11 +262,11 @@ mod compose {
 
     #[test]
     fn compose_from_vocabulary_bridge() {
-        let descriptors = super::super::descriptor::describe_knowledge_base();
+        let descriptors = super::super::describe_knowledge_base();
         let first = &descriptors[0];
 
         let syntrix = pr4xis::ontology::compose::from_vocabulary(first);
-        assert_eq!(syntrix.name(), first.ontology_name);
+        assert_eq!(syntrix.name(), first.ontology_name.as_str());
         assert_eq!(syntrix.level(), 0);
     }
 

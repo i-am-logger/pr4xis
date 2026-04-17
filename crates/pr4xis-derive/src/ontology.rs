@@ -216,11 +216,39 @@ impl Parse for OntologyDef {
 }
 
 pub fn generate(def: OntologyDef) -> TokenStream {
+    let pr4xis = crate::pr4xis_crate();
     let name_str = def.name.value();
-    let ont_name = format_ident!("{}Ontology", name_str);
-    let cat_name = format_ident!("{}Category", name_str);
-    let entity_name = format_ident!("{}Concept", name_str);
-    let relation_name = format_ident!("{}Relation", name_str);
+
+    // Validate name forms a valid Rust identifier when suffixed.
+    let make_ident = |suffix: &str| -> Result<Ident, syn::Error> {
+        let candidate = format!("{name_str}{suffix}");
+        syn::parse_str::<Ident>(&candidate).map_err(|_| {
+            syn::Error::new_spanned(
+                &def.name,
+                format!(
+                    "ontology name '{name_str}' must form valid Rust identifiers; \
+                     '{candidate}' is not a valid identifier (only ASCII letters, digits, \
+                     and underscores; cannot start with a digit)"
+                ),
+            )
+        })
+    };
+    let ont_name = match make_ident("Ontology") {
+        Ok(i) => i,
+        Err(e) => return e.to_compile_error(),
+    };
+    let cat_name = match make_ident("Category") {
+        Ok(i) => i,
+        Err(e) => return e.to_compile_error(),
+    };
+    let entity_name = match make_ident("Concept") {
+        Ok(i) => i,
+        Err(e) => return e.to_compile_error(),
+    };
+    let relation_name = match make_ident("Relation") {
+        Ok(i) => i,
+        Err(e) => return e.to_compile_error(),
+    };
 
     let concept_idents = &def.concepts;
     let concept_names: Vec<String> = concept_idents.iter().map(|c| c.to_string()).collect();
@@ -335,16 +363,16 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         .unwrap_or(quote! { "" });
 
     let being_tokens = if let Some(ref b) = def.being {
-        quote! { Some(pr4xis::ontology::upper::being::Being::#b) }
+        quote! { Some(#pr4xis::ontology::upper::being::Being::#b) }
     } else {
         quote! { None }
     };
 
     let being_classified = def.being.as_ref().map(|b| {
         quote! {
-            impl pr4xis::ontology::upper::classify::Classified for #cat_name {
-                fn being() -> pr4xis::ontology::upper::being::Being {
-                    pr4xis::ontology::upper::being::Being::#b
+            impl #pr4xis::ontology::upper::classify::Classified for #cat_name {
+                fn being() -> #pr4xis::ontology::upper::being::Being {
+                    #pr4xis::ontology::upper::being::Being::#b
                 }
                 fn classification_reason() -> &'static str {
                     concat!("DOLCE D18 ", stringify!(#b), "; ", module_path!())
@@ -411,8 +439,45 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         let edge_from: Vec<&Ident> = def.edges.iter().map(|e| &e.from).collect();
         let edge_to: Vec<&Ident> = def.edges.iter().map(|e| &e.to).collect();
         let edge_kind: Vec<&Ident> = def.edges.iter().map(|e| &e.kind).collect();
-        let comp_from: Vec<&Ident> = def.composed.iter().map(|c| &c.from).collect();
-        let comp_to: Vec<&Ident> = def.composed.iter().map(|c| &c.to).collect();
+
+        // Compute transitive closure of declared edges (Floyd-Warshall at macro expansion).
+        // Ensures morphisms() is closed under compose() — if edges (A,B) and (B,C) exist,
+        // then (A,C) is included as Composed, matching what compose() returns at runtime.
+        let direct_pairs: std::collections::BTreeSet<(String, String)> = def
+            .edges
+            .iter()
+            .map(|e| (e.from.to_string(), e.to.to_string()))
+            .collect();
+        let mut closure: std::collections::BTreeSet<(String, String)> = direct_pairs.clone();
+        loop {
+            let mut added = false;
+            let snapshot: Vec<(String, String)> = closure.iter().cloned().collect();
+            for (a, b) in &snapshot {
+                for (b2, c) in &snapshot {
+                    if b == b2 && !closure.contains(&(a.clone(), c.clone())) {
+                        closure.insert((a.clone(), c.clone()));
+                        added = true;
+                    }
+                }
+            }
+            if !added {
+                break;
+            }
+        }
+        // Composed pairs = transitive closure minus direct edges + explicit composed: list.
+        let mut composed_pairs: std::collections::BTreeSet<(String, String)> =
+            closure.difference(&direct_pairs).cloned().collect();
+        for c in &def.composed {
+            composed_pairs.insert((c.from.to_string(), c.to.to_string()));
+        }
+        let comp_from: Vec<Ident> = composed_pairs
+            .iter()
+            .map(|(f, _)| format_ident!("{}", f))
+            .collect();
+        let comp_to: Vec<Ident> = composed_pairs
+            .iter()
+            .map(|(_, t)| format_ident!("{}", t))
+            .collect();
 
         quote! {
             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -429,7 +494,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 pub kind: #kind_name,
             }
 
-            impl pr4xis::category::Relationship for #relation_name {
+            impl #pr4xis::category::Relationship for #relation_name {
                 type Object = #entity_name;
                 fn source(&self) -> #entity_name { self.from }
                 fn target(&self) -> #entity_name { self.to }
@@ -437,7 +502,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
 
             pub struct #cat_name;
 
-            impl pr4xis::category::Category for #cat_name {
+            impl #pr4xis::category::Category for #cat_name {
                 type Object = #entity_name;
                 type Morphism = #relation_name;
 
@@ -453,7 +518,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 }
 
                 fn morphisms() -> Vec<#relation_name> {
-                    use pr4xis::category::Entity;
+                    use #pr4xis::category::Entity;
                     let mut m = Vec::new();
                     for c in #entity_name::variants() {
                         m.push(#relation_name { from: c, to: c, kind: #kind_name::Identity });
@@ -476,7 +541,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 pub to: #entity_name,
             }
 
-            impl pr4xis::category::Relationship for #relation_name {
+            impl #pr4xis::category::Relationship for #relation_name {
                 type Object = #entity_name;
                 fn source(&self) -> #entity_name { self.from }
                 fn target(&self) -> #entity_name { self.to }
@@ -484,7 +549,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
 
             pub struct #cat_name;
 
-            impl pr4xis::category::Category for #cat_name {
+            impl #pr4xis::category::Category for #cat_name {
                 type Object = #entity_name;
                 type Morphism = #relation_name;
 
@@ -498,7 +563,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 }
 
                 fn morphisms() -> Vec<#relation_name> {
-                    use pr4xis::category::Entity;
+                    use #pr4xis::category::Entity;
                     let variants = #entity_name::variants();
                     variants.iter()
                         .flat_map(|&a| variants.iter().map(move |&b| #relation_name { from: a, to: b }))
@@ -512,7 +577,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
     let taxonomy_impl = if has_taxonomy {
         quote! {
             pub struct #tax_name;
-            impl pr4xis::ontology::reasoning::taxonomy::TaxonomyDef for #tax_name {
+            impl #pr4xis::ontology::reasoning::taxonomy::TaxonomyDef for #tax_name {
                 type Entity = #entity_name;
                 fn relations() -> Vec<(#entity_name, #entity_name)> {
                     vec![#(#tax_pairs),*]
@@ -526,7 +591,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
     let mereology_impl = if has_mereology {
         quote! {
             pub struct #mer_name;
-            impl pr4xis::ontology::reasoning::mereology::MereologyDef for #mer_name {
+            impl #pr4xis::ontology::reasoning::mereology::MereologyDef for #mer_name {
                 type Entity = #entity_name;
                 fn relations() -> Vec<(#entity_name, #entity_name)> {
                     vec![#(#mer_pairs),*]
@@ -540,7 +605,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
     let causation_impl = if has_causation {
         quote! {
             pub struct #caus_name;
-            impl pr4xis::ontology::reasoning::causation::CausalDef for #caus_name {
+            impl #pr4xis::ontology::reasoning::causation::CausalDef for #caus_name {
                 type Entity = #entity_name;
                 fn relations() -> Vec<(#entity_name, #entity_name)> {
                     vec![#(#caus_pairs),*]
@@ -554,7 +619,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
     let opposition_impl = if has_opposition {
         quote! {
             pub struct #opp_name;
-            impl pr4xis::ontology::reasoning::opposition::OppositionDef for #opp_name {
+            impl #pr4xis::ontology::reasoning::opposition::OppositionDef for #opp_name {
                 type Entity = #entity_name;
                 fn pairs() -> Vec<(#entity_name, #entity_name)> {
                     vec![#(#opp_pairs),*]
@@ -570,37 +635,37 @@ pub fn generate(def: OntologyDef) -> TokenStream {
     if has_taxonomy {
         axiom_pushes.push(quote! {
             axioms.push(Box::new(
-                pr4xis::ontology::reasoning::taxonomy::NoCycles::<#tax_name>::new()
+                #pr4xis::ontology::reasoning::taxonomy::NoCycles::<#tax_name>::new()
             ));
             axioms.push(Box::new(
-                pr4xis::ontology::reasoning::taxonomy::Antisymmetric::<#tax_name>::new()
+                #pr4xis::ontology::reasoning::taxonomy::Antisymmetric::<#tax_name>::new()
             ));
         });
     }
     if has_mereology {
         axiom_pushes.push(quote! {
             axioms.push(Box::new(
-                pr4xis::ontology::reasoning::mereology::NoCycles::<#mer_name>::new()
+                #pr4xis::ontology::reasoning::mereology::NoCycles::<#mer_name>::new()
             ));
         });
     }
     if has_causation {
         axiom_pushes.push(quote! {
             axioms.push(Box::new(
-                pr4xis::ontology::reasoning::causation::Asymmetric::<#caus_name>::new()
+                #pr4xis::ontology::reasoning::causation::Asymmetric::<#caus_name>::new()
             ));
             axioms.push(Box::new(
-                pr4xis::ontology::reasoning::causation::NoSelfCausation::<#caus_name>::new()
+                #pr4xis::ontology::reasoning::causation::NoSelfCausation::<#caus_name>::new()
             ));
         });
     }
     if has_opposition {
         axiom_pushes.push(quote! {
             axioms.push(Box::new(
-                pr4xis::ontology::reasoning::opposition::Symmetric::<#opp_name>::new()
+                #pr4xis::ontology::reasoning::opposition::Symmetric::<#opp_name>::new()
             ));
             axioms.push(Box::new(
-                pr4xis::ontology::reasoning::opposition::Irreflexive::<#opp_name>::new()
+                #pr4xis::ontology::reasoning::opposition::Irreflexive::<#opp_name>::new()
             ));
         });
     }
@@ -608,7 +673,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
     let name_lit = &def.name;
 
     quote! {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, pr4xis::category::Entity)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, #pr4xis::category::Entity)]
         pub enum #entity_name {
             #(#concept_idents,)*
         }
@@ -625,34 +690,41 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         pub struct #ont_name;
 
         impl #ont_name {
-            pub fn generated_structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
-                let mut axioms: Vec<Box<dyn pr4xis::ontology::Axiom>> = Vec::new();
+            pub fn generated_structural_axioms() -> Vec<Box<dyn #pr4xis::ontology::Axiom>> {
+                let mut axioms: Vec<Box<dyn #pr4xis::ontology::Axiom>> = Vec::new();
                 #(#axiom_pushes)*
                 axioms
             }
 
-            pub const fn meta() -> pr4xis::ontology::OntologyMeta {
-                pr4xis::ontology::OntologyMeta {
+            pub const fn meta() -> #pr4xis::ontology::OntologyMeta {
+                #pr4xis::ontology::OntologyMeta {
                     name: #name_lit,
                     module_path: module_path!(),
                 }
             }
 
             #[allow(dead_code, unused_assignments)]
-            pub fn vocabulary() -> pr4xis::ontology::Vocabulary {
-                pr4xis::ontology::Vocabulary {
-                    ontology_name: #name_lit,
-                    module_path: module_path!(),
-                    source: #source_tokens,
-                    being: #being_tokens,
-                    concept_count: <#entity_name as pr4xis::category::entity::Entity>::variants().len(),
-                    morphism_count: <#cat_name as pr4xis::category::Category>::morphisms().len(),
-                }
+            pub fn vocabulary() -> #pr4xis::ontology::Vocabulary {
+                #pr4xis::ontology::Vocabulary::from_static::<#cat_name, #entity_name>(
+                    #pr4xis::ontology::OntologyName::new_static(#name_lit),
+                    #pr4xis::ontology::ModulePath::new_static(module_path!()),
+                    #pr4xis::ontology::Citation::parse_static(#source_tokens),
+                    #being_tokens,
+                )
             }
 
             pub fn labels() -> &'static [(#entity_name, &'static str, &'static str, &'static str)] {
                 &[#(#label_entries,)*]
             }
+        }
+
+        // Auto-register this ontology into the global VOCABULARIES slice.
+        // On wasm32, linkme is unsupported — registration is skipped.
+        #[cfg(not(target_arch = "wasm32"))]
+        #pr4xis::paste::paste! {
+            #[#pr4xis::linkme::distributed_slice(#pr4xis::ontology::VOCABULARIES)]
+            #[linkme(crate = #pr4xis::linkme)]
+            static [<_REGISTER_ #ont_name:snake:upper>]: fn() -> #pr4xis::ontology::Vocabulary = #ont_name::vocabulary;
         }
     }
 }

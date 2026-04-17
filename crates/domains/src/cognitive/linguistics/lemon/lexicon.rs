@@ -20,7 +20,7 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone)]
 pub struct Form {
     pub written_rep: String,
-    pub lang: &'static str,
+    pub lang: String,
 }
 
 /// A LexicalSense — bridges entry to ontology concept (ontolex:LexicalSense).
@@ -31,11 +31,11 @@ pub struct Sense {
 }
 
 /// Reference to an ontology concept — the target of ontolex:reference.
-/// Identified by ontology name + concept name (both from the type system).
+/// Identified by ontology name + concept name.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ConceptRef {
-    pub ontology: &'static str,
-    pub concept: &'static str,
+    pub ontology: String,
+    pub concept: String,
 }
 
 /// A LexicalEntry — unit of the lexicon (ontolex:LexicalEntry).
@@ -52,30 +52,39 @@ pub struct LexicalEntry {
 /// The entries are indexed by their canonical form's written representation.
 #[derive(Debug, Clone)]
 pub struct Lexicon {
-    pub lang: &'static str,
+    pub lang: String,
     entries: BTreeMap<String, LexicalEntry>,
 }
 
 impl Lexicon {
-    pub fn new(lang: &'static str) -> Self {
+    pub fn new(lang: impl Into<String>) -> Self {
         Self {
-            lang,
+            lang: lang.into(),
             entries: BTreeMap::new(),
         }
     }
 
     /// Add an entry for an ontology concept.
-    pub fn add_entry(&mut self, written_rep: &str, ontology: &'static str, concept: &'static str) {
+    pub fn add_entry(
+        &mut self,
+        written_rep: impl Into<String>,
+        ontology: impl Into<String>,
+        concept: impl Into<String>,
+    ) {
+        let written_rep = written_rep.into();
         let entry = LexicalEntry {
             canonical_form: Form {
-                written_rep: written_rep.to_string(),
-                lang: self.lang,
+                written_rep: written_rep.clone(),
+                lang: self.lang.clone(),
             },
             senses: vec![Sense {
-                reference: ConceptRef { ontology, concept },
+                reference: ConceptRef {
+                    ontology: ontology.into(),
+                    concept: concept.into(),
+                },
             }],
         };
-        self.entries.insert(written_rep.to_string(), entry);
+        self.entries.insert(written_rep, entry);
     }
 
     /// Look up an entry by its canonical written form.
@@ -123,7 +132,8 @@ pub fn build_english_terminology() -> Lexicon {
 
     let descriptors = crate::formal::information::knowledge::describe_knowledge_base();
     for desc in &descriptors {
-        lex.add_entry(desc.name(), desc.name(), desc.name());
+        let name = desc.name().to_string();
+        lex.add_entry(name.clone(), name.clone(), name);
     }
 
     lex

@@ -119,8 +119,8 @@ pub fn tokenize_ontological(text: &str, language: &dyn Language) -> Vec<Token> {
             let entry = language.lexical_lookup(&lower);
             let pos = entry.as_ref().map(|e| e.pos_tag());
             let sense = pos.map(|p| ConceptRef {
-                ontology: "cognitive.linguistics.lexicon",
-                concept: p.name(),
+                ontology: "cognitive.linguistics.lexicon".to_string(),
+                concept: p.name().to_string(),
             });
 
             Some(Token {
