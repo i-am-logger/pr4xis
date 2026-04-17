@@ -4,8 +4,11 @@
 //! typed-error replacement for `Result<(), Vec<String>>` in `Ontology::validate()`.
 
 pub mod ontology;
-// NOTE: a Dependability → Diagnostics functor is desired (#122) but the
-// strict-Functor laws fail at this scale: Dependability is dense (no kinds)
-// while Diagnostics is kinded, and the many-to-one collapse from 44 to 10
-// concepts breaks `F(g ∘ f) = F(g) ∘ F(f)`. The right structure is a lax
-// functor / natural transformation. Tracked as follow-up.
+// NOTE: a Dependability → Diagnostics functor is desired. The previous
+// diagnosis ("dense-to-kinded many-to-one collapse; needs lax functors") is
+// superseded by the #98 research doc at docs/research/kinded-functor-
+// failures.md: the real issue is directional — Dependability runs cause→
+// observation (Fault→Error→Failure) while Diagnostics runs observation→
+// cause (Symptom→Hypothesis→Diagnosis→FaultMode, Reiter 1987). The right
+// construction is F: Dependability^op → Diagnostics, which needs an Op-
+// category helper in pr4xis::category. Tracked as a follow-up to #98.
