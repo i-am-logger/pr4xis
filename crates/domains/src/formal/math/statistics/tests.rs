@@ -5,7 +5,7 @@ use crate::formal::math::statistics::ontology::*;
 
 #[test]
 fn statistical_category_laws() {
-    check_category_laws::<StatisticalCategory>().unwrap();
+    check_category_laws::<StatisticsCategory>().unwrap();
 }
 
 #[test]

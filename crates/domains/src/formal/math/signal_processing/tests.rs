@@ -5,7 +5,7 @@ use crate::formal::math::signal_processing::ontology::*;
 
 #[test]
 fn signal_category_laws() {
-    check_category_laws::<SignalCategory>().unwrap();
+    check_category_laws::<SignalProcessingCategory>().unwrap();
 }
 
 #[test]
