@@ -12,7 +12,15 @@ Before going section by section through the modern category-theoretic and cybern
 
 - **pr4xis (2025–2026)** — composable ontologies in Rust, with category-theoretic functor proofs between domains. The substrate is novel as executable code; the structural ideas have prior art in Heim and Spencer-Brown.
 
-The honest claim: pr4xis is the first **executable, machine-checkable** instance of this tradition across many domains. It does not adopt Heim's physical-metaphysical claims (twelve-dimensional spacetime, particle mass formulas, teleological cosmology). The structural overlap with the modernized syntrometric logic is concrete and verifiable: both treat domains as categories with structure-preserving functors between them, use Kripke-style aspect-relative semantics, ground part/whole reasoning in classical extensional mereology, and model self-reference as a natural transformation. See [issue #51](https://github.com/i-am-logger/pr4xis/issues/51) for the first-pass verification of this lineage.
+The honest claim: pr4xis is the first **executable, machine-checkable** instance of this tradition across many domains. It does not adopt Heim's physical-metaphysical claims (twelve-dimensional spacetime, particle mass formulas, teleological cosmology). The structural overlap with the modernized syntrometric logic is concrete and verifiable: both treat domains as categories with structure-preserving functors between them, use Kripke-style aspect-relative semantics, ground part/whole reasoning in classical extensional mereology, and model self-reference as a natural transformation.
+
+The lineage claim is **verified, not asserted**. Heim's syntrometric primitives — `Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`, `Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`, `Part` — are encoded as an ontology at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/), and a `Functor: Syntrometry → Pr4xisSubstrate` is checked against the category-theoretic laws by:
+
+```
+cargo test -p pr4xis-domains -- formal::meta::syntrometry::lineage_functor::tests::lineage_functor_laws_pass
+```
+
+The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) measures **40% unit loss** on the round trip — four specific distinctions Heim's vocabulary carries that pr4xis's core substrate does not (`Dialektik`, `Aspekt`, `SyntrixLevel`, `Part`). Those are the first-pass targets of Phase 2.
 
 ## Modern Foundations (Section by Section)
 

@@ -12,3 +12,4 @@ pub mod gap_analysis;
 pub mod omv;
 pub mod ontology_diagnostics;
 pub mod staging;
+pub mod syntrometry;

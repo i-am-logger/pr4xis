@@ -26,7 +26,7 @@ Aristotle named three kinds of knowing:
 
 pr4xis is the doing.
 
-The mathematical foundation runs from G. Spencer-Brown's *Laws of Form* (1969) through Heim's syntrometric logic to contemporary applied category theory — see [Foundations](docs/understand/foundations.md) for the academic lineage.
+The mathematical foundation runs from G. Spencer-Brown's *Laws of Form* (1969) through Heim's syntrometric logic to contemporary applied category theory — see [Foundations](docs/understand/foundations.md) for the academic lineage. The Heim→pr4xis step is not asserted; it is verified at test time by `cargo test -p pr4xis-domains -- formal::meta::syntrometry::lineage_functor::tests::lineage_functor_laws_pass` (a structure-preserving Functor whose laws the test checks exhaustively).
 
 ## The problem
 

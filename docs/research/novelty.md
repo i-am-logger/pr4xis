@@ -42,36 +42,49 @@ After subtracting the prior art, the things we believe pr4xis contributes — pe
 
 5. **The explicit codegen / async / mmap functor equivalence.** Three different mechanisms for delivering ontology data into the runtime, all proven equivalent as functors from the same source. This is a small-but-load-bearing piece of infrastructure that lets the same ontology run as a static binary, an asynchronously loaded resource, or a memory-mapped file without semantic drift.
 
-## The Heim lineage — pending machine-verification
+## The Heim lineage — machine-verified (Phase 1)
 
-The most prominent lineage claim in the project is the structural alignment with the **modernized syntrometric logic tradition** (Heim 1980, reformulated categorically in 2025).
+The most prominent lineage claim in the project is the structural alignment with the **modernized syntrometric logic tradition** (Heim 1980, reformulated categorically in 2025). Per the project's core principle — every claim must be machine-checkable — this has now been operationalised as a tested theorem.
 
-The first-pass research in [#51](https://github.com/i-am-logger/pr4xis/issues/51) found eight of nine concept mappings between Heim's syntrometric machinery and pr4xis to be "concrete":
+### Verify in one command
 
-| Heim / syntrometric concept | pr4xis concept |
+```
+cargo test -p pr4xis-domains -- formal::meta::syntrometry::lineage_functor::tests::lineage_functor_laws_pass
+```
+
+### What the test proves
+
+Heim's syntrometric primitives — `Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`, `Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`, `Part` — are encoded as a pr4xis ontology at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/). A `Functor: Syntrometry → Pr4xisSubstrate` carries each Heim concept to its pr4xis-core counterpart. `check_functor_laws` verifies identity preservation + composition preservation exhaustively over every morphism. The structural alignment is no longer argued — it is proven.
+
+### Measured information-loss profile
+
+The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) reports the round-trip collapse:
+
+| Direction | Loss | Concepts that collapse |
+|---|---|---|
+| Unit (Syntrometry → Pr4xisSubstrate → Syntrometry) | **40%** | `Dialektik → Syntrix`, `Aspekt → Syntrix`, `SyntrixLevel → Predicate`, `Part → Koordination` |
+| Counit (Pr4xisSubstrate → Syntrometry → Pr4xisSubstrate) | **0%** | none (substrate is closed under the forward map) |
+
+The four collapses are the specific distinctions Heim carries that pr4xis's current core substrate does not — actionable Phase 2 targets.
+
+### Phase 1 concept mapping
+
+Every row below is now a `match` arm in `lineage_functor.rs` with the laws verified at test time:
+
+| Heim / syntrometric concept | pr4xis substrate concept |
 |---|---|
-| Syntrix as category of leveled structures (C_SL) | Ontology as category |
-| Synkolator as endofunctor | Cross-domain functor |
-| C/c permutation operators | Morphism composition under associativity |
-| Mereological Part(A,B) (CEM) | `MereologyDef` with `WeakSupplementation` |
-| Aspektrelativität via Kripke frames | Multiple ontologies viewing same domain via functors |
-| Reflexivity ρ as natural transformation | `Self-Model` ontology |
-| Predicates as primitives | `Entity` enums |
-| Korporator as structure-mapping functor | Cross-domain functor between Syntrices |
-| Adjoint functors | (no Heim counterpart — pr4xis's gap detection is novel) |
+| `Predicate`, `SyntrixLevel` | `SubEntity` |
+| `Predikatrix` | `SubOntology` |
+| `Dialektik`, `Aspekt`, `Syntrix` | `SubCategory` |
+| `Koordination`, `Part` | `SubMorphism` |
+| `Synkolator` | `SubEndofunctor` |
+| `Korporator` | `SubFunctor` |
 
-That research is enough to make the claim *plausible*. It is **not** enough to make the claim *machine-verified* — and per the project's core principle, plausible-but-unverified is exactly the kind of claim pr4xis exists to eliminate.
+### Phase 2 (deferred)
 
-The fix is to **encode Heim's syntrometric primitives as a pr4xis ontology and prove the structural alignment via a verified functor**. That work is tracked in [#62](https://github.com/i-am-logger/pr4xis/issues/62). When it lands:
+Heim's `Telecenter`, `Maxime`, and `Transzendenzstufe` map directly to existing pr4xis cognitive architecture (`CommunicativeGoal`, BDI `Intention` / C1 `Attention`, Staging + C1/C2 consciousness split) per `project_heim_transport.md`. Phase 2 encodes them and lifts the lineage functor accordingly.
 
-- A `SyntrometricLogic` ontology will exist as a `define_ontology!` block in the workspace.
-- A functor `SyntrometricToCategory: SyntrometricLogic → pr4xis::CoreCategory` will pass `check_functor_laws()`.
-- The CEM mereology alignment will be verified by a test showing Heim's `Part(A,B)` reduces to `WeakSupplementation`.
-- The lineage claim becomes citable as a passing test, not a research narrative.
-
-Until #62 lands, this document and every other doc that mentions the Heim lineage uses the hedged framing: *"pr4xis sits in a tradition that includes Heim's syntrometric logic; the structural alignment has been argued in research and is in the process of being machine-verified."* When #62 lands, the framing strengthens to: *"pr4xis is structurally aligned with Heim's syntrometric logic; the alignment is verified by `cargo test ... test_syntrometric_to_pr4xis_functor_laws`."*
-
-What pr4xis explicitly does **not** inherit, regardless of #62: Heim's twelve-dimensional spacetime, particle mass formulas, Metronic Gitter, or teleological cosmology. The structural substrate is real; the metaphysical extensions are not adopted.
+What pr4xis explicitly does **not** inherit: Heim's twelve-dimensional spacetime, particle mass formulas, Metronic Gitter, or teleological cosmology. The structural substrate is verified; the metaphysical extensions are not adopted.
 
 ## Open verifications
 

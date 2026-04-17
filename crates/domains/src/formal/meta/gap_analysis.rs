@@ -288,6 +288,61 @@ pub fn analyze_biochemistry_bioelectric_loss() -> f64 {
     gaps as f64 / total as f64
 }
 
+/// Analyze gaps in the lineage pair: Syntrometry → Pr4xisSubstrate ⊣
+/// Pr4xisSubstrate → Syntrometry. Unlike the biomedical adjunctions this
+/// one isn't a strict [`pr4xis::category::Adjunction`] (the reverse
+/// direction can't satisfy the strict Functor laws under the dense-source
+/// / kinded-target structures — see `docs/research/kinded-functor-
+/// failures.md`), but the unit/counit object-level round-trips are
+/// well-defined and surface the missing distinctions the pr4xis substrate
+/// has relative to Heim's vocabulary.
+pub fn analyze_syntrometry_substrate() -> GapReport<
+    crate::formal::meta::syntrometry::ontology::SyntrometryConcept,
+    crate::formal::meta::syntrometry::substrate::Pr4xisSubstrateConcept,
+> {
+    use crate::formal::meta::syntrometry::lineage_functor::SyntrometryToPr4xisSubstrate;
+    use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
+    use crate::formal::meta::syntrometry::substrate::Pr4xisSubstrateConcept;
+    use crate::formal::meta::syntrometry::substrate_functor::map_substrate;
+
+    let mut unit_gaps = Vec::new();
+    let mut unit_preserved = Vec::new();
+
+    for entity in SyntrometryConcept::variants() {
+        let round_trip = map_substrate(&SyntrometryToPr4xisSubstrate::map_object(&entity));
+        if round_trip == entity {
+            unit_preserved.push(entity);
+        } else {
+            unit_gaps.push(Gap {
+                original: entity,
+                collapsed_to: round_trip,
+            });
+        }
+    }
+
+    let mut counit_gaps = Vec::new();
+    let mut counit_preserved = Vec::new();
+
+    for entity in Pr4xisSubstrateConcept::variants() {
+        let round_trip = SyntrometryToPr4xisSubstrate::map_object(&map_substrate(&entity));
+        if round_trip == entity {
+            counit_preserved.push(entity);
+        } else {
+            counit_gaps.push(Gap {
+                original: entity,
+                collapsed_to: round_trip,
+            });
+        }
+    }
+
+    GapReport {
+        unit_gaps,
+        unit_preserved,
+        counit_gaps,
+        counit_preserved,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -733,5 +788,43 @@ mod tests {
             bb.unit_loss_ratio() * 100.0
         );
         eprintln!("=== END ===\n");
+    }
+
+    // -----------------------------------------------------------------------
+    // Syntrometry-Substrate gap analysis (#62)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_syntrometry_substrate_gaps_surface_missing_distinctions() {
+        let report = analyze_syntrometry_substrate();
+        // The substrate is at least as expressive as itself — every substrate
+        // primitive must round-trip back to itself under F∘G (the forward
+        // functor is surjective onto substrate concepts by construction).
+        assert!(
+            report.counit_gaps.is_empty(),
+            "counit should be identity on substrate (substrate is closed under forward map)"
+        );
+        // The unit surfaces real missing distinctions: at least SyntrixLevel,
+        // Part, Dialektik, and Aspekt all collapse.
+        assert!(
+            !report.unit_gaps.is_empty(),
+            "unit must surface missing distinctions — pr4xis substrate is coarser than Heim's vocabulary"
+        );
+
+        let loss = report.unit_loss_ratio();
+        assert!(
+            loss > 0.0 && loss < 1.0,
+            "loss ratio should be strictly between 0 and 1; got {}",
+            loss
+        );
+        eprintln!(
+            "\nSyntrometry ⊣ Pr4xisSubstrate unit loss: {:.1}% ({} gap / {} preserved)",
+            loss * 100.0,
+            report.unit_gaps.len(),
+            report.unit_preserved.len()
+        );
+        for gap in &report.unit_gaps {
+            eprintln!("  {:?} collapses to {:?}", gap.original, gap.collapsed_to);
+        }
     }
 }
