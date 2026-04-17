@@ -1,4 +1,4 @@
-//! Trivial functor Resilience → Dependability.
+//! Terminal functor Resilience → Dependability.
 //!
 //! Every resilience pattern (CircuitBreaker, Retry, Supervisor, Microreboot, …)
 //! factors through `Dependability::FaultTolerance` — they are all instances of
@@ -6,51 +6,42 @@
 //! resilience concept to `FaultTolerance` and every resilience morphism to the
 //! identity morphism on `FaultTolerance`.
 //!
-//! This is the **terminal functor** into the one-object subcategory
-//! `{FaultTolerance, id}` of `DependabilityCategory`. It satisfies the functor
-//! laws trivially:
+//! Expressed via the reusable [`pr4xis::category::TerminalFunctor`] helper
+//! (landed in #131): the `FaultToleranceTarget` marker declares which target
+//! object; `ResilienceToFaultTolerance` is the type alias wiring it to
+//! `ResilienceCategory`.
 //!
-//! - `F(id_A) = id_FT` for every `A` — both sides are `id_FT`.
-//! - `F(g ∘ f) = F(g) ∘ F(f)` — both sides are `id_FT ∘ id_FT = id_FT`.
+//! # Laws
 //!
-//! This fact is the empirical verification for the claim in
-//! `docs/research/kinded-functor-failures.md` that case 3 of the three
-//! previously deferred cross-ontology functors does not need any framework
-//! extension — the trivial functor already satisfies the laws, and that *is*
-//! the ontologically correct statement: "every resilience pattern is a
-//! fault-tolerance means."
+//! Trivial: every morphism maps to `id_FaultTolerance`, every composite
+//! maps to `id_FaultTolerance ∘ id_FaultTolerance = id_FaultTolerance`.
 //!
-//! Non-trivial sub-structure (e.g., mapping `CircuitBreaker` to a
-//! `StabilityMeans` sub-kind of `FaultTolerance`) would require enriching
-//! Dependability's means hierarchy, which is a content decision separate from
-//! the functor laws. See the research doc for the recommendation.
+//! # Ontological content
+//!
+//! "Every resilience pattern is a fault-tolerance means" (Avizienis et al.
+//! 2004 §5.2). Non-trivial sub-structure (e.g., `CircuitBreaker →
+//! StabilityMeans ⊂ FaultTolerance`) would require enriching Dependability's
+//! means hierarchy — a content decision separate from the functor laws. See
+//! `docs/research/kinded-functor-failures.md` for context.
 
-use pr4xis::category::{Category, Functor};
+use pr4xis::category::{TerminalFunctor, TerminalTarget};
 
-use crate::applied::dependability::ontology::{
-    DependabilityCategory, DependabilityConcept, DependabilityRelation,
-};
-use crate::applied::resilience::ontology::{
-    ResilienceCategory, ResilienceConcept, ResilienceRelation,
-};
+use crate::applied::dependability::ontology::{DependabilityCategory, DependabilityConcept};
+use crate::applied::resilience::ontology::ResilienceCategory;
 
-/// The terminal functor `Resilience → {FaultTolerance}` subcategory of Dependability.
-pub struct ResilienceToFaultTolerance;
+/// Marker selecting `FaultTolerance` as the single target of the terminal
+/// functor.
+pub struct FaultToleranceTarget;
 
-impl Functor for ResilienceToFaultTolerance {
-    type Source = ResilienceCategory;
-    type Target = DependabilityCategory;
-
-    fn map_object(_: &ResilienceConcept) -> DependabilityConcept {
+impl TerminalTarget for FaultToleranceTarget {
+    type Category = DependabilityCategory;
+    fn target() -> DependabilityConcept {
         DependabilityConcept::FaultTolerance
     }
-
-    fn map_morphism(_: &ResilienceRelation) -> DependabilityRelation {
-        // Delegate identity construction to the category so the functor stays
-        // correct if the generated relation type ever gains extra fields.
-        DependabilityCategory::identity(&DependabilityConcept::FaultTolerance)
-    }
 }
+
+/// Terminal functor: every Resilience concept ↦ Dependability::FaultTolerance.
+pub type ResilienceToFaultTolerance = TerminalFunctor<ResilienceCategory, FaultToleranceTarget>;
 
 #[cfg(test)]
 mod tests {
@@ -58,7 +49,7 @@ mod tests {
     use pr4xis::category::validate::check_functor_laws;
 
     #[test]
-    fn trivial_functor_satisfies_laws() {
+    fn terminal_functor_satisfies_laws() {
         check_functor_laws::<ResilienceToFaultTolerance>().unwrap();
     }
 }
