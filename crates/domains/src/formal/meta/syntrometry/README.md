@@ -35,7 +35,7 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry
 | Refined sub-kinds (3) | `SubProductCategory`, `SubGradedObject`, `SubObject` |
 | Natural transformation (1) | `SubNaturalTransformation` |
 
-## Lineage mappings (seven verified functors)
+## Lineage mappings (eight verified functors)
 
 ### Primary: `Syntrometry → Pr4xisSubstrate`
 
@@ -66,7 +66,7 @@ Gap analysis: **4 intentional unit collapses out of 18, 0% counit loss** — ver
 
 ### Cross-functors into existing pr4xis ontologies
 
-Each of the six cross-functors below passes `check_functor_laws` and carries its own collapse profile, demonstrating that Heim's vocabulary aligns with pr4xis's meta-ontology, composition, staging, cognitive, logical, and modal layers:
+Each of the seven cross-functors below passes `check_functor_laws` and carries its own collapse profile, demonstrating that Heim's vocabulary aligns with pr4xis's meta-ontology, composition, staging, cognitive, logical, and modal layers. The last row — `Distinction → Syntrometry` — runs in the historical direction (Spencer-Brown 1969 → Heim, embedding the earlier distinction calculus into the richer syntrometric vocabulary):
 
 | Functor | Target | Headline mapping |
 |---|---|---|

@@ -42,9 +42,9 @@ After subtracting the prior art, the things we believe pr4xis contributes — pe
 
 5. **The explicit codegen / async / mmap functor equivalence.** Three different mechanisms for delivering ontology data into the runtime, all proven equivalent as functors from the same source. This is a small-but-load-bearing piece of infrastructure that lets the same ontology run as a static binary, an asynchronously loaded resource, or a memory-mapped file without semantic drift.
 
-## The Heim lineage — machine-verified across seven functors
+## The Heim lineage — machine-verified across eight functors
 
-The most prominent lineage claim in the project is the structural alignment with the **modernized syntrometric logic tradition** (Heim 1980, reformulated categorically in 2025). Per the project's core principle — every claim must be machine-checkable — this is operationalised as seven tested theorems (one primary lineage functor + six cross-functors) spanning the substrate, meta-ontology layer, composition layer, and cognitive layer.
+The most prominent lineage claim in the project is the structural alignment with the **modernized syntrometric logic tradition** (Heim 1980, reformulated categorically in 2025). Per the project's core principle — every claim must be machine-checkable — this is operationalised as eight tested theorems (one primary lineage functor + seven cross-functors, including the historical-direction `Distinction → Syntrometry` embedding) spanning the substrate, meta-ontology layer, composition layer, cognitive layer, and modal/dialectical logic layers.
 
 ### Verify
 
