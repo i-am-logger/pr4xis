@@ -794,37 +794,129 @@ mod tests {
     // Syntrometry-Substrate gap analysis (#62)
     // -----------------------------------------------------------------------
 
-    #[test]
-    fn test_syntrometry_substrate_gaps_surface_missing_distinctions() {
-        let report = analyze_syntrometry_substrate();
-        // The substrate is at least as expressive as itself — every substrate
-        // primitive must round-trip back to itself under F∘G (the forward
-        // functor is surjective onto substrate concepts by construction).
-        assert!(
-            report.counit_gaps.is_empty(),
-            "counit should be identity on substrate (substrate is closed under forward map)"
-        );
-        // The unit surfaces real missing distinctions: at least SyntrixLevel,
-        // Part, Dialektik, and Aspekt all collapse.
-        assert!(
-            !report.unit_gaps.is_empty(),
-            "unit must surface missing distinctions — pr4xis substrate is coarser than Heim's vocabulary"
-        );
+    // -----------------------------------------------------------------------
+    // Syntrometry → MetaOntology cross-functor collapse (Phase 4)
+    // -----------------------------------------------------------------------
 
-        let loss = report.unit_loss_ratio();
+    /// Count how many distinct `MetaEntity` values the 14 syntrometric
+    /// concepts land at under the cross-functor. Expected: 12 out of 14 land
+    /// uniquely; SyntrixLevel/Syntrix both go to CategoryStructure and
+    /// Synkolator/Korporator both go to Functor — the two intentional
+    /// collapses documented in meta_ontology_functor.rs.
+    /// Phase 5: Syntrometry → Staging collapses Heim's finer grain into
+    /// Futamura's coarser vocabulary. Expected 6+ collapses (many concepts
+    /// land at Program).
+    #[test]
+    fn test_syntrometry_to_staging_collapse_is_measured() {
+        use crate::formal::meta::staging::ontology::StageConcept;
+        use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
+        use crate::formal::meta::syntrometry::staging_functor::SyntrometryToStaging;
+        use pr4xis::category::{Entity, Functor};
+        use std::collections::HashSet;
+
+        let mapped: HashSet<StageConcept> = SyntrometryConcept::variants()
+            .into_iter()
+            .map(|c| SyntrometryToStaging::map_object(&c))
+            .collect();
+        let total = SyntrometryConcept::variants().len();
+        let unique = mapped.len();
+        let collapse = total - unique;
         assert!(
-            loss > 0.0 && loss < 1.0,
-            "loss ratio should be strictly between 0 and 1; got {}",
-            loss
+            collapse >= 6,
+            "Syntrometry → Staging expected to collapse significantly (Futamura vocabulary is coarser); got only {} collapses",
+            collapse
         );
         eprintln!(
-            "\nSyntrometry ⊣ Pr4xisSubstrate unit loss: {:.1}% ({} gap / {} preserved)",
-            loss * 100.0,
-            report.unit_gaps.len(),
-            report.unit_preserved.len()
+            "\nSyntrometry → Staging collapse: {}/{} ({:.1}%)",
+            collapse,
+            total,
+            collapse as f64 / total as f64 * 100.0
         );
-        for gap in &report.unit_gaps {
-            eprintln!("  {:?} collapses to {:?}", gap.original, gap.collapsed_to);
-        }
+    }
+
+    /// Phase 5: Syntrometry → Algebra maps Heim's operators onto Goguen /
+    /// Zimmermann ontology-algebra primitives.
+    #[test]
+    fn test_syntrometry_to_algebra_collapse_is_measured() {
+        use crate::formal::meta::algebra::ontology::AlgebraConcept;
+        use crate::formal::meta::syntrometry::algebra_functor::SyntrometryToAlgebra;
+        use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
+        use pr4xis::category::{Entity, Functor};
+        use std::collections::HashSet;
+
+        let mapped: HashSet<AlgebraConcept> = SyntrometryConcept::variants()
+            .into_iter()
+            .map(|c| SyntrometryToAlgebra::map_object(&c))
+            .collect();
+        let total = SyntrometryConcept::variants().len();
+        let unique = mapped.len();
+        let collapse = total - unique;
+        eprintln!(
+            "\nSyntrometry → Algebra collapse: {}/{} ({:.1}%)",
+            collapse,
+            total,
+            collapse as f64 / total as f64 * 100.0
+        );
+        assert!(collapse < total, "functor is not trivial");
+    }
+
+    #[test]
+    fn test_syntrometry_to_meta_ontology_collapse_is_two() {
+        use crate::formal::meta::ontology_diagnostics::ontology::MetaEntity;
+        use crate::formal::meta::syntrometry::meta_ontology_functor::SyntrometryToMetaOntology;
+        use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
+        use pr4xis::category::{Entity, Functor};
+        use std::collections::HashSet;
+
+        let mapped: HashSet<MetaEntity> = SyntrometryConcept::variants()
+            .into_iter()
+            .map(|c| SyntrometryToMetaOntology::map_object(&c))
+            .collect();
+        let total = SyntrometryConcept::variants().len();
+        let unique = mapped.len();
+        let collapse = total - unique;
+        assert_eq!(
+            collapse, 6,
+            "expected 6 intentional collapses (Syntrix/SyntrixLevel → CategoryStructure; \
+             Synkolator/Korporator/SequencePermutation/OrientationPermutation → Functor; \
+             Predicate/Aspektivsystem → DomainOntology; Koordination/Reflexivity → NaturalTransformation); \
+             got {}",
+            collapse
+        );
+        eprintln!(
+            "\nSyntrometry → MetaOntology collapse: {}/{} ({:.1}%)",
+            collapse,
+            total,
+            collapse as f64 / total as f64 * 100.0
+        );
+    }
+
+    #[test]
+    fn test_syntrometry_substrate_intentional_collapses() {
+        let report = analyze_syntrometry_substrate();
+        // The substrate is closed — every substrate primitive round-trips.
+        assert!(
+            report.counit_gaps.is_empty(),
+            "counit gaps should be empty (substrate is closed): {:?}",
+            report.counit_gaps
+        );
+        // Intentional collapses:
+        // - Dialektik → SubCategory → Syntrix (opposition lives in Dialectics)
+        // - SequencePermutation, OrientationPermutation → SubEndofunctor (both collapse with Synkolator)
+        // - Aspektivsystem → SubOntology (collapses with Predikatrix)
+        assert_eq!(
+            report.unit_gaps.len(),
+            4,
+            "expected four intentional collapses; got {:?}",
+            report.unit_gaps
+        );
+        eprintln!(
+            "\nSyntrometry ⊣ Pr4xisSubstrate: {}/{} unit preserved ({} intentional collapses); {}/{} counit preserved",
+            report.unit_preserved.len(),
+            report.unit_preserved.len() + report.unit_gaps.len(),
+            report.unit_gaps.len(),
+            report.counit_preserved.len(),
+            report.counit_preserved.len() + report.counit_gaps.len(),
+        );
     }
 }

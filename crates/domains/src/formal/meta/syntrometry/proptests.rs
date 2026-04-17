@@ -109,18 +109,22 @@ proptest! {
         prop_assert!(SyntrometryConcept::variants().contains(&rt));
     }
 
-    /// The six canonical concepts — Predicate, Koordination, Syntrix,
-    /// Korporator, Synkolator, Predikatrix — are fixed points of the
-    /// round-trip. Sampling any one must reproduce it.
+    /// 14 of the 18 syntrometric concepts round-trip cleanly through
+    /// the primary substrate functor. The four intentional collapses
+    /// (Dialektik, SequencePermutation, OrientationPermutation,
+    /// Aspektivsystem) are handled by dedicated cross-functors.
     #[test]
-    fn canonical_concepts_are_round_trip_fixed_points(c in prop_oneof![
-        Just(SyntrometryConcept::Predicate),
-        Just(SyntrometryConcept::Koordination),
-        Just(SyntrometryConcept::Syntrix),
-        Just(SyntrometryConcept::Korporator),
-        Just(SyntrometryConcept::Synkolator),
-        Just(SyntrometryConcept::Predikatrix),
-    ]) {
+    fn non_collapsed_concepts_are_round_trip_fixed_points(c in arb_syntrometry_concept()) {
+        use SyntrometryConcept as S;
+        let collapses = [
+            S::Dialektik,
+            S::SequencePermutation,
+            S::OrientationPermutation,
+            S::Aspektivsystem,
+        ];
+        if collapses.contains(&c) {
+            return Ok(());
+        }
         let (source, rt) = unit_pair(&c);
         prop_assert_eq!(source, rt);
     }
@@ -156,9 +160,109 @@ proptest! {
         prop_assert!(Pr4xisSubstrateOntology::validate().is_ok());
     }
 
+    /// The four substrate domain axioms (literature-grounded structural
+    /// claims) must all hold under any sampling of invocations.
+    #[test]
+    fn substrate_domain_axioms_hold_under_sweep(_ in 0..64u32) {
+        use super::substrate::{
+            EndofunctorIsFunctor, GradedObjectIsEntity, ProductCategoryIsCategory,
+            SubobjectIsMorphism,
+        };
+        prop_assert!(EndofunctorIsFunctor.holds());
+        prop_assert!(ProductCategoryIsCategory.holds());
+        prop_assert!(GradedObjectIsEntity.holds());
+        prop_assert!(SubobjectIsMorphism.holds());
+    }
+
     // -----------------------------------------------------------------------
     // Morphism closure
     // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    // Cross-functor invariants
+    // -----------------------------------------------------------------------
+
+    /// For every concept sampled, the cross-functor to MetaOntology produces
+    /// a valid MetaEntity target.
+    #[test]
+    fn meta_ontology_functor_maps_into_target(c in arb_syntrometry_concept()) {
+        use super::meta_ontology_functor::SyntrometryToMetaOntology;
+        use crate::formal::meta::ontology_diagnostics::ontology::MetaEntity;
+        let mapped = SyntrometryToMetaOntology::map_object(&c);
+        prop_assert!(MetaEntity::variants().contains(&mapped));
+    }
+
+    /// Cross-functor preserves identity for any sampled concept.
+    #[test]
+    fn meta_ontology_functor_preserves_identity(c in arb_syntrometry_concept()) {
+        use super::meta_ontology_functor::SyntrometryToMetaOntology;
+        use crate::formal::meta::ontology_diagnostics::ontology::MetaCategory;
+        let id_c = SyntrometryCategory::identity(&c);
+        let f_id = SyntrometryToMetaOntology::map_morphism(&id_c);
+        let id_fc =
+            MetaCategory::identity(&SyntrometryToMetaOntology::map_object(&c));
+        prop_assert_eq!(f_id, id_fc);
+    }
+
+    /// Staging cross-functor preserves identity across random sampling.
+    #[test]
+    fn staging_functor_preserves_identity(c in arb_syntrometry_concept()) {
+        use super::staging_functor::SyntrometryToStaging;
+        use crate::formal::meta::staging::ontology::StagingCategory;
+        let id_c = SyntrometryCategory::identity(&c);
+        let f_id = SyntrometryToStaging::map_morphism(&id_c);
+        let id_fc = StagingCategory::identity(&SyntrometryToStaging::map_object(&c));
+        prop_assert_eq!(f_id, id_fc);
+    }
+
+    /// Algebra cross-functor preserves identity across random sampling.
+    #[test]
+    fn algebra_functor_preserves_identity(c in arb_syntrometry_concept()) {
+        use super::algebra_functor::SyntrometryToAlgebra;
+        use crate::formal::meta::algebra::ontology::AlgebraCategory;
+        let id_c = SyntrometryCategory::identity(&c);
+        let f_id = SyntrometryToAlgebra::map_morphism(&id_c);
+        let id_fc = AlgebraCategory::identity(&SyntrometryToAlgebra::map_object(&c));
+        prop_assert_eq!(f_id, id_fc);
+    }
+
+    /// Syntrometry → C1 preserves identity across random sampling.
+    #[test]
+    fn c1_functor_preserves_identity(c in arb_syntrometry_concept()) {
+        use super::consciousness_functor::SyntrometryToC1;
+        use crate::cognitive::cognition::consciousness::ontology::C1Category;
+        let id_c = SyntrometryCategory::identity(&c);
+        let f_id = SyntrometryToC1::map_morphism(&id_c);
+        let id_fc = C1Category::identity(&SyntrometryToC1::map_object(&c));
+        prop_assert_eq!(f_id, id_fc);
+    }
+
+    /// Syntrometry → Dialectics (kinded→kinded) preserves identity.
+    #[test]
+    fn dialectics_functor_preserves_identity(c in arb_syntrometry_concept()) {
+        use super::dialectics_functor::SyntrometryToDialectics;
+        use crate::formal::logic::dialectics::ontology::DialecticsCategory;
+        let id_c = SyntrometryCategory::identity(&c);
+        let f_id = SyntrometryToDialectics::map_morphism(&id_c);
+        let id_fc = DialecticsCategory::identity(&SyntrometryToDialectics::map_object(&c));
+        prop_assert_eq!(f_id, id_fc);
+    }
+
+    /// Distinction → Syntrometry (kinded→kinded) preserves identity.
+    #[test]
+    fn distinction_functor_preserves_identity(_ in 0..32u32) {
+        use super::distinction_functor::DistinctionToSyntrometry;
+        use crate::cognitive::cognition::distinction::{
+            DistinctionCategory, DistinctionConcept,
+        };
+        use pr4xis::category::Entity;
+        for c in DistinctionConcept::variants() {
+            let id_c = DistinctionCategory::identity(&c);
+            let f_id = DistinctionToSyntrometry::map_morphism(&id_c);
+            let id_fc = SyntrometryCategory::identity(&DistinctionToSyntrometry::map_object(&c));
+            prop_assert_eq!(f_id, id_fc);
+        }
+    }
 
     /// Every kind of Syntrometry morphism (Identity, every declared edge
     /// kind, Composed) shows up in `morphisms()`. Without this the

@@ -34,12 +34,29 @@ pub fn map_substrate(c: &Pr4xisSubstrateConcept) -> SyntrometryConcept {
     use Pr4xisSubstrateConcept as P;
     use SyntrometryConcept as S;
     match c {
+        // Core primitives.
         P::SubEntity => S::Predicate,
         P::SubMorphism => S::Koordination,
         P::SubCategory => S::Syntrix,
         P::SubFunctor => S::Korporator,
         P::SubEndofunctor => S::Synkolator,
         P::SubOntology => S::Predikatrix,
+        // Architectural primitives.
+        P::SubEigenform => S::Telecenter,
+        P::SubIntention => S::Maxime,
+        P::SubStagingLevel => S::Transzendenzstufe,
+        P::SubSystemOfSystems => S::Metroplex,
+        // Refined sub-kinds — each has a distinct syntrometric counterpart.
+        // Opposition-structure is in the dedicated Dialectics ontology,
+        // reached via `SyntrometryToDialectics`.
+        P::SubProductCategory => S::Aspekt,
+        P::SubGradedObject => S::SyntrixLevel,
+        P::SubObject => S::Part,
+        // Reflexivity is the canonical natural transformation — the
+        // self-observation primitive Heim's ρ names. Other Syntrometry
+        // concepts that round-trip through SubNaturalTransformation don't
+        // exist, so SubNaturalTransformation uniquely maps back to Reflexivity.
+        P::SubNaturalTransformation => S::Reflexivity,
     }
 }
 
