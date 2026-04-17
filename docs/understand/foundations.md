@@ -20,7 +20,7 @@ The lineage claim is **verified, not asserted**. Heim's syntrometric primitives 
 cargo test -p pr4xis-domains -- formal::meta::syntrometry::lineage_functor::tests::lineage_functor_laws_pass
 ```
 
-The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) measures **28.6% unit loss** on the round trip (Phase 1 + Phase 2) — four specific distinctions Heim's vocabulary carries that pr4xis's core substrate does not (`Dialektik`, `Aspekt`, `SyntrixLevel`, `Part`). Phase 2 added the teleological primitives (Telecenter/Maxime/Transzendenzstufe/Metroplex) with matching substrate targets, so those four round-trip cleanly; the remaining four are actionable Phase 3 targets.
+The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) reports **0% unit loss** (object-level equivalence after Phase 3): every Heim concept has a unique pr4xis-substrate target and every substrate primitive has a unique Heim representative. Phase 3 closed the last 28.6% gap by adding `SubOppositionCategory`, `SubProductCategory`, `SubLeveledEntity`, and `SubMereologicalMorphism` — refined sub-kinds of `SubCategory` / `SubEntity` / `SubMorphism` that receive `Dialektik`, `Aspekt`, `SyntrixLevel`, and `Part` without collapsing.
 
 ## Modern Foundations (Section by Section)
 

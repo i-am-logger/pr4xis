@@ -109,23 +109,11 @@ proptest! {
         prop_assert!(SyntrometryConcept::variants().contains(&rt));
     }
 
-    /// The ten canonical concepts — Phase 1's six (Predicate, Koordination,
-    /// Syntrix, Korporator, Synkolator, Predikatrix) plus Phase 2's four
-    /// (Telecenter, Maxime, Transzendenzstufe, Metroplex) — are fixed
-    /// points of the round-trip. Sampling any one must reproduce it.
+    /// Phase 3 target: all 14 syntrometric concepts are round-trip fixed
+    /// points. Sampling any one reproduces it under G∘F. This is the
+    /// "object-level equivalence" form of the Heim ↔ pr4xis lineage.
     #[test]
-    fn canonical_concepts_are_round_trip_fixed_points(c in prop_oneof![
-        Just(SyntrometryConcept::Predicate),
-        Just(SyntrometryConcept::Koordination),
-        Just(SyntrometryConcept::Syntrix),
-        Just(SyntrometryConcept::Korporator),
-        Just(SyntrometryConcept::Synkolator),
-        Just(SyntrometryConcept::Predikatrix),
-        Just(SyntrometryConcept::Telecenter),
-        Just(SyntrometryConcept::Maxime),
-        Just(SyntrometryConcept::Transzendenzstufe),
-        Just(SyntrometryConcept::Metroplex),
-    ]) {
+    fn every_concept_is_round_trip_fixed_point(c in arb_syntrometry_concept()) {
         let (source, rt) = unit_pair(&c);
         prop_assert_eq!(source, rt);
     }

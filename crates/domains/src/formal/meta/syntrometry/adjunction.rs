@@ -67,12 +67,13 @@ mod tests {
         }
     }
 
-    /// Some syntrometric concepts do NOT round-trip — those are the missing
-    /// distinctions the lineage adjunction surfaces. We assert the collapse
-    /// is non-empty without pinning specific concepts; gap analysis produces
-    /// the exact list with percentages.
+    /// Phase 3 target: the lineage is an equivalence at the object level.
+    /// Every syntrometric concept has a distinct substrate target and
+    /// round-trips back to itself. The remaining "adjunction" is trivial
+    /// in the Cat-sense but the *content* is the full Heim ↔ pr4xis
+    /// correspondence.
     #[test]
-    fn unit_surfaces_collapsed_concepts() {
+    fn unit_is_an_object_equivalence() {
         let collapses: Vec<_> = SyntrometryConcept::variants()
             .into_iter()
             .filter(|obj| {
@@ -81,18 +82,16 @@ mod tests {
             })
             .collect();
         assert!(
-            !collapses.is_empty(),
-            "the lineage adjunction is not an equivalence; at least one concept must collapse"
+            collapses.is_empty(),
+            "Phase 3 target is 0% unit loss; residual collapses: {:?}",
+            collapses
         );
     }
 
-    /// Concepts that *do* round-trip are the ones the substrate captures
-    /// natively. Expected: Predicate, Koordination, Syntrix, Korporator,
-    /// Synkolator, Predikatrix (the six that were the canonical
-    /// representatives in both directions).
+    /// All 14 syntrometric concepts are round-trip fixed points after
+    /// Phase 3's substrate enrichment.
     #[test]
-    fn unit_preserves_six_canonical_concepts() {
-        use SyntrometryConcept as S;
+    fn unit_preserves_all_concepts() {
         let preserved: Vec<_> = SyntrometryConcept::variants()
             .into_iter()
             .filter(|obj| {
@@ -100,20 +99,12 @@ mod tests {
                 source == rt
             })
             .collect();
-        let expected = [
-            S::Predicate,
-            S::Koordination,
-            S::Syntrix,
-            S::Korporator,
-            S::Synkolator,
-            S::Predikatrix,
-        ];
-        for c in &expected {
-            assert!(
-                preserved.contains(c),
-                "expected {:?} to be preserved by the lineage round-trip",
-                c
-            );
-        }
+        assert_eq!(
+            preserved.len(),
+            SyntrometryConcept::variants().len(),
+            "all {} concepts should be preserved; got {}",
+            SyntrometryConcept::variants().len(),
+            preserved.len()
+        );
     }
 }

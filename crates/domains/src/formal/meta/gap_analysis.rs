@@ -795,36 +795,31 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_syntrometry_substrate_gaps_surface_missing_distinctions() {
+    fn test_syntrometry_substrate_is_object_equivalence() {
         let report = analyze_syntrometry_substrate();
-        // The substrate is at least as expressive as itself — every substrate
-        // primitive must round-trip back to itself under F∘G (the forward
-        // functor is surjective onto substrate concepts by construction).
+        // Phase 3 target: the lineage functor is an equivalence at the
+        // object level. Every syntrometric concept has a distinct substrate
+        // target and round-trips back to itself; every substrate primitive
+        // has a distinct syntrometric representative and round-trips back
+        // to itself.
         assert!(
             report.counit_gaps.is_empty(),
-            "counit should be identity on substrate (substrate is closed under forward map)"
+            "counit gaps should be empty (substrate is closed): {:?}",
+            report.counit_gaps
         );
-        // The unit surfaces real missing distinctions: at least SyntrixLevel,
-        // Part, Dialektik, and Aspekt all collapse.
         assert!(
-            !report.unit_gaps.is_empty(),
-            "unit must surface missing distinctions — pr4xis substrate is coarser than Heim's vocabulary"
+            report.unit_gaps.is_empty(),
+            "Phase 3 target is 0% unit loss; residual gaps: {:?}",
+            report.unit_gaps
         );
-
-        let loss = report.unit_loss_ratio();
-        assert!(
-            loss > 0.0 && loss < 1.0,
-            "loss ratio should be strictly between 0 and 1; got {}",
-            loss
-        );
+        assert_eq!(report.unit_loss_ratio(), 0.0);
+        assert_eq!(report.counit_loss_ratio(), 0.0);
         eprintln!(
-            "\nSyntrometry ⊣ Pr4xisSubstrate unit loss: {:.1}% ({} gap / {} preserved)",
-            loss * 100.0,
-            report.unit_gaps.len(),
-            report.unit_preserved.len()
+            "\nSyntrometry ⊣ Pr4xisSubstrate — equivalence achieved: {}/{} unit preserved, {}/{} counit preserved",
+            report.unit_preserved.len(),
+            report.unit_preserved.len() + report.unit_gaps.len(),
+            report.counit_preserved.len(),
+            report.counit_preserved.len() + report.counit_gaps.len(),
         );
-        for gap in &report.unit_gaps {
-            eprintln!("  {:?} collapses to {:?}", gap.original, gap.collapsed_to);
-        }
     }
 }

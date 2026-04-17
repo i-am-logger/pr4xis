@@ -56,16 +56,17 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry::lineage_functor::test
 
 Heim's syntrometric primitives — `Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`, `Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`, `Part` — are encoded as a pr4xis ontology at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/). A `Functor: Syntrometry → Pr4xisSubstrate` carries each Heim concept to its pr4xis-core counterpart. `check_functor_laws` verifies identity preservation + composition preservation exhaustively over every morphism. The structural alignment is no longer argued — it is proven.
 
-### Measured information-loss profile
+### Measured information-loss profile (Phase 3 = object-level equivalence)
 
-The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) reports the round-trip collapse (Phase 1 + Phase 2):
+The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) reports the round-trip collapse:
 
-| Direction | Loss | Concepts that collapse |
-|---|---|---|
-| Unit (Syntrometry → Pr4xisSubstrate → Syntrometry) | **28.6%** (4/14) | `Dialektik → Syntrix`, `Aspekt → Syntrix`, `SyntrixLevel → Predicate`, `Part → Koordination` |
-| Counit (Pr4xisSubstrate → Syntrometry → Pr4xisSubstrate) | **0%** (0/10) | none (substrate is closed under the forward map) |
+| Phase | Unit loss | Counit loss | Notes |
+|---|---|---|---|
+| 1 | 40% (4/10) | 0% (0/6) | Syntrometric primitives only |
+| 2 | 28.6% (4/14) | 0% (0/10) | + teleological concepts |
+| **3** | **0% (0/14)** | **0% (0/14)** | **object-level equivalence** |
 
-Phase 2 added the teleological concepts (Telecenter, Maxime, Transzendenzstufe, Metroplex) with matching substrate targets, so all four round-trip cleanly. The four remaining unit collapses are the distinctions Heim carries that pr4xis's core substrate still does not — actionable Phase 3 targets.
+Phase 3 closed the final 28.6% gap by adding `SubOppositionCategory`, `SubProductCategory`, `SubLeveledEntity`, and `SubMereologicalMorphism` — refined sub-kinds of the substrate primitives that receive `Dialektik`, `Aspekt`, `SyntrixLevel`, and `Part` without collapsing. Every Heim concept now has a unique pr4xis-substrate target and every substrate primitive has a unique Heim representative.
 
 ### Phase 1 concept mapping
 

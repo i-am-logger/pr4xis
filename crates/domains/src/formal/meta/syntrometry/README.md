@@ -16,16 +16,22 @@ The headline — "pr4xis instantiates Heim's syntrometric structure" — is veri
 
 ## Measured loss profile (gap analysis)
 
-`cargo test -p pr4xis-domains -- test_syntrometry_substrate_gaps_surface_missing_distinctions --nocapture`
+`cargo test -p pr4xis-domains -- test_syntrometry_substrate_is_object_equivalence --nocapture`
 
 | Direction | Loss | What collapses |
 |---|---|---|
-| **Unit** (Syntrometry → Substrate → Syntrometry) | **28.6%** (4/14) | `Dialektik → Syntrix`, `Aspekt → Syntrix`, `SyntrixLevel → Predicate`, `Part → Koordination` |
-| **Counit** (Substrate → Syntrometry → Substrate) | **0%** (0/10) | none — substrate is closed under the round-trip |
+| **Unit** (Syntrometry → Substrate → Syntrometry) | **0%** (0/14) | none — object-level equivalence |
+| **Counit** (Substrate → Syntrometry → Substrate) | **0%** (0/14) | none — substrate is closed under the round-trip |
 
-Phase 2's four new concepts (Telecenter/Maxime/Transzendenzstufe/Metroplex) all round-trip cleanly because Phase 2 added matching substrate targets (`SubEigenform`/`SubIntention`/`SubStagingLevel`/`SubSystemOfSystems`).
+Phase 3 closed the remaining 28.6% loss by adding four sub-kinds to `Pr4xisSubstrate` — `SubOppositionCategory`, `SubProductCategory`, `SubLeveledEntity`, `SubMereologicalMorphism` — so `Dialektik`, `Aspekt`, `SyntrixLevel`, and `Part` each land at a distinct substrate target. The lineage is now an **object-level equivalence**: every Heim concept has a unique pr4xis-substrate counterpart and every substrate primitive has a unique Heim representative.
 
-The four remaining unit collapses are the specific distinctions Heim's vocabulary carries that pr4xis's core substrate still does not. Phase 3 follow-up: either add `OppositionCategory`/`ProductCategory` sub-kinds to reduce collapse, or accept that these four are compression the substrate makes deliberately.
+Each phase's incremental progress, for the record:
+
+| Phase | Unit loss | Counit loss |
+|---|---|---|
+| 1 | 40% (4/10) | 0% (0/6) |
+| 2 | 28.6% (4/14) | 0% (0/10) |
+| 3 | **0% (0/14)** | **0% (0/14)** |
 
 ## Phase 1 entities (Phase 1 + Phase 2 = 14 Syntrometry + 10 Substrate)
 
@@ -38,31 +44,34 @@ The four remaining unit collapses are the specific distinctions Heim's vocabular
 | Mereology (1) | `Part` |
 | **Teleological / hierarchical (Phase 2) (4)** | `Telecenter`, `Maxime`, `Transzendenzstufe`, `Metroplex` |
 
-### Pr4xis-substrate (10)
+### Pr4xis-substrate (14)
 
 | Family | Entities |
 |---|---|
 | Core categorical primitives (6) | `SubEntity`, `SubMorphism`, `SubCategory`, `SubFunctor`, `SubEndofunctor`, `SubOntology` |
-| **Architectural primitives (Phase 2) (4)** | `SubEigenform`, `SubIntention`, `SubStagingLevel`, `SubSystemOfSystems` |
+| Architectural primitives (Phase 2) (4) | `SubEigenform`, `SubIntention`, `SubStagingLevel`, `SubSystemOfSystems` |
+| **Refined sub-kinds (Phase 3) (4)** | `SubOppositionCategory`, `SubProductCategory`, `SubLeveledEntity`, `SubMereologicalMorphism` |
 
-## The lineage mapping
+## The lineage mapping (object-level equivalence after Phase 3)
 
 | Syntrometry | Pr4xis substrate | Interpretation |
 |---|---|---|
 | `Predicate`     | `SubEntity` | atomic distinction = Entity variant |
 | `Predikatrix`   | `SubOntology` | predicate-system = small ontology |
-| `Dialektik`     | `SubCategory` | binary-opposition structure |
+| `Dialektik`     | `SubOppositionCategory` | binary-opposition structure (Phase 3) |
 | `Koordination`  | `SubMorphism` | ordering between predicates = morphism |
-| `Aspekt`        | `SubCategory` | product [D × K × P] = product category |
+| `Aspekt`        | `SubProductCategory` | product [D × K × P] = product category (Phase 3) |
 | `Syntrix`       | `SubCategory` | C_SL (§2.2 — Category of Leveled Structures) |
-| `SyntrixLevel`  | `SubEntity` | single level = object in the category |
+| `SyntrixLevel`  | `SubLeveledEntity` | grade-indexed entity (Phase 3) |
 | `Synkolator`    | `SubEndofunctor` | endofunctor on the Syntrix |
 | `Korporator`    | `SubFunctor` | structure-mapping functor |
-| `Part`          | `SubMorphism` | mereological relation = morphism |
-| **`Telecenter`** | **`SubEigenform`** | **goal-attractor = X=F(X) / CommunicativeGoal / Colimit** |
-| **`Maxime`**    | **`SubIntention`** | **extremal selection = BDI Intention / C1 Attention** |
-| **`Transzendenzstufe`** | **`SubStagingLevel`** | **transcendence-level = Staging grade / C1-vs-C2 split** |
-| **`Metroplex`** | **`SubSystemOfSystems`** | **hierarchical container = SoS composition (#94)** |
+| `Part`          | `SubMereologicalMorphism` | CEM-satisfying morphism (Phase 3) |
+| `Telecenter`    | `SubEigenform` | goal-attractor = X=F(X) (Phase 2) |
+| `Maxime`        | `SubIntention` | extremal selection = BDI Intention (Phase 2) |
+| `Transzendenzstufe` | `SubStagingLevel` | transcendence-level (Phase 2) |
+| `Metroplex`     | `SubSystemOfSystems` | hierarchical container (Phase 2) |
+
+Bijection: every Heim concept has a unique substrate target; every substrate primitive has a unique Heim representative. Verified by `test_syntrometry_substrate_is_object_equivalence`.
 
 ## Domain axioms (6)
 

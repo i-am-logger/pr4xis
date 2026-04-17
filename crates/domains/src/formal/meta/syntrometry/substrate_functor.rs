@@ -46,6 +46,12 @@ pub fn map_substrate(c: &Pr4xisSubstrateConcept) -> SyntrometryConcept {
         P::SubIntention => S::Maxime,
         P::SubStagingLevel => S::Transzendenzstufe,
         P::SubSystemOfSystems => S::Metroplex,
+        // Phase 3 reverse — each refined substrate primitive has a
+        // syntrometric counterpart, so every concept round-trips cleanly.
+        P::SubOppositionCategory => S::Dialektik,
+        P::SubProductCategory => S::Aspekt,
+        P::SubLeveledEntity => S::SyntrixLevel,
+        P::SubMereologicalMorphism => S::Part,
     }
 }
 

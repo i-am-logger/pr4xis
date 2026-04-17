@@ -29,6 +29,14 @@ pr4xis::ontology! {
         SubIntention,
         SubStagingLevel,
         SubSystemOfSystems,
+
+        // Phase 3 — sub-kinds of SubCategory / SubMorphism / SubEntity that
+        // receive the four remaining Phase 1 collapsed concepts cleanly.
+        // Landing these drops the unit loss from 28.6% to 0%.
+        SubOppositionCategory,
+        SubProductCategory,
+        SubLeveledEntity,
+        SubMereologicalMorphism,
     ],
 
     labels: {
@@ -43,12 +51,22 @@ pr4xis::ontology! {
         SubIntention: ("en", "Intention", "The BDI (Bratman 1987) commitment-to-plan + the C1 attention selection (Dehaene GWT). The extremal-selection primitive in the substrate."),
         SubStagingLevel: ("en", "StagingLevel", "A single grade of the Futamura-projection staging hierarchy / C1 vs C2 consciousness split. The transcendence-level primitive."),
         SubSystemOfSystems: ("en", "SystemOfSystems", "The hierarchical composition primitive — what system-of-systems ontologies formalise. Graded composition of sub-systems."),
+
+        SubOppositionCategory: ("en", "OppositionCategory", "A Category whose morphisms carry a binary-opposition structure — the refinement that distinguishes Dialektik from an unstructured Category."),
+        SubProductCategory: ("en", "ProductCategory", "A Category that is the product of two or more component categories (Mac Lane Ch. II §3). Receives Heim's Aspekt = [D × K × P]."),
+        SubLeveledEntity: ("en", "LeveledEntity", "An Entity that carries a grade/level index within a leveled-category tower. Receives Heim's SyntrixLevel."),
+        SubMereologicalMorphism: ("en", "MereologicalMorphism", "A Morphism that additionally satisfies CEM mereological axioms (Weak Supplementation etc.). Receives Heim's Part."),
     },
 
     is_a: [
         // True subsumption only: every Endofunctor is a Functor specialised
         // to Source = Target (Mac Lane Ch. II §1).
         (SubEndofunctor, SubFunctor),
+        // Phase 3 — sub-kinds of the core primitives.
+        (SubOppositionCategory, SubCategory),
+        (SubProductCategory, SubCategory),
+        (SubLeveledEntity, SubEntity),
+        (SubMereologicalMorphism, SubMorphism),
     ],
 }
 
@@ -77,6 +95,10 @@ impl Quality for SubstrateLocation {
                 "formal::meta::staging + cognitive::cognition::consciousness (C1/C2)"
             }
             P::SubSystemOfSystems => "system-of-systems composition (tracked as issue #94)",
+            P::SubOppositionCategory => "pr4xis::ontology::reasoning::opposition",
+            P::SubProductCategory => "pr4xis::category::monoidal::Product",
+            P::SubLeveledEntity => "formal::meta::staging (grade-indexed entities)",
+            P::SubMereologicalMorphism => "pr4xis::ontology::reasoning::mereology",
         })
     }
 }
