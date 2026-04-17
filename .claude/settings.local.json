@@ -321,7 +321,24 @@
       "Bash(wasm-pack:*)",
       "WebFetch(domain:persistence.uni-leipzig.org)",
       "WebFetch(domain:newiipdm.haifa.ac.il)",
-      "WebFetch(domain:math.ucr.edu)"
+      "WebFetch(domain:math.ucr.edu)",
+      "WebFetch(domain:heim-theory.com)",
+      "WebFetch(domain:www.scribd.com)",
+      "Bash(sudo apt-get:*)",
+      "WebFetch(domain:www.academia.edu)",
+      "WebFetch(domain:figshare.com)",
+      "WebFetch(domain:www.imagomundi.biz)",
+      "WebFetch(domain:pdfslide.tips)",
+      "WebFetch(domain:www.matheplanet.com)",
+      "WebFetch(domain:energieorganismus.de)",
+      "WebFetch(domain:archive.org)",
+      "WebFetch(domain:groups.io)",
+      "WebFetch(domain:www.relativ-kritisch.net)",
+      "WebFetch(domain:www.yumpu.com)",
+      "WebFetch(domain:www.engon.de)",
+      "WebFetch(domain:holy-time-dimension.webnode.page)",
+      "WebFetch(domain:static.twoday.net)",
+      "Bash(git cherry-pick *)"
     ]
   }
 }

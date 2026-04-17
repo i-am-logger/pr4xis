@@ -99,7 +99,7 @@ fn every_descriptor_has_nonzero_concepts() {
     let descriptors = super::descriptor::describe_knowledge_base();
     for d in &descriptors {
         assert!(
-            d.concept_count > 0,
+            d.concepts().len() > 0,
             "{} ({}) has 0 concepts",
             d.name(),
             d.domain()
@@ -149,7 +149,7 @@ mod compose {
         assert!(biochem.validate().is_ok());
 
         let vocab = biochem.vocabulary();
-        assert_eq!(vocab.concept_count, 5);
+        assert_eq!(vocab.concepts().len(), 5);
     }
 
     #[test]
@@ -266,7 +266,7 @@ mod compose {
         let first = &descriptors[0];
 
         let syntrix = pr4xis::ontology::compose::from_vocabulary(first);
-        assert_eq!(syntrix.name(), first.ontology_name);
+        assert_eq!(syntrix.name(), first.ontology_name.as_str());
         assert_eq!(syntrix.level(), 0);
     }
 

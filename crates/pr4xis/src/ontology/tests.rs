@@ -578,9 +578,9 @@ mod proc_macro_test {
     #[test]
     fn proc_macro_generates_vocabulary() {
         let vocab = CommunicationOntology::vocabulary();
-        assert_eq!(vocab.concept_count, 8);
-        assert!(vocab.morphism_count > 0);
-        assert_eq!(vocab.source, "Shannon (1948); Jakobson (1960)");
+        assert_eq!(vocab.concepts().len(), 8);
+        assert!(vocab.morphisms().len() > 0);
+        assert_eq!(vocab.source.as_str(), "Shannon (1948); Jakobson (1960)");
     }
 
     #[test]
@@ -653,8 +653,8 @@ mod proc_macro_dense_test {
     #[test]
     fn dense_vocabulary() {
         let vocab = BiologyOntology::vocabulary();
-        assert_eq!(vocab.concept_count, 4);
-        assert_eq!(vocab.source, "Mayr (1982)");
+        assert_eq!(vocab.concepts().len(), 4);
+        assert_eq!(vocab.source.as_str(), "Mayr (1982)");
     }
 
     #[test]

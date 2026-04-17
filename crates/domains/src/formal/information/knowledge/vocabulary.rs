@@ -16,15 +16,15 @@ use pr4xis::ontology::Vocabulary;
 /// Present a Vocabulary as a Schema Presentation for transport.
 pub fn present_vocabulary(v: &Vocabulary) -> Presentation {
     let mut p = Presentation::new();
-    p.set("module_path", v.module_path.into());
+    p.set("module_path", v.module_path.as_str().into());
     p.set("domain", SchemaValue::Text(v.domain()));
-    p.set("source", v.source.into());
+    p.set("source", v.source.as_str().into());
     p.set(
         "being",
         v.being.map_or(SchemaValue::Absent, |b| b.label().into()),
     );
-    p.set("concept_count", (v.concept_count as u64).into());
-    p.set("morphism_count", (v.morphism_count as u64).into());
+    p.set("concept_count", (v.concepts().len() as u64).into());
+    p.set("morphism_count", (v.morphisms().len() as u64).into());
     p
 }
 
@@ -46,11 +46,11 @@ impl KnowledgeBase {
     }
 
     pub fn total_concepts(&self) -> usize {
-        self.vocabularies.iter().map(|v| v.concept_count).sum()
+        self.vocabularies.iter().map(|v| v.concepts().len()).sum()
     }
 
     pub fn total_morphisms(&self) -> usize {
-        self.vocabularies.iter().map(|v| v.morphism_count).sum()
+        self.vocabularies.iter().map(|v| v.morphisms().len()).sum()
     }
 
     /// Present the entire knowledge base as a Presentation.
@@ -89,8 +89,8 @@ mod tests {
             "W3C VoID (2011)",
             Some(pr4xis::ontology::upper::being::Being::AbstractObject),
         );
-        assert!(v.concept_count > 0);
-        assert!(v.morphism_count > 0);
+        assert!(v.concepts().len() > 0);
+        assert!(v.morphisms().len() > 0);
         assert!(v.domain().contains("knowledge"));
     }
 

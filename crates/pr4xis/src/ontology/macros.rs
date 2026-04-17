@@ -323,14 +323,12 @@ macro_rules! define_ontology {
                 $(
                     _source = $source;
                 )?
-                $crate::ontology::Vocabulary {
-                    ontology_name: stringify!($ont_name),
-                    module_path: module_path!(),
-                    source: _source,
-                    being: _being,
-                    concept_count: <$entity as $crate::category::entity::Entity>::variants().len(),
-                    morphism_count: <$cat_name as $crate::category::Category>::morphisms().len(),
-                }
+                $crate::ontology::Vocabulary::from_static::<$cat_name, $entity>(
+                    $crate::ontology::OntologyName::new_static(stringify!($ont_name)),
+                    $crate::ontology::ModulePath::new_static(module_path!()),
+                    $crate::ontology::Citation::parse_static(_source),
+                    _being,
+                )
             }
         }
     };

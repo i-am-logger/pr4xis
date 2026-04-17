@@ -369,17 +369,19 @@ impl Ontology {
 
     /// Produce a Vocabulary from this runtime Ontology.
     ///
-    /// Leaks the name and source strings once per call. For long-running
-    /// processes, call this once and cache the result.
+    /// Uses `Cow::Owned` for runtime-composed names/sources — no leak.
     pub fn vocabulary(&self) -> Vocabulary {
-        Vocabulary {
-            ontology_name: Box::leak(self.name.clone().into_boxed_str()),
-            module_path: "runtime::compose",
-            source: Box::leak(self.source.clone().into_boxed_str()),
-            being: self.being,
-            concept_count: self.concepts.len(),
-            morphism_count: self.edges.len(),
-        }
+        Vocabulary::from_captured(
+            self.name.clone(),
+            "runtime::compose",
+            self.source.clone(),
+            self.being,
+            self.concepts.keys().cloned().collect(),
+            self.edges
+                .iter()
+                .map(|e| alloc::format!("{}->{}", e.from, e.to))
+                .collect(),
+        )
     }
 
     /// The shared concepts between two ontologies — the span.
@@ -855,8 +857,8 @@ impl OntologyBuilder {
 /// Load a static ontology's Vocabulary into a Ontology skeleton.
 pub fn from_vocabulary(vocab: &Vocabulary) -> Ontology {
     Ontology {
-        name: String::from(vocab.ontology_name),
-        source: String::from(vocab.source),
+        name: vocab.ontology_name.as_str().to_string(),
+        source: vocab.source.as_str().to_string(),
         being: vocab.being,
         concepts: BTreeMap::new(),
         edges: BTreeSet::new(),
@@ -1096,9 +1098,9 @@ mod tests {
             .build();
 
         let vocab = onto.vocabulary();
-        assert_eq!(vocab.ontology_name, "TestOntology");
-        assert_eq!(vocab.concept_count, 2);
-        assert!(vocab.morphism_count > 0);
+        assert_eq!(vocab.ontology_name.as_str(), "TestOntology");
+        assert_eq!(vocab.concepts().len(), 2);
+        assert!(vocab.morphisms().len() > 0);
         assert_eq!(vocab.being, Some(Being::AbstractObject));
     }
 
@@ -1138,14 +1140,14 @@ mod tests {
 
     #[test]
     fn from_vocabulary_is_embedded_staging() {
-        let vocab = Vocabulary {
-            ontology_name: "Test",
-            module_path: "test::path",
-            source: "Test (2024)",
-            being: Some(Being::AbstractObject),
-            concept_count: 5,
-            morphism_count: 10,
-        };
+        let vocab = Vocabulary::from_captured(
+            "Test",
+            "test::path",
+            "Test (2024)",
+            Some(Being::AbstractObject),
+            (0..5).map(|i| alloc::format!("c{i}")).collect(),
+            (0..10).map(|i| alloc::format!("m{i}")).collect(),
+        );
 
         let s = from_vocabulary(&vocab);
         assert_eq!(s.staging(), Staging::Embedded);

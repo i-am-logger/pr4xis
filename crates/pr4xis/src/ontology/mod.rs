@@ -12,7 +12,7 @@ pub use crate::logic::Axiom;
 pub use compose::Ontology as RuntimeOntology;
 pub use compose::{Concept, EdgeKind, Lexical, Metroplex, OntologyBuilder, Staging};
 pub use domain::Ontology;
-pub use meta::{OntologyMeta, Vocabulary};
+pub use meta::{Citation, ModulePath, OntologyMeta, OntologyName, Vocabulary};
 pub use property::Quality;
 
 #[cfg(test)]

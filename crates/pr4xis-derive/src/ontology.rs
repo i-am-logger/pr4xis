@@ -640,14 +640,12 @@ pub fn generate(def: OntologyDef) -> TokenStream {
 
             #[allow(dead_code, unused_assignments)]
             pub fn vocabulary() -> pr4xis::ontology::Vocabulary {
-                pr4xis::ontology::Vocabulary {
-                    ontology_name: #name_lit,
-                    module_path: module_path!(),
-                    source: #source_tokens,
-                    being: #being_tokens,
-                    concept_count: <#entity_name as pr4xis::category::entity::Entity>::variants().len(),
-                    morphism_count: <#cat_name as pr4xis::category::Category>::morphisms().len(),
-                }
+                pr4xis::ontology::Vocabulary::from_static::<#cat_name, #entity_name>(
+                    pr4xis::ontology::OntologyName::new_static(#name_lit),
+                    pr4xis::ontology::ModulePath::new_static(module_path!()),
+                    pr4xis::ontology::Citation::parse_static(#source_tokens),
+                    #being_tokens,
+                )
             }
 
             pub fn labels() -> &'static [(#entity_name, &'static str, &'static str, &'static str)] {
