@@ -17,6 +17,7 @@ pub mod monad;
 pub mod monoid;
 pub mod monoidal;
 pub mod morphism;
+pub mod op;
 pub mod optics;
 pub mod reader;
 pub mod relationship;
@@ -44,6 +45,7 @@ pub use monad::Writer;
 pub use monoid::Monoid;
 pub use monoidal::{Coproduct, Product};
 pub use morphism::{Morphism, compose_all, direct_morphisms};
+pub use op::{Op, OpMorphism};
 pub use optics::{Iso, Lens, Prism};
 #[doc(hidden)]
 pub use pr4xis_derive::Entity;

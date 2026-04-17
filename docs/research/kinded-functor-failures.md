@@ -37,7 +37,22 @@ Diagnostics:     Symptom → Hypothesis → Diagnosis → FaultMode   (abductive
 
 Dependability goes cause-to-observation. Diagnostics goes observation-to-cause — it *inverts* the causal arrow because diagnosis **is** abduction. A functor `F: Dependability → Diagnostics` that tries to preserve direction has to send `Fault → Error` to an arrow `F(Fault) → F(Error)`; but the only arrow between the natural candidates (`FaultMode`, `Symptom`) in Diagnostics runs `Symptom → … → FaultMode`, i.e. the reverse. There is no arrow in Diagnostics pointing the way the functor needs it to. The composition law failure is a symptom of that — not many-to-one collapse.
 
-**Fix:** the right morphism is `F: Dependability^op → Diagnostics` (or equivalently, a contravariant functor). This isn't a framework extension — `Category::reverse` style op-category construction is standard and buildable on what we already have in `crates/pr4xis/src/category`. The category-theoretic content of the mapping is "diagnosis undoes causation," which is what every abductive-reasoning formalism asserts.
+**Fix (first attempt):** the right morphism is `F: Dependability^op → Diagnostics` (or equivalently, a contravariant functor). The `Op<C>` wrapper was landed in [#130](https://github.com/i-am-logger/pr4xis/issues/130) precisely for this case.
+
+**Second constraint, discovered empirically:** landing `Op<C>` was necessary but not sufficient. Running the mapping through `check_functor_laws` surfaces a further structural mismatch:
+
+- `DependabilityCategory` is **dense** — generated with no `edges:` block, so the Relation type has no `kind` field. Self-loops `DepRel{A, A}` are ambiguous; there is no distinction between the identity morphism and a morphism that happens to end at its start point after composition.
+- `DiagnosticCategory` is **kinded** — Relation type carries `kind: DiagnosticRelationKind` which distinguishes `Identity` from `Composed`.
+
+When `f = Op(DepRel{A, B})` and `g = Op(DepRel{B, A})` are composed in `Op<Dep>`, the result is an underlying self-loop `DepRel{A, A}`. Under the natural mapping this goes to `DiagRel{F(A), F(A), Identity}` — but `F(g) ∘ F(f)` in Diagnostics produces `DiagRel{F(A), F(A), Composed}`. Different kinds, composition law fails. This isn't directional, and it isn't the many-to-one case; it's **dense-source-vs-kinded-target identity-distinction** incompatibility.
+
+**Options that would fix case 2:**
+
+1. **Make Dependability kinded** (e.g., give `causes:` / `is_a:` / `opposes:` edges real kind names). This loses some dense-category closure convenience but makes the target reachable by strict functors from either direction.
+2. **Sub-category restriction** — define the functor only on the causal sub-category `{Fault, Error, Failure, ServiceFailure, ErrorDetection, ErrorRecovery, ...}` carrying kinded causal edges; the dense part of Dependability (that's just carried by Entity variants, not by semantic morphisms) is irrelevant to the abductive structure.
+3. **Enrich Diagnostics to be dense** — aligns with option (b) of case 3 below; loses kind information in Diagnostics.
+
+All three are content decisions rather than framework extensions. Recommendation: option (2) once a sub-category construction lands. No framework piece available today can make the literal `Op<DependabilityCategory> → DiagnosticCategory` functor pass strict laws.
 
 ## Case 3 — Resilience → Dependability: trivial-functor disguised as failure
 
@@ -69,25 +84,25 @@ Either is valid. (a) is less work and captures the right thing; (b) adds more in
 
 ## What we DO need
 
-- A **`reverse()` / `Op` construction** on `Category` so `F: C^op → D` is expressible as a regular `Functor` impl. This likely already exists or is a small addition; case 2 unblocks as soon as we have it.
-- **A `TerminalFunctor<C, Object>` helper** that builds the "map everything to a single target object and every morphism to its identity" functor. Case 3 uses this. Roughly ten lines of code.
-- **No framework changes** for case 1 — it's purely about authoring more concepts in the metacognition ontology.
+- **`Op<C>` opposite-category construction** — landed in [#130](https://github.com/i-am-logger/pr4xis/pull/133) as `pr4xis::category::Op`. Necessary for any contravariant functor expressed as a covariant `Functor` impl. **Not sufficient** on its own for case 2: empirical testing surfaced the dense/kinded identity-distinction constraint described in the case-2 update above, so the `Op<Dependability> → Diagnostics` worked example is deferred pending one of the three content-decision fixes.
+- **`TerminalFunctor<C, Object>` helper** — builds "map everything to a single target object and every morphism to its identity." Case 3's hand-rolled `ResilienceToFaultTolerance` would fold into this. Tracked as [#131](https://github.com/i-am-logger/pr4xis/issues/131).
+- **No framework changes** for case 1 — it's purely about authoring more concepts in the metacognition ontology. Tracked as [#132](https://github.com/i-am-logger/pr4xis/issues/132).
 
 ## Loose ends and honest uncertainty
 
-- For case 2 the "opposite category" claim should be test-verified: author `F: Dependability^op → Diagnostics` and run `check_functor_laws` before declaring this is the fix. The above is a hypothesis, not a proof.
-- For case 3, trying the trivial-functor route would benefit from first checking that our macro-generated morphism tables don't accidentally include kind information that a trivial functor can't honour (i.e., whether `Composed` morphisms with source-kind metadata would still satisfy the laws when mapped to plain `Identity`).
+- Case 2's follow-up is now a **content decision**, not a framework piece. The three options — make Dependability kinded, restrict to a causal sub-category, or densify Diagnostics — each have different trade-offs in representational richness vs. reasoning ergonomics. The choice is deferred.
+- For case 3, the hand-written functor verification confirmed the laws pass. The open question there is purely ergonomic: the `TerminalFunctor<...>` helper (#131) would replace boilerplate, nothing more.
 - "Kinded-to-kinded" across totally different kind alphabets (not examined above) is a separate question; none of our three cases are of that shape yet. If we hit one, revisit.
 
 ## Recommendation
 
 Close #98 as "diagnosed" with the following action items split out:
 
-1. **New ticket** — implement `Category::Op` + a worked `Dependability^op → Diagnostics` functor (case 2). Largest single piece of follow-up work; ~half a day.
-2. **New ticket** — implement `TerminalFunctor<C, O>` helper + a worked `Resilience → Dependability` functor using it (case 3). ~1 hour.
-3. **New ticket** — enrich metacognition ontology with `Attention`, `PhenomenalMonitoring`, `BroadcastMessage`; then author the consciousness→metacognition functor (case 1). Ontology work, not framework work; scope depends on literature follow-up (Dehaene GWT, Tononi IIT references).
+1. **[#130](https://github.com/i-am-logger/pr4xis/issues/130) — ✅ Op<C> landed, case-2 worked example deferred.** A follow-up ticket picks one of the three content-decision fixes (likely sub-category restriction).
+2. **[#131](https://github.com/i-am-logger/pr4xis/issues/131) — TerminalFunctor helper.** ~1 hour, folds case 3's hand-rolled functor into the helper.
+3. **[#132](https://github.com/i-am-logger/pr4xis/issues/132) — enrich metacognition.** Ontology work (Dehaene GWT, Tononi IIT, Nelson-Narens). Unblocks case 1's functor.
 
-The single-sentence summary: **we thought we had three cases of the same problem; we actually had three cases of three different problems, and none of them requires a lax / profunctor generalisation.**
+The single-sentence summary: **we thought we had three cases of the same problem; we actually had four problems across three cases, and none of them requires a lax / profunctor generalisation — just a dash of framework helpers plus a few content decisions.**
 
 ---
 
