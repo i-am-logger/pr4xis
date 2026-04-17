@@ -46,9 +46,9 @@ pub fn map_substrate(c: &Pr4xisSubstrateConcept) -> SyntrometryConcept {
         P::SubIntention => S::Maxime,
         P::SubStagingLevel => S::Transzendenzstufe,
         P::SubSystemOfSystems => S::Metroplex,
-        // Refined sub-kinds — each has a distinct syntrometric counterpart
-        // (opposition-structure was removed; it now lives in the dedicated
-        // Dialectics ontology reached via `SyntrometryToDialectics`).
+        // Refined sub-kinds — each has a distinct syntrometric counterpart.
+        // Opposition-structure is in the dedicated Dialectics ontology,
+        // reached via `SyntrometryToDialectics`.
         P::SubProductCategory => S::Aspekt,
         P::SubGradedObject => S::SyntrixLevel,
         P::SubObject => S::Part,

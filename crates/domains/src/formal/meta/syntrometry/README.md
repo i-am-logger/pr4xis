@@ -29,7 +29,8 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry
 |---|---|
 | Core categorical primitives (6) | `SubEntity`, `SubMorphism`, `SubCategory`, `SubFunctor`, `SubEndofunctor`, `SubOntology` |
 | Architectural primitives (4) | `SubEigenform`, `SubIntention`, `SubStagingLevel`, `SubSystemOfSystems` |
-| Refined sub-kinds (4) | `SubOppositionCategory`, `SubProductCategory`, `SubLeveledEntity`, `SubMereologicalMorphism` |
+| Refined sub-kinds (3) | `SubProductCategory`, `SubGradedObject`, `SubObject` |
+| Natural transformation (1) | `SubNaturalTransformation` |
 
 ## Lineage mappings (six verified functors)
 

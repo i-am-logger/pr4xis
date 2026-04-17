@@ -14,19 +14,20 @@ Before going section by section through the modern category-theoretic and cybern
 
 The honest claim: pr4xis is the first **executable, machine-checkable** instance of this tradition across many domains. It does not adopt Heim's physical-metaphysical claims (twelve-dimensional spacetime, particle mass formulas, teleological cosmology). The structural overlap with the modernized syntrometric logic is concrete and verifiable: both treat domains as categories with structure-preserving functors between them, use Kripke-style aspect-relative semantics, ground part/whole reasoning in classical extensional mereology, and model self-reference as a natural transformation.
 
-The lineage claim is **verified, not asserted**. Heim's 14 syntrometric primitives — distinction primitives (`Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`), structures (`Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`), mereology (`Part`), and teleological/hierarchical concepts (`Telecenter`, `Maxime`, `Transzendenzstufe`, `Metroplex`) — are encoded at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/). Six cross-functors verify the lineage at test time:
+The lineage claim is **verified, not asserted**. Heim's 18 syntrometric primitives — distinction primitives (`Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`), structures (`Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`), mereology (`Part`), teleological/hierarchical concepts (`Telecenter`, `Maxime`, `Transzendenzstufe`, `Metroplex`), permutation operators (`SequencePermutation` C, `OrientationPermutation` c), multi-aspect structure (`Aspektivsystem`), and self-observation (`Reflexivity` ρ) — are encoded at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/). Cross-functors verify the lineage at test time:
 
 ```
 cargo test -p pr4xis-domains -- syntrometry
 ```
 
-The primary `Syntrometry → Pr4xisSubstrate` functor is an **object-level equivalence** — every Heim concept has a unique pr4xis-substrate target and every substrate primitive has a unique Heim representative; gap analysis reports 0% unit loss and 0% counit loss. Five further cross-functors align Heim's vocabulary with pr4xis's existing ontologies:
+The primary `Syntrometry → Pr4xisSubstrate` functor has four intentional collapses out of 18 concepts — `Dialektik`, `SequencePermutation`, `OrientationPermutation`, and `Aspektivsystem` each collapse to a substrate parent because their full semantic content lives in dedicated cross-functor targets (Dialectics, Kripke, etc.). 14 of 18 round-trip as fixed points; counit loss is 0%. Seven cross-functors align Heim's vocabulary with pr4xis's existing and new ontologies:
 
 - `Syntrometry → MetaOntology` (pr4xis's gap-detection meta-ontology)
 - `Syntrometry → Staging` — Futamura (1971) projection levels
 - `Syntrometry → Algebra` — Goguen/Zimmermann ontology composition primitives
 - `Syntrometry → C1` — Dehaene (2014) Global Workspace Theory; `Maxime` ↦ `Attention`, `Metroplex` ↦ `GlobalWorkspace`. Heim anticipated the attention/workspace split GWT formalises 34 years later.
-- `Syntrometry → Dialectics` — Heim's `Dialektik` ↦ Hegel's `DialecticalMoment`; the opposition-structure primitive routed through the dedicated Dialectics ontology (Aristotle / Hegel / Marx / Adorno / Priest) rather than through an ad-hoc substrate slot.
+- `Syntrometry → Dialectics` — Heim's `Dialektik` ↦ Hegel's `DialecticalMoment`; opposition structure is carried by a dedicated Dialectics ontology (Aristotle, Hegel, Marx, Adorno, Priest).
+- `Syntrometry → Kripke` — `Aspekt` ↦ `KripkeFrame`, `Aspektivsystem` ↦ `AccessibilityRelation`. Heim's Aspektrelativität is structurally Kripke-style possible-worlds semantics (Kripke 1959, 1963).
 - `Distinction → Syntrometry` — Spencer-Brown (1969) → Heim, the historical direction; `ReEntry` ↦ `Synkolator` preserving the self-application edge structure.
 
 Per-functor collapse profiles and gap-analysis numbers live in the [per-ontology README](../../crates/domains/src/formal/meta/syntrometry/README.md).

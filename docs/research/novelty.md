@@ -64,9 +64,11 @@ The [gap analysis](../../crates/domains/src/formal/meta/gap_analysis.rs) on the 
 
 The primary lineage is the Heim ↔ Pr4xisSubstrate bijection above. Beyond that, five further functors demonstrate that Heim's vocabulary aligns with ontologies pr4xis already had for other reasons:
 
-- **`Syntrometry → MetaOntology`** (ontology_diagnostics) — 14.3% collapse. Heim's categorical primitives match the meta-ontology vocabulary pr4xis uses to diagnose gaps across ontology pairs.
+- **`Syntrometry → MetaOntology`** (ontology_diagnostics) — Heim's categorical primitives match the meta-ontology vocabulary pr4xis uses to diagnose gaps across ontology pairs.
 - **`Syntrometry → Staging`** (Futamura 1971) — Transzendenzstufen ↦ Futamura projection levels.
 - **`Syntrometry → Algebra`** (Goguen / Zimmermann) — Korporator ↦ Mapping, Aspekt ↦ Product, Dialektik ↦ Coproduct, Telecenter ↦ Pushout. Heim's composition operators align with the categorical primitives the pr4xis `compose` API uses at runtime.
+- **`Syntrometry → Dialectics`** (Hegel, Aristotle, Marx, Adorno, Priest) — Heim's `Dialektik` ↦ Hegel's `DialecticalMoment`; opposition structure is carried by a dedicated literature-grounded ontology.
+- **`Syntrometry → Kripke`** (Kripke 1959, 1963) — Aspekt ↦ KripkeFrame, Aspektivsystem ↦ AccessibilityRelation, Synkolator ↦ Necessity, Korporator ↦ Possibility, Reflexivity ↦ Reflexive (frame condition). Heim's Aspektrelativität is structurally Kripke-style possible-worlds semantics.
 - **`Distinction → Syntrometry`** (Spencer-Brown 1969 → Heim, historical direction) — kinded→kinded embedding; `ReEntry` ↦ `Synkolator` preserves the self-application edge structure.
 - **`Syntrometry → C1`** (Heim → Dehaene GWT) — `Maxime` ↦ `Attention`, `Metroplex` ↦ `GlobalWorkspace`. Heim anticipated the attention/workspace split Dehaene formalises 34 years later. The `(Maxime, Aspekt, Selects)` morphism lands on the declared `(Attention, ConsciousAccess, Selects)` in C1 — Heim's "extremal of expedient ideas selects among candidate Aspekts" and Dehaene's "attention selects which coalition accesses consciousness" are structurally the same morphism.
 

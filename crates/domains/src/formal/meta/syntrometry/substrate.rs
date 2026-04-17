@@ -49,10 +49,9 @@ pr4xis::ontology! {
         //   A ↪ B. Awodey, *Category Theory* (2010) Ch. 5 covers the
         //   same in modern notation.
         //
-        // The former SubOppositionCategory was removed: opposition-
-        // structure is the subject of a dedicated Dialectics ontology
-        // (Hegel / Aristotle / Priest) that the `Syntrometry → Dialectics`
-        // cross-functor maps `Dialektik` into directly.
+        // Opposition-structure is not in the substrate — it lives in the
+        // dedicated Dialectics ontology (Hegel / Aristotle / Priest) that
+        // `Syntrometry → Dialectics` maps `Dialektik` into directly.
         SubProductCategory,
         SubGradedObject,
         SubObject,

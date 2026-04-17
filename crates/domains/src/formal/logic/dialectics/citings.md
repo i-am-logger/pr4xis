@@ -29,7 +29,7 @@
 
 ## Project-internal references
 
-- The invented `SubOppositionCategory` slot in Pr4xisSubstrate was removed when this ontology landed — opposition-structure now lives in its proper literature-grounded home rather than in an ad-hoc substrate refinement.
+- Opposition structure in pr4xis lives in this ontology; the `Syntrometry → Dialectics` cross-functor (at `formal::meta::syntrometry::dialectics_functor`) routes Heim's `Dialektik` here.
 
 ---
 
