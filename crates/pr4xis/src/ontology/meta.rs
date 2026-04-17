@@ -13,22 +13,159 @@ pub struct OntologyMeta {
     pub module_path: &'static str,
 }
 
+/// BCP 47 language tag — typed identifier for a language.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LanguageCode(Cow<'static, str>);
+
+impl LanguageCode {
+    pub const fn new_static(s: &'static str) -> Self {
+        Self(Cow::Borrowed(s))
+    }
+
+    pub fn new(s: impl Into<Cow<'static, str>>) -> Self {
+        Self(s.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// English — the most common language in pr4xis.
+    pub const ENGLISH: Self = Self::new_static("en");
+}
+
+impl From<&'static str> for LanguageCode {
+    fn from(s: &'static str) -> Self {
+        Self::new_static(s)
+    }
+}
+
+impl From<String> for LanguageCode {
+    fn from(s: String) -> Self {
+        Self(Cow::Owned(s))
+    }
+}
+
+impl AsRef<str> for LanguageCode {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for LanguageCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// A label — the written representation of a concept in a language.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Label(Cow<'static, str>);
+
+impl Label {
+    pub const fn new_static(s: &'static str) -> Self {
+        Self(Cow::Borrowed(s))
+    }
+
+    pub fn new(s: impl Into<Cow<'static, str>>) -> Self {
+        Self(s.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl LanguageCode {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl From<&'static str> for Label {
+    fn from(s: &'static str) -> Self {
+        Self::new_static(s)
+    }
+}
+
+impl From<String> for Label {
+    fn from(s: String) -> Self {
+        Self(Cow::Owned(s))
+    }
+}
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl PartialEq<&str> for Label {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+/// A definition — the meaning of a concept in a language.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Definition(Cow<'static, str>);
+
+impl Definition {
+    pub const fn new_static(s: &'static str) -> Self {
+        Self(Cow::Borrowed(s))
+    }
+
+    pub fn new(s: impl Into<Cow<'static, str>>) -> Self {
+        Self(s.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl From<&'static str> for Definition {
+    fn from(s: &'static str) -> Self {
+        Self::new_static(s)
+    }
+}
+
+impl From<String> for Definition {
+    fn from(s: String) -> Self {
+        Self(Cow::Owned(s))
+    }
+}
+
+impl fmt::Display for Definition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 /// Lexical metadata for a concept or morphism — Ontolex-Lemon (W3C 2016).
 ///
 /// Each identifier can optionally carry its label, definition, and language.
 /// This is the "lemon" attached to every name in the ontology.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Lexical {
-    pub label: String,
-    pub definition: String,
-    pub language: String,
+    pub label: Label,
+    pub definition: Definition,
+    pub language: LanguageCode,
 }
 
 impl Lexical {
     pub fn new(
-        label: impl Into<String>,
-        definition: impl Into<String>,
-        language: impl Into<String>,
+        label: impl Into<Label>,
+        definition: impl Into<Definition>,
+        language: impl Into<LanguageCode>,
     ) -> Self {
         Self {
             label: label.into(),
@@ -271,6 +408,93 @@ impl AsRef<str> for ModulePath {
 }
 
 impl fmt::Display for ModulePath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// A bibliographic year — typed wrapper for a calendar year in a citation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Year(u32);
+
+impl Year {
+    pub const fn new(n: u32) -> Self {
+        Self(n)
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        s.parse::<u32>().ok().map(Self)
+    }
+
+    pub fn value(&self) -> u32 {
+        self.0
+    }
+}
+
+impl fmt::Display for Year {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// Synkolation level (Heim's terminology) — depth in the Metroplex hierarchy.
+///
+/// Level 0 = base ontology. Each Korporator composition increments by 1.
+/// The runtime `Ontology` in compose.rs carries this.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SynkolationLevel(usize);
+
+impl SynkolationLevel {
+    pub const ZERO: Self = Self(0);
+
+    pub const fn new(n: usize) -> Self {
+        Self(n)
+    }
+
+    pub fn value(&self) -> usize {
+        self.0
+    }
+
+    pub fn next(self) -> Self {
+        Self(self.0 + 1)
+    }
+
+    pub fn max(self, other: Self) -> Self {
+        Self(self.0.max(other.0))
+    }
+}
+
+impl fmt::Display for SynkolationLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+/// Metroplex grade — an equivalence class of Ontologies at the same synkolation level.
+///
+/// Metroplex is indexed by Grade; each grade collects ontologies of the same
+/// SynkolationLevel. Equivalent to SynkolationLevel but semantically distinct
+/// (Grade is the index in the Metroplex, Level is the depth of composition).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Grade(usize);
+
+impl Grade {
+    pub const fn new(n: usize) -> Self {
+        Self(n)
+    }
+
+    pub fn value(&self) -> usize {
+        self.0
+    }
+}
+
+impl From<SynkolationLevel> for Grade {
+    fn from(l: SynkolationLevel) -> Self {
+        Self(l.0)
+    }
+}
+
+impl fmt::Display for Grade {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }

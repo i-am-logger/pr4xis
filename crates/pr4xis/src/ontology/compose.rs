@@ -352,11 +352,7 @@ impl Ontology {
             .map(|(name, c)| {
                 let mut cn = ConceptName::new(name.clone());
                 if let Some(lex) = &c.lexical {
-                    cn = cn.with_lexical(crate::ontology::Lexical::new(
-                        &lex.label,
-                        &lex.definition,
-                        &lex.language,
-                    ));
+                    cn = cn.with_lexical(lex.clone());
                 }
                 cn
             })
@@ -737,6 +733,7 @@ impl OntologyBuilder {
 
     /// Set the label for a concept (Lemon: ontolex:writtenRep).
     pub fn label(mut self, concept: &str, lang: &str, label: &str) -> Self {
+        use crate::ontology::{Label, LanguageCode};
         let entry = self
             .concepts
             .entry(String::from(concept))
@@ -745,16 +742,21 @@ impl OntologyBuilder {
                 lexical: None,
             });
         if let Some(ref mut lex) = entry.lexical {
-            lex.label = String::from(label);
-            lex.language = String::from(lang);
+            lex.label = Label::new(String::from(label));
+            lex.language = LanguageCode::new(String::from(lang));
         } else {
-            entry.lexical = Some(Lexical::new(label, "", lang));
+            entry.lexical = Some(Lexical::new(
+                Label::new(String::from(label)),
+                crate::ontology::Definition::new(String::new()),
+                LanguageCode::new(String::from(lang)),
+            ));
         }
         self
     }
 
     /// Set the definition for a concept (Lemon: skos:definition).
     pub fn definition(mut self, concept: &str, lang: &str, def: &str) -> Self {
+        use crate::ontology::{Definition, LanguageCode};
         let entry = self
             .concepts
             .entry(String::from(concept))
@@ -763,10 +765,14 @@ impl OntologyBuilder {
                 lexical: None,
             });
         if let Some(ref mut lex) = entry.lexical {
-            lex.definition = String::from(def);
-            lex.language = String::from(lang);
+            lex.definition = Definition::new(String::from(def));
+            lex.language = LanguageCode::new(String::from(lang));
         } else {
-            entry.lexical = Some(Lexical::new("", def, lang));
+            entry.lexical = Some(Lexical::new(
+                crate::ontology::Label::new(String::new()),
+                Definition::new(String::from(def)),
+                LanguageCode::new(String::from(lang)),
+            ));
         }
         self
     }
@@ -958,9 +964,9 @@ mod tests {
 
         let cell = bio.concept("Cell").unwrap();
         let lex = cell.lexical.as_ref().unwrap();
-        assert_eq!(lex.label, "Cell");
-        assert_eq!(lex.language, "en");
-        assert!(lex.definition.contains("structural unit"));
+        assert_eq!(lex.label.as_str(), "Cell");
+        assert_eq!(lex.language.as_str(), "en");
+        assert!(lex.definition.as_str().contains("structural unit"));
     }
 
     #[test]
@@ -1184,11 +1190,11 @@ mod tests {
         let composed = a.couple(&b);
         let cell = composed.concept("Cell").unwrap();
         assert!(cell.lexical.is_some());
-        assert_eq!(cell.lexical.as_ref().unwrap().label, "Cell");
+        assert_eq!(cell.lexical.as_ref().unwrap().label.as_str(), "Cell");
 
         let atom = composed.concept("Atom").unwrap();
         assert!(atom.lexical.is_some());
-        assert_eq!(atom.lexical.as_ref().unwrap().label, "Atom");
+        assert_eq!(atom.lexical.as_ref().unwrap().label.as_str(), "Atom");
     }
 
     // === Modification operations ===
@@ -1320,8 +1326,8 @@ mod tests {
         let merged = english.compose(&bio);
         let cell = merged.concept("Cell").unwrap();
         let lex = cell.lexical.as_ref().unwrap();
-        assert_eq!(lex.label, "Cell");
-        assert_eq!(lex.definition, "The basic unit of life");
+        assert_eq!(lex.label.as_str(), "Cell");
+        assert_eq!(lex.definition.as_str(), "The basic unit of life");
     }
 
     #[test]

@@ -14,8 +14,8 @@ pub use compose::Ontology as RuntimeOntology;
 pub use compose::{Concept, EdgeKind, Metroplex, OntologyBuilder, Staging};
 pub use domain::Ontology;
 pub use meta::{
-    Citation, ConceptName, Lexical, ModulePath, Morphism, MorphismKind, OntologyMeta, OntologyName,
-    Vocabulary,
+    Citation, ConceptName, Definition, Grade, Label, LanguageCode, Lexical, ModulePath, Morphism,
+    MorphismKind, OntologyMeta, OntologyName, SynkolationLevel, Vocabulary, Year,
 };
 pub use property::Quality;
 #[cfg(not(target_arch = "wasm32"))]
