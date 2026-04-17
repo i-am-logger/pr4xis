@@ -11,7 +11,7 @@ use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 use pr4xis_domains::formal::information::diagnostics::DiagnosticOntology;
 use pr4xis_domains::formal::information::diagnostics::trace_functors::{
-    PipelineStep, PipelineTrace, TracedPipeline,
+    PipelineTrace, TracedPipeline,
 };
 use pr4xis_domains::formal::information::diagnostics::trace_impls;
 use pr4xis_domains::formal::information::knowledge::{SelfModelInstance, describe_knowledge_base};
@@ -161,7 +161,18 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     // `.tell()` is the writer monad's log-append operation; each call concatenates
     // a single trace entry via the PipelineTrace monoid (Vec concatenation).
     // The final log IS the full pipeline trace, accumulated by composition, not mutation.
-    let response_len = response_result.response.len();
+    //
+    // Every step produces its trace entry through a `Traceable` impl — the
+    // ontology (Diagnostic/Trace) owns the entry's shape; the call site just
+    // hands it the step's domain result. No inline string construction.
+    let realization = trace_impls::RealizationResult {
+        char_count: response_result.response.len(),
+    };
+    let speech_act_result = trace_impls::SpeechActClassificationResult { user_act };
+    let metacog_result = trace_impls::MetacognitionResult {
+        decision: metacog_decision,
+        parsed,
+    };
     let pipeline: TracedPipeline<()> = Writer::pure(())
         .tell(PipelineTrace::from_traceable(
             &trace_impls::TokenizeResult { tokens: &tokens },
@@ -170,22 +181,10 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
         .tell(PipelineTrace::from_traceable(
             &trace_impls::InterpretResult { meaning: &meaning },
         ))
-        .tell(PipelineTrace::single(
-            PipelineStep::SPEECH_ACT_CLASSIFICATION,
-            &format!("{:?}", user_act),
-            true,
-        ))
-        .tell(PipelineTrace::single(
-            PipelineStep::METACOGNITION,
-            metacog_decision,
-            true,
-        ))
+        .tell(PipelineTrace::from_traceable(&speech_act_result))
+        .tell(PipelineTrace::from_traceable(&metacog_result))
         .tell(PipelineTrace::from_traceable(&response_result))
-        .tell(PipelineTrace::single(
-            PipelineStep::REALIZATION,
-            &format!("{response_len} chars generated"),
-            true,
-        ));
+        .tell(PipelineTrace::from_traceable(&realization));
 
     let from_ontology = response_result.from_ontology;
     let response = response_result.response;
@@ -788,6 +787,7 @@ pub fn self_describe(lang: &English) -> SelfModelInstance {
 mod tests {
     use super::*;
     use pr4xis::category::Monoid;
+    use pr4xis_domains::formal::information::diagnostics::trace_functors::PipelineStep;
 
     fn sample_english() -> English {
         // Use sample data for unit tests (fast, no WordNet needed)

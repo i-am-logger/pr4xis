@@ -1,6 +1,7 @@
 use super::trace_functors::{PipelineStep, Traceable};
 use crate::cognitive::linguistics::lambek::reduce::ReductionResult;
 use crate::cognitive::linguistics::lambek::reduce::TypedToken;
+use crate::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 
 // Traceable implementations — the trace functor applied to each result type.
 //
@@ -183,9 +184,13 @@ impl Traceable for TaxonomyResult {
     }
 }
 
-/// Traceable for NLG realization.
+/// Traceable for NLG realization — final surface-form production.
+///
+/// `char_count` is the length of the realised surface utterance. A
+/// non-zero count is the success criterion: producing zero characters
+/// means the Realization step emitted nothing.
 pub struct RealizationResult {
-    pub section_count: usize,
+    pub char_count: usize,
 }
 
 impl Traceable for RealizationResult {
@@ -194,11 +199,56 @@ impl Traceable for RealizationResult {
     }
 
     fn trace_detail(&self) -> String {
-        format!("{} sections generated", self.section_count)
+        format!("{} chars generated", self.char_count)
     }
 
     fn trace_success(&self) -> bool {
-        self.section_count > 0
+        self.char_count > 0
+    }
+}
+
+/// Traceable for the Plan/SpeechActClassification step — the illocutionary
+/// classification of the user's utterance (Searle 1969, Cohen & Perrault 1979).
+pub struct SpeechActClassificationResult {
+    pub user_act: SpeechAct,
+}
+
+impl Traceable for SpeechActClassificationResult {
+    fn step(&self) -> PipelineStep {
+        PipelineStep::SPEECH_ACT_CLASSIFICATION
+    }
+
+    fn trace_detail(&self) -> String {
+        format!("{:?}", self.user_act)
+    }
+
+    fn trace_success(&self) -> bool {
+        // Classification always succeeds — every utterance maps to an illocution.
+        true
+    }
+}
+
+/// Traceable for the Monitor/Metacognition step — the decision branch the
+/// metacognitive monitor chose after observing the interpretation result.
+pub struct MetacognitionResult {
+    pub decision: &'static str,
+    pub parsed: bool,
+}
+
+impl Traceable for MetacognitionResult {
+    fn step(&self) -> PipelineStep {
+        PipelineStep::METACOGNITION
+    }
+
+    fn trace_detail(&self) -> String {
+        self.decision.to_string()
+    }
+
+    fn trace_success(&self) -> bool {
+        // The monitor always produces a decision; the *parsed* flag reflects
+        // whether the upstream Parse step succeeded, which is the relevant
+        // signal for whether the chosen branch is a normal-path or repair.
+        self.parsed
     }
 }
 
