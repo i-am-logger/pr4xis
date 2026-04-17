@@ -1,9 +1,5 @@
-extern crate alloc;
-
-use alloc::borrow::Cow;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use core::fmt;
+use std::borrow::Cow;
+use std::fmt;
 
 use crate::ontology::upper::being::Being;
 

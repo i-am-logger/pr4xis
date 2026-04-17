@@ -23,12 +23,8 @@
 //         Hatchuel & Weil "C-K Design Theory" (2009);
 //         McCrae et al. "The Lemon Cookbook" (W3C 2016)
 
-extern crate alloc;
-
-use alloc::collections::BTreeMap;
-use alloc::collections::BTreeSet;
-use alloc::string::String;
-use alloc::vec::Vec;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use crate::ontology::Vocabulary;
 use crate::ontology::upper::being::Being;
@@ -205,8 +201,8 @@ impl Ontology {
             merge_provenance(&self.provenance, &self.name, &other.provenance, &other.name);
 
         Ontology {
-            name: alloc::format!("{}||{}", self.name, other.name),
-            source: alloc::format!("{} + {}", self.source, other.source),
+            name: format!("{}||{}", self.name, other.name),
+            source: format!("{} + {}", self.source, other.source),
             being: self.being.or(other.being),
             concepts,
             edges,
@@ -246,14 +242,14 @@ impl Ontology {
             merge_provenance(&self.provenance, &self.name, &other.provenance, &other.name);
 
         let suffix = if shared.is_empty() {
-            alloc::format!("{}||{}", self.name, other.name)
+            format!("{}||{}", self.name, other.name)
         } else {
-            alloc::format!("{}&{}", self.name, other.name)
+            format!("{}&{}", self.name, other.name)
         };
 
         Ontology {
             name: suffix,
-            source: alloc::format!("{} + {}", self.source, other.source),
+            source: format!("{} + {}", self.source, other.source),
             being: self.being.or(other.being),
             concepts,
             edges,
@@ -292,8 +288,8 @@ impl Ontology {
             merge_provenance(&self.provenance, &self.name, &other.provenance, &other.name);
 
         Ontology {
-            name: alloc::format!("{}+partial({})", self.name, other.name),
-            source: alloc::format!("{} + {} (partial)", self.source, other.source),
+            name: format!("{}+partial({})", self.name, other.name),
+            source: format!("{} + {} (partial)", self.source, other.source),
             being: self.being.or(other.being),
             concepts,
             edges,
@@ -344,7 +340,7 @@ impl Ontology {
             .collect();
 
         Some(Ontology {
-            name: alloc::format!("{}[{}]", self.name, root),
+            name: format!("{}[{}]", self.name, root),
             source: self.source.clone(),
             being: self.being,
             concepts,
@@ -379,7 +375,7 @@ impl Ontology {
             self.concepts.keys().cloned().collect(),
             self.edges
                 .iter()
-                .map(|e| alloc::format!("{}->{}", e.from, e.to))
+                .map(|e| format!("{}->{}", e.from, e.to))
                 .collect(),
         )
     }
@@ -399,13 +395,13 @@ impl Ontology {
 
         for edge in &self.edges {
             if !self.concepts.contains_key(&edge.from) {
-                errors.push(alloc::format!(
+                errors.push(format!(
                     "edge references unknown source concept: {}",
                     edge.from
                 ));
             }
             if !self.concepts.contains_key(&edge.to) {
-                errors.push(alloc::format!(
+                errors.push(format!(
                     "edge references unknown target concept: {}",
                     edge.to
                 ));
@@ -474,7 +470,7 @@ impl Ontology {
         }
 
         Ontology {
-            name: alloc::format!("{}-{}", self.name, concept),
+            name: format!("{}-{}", self.name, concept),
             source: self.source.clone(),
             being: self.being,
             concepts,
@@ -512,7 +508,7 @@ impl Ontology {
         }
 
         Ontology {
-            name: alloc::format!("{}|restricted", self.name),
+            name: format!("{}|restricted", self.name),
             source: self.source.clone(),
             being: self.being,
             concepts,
@@ -577,7 +573,7 @@ impl Ontology {
         }
 
         Ontology {
-            name: alloc::format!("{}[{}→{}]", self.name, old, new),
+            name: format!("{}[{}→{}]", self.name, old, new),
             source: self.source.clone(),
             being: self.being,
             concepts,
@@ -634,7 +630,7 @@ impl Ontology {
         }
 
         Ontology {
-            name: alloc::format!("{}→evolved", self.name),
+            name: format!("{}→evolved", self.name),
             source: self.source.clone(),
             being: self.being,
             concepts,
@@ -1145,8 +1141,8 @@ mod tests {
             "test::path",
             "Test (2024)",
             Some(Being::AbstractObject),
-            (0..5).map(|i| alloc::format!("c{i}")).collect(),
-            (0..10).map(|i| alloc::format!("m{i}")).collect(),
+            (0..5).map(|i| format!("c{i}")).collect(),
+            (0..10).map(|i| format!("m{i}")).collect(),
         );
 
         let s = from_vocabulary(&vocab);

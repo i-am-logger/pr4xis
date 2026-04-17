@@ -9,10 +9,6 @@
 // of `describe_knowledge_base()` get an empty vec; if they need the full
 // list they must call `pr4xis_domains::describe_knowledge_base_fallback()`.
 
-extern crate alloc;
-
-use alloc::vec::Vec;
-
 use crate::ontology::Vocabulary;
 
 /// All registered ontology vocabularies (native only).
