@@ -1,3 +1,5 @@
+mod ontology;
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields};
@@ -51,4 +53,31 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
     };
 
     expanded.into()
+}
+
+/// Define an ontology with compile-time validation and static code generation.
+///
+/// Generates: Entity enum, Category impl, Relationship impl, reasoning systems,
+/// structural axioms, Vocabulary, and Lemon lexical data — all static.
+///
+/// Concept names in edges/is_a/has_a/causes/opposes are validated at compile time.
+///
+/// # Example
+///
+/// ```ignore
+/// pr4xis::ontology! {
+///     name: "Biology",
+///     source: "Mayr (1982)",
+///     being: AbstractObject,
+///     concepts: [Cell, Tissue, Organism],
+///     labels: {
+///         Cell: ("en", "Cell", "The basic structural unit"),
+///     },
+///     is_a: [(Cell, Tissue), (Tissue, Organism)],
+/// }
+/// ```
+#[proc_macro]
+pub fn ontology(input: TokenStream) -> TokenStream {
+    let def = syn::parse_macro_input!(input as ontology::OntologyDef);
+    ontology::generate(def).into()
 }
