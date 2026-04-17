@@ -105,7 +105,7 @@ where
         .collect();
 
     // Sort by fan-in descending for consistent output.
-    points.sort_by(|a, b| b.fan_in.cmp(&a.fan_in));
+    points.sort_by_key(|p| std::cmp::Reverse(p.fan_in));
     points
 }
 

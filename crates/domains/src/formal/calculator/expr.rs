@@ -97,10 +97,8 @@ impl Expr {
                             return rhs;
                         }
                     }
-                    BinaryOp::Subtract => {
-                        if is_zero(&rhs) {
-                            return lhs;
-                        }
+                    BinaryOp::Subtract if is_zero(&rhs) => {
+                        return lhs;
                     }
                     BinaryOp::Multiply => {
                         if is_one(&rhs) {
@@ -116,10 +114,8 @@ impl Expr {
                             return Expr::int(0);
                         }
                     }
-                    BinaryOp::Divide => {
-                        if is_one(&rhs) {
-                            return lhs;
-                        }
+                    BinaryOp::Divide if is_one(&rhs) => {
+                        return lhs;
                     }
                     BinaryOp::Power => {
                         if is_zero(&rhs) {
