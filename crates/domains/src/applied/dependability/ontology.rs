@@ -111,7 +111,7 @@ pr4xis::ontology! {
     labels: {
         Service: ("en", "Service", "The behaviour as perceived by its users (Avizienis §2.1)."),
         CorrectService: ("en", "Correct service", "Service that implements the system function correctly."),
-        ServiceFailure: ("en", "Service failure", "Event when delivered service deviates from correct service."),
+        ServiceFailure: ("en", "Service failure", "The Failure that occurs when delivered service deviates from correct service. A specialization of Failure scoped to the service-delivery boundary."),
         ServiceRestoration: ("en", "Service restoration", "Transition from failed to correct service."),
 
         Threat: ("en", "Threat", "An impairment to dependability — fault, error, or failure."),
@@ -171,8 +171,11 @@ pr4xis::ontology! {
         (Failure, Threat),
 
         // === Service modes ===
+        // CorrectService is a Service mode. ServiceFailure is the EVENT
+        // when delivered service deviates — classified as a Failure
+        // (not as a Service mode), per Avizienis §2.1.
         (CorrectService, Service),
-        (ServiceFailure, Service),
+        (ServiceFailure, Failure),
 
         // === Fault classes (orthogonal sub-classes of Fault) ===
         (DormantFault, Fault),
@@ -311,26 +314,33 @@ impl Quality for DependabilityCategoryOf {
 // Axioms — invariants of the Avizienis taxonomy
 // ---------------------------------------------------------------------------
 
-/// Axiom: every threat is one of Fault, Error, Failure (Avizienis §2.2).
+/// Axiom: the direct children of `Threat` are exactly {Fault, Error, Failure}
+/// (Avizienis §2.2 — the *three* and *only* threats).
 pub struct ThreeThreats;
 
 impl Axiom for ThreeThreats {
     fn description(&self) -> &str {
-        "the three threats are Fault, Error, Failure (Avizienis et al. 2004 §2.2)"
+        "the direct children of Threat are exactly {Fault, Error, Failure} (Avizienis et al. 2004 §2.2)"
     }
     fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = DependabilityTaxonomy::relations();
-        let threats = [
+        let actual = direct_children_of(DependabilityConcept::Threat);
+        let expected = [
             DependabilityConcept::Fault,
             DependabilityConcept::Error,
             DependabilityConcept::Failure,
         ];
-        threats.iter().all(|t| {
-            rels.iter()
-                .any(|(child, parent)| child == t && *parent == DependabilityConcept::Threat)
-        })
+        actual.len() == expected.len() && expected.iter().all(|t| actual.contains(t))
     }
+}
+
+/// Helper: collect direct (non-transitive) children of a concept under
+/// the dependability taxonomy.
+fn direct_children_of(parent: DependabilityConcept) -> Vec<DependabilityConcept> {
+    use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
+    DependabilityTaxonomy::relations()
+        .into_iter()
+        .filter_map(|(child, p)| if p == parent { Some(child) } else { None })
+        .collect()
 }
 
 /// Axiom: the Fault → Error → Failure chain (Avizienis §2.2).
@@ -368,12 +378,13 @@ pub struct FailureRecursionDocumented;
 
 impl Axiom for FailureRecursionDocumented {
     fn description(&self) -> &str {
-        "Failure and Fault both exist as Threats; the failure-recursion claim (Avizienis §2.4) holds at the inter-layer composition level"
+        "Failure and Fault are both Threats AND no direct Failure→Fault causal edge exists (Avizienis §2.4 inter-layer recursion preserved without breaking causation asymmetry)"
     }
     fn holds(&self) -> bool {
-        // Both concepts exist as Threats — the precondition for layer
-        // composition mapping a Failure(N) to a Fault(N+1).
+        // Precondition: both concepts exist as Threats.
+        use pr4xis::ontology::reasoning::causation::CausalDef;
         use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
+
         let rels = DependabilityTaxonomy::relations();
         let failure_is_threat = rels.iter().any(|(c, p)| {
             *c == DependabilityConcept::Failure && *p == DependabilityConcept::Threat
@@ -381,21 +392,29 @@ impl Axiom for FailureRecursionDocumented {
         let fault_is_threat = rels
             .iter()
             .any(|(c, p)| *c == DependabilityConcept::Fault && *p == DependabilityConcept::Threat);
-        failure_is_threat && fault_is_threat
+
+        // Guard: no Failure → Fault causal edge (would close the cycle
+        // Fault → Error → Failure → Fault, violating asymmetry).
+        let no_direct_recursion = !DependabilityCausation::relations()
+            .iter()
+            .any(|(c, e)| *c == DependabilityConcept::Failure && *e == DependabilityConcept::Fault);
+
+        failure_is_threat && fault_is_threat && no_direct_recursion
     }
 }
 
-/// Axiom: exactly six core attributes (Avizienis §4 — excluding security extensions).
+/// Axiom: the direct children of `Attribute` are exactly the six core
+/// attributes (Avizienis §4 — excluding security extensions). Adding a
+/// seventh direct child would invalidate this axiom.
 pub struct SixCoreAttributes;
 
 impl Axiom for SixCoreAttributes {
     fn description(&self) -> &str {
-        "the six dependability attributes: Availability, Reliability, Safety, Confidentiality, Integrity, Maintainability (Avizienis et al. 2004 §4)"
+        "the direct children of Attribute are exactly {Availability, Reliability, Safety, Confidentiality, Integrity, Maintainability} (Avizienis et al. 2004 §4)"
     }
     fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = DependabilityTaxonomy::relations();
-        let attrs = [
+        let actual = direct_children_of(DependabilityConcept::Attribute);
+        let expected = [
             DependabilityConcept::Availability,
             DependabilityConcept::Reliability,
             DependabilityConcept::Safety,
@@ -403,59 +422,55 @@ impl Axiom for SixCoreAttributes {
             DependabilityConcept::Integrity,
             DependabilityConcept::Maintainability,
         ];
-        attrs.iter().all(|a| {
-            rels.iter()
-                .any(|(c, p)| c == a && *p == DependabilityConcept::Attribute)
-        })
+        actual.len() == expected.len() && expected.iter().all(|a| actual.contains(a))
     }
 }
 
-/// Axiom: exactly four means (Avizienis §5).
+/// Axiom: the direct children of `Means` are exactly the four means
+/// (Avizienis §5). A fifth direct child would invalidate this axiom.
 pub struct FourMeans;
 
 impl Axiom for FourMeans {
     fn description(&self) -> &str {
-        "the four means: Prevention, Tolerance, Removal, Forecasting (Avizienis et al. 2004 §5)"
+        "the direct children of Means are exactly {FaultPrevention, FaultTolerance, FaultRemoval, FaultForecasting} (Avizienis et al. 2004 §5)"
     }
     fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = DependabilityTaxonomy::relations();
-        let means = [
+        let actual = direct_children_of(DependabilityConcept::Means);
+        let expected = [
             DependabilityConcept::FaultPrevention,
             DependabilityConcept::FaultTolerance,
             DependabilityConcept::FaultRemoval,
             DependabilityConcept::FaultForecasting,
         ];
-        means.iter().all(|m| {
-            rels.iter()
-                .any(|(c, p)| c == m && *p == DependabilityConcept::Means)
-        })
+        actual.len() == expected.len() && expected.iter().all(|m| actual.contains(m))
     }
 }
 
-/// Axiom: Cristian (1991) failure model hierarchy.
-/// The four operational fault models are ordered by severity:
-/// Crash ⊑ Omission ⊑ Timing ⊑ Byzantine.
-/// Each tolerates strictly fewer scenarios than the next.
+/// Axiom: the four Cristian (1991) operational fault models are all
+/// classified as OperationalFault. (The literature also describes a
+/// tolerance-subsumption ordering Crash ≼ Omission ≼ Timing ≼ Byzantine
+/// — meaning a Byzantine-tolerant system handles all weaker cases — but
+/// that is a property of fault-TOLERANT systems, not a classification
+/// in the fault taxonomy itself, so it isn't asserted here.)
 pub struct CristianFaultModelsExist;
 
 impl Axiom for CristianFaultModelsExist {
     fn description(&self) -> &str {
-        "Cristian (1991) operational fault models — Crash, Omission, Timing, Byzantine — are all classified as OperationalFault"
+        "Cristian (1991) operational fault models {Crash, Omission, Timing, Byzantine} are all classified as OperationalFault"
     }
     fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = DependabilityTaxonomy::relations();
-        let models = [
+        let actual = direct_children_of(DependabilityConcept::OperationalFault);
+        let expected = [
             DependabilityConcept::CrashFault,
             DependabilityConcept::OmissionFault,
             DependabilityConcept::TimingFault,
             DependabilityConcept::ByzantineFault,
         ];
-        models.iter().all(|m| {
-            rels.iter()
-                .any(|(c, p)| c == m && *p == DependabilityConcept::OperationalFault)
-        })
+        // OperationalFault may have additional direct children in the
+        // future (e.g. domain-specific operational faults), so we check
+        // membership rather than exactness here — unlike the closed sets
+        // {Threat children} and {Attribute/Means children} above.
+        expected.iter().all(|m| actual.contains(m))
     }
 }
 
