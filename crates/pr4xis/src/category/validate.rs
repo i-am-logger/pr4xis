@@ -1,4 +1,5 @@
 use super::category::Category;
+use super::endofunctor::Endofunctor;
 use super::entity::Entity;
 use super::functor::Functor;
 use super::relationship::Relationship;
@@ -151,4 +152,18 @@ where
     }
 
     Ok(())
+}
+
+/// Verify endofunctor laws: the functor laws specialised to a single carrier category.
+///
+/// Mac Lane (1971), Ch. II §1: an endofunctor F: C → C is just a functor whose source
+/// and target coincide, so the laws are identical to [`check_functor_laws`]. The
+/// specialisation exists because endofunctors typically express involutions or
+/// fixed-point structure; failures here almost always localise to the single category's
+/// own morphisms rather than a cross-category mapping mismatch.
+pub fn check_endofunctor_laws<F: Endofunctor>() -> Result<(), String>
+where
+    <F::Category as Category>::Morphism: PartialEq,
+{
+    check_functor_laws::<F>()
 }
