@@ -907,8 +907,8 @@ mod tests {
         let en = sample_english();
         let json = self_describe(&en);
         assert!(json.contains("ontology_count"));
-        assert!(json.contains("SelfModelOntology"));
-        assert!(json.contains("KnowledgeOntology"));
+        assert!(json.contains("SelfModel"));
+        assert!(json.contains("Knowledge"));
     }
 
     #[test]
