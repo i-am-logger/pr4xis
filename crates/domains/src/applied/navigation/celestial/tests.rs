@@ -2,7 +2,9 @@ use pr4xis::category::validate::check_category_laws;
 use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 use pr4xis::ontology::{Axiom, Ontology};
 
+use crate::applied::navigation::celestial::body::CelestialBodyTaxonomy;
 use crate::applied::navigation::celestial::engine::*;
+use crate::applied::navigation::celestial::observable::CelestialObservableTaxonomy;
 use crate::applied::navigation::celestial::ontology::*;
 
 // ---------------------------------------------------------------------------
@@ -21,22 +23,12 @@ fn celestial_observable_taxonomy_category_laws() {
 
 #[test]
 fn celestial_sensor_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<CelestialSensorTaxonomy>>().unwrap();
+    check_category_laws::<TaxonomyCategory<CelestialTaxonomy>>().unwrap();
 }
 
 #[test]
 fn celestial_ontology_validates() {
     CelestialOntology::validate().unwrap();
-}
-
-#[test]
-fn celestial_body_taxonomy_is_dag() {
-    assert!(CelestialBodyTaxonomyIsDAG.holds());
-}
-
-#[test]
-fn celestial_observable_taxonomy_is_dag() {
-    assert!(CelestialObservableTaxonomyIsDAG.holds());
 }
 
 #[test]

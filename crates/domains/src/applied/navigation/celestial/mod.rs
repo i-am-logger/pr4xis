@@ -6,8 +6,11 @@
 //!
 //! Source: Wertz (2001), Bowditch (2002), Groves (2013) Section 6.5.
 
+pub mod body;
 pub mod engine;
+pub mod observable;
 pub mod ontology;
+pub mod property_functor;
 
 #[cfg(test)]
 mod tests;
