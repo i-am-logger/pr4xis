@@ -4,11 +4,14 @@
 //! typed-error replacement for `Result<(), Vec<String>>` in `Ontology::validate()`.
 
 pub mod ontology;
-// NOTE: a Dependability → Diagnostics functor is desired. The previous
-// diagnosis ("dense-to-kinded many-to-one collapse; needs lax functors") is
-// superseded by the #98 research doc at docs/research/kinded-functor-
-// failures.md: the real issue is directional — Dependability runs cause→
-// observation (Fault→Error→Failure) while Diagnostics runs observation→
-// cause (Symptom→Hypothesis→Diagnosis→FaultMode, Reiter 1987). The right
-// construction is F: Dependability^op → Diagnostics, which needs an Op-
-// category helper in pr4xis::category. Tracked as a follow-up to #98.
+// NOTE: the Dependability → Diagnostics functor remains deferred. The #98
+// research doc's case-2 recommendation — "use Op<Dependability> → Diagnostics
+// to invert causation" — turns out to require a second fix beyond Op<C>.
+// Dependability is a dense category (every pair has a morphism, no kinds),
+// while Diagnostics is kinded. Dense categories identify Identity and Composed
+// self-loops; kinded ones distinguish them. Any functor into a kinded target
+// therefore can't satisfy the composition law for self-loop results of
+// non-identity compositions — the failure is empirically `F(g∘f) has kind
+// Identity while F(g)∘F(f) has kind Composed`. See the expanded case-2 note
+// in docs/research/kinded-functor-failures.md. Proper fix requires either a
+// kinded Dependability variant or sub-category framework support.
