@@ -153,6 +153,32 @@ proptest! {
     // Morphism closure
     // -----------------------------------------------------------------------
 
+    // -----------------------------------------------------------------------
+    // Phase 4 cross-functor invariants
+    // -----------------------------------------------------------------------
+
+    /// For every concept sampled, the cross-functor to MetaOntology produces
+    /// a valid MetaEntity target.
+    #[test]
+    fn meta_ontology_functor_maps_into_target(c in arb_syntrometry_concept()) {
+        use super::meta_ontology_functor::SyntrometryToMetaOntology;
+        use crate::formal::meta::ontology_diagnostics::ontology::MetaEntity;
+        let mapped = SyntrometryToMetaOntology::map_object(&c);
+        prop_assert!(MetaEntity::variants().contains(&mapped));
+    }
+
+    /// Cross-functor preserves identity for any sampled concept.
+    #[test]
+    fn meta_ontology_functor_preserves_identity(c in arb_syntrometry_concept()) {
+        use super::meta_ontology_functor::SyntrometryToMetaOntology;
+        use crate::formal::meta::ontology_diagnostics::ontology::MetaCategory;
+        let id_c = SyntrometryCategory::identity(&c);
+        let f_id = SyntrometryToMetaOntology::map_morphism(&id_c);
+        let id_fc =
+            MetaCategory::identity(&SyntrometryToMetaOntology::map_object(&c));
+        prop_assert_eq!(f_id, id_fc);
+    }
+
     /// Every kind of Syntrometry morphism (Identity, every declared edge
     /// kind, Composed) shows up in `morphisms()`. Without this the
     /// category's closure claim would be empty.

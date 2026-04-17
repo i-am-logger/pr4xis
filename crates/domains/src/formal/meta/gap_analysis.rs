@@ -794,6 +794,43 @@ mod tests {
     // Syntrometry-Substrate gap analysis (#62)
     // -----------------------------------------------------------------------
 
+    // -----------------------------------------------------------------------
+    // Syntrometry → MetaOntology cross-functor collapse (Phase 4)
+    // -----------------------------------------------------------------------
+
+    /// Count how many distinct `MetaEntity` values the 14 syntrometric
+    /// concepts land at under the cross-functor. Expected: 12 out of 14 land
+    /// uniquely; SyntrixLevel/Syntrix both go to CategoryStructure and
+    /// Synkolator/Korporator both go to Functor — the two intentional
+    /// collapses documented in meta_ontology_functor.rs.
+    #[test]
+    fn test_syntrometry_to_meta_ontology_collapse_is_two() {
+        use crate::formal::meta::ontology_diagnostics::ontology::MetaEntity;
+        use crate::formal::meta::syntrometry::meta_ontology_functor::SyntrometryToMetaOntology;
+        use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
+        use pr4xis::category::{Entity, Functor};
+        use std::collections::HashSet;
+
+        let mapped: HashSet<MetaEntity> = SyntrometryConcept::variants()
+            .into_iter()
+            .map(|c| SyntrometryToMetaOntology::map_object(&c))
+            .collect();
+        let total = SyntrometryConcept::variants().len();
+        let unique = mapped.len();
+        let collapse = total - unique;
+        assert_eq!(
+            collapse, 2,
+            "expected exactly 2 intentional collapses (Syntrix/SyntrixLevel both → CategoryStructure; Synkolator/Korporator both → Functor); got {}",
+            collapse
+        );
+        eprintln!(
+            "\nSyntrometry → MetaOntology collapse: {}/{} ({:.1}%)",
+            collapse,
+            total,
+            collapse as f64 / total as f64 * 100.0
+        );
+    }
+
     #[test]
     fn test_syntrometry_substrate_is_object_equivalence() {
         let report = analyze_syntrometry_substrate();

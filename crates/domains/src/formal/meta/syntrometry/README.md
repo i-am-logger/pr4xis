@@ -1,4 +1,4 @@
-# Syntrometry — Heim's syntrometric logic (Phases 1 + 2)
+# Syntrometry — Heim's syntrometric logic (Phases 1–4)
 
 Encodes the core of Burkhard Heim's *Syntrometrische Maximentelezentrik* — the logical/philosophical foundation underneath Heim theory — as a pr4xis ontology, and verifies the long-standing claim that "pr4xis instantiates Heim's syntrometric structure" by a Functor whose laws are checked at test time.
 
@@ -84,16 +84,34 @@ Bijection: every Heim concept has a unique substrate target; every substrate pri
 | `MaximeConvergesTowardTelecenter` | Heim Telezentrik | Maxime carries `ConvergesToward` edge into Telecenter |
 | `TelecenterIsSynkolatorFixedPoint` | Heim Telezentrik × Mac Lane | Synkolator carries `FixedPointOf` edge into Telecenter (eigenform) |
 
-## Phase 3 (future)
+## Phase 4 — cross-functors to existing pr4xis ontologies
 
-Reducing the 28.6% unit loss by enriching the substrate with the four missing distinctions:
+Phase 4 demonstrates that Heim's syntrometric vocabulary aligns not only with the Pr4xisSubstrate mirror but with existing workspace meta-ontologies. The first cross-functor is:
 
-- `SubOppositionCategory` to receive `Dialektik` without collapse
-- `SubProductCategory` to receive `Aspekt` without collapse
-- `SubLeveledEntity` / `SubGradedObject` to receive `SyntrixLevel` without collapse
-- `SubMereologicalMorphism` to receive `Part` without collapse
+### `Syntrometry → MetaOntology`
 
-Each would be a judgement call — the collapse is honest information compression, and adding sub-kinds only pays off if downstream ontologies need them.
+Maps each of the 14 Syntrometry concepts to a `formal::meta::ontology_diagnostics::MetaEntity`:
+
+| Syntrometry | MetaEntity |
+|---|---|
+| `Predicate`     | `DomainOntology` |
+| `Predikatrix`   | `TaxonomyStructure` |
+| `Dialektik`     | `CausalStructure` |
+| `Koordination`  | `NaturalTransformation` |
+| `Aspekt`        | `QualityStructure` |
+| `Syntrix`, `SyntrixLevel` | `CategoryStructure` (intentional collapse) |
+| `Synkolator`, `Korporator` | `Functor` (intentional collapse) |
+| `Part`          | `UnitMorphism` |
+| `Telecenter`    | `CanonicalRepresentative` |
+| `Maxime`        | `PropertyTest` |
+| `Transzendenzstufe` | `IntermediateDomain` |
+| `Metroplex`     | `Structure` |
+
+Collapse rate: 2/14 (14.3%). The two collapses are deliberate — pr4xis's meta-ontology doesn't distinguish `SyntrixLevel` from `Syntrix` or `Synkolator` from `Korporator` at that level of abstraction. Verified by `meta_ontology_functor_laws_pass` + proptest sweeps.
+
+### Future cross-functors
+
+Additional targets remain open as follow-ups: `Syntrometry → Algebra` (Korporator ↦ Mapping, Aspekt ↦ Product), `Syntrometry → Staging` (Transzendenzstufe ↦ Futamura-projection levels). Each would satisfy the functor laws by construction (kinded source → dense target) and add its own collapse profile.
 
 ## Files
 

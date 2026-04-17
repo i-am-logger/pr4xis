@@ -14,6 +14,7 @@
 
 pub mod adjunction;
 pub mod lineage_functor;
+pub mod meta_ontology_functor;
 pub mod ontology;
 #[cfg(test)]
 mod proptests;
