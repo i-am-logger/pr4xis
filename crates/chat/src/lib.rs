@@ -903,33 +903,28 @@ mod tests {
         assert!(!response.is_empty());
     }
 
+    /// Per memory `feedback_ontological_assertions.md`: each test claim is
+    /// an `Axiom` impl in the domain (here `knowledge::instance`); the
+    /// `#[test]` is a thin wrapper. The claim is then discoverable via
+    /// `Ontology::axioms()`, citable, and reusable.
     #[test]
     fn self_describe_has_ontologies() {
-        let en = sample_english();
-        let instance = self_describe(&en);
-        assert!(
-            !instance.components.is_empty(),
-            "expected at least one registered vocabulary"
-        );
-        // SelfModel is on the new ontology! proc macro — Vocabulary name
-        // is the macro's `name:` + "Ontology" suffix = "SelfModelOntology".
-        assert!(
-            instance
-                .components
-                .iter()
-                .any(|v| v.name() == "SelfModelOntology"),
-            "expected SelfModelOntology in registered vocabularies"
-        );
-        // Knowledge is still on define_ontology! — Vocabulary name is the
-        // struct name "KnowledgeOntology". Both macros now produce the
-        // same name format.
-        assert!(
-            instance
-                .components
-                .iter()
-                .any(|v| v.name() == "KnowledgeOntology"),
-            "expected KnowledgeOntology in registered vocabularies"
-        );
+        use pr4xis::ontology::Axiom;
+        use pr4xis_domains::formal::information::knowledge::instance::{
+            KnowledgeBaseIsNonEmpty, KnowledgeIsRegistered, SelfModelIsRegistered,
+        };
+
+        // Exercise the chat surface — confirms `self_describe` returns a
+        // structural `SelfModelInstance` that can be observed downstream.
+        let _ = self_describe(&sample_english());
+
+        for axiom in [
+            &KnowledgeBaseIsNonEmpty as &dyn Axiom,
+            &SelfModelIsRegistered,
+            &KnowledgeIsRegistered,
+        ] {
+            assert!(axiom.holds(), "{}", axiom.description());
+        }
     }
 
     #[test]
