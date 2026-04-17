@@ -57,6 +57,9 @@ impl Pr4xis {
     }
 
     pub fn self_describe(&self) -> String {
-        pr4xis_chat::self_describe(&self.english)
+        // WASM boundary: serialize the structural SelfModelInstance to JSON
+        // for JS interop. Native callers should use pr4xis_chat::self_describe
+        // directly to avoid the JSON detour.
+        pr4xis_chat::self_describe(&self.english).to_json()
     }
 }

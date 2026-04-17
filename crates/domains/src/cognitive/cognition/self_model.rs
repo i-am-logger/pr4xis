@@ -1,7 +1,4 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
-
-// Self-Model — the system's formal model of itself.
+//! Self-Model — the system's formal model of itself.
 //
 // "I am the observed relation between myself and observing myself."
 // — Heinz von Foerster
@@ -33,105 +30,57 @@ use pr4xis::define_ontology;
 //  12. Lewis Awareness Taxonomy (2011) — 5 levels
 //  13. SOSA/OWL-S (W3C) — SystemCapability
 
-/// Concepts in the self-model.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum SelfModelConcept {
-    /// The system's model of itself — the eigenform (IEEE AuR).
-    SelfModel,
-    /// A loaded ontology or module (MOI SoftwareComponent).
-    Component,
-    /// What the system can reason about (SOSA SystemCapability).
-    Capability,
-    /// The system's identity — name, version, build (MAPE-K Ksys).
-    Identity,
-    /// The current awareness level (Lewis taxonomy).
-    AwarenessLevel,
-    /// The fixed point of self-observation (von Foerster/Kauffman).
-    Eigenform,
-    /// A belief the system holds about itself (BDI).
-    SelfBelief,
-    /// The justification for a self-belief (BDI).
-    Justification,
-    /// The system's processes produce the processes that produce them
-    /// (Maturana & Varela, Autopoiesis 1972/1980).
-    /// The system does not HAVE a model — it IS its self-producing organization.
-    /// Operational closure: perturbations trigger internally-determined responses.
-    OperationalClosure,
-    /// Two views of the same phenomenon produce depth
-    /// (Bateson, "Steps to an Ecology of Mind" 1972).
-    /// The system must model itself AND its relationship to context.
-    /// Self = the circuit, not the skin boundary.
-    /// Single-image self-models produce pathology (Bateson's alcoholism analysis).
-    DoubleDescription,
-}
+pr4xis::ontology! {
+    name: "SelfModel",
+    source: "von Foerster (1981); IEEE AuR (2021); MAPE-K (2003); Maturana & Varela (1972); Bateson (1972); Lewis (2011)",
+    being: MentalObject,
 
-define_ontology! {
-    /// Self-Model — the system's eigenform (von Foerster 1981; IEEE AuR 2021).
-    pub SelfModelOntology for SelfModelCategory {
-        concepts: SelfModelConcept,
-        relation: SelfModelRelation,
-        kind: SelfModelRelationKind,
-        kinds: [
-            /// SelfModel has Component (MOI hasComponent).
-            HasComponent,
-            /// Component has Capability (SOSA hasCapability).
-            HasCapability,
-            /// SelfModel has Identity (MAPE-K Ksys).
-            HasIdentity,
-            /// SelfModel has AwarenessLevel (Lewis).
-            HasAwarenessLevel,
-            /// SelfModel converges to Eigenform (fixed point).
-            ConvergesTo,
-            /// SelfBelief justified by Justification (BDI).
-            JustifiedBy,
-            /// SelfModel produces SelfBelief (introspection).
-            Produces,
-            /// Capability enabled by Component.
-            EnabledBy,
-            /// Eigenform re-enters SelfModel (Spencer-Brown ReEntry).
-            ReEnters,
-            /// SelfModel maintains OperationalClosure (Maturana-Varela).
-            /// The organization produces the processes that produce the organization.
-            Maintains,
-            /// DoubleDescription requires both SelfModel and context (Bateson).
-            /// "The unit of survival is organism plus environment."
-            Requires,
-            /// OperationalClosure grounds Eigenform (autopoiesis enables fixed point).
-            /// The system can observe itself BECAUSE it is operationally closed.
-            Grounds,
-        ],
-        edges: [
-            // Structure (MOI + MAPE-K + Lewis)
-            (SelfModel, Component, HasComponent),
-            (SelfModel, Identity, HasIdentity),
-            (SelfModel, AwarenessLevel, HasAwarenessLevel),
-            (Component, Capability, HasCapability),
-            (Capability, Component, EnabledBy),
-            // Eigenform loop (von Foerster + Spencer-Brown)
-            (SelfModel, Eigenform, ConvergesTo),
-            (Eigenform, SelfModel, ReEnters),
-            // Belief production (BDI)
-            (SelfModel, SelfBelief, Produces),
-            (SelfBelief, Justification, JustifiedBy),
-            // Autopoiesis (Maturana-Varela)
-            (SelfModel, OperationalClosure, Maintains),
-            (OperationalClosure, Eigenform, Grounds),
-            // Double description (Bateson)
-            (DoubleDescription, SelfModel, Requires),
-            (DoubleDescription, OperationalClosure, Requires),
-        ],
-        composed: [
-            (SelfModel, Capability),
-            (SelfModel, Justification),
-            (Eigenform, Component),
-            (Eigenform, SelfBelief),
-            (OperationalClosure, SelfModel),
-            (DoubleDescription, Eigenform),
-        ],
+    concepts: [
+        SelfModel,
+        Component,
+        Capability,
+        Identity,
+        AwarenessLevel,
+        Eigenform,
+        SelfBelief,
+        Justification,
+        OperationalClosure,
+        DoubleDescription,
+    ],
 
-        being: MentalObject,
-        source: "von Foerster (1981); IEEE AuR (2021); MAPE-K (2003)",
-    }
+    labels: {
+        SelfModel: ("en", "Self-model", "The system's model of itself — the eigenform (IEEE AuR)."),
+        Component: ("en", "Component", "A loaded ontology or module (MOI SoftwareComponent)."),
+        Capability: ("en", "Capability", "What the system can reason about (SOSA SystemCapability)."),
+        Identity: ("en", "Identity", "The system's identity — name, version, build (MAPE-K Ksys)."),
+        AwarenessLevel: ("en", "Awareness level", "The current awareness level (Lewis 2011)."),
+        Eigenform: ("en", "Eigenform", "The fixed point of self-observation (von Foerster/Kauffman)."),
+        SelfBelief: ("en", "Self-belief", "A belief the system holds about itself (BDI)."),
+        Justification: ("en", "Justification", "The justification for a self-belief (BDI)."),
+        OperationalClosure: ("en", "Operational closure", "Maturana & Varela (1972): the system's processes produce the processes that produce them."),
+        DoubleDescription: ("en", "Double description", "Bateson (1972): two views of the same phenomenon produce depth. 'The unit of survival is organism plus environment.'"),
+    },
+
+    edges: [
+        // Structure (MOI + MAPE-K + Lewis)
+        (SelfModel, Component, HasComponent),
+        (SelfModel, Identity, HasIdentity),
+        (SelfModel, AwarenessLevel, HasAwarenessLevel),
+        (Component, Capability, HasCapability),
+        (Capability, Component, EnabledBy),
+        // Eigenform loop (von Foerster + Spencer-Brown)
+        (SelfModel, Eigenform, ConvergesTo),
+        (Eigenform, SelfModel, ReEnters),
+        // Belief production (BDI)
+        (SelfModel, SelfBelief, Produces),
+        (SelfBelief, Justification, JustifiedBy),
+        // Autopoiesis (Maturana-Varela)
+        (SelfModel, OperationalClosure, Maintains),
+        (OperationalClosure, Eigenform, Grounds),
+        // Double description (Bateson)
+        (DoubleDescription, SelfModel, Requires),
+        (DoubleDescription, OperationalClosure, Requires),
+    ],
 }
 
 // =========================================================================

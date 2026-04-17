@@ -1,6 +1,6 @@
 use crate::cognitive::cognition::self_model::AwarenessLevel;
 use crate::formal::information::schema::transport::{Present, Presentation, SchemaValue};
-use pr4xis::ontology::Vocabulary;
+use pr4xis::ontology::{Axiom, Vocabulary, describe_knowledge_base};
 
 // SelfModelInstance — runtime eigenform of the SelfModel ontology.
 //
@@ -88,5 +88,57 @@ impl Present for SelfModelInstance {
 
         p.set("ontologies", SchemaValue::List(ontologies));
         p
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Axioms about the registered knowledge base.
+//
+// These are first-class claims about what `describe_knowledge_base()` must
+// return — discoverable, citable, and reusable across tests / runtime
+// health checks. Per memory `feedback_ontological_assertions.md`.
+// ---------------------------------------------------------------------------
+
+/// Axiom: at least one ontology is registered in the knowledge base.
+/// Catches misconfiguration where linkme registration is missing.
+pub struct KnowledgeBaseIsNonEmpty;
+
+impl Axiom for KnowledgeBaseIsNonEmpty {
+    fn description(&self) -> &str {
+        "describe_knowledge_base() returns at least one registered Vocabulary"
+    }
+    fn holds(&self) -> bool {
+        !describe_knowledge_base().is_empty()
+    }
+}
+
+/// Axiom: SelfModelOntology is registered in the knowledge base.
+/// The system can describe itself iff its own SelfModel ontology is
+/// reachable through the auto-registration mechanism (linkme).
+pub struct SelfModelIsRegistered;
+
+impl Axiom for SelfModelIsRegistered {
+    fn description(&self) -> &str {
+        "SelfModelOntology is registered in the knowledge base"
+    }
+    fn holds(&self) -> bool {
+        describe_knowledge_base()
+            .iter()
+            .any(|v| v.name() == "SelfModelOntology")
+    }
+}
+
+/// Axiom: KnowledgeOntology is registered in the knowledge base.
+/// The Knowledge ontology — root of the registry — must register itself.
+pub struct KnowledgeIsRegistered;
+
+impl Axiom for KnowledgeIsRegistered {
+    fn description(&self) -> &str {
+        "KnowledgeOntology is registered in the knowledge base"
+    }
+    fn holds(&self) -> bool {
+        describe_knowledge_base()
+            .iter()
+            .any(|v| v.name() == "KnowledgeOntology")
     }
 }

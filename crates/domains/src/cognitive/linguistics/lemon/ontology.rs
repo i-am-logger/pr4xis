@@ -1,85 +1,47 @@
-// Ontolex-Lemon — the ontology-lexicon interface.
-//
-// Separates ontological concepts from their linguistic realizations.
-// A LexicalEntry has Forms (written/phonological) and Senses (connections
-// to ontology concepts). A Lexicon collects entries for one language.
-//
-// The key insight: labels are NOT properties of ontology concepts.
-// Instead, a LexicalEntry in a Lexicon points to the concept via a
-// LexicalSense. Multiple lexicons (English, Hebrew) point to the same
-// concept — multilinguality without touching the ontology.
-//
-// Source: W3C Lexicon Model for Ontologies (2016);
-//         McCrae et al. (2012, 2017)
+//! Ontolex-Lemon — the ontology-lexicon interface.
+//!
+//! Separates ontological concepts from their linguistic realizations.
+//! A LexicalEntry has Forms (written/phonological) and Senses (connections
+//! to ontology concepts). A Lexicon collects entries for one language.
+//!
+//! The key insight: labels are NOT properties of ontology concepts.
+//! Instead, a LexicalEntry in a Lexicon points to the concept via a
+//! LexicalSense. Multiple lexicons (English, Hebrew) point to the same
+//! concept — multilinguality without touching the ontology.
+//!
+//! Source: W3C Lexicon Model for Ontologies (2016);
+//!         McCrae et al. (2012, 2017)
 
 use pr4xis::category::Category;
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Concepts in the Ontolex-Lemon ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum LemonConcept {
-    /// ontolex:LexicalEntry — unit of analysis: forms + senses.
-    LexicalEntry,
-    /// ontolex:Form — one grammatical realization of an entry.
-    Form,
-    /// ontolex:LexicalSense — the bridge between entry and ontology.
-    LexicalSense,
-    /// ontolex:LexicalConcept — mental abstraction (skos:Concept subclass).
-    LexicalConcept,
-    /// lime:Lexicon — entries for one language.
-    Lexicon,
-    /// The ontology entity being described (target of reference).
-    OntologyReference,
-}
+pr4xis::ontology! {
+    name: "Lemon",
+    source: "W3C Ontolex (2016); McCrae et al. (2012, 2017)",
+    being: SocialObject,
 
-define_ontology! {
-    pub LemonOntology for LemonCategory {
-        concepts: LemonConcept,
-        relation: LemonRelation,
-        kind: LemonRelationKind,
-        kinds: [
-            /// ontolex:canonicalForm — preferred lemma form (functional).
-            CanonicalForm,
-            /// ontolex:otherForm — non-canonical inflected form.
-            OtherForm,
-            /// ontolex:sense — entry's meaning w.r.t. an ontology element.
-            Sense,
-            /// ontolex:reference — sense points to ontology entity (functional).
-            Reference,
-            /// ontolex:evokes — entry activates a mental concept.
-            Evokes,
-            /// ontolex:isConceptOf — concept linked to ontology entity.
-            IsConceptOf,
-            /// lime:entry — lexicon contains entry.
-            Entry,
-            /// ontolex:denotes — shortcut: sense ∘ reference.
-            Denotes,
-            /// ontolex:lexicalizedSense — concept lexicalized by this sense.
-            LexicalizedSense,
-        ],
-        edges: [
-            (LexicalEntry, Form, CanonicalForm),
-            (LexicalEntry, Form, OtherForm),
-            (LexicalEntry, LexicalSense, Sense),
-            (LexicalSense, OntologyReference, Reference),
-            (LexicalEntry, OntologyReference, Denotes),
-            (LexicalEntry, LexicalConcept, Evokes),
-            (LexicalConcept, OntologyReference, IsConceptOf),
-            (LexicalConcept, LexicalSense, LexicalizedSense),
-            (Lexicon, LexicalEntry, Entry),
-        ],
-        composed: [
-            (Lexicon, Form),
-            (Lexicon, LexicalSense),
-            (Lexicon, LexicalConcept),
-            (Lexicon, OntologyReference),
-        ],
+    concepts: [LexicalEntry, Form, LexicalSense, LexicalConcept, Lexicon, OntologyReference],
 
-        being: SocialObject,
-        source: "W3C Ontolex (2016); McCrae et al. (2012, 2017)",
-    }
+    labels: {
+        LexicalEntry: ("en", "Lexical entry", "ontolex:LexicalEntry — unit of analysis: forms + senses."),
+        Form: ("en", "Form", "ontolex:Form — one grammatical realization of an entry."),
+        LexicalSense: ("en", "Lexical sense", "ontolex:LexicalSense — the bridge between entry and ontology."),
+        LexicalConcept: ("en", "Lexical concept", "ontolex:LexicalConcept — mental abstraction (skos:Concept subclass)."),
+        Lexicon: ("en", "Lexicon", "lime:Lexicon — entries for one language."),
+        OntologyReference: ("en", "Ontology reference", "The ontology entity being described (target of reference)."),
+    },
+
+    edges: [
+        (LexicalEntry, Form, CanonicalForm),
+        (LexicalEntry, Form, OtherForm),
+        (LexicalEntry, LexicalSense, Sense),
+        (LexicalSense, OntologyReference, Reference),
+        (LexicalEntry, OntologyReference, Denotes),
+        (LexicalEntry, LexicalConcept, Evokes),
+        (LexicalConcept, OntologyReference, IsConceptOf),
+        (LexicalConcept, LexicalSense, LexicalizedSense),
+        (Lexicon, LexicalEntry, Entry),
+    ],
 }
 
 /// Whether a concept is core (ontolex:) vs. metadata (lime:).

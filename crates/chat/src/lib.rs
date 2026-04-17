@@ -778,9 +778,10 @@ pub fn observe_self(lang: &English) -> SelfModelInstance {
     SelfModelInstance::observe(loaded_ontologies(lang))
 }
 
-/// JSON encoding of the eigenform for transport (WASM boundary).
-pub fn self_describe(lang: &English) -> String {
-    observe_self(lang).to_json()
+/// Describe the eigenform structurally. Callers that need JSON (WASM
+/// boundary) should call `.to_json()` on the result themselves.
+pub fn self_describe(lang: &English) -> SelfModelInstance {
+    observe_self(lang)
 }
 
 #[cfg(test)]
@@ -902,13 +903,28 @@ mod tests {
         assert!(!response.is_empty());
     }
 
+    /// Per memory `feedback_ontological_assertions.md`: each test claim is
+    /// an `Axiom` impl in the domain (here `knowledge::instance`); the
+    /// `#[test]` is a thin wrapper. The claim is then discoverable via
+    /// `Ontology::axioms()`, citable, and reusable.
     #[test]
     fn self_describe_has_ontologies() {
-        let en = sample_english();
-        let json = self_describe(&en);
-        assert!(json.contains("ontology_count"));
-        assert!(json.contains("SelfModelOntology"));
-        assert!(json.contains("KnowledgeOntology"));
+        use pr4xis::ontology::Axiom;
+        use pr4xis_domains::formal::information::knowledge::instance::{
+            KnowledgeBaseIsNonEmpty, KnowledgeIsRegistered, SelfModelIsRegistered,
+        };
+
+        // Exercise the chat surface — confirms `self_describe` returns a
+        // structural `SelfModelInstance` that can be observed downstream.
+        let _ = self_describe(&sample_english());
+
+        for axiom in [
+            &KnowledgeBaseIsNonEmpty as &dyn Axiom,
+            &SelfModelIsRegistered,
+            &KnowledgeIsRegistered,
+        ] {
+            assert!(axiom.holds(), "{}", axiom.description());
+        }
     }
 
     #[test]

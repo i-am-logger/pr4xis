@@ -670,7 +670,14 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         });
     }
 
-    let name_lit = &def.name;
+    // Vocabulary.name matches the generated struct name (e.g. `name: "Foo"`
+    // → Vocabulary.name = "FooOntology"). This keeps parity with the older
+    // declarative `define_ontology!` macro, which used the struct ident
+    // directly. Without this suffix the new proc macro would emit "Foo"
+    // while unmigrated ontologies emit "FooOntology", producing an
+    // inconsistent knowledge-base registry.
+    let full_name = format!("{name_str}Ontology");
+    let name_lit = syn::LitStr::new(&full_name, def.name.span());
 
     quote! {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, #pr4xis::category::Entity)]
