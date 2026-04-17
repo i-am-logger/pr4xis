@@ -14,7 +14,7 @@ Key references:
 
 ## Category
 
-`ProcessOntology for ProcessCategory` via `define_ontology!`, relation `ProcessCoupling`, fully connected. All category laws verified structurally.
+`ProcessOntology`/`ProcessCategory`/`ProcessConcept` via `pr4xis::ontology!`, relation `ProcessRelation`, fully connected. All category laws verified structurally.
 
 ## Qualities
 
@@ -36,7 +36,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `ProcessVariable`, `ProcessCategory`, `PhysicalUnit` quality, thermodynamic axioms
+- `ontology.rs` -- `ProcessConcept`, `ProcessCategory`, `PhysicalUnit` quality, thermodynamic axioms
 - `engine.rs` -- simulation/control engine used by tests
 - `tests.rs` -- additional tests beyond `ontology.rs`
 - `mod.rs` -- module declarations

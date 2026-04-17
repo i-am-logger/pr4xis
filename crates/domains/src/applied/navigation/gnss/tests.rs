@@ -2,6 +2,7 @@ use pr4xis::category::validate::check_category_laws;
 use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
 use pr4xis::ontology::{Axiom, Ontology};
 
+use crate::applied::navigation::gnss::constellation::GnssConstellationTaxonomy;
 use crate::applied::navigation::gnss::engine::*;
 use crate::applied::navigation::gnss::ontology::*;
 
@@ -11,7 +12,7 @@ use crate::applied::navigation::gnss::ontology::*;
 
 #[test]
 fn gnss_observable_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<GnssObservableTaxonomy>>().unwrap();
+    check_category_laws::<TaxonomyCategory<GnssTaxonomy>>().unwrap();
 }
 
 #[test]
@@ -22,11 +23,6 @@ fn gnss_constellation_taxonomy_category_laws() {
 #[test]
 fn gnss_ontology_validates() {
     GnssOntology::validate().unwrap();
-}
-
-#[test]
-fn gnss_constellation_taxonomy_is_dag() {
-    assert!(GnssConstellationTaxonomyIsDAG.holds());
 }
 
 #[test]

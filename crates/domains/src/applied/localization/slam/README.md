@@ -49,7 +49,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `SlamComponent` entity, `SlamCategory`, `ComponentRole` quality, 2 axioms, tests
+- `ontology.rs` -- `SlamConcept` entity, `SlamCategory`, `ComponentRole` quality, 2 axioms, tests
 - `engine.rs` -- `Pose2D`, `Landmark2D`, `PoseGraphEdge`, `PoseGraph` runtime types
 - `tests.rs` -- additional tests beyond `ontology.rs`
 - `mod.rs` -- module declarations

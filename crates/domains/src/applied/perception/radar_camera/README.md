@@ -43,7 +43,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `RadarCameraStage`, `RadarCameraStep`, `RadarCameraCategory`, pipeline axioms
+- `ontology.rs` -- `RadarCameraConcept`, `RadarCameraRelation`, `RadarCameraCategory`, pipeline axioms
 - `engine.rs` -- fusion engine used by tests
 - `tests.rs` -- additional tests beyond `ontology.rs`
 - `mod.rs` -- module declarations

@@ -15,7 +15,7 @@ Key references:
 
 ## Category
 
-`OrbitOntology for OrbitCategory` via `define_ontology!`, relation `ElementDependency`, fully connected.
+`OrbitOntology`/`OrbitCategory`/`OrbitConcept` via `pr4xis::ontology!`, relation `OrbitRelation`, fully connected.
 
 ## Qualities
 
@@ -37,7 +37,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `OrbitalElement`, `OrbitCategory`, `ElementUnit` quality, orbital-mechanics axioms
+- `ontology.rs` -- `OrbitConcept`, `OrbitCategory`, `ElementUnit` quality, orbital-mechanics axioms
 - `propagator.rs` -- Keplerian propagation (element → state vector → element over time)
 - `engine.rs` -- orbit-propagation engine used by tests
 - `tests.rs` -- additional tests beyond `ontology.rs`

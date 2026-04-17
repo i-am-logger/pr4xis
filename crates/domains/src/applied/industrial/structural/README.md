@@ -14,7 +14,7 @@ Key references:
 
 ## Category
 
-`StructuralOntology for StructuralCategory` via `define_ontology!`, relation `StructuralRelation`, fully connected (all sensors contribute to damage assessment).
+`StructuralOntology`/`StructuralCategory`/`StructuralConcept` via `pr4xis::ontology!`, relation `StructuralRelation`, fully connected (all sensors contribute to damage assessment).
 
 ## Qualities
 
@@ -36,7 +36,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `StructuralSensor`, `StructuralCategory`, `SensorMeasurand` quality, mechanics axioms
+- `ontology.rs` -- `StructuralConcept`, `StructuralCategory`, `SensorMeasurand` quality, mechanics axioms
 - `engine.rs` -- monitoring engine used by tests
 - `tests.rs` -- additional tests beyond `ontology.rs`
 - `mod.rs` -- module declarations

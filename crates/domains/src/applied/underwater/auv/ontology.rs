@@ -1,33 +1,22 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! AUV navigation sensor types.
+//!
+//! Source: Kinsey et al. (2006), "A Survey of Underwater Vehicle Navigation"
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// AUV navigation sensor types.
-///
-/// Source: Kinsey et al. (2006), "A Survey of Underwater Vehicle Navigation"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum AuvSensor {
-    /// Doppler Velocity Log: measures velocity relative to seabed.
-    DVL,
-    /// Depth/pressure sensor.
-    DepthSensor,
-    /// Magnetic compass / heading sensor.
-    Compass,
-    /// Acoustic Doppler Current Profiler: measures water current profile.
-    ADCP,
-}
+pr4xis::ontology! {
+    name: "Auv",
+    source: "Kinsey et al. (2006); Paull et al. (2014)",
+    being: PhysicalEndurant,
 
-define_ontology! {
-    /// Category for AUV sensor fusion.
-    ///
-    /// All sensors can be fused in the navigation filter; the category
-    /// is fully connected since measurements can be correlated.
-    pub AuvOntology for AuvCategory {
-        entity: AuvSensor,
-        relation: AuvSensorRelation,
-        being: PhysicalEndurant,
-        source: "Kinsey et al. (2006); Paull et al. (2014)",
-    }
+    concepts: [DVL, DepthSensor, Compass, ADCP],
+
+    labels: {
+        DVL: ("en", "Doppler Velocity Log", "Doppler Velocity Log: measures velocity relative to seabed."),
+        DepthSensor: ("en", "Depth sensor", "Depth/pressure sensor."),
+        Compass: ("en", "Compass", "Magnetic compass / heading sensor."),
+        ADCP: ("en", "Acoustic Doppler Current Profiler", "Acoustic Doppler Current Profiler: measures water current profile."),
+    },
 }
 
 /// Quality: what physical quantity each sensor measures.
@@ -35,15 +24,15 @@ define_ontology! {
 pub struct MeasuredQuantity;
 
 impl Quality for MeasuredQuantity {
-    type Individual = AuvSensor;
+    type Individual = AuvConcept;
     type Value = &'static str;
 
-    fn get(&self, sensor: &AuvSensor) -> Option<&'static str> {
+    fn get(&self, sensor: &AuvConcept) -> Option<&'static str> {
         Some(match sensor {
-            AuvSensor::DVL => "velocity relative to seabed (m/s)",
-            AuvSensor::DepthSensor => "depth/pressure (meters)",
-            AuvSensor::Compass => "magnetic heading (rad)",
-            AuvSensor::ADCP => "water current velocity profile (m/s)",
+            AuvConcept::DVL => "velocity relative to seabed (m/s)",
+            AuvConcept::DepthSensor => "depth/pressure (meters)",
+            AuvConcept::Compass => "magnetic heading (rad)",
+            AuvConcept::ADCP => "water current velocity profile (m/s)",
         })
     }
 }
@@ -56,8 +45,6 @@ impl Axiom for DepthNonNegative {
         "depth measurements are non-negative (at or below the surface)"
     }
     fn holds(&self) -> bool {
-        // Depth is measured as pressure relative to surface.
-        // Depth = (P - P_atm) / (rho * g) >= 0 when submerged.
         true
     }
 }
@@ -70,8 +57,6 @@ impl Axiom for DvlRequiresBottomLock {
         "DVL velocity measurement requires bottom lock (finite altitude above seabed)"
     }
     fn holds(&self) -> bool {
-        // DVL works by reflecting acoustic pulses off the seabed.
-        // Maximum altitude depends on frequency (typically 200-500m for 300 kHz).
         true
     }
 }

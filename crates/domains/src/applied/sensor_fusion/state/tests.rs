@@ -10,7 +10,7 @@ use crate::applied::sensor_fusion::state::ontology::*;
 
 #[test]
 fn estimation_category_laws() {
-    check_category_laws::<EstimationCategory>().unwrap();
+    check_category_laws::<StateEstimationCategory>().unwrap();
 }
 
 #[test]

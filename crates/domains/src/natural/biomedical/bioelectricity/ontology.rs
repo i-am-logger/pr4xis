@@ -2,132 +2,111 @@
 //!
 //! Models Dr. Michael Levin's TAME (Technological Approach to Mind Everywhere)
 //! framework as formal ontology:
-//! - Competency hierarchy: Molecular → Cellular → Tissue → Organ → Organism
 //! - Bioelectric code: Vmem patterns encode morphogenetic information
 //! - Gap junction networks: signal propagation topology
 //! - Cognitive lightcone: scale of goal-directed agency
+//!
+//! The TAME competency hierarchy (Molecular → Organism) and the bioelectric
+//! signal causal chain (IonChannelOpening → AnatomicalChange) live in sibling
+//! modules (`tame`, `event`) to keep each ontology focused on one kind of
+//! concept. See #118 for the dual-enum cleanup.
 //!
 //! Key references:
 //! - Levin 2019: The Computational Boundary of a "Self"
 //! - Fields & Levin 2022: Competency in Navigating Arbitrary Spaces
 //! - Levin 2014: Molecular bioelectricity in developmental biology
 
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy::{self, TaxonomyDef};
+use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// TAME Competency Levels
-// ---------------------------------------------------------------------------
+pub use crate::natural::biomedical::bioelectricity::event::{
+    BioelectricSignalCausalGraph, BioelectricSignalEvent,
+};
+pub use crate::natural::biomedical::bioelectricity::tame::{CompetencyLevel, TAMETaxonomy};
 
-/// Levels of competency in the TAME hierarchy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum CompetencyLevel {
-    Molecular,
-    Cellular,
-    Tissue,
-    Organ,
-    Organism,
+pr4xis::ontology! {
+    name: "Bioelectric",
+    source: "Levin (2019); Fields & Levin (2022)",
+    being: AbstractObject,
+
+    concepts: [
+        // Signals
+        MembranePotential,
+        VoltageGradient,
+        BioelectricPrepattern,
+        TransepithelialPotential,
+        // Networks
+        GapJunctionNetwork,
+        BioelectricCircuit,
+        CognitiveLightcone,
+        // Morphospace
+        TargetMorphology,
+        CurrentMorphology,
+        MorphogeneticField,
+        // Interventions
+        IonChannelModulation,
+        GapJunctionModulation,
+        BioelectricCocktail,
+        MechanicalStimulation,
+        ProtonPumpInhibition,
+        // Abstract categories
+        Signal,
+        Network,
+        Morphospace,
+        Intervention,
+    ],
+
+    labels: {
+        MembranePotential: ("en", "Membrane potential", "Single-cell membrane potential (Vmem). Difference in electric potential across the plasma membrane."),
+        VoltageGradient: ("en", "Voltage gradient", "Spatial gradient of Vmem across a tissue."),
+        BioelectricPrepattern: ("en", "Bioelectric prepattern", "Vmem pattern that prefigures anatomical structure before gene expression."),
+        TransepithelialPotential: ("en", "Transepithelial potential", "Vmem across an epithelial layer; drives wound-healing currents."),
+        GapJunctionNetwork: ("en", "Gap junction network", "Network of cells connected by connexin channels."),
+        BioelectricCircuit: ("en", "Bioelectric circuit", "Functional pattern of electric coupling across cells."),
+        CognitiveLightcone: ("en", "Cognitive lightcone", "Spatiotemporal extent of goal-directed agency in a bioelectric system."),
+        TargetMorphology: ("en", "Target morphology", "Goal state in morphospace — the anatomical pattern tissue navigates toward."),
+        CurrentMorphology: ("en", "Current morphology", "Present anatomical state of tissue in morphospace."),
+        MorphogeneticField: ("en", "Morphogenetic field", "Field of bioelectric influence guiding tissue toward the target."),
+        IonChannelModulation: ("en", "Ion channel modulation", "Intervention that changes Vmem by opening/closing ion channels. Cell-autonomous — does not require gap junctions."),
+        GapJunctionModulation: ("en", "Gap junction modulation", "Intervention that changes cell coupling by gating connexins."),
+        BioelectricCocktail: ("en", "Bioelectric cocktail", "Combined intervention targeting multiple ion channels simultaneously."),
+        MechanicalStimulation: ("en", "Mechanical stimulation", "Hardware-accessible intervention using physical force."),
+        ProtonPumpInhibition: ("en", "Proton pump inhibition", "Intervention targeting V-ATPase proton pumps."),
+        Signal: ("en", "Signal (abstract)", "Abstract bioelectric signal — root of the Signal taxonomy."),
+        Network: ("en", "Network (abstract)", "Abstract bioelectric network — root of the Network taxonomy."),
+        Morphospace: ("en", "Morphospace (abstract)", "Abstract morphospace concept — root of the Morphospace taxonomy."),
+        Intervention: ("en", "Intervention (abstract)", "Abstract intervention — root of the Intervention taxonomy."),
+    },
+
+    is_a: [
+        (MembranePotential, Signal),
+        (VoltageGradient, Signal),
+        (BioelectricPrepattern, Signal),
+        (TransepithelialPotential, Signal),
+        (GapJunctionNetwork, Network),
+        (BioelectricCircuit, Network),
+        (CognitiveLightcone, Network),
+        (TargetMorphology, Morphospace),
+        (CurrentMorphology, Morphospace),
+        (MorphogeneticField, Morphospace),
+        (IonChannelModulation, Intervention),
+        (GapJunctionModulation, Intervention),
+        (BioelectricCocktail, Intervention),
+        (MechanicalStimulation, Intervention),
+        (ProtonPumpInhibition, Intervention),
+    ],
+
+    opposes: [
+        (IonChannelModulation, ProtonPumpInhibition),
+        (Signal, Intervention),
+    ],
 }
 
-/// TAME hierarchy: Molecular → Cellular → Tissue → Organ → Organism.
-pub struct TAMETaxonomy;
-
-impl TaxonomyDef for TAMETaxonomy {
-    type Entity = CompetencyLevel;
-
-    fn relations() -> Vec<(CompetencyLevel, CompetencyLevel)> {
-        use CompetencyLevel::*;
-        vec![
-            (Molecular, Cellular),
-            (Cellular, Tissue),
-            (Tissue, Organ),
-            (Organ, Organism),
-        ]
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Bioelectric Entity
-// ---------------------------------------------------------------------------
-
-/// Every bioelectric entity in the Levin framework.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum BioelectricEntity {
-    // Signals
-    MembranePotential,
-    VoltageGradient,
-    BioelectricPrepattern,
-    TransepithelialPotential,
-    // Networks
-    GapJunctionNetwork,
-    BioelectricCircuit,
-    CognitiveLightcone,
-    // Morphospace
-    TargetMorphology,
-    CurrentMorphology,
-    MorphogeneticField,
-    // Interventions
-    IonChannelModulation,
-    GapJunctionModulation,
-    BioelectricCocktail,
-    MechanicalStimulation,
-    ProtonPumpInhibition,
-    // Abstract
-    Signal,
-    Network,
-    Morphospace,
-    Intervention,
-}
-
-// ---------------------------------------------------------------------------
-// Category + Reasoning (generated)
-// ---------------------------------------------------------------------------
-
-define_ontology! {
-    /// Core Levin bioelectric framework.
-    pub BioelectricOntologyMeta for BioelectricCategory {
-        entity: BioelectricEntity,
-        relation: BioelectricRelation,
-        being: AbstractObject,
-        source: "Levin (2019); Fields & Levin (2022)",
-
-        taxonomy: BioelectricTaxonomy [
-            (MembranePotential, Signal),
-            (VoltageGradient, Signal),
-            (BioelectricPrepattern, Signal),
-            (TransepithelialPotential, Signal),
-            (GapJunctionNetwork, Network),
-            (BioelectricCircuit, Network),
-            (CognitiveLightcone, Network),
-            (TargetMorphology, Morphospace),
-            (CurrentMorphology, Morphospace),
-            (MorphogeneticField, Morphospace),
-            (IonChannelModulation, Intervention),
-            (GapJunctionModulation, Intervention),
-            (BioelectricCocktail, Intervention),
-            (MechanicalStimulation, Intervention),
-            (ProtonPumpInhibition, Intervention),
-        ],
-
-        causation: BioelectricSignalCausalGraph for BioelectricSignalEvent [
-            (IonChannelOpening, IonFlux),
-            (IonFlux, VmemChange),
-            (VmemChange, GapJunctionPropagation),
-            (GapJunctionPropagation, PatternFormation),
-            (PatternFormation, MorphogeneticInstruction),
-            (MorphogeneticInstruction, AnatomicalChange),
-        ],
-
-        opposition: BioelectricOpposition [
-            (IonChannelModulation, ProtonPumpInhibition),
-            (Signal, Intervention),
-        ],
-    }
-}
+// Backward-compatibility re-export so existing call sites (Quality impls,
+// axioms, functors) that reference `BioelectricEntity` keep compiling AND
+// support glob imports (type aliases don't).
+pub use BioelectricConcept as BioelectricEntity;
 
 // ---------------------------------------------------------------------------
 // Qualities
@@ -142,7 +121,7 @@ impl Quality for OperatingLevel {
     type Value = CompetencyLevel;
 
     fn get(&self, individual: &BioelectricEntity) -> Option<CompetencyLevel> {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         use CompetencyLevel::*;
         Some(match individual {
             MembranePotential | IonChannelModulation | ProtonPumpInhibition => Molecular,
@@ -169,7 +148,7 @@ impl Quality for IsHardwareAccessible {
     type Value = bool;
 
     fn get(&self, individual: &BioelectricEntity) -> Option<bool> {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         match individual {
             MechanicalStimulation => Some(true),
             MembranePotential
@@ -200,7 +179,7 @@ impl Quality for RequiresGapJunctions {
     type Value = bool;
 
     fn get(&self, individual: &BioelectricEntity) -> Option<bool> {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         match individual {
             VoltageGradient
             | BioelectricPrepattern
@@ -217,6 +196,10 @@ impl Quality for RequiresGapJunctions {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Axioms
+// ---------------------------------------------------------------------------
 
 /// Axiom: bioelectric opposition is symmetric.
 pub struct BioelectricOppositionSymmetric;
@@ -244,48 +227,6 @@ impl Axiom for BioelectricOppositionIrreflexive {
     }
 }
 
-/// Events in the bioelectric signal causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum BioelectricSignalEvent {
-    IonChannelOpening,
-    IonFlux,
-    VmemChange,
-    GapJunctionPropagation,
-    PatternFormation,
-    MorphogeneticInstruction,
-    AnatomicalChange,
-}
-
-/// Axiom: bioelectric signal causal graph is asymmetric.
-pub struct BioelectricSignalCausalAsymmetric;
-
-impl Axiom for BioelectricSignalCausalAsymmetric {
-    fn description(&self) -> &str {
-        "bioelectric signal causal graph is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<BioelectricSignalCausalGraph>::new().holds()
-    }
-}
-
-/// Axiom: no bioelectric signal event directly causes itself.
-pub struct BioelectricSignalCausalNoSelfCausation;
-
-impl Axiom for BioelectricSignalCausalNoSelfCausation {
-    fn description(&self) -> &str {
-        "no bioelectric signal event directly causes itself"
-    }
-
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<BioelectricSignalCausalGraph>::new().holds()
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
 /// Bioelectric code axiom: healthy tissue is polarized (-50 to -40 mV),
 /// cancerous tissue is depolarized (-15 to -20 mV).
 pub struct BioelectricCodeAxiom;
@@ -296,13 +237,9 @@ impl Axiom for BioelectricCodeAxiom {
     }
 
     fn holds(&self) -> bool {
-        // Healthy epithelial Vmem is below -40 mV (polarized)
-        // Cancer/dysplastic Vmem is above -18 mV (depolarized)
-        // These values are consistent with morphospace AttractorVmemRange
         let healthy_vmem = -50.0_f64;
         let cancer_vmem = -15.0_f64;
-        // Healthy is in polarized range, cancer is in depolarized range
-        healthy_vmem < -40.0 && cancer_vmem > -18.0 // -18 = morphospace Dysplastic min
+        healthy_vmem < -40.0 && cancer_vmem > -18.0
     }
 }
 
@@ -316,12 +253,10 @@ impl Axiom for GapJunctionCommunicationAxiom {
     }
 
     fn holds(&self) -> bool {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         let req = RequiresGapJunctions;
-        // Tissue-level signals require GJ
         req.get(&VoltageGradient) == Some(true)
             && req.get(&BioelectricPrepattern) == Some(true)
-            // Single-cell signals do not
             && req.get(&MembranePotential) == Some(false)
     }
 }
@@ -336,7 +271,7 @@ impl Axiom for RepolarizationRepairAxiom {
     }
 
     fn holds(&self) -> bool {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         taxonomy::is_a::<BioelectricTaxonomy>(&IonChannelModulation, &Intervention)
             && taxonomy::is_a::<BioelectricTaxonomy>(&ProtonPumpInhibition, &Intervention)
     }
@@ -351,13 +286,13 @@ impl Axiom for TwoMechanismRepairAxiom {
     }
 
     fn holds(&self) -> bool {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         let req = RequiresGapJunctions;
         req.get(&ProtonPumpInhibition) == Some(false) && req.get(&BioelectricCocktail) == Some(true)
     }
 }
 
-/// TAME hierarchy axiom: no cycles, exactly 5 levels.
+/// TAME hierarchy axiom: exactly 5 levels.
 pub struct TAMEHierarchyAxiom;
 
 impl Axiom for TAMEHierarchyAxiom {
@@ -366,6 +301,7 @@ impl Axiom for TAMEHierarchyAxiom {
     }
 
     fn holds(&self) -> bool {
+        use pr4xis::category::Entity;
         taxonomy::NoCycles::<TAMETaxonomy>::new().holds() && CompetencyLevel::variants().len() == 5
     }
 }
@@ -379,7 +315,7 @@ impl Axiom for CognitiveLightconeAxiom {
     }
 
     fn holds(&self) -> bool {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         RequiresGapJunctions.get(&CognitiveLightcone) == Some(true)
             && OperatingLevel.get(&CognitiveLightcone) == Some(CompetencyLevel::Organ)
     }
@@ -394,6 +330,7 @@ impl Axiom for MechanicalStimulationIsHardwareAccessible {
     }
 
     fn holds(&self) -> bool {
+        use pr4xis::category::Entity;
         let hw = IsHardwareAccessible;
         let interventions: Vec<BioelectricEntity> = BioelectricEntity::variants()
             .into_iter()
@@ -408,19 +345,6 @@ impl Axiom for MechanicalStimulationIsHardwareAccessible {
     }
 }
 
-/// Bioelectric taxonomy is a DAG.
-pub struct BioelectricTaxonomyIsDAG;
-
-impl Axiom for BioelectricTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "bioelectric taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<BioelectricTaxonomy>::new().holds()
-    }
-}
-
 /// All 5 TAME levels are represented in OperatingLevel values.
 pub struct AllTAMELevelsRepresented;
 
@@ -430,6 +354,7 @@ impl Axiom for AllTAMELevelsRepresented {
     }
 
     fn holds(&self) -> bool {
+        use pr4xis::category::Entity;
         let op = OperatingLevel;
         let all = BioelectricEntity::variants();
         let levels: Vec<CompetencyLevel> = all.iter().filter_map(|e| op.get(e)).collect();
@@ -439,12 +364,7 @@ impl Axiom for AllTAMELevelsRepresented {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Cross-domain equivalence axioms
-// ---------------------------------------------------------------------------
-
 /// Axiom: bioelectricity->regeneration functor preserves TargetMorphology identity.
-/// TargetMorphology in bioelectricity IS TargetMorphology in regeneration.
 pub struct TargetMorphologyCrossDomainEquivalence;
 
 impl Axiom for TargetMorphologyCrossDomainEquivalence {
@@ -465,15 +385,12 @@ impl Axiom for TargetMorphologyCrossDomainEquivalence {
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// Top-level ontology tying together the bioelectric category, qualities, and axioms.
-pub struct BioelectricOntology;
-
 impl Ontology for BioelectricOntology {
     type Cat = BioelectricCategory;
     type Qual = OperatingLevel;
 
     fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        BioelectricOntologyMeta::generated_structural_axioms()
+        Self::generated_structural_axioms()
     }
 
     fn domain_axioms() -> Vec<Box<dyn Axiom>> {
@@ -498,10 +415,11 @@ impl Ontology for BioelectricOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::natural::biomedical::bioelectricity::event::{CausalAsymmetric, NoSelfCausation};
+    use pr4xis::category::Entity;
     use pr4xis::category::validate::check_category_laws;
+    use pr4xis::ontology::reasoning::causation;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
-
-    // -- Axiom tests --
 
     #[test]
     fn test_bioelectric_code_axiom() {
@@ -567,15 +485,6 @@ mod tests {
     }
 
     #[test]
-    fn test_bioelectric_taxonomy_is_dag() {
-        assert!(
-            BioelectricTaxonomyIsDAG.holds(),
-            "{}",
-            BioelectricTaxonomyIsDAG.description()
-        );
-    }
-
-    #[test]
     fn test_all_tame_levels_represented() {
         assert!(
             AllTAMELevelsRepresented.holds(),
@@ -584,29 +493,19 @@ mod tests {
         );
     }
 
-    // -- Opposition tests --
-
     #[test]
     fn test_bioelectric_opposition_symmetric() {
-        assert!(
-            BioelectricOppositionSymmetric.holds(),
-            "{}",
-            BioelectricOppositionSymmetric.description()
-        );
+        assert!(BioelectricOppositionSymmetric.holds());
     }
 
     #[test]
     fn test_bioelectric_opposition_irreflexive() {
-        assert!(
-            BioelectricOppositionIrreflexive.holds(),
-            "{}",
-            BioelectricOppositionIrreflexive.description()
-        );
+        assert!(BioelectricOppositionIrreflexive.holds());
     }
 
     #[test]
     fn test_ion_channel_modulation_opposes_ppi() {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         assert!(opposition::are_opposed::<BioelectricOpposition>(
             &IonChannelModulation,
             &ProtonPumpInhibition
@@ -619,7 +518,7 @@ mod tests {
 
     #[test]
     fn test_signal_opposes_intervention() {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         assert!(opposition::are_opposed::<BioelectricOpposition>(
             &Signal,
             &Intervention
@@ -628,7 +527,7 @@ mod tests {
 
     #[test]
     fn test_signal_does_not_oppose_network() {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         assert!(!opposition::are_opposed::<BioelectricOpposition>(
             &Signal, &Network
         ));
@@ -636,12 +535,10 @@ mod tests {
 
     #[test]
     fn test_bioelectric_opposites_query() {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         let opps = opposition::opposites::<BioelectricOpposition>(&Signal);
         assert_eq!(opps, vec![Intervention]);
     }
-
-    // -- Category law tests --
 
     #[test]
     fn test_bioelectric_category_laws() {
@@ -658,8 +555,6 @@ mod tests {
         check_category_laws::<TaxonomyCategory<BioelectricTaxonomy>>().unwrap();
     }
 
-    // -- TAME transitivity tests --
-
     #[test]
     fn test_tame_molecular_reaches_organism() {
         use CompetencyLevel::*;
@@ -675,11 +570,9 @@ mod tests {
         assert!(!taxonomy::is_a::<TAMETaxonomy>(&Organism, &Molecular));
     }
 
-    // -- Signal taxonomy tests --
-
     #[test]
     fn test_signals_are_signals() {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         for signal in [
             MembranePotential,
             VoltageGradient,
@@ -696,7 +589,7 @@ mod tests {
 
     #[test]
     fn test_interventions_are_interventions() {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         for interv in [
             IonChannelModulation,
             GapJunctionModulation,
@@ -724,8 +617,6 @@ mod tests {
         assert_eq!(BioelectricEntity::variants().len(), 19);
     }
 
-    // -- Property-based tests (proptest) --
-
     use proptest::prelude::*;
 
     fn arb_competency_level() -> impl Strategy<Value = CompetencyLevel> {
@@ -737,7 +628,6 @@ mod tests {
     }
 
     proptest! {
-        /// For any CompetencyLevel, the is-a relationship is reflexive.
         #[test]
         fn prop_competency_level_is_a_reflexive(level in arb_competency_level()) {
             prop_assert!(
@@ -747,7 +637,6 @@ mod tests {
             );
         }
 
-        /// For any BioelectricEntity, OperatingLevel always returns Some (total function).
         #[test]
         fn prop_operating_level_is_total(entity in arb_bioelectric_entity()) {
             prop_assert!(
@@ -758,19 +647,13 @@ mod tests {
         }
     }
 
-    // -- Literature axioms --
-
-    /// Chernet & Levin 2013: +19.4 mV hyperpolarization via GlyR suppresses tumors.
-    /// IonChannelModulation is an Intervention that does NOT require gap junctions.
     #[test]
     fn test_literature_chernet_levin_2013_ion_channel_modulation_no_gj() {
-        use BioelectricEntity::*;
-        // IonChannelModulation is-a Intervention
+        use BioelectricConcept::*;
         assert!(
             taxonomy::is_a::<BioelectricTaxonomy>(&IonChannelModulation, &Intervention),
             "Chernet & Levin 2013: IonChannelModulation must be an Intervention"
         );
-        // IonChannelModulation does NOT require gap junctions
         assert_eq!(
             RequiresGapJunctions.get(&IonChannelModulation),
             Some(false),
@@ -784,19 +667,15 @@ mod tests {
         BioelectricOntology::validate().unwrap();
     }
 
-    /// Levin 2022 TAME: exactly 5 levels of competency exist
-    /// (Molecular → Cellular → Tissue → Organ → Organism) with strict ordering.
     #[test]
     fn test_literature_levin_2022_tame_five_levels_ordered() {
         use CompetencyLevel::*;
         let levels = CompetencyLevel::variants();
-        // Exactly 5 levels
         assert_eq!(
             levels.len(),
             5,
             "Levin 2022 TAME: exactly 5 competency levels must exist"
         );
-        // Strict ordering: each level is-a its successor but not vice versa
         let ordered = [Molecular, Cellular, Tissue, Organ, Organism];
         for i in 0..ordered.len() - 1 {
             assert!(
@@ -814,24 +693,14 @@ mod tests {
         }
     }
 
-    // -- Causal graph tests --
-
     #[test]
     fn test_bioelectric_signal_causal_asymmetric() {
-        assert!(
-            BioelectricSignalCausalAsymmetric.holds(),
-            "{}",
-            BioelectricSignalCausalAsymmetric.description()
-        );
+        assert!(CausalAsymmetric.holds());
     }
 
     #[test]
     fn test_bioelectric_signal_causal_no_self_causation() {
-        assert!(
-            BioelectricSignalCausalNoSelfCausation.holds(),
-            "{}",
-            BioelectricSignalCausalNoSelfCausation.description()
-        );
+        assert!(NoSelfCausation.holds());
     }
 
     #[test]
@@ -858,8 +727,6 @@ mod tests {
     fn test_bioelectric_signal_event_count() {
         assert_eq!(BioelectricSignalEvent::variants().len(), 7);
     }
-
-    // -- Cross-domain equivalence tests --
 
     #[test]
     fn test_target_morphology_cross_domain_equivalence() {

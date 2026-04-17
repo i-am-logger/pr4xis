@@ -10,23 +10,13 @@ use crate::applied::navigation::ahrs::ontology::*;
 // ---------------------------------------------------------------------------
 
 #[test]
-fn ahrs_filter_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<AhrsFilterTaxonomy>>().unwrap();
-}
-
-#[test]
-fn attitude_state_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<AttitudeStateTaxonomy>>().unwrap();
+fn ahrs_taxonomy_category_laws() {
+    check_category_laws::<TaxonomyCategory<AhrsTaxonomy>>().unwrap();
 }
 
 #[test]
 fn ahrs_ontology_validates() {
     AhrsOntology::validate().unwrap();
-}
-
-#[test]
-fn attitude_state_taxonomy_is_dag() {
-    assert!(AttitudeStateTaxonomyIsDAG.holds());
 }
 
 #[test]

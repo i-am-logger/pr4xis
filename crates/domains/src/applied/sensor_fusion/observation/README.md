@@ -28,7 +28,7 @@ Key references:
 | InnovationZeroAtPrediction | Innovation is zero when measurement equals prediction | standard (ν = z − h(x̂)) |
 | GateAcceptsMean | Validation gate accepts a measurement at the predicted value | Bar-Shalom et al. 2001 Chapter 2 |
 
-Plus the auto-generated structural axioms from `define_ontology!` (category laws over `ObservationCategory`).
+Plus the auto-generated structural axioms from `pr4xis::ontology!` (category laws over `ObservationCategory`).
 
 ## Functors
 
@@ -36,7 +36,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `ObservationStage` entity, `StageDescription` quality, 2 axioms, tests
+- `ontology.rs` -- `ObservationConcept` entity, `StageDescription` quality, 2 axioms, tests
 - `measurement.rs` -- `Measurement` struct (raw sensor observation)
 - `observation_model.rs` -- `LinearObservationModel` (H matrix and `predict`)
 - `innovation.rs` -- `Innovation` (residual ν and its covariance S)

@@ -1,72 +1,55 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Signal domain concepts — Shannon/Nyquist sampling theory.
+//!
+//! Source: Shannon (1949), Nyquist (1928).
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::signal_processing::filter::FirstOrderLowPass;
 use crate::formal::math::signal_processing::sampling;
 
-// ---------------------------------------------------------------------------
-// Entity: signal domain concepts
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "SignalProcessing",
+    source: "Shannon (1949); Nyquist (1928)",
+    being: AbstractObject,
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum SignalDomainConcept {
-    TimeDomain,
-    FrequencyDomain,
-    SampleRate,
-    Bandwidth,
-    NyquistRate,
-    AliasFrequency,
+    concepts: [TimeDomain, FrequencyDomain, SampleRate, Bandwidth, NyquistRate, AliasFrequency],
+
+    labels: {
+        TimeDomain: ("en", "Time domain", "Signal represented as amplitude vs time, x(t)."),
+        FrequencyDomain: ("en", "Frequency domain", "Signal represented as amplitude/phase vs frequency, X(f) = F{x(t)}."),
+        SampleRate: ("en", "Sample rate", "Number of samples per second, f_s (Hz)."),
+        Bandwidth: ("en", "Bandwidth", "Range of frequencies occupied by a signal, B = f_max - f_min."),
+        NyquistRate: ("en", "Nyquist rate", "Minimum sample rate to avoid aliasing: f_nyquist = 2 * f_max."),
+        AliasFrequency: ("en", "Alias frequency", "Spurious frequency from under-sampling: appears when f_s < 2*f_max."),
+    },
 }
-
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_ontology! {
-    /// Discrete category over signal domain concept entities.
-    pub SignalProcessingOntology for SignalCategory {
-        concepts: SignalDomainConcept,
-        relation: SignalRelation,
-        being: AbstractObject,
-        source: "Shannon (1949); Nyquist (1928)",
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Quality: concept descriptions
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
 pub struct ConceptDescription;
 
 impl Quality for ConceptDescription {
-    type Individual = SignalDomainConcept;
+    type Individual = SignalProcessingConcept;
     type Value = &'static str;
 
-    fn get(&self, c: &SignalDomainConcept) -> Option<&'static str> {
+    fn get(&self, c: &SignalProcessingConcept) -> Option<&'static str> {
         Some(match c {
-            SignalDomainConcept::TimeDomain => "signal represented as amplitude vs time, x(t)",
-            SignalDomainConcept::FrequencyDomain => {
+            SignalProcessingConcept::TimeDomain => "signal represented as amplitude vs time, x(t)",
+            SignalProcessingConcept::FrequencyDomain => {
                 "signal represented as amplitude/phase vs frequency, X(f) = F{x(t)}"
             }
-            SignalDomainConcept::SampleRate => "number of samples per second, f_s (Hz)",
-            SignalDomainConcept::Bandwidth => {
+            SignalProcessingConcept::SampleRate => "number of samples per second, f_s (Hz)",
+            SignalProcessingConcept::Bandwidth => {
                 "range of frequencies occupied by a signal, B = f_max - f_min"
             }
-            SignalDomainConcept::NyquistRate => {
+            SignalProcessingConcept::NyquistRate => {
                 "minimum sample rate to avoid aliasing: f_nyquist = 2 * f_max"
             }
-            SignalDomainConcept::AliasFrequency => {
+            SignalProcessingConcept::AliasFrequency => {
                 "spurious frequency from under-sampling: appears when f_s < 2*f_max"
             }
         })
     }
 }
-
-// ---------------------------------------------------------------------------
-// Axioms — Shannon (1949), Nyquist (1928)
-// ---------------------------------------------------------------------------
 
 /// Nyquist theorem: adequate sampling at f_s >= 2*bandwidth preserves all information.
 pub struct NyquistTheorem;
@@ -77,14 +60,12 @@ impl Axiom for NyquistTheorem {
     }
 
     fn holds(&self) -> bool {
-        // Test several bandwidths: nyquist rate should always work
         let bandwidths = [1.0, 100.0, 22050.0, 1e6];
         for &bw in &bandwidths {
             let nyquist = sampling::nyquist_rate(bw);
             if !sampling::is_adequately_sampled(nyquist, bw) {
                 return false;
             }
-            // Slightly above Nyquist must also be adequate
             if !sampling::is_adequately_sampled(nyquist + 1.0, bw) {
                 return false;
             }
@@ -105,7 +86,6 @@ impl Axiom for AliasingOccursBelowNyquist {
         let bandwidths = [100.0, 1000.0, 22050.0];
         for &bw in &bandwidths {
             let nyquist = sampling::nyquist_rate(bw);
-            // Below Nyquist should NOT be adequately sampled
             if sampling::is_adequately_sampled(nyquist - 1.0, bw) {
                 return false;
             }
@@ -123,7 +103,6 @@ impl Axiom for BandwidthPositive {
     }
 
     fn holds(&self) -> bool {
-        // For any positive bandwidth, the Nyquist rate is positive
         let bandwidths = [0.001, 1.0, 100.0, 1e9];
         for &bw in &bandwidths {
             if bw <= 0.0 {
@@ -137,12 +116,8 @@ impl Axiom for BandwidthPositive {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
 impl Ontology for SignalProcessingOntology {
-    type Cat = SignalCategory;
+    type Cat = SignalProcessingCategory;
     type Qual = ConceptDescription;
 
     fn structural_axioms() -> Vec<Box<dyn Axiom>> {
@@ -158,10 +133,6 @@ impl Ontology for SignalProcessingOntology {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Re-export for tests
-// ---------------------------------------------------------------------------
-
 /// Create a first-order low-pass filter for axiom testing convenience.
 pub fn test_low_pass_filter(alpha: f64) -> FirstOrderLowPass {
     FirstOrderLowPass::from_alpha(alpha)
@@ -173,7 +144,7 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<SignalCategory>().unwrap();
+        pr4xis::category::validate::check_category_laws::<SignalProcessingCategory>().unwrap();
     }
 
     #[test]

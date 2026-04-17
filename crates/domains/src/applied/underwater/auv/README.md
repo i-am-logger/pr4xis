@@ -14,7 +14,7 @@ Key references:
 
 ## Category
 
-`AuvOntology for AuvCategory` via `define_ontology!`, relation `AuvSensorRelation`, fully connected.
+`AuvOntology`/`AuvCategory`/`AuvConcept` via `pr4xis::ontology!`, relation `AuvRelation`, fully connected.
 
 ## Qualities
 
@@ -36,7 +36,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `AuvSensor`, `AuvCategory`, `MeasuredQuantity` quality, navigation axioms
+- `ontology.rs` -- `AuvConcept`, `AuvCategory`, `MeasuredQuantity` quality, navigation axioms
 - `engine.rs` -- navigation/fusion engine used by tests
 - `tests.rs` -- additional tests beyond `ontology.rs`
 - `mod.rs` -- module declarations

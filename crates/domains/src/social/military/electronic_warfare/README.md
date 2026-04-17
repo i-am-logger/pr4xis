@@ -15,7 +15,7 @@ Key references:
 
 ## Category
 
-Defined via `define_ontology!` as `EwCategory { concepts: EwObservable, relation: EwFusionRelation }`. The category is fully connected: any observable may be fused with any other.
+Defined via `pr4xis::ontology!` as `EwOntology`/`EwCategory`/`EwConcept`, relation `EwRelation`. The category is fully connected: any observable may be fused with any other.
 
 ```mermaid
 graph TD
@@ -40,7 +40,7 @@ graph TD
 | AoaBounded | Angle of arrival measurements lie in [-π, π] | Poisel 2012 |
 | TdoaRequiresSensorPair | TDOA geolocation requires at least one sensor pair | Poisel 2012 |
 
-Plus the auto-generated structural axioms from `define_ontology!`.
+Plus the auto-generated structural axioms from `pr4xis::ontology!`.
 
 ## Functors
 
@@ -48,7 +48,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `EwObservable`, `EwCategory`, `EwOntology`, `ObservableGeometry` quality, `AoaBounded`/`TdoaRequiresSensorPair` axioms, tests
+- `ontology.rs` -- `EwConcept`, `EwCategory`, `EwOntology`, `ObservableGeometry` quality, `AoaBounded`/`TdoaRequiresSensorPair` axioms, tests
 - `engine.rs` -- runtime EW fusion engine
 - `tests.rs` -- additional tests beyond `ontology.rs`
 - `mod.rs` -- module declarations

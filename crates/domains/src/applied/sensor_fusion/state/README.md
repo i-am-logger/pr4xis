@@ -31,7 +31,7 @@ Key references:
 | InformationRoundtrip | state → information → state roundtrip preserves the estimate | Mutambara 1998 |
 | InformationFusionAdditive | Information fusion is additive: Y_fused = Y₁ + Y₂ | Mutambara 1998 |
 
-Plus the auto-generated structural axioms from `define_ontology!` (category laws over `EstimationCategory`).
+Plus the auto-generated structural axioms from `pr4xis::ontology!` (category laws over `StateEstimationCategory`).
 
 ## Functors
 
@@ -39,7 +39,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `EstimationConcept` entity, `ConceptDescription` quality, 3 axioms, canonical estimates, tests
+- `ontology.rs` -- `StateEstimationConcept` entity, `ConceptDescription` quality, 3 axioms, canonical estimates, tests
 - `estimate.rs` -- `StateEstimate { state, covariance, epoch }` — the primary runtime type
 - `vector.rs` -- `StateComponent` and `StateLayout` (which dimensions mean what)
 - `covariance.rs` -- `ensure_symmetric`, `is_valid`, `std_dev`, `correlation`, `total_uncertainty`

@@ -1,57 +1,31 @@
-use pr4xis::category::{Category, Entity};
-use pr4xis::define_ontology;
+//! SLAM graph components.
+//!
+//! Source: Grisetti et al. (2010), "A Tutorial on Graph-Based SLAM"
+
+use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// SLAM graph components.
-///
-/// Source: Grisetti et al. (2010), "A Tutorial on Graph-Based SLAM"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum SlamComponent {
-    /// Robot pose node in the graph.
-    Pose,
-    /// Landmark node observed by the robot.
-    Landmark,
-    /// Constraint (edge) between nodes from sensor observations.
-    Constraint,
-    /// Loop closure: constraint linking current pose to a previously visited location.
-    LoopClosure,
-}
+pr4xis::ontology! {
+    name: "Slam",
+    source: "Grisetti et al. (2010); Durrant-Whyte & Bailey (2006)",
+    being: Process,
 
-define_ontology! {
-    /// Category for SLAM graph structure.
-    ///
-    /// Poses observe landmarks via constraints. Loop closures connect poses.
-    pub SlamOntologyMeta for SlamCategory {
-        concepts: SlamComponent,
-        relation: SlamRelation,
-        kind: SlamRelationKind,
-        kinds: [
-            /// Pose observes landmark via constraint.
-            Observes,
-            /// Constraint links to a landmark.
-            Links,
-            /// Loop closure connects poses.
-            Closes,
-        ],
-        edges: [
-            // Pose <-> Landmark via Constraint
-            (Pose, Constraint, Observes),
-            (Constraint, Landmark, Links),
-            // Pose -> LoopClosure -> Pose
-            (Pose, LoopClosure, Closes),
-            (LoopClosure, Pose, Closes),
-            // Transitive: LoopClosure -> Constraint, LoopClosure -> Landmark
-            (LoopClosure, Constraint, Observes),
-        ],
-        composed: [
-            // Pose -> Landmark (through Constraint)
-            (Pose, Landmark),
-            // LoopClosure -> Landmark (through Pose/Constraint)
-            (LoopClosure, Landmark),
-        ],
-        being: Process,
-        source: "Durrant-Whyte & Bailey (2006)",
-    }
+    concepts: [Pose, Landmark, Constraint, LoopClosure],
+
+    labels: {
+        Pose: ("en", "Pose", "Robot pose node in the graph."),
+        Landmark: ("en", "Landmark", "Landmark node observed by the robot."),
+        Constraint: ("en", "Constraint", "Constraint (edge) between nodes from sensor observations."),
+        LoopClosure: ("en", "Loop closure", "Loop closure: constraint linking current pose to a previously visited location."),
+    },
+
+    edges: [
+        (Pose, Constraint, Observes),
+        (Constraint, Landmark, Links),
+        (Pose, LoopClosure, Closes),
+        (LoopClosure, Pose, Closes),
+        (LoopClosure, Constraint, Observes),
+    ],
 }
 
 /// Quality: description of each SLAM component's role.
@@ -59,24 +33,20 @@ define_ontology! {
 pub struct ComponentRole;
 
 impl Quality for ComponentRole {
-    type Individual = SlamComponent;
+    type Individual = SlamConcept;
     type Value = &'static str;
 
-    fn get(&self, component: &SlamComponent) -> Option<&'static str> {
+    fn get(&self, component: &SlamConcept) -> Option<&'static str> {
         Some(match component {
-            SlamComponent::Pose => "robot pose (position + orientation) at a time step",
-            SlamComponent::Landmark => "environmental feature observed by the robot",
-            SlamComponent::Constraint => "sensor measurement linking two nodes",
-            SlamComponent::LoopClosure => "re-observation of a previously visited location",
+            SlamConcept::Pose => "robot pose (position + orientation) at a time step",
+            SlamConcept::Landmark => "environmental feature observed by the robot",
+            SlamConcept::Constraint => "sensor measurement linking two nodes",
+            SlamConcept::LoopClosure => "re-observation of a previously visited location",
         })
     }
 }
 
 /// Axiom: adding a constraint to the SLAM graph reduces uncertainty.
-///
-/// In graph-based SLAM, each new constraint (observation) adds information
-/// to the system, which can only reduce or maintain (never increase) the
-/// uncertainty of the maximum likelihood estimate.
 pub struct ConstraintReducesUncertainty;
 
 impl Axiom for ConstraintReducesUncertainty {
@@ -84,9 +54,6 @@ impl Axiom for ConstraintReducesUncertainty {
         "adding a constraint to the SLAM graph reduces or maintains uncertainty"
     }
     fn holds(&self) -> bool {
-        // Structural axiom from information theory:
-        // Adding an observation to a least-squares system can only
-        // increase the information matrix (reduce covariance).
         true
     }
 }
@@ -100,18 +67,15 @@ impl Axiom for LoopClosureConnectsPoses {
     }
     fn holds(&self) -> bool {
         let morphisms = SlamCategory::morphisms();
-        // LoopClosure must have a path to Pose
         let lc_to_pose = morphisms
             .iter()
-            .any(|m| m.from == SlamComponent::LoopClosure && m.to == SlamComponent::Pose);
+            .any(|m| m.from == SlamConcept::LoopClosure && m.to == SlamConcept::Pose);
         let pose_to_lc = morphisms
             .iter()
-            .any(|m| m.from == SlamComponent::Pose && m.to == SlamComponent::LoopClosure);
+            .any(|m| m.from == SlamConcept::Pose && m.to == SlamConcept::LoopClosure);
         lc_to_pose && pose_to_lc
     }
 }
-
-pub struct SlamOntology;
 
 impl Ontology for SlamOntology {
     type Cat = SlamCategory;

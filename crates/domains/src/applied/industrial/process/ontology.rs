@@ -1,34 +1,22 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Process control variables.
+//!
+//! Source: Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Process control variables.
-///
-/// Source: Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum ProcessVariable {
-    /// Temperature (Kelvin or Celsius).
-    Temperature,
-    /// Pressure (Pa or bar).
-    Pressure,
-    /// Flow rate (m^3/s or L/min).
-    Flow,
-    /// Liquid level (meters).
-    Level,
-}
+pr4xis::ontology! {
+    name: "Process",
+    source: "Ogunnaike & Ray (1994); Seborg et al. (2011)",
+    being: Process,
 
-define_ontology! {
-    /// Category for process variable interactions.
-    ///
-    /// Process variables are typically coupled: pressure affects flow,
-    /// temperature affects pressure, level depends on flow, etc.
-    /// The category is fully connected (all couplings are possible).
-    pub ProcessOntology for ProcessCategory {
-        entity: ProcessVariable,
-        relation: ProcessCoupling,
-        being: Process,
-        source: "Ogunnaike & Ray (1994); Seborg et al. (2011)",
-    }
+    concepts: [Temperature, Pressure, Flow, Level],
+
+    labels: {
+        Temperature: ("en", "Temperature", "Temperature (Kelvin or Celsius)."),
+        Pressure: ("en", "Pressure", "Pressure (Pa or bar)."),
+        Flow: ("en", "Flow", "Flow rate (m^3/s or L/min)."),
+        Level: ("en", "Level", "Liquid level (meters)."),
+    },
 }
 
 /// Quality: physical unit for each process variable.
@@ -36,15 +24,15 @@ define_ontology! {
 pub struct PhysicalUnit;
 
 impl Quality for PhysicalUnit {
-    type Individual = ProcessVariable;
+    type Individual = ProcessConcept;
     type Value = &'static str;
 
-    fn get(&self, var: &ProcessVariable) -> Option<&'static str> {
+    fn get(&self, var: &ProcessConcept) -> Option<&'static str> {
         Some(match var {
-            ProcessVariable::Temperature => "Kelvin (K)",
-            ProcessVariable::Pressure => "Pascal (Pa)",
-            ProcessVariable::Flow => "m^3/s",
-            ProcessVariable::Level => "meters (m)",
+            ProcessConcept::Temperature => "Kelvin (K)",
+            ProcessConcept::Pressure => "Pascal (Pa)",
+            ProcessConcept::Flow => "m^3/s",
+            ProcessConcept::Level => "meters (m)",
         })
     }
 }
@@ -57,8 +45,6 @@ impl Axiom for TemperatureAboveAbsoluteZero {
         "temperature must be >= absolute zero (0 K = -273.15 C)"
     }
     fn holds(&self) -> bool {
-        // Third law of thermodynamics: absolute zero cannot be reached,
-        // so T > 0 K for any real system.
         true
     }
 }
@@ -71,8 +57,6 @@ impl Axiom for PressureNonNegative {
         "absolute pressure is non-negative"
     }
     fn holds(&self) -> bool {
-        // Absolute pressure P >= 0. Gauge pressure can be negative,
-        // but absolute pressure is bounded below by vacuum (P = 0).
         true
     }
 }

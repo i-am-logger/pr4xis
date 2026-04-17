@@ -1,30 +1,21 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Structural health monitoring sensor types.
+//!
+//! Source: Farrar & Worden (2007), "An Introduction to Structural Health Monitoring"
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Structural health monitoring sensor types.
-///
-/// Source: Farrar & Worden (2007), "An Introduction to Structural Health Monitoring"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum StructuralSensor {
-    /// Measures mechanical strain (deformation per unit length).
-    StrainGauge,
-    /// Measures vibration/acceleration.
-    Accelerometer,
-    /// Detects and measures crack propagation.
-    CrackSensor,
-}
+pr4xis::ontology! {
+    name: "Structural",
+    source: "Farrar & Worden (2007); Paris & Erdogan (1963)",
+    being: PhysicalEndurant,
 
-define_ontology! {
-    /// Category for structural sensor fusion.
-    ///
-    /// All sensors contribute to damage assessment; the category is fully connected.
-    pub StructuralOntology for StructuralCategory {
-        entity: StructuralSensor,
-        relation: StructuralRelation,
-        being: PhysicalEndurant,
-        source: "Farrar & Worden (2007); Paris & Erdogan (1963)",
-    }
+    concepts: [StrainGauge, Accelerometer, CrackSensor],
+
+    labels: {
+        StrainGauge: ("en", "Strain gauge", "Measures mechanical strain (deformation per unit length)."),
+        Accelerometer: ("en", "Accelerometer", "Measures vibration/acceleration."),
+        CrackSensor: ("en", "Crack sensor", "Detects and measures crack propagation."),
+    },
 }
 
 /// Quality: what physical quantity each sensor measures.
@@ -32,22 +23,19 @@ define_ontology! {
 pub struct SensorMeasurand;
 
 impl Quality for SensorMeasurand {
-    type Individual = StructuralSensor;
+    type Individual = StructuralConcept;
     type Value = &'static str;
 
-    fn get(&self, sensor: &StructuralSensor) -> Option<&'static str> {
+    fn get(&self, sensor: &StructuralConcept) -> Option<&'static str> {
         Some(match sensor {
-            StructuralSensor::StrainGauge => "strain (microstrain, dimensionless)",
-            StructuralSensor::Accelerometer => "acceleration (m/s^2)",
-            StructuralSensor::CrackSensor => "crack length (mm)",
+            StructuralConcept::StrainGauge => "strain (microstrain, dimensionless)",
+            StructuralConcept::Accelerometer => "acceleration (m/s^2)",
+            StructuralConcept::CrackSensor => "crack length (mm)",
         })
     }
 }
 
 /// Axiom: strain is bounded for elastic deformation.
-///
-/// For structural steel, elastic limit is typically ~2000 microstrain.
-/// Beyond this, plastic deformation occurs.
 pub struct StrainBoundedElastic;
 
 impl Axiom for StrainBoundedElastic {
@@ -55,10 +43,6 @@ impl Axiom for StrainBoundedElastic {
         "strain is bounded within elastic deformation limits"
     }
     fn holds(&self) -> bool {
-        // Structural axiom: Hooke's law applies in the elastic region.
-        // For steel: yield strain ~ 0.2% = 2000 microstrain.
-        // Monitoring assumes the structure operates within elastic limits
-        // during normal operation.
         true
     }
 }
@@ -71,9 +55,6 @@ impl Axiom for CrackMonotonicity {
         "crack length is non-negative and does not decrease (fatigue cracks only grow)"
     }
     fn holds(&self) -> bool {
-        // Structural axiom from fracture mechanics:
-        // Under cyclic loading, cracks propagate according to Paris' law
-        // (da/dN = C * (delta_K)^m), which is always non-negative.
         true
     }
 }

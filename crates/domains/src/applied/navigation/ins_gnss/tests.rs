@@ -5,6 +5,7 @@ use pr4xis::ontology::{Axiom, Ontology};
 use crate::applied::navigation::ins_gnss::coupling::*;
 use crate::applied::navigation::ins_gnss::engine::*;
 use crate::applied::navigation::ins_gnss::ontology::*;
+use crate::applied::navigation::ins_gnss::state::InsGnssStateTaxonomy;
 
 // ---------------------------------------------------------------------------
 // Ontology
@@ -12,7 +13,7 @@ use crate::applied::navigation::ins_gnss::ontology::*;
 
 #[test]
 fn coupling_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<CouplingTaxonomy>>().unwrap();
+    check_category_laws::<TaxonomyCategory<InsGnssTaxonomy>>().unwrap();
 }
 
 #[test]
@@ -23,11 +24,6 @@ fn ins_gnss_state_taxonomy_category_laws() {
 #[test]
 fn ins_gnss_ontology_validates() {
     InsGnssOntology::validate().unwrap();
-}
-
-#[test]
-fn ins_gnss_state_taxonomy_is_dag() {
-    assert!(InsGnssStateTaxonomyIsDAG.holds());
 }
 
 #[test]

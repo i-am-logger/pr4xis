@@ -20,7 +20,7 @@ Key references:
 
 ## Category
 
-Discrete category over the 14 `PhysicsLaw` variants with a `Derives` relation kind. The branch classification (`LawBranch` quality) partitions the laws into the five branches above.
+Discrete category over the 14 `PhysicsConcept` variants. The branch classification (`LawBranch` quality) partitions the laws into the five branches above.
 
 ## Qualities
 
@@ -35,7 +35,7 @@ Discrete category over the 14 `PhysicsLaw` variants with a `Derives` relation ki
 | MaxwellDerivesC | The four Maxwell equations together yield c = 1/√(μ₀ε₀) | Maxwell 1865 |
 | AllBranchesRepresented | Every branch of physics has at least one law (no empty branch) | structural |
 
-Plus the auto-generated structural axioms from `define_ontology!` (category laws on the discrete category).
+Plus the auto-generated structural axioms from `pr4xis::ontology!` (category laws on the discrete category).
 
 ## Engine-level sub-ontologies
 
@@ -56,7 +56,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../docs/u
 
 ## Files
 
-- `ontology.rs` -- `PhysicsLaw` entity, discrete category, `LawBranch` quality, 2 domain axioms, tests
+- `ontology.rs` -- `PhysicsConcept` entity, discrete category, `LawBranch` quality, 2 domain axioms, tests
 - `mechanics.rs` -- Newtonian mechanics engine (F = ma, mass conservation)
 - `energy.rs` -- Energy conservation engine (KE + PE)
 - `electromagnetism.rs` -- Circuit engine (Ohm's law)

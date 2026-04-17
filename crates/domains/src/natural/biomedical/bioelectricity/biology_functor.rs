@@ -14,7 +14,7 @@
 use pr4xis::category::{Functor, Relationship};
 
 use crate::natural::biomedical::bioelectricity::ontology::{
-    BioelectricCategory, BioelectricEntity, BioelectricRelation,
+    BioelectricCategory, BioelectricConcept, BioelectricEntity, BioelectricRelation,
 };
 use crate::natural::biomedical::biology::ontology::{
     BiologicalEntity, BiologicalRelation, BiologyCategory,
@@ -28,7 +28,7 @@ impl Functor for BioelectricToBiology {
     type Target = BiologyCategory;
 
     fn map_object(obj: &BioelectricEntity) -> BiologicalEntity {
-        use BioelectricEntity::*;
+        use BioelectricConcept::*;
         use BiologicalEntity as B;
         match obj {
             // Signals → cellular/tissue level

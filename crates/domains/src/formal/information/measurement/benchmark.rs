@@ -1,130 +1,74 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Benchmark ontology — the process of measuring system performance.
+//!
+//! A benchmark is a structured measurement process with specific phases,
+//! validity requirements, and statistical rigor. It produces results
+//! that can be compared across runs for regression detection.
+//!
+//! References:
+//! - Georges, Buytaert & Eeckhout, "Statistically Rigorous Java Performance
+//!   Evaluation" (2007, OOPSLA) — steady-state detection, multiple invocations
+//! - Kalibera & Jones, "Rigorous Benchmarking in Reasonable Time"
+//!   (2013, ISSTA) — hierarchical design, variance decomposition
+//! - SPEC CPU2017 documentation — run rules, reporting requirements
+//! - ISO/IEC 14756:1999 — measurement and rating of computer performance
 
-// Benchmark ontology — the process of measuring system performance.
-//
-// A benchmark is a structured measurement process with specific phases,
-// validity requirements, and statistical rigor. It produces results
-// that can be compared across runs for regression detection.
-//
-// References:
-// - Georges, Buytaert & Eeckhout, "Statistically Rigorous Java Performance
-//   Evaluation" (2007, OOPSLA) — steady-state detection, multiple invocations
-// - Kalibera & Jones, "Rigorous Benchmarking in Reasonable Time"
-//   (2013, ISSTA) — hierarchical design, variance decomposition
-// - SPEC CPU2017 documentation — run rules, reporting requirements
-// - ISO/IEC 14756:1999 — measurement and rating of computer performance
+pr4xis::ontology! {
+    name: "Benchmark",
+    source: "JCGM 200:2012 (VIM)",
+    being: AbstractObject,
 
-/// Concepts in the benchmark process.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum BenchmarkConcept {
-    /// The benchmark as a whole — a structured measurement protocol.
-    /// ISO/IEC 14756: a complete specification of workload + measurement.
-    Benchmark,
+    concepts: [
+        Benchmark,
+        Setup,
+        Warmup,
+        SteadyState,
+        Iteration,
+        Invocation,
+        Baseline,
+        Candidate,
+        Regression,
+        Improvement,
+        EffectSize,
+        ConfidenceInterval,
+    ],
 
-    /// Configure the system under test, initialize workload.
-    /// ISO/IEC 14756: workload characterization.
-    Setup,
+    labels: {
+        Benchmark: ("en", "Benchmark", "The benchmark as a whole — a structured measurement protocol. ISO/IEC 14756: a complete specification of workload + measurement."),
+        Setup: ("en", "Setup", "Configure the system under test, initialize workload. ISO/IEC 14756: workload characterization."),
+        Warmup: ("en", "Warmup", "The non-stationary period before steady state. Georges et al. (2007): JIT compilation, cache warming."),
+        SteadyState: ("en", "Steady state", "The stationary period where measurements are valid. Georges et al. (2007): coefficient of variation test."),
+        Iteration: ("en", "Iteration", "A single execution of the benchmark workload. Kalibera & Jones (2013): the atomic unit of measurement."),
+        Invocation: ("en", "Invocation", "A complete process start-to-finish (may contain many iterations). Georges et al. (2007): multiple invocations needed to avoid bias from memory layout, JIT decisions, etc."),
+        Baseline: ("en", "Baseline", "The reference distribution of measurements from a known-good version."),
+        Candidate: ("en", "Candidate", "The distribution from the version under test."),
+        Regression: ("en", "Regression", "A statistically significant degradation in performance."),
+        Improvement: ("en", "Improvement", "A statistically significant improvement in performance."),
+        EffectSize: ("en", "Effect size", "The magnitude of difference between baseline and candidate. Cohen's d or similar effect size measure."),
+        ConfidenceInterval: ("en", "Confidence interval", "The range of plausible values for the true performance. Georges et al. (2007): 'a benchmark result without a confidence interval is meaningless.'"),
+    },
 
-    /// The non-stationary period before steady state.
-    /// Georges et al. (2007): JIT compilation, cache warming.
-    Warmup,
-
-    /// The stationary period where measurements are valid.
-    /// Georges et al. (2007): coefficient of variation test.
-    SteadyState,
-
-    /// A single execution of the benchmark workload.
-    /// Kalibera & Jones (2013): the atomic unit of measurement.
-    Iteration,
-
-    /// A complete process start-to-finish (may contain many iterations).
-    /// Georges et al. (2007): multiple invocations needed to avoid
-    /// bias from memory layout, JIT decisions, etc.
-    Invocation,
-
-    /// The reference distribution of measurements from a known-good version.
-    Baseline,
-
-    /// The distribution from the version under test.
-    Candidate,
-
-    /// A statistically significant degradation in performance.
-    Regression,
-
-    /// A statistically significant improvement in performance.
-    Improvement,
-
-    /// The magnitude of difference between baseline and candidate.
-    /// Cohen's d or similar effect size measure.
-    EffectSize,
-
-    /// The range of plausible values for the true performance.
-    /// Georges et al. (2007): "a benchmark result without a
-    /// confidence interval is meaningless."
-    ConfidenceInterval,
-}
-
-define_ontology! {
-    pub BenchmarkOntology for BenchmarkCategory {
-        concepts: BenchmarkConcept,
-        relation: BenchmarkRelation,
-        kind: BenchmarkRelationKind,
-        kinds: [
-            /// Benchmark contains this phase/component.
-            Contains,
-            /// Phase precedes another in the process.
-            Precedes,
-            /// Invocation contains Iterations.
-            ContainsIterations,
-            /// Baseline/Candidate produce EffectSize when compared.
-            ComparesTo,
-            /// EffectSize determines Regression or Improvement.
-            Determines,
-            /// Result requires ConfidenceInterval (Georges axiom).
-            Requires,
-        ],
-        edges: [
-            // Benchmark contains all phases
-            (Benchmark, Setup, Contains),
-            (Benchmark, Warmup, Contains),
-            (Benchmark, SteadyState, Contains),
-            (Benchmark, Invocation, Contains),
-            // The process state machine: Setup → Warmup → SteadyState
-            // Georges et al. (2007): you MUST reach steady state before measuring.
-            (Setup, Warmup, Precedes),
-            (Warmup, SteadyState, Precedes),
-            // Invocation contains Iterations (Kalibera hierarchical design)
-            (Invocation, Iteration, ContainsIterations),
-            // Baseline and Candidate are compared to produce EffectSize
-            (Baseline, EffectSize, ComparesTo),
-            (Candidate, EffectSize, ComparesTo),
-            // EffectSize determines Regression or Improvement
-            (EffectSize, Regression, Determines),
-            (EffectSize, Improvement, Determines),
-            // Every result requires ConfidenceInterval (Georges axiom)
-            (Baseline, ConfidenceInterval, Requires),
-            (Candidate, ConfidenceInterval, Requires),
-        ],
-        composed: [
-            // Benchmark → Iteration (through Invocation)
-            (Benchmark, Iteration),
-            // Setup → SteadyState (through Warmup)
-            (Setup, SteadyState),
-            // Baseline → Regression (through EffectSize)
-            (Baseline, Regression),
-            // Candidate → Regression (through EffectSize)
-            (Candidate, Regression),
-        ],
-        being: AbstractObject,
-        source: "JCGM 200:2012 (VIM)",
-    }
+    edges: [
+        (Benchmark, Setup, Contains),
+        (Benchmark, Warmup, Contains),
+        (Benchmark, SteadyState, Contains),
+        (Benchmark, Invocation, Contains),
+        (Setup, Warmup, Precedes),
+        (Warmup, SteadyState, Precedes),
+        (Invocation, Iteration, ContainsIterations),
+        (Baseline, EffectSize, ComparesTo),
+        (Candidate, EffectSize, ComparesTo),
+        (EffectSize, Regression, Determines),
+        (EffectSize, Improvement, Determines),
+        (Baseline, ConfidenceInterval, Requires),
+        (Candidate, ConfidenceInterval, Requires),
+    ],
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use pr4xis::category::Category;
+    use pr4xis::category::Entity;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]
@@ -136,8 +80,6 @@ mod tests {
     fn has_twelve_concepts() {
         assert_eq!(BenchmarkConcept::variants().len(), 12);
     }
-
-    // --- Georges et al. (2007): steady-state MUST be reached before measuring ---
 
     #[test]
     fn setup_precedes_warmup() {
@@ -157,13 +99,10 @@ mod tests {
 
     #[test]
     fn steady_state_reachable_from_setup() {
-        // Setup → Warmup → SteadyState (transitively)
         let m = BenchmarkCategory::morphisms();
         assert!(m.iter().any(|r| r.from == BenchmarkConcept::Setup
             && r.to == BenchmarkConcept::SteadyState));
     }
-
-    // --- Georges et al. (2007): "a benchmark result without a confidence interval is meaningless" ---
 
     #[test]
     fn baseline_requires_confidence_interval() {
@@ -181,8 +120,6 @@ mod tests {
             && r.kind == BenchmarkRelationKind::Requires));
     }
 
-    // --- Kalibera & Jones (2013): hierarchical — invocations contain iterations ---
-
     #[test]
     fn invocation_contains_iterations() {
         let m = BenchmarkCategory::morphisms();
@@ -190,8 +127,6 @@ mod tests {
             && r.to == BenchmarkConcept::Iteration
             && r.kind == BenchmarkRelationKind::ContainsIterations));
     }
-
-    // --- Regression detection: Baseline × Candidate → EffectSize → Verdict ---
 
     #[test]
     fn baseline_and_candidate_produce_effect_size() {
@@ -215,8 +150,6 @@ mod tests {
             && r.kind == BenchmarkRelationKind::Determines));
     }
 
-    // --- Full pipeline: Baseline → EffectSize → Regression ---
-
     #[test]
     fn baseline_reaches_regression() {
         let m = BenchmarkCategory::morphisms();
@@ -226,8 +159,6 @@ mod tests {
                     && r.to == BenchmarkConcept::Regression)
         );
     }
-
-    // --- SPEC: benchmark contains all phases ---
 
     #[test]
     fn benchmark_contains_phases() {

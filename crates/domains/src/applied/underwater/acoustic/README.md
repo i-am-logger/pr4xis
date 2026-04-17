@@ -15,7 +15,7 @@ Key references:
 
 ## Category
 
-`AcousticOntology for AcousticCategory` via `define_ontology!`, relation `AcousticRelation`, fully connected.
+`AcousticOntology`/`AcousticCategory`/`AcousticConcept` via `pr4xis::ontology!`, relation `AcousticRelation`, fully connected.
 
 ## Qualities
 
@@ -37,7 +37,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `AcousticSystem`, `AcousticCategory`, `PositioningAccuracy` quality, sound-speed and range axioms
+- `ontology.rs` -- `AcousticConcept`, `AcousticCategory`, `PositioningAccuracy` quality, sound-speed and range axioms
 - `engine.rs` -- positioning engine used by tests
 - `tests.rs` -- additional tests beyond `ontology.rs`
 - `mod.rs` -- module declarations

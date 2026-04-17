@@ -1,33 +1,22 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Electronic warfare observable types for emitter geolocation.
+//!
+//! Source: Poisel (2012), *Electronic Warfare Target Location Methods*
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Electronic warfare observable types for emitter geolocation.
-///
-/// Source: Poisel (2012), *Electronic Warfare Target Location Methods*
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum EwObservable {
-    /// Angle of Arrival (bearing to emitter).
-    AOA,
-    /// Time Difference of Arrival (between sensor pairs).
-    TDOA,
-    /// Frequency Difference of Arrival (Doppler-based).
-    FDOA,
-    /// Received signal strength (path-loss based ranging).
-    SignalStrength,
-}
+pr4xis::ontology! {
+    name: "Ew",
+    source: "Poisel (2012); JP 3-13.1",
+    being: SocialObject,
 
-define_ontology! {
-    /// Category for EW observable fusion.
-    ///
-    /// All observables can be combined for improved geolocation;
-    /// the category is fully connected.
-    pub EwOntology for EwCategory {
-        concepts: EwObservable,
-        relation: EwFusionRelation,
-        being: SocialObject,
-        source: "Poisel (2012); JP 3-13.1",
-    }
+    concepts: [AOA, TDOA, FDOA, SignalStrength],
+
+    labels: {
+        AOA: ("en", "Angle of Arrival", "Angle of Arrival (bearing to emitter)."),
+        TDOA: ("en", "Time Difference of Arrival", "Time Difference of Arrival (between sensor pairs)."),
+        FDOA: ("en", "Frequency Difference of Arrival", "Frequency Difference of Arrival (Doppler-based)."),
+        SignalStrength: ("en", "Signal strength", "Received signal strength (path-loss based ranging)."),
+    },
 }
 
 /// Quality: geometric interpretation of each observable.
@@ -35,15 +24,15 @@ define_ontology! {
 pub struct ObservableGeometry;
 
 impl Quality for ObservableGeometry {
-    type Individual = EwObservable;
+    type Individual = EwConcept;
     type Value = &'static str;
 
-    fn get(&self, obs: &EwObservable) -> Option<&'static str> {
+    fn get(&self, obs: &EwConcept) -> Option<&'static str> {
         Some(match obs {
-            EwObservable::AOA => "line of bearing (half-plane)",
-            EwObservable::TDOA => "hyperbola (constant time difference)",
-            EwObservable::FDOA => "hyperbola (constant frequency difference)",
-            EwObservable::SignalStrength => "circle (constant range locus)",
+            EwConcept::AOA => "line of bearing (half-plane)",
+            EwConcept::TDOA => "hyperbola (constant time difference)",
+            EwConcept::FDOA => "hyperbola (constant frequency difference)",
+            EwConcept::SignalStrength => "circle (constant range locus)",
         })
     }
 }
@@ -56,8 +45,6 @@ impl Axiom for AoaBounded {
         "angle of arrival measurements are in [-pi, pi]"
     }
     fn holds(&self) -> bool {
-        // Structural axiom: bearings are measured as angles in [-pi, pi].
-        // Any measured AOA outside this range can be wrapped.
         true
     }
 }
@@ -70,8 +57,6 @@ impl Axiom for TdoaRequiresSensorPair {
         "TDOA geolocation requires at least one sensor pair (2 sensors)"
     }
     fn holds(&self) -> bool {
-        // Structural axiom: TDOA is computed as the time difference
-        // between two spatially separated receivers.
         true
     }
 }

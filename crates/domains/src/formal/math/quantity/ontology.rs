@@ -1,67 +1,63 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! SI base dimensions — the basis of the dimension group.
+//!
+//! Source: BIPM SI Brochure (2019), Table 1.
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::quantity::dimension::Dimension;
 use crate::formal::math::quantity::unit;
 use crate::formal::math::quantity::value::Quantity;
 
-// ---------------------------------------------------------------------------
-// Entity: SI base dimensions
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Quantity",
+    source: "BIPM SI Brochure (2019)",
+    being: AbstractObject,
 
-/// The 7 SI base dimensions — the basis of the dimension group.
-///
-/// Source: BIPM SI Brochure (2019), Table 1.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum BaseDimension {
-    Length,
-    Mass,
-    Time,
-    ElectricCurrent,
-    Temperature,
-    AmountOfSubstance,
-    LuminousIntensity,
-    Dimensionless,
-}
+    concepts: [
+        Length,
+        Mass,
+        Time,
+        ElectricCurrent,
+        Temperature,
+        AmountOfSubstance,
+        LuminousIntensity,
+        Dimensionless,
+    ],
 
-define_ontology! {
-    /// Discrete category over base dimension entities.
-    pub QuantityOntology for DimensionCategory {
-        concepts: BaseDimension,
-        relation: DimensionRelation,
-        being: AbstractObject,
-        source: "BIPM SI Brochure (2019)",
-    }
+    labels: {
+        Length: ("en", "Length", "Length dimension (SI base)."),
+        Mass: ("en", "Mass", "Mass dimension (SI base)."),
+        Time: ("en", "Time", "Time dimension (SI base)."),
+        ElectricCurrent: ("en", "Electric current", "Electric current dimension (SI base)."),
+        Temperature: ("en", "Temperature", "Thermodynamic temperature dimension (SI base)."),
+        AmountOfSubstance: ("en", "Amount of substance", "Amount of substance dimension (SI base)."),
+        LuminousIntensity: ("en", "Luminous intensity", "Luminous intensity dimension (SI base)."),
+        Dimensionless: ("en", "Dimensionless", "The dimensionless identity (1)."),
+    },
 }
 
 #[derive(Debug, Clone)]
 pub struct DimensionSymbol;
 
 impl Quality for DimensionSymbol {
-    type Individual = BaseDimension;
+    type Individual = QuantityConcept;
     type Value = &'static str;
 
-    fn get(&self, d: &BaseDimension) -> Option<&'static str> {
+    fn get(&self, d: &QuantityConcept) -> Option<&'static str> {
         Some(match d {
-            BaseDimension::Length => "L",
-            BaseDimension::Mass => "M",
-            BaseDimension::Time => "T",
-            BaseDimension::ElectricCurrent => "I",
-            BaseDimension::Temperature => "Θ",
-            BaseDimension::AmountOfSubstance => "N",
-            BaseDimension::LuminousIntensity => "J",
-            BaseDimension::Dimensionless => "1",
+            QuantityConcept::Length => "L",
+            QuantityConcept::Mass => "M",
+            QuantityConcept::Time => "T",
+            QuantityConcept::ElectricCurrent => "I",
+            QuantityConcept::Temperature => "Θ",
+            QuantityConcept::AmountOfSubstance => "N",
+            QuantityConcept::LuminousIntensity => "J",
+            QuantityConcept::Dimensionless => "1",
         })
     }
 }
 
-// ---------------------------------------------------------------------------
-// Axioms — dimension group and quantity calculus
-// ---------------------------------------------------------------------------
-
 /// Dimensions form an abelian group: multiplication is commutative.
-/// [A]·[B] = [B]·[A].
 pub struct DimensionCommutativity;
 
 impl Axiom for DimensionCommutativity {
@@ -150,13 +146,11 @@ impl Axiom for AdditionRequiresSameDimension {
         let time = Quantity::new(3.0, Dimension::TIME);
         let velocity = Quantity::new(2.0, Dimension::VELOCITY);
 
-        // Same dimension: OK
         let ok = length.add(&Quantity::new(3.0, Dimension::LENGTH));
         if ok.is_none() {
             return false;
         }
 
-        // Different dimension: error
         let err1 = length.add(&time);
         if err1.is_some() {
             return false;
@@ -172,7 +166,6 @@ impl Axiom for AdditionRequiresSameDimension {
 }
 
 /// Multiplication produces correct derived dimension.
-/// velocity = length / time → [v] = L·T⁻¹.
 pub struct DerivedDimensionConsistency;
 
 impl Axiom for DerivedDimensionConsistency {
@@ -215,12 +208,8 @@ impl Axiom for IncompatibleUnitConversionFails {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
 impl Ontology for QuantityOntology {
-    type Cat = DimensionCategory;
+    type Cat = QuantityCategory;
     type Qual = DimensionSymbol;
 
     fn structural_axioms() -> Vec<Box<dyn Axiom>> {
@@ -261,7 +250,7 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<DimensionCategory>().unwrap();
+        pr4xis::category::validate::check_category_laws::<QuantityCategory>().unwrap();
     }
 
     #[test]

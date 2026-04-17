@@ -2,6 +2,7 @@
 pub mod frame;
 pub mod fusion;
 pub mod observation;
+pub mod property;
 pub mod sensor;
 pub mod state;
 pub mod time;

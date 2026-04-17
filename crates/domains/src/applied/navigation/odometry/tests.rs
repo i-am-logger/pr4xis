@@ -10,23 +10,13 @@ use crate::applied::navigation::odometry::ontology::*;
 // ---------------------------------------------------------------------------
 
 #[test]
-fn odometry_source_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<OdometrySourceTaxonomy>>().unwrap();
-}
-
-#[test]
-fn odometry_state_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<OdometryStateTaxonomy>>().unwrap();
+fn odometry_taxonomy_category_laws() {
+    check_category_laws::<TaxonomyCategory<OdometryTaxonomy>>().unwrap();
 }
 
 #[test]
 fn odometry_ontology_validates() {
     OdometryOntology::validate().unwrap();
-}
-
-#[test]
-fn odometry_state_taxonomy_is_dag() {
-    assert!(OdometryStateTaxonomyIsDAG.holds());
 }
 
 #[test]

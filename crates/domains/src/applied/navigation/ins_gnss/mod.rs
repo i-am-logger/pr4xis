@@ -9,6 +9,7 @@
 pub mod coupling;
 pub mod engine;
 pub mod ontology;
+pub mod state;
 
 #[cfg(test)]
 mod tests;

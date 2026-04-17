@@ -12,7 +12,9 @@
 /// - Chernet & Levin 2013: Vmem manipulation suppresses tumors
 /// - Fields & Levin 2022: competency in navigating morphospace
 pub mod biology_functor;
+pub mod event;
 pub mod molecular_functor;
 pub mod morphospace;
 pub mod ontology;
 pub mod regeneration_functor;
+pub mod tame;

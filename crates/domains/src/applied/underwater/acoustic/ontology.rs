@@ -1,31 +1,21 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Acoustic positioning system types.
+//!
+//! Source: Milne (1983), *Underwater Acoustic Positioning Systems*
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Acoustic positioning system types.
-///
-/// Source: Milne (1983), *Underwater Acoustic Positioning Systems*
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum AcousticSystem {
-    /// Ultra-Short Baseline: single transceiver with multiple elements.
-    USBL,
-    /// Long Baseline: array of transponders on the seabed.
-    LBL,
-    /// Short Baseline: hull-mounted array of hydrophones.
-    SBL,
-}
+pr4xis::ontology! {
+    name: "Acoustic",
+    source: "Milne (1983); Kinsey et al. (2006)",
+    being: PhysicalEndurant,
 
-define_ontology! {
-    /// Category for acoustic positioning systems.
-    ///
-    /// All systems can provide position fixes that feed into each other
-    /// (e.g., USBL calibrated against LBL, SBL combined with LBL).
-    pub AcousticOntology for AcousticCategory {
-        entity: AcousticSystem,
-        relation: AcousticRelation,
-        being: PhysicalEndurant,
-        source: "Milne (1983); Kinsey et al. (2006)",
-    }
+    concepts: [USBL, LBL, SBL],
+
+    labels: {
+        USBL: ("en", "Ultra-Short Baseline", "Ultra-Short Baseline: single transceiver with multiple elements."),
+        LBL: ("en", "Long Baseline", "Long Baseline: array of transponders on the seabed."),
+        SBL: ("en", "Short Baseline", "Short Baseline: hull-mounted array of hydrophones."),
+    },
 }
 
 /// Quality: typical positioning accuracy for each system.
@@ -33,15 +23,15 @@ define_ontology! {
 pub struct PositioningAccuracy;
 
 impl Quality for PositioningAccuracy {
-    type Individual = AcousticSystem;
+    type Individual = AcousticConcept;
     /// Accuracy in meters (1-sigma), depends on range.
     type Value = &'static str;
 
-    fn get(&self, system: &AcousticSystem) -> Option<&'static str> {
+    fn get(&self, system: &AcousticConcept) -> Option<&'static str> {
         Some(match system {
-            AcousticSystem::USBL => "0.1-1% of slant range",
-            AcousticSystem::LBL => "0.01-0.1 m (within baseline)",
-            AcousticSystem::SBL => "0.1-1% of slant range",
+            AcousticConcept::USBL => "0.1-1% of slant range",
+            AcousticConcept::LBL => "0.01-0.1 m (within baseline)",
+            AcousticConcept::SBL => "0.1-1% of slant range",
         })
     }
 }
@@ -54,8 +44,6 @@ impl Axiom for SoundSpeedPositive {
         "sound speed in water is strictly positive (typically 1400-1600 m/s)"
     }
     fn holds(&self) -> bool {
-        // Structural axiom: sound speed in seawater ranges from ~1400 to ~1600 m/s.
-        // It depends on temperature, salinity, and pressure but is always > 0.
         true
     }
 }
@@ -68,7 +56,6 @@ impl Axiom for RangeNonNegative {
         "acoustic range measurements are non-negative"
     }
     fn holds(&self) -> bool {
-        // Range = sound_speed * travel_time / 2, all positive quantities.
         true
     }
 }

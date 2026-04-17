@@ -1,44 +1,48 @@
-/// Physics ontology: laws of physics as entities with relationships.
+//! Physics ontology: laws of physics as entities with relationships.
+//!
+//! Source: Newton (1687); Maxwell (1865).
+
 use pr4xis::category::Entity;
-use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// The fundamental laws as entities.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum PhysicsLaw {
-    // Mechanics
-    NewtonFirst,  // inertia
-    NewtonSecond, // F = ma
-    NewtonThird,  // action-reaction
-    // Conservation
-    EnergyConservation,
-    MomentumConservation,
-    ChargeConservation,
-    // Electromagnetism
-    GaussElectric, // div E = rho/eps0
-    GaussMagnetic, // div B = 0
-    FaradayLaw,    // curl E = -dB/dt
-    AmpereMaxwell, // curl B = mu0 J + mu0 eps0 dE/dt
-    // Relativity
-    SpeedOfLight, // c is constant
-    MassEnergy,   // E = mc^2
-    // Quantum
-    Heisenberg, // dx dp >= hbar/2
-    Planck,     // E = hf
-}
+pr4xis::ontology! {
+    name: "Physics",
+    source: "Newton (1687); Maxwell (1865)",
+    being: AbstractObject,
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
+    concepts: [
+        NewtonFirst,
+        NewtonSecond,
+        NewtonThird,
+        EnergyConservation,
+        MomentumConservation,
+        ChargeConservation,
+        GaussElectric,
+        GaussMagnetic,
+        FaradayLaw,
+        AmpereMaxwell,
+        SpeedOfLight,
+        MassEnergy,
+        Heisenberg,
+        Planck,
+    ],
 
-define_ontology! {
-    /// Discrete category over PhysicsLaw entities.
-    pub PhysicsOntology for PhysicsCategory {
-        concepts: PhysicsLaw,
-        relation: Derives,
-        being: AbstractObject,
-        source: "Newton (1687); Maxwell (1865)",
-    }
+    labels: {
+        NewtonFirst: ("en", "Newton's First Law", "Law of inertia."),
+        NewtonSecond: ("en", "Newton's Second Law", "F = ma."),
+        NewtonThird: ("en", "Newton's Third Law", "Action-reaction."),
+        EnergyConservation: ("en", "Energy conservation", "Total energy is conserved."),
+        MomentumConservation: ("en", "Momentum conservation", "Total momentum is conserved."),
+        ChargeConservation: ("en", "Charge conservation", "Total electric charge is conserved."),
+        GaussElectric: ("en", "Gauss's law (electric)", "div E = rho/eps0."),
+        GaussMagnetic: ("en", "Gauss's law (magnetic)", "div B = 0."),
+        FaradayLaw: ("en", "Faraday's law", "curl E = -dB/dt."),
+        AmpereMaxwell: ("en", "Ampère-Maxwell law", "curl B = mu0 J + mu0 eps0 dE/dt."),
+        SpeedOfLight: ("en", "Speed of light", "c is constant in all inertial frames."),
+        MassEnergy: ("en", "Mass-energy equivalence", "E = mc^2."),
+        Heisenberg: ("en", "Heisenberg uncertainty", "dx dp >= hbar/2."),
+        Planck: ("en", "Planck relation", "E = hf."),
+    },
 }
 
 impl Ontology for PhysicsOntology {
@@ -68,23 +72,23 @@ pub enum Branch {
 pub struct LawBranch;
 
 impl Quality for LawBranch {
-    type Individual = PhysicsLaw;
+    type Individual = PhysicsConcept;
     type Value = Branch;
 
-    fn get(&self, law: &PhysicsLaw) -> Option<Branch> {
+    fn get(&self, law: &PhysicsConcept) -> Option<Branch> {
         Some(match law {
-            PhysicsLaw::NewtonFirst | PhysicsLaw::NewtonSecond | PhysicsLaw::NewtonThird => {
-                Branch::Mechanics
-            }
-            PhysicsLaw::EnergyConservation
-            | PhysicsLaw::MomentumConservation
-            | PhysicsLaw::ChargeConservation => Branch::Conservation,
-            PhysicsLaw::GaussElectric
-            | PhysicsLaw::GaussMagnetic
-            | PhysicsLaw::FaradayLaw
-            | PhysicsLaw::AmpereMaxwell => Branch::Electromagnetism,
-            PhysicsLaw::SpeedOfLight | PhysicsLaw::MassEnergy => Branch::Relativity,
-            PhysicsLaw::Heisenberg | PhysicsLaw::Planck => Branch::Quantum,
+            PhysicsConcept::NewtonFirst
+            | PhysicsConcept::NewtonSecond
+            | PhysicsConcept::NewtonThird => Branch::Mechanics,
+            PhysicsConcept::EnergyConservation
+            | PhysicsConcept::MomentumConservation
+            | PhysicsConcept::ChargeConservation => Branch::Conservation,
+            PhysicsConcept::GaussElectric
+            | PhysicsConcept::GaussMagnetic
+            | PhysicsConcept::FaradayLaw
+            | PhysicsConcept::AmpereMaxwell => Branch::Electromagnetism,
+            PhysicsConcept::SpeedOfLight | PhysicsConcept::MassEnergy => Branch::Relativity,
+            PhysicsConcept::Heisenberg | PhysicsConcept::Planck => Branch::Quantum,
         })
     }
 }
@@ -111,7 +115,7 @@ impl Axiom for AllBranchesRepresented {
     }
     fn holds(&self) -> bool {
         let branch = LawBranch;
-        let branches: std::collections::HashSet<Branch> = PhysicsLaw::variants()
+        let branches: std::collections::HashSet<Branch> = PhysicsConcept::variants()
             .iter()
             .map(|l| branch.get(l).unwrap())
             .collect();
@@ -125,7 +129,7 @@ mod tests {
 
     #[test]
     fn test_14_laws() {
-        assert_eq!(PhysicsLaw::variants().len(), 14);
+        assert_eq!(PhysicsConcept::variants().len(), 14);
     }
 
     #[test]
@@ -146,7 +150,7 @@ mod tests {
     #[test]
     fn test_4_maxwell_equations() {
         let branch = LawBranch;
-        let em_laws: Vec<_> = PhysicsLaw::variants()
+        let em_laws: Vec<_> = PhysicsConcept::variants()
             .into_iter()
             .filter(|l| branch.get(l) == Some(Branch::Electromagnetism))
             .collect();
@@ -156,7 +160,7 @@ mod tests {
     #[test]
     fn test_3_newton_laws() {
         let branch = LawBranch;
-        let mech: Vec<_> = PhysicsLaw::variants()
+        let mech: Vec<_> = PhysicsConcept::variants()
             .into_iter()
             .filter(|l| branch.get(l) == Some(Branch::Mechanics))
             .collect();

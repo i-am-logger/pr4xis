@@ -1,35 +1,25 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! The rotation representation category — representations of SO(3).
+//!
+//! Source: Hamilton (1844); Shoemake (1985).
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::rotation::dcm::Dcm;
 use crate::formal::math::rotation::quaternion::Quaternion;
 
-/// The representations of rotation — objects in the rotation category.
-///
-/// Each representation captures the same SO(3) element through a different
-/// mathematical formalism. The morphisms between them are the conversion
-/// functions (which preserve the rotation).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum RotationRepr {
-    /// Unit quaternion (4 parameters, 1 constraint)
-    Quaternion,
-    /// Direction Cosine Matrix (9 parameters, 6 constraints)
-    DCM,
-    /// Euler angles with sequence (3 parameters, gimbal lock singularity)
-    Euler,
-    /// Axis-angle (4 parameters, 1 constraint)
-    AxisAngle,
-}
+pr4xis::ontology! {
+    name: "Rotation",
+    source: "Hamilton (1844); Shoemake (1985)",
+    being: AbstractObject,
 
-define_ontology! {
-    /// The rotation representation category.
-    pub RotationOntology for RotationCategory {
-        concepts: RotationRepr,
-        relation: ReprConversion,
-        being: AbstractObject,
-        source: "Hamilton (1844); Shoemake (1985)",
-    }
+    concepts: [Quaternion, DCM, Euler, AxisAngle],
+
+    labels: {
+        Quaternion: ("en", "Quaternion", "Unit quaternion (4 parameters, 1 constraint)."),
+        DCM: ("en", "Direction Cosine Matrix", "Direction Cosine Matrix (9 parameters, 6 constraints)."),
+        Euler: ("en", "Euler angles", "Euler angles with sequence (3 parameters, gimbal lock singularity)."),
+        AxisAngle: ("en", "Axis-angle", "Axis-angle (4 parameters, 1 constraint)."),
+    },
 }
 
 /// Quality: number of parameters in the representation.
@@ -37,15 +27,15 @@ define_ontology! {
 pub struct ParameterCount;
 
 impl Quality for ParameterCount {
-    type Individual = RotationRepr;
+    type Individual = RotationConcept;
     type Value = usize;
 
-    fn get(&self, repr: &RotationRepr) -> Option<usize> {
+    fn get(&self, repr: &RotationConcept) -> Option<usize> {
         Some(match repr {
-            RotationRepr::Quaternion => 4,
-            RotationRepr::DCM => 9,
-            RotationRepr::Euler => 3,
-            RotationRepr::AxisAngle => 4,
+            RotationConcept::Quaternion => 4,
+            RotationConcept::DCM => 9,
+            RotationConcept::Euler => 3,
+            RotationConcept::AxisAngle => 4,
         })
     }
 }
@@ -55,20 +45,18 @@ impl Quality for ParameterCount {
 pub struct HasSingularity;
 
 impl Quality for HasSingularity {
-    type Individual = RotationRepr;
+    type Individual = RotationConcept;
     type Value = bool;
 
-    fn get(&self, repr: &RotationRepr) -> Option<bool> {
+    fn get(&self, repr: &RotationConcept) -> Option<bool> {
         Some(match repr {
-            RotationRepr::Quaternion => false,
-            RotationRepr::DCM => false,
-            RotationRepr::Euler => true,     // gimbal lock
-            RotationRepr::AxisAngle => true, // undefined axis at zero angle
+            RotationConcept::Quaternion => false,
+            RotationConcept::DCM => false,
+            RotationConcept::Euler => true,
+            RotationConcept::AxisAngle => true,
         })
     }
 }
-
-// --- SO(3) Group Axioms (parameterized by RotationCategory) ---
 
 /// Axiom: quaternion composition preserves unit norm (closure in SO(3)).
 pub struct UnitNormClosure;

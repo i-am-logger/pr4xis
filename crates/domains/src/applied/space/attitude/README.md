@@ -30,7 +30,7 @@ Key references:
 | QuaternionUnitNorm | Attitude quaternion must have unit norm (|q| = 1) — SO(3) representation constraint | Shuster 1993; Markley & Crassidis 2014 |
 | StarTrackerMostAccurate | Star tracker has the smallest arcsecond accuracy among attitude sensors | Wertz 1978 |
 
-Plus the auto-generated structural axioms from `define_ontology!` (category laws over `AttitudeCategory`).
+Plus the auto-generated structural axioms from `pr4xis::ontology!` (category laws over `AttitudeCategory`).
 
 ## Functors
 
@@ -38,7 +38,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `AttitudeSensor` entity, `AttitudeCategory`, `SensorAccuracy` quality, 2 axioms, tests
+- `ontology.rs` -- `AttitudeConcept` entity, `AttitudeCategory`, `SensorAccuracy` quality, 2 axioms, tests
 - `kinematics.rs` -- `Quaternion`, `quaternion_rate`, `propagate_attitude` (attitude kinematics on SO(3))
 - `engine.rs` -- `AttitudeState` runtime type and `angle_between` helper
 - `tests.rs` -- additional tests beyond `ontology.rs`

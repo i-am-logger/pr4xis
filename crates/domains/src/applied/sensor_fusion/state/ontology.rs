@@ -1,5 +1,7 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! State estimation concepts.
+//!
+//! Source: Kalman (1960); Maybeck (1979).
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
@@ -9,41 +11,34 @@ use crate::applied::sensor_fusion::state::covariance;
 use crate::applied::sensor_fusion::state::estimate::StateEstimate;
 use crate::applied::sensor_fusion::state::information::InformationEstimate;
 
-/// State estimation concepts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum EstimationConcept {
-    /// The state vector x̂.
-    StateVector,
-    /// The error covariance P.
-    Covariance,
-    /// The information matrix Y = P^{-1}.
-    InformationMatrix,
-    /// The Cramér-Rao lower bound.
-    CRLB,
-}
+pr4xis::ontology! {
+    name: "StateEstimation",
+    source: "Kalman (1960); Maybeck (1979)",
+    being: AbstractObject,
 
-define_ontology! {
-    pub StateEstimationOntology for EstimationCategory {
-        entity: EstimationConcept,
-        relation: EstimationRelation,
-        being: AbstractObject,
-        source: "Kalman (1960); Maybeck (1979)",
-    }
+    concepts: [StateVector, Covariance, InformationMatrix, CRLB],
+
+    labels: {
+        StateVector: ("en", "State vector", "The state vector x̂."),
+        Covariance: ("en", "Covariance", "The error covariance P."),
+        InformationMatrix: ("en", "Information matrix", "The information matrix Y = P^{-1}."),
+        CRLB: ("en", "Cramér-Rao lower bound", "The Cramér-Rao lower bound."),
+    },
 }
 
 #[derive(Debug, Clone)]
 pub struct ConceptDescription;
 
 impl Quality for ConceptDescription {
-    type Individual = EstimationConcept;
+    type Individual = StateEstimationConcept;
     type Value = &'static str;
 
-    fn get(&self, c: &EstimationConcept) -> Option<&'static str> {
+    fn get(&self, c: &StateEstimationConcept) -> Option<&'static str> {
         Some(match c {
-            EstimationConcept::StateVector => "x̂: best estimate of hidden state",
-            EstimationConcept::Covariance => "P: uncertainty of the estimate (symmetric PSD)",
-            EstimationConcept::InformationMatrix => "Y = P^{-1}: precision/information",
-            EstimationConcept::CRLB => "J^{-1}: lower bound on estimator variance",
+            StateEstimationConcept::StateVector => "x̂: best estimate of hidden state",
+            StateEstimationConcept::Covariance => "P: uncertainty of the estimate (symmetric PSD)",
+            StateEstimationConcept::InformationMatrix => "Y = P^{-1}: precision/information",
+            StateEstimationConcept::CRLB => "J^{-1}: lower bound on estimator variance",
         })
     }
 }
@@ -117,7 +112,6 @@ impl Axiom for InformationFusionAdditive {
         let i2 = InformationEstimate::from_estimate(&e2).unwrap();
         let fused = i1.fuse(&i2);
 
-        // Fused information should be sum
         let expected_y = i1.information_matrix.add(&i2.information_matrix);
         let diff: f64 = fused
             .information_matrix
@@ -131,7 +125,7 @@ impl Axiom for InformationFusionAdditive {
 }
 
 impl Ontology for StateEstimationOntology {
-    type Cat = EstimationCategory;
+    type Cat = StateEstimationCategory;
     type Qual = ConceptDescription;
 
     fn structural_axioms() -> Vec<Box<dyn Axiom>> {
@@ -154,7 +148,7 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<EstimationCategory>().unwrap();
+        pr4xis::category::validate::check_category_laws::<StateEstimationCategory>().unwrap();
     }
 
     #[test]

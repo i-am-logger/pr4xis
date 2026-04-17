@@ -1,5 +1,7 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Observation processing stages (JDL Level 0).
+//!
+//! Source: JDL (1999); Bar-Shalom et al. (2001).
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
@@ -9,47 +11,38 @@ use crate::applied::sensor_fusion::observation::gating::ValidationGate;
 use crate::applied::sensor_fusion::observation::innovation::Innovation;
 use crate::applied::sensor_fusion::observation::observation_model::LinearObservationModel;
 
-/// Observation processing stages (JDL Level 0).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum ObservationStage {
-    /// Raw sensor data received.
-    RawMeasurement,
-    /// Observation model applied (predicted measurement).
-    Predicted,
-    /// Innovation computed (residual).
-    InnovationComputed,
-    /// Validation gate applied.
-    GateChecked,
-    /// Measurement accepted for fusion.
-    Accepted,
-    /// Measurement rejected (outlier).
-    Rejected,
-}
+pr4xis::ontology! {
+    name: "Observation",
+    source: "JDL (1999); Bar-Shalom et al. (2001)",
+    being: Event,
 
-define_ontology! {
-    pub ObservationOntology for ObservationCategory {
-        entity: ObservationStage,
-        relation: ObservationTransition,
-        being: Event,
-        source: "JDL (1999); Bar-Shalom et al. (2001)",
-    }
+    concepts: [RawMeasurement, Predicted, InnovationComputed, GateChecked, Accepted, Rejected],
+
+    labels: {
+        RawMeasurement: ("en", "Raw measurement", "Raw sensor data received."),
+        Predicted: ("en", "Predicted", "Observation model applied (predicted measurement)."),
+        InnovationComputed: ("en", "Innovation computed", "Innovation computed (residual)."),
+        GateChecked: ("en", "Gate checked", "Validation gate applied."),
+        Accepted: ("en", "Accepted", "Measurement accepted for fusion."),
+        Rejected: ("en", "Rejected", "Measurement rejected (outlier)."),
+    },
 }
 
 #[derive(Debug, Clone)]
 pub struct StageDescription;
 
 impl Quality for StageDescription {
-    type Individual = ObservationStage;
+    type Individual = ObservationConcept;
     type Value = &'static str;
 
-    fn get(&self, s: &ObservationStage) -> Option<&'static str> {
+    fn get(&self, s: &ObservationConcept) -> Option<&'static str> {
         Some(match s {
-            ObservationStage::RawMeasurement => "raw sensor data z_k",
-            ObservationStage::Predicted => "predicted measurement h(x̂)",
-            ObservationStage::InnovationComputed => "innovation ν = z - h(x̂)",
-            ObservationStage::GateChecked => "Mahalanobis gate applied",
-            ObservationStage::Accepted => "measurement accepted for fusion",
-            ObservationStage::Rejected => "measurement rejected (outlier)",
+            ObservationConcept::RawMeasurement => "raw sensor data z_k",
+            ObservationConcept::Predicted => "predicted measurement h(x̂)",
+            ObservationConcept::InnovationComputed => "innovation ν = z - h(x̂)",
+            ObservationConcept::GateChecked => "Mahalanobis gate applied",
+            ObservationConcept::Accepted => "measurement accepted for fusion",
+            ObservationConcept::Rejected => "measurement rejected (outlier)",
         })
     }
 }
@@ -66,7 +59,7 @@ impl Axiom for InnovationZeroAtPrediction {
         let x = Vector::new(vec![1.0, 2.0]);
         let p = Matrix::identity(2);
         let r = Matrix::identity(2);
-        let z = h.predict(&x); // z = Hx = x (identity)
+        let z = h.predict(&x);
         let inn = Innovation::compute(&z, &x, &p, &h, &r);
         inn.residual.norm() < 1e-12
     }

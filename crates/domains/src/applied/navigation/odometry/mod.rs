@@ -8,6 +8,7 @@
 
 pub mod engine;
 pub mod ontology;
+pub mod property_functor;
 
 #[cfg(test)]
 mod tests;

@@ -1,37 +1,24 @@
-use pr4xis::category::Entity;
-use pr4xis::define_ontology;
+//! Classical orbital elements (Keplerian elements).
+//!
+//! Source: Vallado (2013), *Fundamentals of Astrodynamics and Applications*, 4th ed.
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Classical orbital elements (Keplerian elements).
-///
-/// Source: Vallado (2013), *Fundamentals of Astrodynamics and Applications*, 4th ed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum OrbitalElement {
-    /// Semi-major axis (km).
-    SemiMajorAxis,
-    /// Eccentricity (dimensionless).
-    Eccentricity,
-    /// Inclination (rad).
-    Inclination,
-    /// Right Ascension of Ascending Node (rad).
-    RAAN,
-    /// Argument of periapsis (rad).
-    ArgPeriapsis,
-    /// True anomaly (rad).
-    TrueAnomaly,
-}
+pr4xis::ontology! {
+    name: "Orbit",
+    source: "Vallado (2013); Battin (1999)",
+    being: Process,
 
-define_ontology! {
-    /// Category for orbital element relationships.
-    ///
-    /// All elements are needed to fully specify an orbit; they form
-    /// a complete set with cross-dependencies.
-    pub OrbitOntology for OrbitCategory {
-        entity: OrbitalElement,
-        relation: ElementDependency,
-        being: Process,
-        source: "Vallado (2013); Battin (1999)",
-    }
+    concepts: [SemiMajorAxis, Eccentricity, Inclination, RAAN, ArgPeriapsis, TrueAnomaly],
+
+    labels: {
+        SemiMajorAxis: ("en", "Semi-major axis", "Semi-major axis (km)."),
+        Eccentricity: ("en", "Eccentricity", "Eccentricity (dimensionless)."),
+        Inclination: ("en", "Inclination", "Inclination (rad)."),
+        RAAN: ("en", "RAAN", "Right Ascension of Ascending Node (rad)."),
+        ArgPeriapsis: ("en", "Argument of periapsis", "Argument of periapsis (rad)."),
+        TrueAnomaly: ("en", "True anomaly", "True anomaly (rad)."),
+    },
 }
 
 /// Quality: physical units for each orbital element.
@@ -39,17 +26,17 @@ define_ontology! {
 pub struct ElementUnit;
 
 impl Quality for ElementUnit {
-    type Individual = OrbitalElement;
+    type Individual = OrbitConcept;
     type Value = &'static str;
 
-    fn get(&self, element: &OrbitalElement) -> Option<&'static str> {
+    fn get(&self, element: &OrbitConcept) -> Option<&'static str> {
         Some(match element {
-            OrbitalElement::SemiMajorAxis => "km",
-            OrbitalElement::Eccentricity => "dimensionless",
-            OrbitalElement::Inclination => "rad",
-            OrbitalElement::RAAN => "rad",
-            OrbitalElement::ArgPeriapsis => "rad",
-            OrbitalElement::TrueAnomaly => "rad",
+            OrbitConcept::SemiMajorAxis => "km",
+            OrbitConcept::Eccentricity => "dimensionless",
+            OrbitConcept::Inclination => "rad",
+            OrbitConcept::RAAN => "rad",
+            OrbitConcept::ArgPeriapsis => "rad",
+            OrbitConcept::TrueAnomaly => "rad",
         })
     }
 }
@@ -62,12 +49,6 @@ impl Axiom for EccentricityBounded {
         "eccentricity is in [0, 1) for elliptical (bound) orbits"
     }
     fn holds(&self) -> bool {
-        // Structural axiom from orbital mechanics:
-        // e = 0: circular orbit
-        // 0 < e < 1: elliptical orbit
-        // e = 1: parabolic escape
-        // e > 1: hyperbolic escape
-        // For bound orbits, e must be in [0, 1).
         true
     }
 }
@@ -80,7 +61,6 @@ impl Axiom for SemiMajorAxisPositive {
         "semi-major axis is positive for bound orbits"
     }
     fn holds(&self) -> bool {
-        // a > 0 for elliptical orbits (a < 0 for hyperbolic).
         true
     }
 }

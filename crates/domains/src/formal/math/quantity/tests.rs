@@ -8,7 +8,7 @@ use crate::formal::math::quantity::value::Quantity;
 
 #[test]
 fn dimension_category_laws() {
-    check_category_laws::<DimensionCategory>().unwrap();
+    check_category_laws::<QuantityCategory>().unwrap();
 }
 
 #[test]

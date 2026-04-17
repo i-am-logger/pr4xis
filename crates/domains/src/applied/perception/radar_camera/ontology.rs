@@ -1,72 +1,49 @@
-use pr4xis::category::{Category, Entity};
-use pr4xis::define_ontology;
+//! Fusion pipeline stages for radar+camera sensor fusion.
+//!
+//! Source: Nobis et al. (2019), "A Deep Learning-based Radar and Camera Sensor Fusion Architecture"
+
+use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Fusion pipeline stages for radar+camera sensor fusion.
-///
-/// Source: Nobis et al. (2019), "A Deep Learning-based Radar and Camera Sensor Fusion Architecture"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
-pub enum RadarCameraStage {
-    /// Raw radar detections (range, Doppler, azimuth).
-    RadarDetection,
-    /// Raw camera detections (bounding boxes).
-    CameraDetection,
-    /// Temporal alignment of radar and camera frames.
-    TemporalAlignment,
-    /// Spatial association of radar targets with camera objects.
-    SpatialAssociation,
-    /// Fused output with range from radar and classification from camera.
-    FusedOutput,
-}
+pr4xis::ontology! {
+    name: "RadarCamera",
+    source: "Nobis et al. (2019)",
+    being: Process,
 
-define_ontology! {
-    /// Category for radar-camera fusion pipeline.
-    ///
-    /// Both RadarDetection and CameraDetection feed into TemporalAlignment,
-    /// then SpatialAssociation, then FusedOutput.
-    pub RadarCameraOntologyMeta for RadarCameraCategory {
-        concepts: RadarCameraStage,
-        relation: RadarCameraStep,
-        kind: RadarCameraStepKind,
-        kinds: [
-            /// Pipeline progression step.
-            Precedes,
-        ],
-        edges: [
-            // Radar and camera both feed into temporal alignment
-            (RadarDetection, TemporalAlignment, Precedes),
-            (CameraDetection, TemporalAlignment, Precedes),
-            // Common path
-            (TemporalAlignment, SpatialAssociation, Precedes),
-            (SpatialAssociation, FusedOutput, Precedes),
-        ],
-        composed: [
-            // Transitive closures
-            (RadarDetection, SpatialAssociation),
-            (RadarDetection, FusedOutput),
-            (CameraDetection, SpatialAssociation),
-            (CameraDetection, FusedOutput),
-            (TemporalAlignment, FusedOutput),
-        ],
-        being: Process,
-        source: "Nobis et al. (2019)",
-    }
+    concepts: [RadarDetection, CameraDetection, TemporalAlignment, SpatialAssociation, FusedOutput],
+
+    labels: {
+        RadarDetection: ("en", "Radar detection", "Raw radar detections (range, Doppler, azimuth)."),
+        CameraDetection: ("en", "Camera detection", "Raw camera detections (bounding boxes)."),
+        TemporalAlignment: ("en", "Temporal alignment", "Temporal alignment of radar and camera frames."),
+        SpatialAssociation: ("en", "Spatial association", "Spatial association of radar targets with camera objects."),
+        FusedOutput: ("en", "Fused output", "Fused output with range from radar and classification from camera."),
+    },
+
+    edges: [
+        (RadarDetection, TemporalAlignment, Precedes),
+        (CameraDetection, TemporalAlignment, Precedes),
+        (TemporalAlignment, SpatialAssociation, Precedes),
+        (SpatialAssociation, FusedOutput, Precedes),
+    ],
 }
 
 #[derive(Debug, Clone)]
 pub struct StageDescription;
 
 impl Quality for StageDescription {
-    type Individual = RadarCameraStage;
+    type Individual = RadarCameraConcept;
     type Value = &'static str;
 
-    fn get(&self, stage: &RadarCameraStage) -> Option<&'static str> {
+    fn get(&self, stage: &RadarCameraConcept) -> Option<&'static str> {
         Some(match stage {
-            RadarCameraStage::RadarDetection => "raw radar targets (range, Doppler, azimuth)",
-            RadarCameraStage::CameraDetection => "raw camera detections (bounding boxes)",
-            RadarCameraStage::TemporalAlignment => "radar and camera frames aligned in time",
-            RadarCameraStage::SpatialAssociation => "radar targets associated with camera objects",
-            RadarCameraStage::FusedOutput => "fused output with range + classification",
+            RadarCameraConcept::RadarDetection => "raw radar targets (range, Doppler, azimuth)",
+            RadarCameraConcept::CameraDetection => "raw camera detections (bounding boxes)",
+            RadarCameraConcept::TemporalAlignment => "radar and camera frames aligned in time",
+            RadarCameraConcept::SpatialAssociation => {
+                "radar targets associated with camera objects"
+            }
+            RadarCameraConcept::FusedOutput => "fused output with range + classification",
         })
     }
 }
@@ -81,12 +58,12 @@ impl Axiom for BothModalitiesRequired {
     fn holds(&self) -> bool {
         let morphisms = RadarCameraCategory::morphisms();
         let radar_to_align = morphisms.iter().any(|m| {
-            m.from == RadarCameraStage::RadarDetection
-                && m.to == RadarCameraStage::TemporalAlignment
+            m.from == RadarCameraConcept::RadarDetection
+                && m.to == RadarCameraConcept::TemporalAlignment
         });
         let camera_to_align = morphisms.iter().any(|m| {
-            m.from == RadarCameraStage::CameraDetection
-                && m.to == RadarCameraStage::TemporalAlignment
+            m.from == RadarCameraConcept::CameraDetection
+                && m.to == RadarCameraConcept::TemporalAlignment
         });
         radar_to_align && camera_to_align
     }
@@ -102,12 +79,10 @@ impl Axiom for FusedOutputIsTerminal {
     fn holds(&self) -> bool {
         let morphisms = RadarCameraCategory::morphisms();
         !morphisms.iter().any(|m| {
-            m.from == RadarCameraStage::FusedOutput && m.to != RadarCameraStage::FusedOutput
+            m.from == RadarCameraConcept::FusedOutput && m.to != RadarCameraConcept::FusedOutput
         })
     }
 }
-
-pub struct RadarCameraOntology;
 
 impl Ontology for RadarCameraOntology {
     type Cat = RadarCameraCategory;

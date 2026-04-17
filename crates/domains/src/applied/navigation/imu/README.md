@@ -43,7 +43,7 @@ Error terms are is-a of the ideal measurement they corrupt.
 | SpecificForceDefinition | Specific force = acceleration − gravity; at rest, accelerometer reads −g | Groves 2013 Eq. 4.1 |
 | GyroscopeBodyFrame | Gyroscope measures angular rate in the body frame | Titterton & Weston 2004 Chapter 4 |
 
-Plus the auto-generated structural axioms from `define_ontology!` (category laws + IMU-taxonomy DAG).
+Plus the auto-generated structural axioms from `pr4xis::ontology!` (category laws + IMU-taxonomy DAG).
 
 ## Functors
 
@@ -51,7 +51,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `ImuMeasurement` entity, taxonomy, `MeasurementUnit` quality, 3 axioms, tests
+- `ontology.rs` -- `ImuConcept` entity, `ImuTaxonomy`, `MeasurementUnit` quality, 3 axioms, tests
 - `strapdown.rs` -- `NavState`, `ImuSample`, `gravity_ned`, `filter_imu_sample`, `mechanize` (strapdown mechanization)
 - `engine.rs` -- `InsSituation`, `InsAction`, `apply_ins` transition function
 - `tests.rs` -- additional tests beyond `ontology.rs`

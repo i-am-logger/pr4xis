@@ -6,8 +6,10 @@
 //! Source: IS-GPS-200 (2022), Groves (2013) Chapter 8,
 //!         Misra & Enge (2011), Kaplan & Hegarty (2006).
 
+pub mod constellation;
 pub mod engine;
 pub mod ontology;
+pub mod property_functor;
 
 #[cfg(test)]
 mod tests;

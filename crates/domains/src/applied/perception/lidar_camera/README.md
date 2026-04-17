@@ -42,7 +42,7 @@ No cross-domain functors yet — see [Compose via functor](../../../../../../doc
 
 ## Files
 
-- `ontology.rs` -- `FusionStage`, `PipelineStep`, `LidarCameraCategory`, `StageDescription` quality, projection and sequentiality axioms
+- `ontology.rs` -- `LidarCameraConcept`, `LidarCameraRelation`, `LidarCameraCategory`, `StageDescription` quality, projection and sequentiality axioms
 - `calibration.rs` -- camera/LiDAR calibration utilities
 - `engine.rs` -- fusion engine used by tests
 - `tests.rs` -- additional tests beyond `ontology.rs`

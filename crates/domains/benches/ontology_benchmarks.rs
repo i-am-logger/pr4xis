@@ -176,7 +176,7 @@ fn bench_variants(c: &mut Criterion) {
         })
     });
     group.bench_function("consistency_models", |b| {
-        b.iter(|| black_box(pr4xis_domains::formal::information::storage::consistency::ConsistencyModel::variants()))
+        b.iter(|| black_box(pr4xis_domains::formal::information::storage::consistency::ConsistencyConcept::variants()))
     });
     group.bench_function("storage_media", |b| {
         b.iter(|| {
