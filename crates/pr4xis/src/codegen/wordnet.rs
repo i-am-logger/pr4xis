@@ -173,15 +173,11 @@ pub fn parse_wordnet_xml(path: &Path) -> Result<OntologyBuilder, ParseError> {
                     }
                     state = ParseState::None;
                 }
-                b"Definition" => {
-                    if state == ParseState::InDefinition {
-                        state = ParseState::InSynset;
-                    }
+                b"Definition" if state == ParseState::InDefinition => {
+                    state = ParseState::InSynset;
                 }
-                b"Example" => {
-                    if state == ParseState::InExample {
-                        state = ParseState::InSynset;
-                    }
+                b"Example" if state == ParseState::InExample => {
+                    state = ParseState::InSynset;
                 }
                 _ => {}
             },

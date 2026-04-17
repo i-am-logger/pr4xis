@@ -27,10 +27,8 @@ impl ManagedTrack {
         self.confirmation.record_hit();
         self.coasting.record_hit();
         match self.state {
-            TrackState::Tentative => {
-                if self.confirmation.is_confirmed() {
-                    self.state = TrackState::Confirmed;
-                }
+            TrackState::Tentative if self.confirmation.is_confirmed() => {
+                self.state = TrackState::Confirmed;
             }
             TrackState::Coasting => {
                 self.state = TrackState::Confirmed;
