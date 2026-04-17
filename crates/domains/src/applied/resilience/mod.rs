@@ -6,4 +6,5 @@
 //! supervision trees (Armstrong 2003 Erlang/OTP), and recovery-oriented
 //! computing (Patterson et al. 2002).
 
+pub mod dependability_functor;
 pub mod ontology;
