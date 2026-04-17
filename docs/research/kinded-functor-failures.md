@@ -37,7 +37,22 @@ Diagnostics:     Symptom → Hypothesis → Diagnosis → FaultMode   (abductive
 
 Dependability goes cause-to-observation. Diagnostics goes observation-to-cause — it *inverts* the causal arrow because diagnosis **is** abduction. A functor `F: Dependability → Diagnostics` that tries to preserve direction has to send `Fault → Error` to an arrow `F(Fault) → F(Error)`; but the only arrow between the natural candidates (`FaultMode`, `Symptom`) in Diagnostics runs `Symptom → … → FaultMode`, i.e. the reverse. There is no arrow in Diagnostics pointing the way the functor needs it to. The composition law failure is a symptom of that — not many-to-one collapse.
 
-**Fix:** the right morphism is `F: Dependability^op → Diagnostics` (or equivalently, a contravariant functor). This isn't a framework extension — `Category::reverse` style op-category construction is standard and buildable on what we already have in `crates/pr4xis/src/category`. The category-theoretic content of the mapping is "diagnosis undoes causation," which is what every abductive-reasoning formalism asserts.
+**Fix (first attempt):** the right morphism is `F: Dependability^op → Diagnostics` (or equivalently, a contravariant functor). The `Op<C>` wrapper was landed in [#130](https://github.com/i-am-logger/pr4xis/issues/130) precisely for this case.
+
+**Second constraint, discovered empirically:** landing `Op<C>` was necessary but not sufficient. Running the mapping through `check_functor_laws` surfaces a further structural mismatch:
+
+- `DependabilityCategory` is **dense** — generated with no `edges:` block, so the Relation type has no `kind` field. Self-loops `DepRel{A, A}` are ambiguous; there is no distinction between the identity morphism and a morphism that happens to end at its start point after composition.
+- `DiagnosticCategory` is **kinded** — Relation type carries `kind: DiagnosticRelationKind` which distinguishes `Identity` from `Composed`.
+
+When `f = Op(DepRel{A, B})` and `g = Op(DepRel{B, A})` are composed in `Op<Dep>`, the result is an underlying self-loop `DepRel{A, A}`. Under the natural mapping this goes to `DiagRel{F(A), F(A), Identity}` — but `F(f) ∘ F(g)` in Diagnostics produces `DiagRel{F(A), F(A), Composed}`. Different kinds, composition law fails. This isn't directional, and it isn't the many-to-one case; it's **dense-source-vs-kinded-target identity-distinction** incompatibility.
+
+**Options that would fix case 2:**
+
+1. **Make Dependability kinded** (e.g., give `causes:` / `is_a:` / `opposes:` edges real kind names). This loses some dense-category closure convenience but makes the target reachable by strict functors from either direction.
+2. **Sub-category restriction** — define the functor only on the causal sub-category `{Fault, Error, Failure, ServiceFailure, ErrorDetection, ErrorRecovery, ...}` carrying kinded causal edges; the dense part of Dependability (that's just carried by Entity variants, not by semantic morphisms) is irrelevant to the abductive structure.
+3. **Enrich Diagnostics to be dense** — aligns with option (b) of case 3 below; loses kind information in Diagnostics.
+
+All three are content decisions rather than framework extensions. Recommendation: option (2) once a sub-category construction lands. No framework piece available today can make the literal `Op<DependabilityCategory> → DiagnosticCategory` functor pass strict laws.
 
 ## Case 3 — Resilience → Dependability: trivial-functor disguised as failure
 
