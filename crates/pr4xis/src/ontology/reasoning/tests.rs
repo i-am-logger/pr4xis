@@ -196,12 +196,14 @@ struct EMRelation {
 
 impl Relationship for EMRelation {
     type Object = EMConcept;
+    type Kind = ();
     fn source(&self) -> EMConcept {
         self.from
     }
     fn target(&self) -> EMConcept {
         self.to
     }
+    fn kind(&self) {}
 }
 
 struct EMCategory;
@@ -264,12 +266,14 @@ struct GravRelation {
 
 impl Relationship for GravRelation {
     type Object = GravConcept;
+    type Kind = ();
     fn source(&self) -> GravConcept {
         self.from
     }
     fn target(&self) -> GravConcept {
         self.to
     }
+    fn kind(&self) {}
 }
 
 struct GravCategory;

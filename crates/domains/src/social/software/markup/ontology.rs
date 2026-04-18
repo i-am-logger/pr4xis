@@ -50,12 +50,14 @@ pub struct Contains {
 
 impl Relationship for Contains {
     type Object = NodeKind;
+    type Kind = ();
     fn source(&self) -> NodeKind {
         self.parent
     }
     fn target(&self) -> NodeKind {
         self.child
     }
+    fn kind(&self) {}
 }
 
 /// The markup containment category.

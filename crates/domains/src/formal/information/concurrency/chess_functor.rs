@@ -73,12 +73,14 @@ pub enum ChessConcurrentRelationKind {
 
 impl Relationship for ChessConcurrentRelation {
     type Object = ChessConcurrent;
+    type Kind = ();
     fn source(&self) -> ChessConcurrent {
         self.from
     }
     fn target(&self) -> ChessConcurrent {
         self.to
     }
+    fn kind(&self) {}
 }
 
 pub struct ChessConcurrentCategory;

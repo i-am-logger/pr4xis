@@ -65,12 +65,14 @@ pub struct BrightVariantOf {
 
 impl Relationship for BrightVariantOf {
     type Object = ColorSlot;
+    type Kind = ();
     fn source(&self) -> ColorSlot {
         self.bright
     }
     fn target(&self) -> ColorSlot {
         self.base
     }
+    fn kind(&self) {}
 }
 
 /// A morphism mapping a base16 slot to an ANSI terminal index.
@@ -84,12 +86,14 @@ pub struct AnsiMapping {
 
 impl Relationship for AnsiMapping {
     type Object = ColorSlot;
+    type Kind = ();
     fn source(&self) -> ColorSlot {
         self.slot
     }
     fn target(&self) -> ColorSlot {
         self.ansi
     }
+    fn kind(&self) {}
 }
 
 // ── Category ──

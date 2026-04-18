@@ -375,12 +375,14 @@ pub struct PregroupMorphism {
 
 impl pr4xis::category::relationship::Relationship for PregroupMorphism {
     type Object = BasicType;
+    type Kind = ();
     fn source(&self) -> BasicType {
         self.source
     }
     fn target(&self) -> BasicType {
         self.target
     }
+    fn kind(&self) {}
 }
 
 /// The pregroup as a category.

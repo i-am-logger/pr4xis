@@ -26,12 +26,14 @@ pub struct IsA<E: Entity> {
 
 impl<E: Entity> Relationship for IsA<E> {
     type Object = E;
+    type Kind = ();
     fn source(&self) -> E {
         self.child.clone()
     }
     fn target(&self) -> E {
         self.parent.clone()
     }
+    fn kind(&self) {}
 }
 
 /// Category adapter for a taxonomy.

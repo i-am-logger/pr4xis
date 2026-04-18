@@ -82,12 +82,14 @@ pub struct RdfRelation {
 
 impl Relationship for RdfRelation {
     type Object = RdfNodeKind;
+    type Kind = ();
     fn source(&self) -> RdfNodeKind {
         self.source
     }
     fn target(&self) -> RdfNodeKind {
         self.target
     }
+    fn kind(&self) {}
 }
 
 /// The RDF category.

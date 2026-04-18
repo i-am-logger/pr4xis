@@ -25,12 +25,14 @@ pub struct Causes<E: Entity> {
 
 impl<E: Entity> Relationship for Causes<E> {
     type Object = E;
+    type Kind = ();
     fn source(&self) -> E {
         self.cause.clone()
     }
     fn target(&self) -> E {
         self.effect.clone()
     }
+    fn kind(&self) {}
 }
 
 /// Category adapter for a causal graph.

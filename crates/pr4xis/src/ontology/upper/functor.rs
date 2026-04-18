@@ -41,12 +41,14 @@ pub struct OwnRelation {
 
 impl Relationship for OwnRelation {
     type Object = OwnType;
+    type Kind = ();
     fn source(&self) -> OwnType {
         self.from
     }
     fn target(&self) -> OwnType {
         self.to
     }
+    fn kind(&self) {}
 }
 
 /// The workspace's own meta-category.

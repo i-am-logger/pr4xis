@@ -240,12 +240,14 @@ pub struct SpellingRelation {
 
 impl Relationship for SpellingRelation {
     type Object = SpellingErrorConcept;
+    type Kind = ();
     fn source(&self) -> SpellingErrorConcept {
         self.from
     }
     fn target(&self) -> SpellingErrorConcept {
         self.to
     }
+    fn kind(&self) {}
 }
 
 pub struct SpellingErrorCategory;

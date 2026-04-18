@@ -17,12 +17,14 @@ pub struct Modifies {
 
 impl Relationship for Modifies {
     type Object = PosTag;
+    type Kind = ();
     fn source(&self) -> PosTag {
         self.modifier
     }
     fn target(&self) -> PosTag {
         self.head
     }
+    fn kind(&self) {}
 }
 
 /// The lexical category: parts of speech and their modification relationships.

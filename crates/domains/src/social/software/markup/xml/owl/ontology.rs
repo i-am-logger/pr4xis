@@ -150,12 +150,14 @@ pub struct OwlRelation {
 
 impl Relationship for OwlRelation {
     type Object = OwlConcept;
+    type Kind = ();
     fn source(&self) -> OwlConcept {
         self.source
     }
     fn target(&self) -> OwlConcept {
         self.target
     }
+    fn kind(&self) {}
 }
 
 /// The OWL category — the structural relationships between OWL constructs.

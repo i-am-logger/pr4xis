@@ -238,12 +238,14 @@ pub struct PhaseTransitionRel {
 
 impl Relationship for PhaseTransitionRel {
     type Object = PhaseTag;
+    type Kind = ();
     fn source(&self) -> PhaseTag {
         self.from
     }
     fn target(&self) -> PhaseTag {
         self.to
     }
+    fn kind(&self) {}
 }
 
 /// The case lifecycle as a category.

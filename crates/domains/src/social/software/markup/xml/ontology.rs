@@ -48,12 +48,14 @@ pub struct XmlContains {
 
 impl Relationship for XmlContains {
     type Object = XmlNodeKind;
+    type Kind = ();
     fn source(&self) -> XmlNodeKind {
         self.parent
     }
     fn target(&self) -> XmlNodeKind {
         self.child
     }
+    fn kind(&self) {}
 }
 
 /// The XML category — W3C well-formedness rules as category laws.

@@ -20,6 +20,7 @@ pub struct EscalationTransition {
 
 impl Relationship for EscalationTransition {
     type Object = EscalationLevel;
+    type Kind = ();
 
     fn source(&self) -> EscalationLevel {
         self.from
@@ -28,6 +29,8 @@ impl Relationship for EscalationTransition {
     fn target(&self) -> EscalationLevel {
         self.to
     }
+
+    fn kind(&self) {}
 }
 
 // ---------------------------------------------------------------------------

@@ -21,6 +21,7 @@ impl FrameTransform {
 
 impl Relationship for FrameTransform {
     type Object = ReferenceFrame;
+    type Kind = ();
 
     fn source(&self) -> ReferenceFrame {
         self.from
@@ -29,4 +30,6 @@ impl Relationship for FrameTransform {
     fn target(&self) -> ReferenceFrame {
         self.to
     }
+
+    fn kind(&self) {}
 }

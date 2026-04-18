@@ -193,12 +193,14 @@ mod tests {
 
     impl Relationship for TestMorph {
         type Object = TestObj;
+        type Kind = ();
         fn source(&self) -> TestObj {
             self.from
         }
         fn target(&self) -> TestObj {
             self.to
         }
+        fn kind(&self) {}
     }
 
     struct TestCat;

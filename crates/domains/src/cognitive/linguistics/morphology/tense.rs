@@ -88,12 +88,14 @@ pub struct TenseShift {
 
 impl Relationship for TenseShift {
     type Object = TenseAspect;
+    type Kind = ();
     fn source(&self) -> TenseAspect {
         self.from
     }
     fn target(&self) -> TenseAspect {
         self.to
     }
+    fn kind(&self) {}
 }
 
 /// The tense-aspect category.

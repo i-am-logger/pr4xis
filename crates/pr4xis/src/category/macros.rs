@@ -58,8 +58,10 @@ macro_rules! define_category {
 
         impl $crate::category::Relationship for $relation {
             type Object = $entity;
+            type Kind = $kind;
             fn source(&self) -> $entity { self.from }
             fn target(&self) -> $entity { self.to }
+            fn kind(&self) -> $kind { self.kind }
         }
 
         $(#[$cat_meta])*
@@ -139,8 +141,10 @@ macro_rules! define_dense_category {
 
         impl $crate::category::Relationship for $relation {
             type Object = $entity;
+            type Kind = ();
             fn source(&self) -> $entity { self.from }
             fn target(&self) -> $entity { self.to }
+            fn kind(&self) -> () {}
         }
 
         $(#[$cat_meta])*

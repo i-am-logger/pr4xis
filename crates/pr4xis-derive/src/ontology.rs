@@ -568,8 +568,10 @@ pub fn generate(def: OntologyDef) -> TokenStream {
 
             impl #pr4xis::category::Relationship for #relation_name {
                 type Object = #entity_name;
+                type Kind = #kind_name;
                 fn source(&self) -> #entity_name { self.from }
                 fn target(&self) -> #entity_name { self.to }
+                fn kind(&self) -> #kind_name { self.kind }
             }
 
             pub struct #cat_name;
@@ -615,8 +617,10 @@ pub fn generate(def: OntologyDef) -> TokenStream {
 
             impl #pr4xis::category::Relationship for #relation_name {
                 type Object = #entity_name;
+                type Kind = ();
                 fn source(&self) -> #entity_name { self.from }
                 fn target(&self) -> #entity_name { self.to }
+                fn kind(&self) -> () {}
             }
 
             pub struct #cat_name;

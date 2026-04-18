@@ -29,12 +29,14 @@ pub struct Equivalent<E: Entity> {
 
 impl<E: Entity> Relationship for Equivalent<E> {
     type Object = E;
+    type Kind = ();
     fn source(&self) -> E {
         self.left.clone()
     }
     fn target(&self) -> E {
         self.right.clone()
     }
+    fn kind(&self) {}
 }
 
 /// Category adapter for equivalence relations.

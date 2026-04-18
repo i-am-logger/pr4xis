@@ -29,6 +29,7 @@ pub struct OpMorphism<M>(pub M);
 
 impl<M: Relationship> Relationship for OpMorphism<M> {
     type Object = M::Object;
+    type Kind = M::Kind;
 
     fn source(&self) -> Self::Object {
         self.0.target()
@@ -36,6 +37,10 @@ impl<M: Relationship> Relationship for OpMorphism<M> {
 
     fn target(&self) -> Self::Object {
         self.0.source()
+    }
+
+    fn kind(&self) -> Self::Kind {
+        self.0.kind()
     }
 }
 
@@ -89,12 +94,14 @@ mod tests {
 
     impl Relationship for LightEdge {
         type Object = Light;
+        type Kind = ();
         fn source(&self) -> Light {
             self.from
         }
         fn target(&self) -> Light {
             self.to
         }
+        fn kind(&self) {}
     }
 
     struct LightCat;

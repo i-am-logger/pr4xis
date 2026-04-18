@@ -88,12 +88,14 @@ pub enum EngineRelationKind {
 
 impl Relationship for EngineRelation {
     type Object = EngineElement;
+    type Kind = ();
     fn source(&self) -> EngineElement {
         self.from
     }
     fn target(&self) -> EngineElement {
         self.to
     }
+    fn kind(&self) {}
 }
 
 pub struct EngineCategory;

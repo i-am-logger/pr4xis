@@ -74,12 +74,14 @@ pub enum ChessEventRelationKind {
 
 impl Relationship for ChessEventRelation {
     type Object = ChessEvent;
+    type Kind = ();
     fn source(&self) -> ChessEvent {
         self.from
     }
     fn target(&self) -> ChessEvent {
         self.to
     }
+    fn kind(&self) {}
 }
 
 pub struct ChessEventCategory;

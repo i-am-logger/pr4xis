@@ -17,7 +17,7 @@ pub struct OntologicalRelation {
 }
 
 /// The kind of ontological relationship.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RelationKind {
     /// Identity morphism.
     Identity,
@@ -41,6 +41,7 @@ impl OntologicalRelation {
 
 impl Relationship for OntologicalRelation {
     type Object = Being;
+    type Kind = RelationKind;
 
     fn source(&self) -> Being {
         self.from
@@ -48,6 +49,10 @@ impl Relationship for OntologicalRelation {
 
     fn target(&self) -> Being {
         self.to
+    }
+
+    fn kind(&self) -> RelationKind {
+        self.kind
     }
 }
 

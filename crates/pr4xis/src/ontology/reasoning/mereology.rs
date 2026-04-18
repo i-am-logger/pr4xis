@@ -25,12 +25,14 @@ pub struct HasA<E: Entity> {
 
 impl<E: Entity> Relationship for HasA<E> {
     type Object = E;
+    type Kind = ();
     fn source(&self) -> E {
         self.whole.clone()
     }
     fn target(&self) -> E {
         self.part.clone()
     }
+    fn kind(&self) {}
 }
 
 /// Category adapter for a mereology.

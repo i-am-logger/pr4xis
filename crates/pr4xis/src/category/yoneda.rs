@@ -156,12 +156,14 @@ mod tests {
     }
     impl Relationship for Edge {
         type Object = Node;
+        type Kind = ();
         fn source(&self) -> Node {
             self.from
         }
         fn target(&self) -> Node {
             self.to
         }
+        fn kind(&self) {}
     }
 
     struct Graph;

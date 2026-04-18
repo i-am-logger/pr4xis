@@ -81,12 +81,14 @@ mod tests {
     }
     impl Relationship for LightEdge {
         type Object = Light;
+        type Kind = ();
         fn source(&self) -> Light {
             self.from
         }
         fn target(&self) -> Light {
             self.to
         }
+        fn kind(&self) {}
     }
     struct LightCat;
     impl Category for LightCat {

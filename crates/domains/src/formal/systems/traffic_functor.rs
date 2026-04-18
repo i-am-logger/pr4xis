@@ -82,12 +82,14 @@ pub enum TrafficRelationKind {
 
 impl Relationship for TrafficSystemRelation {
     type Object = TrafficSystemElement;
+    type Kind = ();
     fn source(&self) -> TrafficSystemElement {
         self.from
     }
     fn target(&self) -> TrafficSystemElement {
         self.to
     }
+    fn kind(&self) {}
 }
 
 /// The traffic system category.

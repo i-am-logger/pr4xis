@@ -39,6 +39,7 @@ enum LightTransition {
 
 impl Relationship for LightTransition {
     type Object = Light;
+    type Kind = ();
 
     fn source(&self) -> Light {
         match self {
@@ -57,6 +58,8 @@ impl Relationship for LightTransition {
             LightTransition::YellowToRed | LightTransition::GreenToRed => Light::Red,
         }
     }
+
+    fn kind(&self) {}
 }
 
 struct TrafficLightCat;
