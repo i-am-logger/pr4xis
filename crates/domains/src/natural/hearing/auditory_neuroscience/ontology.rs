@@ -15,6 +15,9 @@
 //! - Pickles 2012: Physiology of Hearing
 //! - Joris, Schreiner & Rees 2004: neural processing of amplitude-modulated sounds
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;

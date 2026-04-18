@@ -3,6 +3,9 @@
 //! Defines what an Error IS — the foundation for Resilience (#123) and the
 //! typed-error replacement for `Result<(), Vec<String>>` in `Ontology::validate()`.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pub mod ontology;
 // NOTE: the Dependability → Diagnostics functor remains deferred. The #98
 // research doc's case-2 recommendation — "use Op<Dependability> → Diagnostics

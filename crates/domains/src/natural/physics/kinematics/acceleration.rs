@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Acceleration vector: the second derivative of position with respect to time.
 ///
 /// a = dv/dt = d²x/dt² (meters per second squared).

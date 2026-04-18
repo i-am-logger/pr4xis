@@ -45,6 +45,9 @@
 //! - Taha & Sheard 1997: *Multi-Stage Programming with Explicit Annotations*
 //!   (PEPM 1997). The staged-computation lineage, direct descendant.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::{causation, taxonomy};

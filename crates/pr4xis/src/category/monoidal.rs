@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 // Monoidal category — a category with a tensor product and unit object.
 //

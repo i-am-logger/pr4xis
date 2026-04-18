@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::color::SimonColor;
 
 /// A player input: pressing a color button at a specific position in the sequence.

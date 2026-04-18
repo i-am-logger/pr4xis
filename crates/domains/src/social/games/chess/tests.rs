@@ -624,11 +624,11 @@ proptest! {
     fn prop_queen_is_rook_plus_bishop(sq in arb_square()) {
         let mut board = Board::empty(Color::White);
         board.set(sq, Some(Piece::new(PieceKind::Queen, Color::White)));
-        let queen: std::collections::HashSet<_> = board.legal_moves(sq).into_iter().collect();
+        let queen: hashbrown::HashSet<_> = board.legal_moves(sq).into_iter().collect();
         board.set(sq, Some(Piece::new(PieceKind::Rook, Color::White)));
-        let rook: std::collections::HashSet<_> = board.legal_moves(sq).into_iter().collect();
+        let rook: hashbrown::HashSet<_> = board.legal_moves(sq).into_iter().collect();
         board.set(sq, Some(Piece::new(PieceKind::Bishop, Color::White)));
-        let bishop: std::collections::HashSet<_> = board.legal_moves(sq).into_iter().collect();
+        let bishop: hashbrown::HashSet<_> = board.legal_moves(sq).into_iter().collect();
         prop_assert_eq!(queen, rook.union(&bishop).cloned().collect());
     }
 

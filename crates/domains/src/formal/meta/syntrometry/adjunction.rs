@@ -26,6 +26,9 @@
 //! - `Part` → `SubMorphism` → `Koordination` (mereology-as-morphism vs ordering collapsed)
 //! - `Dialektik`, `Aspekt` → `SubCategory` → `Syntrix` (opposition / product / leveled all collapsed to category)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Functor;
 
 use super::lineage_functor::SyntrometryToPr4xisSubstrate;

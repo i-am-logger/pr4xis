@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// AUV navigation state and dead reckoning.
 ///
 /// Source: Kinsey et al. (2006), "A Survey of Underwater Vehicle Navigation"

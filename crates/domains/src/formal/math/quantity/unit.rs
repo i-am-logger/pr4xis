@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::formal::math::quantity::dimension::Dimension;
 
 /// A unit of measurement: a dimension + a scale factor.
@@ -108,7 +111,7 @@ pub const DEGREE: Unit = Unit {
     name: "degree",
     symbol: "°",
     dimension: Dimension::ANGLE,
-    scale: std::f64::consts::PI / 180.0,
+    scale: core::f64::consts::PI / 180.0,
     offset: 0.0,
 };
 

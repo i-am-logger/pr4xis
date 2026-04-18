@@ -1,4 +1,7 @@
-use std::f64::consts::PI;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
+use core::f64::consts::PI;
 
 /// An angle in Euclidean geometry.
 ///

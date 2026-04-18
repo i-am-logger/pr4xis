@@ -2,16 +2,18 @@ use super::category::Category;
 use super::entity::Concept;
 use super::relationship::Relationship;
 use crate::logic::Axiom;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// Every object has at least one outgoing morphism (no dead states).
 pub struct NoDeadStates<C: Category> {
-    _marker: std::marker::PhantomData<C>,
+    _marker: core::marker::PhantomData<C>,
 }
 
 impl<C: Category> NoDeadStates<C> {
     pub fn new() -> Self {
         Self {
-            _marker: std::marker::PhantomData,
+            _marker: core::marker::PhantomData,
         }
     }
 }
@@ -42,13 +44,13 @@ impl<C: Category> Axiom for NoDeadStates<C> {
 
 /// Every object is reachable from every other object.
 pub struct FullyConnected<C: Category> {
-    _marker: std::marker::PhantomData<C>,
+    _marker: core::marker::PhantomData<C>,
 }
 
 impl<C: Category> FullyConnected<C> {
     pub fn new() -> Self {
         Self {
-            _marker: std::marker::PhantomData,
+            _marker: core::marker::PhantomData,
         }
     }
 }
@@ -65,7 +67,8 @@ impl<C: Category> Axiom for FullyConnected<C> {
     }
 
     fn holds(&self) -> bool {
-        use std::collections::{HashSet, VecDeque};
+        use alloc::collections::VecDeque;
+        use hashbrown::HashSet;
 
         let variants = C::Object::variants();
         if variants.is_empty() {

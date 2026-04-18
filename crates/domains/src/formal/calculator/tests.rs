@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::*;
 use pr4xis::engine::{Action, EngineError};
 use proptest::prelude::*;
@@ -515,7 +518,7 @@ proptest! {
     /// e^(iπ) + 1 = 0 (Euler's identity)
     #[test]
     fn prop_euler_identity(_x in 0..1u8) {
-        let i_pi = Complex::new(0.0, std::f64::consts::PI);
+        let i_pi = Complex::new(0.0, core::f64::consts::PI);
         let result = i_pi.exp().add(&Complex::ONE);
         prop_assert!(result.re.abs() < 1e-10);
         prop_assert!(result.im.abs() < 1e-10);
@@ -697,14 +700,14 @@ proptest! {
     #[test]
     fn prop_pi_value(_x in 0..1u8) {
         let pi = Constant::Pi.value().to_f64();
-        prop_assert!((pi - std::f64::consts::PI).abs() < 1e-10);
+        prop_assert!((pi - core::f64::consts::PI).abs() < 1e-10);
     }
 
     /// e is approximately 2.71828
     #[test]
     fn prop_e_value(_x in 0..1u8) {
         let e = Constant::E.value().to_f64();
-        prop_assert!((e - std::f64::consts::E).abs() < 1e-10);
+        prop_assert!((e - core::f64::consts::E).abs() < 1e-10);
     }
 }
 
@@ -915,7 +918,7 @@ fn test_complex_magnitude() {
 #[test]
 fn test_complex_phase() {
     let z = Complex::new(1.0, 1.0);
-    assert!((z.phase() - std::f64::consts::FRAC_PI_4).abs() < 1e-10);
+    assert!((z.phase() - core::f64::consts::FRAC_PI_4).abs() < 1e-10);
 }
 
 #[test]
@@ -1014,7 +1017,7 @@ fn test_complex_exp_real() {
     // e^1 = e
     let z = Complex::real(1.0);
     let result = z.exp();
-    assert!((result.re - std::f64::consts::E).abs() < 1e-10);
+    assert!((result.re - core::f64::consts::E).abs() < 1e-10);
     assert!(result.im.abs() < 1e-10);
 }
 
@@ -1030,7 +1033,7 @@ fn test_complex_ln() {
 #[test]
 fn test_complex_ln_e() {
     // ln(e) = 1
-    let z = Complex::real(std::f64::consts::E);
+    let z = Complex::real(core::f64::consts::E);
     let result = z.ln().unwrap();
     assert!((result.re - 1.0).abs() < 1e-10);
     assert!(result.im.abs() < 1e-10);
@@ -1048,7 +1051,7 @@ fn test_complex_ln_negative() {
     let z = Complex::real(-1.0);
     let result = z.ln().unwrap();
     assert!(result.re.abs() < 1e-10);
-    assert!((result.im - std::f64::consts::PI).abs() < 1e-10);
+    assert!((result.im - core::f64::consts::PI).abs() < 1e-10);
 }
 
 #[test]
@@ -1308,13 +1311,13 @@ fn test_unary_to_radians() {
     let result = UnaryOp::ToRadians
         .apply(&Value::Float(180.0), AngleMode::Radians)
         .unwrap();
-    assert!((result.to_f64() - std::f64::consts::PI).abs() < 1e-10);
+    assert!((result.to_f64() - core::f64::consts::PI).abs() < 1e-10);
 }
 
 #[test]
 fn test_unary_to_degrees() {
     let result = UnaryOp::ToDegrees
-        .apply(&Value::Float(std::f64::consts::PI), AngleMode::Radians)
+        .apply(&Value::Float(core::f64::consts::PI), AngleMode::Radians)
         .unwrap();
     assert!((result.to_f64() - 180.0).abs() < 1e-10);
 }
@@ -1457,7 +1460,7 @@ fn test_unary_exp() {
 #[test]
 fn test_unary_tan_undefined() {
     // tan(pi/2) is undefined
-    let v = Value::Float(std::f64::consts::FRAC_PI_2);
+    let v = Value::Float(core::f64::consts::FRAC_PI_2);
     assert_eq!(
         UnaryOp::Tan.apply(&v, AngleMode::Radians),
         Err(CalcError::TanUndefined)
@@ -1507,7 +1510,7 @@ fn test_unary_atan() {
     let result = UnaryOp::Atan
         .apply(&Value::Float(1.0), AngleMode::Radians)
         .unwrap();
-    assert!((result.to_f64() - std::f64::consts::FRAC_PI_4).abs() < 1e-10);
+    assert!((result.to_f64() - core::f64::consts::FRAC_PI_4).abs() < 1e-10);
 }
 
 #[test]
@@ -1995,7 +1998,7 @@ fn test_convert_area_hectare_to_sqm() {
 #[test]
 fn test_convert_angle_degrees_to_radians() {
     let result = convert(180.0, Unit::Degree, Unit::Radian).unwrap();
-    assert!((result - std::f64::consts::PI).abs() < 0.001);
+    assert!((result - core::f64::consts::PI).abs() < 0.001);
 }
 
 #[test]
@@ -2027,13 +2030,13 @@ fn test_convert_incompatible_temp_to_speed() {
 #[test]
 fn test_constant_pi() {
     let v = Constant::Pi.value();
-    assert!((v.to_f64() - std::f64::consts::PI).abs() < 1e-15);
+    assert!((v.to_f64() - core::f64::consts::PI).abs() < 1e-15);
 }
 
 #[test]
 fn test_constant_e() {
     let v = Constant::E.value();
-    assert!((v.to_f64() - std::f64::consts::E).abs() < 1e-15);
+    assert!((v.to_f64() - core::f64::consts::E).abs() < 1e-15);
 }
 
 #[test]
@@ -2046,19 +2049,19 @@ fn test_constant_golden_ratio() {
 #[test]
 fn test_constant_sqrt2() {
     let v = Constant::Sqrt2.value();
-    assert!((v.to_f64() - std::f64::consts::SQRT_2).abs() < 1e-15);
+    assert!((v.to_f64() - core::f64::consts::SQRT_2).abs() < 1e-15);
 }
 
 #[test]
 fn test_constant_ln2() {
     let v = Constant::Ln2.value();
-    assert!((v.to_f64() - std::f64::consts::LN_2).abs() < 1e-15);
+    assert!((v.to_f64() - core::f64::consts::LN_2).abs() < 1e-15);
 }
 
 #[test]
 fn test_constant_ln10() {
     let v = Constant::Ln10.value();
-    assert!((v.to_f64() - std::f64::consts::LN_10).abs() < 1e-15);
+    assert!((v.to_f64() - core::f64::consts::LN_10).abs() < 1e-15);
 }
 
 #[test]

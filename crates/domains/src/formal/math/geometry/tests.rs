@@ -139,8 +139,8 @@ mod proptest_proofs {
     use crate::formal::math::geometry::projection;
     use crate::formal::math::geometry::shape::Triangle;
     use crate::formal::math::geometry::vector::Vec3;
+    use core::f64::consts::PI;
     use proptest::prelude::*;
-    use std::f64::consts::PI;
 
     fn arb_point3() -> impl Strategy<Value = Point3> {
         (-100.0..100.0_f64, -100.0..100.0_f64, -100.0..100.0_f64)

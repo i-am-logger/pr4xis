@@ -11,6 +11,9 @@
 //! Source: Hellmann et al. NIF (2013); Chiarcos & Sukhareva OLiA (2015);
 //!         Coecke, Sadrzadeh & Clark DisCoCat (2010)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

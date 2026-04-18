@@ -2,6 +2,9 @@
 //!
 //! Source: Fisher (1925), Neyman & Pearson (1933).
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::statistics::confidence;

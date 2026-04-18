@@ -2,6 +2,9 @@
 //!
 //! Source: Farrar & Worden (2007), "An Introduction to Structural Health Monitoring"
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

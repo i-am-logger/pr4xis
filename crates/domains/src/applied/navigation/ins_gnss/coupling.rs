@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::applied::navigation::ins_gnss::ontology::CouplingLevel;
 
 /// Coupling mode characteristics for INS/GNSS integration.

@@ -1,5 +1,7 @@
 use super::category::Category;
 use super::relationship::Relationship;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// A morphism bound to its category — enables functional chaining.
 ///

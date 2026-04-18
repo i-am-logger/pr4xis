@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// A point in 2D Euclidean space.
 ///
 /// Hilbert's primitive notion: points are undefined objects

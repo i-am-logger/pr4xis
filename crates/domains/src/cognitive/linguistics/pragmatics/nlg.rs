@@ -19,6 +19,9 @@
 //! - Appelt, "Planning English Sentences" (1985) — speech act planning
 //! - McKeown, "Text Generation" (1985) — rhetorical schemata
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "Nlg",
     source: "Reiter & Dale (2000); Levelt (1989); Mann & Thompson (1988); Appelt (1985)",

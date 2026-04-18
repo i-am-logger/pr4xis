@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Theming ontology — formal structure of color schemes.
 ///
 /// Connects base16/base24 slots to color science (sRGB, WCAG).
@@ -5,11 +8,11 @@
 use super::base16::{ColorSlot, Polarity, SemanticRole};
 use crate::natural::colors::rgb::Rgb;
 use crate::natural::colors::srgb;
+use hashbrown::HashMap;
 use pr4xis::category::{Category, Concept, Relationship};
 use pr4xis::ontology::upper::being::Being;
 use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Quality};
-use std::collections::HashMap;
 
 /// A concrete color palette: binds each slot to an Rgb color.
 pub type Palette = HashMap<ColorSlot, Rgb>;

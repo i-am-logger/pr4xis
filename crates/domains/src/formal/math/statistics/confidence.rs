@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Confidence intervals.
 ///
 /// Fisher, R.A. (1925). "Theory of Statistical Estimation."

@@ -8,7 +8,9 @@ use super::composition::Evaluation;
 /// - **Induction**: observed pattern across instances → general rule (probable truth)
 /// - **Abduction**: observation + rule → best explanation (hypothesis)
 use super::composition::Proposition;
-use std::fmt::Debug;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
 
 /// A deductive inference: given premises, a rule (A→B), and a conclusion, derive truth.
 ///

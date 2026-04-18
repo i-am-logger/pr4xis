@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Dense vector over R (column vector).
 ///
 /// Satisfies the 8 vector space axioms (Axler, *Linear Algebra Done Right*):

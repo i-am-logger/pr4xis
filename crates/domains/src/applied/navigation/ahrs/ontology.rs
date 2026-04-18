@@ -9,6 +9,9 @@
 //! Source: Madgwick (2010), Mahony et al. (2008), Titterton & Weston (2004)
 //!         Chapter 10.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
@@ -145,10 +148,10 @@ impl Axiom for GyroIntegrationDrifts {
     }
     fn holds(&self) -> bool {
         let gyro_bias_deg_per_hr = 1.0;
-        let gyro_bias_rad_per_s = gyro_bias_deg_per_hr * std::f64::consts::PI / (180.0 * 3600.0);
+        let gyro_bias_rad_per_s = gyro_bias_deg_per_hr * core::f64::consts::PI / (180.0 * 3600.0);
         let t = 3600.0;
         let drift_rad = gyro_bias_rad_per_s * t;
-        let drift_deg = drift_rad * 180.0 / std::f64::consts::PI;
+        let drift_deg = drift_rad * 180.0 / core::f64::consts::PI;
         (drift_deg - 1.0).abs() < 0.01
     }
 }

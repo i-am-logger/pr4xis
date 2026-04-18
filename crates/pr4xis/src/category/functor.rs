@@ -1,6 +1,8 @@
 use super::category::Category;
 use super::kinds::FunctorKind;
 use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, RelationshipMeta};
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// A functor is a structure-preserving map between two categories.
 ///
@@ -42,12 +44,12 @@ pub trait Functor {
 
     /// Structured metadata — name, citation, module path.
     ///
-    /// The default is an **honest placeholder** using `std::any::type_name`
+    /// The default is an **honest placeholder** using `core::any::type_name`
     /// and an empty citation — "literature citation not yet declared".
     /// Functors declared via `pr4xis::functor!` or with the
     /// [`relationship_meta!`](crate::relationship_meta!) helper override it.
     fn meta() -> RelationshipMeta {
-        let tn = std::any::type_name::<Self>().to_string();
+        let tn = core::any::type_name::<Self>().to_string();
         RelationshipMeta {
             name: OntologyName::new(tn.clone()),
             description: Label::new(tn),

@@ -81,7 +81,7 @@ fn angle_between_orthogonal_vectors() {
     let a = [1.0, 0.0, 0.0];
     let b = [0.0, 1.0, 0.0];
     let angle = angle_between(&a, &b);
-    assert!((angle - std::f64::consts::FRAC_PI_2).abs() < 1e-10);
+    assert!((angle - core::f64::consts::FRAC_PI_2).abs() < 1e-10);
 }
 
 #[cfg(test)]

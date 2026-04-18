@@ -2,6 +2,8 @@ use super::category::Category;
 use super::functor::Functor;
 use super::kinds::NatTransKind;
 use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, RelationshipMeta};
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// A natural transformation is a morphism between two functors.
 ///
@@ -49,7 +51,7 @@ pub trait NaturalTransformation {
     /// `pr4xis::natural_transformation!` or
     /// [`relationship_meta!`](crate::relationship_meta!).
     fn meta() -> RelationshipMeta {
-        let tn = std::any::type_name::<Self>().to_string();
+        let tn = core::any::type_name::<Self>().to_string();
         RelationshipMeta {
             name: OntologyName::new(tn.clone()),
             description: Label::new(tn),

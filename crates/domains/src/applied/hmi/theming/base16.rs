@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Color scheme slots — the universal set across Base16 and Base24.
 ///
 /// Base16 defines 16 slots (base00-base0F):

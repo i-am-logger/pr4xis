@@ -1,5 +1,7 @@
-use std::collections::{HashMap, HashSet};
-use std::marker::PhantomData;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::marker::PhantomData;
+use hashbrown::{HashMap, HashSet};
 
 use crate::category::Category;
 use crate::category::entity::Concept;

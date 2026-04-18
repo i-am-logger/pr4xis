@@ -1,4 +1,6 @@
 use super::precondition::PreconditionResult;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// A single entry in the trace log.
 #[derive(Debug, Clone, PartialEq)]

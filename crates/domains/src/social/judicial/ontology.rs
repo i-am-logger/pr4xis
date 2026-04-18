@@ -1,10 +1,13 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::authority::Authority;
 use super::lifecycle::PhaseTag;
+use hashbrown::HashMap;
 use pr4xis::category::{Category, Concept, Relationship};
 use pr4xis::ontology::upper::being::Being;
 use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
-use std::collections::HashMap;
 
 /// Valence of a legal term.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Pythagorean theorem as an ontology:
 /// - Situation: a right triangle (a, b, c)
 /// - Axiom: a² + b² = c² must hold at all times

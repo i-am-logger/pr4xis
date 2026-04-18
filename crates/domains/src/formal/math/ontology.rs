@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Math ontology: mathematical domains as entities with axioms.
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;

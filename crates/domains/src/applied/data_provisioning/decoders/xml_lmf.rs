@@ -15,6 +15,9 @@
 //! thin wrapper, not a second implementation of functionality that already
 //! exists in `social/software/markup/xml/`.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::social::software::markup::xml::lmf::ontology::WordNet;
 use crate::social::software::markup::xml::lmf::reader as lmf_reader;
 
@@ -47,7 +50,7 @@ use crate::social::software::markup::xml::lmf::reader as lmf_reader;
 /// assert_eq!(wordnet.synsets.len(), 1);
 /// ```
 pub fn decode(bytes: &[u8]) -> Result<WordNet, DecodeError> {
-    let text = std::str::from_utf8(bytes).map_err(|_| DecodeError::NotUtf8)?;
+    let text = core::str::from_utf8(bytes).map_err(|_| DecodeError::NotUtf8)?;
     lmf_reader::read_wordnet(text).map_err(|e| DecodeError::Lmf(e.to_string()))
 }
 
@@ -62,8 +65,8 @@ pub enum DecodeError {
     Lmf(String),
 }
 
-impl std::fmt::Display for DecodeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             DecodeError::NotUtf8 => write!(f, "data-provisioning XmlLmf decoder: not valid UTF-8"),
             DecodeError::Lmf(msg) => {
@@ -76,4 +79,5 @@ impl std::fmt::Display for DecodeError {
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for DecodeError {}

@@ -14,6 +14,9 @@
 //!
 //! Source: Mann & Thompson (1988); Asher & Lascarides (2003); Hobbs (1979)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

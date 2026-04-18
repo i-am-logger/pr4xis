@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::ontology::*;
 use pr4xis::category::Category;
 use pr4xis::category::entity::Concept;
@@ -70,7 +73,7 @@ fn describe_knowledge_base_is_nonempty() {
 #[test]
 fn describe_knowledge_base_names_are_unique() {
     let descriptors = super::describe_knowledge_base();
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = hashbrown::HashSet::new();
     for d in &descriptors {
         assert!(
             seen.insert((d.name(), d.domain())),

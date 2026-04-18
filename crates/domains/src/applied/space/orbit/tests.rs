@@ -84,7 +84,7 @@ fn radar_to_eci_at_zenith() {
         range: 1000.0,
         range_rate: 0.0,
         azimuth: 0.0,
-        elevation: std::f64::consts::FRAC_PI_2,
+        elevation: core::f64::consts::FRAC_PI_2,
     };
     let pos = radar_to_eci(&obs);
     assert!(pos[0].abs() < 1e-10);

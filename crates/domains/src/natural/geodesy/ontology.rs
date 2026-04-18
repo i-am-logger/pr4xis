@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::{Category, Concept, Endofunctor, Functor};
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -360,12 +363,12 @@ impl Ontology for GeodesyOntology {
 // ---------------------------------------------------------------------------
 
 fn canonical_geodetic_points() -> Vec<Geodetic> {
-    use std::f64::consts::FRAC_PI_4;
+    use core::f64::consts::FRAC_PI_4;
     vec![
         // Origin: equator / prime meridian
         Geodetic::new(0.0, 0.0, 0.0),
         // North pole
-        Geodetic::new(std::f64::consts::FRAC_PI_2, 0.0, 0.0),
+        Geodetic::new(core::f64::consts::FRAC_PI_2, 0.0, 0.0),
         // 45°N, 0°E
         Geodetic::new(FRAC_PI_4, 0.0, 0.0),
         // New York (approx)

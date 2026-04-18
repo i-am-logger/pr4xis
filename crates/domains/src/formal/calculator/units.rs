@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::value::CalcError;
 
 /// Unit categories for conversion.
@@ -136,8 +139,8 @@ impl Unit {
             Unit::Day => 86400.0,
             // Angle → radians
             Unit::Radian => 1.0,
-            Unit::Degree => std::f64::consts::PI / 180.0,
-            Unit::Gradian => std::f64::consts::PI / 200.0,
+            Unit::Degree => core::f64::consts::PI / 180.0,
+            Unit::Gradian => core::f64::consts::PI / 200.0,
             // Temperature handled separately
             Unit::Celsius | Unit::Fahrenheit | Unit::Kelvin => 1.0,
         }

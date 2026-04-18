@@ -23,6 +23,9 @@
 //! - Van der Sandt, Presupposition Projection as Anaphora Resolution (1992)
 //! - Heim, The Semantics of Definite and Indefinite Noun Phrases (1982)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 
 pr4xis::ontology! {

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 // Typed token — a Word occurrence connected through the ontologies.
 //
 // A token IS a path through Text × Lemon × Lambek × Pipeline:

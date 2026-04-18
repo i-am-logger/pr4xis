@@ -1,3 +1,7 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
+use hashbrown::{HashMap, HashSet};
 /// Desktop mode ontology — defines WHAT modes and transitions ARE,
 /// not which specific modes exist. The user configures the mode graph.
 ///
@@ -14,7 +18,6 @@
 /// - Hyprland submaps (https://wiki.hypr.land/Configuring/Binds/#submaps)
 /// - macOS Mission Control (Desktop mode inspiration)
 use pr4xis::ontology::Axiom;
-use std::collections::{HashMap, HashSet};
 /// A mode definition — part of a user-configured mode graph.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ModeId(pub String);

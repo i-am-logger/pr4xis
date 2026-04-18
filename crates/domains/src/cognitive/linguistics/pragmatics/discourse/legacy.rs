@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::super::speech_act::{Intent, SpeechAct};
 use crate::cognitive::linguistics::semantics::meaning::MeaningRep;
 

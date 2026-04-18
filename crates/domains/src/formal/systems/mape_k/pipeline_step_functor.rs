@@ -40,6 +40,9 @@
 //! *consults*, not a stage they belong to. This follows Kephart & Chess's
 //! own diagram exactly.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Category;
 
 use super::ontology::{MapeKCategory, MapeKConcept, MapeKRelation};

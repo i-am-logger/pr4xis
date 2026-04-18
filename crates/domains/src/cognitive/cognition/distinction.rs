@@ -11,6 +11,9 @@
 //! - Kauffman, Laws of Form — An Exploration
 //! - von Foerster, Observing Systems (1981) — distinction as basis of observation
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "Distinction",
     source: "Spencer-Brown (1969)",
@@ -45,7 +48,7 @@ pr4xis::ontology! {
 
 /// Draw a distinction — the fundamental cognitive act.
 /// Returns the two sides of the distinction.
-pub fn draw_distinction<T: Clone + PartialEq + std::fmt::Debug>(marked: T, unmarked: T) -> (T, T) {
+pub fn draw_distinction<T: Clone + PartialEq + core::fmt::Debug>(marked: T, unmarked: T) -> (T, T) {
     assert_ne!(
         marked, unmarked,
         "a distinction requires two different things"

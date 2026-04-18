@@ -1,6 +1,8 @@
 use crate::category::entity::Concept;
 use crate::category::relationship::Relationship;
 use crate::category::{Category, Functor};
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::being::Being;
 use super::category::{DolceCategory, OntologicalRelation, RelationKind};

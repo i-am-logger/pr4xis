@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::value::Value;
 use crate::formal::math::fibonacci;
 
@@ -15,12 +18,12 @@ pub enum Constant {
 impl Constant {
     pub fn value(&self) -> Value {
         Value::Float(match self {
-            Constant::Pi => std::f64::consts::PI,
-            Constant::E => std::f64::consts::E,
+            Constant::Pi => core::f64::consts::PI,
+            Constant::E => core::f64::consts::E,
             Constant::GoldenRatio => fibonacci::golden_ratio(),
-            Constant::Sqrt2 => std::f64::consts::SQRT_2,
-            Constant::Ln2 => std::f64::consts::LN_2,
-            Constant::Ln10 => std::f64::consts::LN_10,
+            Constant::Sqrt2 => core::f64::consts::SQRT_2,
+            Constant::Ln2 => core::f64::consts::LN_2,
+            Constant::Ln10 => core::f64::consts::LN_10,
         })
     }
 

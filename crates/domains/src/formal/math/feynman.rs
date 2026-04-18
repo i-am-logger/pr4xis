@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Feynman path integral as an ontology:
 /// - Situation: a quantum system with paths from A to B
 /// - Axiom: probability amplitude = sum of e^(iS/ℏ) over all paths
@@ -208,7 +211,7 @@ mod tests {
         };
         let p2 = Path {
             points: vec![0.0, 1.0],
-            action: std::f64::consts::PI,
+            action: core::f64::consts::PI,
         };
         let e = new_path_integral(1.0)
             .next(FeynmanAction::AddPath { path: p1 })
@@ -268,7 +271,7 @@ mod tests {
         assert!((a.real - 1.0).abs() < 1e-10);
         assert!(a.imag.abs() < 1e-10);
 
-        let a = Amplitude::from_phase(std::f64::consts::PI / 2.0);
+        let a = Amplitude::from_phase(core::f64::consts::PI / 2.0);
         assert!(a.real.abs() < 1e-10);
         assert!((a.imag - 1.0).abs() < 1e-10);
     }

@@ -13,6 +13,9 @@
 //! NOVEL CONTRIBUTION: this is a machine-verifiable methodology for
 //! detecting incompleteness in scientific ontologies.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::{Concept, Functor};
 
 use crate::natural::biomedical::bioelectricity::biology_functor::BioelectricToBiology;
@@ -48,7 +51,7 @@ pub struct GapReport<S: Concept, T: Concept> {
     pub counit_preserved: Vec<T>,
 }
 
-impl<S: Concept + std::fmt::Debug, T: Concept + std::fmt::Debug> GapReport<S, T> {
+impl<S: Concept + core::fmt::Debug, T: Concept + core::fmt::Debug> GapReport<S, T> {
     /// Fraction of source entities lost in round-trip.
     pub fn unit_loss_ratio(&self) -> f64 {
         let total = self.unit_gaps.len() + self.unit_preserved.len();
@@ -277,7 +280,7 @@ pub fn analyze_biochemistry_bioelectric_loss() -> f64 {
     let total = BiochemistryEntity::variants().len();
 
     // Count how many biochemistry entities map to UNIQUE bioelectric entities
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = hashbrown::HashSet::new();
     for entity in BiochemistryEntity::variants() {
         let mapped = BiochemistryToBioelectric::map_object(&entity);
         if !seen.insert(mapped) {
@@ -679,7 +682,7 @@ mod tests {
         // Measure collapse at each hop by counting unique targets
 
         // Hop 1: acoustics → biophysics
-        let acous_targets: std::collections::HashSet<_> = AcousticsEntity::variants()
+        let acous_targets: hashbrown::HashSet<_> = AcousticsEntity::variants()
             .iter()
             .map(|e| AcousticsToBiophysics::map_object(e))
             .collect();
@@ -687,7 +690,7 @@ mod tests {
             1.0 - (acous_targets.len() as f64 / AcousticsEntity::variants().len() as f64);
 
         // Hop 2: biophysics → molecular
-        let biophys_targets: std::collections::HashSet<_> = BiophysicsEntity::variants()
+        let biophys_targets: hashbrown::HashSet<_> = BiophysicsEntity::variants()
             .iter()
             .map(|e| BiophysicsToMolecular::map_object(e))
             .collect();
@@ -695,7 +698,7 @@ mod tests {
             1.0 - (biophys_targets.len() as f64 / BiophysicsEntity::variants().len() as f64);
 
         // Hop 3: mechanobiology → molecular
-        let mechano_targets: std::collections::HashSet<_> = MechanobiologyEntity::variants()
+        let mechano_targets: hashbrown::HashSet<_> = MechanobiologyEntity::variants()
             .iter()
             .map(|e| MechanobiologyToMolecular::map_object(e))
             .collect();
@@ -703,7 +706,7 @@ mod tests {
             1.0 - (mechano_targets.len() as f64 / MechanobiologyEntity::variants().len() as f64);
 
         // Hop 4: molecular → bioelectricity (direct)
-        let mol_targets: std::collections::HashSet<_> = MolecularEntity::variants()
+        let mol_targets: hashbrown::HashSet<_> = MolecularEntity::variants()
             .iter()
             .map(|e| MolecularToBioelectric::map_object(e))
             .collect();
@@ -711,7 +714,7 @@ mod tests {
             1.0 - (mol_targets.len() as f64 / MolecularEntity::variants().len() as f64);
 
         // Hop 5: biochemistry → bioelectricity
-        let biochem_targets: std::collections::HashSet<_> = BiochemistryEntity::variants()
+        let biochem_targets: hashbrown::HashSet<_> = BiochemistryEntity::variants()
             .iter()
             .map(|e| BiochemistryToBioelectric::map_object(e))
             .collect();
@@ -719,7 +722,7 @@ mod tests {
             1.0 - (biochem_targets.len() as f64 / BiochemistryEntity::variants().len() as f64);
 
         // End-to-end: acoustics → biophysics → molecular → bioelectricity
-        let end_to_end_targets: std::collections::HashSet<_> = AcousticsEntity::variants()
+        let end_to_end_targets: hashbrown::HashSet<_> = AcousticsEntity::variants()
             .iter()
             .map(|e| {
                 let biophys = AcousticsToBiophysics::map_object(e);
@@ -806,8 +809,8 @@ mod tests {
         use crate::formal::meta::staging::ontology::StageConcept;
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
         use crate::formal::meta::syntrometry::staging_functor::SyntrometryToStaging;
+        use hashbrown::HashSet;
         use pr4xis::category::{Concept, Functor};
-        use std::collections::HashSet;
 
         let mapped: HashSet<StageConcept> = SyntrometryConcept::variants()
             .into_iter()
@@ -836,8 +839,8 @@ mod tests {
         use crate::formal::meta::algebra::ontology::AlgebraConcept;
         use crate::formal::meta::syntrometry::algebra_functor::SyntrometryToAlgebra;
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
+        use hashbrown::HashSet;
         use pr4xis::category::{Concept, Functor};
-        use std::collections::HashSet;
 
         let mapped: HashSet<AlgebraConcept> = SyntrometryConcept::variants()
             .into_iter()
@@ -864,8 +867,8 @@ mod tests {
         use crate::formal::meta::ontology_diagnostics::ontology::MetaEntity;
         use crate::formal::meta::syntrometry::meta_ontology_functor::SyntrometryToMetaOntology;
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
+        use hashbrown::HashSet;
         use pr4xis::category::{Concept, Functor};
-        use std::collections::HashSet;
 
         let mapped: HashSet<MetaEntity> = SyntrometryConcept::variants()
             .into_iter()

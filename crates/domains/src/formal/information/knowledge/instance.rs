@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::cognitive::cognition::self_model::AwarenessLevel;
 use crate::formal::information::schema::transport::{Present, Presentation, SchemaValue};
 use pr4xis::ontology::{Axiom, Vocabulary, describe_knowledge_base};

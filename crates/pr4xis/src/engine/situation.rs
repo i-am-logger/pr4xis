@@ -1,4 +1,6 @@
-use std::fmt::Debug;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
 
 /// A situation is a snapshot of the world at a point in time.
 ///

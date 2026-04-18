@@ -30,9 +30,12 @@
 //! - Smith et al. (2005) OBO Relation Ontology — which properties attach
 //!   to which relation types canonically
 
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::hash::Hash;
-use std::marker::PhantomData;
+use alloc::collections::VecDeque;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::hash::Hash;
+use core::marker::PhantomData;
+use hashbrown::{HashMap, HashSet};
 
 use crate::category::{Category, Relationship};
 use crate::logic::axiom::Axiom;

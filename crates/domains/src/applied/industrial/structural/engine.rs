@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Structural health monitoring data processing.
 ///
 /// Source: Farrar & Worden (2007), "An Introduction to Structural Health Monitoring"
@@ -52,7 +55,7 @@ pub fn compute_damage_index(
             a.microstrain
                 .abs()
                 .partial_cmp(&b.microstrain.abs())
-                .unwrap_or(std::cmp::Ordering::Equal)
+                .unwrap_or(core::cmp::Ordering::Equal)
         })
         .unwrap();
 

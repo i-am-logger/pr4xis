@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::social::military::situation::ontology::SituationElement;
 
 /// A tracked entity in the situation assessment.

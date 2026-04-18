@@ -19,6 +19,9 @@
 //! - Kumar & Brockes 2012: nerve dependence in amphibian regeneration
 //! - Oviedo et al. 2010: gap junctions in planarian regeneration
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;

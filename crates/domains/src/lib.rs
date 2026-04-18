@@ -1,3 +1,7 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 // Academic discipline hierarchy (DOLCE-aligned)
 pub mod applied; // Process — engineering, navigation, sensors, robotics
 pub mod cognitive; // MentalObject — linguistics, cognition

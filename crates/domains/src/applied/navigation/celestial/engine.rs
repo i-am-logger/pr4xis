@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::engine::{Action, Situation};
 
 /// A celestial observation: measured altitude and azimuth of a body.

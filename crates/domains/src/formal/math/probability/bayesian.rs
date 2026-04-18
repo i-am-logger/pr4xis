@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Bayes' theorem: P(A|B) = P(B|A) * P(A) / P(B).
 ///
 /// The foundation of all estimation theory.

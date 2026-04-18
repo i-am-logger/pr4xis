@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 // Lexicon registry — auto-populated via linkme distributed_slice (native targets).
 //
 // Four parallel slices, one per structural entity kind, so the full Lemon

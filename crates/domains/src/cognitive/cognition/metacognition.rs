@@ -13,6 +13,9 @@
 //! - Glanville, Second Order Cybernetics
 //! - Olivares-Alarcos et al., MOI: Meta-Ontology for Introspection (2023)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "MetaCognition",
     source: "von Foerster (1981); Olivares-Alarcos MOI (2023)",

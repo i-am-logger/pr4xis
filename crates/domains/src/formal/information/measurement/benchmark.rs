@@ -12,6 +12,9 @@
 //! - SPEC CPU2017 documentation — run rules, reporting requirements
 //! - ISO/IEC 14756:1999 — measurement and rating of computer performance
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "Benchmark",
     source: "JCGM 200:2012 (VIM)",

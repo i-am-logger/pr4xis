@@ -1,6 +1,8 @@
 use super::category::Category;
 use super::monad::Writer;
 use super::monoid::Monoid;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 // Traced Category — the writer monad applied to categories.
 //
@@ -49,7 +51,7 @@ pub enum TraceRecordStatus {
 pub type TracedMorphism<M> = Writer<Vec<TraceRecord>, M>;
 
 /// Convenience constructors for traced morphisms.
-pub trait TracedMorphismExt<M: Clone + std::fmt::Debug> {
+pub trait TracedMorphismExt<M: Clone + core::fmt::Debug> {
     /// Create a traced morphism with an initial trace record.
     fn traced(morphism: M, ontology: &str, operation: &str, detail: &str) -> TracedMorphism<M>;
 
@@ -63,7 +65,7 @@ pub trait TracedMorphismExt<M: Clone + std::fmt::Debug> {
     fn warn(&mut self, ontology: &str, operation: &str, detail: &str);
 }
 
-impl<M: Clone + std::fmt::Debug> TracedMorphismExt<M> for TracedMorphism<M> {
+impl<M: Clone + core::fmt::Debug> TracedMorphismExt<M> for TracedMorphism<M> {
     fn traced(morphism: M, ontology: &str, operation: &str, detail: &str) -> Self {
         Writer::new(
             morphism,
@@ -103,7 +105,7 @@ impl<M: Clone + std::fmt::Debug> TracedMorphismExt<M> for TracedMorphism<M> {
 ///
 /// Every morphism becomes Writer<Vec<TraceRecord>, M>.
 /// Composition accumulates traces via the Vec monoid.
-pub struct TracedCategory<C: Category>(std::marker::PhantomData<C>);
+pub struct TracedCategory<C: Category>(core::marker::PhantomData<C>);
 
 impl<C: Category> TracedCategory<C>
 where

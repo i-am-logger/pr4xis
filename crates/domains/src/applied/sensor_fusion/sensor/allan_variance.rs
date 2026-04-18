@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Allan variance noise characterization — rich type carrying the full noise profile.
 ///
 /// Each noise type has a characteristic slope on a log-log plot
@@ -47,7 +50,7 @@ impl AllanVarianceProfile {
 
         3.0 * q2 / (tau * tau)
             + n2 / tau
-            + b2 * 2.0 * 2.0_f64.ln() / std::f64::consts::PI
+            + b2 * 2.0 * 2.0_f64.ln() / core::f64::consts::PI
             + k2 * tau / 3.0
             + r2 * tau * tau / 2.0
     }

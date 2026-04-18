@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 // Integration tests — full WordNet, real pipeline, no sample data.
 //
 // These tests load the complete English WordNet (107K concepts) and test

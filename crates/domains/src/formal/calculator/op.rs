@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::value::{AngleMode, CalcError, Value};
 
 /// Unary operations.
@@ -172,8 +175,8 @@ impl UnaryOp {
             UnaryOp::Floor => Ok(Value::int(val.to_f64().floor() as i64)),
             UnaryOp::Ceil => Ok(Value::int(val.to_f64().ceil() as i64)),
             UnaryOp::Round => Ok(Value::int(val.to_f64().round() as i64)),
-            UnaryOp::ToRadians => Value::float(val.to_f64() * std::f64::consts::PI / 180.0),
-            UnaryOp::ToDegrees => Value::float(val.to_f64() * 180.0 / std::f64::consts::PI),
+            UnaryOp::ToRadians => Value::float(val.to_f64() * core::f64::consts::PI / 180.0),
+            UnaryOp::ToDegrees => Value::float(val.to_f64() * 180.0 / core::f64::consts::PI),
         }
     }
 }
@@ -247,14 +250,14 @@ fn multiply(a: &Value, b: &Value) -> Result<Value, CalcError> {
 fn to_radians(angle: f64, mode: AngleMode) -> f64 {
     match mode {
         AngleMode::Radians => angle,
-        AngleMode::Degrees => angle * std::f64::consts::PI / 180.0,
+        AngleMode::Degrees => angle * core::f64::consts::PI / 180.0,
     }
 }
 
 fn from_radians(angle: f64, mode: AngleMode) -> f64 {
     match mode {
         AngleMode::Radians => angle,
-        AngleMode::Degrees => angle * 180.0 / std::f64::consts::PI,
+        AngleMode::Degrees => angle * 180.0 / core::f64::consts::PI,
     }
 }
 

@@ -15,6 +15,9 @@
 //! - de Groote (2001): ACG generation = beta-reduction of lexicon homomorphism (trivial!)
 //! - McKeown (1985): rhetorical schemata for content organization
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "Production",
     source: "Levelt (1989); de Groote (2001); Reiter & Dale (2000); Appelt (1985); McKeown (1985)",

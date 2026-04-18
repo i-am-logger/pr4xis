@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::ontology::*;
 
 /// Read XML text into an XmlDocument through the XML ontology.
@@ -296,10 +299,11 @@ impl XmlReadError {
     }
 }
 
-impl std::fmt::Display for XmlReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for XmlReadError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "XML read error: {}", self.message)
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for XmlReadError {}

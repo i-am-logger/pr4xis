@@ -12,6 +12,9 @@
 //! - PMID:37459546 (2023): Piezo1 membrane stretch threshold lambda=1.9
 //! - Coste 2010: Piezo1 discovery (2021 Nobel Prize)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;

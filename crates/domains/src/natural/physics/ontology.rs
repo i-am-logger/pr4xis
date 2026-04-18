@@ -2,6 +2,9 @@
 //!
 //! Source: Newton (1687); Maxwell (1865).
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -116,7 +119,7 @@ impl Axiom for AllBranchesRepresented {
     }
     fn holds(&self) -> bool {
         let branch = LawBranch;
-        let branches: std::collections::HashSet<Branch> = PhysicsConcept::variants()
+        let branches: hashbrown::HashSet<Branch> = PhysicsConcept::variants()
             .iter()
             .map(|l| branch.get(l).unwrap())
             .collect();

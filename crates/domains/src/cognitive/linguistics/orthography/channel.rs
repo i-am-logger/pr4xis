@@ -15,6 +15,9 @@
 //! - Correction is probabilistic (argmax, not exact inverse)
 //! - G∘F approaches Id as the language model and error model improve
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "Channel",
     source: "Shannon (1948); Kernighan et al. (1990); Brill & Moore (2000)",

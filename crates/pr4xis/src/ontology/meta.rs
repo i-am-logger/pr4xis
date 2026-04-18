@@ -1,5 +1,7 @@
-use std::borrow::Cow;
-use std::fmt;
+use alloc::borrow::Cow;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt;
 
 use crate::ontology::upper::being::Being;
 

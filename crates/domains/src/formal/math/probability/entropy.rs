@@ -1,6 +1,6 @@
 use crate::formal::math::linear_algebra::determinant;
 use crate::formal::math::linear_algebra::matrix::Matrix;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// Shannon entropy of a discrete distribution.
 ///
@@ -24,7 +24,7 @@ pub fn shannon_entropy(probabilities: &[f64]) -> f64 {
 ///
 /// Source: Cover & Thomas, *Elements of Information Theory* (2006).
 pub fn gaussian_entropy_1d(variance: f64) -> f64 {
-    0.5 * (2.0 * PI * std::f64::consts::E * variance).ln()
+    0.5 * (2.0 * PI * core::f64::consts::E * variance).ln()
 }
 
 /// Differential entropy of a multivariate Gaussian.
@@ -36,7 +36,7 @@ pub fn gaussian_entropy_1d(variance: f64) -> f64 {
 pub fn gaussian_entropy_nd(covariance: &Matrix) -> f64 {
     let n = covariance.rows as f64;
     let log_det = determinant::det(covariance).ln();
-    0.5 * (n * (2.0 * PI * std::f64::consts::E).ln() + log_det)
+    0.5 * (n * (2.0 * PI * core::f64::consts::E).ln() + log_det)
 }
 
 /// KL divergence from distribution q to p (discrete).

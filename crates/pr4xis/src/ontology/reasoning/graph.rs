@@ -1,5 +1,8 @@
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::hash::Hash;
+use alloc::collections::VecDeque;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::hash::Hash;
+use hashbrown::{HashMap, HashSet};
 
 /// Build an adjacency map from directed pairs: source → [targets].
 pub(super) fn adjacency_map<E: Clone + Eq + Hash>(pairs: &[(E, E)]) -> HashMap<E, Vec<E>> {

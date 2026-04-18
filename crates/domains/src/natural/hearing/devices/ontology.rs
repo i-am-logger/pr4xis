@@ -9,6 +9,9 @@
 //! - Håkansson et al. 2010: BC hearing devices review
 //! - Chasin 2006: Musicians and the Prevention of Hearing Loss
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;

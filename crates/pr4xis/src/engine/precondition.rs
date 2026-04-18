@@ -1,4 +1,6 @@
 use super::action::Action;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// Result of checking a precondition — both states carry context.
 #[derive(Debug, Clone, PartialEq)]

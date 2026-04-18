@@ -2,6 +2,9 @@
 //!
 //! Source: Wertz (1978), *Spacecraft Attitude Determination and Control*
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

@@ -51,6 +51,9 @@
 //! Tarski (1941) Calculus of Relations; Russell & Whitehead Principia
 //! (1910–13); Masolo et al. (2003) DOLCE.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

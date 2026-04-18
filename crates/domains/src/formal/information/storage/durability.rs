@@ -17,6 +17,9 @@
 //! - Rosenblum & Ousterhout, "Log-Structured File System" (1991, SOSP)
 //! - SNIA, "Information Lifecycle Management" (2004)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "Durability",
     source: "Haerder & Reuter (1983); Pillai et al. (2014); Pelley et al. (2014)",

@@ -16,6 +16,9 @@
 //! Source: Cohen & Perrault (1979); Appelt (1985);
 //!         Stalnaker (2002); Bratman (1987); Jakobson (1960)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

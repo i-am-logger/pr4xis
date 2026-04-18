@@ -27,7 +27,7 @@ fn tdoa_requires_sensor_pair_holds() {
 #[test]
 fn wrap_angle_within_range() {
     let a = wrap_angle(4.0);
-    assert!(a >= -std::f64::consts::PI && a <= std::f64::consts::PI);
+    assert!(a >= -core::f64::consts::PI && a <= core::f64::consts::PI);
 }
 
 #[test]
@@ -40,12 +40,12 @@ fn wrap_angle_identity_in_range() {
 fn aoa_triangulation_perpendicular() {
     let m1 = AoaMeasurement {
         sensor_pos: [0.0, 0.0],
-        bearing: std::f64::consts::FRAC_PI_2, // due east
+        bearing: core::f64::consts::FRAC_PI_2, // due east
         sigma: 0.01,
     };
     let m2 = AoaMeasurement {
         sensor_pos: [100.0, 100.0],
-        bearing: std::f64::consts::PI, // due south
+        bearing: core::f64::consts::PI, // due south
         sigma: 0.01,
     };
     let pos = aoa_triangulation(&m1, &m2).unwrap();
@@ -98,7 +98,7 @@ mod proptest_proofs {
         #[test]
         fn wrap_angle_always_in_range(angle in -100.0..100.0_f64) {
             let wrapped = wrap_angle(angle);
-            prop_assert!(wrapped >= -std::f64::consts::PI && wrapped <= std::f64::consts::PI,
+            prop_assert!(wrapped >= -core::f64::consts::PI && wrapped <= core::f64::consts::PI,
                 "wrapped angle {} out of [-pi, pi] for input {}", wrapped, angle);
         }
 

@@ -29,6 +29,9 @@
 //!    "Recovery-Oriented Computing (ROC)". UC Berkeley + Stanford.
 //!    Concepts: `UndoOperation`, `Microreboot`, `Quarantine`.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

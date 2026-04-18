@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::elevator::Direction;
 
 /// A hall call: someone at a floor wants to go in a direction.

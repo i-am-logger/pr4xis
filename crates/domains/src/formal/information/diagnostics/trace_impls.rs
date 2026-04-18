@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::trace_functors::{PipelineStep, Traceable};
 use crate::cognitive::linguistics::lambek::reduce::ReductionResult;
 use crate::cognitive::linguistics::lambek::reduce::TypedToken;

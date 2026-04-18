@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::validate::check_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
@@ -27,7 +30,7 @@ fn fused_output_is_terminal_holds() {
 #[test]
 fn azimuth_to_image_center() {
     // Azimuth 0 should map to image center
-    let x = radar_azimuth_to_image_x(0.0, 640.0, std::f64::consts::PI);
+    let x = radar_azimuth_to_image_x(0.0, 640.0, core::f64::consts::PI);
     assert!((x - 320.0).abs() < 1e-6);
 }
 
@@ -50,7 +53,7 @@ fn radar_camera_association() {
         }],
         time_offset_s: 0.0,
     };
-    let fused = associate_radar_camera(&frame, 640.0, std::f64::consts::PI);
+    let fused = associate_radar_camera(&frame, 640.0, core::f64::consts::PI);
     assert_eq!(fused.len(), 1);
     assert_eq!(fused[0].class_label, "car");
     assert!((fused[0].range - 50.0).abs() < 1e-12);
@@ -90,7 +93,7 @@ fn associate_radar_camera_nan_confidence_no_panic() {
         time_offset_s: 0.0,
     };
     // Should not panic
-    let fused = associate_radar_camera(&frame, 640.0, std::f64::consts::PI);
+    let fused = associate_radar_camera(&frame, 640.0, core::f64::consts::PI);
     assert_eq!(fused.len(), 1);
 }
 
@@ -105,7 +108,7 @@ mod proptest_proofs {
             azimuth in -1.0..1.0_f64,
             width in 100.0..2000.0_f64
         ) {
-            let fov = std::f64::consts::PI;
+            let fov = core::f64::consts::PI;
             let x = radar_azimuth_to_image_x(azimuth, width, fov);
             // Azimuth in [-fov/2, fov/2] should map within [0, width]
             if azimuth.abs() <= fov / 2.0 {
@@ -127,7 +130,7 @@ mod proptest_proofs {
                 camera_objects: vec![],
                 time_offset_s: 0.0,
             };
-            let fused = associate_radar_camera(&frame, 640.0, std::f64::consts::PI);
+            let fused = associate_radar_camera(&frame, 640.0, core::f64::consts::PI);
             prop_assert!(fused.is_empty(), "no camera objects means no fused detections");
         }
     }

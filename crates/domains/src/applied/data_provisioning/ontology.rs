@@ -6,11 +6,14 @@
 //! `formal/information/provenance/` for fetch events, and `formal/meta/
 //! staging/` for the freeze functor framing.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::formal::meta::artifact_identity::ontology::{CompositeIdentity, IdentityConcept};
+use hashbrown::HashSet;
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
-use std::collections::HashSet;
 
 // ---------------------------------------------------------------------------
 // Entities

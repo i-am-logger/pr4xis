@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::signal_processing::sampling;
@@ -31,7 +34,7 @@ pub fn radar_measurement_2d(state: &Vector) -> Vector {
 ///         Skolnik (2001), *Introduction to Radar Systems*, Ch. 4.
 pub fn is_scan_rate_adequate(scan_rate_hz: f64, max_target_velocity: f64, min_range: f64) -> bool {
     let max_angular_rate = max_target_velocity / min_range;
-    let required_bandwidth = max_angular_rate / (2.0 * std::f64::consts::PI);
+    let required_bandwidth = max_angular_rate / (2.0 * core::f64::consts::PI);
     sampling::is_adequately_sampled(scan_rate_hz, required_bandwidth)
 }
 

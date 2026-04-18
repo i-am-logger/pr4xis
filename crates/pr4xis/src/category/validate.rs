@@ -3,6 +3,8 @@ use super::endofunctor::Endofunctor;
 use super::entity::Concept;
 use super::functor::Functor;
 use super::relationship::Relationship;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// Verify the identity law: for every object A and every morphism f from A,
 /// compose(identity(A), f) == f and compose(f, identity(target(f))) == f.

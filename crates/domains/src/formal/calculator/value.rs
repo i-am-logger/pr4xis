@@ -1,4 +1,7 @@
-use std::fmt;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
+use core::fmt;
 
 /// Angle mode for trigonometric functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

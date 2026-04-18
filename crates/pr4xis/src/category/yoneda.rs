@@ -1,5 +1,7 @@
 use super::category::Category;
 use super::entity::Concept;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 // Yoneda lemma — the deepest result in category theory.
 //

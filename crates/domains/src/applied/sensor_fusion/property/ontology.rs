@@ -24,6 +24,9 @@
 //! - Compton et al. (2012), "The SSN ontology of the W3C semantic sensor network
 //!   incubator group", *Journal of Web Semantics*, Vol. 17, pp. 25-32.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "ObservableProperty",
     source: "Haller et al. (2019); W3C SSN/SOSA (2017)",

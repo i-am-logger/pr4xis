@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Sound speed profile computation.
 ///
 /// Source: Mackenzie (1981), "Nine-term equation for sound speed in the oceans"

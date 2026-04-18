@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::applied::perception::lidar_camera::calibration::{
     CameraIntrinsics, ExtrinsicCalibration,
 };
@@ -99,7 +102,7 @@ pub fn fuse_detections(
             }
             let det = &detections[*det_idx];
             let mut depths: Vec<f64> = point_indices.iter().map(|&i| projected[i].depth).collect();
-            depths.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            depths.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
             let median_depth = depths[depths.len() / 2];
             Some(FusedDetection {
                 class_id: det.class_id,

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Process control data structures and algorithms.
 ///
 /// Source: Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*

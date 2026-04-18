@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::reduce::TypedToken;
 use super::types::LambekType;
 use crate::cognitive::linguistics::english::{ConceptId, English};

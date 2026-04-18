@@ -1,4 +1,6 @@
-use std::fmt::Debug;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
 
 // Free monad — builds a computation DSL from a functor.
 //
@@ -57,7 +59,7 @@ impl<F: Clone + Debug + 'static, A: Clone + Debug + 'static> Free<F, A> {
     /// Lift a command into the free monad (suspend it).
     pub fn lift(cmd: F) -> Free<F, F> {
         #[derive(Debug, Clone)]
-        struct IdCont<F: Clone + Debug>(std::marker::PhantomData<F>);
+        struct IdCont<F: Clone + Debug>(core::marker::PhantomData<F>);
         impl<F: Clone + Debug + 'static> CloneFn<F, F> for IdCont<F> {
             fn call(&self, f: F) -> Free<F, F> {
                 Free::Pure(f)
@@ -66,7 +68,7 @@ impl<F: Clone + Debug + 'static, A: Clone + Debug + 'static> Free<F, A> {
                 Box::new(self.clone())
             }
         }
-        Free::Suspend(cmd, Box::new(IdCont(std::marker::PhantomData)))
+        Free::Suspend(cmd, Box::new(IdCont(core::marker::PhantomData)))
     }
 
     /// Run a pure free monad (no real effects, just unwrap).

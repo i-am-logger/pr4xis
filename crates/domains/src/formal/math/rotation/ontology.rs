@@ -2,6 +2,9 @@
 //!
 //! Source: Hamilton (1844); Shoemake (1985).
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::rotation::dcm::Dcm;
@@ -210,7 +213,7 @@ impl Ontology for RotationOntology {
 
 /// Canonical rotations for axiom verification.
 fn canonical_rotations() -> Vec<Quaternion> {
-    use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+    use core::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
     vec![
         Quaternion::identity(),
         Quaternion::from_axis_angle([1.0, 0.0, 0.0], FRAC_PI_2),

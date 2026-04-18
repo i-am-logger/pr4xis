@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// HTTP status code classes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusClass {

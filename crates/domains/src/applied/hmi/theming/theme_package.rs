@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::base16::Polarity;
 use super::ontology::Palette;
 use super::schemes::SchemeType;
@@ -10,8 +13,8 @@ use super::schemes::SchemeType;
 /// - Base16 builder spec: theme structure requirements
 /// - tinted-theming: directory-based theme organization
 use super::variants::VariantSet;
+use hashbrown::HashMap;
 use pr4xis::ontology::Axiom;
-use std::collections::HashMap;
 
 /// A complete theme package — name, scheme, variants, palettes.
 #[derive(Debug, Clone)]

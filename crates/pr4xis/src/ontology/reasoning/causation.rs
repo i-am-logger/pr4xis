@@ -1,4 +1,6 @@
-use std::marker::PhantomData;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::marker::PhantomData;
 
 use crate::category::Category;
 use crate::category::entity::Concept;
@@ -185,7 +187,7 @@ impl<T: CausalDef> crate::logic::Axiom for NoSelfCausation<T> {
 pub fn unfold_causal<T: CausalDef + 'static>()
 -> crate::category::algebra::Coalgebra<T::Concept, T::Concept>
 where
-    T::Concept: Clone + std::fmt::Debug,
+    T::Concept: Clone + core::fmt::Debug,
 {
     let relations = T::relations();
     crate::category::algebra::Coalgebra::new(move |cause: &T::Concept| {

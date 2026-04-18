@@ -2,6 +2,9 @@
 //! dataset. This is the ontology's instance layer. Adding a new dataset =
 //! adding a new entry here; no other code changes.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::ontology::{ContentType, RegistryEntry};
 use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, CompositeIdentity, IdentityClaim, IdentityConcept,

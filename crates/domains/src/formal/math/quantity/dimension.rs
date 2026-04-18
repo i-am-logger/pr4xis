@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Physical dimension — an element of the dimension group.
 ///
 /// The 7 SI base dimensions form a basis for an abelian group under
@@ -181,8 +184,8 @@ impl Dimension {
     }
 }
 
-impl std::fmt::Display for Dimension {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for Dimension {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let mut parts = Vec::new();
         if self.length != 0 {
             parts.push(format!("L^{}", self.length));

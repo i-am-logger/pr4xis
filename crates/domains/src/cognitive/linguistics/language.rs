@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
+use hashbrown::HashMap;
 
 use super::lexicon::pos::*;
 use super::morphology::MorphologicalRule;
@@ -151,7 +154,7 @@ impl Language for EnglishLanguage {
         }
 
         // Content word entries from WordNet — use verb frames for transitivity
-        let mut seen_pos = std::collections::HashSet::new();
+        let mut seen_pos = hashbrown::HashSet::new();
         for &cid in self.ontology.lookup(word) {
             if let Some(concept) = self.ontology.concept(cid)
                 && seen_pos.insert(concept.pos)
@@ -408,17 +411,21 @@ pub fn build_verb_transitivity(
 /// Falls back to embedded XML if the data file is not found.
 pub fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
     // Try loading from data file first
-    let data_paths = [
-        "crates/domains/data/function-words/english.xml",
-        "data/function-words/english.xml",
-        "../domains/data/function-words/english.xml",
-    ];
+    #[cfg(feature = "std")]
+    {
+        let data_paths = [
+            "crates/domains/data/function-words/english.xml",
+            "data/function-words/english.xml",
+            "../domains/data/function-words/english.xml",
+        ];
 
-    for path in &data_paths {
-        if let Ok(xml) = std::fs::read_to_string(path)
-            && let Ok(wn) = crate::social::software::markup::xml::lmf::reader::read_wordnet(&xml)
-        {
-            return function_words_from_lmf(&wn);
+        for path in &data_paths {
+            if let Ok(xml) = std::fs::read_to_string(path)
+                && let Ok(wn) =
+                    crate::social::software::markup::xml::lmf::reader::read_wordnet(&xml)
+            {
+                return function_words_from_lmf(&wn);
+            }
         }
     }
 
@@ -428,6 +435,7 @@ pub fn build_english_function_words() -> HashMap<String, Vec<LexicalEntry>> {
 
 /// Parse function words from an LMF WordNet instance.
 /// Maps synset categories (from OLiA) to rich LexicalEntry types.
+#[cfg_attr(not(feature = "std"), allow(dead_code))]
 fn function_words_from_lmf(
     wn: &crate::social::software::markup::xml::lmf::ontology::WordNet,
 ) -> HashMap<String, Vec<LexicalEntry>> {

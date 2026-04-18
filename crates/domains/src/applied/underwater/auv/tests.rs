@@ -50,7 +50,7 @@ fn dead_reckoning_straight_east() {
         north: 0.0,
         east: 0.0,
         depth: 10.0,
-        heading: std::f64::consts::FRAC_PI_2, // heading east
+        heading: core::f64::consts::FRAC_PI_2, // heading east
     };
     let dvl = DvlMeasurement {
         forward: 2.0,
@@ -58,7 +58,7 @@ fn dead_reckoning_straight_east() {
         downward: 0.0,
         bottom_lock: true,
     };
-    let new_state = dead_reckon(&state, &dvl, std::f64::consts::FRAC_PI_2, 5.0);
+    let new_state = dead_reckon(&state, &dvl, core::f64::consts::FRAC_PI_2, 5.0);
     assert!(new_state.north.abs() < 1e-10);
     assert!((new_state.east - 10.0).abs() < 1e-10);
 }

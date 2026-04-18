@@ -5,6 +5,8 @@
 /// result as a report (JSON, HTML, SVG, PDF). The report is a functor:
 /// ValidationResults → OutputFormat. Different surfaces consume the same
 /// data through different branches of the functor.
+#[cfg(feature = "std")]
 pub mod generator;
 pub mod spec;
+#[cfg(feature = "std")]
 pub mod validator;

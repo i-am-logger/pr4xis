@@ -16,6 +16,9 @@
 //! - Stenfelt 2015: inner ear compressional mechanism
 //! - Reinfeldt et al. 2015: estimation of BC pathways
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;

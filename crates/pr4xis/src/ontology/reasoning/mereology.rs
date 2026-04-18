@@ -1,4 +1,6 @@
-use std::marker::PhantomData;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::marker::PhantomData;
 
 use crate::category::Category;
 use crate::category::entity::Concept;
@@ -209,7 +211,7 @@ pub fn applicative_parts_wholes<T: MereologyDef>(
 pub fn unfold_mereology<T: MereologyDef + 'static>()
 -> crate::category::algebra::Coalgebra<T::Concept, T::Concept>
 where
-    T::Concept: Clone + std::fmt::Debug,
+    T::Concept: Clone + core::fmt::Debug,
 {
     let relations = T::relations();
     crate::category::algebra::Coalgebra::new(move |whole: &T::Concept| {
@@ -228,7 +230,7 @@ where
 pub fn parts_lens<T: MereologyDef + 'static>()
 -> crate::category::optics::Lens<T::Concept, Vec<T::Concept>>
 where
-    T::Concept: Clone + std::fmt::Debug,
+    T::Concept: Clone + core::fmt::Debug,
 {
     crate::category::optics::Lens::new(
         |whole: &T::Concept| parts_of::<T>(whole),
