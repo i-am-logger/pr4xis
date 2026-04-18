@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
-use syn::{Ident, LitStr, Token, braced, bracketed, parenthesized};
+use syn::{Expr, Ident, LitStr, Token, braced, bracketed, parenthesized};
 
 struct LabelEntry {
     concept: Ident,
@@ -86,6 +86,68 @@ impl Parse for ComposedEntry {
     }
 }
 
+/// A domain axiom declared inside `ontology!`'s `axioms:` clause.
+///
+/// Shape:
+/// ```ignore
+/// axioms: {
+///     FourPhaseCycle: {
+///         source: "Kephart & Chess (2003) §2",
+///         description: "The four operational phases are the children of MapeKPhase.",
+///         holds: { /* bool expression */ },
+///     },
+/// }
+/// ```
+struct AxiomEntry {
+    name: Ident,
+    source: LitStr,
+    description: LitStr,
+    holds: Expr,
+}
+
+impl Parse for AxiomEntry {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let name: Ident = input.parse()?;
+        input.parse::<Token![:]>()?;
+        let content;
+        braced!(content in input);
+
+        let mut source: Option<LitStr> = None;
+        let mut description: Option<LitStr> = None;
+        let mut holds: Option<Expr> = None;
+
+        while !content.is_empty() {
+            let key: Ident = content.parse()?;
+            content.parse::<Token![:]>()?;
+            match key.to_string().as_str() {
+                "source" => source = Some(content.parse()?),
+                "description" => description = Some(content.parse()?),
+                "holds" => holds = Some(content.parse()?),
+                other => {
+                    return Err(syn::Error::new_spanned(
+                        &key,
+                        format!(
+                            "unknown axiom field: {other} (expected source / description / holds)"
+                        ),
+                    ));
+                }
+            }
+            if content.peek(Token![,]) {
+                content.parse::<Token![,]>()?;
+            }
+        }
+
+        let missing =
+            |f: &str| syn::Error::new_spanned(&name, format!("axiom '{name}' missing field: {f}"));
+        Ok(AxiomEntry {
+            source: source.ok_or_else(|| missing("source"))?,
+            description: description.ok_or_else(|| missing("description"))?,
+            holds: holds.ok_or_else(|| missing("holds"))?,
+            name,
+        })
+    }
+}
+
 pub struct OntologyDef {
     name: LitStr,
     source: Option<LitStr>,
@@ -98,6 +160,7 @@ pub struct OntologyDef {
     has_a: Vec<PairEntry>,
     causes: Vec<PairEntry>,
     opposes: Vec<PairEntry>,
+    axioms: Vec<AxiomEntry>,
 }
 
 impl Parse for OntologyDef {
@@ -113,6 +176,7 @@ impl Parse for OntologyDef {
         let mut has_a = Vec::new();
         let mut causes = Vec::new();
         let mut opposes = Vec::new();
+        let mut axioms: Vec<AxiomEntry> = Vec::new();
 
         while !input.is_empty() {
             let key: Ident = input.parse()?;
@@ -184,6 +248,13 @@ impl Parse for OntologyDef {
                         .into_iter()
                         .collect();
                 }
+                "axioms" => {
+                    let content;
+                    braced!(content in input);
+                    axioms = Punctuated::<AxiomEntry, Token![,]>::parse_terminated(&content)?
+                        .into_iter()
+                        .collect();
+                }
                 other => {
                     return Err(syn::Error::new_spanned(
                         &key,
@@ -211,6 +282,7 @@ impl Parse for OntologyDef {
             has_a,
             causes,
             opposes,
+            axioms,
         })
     }
 }
@@ -679,6 +751,52 @@ pub fn generate(def: OntologyDef) -> TokenStream {
     let full_name = format!("{name_str}Ontology");
     let name_lit = syn::LitStr::new(&full_name, def.name.span());
 
+    // Domain axioms declared in the `axioms:` clause. Each one emits a
+    // unit struct + `impl Axiom` + `AxiomMeta`, and gets pushed into the
+    // ontology's `domain_axioms()` via the `axiom_push_calls` list.
+    let axiom_structs: Vec<TokenStream> = def
+        .axioms
+        .iter()
+        .map(|a| {
+            let name_ident = &a.name;
+            let source = &a.source;
+            let description = &a.description;
+            let holds = &a.holds;
+            let name_str_lit = syn::LitStr::new(&a.name.to_string(), a.name.span());
+            quote! {
+                #[doc = #description]
+                pub struct #name_ident;
+
+                impl #pr4xis::logic::axiom::Axiom for #name_ident {
+                    fn description(&self) -> &str {
+                        #description
+                    }
+
+                    fn holds(&self) -> bool {
+                        #holds
+                    }
+
+                    fn meta(&self) -> #pr4xis::logic::axiom::AxiomMeta {
+                        #pr4xis::logic::axiom::AxiomMeta {
+                            name: #pr4xis::ontology::meta::OntologyName::new_static(#name_str_lit),
+                            citation: #pr4xis::ontology::meta::Citation::parse_static(#source),
+                            module_path: #pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+                        }
+                    }
+                }
+            }
+        })
+        .collect();
+
+    let axiom_domain_pushes: Vec<TokenStream> = def
+        .axioms
+        .iter()
+        .map(|a| {
+            let name_ident = &a.name;
+            quote! { axioms.push(Box::new(#name_ident)); }
+        })
+        .collect();
+
     quote! {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, #pr4xis::category::Entity)]
         pub enum #entity_name {
@@ -694,12 +812,27 @@ pub fn generate(def: OntologyDef) -> TokenStream {
 
         #being_classified
 
+        // Domain axioms declared via the `axioms:` clause. Each one is a
+        // full `impl Axiom` with structured `meta()` — no hand-written blocks.
+        #(#axiom_structs)*
+
         pub struct #ont_name;
 
         impl #ont_name {
             pub fn generated_structural_axioms() -> Vec<Box<dyn #pr4xis::ontology::Axiom>> {
                 let mut axioms: Vec<Box<dyn #pr4xis::ontology::Axiom>> = Vec::new();
                 #(#axiom_pushes)*
+                axioms
+            }
+
+            /// Domain axioms declared in this ontology's `axioms:` clause.
+            ///
+            /// These are claims *specific to this ontology's subject matter*,
+            /// as distinct from `generated_structural_axioms()`, which are
+            /// automatic taxonomy/mereology/causation/opposition invariants.
+            pub fn generated_domain_axioms() -> Vec<Box<dyn #pr4xis::ontology::Axiom>> {
+                let mut axioms: Vec<Box<dyn #pr4xis::ontology::Axiom>> = Vec::new();
+                #(#axiom_domain_pushes)*
                 axioms
             }
 
