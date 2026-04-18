@@ -62,6 +62,7 @@ impl Functor for DiagnosticsToMetacognition {
         MetaCognitionRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(DiagnosticsToMetacognition);
 
 #[cfg(test)]
 mod tests {

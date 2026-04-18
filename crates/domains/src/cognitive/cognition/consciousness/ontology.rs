@@ -137,6 +137,7 @@ impl Axiom for AttentionCausesAccess {
         })
     }
 }
+pr4xis::register_axiom!(AttentionCausesAccess);
 
 /// Higher-order represents first-order (Rosenthal 2005).
 #[derive(Debug)]
@@ -154,6 +155,7 @@ impl Axiom for HigherOrderRepresentsFirst {
         })
     }
 }
+pr4xis::register_axiom!(HigherOrderRepresentsFirst);
 
 impl Ontology for C1Ontology {
     type Cat = C1Category;

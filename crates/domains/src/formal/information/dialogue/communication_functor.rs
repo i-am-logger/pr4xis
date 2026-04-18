@@ -88,6 +88,7 @@ impl Functor for DialogueToCommunication {
         CommunicationRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(DialogueToCommunication);
 
 #[cfg(test)]
 mod tests {

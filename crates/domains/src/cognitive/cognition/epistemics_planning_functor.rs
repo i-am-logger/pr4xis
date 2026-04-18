@@ -50,6 +50,7 @@ impl Functor for EpistemicsToPlanning {
         PlanningRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(EpistemicsToPlanning);
 
 #[cfg(test)]
 mod tests {

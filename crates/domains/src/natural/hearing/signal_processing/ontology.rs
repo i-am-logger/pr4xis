@@ -159,6 +159,7 @@ impl Axiom for RectangularNarrowestMainlobe {
         r < h && h < b
     }
 }
+pr4xis::register_axiom!(RectangularNarrowestMainlobe);
 pub struct SpectrogramContainsDomains;
 impl Axiom for SpectrogramContainsDomains {
     fn description(&self) -> &str {
@@ -172,6 +173,7 @@ impl Axiom for SpectrogramContainsDomains {
             && parts.contains(&WindowFunction)
     }
 }
+pr4xis::register_axiom!(SpectrogramContainsDomains);
 pub struct FFTSubsumption;
 impl Axiom for FFTSubsumption {
     fn description(&self) -> &str {
@@ -184,6 +186,7 @@ impl Axiom for FFTSubsumption {
             && taxonomy::is_a::<SignalTaxonomy>(&FFT, &Transform)
     }
 }
+pr4xis::register_axiom!(FFTSubsumption);
 pub struct DomainsOpposed;
 impl Axiom for DomainsOpposed {
     fn description(&self) -> &str {
@@ -196,6 +199,7 @@ impl Axiom for DomainsOpposed {
         )
     }
 }
+pr4xis::register_axiom!(DomainsOpposed);
 pub struct BlackmanBestSidelobes;
 impl Axiom for BlackmanBestSidelobes {
     fn description(&self) -> &str {
@@ -208,6 +212,7 @@ impl Axiom for BlackmanBestSidelobes {
             && s.get(&HannWindow).unwrap() < s.get(&RectangularWindow).unwrap()
     }
 }
+pr4xis::register_axiom!(BlackmanBestSidelobes);
 pub struct GammatoneIsBandpass;
 impl Axiom for GammatoneIsBandpass {
     fn description(&self) -> &str {
@@ -220,6 +225,7 @@ impl Axiom for GammatoneIsBandpass {
         )
     }
 }
+pr4xis::register_axiom!(GammatoneIsBandpass);
 pub struct RawSignalCausesClassification;
 impl Axiom for RawSignalCausesClassification {
     fn description(&self) -> &str {
@@ -230,6 +236,7 @@ impl Axiom for RawSignalCausesClassification {
         causation::effects_of::<SignalCausalGraph>(&RawSignal).contains(&PatternClassification)
     }
 }
+pr4xis::register_axiom!(RawSignalCausesClassification);
 
 impl Ontology for SignalProcessingOntology {
     type Cat = SignalProcessingCategory;

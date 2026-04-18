@@ -63,3 +63,4 @@ impl Functor for EventsToConcurrency {
         ConcurrencyRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(EventsToConcurrency);

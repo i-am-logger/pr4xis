@@ -58,6 +58,7 @@ impl Functor for PathologyToAudiology {
         }
     }
 }
+pr4xis::register_functor!(PathologyToAudiology);
 
 #[cfg(test)]
 mod tests {

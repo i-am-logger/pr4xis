@@ -377,6 +377,7 @@ impl Axiom for InjuryCausesRestoration {
         effects.contains(&MorphologicalRestoration)
     }
 }
+pr4xis::register_axiom!(InjuryCausesRestoration);
 
 /// Axiom: BioelectricSignal causes PatternSpecification (Levin's core insight).
 ///
@@ -395,6 +396,7 @@ impl Axiom for BioelectricCausesPattern {
         effects.contains(&PatternSpecification)
     }
 }
+pr4xis::register_axiom!(BioelectricCausesPattern);
 
 /// Axiom: GapJunctionCommunication causes CollectiveDecision.
 ///
@@ -414,6 +416,7 @@ impl Axiom for GapJunctionCausesCollectiveDecision {
         effects.contains(&CollectiveDecision)
     }
 }
+pr4xis::register_axiom!(GapJunctionCausesCollectiveDecision);
 
 /// Axiom: PatternMemory is a PatternConcept, NOT a RegenerationType.
 ///
@@ -432,6 +435,7 @@ impl Axiom for PatternMemoryIsNotRegenerationType {
             && !taxonomy::is_a::<RegenerationTaxonomy>(&PatternMemory, &RegenerationType)
     }
 }
+pr4xis::register_axiom!(PatternMemoryIsNotRegenerationType);
 
 /// Axiom: Bistability exists — planarian polarity is a bistable bioelectric state.
 ///
@@ -451,6 +455,7 @@ impl Axiom for BistabilityIsPatterning {
             && IsReversible.get(&Bistability) == Some(true)
     }
 }
+pr4xis::register_axiom!(BistabilityIsPatterning);
 
 /// Axiom: Epimorphic regeneration requires BOTH blastema AND nerve supply.
 ///
@@ -469,6 +474,7 @@ impl Axiom for EpimorphicRequiresBlastemaAndNerve {
             && RequiresNerveSupply.get(&Epimorphic) == Some(true)
     }
 }
+pr4xis::register_axiom!(EpimorphicRequiresBlastemaAndNerve);
 
 /// Axiom: EpithelialRestitution does NOT require bioelectric signaling.
 ///
@@ -486,6 +492,7 @@ impl Axiom for EpithelialRestitutionNoBioelectric {
         RequiresBioelectricSignal.get(&EpithelialRestitution) == Some(false)
     }
 }
+pr4xis::register_axiom!(EpithelialRestitutionNoBioelectric);
 
 /// Axiom: all three body axes (AP, DV, LR) are represented as BodyAxis.
 pub struct AllBodyAxesRepresented;
@@ -504,6 +511,7 @@ impl Axiom for AllBodyAxesRepresented {
             && descendants.len() == 3
     }
 }
+pr4xis::register_axiom!(AllBodyAxesRepresented);
 
 // ---------------------------------------------------------------------------
 // Ontology

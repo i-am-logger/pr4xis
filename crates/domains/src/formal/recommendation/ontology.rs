@@ -216,6 +216,7 @@ impl Axiom for EvidenceCausesAction {
         effects.contains(&ActionProposal)
     }
 }
+pr4xis::register_axiom!(EvidenceCausesAction);
 
 /// Axiom: accept and reject are both decision outcomes.
 pub struct AcceptAndRejectAreOutcomes;
@@ -230,6 +231,7 @@ impl Axiom for AcceptAndRejectAreOutcomes {
             && taxonomy::is_a::<RecommendationTaxonomy>(&Reject, &DecisionOutcome)
     }
 }
+pr4xis::register_axiom!(AcceptAndRejectAreOutcomes);
 
 /// Axiom: prescriptions require expert validation, suggestions do not.
 pub struct PrescriptionsNeedExperts;
@@ -244,6 +246,7 @@ impl Axiom for PrescriptionsNeedExperts {
             && RequiresExpertValidation.get(&Suggestion) == Some(false)
     }
 }
+pr4xis::register_axiom!(PrescriptionsNeedExperts);
 
 /// Axiom: reject is reversible, accept is not.
 pub struct RejectReversibleAcceptNot;
@@ -257,6 +260,7 @@ impl Axiom for RejectReversibleAcceptNot {
         IsReversible.get(&Reject) == Some(true) && IsReversible.get(&Accept) == Some(false)
     }
 }
+pr4xis::register_axiom!(RejectReversibleAcceptNot);
 
 // ---------------------------------------------------------------------------
 // Ontology impl

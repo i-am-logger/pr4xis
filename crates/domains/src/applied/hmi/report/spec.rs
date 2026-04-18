@@ -253,6 +253,7 @@ impl Axiom for DefaultIsOptimal {
         spec.assignments.iter().all(|a| a.is_optimal())
     }
 }
+pr4xis::register_axiom!(DefaultIsOptimal);
 
 /// Default report has no validation issues.
 pub struct DefaultIsValid;
@@ -266,6 +267,7 @@ impl Axiom for DefaultIsValid {
         spec.validate().is_empty()
     }
 }
+pr4xis::register_axiom!(DefaultIsValid);
 
 /// Overriding to a less accurate encoding produces a warning.
 pub struct OverrideWarns;
@@ -281,6 +283,7 @@ impl Axiom for OverrideWarns {
         warning.is_some() // should warn
     }
 }
+pr4xis::register_axiom!(OverrideWarns);
 
 #[cfg(test)]
 mod tests {

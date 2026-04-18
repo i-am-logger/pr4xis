@@ -53,6 +53,7 @@ impl Functor for C2ToMetacognition {
         MetaCognitionRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(C2ToMetacognition);
 
 #[cfg(test)]
 mod tests {

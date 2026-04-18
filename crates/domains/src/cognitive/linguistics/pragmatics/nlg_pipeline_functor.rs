@@ -42,6 +42,7 @@ impl Functor for NlgToPipeline {
         }
     }
 }
+pr4xis::register_functor!(NlgToPipeline);
 
 #[cfg(test)]
 mod tests {

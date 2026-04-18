@@ -108,6 +108,7 @@ impl Axiom for AllFragmentsClassified {
         })
     }
 }
+pr4xis::register_axiom!(AllFragmentsClassified);
 
 impl Ontology for FragmentOntology {
     type Cat = FragmentCategory;

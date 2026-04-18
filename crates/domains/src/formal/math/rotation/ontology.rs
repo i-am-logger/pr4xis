@@ -79,6 +79,7 @@ impl Axiom for UnitNormClosure {
         true
     }
 }
+pr4xis::register_axiom!(UnitNormClosure);
 
 /// Axiom: rotation composition is associative.
 pub struct Associativity;
@@ -104,6 +105,7 @@ impl Axiom for Associativity {
         true
     }
 }
+pr4xis::register_axiom!(Associativity);
 
 /// Axiom: identity rotation is the neutral element.
 pub struct IdentityElement;
@@ -123,6 +125,7 @@ impl Axiom for IdentityElement {
         true
     }
 }
+pr4xis::register_axiom!(IdentityElement);
 
 /// Axiom: every rotation has an inverse such that q * q^{-1} = I.
 pub struct InverseExists;
@@ -142,6 +145,7 @@ impl Axiom for InverseExists {
         true
     }
 }
+pr4xis::register_axiom!(InverseExists);
 
 /// Axiom: DCM from quaternion is a proper rotation (R^T R = I, det = +1).
 pub struct DcmOrthogonality;
@@ -161,6 +165,7 @@ impl Axiom for DcmOrthogonality {
         true
     }
 }
+pr4xis::register_axiom!(DcmOrthogonality);
 
 /// Axiom: quaternion -> DCM -> quaternion roundtrip preserves the rotation.
 pub struct QuaternionDcmRoundtrip;
@@ -181,6 +186,7 @@ impl Axiom for QuaternionDcmRoundtrip {
         true
     }
 }
+pr4xis::register_axiom!(QuaternionDcmRoundtrip);
 
 impl Ontology for RotationOntology {
     type Cat = RotationCategory;

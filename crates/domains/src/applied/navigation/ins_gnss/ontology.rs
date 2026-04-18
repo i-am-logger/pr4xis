@@ -103,6 +103,7 @@ impl Axiom for CoastingDegrades {
         (ratio - 4.0).abs() < 0.01
     }
 }
+pr4xis::register_axiom!(CoastingDegrades);
 
 /// GNSS measurement update reduces position uncertainty.
 ///
@@ -120,6 +121,7 @@ impl Axiom for GnssUpdateReducesError {
         p_post < p_prior
     }
 }
+pr4xis::register_axiom!(GnssUpdateReducesError);
 
 /// Tighter coupling provides better performance in degraded GNSS.
 ///
@@ -140,6 +142,7 @@ impl Axiom for TighterCouplingBetter {
         )
     }
 }
+pr4xis::register_axiom!(TighterCouplingBetter);
 
 impl Ontology for InsGnssOntology {
     type Cat = InsGnssCategory;

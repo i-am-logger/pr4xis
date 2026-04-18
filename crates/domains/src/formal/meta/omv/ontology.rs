@@ -147,6 +147,7 @@ impl Axiom for ArtefactHasFormalityLevel {
         })
     }
 }
+pr4xis::register_axiom!(ArtefactHasFormalityLevel);
 
 /// Every SemanticArtefact must have Analytics (structural metrics).
 #[derive(Debug)]
@@ -165,6 +166,7 @@ impl Axiom for ArtefactHasAnalytics {
         })
     }
 }
+pr4xis::register_axiom!(ArtefactHasAnalytics);
 
 /// Catalog reaches all artefact metadata transitively.
 #[derive(Debug)]
@@ -183,6 +185,7 @@ impl Axiom for CatalogReachesAll {
         })
     }
 }
+pr4xis::register_axiom!(CatalogReachesAll);
 
 impl Ontology for OmvOntology {
     type Cat = OmvCategory;

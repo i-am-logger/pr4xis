@@ -67,6 +67,7 @@ impl Axiom for SafeImpliesIdempotent {
             .all(|m| !m.is_safe() || m.is_idempotent())
     }
 }
+pr4xis::register_axiom!(SafeImpliesIdempotent);
 
 #[cfg(test)]
 mod tests {

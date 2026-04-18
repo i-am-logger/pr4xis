@@ -171,6 +171,7 @@ impl Axiom for MetricNonNegativity {
         true
     }
 }
+pr4xis::register_axiom!(MetricNonNegativity);
 
 /// Metric: d(a,b) = 0 iff a = b (identity of indiscernibles).
 pub struct MetricIdentity;
@@ -197,6 +198,7 @@ impl Axiom for MetricIdentity {
         true
     }
 }
+pr4xis::register_axiom!(MetricIdentity);
 
 /// Metric: d(a,b) = d(b,a) (symmetry).
 pub struct MetricSymmetry;
@@ -218,6 +220,7 @@ impl Axiom for MetricSymmetry {
         true
     }
 }
+pr4xis::register_axiom!(MetricSymmetry);
 
 /// Metric: d(a,c) ≤ d(a,b) + d(b,c) (triangle inequality).
 pub struct TriangleInequality;
@@ -241,6 +244,7 @@ impl Axiom for TriangleInequality {
         true
     }
 }
+pr4xis::register_axiom!(TriangleInequality);
 
 /// Euclidean theorem: sum of interior angles of a triangle = π.
 pub struct TriangleAngleSum;
@@ -262,6 +266,7 @@ impl Axiom for TriangleAngleSum {
         true
     }
 }
+pr4xis::register_axiom!(TriangleAngleSum);
 
 /// Pythagorean theorem: for right triangle with legs a,b and hypotenuse c: a² + b² = c².
 pub struct PythagoreanTheorem;
@@ -306,6 +311,7 @@ impl Axiom for PythagoreanTheorem {
         true
     }
 }
+pr4xis::register_axiom!(PythagoreanTheorem);
 
 /// Vector space axiom: addition is commutative. u + v = v + u.
 pub struct VectorAdditionCommutativity;
@@ -332,6 +338,7 @@ impl Axiom for VectorAdditionCommutativity {
         true
     }
 }
+pr4xis::register_axiom!(VectorAdditionCommutativity);
 
 /// Vector space axiom: addition is associative. (u+v)+w = u+(v+w).
 pub struct VectorAdditionAssociativity;
@@ -360,6 +367,7 @@ impl Axiom for VectorAdditionAssociativity {
         true
     }
 }
+pr4xis::register_axiom!(VectorAdditionAssociativity);
 
 /// Cross product is anticommutative: a × b = -(b × a).
 pub struct CrossProductAnticommutativity;
@@ -386,6 +394,7 @@ impl Axiom for CrossProductAnticommutativity {
         true
     }
 }
+pr4xis::register_axiom!(CrossProductAnticommutativity);
 
 /// Cross product perpendicular to both inputs: (a×b)·a = 0, (a×b)·b = 0.
 pub struct CrossProductPerpendicularity;
@@ -408,6 +417,7 @@ impl Axiom for CrossProductPerpendicularity {
         true
     }
 }
+pr4xis::register_axiom!(CrossProductPerpendicularity);
 
 /// Dot product is commutative: a · b = b · a.
 pub struct DotProductCommutativity;
@@ -429,6 +439,7 @@ impl Axiom for DotProductCommutativity {
         true
     }
 }
+pr4xis::register_axiom!(DotProductCommutativity);
 
 /// Projection is idempotent: proj(proj(a, b), b) = proj(a, b).
 pub struct ProjectionIdempotent;
@@ -458,6 +469,7 @@ impl Axiom for ProjectionIdempotent {
         true
     }
 }
+pr4xis::register_axiom!(ProjectionIdempotent);
 
 /// Hilbert II.1: betweenness is symmetric. If B is between A and C, B is between C and A.
 pub struct BetweennessSymmetry;
@@ -474,6 +486,7 @@ impl Axiom for BetweennessSymmetry {
         a.is_between(&b, &c) == c.is_between(&b, &a)
     }
 }
+pr4xis::register_axiom!(BetweennessSymmetry);
 
 // ---------------------------------------------------------------------------
 // Ontology

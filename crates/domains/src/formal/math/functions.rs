@@ -140,6 +140,7 @@ impl Axiom for PiecewiseContinuity {
         self.function.is_continuous(self.epsilon)
     }
 }
+pr4xis::register_axiom!(PiecewiseContinuity);
 
 /// Linear combination weights sum to 1 (convex combination).
 pub struct ConvexWeights {
@@ -154,6 +155,7 @@ impl Axiom for ConvexWeights {
         self.combination.is_convex() && self.combination.is_non_negative()
     }
 }
+pr4xis::register_axiom!(ConvexWeights);
 
 /// Offset ratio is always >= 1.0 (by definition, lighter/darker).
 pub struct RatioBounded {
@@ -175,6 +177,7 @@ impl Axiom for RatioBounded {
             && r.eval(0.5, 0.3) >= 1.0
     }
 }
+pr4xis::register_axiom!(RatioBounded);
 
 #[cfg(test)]
 mod tests {

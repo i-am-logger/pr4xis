@@ -65,6 +65,7 @@ impl Functor for PlanningToResponse {
         ResponseRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(PlanningToResponse);
 
 #[cfg(test)]
 mod tests {

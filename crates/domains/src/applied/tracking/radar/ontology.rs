@@ -53,3 +53,4 @@ impl Axiom for RangeNonNegative {
         true
     } // structural: range = sqrt(x²+y²+z²) ≥ 0
 }
+pr4xis::register_axiom!(RangeNonNegative);

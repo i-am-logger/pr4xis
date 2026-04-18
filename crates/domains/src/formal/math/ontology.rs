@@ -113,6 +113,7 @@ impl Axiom for ContainmentChain {
         true
     }
 }
+pr4xis::register_axiom!(ContainmentChain);
 
 #[cfg(test)]
 mod tests {

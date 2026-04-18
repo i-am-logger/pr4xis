@@ -68,6 +68,7 @@ impl Functor for AnatomyToVestibular {
         }
     }
 }
+pr4xis::register_functor!(AnatomyToVestibular);
 
 #[cfg(test)]
 mod tests {

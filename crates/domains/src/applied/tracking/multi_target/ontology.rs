@@ -94,6 +94,7 @@ impl Axiom for DeletedIsAbsorbing {
             .any(|m| m.from == TrackState::Deleted && m.to != TrackState::Deleted)
     }
 }
+pr4xis::register_axiom!(DeletedIsAbsorbing);
 
 /// Axiom: every track starts as Tentative.
 pub struct TrackStartsTentative;
@@ -110,6 +111,7 @@ impl Axiom for TrackStartsTentative {
             .any(|m| m.to == TrackState::Tentative && m.from != TrackState::Tentative)
     }
 }
+pr4xis::register_axiom!(TrackStartsTentative);
 
 /// Axiom: Coasting can return to Confirmed (re-detection).
 pub struct ReDetectionPossible;
@@ -125,6 +127,7 @@ impl Axiom for ReDetectionPossible {
             .any(|m| m.from == TrackState::Coasting && m.to == TrackState::Confirmed)
     }
 }
+pr4xis::register_axiom!(ReDetectionPossible);
 
 pub struct MultiTargetOntology;
 

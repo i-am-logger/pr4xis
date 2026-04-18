@@ -47,6 +47,7 @@ impl Axiom for SoundSpeedPositive {
         true
     }
 }
+pr4xis::register_axiom!(SoundSpeedPositive);
 
 /// Axiom: acoustic range measurements are non-negative.
 pub struct RangeNonNegative;
@@ -59,6 +60,7 @@ impl Axiom for RangeNonNegative {
         true
     }
 }
+pr4xis::register_axiom!(RangeNonNegative);
 
 impl Ontology for AcousticOntology {
     type Cat = AcousticCategory;

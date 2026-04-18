@@ -41,6 +41,7 @@ impl Functor for GnssToProperty {
         }
     }
 }
+pr4xis::register_functor!(GnssToProperty);
 
 #[cfg(test)]
 mod tests {

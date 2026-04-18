@@ -245,6 +245,7 @@ impl Axiom for MorphospaceOppositionSymmetric {
         opposition::Symmetric::<MorphospaceOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(MorphospaceOppositionSymmetric);
 
 /// Axiom: morphospace opposition is irreflexive (nothing opposes itself).
 pub struct MorphospaceOppositionIrreflexive;
@@ -258,6 +259,7 @@ impl Axiom for MorphospaceOppositionIrreflexive {
         opposition::Irreflexive::<MorphospaceOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(MorphospaceOppositionIrreflexive);
 
 // ---------------------------------------------------------------------------
 // Axioms
@@ -275,6 +277,7 @@ impl Axiom for MorphospaceTaxonomyIsDAG {
         taxonomy::NoCycles::<MorphospaceTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(MorphospaceTaxonomyIsDAG);
 
 /// All attractor states have Vmem ranges.
 pub struct AllAttractorsHaveVmemRanges;
@@ -292,6 +295,7 @@ impl Axiom for AllAttractorsHaveVmemRanges {
             .all(|a| vmem.get(a).is_some())
     }
 }
+pr4xis::register_axiom!(AllAttractorsHaveVmemRanges);
 
 /// Healthy is the most polarized attractor (most negative Vmem min).
 pub struct HealthyIsMostPolarized;
@@ -311,6 +315,7 @@ impl Axiom for HealthyIsMostPolarized {
         })
     }
 }
+pr4xis::register_axiom!(HealthyIsMostPolarized);
 
 /// Severity increases with depolarization along the main disease axis.
 pub struct SeverityIncreasesWithDepolarization;
@@ -339,6 +344,7 @@ impl Axiom for SeverityIncreasesWithDepolarization {
         })
     }
 }
+pr4xis::register_axiom!(SeverityIncreasesWithDepolarization);
 
 /// Disease progression causal graph is asymmetric.
 pub struct DiseaseProgressionIsAsymmetric;
@@ -352,6 +358,7 @@ impl Axiom for DiseaseProgressionIsAsymmetric {
         causation::Asymmetric::<DiseaseProgressionCauses>::new().holds()
     }
 }
+pr4xis::register_axiom!(DiseaseProgressionIsAsymmetric);
 
 /// Acid damage transitively causes dysplasia.
 pub struct AcidCausesDysplasia;
@@ -367,6 +374,7 @@ impl Axiom for AcidCausesDysplasia {
         effects.contains(&DysplasticTransition)
     }
 }
+pr4xis::register_axiom!(AcidCausesDysplasia);
 
 /// Mechanical stimulation activation causes repair.
 pub struct MechanicalStimulationCausesRepair;
@@ -383,6 +391,7 @@ impl Axiom for MechanicalStimulationCausesRepair {
         effects.contains(&AutonomousRepair)
     }
 }
+pr4xis::register_axiom!(MechanicalStimulationCausesRepair);
 
 /// Acid removal causes repair.
 pub struct AcidRemovalCausesRepair;
@@ -398,6 +407,7 @@ impl Axiom for AcidRemovalCausesRepair {
         effects.contains(&AutonomousRepair)
     }
 }
+pr4xis::register_axiom!(AcidRemovalCausesRepair);
 
 /// Two-mechanism GJ requirement: BioelectricRepair requires GJ,
 /// MechanicalStimulation does not.
@@ -414,6 +424,7 @@ impl Axiom for TwoMechanismGJRequirement {
         gj.get(&BioelectricRepair) == Some(true) && gj.get(&MechanicalStimulation) == Some(false)
     }
 }
+pr4xis::register_axiom!(TwoMechanismGJRequirement);
 
 /// Only MechanicalStimulation is hardware-accessible.
 pub struct OnlyMechanicalIsHardwareAccessible;
@@ -439,6 +450,7 @@ impl Axiom for OnlyMechanicalIsHardwareAccessible {
         hw_accessible.len() == 1 && *hw_accessible[0] == MorphospaceEntity::MechanicalStimulation
     }
 }
+pr4xis::register_axiom!(OnlyMechanicalIsHardwareAccessible);
 
 /// There are exactly 5 attractor states.
 pub struct FiveAttractorStates;
@@ -454,6 +466,7 @@ impl Axiom for FiveAttractorStates {
         descendants.len() == 5
     }
 }
+pr4xis::register_axiom!(FiveAttractorStates);
 
 // ---------------------------------------------------------------------------
 // Ontology

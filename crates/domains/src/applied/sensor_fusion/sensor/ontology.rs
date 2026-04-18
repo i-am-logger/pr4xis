@@ -106,6 +106,7 @@ impl Axiom for AccelerometerIsSensor {
         taxonomy::is_a::<SensorTaxonomy>(&SensorType::Accelerometer, &SensorType::Sensor)
     }
 }
+pr4xis::register_axiom!(AccelerometerIsSensor);
 
 pub struct ImuComposition;
 
@@ -118,6 +119,7 @@ impl Axiom for ImuComposition {
         parts.contains(&SensorType::Accelerometer) && parts.contains(&SensorType::Gyroscope)
     }
 }
+pr4xis::register_axiom!(ImuComposition);
 
 pub struct RadarDualClassification;
 
@@ -130,6 +132,7 @@ impl Axiom for RadarDualClassification {
             && taxonomy::is_a::<SensorTaxonomy>(&SensorType::Radar, &SensorType::ActiveSensor)
     }
 }
+pr4xis::register_axiom!(RadarDualClassification);
 
 pub struct CameraIsPassive;
 
@@ -142,6 +145,7 @@ impl Axiom for CameraIsPassive {
             && !taxonomy::is_a::<SensorTaxonomy>(&SensorType::Camera, &SensorType::ActiveSensor)
     }
 }
+pr4xis::register_axiom!(CameraIsPassive);
 
 // ---------------------------------------------------------------------------
 // Ontology impl

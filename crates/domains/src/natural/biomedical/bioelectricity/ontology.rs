@@ -213,6 +213,7 @@ impl Axiom for BioelectricOppositionSymmetric {
         opposition::Symmetric::<BioelectricOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(BioelectricOppositionSymmetric);
 
 /// Axiom: bioelectric opposition is irreflexive (nothing opposes itself).
 pub struct BioelectricOppositionIrreflexive;
@@ -226,6 +227,7 @@ impl Axiom for BioelectricOppositionIrreflexive {
         opposition::Irreflexive::<BioelectricOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(BioelectricOppositionIrreflexive);
 
 /// Bioelectric code axiom: healthy tissue is polarized (-50 to -40 mV),
 /// cancerous tissue is depolarized (-15 to -20 mV).
@@ -242,6 +244,7 @@ impl Axiom for BioelectricCodeAxiom {
         healthy_vmem < -40.0 && cancer_vmem > -18.0
     }
 }
+pr4xis::register_axiom!(BioelectricCodeAxiom);
 
 /// Gap junction communication axiom: tissue-level signals require GJ,
 /// single-cell signals do not.
@@ -260,6 +263,7 @@ impl Axiom for GapJunctionCommunicationAxiom {
             && req.get(&MembranePotential) == Some(false)
     }
 }
+pr4xis::register_axiom!(GapJunctionCommunicationAxiom);
 
 /// Repolarization repair axiom: both IonChannelModulation and ProtonPumpInhibition
 /// are interventions.
@@ -276,6 +280,7 @@ impl Axiom for RepolarizationRepairAxiom {
             && taxonomy::is_a::<BioelectricTaxonomy>(&ProtonPumpInhibition, &Intervention)
     }
 }
+pr4xis::register_axiom!(RepolarizationRepairAxiom);
 
 /// Two-mechanism repair axiom: PPI doesn't need GJ, BioelectricCocktail does.
 pub struct TwoMechanismRepairAxiom;
@@ -291,6 +296,7 @@ impl Axiom for TwoMechanismRepairAxiom {
         req.get(&ProtonPumpInhibition) == Some(false) && req.get(&BioelectricCocktail) == Some(true)
     }
 }
+pr4xis::register_axiom!(TwoMechanismRepairAxiom);
 
 /// TAME hierarchy axiom: exactly 5 levels.
 pub struct TAMEHierarchyAxiom;
@@ -305,6 +311,7 @@ impl Axiom for TAMEHierarchyAxiom {
         taxonomy::NoCycles::<TAMETaxonomy>::new().holds() && CompetencyLevel::variants().len() == 5
     }
 }
+pr4xis::register_axiom!(TAMEHierarchyAxiom);
 
 /// Cognitive lightcone axiom: requires GJ and operates at Organ level.
 pub struct CognitiveLightconeAxiom;
@@ -320,6 +327,7 @@ impl Axiom for CognitiveLightconeAxiom {
             && OperatingLevel.get(&CognitiveLightcone) == Some(CompetencyLevel::Organ)
     }
 }
+pr4xis::register_axiom!(CognitiveLightconeAxiom);
 
 /// Mechanical stimulation is the only hardware-accessible intervention.
 pub struct MechanicalStimulationIsHardwareAccessible;
@@ -344,6 +352,7 @@ impl Axiom for MechanicalStimulationIsHardwareAccessible {
         hw_accessible.len() == 1 && *hw_accessible[0] == BioelectricEntity::MechanicalStimulation
     }
 }
+pr4xis::register_axiom!(MechanicalStimulationIsHardwareAccessible);
 
 /// All 5 TAME levels are represented in OperatingLevel values.
 pub struct AllTAMELevelsRepresented;
@@ -363,6 +372,7 @@ impl Axiom for AllTAMELevelsRepresented {
             .all(|target| levels.contains(target))
     }
 }
+pr4xis::register_axiom!(AllTAMELevelsRepresented);
 
 /// Axiom: bioelectricity->regeneration functor preserves TargetMorphology identity.
 pub struct TargetMorphologyCrossDomainEquivalence;
@@ -380,6 +390,7 @@ impl Axiom for TargetMorphologyCrossDomainEquivalence {
             == RegenerationEntity::TargetMorphology
     }
 }
+pr4xis::register_axiom!(TargetMorphologyCrossDomainEquivalence);
 
 // ---------------------------------------------------------------------------
 // Ontology

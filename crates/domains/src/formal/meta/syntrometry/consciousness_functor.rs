@@ -100,6 +100,7 @@ impl Functor for SyntrometryToC1 {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToC1);
 
 #[cfg(test)]
 mod tests {

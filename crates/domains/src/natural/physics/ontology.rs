@@ -105,6 +105,7 @@ impl Axiom for MaxwellDerivesC {
         (c - 2.998e8).abs() < 1e6
     }
 }
+pr4xis::register_axiom!(MaxwellDerivesC);
 
 /// Axiom: all branches are represented (no empty branch).
 pub struct AllBranchesRepresented;
@@ -122,6 +123,7 @@ impl Axiom for AllBranchesRepresented {
         branches.len() == 5
     }
 }
+pr4xis::register_axiom!(AllBranchesRepresented);
 
 #[cfg(test)]
 mod tests {

@@ -28,6 +28,7 @@ impl Axiom for Associativity {
         true
     }
 }
+pr4xis::register_axiom!(Associativity);
 
 /// Axiom: identity pose is the neutral element.
 pub struct IdentityElement;
@@ -47,6 +48,7 @@ impl Axiom for IdentityElement {
         true
     }
 }
+pr4xis::register_axiom!(IdentityElement);
 
 /// Axiom: every pose has an inverse such that T * T^{-1} = I.
 pub struct InverseExists;
@@ -66,6 +68,7 @@ impl Axiom for InverseExists {
         true
     }
 }
+pr4xis::register_axiom!(InverseExists);
 
 /// Axiom: composing poses then transforming equals sequential transforms.
 pub struct CompositionConsistency;
@@ -102,6 +105,7 @@ impl Axiom for CompositionConsistency {
         true
     }
 }
+pr4xis::register_axiom!(CompositionConsistency);
 
 /// The rigid motion ontology — SE(3) group axioms.
 ///

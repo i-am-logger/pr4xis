@@ -274,6 +274,7 @@ impl Axiom for CalciumEntryCausesGeneExpression {
         effects.contains(&GeneExpressionChange)
     }
 }
+pr4xis::register_axiom!(CalciumEntryCausesGeneExpression);
 
 /// CalciumEntry also causes NOProduction (vasodilation pathway).
 pub struct CalciumEntryCausesNOProduction;
@@ -289,6 +290,7 @@ impl Axiom for CalciumEntryCausesNOProduction {
         effects.contains(&NOSynthaseActivation) && effects.contains(&NOProduction)
     }
 }
+pr4xis::register_axiom!(CalciumEntryCausesNOProduction);
 
 /// Calcium is a second messenger.
 pub struct CalciumIsSecondMessenger;
@@ -302,6 +304,7 @@ impl Axiom for CalciumIsSecondMessenger {
         IsSecondMessenger.get(&BiochemistryEntity::CalciumIon) == Some(true)
     }
 }
+pr4xis::register_axiom!(CalciumIsSecondMessenger);
 
 /// CaMKII is a kinase.
 pub struct CaMKIIIsKinase;
@@ -315,6 +318,7 @@ impl Axiom for CaMKIIIsKinase {
         IsKinase.get(&BiochemistryEntity::CaMKII) == Some(true)
     }
 }
+pr4xis::register_axiom!(CaMKIIIsKinase);
 
 /// PhosphorylationCascade requires ATP.
 pub struct PhosphorylationRequiresATP;
@@ -328,6 +332,7 @@ impl Axiom for PhosphorylationRequiresATP {
         RequiresATP.get(&BiochemistryEntity::PhosphorylationCascade) == Some(true)
     }
 }
+pr4xis::register_axiom!(PhosphorylationRequiresATP);
 
 // ---------------------------------------------------------------------------
 // Ontology

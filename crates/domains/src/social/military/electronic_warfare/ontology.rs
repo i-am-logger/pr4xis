@@ -48,6 +48,7 @@ impl Axiom for AoaBounded {
         true
     }
 }
+pr4xis::register_axiom!(AoaBounded);
 
 /// Axiom: TDOA requires at least 2 sensors for 2D geolocation.
 pub struct TdoaRequiresSensorPair;
@@ -60,6 +61,7 @@ impl Axiom for TdoaRequiresSensorPair {
         true
     }
 }
+pr4xis::register_axiom!(TdoaRequiresSensorPair);
 
 impl Ontology for EwOntology {
     type Cat = EwCategory;

@@ -341,6 +341,7 @@ impl Axiom for ActivationThemeMapped {
             .all(|s| !activation_to_theme_role(*s).is_empty())
     }
 }
+pr4xis::register_axiom!(ActivationThemeMapped);
 
 /// Theming ontology graph is connected (no isolated nodes).
 pub struct GraphConnected;
@@ -360,6 +361,7 @@ impl Axiom for GraphConnected {
         g.nodes.iter().all(|n| connected.contains(n.id.as_str()))
     }
 }
+pr4xis::register_axiom!(GraphConnected);
 
 /// A reasoning trace has at least 2 steps (start + conclusion).
 pub struct TraceMinimalSteps;
@@ -373,6 +375,7 @@ impl Axiom for TraceMinimalSteps {
         t.step_count() >= 2
     }
 }
+pr4xis::register_axiom!(TraceMinimalSteps);
 
 /// Generate an interactive HTML explorer for the ontology graph.
 ///

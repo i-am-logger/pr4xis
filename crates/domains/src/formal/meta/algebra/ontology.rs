@@ -171,6 +171,7 @@ impl Axiom for AdjointTriple {
             .any(|(a, b)| *a == AlgebraConcept::SigmaMigration && *b == AlgebraConcept::PiMigration)
     }
 }
+pr4xis::register_axiom!(AdjointTriple);
 
 /// Coproduct and Product are dual (colimit vs limit).
 #[derive(Debug)]
@@ -187,6 +188,7 @@ impl Axiom for CoproductProductDual {
             .any(|(a, b)| *a == AlgebraConcept::Coproduct && *b == AlgebraConcept::Product)
     }
 }
+pr4xis::register_axiom!(CoproductProductDual);
 
 impl Ontology for AlgebraOntology {
     type Cat = AlgebraCategory;

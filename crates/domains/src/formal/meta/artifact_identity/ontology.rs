@@ -368,6 +368,7 @@ impl Axiom for EverySchemeHasAnExtractor {
             .all(schemes::extractor_exists_for)
     }
 }
+pr4xis::register_axiom!(EverySchemeHasAnExtractor);
 
 /// Running the same extractor on the same bytes always produces the same
 /// `VerificationResult`. This is the determinism requirement — verifiers
@@ -391,6 +392,7 @@ impl Axiom for ExtractorIsDeterministic {
         true
     }
 }
+pr4xis::register_axiom!(ExtractorIsDeterministic);
 
 /// If a verifier returns `Unverifiable` or `Mismatch`, the calling pipeline
 /// must reject the artifact. Never proceed with unverified data. This is the
@@ -415,6 +417,7 @@ impl Axiom for VerificationFailClosed {
         true
     }
 }
+pr4xis::register_axiom!(VerificationFailClosed);
 
 /// A `CompositeIdentity` verifies only when ALL its claims verify. Weakest-link
 /// semantics: if any claim returns Unverifiable or Mismatch, the whole
@@ -433,6 +436,7 @@ impl Axiom for CompositeRequiresAll {
         true
     }
 }
+pr4xis::register_axiom!(CompositeRequiresAll);
 
 // ---------------------------------------------------------------------------
 // Family-level axioms
@@ -476,6 +480,7 @@ impl Axiom for ContentHashIsInjective {
         true
     }
 }
+pr4xis::register_axiom!(ContentHashIsInjective);
 
 /// Content hashes can always be verified offline — no network access
 /// required. Applies to every leaf in the `ContentHash` family.
@@ -501,6 +506,7 @@ impl Axiom for ContentHashIsOffline {
             .all(|leaf| q.get(leaf) == Some(true))
     }
 }
+pr4xis::register_axiom!(ContentHashIsOffline);
 
 /// Persistent identifiers require a resolver (DOI service, Handle server,
 /// ARK NAAN, PURL server). Verification cannot happen offline without a
@@ -519,6 +525,7 @@ impl Axiom for PersistentIdentifierRequiresResolver {
         pid_leaves.iter().all(|leaf| q.get(leaf) == Some(false))
     }
 }
+pr4xis::register_axiom!(PersistentIdentifierRequiresResolver);
 
 /// Self-describing metadata is the weakest trust tier — the source asserts
 /// its own identity with no cryptographic backing. Applies to every leaf in
@@ -545,6 +552,7 @@ impl Axiom for SelfDescribingIsWeakestTrust {
             .all(|leaf| q.get(leaf) == Some(TrustTier::Declarative))
     }
 }
+pr4xis::register_axiom!(SelfDescribingIsWeakestTrust);
 
 // ---------------------------------------------------------------------------
 // Helpers

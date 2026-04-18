@@ -65,6 +65,7 @@ impl Functor for BioelectricToMolecular {
         }
     }
 }
+pr4xis::register_functor!(BioelectricToMolecular);
 
 #[cfg(test)]
 mod tests {

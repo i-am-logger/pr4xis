@@ -76,6 +76,7 @@ impl Axiom for DimensionCommutativity {
         true
     }
 }
+pr4xis::register_axiom!(DimensionCommutativity);
 
 /// Dimensions form an abelian group: multiplication is associative.
 pub struct DimensionAssociativity;
@@ -98,6 +99,7 @@ impl Axiom for DimensionAssociativity {
         true
     }
 }
+pr4xis::register_axiom!(DimensionAssociativity);
 
 /// Dimensionless is the identity element.
 pub struct DimensionIdentity;
@@ -116,6 +118,7 @@ impl Axiom for DimensionIdentity {
         true
     }
 }
+pr4xis::register_axiom!(DimensionIdentity);
 
 /// Every dimension has an inverse: [A]·[A]⁻¹ = 1.
 pub struct DimensionInverse;
@@ -133,6 +136,7 @@ impl Axiom for DimensionInverse {
         true
     }
 }
+pr4xis::register_axiom!(DimensionInverse);
 
 /// Cannot add quantities with different dimensions.
 pub struct AdditionRequiresSameDimension;
@@ -164,6 +168,7 @@ impl Axiom for AdditionRequiresSameDimension {
         true
     }
 }
+pr4xis::register_axiom!(AdditionRequiresSameDimension);
 
 /// Multiplication produces correct derived dimension.
 pub struct DerivedDimensionConsistency;
@@ -180,6 +185,7 @@ impl Axiom for DerivedDimensionConsistency {
         v.dimension == Dimension::VELOCITY && (v.value - 5.0).abs() < 1e-10
     }
 }
+pr4xis::register_axiom!(DerivedDimensionConsistency);
 
 /// Unit conversion roundtrip: km → m → km.
 pub struct UnitConversionRoundtrip;
@@ -195,6 +201,7 @@ impl Axiom for UnitConversionRoundtrip {
         (km_val - km_back).abs() < 1e-10 && (m_val - 5000.0).abs() < 1e-10
     }
 }
+pr4xis::register_axiom!(UnitConversionRoundtrip);
 
 /// Incompatible units cannot convert: meters cannot become seconds.
 pub struct IncompatibleUnitConversionFails;
@@ -207,6 +214,7 @@ impl Axiom for IncompatibleUnitConversionFails {
         unit::METER.convert(5.0, &unit::SECOND).is_none()
     }
 }
+pr4xis::register_axiom!(IncompatibleUnitConversionFails);
 
 impl Ontology for QuantityOntology {
     type Cat = QuantityCategory;

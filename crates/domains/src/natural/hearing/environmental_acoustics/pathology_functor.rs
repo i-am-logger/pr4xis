@@ -72,6 +72,7 @@ impl Functor for EnvironmentToPathology {
         }
     }
 }
+pr4xis::register_functor!(EnvironmentToPathology);
 
 #[cfg(test)]
 mod tests {

@@ -120,6 +120,7 @@ impl Axiom for SrgbContinuity {
         srgb_linearize().is_continuous(1e-6)
     }
 }
+pr4xis::register_axiom!(SrgbContinuity);
 
 /// BT.709 luma coefficients are a convex combination (sum to 1.0, all non-negative).
 ///
@@ -135,6 +136,7 @@ impl Axiom for LumaConvex {
         lc.is_convex() && lc.is_non_negative()
     }
 }
+pr4xis::register_axiom!(LumaConvex);
 
 /// Luminance is bounded: 0.0 for black, ~1.0 for white.
 ///
@@ -154,6 +156,7 @@ impl Axiom for LuminanceBounded {
             && white_l > 0.99
     }
 }
+pr4xis::register_axiom!(LuminanceBounded);
 
 /// WCAG contrast ratio is bounded: [1.0, 21.0].
 ///
@@ -170,6 +173,7 @@ impl Axiom for ContrastBounded {
         (min - 1.0).abs() < 0.01 && (max - 21.0).abs() < 0.1
     }
 }
+pr4xis::register_axiom!(ContrastBounded);
 
 /// Luminance monotonicity: brighter colors have higher luminance.
 ///
@@ -189,6 +193,7 @@ impl Axiom for LuminanceMonotone {
             && relative_luminance(&mid) < relative_luminance(&light)
     }
 }
+pr4xis::register_axiom!(LuminanceMonotone);
 
 /// Screen blend is dual of multiply: Screen(a,b) = 1 - Multiply(1-a, 1-b).
 ///
@@ -222,6 +227,7 @@ impl Axiom for ScreenDualOfMultiply {
         })
     }
 }
+pr4xis::register_axiom!(ScreenDualOfMultiply);
 
 #[cfg(test)]
 mod tests {

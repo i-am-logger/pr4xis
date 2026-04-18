@@ -364,3 +364,4 @@ impl Functor for TrafficToSystems {
         SystemRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(TrafficToSystems);

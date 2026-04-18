@@ -88,6 +88,7 @@ impl Functor for SyntrometryToMetaOntology {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToMetaOntology);
 
 #[cfg(test)]
 mod tests {

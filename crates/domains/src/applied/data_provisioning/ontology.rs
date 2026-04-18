@@ -203,6 +203,7 @@ impl Axiom for EveryDataSourceHasIdentity {
             })
     }
 }
+pr4xis::register_axiom!(EveryDataSourceHasIdentity);
 
 /// No two `RegistryEntry` instances share a name. The name is the primary
 /// key the CLI uses to look up a source.
@@ -223,6 +224,7 @@ impl Axiom for RegistryUniquenessByName {
         true
     }
 }
+pr4xis::register_axiom!(RegistryUniquenessByName);
 
 /// Every `ContentType` variant in use by some `RegistryEntry` has a defined
 /// `DecoderFunctor`. If a new content type is added to a registry entry
@@ -243,6 +245,7 @@ impl Axiom for DecoderTotalityPerContentType {
         true
     }
 }
+pr4xis::register_axiom!(DecoderTotalityPerContentType);
 
 /// Every resolved identity claim uses a LEAF `IdentityConcept` — not a
 /// family or the root. A claim with `concept: IdentityConcept::ContentHash`
@@ -270,6 +273,7 @@ impl Axiom for IdentityClaimsUseLeaves {
         true
     }
 }
+pr4xis::register_axiom!(IdentityClaimsUseLeaves);
 
 // ---------------------------------------------------------------------------
 // Ontology trait impl

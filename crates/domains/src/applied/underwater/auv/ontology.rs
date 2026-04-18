@@ -48,6 +48,7 @@ impl Axiom for DepthNonNegative {
         true
     }
 }
+pr4xis::register_axiom!(DepthNonNegative);
 
 /// Axiom: DVL requires bottom lock (limited altitude).
 pub struct DvlRequiresBottomLock;
@@ -60,6 +61,7 @@ impl Axiom for DvlRequiresBottomLock {
         true
     }
 }
+pr4xis::register_axiom!(DvlRequiresBottomLock);
 
 impl Ontology for AuvOntology {
     type Cat = AuvCategory;

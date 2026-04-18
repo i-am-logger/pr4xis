@@ -60,6 +60,7 @@ impl Functor for OdometryToProperty {
         }
     }
 }
+pr4xis::register_functor!(OdometryToProperty);
 
 #[cfg(test)]
 mod tests {

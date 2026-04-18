@@ -99,6 +99,7 @@ impl Axiom for VelocityIsDerivativeOfPosition {
             && (displacement.z - 0.0).abs() < 1e-12
     }
 }
+pr4xis::register_axiom!(VelocityIsDerivativeOfPosition);
 
 /// Acceleration is the derivative of velocity: a = Δv/Δt.
 pub struct AccelerationIsDerivativeOfVelocity;
@@ -116,6 +117,7 @@ impl Axiom for AccelerationIsDerivativeOfVelocity {
         (a.ax - 2.0).abs() < 1e-12 && a.ay.abs() < 1e-12 && a.az.abs() < 1e-12
     }
 }
+pr4xis::register_axiom!(AccelerationIsDerivativeOfVelocity);
 
 /// Constant velocity propagation: x(t+dt) = x(t) + v*dt.
 pub struct ConstantVelocityPropagation;
@@ -138,6 +140,7 @@ impl Axiom for ConstantVelocityPropagation {
             && (next.position.z - 15.0).abs() < 1e-10
     }
 }
+pr4xis::register_axiom!(ConstantVelocityPropagation);
 
 /// Constant acceleration: x(t+dt) = x(t) + v*dt + 0.5*a*dt².
 pub struct ConstantAccelerationPropagation;
@@ -161,6 +164,7 @@ impl Axiom for ConstantAccelerationPropagation {
         (next.position.z - expected_z).abs() < 1e-8
     }
 }
+pr4xis::register_axiom!(ConstantAccelerationPropagation);
 
 /// Velocity updates under constant acceleration: v(t+dt) = v(t) + a*dt.
 pub struct VelocityUpdateUnderAcceleration;
@@ -182,6 +186,7 @@ impl Axiom for VelocityUpdateUnderAcceleration {
         (next.velocity.vx - 16.0).abs() < 1e-10
     }
 }
+pr4xis::register_axiom!(VelocityUpdateUnderAcceleration);
 
 /// Static model: position doesn't change.
 pub struct StaticModelInvariance;
@@ -201,6 +206,7 @@ impl Axiom for StaticModelInvariance {
         next.position == state.position
     }
 }
+pr4xis::register_axiom!(StaticModelInvariance);
 
 /// Speed is non-negative: |v| ≥ 0.
 pub struct SpeedNonNegative;
@@ -220,6 +226,7 @@ impl Axiom for SpeedNonNegative {
         test_velocities.iter().all(|v| v.speed() >= 0.0)
     }
 }
+pr4xis::register_axiom!(SpeedNonNegative);
 
 /// Galilean velocity addition is commutative: v1 + v2 = v2 + v1.
 pub struct VelocityAdditionCommutative;
@@ -237,6 +244,7 @@ impl Axiom for VelocityAdditionCommutative {
         (a.vx - b.vx).abs() < 1e-15 && (a.vy - b.vy).abs() < 1e-15 && (a.vz - b.vz).abs() < 1e-15
     }
 }
+pr4xis::register_axiom!(VelocityAdditionCommutative);
 
 // ---------------------------------------------------------------------------
 // Ontology

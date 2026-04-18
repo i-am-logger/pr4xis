@@ -86,6 +86,7 @@ impl Functor for SyntrometryToKripke {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToKripke);
 
 #[cfg(test)]
 mod tests {

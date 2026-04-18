@@ -264,3 +264,4 @@ impl Functor for ChessToEvents {
         EventRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(ChessToEvents);

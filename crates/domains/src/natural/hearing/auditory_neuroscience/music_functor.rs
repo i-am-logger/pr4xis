@@ -66,6 +66,7 @@ impl Functor for NeuroscienceToMusic {
         }
     }
 }
+pr4xis::register_functor!(NeuroscienceToMusic);
 
 #[cfg(test)]
 mod tests {

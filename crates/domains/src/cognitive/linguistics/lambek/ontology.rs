@@ -86,6 +86,7 @@ impl Axiom for LambekHasBothAdjoints {
                 .any(|(c, p)| *c == LambekConcept::RightAdjoint && *p == LambekConcept::LambekType)
     }
 }
+pr4xis::register_axiom!(LambekHasBothAdjoints);
 
 impl Ontology for LambekOntology {
     type Cat = LambekCategory;

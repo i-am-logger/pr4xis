@@ -61,6 +61,7 @@ impl Functor for ImmunologyToBiology {
         }
     }
 }
+pr4xis::register_functor!(ImmunologyToBiology);
 
 #[cfg(test)]
 mod tests {

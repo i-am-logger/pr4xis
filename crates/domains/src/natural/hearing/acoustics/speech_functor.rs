@@ -40,6 +40,7 @@ impl Functor for AcousticsToSpeech {
         }
     }
 }
+pr4xis::register_functor!(AcousticsToSpeech);
 
 #[cfg(test)]
 mod tests {

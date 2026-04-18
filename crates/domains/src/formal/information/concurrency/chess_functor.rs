@@ -252,3 +252,4 @@ impl Functor for ChessToConcurrency {
         ConcurrencyRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(ChessToConcurrency);

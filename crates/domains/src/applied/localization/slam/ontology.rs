@@ -57,6 +57,7 @@ impl Axiom for ConstraintReducesUncertainty {
         true
     }
 }
+pr4xis::register_axiom!(ConstraintReducesUncertainty);
 
 /// Axiom: loop closures connect poses (not landmarks).
 pub struct LoopClosureConnectsPoses;
@@ -76,6 +77,7 @@ impl Axiom for LoopClosureConnectsPoses {
         lc_to_pose && pose_to_lc
     }
 }
+pr4xis::register_axiom!(LoopClosureConnectsPoses);
 
 impl Ontology for SlamOntology {
     type Cat = SlamCategory;

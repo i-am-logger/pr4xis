@@ -78,3 +78,4 @@ impl Functor for SystemsToConcurrency {
         ConcurrencyRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(SystemsToConcurrency);

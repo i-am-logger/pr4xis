@@ -59,6 +59,7 @@ impl Functor for ReferencToDialogue {
         DialogueRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(ReferencToDialogue);
 
 #[cfg(test)]
 mod tests {

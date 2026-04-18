@@ -68,6 +68,7 @@ impl Axiom for BothModalitiesRequired {
         radar_to_align && camera_to_align
     }
 }
+pr4xis::register_axiom!(BothModalitiesRequired);
 
 /// Axiom: fused output is a terminal stage (no outgoing non-identity morphisms).
 pub struct FusedOutputIsTerminal;
@@ -83,6 +84,7 @@ impl Axiom for FusedOutputIsTerminal {
         })
     }
 }
+pr4xis::register_axiom!(FusedOutputIsTerminal);
 
 impl Ontology for RadarCameraOntology {
     type Cat = RadarCameraCategory;

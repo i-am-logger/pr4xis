@@ -47,6 +47,7 @@ impl Functor for AhrsToProperty {
         }
     }
 }
+pr4xis::register_functor!(AhrsToProperty);
 
 #[cfg(test)]
 mod tests {

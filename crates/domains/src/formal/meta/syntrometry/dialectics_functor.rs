@@ -103,6 +103,7 @@ impl Functor for SyntrometryToDialectics {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToDialectics);
 
 #[cfg(test)]
 mod tests {

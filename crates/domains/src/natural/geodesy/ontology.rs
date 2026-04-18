@@ -85,6 +85,7 @@ impl Functor for NedToEnuFunctor {
         }
     }
 }
+pr4xis::register_functor!(NedToEnuFunctor);
 
 impl Endofunctor for NedToEnuFunctor {
     type Category = GeodesyCategory;
@@ -120,6 +121,7 @@ impl Axiom for GeodeticEcefRoundtrip {
         true
     }
 }
+pr4xis::register_axiom!(GeodeticEcefRoundtrip);
 
 /// NED ↔ ENU roundtrip: the functor is an involution.
 pub struct NedEnuRoundtrip;
@@ -160,6 +162,7 @@ impl Axiom for NedEnuRoundtrip {
         true
     }
 }
+pr4xis::register_axiom!(NedEnuRoundtrip);
 
 /// NED → ENU preserves distances (isometry).
 pub struct NedEnuIsometry;
@@ -194,6 +197,7 @@ impl Axiom for NedEnuIsometry {
         (dist_ned - dist_enu).abs() < 1e-12
     }
 }
+pr4xis::register_axiom!(NedEnuIsometry);
 
 /// Great circle distance is symmetric: d(a,b) = d(b,a).
 pub struct GreatCircleSymmetry;
@@ -218,6 +222,7 @@ impl Axiom for GreatCircleSymmetry {
         true
     }
 }
+pr4xis::register_axiom!(GreatCircleSymmetry);
 
 /// Great circle distance to self is zero.
 pub struct GreatCircleSelfZero;
@@ -237,6 +242,7 @@ impl Axiom for GreatCircleSelfZero {
         true
     }
 }
+pr4xis::register_axiom!(GreatCircleSelfZero);
 
 /// Great circle distance satisfies triangle inequality.
 pub struct GreatCircleTriangleInequality;
@@ -265,6 +271,7 @@ impl Axiom for GreatCircleTriangleInequality {
         true
     }
 }
+pr4xis::register_axiom!(GreatCircleTriangleInequality);
 
 /// WGS84 ellipsoid parameters are consistent: b = a(1-f), e² = 2f - f².
 pub struct Wgs84Consistency;
@@ -289,6 +296,7 @@ impl Axiom for Wgs84Consistency {
         true
     }
 }
+pr4xis::register_axiom!(Wgs84Consistency);
 
 /// Functor law: NedToEnu preserves identity morphisms.
 pub struct NedEnuFunctorIdentity;
@@ -311,6 +319,7 @@ impl Axiom for NedEnuFunctorIdentity {
         true
     }
 }
+pr4xis::register_axiom!(NedEnuFunctorIdentity);
 
 // ---------------------------------------------------------------------------
 // Ontology

@@ -71,6 +71,7 @@ impl Functor for SyntrometryToAlgebra {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToAlgebra);
 
 #[cfg(test)]
 mod tests {

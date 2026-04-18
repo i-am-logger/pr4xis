@@ -221,6 +221,7 @@ impl Axiom for DataCollectionCausesKnowledgeUpdate {
         effects.contains(&KnowledgeUpdate)
     }
 }
+pr4xis::register_axiom!(DataCollectionCausesKnowledgeUpdate);
 
 /// Axiom: Galois connection is an analysis component.
 pub struct GaloisConnectionIsComponent;
@@ -234,6 +235,7 @@ impl Axiom for GaloisConnectionIsComponent {
         taxonomy::is_a::<AnalyticalTaxonomy>(&GaloisConnection, &AnalysisComponent)
     }
 }
+pr4xis::register_axiom!(GaloisConnectionIsComponent);
 
 /// Axiom: pattern and anomaly are both analysis outputs.
 pub struct PatternAndAnomalyAreOutputs;
@@ -248,6 +250,7 @@ impl Axiom for PatternAndAnomalyAreOutputs {
             && taxonomy::is_a::<AnalyticalTaxonomy>(&Anomaly, &AnalysisOutput)
     }
 }
+pr4xis::register_axiom!(PatternAndAnomalyAreOutputs);
 
 /// Axiom: some methods are automatable, some are not.
 pub struct SomeMethodsAutomatableSomeNot;
@@ -273,6 +276,7 @@ impl Axiom for SomeMethodsAutomatableSomeNot {
         auto_count > 0 && auto_count < methods.len()
     }
 }
+pr4xis::register_axiom!(SomeMethodsAutomatableSomeNot);
 
 // ---------------------------------------------------------------------------
 // Ontology impl

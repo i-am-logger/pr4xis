@@ -82,6 +82,7 @@ impl Functor for AnatomyToTransduction {
         }
     }
 }
+pr4xis::register_functor!(AnatomyToTransduction);
 
 #[cfg(test)]
 mod tests {

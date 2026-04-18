@@ -64,6 +64,7 @@ impl Functor for TransductionToPsychoacoustics {
         }
     }
 }
+pr4xis::register_functor!(TransductionToPsychoacoustics);
 
 #[cfg(test)]
 mod tests {

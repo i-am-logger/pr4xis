@@ -69,6 +69,7 @@ impl Functor for RegenerationToBiology {
         }
     }
 }
+pr4xis::register_functor!(RegenerationToBiology);
 
 #[cfg(test)]
 mod tests {

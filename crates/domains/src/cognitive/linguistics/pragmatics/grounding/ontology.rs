@@ -148,6 +148,7 @@ impl Axiom for AllActsClassified {
         })
     }
 }
+pr4xis::register_axiom!(AllActsClassified);
 
 /// Presentation causes either Acceptance or Repair (Clark & Schaefer 1989).
 #[derive(Debug)]
@@ -169,6 +170,7 @@ impl Axiom for PresentationHasConsequence {
         causes_accept && causes_repair
     }
 }
+pr4xis::register_axiom!(PresentationHasConsequence);
 
 impl Ontology for GroundingOntology {
     type Cat = GroundingCategory;

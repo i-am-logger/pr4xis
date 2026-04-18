@@ -63,11 +63,13 @@ pub trait Axiom {
 
     /// Structured metadata — name, citation, module path.
     ///
+    /// Associated function (no `&self`) so it can be registered into the
+    /// global AXIOMS distributed slice without constructing an instance —
+    /// works for unit structs and structs-with-fields alike.
+    ///
     /// The default is an **honest placeholder** using `std::any::type_name`
-    /// and an empty citation — not a backward-compatibility fallback. It
-    /// means "this axiom hasn't declared its literature citation yet";
-    /// the registry can report it but downstream consumers can see the
-    /// empty citation and flag it for migration.
+    /// and an empty citation — "this axiom hasn't declared its literature
+    /// citation yet"; consumers can detect and flag via `citation.is_empty()`.
     ///
     /// Axioms declared via `ontology!`'s `axioms:` clause or with the
     /// [`axiom_meta!`](crate::axiom_meta!) helper inline override the

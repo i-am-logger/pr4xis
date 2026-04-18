@@ -85,6 +85,7 @@ impl Axiom for DenotesIsPropertyChain {
         has_sense && has_ref && has_denotes
     }
 }
+pr4xis::register_axiom!(DenotesIsPropertyChain);
 
 /// canonicalForm is functional (W3C Ontolex §3.2).
 #[derive(Debug)]
@@ -106,6 +107,7 @@ impl Axiom for CanonicalFormIsFunctional {
             <= 1
     }
 }
+pr4xis::register_axiom!(CanonicalFormIsFunctional);
 
 /// reference is functional (W3C Ontolex §3.4).
 #[derive(Debug)]
@@ -127,6 +129,7 @@ impl Axiom for ReferenceIsFunctional {
             <= 1
     }
 }
+pr4xis::register_axiom!(ReferenceIsFunctional);
 
 impl Ontology for LemonOntology {
     type Cat = LemonCategory;

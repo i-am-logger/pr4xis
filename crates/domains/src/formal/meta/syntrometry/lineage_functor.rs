@@ -101,6 +101,7 @@ impl Functor for SyntrometryToPr4xisSubstrate {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToPr4xisSubstrate);
 
 #[cfg(test)]
 mod tests {

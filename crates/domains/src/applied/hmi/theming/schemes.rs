@@ -332,6 +332,7 @@ impl Axiom for Vogix16Bijection {
         }
     }
 }
+pr4xis::register_axiom!(Vogix16Bijection);
 
 /// All ANSI colors map to distinct base16 slots (bijection on 16 slots).
 pub struct Ansi16Bijection;
@@ -353,6 +354,7 @@ impl Axiom for Ansi16Bijection {
         }
     }
 }
+pr4xis::register_axiom!(Ansi16Bijection);
 
 /// ANSI-to-base16 mapping is consistent with ColorSlot::ansi_index().
 /// Every ColorSlot that has an ansi_index maps to the same ANSI color
@@ -371,6 +373,7 @@ impl Axiom for AnsiBase16Consistency {
         })
     }
 }
+pr4xis::register_axiom!(AnsiBase16Consistency);
 
 /// SGR codes follow ECMA-48: fg = 30-37 (normal), 90-97 (bright).
 pub struct SgrRanges;
@@ -386,6 +389,7 @@ impl Axiom for SgrRanges {
         })
     }
 }
+pr4xis::register_axiom!(SgrRanges);
 
 #[cfg(test)]
 mod tests {

@@ -336,6 +336,7 @@ impl Axiom for InjuryCausesRepair {
         effects.contains(&RepairCompletion)
     }
 }
+pr4xis::register_axiom!(InjuryCausesRepair);
 
 /// Axiom: chronic stimulus causes fibrosis, not repair.
 pub struct ChronicStimulusCausesFibrosis;
@@ -351,6 +352,7 @@ impl Axiom for ChronicStimulusCausesFibrosis {
         effects.contains(&FibrosisProgression) && !effects.contains(&RepairCompletion)
     }
 }
+pr4xis::register_axiom!(ChronicStimulusCausesFibrosis);
 
 /// Axiom: mechanical stimulation causes M1->M2 transition (Weinheimer-Haus 2014).
 pub struct VibrationCausesM1ToM2;
@@ -366,6 +368,7 @@ impl Axiom for VibrationCausesM1ToM2 {
         effects.contains(&M1ToM2Transition)
     }
 }
+pr4xis::register_axiom!(VibrationCausesM1ToM2);
 
 /// Axiom: M1 is pro-inflammatory and not pro-repair; M2 is pro-repair and not
 /// pro-inflammatory. They are mutually exclusive phenotypes.
@@ -386,6 +389,7 @@ impl Axiom for M1M2MutuallyExclusive {
             && pr.get(&MacrophageM2) == Some(true)
     }
 }
+pr4xis::register_axiom!(M1M2MutuallyExclusive);
 
 /// Axiom: pro-inflammatory and anti-inflammatory cytokines are disjoint branches.
 pub struct CytokineBranchesDisjoint;
@@ -409,6 +413,7 @@ impl Axiom for CytokineBranchesDisjoint {
             && !taxonomy::is_a::<ImmunologyTaxonomy>(&TGFBeta, &ProInflammatoryCytokine)
     }
 }
+pr4xis::register_axiom!(CytokineBranchesDisjoint);
 
 /// Axiom: M1->M2 transition eventually leads to repair completion.
 pub struct M1ToM2LeadsToRepair;
@@ -424,6 +429,7 @@ impl Axiom for M1ToM2LeadsToRepair {
         effects.contains(&RepairCompletion)
     }
 }
+pr4xis::register_axiom!(M1ToM2LeadsToRepair);
 
 /// Axiom: all immune cells are classified under ImmuneCell in the taxonomy.
 pub struct AllImmuneCellsClassified;
@@ -452,6 +458,7 @@ impl Axiom for AllImmuneCellsClassified {
                 .all(|c| taxonomy::is_a::<ImmunologyTaxonomy>(c, &StromalCell))
     }
 }
+pr4xis::register_axiom!(AllImmuneCellsClassified);
 
 /// Axiom: acute inflammation operates on Hours time scale,
 /// chronic inflammation on Weeks.
@@ -469,6 +476,7 @@ impl Axiom for InflammationTimeScales {
             && ts.get(&ChronicInflammation) == Some(TimeScaleValue::Weeks)
     }
 }
+pr4xis::register_axiom!(InflammationTimeScales);
 
 // ---------------------------------------------------------------------------
 // Ontology

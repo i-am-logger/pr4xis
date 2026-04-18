@@ -97,6 +97,7 @@ impl Axiom for WordNetTaxonomyHasInverses {
                 .any(|(c, p)| *c == WordNetConcept::Hyponym && *p == WordNetConcept::Synset)
     }
 }
+pr4xis::register_axiom!(WordNetTaxonomyHasInverses);
 
 impl Ontology for WordNetOntology {
     type Cat = WordNetCategory;

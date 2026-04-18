@@ -111,6 +111,7 @@ impl Axiom for KnowledgeBaseIsNonEmpty {
         !describe_knowledge_base().is_empty()
     }
 }
+pr4xis::register_axiom!(KnowledgeBaseIsNonEmpty);
 
 /// Axiom: SelfModelOntology is registered in the knowledge base.
 /// The system can describe itself iff its own SelfModel ontology is
@@ -127,6 +128,7 @@ impl Axiom for SelfModelIsRegistered {
             .any(|v| v.name() == "SelfModelOntology")
     }
 }
+pr4xis::register_axiom!(SelfModelIsRegistered);
 
 /// Axiom: KnowledgeOntology is registered in the knowledge base.
 /// The Knowledge ontology — root of the registry — must register itself.
@@ -142,3 +144,4 @@ impl Axiom for KnowledgeIsRegistered {
             .any(|v| v.name() == "KnowledgeOntology")
     }
 }
+pr4xis::register_axiom!(KnowledgeIsRegistered);

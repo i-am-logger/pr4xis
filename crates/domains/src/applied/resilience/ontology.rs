@@ -286,6 +286,7 @@ impl Axiom for CircuitBreakerThreeStates {
         actual.len() == expected.len() && expected.iter().all(|s| actual.contains(s))
     }
 }
+pr4xis::register_axiom!(CircuitBreakerThreeStates);
 
 /// Axiom: the three jitter strategies from Brooker (2015) are all classified
 /// as JitterStrategy. {Full, Equal, Decorrelated} are the canonical set;
@@ -306,6 +307,7 @@ impl Axiom for BrookerJitterStrategiesExist {
         expected.iter().all(|j| actual.contains(j))
     }
 }
+pr4xis::register_axiom!(BrookerJitterStrategiesExist);
 
 /// Axiom: Armstrong (2003) supervision strategies are exactly
 /// {OneForOne, OneForAll, RestForOne} — the three OTP strategies.
@@ -325,6 +327,7 @@ impl Axiom for OtpSupervisionStrategies {
         actual.len() == expected.len() && expected.iter().all(|s| actual.contains(s))
     }
 }
+pr4xis::register_axiom!(OtpSupervisionStrategies);
 
 /// Axiom: the circuit breaker state machine is a cycle closed ↔ open ↔ half-open.
 /// The four transitions must exist as morphisms.
@@ -359,6 +362,7 @@ impl Axiom for CircuitBreakerTransitionsExist {
             )
     }
 }
+pr4xis::register_axiom!(CircuitBreakerTransitionsExist);
 
 /// Axiom: Patterson (2002) ROC recovery patterns are all classified under
 /// RecoveryPattern.
@@ -378,6 +382,7 @@ impl Axiom for RocPatternsClassified {
         expected.iter().all(|p| actual.contains(p))
     }
 }
+pr4xis::register_axiom!(RocPatternsClassified);
 
 impl Ontology for ResilienceOntology {
     type Cat = ResilienceCategory;

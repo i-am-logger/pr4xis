@@ -118,6 +118,7 @@ impl Axiom for TransformsComposeAssociatively {
         true
     }
 }
+pr4xis::register_axiom!(TransformsComposeAssociatively);
 
 /// Identity transform exists for every frame: T(A, A) composed with any
 /// T(A, B) yields T(A, B).
@@ -155,6 +156,7 @@ impl Axiom for IdentityExists {
         true
     }
 }
+pr4xis::register_axiom!(IdentityExists);
 
 /// Every transform is invertible: for T(A, B) there exists T(B, A).
 ///
@@ -178,6 +180,7 @@ impl Axiom for TransformsInvertible {
         true
     }
 }
+pr4xis::register_axiom!(TransformsInvertible);
 
 /// All frames are right-handed.
 pub struct AllFramesRightHanded;
@@ -197,6 +200,7 @@ impl Axiom for AllFramesRightHanded {
         true
     }
 }
+pr4xis::register_axiom!(AllFramesRightHanded);
 
 // ---------------------------------------------------------------------------
 // Ontology

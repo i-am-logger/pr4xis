@@ -62,6 +62,7 @@ impl Functor for DiagnosticsToControl {
         ControlRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(DiagnosticsToControl);
 
 #[cfg(test)]
 mod tests {

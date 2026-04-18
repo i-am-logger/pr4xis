@@ -239,6 +239,7 @@ impl Axiom for HematologyTaxonomyIsDAG {
         taxonomy::NoCycles::<HematologyTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(HematologyTaxonomyIsDAG);
 
 /// The taxonomy is antisymmetric.
 pub struct HematologyTaxonomyAntisymmetric;
@@ -252,6 +253,7 @@ impl Axiom for HematologyTaxonomyAntisymmetric {
         taxonomy::Antisymmetric::<HematologyTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(HematologyTaxonomyAntisymmetric);
 
 /// The mereology has no cycles (is a DAG).
 pub struct HematologyMereologyIsDAG;
@@ -265,6 +267,7 @@ impl Axiom for HematologyMereologyIsDAG {
         mereology::NoCycles::<HematologyMereology>::new().holds()
     }
 }
+pr4xis::register_axiom!(HematologyMereologyIsDAG);
 
 /// Causal graph is asymmetric.
 pub struct HematologyCausalAsymmetric;
@@ -278,6 +281,7 @@ impl Axiom for HematologyCausalAsymmetric {
         causation::Asymmetric::<HematologyCauses>::new().holds()
     }
 }
+pr4xis::register_axiom!(HematologyCausalAsymmetric);
 
 /// No self-causation.
 pub struct HematologyCausalNoSelfCausation;
@@ -291,6 +295,7 @@ impl Axiom for HematologyCausalNoSelfCausation {
         causation::NoSelfCausation::<HematologyCauses>::new().holds()
     }
 }
+pr4xis::register_axiom!(HematologyCausalNoSelfCausation);
 
 /// WholeBlood contains BloodPlasma (mereology).
 pub struct WholeBloodContainsPlasma;
@@ -306,6 +311,7 @@ impl Axiom for WholeBloodContainsPlasma {
         parts.contains(&BloodPlasma)
     }
 }
+pr4xis::register_axiom!(WholeBloodContainsPlasma);
 
 /// BloodPlasma contains all electrolytes (mereology).
 pub struct PlasmaContainsAllElectrolytes;
@@ -325,6 +331,7 @@ impl Axiom for PlasmaContainsAllElectrolytes {
             && parts.contains(&BicarbonatePlasma)
     }
 }
+pr4xis::register_axiom!(PlasmaContainsAllElectrolytes);
 
 /// Sodium is the dominant plasma cation: Na >> K.
 pub struct SodiumIsDominantCation;
@@ -341,6 +348,7 @@ impl Axiom for SodiumIsDominantCation {
         na > k * 10.0 // Na is ~31x K
     }
 }
+pr4xis::register_axiom!(SodiumIsDominantCation);
 
 /// Blood pH is tightly regulated (7.35-7.45).
 pub struct BloodPHRegulated;
@@ -358,6 +366,7 @@ impl Axiom for BloodPHRegulated {
         effects.contains(&PHCorrection)
     }
 }
+pr4xis::register_axiom!(BloodPHRegulated);
 
 /// Hemorrhage transitively causes electrolyte imbalance.
 pub struct HemorrhageCausesElectrolyteImbalance;
@@ -373,6 +382,7 @@ impl Axiom for HemorrhageCausesElectrolyteImbalance {
         effects.contains(&ElectrolyteImbalance)
     }
 }
+pr4xis::register_axiom!(HemorrhageCausesElectrolyteImbalance);
 
 /// Opposition is symmetric.
 pub struct HematologyOppositionSymmetric;
@@ -386,6 +396,7 @@ impl Axiom for HematologyOppositionSymmetric {
         opposition::Symmetric::<HematologyOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(HematologyOppositionSymmetric);
 
 /// Opposition is irreflexive.
 pub struct HematologyOppositionIrreflexive;
@@ -399,6 +410,7 @@ impl Axiom for HematologyOppositionIrreflexive {
         opposition::Irreflexive::<HematologyOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(HematologyOppositionIrreflexive);
 
 // ---------------------------------------------------------------------------
 // Ontology

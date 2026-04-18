@@ -79,6 +79,7 @@ impl Axiom for CausalAsymmetric {
         causation::Asymmetric::<BioelectricEventCausation>::new().holds()
     }
 }
+pr4xis::register_axiom!(CausalAsymmetric);
 
 /// Axiom: no bioelectric event directly causes itself.
 pub struct NoSelfCausation;
@@ -91,6 +92,7 @@ impl Axiom for NoSelfCausation {
         causation::NoSelfCausation::<BioelectricEventCausation>::new().holds()
     }
 }
+pr4xis::register_axiom!(NoSelfCausation);
 
 impl Ontology for BioelectricEventOntology {
     type Cat = BioelectricEventCategory;

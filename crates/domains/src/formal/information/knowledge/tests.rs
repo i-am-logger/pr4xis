@@ -168,6 +168,33 @@ fn declared_adjunctions_are_registered() {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+fn registry_sees_workspace_scale() {
+    // After full migration (issue #148), the three secondary registries
+    // should hold substantial numbers — hundreds of axioms, dozens of
+    // functors, a handful of adjunctions — matching the workspace scale.
+    let axioms = pr4xis::ontology::describe_axioms().len();
+    let functors = pr4xis::ontology::describe_functors().len();
+    let adjunctions = pr4xis::ontology::describe_adjunctions().len();
+
+    assert!(
+        axioms > 100,
+        "expected >100 registered axioms after full migration; got {}",
+        axioms
+    );
+    assert!(
+        functors > 30,
+        "expected >30 registered functors after full migration; got {}",
+        functors
+    );
+    assert!(
+        adjunctions > 2,
+        "expected >2 registered adjunctions after full migration; got {}",
+        adjunctions
+    );
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
 fn registered_axioms_carry_nonempty_citations() {
     // Sample check: axioms declared via the `axioms:` clause must carry
     // the literature citation given at declaration, not the empty placeholder.

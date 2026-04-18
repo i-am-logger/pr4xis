@@ -111,6 +111,7 @@ impl Functor for DistinctionToSyntrometry {
         }
     }
 }
+pr4xis::register_functor!(DistinctionToSyntrometry);
 
 #[cfg(test)]
 mod tests {

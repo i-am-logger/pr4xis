@@ -420,6 +420,7 @@ impl Axiom for PositionUnique {
         both.len() == 1 && both[0] == VisualVariable::Position
     }
 }
+pr4xis::register_axiom!(PositionUnique);
 
 /// Cleveland-McGill ranking is strictly ordered (no ties between levels).
 ///
@@ -443,6 +444,7 @@ impl Axiom for RankingStrictlyOrdered {
         true
     }
 }
+pr4xis::register_axiom!(RankingStrictlyOrdered);
 
 /// Position encoding is the most accurate perceptual task.
 ///
@@ -457,6 +459,7 @@ impl Axiom for PositionMostAccurate {
         AccuracyRank.get(&PerceptualTask::PositionCommonScale) == Some(1)
     }
 }
+pr4xis::register_axiom!(PositionMostAccurate);
 
 /// Color/shading is the least accurate for quantitative data.
 ///
@@ -471,6 +474,7 @@ impl Axiom for ColorLeastAccurate {
         AccuracyRank.get(&PerceptualTask::ShadingColorSaturation) == Some(6)
     }
 }
+pr4xis::register_axiom!(ColorLeastAccurate);
 
 /// Shneiderman's mantra has exactly 3 levels in order.
 pub struct ManthaThreeLevels;
@@ -483,6 +487,7 @@ impl Axiom for ManthaThreeLevels {
         InteractionLevel::variants().len() == 3
     }
 }
+pr4xis::register_axiom!(ManthaThreeLevels);
 
 /// Grammar of Graphics pipeline has 7 layers in strict order.
 ///
@@ -502,6 +507,7 @@ impl Axiom for GrammarSevenLayers {
                 .all(|w| order.get(&w[0]).unwrap() < order.get(&w[1]).unwrap())
     }
 }
+pr4xis::register_axiom!(GrammarSevenLayers);
 
 /// Ratio data should use quantitative encodings (position or size).
 ///
@@ -518,6 +524,7 @@ impl Axiom for RatioNeedsQuantitative {
         suitable.contains(&VisualVariable::Position) && !suitable.contains(&VisualVariable::Shape)
     }
 }
+pr4xis::register_axiom!(RatioNeedsQuantitative);
 
 /// Nominal data can use color (hue) and shape (associative).
 ///
@@ -533,6 +540,7 @@ impl Axiom for NominalUsesColorAndShape {
         suitable.contains(&VisualVariable::Color) && suitable.contains(&VisualVariable::Shape)
     }
 }
+pr4xis::register_axiom!(NominalUsesColorAndShape);
 
 #[cfg(test)]
 mod tests {

@@ -53,6 +53,7 @@ impl Axiom for OrthogonalConflicts {
             && ConflictsWithNorth.get(&TrafficDirection::South).is_none()
     }
 }
+pr4xis::register_axiom!(OrthogonalConflicts);
 
 #[cfg(test)]
 mod tests {

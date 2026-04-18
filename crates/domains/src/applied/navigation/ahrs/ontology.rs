@@ -106,6 +106,7 @@ impl Axiom for GravityGivesLevelAttitude {
         (roll_recovered - tilt).abs() < 0.01 && pitch_recovered.abs() < 0.01
     }
 }
+pr4xis::register_axiom!(GravityGivesLevelAttitude);
 
 /// Magnetometer gives heading: mag + level attitude determines yaw.
 ///
@@ -125,6 +126,7 @@ impl Axiom for MagnetometerGivesHeading {
         heading.abs() < 0.01
     }
 }
+pr4xis::register_axiom!(MagnetometerGivesHeading);
 
 /// Gyroscope integration drifts: gyro-only attitude accumulates error.
 ///
@@ -144,6 +146,7 @@ impl Axiom for GyroIntegrationDrifts {
         (drift_deg - 1.0).abs() < 0.01
     }
 }
+pr4xis::register_axiom!(GyroIntegrationDrifts);
 
 impl Ontology for AhrsOntology {
     type Cat = AhrsCategory;

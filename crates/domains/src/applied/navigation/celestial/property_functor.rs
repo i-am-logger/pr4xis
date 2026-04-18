@@ -41,6 +41,7 @@ impl Functor for CelestialToProperty {
         }
     }
 }
+pr4xis::register_functor!(CelestialToProperty);
 
 #[cfg(test)]
 mod tests {

@@ -63,6 +63,7 @@ impl Functor for DialogueToPipeline {
         }
     }
 }
+pr4xis::register_functor!(DialogueToPipeline);
 
 #[cfg(test)]
 mod tests {

@@ -219,6 +219,7 @@ impl Axiom for PremiseCausesKnowledge {
         effects.contains(&KnowledgeExtension)
     }
 }
+pr4xis::register_axiom!(PremiseCausesKnowledge);
 
 /// Axiom: deduction is monotonic, abduction is not.
 pub struct DeductionMonotonicAbductionNot;
@@ -232,6 +233,7 @@ impl Axiom for DeductionMonotonicAbductionNot {
         IsMonotonic.get(&Deduction) == Some(true) && IsMonotonic.get(&Abduction) == Some(false)
     }
 }
+pr4xis::register_axiom!(DeductionMonotonicAbductionNot);
 
 /// Axiom: deduction preserves truth, induction does not.
 pub struct DeductionPreservesTruthInductionNot;
@@ -246,6 +248,7 @@ impl Axiom for DeductionPreservesTruthInductionNot {
             && PreservesTruth.get(&Induction) == Some(false)
     }
 }
+pr4xis::register_axiom!(DeductionPreservesTruthInductionNot);
 
 /// Axiom: deduction requires all premises, abduction does not.
 pub struct DeductionRequiresAllAbductionNot;
@@ -260,6 +263,7 @@ impl Axiom for DeductionRequiresAllAbductionNot {
             && RequiresAllPremises.get(&Abduction) == Some(false)
     }
 }
+pr4xis::register_axiom!(DeductionRequiresAllAbductionNot);
 
 // ---------------------------------------------------------------------------
 // Ontology impl

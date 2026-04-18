@@ -145,6 +145,7 @@ impl Axiom for TwoModalOperators {
         actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
     }
 }
+pr4xis::register_axiom!(TwoModalOperators);
 
 /// Axiom: the four standard frame conditions are all direct children of
 /// FrameCondition. (S4 needs reflexive + transitive; S5 needs equivalence =
@@ -167,6 +168,7 @@ impl Axiom for StandardFrameConditions {
         actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
     }
 }
+pr4xis::register_axiom!(StandardFrameConditions);
 
 /// Axiom: the Kripke frame mereologically contains both `PossibleWorld` and
 /// `AccessibilityRelation` as its constitutive parts. Without this, the
@@ -193,6 +195,7 @@ impl Axiom for FrameContainsWorldsAndRelation {
             && parts.contains(&KripkeConcept::AccessibilityRelation)
     }
 }
+pr4xis::register_axiom!(FrameContainsWorldsAndRelation);
 
 impl Ontology for KripkeOntology {
     type Cat = KripkeCategory;

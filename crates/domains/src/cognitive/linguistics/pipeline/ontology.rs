@@ -141,6 +141,7 @@ impl Axiom for SharedLexicon {
         parse_has && gen_has
     }
 }
+pr4xis::register_axiom!(SharedLexicon);
 
 /// Parse and Generate are opposed (adjunction).
 #[derive(Debug)]
@@ -157,6 +158,7 @@ impl Axiom for ParseGenerateAdjoint {
             .any(|(a, b)| *a == PipelineConcept::Parse && *b == PipelineConcept::Generate)
     }
 }
+pr4xis::register_axiom!(ParseGenerateAdjoint);
 
 /// Surface and Meaning are opposed endpoints.
 #[derive(Debug)]
@@ -173,6 +175,7 @@ impl Axiom for SurfaceMeaningOpposed {
         })
     }
 }
+pr4xis::register_axiom!(SurfaceMeaningOpposed);
 
 impl Ontology for PipelineOntology {
     type Cat = PipelineCategory;

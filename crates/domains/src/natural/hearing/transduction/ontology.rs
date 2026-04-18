@@ -170,6 +170,7 @@ impl Axiom for BundleContainsTipLinkProteins {
         parts.contains(&Cadherin23) && parts.contains(&Protocadherin15)
     }
 }
+pr4xis::register_axiom!(BundleContainsTipLinkProteins);
 pub struct TMCsAreMETComponents;
 impl Axiom for TMCsAreMETComponents {
     fn description(&self) -> &str {
@@ -181,6 +182,7 @@ impl Axiom for TMCsAreMETComponents {
             && taxonomy::is_a::<TransductionTaxonomy>(&TMC2, &METComponent)
     }
 }
+pr4xis::register_axiom!(TMCsAreMETComponents);
 pub struct TipLinkProteins;
 impl Axiom for TipLinkProteins {
     fn description(&self) -> &str {
@@ -192,6 +194,7 @@ impl Axiom for TipLinkProteins {
             && taxonomy::is_a::<TransductionTaxonomy>(&Protocadherin15, &TipLinkProtein)
     }
 }
+pr4xis::register_axiom!(TipLinkProteins);
 pub struct BMMotionCausesNerveActivation;
 impl Axiom for BMMotionCausesNerveActivation {
     fn description(&self) -> &str {
@@ -203,6 +206,7 @@ impl Axiom for BMMotionCausesNerveActivation {
             .contains(&NerveActivation)
     }
 }
+pr4xis::register_axiom!(BMMotionCausesNerveActivation);
 pub struct DepolarizationCausesElectromotility;
 impl Axiom for DepolarizationCausesElectromotility {
     fn description(&self) -> &str {
@@ -214,6 +218,7 @@ impl Axiom for DepolarizationCausesElectromotility {
             .contains(&PrestiConformationChange)
     }
 }
+pr4xis::register_axiom!(DepolarizationCausesElectromotility);
 pub struct EndocochlearPotentialIsPositive;
 impl Axiom for EndocochlearPotentialIsPositive {
     fn description(&self) -> &str {
@@ -226,6 +231,7 @@ impl Axiom for EndocochlearPotentialIsPositive {
             > 0.0
     }
 }
+pr4xis::register_axiom!(EndocochlearPotentialIsPositive);
 pub struct PrestiIsOHCSpecific;
 impl Axiom for PrestiIsOHCSpecific {
     fn description(&self) -> &str {
@@ -235,6 +241,7 @@ impl Axiom for PrestiIsOHCSpecific {
         IsOHCSpecific.get(&TransductionEntity::Prestin) == Some(true)
     }
 }
+pr4xis::register_axiom!(PrestiIsOHCSpecific);
 
 impl Ontology for TransductionOntology {
     type Cat = TransductionCategory;

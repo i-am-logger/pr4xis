@@ -748,6 +748,7 @@ impl Axiom for NoConflicts {
         self.bindings.conflicts().is_empty()
     }
 }
+pr4xis::register_axiom!(NoConflicts);
 
 /// Remap is injective: each `from` maps to exactly one `to`.
 pub struct RemapInjective {
@@ -764,6 +765,7 @@ impl Axiom for RemapInjective {
         froms.len() == unique.len()
     }
 }
+pr4xis::register_axiom!(RemapInjective);
 
 /// Every mode in the binding set has at least one binding.
 pub struct AllModesHaveBindings {
@@ -781,6 +783,7 @@ impl Axiom for AllModesHaveBindings {
             .all(|m| !self.bindings.for_mode(m).is_empty())
     }
 }
+pr4xis::register_axiom!(AllModesHaveBindings);
 
 /// Super→Ctrl remap covers all standard shortcuts (copy, paste, save, etc).
 pub struct MacosRemapComplete {
@@ -799,6 +802,7 @@ impl Axiom for MacosRemapComplete {
         })
     }
 }
+pr4xis::register_axiom!(MacosRemapComplete);
 
 #[cfg(test)]
 mod tests {

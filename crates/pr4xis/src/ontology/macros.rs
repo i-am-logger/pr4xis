@@ -599,3 +599,95 @@ macro_rules! natural_transformation {
         }
     };
 }
+
+/// Register a hand-written `impl Axiom for X` into the global AXIOMS
+/// distributed slice so the Lemon lexicon sees it without rewriting the
+/// impl block itself. Useful for existing impls that don't yet use the
+/// `axioms:` clause of `ontology!`.
+///
+/// # Example
+///
+/// ```ignore
+/// pub struct MyAxiom;
+/// impl Axiom for MyAxiom {
+///     fn description(&self) -> &str { "..." }
+///     fn holds(&self) -> bool { ... }
+///     pr4xis::axiom_meta!("MyAxiom", "Smith (1999)");
+/// }
+/// pr4xis::register_axiom!(MyAxiom);
+/// ```
+#[macro_export]
+macro_rules! register_axiom {
+    // Registration by type-name identity (no instance needed — works for
+    // unit structs and structs-with-fields). The registry entry reports
+    // the axiom's identity via `std::any::type_name` + an empty citation.
+    // Axioms that want their declared citation in the registry should
+    // add an explicit `meta()` override via the `axiom_meta!` helper AND
+    // register with `register_axiom!(Name, &instance)` instead.
+    ($name:ident) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::logic::axiom::AxiomMeta =
+                || $crate::logic::axiom::AxiomMeta {
+                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
+                    citation: $crate::ontology::meta::Citation::EMPTY,
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                };
+        }
+    };
+    // Registration with an explicit instance expression — calls the
+    // instance's `meta()` method so declared citations propagate.
+    ($name:ident, $instance:expr) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::logic::axiom::AxiomMeta =
+                || <$name as $crate::logic::axiom::Axiom>::meta(&$instance);
+        }
+    };
+}
+
+/// Register a hand-written `impl Functor for X` into the FUNCTORS slice.
+#[macro_export]
+macro_rules! register_functor {
+    ($name:ident) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::FUNCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::category::FunctorMeta =
+                <$name as $crate::category::Functor>::meta;
+        }
+    };
+}
+
+/// Register a hand-written `impl Adjunction for X` into the ADJUNCTIONS slice.
+#[macro_export]
+macro_rules! register_adjunction {
+    ($name:ident) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTIONS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::category::AdjunctionMeta =
+                <$name as $crate::category::Adjunction>::meta;
+        }
+    };
+}
+
+/// Register a hand-written `impl NaturalTransformation for X` into the slice.
+#[macro_export]
+macro_rules! register_natural_transformation {
+    ($name:ident) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATIONS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::category::NaturalTransformationMeta =
+                <$name as $crate::category::NaturalTransformation>::meta;
+        }
+    };
+}

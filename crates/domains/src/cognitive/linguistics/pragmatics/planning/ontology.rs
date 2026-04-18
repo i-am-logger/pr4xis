@@ -133,6 +133,7 @@ impl Axiom for BdiProducesIntention {
         belief_produces && desire_produces
     }
 }
+pr4xis::register_axiom!(BdiProducesIntention);
 
 /// Speech act effects update Common Ground (Stalnaker 2002).
 #[derive(Debug)]
@@ -151,6 +152,7 @@ impl Axiom for EffectUpdatesCommonGround {
         })
     }
 }
+pr4xis::register_axiom!(EffectUpdatesCommonGround);
 
 /// All Jakobson functions specialize CommunicativeGoal.
 #[derive(Debug)]
@@ -177,6 +179,7 @@ impl Axiom for GoalsSpecialize {
         })
     }
 }
+pr4xis::register_axiom!(GoalsSpecialize);
 
 impl Ontology for PlanningOntology {
     type Cat = PlanningCategory;

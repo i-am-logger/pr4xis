@@ -106,6 +106,7 @@ impl Axiom for WordIsFullyConnected {
         })
     }
 }
+pr4xis::register_axiom!(WordIsFullyConnected);
 
 /// Context contains Sentences which contain Words (two-level mereology).
 #[derive(Debug)]
@@ -127,6 +128,7 @@ impl Axiom for TwoLevelContainment {
         ctx_has_sent && sent_has_word
     }
 }
+pr4xis::register_axiom!(TwoLevelContainment);
 
 impl Ontology for TextOntology {
     type Cat = TextCategory;

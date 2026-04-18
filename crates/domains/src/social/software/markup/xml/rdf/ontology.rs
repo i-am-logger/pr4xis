@@ -270,6 +270,7 @@ impl pr4xis::logic::Axiom for LiteralsCannotBeSubjects {
         !RdfNodeKind::PlainLiteral.can_be_subject() && !RdfNodeKind::TypedLiteral.can_be_subject()
     }
 }
+pr4xis::register_axiom!(LiteralsCannotBeSubjects);
 
 /// W3C axiom: Predicates must be IRIs — they are Properties (RDF 1.1 §3).
 pub struct PredicatesMustBeProperties;
@@ -284,6 +285,7 @@ impl pr4xis::logic::Axiom for PredicatesMustBeProperties {
         RdfNodeKind::Property.is_resource()
     }
 }
+pr4xis::register_axiom!(PredicatesMustBeProperties);
 
 /// Quality: can this RDF node kind appear as a subject?
 #[derive(Debug, Clone)]

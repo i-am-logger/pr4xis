@@ -78,6 +78,7 @@ impl Functor for SyntrometryToStaging {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToStaging);
 
 #[cfg(test)]
 mod tests {

@@ -48,6 +48,7 @@ impl Axiom for TemperatureAboveAbsoluteZero {
         true
     }
 }
+pr4xis::register_axiom!(TemperatureAboveAbsoluteZero);
 
 /// Axiom: pressure is non-negative (absolute pressure).
 pub struct PressureNonNegative;
@@ -60,6 +61,7 @@ impl Axiom for PressureNonNegative {
         true
     }
 }
+pr4xis::register_axiom!(PressureNonNegative);
 
 impl Ontology for ProcessOntology {
     type Cat = ProcessCategory;

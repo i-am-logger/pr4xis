@@ -56,6 +56,7 @@ impl Functor for CommunicationToControl {
         ControlRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(CommunicationToControl);
 
 #[cfg(test)]
 mod tests {

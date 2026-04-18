@@ -47,6 +47,7 @@ impl Functor for AcousticsToEnvironment {
         }
     }
 }
+pr4xis::register_functor!(AcousticsToEnvironment);
 
 #[cfg(test)]
 mod tests {

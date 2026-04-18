@@ -103,6 +103,7 @@ impl Axiom for MontagueHasAtomicDomains {
         })
     }
 }
+pr4xis::register_axiom!(MontagueHasAtomicDomains);
 
 impl Ontology for MontagueOntology {
     type Cat = MontagueCategory;

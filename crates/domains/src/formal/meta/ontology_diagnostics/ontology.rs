@@ -314,6 +314,7 @@ impl Axiom for PipelineIsComplete {
         effects.contains(&AssessImprovement)
     }
 }
+pr4xis::register_axiom!(PipelineIsComplete);
 
 /// Axiom: gap detection requires BOTH unit and counit computation.
 /// You need both directions to find all missing distinctions.
@@ -329,6 +330,7 @@ impl Axiom for GapDetectionRequiresBothDirections {
         unit_causes.contains(&ComputeUnit) && unit_causes.contains(&ComputeCounit)
     }
 }
+pr4xis::register_axiom!(GapDetectionRequiresBothDirections);
 
 /// Axiom: literature verification comes AFTER resolution proposal, BEFORE implementation.
 /// You don't implement a fix without checking the literature first.
@@ -347,6 +349,7 @@ impl Axiom for LiteratureBeforeImplementation {
         verify_causes.contains(&ProposeResolution) && verify_effects.contains(&ImplementResolution)
     }
 }
+pr4xis::register_axiom!(LiteratureBeforeImplementation);
 
 /// Axiom: most gap types are automatically detectable.
 /// The adjunction does the work — you don't have to find gaps by hand.
@@ -374,6 +377,7 @@ impl Axiom for MostGapsAreAutoDetectable {
         auto_count > gap_types.len() / 2
     }
 }
+pr4xis::register_axiom!(MostGapsAreAutoDetectable);
 
 /// Axiom: ContextResolution preserves functor validity.
 /// This is critical: you can resolve gaps WITHOUT breaking existing proofs.
@@ -388,6 +392,7 @@ impl Axiom for ContextResolutionPreservesFunctors {
         PreservesFunctorValidity.get(&ContextResolution) == Some(true)
     }
 }
+pr4xis::register_axiom!(ContextResolutionPreservesFunctors);
 
 /// Axiom: OntologyEnrichment does NOT preserve functor validity.
 /// Adding new entities may break existing functors (match arms become incomplete).
@@ -402,6 +407,7 @@ impl Axiom for EnrichmentMayBreakFunctors {
         PreservesFunctorValidity.get(&OntologyEnrichment) == Some(false)
     }
 }
+pr4xis::register_axiom!(EnrichmentMayBreakFunctors);
 
 /// Axiom: high loss suggests intermediate domain is needed.
 /// Empirical finding: >80% loss means the two domains are too far apart
@@ -417,6 +423,7 @@ impl Axiom for HighLossSuggestsIntermediateDomain {
         SuggestedForLossLevel.get(&IntermediateDomain) == Some(LossThreshold::High)
     }
 }
+pr4xis::register_axiom!(HighLossSuggestsIntermediateDomain);
 
 /// EMPIRICAL AXIOM: every adjunction between domains at different scales has gaps.
 ///
@@ -444,6 +451,7 @@ impl Axiom for EveryAdjunctionHasGaps {
             && IsAutoDetectable.get(&CounitGap) == Some(true)
     }
 }
+pr4xis::register_axiom!(EveryAdjunctionHasGaps);
 
 // ---------------------------------------------------------------------------
 // Ontology impl

@@ -33,6 +33,7 @@ impl Axiom for DistinctionPrinciple {
         .is_err()
     }
 }
+pr4xis::register_axiom!(DistinctionPrinciple);
 
 /// Presumption of civilian status (Protocol I, Art. 50(1)).
 ///
@@ -56,6 +57,7 @@ impl Axiom for CivilianPresumption {
         !unknown_person.meets_engagement_threshold()
     }
 }
+pr4xis::register_axiom!(CivilianPresumption);
 
 /// Persons require human positive identification for engagement.
 ///
@@ -86,6 +88,7 @@ impl Axiom for HumanInTheLoop {
         .is_err()
     }
 }
+pr4xis::register_axiom!(HumanInTheLoop);
 
 /// Escalation is sequential — cannot skip force levels.
 ///
@@ -116,6 +119,7 @@ impl Axiom for SequentialEscalation {
         .is_err()
     }
 }
+pr4xis::register_axiom!(SequentialEscalation);
 
 /// Advance warning requirement (Protocol I, Art. 57(2)(c)).
 ///
@@ -145,6 +149,7 @@ impl Axiom for AdvanceWarning {
         .is_err()
     }
 }
+pr4xis::register_axiom!(AdvanceWarning);
 
 /// Abort is always available from any state.
 ///
@@ -185,3 +190,4 @@ impl Axiom for AbortAlwaysAvailable {
         true
     }
 }
+pr4xis::register_axiom!(AbortAlwaysAvailable);

@@ -99,6 +99,7 @@ impl Axiom for CentersFixed {
             .all(|&face| self.cube.get(face, 4) == Color::of_face(face))
     }
 }
+pr4xis::register_axiom!(CentersFixed);
 
 /// Each color has exactly 9 stickers.
 pub struct NinePerColor {
@@ -114,6 +115,7 @@ impl Axiom for NinePerColor {
         self.cube.color_counts().iter().all(|&c| c == 9)
     }
 }
+pr4xis::register_axiom!(NinePerColor);
 
 #[cfg(test)]
 mod tests {

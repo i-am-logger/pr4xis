@@ -226,6 +226,7 @@ impl Axiom for HegelianTriad {
         actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
     }
 }
+pr4xis::register_axiom!(HegelianTriad);
 
 /// Axiom: Aristotle's Square of Opposition has exactly four direct
 /// children — contraries, contradictories, subalterns, subcontraries.
@@ -246,6 +247,7 @@ impl Axiom for AristotelianSquareHasFourVertices {
         actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
     }
 }
+pr4xis::register_axiom!(AristotelianSquareHasFourVertices);
 
 /// Axiom: every Synthesis has an upstream Sublation producing it —
 /// the edge `(Sublation, Synthesis, Produces)` must exist. Without this,
@@ -264,6 +266,7 @@ impl Axiom for SynthesisHasSublation {
             .any(|r| r.from == D::Sublation && r.to == D::Synthesis && r.kind == K::Produces)
     }
 }
+pr4xis::register_axiom!(SynthesisHasSublation);
 
 /// Axiom: Thesis and Antithesis oppose each other at the opposition-reasoning
 /// level. This is the dialectical reading of the generic `opposes` relation.
@@ -281,6 +284,7 @@ impl Axiom for ThesisAntithesisOppose {
         })
     }
 }
+pr4xis::register_axiom!(ThesisAntithesisOppose);
 
 /// Axiom: Adorno's rejection of Synthesis is encoded — NegativeDialectics
 /// opposes Synthesis, not merely sits next to it.
@@ -299,6 +303,7 @@ impl Axiom for AdornoRefusesSynthesis {
         })
     }
 }
+pr4xis::register_axiom!(AdornoRefusesSynthesis);
 
 /// Axiom: Priest's dialetheism requires paraconsistent logic — the
 /// edge `(TrueContradiction, Paraconsistent, Requires)` must exist.
@@ -316,6 +321,7 @@ impl Axiom for DialetheismNeedsParaconsistency {
         })
     }
 }
+pr4xis::register_axiom!(DialetheismNeedsParaconsistency);
 
 impl Ontology for DialecticsOntology {
     type Cat = DialecticsCategory;

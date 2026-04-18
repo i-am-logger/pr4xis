@@ -88,6 +88,7 @@ impl Axiom for MSEDecomposition {
         true
     }
 }
+pr4xis::register_axiom!(MSEDecomposition);
 
 /// Confidence monotonicity: wider interval implies higher confidence.
 pub struct ConfidenceMonotonicity;
@@ -108,6 +109,7 @@ impl Axiom for ConfidenceMonotonicity {
         ci_90.width() < ci_95.width() && ci_95.width() < ci_99.width()
     }
 }
+pr4xis::register_axiom!(ConfidenceMonotonicity);
 
 /// Type I / Type II tradeoff: decreasing α increases β for a fixed sample size.
 pub struct TypeITypeIITradeoff;
@@ -125,6 +127,7 @@ impl Axiom for TypeITypeIITradeoff {
         z_10 < z_05 && z_05 < z_01
     }
 }
+pr4xis::register_axiom!(TypeITypeIITradeoff);
 
 impl Ontology for StatisticsOntology {
     type Cat = StatisticsCategory;

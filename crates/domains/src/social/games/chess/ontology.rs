@@ -99,6 +99,7 @@ impl Axiom for KingSafety {
         true
     }
 }
+pr4xis::register_axiom!(KingSafety);
 
 pub struct OneKingPerSide {
     pub board: Board,
@@ -125,6 +126,7 @@ impl Axiom for OneKingPerSide {
         wk == 1 && bk == 1
     }
 }
+pr4xis::register_axiom!(OneKingPerSide);
 
 pub struct MaxPieces {
     pub board: Board,
@@ -140,6 +142,7 @@ impl Axiom for MaxPieces {
         total <= 32
     }
 }
+pr4xis::register_axiom!(MaxPieces);
 
 #[cfg(test)]
 mod tests {

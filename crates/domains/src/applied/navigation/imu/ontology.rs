@@ -80,6 +80,7 @@ impl Axiom for BiasIsAMeasurement {
         taxonomy::is_a::<ImuTaxonomy>(&ImuConcept::AccelerometerBias, &ImuConcept::SpecificForce)
     }
 }
+pr4xis::register_axiom!(BiasIsAMeasurement);
 
 /// Specific force = acceleration - gravity (Newton's equation in non-inertial frame).
 ///
@@ -96,6 +97,7 @@ impl Axiom for SpecificForceDefinition {
         (specific_force_at_rest + g).abs() < 1e-10
     }
 }
+pr4xis::register_axiom!(SpecificForceDefinition);
 
 /// Gyroscope measures angular rate in body frame.
 pub struct GyroscopeBodyFrame;
@@ -108,6 +110,7 @@ impl Axiom for GyroscopeBodyFrame {
         taxonomy::is_a::<ImuTaxonomy>(&ImuConcept::AngularRate, &ImuConcept::Measurement)
     }
 }
+pr4xis::register_axiom!(GyroscopeBodyFrame);
 
 // ---------------------------------------------------------------------------
 // Ontology impl

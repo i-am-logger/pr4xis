@@ -62,6 +62,7 @@ impl Functor for KnowledgeToLemon {
         }
     }
 }
+pr4xis::register_functor!(KnowledgeToLemon);
 
 fn map_kind(kind: &KnowledgeRelationKind) -> LemonRelationKind {
     match kind {

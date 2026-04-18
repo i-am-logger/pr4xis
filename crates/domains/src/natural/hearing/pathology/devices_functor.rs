@@ -64,6 +64,7 @@ impl Functor for PathologyToDevices {
         }
     }
 }
+pr4xis::register_functor!(PathologyToDevices);
 
 #[cfg(test)]
 mod tests {

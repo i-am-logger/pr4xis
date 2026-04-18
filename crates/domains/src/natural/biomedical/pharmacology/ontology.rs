@@ -302,6 +302,7 @@ impl Axiom for PharmacologyOppositionSymmetric {
         opposition::Symmetric::<PharmacologyOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(PharmacologyOppositionSymmetric);
 
 /// Axiom: pharmacology opposition is irreflexive (nothing opposes itself).
 pub struct PharmacologyOppositionIrreflexive;
@@ -315,6 +316,7 @@ impl Axiom for PharmacologyOppositionIrreflexive {
         opposition::Irreflexive::<PharmacologyOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(PharmacologyOppositionIrreflexive);
 
 // ---------------------------------------------------------------------------
 // Axioms
@@ -332,6 +334,7 @@ impl Axiom for PharmacologyTaxonomyIsDAG {
         taxonomy::NoCycles::<PharmacologyTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(PharmacologyTaxonomyIsDAG);
 
 /// Causal asymmetry: if A causes B then B does not cause A.
 pub struct PharmacologyCausalAsymmetry;
@@ -345,6 +348,7 @@ impl Axiom for PharmacologyCausalAsymmetry {
         causation::Asymmetric::<PharmacologyCauses>::new().holds()
     }
 }
+pr4xis::register_axiom!(PharmacologyCausalAsymmetry);
 
 /// Drug administration transitively causes VmemShift.
 ///
@@ -363,6 +367,7 @@ impl Axiom for DrugAdministrationCausesVmemShift {
         effects.contains(&VmemShift)
     }
 }
+pr4xis::register_axiom!(DrugAdministrationCausesVmemShift);
 
 /// GJ modulator binding causes collective reprogramming (Levin's network effect).
 ///
@@ -381,6 +386,7 @@ impl Axiom for GJModulatorCausesCollectiveReprogramming {
         effects.contains(&CollectiveReprogramming)
     }
 }
+pr4xis::register_axiom!(GJModulatorCausesCollectiveReprogramming);
 
 /// Ivermectin is hyperpolarizing (GlyR agonist → Cl- influx).
 pub struct IvermectinIsHyperpolarizing;
@@ -394,6 +400,7 @@ impl Axiom for IvermectinIsHyperpolarizing {
         VmemEffect.get(&PharmacologyEntity::Ivermectin) == Some(VmemDirection::Hyperpolarizing)
     }
 }
+pr4xis::register_axiom!(IvermectinIsHyperpolarizing);
 
 /// Omeprazole is NOT a morphoceutical — it targets acid secretion, not anatomy.
 pub struct OmeprazoleIsNotMorphoceutical;
@@ -407,6 +414,7 @@ impl Axiom for OmeprazoleIsNotMorphoceutical {
         IsMorphoceutical.get(&PharmacologyEntity::Omeprazole) == Some(false)
     }
 }
+pr4xis::register_axiom!(OmeprazoleIsNotMorphoceutical);
 
 /// Morphoceuticals target anatomical outcomes: the Morphoceutical class itself
 /// has IsMorphoceutical = true, and it is a subset of DrugClass.
@@ -423,6 +431,7 @@ impl Axiom for MorphoceuticalsTargetAnatomy {
             && taxonomy::is_a::<PharmacologyTaxonomy>(&Morphoceutical, &DrugClass)
     }
 }
+pr4xis::register_axiom!(MorphoceuticalsTargetAnatomy);
 
 /// MechanosensitiveModulator IS endogenously derivable — vibration/pressure
 /// can activate mechanosensitive channels without drugs.
@@ -437,6 +446,7 @@ impl Axiom for MechanosensitiveIsEndogenous {
         IsEndogenouslyDerivable.get(&PharmacologyEntity::MechanosensitiveModulator) == Some(true)
     }
 }
+pr4xis::register_axiom!(MechanosensitiveIsEndogenous);
 
 /// Every agent has a target (DrugTarget quality is defined for all agents).
 pub struct EveryAgentHasTarget;
@@ -458,6 +468,7 @@ impl Axiom for EveryAgentHasTarget {
         agents.iter().all(|a| DrugTarget.get(a).is_some())
     }
 }
+pr4xis::register_axiom!(EveryAgentHasTarget);
 
 // ---------------------------------------------------------------------------
 // Ontology

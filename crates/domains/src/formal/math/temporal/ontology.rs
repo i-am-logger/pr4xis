@@ -96,6 +96,7 @@ impl Axiom for TotalOrder {
         true
     }
 }
+pr4xis::register_axiom!(TotalOrder);
 
 /// Duration is non-negative for forward time: if a < b then d(a,b) > 0.
 pub struct DurationNonNegativity;
@@ -123,6 +124,7 @@ impl Axiom for DurationNonNegativity {
         true
     }
 }
+pr4xis::register_axiom!(DurationNonNegativity);
 
 /// Duration metric: d(a,a) = 0.
 pub struct DurationIdentity;
@@ -143,6 +145,7 @@ impl Axiom for DurationIdentity {
         true
     }
 }
+pr4xis::register_axiom!(DurationIdentity);
 
 /// Duration antisymmetry: d(a,b) = -d(b,a).
 pub struct DurationAntisymmetry;
@@ -169,6 +172,7 @@ impl Axiom for DurationAntisymmetry {
         true
     }
 }
+pr4xis::register_axiom!(DurationAntisymmetry);
 
 /// Duration additivity: d(a,b) + d(b,c) = d(a,c).
 pub struct DurationAdditivity;
@@ -198,6 +202,7 @@ impl Axiom for DurationAdditivity {
         true
     }
 }
+pr4xis::register_axiom!(DurationAdditivity);
 
 /// Allen's relations are jointly exhaustive: every pair of intervals satisfies exactly one.
 pub struct AllenExhaustive;
@@ -218,6 +223,7 @@ impl Axiom for AllenExhaustive {
         true
     }
 }
+pr4xis::register_axiom!(AllenExhaustive);
 
 /// Allen's inverse law: if R(X,Y) then R^{-1}(Y,X).
 pub struct AllenInverseLaw;
@@ -241,6 +247,7 @@ impl Axiom for AllenInverseLaw {
         true
     }
 }
+pr4xis::register_axiom!(AllenInverseLaw);
 
 /// GPS ↔ TAI conversion roundtrip: GPS + 19 = TAI.
 pub struct GpsTaiConversion;
@@ -267,6 +274,7 @@ impl Axiom for GpsTaiConversion {
         true
     }
 }
+pr4xis::register_axiom!(GpsTaiConversion);
 
 /// TT = TAI + 32.184 seconds (IAU 2000 Resolution B1.9).
 pub struct TtTaiConversion;
@@ -287,6 +295,7 @@ impl Axiom for TtTaiConversion {
         true
     }
 }
+pr4xis::register_axiom!(TtTaiConversion);
 
 // ---------------------------------------------------------------------------
 // Ontology
