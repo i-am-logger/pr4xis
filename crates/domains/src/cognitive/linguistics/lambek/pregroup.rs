@@ -333,6 +333,7 @@ impl Axiom for LeftContraction {
         true
     }
 }
+pr4xis::register_axiom!(LeftContraction);
 
 /// Right contraction axiom: a · a^r ≤ 1
 pub struct RightContraction;
@@ -356,6 +357,7 @@ impl Axiom for RightContraction {
         true
     }
 }
+pr4xis::register_axiom!(RightContraction);
 
 // =============================================================================
 // The pregroup as a Category

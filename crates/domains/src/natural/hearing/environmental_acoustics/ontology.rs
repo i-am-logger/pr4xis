@@ -158,6 +158,7 @@ impl Axiom for SpeechRoomShortestRT60 {
         s < m && m < w
     }
 }
+pr4xis::register_axiom!(SpeechRoomShortestRT60);
 pub struct NIOSHStricterThanOSHA;
 impl Axiom for NIOSHStricterThanOSHA {
     fn description(&self) -> &str {
@@ -168,6 +169,7 @@ impl Axiom for NIOSHStricterThanOSHA {
         RegulatoryLimitDB.get(&NIOSHLimit).unwrap() < RegulatoryLimitDB.get(&OSHALimit).unwrap()
     }
 }
+pr4xis::register_axiom!(NIOSHStricterThanOSHA);
 pub struct NIOSHUsesEqualEnergy;
 impl Axiom for NIOSHUsesEqualEnergy {
     fn description(&self) -> &str {
@@ -178,6 +180,7 @@ impl Axiom for NIOSHUsesEqualEnergy {
         ExchangeRateDB.get(&NIOSHLimit).unwrap() < ExchangeRateDB.get(&OSHALimit).unwrap()
     }
 }
+pr4xis::register_axiom!(NIOSHUsesEqualEnergy);
 pub struct RT60Subsumption;
 impl Axiom for RT60Subsumption {
     fn description(&self) -> &str {
@@ -190,6 +193,7 @@ impl Axiom for RT60Subsumption {
             && taxonomy::is_a::<EnvironmentTaxonomy>(&RT60, &RoomParameter)
     }
 }
+pr4xis::register_axiom!(RT60Subsumption);
 pub struct NoiseCausesHearingDamage;
 impl Axiom for NoiseCausesHearingDamage {
     fn description(&self) -> &str {
@@ -200,6 +204,7 @@ impl Axiom for NoiseCausesHearingDamage {
         causation::effects_of::<EnvironmentCausalGraph>(&NoiseSource).contains(&HearingDamageRisk)
     }
 }
+pr4xis::register_axiom!(NoiseCausesHearingDamage);
 
 impl Ontology for EnvironmentalAcousticsOntology {
     type Cat = EnvironmentalAcousticsCategory;

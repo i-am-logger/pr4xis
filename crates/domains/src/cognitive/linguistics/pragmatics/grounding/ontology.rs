@@ -148,6 +148,10 @@ impl Axiom for AllActsClassified {
         })
     }
 }
+pr4xis::register_axiom!(
+    AllActsClassified,
+    "Clark & Schaefer (1989): contributions have two phases — presentation"
+);
 
 /// Presentation causes either Acceptance or Repair (Clark & Schaefer 1989).
 #[derive(Debug)]
@@ -169,6 +173,10 @@ impl Axiom for PresentationHasConsequence {
         causes_accept && causes_repair
     }
 }
+pr4xis::register_axiom!(
+    PresentationHasConsequence,
+    "Clark & Schaefer (1989): contributions have two phases — presentation"
+);
 
 impl Ontology for GroundingOntology {
     type Cat = GroundingCategory;

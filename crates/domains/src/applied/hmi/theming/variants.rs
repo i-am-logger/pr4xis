@@ -109,6 +109,7 @@ impl Axiom for UniqueOrders {
         orders.len() == self.variants.variants.len()
     }
 }
+pr4xis::register_axiom!(UniqueOrders);
 
 /// Navigation must be consistent: darker(lighter(x)) = x if both exist.
 pub struct NavigationRoundtrip {
@@ -137,6 +138,7 @@ impl Axiom for NavigationRoundtrip {
         true
     }
 }
+pr4xis::register_axiom!(NavigationRoundtrip);
 
 /// Every variant must have a polarity.
 pub struct PolarityComplete {
@@ -153,6 +155,7 @@ impl Axiom for PolarityComplete {
         !self.variants.is_empty()
     }
 }
+pr4xis::register_axiom!(PolarityComplete);
 
 #[cfg(test)]
 mod tests {

@@ -87,10 +87,10 @@ mod tests {
             })
             .collect();
         let expected = [
-            S::Dialektik,
+            S::Dialectic,
             S::SequencePermutation,
             S::OrientationPermutation,
-            S::Aspektivsystem,
+            S::AspectivalSystem,
         ];
         assert_eq!(
             collapses.len(),

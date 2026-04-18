@@ -261,6 +261,7 @@ impl Axiom for BoneImpedanceFarExceedsAir {
         }
     }
 }
+pr4xis::register_axiom!(BoneImpedanceFarExceedsAir);
 
 /// Axiom: bone impedance > soft tissue impedance (7.4M vs 1.6M).
 pub struct BoneImpedanceExceedsSoftTissue;
@@ -279,6 +280,7 @@ impl Axiom for BoneImpedanceExceedsSoftTissue {
         }
     }
 }
+pr4xis::register_axiom!(BoneImpedanceExceedsSoftTissue);
 
 /// Axiom: bone conduction has high transmission efficiency (bypasses air-tissue mismatch).
 pub struct BoneConductionHighEfficiency;
@@ -292,6 +294,7 @@ impl Axiom for BoneConductionHighEfficiency {
         TransmissionEfficiency.get(&AcousticsEntity::BoneConduction) == Some(Efficiency::High)
     }
 }
+pr4xis::register_axiom!(BoneConductionHighEfficiency);
 
 /// Axiom: air conduction has low efficiency (suffers from impedance mismatch).
 pub struct AirConductionLowEfficiency;
@@ -305,6 +308,7 @@ impl Axiom for AirConductionLowEfficiency {
         TransmissionEfficiency.get(&AcousticsEntity::AirConduction) == Some(Efficiency::Low)
     }
 }
+pr4xis::register_axiom!(AirConductionLowEfficiency);
 
 /// Axiom: electrical signal transitively causes deep tissue penetration.
 pub struct ElectricalSignalCausesDeepPenetration;
@@ -322,6 +326,7 @@ impl Axiom for ElectricalSignalCausesDeepPenetration {
         effects.contains(&DeepTissuePenetration)
     }
 }
+pr4xis::register_axiom!(ElectricalSignalCausesDeepPenetration);
 
 /// Axiom: impedance boundary causes both reflection AND transmission (branch point).
 pub struct ImpedanceBoundaryCausesBranch;
@@ -337,6 +342,7 @@ impl Axiom for ImpedanceBoundaryCausesBranch {
         effects.contains(&PartialReflection) && effects.contains(&PartialTransmission)
     }
 }
+pr4xis::register_axiom!(ImpedanceBoundaryCausesBranch);
 
 // ---------------------------------------------------------------------------
 // Ontology

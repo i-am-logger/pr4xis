@@ -262,7 +262,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-chat"
-version = "0.6.2"
+version = "0.7.0"
 dependencies = [
  "pr4xis",
  "pr4xis-domains",
@@ -280,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-domains"
-version = "0.14.0"
+version = "0.16.0"
 dependencies = [
  "anyhow",
  "chrono",

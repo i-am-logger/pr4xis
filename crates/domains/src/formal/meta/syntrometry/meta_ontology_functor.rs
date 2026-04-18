@@ -50,19 +50,19 @@ fn map_concept(c: &SyntrometryConcept) -> MetaEntity {
     use SyntrometryConcept as S;
     match c {
         S::Predicate => M::DomainOntology,
-        S::Predikatrix => M::TaxonomyStructure,
-        S::Dialektik => M::CausalStructure,
-        S::Koordination => M::NaturalTransformation,
-        S::Aspekt => M::QualityStructure,
+        S::PredicateMatrix => M::TaxonomyStructure,
+        S::Dialectic => M::CausalStructure,
+        S::Coordination => M::NaturalTransformation,
+        S::Aspect => M::QualityStructure,
         S::Syntrix | S::SyntrixLevel => M::CategoryStructure,
-        S::Synkolator | S::Korporator => M::Functor,
+        S::Syncolator | S::Composer => M::Functor,
         S::Part => M::UnitMorphism,
         S::Telecenter => M::CanonicalRepresentative,
-        S::Maxime => M::PropertyTest,
-        S::Transzendenzstufe => M::IntermediateDomain,
+        S::Maxim => M::PropertyTest,
+        S::TranscendenceLevel => M::IntermediateDomain,
         S::Metroplex => M::Structure,
         S::SequencePermutation | S::OrientationPermutation => M::Functor,
-        S::Aspektivsystem => M::DomainOntology,
+        S::AspectivalSystem => M::DomainOntology,
         S::Reflexivity => M::NaturalTransformation,
     }
 }
@@ -88,6 +88,7 @@ impl Functor for SyntrometryToMetaOntology {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToMetaOntology);
 
 #[cfg(test)]
 mod tests {

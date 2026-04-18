@@ -63,6 +63,7 @@ impl Axiom for ProbabilityBounded {
         })
     }
 }
+pr4xis::register_axiom!(ProbabilityBounded);
 
 /// Axiom: log-odds update is deterministic (same input gives same output).
 pub struct LogOddsUpdateDeterministic;
@@ -82,6 +83,7 @@ impl Axiom for LogOddsUpdateDeterministic {
         (result1 - result2).abs() < 1e-15
     }
 }
+pr4xis::register_axiom!(LogOddsUpdateDeterministic);
 
 impl Ontology for OccupancyOntology {
     type Cat = OccupancyCategory;

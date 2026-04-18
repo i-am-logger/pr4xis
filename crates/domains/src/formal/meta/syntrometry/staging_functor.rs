@@ -39,17 +39,19 @@ fn map_concept(c: &SyntrometryConcept) -> StageConcept {
     use SyntrometryConcept as S;
     match c {
         S::Predicate => Stg::SourceProgram,
-        S::Predikatrix | S::Dialektik | S::Koordination | S::Aspekt | S::Syntrix => Stg::Program,
+        S::PredicateMatrix | S::Dialectic | S::Coordination | S::Aspect | S::Syntrix => {
+            Stg::Program
+        }
         S::SyntrixLevel | S::Part => Stg::StaticInput,
-        S::Synkolator | S::Maxime => Stg::Specializer,
-        S::Korporator => Stg::Compiler,
+        S::Syncolator | S::Maxim => Stg::Specializer,
+        S::Composer => Stg::Compiler,
         S::Telecenter => Stg::ObjectProgram,
-        S::Transzendenzstufe => Stg::Interpreter,
+        S::TranscendenceLevel => Stg::Interpreter,
         S::Metroplex => Stg::CompilerGenerator,
         // Permutations act program-on-program — specializer-like.
         S::SequencePermutation | S::OrientationPermutation => Stg::Specializer,
-        // Aspektivsystem is a structured system of programs = Program.
-        S::Aspektivsystem => Stg::Program,
+        // AspectivalSystem is a structured system of programs = Program.
+        S::AspectivalSystem => Stg::Program,
         // Reflexivity is the self-interpreter pattern.
         S::Reflexivity => Stg::Interpreter,
     }
@@ -76,6 +78,10 @@ impl Functor for SyntrometryToStaging {
         }
     }
 }
+pr4xis::register_functor!(
+    SyntrometryToStaging,
+    "directly to Futamura's (1971) staging hierarchy of programs. The"
+);
 
 #[cfg(test)]
 mod tests {

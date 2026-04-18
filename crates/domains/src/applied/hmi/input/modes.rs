@@ -232,6 +232,7 @@ impl Axiom for NoDeadStates {
         true
     }
 }
+pr4xis::register_axiom!(NoDeadStates);
 /// Root mode is reachable from every mode via transitions.
 pub struct RootReachable {
     pub graph: ModeGraph,
@@ -251,6 +252,7 @@ impl Axiom for RootReachable {
         true
     }
 }
+pr4xis::register_axiom!(RootReachable);
 /// Root mode has no parent.
 pub struct RootNoParent {
     pub graph: ModeGraph,
@@ -268,6 +270,7 @@ impl Axiom for RootNoParent {
             .unwrap_or(false)
     }
 }
+pr4xis::register_axiom!(RootNoParent);
 
 #[cfg(test)]
 mod tests {

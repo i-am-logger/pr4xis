@@ -95,6 +95,7 @@ impl Axiom for NegativeFeedbackStabilizes {
         true
     }
 }
+pr4xis::register_axiom!(NegativeFeedbackStabilizes);
 
 /// For a stable system with integral action, the steady-state error converges to zero.
 ///
@@ -128,6 +129,7 @@ impl Axiom for ErrorConvergesToZero {
         final_error < 0.01
     }
 }
+pr4xis::register_axiom!(ErrorConvergesToZero);
 
 /// BIBO stability definition: all poles with negative real parts means BIBO stable.
 pub struct BIBOStabilityDefinition;
@@ -176,6 +178,7 @@ impl Axiom for BIBOStabilityDefinition {
         true
     }
 }
+pr4xis::register_axiom!(BIBOStabilityDefinition);
 
 // ---------------------------------------------------------------------------
 // Ontology

@@ -157,6 +157,7 @@ impl Axiom for FourPerceptualDimensions {
             .all(|d| taxonomy::is_a::<PsychoacousticTaxonomy>(d, &PerceptualDimension))
     }
 }
+pr4xis::register_axiom!(FourPerceptualDimensions);
 pub struct FourMaskingTypes;
 impl Axiom for FourMaskingTypes {
     fn description(&self) -> &str {
@@ -174,6 +175,7 @@ impl Axiom for FourMaskingTypes {
         .all(|m| taxonomy::is_a::<PsychoacousticTaxonomy>(m, &MaskingType))
     }
 }
+pr4xis::register_axiom!(FourMaskingTypes);
 pub struct ThreeSpatialCues;
 impl Axiom for ThreeSpatialCues {
     fn description(&self) -> &str {
@@ -190,6 +192,7 @@ impl Axiom for ThreeSpatialCues {
         .all(|c| taxonomy::is_a::<PsychoacousticTaxonomy>(c, &SpatialCue))
     }
 }
+pr4xis::register_axiom!(ThreeSpatialCues);
 pub struct ITDOpposesILD;
 impl Axiom for ITDOpposesILD {
     fn description(&self) -> &str {
@@ -203,6 +206,7 @@ impl Axiom for ITDOpposesILD {
         )
     }
 }
+pr4xis::register_axiom!(ITDOpposesILD);
 pub struct StimulusCausesExperience;
 impl Axiom for StimulusCausesExperience {
     fn description(&self) -> &str {
@@ -214,6 +218,7 @@ impl Axiom for StimulusCausesExperience {
             .contains(&AwareExperience)
     }
 }
+pr4xis::register_axiom!(StimulusCausesExperience);
 
 impl Ontology for PsychoacousticsOntology {
     type Cat = PsychoacousticsCategory;

@@ -272,6 +272,7 @@ impl Axiom for ElectrophysiologyOppositionSymmetric {
         opposition::Symmetric::<ElectrophysiologyOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(ElectrophysiologyOppositionSymmetric);
 
 /// Axiom: electrophysiology opposition is irreflexive (nothing opposes itself).
 pub struct ElectrophysiologyOppositionIrreflexive;
@@ -285,6 +286,7 @@ impl Axiom for ElectrophysiologyOppositionIrreflexive {
         opposition::Irreflexive::<ElectrophysiologyOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(ElectrophysiologyOppositionIrreflexive);
 
 // ---------------------------------------------------------------------------
 // Axioms
@@ -302,6 +304,7 @@ impl Axiom for TaxonomyIsDAG {
         taxonomy::NoCycles::<ElectrophysiologyTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(TaxonomyIsDAG);
 
 /// Category identity and composition laws hold.
 pub struct CategoryLawsHold;
@@ -316,6 +319,7 @@ impl Axiom for CategoryLawsHold {
         check_category_laws::<ElectrophysiologyCategory>().is_ok()
     }
 }
+pr4xis::register_axiom!(CategoryLawsHold);
 
 /// At least one non-invasive measurement technique exists.
 pub struct NonInvasiveMethodExists;
@@ -332,6 +336,7 @@ impl Axiom for NonInvasiveMethodExists {
             .any(|e| q.get(e) == Some(false))
     }
 }
+pr4xis::register_axiom!(NonInvasiveMethodExists);
 
 /// Both single-cell and tissue-level resolution methods exist.
 pub struct MultiscaleMethods;
@@ -351,6 +356,7 @@ impl Axiom for MultiscaleMethods {
         has_single_cell && has_tissue
     }
 }
+pr4xis::register_axiom!(MultiscaleMethods);
 
 /// At least one method can measure Vmem in vivo (Levin's voltage-sensitive dyes).
 pub struct VmemInVivoMethodExists;
@@ -368,6 +374,7 @@ impl Axiom for VmemInVivoMethodExists {
             .any(|e| vmem.get(e) == Some(true) && in_vivo.get(e) == Some(true))
     }
 }
+pr4xis::register_axiom!(VmemInVivoMethodExists);
 
 /// Patch clamp is invasive AND has single-cell resolution (gold standard but destructive).
 pub struct PatchClampGoldStandard;
@@ -383,6 +390,7 @@ impl Axiom for PatchClampGoldStandard {
             && SpatialResolution.get(&PatchClamp) == Some(SpatialScale::SingleCell)
     }
 }
+pr4xis::register_axiom!(PatchClampGoldStandard);
 
 /// Bioimpedance is non-invasive (surface method for deep tissue proxy).
 pub struct BioimpedanceNonInvasive;
@@ -397,6 +405,7 @@ impl Axiom for BioimpedanceNonInvasive {
         IsInvasive.get(&Bioimpedance) == Some(false)
     }
 }
+pr4xis::register_axiom!(BioimpedanceNonInvasive);
 
 /// Optical methods (VSD, calcium imaging, optical mapping) do not require cell contact.
 pub struct OpticalMethodsNoContact;
@@ -414,6 +423,7 @@ impl Axiom for OpticalMethodsNoContact {
             && q.get(&OpticalMapping) == Some(false)
     }
 }
+pr4xis::register_axiom!(OpticalMethodsNoContact);
 
 /// Both Vmem-measuring and non-Vmem-measuring techniques exist.
 pub struct VmemAndNonVmemTechniques;
@@ -431,6 +441,7 @@ impl Axiom for VmemAndNonVmemTechniques {
         has_vmem && has_non_vmem
     }
 }
+pr4xis::register_axiom!(VmemAndNonVmemTechniques);
 
 // ---------------------------------------------------------------------------
 // Ontology

@@ -50,6 +50,7 @@ impl Functor for ChannelToCommunication {
         CommunicationRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(ChannelToCommunication);
 
 #[cfg(test)]
 mod tests {

@@ -40,17 +40,17 @@ fn map_concept(c: &SyntrometryConcept) -> DialecticsConcept {
     use SyntrometryConcept as S;
     match c {
         S::Predicate | S::SyntrixLevel => D::Thesis,
-        S::Predikatrix | S::Syntrix | S::Metroplex => D::DialecticalArgument,
-        S::Dialektik => D::DialecticalMoment,
-        S::Koordination => D::SquareOfOpposition,
-        S::Aspekt | S::Telecenter => D::Synthesis,
-        S::Synkolator | S::Korporator | S::Maxime | S::Transzendenzstufe => D::Sublation,
+        S::PredicateMatrix | S::Syntrix | S::Metroplex => D::DialecticalArgument,
+        S::Dialectic => D::DialecticalMoment,
+        S::Coordination => D::SquareOfOpposition,
+        S::Aspect | S::Telecenter => D::Synthesis,
+        S::Syncolator | S::Composer | S::Maxim | S::TranscendenceLevel => D::Sublation,
         S::Part => D::DeterminateNegation,
         // Permutations are forms of determinate negation (they specifically
         // rearrange / negate existing order).
         S::SequencePermutation | S::OrientationPermutation => D::DeterminateNegation,
-        // Aspektivsystem is a dialectical argument (structured opposition).
-        S::Aspektivsystem => D::DialecticalArgument,
+        // AspectivalSystem is a dialectical argument (structured opposition).
+        S::AspectivalSystem => D::DialecticalArgument,
         // Reflexivity = self-sublation, the move that turns contradiction
         // into synthesis by self-application.
         S::Reflexivity => D::Sublation,
@@ -103,6 +103,7 @@ impl Functor for SyntrometryToDialectics {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToDialectics);
 
 #[cfg(test)]
 mod tests {

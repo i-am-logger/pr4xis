@@ -48,6 +48,7 @@ impl Functor for EpistemicsToResponse {
         ResponseRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(EpistemicsToResponse);
 
 #[cfg(test)]
 mod tests {

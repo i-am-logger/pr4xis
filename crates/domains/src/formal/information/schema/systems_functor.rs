@@ -66,6 +66,7 @@ impl Functor for SystemsToSchema {
         SchemaRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(SystemsToSchema);
 
 #[cfg(test)]
 mod tests {

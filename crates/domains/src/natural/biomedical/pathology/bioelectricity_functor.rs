@@ -70,6 +70,7 @@ impl Functor for PathologyToBioelectric {
         }
     }
 }
+pr4xis::register_functor!(PathologyToBioelectric);
 
 #[cfg(test)]
 mod tests {

@@ -395,6 +395,7 @@ impl pr4xis::logic::Axiom for SingleRootElement {
         true // structural — enforced by XmlDocument having exactly one root field
     }
 }
+pr4xis::register_axiom!(SingleRootElement);
 
 /// W3C well-formedness axiom: element tags must be properly nested.
 pub struct ProperNesting;
@@ -408,6 +409,7 @@ impl pr4xis::logic::Axiom for ProperNesting {
         true // structural — enforced by the tree representation (can't overlap in a tree)
     }
 }
+pr4xis::register_axiom!(ProperNesting);
 
 /// Quality: is this XML node kind a content node (can appear inside elements)?
 #[derive(Debug, Clone)]

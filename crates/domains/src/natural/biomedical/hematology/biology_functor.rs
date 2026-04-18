@@ -71,6 +71,7 @@ impl Functor for HematologyToBiology {
         }
     }
 }
+pr4xis::register_functor!(HematologyToBiology);
 
 #[cfg(test)]
 mod tests {

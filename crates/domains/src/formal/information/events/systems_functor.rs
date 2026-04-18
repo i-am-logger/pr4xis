@@ -59,3 +59,4 @@ impl Functor for SystemsToEvents {
         EventRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(SystemsToEvents);

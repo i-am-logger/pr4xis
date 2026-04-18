@@ -46,32 +46,32 @@ fn map_concept(c: &SyntrometryConcept) -> Pr4xisSubstrateConcept {
     match c {
         // Core primitives each land at a distinct substrate target.
         S::Predicate => P::SubEntity,
-        S::Predikatrix => P::SubOntology,
+        S::PredicateMatrix => P::SubOntology,
         S::Syntrix => P::SubCategory,
-        S::Koordination => P::SubMorphism,
-        S::Synkolator => P::SubEndofunctor,
-        S::Korporator => P::SubFunctor,
+        S::Coordination => P::SubMorphism,
+        S::Syncolator => P::SubEndofunctor,
+        S::Composer => P::SubFunctor,
         // Teleological / hierarchical concepts.
         S::Telecenter => P::SubEigenform,
-        S::Maxime => P::SubIntention,
-        S::Transzendenzstufe => P::SubStagingLevel,
+        S::Maxim => P::SubIntention,
+        S::TranscendenceLevel => P::SubStagingLevel,
         S::Metroplex => P::SubSystemOfSystems,
         // Refined distinctions — the substrate sub-kinds preserve these
         // without collapsing them to their parent.
-        S::Aspekt => P::SubProductCategory,
+        S::Aspect => P::SubProductCategory,
         S::SyntrixLevel => P::SubGradedObject,
         S::Part => P::SubObject,
-        // Dialektik intentionally collapses to the plain SubCategory in
+        // Dialectic intentionally collapses to the plain SubCategory in
         // the primary substrate — opposition structure lives in the
         // dedicated Dialectics ontology, reached via the
         // `SyntrometryToDialectics` cross-functor.
-        S::Dialektik => P::SubCategory,
+        S::Dialectic => P::SubCategory,
         // Permutation operators are endomorphism-like (automorphisms on the
         // predicate-sequence / orientation structure).
         S::SequencePermutation | S::OrientationPermutation => P::SubEndofunctor,
-        // Aspektivsystem is a structured multi-aspect collection = a small
+        // AspectivalSystem is a structured multi-aspect collection = a small
         // ontology at the substrate level.
-        S::Aspektivsystem => P::SubOntology,
+        S::AspectivalSystem => P::SubOntology,
         // Reflexivity is a natural transformation (Mac Lane Ch. II §4).
         S::Reflexivity => P::SubNaturalTransformation,
     }
@@ -101,6 +101,7 @@ impl Functor for SyntrometryToPr4xisSubstrate {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToPr4xisSubstrate);
 
 #[cfg(test)]
 mod tests {

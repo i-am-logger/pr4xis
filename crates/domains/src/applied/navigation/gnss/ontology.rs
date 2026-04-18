@@ -86,6 +86,10 @@ impl Axiom for MinimumSatellites {
         min_satellites == 4
     }
 }
+pr4xis::register_axiom!(
+    MinimumSatellites,
+    "IS-GPS-200 (2022), Groves (2013) Chapter 8, Misra & Enge (2011)."
+);
 
 /// DOP improves (decreases) with wider satellite spread.
 pub struct DopGeometry;
@@ -106,6 +110,10 @@ impl Axiom for DopGeometry {
         gdop_wide < gdop_narrow
     }
 }
+pr4xis::register_axiom!(
+    DopGeometry,
+    "IS-GPS-200 (2022), Groves (2013) Chapter 8, Misra & Enge (2011)."
+);
 
 /// Pseudorange must be non-negative.
 pub struct PseudorangePositive;
@@ -123,6 +131,10 @@ impl Axiom for PseudorangePositive {
         }
     }
 }
+pr4xis::register_axiom!(
+    PseudorangePositive,
+    "IS-GPS-200 (2022), Groves (2013) Chapter 8, Misra & Enge (2011)."
+);
 
 /// Compute GDOP from satellite elevations and azimuths.
 pub(crate) fn compute_gdop_from_elevations_azimuths(

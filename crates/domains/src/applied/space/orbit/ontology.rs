@@ -52,6 +52,10 @@ impl Axiom for EccentricityBounded {
         true
     }
 }
+pr4xis::register_axiom!(
+    EccentricityBounded,
+    "Vallado (2013), *Fundamentals of Astrodynamics and Applications*, 4th ed."
+);
 
 /// Axiom: semi-major axis must be positive for bound orbits.
 pub struct SemiMajorAxisPositive;
@@ -64,6 +68,10 @@ impl Axiom for SemiMajorAxisPositive {
         true
     }
 }
+pr4xis::register_axiom!(
+    SemiMajorAxisPositive,
+    "Vallado (2013), *Fundamentals of Astrodynamics and Applications*, 4th ed."
+);
 
 impl Ontology for OrbitOntology {
     type Cat = OrbitCategory;

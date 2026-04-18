@@ -45,6 +45,7 @@ impl Functor for ResponseToDiscourse {
         DiscourseRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(ResponseToDiscourse);
 
 #[cfg(test)]
 mod tests {

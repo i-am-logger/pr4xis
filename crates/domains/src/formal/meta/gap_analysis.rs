@@ -857,8 +857,8 @@ mod tests {
 
     /// Syntrometry → MetaOntology intentionally collapses 6 of 18 concepts
     /// — pairs that share a diagnostic role collapse to the same `MetaEntity`
-    /// bucket (e.g., Synkolator/Korporator/permutations → Functor;
-    /// Koordination/Reflexivity → NaturalTransformation).
+    /// bucket (e.g., Syncolator/Composer/permutations → Functor;
+    /// Coordination/Reflexivity → NaturalTransformation).
     #[test]
     fn test_syntrometry_to_meta_ontology_collapse_is_six() {
         use crate::formal::meta::ontology_diagnostics::ontology::MetaEntity;
@@ -877,8 +877,8 @@ mod tests {
         assert_eq!(
             collapse, 6,
             "expected 6 intentional collapses (Syntrix/SyntrixLevel → CategoryStructure; \
-             Synkolator/Korporator/SequencePermutation/OrientationPermutation → Functor; \
-             Predicate/Aspektivsystem → DomainOntology; Koordination/Reflexivity → NaturalTransformation); \
+             Syncolator/Composer/SequencePermutation/OrientationPermutation → Functor; \
+             Predicate/AspectivalSystem → DomainOntology; Coordination/Reflexivity → NaturalTransformation); \
              got {}",
             collapse
         );
@@ -900,9 +900,9 @@ mod tests {
             report.counit_gaps
         );
         // Intentional collapses:
-        // - Dialektik → SubCategory → Syntrix (opposition lives in Dialectics)
-        // - SequencePermutation, OrientationPermutation → SubEndofunctor (both collapse with Synkolator)
-        // - Aspektivsystem → SubOntology (collapses with Predikatrix)
+        // - Dialectic → SubCategory → Syntrix (opposition lives in Dialectics)
+        // - SequencePermutation, OrientationPermutation → SubEndofunctor (both collapse with Syncolator)
+        // - AspectivalSystem → SubOntology (collapses with PredicateMatrix)
         assert_eq!(
             report.unit_gaps.len(),
             4,

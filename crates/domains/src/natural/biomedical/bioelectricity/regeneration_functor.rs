@@ -68,6 +68,7 @@ impl Functor for BioelectricToRegeneration {
         }
     }
 }
+pr4xis::register_functor!(BioelectricToRegeneration);
 
 #[cfg(test)]
 mod tests {

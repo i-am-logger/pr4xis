@@ -220,6 +220,7 @@ impl Axiom for ChemistryTaxonomyIsDAG {
         taxonomy::NoCycles::<ChemistryTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(ChemistryTaxonomyIsDAG);
 
 /// The taxonomy is antisymmetric.
 pub struct ChemistryTaxonomyAntisymmetric;
@@ -233,6 +234,7 @@ impl Axiom for ChemistryTaxonomyAntisymmetric {
         taxonomy::Antisymmetric::<ChemistryTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(ChemistryTaxonomyAntisymmetric);
 
 /// Causal graph is asymmetric.
 pub struct ChemistryCausalAsymmetric;
@@ -246,6 +248,7 @@ impl Axiom for ChemistryCausalAsymmetric {
         causation::Asymmetric::<ChemistryCauses>::new().holds()
     }
 }
+pr4xis::register_axiom!(ChemistryCausalAsymmetric);
 
 /// No self-causation in chemistry.
 pub struct ChemistryCausalNoSelfCausation;
@@ -259,6 +262,7 @@ impl Axiom for ChemistryCausalNoSelfCausation {
         causation::NoSelfCausation::<ChemistryCauses>::new().holds()
     }
 }
+pr4xis::register_axiom!(ChemistryCausalNoSelfCausation);
 
 /// Dissolution causes ion dissociation.
 pub struct DissolutionCausesIonDissociation;
@@ -274,6 +278,7 @@ impl Axiom for DissolutionCausesIonDissociation {
         effects.contains(&IonDissociation)
     }
 }
+pr4xis::register_axiom!(DissolutionCausesIonDissociation);
 
 /// Acid-base reaction causes pH change.
 pub struct AcidBaseCausesPHChange;
@@ -289,6 +294,7 @@ impl Axiom for AcidBaseCausesPHChange {
         effects.contains(&PHChange)
     }
 }
+pr4xis::register_axiom!(AcidBaseCausesPHChange);
 
 /// Electrolytes conduct electricity.
 pub struct ElectrolytesConductElectricity;
@@ -302,6 +308,7 @@ impl Axiom for ElectrolytesConductElectricity {
         ConductsElectricity.get(&ChemistryEntity::Electrolyte) == Some(true)
     }
 }
+pr4xis::register_axiom!(ElectrolytesConductElectricity);
 
 /// Opposition is symmetric.
 pub struct ChemistryOppositionSymmetric;
@@ -315,6 +322,7 @@ impl Axiom for ChemistryOppositionSymmetric {
         opposition::Symmetric::<ChemistryOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(ChemistryOppositionSymmetric);
 
 /// Opposition is irreflexive.
 pub struct ChemistryOppositionIrreflexive;
@@ -328,6 +336,7 @@ impl Axiom for ChemistryOppositionIrreflexive {
         opposition::Irreflexive::<ChemistryOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(ChemistryOppositionIrreflexive);
 
 // ---------------------------------------------------------------------------
 // Ontology

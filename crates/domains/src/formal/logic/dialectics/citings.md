@@ -17,7 +17,7 @@
 - Code-level citations: `grep -n 'Source:\|Aristotle\|Hegel\|Marx\|Adorno\|Priest' *.rs` in this directory
 - Related workspace ontologies:
   - `crates/domains/src/cognitive/cognition/distinction.rs` — Spencer-Brown *Laws of Form*. Every dialectical movement begins with a distinction; a future `Distinction → Dialectics` cross-functor would carry `Boundary` ↦ `DeterminateNegation`.
-  - `crates/domains/src/formal/meta/syntrometry/` — Heim's syntrometric logic. The `Syntrometry → Dialectics` cross-functor lives at `formal::meta::syntrometry::dialectics_functor` and carries `Dialektik` ↦ `DialecticalMoment`.
+  - `crates/domains/src/formal/meta/syntrometry/` — Heim's syntrometric logic. The `Syntrometry → Dialectics` cross-functor lives at `formal::meta::syntrometry::dialectics_functor` and carries `Dialectic` (Heim's *Dialektik*) ↦ `DialecticalMoment`.
   - `crates/pr4xis/src/ontology/reasoning/opposition.rs` — the generic `opposes` reasoning module that Dialectics's own `opposes:` block consumes.
 
 ## Pending verification
@@ -29,7 +29,7 @@
 
 ## Project-internal references
 
-- Opposition structure in pr4xis lives in this ontology; the `Syntrometry → Dialectics` cross-functor (at `formal::meta::syntrometry::dialectics_functor`) routes Heim's `Dialektik` here.
+- Opposition structure in pr4xis lives in this ontology; the `Syntrometry → Dialectics` cross-functor (at `formal::meta::syntrometry::dialectics_functor`) routes Heim's *Dialektik* (`Dialectic`) here.
 
 ---
 

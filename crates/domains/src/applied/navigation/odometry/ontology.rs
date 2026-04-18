@@ -107,6 +107,10 @@ impl Axiom for DriftIsUnbounded {
         e2 > e1 && e1 > 0.0
     }
 }
+pr4xis::register_axiom!(
+    DriftIsUnbounded,
+    "Borenstein et al. (1996) \"Where am I?\"; Thrun, Burgard & Fox (2005)"
+);
 
 /// Relative motion only: odometry measures CHANGE, not absolute position.
 ///
@@ -130,6 +134,10 @@ impl Axiom for RelativeMotionOnly {
         (disp_a[0] - disp_b[0]).abs() < 1e-10 && (disp_a[1] - disp_b[1]).abs() < 1e-10
     }
 }
+pr4xis::register_axiom!(
+    RelativeMotionOnly,
+    "Borenstein et al. (1996) \"Where am I?\"; Thrun, Burgard & Fox (2005)"
+);
 
 /// Slip corrupts wheel odometry: wheel slip causes measurement error.
 ///
@@ -148,6 +156,10 @@ impl Axiom for SlipCorruptsWheelOdometry {
         error > 0.0 && actual_distance < encoder_distance
     }
 }
+pr4xis::register_axiom!(
+    SlipCorruptsWheelOdometry,
+    "Borenstein et al. (1996) \"Where am I?\"; Thrun, Burgard & Fox (2005)"
+);
 
 impl Ontology for OdometryOntology {
     type Cat = OdometryCategory;

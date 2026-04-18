@@ -67,6 +67,7 @@ impl Functor for AcousticsToBoneConduction {
         }
     }
 }
+pr4xis::register_functor!(AcousticsToBoneConduction);
 
 #[cfg(test)]
 mod tests {

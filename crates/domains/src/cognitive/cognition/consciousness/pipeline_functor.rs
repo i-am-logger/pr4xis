@@ -50,6 +50,7 @@ impl Functor for C1ToPipeline {
         }
     }
 }
+pr4xis::register_functor!(C1ToPipeline);
 
 #[cfg(test)]
 mod tests {

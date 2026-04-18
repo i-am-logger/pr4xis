@@ -351,6 +351,7 @@ impl Axiom for TissueInsultCausesNeoplasia {
         effects.contains(&NeoplasticTransformation)
     }
 }
+pr4xis::register_axiom!(TissueInsultCausesNeoplasia);
 
 /// Axiom: tissue insult also causes stricture formation (fibrotic pathway).
 pub struct TissueInsultCausesStricture;
@@ -366,6 +367,7 @@ impl Axiom for TissueInsultCausesStricture {
         effects.contains(&StrictureFormation)
     }
 }
+pr4xis::register_axiom!(TissueInsultCausesStricture);
 
 /// Axiom: dysplasia is premalignant.
 pub struct DysplasiaIsPremalignant;
@@ -379,6 +381,7 @@ impl Axiom for DysplasiaIsPremalignant {
         MalignantPotential.get(&PathologyEntity::Dysplasia) == Some(MalignantPotentialLevel::High)
     }
 }
+pr4xis::register_axiom!(DysplasiaIsPremalignant);
 
 /// Axiom: normal tissue has no malignant potential.
 pub struct NormalHasNoMalignantPotential;
@@ -392,6 +395,7 @@ impl Axiom for NormalHasNoMalignantPotential {
         MalignantPotential.get(&PathologyEntity::Normal) == Some(MalignantPotentialLevel::None)
     }
 }
+pr4xis::register_axiom!(NormalHasNoMalignantPotential);
 
 /// Axiom: neoplasia is malignant.
 pub struct NeoplasiaIsMalignant;
@@ -406,6 +410,7 @@ impl Axiom for NeoplasiaIsMalignant {
             == Some(MalignantPotentialLevel::IsMalignant)
     }
 }
+pr4xis::register_axiom!(NeoplasiaIsMalignant);
 
 /// Axiom: metaplasia is reversible (with intervention — Levin's bioelectric approach).
 pub struct MetaplasiaIsReversible;
@@ -419,6 +424,7 @@ impl Axiom for MetaplasiaIsReversible {
         IsReversible.get(&PathologyEntity::Metaplasia) == Some(true)
     }
 }
+pr4xis::register_axiom!(MetaplasiaIsReversible);
 
 /// Axiom: acute injury is reversible, neoplasia is not.
 pub struct AcuteReversibleNeoplasiaIrreversible;
@@ -433,6 +439,7 @@ impl Axiom for AcuteReversibleNeoplasiaIrreversible {
             && IsReversible.get(&PathologyEntity::Neoplasia) == Some(false)
     }
 }
+pr4xis::register_axiom!(AcuteReversibleNeoplasiaIrreversible);
 
 // ---------------------------------------------------------------------------
 // Ontology

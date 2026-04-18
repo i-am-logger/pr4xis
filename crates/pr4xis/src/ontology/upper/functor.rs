@@ -153,4 +153,10 @@ impl Functor for OwnToDolce {
         };
         OntologicalRelation { from, to, kind }
     }
+
+    crate::functor_meta!(
+        "OwnToDolce",
+        "map pr4xis's own meta-types to DOLCE's upper ontology",
+        "Masolo et al. (2003) WonderWeb D18 'DOLCE'"
+    );
 }

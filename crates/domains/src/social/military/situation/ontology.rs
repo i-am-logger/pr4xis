@@ -91,6 +91,7 @@ impl Axiom for EntityIdentificationFirst {
         entity_to_rel && entity_to_intent
     }
 }
+pr4xis::register_axiom!(EntityIdentificationFirst);
 
 /// Axiom: intent cannot be assessed without relationship context.
 pub struct IntentRequiresRelationship;
@@ -106,6 +107,7 @@ impl Axiom for IntentRequiresRelationship {
             .any(|m| m.from == SituationElement::Relationship && m.to == SituationElement::Intent)
     }
 }
+pr4xis::register_axiom!(IntentRequiresRelationship);
 
 pub struct SituationOntology;
 

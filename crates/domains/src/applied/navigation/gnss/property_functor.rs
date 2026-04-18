@@ -41,6 +41,10 @@ impl Functor for GnssToProperty {
         }
     }
 }
+pr4xis::register_functor!(
+    GnssToProperty,
+    "IS-GPS-200 (2022); Groves (2013) Chapter 8."
+);
 
 #[cfg(test)]
 mod tests {

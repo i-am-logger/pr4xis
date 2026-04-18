@@ -70,6 +70,7 @@ impl Adjunction for MolecularBioelectricAdjunction {
         }
     }
 }
+pr4xis::register_adjunction!(MolecularBioelectricAdjunction);
 
 // ---------------------------------------------------------------------------
 // Adjunction 2: PharmacologyToMolecular ⊣ MolecularToPharmacology
@@ -108,6 +109,7 @@ impl Adjunction for PharmacologyMolecularAdjunction {
         }
     }
 }
+pr4xis::register_adjunction!(PharmacologyMolecularAdjunction);
 
 // ---------------------------------------------------------------------------
 // Adjunction 3: BiologyToBioelectric ⊣ BioelectricToBiology
@@ -144,6 +146,7 @@ impl Adjunction for BiologyBioelectricAdjunction {
         }
     }
 }
+pr4xis::register_adjunction!(BiologyBioelectricAdjunction);
 
 // ---------------------------------------------------------------------------
 // Tests

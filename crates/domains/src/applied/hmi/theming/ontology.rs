@@ -191,6 +191,7 @@ impl Axiom for LuminanceMonotonicity {
         increasing || decreasing
     }
 }
+pr4xis::register_axiom!(LuminanceMonotonicity);
 
 /// WCAG AA compliance: foreground slots must have >= 4.5:1 contrast against background.
 ///
@@ -215,6 +216,7 @@ impl Axiom for WcagForegroundContrast {
         srgb::wcag_compliant(fg, bg, srgb::WcagLevel::AA)
     }
 }
+pr4xis::register_axiom!(WcagForegroundContrast);
 
 /// Bright variants must be brighter than their base counterparts.
 ///
@@ -244,6 +246,7 @@ impl Axiom for BrightVariantBrighter {
         })
     }
 }
+pr4xis::register_axiom!(BrightVariantBrighter);
 
 /// Polarity detection: derive dark/light from base00 luminance.
 ///

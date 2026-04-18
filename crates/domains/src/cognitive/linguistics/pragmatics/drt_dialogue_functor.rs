@@ -20,9 +20,9 @@ use crate::formal::information::dialogue::ontology::*;
 //   AnaphoricExpression → Utterance (the expression that needs resolution)
 //   Binding            → Grounding (the resolved reference = mutual understanding)
 
-pub struct ReferencToDialogue;
+pub struct ReferenceToDialogue;
 
-impl Functor for ReferencToDialogue {
+impl Functor for ReferenceToDialogue {
     type Source = ReferenceCategory;
     type Target = DialogueCategory;
 
@@ -59,6 +59,7 @@ impl Functor for ReferencToDialogue {
         DialogueRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(ReferenceToDialogue);
 
 #[cfg(test)]
 mod tests {
@@ -67,13 +68,13 @@ mod tests {
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<ReferencToDialogue>().unwrap();
+        check_functor_laws::<ReferenceToDialogue>().unwrap();
     }
 
     #[test]
     fn drs_is_dialogue_state() {
         assert_eq!(
-            ReferencToDialogue::map_object(&ReferenceConcept::DRS),
+            ReferenceToDialogue::map_object(&ReferenceConcept::DRS),
             DialogueConcept::DialogueState
         );
     }
@@ -81,7 +82,7 @@ mod tests {
     #[test]
     fn binding_is_grounding() {
         assert_eq!(
-            ReferencToDialogue::map_object(&ReferenceConcept::Binding),
+            ReferenceToDialogue::map_object(&ReferenceConcept::Binding),
             DialogueConcept::Grounding
         );
     }

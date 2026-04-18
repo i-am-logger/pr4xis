@@ -57,6 +57,7 @@ impl Functor for PipelineToAlgebra {
         }
     }
 }
+pr4xis::register_functor!(PipelineToAlgebra);
 
 #[cfg(test)]
 mod tests {

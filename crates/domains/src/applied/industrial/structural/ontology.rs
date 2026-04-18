@@ -46,6 +46,10 @@ impl Axiom for StrainBoundedElastic {
         true
     }
 }
+pr4xis::register_axiom!(
+    StrainBoundedElastic,
+    "Farrar & Worden (2007), \"An Introduction to Structural Health Monitoring\""
+);
 
 /// Axiom: crack length is non-negative and monotonically non-decreasing.
 pub struct CrackMonotonicity;
@@ -58,6 +62,10 @@ impl Axiom for CrackMonotonicity {
         true
     }
 }
+pr4xis::register_axiom!(
+    CrackMonotonicity,
+    "Farrar & Worden (2007), \"An Introduction to Structural Health Monitoring\""
+);
 
 impl Ontology for StructuralOntology {
     type Cat = StructuralCategory;

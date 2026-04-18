@@ -103,6 +103,10 @@ impl Axiom for MontagueHasAtomicDomains {
         })
     }
 }
+pr4xis::register_axiom!(
+    MontagueHasAtomicDomains,
+    "- Montague, R. (1973). *The Proper Treatment of Quantification in"
+);
 
 impl Ontology for MontagueOntology {
     type Cat = MontagueCategory;

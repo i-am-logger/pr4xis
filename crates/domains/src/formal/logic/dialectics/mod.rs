@@ -7,8 +7,8 @@
 //! Marx, Adorno, Priest).
 //!
 //! Cross-functors into this ontology:
-//! - `Syntrometry → Dialectics` (`Dialektik` ↦ `DialecticalMoment`;
-//!   binary-opposition-on-a-Predikatrix becomes a first-class Hegelian
+//! - `Syntrometry → Dialectics` (`Dialectic` — Heim's *Dialektik* — ↦ `DialecticalMoment`;
+//!   binary-opposition-on-a-PredicateMatrix becomes a first-class Hegelian
 //!   moment carrying the full opposition structure)
 //! - `Distinction → Dialectics` (Spencer-Brown `Boundary` ↦
 //!   `DeterminateNegation`; drawing a boundary is the first move of

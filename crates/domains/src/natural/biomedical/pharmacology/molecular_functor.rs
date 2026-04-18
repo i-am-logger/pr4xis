@@ -72,6 +72,7 @@ impl Functor for PharmacologyToMolecular {
         }
     }
 }
+pr4xis::register_functor!(PharmacologyToMolecular);
 
 #[cfg(test)]
 mod tests {

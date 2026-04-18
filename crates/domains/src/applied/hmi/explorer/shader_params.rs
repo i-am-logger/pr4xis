@@ -76,6 +76,7 @@ impl Axiom for DefaultsInRange {
         all_params().iter().all(|p| p.interval.contains(p.default))
     }
 }
+pr4xis::register_axiom!(DefaultsInRange);
 
 /// Intensity default is 0.5 (balanced blend).
 pub struct IntensityBalanced;
@@ -88,6 +89,7 @@ impl Axiom for IntensityBalanced {
         (intensity().default - 0.5).abs() < 1e-10
     }
 }
+pr4xis::register_axiom!(IntensityBalanced);
 
 /// Brightness default is 1.0 (no change).
 pub struct BrightnessNeutral;
@@ -100,6 +102,7 @@ impl Axiom for BrightnessNeutral {
         (brightness().default - 1.0).abs() < 1e-10
     }
 }
+pr4xis::register_axiom!(BrightnessNeutral);
 
 /// Saturation default is 1.0 (no change).
 pub struct SaturationNeutral;
@@ -112,6 +115,7 @@ impl Axiom for SaturationNeutral {
         (saturation().default - 1.0).abs() < 1e-10
     }
 }
+pr4xis::register_axiom!(SaturationNeutral);
 
 #[cfg(test)]
 mod tests {

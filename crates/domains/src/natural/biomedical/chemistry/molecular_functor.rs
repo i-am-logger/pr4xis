@@ -72,6 +72,7 @@ impl Functor for ChemistryToMolecular {
         }
     }
 }
+pr4xis::register_functor!(ChemistryToMolecular);
 
 #[cfg(test)]
 mod tests {

@@ -170,6 +170,7 @@ impl Axiom for NoiseCausesDifficulty {
             .contains(&CommunicationDifficulty)
     }
 }
+pr4xis::register_axiom!(NoiseCausesDifficulty);
 pub struct FiveHearingLossTypes;
 impl Axiom for FiveHearingLossTypes {
     fn description(&self) -> &str {
@@ -188,6 +189,7 @@ impl Axiom for FiveHearingLossTypes {
         .all(|t| taxonomy::is_a::<PathologyTaxonomy>(t, &HearingLoss))
     }
 }
+pr4xis::register_axiom!(FiveHearingLossTypes);
 pub struct PresbycusisMostPrevalent;
 impl Axiom for PresbycusisMostPrevalent {
     fn description(&self) -> &str {
@@ -201,6 +203,7 @@ impl Axiom for PresbycusisMostPrevalent {
         p > n && p > t
     }
 }
+pr4xis::register_axiom!(PresbycusisMostPrevalent);
 pub struct NeuropathyHasOAEs;
 impl Axiom for NeuropathyHasOAEs {
     fn description(&self) -> &str {
@@ -211,6 +214,7 @@ impl Axiom for NeuropathyHasOAEs {
             && OAEsPresent.get(&PathologyEntity::SensorineuralHearingLoss) == Some(false)
     }
 }
+pr4xis::register_axiom!(NeuropathyHasOAEs);
 
 impl Ontology for PathologyOntology {
     type Cat = PathologyCategory;

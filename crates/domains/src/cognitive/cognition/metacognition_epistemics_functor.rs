@@ -73,6 +73,7 @@ impl Functor for MetacognitionToEpistemics {
         EpistemicRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(MetacognitionToEpistemics);
 
 #[cfg(test)]
 mod tests {

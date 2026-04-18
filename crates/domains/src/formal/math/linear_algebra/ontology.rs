@@ -81,6 +81,7 @@ impl Axiom for MultiplicationAssociativity {
         true
     }
 }
+pr4xis::register_axiom!(MultiplicationAssociativity);
 
 /// Identity matrix: AI = IA = A.
 pub struct MultiplicationIdentity;
@@ -104,6 +105,7 @@ impl Axiom for MultiplicationIdentity {
         true
     }
 }
+pr4xis::register_axiom!(MultiplicationIdentity);
 
 /// Transpose of transpose: (A^T)^T = A.
 pub struct TransposeInvolution;
@@ -122,6 +124,7 @@ impl Axiom for TransposeInvolution {
         true
     }
 }
+pr4xis::register_axiom!(TransposeInvolution);
 
 /// Transpose of product: (AB)^T = B^T A^T.
 pub struct TransposeProduct;
@@ -148,6 +151,7 @@ impl Axiom for TransposeProduct {
         true
     }
 }
+pr4xis::register_axiom!(TransposeProduct);
 
 /// det(I) = 1 (normalization axiom of determinant).
 pub struct DetNormalization;
@@ -167,6 +171,7 @@ impl Axiom for DetNormalization {
         true
     }
 }
+pr4xis::register_axiom!(DetNormalization);
 
 /// det(AB) = det(A) * det(B) (multiplicativity).
 pub struct DetMultiplicativity;
@@ -193,6 +198,7 @@ impl Axiom for DetMultiplicativity {
         true
     }
 }
+pr4xis::register_axiom!(DetMultiplicativity);
 
 /// det(A^T) = det(A) (transpose invariance).
 pub struct DetTranspose;
@@ -213,6 +219,7 @@ impl Axiom for DetTranspose {
         true
     }
 }
+pr4xis::register_axiom!(DetTranspose);
 
 /// Trace is the sum of eigenvalues.
 pub struct TraceEigenvalueSum;
@@ -234,6 +241,7 @@ impl Axiom for TraceEigenvalueSum {
         true
     }
 }
+pr4xis::register_axiom!(TraceEigenvalueSum);
 
 /// Determinant is the product of eigenvalues.
 pub struct DetEigenvalueProduct;
@@ -255,6 +263,7 @@ impl Axiom for DetEigenvalueProduct {
         true
     }
 }
+pr4xis::register_axiom!(DetEigenvalueProduct);
 
 /// Cholesky: A = L L^T for PD matrices.
 pub struct CholeskyFactorization;
@@ -278,6 +287,7 @@ impl Axiom for CholeskyFactorization {
         true
     }
 }
+pr4xis::register_axiom!(CholeskyFactorization);
 
 /// PSD: x^T A x >= 0 for all x.
 pub struct PsdQuadraticForm;
@@ -303,6 +313,7 @@ impl Axiom for PsdQuadraticForm {
         true
     }
 }
+pr4xis::register_axiom!(PsdQuadraticForm);
 
 /// Joseph form update preserves PSD.
 pub struct JosephPreservesPsd;
@@ -326,6 +337,7 @@ impl Axiom for JosephPreservesPsd {
         positive_definite::is_positive_semidefinite(&p_new)
     }
 }
+pr4xis::register_axiom!(JosephPreservesPsd);
 
 impl Ontology for LinearAlgebraOntology {
     type Cat = LinearAlgebraCategory;

@@ -215,6 +215,7 @@ impl Axiom for ThreeOssicles {
             && taxonomy::is_a::<AuditoryTaxonomy>(&Stapes, &Ossicle)
     }
 }
+pr4xis::register_axiom!(ThreeOssicles);
 
 pub struct CochleaContainsHairCells;
 impl Axiom for CochleaContainsHairCells {
@@ -227,6 +228,7 @@ impl Axiom for CochleaContainsHairCells {
         parts.contains(&InnerHairCell) && parts.contains(&OuterHairCell)
     }
 }
+pr4xis::register_axiom!(CochleaContainsHairCells);
 
 pub struct EarContainsHairCells;
 impl Axiom for EarContainsHairCells {
@@ -239,6 +241,7 @@ impl Axiom for EarContainsHairCells {
         parts.contains(&InnerHairCell) && parts.contains(&OuterHairCell)
     }
 }
+pr4xis::register_axiom!(EarContainsHairCells);
 
 pub struct CochleaHasThreeScalae;
 impl Axiom for CochleaHasThreeScalae {
@@ -253,6 +256,7 @@ impl Axiom for CochleaHasThreeScalae {
             && parts.contains(&ScalaTympani)
     }
 }
+pr4xis::register_axiom!(CochleaHasThreeScalae);
 
 pub struct AllRegionsRepresented;
 impl Axiom for AllRegionsRepresented {
@@ -269,6 +273,7 @@ impl Axiom for AllRegionsRepresented {
             .all(|target| regions.contains(target))
     }
 }
+pr4xis::register_axiom!(AllRegionsRepresented);
 
 pub struct HairCellsAreMechanicallyActive;
 impl Axiom for HairCellsAreMechanicallyActive {
@@ -281,6 +286,7 @@ impl Axiom for HairCellsAreMechanicallyActive {
             && IsMechanicallyActive.get(&OuterHairCell) == Some(true)
     }
 }
+pr4xis::register_axiom!(HairCellsAreMechanicallyActive);
 
 // ---------------------------------------------------------------------------
 // Ontology impl

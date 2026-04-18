@@ -70,6 +70,10 @@ impl Axiom for TwoSightsFix {
         min_sights == 2
     }
 }
+pr4xis::register_axiom!(
+    TwoSightsFix,
+    "Wertz (2001) \"Space Mission Engineering\"; Bowditch (2002);"
+);
 
 /// Star trackers provide arcsecond-level accuracy.
 ///
@@ -87,6 +91,10 @@ impl Axiom for StarTrackerMostAccurate {
         star_tracker_arcsec < sun_sensor_arcsec && star_tracker_arcsec < horizon_sensor_arcsec
     }
 }
+pr4xis::register_axiom!(
+    StarTrackerMostAccurate,
+    "Wertz (2001) \"Space Mission Engineering\"; Bowditch (2002);"
+);
 
 /// Atmospheric refraction corrupts near-horizon observations.
 ///
@@ -103,6 +111,10 @@ impl Axiom for AtmosphericRefraction {
         refraction_at_horizon > refraction_at_45deg * 10.0
     }
 }
+pr4xis::register_axiom!(
+    AtmosphericRefraction,
+    "Wertz (2001) \"Space Mission Engineering\"; Bowditch (2002);"
+);
 
 /// Approximate atmospheric refraction in arcminutes.
 ///

@@ -67,6 +67,7 @@ impl Functor for TransductionToNeuroscience {
         }
     }
 }
+pr4xis::register_functor!(TransductionToNeuroscience);
 
 #[cfg(test)]
 mod tests {

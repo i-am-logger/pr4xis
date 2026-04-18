@@ -27,29 +27,29 @@ use super::substrate::Pr4xisSubstrateConcept;
 /// | `SubEntity`      | `Predicate`    |
 /// | `SubMorphism`    | `Koordination` |
 /// | `SubCategory`    | `Syntrix`      |
-/// | `SubFunctor`     | `Korporator`   |
-/// | `SubEndofunctor` | `Synkolator`   |
-/// | `SubOntology`    | `Predikatrix`  |
+/// | `SubFunctor`     | `Composer`         (Heim's *Korporator*)       |
+/// | `SubEndofunctor` | `Syncolator`       (Heim's *Synkolator*)       |
+/// | `SubOntology`    | `PredicateMatrix`  (Heim's *Predikatrix*)      |
 pub fn map_substrate(c: &Pr4xisSubstrateConcept) -> SyntrometryConcept {
     use Pr4xisSubstrateConcept as P;
     use SyntrometryConcept as S;
     match c {
         // Core primitives.
         P::SubEntity => S::Predicate,
-        P::SubMorphism => S::Koordination,
+        P::SubMorphism => S::Coordination,
         P::SubCategory => S::Syntrix,
-        P::SubFunctor => S::Korporator,
-        P::SubEndofunctor => S::Synkolator,
-        P::SubOntology => S::Predikatrix,
+        P::SubFunctor => S::Composer,
+        P::SubEndofunctor => S::Syncolator,
+        P::SubOntology => S::PredicateMatrix,
         // Architectural primitives.
         P::SubEigenform => S::Telecenter,
-        P::SubIntention => S::Maxime,
-        P::SubStagingLevel => S::Transzendenzstufe,
+        P::SubIntention => S::Maxim,
+        P::SubStagingLevel => S::TranscendenceLevel,
         P::SubSystemOfSystems => S::Metroplex,
         // Refined sub-kinds — each has a distinct syntrometric counterpart.
         // Opposition-structure is in the dedicated Dialectics ontology,
         // reached via `SyntrometryToDialectics`.
-        P::SubProductCategory => S::Aspekt,
+        P::SubProductCategory => S::Aspect,
         P::SubGradedObject => S::SyntrixLevel,
         P::SubObject => S::Part,
         // Reflexivity is the canonical natural transformation — the

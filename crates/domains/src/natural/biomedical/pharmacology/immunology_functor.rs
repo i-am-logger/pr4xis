@@ -70,6 +70,7 @@ impl Functor for PharmacologyToImmunology {
         }
     }
 }
+pr4xis::register_functor!(PharmacologyToImmunology);
 
 #[cfg(test)]
 mod tests {

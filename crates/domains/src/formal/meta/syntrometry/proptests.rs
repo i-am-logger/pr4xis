@@ -11,7 +11,7 @@ use proptest::prelude::*;
 use super::adjunction::{counit_pair, unit_pair};
 use super::lineage_functor::SyntrometryToPr4xisSubstrate;
 use super::ontology::{
-    AspektIsTripleProduct, SyntrixIsLeveled, SyntrometryCategory, SyntrometryConcept,
+    AspectIsTripleProduct, SyntrixIsLeveled, SyntrometryCategory, SyntrometryConcept,
     SyntrometryOntology, SyntrometryRelation, SyntrometryRelationKind,
 };
 use super::substrate::{Pr4xisSubstrateCategory, Pr4xisSubstrateConcept, Pr4xisSubstrateOntology};
@@ -47,7 +47,7 @@ proptest! {
     /// any non-determinism or state mutation that would break invariance.
     #[test]
     fn aspekt_triple_product_invariant_under_sweep(_ in 0..256u32) {
-        prop_assert!(AspektIsTripleProduct.holds());
+        prop_assert!(AspectIsTripleProduct.holds());
     }
 
     #[test]
@@ -111,16 +111,16 @@ proptest! {
 
     /// 14 of the 18 syntrometric concepts round-trip cleanly through
     /// the primary substrate functor. The four intentional collapses
-    /// (Dialektik, SequencePermutation, OrientationPermutation,
-    /// Aspektivsystem) are handled by dedicated cross-functors.
+    /// (Dialectic, SequencePermutation, OrientationPermutation,
+    /// AspectivalSystem) are handled by dedicated cross-functors.
     #[test]
     fn non_collapsed_concepts_are_round_trip_fixed_points(c in arb_syntrometry_concept()) {
         use SyntrometryConcept as S;
         let collapses = [
-            S::Dialektik,
+            S::Dialectic,
             S::SequencePermutation,
             S::OrientationPermutation,
-            S::Aspektivsystem,
+            S::AspectivalSystem,
         ];
         if collapses.contains(&c) {
             return Ok(());

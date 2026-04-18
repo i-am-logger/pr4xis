@@ -35,16 +35,16 @@ fn map_concept(c: &SyntrometryConcept) -> KripkeConcept {
     use KripkeConcept as K;
     use SyntrometryConcept as S;
     match c {
-        S::Aspekt | S::Maxime | S::Telecenter | S::Metroplex | S::Transzendenzstufe => {
+        S::Aspect | S::Maxim | S::Telecenter | S::Metroplex | S::TranscendenceLevel => {
             K::KripkeFrame
         }
-        S::Aspektivsystem => K::AccessibilityRelation,
+        S::AspectivalSystem => K::AccessibilityRelation,
         S::Predicate => K::PossibleWorld,
-        S::Predikatrix => K::Valuation,
-        S::Dialektik => K::FrameCondition,
-        S::Koordination => K::ForcingRelation,
-        S::Synkolator => K::Necessity,
-        S::Korporator => K::Possibility,
+        S::PredicateMatrix => K::Valuation,
+        S::Dialectic => K::FrameCondition,
+        S::Coordination => K::ForcingRelation,
+        S::Syncolator => K::Necessity,
+        S::Composer => K::Possibility,
         S::Reflexivity => K::Reflexive,
         S::Syntrix
         | S::SyntrixLevel
@@ -86,6 +86,7 @@ impl Functor for SyntrometryToKripke {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToKripke);
 
 #[cfg(test)]
 mod tests {

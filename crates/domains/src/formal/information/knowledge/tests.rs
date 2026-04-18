@@ -108,6 +108,136 @@ fn every_descriptor_has_nonzero_concepts() {
 }
 
 // =============================================================================
+// Lemon-uniform registry tests (issue #148) — axioms / functors / adjunctions
+// auto-registered alongside ontologies.
+// =============================================================================
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn declared_axioms_are_registered() {
+    let axioms = pr4xis::ontology::describe_axioms();
+    // MAPE-K declared three axioms via the `axioms:` clause; they must
+    // appear in the global registry with structured citations.
+    let names: Vec<String> = axioms.iter().map(|m| m.name.as_str().to_string()).collect();
+    assert!(
+        names.iter().any(|n| n == "FourPhaseCycle"),
+        "FourPhaseCycle not auto-registered: got {:?}",
+        names
+    );
+    assert!(
+        names.iter().any(|n| n == "LoopIsClosed"),
+        "LoopIsClosed not auto-registered"
+    );
+    assert!(
+        names.iter().any(|n| n == "EveryPhaseConsultsKnowledge"),
+        "EveryPhaseConsultsKnowledge not auto-registered"
+    );
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn declared_functors_are_registered() {
+    let functors = pr4xis::ontology::describe_functors();
+    // PipelineStepToMapeK migrated to pr4xis::functor! — should be in the slice.
+    let names: Vec<String> = functors
+        .iter()
+        .map(|m| m.name.as_str().to_string())
+        .collect();
+    assert!(
+        names.iter().any(|n| n == "PipelineStepToMapeK"),
+        "PipelineStepToMapeK not auto-registered: got {:?}",
+        names
+    );
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn declared_adjunctions_are_registered() {
+    let adjunctions = pr4xis::ontology::describe_adjunctions();
+    // KnowledgeLemonAdjunction migrated to pr4xis::adjunction!.
+    let names: Vec<String> = adjunctions
+        .iter()
+        .map(|m| m.name.as_str().to_string())
+        .collect();
+    assert!(
+        names.iter().any(|n| n == "KnowledgeLemonAdjunction"),
+        "KnowledgeLemonAdjunction not auto-registered: got {:?}",
+        names
+    );
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn registry_sees_workspace_scale() {
+    // After full migration (issue #148), the three secondary registries
+    // should hold substantial numbers — hundreds of axioms, dozens of
+    // functors, a handful of adjunctions — matching the workspace scale.
+    let axioms = pr4xis::ontology::describe_axioms().len();
+    let functors = pr4xis::ontology::describe_functors().len();
+    let adjunctions = pr4xis::ontology::describe_adjunctions().len();
+
+    assert!(
+        axioms > 100,
+        "expected >100 registered axioms after full migration; got {}",
+        axioms
+    );
+    assert!(
+        functors > 30,
+        "expected >30 registered functors after full migration; got {}",
+        functors
+    );
+    assert!(
+        adjunctions > 2,
+        "expected >2 registered adjunctions after full migration; got {}",
+        adjunctions
+    );
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn workspace_axioms_mostly_carry_citations() {
+    // After issue #148 citation migration, the majority of registered
+    // axioms should carry non-empty citations (from their file's
+    // literature doc block). Some will still be empty (files with no
+    // clear Source: marker); that's acceptable as long as the ratio is high.
+    let axioms = pr4xis::ontology::describe_axioms();
+    let total = axioms.len();
+    let with_citation = axioms
+        .iter()
+        .filter(|m| !m.citation.as_str().is_empty())
+        .count();
+    let ratio = with_citation as f64 / total as f64;
+    assert!(
+        ratio > 0.20,
+        "expected >20% of {} axioms to carry citations; got {} ({:.1}%)",
+        total,
+        with_citation,
+        ratio * 100.0
+    );
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn registered_axioms_carry_nonempty_citations() {
+    // Sample check: axioms declared via the `axioms:` clause must carry
+    // the literature citation given at declaration, not the empty placeholder.
+    let axioms = pr4xis::ontology::describe_axioms();
+    let four_phase = axioms
+        .iter()
+        .find(|m| m.name.as_str() == "FourPhaseCycle")
+        .expect("FourPhaseCycle should be registered");
+    assert!(
+        !four_phase.citation.as_str().is_empty(),
+        "FourPhaseCycle citation is empty — declaration site didn't propagate"
+    );
+    assert!(
+        four_phase.citation.as_str().contains("Kephart"),
+        "FourPhaseCycle citation should reference Kephart & Chess, got: {}",
+        four_phase.citation.as_str()
+    );
+}
+
+// =============================================================================
 // Compose API integration tests
 // =============================================================================
 

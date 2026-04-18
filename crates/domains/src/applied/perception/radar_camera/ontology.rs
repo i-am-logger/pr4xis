@@ -68,6 +68,10 @@ impl Axiom for BothModalitiesRequired {
         radar_to_align && camera_to_align
     }
 }
+pr4xis::register_axiom!(
+    BothModalitiesRequired,
+    "Nobis et al. (2019), \"A Deep Learning-based Radar and Camera Sensor Fusion Architecture\""
+);
 
 /// Axiom: fused output is a terminal stage (no outgoing non-identity morphisms).
 pub struct FusedOutputIsTerminal;
@@ -83,6 +87,10 @@ impl Axiom for FusedOutputIsTerminal {
         })
     }
 }
+pr4xis::register_axiom!(
+    FusedOutputIsTerminal,
+    "Nobis et al. (2019), \"A Deep Learning-based Radar and Camera Sensor Fusion Architecture\""
+);
 
 impl Ontology for RadarCameraOntology {
     type Cat = RadarCameraCategory;

@@ -280,6 +280,7 @@ impl Functor for ControlToEngine {
         EngineRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(ControlToEngine);
 
 #[cfg(test)]
 mod tests {

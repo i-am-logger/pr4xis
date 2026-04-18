@@ -108,6 +108,10 @@ impl Axiom for NucleusSatelliteAsymmetric {
         has_nuc_sat && !has_sat_nuc_elab
     }
 }
+pr4xis::register_axiom!(
+    NucleusSatelliteAsymmetric,
+    "Mann & Thompson (1988); Asher & Lascarides (2003); Hobbs (1979)"
+);
 
 /// Multinuclear relations connect Nucleus to Nucleus (RST).
 #[derive(Debug)]
@@ -126,6 +130,10 @@ impl Axiom for MultinuclearExists {
         })
     }
 }
+pr4xis::register_axiom!(
+    MultinuclearExists,
+    "Mann & Thompson (1988); Asher & Lascarides (2003); Hobbs (1979)"
+);
 
 impl Ontology for DiscourseOntology {
     type Cat = DiscourseCategory;

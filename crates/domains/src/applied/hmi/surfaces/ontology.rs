@@ -229,6 +229,7 @@ impl Axiom for ThemeChangeNaturality {
         true
     }
 }
+pr4xis::register_axiom!(ThemeChangeNaturality);
 /// Quality: how many palette slots a surface consumes.
 #[derive(Debug, Clone)]
 pub struct SlotCoverage;

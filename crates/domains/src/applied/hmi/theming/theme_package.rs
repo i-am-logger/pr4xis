@@ -94,6 +94,7 @@ impl Axiom for HasAtLeastOneVariant {
         !self.theme.variants.is_empty()
     }
 }
+pr4xis::register_axiom!(HasAtLeastOneVariant);
 
 /// Every variant must have a corresponding palette.
 pub struct AllVariantsHavePalettes {
@@ -112,6 +113,7 @@ impl Axiom for AllVariantsHavePalettes {
             .all(|v| self.theme.palettes.contains_key(&v.name))
     }
 }
+pr4xis::register_axiom!(AllVariantsHavePalettes);
 
 /// Each palette must have the minimum required slots for its scheme type.
 /// Base16/Vogix16/Ansi16: at least base00 + base05 (background + foreground)
@@ -132,6 +134,7 @@ impl Axiom for PalettesHaveRequiredSlots {
             .all(|p| p.contains_key(&ColorSlot::Base00) && p.contains_key(&ColorSlot::Base05))
     }
 }
+pr4xis::register_axiom!(PalettesHaveRequiredSlots);
 
 /// Variant orders must be unique.
 pub struct VariantOrdersUnique {
@@ -149,6 +152,7 @@ impl Axiom for VariantOrdersUnique {
         .holds()
     }
 }
+pr4xis::register_axiom!(VariantOrdersUnique);
 
 #[cfg(test)]
 mod tests {

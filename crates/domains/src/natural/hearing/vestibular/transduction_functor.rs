@@ -56,6 +56,7 @@ impl Functor for TransductionToVestibular {
         }
     }
 }
+pr4xis::register_functor!(TransductionToVestibular);
 
 #[cfg(test)]
 mod tests {

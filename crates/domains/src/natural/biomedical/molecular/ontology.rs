@@ -83,6 +83,10 @@ impl Axiom for MolecularMereologyNoCycles {
         mereology::NoCycles::<MolecularMereology>::new().holds()
     }
 }
+pr4xis::register_axiom!(
+    MolecularMereologyNoCycles,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 // ---------------------------------------------------------------------------
 // Causal graph
@@ -323,6 +327,10 @@ impl Axiom for MolecularOppositionSymmetric {
         opposition::Symmetric::<MolecularOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(
+    MolecularOppositionSymmetric,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// Axiom: molecular opposition is irreflexive (nothing opposes itself).
 pub struct MolecularOppositionIrreflexive;
@@ -336,6 +344,10 @@ impl Axiom for MolecularOppositionIrreflexive {
         opposition::Irreflexive::<MolecularOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(
+    MolecularOppositionIrreflexive,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 // ---------------------------------------------------------------------------
 // Axioms
@@ -353,6 +365,10 @@ impl Axiom for MolecularTaxonomyIsDAG {
         taxonomy::NoCycles::<MolecularTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(
+    MolecularTaxonomyIsDAG,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// Piezo1 is-a Mechanosensitive is-a IonChannel (two-level subsumption).
 pub struct Piezo1IsMechanosensitiveChannel;
@@ -369,6 +385,10 @@ impl Axiom for Piezo1IsMechanosensitiveChannel {
             && taxonomy::is_a::<MolecularTaxonomy>(&Piezo1, &IonChannel)
     }
 }
+pr4xis::register_axiom!(
+    Piezo1IsMechanosensitiveChannel,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// TRPV4 is mechanosensitive AND expressed in the esophagus.
 pub struct TRPV4InEsophagus;
@@ -384,6 +404,10 @@ impl Axiom for TRPV4InEsophagus {
             && ExpressedInEsophagus.get(&TRPV4) == Some(true)
     }
 }
+pr4xis::register_axiom!(
+    TRPV4InEsophagus,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// All three mechanosensitive channels (Piezo1, Piezo2, TRPV4) pass calcium.
 pub struct MechanosensitiveChannelsPassCalcium;
@@ -400,6 +424,10 @@ impl Axiom for MechanosensitiveChannelsPassCalcium {
             .all(|ch| IonSelectivity.get(ch) == Some(Calcium))
     }
 }
+pr4xis::register_axiom!(
+    MechanosensitiveChannelsPassCalcium,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// The causal graph is asymmetric: if A causes B then B does not cause A.
 pub struct CausalGraphIsAsymmetric;
@@ -413,6 +441,10 @@ impl Axiom for CausalGraphIsAsymmetric {
         causation::Asymmetric::<MechanotransductionCausalGraph>::new().holds()
     }
 }
+pr4xis::register_axiom!(
+    CausalGraphIsAsymmetric,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// No event directly causes itself in the causal graph.
 pub struct CausalGraphNoSelfCause;
@@ -426,6 +458,10 @@ impl Axiom for CausalGraphNoSelfCause {
         causation::NoSelfCausation::<MechanotransductionCausalGraph>::new().holds()
     }
 }
+pr4xis::register_axiom!(
+    CausalGraphNoSelfCause,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// Mechanical stress transitively causes morphological change.
 pub struct MechanicalStressCausesMorphology;
@@ -441,6 +477,10 @@ impl Axiom for MechanicalStressCausesMorphology {
         effects.contains(&MorphologicalChange)
     }
 }
+pr4xis::register_axiom!(
+    MechanicalStressCausesMorphology,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// Acid exposure causes Kv inhibition causes Vmem shift.
 pub struct AcidCausesVmemShift;
@@ -456,6 +496,10 @@ impl Axiom for AcidCausesVmemShift {
         acid_effects.contains(&KvInhibition) && acid_effects.contains(&VmemShift)
     }
 }
+pr4xis::register_axiom!(
+    AcidCausesVmemShift,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// GlyR activation causes chloride influx causes Vmem shift (hyperpolarization).
 pub struct GlyRCausesHyperpolarization;
@@ -471,6 +515,10 @@ impl Axiom for GlyRCausesHyperpolarization {
         effects.contains(&ChlorideInflux) && effects.contains(&VmemShift)
     }
 }
+pr4xis::register_axiom!(
+    GlyRCausesHyperpolarization,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// Nernst potentials are consistent: K < 0, Na > 0, Ca > 0, Cl < 0.
 pub struct NernstPotentialsConsistent;
@@ -490,6 +538,10 @@ impl Axiom for NernstPotentialsConsistent {
             && e.get(&Proton).unwrap() < 0.0
     }
 }
+pr4xis::register_axiom!(
+    NernstPotentialsConsistent,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 // ---------------------------------------------------------------------------
 // Context — functional mode disambiguation
@@ -622,6 +674,10 @@ impl Axiom for MolecularContextDeterministic {
         context::Deterministic::<MolecularFunctionalContext>::default().holds()
     }
 }
+pr4xis::register_axiom!(
+    MolecularContextDeterministic,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// Axiom: all disambiguated molecules have true ambiguity.
 /// Every molecule in the context map resolves to at least 2 distinct roles.
@@ -635,6 +691,10 @@ impl Axiom for MolecularContextTrueAmbiguity {
         context::TrueAmbiguity::<MolecularFunctionalContext>::default().holds()
     }
 }
+pr4xis::register_axiom!(
+    MolecularContextTrueAmbiguity,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// Axiom: Kv in constitutive mode is passive homeostatic (sets resting Vmem),
 /// but in therapeutic mode is a target (drug shifts Vmem).
@@ -656,6 +716,10 @@ impl Axiom for KvDualRole {
                 == Some(TherapeuticTarget)
     }
 }
+pr4xis::register_axiom!(
+    KvDualRole,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 /// Axiom: Piezo1 in constitutive mode is a sensor, in therapeutic mode is a target.
 /// Vibration therapy works by shifting Piezo1 from sensing to being actively driven.
@@ -675,6 +739,10 @@ impl Axiom for Piezo1DualRole {
                 == Some(TherapeuticTarget)
     }
 }
+pr4xis::register_axiom!(
+    Piezo1DualRole,
+    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
+);
 
 // ---------------------------------------------------------------------------
 // Ontology

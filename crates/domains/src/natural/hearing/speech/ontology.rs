@@ -169,6 +169,7 @@ impl Axiom for FormantsAreOrdered {
             && f.get(&F3).unwrap() < f.get(&F4).unwrap()
     }
 }
+pr4xis::register_axiom!(FormantsAreOrdered);
 pub struct FormantsClassified;
 impl Axiom for FormantsClassified {
     fn description(&self) -> &str {
@@ -182,6 +183,7 @@ impl Axiom for FormantsClassified {
         })
     }
 }
+pr4xis::register_axiom!(FormantsClassified);
 pub struct FiveConsonantManners;
 impl Axiom for FiveConsonantManners {
     fn description(&self) -> &str {
@@ -194,6 +196,7 @@ impl Axiom for FiveConsonantManners {
             .all(|c| taxonomy::is_a::<SpeechTaxonomy>(c, &Consonant))
     }
 }
+pr4xis::register_axiom!(FiveConsonantManners);
 pub struct VoicedOpposesVoiceless;
 impl Axiom for VoicedOpposesVoiceless {
     fn description(&self) -> &str {
@@ -203,6 +206,7 @@ impl Axiom for VoicedOpposesVoiceless {
         opposition::are_opposed::<SpeechOpposition>(&SpeechEntity::Voiced, &SpeechEntity::Voiceless)
     }
 }
+pr4xis::register_axiom!(VoicedOpposesVoiceless);
 pub struct SyllableContainsVowelsAndConsonants;
 impl Axiom for SyllableContainsVowelsAndConsonants {
     fn description(&self) -> &str {
@@ -214,6 +218,7 @@ impl Axiom for SyllableContainsVowelsAndConsonants {
         parts.contains(&Vowel) && parts.contains(&Consonant)
     }
 }
+pr4xis::register_axiom!(SyllableContainsVowelsAndConsonants);
 pub struct IntentCausesPerception;
 impl Axiom for IntentCausesPerception {
     fn description(&self) -> &str {
@@ -225,6 +230,7 @@ impl Axiom for IntentCausesPerception {
             .contains(&ListenerPerception)
     }
 }
+pr4xis::register_axiom!(IntentCausesPerception);
 
 impl Ontology for SpeechOntology {
     type Cat = SpeechCategory;

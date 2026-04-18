@@ -439,7 +439,7 @@ impl fmt::Display for Year {
 
 /// Synkolation level (Heim's terminology) — depth in the Metroplex hierarchy.
 ///
-/// Level 0 = base ontology. Each Korporator composition increments by 1.
+/// Level 0 = base ontology. Each Composer composition (Heim's *Korporator*) increments by 1.
 /// The runtime `Ontology` in compose.rs carries this.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SynkolationLevel(usize);

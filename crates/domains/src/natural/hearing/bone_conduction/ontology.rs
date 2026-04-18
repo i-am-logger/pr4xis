@@ -199,6 +199,7 @@ impl Axiom for FourBCMechanisms {
             .all(|m| taxonomy::is_a::<BoneCondTaxonomy>(m, &BCMechanism))
     }
 }
+pr4xis::register_axiom!(FourBCMechanisms);
 
 pub struct TransducerCausesCochlearResponse;
 impl Axiom for TransducerCausesCochlearResponse {
@@ -210,6 +211,7 @@ impl Axiom for TransducerCausesCochlearResponse {
         causation::effects_of::<BCCausalGraph>(&TransducerActivation).contains(&CochlearResponse)
     }
 }
+pr4xis::register_axiom!(TransducerCausesCochlearResponse);
 
 pub struct AllPathwaysConverge;
 impl Axiom for AllPathwaysConverge {
@@ -225,6 +227,7 @@ impl Axiom for AllPathwaysConverge {
                 .contains(&CochlearResponse)
     }
 }
+pr4xis::register_axiom!(AllPathwaysConverge);
 
 pub struct InertialCoversSpeechRange;
 impl Axiom for InertialCoversSpeechRange {
@@ -238,6 +241,7 @@ impl Axiom for InertialCoversSpeechRange {
         inertial.low <= 300.0 && inertial.high >= 3000.0
     }
 }
+pr4xis::register_axiom!(InertialCoversSpeechRange);
 
 pub struct ForeheadResonanceHigherThanMastoid;
 impl Axiom for ForeheadResonanceHigherThanMastoid {
@@ -250,6 +254,7 @@ impl Axiom for ForeheadResonanceHigherThanMastoid {
             > SkullResonanceFrequency.get(&Mastoid).unwrap()
     }
 }
+pr4xis::register_axiom!(ForeheadResonanceHigherThanMastoid);
 
 pub struct MidlineSitesSymmetric;
 impl Axiom for MidlineSitesSymmetric {
@@ -262,6 +267,7 @@ impl Axiom for MidlineSitesSymmetric {
             && TranscranialAttenuationDB.get(&Vertex) == Some(0.0)
     }
 }
+pr4xis::register_axiom!(MidlineSitesSymmetric);
 
 impl Ontology for BoneConductionOntology {
     type Cat = BoneConductionCategory;

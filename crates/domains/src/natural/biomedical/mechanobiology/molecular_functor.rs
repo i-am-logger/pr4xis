@@ -70,6 +70,7 @@ impl Functor for MechanobiologyToMolecular {
         }
     }
 }
+pr4xis::register_functor!(MechanobiologyToMolecular);
 
 #[cfg(test)]
 mod tests {

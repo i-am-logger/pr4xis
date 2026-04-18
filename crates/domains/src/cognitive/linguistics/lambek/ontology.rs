@@ -86,6 +86,10 @@ impl Axiom for LambekHasBothAdjoints {
                 .any(|(c, p)| *c == LambekConcept::RightAdjoint && *p == LambekConcept::LambekType)
     }
 }
+pr4xis::register_axiom!(
+    LambekHasBothAdjoints,
+    "- Lambek, J. (1958). *The Mathematics of Sentence Structure*. American"
+);
 
 impl Ontology for LambekOntology {
     type Cat = LambekCategory;

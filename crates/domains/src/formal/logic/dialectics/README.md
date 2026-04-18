@@ -1,6 +1,6 @@
 # Dialectics — reasoning through opposition
 
-Categorical and ontological encoding of dialectical reasoning from Aristotle's *Peri Hermeneias* (~350 BCE) through Hegel, Marx, Adorno, and Priest's dialetheism. Serves as the literature-grounded target for `Syntrometry::Dialektik` (Heim's binary-opposition-on-a-Predikatrix primitive) and as a reusable formal substrate for any pr4xis ontology that reasons via opposition + synthesis.
+Categorical and ontological encoding of dialectical reasoning from Aristotle's *Peri Hermeneias* (~350 BCE) through Hegel, Marx, Adorno, and Priest's dialetheism. Serves as the literature-grounded target for `Syntrometry::Dialectic` (Heim's *Dialektik* — binary-opposition-on-a-PredicateMatrix primitive) and as a reusable formal substrate for any pr4xis ontology that reasons via opposition + synthesis.
 
 ## Verification
 
@@ -39,7 +39,7 @@ All six are first-class `Axiom.holds()` tests:
 
 Dialectics is the target of cross-functors from older/adjacent ontologies:
 
-- `Syntrometry → Dialectics` (in `formal::meta::syntrometry::dialectics_functor`) — Heim's `Dialektik` ↦ `DialecticalMoment`; Synkolator/Korporator/Maxime/Transzendenzstufe ↦ `Sublation`; Aspekt/Telecenter ↦ `Synthesis`. Verified by `syntrometry_to_dialectics_laws_pass`.
+- `Syntrometry → Dialectics` (in `formal::meta::syntrometry::dialectics_functor`) — Heim's *Dialektik* (`Dialectic`) ↦ `DialecticalMoment`; `Syncolator`/`Composer`/`Maxim`/`TranscendenceLevel` ↦ `Sublation`; `Aspect`/`Telecenter` ↦ `Synthesis`. Verified by `syntrometry_to_dialectics_laws_pass`.
 
 Future cross-functors: `Distinction → Dialectics` (Spencer-Brown `Boundary` ↦ `DeterminateNegation`); `Dialectics → Opposition`-reasoning module consumption (already handled via the `opposes:` block in `ontology.rs`).
 

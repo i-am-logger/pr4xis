@@ -490,6 +490,7 @@ impl pr4xis::logic::Axiom for RestrictionNeedsProperty {
             .any(|m| m.source == OwlConcept::Restriction && m.target == OwlConcept::ObjectProperty)
     }
 }
+pr4xis::register_axiom!(RestrictionNeedsProperty);
 
 /// Quality: is this OWL concept a class expression?
 #[derive(Debug, Clone)]

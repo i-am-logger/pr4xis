@@ -55,6 +55,10 @@ impl Axiom for ProjectionPreservesOrdering {
         true
     }
 }
+pr4xis::register_axiom!(
+    ProjectionPreservesOrdering,
+    "Caltagirone et al. (2019), \"LiDAR-Camera Fusion for Road Detection\""
+);
 
 /// Axiom: the fusion pipeline must proceed in order (Detection before Projection).
 pub struct PipelineIsSequential;
@@ -72,6 +76,10 @@ impl Axiom for PipelineIsSequential {
         })
     }
 }
+pr4xis::register_axiom!(
+    PipelineIsSequential,
+    "Caltagirone et al. (2019), \"LiDAR-Camera Fusion for Road Detection\""
+);
 
 fn stage_index(s: LidarCameraConcept) -> usize {
     match s {

@@ -141,6 +141,10 @@ impl Axiom for SharedLexicon {
         parse_has && gen_has
     }
 }
+pr4xis::register_axiom!(
+    SharedLexicon,
+    "de Groote (2001); Lambek (1958); Lambek & Scott (1986);"
+);
 
 /// Parse and Generate are opposed (adjunction).
 #[derive(Debug)]
@@ -157,6 +161,10 @@ impl Axiom for ParseGenerateAdjoint {
             .any(|(a, b)| *a == PipelineConcept::Parse && *b == PipelineConcept::Generate)
     }
 }
+pr4xis::register_axiom!(
+    ParseGenerateAdjoint,
+    "de Groote (2001); Lambek (1958); Lambek & Scott (1986);"
+);
 
 /// Surface and Meaning are opposed endpoints.
 #[derive(Debug)]
@@ -173,6 +181,10 @@ impl Axiom for SurfaceMeaningOpposed {
         })
     }
 }
+pr4xis::register_axiom!(
+    SurfaceMeaningOpposed,
+    "de Groote (2001); Lambek (1958); Lambek & Scott (1986);"
+);
 
 impl Ontology for PipelineOntology {
     type Cat = PipelineCategory;

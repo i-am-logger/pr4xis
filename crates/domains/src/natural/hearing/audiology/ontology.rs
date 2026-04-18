@@ -189,6 +189,7 @@ impl Axiom for DiagnosticTestContainsConductionTests {
         parts.contains(&AirConductionTest) && parts.contains(&BoneConductionTest)
     }
 }
+pr4xis::register_axiom!(DiagnosticTestContainsConductionTests);
 
 pub struct ABRWavesOrdered;
 impl Axiom for ABRWavesOrdered {
@@ -202,6 +203,7 @@ impl Axiom for ABRWavesOrdered {
             && l.get(&WaveIII).unwrap() < l.get(&WaveV).unwrap()
     }
 }
+pr4xis::register_axiom!(ABRWavesOrdered);
 
 pub struct ThreeTympanogramTypes;
 impl Axiom for ThreeTympanogramTypes {
@@ -215,6 +217,7 @@ impl Axiom for ThreeTympanogramTypes {
             .all(|t| taxonomy::is_a::<AudiologyTaxonomy>(t, &Tympanometry))
     }
 }
+pr4xis::register_axiom!(ThreeTympanogramTypes);
 
 pub struct ABRLongerThanTympanometry;
 impl Axiom for ABRLongerThanTympanometry {
@@ -227,6 +230,7 @@ impl Axiom for ABRLongerThanTympanometry {
             > TestDurationMinutes.get(&Tympanometry).unwrap()
     }
 }
+pr4xis::register_axiom!(ABRLongerThanTympanometry);
 
 pub struct ABRIsObjective;
 impl Axiom for ABRIsObjective {
@@ -237,6 +241,7 @@ impl Axiom for ABRIsObjective {
         RequiresCooperation.get(&AudiologyEntity::AuditoryBrainstemResponse) == Some(false)
     }
 }
+pr4xis::register_axiom!(ABRIsObjective);
 
 pub struct FullClinicalPathway;
 impl Axiom for FullClinicalPathway {
@@ -248,6 +253,7 @@ impl Axiom for FullClinicalPathway {
         causation::effects_of::<AudiologyCausalGraph>(&PatientPresents).contains(&OutcomeVerified)
     }
 }
+pr4xis::register_axiom!(FullClinicalPathway);
 
 pub struct QuickSINSubsumption;
 impl Axiom for QuickSINSubsumption {
@@ -261,6 +267,7 @@ impl Axiom for QuickSINSubsumption {
             && taxonomy::is_a::<AudiologyTaxonomy>(&QuickSIN, &SpeechTest)
     }
 }
+pr4xis::register_axiom!(QuickSINSubsumption);
 
 // Ontology impl
 

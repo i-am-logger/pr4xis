@@ -74,6 +74,7 @@ impl Functor for BiochemistryToMolecular {
         }
     }
 }
+pr4xis::register_functor!(BiochemistryToMolecular);
 
 #[cfg(test)]
 mod tests {

@@ -10,7 +10,6 @@
 // lose distinction when linguistically realized, and which linguistic
 // concepts have no knowledge-base counterpart.
 
-use pr4xis::category::Adjunction;
 use pr4xis::category::Functor;
 
 use super::lemon_functor::KnowledgeToLemon;
@@ -20,34 +19,36 @@ use crate::cognitive::linguistics::lemon::ontology::{
     LemonConcept, LemonRelation, LemonRelationKind,
 };
 
-pub struct KnowledgeLemonAdjunction;
-
-impl Adjunction for KnowledgeLemonAdjunction {
-    type Left = KnowledgeToLemon;
-    type Right = LemonToKnowledge;
-
-    fn unit(obj: &KnowledgeConcept) -> KnowledgeRelation {
+// Declared via `adjunction!` so it carries structured `AdjunctionMeta`
+// (name + citation + module_path) into the Lemon lexicon uniformly with
+// ontologies, axioms, and functors (issue #148).
+pr4xis::adjunction! {
+    name: KnowledgeLemonAdjunction,
+    left: KnowledgeToLemon,
+    right: LemonToKnowledge,
+    citation: "McCrae et al. (2012, 2017) OntoLex-Lemon; issue #148 uniform meta",
+    unit: |obj: &KnowledgeConcept| -> KnowledgeRelation {
         let round_trip = LemonToKnowledge::map_object(&KnowledgeToLemon::map_object(obj));
         KnowledgeRelation {
             from: *obj,
             to: round_trip,
             kind: KnowledgeRelationKind::Composed,
         }
-    }
-
-    fn counit(obj: &LemonConcept) -> LemonRelation {
+    },
+    counit: |obj: &LemonConcept| -> LemonRelation {
         let round_trip = KnowledgeToLemon::map_object(&LemonToKnowledge::map_object(obj));
         LemonRelation {
             from: round_trip,
             to: *obj,
             kind: LemonRelationKind::Composed,
         }
-    }
+    },
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Adjunction;
     use pr4xis::category::entity::Entity;
 
     #[test]

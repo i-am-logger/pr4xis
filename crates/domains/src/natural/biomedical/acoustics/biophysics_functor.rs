@@ -75,6 +75,7 @@ impl Functor for AcousticsToBiophysics {
         }
     }
 }
+pr4xis::register_functor!(AcousticsToBiophysics);
 
 #[cfg(test)]
 mod tests {

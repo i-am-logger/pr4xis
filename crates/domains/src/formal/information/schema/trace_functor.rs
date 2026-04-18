@@ -74,6 +74,7 @@ impl Functor for SchemaToTraceSchema {
         TraceSchemaRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(SchemaToTraceSchema);
 
 #[cfg(test)]
 mod tests {

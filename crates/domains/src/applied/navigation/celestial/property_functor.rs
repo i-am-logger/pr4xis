@@ -41,6 +41,10 @@ impl Functor for CelestialToProperty {
         }
     }
 }
+pr4xis::register_functor!(
+    CelestialToProperty,
+    "Wertz (2001); Bowditch (2002); Groves (2013)."
+);
 
 #[cfg(test)]
 mod tests {

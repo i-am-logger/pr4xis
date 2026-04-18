@@ -64,6 +64,10 @@ impl Axiom for InnovationZeroAtPrediction {
         inn.residual.norm() < 1e-12
     }
 }
+pr4xis::register_axiom!(
+    InnovationZeroAtPrediction,
+    "JDL (1999); Bar-Shalom et al. (2001)."
+);
 
 /// Axiom: gate at mean always accepts.
 pub struct GateAcceptsMean;
@@ -83,6 +87,7 @@ impl Axiom for GateAcceptsMean {
         gate.accept(&inn)
     }
 }
+pr4xis::register_axiom!(GateAcceptsMean, "JDL (1999); Bar-Shalom et al. (2001).");
 
 impl Ontology for ObservationOntology {
     type Cat = ObservationCategory;

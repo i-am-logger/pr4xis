@@ -48,6 +48,10 @@ impl Axiom for TemperatureAboveAbsoluteZero {
         true
     }
 }
+pr4xis::register_axiom!(
+    TemperatureAboveAbsoluteZero,
+    "Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*"
+);
 
 /// Axiom: pressure is non-negative (absolute pressure).
 pub struct PressureNonNegative;
@@ -60,6 +64,10 @@ impl Axiom for PressureNonNegative {
         true
     }
 }
+pr4xis::register_axiom!(
+    PressureNonNegative,
+    "Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*"
+);
 
 impl Ontology for ProcessOntology {
     type Cat = ProcessCategory;

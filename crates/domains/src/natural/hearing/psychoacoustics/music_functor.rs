@@ -71,6 +71,7 @@ impl Functor for PsychoacousticsToMusic {
         }
     }
 }
+pr4xis::register_functor!(PsychoacousticsToMusic);
 
 #[cfg(test)]
 mod tests {

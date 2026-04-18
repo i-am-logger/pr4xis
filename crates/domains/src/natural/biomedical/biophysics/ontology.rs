@@ -250,6 +250,7 @@ impl Axiom for BiophysicsTaxonomyIsDAG {
         taxonomy::NoCycles::<BiophysicsTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(BiophysicsTaxonomyIsDAG);
 
 /// Axiom: biophysics causal graph is asymmetric.
 pub struct BiophysicsCausalAsymmetric;
@@ -263,6 +264,7 @@ impl Axiom for BiophysicsCausalAsymmetric {
         causation::Asymmetric::<BiophysicsCauses>::new().holds()
     }
 }
+pr4xis::register_axiom!(BiophysicsCausalAsymmetric);
 
 /// Axiom: ExternalVibration transitively causes MechanotransducerActivation.
 pub struct VibrationCausesMechanotransduction;
@@ -279,6 +281,7 @@ impl Axiom for VibrationCausesMechanotransduction {
         effects.contains(&MechanotransducerActivation)
     }
 }
+pr4xis::register_axiom!(VibrationCausesMechanotransduction);
 
 /// Axiom: PiezoelectricChargeGeneration follows TissueDeformation.
 /// Fukada & Yasuda 1957: mechanical stress on bone generates electric charge.
@@ -296,6 +299,7 @@ impl Axiom for PiezoelectricFollowsDeformation {
         effects.contains(&PiezoelectricChargeGeneration)
     }
 }
+pr4xis::register_axiom!(PiezoelectricFollowsDeformation);
 
 /// Axiom: BoneMatrix is piezoelectric (collagen content).
 pub struct BoneMatrixIsPiezoelectric;
@@ -309,6 +313,7 @@ impl Axiom for BoneMatrixIsPiezoelectric {
         IsPiezoelectric.get(&BiophysicsEntity::BoneMatrix) == Some(true)
     }
 }
+pr4xis::register_axiom!(BoneMatrixIsPiezoelectric);
 
 /// Axiom: BoneMatrix impedance > SoftTissue impedance (impedance mismatch = reflection).
 pub struct BoneImpedanceGreaterThanSoftTissue;
@@ -328,6 +333,7 @@ impl Axiom for BoneImpedanceGreaterThanSoftTissue {
         }
     }
 }
+pr4xis::register_axiom!(BoneImpedanceGreaterThanSoftTissue);
 
 /// Axiom: ImpedanceMismatch causes WaveReflection.
 pub struct ImpedanceMismatchCausesReflection;
@@ -343,6 +349,7 @@ impl Axiom for ImpedanceMismatchCausesReflection {
         effects.contains(&WaveReflection)
     }
 }
+pr4xis::register_axiom!(ImpedanceMismatchCausesReflection);
 
 /// Axiom: biophysics opposition is symmetric.
 pub struct BiophysicsOppositionSymmetric;
@@ -356,6 +363,7 @@ impl Axiom for BiophysicsOppositionSymmetric {
         opposition::Symmetric::<BiophysicsOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(BiophysicsOppositionSymmetric);
 
 /// Axiom: biophysics opposition is irreflexive.
 pub struct BiophysicsOppositionIrreflexive;
@@ -369,6 +377,7 @@ impl Axiom for BiophysicsOppositionIrreflexive {
         opposition::Irreflexive::<BiophysicsOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(BiophysicsOppositionIrreflexive);
 
 /// Axiom: no biophysics causal event directly causes itself.
 pub struct BiophysicsCausalNoSelfCausation;
@@ -382,6 +391,7 @@ impl Axiom for BiophysicsCausalNoSelfCausation {
         causation::NoSelfCausation::<BiophysicsCauses>::new().holds()
     }
 }
+pr4xis::register_axiom!(BiophysicsCausalNoSelfCausation);
 
 // ---------------------------------------------------------------------------
 // Ontology

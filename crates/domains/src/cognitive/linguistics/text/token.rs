@@ -44,37 +44,18 @@ pub struct Token {
 }
 
 impl Token {
-    /// The surface form (backward compat with TypedToken.word).
-    pub fn surface(&self) -> &str {
-        &self.word
-    }
-
-    /// The grammatical type (backward compat with TypedToken.lambek_type).
-    pub fn grammar_type(&self) -> &LambekType {
-        &self.lambek_type
-    }
-
     /// Whether this token has a resolved ontology reference.
     pub fn has_sense(&self) -> bool {
         self.sense.is_some()
     }
 }
 
-/// Convert from the legacy TypedToken for backward compatibility.
-/// This allows gradual migration — callers that still use TypedToken
-/// can convert to Token, gaining the sense/pos fields as None.
-impl From<crate::cognitive::linguistics::lambek::reduce::TypedToken> for Token {
-    fn from(t: crate::cognitive::linguistics::lambek::reduce::TypedToken) -> Self {
-        Self {
-            word: t.word,
-            lambek_type: t.lambek_type,
-            sense: None,
-            pos: None,
-        }
-    }
-}
-
-/// Convert back to legacy TypedToken (lossy — drops sense/pos).
+/// Convert an ontological `Token` to the lower-level `TypedToken` the
+/// Lambek reducer currently consumes (drops `sense` / `pos`).
+///
+/// Used by `chat::process_with_metadata` to feed tokenised input into
+/// the reducer. When the reducer is migrated to consume `Token`
+/// directly, this conversion disappears.
 impl From<Token> for crate::cognitive::linguistics::lambek::reduce::TypedToken {
     fn from(t: Token) -> Self {
         Self {
@@ -88,18 +69,6 @@ impl From<Token> for crate::cognitive::linguistics::lambek::reduce::TypedToken {
 mod tests {
     use super::*;
     use crate::cognitive::linguistics::lambek::types::LambekType;
-
-    #[test]
-    fn token_from_typed_token() {
-        let legacy = crate::cognitive::linguistics::lambek::reduce::TypedToken {
-            word: "dog".into(),
-            lambek_type: LambekType::n(),
-        };
-        let token: Token = legacy.into();
-        assert_eq!(token.surface(), "dog");
-        assert_eq!(*token.grammar_type(), LambekType::n());
-        assert!(!token.has_sense());
-    }
 
     #[test]
     fn token_with_sense() {

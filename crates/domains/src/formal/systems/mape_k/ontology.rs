@@ -39,7 +39,6 @@
 //!   `cognitive::cognition::metacognition` (second-order monitoring),
 //!   `cognitive::linguistics::pipeline` (the chat flow itself).
 
-use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
@@ -92,6 +91,58 @@ pr4xis::ontology! {
         (Plan, Knowledge, Consults),
         (Execute, Knowledge, Consults),
     ],
+
+    axioms: {
+        FourPhaseCycle: {
+            source: "Kephart & Chess (2003) §2",
+            description: "the direct children of MapeKPhase are exactly {Monitor, Analyze, Plan, Execute} (Kephart & Chess 2003)",
+            holds: {
+                let actual = direct_children_of(MapeKConcept::MapeKPhase);
+                let expected = [
+                    MapeKConcept::Monitor,
+                    MapeKConcept::Analyze,
+                    MapeKConcept::Plan,
+                    MapeKConcept::Execute,
+                ];
+                actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
+            },
+        },
+        LoopIsClosed: {
+            source: "Kephart & Chess (2003) §2",
+            description: "the four phases form a closed cycle M → A → P → E → M (Kephart & Chess 2003 §2)",
+            holds: {
+                use MapeKConcept as M;
+                use MapeKRelationKind as K;
+                use pr4xis::category::Category;
+                let morphs = MapeKCategory::morphisms();
+                let has = |from: M, to: M| {
+                    morphs
+                        .iter()
+                        .any(|r| r.from == from && r.to == to && r.kind == K::HandsOffTo)
+                };
+                has(M::Monitor, M::Analyze)
+                    && has(M::Analyze, M::Plan)
+                    && has(M::Plan, M::Execute)
+                    && has(M::Execute, M::Monitor)
+            },
+        },
+        EveryPhaseConsultsKnowledge: {
+            source: "Kephart & Chess (2003) §2",
+            description: "every MAPE phase has a Consults edge to Knowledge (Kephart & Chess 2003 §2 — shared K)",
+            holds: {
+                use MapeKConcept as M;
+                use MapeKRelationKind as K;
+                use pr4xis::category::Category;
+                let morphs = MapeKCategory::morphisms();
+                let consults = |from: M| {
+                    morphs
+                        .iter()
+                        .any(|r| r.from == from && r.to == M::Knowledge && r.kind == K::Consults)
+                };
+                consults(M::Monitor) && consults(M::Analyze) && consults(M::Plan) && consults(M::Execute)
+            },
+        },
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -132,78 +183,12 @@ fn direct_children_of(parent: MapeKConcept) -> Vec<MapeKConcept> {
 }
 
 // ---------------------------------------------------------------------------
-// Axioms — invariants of the MAPE-K architecture
+// Ontology impl — wires the macro-generated axioms into the Ontology trait
 // ---------------------------------------------------------------------------
-
-/// Axiom: the direct children of `MapeKPhase` are exactly
-/// `{Monitor, Analyze, Plan, Execute}` — Kephart & Chess (2003) §2.
-/// Three-phase variants (e.g., MAP) are rejected; the full four are
-/// required.
-pub struct FourPhaseCycle;
-
-impl Axiom for FourPhaseCycle {
-    fn description(&self) -> &str {
-        "the direct children of MapeKPhase are exactly {Monitor, Analyze, Plan, Execute} (Kephart & Chess 2003)"
-    }
-    fn holds(&self) -> bool {
-        let actual = direct_children_of(MapeKConcept::MapeKPhase);
-        let expected = [
-            MapeKConcept::Monitor,
-            MapeKConcept::Analyze,
-            MapeKConcept::Plan,
-            MapeKConcept::Execute,
-        ];
-        actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
-    }
-}
-
-/// Axiom: the phase-to-phase transitions form a closed 4-cycle:
-/// `Monitor → Analyze → Plan → Execute → Monitor`. Without the
-/// `Execute → Monitor` closing edge, MAPE-K would be a linear pipeline
-/// rather than an autonomic loop.
-pub struct LoopIsClosed;
-
-impl Axiom for LoopIsClosed {
-    fn description(&self) -> &str {
-        "the four phases form a closed cycle M → A → P → E → M (Kephart & Chess 2003 §2)"
-    }
-    fn holds(&self) -> bool {
-        use MapeKConcept as M;
-        use MapeKRelationKind as K;
-        let morphs = MapeKCategory::morphisms();
-        let has = |from: M, to: M| {
-            morphs
-                .iter()
-                .any(|r| r.from == from && r.to == to && r.kind == K::HandsOffTo)
-        };
-        has(M::Monitor, M::Analyze)
-            && has(M::Analyze, M::Plan)
-            && has(M::Plan, M::Execute)
-            && has(M::Execute, M::Monitor)
-    }
-}
-
-/// Axiom: every phase `Consults` `Knowledge` — the K in MAPE-K is
-/// shared, not a phase's private state. Kephart & Chess (2003) §2:
-/// "all four of these phases share a common knowledge base."
-pub struct EveryPhaseConsultsKnowledge;
-
-impl Axiom for EveryPhaseConsultsKnowledge {
-    fn description(&self) -> &str {
-        "every MAPE phase has a Consults edge to Knowledge (Kephart & Chess 2003 §2 — shared K)"
-    }
-    fn holds(&self) -> bool {
-        use MapeKConcept as M;
-        use MapeKRelationKind as K;
-        let morphs = MapeKCategory::morphisms();
-        let consults = |from: M| {
-            morphs
-                .iter()
-                .any(|r| r.from == from && r.to == M::Knowledge && r.kind == K::Consults)
-        };
-        consults(M::Monitor) && consults(M::Analyze) && consults(M::Plan) && consults(M::Execute)
-    }
-}
+//
+// FourPhaseCycle, LoopIsClosed, EveryPhaseConsultsKnowledge are all declared
+// in the `axioms:` clause above. `generated_domain_axioms()` builds the Vec
+// from those declarations; no hand-written `impl Axiom` blocks needed.
 
 impl Ontology for MapeKOntology {
     type Cat = MapeKCategory;
@@ -214,11 +199,7 @@ impl Ontology for MapeKOntology {
     }
 
     fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(FourPhaseCycle),
-            Box::new(LoopIsClosed),
-            Box::new(EveryPhaseConsultsKnowledge),
-        ]
+        MapeKOntology::generated_domain_axioms()
     }
 }
 

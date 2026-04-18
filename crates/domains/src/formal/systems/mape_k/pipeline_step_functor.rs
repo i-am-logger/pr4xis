@@ -40,7 +40,7 @@
 //! *consults*, not a stage they belong to. This follows Kephart & Chess's
 //! own diagram exactly.
 
-use pr4xis::category::{Category, Functor};
+use pr4xis::category::Category;
 
 use super::ontology::{MapeKCategory, MapeKConcept, MapeKRelation};
 use crate::formal::information::diagnostics::trace_functors::PipelineStep;
@@ -51,6 +51,15 @@ use crate::formal::information::diagnostics::trace_functors::PipelineStep;
 /// declared edges between its variants. That's enough for the
 /// object-level mapping here; a future enriched version could add
 /// `SequencedBy` edges if the linear order matters for downstream laws.
+///
+/// **Deferred removal** — issue #148: `PipelineStepCategory` is a
+/// structural wrapper (fails the "literature or remove" rule). The
+/// right source is a Heim `Composer` composition of the 13 participating
+/// ontologies (Lemon, Lambek, Montague, WordNet, Planning, Response,
+/// Nlg, Discourse, Production, MetaCognition, Epistemic, Pipeline).
+/// Replacing this wrapper requires `compose::Ontology` to implement
+/// `Category` — a runtime-vs-compile-time bridge that deserves its own
+/// PR. Tracked in #148.
 pub struct PipelineStepCategory;
 
 /// Identity-only wrapper morphism for `PipelineStep`.
@@ -122,25 +131,22 @@ fn map_step(step: &PipelineStep) -> MapeKConcept {
     step.phase()
 }
 
-/// Functor: the 13-step `PipelineStep` category → the 5-concept MAPE-K
-/// ontology. Pure collapse — 13 → 4 (Knowledge is the consulted substrate,
-/// not a step).
-pub struct PipelineStepToMapeK;
-
-impl Functor for PipelineStepToMapeK {
-    type Source = PipelineStepCategory;
-    type Target = MapeKCategory;
-
-    fn map_object(obj: &PipelineStep) -> MapeKConcept {
-        map_step(obj)
-    }
-
-    fn map_morphism(m: &PipelineStepMorphism) -> MapeKRelation {
-        // Source is a discrete category, so every morphism is an identity.
-        // The `PipelineStepMorphism::identity(..)` constructor is the only
-        // public path in, so this invariant holds by construction. The
-        // debug_assert documents the assumption and guards against future
-        // drift if new constructors get added.
+// Functor: the 13-step `PipelineStep` category → the 5-concept MAPE-K
+// ontology. Pure collapse — 13 → 4 (Knowledge is the consulted substrate,
+// not a step).
+//
+// Declared via `pr4xis::functor!` so the functor carries structured
+// `FunctorMeta` (name + citation + module_path) uniformly with the
+// Lemon lexicon (issue #148).
+pr4xis::functor! {
+    name: PipelineStepToMapeK,
+    source: PipelineStepCategory,
+    target: MapeKCategory,
+    citation: "Kephart & Chess (2003) IEEE Computer 36(1); issue #117 mapping",
+    map_object: |obj: &PipelineStep| -> MapeKConcept { map_step(obj) },
+    map_morphism: |m: &PipelineStepMorphism| -> MapeKRelation {
+        // Source is a discrete category; every morphism is an identity,
+        // enforced at construction by `PipelineStepMorphism::identity(..)`.
         use pr4xis::category::Relationship;
         debug_assert_eq!(
             m.source(),
@@ -148,17 +154,29 @@ impl Functor for PipelineStepToMapeK {
             "PipelineStepCategory is discrete — non-identity morphisms should be unreachable"
         );
         MapeKCategory::identity(&map_step(&m.source()))
-    }
+    },
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Functor;
     use pr4xis::category::validate::check_functor_laws;
 
     #[test]
     fn pipeline_step_to_mape_k_laws_pass() {
         check_functor_laws::<PipelineStepToMapeK>().unwrap();
+    }
+
+    /// The functor's meta carries its Lemon identity — same three-field
+    /// shape as every other structural entity in the knowledge base
+    /// (issue #148).
+    #[test]
+    fn pipeline_step_functor_has_meta() {
+        let meta = PipelineStepToMapeK::meta();
+        assert_eq!(meta.name.as_str(), "PipelineStepToMapeK");
+        assert!(!meta.citation.as_str().is_empty());
+        assert!(meta.module_path.as_str().contains("mape_k"));
     }
 
     /// Concrete sanity: every expected step lands on its documented phase.

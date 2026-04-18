@@ -161,6 +161,7 @@ impl Axiom for InputCausesBinding {
         causation::effects_of::<NeuralCausalGraph>(&AuditoryNerveInput).contains(&PerceptualBinding)
     }
 }
+pr4xis::register_axiom!(InputCausesBinding);
 
 pub struct SixCodingStrategies;
 impl Axiom for SixCodingStrategies {
@@ -181,6 +182,7 @@ impl Axiom for SixCodingStrategies {
         .all(|c| taxonomy::is_a::<NeuralTaxonomy>(c, &CodingStrategy))
     }
 }
+pr4xis::register_axiom!(SixCodingStrategies);
 
 pub struct SOCDelayLongerThanCN;
 impl Axiom for SOCDelayLongerThanCN {
@@ -193,6 +195,7 @@ impl Axiom for SOCDelayLongerThanCN {
             > SynapticDelay.get(&CochlearNucleusProcessing).unwrap()
     }
 }
+pr4xis::register_axiom!(SOCDelayLongerThanCN);
 
 pub struct AllStagesAreTonotopic;
 impl Axiom for AllStagesAreTonotopic {
@@ -213,6 +216,7 @@ impl Axiom for AllStagesAreTonotopic {
         .all(|s| IsTonotopic.get(s) == Some(true))
     }
 }
+pr4xis::register_axiom!(AllStagesAreTonotopic);
 
 impl Ontology for NeuroscienceOntology {
     type Cat = NeuroscienceCategory;

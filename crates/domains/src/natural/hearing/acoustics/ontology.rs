@@ -296,6 +296,7 @@ impl Axiom for BoneFasterThanAir {
         s.get(&CorticalBone).unwrap() > s.get(&Air).unwrap()
     }
 }
+pr4xis::register_axiom!(BoneFasterThanAir);
 
 /// Impedance mismatch: bone impedance >> air impedance (~18,000:1).
 ///
@@ -317,6 +318,7 @@ impl Axiom for BoneAirImpedanceMismatch {
         bone_z / air_z > 1000.0
     }
 }
+pr4xis::register_axiom!(BoneAirImpedanceMismatch);
 
 /// Soft tissue impedance is close to water (within 15%).
 ///
@@ -338,6 +340,7 @@ impl Axiom for SoftTissueMatchesWater {
         (0.85..=1.15).contains(&ratio)
     }
 }
+pr4xis::register_axiom!(SoftTissueMatchesWater);
 
 /// Only solids support shear waves; fluids do not.
 ///
@@ -361,6 +364,7 @@ impl Axiom for OnlySolidsHaveShearWaves {
             && shear.get(&Cartilage) == Some(true)
     }
 }
+pr4xis::register_axiom!(OnlySolidsHaveShearWaves);
 
 /// Source vibration transitively causes receiver excitation.
 pub struct SourceCausesReceiver;
@@ -376,6 +380,7 @@ impl Axiom for SourceCausesReceiver {
         effects.contains(&ReceiverExcitation)
     }
 }
+pr4xis::register_axiom!(SourceCausesReceiver);
 
 // ---------------------------------------------------------------------------
 // Ontology impl

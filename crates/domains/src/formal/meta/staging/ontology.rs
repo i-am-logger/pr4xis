@@ -296,6 +296,7 @@ impl Axiom for EveryProgramKindIsAProgram {
             .all(|k| taxonomy::ancestors::<StagingTaxonomy>(k).contains(&Program))
     }
 }
+pr4xis::register_axiom!(EveryProgramKindIsAProgram);
 
 /// The Futamura projection chain is complete: starting from
 /// `WriteInterpreter` you can causally reach `GenerateCompilerGenerator`.
@@ -317,6 +318,7 @@ impl Axiom for FutamuraChainIsComplete {
             && reach.contains(&GenerateCompilerGenerator)
     }
 }
+pr4xis::register_axiom!(FutamuraChainIsComplete);
 
 /// Compilation is downstream of specialization.
 ///
@@ -336,6 +338,7 @@ impl Axiom for CompilationFollowsSpecialization {
         causes.contains(&SpecializeInterpreter)
     }
 }
+pr4xis::register_axiom!(CompilationFollowsSpecialization);
 
 /// Each Futamura projection raises the staging level by exactly 1.
 ///
@@ -369,6 +372,7 @@ impl Axiom for EachProjectionRaisesStagingByOne {
         cmp + 1 == cogen
     }
 }
+pr4xis::register_axiom!(EachProjectionRaisesStagingByOne);
 
 /// Static and dynamic inputs partition the input space of any program.
 ///
@@ -392,6 +396,7 @@ impl Axiom for StaticDynamicPartitionsInputs {
             && q.get(&StageConcept::DynamicInput) == Some(Temporality::Dynamic)
     }
 }
+pr4xis::register_axiom!(StaticDynamicPartitionsInputs);
 
 // ---------------------------------------------------------------------------
 // Ontology trait impl

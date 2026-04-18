@@ -162,6 +162,7 @@ impl Axiom for BTEContainsComponents {
         parts.contains(&Microphone) && parts.contains(&Amplifier) && parts.contains(&Receiver)
     }
 }
+pr4xis::register_axiom!(BTEContainsComponents);
 pub struct CIHighestGain;
 impl Axiom for CIHighestGain {
     fn description(&self) -> &str {
@@ -172,6 +173,7 @@ impl Axiom for CIHighestGain {
         MaxGainDB.get(&CochlearImplant).unwrap() > MaxGainDB.get(&BehindTheEar).unwrap()
     }
 }
+pr4xis::register_axiom!(CIHighestGain);
 pub struct ImplantablesRequireSurgery;
 impl Axiom for ImplantablesRequireSurgery {
     fn description(&self) -> &str {
@@ -189,6 +191,7 @@ impl Axiom for ImplantablesRequireSurgery {
         .all(|d| RequiresSurgery.get(d) == Some(true))
     }
 }
+pr4xis::register_axiom!(ImplantablesRequireSurgery);
 pub struct HearingAidsNoSurgery;
 impl Axiom for HearingAidsNoSurgery {
     fn description(&self) -> &str {
@@ -201,6 +204,7 @@ impl Axiom for HearingAidsNoSurgery {
             .all(|d| RequiresSurgery.get(d) == Some(false))
     }
 }
+pr4xis::register_axiom!(HearingAidsNoSurgery);
 pub struct BAHADualClassification;
 impl Axiom for BAHADualClassification {
     fn description(&self) -> &str {
@@ -212,6 +216,7 @@ impl Axiom for BAHADualClassification {
             && taxonomy::is_a::<DeviceTaxonomy>(&BoneAnchoredHearingAid, &BCDevice)
     }
 }
+pr4xis::register_axiom!(BAHADualClassification);
 pub struct BTELongestBattery;
 impl Axiom for BTELongestBattery {
     fn description(&self) -> &str {
@@ -225,6 +230,7 @@ impl Axiom for BTELongestBattery {
         bte > ci && bte > cic
     }
 }
+pr4xis::register_axiom!(BTELongestBattery);
 pub struct DiagnosisCausesOutcome;
 impl Axiom for DiagnosisCausesOutcome {
     fn description(&self) -> &str {
@@ -236,6 +242,7 @@ impl Axiom for DiagnosisCausesOutcome {
             .contains(&OutcomeImprovement)
     }
 }
+pr4xis::register_axiom!(DiagnosisCausesOutcome);
 
 impl Ontology for DeviceOntology {
     type Cat = DeviceCategory;

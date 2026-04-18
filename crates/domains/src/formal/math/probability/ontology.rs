@@ -81,6 +81,7 @@ impl Axiom for NonNegativity {
         true
     }
 }
+pr4xis::register_axiom!(NonNegativity);
 
 /// Kolmogorov Axiom 2: P(Ω) = 1.
 pub struct Normalization;
@@ -100,6 +101,7 @@ impl Axiom for Normalization {
         true
     }
 }
+pr4xis::register_axiom!(Normalization);
 
 /// Consequence: P(∅) = 0.
 pub struct EmptySetZero;
@@ -119,6 +121,7 @@ impl Axiom for EmptySetZero {
         true
     }
 }
+pr4xis::register_axiom!(EmptySetZero);
 
 /// Consequence: P(A^c) = 1 - P(A).
 pub struct ComplementRule;
@@ -144,6 +147,7 @@ impl Axiom for ComplementRule {
         true
     }
 }
+pr4xis::register_axiom!(ComplementRule);
 
 /// Consequence: 0 ≤ P(E) ≤ 1 for all events.
 pub struct ProbabilityBounds;
@@ -166,6 +170,7 @@ impl Axiom for ProbabilityBounds {
         true
     }
 }
+pr4xis::register_axiom!(ProbabilityBounds);
 
 /// Bayes' theorem: posterior * evidence = likelihood * prior.
 pub struct BayesTheorem;
@@ -196,6 +201,7 @@ impl Axiom for BayesTheorem {
         true
     }
 }
+pr4xis::register_axiom!(BayesTheorem);
 
 /// Gaussian fusion reduces variance (information gain).
 pub struct GaussianFusionReducesVariance;
@@ -220,6 +226,7 @@ impl Axiom for GaussianFusionReducesVariance {
         true
     }
 }
+pr4xis::register_axiom!(GaussianFusionReducesVariance);
 
 /// KL divergence is non-negative: D_KL(p||q) ≥ 0 (Gibbs' inequality).
 pub struct KlDivergenceNonNegative;
@@ -245,6 +252,7 @@ impl Axiom for KlDivergenceNonNegative {
         true
     }
 }
+pr4xis::register_axiom!(KlDivergenceNonNegative);
 
 /// KL divergence is zero iff p = q.
 pub struct KlDivergenceZeroIffEqual;
@@ -264,6 +272,7 @@ impl Axiom for KlDivergenceZeroIffEqual {
         true
     }
 }
+pr4xis::register_axiom!(KlDivergenceZeroIffEqual);
 
 /// Mahalanobis distance is non-negative.
 pub struct MahalanobisNonNegative;
@@ -291,6 +300,7 @@ impl Axiom for MahalanobisNonNegative {
         true
     }
 }
+pr4xis::register_axiom!(MahalanobisNonNegative);
 
 /// Mahalanobis with identity covariance equals Euclidean distance squared.
 pub struct MahalanobisReducesToEuclidean;
@@ -319,6 +329,7 @@ impl Axiom for MahalanobisReducesToEuclidean {
         true
     }
 }
+pr4xis::register_axiom!(MahalanobisReducesToEuclidean);
 
 /// Shannon entropy is non-negative for discrete distributions.
 pub struct EntropyNonNegative;
@@ -338,6 +349,7 @@ impl Axiom for EntropyNonNegative {
         true
     }
 }
+pr4xis::register_axiom!(EntropyNonNegative);
 
 /// Uniform distribution maximizes entropy (for fixed sample space size).
 pub struct UniformMaximizesEntropy;
@@ -356,6 +368,7 @@ impl Axiom for UniformMaximizesEntropy {
         h_uniform > h_non_uniform - 1e-10
     }
 }
+pr4xis::register_axiom!(UniformMaximizesEntropy);
 
 // ---------------------------------------------------------------------------
 // Ontology

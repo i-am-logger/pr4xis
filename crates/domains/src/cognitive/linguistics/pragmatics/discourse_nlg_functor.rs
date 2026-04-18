@@ -55,6 +55,7 @@ impl Functor for DiscourseToNlg {
         NlgRelation { from, to, kind }
     }
 }
+pr4xis::register_functor!(DiscourseToNlg);
 
 #[cfg(test)]
 mod tests {

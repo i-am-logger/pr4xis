@@ -188,6 +188,12 @@ impl<T: EquivalenceDef> crate::logic::Axiom for Symmetric<T> {
         }
         true
     }
+
+    crate::axiom_meta!(
+        "Symmetric[Equivalence]",
+        "equivalence is symmetric: if A ≡ B then B ≡ A",
+        "Standard equivalence-relation axioms (reflexive, symmetric, transitive); Mac Lane (1971) Ch. I"
+    );
 }
 
 /// Axiom: no entity is equivalent to itself in the declared pairs.
@@ -218,4 +224,10 @@ impl<T: EquivalenceDef> crate::logic::Axiom for NoSelfEquivalence<T> {
     fn holds(&self) -> bool {
         T::pairs().iter().all(|(a, b)| a != b)
     }
+
+    crate::axiom_meta!(
+        "NoSelfEquivalence[Equivalence]",
+        "no entity is declared equivalent to itself (reflexivity is implicit via identity morphisms)",
+        "Mac Lane (1971) — explicit self-pairs are redundant given identity morphisms"
+    );
 }

@@ -378,3 +378,382 @@ macro_rules! define_ontology {
         }
     };
 }
+
+/// Declare a functor between two categories, with Lemon-style metadata.
+///
+/// Issue #148: functors live *between* ontologies, so they get their own
+/// macro (sibling to `ontology!`, not a clause inside it). The macro
+/// emits:
+///
+/// - a unit struct with the given name
+/// - `impl Functor<Source = ..., Target = ...>` with the user's object
+///   and morphism mappings
+/// - `FunctorMeta` (name + citation + module_path) wired into the
+///   trait's `meta()` override
+///
+/// # Example
+///
+/// ```ignore
+/// pr4xis::functor! {
+///     name: SomeFunctor,
+///     source: SourceCategory,
+///     target: TargetCategory,
+///     citation: "Kephart & Chess (2003); Mac Lane (1971) Ch. II §1",
+///     map_object: |obj| -> SomeTargetConcept { /* ... */ },
+///     map_morphism: |m| -> SomeTargetRelation { /* ... */ },
+/// }
+/// ```
+///
+/// `map_object` and `map_morphism` accept any Rust expression — typically
+/// a `|arg| { ... }` closure or a `|arg| expr` shorthand. The macro
+/// inlines them in the trait's required methods.
+#[macro_export]
+macro_rules! functor {
+    (
+        name: $name:ident,
+        source: $source:ty,
+        target: $target:ty,
+        citation: $citation:literal,
+        map_object: $map_obj:expr,
+        map_morphism: $map_morph:expr $(,)?
+    ) => {
+        pub struct $name;
+
+        impl $crate::category::Functor for $name {
+            type Source = $source;
+            type Target = $target;
+
+            fn map_object(
+                obj: &<$source as $crate::category::Category>::Object,
+            ) -> <$target as $crate::category::Category>::Object {
+                let f: fn(
+                    &<$source as $crate::category::Category>::Object,
+                ) -> <$target as $crate::category::Category>::Object = $map_obj;
+                f(obj)
+            }
+
+            fn map_morphism(
+                m: &<$source as $crate::category::Category>::Morphism,
+            ) -> <$target as $crate::category::Category>::Morphism {
+                let f: fn(
+                    &<$source as $crate::category::Category>::Morphism,
+                ) -> <$target as $crate::category::Category>::Morphism = $map_morph;
+                f(m)
+            }
+
+            fn meta() -> $crate::category::FunctorMeta {
+                $crate::category::FunctorMeta {
+                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
+                    description: $crate::ontology::meta::Label::new_static(stringify!($name)),
+                    citation: $crate::ontology::meta::Citation::parse_static($citation),
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                }
+            }
+        }
+
+        // Auto-register into the FUNCTORS distributed slice (native only).
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::FUNCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::category::FunctorMeta =
+                <$name as $crate::category::Functor>::meta;
+        }
+    };
+}
+
+/// Declare an adjunction F ⊣ G, with Lemon-style metadata.
+///
+/// Issue #148: adjunctions live *between* two functors — their own
+/// structural object. The macro emits:
+///
+/// - a unit struct with the given name
+/// - `impl Adjunction<Left = F, Right = G>` with the user's unit and
+///   counit component functions
+/// - `AdjunctionMeta` (name + citation + module_path) in the trait's
+///   `meta()` override
+///
+/// # Example
+///
+/// ```ignore
+/// pr4xis::adjunction! {
+///     name: ParseGenerate,
+///     left: ParseFunctor,
+///     right: GenerateFunctor,
+///     citation: "de Groote (2001); Lambek & Scott (1986)",
+///     unit: |obj| { /* A → G(F(A)) */ },
+///     counit: |obj| { /* F(G(B)) → B */ },
+/// }
+/// ```
+#[macro_export]
+macro_rules! adjunction {
+    (
+        name: $name:ident,
+        left: $left:ty,
+        right: $right:ty,
+        citation: $citation:literal,
+        unit: $unit:expr,
+        counit: $counit:expr $(,)?
+    ) => {
+        pub struct $name;
+
+        impl $crate::category::Adjunction for $name {
+            type Left = $left;
+            type Right = $right;
+
+            fn unit(
+                obj: &<<$left as $crate::category::Functor>::Source as $crate::category::Category>::Object,
+            ) -> <<$left as $crate::category::Functor>::Source as $crate::category::Category>::Morphism {
+                let f: fn(
+                    &<<$left as $crate::category::Functor>::Source as $crate::category::Category>::Object,
+                ) -> <<$left as $crate::category::Functor>::Source as $crate::category::Category>::Morphism = $unit;
+                f(obj)
+            }
+
+            fn counit(
+                obj: &<<$left as $crate::category::Functor>::Target as $crate::category::Category>::Object,
+            ) -> <<$left as $crate::category::Functor>::Target as $crate::category::Category>::Morphism {
+                let f: fn(
+                    &<<$left as $crate::category::Functor>::Target as $crate::category::Category>::Object,
+                ) -> <<$left as $crate::category::Functor>::Target as $crate::category::Category>::Morphism = $counit;
+                f(obj)
+            }
+
+            fn meta() -> $crate::category::AdjunctionMeta {
+                $crate::category::AdjunctionMeta {
+                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
+                    description: $crate::ontology::meta::Label::new_static(stringify!($name)),
+                    citation: $crate::ontology::meta::Citation::parse_static($citation),
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                }
+            }
+        }
+
+        // Auto-register into the ADJUNCTIONS distributed slice (native only).
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTIONS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::category::AdjunctionMeta =
+                <$name as $crate::category::Adjunction>::meta;
+        }
+    };
+}
+
+/// Declare a natural transformation η: F ⇒ G, with Lemon-style metadata.
+///
+/// Issue #148: natural transformations live *between* two functors — a
+/// distinct structural object. The macro emits a unit struct plus
+/// `impl NaturalTransformation` with the user's component function and
+/// `NaturalTransformationMeta`.
+///
+/// # Example
+///
+/// ```ignore
+/// pr4xis::natural_transformation! {
+///     name: Reflexivity,
+///     from: IdentityFunctor,
+///     to:   SyncolatorFunctor,
+///     citation: "Heim; von Foerster (1981) eigenform",
+///     component: |obj| { /* ... */ },
+/// }
+/// ```
+#[macro_export]
+macro_rules! natural_transformation {
+    (
+        name: $name:ident,
+        from: $from:ty,
+        to: $to:ty,
+        citation: $citation:literal,
+        component: $component:expr $(,)?
+    ) => {
+        pub struct $name;
+
+        impl $crate::category::NaturalTransformation for $name {
+            type SourceFunctor = $from;
+            type TargetFunctor = $to;
+
+            fn component(
+                obj: &<<$from as $crate::category::Functor>::Source as $crate::category::Category>::Object,
+            ) -> <<$from as $crate::category::Functor>::Target as $crate::category::Category>::Morphism {
+                let f: fn(
+                    &<<$from as $crate::category::Functor>::Source as $crate::category::Category>::Object,
+                ) -> <<$from as $crate::category::Functor>::Target as $crate::category::Category>::Morphism = $component;
+                f(obj)
+            }
+
+            fn meta() -> $crate::category::NaturalTransformationMeta {
+                $crate::category::NaturalTransformationMeta {
+                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
+                    description: $crate::ontology::meta::Label::new_static(stringify!($name)),
+                    citation: $crate::ontology::meta::Citation::parse_static($citation),
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                }
+            }
+        }
+
+        // Auto-register into the NATURAL_TRANSFORMATIONS distributed slice.
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATIONS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::category::NaturalTransformationMeta =
+                <$name as $crate::category::NaturalTransformation>::meta;
+        }
+    };
+}
+
+/// Register a hand-written `impl Axiom for X` into the global AXIOMS
+/// distributed slice so the Lemon lexicon sees it without rewriting the
+/// impl block itself. Useful for existing impls that don't yet use the
+/// `axioms:` clause of `ontology!`.
+///
+/// # Example
+///
+/// ```ignore
+/// pub struct MyAxiom;
+/// impl Axiom for MyAxiom {
+///     fn description(&self) -> &str { "..." }
+///     fn holds(&self) -> bool { ... }
+///     pr4xis::axiom_meta!("MyAxiom", "Smith (1999)");
+/// }
+/// pr4xis::register_axiom!(MyAxiom);
+/// ```
+#[macro_export]
+macro_rules! register_axiom {
+    // Registration by type-name identity (no instance needed — works for
+    // unit structs and structs-with-fields). The registry entry reports
+    // the axiom's identity via `std::any::type_name` + an empty citation.
+    // Axioms that want their declared citation in the registry should
+    // add an explicit `meta()` override via the `axiom_meta!` helper AND
+    // register with `register_axiom!(Name, &instance)` instead.
+    // Single-argument — type-name identity + empty citation, works for
+    // any type regardless of its field layout.
+    ($name:ident) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::logic::axiom::AxiomMeta =
+                || $crate::logic::axiom::AxiomMeta {
+                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
+                    description: $crate::ontology::meta::Label::new_static(stringify!($name)),
+                    citation: $crate::ontology::meta::Citation::EMPTY,
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                };
+        }
+    };
+    // Two-argument with a citation literal — name and module path from the
+    // type identity, description defaults to the name, citation is the
+    // literal. Keeps axiom impl bodies untouched; the surrounding file's
+    // literature citation is passed in directly.
+    ($name:ident, $citation:literal) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::logic::axiom::AxiomMeta =
+                || $crate::logic::axiom::AxiomMeta {
+                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
+                    description: $crate::ontology::meta::Label::new_static(stringify!($name)),
+                    citation: $crate::ontology::meta::Citation::parse_static($citation),
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                };
+        }
+    };
+    // Instance-propagating — calls the instance's `meta()` method so any
+    // description / citation declared inside `impl Axiom` propagates.
+    ($name:ident, instance: $instance:expr) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::logic::axiom::AxiomMeta =
+                || <$name as $crate::logic::axiom::Axiom>::meta(&$instance);
+        }
+    };
+}
+
+/// Register a hand-written `impl Functor for X` into the FUNCTORS slice.
+#[macro_export]
+macro_rules! register_functor {
+    ($name:ident) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::FUNCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::category::FunctorMeta =
+                <$name as $crate::category::Functor>::meta;
+        }
+    };
+    ($name:ident, $citation:literal) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::FUNCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::category::FunctorMeta =
+                || $crate::category::FunctorMeta {
+                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
+                    description: $crate::ontology::meta::Label::new_static(stringify!($name)),
+                    citation: $crate::ontology::meta::Citation::parse_static($citation),
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                };
+        }
+    };
+}
+
+/// Register a hand-written `impl Adjunction for X` into the ADJUNCTIONS slice.
+#[macro_export]
+macro_rules! register_adjunction {
+    ($name:ident) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTIONS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::category::AdjunctionMeta =
+                <$name as $crate::category::Adjunction>::meta;
+        }
+    };
+    ($name:ident, $citation:literal) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTIONS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::category::AdjunctionMeta =
+                || $crate::category::AdjunctionMeta {
+                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
+                    description: $crate::ontology::meta::Label::new_static(stringify!($name)),
+                    citation: $crate::ontology::meta::Citation::parse_static($citation),
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                };
+        }
+    };
+}
+
+/// Register a hand-written `impl NaturalTransformation for X` into the slice.
+#[macro_export]
+macro_rules! register_natural_transformation {
+    ($name:ident) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATIONS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::category::NaturalTransformationMeta =
+                <$name as $crate::category::NaturalTransformation>::meta;
+        }
+    };
+    ($name:ident, $citation:literal) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATIONS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::category::NaturalTransformationMeta =
+                || $crate::category::NaturalTransformationMeta {
+                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
+                    description: $crate::ontology::meta::Label::new_static(stringify!($name)),
+                    citation: $crate::ontology::meta::Citation::parse_static($citation),
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                };
+        }
+    };
+}

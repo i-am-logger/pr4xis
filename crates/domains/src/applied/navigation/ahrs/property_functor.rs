@@ -47,6 +47,10 @@ impl Functor for AhrsToProperty {
         }
     }
 }
+pr4xis::register_functor!(
+    AhrsToProperty,
+    "Madgwick (2010); Mahony et al. (2008); Titterton & Weston (2004)."
+);
 
 #[cfg(test)]
 mod tests {

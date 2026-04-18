@@ -221,6 +221,7 @@ impl Axiom for FormulationCausesSolution {
         effects.contains(&SolutionSelection)
     }
 }
+pr4xis::register_axiom!(FormulationCausesSolution);
 
 /// Axiom: exhaustive search guarantees global, gradient descent does not.
 pub struct ExhaustiveGuaranteesGradientDoesNot;
@@ -235,6 +236,7 @@ impl Axiom for ExhaustiveGuaranteesGradientDoesNot {
             && GuaranteesGlobal.get(&GradientDescent) == Some(false)
     }
 }
+pr4xis::register_axiom!(ExhaustiveGuaranteesGradientDoesNot);
 
 /// Axiom: exact methods are exponential, heuristic methods are polynomial.
 pub struct ExactExponentialHeuristicPolynomial;
@@ -249,6 +251,7 @@ impl Axiom for ExactExponentialHeuristicPolynomial {
             && TimeComplexity.get(&GeneticAlgorithm) == Some(TimeComplexityClass::Polynomial)
     }
 }
+pr4xis::register_axiom!(ExactExponentialHeuristicPolynomial);
 
 /// Axiom: Pareto optimization handles multi-objective; gradient descent does not.
 pub struct ParetoMultiObjectiveGradientNot;
@@ -263,6 +266,7 @@ impl Axiom for ParetoMultiObjectiveGradientNot {
             && HandlesMultiObjective.get(&GradientDescent) == Some(false)
     }
 }
+pr4xis::register_axiom!(ParetoMultiObjectiveGradientNot);
 
 // ---------------------------------------------------------------------------
 // Ontology impl

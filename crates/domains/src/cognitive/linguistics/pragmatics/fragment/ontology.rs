@@ -108,6 +108,10 @@ impl Axiom for AllFragmentsClassified {
         })
     }
 }
+pr4xis::register_axiom!(
+    AllFragmentsClassified,
+    "Fernandez & Ginzburg (2002, 2006); Ginzburg \"The Interactive Stance\" (2012);"
+);
 
 impl Ontology for FragmentOntology {
     type Cat = FragmentCategory;

@@ -50,6 +50,10 @@ impl Axiom for QuaternionUnitNorm {
         true
     }
 }
+pr4xis::register_axiom!(
+    QuaternionUnitNorm,
+    "Wertz (1978), *Spacecraft Attitude Determination and Control*"
+);
 
 /// Axiom: star tracker is the most accurate attitude sensor.
 pub struct StarTrackerMostAccurate;
@@ -66,6 +70,10 @@ impl Axiom for StarTrackerMostAccurate {
             .all(|s| q.get(s).unwrap() >= star_acc)
     }
 }
+pr4xis::register_axiom!(
+    StarTrackerMostAccurate,
+    "Wertz (1978), *Spacecraft Attitude Determination and Control*"
+);
 
 impl Ontology for AttitudeOntology {
     type Cat = AttitudeCategory;

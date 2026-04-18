@@ -133,6 +133,10 @@ impl Axiom for BdiProducesIntention {
         belief_produces && desire_produces
     }
 }
+pr4xis::register_axiom!(
+    BdiProducesIntention,
+    "Cohen & Perrault (1979); Appelt (1985);"
+);
 
 /// Speech act effects update Common Ground (Stalnaker 2002).
 #[derive(Debug)]
@@ -151,6 +155,10 @@ impl Axiom for EffectUpdatesCommonGround {
         })
     }
 }
+pr4xis::register_axiom!(
+    EffectUpdatesCommonGround,
+    "Cohen & Perrault (1979); Appelt (1985);"
+);
 
 /// All Jakobson functions specialize CommunicativeGoal.
 #[derive(Debug)]
@@ -177,6 +185,7 @@ impl Axiom for GoalsSpecialize {
         })
     }
 }
+pr4xis::register_axiom!(GoalsSpecialize, "Cohen & Perrault (1979); Appelt (1985);");
 
 impl Ontology for PlanningOntology {
     type Cat = PlanningCategory;

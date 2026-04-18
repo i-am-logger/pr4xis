@@ -104,6 +104,7 @@ impl Axiom for ComplementsAddToWhite {
         })
     }
 }
+pr4xis::register_axiom!(ComplementsAddToWhite);
 
 #[cfg(test)]
 mod tests {

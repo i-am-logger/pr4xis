@@ -161,6 +161,7 @@ impl Axiom for ThreeCanals {
             .all(|c| taxonomy::is_a::<VestibularTaxonomy>(c, &SemicircularCanal))
     }
 }
+pr4xis::register_axiom!(ThreeCanals);
 pub struct TwoOtolithOrgans;
 impl Axiom for TwoOtolithOrgans {
     fn description(&self) -> &str {
@@ -172,6 +173,7 @@ impl Axiom for TwoOtolithOrgans {
             && taxonomy::is_a::<VestibularTaxonomy>(&Saccule, &OtolithOrgan)
     }
 }
+pr4xis::register_axiom!(TwoOtolithOrgans);
 pub struct RotationCausesVOR;
 impl Axiom for RotationCausesVOR {
     fn description(&self) -> &str {
@@ -183,6 +185,7 @@ impl Axiom for RotationCausesVOR {
             .contains(&EyeMovementCompensation)
     }
 }
+pr4xis::register_axiom!(RotationCausesVOR);
 pub struct CanalsContainHairCells;
 impl Axiom for CanalsContainHairCells {
     fn description(&self) -> &str {
@@ -194,6 +197,7 @@ impl Axiom for CanalsContainHairCells {
         parts.contains(&TypeIHairCell) && parts.contains(&TypeIIHairCell)
     }
 }
+pr4xis::register_axiom!(CanalsContainHairCells);
 pub struct ThreeDistinctCanalPlanes;
 impl Axiom for ThreeDistinctCanalPlanes {
     fn description(&self) -> &str {
@@ -207,6 +211,7 @@ impl Axiom for ThreeDistinctCanalPlanes {
         lat != ant && ant != post && lat != post
     }
 }
+pr4xis::register_axiom!(ThreeDistinctCanalPlanes);
 pub struct VORGainIsUnity;
 impl Axiom for VORGainIsUnity {
     fn description(&self) -> &str {
@@ -216,6 +221,7 @@ impl Axiom for VORGainIsUnity {
         VORGain.get(&VestibularEntity::VestibuloOcularReflex) == Some(1.0)
     }
 }
+pr4xis::register_axiom!(VORGainIsUnity);
 
 impl Ontology for VestibularOntology {
     type Cat = VestibularCategory;

@@ -332,6 +332,7 @@ impl Axiom for OnlyClosedIsTerminal {
             .all(|p| p.is_terminal() == (*p == PhaseTag::Closed))
     }
 }
+pr4xis::register_axiom!(OnlyClosedIsTerminal);
 
 /// Axiom: every non-terminal phase has at least one transition.
 pub struct NoDeadPhases;
@@ -346,6 +347,7 @@ impl Axiom for NoDeadPhases {
             .all(|p| p.is_terminal() || !p.valid_transitions().is_empty())
     }
 }
+pr4xis::register_axiom!(NoDeadPhases);
 
 /// The judicial case lifecycle ontology.
 pub struct CaseLifecycleOntology;

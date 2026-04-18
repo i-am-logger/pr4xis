@@ -68,6 +68,7 @@ impl Functor for ImmunologyToRegeneration {
         }
     }
 }
+pr4xis::register_functor!(ImmunologyToRegeneration);
 
 #[cfg(test)]
 mod tests {

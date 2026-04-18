@@ -151,6 +151,7 @@ impl Axiom for EndofunctorIsFunctor {
             .contains(&Pr4xisSubstrateConcept::SubEndofunctor)
     }
 }
+pr4xis::register_axiom!(EndofunctorIsFunctor);
 
 /// Axiom: `SubProductCategory` is a sub-kind of `SubCategory`. Mac Lane,
 /// *CWM* (1971) Ch. II §3 — the product of two categories is itself a
@@ -166,6 +167,7 @@ impl Axiom for ProductCategoryIsCategory {
             .contains(&Pr4xisSubstrateConcept::SubProductCategory)
     }
 }
+pr4xis::register_axiom!(ProductCategoryIsCategory);
 
 /// Axiom: `SubGradedObject` is a sub-kind of `SubEntity`. A graded
 /// object is an entity equipped with a decomposition indexed by an index
@@ -183,6 +185,7 @@ impl Axiom for GradedObjectIsEntity {
             .contains(&Pr4xisSubstrateConcept::SubGradedObject)
     }
 }
+pr4xis::register_axiom!(GradedObjectIsEntity);
 
 /// Axiom: `SubObject` is a sub-kind of `SubMorphism`. A subobject is
 /// an equivalence class of monomorphisms A ↪ B — the formal categorical
@@ -200,6 +203,7 @@ impl Axiom for SubobjectIsMorphism {
             .contains(&Pr4xisSubstrateConcept::SubObject)
     }
 }
+pr4xis::register_axiom!(SubobjectIsMorphism);
 
 impl Ontology for Pr4xisSubstrateOntology {
     type Cat = Pr4xisSubstrateCategory;

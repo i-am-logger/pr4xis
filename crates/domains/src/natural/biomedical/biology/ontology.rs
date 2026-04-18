@@ -222,6 +222,7 @@ impl Axiom for TaxonomyIsDAG {
         taxonomy::NoCycles::<BiologicalTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(TaxonomyIsDAG);
 
 /// The taxonomy is antisymmetric: if A is-a B then B is not a A.
 pub struct TaxonomyIsAntisymmetric;
@@ -235,6 +236,7 @@ impl Axiom for TaxonomyIsAntisymmetric {
         taxonomy::Antisymmetric::<BiologicalTaxonomy>::new().holds()
     }
 }
+pr4xis::register_axiom!(TaxonomyIsAntisymmetric);
 
 /// The mereology has no cycles (is a DAG).
 pub struct MereologyIsDAG;
@@ -248,6 +250,7 @@ impl Axiom for MereologyIsDAG {
         mereology::NoCycles::<BiologicalMereology>::new().holds()
     }
 }
+pr4xis::register_axiom!(MereologyIsDAG);
 
 /// All concrete cell types are subsumed by the abstract Cell entity.
 pub struct AllCellsAreCell;
@@ -274,6 +277,7 @@ impl Axiom for AllCellsAreCell {
             .all(|c| taxonomy::is_a::<BiologicalTaxonomy>(c, &Cell))
     }
 }
+pr4xis::register_axiom!(AllCellsAreCell);
 
 /// The esophagus contains squamous epithelium (mereology).
 pub struct EsophagusHasSquamousEpithelium;
@@ -289,6 +293,7 @@ impl Axiom for EsophagusHasSquamousEpithelium {
         parts.contains(&SquamousEpithelium)
     }
 }
+pr4xis::register_axiom!(EsophagusHasSquamousEpithelium);
 
 /// Squamous epithelium contains both squamous epithelial cells and basal stem cells.
 pub struct EpitheliumHasStemCells;
@@ -304,6 +309,7 @@ impl Axiom for EpitheliumHasStemCells {
         parts.contains(&SquamousEpithelial) && parts.contains(&BasalStemCell)
     }
 }
+pr4xis::register_axiom!(EpitheliumHasStemCells);
 
 /// All four non-abstract organization levels are represented.
 pub struct AllLevelsRepresented;
@@ -323,6 +329,7 @@ impl Axiom for AllLevelsRepresented {
             .all(|target| levels.contains(target))
     }
 }
+pr4xis::register_axiom!(AllLevelsRepresented);
 
 /// Axiom: basal stem cells differentiate into squamous epithelial cells.
 /// This is the fundamental esophageal repair mechanism.
@@ -343,6 +350,7 @@ impl Axiom for StemCellDifferentiation {
             && IsProliferative.get(&SquamousEpithelial) == Some(false)
     }
 }
+pr4xis::register_axiom!(StemCellDifferentiation);
 
 /// Mechanosensitivity spans multiple organization levels (multi-scale property).
 pub struct MechanosensitivityIsMultiscale;
@@ -368,6 +376,7 @@ impl Axiom for MechanosensitivityIsMultiscale {
         has_cellular && has_tissue
     }
 }
+pr4xis::register_axiom!(MechanosensitivityIsMultiscale);
 
 /// Axiom: biological opposition is symmetric.
 pub struct BiologicalOppositionSymmetric;
@@ -381,6 +390,7 @@ impl Axiom for BiologicalOppositionSymmetric {
         opposition::Symmetric::<BiologicalOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(BiologicalOppositionSymmetric);
 
 /// Axiom: biological opposition is irreflexive (nothing opposes itself).
 pub struct BiologicalOppositionIrreflexive;
@@ -394,6 +404,7 @@ impl Axiom for BiologicalOppositionIrreflexive {
         opposition::Irreflexive::<BiologicalOpposition>::new().holds()
     }
 }
+pr4xis::register_axiom!(BiologicalOppositionIrreflexive);
 
 /// Axiom: biological causal graph is asymmetric.
 pub struct BiologicalCausalAsymmetric;
@@ -407,6 +418,7 @@ impl Axiom for BiologicalCausalAsymmetric {
         causation::Asymmetric::<BiologicalCausalGraph>::new().holds()
     }
 }
+pr4xis::register_axiom!(BiologicalCausalAsymmetric);
 
 /// Axiom: no biological event directly causes itself.
 pub struct BiologicalCausalNoSelfCausation;
@@ -420,6 +432,7 @@ impl Axiom for BiologicalCausalNoSelfCausation {
         causation::NoSelfCausation::<BiologicalCausalGraph>::new().holds()
     }
 }
+pr4xis::register_axiom!(BiologicalCausalNoSelfCausation);
 
 // ---------------------------------------------------------------------------
 // Cross-domain equivalence axioms
@@ -442,6 +455,7 @@ impl Axiom for MacrophageM1CrossDomainEquivalence {
             == BiologicalEntity::MacrophageM1
     }
 }
+pr4xis::register_axiom!(MacrophageM1CrossDomainEquivalence);
 
 /// Axiom: immunology->biology functor preserves MacrophageM2 identity.
 /// MacrophageM2 in immunology IS MacrophageM2 in biology (cross-domain equivalence).
@@ -460,6 +474,7 @@ impl Axiom for MacrophageM2CrossDomainEquivalence {
             == BiologicalEntity::MacrophageM2
     }
 }
+pr4xis::register_axiom!(MacrophageM2CrossDomainEquivalence);
 
 /// Axiom: immunology->biology functor preserves Fibroblast identity.
 /// Fibroblast in immunology IS Fibroblast in biology (cross-domain equivalence).
@@ -478,6 +493,7 @@ impl Axiom for FibroblastCrossDomainEquivalence {
             == BiologicalEntity::Fibroblast
     }
 }
+pr4xis::register_axiom!(FibroblastCrossDomainEquivalence);
 
 // ---------------------------------------------------------------------------
 // Ontology

@@ -34,17 +34,17 @@ fn map_concept(c: &SyntrometryConcept) -> AlgebraConcept {
     use AlgebraConcept as A;
     use SyntrometryConcept as S;
     match c {
-        S::Predicate | S::Predikatrix | S::SyntrixLevel => A::Ontology,
-        S::Dialektik => A::Coproduct,
-        S::Koordination | S::Synkolator | S::Korporator => A::Mapping,
-        S::Aspekt => A::Product,
-        S::Syntrix | S::Transzendenzstufe | S::Metroplex => A::Diagram,
-        S::Part | S::Maxime => A::Pullback,
+        S::Predicate | S::PredicateMatrix | S::SyntrixLevel => A::Ontology,
+        S::Dialectic => A::Coproduct,
+        S::Coordination | S::Syncolator | S::Composer => A::Mapping,
+        S::Aspect => A::Product,
+        S::Syntrix | S::TranscendenceLevel | S::Metroplex => A::Diagram,
+        S::Part | S::Maxim => A::Pullback,
         S::Telecenter => A::Pushout,
         // Permutation operators are mappings on the category.
         S::SequencePermutation | S::OrientationPermutation => A::Mapping,
-        // Aspektivsystem is a diagram (structured collection of objects).
-        S::Aspektivsystem => A::Diagram,
+        // AspectivalSystem is a diagram (structured collection of objects).
+        S::AspectivalSystem => A::Diagram,
         // Reflexivity is a natural transformation = a mapping-between-mappings.
         S::Reflexivity => A::Mapping,
     }
@@ -71,6 +71,7 @@ impl Functor for SyntrometryToAlgebra {
         }
     }
 }
+pr4xis::register_functor!(SyntrometryToAlgebra);
 
 #[cfg(test)]
 mod tests {

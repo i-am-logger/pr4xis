@@ -18,13 +18,15 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry
 
 | Family | Entities |
 |---|---|
-| Distinction primitives (5) | `Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt` |
-| Syntrometric structures (4) | `Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator` |
+| Distinction primitives (5) | `Predicate`, `PredicateMatrix`, `Dialectic`, `Coordination`, `Aspect` |
+| Syntrometric structures (4) | `Syntrix`, `SyntrixLevel`, `Syncolator`, `Composer` |
 | Mereology (1) | `Part` |
-| Teleological / hierarchical (4) | `Telecenter`, `Maxime`, `Transzendenzstufe`, `Metroplex` |
+| Teleological / hierarchical (4) | `Telecenter`, `Maxim`, `TranscendenceLevel`, `Metroplex` |
 | Permutation operators (2) | `SequencePermutation` (C), `OrientationPermutation` (c) |
-| Multi-aspect (1) | `Aspektivsystem` |
+| Multi-aspect (1) | `AspectivalSystem` |
 | Self-observation (1) | `Reflexivity` (ρ) |
+
+> Heim's original German terms: `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`, `Synkolator`, `Korporator`, `Maxime`, `Transzendenzstufe`, `Aspektivsystem` — preserved in each concept's `labels:` entry and in the axiom citations.
 
 ### Pr4xis-substrate (14)
 
@@ -39,27 +41,27 @@ cargo test -p pr4xis-domains -- formal::meta::syntrometry
 
 ### Primary: `Syntrometry → Pr4xisSubstrate`
 
-14 of 18 concepts round-trip cleanly. Four concepts — `Dialektik`, `SequencePermutation`, `OrientationPermutation`, `Aspektivsystem` — intentionally collapse to a substrate parent because their richer semantics lives in dedicated cross-functor targets (Dialectics, Kripke).
+14 of 18 concepts round-trip cleanly. Four concepts — `Dialectic`, `SequencePermutation`, `OrientationPermutation`, `AspectivalSystem` — intentionally collapse to a substrate parent because their richer semantics lives in dedicated cross-functor targets (Dialectics, Kripke).
 
 | Syntrometry | Pr4xis substrate |
 |---|---|
 | `Predicate`     | `SubEntity` |
-| `Predikatrix`   | `SubOntology` |
-| `Dialektik`     | `SubCategory` (collapses — handled by Dialectics cross-functor) |
-| `Koordination`  | `SubMorphism` |
-| `Aspekt`        | `SubProductCategory` |
+| `PredicateMatrix`   | `SubOntology` |
+| `Dialectic`     | `SubCategory` (collapses — handled by Dialectics cross-functor) |
+| `Coordination`  | `SubMorphism` |
+| `Aspect`        | `SubProductCategory` |
 | `Syntrix`       | `SubCategory` |
 | `SyntrixLevel`  | `SubGradedObject` |
-| `Synkolator`    | `SubEndofunctor` |
-| `Korporator`    | `SubFunctor` |
+| `Syncolator`    | `SubEndofunctor` |
+| `Composer`    | `SubFunctor` |
 | `Part`          | `SubObject` |
 | `Telecenter`    | `SubEigenform` |
-| `Maxime`        | `SubIntention` |
-| `Transzendenzstufe` | `SubStagingLevel` |
+| `Maxim`        | `SubIntention` |
+| `TranscendenceLevel` | `SubStagingLevel` |
 | `Metroplex`     | `SubSystemOfSystems` |
-| `SequencePermutation` | `SubEndofunctor` (collapses with Synkolator) |
+| `SequencePermutation` | `SubEndofunctor` (collapses with Syncolator) |
 | `OrientationPermutation` | `SubEndofunctor` (collapses) |
-| `Aspektivsystem` | `SubOntology` (collapses — handled by Kripke cross-functor) |
+| `AspectivalSystem` | `SubOntology` (collapses — handled by Kripke cross-functor) |
 | `Reflexivity`   | `SubNaturalTransformation` |
 
 Gap analysis: **4 intentional unit collapses out of 18, 0% counit loss** — verified by `test_syntrometry_substrate_intentional_collapses`. Each collapsed concept is preserved at full resolution by a dedicated cross-functor.
@@ -70,26 +72,26 @@ Each of the seven cross-functors below passes `check_functor_laws` and carries i
 
 | Functor | Target | Headline mapping |
 |---|---|---|
-| `Syntrometry → Dialectics` | `formal::logic::dialectics` (Hegel / Aristotle / Priest) | `Dialektik` ↦ `DialecticalMoment`, `Synkolator` ↦ `Sublation`, `Telecenter` ↦ `Synthesis` |
-| `Syntrometry → Kripke` | `formal::logic::kripke` (Kripke 1959/63) | `Aspekt` ↦ `KripkeFrame`, `Aspektivsystem` ↦ `AccessibilityRelation`, `Reflexivity` ↦ `Reflexive` |
-| `Syntrometry → MetaOntology` | `formal::meta::ontology_diagnostics` | `Synkolator` / `Korporator` ↦ `Functor`, `Maxime` ↦ `PropertyTest` |
-| `Syntrometry → Staging` | `formal::meta::staging` (Futamura 1971) | `Transzendenzstufe` ↦ `Interpreter`, `Metroplex` ↦ `CompilerGenerator` |
-| `Syntrometry → Algebra` | `formal::meta::algebra` (Goguen / Zimmermann) | `Korporator` ↦ `Mapping`, `Aspekt` ↦ `Product`, `Telecenter` ↦ `Pushout` |
-| `Syntrometry → C1` | `cognitive::cognition::consciousness` (Dehaene GWT 2014) | `Maxime` ↦ `Attention`, `Metroplex` ↦ `GlobalWorkspace` |
-| `Distinction → Syntrometry` | — (historical direction, Spencer-Brown 1969 → Heim) | `ReEntry` ↦ `Synkolator` |
+| `Syntrometry → Dialectics` | `formal::logic::dialectics` (Hegel / Aristotle / Priest) | `Dialectic` ↦ `DialecticalMoment`, `Syncolator` ↦ `Sublation`, `Telecenter` ↦ `Synthesis` |
+| `Syntrometry → Kripke` | `formal::logic::kripke` (Kripke 1959/63) | `Aspect` ↦ `KripkeFrame`, `AspectivalSystem` ↦ `AccessibilityRelation`, `Reflexivity` ↦ `Reflexive` |
+| `Syntrometry → MetaOntology` | `formal::meta::ontology_diagnostics` | `Syncolator` / `Composer` ↦ `Functor`, `Maxim` ↦ `PropertyTest` |
+| `Syntrometry → Staging` | `formal::meta::staging` (Futamura 1971) | `TranscendenceLevel` ↦ `Interpreter`, `Metroplex` ↦ `CompilerGenerator` |
+| `Syntrometry → Algebra` | `formal::meta::algebra` (Goguen / Zimmermann) | `Composer` ↦ `Mapping`, `Aspect` ↦ `Product`, `Telecenter` ↦ `Pushout` |
+| `Syntrometry → C1` | `cognitive::cognition::consciousness` (Dehaene GWT 2014) | `Maxim` ↦ `Attention`, `Metroplex` ↦ `GlobalWorkspace` |
+| `Distinction → Syntrometry` | — (historical direction, Spencer-Brown 1969 → Heim) | `ReEntry` ↦ `Syncolator` |
 
-The `Syntrometry → C1` mapping is the most load-bearing interpretive claim: Heim's `Maxime` (extremal-selection operator) and Dehaene's GWT `Attention` (spotlight selection) are structurally the same morphism, landing on C1's declared `(Attention, ConsciousAccess, Selects)` edge. Heim anticipated the attention/workspace split Dehaene's GWT formalises 34 years later.
+The `Syntrometry → C1` mapping is the most load-bearing interpretive claim: Heim's `Maxim` (Heim's *Maxime*, an extremal-selection operator) and Dehaene's GWT `Attention` (spotlight selection) are structurally the same morphism, landing on C1's declared `(Attention, ConsciousAccess, Selects)` edge. Heim anticipated the attention/workspace split Dehaene's GWT formalises 34 years later.
 
 ## Domain axioms (6)
 
 | Axiom | Source | Claim |
 |---|---|---|
-| `AspektIsTripleProduct` | Heim §1 | Aspekt mereologically contains `{Dialektik, Koordination, Predikatrix}` |
-| `SynkolatorIsKorporator` | Mac Lane Ch. II §1 | Endofunctor specialises functor |
+| `AspectIsTripleProduct` | Heim §1 | Aspect mereologically contains `{Dialectic, Coordination, PredicateMatrix}` |
+| `SyncolatorIsComposer` | Mac Lane Ch. II §1 | Endofunctor specialises functor |
 | `SyntrixIsLeveled` | Heim §2.2 | Syntrix carries `LevelOf` and `InhabitsLevelOf` edges |
-| `MetroplexContainsSyntrixAndLevels` | Heim Metroplextheorie | Metroplex mereologically contains `{Syntrix, Transzendenzstufe}` |
-| `MaximeConvergesTowardTelecenter` | Heim Telezentrik | Maxime carries `ConvergesToward` edge into Telecenter |
-| `TelecenterIsSynkolatorFixedPoint` | Heim × Mac Lane | Synkolator carries `FixedPointOf` edge into Telecenter (eigenform X = F(X)) |
+| `MetroplexContainsSyntrixAndLevels` | Heim Metroplextheorie | Metroplex mereologically contains `{Syntrix, TranscendenceLevel}` |
+| `MaximConvergesTowardTelecenter` | Heim Telezentrik | Maxim carries `ConvergesToward` edge into Telecenter |
+| `TelecenterIsSyncolatorFixedPoint` | Heim × Mac Lane | Syncolator carries `FixedPointOf` edge into Telecenter (eigenform X = F(X)) |
 
 ## Files
 

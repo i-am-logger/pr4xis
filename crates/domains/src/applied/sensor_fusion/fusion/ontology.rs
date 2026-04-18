@@ -98,6 +98,7 @@ impl Axiom for Determinism {
         true
     }
 }
+pr4xis::register_axiom!(Determinism);
 
 /// Predict step never decreases uncertainty (information theory).
 ///
@@ -135,6 +136,7 @@ impl Axiom for PredictIncreasesUncertainty {
         true
     }
 }
+pr4xis::register_axiom!(PredictIncreasesUncertainty);
 
 /// Update step never increases uncertainty (information gain from observation).
 pub struct UpdateReducesUncertainty;
@@ -171,6 +173,7 @@ impl Axiom for UpdateReducesUncertainty {
         true
     }
 }
+pr4xis::register_axiom!(UpdateReducesUncertainty);
 
 /// Covariance remains PSD through all operations.
 pub struct CovarianceInvariant;
@@ -190,6 +193,7 @@ impl Axiom for CovarianceInvariant {
         true
     }
 }
+pr4xis::register_axiom!(CovarianceInvariant);
 
 // ---------------------------------------------------------------------------
 // Ontology

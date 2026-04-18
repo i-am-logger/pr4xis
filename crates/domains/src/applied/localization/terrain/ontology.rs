@@ -62,6 +62,7 @@ impl Axiom for ElevationBounded {
         true
     }
 }
+pr4xis::register_axiom!(ElevationBounded);
 
 /// Axiom: peaks have strictly negative principal curvatures.
 pub struct PeakCurvatureNegative;
@@ -79,6 +80,7 @@ impl Axiom for PeakCurvatureNegative {
         }
     }
 }
+pr4xis::register_axiom!(PeakCurvatureNegative);
 
 impl Ontology for TerrainOntology {
     type Cat = TerrainCategory;

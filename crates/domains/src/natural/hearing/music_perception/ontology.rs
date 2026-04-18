@@ -147,6 +147,7 @@ impl Axiom for OctaveRatioIsTwo {
         OctaveRatio.get(&MusicEntity::OctaveEquivalence) == Some(2.0)
     }
 }
+pr4xis::register_axiom!(OctaveRatioIsTwo);
 pub struct ConsonanceOpposesDissonance;
 impl Axiom for ConsonanceOpposesDissonance {
     fn description(&self) -> &str {
@@ -159,6 +160,7 @@ impl Axiom for ConsonanceOpposesDissonance {
         )
     }
 }
+pr4xis::register_axiom!(ConsonanceOpposesDissonance);
 pub struct TensionOpposesResolution;
 impl Axiom for TensionOpposesResolution {
     fn description(&self) -> &str {
@@ -168,6 +170,7 @@ impl Axiom for TensionOpposesResolution {
         opposition::are_opposed::<MusicOpposition>(&MusicEntity::Tension, &MusicEntity::Resolution)
     }
 }
+pr4xis::register_axiom!(TensionOpposesResolution);
 pub struct ConsonanceRankedHigher;
 impl Axiom for ConsonanceRankedHigher {
     fn description(&self) -> &str {
@@ -178,6 +181,7 @@ impl Axiom for ConsonanceRankedHigher {
         ConsonanceRanking.get(&Consonance).unwrap() < ConsonanceRanking.get(&Dissonance).unwrap()
     }
 }
+pr4xis::register_axiom!(ConsonanceRankedHigher);
 pub struct FivePerceptualCategories;
 impl Axiom for FivePerceptualCategories {
     fn description(&self) -> &str {
@@ -192,6 +196,7 @@ impl Axiom for FivePerceptualCategories {
             && taxonomy::is_a::<MusicTaxonomy>(&MusicalEmotion, &AffectiveResponse)
     }
 }
+pr4xis::register_axiom!(FivePerceptualCategories);
 pub struct InputCausesEmotion;
 impl Axiom for InputCausesEmotion {
     fn description(&self) -> &str {
@@ -202,6 +207,7 @@ impl Axiom for InputCausesEmotion {
         causation::effects_of::<MusicCausalGraph>(&AuditoryInput).contains(&EmotionalResponse)
     }
 }
+pr4xis::register_axiom!(InputCausesEmotion);
 
 impl Ontology for MusicPerceptionOntology {
     type Cat = MusicPerceptionCategory;

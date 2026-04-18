@@ -74,6 +74,7 @@ impl Functor for BiologyToBioelectric {
         }
     }
 }
+pr4xis::register_functor!(BiologyToBioelectric);
 
 #[cfg(test)]
 mod tests {

@@ -281,6 +281,7 @@ impl pr4xis::logic::Axiom for WellFormedDocument {
         true
     }
 }
+pr4xis::register_axiom!(WellFormedDocument);
 
 /// Check if a specific document is well-formed.
 pub fn is_well_formed(doc: &MarkupNode) -> bool {

@@ -60,6 +60,10 @@ impl Functor for OdometryToProperty {
         }
     }
 }
+pr4xis::register_functor!(
+    OdometryToProperty,
+    "Borenstein et al. (1996); Thrun, Burgard & Fox (2005); Scaramuzza"
+);
 
 #[cfg(test)]
 mod tests {

@@ -98,6 +98,7 @@ impl Functor for SignalProcessingToAcoustics {
         }
     }
 }
+pr4xis::register_functor!(SignalProcessingToAcoustics);
 
 /// Analysis ⊣ Synthesis adjunction.
 ///
@@ -137,6 +138,7 @@ impl Adjunction for AnalysisSynthesis {
         }
     }
 }
+pr4xis::register_adjunction!(AnalysisSynthesis);
 
 // =============================================================================
 // 2. Health ⊣ Disease (Anatomy ↔ Pathology)
@@ -198,6 +200,7 @@ impl Functor for AnatomyToPathology {
         }
     }
 }
+pr4xis::register_functor!(AnatomyToPathology);
 
 /// Right adjoint: Pathology → Anatomy (which structure is affected).
 pub struct PathologyToAnatomy;
@@ -253,6 +256,7 @@ impl Functor for PathologyToAnatomy {
         }
     }
 }
+pr4xis::register_functor!(PathologyToAnatomy);
 
 /// Health ⊣ Disease adjunction.
 ///
@@ -288,6 +292,7 @@ impl Adjunction for HealthDisease {
         }
     }
 }
+pr4xis::register_adjunction!(HealthDisease);
 
 // =============================================================================
 // 3. Bottom-up ⊣ Top-down (Psychoacoustics ↔ Music Perception)
@@ -367,6 +372,7 @@ impl Functor for MusicToPsychoacoustics {
         }
     }
 }
+pr4xis::register_functor!(MusicToPsychoacoustics);
 
 /// Bottom-up ⊣ Top-down adjunction.
 ///
@@ -401,6 +407,7 @@ impl Adjunction for BottomUpTopDown {
         }
     }
 }
+pr4xis::register_adjunction!(BottomUpTopDown);
 
 // =============================================================================
 // 4. Diagnosis ⊣ Treatment (Pathology ↔ Devices)
@@ -470,6 +477,7 @@ impl Functor for DevicesToPathology {
         }
     }
 }
+pr4xis::register_functor!(DevicesToPathology);
 
 /// Diagnosis ⊣ Treatment adjunction.
 ///
@@ -508,6 +516,7 @@ impl Adjunction for DiagnosisTreatment {
         }
     }
 }
+pr4xis::register_adjunction!(DiagnosisTreatment);
 
 // =============================================================================
 // Tests

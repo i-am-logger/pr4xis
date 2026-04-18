@@ -85,6 +85,10 @@ impl Axiom for DenotesIsPropertyChain {
         has_sense && has_ref && has_denotes
     }
 }
+pr4xis::register_axiom!(
+    DenotesIsPropertyChain,
+    "W3C Lexicon Model for Ontologies (2016);"
+);
 
 /// canonicalForm is functional (W3C Ontolex §3.2).
 #[derive(Debug)]
@@ -106,6 +110,10 @@ impl Axiom for CanonicalFormIsFunctional {
             <= 1
     }
 }
+pr4xis::register_axiom!(
+    CanonicalFormIsFunctional,
+    "W3C Lexicon Model for Ontologies (2016);"
+);
 
 /// reference is functional (W3C Ontolex §3.4).
 #[derive(Debug)]
@@ -127,6 +135,10 @@ impl Axiom for ReferenceIsFunctional {
             <= 1
     }
 }
+pr4xis::register_axiom!(
+    ReferenceIsFunctional,
+    "W3C Lexicon Model for Ontologies (2016);"
+);
 
 impl Ontology for LemonOntology {
     type Cat = LemonCategory;

@@ -41,6 +41,7 @@ impl Functor for OmvToKnowledge {
         }
     }
 }
+pr4xis::register_functor!(OmvToKnowledge);
 
 fn map_kind(kind: &OmvRelationKind) -> KnowledgeRelationKind {
     match kind {

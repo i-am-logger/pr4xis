@@ -54,6 +54,7 @@ impl Axiom for VelocityDerivesFromPosition {
         true
     }
 }
+pr4xis::register_axiom!(VelocityDerivesFromPosition);
 
 impl Ontology for SingleTargetOntology {
     type Cat = TargetStateCategory;

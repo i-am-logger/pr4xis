@@ -1,5 +1,18 @@
 use super::category::Category;
 use super::functor::Functor;
+use crate::ontology::meta::{Citation, ModulePath, OntologyName};
+
+/// Lemon-style lexical metadata for a natural transformation — name,
+/// citation, module path. Matches `OntologyMeta` / `AxiomMeta` /
+/// `FunctorMeta` / `AdjunctionMeta` shape (issue #148).
+#[derive(Debug, Clone)]
+pub struct NaturalTransformationMeta {
+    pub name: OntologyName,
+    /// English-language label (Lemon Form). Defaults to name.
+    pub description: crate::ontology::meta::Label,
+    pub citation: Citation,
+    pub module_path: ModulePath,
+}
 
 /// A natural transformation is a morphism between two functors.
 ///
@@ -13,6 +26,9 @@ use super::functor::Functor;
 ///
 /// This ensures the transformation is "natural" — it commutes with
 /// the structure of the categories.
+///
+/// Every natural transformation announces itself via `meta()` — same
+/// Lemon-uniform shape as ontologies, axioms, functors, and adjunctions.
 pub trait NaturalTransformation {
     type SourceFunctor: Functor;
     type TargetFunctor: Functor<
@@ -27,4 +43,46 @@ pub trait NaturalTransformation {
     fn component(
         obj: &<<Self::SourceFunctor as Functor>::Source as Category>::Object,
     ) -> <<Self::SourceFunctor as Functor>::Target as Category>::Morphism;
+
+    /// Structured metadata — name, citation, module path.
+    ///
+    /// Default is an **honest placeholder** (type_name + empty citation)
+    /// — "literature citation not yet declared". Override via
+    /// `pr4xis::natural_transformation!` or
+    /// [`natural_transformation_meta!`](crate::natural_transformation_meta!).
+    fn meta() -> NaturalTransformationMeta {
+        let tn = std::any::type_name::<Self>().to_string();
+        NaturalTransformationMeta {
+            name: OntologyName::new(tn.clone()),
+            description: crate::ontology::meta::Label::new(tn),
+            citation: Citation::EMPTY,
+            module_path: ModulePath::new(module_path!().to_string()),
+        }
+    }
+}
+
+/// Helper: write the `meta()` associated function for a hand-written
+/// `impl NaturalTransformation` with a literature citation in one line.
+#[macro_export]
+macro_rules! natural_transformation_meta {
+    ($name:literal, $description:literal, $citation:literal) => {
+        fn meta() -> $crate::category::NaturalTransformationMeta {
+            $crate::category::NaturalTransformationMeta {
+                name: $crate::ontology::meta::OntologyName::new_static($name),
+                description: $crate::ontology::meta::Label::new_static($description),
+                citation: $crate::ontology::meta::Citation::parse_static($citation),
+                module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+            }
+        }
+    };
+    ($name:literal, $citation:literal) => {
+        fn meta() -> $crate::category::NaturalTransformationMeta {
+            $crate::category::NaturalTransformationMeta {
+                name: $crate::ontology::meta::OntologyName::new_static($name),
+                description: $crate::ontology::meta::Label::new_static($name),
+                citation: $crate::ontology::meta::Citation::parse_static($citation),
+                module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+            }
+        }
+    };
 }

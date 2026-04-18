@@ -67,6 +67,7 @@ impl Axiom for InterpolationBounded {
         bounded.get(&SyncStrategy::LinearInterpolation) == Some(true)
     }
 }
+pr4xis::register_axiom!(InterpolationBounded);
 
 /// Extrapolation increases uncertainty without bound.
 ///
@@ -86,6 +87,7 @@ impl Axiom for ExtrapolationUnbounded {
         bounded.get(&SyncStrategy::Extrapolation) == Some(false)
     }
 }
+pr4xis::register_axiom!(ExtrapolationUnbounded);
 
 /// Nearest-neighbor error is bounded by half the measurement period.
 pub struct NearestNeighborBounded;
@@ -100,6 +102,7 @@ impl Axiom for NearestNeighborBounded {
         bounded.get(&SyncStrategy::NearestNeighbor) == Some(true)
     }
 }
+pr4xis::register_axiom!(NearestNeighborBounded);
 
 // ---------------------------------------------------------------------------
 // Ontology

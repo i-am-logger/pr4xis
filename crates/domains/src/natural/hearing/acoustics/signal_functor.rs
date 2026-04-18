@@ -42,6 +42,7 @@ impl Functor for AcousticsToSignalProcessing {
         }
     }
 }
+pr4xis::register_functor!(AcousticsToSignalProcessing);
 
 #[cfg(test)]
 mod tests {

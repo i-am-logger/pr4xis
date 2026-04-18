@@ -97,6 +97,10 @@ impl Axiom for WordNetTaxonomyHasInverses {
                 .any(|(c, p)| *c == WordNetConcept::Hyponym && *p == WordNetConcept::Synset)
     }
 }
+pr4xis::register_axiom!(
+    WordNetTaxonomyHasInverses,
+    "- Miller, G. A. (1995). *WordNet: A Lexical Database for English*."
+);
 
 impl Ontology for WordNetOntology {
     type Cat = WordNetCategory;

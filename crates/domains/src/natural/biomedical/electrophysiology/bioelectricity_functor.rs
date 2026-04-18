@@ -70,6 +70,7 @@ impl Functor for ElectrophysiologyToBioelectric {
         }
     }
 }
+pr4xis::register_functor!(ElectrophysiologyToBioelectric);
 
 #[cfg(test)]
 mod tests {
