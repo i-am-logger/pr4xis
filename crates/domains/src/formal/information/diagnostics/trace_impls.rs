@@ -1,6 +1,7 @@
 use super::trace_functors::{PipelineStep, Traceable};
 use crate::cognitive::linguistics::lambek::reduce::ReductionResult;
 use crate::cognitive::linguistics::lambek::reduce::TypedToken;
+use crate::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 
 // Traceable implementations — the trace functor applied to each result type.
 //
@@ -14,7 +15,7 @@ pub struct TokenizeResult<'a> {
 
 impl Traceable for TokenizeResult<'_> {
     fn step(&self) -> PipelineStep {
-        PipelineStep::Tokenize
+        PipelineStep::TOKENIZE
     }
 
     fn trace_detail(&self) -> String {
@@ -47,7 +48,7 @@ impl Traceable for TokenizeResult<'_> {
 /// Traceable wrapper for parse (reduction) results.
 impl Traceable for ReductionResult {
     fn step(&self) -> PipelineStep {
-        PipelineStep::Parse
+        PipelineStep::PARSE
     }
 
     fn trace_detail(&self) -> String {
@@ -75,7 +76,7 @@ pub struct InterpretResult<'a> {
 
 impl Traceable for InterpretResult<'_> {
     fn step(&self) -> PipelineStep {
-        PipelineStep::Interpret
+        PipelineStep::INTERPRET
     }
 
     fn trace_detail(&self) -> String {
@@ -115,7 +116,7 @@ pub struct EpistemicResult {
 
 impl Traceable for EpistemicResult {
     fn step(&self) -> PipelineStep {
-        PipelineStep::EpistemicClassification
+        PipelineStep::EPISTEMIC_CLASSIFICATION
     }
 
     fn trace_detail(&self) -> String {
@@ -141,7 +142,7 @@ pub struct EntityLookupResult {
 
 impl Traceable for EntityLookupResult {
     fn step(&self) -> PipelineStep {
-        PipelineStep::EntityLookup
+        PipelineStep::ENTITY_LOOKUP
     }
 
     fn trace_detail(&self) -> String {
@@ -166,7 +167,7 @@ pub struct TaxonomyResult {
 
 impl Traceable for TaxonomyResult {
     fn step(&self) -> PipelineStep {
-        PipelineStep::TaxonomyTraversal
+        PipelineStep::TAXONOMY_TRAVERSAL
     }
 
     fn trace_detail(&self) -> String {
@@ -183,22 +184,71 @@ impl Traceable for TaxonomyResult {
     }
 }
 
-/// Traceable for NLG realization.
+/// Traceable for NLG realization — final surface-form production.
+///
+/// `char_count` is the length of the realised surface utterance. A
+/// non-zero count is the success criterion: producing zero characters
+/// means the Realization step emitted nothing.
 pub struct RealizationResult {
-    pub section_count: usize,
+    pub char_count: usize,
 }
 
 impl Traceable for RealizationResult {
     fn step(&self) -> PipelineStep {
-        PipelineStep::Realization
+        PipelineStep::REALIZATION
     }
 
     fn trace_detail(&self) -> String {
-        format!("{} sections generated", self.section_count)
+        format!("{} chars generated", self.char_count)
     }
 
     fn trace_success(&self) -> bool {
-        self.section_count > 0
+        self.char_count > 0
+    }
+}
+
+/// Traceable for the Plan/SpeechActClassification step — the illocutionary
+/// classification of the user's utterance (Searle 1969, Cohen & Perrault 1979).
+pub struct SpeechActClassificationResult {
+    pub user_act: SpeechAct,
+}
+
+impl Traceable for SpeechActClassificationResult {
+    fn step(&self) -> PipelineStep {
+        PipelineStep::SPEECH_ACT_CLASSIFICATION
+    }
+
+    fn trace_detail(&self) -> String {
+        format!("{:?}", self.user_act)
+    }
+
+    fn trace_success(&self) -> bool {
+        // Classification always succeeds — every utterance maps to an illocution.
+        true
+    }
+}
+
+/// Traceable for the Monitor/Metacognition step — the decision branch the
+/// metacognitive monitor chose after observing the interpretation result.
+pub struct MetacognitionResult {
+    pub decision: &'static str,
+    pub parsed: bool,
+}
+
+impl Traceable for MetacognitionResult {
+    fn step(&self) -> PipelineStep {
+        PipelineStep::METACOGNITION
+    }
+
+    fn trace_detail(&self) -> String {
+        self.decision.to_string()
+    }
+
+    fn trace_success(&self) -> bool {
+        // The monitor always produces a decision; the *parsed* flag reflects
+        // whether the upstream Parse step succeeded, which is the relevant
+        // signal for whether the chosen branch is a normal-path or repair.
+        self.parsed
     }
 }
 
@@ -213,7 +263,7 @@ pub struct ResponseResult {
 
 impl Traceable for ResponseResult {
     fn step(&self) -> PipelineStep {
-        PipelineStep::ContentDetermination
+        PipelineStep::CONTENT_DETERMINATION
     }
 
     fn trace_detail(&self) -> String {

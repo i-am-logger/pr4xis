@@ -26,3 +26,6 @@ docs/chat/pkg/
 # Managed external data — fetched via `pr4xis update`, never committed
 crates/domains/data/wordnet/*.xml
 crates/domains/data/wordnet/*.xml.gz
+
+# Claude Code transient files
+.claude/scheduled_tasks.lock
