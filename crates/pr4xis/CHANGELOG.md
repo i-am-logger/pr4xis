@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.11.0...pr4xis-v0.12.0) (2026-04-18)
+
+
+### Features
+
+* **#148:** Lemon meta on every structural entity — uniform registry for ontologies, axioms, functors, adjunctions, nat-trans ([#150](https://github.com/i-am-logger/pr4xis/issues/150)) ([f18bbc5](https://github.com/i-am-logger/pr4xis/commit/f18bbc5cbf116b6c4539b41df318c7f921e996cb))
+
 ## [0.11.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.10.0...pr4xis-v0.11.0) (2026-04-17)
 
 
