@@ -75,9 +75,12 @@ pub trait Adjunction {
         obj: &<<Self::Left as Functor>::Target as Category>::Object,
     ) -> <<Self::Left as Functor>::Target as Category>::Morphism;
 
-    /// Structured metadata — name, citation, module path. Default
-    /// implementation derives identity from `type_name`; adjunctions
-    /// declared via the `adjunction!` macro override this.
+    /// Structured metadata — name, citation, module path.
+    ///
+    /// Default is an **honest placeholder** (type_name + empty citation)
+    /// — "literature citation not yet declared". Override via
+    /// `pr4xis::adjunction!` or the
+    /// [`adjunction_meta!`](crate::adjunction_meta!) helper.
     fn meta() -> AdjunctionMeta {
         AdjunctionMeta {
             name: OntologyName::new(std::any::type_name::<Self>().to_string()),
@@ -85,4 +88,19 @@ pub trait Adjunction {
             module_path: ModulePath::new(module_path!().to_string()),
         }
     }
+}
+
+/// Helper: write the `meta()` associated function for a hand-written
+/// `impl Adjunction` with a literature citation in one line.
+#[macro_export]
+macro_rules! adjunction_meta {
+    ($name:literal, $citation:literal) => {
+        fn meta() -> $crate::category::AdjunctionMeta {
+            $crate::category::AdjunctionMeta {
+                name: $crate::ontology::meta::OntologyName::new_static($name),
+                citation: $crate::ontology::meta::Citation::parse_static($citation),
+                module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+            }
+        }
+    };
 }

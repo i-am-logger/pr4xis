@@ -126,6 +126,11 @@ impl<T: MereologyDef> crate::logic::Axiom for NoCycles<T> {
             .iter()
             .all(|entity| !graph::has_cycle(entity, &adj))
     }
+
+    crate::axiom_meta!(
+        "NoCycles[Mereology]",
+        "Casati & Varzi (1999) 'Parts and Places' — Classical Extensional Mereology: part-of is a strict partial order"
+    );
 }
 
 /// Axiom: weak supplementation — if A has-a B (and A != B),
@@ -164,6 +169,11 @@ impl<T: MereologyDef> crate::logic::Axiom for WeakSupplementation<T> {
         );
         adj.values().all(|parts| parts.len() >= 2)
     }
+
+    crate::axiom_meta!(
+        "WeakSupplementation[Mereology]",
+        "Simons (1987) 'Parts: A Study in Ontology'; Casati & Varzi (1999) — Weak Supplementation Principle"
+    );
 }
 
 // ---- Algebraic structure integrations ----

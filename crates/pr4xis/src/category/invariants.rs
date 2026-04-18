@@ -32,6 +32,11 @@ impl<C: Category> Axiom for NoDeadStates<C> {
             .iter()
             .all(|obj| !C::morphisms_from(obj).is_empty())
     }
+
+    crate::axiom_meta!(
+        "NoDeadStates",
+        "Mac Lane (1971) 'Categories for the Working Mathematician' Ch. I — categories have identity morphisms at every object"
+    );
 }
 
 /// Every object is reachable from every other object.
@@ -89,4 +94,9 @@ impl<C: Category> Axiom for FullyConnected<C> {
 
         true
     }
+
+    crate::axiom_meta!(
+        "FullyConnected",
+        "Graph connectivity invariant — every object reachable from every other via morphism composition"
+    );
 }

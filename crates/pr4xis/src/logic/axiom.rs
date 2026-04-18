@@ -6,14 +6,40 @@ use crate::ontology::meta::{Citation, ModulePath, OntologyName};
 /// entity announces itself lexically").
 ///
 /// Construct via the `ontology!` macro's `axioms:` clause, which emits
-/// these values from compile-time constants. New axioms outside that
-/// clause fall back to the `Axiom` trait's default `meta()` (derived
-/// from `type_name`).
+/// these values from compile-time constants, or via the
+/// [`axiom_meta!`](crate::axiom_meta!) helper inline inside a manual
+/// `impl Axiom for T` block.
 #[derive(Debug, Clone)]
 pub struct AxiomMeta {
     pub name: OntologyName,
     pub citation: Citation,
     pub module_path: ModulePath,
+}
+
+/// Helper: write the `meta()` method for a hand-written `impl Axiom`
+/// with a literature citation in one line. Ensures every axiom announces
+/// itself without boilerplate.
+///
+/// # Example
+///
+/// ```ignore
+/// impl Axiom for MyAxiom {
+///     fn description(&self) -> &str { "..." }
+///     fn holds(&self) -> bool { ... }
+///     pr4xis::axiom_meta!("MyAxiom", "Smith (1999) Journal of X");
+/// }
+/// ```
+#[macro_export]
+macro_rules! axiom_meta {
+    ($name:literal, $citation:literal) => {
+        fn meta(&self) -> $crate::logic::axiom::AxiomMeta {
+            $crate::logic::axiom::AxiomMeta {
+                name: $crate::ontology::meta::OntologyName::new_static($name),
+                citation: $crate::ontology::meta::Citation::parse_static($citation),
+                module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+            }
+        }
+    };
 }
 
 /// An axiom — a statement that must hold unconditionally.
@@ -37,11 +63,15 @@ pub trait Axiom {
 
     /// Structured metadata — name, citation, module path.
     ///
-    /// Default implementation derives a sensible identity from
-    /// `std::any::type_name` so every existing axiom keeps compiling
-    /// without migration. Axioms declared inside `ontology!`'s
-    /// `axioms:` clause override this with the literature citation
-    /// captured at the declaration site.
+    /// The default is an **honest placeholder** using `std::any::type_name`
+    /// and an empty citation — not a backward-compatibility fallback. It
+    /// means "this axiom hasn't declared its literature citation yet";
+    /// the registry can report it but downstream consumers can see the
+    /// empty citation and flag it for migration.
+    ///
+    /// Axioms declared via `ontology!`'s `axioms:` clause or with the
+    /// [`axiom_meta!`](crate::axiom_meta!) helper inline override the
+    /// default with the actual literature reference.
     fn meta(&self) -> AxiomMeta {
         AxiomMeta {
             name: OntologyName::new(std::any::type_name::<Self>().to_string()),

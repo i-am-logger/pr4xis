@@ -50,6 +50,11 @@ where
     fn map_morphism(_: &<Src as Category>::Morphism) -> <T::Category as Category>::Morphism {
         <T::Category>::identity(&T::target())
     }
+
+    crate::functor_meta!(
+        "TerminalFunctor",
+        "Mac Lane (1971) Ch. II §1 — constant functor collapsing source to a single target aspect"
+    );
 }
 
 #[cfg(test)]

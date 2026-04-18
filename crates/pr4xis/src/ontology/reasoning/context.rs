@@ -108,6 +108,11 @@ impl<T: ContextDef> crate::logic::Axiom for Deterministic<T> {
         }
         true
     }
+
+    crate::axiom_meta!(
+        "Deterministic[Context]",
+        "Carnap (1947) 'Meaning and Necessity' — intension-plus-context determines extension"
+    );
 }
 
 /// Axiom: every ambiguous entity has at least two distinct resolutions.
@@ -145,4 +150,9 @@ impl<T: ContextDef> crate::logic::Axiom for TrueAmbiguity<T> {
         }
         resolutions_per_entity.values().all(|rs| rs.len() >= 2)
     }
+
+    crate::axiom_meta!(
+        "TrueAmbiguity[Context]",
+        "Pustejovsky (1995) 'The Generative Lexicon' — lexical ambiguity requires ≥2 distinct senses"
+    );
 }

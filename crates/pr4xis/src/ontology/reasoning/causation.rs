@@ -129,6 +129,11 @@ impl<T: CausalDef> crate::logic::Axiom for Asymmetric<T> {
         }
         true
     }
+
+    crate::axiom_meta!(
+        "Asymmetric[Causation]",
+        "Lewis (1973) 'Causation'; Reichenbach (1956) 'The Direction of Time' — causal arrows do not reverse"
+    );
 }
 
 /// Axiom: no self-causation — no entity directly causes itself.
@@ -158,6 +163,11 @@ impl<T: CausalDef> crate::logic::Axiom for NoSelfCausation<T> {
     fn holds(&self) -> bool {
         T::relations().iter().all(|(cause, effect)| cause != effect)
     }
+
+    crate::axiom_meta!(
+        "NoSelfCausation[Causation]",
+        "Lewis (1973) 'Causation'; Humean causation — an event does not cause itself"
+    );
 }
 
 // ---- Algebraic structure integrations ----

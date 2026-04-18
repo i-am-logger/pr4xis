@@ -42,9 +42,12 @@ pub trait NaturalTransformation {
         obj: &<<Self::SourceFunctor as Functor>::Source as Category>::Object,
     ) -> <<Self::SourceFunctor as Functor>::Target as Category>::Morphism;
 
-    /// Structured metadata — name, citation, module path. Default
-    /// derives identity from `type_name`; override via the
-    /// `natural_transformation!` macro.
+    /// Structured metadata — name, citation, module path.
+    ///
+    /// Default is an **honest placeholder** (type_name + empty citation)
+    /// — "literature citation not yet declared". Override via
+    /// `pr4xis::natural_transformation!` or
+    /// [`natural_transformation_meta!`](crate::natural_transformation_meta!).
     fn meta() -> NaturalTransformationMeta {
         NaturalTransformationMeta {
             name: OntologyName::new(std::any::type_name::<Self>().to_string()),
@@ -52,4 +55,19 @@ pub trait NaturalTransformation {
             module_path: ModulePath::new(module_path!().to_string()),
         }
     }
+}
+
+/// Helper: write the `meta()` associated function for a hand-written
+/// `impl NaturalTransformation` with a literature citation in one line.
+#[macro_export]
+macro_rules! natural_transformation_meta {
+    ($name:literal, $citation:literal) => {
+        fn meta() -> $crate::category::NaturalTransformationMeta {
+            $crate::category::NaturalTransformationMeta {
+                name: $crate::ontology::meta::OntologyName::new_static($name),
+                citation: $crate::ontology::meta::Citation::parse_static($citation),
+                module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+            }
+        }
+    };
 }
