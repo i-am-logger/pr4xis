@@ -50,9 +50,9 @@ pub struct ConceptEdge {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EdgeKind {
     /// Taxonomic (is-a)
-    IsA,
+    Subsumption,
     /// Mereological (has-a / part-of)
-    HasA,
+    Parthood,
     /// Dependency (axiom depends on concept)
     DependsOn,
     /// Evaluation flow (axiom evaluates concept)
@@ -232,12 +232,22 @@ pub fn theming_ontology_graph() -> OntologyGraph {
     g.add_node("q_contrast", "ContrastRatio", ConceptKind::Quality);
 
     // Relationships
-    g.add_edge("palette", "color_slot", "contains", EdgeKind::HasA);
-    g.add_edge("palette", "polarity", "has polarity", EdgeKind::HasA);
-    g.add_edge("scheme_type", "color_slot", "defines slots", EdgeKind::HasA);
-    g.add_edge("color_slot", "semantic_role", "has role", EdgeKind::HasA);
-    g.add_edge("vogix16", "color_slot", "maps to", EdgeKind::IsA);
-    g.add_edge("ansi16", "color_slot", "maps to", EdgeKind::IsA);
+    g.add_edge("palette", "color_slot", "contains", EdgeKind::Parthood);
+    g.add_edge("palette", "polarity", "has polarity", EdgeKind::Parthood);
+    g.add_edge(
+        "scheme_type",
+        "color_slot",
+        "defines slots",
+        EdgeKind::Parthood,
+    );
+    g.add_edge(
+        "color_slot",
+        "semantic_role",
+        "has role",
+        EdgeKind::Parthood,
+    );
+    g.add_edge("vogix16", "color_slot", "maps to", EdgeKind::Subsumption);
+    g.add_edge("ansi16", "color_slot", "maps to", EdgeKind::Subsumption);
 
     // Axiom dependencies
     g.add_edge("ax_mono", "q_luminance", "uses", EdgeKind::DependsOn);
@@ -782,8 +792,8 @@ fn kind_str(k: ConceptKind) -> &'static str {
 
 fn edge_kind_str(k: EdgeKind) -> &'static str {
     match k {
-        EdgeKind::IsA => "is_a",
-        EdgeKind::HasA => "has_a",
+        EdgeKind::Subsumption => "is_a",
+        EdgeKind::Parthood => "has_a",
         EdgeKind::DependsOn => "depends_on",
         EdgeKind::Evaluates => "evaluates",
         EdgeKind::Produces => "produces",
@@ -901,7 +911,7 @@ mod tests {
         let has_a = g
             .edges
             .iter()
-            .filter(|e| matches!(e.kind, EdgeKind::HasA))
+            .filter(|e| matches!(e.kind, EdgeKind::Parthood))
             .count();
         let evaluates = g
             .edges

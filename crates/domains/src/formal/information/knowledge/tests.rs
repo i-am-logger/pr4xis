@@ -433,7 +433,7 @@ mod compose {
         let ab_edges: Vec<_> = partial
             .edges()
             .iter()
-            .filter(|e| e.kind == EdgeKind::IsA)
+            .filter(|e| e.kind == EdgeKind::Subsumption)
             .collect();
         assert_eq!(ab_edges.len(), 1);
         assert_eq!(ab_edges[0].from, "A");

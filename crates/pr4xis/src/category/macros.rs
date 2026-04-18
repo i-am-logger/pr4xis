@@ -1,8 +1,11 @@
-// Declarative macros for defining ontology categories with minimal boilerplate.
+// Declarative macro for defining ontology categories with minimal boilerplate.
 //
-// Two patterns:
-// - `define_category!` — kinded categories with explicit relation types (Pattern A)
-// - `define_dense_category!` — dense categories where all entity pairs are morphisms (Pattern B)
+// `define_category!` — kinded categories with explicit relation types.
+// Dense (anonymous-morphism) categories are no longer supported — per Gruber
+// (1993) / OBO-RO (Smith et al. 2005), every morphism carries a canonical
+// relation-kind tag. Callers declaring sugar clauses (is_a / has_a / causes /
+// opposes) go through `ontology!` / `define_ontology!` which synthesise
+// kinded edges automatically.
 
 /// Define a kinded category with explicit relation types.
 ///
@@ -108,69 +111,6 @@ macro_rules! define_category {
                 }
 
                 m
-            }
-        }
-    };
-}
-
-/// Define a dense category where all entity pairs are morphisms.
-///
-/// # Example
-///
-/// ```ignore
-/// define_dense_category! {
-///     /// Acoustics category — all entity pairs connected.
-///     pub AcousticsCategory {
-///         entity: AcousticEntity,
-///         relation: AcousticRelation,
-///     }
-/// }
-/// ```
-#[macro_export]
-macro_rules! define_dense_category {
-    (
-        $(#[$cat_meta:meta])*
-        pub $cat_name:ident {
-            entity: $entity:ident,
-            relation: $relation:ident,
-        }
-    ) => {
-        #[derive(Debug, Clone, PartialEq, Eq)]
-        pub struct $relation {
-            pub from: $entity,
-            pub to: $entity,
-        }
-
-        impl $crate::category::Relationship for $relation {
-            type Object = $entity;
-            type Kind = ();
-            fn source(&self) -> $entity { self.from }
-            fn target(&self) -> $entity { self.to }
-            fn kind(&self) -> () {}
-        }
-
-        $(#[$cat_meta])*
-        pub struct $cat_name;
-
-        impl $crate::category::Category for $cat_name {
-            type Object = $entity;
-            type Morphism = $relation;
-
-            fn identity(obj: &$entity) -> $relation {
-                $relation { from: *obj, to: *obj }
-            }
-
-            fn compose(f: &$relation, g: &$relation) -> Option<$relation> {
-                if f.to != g.from { return None; }
-                Some($relation { from: f.from, to: g.to })
-            }
-
-            fn morphisms() -> Vec<$relation> {
-                use $crate::category::Concept;
-                let variants = $entity::variants();
-                variants.iter()
-                    .flat_map(|&a| variants.iter().map(move |&b| $relation { from: a, to: b }))
-                    .collect()
             }
         }
     };

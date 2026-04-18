@@ -262,15 +262,18 @@ impl fmt::Display for ConceptName {
     }
 }
 
-/// Kind of a morphism — the relation type between concepts.
+/// Kind of a morphism — the relation type between concepts, named per
+/// the Relations umbrella ontology (Smith et al. 2005 OBO-RO; Gruber
+/// 1993). Sugar clauses in `ontology!` (`is_a:`, `has_a:`, `causes:`,
+/// `opposes:`) desugar to these canonical variants.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MorphismKind {
     Identity,
-    IsA,
-    HasA,
-    Causes,
-    Opposes,
-    Equivalent,
+    Subsumption,
+    Parthood,
+    Causation,
+    Opposition,
+    Equivalence,
     Composed,
     Custom(Cow<'static, str>),
 }
@@ -279,11 +282,11 @@ impl MorphismKind {
     pub fn as_str(&self) -> &str {
         match self {
             MorphismKind::Identity => "Identity",
-            MorphismKind::IsA => "IsA",
-            MorphismKind::HasA => "HasA",
-            MorphismKind::Causes => "Causes",
-            MorphismKind::Opposes => "Opposes",
-            MorphismKind::Equivalent => "Equivalent",
+            MorphismKind::Subsumption => "Subsumption",
+            MorphismKind::Parthood => "Parthood",
+            MorphismKind::Causation => "Causation",
+            MorphismKind::Opposition => "Opposition",
+            MorphismKind::Equivalence => "Equivalence",
             MorphismKind::Composed => "Composed",
             MorphismKind::Custom(s) => s,
         }
