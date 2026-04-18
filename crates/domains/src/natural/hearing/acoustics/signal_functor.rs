@@ -4,7 +4,7 @@
 
 use crate::natural::hearing::acoustics::ontology::*;
 use crate::natural::hearing::signal_processing::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct AcousticsToSignalProcessing;
 
@@ -36,9 +36,15 @@ impl Functor for AcousticsToSignalProcessing {
     }
 
     fn map_morphism(m: &AcousticRelation) -> SignalRelation {
-        SignalRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            AcousticsCategoryRelationKind::Identity => SignalProcessingCategory::identity(&from),
+            _ => SignalRelation {
+                from,
+                to,
+                kind: SignalProcessingCategoryRelationKind::Composed,
+            },
         }
     }
 }

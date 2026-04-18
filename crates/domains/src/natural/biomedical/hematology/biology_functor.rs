@@ -5,13 +5,13 @@
 //! to Cell; plasma proteins map to Fibroblast (the primary protein-producing
 //! cell); electrolytes and properties map to Cell or Tissue.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::biology::ontology::{
-    BiologicalEntity, BiologicalRelation, BiologyCategory,
+    BiologicalEntity, BiologicalRelation, BiologyCategory, BiologyCategoryRelationKind,
 };
 use crate::natural::biomedical::hematology::ontology::{
-    HematologyCategory, HematologyEntity, HematologyRelation,
+    HematologyCategory, HematologyCategoryRelationKind, HematologyEntity, HematologyRelation,
 };
 
 /// Structure-preserving map from hematology entities to biological organization.
@@ -65,9 +65,15 @@ impl Functor for HematologyToBiology {
     }
 
     fn map_morphism(m: &HematologyRelation) -> BiologicalRelation {
-        BiologicalRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            HematologyCategoryRelationKind::Identity => BiologyCategory::identity(&from),
+            _ => BiologicalRelation {
+                from,
+                to,
+                kind: BiologyCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -106,8 +112,16 @@ mod tests {
         for &a in &objs[..5] {
             for &b in &objs[5..10] {
                 for &c in &objs[10..15] {
-                    let f = HematologyRelation { from: a, to: b };
-                    let g = HematologyRelation { from: b, to: c };
+                    let f = HematologyRelation {
+                        from: a,
+                        to: b,
+                        kind: HematologyCategoryRelationKind::Composed,
+                    };
+                    let g = HematologyRelation {
+                        from: b,
+                        to: c,
+                        kind: HematologyCategoryRelationKind::Composed,
+                    };
                     let composed = HematologyCategory::compose(&f, &g).unwrap();
                     let mapped_composed = HematologyToBiology::map_morphism(&composed);
                     let composed_mapped = BiologyCategory::compose(

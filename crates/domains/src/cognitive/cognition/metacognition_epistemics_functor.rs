@@ -12,13 +12,13 @@
 //
 // Source: Nelson & Narens (1990); von Foerster (1981); Koriat (2007)
 
-use pr4xis::category::Functor;
+use pr4xis::category::{Category, Functor};
 
 use crate::cognitive::cognition::epistemics::{
     EpistemicCategory, EpistemicConcept, EpistemicRelation, EpistemicRelationKind,
 };
 use crate::cognitive::cognition::metacognition::{
-    MetaCognitionCategory, MetaCognitionConcept, MetaCognitionRelation,
+    MetaCognitionCategory, MetaCognitionConcept, MetaCognitionRelation, MetaCognitionRelationKind,
 };
 
 pub struct MetacognitionToEpistemics;
@@ -55,22 +55,16 @@ impl Functor for MetacognitionToEpistemics {
     fn map_morphism(m: &MetaCognitionRelation) -> EpistemicRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
-        let kind = if from == to && m.from == m.to {
-            EpistemicRelationKind::Identity
-        } else if from == to {
-            EpistemicRelationKind::Composed
-        } else {
-            match (&from, &to) {
-                (EpistemicConcept::UnknownKnown, EpistemicConcept::KnownKnown) => {
-                    EpistemicRelationKind::Repair
-                }
-                (EpistemicConcept::KnownUnknown, EpistemicConcept::KnownKnown) => {
-                    EpistemicRelationKind::Learning
-                }
-                _ => EpistemicRelationKind::Composed,
-            }
-        };
-        EpistemicRelation { from, to, kind }
+        // Preserve source's Identity → target's Identity; everything else
+        // maps to Composed so F(g∘f) == F(g)∘F(f) holds under collapse.
+        match m.kind {
+            MetaCognitionRelationKind::Identity => EpistemicCategory::identity(&from),
+            _ => EpistemicRelation {
+                from,
+                to,
+                kind: EpistemicRelationKind::Composed,
+            },
+        }
     }
 }
 pr4xis::register_functor!(MetacognitionToEpistemics);

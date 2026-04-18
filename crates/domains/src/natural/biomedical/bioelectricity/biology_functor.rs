@@ -11,13 +11,14 @@
 //!
 //! Functor laws verified by `check_functor_laws`.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::bioelectricity::ontology::{
     BioelectricCategory, BioelectricConcept, BioelectricEntity, BioelectricRelation,
+    BioelectricRelationKind,
 };
 use crate::natural::biomedical::biology::ontology::{
-    BiologicalEntity, BiologicalRelation, BiologyCategory,
+    BiologicalEntity, BiologicalRelation, BiologyCategory, BiologyCategoryRelationKind,
 };
 
 /// Structure-preserving map from bioelectric entities to their biological structure.
@@ -59,9 +60,15 @@ impl Functor for BioelectricToBiology {
     }
 
     fn map_morphism(m: &BioelectricRelation) -> BiologicalRelation {
-        BiologicalRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            BioelectricRelationKind::Identity => BiologyCategory::identity(&from),
+            _ => BiologicalRelation {
+                from,
+                to,
+                kind: BiologyCategoryRelationKind::Composed,
+            },
         }
     }
 }

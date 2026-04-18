@@ -8,13 +8,13 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::acoustics::ontology::{
-    AcousticsCategory, AcousticsEntity, AcousticsRelation,
+    AcousticsCategory, AcousticsCategoryRelationKind, AcousticsEntity, AcousticsRelation,
 };
 use crate::natural::biomedical::biophysics::ontology::{
-    BiophysicsCategory, BiophysicsEntity, BiophysicsRelation,
+    BiophysicsCategory, BiophysicsCategoryRelationKind, BiophysicsEntity, BiophysicsRelation,
 };
 
 /// Structure-preserving map from acoustics entities to their biophysical substrate.
@@ -69,9 +69,18 @@ impl Functor for AcousticsToBiophysics {
     }
 
     fn map_morphism(m: &AcousticsRelation) -> BiophysicsRelation {
-        BiophysicsRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        // Preserve source's Identity → target's identity; everything else
+        // maps to Composed in the dense target (so F(g∘f) == F(g)∘F(f) holds
+        // under collapse).
+        match m.kind {
+            AcousticsCategoryRelationKind::Identity => BiophysicsCategory::identity(&from),
+            _ => BiophysicsRelation {
+                from,
+                to,
+                kind: BiophysicsCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -110,8 +119,16 @@ mod tests {
         for &a in &objs[..5] {
             for &b in &objs[5..10] {
                 for &c in &objs[10..15] {
-                    let f = AcousticsRelation { from: a, to: b };
-                    let g = AcousticsRelation { from: b, to: c };
+                    let f = AcousticsRelation {
+                        from: a,
+                        to: b,
+                        kind: AcousticsCategoryRelationKind::Composed,
+                    };
+                    let g = AcousticsRelation {
+                        from: b,
+                        to: c,
+                        kind: AcousticsCategoryRelationKind::Composed,
+                    };
                     let composed = AcousticsCategory::compose(&f, &g).unwrap();
                     let mapped_composed = AcousticsToBiophysics::map_morphism(&composed);
                     let composed_mapped = BiophysicsCategory::compose(

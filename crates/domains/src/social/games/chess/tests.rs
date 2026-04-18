@@ -1,4 +1,4 @@
-use super::ontology::{ChessCategory, SquareConnection};
+use super::ontology::{ChessCategory, ChessCategoryRelationKind, SquareConnection};
 use super::*;
 use pr4xis::category::Category;
 use pr4xis::engine::EngineError;
@@ -415,6 +415,7 @@ fn chess_category_identity_law() {
             let f = SquareConnection {
                 from: sq,
                 to: other,
+                kind: ChessCategoryRelationKind::Composed,
             };
             let left = ChessCategory::compose(&id, &f).unwrap();
             assert_eq!(left, f, "left identity failed for {:?}", sq);
@@ -437,9 +438,21 @@ fn chess_category_associativity() {
         for &b in &sample {
             for &c in &sample {
                 for &d in &sample {
-                    let f = SquareConnection { from: a, to: b };
-                    let g = SquareConnection { from: b, to: c };
-                    let h = SquareConnection { from: c, to: d };
+                    let f = SquareConnection {
+                        from: a,
+                        to: b,
+                        kind: ChessCategoryRelationKind::Composed,
+                    };
+                    let g = SquareConnection {
+                        from: b,
+                        to: c,
+                        kind: ChessCategoryRelationKind::Composed,
+                    };
+                    let h = SquareConnection {
+                        from: c,
+                        to: d,
+                        kind: ChessCategoryRelationKind::Composed,
+                    };
 
                     let fg = ChessCategory::compose(&f, &g).unwrap();
                     let gh = ChessCategory::compose(&g, &h).unwrap();

@@ -11,11 +11,11 @@
 //
 // Source: Dehaene, Lau & Kouider (2017); Baars (1988)
 
-use pr4xis::category::Functor;
+use pr4xis::category::{Category, Functor};
 
-use super::ontology::{C1Category, C1Concept, C1Relation};
+use super::ontology::{C1Category, C1Concept, C1Relation, C1RelationKind};
 use crate::cognitive::linguistics::pipeline::ontology::{
-    PipelineCategory, PipelineConcept, PipelineRelation,
+    PipelineCategory, PipelineConcept, PipelineRelation, PipelineRelationKind,
 };
 
 pub struct C1ToPipeline;
@@ -44,9 +44,17 @@ impl Functor for C1ToPipeline {
     }
 
     fn map_morphism(m: &C1Relation) -> PipelineRelation {
-        PipelineRelation {
-            from: Self::map_object(&m.from),
-            to: Self::map_object(&m.to),
+        let from = Self::map_object(&m.from);
+        let to = Self::map_object(&m.to);
+        // Preserve source's Identity → target's Identity; everything else
+        // maps to Composed so F(g∘f) == F(g)∘F(f) holds under collapse.
+        match m.kind {
+            C1RelationKind::Identity => PipelineCategory::identity(&from),
+            _ => PipelineRelation {
+                from,
+                to,
+                kind: PipelineRelationKind::Composed,
+            },
         }
     }
 }

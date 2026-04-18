@@ -3,13 +3,15 @@
 //! Maps molecular/cellular transduction entities to their perceptual role.
 //! Hair cell mechanics become perceived sound qualities.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::hearing::psychoacoustics::ontology::{
     PsychoacousticEntity, PsychoacousticRelation, PsychoacousticsCategory,
+    PsychoacousticsCategoryRelationKind,
 };
 use crate::natural::hearing::transduction::ontology::{
-    TransductionCategory, TransductionEntity, TransductionRelation,
+    TransductionCategory, TransductionCategoryRelationKind, TransductionEntity,
+    TransductionRelation,
 };
 
 /// Structure-preserving map from transduction entities to perceptual role.
@@ -58,9 +60,15 @@ impl Functor for TransductionToPsychoacoustics {
     }
 
     fn map_morphism(m: &TransductionRelation) -> PsychoacousticRelation {
-        PsychoacousticRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            TransductionCategoryRelationKind::Identity => PsychoacousticsCategory::identity(&from),
+            _ => PsychoacousticRelation {
+                from,
+                to,
+                kind: PsychoacousticsCategoryRelationKind::Composed,
+            },
         }
     }
 }

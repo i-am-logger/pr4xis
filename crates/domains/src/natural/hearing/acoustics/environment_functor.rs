@@ -4,7 +4,7 @@
 
 use crate::natural::hearing::acoustics::ontology::*;
 use crate::natural::hearing::environmental_acoustics::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct AcousticsToEnvironment;
 
@@ -41,9 +41,17 @@ impl Functor for AcousticsToEnvironment {
     }
 
     fn map_morphism(m: &AcousticRelation) -> EnvironmentRelation {
-        EnvironmentRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            AcousticsCategoryRelationKind::Identity => {
+                EnvironmentalAcousticsCategory::identity(&from)
+            }
+            _ => EnvironmentRelation {
+                from,
+                to,
+                kind: EnvironmentalAcousticsCategoryRelationKind::Composed,
+            },
         }
     }
 }

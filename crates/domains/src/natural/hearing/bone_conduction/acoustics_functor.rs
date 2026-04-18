@@ -8,13 +8,13 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping
 //! is mathematically valid.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::hearing::acoustics::ontology::{
-    AcousticEntity, AcousticRelation, AcousticsCategory,
+    AcousticEntity, AcousticRelation, AcousticsCategory, AcousticsCategoryRelationKind,
 };
 use crate::natural::hearing::bone_conduction::ontology::{
-    BoneCondEntity, BoneCondRelation, BoneConductionCategory,
+    BoneCondEntity, BoneCondRelation, BoneConductionCategory, BoneConductionCategoryRelationKind,
 };
 
 /// Structure-preserving map from acoustic entities to their BC role.
@@ -61,9 +61,15 @@ impl Functor for AcousticsToBoneConduction {
     }
 
     fn map_morphism(m: &AcousticRelation) -> BoneCondRelation {
-        BoneCondRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            AcousticsCategoryRelationKind::Identity => BoneConductionCategory::identity(&from),
+            _ => BoneCondRelation {
+                from,
+                to,
+                kind: BoneConductionCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -103,8 +109,16 @@ mod tests {
         for &a in &objs[..5] {
             for &b in &objs[5..10] {
                 for &c in &objs[10..15] {
-                    let f = AcousticRelation { from: a, to: b };
-                    let g = AcousticRelation { from: b, to: c };
+                    let f = AcousticRelation {
+                        from: a,
+                        to: b,
+                        kind: AcousticsCategoryRelationKind::Composed,
+                    };
+                    let g = AcousticRelation {
+                        from: b,
+                        to: c,
+                        kind: AcousticsCategoryRelationKind::Composed,
+                    };
                     let composed = AcousticsCategory::compose(&f, &g).unwrap();
                     let mapped_composed = AcousticsToBoneConduction::map_morphism(&composed);
                     let composed_mapped = BoneConductionCategory::compose(

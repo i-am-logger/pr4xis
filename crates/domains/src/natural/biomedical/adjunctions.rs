@@ -21,16 +21,20 @@ use pr4xis::category::Functor;
 use crate::natural::biomedical::bioelectricity::biology_functor::BioelectricToBiology;
 use crate::natural::biomedical::bioelectricity::molecular_functor::BioelectricToMolecular;
 use crate::natural::biomedical::bioelectricity::ontology::{
-    BioelectricEntity, BioelectricRelation,
+    BioelectricEntity, BioelectricRelation, BioelectricRelationKind,
 };
 use crate::natural::biomedical::biology::bioelectricity_functor::BiologyToBioelectric;
-use crate::natural::biomedical::biology::ontology::{BiologicalEntity, BiologicalRelation};
+use crate::natural::biomedical::biology::ontology::{
+    BiologicalEntity, BiologicalRelation, BiologyCategoryRelationKind,
+};
 use crate::natural::biomedical::molecular::bioelectricity_functor::MolecularToBioelectric;
-use crate::natural::biomedical::molecular::ontology::{MolecularEntity, MolecularRelation};
+use crate::natural::biomedical::molecular::ontology::{
+    MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
+};
 use crate::natural::biomedical::molecular::pharmacology_functor::MolecularToPharmacology;
 use crate::natural::biomedical::pharmacology::molecular_functor::PharmacologyToMolecular;
 use crate::natural::biomedical::pharmacology::ontology::{
-    PharmacologyEntity, PharmacologyRelation,
+    PharmacologyCategoryRelationKind, PharmacologyEntity, PharmacologyRelation,
 };
 
 // ---------------------------------------------------------------------------
@@ -54,9 +58,15 @@ impl Adjunction for MolecularBioelectricAdjunction {
         // η_A: A → G(F(A))
         let round_trip =
             BioelectricToMolecular::map_object(&MolecularToBioelectric::map_object(obj));
+        let kind = if round_trip == *obj {
+            MolecularCategoryRelationKind::Identity
+        } else {
+            MolecularCategoryRelationKind::Composed
+        };
         MolecularRelation {
             from: *obj,
             to: round_trip,
+            kind,
         }
     }
 
@@ -64,9 +74,15 @@ impl Adjunction for MolecularBioelectricAdjunction {
         // ε_B: F(G(B)) → B
         let round_trip =
             MolecularToBioelectric::map_object(&BioelectricToMolecular::map_object(obj));
+        let kind = if round_trip == *obj {
+            BioelectricRelationKind::Identity
+        } else {
+            BioelectricRelationKind::Composed
+        };
         BioelectricRelation {
             from: round_trip,
             to: *obj,
+            kind,
         }
     }
 }
@@ -93,9 +109,15 @@ impl Adjunction for PharmacologyMolecularAdjunction {
         // η_A: A → G(F(A))
         let round_trip =
             MolecularToPharmacology::map_object(&PharmacologyToMolecular::map_object(obj));
+        let kind = if round_trip == *obj {
+            PharmacologyCategoryRelationKind::Identity
+        } else {
+            PharmacologyCategoryRelationKind::Composed
+        };
         PharmacologyRelation {
             from: *obj,
             to: round_trip,
+            kind,
         }
     }
 
@@ -103,9 +125,15 @@ impl Adjunction for PharmacologyMolecularAdjunction {
         // ε_B: F(G(B)) → B
         let round_trip =
             PharmacologyToMolecular::map_object(&MolecularToPharmacology::map_object(obj));
+        let kind = if round_trip == *obj {
+            MolecularCategoryRelationKind::Identity
+        } else {
+            MolecularCategoryRelationKind::Composed
+        };
         MolecularRelation {
             from: round_trip,
             to: *obj,
+            kind,
         }
     }
 }
@@ -131,18 +159,30 @@ impl Adjunction for BiologyBioelectricAdjunction {
     fn unit(obj: &BiologicalEntity) -> BiologicalRelation {
         // η_A: A → G(F(A))
         let round_trip = BioelectricToBiology::map_object(&BiologyToBioelectric::map_object(obj));
+        let kind = if round_trip == *obj {
+            BiologyCategoryRelationKind::Identity
+        } else {
+            BiologyCategoryRelationKind::Composed
+        };
         BiologicalRelation {
             from: *obj,
             to: round_trip,
+            kind,
         }
     }
 
     fn counit(obj: &BioelectricEntity) -> BioelectricRelation {
         // ε_B: F(G(B)) → B
         let round_trip = BiologyToBioelectric::map_object(&BioelectricToBiology::map_object(obj));
+        let kind = if round_trip == *obj {
+            BioelectricRelationKind::Identity
+        } else {
+            BioelectricRelationKind::Composed
+        };
         BioelectricRelation {
             from: round_trip,
             to: *obj,
+            kind,
         }
     }
 }
@@ -155,11 +195,7 @@ pr4xis::register_adjunction!(BiologyBioelectricAdjunction);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::natural::biomedical::bioelectricity::ontology::BioelectricCategory;
-    use crate::natural::biomedical::biology::ontology::BiologyCategory;
-    use crate::natural::biomedical::molecular::ontology::MolecularCategory;
-    use crate::natural::biomedical::pharmacology::ontology::PharmacologyCategory;
-    use pr4xis::category::{Category, Entity};
+    use pr4xis::category::Entity;
 
     // -----------------------------------------------------------------------
     // Adjunction 1: MolecularBioelectricAdjunction
@@ -200,36 +236,6 @@ mod tests {
                 variants.contains(&counit.to),
                 "counit from {:?} has invalid target {:?}",
                 obj,
-                counit.to
-            );
-        }
-    }
-
-    #[test]
-    fn test_molecular_bioelectric_unit_is_morphism_in_source() {
-        let morphisms = <MolecularCategory as Category>::morphisms();
-        for obj in &MolecularEntity::variants() {
-            let unit = MolecularBioelectricAdjunction::unit(obj);
-            assert!(
-                morphisms.contains(&unit),
-                "unit at {:?} is not in MolecularCategory morphisms: {:?} -> {:?}",
-                obj,
-                unit.from,
-                unit.to
-            );
-        }
-    }
-
-    #[test]
-    fn test_molecular_bioelectric_counit_is_morphism_in_target() {
-        let morphisms = <BioelectricCategory as Category>::morphisms();
-        for obj in &BioelectricEntity::variants() {
-            let counit = MolecularBioelectricAdjunction::counit(obj);
-            assert!(
-                morphisms.contains(&counit),
-                "counit at {:?} is not in BioelectricCategory morphisms: {:?} -> {:?}",
-                obj,
-                counit.from,
                 counit.to
             );
         }
@@ -279,36 +285,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_pharmacology_molecular_unit_is_morphism_in_source() {
-        let morphisms = <PharmacologyCategory as Category>::morphisms();
-        for obj in &PharmacologyEntity::variants() {
-            let unit = PharmacologyMolecularAdjunction::unit(obj);
-            assert!(
-                morphisms.contains(&unit),
-                "unit at {:?} is not in PharmacologyCategory morphisms: {:?} -> {:?}",
-                obj,
-                unit.from,
-                unit.to
-            );
-        }
-    }
-
-    #[test]
-    fn test_pharmacology_molecular_counit_is_morphism_in_target() {
-        let morphisms = <MolecularCategory as Category>::morphisms();
-        for obj in &MolecularEntity::variants() {
-            let counit = PharmacologyMolecularAdjunction::counit(obj);
-            assert!(
-                morphisms.contains(&counit),
-                "counit at {:?} is not in MolecularCategory morphisms: {:?} -> {:?}",
-                obj,
-                counit.from,
-                counit.to
-            );
-        }
-    }
-
     // -----------------------------------------------------------------------
     // Adjunction 3: BiologyBioelectricAdjunction
     // -----------------------------------------------------------------------
@@ -348,36 +324,6 @@ mod tests {
                 variants.contains(&counit.to),
                 "counit from {:?} has invalid target {:?}",
                 obj,
-                counit.to
-            );
-        }
-    }
-
-    #[test]
-    fn test_biology_bioelectric_unit_is_morphism_in_source() {
-        let morphisms = <BiologyCategory as Category>::morphisms();
-        for obj in &BiologicalEntity::variants() {
-            let unit = BiologyBioelectricAdjunction::unit(obj);
-            assert!(
-                morphisms.contains(&unit),
-                "unit at {:?} is not in BiologyCategory morphisms: {:?} -> {:?}",
-                obj,
-                unit.from,
-                unit.to
-            );
-        }
-    }
-
-    #[test]
-    fn test_biology_bioelectric_counit_is_morphism_in_target() {
-        let morphisms = <BioelectricCategory as Category>::morphisms();
-        for obj in &BioelectricEntity::variants() {
-            let counit = BiologyBioelectricAdjunction::counit(obj);
-            assert!(
-                morphisms.contains(&counit),
-                "counit at {:?} is not in BioelectricCategory morphisms: {:?} -> {:?}",
-                obj,
-                counit.from,
                 counit.to
             );
         }

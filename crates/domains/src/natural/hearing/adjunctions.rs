@@ -25,7 +25,7 @@
 //! - Mac Lane 1971: Categories for the Working Mathematician, Ch. IV
 //! - Awodey 2010: Category Theory, Ch. 9
 
-use pr4xis::category::{Adjunction, Functor, Relationship};
+use pr4xis::category::{Adjunction, Category, Functor, Relationship};
 
 // =============================================================================
 // 1. Analysis ⊣ Synthesis (Acoustics ↔ Signal Processing)
@@ -92,9 +92,15 @@ impl Functor for SignalProcessingToAcoustics {
     }
 
     fn map_morphism(m: &SignalRelation) -> AcousticRelation {
-        AcousticRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            SignalProcessingCategoryRelationKind::Identity => AcousticsCategory::identity(&from),
+            _ => AcousticRelation {
+                from,
+                to,
+                kind: AcousticsCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -122,9 +128,15 @@ impl Adjunction for AnalysisSynthesis {
         // η_A: A → G(F(A)) — the acoustic entity embeds into its round-trip
         let analyzed = AcousticsToSignalProcessing::map_object(obj);
         let reconstructed = SignalProcessingToAcoustics::map_object(&analyzed);
+        let kind = if reconstructed == *obj {
+            AcousticsCategoryRelationKind::Identity
+        } else {
+            AcousticsCategoryRelationKind::Composed
+        };
         AcousticRelation {
             from: *obj,
             to: reconstructed,
+            kind,
         }
     }
 
@@ -132,9 +144,15 @@ impl Adjunction for AnalysisSynthesis {
         // ε_B: F(G(B)) → B — the signal entity projects from its round-trip
         let synthesized = SignalProcessingToAcoustics::map_object(obj);
         let reanalyzed = AcousticsToSignalProcessing::map_object(&synthesized);
+        let kind = if reanalyzed == *obj {
+            SignalProcessingCategoryRelationKind::Identity
+        } else {
+            SignalProcessingCategoryRelationKind::Composed
+        };
         SignalRelation {
             from: reanalyzed,
             to: *obj,
+            kind,
         }
     }
 }
@@ -194,9 +212,15 @@ impl Functor for AnatomyToPathology {
     }
 
     fn map_morphism(m: &AuditoryRelation) -> PathologyRelation {
-        PathologyRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            AnatomyCategoryRelationKind::Identity => PathologyCategory::identity(&from),
+            _ => PathologyRelation {
+                from,
+                to,
+                kind: PathologyCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -250,9 +274,15 @@ impl Functor for PathologyToAnatomy {
     }
 
     fn map_morphism(m: &PathologyRelation) -> AuditoryRelation {
-        AuditoryRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            PathologyCategoryRelationKind::Identity => AnatomyCategory::identity(&from),
+            _ => AuditoryRelation {
+                from,
+                to,
+                kind: AnatomyCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -277,18 +307,30 @@ impl Adjunction for HealthDisease {
     fn unit(obj: &AuditoryEntity) -> AuditoryRelation {
         let diseased = AnatomyToPathology::map_object(obj);
         let recovered = PathologyToAnatomy::map_object(&diseased);
+        let kind = if recovered == *obj {
+            AnatomyCategoryRelationKind::Identity
+        } else {
+            AnatomyCategoryRelationKind::Composed
+        };
         AuditoryRelation {
             from: *obj,
             to: recovered,
+            kind,
         }
     }
 
     fn counit(obj: &PathologyEntity) -> PathologyRelation {
         let structure = PathologyToAnatomy::map_object(obj);
         let re_diseased = AnatomyToPathology::map_object(&structure);
+        let kind = if re_diseased == *obj {
+            PathologyCategoryRelationKind::Identity
+        } else {
+            PathologyCategoryRelationKind::Composed
+        };
         PathologyRelation {
             from: re_diseased,
             to: *obj,
+            kind,
         }
     }
 }
@@ -366,9 +408,17 @@ impl Functor for MusicToPsychoacoustics {
     }
 
     fn map_morphism(m: &MusicRelation) -> PsychoacousticRelation {
-        PsychoacousticRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            MusicPerceptionCategoryRelationKind::Identity => {
+                PsychoacousticsCategory::identity(&from)
+            }
+            _ => PsychoacousticRelation {
+                from,
+                to,
+                kind: PsychoacousticsCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -392,18 +442,30 @@ impl Adjunction for BottomUpTopDown {
     fn unit(obj: &PsychoacousticEntity) -> PsychoacousticRelation {
         let musical = PsychoacousticsToMusic::map_object(obj);
         let feedback = MusicToPsychoacoustics::map_object(&musical);
+        let kind = if feedback == *obj {
+            PsychoacousticsCategoryRelationKind::Identity
+        } else {
+            PsychoacousticsCategoryRelationKind::Composed
+        };
         PsychoacousticRelation {
             from: *obj,
             to: feedback,
+            kind,
         }
     }
 
     fn counit(obj: &MusicEntity) -> MusicRelation {
         let percept = MusicToPsychoacoustics::map_object(obj);
         let re_musical = PsychoacousticsToMusic::map_object(&percept);
+        let kind = if re_musical == *obj {
+            MusicPerceptionCategoryRelationKind::Identity
+        } else {
+            MusicPerceptionCategoryRelationKind::Composed
+        };
         MusicRelation {
             from: re_musical,
             to: *obj,
+            kind,
         }
     }
 }
@@ -471,9 +533,15 @@ impl Functor for DevicesToPathology {
     }
 
     fn map_morphism(m: &DeviceRelation) -> PathologyRelation {
-        PathologyRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            DeviceCategoryRelationKind::Identity => PathologyCategory::identity(&from),
+            _ => PathologyRelation {
+                from,
+                to,
+                kind: PathologyCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -501,18 +569,30 @@ impl Adjunction for DiagnosisTreatment {
     fn unit(obj: &PathologyEntity) -> PathologyRelation {
         let device = PathologyToDevices::map_object(obj);
         let condition = DevicesToPathology::map_object(&device);
+        let kind = if condition == *obj {
+            PathologyCategoryRelationKind::Identity
+        } else {
+            PathologyCategoryRelationKind::Composed
+        };
         PathologyRelation {
             from: *obj,
             to: condition,
+            kind,
         }
     }
 
     fn counit(obj: &DeviceEntity) -> DeviceRelation {
         let condition = DevicesToPathology::map_object(obj);
         let device = PathologyToDevices::map_object(&condition);
+        let kind = if device == *obj {
+            DeviceCategoryRelationKind::Identity
+        } else {
+            DeviceCategoryRelationKind::Composed
+        };
         DeviceRelation {
             from: device,
             to: *obj,
+            kind,
         }
     }
 }

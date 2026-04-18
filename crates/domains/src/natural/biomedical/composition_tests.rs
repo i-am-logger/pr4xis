@@ -52,8 +52,16 @@ mod tests {
         let a = objs[0];
         let b = objs[5];
         let c = objs[10];
-        let f = PharmacologyRelation { from: a, to: b };
-        let g = PharmacologyRelation { from: b, to: c };
+        let f = PharmacologyRelation {
+            from: a,
+            to: b,
+            kind: PharmacologyCategoryRelationKind::Composed,
+        };
+        let g = PharmacologyRelation {
+            from: b,
+            to: c,
+            kind: PharmacologyCategoryRelationKind::Composed,
+        };
         let composed = PharmacologyCategory::compose(&f, &g).unwrap();
         // Map composed morphism through both functors
         let mapped_composed =
@@ -114,8 +122,16 @@ mod tests {
         let a = objs[0];
         let b = objs[5];
         let c = objs[10];
-        let f = PharmacologyRelation { from: a, to: b };
-        let g = PharmacologyRelation { from: b, to: c };
+        let f = PharmacologyRelation {
+            from: a,
+            to: b,
+            kind: PharmacologyCategoryRelationKind::Composed,
+        };
+        let g = PharmacologyRelation {
+            from: b,
+            to: c,
+            kind: PharmacologyCategoryRelationKind::Composed,
+        };
         let composed = PharmacologyCategory::compose(&f, &g).unwrap();
         let mapped_composed =
             ImmunologyToBiology::map_morphism(&PharmacologyToImmunology::map_morphism(&composed));
@@ -174,8 +190,16 @@ mod tests {
         let a = objs[1];
         let b = objs[6];
         let c = objs[12];
-        let f = PharmacologyRelation { from: a, to: b };
-        let g = PharmacologyRelation { from: b, to: c };
+        let f = PharmacologyRelation {
+            from: a,
+            to: b,
+            kind: PharmacologyCategoryRelationKind::Composed,
+        };
+        let g = PharmacologyRelation {
+            from: b,
+            to: c,
+            kind: PharmacologyCategoryRelationKind::Composed,
+        };
         let composed = PharmacologyCategory::compose(&f, &g).unwrap();
         let mapped_composed = ImmunologyToBioelectric::map_morphism(
             &PharmacologyToImmunology::map_morphism(&composed),
@@ -235,8 +259,16 @@ mod tests {
         let a = objs[0];
         let b = objs[5];
         let c = objs[10];
-        let f = BioelectricRelation { from: a, to: b };
-        let g = BioelectricRelation { from: b, to: c };
+        let f = BioelectricRelation {
+            from: a,
+            to: b,
+            kind: BioelectricRelationKind::Composed,
+        };
+        let g = BioelectricRelation {
+            from: b,
+            to: c,
+            kind: BioelectricRelationKind::Composed,
+        };
         let composed = BioelectricCategory::compose(&f, &g).unwrap();
         let mapped_composed = RegenerationToBiology::map_morphism(
             &BioelectricToRegeneration::map_morphism(&composed),
@@ -296,8 +328,16 @@ mod tests {
         let a = objs[0];
         let b = objs[5];
         let c = objs[10];
-        let f = ElectrophysiologyRelation { from: a, to: b };
-        let g = ElectrophysiologyRelation { from: b, to: c };
+        let f = ElectrophysiologyRelation {
+            from: a,
+            to: b,
+            kind: ElectrophysiologyCategoryRelationKind::Composed,
+        };
+        let g = ElectrophysiologyRelation {
+            from: b,
+            to: c,
+            kind: ElectrophysiologyCategoryRelationKind::Composed,
+        };
         let composed = ElectrophysiologyCategory::compose(&f, &g).unwrap();
         let mapped_composed = BioelectricToRegeneration::map_morphism(
             &ElectrophysiologyToBioelectric::map_morphism(&composed),

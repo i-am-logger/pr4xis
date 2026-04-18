@@ -82,6 +82,7 @@ impl Functor for NedToEnuFunctor {
         CoordinateConversion {
             from: Self::map_object(&m.from),
             to: Self::map_object(&m.to),
+            kind: m.kind,
         }
     }
 }

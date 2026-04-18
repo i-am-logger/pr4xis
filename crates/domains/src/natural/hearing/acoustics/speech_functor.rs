@@ -4,7 +4,7 @@
 
 use crate::natural::hearing::acoustics::ontology::*;
 use crate::natural::hearing::speech::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct AcousticsToSpeech;
 
@@ -34,9 +34,15 @@ impl Functor for AcousticsToSpeech {
     }
 
     fn map_morphism(m: &AcousticRelation) -> SpeechRelation {
-        SpeechRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            AcousticsCategoryRelationKind::Identity => SpeechCategory::identity(&from),
+            _ => SpeechRelation {
+                from,
+                to,
+                kind: SpeechCategoryRelationKind::Composed,
+            },
         }
     }
 }

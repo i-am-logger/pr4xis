@@ -71,43 +71,15 @@ impl Functor for DistinctionToSyntrometry {
         match m.kind {
             // Identity preserves: F(id_A) == id_{F(A)}.
             DistinctionRelationKind::Identity => SyntrometryCategory::identity(&from),
-            // Composed source morphisms must map to Composed target morphisms
-            // so that F(g ∘ f) == F(g) ∘ F(f) (target compose always produces
-            // a Composed morphism for non-Identity inputs).
-            DistinctionRelationKind::Composed => SyntrometryRelation {
+            // Every other kind maps to Composed in the target — matching how
+            // the target's compose produces Composed morphisms for non-Identity
+            // inputs (so F(g∘f) == F(g)∘F(f) holds even when F collapses
+            // distinct source objects to the same target object).
+            _ => SyntrometryRelation {
                 from,
                 to,
                 kind: SyntrometryRelationKind::Composed,
             },
-            // For the declared edge kinds, pick the matching target edge
-            // kind when one exists; otherwise fall through to Composed.
-            // Note: every source edge kind MUST map consistently — if
-            // target has a specific kind at (F.from, F.to), we return it;
-            // otherwise Composed.
-            _ => {
-                if from == to {
-                    // Self-loop target — prefer Composed self-loop (exists
-                    // for every Syntrometry concept).
-                    SyntrometryRelation {
-                        from,
-                        to,
-                        kind: SyntrometryRelationKind::Composed,
-                    }
-                } else {
-                    // Cross-object — fall through to Composed. Under the
-                    // current concept mapping, no declared edge lives
-                    // between the image endpoints (the (Syncolator, Syntrix,
-                    // EndomorphismOn) pair is exercised by a self-loop
-                    // target here because we collapse Mark/Boundary to
-                    // Syntrix — the F(ReEntry → Boundary) chain doesn't
-                    // reach a non-self-loop distinct target kind).
-                    SyntrometryRelation {
-                        from,
-                        to,
-                        kind: SyntrometryRelationKind::Composed,
-                    }
-                }
-            }
         }
     }
 }

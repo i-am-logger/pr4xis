@@ -9,10 +9,10 @@
 //
 // Source: von Foerster (1981); Reiter & Dale (2000)
 
-use pr4xis::category::Functor;
+use pr4xis::category::{Category, Functor};
 
 use crate::cognitive::cognition::epistemics::{
-    EpistemicCategory, EpistemicConcept, EpistemicRelation,
+    EpistemicCategory, EpistemicConcept, EpistemicRelation, EpistemicRelationKind,
 };
 use crate::cognitive::linguistics::pragmatics::response::{
     ResponseCategory, ResponseConcept, ResponseRelation, ResponseRelationKind,
@@ -40,12 +40,16 @@ impl Functor for EpistemicsToResponse {
     fn map_morphism(m: &EpistemicRelation) -> ResponseRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
-        let kind = if from == to && m.from == m.to {
-            ResponseRelationKind::Identity
-        } else {
-            ResponseRelationKind::Composed
-        };
-        ResponseRelation { from, to, kind }
+        // Preserve source's Identity → target's Identity; everything else
+        // maps to Composed so F(g∘f) == F(g)∘F(f) holds under collapse.
+        match m.kind {
+            EpistemicRelationKind::Identity => ResponseCategory::identity(&from),
+            _ => ResponseRelation {
+                from,
+                to,
+                kind: ResponseRelationKind::Composed,
+            },
+        }
     }
 }
 pr4xis::register_functor!(EpistemicsToResponse);

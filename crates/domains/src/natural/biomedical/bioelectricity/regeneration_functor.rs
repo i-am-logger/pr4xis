@@ -10,13 +10,14 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::bioelectricity::ontology::{
-    BioelectricCategory, BioelectricEntity, BioelectricRelation,
+    BioelectricCategory, BioelectricEntity, BioelectricRelation, BioelectricRelationKind,
 };
 use crate::natural::biomedical::regeneration::ontology::{
-    RegenerationCategory, RegenerationEntity, RegenerationRelation,
+    RegenerationCategory, RegenerationCategoryRelationKind, RegenerationEntity,
+    RegenerationRelation,
 };
 
 /// Structure-preserving map from bioelectric concepts to regeneration entities.
@@ -62,9 +63,15 @@ impl Functor for BioelectricToRegeneration {
     }
 
     fn map_morphism(m: &BioelectricRelation) -> RegenerationRelation {
-        RegenerationRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            BioelectricRelationKind::Identity => RegenerationCategory::identity(&from),
+            _ => RegenerationRelation {
+                from,
+                to,
+                kind: RegenerationCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -73,6 +80,7 @@ pr4xis::register_functor!(BioelectricToRegeneration);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::natural::biomedical::bioelectricity::ontology::BioelectricRelationKind;
     use pr4xis::category::validate::check_functor_laws;
     use pr4xis::category::{Category, Entity};
     use pr4xis::ontology::reasoning::analogy::Analogy;
@@ -104,8 +112,16 @@ mod tests {
         for &a in &objs[..5] {
             for &b in &objs[5..10] {
                 for &c in &objs[10..15] {
-                    let f = BioelectricRelation { from: a, to: b };
-                    let g = BioelectricRelation { from: b, to: c };
+                    let f = BioelectricRelation {
+                        from: a,
+                        to: b,
+                        kind: BioelectricRelationKind::Composed,
+                    };
+                    let g = BioelectricRelation {
+                        from: b,
+                        to: c,
+                        kind: BioelectricRelationKind::Composed,
+                    };
                     let composed = BioelectricCategory::compose(&f, &g).unwrap();
                     let mapped_composed = BioelectricToRegeneration::map_morphism(&composed);
                     let composed_mapped = RegenerationCategory::compose(

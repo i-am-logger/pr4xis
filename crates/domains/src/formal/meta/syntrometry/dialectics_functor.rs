@@ -72,34 +72,17 @@ impl Functor for SyntrometryToDialectics {
         let from = map_concept(&m.from);
         let to = map_concept(&m.to);
         match m.kind {
+            // Identity preservation: F(id_A) == id_{F(A)}.
             SyntrometryRelationKind::Identity => DialecticsCategory::identity(&from),
-            // Composed source must map to Composed target (law preservation
-            // under kinded→kinded — see #98 research note).
-            SyntrometryRelationKind::Composed => DialecticsRelation {
+            // Every other kind maps to Composed in the target — matching how
+            // the target's compose produces Composed morphisms for non-Identity
+            // inputs (so F(g∘f) == F(g)∘F(f) holds even when F collapses
+            // distinct source objects to the same target object).
+            _ => DialecticsRelation {
                 from,
                 to,
                 kind: DialecticsRelationKind::Composed,
             },
-            _ => {
-                if from == to {
-                    // Self-loop in target — Composed self-loop exists for
-                    // every Dialectics concept.
-                    DialecticsRelation {
-                        from,
-                        to,
-                        kind: DialecticsRelationKind::Composed,
-                    }
-                } else {
-                    // Cross-concept — Composed (no specific Dialectics edge
-                    // is guaranteed to exist between the arbitrary image
-                    // pair, so Composed is the safe construction).
-                    DialecticsRelation {
-                        from,
-                        to,
-                        kind: DialecticsRelationKind::Composed,
-                    }
-                }
-            }
         }
     }
 }

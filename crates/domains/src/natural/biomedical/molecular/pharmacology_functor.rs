@@ -12,13 +12,14 @@
 //!
 //! Functor laws verified by `check_functor_laws`.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
 };
 use crate::natural::biomedical::pharmacology::ontology::{
-    PharmacologyCategory, PharmacologyEntity, PharmacologyRelation,
+    PharmacologyCategory, PharmacologyCategoryRelationKind, PharmacologyEntity,
+    PharmacologyRelation,
 };
 
 /// Structure-preserving map from molecular entities to their pharmacological targeting.
@@ -78,9 +79,15 @@ impl Functor for MolecularToPharmacology {
     }
 
     fn map_morphism(m: &MolecularRelation) -> PharmacologyRelation {
-        PharmacologyRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            MolecularCategoryRelationKind::Identity => PharmacologyCategory::identity(&from),
+            _ => PharmacologyRelation {
+                from,
+                to,
+                kind: PharmacologyCategoryRelationKind::Composed,
+            },
         }
     }
 }

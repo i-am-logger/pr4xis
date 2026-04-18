@@ -9,13 +9,14 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::immunology::ontology::{
-    ImmunologyCategory, ImmunologyEntity, ImmunologyRelation,
+    ImmunologyCategory, ImmunologyCategoryRelationKind, ImmunologyEntity, ImmunologyRelation,
 };
 use crate::natural::biomedical::pharmacology::ontology::{
-    PharmacologyCategory, PharmacologyEntity, PharmacologyRelation,
+    PharmacologyCategory, PharmacologyCategoryRelationKind, PharmacologyEntity,
+    PharmacologyRelation,
 };
 
 /// Structure-preserving map from pharmacology entities to their immunological outcomes.
@@ -64,9 +65,15 @@ impl Functor for PharmacologyToImmunology {
     }
 
     fn map_morphism(m: &PharmacologyRelation) -> ImmunologyRelation {
-        ImmunologyRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            PharmacologyCategoryRelationKind::Identity => ImmunologyCategory::identity(&from),
+            _ => ImmunologyRelation {
+                from,
+                to,
+                kind: ImmunologyCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -105,8 +112,16 @@ mod tests {
         for &a in &objs[..5] {
             for &b in &objs[5..10] {
                 for &c in &objs[10..15] {
-                    let f = PharmacologyRelation { from: a, to: b };
-                    let g = PharmacologyRelation { from: b, to: c };
+                    let f = PharmacologyRelation {
+                        from: a,
+                        to: b,
+                        kind: PharmacologyCategoryRelationKind::Composed,
+                    };
+                    let g = PharmacologyRelation {
+                        from: b,
+                        to: c,
+                        kind: PharmacologyCategoryRelationKind::Composed,
+                    };
                     let composed = PharmacologyCategory::compose(&f, &g).unwrap();
                     let mapped_composed = PharmacologyToImmunology::map_morphism(&composed);
                     let composed_mapped = ImmunologyCategory::compose(

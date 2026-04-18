@@ -6,11 +6,11 @@
 //
 // Source: Reiter & Dale (2000) → de Groote (2001)
 
-use pr4xis::category::Functor;
+use pr4xis::category::{Category, Functor};
 
-use super::nlg::{NlgCategory, NlgConcept, NlgRelation};
+use super::nlg::{NlgCategory, NlgConcept, NlgRelation, NlgRelationKind};
 use crate::cognitive::linguistics::pipeline::ontology::{
-    PipelineCategory, PipelineConcept, PipelineRelation,
+    PipelineCategory, PipelineConcept, PipelineRelation, PipelineRelationKind,
 };
 
 pub struct NlgToPipeline;
@@ -36,9 +36,18 @@ impl Functor for NlgToPipeline {
     }
 
     fn map_morphism(m: &NlgRelation) -> PipelineRelation {
-        PipelineRelation {
-            from: Self::map_object(&m.from),
-            to: Self::map_object(&m.to),
+        let from = Self::map_object(&m.from);
+        let to = Self::map_object(&m.to);
+        // Preserve source's Identity → target's Identity; everything else
+        // maps to Composed in the target (so F(g∘f) == F(g)∘F(f) holds
+        // even when F collapses distinct source objects to the same target).
+        match m.kind {
+            NlgRelationKind::Identity => PipelineCategory::identity(&from),
+            _ => PipelineRelation {
+                from,
+                to,
+                kind: PipelineRelationKind::Composed,
+            },
         }
     }
 }

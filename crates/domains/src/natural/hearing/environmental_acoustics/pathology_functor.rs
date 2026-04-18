@@ -4,7 +4,7 @@
 
 use crate::natural::hearing::environmental_acoustics::ontology::*;
 use crate::natural::hearing::pathology::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct EnvironmentToPathology;
 
@@ -66,9 +66,17 @@ impl Functor for EnvironmentToPathology {
     }
 
     fn map_morphism(m: &EnvironmentRelation) -> PathologyRelation {
-        PathologyRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            EnvironmentalAcousticsCategoryRelationKind::Identity => {
+                PathologyCategory::identity(&from)
+            }
+            _ => PathologyRelation {
+                from,
+                to,
+                kind: PathologyCategoryRelationKind::Composed,
+            },
         }
     }
 }

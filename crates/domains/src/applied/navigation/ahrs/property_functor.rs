@@ -8,11 +8,12 @@
 //!
 //! Source: Madgwick (2010); Mahony et al. (2008); Titterton & Weston (2004).
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
-use crate::applied::navigation::ahrs::ontology::{AhrsCategory, AhrsConcept};
+use crate::applied::navigation::ahrs::ontology::{AhrsCategory, AhrsConcept, AhrsRelationKind};
 use crate::applied::sensor_fusion::property::ontology::{
     ObservablePropertyCategory, ObservablePropertyConcept, ObservablePropertyRelation,
+    ObservablePropertyRelationKind,
 };
 
 /// Maps each AHRS filter to the observable property it produces.
@@ -41,9 +42,17 @@ impl Functor for AhrsToProperty {
     fn map_morphism(
         m: &<AhrsCategory as pr4xis::category::Category>::Morphism,
     ) -> ObservablePropertyRelation {
-        ObservablePropertyRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        // Preserve source's Identity → target's Identity; everything else
+        // maps to Composed so F(g∘f) == F(g)∘F(f) holds under collapse.
+        match m.kind {
+            AhrsRelationKind::Identity => ObservablePropertyCategory::identity(&from),
+            _ => ObservablePropertyRelation {
+                from,
+                to,
+                kind: ObservablePropertyRelationKind::Composed,
+            },
         }
     }
 }

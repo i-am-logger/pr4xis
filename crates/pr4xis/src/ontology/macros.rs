@@ -68,7 +68,10 @@ macro_rules! register_manual {
 #[macro_export]
 macro_rules! define_ontology {
     // =========================================================================
-    // Ontological style: concepts + is_a/has_a/causes/opposes (dense category)
+    // Ontological style: concepts + is_a/has_a/causes/opposes
+    // Emits a KINDED category (issue #152) — sugar clauses desugar into
+    // edges with canonical kinds from the Relations umbrella:
+    //   is_a → Subsumption, has_a → Parthood, causes → Causation, opposes → Opposition.
     // =========================================================================
     (
         $(#[$ont_meta:meta])*
@@ -96,13 +99,28 @@ macro_rules! define_ontology {
             ],)?
         }
     ) => {
-        $crate::define_dense_category! {
-            $(#[$ont_meta])*
-            pub $cat_name {
-                entity: $entity,
-                relation: $relation,
+        $crate::paste::paste! {
+            $crate::define_category! {
+                $(#[$ont_meta])*
+                pub $cat_name {
+                    entity: $entity,
+                    relation: $relation,
+                    kind: [<$cat_name RelationKind>],
+                    kinds: [Subsumption, Parthood, Causation, Opposition],
+                    edges: [
+                        $($(($tax_child, $tax_parent, Subsumption),)*)?
+                        $($(($mer_whole, $mer_part, Parthood),)*)?
+                        $($(($opp_a, $opp_b, Opposition),)*)?
+                    ],
+                    composed: [],
+                }
             }
         }
+
+        // Causation morphisms use a potentially-different entity enum
+        // (`$caus_entity`), so they're handled via their own category
+        // adapter in `@reasoning`; they don't merge into $cat_name's
+        // morphisms list.
 
         define_ontology!(@reasoning $ont_name, $cat_name, $entity,
             $(being: $being,)?
@@ -115,7 +133,8 @@ macro_rules! define_ontology {
     };
 
     // =========================================================================
-    // Legacy named style: entity + taxonomy/mereology/causation/opposition (dense)
+    // Legacy named style: entity + taxonomy/mereology/causation/opposition.
+    // Same kinded emission as the ontological style.
     // =========================================================================
     (
         $(#[$ont_meta:meta])*
@@ -143,11 +162,21 @@ macro_rules! define_ontology {
             ],)?
         }
     ) => {
-        $crate::define_dense_category! {
-            $(#[$ont_meta])*
-            pub $cat_name {
-                entity: $entity,
-                relation: $relation,
+        $crate::paste::paste! {
+            $crate::define_category! {
+                $(#[$ont_meta])*
+                pub $cat_name {
+                    entity: $entity,
+                    relation: $relation,
+                    kind: [<$cat_name RelationKind>],
+                    kinds: [Subsumption, Parthood, Causation, Opposition],
+                    edges: [
+                        $($(($tax_child, $tax_parent, Subsumption),)*)?
+                        $($(($mer_whole, $mer_part, Parthood),)*)?
+                        $($(($opp_a, $opp_b, Opposition),)*)?
+                    ],
+                    composed: [],
+                }
             }
         }
 

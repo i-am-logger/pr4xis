@@ -8,13 +8,14 @@
 //! (two hops) should have lower information loss than the direct
 //! molecular → bioelectricity functor (one hop).
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::biochemistry::ontology::{
-    BiochemistryCategory, BiochemistryEntity, BiochemistryRelation,
+    BiochemistryCategory, BiochemistryCategoryRelationKind, BiochemistryEntity,
+    BiochemistryRelation,
 };
 use crate::natural::biomedical::bioelectricity::ontology::{
-    BioelectricCategory, BioelectricEntity, BioelectricRelation,
+    BioelectricCategory, BioelectricEntity, BioelectricRelation, BioelectricRelationKind,
 };
 
 pub struct BiochemistryToBioelectric;
@@ -59,9 +60,19 @@ impl Functor for BiochemistryToBioelectric {
     }
 
     fn map_morphism(m: &BiochemistryRelation) -> BioelectricRelation {
-        BioelectricRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        // Identity morphisms must map to identity (functor law). Other kinds
+        // collapse to Composed in the target — matching how the target's
+        // compose produces Composed morphisms for non-Identity inputs (so
+        // F(g∘f) == F(g)∘F(f) holds under collapse).
+        match m.kind {
+            BiochemistryCategoryRelationKind::Identity => BioelectricCategory::identity(&from),
+            _ => BioelectricRelation {
+                from,
+                to,
+                kind: BioelectricRelationKind::Composed,
+            },
         }
     }
 }

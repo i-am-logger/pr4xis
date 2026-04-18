@@ -43,6 +43,7 @@ macro_rules! define_category {
         }
     ) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[allow(dead_code)]
         pub enum $kind {
             Identity,
             $($(#[$kind_meta])* $domain_kind,)*
@@ -83,8 +84,6 @@ macro_rules! define_category {
             }
 
             fn morphisms() -> Vec<$relation> {
-                #[allow(unused_imports)]
-                use $entity::*;
                 use $crate::category::Entity;
 
                 let mut m = Vec::new();
@@ -94,13 +93,16 @@ macro_rules! define_category {
                     m.push($relation { from: c, to: c, kind: $kind::Identity });
                 }
 
-                // Phase 2: Domain edges
-                $(m.push($relation { from: $e_from, to: $e_to, kind: $kind::$e_kind });)*
+                // Phase 2: Domain edges — qualify variant names so struct-based
+                // entities (tuple structs, newtypes) also work.
+                $(m.push($relation { from: $entity::$e_from, to: $entity::$e_to, kind: $kind::$e_kind });)*
 
                 // Phase 3: Composed (transitive) edges
-                $(m.push($relation { from: $c_from, to: $c_to, kind: $kind::Composed });)*
+                $(m.push($relation { from: $entity::$c_from, to: $entity::$c_to, kind: $kind::Composed });)*
 
-                // Phase 4: Self-composed closure
+                // Phase 4: Self-composed closure. Each object's identity
+                // round-trips to itself as Composed (distinct from the
+                // Identity morphism — Mac Lane I.1 closure under compose).
                 for c in $entity::variants() {
                     m.push($relation { from: c, to: c, kind: $kind::Composed });
                 }

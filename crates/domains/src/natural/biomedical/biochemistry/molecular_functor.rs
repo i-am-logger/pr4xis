@@ -9,13 +9,14 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::biochemistry::ontology::{
-    BiochemistryCategory, BiochemistryEntity, BiochemistryRelation,
+    BiochemistryCategory, BiochemistryCategoryRelationKind, BiochemistryEntity,
+    BiochemistryRelation,
 };
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
 };
 
 /// Structure-preserving map from biochemistry entities to molecular components.
@@ -68,9 +69,15 @@ impl Functor for BiochemistryToMolecular {
     }
 
     fn map_morphism(m: &BiochemistryRelation) -> MolecularRelation {
-        MolecularRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            BiochemistryCategoryRelationKind::Identity => MolecularCategory::identity(&from),
+            _ => MolecularRelation {
+                from,
+                to,
+                kind: MolecularCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -109,8 +116,16 @@ mod tests {
         for &a in &objs[..5] {
             for &b in &objs[5..10] {
                 for &c in &objs[10..15] {
-                    let f = BiochemistryRelation { from: a, to: b };
-                    let g = BiochemistryRelation { from: b, to: c };
+                    let f = BiochemistryRelation {
+                        from: a,
+                        to: b,
+                        kind: BiochemistryCategoryRelationKind::Composed,
+                    };
+                    let g = BiochemistryRelation {
+                        from: b,
+                        to: c,
+                        kind: BiochemistryCategoryRelationKind::Composed,
+                    };
                     let composed = BiochemistryCategory::compose(&f, &g).unwrap();
                     let mapped_composed = BiochemistryToMolecular::map_morphism(&composed);
                     let composed_mapped = MolecularCategory::compose(

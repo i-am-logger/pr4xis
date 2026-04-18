@@ -9,13 +9,14 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::immunology::ontology::{
-    ImmunologyCategory, ImmunologyEntity, ImmunologyRelation,
+    ImmunologyCategory, ImmunologyCategoryRelationKind, ImmunologyEntity, ImmunologyRelation,
 };
 use crate::natural::biomedical::regeneration::ontology::{
-    RegenerationCategory, RegenerationEntity, RegenerationRelation,
+    RegenerationCategory, RegenerationCategoryRelationKind, RegenerationEntity,
+    RegenerationRelation,
 };
 
 /// Structure-preserving map from immunology entities to regeneration concepts.
@@ -62,9 +63,15 @@ impl Functor for ImmunologyToRegeneration {
     }
 
     fn map_morphism(m: &ImmunologyRelation) -> RegenerationRelation {
-        RegenerationRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            ImmunologyCategoryRelationKind::Identity => RegenerationCategory::identity(&from),
+            _ => RegenerationRelation {
+                from,
+                to,
+                kind: RegenerationCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -104,8 +111,16 @@ mod tests {
         for &a in &objs[..5] {
             for &b in &objs[5..10] {
                 for &c in &objs[10..15] {
-                    let f = ImmunologyRelation { from: a, to: b };
-                    let g = ImmunologyRelation { from: b, to: c };
+                    let f = ImmunologyRelation {
+                        from: a,
+                        to: b,
+                        kind: ImmunologyCategoryRelationKind::Composed,
+                    };
+                    let g = ImmunologyRelation {
+                        from: b,
+                        to: c,
+                        kind: ImmunologyCategoryRelationKind::Composed,
+                    };
                     let composed = ImmunologyCategory::compose(&f, &g).unwrap();
                     let mapped_composed = ImmunologyToRegeneration::map_morphism(&composed);
                     let composed_mapped = RegenerationCategory::compose(

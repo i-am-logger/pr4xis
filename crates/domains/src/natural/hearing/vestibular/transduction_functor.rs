@@ -5,7 +5,7 @@
 
 use crate::natural::hearing::transduction::ontology::*;
 use crate::natural::hearing::vestibular::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct TransductionToVestibular;
 
@@ -50,9 +50,15 @@ impl Functor for TransductionToVestibular {
     }
 
     fn map_morphism(m: &TransductionRelation) -> VestibularRelation {
-        VestibularRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            TransductionCategoryRelationKind::Identity => VestibularCategory::identity(&from),
+            _ => VestibularRelation {
+                from,
+                to,
+                kind: VestibularCategoryRelationKind::Composed,
+            },
         }
     }
 }
