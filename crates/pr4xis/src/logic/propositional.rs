@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 /// Logical connectives: AND, OR, NOT, IMPLIES, IFF, XOR, NAND, NOR.
 ///
 /// Laws (De Morgan's, double negation, modus ponens, etc.) are proven

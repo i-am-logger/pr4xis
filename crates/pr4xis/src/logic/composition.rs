@@ -1,8 +1,10 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 /// Generic logical composition: Proposition, AllOf, AnyOf, Not, Implies, Compare, Threshold.
 ///
 /// This is the boolean composition layer for ANY ontology or enforcement engine.
 /// Compose rules with AND/OR/NOT to build complex enforcement.
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 /// A logical proposition that can be evaluated to true/false with a reason.
 pub trait Proposition: Debug {
@@ -49,7 +51,7 @@ impl<Ctx: Debug> AllOf<Ctx> {
 }
 
 impl<Ctx: Debug> Debug for AllOf<Ctx> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "AllOf({} props)", self.propositions.len())
     }
 }
@@ -89,7 +91,7 @@ impl<Ctx: Debug> AnyOf<Ctx> {
 }
 
 impl<Ctx: Debug> Debug for AnyOf<Ctx> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "AnyOf({} props)", self.propositions.len())
     }
 }
@@ -271,7 +273,7 @@ pub struct Compare<Ctx, L: Measurable<Ctx>, R: Measurable<Ctx>> {
     pub left: L,
     pub op: CompareOp,
     pub right: R,
-    _ctx: std::marker::PhantomData<Ctx>,
+    _ctx: core::marker::PhantomData<Ctx>,
 }
 
 impl<Ctx, L, R> Compare<Ctx, L, R>
@@ -284,7 +286,7 @@ where
             left,
             op,
             right,
-            _ctx: std::marker::PhantomData,
+            _ctx: core::marker::PhantomData,
         }
     }
 }
@@ -341,7 +343,7 @@ pub struct Threshold<Ctx, M: Measurable<Ctx>> {
     pub measurable: M,
     pub op: CompareOp,
     pub threshold: M::Value,
-    _ctx: std::marker::PhantomData<Ctx>,
+    _ctx: core::marker::PhantomData<Ctx>,
 }
 
 impl<Ctx, M> Threshold<Ctx, M>
@@ -354,7 +356,7 @@ where
             measurable,
             op,
             threshold,
-            _ctx: std::marker::PhantomData,
+            _ctx: core::marker::PhantomData,
         }
     }
 

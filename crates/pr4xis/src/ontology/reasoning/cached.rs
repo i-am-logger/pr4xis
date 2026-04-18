@@ -1,5 +1,7 @@
-use std::collections::HashMap;
-use std::hash::Hash;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::hash::Hash;
+use hashbrown::HashMap;
 
 use super::graph;
 
@@ -14,7 +16,7 @@ pub struct CachedTaxonomy<E: Clone + Eq + Hash> {
     reverse: HashMap<E, Vec<E>>,
 }
 
-impl<E: Clone + Eq + Hash + std::fmt::Debug> CachedTaxonomy<E> {
+impl<E: Clone + Eq + Hash + core::fmt::Debug> CachedTaxonomy<E> {
     /// Build from relation pairs (child, parent).
     pub fn new(relations: &[(E, E)]) -> Self {
         Self {
@@ -71,7 +73,7 @@ pub struct CachedEquivalence<E: Clone + Eq + Hash> {
     adj: HashMap<E, Vec<E>>,
 }
 
-impl<E: Clone + Eq + Hash + std::fmt::Debug> CachedEquivalence<E> {
+impl<E: Clone + Eq + Hash + core::fmt::Debug> CachedEquivalence<E> {
     /// Build from equivalence pairs (a, b). Symmetric adjacency.
     pub fn new(pairs: &[(E, E)]) -> Self {
         let mut adj: HashMap<E, Vec<E>> = HashMap::new();
@@ -136,7 +138,7 @@ pub struct CachedMereology<E: Clone + Eq + Hash> {
     wholes: HashMap<E, Vec<E>>,
 }
 
-impl<E: Clone + Eq + Hash + std::fmt::Debug> CachedMereology<E> {
+impl<E: Clone + Eq + Hash + core::fmt::Debug> CachedMereology<E> {
     /// Build from (whole, part) pairs.
     pub fn new(relations: &[(E, E)]) -> Self {
         Self {

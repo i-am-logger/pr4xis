@@ -1,4 +1,6 @@
-use std::fmt::Debug;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
 
 // Comonad — dual of monad. Computation in context that you HAVE.
 //

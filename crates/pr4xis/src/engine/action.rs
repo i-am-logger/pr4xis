@@ -1,5 +1,7 @@
 use super::situation::Situation;
-use std::fmt::Debug;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
 
 /// An action transforms one situation into another.
 ///

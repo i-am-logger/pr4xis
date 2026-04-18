@@ -1,6 +1,8 @@
 use crate::category::Category;
 use crate::category::entity::Concept;
 use crate::category::relationship::Relationship;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::being::Being;
 

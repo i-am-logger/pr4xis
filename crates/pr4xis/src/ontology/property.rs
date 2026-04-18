@@ -1,5 +1,7 @@
 use crate::category::Concept;
-use std::fmt::Debug;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
 
 /// DOLCE quality classification (Masolo et al. 2003 *WonderWeb D18*).
 ///

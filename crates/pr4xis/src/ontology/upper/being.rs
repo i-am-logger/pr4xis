@@ -1,4 +1,6 @@
 use crate::category::Concept;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// The DOLCE-inspired upper ontology: types of being.
 ///

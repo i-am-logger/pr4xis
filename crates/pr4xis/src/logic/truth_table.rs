@@ -1,5 +1,7 @@
 /// Truth tables as an ontology-driven proof mechanism.
 use super::propositional::Connective;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// A truth table row.
 #[derive(Debug, Clone, PartialEq, Eq)]

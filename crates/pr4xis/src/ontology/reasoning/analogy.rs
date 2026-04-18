@@ -1,4 +1,6 @@
-use std::marker::PhantomData;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::marker::PhantomData;
 
 use crate::category::validate::check_functor_laws;
 use crate::category::{Category, Functor};

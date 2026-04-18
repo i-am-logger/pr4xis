@@ -882,6 +882,7 @@ dependencies = [
 name = "pr4xis"
 version = "0.12.0"
 dependencies = [
+ "hashbrown 0.15.5",
  "linkme",
  "paste",
  "pr4xis-derive",

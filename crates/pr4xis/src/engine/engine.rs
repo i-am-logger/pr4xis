@@ -2,6 +2,8 @@ use super::action::Action;
 use super::precondition::{Precondition, PreconditionResult};
 use super::situation::Situation;
 use super::trace::{Trace, TraceEntry};
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// Error returned by `Engine::next()`.
 #[derive(Debug)]
@@ -36,8 +38,8 @@ pub struct Engine<A: Action> {
     trace: Trace,
 }
 
-impl<A: Action> std::fmt::Debug for Engine<A> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<A: Action> core::fmt::Debug for Engine<A> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Engine")
             .field("situation", &self.situation)
             .field("step", &self.step())
