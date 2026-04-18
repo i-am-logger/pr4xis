@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.17.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.16.0...pr4xis-domains-v0.17.0) (2026-04-18)
+
+
+### Features
+
+* **#148:** Lemon meta on every structural entity — uniform registry for ontologies, axioms, functors, adjunctions, nat-trans ([#150](https://github.com/i-am-logger/pr4xis/issues/150)) ([f18bbc5](https://github.com/i-am-logger/pr4xis/commit/f18bbc5cbf116b6c4539b41df318c7f921e996cb))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.11.0 to 0.12.0
+
 ## [0.16.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.15.0...pr4xis-domains-v0.16.0) (2026-04-18)
 
 
