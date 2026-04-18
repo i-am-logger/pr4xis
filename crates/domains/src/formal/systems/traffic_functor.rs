@@ -1,4 +1,4 @@
-use pr4xis::category::entity::Entity;
+use pr4xis::category::entity::Concept;
 use pr4xis::category::relationship::Relationship;
 use pr4xis::category::{Category, Functor};
 
@@ -33,7 +33,7 @@ pub enum TrafficSystemElement {
     SignalController,
 }
 
-impl Entity for TrafficSystemElement {
+impl Concept for TrafficSystemElement {
     fn variants() -> Vec<Self> {
         vec![
             Self::Signal,
@@ -82,12 +82,14 @@ pub enum TrafficRelationKind {
 
 impl Relationship for TrafficSystemRelation {
     type Object = TrafficSystemElement;
+    type Kind = ();
     fn source(&self) -> TrafficSystemElement {
         self.from
     }
     fn target(&self) -> TrafficSystemElement {
         self.to
     }
+    fn kind(&self) {}
 }
 
 /// The traffic system category.

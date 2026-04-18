@@ -96,7 +96,7 @@ impl Traceable for InterpretResult<'_> {
                 let args: Vec<String> = arguments.iter().map(|a| a.describe()).collect();
                 format!("statement: {}({})", predicate, args.join(", "))
             }
-            Sem::Entity { word, .. } => format!("entity: {word}"),
+            Sem::Concept { word, .. } => format!("entity: {word}"),
             Sem::Pred { word } => format!("concept: {word}"),
             Sem::Func { word, .. } => format!("function: {word}"),
         }

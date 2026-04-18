@@ -11,7 +11,7 @@
 //! - Duck 1990: acoustic properties of biological tissue
 //! - Cowin & Doty 2007: tissue mechanics
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::opposition;
@@ -23,7 +23,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every biophysical entity in the domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum BiophysicsEntity {
     // Mechanical properties
     Viscoelasticity,
@@ -66,7 +66,7 @@ pub enum BiophysicsEntity {
 // ---------------------------------------------------------------------------
 
 /// Events in the biophysics causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum BiophysicsCausalEvent {
     /// External vibration applied to tissue
     ExternalVibration,

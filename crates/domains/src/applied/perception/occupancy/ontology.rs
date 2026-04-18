@@ -1,11 +1,11 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Cell states in a Bayesian occupancy grid.
 ///
 /// Source: Elfes (1989), "Using Occupancy Grids for Mobile Robot Perception and Navigation"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum CellState {
     /// Cell is free (unoccupied).
     Free,

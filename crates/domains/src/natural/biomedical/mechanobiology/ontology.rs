@@ -12,7 +12,7 @@
 //! - PMID:37459546 (2023): Piezo1 membrane stretch threshold lambda=1.9
 //! - Coste 2010: Piezo1 discovery (2021 Nobel Prize)
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::opposition;
@@ -24,7 +24,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the mechanobiology domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum MechanobiologyEntity {
     // Forces
     MembraneTension,
@@ -60,7 +60,7 @@ pub enum MechanobiologyEntity {
 // ---------------------------------------------------------------------------
 
 /// Events in the mechanobiology causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum MechanobiologyCausalEvent {
     /// External mechanical load applied to tissue
     MechanicalLoad,

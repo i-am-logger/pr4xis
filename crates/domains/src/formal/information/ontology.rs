@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -18,7 +18,7 @@ use pr4xis::ontology::{Ontology, Quality};
 ///
 /// These are the ontological concepts — what things ARE.
 /// Rust types (u8, u32, String) are implementations of these concepts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum InfoUnit {
     /// The fundamental unit of binary information. Two states: 0 or 1.
     /// Connects to logic: a Bit IS a truth value.

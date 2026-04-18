@@ -10,7 +10,7 @@
 //! - Adams & Levin 2013: Vmem manipulation via ion channel/pump cocktails
 //! - Chernet & Levin 2013: depolarization → oncogene-like transformation
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::opposition;
@@ -22,7 +22,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the bioelectric pharmacology domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum PharmacologyEntity {
     // Drug classes
     IonChannelModulator,
@@ -75,7 +75,7 @@ pub enum PharmacologyEntity {
 /// Two causal chains:
 /// 1. Drug → target binding → channel state → ion flux → Vmem shift → signaling
 /// 2. GJ modulator → GJ state change → network change → collective reprogramming
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum PharmacologyEvent {
     DrugAdministration,
     TargetBinding,

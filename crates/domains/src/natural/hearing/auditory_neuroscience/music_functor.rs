@@ -4,7 +4,7 @@
 
 use crate::natural::hearing::auditory_neuroscience::ontology::*;
 use crate::natural::hearing::music_perception::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct NeuroscienceToMusic;
 
@@ -60,9 +60,15 @@ impl Functor for NeuroscienceToMusic {
     }
 
     fn map_morphism(m: &NeuralRelation) -> MusicRelation {
-        MusicRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            NeuroscienceCategoryRelationKind::Identity => MusicPerceptionCategory::identity(&from),
+            _ => MusicRelation {
+                from,
+                to,
+                kind: MusicPerceptionCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -71,7 +77,7 @@ pr4xis::register_functor!(NeuroscienceToMusic);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
     use pr4xis::category::validate::check_functor_laws;
     use pr4xis::ontology::reasoning::analogy::Analogy;
 

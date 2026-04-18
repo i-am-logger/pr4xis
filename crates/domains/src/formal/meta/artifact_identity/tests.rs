@@ -9,7 +9,7 @@ use super::ontology::{
     TrustTier, TrustTierOf, VerifiabilityOffline, VerificationResult, is_family, is_leaf,
 };
 use super::schemes::{raw_hash, xml_element_attribute};
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;

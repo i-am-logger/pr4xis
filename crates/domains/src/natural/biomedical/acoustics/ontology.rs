@@ -12,7 +12,7 @@
 //! - Eeg-Olofsson 2008: bone-conducted sound measured by cochlear vibrations
 //! - Chang 2016: whole-head finite-element model
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -22,7 +22,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the acoustics domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum AcousticsEntity {
     // Wave properties
     SoundWave,
@@ -63,7 +63,7 @@ pub enum AcousticsEntity {
 // ---------------------------------------------------------------------------
 
 /// Events in the acoustics causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum AcousticsCausalEvent {
     /// Electrical signal drives the transducer
     ElectricalSignalInput,

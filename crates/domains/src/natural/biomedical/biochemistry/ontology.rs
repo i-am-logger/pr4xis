@@ -11,7 +11,7 @@
 //! - Ignarro 1987: nitric oxide as signaling molecule
 //! - Krebs 1957: ATP in phosphorylation cascades
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -21,7 +21,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every biochemistry entity in the bioelectric repair signaling domain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum BiochemistryEntity {
     // Signaling molecules
     CalciumIon,
@@ -55,7 +55,7 @@ pub enum BiochemistryEntity {
 // ---------------------------------------------------------------------------
 
 /// Causal events in biochemical signaling cascades relevant to bioelectric repair.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum BiochemistryCausalEvent {
     /// Calcium enters cell through ion channels
     CalciumEntry,

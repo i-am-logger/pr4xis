@@ -27,7 +27,7 @@ use crate::cognitive::linguistics::english::{ConceptId, English};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Sem {
     /// Entity domain (NP): a reference to something in the world.
-    Entity {
+    Concept {
         word: String,
         concepts: Vec<ConceptId>,
     },
@@ -50,7 +50,7 @@ pub enum Sem {
 impl Sem {
     pub fn describe(&self) -> String {
         match self {
-            Sem::Entity { word, .. } => word.clone(),
+            Sem::Concept { word, .. } => word.clone(),
             Sem::Pred { word } => format!("λx.{}(x)", word),
             Sem::Prop {
                 predicate,
@@ -88,7 +88,7 @@ fn lex(word: &str, ty: &LambekType, en: &English) -> Sem {
 
     match ty {
         // NP → Entity domain
-        LambekType::Atom(super::types::AtomicType::NP) => Sem::Entity {
+        LambekType::Atom(super::types::AtomicType::NP) => Sem::Concept {
             word: word.into(),
             concepts,
         },
@@ -174,7 +174,7 @@ fn apply(func: &Sem, arg: &Sem, result_type: &LambekType) -> Sem {
         }
         // Result is NP (entity)
         LambekType::Atom(super::types::AtomicType::NP) => match arg {
-            Sem::Pred { word } => Sem::Entity {
+            Sem::Pred { word } => Sem::Concept {
                 word: word.clone(),
                 concepts: Vec::new(),
             },
@@ -204,7 +204,7 @@ fn extract_predicate(sem: &Sem) -> String {
     match sem {
         Sem::Pred { word } => word.clone(),
         Sem::Func { word, .. } => word.clone(),
-        Sem::Entity { word, .. } => word.clone(),
+        Sem::Concept { word, .. } => word.clone(),
         Sem::Prop { predicate, .. } | Sem::Question { predicate, .. } => predicate.clone(),
     }
 }
@@ -213,7 +213,7 @@ fn extract_word(sem: &Sem) -> String {
     match sem {
         Sem::Pred { word } => word.clone(),
         Sem::Func { word, .. } => word.clone(),
-        Sem::Entity { word, .. } => word.clone(),
+        Sem::Concept { word, .. } => word.clone(),
         Sem::Prop { predicate, .. } | Sem::Question { predicate, .. } => predicate.clone(),
     }
 }

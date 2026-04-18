@@ -1,4 +1,4 @@
-use pr4xis::category::{Category, Entity};
+use pr4xis::category::{Category, Concept};
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -6,10 +6,10 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 ///
 /// Source: Steinberg & Bowman (2008), "Revisions to the JDL Data Fusion Model"
 ///         Llinas & Hall (2001), "Introduction to Multi-Sensor Data Fusion"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum SituationElement {
     /// Identified entity (JDL Level 1 output).
-    Entity,
+    Concept,
     /// Relationship between entities (spatial, temporal, causal).
     Relationship,
     /// Inferred intent of entities (JDL Level 2 core).
@@ -35,16 +35,16 @@ define_ontology! {
         ],
         edges: [
             // Entity -> Relationship -> Intent (assessment chain)
-            (Entity, Relationship, Precedes),
+            (Concept, Relationship, Precedes),
             (Relationship, Intent, Precedes),
             // Environment informs all elements
-            (Environment, Entity, Informs),
+            (Environment, Concept, Informs),
             (Environment, Relationship, Informs),
             (Environment, Intent, Informs),
         ],
         composed: [
             // Entity -> Intent (through Relationship)
-            (Entity, Intent),
+            (Concept, Intent),
         ],
         being: Process,
         source: "Endsley (1995); JDL (1999)",
@@ -61,7 +61,7 @@ impl Quality for JdlLevel {
 
     fn get(&self, element: &SituationElement) -> Option<&'static str> {
         Some(match element {
-            SituationElement::Entity => "JDL Level 1: Object Assessment",
+            SituationElement::Concept => "JDL Level 1: Object Assessment",
             SituationElement::Relationship => "JDL Level 2: Situation Assessment",
             SituationElement::Intent => "JDL Level 2: Situation Assessment (intent)",
             SituationElement::Environment => "JDL Level 0/1: Source Preprocessing",
@@ -83,11 +83,11 @@ impl Axiom for EntityIdentificationFirst {
         // Verify Entity -> Relationship exists
         let entity_to_rel = morphisms
             .iter()
-            .any(|m| m.from == SituationElement::Entity && m.to == SituationElement::Relationship);
+            .any(|m| m.from == SituationElement::Concept && m.to == SituationElement::Relationship);
         // Verify no Intent without Entity (i.e., Entity -> Intent path exists)
         let entity_to_intent = morphisms
             .iter()
-            .any(|m| m.from == SituationElement::Entity && m.to == SituationElement::Intent);
+            .any(|m| m.from == SituationElement::Concept && m.to == SituationElement::Intent);
         entity_to_rel && entity_to_intent
     }
 }

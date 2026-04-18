@@ -74,7 +74,7 @@ pub enum CrashConsistency {
 mod tests {
     use super::*;
     use pr4xis::category::Category;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
     use pr4xis::category::validate::check_category_laws;
 
     #[test]

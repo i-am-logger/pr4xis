@@ -1,4 +1,4 @@
-use crate::category::entity::Entity;
+use crate::category::entity::Concept;
 use crate::category::validate::{check_category_laws, check_functor_laws};
 use crate::category::{Category, Functor};
 
@@ -121,7 +121,7 @@ fn functor_laws_hold() {
 #[test]
 fn functor_maps_entity_to_abstract() {
     assert_eq!(
-        OwnToDolce::map_object(&OwnType::Entity),
+        OwnToDolce::map_object(&OwnType::Concept),
         Being::AbstractObject
     );
 }
@@ -176,7 +176,7 @@ mod prop {
 
     fn arb_own_type() -> impl Strategy<Value = OwnType> {
         prop_oneof![
-            Just(OwnType::Entity),
+            Just(OwnType::Concept),
             Just(OwnType::Situation),
             Just(OwnType::Action),
             Just(OwnType::Quality),

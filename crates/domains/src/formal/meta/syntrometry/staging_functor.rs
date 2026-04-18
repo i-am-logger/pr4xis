@@ -31,8 +31,12 @@
 
 use pr4xis::category::{Category, Functor};
 
-use super::ontology::{SyntrometryCategory, SyntrometryConcept, SyntrometryRelation};
-use crate::formal::meta::staging::ontology::{StageConcept, StagingCategory, StagingRelation};
+use super::ontology::{
+    SyntrometryCategory, SyntrometryConcept, SyntrometryRelation, SyntrometryRelationKind,
+};
+use crate::formal::meta::staging::ontology::{
+    StageConcept, StagingCategory, StagingCategoryRelationKind, StagingRelation,
+};
 
 fn map_concept(c: &SyntrometryConcept) -> StageConcept {
     use StageConcept as Stg;
@@ -71,10 +75,15 @@ impl Functor for SyntrometryToStaging {
     fn map_morphism(m: &SyntrometryRelation) -> StagingRelation {
         let from = map_concept(&m.from);
         let to = map_concept(&m.to);
-        if from == to {
-            StagingCategory::identity(&from)
-        } else {
-            StagingRelation { from, to }
+        // Preserve source's Identity → target's Identity; everything else
+        // becomes a non-identity arrow in the dense target.
+        match m.kind {
+            SyntrometryRelationKind::Identity => StagingCategory::identity(&from),
+            _ => StagingRelation {
+                from,
+                to,
+                kind: StagingCategoryRelationKind::Composed,
+            },
         }
     }
 }

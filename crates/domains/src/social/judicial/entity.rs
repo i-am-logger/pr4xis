@@ -3,7 +3,7 @@ use chrono::NaiveDate;
 
 /// A legal actor — any person or organization involved in a case.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Entity {
+pub enum Concept {
     Person(Person),
     Corporation(Corporation),
     LawFirm(LawFirm),
@@ -11,14 +11,14 @@ pub enum Entity {
     Court(Court),
 }
 
-impl Entity {
+impl Concept {
     pub fn name(&self) -> &str {
         match self {
-            Entity::Person(p) => &p.name,
-            Entity::Corporation(c) => &c.name,
-            Entity::LawFirm(f) => &f.name,
-            Entity::Agency(a) => &a.name,
-            Entity::Court(c) => &c.name,
+            Concept::Person(p) => &p.name,
+            Concept::Corporation(c) => &c.name,
+            Concept::LawFirm(f) => &f.name,
+            Concept::Agency(a) => &a.name,
+            Concept::Court(c) => &c.name,
         }
     }
 }
@@ -27,7 +27,7 @@ impl Entity {
 pub struct Person {
     pub name: String,
     pub title: Option<String>,
-    pub organization: Option<Box<Entity>>,
+    pub organization: Option<Box<Concept>>,
     pub bar_admissions: Vec<String>,
     pub source: Option<Source>,
 }
@@ -44,14 +44,14 @@ pub struct Corporation {
 pub enum CorporateStructure {
     PublicCompany,
     Subsidiary {
-        parent: Box<Entity>,
+        parent: Box<Concept>,
     },
     SpinOff {
-        parent: Box<Entity>,
+        parent: Box<Concept>,
         date: NaiveDate,
     },
     JointVenture {
-        partners: Vec<Entity>,
+        partners: Vec<Concept>,
     },
     Partnership,
     Private,
@@ -94,27 +94,27 @@ pub enum RepresentationStatus {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Relationship {
     Corporate {
-        parent: Entity,
-        child: Entity,
+        parent: Concept,
+        child: Concept,
         source: Source,
     },
     Employment {
-        person: Entity,
-        organization: Entity,
+        person: Concept,
+        organization: Concept,
         role: String,
         tenure: Tenure,
         source: Source,
     },
     Legal {
-        counsel: Entity,
-        client: Entity,
+        counsel: Concept,
+        client: Concept,
         matter: Option<String>,
         status: RepresentationStatus,
         source: Source,
     },
     SupplyChain {
-        supplier: Entity,
-        customer: Entity,
+        supplier: Concept,
+        customer: Concept,
         revenue_pct: Option<f64>,
         source: Source,
     },

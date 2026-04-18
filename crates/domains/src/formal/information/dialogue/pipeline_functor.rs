@@ -10,7 +10,7 @@
 // a question arrives through dialogue, gets parsed, migrated
 // through the algebra, and the answer returns through generation.
 
-use pr4xis::category::Functor;
+use pr4xis::category::{Category, Functor};
 
 use super::ontology::*;
 use crate::cognitive::linguistics::pipeline::ontology::*;
@@ -57,9 +57,20 @@ impl Functor for DialogueToPipeline {
     }
 
     fn map_morphism(m: &DialogueRelation) -> PipelineRelation {
-        PipelineRelation {
-            from: Self::map_object(&m.from),
-            to: Self::map_object(&m.to),
+        let from = Self::map_object(&m.from);
+        let to = Self::map_object(&m.to);
+        // Preserve source's Identity → target's Identity. Every other kind
+        // becomes Composed in the target — matching how the target's compose
+        // produces Composed morphisms for non-Identity inputs (so
+        // F(g∘f) == F(g)∘F(f) holds even when F collapses distinct source
+        // objects to the same target object).
+        match m.kind {
+            DialogueRelationKind::Identity => PipelineCategory::identity(&from),
+            _ => PipelineRelation {
+                from,
+                to,
+                kind: PipelineRelationKind::Composed,
+            },
         }
     }
 }

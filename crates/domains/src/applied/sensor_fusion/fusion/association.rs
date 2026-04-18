@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::Quality;
 
 /// Data association strategies as an ontological classification.
@@ -36,7 +36,7 @@ pub enum AssociationStrategy {
     Auction,
 }
 
-impl Entity for AssociationStrategy {
+impl Concept for AssociationStrategy {
     fn variants() -> Vec<Self> {
         vec![
             Self::NearestNeighbor,

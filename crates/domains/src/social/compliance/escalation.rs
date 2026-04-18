@@ -1,5 +1,5 @@
 use crate::social::compliance::classification::{ClassifiedEntity, Confidence};
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// Escalation of Force (EOF) levels.
 ///
@@ -13,7 +13,7 @@ use pr4xis::category::Entity;
 ///   - NATO MC 362/1 "Rules of Engagement"
 ///   - DoD Directive 3000.09 "Autonomy in Weapon Systems" (2023)
 ///   - LOAC Protocol I, Art. 57 "Precautions in attack"
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum EscalationLevel {
     /// Sensor observation only. No interaction with the entity.
     /// Always permitted. No authorization required.

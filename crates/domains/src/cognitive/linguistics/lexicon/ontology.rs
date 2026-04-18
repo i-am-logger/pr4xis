@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::entity::Concept;
 use pr4xis::category::relationship::Relationship;
 use pr4xis::ontology::Quality;
 use pr4xis::ontology::upper::being::Being;
@@ -17,12 +17,14 @@ pub struct Modifies {
 
 impl Relationship for Modifies {
     type Object = PosTag;
+    type Kind = ();
     fn source(&self) -> PosTag {
         self.modifier
     }
     fn target(&self) -> PosTag {
         self.head
     }
+    fn kind(&self) {}
 }
 
 /// The lexical category: parts of speech and their modification relationships.

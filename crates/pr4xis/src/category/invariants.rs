@@ -1,5 +1,5 @@
 use super::category::Category;
-use super::entity::Entity;
+use super::entity::Concept;
 use super::relationship::Relationship;
 use crate::logic::Axiom;
 

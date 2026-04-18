@@ -6,7 +6,7 @@ use super::ontology::{
     FutamuraChainIsComplete, FutamuraStep, StageConcept, StagingCategory, StagingLevel,
     StagingOntology, StagingTaxonomy, Temporality, TemporalityTag,
 };
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::reasoning::{causation, taxonomy};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;

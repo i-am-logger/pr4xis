@@ -1,4 +1,4 @@
-use pr4xis::category::{Category, Entity};
+use pr4xis::category::{Category, Concept};
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -9,7 +9,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 ///
 /// Source: Bar-Shalom et al. (2001), Chapter 7.
 ///         Blackman & Popoli (1999), *Design and Analysis of Modern Tracking Systems*.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum TrackState {
     /// New track, not yet confirmed. Awaiting M-of-N confirmation.
     Tentative,

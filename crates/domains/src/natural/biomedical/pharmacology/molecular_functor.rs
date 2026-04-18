@@ -8,13 +8,14 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
 };
 use crate::natural::biomedical::pharmacology::ontology::{
-    PharmacologyCategory, PharmacologyEntity, PharmacologyRelation,
+    PharmacologyCategory, PharmacologyCategoryRelationKind, PharmacologyEntity,
+    PharmacologyRelation,
 };
 
 /// Structure-preserving map from pharmacology entities to their molecular targets.
@@ -66,9 +67,15 @@ impl Functor for PharmacologyToMolecular {
     }
 
     fn map_morphism(m: &PharmacologyRelation) -> MolecularRelation {
-        MolecularRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            PharmacologyCategoryRelationKind::Identity => MolecularCategory::identity(&from),
+            _ => MolecularRelation {
+                from,
+                to,
+                kind: MolecularCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -78,7 +85,7 @@ pr4xis::register_functor!(PharmacologyToMolecular);
 mod tests {
     use super::*;
     use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::category::{Category, Entity};
+    use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
@@ -107,8 +114,16 @@ mod tests {
         for &a in &objs[..5] {
             for &b in &objs[5..10] {
                 for &c in &objs[10..15] {
-                    let f = PharmacologyRelation { from: a, to: b };
-                    let g = PharmacologyRelation { from: b, to: c };
+                    let f = PharmacologyRelation {
+                        from: a,
+                        to: b,
+                        kind: PharmacologyCategoryRelationKind::Composed,
+                    };
+                    let g = PharmacologyRelation {
+                        from: b,
+                        to: c,
+                        kind: PharmacologyCategoryRelationKind::Composed,
+                    };
                     let composed = PharmacologyCategory::compose(&f, &g).unwrap();
                     let mapped_composed = PharmacologyToMolecular::map_morphism(&composed);
                     let composed_mapped = MolecularCategory::compose(

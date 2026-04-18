@@ -1,4 +1,4 @@
-use super::entity::Entity;
+use super::entity::Concept;
 use chrono::NaiveDate;
 
 /// A statute or regulation.
@@ -51,21 +51,21 @@ pub enum Authority {
         precedent: Option<Precedent>,
     },
     TrialCourt {
-        court: Entity,
+        court: Concept,
         case: CaseLaw,
     },
     Regulation {
-        agency: Entity,
+        agency: Concept,
         regulation: Statute,
         implements: Box<Authority>,
     },
     AgencyAction {
-        agency: Entity,
+        agency: Concept,
         action_type: String,
         under: Box<Authority>,
     },
     ProfessionalBody {
-        body: Entity,
+        body: Concept,
         rule: Statute,
     },
 }

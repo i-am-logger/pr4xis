@@ -1,6 +1,6 @@
 use super::authority::Authority;
 use super::lifecycle::PhaseTag;
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::{Category, Concept, Relationship};
 use pr4xis::ontology::upper::being::Being;
 use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -91,7 +91,7 @@ pub enum RequirementLevel {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EvidenceType {
     Date,
-    Entity,
+    Concept,
     Document,
     Currency,
     Duration,
@@ -213,7 +213,7 @@ impl Default for OntologyRegistry {
 // =============================================================================
 
 /// Case phases as entities.
-impl Entity for PhaseTag {
+impl Concept for PhaseTag {
     fn variants() -> Vec<Self> {
         vec![
             PhaseTag::PreFiling,
@@ -238,12 +238,14 @@ pub struct PhaseTransitionRel {
 
 impl Relationship for PhaseTransitionRel {
     type Object = PhaseTag;
+    type Kind = ();
     fn source(&self) -> PhaseTag {
         self.from
     }
     fn target(&self) -> PhaseTag {
         self.to
     }
+    fn kind(&self) {}
 }
 
 /// The case lifecycle as a category.

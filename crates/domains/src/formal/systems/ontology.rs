@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -20,7 +20,7 @@ use pr4xis::ontology::{Ontology, Quality};
 /// These are the fundamental building blocks that every system exhibits.
 /// A traffic intersection, a chess game, a conversation, an economy —
 /// all are systems composed of these concepts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum SystemConcept {
     /// A component or element within the system.
     /// Traffic: a signal. Chess: a piece. Economy: a firm.

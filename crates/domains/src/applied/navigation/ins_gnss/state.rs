@@ -61,7 +61,7 @@ impl Ontology for InsGnssStateOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     #[test]
     fn has_five_concepts() {

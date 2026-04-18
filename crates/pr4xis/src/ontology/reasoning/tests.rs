@@ -1,4 +1,4 @@
-use crate::category::entity::Entity;
+use crate::category::entity::Concept;
 use crate::category::relationship::Relationship;
 use crate::category::validate::check_category_laws;
 use crate::category::{Category, Functor};
@@ -31,7 +31,7 @@ enum Animal {
     Eagle,
 }
 
-impl Entity for Animal {
+impl Concept for Animal {
     fn variants() -> Vec<Self> {
         vec![
             Animal::LivingThing,
@@ -48,7 +48,7 @@ impl Entity for Animal {
 struct AnimalTaxonomy;
 
 impl TaxonomyDef for AnimalTaxonomy {
-    type Entity = Animal;
+    type Concept = Animal;
     fn relations() -> Vec<(Animal, Animal)> {
         vec![
             (Animal::Animal, Animal::LivingThing),
@@ -105,7 +105,7 @@ enum CarPart {
     Crankshaft,
 }
 
-impl Entity for CarPart {
+impl Concept for CarPart {
     fn variants() -> Vec<Self> {
         vec![
             CarPart::Car,
@@ -122,7 +122,7 @@ impl Entity for CarPart {
 struct CarMereology;
 
 impl MereologyDef for CarMereology {
-    type Entity = CarPart;
+    type Concept = CarPart;
     fn relations() -> Vec<(CarPart, CarPart)> {
         vec![
             (CarPart::Car, CarPart::Body),
@@ -145,7 +145,7 @@ enum HeatState {
     Condensation,
 }
 
-impl Entity for HeatState {
+impl Concept for HeatState {
     fn variants() -> Vec<Self> {
         vec![
             HeatState::Heating,
@@ -159,7 +159,7 @@ impl Entity for HeatState {
 struct HeatCausal;
 
 impl CausalDef for HeatCausal {
-    type Entity = HeatState;
+    type Concept = HeatState;
     fn relations() -> Vec<(HeatState, HeatState)> {
         vec![
             (HeatState::Heating, HeatState::Boiling),
@@ -178,7 +178,7 @@ enum EMConcept {
     CoulombLaw,
 }
 
-impl Entity for EMConcept {
+impl Concept for EMConcept {
     fn variants() -> Vec<Self> {
         vec![
             EMConcept::Charge,
@@ -196,12 +196,14 @@ struct EMRelation {
 
 impl Relationship for EMRelation {
     type Object = EMConcept;
+    type Kind = ();
     fn source(&self) -> EMConcept {
         self.from
     }
     fn target(&self) -> EMConcept {
         self.to
     }
+    fn kind(&self) {}
 }
 
 struct EMCategory;
@@ -246,7 +248,7 @@ enum GravConcept {
     NewtonLaw,
 }
 
-impl Entity for GravConcept {
+impl Concept for GravConcept {
     fn variants() -> Vec<Self> {
         vec![
             GravConcept::Mass,
@@ -264,12 +266,14 @@ struct GravRelation {
 
 impl Relationship for GravRelation {
     type Object = GravConcept;
+    type Kind = ();
     fn source(&self) -> GravConcept {
         self.from
     }
     fn target(&self) -> GravConcept {
         self.to
     }
+    fn kind(&self) {}
 }
 
 struct GravCategory;
@@ -802,7 +806,7 @@ enum Word {
     Cool,
 }
 
-impl Entity for Word {
+impl Concept for Word {
     fn variants() -> Vec<Self> {
         vec![
             Word::Big,
@@ -821,7 +825,7 @@ impl Entity for Word {
 struct WordSynonyms;
 
 impl EquivalenceDef for WordSynonyms {
-    type Entity = Word;
+    type Concept = Word;
     fn pairs() -> Vec<(Word, Word)> {
         vec![
             (Word::Big, Word::Large),
@@ -834,7 +838,7 @@ impl EquivalenceDef for WordSynonyms {
 struct WordAntonyms;
 
 impl OppositionDef for WordAntonyms {
-    type Entity = Word;
+    type Concept = Word;
     fn pairs() -> Vec<(Word, Word)> {
         vec![
             (Word::Big, Word::Small),
@@ -853,7 +857,7 @@ enum AmbiguousWord {
     Spring,
 }
 
-impl Entity for AmbiguousWord {
+impl Concept for AmbiguousWord {
     fn variants() -> Vec<Self> {
         vec![
             AmbiguousWord::Bank,
@@ -873,7 +877,7 @@ enum ContextSignal {
     Water,
 }
 
-impl Entity for ContextSignal {
+impl Concept for ContextSignal {
     fn variants() -> Vec<Self> {
         vec![
             ContextSignal::Money,
@@ -896,7 +900,7 @@ enum Meaning {
     WaterSpring,
 }
 
-impl Entity for Meaning {
+impl Concept for Meaning {
     fn variants() -> Vec<Self> {
         vec![
             Meaning::FinancialInstitution,
@@ -912,7 +916,7 @@ impl Entity for Meaning {
 struct WordContext;
 
 impl ContextDef for WordContext {
-    type Entity = AmbiguousWord;
+    type Concept = AmbiguousWord;
     type Signal = ContextSignal;
     type Resolution = Meaning;
 

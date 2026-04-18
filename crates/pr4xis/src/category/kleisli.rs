@@ -103,7 +103,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::entity::Entity as EntityTrait;
+    use crate::category::entity::Concept as EntityTrait;
 
     // Reuse a simple test category
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -125,12 +125,14 @@ mod tests {
     }
     impl Relationship for Morph {
         type Object = Obj;
+        type Kind = ();
         fn source(&self) -> Obj {
             self.from
         }
         fn target(&self) -> Obj {
             self.to
         }
+        fn kind(&self) {}
     }
 
     struct Cat;

@@ -23,7 +23,7 @@
 //! - Van der Sandt, Presupposition Projection as Anaphora Resolution (1992)
 //! - Heim, The Semantics of Definite and Indefinite Noun Phrases (1982)
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 pr4xis::ontology! {
     name: "Reference",
@@ -75,7 +75,7 @@ pr4xis::ontology! {
 
 /// Centering transition types — how topic/salience shifts between utterances.
 /// Grosz, Joshi, Weinstein (1995): preference ordering Continue > Retain > Shift.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum CenteringTransition {
     /// Same topic, expected to persist. Cb(U_n) = Cb(U_{n-1}) and Cb(U_n) = Cp(U_n).
     Continue,

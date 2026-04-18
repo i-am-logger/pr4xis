@@ -11,7 +11,7 @@
 //! - Stenfelt & Goode 2005: bone vs air conduction impedance
 //! - von Békésy 1960: Experiments in Hearing
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -21,7 +21,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the acoustics domain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum AcousticEntity {
     // Wave properties
     Frequency,
@@ -64,7 +64,7 @@ pub enum AcousticEntity {
 // ---------------------------------------------------------------------------
 
 /// Causal events in acoustic wave propagation.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum AcousticCausalEvent {
     SourceVibration,
     MediumCoupling,

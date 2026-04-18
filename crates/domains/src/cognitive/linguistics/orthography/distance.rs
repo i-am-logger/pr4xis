@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::entity::Concept;
 use pr4xis::category::relationship::Relationship;
 use pr4xis::ontology::upper::being::Being;
 use pr4xis::ontology::upper::classify::Classified;
@@ -49,7 +49,7 @@ pub enum ErrorEtiology {
     Performance,
 }
 
-impl Entity for ErrorEtiology {
+impl Concept for ErrorEtiology {
     fn variants() -> Vec<Self> {
         vec![Self::Competence, Self::Performance]
     }
@@ -68,7 +68,7 @@ pub enum CompetenceSource {
     Analogy,
 }
 
-impl Entity for CompetenceSource {
+impl Concept for CompetenceSource {
     fn variants() -> Vec<Self> {
         vec![
             Self::L1Transfer,
@@ -94,7 +94,7 @@ pub enum PerformanceMechanism {
     Speed,
 }
 
-impl Entity for PerformanceMechanism {
+impl Concept for PerformanceMechanism {
     fn variants() -> Vec<Self> {
         vec![
             Self::Motor,
@@ -128,7 +128,7 @@ pub enum LinguisticLevel {
     Visual,
 }
 
-impl Entity for LinguisticLevel {
+impl Concept for LinguisticLevel {
     fn variants() -> Vec<Self> {
         vec![
             Self::Phonological,
@@ -162,7 +162,7 @@ pub enum EditOperation {
     Split,
 }
 
-impl Entity for EditOperation {
+impl Concept for EditOperation {
     fn variants() -> Vec<Self> {
         vec![
             Self::Substitution,
@@ -193,7 +193,7 @@ pub enum OrthographicDepth {
     Deep,
 }
 
-impl Entity for OrthographicDepth {
+impl Concept for OrthographicDepth {
     fn variants() -> Vec<Self> {
         vec![Self::Shallow, Self::Intermediate, Self::Deep]
     }
@@ -218,7 +218,7 @@ pub enum SpellingErrorConcept {
     Correction,
 }
 
-impl Entity for SpellingErrorConcept {
+impl Concept for SpellingErrorConcept {
     fn variants() -> Vec<Self> {
         vec![
             Self::Etiology,
@@ -240,12 +240,14 @@ pub struct SpellingRelation {
 
 impl Relationship for SpellingRelation {
     type Object = SpellingErrorConcept;
+    type Kind = ();
     fn source(&self) -> SpellingErrorConcept {
         self.from
     }
     fn target(&self) -> SpellingErrorConcept {
         self.to
     }
+    fn kind(&self) {}
 }
 
 pub struct SpellingErrorCategory;

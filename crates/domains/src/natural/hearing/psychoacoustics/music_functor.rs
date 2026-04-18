@@ -5,7 +5,7 @@
 
 use crate::natural::hearing::music_perception::ontology::*;
 use crate::natural::hearing::psychoacoustics::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct PsychoacousticsToMusic;
 
@@ -65,9 +65,17 @@ impl Functor for PsychoacousticsToMusic {
     }
 
     fn map_morphism(m: &PsychoacousticRelation) -> MusicRelation {
-        MusicRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            PsychoacousticsCategoryRelationKind::Identity => {
+                MusicPerceptionCategory::identity(&from)
+            }
+            _ => MusicRelation {
+                from,
+                to,
+                kind: MusicPerceptionCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -76,7 +84,7 @@ pr4xis::register_functor!(PsychoacousticsToMusic);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
     use pr4xis::category::validate::check_functor_laws;
     use pr4xis::ontology::reasoning::analogy::Analogy;
 

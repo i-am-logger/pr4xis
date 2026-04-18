@@ -9,14 +9,14 @@
 //! - Stevens 1957: sone scale
 //! - Rayleigh 1907: duplex theory
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum PsychoacousticEntity {
     Loudness,
     Pitch,
@@ -56,7 +56,7 @@ pub enum PsychoacousticEntity {
     SpatialCue,
     TemporalMeasure,
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum PsychoacousticCausalEvent {
     AcousticStimulus,
     CochlearFiltering,

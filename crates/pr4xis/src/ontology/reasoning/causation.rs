@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::category::Category;
-use crate::category::entity::Entity;
+use crate::category::entity::Concept;
 use crate::category::relationship::Relationship;
 
 use super::graph;
@@ -11,26 +11,28 @@ use super::graph;
 /// A causal graph is a directed acyclic graph where edges represent
 /// "A causes B" relationships.
 pub trait CausalDef {
-    type Entity: Entity;
+    type Concept: Concept;
     /// Direct causal pairs: (cause, effect).
-    fn relations() -> Vec<(Self::Entity, Self::Entity)>;
+    fn relations() -> Vec<(Self::Concept, Self::Concept)>;
 }
 
 /// Causal relationship morphism: cause causes effect.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Causes<E: Entity> {
+pub struct Causes<E: Concept> {
     pub cause: E,
     pub effect: E,
 }
 
-impl<E: Entity> Relationship for Causes<E> {
+impl<E: Concept> Relationship for Causes<E> {
     type Object = E;
+    type Kind = ();
     fn source(&self) -> E {
         self.cause.clone()
     }
     fn target(&self) -> E {
         self.effect.clone()
     }
+    fn kind(&self) {}
 }
 
 /// Category adapter for a causal graph.
@@ -42,17 +44,17 @@ pub struct CausalCategory<T: CausalDef> {
 }
 
 impl<T: CausalDef> Category for CausalCategory<T> {
-    type Object = T::Entity;
-    type Morphism = Causes<T::Entity>;
+    type Object = T::Concept;
+    type Morphism = Causes<T::Concept>;
 
-    fn identity(obj: &T::Entity) -> Causes<T::Entity> {
+    fn identity(obj: &T::Concept) -> Causes<T::Concept> {
         Causes {
             cause: obj.clone(),
             effect: obj.clone(),
         }
     }
 
-    fn compose(f: &Causes<T::Entity>, g: &Causes<T::Entity>) -> Option<Causes<T::Entity>> {
+    fn compose(f: &Causes<T::Concept>, g: &Causes<T::Concept>) -> Option<Causes<T::Concept>> {
         if f.effect != g.cause {
             return None;
         }
@@ -62,8 +64,8 @@ impl<T: CausalDef> Category for CausalCategory<T> {
         })
     }
 
-    fn morphisms() -> Vec<Causes<T::Entity>> {
-        let entities = T::Entity::variants();
+    fn morphisms() -> Vec<Causes<T::Concept>> {
+        let entities = T::Concept::variants();
         let adj = graph::adjacency_map(&T::relations());
 
         let mut morphisms = Vec::new();
@@ -83,13 +85,13 @@ impl<T: CausalDef> Category for CausalCategory<T> {
 // ---- Query functions ----
 
 /// All direct and transitive effects of a cause. Does not include the entity itself.
-pub fn effects_of<T: CausalDef>(cause: &T::Entity) -> Vec<T::Entity> {
+pub fn effects_of<T: CausalDef>(cause: &T::Concept) -> Vec<T::Concept> {
     let adj = graph::adjacency_map(&T::relations());
     graph::reachable(cause, &adj)
 }
 
 /// All direct and transitive causes of an effect. Does not include the entity itself.
-pub fn causes_of<T: CausalDef>(effect: &T::Entity) -> Vec<T::Entity> {
+pub fn causes_of<T: CausalDef>(effect: &T::Concept) -> Vec<T::Concept> {
     let adj = graph::reverse_adjacency_map(&T::relations());
     graph::reachable(effect, &adj)
 }
@@ -181,13 +183,13 @@ impl<T: CausalDef> crate::logic::Axiom for NoSelfCausation<T> {
 ///
 /// Reference: Meijer, Fokkinga & Paterson (1991)
 pub fn unfold_causal<T: CausalDef + 'static>()
--> crate::category::algebra::Coalgebra<T::Entity, T::Entity>
+-> crate::category::algebra::Coalgebra<T::Concept, T::Concept>
 where
-    T::Entity: Clone + std::fmt::Debug,
+    T::Concept: Clone + std::fmt::Debug,
 {
     let relations = T::relations();
-    crate::category::algebra::Coalgebra::new(move |cause: &T::Entity| {
-        let effects: Vec<T::Entity> = relations
+    crate::category::algebra::Coalgebra::new(move |cause: &T::Concept| {
+        let effects: Vec<T::Concept> = relations
             .iter()
             .filter(|(c, _)| c == cause)
             .map(|(_, effect)| effect.clone())
@@ -203,10 +205,10 @@ where
 ///
 /// Reference: Kleisli (1965)
 pub fn causal_kleisli<T: CausalDef>(
-    cause: &T::Entity,
+    cause: &T::Concept,
 ) -> crate::category::kleisli::KleisliMorphism<CausalCategory<T>>
 where
-    T::Entity: Clone + PartialEq,
+    T::Concept: Clone + PartialEq,
 {
     let effects = effects_of::<T>(cause);
     if let Some(first_effect) = effects.first() {
@@ -221,7 +223,7 @@ where
 
 /// Yoneda profile for causation.
 pub fn yoneda_profile<T: CausalDef>(
-    entity: &T::Entity,
+    entity: &T::Concept,
 ) -> crate::category::yoneda::YonedaProfile<CausalCategory<T>> {
     crate::category::yoneda::YonedaProfile::of(entity)
 }

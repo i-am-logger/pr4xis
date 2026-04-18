@@ -4,7 +4,7 @@
 //! and solution components. Causal chains cover dissolution, acid-base
 //! reactions, phase transitions, and diffusion.
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::opposition;
@@ -16,7 +16,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the chemistry ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ChemistryEntity {
     // States of matter
     Solid,
@@ -63,7 +63,7 @@ pub enum ChemistryEntity {
 /// Bonds -> ChemicalBond, properties -> PhysicalProperty,
 /// solutions -> SolutionComponent.
 /// Events in the chemistry causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ChemistryCausalEvent {
     Dissolution,
     IonDissociation,

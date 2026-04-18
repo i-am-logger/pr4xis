@@ -11,7 +11,7 @@
 /// Vogix16 adds semantic names to Base16 slots.
 /// Ansi16 maps to terminal SGR codes (ECMA-48).
 use super::base16::ColorSlot;
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::Axiom;
 
 /// Color scheme type — each defines a different mapping/naming convention
@@ -30,7 +30,7 @@ pub enum SchemeType {
     Ansi16,
 }
 
-impl Entity for SchemeType {
+impl Concept for SchemeType {
     fn variants() -> Vec<Self> {
         vec![Self::Base16, Self::Base24, Self::Vogix16, Self::Ansi16]
     }
@@ -95,7 +95,7 @@ pub enum Vogix16Semantic {
     Special,
 }
 
-impl Entity for Vogix16Semantic {
+impl Concept for Vogix16Semantic {
     fn variants() -> Vec<Self> {
         vec![
             Self::Background,
@@ -208,7 +208,7 @@ pub enum Ansi16Color {
     BrightWhite,
 }
 
-impl Entity for Ansi16Color {
+impl Concept for Ansi16Color {
     fn variants() -> Vec<Self> {
         vec![
             Self::Black,

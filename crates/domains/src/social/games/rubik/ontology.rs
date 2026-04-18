@@ -121,7 +121,7 @@ pr4xis::register_axiom!(NinePerColor);
 mod tests {
     use super::*;
     use crate::social::games::rubik::moves::Move;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     #[test]
     fn test_face_entity() {

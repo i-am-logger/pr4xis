@@ -12,7 +12,7 @@
 //!   wound healing via shifts in macrophage polarization
 //! - Yu 2019: Mechanical loading promotes tissue repair through immune modulation
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::taxonomy;
@@ -23,7 +23,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the immunology ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ImmunologyEntity {
     // Cells
     MacrophageM1,
@@ -66,7 +66,7 @@ pub enum ImmunologyEntity {
 /// TNFAlpha/IL6 -> ProInflammatoryCytokine -> Cytokine.
 /// IL10/TGFBeta -> AntiInflammatoryCytokine -> Cytokine.
 /// Events in the inflammatory causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ImmunologyEvent {
     TissueInjury,
     NeutrophilRecruitment,

@@ -362,10 +362,10 @@ mod tests {
         }
 
         // Helper for comparing cached vs original
-        use crate::category::Entity;
+        use crate::category::Concept;
         use crate::ontology::reasoning::taxonomy::TaxonomyDef;
 
-        impl Entity for Animal {
+        impl Concept for Animal {
             fn variants() -> Vec<Self> {
                 vec![Animal::Dog, Animal::Cat, Animal::Mammal, Animal::Animal]
             }
@@ -373,7 +373,7 @@ mod tests {
 
         struct TestTaxonomy;
         impl TaxonomyDef for TestTaxonomy {
-            type Entity = Animal;
+            type Concept = Animal;
             fn relations() -> Vec<(Animal, Animal)> {
                 vec![
                     (Animal::Dog, Animal::Mammal),

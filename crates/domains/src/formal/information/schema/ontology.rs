@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -24,7 +24,7 @@ use pr4xis::ontology::{Ontology, Quality};
 ///
 /// These are the meta-level building blocks. Every praxis ontology
 /// (chess, linguistics, systems, ...) is an instance of this schema.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum SchemaConcept {
     /// A category used as a schema — the TBox (Baader 2003).
     /// Spivak (2012): "A schema is a small category C."

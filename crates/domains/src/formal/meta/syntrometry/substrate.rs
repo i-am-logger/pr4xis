@@ -11,7 +11,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Pr4xisSubstrate",
-    source: "pr4xis/src/category/*.rs — Entity, Relationship, Category, Functor, Endofunctor, Ontology trait definitions",
+    source: "pr4xis/src/category/*.rs — Concept, Relationship, Category, Functor, Endofunctor, Ontology trait definitions",
     being: AbstractObject,
 
     concepts: [
@@ -58,9 +58,9 @@ pr4xis::ontology! {
     ],
 
     labels: {
-        SubEntity: ("en", "Entity", "The pr4xis::category::Entity trait — an enum of the objects of a category."),
+        SubEntity: ("en", "Concept", "The pr4xis::category::Concept trait — an enum of the objects of a category."),
         SubMorphism: ("en", "Morphism", "The pr4xis::category::Relationship trait — an arrow between two Entities."),
-        SubCategory: ("en", "Category", "The pr4xis::category::Category trait — an Entity type plus a Morphism type satisfying identity + composition laws."),
+        SubCategory: ("en", "Category", "The pr4xis::category::Category trait — an Concept type plus a Morphism type satisfying identity + composition laws."),
         SubFunctor: ("en", "Functor", "The pr4xis::category::Functor trait — a structure-preserving map Source → Target."),
         SubEndofunctor: ("en", "Endofunctor", "The pr4xis::category::Endofunctor trait — a Functor specialised to Source = Target."),
         SubOntology: ("en", "Ontology", "The pr4xis::ontology::Ontology trait — a Category + reasoning systems (taxonomy, mereology, causation, opposition) + axioms."),

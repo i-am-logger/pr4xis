@@ -2,7 +2,7 @@
 //!
 //! Source: Wertz (1978), *Spacecraft Attitude Determination and Control*
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

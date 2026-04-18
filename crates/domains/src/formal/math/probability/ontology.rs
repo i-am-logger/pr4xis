@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -15,7 +15,7 @@ use crate::formal::math::probability::mahalanobis;
 // Entity: probability concepts
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ProbabilityConcept {
     SampleSpace,
     Event,

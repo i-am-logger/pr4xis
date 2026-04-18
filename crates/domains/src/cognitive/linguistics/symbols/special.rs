@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// A special symbol — a character whose meaning is defined
 /// by the language that uses it, not by universal convention.
@@ -31,7 +31,7 @@ pub enum SymbolDomain {
     General,
 }
 
-impl Entity for SymbolDomain {
+impl Concept for SymbolDomain {
     fn variants() -> Vec<Self> {
         vec![
             Self::Mathematics,

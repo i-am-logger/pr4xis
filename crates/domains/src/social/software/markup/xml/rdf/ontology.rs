@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::category::relationship::Relationship;
 use pr4xis::ontology::upper::being::Being;
 use pr4xis::ontology::upper::classify::Classified;
@@ -23,7 +23,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// The kinds of nodes that can appear in an RDF graph.
 /// From W3C RDF 1.1 Concepts §1.2: "the abstract syntax of RDF."
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum RdfNodeKind {
     /// An IRI-identified resource (W3C RDF 1.1 §3.1).
     IriResource,
@@ -82,12 +82,14 @@ pub struct RdfRelation {
 
 impl Relationship for RdfRelation {
     type Object = RdfNodeKind;
+    type Kind = ();
     fn source(&self) -> RdfNodeKind {
         self.source
     }
     fn target(&self) -> RdfNodeKind {
         self.target
     }
+    fn kind(&self) {}
 }
 
 /// The RDF category.

@@ -1,13 +1,13 @@
 use super::interval::Interval;
 use super::note::Note;
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::Quality;
 
 // Note pitch classes (0-11) are the entities
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PitchClass(pub u8);
 
-impl Entity for PitchClass {
+impl Concept for PitchClass {
     fn variants() -> Vec<Self> {
         (0..12).map(PitchClass).collect()
     }

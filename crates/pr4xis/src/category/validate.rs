@@ -1,6 +1,6 @@
 use super::category::Category;
 use super::endofunctor::Endofunctor;
-use super::entity::Entity;
+use super::entity::Concept;
 use super::functor::Functor;
 use super::relationship::Relationship;
 

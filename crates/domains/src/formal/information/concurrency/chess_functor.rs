@@ -1,4 +1,4 @@
-use pr4xis::category::entity::Entity;
+use pr4xis::category::entity::Concept;
 use pr4xis::category::relationship::Relationship;
 use pr4xis::category::{Category, Functor};
 
@@ -33,7 +33,7 @@ pub enum ChessConcurrent {
     MoveNotation,
 }
 
-impl Entity for ChessConcurrent {
+impl Concept for ChessConcurrent {
     fn variants() -> Vec<Self> {
         vec![
             Self::Player,
@@ -73,12 +73,14 @@ pub enum ChessConcurrentRelationKind {
 
 impl Relationship for ChessConcurrentRelation {
     type Object = ChessConcurrent;
+    type Kind = ();
     fn source(&self) -> ChessConcurrent {
         self.from
     }
     fn target(&self) -> ChessConcurrent {
         self.to
     }
+    fn kind(&self) {}
 }
 
 pub struct ChessConcurrentCategory;

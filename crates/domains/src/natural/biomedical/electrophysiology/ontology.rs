@@ -8,7 +8,7 @@
 //! - Neher & Sakmann 1976: patch clamp technique
 //! - Bhatt et al. 2015: bioimpedance spectroscopy
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
@@ -19,7 +19,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the electrophysiology domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ElectrophysiologyEntity {
     // Measurement techniques
     PatchClamp,

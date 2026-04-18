@@ -34,7 +34,7 @@ pub use crate::ontology::Lexical;
 
 /// A concept in a composed ontology — an object with lexical metadata.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Concept {
+pub struct RuntimeConcept {
     pub name: String,
     pub lexical: Option<Lexical>,
 }
@@ -47,14 +47,16 @@ pub struct Edge {
     pub kind: EdgeKind,
 }
 
-/// The kind of morphism — corresponds to reasoning systems.
+/// The kind of morphism — named per the Relations umbrella ontology
+/// (Smith et al. 2005 OBO-RO; Gruber 1993). Corresponds to reasoning
+/// systems via canonical relation-type names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EdgeKind {
     Identity,
-    IsA,
-    HasA,
-    Causes,
-    Opposes,
+    Subsumption,
+    Parthood,
+    Causation,
+    Opposition,
     Custom,
 }
 
@@ -91,7 +93,7 @@ pub struct Ontology {
     name: String,
     source: String,
     being: Option<Being>,
-    concepts: BTreeMap<String, Concept>,
+    concepts: BTreeMap<String, RuntimeConcept>,
     edges: BTreeSet<Edge>,
     level: usize,
     staging: Staging,
@@ -126,12 +128,12 @@ impl Ontology {
 
     /// The concepts in this ontology — a map from name to Concept.
     /// Call `.len()` for count, iterate for traversal.
-    pub fn concepts(&self) -> &BTreeMap<String, Concept> {
+    pub fn concepts(&self) -> &BTreeMap<String, RuntimeConcept> {
         &self.concepts
     }
 
     /// Look up a single concept by name.
-    pub fn concept(&self, name: &str) -> Option<&Concept> {
+    pub fn concept(&self, name: &str) -> Option<&RuntimeConcept> {
         self.concepts.get(name)
     }
 
@@ -280,7 +282,7 @@ impl Ontology {
     /// Specialize — restrict to a sub-ontology via taxonomy.
     ///
     /// Returns a new Ontology containing only the specified concept
-    /// and everything reachable from it via IsA edges (its descendants).
+    /// and everything reachable from it via Subsumption edges (its descendants).
     /// This is Delta migration: pulling back through the taxonomy functor.
     pub fn specialize(&self, root: &str) -> Option<Ontology> {
         if !self.concepts.contains_key(root) {
@@ -294,7 +296,7 @@ impl Ontology {
         while changed {
             changed = false;
             for edge in &self.edges {
-                if edge.kind == EdgeKind::IsA
+                if edge.kind == EdgeKind::Subsumption
                     && reachable.contains(&edge.to)
                     && reachable.insert(edge.from.clone())
                 {
@@ -303,7 +305,7 @@ impl Ontology {
             }
         }
 
-        let concepts: BTreeMap<String, Concept> = self
+        let concepts: BTreeMap<String, RuntimeConcept> = self
             .concepts
             .iter()
             .filter(|(k, _)| reachable.contains(*k))
@@ -363,10 +365,10 @@ impl Ontology {
             .map(|e| {
                 let kind = match e.kind {
                     EdgeKind::Identity => MorphismKind::Identity,
-                    EdgeKind::IsA => MorphismKind::IsA,
-                    EdgeKind::HasA => MorphismKind::HasA,
-                    EdgeKind::Causes => MorphismKind::Causes,
-                    EdgeKind::Opposes => MorphismKind::Opposes,
+                    EdgeKind::Subsumption => MorphismKind::Subsumption,
+                    EdgeKind::Parthood => MorphismKind::Parthood,
+                    EdgeKind::Causation => MorphismKind::Causation,
+                    EdgeKind::Opposition => MorphismKind::Opposition,
                     EdgeKind::Custom => MorphismKind::Composed,
                 };
                 Morphism::new(e.from.clone(), e.to.clone(), kind)
@@ -490,7 +492,7 @@ impl Ontology {
     pub fn restrict(&self, keep: &[&str]) -> Ontology {
         let keep_set: BTreeSet<String> = keep.iter().map(|s| String::from(*s)).collect();
 
-        let concepts: BTreeMap<String, Concept> = self
+        let concepts: BTreeMap<String, RuntimeConcept> = self
             .concepts
             .iter()
             .filter(|(k, _)| keep_set.contains(*k))
@@ -651,7 +653,7 @@ impl Ontology {
 /// When two ontologies share a concept, composing them must preserve as much
 /// lexical data as possible. If one side has a label and the other has a
 /// definition, the merged concept has both.
-fn merge_lexical(target: &mut Concept, source: &Concept) {
+fn merge_lexical(target: &mut RuntimeConcept, source: &RuntimeConcept) {
     match (&mut target.lexical, &source.lexical) {
         (None, Some(src_lex)) => {
             target.lexical = Some(src_lex.clone());
@@ -696,7 +698,7 @@ pub struct OntologyBuilder {
     name: String,
     source: String,
     being: Option<Being>,
-    concepts: BTreeMap<String, Concept>,
+    concepts: BTreeMap<String, RuntimeConcept>,
     edges: BTreeSet<Edge>,
     base_level: usize,
     provenance: Vec<String>,
@@ -715,20 +717,24 @@ impl OntologyBuilder {
 
     /// Add a concept (no lexical metadata yet — add via label/definition).
     pub fn concept(mut self, name: &str) -> Self {
-        self.concepts.entry(String::from(name)).or_insert(Concept {
-            name: String::from(name),
-            lexical: None,
-        });
+        self.concepts
+            .entry(String::from(name))
+            .or_insert(RuntimeConcept {
+                name: String::from(name),
+                lexical: None,
+            });
         self
     }
 
     /// Add multiple concepts at once.
     pub fn concepts(mut self, names: &[&str]) -> Self {
         for name in names {
-            self.concepts.entry(String::from(*name)).or_insert(Concept {
-                name: String::from(*name),
-                lexical: None,
-            });
+            self.concepts
+                .entry(String::from(*name))
+                .or_insert(RuntimeConcept {
+                    name: String::from(*name),
+                    lexical: None,
+                });
         }
         self
     }
@@ -739,7 +745,7 @@ impl OntologyBuilder {
         let entry = self
             .concepts
             .entry(String::from(concept))
-            .or_insert(Concept {
+            .or_insert(RuntimeConcept {
                 name: String::from(concept),
                 lexical: None,
             });
@@ -762,7 +768,7 @@ impl OntologyBuilder {
         let entry = self
             .concepts
             .entry(String::from(concept))
-            .or_insert(Concept {
+            .or_insert(RuntimeConcept {
                 name: String::from(concept),
                 lexical: None,
             });
@@ -785,7 +791,7 @@ impl OntologyBuilder {
         self.edges.insert(Edge {
             from: String::from(child),
             to: String::from(parent),
-            kind: EdgeKind::IsA,
+            kind: EdgeKind::Subsumption,
         });
         self
     }
@@ -796,7 +802,7 @@ impl OntologyBuilder {
         self.edges.insert(Edge {
             from: String::from(whole),
             to: String::from(part),
-            kind: EdgeKind::HasA,
+            kind: EdgeKind::Parthood,
         });
         self
     }
@@ -807,7 +813,7 @@ impl OntologyBuilder {
         self.edges.insert(Edge {
             from: String::from(cause),
             to: String::from(effect),
-            kind: EdgeKind::Causes,
+            kind: EdgeKind::Causation,
         });
         self
     }
@@ -818,7 +824,7 @@ impl OntologyBuilder {
         self.edges.insert(Edge {
             from: String::from(a),
             to: String::from(b),
-            kind: EdgeKind::Opposes,
+            kind: EdgeKind::Opposition,
         });
         self
     }
@@ -857,10 +863,12 @@ impl OntologyBuilder {
     }
 
     fn ensure_concept(&mut self, name: &str) {
-        self.concepts.entry(String::from(name)).or_insert(Concept {
-            name: String::from(name),
-            lexical: None,
-        });
+        self.concepts
+            .entry(String::from(name))
+            .or_insert(RuntimeConcept {
+                name: String::from(name),
+                lexical: None,
+            });
     }
 }
 
@@ -1120,7 +1128,7 @@ mod tests {
         s.edges.insert(Edge {
             from: String::from("A"),
             to: String::from("Z"),
-            kind: EdgeKind::IsA,
+            kind: EdgeKind::Subsumption,
         });
 
         assert!(s.validate().is_err());
@@ -1269,7 +1277,7 @@ mod tests {
         let edges: Vec<_> = renamed
             .edges()
             .iter()
-            .filter(|e| e.kind == EdgeKind::IsA)
+            .filter(|e| e.kind == EdgeKind::Subsumption)
             .collect();
         assert_eq!(edges[0].from, "NewName");
     }

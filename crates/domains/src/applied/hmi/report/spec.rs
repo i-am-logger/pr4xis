@@ -288,7 +288,7 @@ pr4xis::register_axiom!(OverrideWarns);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     #[test]
     fn test_theme_report_has_8_fields() {

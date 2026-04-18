@@ -10,13 +10,13 @@
 //! - ISO 3382-1:2009: room acoustic parameters
 //! - Schafer 1977: The Soundscape
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum EnvironmentEntity {
     ReverberationTime,
     RT60,
@@ -65,7 +65,7 @@ pub enum EnvironmentEntity {
     RoomType,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum EnvironmentCausalEvent {
     NoiseSource,
     SoundPropagation,

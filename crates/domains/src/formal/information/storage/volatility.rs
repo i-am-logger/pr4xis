@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 
 // Volatility ontology — storage media hierarchy and persistence domains.
@@ -18,7 +18,7 @@ use pr4xis::define_ontology;
 ///
 /// Ordered by latency (fastest first) and partitioned into
 /// volatile (loses data on power loss) and non-volatile.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum StorageMedia {
     /// CPU register — ~0.3ns, volatile.
     /// Fastest, smallest, most ephemeral.

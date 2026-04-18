@@ -63,7 +63,7 @@ pub fn map_substrate(c: &Pr4xisSubstrateConcept) -> SyntrometryConcept {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     /// Every substrate primitive has a canonical syntrometric representative.
     #[test]

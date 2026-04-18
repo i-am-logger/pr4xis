@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 // WordNet Lexical Markup Framework (LMF) ontology.
 //
@@ -185,7 +185,7 @@ impl SenseRelationType {
 /// - WordNet-LMF: n, v, a, s, r
 /// - Universal Dependencies: DET, PRON, ADP, CCONJ, SCONJ, PART, AUX, INTJ
 /// - OLiA: Determiner, Pronoun, Copula, Auxiliary, Preposition, etc.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum LmfPos {
     // Open class (WordNet)
     Noun,
@@ -395,7 +395,7 @@ impl WordNet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     #[test]
     fn lmf_pos_entity_variants() {

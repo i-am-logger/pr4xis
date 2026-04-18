@@ -307,7 +307,7 @@ impl Axiom for TAMEHierarchyAxiom {
     }
 
     fn holds(&self) -> bool {
-        use pr4xis::category::Entity;
+        use pr4xis::category::Concept;
         taxonomy::NoCycles::<TAMETaxonomy>::new().holds() && CompetencyLevel::variants().len() == 5
     }
 }
@@ -338,7 +338,7 @@ impl Axiom for MechanicalStimulationIsHardwareAccessible {
     }
 
     fn holds(&self) -> bool {
-        use pr4xis::category::Entity;
+        use pr4xis::category::Concept;
         let hw = IsHardwareAccessible;
         let interventions: Vec<BioelectricEntity> = BioelectricEntity::variants()
             .into_iter()
@@ -363,7 +363,7 @@ impl Axiom for AllTAMELevelsRepresented {
     }
 
     fn holds(&self) -> bool {
-        use pr4xis::category::Entity;
+        use pr4xis::category::Concept;
         let op = OperatingLevel;
         let all = BioelectricEntity::variants();
         let levels: Vec<CompetencyLevel> = all.iter().filter_map(|e| op.get(e)).collect();
@@ -427,7 +427,7 @@ impl Ontology for BioelectricOntology {
 mod tests {
     use super::*;
     use crate::natural::biomedical::bioelectricity::event::{CausalAsymmetric, NoSelfCausation};
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
     use pr4xis::category::validate::check_category_laws;
     use pr4xis::ontology::reasoning::causation;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;

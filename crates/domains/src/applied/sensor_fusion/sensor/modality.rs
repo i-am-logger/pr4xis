@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// Sensor type taxonomy.
 ///
@@ -50,7 +50,7 @@ pub enum SensorType {
     INS,
 }
 
-impl Entity for SensorType {
+impl Concept for SensorType {
     fn variants() -> Vec<Self> {
         vec![
             Self::Sensor,

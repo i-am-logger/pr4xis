@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::Quality;
 
 /// Fusion architecture taxonomy.
@@ -30,7 +30,7 @@ pub enum FusionArchitecture {
     Cascaded,
 }
 
-impl Entity for FusionArchitecture {
+impl Concept for FusionArchitecture {
     fn variants() -> Vec<Self> {
         vec![
             Self::Centralized,

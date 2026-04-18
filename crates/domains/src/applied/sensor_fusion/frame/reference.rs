@@ -1,11 +1,11 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// Reference frames used in sensor fusion systems.
 ///
 /// Each frame defines a coordinate system with an origin and orientation.
 /// Frames are the objects in the FrameCategory — transforms between them
 /// are the morphisms.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ReferenceFrame {
     /// Earth-Centered Earth-Fixed: origin at Earth's center, rotates with Earth
     ECEF,

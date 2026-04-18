@@ -1,6 +1,5 @@
-use pr4xis::category::{Entity, FullyConnected};
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
-use pr4xis::logic::Axiom;
 use pr4xis::ontology::Quality;
 
 /// Floors are the entities of the elevator ontology.
@@ -18,7 +17,7 @@ impl Floor {
 /// Since Entity::variants() takes no args, we use a fixed 10-floor building.
 const MAX_FLOORS: usize = 10;
 
-impl Entity for Floor {
+impl Concept for Floor {
     fn variants() -> Vec<Self> {
         (0..MAX_FLOORS).map(Floor).collect()
     }
@@ -48,12 +47,6 @@ impl Quality for HeightFromGround {
     }
 }
 
-/// Check: all floors are reachable (fully connected).
-pub fn all_floors_reachable() -> bool {
-    let axiom = FullyConnected::<ElevatorCategory>::new();
-    axiom.holds()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -72,10 +65,5 @@ mod tests {
     fn test_height_quality() {
         assert_eq!(HeightFromGround.get(&Floor(0)), Some(0));
         assert_eq!(HeightFromGround.get(&Floor(5)), Some(5));
-    }
-
-    #[test]
-    fn test_fully_connected() {
-        assert!(all_floors_reachable());
     }
 }

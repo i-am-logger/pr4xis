@@ -10,7 +10,7 @@ use super::ontology::{
 };
 use super::pipeline_step_functor::{PipelineStepCategory, PipelineStepToMapeK};
 use crate::formal::information::diagnostics::trace_functors::PipelineStep;
-use pr4xis::category::{Category, Entity, Functor};
+use pr4xis::category::{Category, Concept, Functor};
 use pr4xis::ontology::{Axiom, Ontology};
 
 fn arb_mape_k_concept() -> impl Strategy<Value = MapeKConcept> {

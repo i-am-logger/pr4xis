@@ -19,7 +19,7 @@
 //! - Kumar & Brockes 2012: nerve dependence in amphibian regeneration
 //! - Oviedo et al. 2010: gap junctions in planarian regeneration
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::taxonomy;
@@ -32,7 +32,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// Every entity in the regeneration ontology.
 ///
 /// Covers regeneration types, pattern concepts, body axes, and structures.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum RegenerationEntity {
     // Regeneration types
     /// Regrowth via blastema formation (e.g. salamander limb).
@@ -102,7 +102,7 @@ pub enum RegenerationEntity {
 ///
 /// Models the temporal sequence from injury through restoration, including
 /// bioelectric and gap-junction-mediated signaling pathways.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum RegenerationEvent {
     /// Tissue damage initiating the regeneration cascade.
     Injury,

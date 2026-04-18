@@ -4,7 +4,7 @@
 
 use crate::natural::hearing::auditory_neuroscience::ontology::*;
 use crate::natural::hearing::transduction::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct TransductionToNeuroscience;
 
@@ -61,9 +61,15 @@ impl Functor for TransductionToNeuroscience {
     }
 
     fn map_morphism(m: &TransductionRelation) -> NeuralRelation {
-        NeuralRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            TransductionCategoryRelationKind::Identity => NeuroscienceCategory::identity(&from),
+            _ => NeuralRelation {
+                from,
+                to,
+                kind: NeuroscienceCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -72,7 +78,7 @@ pr4xis::register_functor!(TransductionToNeuroscience);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
     use pr4xis::category::validate::check_functor_laws;
     use pr4xis::ontology::reasoning::analogy::Analogy;
 

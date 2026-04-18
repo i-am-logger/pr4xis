@@ -72,7 +72,7 @@ pr4xis::register_axiom!(SafeImpliesIdempotent);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     #[test]
     fn test_7_methods() {

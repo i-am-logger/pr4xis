@@ -12,7 +12,7 @@
 //
 // Source: de Groote (2001) × Spivak (2012)
 
-use pr4xis::category::Functor;
+use pr4xis::category::{Category, Functor};
 
 use super::ontology::*;
 use crate::formal::meta::algebra::ontology::*;
@@ -51,9 +51,15 @@ impl Functor for PipelineToAlgebra {
     }
 
     fn map_morphism(m: &PipelineRelation) -> AlgebraRelation {
-        AlgebraRelation {
-            from: Self::map_object(&m.from),
-            to: Self::map_object(&m.to),
+        let from = Self::map_object(&m.from);
+        let to = Self::map_object(&m.to);
+        match m.kind {
+            PipelineRelationKind::Identity => AlgebraCategory::identity(&from),
+            _ => AlgebraRelation {
+                from,
+                to,
+                kind: AlgebraCategoryRelationKind::Composed,
+            },
         }
     }
 }

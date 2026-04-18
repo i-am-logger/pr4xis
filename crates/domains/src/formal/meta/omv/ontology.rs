@@ -16,12 +16,12 @@
 // - Lemon (Ontolex) — linguistic realization of ontology names/descriptions
 // - OWL — the representation language itself
 
-use pr4xis::category::{Category, Entity};
+use pr4xis::category::{Category, Concept};
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Concepts in the OMV/MOD ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum OmvConcept {
     /// mod:SemanticArtefact — an ontology/vocabulary/terminology as a first-class object.
     SemanticArtefact,
@@ -177,7 +177,7 @@ impl Axiom for CatalogReachesAll {
         "Catalog reaches all concepts transitively (DCAT completeness)"
     }
     fn holds(&self) -> bool {
-        use pr4xis::category::entity::Entity;
+        use pr4xis::category::entity::Concept;
         let m = OmvCategory::morphisms();
         OmvConcept::variants().iter().all(|c| {
             m.iter()

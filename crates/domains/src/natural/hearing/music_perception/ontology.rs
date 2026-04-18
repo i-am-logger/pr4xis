@@ -12,14 +12,14 @@
 //! - Patel 2008: Music, Language, and the Brain
 //! - McDermott & Oxenham 2008: music perception review
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum MusicEntity {
     PitchHeight,
     PitchChroma,
@@ -62,7 +62,7 @@ pub enum MusicEntity {
     TimbrePercept,
     AffectiveResponse,
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum MusicCausalEvent {
     AuditoryInput,
     PitchExtraction,

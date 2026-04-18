@@ -186,7 +186,7 @@ fn lmf_pos_roundtrip() {
 
 mod prop {
     use super::*;
-    use pr4xis::category::entity::Entity;
+    use pr4xis::category::entity::Concept;
     use proptest::prelude::*;
 
     fn arb_pos() -> impl Strategy<Value = LmfPos> {

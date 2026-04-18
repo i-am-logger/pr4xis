@@ -1,7 +1,7 @@
 use super::board::Board;
 use super::piece::{Color, Piece, PieceKind};
 use super::square::Square;
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Quality};
 

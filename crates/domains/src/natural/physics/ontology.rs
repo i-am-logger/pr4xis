@@ -2,7 +2,7 @@
 //!
 //! Source: Newton (1687); Maxwell (1865).
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

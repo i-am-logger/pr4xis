@@ -72,7 +72,7 @@ pr4xis::register_functor!(SystemsToSchema);
 mod tests {
     use super::*;
     use pr4xis::category::Functor;
-    use pr4xis::category::entity::Entity;
+    use pr4xis::category::entity::Concept;
     use pr4xis::category::validate::check_functor_laws;
 
     #[test]

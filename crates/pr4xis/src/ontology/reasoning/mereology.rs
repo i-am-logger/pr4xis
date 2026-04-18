@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::category::Category;
-use crate::category::entity::Entity;
+use crate::category::entity::Concept;
 use crate::category::relationship::Relationship;
 
 use super::graph;
@@ -11,26 +11,28 @@ use super::graph;
 /// A mereology is a DAG of has-a relationships.
 /// If A has-a B, then B is a part of A.
 pub trait MereologyDef {
-    type Entity: Entity;
+    type Concept: Concept;
     /// Direct has-a pairs: (whole, part).
-    fn relations() -> Vec<(Self::Entity, Self::Entity)>;
+    fn relations() -> Vec<(Self::Concept, Self::Concept)>;
 }
 
 /// Has-a relationship morphism: whole has-a part.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct HasA<E: Entity> {
+pub struct HasA<E: Concept> {
     pub whole: E,
     pub part: E,
 }
 
-impl<E: Entity> Relationship for HasA<E> {
+impl<E: Concept> Relationship for HasA<E> {
     type Object = E;
+    type Kind = ();
     fn source(&self) -> E {
         self.whole.clone()
     }
     fn target(&self) -> E {
         self.part.clone()
     }
+    fn kind(&self) {}
 }
 
 /// Category adapter for a mereology.
@@ -42,17 +44,17 @@ pub struct MereologyCategory<T: MereologyDef> {
 }
 
 impl<T: MereologyDef> Category for MereologyCategory<T> {
-    type Object = T::Entity;
-    type Morphism = HasA<T::Entity>;
+    type Object = T::Concept;
+    type Morphism = HasA<T::Concept>;
 
-    fn identity(obj: &T::Entity) -> HasA<T::Entity> {
+    fn identity(obj: &T::Concept) -> HasA<T::Concept> {
         HasA {
             whole: obj.clone(),
             part: obj.clone(),
         }
     }
 
-    fn compose(f: &HasA<T::Entity>, g: &HasA<T::Entity>) -> Option<HasA<T::Entity>> {
+    fn compose(f: &HasA<T::Concept>, g: &HasA<T::Concept>) -> Option<HasA<T::Concept>> {
         if f.part != g.whole {
             return None;
         }
@@ -62,8 +64,8 @@ impl<T: MereologyDef> Category for MereologyCategory<T> {
         })
     }
 
-    fn morphisms() -> Vec<HasA<T::Entity>> {
-        let entities = T::Entity::variants();
+    fn morphisms() -> Vec<HasA<T::Concept>> {
+        let entities = T::Concept::variants();
         let adj = graph::adjacency_map(&T::relations());
 
         let mut morphisms = Vec::new();
@@ -83,13 +85,13 @@ impl<T: MereologyDef> Category for MereologyCategory<T> {
 // ---- Query functions ----
 
 /// All direct and transitive parts of a whole. Does not include the entity itself.
-pub fn parts_of<T: MereologyDef>(whole: &T::Entity) -> Vec<T::Entity> {
+pub fn parts_of<T: MereologyDef>(whole: &T::Concept) -> Vec<T::Concept> {
     let adj = graph::adjacency_map(&T::relations());
     graph::reachable(whole, &adj)
 }
 
 /// All wholes that transitively contain this part. Does not include the entity itself.
-pub fn whole_of<T: MereologyDef>(part: &T::Entity) -> Vec<T::Entity> {
+pub fn whole_of<T: MereologyDef>(part: &T::Concept) -> Vec<T::Concept> {
     let adj = graph::reverse_adjacency_map(&T::relations());
     graph::reachable(part, &adj)
 }
@@ -122,7 +124,7 @@ impl<T: MereologyDef> crate::logic::Axiom for NoCycles<T> {
 
     fn holds(&self) -> bool {
         let adj = graph::adjacency_map(&T::relations());
-        T::Entity::variants()
+        T::Concept::variants()
             .iter()
             .all(|entity| !graph::has_cycle(entity, &adj))
     }
@@ -188,9 +190,9 @@ impl<T: MereologyDef> crate::logic::Axiom for WeakSupplementation<T> {
 /// Reference: McBride & Paterson, "Applicative Programming with Effects" (2008)
 #[allow(clippy::type_complexity)]
 pub fn applicative_parts_wholes<T: MereologyDef>(
-    entity_a: &T::Entity,
-    entity_b: &T::Entity,
-) -> crate::category::Ap<crate::category::Product<Vec<T::Entity>, Vec<T::Entity>>> {
+    entity_a: &T::Concept,
+    entity_b: &T::Concept,
+) -> crate::category::Ap<crate::category::Product<Vec<T::Concept>, Vec<T::Concept>>> {
     let parts_a = crate::category::Ap::pure(parts_of::<T>(entity_a));
     let wholes_b = crate::category::Ap::pure(whole_of::<T>(entity_b));
     parts_a.map2(wholes_b, |parts, wholes| {
@@ -205,13 +207,13 @@ pub fn applicative_parts_wholes<T: MereologyDef>(
 ///
 /// Reference: Meijer, Fokkinga & Paterson (1991)
 pub fn unfold_mereology<T: MereologyDef + 'static>()
--> crate::category::algebra::Coalgebra<T::Entity, T::Entity>
+-> crate::category::algebra::Coalgebra<T::Concept, T::Concept>
 where
-    T::Entity: Clone + std::fmt::Debug,
+    T::Concept: Clone + std::fmt::Debug,
 {
     let relations = T::relations();
-    crate::category::algebra::Coalgebra::new(move |whole: &T::Entity| {
-        let parts: Vec<T::Entity> = relations
+    crate::category::algebra::Coalgebra::new(move |whole: &T::Concept| {
+        let parts: Vec<T::Concept> = relations
             .iter()
             .filter(|(w, _)| w == whole)
             .map(|(_, part)| part.clone())
@@ -224,13 +226,13 @@ where
 ///
 /// Reference: van Laarhoven (2009), Pickering et al. (2017)
 pub fn parts_lens<T: MereologyDef + 'static>()
--> crate::category::optics::Lens<T::Entity, Vec<T::Entity>>
+-> crate::category::optics::Lens<T::Concept, Vec<T::Concept>>
 where
-    T::Entity: Clone + std::fmt::Debug,
+    T::Concept: Clone + std::fmt::Debug,
 {
     crate::category::optics::Lens::new(
-        |whole: &T::Entity| parts_of::<T>(whole),
-        |_whole: &T::Entity, _new_parts: Vec<T::Entity>| {
+        |whole: &T::Concept| parts_of::<T>(whole),
+        |_whole: &T::Concept, _new_parts: Vec<T::Concept>| {
             // Mereology is declarative — can't "set" parts at runtime.
             // Return the whole unchanged (read-only lens).
             _whole.clone()
@@ -240,7 +242,7 @@ where
 
 /// Yoneda profile for mereology.
 pub fn yoneda_profile<T: MereologyDef>(
-    entity: &T::Entity,
+    entity: &T::Concept,
 ) -> crate::category::yoneda::YonedaProfile<MereologyCategory<T>> {
     crate::category::yoneda::YonedaProfile::of(entity)
 }

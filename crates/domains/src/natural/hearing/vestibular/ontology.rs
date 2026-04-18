@@ -11,14 +11,14 @@
 //! - Fernandez & Goldberg 1971: vestibular afferent physiology
 //! - Hudspeth & Corey 1977: hair cell transduction in bullfrog sacculus
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::mereology;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum VestibularEntity {
     LateralCanal,
     AnteriorCanal,
@@ -61,7 +61,7 @@ pub enum VestibularEntity {
     VestibularStimulus,
     VestibularDisorder,
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum VestibularCausalEvent {
     HeadRotation,
     EndolymphFlow,

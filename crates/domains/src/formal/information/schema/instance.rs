@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 
 // Instance ontology — the Spivak instance functor formalized.
@@ -19,7 +19,7 @@ use pr4xis::define_ontology;
 // - Baader et al., "The Description Logic Handbook" (2003) — ABox
 
 /// Concepts in the Instance ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum InstanceConcept {
     /// A functor I: Schema → Set — the populated data.
     /// Spivak (2012): "An instance on C is a functor I: C → Set."

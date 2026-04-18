@@ -169,7 +169,7 @@ pub fn fold_trace<F: 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::entity::Entity;
+    use crate::category::entity::Concept;
     use crate::category::relationship::Relationship;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -179,7 +179,7 @@ mod tests {
         C,
     }
 
-    impl Entity for TestObj {
+    impl Concept for TestObj {
         fn variants() -> Vec<Self> {
             vec![Self::A, Self::B, Self::C]
         }
@@ -193,12 +193,14 @@ mod tests {
 
     impl Relationship for TestMorph {
         type Object = TestObj;
+        type Kind = ();
         fn source(&self) -> TestObj {
             self.from
         }
         fn target(&self) -> TestObj {
             self.to
         }
+        fn kind(&self) {}
     }
 
     struct TestCat;

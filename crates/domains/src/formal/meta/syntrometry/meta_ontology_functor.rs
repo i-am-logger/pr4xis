@@ -42,8 +42,12 @@
 
 use pr4xis::category::{Category, Functor};
 
-use super::ontology::{SyntrometryCategory, SyntrometryConcept, SyntrometryRelation};
-use crate::formal::meta::ontology_diagnostics::ontology::{MetaCategory, MetaEntity, MetaRelation};
+use super::ontology::{
+    SyntrometryCategory, SyntrometryConcept, SyntrometryRelation, SyntrometryRelationKind,
+};
+use crate::formal::meta::ontology_diagnostics::ontology::{
+    MetaCategory, MetaCategoryRelationKind, MetaEntity, MetaRelation,
+};
 
 fn map_concept(c: &SyntrometryConcept) -> MetaEntity {
     use MetaEntity as M;
@@ -81,10 +85,15 @@ impl Functor for SyntrometryToMetaOntology {
     fn map_morphism(m: &SyntrometryRelation) -> MetaRelation {
         let from = map_concept(&m.from);
         let to = map_concept(&m.to);
-        if from == to {
-            MetaCategory::identity(&from)
-        } else {
-            MetaRelation { from, to }
+        // Preserve source's Identity → target's identity; everything else
+        // becomes a non-identity arrow in the dense target.
+        match m.kind {
+            SyntrometryRelationKind::Identity => MetaCategory::identity(&from),
+            _ => MetaRelation {
+                from,
+                to,
+                kind: MetaCategoryRelationKind::Composed,
+            },
         }
     }
 }

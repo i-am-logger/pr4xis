@@ -1,5 +1,5 @@
 use super::decision::{Decision, MotionAction};
-use super::entity::Entity;
+use super::entity::Concept;
 use super::finding::Ruling;
 use chrono::NaiveDate;
 
@@ -8,7 +8,7 @@ use chrono::NaiveDate;
 pub enum CasePhase {
     PreFiling,
     Filed {
-        court: Entity,
+        court: Concept,
         date: NaiveDate,
     },
     Discovery {
@@ -28,7 +28,7 @@ pub enum CasePhase {
         date: NaiveDate,
     },
     Appeal {
-        court: Entity,
+        court: Concept,
         filed: NaiveDate,
     },
     Closed {
@@ -112,7 +112,7 @@ impl PhaseTag {
 #[allow(clippy::large_enum_variant)]
 pub enum CaseAction {
     File {
-        court: Entity,
+        court: Concept,
         date: NaiveDate,
     },
     BeginDiscovery {
@@ -138,7 +138,7 @@ pub enum CaseAction {
         date: NaiveDate,
     },
     Appeal {
-        court: Entity,
+        court: Concept,
         date: NaiveDate,
     },
     Settle {

@@ -1,4 +1,4 @@
-use super::entity::Entity;
+use super::entity::Concept;
 use super::source::Source;
 use chrono::NaiveDate;
 
@@ -51,7 +51,7 @@ pub enum FactValue {
 /// A narrative step — HOW we know something.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NarrativeStep {
-    pub actor: Entity,
+    pub actor: Concept,
     pub action: String,
     pub detail: Option<String>,
     pub quote: Option<String>,
@@ -74,7 +74,7 @@ pub struct Fact {
     pub date: Option<NaiveDate>,
     pub date_precision: DatePrecision,
     pub source: Source,
-    pub actors: Vec<Entity>,
+    pub actors: Vec<Concept>,
     pub narrative: Option<Narrative>,
     pub severity: Option<Severity>,
 }

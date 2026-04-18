@@ -1,6 +1,6 @@
 use super::ontology::*;
 use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::entity::Concept;
 use pr4xis::category::validate::check_category_laws;
 
 #[test]
@@ -163,6 +163,56 @@ fn declared_adjunctions_are_registered() {
         names.iter().any(|n| n == "KnowledgeLemonAdjunction"),
         "KnowledgeLemonAdjunction not auto-registered: got {:?}",
         names
+    );
+}
+
+// -----------------------------------------------------------------------------
+// Relations-ontology refactor (issue #152) — parity baseline.
+//
+// Captures the registry counts post-#150 as the baseline for the four-PR
+// Relations-ontology refactor. Later PRs in that series assert the counts
+// stay ≥ these numbers (they should grow as new ontologies land and shrink
+// only by the intentional deletion of the four primitive reasoning modules).
+// -----------------------------------------------------------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn refactor_parity_baseline_counts() {
+    let vocabs = pr4xis::ontology::describe_knowledge_base().len();
+    let axioms = pr4xis::ontology::describe_axioms().len();
+    let functors = pr4xis::ontology::describe_functors().len();
+    let adjunctions = pr4xis::ontology::describe_adjunctions().len();
+    let nats = pr4xis::ontology::describe_natural_transformations().len();
+
+    // Baseline thresholds (post-#150). PRs B–D must not regress below.
+    // New ontologies in PR B push the vocab count up; PR D removes the four
+    // primitive reasoning modules (which aren't registered vocabularies
+    // anyway, so the count isn't affected by their removal).
+    assert!(
+        vocabs >= 130,
+        "vocabularies below baseline: {}, expected ≥130",
+        vocabs
+    );
+    assert!(
+        axioms >= 500,
+        "axioms below baseline: {}, expected ≥500",
+        axioms
+    );
+    assert!(
+        functors >= 80,
+        "functors below baseline: {}, expected ≥80",
+        functors
+    );
+    assert!(
+        adjunctions >= 5,
+        "adjunctions below baseline: {}, expected ≥5",
+        adjunctions
+    );
+
+    // Print counts on --nocapture for manual inspection during the refactor.
+    eprintln!(
+        "parity baseline: vocabs={}, axioms={}, functors={}, adjunctions={}, nats={}",
+        vocabs, axioms, functors, adjunctions, nats
     );
 }
 
@@ -383,7 +433,7 @@ mod compose {
         let ab_edges: Vec<_> = partial
             .edges()
             .iter()
-            .filter(|e| e.kind == EdgeKind::IsA)
+            .filter(|e| e.kind == EdgeKind::Subsumption)
             .collect();
         assert_eq!(ab_edges.len(), 1);
         assert_eq!(ab_edges[0].from, "A");

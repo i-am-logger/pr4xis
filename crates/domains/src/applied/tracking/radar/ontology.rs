@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::{Axiom, Quality};
 
 /// Radar measurement components.
@@ -19,7 +19,7 @@ pub enum RadarMeasurement {
     Doppler,
 }
 
-impl Entity for RadarMeasurement {
+impl Concept for RadarMeasurement {
     fn variants() -> Vec<Self> {
         vec![Self::Range, Self::Azimuth, Self::Elevation, Self::Doppler]
     }

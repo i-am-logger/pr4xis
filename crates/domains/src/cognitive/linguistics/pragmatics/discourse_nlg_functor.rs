@@ -51,6 +51,8 @@ impl Functor for DiscourseToNlg {
             DiscourseRelationKind::Parallel => NlgRelationKind::Organizes,
             DiscourseRelationKind::Continuation => NlgRelationKind::Precedes,
             DiscourseRelationKind::Composed => NlgRelationKind::Composed,
+            DiscourseRelationKind::Subsumption => NlgRelationKind::Organizes,
+            DiscourseRelationKind::Opposition => NlgRelationKind::Organizes,
         };
         NlgRelation { from, to, kind }
     }

@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 // Speech act taxonomy — Searle's 5 illocutionary types.
 //
@@ -47,7 +47,7 @@ pub enum SpeechAct {
     Greeting,
 }
 
-impl Entity for SpeechAct {
+impl Concept for SpeechAct {
     fn variants() -> Vec<Self> {
         vec![
             Self::Assertion,
@@ -101,7 +101,7 @@ pub enum SearleCategory {
     Declaration,
 }
 
-impl Entity for SearleCategory {
+impl Concept for SearleCategory {
     fn variants() -> Vec<Self> {
         vec![
             Self::Assertive,
@@ -129,7 +129,7 @@ pub enum Intent {
     Declare,
 }
 
-impl Entity for Intent {
+impl Concept for Intent {
     fn variants() -> Vec<Self> {
         vec![
             Self::Inform,
@@ -171,7 +171,7 @@ pub enum DialogueType {
     Instructional,
 }
 
-impl Entity for DialogueType {
+impl Concept for DialogueType {
     fn variants() -> Vec<Self> {
         vec![
             Self::GoalDirected,

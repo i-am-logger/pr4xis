@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 
 // Control Systems Ontology — the science of feedback and regulation.
@@ -29,7 +29,7 @@ use pr4xis::define_ontology;
 // - Åström & Murray, Feedback Systems (2008) — modern treatment
 
 /// Core concepts of a control system.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ControlConcept {
     /// The system being controlled — the "thing in the world."
     Plant,
@@ -55,7 +55,7 @@ pub enum ControlConcept {
 }
 
 /// Types of control systems — the taxonomy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ControlSystemKind {
     /// No feedback — controller acts "blind."
     OpenLoop,

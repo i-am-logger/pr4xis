@@ -1,6 +1,7 @@
 use super::category::Category;
 use super::functor::Functor;
-use crate::ontology::meta::{Citation, ModulePath, OntologyName};
+use super::kinds::AdjunctionKind;
+use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, RelationshipMeta};
 
 // Adjunction — a pair of functors that are "optimally inverse."
 //
@@ -29,18 +30,6 @@ use crate::ontology::meta::{Citation, ModulePath, OntologyName};
 // - Awodey, Category Theory (2010), Ch. 9
 // - Lambek & Scott, Introduction to Higher Order Categorical Logic (1986)
 
-/// Lemon-style lexical metadata for an adjunction — name, citation,
-/// module path. Matches `OntologyMeta` / `AxiomMeta` / `FunctorMeta`
-/// shape (issue #148: "every structural entity announces itself lexically").
-#[derive(Debug, Clone)]
-pub struct AdjunctionMeta {
-    pub name: OntologyName,
-    /// English-language label (Lemon Form). Defaults to name.
-    pub description: crate::ontology::meta::Label,
-    pub citation: Citation,
-    pub module_path: ModulePath,
-}
-
 /// An adjunction F ⊣ G between two categories.
 ///
 /// F is the left adjoint (free construction / forward transform).
@@ -49,8 +38,13 @@ pub struct AdjunctionMeta {
 /// The unit η: Id → G∘F captures what is preserved by the round trip.
 /// The counit ε: F∘G → Id captures what is lost.
 ///
-/// Every adjunction announces itself via `meta()` — same Lemon-uniform
-/// shape as ontologies, axioms, and functors.
+/// # Metadata + kind
+///
+/// Per Mac Lane (1971) IV, an adjunction is a structured 1-cell pair in
+/// the 2-category Cat. Metadata flows through the unified
+/// [`RelationshipMeta`] shape; the [`AdjunctionKind`] tag records
+/// whether it's a reflection, coreflection, equivalence, or generic
+/// adjunction.
 pub trait Adjunction {
     /// The left adjoint functor F: C → D.
     type Left: Functor;
@@ -77,45 +71,23 @@ pub trait Adjunction {
         obj: &<<Self::Left as Functor>::Target as Category>::Object,
     ) -> <<Self::Left as Functor>::Target as Category>::Morphism;
 
+    /// Classification of this adjunction (reflection / coreflection /
+    /// equivalence / free-forgetful / ...). Defaults to `Generic`.
+    const KIND: AdjunctionKind = AdjunctionKind::Generic;
+
     /// Structured metadata — name, citation, module path.
     ///
     /// Default is an **honest placeholder** (type_name + empty citation)
     /// — "literature citation not yet declared". Override via
     /// `pr4xis::adjunction!` or the
-    /// [`adjunction_meta!`](crate::adjunction_meta!) helper.
-    fn meta() -> AdjunctionMeta {
+    /// [`relationship_meta!`](crate::relationship_meta!) helper.
+    fn meta() -> RelationshipMeta {
         let tn = std::any::type_name::<Self>().to_string();
-        AdjunctionMeta {
+        RelationshipMeta {
             name: OntologyName::new(tn.clone()),
-            description: crate::ontology::meta::Label::new(tn),
+            description: Label::new(tn),
             citation: Citation::EMPTY,
             module_path: ModulePath::new(module_path!().to_string()),
         }
     }
-}
-
-/// Helper: write the `meta()` associated function for a hand-written
-/// `impl Adjunction` with a literature citation in one line.
-#[macro_export]
-macro_rules! adjunction_meta {
-    ($name:literal, $description:literal, $citation:literal) => {
-        fn meta() -> $crate::category::AdjunctionMeta {
-            $crate::category::AdjunctionMeta {
-                name: $crate::ontology::meta::OntologyName::new_static($name),
-                description: $crate::ontology::meta::Label::new_static($description),
-                citation: $crate::ontology::meta::Citation::parse_static($citation),
-                module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
-            }
-        }
-    };
-    ($name:literal, $citation:literal) => {
-        fn meta() -> $crate::category::AdjunctionMeta {
-            $crate::category::AdjunctionMeta {
-                name: $crate::ontology::meta::OntologyName::new_static($name),
-                description: $crate::ontology::meta::Label::new_static($name),
-                citation: $crate::ontology::meta::Citation::parse_static($citation),
-                module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
-            }
-        }
-    };
 }

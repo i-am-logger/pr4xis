@@ -86,12 +86,14 @@ impl PipelineStepMorphism {
 
 impl pr4xis::category::Relationship for PipelineStepMorphism {
     type Object = PipelineStep;
+    type Kind = ();
     fn source(&self) -> PipelineStep {
         self.from
     }
     fn target(&self) -> PipelineStep {
         self.to
     }
+    fn kind(&self) {}
 }
 
 // `PipelineStep` derives `Entity` at its definition in `trace_functors.rs`,
@@ -116,7 +118,7 @@ impl Category for PipelineStepCategory {
     }
 
     fn morphisms() -> Vec<PipelineStepMorphism> {
-        use pr4xis::category::Entity;
+        use pr4xis::category::Concept;
         PipelineStep::variants()
             .into_iter()
             .map(PipelineStepMorphism::identity)

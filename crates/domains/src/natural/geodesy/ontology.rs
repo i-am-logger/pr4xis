@@ -1,4 +1,4 @@
-use pr4xis::category::{Category, Endofunctor, Entity, Functor};
+use pr4xis::category::{Category, Concept, Endofunctor, Functor};
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -13,7 +13,7 @@ use crate::natural::geodesy::ellipsoid;
 /// Coordinate systems used in geodesy and navigation.
 ///
 /// Source: Groves (2013), Chapter 2; Torge & Müller (2012), Chapter 5.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum CoordinateSystem {
     /// Geodetic (latitude, longitude, altitude on ellipsoid).
     Geodetic,
@@ -82,6 +82,7 @@ impl Functor for NedToEnuFunctor {
         CoordinateConversion {
             from: Self::map_object(&m.from),
             to: Self::map_object(&m.to),
+            kind: m.kind,
         }
     }
 }

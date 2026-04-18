@@ -4,7 +4,7 @@
 
 use crate::natural::hearing::devices::ontology::*;
 use crate::natural::hearing::pathology::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct PathologyToDevices;
 
@@ -58,9 +58,15 @@ impl Functor for PathologyToDevices {
     }
 
     fn map_morphism(m: &PathologyRelation) -> DeviceRelation {
-        DeviceRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            PathologyCategoryRelationKind::Identity => DeviceCategory::identity(&from),
+            _ => DeviceRelation {
+                from,
+                to,
+                kind: DeviceCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -69,7 +75,7 @@ pr4xis::register_functor!(PathologyToDevices);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
     use pr4xis::category::validate::check_functor_laws;
     use pr4xis::ontology::reasoning::analogy::Analogy;
 

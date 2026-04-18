@@ -61,42 +61,17 @@ impl Functor for SyntrometryToC1 {
         let from = map_concept(&m.from);
         let to = map_concept(&m.to);
         match m.kind {
-            // Identity preservation.
+            // Identity preservation: F(id_A) == id_{F(A)}.
             SyntrometryRelationKind::Identity => C1Category::identity(&from),
-            // Composed source must map to Composed target so the composition
-            // law F(g∘f) = F(g)∘F(f) holds (target compose always produces
-            // Composed for non-Identity inputs).
-            SyntrometryRelationKind::Composed => C1Relation {
+            // Every other kind maps to Composed in the target — matching how
+            // the target's compose produces Composed morphisms for non-Identity
+            // inputs (so F(g∘f) == F(g)∘F(f) holds even when F collapses
+            // distinct source objects to the same target object).
+            _ => C1Relation {
                 from,
                 to,
                 kind: C1RelationKind::Composed,
             },
-            _ => {
-                if from == to {
-                    // Self-loop — every C1 concept has a Composed self-loop.
-                    C1Relation {
-                        from,
-                        to,
-                        kind: C1RelationKind::Composed,
-                    }
-                } else if from == C1Concept::Attention && to == C1Concept::ConsciousAccess {
-                    // The Maxime → {Aspekt, Telecenter} edges both land
-                    // here; C1 declares (Attention, ConsciousAccess, Selects).
-                    C1Relation {
-                        from,
-                        to,
-                        kind: C1RelationKind::Selects,
-                    }
-                } else {
-                    // Fallback — shouldn't fire under the current concept
-                    // mapping; if it does, check_functor_laws will report.
-                    C1Relation {
-                        from,
-                        to,
-                        kind: C1RelationKind::Composed,
-                    }
-                }
-            }
         }
     }
 }

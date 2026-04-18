@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -16,7 +16,7 @@ use crate::applied::sensor_fusion::state::estimate::StateEstimate;
 /// Phases in the sensor fusion lifecycle.
 ///
 /// Source: US DoD JDL (1999). "Data Fusion Lexicon."
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum FusionPhase {
     /// Filter initialized, waiting for first measurement.
     Initialized,

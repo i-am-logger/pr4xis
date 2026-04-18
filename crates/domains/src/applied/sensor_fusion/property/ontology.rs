@@ -245,7 +245,7 @@ impl pr4xis::ontology::Ontology for ObservablePropertyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
     use pr4xis::ontology::Ontology;
     use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
 

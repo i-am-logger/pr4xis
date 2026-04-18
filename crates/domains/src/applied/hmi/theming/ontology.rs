@@ -5,7 +5,7 @@
 use super::base16::{ColorSlot, Polarity, SemanticRole};
 use crate::natural::colors::rgb::Rgb;
 use crate::natural::colors::srgb;
-use pr4xis::category::{Category, Entity, Relationship};
+use pr4xis::category::{Category, Concept, Relationship};
 use pr4xis::ontology::upper::being::Being;
 use pr4xis::ontology::upper::classify::Classified;
 use pr4xis::ontology::{Axiom, Quality};
@@ -65,12 +65,14 @@ pub struct BrightVariantOf {
 
 impl Relationship for BrightVariantOf {
     type Object = ColorSlot;
+    type Kind = ();
     fn source(&self) -> ColorSlot {
         self.bright
     }
     fn target(&self) -> ColorSlot {
         self.base
     }
+    fn kind(&self) {}
 }
 
 /// A morphism mapping a base16 slot to an ANSI terminal index.
@@ -84,12 +86,14 @@ pub struct AnsiMapping {
 
 impl Relationship for AnsiMapping {
     type Object = ColorSlot;
+    type Kind = ();
     fn source(&self) -> ColorSlot {
         self.slot
     }
     fn target(&self) -> ColorSlot {
         self.ansi
     }
+    fn kind(&self) {}
 }
 
 // ── Category ──

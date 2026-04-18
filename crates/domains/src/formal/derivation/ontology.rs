@@ -13,7 +13,7 @@
 //! of a theorem prover. It formalizes the reasoning that ontology_diagnostics
 //! uses when constructing proof chains for axiom verification.
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -23,7 +23,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Components of logical derivation methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum DerivationEntity {
     // Types of derivation (how you reason)
     Deduction,
@@ -53,7 +53,7 @@ pub enum DerivationEntity {
 }
 
 /// Steps in the derivation pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum DerivationStep {
     /// Establish premises (axioms, assumptions, given facts).
     PremiseEstablishment,

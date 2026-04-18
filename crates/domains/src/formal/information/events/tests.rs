@@ -1,4 +1,4 @@
-use pr4xis::category::entity::Entity;
+use pr4xis::category::entity::Concept;
 use pr4xis::category::validate::{check_category_laws, check_functor_laws};
 use pr4xis::category::{Category, Functor};
 

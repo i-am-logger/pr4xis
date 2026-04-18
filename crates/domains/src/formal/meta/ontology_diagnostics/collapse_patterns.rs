@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use pr4xis::category::{Entity, Functor};
+use pr4xis::category::{Concept, Functor};
 
 use crate::natural::biomedical::acoustics::biophysics_functor::AcousticsToBiophysics;
 use crate::natural::biomedical::acoustics::ontology::AcousticsEntity;
@@ -37,7 +37,7 @@ use crate::natural::biomedical::molecular::ontology::MolecularEntity;
 
 /// A target entity that absorbs multiple source entities.
 #[derive(Debug, Clone)]
-pub struct AbsorptionPoint<S: Entity, T: Entity> {
+pub struct AbsorptionPoint<S: Concept, T: Concept> {
     /// The target entity that absorbs.
     pub target: T,
     /// All source entities that map to this target.
@@ -61,7 +61,7 @@ pub enum Recommendation {
 
 /// Full analysis of a functor's collapse patterns.
 #[derive(Debug, Clone)]
-pub struct CollapseReport<S: Entity, T: Entity> {
+pub struct CollapseReport<S: Concept, T: Concept> {
     pub absorption_points: Vec<AbsorptionPoint<S, T>>,
     pub max_fan_in: usize,
     pub overall_collapse: f64,
@@ -81,8 +81,8 @@ fn compute_absorption_points<S, T>(
     map_fn: fn(&S) -> T,
 ) -> Vec<AbsorptionPoint<S, T>>
 where
-    S: Entity + Debug + Clone,
-    T: Entity + Debug + Clone + Eq + Hash,
+    S: Concept + Debug + Clone,
+    T: Concept + Debug + Clone + Eq + Hash,
 {
     let mut target_to_sources: HashMap<T, Vec<S>> = HashMap::new();
 
@@ -113,8 +113,8 @@ where
 /// target with at least one other source entity.
 fn compute_overall_collapse<S, T>(sources: &[S], map_fn: fn(&S) -> T) -> f64
 where
-    S: Entity + Debug + Clone,
-    T: Entity + Debug + Clone + Eq + Hash,
+    S: Concept + Debug + Clone,
+    T: Concept + Debug + Clone + Eq + Hash,
 {
     let total = sources.len();
     if total == 0 {
@@ -150,8 +150,8 @@ fn recommend(overall_collapse: f64, max_fan_in: usize) -> Recommendation {
 /// Build a full CollapseReport from source entities and a mapping function.
 fn build_report<S, T>(sources: Vec<S>, map_fn: fn(&S) -> T) -> CollapseReport<S, T>
 where
-    S: Entity + Debug + Clone,
-    T: Entity + Debug + Clone + Eq + Hash,
+    S: Concept + Debug + Clone,
+    T: Concept + Debug + Clone + Eq + Hash,
 {
     let overall_collapse = compute_overall_collapse(&sources, map_fn);
     let absorption_points = compute_absorption_points(sources, map_fn);

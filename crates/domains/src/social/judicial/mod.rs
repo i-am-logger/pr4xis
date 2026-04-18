@@ -12,7 +12,7 @@ pub mod rule;
 pub mod source;
 
 pub use engine::{LegalAction, LegalEngine, new_case};
-pub use entity::Entity;
+pub use entity::Concept;
 pub use lifecycle::{Case, CaseAction, CasePhase, PhaseTag};
 
 #[cfg(test)]

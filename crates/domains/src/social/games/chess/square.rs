@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Square {
@@ -30,7 +30,7 @@ impl Square {
     }
 }
 
-impl Entity for Square {
+impl Concept for Square {
     fn variants() -> Vec<Self> {
         let mut v = Vec::with_capacity(64);
         for file in 0..8u8 {

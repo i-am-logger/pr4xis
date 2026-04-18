@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::Quality;
 
 /// Track status in the fusion engine context.
@@ -24,7 +24,7 @@ pub enum FusionTrackStatus {
     Lost,
 }
 
-impl Entity for FusionTrackStatus {
+impl Concept for FusionTrackStatus {
     fn variants() -> Vec<Self> {
         vec![Self::Active, Self::Coasting, Self::Lost]
     }

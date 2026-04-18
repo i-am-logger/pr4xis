@@ -1,60 +1,6 @@
 use super::category::Category;
-use crate::ontology::meta::{Citation, ModulePath, OntologyName};
-
-/// Lemon-style lexical metadata for a functor — its identity, citation,
-/// and module path. Matches `OntologyMeta` / `AxiomMeta` shape so the
-/// lexicon treats ontologies, axioms, and functors uniformly (issue #148:
-/// "every structural entity announces itself lexically").
-///
-/// Construct via `pr4xis::functor!` for the generated case, or
-/// [`functor_meta!`](crate::functor_meta!) for hand-written impls.
-#[derive(Debug, Clone)]
-pub struct FunctorMeta {
-    pub name: OntologyName,
-    /// English-language label describing what the functor expresses
-    /// (Lemon Form). Defaults to the functor's name if not declared.
-    pub description: crate::ontology::meta::Label,
-    pub citation: Citation,
-    pub module_path: ModulePath,
-}
-
-/// Helper: write the `meta()` associated function for a hand-written
-/// `impl Functor` with a literature citation in one line.
-///
-/// # Example
-///
-/// ```ignore
-/// impl Functor for MyFunctor {
-///     type Source = ...;
-///     type Target = ...;
-///     fn map_object(...) -> ... { ... }
-///     fn map_morphism(...) -> ... { ... }
-///     pr4xis::functor_meta!("MyFunctor", "Mac Lane (1971) Ch. II §1");
-/// }
-/// ```
-#[macro_export]
-macro_rules! functor_meta {
-    ($name:literal, $description:literal, $citation:literal) => {
-        fn meta() -> $crate::category::FunctorMeta {
-            $crate::category::FunctorMeta {
-                name: $crate::ontology::meta::OntologyName::new_static($name),
-                description: $crate::ontology::meta::Label::new_static($description),
-                citation: $crate::ontology::meta::Citation::parse_static($citation),
-                module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
-            }
-        }
-    };
-    ($name:literal, $citation:literal) => {
-        fn meta() -> $crate::category::FunctorMeta {
-            $crate::category::FunctorMeta {
-                name: $crate::ontology::meta::OntologyName::new_static($name),
-                description: $crate::ontology::meta::Label::new_static($name),
-                citation: $crate::ontology::meta::Citation::parse_static($citation),
-                module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
-            }
-        }
-    };
-}
+use super::kinds::FunctorKind;
+use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, RelationshipMeta};
 
 /// A functor is a structure-preserving map between two categories.
 ///
@@ -70,9 +16,13 @@ macro_rules! functor_meta {
 ///
 /// Use [`crate::validate`] to verify these laws.
 ///
-/// Every functor announces itself via `meta()` — its name, citation,
-/// and module path, carried in the same Lemon-style wrappers as
-/// ontologies and axioms.
+/// # Metadata + kind
+///
+/// Per Mac Lane (1971) XII.3, a functor is a 1-cell in the 2-category Cat.
+/// Its metadata flows through the unified [`RelationshipMeta`] shape that
+/// every arrow in pr4xis shares, and it carries a [`FunctorKind`] tag
+/// (faithful / full / forgetful / free / ...) per the Gruber (1993) /
+/// OBO-RO (Smith 2005) principle that every relation is formally-named.
 pub trait Functor {
     type Source: Category;
     type Target: Category;
@@ -85,17 +35,22 @@ pub trait Functor {
         m: &<Self::Source as Category>::Morphism,
     ) -> <Self::Target as Category>::Morphism;
 
+    /// Classification of this functor (faithful / full / forgetful / etc).
+    /// Defaults to `Generic`; override in impls where the literature
+    /// classification is known.
+    const KIND: FunctorKind = FunctorKind::Generic;
+
     /// Structured metadata — name, citation, module path.
     ///
     /// The default is an **honest placeholder** using `std::any::type_name`
     /// and an empty citation — "literature citation not yet declared".
     /// Functors declared via `pr4xis::functor!` or with the
-    /// [`functor_meta!`](crate::functor_meta!) helper override it.
-    fn meta() -> FunctorMeta {
+    /// [`relationship_meta!`](crate::relationship_meta!) helper override it.
+    fn meta() -> RelationshipMeta {
         let tn = std::any::type_name::<Self>().to_string();
-        FunctorMeta {
+        RelationshipMeta {
             name: OntologyName::new(tn.clone()),
-            description: crate::ontology::meta::Label::new(tn),
+            description: Label::new(tn),
             citation: Citation::EMPTY,
             module_path: ModulePath::new(module_path!().to_string()),
         }

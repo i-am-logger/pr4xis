@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// Punctuation — written marks that structure and modify meaning.
 ///
@@ -55,7 +55,7 @@ pub enum PunctuationFunction {
     Ellipsis,
 }
 
-impl Entity for PunctuationFunction {
+impl Concept for PunctuationFunction {
     fn variants() -> Vec<Self> {
         vec![
             Self::StatementTerminator,
@@ -86,7 +86,7 @@ pub enum Position {
     Wrapping,
 }
 
-impl Entity for Position {
+impl Concept for Position {
     fn variants() -> Vec<Self> {
         vec![Self::After, Self::Before, Self::Between, Self::Wrapping]
     }

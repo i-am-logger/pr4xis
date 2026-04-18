@@ -10,11 +10,14 @@
 //! Source: Borenstein et al. (1996); Thrun, Burgard & Fox (2005); Scaramuzza
 //!         & Fraundorfer (2011).
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
-use crate::applied::navigation::odometry::ontology::{OdometryCategory, OdometryConcept};
+use crate::applied::navigation::odometry::ontology::{
+    OdometryCategory, OdometryConcept, OdometryRelationKind,
+};
 use crate::applied::sensor_fusion::property::ontology::{
     ObservablePropertyCategory, ObservablePropertyConcept, ObservablePropertyRelation,
+    ObservablePropertyRelationKind,
 };
 
 /// Maps each odometry method to the primary observable property it estimates.
@@ -50,13 +53,17 @@ impl Functor for OdometryToProperty {
     fn map_morphism(
         m: &<OdometryCategory as pr4xis::category::Category>::Morphism,
     ) -> ObservablePropertyRelation {
-        // Odometry morphisms are taxonomy is_a relations (Specific → Source).
-        // Under the functor, these map to relations on the target property
-        // (since different methods may map to the same property, the is_a
-        // structure often collapses to identities).
-        ObservablePropertyRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        // Preserve source's Identity → target's Identity; everything else
+        // maps to Composed so F(g∘f) == F(g)∘F(f) holds under collapse.
+        match m.kind {
+            OdometryRelationKind::Identity => ObservablePropertyCategory::identity(&from),
+            _ => ObservablePropertyRelation {
+                from,
+                to,
+                kind: ObservablePropertyRelationKind::Composed,
+            },
         }
     }
 }

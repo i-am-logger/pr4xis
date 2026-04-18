@@ -18,7 +18,7 @@
 //! - Chernet & Levin 2013: repolarization suppresses tumors
 //! - Binns et al. 2019: bioelectric reversal of metaplasia
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -28,7 +28,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 // ---------------------------------------------------------------------------
 
 /// Every entity in the pathology ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum PathologyEntity {
     // Disease states
     /// Healthy tissue with normal morphology and Vmem.
@@ -88,7 +88,7 @@ pub enum PathologyEntity {
 // ---------------------------------------------------------------------------
 
 /// Events in the disease progression causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum PathologyCausalEvent {
     /// Initial tissue damage from exogenous or endogenous insult.
     TissueInsult,

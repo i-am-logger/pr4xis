@@ -39,7 +39,7 @@ pr4xis::ontology! {
 
     labels: {
         SemanticDomain: ("en", "Semantic domain", "A type of meaning — what a syntactic category denotes. Montague (1973)."),
-        EntityDomain: ("en", "Entity domain (e)", "The domain of individuals. NPs denote entities. Montague (1973)."),
+        EntityDomain: ("en", "Concept domain (e)", "The domain of individuals. NPs denote entities. Montague (1973)."),
         PropositionDomain: ("en", "Proposition domain (t)", "The domain of truth values. Sentences denote propositions. Montague (1973)."),
         PredicateDomain: ("en", "Predicate domain (e→t)", "Functions from entities to truth values. Common nouns denote predicates."),
         FunctionDomain: ("en", "Function domain", "Higher-order function spaces built from the atomic domains e and t. Montague (1970)."),

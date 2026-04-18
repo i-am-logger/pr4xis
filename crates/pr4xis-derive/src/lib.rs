@@ -22,19 +22,19 @@ pub(crate) fn pr4xis_crate() -> TokenStream2 {
     }
 }
 
-/// Derive the `Entity` trait for an enum with unit variants.
+/// Derive the `Concept` trait for an enum with unit variants.
 ///
 /// Generates:
-/// - `fn variants() -> Vec<Self>` — all enum variants
-/// - `fn name(&self) -> &'static str` — variant name as string
-#[proc_macro_derive(Entity)]
-pub fn derive_entity(input: TokenStream) -> TokenStream {
+/// - `fn variants() -> Vec<Self>` — all enum variants (closed-world enumeration)
+/// - `fn name(&self) -> &'static str` — variant name as string (Lemon canonical form)
+#[proc_macro_derive(Concept)]
+pub fn derive_concept(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let Data::Enum(data_enum) = &input.data else {
-        return syn::Error::new_spanned(&input, "Entity can only be derived for enums")
+        return syn::Error::new_spanned(&input, "Concept can only be derived for enums")
             .to_compile_error()
             .into();
     };
@@ -46,7 +46,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
             _ => {
                 return syn::Error::new_spanned(
                     v,
-                    "Entity derive only supports unit variants (no fields)",
+                    "Concept derive only supports unit variants (no fields)",
                 )
                 .to_compile_error()
                 .into();
@@ -58,7 +58,7 @@ pub fn derive_entity(input: TokenStream) -> TokenStream {
 
     let pr4xis = pr4xis_crate();
     let expanded = quote! {
-        impl #impl_generics #pr4xis::category::Entity for #name #ty_generics #where_clause {
+        impl #impl_generics #pr4xis::category::Concept for #name #ty_generics #where_clause {
             fn variants() -> Vec<Self> {
                 vec![#(Self::#variant_idents),*]
             }

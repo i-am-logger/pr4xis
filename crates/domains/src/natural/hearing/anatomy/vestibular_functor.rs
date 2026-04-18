@@ -4,7 +4,7 @@
 
 use crate::natural::hearing::anatomy::ontology::*;
 use crate::natural::hearing::vestibular::ontology::*;
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 pub struct AnatomyToVestibular;
 
@@ -62,9 +62,15 @@ impl Functor for AnatomyToVestibular {
     }
 
     fn map_morphism(m: &AuditoryRelation) -> VestibularRelation {
-        VestibularRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            AnatomyCategoryRelationKind::Identity => VestibularCategory::identity(&from),
+            _ => VestibularRelation {
+                from,
+                to,
+                kind: VestibularCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -73,7 +79,7 @@ pr4xis::register_functor!(AnatomyToVestibular);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
     use pr4xis::category::validate::check_functor_laws;
     use pr4xis::ontology::reasoning::analogy::Analogy;
 

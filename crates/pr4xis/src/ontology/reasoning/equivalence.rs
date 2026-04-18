@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::marker::PhantomData;
 
 use crate::category::Category;
-use crate::category::entity::Entity;
+use crate::category::entity::Concept;
 use crate::category::relationship::Relationship;
 
 use super::graph;
@@ -15,26 +15,28 @@ use super::graph;
 /// Equivalence forms a groupoid — every morphism is invertible.
 /// The transitive closure partitions entities into equivalence classes.
 pub trait EquivalenceDef {
-    type Entity: Entity;
+    type Concept: Concept;
     /// Direct equivalence pairs. Order doesn't matter (symmetric).
-    fn pairs() -> Vec<(Self::Entity, Self::Entity)>;
+    fn pairs() -> Vec<(Self::Concept, Self::Concept)>;
 }
 
 /// Equivalence morphism: A is equivalent to B.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Equivalent<E: Entity> {
+pub struct Equivalent<E: Concept> {
     pub left: E,
     pub right: E,
 }
 
-impl<E: Entity> Relationship for Equivalent<E> {
+impl<E: Concept> Relationship for Equivalent<E> {
     type Object = E;
+    type Kind = ();
     fn source(&self) -> E {
         self.left.clone()
     }
     fn target(&self) -> E {
         self.right.clone()
     }
+    fn kind(&self) {}
 }
 
 /// Category adapter for equivalence relations.
@@ -47,7 +49,7 @@ pub struct EquivalenceCategory<T: EquivalenceDef> {
 }
 
 /// Build the symmetric adjacency map from equivalence pairs.
-fn symmetric_adj<E: Entity>(pairs: &[(E, E)]) -> HashMap<E, Vec<E>> {
+fn symmetric_adj<E: Concept>(pairs: &[(E, E)]) -> HashMap<E, Vec<E>> {
     let mut adj: HashMap<E, Vec<E>> = HashMap::new();
     for (a, b) in pairs {
         if a != b {
@@ -59,10 +61,10 @@ fn symmetric_adj<E: Entity>(pairs: &[(E, E)]) -> HashMap<E, Vec<E>> {
 }
 
 impl<T: EquivalenceDef> Category for EquivalenceCategory<T> {
-    type Object = T::Entity;
-    type Morphism = Equivalent<T::Entity>;
+    type Object = T::Concept;
+    type Morphism = Equivalent<T::Concept>;
 
-    fn identity(obj: &T::Entity) -> Equivalent<T::Entity> {
+    fn identity(obj: &T::Concept) -> Equivalent<T::Concept> {
         Equivalent {
             left: obj.clone(),
             right: obj.clone(),
@@ -70,9 +72,9 @@ impl<T: EquivalenceDef> Category for EquivalenceCategory<T> {
     }
 
     fn compose(
-        f: &Equivalent<T::Entity>,
-        g: &Equivalent<T::Entity>,
-    ) -> Option<Equivalent<T::Entity>> {
+        f: &Equivalent<T::Concept>,
+        g: &Equivalent<T::Concept>,
+    ) -> Option<Equivalent<T::Concept>> {
         if f.right != g.left {
             return None;
         }
@@ -82,8 +84,8 @@ impl<T: EquivalenceDef> Category for EquivalenceCategory<T> {
         })
     }
 
-    fn morphisms() -> Vec<Equivalent<T::Entity>> {
-        let entities = T::Entity::variants();
+    fn morphisms() -> Vec<Equivalent<T::Concept>> {
+        let entities = T::Concept::variants();
         let adj = symmetric_adj(&T::pairs());
 
         let mut morphisms = Vec::new();
@@ -103,7 +105,7 @@ impl<T: EquivalenceDef> Category for EquivalenceCategory<T> {
 // ---- Query functions ----
 
 /// All entities equivalent to this one (transitive closure). Does not include self.
-pub fn equivalent_to<T: EquivalenceDef>(entity: &T::Entity) -> Vec<T::Entity> {
+pub fn equivalent_to<T: EquivalenceDef>(entity: &T::Concept) -> Vec<T::Concept> {
     let adj = symmetric_adj(&T::pairs());
     graph::reachable(entity, &adj)
         .into_iter()
@@ -112,15 +114,15 @@ pub fn equivalent_to<T: EquivalenceDef>(entity: &T::Entity) -> Vec<T::Entity> {
 }
 
 /// The full equivalence class containing this entity (including self).
-pub fn equivalence_class<T: EquivalenceDef>(entity: &T::Entity) -> Vec<T::Entity> {
+pub fn equivalence_class<T: EquivalenceDef>(entity: &T::Concept) -> Vec<T::Concept> {
     let mut class = vec![entity.clone()];
     class.extend(equivalent_to::<T>(entity));
     class
 }
 
 /// All equivalence classes in the domain.
-pub fn all_classes<T: EquivalenceDef>() -> Vec<Vec<T::Entity>> {
-    let entities = T::Entity::variants();
+pub fn all_classes<T: EquivalenceDef>() -> Vec<Vec<T::Concept>> {
+    let entities = T::Concept::variants();
     let adj = symmetric_adj(&T::pairs());
     let mut seen = HashSet::new();
     let mut classes = Vec::new();
@@ -141,7 +143,7 @@ pub fn all_classes<T: EquivalenceDef>() -> Vec<Vec<T::Entity>> {
 }
 
 /// Check if two entities are equivalent (directly or transitively).
-pub fn are_equivalent<T: EquivalenceDef>(a: &T::Entity, b: &T::Entity) -> bool {
+pub fn are_equivalent<T: EquivalenceDef>(a: &T::Concept, b: &T::Concept) -> bool {
     if a == b {
         return true;
     }
@@ -179,7 +181,7 @@ impl<T: EquivalenceDef> crate::logic::Axiom for Symmetric<T> {
     fn holds(&self) -> bool {
         // Always true by construction (symmetric_adj), but we verify
         // that the transitive closure is also symmetric
-        for entity in T::Entity::variants() {
+        for entity in T::Concept::variants() {
             for equiv in equivalent_to::<T>(&entity) {
                 if !are_equivalent::<T>(&equiv, &entity) {
                     return false;

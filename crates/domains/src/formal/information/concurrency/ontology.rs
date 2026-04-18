@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -16,7 +16,7 @@ use pr4xis::ontology::{Ontology, Quality};
 // - Carl Hewitt, Actor Model (1973)
 
 /// Core concepts of concurrency.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ConcurrencyConcept {
     /// An entity that can act — a player, a car, a speaker, a process.
     Agent,

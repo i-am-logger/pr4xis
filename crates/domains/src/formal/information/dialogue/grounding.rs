@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 
 // Grounding — the process of establishing mutual understanding.
@@ -21,7 +21,7 @@ use pr4xis::define_ontology;
 /// Every contribution passes through these states. The DU starts
 /// at S and must reach Grounded (F) for the content to enter
 /// common ground. If it reaches Dead (D), the content is abandoned.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum GroundingState {
     /// Initial state — no discourse unit initiated yet.
     Start,
@@ -132,7 +132,7 @@ define_ontology! {
 mod tests {
     use super::*;
     use pr4xis::category::Category;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     #[test]
     fn category_identity_law() {

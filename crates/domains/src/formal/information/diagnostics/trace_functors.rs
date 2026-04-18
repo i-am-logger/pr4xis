@@ -1,15 +1,4 @@
 use super::ontology::DiagnosticConcept;
-use crate::cognitive::cognition::epistemics::EpistemicOntology;
-use crate::cognitive::cognition::metacognition::MetaCognitionOntology;
-use crate::cognitive::linguistics::lambek::LambekOntology;
-use crate::cognitive::linguistics::lemon::ontology::LemonOntology;
-use crate::cognitive::linguistics::pragmatics::discourse::ontology::DiscourseOntology;
-use crate::cognitive::linguistics::pragmatics::generation::ProductionOntology;
-use crate::cognitive::linguistics::pragmatics::nlg::NlgOntology;
-use crate::cognitive::linguistics::pragmatics::planning::ontology::PlanningOntology;
-use crate::cognitive::linguistics::pragmatics::response::ResponseOntology;
-use crate::cognitive::linguistics::semantics::MontagueOntology;
-use crate::cognitive::linguistics::wordnet::WordNetOntology;
 use crate::formal::information::provenance::ontology::ProvenanceConcept;
 use crate::formal::systems::mape_k::ontology::MapeKConcept;
 
@@ -67,89 +56,55 @@ impl PipelineStep {
 
     // MAPE-K Monitor phase — sensing input and sensing self.
     /// Tokenise input text via the Lemon lexical ontology.
-    pub const TOKENIZE: Self = Self::new(
-        MapeKConcept::Monitor,
-        LemonOntology::meta().name,
-        "tokenize",
-    );
+    pub const TOKENIZE: Self = Self::new(MapeKConcept::Monitor, "LemonOntology", "tokenize");
     /// Parse token stream via the Lambek pregroup grammar.
-    pub const PARSE: Self = Self::new(
-        MapeKConcept::Monitor,
-        LambekOntology::meta().name,
-        "CYK chart parse",
-    );
+    pub const PARSE: Self = Self::new(MapeKConcept::Monitor, "LambekOntology", "CYK chart parse");
     /// Interpret the parse tree via Montague semantics.
-    pub const INTERPRET: Self = Self::new(
-        MapeKConcept::Monitor,
-        MontagueOntology::meta().name,
-        "interpret",
-    );
+    pub const INTERPRET: Self = Self::new(MapeKConcept::Monitor, "MontagueOntology", "interpret");
     /// Monitor → evaluate → control cycle (Nelson-Narens metacognition).
     pub const METACOGNITION: Self = Self::new(
         MapeKConcept::Monitor,
-        MetaCognitionOntology::meta().name,
+        "MetaCognitionOntology",
         "monitor → evaluate → control",
     );
     /// Classify the knowledge state (KK / KU / UK / UU).
-    pub const EPISTEMIC_CLASSIFICATION: Self = Self::new(
-        MapeKConcept::Monitor,
-        EpistemicOntology::meta().name,
-        "classify",
-    );
+    pub const EPISTEMIC_CLASSIFICATION: Self =
+        Self::new(MapeKConcept::Monitor, "EpistemicOntology", "classify");
 
     // MAPE-K Analyze phase — reasoning over the concept graph.
     /// Look up a word's concepts in WordNet.
-    pub const ENTITY_LOOKUP: Self = Self::new(
-        MapeKConcept::Analyze,
-        WordNetOntology::meta().name,
-        "entity lookup",
-    );
+    pub const ENTITY_LOOKUP: Self =
+        Self::new(MapeKConcept::Analyze, "WordNetOntology", "entity lookup");
     /// Walk the WordNet hypernym/hyponym taxonomy.
-    pub const TAXONOMY_TRAVERSAL: Self = Self::new(
-        MapeKConcept::Analyze,
-        WordNetOntology::meta().name,
-        "is_a traversal",
-    );
+    pub const TAXONOMY_TRAVERSAL: Self =
+        Self::new(MapeKConcept::Analyze, "WordNetOntology", "is_a traversal");
     /// Compute the lowest common ancestor in WordNet.
-    pub const COMMON_ANCESTOR: Self = Self::new(
-        MapeKConcept::Analyze,
-        WordNetOntology::meta().name,
-        "LCA search",
-    );
+    pub const COMMON_ANCESTOR: Self =
+        Self::new(MapeKConcept::Analyze, "WordNetOntology", "LCA search");
 
     // MAPE-K Plan phase — deciding the illocutionary goal.
     /// Classify the speech act (Cohen & Perrault plan-based speech acts).
     pub const SPEECH_ACT_CLASSIFICATION: Self = Self::new(
         MapeKConcept::Plan,
-        PlanningOntology::meta().name,
+        "PlanningOntology",
         "classify speech act",
     );
     /// Select the response frame from the epistemic state.
     pub const RESPONSE_FRAME_SELECTION: Self = Self::new(
         MapeKConcept::Plan,
-        ResponseOntology::meta().name,
+        "ResponseOntology",
         "select response frame",
     );
 
     // MAPE-K Execute phase — producing the utterance.
     /// Reiter & Dale stage 1: content determination.
-    pub const CONTENT_DETERMINATION: Self = Self::new(
-        MapeKConcept::Execute,
-        NlgOntology::meta().name,
-        "gather knowledge",
-    );
+    pub const CONTENT_DETERMINATION: Self =
+        Self::new(MapeKConcept::Execute, "NlgOntology", "gather knowledge");
     /// Organise content rhetorically (Mann & Thompson RST, Discourse).
-    pub const DOCUMENT_PLANNING: Self = Self::new(
-        MapeKConcept::Execute,
-        DiscourseOntology::meta().name,
-        "organize (RST)",
-    );
+    pub const DOCUMENT_PLANNING: Self =
+        Self::new(MapeKConcept::Execute, "DiscourseOntology", "organize (RST)");
     /// Surface-form production (Levelt Speaking; de Groote ACG generation).
-    pub const REALIZATION: Self = Self::new(
-        MapeKConcept::Execute,
-        ProductionOntology::meta().name,
-        "realize",
-    );
+    pub const REALIZATION: Self = Self::new(MapeKConcept::Execute, "ProductionOntology", "realize");
 
     /// The MAPE-K phase this step plays — Kephart & Chess (2003) role.
     pub const fn phase(&self) -> MapeKConcept {
@@ -184,7 +139,7 @@ impl PipelineStep {
     ];
 }
 
-impl pr4xis::category::Entity for PipelineStep {
+impl pr4xis::category::Concept for PipelineStep {
     fn variants() -> Vec<Self> {
         Self::ALL.to_vec()
     }
@@ -470,13 +425,13 @@ impl PipelineTrace {
             .join(" | ")
     }
 
-    /// Record a trace entry using OntologyMeta — auto-tracing.
+    /// Record a trace entry using RelationshipMeta — auto-tracing.
     ///
     /// Instead of hardcoding ontology names, the ontology provides its own
-    /// metadata through OntologyMeta (generated by define_ontology!).
+    /// metadata through RelationshipMeta (generated by ontology!).
     pub fn record_from_meta(
         &mut self,
-        meta: &pr4xis::ontology::meta::OntologyMeta,
+        meta: &pr4xis::ontology::meta::RelationshipMeta,
         step: PipelineStep,
         detail: &str,
         success: bool,
@@ -532,7 +487,7 @@ impl PipelineTrace {
 mod tests {
     use super::*;
     use pr4xis::category::Monoid;
-    use pr4xis::category::entity::Entity;
+    use pr4xis::category::entity::Concept;
 
     // --- PipelineTrace Monoid laws ---
 
@@ -660,7 +615,7 @@ mod tests {
     #[test]
     fn trace_entry_from_step() {
         let entry = PipelineTraceEntry::from_step(PipelineStep::PARSE, "success → S[q]", true);
-        assert_eq!(entry.ontology(), LambekOntology::meta().name);
+        assert_eq!(entry.ontology(), "LambekOntology");
         assert_eq!(entry.operation(), "CYK chart parse");
         assert!(entry.success);
     }
@@ -673,18 +628,15 @@ mod tests {
         trace.record(PipelineStep::INTERPRET, "question: is(dog, animal)", true);
 
         assert_eq!(trace.entries.len(), 3);
-        assert_eq!(trace.entries[0].ontology(), LemonOntology::meta().name);
-        assert_eq!(trace.entries[1].ontology(), LambekOntology::meta().name);
-        assert_eq!(trace.entries[2].ontology(), MontagueOntology::meta().name);
+        assert_eq!(trace.entries[0].ontology(), "LemonOntology");
+        assert_eq!(trace.entries[1].ontology(), "LambekOntology");
+        assert_eq!(trace.entries[2].ontology(), "MontagueOntology");
     }
 
     #[test]
     fn serialize_format() {
         let entry = PipelineTraceEntry::from_step(PipelineStep::PARSE, "failed", false);
-        let expected = format!(
-            "warn:{}:CYK chart parse:failed",
-            LambekOntology::meta().name
-        );
+        let expected = format!("warn:{}:CYK chart parse:failed", "LambekOntology");
         assert_eq!(entry.serialize(), expected);
     }
 
@@ -817,10 +769,10 @@ mod tests {
 
         let all = trace.all_participating_ontologies();
         // Direct ontologies — names come from each ontology's meta().
-        assert!(all.contains(&LemonOntology::meta().name));
-        assert!(all.contains(&LambekOntology::meta().name));
-        assert!(all.contains(&MontagueOntology::meta().name));
-        assert!(all.contains(&MetaCognitionOntology::meta().name));
+        assert!(all.contains(&"LemonOntology"));
+        assert!(all.contains(&"LambekOntology"));
+        assert!(all.contains(&"MontagueOntology"));
+        assert!(all.contains(&"MetaCognitionOntology"));
         // Via functors
         assert!(all.contains(&"Communication (Shannon)"));
         assert!(all.contains(&"Control (Wiener)"));

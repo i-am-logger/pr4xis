@@ -50,7 +50,7 @@ pub fn counit_pair(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     /// Every counit round-trip lands exactly at its target. (The substrate
     /// set is closed under the object mapping, so every substrate primitive

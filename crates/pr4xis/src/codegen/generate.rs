@@ -90,7 +90,7 @@ fn write_header(out: &mut String, config: &GenerateConfig, builder: &OntologyBui
     writeln!(out, "// Relations: {}", builder.relation_count()).unwrap();
     writeln!(out, "// DO NOT EDIT — regenerate from source data").unwrap();
     writeln!(out).unwrap();
-    writeln!(out, "use pr4xis::category::Entity;").unwrap();
+    writeln!(out, "use pr4xis::category::Concept;").unwrap();
     writeln!(out).unwrap();
 }
 
@@ -106,7 +106,7 @@ fn write_entity_type(
     writeln!(out, "#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]").unwrap();
     writeln!(out, "pub struct {ty}(pub u32);").unwrap();
     writeln!(out).unwrap();
-    writeln!(out, "impl Entity for {ty} {{").unwrap();
+    writeln!(out, "impl Concept for {ty} {{").unwrap();
     writeln!(out, "    fn variants() -> Vec<Self> {{").unwrap();
     writeln!(out, "        (0..{count}u32).map({ty}).collect()").unwrap();
     writeln!(out, "    }}").unwrap();
@@ -274,31 +274,31 @@ fn write_relation_impl(
         "TaxonomyDef" => (
             "pr4xis::ontology::reasoning::taxonomy::TaxonomyDef",
             format!(
-                "    type Entity = {entity_type};\n    fn relations() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
+                "    type Concept = {entity_type};\n    fn relations() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
             ),
         ),
         "EquivalenceDef" => (
             "pr4xis::ontology::reasoning::equivalence::EquivalenceDef",
             format!(
-                "    type Entity = {entity_type};\n    fn pairs() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
+                "    type Concept = {entity_type};\n    fn pairs() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
             ),
         ),
         "OppositionDef" => (
             "pr4xis::ontology::reasoning::opposition::OppositionDef",
             format!(
-                "    type Entity = {entity_type};\n    fn pairs() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
+                "    type Concept = {entity_type};\n    fn pairs() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
             ),
         ),
         "MereologyDef" => (
             "pr4xis::ontology::reasoning::mereology::MereologyDef",
             format!(
-                "    type Entity = {entity_type};\n    fn relations() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
+                "    type Concept = {entity_type};\n    fn relations() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
             ),
         ),
         "CausalDef" => (
             "pr4xis::ontology::reasoning::causation::CausalDef",
             format!(
-                "    type Entity = {entity_type};\n    fn relations() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
+                "    type Concept = {entity_type};\n    fn relations() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
             ),
         ),
         _ => return,

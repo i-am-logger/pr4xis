@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::category::Category;
-use crate::category::entity::Entity;
+use crate::category::entity::Concept;
 use crate::category::relationship::Relationship;
 use crate::ontology::Quality;
 
@@ -12,26 +12,28 @@ use super::graph;
 /// A taxonomy is a directed acyclic graph (DAG) of subsumption relationships.
 /// If A is-a B, then A inherits all qualities of B.
 pub trait TaxonomyDef {
-    type Entity: Entity;
+    type Concept: Concept;
     /// Direct is-a pairs: (child, parent).
-    fn relations() -> Vec<(Self::Entity, Self::Entity)>;
+    fn relations() -> Vec<(Self::Concept, Self::Concept)>;
 }
 
 /// Is-a relationship morphism: child is-a parent.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct IsA<E: Entity> {
+pub struct IsA<E: Concept> {
     pub child: E,
     pub parent: E,
 }
 
-impl<E: Entity> Relationship for IsA<E> {
+impl<E: Concept> Relationship for IsA<E> {
     type Object = E;
+    type Kind = ();
     fn source(&self) -> E {
         self.child.clone()
     }
     fn target(&self) -> E {
         self.parent.clone()
     }
+    fn kind(&self) {}
 }
 
 /// Category adapter for a taxonomy.
@@ -43,17 +45,17 @@ pub struct TaxonomyCategory<T: TaxonomyDef> {
 }
 
 impl<T: TaxonomyDef> Category for TaxonomyCategory<T> {
-    type Object = T::Entity;
-    type Morphism = IsA<T::Entity>;
+    type Object = T::Concept;
+    type Morphism = IsA<T::Concept>;
 
-    fn identity(obj: &T::Entity) -> IsA<T::Entity> {
+    fn identity(obj: &T::Concept) -> IsA<T::Concept> {
         IsA {
             child: obj.clone(),
             parent: obj.clone(),
         }
     }
 
-    fn compose(f: &IsA<T::Entity>, g: &IsA<T::Entity>) -> Option<IsA<T::Entity>> {
+    fn compose(f: &IsA<T::Concept>, g: &IsA<T::Concept>) -> Option<IsA<T::Concept>> {
         if f.parent != g.child {
             return None;
         }
@@ -63,8 +65,8 @@ impl<T: TaxonomyDef> Category for TaxonomyCategory<T> {
         })
     }
 
-    fn morphisms() -> Vec<IsA<T::Entity>> {
-        let entities = T::Entity::variants();
+    fn morphisms() -> Vec<IsA<T::Concept>> {
+        let entities = T::Concept::variants();
         let adj = graph::adjacency_map(&T::relations());
 
         let mut morphisms = Vec::new();
@@ -84,7 +86,7 @@ impl<T: TaxonomyDef> Category for TaxonomyCategory<T> {
 // ---- Query functions ----
 
 /// Check if `child` is-a `ancestor` (transitively).
-pub fn is_a<T: TaxonomyDef>(child: &T::Entity, ancestor: &T::Entity) -> bool {
+pub fn is_a<T: TaxonomyDef>(child: &T::Concept, ancestor: &T::Concept) -> bool {
     if child == ancestor {
         return true;
     }
@@ -92,23 +94,23 @@ pub fn is_a<T: TaxonomyDef>(child: &T::Entity, ancestor: &T::Entity) -> bool {
 }
 
 /// All ancestors of an entity (transitive). Does not include the entity itself.
-pub fn ancestors<T: TaxonomyDef>(entity: &T::Entity) -> Vec<T::Entity> {
+pub fn ancestors<T: TaxonomyDef>(entity: &T::Concept) -> Vec<T::Concept> {
     let adj = graph::adjacency_map(&T::relations());
     graph::reachable(entity, &adj)
 }
 
 /// All descendants of an entity (transitive). Does not include the entity itself.
-pub fn descendants<T: TaxonomyDef>(entity: &T::Entity) -> Vec<T::Entity> {
+pub fn descendants<T: TaxonomyDef>(entity: &T::Concept) -> Vec<T::Concept> {
     let adj = graph::reverse_adjacency_map(&T::relations());
     graph::reachable(entity, &adj)
 }
 
 /// Inherit a quality from an ancestor: if the entity doesn't have the quality directly,
 /// walk up the taxonomy until an ancestor has it.
-pub fn inherit_quality<T, Q>(entity: &T::Entity, quality: &Q) -> Option<Q::Value>
+pub fn inherit_quality<T, Q>(entity: &T::Concept, quality: &Q) -> Option<Q::Value>
 where
     T: TaxonomyDef,
-    Q: Quality<Individual = T::Entity>,
+    Q: Quality<Individual = T::Concept>,
 {
     if let Some(v) = quality.get(entity) {
         return Some(v);
@@ -149,7 +151,7 @@ impl<T: TaxonomyDef> crate::logic::Axiom for NoCycles<T> {
 
     fn holds(&self) -> bool {
         let adj = graph::adjacency_map(&T::relations());
-        T::Entity::variants()
+        T::Concept::variants()
             .iter()
             .all(|entity| !graph::has_cycle(entity, &adj))
     }
@@ -213,9 +215,9 @@ impl<T: TaxonomyDef> crate::logic::Axiom for Antisymmetric<T> {
 /// Reference: McBride & Paterson, "Applicative Programming with Effects" (2008)
 #[allow(clippy::type_complexity)]
 pub fn applicative_is_a<T: TaxonomyDef>(
-    child: &T::Entity,
-    ancestor: &T::Entity,
-) -> crate::category::Ap<crate::category::Product<Vec<T::Entity>, Vec<T::Entity>>> {
+    child: &T::Concept,
+    ancestor: &T::Concept,
+) -> crate::category::Ap<crate::category::Product<Vec<T::Concept>, Vec<T::Concept>>> {
     let child_ancestors = crate::category::Ap::pure(ancestors::<T>(child));
     let ancestor_descendants = crate::category::Ap::pure(descendants::<T>(ancestor));
     child_ancestors.map2(ancestor_descendants, |anc, desc| {
@@ -232,13 +234,13 @@ pub fn applicative_is_a<T: TaxonomyDef>(
 ///
 /// Reference: Ore, "Galois Connexions" (1944, Trans. AMS)
 pub fn galois_connection<T: TaxonomyDef + 'static>()
--> crate::category::galois::GaloisConnection<T::Entity, Vec<T::Entity>>
+-> crate::category::galois::GaloisConnection<T::Concept, Vec<T::Concept>>
 where
-    T::Entity: PartialOrd,
+    T::Concept: PartialOrd,
 {
     crate::category::galois::GaloisConnection::new(
-        |entity: &T::Entity| descendants::<T>(entity),
-        |desc: &Vec<T::Entity>| {
+        |entity: &T::Concept| descendants::<T>(entity),
+        |desc: &Vec<T::Concept>| {
             // Upper adjoint: the most specific common ancestor of all descendants
             // Simplified: return the first entity (if any)
             desc.first()
@@ -246,7 +248,7 @@ where
                 .unwrap_or_default()
                 .into_iter()
                 .next()
-                .unwrap_or_else(|| T::Entity::variants()[0].clone())
+                .unwrap_or_else(|| T::Concept::variants()[0].clone())
         },
     )
 }
@@ -258,13 +260,13 @@ where
 ///
 /// Reference: Meijer, Fokkinga & Paterson (1991) — anamorphism
 pub fn unfold_taxonomy<T: TaxonomyDef + 'static>()
--> crate::category::algebra::Coalgebra<T::Entity, T::Entity>
+-> crate::category::algebra::Coalgebra<T::Concept, T::Concept>
 where
-    T::Entity: Clone + std::fmt::Debug,
+    T::Concept: Clone + std::fmt::Debug,
 {
     let relations = T::relations();
-    crate::category::algebra::Coalgebra::new(move |entity: &T::Entity| {
-        let children: Vec<T::Entity> = relations
+    crate::category::algebra::Coalgebra::new(move |entity: &T::Concept| {
+        let children: Vec<T::Concept> = relations
             .iter()
             .filter(|(_, parent)| parent == entity)
             .map(|(child, _)| child.clone())
@@ -280,7 +282,7 @@ where
 ///
 /// Reference: Yoneda (1954)
 pub fn yoneda_profile<T: TaxonomyDef>(
-    entity: &T::Entity,
+    entity: &T::Concept,
 ) -> crate::category::yoneda::YonedaProfile<TaxonomyCategory<T>> {
     crate::category::yoneda::YonedaProfile::of(entity)
 }

@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::category::relationship::Relationship;
 use pr4xis::ontology::upper::being::Being;
 use pr4xis::ontology::upper::classify::Classified;
@@ -15,7 +15,7 @@ use super::super::ontology::{MarkupNode, NodeKind};
 // through the symbols it uses and the rules it imposes.
 
 /// XML-specific element types — extensions of the base markup NodeKind.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum XmlNodeKind {
     /// The XML document (has prolog + root element).
     Document,
@@ -48,12 +48,14 @@ pub struct XmlContains {
 
 impl Relationship for XmlContains {
     type Object = XmlNodeKind;
+    type Kind = ();
     fn source(&self) -> XmlNodeKind {
         self.parent
     }
     fn target(&self) -> XmlNodeKind {
         self.child
     }
+    fn kind(&self) {}
 }
 
 /// The XML category — W3C well-formedness rules as category laws.

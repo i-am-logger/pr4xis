@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::category::relationship::Relationship;
 use pr4xis::ontology::upper::being::Being;
 use pr4xis::ontology::upper::classify::Classified;
@@ -31,7 +31,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// Each variant maps to a specific IRI in the OWL 2 namespace.
 /// This is NOT string matching — each concept has an identity (its IRI)
 /// defined by the W3C spec.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum OwlConcept {
     // === Class expressions (W3C OWL 2 §8) ===
     /// owl:Class — a named class (W3C OWL 2 §8.1)
@@ -150,12 +150,14 @@ pub struct OwlRelation {
 
 impl Relationship for OwlRelation {
     type Object = OwlConcept;
+    type Kind = ();
     fn source(&self) -> OwlConcept {
         self.source
     }
     fn target(&self) -> OwlConcept {
         self.target
     }
+    fn kind(&self) {}
 }
 
 /// The OWL category — the structural relationships between OWL constructs.

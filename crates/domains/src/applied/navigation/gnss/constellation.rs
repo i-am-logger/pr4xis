@@ -66,7 +66,7 @@ impl Ontology for GnssConstellationOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     #[test]
     fn has_six_concepts() {

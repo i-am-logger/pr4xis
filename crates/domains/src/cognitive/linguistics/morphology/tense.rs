@@ -1,5 +1,5 @@
 use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::entity::Concept;
 use pr4xis::category::relationship::Relationship;
 use pr4xis::ontology::upper::being::Being;
 use pr4xis::ontology::upper::classify::Classified;
@@ -27,7 +27,7 @@ pub enum TemporalTense {
     Future,
 }
 
-impl Entity for TemporalTense {
+impl Concept for TemporalTense {
     fn variants() -> Vec<Self> {
         vec![Self::Past, Self::Present, Self::Future]
     }
@@ -47,7 +47,7 @@ pub enum Aspect {
     PerfectProgressive,
 }
 
-impl Entity for Aspect {
+impl Concept for Aspect {
     fn variants() -> Vec<Self> {
         vec![
             Self::Simple,
@@ -66,7 +66,7 @@ pub struct TenseAspect {
     pub aspect: Aspect,
 }
 
-impl Entity for TenseAspect {
+impl Concept for TenseAspect {
     fn variants() -> Vec<Self> {
         let mut v = Vec::new();
         for tense in TemporalTense::variants() {
@@ -88,12 +88,14 @@ pub struct TenseShift {
 
 impl Relationship for TenseShift {
     type Object = TenseAspect;
+    type Kind = ();
     fn source(&self) -> TenseAspect {
         self.from
     }
     fn target(&self) -> TenseAspect {
         self.to
     }
+    fn kind(&self) {}
 }
 
 /// The tense-aspect category.

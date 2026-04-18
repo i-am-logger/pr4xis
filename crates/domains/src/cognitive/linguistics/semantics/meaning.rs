@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// Semantic role — the function an entity plays in a proposition.
 /// "The dog chased the cat" → dog=Agent, cat=Patient, chased=Predicate.
@@ -14,7 +14,7 @@ pub enum SemanticRole {
     Source,
 }
 
-impl Entity for SemanticRole {
+impl Concept for SemanticRole {
     fn variants() -> Vec<Self> {
         vec![
             Self::Agent,

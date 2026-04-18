@@ -1,11 +1,11 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Target kinematic state components.
 ///
 /// Source: Bar-Shalom, Li & Kirubarajan (2001), Chapter 6.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum TargetStateComponent {
     /// Position (x, y, z).
     Position,

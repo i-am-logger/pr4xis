@@ -1,7 +1,7 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// The 7 standard Tetris tetrominoes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum PieceKind {
     I, // ████
     O, // ██

@@ -1,7 +1,7 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// The 6 faces of a Rubik's cube.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum Face {
     U, // Up (top)
     D, // Down (bottom)

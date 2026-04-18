@@ -1,6 +1,6 @@
 use super::*;
 use chrono::{NaiveDate, Utc};
-use pr4xis::category::{Category, Entity as CategoryEntity};
+use pr4xis::category::{Category, Concept as CategoryEntity};
 use pr4xis::engine::{Action, EngineError, Precondition, Situation};
 use pr4xis::logic::Axiom;
 use pr4xis::ontology::Quality;
@@ -10,16 +10,16 @@ fn date(y: i32, m: u32, d: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, d).unwrap()
 }
 
-fn test_court() -> super::entity::Entity {
-    super::entity::Entity::Court(super::entity::Court {
+fn test_court() -> super::entity::Concept {
+    super::entity::Concept::Court(super::entity::Court {
         name: "District Court".into(),
         district: None,
         circuit: None,
     })
 }
 
-fn test_judge() -> super::entity::Entity {
-    super::entity::Entity::Person(super::entity::Person {
+fn test_judge() -> super::entity::Concept {
+    super::entity::Concept::Person(super::entity::Person {
         name: "Judge Smith".into(),
         title: Some("Judge".into()),
         organization: None,
@@ -28,8 +28,8 @@ fn test_judge() -> super::entity::Entity {
     })
 }
 
-fn test_movant() -> super::entity::Entity {
-    super::entity::Entity::Person(super::entity::Person {
+fn test_movant() -> super::entity::Concept {
+    super::entity::Concept::Person(super::entity::Person {
         name: "Plaintiff".into(),
         title: None,
         organization: None,
@@ -38,8 +38,8 @@ fn test_movant() -> super::entity::Entity {
     })
 }
 
-fn test_respondent() -> super::entity::Entity {
-    super::entity::Entity::Person(super::entity::Person {
+fn test_respondent() -> super::entity::Concept {
+    super::entity::Concept::Person(super::entity::Person {
         name: "Defendant".into(),
         title: None,
         organization: None,
@@ -717,15 +717,15 @@ fn test_case_law() -> CaseLaw {
     }
 }
 
-fn test_agency() -> Entity {
-    Entity::Agency(Agency {
+fn test_agency() -> Concept {
+    Concept::Agency(Agency {
         name: "SEC".into(),
         jurisdiction: "Federal".into(),
     })
 }
 
-fn test_corporation() -> Entity {
-    Entity::Corporation(Corporation {
+fn test_corporation() -> Concept {
+    Concept::Corporation(Corporation {
         name: "Acme Corp".into(),
         structure: CorporateStructure::PublicCompany,
         jurisdiction: "Delaware".into(),
@@ -733,8 +733,8 @@ fn test_corporation() -> Entity {
     })
 }
 
-fn test_law_firm() -> Entity {
-    Entity::LawFirm(LawFirm {
+fn test_law_firm() -> Concept {
+    Concept::LawFirm(LawFirm {
         name: "Smith & Associates".into(),
         source: None,
     })
@@ -1277,7 +1277,7 @@ fn test_procedural_outcome_variants() {
     ));
 
     let transferred = ProceduralOutcome::Transferred {
-        to: Entity::Court(Court {
+        to: Concept::Court(Court {
             name: "Southern District".into(),
             district: Some("S.D.N.Y.".into()),
             circuit: Some("2nd".into()),
@@ -1731,13 +1731,13 @@ fn test_entity_name_court() {
 
 #[test]
 fn test_court_with_district_and_circuit() {
-    let court = Entity::Court(Court {
+    let court = Concept::Court(Court {
         name: "U.S. District Court".into(),
         district: Some("Southern District of New York".into()),
         circuit: Some("Second Circuit".into()),
     });
     assert_eq!(court.name(), "U.S. District Court");
-    if let Entity::Court(c) = &court {
+    if let Concept::Court(c) = &court {
         assert_eq!(c.district.as_deref(), Some("Southern District of New York"));
         assert_eq!(c.circuit.as_deref(), Some("Second Circuit"));
     }
@@ -1745,18 +1745,18 @@ fn test_court_with_district_and_circuit() {
 
 #[test]
 fn test_person_with_organization() {
-    let firm = Entity::LawFirm(LawFirm {
+    let firm = Concept::LawFirm(LawFirm {
         name: "Big Law LLP".into(),
         source: None,
     });
-    let person = Entity::Person(Person {
+    let person = Concept::Person(Person {
         name: "Jane Attorney".into(),
         title: Some("Partner".into()),
         organization: Some(Box::new(firm)),
         bar_admissions: vec!["NY".into(), "CA".into()],
         source: None,
     });
-    if let Entity::Person(p) = &person {
+    if let Concept::Person(p) = &person {
         assert_eq!(p.bar_admissions.len(), 2);
         assert!(p.organization.is_some());
         assert_eq!(p.organization.as_ref().unwrap().name(), "Big Law LLP");
@@ -1845,7 +1845,7 @@ fn test_representation_status() {
 fn test_relationship_corporate() {
     let rel = Relationship::Corporate {
         parent: test_corporation(),
-        child: Entity::Corporation(Corporation {
+        child: Concept::Corporation(Corporation {
             name: "Sub Corp".into(),
             structure: CorporateStructure::Subsidiary {
                 parent: Box::new(test_corporation()),
@@ -1898,7 +1898,7 @@ fn test_relationship_legal() {
 fn test_relationship_supply_chain() {
     let rel = Relationship::SupplyChain {
         supplier: test_corporation(),
-        customer: Entity::Corporation(Corporation {
+        customer: Concept::Corporation(Corporation {
             name: "Big Buyer Inc".into(),
             structure: CorporateStructure::PublicCompany,
             jurisdiction: "New York".into(),
@@ -1963,7 +1963,7 @@ fn test_authority_weight_all_variants() {
     assert_eq!(trial.weight(), 4);
 
     let professional = Authority::ProfessionalBody {
-        body: Entity::Agency(Agency {
+        body: Concept::Agency(Agency {
             name: "ABA".into(),
             jurisdiction: "National".into(),
         }),
@@ -2369,7 +2369,7 @@ fn test_deadline_duration_variants() {
 fn test_evidence_type_variants() {
     let types = [
         EvidenceType::Date,
-        EvidenceType::Entity,
+        EvidenceType::Concept,
         EvidenceType::Document,
         EvidenceType::Currency,
         EvidenceType::Duration,
@@ -3244,7 +3244,7 @@ fn test_case_appeal_lifecycle() {
     assert_eq!(case.phase.tag(), PhaseTag::PostTrial);
 
     let _ = case.act(CaseAction::Appeal {
-        court: Entity::Court(Court {
+        court: Concept::Court(Court {
             name: "9th Circuit".into(),
             district: None,
             circuit: Some("9th".into()),

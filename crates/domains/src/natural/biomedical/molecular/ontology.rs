@@ -11,7 +11,7 @@
 //! - Inose 2009: Cx26/Cx43 in esophagus
 //! - Khalbuss 1995: acid effects on esophageal ion channels
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::context::{self, ContextDef};
@@ -26,7 +26,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Every molecular entity in the esophageal repair domain.
 #[allow(non_camel_case_types)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum MolecularEntity {
     // Ions
     Sodium,
@@ -93,7 +93,7 @@ pr4xis::register_axiom!(
 // ---------------------------------------------------------------------------
 
 /// Causal events in the mechanotransduction pathway.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum CausalEvent {
     MechanicalStress,
     Piezo1Opening,
@@ -571,7 +571,7 @@ pr4xis::register_axiom!(
 //   - Some may have more (e.g., Piezo1 in development vs adult homeostasis)
 
 /// Functional context in which a molecular entity operates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum FunctionalContext {
     /// Constitutive mode: the molecule performs its baseline biological function.
     /// Kv maintains resting Vmem. Piezo1 senses mechanical environment.
@@ -584,7 +584,7 @@ pub enum FunctionalContext {
 }
 
 /// Resolved functional role after disambiguation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum FunctionalRole {
     /// Passive homeostatic function (maintains resting state).
     PassiveHomeostatic,
@@ -613,7 +613,7 @@ pub enum FunctionalRole {
 pub struct MolecularFunctionalContext;
 
 impl ContextDef for MolecularFunctionalContext {
-    type Entity = MolecularEntity;
+    type Concept = MolecularEntity;
     type Signal = FunctionalContext;
     type Resolution = FunctionalRole;
 

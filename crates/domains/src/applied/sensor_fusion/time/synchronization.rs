@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// Temporal alignment strategies for multi-sensor fusion.
 ///
@@ -8,7 +8,7 @@ use pr4xis::category::Entity;
 ///
 /// Source: Bar-Shalom et al. (2001), Section 6.2.
 ///         Groves (2013), Section 17.2.4 — "Time synchronization."
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum SyncStrategy {
     /// Use the measurement nearest in time to the target.
     /// Simple, no assumptions about dynamics.

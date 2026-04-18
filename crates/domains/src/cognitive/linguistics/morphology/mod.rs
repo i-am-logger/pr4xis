@@ -1,6 +1,6 @@
 pub mod tense;
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 use super::lexicon::pos::PosTag;
 
@@ -48,7 +48,7 @@ pub enum SemanticEffect {
     QualityNoun,
 }
 
-impl Entity for SemanticEffect {
+impl Concept for SemanticEffect {
     fn variants() -> Vec<Self> {
         vec![
             Self::Negation,

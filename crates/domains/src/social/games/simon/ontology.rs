@@ -22,7 +22,7 @@ impl Quality for ButtonIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Entity;
+    use pr4xis::category::Concept;
 
     #[test]
     fn test_4_colors() {

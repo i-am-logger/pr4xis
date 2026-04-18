@@ -52,7 +52,7 @@ impl SituationAssessment {
         Self {
             entities: Vec::new(),
             relationships: Vec::new(),
-            current_level: SituationElement::Entity,
+            current_level: SituationElement::Concept,
         }
     }
 

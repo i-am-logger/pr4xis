@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// Grammatical number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -301,7 +301,7 @@ impl LexicalEntry {
 ///
 /// Categories are aligned with OLiA (Ontologies of Linguistic Annotation).
 /// Reference: Chiarcos & Sukhareva, OLiA (Semantic Web journal, 2015)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum PosTag {
     Noun,
     Verb,

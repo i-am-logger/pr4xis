@@ -1,7 +1,7 @@
 use super::ontology::*;
 use super::reader;
 use pr4xis::category::Category;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::entity::Concept;
 use pr4xis::logic::Axiom;
 
 const SAMPLE_OWL: &str = r#"<?xml version="1.0"?>

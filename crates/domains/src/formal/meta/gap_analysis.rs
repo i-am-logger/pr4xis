@@ -13,7 +13,7 @@
 //! NOVEL CONTRIBUTION: this is a machine-verifiable methodology for
 //! detecting incompleteness in scientific ontologies.
 
-use pr4xis::category::{Entity, Functor};
+use pr4xis::category::{Concept, Functor};
 
 use crate::natural::biomedical::bioelectricity::biology_functor::BioelectricToBiology;
 use crate::natural::biomedical::bioelectricity::molecular_functor::BioelectricToMolecular;
@@ -28,7 +28,7 @@ use crate::natural::biomedical::pharmacology::ontology::PharmacologyEntity;
 
 /// A detected gap: an entity whose round-trip changes its identity.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Gap<E: Entity> {
+pub struct Gap<E: Concept> {
     /// The original entity.
     pub original: E,
     /// What it became after round-trip.
@@ -37,7 +37,7 @@ pub struct Gap<E: Entity> {
 
 /// Result of gap analysis on an adjunction.
 #[derive(Debug, Clone)]
-pub struct GapReport<S: Entity, T: Entity> {
+pub struct GapReport<S: Concept, T: Concept> {
     /// Entities in source that collapse under unit (A -> G(F(A)) != A).
     pub unit_gaps: Vec<Gap<S>>,
     /// Entities in source that are preserved (A -> G(F(A)) == A).
@@ -48,7 +48,7 @@ pub struct GapReport<S: Entity, T: Entity> {
     pub counit_preserved: Vec<T>,
 }
 
-impl<S: Entity + std::fmt::Debug, T: Entity + std::fmt::Debug> GapReport<S, T> {
+impl<S: Concept + std::fmt::Debug, T: Concept + std::fmt::Debug> GapReport<S, T> {
     /// Fraction of source entities lost in round-trip.
     pub fn unit_loss_ratio(&self) -> f64 {
         let total = self.unit_gaps.len() + self.unit_preserved.len();
@@ -674,7 +674,7 @@ mod tests {
         use crate::natural::biomedical::biophysics::ontology::BiophysicsEntity;
         use crate::natural::biomedical::mechanobiology::molecular_functor::MechanobiologyToMolecular;
         use crate::natural::biomedical::mechanobiology::ontology::MechanobiologyEntity;
-        use pr4xis::category::Entity;
+        use pr4xis::category::Concept;
 
         // Measure collapse at each hop by counting unique targets
 
@@ -806,7 +806,7 @@ mod tests {
         use crate::formal::meta::staging::ontology::StageConcept;
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
         use crate::formal::meta::syntrometry::staging_functor::SyntrometryToStaging;
-        use pr4xis::category::{Entity, Functor};
+        use pr4xis::category::{Concept, Functor};
         use std::collections::HashSet;
 
         let mapped: HashSet<StageConcept> = SyntrometryConcept::variants()
@@ -836,7 +836,7 @@ mod tests {
         use crate::formal::meta::algebra::ontology::AlgebraConcept;
         use crate::formal::meta::syntrometry::algebra_functor::SyntrometryToAlgebra;
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
-        use pr4xis::category::{Entity, Functor};
+        use pr4xis::category::{Concept, Functor};
         use std::collections::HashSet;
 
         let mapped: HashSet<AlgebraConcept> = SyntrometryConcept::variants()
@@ -864,7 +864,7 @@ mod tests {
         use crate::formal::meta::ontology_diagnostics::ontology::MetaEntity;
         use crate::formal::meta::syntrometry::meta_ontology_functor::SyntrometryToMetaOntology;
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
-        use pr4xis::category::{Entity, Functor};
+        use pr4xis::category::{Concept, Functor};
         use std::collections::HashSet;
 
         let mapped: HashSet<MetaEntity> = SyntrometryConcept::variants()

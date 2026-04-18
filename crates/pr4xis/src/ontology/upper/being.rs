@@ -1,4 +1,4 @@
-use crate::category::Entity;
+use crate::category::Concept;
 
 /// The DOLCE-inspired upper ontology: types of being.
 ///
@@ -53,7 +53,7 @@ pub enum Being {
     Quality,
 }
 
-impl Entity for Being {
+impl Concept for Being {
     fn variants() -> Vec<Self> {
         vec![
             Self::PhysicalEndurant,

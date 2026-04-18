@@ -1,4 +1,4 @@
-use pr4xis::category::{Category, Entity};
+use pr4xis::category::{Category, Concept};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;

@@ -3,13 +3,14 @@
 //! Maps anatomical structures to their functional roles in mechanotransduction.
 //! The cochlea's anatomy becomes the molecular machinery of sound-to-nerve conversion.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
 use crate::natural::hearing::anatomy::ontology::{
-    AnatomyCategory, AuditoryEntity, AuditoryRelation,
+    AnatomyCategory, AnatomyCategoryRelationKind, AuditoryEntity, AuditoryRelation,
 };
 use crate::natural::hearing::transduction::ontology::{
-    TransductionCategory, TransductionEntity, TransductionRelation,
+    TransductionCategory, TransductionCategoryRelationKind, TransductionEntity,
+    TransductionRelation,
 };
 
 /// Structure-preserving map from auditory anatomy to transduction role.
@@ -76,9 +77,15 @@ impl Functor for AnatomyToTransduction {
     }
 
     fn map_morphism(m: &AuditoryRelation) -> TransductionRelation {
-        TransductionRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        match m.kind {
+            AnatomyCategoryRelationKind::Identity => TransductionCategory::identity(&from),
+            _ => TransductionRelation {
+                from,
+                to,
+                kind: TransductionCategoryRelationKind::Composed,
+            },
         }
     }
 }
@@ -88,7 +95,7 @@ pr4xis::register_functor!(AnatomyToTransduction);
 mod tests {
     use super::*;
     use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::category::{Category, Entity};
+    use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]

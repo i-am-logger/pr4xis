@@ -6,11 +6,12 @@
 //!
 //! Source: IS-GPS-200 (2022); Groves (2013) Chapter 8.
 
-use pr4xis::category::{Functor, Relationship};
+use pr4xis::category::{Category, Functor, Relationship};
 
-use crate::applied::navigation::gnss::ontology::{GnssCategory, GnssConcept};
+use crate::applied::navigation::gnss::ontology::{GnssCategory, GnssConcept, GnssRelationKind};
 use crate::applied::sensor_fusion::property::ontology::{
     ObservablePropertyCategory, ObservablePropertyConcept, ObservablePropertyRelation,
+    ObservablePropertyRelationKind,
 };
 
 pub struct GnssToProperty;
@@ -35,9 +36,17 @@ impl Functor for GnssToProperty {
     fn map_morphism(
         m: &<GnssCategory as pr4xis::category::Category>::Morphism,
     ) -> ObservablePropertyRelation {
-        ObservablePropertyRelation {
-            from: Self::map_object(&m.source()),
-            to: Self::map_object(&m.target()),
+        let from = Self::map_object(&m.source());
+        let to = Self::map_object(&m.target());
+        // Preserve source's Identity → target's Identity; everything else
+        // maps to Composed so F(g∘f) == F(g)∘F(f) holds under collapse.
+        match m.kind {
+            GnssRelationKind::Identity => ObservablePropertyCategory::identity(&from),
+            _ => ObservablePropertyRelation {
+                from,
+                to,
+                kind: ObservablePropertyRelationKind::Composed,
+            },
         }
     }
 }

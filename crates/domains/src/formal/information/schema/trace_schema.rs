@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 
 // Trace Schema Functor T: Sch → Sch
@@ -32,7 +32,7 @@ use pr4xis::define_ontology;
 /// For an ontology with N entity types and M morphism types,
 /// T automatically generates N access objects + M traversal objects
 /// + the fixed PROV-O objects.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum TraceSchemaElement {
     // === El(C): derived from the ontology schema ===
     /// An access to an entity type — records when a concept was queried.

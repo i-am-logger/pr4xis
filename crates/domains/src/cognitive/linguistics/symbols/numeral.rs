@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// A numeral system — how numbers are represented in writing.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -24,7 +24,7 @@ pub enum NumeralSystemKind {
     Additive,
 }
 
-impl Entity for NumeralSystemKind {
+impl Concept for NumeralSystemKind {
     fn variants() -> Vec<Self> {
         vec![Self::Positional, Self::Additive]
     }

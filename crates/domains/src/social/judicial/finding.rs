@@ -1,4 +1,4 @@
-use super::entity::Entity;
+use super::entity::Concept;
 use super::fact::{Fact, Severity};
 use super::source::Source;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -10,7 +10,7 @@ pub struct Finding {
     pub facts: Vec<Fact>,
     pub analysis: String,
     pub severity: Severity,
-    pub subject: Option<Entity>,
+    pub subject: Option<Concept>,
     pub analyzed_at: Option<DateTime<Utc>>,
 }
 
@@ -19,7 +19,7 @@ pub struct Finding {
 pub struct Contradiction {
     pub claimed: Fact,
     pub actual: Fact,
-    pub claimed_by: Entity,
+    pub claimed_by: Concept,
     pub refuted_by: Source,
     pub significance: String,
 }
@@ -35,8 +35,8 @@ pub enum Ruling {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MeritsRuling {
     pub date: NaiveDate,
-    pub court: Entity,
-    pub judge: Option<Entity>,
+    pub court: Concept,
+    pub judge: Option<Concept>,
     pub motion: String,
     pub outcome: MeritsOutcome,
     pub significance: String,
@@ -53,8 +53,8 @@ pub enum MeritsOutcome {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProceduralRuling {
     pub date: NaiveDate,
-    pub court: Entity,
-    pub judge: Option<Entity>,
+    pub court: Concept,
+    pub judge: Option<Concept>,
     pub motion: String,
     pub outcome: ProceduralOutcome,
     pub significance: String,
@@ -66,7 +66,7 @@ pub struct ProceduralRuling {
 pub enum ProceduralOutcome {
     DismissedWithPrejudice { reason: String },
     DismissedWithoutPrejudice { reason: String },
-    Transferred { to: Entity },
+    Transferred { to: Concept },
     Stayed { duration: Option<String> },
     Granted { detail: String },
     Denied { detail: String },

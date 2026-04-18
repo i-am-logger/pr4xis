@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -21,7 +21,7 @@ use pr4xis::ontology::{Ontology, Quality};
 // - Almeida & Falbo, Events as Entities in Ontology-Driven Modeling (2019)
 
 /// Core concepts of event-driven systems.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum EventConcept {
     /// Something that happened — an immutable fact.
     /// A move was made. A signal changed. A message arrived.

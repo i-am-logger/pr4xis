@@ -1,5 +1,5 @@
 use super::property::Quality;
-use crate::category::{Category, Entity, Relationship};
+use crate::category::{Category, Concept, Relationship};
 use crate::logic::Axiom;
 use crate::ontology::Ontology;
 use proptest::prelude::*;
@@ -20,7 +20,7 @@ enum Light {
     Green,
 }
 
-impl Entity for Light {
+impl Concept for Light {
     fn variants() -> Vec<Self> {
         vec![Light::Red, Light::Yellow, Light::Green]
     }
@@ -39,6 +39,7 @@ enum LightTransition {
 
 impl Relationship for LightTransition {
     type Object = Light;
+    type Kind = ();
 
     fn source(&self) -> Light {
         match self {
@@ -57,6 +58,8 @@ impl Relationship for LightTransition {
             LightTransition::YellowToRed | LightTransition::GreenToRed => Light::Red,
         }
     }
+
+    fn kind(&self) {}
 }
 
 struct TrafficLightCat;
@@ -360,14 +363,14 @@ fn test_axiom_no_dead_states() {
 // =============================================================================
 
 mod ontology_macro_test {
-    use crate::category::Entity;
+    use crate::category::Concept;
     use crate::category::validate::check_category_laws;
     use crate::logic::Axiom;
     use crate::ontology::reasoning::mereology::{self, MereologyDef};
     use crate::ontology::reasoning::opposition::OppositionDef;
     use crate::ontology::reasoning::taxonomy::{self, TaxonomyDef};
 
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
     pub enum Animal {
         Dog,
         Cat,
@@ -377,7 +380,7 @@ mod ontology_macro_test {
         Fur,
     }
 
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
     pub enum AnimalEvent {
         Birth,
         Growth,
@@ -449,8 +452,8 @@ mod ontology_macro_test {
     #[test]
     fn macro_generates_meta() {
         let meta = AnimalOntology::meta();
-        assert_eq!(meta.name, "AnimalOntology");
-        assert!(meta.module_path.contains("ontology_macro_test"));
+        assert_eq!(meta.name.as_str(), "AnimalOntology");
+        assert!(meta.module_path.as_str().contains("ontology_macro_test"));
     }
 
     #[test]
@@ -520,7 +523,7 @@ mod ontology_macro_test {
 
 mod proc_macro_test {
     use crate as pr4xis;
-    use crate::category::Entity;
+    use crate::category::Concept;
     use crate::category::validate::check_category_laws;
 
     pr4xis::ontology! {
@@ -617,7 +620,7 @@ mod proc_macro_test {
 
 mod proc_macro_dense_test {
     use crate as pr4xis;
-    use crate::category::Entity;
+    use crate::category::Concept;
     use crate::category::validate::check_category_laws;
 
     pr4xis::ontology! {

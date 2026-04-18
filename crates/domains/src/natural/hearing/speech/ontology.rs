@@ -9,7 +9,7 @@
 //! - Lisker & Abramson 1964: voice onset time
 //! - ANSI S3.5-1997: Speech Intelligibility Index
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::reasoning::mereology;
@@ -17,7 +17,7 @@ use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum SpeechEntity {
     FundamentalFrequency,
     Formant,
@@ -55,7 +55,7 @@ pub enum SpeechEntity {
     IntelligibilityMetric,
     SpectralRegion,
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
 pub enum SpeechCausalEvent {
     CommunicativeIntent,
     ArticulatoryPlanning,

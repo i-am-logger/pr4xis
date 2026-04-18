@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::Quality;
 
 /// Filter composition strategies for combining estimates from multiple filters.
@@ -43,7 +43,7 @@ pub enum CompositionStrategy {
     FederatedFusion,
 }
 
-impl Entity for CompositionStrategy {
+impl Concept for CompositionStrategy {
     fn variants() -> Vec<Self> {
         vec![
             Self::CovarianceIntersection,

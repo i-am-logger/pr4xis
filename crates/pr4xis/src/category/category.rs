@@ -1,7 +1,7 @@
-use super::entity::Entity;
+use super::entity::Concept;
 use super::relationship::Relationship;
 
-/// A category: a collection of objects (entities) and morphisms (relationships)
+/// A category: a collection of objects (concepts) and morphisms (relationships)
 /// where composition and identity laws hold.
 ///
 /// # Laws
@@ -14,7 +14,7 @@ use super::relationship::Relationship;
 ///
 /// Use [`crate::validate`] to verify these laws via property-based testing.
 pub trait Category {
-    type Object: Entity;
+    type Object: Concept;
     type Morphism: Relationship<Object = Self::Object>;
 
     /// The identity morphism for an object (id_A: A → A).

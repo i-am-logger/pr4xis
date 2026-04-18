@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 /// A character — the atomic unit of written communication.
 ///
@@ -57,7 +57,7 @@ pub enum UnicodeCategory {
     Other,
 }
 
-impl Entity for UnicodeCategory {
+impl Concept for UnicodeCategory {
     fn variants() -> Vec<Self> {
         vec![
             Self::UppercaseLetter,
@@ -87,7 +87,7 @@ pub enum Direction {
     TopToBottom,
 }
 
-impl Entity for Direction {
+impl Concept for Direction {
     fn variants() -> Vec<Self> {
         vec![Self::LeftToRight, Self::RightToLeft, Self::TopToBottom]
     }

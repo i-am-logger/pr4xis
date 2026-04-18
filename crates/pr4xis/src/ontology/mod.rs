@@ -11,18 +11,18 @@ pub mod validate;
 
 pub use crate::logic::Axiom;
 pub use compose::Ontology as RuntimeOntology;
-pub use compose::{Concept, EdgeKind, Metroplex, OntologyBuilder, Staging};
+pub use compose::{EdgeKind, Metroplex, OntologyBuilder, RuntimeConcept, Staging};
 pub use domain::Ontology;
 pub use meta::{
     Citation, ConceptName, Definition, Grade, Label, LanguageCode, Lexical, ModulePath, Morphism,
-    MorphismKind, OntologyMeta, OntologyName, SynkolationLevel, Vocabulary, Year,
+    MorphismKind, OntologyName, RelationshipMeta, SynkolationLevel, Vocabulary, Year,
 };
-pub use property::Quality;
+pub use property::{Quality, QualityKind};
 #[cfg(not(target_arch = "wasm32"))]
 pub use registry::{ADJUNCTIONS, AXIOMS, FUNCTORS, NATURAL_TRANSFORMATIONS, VOCABULARIES};
 pub use registry::{
-    describe_adjunctions, describe_axioms, describe_functors, describe_knowledge_base,
-    describe_natural_transformations,
+    describe_adjunctions, describe_all_arrows, describe_axioms, describe_functors,
+    describe_knowledge_base, describe_natural_transformations,
 };
 
 #[cfg(test)]

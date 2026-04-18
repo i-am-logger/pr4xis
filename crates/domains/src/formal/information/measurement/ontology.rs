@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -23,7 +23,7 @@ use pr4xis::ontology::{Ontology, Quality};
 // - QUDT (Quantities, Units, Dimensions, Types) — W3C ontology
 
 /// Concepts in the measurement ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum MeasurementConcept {
     /// The specific quantity intended to be measured.
     /// VIM 2.3: "quantity intended to be measured."

@@ -45,7 +45,7 @@
 //! - Taha & Sheard 1997: *Multi-Stage Programming with Explicit Annotations*
 //!   (PEPM 1997). The staged-computation lineage, direct descendant.
 
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::{causation, taxonomy};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -62,7 +62,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 /// work from "total evaluation time" to "partial evaluation time", producing
 /// a residual program that is equivalent to the original but with the static
 /// parts already evaluated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum StageConcept {
     // --- Programs ---
     /// A computation process: a program or procedure that transforms inputs
@@ -119,7 +119,7 @@ pub enum StageConcept {
 ///
 /// This is not a lifecycle — it is the direction of causation: each step
 /// depends on the prior step's output being available.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum FutamuraStep {
     /// We have an interpreter `int` and a source program `s`.
     WriteInterpreter,

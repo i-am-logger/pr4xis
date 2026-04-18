@@ -26,7 +26,7 @@ pub struct ConceptNode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ConceptKind {
     /// A type/entity (e.g., ColorSlot, Mode, SchemeType)
-    Entity,
+    Concept,
     /// A relationship/morphism (e.g., bright-variant-of, mode transition)
     Relationship,
     /// An axiom/rule (e.g., LuminanceMonotonicity, WcagForegroundContrast)
@@ -50,9 +50,9 @@ pub struct ConceptEdge {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EdgeKind {
     /// Taxonomic (is-a)
-    IsA,
+    Subsumption,
     /// Mereological (has-a / part-of)
-    HasA,
+    Parthood,
     /// Dependency (axiom depends on concept)
     DependsOn,
     /// Evaluation flow (axiom evaluates concept)
@@ -196,13 +196,13 @@ pub fn theming_ontology_graph() -> OntologyGraph {
     let mut g = OntologyGraph::new();
 
     // Entities
-    g.add_node("color_slot", "ColorSlot", ConceptKind::Entity);
-    g.add_node("scheme_type", "SchemeType", ConceptKind::Entity);
-    g.add_node("polarity", "Polarity", ConceptKind::Entity);
-    g.add_node("palette", "Palette", ConceptKind::Entity);
-    g.add_node("semantic_role", "SemanticRole", ConceptKind::Entity);
-    g.add_node("vogix16", "Vogix16Semantic", ConceptKind::Entity);
-    g.add_node("ansi16", "Ansi16Color", ConceptKind::Entity);
+    g.add_node("color_slot", "ColorSlot", ConceptKind::Concept);
+    g.add_node("scheme_type", "SchemeType", ConceptKind::Concept);
+    g.add_node("polarity", "Polarity", ConceptKind::Concept);
+    g.add_node("palette", "Palette", ConceptKind::Concept);
+    g.add_node("semantic_role", "SemanticRole", ConceptKind::Concept);
+    g.add_node("vogix16", "Vogix16Semantic", ConceptKind::Concept);
+    g.add_node("ansi16", "Ansi16Color", ConceptKind::Concept);
 
     // Values
     for i in 0..=7 {
@@ -232,12 +232,22 @@ pub fn theming_ontology_graph() -> OntologyGraph {
     g.add_node("q_contrast", "ContrastRatio", ConceptKind::Quality);
 
     // Relationships
-    g.add_edge("palette", "color_slot", "contains", EdgeKind::HasA);
-    g.add_edge("palette", "polarity", "has polarity", EdgeKind::HasA);
-    g.add_edge("scheme_type", "color_slot", "defines slots", EdgeKind::HasA);
-    g.add_edge("color_slot", "semantic_role", "has role", EdgeKind::HasA);
-    g.add_edge("vogix16", "color_slot", "maps to", EdgeKind::IsA);
-    g.add_edge("ansi16", "color_slot", "maps to", EdgeKind::IsA);
+    g.add_edge("palette", "color_slot", "contains", EdgeKind::Parthood);
+    g.add_edge("palette", "polarity", "has polarity", EdgeKind::Parthood);
+    g.add_edge(
+        "scheme_type",
+        "color_slot",
+        "defines slots",
+        EdgeKind::Parthood,
+    );
+    g.add_edge(
+        "color_slot",
+        "semantic_role",
+        "has role",
+        EdgeKind::Parthood,
+    );
+    g.add_edge("vogix16", "color_slot", "maps to", EdgeKind::Subsumption);
+    g.add_edge("ansi16", "color_slot", "maps to", EdgeKind::Subsumption);
 
     // Axiom dependencies
     g.add_edge("ax_mono", "q_luminance", "uses", EdgeKind::DependsOn);
@@ -542,7 +552,7 @@ svg {{ width:100%; height:100%; }}
 </div>
 
 <div class="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Entity</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Concept</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>Axiom</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--pass)"></div>Quality</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--fg2)"></div>Value</div>
@@ -772,7 +782,7 @@ function playTrace() {{
 
 fn kind_str(k: ConceptKind) -> &'static str {
     match k {
-        ConceptKind::Entity => "entity",
+        ConceptKind::Concept => "entity",
         ConceptKind::Relationship => "relationship",
         ConceptKind::AxiomNode => "axiom",
         ConceptKind::Quality => "quality",
@@ -782,8 +792,8 @@ fn kind_str(k: ConceptKind) -> &'static str {
 
 fn edge_kind_str(k: EdgeKind) -> &'static str {
     match k {
-        EdgeKind::IsA => "is_a",
-        EdgeKind::HasA => "has_a",
+        EdgeKind::Subsumption => "is_a",
+        EdgeKind::Parthood => "has_a",
         EdgeKind::DependsOn => "depends_on",
         EdgeKind::Evaluates => "evaluates",
         EdgeKind::Produces => "produces",
@@ -878,7 +888,7 @@ mod tests {
         let entity_count = g
             .nodes
             .iter()
-            .filter(|n| n.kind == ConceptKind::Entity)
+            .filter(|n| n.kind == ConceptKind::Concept)
             .count();
         let axiom_count = g
             .nodes
@@ -901,7 +911,7 @@ mod tests {
         let has_a = g
             .edges
             .iter()
-            .filter(|e| matches!(e.kind, EdgeKind::HasA))
+            .filter(|e| matches!(e.kind, EdgeKind::Parthood))
             .count();
         let evaluates = g
             .edges

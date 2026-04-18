@@ -37,8 +37,13 @@
 
 use pr4xis::category::{Category, Functor};
 
-use super::ontology::{SyntrometryCategory, SyntrometryConcept, SyntrometryRelation};
-use super::substrate::{Pr4xisSubstrateCategory, Pr4xisSubstrateConcept, Pr4xisSubstrateRelation};
+use super::ontology::{
+    SyntrometryCategory, SyntrometryConcept, SyntrometryRelation, SyntrometryRelationKind,
+};
+use super::substrate::{
+    Pr4xisSubstrateCategory, Pr4xisSubstrateConcept, Pr4xisSubstrateRelation,
+    Pr4xisSubstrateRelationKind,
+};
 
 fn map_concept(c: &SyntrometryConcept) -> Pr4xisSubstrateConcept {
     use Pr4xisSubstrateConcept as P;
@@ -91,13 +96,18 @@ impl Functor for SyntrometryToPr4xisSubstrate {
     fn map_morphism(m: &SyntrometryRelation) -> Pr4xisSubstrateRelation {
         let from = map_concept(&m.from);
         let to = map_concept(&m.to);
-        // Pr4xisSubstrate is dense — a morphism is just (from, to).
-        // Identity morphisms at `from == to` collapse naturally; non-identity
-        // morphisms produce the corresponding arrow in the dense target.
-        if from == to {
-            Pr4xisSubstrateCategory::identity(&from)
-        } else {
-            Pr4xisSubstrateRelation { from, to }
+        // Preserve source's Identity → target's Identity. Everything else
+        // becomes Composed in the target — matching how Category::compose
+        // produces Composed morphisms for non-Identity cases (so
+        // F(g∘f) == F(g)∘F(f) holds even when F collapses distinct source
+        // objects to the same target object).
+        match m.kind {
+            SyntrometryRelationKind::Identity => Pr4xisSubstrateCategory::identity(&from),
+            _ => Pr4xisSubstrateRelation {
+                from,
+                to,
+                kind: Pr4xisSubstrateRelationKind::Composed,
+            },
         }
     }
 }

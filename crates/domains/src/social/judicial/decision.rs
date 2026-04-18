@@ -1,5 +1,5 @@
 use super::argument::{Argument, CheckItem};
-use super::entity::Entity;
+use super::entity::Concept;
 use chrono::NaiveDate;
 
 /// Types of motions — each carries its specific context.
@@ -22,32 +22,32 @@ pub enum MotionType {
 pub enum MotionStatus {
     Pending {
         filed: NaiveDate,
-        movant: Entity,
+        movant: Concept,
     },
     Opposed {
         filed: NaiveDate,
-        movant: Entity,
+        movant: Concept,
         opposition_date: NaiveDate,
-        by: Entity,
+        by: Concept,
     },
     UnderAdvisement {
         filed: NaiveDate,
-        movant: Entity,
+        movant: Concept,
         since: NaiveDate,
     },
     Granted {
         ruling_date: NaiveDate,
-        judge: Entity,
+        judge: Concept,
         order: String,
     },
     Denied {
         ruling_date: NaiveDate,
-        judge: Entity,
+        judge: Concept,
         reason: String,
     },
     GrantedInPart {
         ruling_date: NaiveDate,
-        judge: Entity,
+        judge: Concept,
         granted: String,
         denied: String,
     },
@@ -182,24 +182,24 @@ pub struct Decision {
 pub enum MotionAction {
     Oppose {
         date: NaiveDate,
-        by: Entity,
+        by: Concept,
     },
     TakeUnderAdvisement {
         date: NaiveDate,
     },
     Grant {
         date: NaiveDate,
-        judge: Entity,
+        judge: Concept,
         order: String,
     },
     Deny {
         date: NaiveDate,
-        judge: Entity,
+        judge: Concept,
         reason: String,
     },
     GrantInPart {
         date: NaiveDate,
-        judge: Entity,
+        judge: Concept,
         granted: String,
         denied: String,
     },
@@ -284,7 +284,7 @@ impl Decision {
     }
 }
 
-fn extract_filed_movant(status: &MotionStatus) -> Result<(NaiveDate, Entity), &'static str> {
+fn extract_filed_movant(status: &MotionStatus) -> Result<(NaiveDate, Concept), &'static str> {
     match status {
         MotionStatus::Pending { filed, movant } => Ok((*filed, movant.clone())),
         MotionStatus::Opposed { filed, movant, .. } => Ok((*filed, movant.clone())),

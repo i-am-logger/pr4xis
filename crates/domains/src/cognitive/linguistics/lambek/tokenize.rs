@@ -5,7 +5,7 @@ use crate::cognitive::linguistics::language::Language;
 use crate::cognitive::linguistics::lemon::lexicon::ConceptRef;
 use crate::cognitive::linguistics::orthography::distance;
 use crate::cognitive::linguistics::text::Token;
-use pr4xis::category::entity::Entity;
+use pr4xis::category::entity::Concept;
 
 /// Tokenize text into typed tokens using a language's lexicon.
 ///

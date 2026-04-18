@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use crate::category::entity::Entity;
+use crate::category::entity::Concept;
 
 /// Domains implement this to declare opposition (antonymy) between entities.
 ///
@@ -17,13 +17,13 @@ use crate::category::entity::Entity;
 /// - Involutory: opposite(opposite(A)) = A
 /// - NOT transitive: if A opposes B and B opposes C, A may equal C
 pub trait OppositionDef {
-    type Entity: Entity;
+    type Concept: Concept;
     /// Direct opposition pairs. Order doesn't matter (symmetric).
-    fn pairs() -> Vec<(Self::Entity, Self::Entity)>;
+    fn pairs() -> Vec<(Self::Concept, Self::Concept)>;
 }
 
 /// Build symmetric adjacency for opposition pairs.
-fn symmetric_adj<E: Entity>(pairs: &[(E, E)]) -> HashMap<E, Vec<E>> {
+fn symmetric_adj<E: Concept>(pairs: &[(E, E)]) -> HashMap<E, Vec<E>> {
     let mut adj: HashMap<E, Vec<E>> = HashMap::new();
     for (a, b) in pairs {
         adj.entry(a.clone()).or_default().push(b.clone());
@@ -35,13 +35,13 @@ fn symmetric_adj<E: Entity>(pairs: &[(E, E)]) -> HashMap<E, Vec<E>> {
 // ---- Query functions ----
 
 /// All direct opposites of an entity.
-pub fn opposites<T: OppositionDef>(entity: &T::Entity) -> Vec<T::Entity> {
+pub fn opposites<T: OppositionDef>(entity: &T::Concept) -> Vec<T::Concept> {
     let adj = symmetric_adj(&T::pairs());
     adj.get(entity).cloned().unwrap_or_default()
 }
 
 /// Check if two entities are opposites.
-pub fn are_opposed<T: OppositionDef>(a: &T::Entity, b: &T::Entity) -> bool {
+pub fn are_opposed<T: OppositionDef>(a: &T::Concept, b: &T::Concept) -> bool {
     opposites::<T>(a).contains(b)
 }
 
@@ -128,12 +128,12 @@ impl<T: OppositionDef> crate::logic::Axiom for Irreflexive<T> {
 /// This connects opposition to the logical NOT: A opposes B means A ≡ NOT B.
 ///
 /// Takes an equivalence checker function to verify against.
-pub struct ExclusiveWithEquivalence<T: OppositionDef, F: Fn(&T::Entity, &T::Entity) -> bool> {
+pub struct ExclusiveWithEquivalence<T: OppositionDef, F: Fn(&T::Concept, &T::Concept) -> bool> {
     are_equivalent: F,
     _marker: PhantomData<T>,
 }
 
-impl<T: OppositionDef, F: Fn(&T::Entity, &T::Entity) -> bool> ExclusiveWithEquivalence<T, F> {
+impl<T: OppositionDef, F: Fn(&T::Concept, &T::Concept) -> bool> ExclusiveWithEquivalence<T, F> {
     pub fn new(are_equivalent: F) -> Self {
         Self {
             are_equivalent,
@@ -142,7 +142,7 @@ impl<T: OppositionDef, F: Fn(&T::Entity, &T::Entity) -> bool> ExclusiveWithEquiv
     }
 }
 
-impl<T: OppositionDef, F: Fn(&T::Entity, &T::Entity) -> bool> crate::logic::Axiom
+impl<T: OppositionDef, F: Fn(&T::Concept, &T::Concept) -> bool> crate::logic::Axiom
     for ExclusiveWithEquivalence<T, F>
 {
     fn description(&self) -> &str {

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use crate::category::entity::Entity;
+use crate::category::entity::Concept;
 
 /// Domains implement this to declare context-dependent disambiguation.
 ///
@@ -16,20 +16,20 @@ use crate::category::entity::Entity;
 ///          ("bank", RiverContext) → Riverbank
 pub trait ContextDef {
     /// The ambiguous entities that need disambiguation.
-    type Entity: Entity;
+    type Concept: Concept;
     /// Contextual signals that guide disambiguation.
-    type Signal: Entity;
+    type Signal: Concept;
     /// Resolved interpretations.
-    type Resolution: Entity;
+    type Resolution: Concept;
 
     /// Resolution rules: (entity, signal) → resolution.
-    fn resolutions() -> Vec<(Self::Entity, Self::Signal, Self::Resolution)>;
+    fn resolutions() -> Vec<(Self::Concept, Self::Signal, Self::Resolution)>;
 }
 
 // ---- Query functions ----
 
 /// Resolve an ambiguous entity given a contextual signal.
-pub fn resolve<T: ContextDef>(entity: &T::Entity, signal: &T::Signal) -> Option<T::Resolution> {
+pub fn resolve<T: ContextDef>(entity: &T::Concept, signal: &T::Signal) -> Option<T::Resolution> {
     T::resolutions()
         .into_iter()
         .find(|(e, s, _)| e == entity && s == signal)
@@ -37,7 +37,7 @@ pub fn resolve<T: ContextDef>(entity: &T::Entity, signal: &T::Signal) -> Option<
 }
 
 /// All possible resolutions for an ambiguous entity (across all signals).
-pub fn interpretations<T: ContextDef>(entity: &T::Entity) -> Vec<(T::Signal, T::Resolution)> {
+pub fn interpretations<T: ContextDef>(entity: &T::Concept) -> Vec<(T::Signal, T::Resolution)> {
     T::resolutions()
         .into_iter()
         .filter(|(e, _, _)| e == entity)
@@ -46,7 +46,7 @@ pub fn interpretations<T: ContextDef>(entity: &T::Entity) -> Vec<(T::Signal, T::
 }
 
 /// All signals that can disambiguate a given entity.
-pub fn signals_for<T: ContextDef>(entity: &T::Entity) -> Vec<T::Signal> {
+pub fn signals_for<T: ContextDef>(entity: &T::Concept) -> Vec<T::Signal> {
     T::resolutions()
         .into_iter()
         .filter(|(e, _, _)| e == entity)
@@ -55,8 +55,8 @@ pub fn signals_for<T: ContextDef>(entity: &T::Entity) -> Vec<T::Signal> {
 }
 
 /// All entities that are ambiguous (have more than one possible resolution).
-pub fn ambiguous_entities<T: ContextDef>() -> Vec<T::Entity> {
-    let mut counts: HashMap<T::Entity, usize> = HashMap::new();
+pub fn ambiguous_entities<T: ContextDef>() -> Vec<T::Concept> {
+    let mut counts: HashMap<T::Concept, usize> = HashMap::new();
     for (e, _, _) in T::resolutions() {
         *counts.entry(e).or_default() += 1;
     }
@@ -96,7 +96,7 @@ impl<T: ContextDef> crate::logic::Axiom for Deterministic<T> {
 
     fn holds(&self) -> bool {
         let resolutions = T::resolutions();
-        let mut seen: HashMap<(T::Entity, T::Signal), T::Resolution> = HashMap::new();
+        let mut seen: HashMap<(T::Concept, T::Signal), T::Resolution> = HashMap::new();
         for (e, s, r) in resolutions {
             if let Some(existing) = seen.get(&(e.clone(), s.clone())) {
                 if *existing != r {
@@ -142,7 +142,7 @@ impl<T: ContextDef> crate::logic::Axiom for TrueAmbiguity<T> {
     }
 
     fn holds(&self) -> bool {
-        let mut resolutions_per_entity: HashMap<T::Entity, Vec<T::Resolution>> = HashMap::new();
+        let mut resolutions_per_entity: HashMap<T::Concept, Vec<T::Resolution>> = HashMap::new();
         for (e, _, r) in T::resolutions() {
             let rs = resolutions_per_entity.entry(e).or_default();
             if !rs.contains(&r) {

@@ -395,16 +395,81 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         }
     }
 
-    let has_custom_edges = !def.edges.is_empty();
+    // Synthesise edges from sugar clauses (is_a / has_a / causes / opposes)
+    // — they desugar to kinded edges whose names match concepts in the
+    // Relations umbrella ontology (`formal::relations`):
+    //
+    //   is_a:    (child, parent)      → (child, parent, Subsumption)
+    //   has_a:   (whole, part)        → (whole, part, Parthood)
+    //   causes:  (cause, effect)      → (cause, effect, Causation)
+    //   opposes: (a, b)               → (a, b, Opposition)
+    //
+    // Per Gruber (1993) / OBO-RO (Smith 2005), every morphism carries a
+    // canonical relation-kind tag. Dense (unkinded) categories are
+    // ontologically illegitimate and not emitted.
+    struct SugarEdge {
+        from: Ident,
+        to: Ident,
+        kind: Ident,
+    }
+    let mut sugar_edges: Vec<SugarEdge> = Vec::new();
+    for p in &def.is_a {
+        sugar_edges.push(SugarEdge {
+            from: p.a.clone(),
+            to: p.b.clone(),
+            kind: format_ident!("Subsumption"),
+        });
+    }
+    for p in &def.has_a {
+        sugar_edges.push(SugarEdge {
+            from: p.a.clone(),
+            to: p.b.clone(),
+            kind: format_ident!("Parthood"),
+        });
+    }
+    for p in &def.causes {
+        sugar_edges.push(SugarEdge {
+            from: p.a.clone(),
+            to: p.b.clone(),
+            kind: format_ident!("Causation"),
+        });
+    }
+    for p in &def.opposes {
+        sugar_edges.push(SugarEdge {
+            from: p.a.clone(),
+            to: p.b.clone(),
+            kind: format_ident!("Opposition"),
+        });
+    }
 
-    // Collect unique edge kinds
-    let edge_kinds: Vec<&Ident> = def.edges.iter().map(|e| &e.kind).collect();
-    let unique_kinds: Vec<&Ident> = {
+    // Collect all edge-from/to/kind — custom `edges:` clause plus sugar.
+    let all_edge_from: Vec<Ident> = def
+        .edges
+        .iter()
+        .map(|e| e.from.clone())
+        .chain(sugar_edges.iter().map(|e| e.from.clone()))
+        .collect();
+    let all_edge_to: Vec<Ident> = def
+        .edges
+        .iter()
+        .map(|e| e.to.clone())
+        .chain(sugar_edges.iter().map(|e| e.to.clone()))
+        .collect();
+    let all_edge_kind: Vec<Ident> = def
+        .edges
+        .iter()
+        .map(|e| e.kind.clone())
+        .chain(sugar_edges.iter().map(|e| e.kind.clone()))
+        .collect();
+
+    // Unique kinds — preserves declaration order (custom edges first, then
+    // the canonical sugar-derived kinds in is_a/has_a/causes/opposes order).
+    let unique_kinds: Vec<Ident> = {
         let mut seen = std::collections::HashSet::new();
-        edge_kinds
+        all_edge_kind
             .iter()
             .filter(|k| seen.insert(k.to_string()))
-            .copied()
+            .cloned()
             .collect()
     };
 
@@ -505,20 +570,19 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         .collect();
     let has_opposition = !def.opposes.is_empty();
 
-    // Category generation — kinded or dense
-    let category_impl = if has_custom_edges {
+    // Category generation — always kinded (issue #152: no dense categories).
+    // Every morphism carries a relation-kind tag; edges come from the
+    // `edges:` clause plus the sugar-clause synthesis above.
+    let category_impl = {
         let kind_name = format_ident!("{}RelationKind", name_str);
-        let edge_from: Vec<&Ident> = def.edges.iter().map(|e| &e.from).collect();
-        let edge_to: Vec<&Ident> = def.edges.iter().map(|e| &e.to).collect();
-        let edge_kind: Vec<&Ident> = def.edges.iter().map(|e| &e.kind).collect();
 
-        // Compute transitive closure of declared edges (Floyd-Warshall at macro expansion).
-        // Ensures morphisms() is closed under compose() — if edges (A,B) and (B,C) exist,
-        // then (A,C) is included as Composed, matching what compose() returns at runtime.
-        let direct_pairs: std::collections::BTreeSet<(String, String)> = def
-            .edges
+        // Compute transitive closure of all declared edges (Floyd-Warshall at
+        // macro expansion). Ensures morphisms() is closed under compose() —
+        // if (A,B) and (B,C) exist, (A,C) is included as Composed.
+        let direct_pairs: std::collections::BTreeSet<(String, String)> = all_edge_from
             .iter()
-            .map(|e| (e.from.to_string(), e.to.to_string()))
+            .zip(all_edge_to.iter())
+            .map(|(f, t)| (f.to_string(), t.to_string()))
             .collect();
         let mut closure: std::collections::BTreeSet<(String, String)> = direct_pairs.clone();
         loop {
@@ -551,6 +615,10 @@ pub fn generate(def: OntologyDef) -> TokenStream {
             .map(|(_, t)| format_ident!("{}", t))
             .collect();
 
+        let edge_from = &all_edge_from;
+        let edge_to = &all_edge_to;
+        let edge_kind = &all_edge_kind;
+
         quote! {
             #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
             pub enum #kind_name {
@@ -568,8 +636,10 @@ pub fn generate(def: OntologyDef) -> TokenStream {
 
             impl #pr4xis::category::Relationship for #relation_name {
                 type Object = #entity_name;
+                type Kind = #kind_name;
                 fn source(&self) -> #entity_name { self.from }
                 fn target(&self) -> #entity_name { self.to }
+                fn kind(&self) -> #kind_name { self.kind }
             }
 
             pub struct #cat_name;
@@ -590,7 +660,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 }
 
                 fn morphisms() -> Vec<#relation_name> {
-                    use #pr4xis::category::Entity;
+                    use #pr4xis::category::Concept;
                     let mut m = Vec::new();
                     for c in #entity_name::variants() {
                         m.push(#relation_name { from: c, to: c, kind: #kind_name::Identity });
@@ -604,45 +674,6 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 }
             }
         }
-    } else {
-        // Dense category
-        quote! {
-            #[derive(Debug, Clone, PartialEq, Eq)]
-            pub struct #relation_name {
-                pub from: #entity_name,
-                pub to: #entity_name,
-            }
-
-            impl #pr4xis::category::Relationship for #relation_name {
-                type Object = #entity_name;
-                fn source(&self) -> #entity_name { self.from }
-                fn target(&self) -> #entity_name { self.to }
-            }
-
-            pub struct #cat_name;
-
-            impl #pr4xis::category::Category for #cat_name {
-                type Object = #entity_name;
-                type Morphism = #relation_name;
-
-                fn identity(obj: &#entity_name) -> #relation_name {
-                    #relation_name { from: *obj, to: *obj }
-                }
-
-                fn compose(f: &#relation_name, g: &#relation_name) -> Option<#relation_name> {
-                    if f.to != g.from { return None; }
-                    Some(#relation_name { from: f.from, to: g.to })
-                }
-
-                fn morphisms() -> Vec<#relation_name> {
-                    use #pr4xis::category::Entity;
-                    let variants = #entity_name::variants();
-                    variants.iter()
-                        .flat_map(|&a| variants.iter().map(move |&b| #relation_name { from: a, to: b }))
-                        .collect()
-                }
-            }
-        }
     };
 
     // Reasoning systems
@@ -650,7 +681,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         quote! {
             pub struct #tax_name;
             impl #pr4xis::ontology::reasoning::taxonomy::TaxonomyDef for #tax_name {
-                type Entity = #entity_name;
+                type Concept = #entity_name;
                 fn relations() -> Vec<(#entity_name, #entity_name)> {
                     vec![#(#tax_pairs),*]
                 }
@@ -664,7 +695,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         quote! {
             pub struct #mer_name;
             impl #pr4xis::ontology::reasoning::mereology::MereologyDef for #mer_name {
-                type Entity = #entity_name;
+                type Concept = #entity_name;
                 fn relations() -> Vec<(#entity_name, #entity_name)> {
                     vec![#(#mer_pairs),*]
                 }
@@ -678,7 +709,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         quote! {
             pub struct #caus_name;
             impl #pr4xis::ontology::reasoning::causation::CausalDef for #caus_name {
-                type Entity = #entity_name;
+                type Concept = #entity_name;
                 fn relations() -> Vec<(#entity_name, #entity_name)> {
                     vec![#(#caus_pairs),*]
                 }
@@ -692,7 +723,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         quote! {
             pub struct #opp_name;
             impl #pr4xis::ontology::reasoning::opposition::OppositionDef for #opp_name {
-                type Entity = #entity_name;
+                type Concept = #entity_name;
                 fn pairs() -> Vec<(#entity_name, #entity_name)> {
                     vec![#(#opp_pairs),*]
                 }
@@ -752,8 +783,8 @@ pub fn generate(def: OntologyDef) -> TokenStream {
     let name_lit = syn::LitStr::new(&full_name, def.name.span());
 
     // Domain axioms declared in the `axioms:` clause. Each one emits a
-    // unit struct + `impl Axiom` + `AxiomMeta`, and gets pushed into the
-    // ontology's `domain_axioms()` via the `axiom_push_calls` list.
+    // unit struct + `impl Axiom` + `RelationshipMeta`, and gets pushed into
+    // the ontology's `domain_axioms()` via the `axiom_push_calls` list.
     let axiom_structs: Vec<TokenStream> = def
         .axioms
         .iter()
@@ -776,8 +807,8 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                         #holds
                     }
 
-                    fn meta(&self) -> #pr4xis::logic::axiom::AxiomMeta {
-                        #pr4xis::logic::axiom::AxiomMeta {
+                    fn meta(&self) -> #pr4xis::ontology::meta::RelationshipMeta {
+                        #pr4xis::ontology::meta::RelationshipMeta {
                             name: #pr4xis::ontology::meta::OntologyName::new_static(#name_str_lit),
                             description: #pr4xis::ontology::meta::Label::new_static(#description),
                             citation: #pr4xis::ontology::meta::Citation::parse_static(#source),
@@ -810,7 +841,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 #pr4xis::paste::paste! {
                     #[#pr4xis::linkme::distributed_slice(#pr4xis::ontology::AXIOMS)]
                     #[linkme(crate = #pr4xis::linkme)]
-                    static [<_REGISTER_AXIOM_ #name_ident:snake:upper>]: fn() -> #pr4xis::logic::axiom::AxiomMeta =
+                    static [<_REGISTER_AXIOM_ #name_ident:snake:upper>]: fn() -> #pr4xis::ontology::meta::RelationshipMeta =
                         || <#name_ident as #pr4xis::logic::axiom::Axiom>::meta(&#name_ident);
                 }
             }
@@ -818,7 +849,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         .collect();
 
     quote! {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, #pr4xis::category::Entity)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, #pr4xis::category::Concept)]
         pub enum #entity_name {
             #(#concept_idents,)*
         }
@@ -856,10 +887,14 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 axioms
             }
 
-            pub const fn meta() -> #pr4xis::ontology::OntologyMeta {
-                #pr4xis::ontology::OntologyMeta {
-                    name: #name_lit,
-                    module_path: module_path!(),
+            /// Structured metadata — unified Lemon+PROV-O record.
+            /// Same shape as functors/adjunctions/nat-trans/axioms (issue #153).
+            pub fn meta() -> #pr4xis::ontology::meta::RelationshipMeta {
+                #pr4xis::ontology::meta::RelationshipMeta {
+                    name: #pr4xis::ontology::meta::OntologyName::new_static(#name_lit),
+                    description: #pr4xis::ontology::meta::Label::new_static(#name_lit),
+                    citation: #pr4xis::ontology::meta::Citation::EMPTY,
+                    module_path: #pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
                 }
             }
 

@@ -1,4 +1,4 @@
-use pr4xis::category::Entity; // trait + derive macro
+use pr4xis::category::Concept; // trait + derive macro
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -16,7 +16,7 @@ use pr4xis::ontology::{Ontology, Quality};
 
 /// Core concepts of communication.
 /// Unified from Shannon (1948) and Jakobson (1960).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum CommunicationConcept {
     /// The agent producing the message (Shannon: source; Jakobson: addresser).
     Sender,
@@ -122,7 +122,7 @@ impl Ontology for CommunicationOntology {
 /// Jakobson's six language functions (1960).
 /// Each communication component has a corresponding function when
 /// the communicative act focuses on that component.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum JakobsonFunction {
     /// Focus on Context → referential (informative).
     Referential,

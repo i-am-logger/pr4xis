@@ -9,7 +9,7 @@
 /// - Munzner, "Visualization Analysis and Design" (2014): channel effectiveness
 /// - Shneiderman, "The Eyes Have It" (1996): overview-zoom-filter-detail mantra
 /// - Wickham, "Layered Grammar of Graphics" (2010): compositional pipeline
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::ontology::{Axiom, Quality};
 
 // ══════════════════════════════════════════════
@@ -30,7 +30,7 @@ pub enum VisualVariable {
     Texture,
 }
 
-impl Entity for VisualVariable {
+impl Concept for VisualVariable {
     fn variants() -> Vec<Self> {
         vec![
             Self::Position,
@@ -139,7 +139,7 @@ pub enum PerceptualTask {
     ShadingColorSaturation,
 }
 
-impl Entity for PerceptualTask {
+impl Concept for PerceptualTask {
     fn variants() -> Vec<Self> {
         vec![
             Self::PositionCommonScale,
@@ -189,7 +189,7 @@ pub enum DataLevel {
     Ratio,
 }
 
-impl Entity for DataLevel {
+impl Concept for DataLevel {
     fn variants() -> Vec<Self> {
         vec![Self::Nominal, Self::Ordinal, Self::Interval, Self::Ratio]
     }
@@ -233,7 +233,7 @@ pub enum GeomType {
     Boxplot,
 }
 
-impl Entity for GeomType {
+impl Concept for GeomType {
     fn variants() -> Vec<Self> {
         vec![
             Self::Point,
@@ -312,7 +312,7 @@ pub enum InteractionLevel {
     DetailsOnDemand,
 }
 
-impl Entity for InteractionLevel {
+impl Concept for InteractionLevel {
     fn variants() -> Vec<Self> {
         vec![Self::Overview, Self::ZoomAndFilter, Self::DetailsOnDemand]
     }
@@ -360,7 +360,7 @@ pub enum GrammarLayer {
     Facet,
 }
 
-impl Entity for GrammarLayer {
+impl Concept for GrammarLayer {
     fn variants() -> Vec<Self> {
         vec![
             Self::Data,

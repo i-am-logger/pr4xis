@@ -27,8 +27,12 @@
 
 use pr4xis::category::{Category, Functor};
 
-use super::ontology::{SyntrometryCategory, SyntrometryConcept, SyntrometryRelation};
-use crate::formal::meta::algebra::ontology::{AlgebraCategory, AlgebraConcept, AlgebraRelation};
+use super::ontology::{
+    SyntrometryCategory, SyntrometryConcept, SyntrometryRelation, SyntrometryRelationKind,
+};
+use crate::formal::meta::algebra::ontology::{
+    AlgebraCategory, AlgebraCategoryRelationKind, AlgebraConcept, AlgebraRelation,
+};
 
 fn map_concept(c: &SyntrometryConcept) -> AlgebraConcept {
     use AlgebraConcept as A;
@@ -64,10 +68,15 @@ impl Functor for SyntrometryToAlgebra {
     fn map_morphism(m: &SyntrometryRelation) -> AlgebraRelation {
         let from = map_concept(&m.from);
         let to = map_concept(&m.to);
-        if from == to {
-            AlgebraCategory::identity(&from)
-        } else {
-            AlgebraRelation { from, to }
+        // Preserve source's Identity → target's identity; everything else
+        // becomes a non-identity arrow in the dense target.
+        match m.kind {
+            SyntrometryRelationKind::Identity => AlgebraCategory::identity(&from),
+            _ => AlgebraRelation {
+                from,
+                to,
+                kind: AlgebraCategoryRelationKind::Composed,
+            },
         }
     }
 }

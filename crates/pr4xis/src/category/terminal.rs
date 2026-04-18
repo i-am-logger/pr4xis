@@ -51,7 +51,7 @@ where
         <T::Category>::identity(&T::target())
     }
 
-    crate::functor_meta!(
+    crate::relationship_meta!(
         "TerminalFunctor",
         "constant functor collapsing source to a single target aspect",
         "Mac Lane (1971) Ch. II §1"
@@ -62,14 +62,14 @@ where
 mod tests {
     use super::*;
     use crate::category::validate::check_functor_laws;
-    use crate::category::{Entity, Relationship};
+    use crate::category::{Concept, Relationship};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Light {
         Red,
         Green,
     }
-    impl Entity for Light {
+    impl Concept for Light {
         fn variants() -> Vec<Self> {
             vec![Light::Red, Light::Green]
         }
@@ -81,12 +81,14 @@ mod tests {
     }
     impl Relationship for LightEdge {
         type Object = Light;
+        type Kind = ();
         fn source(&self) -> Light {
             self.from
         }
         fn target(&self) -> Light {
             self.to
         }
+        fn kind(&self) {}
     }
     struct LightCat;
     impl Category for LightCat {

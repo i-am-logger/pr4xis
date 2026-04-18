@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 
 use super::super::lexicon::pos::LexicalEntry;
 
@@ -13,7 +13,7 @@ pub enum PhraseType {
     AdvPhrase,
 }
 
-impl Entity for PhraseType {
+impl Concept for PhraseType {
     fn variants() -> Vec<Self> {
         vec![
             Self::Sentence,

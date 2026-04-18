@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -26,7 +26,7 @@ use pr4xis::ontology::{Ontology, Quality};
 // - W3C PROV-DM (2013) — https://www.w3.org/TR/prov-dm/
 
 /// Core provenance concepts, aligned with W3C PROV-O.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ProvenanceConcept {
     // === PROV-O core (W3C §3.1) ===
     /// prov:Entity — a thing with provenance (an ontology, a document, a dataset).

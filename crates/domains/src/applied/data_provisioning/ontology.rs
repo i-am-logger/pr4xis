@@ -7,7 +7,7 @@
 //! staging/` for the freeze functor framing.
 
 use crate::formal::meta::artifact_identity::ontology::{CompositeIdentity, IdentityConcept};
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use std::collections::HashSet;
@@ -26,7 +26,7 @@ use std::collections::HashSet;
 /// on the current state of its local materialization. `DecoderFunctor` is
 /// the typed transformation from raw bytes to a domain ontology for a
 /// specific `ContentType`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ProvisioningConcept {
     /// The abstract concept of a managed external data artifact.
     DataSource,

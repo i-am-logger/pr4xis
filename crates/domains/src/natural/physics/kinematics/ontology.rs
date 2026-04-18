@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -19,7 +19,7 @@ use crate::natural::physics::kinematics::velocity::Velocity;
 /// position (0th), velocity (1st), acceleration (2nd), jerk (3rd).
 ///
 /// Source: physics.info/kinematics-calculus (The Physics Hypertextbook).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum KinematicQuantity {
     /// 0th derivative: where (meters).
     Position,

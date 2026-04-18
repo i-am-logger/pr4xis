@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::{Ontology, Quality};
 
@@ -14,7 +14,7 @@ use pr4xis::ontology::{Ontology, Quality};
 // from the actual loaded state, not from static metadata.
 
 /// Concepts in the KnowledgeBase ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum KnowledgeConcept {
     /// The system as a whole (dcat:Catalog).
     KnowledgeBase,
@@ -101,7 +101,7 @@ impl Ontology for KnowledgeOntology {
 mod tests {
     use super::*;
     use pr4xis::category::Category;
-    use pr4xis::category::entity::Entity;
+    use pr4xis::category::entity::Concept;
 
     #[test]
     fn ontology_validates() {

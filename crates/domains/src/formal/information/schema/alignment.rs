@@ -1,4 +1,4 @@
-use pr4xis::category::Entity;
+use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 
 // Ontology Alignment ontology — discovering connections between ontologies.
@@ -22,7 +22,7 @@ use pr4xis::define_ontology;
 // - OAEI (Ontology Alignment Evaluation Initiative) — evaluation metrics
 
 /// Concepts in the alignment ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Entity)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum AlignmentConcept {
     /// A set of correspondences between two ontologies.
     /// Euzenat & Shvaiko (2013): A ⊆ C (set of correspondences).
