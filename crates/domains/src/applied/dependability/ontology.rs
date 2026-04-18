@@ -31,6 +31,9 @@
 //!   ACM TOPLAS 4(3). — byzantine failure mode.
 //! - Patterson et al. (2002). "Recovery-Oriented Computing". UC Berkeley.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

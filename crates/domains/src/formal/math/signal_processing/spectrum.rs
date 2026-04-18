@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Frequency domain concepts for spectral analysis.
 ///
 /// Oppenheim & Willsky (1997). *Signals and Systems* (2nd ed.).

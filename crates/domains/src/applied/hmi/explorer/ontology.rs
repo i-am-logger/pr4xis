@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Ontology explorer — self-referential visualization of reasoning traces.
 ///
 /// The explorer visualizes the ontology using the ontology's own theme.
@@ -362,7 +365,7 @@ impl Axiom for GraphConnected {
     }
     fn holds(&self) -> bool {
         let g = theming_ontology_graph();
-        let connected: std::collections::HashSet<&str> = g
+        let connected: hashbrown::HashSet<&str> = g
             .edges
             .iter()
             .flat_map(|e| [e.from.as_str(), e.to.as_str()])
@@ -874,7 +877,7 @@ mod tests {
             .iter()
             .map(|s| activation_to_theme_role(*s))
             .collect();
-        let unique: std::collections::HashSet<_> = roles.iter().collect();
+        let unique: hashbrown::HashSet<_> = roles.iter().collect();
         assert_eq!(
             roles.len(),
             unique.len(),

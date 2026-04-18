@@ -9,6 +9,9 @@
 //! - Lisker & Abramson 1964: voice onset time
 //! - ANSI S3.5-1997: Speech Intelligibility Index
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;

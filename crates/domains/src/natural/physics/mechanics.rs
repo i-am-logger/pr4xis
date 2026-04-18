@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Newtonian mechanics as an ontology:
 /// - Situation: a particle (mass, position, velocity)
 /// - Axioms: F=ma, mass conservation

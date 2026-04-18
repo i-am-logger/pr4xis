@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::square::Square;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

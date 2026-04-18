@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Keybinding ontology — formal model of keyboard shortcuts and presets.
 ///
 /// A keybinding maps (Key, Modifiers, Mode) → Action.
@@ -10,8 +13,8 @@
 /// - Harel, "Statecharts" (1987): mode-scoped keybindings
 /// - XKB specification: modifier model (Shift, Ctrl, Alt, Super, Hyper)
 use super::modes::ModeId;
+use hashbrown::{HashMap, HashSet};
 use pr4xis::ontology::Axiom;
-use std::collections::{HashMap, HashSet};
 
 /// A physical key identifier.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

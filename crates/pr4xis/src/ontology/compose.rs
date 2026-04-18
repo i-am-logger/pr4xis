@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 // Compose API — runtime ontology composition via Heim's Korporator.
 //
 // The Korporator operates in two modes (Heim 1980, Teil A §3.1):
@@ -23,8 +25,8 @@
 //         Hatchuel & Weil "C-K Design Theory" (2009);
 //         McCrae et al. "The Lemon Cookbook" (W3C 2016)
 
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
+use alloc::collections::BTreeMap;
+use alloc::collections::BTreeSet;
 
 use crate::ontology::Vocabulary;
 use crate::ontology::upper::being::Being;

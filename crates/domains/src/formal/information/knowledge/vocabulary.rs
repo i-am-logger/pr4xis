@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 // Vocabulary — runtime instance of KnowledgeConcept::Vocabulary.
 //
 // The Vocabulary struct lives in pr4xis core (pr4xis::ontology::Vocabulary).

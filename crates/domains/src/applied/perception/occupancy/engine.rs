@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::applied::perception::occupancy::ontology::CellState;
 
 /// A Bayesian occupancy grid using log-odds representation.

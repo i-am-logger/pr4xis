@@ -12,6 +12,9 @@
 //! Source: W3C Lexicon Model for Ontologies (2016);
 //!         McCrae et al. (2012, 2017)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

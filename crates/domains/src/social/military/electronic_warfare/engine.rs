@@ -1,13 +1,16 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// EW geolocation algorithms.
 ///
 /// Source: Poisel (2012), *Electronic Warfare Target Location Methods*
 /// Wrap an angle to [-pi, pi].
 pub fn wrap_angle(angle: f64) -> f64 {
-    let mut a = angle % (2.0 * std::f64::consts::PI);
-    if a > std::f64::consts::PI {
-        a -= 2.0 * std::f64::consts::PI;
-    } else if a < -std::f64::consts::PI {
-        a += 2.0 * std::f64::consts::PI;
+    let mut a = angle % (2.0 * core::f64::consts::PI);
+    if a > core::f64::consts::PI {
+        a -= 2.0 * core::f64::consts::PI;
+    } else if a < -core::f64::consts::PI {
+        a += 2.0 * core::f64::consts::PI;
     }
     a
 }

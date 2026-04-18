@@ -1,6 +1,10 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::applied::hmi::theming::base16::ColorSlot;
 use crate::applied::hmi::theming::ontology::Palette;
 use crate::natural::colors::Rgb;
+use hashbrown::HashMap;
 /// Surface ontology — abstract rendering targets for color themes.
 ///
 /// A Surface is anything that renders colors from a theme palette:
@@ -19,7 +23,6 @@ use crate::natural::colors::Rgb;
 /// - Czaplicki & Chong, "Async FRP for GUIs" (2013): sync vs async propagation
 use pr4xis::category::Concept;
 use pr4xis::ontology::{Axiom, Quality};
-use std::collections::HashMap;
 /// A surface capability — what a rendering target can express.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SurfaceCapability {

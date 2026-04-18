@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// A radar detection with range, Doppler velocity, and azimuth.
 #[derive(Debug, Clone)]
 pub struct RadarTarget {
@@ -60,7 +63,7 @@ pub fn associate_radar_camera(
             .max_by(|a, b| {
                 a.confidence
                     .partial_cmp(&b.confidence)
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .unwrap_or(core::cmp::Ordering::Equal)
             })
         {
             fused.push(FusedRadarCameraDetection {

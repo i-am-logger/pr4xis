@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// PID controller with anti-windup.
 ///
 /// Åström & Murray (2008). *Feedback Systems*. Princeton University Press.

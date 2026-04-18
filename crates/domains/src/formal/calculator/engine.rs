@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::calc::Calculator;
 use super::op::{BinaryOp, UnaryOp};
 use super::value::{AngleMode, Value};

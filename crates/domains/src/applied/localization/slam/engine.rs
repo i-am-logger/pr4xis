@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// A 2D pose in the SLAM graph.
 #[derive(Debug, Clone)]
 pub struct Pose2D {

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Maxwell's equations as an ontology:
 /// - Situation: electromagnetic field (E, B) with charge density and current
 /// - Axioms: all four Maxwell equations enforced

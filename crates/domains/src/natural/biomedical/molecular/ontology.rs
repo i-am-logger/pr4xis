@@ -11,6 +11,9 @@
 //! - Inose 2009: Cx26/Cx43 in esophagus
 //! - Khalbuss 1995: acid effects on esophageal ion channels
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;

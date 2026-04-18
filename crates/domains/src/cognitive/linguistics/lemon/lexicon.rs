@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 // Runtime Lexicon — a lime:Lexicon instance for one language.
 //
 // A Lexicon collects LexicalEntries, each with a canonical Form and
@@ -13,7 +16,7 @@
 //
 // Source: W3C Ontolex (2016) §5 lime:Lexicon; McCrae et al. (2017)
 
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 /// A Form — one grammatical realization (ontolex:Form).
 /// Carries writtenRep (BCP 47 language-tagged).

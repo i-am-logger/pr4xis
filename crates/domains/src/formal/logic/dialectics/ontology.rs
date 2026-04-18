@@ -23,6 +23,9 @@
 //! which is what pr4xis needs for `Syntrometry::Dialectic` (Heim's *Dialektik*) and for
 //! dialectical reasoning in downstream ontologies.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

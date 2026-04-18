@@ -1,8 +1,11 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::formal::math::linear_algebra::decomposition;
 use crate::formal::math::linear_algebra::determinant;
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// Univariate Gaussian (normal) distribution.
 ///

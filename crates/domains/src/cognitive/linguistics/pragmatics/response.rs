@@ -24,6 +24,9 @@
 //! - White, "Efficient Realization of Coordinate Structures in CCG" (2006)
 //! - Lambek & Scott, "Introduction to Higher Order Categorical Logic" (1986)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "Response",
     source: "Reiter & Dale (2000); Lambek & Scott (1986)",

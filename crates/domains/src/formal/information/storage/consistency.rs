@@ -13,6 +13,9 @@
 //! - Papadimitriou, "The Serializability of Concurrent Database Updates" (1979, JACM)
 //! - Terry et al., "Session Guarantees for Weakly Consistent Replicated Data" (1994, ACM TOCS)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "Consistency",
     source: "Viotti & Vukolic (2016); Herlihy & Wing (1990)",

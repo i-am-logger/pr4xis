@@ -30,6 +30,9 @@
 //! Source: Lewis (1973, 1986); Pearl (2000); Reichenbach (1956); Woodward
 //! (2003); Hall (2004); Mackie (1974).
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

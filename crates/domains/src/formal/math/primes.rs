@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Prime numbers and the Sieve of Eratosthenes.
 pub fn is_prime(n: u64) -> bool {
     if n < 2 {

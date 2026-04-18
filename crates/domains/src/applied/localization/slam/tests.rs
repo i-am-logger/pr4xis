@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::validate::check_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
@@ -77,12 +80,12 @@ fn loop_closure_adds_constraint() {
     let id2 = graph.add_pose(Pose2D {
         x: 1.0,
         y: 1.0,
-        theta: std::f64::consts::FRAC_PI_2,
+        theta: core::f64::consts::FRAC_PI_2,
     });
     graph.add_odometry_edge(id0, id1, 1.0, 0.0, 0.0, 1.0);
-    graph.add_odometry_edge(id1, id2, 1.0, 0.0, std::f64::consts::FRAC_PI_2, 1.0);
+    graph.add_odometry_edge(id1, id2, 1.0, 0.0, core::f64::consts::FRAC_PI_2, 1.0);
     let n_before = graph.num_constraints();
-    graph.add_loop_closure(id2, id0, -1.0, -1.0, -std::f64::consts::FRAC_PI_2, 2.0);
+    graph.add_loop_closure(id2, id0, -1.0, -1.0, -core::f64::consts::FRAC_PI_2, 2.0);
     assert_eq!(graph.num_constraints(), n_before + 1);
 }
 

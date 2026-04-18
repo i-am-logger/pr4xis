@@ -1,5 +1,7 @@
 use crate::category::Category;
 use crate::logic::Axiom;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::property::Quality;
 

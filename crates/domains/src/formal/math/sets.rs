@@ -1,5 +1,5 @@
-use std::collections::HashSet;
-use std::hash::Hash;
+use core::hash::Hash;
+use hashbrown::HashSet;
 
 /// Set operations with algebraic law enforcement.
 pub fn union<T: Eq + Hash + Clone>(a: &HashSet<T>, b: &HashSet<T>) -> HashSet<T> {
@@ -28,7 +28,7 @@ mod tests {
     use proptest::prelude::*;
 
     fn arb_set() -> impl Strategy<Value = HashSet<i32>> {
-        proptest::collection::hash_set(-50..50i32, 0..20)
+        proptest::collection::hash_set(-50..50i32, 0..20).prop_map(|s| s.into_iter().collect())
     }
 
     proptest! {

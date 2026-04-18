@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// What a sensor measures — the physical quantity dimension.
 ///
 /// Connects the sensor ontology to the quantity ontology.

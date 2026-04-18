@@ -16,6 +16,9 @@
 //! - Fields & Levin 2022: Competency in Navigating Arbitrary Spaces
 //! - Levin 2014: Molecular bioelectricity in developmental biology
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::reasoning::opposition;
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};

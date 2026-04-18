@@ -1,5 +1,7 @@
-use std::fmt::Debug;
-use std::hash::Hash;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
+use core::hash::Hash;
 
 /// A concept — a type representing a kind of thing in an ontology.
 ///

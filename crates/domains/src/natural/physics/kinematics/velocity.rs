@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Velocity vector: the first derivative of position with respect to time.
 ///
 /// v = dx/dt (meters per second).

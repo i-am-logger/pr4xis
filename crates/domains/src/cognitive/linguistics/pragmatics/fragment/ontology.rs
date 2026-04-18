@@ -8,6 +8,9 @@
 //! Source: Fernandez & Ginzburg (2002, 2006); Ginzburg "The Interactive Stance" (2012);
 //!         Schlangen (2003); Purver et al. (2006)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

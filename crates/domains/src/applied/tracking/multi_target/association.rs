@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
 use crate::formal::math::probability::mahalanobis;
@@ -53,8 +56,7 @@ pub fn unassociated_detections(
     num_detections: usize,
     associations: &[(usize, usize)],
 ) -> Vec<usize> {
-    let associated: std::collections::HashSet<usize> =
-        associations.iter().map(|(_, d)| *d).collect();
+    let associated: hashbrown::HashSet<usize> = associations.iter().map(|(_, d)| *d).collect();
     (0..num_detections)
         .filter(|d| !associated.contains(d))
         .collect()
@@ -62,8 +64,7 @@ pub fn unassociated_detections(
 
 /// Get indices of unassociated tracks (should coast).
 pub fn unassociated_tracks(num_tracks: usize, associations: &[(usize, usize)]) -> Vec<usize> {
-    let associated: std::collections::HashSet<usize> =
-        associations.iter().map(|(t, _)| *t).collect();
+    let associated: hashbrown::HashSet<usize> = associations.iter().map(|(t, _)| *t).collect();
     (0..num_tracks)
         .filter(|t| !associated.contains(t))
         .collect()

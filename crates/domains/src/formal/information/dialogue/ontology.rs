@@ -17,6 +17,9 @@
 //! - Levelt, Speaking (1989) — speech production model
 //! - Grice, Logic and Conversation (1975) — cooperative principle
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Ontology, Quality};
 
 pr4xis::ontology! {

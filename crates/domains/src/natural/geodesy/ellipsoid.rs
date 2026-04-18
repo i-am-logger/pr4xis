@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Reference ellipsoid parameters.
 ///
 /// An oblate spheroid used as a mathematical model of the Earth's shape.

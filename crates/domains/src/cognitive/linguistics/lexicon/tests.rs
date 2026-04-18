@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::cognitive::linguistics::language::Language;
 use pr4xis::category::Category;
 use pr4xis::category::validate::check_category_laws;

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Geodetic coordinates on an ellipsoid.
 ///
 /// The natural coordinate system for positions on or near Earth's surface.

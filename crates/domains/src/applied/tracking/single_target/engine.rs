@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::applied::sensor_fusion::fusion::engine::{FusionAction, new_fusion_engine};
 use crate::applied::sensor_fusion::state::estimate::StateEstimate;
 use crate::formal::math::linear_algebra::matrix::Matrix;

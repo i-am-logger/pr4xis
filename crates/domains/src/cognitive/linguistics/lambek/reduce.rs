@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::types::{LambekType, reduce};
 
 /// A typed token — a word with its Lambek type assignment.
@@ -120,8 +123,8 @@ pub fn reduce_sequence(tokens: &[TypedToken]) -> ReductionResult {
 /// `type_sets` provides all possible types for each token position.
 /// type_sets[i] = all Lambek types that word_i could have.
 pub fn chart_reduce(words: &[String], type_sets: &[Vec<LambekType>]) -> ReductionResult {
-    use std::collections::HashMap;
-    use std::collections::HashSet;
+    use hashbrown::HashMap;
+    use hashbrown::HashSet;
     let n = words.len();
     if n == 0 {
         return ReductionResult {
@@ -218,7 +221,7 @@ pub fn chart_reduce(words: &[String], type_sets: &[Vec<LambekType>]) -> Reductio
 }
 
 /// Backpointer: split point + left/right types that produced a result.
-type BackPointer = std::collections::HashMap<LambekType, (usize, LambekType, LambekType)>;
+type BackPointer = hashbrown::HashMap<LambekType, (usize, LambekType, LambekType)>;
 
 /// Backtrack through the chart to extract which lexical type was used at each position.
 fn extract_lexical_types(

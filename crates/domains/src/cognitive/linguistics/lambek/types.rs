@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 // Lambek types — the objects in the syntax category.
 //
 // In Lambek grammar, every word has a type that describes how it

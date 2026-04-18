@@ -23,6 +23,9 @@
 //!         Tononi (2004, 2012); Baars (1988, 2005);
 //!         Rosenthal (2005); Block (1995)
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Category;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

@@ -24,7 +24,7 @@
 //! - Leinster (2004) *Higher Operads, Higher Categories* — modern n-category textbook
 //! - Gruber (1993) KAS 5 — "ontology = formally-named relations" at every dimension
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use super::functor::Functor;
 use super::kinds::FunctorKind;

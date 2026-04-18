@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::validate::check_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
@@ -59,7 +62,7 @@ fn usbl_fix_to_cartesian_straight_down() {
     let fix = UsblFix {
         range: 100.0,
         bearing: 0.0,
-        depression: std::f64::consts::FRAC_PI_2,
+        depression: core::f64::consts::FRAC_PI_2,
     };
     let pos = fix.to_cartesian();
     assert!(pos[0].abs() < 1e-10);

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Digital filter types and first-order implementations.
 ///
 /// Oppenheim & Willsky (1997). *Signals and Systems* (2nd ed.).
@@ -53,7 +56,7 @@ impl FirstOrderLowPass {
     ///
     /// α = dt / (RC + dt) where RC = 1 / (2π * f_cutoff).
     pub fn new(cutoff_freq: f64, sample_period: f64) -> Self {
-        let rc = 1.0 / (2.0 * std::f64::consts::PI * cutoff_freq);
+        let rc = 1.0 / (2.0 * core::f64::consts::PI * cutoff_freq);
         let alpha = sample_period / (rc + sample_period);
         Self {
             alpha,

@@ -9,6 +9,9 @@
 //! Source: Borenstein et al. (1996) "Where am I?"; Thrun, Burgard & Fox (2005)
 //!         Chapter 5; Scaramuzza & Fraundorfer (2011).
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

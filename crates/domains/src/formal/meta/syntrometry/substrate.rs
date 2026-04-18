@@ -7,6 +7,9 @@
 //! structure — so the kinded Syntrometry source can map into it without
 //! the kind-alignment problems documented in the #98 research note.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

@@ -2,6 +2,8 @@ use super::category::Category;
 use super::functor::Functor;
 use super::kinds::AdjunctionKind;
 use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, RelationshipMeta};
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 // Adjunction — a pair of functors that are "optimally inverse."
 //
@@ -82,7 +84,7 @@ pub trait Adjunction {
     /// `pr4xis::adjunction!` or the
     /// [`relationship_meta!`](crate::relationship_meta!) helper.
     fn meta() -> RelationshipMeta {
-        let tn = std::any::type_name::<Self>().to_string();
+        let tn = core::any::type_name::<Self>().to_string();
         RelationshipMeta {
             name: OntologyName::new(tn.clone()),
             description: Label::new(tn),

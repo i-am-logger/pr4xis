@@ -1,6 +1,9 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::formal::math::geometry::angle::Angle;
 use crate::formal::math::geometry::point::Point3;
-use std::f64::consts::PI;
+use core::f64::consts::PI;
 
 /// Triangle defined by three vertices.
 ///

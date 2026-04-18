@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::formal::math::rotation::ontology::RotationCategory;
 use crate::formal::math::rotation::quaternion::Quaternion;
 use pr4xis::ontology::{Axiom, Ontology};
@@ -139,7 +142,7 @@ mod tests {
 
 /// Canonical poses for axiom verification.
 fn canonical_poses() -> Vec<Pose> {
-    use std::f64::consts::{FRAC_PI_2, FRAC_PI_4};
+    use core::f64::consts::{FRAC_PI_2, FRAC_PI_4};
     vec![
         Pose::identity(),
         Pose::from_translation([1.0, 0.0, 0.0]),

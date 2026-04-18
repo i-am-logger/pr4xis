@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn mapping_is_total() {
         assert_eq!(SystemConcept::variants().len(), 10);
-        let mapped: std::collections::HashSet<SchemaConcept> = SystemConcept::variants()
+        let mapped: hashbrown::HashSet<SchemaConcept> = SystemConcept::variants()
             .into_iter()
             .map(|c| SystemsToSchema::map_object(&c))
             .collect();

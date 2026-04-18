@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 // Manual ontology registrations — for ontologies with hand-written
 // Category/Entity impls that don't go through define_ontology! / ontology!
 // macros and so don't auto-register.
@@ -49,6 +52,7 @@ register_manual!(
     being: Quality,
 );
 
+#[cfg(feature = "std")]
 register_manual!(
     ident: JUDICIAL,
     category: crate::social::judicial::ontology::CaseLifecycleCategory,

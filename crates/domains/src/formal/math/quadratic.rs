@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Quadratic equation as an ontology:
 /// - Situation: coefficients (a, b, c) and derived roots
 /// - Axioms: roots satisfy equation, Vieta's formulas, discriminant consistency

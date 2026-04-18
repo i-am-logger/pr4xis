@@ -18,9 +18,12 @@
 //! - Kent 2024 (Galois connections) -- abstraction-refinement factorization
 //! - KGC field -- related but uses embeddings, not adjunctions
 
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::hash::Hash;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
+use core::fmt::Debug;
+use core::hash::Hash;
+use hashbrown::HashMap;
 
 use pr4xis::category::{Concept, Functor};
 
@@ -105,7 +108,7 @@ where
         .collect();
 
     // Sort by fan-in descending for consistent output.
-    points.sort_by_key(|p| std::cmp::Reverse(p.fan_in));
+    points.sort_by_key(|p| core::cmp::Reverse(p.fan_in));
     points
 }
 

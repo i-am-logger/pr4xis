@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::ontology::*;
 use crate::social::software::markup::xml::ontology::XmlNode;
 use crate::social::software::markup::xml::reader as xml_reader;
@@ -190,8 +193,8 @@ pub enum LmfReadError {
     Structure(String),
 }
 
-impl std::fmt::Display for LmfReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for LmfReadError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Self::Xml(e) => write!(f, "XML error: {e}"),
             Self::Structure(e) => write!(f, "LMF structure error: {e}"),
@@ -199,4 +202,5 @@ impl std::fmt::Display for LmfReadError {
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for LmfReadError {}

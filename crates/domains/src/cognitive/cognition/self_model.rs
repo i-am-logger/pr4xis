@@ -1,4 +1,7 @@
 //! Self-Model — the system's formal model of itself.
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 //
 // "I am the observed relation between myself and observing myself."
 // — Heinz von Foerster

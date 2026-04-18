@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::applied::localization::terrain::ontology::TerrainFeature;
 
 /// A Digital Elevation Model (DEM) tile.

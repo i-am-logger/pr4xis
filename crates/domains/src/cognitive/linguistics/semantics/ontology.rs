@@ -19,6 +19,9 @@
 //!   Linguistic Analysis 36 — DisCoCat combines Montague's compositional
 //!   structure with distributional word vectors.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

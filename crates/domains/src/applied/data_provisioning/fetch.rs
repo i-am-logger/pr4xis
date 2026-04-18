@@ -24,6 +24,9 @@
 //! verified, and verification failure is reported as `VerificationFailed`
 //! (not `MissingAndOffline`, which is reserved for actually-absent files).
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::ontology::RegistryEntry;
 use super::registry::{DATA_SOURCES, resolve_identity};
 use crate::formal::meta::artifact_identity::ontology::{

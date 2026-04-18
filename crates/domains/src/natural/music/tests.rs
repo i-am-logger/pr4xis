@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::*;
 use proptest::prelude::*;
 
@@ -188,7 +191,7 @@ proptest! {
 
     #[test]
     fn prop_major_7_pitch_classes(root in arb_midi_note()) {
-        let pcs: std::collections::HashSet<u8> = Scale::new(root, ScaleKind::Major)
+        let pcs: hashbrown::HashSet<u8> = Scale::new(root, ScaleKind::Major)
             .notes().iter().take(7).map(|n| n.pitch_class()).collect();
         prop_assert_eq!(pcs.len(), 7);
     }

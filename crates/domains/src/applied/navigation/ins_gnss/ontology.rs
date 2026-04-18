@@ -6,6 +6,9 @@
 //!
 //! Source: Groves (2013) Chapters 14-17, Titterton & Weston (2004) Chapter 13.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

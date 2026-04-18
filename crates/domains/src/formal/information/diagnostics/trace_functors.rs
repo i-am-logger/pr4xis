@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::ontology::DiagnosticConcept;
 use crate::formal::information::provenance::ontology::ProvenanceConcept;
 use crate::formal::systems::mape_k::ontology::MapeKConcept;

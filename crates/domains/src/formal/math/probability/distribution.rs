@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// A probability distribution over a discrete finite sample space.
 ///
 /// Kolmogorov's axioms (Grundbegriffe, 1933):

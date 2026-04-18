@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::piece::PieceKind;
 use pr4xis::ontology::Quality;
 
@@ -25,7 +28,7 @@ impl Quality for RotationCount {
 
     fn get(&self, kind: &PieceKind) -> Option<usize> {
         let p = super::piece::Piece::new(*kind);
-        let mut distinct = std::collections::HashSet::new();
+        let mut distinct = hashbrown::HashSet::new();
         let mut current = p.clone();
         for _ in 0..4 {
             let cells = current.cells();

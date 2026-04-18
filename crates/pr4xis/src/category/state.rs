@@ -1,4 +1,6 @@
-use std::fmt::Debug;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
 
 // State monad — computation that reads and modifies state.
 //
@@ -97,7 +99,7 @@ impl<S: 'static, A: 'static> State<S, A> {
 }
 
 impl<S, A: Debug> Debug for State<S, A> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "State<_, _>")
     }
 }

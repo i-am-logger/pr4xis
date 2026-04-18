@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Hypothesis testing framework.
 ///
 /// Neyman, J. & Pearson, E.S. (1933). "On the Problem of the Most Efficient Tests."
@@ -47,7 +50,7 @@ pub fn two_sided_p_value(z: f64) -> f64 {
     // Standard normal CDF approximation using erfc
     // P(Z > |z|) = erfc(|z|/√2) / 2
     // Two-sided p = 2 * P(Z > |z|) = erfc(|z|/√2)
-    erfc(z.abs() / std::f64::consts::SQRT_2)
+    erfc(z.abs() / core::f64::consts::SQRT_2)
 }
 
 /// Complementary error function approximation (Abramowitz & Stegun 7.1.26).

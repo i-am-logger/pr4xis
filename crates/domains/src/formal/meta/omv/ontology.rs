@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 // OMV/MOD — Ontology Metadata Vocabulary.
 //
 // Describes ontologies as first-class objects: their formality level,

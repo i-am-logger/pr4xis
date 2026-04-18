@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Visualization ontology — formal model of visual encoding and perception.
 ///
 /// Formalizes the foundational visualization literature as ontological structures

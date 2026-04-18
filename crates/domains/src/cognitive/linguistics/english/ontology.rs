@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
+use hashbrown::HashMap;
 
 use crate::cognitive::linguistics::lambek::pregroup::PregroupType;
 use crate::cognitive::linguistics::lexicon::pos::*;
@@ -323,8 +326,8 @@ impl English {
             return true;
         }
         // BFS up the taxonomy
-        let mut visited = std::collections::HashSet::new();
-        let mut queue = std::collections::VecDeque::new();
+        let mut visited = hashbrown::HashSet::new();
+        let mut queue = alloc::collections::VecDeque::new();
         for &parent in self.parents(child) {
             if visited.insert(parent) {
                 queue.push_back(parent);
@@ -430,7 +433,7 @@ impl crate::cognitive::linguistics::language::Language for English {
         if let Some(entries) = self.function_words.get(word) {
             results.extend(entries.iter().cloned());
         }
-        let mut seen_pos = std::collections::HashSet::new();
+        let mut seen_pos = hashbrown::HashSet::new();
         for &cid in self.lookup(word) {
             if let Some(concept) = self.concept(cid)
                 && seen_pos.insert(concept.pos)

@@ -1,4 +1,6 @@
-use std::fmt::Debug;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
 
 // Semigroup — a set with an associative binary operation (no identity required).
 //
@@ -58,7 +60,7 @@ impl<T: Clone + Debug> NonEmpty<T> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &T> {
-        std::iter::once(&self.head).chain(self.tail.iter())
+        core::iter::once(&self.head).chain(self.tail.iter())
     }
 
     pub fn push(&mut self, item: T) {

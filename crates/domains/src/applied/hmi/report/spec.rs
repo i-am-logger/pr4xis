@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Report specification — data-driven visualization via ontology.
 ///
 /// The default report is deterministic: each data field's DataLevel

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::argument::{Argument, CheckItem};
 use super::entity::Concept;
 use chrono::NaiveDate;

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 // Adjunction: KnowledgeToLemon ⊣ LemonToKnowledge
 //
 // Left adjoint F = KnowledgeToLemon: maps knowledge structure to linguistic structure.

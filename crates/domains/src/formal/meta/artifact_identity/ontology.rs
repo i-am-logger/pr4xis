@@ -15,6 +15,9 @@
 //! entity enum, the define_ontology! invocation (with taxonomy), and the
 //! universal + family-level domain axioms.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::taxonomy;

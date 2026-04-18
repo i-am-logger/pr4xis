@@ -81,7 +81,7 @@ fn kinetic_energy_dimension() {
 fn degree_radian_conversion() {
     let deg_val = 180.0;
     let rad_val = unit::DEGREE.convert(deg_val, &unit::RADIAN).unwrap();
-    assert!((rad_val - std::f64::consts::PI).abs() < 1e-10);
+    assert!((rad_val - core::f64::consts::PI).abs() < 1e-10);
 }
 
 #[cfg(test)]

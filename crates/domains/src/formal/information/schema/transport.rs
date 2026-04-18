@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 // Schema-governed transport — Spivak's Presentation/Algebra adjunction.
 //
 // Data crosses boundaries (WASM→JS, Rust→CLI, ontology→surface) as
@@ -13,7 +16,7 @@
 // Source: Spivak "Functorial Data Migration" (2012);
 //         Wisnesky et al. "Algebraic Databases" (2017)
 
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
 
 /// A value in a Presentation — the atomic data unit.
 ///

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::cube::Cube;
 use super::face::{Color, Face};
 use pr4xis::define_ontology;

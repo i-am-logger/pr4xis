@@ -16,6 +16,9 @@
 //! - Miller, G. A. et al. (1990). *Introduction to WordNet: An On-line
 //!   Lexical Database*. International Journal of Lexicography 3(4).
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

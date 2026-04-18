@@ -11,6 +11,9 @@
 //! parsing; we delegate to the ontology-grounded parser that the rest of the
 //! workspace already depends on.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::super::ontology::{ClaimData, IdentityClaim, VerificationResult};
 use crate::social::software::markup::xml::reader as xml_reader;
 
@@ -35,7 +38,7 @@ pub fn verify(claim: &IdentityClaim, bytes: &[u8]) -> VerificationResult {
     };
 
     // Decode bytes as UTF-8 text so the existing xml_reader can parse it.
-    let text = match std::str::from_utf8(bytes) {
+    let text = match core::str::from_utf8(bytes) {
         Ok(t) => t,
         Err(_) => {
             return VerificationResult::Unverifiable {

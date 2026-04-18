@@ -9,6 +9,9 @@
 //! layer composes cleanly with the existing XML/LMF/English pipeline and
 //! with the `artifact_identity` meta ontology.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::decoders::{has_decoder_for, xml_lmf};
 use super::ontology::{
     ContentType, DataProvisioningCategory, DataProvisioningOntology, DecoderTotalityPerContentType,

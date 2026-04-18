@@ -11,6 +11,9 @@
 //! - Fernandez & Goldberg 1971: vestibular afferent physiology
 //! - Hudspeth & Corey 1977: hair cell transduction in bullfrog sacculus
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;

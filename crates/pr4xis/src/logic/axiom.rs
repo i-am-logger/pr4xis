@@ -1,4 +1,6 @@
 use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, RelationshipMeta};
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// Helper: write the `meta()` method for a hand-written `impl Axiom`
 /// with a literature citation in one line. Ensures every axiom announces
@@ -66,7 +68,7 @@ pub trait Axiom {
 
     /// Structured metadata — name, citation, module path.
     ///
-    /// The default is an **honest placeholder** using `std::any::type_name`
+    /// The default is an **honest placeholder** using `core::any::type_name`
     /// and an empty citation — "this axiom hasn't declared its literature
     /// citation yet"; consumers can detect and flag via `citation.is_empty()`.
     ///
@@ -74,7 +76,7 @@ pub trait Axiom {
     /// [`axiom_meta!`](crate::axiom_meta!) helper inline override the
     /// default with the actual literature reference.
     fn meta(&self) -> RelationshipMeta {
-        let tn = std::any::type_name::<Self>().to_string();
+        let tn = core::any::type_name::<Self>().to_string();
         RelationshipMeta {
             name: OntologyName::new(tn.clone()),
             description: Label::new(self.description().to_string()),

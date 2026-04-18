@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Energy conservation as an ontology:
 /// - Situation: a system with mass, velocity, height
 /// - Axiom: total mechanical energy (KE + PE) is conserved

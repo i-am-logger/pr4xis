@@ -1,4 +1,6 @@
-use std::fmt::Debug;
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use core::fmt::Debug;
 
 // Reader monad — computation that depends on an environment.
 //
@@ -88,7 +90,7 @@ impl<E: 'static, A: 'static> Reader<E, A> {
 }
 
 impl<E, A: Debug> Debug for Reader<E, A> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Reader<_, _>")
     }
 }

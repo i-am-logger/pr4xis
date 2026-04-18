@@ -11,6 +11,9 @@
 //! `pr4xis::ontology!` (e.g. `Subsumption`) match concept names here by
 //! convention — the Relations ontology is the authoritative catalog.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pub mod dialectics_functor;
 pub mod ontology;
 

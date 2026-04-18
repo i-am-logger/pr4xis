@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::ontology::*;
 use crate::social::software::markup::xml::ontology::{XmlElement, XmlNode};
 use crate::social::software::markup::xml::reader as xml_reader;
@@ -249,17 +252,18 @@ fn read_individual(elem: &XmlElement, ont: &mut OwlOntology, base_ns: &str) {
 #[derive(Debug)]
 pub struct OwlReadError(pub String);
 
-impl std::fmt::Display for OwlReadError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for OwlReadError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "OWL read error: {}", self.0)
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for OwlReadError {}
 
 /// Merge duplicate class IRIs — OWL files reopen classes to add properties.
 fn deduplicate_classes(ont: &mut OwlOntology) {
-    use std::collections::HashMap;
+    use hashbrown::HashMap;
     let mut by_iri: HashMap<String, OwlClass> = HashMap::new();
 
     for class in ont.classes.drain(..) {

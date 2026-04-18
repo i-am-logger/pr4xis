@@ -32,6 +32,9 @@
 //! Source: Leśniewski (1916); Leonard & Goodman (1940); Simons (1987);
 //! Casati & Varzi (1999); Varzi (2007, 2019).
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

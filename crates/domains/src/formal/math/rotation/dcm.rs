@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::formal::math::rotation::quaternion::Quaternion;
 
 /// 3x3 Direction Cosine Matrix — element of SO(3).

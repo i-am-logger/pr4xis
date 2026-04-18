@@ -1,6 +1,9 @@
 //! Tests for the staging ontology — category laws, taxonomy, causation,
 //! domain axioms, and property-based tests over the staging level quality.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::ontology::{
     EachProjectionRaisesStagingByOne, EveryProgramKindIsAProgram, FutamuraCausalGraph,
     FutamuraChainIsComplete, FutamuraStep, StageConcept, StagingCategory, StagingLevel,

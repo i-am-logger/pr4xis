@@ -17,6 +17,9 @@
 //!   Modal Logic*. Routledge.
 //! - van Benthem, J. (2010). *Modal Logic for Open Minds*. CSLI.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {

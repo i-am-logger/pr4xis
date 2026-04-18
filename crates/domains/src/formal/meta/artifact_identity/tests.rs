@@ -2,6 +2,9 @@
 //! axioms, real extractor implementations, and property-based tests over
 //! the deterministic and fail-closed axioms.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use super::ontology::{
     ArtifactIdentityCategory, ArtifactIdentityOntology, ClaimData, ContentHashIsInjective,
     ContentHashIsOffline, EverySchemeHasAnExtractor, IdentityClaim, IdentityConcept,

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Report generation — transforms validation results into structured output.
 ///
 /// Inspired by:
@@ -49,7 +52,7 @@ impl Default for ThemePalette {
 
 impl ThemePalette {
     /// Build from raw hex color map (base16 keys → hex values).
-    pub fn from_colors(colors: &std::collections::HashMap<String, String>) -> Self {
+    pub fn from_colors(colors: &hashbrown::HashMap<String, String>) -> Self {
         let get = |key: &str, fallback: &str| -> String {
             colors
                 .get(key)

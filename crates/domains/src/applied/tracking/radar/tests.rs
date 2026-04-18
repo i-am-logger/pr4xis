@@ -88,7 +88,7 @@ mod proptest_proofs {
         #[test]
         fn polar_cartesian_roundtrip_random(
             r in 0.1..1000.0_f64,
-            az in -std::f64::consts::PI..std::f64::consts::PI,
+            az in -core::f64::consts::PI..core::f64::consts::PI,
         ) {
             let (x, y) = polar_to_cartesian_2d(r, az);
             let (r2, az2) = cartesian_to_polar_2d(x, y);
@@ -101,7 +101,7 @@ mod proptest_proofs {
         #[test]
         fn spherical_cartesian_roundtrip_random(
             r in 0.1..1000.0_f64,
-            az in -std::f64::consts::PI..std::f64::consts::PI,
+            az in -core::f64::consts::PI..core::f64::consts::PI,
             el in -1.0..1.0_f64, // avoid poles
         ) {
             let (x, y, z) = spherical_to_cartesian(r, az, el);

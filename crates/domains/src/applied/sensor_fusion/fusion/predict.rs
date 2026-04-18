@@ -20,6 +20,9 @@
 //! Source: Kalman (1960), "A New Approach to Linear Filtering and Prediction Problems."
 //!         Maybeck (1979), *Stochastic Models, Estimation, and Control*, Vol. 1, Ch. 5.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pub use crate::applied::sensor_fusion::fusion::engine::FusionAction;
 
 use crate::formal::math::linear_algebra::matrix::Matrix;

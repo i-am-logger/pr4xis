@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// State of a single traffic signal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SignalState {

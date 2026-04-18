@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Extrinsic calibration parameters for LiDAR-camera fusion.
 ///
 /// Represents the rigid body transformation from LiDAR frame to camera frame.

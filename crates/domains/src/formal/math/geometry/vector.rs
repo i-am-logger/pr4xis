@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Geometric vector in 2D Euclidean space.
 ///
 /// Satisfies vector space axioms (associativity, commutativity,

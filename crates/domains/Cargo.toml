@@ -9,12 +9,13 @@ repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
 
 [dependencies]
-pr4xis = { version = "0.12.0", path = "../pr4xis" }
+pr4xis = { version = "0.12.0", path = "../pr4xis", default-features = false }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.10"
 hex = "0.4"
 anyhow = "1"
+hashbrown = "0.15"
 
 # Network + compression — optional, behind the "fetch" feature. Excluded from
 # the default feature set because `ureq` transitively pulls in `ring` via
@@ -25,8 +26,13 @@ ureq = { version = "2", default-features = false, features = ["tls"], optional =
 flate2 = { version = "1", optional = true }
 
 [features]
-default = []
-fetch = ["dep:ureq", "dep:flate2"]
+default = ["std"]
+# `std` enables I/O-dependent modules (hmi/report generator, hmi/explorer
+# HTML writer, data_provisioning fetch, cognitive/linguistics WordNet XML
+# loader). The categorical stack (ontologies + functors + axioms) runs
+# no_std + alloc; per issue #91, only these 4 I/O surfaces need std.
+std = ["pr4xis/std"]
+fetch = ["std", "dep:ureq", "dep:flate2"]
 
 [lints]
 workspace = true

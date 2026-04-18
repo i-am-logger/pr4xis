@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use crate::applied::hmi::theming::base16::ColorSlot;
 use crate::applied::hmi::theming::ontology::{
     LuminanceMonotonicity, Palette, WcagForegroundContrast,

@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Quaternion attitude kinematics.
 ///
 /// Source: Wertz (1978), Chapter 16; Markley & Crassidis (2014),

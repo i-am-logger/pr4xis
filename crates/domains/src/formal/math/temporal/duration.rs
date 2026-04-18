@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// A temporal duration — the measure of elapsed time.
 ///
 /// Duration forms a metric on the space of instants:

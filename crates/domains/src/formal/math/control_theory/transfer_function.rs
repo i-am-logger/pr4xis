@@ -1,3 +1,6 @@
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 /// Transfer functions: G(s) = Y(s) / U(s).
 ///
 /// Ogata (2010). *Modern Control Engineering* (5th ed.).

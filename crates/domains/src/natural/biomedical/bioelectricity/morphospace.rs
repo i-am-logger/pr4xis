@@ -13,6 +13,9 @@
 //! - Fields & Levin 2022: Competency in Navigating Arbitrary Spaces
 //! - Chernet & Levin 2013: Vmem manipulation suppresses tumors
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 use pr4xis::category::Concept;
 use pr4xis::define_ontology;
 use pr4xis::ontology::reasoning::causation;

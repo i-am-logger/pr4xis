@@ -14,6 +14,9 @@
 //! Open World Assumption:
 //!   Failure to find ≠ falsity. "I don't know" is a valid epistemic state.
 
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
 pr4xis::ontology! {
     name: "Epistemic",
     source: "von Foerster (1981)",
