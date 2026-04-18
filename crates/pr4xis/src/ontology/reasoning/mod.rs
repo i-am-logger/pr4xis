@@ -6,6 +6,7 @@ pub mod equivalence;
 pub(crate) mod graph;
 pub mod mereology;
 pub mod opposition;
+pub mod structural;
 pub mod taxonomy;
 
 pub use analogy::Analogy;
@@ -15,6 +16,9 @@ pub use context::ContextDef;
 pub use equivalence::{EquivalenceCategory, EquivalenceDef, Equivalent};
 pub use mereology::{HasA, MereologyCategory, MereologyDef};
 pub use opposition::OppositionDef;
+pub use structural::{
+    AntisymmetricOnKind, AsymmetricOnKind, IrreflexiveOnKind, NoCyclesOnKind, SymmetricOnKind,
+};
 pub use taxonomy::{IsA, TaxonomyCategory, TaxonomyDef};
 
 #[cfg(test)]
