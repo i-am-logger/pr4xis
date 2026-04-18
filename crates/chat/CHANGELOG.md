@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.6.3...pr4xis-chat-v0.7.0) (2026-04-18)
+
+
+### Features
+
+* **#117:** MAPE-K ontology — chat pipeline's literature-grounded home ([#146](https://github.com/i-am-logger/pr4xis/issues/146)) ([de14e42](https://github.com/i-am-logger/pr4xis/commit/de14e42b83ef2539b9cab39a073bce145657be5e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis-domains bumped from 0.15.0 to 0.16.0
+
 ## [0.6.3](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.6.2...pr4xis-chat-v0.6.3) (2026-04-17)
 
 

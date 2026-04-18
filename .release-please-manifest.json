@@ -1,7 +1,7 @@
 {
   "crates/pr4xis": "0.11.0",
-  "crates/domains": "0.15.0",
-  "crates/cli": "0.5.5",
-  "crates/examples": "0.4.7",
-  "crates/chat": "0.6.3"
+  "crates/domains": "0.16.0",
+  "crates/cli": "0.5.6",
+  "crates/examples": "0.4.8",
+  "crates/chat": "0.7.0"
 }

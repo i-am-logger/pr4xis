@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.15.0...pr4xis-domains-v0.16.0) (2026-04-18)
+
+
+### Features
+
+* **#117:** MAPE-K ontology — chat pipeline's literature-grounded home ([#146](https://github.com/i-am-logger/pr4xis/issues/146)) ([de14e42](https://github.com/i-am-logger/pr4xis/commit/de14e42b83ef2539b9cab39a073bce145657be5e))
+
 ## [0.15.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.14.0...pr4xis-domains-v0.15.0) (2026-04-17)
 
 
