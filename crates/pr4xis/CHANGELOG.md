@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.12.0...pr4xis-v0.13.0) (2026-04-18)
+
+
+### Features
+
+* **#91:** pr4xis core + domains run no_std + alloc ([#157](https://github.com/i-am-logger/pr4xis/issues/157)) ([a62d317](https://github.com/i-am-logger/pr4xis/commit/a62d31770255fc8ca77d747280debd36674529f0))
+
 ## [0.12.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.11.0...pr4xis-v0.12.0) (2026-04-18)
 
 
