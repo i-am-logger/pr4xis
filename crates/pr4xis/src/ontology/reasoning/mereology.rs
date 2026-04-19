@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 
 use crate::category::Category;
 use crate::category::entity::Concept;
-use crate::category::relationship::Relationship;
+use crate::category::arrow::Arrow;
 
 use super::graph;
 
@@ -25,7 +25,7 @@ pub struct HasA<E: Concept> {
     pub part: E,
 }
 
-impl<E: Concept> Relationship for HasA<E> {
+impl<E: Concept> Arrow for HasA<E> {
     type Object = E;
     type Kind = ();
     fn source(&self) -> E {
@@ -98,89 +98,9 @@ pub fn whole_of<T: MereologyDef>(part: &T::Concept) -> Vec<T::Concept> {
     graph::reachable(part, &adj)
 }
 
-// ---- Axioms ----
-
-/// Axiom: the mereology has no cycles (it is a DAG).
-pub struct NoCycles<T: MereologyDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: MereologyDef> NoCycles<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: MereologyDef> Default for NoCycles<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: MereologyDef> crate::logic::Axiom for NoCycles<T> {
-    fn description(&self) -> &str {
-        "mereology has no cycles (part-whole is a DAG)"
-    }
-
-    fn holds(&self) -> bool {
-        let adj = graph::adjacency_map(&T::relations());
-        T::Concept::variants()
-            .iter()
-            .all(|entity| !graph::has_cycle(entity, &adj))
-    }
-
-    crate::axiom_meta!(
-        "NoCycles[Mereology]",
-        "mereology has no cycles (part-whole is a DAG)",
-        "Casati & Varzi (1999) 'Parts and Places' — Classical Extensional Mereology"
-    );
-}
-
-/// Axiom: weak supplementation — if A has-a B (and A != B),
-/// then A has at least one other direct part C != B.
-pub struct WeakSupplementation<T: MereologyDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: MereologyDef> WeakSupplementation<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: MereologyDef> Default for WeakSupplementation<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: MereologyDef> crate::logic::Axiom for WeakSupplementation<T> {
-    fn description(&self) -> &str {
-        "weak supplementation: every proper whole has at least two direct parts"
-    }
-
-    fn holds(&self) -> bool {
-        let direct = T::relations();
-        let adj = graph::adjacency_map(
-            &direct
-                .iter()
-                .filter(|(w, p)| w != p)
-                .cloned()
-                .collect::<Vec<_>>(),
-        );
-        adj.values().all(|parts| parts.len() >= 2)
-    }
-
-    crate::axiom_meta!(
-        "WeakSupplementation[Mereology]",
-        "weak supplementation: every proper whole has at least two direct parts",
-        "Simons (1987) 'Parts: A Study in Ontology'; Casati & Varzi (1999)"
-    );
-}
+// Structural axioms (NoCycles, WeakSupplementation) moved to the
+// catalog via `structural_axioms_for<C>()` + OnKind axioms in
+// `reasoning::structural`. Per-def axiom types removed (#169).
 
 // ---- Algebraic structure integrations ----
 

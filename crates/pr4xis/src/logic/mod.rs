@@ -1,10 +1,13 @@
 pub mod axiom;
 pub mod composition;
 pub mod inference;
+pub mod proof;
+pub mod proof_theory;
 pub mod propositional;
 pub mod truth_table;
 
 pub use axiom::Axiom;
+pub use proof::{CompositeProof, Proof, SimpleProof};
 pub use composition::{
     AllOf, AnyOf, Compare, CompareOp, Evaluation, Implies, Measurable, Not, Proposition, Threshold,
 };

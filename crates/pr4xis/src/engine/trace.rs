@@ -1,83 +1,83 @@
-use super::precondition::PreconditionResult;
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use crate::logic::proof::Verdict;
 
-/// A single entry in the trace log.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TraceEntry {
+use super::action::Action;
+
+/// A single entry in the trace log — typed over the Action (#161).
+///
+/// Fields carry the typed situation and action directly (previously all
+/// `String`); preconditions' check results are typed `Verdict`s
+/// (previously `PreconditionResult` with String fields). No primitive
+/// leaks.
+#[derive(Debug)]
+pub struct TraceEntry<A: Action> {
     pub step: usize,
-    pub situation_before: String,
-    pub action: String,
-    pub precondition_results: Vec<PreconditionResult>,
-    pub situation_after: Option<String>,
-    pub success: bool,
+    pub situation_before: A::Sit,
+    pub action: A,
+    pub precondition_verdicts: Vec<Verdict>,
+    pub situation_after: Option<A::Sit>,
+}
+
+impl<A: Action> TraceEntry<A> {
+    /// Did every precondition pass?
+    pub fn preconditions_all_hold(&self) -> bool {
+        self.precondition_verdicts.iter().all(|v| v.is_ok())
+    }
+
+    /// Did the action actually apply? (Preconditions passed AND apply
+    /// produced a new situation.)
+    pub fn applied(&self) -> bool {
+        self.situation_after.is_some() && self.preconditions_all_hold()
+    }
 }
 
 /// A trace of actions applied to situations — full history for debugging.
-#[derive(Debug, Clone, Default)]
-pub struct Trace {
-    entries: Vec<TraceEntry>,
+///
+/// Typed over the Action (#161) — carries typed situations and actions,
+/// not Strings.
+#[derive(Debug)]
+pub struct Trace<A: Action> {
+    entries: Vec<TraceEntry<A>>,
 }
 
-impl Trace {
-    pub fn new() -> Self {
+impl<A: Action> Default for Trace<A> {
+    fn default() -> Self {
         Self {
             entries: Vec::new(),
         }
     }
+}
+
+impl<A: Action> Trace<A> {
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// All trace entries as a slice.
-    pub fn entries(&self) -> &[TraceEntry] {
+    pub fn entries(&self) -> &[TraceEntry<A>] {
         &self.entries
     }
 
-    pub fn record(&mut self, entry: TraceEntry) {
+    pub fn record(&mut self, entry: TraceEntry<A>) {
         self.entries.push(entry);
     }
 
     /// Number of successful steps.
     pub fn successful_steps(&self) -> usize {
-        self.entries.iter().filter(|e| e.success).count()
+        self.entries.iter().filter(|e| e.applied()).count()
     }
 
     /// Number of failed steps (violations).
     pub fn violations(&self) -> usize {
-        self.entries.iter().filter(|e| !e.success).count()
+        self.entries.iter().filter(|e| !e.applied()).count()
     }
 
     /// All violation entries.
-    pub fn violation_entries(&self) -> Vec<&TraceEntry> {
-        self.entries.iter().filter(|e| !e.success).collect()
+    pub fn violation_entries(&self) -> Vec<&TraceEntry<A>> {
+        self.entries.iter().filter(|e| !e.applied()).collect()
     }
 
     /// Last entry.
-    pub fn last(&self) -> Option<&TraceEntry> {
+    pub fn last(&self) -> Option<&TraceEntry<A>> {
         self.entries.last()
-    }
-
-    /// Human-readable trace dump.
-    pub fn dump(&self) -> String {
-        let mut out = String::new();
-        for entry in &self.entries {
-            let status = if entry.success { "OK" } else { "VIOLATION" };
-            out.push_str(&format!(
-                "[{}] {} | {} → {}\n",
-                status,
-                entry.action,
-                entry.situation_before,
-                entry.situation_after.as_deref().unwrap_or("(blocked)"),
-            ));
-            for result in &entry.precondition_results {
-                match result {
-                    PreconditionResult::Satisfied { rule, reason } => {
-                        out.push_str(&format!("  + {}: {}\n", rule, reason));
-                    }
-                    PreconditionResult::Violated { rule, reason, .. } => {
-                        out.push_str(&format!("  x {}: {}\n", rule, reason));
-                    }
-                }
-            }
-        }
-        out
     }
 }

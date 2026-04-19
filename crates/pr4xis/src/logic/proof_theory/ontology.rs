@@ -1,9 +1,16 @@
 //! Proof theory — Gentzen / Prawitz structural proof vocabulary.
 //!
-//! Proof theory studies proofs as *mathematical objects in their own right*:
-//! syntactic structures with compositional laws, normalisation properties,
-//! and sub-proof relations. This ontology names the canonical vocabulary
-//! from four overlapping traditions:
+//! # Why this ontology lives in core
+//!
+//! This ontology names the canonical concepts (`Proof`, `Counterexample`,
+//! `Axiom`, `Theorem`, `Cut`, `CutElimination`, …) that pr4xis's core
+//! substrate — `logic/axiom.rs`, `logic/proof.rs` — implements as Rust
+//! traits and structs. Core owns the substrate; core also owns the
+//! ontology that names the substrate's concepts. This prevents the
+//! layering circularity of core's traits being "instances of concepts
+//! declared downstream in domains".
+//!
+//! Four overlapping traditions supply the vocabulary:
 //!
 //! 1. **Gentzen (1935)** — sequent calculus + natural deduction as two
 //!    presentations of the same proof theory. Introduced the cut rule and
@@ -14,15 +21,13 @@
 //!    (Cambridge 2nd ed.) — the modern textbook vocabulary.
 //! 4. **Girard, Lafont & Taylor (1989)** *Proofs and Types* — Curry-Howard
 //!    with full proof-theoretic development.
-//!
-//! The atemporal view of [`formal::logic::derivation::Derivation`].
 
-use pr4xis::ontology::{Axiom, Ontology, Quality};
+use crate as pr4xis;
+use crate::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "ProofTheory",
     source: "Gentzen (1935) Untersuchungen über das logische Schließen; Prawitz (1965) Natural Deduction; Troelstra & Schwichtenberg (2000) Basic Proof Theory; Girard-Lafont-Taylor (1989) Proofs and Types",
-    being: AbstractObject,
 
     concepts: [
         // === Core sequent calculus (Gentzen 1935) ===
@@ -47,7 +52,7 @@ pr4xis::ontology! {
         Assumption,
         Discharge,
 
-        // === Structural rules (Gentzen, §5) ===
+        // === Structural rules (Gentzen §5) ===
         Weakening,
         Contraction,
         Exchange,
@@ -78,13 +83,13 @@ pr4xis::ontology! {
             "The right-hand side of a sequent — the disjunction of conclusions being claimed (Δ in Γ ⊢ Δ)."),
 
         Proof: ("en", "Proof",
-            "A derivation whose witnesses establish logical validity. The atemporal view of a derivation. Lambek (1968): a morphism in the deductive category. Maps to formal::logic::derivation::Derivation via the specialisation-functor."),
+            "A derivation whose witnesses establish logical validity. Per Martin-Löf (1984), a proof IS a term inhabiting its claim-type. The Rust trait `pr4xis::logic::proof::Proof` is the substrate instance."),
         ProofTree: ("en", "Proof tree",
             "Gentzen: the tree-shaped presentation of a proof — axioms at the leaves, inference steps at internal nodes, the proved formula at the root."),
         SubProof: ("en", "Sub-proof",
             "A proof occurring as a premise within a larger proof — the immediate derivations of the premises of an inference step."),
         Axiom: ("en", "Axiom",
-            "A statement posited without proof — a leaf of every proof tree that uses it. Distinct from a theorem (which IS proved). Aristotle, Posterior Analytics: the ἀξιώματα / indemonstrables."),
+            "A statement posited without proof — a leaf of every proof tree that uses it. Distinct from a theorem (which IS proved). The Rust trait `pr4xis::logic::axiom::Axiom` is the substrate instance. Aristotle Posterior Analytics: the ἀξιώματα / indemonstrables."),
         Theorem: ("en", "Theorem",
             "A statement for which a proof has been constructed. Every theorem's proof is a Proof-object; theorems and their proofs compose."),
         Lemma: ("en", "Lemma",
@@ -92,7 +97,7 @@ pr4xis::ontology! {
         Conjecture: ("en", "Conjecture",
             "A proposition believed but not yet proved nor refuted. Pending status in the proof-theoretic vocabulary."),
         Counterexample: ("en", "Counterexample",
-            "Evidence that refutes a conjecture — a specific case where the proposition fails. In classical logic, equivalent to a proof of the proposition's negation."),
+            "Evidence that refutes a conjecture — a specific case where the proposition fails. Per Curry & Feys (1958), a term of type P → ⊥. The Rust trait `pr4xis::logic::proof::Counterexample` is the substrate instance."),
 
         Hypothesis: ("en", "Hypothesis",
             "An assumption temporarily introduced within a sub-proof, to be discharged by an inference rule (e.g. implication-introduction). Prawitz (1965) §I.2."),
@@ -167,13 +172,18 @@ pr4xis::ontology! {
 
     opposes: [
         // Conjecture vs its counterexample — the proof-theoretic refutation duality.
+        // Both directions declared explicitly for SymmetricOnKind[Opposition]
+        // until the derive macro auto-mirrors `opposes:` edges.
         (Conjecture, Counterexample),
+        (Counterexample, Conjecture),
 
         // Theorem vs Axiom — proved vs posited.
         (Theorem, Axiom),
+        (Axiom, Theorem),
 
         // Cut vs CutElimination — the rule vs its removal.
         (Cut, CutElimination),
+        (CutElimination, Cut),
     ],
 }
 
@@ -222,45 +232,32 @@ impl Ontology for ProofTheoryOntology {
     type Cat = ProofTheoryCategory;
     type Qual = ProofTheoryTradition;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        ProofTheoryOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        ProofTheoryOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        crate::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use crate::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<ProofTheoryCategory>().unwrap();
+        assert_category_laws::<ProofTheoryCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ProofTheoryOntology::validate().unwrap();
-    }
-
-    #[test]
-    fn theorems_are_proofs() {
-        use pr4xis::ontology::reasoning::taxonomy;
-        assert!(taxonomy::is_a::<ProofTheoryTaxonomy>(
-            &ProofTheoryConcept::Theorem,
-            &ProofTheoryConcept::Proof,
-        ));
-    }
-
-    #[test]
-    fn lemma_is_a_theorem() {
-        use pr4xis::ontology::reasoning::taxonomy;
-        assert!(taxonomy::is_a::<ProofTheoryTaxonomy>(
-            &ProofTheoryConcept::Lemma,
-            &ProofTheoryConcept::Theorem,
-        ));
+        for law in crate::category::laws::category_law_axioms::<ProofTheoryCategory>() {
+            if let Err(c) = law.verify() {
+                panic!("category law failed: {}", c.meta().name.as_str());
+            }
+        }
+        for axiom in ProofTheoryOntology::axioms() {
+            if let Err(c) = axiom.verify() {
+                panic!("axiom failed: {}", c.meta().name.as_str());
+            }
+        }
     }
 }

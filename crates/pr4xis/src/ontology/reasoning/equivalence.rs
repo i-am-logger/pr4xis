@@ -5,7 +5,7 @@ use hashbrown::{HashMap, HashSet};
 
 use crate::category::Category;
 use crate::category::entity::Concept;
-use crate::category::relationship::Relationship;
+use crate::category::arrow::Arrow;
 
 use super::graph;
 
@@ -29,7 +29,7 @@ pub struct Equivalent<E: Concept> {
     pub right: E,
 }
 
-impl<E: Concept> Relationship for Equivalent<E> {
+impl<E: Concept> Arrow for Equivalent<E> {
     type Object = E;
     type Kind = ();
     fn source(&self) -> E {
@@ -152,86 +152,6 @@ pub fn are_equivalent<T: EquivalenceDef>(a: &T::Concept, b: &T::Concept) -> bool
     equivalent_to::<T>(a).contains(b)
 }
 
-// ---- Axioms ----
-
-/// Axiom: all declared pairs are symmetric (if (A,B) declared, (B,A) is implied).
-/// This is automatically enforced by the symmetric adjacency map,
-/// but this axiom validates the semantic intent.
-pub struct Symmetric<T: EquivalenceDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: EquivalenceDef> Symmetric<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: EquivalenceDef> Default for Symmetric<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: EquivalenceDef> crate::logic::Axiom for Symmetric<T> {
-    fn description(&self) -> &str {
-        "equivalence is symmetric: if A ≡ B then B ≡ A"
-    }
-
-    fn holds(&self) -> bool {
-        // Always true by construction (symmetric_adj), but we verify
-        // that the transitive closure is also symmetric
-        for entity in T::Concept::variants() {
-            for equiv in equivalent_to::<T>(&entity) {
-                if !are_equivalent::<T>(&equiv, &entity) {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-
-    crate::axiom_meta!(
-        "Symmetric[Equivalence]",
-        "equivalence is symmetric: if A ≡ B then B ≡ A",
-        "Standard equivalence-relation axioms (reflexive, symmetric, transitive); Mac Lane (1971) Ch. I"
-    );
-}
-
-/// Axiom: no entity is equivalent to itself in the declared pairs.
-/// (Reflexivity comes from identity morphisms, not from explicit declarations.)
-pub struct NoSelfEquivalence<T: EquivalenceDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: EquivalenceDef> NoSelfEquivalence<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: EquivalenceDef> Default for NoSelfEquivalence<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: EquivalenceDef> crate::logic::Axiom for NoSelfEquivalence<T> {
-    fn description(&self) -> &str {
-        "no entity is declared equivalent to itself (reflexivity is implicit)"
-    }
-
-    fn holds(&self) -> bool {
-        T::pairs().iter().all(|(a, b)| a != b)
-    }
-
-    crate::axiom_meta!(
-        "NoSelfEquivalence[Equivalence]",
-        "no entity is declared equivalent to itself (reflexivity is implicit via identity morphisms)",
-        "Mac Lane (1971) — explicit self-pairs are redundant given identity morphisms"
-    );
-}
+// Structural axioms (Symmetric, NoSelfEquivalence) moved to the
+// catalog via `structural_axioms_for<C>()` + OnKind axioms in
+// `reasoning::structural`. Per-def axiom types removed (#169).

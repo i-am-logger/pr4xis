@@ -1,5 +1,5 @@
 use super::category::Category;
-use super::relationship::Relationship;
+use super::arrow::Arrow;
 
 // Kleisli category — the category of effectful morphisms.
 //
@@ -47,7 +47,7 @@ where
     /// Lift a total morphism into the Kleisli category.
     pub fn total(morphism: C::Morphism) -> Self
     where
-        C::Morphism: Relationship<Object = C::Object>,
+        C::Morphism: Arrow<Object = C::Object>,
     {
         let source = morphism.source();
         let target = morphism.target();
@@ -123,7 +123,7 @@ mod tests {
         from: Obj,
         to: Obj,
     }
-    impl Relationship for Morph {
+    impl Arrow for Morph {
         type Object = Obj;
         type Kind = ();
         fn source(&self) -> Obj {

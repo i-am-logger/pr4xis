@@ -13,3 +13,7 @@ pub mod omv;
 pub mod ontology_diagnostics;
 pub mod staging;
 pub mod syntrometry;
+
+// category_theory moved to core: `pr4xis::category::category_theory`.
+// It grounds the `Arrow`, `Morphism`, `Functor`, `NaturalTransformation`,
+// `Adjunction` trait / struct machinery in core.

@@ -14,7 +14,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 // build a registry via domain-specific fallback instead.
 
 use crate::ontology::Vocabulary;
-use crate::ontology::meta::RelationshipMeta;
+use crate::ontology::meta::Provenance;
 
 /// All registered ontology vocabularies (native only).
 ///
@@ -28,25 +28,25 @@ pub static VOCABULARIES: [fn() -> Vocabulary];
 /// structural-axiom families.
 #[cfg(not(target_arch = "wasm32"))]
 #[linkme::distributed_slice]
-pub static AXIOMS: [fn() -> RelationshipMeta];
+pub static AXIOMS: [fn() -> Provenance];
 
 /// All registered functor metadata (native only). Populated by
 /// `pr4xis::functor!` declarations.
 #[cfg(not(target_arch = "wasm32"))]
 #[linkme::distributed_slice]
-pub static FUNCTORS: [fn() -> RelationshipMeta];
+pub static FUNCTORS: [fn() -> Provenance];
 
 /// All registered adjunction metadata (native only). Populated by
 /// `pr4xis::adjunction!` declarations.
 #[cfg(not(target_arch = "wasm32"))]
 #[linkme::distributed_slice]
-pub static ADJUNCTIONS: [fn() -> RelationshipMeta];
+pub static ADJUNCTIONS: [fn() -> Provenance];
 
 /// All registered natural-transformation metadata (native only).
 /// Populated by `pr4xis::natural_transformation!` declarations.
 #[cfg(not(target_arch = "wasm32"))]
 #[linkme::distributed_slice]
-pub static NATURAL_TRANSFORMATIONS: [fn() -> RelationshipMeta];
+pub static NATURAL_TRANSFORMATIONS: [fn() -> Provenance];
 
 /// Describe the entire knowledge base — all registered ontologies.
 ///
@@ -67,45 +67,45 @@ pub fn describe_knowledge_base() -> Vec<Vocabulary> {
 
 /// All declared axioms with structured metadata.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn describe_axioms() -> Vec<RelationshipMeta> {
+pub fn describe_axioms() -> Vec<Provenance> {
     AXIOMS.iter().map(|f| f()).collect()
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn describe_axioms() -> Vec<RelationshipMeta> {
+pub fn describe_axioms() -> Vec<Provenance> {
     Vec::new()
 }
 
 /// All declared functors with structured metadata.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn describe_functors() -> Vec<RelationshipMeta> {
+pub fn describe_functors() -> Vec<Provenance> {
     FUNCTORS.iter().map(|f| f()).collect()
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn describe_functors() -> Vec<RelationshipMeta> {
+pub fn describe_functors() -> Vec<Provenance> {
     Vec::new()
 }
 
 /// All declared adjunctions with structured metadata.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn describe_adjunctions() -> Vec<RelationshipMeta> {
+pub fn describe_adjunctions() -> Vec<Provenance> {
     ADJUNCTIONS.iter().map(|f| f()).collect()
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn describe_adjunctions() -> Vec<RelationshipMeta> {
+pub fn describe_adjunctions() -> Vec<Provenance> {
     Vec::new()
 }
 
 /// All declared natural transformations with structured metadata.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn describe_natural_transformations() -> Vec<RelationshipMeta> {
+pub fn describe_natural_transformations() -> Vec<Provenance> {
     NATURAL_TRANSFORMATIONS.iter().map(|f| f()).collect()
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn describe_natural_transformations() -> Vec<RelationshipMeta> {
+pub fn describe_natural_transformations() -> Vec<Provenance> {
     Vec::new()
 }
 
@@ -116,9 +116,9 @@ pub fn describe_natural_transformations() -> Vec<RelationshipMeta> {
 /// Consumers that don't need to discriminate by dimension get a single
 /// list; consumers that do keep using `describe_functors()` /
 /// `describe_adjunctions()` / `describe_natural_transformations()`
-/// directly. All entries share the unified [`RelationshipMeta`] shape
+/// directly. All entries share the unified [`Provenance`] shape
 /// (`Arrow::meta` — issue #155).
-pub fn describe_all_arrows() -> Vec<RelationshipMeta> {
+pub fn describe_all_arrows() -> Vec<Provenance> {
     let mut arrows = describe_functors();
     arrows.extend(describe_adjunctions());
     arrows.extend(describe_natural_transformations());

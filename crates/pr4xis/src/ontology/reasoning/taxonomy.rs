@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 
 use crate::category::Category;
 use crate::category::entity::Concept;
-use crate::category::relationship::Relationship;
+use crate::category::arrow::Arrow;
 use crate::ontology::Quality;
 
 use super::graph;
@@ -26,7 +26,7 @@ pub struct IsA<E: Concept> {
     pub parent: E,
 }
 
-impl<E: Concept> Relationship for IsA<E> {
+impl<E: Concept> Arrow for IsA<E> {
     type Object = E;
     type Kind = ();
     fn source(&self) -> E {
@@ -125,86 +125,9 @@ where
     None
 }
 
-// ---- Axioms ----
-
-/// Axiom: the taxonomy has no cycles (it is a DAG).
-pub struct NoCycles<T: TaxonomyDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: TaxonomyDef> NoCycles<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: TaxonomyDef> Default for NoCycles<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: TaxonomyDef> crate::logic::Axiom for NoCycles<T> {
-    fn description(&self) -> &str {
-        "taxonomy has no cycles (is a DAG)"
-    }
-
-    fn holds(&self) -> bool {
-        let adj = graph::adjacency_map(&T::relations());
-        T::Concept::variants()
-            .iter()
-            .all(|entity| !graph::has_cycle(entity, &adj))
-    }
-
-    crate::axiom_meta!(
-        "NoCycles[Taxonomy]",
-        "taxonomy has no cycles (is a DAG)",
-        "Guarino (2009) 'The Ontological Level'; Gruber (1993) 'A Translation Approach to Portable Ontology Specifications' — taxonomies are directed acyclic graphs"
-    );
-}
-
-/// Axiom: antisymmetry — if A is-a B (and A != B), then B is NOT a A.
-pub struct Antisymmetric<T: TaxonomyDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: TaxonomyDef> Antisymmetric<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: TaxonomyDef> Default for Antisymmetric<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: TaxonomyDef> crate::logic::Axiom for Antisymmetric<T> {
-    fn description(&self) -> &str {
-        "taxonomy is antisymmetric: if A is-a B then B is not a A"
-    }
-
-    fn holds(&self) -> bool {
-        let direct = T::relations();
-        for (child, parent) in &direct {
-            if child != parent && is_a::<T>(parent, child) {
-                return false;
-            }
-        }
-        true
-    }
-
-    crate::axiom_meta!(
-        "Antisymmetric[Taxonomy]",
-        "taxonomy is antisymmetric: if A is-a B then B is not a A",
-        "Guarino (2009); Mac Lane (1971) — subsumption is a partial order (antisymmetric)"
-    );
-}
+// Structural axioms (NoCycles, Antisymmetric) moved to the
+// catalog via `structural_axioms_for<C>()` + OnKind axioms in
+// `reasoning::structural`. Per-def axiom types removed (#169).
 
 // ---- Algebraic structure integrations ----
 

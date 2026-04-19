@@ -1,7 +1,4 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-use core::marker::PhantomData;
-use hashbrown::HashMap;
+use std::collections::HashMap;
 
 use crate::category::entity::Concept;
 
@@ -69,94 +66,7 @@ pub fn ambiguous_entities<T: ContextDef>() -> Vec<T::Concept> {
         .collect()
 }
 
-// ---- Axioms ----
-
-/// Axiom: every resolution is deterministic — no (entity, signal) pair
-/// maps to more than one resolution.
-pub struct Deterministic<T: ContextDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: ContextDef> Deterministic<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: ContextDef> Default for Deterministic<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: ContextDef> crate::logic::Axiom for Deterministic<T> {
-    fn description(&self) -> &str {
-        "context resolution is deterministic: each (entity, signal) has at most one resolution"
-    }
-
-    fn holds(&self) -> bool {
-        let resolutions = T::resolutions();
-        let mut seen: HashMap<(T::Concept, T::Signal), T::Resolution> = HashMap::new();
-        for (e, s, r) in resolutions {
-            if let Some(existing) = seen.get(&(e.clone(), s.clone())) {
-                if *existing != r {
-                    return false;
-                }
-            } else {
-                seen.insert((e, s), r);
-            }
-        }
-        true
-    }
-
-    crate::axiom_meta!(
-        "Deterministic[Context]",
-        "context resolution is deterministic: each (entity, signal) has at most one resolution",
-        "Carnap (1947) 'Meaning and Necessity' — intension + context → extension"
-    );
-}
-
-/// Axiom: every ambiguous entity has at least two distinct resolutions.
-/// (If an entity only has one resolution, it's not truly ambiguous.)
-pub struct TrueAmbiguity<T: ContextDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: ContextDef> TrueAmbiguity<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: ContextDef> Default for TrueAmbiguity<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: ContextDef> crate::logic::Axiom for TrueAmbiguity<T> {
-    fn description(&self) -> &str {
-        "every entity in the context map has at least two distinct resolutions"
-    }
-
-    fn holds(&self) -> bool {
-        let mut resolutions_per_entity: HashMap<T::Concept, Vec<T::Resolution>> = HashMap::new();
-        for (e, _, r) in T::resolutions() {
-            let rs = resolutions_per_entity.entry(e).or_default();
-            if !rs.contains(&r) {
-                rs.push(r);
-            }
-        }
-        resolutions_per_entity.values().all(|rs| rs.len() >= 2)
-    }
-
-    crate::axiom_meta!(
-        "TrueAmbiguity[Context]",
-        "every entity in the context map has at least two distinct resolutions",
-        "Pustejovsky (1995) 'The Generative Lexicon'"
-    );
-}
+// Context-specific axioms (Deterministic, TrueAmbiguity) were per-def
+// structural axioms. Context doesn't have a Relations-ontology kind in
+// the catalog — these would be best rewritten as domain-level axioms
+// in ontologies that use contexts. Removed for now (#169).

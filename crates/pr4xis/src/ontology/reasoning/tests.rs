@@ -1,17 +1,20 @@
+use crate::category::arrow::Arrow;
 use crate::category::entity::Concept;
-use crate::category::relationship::Relationship;
-use crate::category::validate::check_category_laws;
+use crate::category::laws::assert_category_laws;
 use crate::category::{Category, Functor};
-use crate::logic::Axiom;
 use crate::ontology::Quality;
 
+// `expect_proves` / `expect_refutes` helpers — removed along with the
+// per-def axiom tests that used them. Core now tests axioms via the
+// OnKind catalog (see `reasoning::structural` tests).
+
 use super::analogy::Analogy;
-use super::causation::{self, Asymmetric, CausalCategory, CausalDef, NoSelfCausation};
+use super::causation::{self, CausalCategory, CausalDef};
 use super::context::{self, ContextDef};
 use super::equivalence::{self, EquivalenceCategory, EquivalenceDef};
-use super::mereology::{self, MereologyCategory, MereologyDef, WeakSupplementation};
+use super::mereology::{self, MereologyCategory, MereologyDef};
 use super::opposition::{self, OppositionDef};
-use super::taxonomy::{self, Antisymmetric, TaxonomyCategory, TaxonomyDef};
+use super::taxonomy::{self, TaxonomyCategory, TaxonomyDef};
 
 // =============================================================================
 // Example domains for testing
@@ -194,7 +197,7 @@ struct EMRelation {
     to: EMConcept,
 }
 
-impl Relationship for EMRelation {
+impl Arrow for EMRelation {
     type Object = EMConcept;
     type Kind = ();
     fn source(&self) -> EMConcept {
@@ -264,7 +267,7 @@ struct GravRelation {
     to: GravConcept,
 }
 
-impl Relationship for GravRelation {
+impl Arrow for GravRelation {
     type Object = GravConcept;
     type Kind = ();
     fn source(&self) -> GravConcept {
@@ -339,20 +342,13 @@ impl Functor for EMGravAnalogy {
 
 #[test]
 fn taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<AnimalTaxonomy>>().unwrap();
+    assert_category_laws::<TaxonomyCategory<AnimalTaxonomy>>();
 }
 
-#[test]
-fn taxonomy_no_cycles() {
-    let axiom = taxonomy::NoCycles::<AnimalTaxonomy>::new();
-    assert!(axiom.holds());
-}
-
-#[test]
-fn taxonomy_antisymmetric() {
-    let axiom = Antisymmetric::<AnimalTaxonomy>::new();
-    assert!(axiom.holds());
-}
+// `taxonomy_no_cycles` / `taxonomy_antisymmetric` removed — the
+// per-def `NoCycles<TaxonomyDef>` / `Antisymmetric<TaxonomyDef>` axiom
+// types were deleted; equivalent coverage lives in
+// `reasoning::structural` tests (NoCyclesOnKind, AntisymmetricOnKind).
 
 #[test]
 fn taxonomy_direct_is_a() {
@@ -460,20 +456,11 @@ fn taxonomy_quality_no_inheritance_for_unrelated() {
 
 #[test]
 fn mereology_category_laws() {
-    check_category_laws::<MereologyCategory<CarMereology>>().unwrap();
+    assert_category_laws::<MereologyCategory<CarMereology>>();
 }
 
-#[test]
-fn mereology_no_cycles() {
-    let axiom = mereology::NoCycles::<CarMereology>::new();
-    assert!(axiom.holds());
-}
-
-#[test]
-fn mereology_weak_supplementation() {
-    let axiom = WeakSupplementation::<CarMereology>::new();
-    assert!(axiom.holds());
-}
+// `mereology_no_cycles` / `mereology_weak_supplementation` removed —
+// superseded by `NoCyclesOnKind[Parthood]` in `reasoning::structural`.
 
 #[test]
 fn mereology_direct_parts() {
@@ -518,20 +505,12 @@ fn mereology_root_is_not_part_of_anything() {
 
 #[test]
 fn causation_category_laws() {
-    check_category_laws::<CausalCategory<HeatCausal>>().unwrap();
+    assert_category_laws::<CausalCategory<HeatCausal>>();
 }
 
-#[test]
-fn causation_asymmetric() {
-    let axiom = Asymmetric::<HeatCausal>::new();
-    assert!(axiom.holds());
-}
-
-#[test]
-fn causation_no_self_causation() {
-    let axiom = NoSelfCausation::<HeatCausal>::new();
-    assert!(axiom.holds());
-}
+// `causation_asymmetric` / `causation_no_self_causation` removed —
+// superseded by `AsymmetricOnKind[Causation]` / `IrreflexiveOnKind[Causation]`
+// in `reasoning::structural`.
 
 #[test]
 fn causation_direct_effects() {
@@ -962,7 +941,7 @@ impl ContextDef for WordContext {
 
 #[test]
 fn equivalence_category_laws() {
-    check_category_laws::<EquivalenceCategory<WordSynonyms>>().unwrap();
+    assert_category_laws::<EquivalenceCategory<WordSynonyms>>();
 }
 
 #[test]
@@ -1014,17 +993,8 @@ fn equivalence_all_classes() {
     assert_eq!(classes.len(), 6);
 }
 
-#[test]
-fn equivalence_symmetric_axiom() {
-    let axiom = equivalence::Symmetric::<WordSynonyms>::new();
-    assert!(axiom.holds());
-}
-
-#[test]
-fn equivalence_no_self_equivalence_axiom() {
-    let axiom = equivalence::NoSelfEquivalence::<WordSynonyms>::new();
-    assert!(axiom.holds());
-}
+// `equivalence_symmetric_axiom` / `equivalence_no_self_equivalence_axiom`
+// removed — superseded by OnKind axioms in `reasoning::structural`.
 
 // =============================================================================
 // Opposition tests
@@ -1058,25 +1028,9 @@ fn opposition_not_opposed() {
     ));
 }
 
-#[test]
-fn opposition_irreflexive() {
-    let axiom = opposition::Irreflexive::<WordAntonyms>::new();
-    assert!(axiom.holds());
-}
-
-#[test]
-fn opposition_symmetric_axiom() {
-    let axiom = opposition::Symmetric::<WordAntonyms>::new();
-    assert!(axiom.holds());
-}
-
-#[test]
-fn opposition_exclusive_with_equivalence() {
-    let axiom = opposition::ExclusiveWithEquivalence::<WordAntonyms, _>::new(|a, b| {
-        equivalence::are_equivalent::<WordSynonyms>(a, b)
-    });
-    assert!(axiom.holds());
-}
+// `opposition_irreflexive` / `opposition_symmetric_axiom` /
+// `opposition_exclusive_with_equivalence` removed — superseded by
+// OnKind axioms in `reasoning::structural`.
 
 #[test]
 fn opposition_not_transitive() {
@@ -1129,14 +1083,7 @@ fn context_ambiguous_entities() {
     assert!(ambiguous.contains(&AmbiguousWord::Spring));
 }
 
-#[test]
-fn context_deterministic_axiom() {
-    let axiom = context::Deterministic::<WordContext>::new();
-    assert!(axiom.holds());
-}
-
-#[test]
-fn context_true_ambiguity_axiom() {
-    let axiom = context::TrueAmbiguity::<WordContext>::new();
-    assert!(axiom.holds());
-}
+// `context_deterministic_axiom` / `context_true_ambiguity_axiom`
+// removed — per-def `context::Deterministic` / `context::TrueAmbiguity`
+// were deleted. Context-specific structural axioms would be best
+// rewritten as domain-level axioms in ontologies that use contexts.

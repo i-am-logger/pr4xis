@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 
 use crate::category::Category;
 use crate::category::entity::Concept;
-use crate::category::relationship::Relationship;
+use crate::category::arrow::Arrow;
 
 use super::graph;
 
@@ -25,7 +25,7 @@ pub struct Causes<E: Concept> {
     pub effect: E,
 }
 
-impl<E: Concept> Relationship for Causes<E> {
+impl<E: Concept> Arrow for Causes<E> {
     type Object = E;
     type Kind = ();
     fn source(&self) -> E {
@@ -98,83 +98,9 @@ pub fn causes_of<T: CausalDef>(effect: &T::Concept) -> Vec<T::Concept> {
     graph::reachable(effect, &adj)
 }
 
-// ---- Axioms ----
-
-/// Axiom: asymmetry — if A causes B (and A != B), then B does NOT cause A.
-pub struct Asymmetric<T: CausalDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: CausalDef> Asymmetric<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: CausalDef> Default for Asymmetric<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: CausalDef> crate::logic::Axiom for Asymmetric<T> {
-    fn description(&self) -> &str {
-        "causation is asymmetric: if A causes B then B does not cause A"
-    }
-
-    fn holds(&self) -> bool {
-        let direct = T::relations();
-        for (cause, effect) in &direct {
-            if cause != effect && effects_of::<T>(effect).contains(cause) {
-                return false;
-            }
-        }
-        true
-    }
-
-    crate::axiom_meta!(
-        "Asymmetric[Causation]",
-        "causation is asymmetric: if A causes B then B does not cause A",
-        "Lewis (1973) 'Causation'; Reichenbach (1956) 'The Direction of Time'"
-    );
-}
-
-/// Axiom: no self-causation — no entity directly causes itself.
-pub struct NoSelfCausation<T: CausalDef> {
-    _marker: PhantomData<T>,
-}
-
-impl<T: CausalDef> NoSelfCausation<T> {
-    pub fn new() -> Self {
-        Self {
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: CausalDef> Default for NoSelfCausation<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T: CausalDef> crate::logic::Axiom for NoSelfCausation<T> {
-    fn description(&self) -> &str {
-        "no entity directly causes itself"
-    }
-
-    fn holds(&self) -> bool {
-        T::relations().iter().all(|(cause, effect)| cause != effect)
-    }
-
-    crate::axiom_meta!(
-        "NoSelfCausation[Causation]",
-        "no entity directly causes itself",
-        "Lewis (1973) 'Causation' — Humean causation"
-    );
-}
+// Structural axioms (Asymmetric, NoSelfCausation) moved to the
+// catalog via `structural_axioms_for<C>()` + OnKind axioms in
+// `reasoning::structural`. Per-def axiom types removed (#169).
 
 // ---- Algebraic structure integrations ----
 
