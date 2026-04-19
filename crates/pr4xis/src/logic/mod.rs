@@ -4,6 +4,7 @@ pub mod inference;
 pub mod proof;
 pub mod proof_theory;
 pub mod propositional;
+pub mod propositional_logic;
 pub mod truth_table;
 
 pub use axiom::Axiom;
