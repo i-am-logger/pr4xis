@@ -1,5 +1,5 @@
 use super::property::Quality;
-use crate::category::{Category, Concept, Arrow};
+use crate::category::{Arrow, Category, Concept};
 use crate::logic::Axiom;
 use crate::ontology::Ontology;
 use proptest::prelude::*;
@@ -371,10 +371,7 @@ fn test_ontology_validates() {
 fn test_ontology_check() {
     match super::validate::check_ontology::<TrafficLightOntology>() {
         Ok(_) => {}
-        Err(c) => panic!(
-            "check_ontology failed: {}",
-            c.meta().description.as_str()
-        ),
+        Err(c) => panic!("check_ontology failed: {}", c.meta().description.as_str()),
     }
 }
 
@@ -410,15 +407,14 @@ fn test_axiom_no_dead_states() {
     expect_proves(NoDeadStates);
 }
 
-
 // =============================================================================
 // proc macro ontology! — Communication as proof of concept
 // =============================================================================
 
 mod proc_macro_test {
     use crate as pr4xis;
-    use crate::category::Concept;
     use crate::category::laws::assert_category_laws;
+    use crate::category::{Category, Concept};
 
     pr4xis::ontology! {
         name: "Communication",
@@ -501,9 +497,16 @@ mod proc_macro_test {
 
     #[test]
     fn proc_macro_opposition() {
-        use crate::ontology::reasoning::opposition::OppositionDef;
-        let pairs = CommunicationOpposition::pairs();
-        assert!(pairs.contains(&(CommunicationConcept::Noise, CommunicationConcept::Code)));
+        // Opposition is now expressed as kinded morphisms in the category.
+        use crate::category::Arrow;
+        let has_opposition = CommunicationCategory::morphisms()
+            .iter()
+            .any(|m| {
+                m.kind() == CommunicationRelationKind::Opposition
+                    && m.source() == CommunicationConcept::Noise
+                    && m.target() == CommunicationConcept::Code
+            });
+        assert!(has_opposition);
     }
 }
 
@@ -513,8 +516,8 @@ mod proc_macro_test {
 
 mod proc_macro_dense_test {
     use crate as pr4xis;
-    use crate::category::Concept;
     use crate::category::laws::assert_category_laws;
+    use crate::category::{Category, Concept};
 
     pr4xis::ontology! {
         name: "Biology",
@@ -554,10 +557,15 @@ mod proc_macro_dense_test {
 
     #[test]
     fn dense_taxonomy() {
-        use crate::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = BiologyTaxonomy::relations();
-        assert_eq!(rels.len(), 3);
-        assert!(rels.contains(&(BiologyConcept::Cell, BiologyConcept::Tissue)));
+        // Taxonomy is now expressed as kinded morphisms — filter by Subsumption.
+        use crate::category::Arrow;
+        let subsumption_edges: Vec<_> = BiologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == BiologyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(subsumption_edges.len() >= 3);
+        assert!(subsumption_edges.contains(&(BiologyConcept::Cell, BiologyConcept::Tissue)));
     }
 
     #[test]

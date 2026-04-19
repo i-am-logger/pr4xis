@@ -42,10 +42,10 @@
 
 use std::marker::PhantomData;
 
+use super::arrow::Arrow;
 use super::category::Category;
 use super::entity::Concept;
 use super::functor::Functor;
-use super::arrow::Arrow;
 use crate::logic::axiom::Axiom;
 use crate::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use crate::ontology::meta::{Citation, Label, OntologyName};
@@ -168,9 +168,7 @@ where
     }
 
     fn citation(&self) -> Citation {
-        Citation::parse_static(
-            "Mac Lane (1971) Categories for the Working Mathematician Ch. I §1",
-        )
+        Citation::parse_static("Mac Lane (1971) Categories for the Working Mathematician Ch. I §1")
     }
 }
 
@@ -232,9 +230,7 @@ where
     }
 
     fn citation(&self) -> Citation {
-        Citation::parse_static(
-            "Mac Lane (1971) Categories for the Working Mathematician Ch. I §1",
-        )
+        Citation::parse_static("Mac Lane (1971) Categories for the Working Mathematician Ch. I §1")
     }
 }
 
@@ -318,9 +314,7 @@ where
     }
 
     fn citation(&self) -> Citation {
-        Citation::parse_static(
-            "Mac Lane (1971) Categories for the Working Mathematician Ch. II §1",
-        )
+        Citation::parse_static("Mac Lane (1971) Categories for the Working Mathematician Ch. II §1")
     }
 }
 
@@ -359,8 +353,7 @@ where
                 }
                 if let Some(gf) = F::Source::compose(f, g) {
                     let f_mapped = F::map_morphism(&gf);
-                    let composed =
-                        F::Target::compose(&F::map_morphism(f), &F::map_morphism(g));
+                    let composed = F::Target::compose(&F::map_morphism(f), &F::map_morphism(g));
                     if composed.as_ref() != Some(&f_mapped) {
                         return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
@@ -379,9 +372,7 @@ where
     }
 
     fn citation(&self) -> Citation {
-        Citation::parse_static(
-            "Mac Lane (1971) Categories for the Working Mathematician Ch. II §1",
-        )
+        Citation::parse_static("Mac Lane (1971) Categories for the Working Mathematician Ch. II §1")
     }
 }
 

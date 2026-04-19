@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 
 use crate::category::laws::functor_law_axioms;
 use crate::category::{Category, Functor};
-use crate::logic::proof::{combine_verdicts, Verdict};
+use crate::logic::proof::{Verdict, combine_verdicts};
 use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 /// An analogy is a structure-preserving map between two domains (a named Functor).
@@ -23,8 +23,10 @@ impl<F: Functor> Analogy<F> {
         <F::Source as Category>::Morphism: PartialEq + 'static,
         <F::Target as Category>::Morphism: PartialEq + 'static,
     {
-        let subverdicts: Vec<Verdict> =
-            functor_law_axioms::<F>().iter().map(|l| l.verify()).collect();
+        let subverdicts: Vec<Verdict> = functor_law_axioms::<F>()
+            .iter()
+            .map(|l| l.verify())
+            .collect();
         combine_verdicts(
             Provenance {
                 name: OntologyName::new_static("AnalogyValidation"),

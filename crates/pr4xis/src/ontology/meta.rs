@@ -751,7 +751,7 @@ impl Vocabulary {
                         .collect()
                 },
                 morphisms: || {
-                    use crate::category::{Concept, Arrow};
+                    use crate::category::{Arrow, Concept};
                     let name_of = |e: &<C as crate::category::Category>::Object| -> String {
                         let n = e.name();
                         if n.is_empty() {

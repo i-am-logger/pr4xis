@@ -41,7 +41,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use crate::category::{Category, Arrow};
+use crate::category::{Arrow, Category};
 use crate::logic::axiom::Axiom;
 use crate::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use crate::ontology::meta::{Citation, Label, OntologyName};
@@ -538,10 +538,7 @@ mod tests {
     fn expect_refutes<A: Axiom>(axiom: A) {
         match axiom.verify() {
             Err(_) => {}
-            Ok(p) => panic!(
-                "expected counterexample but got proof: {}",
-                p.meta().name
-            ),
+            Ok(p) => panic!("expected counterexample but got proof: {}", p.meta().name),
         }
     }
 

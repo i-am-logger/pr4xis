@@ -1144,13 +1144,8 @@ mod tests {
                 )
             })
             .collect();
-        let vocab = Vocabulary::from_captured(
-            "Test",
-            "test::path",
-            "Test (2024)",
-            concepts,
-            morphisms,
-        );
+        let vocab =
+            Vocabulary::from_captured("Test", "test::path", "Test (2024)", concepts, morphisms);
 
         let s = from_vocabulary(&vocab);
         assert_eq!(s.staging(), Staging::Embedded);

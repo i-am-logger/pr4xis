@@ -259,8 +259,7 @@ mod tests {
 
     #[test]
     fn category_theory_ontology_validates() {
-        CategoryTheoryOntology::validate().unwrap_or_else(|c| {
-            panic!("validation failed: {}", c.meta().description.as_str())
-        });
+        CategoryTheoryOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

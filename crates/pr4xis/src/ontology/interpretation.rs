@@ -44,8 +44,8 @@
 //! from record to typed handle) is ontology-specific and lives with
 //! each ontology's own `Concept` name-lookup.
 
-use crate::category::entity::Concept;
 use crate::category::arrow::Arrow;
+use crate::category::entity::Concept;
 use crate::category::{Category, Morphism as CategoryMorphism};
 use crate::ontology::meta::{ConceptName, Morphism as MetaMorphism, MorphismKind};
 
@@ -113,7 +113,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::{Category, Arrow};
+    use crate::category::{Arrow, Category};
     use crate::ontology::meta::MorphismKind;
 
     // Minimal test category — Subsumption-kinded.

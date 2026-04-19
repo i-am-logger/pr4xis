@@ -761,62 +761,17 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         }
     };
 
-    // Reasoning systems
-    let taxonomy_impl = if has_taxonomy {
-        quote! {
-            pub struct #tax_name;
-            impl #pr4xis::ontology::reasoning::taxonomy::TaxonomyDef for #tax_name {
-                type Concept = #entity_name;
-                fn relations() -> Vec<(#entity_name, #entity_name)> {
-                    vec![#(#tax_pairs),*]
-                }
-            }
-        }
-    } else {
-        quote! {}
-    };
-
-    let mereology_impl = if has_mereology {
-        quote! {
-            pub struct #mer_name;
-            impl #pr4xis::ontology::reasoning::mereology::MereologyDef for #mer_name {
-                type Concept = #entity_name;
-                fn relations() -> Vec<(#entity_name, #entity_name)> {
-                    vec![#(#mer_pairs),*]
-                }
-            }
-        }
-    } else {
-        quote! {}
-    };
-
-    let causation_impl = if has_causation {
-        quote! {
-            pub struct #caus_name;
-            impl #pr4xis::ontology::reasoning::causation::CausalDef for #caus_name {
-                type Concept = #entity_name;
-                fn relations() -> Vec<(#entity_name, #entity_name)> {
-                    vec![#(#caus_pairs),*]
-                }
-            }
-        }
-    } else {
-        quote! {}
-    };
-
-    let opposition_impl = if has_opposition {
-        quote! {
-            pub struct #opp_name;
-            impl #pr4xis::ontology::reasoning::opposition::OppositionDef for #opp_name {
-                type Concept = #entity_name;
-                fn pairs() -> Vec<(#entity_name, #entity_name)> {
-                    vec![#(#opp_pairs),*]
-                }
-            }
-        }
-    } else {
-        quote! {}
-    };
+    // Per-def reasoning traits (TaxonomyDef/MereologyDef/CausalDef/OppositionDef)
+    // deleted per #169 — relations are kinded morphisms in the category,
+    // and structural axioms come from `structural_axioms_for<Cat>()` via
+    // the catalog. Sugar clauses (is_a/has_a/causes/opposes) are desugared
+    // into kinded edges directly in `morphisms()`.
+    let _ = (&tax_pairs, &mer_pairs, &caus_pairs, &opp_pairs);
+    let _ = (&tax_name, &mer_name, &caus_name, &opp_name);
+    let taxonomy_impl: proc_macro2::TokenStream = quote! {};
+    let mereology_impl: proc_macro2::TokenStream = quote! {};
+    let causation_impl: proc_macro2::TokenStream = quote! {};
+    let opposition_impl: proc_macro2::TokenStream = quote! {};
 
     // Structural axioms now come from the catalog via
     // `structural_axioms_for::<Cat>()` — no per-ontology re-emission of

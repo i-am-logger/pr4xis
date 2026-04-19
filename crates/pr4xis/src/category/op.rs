@@ -2,8 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 use core::marker::PhantomData;
 
-use super::category::Category;
 use super::arrow::Arrow;
+use super::category::Category;
 
 /// The opposite (dual) category of `C`.
 ///
@@ -74,7 +74,7 @@ impl<C: Category> Category for Op<C> {
 mod tests {
     use super::*;
     use crate::category::laws::assert_category_laws;
-    use crate::category::{Concept, Arrow};
+    use crate::category::{Arrow, Concept};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Light {

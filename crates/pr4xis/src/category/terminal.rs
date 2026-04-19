@@ -62,7 +62,7 @@ where
 mod tests {
     use super::*;
     use crate::category::laws::assert_functor_laws;
-    use crate::category::{Concept, Arrow};
+    use crate::category::{Arrow, Concept};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Light {

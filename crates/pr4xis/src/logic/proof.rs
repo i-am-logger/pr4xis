@@ -264,7 +264,6 @@ mod tests {
 
     #[test]
     fn counterexample_is_dyn_safe() {
-        let _c: Box<dyn Counterexample> =
-            Box::new(SimpleCounterexample::new(proof_meta("X", "Y")));
+        let _c: Box<dyn Counterexample> = Box::new(SimpleCounterexample::new(proof_meta("X", "Y")));
     }
 }

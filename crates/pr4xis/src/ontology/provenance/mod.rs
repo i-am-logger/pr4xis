@@ -6,6 +6,4 @@
 
 pub mod ontology;
 
-pub use ontology::{
-    IsProvOCore, ProvenanceCategory, ProvenanceConcept, ProvenanceOntology,
-};
+pub use ontology::{IsProvOCore, ProvenanceCategory, ProvenanceConcept, ProvenanceOntology};

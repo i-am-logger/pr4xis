@@ -1,5 +1,5 @@
-use super::entity::Concept;
 use super::arrow::Arrow;
+use super::entity::Concept;
 
 /// A category: a collection of objects (concepts) and morphisms (relationships)
 /// where composition and identity laws hold.

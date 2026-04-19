@@ -171,8 +171,8 @@ pub fn fold_trace<F: 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::entity::Concept;
     use crate::category::arrow::Arrow;
+    use crate::category::entity::Concept;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum TestObj {

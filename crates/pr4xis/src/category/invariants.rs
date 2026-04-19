@@ -1,10 +1,8 @@
+use super::arrow::Arrow;
 use super::category::Category;
 use super::entity::Concept;
-use super::arrow::Arrow;
-use crate::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use crate::logic::Axiom;
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use crate::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 
 /// Every object has at least one outgoing morphism (no dead states).
 pub struct NoDeadStates<C: Category> {

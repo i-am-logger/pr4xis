@@ -113,10 +113,8 @@ impl<A: Action> Engine<A> {
                 .iter()
                 .map(|p| p.check(&self.situation, &action))
                 .collect();
-            let violations: Vec<Box<dyn Counterexample>> = rechecked
-                .into_iter()
-                .filter_map(|v| v.err())
-                .collect();
+            let violations: Vec<Box<dyn Counterexample>> =
+                rechecked.into_iter().filter_map(|v| v.err()).collect();
 
             self.trace.record(TraceEntry {
                 step,

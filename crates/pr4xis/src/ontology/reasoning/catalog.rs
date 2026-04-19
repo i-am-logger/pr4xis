@@ -42,7 +42,7 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::category::{Category, Arrow};
+use crate::category::{Arrow, Category};
 use crate::logic::Axiom;
 
 use super::structural::{

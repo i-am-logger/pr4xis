@@ -44,11 +44,7 @@ struct NotBelowZero;
 
 impl Precondition<CounterAction> for NotBelowZero {
     fn check(&self, situation: &Counter, action: &CounterAction) -> Verdict {
-        let meta = axiom_meta(
-            "NotBelowZero",
-            "counter must not go below zero",
-            "",
-        );
+        let meta = axiom_meta("NotBelowZero", "counter must not go below zero", "");
         if let CounterAction::Decrement { by } = action
             && situation.value - by < 0
         {
@@ -62,11 +58,7 @@ struct NotAboveMax;
 
 impl Precondition<CounterAction> for NotAboveMax {
     fn check(&self, situation: &Counter, action: &CounterAction) -> Verdict {
-        let meta = axiom_meta(
-            "NotAboveMax",
-            "counter must not exceed maximum",
-            "",
-        );
+        let meta = axiom_meta("NotAboveMax", "counter must not exceed maximum", "");
         if let CounterAction::Increment { by } = action
             && situation.value + by > situation.max
         {

@@ -136,8 +136,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::entity::Concept as EntityTrait;
     use crate::category::arrow::Arrow;
+    use crate::category::entity::Concept as EntityTrait;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Node {

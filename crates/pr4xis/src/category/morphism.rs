@@ -1,5 +1,5 @@
-use super::category::Category;
 use super::arrow::Arrow;
+use super::category::Category;
 
 /// A morphism bound to its category — enables functional chaining.
 ///

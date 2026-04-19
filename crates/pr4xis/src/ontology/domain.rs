@@ -1,7 +1,7 @@
-use crate::category::laws::category_law_axioms;
 use crate::category::Category;
-use crate::logic::proof::{combine_verdicts, Verdict};
+use crate::category::laws::category_law_axioms;
 use crate::logic::Axiom;
+use crate::logic::proof::{Verdict, combine_verdicts};
 use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use super::property::Quality;
@@ -83,9 +83,7 @@ pub trait Ontology {
 
         let meta = Provenance {
             name: OntologyName::new_static("OntologyValidation"),
-            description: Label::new_static(
-                "aggregate validation: category laws + ontology axioms",
-            ),
+            description: Label::new_static("aggregate validation: category laws + ontology axioms"),
             citation: Citation::parse_static(
                 "Mac Lane (1971) Categories for the Working Mathematician; \
                  Barr & Wells (1999) CTCS §4 sketches; \

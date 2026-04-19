@@ -138,8 +138,7 @@ mod tests {
 
     #[test]
     fn ontology_validates() {
-        ProvenanceOntology::validate().unwrap_or_else(|c| {
-            panic!("validation failed: {}", c.meta().description.as_str())
-        });
+        ProvenanceOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }
