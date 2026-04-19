@@ -3,15 +3,15 @@
 //! # Why this ontology exists
 //!
 //! pr4xis's Rust core defines trait and struct names (`Category`, `Arrow`,
-//! `Morphism`, `Functor`, `NaturalTransformation`, `Adjunction`, …) for the
+//! `Morphism`, `Functor`, `NaturalTransformation`, `Adjunction`,
+//! `Monad`, `Applicative`, `Kleisli`, `Yoneda`, `Algebra`, …) for the
 //! substrate that every domain ontology sits on. Per
 //! `feedback_api_ontological_from_day_one` — "ALL code uses typed
 //! ontological concepts, never primitives. No exceptions." — those
 //! substrate types must themselves be grounded in an ontology.
 //!
 //! This module IS that ontology. Every name used in `pr4xis::category::*`
-//! is an instance of a concept declared here, cited to primary literature
-//! (Mac Lane 1971; Awodey 2010; Bénabou 1967; Leinster 2004).
+//! is an instance of a concept declared here, cited to primary literature.
 //!
 //! # Synonymy — Morphism and Arrow
 //!
@@ -19,143 +19,115 @@
 //! Awodey (2010) uses `arrow` as primary. In pr4xis:
 //! - **One concept**: `Morphism`
 //! - **Two labels**: "Morphism" (Mac Lane primary) and "Arrow" (Awodey
-//!   primary / Mac Lane intuitive) — recorded in the definition string
-//!   since Lemon single-primary-label-per-language limits one surface.
+//!   primary / Mac Lane intuitive).
 //!
 //! The Rust trait is named `Arrow`; the Rust struct for a morphism
-//! instance is named `Morphism`. Both surface forms point at the
-//! [`CategoryTheoryConcept::Morphism`] concept.
+//! instance is named `Morphism`. Both surface forms point at
+//! [`CategoryTheoryConcept::Morphism`].
 //!
 //! # Literature
 //!
-//! - Mac Lane (1971) *Categories for the Working Mathematician* — canonical source
-//! - Awodey (2010) *Category Theory* — uses "arrow" as primary
-//! - Bénabou (1967) *Introduction to Bicategories* — n-cell uniformity
-//! - Leinster (2004) *Higher Operads, Higher Categories* — modern n-category treatment
-//! - Gruber (1993) *A Translation Approach to Portable Ontology Specifications* — "formally-named relations"
-//! - Smith et al. (2005) *Relations in Biomedical Ontologies* (OBO-RO) — kind tag requirement
+//! - Mac Lane (1971) *Categories for the Working Mathematician* — canonical
+//! - Awodey (2010) *Category Theory* — "arrow" primary
+//! - Bénabou (1967) *Introduction to Bicategories*
+//! - Leinster (2004) *Higher Operads, Higher Categories*
+//! - Eilenberg & Moore (1965) — monad algebras
+//! - Kleisli (1965) — Kleisli category
+//! - Moggi (1991) "Notions of computation and monads"
+//! - Wadler (1992) "The essence of functional programming"
+//! - McBride & Paterson (2008) "Applicative Programming with Effects"
+//! - Meijer, Fokkinga & Paterson (1991) "Bananas, Lenses, Envelopes and Barbed Wire"
+//! - Liang, Hudak & Jones (1995) "Monad Transformers and Modular Interpreters"
+//! - Yoneda (1954) — Yoneda lemma
+//! - Ore (1944) "Galois connexions"
+//! - Gruber (1993) / Smith et al. (2005) OBO-RO — naming principles
 
 use crate as pr4xis;
 use crate::ontology::{Axiom, Ontology};
 
 pr4xis::ontology! {
     name: "CategoryTheory",
-    source: "Mac Lane (1971); Awodey (2010); Bénabou (1967); Leinster (2004)",
+    source: "Mac Lane (1971); Awodey (2010); Bénabou (1967); Leinster (2004); Eilenberg & Moore (1965); Kleisli (1965); Moggi (1991); Wadler (1992); McBride & Paterson (2008); Meijer-Fokkinga-Paterson (1991); Liang-Hudak-Jones (1995); Yoneda (1954); Ore (1944)",
 
     concepts: [
-        // =========================================================================
-        // 0-cells and 1-cells within a category
-        // =========================================================================
-
-        // A 0-cell — the basic entity inside a category.
+        // === Core cells (Mac Lane 1971 Ch. I) ===
         Object,
-
-        // A 1-cell — a directed structure-preserving map between two objects.
-        // Primary concept. The Rust trait `pr4xis::category::Arrow` and the
-        // Rust struct `pr4xis::category::Morphism<C>` are both instances of
-        // this concept — "Morphism" (Mac Lane 1971 primary) and "Arrow"
-        // (Awodey 2010 primary; Mac Lane synonym) are synonymous labels.
         Morphism,
-
-        // The operation that combines composable morphisms.
-        // Mac Lane (1971) Ch. I §1: given `f: A → B` and `g: B → C`,
-        // produces `g ∘ f: A → C`.
         Composition,
-
-        // An identity morphism `id_A: A → A` — one per object.
-        // Mac Lane (1971) Ch. I §1.
         Identity,
-
-        // The domain of a morphism — what it comes from.
         Source,
-
-        // The codomain of a morphism — what it goes to.
         Target,
-
-        // The relation-type tag carried by every morphism.
-        // Per OBO-RO (Smith et al. 2005), every morphism has a named kind
-        // (Subsumption / Parthood / Causation / Opposition / …).
         Kind,
 
-        // =========================================================================
-        // Specialised morphism classes
-        // =========================================================================
-
-        // A morphism whose source and target are the same object.
-        // Mac Lane (1971) Ch. I §5.
+        // === Specialised morphisms (Mac Lane Ch. I §5) ===
         Endomorphism,
-
-        // A morphism with a two-sided inverse.
-        // Mac Lane (1971) Ch. I §5.
         Isomorphism,
-
-        // An invertible endomorphism — an automorphism.
-        // Mac Lane (1971) Ch. I §5.
         Automorphism,
-
-        // A left-cancellative morphism: `m ∘ f = m ∘ g` implies `f = g`.
-        // Mac Lane (1971) Ch. I §5.
         Monomorphism,
-
-        // A right-cancellative morphism: `f ∘ e = g ∘ e` implies `f = g`.
-        // Mac Lane (1971) Ch. I §5.
         Epimorphism,
 
-        // =========================================================================
-        // Whole structures and higher cells
-        // =========================================================================
-
-        // A category: objects + morphisms + composition + identity.
-        // Mac Lane (1971) Ch. I §1.
+        // === Whole structures & higher cells (Mac Lane Ch. II, XII.3) ===
         CategoryStructure,
-
-        // A 1-cell in the 2-category Cat — a structure-preserving map
-        // between categories.
-        // Mac Lane (1971) Ch. II §1.
         Functor,
-
-        // A 2-cell in Cat — a map between parallel functors preserving
-        // their component-wise action.
-        // Mac Lane (1971) Ch. II §4.
+        Endofunctor,
         NaturalTransformation,
-
-        // A structured pair of functors F ⊣ G with unit and counit
-        // satisfying the triangle identities.
-        // Mac Lane (1971) Ch. IV §1.
         Adjunction,
-
-        // The unit η: 1 ⇒ G∘F of an adjunction.
-        // Mac Lane (1971) Ch. IV §1.
         Unit,
-
-        // The counit ε: F∘G ⇒ 1 of an adjunction.
-        // Mac Lane (1971) Ch. IV §1.
         Counit,
-
-        // A bicategory — Bénabou's weakening where composition is
-        // associative only up to coherent 2-isomorphism.
-        // Bénabou (1967).
         Bicategory,
-
-        // The 2-category Cat itself — 0-cells are categories, 1-cells
-        // are functors, 2-cells are natural transformations.
-        // Mac Lane (1971) XII.3.
         TwoCategory,
-
-        // An n-category — Leinster's generalisation to arbitrary
-        // dimensions.
-        // Leinster (2004).
         HigherCategory,
+
+        // === Typeclass-like structures (Moggi 1991; McBride & Paterson 2008) ===
+        Applicative,
+        Monad,
+        Comonad,
+        Pure,
+        Multiplication,
+        Comultiplication,
+
+        // === Monoidal + algebraic structures (Mac Lane Ch. III, VII) ===
+        Semigroup,
+        Monoid,
+        MonoidalCategory,
+        Tensor,
+        Product,
+        Coproduct,
+        Terminal,
+        InitialObject,
+
+        // === Derived categories (Mac Lane Ch. II §2; Kleisli 1965; Eilenberg-Moore 1965) ===
+        OppositeCategory,
+        KleisliCategory,
+
+        // === F-algebras (Meijer-Fokkinga-Paterson 1991) ===
+        Algebra,
+        Coalgebra,
+        StructureMap,
+
+        // === Specific monads (Liang-Hudak-Jones 1995; Wadler 1992) ===
+        StateMonad,
+        ReaderMonad,
+        WriterMonad,
+        FreeMonad,
+        MonadTransformer,
+
+        // === Yoneda-related (Yoneda 1954) ===
+        YonedaEmbedding,
+        Representable,
+
+        // === Special adjunctions (Ore 1944) ===
+        GaloisConnection,
     ],
 
     labels: {
         Object: ("en", "Object", "A 0-cell inside a category — the basic entity. Mac Lane (1971) CWM Ch. I §1."),
-        Morphism: ("en", "Morphism / Arrow", "A 1-cell — directed structure-preserving map between objects. Mac Lane (1971) uses 'morphism' as primary and 'arrow' as synonym; Awodey (2010) uses 'arrow' as primary. Both labels refer to this concept."),
-        Composition: ("en", "Composition", "The operation combining composable morphisms: given f: A → B and g: B → C, produces g ∘ f: A → C. Mac Lane (1971) Ch. I §1."),
-        Identity: ("en", "Identity morphism", "For every object A, a morphism id_A: A → A that is left and right neutral for composition. Mac Lane (1971) Ch. I §1."),
+        Morphism: ("en", "Morphism / Arrow", "A 1-cell — directed structure-preserving map between objects. Mac Lane uses 'morphism' primary, 'arrow' synonym; Awodey (2010) uses 'arrow' primary."),
+        Composition: ("en", "Composition", "Given f: A → B and g: B → C, produces g ∘ f: A → C. Mac Lane (1971) Ch. I §1."),
+        Identity: ("en", "Identity morphism", "For every object A, id_A: A → A that is left and right neutral for composition. Mac Lane (1971) Ch. I §1."),
         Source: ("en", "Source", "The domain of a morphism — what it comes from."),
         Target: ("en", "Target", "The codomain of a morphism — what it goes to."),
-        Kind: ("en", "Relation kind", "The named relation-type tag carried by every morphism per OBO-RO (Smith et al. 2005) — Subsumption, Parthood, Causation, Opposition, etc."),
+        Kind: ("en", "Relation kind", "The named relation-type tag carried by every morphism per OBO-RO (Smith et al. 2005)."),
 
         Endomorphism: ("en", "Endomorphism", "A morphism whose source and target are the same object. Mac Lane (1971) Ch. I §5."),
         Isomorphism: ("en", "Isomorphism", "A morphism with a two-sided inverse. Mac Lane (1971) Ch. I §5."),
@@ -163,20 +135,55 @@ pr4xis::ontology! {
         Monomorphism: ("en", "Monomorphism", "A left-cancellative morphism. Mac Lane (1971) Ch. I §5."),
         Epimorphism: ("en", "Epimorphism", "A right-cancellative morphism. Mac Lane (1971) Ch. I §5."),
 
-        CategoryStructure: ("en", "Category", "The structure of objects + morphisms + composition + identity satisfying the category laws. Mac Lane (1971) Ch. I §1."),
-        Functor: ("en", "Functor", "A 1-cell in the 2-category Cat — a structure-preserving map between categories. Mac Lane (1971) Ch. II §1."),
+        CategoryStructure: ("en", "Category", "Objects + morphisms + composition + identity satisfying the category laws. Mac Lane (1971) Ch. I §1."),
+        Functor: ("en", "Functor", "A 1-cell in Cat — structure-preserving map between categories. Mac Lane (1971) Ch. II §1."),
+        Endofunctor: ("en", "Endofunctor", "A functor F: C → C whose source and target categories coincide. Mac Lane (1971) Ch. II §1; foundation for monads/algebras."),
         NaturalTransformation: ("en", "Natural transformation", "A 2-cell in Cat — a map between parallel functors. Mac Lane (1971) Ch. II §4."),
-        Adjunction: ("en", "Adjunction", "A structured pair F ⊣ G with unit and counit satisfying the triangle identities. Mac Lane (1971) Ch. IV §1."),
-        Unit: ("en", "Unit", "The natural transformation η: 1 ⇒ G∘F of an adjunction. Mac Lane (1971) Ch. IV §1."),
-        Counit: ("en", "Counit", "The natural transformation ε: F∘G ⇒ 1 of an adjunction. Mac Lane (1971) Ch. IV §1."),
+        Adjunction: ("en", "Adjunction", "A structured pair F ⊣ G with unit and counit satisfying triangle identities. Mac Lane (1971) Ch. IV §1."),
+        Unit: ("en", "Unit", "A natural transformation η: 1 ⇒ T (for a monad T) or η: 1 ⇒ G∘F (for an adjunction F ⊣ G). Mac Lane (1971) Ch. IV §1."),
+        Counit: ("en", "Counit", "A natural transformation ε: T ⇒ 1 (for a comonad T) or ε: F∘G ⇒ 1 (for an adjunction). Mac Lane (1971) Ch. IV §1."),
 
-        Bicategory: ("en", "Bicategory", "A weak 2-category where associativity and identity hold only up to coherent 2-isomorphism. Bénabou (1967)."),
-        TwoCategory: ("en", "2-category", "Cat is a 2-category — 0-cells are categories, 1-cells are functors, 2-cells are natural transformations. Mac Lane (1971) XII.3."),
-        HigherCategory: ("en", "Higher category", "An n-category generalising 2-categories to arbitrary dimensions. Leinster (2004)."),
+        Bicategory: ("en", "Bicategory", "A weak 2-category — associativity/identity up to coherent 2-isomorphism. Bénabou (1967)."),
+        TwoCategory: ("en", "2-category", "Cat is a 2-category: 0-cells are categories, 1-cells functors, 2-cells nat-trans. Mac Lane (1971) XII.3."),
+        HigherCategory: ("en", "Higher category", "An n-category generalising 2-categories. Leinster (2004)."),
+
+        Applicative: ("en", "Applicative functor", "An endofunctor with `pure` and `ap` — supports context-free effectful composition. McBride & Paterson (2008)."),
+        Monad: ("en", "Monad", "A monoid in the category of endofunctors — (T, η, μ) satisfying unit and associativity laws. Moggi (1991); Wadler (1992); Mac Lane (1971) Ch. VI."),
+        Comonad: ("en", "Comonad", "Dual of a monad — (T, ε, δ) with counit and comultiplication. Mac Lane (1971) Ch. VI §4."),
+        Pure: ("en", "Pure / Return / Unit-morphism", "The lifting A → F(A) provided by an Applicative or Monad."),
+        Multiplication: ("en", "Multiplication (μ)", "The monad's natural transformation μ: T∘T ⇒ T (collapse two layers into one). Moggi (1991)."),
+        Comultiplication: ("en", "Comultiplication (δ)", "The comonad's natural transformation δ: T ⇒ T∘T (split into two layers)."),
+
+        Semigroup: ("en", "Semigroup", "A set with an associative binary operation. Foundational algebraic structure, predating Monoid."),
+        Monoid: ("en", "Monoid", "A semigroup with an identity element. Mac Lane (1971) Ch. III §6; monads are monoids in the endofunctor category."),
+        MonoidalCategory: ("en", "Monoidal category", "A category equipped with a tensor product ⊗ and unit I, satisfying coherence laws. Mac Lane (1971) Ch. VII."),
+        Tensor: ("en", "Tensor product (⊗)", "The bifunctor ⊗: C × C → C of a monoidal category. Mac Lane (1971) Ch. VII."),
+        Product: ("en", "Product (×)", "A limit of a two-object diagram — paired with projections. Mac Lane (1971) Ch. III §4."),
+        Coproduct: ("en", "Coproduct (+)", "Dual of product — a colimit with injections. Mac Lane (1971) Ch. III §4."),
+        Terminal: ("en", "Terminal object", "An object 1 such that there is exactly one morphism A → 1 from every object. Mac Lane (1971) Ch. III §3."),
+        InitialObject: ("en", "Initial object", "Dual of terminal — an object 0 with exactly one morphism 0 → A to every object. Mac Lane (1971) Ch. III §3."),
+
+        OppositeCategory: ("en", "Opposite category (C^op)", "The dual category: same objects, morphisms reversed. Mac Lane (1971) Ch. II §2."),
+        KleisliCategory: ("en", "Kleisli category", "For a monad T on C, the category whose morphisms A → B are C-morphisms A → T(B). Kleisli (1965)."),
+
+        Algebra: ("en", "F-algebra", "Pair (A, α: F(A) → A) where F is an endofunctor. Meijer-Fokkinga-Paterson (1991); initial algebras characterise recursive types."),
+        Coalgebra: ("en", "F-coalgebra", "Pair (A, α: A → F(A)) — dual of F-algebra. Characterises corecursive / infinite structures."),
+        StructureMap: ("en", "Structure map", "The defining morphism of an F-(co)algebra: α: F(A) → A (algebra) or α: A → F(A) (coalgebra)."),
+
+        StateMonad: ("en", "State monad", "S → (A, S) — threads mutable state through pure computations. Wadler (1992); Liang-Hudak-Jones (1995)."),
+        ReaderMonad: ("en", "Reader monad", "R → A — reads from a fixed environment. Wadler (1992)."),
+        WriterMonad: ("en", "Writer monad", "(A, W) with W a monoid — accumulates output alongside computation. Wadler (1992); pr4xis's `Traced` specialises it."),
+        FreeMonad: ("en", "Free monad", "The initial algebra of the functor T(A) = A + F(T(A)) — universal among monads over F."),
+        MonadTransformer: ("en", "Monad transformer", "A type constructor T such that if M is a monad then T(M) is also a monad — composes monadic effects. Liang-Hudak-Jones (1995)."),
+
+        YonedaEmbedding: ("en", "Yoneda embedding", "The functor y: C → [C^op, Set] sending A to Hom(-, A). Fully faithful — an object IS its representable. Yoneda (1954)."),
+        Representable: ("en", "Representable functor", "A functor naturally isomorphic to Hom(A, -) for some A. Yoneda (1954); Mac Lane (1971) Ch. III §2."),
+
+        GaloisConnection: ("en", "Galois connection", "An adjunction between posets — a pair (f ⊣ g) of monotone maps on partially-ordered sets. Ore (1944); special case of Mac Lane's adjunction."),
     },
 
     is_a: [
-        // Specialised morphisms are morphisms.
+        // Specialised morphisms
         (Endomorphism, Morphism),
         (Isomorphism, Morphism),
         (Automorphism, Endomorphism),
@@ -184,41 +191,110 @@ pr4xis::ontology! {
         (Monomorphism, Morphism),
         (Epimorphism, Morphism),
 
-        // Higher-dimensional cells are morphisms at their dimension
-        // (Mac Lane XII.3 — Cat is a 2-category; Bénabou 1967 — n-cells
-        // are morphisms at dimension n).
+        // Cells at higher dimension (Mac Lane XII.3)
         (Functor, Morphism),
+        (Endofunctor, Functor),
         (NaturalTransformation, Morphism),
-
-        // Adjunction components are natural transformations.
         (Unit, NaturalTransformation),
         (Counit, NaturalTransformation),
+        (Multiplication, NaturalTransformation),
+        (Comultiplication, NaturalTransformation),
 
-        // Higher category structures.
+        // Higher-category structures
         (TwoCategory, HigherCategory),
         (Bicategory, HigherCategory),
+
+        // Typeclass hierarchy — McBride & Paterson (2008), Moggi (1991)
+        (Applicative, Endofunctor),
+        (Monad, Applicative),
+        (Comonad, Endofunctor),
+
+        // Monoidal structures
+        (Monoid, Semigroup),
+        (MonoidalCategory, CategoryStructure),
+
+        // Limits and colimits
+        (Product, Object),
+        (Coproduct, Object),
+        (Terminal, Object),
+        (InitialObject, Object),
+
+        // Derived categories
+        (OppositeCategory, CategoryStructure),
+        (KleisliCategory, CategoryStructure),
+
+        // Specific monads
+        (StateMonad, Monad),
+        (ReaderMonad, Monad),
+        (WriterMonad, Monad),
+        (FreeMonad, Monad),
+
+        // Yoneda
+        (Representable, Functor),
+        (YonedaEmbedding, Functor),
+
+        // Special adjunction
+        (GaloisConnection, Adjunction),
     ],
 
     has_a: [
-        // A morphism has source, target, kind (OBO-RO: every relation is named).
+        // Morphism structure (OBO-RO)
         (Morphism, Source),
         (Morphism, Target),
         (Morphism, Kind),
 
-        // A category has the pieces Mac Lane names.
+        // Category pieces
         (CategoryStructure, Object),
         (CategoryStructure, Morphism),
         (CategoryStructure, Composition),
         (CategoryStructure, Identity),
 
-        // An adjunction has a unit and a counit.
+        // Adjunction pieces
         (Adjunction, Unit),
         (Adjunction, Counit),
 
-        // A 2-category has the three cell dimensions.
+        // 2-category cells
         (TwoCategory, CategoryStructure),
         (TwoCategory, Functor),
         (TwoCategory, NaturalTransformation),
+
+        // Typeclass structure
+        (Applicative, Pure),
+        (Monad, Unit),
+        (Monad, Multiplication),
+        (Comonad, Counit),
+        (Comonad, Comultiplication),
+
+        // Monoidal structure
+        (MonoidalCategory, Tensor),
+        (Monoid, Identity),
+        (Monoid, Multiplication),
+
+        // F-(co)algebra structure
+        (Algebra, StructureMap),
+        (Coalgebra, StructureMap),
+    ],
+
+    opposes: [
+        // Algebra / Coalgebra — structural duality (arrow direction reversed)
+        (Algebra, Coalgebra),
+        (Coalgebra, Algebra),
+
+        // Monad / Comonad — categorical duality
+        (Monad, Comonad),
+        (Comonad, Monad),
+
+        // Product / Coproduct — limit/colimit duality
+        (Product, Coproduct),
+        (Coproduct, Product),
+
+        // Terminal / Initial — limit/colimit duality
+        (Terminal, InitialObject),
+        (InitialObject, Terminal),
+
+        // Unit / Counit — adjunction triangle duality
+        (Unit, Counit),
+        (Counit, Unit),
     ],
 }
 
@@ -251,6 +327,8 @@ impl Ontology for CategoryTheoryOntology {
 mod tests {
     use super::*;
     use crate::category::laws::assert_category_laws;
+    use crate::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
     fn category_theory_ontology_category_laws() {
@@ -261,5 +339,161 @@ mod tests {
     fn category_theory_ontology_validates() {
         CategoryTheoryOntology::validate()
             .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[test]
+    fn monad_is_applicative_is_endofunctor_is_functor() {
+        // McBride & Paterson (2008) hierarchy; Moggi (1991) monad
+        // as endofunctor with unit+multiplication.
+        let sub: Vec<_> = CategoryTheoryCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == CategoryTheoryRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(sub.contains(&(
+            CategoryTheoryConcept::Monad,
+            CategoryTheoryConcept::Applicative
+        )));
+        assert!(sub.contains(&(
+            CategoryTheoryConcept::Applicative,
+            CategoryTheoryConcept::Endofunctor
+        )));
+        assert!(sub.contains(&(
+            CategoryTheoryConcept::Endofunctor,
+            CategoryTheoryConcept::Functor
+        )));
+    }
+
+    #[test]
+    fn monad_has_unit_and_multiplication() {
+        // Moggi (1991): monad = (T, η, μ)
+        let parthood: Vec<_> = CategoryTheoryCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == CategoryTheoryRelationKind::Parthood)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(parthood.contains(&(
+            CategoryTheoryConcept::Monad,
+            CategoryTheoryConcept::Unit
+        )));
+        assert!(parthood.contains(&(
+            CategoryTheoryConcept::Monad,
+            CategoryTheoryConcept::Multiplication
+        )));
+    }
+
+    #[test]
+    fn specific_monads_are_monads() {
+        // Wadler (1992); Liang-Hudak-Jones (1995) — canonical monad examples.
+        let sub: Vec<_> = CategoryTheoryCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == CategoryTheoryRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        for m in [
+            CategoryTheoryConcept::StateMonad,
+            CategoryTheoryConcept::ReaderMonad,
+            CategoryTheoryConcept::WriterMonad,
+            CategoryTheoryConcept::FreeMonad,
+        ] {
+            assert!(
+                sub.contains(&(m, CategoryTheoryConcept::Monad)),
+                "{:?} should be-a Monad",
+                m
+            );
+        }
+    }
+
+    #[test]
+    fn algebra_opposes_coalgebra() {
+        // Meijer-Fokkinga-Paterson (1991) — algebra and coalgebra are
+        // dual (arrows reversed).
+        let opp: Vec<_> = CategoryTheoryCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == CategoryTheoryRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opp.contains(&(
+            CategoryTheoryConcept::Algebra,
+            CategoryTheoryConcept::Coalgebra
+        )));
+        assert!(opp.contains(&(
+            CategoryTheoryConcept::Coalgebra,
+            CategoryTheoryConcept::Algebra
+        )));
+    }
+
+    #[test]
+    fn galois_connection_is_adjunction() {
+        // Ore (1944): Galois connections are adjunctions between posets.
+        let sub: Vec<_> = CategoryTheoryCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == CategoryTheoryRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(sub.contains(&(
+            CategoryTheoryConcept::GaloisConnection,
+            CategoryTheoryConcept::Adjunction
+        )));
+    }
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in CategoryTheoryCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_subsumption_targets_valid(_seed in any::<u32>()) {
+            let variants: Vec<_> = CategoryTheoryConcept::variants();
+            for m in CategoryTheoryCategory::morphisms() {
+                if m.kind() == CategoryTheoryRelationKind::Subsumption {
+                    prop_assert!(variants.contains(&m.source()));
+                    prop_assert!(variants.contains(&m.target()));
+                }
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in CategoryTheoryOntology::axioms() {
+                match axiom.verify() {
+                    Ok(_) => {}
+                    Err(c) => prop_assert!(
+                        false,
+                        "structural axiom failed: {}",
+                        c.meta().name.as_str()
+                    ),
+                }
+            }
+        }
+
+        #[test]
+        fn prop_opposition_symmetric(_seed in any::<u32>()) {
+            // Smith et al. (2005) OBO-RO: Opposition is symmetric.
+            let opp: Vec<_> = CategoryTheoryCategory::morphisms()
+                .iter()
+                .filter(|m| m.kind() == CategoryTheoryRelationKind::Opposition)
+                .map(|m| (m.source(), m.target()))
+                .collect();
+            for (a, b) in &opp {
+                prop_assert!(
+                    opp.contains(&(*b, *a)),
+                    "opposition ({:?}, {:?}) missing symmetric partner",
+                    a, b
+                );
+            }
+        }
+
+        #[test]
+        fn prop_concept_count_is_sufficient(_seed in any::<u32>()) {
+            // Category theory is a rich vocabulary; we expect at least
+            // the core 20 concepts Mac Lane develops in Ch. I-III.
+            let variants: Vec<_> = CategoryTheoryConcept::variants();
+            prop_assert!(variants.len() >= 40,
+                "expected >= 40 concepts after extension, got {}", variants.len());
+        }
     }
 }
