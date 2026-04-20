@@ -23,6 +23,7 @@ pub mod monoidal;
 pub mod morphism;
 pub mod op;
 pub mod optics;
+pub mod optics_theory;
 pub mod reader;
 pub mod semigroup;
 pub mod state;
