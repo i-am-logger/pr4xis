@@ -118,6 +118,14 @@ pr4xis::ontology! {
 
         // === Special adjunctions (Ore 1944) ===
         GaloisConnection,
+
+        // === Interpretation / functor semantics (Spivak 2012 FDM;
+        //     Lawvere-Rosebrugh 2003; Goguen-Burstall 1984; Lambek-Scott 1986) ===
+        Interpretation,
+        InstanceFunctor,
+        SchemaCategory,
+        Syntactic,
+        Semantic,
     ],
 
     labels: {
@@ -180,6 +188,12 @@ pr4xis::ontology! {
         Representable: ("en", "Representable functor", "A functor naturally isomorphic to Hom(A, -) for some A. Yoneda (1954); Mac Lane (1971) Ch. III §2."),
 
         GaloisConnection: ("en", "Galois connection", "An adjunction between posets — a pair (f ⊣ g) of monotone maps on partially-ordered sets. Ore (1944); special case of Mac Lane's adjunction."),
+
+        Interpretation: ("en", "Interpretation functor", "A functor that gives semantic meaning to a syntactic structure — maps from a syntactic/theory category to a semantic category. Lambek & Scott (1986); Goguen & Burstall (1984) institutions."),
+        InstanceFunctor: ("en", "Instance functor", "Spivak (2012) FDM §3: a functor I: S → Set from a schema category S to Set — each object's image is the set of instances, each morphism's image is the function between those sets. Characterises database-instance semantics of schema categories."),
+        SchemaCategory: ("en", "Schema category", "Spivak (2012) FDM: a finitely-presented category encoding a database schema — objects are tables, morphisms are foreign-key paths, path equivalences are schema constraints."),
+        Syntactic: ("en", "Syntactic side", "The formal-structure source of an interpretation — schema, theory, type system. Lambek & Scott (1986) — the category where propositions/types live formally."),
+        Semantic: ("en", "Semantic side", "The model / meaning-carrying target of an interpretation — Set for instances, a model category for logical semantics. Tarski (1936); Lambek-Scott (1986)."),
     },
 
     is_a: [
@@ -235,6 +249,11 @@ pr4xis::ontology! {
 
         // Special adjunction
         (GaloisConnection, Adjunction),
+
+        // Interpretation / functor semantics — Spivak FDM; Goguen-Burstall
+        (Interpretation, Functor),
+        (InstanceFunctor, Interpretation),
+        (SchemaCategory, CategoryStructure),
     ],
 
     has_a: [
@@ -273,6 +292,13 @@ pr4xis::ontology! {
         // F-(co)algebra structure
         (Algebra, StructureMap),
         (Coalgebra, StructureMap),
+
+        // Interpretation has syntactic and semantic sides
+        (Interpretation, Syntactic),
+        (Interpretation, Semantic),
+
+        // Instance functor sources a Schema
+        (InstanceFunctor, SchemaCategory),
     ],
 
     opposes: [
@@ -295,6 +321,11 @@ pr4xis::ontology! {
         // Unit / Counit — adjunction triangle duality
         (Unit, Counit),
         (Counit, Unit),
+
+        // Syntactic / Semantic — the classical syntax-semantics duality
+        // (Tarski 1936; Lambek & Scott 1986). An interpretation bridges them.
+        (Syntactic, Semantic),
+        (Semantic, Syntactic),
     ],
 }
 
@@ -420,6 +451,54 @@ mod tests {
         assert!(opp.contains(&(
             CategoryTheoryConcept::Coalgebra,
             CategoryTheoryConcept::Algebra
+        )));
+    }
+
+    #[test]
+    fn interpretation_is_functor_instance_specialises_interpretation() {
+        // Spivak (2012) FDM: an InstanceFunctor is a specific kind of
+        // Interpretation (schema-to-Set); Interpretation is a Functor
+        // (Lambek & Scott 1986; Goguen & Burstall 1984).
+        let sub: Vec<_> = CategoryTheoryCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == CategoryTheoryRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(sub.contains(&(
+            CategoryTheoryConcept::Interpretation,
+            CategoryTheoryConcept::Functor
+        )));
+        assert!(sub.contains(&(
+            CategoryTheoryConcept::InstanceFunctor,
+            CategoryTheoryConcept::Interpretation
+        )));
+    }
+
+    #[test]
+    fn interpretation_bridges_syntactic_and_semantic() {
+        // Lambek & Scott (1986): an interpretation HAS a syntactic source
+        // and a semantic target; the two are DUAL sides.
+        let parthood: Vec<_> = CategoryTheoryCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == CategoryTheoryRelationKind::Parthood)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(parthood.contains(&(
+            CategoryTheoryConcept::Interpretation,
+            CategoryTheoryConcept::Syntactic
+        )));
+        assert!(parthood.contains(&(
+            CategoryTheoryConcept::Interpretation,
+            CategoryTheoryConcept::Semantic
+        )));
+        let opp: Vec<_> = CategoryTheoryCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == CategoryTheoryRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opp.contains(&(
+            CategoryTheoryConcept::Syntactic,
+            CategoryTheoryConcept::Semantic
         )));
     }
 
