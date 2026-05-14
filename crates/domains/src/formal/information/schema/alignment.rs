@@ -1,105 +1,122 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Ontology alignment — discovering correspondences between ontologies.
+//!
+//! An alignment finds correspondences between entities in different
+//! ontologies. Categorically, an alignment is a span `O1 ← A → O2`
+//! (Zimmermann et al. 2006), not a functor — capturing partiality and
+//! multiplicity. The pushout of the span IS the merge.
+//!
+//! # Literature
+//!
+//! - **Euzenat & Shvaiko (2013)** *Ontology Matching*, 2nd ed., Springer
+//!   — correspondences, relation algebra (≡, ⊑, ⊒, ⊥, ∩), confidence,
+//!   matching-technique taxonomy (string / language / structural /
+//!   extensional / semantic / compositional).
+//! - **Zimmermann, Krötzsch, Euzenat & Hitzler (2006)** "Formalizing
+//!   Ontology Alignment and its Operations with Category Theory",
+//!   *FOIS 2006* — alignment as span; merge as pushout; composition
+//!   via pullback.
+//! - **Kalfoglou & Schorlemmer (2003)** "Ontology Mapping: The State of
+//!   the Art", *Knowledge Engineering Review* 18(1):1-31 — mapping /
+//!   alignment / merging distinctions.
+//! - **Meilicke, Stuckenschmidt & Tamilin (2007)** "Repairing
+//!   Ontology Mappings", *AAAI 2007* — coherence: Mod(O1 ∪ A ∪ O2)
+//!   must be non-empty.
+//! - **Melnik, Garcia-Molina & Rahm (2002)** "Similarity Flooding",
+//!   *ICDE 2002* — structural matching via fixpoint iteration.
+//! - **Giunchiglia & Shvaiko (2003)** "Semantic Matching: Algorithms
+//!   and Implementation", *Journal on Data Semantics IX* — S-Match.
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// Ontology Alignment ontology — discovering connections between ontologies.
-//
-// An alignment finds correspondences between entities in different ontologies.
-// Categorically: an alignment is a SPAN O1 ← A → O2, not a functor.
-// This captures partiality (not every entity need map) and multiplicity.
-//
-// When the system encounters concepts from disconnected ontologies
-// (UnknownUnknown in the epistemic model), alignment is the metacognitive
-// process of discovering the missing functor.
-//
-// References:
-// - Euzenat & Shvaiko, "Ontology Matching" (2007, 2nd ed. 2013, Springer)
-//   Chapter 2: correspondences, relation algebra, confidence
-// - Zimmermann, Krötzsch, Euzenat & Hitzler, "Formalizing Ontology
-//   Alignment and its Operations with Category Theory" (FOIS 2006)
-//   Alignment as span, merge as pushout, composition via pullback
-// - Kalfoglou & Schorlemmer, "Ontology Mapping: The State of the Art"
-//   (2003, Knowledge Engineering Review) — mapping/alignment/merging distinctions
-// - OAEI (Ontology Alignment Evaluation Initiative) — evaluation metrics
+pr4xis::ontology! {
+    name: "Alignment",
+    source: "Euzenat & Shvaiko (2013) Ontology Matching 2nd ed., Springer; Zimmermann, Krötzsch, Euzenat & Hitzler (2006) Formalizing Ontology Alignment and its Operations with Category Theory, FOIS; Kalfoglou & Schorlemmer (2003) Ontology Mapping: The State of the Art, KER 18(1); Meilicke, Stuckenschmidt & Tamilin (2007) Repairing Ontology Mappings, AAAI; Melnik, Garcia-Molina & Rahm (2002) Similarity Flooding, ICDE",
 
-/// Concepts in the alignment ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum AlignmentConcept {
-    /// A set of correspondences between two ontologies.
-    /// Euzenat & Shvaiko (2013): A ⊆ C (set of correspondences).
-    /// Zimmermann (2006): a span O1 ← A → O2 in Cat.
-    Alignment,
+    concepts: [
+        Alignment,
+        Correspondence,
+        CorrespondenceRelation,
+        Confidence,
+        MatchingTechnique,
+        Discovery,
+        Evaluation,
+        Refinement,
+        Execution,
+        Merge,
+        Coherence,
+    ],
 
-    /// A single correspondence: (entity1, entity2, relation, confidence).
-    /// Euzenat & Shvaiko (2013), Definition 3.1.
-    Correspondence,
+    labels: {
+        Alignment: ("en", "Alignment",
+            "Euzenat & Shvaiko (2013) Def. 2.1: a set of correspondences between two ontologies. Zimmermann (2006): a span O1 ← A → O2 in Cat."),
+        Correspondence: ("en", "Correspondence",
+            "Euzenat & Shvaiko (2013) Def. 3.1: a single (entity1, entity2, relation, confidence) tuple."),
+        CorrespondenceRelation: ("en", "Correspondence relation",
+            "Euzenat & Shvaiko (2013) Ch. 2: the semantic relation between aligned entities (≡, ⊑, ⊒, ⊥, ∩)."),
+        Confidence: ("en", "Confidence",
+            "Euzenat & Shvaiko (2013) §2.3: a value in [0,1] indicating belief in a correspondence; enrichment over the monoidal category ([0,1], ×, 1)."),
+        MatchingTechnique: ("en", "Matching technique",
+            "Euzenat & Shvaiko (2013) Ch. 4: a method to discover correspondences - OAEI taxonomy (string / language / structural / extensional / semantic / compositional)."),
+        Discovery: ("en", "Discovery",
+            "Generate candidate correspondences between two ontologies."),
+        Evaluation: ("en", "Evaluation",
+            "Score candidate correspondences with confidence values - enrichment functor to [0,1]."),
+        Refinement: ("en", "Refinement",
+            "Filter, compose, and negotiate the candidate alignment - Kan extension or colimit."),
+        Execution: ("en", "Execution",
+            "Apply the alignment to transform data - pushforward functor (Spivak ΣF)."),
+        Merge: ("en", "Merge",
+            "Zimmermann (2006): pushout of the alignment span - the new ontology unifying both."),
+        Coherence: ("en", "Coherence",
+            "Meilicke et al. (2007): alignment must not create unsatisfiable concepts; Mod(O1 ∪ A ∪ O2) must be non-empty."),
+    },
 
-    /// The semantic relation between aligned entities.
-    /// From the relation algebra: ≡, ⊑, ⊒, ⊥, ∩.
-    CorrespondenceRelation,
-
-    /// Confidence value in [0,1] for a correspondence.
-    /// Euzenat & Shvaiko (2013), Section 2.3.
-    /// Enrichment over the monoidal category ([0,1], ×, 1).
-    Confidence,
-
-    /// Matching technique used to discover correspondences.
-    /// OAEI taxonomy: string-based, structural, semantic, extensional.
-    MatchingTechnique,
-
-    /// Discovery phase: find candidate correspondences.
-    /// Generate morphism candidates between ontologies.
-    Discovery,
-
-    /// Evaluation phase: score correspondences with confidence.
-    /// Enrichment functor to [0,1].
-    Evaluation,
-
-    /// Refinement phase: filter, compose, negotiate.
-    /// Kan extension or colimit.
-    Refinement,
-
-    /// Execution phase: apply alignment to transform data.
-    /// Pushforward functor (Spivak ΣF).
-    Execution,
-
-    /// Merge: create new ontology unifying both via alignment.
-    /// Zimmermann (2006): pushout of the alignment span.
-    Merge,
-
-    /// Coherence check: alignment must not create unsatisfiable concepts.
-    /// Meilicke et al. (2007): Mod(O1 + A + O2) must be non-empty.
-    Coherence,
+    edges: [
+        // Euzenat & Shvaiko (2013): alignment contains correspondences.
+        (Alignment, Correspondence, Contains),
+        // Each correspondence has a relation and a confidence.
+        (Correspondence, CorrespondenceRelation, HasRelation),
+        (Correspondence, Confidence, HasConfidence),
+        // MatchingTechnique drives Discovery (Euzenat & Shvaiko Ch. 4).
+        (MatchingTechnique, Discovery, Drives),
+        // Discovery produces Alignment.
+        (Discovery, Alignment, Produces),
+        // Lifecycle: Discovery → Evaluation → Refinement → Execution.
+        (Discovery, Evaluation, Precedes),
+        (Evaluation, Refinement, Precedes),
+        (Refinement, Execution, Precedes),
+        // Zimmermann (2006): Merge consumes Alignment (pushout).
+        (Merge, Alignment, Consumes),
+        // Meilicke (2007): Coherence validates Alignment.
+        (Coherence, Alignment, Validates),
+    ],
 }
 
-/// Semantic relations between aligned entities.
-/// Euzenat & Shvaiko (2013), Chapter 2 — a relation algebra.
+/// Semantic relations between aligned entities. Euzenat & Shvaiko (2013)
+/// Ch. 2 — a relation algebra adapted from description logic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SemanticRelation {
-    /// ≡ — entities denote the same concept. Categorical: isomorphism.
+    /// ≡ — entities denote the same concept (categorical: isomorphism).
     Equivalence,
-    /// ⊑ — entity1 is more specific than entity2. Categorical: monomorphism.
+    /// ⊑ — entity1 is more specific (categorical: monomorphism).
     SubsumedBy,
-    /// ⊒ — entity1 is more general than entity2. Categorical: epimorphism.
+    /// ⊒ — entity1 is more general (categorical: epimorphism).
     Subsumes,
-    /// ⊥ — entities share no instances. Categorical: zero morphism.
+    /// ⊥ — disjoint (categorical: zero morphism).
     Disjoint,
-    /// ∩ — entities share some but not all instances. Categorical: pullback exists.
+    /// ∩ — overlap (categorical: pullback exists).
     Overlap,
 }
 
 impl SemanticRelation {
-    /// Inverse the relation direction.
-    /// Zimmermann (2006), Proposition 2: swap legs of the span.
+    /// Zimmermann (2006) Proposition 2: swap legs of the span.
     pub fn inverse(&self) -> Self {
         match self {
-            Self::Equivalence => Self::Equivalence, // symmetric
+            Self::Equivalence => Self::Equivalence,
             Self::SubsumedBy => Self::Subsumes,
             Self::Subsumes => Self::SubsumedBy,
-            Self::Disjoint => Self::Disjoint, // symmetric
-            Self::Overlap => Self::Overlap,   // symmetric
+            Self::Disjoint => Self::Disjoint,
+            Self::Overlap => Self::Overlap,
         }
     }
 
@@ -108,168 +125,113 @@ impl SemanticRelation {
     }
 }
 
-/// Matching technique types from OAEI taxonomy.
-/// Euzenat & Shvaiko (2013), Chapter 4.
+/// OAEI matching-technique taxonomy. Euzenat & Shvaiko (2013) Ch. 4.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MatchingType {
-    /// Compare entity labels using string similarity.
     /// Edit distance, n-gram, Jaro-Winkler.
     StringBased,
-    /// Use linguistic resources (WordNet synonyms, morphology).
+    /// WordNet synonyms, morphology.
     LanguageBased,
-    /// Compare graph topology: shared neighbors, path length.
-    /// Melnik et al. (2002): similarity flooding.
+    /// Melnik et al. (2002) similarity flooding.
     Structural,
     /// Compare overlapping instances (Jaccard index).
     Extensional,
-    /// Use logical axioms: SAT-based, model-theoretic.
-    /// Giunchiglia & Shvaiko (2003): S-Match.
+    /// Giunchiglia & Shvaiko (2003) S-Match.
     Semantic,
-    /// Compose through intermediate ontology: O1→Obridge→O2.
-    /// Functor composition.
+    /// Compose through intermediate ontology O1 → Obridge → O2.
     Compositional,
 }
 
-define_ontology! {
-    pub AlignmentOntology for AlignmentCategory {
-        concepts: AlignmentConcept,
-        relation: AlignmentRelation,
-        kind: AlignmentRelationKind,
-        kinds: [
-            /// Alignment contains Correspondences.
-            Contains,
-            /// Correspondence has a CorrespondenceRelation and Confidence.
-            HasRelation,
-            HasConfidence,
-            /// Discovery produces Alignment.
-            Produces,
-            /// MatchingTechnique drives Discovery.
-            Drives,
-            /// Lifecycle: Discovery → Evaluation → Refinement → Execution.
-            Precedes,
-            /// Merge consumes Alignment (pushout of span).
-            Consumes,
-            /// Coherence validates Alignment.
-            Validates,
-        ],
-        edges: [
-            // Alignment contains Correspondences
-            (Alignment, Correspondence, Contains),
-            // Correspondence has relation and confidence
-            (Correspondence, CorrespondenceRelation, HasRelation),
-            (Correspondence, Confidence, HasConfidence),
-            // MatchingTechnique drives Discovery
-            (MatchingTechnique, Discovery, Drives),
-            // Discovery produces Alignment
-            (Discovery, Alignment, Produces),
-            // Lifecycle: Discovery → Evaluation → Refinement → Execution
-            (Discovery, Evaluation, Precedes),
-            (Evaluation, Refinement, Precedes),
-            (Refinement, Execution, Precedes),
-            // Merge consumes Alignment (pushout)
-            (Merge, Alignment, Consumes),
-            // Coherence validates Alignment
-            (Coherence, Alignment, Validates),
-        ],
-        composed: [
-            // Discovery → Alignment → Correspondence
-            (Discovery, Correspondence),
-            // MatchingTechnique → Alignment
-            (MatchingTechnique, Alignment),
-            // Discovery → Execution (full lifecycle)
-            (Discovery, Execution),
-        ],
-        being: AbstractObject,
-        source: "Spivak (2012); Euzenat & Shvaiko (2013)",
+/// Quality: whether a concept is on the alignment lifecycle (Discovery
+/// → Evaluation → Refinement → Execution).
+#[derive(Debug, Clone)]
+pub struct IsLifecycleStage;
+
+impl Quality for IsLifecycleStage {
+    type Individual = AlignmentConcept;
+    type Value = bool;
+
+    fn get(&self, c: &AlignmentConcept) -> Option<bool> {
+        use AlignmentConcept as A;
+        Some(matches!(
+            c,
+            A::Discovery | A::Evaluation | A::Refinement | A::Execution
+        ))
+    }
+}
+
+impl Ontology for AlignmentOntology {
+    type Cat = AlignmentCategory;
+    type Qual = IsLifecycleStage;
+
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
-    fn category_laws_hold() {
-        check_category_laws::<AlignmentCategory>().unwrap();
+    fn category_laws() {
+        assert_category_laws::<AlignmentCategory>();
     }
 
     #[test]
-    fn has_eleven_concepts() {
+    fn ontology_validates() {
+        AlignmentOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[test]
+    fn eleven_concepts() {
         assert_eq!(AlignmentConcept::variants().len(), 11);
     }
-
-    // --- Euzenat & Shvaiko: Alignment contains Correspondences ---
 
     #[test]
     fn alignment_contains_correspondences() {
         let m = AlignmentCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == AlignmentConcept::Alignment
-            && r.to == AlignmentConcept::Correspondence
-            && r.kind == AlignmentRelationKind::Contains));
+        assert!(m.iter().any(|r| r.source() == AlignmentConcept::Alignment
+            && r.target() == AlignmentConcept::Correspondence
+            && r.kind() == AlignmentRelationKind::Contains));
     }
-
-    // --- Euzenat & Shvaiko: Correspondence has relation and confidence ---
-
-    #[test]
-    fn correspondence_has_relation_and_confidence() {
-        let m = AlignmentCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == AlignmentConcept::Correspondence
-            && r.to == AlignmentConcept::CorrespondenceRelation));
-        assert!(
-            m.iter().any(|r| r.from == AlignmentConcept::Correspondence
-                && r.to == AlignmentConcept::Confidence)
-        );
-    }
-
-    // --- Zimmermann (2006): Alignment lifecycle ---
 
     #[test]
     fn lifecycle_order() {
         let m = AlignmentCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == AlignmentConcept::Discovery
-            && r.to == AlignmentConcept::Evaluation
-            && r.kind == AlignmentRelationKind::Precedes));
-        assert!(m.iter().any(|r| r.from == AlignmentConcept::Evaluation
-            && r.to == AlignmentConcept::Refinement
-            && r.kind == AlignmentRelationKind::Precedes));
-        assert!(m.iter().any(|r| r.from == AlignmentConcept::Refinement
-            && r.to == AlignmentConcept::Execution
-            && r.kind == AlignmentRelationKind::Precedes));
+        use AlignmentConcept as A;
+        for (from, to) in [
+            (A::Discovery, A::Evaluation),
+            (A::Evaluation, A::Refinement),
+            (A::Refinement, A::Execution),
+        ] {
+            assert!(m.iter().any(|r| r.source() == from
+                && r.target() == to
+                && r.kind() == AlignmentRelationKind::Precedes));
+        }
     }
-
-    #[test]
-    fn discovery_reaches_execution() {
-        let m = AlignmentCategory::morphisms();
-        assert!(
-            m.iter()
-                .any(|r| r.from == AlignmentConcept::Discovery
-                    && r.to == AlignmentConcept::Execution)
-        );
-    }
-
-    // --- Zimmermann (2006): Merge is pushout of alignment span ---
 
     #[test]
     fn merge_consumes_alignment() {
+        // Zimmermann (2006) pushout of alignment span.
         let m = AlignmentCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == AlignmentConcept::Merge
-            && r.to == AlignmentConcept::Alignment
-            && r.kind == AlignmentRelationKind::Consumes));
+        assert!(m.iter().any(|r| r.source() == AlignmentConcept::Merge
+            && r.target() == AlignmentConcept::Alignment
+            && r.kind() == AlignmentRelationKind::Consumes));
     }
-
-    // --- Meilicke (2007): Coherence validates alignment ---
 
     #[test]
     fn coherence_validates_alignment() {
+        // Meilicke et al. (2007).
         let m = AlignmentCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == AlignmentConcept::Coherence
-            && r.to == AlignmentConcept::Alignment
-            && r.kind == AlignmentRelationKind::Validates));
+        assert!(m.iter().any(|r| r.source() == AlignmentConcept::Coherence
+            && r.target() == AlignmentConcept::Alignment
+            && r.kind() == AlignmentRelationKind::Validates));
     }
-
-    // --- Semantic relation algebra ---
 
     #[test]
     fn equivalence_is_symmetric() {
@@ -289,15 +251,6 @@ mod tests {
     }
 
     #[test]
-    fn disjointness_is_symmetric() {
-        assert!(SemanticRelation::Disjoint.is_symmetric());
-        assert_eq!(
-            SemanticRelation::Disjoint.inverse(),
-            SemanticRelation::Disjoint
-        );
-    }
-
-    #[test]
     fn inverse_of_inverse_is_identity() {
         for rel in [
             SemanticRelation::Equivalence,
@@ -309,8 +262,6 @@ mod tests {
             assert_eq!(rel.inverse().inverse(), rel);
         }
     }
-
-    // --- OAEI: Six matching technique types ---
 
     #[test]
     fn six_matching_types() {
@@ -325,26 +276,39 @@ mod tests {
         assert_eq!(types.len(), 6);
     }
 
-    // --- Discovery produces Alignment ---
-
-    #[test]
-    fn discovery_produces_alignment() {
-        let m = AlignmentCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == AlignmentConcept::Discovery
-            && r.to == AlignmentConcept::Alignment
-            && r.kind == AlignmentRelationKind::Produces));
+    fn arb_concept() -> impl Strategy<Value = AlignmentConcept> {
+        proptest::sample::select(AlignmentConcept::variants())
     }
 
-    // --- MatchingTechnique drives Discovery ---
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in AlignmentCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
 
-    #[test]
-    fn technique_drives_discovery() {
-        let m = AlignmentCategory::morphisms();
-        assert!(
-            m.iter()
-                .any(|r| r.from == AlignmentConcept::MatchingTechnique
-                    && r.to == AlignmentConcept::Discovery
-                    && r.kind == AlignmentRelationKind::Drives)
-        );
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in AlignmentOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_lifecycle_total(c in arb_concept()) {
+            prop_assert!(IsLifecycleStage.get(&c).is_some());
+        }
+
+        #[test]
+        fn prop_semantic_inverse_involutive(_seed in any::<u32>()) {
+            for r in [SemanticRelation::Equivalence, SemanticRelation::SubsumedBy,
+                      SemanticRelation::Subsumes, SemanticRelation::Disjoint,
+                      SemanticRelation::Overlap] {
+                prop_assert_eq!(r.inverse().inverse(), r);
+            }
+        }
     }
 }

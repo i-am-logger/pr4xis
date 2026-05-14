@@ -4,11 +4,11 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::ontology::*;
 use pr4xis::category::Category;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 
 #[test]
 fn category_laws() {
-    check_category_laws::<KnowledgeBaseCategory>().unwrap();
+    assert_category_laws::<KnowledgeCategory>();
 }
 
 #[test]
@@ -18,7 +18,7 @@ fn six_concepts() {
 
 #[test]
 fn knowledge_base_catalogs_vocabulary() {
-    let m = KnowledgeBaseCategory::morphisms();
+    let m = KnowledgeCategory::morphisms();
     assert!(m.iter().any(|r| r.from == KnowledgeConcept::KnowledgeBase
         && r.to == KnowledgeConcept::Vocabulary
         && r.kind == KnowledgeRelationKind::Catalogs));
@@ -26,7 +26,7 @@ fn knowledge_base_catalogs_vocabulary() {
 
 #[test]
 fn vocabulary_conforms_to_schema() {
-    let m = KnowledgeBaseCategory::morphisms();
+    let m = KnowledgeCategory::morphisms();
     assert!(m.iter().any(|r| r.from == KnowledgeConcept::Vocabulary
         && r.to == KnowledgeConcept::Schema
         && r.kind == KnowledgeRelationKind::ConformsTo));
@@ -34,7 +34,7 @@ fn vocabulary_conforms_to_schema() {
 
 #[test]
 fn vocabulary_contains_entries() {
-    let m = KnowledgeBaseCategory::morphisms();
+    let m = KnowledgeCategory::morphisms();
     assert!(m.iter().any(|r| r.from == KnowledgeConcept::Vocabulary
         && r.to == KnowledgeConcept::Entry
         && r.kind == KnowledgeRelationKind::Contains));
@@ -42,7 +42,7 @@ fn vocabulary_contains_entries() {
 
 #[test]
 fn vocabulary_derived_from_datasource() {
-    let m = KnowledgeBaseCategory::morphisms();
+    let m = KnowledgeCategory::morphisms();
     assert!(m.iter().any(|r| r.from == KnowledgeConcept::Vocabulary
         && r.to == KnowledgeConcept::DataSource
         && r.kind == KnowledgeRelationKind::DerivedFrom));
@@ -50,7 +50,7 @@ fn vocabulary_derived_from_datasource() {
 
 #[test]
 fn schema_defines_entry() {
-    let m = KnowledgeBaseCategory::morphisms();
+    let m = KnowledgeCategory::morphisms();
     assert!(m.iter().any(|r| r.from == KnowledgeConcept::Schema
         && r.to == KnowledgeConcept::Entry
         && r.kind == KnowledgeRelationKind::Defines));
@@ -102,7 +102,7 @@ fn every_descriptor_has_nonzero_concepts() {
     let descriptors = super::describe_knowledge_base();
     for d in &descriptors {
         assert!(
-            d.concepts().len() > 0,
+            !d.concepts().is_empty(),
             "{} ({}) has 0 concepts",
             d.name(),
             d.domain()
@@ -196,9 +196,14 @@ fn refactor_parity_baseline_counts() {
         "vocabularies below baseline: {}, expected ≥130",
         vocabs
     );
+    // Baseline rebased after #166 / C.21 / C.24 — the per-def reasoning
+    // traits (TaxonomyDef/MereologyDef/CausalDef/OppositionDef) were
+    // collapsed into kinded morphisms; their per-ontology axiom emission
+    // went away, lowering the workspace axiom count. Bar is the
+    // post-refactor floor.
     assert!(
-        axioms >= 500,
-        "axioms below baseline: {}, expected ≥500",
+        axioms >= 450,
+        "axioms below baseline: {}, expected ≥450",
         axioms
     );
     assert!(
@@ -297,13 +302,11 @@ fn registered_axioms_carry_nonempty_citations() {
 mod compose {
     use pr4xis::ontology::RuntimeOntology;
     use pr4xis::ontology::compose::{EdgeKind, Metroplex};
-    use pr4xis::ontology::upper::being::Being;
 
     #[test]
     fn compose_biology_chemistry_via_korporator() {
         let bio = RuntimeOntology::create("Biology")
             .source("Mayr (1982)")
-            .being(Being::AbstractObject)
             .concept("Cell")
             .concept("Organism")
             .concept("Tissue")
@@ -313,7 +316,6 @@ mod compose {
 
         let chem = RuntimeOntology::create("Chemistry")
             .source("Pauling (1960)")
-            .being(Being::AbstractObject)
             .concept("Atom")
             .concept("Molecule")
             .concept("Cell")
@@ -360,7 +362,6 @@ mod compose {
     fn metroplex_builds_hierarchy() {
         let algebra = RuntimeOntology::create("Algebra")
             .source("Goguen & Burstall (1992)")
-            .being(Being::AbstractObject)
             .concept("Coproduct")
             .concept("Product")
             .concept("Colimit")
@@ -370,7 +371,6 @@ mod compose {
 
         let staging = RuntimeOntology::create("Staging")
             .source("Futamura (1971)")
-            .being(Being::AbstractObject)
             .concept("Program")
             .concept("Interpreter")
             .concept("Compiler")
@@ -487,35 +487,55 @@ mod prop {
     proptest! {
         #[test]
         fn prop_identity_idempotent(c in arb_knowledge()) {
-            let id = KnowledgeBaseCategory::identity(&c);
-            prop_assert_eq!(KnowledgeBaseCategory::compose(&id, &id), Some(id));
+            let id = KnowledgeCategory::identity(&c);
+            prop_assert_eq!(KnowledgeCategory::compose(&id, &id), Some(id));
         }
 
-        /// Every concept has both Identity and Composed self-morphisms.
+        /// Every concept has an Identity self-morphism. Per #166 the
+        /// auto-generated kind no longer emits `Composed` self-loops;
+        /// composition of typed morphisms is partial.
         #[test]
         fn prop_self_morphisms(c in arb_knowledge()) {
-            let m = KnowledgeBaseCategory::morphisms();
+            let m = KnowledgeCategory::morphisms();
             let has_identity = m.iter().any(|r| r.from == c && r.to == c && r.kind == KnowledgeRelationKind::Identity);
-            let has_composed = m.iter().any(|r| r.from == c && r.to == c && r.kind == KnowledgeRelationKind::Composed);
             prop_assert!(has_identity);
-            prop_assert!(has_composed);
         }
 
-        /// VoID: KnowledgeBase reaches every concept transitively.
+        /// VoID: KnowledgeBase reaches every concept transitively. Per #166
+        /// the heterogeneous-kind closure isn't a single morphism — walk
+        /// the graph. DataSource is leaf-only (terminal w.r.t. the
+        /// outgoing-edge graph from KB) and is excluded.
         #[test]
         fn prop_knowledge_base_reaches_all(c in arb_knowledge()) {
-            let m = KnowledgeBaseCategory::morphisms();
-            let reachable = m.iter().any(|r| r.from == KnowledgeConcept::KnowledgeBase && r.to == c);
+            use std::collections::{HashSet, VecDeque};
+            use pr4xis::category::Arrow;
+            let ms = KnowledgeCategory::morphisms();
+            let mut visited: HashSet<KnowledgeConcept> = HashSet::new();
+            let mut queue: VecDeque<KnowledgeConcept> = VecDeque::new();
+            queue.push_back(KnowledgeConcept::KnowledgeBase);
+            let mut reachable = c == KnowledgeConcept::KnowledgeBase;
+            while let Some(n) = queue.pop_front() {
+                if n == c {
+                    reachable = true;
+                    break;
+                }
+                if !visited.insert(n) {
+                    continue;
+                }
+                for m in ms.iter().filter(|m| m.source() == n) {
+                    queue.push_back(m.target());
+                }
+            }
             prop_assert!(reachable, "KnowledgeBase should reach {:?}", c);
         }
 
         /// Composition with identity preserves any morphism.
         #[test]
         fn prop_left_identity(c in arb_knowledge()) {
-            let m = KnowledgeBaseCategory::morphisms();
-            let id = KnowledgeBaseCategory::identity(&c);
+            let m = KnowledgeCategory::morphisms();
+            let id = KnowledgeCategory::identity(&c);
             for morph in m.iter().filter(|r| r.from == c) {
-                let composed = KnowledgeBaseCategory::compose(&id, morph);
+                let composed = KnowledgeCategory::compose(&id, morph);
                 prop_assert_eq!(composed.as_ref().map(|r| (r.from, r.to)), Some((morph.from, morph.to)));
             }
         }

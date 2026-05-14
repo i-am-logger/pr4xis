@@ -117,7 +117,8 @@ mod tests {
         let f = |x: i32| State::new(move |s: i32| (x + s, s + 1));
 
         let left = State::<i32, i32>::pure(a).bind(f);
-        let right = (|x: i32| State::new(move |s: i32| (x + s, s + 1)))(a);
+        // bind(pure(a), f) = f(a) — inline `f(a)` directly.
+        let right = State::new(move |s: i32| (a + s, s + 1));
 
         assert_eq!(left.run(10), right.run(10));
     }
@@ -144,7 +145,8 @@ mod tests {
         let left = m().bind(f).bind(g).run(0);
         let right = m()
             .bind(|x| {
-                (|x: i32| State::new(move |s: i32| (x * 2, s + 10)))(x)
+                // f(x) inlined: State::new(move |s| (x * 2, s + 10))
+                State::new(move |s: i32| (x * 2, s + 10))
                     .bind(|y| State::new(move |s: i32| (y + 100, s * 2)))
             })
             .run(0);
@@ -212,9 +214,7 @@ mod tests {
 
     #[test]
     fn get_then_put_is_identity() {
-        let (_, state) = State::<i32, i32>::get()
-            .bind(|s| State::<i32, ()>::put(s))
-            .run(42);
+        let (_, state) = State::<i32, i32>::get().bind(State::<i32, ()>::put).run(42);
         assert_eq!(state, 42);
     }
 

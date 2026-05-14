@@ -19,7 +19,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "MetaCognition",
     source: "von Foerster (1981); Olivares-Alarcos MOI (2023)",
-    being: MentalObject,
 
     concepts: [
         ObjectLevel,

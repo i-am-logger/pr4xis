@@ -171,8 +171,8 @@ pub fn fold_trace<F: 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::category::arrow::Arrow;
     use crate::category::entity::Concept;
-    use crate::category::relationship::Relationship;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum TestObj {
@@ -193,7 +193,7 @@ mod tests {
         to: TestObj,
     }
 
-    impl Relationship for TestMorph {
+    impl Arrow for TestMorph {
         type Object = TestObj;
         type Kind = ();
         fn source(&self) -> TestObj {

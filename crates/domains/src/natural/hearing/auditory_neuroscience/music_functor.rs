@@ -1,10 +1,13 @@
-//! Functor: NeuroscienceCategory -> MusicPerceptionCategory.
+//! Functor: NeuroscienceCategory → MusicPerceptionCategory.
 //!
 //! Maps neural processing mechanisms to music cognition.
+//!
+//! Citation: Schnupp et al. (2011) *Auditory Neuroscience* — neural-to-
+//! music correspondences; Patel (2008) *Music, Language, and the Brain*.
 
 use crate::natural::hearing::auditory_neuroscience::ontology::*;
 use crate::natural::hearing::music_perception::ontology::*;
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Functor};
 
 pub struct NeuroscienceToMusic;
 
@@ -16,12 +19,10 @@ impl Functor for NeuroscienceToMusic {
         use MusicEntity::*;
         use NeuralEntity as N;
         match obj {
-            // Coding → pitch/rhythm
             N::RateCoding => PitchHeight,
             N::TemporalCoding | N::PhaseLocking | N::SpikeTimingCode => TemporalExpectation,
             N::PlaceCoding => PitchChroma,
             N::PopulationCoding => Chord,
-            // Response properties → musical features
             N::TonotopicMap | N::CharacteristicFrequency => KeySense,
             N::FrequencyTuningCurve => IntervalPerception,
             N::RateLevelFunction | N::DynamicRange => MusicalEmotion,
@@ -30,7 +31,6 @@ impl Functor for NeuroscienceToMusic {
             N::SustainedResponse => Tonality,
             N::Adaptation => MusicalExpectation,
             N::Inhibition => Dissonance,
-            // Processing stages → increasingly abstract music processing
             N::AuditoryNerveFiber => PitchHeight,
             N::CochlearNucleusProcessing => IntervalPerception,
             N::SuperiorOliveProcessing => Beat,
@@ -38,38 +38,50 @@ impl Functor for NeuroscienceToMusic {
             N::InferiorColliculusProcessing => Entrainment,
             N::MedialGeniculateProcessing => Tonality,
             N::AuditoryCortexProcessing => MusicalEmotion,
-            // Binaural → spatial aspects of music
             N::BinauralProcessing
             | N::CoincidenceDetection
             | N::ExcitatoryInhibitory
             | N::MedialSuperiorOlive
             | N::LateralSuperiorOlive => Groove,
-            // Higher functions → music cognition
             N::AuditorySceneAnalysis => InstrumentIdentification,
             N::StreamSegregation => MelodicContour,
             N::GestaltGrouping => RhythmicPercept,
             N::EchoSuppression | N::PrecedenceEffect => Groove,
             N::MismatchNegativity => Surprise,
-            // Abstract
             N::CodingStrategy => PitchPercept,
             N::ResponseProperty => TimbrePercept,
             N::ProcessingStage => HarmonicPercept,
             N::BinauralMechanism => RhythmicPercept,
             N::HigherFunction => AffectiveResponse,
+            // Neural events → music events.
+            N::AuditoryNerveInput => AuditoryInput,
+            N::CochlearNucleusIntegration => PitchExtraction,
+            N::BinauralConvergence => HarmonicGrouping,
+            N::LemniscalRelay => MelodicTracking,
+            N::MultisensoryIntegration => BeatInduction,
+            N::ThalamicGating => MetricFraming,
+            N::CorticalAnalysis => TonalInterpretation,
+            N::StreamFormation => MusicalExpectationFormation,
+            N::PerceptualBinding => EmotionalResponse,
+            N::NeuralEvent => MusicEvent,
         }
     }
 
     fn map_morphism(m: &NeuralRelation) -> MusicRelation {
+        use MusicRelationKind as Tk;
+        use NeuroscienceCategoryRelationKind as Sk;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            NeuroscienceCategoryRelationKind::Identity => MusicPerceptionCategory::identity(&from),
-            _ => MusicRelation {
-                from,
-                to,
-                kind: MusicPerceptionCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+            // Canonical kinds always emitted by ontology! macro; unreachable
+            // when source has no edges of these kinds.
+            Sk::Parthood => Tk::Parthood,
+        };
+        MusicRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(NeuroscienceToMusic);
@@ -78,52 +90,24 @@ pr4xis::register_functor!(NeuroscienceToMusic);
 mod tests {
     use super::*;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
-    fn test_functor_laws() {
-        check_functor_laws::<NeuroscienceToMusic>().unwrap();
+    fn functor_laws() {
+        assert_functor_laws::<NeuroscienceToMusic>();
     }
     #[test]
-    fn test_analogy_validates() {
-        Analogy::<NeuroscienceToMusic>::validate().unwrap();
-    }
-    #[test]
-    fn test_mismatch_negativity_maps_to_surprise() {
+    fn mismatch_negativity_maps_to_surprise() {
         assert_eq!(
             NeuroscienceToMusic::map_object(&NeuralEntity::MismatchNegativity),
             MusicEntity::Surprise
         );
     }
     #[test]
-    fn test_every_entity_maps_valid() {
+    fn every_entity_maps_valid() {
         let targets = MusicEntity::variants();
         for obj in NeuralEntity::variants() {
             assert!(targets.contains(&NeuroscienceToMusic::map_object(&obj)));
-        }
-    }
-
-    use pr4xis::category::Category;
-    use proptest::prelude::*;
-
-    fn arb_neural_entity() -> impl Strategy<Value = NeuralEntity> {
-        (0..NeuralEntity::variants().len()).prop_map(|i| NeuralEntity::variants()[i])
-    }
-
-    proptest! {
-        #[test]
-        fn prop_functor_maps_to_valid_target(entity in arb_neural_entity()) {
-            let mapped = NeuroscienceToMusic::map_object(&entity);
-            prop_assert!(MusicEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_functor_preserves_identity(entity in arb_neural_entity()) {
-            let id_src = NeuroscienceCategory::identity(&entity);
-            let mapped_id = NeuroscienceToMusic::map_morphism(&id_src);
-            let id_tgt = MusicPerceptionCategory::identity(&NeuroscienceToMusic::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
         }
     }
 }

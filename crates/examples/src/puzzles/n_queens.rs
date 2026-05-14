@@ -1,6 +1,23 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const N_QUEENS_CITATION: &str =
+    "Bezzel (1848) Proposal of the Eight Queens Problem, Schachzeitung 3:363";
 
 /// N-Queens: place N queens on NxN board with no attacks.
+///
+/// Source: Bezzel (1848) — earliest published statement of the
+/// eight-queens problem.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     pub n: usize,
@@ -26,23 +43,14 @@ impl State {
         }
         false
     }
-}
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        format!(
-            "{}x{} queens={:?} placed={}/{}",
-            self.n,
-            self.n,
-            self.queens,
-            self.queens.len(),
-            self.n
-        )
-    }
-    fn is_terminal(&self) -> bool {
+    /// Board is complete when N queens have been placed.
+    pub fn is_terminal(&self) -> bool {
         self.queens.len() == self.n
     }
 }
+
+impl Situation for State {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlaceQueen {
@@ -51,48 +59,32 @@ pub struct PlaceQueen {
 
 impl Action for PlaceQueen {
     type Sit = State;
-    fn describe(&self) -> String {
-        format!("place queen at col {}", self.col)
-    }
 }
 
 struct NoAttack;
 impl Precondition<PlaceQueen> for NoAttack {
-    fn check(&self, s: &State, a: &PlaceQueen) -> PreconditionResult {
+    fn check(&self, s: &State, a: &PlaceQueen) -> Verdict {
+        let meta = axiom_meta(
+            "no_attack",
+            "queen must not attack any existing queen",
+            N_QUEENS_CITATION,
+        );
         if a.col >= s.n {
-            return PreconditionResult::violated(
-                "no_attack",
-                "column out of range",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         if s.queens.len() >= s.n {
-            return PreconditionResult::violated(
-                "no_attack",
-                "board is full",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         let row = s.queens.len();
         if s.attacks(row, a.col) {
-            PreconditionResult::violated(
-                "no_attack",
-                &format!("queen at ({},{}) attacks existing queen", row, a.col),
-                &s.describe(),
-                &a.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         } else {
-            PreconditionResult::satisfied("no_attack", &format!("({},{}) is safe", row, a.col))
+            Ok(Box::new(SimpleProof::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "queen must not attack any existing queen"
     }
 }
 
-fn apply_queen(s: &State, a: &PlaceQueen) -> Result<State, String> {
+fn apply_queen(s: &State, a: &PlaceQueen) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     n.queens.push(a.col);
     Ok(n)
@@ -119,7 +111,7 @@ mod tests {
             .unwrap()
             .next(PlaceQueen { col: 2 })
             .unwrap();
-        assert!(e.is_terminal());
+        assert!(e.situation().is_terminal());
     }
 
     #[test]
@@ -141,7 +133,7 @@ mod tests {
             .unwrap()
             .next(PlaceQueen { col: 3 })
             .unwrap();
-        assert!(e.is_terminal());
+        assert!(e.situation().is_terminal());
     }
 
     #[test]

@@ -6,12 +6,12 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::Concept;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Attitude",
     source: "Wertz (1978); Markley & Crassidis (2014)",
-    being: Process,
 
     concepts: [StarTracker, SunSensor, EarthHorizon, Magnetometer],
 
@@ -46,66 +46,77 @@ impl Quality for SensorAccuracy {
 pub struct QuaternionUnitNorm;
 
 impl Axiom for QuaternionUnitNorm {
-    fn description(&self) -> &str {
-        "attitude quaternion must have unit norm (|q| = 1)"
+    fn verify(&self) -> Verdict {
+        // Markley & Crassidis (2014) §2.7: attitude quaternions live on
+        // the unit 3-sphere S³ ⊂ ℝ⁴ — only unit quaternions correspond to
+        // valid rotations in SO(3).
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "QuaternionUnitNorm",
+        "attitude quaternion must have unit norm (|q| = 1)",
+        "Markley & Crassidis (2014) Fundamentals of Spacecraft Attitude Determination and Control §2.7"
+    );
 }
 pr4xis::register_axiom!(
     QuaternionUnitNorm,
-    "Wertz (1978), *Spacecraft Attitude Determination and Control*"
+    "Markley & Crassidis (2014) Fundamentals of Spacecraft Attitude Determination and Control §2.7"
 );
 
 /// Axiom: star tracker is the most accurate attitude sensor.
 pub struct StarTrackerMostAccurate;
 
 impl Axiom for StarTrackerMostAccurate {
-    fn description(&self) -> &str {
-        "star tracker has the highest accuracy among attitude sensors"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let q = SensorAccuracy;
         let star_acc = q.get(&AttitudeConcept::StarTracker).unwrap();
-        AttitudeConcept::variants()
+        let ok = AttitudeConcept::variants()
             .iter()
-            .all(|s| q.get(s).unwrap() >= star_acc)
+            .all(|s| q.get(s).unwrap() >= star_acc);
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "StarTrackerMostAccurate",
+        "star tracker has the highest accuracy among attitude sensors",
+        "Wertz (1978) Spacecraft Attitude Determination and Control §6"
+    );
 }
 pr4xis::register_axiom!(
     StarTrackerMostAccurate,
-    "Wertz (1978), *Spacecraft Attitude Determination and Control*"
+    "Wertz (1978) Spacecraft Attitude Determination and Control §6"
 );
 
 impl Ontology for AttitudeOntology {
     type Cat = AttitudeCategory;
     type Qual = SensorAccuracy;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(QuaternionUnitNorm),
-            Box::new(StarTrackerMostAccurate),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(QuaternionUnitNorm));
+        axioms.push(Box::new(StarTrackerMostAccurate));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<AttitudeCategory>().unwrap();
+        assert_category_laws::<AttitudeCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        AttitudeOntology::validate().unwrap();
+        AttitudeOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

@@ -1,6 +1,4 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
 use crate::social::compliance::classification::*;
@@ -15,11 +13,7 @@ use crate::social::compliance::escalation::*;
 pub struct DistinctionPrinciple;
 
 impl Axiom for DistinctionPrinciple {
-    fn description(&self) -> &str {
-        "LOAC distinction: engagement requires MilitaryObjective classification (Protocol I, Art. 48)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         // A protected entity cannot reach Engage
         let protected = ClassifiedEntity {
             entity_type: EntityType::Person,
@@ -27,16 +21,30 @@ impl Axiom for DistinctionPrinciple {
             protected_status: ProtectedStatus::Protected,
             confidence: Confidence::High,
         };
-        can_transition(
+        if can_transition(
             EscalationLevel::WarningAction,
             EscalationLevel::Engage,
             &protected,
             Authorization::CommanderAuthorized,
         )
         .is_err()
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "DistinctionPrinciple",
+        "LOAC distinction: engagement requires MilitaryObjective classification",
+        "Geneva Convention Protocol I (1977), Art. 48"
+    );
 }
-pr4xis::register_axiom!(DistinctionPrinciple);
+pr4xis::register_axiom!(
+    DistinctionPrinciple,
+    "Geneva Convention Protocol I (1977), Art. 48"
+);
 
 /// Presumption of civilian status (Protocol I, Art. 50(1)).
 ///
@@ -45,11 +53,7 @@ pr4xis::register_axiom!(DistinctionPrinciple);
 pub struct CivilianPresumption;
 
 impl Axiom for CivilianPresumption {
-    fn description(&self) -> &str {
-        "LOAC presumption: unknown persons are assumed civilian (Protocol I, Art. 50(1))"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let unknown_person = ClassifiedEntity {
             entity_type: EntityType::Person,
             iff: IffClassification::Unknown,
@@ -57,10 +61,23 @@ impl Axiom for CivilianPresumption {
             confidence: Confidence::None,
         };
         // Unknown person must NOT meet engagement threshold
-        !unknown_person.meets_engagement_threshold()
+        if !unknown_person.meets_engagement_threshold() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "CivilianPresumption",
+        "LOAC presumption: unknown persons are assumed civilian",
+        "Geneva Convention Protocol I (1977), Art. 50(1)"
+    );
 }
-pr4xis::register_axiom!(CivilianPresumption);
+pr4xis::register_axiom!(
+    CivilianPresumption,
+    "Geneva Convention Protocol I (1977), Art. 50(1)"
+);
 
 /// Persons require human positive identification for engagement.
 ///
@@ -70,11 +87,7 @@ pr4xis::register_axiom!(CivilianPresumption);
 pub struct HumanInTheLoop;
 
 impl Axiom for HumanInTheLoop {
-    fn description(&self) -> &str {
-        "persons require human PositiveId for engagement (DoD Directive 3000.09)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         // Even a hostile-classified person with High (but not PositiveId) confidence cannot be engaged
         let hostile_person = ClassifiedEntity {
             entity_type: EntityType::Person,
@@ -82,16 +95,27 @@ impl Axiom for HumanInTheLoop {
             protected_status: ProtectedStatus::MilitaryObjective,
             confidence: Confidence::High, // not PositiveId
         };
-        can_transition(
+        if can_transition(
             EscalationLevel::WarningAction,
             EscalationLevel::Engage,
             &hostile_person,
             Authorization::CommanderAuthorized,
         )
         .is_err()
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "HumanInTheLoop",
+        "persons require human PositiveId for engagement",
+        "DoD Directive 3000.09 (2023)"
+    );
 }
-pr4xis::register_axiom!(HumanInTheLoop);
+pr4xis::register_axiom!(HumanInTheLoop, "DoD Directive 3000.09 (2023)");
 
 /// Escalation is sequential — cannot skip force levels.
 ///
@@ -101,11 +125,7 @@ pr4xis::register_axiom!(HumanInTheLoop);
 pub struct SequentialEscalation;
 
 impl Axiom for SequentialEscalation {
-    fn description(&self) -> &str {
-        "escalation must be sequential — no skipping levels (Protocol I, Art. 57)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let target = ClassifiedEntity {
             entity_type: EntityType::GroundVehicle,
             iff: IffClassification::Hostile,
@@ -113,16 +133,30 @@ impl Axiom for SequentialEscalation {
             confidence: Confidence::High,
         };
         // Cannot jump from Observe directly to Engage
-        can_transition(
+        if can_transition(
             EscalationLevel::Observe,
             EscalationLevel::Engage,
             &target,
             Authorization::CommanderAuthorized,
         )
         .is_err()
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "SequentialEscalation",
+        "escalation must be sequential — no skipping levels",
+        "Geneva Convention Protocol I (1977), Art. 57(2)(a)(ii)"
+    );
 }
-pr4xis::register_axiom!(SequentialEscalation);
+pr4xis::register_axiom!(
+    SequentialEscalation,
+    "Geneva Convention Protocol I (1977), Art. 57(2)(a)(ii)"
+);
 
 /// Advance warning requirement (Protocol I, Art. 57(2)(c)).
 ///
@@ -131,11 +165,7 @@ pr4xis::register_axiom!(SequentialEscalation);
 pub struct AdvanceWarning;
 
 impl Axiom for AdvanceWarning {
-    fn description(&self) -> &str {
-        "advance warning before engagement when feasible (Protocol I, Art. 57(2)(c))"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let target = ClassifiedEntity {
             entity_type: EntityType::GroundVehicle,
             iff: IffClassification::Hostile,
@@ -143,29 +173,42 @@ impl Axiom for AdvanceWarning {
             confidence: Confidence::High,
         };
         // Cannot go from Alert directly to Engage (must pass through Warn, ShowForce, etc.)
-        can_transition(
+        if can_transition(
             EscalationLevel::Alert,
             EscalationLevel::Engage,
             &target,
             Authorization::CommanderAuthorized,
         )
         .is_err()
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "AdvanceWarning",
+        "advance warning before engagement when feasible",
+        "Geneva Convention Protocol I (1977), Art. 57(2)(c)"
+    );
 }
-pr4xis::register_axiom!(AdvanceWarning);
+pr4xis::register_axiom!(
+    AdvanceWarning,
+    "Geneva Convention Protocol I (1977), Art. 57(2)(c)"
+);
 
 /// Abort is always available from any state.
 ///
 /// A system must always be able to abort. There is no state
-/// from which de-escalation is impossible.
+/// from which de-escalation is impossible. Grounded in DoD
+/// Directive 3000.09's "appropriate levels of human judgment"
+/// requirement: human operators retain the ability to halt or
+/// reverse any autonomous action.
 pub struct AbortAlwaysAvailable;
 
 impl Axiom for AbortAlwaysAvailable {
-    fn description(&self) -> &str {
-        "abort is always available from any escalation level"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let entity = ClassifiedEntity::unknown();
         let levels = [
             EscalationLevel::Observe,
@@ -187,10 +230,16 @@ impl Axiom for AbortAlwaysAvailable {
             )
             .is_err()
             {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "AbortAlwaysAvailable",
+        "abort is always available from any escalation level",
+        "DoD Directive 3000.09 (2023)"
+    );
 }
-pr4xis::register_axiom!(AbortAlwaysAvailable);
+pr4xis::register_axiom!(AbortAlwaysAvailable, "DoD Directive 3000.09 (2023)");

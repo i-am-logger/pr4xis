@@ -9,14 +9,13 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::biochemistry::ontology::{
-    BiochemistryCategory, BiochemistryCategoryRelationKind, BiochemistryEntity,
-    BiochemistryRelation,
+    BiochemistryCategory, BiochemistryConcept, BiochemistryRelation, BiochemistryRelationKind,
 };
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularEntity, MolecularRelation, MolecularRelationKind,
 };
 
 /// Structure-preserving map from biochemistry entities to molecular components.
@@ -26,8 +25,8 @@ impl Functor for BiochemistryToMolecular {
     type Source = BiochemistryCategory;
     type Target = MolecularCategory;
 
-    fn map_object(obj: &BiochemistryEntity) -> MolecularEntity {
-        use BiochemistryEntity as B;
+    fn map_object(obj: &BiochemistryConcept) -> MolecularEntity {
+        use BiochemistryConcept as B;
         use MolecularEntity as M;
         match obj {
             // Direct ion mapping
@@ -61,10 +60,26 @@ impl Functor for BiochemistryToMolecular {
             B::Glycolysis => M::Ion, // produces ionic intermediates
             B::OxidativePhosphorylation => M::Ion, // electron transport chain
 
-            // Abstract categories map to molecular abstracts
+            // Abstract umbrellas and the BiochemicalEvent root
             B::SignalingMolecule => M::SignalingMolecule,
             B::BiochemicalProcess => M::Protein, // processes act on proteins
             B::EnergyMetabolite => M::Ion,       // energy currency
+            B::BiochemicalEvent => M::CalciumSignal,
+
+            // Causal events — merged into the concept enum.
+            // Each event maps to its dominant molecular participant.
+            B::CalciumEntry => M::Calcium,
+            B::CalmodulinActivation => M::Protein,
+            B::CaMKIIPhosphorylation => M::Protein,
+            B::CREBActivation => M::Protein,
+            B::GeneExpressionChange => M::Protein,
+            B::ProteinSynthesisChange => M::Protein,
+            B::PKCActivation => M::Protein,
+            B::DownstreamSignaling => M::SignalingMolecule,
+            B::NOSynthaseActivation => M::Protein,
+            B::NOProduction => M::NitricOxide,
+            B::ATPHydrolysis => M::Ion,
+            B::EnergyRelease => M::Ion,
         }
     }
 
@@ -72,11 +87,11 @@ impl Functor for BiochemistryToMolecular {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
         match m.kind {
-            BiochemistryCategoryRelationKind::Identity => MolecularCategory::identity(&from),
+            BiochemistryRelationKind::Identity => MolecularCategory::identity(&from),
             _ => MolecularRelation {
                 from,
                 to,
-                kind: MolecularCategoryRelationKind::Composed,
+                kind: MolecularRelationKind::Subsumption,
             },
         }
     }
@@ -86,13 +101,13 @@ pr4xis::register_functor!(BiochemistryToMolecular);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::category::{Category, Concept};
+    use pr4xis::category::laws::assert_functor_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<BiochemistryToMolecular>().unwrap();
+        assert_functor_laws::<BiochemistryToMolecular>();
     }
 
     #[test]
@@ -102,7 +117,7 @@ mod tests {
 
     #[test]
     fn test_identity_preservation() {
-        for obj in BiochemistryEntity::variants() {
+        for obj in BiochemistryConcept::variants() {
             let id_src = BiochemistryCategory::identity(&obj);
             let mapped_id = BiochemistryToMolecular::map_morphism(&id_src);
             let id_tgt = MolecularCategory::identity(&BiochemistryToMolecular::map_object(&obj));
@@ -111,34 +126,37 @@ mod tests {
     }
 
     #[test]
-    fn test_composition_preservation() {
-        let objs = BiochemistryEntity::variants();
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = BiochemistryRelation {
-                        from: a,
-                        to: b,
-                        kind: BiochemistryCategoryRelationKind::Composed,
-                    };
-                    let g = BiochemistryRelation {
-                        from: b,
-                        to: c,
-                        kind: BiochemistryCategoryRelationKind::Composed,
-                    };
-                    let composed = BiochemistryCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = BiochemistryToMolecular::map_morphism(&composed);
-                    let composed_mapped = MolecularCategory::compose(
-                        &BiochemistryToMolecular::map_morphism(&f),
-                        &BiochemistryToMolecular::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
+    fn test_composition_preservation_on_subsumption() {
+        // The migrated Biochemistry category is kinded and partial (per OBO-RO,
+        // #166): compose only succeeds for same-kind transitive relations.
+        // Exercise composition along Subsumption chains and verify the functor
+        // preserves the composite.
+        for m in BiochemistryCategory::morphisms() {
+            if m.kind() != BiochemistryRelationKind::Subsumption {
+                continue;
+            }
+            for n in BiochemistryCategory::morphisms() {
+                if n.kind() != BiochemistryRelationKind::Subsumption {
+                    continue;
                 }
+                if m.target() != n.source() {
+                    continue;
+                }
+                let composed = match BiochemistryCategory::compose(&m, &n) {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let mapped_composed = BiochemistryToMolecular::map_morphism(&composed);
+                let composed_mapped = MolecularCategory::compose(
+                    &BiochemistryToMolecular::map_morphism(&m),
+                    &BiochemistryToMolecular::map_morphism(&n),
+                )
+                .expect("target composition is total");
+                assert_eq!(
+                    mapped_composed, composed_mapped,
+                    "composition law failed for {:?} ∘ {:?}",
+                    m, n
+                );
             }
         }
     }
@@ -146,7 +164,7 @@ mod tests {
     #[test]
     fn test_calcium_ion_maps_to_calcium() {
         assert_eq!(
-            BiochemistryToMolecular::map_object(&BiochemistryEntity::CalciumIon),
+            BiochemistryToMolecular::map_object(&BiochemistryConcept::CalciumIon),
             MolecularEntity::Calcium,
         );
     }
@@ -154,7 +172,7 @@ mod tests {
     #[test]
     fn test_nitric_oxide_maps_to_nitric_oxide() {
         assert_eq!(
-            BiochemistryToMolecular::map_object(&BiochemistryEntity::NitricOxide),
+            BiochemistryToMolecular::map_object(&BiochemistryConcept::NitricOxide),
             MolecularEntity::NitricOxide,
         );
     }
@@ -162,7 +180,7 @@ mod tests {
     #[test]
     fn test_calmodulin_maps_to_protein() {
         assert_eq!(
-            BiochemistryToMolecular::map_object(&BiochemistryEntity::Calmodulin),
+            BiochemistryToMolecular::map_object(&BiochemistryConcept::Calmodulin),
             MolecularEntity::Protein,
         );
     }
@@ -170,7 +188,7 @@ mod tests {
     #[test]
     fn test_camkii_maps_to_protein() {
         assert_eq!(
-            BiochemistryToMolecular::map_object(&BiochemistryEntity::CaMKII),
+            BiochemistryToMolecular::map_object(&BiochemistryConcept::CaMKII),
             MolecularEntity::Protein,
         );
     }
@@ -178,7 +196,7 @@ mod tests {
     #[test]
     fn test_camp_maps_to_calcium_signal() {
         assert_eq!(
-            BiochemistryToMolecular::map_object(&BiochemistryEntity::CAMP),
+            BiochemistryToMolecular::map_object(&BiochemistryConcept::CAMP),
             MolecularEntity::CalciumSignal,
         );
     }
@@ -186,7 +204,7 @@ mod tests {
     #[test]
     fn test_atp_maps_to_ion() {
         assert_eq!(
-            BiochemistryToMolecular::map_object(&BiochemistryEntity::ATP),
+            BiochemistryToMolecular::map_object(&BiochemistryConcept::ATP),
             MolecularEntity::Ion,
         );
     }
@@ -194,7 +212,7 @@ mod tests {
     #[test]
     fn test_signaling_molecule_maps_to_signaling_molecule() {
         assert_eq!(
-            BiochemistryToMolecular::map_object(&BiochemistryEntity::SignalingMolecule),
+            BiochemistryToMolecular::map_object(&BiochemistryConcept::SignalingMolecule),
             MolecularEntity::SignalingMolecule,
         );
     }
@@ -202,7 +220,7 @@ mod tests {
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = MolecularEntity::variants();
-        for obj in BiochemistryEntity::variants() {
+        for obj in BiochemistryConcept::variants() {
             let mapped = BiochemistryToMolecular::map_object(&obj);
             assert!(
                 target_variants.contains(&mapped),

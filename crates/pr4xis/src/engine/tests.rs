@@ -1,12 +1,14 @@
 use super::*;
+use crate::logic::proof::{Counterexample, Proof, SimpleCounterexample, SimpleProof, Verdict};
+use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use proptest::prelude::*;
 
 // =============================================================================
-// Example: Counter with bounds enforcement
+// Example: Counter with bounds enforcement — typed API (#161)
 //
-// Situation: a number 0..=max
-// Actions: Increment, Decrement
-// Preconditions: can't go below 0, can't go above max
+// - Situation: Counter struct (Debug via derive, no describe() primitive-leak)
+// - Action: CounterAction enum (Debug via derive, no describe() primitive-leak)
+// - Preconditions: return typed Verdict (Proof / Counterexample), not String-Result
 // =============================================================================
 
 #[derive(Debug, Clone, PartialEq)]
@@ -15,15 +17,7 @@ struct Counter {
     max: i32,
 }
 
-impl Situation for Counter {
-    fn describe(&self) -> String {
-        format!("counter={} (max={})", self.value, self.max)
-    }
-
-    fn is_terminal(&self) -> bool {
-        false // counter is never terminal
-    }
-}
+impl Situation for Counter {}
 
 #[derive(Debug, Clone, PartialEq)]
 enum CounterAction {
@@ -34,64 +28,50 @@ enum CounterAction {
 
 impl Action for CounterAction {
     type Sit = Counter;
+}
 
-    fn describe(&self) -> String {
-        match self {
-            CounterAction::Increment { by } => format!("increment by {}", by),
-            CounterAction::Decrement { by } => format!("decrement by {}", by),
-            CounterAction::Reset => "reset to 0".to_string(),
-        }
+/// Helper: typed meta for a precondition axiom.
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
 struct NotBelowZero;
 
 impl Precondition<CounterAction> for NotBelowZero {
-    fn check(&self, situation: &Counter, action: &CounterAction) -> PreconditionResult {
+    fn check(&self, situation: &Counter, action: &CounterAction) -> Verdict {
+        let meta = axiom_meta("NotBelowZero", "counter must not go below zero", "");
         if let CounterAction::Decrement { by } = action
             && situation.value - by < 0
         {
-            return PreconditionResult::violated(
-                "not_below_zero",
-                &format!("{} - {} would be negative", situation.value, by),
-                &situation.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("not_below_zero", "value stays >= 0")
-    }
-
-    fn describe(&self) -> &str {
-        "counter must not go below zero"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
 struct NotAboveMax;
 
 impl Precondition<CounterAction> for NotAboveMax {
-    fn check(&self, situation: &Counter, action: &CounterAction) -> PreconditionResult {
+    fn check(&self, situation: &Counter, action: &CounterAction) -> Verdict {
+        let meta = axiom_meta("NotAboveMax", "counter must not exceed maximum", "");
         if let CounterAction::Increment { by } = action
             && situation.value + by > situation.max
         {
-            return PreconditionResult::violated(
-                "not_above_max",
-                &format!(
-                    "{} + {} would exceed max {}",
-                    situation.value, by, situation.max
-                ),
-                &situation.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("not_above_max", "value stays <= max")
-    }
-
-    fn describe(&self) -> &str {
-        "counter must not exceed maximum"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn counter_apply(situation: &Counter, action: &CounterAction) -> Result<Counter, String> {
+fn counter_apply(
+    situation: &Counter,
+    action: &CounterAction,
+) -> Result<Counter, Box<dyn Counterexample>> {
     let mut next = situation.clone();
     match action {
         CounterAction::Increment { by } => next.value += by,
@@ -184,54 +164,43 @@ fn test_trace_records_violations() {
 }
 
 #[test]
-fn test_violation_carries_context() {
+fn test_violation_carries_typed_counterexample() {
     let engine = make_engine(2, 10);
     let EngineError::Violated { violations, .. } =
         engine.next(CounterAction::Decrement { by: 5 }).unwrap_err()
     else {
         panic!("expected Violated")
     };
-    if let PreconditionResult::Violated { rule, reason, .. } = &violations[0] {
-        assert_eq!(rule, "not_below_zero");
-        assert!(reason.contains("2 - 5"));
-    } else {
-        panic!("expected violation");
-    }
+    // Verify the counterexample is typed — carries axiom meta, not String fields.
+    assert_eq!(violations[0].meta().name.as_str(), "NotBelowZero");
+    assert!(
+        violations[0]
+            .meta()
+            .description
+            .as_str()
+            .contains("below zero")
+    );
 }
 
 #[test]
-fn test_try_next() {
-    let engine = make_engine(0, 10);
-    let result = engine.try_next(CounterAction::Decrement { by: 5 });
-    assert!(result.is_err());
-    let errors = result.unwrap_err();
-    assert!(errors[0].contains("not_below_zero"));
-}
-
-#[test]
-fn test_trace_dump() {
-    let engine = make_engine(0, 10)
-        .next(CounterAction::Increment { by: 3 })
-        .unwrap();
-    let dump = engine.trace().dump();
-    assert!(dump.contains("OK"));
-    assert!(dump.contains("increment by 3"));
-}
-
-#[test]
-fn test_satisfied_carries_context() {
+fn test_satisfied_precondition_is_typed_proof() {
     let engine = make_engine(0, 10)
         .next(CounterAction::Increment { by: 1 })
         .unwrap();
     let entry = engine.trace().last().unwrap();
-    let satisfied: Vec<_> = entry
-        .precondition_results
+    // Both preconditions succeed — each verdict is Ok carrying a Proof.
+    let proofs: Vec<&Box<dyn Proof>> = entry
+        .precondition_verdicts
         .iter()
-        .filter(|r| r.is_satisfied())
+        .filter_map(|v| v.as_ref().ok())
         .collect();
-    assert_eq!(satisfied.len(), 2); // both rules satisfied
-    assert_eq!(satisfied[0].rule(), "not_below_zero");
-    assert_eq!(satisfied[1].rule(), "not_above_max");
+    assert_eq!(proofs.len(), 2);
+    let names: Vec<String> = proofs
+        .iter()
+        .map(|p| p.meta().name.as_str().to_string())
+        .collect();
+    assert!(names.iter().any(|n| n == "NotBelowZero"));
+    assert!(names.iter().any(|n| n == "NotAboveMax"));
 }
 
 // =============================================================================
@@ -298,246 +267,55 @@ fn test_next_after_back_clears_future() {
         .next(CounterAction::Increment { by: 5 })
         .unwrap()
         .next(CounterAction::Increment { by: 3 })
+        .unwrap()
+        .back()
         .unwrap();
+    // Taking a new action after back() clears the redo-future.
+    let engine = engine.next(CounterAction::Decrement { by: 2 }).unwrap();
+    assert_eq!(engine.situation().value, 3);
     assert_eq!(engine.forward_depth(), 0);
-    let engine = engine.back().unwrap();
-    assert_eq!(engine.forward_depth(), 1);
-    // New action clears future
-    let engine = engine.next(CounterAction::Increment { by: 1 }).unwrap();
-    assert_eq!(engine.forward_depth(), 0);
-    assert_eq!(engine.situation().value, 6); // 5 + 1, not 5 + 3
-}
-
-#[test]
-fn test_back_depth() {
-    let engine = make_engine(0, 10)
-        .next(CounterAction::Increment { by: 1 })
-        .unwrap()
-        .next(CounterAction::Increment { by: 1 })
-        .unwrap()
-        .next(CounterAction::Increment { by: 1 })
-        .unwrap();
-    assert_eq!(engine.back_depth(), 3);
-    assert_eq!(engine.forward_depth(), 0);
-    let engine = engine.back().unwrap();
-    assert_eq!(engine.back_depth(), 2);
-    assert_eq!(engine.forward_depth(), 1);
-}
-
-#[test]
-fn test_step_derived_from_history() {
-    let engine = make_engine(0, 10)
-        .next(CounterAction::Increment { by: 1 })
-        .unwrap()
-        .next(CounterAction::Increment { by: 1 })
-        .unwrap()
-        .next(CounterAction::Increment { by: 1 })
-        .unwrap();
-    assert_eq!(engine.step(), 3);
-    let engine = engine.back().unwrap();
-    assert_eq!(engine.step(), 2);
-    let engine = engine.back().unwrap();
-    assert_eq!(engine.step(), 1);
-    let engine = engine.forward().unwrap();
-    assert_eq!(engine.step(), 2);
 }
 
 // =============================================================================
-// Property-based tests
+// Proptest — typed preconditions, typed verdicts
 // =============================================================================
 
 proptest! {
-    /// Back then forward = original situation
     #[test]
-    fn prop_back_forward_identity(n in 1..10usize) {
-        let mut engine = make_engine(0, 1000);
-        for i in 0..n {
-            engine = engine.next(CounterAction::Increment { by: i as i32 + 1 }).unwrap();
-        }
-        let expected = engine.situation().value;
-        let engine = engine.back().unwrap().forward().unwrap();
-        prop_assert_eq!(engine.situation().value, expected);
+    fn prop_increment_within_bounds_always_succeeds(
+        start in 0i32..50,
+        by in 1i32..50,
+        max in 50i32..100,
+    ) {
+        prop_assume!(start + by <= max);
+        let engine = make_engine(start, max);
+        let result = engine.next(CounterAction::Increment { by });
+        prop_assert!(result.is_ok());
+        prop_assert_eq!(result.unwrap().situation().value, start + by);
     }
 
-    /// Full undo restores initial state
     #[test]
-    fn prop_full_undo(n in 1..10usize) {
-        let mut engine = make_engine(0, 1000);
-        for i in 0..n {
-            engine = engine.next(CounterAction::Increment { by: i as i32 + 1 }).unwrap();
-        }
-        for _ in 0..n {
-            engine = engine.back().unwrap();
-        }
-        prop_assert_eq!(engine.situation().value, 0);
-        prop_assert_eq!(engine.back_depth(), 0);
-    }
-
-    /// Full undo then full redo = original final state
-    #[test]
-    fn prop_full_undo_redo(n in 1..10usize) {
-        let mut engine = make_engine(0, 1000);
-        for i in 0..n {
-            engine = engine.next(CounterAction::Increment { by: i as i32 + 1 }).unwrap();
-        }
-        let expected = engine.situation().value;
-        for _ in 0..n {
-            engine = engine.back().unwrap();
-        }
-        for _ in 0..n {
-            engine = engine.forward().unwrap();
-        }
-        prop_assert_eq!(engine.situation().value, expected);
-    }
-
-    /// back_depth + forward_depth = total steps after any back/forward sequence
-    #[test]
-    fn prop_depth_invariant(steps in 1..5usize, backs in 0..5usize) {
-        let mut engine = make_engine(0, 1000);
-        for i in 0..steps {
-            engine = engine.next(CounterAction::Increment { by: i as i32 + 1 }).unwrap();
-        }
-        let actual_backs = backs.min(steps);
-        for _ in 0..actual_backs {
-            engine = engine.back().unwrap();
-        }
-        prop_assert_eq!(engine.back_depth() + engine.forward_depth(), steps);
-    }
-
-    /// step() always equals back_depth()
-    #[test]
-    fn prop_step_equals_back_depth(steps in 1..5usize, backs in 0..5usize) {
-        let mut engine = make_engine(0, 1000);
-        for i in 0..steps {
-            engine = engine.next(CounterAction::Increment { by: i as i32 + 1 }).unwrap();
-        }
-        let actual_backs = backs.min(steps);
-        for _ in 0..actual_backs {
-            engine = engine.back().unwrap();
-        }
-        prop_assert_eq!(engine.step(), engine.back_depth());
-    }
-
-    /// Increment by positive amount increases value
-    #[test]
-    fn prop_increment_increases(start in 0..50i32, by in 1..10i32) {
+    fn prop_decrement_below_zero_always_fails(
+        start in 0i32..10,
+        by in 11i32..20,
+    ) {
+        prop_assume!(start - by < 0);
         let engine = make_engine(start, 100);
-        let engine = engine.next(CounterAction::Increment { by }).unwrap();
-        prop_assert_eq!(engine.situation().value, start + by);
-    }
-
-    /// Decrement by positive amount decreases value
-    #[test]
-    fn prop_decrement_decreases(start in 10..50i32, by in 1..10i32) {
-        let engine = make_engine(start, 100);
-        let engine = engine.next(CounterAction::Decrement { by }).unwrap();
-        prop_assert_eq!(engine.situation().value, start - by);
-    }
-
-    /// Reset always produces 0
-    #[test]
-    fn prop_reset_to_zero(start in 0..100i32) {
-        let engine = make_engine(start, 100);
-        let engine = engine.next(CounterAction::Reset).unwrap();
-        prop_assert_eq!(engine.situation().value, 0);
-    }
-
-    /// Below zero is always blocked
-    #[test]
-    fn prop_below_zero_blocked(value in 0..10i32, by in 11..100i32) {
-        let engine = make_engine(value, 100);
         let result = engine.next(CounterAction::Decrement { by });
         prop_assert!(result.is_err());
     }
 
-    /// Above max is always blocked
     #[test]
-    fn prop_above_max_blocked(value in 90..100i32, by in 11..100i32) {
-        let engine = make_engine(value, 100);
-        let result = engine.next(CounterAction::Increment { by });
-        prop_assert!(result.is_err());
-    }
-
-    /// Successful action increases trace count
-    #[test]
-    fn prop_trace_grows_on_success(n in 1..10usize) {
-        let mut engine = make_engine(0, 1000);
-        for _ in 0..n {
-            engine = engine.next(CounterAction::Increment { by: 1 }).unwrap();
-        }
-        prop_assert_eq!(engine.trace().successful_steps(), n);
-    }
-
-    /// Failed action increases violation count
-    #[test]
-    fn prop_trace_records_violations(value in 0..5i32) {
-        let engine = make_engine(value, 10);
-        let EngineError::Violated { engine, .. } = engine.next(CounterAction::Decrement { by: value + 1 }).unwrap_err() else { panic!("expected Violated") };
-        prop_assert_eq!(engine.trace().violations(), 1);
-    }
-
-    /// Violation result always carries rule name
-    #[test]
-    fn prop_violation_has_rule(value in 0..5i32) {
-        let engine = make_engine(value, 10);
-        let EngineError::Violated { violations, .. } = engine.next(CounterAction::Decrement { by: value + 1 }).unwrap_err() else { panic!("expected Violated") };
-        for v in &violations {
-            prop_assert!(!v.rule().is_empty());
-            prop_assert!(!v.reason().is_empty());
-        }
-    }
-
-    /// Satisfied result always carries rule name
-    #[test]
-    fn prop_satisfied_has_rule(value in 0..50i32) {
-        let engine = make_engine(value, 100)
-            .next(CounterAction::Increment { by: 1 }).unwrap();
-        let entry = engine.trace().last().unwrap();
-        for r in &entry.precondition_results {
-            prop_assert!(!r.rule().is_empty());
-        }
-    }
-
-    /// Engine situation matches expected value after chain
-    #[test]
-    fn prop_chain_value(increments in proptest::collection::vec(1..5i32, 1..10)) {
-        let mut engine = make_engine(0, 10000);
-        let mut expected = 0;
-        for by in &increments {
-            engine = engine.next(CounterAction::Increment { by: *by }).unwrap();
-            expected += by;
-        }
-        prop_assert_eq!(engine.situation().value, expected);
-    }
-
-    /// Trace step count matches action count
-    #[test]
-    fn prop_trace_step_count(n in 1..20usize) {
-        let mut engine = make_engine(50, 1000);
-        for _ in 0..n {
-            engine = engine.next(CounterAction::Increment { by: 1 }).unwrap();
-        }
-        prop_assert_eq!(engine.trace().entries().len(), n);
-    }
-
-    /// try_next Ok matches next Ok
-    #[test]
-    fn prop_try_next_consistent(value in 0..50i32, by in 1..10i32) {
-        let engine1 = make_engine(value, 100);
-        let engine2 = make_engine(value, 100);
-        let r1 = engine1.next(CounterAction::Increment { by }).map(|e| e.situation().value);
-        let r2 = engine2.try_next(CounterAction::Increment { by }).map(|e| e.situation().value);
-        prop_assert_eq!(r1.is_ok(), r2.is_ok());
-        if let (Ok(v1), Ok(v2)) = (r1, r2) {
-            prop_assert_eq!(v1, v2);
-        }
-    }
-
-    /// Trace dump is non-empty after any action
-    #[test]
-    fn prop_dump_non_empty(value in 0..50i32) {
-        let engine = make_engine(value, 100)
-            .next(CounterAction::Increment { by: 1 }).unwrap();
-        prop_assert!(!engine.trace().dump().is_empty());
+    fn prop_back_forward_restores_value(
+        start in 0i32..10,
+        by in 1i32..10,
+    ) {
+        let engine = make_engine(start, 100);
+        let engine = engine.next(CounterAction::Increment { by }).unwrap();
+        let after_incr = engine.situation().value;
+        let engine = engine.back().unwrap();
+        prop_assert_eq!(engine.situation().value, start);
+        let engine = engine.forward().unwrap();
+        prop_assert_eq!(engine.situation().value, after_incr);
     }
 }

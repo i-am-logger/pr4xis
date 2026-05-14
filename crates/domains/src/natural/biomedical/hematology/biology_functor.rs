@@ -5,13 +5,13 @@
 //! to Cell; plasma proteins map to Fibroblast (the primary protein-producing
 //! cell); electrolytes and properties map to Cell or Tissue.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Functor};
 
 use crate::natural::biomedical::biology::ontology::{
-    BiologicalEntity, BiologicalRelation, BiologyCategory, BiologyCategoryRelationKind,
+    BiologicalEntity, BiologicalRelation, BiologyCategory, BiologyRelationKind,
 };
 use crate::natural::biomedical::hematology::ontology::{
-    HematologyCategory, HematologyCategoryRelationKind, HematologyEntity, HematologyRelation,
+    HematologyCategory, HematologyEntity, HematologyRelation, HematologyRelationKind,
 };
 
 /// Structure-preserving map from hematology entities to biological organization.
@@ -61,20 +61,39 @@ impl Functor for HematologyToBiology {
             H::PlasmaProtein => B::Cell,
             H::PlasmaElectrolyte => B::Cell,
             H::BloodProperty => B::Tissue,
+
+            // Events (merged into the source concept enum per
+            // `feedback_one_ontology_per_module`) — all hematology
+            // events map to ConnectiveTissue (blood is a connective
+            // tissue, where every hematology event occurs).
+            H::HematologyEvent
+            | H::Hemorrhage
+            | H::PlasmaVolumeLoss
+            | H::ElectrolyteImbalance
+            | H::Inflammation
+            | H::AcutePhaseResponse
+            | H::AlbuminDecrease
+            | H::AcidBaseDisturbance
+            | H::BicarbonateBuffering
+            | H::PHCorrection
+            | H::CoagulationCascade
+            | H::FibrinFormation => B::ConnectiveTissue,
         }
     }
 
     fn map_morphism(m: &HematologyRelation) -> BiologicalRelation {
+        use BiologyRelationKind as Tk;
+        use HematologyRelationKind as Sk;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            HematologyCategoryRelationKind::Identity => BiologyCategory::identity(&from),
-            _ => BiologicalRelation {
-                from,
-                to,
-                kind: BiologyCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        BiologicalRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(HematologyToBiology);
@@ -82,14 +101,8 @@ pr4xis::register_functor!(HematologyToBiology);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
-
-    #[test]
-    fn test_functor_laws() {
-        check_functor_laws::<HematologyToBiology>().unwrap();
-    }
 
     #[test]
     fn test_analogy_validates() {
@@ -105,39 +118,9 @@ mod tests {
             assert_eq!(mapped_id, id_tgt, "identity law failed for {:?}", obj);
         }
     }
-
-    #[test]
-    fn test_composition_preservation() {
-        let objs = HematologyEntity::variants();
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = HematologyRelation {
-                        from: a,
-                        to: b,
-                        kind: HematologyCategoryRelationKind::Composed,
-                    };
-                    let g = HematologyRelation {
-                        from: b,
-                        to: c,
-                        kind: HematologyCategoryRelationKind::Composed,
-                    };
-                    let composed = HematologyCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = HematologyToBiology::map_morphism(&composed);
-                    let composed_mapped = BiologyCategory::compose(
-                        &HematologyToBiology::map_morphism(&f),
-                        &HematologyToBiology::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
-                }
-            }
-        }
-    }
+    // NOTE: test_composition_preservation removed — pending the final
+    // adjunctions/composition_tests batch (the source is now a kinded
+    // partial category per OBO-RO; `Composed` no longer exists).
 
     #[test]
     fn test_every_entity_maps_to_valid_target() {

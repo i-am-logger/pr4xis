@@ -1,172 +1,91 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Systems-thinking ontology — components, interactions, states,
+//! transitions, constraints, feedback, homeostasis, emergence,
+//! boundary, controller. The categorical structure of any system.
+//!
+//! A system is a set of interacting components that together exhibit
+//! behaviour the components individually do not. The ten concepts
+//! below are the building blocks every system exhibits — a traffic
+//! intersection, a chess game, a conversation, an economy.
+//!
+//! # Literature
+//!
+//! - **von Bertalanffy (1968)** *General System Theory: Foundations,
+//!   Development, Applications*, George Braziller — the founding text
+//!   of general systems theory.
+//! - **Wiener (1948)** *Cybernetics: Or Control and Communication in
+//!   the Animal and the Machine*, MIT Press — control + communication
+//!   as the cybernetic loop.
+//! - **Ashby (1956)** *An Introduction to Cybernetics*, Chapman & Hall
+//!   — Law of Requisite Variety; the regulator must have at least the
+//!   variety of the disturbance.
+//! - **Beer (1972)** *Brain of the Firm*, John Wiley & Sons — the
+//!   Viable System Model.
+//! - **Meadows (2008)** *Thinking in Systems: A Primer*, Chelsea Green
+//!   — feedback loops, homeostasis, emergence in everyday systems.
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::{Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// Systems thinking ontology — the science of wholes, relationships, and patterns.
-//
-// A system is a set of interacting components that together exhibit behavior
-// that the components individually do not. This ontology formalizes the
-// core concepts of systems thinking and cybernetics as a category.
-//
-// References:
-// - Ludwig von Bertalanffy, General System Theory (1968)
-// - Norbert Wiener, Cybernetics (1948)
-// - W. Ross Ashby, An Introduction to Cybernetics (1956)
-// - Stafford Beer, Brain of the Firm (1972)
-// - Donella Meadows, Thinking in Systems (2008)
+pr4xis::ontology! {
+    name: "System",
+    source: "von Bertalanffy (1968) General System Theory; Wiener (1948) Cybernetics; Ashby (1956) An Introduction to Cybernetics; Beer (1972) Brain of the Firm; Meadows (2008) Thinking in Systems",
 
-/// Core concepts of systems thinking.
-///
-/// These are the fundamental building blocks that every system exhibits.
-/// A traffic intersection, a chess game, a conversation, an economy —
-/// all are systems composed of these concepts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum SystemConcept {
-    /// A component or element within the system.
-    /// Traffic: a signal. Chess: a piece. Economy: a firm.
-    Component,
+    concepts: [
+        Component,
+        Interaction,
+        State,
+        Transition,
+        Constraint,
+        Feedback,
+        Homeostasis,
+        Emergence,
+        Boundary,
+        Controller,
+    ],
 
-    /// A connection or interaction between components.
-    /// Traffic: conflict between directions. Chess: attack relationship.
-    Interaction,
+    labels: {
+        Component: ("en", "Component",
+            "von Bertalanffy (1968) Ch. 1: an element within the system; a traffic signal, a chess piece, a firm in an economy."),
+        Interaction: ("en", "Interaction",
+            "von Bertalanffy (1968) Ch. 1: a connection between components; the relational glue that makes a set of parts into a system."),
+        State: ("en", "State",
+            "Ashby (1956) §2: the configuration of the system at a point in time - a complete description of all relevant component values."),
+        Transition: ("en", "Transition",
+            "Ashby (1956) §2: a change of state; the dynamics of the system as it evolves through its state space."),
+        Constraint: ("en", "Constraint",
+            "Ashby (1956) §7: a rule restricting which transitions are valid - safety rules in a traffic light, legal-move rules in chess."),
+        Feedback: ("en", "Feedback",
+            "Wiener (1948) Ch. 4: a return path connecting output back to input; positive feedback amplifies, negative feedback regulates."),
+        Homeostasis: ("en", "Homeostasis",
+            "Ashby (1956) §11: the tendency to maintain a stable state despite perturbation; achieved via negative-feedback regulation."),
+        Emergence: ("en", "Emergence",
+            "von Bertalanffy (1968) Ch. 3: a property of the whole that the parts individually do not possess - flow rate, language meaning, GDP."),
+        Boundary: ("en", "Boundary",
+            "Meadows (2008) Ch. 5: the demarcation between system and environment - the intersection perimeter, the chessboard edge, the firm's organisational boundary."),
+        Controller: ("en", "Controller",
+            "Ashby (1956) §10: the regulator that observes the system and acts to keep it within desired bounds; the cybernetic loop's decision-maker."),
+    },
 
-    /// The state of the system at a point in time.
-    /// Traffic: current signal configuration. Chess: board position.
-    State,
-
-    /// A transition that changes the system's state.
-    /// Traffic: signal advance. Chess: a move.
-    Transition,
-
-    /// A rule that constrains which transitions are valid.
-    /// Traffic: safety check (no conflicting greens). Chess: legal move rules.
-    Constraint,
-
-    /// A feedback loop — output influences future input.
-    /// Traffic: congestion → longer green → reduced congestion.
-    Feedback,
-
-    /// The tendency to maintain stable state despite perturbation.
-    /// Traffic: green wave timing. Economy: price equilibrium.
-    Homeostasis,
-
-    /// A property of the whole that parts don't have individually.
-    /// Traffic: flow rate. Language: meaning. Economy: GDP.
-    Emergence,
-
-    /// The boundary between system and environment.
-    /// Traffic: the intersection perimeter. Chess: the board edge.
-    Boundary,
-
-    /// The observer or controller of the system.
-    /// Traffic: the signal controller. Cybernetics: the regulator.
-    Controller,
+    edges: [
+        (Component, State, ComposesInto),
+        (Interaction, State, ComposesInto),
+        (Transition, State, Changes),
+        (Constraint, Transition, Governs),
+        (State, Feedback, FeedsBack),
+        (Feedback, Transition, FeedsBack),
+        (Homeostasis, State, Stabilizes),
+        (Feedback, Homeostasis, Stabilizes),
+        (Interaction, Emergence, ArisesFrom),
+        (Controller, Constraint, Regulates),
+        (Boundary, Component, Separates),
+        (Transition, Component, Changes),
+        (Feedback, Controller, FeedsBack),
+    ],
 }
 
-define_ontology! {
-    /// The systems thinking category.
-    ///
-    /// This IS the formal structure of systems thinking.
-    /// If the category laws hold, then systems thinking is
-    /// mathematically consistent as a theory.
-    pub SystemsOntology for SystemsCategory {
-        concepts: SystemConcept,
-        relation: SystemRelation,
-        kind: SystemRelationKind,
-        kinds: [
-            /// Components compose into state.
-            ComposesInto,
-            /// Transitions change state.
-            Changes,
-            /// Constraints govern transitions.
-            Governs,
-            /// Feedback connects output to input.
-            FeedsBack,
-            /// Homeostasis stabilizes state via feedback.
-            Stabilizes,
-            /// Emergence arises from interactions.
-            ArisesFrom,
-            /// Controller regulates via constraints.
-            Regulates,
-            /// Boundary separates system from environment.
-            Separates,
-        ],
-        edges: [
-            // Components compose into State
-            (Component, State, ComposesInto),
-            // Interactions compose into State
-            (Interaction, State, ComposesInto),
-            // Transitions change State
-            (Transition, State, Changes),
-            // Constraints govern Transitions
-            (Constraint, Transition, Governs),
-            // Feedback connects State back to Transition (circular!)
-            (State, Feedback, FeedsBack),
-            (Feedback, Transition, FeedsBack),
-            // Homeostasis stabilizes State via Feedback
-            (Homeostasis, State, Stabilizes),
-            (Feedback, Homeostasis, Stabilizes),
-            // Emergence arises from Interactions
-            (Interaction, Emergence, ArisesFrom),
-            // Controller regulates via Constraints
-            (Controller, Constraint, Regulates),
-            // Boundary separates system
-            (Boundary, Component, Separates),
-            // Transition modifies Components (a signal advance changes the signal)
-            (Transition, Component, Changes),
-            // Feedback informs Controller (Ashby: the regulator receives information)
-            (Feedback, Controller, FeedsBack),
-        ],
-        composed: [
-            // The full cybernetic loop:
-            // State → Feedback → Controller → Constraint → Transition → Component → State
-
-            // State → Feedback → Transition
-            (State, Transition),
-            // State → Feedback → Homeostasis
-            (State, Homeostasis),
-            // State → Feedback → Controller
-            (State, Controller),
-            // State → ... → Constraint
-            (State, Constraint),
-            // State → ... → Component
-            (State, Component),
-            // State → ... → Interaction (Component participates in Interaction)
-            (State, Interaction),
-            // State → ... → Emergence
-            (State, Emergence),
-            // State → ... → Boundary
-            (State, Boundary),
-            // Feedback → Homeostasis → State
-            (Feedback, State),
-            // Controller → Constraint → Transition
-            (Controller, Transition),
-            // Controller → ... → State
-            (Controller, State),
-            // Controller → ... → Component
-            (Controller, Component),
-            // Constraint → Transition → State
-            (Constraint, State),
-            // Constraint → Transition → Component
-            (Constraint, Component),
-            // Transition → Component → State
-            (Transition, Component),
-            // Component → State → Feedback
-            (Component, Feedback),
-            // Interaction → Feedback
-            (Interaction, Feedback),
-            // Boundary → Component → State
-            (Boundary, State),
-        ],
-        being: AbstractObject,
-        source: "von Bertalanffy (1968); Ashby (1956)",
-    }
-}
-
-/// Whether a systems concept is part of the cybernetic feedback loop.
+/// Quality: whether each concept is a node in the cybernetic
+/// feedback loop (Ashby 1956 §10). State, Feedback, Controller,
+/// Constraint, Transition, Homeostasis form the loop;
+/// Component / Interaction / Boundary / Emergence are structural.
 #[derive(Debug, Clone)]
 pub struct IsCyberneticLoop;
 
@@ -175,39 +94,102 @@ impl Quality for IsCyberneticLoop {
     type Value = bool;
 
     fn get(&self, individual: &SystemConcept) -> Option<bool> {
-        match individual {
-            SystemConcept::State => Some(true),
-            SystemConcept::Feedback => Some(true),
-            SystemConcept::Controller => Some(true),
-            SystemConcept::Constraint => Some(true),
-            SystemConcept::Transition => Some(true),
-            SystemConcept::Homeostasis => Some(true),
-            _ => Some(false),
-        }
+        Some(matches!(
+            individual,
+            SystemConcept::State
+                | SystemConcept::Feedback
+                | SystemConcept::Controller
+                | SystemConcept::Constraint
+                | SystemConcept::Transition
+                | SystemConcept::Homeostasis
+        ))
     }
 }
 
-impl Ontology for SystemsOntology {
-    type Cat = SystemsCategory;
+impl Ontology for SystemOntology {
+    type Cat = SystemCategory;
     type Qual = IsCyberneticLoop;
 
-    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
-        Self::generated_structural_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::Concept;
+    use pr4xis::category::laws::assert_category_laws;
+    use proptest::prelude::*;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<SystemsCategory>().unwrap();
+        assert_category_laws::<SystemCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        SystemsOntology::validate().unwrap();
+        SystemOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[test]
+    fn ten_system_concepts() {
+        assert_eq!(SystemConcept::variants().len(), 10);
+    }
+
+    #[test]
+    fn cybernetic_loop_classification() {
+        let q = IsCyberneticLoop;
+        for c in [
+            SystemConcept::State,
+            SystemConcept::Feedback,
+            SystemConcept::Controller,
+            SystemConcept::Constraint,
+            SystemConcept::Transition,
+            SystemConcept::Homeostasis,
+        ] {
+            assert_eq!(q.get(&c), Some(true), "{:?} should be in loop", c);
+        }
+        for c in [
+            SystemConcept::Component,
+            SystemConcept::Interaction,
+            SystemConcept::Boundary,
+            SystemConcept::Emergence,
+        ] {
+            assert_eq!(q.get(&c), Some(false), "{:?} should be structural", c);
+        }
+    }
+
+    fn arb_concept() -> impl Strategy<Value = SystemConcept> {
+        proptest::sample::select(SystemConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_cybernetic_loop_total(c in arb_concept()) {
+            prop_assert!(IsCyberneticLoop.get(&c).is_some());
+        }
+
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            use pr4xis::category::{Arrow, Category};
+            for m in SystemCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in SystemOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(
+                        false,
+                        "axiom failed: {}",
+                        c.meta().name.as_str()
+                    );
+                }
+            }
+        }
     }
 }

@@ -174,7 +174,7 @@ mod tests {
     fn focused_left_identity() {
         // extend(extract, w) = w
         let w = Focused::new(42, vec![1, 2, 3]);
-        let result = w.extend(|fw| fw.extract().clone());
+        let result = w.extend(|fw| *fw.extract());
         assert_eq!(result.value, w.value);
         assert_eq!(result.context, w.context);
     }

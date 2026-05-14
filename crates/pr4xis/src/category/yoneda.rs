@@ -136,8 +136,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::category::arrow::Arrow;
     use crate::category::entity::Concept as EntityTrait;
-    use crate::category::relationship::Relationship;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Node {
@@ -156,7 +156,7 @@ mod tests {
         from: Node,
         to: Node,
     }
-    impl Relationship for Edge {
+    impl Arrow for Edge {
         type Object = Node;
         type Kind = ();
         fn source(&self) -> Node {

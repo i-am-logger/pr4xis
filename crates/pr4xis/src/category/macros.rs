@@ -4,12 +4,12 @@
 // Dense (anonymous-morphism) categories are no longer supported — per Gruber
 // (1993) / OBO-RO (Smith et al. 2005), every morphism carries a canonical
 // relation-kind tag. Callers declaring sugar clauses (is_a / has_a / causes /
-// opposes) go through `ontology!` / `define_ontology!` which synthesise
+// opposes) go through `ontology!` which synthesises
 // kinded edges automatically.
 
 /// Define a kinded category with explicit relation types.
 ///
-/// Generates: RelationKind enum, Relation struct, Relationship impl,
+/// Generates: RelationKind enum, Relation struct, Arrow impl,
 /// Category struct, and full Category impl (identity, compose, 4-phase morphisms).
 ///
 /// # Example
@@ -50,7 +50,6 @@ macro_rules! define_category {
         pub enum $kind {
             Identity,
             $($(#[$kind_meta])* $domain_kind,)*
-            Composed,
         }
 
         #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -60,12 +59,25 @@ macro_rules! define_category {
             pub kind: $kind,
         }
 
-        impl $crate::category::Relationship for $relation {
+        impl $crate::category::Arrow for $relation {
             type Object = $entity;
             type Kind = $kind;
             fn source(&self) -> $entity { self.from }
             fn target(&self) -> $entity { self.to }
             fn kind(&self) -> $kind { self.kind }
+
+            fn meta(&self) -> $crate::ontology::meta::Provenance {
+                $crate::ontology::meta::Provenance {
+                    name: $crate::ontology::meta::OntologyName::new(
+                        format!("{:?}-[{:?}]-{:?}", self.from, self.kind, self.to)
+                    ),
+                    description: $crate::ontology::meta::Label::new(
+                        format!("{:?} -[{:?}]-> {:?}", self.from, self.kind, self.to)
+                    ),
+                    citation: $crate::ontology::meta::Citation::EMPTY,
+                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
+                }
+            }
         }
 
         $(#[$cat_meta])*
@@ -83,7 +95,13 @@ macro_rules! define_category {
                 if f.to != g.from { return None; }
                 if f.kind == $kind::Identity { return Some(g.clone()); }
                 if g.kind == $kind::Identity { return Some(f.clone()); }
-                Some($relation { from: f.from, to: g.to, kind: $kind::Composed })
+                // Partial composition (#166): heterogeneous / non-transitive
+                // compositions return None per OBO-RO / Spivak. Same-kind
+                // transitive inheritance is encoded by the proc-macro
+                // `ontology!` path; this declarative `define_category!`
+                // path is legacy and does not declare kind transitivity,
+                // so all non-identity compositions are partial.
+                None
             }
 
             fn morphisms() -> Vec<$relation> {
@@ -100,15 +118,9 @@ macro_rules! define_category {
                 // entities (tuple structs, newtypes) also work.
                 $(m.push($relation { from: $entity::$e_from, to: $entity::$e_to, kind: $kind::$e_kind });)*
 
-                // Phase 3: Composed (transitive) edges
-                $(m.push($relation { from: $entity::$c_from, to: $entity::$c_to, kind: $kind::Composed });)*
-
-                // Phase 4: Self-composed closure. Each object's identity
-                // round-trips to itself as Composed (distinct from the
-                // Identity morphism — Mac Lane I.1 closure under compose).
-                for c in $entity::variants() {
-                    m.push($relation { from: c, to: c, kind: $kind::Composed });
-                }
+                // No transitive-closure edges (#166). The legacy `composed:`
+                // clause is silently ignored — per OBO-RO partial-category
+                // semantics, composed morphisms aren't typed absent a rule.
 
                 m
             }

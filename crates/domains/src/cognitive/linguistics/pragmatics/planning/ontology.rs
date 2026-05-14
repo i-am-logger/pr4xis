@@ -25,7 +25,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Planning",
     source: "Cohen & Perrault (1979); Appelt (1985); Stalnaker (2002); Bratman (1987); Jakobson (1960)",
-    being: Process,
 
     concepts: [
         // BDI architecture (Bratman 1987)
@@ -118,10 +117,8 @@ impl Quality for ConceptRole {
 pub struct BdiProducesIntention;
 
 impl Axiom for BdiProducesIntention {
-    fn description(&self) -> &str {
-        "Belief and Desire both produce Intention (Bratman 1987 BDI)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let m = PlanningCategory::morphisms();
         let belief_produces = m.iter().any(|r| {
             r.from == PlanningConcept::Belief
@@ -133,12 +130,22 @@ impl Axiom for BdiProducesIntention {
                 && r.to == PlanningConcept::Intention
                 && r.kind == PlanningRelationKind::Produces
         });
-        belief_produces && desire_produces
+        if belief_produces && desire_produces {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "BdiProducesIntention",
+        "Belief and Desire both produce Intention (Bratman 1987 BDI)",
+        "Bratman (1987) Intention, Plans, and Practical Reason"
+    );
 }
 pr4xis::register_axiom!(
     BdiProducesIntention,
-    "Cohen & Perrault (1979); Appelt (1985);"
+    "Bratman (1987) Intention, Plans, and Practical Reason"
 );
 
 /// Speech act effects update Common Ground (Stalnaker 2002).
@@ -146,21 +153,29 @@ pr4xis::register_axiom!(
 pub struct EffectUpdatesCommonGround;
 
 impl Axiom for EffectUpdatesCommonGround {
-    fn description(&self) -> &str {
-        "Effect updates CommonGround via CommonGroundUpdate (Stalnaker 2002)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let m = PlanningCategory::morphisms();
-        m.iter().any(|r| {
+        if m.iter().any(|r| {
             r.from == PlanningConcept::Effect
                 && r.to == PlanningConcept::CommonGroundUpdate
                 && r.kind == PlanningRelationKind::Updates
-        })
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "EffectUpdatesCommonGround",
+        "Effect updates CommonGround via CommonGroundUpdate (Stalnaker 2002)",
+        "Stalnaker (2002) Common Ground, Linguistics and Philosophy 25(5–6)"
+    );
 }
 pr4xis::register_axiom!(
     EffectUpdatesCommonGround,
-    "Cohen & Perrault (1979); Appelt (1985);"
+    "Stalnaker (2002) Common Ground, Linguistics and Philosophy 25(5–6)"
 );
 
 /// All Jakobson functions specialize CommunicativeGoal.
@@ -168,10 +183,8 @@ pr4xis::register_axiom!(
 pub struct GoalsSpecialize;
 
 impl Axiom for GoalsSpecialize {
-    fn description(&self) -> &str {
-        "Informative, Phatic, Directive, Expressive specialize CommunicativeGoal (Jakobson 1960)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let m = PlanningCategory::morphisms();
         let goals = [
             PlanningConcept::InformativeGoal,
@@ -179,30 +192,39 @@ impl Axiom for GoalsSpecialize {
             PlanningConcept::DirectiveGoal,
             PlanningConcept::ExpressiveGoal,
         ];
-        goals.iter().all(|g| {
+        if goals.iter().all(|g| {
             m.iter().any(|r| {
                 r.from == *g
                     && r.to == PlanningConcept::CommunicativeGoal
                     && r.kind == PlanningRelationKind::Specializes
             })
-        })
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "GoalsSpecialize",
+        "Informative, Phatic, Directive, Expressive specialize CommunicativeGoal (Jakobson 1960)",
+        "Jakobson (1960) Linguistics and Poetics, in Style in Language"
+    );
 }
-pr4xis::register_axiom!(GoalsSpecialize, "Cohen & Perrault (1979); Appelt (1985);");
+pr4xis::register_axiom!(
+    GoalsSpecialize,
+    "Jakobson (1960) Linguistics and Poetics, in Style in Language"
+);
 
 impl Ontology for PlanningOntology {
     type Cat = PlanningCategory;
     type Qual = ConceptRole;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        PlanningOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(BdiProducesIntention),
-            Box::new(EffectUpdatesCommonGround),
-            Box::new(GoalsSpecialize),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(BdiProducesIntention));
+        axioms.push(Box::new(EffectUpdatesCommonGround));
+        axioms.push(Box::new(GoalsSpecialize));
+        axioms
     }
 }

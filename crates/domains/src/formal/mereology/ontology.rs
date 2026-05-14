@@ -40,7 +40,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "MereologyTheory",
     source: "Leśniewski (1916) Foundations of Mereology; Leonard & Goodman (1940); Simons (1987) Parts; Casati & Varzi (1999) Parts and Places; Varzi (2019) SEP Mereology",
-    being: AbstractObject,
 
     concepts: [
         // === Roles ===
@@ -133,73 +132,148 @@ pr4xis::ontology! {
         (Supplementation, ProperPart, ConstrainsStructureOf),
     ],
 
-    axioms: {
-        ProperPartIsStrictPart: {
-            source: "Casati & Varzi (1999) §3.1 — x < y iff x ≤ y ∧ x ≠ y",
-            description: "ProperPart is declared as a specialisation of Part (via is_a), encoding the CEM definition of proper parthood as non-reflexive parthood",
-            holds: {
-                use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-                MereologyTheoryTaxonomy::relations()
-                    .iter()
-                    .any(|(c, p)| {
-                        *c == MereologyTheoryConcept::ProperPart
-                            && *p == MereologyTheoryConcept::Part
-                    })
-            },
-        },
-        AtomAndGunkAreDual: {
-            source: "Simons (1987) §1.3; Lewis (1991) Parts of Classes",
-            description: "Atom and Gunk both specialise Whole but exclude each other: an atom has no proper parts, gunk's every proper part has proper parts",
-            holds: {
-                use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-                let rels = MereologyTheoryTaxonomy::relations();
-                let atom_is_whole = rels.iter().any(|(c, p)| {
-                    *c == MereologyTheoryConcept::Atom && *p == MereologyTheoryConcept::Whole
-                });
-                let gunk_is_whole = rels.iter().any(|(c, p)| {
-                    *c == MereologyTheoryConcept::Gunk && *p == MereologyTheoryConcept::Whole
-                });
-                atom_is_whole && gunk_is_whole
-            },
-        },
-        SupplementationConstrainsProperPart: {
-            source: "Simons (1987) §3.2; Casati & Varzi (1999) P.4",
-            description: "the edge (Supplementation, ProperPart, ConstrainsStructureOf) exists, encoding that Supplementation is an axiomatic constraint on proper-part structure",
-            holds: {
-                use pr4xis::category::Category;
-                MereologyTheoryCategory::morphisms().iter().any(|r| {
-                    r.from == MereologyTheoryConcept::Supplementation
-                        && r.to == MereologyTheoryConcept::ProperPart
-                        && r.kind == MereologyTheoryRelationKind::ConstrainsStructureOf
-                })
-            },
-        },
-        SumIsBinaryFusion: {
-            source: "Leśniewski (1916); Leonard & Goodman (1940); Varzi (2019) SEP",
-            description: "Sum is declared as a specialisation of Fusion (via is_a), capturing the CEM definition of binary sum as the restricted two-argument fusion",
-            holds: {
-                use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-                MereologyTheoryTaxonomy::relations()
-                    .iter()
-                    .any(|(c, p)| {
-                        *c == MereologyTheoryConcept::Sum
-                            && *p == MereologyTheoryConcept::Fusion
-                    })
-            },
-        },
-        FusionProducesWhole: {
-            source: "Leśniewski (1916) §9; Casati & Varzi (1999) §4",
-            description: "the edge (Fusion, Whole, Produces) exists, encoding that any fusion — by definition — yields a whole (the general sum of its inputs)",
-            holds: {
-                use pr4xis::category::Category;
-                MereologyTheoryCategory::morphisms().iter().any(|r| {
-                    r.from == MereologyTheoryConcept::Fusion
-                        && r.to == MereologyTheoryConcept::Whole
-                        && r.kind == MereologyTheoryRelationKind::Produces
-                })
-            },
-        },
-    },
+}
+
+// -----------------------------------------------------------------------------
+// Domain axioms — separate `impl Axiom` blocks (new `verify` / `axiom_meta!`
+// shape per #160 / #167). Each axiom filters
+// `MereologyTheoryCategory::morphisms()` by relation kind, per the
+// kinded-morphism canonical pattern (per_def traits are gone).
+// -----------------------------------------------------------------------------
+
+fn subsumption_pair_exists(child: MereologyTheoryConcept, parent: MereologyTheoryConcept) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    MereologyTheoryCategory::morphisms().iter().any(|m| {
+        m.source() == child
+            && m.target() == parent
+            && m.kind() == MereologyTheoryRelationKind::Subsumption
+    })
+}
+
+fn kinded_edge_exists(
+    from: MereologyTheoryConcept,
+    to: MereologyTheoryConcept,
+    kind: MereologyTheoryRelationKind,
+) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    MereologyTheoryCategory::morphisms()
+        .iter()
+        .any(|m| m.source() == from && m.target() == to && m.kind() == kind)
+}
+
+/// CEM: ProperPart is the strict (non-reflexive) Part relation.
+pub struct ProperPartIsStrictPart;
+
+impl Axiom for ProperPartIsStrictPart {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if subsumption_pair_exists(
+            MereologyTheoryConcept::ProperPart,
+            MereologyTheoryConcept::Part,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "ProperPartIsStrictPart",
+        "ProperPart is-a Part (CEM: x < y iff x \u{2264} y \u{2227} x \u{2260} y)",
+        "Casati & Varzi (1999) Parts and Places \u{00a7}3.1"
+    );
+}
+
+/// Simons / Lewis dual: Atom and Gunk both specialise Whole.
+pub struct AtomAndGunkAreDual;
+
+impl Axiom for AtomAndGunkAreDual {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let atom_is_whole =
+            subsumption_pair_exists(MereologyTheoryConcept::Atom, MereologyTheoryConcept::Whole);
+        let gunk_is_whole =
+            subsumption_pair_exists(MereologyTheoryConcept::Gunk, MereologyTheoryConcept::Whole);
+        if atom_is_whole && gunk_is_whole {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "AtomAndGunkAreDual",
+        "Atom and Gunk both specialise Whole but are duals: atoms have no proper parts; gunk's every proper part has proper parts",
+        "Simons (1987) Parts \u{00a7}1.3; Lewis (1991) Parts of Classes"
+    );
+}
+
+/// Simons / Casati-Varzi P.4 — Supplementation constrains ProperPart structure.
+pub struct SupplementationConstrainsProperPart;
+
+impl Axiom for SupplementationConstrainsProperPart {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if kinded_edge_exists(
+            MereologyTheoryConcept::Supplementation,
+            MereologyTheoryConcept::ProperPart,
+            MereologyTheoryRelationKind::ConstrainsStructureOf,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SupplementationConstrainsProperPart",
+        "Supplementation is an axiomatic constraint on proper-part structure: if x < y then y has another proper part disjoint from x",
+        "Simons (1987) Parts \u{00a7}3.2; Casati & Varzi (1999) Parts and Places P.4"
+    );
+}
+
+/// CEM: Sum is the binary special case of Fusion.
+pub struct SumIsBinaryFusion;
+
+impl Axiom for SumIsBinaryFusion {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if subsumption_pair_exists(MereologyTheoryConcept::Sum, MereologyTheoryConcept::Fusion) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SumIsBinaryFusion",
+        "Sum is-a Fusion (CEM: binary sum is the two-argument restricted fusion)",
+        "Le\u{015b}niewski (1916); Leonard & Goodman (1940) J. Symbolic Logic 5; Varzi (2019) SEP Mereology"
+    );
+}
+
+/// Leśniewski / Casati-Varzi: a fusion produces a whole.
+pub struct FusionProducesWhole;
+
+impl Axiom for FusionProducesWhole {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if kinded_edge_exists(
+            MereologyTheoryConcept::Fusion,
+            MereologyTheoryConcept::Whole,
+            MereologyTheoryRelationKind::Produces,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "FusionProducesWhole",
+        "(Fusion, Whole, Produces): a fusion yields a whole (the general sum of its inputs)",
+        "Le\u{015b}niewski (1916) Foundations of Mereology \u{00a7}9; Casati & Varzi (1999) Parts and Places \u{00a7}4"
+    );
 }
 
 // -----------------------------------------------------------------------------
@@ -235,52 +309,55 @@ impl Ontology for MereologyTheoryOntology {
     type Cat = MereologyTheoryCategory;
     type Qual = MereologyKind;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        MereologyTheoryOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        MereologyTheoryOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(ProperPartIsStrictPart));
+        axioms.push(Box::new(AtomAndGunkAreDual));
+        axioms.push(Box::new(SupplementationConstrainsProperPart));
+        axioms.push(Box::new(SumIsBinaryFusion));
+        axioms.push(Box::new(FusionProducesWhole));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<MereologyTheoryCategory>().unwrap();
+        assert_category_laws::<MereologyTheoryCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        MereologyTheoryOntology::validate().unwrap();
+        MereologyTheoryOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
     fn proper_part_axiom_holds() {
-        assert!(ProperPartIsStrictPart.holds());
+        assert!(ProperPartIsStrictPart.verify().is_ok());
     }
 
     #[test]
     fn atom_gunk_dual_holds() {
-        assert!(AtomAndGunkAreDual.holds());
+        assert!(AtomAndGunkAreDual.verify().is_ok());
     }
 
     #[test]
     fn supplementation_constrains_holds() {
-        assert!(SupplementationConstrainsProperPart.holds());
+        assert!(SupplementationConstrainsProperPart.verify().is_ok());
     }
 
     #[test]
     fn sum_is_binary_fusion_holds() {
-        assert!(SumIsBinaryFusion.holds());
+        assert!(SumIsBinaryFusion.verify().is_ok());
     }
 
     #[test]
     fn fusion_produces_whole_holds() {
-        assert!(FusionProducesWhole.holds());
+        assert!(FusionProducesWhole.verify().is_ok());
     }
 }

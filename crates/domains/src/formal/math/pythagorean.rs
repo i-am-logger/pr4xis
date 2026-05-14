@@ -6,7 +6,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Axiom: a² + b² = c² must hold at all times
 /// - Actions: scale, set leg (hypotenuse is always derived)
 /// - Enforcement: the theorem is a precondition on every transformation
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Triangle {
@@ -39,21 +41,7 @@ impl Triangle {
     }
 }
 
-impl Situation for Triangle {
-    fn describe(&self) -> String {
-        format!(
-            "a={:.4} b={:.4} c={:.4} (a²+b²={:.4} c²={:.4})",
-            self.a,
-            self.b,
-            self.c,
-            self.a * self.a + self.b * self.b,
-            self.c * self.c
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for Triangle {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TriangleAction {
@@ -64,71 +52,50 @@ pub enum TriangleAction {
 
 impl Action for TriangleAction {
     type Sit = Triangle;
-    fn describe(&self) -> String {
-        match self {
-            TriangleAction::Scale { factor } => format!("scale by {}", factor),
-            TriangleAction::SetLegA { value } => format!("set a={}", value),
-            TriangleAction::SetLegB { value } => format!("set b={}", value),
-        }
+}
+
+fn pyth_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Euclid (c. 300 BCE) Elements, Book I Proposition 47; Heath (1908) The Thirteen Books of Euclid's Elements",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
 struct PositiveSides;
 impl Precondition<TriangleAction> for PositiveSides {
-    fn check(&self, tri: &Triangle, action: &TriangleAction) -> PreconditionResult {
+    fn check(&self, _tri: &Triangle, action: &TriangleAction) -> Verdict {
+        let meta = pyth_meta("PositiveSides", "all sides must be positive");
         let valid = match action {
             TriangleAction::Scale { factor } => *factor > 0.0,
             TriangleAction::SetLegA { value } => *value > 0.0,
             TriangleAction::SetLegB { value } => *value > 0.0,
         };
         if valid {
-            PreconditionResult::satisfied("positive_sides", "all sides positive")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "positive_sides",
-                "sides must be positive",
-                &tri.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "all sides must be positive"
     }
 }
 
 struct PythagoreanTheorem;
 impl Precondition<TriangleAction> for PythagoreanTheorem {
-    fn check(&self, tri: &Triangle, action: &TriangleAction) -> PreconditionResult {
-        let next = apply(tri, action).unwrap_or_else(|_| tri.clone());
+    fn check(&self, tri: &Triangle, action: &TriangleAction) -> Verdict {
+        let meta = pyth_meta("PythagoreanTheorem", "a² + b² = c² must hold");
+        let next = apply_inner(tri, action).unwrap_or_else(|_| tri.clone());
         if next.theorem_holds() {
-            PreconditionResult::satisfied(
-                "pythagorean_theorem",
-                &format!(
-                    "a²+b²={:.6} = c²={:.6}",
-                    next.a * next.a + next.b * next.b,
-                    next.c * next.c
-                ),
-            )
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "pythagorean_theorem",
-                &format!(
-                    "a²+b²={:.6} ≠ c²={:.6}",
-                    next.a * next.a + next.b * next.b,
-                    next.c * next.c
-                ),
-                &tri.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "a² + b² = c² must hold"
     }
 }
 
-fn apply(tri: &Triangle, action: &TriangleAction) -> Result<Triangle, String> {
+fn apply_inner(tri: &Triangle, action: &TriangleAction) -> Result<Triangle, &'static str> {
     Ok(match action {
         TriangleAction::Scale { factor } => Triangle {
             a: tri.a * factor,
@@ -141,6 +108,16 @@ fn apply(tri: &Triangle, action: &TriangleAction) -> Result<Triangle, String> {
         TriangleAction::SetLegB { value } => {
             Triangle::from_legs(tri.a, *value).unwrap_or_else(|_| tri.clone())
         }
+    })
+}
+
+fn apply(tri: &Triangle, action: &TriangleAction) -> Result<Triangle, Box<dyn Counterexample>> {
+    apply_inner(tri, action).map_err(|_| {
+        let meta = pyth_meta(
+            "ApplyFailed",
+            "triangle transformation could not be applied",
+        );
+        Box::new(SimpleCounterexample::new(meta)) as Box<dyn Counterexample>
     })
 }
 

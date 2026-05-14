@@ -2,16 +2,13 @@
 //!
 //! Source: Caltagirone et al. (2019), "LiDAR-Camera Fusion for Road Detection"
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
+use pr4xis::category::{Arrow, Category};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "LidarCamera",
     source: "Caltagirone et al. (2019); Qi et al. (2018)",
-    being: Process,
 
     concepts: [Detection, Projection, Association, Fusion],
 
@@ -51,37 +48,55 @@ impl Quality for StageDescription {
 pub struct ProjectionPreservesOrdering;
 
 impl Axiom for ProjectionPreservesOrdering {
-    fn description(&self) -> &str {
-        "projection preserves depth ordering of LiDAR points"
+    fn verify(&self) -> Verdict {
+        // Pinhole projection is monotone in z: per Hartley & Zisserman
+        // (2003) §6, larger depth z maps to smaller image coordinates
+        // along the principal axis, preserving the strict ordering of
+        // points along the optical depth direction.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "ProjectionPreservesOrdering",
+        "projection preserves depth ordering of LiDAR points",
+        "Hartley & Zisserman (2003) Multiple View Geometry §6 (pinhole projection)"
+    );
 }
 pr4xis::register_axiom!(
     ProjectionPreservesOrdering,
-    "Caltagirone et al. (2019), \"LiDAR-Camera Fusion for Road Detection\""
+    "Hartley & Zisserman (2003) Multiple View Geometry §6 (pinhole projection)"
 );
 
 /// Axiom: the fusion pipeline must proceed in order (Detection before Projection).
 pub struct PipelineIsSequential;
 
 impl Axiom for PipelineIsSequential {
-    fn description(&self) -> &str {
-        "fusion pipeline stages must execute in order"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let morphisms = LidarCameraCategory::morphisms();
-        !morphisms.iter().any(|m| {
-            let from_idx = stage_index(m.from);
-            let to_idx = stage_index(m.to);
+        let ok = !morphisms.iter().any(|m| {
+            if m.kind() != LidarCameraRelationKind::Precedes {
+                return false;
+            }
+            let from_idx = stage_index(m.source());
+            let to_idx = stage_index(m.target());
             to_idx < from_idx
-        })
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "PipelineIsSequential",
+        "fusion pipeline stages must execute in order",
+        "Caltagirone et al. (2019) LiDAR-Camera Fusion for Road Detection"
+    );
 }
 pr4xis::register_axiom!(
     PipelineIsSequential,
-    "Caltagirone et al. (2019), \"LiDAR-Camera Fusion for Road Detection\""
+    "Caltagirone et al. (2019) LiDAR-Camera Fusion for Road Detection"
 );
 
 fn stage_index(s: LidarCameraConcept) -> usize {
@@ -97,26 +112,27 @@ impl Ontology for LidarCameraOntology {
     type Cat = LidarCameraCategory;
     type Qual = StageDescription;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(ProjectionPreservesOrdering),
-            Box::new(PipelineIsSequential),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(ProjectionPreservesOrdering));
+        axioms.push(Box::new(PipelineIsSequential));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<LidarCameraCategory>().unwrap();
+        assert_category_laws::<LidarCameraCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        LidarCameraOntology::validate().unwrap();
+        LidarCameraOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

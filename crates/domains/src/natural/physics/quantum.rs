@@ -5,7 +5,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Situation: a quantum particle (position uncertainty, momentum uncertainty)
 /// - Axiom: Heisenberg ΔxΔp ≥ ℏ/2 enforced
 /// - Actions: measure position (reduces Δx, increases Δp), measure momentum
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 pub const H: f64 = 6.626e-34;
 pub const HBAR: f64 = 1.055e-34;
@@ -44,18 +46,16 @@ impl QuantumParticle {
     }
 }
 
-impl Situation for QuantumParticle {
-    fn describe(&self) -> String {
-        format!(
-            "Δx={:.4e} Δp={:.4e} ΔxΔp={:.4e} ≥ ℏ/2={:.4e}",
-            self.delta_x,
-            self.delta_p,
-            self.uncertainty_product(),
-            HBAR / 2.0
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
+impl Situation for QuantumParticle {}
+
+fn qm_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Heisenberg (1927) Über den anschaulichen Inhalt der quantentheoretischen Kinematik und Mechanik, Zeitschrift für Physik 43:172-198",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
@@ -69,75 +69,40 @@ pub enum QuantumAction {
 
 impl Action for QuantumAction {
     type Sit = QuantumParticle;
-    fn describe(&self) -> String {
-        match self {
-            QuantumAction::MeasurePosition { new_delta_x } => {
-                format!("measure position (Δx→{:.4e})", new_delta_x)
-            }
-            QuantumAction::MeasureMomentum { new_delta_p } => {
-                format!("measure momentum (Δp→{:.4e})", new_delta_p)
-            }
-        }
-    }
 }
 
 /// Heisenberg uncertainty principle: ΔxΔp ≥ ℏ/2.
 struct HeisenbergUncertainty;
 impl Precondition<QuantumAction> for HeisenbergUncertainty {
-    fn check(&self, p: &QuantumParticle, a: &QuantumAction) -> PreconditionResult {
-        let next = apply_quantum(p, a).unwrap_or_else(|_| p.clone());
+    fn check(&self, p: &QuantumParticle, a: &QuantumAction) -> Verdict {
+        let meta = qm_meta("HeisenbergUncertainty", "ΔxΔp ≥ ℏ/2");
+        let next = apply_quantum_inner(p, a);
         if next.heisenberg_holds() {
-            PreconditionResult::satisfied(
-                "heisenberg",
-                &format!(
-                    "ΔxΔp={:.4e} ≥ ℏ/2={:.4e}",
-                    next.uncertainty_product(),
-                    HBAR / 2.0
-                ),
-            )
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "heisenberg",
-                &format!(
-                    "ΔxΔp={:.4e} < ℏ/2={:.4e}: uncertainty principle violated",
-                    next.uncertainty_product(),
-                    HBAR / 2.0
-                ),
-                &p.describe(),
-                &a.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "ΔxΔp ≥ ℏ/2"
     }
 }
 
 struct PositiveUncertainty;
 impl Precondition<QuantumAction> for PositiveUncertainty {
-    fn check(&self, p: &QuantumParticle, a: &QuantumAction) -> PreconditionResult {
+    fn check(&self, _p: &QuantumParticle, a: &QuantumAction) -> Verdict {
+        let meta = qm_meta("PositiveUncertainty", "uncertainties must be positive");
         let valid = match a {
             QuantumAction::MeasurePosition { new_delta_x } => *new_delta_x > 0.0,
             QuantumAction::MeasureMomentum { new_delta_p } => *new_delta_p > 0.0,
         };
         if valid {
-            PreconditionResult::satisfied("positive_uncertainty", "uncertainty > 0")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "positive_uncertainty",
-                "uncertainty must be positive",
-                &p.describe(),
-                &a.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "uncertainties must be positive"
     }
 }
 
-fn apply_quantum(p: &QuantumParticle, a: &QuantumAction) -> Result<QuantumParticle, String> {
-    Ok(match a {
+fn apply_quantum_inner(p: &QuantumParticle, a: &QuantumAction) -> QuantumParticle {
+    match a {
         QuantumAction::MeasurePosition { new_delta_x } => {
             // Reducing Δx increases Δp to maintain ΔxΔp ≥ ℏ/2
             let min_dp = HBAR / (2.0 * new_delta_x);
@@ -153,7 +118,14 @@ fn apply_quantum(p: &QuantumParticle, a: &QuantumAction) -> Result<QuantumPartic
                 delta_p: *new_delta_p,
             }
         }
-    })
+    }
+}
+
+fn apply_quantum(
+    p: &QuantumParticle,
+    a: &QuantumAction,
+) -> Result<QuantumParticle, Box<dyn Counterexample>> {
+    Ok(apply_quantum_inner(p, a))
 }
 
 pub fn new_particle(delta_x: f64, delta_p: f64) -> Result<Engine<QuantumAction>, &'static str> {

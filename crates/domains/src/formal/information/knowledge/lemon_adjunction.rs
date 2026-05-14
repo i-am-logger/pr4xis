@@ -35,7 +35,7 @@ pr4xis::adjunction! {
         KnowledgeRelation {
             from: *obj,
             to: round_trip,
-            kind: KnowledgeRelationKind::Composed,
+            kind: KnowledgeRelationKind::Identity,
         }
     },
     counit: |obj: &LemonConcept| -> LemonRelation {
@@ -43,7 +43,7 @@ pr4xis::adjunction! {
         LemonRelation {
             from: round_trip,
             to: *obj,
-            kind: LemonRelationKind::Composed,
+            kind: LemonRelationKind::Identity,
         }
     },
 }

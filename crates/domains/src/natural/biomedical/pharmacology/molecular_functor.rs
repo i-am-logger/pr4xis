@@ -8,14 +8,13 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularEntity, MolecularRelation, MolecularRelationKind,
 };
 use crate::natural::biomedical::pharmacology::ontology::{
-    PharmacologyCategory, PharmacologyCategoryRelationKind, PharmacologyEntity,
-    PharmacologyRelation,
+    PharmacologyCategory, PharmacologyEntity, PharmacologyRelation, PharmacologyRelationKind,
 };
 
 /// Structure-preserving map from pharmacology entities to their molecular targets.
@@ -63,18 +62,35 @@ impl Functor for PharmacologyToMolecular {
             P::Agent => M::Protein,
             P::Target => M::Protein,
             P::Effect => M::Ion, // effects are mediated by ions
+            P::PharmacologyEvent => M::Protein,
+
+            // Causal events (merged into the concept enum; map to the
+            // molecular substrate involved in each step).
+            P::DrugAdministration => M::Protein,
+            P::TargetBinding => M::Protein,
+            P::ChannelStateChange => M::IonChannel,
+            P::IonFluxChange => M::Ion,
+            P::VmemShift => M::Ion,
+            P::DownstreamSignaling => M::Protein,
+            P::GJModulatorBinding => M::Cx43,
+            P::GapJunctionStateChange => M::Cx43,
+            P::BioelectricNetworkChange => M::GapJunction,
+            P::CollectiveReprogramming => M::Protein,
         }
     }
 
     fn map_morphism(m: &PharmacologyRelation) -> MolecularRelation {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
+        // Identity preserved; non-Identity kinds collapse to Subsumption in
+        // the (migrated) molecular target so functor laws hold under
+        // same-kind transitive composition (#166).
         match m.kind {
-            PharmacologyCategoryRelationKind::Identity => MolecularCategory::identity(&from),
+            PharmacologyRelationKind::Identity => MolecularCategory::identity(&from),
             _ => MolecularRelation {
                 from,
                 to,
-                kind: MolecularCategoryRelationKind::Composed,
+                kind: MolecularRelationKind::Subsumption,
             },
         }
     }
@@ -84,13 +100,13 @@ pr4xis::register_functor!(PharmacologyToMolecular);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<PharmacologyToMolecular>().unwrap();
+        assert_functor_laws::<PharmacologyToMolecular>();
     }
 
     #[test]
@@ -108,37 +124,31 @@ mod tests {
         }
     }
 
+    /// Composition preservation over a Subsumption chain that actually
+    /// composes in the new partial-category API: Ivermectin -> IonChannelModulator
+    /// (declared) and IonChannelModulator -> DrugClass (declared) compose to
+    /// Ivermectin -> DrugClass under Subsumption-transitivity.
     #[test]
-    fn test_composition_preservation() {
-        let objs = PharmacologyEntity::variants();
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = PharmacologyRelation {
-                        from: a,
-                        to: b,
-                        kind: PharmacologyCategoryRelationKind::Composed,
-                    };
-                    let g = PharmacologyRelation {
-                        from: b,
-                        to: c,
-                        kind: PharmacologyCategoryRelationKind::Composed,
-                    };
-                    let composed = PharmacologyCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = PharmacologyToMolecular::map_morphism(&composed);
-                    let composed_mapped = MolecularCategory::compose(
-                        &PharmacologyToMolecular::map_morphism(&f),
-                        &PharmacologyToMolecular::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
-                }
-            }
-        }
+    fn test_composition_preservation_subsumption_chain() {
+        let f = PharmacologyRelation {
+            from: PharmacologyEntity::Ivermectin,
+            to: PharmacologyEntity::IonChannelModulator,
+            kind: PharmacologyRelationKind::Subsumption,
+        };
+        let g = PharmacologyRelation {
+            from: PharmacologyEntity::IonChannelModulator,
+            to: PharmacologyEntity::DrugClass,
+            kind: PharmacologyRelationKind::Subsumption,
+        };
+        let composed = PharmacologyCategory::compose(&f, &g)
+            .expect("Subsumption chain Ivermectin -> ICM -> DrugClass must compose");
+        let mapped_composed = PharmacologyToMolecular::map_morphism(&composed);
+        let composed_mapped = MolecularCategory::compose(
+            &PharmacologyToMolecular::map_morphism(&f),
+            &PharmacologyToMolecular::map_morphism(&g),
+        )
+        .expect("functor-mapped morphisms must compose in the target category");
+        assert_eq!(mapped_composed, composed_mapped);
     }
 
     #[test]

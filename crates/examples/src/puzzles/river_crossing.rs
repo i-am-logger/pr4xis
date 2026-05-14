@@ -1,4 +1,18 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const RIVER_CITATION: &str = "Alcuin of York (c. 800) Propositiones ad acuendos juvenes, Problem 18: \
+     Propositio de homine et capra et lupo";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Bank {
@@ -15,6 +29,9 @@ impl Bank {
     }
 }
 
+/// Wolf, goat, and cabbage river-crossing.
+///
+/// Source: Alcuin of York (c. 800), Problem 18.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct State {
     pub farmer: Bank,
@@ -37,22 +54,17 @@ impl State {
         (self.wolf != self.goat || self.farmer == self.wolf)
             && (self.goat != self.cabbage || self.farmer == self.goat)
     }
-}
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        format!(
-            "F:{:?} W:{:?} G:{:?} C:{:?}",
-            self.farmer, self.wolf, self.goat, self.cabbage
-        )
-    }
-    fn is_terminal(&self) -> bool {
+    /// Goal: every entity has crossed to the right bank.
+    pub fn is_terminal(&self) -> bool {
         self.farmer == Bank::Right
             && self.wolf == Bank::Right
             && self.goat == Bank::Right
             && self.cabbage == Bank::Right
     }
 }
+
+impl Situation for State {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Crossing {
@@ -64,62 +76,48 @@ pub enum Crossing {
 
 impl Action for Crossing {
     type Sit = State;
-    fn describe(&self) -> String {
-        match self {
-            Crossing::Alone => "cross alone".into(),
-            Crossing::WithWolf => "cross with wolf".into(),
-            Crossing::WithGoat => "cross with goat".into(),
-            Crossing::WithCabbage => "cross with cabbage".into(),
-        }
-    }
 }
 
 struct ItemWithFarmer;
 impl Precondition<Crossing> for ItemWithFarmer {
-    fn check(&self, s: &State, a: &Crossing) -> PreconditionResult {
+    fn check(&self, s: &State, a: &Crossing) -> Verdict {
+        let meta = axiom_meta(
+            "item_with_farmer",
+            "item must be on farmer's bank",
+            RIVER_CITATION,
+        );
         let bank = match a {
-            Crossing::Alone => return PreconditionResult::satisfied("item_with_farmer", "solo"),
+            Crossing::Alone => return Ok(Box::new(SimpleProof::new(meta))),
             Crossing::WithWolf => s.wolf,
             Crossing::WithGoat => s.goat,
             Crossing::WithCabbage => s.cabbage,
         };
         if bank == s.farmer {
-            PreconditionResult::satisfied("item_with_farmer", "item on farmer's bank")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "item_with_farmer",
-                "item on other bank",
-                &s.describe(),
-                &a.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "item must be on farmer's bank"
     }
 }
 
 struct SafeResult;
 impl Precondition<Crossing> for SafeResult {
-    fn check(&self, s: &State, a: &Crossing) -> PreconditionResult {
+    fn check(&self, s: &State, a: &Crossing) -> Verdict {
+        let meta = axiom_meta(
+            "safe_result",
+            "result must be safe — wolf cannot eat goat and goat cannot eat cabbage",
+            RIVER_CITATION,
+        );
         let next = apply_crossing(s, a).unwrap_or_else(|_| s.clone());
         if next.is_safe() {
-            PreconditionResult::satisfied("safe_result", "no one gets eaten")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            let reason = if next.wolf == next.goat && next.farmer != next.wolf {
-                "wolf would eat goat"
-            } else {
-                "goat would eat cabbage"
-            };
-            PreconditionResult::violated("safe_result", reason, &s.describe(), &a.describe())
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "result must be safe"
     }
 }
 
-fn apply_crossing(s: &State, a: &Crossing) -> Result<State, String> {
+fn apply_crossing(s: &State, a: &Crossing) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     let dest = s.farmer.opposite();
     n.farmer = dest;
@@ -172,7 +170,7 @@ mod tests {
             .unwrap()
             .next(Crossing::WithGoat)
             .unwrap();
-        assert!(e.is_terminal());
+        assert!(e.situation().is_terminal());
     }
 
     #[test]

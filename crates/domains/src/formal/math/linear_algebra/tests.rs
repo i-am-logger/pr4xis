@@ -1,79 +1,77 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::linear_algebra::ontology::*;
 
 #[test]
 fn linear_algebra_category_laws() {
-    check_category_laws::<LinearAlgebraCategory>().unwrap();
+    assert_category_laws::<LinearAlgebraCategory>();
 }
 
 #[test]
 fn linear_algebra_ontology_validates() {
-    LinearAlgebraOntology::validate().unwrap();
+    LinearAlgebraOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn multiplication_associativity() {
-    assert!(MultiplicationAssociativity.holds());
+    assert!(MultiplicationAssociativity.verify().is_ok());
 }
 
 #[test]
 fn multiplication_identity() {
-    assert!(MultiplicationIdentity.holds());
+    assert!(MultiplicationIdentity.verify().is_ok());
 }
 
 #[test]
 fn transpose_involution() {
-    assert!(TransposeInvolution.holds());
+    assert!(TransposeInvolution.verify().is_ok());
 }
 
 #[test]
 fn transpose_product() {
-    assert!(TransposeProduct.holds());
+    assert!(TransposeProduct.verify().is_ok());
 }
 
 #[test]
 fn det_normalization() {
-    assert!(DetNormalization.holds());
+    assert!(DetNormalization.verify().is_ok());
 }
 
 #[test]
 fn det_multiplicativity() {
-    assert!(DetMultiplicativity.holds());
+    assert!(DetMultiplicativity.verify().is_ok());
 }
 
 #[test]
 fn det_transpose() {
-    assert!(DetTranspose.holds());
+    assert!(DetTranspose.verify().is_ok());
 }
 
 #[test]
 fn trace_eigenvalue_sum() {
-    assert!(TraceEigenvalueSum.holds());
+    assert!(TraceEigenvalueSum.verify().is_ok());
 }
 
 #[test]
 fn det_eigenvalue_product() {
-    assert!(DetEigenvalueProduct.holds());
+    assert!(DetEigenvalueProduct.verify().is_ok());
 }
 
 #[test]
 fn cholesky_factorization() {
-    assert!(CholeskyFactorization.holds());
+    assert!(CholeskyFactorization.verify().is_ok());
 }
 
 #[test]
 fn psd_quadratic_form() {
-    assert!(PsdQuadraticForm.holds());
+    assert!(PsdQuadraticForm.verify().is_ok());
 }
 
 #[test]
 fn joseph_preserves_psd() {
-    assert!(JosephPreservesPsd.holds());
+    assert!(JosephPreservesPsd.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------

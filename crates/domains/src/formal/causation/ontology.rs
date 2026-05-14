@@ -38,7 +38,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Causation",
     source: "Lewis (1973) J. Phil. 70; Pearl (2000) Causality; Reichenbach (1956); Woodward (2003); Hall (2004); Mackie (1974) Cement of the Universe",
-    being: AbstractObject,
 
     concepts: [
         // === Roles ===
@@ -138,77 +137,169 @@ pr4xis::ontology! {
         (Overdetermination, Cause, Involves),
     ],
 
-    axioms: {
-        CausesPrecedeEffects: {
-            source: "Reichenbach (1956) Direction of Time — temporal priority of causes",
-            description: "the edge (Cause, Effect, Produces) exists, encoding Reichenbach's temporal-priority principle: causes precede effects in the causal graph direction",
-            holds: {
-                use pr4xis::category::Category;
-                let morphs = CausationCategory::morphisms();
-                morphs.iter().any(|r| {
-                    r.from == CausationConcept::Cause
-                        && r.to == CausationConcept::Effect
-                        && r.kind == CausationRelationKind::Produces
-                })
-            },
-        },
-        CommonCauseScreening: {
-            source: "Reichenbach (1956) §19 — common-cause principle",
-            description: "CommonCause is declared as a Cause (via is_a), encoding Reichenbach's principle that correlations between non-causally-related events demand a common ancestor",
-            holds: {
-                use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-                CausationTaxonomy::relations()
-                    .iter()
-                    .any(|(c, p)| {
-                        *c == CausationConcept::CommonCause && *p == CausationConcept::Cause
-                    })
-            },
-        },
-        InterventionActsOnCause: {
-            source: "Pearl (2000) Causality §1.3 do-operator; Woodward (2003) Making Things Happen Ch. 3",
-            description: "the edge (Intervention, Cause, ActsOn) exists, encoding Pearl's do(X) operator: an intervention fixes a cause's value independent of its upstream causes",
-            holds: {
-                use pr4xis::category::Category;
-                CausationCategory::morphisms().iter().any(|r| {
-                    r.from == CausationConcept::Intervention
-                        && r.to == CausationConcept::Cause
-                        && r.kind == CausationRelationKind::ActsOn
-                })
-            },
-        },
-        FiveCauseKinds: {
-            source: "Hall (2004) two concepts; Mackie (1974) INUS",
-            description: "the direct children of Cause are exactly the five typology entries: SufficientCause, NecessaryCause, ProximateCause, DistalCause, CommonCause",
-            holds: {
-                use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-                let rels = CausationTaxonomy::relations();
-                let expected = [
-                    CausationConcept::SufficientCause,
-                    CausationConcept::NecessaryCause,
-                    CausationConcept::ProximateCause,
-                    CausationConcept::DistalCause,
-                    CausationConcept::CommonCause,
-                ];
-                let actual: Vec<_> = rels
-                    .iter()
-                    .filter_map(|(c, p)| if *p == CausationConcept::Cause { Some(*c) } else { None })
-                    .collect();
-                actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
-            },
-        },
-        CounterfactualDependenceGroundsCausation: {
-            source: "Lewis (1973) J. Phil. 70 — counterfactual analysis of causation",
-            description: "the edge (CounterfactualDependence, Cause, Grounds) exists, encoding Lewis's reduction: causation IS counterfactual dependence in nearest-world semantics",
-            holds: {
-                use pr4xis::category::Category;
-                CausationCategory::morphisms().iter().any(|r| {
-                    r.from == CausationConcept::CounterfactualDependence
-                        && r.to == CausationConcept::Cause
-                        && r.kind == CausationRelationKind::Grounds
-                })
-            },
-        },
-    },
+}
+
+// -----------------------------------------------------------------------------
+// Domain axioms — declared as separate `impl Axiom` blocks (new `verify` /
+// `axiom_meta!` shape per #160 / #167). Each axiom filters
+// `CausationCategory::morphisms()` by relation kind, per the kinded-morphism
+// canonical pattern (per_def traits are gone).
+// -----------------------------------------------------------------------------
+
+fn produces_edge_exists(from: CausationConcept, to: CausationConcept) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    CausationCategory::morphisms().iter().any(|m| {
+        m.source() == from && m.target() == to && m.kind() == CausationRelationKind::Produces
+    })
+}
+
+fn subsumption_pair_exists(child: CausationConcept, parent: CausationConcept) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    CausationCategory::morphisms().iter().any(|m| {
+        m.source() == child
+            && m.target() == parent
+            && m.kind() == CausationRelationKind::Subsumption
+    })
+}
+
+fn direct_children_of_cause() -> Vec<CausationConcept> {
+    use pr4xis::category::{Arrow, Category};
+    CausationCategory::morphisms()
+        .iter()
+        .filter(|m| {
+            m.kind() == CausationRelationKind::Subsumption && m.target() == CausationConcept::Cause
+        })
+        .map(|m| m.source())
+        .collect()
+}
+
+fn kinded_edge_exists(
+    from: CausationConcept,
+    to: CausationConcept,
+    kind: CausationRelationKind,
+) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    CausationCategory::morphisms()
+        .iter()
+        .any(|m| m.source() == from && m.target() == to && m.kind() == kind)
+}
+
+/// Causes precede effects — the (Cause, Effect, Produces) edge encodes
+/// Reichenbach's temporal-priority principle.
+pub struct CausesPrecedeEffects;
+
+impl Axiom for CausesPrecedeEffects {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if produces_edge_exists(CausationConcept::Cause, CausationConcept::Effect) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "CausesPrecedeEffects",
+        "(Cause, Effect, Produces) edge encodes Reichenbach's temporal-priority principle",
+        "Reichenbach (1956) Direction of Time"
+    );
+}
+
+/// Reichenbach's common-cause principle — CommonCause is a Cause.
+pub struct CommonCauseScreening;
+
+impl Axiom for CommonCauseScreening {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if subsumption_pair_exists(CausationConcept::CommonCause, CausationConcept::Cause) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "CommonCauseScreening",
+        "CommonCause is-a Cause (Reichenbach's principle: correlations between non-causally-related events demand a common ancestor)",
+        "Reichenbach (1956) Direction of Time §19"
+    );
+}
+
+/// Pearl's do-operator — Intervention acts on Cause.
+pub struct InterventionActsOnCause;
+
+impl Axiom for InterventionActsOnCause {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if kinded_edge_exists(
+            CausationConcept::Intervention,
+            CausationConcept::Cause,
+            CausationRelationKind::ActsOn,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "InterventionActsOnCause",
+        "(Intervention, Cause, ActsOn) edge encodes Pearl's do(X) operator",
+        "Pearl (2000) Causality §1.3; Woodward (2003) Making Things Happen Ch. 3"
+    );
+}
+
+/// Hall/Mackie typology — the five canonical Cause kinds.
+pub struct FiveCauseKinds;
+
+impl Axiom for FiveCauseKinds {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let expected = [
+            CausationConcept::SufficientCause,
+            CausationConcept::NecessaryCause,
+            CausationConcept::ProximateCause,
+            CausationConcept::DistalCause,
+            CausationConcept::CommonCause,
+        ];
+        let actual = direct_children_of_cause();
+        let ok = actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "FiveCauseKinds",
+        "direct children of Cause are exactly {SufficientCause, NecessaryCause, ProximateCause, DistalCause, CommonCause}",
+        "Hall (2004) Two Concepts of Causation; Mackie (1974) Cement of the Universe (INUS)"
+    );
+}
+
+/// Lewis's reduction — CounterfactualDependence grounds Causation.
+pub struct CounterfactualDependenceGroundsCausation;
+
+impl Axiom for CounterfactualDependenceGroundsCausation {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if kinded_edge_exists(
+            CausationConcept::CounterfactualDependence,
+            CausationConcept::Cause,
+            CausationRelationKind::Grounds,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "CounterfactualDependenceGroundsCausation",
+        "(CounterfactualDependence, Cause, Grounds) edge encodes Lewis's reduction: causation IS counterfactual dependence in nearest-world semantics",
+        "Lewis (1973) J. Phil. 70 — counterfactual analysis of causation"
+    );
 }
 
 // -----------------------------------------------------------------------------
@@ -243,47 +334,50 @@ impl Ontology for CausationOntology {
     type Cat = CausationCategory;
     type Qual = CauseRole;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        CausationOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        CausationOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(CausesPrecedeEffects));
+        axioms.push(Box::new(CommonCauseScreening));
+        axioms.push(Box::new(InterventionActsOnCause));
+        axioms.push(Box::new(FiveCauseKinds));
+        axioms.push(Box::new(CounterfactualDependenceGroundsCausation));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<CausationCategory>().unwrap();
+        assert_category_laws::<CausationCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        CausationOntology::validate().unwrap();
+        CausationOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
     fn causes_precede_effects_holds() {
-        assert!(CausesPrecedeEffects.holds());
+        assert!(CausesPrecedeEffects.verify().is_ok());
     }
 
     #[test]
     fn common_cause_screening_holds() {
-        assert!(CommonCauseScreening.holds());
+        assert!(CommonCauseScreening.verify().is_ok());
     }
 
     #[test]
     fn intervention_acts_on_cause_holds() {
-        assert!(InterventionActsOnCause.holds());
+        assert!(InterventionActsOnCause.verify().is_ok());
     }
 
     #[test]
     fn five_cause_kinds_holds() {
-        assert!(FiveCauseKinds.holds());
+        assert!(FiveCauseKinds.verify().is_ok());
     }
 }

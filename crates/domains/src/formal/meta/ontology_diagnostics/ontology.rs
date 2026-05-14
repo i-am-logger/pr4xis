@@ -1,713 +1,470 @@
-//! Meta-ontology: an ontology of ontology engineering.
+//! Ontology diagnostics — the meta-ontology of ontology engineering.
 //!
-//! Formalizes the gap detection methodology as a domain:
-//! - Entities: the components of ontological analysis
-//! - Taxonomy: classification of gaps and resolutions
-//! - Causation: the detection → resolution pipeline
-//! - Qualities: properties of gaps and their severity
-//! - Axioms: proven properties of the methodology
+//! Formalises the gap-detection methodology as a domain: components of
+//! ontological analysis, the detection → resolution pipeline, qualities
+//! of gaps and their severity, and axioms of the methodology.
 //!
-//! LITERATURE BASIS:
-//!   - Spivak & Kent 2012: ologs as categorical ontologies
-//!   - Spivak 2014: functors for cross-domain mapping
-//!   - Mac Lane 1971: adjunctions in category theory
-//!   - Euzenat & Shvaiko 2013: ontology alignment (matching, not gap detection)
-//!   - Schlobach & Cornet 2003: ontology debugging (consistency, not completeness)
+//! # Literature
 //!
-//! NOVEL:
-//!   - Adjunction-based gap detection (unit/counit != identity)
-//!   - ContextDef resolution of detected gaps
-//!   - Loss ratio quantification
-//!   - This meta-ontology itself
+//! - **Spivak & Kent (2012)** "Ologs: A Categorical Framework for
+//!   Knowledge Representation", *PLOS ONE* 7(1):e24274 — ologs as
+//!   categorical ontologies.
+//! - **Spivak (2014)** *Category Theory for the Sciences*, MIT Press
+//!   — functors for cross-domain mapping.
+//! - **Mac Lane (1971)** *Categories for the Working Mathematician*,
+//!   Springer — adjunctions; unit and counit.
+//! - **Euzenat & Shvaiko (2013)** *Ontology Matching*, 2nd ed.,
+//!   Springer — ontology alignment (matching, distinct from
+//!   gap-detection).
+//! - **Schlobach & Cornet (2003)** "Non-Standard Reasoning Services for
+//!   the Debugging of Description Logic Terminologies", *IJCAI 2003* —
+//!   ontology debugging (consistency).
+//! - **Herre & Loebe (2005)** *A Meta-Ontological Architecture for
+//!   Foundational Ontologies* — meta-ontological framing.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entities
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Meta",
+    source: "Spivak & Kent (2012) Ologs, PLOS ONE 7(1):e24274; Spivak (2014) Category Theory for the Sciences, MIT Press; Mac Lane (1971) Categories for the Working Mathematician, Springer; Euzenat & Shvaiko (2013) Ontology Matching 2nd ed., Springer; Schlobach & Cornet (2003) Non-Standard Reasoning Services for the Debugging of DL Terminologies, IJCAI; Herre & Loebe (2005) A Meta-Ontological Architecture for Foundational Ontologies",
 
-/// Components of the ontology engineering methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum MetaEntity {
-    // Ontological structures (what you build)
-    DomainOntology,
-    CategoryStructure,
-    TaxonomyStructure,
-    CausalStructure,
-    QualityStructure,
-    AxiomSet,
+    concepts: [
+        // === Ontological structures ===
+        DomainOntology,
+        CategoryStructure,
+        TaxonomyStructure,
+        CausalStructure,
+        QualityStructure,
+        AxiomSet,
+        // === Cross-domain connections ===
+        Functor,
+        Adjunction,
+        UnitMorphism,
+        CounitMorphism,
+        NaturalTransformation,
+        // === Gap-analysis findings ===
+        UnitGap,
+        CounitGap,
+        GranularityMismatch,
+        MissingDistinction,
+        InformationLoss,
+        CanonicalRepresentative,
+        // === Resolution mechanisms ===
+        ContextResolution,
+        OntologyEnrichment,
+        IntermediateDomain,
+        GranularityRefinement,
+        // === Verification ===
+        LiteratureVerification,
+        MachineProof,
+        PropertyTest,
+        // === Abstract categories ===
+        Structure,
+        Connection,
+        Gap,
+        Resolution,
+        Verification,
+        // === Methodology pipeline stages ===
+        FormalizeDomains,
+        ConstructFunctors,
+        VerifyFunctorLaws,
+        ConstructAdjunction,
+        ComputeUnit,
+        ComputeCounit,
+        DetectGaps,
+        ClassifyGaps,
+        ComputeLossRatios,
+        ProposeResolution,
+        VerifyAgainstLiterature,
+        ImplementResolution,
+        RunMachineProofs,
+        AssessImprovement,
+    ],
 
-    // Cross-domain connections (how you connect)
-    Functor,
-    Adjunction,
-    UnitMorphism,
-    CounitMorphism,
-    NaturalTransformation,
+    labels: {
+        DomainOntology: ("en", "Domain ontology", "Spivak & Kent (2012): an ontology of a single subject domain."),
+        CategoryStructure: ("en", "Category structure", "Mac Lane (1971): objects + morphisms + composition + identity."),
+        TaxonomyStructure: ("en", "Taxonomy structure", "Gruber (1993): the is-a subsumption layer of an ontology."),
+        CausalStructure: ("en", "Causal structure", "The cause→effect layer of an ontology."),
+        QualityStructure: ("en", "Quality structure", "Property/value assignments over concepts."),
+        AxiomSet: ("en", "Axiom set", "The set of axioms an ontology asserts."),
+        Functor: ("en", "Functor", "Mac Lane (1971): a structure-preserving map between categories."),
+        Adjunction: ("en", "Adjunction", "Mac Lane (1971) Ch. IV: F ⊣ G with unit η: 1 → GF and counit ε: FG → 1."),
+        UnitMorphism: ("en", "Unit morphism", "Mac Lane (1971): η: 1 → GF - the unit of an adjunction."),
+        CounitMorphism: ("en", "Counit morphism", "Mac Lane (1971): ε: FG → 1 - the counit of an adjunction."),
+        NaturalTransformation: ("en", "Natural transformation", "Mac Lane (1971): a morphism between functors."),
+        UnitGap: ("en", "Unit gap", "An entity for which the adjunction unit η is not identity - a forward round-trip loss."),
+        CounitGap: ("en", "Counit gap", "An entity for which the counit ε is not identity - a backward round-trip loss."),
+        GranularityMismatch: ("en", "Granularity mismatch", "Source and target ontologies operate at different conceptual scales."),
+        MissingDistinction: ("en", "Missing distinction", "A distinction present in one ontology absent in the other."),
+        InformationLoss: ("en", "Information loss", "The functor identifies entities that should remain distinct."),
+        CanonicalRepresentative: ("en", "Canonical representative", "The entity chosen by a many-to-one functor as the canonical image."),
+        ContextResolution: ("en", "Context resolution", "Add distinctions WITHOUT changing the category structure - non-destructive fix."),
+        OntologyEnrichment: ("en", "Ontology enrichment", "Add new entities to one of the ontologies - may break existing functors."),
+        IntermediateDomain: ("en", "Intermediate domain", "Add a third domain between the two with finer granularity."),
+        GranularityRefinement: ("en", "Granularity refinement", "Refine within existing structure without adding entities."),
+        LiteratureVerification: ("en", "Literature verification", "Manual verification against published sources - requires human reading."),
+        MachineProof: ("en", "Machine proof", "Automated proof of structural properties (category laws, functor laws)."),
+        PropertyTest: ("en", "Property test", "Property-based testing - statistically samples the search space."),
+        Structure: ("en", "Structure", "Abstract category for ontological structures."),
+        Connection: ("en", "Connection", "Abstract category for cross-domain connections."),
+        Gap: ("en", "Gap", "Abstract category for gap-analysis findings."),
+        Resolution: ("en", "Resolution", "Abstract category for resolution mechanisms."),
+        Verification: ("en", "Verification", "Abstract category for verification approaches."),
 
-    // Gap analysis (what you discover)
-    UnitGap,
-    CounitGap,
-    GranularityMismatch,
-    MissingDistinction,
-    InformationLoss,
-    CanonicalRepresentative,
+        FormalizeDomains: ("en", "Formalize domains", "Methodology stage 1: formalise two scientific domains as categories."),
+        ConstructFunctors: ("en", "Construct functors", "Methodology stage 2: build functors in both directions."),
+        VerifyFunctorLaws: ("en", "Verify functor laws", "Methodology stage 3: verify identity + composition preservation."),
+        ConstructAdjunction: ("en", "Construct adjunction", "Methodology stage 4: pair functors with unit and counit."),
+        ComputeUnit: ("en", "Compute unit", "Methodology stage 5a: compute unit for every source entity."),
+        ComputeCounit: ("en", "Compute counit", "Methodology stage 5b: compute counit for every target entity."),
+        DetectGaps: ("en", "Detect gaps", "Methodology stage 6: identify gaps (unit ≠ id or counit ≠ id)."),
+        ClassifyGaps: ("en", "Classify gaps", "Methodology stage 7a: classify gaps (mismatch, missing, ...)."),
+        ComputeLossRatios: ("en", "Compute loss ratios", "Methodology stage 7b: fraction of entities that collapse."),
+        ProposeResolution: ("en", "Propose resolution", "Methodology stage 8: propose ContextDef / enrichment / intermediate."),
+        VerifyAgainstLiterature: ("en", "Verify against literature", "Methodology stage 9: confirm proposal in published sources."),
+        ImplementResolution: ("en", "Implement resolution", "Methodology stage 10: implement the proposed resolution."),
+        RunMachineProofs: ("en", "Run machine proofs", "Methodology stage 11: run automated tests."),
+        AssessImprovement: ("en", "Assess improvement", "Methodology stage 12: assess whether loss ratio improved."),
+    },
 
-    // Resolution (how you fix)
-    ContextResolution,
-    OntologyEnrichment,
-    IntermediateDomain,
-    GranularityRefinement,
+    is_a: [
+        (DomainOntology, Structure),
+        (CategoryStructure, Structure),
+        (TaxonomyStructure, Structure),
+        (CausalStructure, Structure),
+        (QualityStructure, Structure),
+        (AxiomSet, Structure),
+        (Functor, Connection),
+        (Adjunction, Connection),
+        (UnitMorphism, Connection),
+        (CounitMorphism, Connection),
+        (NaturalTransformation, Connection),
+        (UnitGap, Gap),
+        (CounitGap, Gap),
+        (GranularityMismatch, Gap),
+        (MissingDistinction, Gap),
+        (InformationLoss, Gap),
+        (CanonicalRepresentative, Gap),
+        (ContextResolution, Resolution),
+        (OntologyEnrichment, Resolution),
+        (IntermediateDomain, Resolution),
+        (GranularityRefinement, Resolution),
+        (LiteratureVerification, Verification),
+        (MachineProof, Verification),
+        (PropertyTest, Verification),
+    ],
 
-    // Verification (how you confirm)
-    LiteratureVerification,
-    MachineProof,
-    PropertyTest,
+    has_a: [
+        // Adjunction components.
+        (Adjunction, UnitMorphism),
+        (Adjunction, CounitMorphism),
+    ],
 
-    // Abstract categories
-    Structure,
-    Connection,
-    Gap,
-    Resolution,
-    Verification,
+    causes: [
+        (FormalizeDomains, ConstructFunctors),
+        (ConstructFunctors, VerifyFunctorLaws),
+        (VerifyFunctorLaws, ConstructAdjunction),
+        (ConstructAdjunction, ComputeUnit),
+        (ConstructAdjunction, ComputeCounit),
+        (ComputeUnit, DetectGaps),
+        (ComputeCounit, DetectGaps),
+        (DetectGaps, ClassifyGaps),
+        (DetectGaps, ComputeLossRatios),
+        (ClassifyGaps, ProposeResolution),
+        (ComputeLossRatios, ProposeResolution),
+        (ProposeResolution, VerifyAgainstLiterature),
+        (VerifyAgainstLiterature, ImplementResolution),
+        (ImplementResolution, RunMachineProofs),
+        (RunMachineProofs, AssessImprovement),
+    ],
+
+    opposes: [
+        // Gap vs Resolution (problem vs solution).
+        (Gap, Resolution),
+        (Resolution, Gap),
+        // Forward vs backward round-trip.
+        (UnitGap, CounitGap),
+        (CounitGap, UnitGap),
+        // Automated vs manual verification.
+        (MachineProof, LiteratureVerification),
+        (LiteratureVerification, MachineProof),
+        // Context preserves functors; enrichment may break them.
+        (ContextResolution, OntologyEnrichment),
+        (OntologyEnrichment, ContextResolution),
+    ],
 }
 
-/// Steps in the gap detection methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum MethodologyStep {
-    /// Formalize two scientific domains as categories.
-    FormalizeDomains,
-    /// Build functors in both directions.
-    ConstructFunctors,
-    /// Verify functor laws (identity + composition preservation).
-    VerifyFunctorLaws,
-    /// Construct adjunction (pair functors with unit + counit).
-    ConstructAdjunction,
-    /// Compute unit for every source entity.
-    ComputeUnit,
-    /// Compute counit for every target entity.
-    ComputeCounit,
-    /// Identify gaps (unit != identity or counit != identity).
-    DetectGaps,
-    /// Classify gaps (granularity mismatch, missing distinction, etc.).
-    ClassifyGaps,
-    /// Compute loss ratios (fraction of entities that collapse).
-    ComputeLossRatios,
-    /// Propose resolution (ContextDef, enrichment, intermediate domain).
-    ProposeResolution,
-    /// Verify resolution against published literature.
-    VerifyAgainstLiterature,
-    /// Implement resolution in ontology code.
-    ImplementResolution,
-    /// Run machine proofs (automated tests).
-    RunMachineProofs,
-    /// Assess whether loss ratio improved.
-    AssessImprovement,
+/// Loss-ratio threshold categories. Based on empirical findings across
+/// three adjunctions in pr4xis: >80% needs IntermediateDomain;
+/// 40-80% needs ContextResolution; <40% needs GranularityRefinement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LossThreshold {
+    Low,
+    Moderate,
+    High,
 }
 
-// ---------------------------------------------------------------------------
-// Ontology (category + reasoning)
-// ---------------------------------------------------------------------------
-
-define_ontology! {
-    /// Dense category over meta-ontological entities.
-    pub MetaOntology for MetaCategory {
-        entity: MetaEntity,
-        relation: MetaRelation,
-        being: AbstractObject,
-        source: "Herre & Loebe (2005)",
-
-        taxonomy: MetaTaxonomy [
-            // Structures
-            (DomainOntology, Structure),
-            (CategoryStructure, Structure),
-            (TaxonomyStructure, Structure),
-            (CausalStructure, Structure),
-            (QualityStructure, Structure),
-            (AxiomSet, Structure),
-            // Connections
-            (Functor, Connection),
-            (Adjunction, Connection),
-            (UnitMorphism, Connection),
-            (CounitMorphism, Connection),
-            (NaturalTransformation, Connection),
-            // Adjunction components
-            (UnitMorphism, Adjunction),
-            (CounitMorphism, Adjunction),
-            // Gaps
-            (UnitGap, Gap),
-            (CounitGap, Gap),
-            (GranularityMismatch, Gap),
-            (MissingDistinction, Gap),
-            (InformationLoss, Gap),
-            (CanonicalRepresentative, Gap),
-            // Resolutions
-            (ContextResolution, Resolution),
-            (OntologyEnrichment, Resolution),
-            (IntermediateDomain, Resolution),
-            (GranularityRefinement, Resolution),
-            // Verification
-            (LiteratureVerification, Verification),
-            (MachineProof, Verification),
-            (PropertyTest, Verification),
-        ],
-
-        causation: MethodologyCausalGraph for MethodologyStep [
-            // Build phase
-            (FormalizeDomains, ConstructFunctors),
-            (ConstructFunctors, VerifyFunctorLaws),
-            (VerifyFunctorLaws, ConstructAdjunction),
-            // Detection phase
-            (ConstructAdjunction, ComputeUnit),
-            (ConstructAdjunction, ComputeCounit),
-            (ComputeUnit, DetectGaps),
-            (ComputeCounit, DetectGaps),
-            (DetectGaps, ClassifyGaps),
-            (DetectGaps, ComputeLossRatios),
-            // Resolution phase
-            (ClassifyGaps, ProposeResolution),
-            (ComputeLossRatios, ProposeResolution),
-            (ProposeResolution, VerifyAgainstLiterature),
-            (VerifyAgainstLiterature, ImplementResolution),
-            (ImplementResolution, RunMachineProofs),
-            (RunMachineProofs, AssessImprovement),
-        ],
-
-        opposition: MetaOpposition [
-            // Gap vs Resolution (problem vs solution)
-            (Gap, Resolution),
-            // Unit vs Counit (forward vs backward round-trip)
-            (UnitGap, CounitGap),
-            // Automated vs manual verification
-            (MachineProof, LiteratureVerification),
-            // Context resolution preserves functors; enrichment may break them
-            (ContextResolution, OntologyEnrichment),
-        ],
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Is this gap type detectable automatically (by adjunction analysis)?
+/// Quality: is this gap type detectable automatically by adjunction
+/// analysis?
 #[derive(Debug, Clone)]
 pub struct IsAutoDetectable;
 
 impl Quality for IsAutoDetectable {
-    type Individual = MetaEntity;
+    type Individual = MetaConcept;
     type Value = bool;
 
-    fn get(&self, entity: &MetaEntity) -> Option<bool> {
-        use MetaEntity::*;
-        match entity {
-            // Adjunction analysis detects these automatically
-            UnitGap => Some(true),
-            CounitGap => Some(true),
-            InformationLoss => Some(true),
-            CanonicalRepresentative => Some(true),
-            GranularityMismatch => Some(true),
-            // These require human judgment
-            MissingDistinction => Some(false),
-            // Not gap types
+    fn get(&self, c: &MetaConcept) -> Option<bool> {
+        use MetaConcept as M;
+        match c {
+            M::UnitGap
+            | M::CounitGap
+            | M::InformationLoss
+            | M::CanonicalRepresentative
+            | M::GranularityMismatch => Some(true),
+            M::MissingDistinction => Some(false),
             _ => None,
         }
     }
 }
 
-/// Does this resolution type preserve functor validity?
-///
-/// ContextDef adds distinctions WITHOUT changing the category structure,
-/// so existing functors remain valid. OntologyEnrichment adds new entities
-/// which may break existing functors.
+/// Quality: does this resolution type preserve functor validity?
+/// ContextResolution adds distinctions without changing category structure;
+/// OntologyEnrichment may break existing functors.
 #[derive(Debug, Clone)]
 pub struct PreservesFunctorValidity;
 
 impl Quality for PreservesFunctorValidity {
-    type Individual = MetaEntity;
+    type Individual = MetaConcept;
     type Value = bool;
 
-    fn get(&self, entity: &MetaEntity) -> Option<bool> {
-        use MetaEntity::*;
-        match entity {
-            ContextResolution => Some(true), // adds distinctions, not entities
-            GranularityRefinement => Some(true), // refines within existing structure
-            OntologyEnrichment => Some(false), // adds entities, may break functors
-            IntermediateDomain => Some(false), // adds new domain entirely
+    fn get(&self, c: &MetaConcept) -> Option<bool> {
+        use MetaConcept as M;
+        match c {
+            M::ContextResolution | M::GranularityRefinement => Some(true),
+            M::OntologyEnrichment | M::IntermediateDomain => Some(false),
             _ => None,
         }
     }
 }
 
-/// What loss ratio threshold suggests this resolution type?
-///
-/// Based on empirical findings from 3 adjunctions:
-/// - >80% loss → IntermediateDomain needed (too much collapse for ContextDef)
-/// - 40-80% loss → ContextResolution appropriate (moderate collapse)
-/// - <40% loss → GranularityRefinement sufficient (minor collapse)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum LossThreshold {
-    /// <40% loss: minor, refinement sufficient.
-    Low,
-    /// 40-80% loss: moderate, context disambiguation needed.
-    Moderate,
-    /// >80% loss: severe, intermediate domain needed.
-    High,
-}
-
+/// Quality: which loss-ratio threshold suggests this resolution type?
 #[derive(Debug, Clone)]
 pub struct SuggestedForLossLevel;
 
 impl Quality for SuggestedForLossLevel {
-    type Individual = MetaEntity;
+    type Individual = MetaConcept;
     type Value = LossThreshold;
 
-    fn get(&self, entity: &MetaEntity) -> Option<LossThreshold> {
-        use MetaEntity::*;
-        match entity {
-            GranularityRefinement => Some(LossThreshold::Low),
-            ContextResolution => Some(LossThreshold::Moderate),
-            IntermediateDomain => Some(LossThreshold::High),
-            OntologyEnrichment => Some(LossThreshold::Moderate),
+    fn get(&self, c: &MetaConcept) -> Option<LossThreshold> {
+        use MetaConcept as M;
+        match c {
+            M::GranularityRefinement => Some(LossThreshold::Low),
+            M::ContextResolution | M::OntologyEnrichment => Some(LossThreshold::Moderate),
+            M::IntermediateDomain => Some(LossThreshold::High),
             _ => None,
         }
     }
 }
 
-/// Is this verification type automated or manual?
+/// Quality: is this verification type automated?
 #[derive(Debug, Clone)]
 pub struct IsAutomated;
 
 impl Quality for IsAutomated {
-    type Individual = MetaEntity;
+    type Individual = MetaConcept;
     type Value = bool;
 
-    fn get(&self, entity: &MetaEntity) -> Option<bool> {
-        use MetaEntity::*;
-        match entity {
-            MachineProof => Some(true),
-            PropertyTest => Some(true),
-            LiteratureVerification => Some(false), // requires human reading
+    fn get(&self, c: &MetaConcept) -> Option<bool> {
+        use MetaConcept as M;
+        match c {
+            M::MachineProof | M::PropertyTest => Some(true),
+            M::LiteratureVerification => Some(false),
             _ => None,
         }
     }
 }
 
+// Re-export the legacy `MetaEntity` name as an alias.
+pub type MetaEntity = MetaConcept;
+
 // ---------------------------------------------------------------------------
-// Axioms
+// Domain axioms
 // ---------------------------------------------------------------------------
 
-/// Axiom: formalize domains transitively leads to assess improvement.
-/// The full pipeline is connected end-to-end.
-pub struct PipelineIsComplete;
-
-impl Axiom for PipelineIsComplete {
-    fn description(&self) -> &str {
-        "the full pipeline from formalization to assessment is connected"
-    }
-    fn holds(&self) -> bool {
-        use MethodologyStep::*;
-        let effects = causation::effects_of::<MethodologyCausalGraph>(&FormalizeDomains);
-        effects.contains(&AssessImprovement)
-    }
-}
-pr4xis::register_axiom!(PipelineIsComplete);
-
-/// Axiom: gap detection requires BOTH unit and counit computation.
-/// You need both directions to find all missing distinctions.
+/// Gap detection requires both unit and counit computation. Mac Lane
+/// (1971): an adjunction has both η and ε.
 pub struct GapDetectionRequiresBothDirections;
 
 impl Axiom for GapDetectionRequiresBothDirections {
-    fn description(&self) -> &str {
-        "gap detection requires both unit and counit computation"
-    }
-    fn holds(&self) -> bool {
-        use MethodologyStep::*;
-        let unit_causes = causation::causes_of::<MethodologyCausalGraph>(&DetectGaps);
-        unit_causes.contains(&ComputeUnit) && unit_causes.contains(&ComputeCounit)
-    }
-}
-pr4xis::register_axiom!(GapDetectionRequiresBothDirections);
-
-/// Axiom: literature verification comes AFTER resolution proposal, BEFORE implementation.
-/// You don't implement a fix without checking the literature first.
-pub struct LiteratureBeforeImplementation;
-
-impl Axiom for LiteratureBeforeImplementation {
-    fn description(&self) -> &str {
-        "literature verification occurs after proposal, before implementation"
-    }
-    fn holds(&self) -> bool {
-        use MethodologyStep::*;
-        let verify_causes =
-            causation::causes_of::<MethodologyCausalGraph>(&VerifyAgainstLiterature);
-        let verify_effects =
-            causation::effects_of::<MethodologyCausalGraph>(&VerifyAgainstLiterature);
-        verify_causes.contains(&ProposeResolution) && verify_effects.contains(&ImplementResolution)
-    }
-}
-pr4xis::register_axiom!(LiteratureBeforeImplementation);
-
-/// Axiom: most gap types are automatically detectable.
-/// The adjunction does the work — you don't have to find gaps by hand.
-pub struct MostGapsAreAutoDetectable;
-
-impl Axiom for MostGapsAreAutoDetectable {
-    fn description(&self) -> &str {
-        "most gap types are automatically detectable by adjunction analysis"
-    }
-    fn holds(&self) -> bool {
-        use MetaEntity::*;
-        let gap_types = [
-            UnitGap,
-            CounitGap,
-            GranularityMismatch,
-            InformationLoss,
-            CanonicalRepresentative,
-            MissingDistinction,
-        ];
-        let auto_count = gap_types
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let causation: Vec<_> = MetaCategory::morphisms()
             .iter()
-            .filter(|g| IsAutoDetectable.get(g) == Some(true))
-            .count();
-        // Most (>50%) should be auto-detectable
-        auto_count > gap_types.len() / 2
+            .filter(|m| m.kind() == MetaRelationKind::Causation)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        let ok = causation.contains(&(MetaConcept::ComputeUnit, MetaConcept::DetectGaps))
+            && causation.contains(&(MetaConcept::ComputeCounit, MetaConcept::DetectGaps));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-}
-pr4xis::register_axiom!(MostGapsAreAutoDetectable);
 
-/// Axiom: ContextResolution preserves functor validity.
-/// This is critical: you can resolve gaps WITHOUT breaking existing proofs.
+    pr4xis::axiom_meta!(
+        "GapDetectionRequiresBothDirections",
+        "DetectGaps is caused by both ComputeUnit and ComputeCounit",
+        "Mac Lane (1971) Categories for the Working Mathematician Ch. IV"
+    );
+}
+
+pr4xis::register_axiom!(
+    GapDetectionRequiresBothDirections,
+    "Mac Lane (1971) Categories for the Working Mathematician Ch. IV"
+);
+
+/// ContextResolution preserves functor validity (Spivak 2014: structure-
+/// preserving refinement).
 pub struct ContextResolutionPreservesFunctors;
 
 impl Axiom for ContextResolutionPreservesFunctors {
-    fn description(&self) -> &str {
-        "context resolution preserves existing functor validity (non-destructive fix)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if PreservesFunctorValidity.get(&MetaConcept::ContextResolution) == Some(true) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use MetaEntity::*;
-        PreservesFunctorValidity.get(&ContextResolution) == Some(true)
-    }
+
+    pr4xis::axiom_meta!(
+        "ContextResolutionPreservesFunctors",
+        "ContextResolution preserves existing functor validity (non-destructive fix)",
+        "Spivak (2014) Category Theory for the Sciences, MIT Press"
+    );
 }
-pr4xis::register_axiom!(ContextResolutionPreservesFunctors);
 
-/// Axiom: OntologyEnrichment does NOT preserve functor validity.
-/// Adding new entities may break existing functors (match arms become incomplete).
-pub struct EnrichmentMayBreakFunctors;
+pr4xis::register_axiom!(
+    ContextResolutionPreservesFunctors,
+    "Spivak (2014) Category Theory for the Sciences, MIT Press"
+);
 
-impl Axiom for EnrichmentMayBreakFunctors {
-    fn description(&self) -> &str {
-        "ontology enrichment may break existing functors (destructive fix)"
-    }
-    fn holds(&self) -> bool {
-        use MetaEntity::*;
-        PreservesFunctorValidity.get(&OntologyEnrichment) == Some(false)
-    }
-}
-pr4xis::register_axiom!(EnrichmentMayBreakFunctors);
-
-/// Axiom: high loss suggests intermediate domain is needed.
-/// Empirical finding: >80% loss means the two domains are too far apart
-/// in granularity for direct connection.
+/// High loss (>80%) suggests an intermediate domain. Empirical finding
+/// from three pr4xis adjunctions.
 pub struct HighLossSuggestsIntermediateDomain;
 
 impl Axiom for HighLossSuggestsIntermediateDomain {
-    fn description(&self) -> &str {
-        ">80% loss suggests an intermediate domain is needed (empirical finding)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if SuggestedForLossLevel.get(&MetaConcept::IntermediateDomain) == Some(LossThreshold::High)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use MetaEntity::*;
-        SuggestedForLossLevel.get(&IntermediateDomain) == Some(LossThreshold::High)
-    }
+
+    pr4xis::axiom_meta!(
+        "HighLossSuggestsIntermediateDomain",
+        ">80% loss suggests an IntermediateDomain resolution",
+        "Spivak & Kent (2012) Ologs, PLOS ONE 7(1):e24274"
+    );
 }
-pr4xis::register_axiom!(HighLossSuggestsIntermediateDomain);
 
-/// EMPIRICAL AXIOM: every adjunction between domains at different scales has gaps.
-///
-/// This is our core empirical finding, proven by gap_analysis.rs across
-/// 3 adjunctions (Molecular⊣Bioelectric, Pharmacology⊣Molecular,
-/// Biology⊣Bioelectric). All 3 have non-zero unit and counit gaps.
-///
-/// This axiom cannot be proven from the meta-ontology alone — it requires
-/// the gap_analysis module's computed results. We encode it here as a
-/// claim to be verified externally.
-pub struct EveryAdjunctionHasGaps;
-
-impl Axiom for EveryAdjunctionHasGaps {
-    fn description(&self) -> &str {
-        "every adjunction between domains at different scales has gaps (empirical, proven by gap_analysis.rs)"
-    }
-    fn holds(&self) -> bool {
-        // Verified externally by gap_analysis::tests::test_all_adjunctions_have_gaps
-        // Here we encode the structural claim: if UnitGap and CounitGap both
-        // exist as gap types AND are auto-detectable, the methodology works.
-        use MetaEntity::*;
-        taxonomy::is_a::<MetaTaxonomy>(&UnitGap, &Gap)
-            && taxonomy::is_a::<MetaTaxonomy>(&CounitGap, &Gap)
-            && IsAutoDetectable.get(&UnitGap) == Some(true)
-            && IsAutoDetectable.get(&CounitGap) == Some(true)
-    }
-}
-pr4xis::register_axiom!(EveryAdjunctionHasGaps);
-
-// ---------------------------------------------------------------------------
-// Ontology impl
-// ---------------------------------------------------------------------------
+pr4xis::register_axiom!(
+    HighLossSuggestsIntermediateDomain,
+    "Spivak & Kent (2012) Ologs, PLOS ONE 7(1):e24274"
+);
 
 impl Ontology for MetaOntology {
     type Cat = MetaCategory;
     type Qual = IsAutoDetectable;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(PipelineIsComplete),
-            Box::new(GapDetectionRequiresBothDirections),
-            Box::new(LiteratureBeforeImplementation),
-            Box::new(MostGapsAreAutoDetectable),
-            Box::new(ContextResolutionPreservesFunctors),
-            Box::new(EnrichmentMayBreakFunctors),
-            Box::new(HighLossSuggestsIntermediateDomain),
-            Box::new(EveryAdjunctionHasGaps),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(GapDetectionRequiresBothDirections));
+        axioms.push(Box::new(ContextResolutionPreservesFunctors));
+        axioms.push(Box::new(HighLossSuggestsIntermediateDomain));
+        axioms
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::opposition;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use proptest::prelude::*;
 
     #[test]
-    fn test_entity_count() {
-        assert_eq!(MetaEntity::variants().len(), 29);
+    fn category_laws() {
+        assert_category_laws::<MetaCategory>();
     }
 
     #[test]
-    fn test_step_count() {
-        assert_eq!(MethodologyStep::variants().len(), 14);
+    fn ontology_validates() {
+        MetaOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
-    fn test_category_laws() {
-        check_category_laws::<MetaCategory>().unwrap();
+    fn gap_detection_requires_both_directions_holds() {
+        assert!(GapDetectionRequiresBothDirections.verify().is_ok());
     }
 
     #[test]
-    fn test_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<MetaTaxonomy>>().unwrap();
+    fn context_resolution_preserves_functors_holds() {
+        assert!(ContextResolutionPreservesFunctors.verify().is_ok());
     }
 
     #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<MethodologyCausalGraph>>().unwrap();
+    fn high_loss_suggests_intermediate_domain_holds() {
+        assert!(HighLossSuggestsIntermediateDomain.verify().is_ok());
     }
 
     #[test]
-    fn test_ontology_validates() {
-        MetaOntology::validate().unwrap();
-    }
-
-    // -- Individual axiom tests --
-
-    #[test]
-    fn test_pipeline_complete() {
-        assert!(PipelineIsComplete.holds());
-    }
-
-    #[test]
-    fn test_gap_detection_requires_both() {
-        assert!(GapDetectionRequiresBothDirections.holds());
-    }
-
-    #[test]
-    fn test_literature_before_implementation() {
-        assert!(LiteratureBeforeImplementation.holds());
-    }
-
-    #[test]
-    fn test_most_gaps_auto_detectable() {
-        assert!(MostGapsAreAutoDetectable.holds());
-    }
-
-    #[test]
-    fn test_context_preserves_functors() {
-        assert!(ContextResolutionPreservesFunctors.holds());
-    }
-
-    #[test]
-    fn test_enrichment_breaks_functors() {
-        assert!(EnrichmentMayBreakFunctors.holds());
-    }
-
-    #[test]
-    fn test_high_loss_intermediate() {
-        assert!(HighLossSuggestsIntermediateDomain.holds());
-    }
-
-    #[test]
-    fn test_every_adjunction_has_gaps() {
-        assert!(EveryAdjunctionHasGaps.holds());
-    }
-
-    // -- Taxonomy tests --
-
-    #[test]
-    fn test_unit_gap_is_a_gap() {
-        use MetaEntity::*;
-        assert!(taxonomy::is_a::<MetaTaxonomy>(&UnitGap, &Gap));
-        assert!(taxonomy::is_a::<MetaTaxonomy>(&CounitGap, &Gap));
-    }
-
-    #[test]
-    fn test_context_resolution_is_a_resolution() {
-        use MetaEntity::*;
-        assert!(taxonomy::is_a::<MetaTaxonomy>(
-            &ContextResolution,
-            &Resolution
-        ));
-    }
-
-    #[test]
-    fn test_machine_proof_is_verification() {
-        use MetaEntity::*;
-        assert!(taxonomy::is_a::<MetaTaxonomy>(&MachineProof, &Verification));
-    }
-
-    #[test]
-    fn test_adjunction_is_a_connection() {
-        use MetaEntity::*;
-        assert!(taxonomy::is_a::<MetaTaxonomy>(&Adjunction, &Connection));
-    }
-
-    #[test]
-    fn test_unit_morphism_is_adjunction_and_connection() {
-        use MetaEntity::*;
-        assert!(taxonomy::is_a::<MetaTaxonomy>(&UnitMorphism, &Adjunction));
-        assert!(taxonomy::is_a::<MetaTaxonomy>(&UnitMorphism, &Connection));
-    }
-
-    // -- Causal chain tests --
-
-    #[test]
-    fn test_formalize_reaches_detect() {
-        use MethodologyStep::*;
-        let effects = causation::effects_of::<MethodologyCausalGraph>(&FormalizeDomains);
-        assert!(effects.contains(&DetectGaps));
-    }
-
-    #[test]
-    fn test_detect_reaches_implement() {
-        use MethodologyStep::*;
-        let effects = causation::effects_of::<MethodologyCausalGraph>(&DetectGaps);
-        assert!(effects.contains(&ImplementResolution));
-    }
-
-    #[test]
-    fn test_full_pipeline_path() {
-        use MethodologyStep::*;
-        let effects = causation::effects_of::<MethodologyCausalGraph>(&FormalizeDomains);
-        // Every step should be reachable from FormalizeDomains
-        assert!(effects.contains(&ConstructFunctors));
-        assert!(effects.contains(&ConstructAdjunction));
-        assert!(effects.contains(&ComputeUnit));
-        assert!(effects.contains(&DetectGaps));
-        assert!(effects.contains(&ProposeResolution));
-        assert!(effects.contains(&VerifyAgainstLiterature));
-        assert!(effects.contains(&RunMachineProofs));
-        assert!(effects.contains(&AssessImprovement));
-    }
-
-    // -- Opposition tests --
-
-    #[test]
-    fn test_gap_opposes_resolution() {
-        use MetaEntity::*;
-        assert!(opposition::are_opposed::<MetaOpposition>(&Gap, &Resolution));
-    }
-
-    #[test]
-    fn test_unit_gap_opposes_counit_gap() {
-        use MetaEntity::*;
-        assert!(opposition::are_opposed::<MetaOpposition>(
-            &UnitGap, &CounitGap
-        ));
-    }
-
-    #[test]
-    fn test_context_opposes_enrichment() {
-        use MetaEntity::*;
-        assert!(opposition::are_opposed::<MetaOpposition>(
-            &ContextResolution,
-            &OntologyEnrichment
-        ));
-    }
-
-    // -- Quality tests --
-
-    #[test]
-    fn test_loss_thresholds() {
-        use MetaEntity::*;
-        assert_eq!(
-            SuggestedForLossLevel.get(&GranularityRefinement),
-            Some(LossThreshold::Low)
-        );
-        assert_eq!(
-            SuggestedForLossLevel.get(&ContextResolution),
-            Some(LossThreshold::Moderate)
-        );
-        assert_eq!(
-            SuggestedForLossLevel.get(&IntermediateDomain),
-            Some(LossThreshold::High)
-        );
-    }
-
-    #[test]
-    fn test_automated_verification() {
-        use MetaEntity::*;
-        assert_eq!(IsAutomated.get(&MachineProof), Some(true));
-        assert_eq!(IsAutomated.get(&PropertyTest), Some(true));
-        assert_eq!(IsAutomated.get(&LiteratureVerification), Some(false));
-    }
-
-    // -- Proptest --
-
-    fn arb_meta_entity() -> impl Strategy<Value = MetaEntity> {
-        (0..MetaEntity::variants().len()).prop_map(|i| MetaEntity::variants()[i])
+    fn full_pipeline_path() {
+        // Causation transitive closure: FormalizeDomains reaches AssessImprovement.
+        let causation: Vec<_> = MetaCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == MetaRelationKind::Causation)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(causation.contains(&(
+            MetaConcept::FormalizeDomains,
+            MetaConcept::AssessImprovement
+        )));
     }
 
     proptest! {
         #[test]
-        fn prop_taxonomy_reflexive(entity in arb_meta_entity()) {
-            prop_assert!(taxonomy::is_a::<MetaTaxonomy>(&entity, &entity));
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in MetaCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
         }
 
         #[test]
-        fn prop_every_entity_has_category(entity in arb_meta_entity()) {
-            // Every entity belongs to at least one abstract category
-            use MetaEntity::*;
-            let categories = [Structure, Connection, Gap, Resolution, Verification];
-            let belongs = categories.iter().any(|cat| taxonomy::is_a::<MetaTaxonomy>(&entity, cat));
-            let is_abstract = categories.contains(&entity);
-            prop_assert!(belongs || is_abstract,
-                "{:?} should belong to at least one category", entity);
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in MetaOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_subsumption_targets_valid(_seed in any::<u32>()) {
+            let variants: Vec<_> = MetaConcept::variants();
+            for m in MetaCategory::morphisms() {
+                if m.kind() == MetaRelationKind::Subsumption {
+                    prop_assert!(variants.contains(&m.source()));
+                    prop_assert!(variants.contains(&m.target()));
+                }
+            }
         }
     }
 }

@@ -3,17 +3,17 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::ontology::*;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 #[test]
 fn c1_category_laws() {
-    check_category_laws::<C1Category>().unwrap();
+    assert_category_laws::<C1Category>();
 }
 
 #[test]
 fn c2_category_laws() {
-    check_category_laws::<C2Category>().unwrap();
+    assert_category_laws::<C2Category>();
 }
 
 #[test]
@@ -38,12 +38,12 @@ fn c2_seven_concepts() {
 
 #[test]
 fn attention_selects_access() {
-    assert!(AttentionCausesAccess.holds());
+    assert!(AttentionCausesAccess.verify().is_ok());
 }
 
 #[test]
 fn higher_order_represents_first() {
-    assert!(HigherOrderRepresentsFirst.holds());
+    assert!(HigherOrderRepresentsFirst.verify().is_ok());
 }
 
 #[test]

@@ -1,11 +1,8 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
-use pr4xis::ontology::{Axiom, Ontology};
-
-use crate::applied::navigation::gnss::constellation::GnssConstellationTaxonomy;
+use crate::applied::navigation::gnss::constellation::GnssConstellationCategory;
 use crate::applied::navigation::gnss::engine::*;
 use crate::applied::navigation::gnss::ontology::*;
 
@@ -14,33 +11,34 @@ use crate::applied::navigation::gnss::ontology::*;
 // ---------------------------------------------------------------------------
 
 #[test]
-fn gnss_observable_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<GnssTaxonomy>>().unwrap();
+fn gnss_observable_category_laws() {
+    assert_category_laws::<GnssCategory>();
 }
 
 #[test]
-fn gnss_constellation_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<GnssConstellationTaxonomy>>().unwrap();
+fn gnss_constellation_category_laws() {
+    assert_category_laws::<GnssConstellationCategory>();
 }
 
 #[test]
 fn gnss_ontology_validates() {
-    GnssOntology::validate().unwrap();
+    GnssOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn minimum_satellites_axiom() {
-    assert!(MinimumSatellites.holds());
+    assert!(MinimumSatellites.verify().is_ok());
 }
 
 #[test]
 fn dop_geometry_axiom() {
-    assert!(DopGeometry.holds());
+    assert!(DopGeometry.verify().is_ok());
 }
 
 #[test]
 fn pseudorange_positive_axiom() {
-    assert!(PseudorangePositive.holds());
+    assert!(PseudorangePositive.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------

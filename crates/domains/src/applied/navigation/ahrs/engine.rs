@@ -44,22 +44,7 @@ pub struct AhrsSituation {
     pub total_time: f64,
 }
 
-impl Situation for AhrsSituation {
-    fn describe(&self) -> String {
-        format!(
-            "AHRS step={}, t={:.3}s, roll={:.2} pitch={:.2} yaw={:.2} deg",
-            self.step,
-            self.total_time,
-            self.attitude.roll.to_degrees(),
-            self.attitude.pitch.to_degrees(),
-            self.attitude.yaw.to_degrees(),
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for AhrsSituation {}
 
 /// AHRS action: sensor updates.
 #[derive(Debug, Clone)]
@@ -85,14 +70,6 @@ pub enum AhrsAction {
 
 impl Action for AhrsAction {
     type Sit = AhrsSituation;
-
-    fn describe(&self) -> String {
-        match self {
-            AhrsAction::GyroUpdate { dt, .. } => format!("gyro update dt={:.4}s", dt),
-            AhrsAction::AccelCorrection { .. } => "accel correction".to_string(),
-            AhrsAction::MagCorrection { .. } => "mag correction".to_string(),
-        }
-    }
 }
 
 /// Apply an AHRS action to the current situation.

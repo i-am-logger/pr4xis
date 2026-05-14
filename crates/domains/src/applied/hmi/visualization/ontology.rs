@@ -13,6 +13,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Shneiderman, "The Eyes Have It" (1996): overview-zoom-filter-detail mantra
 /// - Wickham, "Layered Grammar of Graphics" (2010): compositional pipeline
 use pr4xis::category::Concept;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 
 // ══════════════════════════════════════════════
@@ -408,10 +409,7 @@ impl Quality for PipelineOrder {
 pub struct PositionUnique;
 
 impl Axiom for PositionUnique {
-    fn description(&self) -> &str {
-        "position is the only visual variable that is both associative and quantitative (Bertin 1967)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let props = BertinProperties;
         let both: Vec<_> = VisualVariable::variants()
             .into_iter()
@@ -420,10 +418,20 @@ impl Axiom for PositionUnique {
                 p.associative && p.quantitative
             })
             .collect();
-        both.len() == 1 && both[0] == VisualVariable::Position
+        if both.len() == 1 && both[0] == VisualVariable::Position {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "PositionUnique",
+        "position is the only visual variable that is both associative and quantitative",
+        "Bertin (1967) Sémiologie graphique"
+    );
 }
-pr4xis::register_axiom!(PositionUnique);
+pr4xis::register_axiom!(PositionUnique, "Bertin (1967) Sémiologie graphique");
 
 /// Cleveland-McGill ranking is strictly ordered (no ties between levels).
 ///
@@ -431,23 +439,29 @@ pr4xis::register_axiom!(PositionUnique);
 pub struct RankingStrictlyOrdered;
 
 impl Axiom for RankingStrictlyOrdered {
-    fn description(&self) -> &str {
-        "Cleveland-McGill perceptual ranking is strictly ordered (1984)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let rank = AccuracyRank;
         let tasks = PerceptualTask::variants();
         for i in 0..tasks.len() {
             for j in (i + 1)..tasks.len() {
                 if rank.get(&tasks[i]) == rank.get(&tasks[j]) {
-                    return false;
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "RankingStrictlyOrdered",
+        "Cleveland-McGill perceptual ranking is strictly ordered",
+        "Cleveland & McGill (1984) Graphical Perception, JASA 79(387) Table 1"
+    );
 }
-pr4xis::register_axiom!(RankingStrictlyOrdered);
+pr4xis::register_axiom!(
+    RankingStrictlyOrdered,
+    "Cleveland & McGill (1984) Graphical Perception, JASA 79(387) Table 1"
+);
 
 /// Position encoding is the most accurate perceptual task.
 ///
@@ -455,14 +469,24 @@ pr4xis::register_axiom!(RankingStrictlyOrdered);
 pub struct PositionMostAccurate;
 
 impl Axiom for PositionMostAccurate {
-    fn description(&self) -> &str {
-        "position on common scale is the most accurate encoding (Cleveland & McGill 1984)"
+    fn verify(&self) -> Verdict {
+        if AccuracyRank.get(&PerceptualTask::PositionCommonScale) == Some(1) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        AccuracyRank.get(&PerceptualTask::PositionCommonScale) == Some(1)
-    }
+
+    pr4xis::axiom_meta!(
+        "PositionMostAccurate",
+        "position on common scale is the most accurate encoding",
+        "Cleveland & McGill (1984) Graphical Perception, JASA 79(387); Heer & Bostock (2010) Crowdsourcing Graphical Perception, CHI"
+    );
 }
-pr4xis::register_axiom!(PositionMostAccurate);
+pr4xis::register_axiom!(
+    PositionMostAccurate,
+    "Cleveland & McGill (1984) Graphical Perception, JASA 79(387); Heer & Bostock (2010) Crowdsourcing Graphical Perception, CHI"
+);
 
 /// Color/shading is the least accurate for quantitative data.
 ///
@@ -470,27 +494,47 @@ pr4xis::register_axiom!(PositionMostAccurate);
 pub struct ColorLeastAccurate;
 
 impl Axiom for ColorLeastAccurate {
-    fn description(&self) -> &str {
-        "shading/color saturation is the least accurate for quantitative data (Cleveland & McGill 1984)"
+    fn verify(&self) -> Verdict {
+        if AccuracyRank.get(&PerceptualTask::ShadingColorSaturation) == Some(6) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        AccuracyRank.get(&PerceptualTask::ShadingColorSaturation) == Some(6)
-    }
+
+    pr4xis::axiom_meta!(
+        "ColorLeastAccurate",
+        "shading/color saturation is the least accurate for quantitative data",
+        "Cleveland & McGill (1984) Graphical Perception, JASA 79(387)"
+    );
 }
-pr4xis::register_axiom!(ColorLeastAccurate);
+pr4xis::register_axiom!(
+    ColorLeastAccurate,
+    "Cleveland & McGill (1984) Graphical Perception, JASA 79(387)"
+);
 
 /// Shneiderman's mantra has exactly 3 levels in order.
 pub struct ManthaThreeLevels;
 
 impl Axiom for ManthaThreeLevels {
-    fn description(&self) -> &str {
-        "Shneiderman's mantra has 3 levels: overview, zoom/filter, details-on-demand (1996)"
+    fn verify(&self) -> Verdict {
+        if InteractionLevel::variants().len() == 3 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        InteractionLevel::variants().len() == 3
-    }
+
+    pr4xis::axiom_meta!(
+        "ManthaThreeLevels",
+        "Shneiderman's mantra has 3 levels: overview, zoom/filter, details-on-demand",
+        "Shneiderman (1996) The Eyes Have It: Task by Data Type Taxonomy, VL"
+    );
 }
-pr4xis::register_axiom!(ManthaThreeLevels);
+pr4xis::register_axiom!(
+    ManthaThreeLevels,
+    "Shneiderman (1996) The Eyes Have It: Task by Data Type Taxonomy, VL"
+);
 
 /// Grammar of Graphics pipeline has 7 layers in strict order.
 ///
@@ -498,19 +542,30 @@ pr4xis::register_axiom!(ManthaThreeLevels);
 pub struct GrammarSevenLayers;
 
 impl Axiom for GrammarSevenLayers {
-    fn description(&self) -> &str {
-        "Grammar of Graphics has 7 layers in strict pipeline order (Wickham 2010)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let order = PipelineOrder;
         let layers = GrammarLayer::variants();
-        layers.len() == 7
+        let ok = layers.len() == 7
             && layers
                 .windows(2)
-                .all(|w| order.get(&w[0]).unwrap() < order.get(&w[1]).unwrap())
+                .all(|w| order.get(&w[0]).unwrap() < order.get(&w[1]).unwrap());
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "GrammarSevenLayers",
+        "Grammar of Graphics has 7 layers in strict pipeline order",
+        "Wickham (2010) A Layered Grammar of Graphics, JCGS 19(1); Wilkinson (2005) Grammar of Graphics 2nd ed."
+    );
 }
-pr4xis::register_axiom!(GrammarSevenLayers);
+pr4xis::register_axiom!(
+    GrammarSevenLayers,
+    "Wickham (2010) A Layered Grammar of Graphics, JCGS 19(1); Wilkinson (2005) Grammar of Graphics 2nd ed."
+);
 
 /// Ratio data should use quantitative encodings (position or size).
 ///
@@ -518,16 +573,25 @@ pr4xis::register_axiom!(GrammarSevenLayers);
 pub struct RatioNeedsQuantitative;
 
 impl Axiom for RatioNeedsQuantitative {
-    fn description(&self) -> &str {
-        "ratio data requires quantitative visual variables (position or size) per Bertin 1967"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let suitable = suitable_encodings(DataLevel::Ratio);
         // Must include position, must not include shape
-        suitable.contains(&VisualVariable::Position) && !suitable.contains(&VisualVariable::Shape)
+        if suitable.contains(&VisualVariable::Position)
+            && !suitable.contains(&VisualVariable::Shape)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "RatioNeedsQuantitative",
+        "ratio data requires quantitative visual variables (position or size)",
+        "Bertin (1967) Sémiologie graphique"
+    );
 }
-pr4xis::register_axiom!(RatioNeedsQuantitative);
+pr4xis::register_axiom!(RatioNeedsQuantitative, "Bertin (1967) Sémiologie graphique");
 
 /// Nominal data can use color (hue) and shape (associative).
 ///
@@ -535,15 +599,25 @@ pr4xis::register_axiom!(RatioNeedsQuantitative);
 pub struct NominalUsesColorAndShape;
 
 impl Axiom for NominalUsesColorAndShape {
-    fn description(&self) -> &str {
-        "nominal data can use color hue (selective) and shape (associative) per Bertin 1967"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let suitable = suitable_encodings(DataLevel::Nominal);
-        suitable.contains(&VisualVariable::Color) && suitable.contains(&VisualVariable::Shape)
+        if suitable.contains(&VisualVariable::Color) && suitable.contains(&VisualVariable::Shape) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "NominalUsesColorAndShape",
+        "nominal data can use color hue (selective) and shape (associative)",
+        "Bertin (1967) Sémiologie graphique"
+    );
 }
-pr4xis::register_axiom!(NominalUsesColorAndShape);
+pr4xis::register_axiom!(
+    NominalUsesColorAndShape,
+    "Bertin (1967) Sémiologie graphique"
+);
 
 #[cfg(test)]
 mod tests {
@@ -694,42 +768,42 @@ mod tests {
 
     #[test]
     fn test_position_unique() {
-        assert!(PositionUnique.holds());
+        assert!(PositionUnique.verify().is_ok());
     }
 
     #[test]
     fn test_ranking_strictly_ordered() {
-        assert!(RankingStrictlyOrdered.holds());
+        assert!(RankingStrictlyOrdered.verify().is_ok());
     }
 
     #[test]
     fn test_position_most_accurate() {
-        assert!(PositionMostAccurate.holds());
+        assert!(PositionMostAccurate.verify().is_ok());
     }
 
     #[test]
     fn test_color_least_accurate() {
-        assert!(ColorLeastAccurate.holds());
+        assert!(ColorLeastAccurate.verify().is_ok());
     }
 
     #[test]
     fn test_mantra_three_levels() {
-        assert!(ManthaThreeLevels.holds());
+        assert!(ManthaThreeLevels.verify().is_ok());
     }
 
     #[test]
     fn test_grammar_seven_layers() {
-        assert!(GrammarSevenLayers.holds());
+        assert!(GrammarSevenLayers.verify().is_ok());
     }
 
     #[test]
     fn test_ratio_needs_quantitative() {
-        assert!(RatioNeedsQuantitative.holds());
+        assert!(RatioNeedsQuantitative.verify().is_ok());
     }
 
     #[test]
     fn test_nominal_uses_color_and_shape() {
-        assert!(NominalUsesColorAndShape.holds());
+        assert!(NominalUsesColorAndShape.verify().is_ok());
     }
 
     // ── Property-based tests ──
@@ -746,7 +820,7 @@ mod tests {
         fn prop_every_task_has_rank(idx in 0usize..6) {
             let task = &PerceptualTask::variants()[idx];
             let rank = AccuracyRank.get(task).unwrap();
-            prop_assert!(rank >= 1 && rank <= 6);
+            prop_assert!((1..=6).contains(&rank));
         }
 
         #[test]

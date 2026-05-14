@@ -58,7 +58,7 @@ impl Functor for SchemaToTraceSchema {
         let to = Self::map_object(&m.to);
         let kind = match m.kind {
             SchemaRelationKind::Identity => TraceSchemaRelationKind::Identity,
-            SchemaRelationKind::ContainsEntity => TraceSchemaRelationKind::RecordsSubject,
+            SchemaRelationKind::ContainsEntity => TraceSchemaRelationKind::RecordsSource,
             SchemaRelationKind::ContainsMorphism => TraceSchemaRelationKind::RecordsSource,
             SchemaRelationKind::ContainsEquation => TraceSchemaRelationKind::HasInput,
             SchemaRelationKind::ContainsAxiom => TraceSchemaRelationKind::HasStatus,
@@ -69,7 +69,12 @@ impl Functor for SchemaToTraceSchema {
             SchemaRelationKind::Transforms => TraceSchemaRelationKind::Refines,
             SchemaRelationKind::Evaluates => TraceSchemaRelationKind::HasOutput,
             SchemaRelationKind::Presents => TraceSchemaRelationKind::HasInput,
-            SchemaRelationKind::Composed => TraceSchemaRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+            // unreachable when source has no edges of these kinds.
+            SchemaRelationKind::Subsumption
+            | SchemaRelationKind::Parthood
+            | SchemaRelationKind::Causation
+            | SchemaRelationKind::Opposition => TraceSchemaRelationKind::Identity,
         };
         TraceSchemaRelation { from, to, kind }
     }
@@ -79,11 +84,11 @@ pr4xis::register_functor!(SchemaToTraceSchema);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<SchemaToTraceSchema>().unwrap();
+        assert_functor_laws::<SchemaToTraceSchema>();
     }
 
     #[test]

@@ -31,16 +31,13 @@
 //!   ACM TOPLAS 4(3). — byzantine failure mode.
 //! - Patterson et al. (2002). "Recovery-Oriented Computing". UC Berkeley.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
+use pr4xis::category::{Arrow, Category};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Dependability",
     source: "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC; Cristian (1991); Lamport et al. (1982)",
-    being: AbstractObject,
 
     concepts: [
         // === Service (the delivered behaviour) ===
@@ -322,32 +319,66 @@ impl Quality for DependabilityCategoryOf {
 pub struct ThreeThreats;
 
 impl Axiom for ThreeThreats {
-    fn description(&self) -> &str {
-        "the direct children of Threat are exactly {Fault, Error, Failure} (Avizienis et al. 2004 §2.2)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let actual = direct_children_of(DependabilityConcept::Threat);
         let expected = [
             DependabilityConcept::Fault,
             DependabilityConcept::Error,
             DependabilityConcept::Failure,
         ];
-        actual.len() == expected.len() && expected.iter().all(|t| actual.contains(t))
+        if actual.len() == expected.len() && expected.iter().all(|t| actual.contains(t)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "ThreeThreats",
+        "the direct children of Threat are exactly {Fault, Error, Failure} (Avizienis et al. 2004 §2.2)",
+        "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §2.2"
+    );
 }
 pr4xis::register_axiom!(
     ThreeThreats,
-    "> Avizienis, A., Laprie, J.-C., Randell, B., Landwehr, C. (2004)."
+    "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §2.2"
 );
 
 /// Helper: collect direct (non-transitive) children of a concept under
-/// the dependability taxonomy.
+/// the dependability subsumption hierarchy. Filters morphisms by the
+/// Subsumption kind and DOES NOT include transitive closure edges.
 fn direct_children_of(parent: DependabilityConcept) -> Vec<DependabilityConcept> {
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-    DependabilityTaxonomy::relations()
+    DependabilityCategory::morphisms()
         .into_iter()
-        .filter_map(|(child, p)| if p == parent { Some(child) } else { None })
+        .filter(|m| {
+            m.kind() == DependabilityRelationKind::Subsumption
+                && m.target() == parent
+                && m.source() != parent
+        })
+        .map(|m| m.source())
+        .filter(|child| !is_transitive_via(*child, parent))
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
         .collect()
+}
+
+/// Is `child → parent` a transitive subsumption edge — i.e. is there an
+/// intermediate node `mid` such that `child → mid → parent` exists with
+/// Subsumption kind? Used to filter the synthesised transitive closure
+/// edges out of `direct_children_of`.
+fn is_transitive_via(child: DependabilityConcept, parent: DependabilityConcept) -> bool {
+    let morphisms = DependabilityCategory::morphisms();
+    morphisms.iter().any(|first| {
+        first.kind() == DependabilityRelationKind::Subsumption
+            && first.source() == child
+            && first.target() != parent
+            && first.target() != child
+            && morphisms.iter().any(|second| {
+                second.kind() == DependabilityRelationKind::Subsumption
+                    && second.source() == first.target()
+                    && second.target() == parent
+            })
+    })
 }
 
 /// Axiom: the Fault → Error → Failure chain (Avizienis §2.2).
@@ -355,23 +386,34 @@ fn direct_children_of(parent: DependabilityConcept) -> Vec<DependabilityConcept>
 pub struct FaultErrorFailureChain;
 
 impl Axiom for FaultErrorFailureChain {
-    fn description(&self) -> &str {
-        "Fault activates into Error, Error propagates into Failure (Avizienis et al. 2004 §2.2)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let m = DependabilityCategory::morphisms();
-        let activates = m
-            .iter()
-            .any(|r| r.from == DependabilityConcept::Fault && r.to == DependabilityConcept::Error);
-        let propagates = m.iter().any(|r| {
-            r.from == DependabilityConcept::Error && r.to == DependabilityConcept::Failure
+        let activates = m.iter().any(|r| {
+            r.kind() == DependabilityRelationKind::Causation
+                && r.source() == DependabilityConcept::Fault
+                && r.target() == DependabilityConcept::Error
         });
-        activates && propagates
+        let propagates = m.iter().any(|r| {
+            r.kind() == DependabilityRelationKind::Causation
+                && r.source() == DependabilityConcept::Error
+                && r.target() == DependabilityConcept::Failure
+        });
+        if activates && propagates {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "FaultErrorFailureChain",
+        "Fault activates into Error, Error propagates into Failure (Avizienis et al. 2004 §2.2)",
+        "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §2.2"
+    );
 }
 pr4xis::register_axiom!(
     FaultErrorFailureChain,
-    "> Avizienis, A., Laprie, J.-C., Randell, B., Landwehr, C. (2004)."
+    "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §2.2"
 );
 
 /// Axiom: failure recursion (Avizienis §2.4).
@@ -388,34 +430,43 @@ pr4xis::register_axiom!(
 pub struct FailureRecursionDocumented;
 
 impl Axiom for FailureRecursionDocumented {
-    fn description(&self) -> &str {
-        "Failure and Fault are both Threats AND no direct Failure→Fault causal edge exists (Avizienis §2.4 inter-layer recursion preserved without breaking causation asymmetry)"
-    }
-    fn holds(&self) -> bool {
-        // Precondition: both concepts exist as Threats.
-        use pr4xis::ontology::reasoning::causation::CausalDef;
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-
-        let rels = DependabilityTaxonomy::relations();
-        let failure_is_threat = rels.iter().any(|(c, p)| {
-            *c == DependabilityConcept::Failure && *p == DependabilityConcept::Threat
+    fn verify(&self) -> Verdict {
+        let m = DependabilityCategory::morphisms();
+        let failure_is_threat = m.iter().any(|r| {
+            r.kind() == DependabilityRelationKind::Subsumption
+                && r.source() == DependabilityConcept::Failure
+                && r.target() == DependabilityConcept::Threat
         });
-        let fault_is_threat = rels
-            .iter()
-            .any(|(c, p)| *c == DependabilityConcept::Fault && *p == DependabilityConcept::Threat);
+        let fault_is_threat = m.iter().any(|r| {
+            r.kind() == DependabilityRelationKind::Subsumption
+                && r.source() == DependabilityConcept::Fault
+                && r.target() == DependabilityConcept::Threat
+        });
 
         // Guard: no Failure → Fault causal edge (would close the cycle
         // Fault → Error → Failure → Fault, violating asymmetry).
-        let no_direct_recursion = !DependabilityCausation::relations()
-            .iter()
-            .any(|(c, e)| *c == DependabilityConcept::Failure && *e == DependabilityConcept::Fault);
+        let no_direct_recursion = !m.iter().any(|r| {
+            r.kind() == DependabilityRelationKind::Causation
+                && r.source() == DependabilityConcept::Failure
+                && r.target() == DependabilityConcept::Fault
+        });
 
-        failure_is_threat && fault_is_threat && no_direct_recursion
+        if failure_is_threat && fault_is_threat && no_direct_recursion {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "FailureRecursionDocumented",
+        "Failure and Fault are both Threats AND no direct Failure→Fault causal edge exists (Avizienis §2.4 inter-layer recursion preserved without breaking causation asymmetry)",
+        "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §2.4"
+    );
 }
 pr4xis::register_axiom!(
     FailureRecursionDocumented,
-    "> Avizienis, A., Laprie, J.-C., Randell, B., Landwehr, C. (2004)."
+    "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §2.4"
 );
 
 /// Axiom: the direct children of `Attribute` are exactly the six core
@@ -424,10 +475,7 @@ pr4xis::register_axiom!(
 pub struct SixCoreAttributes;
 
 impl Axiom for SixCoreAttributes {
-    fn description(&self) -> &str {
-        "the direct children of Attribute are exactly {Availability, Reliability, Safety, Confidentiality, Integrity, Maintainability} (Avizienis et al. 2004 §4)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let actual = direct_children_of(DependabilityConcept::Attribute);
         let expected = [
             DependabilityConcept::Availability,
@@ -437,12 +485,22 @@ impl Axiom for SixCoreAttributes {
             DependabilityConcept::Integrity,
             DependabilityConcept::Maintainability,
         ];
-        actual.len() == expected.len() && expected.iter().all(|a| actual.contains(a))
+        if actual.len() == expected.len() && expected.iter().all(|a| actual.contains(a)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "SixCoreAttributes",
+        "the direct children of Attribute are exactly {Availability, Reliability, Safety, Confidentiality, Integrity, Maintainability} (Avizienis et al. 2004 §4)",
+        "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §4"
+    );
 }
 pr4xis::register_axiom!(
     SixCoreAttributes,
-    "> Avizienis, A., Laprie, J.-C., Randell, B., Landwehr, C. (2004)."
+    "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §4"
 );
 
 /// Axiom: the direct children of `Means` are exactly the four means
@@ -450,10 +508,7 @@ pr4xis::register_axiom!(
 pub struct FourMeans;
 
 impl Axiom for FourMeans {
-    fn description(&self) -> &str {
-        "the direct children of Means are exactly {FaultPrevention, FaultTolerance, FaultRemoval, FaultForecasting} (Avizienis et al. 2004 §5)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let actual = direct_children_of(DependabilityConcept::Means);
         let expected = [
             DependabilityConcept::FaultPrevention,
@@ -461,12 +516,22 @@ impl Axiom for FourMeans {
             DependabilityConcept::FaultRemoval,
             DependabilityConcept::FaultForecasting,
         ];
-        actual.len() == expected.len() && expected.iter().all(|m| actual.contains(m))
+        if actual.len() == expected.len() && expected.iter().all(|m| actual.contains(m)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "FourMeans",
+        "the direct children of Means are exactly {FaultPrevention, FaultTolerance, FaultRemoval, FaultForecasting} (Avizienis et al. 2004 §5)",
+        "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §5"
+    );
 }
 pr4xis::register_axiom!(
     FourMeans,
-    "> Avizienis, A., Laprie, J.-C., Randell, B., Landwehr, C. (2004)."
+    "Avizienis, Laprie, Randell, Landwehr (2004) IEEE TDSC 1(1) §5"
 );
 
 /// Axiom: the four Cristian (1991) operational fault models are all
@@ -478,10 +543,7 @@ pr4xis::register_axiom!(
 pub struct CristianFaultModelsExist;
 
 impl Axiom for CristianFaultModelsExist {
-    fn description(&self) -> &str {
-        "Cristian (1991) operational fault models {Crash, Omission, Timing, Byzantine} are all classified as OperationalFault"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let actual = direct_children_of(DependabilityConcept::OperationalFault);
         let expected = [
             DependabilityConcept::CrashFault,
@@ -493,31 +555,37 @@ impl Axiom for CristianFaultModelsExist {
         // future (e.g. domain-specific operational faults), so we check
         // membership rather than exactness here — unlike the closed sets
         // {Threat children} and {Attribute/Means children} above.
-        expected.iter().all(|m| actual.contains(m))
+        if expected.iter().all(|m| actual.contains(m)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "CristianFaultModelsExist",
+        "Cristian (1991) operational fault models {Crash, Omission, Timing, Byzantine} are all classified as OperationalFault",
+        "Cristian (1991) Understanding Fault-Tolerant Distributed Systems, CACM 34(2)"
+    );
 }
 pr4xis::register_axiom!(
     CristianFaultModelsExist,
-    "> Avizienis, A., Laprie, J.-C., Randell, B., Landwehr, C. (2004)."
+    "Cristian (1991) Understanding Fault-Tolerant Distributed Systems, CACM 34(2)"
 );
 
 impl Ontology for DependabilityOntology {
     type Cat = DependabilityCategory;
     type Qual = DependabilityCategoryOf;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        DependabilityOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(ThreeThreats),
-            Box::new(FaultErrorFailureChain),
-            Box::new(FailureRecursionDocumented),
-            Box::new(SixCoreAttributes),
-            Box::new(FourMeans),
-            Box::new(CristianFaultModelsExist),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(ThreeThreats));
+        axioms.push(Box::new(FaultErrorFailureChain));
+        axioms.push(Box::new(FailureRecursionDocumented));
+        axioms.push(Box::new(SixCoreAttributes));
+        axioms.push(Box::new(FourMeans));
+        axioms.push(Box::new(CristianFaultModelsExist));
+        axioms
     }
 }
 
@@ -525,16 +593,17 @@ impl Ontology for DependabilityOntology {
 mod tests {
     use super::*;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<DependabilityCategory>().unwrap();
+        assert_category_laws::<DependabilityCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        DependabilityOntology::validate().unwrap();
+        DependabilityOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
@@ -545,50 +614,33 @@ mod tests {
         assert_eq!(DependabilityConcept::variants().len(), 44);
     }
 
-    /// Per `feedback_ontological_assertions.md`: tests wrap Axiom.holds().
     #[test]
     fn three_threats_axiom_holds() {
-        assert!(ThreeThreats.holds(), "{}", ThreeThreats.description());
+        assert!(ThreeThreats.verify().is_ok());
     }
 
     #[test]
     fn fault_error_failure_chain_axiom_holds() {
-        assert!(
-            FaultErrorFailureChain.holds(),
-            "{}",
-            FaultErrorFailureChain.description()
-        );
+        assert!(FaultErrorFailureChain.verify().is_ok());
     }
 
     #[test]
     fn failure_recursion_axiom_holds() {
-        assert!(
-            FailureRecursionDocumented.holds(),
-            "{}",
-            FailureRecursionDocumented.description()
-        );
+        assert!(FailureRecursionDocumented.verify().is_ok());
     }
 
     #[test]
     fn six_core_attributes_axiom_holds() {
-        assert!(
-            SixCoreAttributes.holds(),
-            "{}",
-            SixCoreAttributes.description()
-        );
+        assert!(SixCoreAttributes.verify().is_ok());
     }
 
     #[test]
     fn four_means_axiom_holds() {
-        assert!(FourMeans.holds(), "{}", FourMeans.description());
+        assert!(FourMeans.verify().is_ok());
     }
 
     #[test]
     fn cristian_fault_models_axiom_holds() {
-        assert!(
-            CristianFaultModelsExist.holds(),
-            "{}",
-            CristianFaultModelsExist.description()
-        );
+        assert!(CristianFaultModelsExist.verify().is_ok());
     }
 }

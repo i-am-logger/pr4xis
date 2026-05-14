@@ -81,7 +81,7 @@ impl Functor for SyntrometryToDialectics {
             _ => DialecticsRelation {
                 from,
                 to,
-                kind: DialecticsRelationKind::Composed,
+                kind: DialecticsRelationKind::Subsumption,
             },
         }
     }
@@ -91,10 +91,10 @@ pr4xis::register_functor!(SyntrometryToDialectics);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn syntrometry_to_dialectics_laws_pass() {
-        check_functor_laws::<SyntrometryToDialectics>().unwrap();
+        assert_functor_laws::<SyntrometryToDialectics>();
     }
 }

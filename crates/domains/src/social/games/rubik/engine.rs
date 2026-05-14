@@ -3,57 +3,46 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::cube::Cube;
 use super::moves::Move;
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
-impl Situation for Cube {
-    fn describe(&self) -> String {
-        if self.is_solved() {
-            "SOLVED".to_string()
-        } else {
-            let counts = self.color_counts();
-            format!("cube (colors: {:?})", counts)
-        }
-    }
-
-    fn is_terminal(&self) -> bool {
-        self.is_solved()
-    }
-}
+impl Situation for Cube {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RubikAction(pub Move);
 
 impl Action for RubikAction {
     type Sit = Cube;
+}
 
-    fn describe(&self) -> String {
-        self.0.notation().to_string()
+/// Helper: build typed Provenance for a Rubik's-cube precondition axiom.
+fn rubik_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Singmaster (1979) Notes on Rubik's Magic Cube; Joyner (2008) Adventures in Group Theory",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
 pub struct ColorInvariant;
 
 impl Precondition<RubikAction> for ColorInvariant {
-    fn check(&self, cube: &Cube, action: &RubikAction) -> PreconditionResult {
+    fn check(&self, cube: &Cube, _action: &RubikAction) -> Verdict {
+        let meta = rubik_meta("ColorInvariant", "each color must have exactly 9 stickers");
         let counts = cube.color_counts();
         if counts.iter().all(|&c| c == 9) {
-            PreconditionResult::satisfied("color_invariant", "9 of each color")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "color_invariant",
-                "color counts corrupted",
-                &cube.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-
-    fn describe(&self) -> &str {
-        "each color must have exactly 9 stickers"
     }
 }
 
-fn apply_rubik(cube: &Cube, action: &RubikAction) -> Result<Cube, String> {
+fn apply_rubik(cube: &Cube, action: &RubikAction) -> Result<Cube, Box<dyn Counterexample>> {
     Ok(cube.apply(action.0))
 }
 

@@ -2,7 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::*;
-use pr4xis::engine::{Action, EngineError};
+use pr4xis::engine::EngineError;
 use proptest::prelude::*;
 
 fn arb_int() -> impl Strategy<Value = i64> {
@@ -2102,7 +2102,6 @@ fn test_new_calculator_engine() {
     let engine = new_calculator();
     assert!(engine.situation().display.is_zero());
     assert_eq!(engine.step(), 0);
-    assert!(!engine.is_terminal());
 }
 
 #[test]
@@ -2271,18 +2270,23 @@ fn test_engine_trace_records_violations() {
 #[test]
 fn test_engine_try_next_success() {
     let engine = new_calculator();
-    let engine = engine.try_next(CalcAction::Enter(Value::int(42))).unwrap();
+    let engine = engine.next(CalcAction::Enter(Value::int(42))).unwrap();
     assert_eq!(engine.situation().display, Value::int(42));
 }
 
 #[test]
 fn test_engine_try_next_failure() {
     let engine = new_calculator();
-    let engine = engine.try_next(CalcAction::Enter(Value::int(-1))).unwrap();
-    let result = engine.try_next(CalcAction::Unary(UnaryOp::Sqrt));
+    let engine = engine.next(CalcAction::Enter(Value::int(-1))).unwrap();
+    let result = engine.next(CalcAction::Unary(UnaryOp::Sqrt));
     assert!(result.is_err());
-    let errs = result.unwrap_err();
-    assert!(!errs.is_empty());
+    // EngineError is an enum with Violated{violations: Vec<...>} or LogicalError{...};
+    // either variant means the action did not apply.
+    let err = result.unwrap_err();
+    match err {
+        EngineError::Violated { violations, .. } => assert!(!violations.is_empty()),
+        EngineError::LogicalError { .. } => {}
+    }
 }
 
 #[test]
@@ -2303,42 +2307,11 @@ fn test_engine_multi_step_calculation() {
     assert_eq!(engine.step(), 4);
 }
 
-#[test]
-fn test_calc_action_describe() {
-    assert_eq!(CalcAction::Enter(Value::int(42)).describe(), "enter 42");
-    assert_eq!(CalcAction::Unary(UnaryOp::Sqrt).describe(), "Sqrt");
-    assert_eq!(
-        CalcAction::Binary(BinaryOp::Add, Value::int(5)).describe(),
-        "Add 5"
-    );
-    assert_eq!(CalcAction::Clear.describe(), "clear");
-    assert_eq!(CalcAction::AllClear.describe(), "all clear");
-    assert_eq!(CalcAction::StoreMemory.describe(), "M store");
-    assert_eq!(CalcAction::RecallMemory.describe(), "M recall");
-    assert_eq!(CalcAction::AddToMemory.describe(), "M+");
-    assert_eq!(CalcAction::ClearMemory.describe(), "MC");
-    assert_eq!(
-        CalcAction::SetAngleMode(AngleMode::Degrees).describe(),
-        "angle mode Degrees"
-    );
-}
-
-#[test]
-fn test_calculator_situation_describe() {
-    use pr4xis::engine::Situation;
-    let calc = Calculator::new();
-    let desc = calc.describe();
-    assert!(desc.contains("display=0"));
-    assert!(desc.contains("memory=0"));
-    assert!(desc.contains("Radians"));
-}
-
-#[test]
-fn test_calculator_situation_not_terminal() {
-    use pr4xis::engine::Situation;
-    let calc = Calculator::new();
-    assert!(!calc.is_terminal());
-}
+// Per #161 (typed engine API): Action and Situation traits no longer
+// carry a `describe()` primitive-leak or `is_terminal()` method.
+// Action descriptions are obtained via Rust's Debug derive; terminal
+// status is a domain concern modelled at the ontology layer, not on
+// the runtime trait.
 
 // =============================================================================
 // Value helper tests (additional coverage)
@@ -2533,21 +2506,9 @@ fn test_engine_angle_mode_with_trig() {
 // DomainCheck describe tests
 // =============================================================================
 
-#[test]
-fn test_domain_check_describe() {
-    use super::engine::DomainCheck;
-    use pr4xis::engine::Precondition;
-    let dc = DomainCheck;
-    assert!(dc.describe().contains("domain"));
-}
-
-#[test]
-fn test_number_domain_check_describe() {
-    use super::engine::NumberDomainCheck;
-    use pr4xis::engine::Precondition;
-    let ndc = NumberDomainCheck;
-    assert!(ndc.describe().contains("domain hierarchy"));
-}
+// Per #161 (typed engine API): Precondition no longer carries a
+// `describe()` primitive-leak method — descriptive metadata lives
+// on the Proof / Counterexample meta() returned by check().
 
 // =============================================================================
 // DomainCheck precondition satisfied cases
@@ -2560,15 +2521,15 @@ fn test_domain_check_satisfied_for_non_math_actions() {
     let calc = Calculator::new();
     let dc = DomainCheck;
     let result = dc.check(&calc, &CalcAction::Clear);
-    assert!(result.is_satisfied());
+    assert!(result.is_ok());
     let result = dc.check(&calc, &CalcAction::AllClear);
-    assert!(result.is_satisfied());
+    assert!(result.is_ok());
     let result = dc.check(&calc, &CalcAction::StoreMemory);
-    assert!(result.is_satisfied());
+    assert!(result.is_ok());
     let result = dc.check(&calc, &CalcAction::RecallMemory);
-    assert!(result.is_satisfied());
+    assert!(result.is_ok());
     let result = dc.check(&calc, &CalcAction::SetAngleMode(AngleMode::Degrees));
-    assert!(result.is_satisfied());
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -2579,7 +2540,7 @@ fn test_domain_check_satisfied_for_valid_unary() {
     calc.enter(Value::int(4));
     let dc = DomainCheck;
     let result = dc.check(&calc, &CalcAction::Unary(UnaryOp::Sqrt));
-    assert!(result.is_satisfied());
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -2590,7 +2551,7 @@ fn test_domain_check_violated_for_invalid_unary() {
     calc.enter(Value::int(-4));
     let dc = DomainCheck;
     let result = dc.check(&calc, &CalcAction::Unary(UnaryOp::Sqrt));
-    assert!(!result.is_satisfied());
+    assert!(result.is_err());
 }
 
 #[test]
@@ -2601,7 +2562,7 @@ fn test_domain_check_satisfied_for_valid_binary() {
     calc.enter(Value::int(10));
     let dc = DomainCheck;
     let result = dc.check(&calc, &CalcAction::Binary(BinaryOp::Add, Value::int(5)));
-    assert!(result.is_satisfied());
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -2612,5 +2573,5 @@ fn test_domain_check_violated_for_div_by_zero() {
     calc.enter(Value::int(10));
     let dc = DomainCheck;
     let result = dc.check(&calc, &CalcAction::Binary(BinaryOp::Divide, Value::int(0)));
-    assert!(!result.is_satisfied());
+    assert!(result.is_err());
 }

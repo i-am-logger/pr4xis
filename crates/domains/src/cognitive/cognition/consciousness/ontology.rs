@@ -32,7 +32,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "C1",
     source: "Dehaene, Lau & Kouider (2017); Baars (1988); Tononi (2004)",
-    being: MentalObject,
 
     concepts: [
         GlobalWorkspace,
@@ -66,7 +65,6 @@ pr4xis::ontology! {
 pr4xis::ontology! {
     name: "C2",
     source: "Dehaene, Lau & Kouider (2017); Rosenthal (2005); Tononi (2012); Block (1995)",
-    being: MentalObject,
 
     concepts: [
         FirstOrderState,
@@ -129,20 +127,28 @@ impl Quality for C2Dimension {
 pub struct AttentionCausesAccess;
 
 impl Axiom for AttentionCausesAccess {
-    fn description(&self) -> &str {
-        "Attention selects ConsciousAccess (Baars 1988)"
-    }
-    fn holds(&self) -> bool {
-        C1Category::morphisms().iter().any(|r| {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if C1Category::morphisms().iter().any(|r| {
             r.from == C1Concept::Attention
                 && r.to == C1Concept::ConsciousAccess
                 && r.kind == C1RelationKind::Selects
-        })
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "AttentionCausesAccess",
+        "Attention selects ConsciousAccess (Baars 1988)",
+        "Baars (1988) A Cognitive Theory of Consciousness; Dehaene, Lau & Kouider (2017) Science"
+    );
 }
 pr4xis::register_axiom!(
     AttentionCausesAccess,
-    "Dehaene, Lau & Kouider, Science (2017);"
+    "Baars (1988) A Cognitive Theory of Consciousness; Dehaene, Lau & Kouider (2017) Science"
 );
 
 /// Higher-order represents first-order (Rosenthal 2005).
@@ -150,32 +156,38 @@ pr4xis::register_axiom!(
 pub struct HigherOrderRepresentsFirst;
 
 impl Axiom for HigherOrderRepresentsFirst {
-    fn description(&self) -> &str {
-        "HigherOrderRepresentation represents FirstOrderState (Rosenthal 2005)"
-    }
-    fn holds(&self) -> bool {
-        C2Category::morphisms().iter().any(|r| {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if C2Category::morphisms().iter().any(|r| {
             r.from == C2Concept::HigherOrderRepresentation
                 && r.to == C2Concept::FirstOrderState
                 && r.kind == C2RelationKind::Represents
-        })
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "HigherOrderRepresentsFirst",
+        "HigherOrderRepresentation represents FirstOrderState (Rosenthal 2005)",
+        "Rosenthal (2005) Consciousness and Mind; Dehaene, Lau & Kouider (2017) Science"
+    );
 }
 pr4xis::register_axiom!(
     HigherOrderRepresentsFirst,
-    "Dehaene, Lau & Kouider, Science (2017);"
+    "Rosenthal (2005) Consciousness and Mind; Dehaene, Lau & Kouider (2017) Science"
 );
 
 impl Ontology for C1Ontology {
     type Cat = C1Category;
     type Qual = Dimension;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        C1Ontology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(AttentionCausesAccess)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(AttentionCausesAccess));
+        axioms
     }
 }
 
@@ -183,11 +195,9 @@ impl Ontology for C2Ontology {
     type Cat = C2Category;
     type Qual = C2Dimension;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        C2Ontology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(HigherOrderRepresentsFirst)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(HigherOrderRepresentsFirst));
+        axioms
     }
 }

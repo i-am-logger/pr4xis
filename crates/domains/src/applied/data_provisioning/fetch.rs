@@ -364,9 +364,7 @@ mod tests {
     fn run_extractor_stub_concept_is_unverifiable() {
         let claim = IdentityClaim {
             concept: IdentityConcept::Doi,
-            data: ClaimData::Stub {
-                reason: "test".into(),
-            },
+            data: ClaimData::Stub { reason: "test" },
         };
         let result = run_extractor(&claim, b"anything");
         assert!(matches!(result, VerificationResult::Unverifiable { .. }));
@@ -377,7 +375,7 @@ mod tests {
         let claim = IdentityClaim {
             concept: IdentityConcept::RawHash,
             data: ClaimData::Stub {
-                reason: "wrong shape".into(),
+                reason: "wrong shape",
             },
         };
         let result = run_extractor(&claim, b"bytes");

@@ -1,521 +1,496 @@
-//! Ontology of logical derivation and proof construction.
+//! Derivation — types of logical inference, proof components, and the
+//! canonical proof-construction pipeline.
 //!
-//! Formalizes the science of building logical chains: types of inference,
-//! proof components, and properties of sound derivations.
+//! This is a PURE-SCIENCE ontology of derivation — not an implementation
+//! of a theorem prover. It formalises the reasoning that
+//! ontology_diagnostics uses when constructing proof chains for axiom
+//! verification.
 //!
-//! LITERATURE BASIS:
-//!   - Gentzen 1935: Untersuchungen uber das logische Schliessen (natural deduction, sequent calculus)
-//!   - Prawitz 1965: Natural Deduction (normalization of proofs)
-//!   - Martin-Löf 1984: Intuitionistic Type Theory (constructive proofs)
-//!   - Peirce 1903: abductive inference (inference to the best explanation)
+//! # Literature
 //!
-//! This is a PURE SCIENCE ontology of derivation — not an implementation
-//! of a theorem prover. It formalizes the reasoning that ontology_diagnostics
-//! uses when constructing proof chains for axiom verification.
+//! - **Gentzen (1935)** "Untersuchungen über das logische Schließen",
+//!   *Mathematische Zeitschrift* 39 — natural deduction and sequent
+//!   calculus; introduction/elimination rules per connective.
+//! - **Prawitz (1965)** *Natural Deduction: A Proof-Theoretical Study*,
+//!   Almqvist & Wiksell — normalisation theorem; canonical proof form.
+//! - **Martin-Löf (1984)** *Intuitionistic Type Theory*, Bibliopolis —
+//!   propositions-as-types; constructive proofs.
+//! - **Peirce (1903)** *Pragmatism as a Principle and Method of Right
+//!   Thinking* (Harvard Lectures) — abduction as inference to the best
+//!   explanation; the third mode of reasoning beyond deduction and
+//!   induction.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entities
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Derivation",
+    source: "Gentzen (1935) Untersuchungen über das logische Schliessen, Mathematische Zeitschrift 39; Prawitz (1965) Natural Deduction; Martin-Löf (1984) Intuitionistic Type Theory; Peirce (1903) Harvard Lectures on Pragmatism",
 
-/// Components of logical derivation methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum DerivationEntity {
-    // Types of derivation (how you reason)
-    Deduction,
-    Induction,
-    Abduction,
-    Analogy,
-    Composition,
+    concepts: [
+        // === Modes of inference ===
+        Deduction,
+        Induction,
+        Abduction,
+        Analogy,
+        Composition,
 
-    // Components (what you build with)
-    Premise,
-    Conclusion,
-    InferenceRule,
-    Evidence,
-    Justification,
-    ProofStep,
+        // === Components of a derivation ===
+        Premise,
+        Conclusion,
+        InferenceRule,
+        Evidence,
+        Justification,
+        ProofStep,
 
-    // Properties (what characterizes proofs)
-    Soundness,
-    Completeness,
-    Validity,
-    Decidability,
+        // === Logical properties of a system ===
+        Soundness,
+        Completeness,
+        Validity,
+        Decidability,
 
-    // Abstract categories
-    DerivationType,
-    DerivationComponent,
-    LogicalProperty,
+        // === Abstract categories ===
+        DerivationType,
+        DerivationComponent,
+        LogicalProperty,
+
+        // === Pipeline stages (Gentzen 1935; Prawitz 1965) ===
+        PremiseEstablishment,
+        RuleApplication,
+        IntermediateConclusion,
+        ChainExtension,
+        ValidityCheck,
+        SoundnessVerification,
+        ProofCompletion,
+        KnowledgeExtension,
+    ],
+
+    labels: {
+        Deduction: ("en", "Deduction",
+            "Gentzen (1935): truth-preserving inference from premises to conclusion via natural-deduction rules — if premises true, conclusion true."),
+        Induction: ("en", "Induction",
+            "Generalisation from observed instances to a universal claim — ampliative; conclusion may be false even if all premises are true."),
+        Abduction: ("en", "Abduction",
+            "Peirce (1903): inference to the best explanation — given a surprising observation, propose the hypothesis that would best account for it."),
+        Analogy: ("en", "Analogy",
+            "Inference by structural similarity between two domains — suggestive, not guaranteed; breaks with new disanalogies."),
+        Composition: ("en", "Composition",
+            "Sequential composition of valid inferences — Gentzen (1935): cut and substitution preserve validity."),
+        Premise: ("en", "Premise",
+            "Gentzen (1935): a hypothesis (axiom, assumption, or given) from which inference begins."),
+        Conclusion: ("en", "Conclusion",
+            "Gentzen (1935): the proposition the derivation establishes from its premises."),
+        InferenceRule: ("en", "Inference rule",
+            "Gentzen (1935): a schematic transformation of sequents — e.g., modus ponens, AND-introduction."),
+        Evidence: ("en", "Evidence",
+            "Empirical or testimonial grounding for a premise — distinct from the inference itself."),
+        Justification: ("en", "Justification",
+            "Prawitz (1965): the explicit appeal to a rule or premise that warrants a proof step."),
+        ProofStep: ("en", "Proof step",
+            "Prawitz (1965): one inference within a derivation — a rule applied to premises yielding a conclusion."),
+        Soundness: ("en", "Soundness",
+            "Gentzen (1935): every theorem of the system is true in every model — provable ⇒ valid."),
+        Completeness: ("en", "Completeness",
+            "Gentzen (1935): every valid formula of the system is provable in it — valid ⇒ provable. Goedel's completeness theorem (1929) for first-order logic."),
+        Validity: ("en", "Validity",
+            "Truth in every model — a meta-logical property of formulas, complementary to provability."),
+        Decidability: ("en", "Decidability",
+            "Existence of a terminating algorithm that decides theoremhood — propositional logic is decidable; first-order logic is not."),
+        DerivationType: ("en", "Derivation type",
+            "Abstract category for modes of inference (Deduction, Induction, Abduction, Analogy, Composition)."),
+        DerivationComponent: ("en", "Derivation component",
+            "Abstract category for the structural pieces of a derivation (premises, conclusions, rules, justifications)."),
+        LogicalProperty: ("en", "Logical property",
+            "Abstract category for meta-logical properties of a derivation system (Soundness, Completeness, Validity, Decidability)."),
+
+        PremiseEstablishment: ("en", "Premise establishment",
+            "Pipeline stage 1: state the axioms, assumptions, and given facts. Gentzen (1935) §1."),
+        RuleApplication: ("en", "Rule application",
+            "Pipeline stage 2: apply an inference rule to premises. Gentzen (1935) §2."),
+        IntermediateConclusion: ("en", "Intermediate conclusion",
+            "Pipeline stage 3: record the proposition produced by a rule application."),
+        ChainExtension: ("en", "Chain extension",
+            "Pipeline stage 4: extend the proof chain with further steps. Prawitz (1965) — canonical-form normalisation."),
+        ValidityCheck: ("en", "Validity check",
+            "Pipeline stage 5: verify that each step matches its rule schema."),
+        SoundnessVerification: ("en", "Soundness verification",
+            "Pipeline stage 6: confirm the overall argument is sound (premises sound; every rule sound)."),
+        ProofCompletion: ("en", "Proof completion",
+            "Pipeline stage 7: declare the derivation closed when all open sub-goals are discharged."),
+        KnowledgeExtension: ("en", "Knowledge extension",
+            "Pipeline stage 8: integrate the proved conclusion into the knowledge base as a new axiom."),
+    },
+
+    is_a: [
+        // Modes of inference ⊆ DerivationType.
+        (Deduction, DerivationType),
+        (Induction, DerivationType),
+        (Abduction, DerivationType),
+        (Analogy, DerivationType),
+        (Composition, DerivationType),
+        // Components ⊆ DerivationComponent.
+        (Premise, DerivationComponent),
+        (Conclusion, DerivationComponent),
+        (InferenceRule, DerivationComponent),
+        (Evidence, DerivationComponent),
+        (Justification, DerivationComponent),
+        (ProofStep, DerivationComponent),
+        // Meta-logical properties ⊆ LogicalProperty.
+        (Soundness, LogicalProperty),
+        (Completeness, LogicalProperty),
+        (Validity, LogicalProperty),
+        (Decidability, LogicalProperty),
+    ],
+
+    causes: [
+        // Canonical proof-construction pipeline. Gentzen (1935) §1–§2.
+        (PremiseEstablishment, RuleApplication),
+        (RuleApplication, IntermediateConclusion),
+        (IntermediateConclusion, ChainExtension),
+        (ChainExtension, ValidityCheck),
+        (ValidityCheck, SoundnessVerification),
+        (SoundnessVerification, ProofCompletion),
+        (ProofCompletion, KnowledgeExtension),
+    ],
+
+    opposes: [
+        // Deduction vs Abduction (Peirce 1903): truth-preserving vs
+        // explanatory; certain vs plausible.
+        (Deduction, Abduction),
+        (Abduction, Deduction),
+        // Soundness vs Completeness (Goedel 1929/31): "all proved are true"
+        // vs "all true are provable" — dual meta-properties.
+        (Soundness, Completeness),
+        (Completeness, Soundness),
+    ],
 }
 
-/// Steps in the derivation pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum DerivationStep {
-    /// Establish premises (axioms, assumptions, given facts).
-    PremiseEstablishment,
-    /// Apply inference rules to premises.
-    RuleApplication,
-    /// Derive intermediate conclusions.
-    IntermediateConclusion,
-    /// Extend the proof chain with further steps.
-    ChainExtension,
-    /// Check validity of each step.
-    ValidityCheck,
-    /// Verify soundness of the overall argument.
-    SoundnessVerification,
-    /// Complete the proof (all steps verified).
-    ProofCompletion,
-    /// Extract new knowledge from the completed proof.
-    KnowledgeExtension,
-}
-
-// ---------------------------------------------------------------------------
-// Ontology (category + reasoning)
-// ---------------------------------------------------------------------------
-
-define_ontology! {
-    /// Dense category over derivation entities.
-    pub DerivationOntology for DerivationCategory {
-        entity: DerivationEntity,
-        relation: DerivationRelation,
-        being: AbstractObject,
-        source: "Gentzen (1935); Prawitz (1965)",
-
-        taxonomy: DerivationTaxonomy [
-            // Types → DerivationType
-            (Deduction, DerivationType),
-            (Induction, DerivationType),
-            (Abduction, DerivationType),
-            (Analogy, DerivationType),
-            (Composition, DerivationType),
-            // Components → DerivationComponent
-            (Premise, DerivationComponent),
-            (Conclusion, DerivationComponent),
-            (InferenceRule, DerivationComponent),
-            (Evidence, DerivationComponent),
-            (Justification, DerivationComponent),
-            (ProofStep, DerivationComponent),
-            // Properties → LogicalProperty
-            (Soundness, LogicalProperty),
-            (Completeness, LogicalProperty),
-            (Validity, LogicalProperty),
-            (Decidability, LogicalProperty),
-        ],
-
-        causation: DerivationCausalGraph for DerivationStep [
-            (PremiseEstablishment, RuleApplication),
-            (RuleApplication, IntermediateConclusion),
-            (IntermediateConclusion, ChainExtension),
-            (ChainExtension, ValidityCheck),
-            (ValidityCheck, SoundnessVerification),
-            (SoundnessVerification, ProofCompletion),
-            (ProofCompletion, KnowledgeExtension),
-        ],
-
-        opposition: DerivationOpposition [
-            // Deduction vs abduction (certain→certain vs uncertain→plausible)
-            (Deduction, Abduction),
-            // Soundness vs completeness (all proved are true vs all true are provable)
-            (Soundness, Completeness),
-        ],
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Whether a derivation type is monotonic (adding premises never invalidates conclusions).
-///
-/// Deduction is monotonic: if P entails Q, then P+R still entails Q.
-/// Abduction is non-monotonic: new evidence can retract abduced conclusions.
-/// Induction is non-monotonic: new observations can overturn generalizations.
+/// Quality: whether the inference mode is monotonic (adding premises never
+/// invalidates conclusions). Gentzen (1935): structural rule of weakening
+/// makes classical deduction monotonic. Peirce (1903): abduction is
+/// non-monotonic — new evidence can defeat the best-explanation hypothesis.
 #[derive(Debug, Clone)]
 pub struct IsMonotonic;
 
 impl Quality for IsMonotonic {
-    type Individual = DerivationEntity;
+    type Individual = DerivationConcept;
     type Value = bool;
 
-    fn get(&self, entity: &DerivationEntity) -> Option<bool> {
-        use DerivationEntity::*;
-        match entity {
-            Deduction => Some(true),   // monotonic: more premises, same conclusions
-            Composition => Some(true), // composing valid steps preserves validity
-            Induction => Some(false),  // new observations can overturn
-            Abduction => Some(false),  // new evidence can retract
-            Analogy => Some(false),    // analogies break with new disanalogies
+    fn get(&self, c: &DerivationConcept) -> Option<bool> {
+        use DerivationConcept as D;
+        match c {
+            D::Deduction | D::Composition => Some(true),
+            D::Induction | D::Abduction | D::Analogy => Some(false),
             _ => None,
         }
     }
 }
 
-/// Whether a derivation type preserves truth from premises to conclusion.
-///
-/// Deduction preserves truth (if premises true, conclusion true).
-/// Induction does not (premises can be true, conclusion false).
+/// Quality: whether the inference mode preserves truth from premises to
+/// conclusion. Deduction by definition (Gentzen 1935); induction and
+/// abduction are ampliative — conclusion goes beyond the premises.
 #[derive(Debug, Clone)]
 pub struct PreservesTruth;
 
 impl Quality for PreservesTruth {
-    type Individual = DerivationEntity;
+    type Individual = DerivationConcept;
     type Value = bool;
 
-    fn get(&self, entity: &DerivationEntity) -> Option<bool> {
-        use DerivationEntity::*;
-        match entity {
-            Deduction => Some(true),   // truth-preserving by definition
-            Composition => Some(true), // composing truth-preserving steps is truth-preserving
-            Induction => Some(false),  // ampliative: conclusion goes beyond premises
-            Abduction => Some(false),  // plausible, not certain
-            Analogy => Some(false),    // suggestive, not guaranteed
+    fn get(&self, c: &DerivationConcept) -> Option<bool> {
+        use DerivationConcept as D;
+        match c {
+            D::Deduction | D::Composition => Some(true),
+            D::Induction | D::Abduction | D::Analogy => Some(false),
             _ => None,
         }
     }
 }
 
-/// Whether a derivation type requires all premises to be present.
-///
-/// Deduction requires all premises (missing one invalidates the argument).
-/// Abduction works with incomplete evidence (that is its purpose).
+/// Quality: whether the inference mode requires every premise to be
+/// present. Deduction does (modus ponens needs both premises); abduction
+/// works with incomplete evidence by design.
 #[derive(Debug, Clone)]
 pub struct RequiresAllPremises;
 
 impl Quality for RequiresAllPremises {
-    type Individual = DerivationEntity;
+    type Individual = DerivationConcept;
     type Value = bool;
 
-    fn get(&self, entity: &DerivationEntity) -> Option<bool> {
-        use DerivationEntity::*;
-        match entity {
-            Deduction => Some(true),   // all premises needed
-            Composition => Some(true), // all steps needed
-            Induction => Some(false),  // works with sample of observations
-            Abduction => Some(false),  // works with incomplete evidence
-            Analogy => Some(false),    // partial similarity suffices
+    fn get(&self, c: &DerivationConcept) -> Option<bool> {
+        use DerivationConcept as D;
+        match c {
+            D::Deduction | D::Composition => Some(true),
+            D::Induction | D::Abduction | D::Analogy => Some(false),
             _ => None,
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
-/// Axiom: premise establishment transitively causes knowledge extension.
-pub struct PremiseCausesKnowledge;
-
-impl Axiom for PremiseCausesKnowledge {
-    fn description(&self) -> &str {
-        "premise establishment transitively causes knowledge extension (full pipeline)"
-    }
-    fn holds(&self) -> bool {
-        use DerivationStep::*;
-        let effects = causation::effects_of::<DerivationCausalGraph>(&PremiseEstablishment);
-        effects.contains(&KnowledgeExtension)
-    }
-}
-pr4xis::register_axiom!(PremiseCausesKnowledge);
-
-/// Axiom: deduction is monotonic, abduction is not.
-pub struct DeductionMonotonicAbductionNot;
-
-impl Axiom for DeductionMonotonicAbductionNot {
-    fn description(&self) -> &str {
-        "deduction is monotonic but abduction is not (Gentzen vs Peirce)"
-    }
-    fn holds(&self) -> bool {
-        use DerivationEntity::*;
-        IsMonotonic.get(&Deduction) == Some(true) && IsMonotonic.get(&Abduction) == Some(false)
-    }
-}
-pr4xis::register_axiom!(DeductionMonotonicAbductionNot);
-
-/// Axiom: deduction preserves truth, induction does not.
-pub struct DeductionPreservesTruthInductionNot;
-
-impl Axiom for DeductionPreservesTruthInductionNot {
-    fn description(&self) -> &str {
-        "deduction preserves truth but induction does not (deductive vs ampliative)"
-    }
-    fn holds(&self) -> bool {
-        use DerivationEntity::*;
-        PreservesTruth.get(&Deduction) == Some(true)
-            && PreservesTruth.get(&Induction) == Some(false)
-    }
-}
-pr4xis::register_axiom!(DeductionPreservesTruthInductionNot);
-
-/// Axiom: deduction requires all premises, abduction does not.
-pub struct DeductionRequiresAllAbductionNot;
-
-impl Axiom for DeductionRequiresAllAbductionNot {
-    fn description(&self) -> &str {
-        "deduction requires all premises but abduction works with incomplete evidence"
-    }
-    fn holds(&self) -> bool {
-        use DerivationEntity::*;
-        RequiresAllPremises.get(&Deduction) == Some(true)
-            && RequiresAllPremises.get(&Abduction) == Some(false)
-    }
-}
-pr4xis::register_axiom!(DeductionRequiresAllAbductionNot);
-
-// ---------------------------------------------------------------------------
-// Ontology impl
-// ---------------------------------------------------------------------------
 
 impl Ontology for DerivationOntology {
     type Cat = DerivationCategory;
     type Qual = IsMonotonic;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(PremiseCausesKnowledge),
-            Box::new(DeductionMonotonicAbductionNot),
-            Box::new(DeductionPreservesTruthInductionNot),
-            Box::new(DeductionRequiresAllAbductionNot),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(DeductionMonotonicAbductionNot));
+        axioms.push(Box::new(DeductionPreservesTruthInductionNot));
+        axioms.push(Box::new(DeductionRequiresAllAbductionNot));
+        axioms
     }
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Domain axioms
 // ---------------------------------------------------------------------------
+
+/// Deduction is monotonic; abduction is not. Gentzen (1935) admits
+/// weakening on the structural side of classical deduction; Peirce (1903)
+/// abduction is defeasible.
+pub struct DeductionMonotonicAbductionNot;
+
+impl Axiom for DeductionMonotonicAbductionNot {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use DerivationConcept as D;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if IsMonotonic.get(&D::Deduction) == Some(true)
+            && IsMonotonic.get(&D::Abduction) == Some(false)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "DeductionMonotonicAbductionNot",
+        "Deduction is monotonic but Abduction is not",
+        "Gentzen (1935) Untersuchungen über das logische Schliessen; Peirce (1903) Harvard Lectures on Pragmatism"
+    );
+}
+
+pr4xis::register_axiom!(
+    DeductionMonotonicAbductionNot,
+    "Gentzen (1935) Untersuchungen über das logische Schliessen; Peirce (1903) Harvard Lectures on Pragmatism"
+);
+
+/// Deduction preserves truth; induction is ampliative and does not.
+pub struct DeductionPreservesTruthInductionNot;
+
+impl Axiom for DeductionPreservesTruthInductionNot {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use DerivationConcept as D;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if PreservesTruth.get(&D::Deduction) == Some(true)
+            && PreservesTruth.get(&D::Induction) == Some(false)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "DeductionPreservesTruthInductionNot",
+        "Deduction preserves truth from premises to conclusion; Induction does not",
+        "Gentzen (1935) Untersuchungen über das logische Schliessen, Mathematische Zeitschrift 39"
+    );
+}
+
+pr4xis::register_axiom!(
+    DeductionPreservesTruthInductionNot,
+    "Gentzen (1935) Untersuchungen über das logische Schliessen, Mathematische Zeitschrift 39"
+);
+
+/// Deduction requires every premise; abduction works with incomplete
+/// evidence (Peirce 1903 — that is its function).
+pub struct DeductionRequiresAllAbductionNot;
+
+impl Axiom for DeductionRequiresAllAbductionNot {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use DerivationConcept as D;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if RequiresAllPremises.get(&D::Deduction) == Some(true)
+            && RequiresAllPremises.get(&D::Abduction) == Some(false)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "DeductionRequiresAllAbductionNot",
+        "Deduction requires all premises; Abduction works with incomplete evidence",
+        "Peirce (1903) Harvard Lectures on Pragmatism"
+    );
+}
+
+pr4xis::register_axiom!(
+    DeductionRequiresAllAbductionNot,
+    "Peirce (1903) Harvard Lectures on Pragmatism"
+);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::opposition;
-    use pr4xis::ontology::reasoning::taxonomy;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use proptest::prelude::*;
 
     #[test]
-    fn test_entity_count() {
-        assert_eq!(DerivationEntity::variants().len(), 18);
+    fn category_laws() {
+        assert_category_laws::<DerivationCategory>();
     }
 
     #[test]
-    fn test_step_count() {
-        assert_eq!(DerivationStep::variants().len(), 8);
+    fn ontology_validates() {
+        DerivationOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
-    fn test_category_laws() {
-        check_category_laws::<DerivationCategory>().unwrap();
+    fn pipeline_stages_form_causal_chain() {
+        use DerivationConcept as D;
+        let causation: Vec<_> = DerivationCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == DerivationRelationKind::Causation)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        for edge in [
+            (D::PremiseEstablishment, D::RuleApplication),
+            (D::RuleApplication, D::IntermediateConclusion),
+            (D::IntermediateConclusion, D::ChainExtension),
+            (D::ChainExtension, D::ValidityCheck),
+            (D::ValidityCheck, D::SoundnessVerification),
+            (D::SoundnessVerification, D::ProofCompletion),
+            (D::ProofCompletion, D::KnowledgeExtension),
+        ] {
+            assert!(causation.contains(&edge));
+        }
     }
 
     #[test]
-    fn test_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<DerivationTaxonomy>>().unwrap();
+    fn premise_transitively_reaches_knowledge_extension() {
+        let causation: Vec<_> = DerivationCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == DerivationRelationKind::Causation)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(causation.contains(&(
+            DerivationConcept::PremiseEstablishment,
+            DerivationConcept::KnowledgeExtension
+        )));
     }
 
     #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<DerivationCausalGraph>>().unwrap();
+    fn modes_subsume_derivation_type() {
+        use DerivationConcept as D;
+        let sub: Vec<_> = DerivationCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == DerivationRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        for mode in [
+            D::Deduction,
+            D::Induction,
+            D::Abduction,
+            D::Analogy,
+            D::Composition,
+        ] {
+            assert!(sub.contains(&(mode, D::DerivationType)));
+        }
     }
 
     #[test]
-    fn test_ontology_validates() {
-        DerivationOntology::validate().unwrap();
-    }
-
-    // -- Individual axiom tests --
-
-    #[test]
-    fn test_premise_causes_knowledge() {
-        assert!(PremiseCausesKnowledge.holds());
-    }
-
-    #[test]
-    fn test_deduction_monotonic_abduction_not() {
-        assert!(DeductionMonotonicAbductionNot.holds());
+    fn deduction_opposes_abduction() {
+        let opp: Vec<_> = DerivationCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == DerivationRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opp.contains(&(DerivationConcept::Deduction, DerivationConcept::Abduction)));
     }
 
     #[test]
-    fn test_deduction_preserves_truth_induction_not() {
-        assert!(DeductionPreservesTruthInductionNot.holds());
+    fn soundness_opposes_completeness() {
+        let opp: Vec<_> = DerivationCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == DerivationRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opp.contains(&(
+            DerivationConcept::Soundness,
+            DerivationConcept::Completeness
+        )));
     }
 
     #[test]
-    fn test_deduction_requires_all_abduction_not() {
-        assert!(DeductionRequiresAllAbductionNot.holds());
-    }
-
-    // -- Taxonomy tests --
-
-    #[test]
-    fn test_types_are_derivation_types() {
-        use DerivationEntity::*;
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Deduction,
-            &DerivationType
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Induction,
-            &DerivationType
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Abduction,
-            &DerivationType
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Analogy,
-            &DerivationType
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Composition,
-            &DerivationType
-        ));
+    fn deduction_monotonic_abduction_not_holds() {
+        assert!(DeductionMonotonicAbductionNot.verify().is_ok());
     }
 
     #[test]
-    fn test_components_are_derivation_components() {
-        use DerivationEntity::*;
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Premise,
-            &DerivationComponent
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Conclusion,
-            &DerivationComponent
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &InferenceRule,
-            &DerivationComponent
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Evidence,
-            &DerivationComponent
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Justification,
-            &DerivationComponent
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &ProofStep,
-            &DerivationComponent
-        ));
+    fn deduction_preserves_truth_induction_not_holds() {
+        assert!(DeductionPreservesTruthInductionNot.verify().is_ok());
     }
 
     #[test]
-    fn test_properties_are_logical_properties() {
-        use DerivationEntity::*;
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Soundness,
-            &LogicalProperty
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Completeness,
-            &LogicalProperty
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Validity,
-            &LogicalProperty
-        ));
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &Decidability,
-            &LogicalProperty
-        ));
+    fn deduction_requires_all_abduction_not_holds() {
+        assert!(DeductionRequiresAllAbductionNot.verify().is_ok());
     }
 
-    // -- Causal chain tests --
-
-    #[test]
-    fn test_full_pipeline_connected() {
-        use DerivationStep::*;
-        let effects = causation::effects_of::<DerivationCausalGraph>(&PremiseEstablishment);
-        assert!(effects.contains(&RuleApplication));
-        assert!(effects.contains(&IntermediateConclusion));
-        assert!(effects.contains(&ChainExtension));
-        assert!(effects.contains(&ValidityCheck));
-        assert!(effects.contains(&SoundnessVerification));
-        assert!(effects.contains(&ProofCompletion));
-        assert!(effects.contains(&KnowledgeExtension));
-    }
-
-    // -- Opposition tests --
-
-    #[test]
-    fn test_deduction_opposes_abduction() {
-        use DerivationEntity::*;
-        assert!(opposition::are_opposed::<DerivationOpposition>(
-            &Deduction, &Abduction
-        ));
-    }
-
-    #[test]
-    fn test_soundness_opposes_completeness() {
-        use DerivationEntity::*;
-        assert!(opposition::are_opposed::<DerivationOpposition>(
-            &Soundness,
-            &Completeness
-        ));
-    }
-
-    // -- Quality tests --
-
-    #[test]
-    fn test_monotonicity() {
-        use DerivationEntity::*;
-        assert_eq!(IsMonotonic.get(&Deduction), Some(true));
-        assert_eq!(IsMonotonic.get(&Composition), Some(true));
-        assert_eq!(IsMonotonic.get(&Induction), Some(false));
-        assert_eq!(IsMonotonic.get(&Abduction), Some(false));
-        assert_eq!(IsMonotonic.get(&Analogy), Some(false));
-    }
-
-    #[test]
-    fn test_truth_preservation() {
-        use DerivationEntity::*;
-        assert_eq!(PreservesTruth.get(&Deduction), Some(true));
-        assert_eq!(PreservesTruth.get(&Composition), Some(true));
-        assert_eq!(PreservesTruth.get(&Induction), Some(false));
-        assert_eq!(PreservesTruth.get(&Abduction), Some(false));
-    }
-
-    #[test]
-    fn test_requires_all_premises() {
-        use DerivationEntity::*;
-        assert_eq!(RequiresAllPremises.get(&Deduction), Some(true));
-        assert_eq!(RequiresAllPremises.get(&Abduction), Some(false));
-        assert_eq!(RequiresAllPremises.get(&Induction), Some(false));
-    }
-
-    // -- Proptest --
-
-    fn arb_entity() -> impl Strategy<Value = DerivationEntity> {
-        (0..DerivationEntity::variants().len()).prop_map(|i| DerivationEntity::variants()[i])
+    fn arb_concept() -> impl Strategy<Value = DerivationConcept> {
+        proptest::sample::select(DerivationConcept::variants())
     }
 
     proptest! {
         #[test]
-        fn prop_taxonomy_reflexive(entity in arb_entity()) {
-            prop_assert!(taxonomy::is_a::<DerivationTaxonomy>(&entity, &entity));
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in DerivationCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
         }
 
         #[test]
-        fn prop_every_entity_has_category(entity in arb_entity()) {
-            use DerivationEntity::*;
-            let categories = [DerivationType, DerivationComponent, LogicalProperty];
-            let belongs = categories.iter().any(|cat| taxonomy::is_a::<DerivationTaxonomy>(&entity, cat));
-            let is_abstract = categories.contains(&entity);
-            prop_assert!(belongs || is_abstract,
-                "{:?} should belong to at least one category", entity);
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in DerivationOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_monotonicity_total_on_modes(c in arb_concept()) {
+            use DerivationConcept as D;
+            let v = IsMonotonic.get(&c);
+            let is_mode = matches!(c,
+                D::Deduction | D::Induction | D::Abduction | D::Analogy | D::Composition
+            );
+            prop_assert_eq!(v.is_some(), is_mode);
+        }
+
+        #[test]
+        fn prop_opposition_is_symmetric(_seed in any::<u32>()) {
+            let opposed: std::collections::HashSet<_> = DerivationCategory::morphisms()
+                .iter()
+                .filter(|m| m.kind() == DerivationRelationKind::Opposition)
+                .map(|m| (m.source(), m.target()))
+                .collect();
+            for (a, b) in opposed.iter() {
+                prop_assert!(opposed.contains(&(*b, *a)),
+                    "opposition not symmetric: {:?} -> {:?} but not back", a, b);
+            }
+        }
+
+        #[test]
+        fn prop_subsumption_targets_valid(_seed in any::<u32>()) {
+            let variants: Vec<_> = DerivationConcept::variants();
+            for m in DerivationCategory::morphisms() {
+                if m.kind() == DerivationRelationKind::Subsumption {
+                    prop_assert!(variants.contains(&m.source()));
+                    prop_assert!(variants.contains(&m.target()));
+                }
+            }
         }
     }
 }

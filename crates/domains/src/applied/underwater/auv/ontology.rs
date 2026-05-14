@@ -2,15 +2,12 @@
 //!
 //! Source: Kinsey et al. (2006), "A Survey of Underwater Vehicle Navigation"
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Auv",
     source: "Kinsey et al. (2006); Paull et al. (2014)",
-    being: PhysicalEndurant,
 
     concepts: [DVL, DepthSensor, Compass, ADCP],
 
@@ -44,59 +41,72 @@ impl Quality for MeasuredQuantity {
 pub struct DepthNonNegative;
 
 impl Axiom for DepthNonNegative {
-    fn description(&self) -> &str {
-        "depth measurements are non-negative (at or below the surface)"
+    fn verify(&self) -> Verdict {
+        // Hydrostatic pressure P = ρ·g·h with ρ, g > 0 and h ≥ 0 below
+        // the free surface; depth = h ≥ 0 by definition of the
+        // surface-referenced coordinate frame.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "DepthNonNegative",
+        "depth measurements are non-negative (at or below the surface)",
+        "Kinsey et al. (2006) A Survey of Underwater Vehicle Navigation"
+    );
 }
 pr4xis::register_axiom!(
     DepthNonNegative,
-    "Kinsey et al. (2006), \"A Survey of Underwater Vehicle Navigation\""
+    "Kinsey et al. (2006) A Survey of Underwater Vehicle Navigation"
 );
 
 /// Axiom: DVL requires bottom lock (limited altitude).
 pub struct DvlRequiresBottomLock;
 
 impl Axiom for DvlRequiresBottomLock {
-    fn description(&self) -> &str {
-        "DVL velocity measurement requires bottom lock (finite altitude above seabed)"
+    fn verify(&self) -> Verdict {
+        // Doppler shift from a stationary seabed return is the basis of
+        // DVL velocity measurement; without bottom lock there is no
+        // reference for the Doppler frequency. Per Paull et al. (2014)
+        // §3.2.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "DvlRequiresBottomLock",
+        "DVL velocity measurement requires bottom lock (finite altitude above seabed)",
+        "Paull et al. (2014) AUV Navigation and Localization §3.2"
+    );
 }
 pr4xis::register_axiom!(
     DvlRequiresBottomLock,
-    "Kinsey et al. (2006), \"A Survey of Underwater Vehicle Navigation\""
+    "Paull et al. (2014) AUV Navigation and Localization §3.2"
 );
 
 impl Ontology for AuvOntology {
     type Cat = AuvCategory;
     type Qual = MeasuredQuantity;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(DepthNonNegative), Box::new(DvlRequiresBottomLock)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(DepthNonNegative));
+        axioms.push(Box::new(DvlRequiresBottomLock));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<AuvCategory>().unwrap();
+        assert_category_laws::<AuvCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        AuvOntology::validate().unwrap();
+        AuvOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

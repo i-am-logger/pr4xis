@@ -1,4 +1,4 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::applied::perception::occupancy::engine::OccupancyGrid;
@@ -6,22 +6,23 @@ use crate::applied::perception::occupancy::ontology::*;
 
 #[test]
 fn occupancy_category_laws() {
-    check_category_laws::<OccupancyCategory>().unwrap();
+    assert_category_laws::<OccupancyCategory>();
 }
 
 #[test]
 fn occupancy_ontology_validates() {
-    OccupancyOntology::validate().unwrap();
+    OccupancyOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn probability_bounded_holds() {
-    assert!(ProbabilityBounded.holds());
+    assert!(ProbabilityBounded.verify().is_ok());
 }
 
 #[test]
 fn log_odds_deterministic_holds() {
-    assert!(LogOddsUpdateDeterministic.holds());
+    assert!(LogOddsUpdateDeterministic.verify().is_ok());
 }
 
 #[test]

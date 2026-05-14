@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use hashbrown::{HashMap, HashSet};
 
 /// Keybinding ontology — formal model of keyboard shortcuts and presets.
 ///
@@ -13,7 +14,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Harel, "Statecharts" (1987): mode-scoped keybindings
 /// - XKB specification: modifier model (Shift, Ctrl, Alt, Super, Hyper)
 use super::modes::ModeId;
-use hashbrown::{HashMap, HashSet};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
 /// A physical key identifier.
@@ -744,14 +745,20 @@ pub struct NoConflicts {
 }
 
 impl Axiom for NoConflicts {
-    fn description(&self) -> &str {
-        "no duplicate key combos in the same mode"
+    fn verify(&self) -> Verdict {
+        if self.bindings.conflicts().is_empty() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        self.bindings.conflicts().is_empty()
-    }
+
+    pr4xis::axiom_meta!(
+        "NoConflicts",
+        "no duplicate key combos in the same mode",
+        "Harel (1987) Statecharts: A Visual Formalism, Science of Computer Programming 8"
+    );
 }
-pr4xis::register_axiom!(NoConflicts);
 
 /// Remap is injective: each `from` maps to exactly one `to`.
 pub struct RemapInjective {
@@ -759,16 +766,22 @@ pub struct RemapInjective {
 }
 
 impl Axiom for RemapInjective {
-    fn description(&self) -> &str {
-        "remap is injective (each source maps to one target)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let froms: Vec<&KeyCombo> = self.remaps.remaps.iter().map(|r| &r.from).collect();
         let unique: HashSet<&KeyCombo> = froms.iter().copied().collect();
-        froms.len() == unique.len()
+        if froms.len() == unique.len() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "RemapInjective",
+        "remap is injective (each source maps to one target)",
+        "Beaudouin-Lafon (2000) Instrumental Interaction, CHI"
+    );
 }
-pr4xis::register_axiom!(RemapInjective);
 
 /// Every mode in the binding set has at least one binding.
 pub struct AllModesHaveBindings {
@@ -777,16 +790,24 @@ pub struct AllModesHaveBindings {
 }
 
 impl Axiom for AllModesHaveBindings {
-    fn description(&self) -> &str {
-        "every mode has at least one keybinding"
-    }
-    fn holds(&self) -> bool {
-        self.modes
+    fn verify(&self) -> Verdict {
+        let ok = self
+            .modes
             .iter()
-            .all(|m| !self.bindings.for_mode(m).is_empty())
+            .all(|m| !self.bindings.for_mode(m).is_empty());
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "AllModesHaveBindings",
+        "every mode has at least one keybinding",
+        "Harel (1987) Statecharts: A Visual Formalism — mode-scoped behaviour requires bindings"
+    );
 }
-pr4xis::register_axiom!(AllModesHaveBindings);
 
 /// Super→Ctrl remap covers all standard shortcuts (copy, paste, save, etc).
 pub struct MacosRemapComplete {
@@ -794,18 +815,25 @@ pub struct MacosRemapComplete {
 }
 
 impl Axiom for MacosRemapComplete {
-    fn description(&self) -> &str {
-        "macOS remap covers essential shortcuts (C, V, X, Z, S, A)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let essential = ['c', 'v', 'x', 'z', 's', 'a'];
-        essential.iter().all(|&c| {
+        let ok = essential.iter().all(|&c| {
             let combo = KeyCombo::new(Key::Letter(c)).with_mod(Modifier::Super);
             self.remaps.apply(&combo).is_some()
-        })
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "MacosRemapComplete",
+        "macOS remap covers essential shortcuts (C, V, X, Z, S, A)",
+        "IBM (1987) Common User Access Specification; macOS Human Interface Guidelines"
+    );
 }
-pr4xis::register_axiom!(MacosRemapComplete);
 
 #[cfg(test)]
 mod tests {
@@ -862,19 +890,19 @@ mod tests {
     #[test]
     fn test_macos_remap_complete() {
         let rs = macos_remap();
-        assert!(MacosRemapComplete { remaps: rs }.holds());
+        assert!(MacosRemapComplete { remaps: rs }.verify().is_ok());
     }
 
     #[test]
     fn test_macos_remap_injective() {
         let rs = macos_remap();
-        assert!(RemapInjective { remaps: rs }.holds());
+        assert!(RemapInjective { remaps: rs }.verify().is_ok());
     }
 
     #[test]
     fn test_vim_preset_no_conflicts() {
         let bs = vim_preset();
-        assert!(NoConflicts { bindings: bs }.holds());
+        assert!(NoConflicts { bindings: bs }.verify().is_ok());
     }
 
     #[test]
@@ -898,7 +926,8 @@ mod tests {
                 bindings: bs,
                 modes
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
     }
 
@@ -917,10 +946,11 @@ mod tests {
         );
         bs.add(combo, mode, Action::new("a2", "Action 2", "cmd2"), false);
         assert!(
-            !NoConflicts {
+            NoConflicts {
                 bindings: bs.clone()
             }
-            .holds()
+            .verify()
+            .is_err()
         );
         assert_eq!(bs.conflicts().len(), 1);
     }
@@ -941,7 +971,7 @@ mod tests {
             Action::new("a2", "Action 2", "cmd2"),
             false,
         );
-        assert!(NoConflicts { bindings: bs }.holds());
+        assert!(NoConflicts { bindings: bs }.verify().is_ok());
     }
 
     // ── CUA preset ──
@@ -952,7 +982,8 @@ mod tests {
             NoConflicts {
                 bindings: cua_preset()
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
     }
 
@@ -975,7 +1006,8 @@ mod tests {
             NoConflicts {
                 bindings: emacs_preset()
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
     }
 
@@ -999,7 +1031,8 @@ mod tests {
             NoConflicts {
                 bindings: i3_preset()
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
     }
 
@@ -1045,7 +1078,8 @@ mod tests {
             NoConflicts {
                 bindings: tmux_preset()
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
     }
 
@@ -1085,7 +1119,7 @@ mod tests {
             ("tmux", tmux_preset()),
         ] {
             let axiom = NoConflicts { bindings: bs };
-            assert!(axiom.holds(), "{name} preset has conflicts");
+            assert!(axiom.verify().is_ok(), "{name} preset has conflicts");
         }
     }
 
@@ -1161,7 +1195,7 @@ mod tests {
                 );
             }
             let axiom = NoConflicts { bindings: bs };
-            prop_assert!(axiom.holds());
+            prop_assert!(axiom.verify().is_ok());
         }
     }
 }

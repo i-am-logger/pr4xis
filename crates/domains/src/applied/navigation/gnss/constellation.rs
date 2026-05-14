@@ -15,7 +15,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "GnssConstellation",
     source: "Kaplan & Hegarty (2006); IS-GPS-200",
-    being: SocialObject,
 
     concepts: [Constellation, GPS, GLONASS, Galileo, BeiDou, SBAS],
 
@@ -61,8 +60,8 @@ impl Ontology for GnssConstellationOntology {
     type Cat = GnssConstellationCategory;
     type Qual = SatelliteCount;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
@@ -70,6 +69,7 @@ impl Ontology for GnssConstellationOntology {
 mod tests {
     use super::*;
     use pr4xis::category::Concept;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn has_six_concepts() {
@@ -78,6 +78,6 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<GnssConstellationCategory>().unwrap();
+        assert_category_laws::<GnssConstellationCategory>();
     }
 }

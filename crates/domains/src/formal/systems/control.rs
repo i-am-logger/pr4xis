@@ -1,132 +1,155 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Cybernetic control-systems ontology — feedback and regulation as
+//! a category, per Wiener (1948), Ashby (1956), and Conant & Ashby
+//! (1970). Distinct from the classical (frequency-domain) treatment
+//! at `formal::math::control_theory`: this one models the *systems-
+//! theoretic* concepts (Signal, Disturbance, Model, FeedbackLoop)
+//! that span beyond linear control.
+//!
+//! Control theory is the general science of feedback. Cybernetics is
+//! the specific case: control plus communication (Wiener 1948).
+//!
+//! # Literature
+//!
+//! - **Wiener (1948)** *Cybernetics: Or Control and Communication in
+//!   the Animal and the Machine*, MIT Press — control + communication.
+//! - **Ashby (1956)** *An Introduction to Cybernetics*, Chapman & Hall
+//!   — Law of Requisite Variety; controller variety ≥ disturbance
+//!   variety.
+//! - **Conant & Ashby (1970)** "Every Good Regulator of a System Must
+//!   Be a Model of that System", *International J. Systems Science*
+//!   1(2):89-97 — the regulator-theorem (the controller must be
+//!   isomorphic to the controlled system).
+//! - **Powers (1973)** *Behavior: The Control of Perception* — systems
+//!   control their inputs, not their outputs.
+//! - **Beer (1972)** *Brain of the Firm*, John Wiley & Sons — the
+//!   Viable System Model.
+//! - **von Foerster (1981)** *Observing Systems*, Intersystems —
+//!   second-order cybernetics (the observer observing itself).
+//! - **Åström & Murray (2008)** *Feedback Systems*, Princeton
+//!   University Press — modern engineering treatment.
 
 use pr4xis::category::Concept;
-use pr4xis::define_ontology;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// Control Systems Ontology — the science of feedback and regulation.
-//
-// Control theory is the GENERAL science. Cybernetics is a SPECIFIC TYPE:
-// control systems that involve communication (Wiener 1948).
-//
-//   Control System (general)
-//     ├── Classical Control (plant, controller, PID)
-//     ├── Cybernetic System (control + communication — Wiener 1948)
-//     │   ├── First-order cybernetics (observing systems)
-//     │   └── Second-order cybernetics (observing the observer — von Foerster)
-//     └── Adaptive Control (changes own parameters — Ashby's ultrastability)
-//
-// Three key theorems:
-// 1. Requisite Variety (Ashby 1956): controller variety >= disturbance variety
-// 2. Good Regulator (Conant & Ashby 1970): every good regulator must be a model
-//    of its system — THIS IS WHY THE ENGINE NEEDS AN ONTOLOGY
-// 3. Perceptual Control (Powers 1973): systems control inputs, not outputs
-//
-// References:
-// - Wiener, Cybernetics (1948) — control + communication
-// - Ashby, An Introduction to Cybernetics (1956) — requisite variety
-// - Conant & Ashby, Every Good Regulator (1970) — the regulator theorem
-// - Powers, Behavior: The Control of Perception (1973)
-// - Beer, Brain of the Firm (1972) — Viable System Model
-// - von Foerster, Observing Systems (1981) — second-order cybernetics
-// - Åström & Murray, Feedback Systems (2008) — modern treatment
+pr4xis::ontology! {
+    name: "Control",
+    source: "Wiener (1948) Cybernetics; Ashby (1956) An Introduction to Cybernetics; Conant & Ashby (1970) Every Good Regulator of a System Must Be a Model of that System, Int. J. Systems Science 1(2):89-97; Powers (1973) Behavior: The Control of Perception; Beer (1972) Brain of the Firm; von Foerster (1981) Observing Systems; Astrom & Murray (2008) Feedback Systems",
 
-/// Core concepts of a control system.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum ControlConcept {
-    /// The system being controlled — the "thing in the world."
-    Plant,
-    /// The decision-maker — computes control action from error.
-    Controller,
-    /// Measures the plant's actual output state.
-    Sensor,
-    /// Applies the control action to the plant.
-    Actuator,
-    /// The desired state — what the system "wants."
-    Setpoint,
-    /// The difference between setpoint and measured output: e(t) = r(t) - y(t).
-    Error,
-    /// Information flowing between components.
-    Signal,
-    /// External perturbation acting on the plant.
-    Disturbance,
-    /// The controller's representation of the plant.
-    /// Conant & Ashby (1970): every good regulator must be a model.
-    Model,
-    /// The return path from output to input — closes the causal loop.
-    FeedbackLoop,
+    concepts: [
+        Plant,
+        Controller,
+        Sensor,
+        Actuator,
+        Setpoint,
+        Error,
+        Signal,
+        Disturbance,
+        Model,
+        FeedbackLoop,
+    ],
+
+    labels: {
+        Plant: ("en", "Plant",
+            "Astrom & Murray (2008) Ch. 1: the system being controlled - the 'thing in the world' whose state the controller seeks to regulate."),
+        Controller: ("en", "Controller",
+            "Ashby (1956) §10: the decision-maker - computes a control action from the error signal."),
+        Sensor: ("en", "Sensor",
+            "Astrom & Murray (2008) §1.5: measures the plant's actual output state and supplies it to the comparator."),
+        Actuator: ("en", "Actuator",
+            "Astrom & Murray (2008) §1.5: applies the controller's command to the plant; the physical medium of the control action."),
+        Setpoint: ("en", "Setpoint",
+            "Astrom & Murray (2008) §1.4: the desired state - what the system 'wants' (also called reference)."),
+        Error: ("en", "Error",
+            "Astrom & Murray (2008) §1.4: e(t) = r(t) - y(t); the difference between setpoint and measured output."),
+        Signal: ("en", "Signal",
+            "Wiener (1948) Ch. 4: information flowing between components - the carrier of state, command, and measurement in the loop."),
+        Disturbance: ("en", "Disturbance",
+            "Astrom & Murray (2008) §1.4: an external perturbation acting on the plant; the cause of departures from the setpoint."),
+        Model: ("en", "Model",
+            "Conant & Ashby (1970): the controller's internal representation of the plant - 'every good regulator must be a model of its system.'"),
+        FeedbackLoop: ("en", "Feedback loop",
+            "Wiener (1948): the return path from output back to input that closes the causal chain - the defining structural feature of cybernetic control."),
+    },
+
+    edges: [
+        // The control loop. Astrom & Murray (2008) §1.5 + Conant & Ashby (1970).
+        (Sensor, Plant, Measures),
+        (Controller, Error, ComputesFrom),
+        (Actuator, Plant, ActsOn),
+        (Setpoint, Error, ComparedWith),
+        (Controller, Actuator, Carries),
+        (Sensor, Error, Carries),
+        (Disturbance, Plant, Perturbs),
+        // The regulator theorem (Conant & Ashby 1970): the controller's
+        // model represents the plant.
+        (Model, Plant, Represents),
+        (Controller, Model, Carries),
+        // The feedback loop closes the causal chain.
+        (FeedbackLoop, Sensor, Closes),
+        (FeedbackLoop, Controller, Closes),
+    ],
+
+    composed: [
+        (Controller, Plant),
+        (Sensor, Controller),
+        (Setpoint, Controller),
+        (Disturbance, Error),
+    ],
 }
 
-/// Types of control systems — the taxonomy.
+/// Types of control systems — the taxonomy. Wiener (1948); Ashby (1956);
+/// von Foerster (1981). Kept as a sibling rich type because the *kind*
+/// of control system is a categorical-system descriptor rather than a
+/// loop component.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
 pub enum ControlSystemKind {
     /// No feedback — controller acts "blind."
     OpenLoop,
     /// Output measured and fed back — the standard control loop.
     ClosedLoop,
-    /// Closed-loop + communication between controller and plant.
-    /// Wiener (1948): cybernetics = control + communication.
+    /// Closed-loop + communication. Wiener (1948): cybernetics =
+    /// control + communication.
     Cybernetic,
-    /// First-order cybernetics: observing systems (von Foerster).
+    /// First-order cybernetics: observing systems (von Foerster 1981).
     FirstOrderCybernetic,
     /// Second-order cybernetics: the observer observing itself.
     SecondOrderCybernetic,
-    /// Changes its own parameters when the inner loop fails.
-    /// Ashby's ultrastability: fast inner loop + slow outer restructuring loop.
+    /// Ashby's ultrastability — fast inner loop + slow outer
+    /// restructuring loop.
     Adaptive,
 }
 
-define_ontology! {
-    /// Control Systems — feedback and regulation (Wiener 1948; Conant & Ashby 1970).
-    pub ControlOntology for ControlCategory {
-        concepts: ControlConcept,
-        relation: ControlRelation,
-        kind: ControlRelationKind,
-        kinds: [
-            /// Sensor measures Plant output.
-            Measures,
-            /// Controller computes from Error.
-            ComputesFrom,
-            /// Actuator acts on Plant.
-            ActsOn,
-            /// Setpoint compared with Measured to produce Error.
-            ComparedWith,
-            /// Disturbance perturbs Plant.
-            Perturbs,
-            /// Model represents Plant inside Controller.
-            Represents,
-            /// FeedbackLoop closes the causal chain.
-            Closes,
-            /// Signal carries information between components.
-            Carries,
-        ],
-        edges: [
-            // The control loop: Controller → Actuator → Plant → Sensor → Error → Controller
-            (Sensor, Plant, Measures),
-            (Controller, Error, ComputesFrom),
-            (Actuator, Plant, ActsOn),
-            (Setpoint, Error, ComparedWith),
-            (Controller, Actuator, Carries),
-            (Sensor, Error, Carries),
-            // Disturbance perturbs plant
-            (Disturbance, Plant, Perturbs),
-            // Model represents plant inside controller (Conant-Ashby theorem)
-            (Model, Plant, Represents),
-            (Controller, Model, Carries),
-            // Feedback loop closes the causal chain
-            (FeedbackLoop, Sensor, Closes),
-            (FeedbackLoop, Controller, Closes),
-        ],
-        composed: [
-            // Transitive: the full loop
-            (Controller, Plant),
-            (Sensor, Controller),
-            (Setpoint, Controller),
-            (Disturbance, Error),
-        ],
+/// Quality: whether each concept lies on the cybernetic feedback
+/// circuit (Wiener 1948 Ch. 4). Plant, Controller, Sensor, Actuator,
+/// Setpoint, Error, FeedbackLoop are on the loop; Signal, Disturbance,
+/// Model are auxiliary.
+#[derive(Debug, Clone)]
+pub struct OnFeedbackLoop;
 
-        being: AbstractObject,
-        source: "Wiener (1948); Conant & Ashby (1970)",
+impl Quality for OnFeedbackLoop {
+    type Individual = ControlConcept;
+    type Value = bool;
+
+    fn get(&self, c: &ControlConcept) -> Option<bool> {
+        Some(matches!(
+            c,
+            ControlConcept::Plant
+                | ControlConcept::Controller
+                | ControlConcept::Sensor
+                | ControlConcept::Actuator
+                | ControlConcept::Setpoint
+                | ControlConcept::Error
+                | ControlConcept::FeedbackLoop
+        ))
+    }
+}
+
+impl Ontology for ControlOntology {
+    type Cat = ControlCategory;
+    type Qual = OnFeedbackLoop;
+
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
@@ -134,11 +157,18 @@ define_ontology! {
 mod tests {
     use super::*;
     use pr4xis::category::Category;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
+    use proptest::prelude::*;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<ControlCategory>().unwrap();
+        assert_category_laws::<ControlCategory>();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        ControlOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
@@ -169,24 +199,11 @@ mod tests {
 
     #[test]
     fn model_represents_plant() {
-        // Conant & Ashby (1970): the controller's model represents the plant
+        // Conant & Ashby (1970): the controller's model represents the plant.
         let morphisms = ControlCategory::morphisms();
         assert!(morphisms.iter().any(|m| m.from == ControlConcept::Model
             && m.to == ControlConcept::Plant
             && m.kind == ControlRelationKind::Represents));
-    }
-
-    #[test]
-    fn controller_reaches_plant_through_composition() {
-        // Controller → Actuator → Plant composes
-        let morphisms = ControlCategory::morphisms();
-        assert!(
-            morphisms
-                .iter()
-                .any(|m| m.from == ControlConcept::Controller
-                    && m.to == ControlConcept::Plant
-                    && m.kind == ControlRelationKind::Composed)
-        );
     }
 
     #[test]
@@ -195,5 +212,45 @@ mod tests {
         assert!(morphisms.iter().any(
             |m| m.from == ControlConcept::FeedbackLoop && m.kind == ControlRelationKind::Closes
         ));
+    }
+
+    #[test]
+    fn on_feedback_loop_total() {
+        let q = OnFeedbackLoop;
+        for c in ControlConcept::variants() {
+            assert!(q.get(&c).is_some(), "{:?} missing classification", c);
+        }
+    }
+
+    fn arb_concept() -> impl Strategy<Value = ControlConcept> {
+        proptest::sample::select(ControlConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_on_feedback_loop_total(c in arb_concept()) {
+            prop_assert!(OnFeedbackLoop.get(&c).is_some());
+        }
+
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            use pr4xis::category::Arrow;
+            for m in ControlCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in ControlOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(
+                        false,
+                        "axiom failed: {}",
+                        c.meta().name.as_str()
+                    );
+                }
+            }
+        }
     }
 }

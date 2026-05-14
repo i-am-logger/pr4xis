@@ -1,7 +1,4 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::applied::localization::terrain::engine::*;
@@ -9,22 +6,28 @@ use crate::applied::localization::terrain::ontology::*;
 
 #[test]
 fn terrain_category_laws() {
-    check_category_laws::<TerrainCategory>().unwrap();
+    assert_category_laws::<TerrainCategory>();
 }
 
 #[test]
 fn terrain_ontology_validates() {
-    TerrainOntology::validate().unwrap();
-}
-
-#[test]
-fn elevation_bounded_holds() {
-    assert!(ElevationBounded.holds());
+    TerrainOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn peak_curvature_negative_holds() {
-    assert!(PeakCurvatureNegative.holds());
+    assert!(PeakCurvatureNegative.verify().is_ok());
+}
+
+#[test]
+fn valley_curvature_positive_holds() {
+    assert!(ValleyCurvaturePositive.verify().is_ok());
+}
+
+#[test]
+fn saddle_curvatures_opposite_holds() {
+    assert!(SaddleCurvaturesOpposite.verify().is_ok());
 }
 
 #[test]
@@ -38,7 +41,7 @@ fn dem_peak_detection() {
     ];
     let dem = DemTile::new(elevations, 3, 3, 1.0);
     let feature = dem.classify_feature(1, 1);
-    assert_eq!(feature, Some(TerrainFeature::Peak));
+    assert_eq!(feature, Some(TerrainConcept::Peak));
 }
 
 #[test]
@@ -51,7 +54,7 @@ fn dem_valley_detection() {
     ];
     let dem = DemTile::new(elevations, 3, 3, 1.0);
     let feature = dem.classify_feature(1, 1);
-    assert_eq!(feature, Some(TerrainFeature::Valley));
+    assert_eq!(feature, Some(TerrainConcept::Valley));
 }
 
 #[test]
@@ -94,7 +97,7 @@ mod proptest_proofs {
             ];
             let dem = DemTile::new(elevations, 3, 3, 1.0);
             let feature = dem.classify_feature(1, 1);
-            prop_assert_eq!(feature, Some(TerrainFeature::Peak));
+            prop_assert_eq!(feature, Some(TerrainConcept::Peak));
         }
 
         #[test]

@@ -21,7 +21,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Lemon",
     source: "W3C Ontolex (2016); McCrae et al. (2012, 2017)",
-    being: SocialObject,
 
     concepts: [LexicalEntry, Form, LexicalSense, LexicalConcept, Lexicon, OntologyReference],
 
@@ -65,10 +64,8 @@ impl Quality for IsCoreConcept {
 pub struct DenotesIsPropertyChain;
 
 impl Axiom for DenotesIsPropertyChain {
-    fn description(&self) -> &str {
-        "denotes = sense ∘ reference (W3C Ontolex §3.4)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let m = LemonCategory::morphisms();
         let has_sense = m.iter().any(|r| {
             r.from == LemonConcept::LexicalEntry
@@ -85,12 +82,22 @@ impl Axiom for DenotesIsPropertyChain {
                 && r.to == LemonConcept::OntologyReference
                 && r.kind == LemonRelationKind::Denotes
         });
-        has_sense && has_ref && has_denotes
+        if has_sense && has_ref && has_denotes {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "DenotesIsPropertyChain",
+        "denotes = sense ∘ reference (W3C Ontolex §3.4)",
+        "W3C Lexicon Model for Ontologies (Ontolex-Lemon) (2016) §3.4"
+    );
 }
 pr4xis::register_axiom!(
     DenotesIsPropertyChain,
-    "W3C Lexicon Model for Ontologies (2016);"
+    "W3C Lexicon Model for Ontologies (Ontolex-Lemon) (2016) §3.4"
 );
 
 /// canonicalForm is functional (W3C Ontolex §3.2).
@@ -98,24 +105,33 @@ pr4xis::register_axiom!(
 pub struct CanonicalFormIsFunctional;
 
 impl Axiom for CanonicalFormIsFunctional {
-    fn description(&self) -> &str {
-        "canonicalForm is functional: at most one per entry (W3C Ontolex §3.2)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let m = LemonCategory::morphisms();
-        m.iter()
+        let count = m
+            .iter()
             .filter(|r| {
                 r.from == LemonConcept::LexicalEntry
                     && r.to == LemonConcept::Form
                     && r.kind == LemonRelationKind::CanonicalForm
             })
-            .count()
-            <= 1
+            .count();
+        if count <= 1 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "CanonicalFormIsFunctional",
+        "canonicalForm is functional: at most one per entry (W3C Ontolex §3.2)",
+        "W3C Lexicon Model for Ontologies (Ontolex-Lemon) (2016) §3.2"
+    );
 }
 pr4xis::register_axiom!(
     CanonicalFormIsFunctional,
-    "W3C Lexicon Model for Ontologies (2016);"
+    "W3C Lexicon Model for Ontologies (Ontolex-Lemon) (2016) §3.2"
 );
 
 /// reference is functional (W3C Ontolex §3.4).
@@ -123,39 +139,44 @@ pr4xis::register_axiom!(
 pub struct ReferenceIsFunctional;
 
 impl Axiom for ReferenceIsFunctional {
-    fn description(&self) -> &str {
-        "reference is functional: sense → exactly one ontology entity (W3C Ontolex §3.4)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let m = LemonCategory::morphisms();
-        m.iter()
+        let count = m
+            .iter()
             .filter(|r| {
                 r.from == LemonConcept::LexicalSense
                     && r.to == LemonConcept::OntologyReference
                     && r.kind == LemonRelationKind::Reference
             })
-            .count()
-            <= 1
+            .count();
+        if count <= 1 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "ReferenceIsFunctional",
+        "reference is functional: sense → exactly one ontology entity (W3C Ontolex §3.4)",
+        "W3C Lexicon Model for Ontologies (Ontolex-Lemon) (2016) §3.4"
+    );
 }
 pr4xis::register_axiom!(
     ReferenceIsFunctional,
-    "W3C Lexicon Model for Ontologies (2016);"
+    "W3C Lexicon Model for Ontologies (Ontolex-Lemon) (2016) §3.4"
 );
 
 impl Ontology for LemonOntology {
     type Cat = LemonCategory;
     type Qual = IsCoreConcept;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        LemonOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(DenotesIsPropertyChain),
-            Box::new(CanonicalFormIsFunctional),
-            Box::new(ReferenceIsFunctional),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(DenotesIsPropertyChain));
+        axioms.push(Box::new(CanonicalFormIsFunctional));
+        axioms.push(Box::new(ReferenceIsFunctional));
+        axioms
     }
 }

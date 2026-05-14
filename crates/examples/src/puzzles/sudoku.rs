@@ -1,6 +1,23 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const SUDOKU_CITATION: &str = "Yato & Seta (2003) Complexity and Completeness of Finding Another Solution \
+     and Its Application to Puzzles, IEICE Trans. on Fundamentals E86-A(5):1052-1060";
 
 /// Sudoku: 9x9 grid, digits 1-9, no repeats in row/col/box.
+///
+/// Source: Yato & Seta (2003) — formal complexity treatment of the
+/// constraints (NP-completeness of generalised Sudoku).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     pub grid: [[u8; 9]; 9], // 0 = empty
@@ -50,16 +67,14 @@ impl State {
             .filter(|&&v| v == 0)
             .count()
     }
-}
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        format!("sudoku empty={}", self.empty_cells())
-    }
-    fn is_terminal(&self) -> bool {
+    /// The puzzle is solved when every cell is filled.
+    pub fn is_terminal(&self) -> bool {
         self.empty_cells() == 0
     }
 }
+
+impl Situation for State {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Place {
@@ -70,74 +85,33 @@ pub struct Place {
 
 impl Action for Place {
     type Sit = State;
-    fn describe(&self) -> String {
-        format!("place {} at ({},{})", self.val, self.row, self.col)
-    }
 }
 
 struct SudokuRules;
 impl Precondition<Place> for SudokuRules {
-    fn check(&self, s: &State, a: &Place) -> PreconditionResult {
+    fn check(&self, s: &State, a: &Place) -> Verdict {
+        let meta = axiom_meta(
+            "sudoku",
+            "no duplicate digits in row, column, or 3x3 box",
+            SUDOKU_CITATION,
+        );
         if a.row >= 9 || a.col >= 9 {
-            return PreconditionResult::violated(
-                "sudoku",
-                "out of range",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         if a.val == 0 || a.val > 9 {
-            return PreconditionResult::violated(
-                "sudoku",
-                "value must be 1-9",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         if s.get(a.row, a.col) != 0 {
-            return PreconditionResult::violated(
-                "sudoku",
-                "cell already filled",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         if !s.is_valid_placement(a.row, a.col, a.val) {
-            // Find which constraint is violated
-            if s.grid[a.row].contains(&a.val) {
-                return PreconditionResult::violated(
-                    "sudoku",
-                    &format!("{} already in row {}", a.val, a.row),
-                    &s.describe(),
-                    &a.describe(),
-                );
-            }
-            if (0..9).any(|r| s.grid[r][a.col] == a.val) {
-                return PreconditionResult::violated(
-                    "sudoku",
-                    &format!("{} already in col {}", a.val, a.col),
-                    &s.describe(),
-                    &a.describe(),
-                );
-            }
-            return PreconditionResult::violated(
-                "sudoku",
-                &format!("{} already in 3x3 box", a.val),
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied(
-            "sudoku",
-            &format!("{} at ({},{}) is valid", a.val, a.row, a.col),
-        )
-    }
-    fn describe(&self) -> &str {
-        "no duplicate digits in row, column, or 3x3 box"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_sudoku(s: &State, a: &Place) -> Result<State, String> {
+fn apply_sudoku(s: &State, a: &Place) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     n.grid[a.row][a.col] = a.val;
     Ok(n)

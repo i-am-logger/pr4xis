@@ -327,7 +327,7 @@ proptest! {
 fn engine_scramble_and_undo() {
     let e = new_cube();
     assert!(e.situation().is_solved());
-    let e = e.try_next(RubikAction(Move::R)).unwrap();
+    let e = e.next(RubikAction(Move::R)).unwrap();
     assert!(!e.situation().is_solved());
     let e = e.back().unwrap();
     assert!(e.situation().is_solved());
@@ -338,11 +338,11 @@ fn engine_sequence_preserves_invariant() {
     let mut e = new_cube();
     let moves = [Move::R, Move::U, Move::F, Move::L, Move::D, Move::B];
     for m in moves {
-        e = e.try_next(RubikAction(m)).unwrap();
+        e = e.next(RubikAction(m)).unwrap();
     }
     assert_eq!(e.step(), 6);
     // Color invariant holds throughout (precondition checked each step)
-    assert!(e.trace().entries().iter().all(|entry| entry.success));
+    assert!(e.trace().entries().iter().all(|entry| entry.applied()));
 }
 
 #[test]
@@ -350,12 +350,12 @@ fn engine_inverse_solves() {
     let mut e = new_cube();
     let moves = [Move::R, Move::U, Move::F];
     for m in &moves {
-        e = e.try_next(RubikAction(*m)).unwrap();
+        e = e.next(RubikAction(*m)).unwrap();
     }
     assert!(!e.situation().is_solved());
     // Apply inverse sequence
     for m in moves.iter().rev() {
-        e = e.try_next(RubikAction(m.inverse())).unwrap();
+        e = e.next(RubikAction(m.inverse())).unwrap();
     }
     assert!(e.situation().is_solved());
 }
@@ -363,8 +363,8 @@ fn engine_inverse_solves() {
 #[test]
 fn engine_back_forward_cycle() {
     let e = new_cube();
-    let e = e.try_next(RubikAction(Move::R)).unwrap();
-    let e = e.try_next(RubikAction(Move::U)).unwrap();
+    let e = e.next(RubikAction(Move::R)).unwrap();
+    let e = e.next(RubikAction(Move::U)).unwrap();
     let e = e.back().unwrap();
     let e = e.back().unwrap();
     assert!(e.situation().is_solved());

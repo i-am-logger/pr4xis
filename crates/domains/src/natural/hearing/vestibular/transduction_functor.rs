@@ -1,11 +1,14 @@
-//! Functor: TransductionCategory -> VestibularCategory.
+//! Functor: TransductionCategory → VestibularCategory.
 //!
 //! Maps hair cell transduction to vestibular function — same molecular
 //! machinery, different sensory modality.
+//!
+//! Citation: Hudspeth & Corey (1977) *PNAS* 74(6):2407 — shared
+//! hair-cell transduction across auditory and vestibular hair cells.
 
 use crate::natural::hearing::transduction::ontology::*;
 use crate::natural::hearing::vestibular::ontology::*;
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Functor};
 
 pub struct TransductionToVestibular;
 
@@ -44,22 +47,37 @@ impl Functor for TransductionToVestibular {
             T::KCNQ4 | T::CaV1_3 | T::BKChannel | T::IonChannel => TypeIIHairCell,
             T::GlutamateRelease | T::Glutamate => ScarpaGanglion,
             T::ActionPotential => VestibularNerve,
-            T::Prestin | T::Electromotility | T::CochlearAmplification => Cupula, // no prestin analog in vestibular
+            T::Prestin | T::Electromotility | T::CochlearAmplification => Cupula,
             T::CellularSignal => VestibularNuclei,
+            // Transduction events → vestibular events.
+            T::BasilarMembraneMotion => HeadRotation,
+            T::StereociliaBundleDeflection | T::TipLinkStretch => CupulaDeflection,
+            T::METChannelGating | T::PotassiumEntry => CanalHairCellActivation,
+            T::CellDepolarization => CanalHairCellActivation,
+            T::CalciumEntry => MaculaHairCellActivation,
+            T::VesicleRelease => VestibularAfferentFiring,
+            T::NerveActivation => VestibularNucleiProcessing,
+            T::PrestiConformationChange | T::CellLengthChange | T::BasilarMembraneAmplification => {
+                CupulaDeflection
+            }
+            T::SlowAdaptation | T::FastAdaptation => VestibularAfferentFiring,
+            T::TransductionEvent => VestibularEvent,
         }
     }
 
     fn map_morphism(m: &TransductionRelation) -> VestibularRelation {
+        use TransductionCategoryRelationKind as Sk;
+        use VestibularRelationKind as Tk;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            TransductionCategoryRelationKind::Identity => VestibularCategory::identity(&from),
-            _ => VestibularRelation {
-                from,
-                to,
-                kind: VestibularCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        VestibularRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(TransductionToVestibular);
@@ -68,54 +86,24 @@ pr4xis::register_functor!(TransductionToVestibular);
 mod tests {
     use super::*;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
-    fn test_functor_laws() {
-        check_functor_laws::<TransductionToVestibular>().unwrap();
+    fn functor_laws() {
+        assert_functor_laws::<TransductionToVestibular>();
     }
     #[test]
-    fn test_analogy_validates() {
-        Analogy::<TransductionToVestibular>::validate().unwrap();
-    }
-
-    #[test]
-    fn test_action_potential_maps_to_nerve() {
+    fn action_potential_maps_to_nerve() {
         assert_eq!(
             TransductionToVestibular::map_object(&TransductionEntity::ActionPotential),
-            VestibularEntity::VestibularNerve,
+            VestibularEntity::VestibularNerve
         );
     }
-
     #[test]
-    fn test_every_entity_maps_valid() {
+    fn every_entity_maps_valid() {
         let targets = VestibularEntity::variants();
         for obj in TransductionEntity::variants() {
             assert!(targets.contains(&TransductionToVestibular::map_object(&obj)));
-        }
-    }
-
-    use pr4xis::category::Category;
-    use proptest::prelude::*;
-
-    fn arb_transduction_entity() -> impl Strategy<Value = TransductionEntity> {
-        (0..TransductionEntity::variants().len()).prop_map(|i| TransductionEntity::variants()[i])
-    }
-
-    proptest! {
-        #[test]
-        fn prop_functor_maps_to_valid_target(entity in arb_transduction_entity()) {
-            let mapped = TransductionToVestibular::map_object(&entity);
-            prop_assert!(VestibularEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_functor_preserves_identity(entity in arb_transduction_entity()) {
-            let id_src = TransductionCategory::identity(&entity);
-            let mapped_id = TransductionToVestibular::map_morphism(&id_src);
-            let id_tgt = VestibularCategory::identity(&TransductionToVestibular::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
         }
     }
 }

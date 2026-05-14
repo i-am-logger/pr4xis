@@ -9,13 +9,13 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::bioelectricity::ontology::{
     BioelectricCategory, BioelectricEntity, BioelectricRelation, BioelectricRelationKind,
 };
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularEntity, MolecularRelation, MolecularRelationKind,
 };
 
 /// Structure-preserving map from molecular entities to their bioelectric role.
@@ -53,22 +53,26 @@ impl Functor for MolecularToBioelectric {
             | M::GapJunction
             | M::Protein
             | M::SignalingMolecule => Signal,
+
+            // Mechanotransduction events (umbrella + Piezo1Opening etc.) —
+            // these are dynamic molecular events; in the bioelectric view
+            // they map to Signal.
+            _ => Signal,
         }
     }
 
     fn map_morphism(m: &MolecularRelation) -> BioelectricRelation {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        // Identity morphisms must map to identity (functor law). Other kinds
-        // collapse to Composed in the target — matching how the target's
-        // compose produces Composed morphisms for non-Identity inputs (so
-        // F(g∘f) == F(g)∘F(f) holds under collapse).
+        // Identity preserved; non-Identity kinds collapse to a single target
+        // kind so F(g∘f) = F(g)∘F(f) holds for same-kind transitive composition
+        // under #166 (no `Composed` variant in proc-macro-generated enums).
         match m.kind {
-            MolecularCategoryRelationKind::Identity => BioelectricCategory::identity(&from),
+            MolecularRelationKind::Identity => BioelectricCategory::identity(&from),
             _ => BioelectricRelation {
                 from,
                 to,
-                kind: BioelectricRelationKind::Composed,
+                kind: BioelectricRelationKind::Subsumption,
             },
         }
     }
@@ -78,13 +82,13 @@ pr4xis::register_functor!(MolecularToBioelectric);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<MolecularToBioelectric>().unwrap();
+        assert_functor_laws::<MolecularToBioelectric>();
     }
 
     #[test]
@@ -105,37 +109,37 @@ mod tests {
     }
 
     #[test]
-    fn test_composition_preservation() {
-        // For composable morphism pairs, mapping the composition must equal
-        // composing the mapped morphisms.
-        let objs = MolecularEntity::variants();
-        // Test a representative sample (full product is large)
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = MolecularRelation {
-                        from: a,
-                        to: b,
-                        kind: MolecularCategoryRelationKind::Composed,
-                    };
-                    let g = MolecularRelation {
-                        from: b,
-                        to: c,
-                        kind: MolecularCategoryRelationKind::Composed,
-                    };
-                    let composed = MolecularCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = MolecularToBioelectric::map_morphism(&composed);
-                    let composed_mapped = BioelectricCategory::compose(
-                        &MolecularToBioelectric::map_morphism(&f),
-                        &MolecularToBioelectric::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
+    fn test_composition_preservation_on_subsumption() {
+        // The migrated Molecular category is kinded and partial (#166):
+        // compose only succeeds for same-kind transitive relations. Exercise
+        // composition along Subsumption chains and verify the functor
+        // preserves the composite.
+        for m in MolecularCategory::morphisms() {
+            if m.kind() != MolecularRelationKind::Subsumption {
+                continue;
+            }
+            for n in MolecularCategory::morphisms() {
+                if n.kind() != MolecularRelationKind::Subsumption {
+                    continue;
                 }
+                if m.target() != n.source() {
+                    continue;
+                }
+                let composed = match MolecularCategory::compose(&m, &n) {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let mapped_composed = MolecularToBioelectric::map_morphism(&composed);
+                let composed_mapped = BioelectricCategory::compose(
+                    &MolecularToBioelectric::map_morphism(&m),
+                    &MolecularToBioelectric::map_morphism(&n),
+                )
+                .expect("target composition is total for same-kind");
+                assert_eq!(
+                    mapped_composed, composed_mapped,
+                    "composition law failed for {:?} ∘ {:?}",
+                    m, n
+                );
             }
         }
     }

@@ -23,7 +23,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Discourse",
     source: "Mann & Thompson (1988); Asher & Lascarides (2003); Hobbs (1979)",
-    being: AbstractObject,
 
     concepts: [TextSpan, Nucleus, Satellite, DiscourseSegment, DiscourseStructure, Topic],
 
@@ -93,10 +92,8 @@ impl Quality for IsStructuralElement {
 pub struct NucleusSatelliteAsymmetric;
 
 impl Axiom for NucleusSatelliteAsymmetric {
-    fn description(&self) -> &str {
-        "Nucleus→Satellite relations exist but Satellite→Nucleus do not (RST asymmetry)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let m = DiscourseCategory::morphisms();
         let has_nuc_sat = m.iter().any(|r| {
             r.from == DiscourseConcept::Nucleus
@@ -108,8 +105,18 @@ impl Axiom for NucleusSatelliteAsymmetric {
                 && r.to == DiscourseConcept::Nucleus
                 && r.kind == DiscourseRelationKind::Elaboration
         });
-        has_nuc_sat && !has_sat_nuc_elab
+        if has_nuc_sat && !has_sat_nuc_elab {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "NucleusSatelliteAsymmetric",
+        "Nucleus→Satellite relations exist but Satellite→Nucleus do not (RST asymmetry)",
+        "Mann & Thompson (1988); Asher & Lascarides (2003); Hobbs (1979)"
+    );
 }
 pr4xis::register_axiom!(
     NucleusSatelliteAsymmetric,
@@ -121,17 +128,25 @@ pr4xis::register_axiom!(
 pub struct MultinuclearExists;
 
 impl Axiom for MultinuclearExists {
-    fn description(&self) -> &str {
-        "Multinuclear relations: Sequence, Contrast, Parallel connect Nucleus→Nucleus (RST)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let m = DiscourseCategory::morphisms();
-        m.iter().any(|r| {
+        if m.iter().any(|r| {
             r.from == DiscourseConcept::Nucleus
                 && r.to == DiscourseConcept::Nucleus
                 && r.kind == DiscourseRelationKind::Sequence
-        })
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "MultinuclearExists",
+        "Multinuclear relations: Sequence, Contrast, Parallel connect Nucleus→Nucleus (RST)",
+        "Mann & Thompson (1988); Asher & Lascarides (2003); Hobbs (1979)"
+    );
 }
 pr4xis::register_axiom!(
     MultinuclearExists,
@@ -142,14 +157,10 @@ impl Ontology for DiscourseOntology {
     type Cat = DiscourseCategory;
     type Qual = IsStructuralElement;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        DiscourseOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(NucleusSatelliteAsymmetric),
-            Box::new(MultinuclearExists),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(NucleusSatelliteAsymmetric));
+        axioms.push(Box::new(MultinuclearExists));
+        axioms
     }
 }

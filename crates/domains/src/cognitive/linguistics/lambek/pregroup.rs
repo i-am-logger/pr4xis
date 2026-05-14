@@ -317,11 +317,8 @@ pub fn parse(word_types: &[PregroupType]) -> bool {
 pub struct LeftContraction;
 
 impl Axiom for LeftContraction {
-    fn description(&self) -> &str {
-        "pregroup left contraction: a^l · a ≤ 1 (Lambek 1999)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         // Verify for all basic types
         for base in BasicType::variants() {
             let product = PregroupType::new(vec![
@@ -330,23 +327,29 @@ impl Axiom for LeftContraction {
             ]);
             let contracted = product.contract();
             if !contracted.is_identity() {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "LeftContraction",
+        "pregroup left contraction: a^l · a ≤ 1 (Lambek 1999)",
+        "Lambek (1999) Type Grammars Revisited, LNCS 1582"
+    );
 }
-pr4xis::register_axiom!(LeftContraction);
+pr4xis::register_axiom!(
+    LeftContraction,
+    "Lambek (1999) Type Grammars Revisited, LNCS 1582"
+);
 
 /// Right contraction axiom: a · a^r ≤ 1
 pub struct RightContraction;
 
 impl Axiom for RightContraction {
-    fn description(&self) -> &str {
-        "pregroup right contraction: a · a^r ≤ 1 (Lambek 1999)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for base in BasicType::variants() {
             let product = PregroupType::new(vec![
                 PregroupElement::basic(base),
@@ -354,13 +357,22 @@ impl Axiom for RightContraction {
             ]);
             let contracted = product.contract();
             if !contracted.is_identity() {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "RightContraction",
+        "pregroup right contraction: a · a^r ≤ 1 (Lambek 1999)",
+        "Lambek (1999) Type Grammars Revisited, LNCS 1582"
+    );
 }
-pr4xis::register_axiom!(RightContraction);
+pr4xis::register_axiom!(
+    RightContraction,
+    "Lambek (1999) Type Grammars Revisited, LNCS 1582"
+);
 
 // =============================================================================
 // The pregroup as a Category
@@ -376,16 +388,41 @@ pub struct PregroupMorphism {
     pub product: PregroupType,
 }
 
-impl pr4xis::category::relationship::Relationship for PregroupMorphism {
+/// Relation-kind tag for the pregroup category.
+///
+/// Per OBO-RO (Smith 2005), every arrow carries a canonical kind.
+/// The pregroup category has a single relation type: contraction —
+/// the reduction of an adjoint product to an identity (Lambek 1958, 1999).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PregroupRelationKind {
+    Contraction,
+}
+
+impl pr4xis::category::Arrow for PregroupMorphism {
     type Object = BasicType;
-    type Kind = ();
+    type Kind = PregroupRelationKind;
+
     fn source(&self) -> BasicType {
         self.source
     }
     fn target(&self) -> BasicType {
         self.target
     }
-    fn kind(&self) {}
+    fn kind(&self) -> PregroupRelationKind {
+        PregroupRelationKind::Contraction
+    }
+    fn meta(&self) -> pr4xis::ontology::meta::Provenance {
+        pr4xis::ontology::meta::Provenance {
+            name: pr4xis::ontology::meta::OntologyName::new_static("PregroupMorphism"),
+            description: pr4xis::ontology::meta::Label::new_static(
+                "contraction from source basic type to target via pregroup product (Lambek 1958, 1999)",
+            ),
+            citation: pr4xis::ontology::meta::Citation::parse_static(
+                "Lambek (1958, 1999) Type Grammar Revisited",
+            ),
+            module_path: pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 /// The pregroup as a category.
@@ -411,39 +448,36 @@ impl pr4xis::category::Category for PregroupCategory {
         if f.target != g.source {
             return None;
         }
-        // Identity handling
+        // Identity handling — the only universally-defined composition in
+        // the free pregroup over `BasicType`. General product-then-contract
+        // composition is undefined absent a finite presentation of the
+        // morphism algebra (Lambek 1999): the result may land on a multi-
+        // basic product with no canonical arrow in `morphisms()`, and the
+        // associativity law then fails on those undefined composites.
+        // Per #166 this is a partial category — outside Identity we
+        // decline composition rather than coerce.
         if f.product.is_identity() {
             return Some(g.clone());
         }
         if g.product.is_identity() {
             return Some(f.clone());
         }
-        // Compose = concatenate products, then contract
-        let combined = f.product.product(&g.product);
-        let contracted = combined.contract();
-        Some(PregroupMorphism {
-            source: f.source,
-            target: g.target,
-            product: contracted,
-        })
+        None
     }
 
     fn morphisms() -> Vec<PregroupMorphism> {
-        let mut m = Vec::new();
+        // Identities — match `Self::identity()` exactly (empty product is
+        // the monoidal unit per Lambek 1958 / Lambek 1999 pregroup
+        // structure; the `single(b)` morphism is a non-identity arrow).
+        let mut m: Vec<PregroupMorphism> = BasicType::variants()
+            .into_iter()
+            .map(|b| Self::identity(&b))
+            .collect();
 
-        // Identities
-        for b in BasicType::variants() {
-            m.push(PregroupMorphism {
-                source: b,
-                target: b,
-                product: PregroupType::single(b),
-            });
-        }
-
-        // Standard English type assignments as morphisms:
-        // Structural morphisms: for each pair (A, B) where A ≠ B,
-        // the product A^r · B is a morphism from A to B.
-        // These are the fundamental arrows the pregroup algebra provides.
+        // Structural morphisms: for each pair (A, B) where A ≠ B, the
+        // product A^r · B is a morphism from A to B (Lambek 1999 §3 type
+        // assignment). These are the fundamental arrows the pregroup
+        // algebra provides.
         let types = BasicType::variants();
         for &src in &types {
             for &tgt in &types {
@@ -458,6 +492,18 @@ impl pr4xis::category::Category for PregroupCategory {
                     });
                 }
             }
+        }
+
+        // Same-source non-identity self-loops (single-basic-type products)
+        // — typed structural arrows distinct from the identity. Including
+        // them closes the morphism set under composition with structural
+        // arrows that contract to a single basic type.
+        for b in BasicType::variants() {
+            m.push(PregroupMorphism {
+                source: b,
+                target: b,
+                product: PregroupType::single(b),
+            });
         }
 
         m
@@ -527,22 +573,22 @@ pub fn lambek_to_pregroup(lambek: &super::types::LambekType) -> PregroupType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
     use pr4xis::logic::Axiom;
 
     #[test]
     fn pregroup_category_laws() {
-        check_category_laws::<PregroupCategory>().unwrap();
+        assert_category_laws::<PregroupCategory>();
     }
 
     #[test]
     fn left_contraction_holds() {
-        assert!(LeftContraction.holds());
+        assert!(LeftContraction.verify().is_ok());
     }
 
     #[test]
     fn right_contraction_holds() {
-        assert!(RightContraction.holds());
+        assert!(RightContraction.verify().is_ok());
     }
 
     #[test]
@@ -821,7 +867,7 @@ mod tests {
     fn functor_preserves_parsing() {
         // If Lambek types parse, their pregroup images should also parse.
         // "the dog runs": det + noun + iv
-        let lambek_types = vec![
+        let lambek_types = [
             lambek_svo::determiner(),
             lambek_svo::noun(),
             lambek_svo::intransitive_verb(),
@@ -841,7 +887,7 @@ mod tests {
     #[test]
     fn functor_transitive_parses() {
         // "she sees the dog": np + tv + det + noun
-        let lambek_types = vec![
+        let lambek_types = [
             lambek_svo::proper_noun(),
             lambek_svo::transitive_verb(),
             lambek_svo::determiner(),
@@ -862,7 +908,7 @@ mod tests {
     #[test]
     fn functor_adjective_parses() {
         // "the big dog runs": det + adj + noun + iv
-        let lambek_types = vec![
+        let lambek_types = [
             lambek_svo::determiner(),
             lambek_svo::adjective(),
             lambek_svo::noun(),

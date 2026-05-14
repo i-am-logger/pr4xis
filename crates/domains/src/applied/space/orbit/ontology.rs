@@ -2,15 +2,12 @@
 //!
 //! Source: Vallado (2013), *Fundamentals of Astrodynamics and Applications*, 4th ed.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Orbit",
     source: "Vallado (2013); Battin (1999)",
-    being: Process,
 
     concepts: [SemiMajorAxis, Eccentricity, Inclination, RAAN, ArgPeriapsis, TrueAnomaly],
 
@@ -48,62 +45,70 @@ impl Quality for ElementUnit {
 pub struct EccentricityBounded;
 
 impl Axiom for EccentricityBounded {
-    fn description(&self) -> &str {
-        "eccentricity is in [0, 1) for elliptical (bound) orbits"
+    fn verify(&self) -> Verdict {
+        // Per Vallado (2013) §2.4, the classical orbital element
+        // eccentricity satisfies 0 ≤ e < 1 for elliptical (bound) orbits;
+        // e = 1 is parabolic (escape) and e > 1 is hyperbolic.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "EccentricityBounded",
+        "eccentricity is in [0, 1) for elliptical (bound) orbits",
+        "Vallado (2013) Fundamentals of Astrodynamics and Applications 4th ed. §2.4"
+    );
 }
 pr4xis::register_axiom!(
     EccentricityBounded,
-    "Vallado (2013), *Fundamentals of Astrodynamics and Applications*, 4th ed."
+    "Vallado (2013) Fundamentals of Astrodynamics and Applications 4th ed. §2.4"
 );
 
 /// Axiom: semi-major axis must be positive for bound orbits.
 pub struct SemiMajorAxisPositive;
 
 impl Axiom for SemiMajorAxisPositive {
-    fn description(&self) -> &str {
-        "semi-major axis is positive for bound orbits"
+    fn verify(&self) -> Verdict {
+        // Vis-viva: v² = μ(2/r − 1/a). For bound (E < 0) orbits a > 0;
+        // a → ∞ at escape and a < 0 for hyperbolic.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "SemiMajorAxisPositive",
+        "semi-major axis is positive for bound orbits",
+        "Vallado (2013) Fundamentals of Astrodynamics and Applications 4th ed. §2.3 (vis-viva)"
+    );
 }
 pr4xis::register_axiom!(
     SemiMajorAxisPositive,
-    "Vallado (2013), *Fundamentals of Astrodynamics and Applications*, 4th ed."
+    "Vallado (2013) Fundamentals of Astrodynamics and Applications 4th ed. §2.3 (vis-viva)"
 );
 
 impl Ontology for OrbitOntology {
     type Cat = OrbitCategory;
     type Qual = ElementUnit;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(EccentricityBounded),
-            Box::new(SemiMajorAxisPositive),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(EccentricityBounded));
+        axioms.push(Box::new(SemiMajorAxisPositive));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<OrbitCategory>().unwrap();
+        assert_category_laws::<OrbitCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        OrbitOntology::validate().unwrap();
+        OrbitOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

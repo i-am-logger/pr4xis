@@ -336,17 +336,18 @@ proptest! {
 #[test]
 fn engine_tick_sequence() {
     let e = new_intersection(3, 1, 3);
-    let e = e.try_next(TrafficAction::Tick).unwrap();
-    let e = e.try_next(TrafficAction::Tick).unwrap();
+    let e = e.next(TrafficAction::Tick).unwrap();
+    let e = e.next(TrafficAction::Tick).unwrap();
     assert_eq!(e.step(), 2);
-    assert!(!e.is_terminal());
+    // Per #161 Situation no longer carries is_terminal — traffic never
+    // terminates as a domain invariant.
 }
 
 #[test]
 fn engine_back_forward() {
     let e = new_intersection(3, 1, 3);
-    let e = e.try_next(TrafficAction::Tick).unwrap();
-    let e = e.try_next(TrafficAction::Tick).unwrap();
+    let e = e.next(TrafficAction::Tick).unwrap();
+    let e = e.next(TrafficAction::Tick).unwrap();
     assert_eq!(e.step(), 2);
     let e = e.back().unwrap();
     assert_eq!(e.step(), 1);
@@ -360,11 +361,11 @@ fn engine_advance_and_tick() {
     // Tick through green duration
     let mut e = e;
     for _ in 0..3 {
-        e = e.try_next(TrafficAction::Tick).unwrap();
+        e = e.next(TrafficAction::Tick).unwrap();
     }
     // Advance signal 0
     let e = e
-        .try_next(TrafficAction::AdvanceSignal { direction: 0 })
+        .next(TrafficAction::AdvanceSignal { direction: 0 })
         .unwrap();
     assert!(e.step() > 0);
 }
@@ -372,8 +373,8 @@ fn engine_advance_and_tick() {
 #[test]
 fn engine_trace_records_actions() {
     let e = new_intersection(3, 1, 3);
-    let e = e.try_next(TrafficAction::Tick).unwrap();
-    let e = e.try_next(TrafficAction::Tick).unwrap();
+    let e = e.next(TrafficAction::Tick).unwrap();
+    let e = e.next(TrafficAction::Tick).unwrap();
     assert_eq!(e.trace().entries().len(), 2);
-    assert!(e.trace().entries().iter().all(|entry| entry.success));
+    assert!(e.trace().entries().iter().all(|entry| entry.applied()));
 }

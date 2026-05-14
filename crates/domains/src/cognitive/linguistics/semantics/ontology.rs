@@ -27,7 +27,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Montague",
     source: "Montague (1973) in Hintikka et al.; Montague (1970) Theoria 36",
-    being: AbstractObject,
 
     concepts: [
         SemanticDomain,
@@ -93,58 +92,72 @@ impl Quality for MontagueRole {
 pub struct MontagueHasAtomicDomains;
 
 impl Axiom for MontagueHasAtomicDomains {
-    fn description(&self) -> &str {
-        "Montague semantics has two atomic domains: EntityDomain (e) and PropositionDomain (t) — all other domains are functions built from them (Montague 1970)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let subs: Vec<_> = MontagueCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == MontagueRelationKind::Subsumption)
+            .collect();
+        if subs.iter().any(|m| {
+            m.source() == MontagueConcept::EntityDomain
+                && m.target() == MontagueConcept::SemanticDomain
+        }) && subs.iter().any(|m| {
+            m.source() == MontagueConcept::PropositionDomain
+                && m.target() == MontagueConcept::SemanticDomain
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = MontagueTaxonomy::relations();
-        rels.iter().any(|(c, p)| {
-            *c == MontagueConcept::EntityDomain && *p == MontagueConcept::SemanticDomain
-        }) && rels.iter().any(|(c, p)| {
-            *c == MontagueConcept::PropositionDomain && *p == MontagueConcept::SemanticDomain
-        })
-    }
+
+    pr4xis::axiom_meta!(
+        "MontagueHasAtomicDomains",
+        "Montague semantics has two atomic domains: EntityDomain (e) and PropositionDomain (t) — all other domains are functions built from them (Montague 1970)",
+        "Montague (1970) Universal Grammar, Theoria 36; Montague (1973) The Proper Treatment of Quantification in Ordinary English"
+    );
 }
 pr4xis::register_axiom!(
     MontagueHasAtomicDomains,
-    "- Montague, R. (1973). *The Proper Treatment of Quantification in"
+    "Montague (1970) Universal Grammar, Theoria 36; Montague (1973) The Proper Treatment of Quantification in Ordinary English"
 );
 
 impl Ontology for MontagueOntology {
     type Cat = MontagueCategory;
     type Qual = MontagueRole;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        MontagueOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(MontagueHasAtomicDomains)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(MontagueHasAtomicDomains));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<MontagueCategory>().unwrap();
+        assert_category_laws::<MontagueCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        MontagueOntology::validate().unwrap();
+        MontagueOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
     fn montague_has_atomic_domains_holds() {
-        assert!(
-            MontagueHasAtomicDomains.holds(),
-            "{}",
-            MontagueHasAtomicDomains.description()
-        );
+        match MontagueHasAtomicDomains.verify() {
+            Ok(_) => {}
+            Err(c) => panic!(
+                "MontagueHasAtomicDomains failed: {}",
+                c.meta().description.as_str()
+            ),
+        }
     }
 }

@@ -2,15 +2,12 @@
 //!
 //! Source: Farrar & Worden (2007), "An Introduction to Structural Health Monitoring"
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Structural",
     source: "Farrar & Worden (2007); Paris & Erdogan (1963)",
-    being: PhysicalEndurant,
 
     concepts: [StrainGauge, Accelerometer, CrackSensor],
 
@@ -42,59 +39,70 @@ impl Quality for SensorMeasurand {
 pub struct StrainBoundedElastic;
 
 impl Axiom for StrainBoundedElastic {
-    fn description(&self) -> &str {
-        "strain is bounded within elastic deformation limits"
+    fn verify(&self) -> Verdict {
+        // Hooke's law: σ = E·ε with σ bounded above by yield stress σ_y
+        // implies ε ≤ σ_y / E in the elastic regime. See Farrar & Worden
+        // (2007) §2.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "StrainBoundedElastic",
+        "strain is bounded within elastic deformation limits",
+        "Farrar & Worden (2007) An Introduction to Structural Health Monitoring §2"
+    );
 }
 pr4xis::register_axiom!(
     StrainBoundedElastic,
-    "Farrar & Worden (2007), \"An Introduction to Structural Health Monitoring\""
+    "Farrar & Worden (2007) An Introduction to Structural Health Monitoring §2"
 );
 
 /// Axiom: crack length is non-negative and monotonically non-decreasing.
 pub struct CrackMonotonicity;
 
 impl Axiom for CrackMonotonicity {
-    fn description(&self) -> &str {
-        "crack length is non-negative and does not decrease (fatigue cracks only grow)"
+    fn verify(&self) -> Verdict {
+        // Paris-Erdogan law: da/dN = C·(ΔK)^m with da/dN ≥ 0 under cyclic
+        // loading. Fatigue cracks only grow; healing is not modelled.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "CrackMonotonicity",
+        "crack length is non-negative and does not decrease (fatigue cracks only grow)",
+        "Paris & Erdogan (1963) A Critical Analysis of Crack Propagation Laws"
+    );
 }
 pr4xis::register_axiom!(
     CrackMonotonicity,
-    "Farrar & Worden (2007), \"An Introduction to Structural Health Monitoring\""
+    "Paris & Erdogan (1963) A Critical Analysis of Crack Propagation Laws"
 );
 
 impl Ontology for StructuralOntology {
     type Cat = StructuralCategory;
     type Qual = SensorMeasurand;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(StrainBoundedElastic), Box::new(CrackMonotonicity)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(StrainBoundedElastic));
+        axioms.push(Box::new(CrackMonotonicity));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<StructuralCategory>().unwrap();
+        assert_category_laws::<StructuralCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        StructuralOntology::validate().unwrap();
+        StructuralOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

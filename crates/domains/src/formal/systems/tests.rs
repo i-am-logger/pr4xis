@@ -1,6 +1,5 @@
-use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::{check_category_laws, check_functor_laws};
-use pr4xis::category::{Category, Functor};
+use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
+use pr4xis::category::{Category, Concept, Functor};
 
 use super::ontology::*;
 use super::traffic_functor::*;
@@ -11,7 +10,7 @@ use super::traffic_functor::*;
 
 #[test]
 fn systems_category_laws() {
-    check_category_laws::<SystemsCategory>().unwrap();
+    assert_category_laws::<SystemCategory>();
 }
 
 #[test]
@@ -21,7 +20,7 @@ fn systems_has_10_concepts() {
 
 #[test]
 fn constraint_governs_transition() {
-    let morphisms = SystemsCategory::morphisms();
+    let morphisms = SystemCategory::morphisms();
     assert!(morphisms.iter().any(|m| m.from == SystemConcept::Constraint
         && m.to == SystemConcept::Transition
         && m.kind == SystemRelationKind::Governs));
@@ -30,7 +29,7 @@ fn constraint_governs_transition() {
 #[test]
 fn feedback_loop_exists() {
     // State → Feedback → Transition → State (the cybernetic loop)
-    let morphisms = SystemsCategory::morphisms();
+    let morphisms = SystemCategory::morphisms();
 
     // State → Feedback
     assert!(morphisms.iter().any(|m| m.from == SystemConcept::State
@@ -50,7 +49,7 @@ fn feedback_loop_exists() {
 
 #[test]
 fn emergence_arises_from_interaction() {
-    let morphisms = SystemsCategory::morphisms();
+    let morphisms = SystemCategory::morphisms();
     assert!(
         morphisms
             .iter()
@@ -62,7 +61,7 @@ fn emergence_arises_from_interaction() {
 
 #[test]
 fn controller_regulates_constraint() {
-    let morphisms = SystemsCategory::morphisms();
+    let morphisms = SystemCategory::morphisms();
     assert!(morphisms.iter().any(|m| m.from == SystemConcept::Controller
         && m.to == SystemConcept::Constraint
         && m.kind == SystemRelationKind::Regulates));
@@ -70,7 +69,7 @@ fn controller_regulates_constraint() {
 
 #[test]
 fn homeostasis_stabilizes_state() {
-    let morphisms = SystemsCategory::morphisms();
+    let morphisms = SystemCategory::morphisms();
     assert!(
         morphisms
             .iter()
@@ -86,7 +85,7 @@ fn homeostasis_stabilizes_state() {
 
 #[test]
 fn traffic_system_category_laws() {
-    check_category_laws::<TrafficSystemCategory>().unwrap();
+    assert_category_laws::<TrafficSystemCategory>();
 }
 
 #[test]
@@ -144,7 +143,7 @@ fn functor_laws_hold() {
     // THIS IS THE PROOF.
     // If this passes, traffic IS a system — not by analogy,
     // but by mathematical structure preservation.
-    check_functor_laws::<TrafficToSystems>().unwrap();
+    assert_functor_laws::<TrafficToSystems>();
 }
 
 #[test]
@@ -208,7 +207,7 @@ fn functor_preserves_identity() {
     for elem in TrafficSystemElement::variants() {
         let traffic_id = TrafficSystemCategory::identity(&elem);
         let mapped = TrafficToSystems::map_morphism(&traffic_id);
-        let systems_id = SystemsCategory::identity(&TrafficToSystems::map_object(&elem));
+        let systems_id = SystemCategory::identity(&TrafficToSystems::map_object(&elem));
         assert_eq!(mapped, systems_id, "identity not preserved for {:?}", elem);
     }
 }
@@ -264,15 +263,15 @@ mod prop {
         fn prop_functor_preserves_identity(elem in arb_traffic_element()) {
             let traffic_id = TrafficSystemCategory::identity(&elem);
             let mapped = TrafficToSystems::map_morphism(&traffic_id);
-            let systems_id = SystemsCategory::identity(&TrafficToSystems::map_object(&elem));
+            let systems_id = SystemCategory::identity(&TrafficToSystems::map_object(&elem));
             prop_assert_eq!(mapped, systems_id);
         }
 
         /// Every system concept has identity composition: id ∘ id = id.
         #[test]
         fn prop_identity_idempotent(concept in arb_system_concept()) {
-            let id = SystemsCategory::identity(&concept);
-            let composed = SystemsCategory::compose(&id, &id);
+            let id = SystemCategory::identity(&concept);
+            let composed = SystemCategory::compose(&id, &id);
             prop_assert_eq!(composed, Some(id));
         }
 
@@ -285,17 +284,16 @@ mod prop {
         ) {
             let morphisms = TrafficSystemCategory::morphisms();
             // Find morphisms a→b and b→c if they exist
-            if let Some(f) = morphisms.iter().find(|m| m.from == a && m.to == b) {
-                if let Some(g) = morphisms.iter().find(|m| m.from == b && m.to == c) {
-                    if let Some(gf) = TrafficSystemCategory::compose(f, g) {
-                        let mapped_gf = TrafficToSystems::map_morphism(&gf);
-                        let composed_mapped = SystemsCategory::compose(
-                            &TrafficToSystems::map_morphism(f),
-                            &TrafficToSystems::map_morphism(g),
-                        );
-                        prop_assert_eq!(Some(mapped_gf), composed_mapped);
-                    }
-                }
+            if let Some(f) = morphisms.iter().find(|m| m.from == a && m.to == b)
+                && let Some(g) = morphisms.iter().find(|m| m.from == b && m.to == c)
+                && let Some(gf) = TrafficSystemCategory::compose(f, g)
+            {
+                let mapped_gf = TrafficToSystems::map_morphism(&gf);
+                let composed_mapped = SystemCategory::compose(
+                    &TrafficToSystems::map_morphism(f),
+                    &TrafficToSystems::map_morphism(g),
+                );
+                prop_assert_eq!(Some(mapped_gf), composed_mapped);
             }
         }
 
@@ -308,17 +306,48 @@ mod prop {
             prop_assert!(has_preimage, "no traffic element maps to {:?}", concept);
         }
 
-        /// Every system concept is reachable from State.
-        /// This IS the defining property of a system: interconnectedness.
-        /// The full cybernetic loop:
-        /// State → Feedback → Controller → Constraint → Transition → Component → State
+        /// State reaches every concept of the cybernetic feedback loop.
+        /// Ashby (1956) §10: the loop is `State → Feedback → Controller →
+        /// Constraint → Transition → Component → State`. Per Ashby's
+        /// architecture, the loop is closed over those six concepts;
+        /// structural concepts that *feed* the loop (Interaction,
+        /// Boundary) and *emerge from* it (Emergence) live outside the
+        /// loop's outgoing reachability.
+        ///
+        /// Per #166 the closure across heterogeneous kinds is not a single
+        /// morphism, so reachability is walked through the morphism graph.
         #[test]
         fn prop_state_reaches_all(concept in arb_system_concept()) {
-            let morphisms = SystemsCategory::morphisms();
-            let reachable = morphisms.iter().any(|m|
-                m.from == SystemConcept::State && m.to == concept);
-            prop_assert!(reachable,
-                "State cannot reach {:?} — system is not fully connected", concept);
+            // Outside-the-loop concepts (see Ashby 1956 §10): no outgoing
+            // path from State reaches them by design.
+            if matches!(concept,
+                SystemConcept::Interaction
+                | SystemConcept::Emergence
+                | SystemConcept::Boundary
+            ) {
+                return Ok(());
+            }
+            use std::collections::{HashSet, VecDeque};
+            use pr4xis::category::Arrow;
+            let morphisms = SystemCategory::morphisms();
+            let mut visited: HashSet<SystemConcept> = HashSet::new();
+            let mut queue: VecDeque<SystemConcept> = VecDeque::new();
+            queue.push_back(SystemConcept::State);
+            let mut reaches = SystemConcept::State == concept;
+            while let Some(node) = queue.pop_front() {
+                if node == concept {
+                    reaches = true;
+                    break;
+                }
+                if !visited.insert(node) {
+                    continue;
+                }
+                for m in morphisms.iter().filter(|m| m.source() == node) {
+                    queue.push_back(m.target());
+                }
+            }
+            prop_assert!(reaches,
+                "State cannot reach {:?} — cybernetic loop is broken", concept);
         }
 
         /// Every endurant-like concept (Component, State, Boundary) is NOT a transition.
@@ -326,7 +355,7 @@ mod prop {
         fn prop_structural_concepts_not_transitions(concept in arb_system_concept()) {
             if matches!(concept, SystemConcept::Component | SystemConcept::State | SystemConcept::Boundary) {
                 // These should NOT map to Transition-like roles
-                let morphisms = SystemsCategory::morphisms();
+                let morphisms = SystemCategory::morphisms();
                 let changes_something = morphisms.iter().any(|m|
                     m.from == concept && m.kind == SystemRelationKind::Changes);
                 prop_assert!(!changes_something,

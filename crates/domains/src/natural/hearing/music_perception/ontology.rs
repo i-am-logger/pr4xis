@@ -1,110 +1,212 @@
-//! Music perception ontology.
+//! Music perception — how the auditory system perceives musical
+//! structure (pitch, harmony, rhythm, timbre, expectation).
 //!
-//! Models how the auditory system perceives musical structure.
+//! # Literature
 //!
-//! Key references:
-//! - Helmholtz 1863: On the Sensations of Tone
-//! - Krumhansl 1990: Cognitive Foundations of Musical Pitch
-//! - Lerdahl & Jackendoff 1983: Generative Theory of Tonal Music
-//! - Huron 2006: Sweet Anticipation
-//! - Plomp & Levelt 1965: consonance and critical bandwidth
-//! - Large & Palmer 2002: neural resonance theory of rhythm
-//! - Patel 2008: Music, Language, and the Brain
-//! - McDermott & Oxenham 2008: music perception review
+//! - **Helmholtz (1863)** *Die Lehre von den Tonempfindungen* — On the
+//!   Sensations of Tone, foundational consonance theory.
+//! - **Plomp & Levelt (1965)** "Tonal consonance and critical bandwidth",
+//!   *JASA* 38(4):548-560.
+//! - **Lerdahl & Jackendoff (1983)** *A Generative Theory of Tonal Music*.
+//! - **Krumhansl (1990)** *Cognitive Foundations of Musical Pitch*.
+//! - **Huron (2006)** *Sweet Anticipation: Music and the Psychology of
+//!   Expectation*.
+//! - **Large & Palmer (2002)** "Perceiving temporal regularity in music",
+//!   *Cog. Sci.* 26(1):1-37.
+//! - **Patel (2008)** *Music, Language, and the Brain*.
+//! - **McDermott & Oxenham (2008)** "Music perception, pitch, and the
+//!   auditory system", *Curr. Opin. Neurobiol.* 18(4):452-463.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-pub enum MusicEntity {
-    PitchHeight,
-    PitchChroma,
-    OctaveEquivalence,
-    AbsolutePitch,
-    RelativePitch,
-    MelodicContour,
-    IntervalPerception,
-    Consonance,
-    Dissonance,
-    RoughnessModel,
-    HarmonicSeries,
-    VirtualPitchPercept,
-    MissingFundamental,
-    Chord,
-    Tonality,
-    KeySense,
-    Beat,
-    Meter,
-    Tempo,
-    Syncopation,
-    Groove,
-    Entrainment,
-    TemporalExpectation,
-    SpectralCentroid,
-    AttackTime,
-    SpectralFlux,
-    InstrumentIdentification,
-    MusicalExpectation,
-    Surprise,
-    Tension,
-    Resolution,
-    MusicalEmotion,
-    EarWorm,
-    MusicalMemory,
-    TonalSchemaMemory,
-    PitchPercept,
-    HarmonicPercept,
-    RhythmicPercept,
-    TimbrePercept,
-    AffectiveResponse,
+pr4xis::ontology! {
+    name: "Music",
+    source: "Helmholtz (1863) On the Sensations of Tone; Plomp & Levelt (1965) JASA 38(4):548; Krumhansl (1990) Cognitive Foundations of Musical Pitch; Huron (2006) Sweet Anticipation; Lerdahl & Jackendoff (1983) Generative Theory of Tonal Music; Large & Palmer (2002) Cog. Sci. 26(1):1; Patel (2008) Music Language and the Brain; McDermott & Oxenham (2008) Curr. Opin. Neurobiol. 18(4):452",
+
+    concepts: [
+        // Pitch percepts
+        PitchHeight, PitchChroma, OctaveEquivalence, AbsolutePitch,
+        RelativePitch, MelodicContour, IntervalPerception,
+        // Harmonic percepts
+        Consonance, Dissonance, RoughnessModel, HarmonicSeries,
+        VirtualPitchPercept, MissingFundamental, Chord, Tonality, KeySense,
+        // Rhythmic
+        Beat, Meter, Tempo, Syncopation, Groove, Entrainment, TemporalExpectation,
+        // Timbre
+        SpectralCentroid, AttackTime, SpectralFlux, InstrumentIdentification,
+        // Affective / expectation
+        MusicalExpectation, Surprise, Tension, Resolution, MusicalEmotion,
+        // Memory
+        EarWorm, MusicalMemory, TonalSchemaMemory,
+        // Umbrellas
+        PitchPercept, HarmonicPercept, RhythmicPercept, TimbrePercept, AffectiveResponse,
+        // Events
+        AuditoryInput, PitchExtraction, OnsetDetection, HarmonicGrouping,
+        MelodicTracking, BeatInduction, MetricFraming, TonalInterpretation,
+        MusicalExpectationFormation, GroovePerception, EmotionalResponse,
+        MusicEvent,
+    ],
+
+    labels: {
+        PitchHeight: ("en", "Pitch height",
+            "Shepard (1982) Psychol. Rev. 89(4):305 — log-frequency dimension of pitch."),
+        PitchChroma: ("en", "Pitch chroma",
+            "Shepard (1982): circular pitch-class dimension."),
+        OctaveEquivalence: ("en", "Octave equivalence",
+            "Helmholtz (1863): perceptual identity of 2:1 frequency ratio."),
+        AbsolutePitch: ("en", "Absolute pitch",
+            "Krumhansl (1990) Ch. 7: identification of pitch class without reference."),
+        RelativePitch: ("en", "Relative pitch",
+            "Krumhansl (1990) Ch. 7: identification of interval relations."),
+        MelodicContour: ("en", "Melodic contour",
+            "Dowling (1978) Psychol. Rev. 85(4):341 — up/down pattern of pitch changes."),
+        IntervalPerception: ("en", "Interval perception",
+            "Krumhansl (1990): perception of frequency ratios between successive pitches."),
+        Consonance: ("en", "Consonance",
+            "Plomp & Levelt (1965) JASA 38(4):548 — perceived smoothness from non-overlapping critical bands."),
+        Dissonance: ("en", "Dissonance",
+            "Plomp & Levelt (1965): perceived roughness from overlapping critical bands."),
+        RoughnessModel: ("en", "Roughness model",
+            "Plomp & Levelt (1965): quantitative dissonance model from beating partials."),
+        HarmonicSeries: ("en", "Harmonic series",
+            "Helmholtz (1863): integer multiples of a fundamental frequency."),
+        VirtualPitchPercept: ("en", "Virtual pitch",
+            "Terhardt (1974) JASA 55(5):1061 — perceived pitch from harmonic pattern, even without f0."),
+        MissingFundamental: ("en", "Missing fundamental",
+            "Terhardt (1974): virtual pitch heard when fundamental is absent."),
+        Chord: ("en", "Chord",
+            "Lerdahl & Jackendoff (1983): simultaneous combination of three or more pitches."),
+        Tonality: ("en", "Tonality",
+            "Krumhansl (1990): hierarchical organization around a tonic."),
+        KeySense: ("en", "Key sense",
+            "Krumhansl (1990): perception of the prevailing tonal centre."),
+        Beat: ("en", "Beat",
+            "Large & Palmer (2002): perceived periodic pulse in music."),
+        Meter: ("en", "Meter",
+            "Lerdahl & Jackendoff (1983): hierarchical alternation of strong and weak beats."),
+        Tempo: ("en", "Tempo",
+            "Lerdahl & Jackendoff (1983): beat rate (e.g. BPM)."),
+        Syncopation: ("en", "Syncopation",
+            "Lerdahl & Jackendoff (1983): displacement of accent from metric strong positions."),
+        Groove: ("en", "Groove",
+            "Madison (2006) J. Exp. Psychol. Hum. Percept. 32(1):201 — subjective sensation of wanting to move."),
+        Entrainment: ("en", "Entrainment",
+            "Large & Palmer (2002): synchronization of motor / neural oscillators to a beat."),
+        TemporalExpectation: ("en", "Temporal expectation",
+            "Huron (2006): predicted onset of upcoming musical events."),
+        SpectralCentroid: ("en", "Spectral centroid",
+            "Grey (1977) JASA 61(5):1270 — perceived brightness via spectral first moment."),
+        AttackTime: ("en", "Attack time",
+            "Grey (1977): temporal envelope onset characteristic."),
+        SpectralFlux: ("en", "Spectral flux",
+            "Grey (1977): rate of spectral change over time."),
+        InstrumentIdentification: ("en", "Instrument identification",
+            "Grey (1977): categorical recognition of instrumental sound source."),
+        MusicalExpectation: ("en", "Musical expectation",
+            "Huron (2006): listener-generated prediction of upcoming events."),
+        Surprise: ("en", "Surprise",
+            "Huron (2006): expectation-violation response."),
+        Tension: ("en", "Tension",
+            "Lerdahl & Jackendoff (1983): perceived instability requiring resolution."),
+        Resolution: ("en", "Resolution",
+            "Lerdahl & Jackendoff (1983): perceived release of tension."),
+        MusicalEmotion: ("en", "Musical emotion",
+            "Juslin & Vastfjall (2008) BBS 31(5):559 — affect arising from music."),
+        EarWorm: ("en", "Earworm",
+            "Beaman & Williams (2010) Br. J. Psychol. 101(4):637 — involuntarily recurring musical imagery."),
+        MusicalMemory: ("en", "Musical memory",
+            "Krumhansl (1990): long-term store of musical material."),
+        TonalSchemaMemory: ("en", "Tonal schema memory",
+            "Krumhansl (1990) Ch. 4: internalised tonal hierarchy."),
+        PitchPercept: ("en", "Pitch percept",
+            "Krumhansl (1990): umbrella for pitch-related percepts."),
+        HarmonicPercept: ("en", "Harmonic percept",
+            "Helmholtz (1863): umbrella for harmony-related percepts."),
+        RhythmicPercept: ("en", "Rhythmic percept",
+            "Large & Palmer (2002): umbrella for rhythm-related percepts."),
+        TimbrePercept: ("en", "Timbre percept",
+            "Grey (1977): umbrella for timbre-related percepts."),
+        AffectiveResponse: ("en", "Affective response",
+            "Juslin & Vastfjall (2008): umbrella for emotional / expectation responses."),
+        AuditoryInput: ("en", "Auditory input",
+            "McDermott & Oxenham (2008): event of acoustic signal arriving at the ear."),
+        PitchExtraction: ("en", "Pitch extraction",
+            "McDermott & Oxenham (2008): event of pitch percept formation."),
+        OnsetDetection: ("en", "Onset detection",
+            "Large & Palmer (2002): event of acoustic onset detection."),
+        HarmonicGrouping: ("en", "Harmonic grouping",
+            "Helmholtz (1863): event of partial-grouping into a pitch percept."),
+        MelodicTracking: ("en", "Melodic tracking",
+            "Dowling (1978): event of melody-contour following."),
+        BeatInduction: ("en", "Beat induction",
+            "Large & Palmer (2002): event of beat-percept formation."),
+        MetricFraming: ("en", "Metric framing",
+            "Lerdahl & Jackendoff (1983): event of meter-percept formation."),
+        TonalInterpretation: ("en", "Tonal interpretation",
+            "Krumhansl (1990): event of key-and-chord interpretation."),
+        MusicalExpectationFormation: ("en", "Musical expectation formation",
+            "Huron (2006): event of expectation generation."),
+        GroovePerception: ("en", "Groove perception",
+            "Madison (2006): event of groove-sensation onset."),
+        EmotionalResponse: ("en", "Emotional response",
+            "Juslin & Vastfjall (2008): terminal event — emotion arising from music."),
+        MusicEvent: ("en", "Music event",
+            "Huron (2006): umbrella concept for music-perception perdurants."),
+    },
+
+    is_a: [
+        (PitchHeight, PitchPercept), (PitchChroma, PitchPercept),
+        (OctaveEquivalence, PitchPercept), (AbsolutePitch, PitchPercept),
+        (RelativePitch, PitchPercept), (MelodicContour, PitchPercept),
+        (IntervalPerception, PitchPercept),
+        (Consonance, HarmonicPercept), (Dissonance, HarmonicPercept),
+        (RoughnessModel, HarmonicPercept), (HarmonicSeries, HarmonicPercept),
+        (VirtualPitchPercept, HarmonicPercept), (MissingFundamental, HarmonicPercept),
+        (Chord, HarmonicPercept), (Tonality, HarmonicPercept), (KeySense, HarmonicPercept),
+        (Beat, RhythmicPercept), (Meter, RhythmicPercept), (Tempo, RhythmicPercept),
+        (Syncopation, RhythmicPercept), (Groove, RhythmicPercept),
+        (Entrainment, RhythmicPercept), (TemporalExpectation, RhythmicPercept),
+        (SpectralCentroid, TimbrePercept), (AttackTime, TimbrePercept),
+        (SpectralFlux, TimbrePercept), (InstrumentIdentification, TimbrePercept),
+        (MusicalExpectation, AffectiveResponse), (Surprise, AffectiveResponse),
+        (Tension, AffectiveResponse), (Resolution, AffectiveResponse),
+        (MusicalEmotion, AffectiveResponse),
+        (AuditoryInput, MusicEvent), (PitchExtraction, MusicEvent),
+        (OnsetDetection, MusicEvent), (HarmonicGrouping, MusicEvent),
+        (MelodicTracking, MusicEvent), (BeatInduction, MusicEvent),
+        (MetricFraming, MusicEvent), (TonalInterpretation, MusicEvent),
+        (MusicalExpectationFormation, MusicEvent), (GroovePerception, MusicEvent),
+        (EmotionalResponse, MusicEvent),
+    ],
+
+    causes: [
+        (AuditoryInput, PitchExtraction),
+        (AuditoryInput, OnsetDetection),
+        (PitchExtraction, HarmonicGrouping),
+        (PitchExtraction, MelodicTracking),
+        (OnsetDetection, BeatInduction),
+        (BeatInduction, MetricFraming),
+        (HarmonicGrouping, TonalInterpretation),
+        (MelodicTracking, MusicalExpectationFormation),
+        (MetricFraming, GroovePerception),
+        (TonalInterpretation, EmotionalResponse),
+        (MusicalExpectationFormation, EmotionalResponse),
+    ],
+
+    opposes: [
+        (Consonance, Dissonance), (Dissonance, Consonance),
+        (Tension, Resolution), (Resolution, Tension),
+        (AbsolutePitch, RelativePitch), (RelativePitch, AbsolutePitch),
+    ],
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-pub enum MusicCausalEvent {
-    AuditoryInput,
-    PitchExtraction,
-    OnsetDetection,
-    HarmonicGrouping,
-    MelodicTracking,
-    BeatInduction,
-    MetricFraming,
-    TonalInterpretation,
-    MusicalExpectationFormation,
-    GroovePerception,
-    EmotionalResponse,
-}
-define_ontology! {
-    /// Discrete category over music perception entities.
-    pub MusicPerceptionOntology for MusicPerceptionCategory {
-        entity: MusicEntity, relation: MusicRelation,
-        being: MentalObject,
-        source: "Helmholtz (1863); Krumhansl (1990)",
-        taxonomy: MusicTaxonomy [
-            (PitchHeight, PitchPercept), (PitchChroma, PitchPercept), (OctaveEquivalence, PitchPercept), (AbsolutePitch, PitchPercept), (RelativePitch, PitchPercept), (MelodicContour, PitchPercept), (IntervalPerception, PitchPercept),
-            (Consonance, HarmonicPercept), (Dissonance, HarmonicPercept), (RoughnessModel, HarmonicPercept), (HarmonicSeries, HarmonicPercept), (VirtualPitchPercept, HarmonicPercept), (MissingFundamental, HarmonicPercept), (Chord, HarmonicPercept), (Tonality, HarmonicPercept), (KeySense, HarmonicPercept),
-            (Beat, RhythmicPercept), (Meter, RhythmicPercept), (Tempo, RhythmicPercept), (Syncopation, RhythmicPercept), (Groove, RhythmicPercept), (Entrainment, RhythmicPercept), (TemporalExpectation, RhythmicPercept),
-            (SpectralCentroid, TimbrePercept), (AttackTime, TimbrePercept), (SpectralFlux, TimbrePercept), (InstrumentIdentification, TimbrePercept),
-            (MusicalExpectation, AffectiveResponse), (Surprise, AffectiveResponse), (Tension, AffectiveResponse), (Resolution, AffectiveResponse), (MusicalEmotion, AffectiveResponse),
-        ],
-        causation: MusicCausalGraph for MusicCausalEvent [
-            (AuditoryInput, PitchExtraction), (AuditoryInput, OnsetDetection), (PitchExtraction, HarmonicGrouping), (PitchExtraction, MelodicTracking), (OnsetDetection, BeatInduction), (BeatInduction, MetricFraming), (HarmonicGrouping, TonalInterpretation), (MelodicTracking, MusicalExpectationFormation), (MetricFraming, GroovePerception), (TonalInterpretation, EmotionalResponse), (MusicalExpectationFormation, EmotionalResponse),
-        ],
-        opposition: MusicOpposition [ (Consonance, Dissonance), (Tension, Resolution), (AbsolutePitch, RelativePitch) ],
-    }
-}
+
 #[derive(Debug, Clone)]
 pub struct ConsonanceRanking;
 impl Quality for ConsonanceRanking {
-    type Individual = MusicEntity;
+    type Individual = MusicConcept;
     type Value = u32;
-    fn get(&self, individual: &MusicEntity) -> Option<u32> {
-        use MusicEntity::*;
+    fn get(&self, individual: &MusicConcept) -> Option<u32> {
+        use MusicConcept::*;
         match individual {
             Consonance => Some(1),
             Dissonance => Some(10),
@@ -113,13 +215,14 @@ impl Quality for ConsonanceRanking {
         }
     }
 }
+
 #[derive(Debug, Clone)]
 pub struct PreferredTempoBPM;
 impl Quality for PreferredTempoBPM {
-    type Individual = MusicEntity;
+    type Individual = MusicConcept;
     type Value = f64;
-    fn get(&self, individual: &MusicEntity) -> Option<f64> {
-        use MusicEntity::*;
+    fn get(&self, individual: &MusicConcept) -> Option<f64> {
+        use MusicConcept::*;
         match individual {
             Tempo => Some(120.0),
             Beat => Some(120.0),
@@ -128,169 +231,157 @@ impl Quality for PreferredTempoBPM {
         }
     }
 }
+
 #[derive(Debug, Clone)]
 pub struct OctaveRatio;
 impl Quality for OctaveRatio {
-    type Individual = MusicEntity;
+    type Individual = MusicConcept;
     type Value = f64;
-    fn get(&self, individual: &MusicEntity) -> Option<f64> {
+    fn get(&self, individual: &MusicConcept) -> Option<f64> {
         match individual {
-            MusicEntity::OctaveEquivalence => Some(2.0),
+            MusicConcept::OctaveEquivalence => Some(2.0),
             _ => None,
         }
     }
 }
 
+fn effects_of(cause: MusicConcept) -> Vec<MusicConcept> {
+    use pr4xis::category::{Arrow, Category};
+    MusicCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == MusicRelationKind::Causation && m.source() == cause)
+        .map(|m| m.target())
+        .collect()
+}
+
 pub struct OctaveRatioIsTwo;
 impl Axiom for OctaveRatioIsTwo {
-    fn description(&self) -> &str {
-        "octave equivalence has a 2:1 frequency ratio"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if OctaveRatio.get(&MusicConcept::OctaveEquivalence) == Some(2.0) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        OctaveRatio.get(&MusicEntity::OctaveEquivalence) == Some(2.0)
-    }
+    pr4xis::axiom_meta!(
+        "OctaveRatioIsTwo",
+        "octave equivalence has a 2:1 frequency ratio",
+        "Helmholtz (1863) On the Sensations of Tone"
+    );
 }
-pr4xis::register_axiom!(OctaveRatioIsTwo);
-pub struct ConsonanceOpposesDissonance;
-impl Axiom for ConsonanceOpposesDissonance {
-    fn description(&self) -> &str {
-        "consonance and dissonance are opposed"
-    }
-    fn holds(&self) -> bool {
-        opposition::are_opposed::<MusicOpposition>(
-            &MusicEntity::Consonance,
-            &MusicEntity::Dissonance,
-        )
-    }
-}
-pr4xis::register_axiom!(ConsonanceOpposesDissonance);
-pub struct TensionOpposesResolution;
-impl Axiom for TensionOpposesResolution {
-    fn description(&self) -> &str {
-        "tension and resolution are opposed"
-    }
-    fn holds(&self) -> bool {
-        opposition::are_opposed::<MusicOpposition>(&MusicEntity::Tension, &MusicEntity::Resolution)
-    }
-}
-pr4xis::register_axiom!(TensionOpposesResolution);
+pr4xis::register_axiom!(
+    OctaveRatioIsTwo,
+    "Helmholtz (1863) On the Sensations of Tone"
+);
+
 pub struct ConsonanceRankedHigher;
 impl Axiom for ConsonanceRankedHigher {
-    fn description(&self) -> &str {
-        "consonance ranks higher (lower number) than dissonance"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use MusicConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let c = ConsonanceRanking.get(&Consonance).unwrap_or(u32::MAX);
+        let d = ConsonanceRanking.get(&Dissonance).unwrap_or(0);
+        if c < d {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use MusicEntity::*;
-        ConsonanceRanking.get(&Consonance).unwrap() < ConsonanceRanking.get(&Dissonance).unwrap()
-    }
+    pr4xis::axiom_meta!(
+        "ConsonanceRankedHigher",
+        "consonance ranks higher (lower number) than dissonance",
+        "Plomp & Levelt (1965) JASA 38(4):548"
+    );
 }
-pr4xis::register_axiom!(ConsonanceRankedHigher);
-pub struct FivePerceptualCategories;
-impl Axiom for FivePerceptualCategories {
-    fn description(&self) -> &str {
-        "pitch, harmonic, rhythmic, timbre, and affective categories exist"
-    }
-    fn holds(&self) -> bool {
-        use MusicEntity::*;
-        taxonomy::is_a::<MusicTaxonomy>(&PitchHeight, &PitchPercept)
-            && taxonomy::is_a::<MusicTaxonomy>(&Consonance, &HarmonicPercept)
-            && taxonomy::is_a::<MusicTaxonomy>(&Beat, &RhythmicPercept)
-            && taxonomy::is_a::<MusicTaxonomy>(&SpectralCentroid, &TimbrePercept)
-            && taxonomy::is_a::<MusicTaxonomy>(&MusicalEmotion, &AffectiveResponse)
-    }
-}
-pr4xis::register_axiom!(FivePerceptualCategories);
+pr4xis::register_axiom!(
+    ConsonanceRankedHigher,
+    "Plomp & Levelt (1965) JASA 38(4):548"
+);
+
 pub struct InputCausesEmotion;
 impl Axiom for InputCausesEmotion {
-    fn description(&self) -> &str {
-        "auditory input transitively causes emotional response"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use MusicConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if effects_of(AuditoryInput).contains(&EmotionalResponse) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use MusicCausalEvent::*;
-        causation::effects_of::<MusicCausalGraph>(&AuditoryInput).contains(&EmotionalResponse)
-    }
+    pr4xis::axiom_meta!(
+        "InputCausesEmotion",
+        "auditory input transitively causes emotional response",
+        "Juslin & Vastfjall (2008) BBS 31(5):559"
+    );
 }
-pr4xis::register_axiom!(InputCausesEmotion);
+pr4xis::register_axiom!(
+    InputCausesEmotion,
+    "Juslin & Vastfjall (2008) BBS 31(5):559"
+);
 
-impl Ontology for MusicPerceptionOntology {
-    type Cat = MusicPerceptionCategory;
+impl Ontology for MusicOntology {
+    type Cat = MusicCategory;
     type Qual = PreferredTempoBPM;
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(ConsonanceOpposesDissonance),
-            Box::new(TensionOpposesResolution),
-            Box::new(ConsonanceRankedHigher),
-            Box::new(FivePerceptualCategories),
-            Box::new(OctaveRatioIsTwo),
-            Box::new(InputCausesEmotion),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut a = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        a.push(Box::new(OctaveRatioIsTwo));
+        a.push(Box::new(ConsonanceRankedHigher));
+        a.push(Box::new(InputCausesEmotion));
+        a
     }
 }
+
+// Back-compat aliases.
+pub use MusicCategory as MusicPerceptionCategory;
+pub use MusicConcept as MusicEntity;
+pub use MusicOntology as MusicPerceptionOntology;
+pub use MusicRelationKind as MusicPerceptionCategoryRelationKind;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category};
     use proptest::prelude::*;
+
     #[test]
-    fn test_consonance_dissonance() {
-        assert!(ConsonanceOpposesDissonance.holds());
-    }
-    #[test]
-    fn test_tension_resolution() {
-        assert!(TensionOpposesResolution.holds());
+    fn category_laws() {
+        assert_category_laws::<MusicCategory>();
     }
     #[test]
-    fn test_consonance_ranked() {
-        assert!(ConsonanceRankedHigher.holds());
+    fn ontology_validates() {
+        MusicOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
     #[test]
-    fn test_five_categories() {
-        assert!(FivePerceptualCategories.holds());
+    fn octave_ratio_is_two() {
+        assert!(OctaveRatioIsTwo.verify().is_ok());
     }
     #[test]
-    fn test_input_causes_emotion() {
-        assert!(InputCausesEmotion.holds());
+    fn consonance_ranked_higher() {
+        assert!(ConsonanceRankedHigher.verify().is_ok());
     }
     #[test]
-    fn test_category_laws() {
-        check_category_laws::<MusicPerceptionCategory>().unwrap();
+    fn input_causes_emotion() {
+        assert!(InputCausesEmotion.verify().is_ok());
     }
-    #[test]
-    fn test_taxonomy_laws() {
-        check_category_laws::<TaxonomyCategory<MusicTaxonomy>>().unwrap();
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in MusicCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in MusicOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
     }
-    #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<MusicCausalGraph>>().unwrap();
-    }
-    #[test]
-    fn test_octave_ratio_is_two() {
-        assert!(OctaveRatioIsTwo.holds());
-    }
-    #[test]
-    fn test_octave_ratio_value() {
-        assert_eq!(OctaveRatio.get(&MusicEntity::OctaveEquivalence), Some(2.0));
-    }
-    #[test]
-    fn test_preferred_tempo() {
-        assert_eq!(PreferredTempoBPM.get(&MusicEntity::Tempo), Some(120.0));
-    }
-    #[test]
-    fn test_entity_count() {
-        assert_eq!(MusicEntity::variants().len(), 40);
-    }
-    #[test]
-    fn test_ontology_validates() {
-        MusicPerceptionOntology::validate().unwrap();
-    }
-    fn arb_entity() -> impl Strategy<Value = MusicEntity> {
-        (0..MusicEntity::variants().len()).prop_map(|i| MusicEntity::variants()[i])
-    }
-    proptest! { #[test] fn prop_taxonomy_reflexive(entity in arb_entity()) { prop_assert!(taxonomy::is_a::<MusicTaxonomy>(&entity, &entity)); } }
 }

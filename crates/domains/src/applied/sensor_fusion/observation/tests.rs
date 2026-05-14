@@ -3,8 +3,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::sensor_fusion::observation::gating::ValidationGate;
 use crate::applied::sensor_fusion::observation::innovation::Innovation;
@@ -14,22 +15,23 @@ use crate::applied::sensor_fusion::observation::ontology::*;
 
 #[test]
 fn observation_category_laws() {
-    check_category_laws::<ObservationCategory>().unwrap();
+    assert_category_laws::<ObservationCategory>();
 }
 
 #[test]
 fn observation_ontology_validates() {
-    ObservationOntology::validate().unwrap();
+    ObservationOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn innovation_zero_at_prediction() {
-    assert!(InnovationZeroAtPrediction.holds());
+    assert!(InnovationZeroAtPrediction.verify().is_ok());
 }
 
 #[test]
 fn gate_accepts_mean() {
-    assert!(GateAcceptsMean.holds());
+    assert!(GateAcceptsMean.verify().is_ok());
 }
 
 #[test]

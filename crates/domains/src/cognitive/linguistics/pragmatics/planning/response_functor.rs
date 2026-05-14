@@ -60,7 +60,12 @@ impl Functor for PlanningToResponse {
             PlanningRelationKind::HasEffect => ResponseRelationKind::Realizes,
             PlanningRelationKind::Updates => ResponseRelationKind::Constrains,
             PlanningRelationKind::Specializes => ResponseRelationKind::Determines,
-            PlanningRelationKind::Composed => ResponseRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+            // unreachable when source has no edges of these kinds.
+            PlanningRelationKind::Subsumption
+            | PlanningRelationKind::Parthood
+            | PlanningRelationKind::Causation
+            | PlanningRelationKind::Opposition => ResponseRelationKind::Identity,
         };
         ResponseRelation { from, to, kind }
     }
@@ -70,10 +75,10 @@ pr4xis::register_functor!(PlanningToResponse);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<PlanningToResponse>().unwrap();
+        assert_functor_laws::<PlanningToResponse>();
     }
 }

@@ -1,42 +1,20 @@
-// Declarative macro for defining ontologies.
+// Registration macros for ontologies and related entities.
 //
-// The user declares domain knowledge. The macro generates structure.
-// Two API styles:
-//   - Ontological: concepts, is_a, has_a, causes, opposes
-//   - Named: entity, relation + taxonomy, mereology, causation, opposition
+// The `ontology!` proc macro (in `pr4xis-derive`) is the canonical
+// surface for defining an ontology. The declarative `define_ontology!`
+// macro that used to live here was deleted per #168 (one macro path).
 //
-// Both generate: Category, reasoning systems, structural axioms, OntologyMeta.
-// Domain-specific axioms and qualities stay hand-written.
+// What remains here: registration helpers, axiom-meta emission, and
+// per-entity `register_*!` macros that splice metadata into the global
+// distributed slices.
 
-/// Define an ontology from domain knowledge.
-///
-/// # Ontological style (preferred)
-///
-/// ```ignore
-/// define_ontology! {
-///     pub Biology for BiologyCategory {
-///         concepts: BiologicalEntity,
-///         relation: BiologicalRelation,
-///         being: AbstractObject,
-///         source: "Euclid; Hilbert (1899)",
-///
-///         is_a: BiologicalTaxonomy [
-///             (Cell, Tissue),
-///         ],
-///     }
-/// }
-/// ```
-///
-/// `being:` classifies per DOLCE (Masolo et al., WonderWeb D18, 2003).
-/// `source:` captures the primary citation.
-/// Both are optional. When present, they flow into `fn vocabulary()`.
 /// Manually register an ontology's Vocabulary into the global registry.
 ///
-/// Used by ontologies that provide Category/Entity impls manually (not via
-/// `define_ontology!` / `ontology!` macro). On native targets, emits a
+/// Used by ontologies that provide `Category`/`Concept` impls manually
+/// (not via the `ontology!` macro). On native targets, emits a
 /// `#[distributed_slice]` entry so the ontology shows up in
-/// `describe_knowledge_base()`. On wasm32, this is a no-op (linkme is
-/// unsupported there; wasm consumers build the registry via
+/// `describe_knowledge_base()`. On `wasm32`, this is a no-op (linkme
+/// is unsupported there; wasm consumers build the registry via
 /// `pr4xis::ontology::registry::collect_all`).
 #[macro_export]
 macro_rules! register_manual {
@@ -47,7 +25,6 @@ macro_rules! register_manual {
         name: $name:expr,
         module: $module:expr,
         source: $source:expr,
-        being: $being:ident,
     ) => {
         #[cfg(not(target_arch = "wasm32"))]
         $crate::paste::paste! {
@@ -58,363 +35,8 @@ macro_rules! register_manual {
                     $name,
                     $module,
                     $source,
-                    Some($crate::ontology::upper::being::Being::$being),
                 )
             };
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! define_ontology {
-    // =========================================================================
-    // Ontological style: concepts + is_a/has_a/causes/opposes
-    // Emits a KINDED category (issue #152) — sugar clauses desugar into
-    // edges with canonical kinds from the Relations umbrella:
-    //   is_a → Subsumption, has_a → Parthood, causes → Causation, opposes → Opposition.
-    // =========================================================================
-    (
-        $(#[$ont_meta:meta])*
-        pub $ont_name:ident for $cat_name:ident {
-            concepts: $entity:ident,
-            relation: $relation:ident,
-
-            $(being: $being:ident,)?
-            $(source: $source:expr,)?
-
-            $(is_a: $tax_name:ident [
-                $(($tax_child:ident, $tax_parent:ident)),* $(,)?
-            ],)?
-
-            $(has_a: $mer_name:ident [
-                $(($mer_whole:ident, $mer_part:ident)),* $(,)?
-            ],)?
-
-            $(causes: $caus_name:ident for $caus_entity:ident [
-                $(($caus_cause:ident, $caus_effect:ident)),* $(,)?
-            ],)?
-
-            $(opposes: $opp_name:ident [
-                $(($opp_a:ident, $opp_b:ident)),* $(,)?
-            ],)?
-        }
-    ) => {
-        $crate::paste::paste! {
-            $crate::define_category! {
-                $(#[$ont_meta])*
-                pub $cat_name {
-                    entity: $entity,
-                    relation: $relation,
-                    kind: [<$cat_name RelationKind>],
-                    kinds: [Subsumption, Parthood, Causation, Opposition],
-                    edges: [
-                        $($(($tax_child, $tax_parent, Subsumption),)*)?
-                        $($(($mer_whole, $mer_part, Parthood),)*)?
-                        $($(($opp_a, $opp_b, Opposition),)*)?
-                    ],
-                    composed: [],
-                }
-            }
-        }
-
-        // Causation morphisms use a potentially-different entity enum
-        // (`$caus_entity`), so they're handled via their own category
-        // adapter in `@reasoning`; they don't merge into $cat_name's
-        // morphisms list.
-
-        define_ontology!(@reasoning $ont_name, $cat_name, $entity,
-            $(being: $being,)?
-            $(source: $source,)?
-            $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
-            $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
-            $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
-            $(opposes: $opp_name [ $(($opp_a, $opp_b)),* ],)?
-        );
-    };
-
-    // =========================================================================
-    // Legacy named style: entity + taxonomy/mereology/causation/opposition.
-    // Same kinded emission as the ontological style.
-    // =========================================================================
-    (
-        $(#[$ont_meta:meta])*
-        pub $ont_name:ident for $cat_name:ident {
-            entity: $entity:ident,
-            relation: $relation:ident,
-
-            $(being: $being:ident,)?
-            $(source: $source:expr,)?
-
-            $(taxonomy: $tax_name:ident [
-                $(($tax_child:ident, $tax_parent:ident)),* $(,)?
-            ],)?
-
-            $(mereology: $mer_name:ident [
-                $(($mer_whole:ident, $mer_part:ident)),* $(,)?
-            ],)?
-
-            $(causation: $caus_name:ident for $caus_entity:ident [
-                $(($caus_cause:ident, $caus_effect:ident)),* $(,)?
-            ],)?
-
-            $(opposition: $opp_name:ident [
-                $(($opp_a:ident, $opp_b:ident)),* $(,)?
-            ],)?
-        }
-    ) => {
-        $crate::paste::paste! {
-            $crate::define_category! {
-                $(#[$ont_meta])*
-                pub $cat_name {
-                    entity: $entity,
-                    relation: $relation,
-                    kind: [<$cat_name RelationKind>],
-                    kinds: [Subsumption, Parthood, Causation, Opposition],
-                    edges: [
-                        $($(($tax_child, $tax_parent, Subsumption),)*)?
-                        $($(($mer_whole, $mer_part, Parthood),)*)?
-                        $($(($opp_a, $opp_b, Opposition),)*)?
-                    ],
-                    composed: [],
-                }
-            }
-        }
-
-        define_ontology!(@reasoning $ont_name, $cat_name, $entity,
-            $(being: $being,)?
-            $(source: $source,)?
-            $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
-            $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
-            $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
-            $(opposes: $opp_name [ $(($opp_a, $opp_b)),* ],)?
-        );
-    };
-
-    // =========================================================================
-    // Kinded style: explicit relation types (communication/information)
-    // =========================================================================
-    (
-        $(#[$ont_meta:meta])*
-        pub $ont_name:ident for $cat_name:ident {
-            concepts: $entity:ident,
-            relation: $relation:ident,
-            kind: $kind:ident,
-            kinds: [$($(#[$kind_meta:meta])* $domain_kind:ident),* $(,)?],
-            edges: [$(($e_from:ident, $e_to:ident, $e_kind:ident)),* $(,)?],
-            composed: [$(($c_from:ident, $c_to:ident)),* $(,)?],
-
-            $(being: $being:ident,)?
-            $(source: $source:expr,)?
-
-            $(is_a: $tax_name:ident [
-                $(($tax_child:ident, $tax_parent:ident)),* $(,)?
-            ],)?
-
-            $(has_a: $mer_name:ident [
-                $(($mer_whole:ident, $mer_part:ident)),* $(,)?
-            ],)?
-
-            $(causes: $caus_name:ident for $caus_entity:ident [
-                $(($caus_cause:ident, $caus_effect:ident)),* $(,)?
-            ],)?
-
-            $(opposes: $opp_name:ident [
-                $(($opp_a:ident, $opp_b:ident)),* $(,)?
-            ],)?
-        }
-    ) => {
-        $crate::define_category! {
-            $(#[$ont_meta])*
-            pub $cat_name {
-                entity: $entity,
-                relation: $relation,
-                kind: $kind,
-                kinds: [$($(#[$kind_meta])* $domain_kind),*],
-                edges: [$(($e_from, $e_to, $e_kind)),*],
-                composed: [$(($c_from, $c_to)),*],
-            }
-        }
-
-        define_ontology!(@reasoning $ont_name, $cat_name, $entity,
-            $(being: $being,)?
-            $(source: $source,)?
-            $(is_a: $tax_name [ $(($tax_child, $tax_parent)),* ],)?
-            $(has_a: $mer_name [ $(($mer_whole, $mer_part)),* ],)?
-            $(causes: $caus_name for $caus_entity [ $(($caus_cause, $caus_effect)),* ],)?
-            $(opposes: $opp_name [ $(($opp_a, $opp_b)),* ],)?
-        );
-    };
-
-    // =========================================================================
-    // Internal: generate reasoning systems + structural axioms + meta + vocabulary
-    // =========================================================================
-    (@reasoning $ont_name:ident, $cat_name:ident, $entity:ident,
-        $(being: $being:ident,)?
-        $(source: $source:expr,)?
-        $(is_a: $tax_name:ident [ $(($tax_child:ident, $tax_parent:ident)),* ],)?
-        $(has_a: $mer_name:ident [ $(($mer_whole:ident, $mer_part:ident)),* ],)?
-        $(causes: $caus_name:ident for $caus_entity:ident [ $(($caus_cause:ident, $caus_effect:ident)),* ],)?
-        $(opposes: $opp_name:ident [ $(($opp_a:ident, $opp_b:ident)),* ],)?
-    ) => {
-        // --- Taxonomy (is-a) ---
-        $(
-            pub struct $tax_name;
-            impl $crate::ontology::reasoning::taxonomy::TaxonomyDef for $tax_name {
-                type Concept = $entity;
-                fn relations() -> Vec<($entity, $entity)> {
-                    #[allow(unused_imports)]
-                    use $entity::*;
-                    vec![$(($tax_child, $tax_parent)),*]
-                }
-            }
-        )?
-
-        // --- Mereology (has-a) ---
-        $(
-            pub struct $mer_name;
-            impl $crate::ontology::reasoning::mereology::MereologyDef for $mer_name {
-                type Concept = $entity;
-                fn relations() -> Vec<($entity, $entity)> {
-                    #[allow(unused_imports)]
-                    use $entity::*;
-                    vec![$(($mer_whole, $mer_part)),*]
-                }
-            }
-        )?
-
-        // --- Causation (causes) ---
-        $(
-            pub struct $caus_name;
-            impl $crate::ontology::reasoning::causation::CausalDef for $caus_name {
-                type Concept = $caus_entity;
-                fn relations() -> Vec<($caus_entity, $caus_entity)> {
-                    #[allow(unused_imports)]
-                    use $caus_entity::*;
-                    vec![$(($caus_cause, $caus_effect)),*]
-                }
-            }
-        )?
-
-        // --- Opposition (opposes) ---
-        $(
-            pub struct $opp_name;
-            impl $crate::ontology::reasoning::opposition::OppositionDef for $opp_name {
-                type Concept = $entity;
-                fn pairs() -> Vec<($entity, $entity)> {
-                    #[allow(unused_imports)]
-                    use $entity::*;
-                    vec![$(($opp_a, $opp_b)),*]
-                }
-            }
-        )?
-
-        // --- DOLCE classification (when `being:` is declared) ---
-        $(
-            impl $crate::ontology::upper::classify::Classified for $cat_name {
-                fn being() -> $crate::ontology::upper::being::Being {
-                    $crate::ontology::upper::being::Being::$being
-                }
-                fn classification_reason() -> &'static str {
-                    concat!("DOLCE D18 ", stringify!($being), "; ", module_path!())
-                }
-            }
-        )?
-
-        // --- Ontology struct ---
-        pub struct $ont_name;
-
-        impl $ont_name {
-            /// Structural axioms — auto-generated. Used internally by Ontology trait.
-            /// Override `structural_axioms()` in your `impl Ontology` to wire this in.
-            #[doc(hidden)]
-            pub fn generated_structural_axioms() -> Vec<Box<dyn $crate::ontology::Axiom>> {
-                let mut axioms: Vec<Box<dyn $crate::ontology::Axiom>> = Vec::new();
-
-                $(
-                    axioms.push(Box::new(
-                        $crate::ontology::reasoning::taxonomy::NoCycles::<$tax_name>::new()
-                    ));
-                    axioms.push(Box::new(
-                        $crate::ontology::reasoning::taxonomy::Antisymmetric::<$tax_name>::new()
-                    ));
-                )?
-
-                $(
-                    axioms.push(Box::new(
-                        $crate::ontology::reasoning::mereology::NoCycles::<$mer_name>::new()
-                    ));
-                    // WeakSupplementation not auto-included — not all mereologies satisfy it.
-                    // Add manually in domain_axioms() if your domain requires it.
-                )?
-
-                $(
-                    axioms.push(Box::new(
-                        $crate::ontology::reasoning::causation::Asymmetric::<$caus_name>::new()
-                    ));
-                    axioms.push(Box::new(
-                        $crate::ontology::reasoning::causation::NoSelfCausation::<$caus_name>::new()
-                    ));
-                )?
-
-                $(
-                    axioms.push(Box::new(
-                        $crate::ontology::reasoning::opposition::Symmetric::<$opp_name>::new()
-                    ));
-                    axioms.push(Box::new(
-                        $crate::ontology::reasoning::opposition::Irreflexive::<$opp_name>::new()
-                    ));
-                )?
-
-                axioms
-            }
-
-            /// Structured metadata — unified Lemon+PROV-O record.
-            ///
-            /// Same [`RelationshipMeta`](crate::ontology::meta::RelationshipMeta)
-            /// shape that functors, adjunctions, natural transformations, and
-            /// axioms carry. For the richer ontology description (with DOLCE
-            /// `Being` + concept/morphism snapshots) use [`Self::vocabulary`].
-            pub fn meta() -> $crate::ontology::meta::RelationshipMeta {
-                let mut _source: &'static str = "";
-                $(
-                    _source = $source;
-                )?
-                $crate::ontology::meta::RelationshipMeta {
-                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($ont_name)),
-                    description: $crate::ontology::meta::Label::new_static(stringify!($ont_name)),
-                    citation: $crate::ontology::meta::Citation::parse_static(_source),
-                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
-                }
-            }
-
-            /// Runtime Vocabulary — instance of Knowledge::Vocabulary (VoID).
-            #[allow(dead_code, unused_assignments)]
-            pub fn vocabulary() -> $crate::ontology::Vocabulary {
-                let mut _being: Option<$crate::ontology::upper::being::Being> = None;
-                $(
-                    _being = Some($crate::ontology::upper::being::Being::$being);
-                )?
-                let mut _source: &'static str = "";
-                $(
-                    _source = $source;
-                )?
-                $crate::ontology::Vocabulary::from_static::<$cat_name, $entity>(
-                    $crate::ontology::OntologyName::new_static(stringify!($ont_name)),
-                    $crate::ontology::ModulePath::new_static(module_path!()),
-                    $crate::ontology::Citation::parse_static(_source),
-                    _being,
-                )
-            }
-        }
-
-        // Auto-register this ontology into the global VOCABULARIES slice.
-        // Collected at link time via linkme::distributed_slice.
-        // On wasm32, linkme is unsupported — registration is skipped.
-        #[cfg(not(target_arch = "wasm32"))]
-        $crate::paste::paste! {
-            #[$crate::linkme::distributed_slice($crate::ontology::VOCABULARIES)]
-            #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_ $ont_name:snake:upper>]: fn() -> $crate::ontology::Vocabulary = $ont_name::vocabulary;
         }
     };
 }
@@ -481,8 +103,8 @@ macro_rules! functor {
                 f(m)
             }
 
-            fn meta() -> $crate::ontology::meta::RelationshipMeta {
-                $crate::ontology::meta::RelationshipMeta {
+            fn meta() -> $crate::ontology::meta::Provenance {
+                $crate::ontology::meta::Provenance {
                     name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
                     description: $crate::ontology::meta::Label::new_static(stringify!($name)),
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
@@ -496,7 +118,7 @@ macro_rules! functor {
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::FUNCTORS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
+            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::Functor>::meta;
         }
     };
@@ -559,8 +181,8 @@ macro_rules! adjunction {
                 f(obj)
             }
 
-            fn meta() -> $crate::ontology::meta::RelationshipMeta {
-                $crate::ontology::meta::RelationshipMeta {
+            fn meta() -> $crate::ontology::meta::Provenance {
+                $crate::ontology::meta::Provenance {
                     name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
                     description: $crate::ontology::meta::Label::new_static(stringify!($name)),
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
@@ -569,26 +191,16 @@ macro_rules! adjunction {
             }
         }
 
-        // Arrow impl — adjunction is a structured 2-cell pair in Cat
-        // (Mac Lane XII.3). Rust's coherence rules don't allow a blanket
-        // `impl<A: Adjunction> Arrow for A` alongside the Functor blanket,
-        // so we emit Arrow per-adjunction here.
-        impl $crate::category::Arrow for $name {
-            type Source = $left;
-            type Target = $right;
-            type Kind = $crate::category::AdjunctionKind;
-
-            fn meta() -> $crate::ontology::meta::RelationshipMeta {
-                <$name as $crate::category::Adjunction>::meta()
-            }
-        }
+        // Higher cells (functor, adjunction, nat-trans) are not `Arrow`
+        // instances — `Arrow` is the 0-cell-to-0-cell morphism trait.
+        // `Adjunction`'s own `fn meta()` (type-level) carries provenance.
 
         // Auto-register into the ADJUNCTIONS distributed slice (native only).
         #[cfg(not(target_arch = "wasm32"))]
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTIONS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
+            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::Adjunction>::meta;
         }
     };
@@ -636,8 +248,8 @@ macro_rules! natural_transformation {
                 f(obj)
             }
 
-            fn meta() -> $crate::ontology::meta::RelationshipMeta {
-                $crate::ontology::meta::RelationshipMeta {
+            fn meta() -> $crate::ontology::meta::Provenance {
+                $crate::ontology::meta::Provenance {
                     name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
                     description: $crate::ontology::meta::Label::new_static(stringify!($name)),
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
@@ -646,24 +258,16 @@ macro_rules! natural_transformation {
             }
         }
 
-        // Arrow impl — natural transformation is a 2-cell in Cat
-        // (Mac Lane XII.3). Per-impl (not blanket) for coherence reasons.
-        impl $crate::category::Arrow for $name {
-            type Source = $from;
-            type Target = $to;
-            type Kind = $crate::category::NatTransKind;
-
-            fn meta() -> $crate::ontology::meta::RelationshipMeta {
-                <$name as $crate::category::NaturalTransformation>::meta()
-            }
-        }
+        // Higher cells (functor, nat-trans, adjunction) are not `Arrow`
+        // instances — `Arrow` is the 0-cell-to-0-cell morphism trait.
+        // `NaturalTransformation`'s own `fn meta()` (type-level) carries provenance.
 
         // Auto-register into the NATURAL_TRANSFORMATIONS distributed slice.
         #[cfg(not(target_arch = "wasm32"))]
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATIONS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
+            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::NaturalTransformation>::meta;
         }
     };
@@ -671,55 +275,32 @@ macro_rules! natural_transformation {
 
 /// Register a hand-written `impl Axiom for X` into the global AXIOMS
 /// distributed slice so the Lemon lexicon sees it without rewriting the
-/// impl block itself. Useful for existing impls that don't yet use the
-/// `axioms:` clause of `ontology!`.
+/// impl block itself.
+///
+/// Citation-required (#167): the second argument is the literature
+/// citation — no zero-citation form exists. If an axiom has no
+/// literature backing, collapse it into a parent concept or remove it.
 ///
 /// # Example
 ///
 /// ```ignore
-/// pub struct MyAxiom;
-/// impl Axiom for MyAxiom {
-///     fn description(&self) -> &str { "..." }
-///     fn holds(&self) -> bool { ... }
-///     pr4xis::axiom_meta!("MyAxiom", "Smith (1999)");
-/// }
-/// pr4xis::register_axiom!(MyAxiom);
+/// pub struct NoCycles;
+/// impl Axiom for NoCycles { ... }
+/// pr4xis::register_axiom!(NoCycles, "Guarino (2009); Gruber (1993)");
 /// ```
 #[macro_export]
 macro_rules! register_axiom {
-    // Registration by type-name identity (no instance needed — works for
-    // unit structs and structs-with-fields). The registry entry reports
-    // the axiom's identity via `std::any::type_name` + an empty citation.
-    // Axioms that want their declared citation in the registry should
-    // add an explicit `meta()` override via the `axiom_meta!` helper AND
-    // register with `register_axiom!(Name, &instance)` instead.
-    // Single-argument — type-name identity + empty citation, works for
-    // any type regardless of its field layout.
-    ($name:ident) => {
-        #[cfg(not(target_arch = "wasm32"))]
-        $crate::paste::paste! {
-            #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
-            #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
-                || $crate::ontology::meta::RelationshipMeta {
-                    name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
-                    description: $crate::ontology::meta::Label::new_static(stringify!($name)),
-                    citation: $crate::ontology::meta::Citation::EMPTY,
-                    module_path: $crate::ontology::meta::ModulePath::new_static(module_path!()),
-                };
-        }
-    };
-    // Two-argument with a citation literal — name and module path from the
-    // type identity, description defaults to the name, citation is the
-    // literal. Keeps axiom impl bodies untouched; the surrounding file's
-    // literature citation is passed in directly.
+    // Citation-required: axiom's name comes from its type identity;
+    // the literal citation is the surrounding file's literature source.
+    // Per `feedback_citation_required` (#167), no citation-less form —
+    // every axiom is literature-grounded or it's not an axiom.
     ($name:ident, $citation:literal) => {
         #[cfg(not(target_arch = "wasm32"))]
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
-                || $crate::ontology::meta::RelationshipMeta {
+            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
+                || $crate::ontology::meta::Provenance {
                     name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
                     description: $crate::ontology::meta::Label::new_static(stringify!($name)),
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
@@ -734,7 +315,7 @@ macro_rules! register_axiom {
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
+            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 || <$name as $crate::logic::axiom::Axiom>::meta(&$instance);
         }
     };
@@ -748,7 +329,7 @@ macro_rules! register_functor {
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::FUNCTORS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
+            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::Functor>::meta;
         }
     };
@@ -757,8 +338,8 @@ macro_rules! register_functor {
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::FUNCTORS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
-                || $crate::ontology::meta::RelationshipMeta {
+            static [<_REGISTER_FUNCTOR_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
+                || $crate::ontology::meta::Provenance {
                     name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
                     description: $crate::ontology::meta::Label::new_static(stringify!($name)),
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
@@ -776,7 +357,7 @@ macro_rules! register_adjunction {
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTIONS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
+            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::Adjunction>::meta;
         }
     };
@@ -785,8 +366,8 @@ macro_rules! register_adjunction {
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::ADJUNCTIONS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
-                || $crate::ontology::meta::RelationshipMeta {
+            static [<_REGISTER_ADJUNCTION_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
+                || $crate::ontology::meta::Provenance {
                     name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
                     description: $crate::ontology::meta::Label::new_static(stringify!($name)),
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
@@ -804,7 +385,7 @@ macro_rules! register_natural_transformation {
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATIONS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
+            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
                 <$name as $crate::category::NaturalTransformation>::meta;
         }
     };
@@ -813,8 +394,8 @@ macro_rules! register_natural_transformation {
         $crate::paste::paste! {
             #[$crate::linkme::distributed_slice($crate::ontology::NATURAL_TRANSFORMATIONS)]
             #[linkme(crate = $crate::linkme)]
-            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::ontology::meta::RelationshipMeta =
-                || $crate::ontology::meta::RelationshipMeta {
+            static [<_REGISTER_NAT_TRANS_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
+                || $crate::ontology::meta::Provenance {
                     name: $crate::ontology::meta::OntologyName::new_static(stringify!($name)),
                     description: $crate::ontology::meta::Label::new_static(stringify!($name)),
                     citation: $crate::ontology::meta::Citation::parse_static($citation),
@@ -841,11 +422,65 @@ macro_rules! register_natural_transformation {
 ///     pr4xis::relationship_meta!("MyFunctor", "Mac Lane (1971) Ch. II §1");
 /// }
 /// ```
+/// Emit the three `Axiom` override methods — `name`, `description`,
+/// `citation` — inside an `impl Axiom for X { ... }` block. The common
+/// case is three string literals: name, description, citation.
+///
+/// # Example
+///
+/// ```ignore
+/// impl Axiom for NoCycles {
+///     fn verify(&self) -> Verdict { ... }
+///     pr4xis::axiom_meta!(
+///         "NoCycles[Taxonomy]",
+///         "taxonomy has no cycles (is a DAG)",
+///         "Guarino (2009); Gruber (1993)"
+///     );
+/// }
+/// ```
+///
+/// The macro expands to:
+///
+/// ```ignore
+/// fn name(&self) -> OntologyName { OntologyName::new_static(name_literal) }
+/// fn description(&self) -> Label { Label::new_static(description_literal) }
+/// fn citation(&self) -> Citation { Citation::parse_static(citation_literal) }
+/// ```
+///
+/// Citation is required on every `Axiom` impl — the two-arg form (no
+/// description) defaults the description to the name literal; there is
+/// no zero-citation form.
+#[macro_export]
+macro_rules! axiom_meta {
+    ($name:literal, $description:literal, $citation:literal) => {
+        fn name(&self) -> $crate::ontology::meta::OntologyName {
+            $crate::ontology::meta::OntologyName::new_static($name)
+        }
+        fn description(&self) -> $crate::ontology::meta::Label {
+            $crate::ontology::meta::Label::new_static($description)
+        }
+        fn citation(&self) -> $crate::ontology::meta::Citation {
+            $crate::ontology::meta::Citation::parse_static($citation)
+        }
+    };
+    ($name:literal, $citation:literal) => {
+        fn name(&self) -> $crate::ontology::meta::OntologyName {
+            $crate::ontology::meta::OntologyName::new_static($name)
+        }
+        fn description(&self) -> $crate::ontology::meta::Label {
+            $crate::ontology::meta::Label::new_static($name)
+        }
+        fn citation(&self) -> $crate::ontology::meta::Citation {
+            $crate::ontology::meta::Citation::parse_static($citation)
+        }
+    };
+}
+
 #[macro_export]
 macro_rules! relationship_meta {
     ($name:literal, $description:literal, $citation:literal) => {
-        fn meta() -> $crate::ontology::meta::RelationshipMeta {
-            $crate::ontology::meta::RelationshipMeta {
+        fn meta() -> $crate::ontology::meta::Provenance {
+            $crate::ontology::meta::Provenance {
                 name: $crate::ontology::meta::OntologyName::new_static($name),
                 description: $crate::ontology::meta::Label::new_static($description),
                 citation: $crate::ontology::meta::Citation::parse_static($citation),
@@ -854,8 +489,8 @@ macro_rules! relationship_meta {
         }
     };
     ($name:literal, $citation:literal) => {
-        fn meta() -> $crate::ontology::meta::RelationshipMeta {
-            $crate::ontology::meta::RelationshipMeta {
+        fn meta() -> $crate::ontology::meta::Provenance {
+            $crate::ontology::meta::Provenance {
                 name: $crate::ontology::meta::OntologyName::new_static($name),
                 description: $crate::ontology::meta::Label::new_static($name),
                 citation: $crate::ontology::meta::Citation::parse_static($citation),

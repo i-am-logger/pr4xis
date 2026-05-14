@@ -42,25 +42,7 @@ pub struct CelestialSituation {
     pub step: usize,
 }
 
-impl Situation for CelestialSituation {
-    fn describe(&self) -> String {
-        let pos = self
-            .fix
-            .as_ref()
-            .map(|f| format!("({:.4}N, {:.4}E)", f.latitude, f.longitude))
-            .unwrap_or_else(|| "no fix".to_string());
-        format!(
-            "Celestial step={}, obs={}, fix={}",
-            self.step,
-            self.observations.len(),
-            pos
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for CelestialSituation {}
 
 /// Celestial navigation action.
 #[derive(Debug, Clone)]
@@ -73,18 +55,6 @@ pub enum CelestialAction {
 
 impl Action for CelestialAction {
     type Sit = CelestialSituation;
-
-    fn describe(&self) -> String {
-        match self {
-            CelestialAction::Observe(obs) => {
-                format!(
-                    "observe {} (alt={:.2} az={:.2})",
-                    obs.body_name, obs.altitude_deg, obs.azimuth_deg
-                )
-            }
-            CelestialAction::ComputeFix => "compute celestial fix".to_string(),
-        }
-    }
 }
 
 /// Apply a celestial navigation action.

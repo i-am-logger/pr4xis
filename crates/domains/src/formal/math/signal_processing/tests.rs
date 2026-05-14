@@ -1,11 +1,11 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::signal_processing::ontology::*;
 
 #[test]
 fn signal_category_laws() {
-    check_category_laws::<SignalProcessingCategory>().unwrap();
+    assert_category_laws::<SignalProcessingCategory>();
 }
 
 #[test]
@@ -15,17 +15,17 @@ fn signal_processing_ontology_validates() {
 
 #[test]
 fn nyquist_theorem_holds() {
-    assert!(NyquistTheorem.holds());
+    assert!(NyquistTheorem.verify().is_ok());
 }
 
 #[test]
 fn aliasing_below_nyquist_holds() {
-    assert!(AliasingOccursBelowNyquist.holds());
+    assert!(AliasingOccursBelowNyquist.verify().is_ok());
 }
 
 #[test]
 fn bandwidth_positive_holds() {
-    assert!(BandwidthPositive.holds());
+    assert!(BandwidthPositive.verify().is_ok());
 }
 
 #[cfg(test)]

@@ -18,7 +18,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "CelestialObservable",
     source: "Bowditch (2002)",
-    being: Quality,
 
     concepts: [Observable, Altitude, Azimuth, HourAngle, Declination],
 
@@ -63,8 +62,8 @@ impl Ontology for CelestialObservableOntology {
     type Cat = CelestialObservableCategory;
     type Qual = CoordinateSystem;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
@@ -72,6 +71,7 @@ impl Ontology for CelestialObservableOntology {
 mod tests {
     use super::*;
     use pr4xis::category::Concept;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn has_five_concepts() {
@@ -80,6 +80,6 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<CelestialObservableCategory>().unwrap();
+        assert_category_laws::<CelestialObservableCategory>();
     }
 }

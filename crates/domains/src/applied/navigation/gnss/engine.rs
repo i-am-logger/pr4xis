@@ -41,30 +41,7 @@ pub struct GnssSituation {
     pub step: usize,
 }
 
-impl Situation for GnssSituation {
-    fn describe(&self) -> String {
-        let pos = self
-            .solution
-            .as_ref()
-            .map(|s| {
-                format!(
-                    "({:.1},{:.1},{:.1})",
-                    s.position[0], s.position[1], s.position[2]
-                )
-            })
-            .unwrap_or_else(|| "no fix".to_string());
-        format!(
-            "GNSS step={}, sats={}, pos={}",
-            self.step,
-            self.measurements.len(),
-            pos
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for GnssSituation {}
 
 /// GNSS action: add a measurement or compute a fix.
 #[derive(Debug, Clone)]
@@ -77,18 +54,6 @@ pub enum GnssAction {
 
 impl Action for GnssAction {
     type Sit = GnssSituation;
-
-    fn describe(&self) -> String {
-        match self {
-            GnssAction::AddMeasurement(m) => {
-                format!(
-                    "add satellite PRN{} (pr={:.1}m)",
-                    m.satellite_id, m.pseudorange
-                )
-            }
-            GnssAction::ComputeFix => "compute position fix".to_string(),
-        }
-    }
 }
 
 /// Apply a GNSS action to the current situation.

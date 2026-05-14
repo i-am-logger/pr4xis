@@ -2,57 +2,55 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::connection::{Connection, ConnectionAction};
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
-impl Situation for Connection {
-    fn describe(&self) -> String {
-        format!(
-            "state={:?} retries={}/{} keep_alive={}",
-            self.state, self.retries, self.max_retries, self.keep_alive
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        self.is_terminal()
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
+
+impl Situation for Connection {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct HttpAction(pub ConnectionAction);
 
 impl Action for HttpAction {
     type Sit = Connection;
-
-    fn describe(&self) -> String {
-        format!("{:?}", self.0)
-    }
 }
 
 pub struct ValidTransition;
 
 impl Precondition<HttpAction> for ValidTransition {
-    fn check(&self, conn: &Connection, action: &HttpAction) -> PreconditionResult {
+    fn check(&self, conn: &Connection, action: &HttpAction) -> Verdict {
+        let meta = axiom_meta(
+            "valid_transition",
+            "connection action must be valid for current state",
+            "RFC 9110 (2022) HTTP Semantics §3; RFC 9112 (2022) HTTP/1.1 §9 Connection Management",
+        );
         match conn.apply(action.0) {
-            Ok(_) => PreconditionResult::satisfied(
-                "valid_transition",
-                &format!("{:?} → {:?}", conn.state, action.0),
-            ),
-            Err(msg) => PreconditionResult::violated(
-                "valid_transition",
-                msg,
-                &conn.describe(),
-                &action.describe(),
-            ),
+            Ok(_) => Ok(Box::new(SimpleProof::new(meta))),
+            Err(_) => Err(Box::new(SimpleCounterexample::new(meta))),
         }
-    }
-
-    fn describe(&self) -> &str {
-        "connection action must be valid for current state"
     }
 }
 
-fn apply_http(conn: &Connection, action: &HttpAction) -> Result<Connection, String> {
-    conn.apply(action.0).map_err(|e| e.to_string())
+fn apply_http(
+    conn: &Connection,
+    action: &HttpAction,
+) -> Result<Connection, Box<dyn Counterexample>> {
+    let meta = axiom_meta(
+        "valid_transition",
+        "connection action must be valid for current state",
+        "RFC 9110 (2022) HTTP Semantics §3",
+    );
+    conn.apply(action.0)
+        .map_err(|_| Box::new(SimpleCounterexample::new(meta)) as Box<dyn Counterexample>)
 }
 
 pub type HttpEngine = Engine<HttpAction>;

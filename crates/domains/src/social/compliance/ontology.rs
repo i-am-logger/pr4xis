@@ -1,18 +1,26 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::{Category, Concept, Relationship};
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::social::compliance::escalation::EscalationLevel;
 use crate::social::compliance::law;
 
 // ---------------------------------------------------------------------------
-// Entity: escalation levels are the objects in the compliance category
+// Arrow kind: compliance has a single relation — escalation transitions.
 // ---------------------------------------------------------------------------
 
+/// Relation kind for the compliance category.
+///
+/// Per OBO-RO (Smith et al. 2005), every arrow carries a relation-kind
+/// tag. The compliance category's only relation is the rules-of-engagement
+/// state transition between escalation levels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplianceRelationKind {
+    EscalationTransition,
+}
+
 // ---------------------------------------------------------------------------
-// Relationship: permitted transitions between escalation levels
+// Arrow: permitted transitions between escalation levels
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -21,9 +29,9 @@ pub struct EscalationTransition {
     pub to: EscalationLevel,
 }
 
-impl Relationship for EscalationTransition {
+impl Arrow for EscalationTransition {
     type Object = EscalationLevel;
-    type Kind = ();
+    type Kind = ComplianceRelationKind;
 
     fn source(&self) -> EscalationLevel {
         self.from
@@ -33,7 +41,20 @@ impl Relationship for EscalationTransition {
         self.to
     }
 
-    fn kind(&self) {}
+    fn kind(&self) -> ComplianceRelationKind {
+        ComplianceRelationKind::EscalationTransition
+    }
+
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("EscalationTransition"),
+            description: Label::new_static(
+                "rules-of-engagement transition between escalation levels",
+            ),
+            citation: Citation::parse_static("ISO 37301 (2021); NATO MC 362/1 Rules of Engagement"),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -65,22 +86,26 @@ impl Category for ComplianceCategory {
         if f.to != g.from {
             return None;
         }
-        Some(EscalationTransition {
+        let candidate = EscalationTransition {
             from: f.from,
             to: g.to,
-        })
+        };
+        // Total category over the closed transition graph: every composite
+        // of declared transitions must itself be a declared transition
+        // (ClosureLaw, Mac Lane CWM Ch. I §1). The morphism builder
+        // computes the full reachability closure, so any composable pair
+        // lands inside it.
+        if Self::morphisms().contains(&candidate) {
+            Some(candidate)
+        } else {
+            None
+        }
     }
 
     fn morphisms() -> Vec<EscalationTransition> {
         use EscalationLevel::*;
-        let mut m = Vec::new();
+        use std::collections::HashSet;
 
-        // Identity for all
-        for level in EscalationLevel::variants() {
-            m.push(Self::identity(&level));
-        }
-
-        // Sequential escalation ladder (forward one step)
         let ladder = [
             Observe,
             Identify,
@@ -92,50 +117,53 @@ impl Category for ComplianceCategory {
             WarningAction,
             Engage,
         ];
+
+        // Direct edges (the LOAC rules-of-engagement primitive transitions).
+        let mut direct: HashSet<(EscalationLevel, EscalationLevel)> = HashSet::new();
+        // Sequential escalation (forward one step)
         for w in ladder.windows(2) {
-            m.push(EscalationTransition {
-                from: w[0],
-                to: w[1],
-            });
+            direct.insert((w[0], w[1]));
         }
-
-        // De-escalation: any level can go to Deescalate
+        // De-escalation and abort are always available from ladder rungs
         for &level in &ladder {
-            m.push(EscalationTransition {
-                from: level,
-                to: Deescalate,
-            });
+            direct.insert((level, Deescalate));
+            direct.insert((level, Abort));
         }
+        // De-escalate and abort return to Observe
+        direct.insert((Deescalate, Observe));
+        direct.insert((Abort, Observe));
 
-        // Abort: any level can go to Abort
-        for &level in &ladder {
-            m.push(EscalationTransition {
-                from: level,
-                to: Abort,
-            });
-        }
-
-        // Deescalate and Abort return to Observe
-        m.push(EscalationTransition {
-            from: Deescalate,
-            to: Observe,
-        });
-        m.push(EscalationTransition {
-            from: Abort,
-            to: Observe,
-        });
-
-        // Transitive closure for sequential escalation (2-step, 3-step, etc.)
-        // So that compose(Observe→Identify, Identify→Classify) = Observe→Classify exists
-        for i in 0..ladder.len() {
-            for j in (i + 2)..ladder.len() {
-                m.push(EscalationTransition {
-                    from: ladder[i],
-                    to: ladder[j],
-                });
+        // Transitive closure (Warshall 1962). Required by ClosureLaw +
+        // AssociativityLaw — every composable pair (f.to == g.from) must
+        // produce a composite that is itself a declared morphism, so the
+        // morphism set must be closed under reachability.
+        let mut closure = direct.clone();
+        loop {
+            let mut added = false;
+            let snapshot: Vec<_> = closure.iter().cloned().collect();
+            for &(a, b) in &snapshot {
+                for &(b2, c) in &snapshot {
+                    if b == b2 && !closure.contains(&(a, c)) {
+                        closure.insert((a, c));
+                        added = true;
+                    }
+                }
+            }
+            if !added {
+                break;
             }
         }
 
+        let mut m: Vec<EscalationTransition> = Vec::new();
+        // Identity for all
+        for level in EscalationLevel::variants() {
+            m.push(Self::identity(&level));
+        }
+        for (a, b) in closure {
+            if a != b {
+                m.push(EscalationTransition { from: a, to: b });
+            }
+        }
         m
     }
 }
@@ -180,7 +208,7 @@ impl Ontology for ComplianceOntology {
     type Cat = ComplianceCategory;
     type Qual = RequiredAuthorization;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(law::DistinctionPrinciple),
             Box::new(law::CivilianPresumption),
@@ -195,14 +223,16 @@ impl Ontology for ComplianceOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<ComplianceCategory>().unwrap();
+        assert_category_laws::<ComplianceCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ComplianceOntology::validate().unwrap();
+        ComplianceOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

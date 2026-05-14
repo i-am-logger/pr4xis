@@ -1,11 +1,6 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
-use pr4xis::category::Concept;
-use pr4xis::category::relationship::Relationship;
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::logic::proof::{SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // Markup language ontology.
@@ -41,6 +36,17 @@ pub enum NodeKind {
     ProcessingInstruction,
 }
 
+/// Relation kind for markup containment arrows.
+///
+/// Per OBO-RO (Smith et al. 2005), every arrow carries a relation-kind
+/// tag. Markup's structural relation is parthood (Goldfarb 1990 §1.2:
+/// a markup document is a tree of nodes; the parent-child link is a
+/// part-of relation between node kinds).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MarkupRelationKind {
+    Containment,
+}
+
 /// Containment relationships between node types.
 ///
 /// These define what can contain what in a markup document.
@@ -51,16 +57,28 @@ pub struct Contains {
     pub child: NodeKind,
 }
 
-impl Relationship for Contains {
+impl Arrow for Contains {
     type Object = NodeKind;
-    type Kind = ();
+    type Kind = MarkupRelationKind;
     fn source(&self) -> NodeKind {
         self.parent
     }
     fn target(&self) -> NodeKind {
         self.child
     }
-    fn kind(&self) {}
+    fn kind(&self) -> MarkupRelationKind {
+        MarkupRelationKind::Containment
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("Contains"),
+            description: Label::new_static(
+                "markup containment — parent node kind contains child node kind",
+            ),
+            citation: Citation::parse_static("Coombs et al. (1987); Goldfarb (1990)"),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 /// The markup containment category.
@@ -154,15 +172,6 @@ impl Category for MarkupCategory {
         });
 
         m
-    }
-}
-
-impl Classified for MarkupCategory {
-    fn being() -> Being {
-        Being::SocialObject
-    }
-    fn classification_reason() -> &'static str {
-        "markup languages are social conventions for document structure"
     }
 }
 
@@ -272,21 +281,34 @@ impl MarkupNode {
 }
 
 /// Well-formedness rules for markup documents.
-/// These are the universal axioms that ALL markup languages share.
+///
+/// Coombs et al. (1987) "Markup Systems and the Future of Scholarly Text
+/// Processing" identifies descriptive markup as a tree-structured
+/// annotation overlay; Goldfarb (1990) *The SGML Handbook* §3.2 fixes
+/// the universal constraint that every conforming document has a single
+/// document root. This axiom declares that rule at the ontology level;
+/// concrete documents are checked by [`is_well_formed`].
 pub struct WellFormedDocument;
 
-impl pr4xis::logic::Axiom for WellFormedDocument {
-    fn description(&self) -> &str {
-        "a well-formed markup document has exactly one root element"
+impl Axiom for WellFormedDocument {
+    fn verify(&self) -> Verdict {
+        // Universal rule at the ontology level: declared and structurally
+        // enforced by the Document → Element edge being part of the
+        // category. Concrete-document verification is delegated to
+        // `is_well_formed` per Goldfarb (1990) §3.2.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
 
-    fn holds(&self) -> bool {
-        // This axiom is checked against specific documents, not globally.
-        // It's here as a declaration of the rule.
-        true
-    }
+    pr4xis::axiom_meta!(
+        "WellFormedDocument",
+        "a well-formed markup document has exactly one root element",
+        "Coombs et al. (1987); Goldfarb (1990) SGML Handbook §3.2"
+    );
 }
-pr4xis::register_axiom!(WellFormedDocument);
+pr4xis::register_axiom!(
+    WellFormedDocument,
+    "Coombs et al. (1987); Goldfarb (1990) SGML Handbook §3.2"
+);
 
 /// Check if a specific document is well-formed.
 pub fn is_well_formed(doc: &MarkupNode) -> bool {
@@ -326,7 +348,7 @@ impl Ontology for MarkupOntology {
     type Cat = MarkupCategory;
     type Qual = CanContainChildren;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(WellFormedDocument)]
     }
 }
@@ -334,14 +356,16 @@ impl Ontology for MarkupOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<MarkupCategory>().unwrap();
+        assert_category_laws::<MarkupCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        MarkupOntology::validate().unwrap();
+        MarkupOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

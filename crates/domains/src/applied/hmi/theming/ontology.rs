@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use hashbrown::HashMap;
 
 /// Theming ontology — formal structure of color schemes.
 ///
@@ -8,10 +9,8 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::base16::{ColorSlot, Polarity, SemanticRole};
 use crate::natural::colors::rgb::Rgb;
 use crate::natural::colors::srgb;
-use hashbrown::HashMap;
-use pr4xis::category::{Category, Concept, Relationship};
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 
 /// A concrete color palette: binds each slot to an Rgb color.
@@ -66,7 +65,7 @@ pub struct BrightVariantOf {
     pub base: ColorSlot,
 }
 
-impl Relationship for BrightVariantOf {
+impl Arrow for BrightVariantOf {
     type Object = ColorSlot;
     type Kind = ();
     fn source(&self) -> ColorSlot {
@@ -87,7 +86,7 @@ pub struct AnsiMapping {
     pub ansi: ColorSlot, // the slot that maps to the same ANSI index
 }
 
-impl Relationship for AnsiMapping {
+impl Arrow for AnsiMapping {
     type Object = ColorSlot;
     type Kind = ();
     fn source(&self) -> ColorSlot {
@@ -148,15 +147,6 @@ impl Category for ThemingCategory {
     }
 }
 
-impl Classified for ThemingCategory {
-    fn being() -> Being {
-        Being::Quality
-    }
-    fn classification_reason() -> &'static str {
-        "theming is visual quality specification (base16, color palettes)"
-    }
-}
-
 // ── Palette Axioms ──
 
 /// Luminance monotonicity: base00 through base07 must form an ordered ramp.
@@ -169,10 +159,7 @@ pub struct LuminanceMonotonicity {
 }
 
 impl Axiom for LuminanceMonotonicity {
-    fn description(&self) -> &str {
-        "base00-base07 form a monotone luminance ramp (base16 spec)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let ramp_slots = [
             ColorSlot::Base00,
             ColorSlot::Base01,
@@ -189,16 +176,25 @@ impl Axiom for LuminanceMonotonicity {
             .collect();
 
         if luminances.len() < 8 {
-            return false; // incomplete palette
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
 
         // Must be monotone (either all increasing or all decreasing)
         let increasing = luminances.windows(2).all(|w| w[0] <= w[1]);
         let decreasing = luminances.windows(2).all(|w| w[0] >= w[1]);
-        increasing || decreasing
+        if increasing || decreasing {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "LuminanceMonotonicity",
+        "base00-base07 form a monotone luminance ramp (base16 spec)",
+        "base16 styling.md — tinted-theming/base16-spec"
+    );
 }
-pr4xis::register_axiom!(LuminanceMonotonicity);
 
 /// WCAG AA compliance: foreground slots must have >= 4.5:1 contrast against background.
 ///
@@ -208,22 +204,28 @@ pub struct WcagForegroundContrast {
 }
 
 impl Axiom for WcagForegroundContrast {
-    fn description(&self) -> &str {
-        "foreground (base05) has >= 4.5:1 contrast against background (base00) (WCAG AA)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let bg = match self.palette.get(&ColorSlot::Base00) {
             Some(c) => c,
-            None => return false,
+            None => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
         };
         let fg = match self.palette.get(&ColorSlot::Base05) {
             Some(c) => c,
-            None => return false,
+            None => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
         };
-        srgb::wcag_compliant(fg, bg, srgb::WcagLevel::AA)
+        if srgb::wcag_compliant(fg, bg, srgb::WcagLevel::AA) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "WcagForegroundContrast",
+        "foreground (base05) has >= 4.5:1 contrast against background (base00) (WCAG AA)",
+        "W3C WCAG 2.1 SC 1.4.3 (Contrast Minimum)"
+    );
 }
-pr4xis::register_axiom!(WcagForegroundContrast);
 
 /// Bright variants must be brighter than their base counterparts.
 ///
@@ -233,10 +235,7 @@ pub struct BrightVariantBrighter {
 }
 
 impl Axiom for BrightVariantBrighter {
-    fn description(&self) -> &str {
-        "bright accent variants have higher luminance than their base (base24 spec)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let pairs = [
             (ColorSlot::Base12, ColorSlot::Base08),
             (ColorSlot::Base13, ColorSlot::Base0A),
@@ -245,15 +244,25 @@ impl Axiom for BrightVariantBrighter {
             (ColorSlot::Base16, ColorSlot::Base0D),
             (ColorSlot::Base17, ColorSlot::Base0E),
         ];
-        pairs.iter().all(|(bright, base)| {
+        let ok = pairs.iter().all(|(bright, base)| {
             match (self.palette.get(bright), self.palette.get(base)) {
                 (Some(b), Some(n)) => srgb::relative_luminance(b) >= srgb::relative_luminance(n),
                 _ => true, // skip if slots not present (base16-only palette)
             }
-        })
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "BrightVariantBrighter",
+        "bright accent variants have higher luminance than their base (base24 spec)",
+        "base24 spec — tinted-theming/base24"
+    );
 }
-pr4xis::register_axiom!(BrightVariantBrighter);
 
 /// Polarity detection: derive dark/light from base00 luminance.
 ///
@@ -296,7 +305,7 @@ mod tests {
 
     #[test]
     fn test_category_laws() {
-        pr4xis::category::validate::check_category_laws::<ThemingCategory>().unwrap();
+        pr4xis::category::laws::assert_category_laws::<ThemingCategory>();
     }
 
     #[test]
@@ -320,13 +329,13 @@ mod tests {
     #[test]
     fn test_luminance_monotonicity() {
         let palette = dark_palette();
-        assert!(LuminanceMonotonicity { palette }.holds());
+        assert!(LuminanceMonotonicity { palette }.verify().is_ok());
     }
 
     #[test]
     fn test_wcag_foreground_contrast() {
         let palette = dark_palette();
-        assert!(WcagForegroundContrast { palette }.holds());
+        assert!(WcagForegroundContrast { palette }.verify().is_ok());
     }
 
     #[test]

@@ -19,7 +19,7 @@ use crate::cognitive::linguistics::lemon::ontology::*;
 pub struct KnowledgeToLemon;
 
 impl Functor for KnowledgeToLemon {
-    type Source = KnowledgeBaseCategory;
+    type Source = KnowledgeCategory;
     type Target = LemonCategory;
 
     fn map_object(obj: &KnowledgeConcept) -> LemonConcept {
@@ -92,17 +92,23 @@ fn map_kind(kind: &KnowledgeRelationKind) -> LemonRelationKind {
 
         // Structural morphisms
         KnowledgeRelationKind::Identity => LemonRelationKind::Identity,
-        KnowledgeRelationKind::Composed => LemonRelationKind::Composed,
+
+        // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+        // unreachable when source has no edges of these kinds.
+        KnowledgeRelationKind::Subsumption
+        | KnowledgeRelationKind::Parthood
+        | KnowledgeRelationKind::Causation
+        | KnowledgeRelationKind::Opposition => LemonRelationKind::Identity,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<KnowledgeToLemon>().unwrap();
+        assert_functor_laws::<KnowledgeToLemon>();
     }
 }

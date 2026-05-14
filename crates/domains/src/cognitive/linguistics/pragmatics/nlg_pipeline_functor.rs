@@ -46,7 +46,7 @@ impl Functor for NlgToPipeline {
             _ => PipelineRelation {
                 from,
                 to,
-                kind: PipelineRelationKind::Composed,
+                kind: PipelineRelationKind::Subsumption,
             },
         }
     }
@@ -56,10 +56,10 @@ pr4xis::register_functor!(NlgToPipeline);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<NlgToPipeline>().unwrap();
+        assert_functor_laws::<NlgToPipeline>();
     }
 }

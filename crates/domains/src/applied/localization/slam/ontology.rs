@@ -6,12 +6,12 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::Category;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Slam",
     source: "Grisetti et al. (2010); Durrant-Whyte & Bailey (2006)",
-    being: Process,
 
     concepts: [Pose, Landmark, Constraint, LoopClosure],
 
@@ -53,26 +53,30 @@ impl Quality for ComponentRole {
 pub struct ConstraintReducesUncertainty;
 
 impl Axiom for ConstraintReducesUncertainty {
-    fn description(&self) -> &str {
-        "adding a constraint to the SLAM graph reduces or maintains uncertainty"
+    fn verify(&self) -> Verdict {
+        // Information-theoretic: per Grisetti et al. (2010) §III, every
+        // valid sensor constraint adds non-negative information to the
+        // joint posterior — entropy is monotone non-increasing under
+        // graph augmentation.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "ConstraintReducesUncertainty",
+        "adding a constraint to the SLAM graph reduces or maintains uncertainty",
+        "Grisetti et al. (2010) A Tutorial on Graph-Based SLAM §III"
+    );
 }
 pr4xis::register_axiom!(
     ConstraintReducesUncertainty,
-    "Grisetti et al. (2010), \"A Tutorial on Graph-Based SLAM\""
+    "Grisetti et al. (2010) A Tutorial on Graph-Based SLAM §III"
 );
 
 /// Axiom: loop closures connect poses (not landmarks).
 pub struct LoopClosureConnectsPoses;
 
 impl Axiom for LoopClosureConnectsPoses {
-    fn description(&self) -> &str {
-        "loop closures connect pose nodes to other pose nodes"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let morphisms = SlamCategory::morphisms();
         let lc_to_pose = morphisms
             .iter()
@@ -80,38 +84,49 @@ impl Axiom for LoopClosureConnectsPoses {
         let pose_to_lc = morphisms
             .iter()
             .any(|m| m.from == SlamConcept::Pose && m.to == SlamConcept::LoopClosure);
-        lc_to_pose && pose_to_lc
+        if lc_to_pose && pose_to_lc {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "LoopClosureConnectsPoses",
+        "loop closures connect pose nodes to other pose nodes",
+        "Grisetti et al. (2010) A Tutorial on Graph-Based SLAM"
+    );
 }
 pr4xis::register_axiom!(
     LoopClosureConnectsPoses,
-    "Grisetti et al. (2010), \"A Tutorial on Graph-Based SLAM\""
+    "Grisetti et al. (2010) A Tutorial on Graph-Based SLAM"
 );
 
 impl Ontology for SlamOntology {
     type Cat = SlamCategory;
     type Qual = ComponentRole;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(ConstraintReducesUncertainty),
-            Box::new(LoopClosureConnectsPoses),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(ConstraintReducesUncertainty));
+        axioms.push(Box::new(LoopClosureConnectsPoses));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<SlamCategory>().unwrap();
+        assert_category_laws::<SlamCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        SlamOntology::validate().unwrap();
+        SlamOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

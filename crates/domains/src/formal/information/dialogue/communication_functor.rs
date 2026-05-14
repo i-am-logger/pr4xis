@@ -83,7 +83,12 @@ impl Functor for DialogueToCommunication {
             DialogueRelationKind::Achieves => CommunicationRelationKind::FlowsBack,
             DialogueRelationKind::Restores => CommunicationRelationKind::FlowsBack,
             DialogueRelationKind::FormedFrom => CommunicationRelationKind::Grounds,
-            DialogueRelationKind::Composed => CommunicationRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+            // unreachable when source has no edges of these kinds.
+            DialogueRelationKind::Subsumption
+            | DialogueRelationKind::Parthood
+            | DialogueRelationKind::Causation
+            | DialogueRelationKind::Opposition => CommunicationRelationKind::Identity,
         };
         CommunicationRelation { from, to, kind }
     }
@@ -93,12 +98,12 @@ pr4xis::register_functor!(DialogueToCommunication);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::entity::Concept;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::Concept;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<DialogueToCommunication>().unwrap();
+        assert_functor_laws::<DialogueToCommunication>();
     }
 
     #[test]

@@ -46,7 +46,7 @@ use super::ontology::{
     SyntrometryCategory, SyntrometryConcept, SyntrometryRelation, SyntrometryRelationKind,
 };
 use crate::formal::meta::ontology_diagnostics::ontology::{
-    MetaCategory, MetaCategoryRelationKind, MetaEntity, MetaRelation,
+    MetaCategory, MetaEntity, MetaRelation, MetaRelationKind,
 };
 
 fn map_concept(c: &SyntrometryConcept) -> MetaEntity {
@@ -85,14 +85,17 @@ impl Functor for SyntrometryToMetaOntology {
     fn map_morphism(m: &SyntrometryRelation) -> MetaRelation {
         let from = map_concept(&m.from);
         let to = map_concept(&m.to);
-        // Preserve source's Identity → target's identity; everything else
-        // becomes a non-identity arrow in the dense target.
         match m.kind {
             SyntrometryRelationKind::Identity => MetaCategory::identity(&from),
+            // Non-identity source arrows project to Subsumption (canonical
+            // Smith 2005 OBO-RO kind). `Identity` would be wrong here:
+            // when source ≠ target, `(F(source), F(target), Identity)` is
+            // not an identity, and target's identity-aware compose then
+            // breaks FunctorCompositionLaw (Mac Lane CWM Ch. II §1).
             _ => MetaRelation {
                 from,
                 to,
-                kind: MetaCategoryRelationKind::Composed,
+                kind: MetaRelationKind::Subsumption,
             },
         }
     }
@@ -102,12 +105,12 @@ pr4xis::register_functor!(SyntrometryToMetaOntology);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     /// Heim's vocabulary aligns with pr4xis's
     /// own meta-ontology vocabulary via a strict Functor.
     #[test]
     fn meta_ontology_functor_laws_pass() {
-        check_functor_laws::<SyntrometryToMetaOntology>().unwrap();
+        assert_functor_laws::<SyntrometryToMetaOntology>();
     }
 }

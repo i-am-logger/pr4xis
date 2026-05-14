@@ -1,7 +1,5 @@
+use super::arrow::Arrow;
 use super::entity::Concept;
-use super::relationship::Relationship;
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 /// A category: a collection of objects (concepts) and morphisms (relationships)
 /// where composition and identity laws hold.
@@ -17,7 +15,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// Use [`crate::validate`] to verify these laws via property-based testing.
 pub trait Category {
     type Object: Concept;
-    type Morphism: Relationship<Object = Self::Object>;
+    type Morphism: Arrow<Object = Self::Object>;
 
     /// The identity morphism for an object (id_A: A → A).
     fn identity(obj: &Self::Object) -> Self::Morphism;

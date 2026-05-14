@@ -1,24 +1,24 @@
+//! Communication → Control functor.
+//!
+//! Proof that communication IS cybernetic control (Wiener 1948,
+//! *Cybernetics: Or Control and Communication in the Animal and the
+//! Machine* — the title IS the functor).
+
 use pr4xis::category::Functor;
 
 use super::ontology::*;
 use crate::formal::systems::control::*;
 
-// Communication → Control functor.
-//
-// Proof that communication IS cybernetic control (Wiener 1948).
-// "Cybernetics: Or Control and Communication in the Animal and the Machine"
-// — the title IS the functor.
-//
-// The mapping:
-//   Sender     → Controller (the agent producing control actions / messages)
-//   Receiver   → Plant (the system being acted upon / informed)
-//   Message    → Signal (information flowing in the loop)
-//   Channel    → Actuator (the medium that delivers the action)
-//   Code       → Model (the shared representation — Conant-Ashby)
-//   Noise      → Disturbance (external perturbation)
-//   Feedback   → FeedbackLoop (the return path)
-//   Context    → Setpoint (the shared reference / desired state)
-
+/// The mapping:
+///
+///   Sender     → Controller (the agent producing control actions / messages)
+///   Receiver   → Plant (the system being acted upon / informed)
+///   Message    → Signal (information flowing in the loop)
+///   Channel    → Actuator (the medium that delivers the action)
+///   Code       → Model (the shared representation — Conant & Ashby 1970)
+///   Noise      → Disturbance (external perturbation)
+///   Feedback   → FeedbackLoop (the return path)
+///   Context    → Setpoint (the shared reference / desired state)
 pub struct CommunicationToControl;
 
 impl Functor for CommunicationToControl {
@@ -51,7 +51,12 @@ impl Functor for CommunicationToControl {
             CommunicationRelationKind::FlowsBack => ControlRelationKind::Closes,
             CommunicationRelationKind::Grounds => ControlRelationKind::ComparedWith,
             CommunicationRelationKind::Shares => ControlRelationKind::Carries,
-            CommunicationRelationKind::Composed => ControlRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+            // unreachable when source has no edges of these kinds.
+            CommunicationRelationKind::Subsumption
+            | CommunicationRelationKind::Parthood
+            | CommunicationRelationKind::Causation
+            | CommunicationRelationKind::Opposition => ControlRelationKind::Identity,
         };
         ControlRelation { from, to, kind }
     }
@@ -61,11 +66,11 @@ pr4xis::register_functor!(CommunicationToControl);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<CommunicationToControl>().unwrap();
+        assert_functor_laws::<CommunicationToControl>();
     }
 
     #[test]
@@ -86,7 +91,7 @@ mod tests {
 
     #[test]
     fn code_is_model() {
-        // Conant-Ashby: the shared code IS the model
+        // Conant & Ashby (1970): the shared code IS the model.
         assert_eq!(
             CommunicationToControl::map_object(&CommunicationConcept::Code),
             ControlConcept::Model

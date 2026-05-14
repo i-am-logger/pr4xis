@@ -63,14 +63,16 @@ impl Functor for SyntrometryToC1 {
         match m.kind {
             // Identity preservation: F(id_A) == id_{F(A)}.
             SyntrometryRelationKind::Identity => C1Category::identity(&from),
-            // Every other kind maps to Composed in the target — matching how
-            // the target's compose produces Composed morphisms for non-Identity
-            // inputs (so F(g∘f) == F(g)∘F(f) holds even when F collapses
-            // distinct source objects to the same target object).
+            // Every other kind projects to the canonical Subsumption kind
+            // (Smith 2005 OBO-RO). Using `Identity` for non-identity source
+            // arrows would break FunctorCompositionLaw (Mac Lane CWM Ch. II
+            // §1) because target's identity-aware compose treats them as
+            // identities — but `(F(source), F(target), Identity)` is not
+            // an identity when source ≠ target.
             _ => C1Relation {
                 from,
                 to,
-                kind: C1RelationKind::Composed,
+                kind: C1RelationKind::Subsumption,
             },
         }
     }
@@ -80,7 +82,7 @@ pr4xis::register_functor!(SyntrometryToC1);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     /// Heim's `Maxime → Attention` and `Metroplex → GlobalWorkspace`
     /// identifications land in pr4xis's C1 (Global Workspace Theory)
@@ -88,6 +90,6 @@ mod tests {
     /// Maximentelezentrik to Dehaene's GWT is structurally verified.
     #[test]
     fn syntrometry_to_c1_laws_pass() {
-        check_functor_laws::<SyntrometryToC1>().unwrap();
+        assert_functor_laws::<SyntrometryToC1>();
     }
 }

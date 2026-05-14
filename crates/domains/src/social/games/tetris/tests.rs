@@ -357,18 +357,18 @@ proptest! {
 #[test]
 fn engine_move_and_drop() {
     let e = new_tetris(42);
-    assert!(!e.is_terminal());
-    let e = e.try_next(TetrisAction(GameAction::MoveLeft)).unwrap();
-    let e = e.try_next(TetrisAction(GameAction::MoveRight)).unwrap();
-    let e = e.try_next(TetrisAction(GameAction::HardDrop)).unwrap();
+    assert!(!e.situation().game_over);
+    let e = e.next(TetrisAction(GameAction::MoveLeft)).unwrap();
+    let e = e.next(TetrisAction(GameAction::MoveRight)).unwrap();
+    let e = e.next(TetrisAction(GameAction::HardDrop)).unwrap();
     assert_eq!(e.step(), 3);
 }
 
 #[test]
 fn engine_back_forward() {
     let e = new_tetris(42);
-    let e = e.try_next(TetrisAction(GameAction::MoveLeft)).unwrap();
-    let e = e.try_next(TetrisAction(GameAction::RotateCW)).unwrap();
+    let e = e.next(TetrisAction(GameAction::MoveLeft)).unwrap();
+    let e = e.next(TetrisAction(GameAction::RotateCW)).unwrap();
     let e = e.back().unwrap();
     assert_eq!(e.step(), 1);
     let e = e.forward().unwrap();
@@ -378,8 +378,8 @@ fn engine_back_forward() {
 #[test]
 fn engine_trace_records() {
     let e = new_tetris(42);
-    let e = e.try_next(TetrisAction(GameAction::MoveDown)).unwrap();
-    let e = e.try_next(TetrisAction(GameAction::MoveDown)).unwrap();
+    let e = e.next(TetrisAction(GameAction::MoveDown)).unwrap();
+    let e = e.next(TetrisAction(GameAction::MoveDown)).unwrap();
     assert_eq!(e.trace().entries().len(), 2);
-    assert!(e.trace().entries().iter().all(|entry| entry.success));
+    assert!(e.trace().entries().iter().all(|entry| entry.applied()));
 }

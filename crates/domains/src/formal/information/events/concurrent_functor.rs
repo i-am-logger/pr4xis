@@ -33,31 +33,29 @@ impl Functor for EventsToConcurrency {
     fn map_morphism(m: &EventRelation) -> ConcurrencyRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
+        // #166 removed the dense `Composed` kind. Identity maps to
+        // identity; otherwise project the (source, target) pair to the
+        // most specific concurrency kind available (heterogeneous
+        // compositions are partial — fall back to Identity at the same
+        // object).
         let kind = if m.kind == EventRelationKind::Identity {
             ConcurrencyRelationKind::Identity
-        } else if m.kind == EventRelationKind::Composed || from == to {
-            ConcurrencyRelationKind::Composed
         } else {
             match (from, to) {
                 (ConcurrencyConcept::Action, ConcurrencyConcept::Message) => {
                     ConcurrencyRelationKind::Produces
                 }
-                (ConcurrencyConcept::Agent, ConcurrencyConcept::Message) => {
-                    ConcurrencyRelationKind::Composed
-                }
                 (ConcurrencyConcept::Synchronization, ConcurrencyConcept::Agent) => {
                     ConcurrencyRelationKind::Controls
-                }
-                (ConcurrencyConcept::Message, ConcurrencyConcept::SharedResource) => {
-                    ConcurrencyRelationKind::Composed
                 }
                 (ConcurrencyConcept::Message, ConcurrencyConcept::State) => {
                     ConcurrencyRelationKind::Changes
                 }
-                (ConcurrencyConcept::Protocol, ConcurrencyConcept::Synchronization) => {
-                    ConcurrencyRelationKind::Composed
-                }
-                _ => ConcurrencyRelationKind::Composed,
+                // Off-pattern pairs use Subsumption (canonical OBO-RO kind,
+                // Smith 2005) rather than Identity — otherwise target's
+                // identity-aware compose breaks FunctorCompositionLaw
+                // (Mac Lane CWM Ch. II §1) when source ≠ target.
+                _ => ConcurrencyRelationKind::Subsumption,
             }
         };
         ConcurrencyRelation { from, to, kind }

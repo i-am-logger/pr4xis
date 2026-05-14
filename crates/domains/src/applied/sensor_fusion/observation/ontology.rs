@@ -2,9 +2,7 @@
 //!
 //! Source: JDL (1999); Bar-Shalom et al. (2001).
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
@@ -17,7 +15,6 @@ use crate::applied::sensor_fusion::observation::observation_model::LinearObserva
 pr4xis::ontology! {
     name: "Observation",
     source: "JDL (1999); Bar-Shalom et al. (2001)",
-    being: Event,
 
     concepts: [RawMeasurement, Predicted, InnovationComputed, GateChecked, Accepted, Rejected],
 
@@ -54,18 +51,25 @@ impl Quality for StageDescription {
 pub struct InnovationZeroAtPrediction;
 
 impl Axiom for InnovationZeroAtPrediction {
-    fn description(&self) -> &str {
-        "innovation is zero when measurement equals prediction"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let h = LinearObservationModel::identity(2);
         let x = Vector::new(vec![1.0, 2.0]);
         let p = Matrix::identity(2);
         let r = Matrix::identity(2);
         let z = h.predict(&x);
         let inn = Innovation::compute(&z, &x, &p, &h, &r);
-        inn.residual.norm() < 1e-12
+        if inn.residual.norm() < 1e-12 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "InnovationZeroAtPrediction",
+        "innovation is zero when measurement equals prediction",
+        "JDL (1999); Bar-Shalom et al. (2001)."
+    );
 }
 pr4xis::register_axiom!(
     InnovationZeroAtPrediction,
@@ -76,10 +80,7 @@ pr4xis::register_axiom!(
 pub struct GateAcceptsMean;
 
 impl Axiom for GateAcceptsMean {
-    fn description(&self) -> &str {
-        "validation gate accepts measurement at the predicted value"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let h = LinearObservationModel::identity(2);
         let x = Vector::new(vec![5.0, 10.0]);
         let p = Matrix::identity(2);
@@ -87,8 +88,18 @@ impl Axiom for GateAcceptsMean {
         let z = h.predict(&x);
         let inn = Innovation::compute(&z, &x, &p, &h, &r);
         let gate = ValidationGate::new(2, 0.95);
-        gate.accept(&inn)
+        if gate.accept(&inn) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "GateAcceptsMean",
+        "validation gate accepts measurement at the predicted value",
+        "JDL (1999); Bar-Shalom et al. (2001)."
+    );
 }
 pr4xis::register_axiom!(GateAcceptsMean, "JDL (1999); Bar-Shalom et al. (2001).");
 
@@ -96,30 +107,27 @@ impl Ontology for ObservationOntology {
     type Cat = ObservationCategory;
     type Qual = StageDescription;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(InnovationZeroAtPrediction),
-            Box::new(GateAcceptsMean),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(InnovationZeroAtPrediction));
+        axioms.push(Box::new(GateAcceptsMean));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<ObservationCategory>().unwrap();
+        assert_category_laws::<ObservationCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ObservationOntology::validate().unwrap();
+        ObservationOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

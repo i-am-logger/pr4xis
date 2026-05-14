@@ -1,12 +1,12 @@
 use pr4xis::category::Category;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 
 use super::ontology::*;
 
 #[test]
 fn dialogue_category_laws() {
-    check_category_laws::<DialogueCategory>().unwrap();
+    assert_category_laws::<DialogueCategory>();
 }
 
 #[test]
@@ -73,13 +73,30 @@ mod prop {
             prop_assert_eq!(DialogueCategory::compose(&id, &id), Some(id));
         }
 
-        /// Participant can reach DialogueState (via Utterance).
+        /// Participant can reach DialogueState (via Utterance). Per #166
+        /// the heterogeneous-kind chain (Produces then Updates) isn't a
+        /// direct morphism — walk the graph.
         #[test]
         fn prop_participant_reaches_state(_dummy in 0..1i32) {
-            let m = DialogueCategory::morphisms();
-            let reaches = m.iter().any(|r|
-                r.from == DialogueConcept::Participant
-                && r.to == DialogueConcept::DialogueState);
+            use std::collections::{HashSet, VecDeque};
+            use pr4xis::category::Arrow;
+            let ms = DialogueCategory::morphisms();
+            let mut visited: HashSet<DialogueConcept> = HashSet::new();
+            let mut queue: VecDeque<DialogueConcept> = VecDeque::new();
+            queue.push_back(DialogueConcept::Participant);
+            let mut reaches = false;
+            while let Some(n) = queue.pop_front() {
+                if n == DialogueConcept::DialogueState {
+                    reaches = true;
+                    break;
+                }
+                if !visited.insert(n) {
+                    continue;
+                }
+                for m in ms.iter().filter(|m| m.source() == n) {
+                    queue.push_back(m.target());
+                }
+            }
             prop_assert!(reaches);
         }
 
@@ -93,14 +110,14 @@ mod prop {
             prop_assert!(grounds);
         }
 
-        /// Every concept has both Identity and Composed self-morphisms.
+        /// Every concept has an Identity self-morphism. Per #166 the
+        /// auto-generated kind no longer emits `Composed` self-loops;
+        /// transitive composition is partial.
         #[test]
         fn prop_self_morphisms(c in arb_dialogue()) {
             let m = DialogueCategory::morphisms();
             let has_identity = m.iter().any(|r| r.from == c && r.to == c && r.kind == DialogueRelationKind::Identity);
-            let has_composed = m.iter().any(|r| r.from == c && r.to == c && r.kind == DialogueRelationKind::Composed);
             prop_assert!(has_identity);
-            prop_assert!(has_composed);
         }
     }
 }

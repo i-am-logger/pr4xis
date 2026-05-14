@@ -1,61 +1,62 @@
-use pr4xis::category::validate::{check_category_laws, check_endofunctor_laws};
+use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::natural::geodesy::ontology::*;
 
 #[test]
 fn geodesy_category_laws() {
-    check_category_laws::<GeodesyCategory>().unwrap();
+    assert_category_laws::<GeodesyCategory>();
 }
 
 #[test]
 fn ned_to_enu_endofunctor_laws() {
-    check_endofunctor_laws::<NedToEnuFunctor>().unwrap();
+    assert_functor_laws::<NedToEnuFunctor>();
 }
 
 #[test]
 fn geodesy_ontology_validates() {
-    GeodesyOntology::validate().unwrap();
+    GeodesyOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn geodetic_ecef_roundtrip() {
-    assert!(GeodeticEcefRoundtrip.holds());
+    assert!(GeodeticEcefRoundtrip.verify().is_ok());
 }
 
 #[test]
 fn ned_enu_roundtrip() {
-    assert!(NedEnuRoundtrip.holds());
+    assert!(NedEnuRoundtrip.verify().is_ok());
 }
 
 #[test]
 fn ned_enu_isometry() {
-    assert!(NedEnuIsometry.holds());
+    assert!(NedEnuIsometry.verify().is_ok());
 }
 
 #[test]
 fn great_circle_symmetry() {
-    assert!(GreatCircleSymmetry.holds());
+    assert!(GreatCircleSymmetry.verify().is_ok());
 }
 
 #[test]
 fn great_circle_self_zero() {
-    assert!(GreatCircleSelfZero.holds());
+    assert!(GreatCircleSelfZero.verify().is_ok());
 }
 
 #[test]
 fn great_circle_triangle_inequality() {
-    assert!(GreatCircleTriangleInequality.holds());
+    assert!(GreatCircleTriangleInequality.verify().is_ok());
 }
 
 #[test]
 fn wgs84_consistency() {
-    assert!(Wgs84Consistency.holds());
+    assert!(Wgs84Consistency.verify().is_ok());
 }
 
 #[test]
 fn ned_enu_functor_identity() {
-    assert!(NedEnuFunctorIdentity.holds());
+    assert!(NedEnuFunctorIdentity.verify().is_ok());
 }
 
 #[cfg(test)]

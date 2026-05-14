@@ -1,14 +1,11 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::statistics::ontology::*;
 
 #[test]
 fn statistical_category_laws() {
-    check_category_laws::<StatisticsCategory>().unwrap();
+    assert_category_laws::<StatisticsCategory>();
 }
 
 #[test]
@@ -18,17 +15,17 @@ fn statistics_ontology_validates() {
 
 #[test]
 fn mse_decomposition_holds() {
-    assert!(MSEDecomposition.holds());
+    assert!(MSEDecomposition.verify().is_ok());
 }
 
 #[test]
 fn confidence_monotonicity_holds() {
-    assert!(ConfidenceMonotonicity.holds());
+    assert!(ConfidenceMonotonicity.verify().is_ok());
 }
 
 #[test]
 fn type_i_type_ii_tradeoff_holds() {
-    assert!(TypeITypeIITradeoff.holds());
+    assert!(TypeITypeIITradeoff.verify().is_ok());
 }
 
 #[cfg(test)]

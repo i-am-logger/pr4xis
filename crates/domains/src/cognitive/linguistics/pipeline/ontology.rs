@@ -30,7 +30,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Pipeline",
     source: "de Groote (2001); Lambek (1958); Coecke et al. (2010); Levelt (1989); Di Lavore & de Felice (2022)",
-    being: Process,
 
     concepts: [
         // The adjunction (Mac Lane 1971 Ch. IV)
@@ -129,24 +128,37 @@ impl Quality for IsPipelineStage {
 pub struct SharedLexicon;
 
 impl Axiom for SharedLexicon {
-    fn description(&self) -> &str {
-        "Parse and Generate share the LexiconHomomorphism (de Groote 2001: same grammar)"
-    }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::mereology::MereologyDef;
-        let parts = PipelineMereology::relations();
-        let parse_has = parts.iter().any(|(w, p)| {
-            *w == PipelineConcept::Parse && *p == PipelineConcept::LexiconHomomorphism
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let parts: Vec<_> = PipelineCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == PipelineRelationKind::Parthood)
+            .collect();
+        let parse_has = parts.iter().any(|m| {
+            m.source() == PipelineConcept::Parse
+                && m.target() == PipelineConcept::LexiconHomomorphism
         });
-        let gen_has = parts.iter().any(|(w, p)| {
-            *w == PipelineConcept::Generate && *p == PipelineConcept::LexiconHomomorphism
+        let gen_has = parts.iter().any(|m| {
+            m.source() == PipelineConcept::Generate
+                && m.target() == PipelineConcept::LexiconHomomorphism
         });
-        parse_has && gen_has
+        if parse_has && gen_has {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "SharedLexicon",
+        "Parse and Generate share the LexiconHomomorphism (de Groote 2001: same grammar)",
+        "de Groote (2001) Towards Abstract Categorial Grammars, ACL 2001"
+    );
 }
 pr4xis::register_axiom!(
     SharedLexicon,
-    "de Groote (2001); Lambek (1958); Lambek & Scott (1986);"
+    "de Groote (2001) Towards Abstract Categorial Grammars, ACL 2001"
 );
 
 /// Parse and Generate are opposed (adjunction).
@@ -154,19 +166,29 @@ pr4xis::register_axiom!(
 pub struct ParseGenerateAdjoint;
 
 impl Axiom for ParseGenerateAdjoint {
-    fn description(&self) -> &str {
-        "Parse ⊣ Generate: left and right adjoints are opposed"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if PipelineCategory::morphisms().iter().any(|m| {
+            m.kind() == PipelineRelationKind::Opposition
+                && m.source() == PipelineConcept::Parse
+                && m.target() == PipelineConcept::Generate
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::opposition::OppositionDef;
-        PipelineOpposition::pairs()
-            .iter()
-            .any(|(a, b)| *a == PipelineConcept::Parse && *b == PipelineConcept::Generate)
-    }
+
+    pr4xis::axiom_meta!(
+        "ParseGenerateAdjoint",
+        "Parse ⊣ Generate: left and right adjoints are opposed",
+        "de Groote (2001) Towards Abstract Categorial Grammars; Lambek & Scott (1986) Introduction to Higher Order Categorical Logic"
+    );
 }
 pr4xis::register_axiom!(
     ParseGenerateAdjoint,
-    "de Groote (2001); Lambek (1958); Lambek & Scott (1986);"
+    "de Groote (2001) Towards Abstract Categorial Grammars; Lambek & Scott (1986) Introduction to Higher Order Categorical Logic"
 );
 
 /// Surface and Meaning are opposed endpoints.
@@ -174,34 +196,40 @@ pr4xis::register_axiom!(
 pub struct SurfaceMeaningOpposed;
 
 impl Axiom for SurfaceMeaningOpposed {
-    fn description(&self) -> &str {
-        "SurfaceForm and SemanticRepresentation are opposed endpoints"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if PipelineCategory::morphisms().iter().any(|m| {
+            m.kind() == PipelineRelationKind::Opposition
+                && m.source() == PipelineConcept::SurfaceForm
+                && m.target() == PipelineConcept::SemanticRepresentation
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::opposition::OppositionDef;
-        PipelineOpposition::pairs().iter().any(|(a, b)| {
-            *a == PipelineConcept::SurfaceForm && *b == PipelineConcept::SemanticRepresentation
-        })
-    }
+
+    pr4xis::axiom_meta!(
+        "SurfaceMeaningOpposed",
+        "SurfaceForm and SemanticRepresentation are opposed endpoints",
+        "Levelt (1989) Speaking: From Intention to Articulation; de Groote (2001) Towards Abstract Categorial Grammars"
+    );
 }
 pr4xis::register_axiom!(
     SurfaceMeaningOpposed,
-    "de Groote (2001); Lambek (1958); Lambek & Scott (1986);"
+    "Levelt (1989) Speaking: From Intention to Articulation; de Groote (2001) Towards Abstract Categorial Grammars"
 );
 
 impl Ontology for PipelineOntology {
     type Cat = PipelineCategory;
     type Qual = IsPipelineStage;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        PipelineOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(SharedLexicon),
-            Box::new(ParseGenerateAdjoint),
-            Box::new(SurfaceMeaningOpposed),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(SharedLexicon));
+        axioms.push(Box::new(ParseGenerateAdjoint));
+        axioms.push(Box::new(SurfaceMeaningOpposed));
+        axioms
     }
 }

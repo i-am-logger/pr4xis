@@ -8,14 +8,14 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::mechanobiology::ontology::{
-    MechanobiologyCategory, MechanobiologyCategoryRelationKind, MechanobiologyEntity,
-    MechanobiologyRelation,
+    MechanobiologyCategory, MechanobiologyEntity, MechanobiologyRelation,
+    MechanobiologyRelationKind,
 };
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularEntity, MolecularRelation, MolecularRelationKind,
 };
 
 /// Structure-preserving map from mechanobiology entities to their molecular substrate.
@@ -61,18 +61,35 @@ impl Functor for MechanobiologyToMolecular {
             MB::ChannelState => M::Piezo1,
             MB::FrequencyProperty => M::Mechanosensitive,
             MB::CellularResponse => M::Calcium,
+            MB::MechanobiologyEvent => M::Mechanosensitive,
+
+            // Causal events (merged into the concept enum): each step maps
+            // to the molecular substrate involved.
+            MB::MechanicalLoad => M::Mechanosensitive,
+            MB::MembraneDeformation => M::Mechanosensitive,
+            MB::ChannelGating => M::Piezo1,
+            MB::IonInflux => M::Calcium,
+            MB::IntracellularSignaling => M::Calcium,
+            MB::RepetitiveStimulus => M::Mechanosensitive,
+            MB::ChannelInactivation => M::Piezo1,
+            MB::FrequencyDependentResponse => M::Piezo1,
+            MB::SustainedForce => M::Mechanosensitive,
+            MB::ThresholdShift => M::Mechanosensitive,
         }
     }
 
     fn map_morphism(m: &MechanobiologyRelation) -> MolecularRelation {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
+        // Identity preserved; non-Identity kinds collapse to Subsumption in
+        // the (migrated) molecular target so functor laws hold under
+        // same-kind transitive composition (#166).
         match m.kind {
-            MechanobiologyCategoryRelationKind::Identity => MolecularCategory::identity(&from),
+            MechanobiologyRelationKind::Identity => MolecularCategory::identity(&from),
             _ => MolecularRelation {
                 from,
                 to,
-                kind: MolecularCategoryRelationKind::Composed,
+                kind: MolecularRelationKind::Subsumption,
             },
         }
     }
@@ -82,13 +99,13 @@ pr4xis::register_functor!(MechanobiologyToMolecular);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<MechanobiologyToMolecular>().unwrap();
+        assert_functor_laws::<MechanobiologyToMolecular>();
     }
 
     #[test]
@@ -106,37 +123,30 @@ mod tests {
         }
     }
 
+    /// Composition preservation over a Causation chain that actually
+    /// composes: MechanicalLoad -> MembraneDeformation -> ChannelGating
+    /// compose under Causation-transitivity.
     #[test]
-    fn test_composition_preservation() {
-        let objs = MechanobiologyEntity::variants();
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = MechanobiologyRelation {
-                        from: a,
-                        to: b,
-                        kind: MechanobiologyCategoryRelationKind::Composed,
-                    };
-                    let g = MechanobiologyRelation {
-                        from: b,
-                        to: c,
-                        kind: MechanobiologyCategoryRelationKind::Composed,
-                    };
-                    let composed = MechanobiologyCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = MechanobiologyToMolecular::map_morphism(&composed);
-                    let composed_mapped = MolecularCategory::compose(
-                        &MechanobiologyToMolecular::map_morphism(&f),
-                        &MechanobiologyToMolecular::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
-                }
-            }
-        }
+    fn test_composition_preservation_causation_chain() {
+        let f = MechanobiologyRelation {
+            from: MechanobiologyEntity::MechanicalLoad,
+            to: MechanobiologyEntity::MembraneDeformation,
+            kind: MechanobiologyRelationKind::Causation,
+        };
+        let g = MechanobiologyRelation {
+            from: MechanobiologyEntity::MembraneDeformation,
+            to: MechanobiologyEntity::ChannelGating,
+            kind: MechanobiologyRelationKind::Causation,
+        };
+        let composed = MechanobiologyCategory::compose(&f, &g)
+            .expect("Causation chain must compose under transitive same-kind inheritance");
+        let mapped_composed = MechanobiologyToMolecular::map_morphism(&composed);
+        let composed_mapped = MolecularCategory::compose(
+            &MechanobiologyToMolecular::map_morphism(&f),
+            &MechanobiologyToMolecular::map_morphism(&g),
+        )
+        .expect("functor-mapped morphisms must compose in the target category");
+        assert_eq!(mapped_composed, composed_mapped);
     }
 
     #[test]

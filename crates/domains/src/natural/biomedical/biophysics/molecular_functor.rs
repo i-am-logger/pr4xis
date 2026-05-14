@@ -10,13 +10,13 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::biophysics::ontology::{
-    BiophysicsCategory, BiophysicsCategoryRelationKind, BiophysicsEntity, BiophysicsRelation,
+    BiophysicsCategory, BiophysicsEntity, BiophysicsRelation, BiophysicsRelationKind,
 };
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularEntity, MolecularRelation, MolecularRelationKind,
 };
 
 /// Structure-preserving map from biophysics entities to their molecular substrate.
@@ -69,18 +69,24 @@ impl Functor for BiophysicsToMolecular {
             BP::WaveProperty => M::Mechanosensitive,
             BP::PiezoelectricProperty => M::Protein,
             BP::BiologicalMedium => M::Protein,
+
+            // Biophysical events — funnel to Mechanosensitive (the
+            // molecular face of mechanical events at this granularity).
+            _ => M::Mechanosensitive,
         }
     }
 
     fn map_morphism(m: &BiophysicsRelation) -> MolecularRelation {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
+        // Identity preserved; non-Identity kinds collapse to Subsumption in
+        // the target. Same-kind preservation keeps composition (#166).
         match m.kind {
-            BiophysicsCategoryRelationKind::Identity => MolecularCategory::identity(&from),
+            BiophysicsRelationKind::Identity => MolecularCategory::identity(&from),
             _ => MolecularRelation {
                 from,
                 to,
-                kind: MolecularCategoryRelationKind::Composed,
+                kind: MolecularRelationKind::Subsumption,
             },
         }
     }
@@ -90,13 +96,13 @@ pr4xis::register_functor!(BiophysicsToMolecular);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<BiophysicsToMolecular>().unwrap();
+        assert_functor_laws::<BiophysicsToMolecular>();
     }
 
     #[test]
@@ -115,34 +121,36 @@ mod tests {
     }
 
     #[test]
-    fn test_composition_preservation() {
-        let objs = BiophysicsEntity::variants();
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = BiophysicsRelation {
-                        from: a,
-                        to: b,
-                        kind: BiophysicsCategoryRelationKind::Composed,
-                    };
-                    let g = BiophysicsRelation {
-                        from: b,
-                        to: c,
-                        kind: BiophysicsCategoryRelationKind::Composed,
-                    };
-                    let composed = BiophysicsCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = BiophysicsToMolecular::map_morphism(&composed);
-                    let composed_mapped = MolecularCategory::compose(
-                        &BiophysicsToMolecular::map_morphism(&f),
-                        &BiophysicsToMolecular::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
+    fn test_composition_preservation_on_subsumption() {
+        // Both Biophysics and Molecular are kinded and partial (#166); compose
+        // only succeeds for same-kind transitive relations. Exercise composition
+        // along Subsumption chains and verify the functor preserves the composite.
+        for m in BiophysicsCategory::morphisms() {
+            if m.kind() != BiophysicsRelationKind::Subsumption {
+                continue;
+            }
+            for n in BiophysicsCategory::morphisms() {
+                if n.kind() != BiophysicsRelationKind::Subsumption {
+                    continue;
                 }
+                if m.target() != n.source() {
+                    continue;
+                }
+                let composed = match BiophysicsCategory::compose(&m, &n) {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let mapped_composed = BiophysicsToMolecular::map_morphism(&composed);
+                let composed_mapped = MolecularCategory::compose(
+                    &BiophysicsToMolecular::map_morphism(&m),
+                    &BiophysicsToMolecular::map_morphism(&n),
+                )
+                .expect("target composition is total for same-kind");
+                assert_eq!(
+                    mapped_composed, composed_mapped,
+                    "composition law failed for {:?} ∘ {:?}",
+                    m, n
+                );
             }
         }
     }

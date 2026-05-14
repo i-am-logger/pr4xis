@@ -1,126 +1,81 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! OMV/MOD — Ontology Metadata Vocabulary. The "ontology about
+//! ontologies"; describes ontologies as first-class objects, their
+//! formality, methodology, structural metrics, evaluation, and purpose.
+//!
+//! # Literature
+//!
+//! - **Hartmann, Palma & Sure (2005)** "OMV — Ontology Metadata
+//!   Vocabulary", *ISWC 2005 Workshop on Ontology Patterns* — the
+//!   original OMV core.
+//! - **Dutta, Toulet, Emonet & Jonquet (2017)** "New Generation
+//!   Metadata Vocabulary for Ontology Description and Publication",
+//!   *MTSR 2017* — MOD 1.2.
+//! - **FAIR-IMPACT (2021)** *MOD 2.0* — extends DCAT 2 with FAIR
+//!   evaluation.
+//! - **Gruninger & Fox (1995)** "Methodology for the Design and
+//!   Evaluation of Ontologies", *IJCAI Workshop on Basic Ontological
+//!   Issues in Knowledge Sharing* — competency questions.
+//! - **Uschold & Gruninger (1996)** "Ontologies: Principles, Methods
+//!   and Applications", *Knowledge Engineering Review* 11(2):93-136.
 
-// OMV/MOD — Ontology Metadata Vocabulary.
-//
-// Describes ontologies as first-class objects: their formality level,
-// engineering methodology, structural metrics, evaluation, and purpose.
-//
-// This is the "ontology about ontologies" — it tells you what KIND of
-// ontology something is, how it was built, and what it's for.
-//
-// Grounded in:
-// - Hartmann et al. "Ontology Metadata Vocabulary" (2005) — OMV
-// - Dutta et al. "MOD: Metadata for Ontology Description" (2017) — MOD 1.2
-// - FAIR-IMPACT MOD 2.0 (2021) — extends DCAT 2
-//
-// Composes with:
-// - Knowledge (VoID) — structural metadata (class/property counts)
-// - Lemon (Ontolex) — linguistic realization of ontology names/descriptions
-// - OWL — the representation language itself
-
-use pr4xis::category::{Category, Concept};
-use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Concepts in the OMV/MOD ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum OmvConcept {
-    /// mod:SemanticArtefact — an ontology/vocabulary/terminology as a first-class object.
-    SemanticArtefact,
+pr4xis::ontology! {
+    name: "Omv",
+    source: "Hartmann, Palma & Sure (2005) OMV - Ontology Metadata Vocabulary, ISWC Workshop on Ontology Patterns; Dutta, Toulet, Emonet & Jonquet (2017) MOD 1.2, MTSR 2017; FAIR-IMPACT (2021) MOD 2.0; Gruninger & Fox (1995) Methodology for the Design and Evaluation of Ontologies, IJCAI Workshop; Uschold & Gruninger (1996) Ontologies: Principles, Methods and Applications, KER 11(2):93-136",
 
-    /// mod:FormalityLevel — degree of logical formalization.
-    /// Ranges from informal taxonomy to axiomatized higher-order logic.
-    FormalityLevel,
+    concepts: [
+        SemanticArtefact,
+        FormalityLevel,
+        RepresentationParadigm,
+        Methodology,
+        DesignedTask,
+        Analytics,
+        Evaluation,
+        Catalog,
+        NaturalLanguage,
+        CompetencyQuestion,
+    ],
 
-    /// mod:KnowledgeRepresentationParadigm — the formalism used.
-    /// OWL, SKOS, RDF-S, Lambek calculus, etc.
-    RepresentationParadigm,
+    labels: {
+        SemanticArtefact: ("en", "Semantic artefact",
+            "MOD 2.0: an ontology / vocabulary / terminology as a first-class object."),
+        FormalityLevel: ("en", "Formality level",
+            "OMV omv:hasFormalityLevel: degree of logical formalisation - from informal taxonomy to axiomatised higher-order logic."),
+        RepresentationParadigm: ("en", "Representation paradigm",
+            "MOD: the formalism used (OWL, SKOS, RDF-S, Lambek calculus, ...)."),
+        Methodology: ("en", "Methodology",
+            "MOD: the engineering methodology (METHONTOLOGY, NeOn, ontology-from-paper, ...)."),
+        DesignedTask: ("en", "Designed task",
+            "MOD: what the ontology is designed for (classification, QA, NLG, ...)."),
+        Analytics: ("en", "Analytics",
+            "MOD 2.0: structural metrics - class / property / axiom counts. Bridges to VoID statistics."),
+        Evaluation: ("en", "Evaluation",
+            "MOD: quality assessment (FAIR, OQuaRE, OntoQA, ...)."),
+        Catalog: ("en", "Catalog",
+            "MOD: a registry / repository of semantic artefacts."),
+        NaturalLanguage: ("en", "Natural language",
+            "dcterms:language: the natural language of the ontology's content."),
+        CompetencyQuestion: ("en", "Competency question",
+            "Gruninger & Fox (1995): a question the ontology can answer."),
+    },
 
-    /// mod:EngineeringMethodology — how the ontology was built.
-    /// METHONTOLOGY, NeOn, ontology-from-paper, etc.
-    Methodology,
-
-    /// mod:SemanticArtefactTask — what the ontology is designed for.
-    /// Classification, question answering, NLG, etc.
-    DesignedTask,
-
-    /// mod:Analytics — structural metrics (class/property/axiom counts).
-    /// Bridges to VoID void:classes, void:properties.
-    Analytics,
-
-    /// mod:Evaluation — quality assessment of the ontology.
-    /// FAIR assessment, OQuaRE, OntoQA, etc.
-    Evaluation,
-
-    /// mod:SemanticArtefactCatalog — a registry/repository of ontologies.
-    /// Maps to Knowledge::KnowledgeBase.
-    Catalog,
-
-    /// dcterms:LinguisticSystem — natural language of the ontology's content.
-    /// Connects to Lemon's lime:Lexicon via language tag.
-    NaturalLanguage,
-
-    /// Competency question — what the ontology can answer.
-    /// Gruninger & Fox (1995); Uschold & Gruninger (1996).
-    CompetencyQuestion,
+    edges: [
+        // Hartmann (2005) OMV core: every artefact has these properties.
+        (SemanticArtefact, FormalityLevel, HasFormalityLevel),
+        (SemanticArtefact, RepresentationParadigm, HasRepresentation),
+        (SemanticArtefact, Methodology, UsedMethodology),
+        (SemanticArtefact, DesignedTask, DesignedFor),
+        (SemanticArtefact, Analytics, HasAnalytics),
+        (SemanticArtefact, Evaluation, HasEvaluation),
+        (SemanticArtefact, NaturalLanguage, HasLanguage),
+        (SemanticArtefact, CompetencyQuestion, HasCompetencyQuestion),
+        // MOD 2.0: Catalog contains SemanticArtefacts.
+        (Catalog, SemanticArtefact, Catalogs),
+    ],
 }
 
-define_ontology! {
-    /// OMV/MOD — ontology metadata vocabulary.
-    pub OmvOntology for OmvCategory {
-        concepts: OmvConcept,
-        relation: OmvRelation,
-        kind: OmvRelationKind,
-        kinds: [
-            /// mod:hasFormalityLevel — how formally axiomatized.
-            HasFormalityLevel,
-            /// mod:hasRepresentationLanguage — which formalism.
-            HasRepresentation,
-            /// mod:usedEngineeringMethodology — how it was built.
-            UsedMethodology,
-            /// mod:designedForTask — what it's for.
-            DesignedFor,
-            /// hasAnalytics — structural metrics.
-            HasAnalytics,
-            /// hasEvaluation — quality assessment.
-            HasEvaluation,
-            /// catalogs — catalog contains artefact.
-            Catalogs,
-            /// dcterms:language — natural language coverage.
-            HasLanguage,
-            /// competency question association.
-            HasCompetencyQuestion,
-        ],
-        edges: [
-            (SemanticArtefact, FormalityLevel, HasFormalityLevel),
-            (SemanticArtefact, RepresentationParadigm, HasRepresentation),
-            (SemanticArtefact, Methodology, UsedMethodology),
-            (SemanticArtefact, DesignedTask, DesignedFor),
-            (SemanticArtefact, Analytics, HasAnalytics),
-            (SemanticArtefact, Evaluation, HasEvaluation),
-            (SemanticArtefact, NaturalLanguage, HasLanguage),
-            (SemanticArtefact, CompetencyQuestion, HasCompetencyQuestion),
-            (Catalog, SemanticArtefact, Catalogs),
-        ],
-        composed: [
-            (Catalog, FormalityLevel),
-            (Catalog, RepresentationParadigm),
-            (Catalog, Methodology),
-            (Catalog, DesignedTask),
-            (Catalog, Analytics),
-            (Catalog, Evaluation),
-            (Catalog, NaturalLanguage),
-            (Catalog, CompetencyQuestion),
-        ],
-
-        being: AbstractObject,
-        source: "Hartmann et al. (2005); Dutta et al. (2017); MOD 2.0 (2021)",
-    }
-}
-
-/// Formality levels — from OMV omv:hasFormalityLevel.
-/// Ranges from informal to highly axiomatized.
+/// Quality: which concepts are formality-level descriptors.
 #[derive(Debug, Clone)]
 pub struct FormalityLevelOf;
 
@@ -128,81 +83,78 @@ impl Quality for FormalityLevelOf {
     type Individual = OmvConcept;
     type Value = bool;
 
-    fn get(&self, individual: &OmvConcept) -> Option<bool> {
-        Some(matches!(individual, OmvConcept::FormalityLevel))
+    fn get(&self, c: &OmvConcept) -> Option<bool> {
+        Some(matches!(c, OmvConcept::FormalityLevel))
     }
 }
 
-/// Every SemanticArtefact must have a FormalityLevel (OMV core requirement).
-#[derive(Debug)]
+/// Every SemanticArtefact has a FormalityLevel (Hartmann 2005 OMV core).
 pub struct ArtefactHasFormalityLevel;
 
 impl Axiom for ArtefactHasFormalityLevel {
-    fn description(&self) -> &str {
-        "every SemanticArtefact has a FormalityLevel (OMV core; Hartmann 2005)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let found = OmvCategory::morphisms().iter().any(|m| {
+            m.source() == OmvConcept::SemanticArtefact
+                && m.target() == OmvConcept::FormalityLevel
+                && m.kind() == OmvRelationKind::HasFormalityLevel
+        });
+        if found {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        let m = OmvCategory::morphisms();
-        m.iter().any(|r| {
-            r.from == OmvConcept::SemanticArtefact
-                && r.to == OmvConcept::FormalityLevel
-                && r.kind == OmvRelationKind::HasFormalityLevel
-        })
-    }
-}
-pr4xis::register_axiom!(ArtefactHasFormalityLevel);
 
-/// Every SemanticArtefact must have Analytics (structural metrics).
-#[derive(Debug)]
+    pr4xis::axiom_meta!(
+        "ArtefactHasFormalityLevel",
+        "every SemanticArtefact has a FormalityLevel",
+        "Hartmann, Palma & Sure (2005) OMV - Ontology Metadata Vocabulary, ISWC Workshop on Ontology Patterns"
+    );
+}
+
+pr4xis::register_axiom!(
+    ArtefactHasFormalityLevel,
+    "Hartmann, Palma & Sure (2005) OMV - Ontology Metadata Vocabulary, ISWC Workshop on Ontology Patterns"
+);
+
+/// Every SemanticArtefact has Analytics (MOD 2.0 — VoID statistics).
 pub struct ArtefactHasAnalytics;
 
 impl Axiom for ArtefactHasAnalytics {
-    fn description(&self) -> &str {
-        "every SemanticArtefact has Analytics (MOD 2.0; VoID statistics)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let found = OmvCategory::morphisms().iter().any(|m| {
+            m.source() == OmvConcept::SemanticArtefact
+                && m.target() == OmvConcept::Analytics
+                && m.kind() == OmvRelationKind::HasAnalytics
+        });
+        if found {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        let m = OmvCategory::morphisms();
-        m.iter().any(|r| {
-            r.from == OmvConcept::SemanticArtefact
-                && r.to == OmvConcept::Analytics
-                && r.kind == OmvRelationKind::HasAnalytics
-        })
-    }
-}
-pr4xis::register_axiom!(ArtefactHasAnalytics);
 
-/// Catalog reaches all artefact metadata transitively.
-#[derive(Debug)]
-pub struct CatalogReachesAll;
-
-impl Axiom for CatalogReachesAll {
-    fn description(&self) -> &str {
-        "Catalog reaches all concepts transitively (DCAT completeness)"
-    }
-    fn holds(&self) -> bool {
-        use pr4xis::category::entity::Concept;
-        let m = OmvCategory::morphisms();
-        OmvConcept::variants().iter().all(|c| {
-            m.iter()
-                .any(|r| r.from == OmvConcept::Catalog && r.to == *c)
-        })
-    }
+    pr4xis::axiom_meta!(
+        "ArtefactHasAnalytics",
+        "every SemanticArtefact has Analytics",
+        "FAIR-IMPACT (2021) MOD 2.0"
+    );
 }
-pr4xis::register_axiom!(CatalogReachesAll);
+
+pr4xis::register_axiom!(ArtefactHasAnalytics, "FAIR-IMPACT (2021) MOD 2.0");
 
 impl Ontology for OmvOntology {
     type Cat = OmvCategory;
     type Qual = FormalityLevelOf;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        OmvOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(ArtefactHasFormalityLevel),
-            Box::new(ArtefactHasAnalytics),
-            Box::new(CatalogReachesAll),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(ArtefactHasFormalityLevel));
+        axioms.push(Box::new(ArtefactHasAnalytics));
+        axioms
     }
 }

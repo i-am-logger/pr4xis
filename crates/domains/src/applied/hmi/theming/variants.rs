@@ -12,6 +12,7 @@ use super::base16::Polarity;
 /// - Base16 spec: variants are polarity-tagged (dark/light)
 /// - Vogix16 spec: variants have explicit ordering by luminance
 /// - WCAG 2.1: polarity derived from base00 relative luminance
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
 /// Variant metadata — properties of a single theme variant.
@@ -102,17 +103,23 @@ pub struct UniqueOrders {
 }
 
 impl Axiom for UniqueOrders {
-    fn description(&self) -> &str {
-        "variant orders must be unique within a theme"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let mut orders: Vec<u32> = self.variants.variants.iter().map(|v| v.order).collect();
         orders.sort();
         orders.dedup();
-        orders.len() == self.variants.variants.len()
+        if orders.len() == self.variants.variants.len() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "UniqueOrders",
+        "variant orders must be unique within a theme",
+        "tinted-theming base16 spec — variant ordering is a total order"
+    );
 }
-pr4xis::register_axiom!(UniqueOrders);
 
 /// Navigation must be consistent: darker(lighter(x)) = x if both exist.
 pub struct NavigationRoundtrip {
@@ -120,28 +127,30 @@ pub struct NavigationRoundtrip {
 }
 
 impl Axiom for NavigationRoundtrip {
-    fn description(&self) -> &str {
-        "darker(lighter(x)) = x when both directions have targets"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         for v in &self.variants.variants {
             if let Some(lighter) = self.variants.lighter(&v.name)
                 && let Some(back) = self.variants.darker(lighter)
                 && back != v.name
             {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
             if let Some(darker) = self.variants.darker(&v.name)
                 && let Some(back) = self.variants.lighter(darker)
                 && back != v.name
             {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "NavigationRoundtrip",
+        "darker(lighter(x)) = x when both directions have targets",
+        "Mac Lane (1971) Categories for the Working Mathematician — invertibility of an order-functor"
+    );
 }
-pr4xis::register_axiom!(NavigationRoundtrip);
 
 /// Every variant must have a polarity.
 pub struct PolarityComplete {
@@ -149,16 +158,22 @@ pub struct PolarityComplete {
 }
 
 impl Axiom for PolarityComplete {
-    fn description(&self) -> &str {
-        "every variant has a polarity (dark or light)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         // All variants have a polarity — by construction (enum), always true.
         // This axiom exists for documentation and future extension.
-        !self.variants.is_empty()
+        if !self.variants.is_empty() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "PolarityComplete",
+        "every variant has a polarity (dark or light)",
+        "tinted-theming base16 spec — every variant is classified dark or light"
+    );
 }
-pr4xis::register_axiom!(PolarityComplete);
 
 #[cfg(test)]
 mod tests {
@@ -217,13 +232,15 @@ mod tests {
             UniqueOrders {
                 variants: catppuccin_variants()
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
         assert!(
             UniqueOrders {
                 variants: yoga_variants()
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
     }
 
@@ -232,7 +249,7 @@ mod tests {
         let mut vs = VariantSet::new("broken");
         vs.add("a", Polarity::Dark, 1);
         vs.add("b", Polarity::Dark, 1); // duplicate
-        assert!(!UniqueOrders { variants: vs }.holds());
+        assert!(UniqueOrders { variants: vs }.verify().is_err());
     }
 
     #[test]
@@ -241,13 +258,15 @@ mod tests {
             NavigationRoundtrip {
                 variants: catppuccin_variants()
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
         assert!(
             NavigationRoundtrip {
                 variants: yoga_variants()
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
     }
 
@@ -257,7 +276,8 @@ mod tests {
             PolarityComplete {
                 variants: catppuccin_variants()
             }
-            .holds()
+            .verify()
+            .is_ok()
         );
     }
 
@@ -302,16 +322,16 @@ mod tests {
             let vs = catppuccin_variants();
             let v = &vs.variants[idx];
             // darker then lighter = same
-            if let Some(d) = vs.darker(&v.name) {
-                if let Some(back) = vs.lighter(d) {
-                    prop_assert_eq!(back, v.name.as_str());
-                }
+            if let Some(d) = vs.darker(&v.name)
+                && let Some(back) = vs.lighter(d)
+            {
+                prop_assert_eq!(back, v.name.as_str());
             }
             // lighter then darker = same
-            if let Some(l) = vs.lighter(&v.name) {
-                if let Some(back) = vs.darker(l) {
-                    prop_assert_eq!(back, v.name.as_str());
-                }
+            if let Some(l) = vs.lighter(&v.name)
+                && let Some(back) = vs.darker(l)
+            {
+                prop_assert_eq!(back, v.name.as_str());
             }
         }
 
@@ -326,9 +346,9 @@ mod tests {
                 );
             }
             let uo = UniqueOrders { variants: vs.clone() };
-            prop_assert!(uo.holds());
+            prop_assert!(uo.verify().is_ok());
             let nr = NavigationRoundtrip { variants: vs };
-            prop_assert!(nr.holds());
+            prop_assert!(nr.verify().is_ok());
         }
 
         #[test]

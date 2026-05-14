@@ -1,5 +1,6 @@
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::sensor_fusion::frame::boresight::Boresight;
 use crate::applied::sensor_fusion::frame::lever_arm::LeverArm;
@@ -15,7 +16,7 @@ use crate::formal::math::rotation::quaternion::Quaternion;
 
 #[test]
 fn frame_category_laws() {
-    check_category_laws::<FrameCategory>().unwrap();
+    assert_category_laws::<FrameCategory>();
 }
 
 // ---------------------------------------------------------------------------
@@ -24,27 +25,28 @@ fn frame_category_laws() {
 
 #[test]
 fn frame_ontology_validates() {
-    FrameOntology::validate().unwrap();
+    FrameOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn axiom_transforms_compose_associatively() {
-    assert!(TransformsComposeAssociatively.holds());
+    assert!(TransformsComposeAssociatively.verify().is_ok());
 }
 
 #[test]
 fn axiom_identity_exists() {
-    assert!(IdentityExists.holds());
+    assert!(IdentityExists.verify().is_ok());
 }
 
 #[test]
 fn axiom_transforms_invertible() {
-    assert!(TransformsInvertible.holds());
+    assert!(TransformsInvertible.verify().is_ok());
 }
 
 #[test]
 fn axiom_all_frames_right_handed() {
-    assert!(AllFramesRightHanded.holds());
+    assert!(AllFramesRightHanded.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------

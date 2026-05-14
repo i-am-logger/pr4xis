@@ -1,8 +1,24 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use std::collections::HashSet;
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const EULER_CITATION: &str = "Euler (1736) Solutio problematis ad geometriam situs pertinentis, \
+     Commentarii Academiae Scientiarum Petropolitanae 8:128-140";
 
 /// Bridges of Königsberg: traverse all edges exactly once.
 /// Classic result: impossible if more than 2 nodes have odd degree.
+///
+/// Source: Euler (1736) — the founding paper of graph theory.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Graph {
     pub nodes: usize,
@@ -78,6 +94,11 @@ impl State {
         self.traversed.len() == self.graph.edges.len()
     }
 
+    /// The Euler-path search succeeds when every edge has been crossed.
+    pub fn is_terminal(&self) -> bool {
+        self.all_traversed()
+    }
+
     pub fn available_edges(&self) -> Vec<(usize, usize, usize)> {
         self.graph
             .edges
@@ -91,19 +112,7 @@ impl State {
     }
 }
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        format!(
-            "at node {} traversed={}/{}",
-            self.position,
-            self.traversed.len(),
-            self.graph.edges.len()
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        self.all_traversed()
-    }
-}
+impl Situation for State {}
 
 /// Cross a bridge (by edge index).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,47 +122,31 @@ pub struct CrossBridge {
 
 impl Action for CrossBridge {
     type Sit = State;
-    fn describe(&self) -> String {
-        format!("cross bridge {}", self.edge_index)
-    }
 }
 
 struct ValidCrossing;
 impl Precondition<CrossBridge> for ValidCrossing {
-    fn check(&self, s: &State, a: &CrossBridge) -> PreconditionResult {
+    fn check(&self, s: &State, a: &CrossBridge) -> Verdict {
+        let meta = axiom_meta(
+            "valid_crossing",
+            "must cross adjacent, untraversed bridge",
+            EULER_CITATION,
+        );
         if a.edge_index >= s.graph.edges.len() {
-            return PreconditionResult::violated(
-                "valid_crossing",
-                "edge index out of range",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         if s.traversed.contains(&a.edge_index) {
-            return PreconditionResult::violated(
-                "valid_crossing",
-                "bridge already crossed",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         let (a_node, b_node) = s.graph.edges[a.edge_index];
         if a_node != s.position && b_node != s.position {
-            return PreconditionResult::violated(
-                "valid_crossing",
-                "bridge not connected to current position",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("valid_crossing", "valid bridge crossing")
-    }
-    fn describe(&self) -> &str {
-        "must cross adjacent, untraversed bridge"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_crossing(s: &State, a: &CrossBridge) -> Result<State, String> {
+fn apply_crossing(s: &State, a: &CrossBridge) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     let (a_node, b_node) = s.graph.edges[a.edge_index];
     n.position = if a_node == s.position { b_node } else { a_node };

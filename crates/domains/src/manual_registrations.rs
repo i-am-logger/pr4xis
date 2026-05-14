@@ -19,7 +19,6 @@ register_manual!(
     name: "Lexicon",
     module: "pr4xis_domains::cognitive::linguistics::lexicon",
     source: "Lambek (1958); Chiarcos & Sukhareva OLiA (2015)",
-    being: SocialObject,
 );
 
 register_manual!(
@@ -29,7 +28,6 @@ register_manual!(
     name: "Tense & Aspect",
     module: "pr4xis_domains::cognitive::linguistics::morphology::tense",
     source: "Reichenbach (1947); Comrie (1976)",
-    being: AbstractObject,
 );
 
 register_manual!(
@@ -39,7 +37,6 @@ register_manual!(
     name: "Spelling Errors",
     module: "pr4xis_domains::cognitive::linguistics::orthography::distance",
     source: "Damerau (1964); Brill & Moore (2000)",
-    being: Quality,
 );
 
 register_manual!(
@@ -49,7 +46,6 @@ register_manual!(
     name: "Theming",
     module: "pr4xis_domains::applied::hmi::theming",
     source: "Base16 styling spec; WCAG 2.1",
-    being: Quality,
 );
 
 #[cfg(feature = "std")]
@@ -60,7 +56,6 @@ register_manual!(
     name: "Judicial",
     module: "pr4xis_domains::social::judicial",
     source: "Hart (1961); Sartor (2005)",
-    being: Process,
 );
 
 register_manual!(
@@ -70,7 +65,6 @@ register_manual!(
     name: "Markup",
     module: "pr4xis_domains::social::software::markup",
     source: "Coombs et al. (1987); Goldfarb (1990)",
-    being: SocialObject,
 );
 
 register_manual!(
@@ -80,7 +74,6 @@ register_manual!(
     name: "XML",
     module: "pr4xis_domains::social::software::markup::xml",
     source: "W3C XML 1.0 (2008)",
-    being: SocialObject,
 );
 
 register_manual!(
@@ -90,7 +83,6 @@ register_manual!(
     name: "RDF",
     module: "pr4xis_domains::social::software::markup::xml::rdf",
     source: "W3C RDF 1.1 (2014)",
-    being: SocialObject,
 );
 
 register_manual!(
@@ -100,7 +92,6 @@ register_manual!(
     name: "OWL",
     module: "pr4xis_domains::social::software::markup::xml::owl",
     source: "W3C OWL 2 (2012); Baader et al. (2003)",
-    being: SocialObject,
 );
 
 register_manual!(
@@ -110,7 +101,6 @@ register_manual!(
     name: "Reference Frame",
     module: "pr4xis_domains::applied::sensor_fusion::frame",
     source: "Sola et al. (2018)",
-    being: AbstractObject,
 );
 
 register_manual!(
@@ -120,5 +110,4 @@ register_manual!(
     name: "Compliance",
     module: "pr4xis_domains::social::compliance",
     source: "ISO 37301 (2021)",
-    being: SocialObject,
 );

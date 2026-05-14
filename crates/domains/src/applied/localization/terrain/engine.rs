@@ -1,7 +1,4 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use crate::applied::localization::terrain::ontology::TerrainFeature;
+use crate::applied::localization::terrain::ontology::TerrainConcept;
 
 /// A Digital Elevation Model (DEM) tile.
 #[derive(Debug, Clone)]
@@ -33,7 +30,7 @@ impl DemTile {
     }
 
     /// Classify terrain feature at a grid cell (simple 3x3 neighborhood analysis).
-    pub fn classify_feature(&self, col: usize, row: usize) -> Option<TerrainFeature> {
+    pub fn classify_feature(&self, col: usize, row: usize) -> Option<TerrainConcept> {
         if col == 0 || col >= self.cols - 1 || row == 0 || row >= self.rows - 1 {
             return None; // border cell
         }
@@ -58,13 +55,13 @@ impl DemTile {
         }
 
         if lower_count == 8 {
-            Some(TerrainFeature::Peak)
+            Some(TerrainConcept::Peak)
         } else if higher_count == 8 {
-            Some(TerrainFeature::Valley)
+            Some(TerrainConcept::Valley)
         } else if lower_count >= 6 {
-            Some(TerrainFeature::Ridge)
+            Some(TerrainConcept::Ridge)
         } else if higher_count >= 3 && lower_count >= 3 {
-            Some(TerrainFeature::Saddle)
+            Some(TerrainConcept::Saddle)
         } else {
             None
         }

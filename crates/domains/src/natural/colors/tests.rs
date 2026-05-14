@@ -284,15 +284,15 @@ proptest! {
 #[test]
 fn engine_invert_twice_returns_original() {
     let e = new_color(Rgb::new(100, 150, 200));
-    let e = e.try_next(ColorAction::Invert).unwrap();
-    let e = e.try_next(ColorAction::Invert).unwrap();
+    let e = e.next(ColorAction::Invert).unwrap();
+    let e = e.next(ColorAction::Invert).unwrap();
     assert_eq!(*e.situation(), Rgb::new(100, 150, 200));
 }
 
 #[test]
 fn engine_blend_invalid_alpha_rejected() {
     let e = new_color(Rgb::new(128, 128, 128));
-    let result = e.try_next(ColorAction::Blend {
+    let result = e.next(ColorAction::Blend {
         color: Rgb::new(255, 0, 0),
         alpha: 1.5,
     });
@@ -303,7 +303,7 @@ fn engine_blend_invalid_alpha_rejected() {
 fn engine_mix_and_back() {
     let e = new_color(Rgb::new(255, 0, 0)); // Red
     let e = e
-        .try_next(ColorAction::Mix {
+        .next(ColorAction::Mix {
             color: Rgb::new(0, 0, 255),
             mode: MixMode::Average,
         })
@@ -319,7 +319,7 @@ fn engine_mix_and_back() {
 fn engine_set_channel() {
     let e = new_color(Rgb::new(0, 0, 0));
     let e = e
-        .try_next(ColorAction::SetChannel {
+        .next(ColorAction::SetChannel {
             r: Some(255),
             g: None,
             b: None,
@@ -332,8 +332,8 @@ fn engine_set_channel() {
 #[test]
 fn engine_trace_records() {
     let e = new_color(Rgb::new(128, 128, 128));
-    let e = e.try_next(ColorAction::Invert).unwrap();
-    let e = e.try_next(ColorAction::Grayscale).unwrap();
+    let e = e.next(ColorAction::Invert).unwrap();
+    let e = e.next(ColorAction::Grayscale).unwrap();
     assert_eq!(e.trace().entries().len(), 2);
-    assert!(e.trace().entries().iter().all(|entry| entry.success));
+    assert!(e.trace().entries().iter().all(|entry| entry.applied()));
 }

@@ -1,271 +1,234 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Storage — repository, store, and the materialise/realise pair.
+//!
+//! A Repository is the abstract interface to stored ontologies. A Store
+//! is the pluggable physical backend. `Materialize` converts a live
+//! ontology into stored form; `Realize` loads stored form back into a
+//! live ontology. Their roundtrip is identity (Gupta & Mumick 1995).
+//!
+//! # Literature
+//!
+//! - **RDF4J (Eclipse Foundation)** — Repository / Sail (Storage and
+//!   Inference Layer) architecture. The Repository concept enters
+//!   pr4xis from this lineage.
+//! - **Spivak (2012)** "Functorial Data Migration", *Information and
+//!   Computation* 217:31-51 — different stores produce naturally
+//!   isomorphic instance functors.
+//! - **W3C (2013)** *SPARQL 1.1 Graph Store HTTP Protocol* — endpoint
+//!   stores.
+//! - **OMG (2014)** *MDA Guide v2.0* — PIM → PSM model
+//!   transformation (the materialize/realize pair).
+//! - **Gupta & Mumick (1995)** "Maintenance of Materialized Views:
+//!   Problems, Techniques, and Applications", *IEEE Data Engineering
+//!   Bulletin* 18(2):3-18 — materialisation theory.
+//! - **Haerder & Reuter (1983)** "Principles of Transaction-Oriented
+//!   Database Recovery", *Computing Surveys* 15(4):287-317 — ACID for
+//!   DatabaseStore.
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::{Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// Repository / Store ontology — where and how ontologies are persisted.
-//
-// A Repository is the abstract interface to stored ontologies.
-// A Store is the pluggable physical backend.
-// Materialize = ontology → stored form. Realize = stored form → live ontology.
-//
-// The same ontology can live in different stores (codegen binary, mmap file,
-// heap memory, database, HTTP endpoint). All stores produce naturally
-// isomorphic instances — the store is transparent to the ontology.
-//
-// References:
-// - RDF4J: Repository / Sail architecture (Eclipse Foundation)
-// - Jena TDB: Dataset / Store model (Apache Foundation)
-// - W3C: Graph Store HTTP Protocol, SPARQL 1.1 (2013)
-// - Spivak, "Functorial Data Migration" (2012) — instance functors to different targets
-// - OMG MDA v2.0 (2014) — PIM → PSM model transformation
-// - Database theory: materialized views (Gupta & Mumick, 1995)
+pr4xis::ontology! {
+    name: "Storage",
+    source: "RDF4J Repository/Sail architecture (Eclipse Foundation); Spivak (2012) Functorial Data Migration, Information and Computation 217:31-51; W3C (2013) SPARQL 1.1 Graph Store HTTP Protocol; OMG (2014) MDA Guide v2.0; Gupta & Mumick (1995) Maintenance of Materialized Views, IEEE Data Engineering Bulletin 18(2):3-18; Haerder & Reuter (1983) Principles of Transaction-Oriented Database Recovery, Computing Surveys 15(4):287-317",
 
-/// Concepts in the Repository ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum RepositoryConcept {
-    /// The abstract interface to stored ontologies.
-    /// RDF4J (2004): "A Repository is the main access point."
-    Repository,
+    concepts: [
+        Repository,
+        Store,
+        StoredOntology,
+        Materialize,
+        Realize,
+        Equivalence,
+        StaticStore,
+        MappedStore,
+        HeapStore,
+        DatabaseStore,
+        EndpointStore,
+    ],
 
-    /// A pluggable physical backend for storage.
-    /// Jena: TDB Store. RDF4J: Sail (Storage and Inference Layer).
-    Store,
+    labels: {
+        Repository: ("en", "Repository",
+            "RDF4J: the abstract interface to stored ontologies - the main access point."),
+        Store: ("en", "Store",
+            "RDF4J Sail / Jena TDB Store: a pluggable physical backend for storage."),
+        StoredOntology: ("en", "Stored ontology",
+            "W3C Named Graph; Spivak (2012): a specific schema + instance held in a store."),
+        Materialize: ("en", "Materialize",
+            "Gupta & Mumick (1995): the act of converting a live ontology into stored form. MDA: PIM → PSM."),
+        Realize: ("en", "Realize",
+            "OMG MDA (2014): the act of loading stored form back into a live ontology. CQL: Presentation → Algebra evaluation."),
+        Equivalence: ("en", "Equivalence",
+            "Spivak (2012): a natural isomorphism between two stored ontologies - proof that two stores hold the same content."),
+        StaticStore: ("en", "Static store",
+            "AOT-compiled into the binary. Load: 0s. Mutable: no. Hot reload: no."),
+        MappedStore: ("en", "Mapped store",
+            "Memory-mapped file. SNIA NVM Programming Model (2017) NVM.PM.FILE DAX. Load ~2ms. Mutable via msync."),
+        HeapStore: ("en", "Heap store",
+            "Heap-allocated in-memory store. Spivak (2012): I: C → Set landing in heap. Mutable; hot reload."),
+        DatabaseStore: ("en", "Database store",
+            "Persistent transactional store with ACID guarantees (Haerder & Reuter 1983)."),
+        EndpointStore: ("en", "Endpoint store",
+            "W3C SPARQL endpoint or REST API. Network latency; depends-on remote mutability."),
+    },
 
-    /// A specific schema+instance stored in a repository.
-    /// W3C: Named Graph. Spivak: a specific instance functor.
-    StoredOntology,
+    is_a: [
+        // Store backend specialisations.
+        (StaticStore, Store),
+        (MappedStore, Store),
+        (HeapStore, Store),
+        (DatabaseStore, Store),
+        (EndpointStore, Store),
+    ],
 
-    /// The act of converting live ontology → stored form.
-    /// DB theory: materialization (Gupta & Mumick, 1995).
-    /// MDA: model transformation PIM → PSM.
-    Materialize,
-
-    /// The act of loading stored form → live ontology.
-    /// MDA: realization. CQL: Presentation → Algebra evaluation.
-    Realize,
-
-    /// The proof that two stores contain the same ontology.
-    /// Category theory: natural isomorphism between instance functors.
-    /// MDA: semantic preservation.
-    Equivalence,
-
-    /// Static materialization — compiled into binary at build time.
-    /// Analogy: ahead-of-time (AOT) compilation.
-    /// Load: 0s. Mutable: no. Hot reload: no.
-    StaticStore,
-
-    /// Memory-mapped file store — OS manages paging.
-    /// SNIA: NVM.PM.FILE (DAX mode).
-    /// Load: ~2ms. Mutable: via msync. Hot reload: yes.
-    MappedStore,
-
-    /// Heap-allocated in-memory store — full runtime flexibility.
-    /// Spivak: instance functor I: C → Set (landing in Rust heap).
-    /// Load: varies. Mutable: yes. Hot reload: yes.
-    HeapStore,
-
-    /// Persistent database store — queryable, transactional.
-    /// ACID guarantees (Haerder & Reuter, 1983).
-    /// Load: query time. Mutable: yes. Hot reload: yes.
-    DatabaseStore,
-
-    /// Remote endpoint store — served over network.
-    /// W3C: SPARQL Endpoint. REST API.
-    /// Load: network latency. Mutable: depends. Hot reload: yes.
-    EndpointStore,
+    edges: [
+        // RDF4J: Repository contains Stores.
+        (Repository, Store, Contains),
+        // Store holds StoredOntology.
+        (Store, StoredOntology, Holds),
+        // Materialise and Realise are the key operations.
+        (Materialize, StoredOntology, Materializes),
+        (Realize, StoredOntology, Realizes),
+        // Spivak (2012): Equivalence proves isomorphism.
+        (Equivalence, StoredOntology, Proves),
+        // Gupta & Mumick (1995): Materialize ∘ Realize = identity.
+        (Materialize, Realize, Roundtrip),
+    ],
 }
 
-define_ontology! {
-    pub StorageOntology for RepositoryCategory {
-        concepts: RepositoryConcept,
-        relation: RepositoryRelation,
-        kind: RepositoryRelationKind,
-        kinds: [
-            /// Repository contains Stores.
-            Contains,
-            /// Store holds StoredOntology.
-            Holds,
-            /// Materialize: live ontology → StoredOntology in a Store.
-            Materializes,
-            /// Realize: StoredOntology → live ontology from a Store.
-            Realizes,
-            /// Equivalence proves two StoredOntologies are isomorphic.
-            Proves,
-            /// Store specializes to specific backend (is-a).
-            SpecializesTo,
-            /// Materialize∘Realize = identity (roundtrip).
-            Roundtrip,
-        ],
-        edges: [
-            // Repository contains Stores
-            (Repository, Store, Contains),
-            // Store holds StoredOntology
-            (Store, StoredOntology, Holds),
-            // Materialize and Realize are the key operations
-            (Materialize, StoredOntology, Materializes),
-            (Realize, StoredOntology, Realizes),
-            // Equivalence proves isomorphism between stored ontologies
-            (Equivalence, StoredOntology, Proves),
-            // Store backend specializations (taxonomy)
-            (StaticStore, Store, SpecializesTo),
-            (MappedStore, Store, SpecializesTo),
-            (HeapStore, Store, SpecializesTo),
-            (DatabaseStore, Store, SpecializesTo),
-            (EndpointStore, Store, SpecializesTo),
-            // Materialize∘Realize = identity (the roundtrip axiom)
-            (Materialize, Realize, Roundtrip),
-        ],
-        composed: [
-            // Repository → StoredOntology (through Store)
-            (Repository, StoredOntology),
-        ],
-        being: AbstractObject,
-        source: "RDF4J; Spivak (2012)",
-    }
-}
-
-/// Whether a store backend supports hot reload.
+/// Quality: whether a store backend supports hot reload (live update of
+/// the stored ontology without restart). StaticStore is the only
+/// no-hot-reload backend; all others permit live updates.
 #[derive(Debug, Clone)]
 pub struct SupportsHotReload;
 
 impl Quality for SupportsHotReload {
-    type Individual = RepositoryConcept;
+    type Individual = StorageConcept;
     type Value = bool;
 
-    fn get(&self, individual: &RepositoryConcept) -> Option<bool> {
-        match individual {
-            RepositoryConcept::StaticStore => Some(false),
-            RepositoryConcept::MappedStore => Some(true),
-            RepositoryConcept::HeapStore => Some(true),
-            RepositoryConcept::DatabaseStore => Some(true),
-            RepositoryConcept::EndpointStore => Some(true),
+    fn get(&self, c: &StorageConcept) -> Option<bool> {
+        use StorageConcept as S;
+        match c {
+            S::StaticStore => Some(false),
+            S::MappedStore | S::HeapStore | S::DatabaseStore | S::EndpointStore => Some(true),
             _ => None,
         }
     }
 }
 
 impl Ontology for StorageOntology {
-    type Cat = RepositoryCategory;
+    type Cat = StorageCategory;
     type Qual = SupportsHotReload;
 
-    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
-        Self::generated_structural_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
+
+// Re-export legacy names.
+pub type RepositoryConcept = StorageConcept;
+pub type RepositoryCategory = StorageCategory;
+pub type RepositoryRelation = StorageRelation;
+pub type RepositoryRelationKind = StorageRelationKind;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
-    fn category_laws_hold() {
-        check_category_laws::<RepositoryCategory>().unwrap();
+    fn category_laws() {
+        assert_category_laws::<StorageCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        StorageOntology::validate().unwrap();
+        StorageOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
-    fn has_eleven_concepts() {
-        assert_eq!(RepositoryConcept::variants().len(), 11);
+    fn eleven_concepts() {
+        assert_eq!(StorageConcept::variants().len(), 11);
     }
-
-    // --- RDF4J: Repository contains Stores ---
 
     #[test]
     fn repository_contains_stores() {
-        let m = RepositoryCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == RepositoryConcept::Repository
-            && r.to == RepositoryConcept::Store
-            && r.kind == RepositoryRelationKind::Contains));
+        let m = StorageCategory::morphisms();
+        assert!(m.iter().any(|r| r.source() == StorageConcept::Repository
+            && r.target() == StorageConcept::Store
+            && r.kind() == StorageRelationKind::Contains));
     }
 
-    // --- Store holds StoredOntology ---
-
     #[test]
-    fn store_holds_stored_ontology() {
-        let m = RepositoryCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == RepositoryConcept::Store
-            && r.to == RepositoryConcept::StoredOntology
-            && r.kind == RepositoryRelationKind::Holds));
-    }
-
-    // --- Five store backends, all specialize Store ---
-
-    #[test]
-    fn five_store_backends() {
-        let m = RepositoryCategory::morphisms();
+    fn five_store_backends_specialize_store() {
+        let m = StorageCategory::morphisms();
         let backends = [
-            RepositoryConcept::StaticStore,
-            RepositoryConcept::MappedStore,
-            RepositoryConcept::HeapStore,
-            RepositoryConcept::DatabaseStore,
-            RepositoryConcept::EndpointStore,
+            StorageConcept::StaticStore,
+            StorageConcept::MappedStore,
+            StorageConcept::HeapStore,
+            StorageConcept::DatabaseStore,
+            StorageConcept::EndpointStore,
         ];
         for backend in backends {
             assert!(
-                m.iter().any(|r| r.from == backend
-                    && r.to == RepositoryConcept::Store
-                    && r.kind == RepositoryRelationKind::SpecializesTo),
-                "{backend:?} should specialize Store"
+                m.iter().any(|r| r.source() == backend
+                    && r.target() == StorageConcept::Store
+                    && r.kind() == StorageRelationKind::Subsumption),
+                "{backend:?} should subsume Store"
             );
         }
     }
 
-    // --- Gupta & Mumick (1995): Materialize produces StoredOntology ---
-
-    #[test]
-    fn materialize_produces_stored_ontology() {
-        let m = RepositoryCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == RepositoryConcept::Materialize
-            && r.to == RepositoryConcept::StoredOntology
-            && r.kind == RepositoryRelationKind::Materializes));
-    }
-
-    // --- MDA: Realize loads StoredOntology ---
-
-    #[test]
-    fn realize_loads_stored_ontology() {
-        let m = RepositoryCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == RepositoryConcept::Realize
-            && r.to == RepositoryConcept::StoredOntology
-            && r.kind == RepositoryRelationKind::Realizes));
-    }
-
-    // --- Spivak: natural isomorphism between instance functors ---
-
-    #[test]
-    fn equivalence_proves_stored_ontology_isomorphism() {
-        let m = RepositoryCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == RepositoryConcept::Equivalence
-            && r.to == RepositoryConcept::StoredOntology
-            && r.kind == RepositoryRelationKind::Proves));
-    }
-
-    // --- Roundtrip: Materialize∘Realize = identity ---
-
     #[test]
     fn materialize_realize_roundtrip() {
-        let m = RepositoryCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == RepositoryConcept::Materialize
-            && r.to == RepositoryConcept::Realize
-            && r.kind == RepositoryRelationKind::Roundtrip));
+        // Gupta & Mumick (1995).
+        let m = StorageCategory::morphisms();
+        assert!(m.iter().any(|r| r.source() == StorageConcept::Materialize
+            && r.target() == StorageConcept::Realize
+            && r.kind() == StorageRelationKind::Roundtrip));
     }
 
-    // --- Composition: Repository reaches StoredOntology ---
-
     #[test]
-    fn repository_reaches_stored_ontology() {
-        let m = RepositoryCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == RepositoryConcept::Repository
-            && r.to == RepositoryConcept::StoredOntology
-            && r.kind == RepositoryRelationKind::Composed));
+    fn static_no_hot_reload() {
+        assert_eq!(
+            SupportsHotReload.get(&StorageConcept::StaticStore),
+            Some(false)
+        );
+        assert_eq!(
+            SupportsHotReload.get(&StorageConcept::HeapStore),
+            Some(true)
+        );
+    }
+
+    fn arb_concept() -> impl Strategy<Value = StorageConcept> {
+        proptest::sample::select(StorageConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in StorageCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in StorageOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_hot_reload_partial(c in arb_concept()) {
+            use StorageConcept as S;
+            let v = SupportsHotReload.get(&c);
+            let is_backend = matches!(c,
+                S::StaticStore | S::MappedStore | S::HeapStore
+                | S::DatabaseStore | S::EndpointStore);
+            prop_assert_eq!(v.is_some(), is_backend);
+        }
     }
 }

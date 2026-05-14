@@ -1,5 +1,6 @@
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::space::attitude::engine::*;
 use crate::applied::space::attitude::kinematics::*;
@@ -7,22 +8,23 @@ use crate::applied::space::attitude::ontology::*;
 
 #[test]
 fn attitude_category_laws() {
-    check_category_laws::<AttitudeCategory>().unwrap();
+    assert_category_laws::<AttitudeCategory>();
 }
 
 #[test]
 fn attitude_ontology_validates() {
-    AttitudeOntology::validate().unwrap();
+    AttitudeOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn quaternion_unit_norm_holds() {
-    assert!(QuaternionUnitNorm.holds());
+    assert!(QuaternionUnitNorm.verify().is_ok());
 }
 
 #[test]
 fn star_tracker_most_accurate_holds() {
-    assert!(StarTrackerMostAccurate.holds());
+    assert!(StarTrackerMostAccurate.verify().is_ok());
 }
 
 #[test]

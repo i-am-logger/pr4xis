@@ -61,8 +61,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::validate::check_functor_laws;
-    use crate::category::{Concept, Relationship};
+    use crate::category::laws::assert_functor_laws;
+    use crate::category::{Arrow, Concept};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Light {
@@ -79,7 +79,7 @@ mod tests {
         from: Light,
         to: Light,
     }
-    impl Relationship for LightEdge {
+    impl Arrow for LightEdge {
         type Object = Light;
         type Kind = ();
         fn source(&self) -> Light {
@@ -129,6 +129,6 @@ mod tests {
 
     #[test]
     fn terminal_functor_onto_red_satisfies_laws() {
-        check_functor_laws::<LightToRed>().unwrap();
+        assert_functor_laws::<LightToRed>();
     }
 }

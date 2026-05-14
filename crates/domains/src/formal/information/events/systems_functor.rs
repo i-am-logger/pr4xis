@@ -13,7 +13,7 @@ use crate::formal::systems::ontology::*;
 pub struct SystemsToEvents;
 
 impl Functor for SystemsToEvents {
-    type Source = SystemsCategory;
+    type Source = SystemCategory;
     type Target = EventCategory;
 
     fn map_object(obj: &SystemConcept) -> EventConcept {
@@ -34,10 +34,10 @@ impl Functor for SystemsToEvents {
     fn map_morphism(m: &SystemRelation) -> EventRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
+        // #166 removed the dense `Composed` kind. Identity maps to
+        // identity; otherwise project the (source, target) pair.
         let kind = if m.kind == SystemRelationKind::Identity {
             EventRelationKind::Identity
-        } else if m.kind == SystemRelationKind::Composed || from == to {
-            EventRelationKind::Composed
         } else {
             match (from, to) {
                 (EventConcept::Command, EventConcept::Event) => EventRelationKind::Triggers,
@@ -53,7 +53,12 @@ impl Functor for SystemsToEvents {
                 }
                 (EventConcept::Saga, EventConcept::Event) => EventRelationKind::Composes,
                 (EventConcept::EventSchema, EventConcept::Event) => EventRelationKind::Defines,
-                _ => EventRelationKind::Composed,
+                // Off-pattern (from, to) pairs cannot be Identity when
+                // from ≠ to — otherwise target's identity-aware compose
+                // treats them as identities and FunctorCompositionLaw
+                // (Mac Lane CWM Ch. II §1) breaks. Use the canonical
+                // Subsumption kind (Smith 2005 OBO-RO) as the projection.
+                _ => EventRelationKind::Subsumption,
             }
         };
         EventRelation { from, to, kind }

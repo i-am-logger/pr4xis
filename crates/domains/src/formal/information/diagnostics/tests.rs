@@ -1,23 +1,12 @@
 use super::ontology::*;
-use pr4xis::category::Category;
+use pr4xis::category::{Arrow, Category, Concept};
 
 mod prop {
     use super::*;
     use proptest::prelude::*;
 
     fn arb_diagnostic() -> impl Strategy<Value = DiagnosticConcept> {
-        prop_oneof![
-            Just(DiagnosticConcept::Symptom),
-            Just(DiagnosticConcept::Hypothesis),
-            Just(DiagnosticConcept::Test),
-            Just(DiagnosticConcept::Evidence),
-            Just(DiagnosticConcept::Diagnosis),
-            Just(DiagnosticConcept::Residual),
-            Just(DiagnosticConcept::FaultMode),
-            Just(DiagnosticConcept::Severity),
-            Just(DiagnosticConcept::Remedy),
-            Just(DiagnosticConcept::TraceContext),
-        ]
+        proptest::sample::select(DiagnosticConcept::variants())
     }
 
     proptest! {
@@ -27,23 +16,32 @@ mod prop {
             prop_assert_eq!(DiagnosticCategory::compose(&id, &id), Some(id));
         }
 
-        /// Every concept has both Identity and Composed self-morphisms.
+        /// Every concept has an Identity self-morphism. The dense
+        /// `Composed` kind was removed (#166) — per-concept composed
+        /// self-morphisms are no longer emitted.
         #[test]
-        fn prop_self_morphisms(c in arb_diagnostic()) {
+        fn prop_self_identity(c in arb_diagnostic()) {
             let m = DiagnosticCategory::morphisms();
-            let has_identity = m.iter().any(|r| r.from == c && r.to == c && r.kind == DiagnosticRelationKind::Identity);
-            let has_composed = m.iter().any(|r| r.from == c && r.to == c && r.kind == DiagnosticRelationKind::Composed);
+            let has_identity = m
+                .iter()
+                .any(|r| r.source() == c && r.target() == c && r.kind() == DiagnosticRelationKind::Identity);
             prop_assert!(has_identity);
-            prop_assert!(has_composed);
         }
 
-        /// Reiter (1987): Symptom always reaches Diagnosis through the cycle.
+        /// Reiter (1987): Symptom transitively reaches Diagnosis. The
+        /// transitive-closure edge is produced by same-kind composition
+        /// of Subsumption / Parthood / Causation; the canonical reading
+        /// here is the explicit edge sequence Symptom→Hypothesis→Diagnosis
+        /// each verified separately.
         #[test]
-        fn prop_symptom_reaches_diagnosis(_dummy in 0..1i32) {
+        fn prop_symptom_reaches_diagnosis_via_hypothesis(_dummy in 0..1i32) {
             let m = DiagnosticCategory::morphisms();
             prop_assert!(m.iter().any(|r|
-                r.from == DiagnosticConcept::Symptom
-                && r.to == DiagnosticConcept::Diagnosis));
+                r.source() == DiagnosticConcept::Symptom
+                && r.target() == DiagnosticConcept::Hypothesis));
+            prop_assert!(m.iter().any(|r|
+                r.source() == DiagnosticConcept::Hypothesis
+                && r.target() == DiagnosticConcept::Diagnosis));
         }
 
         /// Gertler FDI: Residual always triggers Symptom.
@@ -51,18 +49,22 @@ mod prop {
         fn prop_residual_triggers_symptom(_dummy in 0..1i32) {
             let m = DiagnosticCategory::morphisms();
             prop_assert!(m.iter().any(|r|
-                r.from == DiagnosticConcept::Residual
-                && r.to == DiagnosticConcept::Symptom
-                && r.kind == DiagnosticRelationKind::Triggers));
+                r.source() == DiagnosticConcept::Residual
+                && r.target() == DiagnosticConcept::Symptom
+                && r.kind() == DiagnosticRelationKind::Triggers));
         }
 
-        /// MAPE-K: every Diagnosis has a Remedy, FaultMode, and Severity.
+        /// MAPE-K (Kephart & Chess 2003): every Diagnosis has a Remedy,
+        /// FaultMode, and Severity.
         #[test]
         fn prop_diagnosis_has_outputs(_dummy in 0..1i32) {
             let m = DiagnosticCategory::morphisms();
-            prop_assert!(m.iter().any(|r| r.from == DiagnosticConcept::Diagnosis && r.to == DiagnosticConcept::Remedy));
-            prop_assert!(m.iter().any(|r| r.from == DiagnosticConcept::Diagnosis && r.to == DiagnosticConcept::FaultMode));
-            prop_assert!(m.iter().any(|r| r.from == DiagnosticConcept::Diagnosis && r.to == DiagnosticConcept::Severity));
+            prop_assert!(m.iter().any(|r| r.source() == DiagnosticConcept::Diagnosis
+                && r.target() == DiagnosticConcept::Remedy));
+            prop_assert!(m.iter().any(|r| r.source() == DiagnosticConcept::Diagnosis
+                && r.target() == DiagnosticConcept::FaultMode));
+            prop_assert!(m.iter().any(|r| r.source() == DiagnosticConcept::Diagnosis
+                && r.target() == DiagnosticConcept::Severity));
         }
 
         /// Composition with identity preserves any morphism.
@@ -70,9 +72,12 @@ mod prop {
         fn prop_left_identity(c in arb_diagnostic()) {
             let m = DiagnosticCategory::morphisms();
             let id = DiagnosticCategory::identity(&c);
-            for morph in m.iter().filter(|r| r.from == c) {
+            for morph in m.iter().filter(|r| r.source() == c) {
                 let composed = DiagnosticCategory::compose(&id, morph);
-                prop_assert_eq!(composed.as_ref().map(|r| (r.from, r.to)), Some((morph.from, morph.to)));
+                prop_assert_eq!(
+                    composed.as_ref().map(|r| (r.source(), r.target())),
+                    Some((morph.source(), morph.target()))
+                );
             }
         }
 
@@ -80,9 +85,12 @@ mod prop {
         #[test]
         fn prop_diagnostic_feedback_loop(_dummy in 0..1i32) {
             let m = DiagnosticCategory::morphisms();
-            prop_assert!(m.iter().any(|r| r.from == DiagnosticConcept::Evidence && r.to == DiagnosticConcept::Hypothesis));
-            prop_assert!(m.iter().any(|r| r.from == DiagnosticConcept::Hypothesis && r.to == DiagnosticConcept::Test));
-            prop_assert!(m.iter().any(|r| r.from == DiagnosticConcept::Test && r.to == DiagnosticConcept::Evidence));
+            prop_assert!(m.iter().any(|r| r.source() == DiagnosticConcept::Evidence
+                && r.target() == DiagnosticConcept::Hypothesis));
+            prop_assert!(m.iter().any(|r| r.source() == DiagnosticConcept::Hypothesis
+                && r.target() == DiagnosticConcept::Test));
+            prop_assert!(m.iter().any(|r| r.source() == DiagnosticConcept::Test
+                && r.target() == DiagnosticConcept::Evidence));
         }
     }
 }

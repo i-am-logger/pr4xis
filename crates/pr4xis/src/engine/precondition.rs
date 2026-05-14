@@ -1,67 +1,23 @@
 use super::action::Action;
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-/// Result of checking a precondition — both states carry context.
-#[derive(Debug, Clone, PartialEq)]
-pub enum PreconditionResult {
-    /// Precondition is satisfied — carries which rule passed and why.
-    Satisfied { rule: String, reason: String },
-    /// Precondition violated — carries full diagnostic.
-    Violated {
-        rule: String,
-        reason: String,
-        situation: String,
-        attempted_action: String,
-    },
-}
-
-impl PreconditionResult {
-    pub fn is_satisfied(&self) -> bool {
-        matches!(self, PreconditionResult::Satisfied { .. })
-    }
-
-    pub fn satisfied(rule: &str, reason: &str) -> Self {
-        PreconditionResult::Satisfied {
-            rule: rule.to_string(),
-            reason: reason.to_string(),
-        }
-    }
-
-    pub fn violated(rule: &str, reason: &str, situation: &str, action: &str) -> Self {
-        PreconditionResult::Violated {
-            rule: rule.to_string(),
-            reason: reason.to_string(),
-            situation: situation.to_string(),
-            attempted_action: action.to_string(),
-        }
-    }
-
-    /// The rule name, regardless of outcome.
-    pub fn rule(&self) -> &str {
-        match self {
-            PreconditionResult::Satisfied { rule, .. } => rule,
-            PreconditionResult::Violated { rule, .. } => rule,
-        }
-    }
-
-    /// The reason, regardless of outcome.
-    pub fn reason(&self) -> &str {
-        match self {
-            PreconditionResult::Satisfied { reason, .. } => reason,
-            PreconditionResult::Violated { reason, .. } => reason,
-        }
-    }
-}
+use crate::logic::proof::Verdict;
 
 /// A precondition that must hold before an action can be applied.
 ///
 /// This is where enforcement happens — the ontology's rules are
 /// checked against the current situation and the proposed action.
+///
+/// # Returns a typed Verdict (#161)
+///
+/// `check` returns [`Verdict`] — `Ok(Box<dyn Proof>)` witnessing the
+/// precondition holds, or `Err(Box<dyn Counterexample>)` refuting it.
+/// The `Proof` / `Counterexample` carry their own `meta()` (name,
+/// description, citation, module path) — no separate `rule` or `reason`
+/// string fields are needed.
+///
+/// Preconditions are thus themselves ontological axioms at the engine
+/// boundary: each check is a verification, each result is a typed
+/// witness.
 pub trait Precondition<A: Action> {
     /// Check if this action is valid in the given situation.
-    fn check(&self, situation: &A::Sit, action: &A) -> PreconditionResult;
-
-    /// Human-readable description of what this precondition enforces.
-    fn describe(&self) -> &str;
+    fn check(&self, situation: &A::Sit, action: &A) -> Verdict;
 }

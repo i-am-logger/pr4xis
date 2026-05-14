@@ -1,4 +1,4 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::social::military::electronic_warfare::engine::*;
@@ -6,7 +6,7 @@ use crate::social::military::electronic_warfare::ontology::*;
 
 #[test]
 fn ew_category_laws() {
-    check_category_laws::<EwCategory>().unwrap();
+    assert_category_laws::<EwCategory>();
 }
 
 #[test]
@@ -16,18 +16,18 @@ fn ew_ontology_validates() {
 
 #[test]
 fn aoa_bounded_holds() {
-    assert!(AoaBounded.holds());
+    assert!(AoaBounded.verify().is_ok());
 }
 
 #[test]
 fn tdoa_requires_sensor_pair_holds() {
-    assert!(TdoaRequiresSensorPair.holds());
+    assert!(TdoaRequiresSensorPair.verify().is_ok());
 }
 
 #[test]
 fn wrap_angle_within_range() {
     let a = wrap_angle(4.0);
-    assert!(a >= -core::f64::consts::PI && a <= core::f64::consts::PI);
+    assert!((-core::f64::consts::PI..=core::f64::consts::PI).contains(&a));
 }
 
 #[test]
@@ -98,7 +98,7 @@ mod proptest_proofs {
         #[test]
         fn wrap_angle_always_in_range(angle in -100.0..100.0_f64) {
             let wrapped = wrap_angle(angle);
-            prop_assert!(wrapped >= -core::f64::consts::PI && wrapped <= core::f64::consts::PI,
+            prop_assert!((-core::f64::consts::PI..=core::f64::consts::PI).contains(&wrapped),
                 "wrapped angle {} out of [-pi, pi] for input {}", wrapped, angle);
         }
 

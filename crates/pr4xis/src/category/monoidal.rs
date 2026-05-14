@@ -187,7 +187,11 @@ mod tests {
     #[test]
     fn product_ontology_storage() {
         // Vol × Con × Dur = storage tier classification
+        // SRAM/DRAM are the canonical computer-architecture acronyms for
+        // Static / Dynamic Random-Access Memory (Hennessy & Patterson 2017
+        // §2.2); keep the literature names rather than CamelCase them.
         #[derive(Debug, Clone, PartialEq)]
+        #[allow(clippy::upper_case_acronyms)]
         enum Volatility {
             Register,
             SRAM,

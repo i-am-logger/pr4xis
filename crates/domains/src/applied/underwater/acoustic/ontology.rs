@@ -2,15 +2,12 @@
 //!
 //! Source: Milne (1983), *Underwater Acoustic Positioning Systems*
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Acoustic",
     source: "Milne (1983); Kinsey et al. (2006)",
-    being: PhysicalEndurant,
 
     concepts: [USBL, LBL, SBL],
 
@@ -43,59 +40,70 @@ impl Quality for PositioningAccuracy {
 pub struct SoundSpeedPositive;
 
 impl Axiom for SoundSpeedPositive {
-    fn description(&self) -> &str {
-        "sound speed in water is strictly positive (typically 1400-1600 m/s)"
+    fn verify(&self) -> Verdict {
+        // Mackenzie (1981) "Nine-term equation for sound speed in the
+        // oceans" — sound speed c is strictly positive across the
+        // oceanographic ranges of temperature, salinity, and depth.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "SoundSpeedPositive",
+        "sound speed in water is strictly positive (typically 1400-1600 m/s)",
+        "Mackenzie (1981) Nine-term equation for sound speed in the oceans, JASA 70(3)"
+    );
 }
 pr4xis::register_axiom!(
     SoundSpeedPositive,
-    "Milne (1983), *Underwater Acoustic Positioning Systems*"
+    "Mackenzie (1981) Nine-term equation for sound speed in the oceans, JASA 70(3)"
 );
 
 /// Axiom: acoustic range measurements are non-negative.
 pub struct RangeNonNegative;
 
 impl Axiom for RangeNonNegative {
-    fn description(&self) -> &str {
-        "acoustic range measurements are non-negative"
+    fn verify(&self) -> Verdict {
+        // Range = c · t_two_way / 2, with c > 0 and t_two_way ≥ 0
+        // (time-of-flight is non-negative) ⇒ range ≥ 0.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "RangeNonNegative",
+        "acoustic range measurements are non-negative",
+        "Milne (1983) Underwater Acoustic Positioning Systems"
+    );
 }
 pr4xis::register_axiom!(
     RangeNonNegative,
-    "Milne (1983), *Underwater Acoustic Positioning Systems*"
+    "Milne (1983) Underwater Acoustic Positioning Systems"
 );
 
 impl Ontology for AcousticOntology {
     type Cat = AcousticCategory;
     type Qual = PositioningAccuracy;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(SoundSpeedPositive), Box::new(RangeNonNegative)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(SoundSpeedPositive));
+        axioms.push(Box::new(RangeNonNegative));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<AcousticCategory>().unwrap();
+        assert_category_laws::<AcousticCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        AcousticOntology::validate().unwrap();
+        AcousticOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

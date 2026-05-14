@@ -1,6 +1,6 @@
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::navigation::ahrs::engine::*;
 use crate::applied::navigation::ahrs::ontology::*;
@@ -10,28 +10,29 @@ use crate::applied::navigation::ahrs::ontology::*;
 // ---------------------------------------------------------------------------
 
 #[test]
-fn ahrs_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<AhrsTaxonomy>>().unwrap();
+fn ahrs_category_laws() {
+    assert_category_laws::<AhrsCategory>();
 }
 
 #[test]
 fn ahrs_ontology_validates() {
-    AhrsOntology::validate().unwrap();
+    AhrsOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn gravity_gives_level_attitude_axiom() {
-    assert!(GravityGivesLevelAttitude.holds());
+    assert!(GravityGivesLevelAttitude.verify().is_ok());
 }
 
 #[test]
 fn magnetometer_gives_heading_axiom() {
-    assert!(MagnetometerGivesHeading.holds());
+    assert!(MagnetometerGivesHeading.verify().is_ok());
 }
 
 #[test]
 fn gyro_integration_drifts_axiom() {
-    assert!(GyroIntegrationDrifts.holds());
+    assert!(GyroIntegrationDrifts.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -160,9 +161,9 @@ mod proptest_proofs {
     proptest! {
         #[test]
         fn gyro_update_is_deterministic(
-            roll in -3.14..3.14_f64,
+            roll in -core::f64::consts::PI..core::f64::consts::PI,
             pitch in -1.5..1.5_f64,
-            yaw in -3.14..3.14_f64,
+            yaw in -core::f64::consts::PI..core::f64::consts::PI,
             wx in -1.0..1.0_f64,
             wy in -1.0..1.0_f64,
             wz in -1.0..1.0_f64,
@@ -207,9 +208,9 @@ mod proptest_proofs {
         /// With alpha < 1, the old code would decay toward zero; the fix keeps pure integration.
         #[test]
         fn gyro_update_pure_integration_no_alpha_blend(
-            roll in -3.14..3.14_f64,
+            roll in -core::f64::consts::PI..core::f64::consts::PI,
             pitch in -1.5..1.5_f64,
-            yaw in -3.14..3.14_f64,
+            yaw in -core::f64::consts::PI..core::f64::consts::PI,
             wx in -1.0..1.0_f64,
             wy in -1.0..1.0_f64,
             wz in -1.0..1.0_f64,
@@ -248,7 +249,7 @@ mod proptest_proofs {
 
         #[test]
         fn accel_correction_does_not_change_yaw(
-            yaw in -3.14..3.14_f64,
+            yaw in -core::f64::consts::PI..core::f64::consts::PI,
             ax in -2.0..2.0_f64,
             ay in -2.0..2.0_f64,
         ) {

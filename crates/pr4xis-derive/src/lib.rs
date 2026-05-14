@@ -76,7 +76,7 @@ pub fn derive_concept(input: TokenStream) -> TokenStream {
 
 /// Define an ontology with compile-time validation and static code generation.
 ///
-/// Generates: Entity enum, Category impl, Relationship impl, reasoning systems,
+/// Generates: Entity enum, Category impl, Arrow impl, reasoning systems,
 /// structural axioms, Vocabulary, and Lemon lexical data — all static.
 ///
 /// Concept names in edges/is_a/has_a/causes/opposes are validated at compile time.

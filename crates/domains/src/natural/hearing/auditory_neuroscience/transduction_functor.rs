@@ -1,10 +1,15 @@
-//! Functor: TransductionCategory -> NeuroscienceCategory.
+//! Functor: TransductionCategory → NeuroscienceCategory.
 //!
-//! Maps hair cell transduction events to their neural processing roles.
+//! Maps hair-cell-transduction mechanisms to their neural-processing
+//! roles.
+//!
+//! Citation: Hudspeth (2014) *Nat. Rev. Neurosci.* 15(9):600 — the
+//! transduction-to-neural pipeline; Schnupp et al. (2011) *Auditory
+//! Neuroscience* — neural-side framing.
 
 use crate::natural::hearing::auditory_neuroscience::ontology::*;
 use crate::natural::hearing::transduction::ontology::*;
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Functor};
 
 pub struct TransductionToNeuroscience;
 
@@ -16,13 +21,9 @@ impl Functor for TransductionToNeuroscience {
         use NeuralEntity::*;
         use TransductionEntity as T;
         match obj {
-            // Action potential → auditory nerve fiber
             T::ActionPotential => AuditoryNerveFiber,
-            // Glutamate release → spike timing (rate coding)
             T::GlutamateRelease | T::Glutamate => RateCoding,
-            // Depolarization / receptor potential → rate-level function
             T::Depolarization | T::ReceptorPotential => RateLevelFunction,
-            // MET channel → frequency tuning curve
             T::METChannel
             | T::TMC1
             | T::TMC2
@@ -30,21 +31,17 @@ impl Functor for TransductionToNeuroscience {
             | T::LHFPL5
             | T::METChannelOpening
             | T::METComponent => FrequencyTuningCurve,
-            // Stereocilia → place coding (tonotopic position)
             T::Stereocilium
             | T::StereociliaBundle
             | T::CuticularPlate
             | T::Kinocilium
             | T::StereociliaDeflection => PlaceCoding,
-            // Tip links → characteristic frequency
             T::TipLink
             | T::Cadherin23
             | T::Protocadherin15
             | T::TipLinkTension
             | T::TipLinkProtein => CharacteristicFrequency,
-            // OHC amplification → dynamic range
             T::Prestin | T::Electromotility | T::CochlearAmplification => DynamicRange,
-            // Ion channels / currents → spontaneous rate
             T::PotassiumInflux
             | T::CalciumInflux
             | T::Potassium
@@ -53,24 +50,36 @@ impl Functor for TransductionToNeuroscience {
             | T::CaV1_3
             | T::BKChannel
             | T::IonChannel => SpontaneousRate,
-            // Endocochlear potential → adaptation
             T::EndocochlearPotential => Adaptation,
-            // Cellular signal → response property
             T::CellularSignal => OnsetResponse,
+            // Transduction events → neural events.
+            T::BasilarMembraneMotion => AuditoryNerveInput,
+            T::StereociliaBundleDeflection | T::TipLinkStretch => CochlearNucleusIntegration,
+            T::METChannelGating | T::PotassiumEntry => BinauralConvergence,
+            T::CellDepolarization => LemniscalRelay,
+            T::CalciumEntry => MultisensoryIntegration,
+            T::VesicleRelease => ThalamicGating,
+            T::NerveActivation => CorticalAnalysis,
+            T::PrestiConformationChange | T::CellLengthChange => StreamFormation,
+            T::BasilarMembraneAmplification => PerceptualBinding,
+            T::SlowAdaptation | T::FastAdaptation => Adaptation,
+            T::TransductionEvent => NeuralEvent,
         }
     }
 
     fn map_morphism(m: &TransductionRelation) -> NeuralRelation {
+        use NeuralRelationKind as Tk;
+        use TransductionCategoryRelationKind as Sk;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            TransductionCategoryRelationKind::Identity => NeuroscienceCategory::identity(&from),
-            _ => NeuralRelation {
-                from,
-                to,
-                kind: NeuroscienceCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        NeuralRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(TransductionToNeuroscience);
@@ -79,54 +88,24 @@ pr4xis::register_functor!(TransductionToNeuroscience);
 mod tests {
     use super::*;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
-    fn test_functor_laws() {
-        check_functor_laws::<TransductionToNeuroscience>().unwrap();
+    fn functor_laws() {
+        assert_functor_laws::<TransductionToNeuroscience>();
     }
     #[test]
-    fn test_analogy_validates() {
-        Analogy::<TransductionToNeuroscience>::validate().unwrap();
-    }
-
-    #[test]
-    fn test_action_potential_maps_to_an_fiber() {
+    fn action_potential_maps_to_an_fiber() {
         assert_eq!(
             TransductionToNeuroscience::map_object(&TransductionEntity::ActionPotential),
-            NeuralEntity::AuditoryNerveFiber,
+            NeuralEntity::AuditoryNerveFiber
         );
     }
-
     #[test]
-    fn test_every_entity_maps_valid() {
+    fn every_entity_maps_valid() {
         let targets = NeuralEntity::variants();
         for obj in TransductionEntity::variants() {
             assert!(targets.contains(&TransductionToNeuroscience::map_object(&obj)));
-        }
-    }
-
-    use pr4xis::category::Category;
-    use proptest::prelude::*;
-
-    fn arb_transduction_entity() -> impl Strategy<Value = TransductionEntity> {
-        (0..TransductionEntity::variants().len()).prop_map(|i| TransductionEntity::variants()[i])
-    }
-
-    proptest! {
-        #[test]
-        fn prop_functor_maps_to_valid_target(entity in arb_transduction_entity()) {
-            let mapped = TransductionToNeuroscience::map_object(&entity);
-            prop_assert!(NeuralEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_functor_preserves_identity(entity in arb_transduction_entity()) {
-            let id_src = TransductionCategory::identity(&entity);
-            let mapped_id = TransductionToNeuroscience::map_morphism(&id_src);
-            let id_tgt = NeuroscienceCategory::identity(&TransductionToNeuroscience::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
         }
     }
 }

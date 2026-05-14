@@ -13,6 +13,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Beck et al., "Dynamic Graph Visualization" (2017): temporal animation
 /// - W3C PROV-O: provenance data model
 use crate::applied::hmi::report::generator::ThemePalette;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
 /// A concept node in the ontology graph.
@@ -338,10 +339,7 @@ pub fn monotonicity_trace(palette_name: &str, passes: bool) -> ReasoningTrace {
 pub struct ActivationThemeMapped;
 
 impl Axiom for ActivationThemeMapped {
-    fn description(&self) -> &str {
-        "every activation state maps to a theme color role (self-referential theming)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let states = [
             ActivationState::Inactive,
             ActivationState::Evaluating,
@@ -349,21 +347,32 @@ impl Axiom for ActivationThemeMapped {
             ActivationState::Violated,
             ActivationState::Intermediate,
         ];
-        states
+        let ok = states
             .iter()
-            .all(|s| !activation_to_theme_role(*s).is_empty())
+            .all(|s| !activation_to_theme_role(*s).is_empty());
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "ActivationThemeMapped",
+        "every activation state maps to a theme color role (self-referential theming)",
+        "Srisuchinnawong et al. (2021) NeuroVis: 4-channel activation encoding"
+    );
 }
-pr4xis::register_axiom!(ActivationThemeMapped);
+pr4xis::register_axiom!(
+    ActivationThemeMapped,
+    "Srisuchinnawong et al. (2021) NeuroVis: 4-channel activation encoding"
+);
 
 /// Theming ontology graph is connected (no isolated nodes).
 pub struct GraphConnected;
 
 impl Axiom for GraphConnected {
-    fn description(&self) -> &str {
-        "theming ontology graph has no isolated nodes"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let g = theming_ontology_graph();
         let connected: hashbrown::HashSet<&str> = g
             .edges
@@ -371,24 +380,48 @@ impl Axiom for GraphConnected {
             .flat_map(|e| [e.from.as_str(), e.to.as_str()])
             .collect();
         // All nodes should be referenced by at least one edge
-        g.nodes.iter().all(|n| connected.contains(n.id.as_str()))
+        let ok = g.nodes.iter().all(|n| connected.contains(n.id.as_str()));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "GraphConnected",
+        "theming ontology graph has no isolated nodes",
+        "Wongsuphasawat et al. (2017) TensorFlow Graph Visualizer, VAST"
+    );
 }
-pr4xis::register_axiom!(GraphConnected);
+pr4xis::register_axiom!(
+    GraphConnected,
+    "Wongsuphasawat et al. (2017) TensorFlow Graph Visualizer, VAST"
+);
 
 /// A reasoning trace has at least 2 steps (start + conclusion).
 pub struct TraceMinimalSteps;
 
 impl Axiom for TraceMinimalSteps {
-    fn description(&self) -> &str {
-        "reasoning trace has at least 2 steps"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let t = monotonicity_trace("test", true);
-        t.step_count() >= 2
+        if t.step_count() >= 2 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "TraceMinimalSteps",
+        "reasoning trace has at least 2 steps",
+        "Mendez et al. (2023) Evonne: proof tree visualization, EuroVis"
+    );
 }
-pr4xis::register_axiom!(TraceMinimalSteps);
+pr4xis::register_axiom!(
+    TraceMinimalSteps,
+    "Mendez et al. (2023) Evonne: proof tree visualization, EuroVis"
+);
 
 /// Generate an interactive HTML explorer for the ontology graph.
 ///
@@ -831,7 +864,7 @@ mod tests {
 
     #[test]
     fn test_activation_theme_mapped() {
-        assert!(ActivationThemeMapped.holds());
+        assert!(ActivationThemeMapped.verify().is_ok());
     }
 
     #[test]
@@ -843,7 +876,7 @@ mod tests {
 
     #[test]
     fn test_graph_connected() {
-        assert!(GraphConnected.holds());
+        assert!(GraphConnected.verify().is_ok());
     }
 
     #[test]
@@ -861,7 +894,7 @@ mod tests {
 
     #[test]
     fn test_trace_minimal_steps() {
-        assert!(TraceMinimalSteps.holds());
+        assert!(TraceMinimalSteps.verify().is_ok());
     }
 
     #[test]

@@ -1,7 +1,4 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use crate::social::military::situation::ontology::SituationElement;
+use crate::social::military::situation::ontology::SituationConcept;
 
 /// A tracked entity in the situation assessment.
 #[derive(Debug, Clone)]
@@ -41,7 +38,7 @@ pub enum RelationType {
 pub struct SituationAssessment {
     pub entities: Vec<TrackedEntity>,
     pub relationships: Vec<EntityRelationship>,
-    pub current_level: SituationElement,
+    pub current_level: SituationConcept,
 }
 
 impl Default for SituationAssessment {
@@ -55,7 +52,7 @@ impl SituationAssessment {
         Self {
             entities: Vec::new(),
             relationships: Vec::new(),
-            current_level: SituationElement::Concept,
+            current_level: SituationConcept::Concept,
         }
     }
 
@@ -74,7 +71,7 @@ impl SituationAssessment {
                 self.relationships.push(rel);
             }
         }
-        self.current_level = SituationElement::Relationship;
+        self.current_level = SituationConcept::Relationship;
     }
 
     /// Number of entities.

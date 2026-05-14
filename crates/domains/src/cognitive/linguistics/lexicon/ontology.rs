@@ -1,33 +1,49 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
-use pr4xis::category::entity::Concept;
-use pr4xis::category::relationship::Relationship;
+use pr4xis::category::{Arrow, Category, Concept};
 use pr4xis::ontology::Quality;
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use super::pos::*;
 
-/// Relationship between parts of speech: which POS can modify/complement which.
+/// Arrow between parts of speech: which POS can modify/complement which.
 /// E.g., Adjective modifies Noun, Adverb modifies Verb.
+///
+/// Per OBO-RO (Smith 2005), every arrow carries a relation-kind tag.
+/// Here we use a single `Modification` kind — the lexical category's
+/// only relation is syntactic modification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LexicalRelationKind {
+    Modification,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Modifies {
     pub modifier: PosTag,
     pub head: PosTag,
 }
 
-impl Relationship for Modifies {
+impl Arrow for Modifies {
     type Object = PosTag;
-    type Kind = ();
+    type Kind = LexicalRelationKind;
+
     fn source(&self) -> PosTag {
         self.modifier
     }
     fn target(&self) -> PosTag {
         self.head
     }
-    fn kind(&self) {}
+    fn kind(&self) -> LexicalRelationKind {
+        LexicalRelationKind::Modification
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("Modifies"),
+            description: Label::new_static(
+                "syntactic modification — modifier POS modifies head POS (Lambek 1958)",
+            ),
+            citation: Citation::parse_static("Lambek (1958); Chiarcos & Sukhareva OLiA (2015)"),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 /// The lexical category: parts of speech and their modification relationships.
@@ -119,15 +135,6 @@ impl Category for LexicalCategory {
         });
 
         m
-    }
-}
-
-impl Classified for LexicalCategory {
-    fn being() -> Being {
-        Being::SocialObject
-    }
-    fn classification_reason() -> &'static str {
-        "language categories are evolved social conventions"
     }
 }
 

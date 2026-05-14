@@ -1,26 +1,32 @@
 //! Kind-parameterised structural axioms — replaces the per-primitive-trait
 //! families (`NoCycles<TaxonomyDef>`, `NoCycles<MereologyDef>`, …) with a
 //! single family per structural property that filters a `Category`'s
-//! morphisms by edge kind.
+//! morphisms by its typed relation kind.
 //!
-//! Rationale (issue #152): the axioms *are properties of relations*, not
-//! type-level distinctions. Forcing each axiom into a separate trait
-//! family (`TaxonomyDef` vs `MereologyDef`) is a category error. One
-//! axiom type per property, filtered to the relation kind it applies
-//! to, is the ontological shape.
+//! # Why typed, not stringly typed (#163)
 //!
-//! Each axiom here accepts:
-//! 1. A `Category` `C` — the containing ontology's category
-//! 2. A `kind_name: &'static str` — what relation concept the filter
-//!    selects (must match a Relations ontology concept — e.g.
-//!    "Subsumption", "Parthood", "Causation", "Opposition")
-//! 3. A `filter: fn(&C::Morphism) -> bool` — picks out the
-//!    kind-matching morphisms; generated per-ontology by the
-//!    `pr4xis::ontology!` macro
+//! Each OnKind axiom is parameterised over a `Category` `C` and compares
+//! against a typed instance of `<C::Morphism as Arrow>::Kind`. No
+//! `kind_name: &'static str`, no separate filter predicate — the kind
+//! value itself is the filter. Framework-neutral: each ontology
+//! instantiates with its own local kind enum (e.g. `FooRelationKind`),
+//! or with an imported shared kind type (e.g. a Relations-ontology
+//! concept), without core committing to any specific relations ontology.
 //!
-//! The `RelationshipMeta` carries the kind name so the Lemon registry
-//! reports e.g. `NoCyclesOnKind[Subsumption]` rather than the generic
-//! type name.
+//! Per Gruber (1993) *KAS* 5: "ontology = formally-named relations" —
+//! typed entities, not string conventions.
+//! Per Smith et al. (2005) OBO-RO: every relation is a canonical named
+//! type. Encoding that as a compile-time-checked `Kind` value matches
+//! the literature.
+//!
+//! # Rationale (issue #152, #163)
+//!
+//! The axioms *are properties of relations*, not type-level distinctions.
+//! Forcing each axiom into a separate trait family (`TaxonomyDef` vs
+//! `MereologyDef`) is a category error — that's #152. Forcing the
+//! relation-identity through a `&'static str` parameter is a separate
+//! category error — that's #163. Both resolve in this module: one axiom
+//! type per structural property, filtered by typed kind value.
 //!
 //! Sources for the structural properties themselves:
 //! - Tarski (1941) *Calculus of Relations* — the axiom names and their
@@ -30,28 +36,30 @@
 //! - Smith et al. (2005) OBO Relation Ontology — which properties attach
 //!   to which relation types canonically
 
-use alloc::collections::VecDeque;
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-use core::hash::Hash;
-use core::marker::PhantomData;
-use hashbrown::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::marker::PhantomData;
 
-use crate::category::{Category, Relationship};
+use crate::category::{Arrow, Category};
 use crate::logic::axiom::Axiom;
-use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, RelationshipMeta};
+use crate::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
+use crate::ontology::meta::{Citation, Label, OntologyName};
 
-/// Collect (from, to) pairs from the category's morphisms, filtered to
-/// the morphisms matching the kind filter.
-fn kinded_pairs<C>(filter: fn(&C::Morphism) -> bool) -> Vec<(C::Object, C::Object)>
+type KindOf<C> = <<C as Category>::Morphism as Arrow>::Kind;
+
+/// Collect (from, to) pairs from the category's morphisms whose kind
+/// equals `kind`.
+fn kinded_pairs<C>(kind: KindOf<C>) -> Vec<(C::Object, C::Object)>
 where
     C: Category,
     C::Object: Clone,
-    C::Morphism: Relationship<Object = C::Object>,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: PartialEq,
 {
     C::morphisms()
         .into_iter()
-        .filter(filter)
+        .filter(|m| m.kind() == kind)
         .map(|m| (m.source(), m.target()))
         .collect()
 }
@@ -86,17 +94,17 @@ fn reachable_from<E: Clone + Eq + Hash>(start: &E, adj: &HashMap<E, Vec<E>>) -> 
     visited
 }
 
-fn meta_for(
-    axiom_name: &'static str,
-    kind_name: &'static str,
-    citation: &'static str,
-) -> RelationshipMeta {
-    RelationshipMeta {
-        name: OntologyName::new(format!("{axiom_name}[{kind_name}]")),
-        description: Label::new(format!("{axiom_name} applied to edges of kind {kind_name}")),
-        citation: Citation::parse_static(citation),
-        module_path: ModulePath::new_static(module_path!()),
-    }
+/// Build the `name()` override for an OnKind axiom, projecting the typed
+/// kind via `Debug` into an identifier like `"NoCyclesOnKind[Subsumption]"`.
+/// Kinds are enum-like, so their Debug output is their variant name —
+/// exactly the identifier the Lemon registry wants.
+fn name_with_kind<K: Debug>(axiom_name: &'static str, kind: &K) -> OntologyName {
+    OntologyName::new(format!("{axiom_name}[{kind:?}]"))
+}
+
+/// Build the `description()` override for an OnKind axiom.
+fn description_with_kind<K: Debug>(axiom_name: &'static str, kind: &K) -> Label {
+    Label::new(format!("{axiom_name} applied to edges of kind {kind:?}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -105,17 +113,21 @@ fn meta_for(
 // Source: Guarino (2009); Casati & Varzi (1999); Tarski (1941).
 // ---------------------------------------------------------------------------
 
-pub struct NoCyclesOnKind<C: Category> {
-    kind_name: &'static str,
-    filter: fn(&C::Morphism) -> bool,
+pub struct NoCyclesOnKind<C: Category>
+where
+    C::Morphism: Arrow,
+{
+    kind: KindOf<C>,
     _marker: PhantomData<C>,
 }
 
-impl<C: Category> NoCyclesOnKind<C> {
-    pub fn new(kind_name: &'static str, filter: fn(&C::Morphism) -> bool) -> Self {
+impl<C: Category> NoCyclesOnKind<C>
+where
+    C::Morphism: Arrow,
+{
+    pub fn new(kind: KindOf<C>) -> Self {
         Self {
-            kind_name,
-            filter,
+            kind,
             _marker: PhantomData,
         }
     }
@@ -125,23 +137,29 @@ impl<C> Axiom for NoCyclesOnKind<C>
 where
     C: Category,
     C::Object: Clone + Eq + Hash,
-    C::Morphism: Relationship<Object = C::Object>,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: PartialEq,
 {
-    fn description(&self) -> &str {
-        "edges of this kind have no cycles (form a DAG)"
-    }
-
-    fn holds(&self) -> bool {
-        let pairs = kinded_pairs::<C>(self.filter);
+    fn verify(&self) -> Verdict {
+        let pairs = kinded_pairs::<C>(self.kind);
         let adj = adjacency(&pairs);
-        // No entity appears in its own reachable set.
-        adj.keys().all(|e| !reachable_from(e, &adj).contains(e))
+        if adj.keys().all(|e| !reachable_from(e, &adj).contains(e)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn meta(&self) -> RelationshipMeta {
-        meta_for(
-            "NoCyclesOnKind",
-            self.kind_name,
+    fn name(&self) -> OntologyName {
+        name_with_kind("NoCyclesOnKind", &self.kind)
+    }
+
+    fn description(&self) -> Label {
+        description_with_kind("NoCyclesOnKind", &self.kind)
+    }
+
+    fn citation(&self) -> Citation {
+        Citation::parse_static(
             "Guarino (2009); Casati & Varzi (1999); Tarski (1941) Calculus of Relations",
         )
     }
@@ -153,17 +171,21 @@ where
 // Source: Guarino (2009); Tarski (1941); Mac Lane (1971) partial orders.
 // ---------------------------------------------------------------------------
 
-pub struct AntisymmetricOnKind<C: Category> {
-    kind_name: &'static str,
-    filter: fn(&C::Morphism) -> bool,
+pub struct AntisymmetricOnKind<C: Category>
+where
+    C::Morphism: Arrow,
+{
+    kind: KindOf<C>,
     _marker: PhantomData<C>,
 }
 
-impl<C: Category> AntisymmetricOnKind<C> {
-    pub fn new(kind_name: &'static str, filter: fn(&C::Morphism) -> bool) -> Self {
+impl<C: Category> AntisymmetricOnKind<C>
+where
+    C::Morphism: Arrow,
+{
+    pub fn new(kind: KindOf<C>) -> Self {
         Self {
-            kind_name,
-            filter,
+            kind,
             _marker: PhantomData,
         }
     }
@@ -173,29 +195,32 @@ impl<C> Axiom for AntisymmetricOnKind<C>
 where
     C: Category,
     C::Object: Clone + Eq + Hash,
-    C::Morphism: Relationship<Object = C::Object>,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: PartialEq,
 {
-    fn description(&self) -> &str {
-        "edges of this kind are antisymmetric: if (A, B) and A ≠ B, then not (B, A)"
-    }
-
-    fn holds(&self) -> bool {
-        let pairs = kinded_pairs::<C>(self.filter);
+    fn verify(&self) -> Verdict {
+        let pairs = kinded_pairs::<C>(self.kind);
         let set: HashSet<(C::Object, C::Object)> = pairs.iter().cloned().collect();
-        for (a, b) in &pairs {
-            if a != b && set.contains(&(b.clone(), a.clone())) {
-                return false;
-            }
+        if pairs
+            .iter()
+            .all(|(a, b)| a == b || !set.contains(&(b.clone(), a.clone())))
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
         }
-        true
     }
 
-    fn meta(&self) -> RelationshipMeta {
-        meta_for(
-            "AntisymmetricOnKind",
-            self.kind_name,
-            "Guarino (2009); Tarski (1941); Mac Lane (1971) partial orders",
-        )
+    fn name(&self) -> OntologyName {
+        name_with_kind("AntisymmetricOnKind", &self.kind)
+    }
+
+    fn description(&self) -> Label {
+        description_with_kind("AntisymmetricOnKind", &self.kind)
+    }
+
+    fn citation(&self) -> Citation {
+        Citation::parse_static("Guarino (2009); Tarski (1941); Mac Lane (1971) partial orders")
     }
 }
 
@@ -205,17 +230,21 @@ where
 // Source: Lewis (1973) Causation; Reichenbach (1956); Tarski (1941).
 // ---------------------------------------------------------------------------
 
-pub struct AsymmetricOnKind<C: Category> {
-    kind_name: &'static str,
-    filter: fn(&C::Morphism) -> bool,
+pub struct AsymmetricOnKind<C: Category>
+where
+    C::Morphism: Arrow,
+{
+    kind: KindOf<C>,
     _marker: PhantomData<C>,
 }
 
-impl<C: Category> AsymmetricOnKind<C> {
-    pub fn new(kind_name: &'static str, filter: fn(&C::Morphism) -> bool) -> Self {
+impl<C: Category> AsymmetricOnKind<C>
+where
+    C::Morphism: Arrow,
+{
+    pub fn new(kind: KindOf<C>) -> Self {
         Self {
-            kind_name,
-            filter,
+            kind,
             _marker: PhantomData,
         }
     }
@@ -225,27 +254,32 @@ impl<C> Axiom for AsymmetricOnKind<C>
 where
     C: Category,
     C::Object: Clone + Eq + Hash,
-    C::Morphism: Relationship<Object = C::Object>,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: PartialEq,
 {
-    fn description(&self) -> &str {
-        "edges of this kind are asymmetric: if (A, B) then not (B, A) and A ≠ B"
-    }
-
-    fn holds(&self) -> bool {
-        let pairs = kinded_pairs::<C>(self.filter);
+    fn verify(&self) -> Verdict {
+        let pairs = kinded_pairs::<C>(self.kind);
         let set: HashSet<(C::Object, C::Object)> = pairs.iter().cloned().collect();
-        for (a, b) in &pairs {
-            if a == b || set.contains(&(b.clone(), a.clone())) {
-                return false;
-            }
+        if pairs
+            .iter()
+            .all(|(a, b)| a != b && !set.contains(&(b.clone(), a.clone())))
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
         }
-        true
     }
 
-    fn meta(&self) -> RelationshipMeta {
-        meta_for(
-            "AsymmetricOnKind",
-            self.kind_name,
+    fn name(&self) -> OntologyName {
+        name_with_kind("AsymmetricOnKind", &self.kind)
+    }
+
+    fn description(&self) -> Label {
+        description_with_kind("AsymmetricOnKind", &self.kind)
+    }
+
+    fn citation(&self) -> Citation {
+        Citation::parse_static(
             "Lewis (1973) Causation; Reichenbach (1956) Direction of Time; Tarski (1941)",
         )
     }
@@ -258,17 +292,21 @@ where
 // Cruse (1986) *Lexical Semantics*; Tarski (1941).
 // ---------------------------------------------------------------------------
 
-pub struct SymmetricOnKind<C: Category> {
-    kind_name: &'static str,
-    filter: fn(&C::Morphism) -> bool,
+pub struct SymmetricOnKind<C: Category>
+where
+    C::Morphism: Arrow,
+{
+    kind: KindOf<C>,
     _marker: PhantomData<C>,
 }
 
-impl<C: Category> SymmetricOnKind<C> {
-    pub fn new(kind_name: &'static str, filter: fn(&C::Morphism) -> bool) -> Self {
+impl<C: Category> SymmetricOnKind<C>
+where
+    C::Morphism: Arrow,
+{
+    pub fn new(kind: KindOf<C>) -> Self {
         Self {
-            kind_name,
-            filter,
+            kind,
             _marker: PhantomData,
         }
     }
@@ -278,27 +316,32 @@ impl<C> Axiom for SymmetricOnKind<C>
 where
     C: Category,
     C::Object: Clone + Eq + Hash,
-    C::Morphism: Relationship<Object = C::Object>,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: PartialEq,
 {
-    fn description(&self) -> &str {
-        "edges of this kind are symmetric: (A, B) iff (B, A)"
-    }
-
-    fn holds(&self) -> bool {
-        let pairs = kinded_pairs::<C>(self.filter);
+    fn verify(&self) -> Verdict {
+        let pairs = kinded_pairs::<C>(self.kind);
         let set: HashSet<(C::Object, C::Object)> = pairs.iter().cloned().collect();
-        for (a, b) in &pairs {
-            if !set.contains(&(b.clone(), a.clone())) {
-                return false;
-            }
+        if pairs
+            .iter()
+            .all(|(a, b)| set.contains(&(b.clone(), a.clone())))
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
         }
-        true
     }
 
-    fn meta(&self) -> RelationshipMeta {
-        meta_for(
-            "SymmetricOnKind",
-            self.kind_name,
+    fn name(&self) -> OntologyName {
+        name_with_kind("SymmetricOnKind", &self.kind)
+    }
+
+    fn description(&self) -> Label {
+        description_with_kind("SymmetricOnKind", &self.kind)
+    }
+
+    fn citation(&self) -> Citation {
+        Citation::parse_static(
             "Aristotle Peri Hermeneias; Saussure (1916); Cruse (1986) Lexical Semantics; Tarski (1941)",
         )
     }
@@ -310,17 +353,21 @@ where
 // Source: Aristotle Peri Hermeneias; Lewis (1973); Tarski (1941).
 // ---------------------------------------------------------------------------
 
-pub struct IrreflexiveOnKind<C: Category> {
-    kind_name: &'static str,
-    filter: fn(&C::Morphism) -> bool,
+pub struct IrreflexiveOnKind<C: Category>
+where
+    C::Morphism: Arrow,
+{
+    kind: KindOf<C>,
     _marker: PhantomData<C>,
 }
 
-impl<C: Category> IrreflexiveOnKind<C> {
-    pub fn new(kind_name: &'static str, filter: fn(&C::Morphism) -> bool) -> Self {
+impl<C: Category> IrreflexiveOnKind<C>
+where
+    C::Morphism: Arrow,
+{
+    pub fn new(kind: KindOf<C>) -> Self {
         Self {
-            kind_name,
-            filter,
+            kind,
             _marker: PhantomData,
         }
     }
@@ -330,25 +377,31 @@ impl<C> Axiom for IrreflexiveOnKind<C>
 where
     C: Category,
     C::Object: Clone + Eq,
-    C::Morphism: Relationship<Object = C::Object>,
+    C::Morphism: Arrow<Object = C::Object>,
+    KindOf<C>: PartialEq,
 {
-    fn description(&self) -> &str {
-        "edges of this kind are irreflexive: no (A, A)"
-    }
-
-    fn holds(&self) -> bool {
-        C::morphisms()
+    fn verify(&self) -> Verdict {
+        if C::morphisms()
             .into_iter()
-            .filter(self.filter)
+            .filter(|m| m.kind() == self.kind)
             .all(|m| m.source() != m.target())
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn meta(&self) -> RelationshipMeta {
-        meta_for(
-            "IrreflexiveOnKind",
-            self.kind_name,
-            "Aristotle Peri Hermeneias; Lewis (1973); Tarski (1941)",
-        )
+    fn name(&self) -> OntologyName {
+        name_with_kind("IrreflexiveOnKind", &self.kind)
+    }
+
+    fn description(&self) -> Label {
+        description_with_kind("IrreflexiveOnKind", &self.kind)
+    }
+
+    fn citation(&self) -> Citation {
+        Citation::parse_static("Aristotle Peri Hermeneias; Lewis (1973); Tarski (1941)")
     }
 }
 
@@ -386,16 +439,18 @@ mod tests {
         kind: TestKind,
     }
 
-    impl Relationship for TestMorph {
+    impl Arrow for TestMorph {
         type Object = TestObj;
-        type Kind = ();
+        type Kind = TestKind;
         fn source(&self) -> TestObj {
             self.from
         }
         fn target(&self) -> TestObj {
             self.to
         }
-        fn kind(&self) {}
+        fn kind(&self) -> TestKind {
+            self.kind
+        }
     }
 
     struct TestCat;
@@ -469,56 +524,58 @@ mod tests {
         }
     }
 
-    fn is_subsumption(m: &TestMorph) -> bool {
-        m.kind == TestKind::Subsumption
+    /// Pattern-match helpers — the ontological test shape. The claim IS
+    /// the Axiom; the test bridges the Verdict to Rust's panic-based test
+    /// harness. No `.is_ok()`/`.is_err()` bool shortcuts (see
+    /// `feedback_core_no_bool_api`).
+    fn expect_proves<A: Axiom>(axiom: A) {
+        match axiom.verify() {
+            Ok(_) => {}
+            Err(c) => panic!("expected proof but got counterexample: {}", c.meta().name),
+        }
     }
-    fn is_opposition(m: &TestMorph) -> bool {
-        m.kind == TestKind::Opposition
-    }
-    fn is_causation(m: &TestMorph) -> bool {
-        m.kind == TestKind::Causation
+
+    fn expect_refutes<A: Axiom>(axiom: A) {
+        match axiom.verify() {
+            Err(_) => {}
+            Ok(p) => panic!("expected counterexample but got proof: {}", p.meta().name),
+        }
     }
 
     #[test]
     fn no_cycles_holds_on_subsumption() {
-        let ax = NoCyclesOnKind::<TestCat>::new("Subsumption", is_subsumption);
-        assert!(ax.holds());
+        expect_proves(NoCyclesOnKind::<TestCat>::new(TestKind::Subsumption));
     }
 
     #[test]
     fn antisymmetric_holds_on_subsumption() {
-        let ax = AntisymmetricOnKind::<TestCat>::new("Subsumption", is_subsumption);
-        assert!(ax.holds());
+        expect_proves(AntisymmetricOnKind::<TestCat>::new(TestKind::Subsumption));
     }
 
     #[test]
     fn symmetric_holds_on_opposition() {
-        let ax = SymmetricOnKind::<TestCat>::new("Opposition", is_opposition);
-        assert!(ax.holds());
+        expect_proves(SymmetricOnKind::<TestCat>::new(TestKind::Opposition));
     }
 
     #[test]
     fn irreflexive_holds_on_opposition() {
-        let ax = IrreflexiveOnKind::<TestCat>::new("Opposition", is_opposition);
-        assert!(ax.holds());
+        expect_proves(IrreflexiveOnKind::<TestCat>::new(TestKind::Opposition));
     }
 
     #[test]
     fn asymmetric_holds_on_causation() {
-        let ax = AsymmetricOnKind::<TestCat>::new("Causation", is_causation);
-        assert!(ax.holds());
+        expect_proves(AsymmetricOnKind::<TestCat>::new(TestKind::Causation));
     }
 
     #[test]
     fn symmetric_fails_on_causation() {
-        // Causation has (A, B) but not (B, A) — symmetric must fail.
-        let ax = SymmetricOnKind::<TestCat>::new("Causation", is_causation);
-        assert!(!ax.holds());
+        // Causation has (A, B) but not (B, A) — symmetric must refute.
+        expect_refutes(SymmetricOnKind::<TestCat>::new(TestKind::Causation));
     }
 
     #[test]
-    fn meta_carries_kind_name() {
-        let ax = NoCyclesOnKind::<TestCat>::new("Subsumption", is_subsumption);
+    fn meta_carries_kind_identifier() {
+        let ax = NoCyclesOnKind::<TestCat>::new(TestKind::Subsumption);
         assert_eq!(ax.meta().name.as_str(), "NoCyclesOnKind[Subsumption]");
         assert!(!ax.meta().citation.as_str().is_empty());
     }

@@ -17,7 +17,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "Distinction",
     source: "Spencer-Brown (1969)",
-    being: AbstractObject,
 
     concepts: [Void, Mark, Boundary, MarkedSpace, UnmarkedSpace, ReEntry],
 

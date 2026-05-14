@@ -23,7 +23,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "Durability",
     source: "Haerder & Reuter (1983); Pillai et al. (2014); Pelley et al. (2014)",
-    being: AbstractObject,
 
     concepts: [Ephemeral, Transient, Persistent, Durable, Replicated, Archived],
 
@@ -78,11 +77,11 @@ mod tests {
     use super::*;
     use pr4xis::category::Category;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws_hold() {
-        check_category_laws::<DurabilityCategory>().unwrap();
+        assert_category_laws::<DurabilityCategory>();
     }
 
     #[test]
@@ -123,12 +122,33 @@ mod tests {
 
     #[test]
     fn ephemeral_reaches_archived() {
-        let m = DurabilityCategory::morphisms();
-        assert!(
-            m.iter()
-                .any(|r| r.from == DurabilityConcept::Ephemeral
-                    && r.to == DurabilityConcept::Archived)
-        );
+        // Total order chain Ephemeral → … → Archived under `Strengthens`.
+        // Per #166 same-kind `Strengthens` is not an OBO-RO canonical
+        // transitive kind, so the macro does not auto-emit closure
+        // morphisms — walk the same-kind graph.
+        use pr4xis::category::Arrow;
+        use std::collections::{HashSet, VecDeque};
+        let ms = DurabilityCategory::morphisms();
+        let mut visited: HashSet<DurabilityConcept> = HashSet::new();
+        let mut queue: VecDeque<DurabilityConcept> = VecDeque::new();
+        queue.push_back(DurabilityConcept::Ephemeral);
+        let mut reaches = false;
+        while let Some(n) = queue.pop_front() {
+            if n == DurabilityConcept::Archived {
+                reaches = true;
+                break;
+            }
+            if !visited.insert(n) {
+                continue;
+            }
+            for m in ms
+                .iter()
+                .filter(|m| m.source() == n && m.kind() == DurabilityRelationKind::Strengthens)
+            {
+                queue.push_back(m.target());
+            }
+        }
+        assert!(reaches);
     }
 
     #[test]

@@ -2,46 +2,26 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::lifecycle::{Case, CaseAction, PhaseTag};
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
-impl Situation for Case {
-    fn describe(&self) -> String {
-        format!(
-            "{} | {:?} | {} motions | {} events",
-            self.caption,
-            self.phase.tag(),
-            self.motions.len(),
-            self.events.len()
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        self.phase.is_terminal()
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
+
+impl Situation for Case {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LegalAction(pub CaseAction);
 
 impl Action for LegalAction {
     type Sit = Case;
-
-    fn describe(&self) -> String {
-        match &self.0 {
-            CaseAction::File { date, .. } => format!("file case ({})", date),
-            CaseAction::BeginDiscovery { date } => format!("begin discovery ({})", date),
-            CaseAction::FileMotion { .. } => "file motion".into(),
-            CaseAction::RuleOnMotion { motion_index, .. } => {
-                format!("rule on motion {}", motion_index)
-            }
-            CaseAction::SetForTrial { date } => format!("set trial ({})", date),
-            CaseAction::BeginTrial { date } => format!("begin trial ({})", date),
-            CaseAction::Verdict { outcome, .. } => format!("verdict: {}", outcome),
-            CaseAction::Appeal { .. } => "appeal".into(),
-            CaseAction::Settle { terms, .. } => format!("settle: {}", terms),
-            CaseAction::Dismiss { reason, .. } => format!("dismiss: {}", reason),
-        }
-    }
 }
 
 /// Validates that the action is valid for the current case phase.
@@ -73,74 +53,45 @@ impl PhaseTransition {
 }
 
 impl Precondition<LegalAction> for PhaseTransition {
-    fn check(&self, case: &Case, action: &LegalAction) -> PreconditionResult {
+    fn check(&self, case: &Case, action: &LegalAction) -> Verdict {
+        let meta = axiom_meta(
+            "phase_transition",
+            "action must be valid for the current case phase",
+            "Federal Rules of Civil Procedure (FRCP, as amended); Federal Rules of Appellate Procedure (FRAP); Wright & Miller, Federal Practice and Procedure",
+        );
         let current = case.phase.tag();
 
         if case.phase.is_terminal() {
-            return PreconditionResult::violated(
-                "phase_transition",
-                "case is closed — no further actions allowed",
-                &case.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
 
-        // Check strict phase requirement
         if let Some(required) = Self::required_phase(&action.0)
             && current != required
         {
-            return PreconditionResult::violated(
-                "phase_transition",
-                &format!("requires {:?} phase but case is in {:?}", required, current),
-                &case.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
 
-        // Check valid transition target
         if let Some(target) = Self::target_phase(&action.0)
             && target != PhaseTag::Closed
             && !current.valid_transitions().contains(&target)
         {
-            return PreconditionResult::violated(
-                "phase_transition",
-                &format!("cannot transition from {:?} to {:?}", current, target),
-                &case.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
 
-        // Motion-specific: filing requires Filed/Discovery/Motions
         if let CaseAction::FileMotion { .. } = &action.0
             && !matches!(
                 current,
                 PhaseTag::Filed | PhaseTag::Discovery | PhaseTag::Motions
             )
         {
-            return PreconditionResult::violated(
-                "phase_transition",
-                &format!("cannot file motion in {:?} phase", current),
-                &case.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
 
-        PreconditionResult::satisfied(
-            "phase_transition",
-            &format!(
-                "{:?} action valid in {:?} phase",
-                action.describe(),
-                current
-            ),
-        )
-    }
-
-    fn describe(&self) -> &str {
-        "action must be valid for the current case phase"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_legal(case: &Case, action: &LegalAction) -> Result<Case, String> {
+fn apply_legal(case: &Case, action: &LegalAction) -> Result<Case, Box<dyn Counterexample>> {
     let mut next = case.clone();
     next.act(action.0.clone());
     Ok(next)

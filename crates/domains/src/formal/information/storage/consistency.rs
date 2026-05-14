@@ -19,7 +19,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "Consistency",
     source: "Viotti & Vukolic (2016); Herlihy & Wing (1990)",
-    being: AbstractObject,
 
     concepts: [
         Linearizable,
@@ -61,11 +60,11 @@ mod tests {
     use super::*;
     use pr4xis::category::Category;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws_hold() {
-        check_category_laws::<ConsistencyCategory>().unwrap();
+        assert_category_laws::<ConsistencyCategory>();
     }
 
     #[test]
@@ -105,17 +104,46 @@ mod tests {
 
     #[test]
     fn eventual_is_weakest() {
-        let m = ConsistencyCategory::morphisms();
+        // Reachability in the `Weakens` partial order. Per #166 (partial
+        // category) heterogeneous-kind closure isn't emitted as direct
+        // morphisms — same-kind `Weakens` isn't a canonical OBO-RO
+        // transitive kind either, so walk the graph.
         for model in ConsistencyConcept::variants() {
             if model == ConsistencyConcept::EventuallyConsistent {
                 continue;
             }
             assert!(
-                m.iter()
-                    .any(|r| r.from == model && r.to == ConsistencyConcept::EventuallyConsistent),
+                weakens_reaches(model, ConsistencyConcept::EventuallyConsistent),
                 "{model:?} should reach EventuallyConsistent"
             );
+            // Linearizable is incomparable with Serializable — the lattice
+            // is a DAG, not a tree, and both should still reach Eventual.
+            let _ = model;
         }
+    }
+
+    fn weakens_reaches(from: ConsistencyConcept, to: ConsistencyConcept) -> bool {
+        use pr4xis::category::Arrow;
+        use std::collections::{HashSet, VecDeque};
+        let ms = ConsistencyCategory::morphisms();
+        let mut visited: HashSet<ConsistencyConcept> = HashSet::new();
+        let mut queue: VecDeque<ConsistencyConcept> = VecDeque::new();
+        queue.push_back(from);
+        while let Some(n) = queue.pop_front() {
+            if n == to {
+                return true;
+            }
+            if !visited.insert(n) {
+                continue;
+            }
+            for m in ms
+                .iter()
+                .filter(|m| m.source() == n && m.kind() == ConsistencyRelationKind::Weakens)
+            {
+                queue.push_back(m.target());
+            }
+        }
+        false
     }
 
     #[test]
@@ -144,8 +172,13 @@ mod tests {
 
     #[test]
     fn linearizable_reaches_eventual_transitively() {
-        let m = ConsistencyCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == ConsistencyConcept::Linearizable
-            && r.to == ConsistencyConcept::EventuallyConsistent));
+        // Lin → SeqCons → Causal → {Pram, MR, RYW} → Eventual.
+        // Walked through the same-kind `Weakens` graph (#166: no direct
+        // closure morphism is emitted for heterogeneous chains, and same-
+        // kind `Weakens` is not a canonical OBO-RO transitive kind).
+        assert!(weakens_reaches(
+            ConsistencyConcept::Linearizable,
+            ConsistencyConcept::EventuallyConsistent
+        ));
     }
 }

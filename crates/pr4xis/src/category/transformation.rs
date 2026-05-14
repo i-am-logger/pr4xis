@@ -1,9 +1,7 @@
 use super::category::Category;
 use super::functor::Functor;
 use super::kinds::NatTransKind;
-use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, RelationshipMeta};
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 /// A natural transformation is a morphism between two functors.
 ///
@@ -22,7 +20,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 ///
 /// Per Mac Lane (1971) I.4, a natural transformation is a 2-cell in the
 /// 2-category Cat. Metadata flows through the unified
-/// [`RelationshipMeta`] shape; the [`NatTransKind`] tag records
+/// [`Provenance`] shape; the [`NatTransKind`] tag records
 /// whether every component is an iso, mono, epi, or the transformation
 /// is the unit/counit of an adjunction.
 pub trait NaturalTransformation {
@@ -50,9 +48,9 @@ pub trait NaturalTransformation {
     /// — "literature citation not yet declared". Override via
     /// `pr4xis::natural_transformation!` or
     /// [`relationship_meta!`](crate::relationship_meta!).
-    fn meta() -> RelationshipMeta {
-        let tn = core::any::type_name::<Self>().to_string();
-        RelationshipMeta {
+    fn meta() -> Provenance {
+        let tn = std::any::type_name::<Self>().to_string();
+        Provenance {
             name: OntologyName::new(tn.clone()),
             description: Label::new(tn),
             citation: Citation::EMPTY,

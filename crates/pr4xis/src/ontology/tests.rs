@@ -1,5 +1,5 @@
 use super::property::Quality;
-use crate::category::{Category, Concept, Relationship};
+use crate::category::{Arrow, Category, Concept};
 use crate::logic::Axiom;
 use crate::ontology::Ontology;
 use proptest::prelude::*;
@@ -37,7 +37,7 @@ enum LightTransition {
     YellowToGreen,
 }
 
-impl Relationship for LightTransition {
+impl Arrow for LightTransition {
     type Object = Light;
     type Kind = ();
 
@@ -132,16 +132,25 @@ impl Quality for Duration {
 struct GreenIsLongest;
 
 impl Axiom for GreenIsLongest {
-    fn description(&self) -> &str {
-        "green phase must be the longest"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> crate::logic::proof::Verdict {
         let dur = Duration;
         let green_dur = dur.get(&Light::Green).unwrap_or(0);
-        Light::variants()
+        if Light::variants()
             .iter()
             .all(|l| dur.get(l).unwrap_or(0) <= green_dur)
+        {
+            Ok(Box::new(crate::logic::SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(crate::logic::proof::SimpleCounterexample::new(
+                self.meta(),
+            )))
+        }
+    }
+
+    fn citation(&self) -> crate::ontology::meta::Citation {
+        crate::ontology::meta::Citation::parse_static(
+            "MUTCD (2009) §4D.26 — traffic-signal green-phase duration",
+        )
     }
 }
 
@@ -150,14 +159,23 @@ impl Axiom for GreenIsLongest {
 struct NoDeadStates;
 
 impl Axiom for NoDeadStates {
-    fn description(&self) -> &str {
-        "every light has at least one outgoing transition"
-    }
-
-    fn holds(&self) -> bool {
-        Light::variants()
+    fn verify(&self) -> crate::logic::proof::Verdict {
+        if Light::variants()
             .iter()
             .all(|obj| !TrafficLightCat::morphisms_from(obj).is_empty())
+        {
+            Ok(Box::new(crate::logic::SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(crate::logic::proof::SimpleCounterexample::new(
+                self.meta(),
+            )))
+        }
+    }
+
+    fn citation(&self) -> crate::ontology::meta::Citation {
+        crate::ontology::meta::Citation::parse_static(
+            "Mac Lane (1971) Categories for the Working Mathematician Ch. I — every object has outgoing morphisms",
+        )
     }
 }
 
@@ -169,7 +187,7 @@ impl Ontology for TrafficLightOntology {
     type Cat = TrafficLightCat;
     type Qual = Duration;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(GreenIsLongest), Box::new(NoDeadStates)]
     }
 }
@@ -202,7 +220,14 @@ proptest! {
     /// Ontology validation succeeds structurally
     #[test]
     fn prop_ontology_validates(_obj in arb_light()) {
-        prop_assert!(TrafficLightOntology::validate().is_ok());
+        match TrafficLightOntology::validate() {
+            Ok(_) => {}
+            Err(c) => prop_assert!(
+                false,
+                "validation failed: {}",
+                c.meta().description.as_str()
+            ),
+        }
     }
 
     /// Every individual has a quality value (total quality)
@@ -261,7 +286,14 @@ proptest! {
     #[test]
     fn prop_all_axioms_hold(_individual in arb_light()) {
         for axiom in TrafficLightOntology::axioms() {
-            prop_assert!(axiom.holds(), "Axiom failed: {}", axiom.description());
+            match axiom.verify() {
+                Ok(_) => {}
+                Err(c) => prop_assert!(
+                    false,
+                    "Axiom failed: {}",
+                    c.meta().description.as_str()
+                ),
+            }
         }
     }
 }
@@ -326,12 +358,21 @@ proptest! {
 
 #[test]
 fn test_ontology_validates() {
-    TrafficLightOntology::validate().unwrap();
+    match TrafficLightOntology::validate() {
+        Ok(_) => {}
+        Err(c) => panic!(
+            "ontology validation failed: {}",
+            c.meta().description.as_str()
+        ),
+    }
 }
 
 #[test]
 fn test_ontology_check() {
-    super::validate::check_ontology::<TrafficLightOntology>().unwrap();
+    match super::validate::check_ontology::<TrafficLightOntology>() {
+        Ok(_) => {}
+        Err(c) => panic!("check_ontology failed: {}", c.meta().description.as_str()),
+    }
 }
 
 #[test]
@@ -348,173 +389,22 @@ fn test_quality_individuals_with() {
     assert_eq!(dur.individuals_with().len(), 3);
 }
 
+/// Ontological test helper — pattern-match Verdict, no bool shortcuts.
+fn expect_proves<A: Axiom>(axiom: A) {
+    match axiom.verify() {
+        Ok(_) => {}
+        Err(c) => panic!("expected proof for {}, got counterexample", c.meta().name),
+    }
+}
+
 #[test]
 fn test_axiom_green_is_longest() {
-    assert!(GreenIsLongest.holds());
+    expect_proves(GreenIsLongest);
 }
 
 #[test]
 fn test_axiom_no_dead_states() {
-    assert!(NoDeadStates.holds());
-}
-
-// =============================================================================
-// define_ontology! macro test
-// =============================================================================
-
-mod ontology_macro_test {
-    use crate::category::Concept;
-    use crate::category::validate::check_category_laws;
-    use crate::logic::Axiom;
-    use crate::ontology::reasoning::mereology::{self, MereologyDef};
-    use crate::ontology::reasoning::opposition::OppositionDef;
-    use crate::ontology::reasoning::taxonomy::{self, TaxonomyDef};
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-    pub enum Animal {
-        Dog,
-        Cat,
-        Mammal,
-        Pet,
-        Tail,
-        Fur,
-    }
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-    pub enum AnimalEvent {
-        Birth,
-        Growth,
-        Death,
-    }
-
-    // New ontological style: concepts, is_a, has_a, causes, opposes
-    define_ontology! {
-        /// Test animal ontology.
-        pub AnimalOntology for AnimalCategory {
-            concepts: Animal,
-            relation: AnimalRelation,
-
-            is_a: AnimalTaxonomy [
-                (Dog, Mammal),
-                (Cat, Mammal),
-                (Dog, Pet),
-                (Cat, Pet),
-            ],
-
-            has_a: AnimalMereology [
-                (Dog, Tail),
-                (Cat, Tail),
-                (Dog, Fur),
-                (Cat, Fur),
-            ],
-
-            causes: AnimalCausal for AnimalEvent [
-                (Birth, Growth),
-                (Growth, Death),
-            ],
-
-            opposes: AnimalOpposition [
-                (Dog, Cat),
-            ],
-        }
-    }
-
-    #[test]
-    fn macro_generates_category() {
-        check_category_laws::<AnimalCategory>().unwrap();
-    }
-
-    #[test]
-    fn macro_generates_taxonomy() {
-        let rels = AnimalTaxonomy::relations();
-        assert!(rels.contains(&(Animal::Dog, Animal::Mammal)));
-        assert!(taxonomy::is_a::<AnimalTaxonomy>(
-            &Animal::Dog,
-            &Animal::Mammal
-        ));
-    }
-
-    #[test]
-    fn macro_generates_mereology() {
-        let rels = AnimalMereology::relations();
-        assert!(rels.contains(&(Animal::Dog, Animal::Tail)));
-        let parts = mereology::parts_of::<AnimalMereology>(&Animal::Dog);
-        assert!(parts.contains(&Animal::Tail));
-        assert!(parts.contains(&Animal::Fur));
-    }
-
-    #[test]
-    fn macro_generates_opposition() {
-        let pairs = AnimalOpposition::pairs();
-        assert!(pairs.contains(&(Animal::Dog, Animal::Cat)));
-    }
-
-    #[test]
-    fn macro_generates_meta() {
-        let meta = AnimalOntology::meta();
-        assert_eq!(meta.name.as_str(), "AnimalOntology");
-        assert!(meta.module_path.as_str().contains("ontology_macro_test"));
-    }
-
-    #[test]
-    fn structural_axioms_auto_generated() {
-        let axioms = AnimalOntology::generated_structural_axioms();
-        // 2 taxonomy + 1 mereology + 2 causation + 2 opposition = 7
-        assert_eq!(axioms.len(), 7);
-        for axiom in &axioms {
-            assert!(axiom.holds(), "failed: {}", axiom.description());
-        }
-    }
-
-    // Full Ontology trait: user provides domain_axioms(), framework merges
-    use crate::ontology::{Ontology, Quality};
-
-    pub struct AnimalIsAlive;
-    impl Axiom for AnimalIsAlive {
-        fn description(&self) -> &str {
-            "all animals are alive"
-        }
-        fn holds(&self) -> bool {
-            true
-        }
-    }
-
-    #[derive(Debug, Clone)]
-    pub struct NoQuality;
-    impl Quality for NoQuality {
-        type Individual = Animal;
-        type Value = ();
-        fn get(&self, _: &Animal) -> Option<()> {
-            None
-        }
-    }
-
-    impl Ontology for AnimalOntology {
-        type Cat = AnimalCategory;
-        type Qual = NoQuality;
-
-        fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-            Self::generated_structural_axioms()
-        }
-
-        fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-            vec![Box::new(AnimalIsAlive)]
-        }
-    }
-
-    #[test]
-    fn ontology_merges_structural_and_domain() {
-        let all = AnimalOntology::axioms();
-        assert_eq!(all.len(), 8); // 7 structural + 1 domain
-        for a in &all {
-            assert!(a.holds());
-        }
-    }
-
-    #[test]
-    fn ontology_validates() {
-        AnimalOntology::validate().unwrap();
-    }
+    expect_proves(NoDeadStates);
 }
 
 // =============================================================================
@@ -523,13 +413,12 @@ mod ontology_macro_test {
 
 mod proc_macro_test {
     use crate as pr4xis;
-    use crate::category::Concept;
-    use crate::category::validate::check_category_laws;
+    use crate::category::laws::assert_category_laws;
+    use crate::category::{Category, Concept};
 
     pr4xis::ontology! {
         name: "Communication",
         source: "Shannon (1948); Jakobson (1960)",
-        being: AbstractObject,
 
         concepts: [Sender, Receiver, Message, Channel, Code, Noise, Feedback, Context],
 
@@ -575,14 +464,14 @@ mod proc_macro_test {
 
     #[test]
     fn proc_macro_generates_category() {
-        check_category_laws::<CommunicationCategory>().unwrap();
+        assert_category_laws::<CommunicationCategory>();
     }
 
     #[test]
     fn proc_macro_generates_vocabulary() {
         let vocab = CommunicationOntology::vocabulary();
         assert_eq!(vocab.concepts().len(), 8);
-        assert!(vocab.morphisms().len() > 0);
+        assert!(!vocab.morphisms().is_empty());
         assert_eq!(vocab.source.as_str(), "Shannon (1948); Jakobson (1960)");
     }
 
@@ -608,9 +497,14 @@ mod proc_macro_test {
 
     #[test]
     fn proc_macro_opposition() {
-        use crate::ontology::reasoning::opposition::OppositionDef;
-        let pairs = CommunicationOpposition::pairs();
-        assert!(pairs.contains(&(CommunicationConcept::Noise, CommunicationConcept::Code)));
+        // Opposition is now expressed as kinded morphisms in the category.
+        use crate::category::Arrow;
+        let has_opposition = CommunicationCategory::morphisms().iter().any(|m| {
+            m.kind() == CommunicationRelationKind::Opposition
+                && m.source() == CommunicationConcept::Noise
+                && m.target() == CommunicationConcept::Code
+        });
+        assert!(has_opposition);
     }
 }
 
@@ -620,13 +514,12 @@ mod proc_macro_test {
 
 mod proc_macro_dense_test {
     use crate as pr4xis;
-    use crate::category::Concept;
-    use crate::category::validate::check_category_laws;
+    use crate::category::laws::assert_category_laws;
+    use crate::category::{Category, Concept};
 
     pr4xis::ontology! {
         name: "Biology",
         source: "Mayr (1982)",
-        being: AbstractObject,
 
         concepts: [Cell, Tissue, Organ, Organism],
 
@@ -650,7 +543,7 @@ mod proc_macro_dense_test {
 
     #[test]
     fn dense_category_laws() {
-        check_category_laws::<BiologyCategory>().unwrap();
+        assert_category_laws::<BiologyCategory>();
     }
 
     #[test]
@@ -662,10 +555,15 @@ mod proc_macro_dense_test {
 
     #[test]
     fn dense_taxonomy() {
-        use crate::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = BiologyTaxonomy::relations();
-        assert_eq!(rels.len(), 3);
-        assert!(rels.contains(&(BiologyConcept::Cell, BiologyConcept::Tissue)));
+        // Taxonomy is now expressed as kinded morphisms — filter by Subsumption.
+        use crate::category::Arrow;
+        let subsumption_edges: Vec<_> = BiologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == BiologyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(subsumption_edges.len() >= 3);
+        assert!(subsumption_edges.contains(&(BiologyConcept::Cell, BiologyConcept::Tissue)));
     }
 
     #[test]
@@ -683,6 +581,10 @@ mod proc_macro_closure_test {
     use crate as pr4xis;
     use crate::category::Category;
 
+    // Custom (non-canonical) kinds — NOT in the transitive inheritance set
+    // (Subsumption / Parthood / Causation). Per OBO-RO partial-compose
+    // (#166), these chained edges have NO transitive closure emitted as
+    // typed morphisms.
     pr4xis::ontology! {
         name: "ChainedEdges",
         concepts: [A, B, C, D],
@@ -693,29 +595,42 @@ mod proc_macro_closure_test {
         ],
     }
 
+    // Canonical Subsumption chain — IS in the transitive inheritance set.
+    // Per OBO-RO `transitive_over`, Sub ∘ Sub = Sub, so the closure IS
+    // emitted.
+    pr4xis::ontology! {
+        name: "SubsumptionChain",
+        concepts: [Dog, Mammal, Animal],
+        is_a: [
+            (Dog, Mammal),
+            (Mammal, Animal),
+        ],
+    }
+
     #[test]
-    fn transitive_closure_is_in_morphisms() {
+    fn custom_kinds_have_no_transitive_closure() {
+        // Step1/2/3 aren't in the canonical transitive set, so no
+        // heterogeneous closure edges are emitted (partial category).
         let morphisms = ChainedEdgesCategory::morphisms();
         let ac = morphisms
             .iter()
             .find(|m| m.from == ChainedEdgesConcept::A && m.to == ChainedEdgesConcept::C);
         assert!(
-            ac.is_some(),
-            "(A, C) should be in morphisms() via transitive closure"
+            ac.is_none(),
+            "custom-kind chain (A, C) must NOT be in morphisms() — partial compose (#166)"
         );
-        let ad = morphisms
-            .iter()
-            .find(|m| m.from == ChainedEdgesConcept::A && m.to == ChainedEdgesConcept::D);
+    }
+
+    #[test]
+    fn subsumption_chain_has_transitive_closure() {
+        // Sub ∘ Sub = Sub per OBO-RO transitive_over — closure IS emitted.
+        let morphisms = SubsumptionChainCategory::morphisms();
+        let dog_animal = morphisms.iter().find(|m| {
+            m.from == SubsumptionChainConcept::Dog && m.to == SubsumptionChainConcept::Animal
+        });
         assert!(
-            ad.is_some(),
-            "(A, D) should be in morphisms() via transitive closure"
-        );
-        let bd = morphisms
-            .iter()
-            .find(|m| m.from == ChainedEdgesConcept::B && m.to == ChainedEdgesConcept::D);
-        assert!(
-            bd.is_some(),
-            "(B, D) should be in morphisms() via transitive closure"
+            dog_animal.is_some(),
+            "(Dog, Animal) should be in morphisms() via Subsumption transitive closure"
         );
     }
 

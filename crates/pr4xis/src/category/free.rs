@@ -12,7 +12,7 @@ use core::fmt::Debug;
 // You describe WHAT to compute (the DSL), then interpret it separately.
 //
 // In pr4xis, the free monad formalizes:
-//   - define_ontology! — the macro IS an interpreter of a free monad DSL
+//   - `ontology!` proc macro — the macro IS an interpreter of a free monad DSL
 //     (the user declares operations, the macro interprets them into code)
 //   - Pipeline steps — each step is a "command" that gets interpreted
 //   - Deferred computation — build up a description, run it later

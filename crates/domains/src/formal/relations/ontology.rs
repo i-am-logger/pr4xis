@@ -59,7 +59,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Relations",
     source: "Smith et al. (2005) Genome Biology 6:R46 (OBO-RO); SKOS (W3C 2009); Tarski (1941) J. Symbolic Logic 6; Russell & Whitehead Principia Mathematica (1910–13); Masolo et al. (2003) DOLCE WonderWeb D18",
-    being: AbstractObject,
 
     concepts: [
         // === Binary relation types (10) — what a kinded edge can mean ===
@@ -178,122 +177,6 @@ pr4xis::ontology! {
         (Causation, Dependence, SpecialisationOf),
     ],
 
-    axioms: {
-        OppositionIsSymmetric: {
-            source: "Aristotle Peri Hermeneias; Saussure (1916); Tarski (1941)",
-            description: "the Relations ontology declares Opposition as a Symmetric structural property; verified by matching the declared edge (Opposition, Symmetric) in the RelationProperty quality below",
-            holds: {
-                // In this ontology, a relation type R "is symmetric" means its
-                // declared properties (captured by RelationProperty quality) include
-                // StructuralProperty::Symmetric. Since that quality is defined below,
-                // this axiom verifies the catalog is consistent — Opposition carries
-                // Symmetric.
-                let role = RelationProperty;
-                role.get(&RelationsConcept::Opposition)
-                    .map(|props| props.contains(&RelationsConcept::Symmetric))
-                    .unwrap_or(false)
-            },
-        },
-        SubsumptionIsAntisymmetric: {
-            source: "Guarino (2009) The Ontological Level; Tarski (1941)",
-            description: "the Relations catalog declares Subsumption as Antisymmetric",
-            holds: {
-                let role = RelationProperty;
-                role.get(&RelationsConcept::Subsumption)
-                    .map(|props| props.contains(&RelationsConcept::Antisymmetric))
-                    .unwrap_or(false)
-            },
-        },
-        CausationIsAsymmetric: {
-            source: "Lewis (1973) Causation; Reichenbach (1956) Direction of Time",
-            description: "the Relations catalog declares Causation as Irreflexive (strict; combined with Antisymmetric gives asymmetric in Tarski's sense)",
-            holds: {
-                let role = RelationProperty;
-                role.get(&RelationsConcept::Causation)
-                    .map(|props| props.contains(&RelationsConcept::Irreflexive))
-                    .unwrap_or(false)
-            },
-        },
-        ParthoodIsDistinctFromSubsumption: {
-            source: "Noonan (2003) — Is-a is not part-of; Varzi (2007) Spatial Reasoning",
-            description: "the declared edge (Parthood, Subsumption, DistinctFrom) exists, encoding the Varzi/Noonan point that parthood and subsumption are genuinely different relations",
-            holds: {
-                use pr4xis::category::Category;
-                let morphs = RelationsCategory::morphisms();
-                morphs.iter().any(|r| {
-                    r.from == RelationsConcept::Parthood
-                        && r.to == RelationsConcept::Subsumption
-                        && r.kind == RelationsRelationKind::DistinctFrom
-                })
-            },
-        },
-        SubsumptionSpecialisationAreInverses: {
-            source: "SKOS (W3C 2009) §8.6.3 — broader/narrower inverse",
-            description: "Subsumption and Specialisation declare InverseOf edges in both directions, encoding the SKOS broader/narrower inverse pair",
-            holds: {
-                use pr4xis::category::Category;
-                let morphs = RelationsCategory::morphisms();
-                let fwd = morphs.iter().any(|r| {
-                    r.from == RelationsConcept::Subsumption
-                        && r.to == RelationsConcept::Specialisation
-                        && r.kind == RelationsRelationKind::InverseOf
-                });
-                let rev = morphs.iter().any(|r| {
-                    r.from == RelationsConcept::Specialisation
-                        && r.to == RelationsConcept::Subsumption
-                        && r.kind == RelationsRelationKind::InverseOf
-                });
-                fwd && rev
-            },
-        },
-        TenCanonicalRelationTypes: {
-            source: "Smith et al. (2005) OBO-RO; SKOS (W3C 2009)",
-            description: "the direct children of RelationType are exactly the ten canonical binary relation types drawn from OBO-RO + SKOS: Subsumption, Parthood, Causation, Opposition, Similarity, Precedence, Equivalence, Specialisation, Dependence, Association",
-            holds: {
-                use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-                let rels = RelationsTaxonomy::relations();
-                let expected = [
-                    RelationsConcept::Subsumption,
-                    RelationsConcept::Parthood,
-                    RelationsConcept::Causation,
-                    RelationsConcept::Opposition,
-                    RelationsConcept::Similarity,
-                    RelationsConcept::Precedence,
-                    RelationsConcept::Equivalence,
-                    RelationsConcept::Specialisation,
-                    RelationsConcept::Dependence,
-                    RelationsConcept::Association,
-                ];
-                let actual: Vec<_> = rels
-                    .iter()
-                    .filter_map(|(c, p)| if *p == RelationsConcept::RelationType { Some(*c) } else { None })
-                    .collect();
-                actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
-            },
-        },
-        SevenStructuralProperties: {
-            source: "Tarski (1941) Calculus of Relations",
-            description: "the direct children of StructuralProperty are exactly the seven algebraic properties from Tarski's relation calculus: Symmetric, Antisymmetric, Transitive, Reflexive, Irreflexive, Functional, Involutive",
-            holds: {
-                use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-                let rels = RelationsTaxonomy::relations();
-                let expected = [
-                    RelationsConcept::Symmetric,
-                    RelationsConcept::Antisymmetric,
-                    RelationsConcept::Transitive,
-                    RelationsConcept::Reflexive,
-                    RelationsConcept::Irreflexive,
-                    RelationsConcept::Functional,
-                    RelationsConcept::Involutive,
-                ];
-                let actual: Vec<_> = rels
-                    .iter()
-                    .filter_map(|(c, p)| if *p == RelationsConcept::StructuralProperty { Some(*c) } else { None })
-                    .collect();
-                actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
-            },
-        },
-    },
 }
 
 // -----------------------------------------------------------------------------
@@ -332,32 +215,253 @@ impl Quality for RelationProperty {
     }
 }
 
+// -----------------------------------------------------------------------------
+// Domain axioms — separate `impl Axiom` blocks (new `verify` / `axiom_meta!`
+// shape per #160 / #167). Each axiom filters
+// `RelationsCategory::morphisms()` by relation kind, per the kinded-morphism
+// canonical pattern (per_def traits are gone).
+// -----------------------------------------------------------------------------
+
+fn relation_has_property(r: RelationsConcept, p: RelationsConcept) -> bool {
+    RelationProperty
+        .get(&r)
+        .map(|props| props.contains(&p))
+        .unwrap_or(false)
+}
+
+fn kinded_edge_exists(
+    from: RelationsConcept,
+    to: RelationsConcept,
+    kind: RelationsRelationKind,
+) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    RelationsCategory::morphisms()
+        .iter()
+        .any(|m| m.source() == from && m.target() == to && m.kind() == kind)
+}
+
+fn direct_children_of(parent: RelationsConcept) -> Vec<RelationsConcept> {
+    use pr4xis::category::{Arrow, Category};
+    RelationsCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == RelationsRelationKind::Subsumption && m.target() == parent)
+        .map(|m| m.source())
+        .collect()
+}
+
+/// Aristotle / Saussure / Tarski — Opposition is symmetric.
+pub struct OppositionIsSymmetric;
+
+impl Axiom for OppositionIsSymmetric {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if relation_has_property(RelationsConcept::Opposition, RelationsConcept::Symmetric) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "OppositionIsSymmetric",
+        "RelationProperty catalog declares Opposition as Symmetric (Tarski 1941): (A R B) \u{21d2} (B R A)",
+        "Aristotle Peri Hermeneias; Saussure (1916); Tarski (1941) J. Symbolic Logic 6"
+    );
+}
+
+/// Guarino / Tarski — Subsumption is antisymmetric.
+pub struct SubsumptionIsAntisymmetric;
+
+impl Axiom for SubsumptionIsAntisymmetric {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if relation_has_property(
+            RelationsConcept::Subsumption,
+            RelationsConcept::Antisymmetric,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SubsumptionIsAntisymmetric",
+        "RelationProperty catalog declares Subsumption as Antisymmetric (Tarski 1941): (A R B) \u{2227} (B R A) \u{21d2} A = B",
+        "Guarino (2009) The Ontological Level; Tarski (1941) J. Symbolic Logic 6"
+    );
+}
+
+/// Lewis / Reichenbach — Causation is irreflexive (strict).
+pub struct CausationIsAsymmetric;
+
+impl Axiom for CausationIsAsymmetric {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if relation_has_property(RelationsConcept::Causation, RelationsConcept::Irreflexive) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "CausationIsAsymmetric",
+        "RelationProperty catalog declares Causation as Irreflexive (strict; combined with Antisymmetric gives asymmetric in Tarski's sense)",
+        "Lewis (1973) Causation; Reichenbach (1956) Direction of Time"
+    );
+}
+
+/// Noonan / Varzi — Parthood is distinct from Subsumption.
+pub struct ParthoodIsDistinctFromSubsumption;
+
+impl Axiom for ParthoodIsDistinctFromSubsumption {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if kinded_edge_exists(
+            RelationsConcept::Parthood,
+            RelationsConcept::Subsumption,
+            RelationsRelationKind::DistinctFrom,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "ParthoodIsDistinctFromSubsumption",
+        "(Parthood, Subsumption, DistinctFrom) edge encodes the Varzi/Noonan point: parthood and subsumption are genuinely different relations",
+        "Noonan (2003); Varzi (2007) Spatial Reasoning and Ontology"
+    );
+}
+
+/// SKOS broader / narrower — Subsumption and Specialisation are inverses.
+pub struct SubsumptionSpecialisationAreInverses;
+
+impl Axiom for SubsumptionSpecialisationAreInverses {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let fwd = kinded_edge_exists(
+            RelationsConcept::Subsumption,
+            RelationsConcept::Specialisation,
+            RelationsRelationKind::InverseOf,
+        );
+        let rev = kinded_edge_exists(
+            RelationsConcept::Specialisation,
+            RelationsConcept::Subsumption,
+            RelationsRelationKind::InverseOf,
+        );
+        if fwd && rev {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SubsumptionSpecialisationAreInverses",
+        "Subsumption \u{2194} Specialisation: InverseOf edges in both directions encode the SKOS broader/narrower inverse pair",
+        "SKOS (W3C 2009) \u{00a7}8.6.3"
+    );
+}
+
+/// OBO-RO + SKOS — ten canonical binary relation types.
+pub struct TenCanonicalRelationTypes;
+
+impl Axiom for TenCanonicalRelationTypes {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let expected = [
+            RelationsConcept::Subsumption,
+            RelationsConcept::Parthood,
+            RelationsConcept::Causation,
+            RelationsConcept::Opposition,
+            RelationsConcept::Similarity,
+            RelationsConcept::Precedence,
+            RelationsConcept::Equivalence,
+            RelationsConcept::Specialisation,
+            RelationsConcept::Dependence,
+            RelationsConcept::Association,
+        ];
+        let actual = direct_children_of(RelationsConcept::RelationType);
+        let ok = actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "TenCanonicalRelationTypes",
+        "direct children of RelationType are exactly the ten OBO-RO + SKOS binary relation types: Subsumption, Parthood, Causation, Opposition, Similarity, Precedence, Equivalence, Specialisation, Dependence, Association",
+        "Smith et al. (2005) Genome Biology 6:R46 OBO-RO; SKOS (W3C 2009)"
+    );
+}
+
+/// Tarski (1941) — seven algebraic structural properties.
+pub struct SevenStructuralProperties;
+
+impl Axiom for SevenStructuralProperties {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let expected = [
+            RelationsConcept::Symmetric,
+            RelationsConcept::Antisymmetric,
+            RelationsConcept::Transitive,
+            RelationsConcept::Reflexive,
+            RelationsConcept::Irreflexive,
+            RelationsConcept::Functional,
+            RelationsConcept::Involutive,
+        ];
+        let actual = direct_children_of(RelationsConcept::StructuralProperty);
+        let ok = actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SevenStructuralProperties",
+        "direct children of StructuralProperty are exactly the seven Tarski (1941) algebraic properties: Symmetric, Antisymmetric, Transitive, Reflexive, Irreflexive, Functional, Involutive",
+        "Tarski (1941) Calculus of Relations, J. Symbolic Logic 6"
+    );
+}
+
 impl Ontology for RelationsOntology {
     type Cat = RelationsCategory;
     type Qual = RelationProperty;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        RelationsOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        RelationsOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(OppositionIsSymmetric));
+        axioms.push(Box::new(SubsumptionIsAntisymmetric));
+        axioms.push(Box::new(CausationIsAsymmetric));
+        axioms.push(Box::new(ParthoodIsDistinctFromSubsumption));
+        axioms.push(Box::new(SubsumptionSpecialisationAreInverses));
+        axioms.push(Box::new(TenCanonicalRelationTypes));
+        axioms.push(Box::new(SevenStructuralProperties));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<RelationsCategory>().unwrap();
+        assert_category_laws::<RelationsCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        RelationsOntology::validate().unwrap();
+        RelationsOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
@@ -387,21 +491,21 @@ mod tests {
 
     #[test]
     fn ten_relation_types_axiom_holds() {
-        assert!(TenCanonicalRelationTypes.holds());
+        assert!(TenCanonicalRelationTypes.verify().is_ok());
     }
 
     #[test]
     fn seven_structural_properties_axiom_holds() {
-        assert!(SevenStructuralProperties.holds());
+        assert!(SevenStructuralProperties.verify().is_ok());
     }
 
     #[test]
     fn opposition_is_symmetric_holds() {
-        assert!(OppositionIsSymmetric.holds());
+        assert!(OppositionIsSymmetric.verify().is_ok());
     }
 
     #[test]
     fn subsumption_is_antisymmetric_holds() {
-        assert!(SubsumptionIsAntisymmetric.holds());
+        assert!(SubsumptionIsAntisymmetric.verify().is_ok());
     }
 }

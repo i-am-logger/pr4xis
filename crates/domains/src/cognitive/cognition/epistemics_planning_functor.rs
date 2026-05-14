@@ -45,7 +45,12 @@ impl Functor for EpistemicsToPlanning {
             EpistemicRelationKind::Repair => PlanningRelationKind::Produces,
             EpistemicRelationKind::Discovery => PlanningRelationKind::Produces,
             EpistemicRelationKind::Forgetting => PlanningRelationKind::Updates,
-            EpistemicRelationKind::Composed => PlanningRelationKind::Composed,
+            // Canonical Relations-ontology kinds — see Smith (2005) OBO-RO.
+            // Unreachable: source has no edges of these kinds.
+            EpistemicRelationKind::Subsumption
+            | EpistemicRelationKind::Parthood
+            | EpistemicRelationKind::Causation
+            | EpistemicRelationKind::Opposition => PlanningRelationKind::Identity,
         };
         PlanningRelation { from, to, kind }
     }
@@ -55,10 +60,10 @@ pr4xis::register_functor!(EpistemicsToPlanning);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<EpistemicsToPlanning>().unwrap();
+        assert_functor_laws::<EpistemicsToPlanning>();
     }
 }

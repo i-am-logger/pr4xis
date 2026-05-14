@@ -1,40 +1,62 @@
-//! Adjunctions between ontology domains.
+//! Adjunctions between biomedical ontology domains.
 //!
 //! An adjunction F ⊣ G captures the "optimal inverse" relationship between
-//! two domain functors. The unit η embeds an object into the round-trip G(F(-)),
-//! and the counit ε projects the round-trip F(G(-)) back.
+//! two domain functors. The unit η embeds an object into the round-trip
+//! G(F(-)), and the counit ε projects the round-trip F(G(-)) back.
 //!
-//! Three adjunctions connect the four core ontology domains:
+//! Three adjunctions connect the molecular / bioelectric / biological /
+//! pharmacology domains:
 //!
-//! 1. MolecularToBioelectric ⊣ BioelectricToMolecular
-//!    Molecular ⇄ Bioelectric: molecules ↔ bioelectric roles
+//! 1. **Mechanism ⊣ Role** (Molecular ↔ Bioelectric) — Hille (2001)
+//!    *Ion Channels of Excitable Membranes* 3rd ed.; Levin (2014)
+//!    *Mol. Biol. Cell* 25(24) — molecular mechanism vs bioelectric role.
 //!
-//! 2. PharmacologyToMolecular ⊣ MolecularToPharmacology
-//!    Pharmacology ⇄ Molecular: drugs ↔ molecular targets
+//! 2. **Drug ⊣ Target** (Pharmacology ↔ Molecular) — Goodman & Gilman
+//!    (2018) *The Pharmacological Basis of Therapeutics* 13th ed.;
+//!    Alberts et al. (2015) *Molecular Biology of the Cell* 6th ed. —
+//!    drug vs the molecular target it acts on.
 //!
-//! 3. BiologyToBioelectric ⊣ BioelectricToBiology
-//!    Biology ⇄ Bioelectric: biological structures ↔ bioelectric roles
+//! 3. **Structure ⊣ Signal** (Biology ↔ Bioelectric) — Schleiden &
+//!    Schwann (1838–1839) Cell Theory; Levin (2019) *Front. Psychol.*
+//!    10:2688 — biological structure vs bioelectric role at that
+//!    structure.
+//!
+//! # Literature
+//!
+//! - **Mac Lane (1971)** *Categories for the Working Mathematician*, Ch. IV
+//!   — adjunctions, units, counits.
+//! - **Awodey (2010)** *Category Theory* (2nd ed.), Ch. 9.
+//! - **Lambek & Scott (1986)** *Introduction to Higher Order Categorical
+//!   Logic*.
+//!
+//! # Design
+//!
+//! Per #166 the `Composed` kind has been removed from the proc-macro-
+//! generated `*RelationKind` enums. Heterogeneous round-trip components
+//! that are not strict round-trip identities collapse to the source
+//! category's identity morphism, preserving F(id) = id and making
+//! round-trip loss explicit through `map_object` divergence rather than
+//! through a synthetic `Composed` arrow.
 
-use pr4xis::category::Adjunction;
-use pr4xis::category::Functor;
+use pr4xis::category::{Adjunction, Functor};
 
 use crate::natural::biomedical::bioelectricity::biology_functor::BioelectricToBiology;
 use crate::natural::biomedical::bioelectricity::molecular_functor::BioelectricToMolecular;
 use crate::natural::biomedical::bioelectricity::ontology::{
-    BioelectricEntity, BioelectricRelation, BioelectricRelationKind,
+    BioelectricCategory, BioelectricEntity, BioelectricRelation, BioelectricRelationKind,
 };
 use crate::natural::biomedical::biology::bioelectricity_functor::BiologyToBioelectric;
 use crate::natural::biomedical::biology::ontology::{
-    BiologicalEntity, BiologicalRelation, BiologyCategoryRelationKind,
+    BiologicalEntity, BiologicalRelation, BiologyCategory, BiologyRelationKind,
 };
 use crate::natural::biomedical::molecular::bioelectricity_functor::MolecularToBioelectric;
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularEntity, MolecularRelation, MolecularRelationKind,
 };
 use crate::natural::biomedical::molecular::pharmacology_functor::MolecularToPharmacology;
 use crate::natural::biomedical::pharmacology::molecular_functor::PharmacologyToMolecular;
 use crate::natural::biomedical::pharmacology::ontology::{
-    PharmacologyCategoryRelationKind, PharmacologyEntity, PharmacologyRelation,
+    PharmacologyCategory, PharmacologyEntity, PharmacologyRelation, PharmacologyRelationKind,
 };
 
 // ---------------------------------------------------------------------------
@@ -55,45 +77,51 @@ impl Adjunction for MolecularBioelectricAdjunction {
     type Right = BioelectricToMolecular;
 
     fn unit(obj: &MolecularEntity) -> MolecularRelation {
+        use pr4xis::category::Category;
         // η_A: A → G(F(A))
         let round_trip =
             BioelectricToMolecular::map_object(&MolecularToBioelectric::map_object(obj));
-        let kind = if round_trip == *obj {
-            MolecularCategoryRelationKind::Identity
+        if round_trip == *obj {
+            MolecularRelation {
+                from: *obj,
+                to: *obj,
+                kind: MolecularRelationKind::Identity,
+            }
         } else {
-            MolecularCategoryRelationKind::Composed
-        };
-        MolecularRelation {
-            from: *obj,
-            to: round_trip,
-            kind,
+            // Heterogeneous round trip — emit identity at source per #166.
+            MolecularCategory::identity(obj)
         }
     }
 
     fn counit(obj: &BioelectricEntity) -> BioelectricRelation {
+        use pr4xis::category::Category;
         // ε_B: F(G(B)) → B
         let round_trip =
             MolecularToBioelectric::map_object(&BioelectricToMolecular::map_object(obj));
-        let kind = if round_trip == *obj {
-            BioelectricRelationKind::Identity
+        if round_trip == *obj {
+            BioelectricRelation {
+                from: *obj,
+                to: *obj,
+                kind: BioelectricRelationKind::Identity,
+            }
         } else {
-            BioelectricRelationKind::Composed
-        };
-        BioelectricRelation {
-            from: round_trip,
-            to: *obj,
-            kind,
+            BioelectricCategory::identity(obj)
         }
     }
-}
 
-impl pr4xis::category::Arrow for MolecularBioelectricAdjunction {
-    type Source = MolecularToBioelectric;
-    type Target = BioelectricToMolecular;
-    type Kind = pr4xis::category::AdjunctionKind;
-
-    fn meta() -> pr4xis::ontology::meta::RelationshipMeta {
-        <MolecularBioelectricAdjunction as pr4xis::category::Adjunction>::meta()
+    fn meta() -> pr4xis::ontology::meta::Provenance {
+        pr4xis::ontology::meta::Provenance {
+            name: pr4xis::ontology::meta::OntologyName::new_static(
+                "MolecularBioelectricAdjunction",
+            ),
+            description: pr4xis::ontology::meta::Label::new_static(
+                "Molecular ⊣ Bioelectric — mechanism vs role duality",
+            ),
+            citation: pr4xis::ontology::meta::Citation::parse_static(
+                "Mac Lane (1971) Categories for the Working Mathematician Ch. IV; Hille (2001) Ion Channels of Excitable Membranes 3rd ed.; Levin (2014) Mol. Biol. Cell 25(24)",
+            ),
+            module_path: pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+        }
     }
 }
 pr4xis::register_adjunction!(MolecularBioelectricAdjunction);
@@ -116,45 +144,50 @@ impl Adjunction for PharmacologyMolecularAdjunction {
     type Right = MolecularToPharmacology;
 
     fn unit(obj: &PharmacologyEntity) -> PharmacologyRelation {
+        use pr4xis::category::Category;
         // η_A: A → G(F(A))
         let round_trip =
             MolecularToPharmacology::map_object(&PharmacologyToMolecular::map_object(obj));
-        let kind = if round_trip == *obj {
-            PharmacologyCategoryRelationKind::Identity
+        if round_trip == *obj {
+            PharmacologyRelation {
+                from: *obj,
+                to: *obj,
+                kind: PharmacologyRelationKind::Identity,
+            }
         } else {
-            PharmacologyCategoryRelationKind::Composed
-        };
-        PharmacologyRelation {
-            from: *obj,
-            to: round_trip,
-            kind,
+            PharmacologyCategory::identity(obj)
         }
     }
 
     fn counit(obj: &MolecularEntity) -> MolecularRelation {
+        use pr4xis::category::Category;
         // ε_B: F(G(B)) → B
         let round_trip =
             PharmacologyToMolecular::map_object(&MolecularToPharmacology::map_object(obj));
-        let kind = if round_trip == *obj {
-            MolecularCategoryRelationKind::Identity
+        if round_trip == *obj {
+            MolecularRelation {
+                from: *obj,
+                to: *obj,
+                kind: MolecularRelationKind::Identity,
+            }
         } else {
-            MolecularCategoryRelationKind::Composed
-        };
-        MolecularRelation {
-            from: round_trip,
-            to: *obj,
-            kind,
+            MolecularCategory::identity(obj)
         }
     }
-}
 
-impl pr4xis::category::Arrow for PharmacologyMolecularAdjunction {
-    type Source = PharmacologyToMolecular;
-    type Target = MolecularToPharmacology;
-    type Kind = pr4xis::category::AdjunctionKind;
-
-    fn meta() -> pr4xis::ontology::meta::RelationshipMeta {
-        <PharmacologyMolecularAdjunction as pr4xis::category::Adjunction>::meta()
+    fn meta() -> pr4xis::ontology::meta::Provenance {
+        pr4xis::ontology::meta::Provenance {
+            name: pr4xis::ontology::meta::OntologyName::new_static(
+                "PharmacologyMolecularAdjunction",
+            ),
+            description: pr4xis::ontology::meta::Label::new_static(
+                "Pharmacology ⊣ Molecular — drug vs target duality",
+            ),
+            citation: pr4xis::ontology::meta::Citation::parse_static(
+                "Mac Lane (1971) Categories for the Working Mathematician Ch. IV; Goodman & Gilman (2018) The Pharmacological Basis of Therapeutics 13th ed.; Alberts et al. (2015) Molecular Biology of the Cell 6th ed.",
+            ),
+            module_path: pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+        }
     }
 }
 pr4xis::register_adjunction!(PharmacologyMolecularAdjunction);
@@ -177,43 +210,44 @@ impl Adjunction for BiologyBioelectricAdjunction {
     type Right = BioelectricToBiology;
 
     fn unit(obj: &BiologicalEntity) -> BiologicalRelation {
-        // η_A: A → G(F(A))
+        use pr4xis::category::Category;
         let round_trip = BioelectricToBiology::map_object(&BiologyToBioelectric::map_object(obj));
-        let kind = if round_trip == *obj {
-            BiologyCategoryRelationKind::Identity
+        if round_trip == *obj {
+            BiologicalRelation {
+                from: *obj,
+                to: *obj,
+                kind: BiologyRelationKind::Identity,
+            }
         } else {
-            BiologyCategoryRelationKind::Composed
-        };
-        BiologicalRelation {
-            from: *obj,
-            to: round_trip,
-            kind,
+            BiologyCategory::identity(obj)
         }
     }
 
     fn counit(obj: &BioelectricEntity) -> BioelectricRelation {
-        // ε_B: F(G(B)) → B
+        use pr4xis::category::Category;
         let round_trip = BiologyToBioelectric::map_object(&BioelectricToBiology::map_object(obj));
-        let kind = if round_trip == *obj {
-            BioelectricRelationKind::Identity
+        if round_trip == *obj {
+            BioelectricRelation {
+                from: *obj,
+                to: *obj,
+                kind: BioelectricRelationKind::Identity,
+            }
         } else {
-            BioelectricRelationKind::Composed
-        };
-        BioelectricRelation {
-            from: round_trip,
-            to: *obj,
-            kind,
+            BioelectricCategory::identity(obj)
         }
     }
-}
 
-impl pr4xis::category::Arrow for BiologyBioelectricAdjunction {
-    type Source = BiologyToBioelectric;
-    type Target = BioelectricToBiology;
-    type Kind = pr4xis::category::AdjunctionKind;
-
-    fn meta() -> pr4xis::ontology::meta::RelationshipMeta {
-        <BiologyBioelectricAdjunction as pr4xis::category::Adjunction>::meta()
+    fn meta() -> pr4xis::ontology::meta::Provenance {
+        pr4xis::ontology::meta::Provenance {
+            name: pr4xis::ontology::meta::OntologyName::new_static("BiologyBioelectricAdjunction"),
+            description: pr4xis::ontology::meta::Label::new_static(
+                "Biology ⊣ Bioelectric — structure vs signal duality",
+            ),
+            citation: pr4xis::ontology::meta::Citation::parse_static(
+                "Mac Lane (1971) Categories for the Working Mathematician Ch. IV; Schleiden & Schwann (1838–1839) Cell Theory; Levin (2019) Front. Psychol. 10:2688",
+            ),
+            module_path: pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+        }
     }
 }
 pr4xis::register_adjunction!(BiologyBioelectricAdjunction);

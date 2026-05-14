@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::{Category, Concept};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::applied::sensor_fusion::frame::reference::ReferenceFrame;
@@ -90,11 +91,7 @@ impl Quality for FrameConvention {
 pub struct TransformsComposeAssociatively;
 
 impl Axiom for TransformsComposeAssociatively {
-    fn description(&self) -> &str {
-        "frame transforms compose associatively: (f . g) . h = f . (g . h)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         use ReferenceFrame::*;
         let triples = [
             (ECEF, NED, Body, IMU),
@@ -115,29 +112,34 @@ impl Axiom for TransformsComposeAssociatively {
             let fgh_right = FrameCategory::compose(&f, &gh).unwrap();
 
             if fgh_left != fgh_right {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "TransformsComposeAssociatively",
+        "frame transforms compose associatively: (f . g) . h = f . (g . h)",
+        "Mac Lane (1971) Categories for the Working Mathematician Ch. I §1; Groves (2013) Chapter 2"
+    );
 }
-pr4xis::register_axiom!(TransformsComposeAssociatively);
+pr4xis::register_axiom!(
+    TransformsComposeAssociatively,
+    "Mac Lane (1971) Categories for the Working Mathematician Ch. I §1; Groves (2013) Chapter 2"
+);
 
 /// Identity transform exists for every frame: T(A, A) composed with any
 /// T(A, B) yields T(A, B).
 pub struct IdentityExists;
 
 impl Axiom for IdentityExists {
-    fn description(&self) -> &str {
-        "identity transform exists for every frame and is neutral under composition"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         for frame in ReferenceFrame::variants() {
             let id = FrameCategory::identity(&frame);
             // id: A -> A
             if id.from != frame || id.to != frame {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
             // id . f = f
             for other in ReferenceFrame::variants() {
@@ -145,21 +147,30 @@ impl Axiom for IdentityExists {
                 if let Some(composed) = FrameCategory::compose(&id, &f)
                     && composed != f
                 {
-                    return false;
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
                 // f . id = f (when f: other -> frame)
                 let g = FrameTransform::new(other, frame);
                 if let Some(composed) = FrameCategory::compose(&g, &id)
                     && composed != g
                 {
-                    return false;
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "IdentityExists",
+        "identity transform exists for every frame and is neutral under composition",
+        "Mac Lane (1971) Categories for the Working Mathematician Ch. I §1"
+    );
 }
-pr4xis::register_axiom!(IdentityExists);
+pr4xis::register_axiom!(
+    IdentityExists,
+    "Mac Lane (1971) Categories for the Working Mathematician Ch. I §1"
+);
 
 /// Every transform is invertible: for T(A, B) there exists T(B, A).
 ///
@@ -168,42 +179,52 @@ pr4xis::register_axiom!(IdentityExists);
 pub struct TransformsInvertible;
 
 impl Axiom for TransformsInvertible {
-    fn description(&self) -> &str {
-        "every frame transform is invertible: T(A,B) implies T(B,A) exists"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let morphisms = FrameCategory::morphisms();
         for m in &morphisms {
             let inverse = FrameTransform::new(m.to, m.from);
             if !morphisms.contains(&inverse) {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "TransformsInvertible",
+        "every frame transform is invertible: T(A,B) implies T(B,A) exists",
+        "Sola et al. (2018) A micro Lie theory for state estimation in robotics — SE(3) is a Lie group"
+    );
 }
-pr4xis::register_axiom!(TransformsInvertible);
+pr4xis::register_axiom!(
+    TransformsInvertible,
+    "Sola et al. (2018) A micro Lie theory for state estimation in robotics — SE(3) is a Lie group"
+);
 
 /// All frames are right-handed.
 pub struct AllFramesRightHanded;
 
 impl Axiom for AllFramesRightHanded {
-    fn description(&self) -> &str {
-        "all reference frames use right-handed coordinate conventions"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let convention = FrameConvention;
         for frame in ReferenceFrame::variants() {
             if convention.get(&frame) != Some(Handedness::RightHanded) {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "AllFramesRightHanded",
+        "all reference frames use right-handed coordinate conventions",
+        "IERS Conventions (2010) Chapter 4 — Terrestrial reference frames; ISO 1151 / SAE J670 (body frame)"
+    );
 }
-pr4xis::register_axiom!(AllFramesRightHanded);
+pr4xis::register_axiom!(
+    AllFramesRightHanded,
+    "IERS Conventions (2010) Chapter 4 — Terrestrial reference frames; ISO 1151 / SAE J670 (body frame)"
+);
 
 // ---------------------------------------------------------------------------
 // Ontology
@@ -222,7 +243,7 @@ impl Ontology for FrameOntology {
     type Cat = FrameCategory;
     type Qual = FrameConvention;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(TransformsComposeAssociatively),
             Box::new(IdentityExists),
@@ -235,15 +256,16 @@ impl Ontology for FrameOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<FrameCategory>().unwrap();
+        assert_category_laws::<FrameCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        FrameOntology::validate().unwrap();
+        FrameOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

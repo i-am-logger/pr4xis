@@ -1,11 +1,6 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
-use pr4xis::category::Concept;
-use pr4xis::category::relationship::Relationship;
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // OWL 2 Web Ontology Language — W3C Recommendation (2012)
@@ -134,13 +129,16 @@ impl OwlConcept {
     }
 }
 
-impl Classified for OwlCategory {
-    fn being() -> Being {
-        Being::SocialObject
-    }
-    fn classification_reason() -> &'static str {
-        "OWL is a W3C standard — an agreed-upon ontology language"
-    }
+/// Relation kind for OWL concept arrows.
+///
+/// Per OBO-RO (Smith et al. 2005), every arrow carries a relation-kind
+/// tag. The OWL metamodel category has one structural relation: the
+/// type-hierarchy/containment edges declared by the W3C OWL 2
+/// Structural Specification (Class expressions subsume Class,
+/// property characteristics subsume ObjectProperty, etc.).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OwlRelationKind {
+    Structural,
 }
 
 /// A morphism between OWL concepts — the structural relationships
@@ -151,16 +149,28 @@ pub struct OwlRelation {
     pub target: OwlConcept,
 }
 
-impl Relationship for OwlRelation {
+impl Arrow for OwlRelation {
     type Object = OwlConcept;
-    type Kind = ();
+    type Kind = OwlRelationKind;
     fn source(&self) -> OwlConcept {
         self.source
     }
     fn target(&self) -> OwlConcept {
         self.target
     }
-    fn kind(&self) {}
+    fn kind(&self) -> OwlRelationKind {
+        OwlRelationKind::Structural
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("OwlRelation"),
+            description: Label::new_static(
+                "structural relation between OWL 2 constructs per W3C OWL 2 Structural Specification",
+            ),
+            citation: Citation::parse_static("W3C OWL 2 (2012); Baader et al. (2003)"),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 /// The OWL category — the structural relationships between OWL constructs.
@@ -187,35 +197,33 @@ impl Category for OwlCategory {
         if g.source == g.target {
             return Some(f.clone());
         }
-        Some(OwlRelation {
+        let candidate = OwlRelation {
             source: f.source,
             target: g.target,
-        })
+        };
+        // Partial category (#166): composition is only defined when the
+        // result is itself a declared morphism. `morphisms()` builds the
+        // full reachability closure (Warshall 1962), so any composable pair
+        // resolves inside it.
+        if Self::morphisms().contains(&candidate) {
+            Some(candidate)
+        } else {
+            None
+        }
     }
 
     fn morphisms() -> Vec<OwlRelation> {
         use OwlConcept::*;
-        let mut m = Vec::new();
+        use std::collections::HashSet;
 
-        // Identities
-        for c in OwlConcept::variants() {
-            m.push(OwlRelation {
-                source: c,
-                target: c,
-            });
-        }
+        // Direct OWL 2 structural relations (W3C OWL 2 §§5, 8.2, 9.2).
+        let mut direct: HashSet<(OwlConcept, OwlConcept)> = HashSet::new();
 
-        // OWL built-in type hierarchy (W3C OWL 2 §5):
-        // Restriction, UnionOf, IntersectionOf, ComplementOf, OneOf are Class expressions
         let class_exprs = [Restriction, UnionOf, IntersectionOf, ComplementOf, OneOf];
         for &ce in &class_exprs {
-            m.push(OwlRelation {
-                source: ce,
-                target: Class,
-            });
+            direct.insert((ce, Class));
         }
 
-        // Property characteristics are properties (W3C OWL 2 §9.2)
         let prop_chars = [
             FunctionalProperty,
             InverseFunctionalProperty,
@@ -226,13 +234,9 @@ impl Category for OwlCategory {
             IrreflexiveProperty,
         ];
         for &pc in &prop_chars {
-            m.push(OwlRelation {
-                source: pc,
-                target: ObjectProperty,
-            });
+            direct.insert((pc, ObjectProperty));
         }
 
-        // Restriction fillers relate to Restriction (W3C OWL 2 §8.2)
         let fillers = [
             SomeValuesFrom,
             AllValuesFrom,
@@ -242,60 +246,54 @@ impl Category for OwlCategory {
             ExactCardinality,
         ];
         for &f in &fillers {
-            m.push(OwlRelation {
-                source: Restriction,
-                target: f,
-            });
+            direct.insert((Restriction, f));
         }
 
-        // Restrictions constrain properties
-        m.push(OwlRelation {
-            source: Restriction,
-            target: ObjectProperty,
-        });
-        m.push(OwlRelation {
-            source: Restriction,
-            target: DatatypeProperty,
-        });
+        direct.insert((Restriction, ObjectProperty));
+        direct.insert((Restriction, DatatypeProperty));
+        direct.insert((ObjectProperty, Class));
+        direct.insert((DatatypeProperty, Class));
+        direct.insert((NamedIndividual, Class));
+        direct.insert((Ontology, Class));
+        direct.insert((Ontology, ObjectProperty));
+        direct.insert((Ontology, DatatypeProperty));
+        direct.insert((Ontology, AnnotationProperty));
+        direct.insert((Ontology, NamedIndividual));
 
-        // Properties have domain/range pointing to classes
-        m.push(OwlRelation {
-            source: ObjectProperty,
-            target: Class,
-        });
-        m.push(OwlRelation {
-            source: DatatypeProperty,
-            target: Class,
-        });
+        // Warshall (1962) transitive closure — required for ClosureLaw and
+        // AssociativityLaw (Mac Lane CWM Ch. I §1).
+        let mut closure = direct.clone();
+        loop {
+            let mut added = false;
+            let snap: Vec<_> = closure.iter().cloned().collect();
+            for &(a, b) in &snap {
+                for &(b2, c) in &snap {
+                    if b == b2 && !closure.contains(&(a, c)) {
+                        closure.insert((a, c));
+                        added = true;
+                    }
+                }
+            }
+            if !added {
+                break;
+            }
+        }
 
-        // Individuals are instances of classes
-        m.push(OwlRelation {
-            source: NamedIndividual,
-            target: Class,
-        });
-
-        // Ontology contains classes, properties, individuals
-        m.push(OwlRelation {
-            source: Ontology,
-            target: Class,
-        });
-        m.push(OwlRelation {
-            source: Ontology,
-            target: ObjectProperty,
-        });
-        m.push(OwlRelation {
-            source: Ontology,
-            target: DatatypeProperty,
-        });
-        m.push(OwlRelation {
-            source: Ontology,
-            target: AnnotationProperty,
-        });
-        m.push(OwlRelation {
-            source: Ontology,
-            target: NamedIndividual,
-        });
-
+        let mut m: Vec<OwlRelation> = Vec::new();
+        for c in OwlConcept::variants() {
+            m.push(OwlRelation {
+                source: c,
+                target: c,
+            });
+        }
+        for (s, t) in closure {
+            if s != t {
+                m.push(OwlRelation {
+                    source: s,
+                    target: t,
+                });
+            }
+        }
         m
     }
 }
@@ -479,23 +477,39 @@ impl OwlOntology {
 // Axioms — OWL structural invariants from W3C spec
 // =============================================================================
 
-/// W3C OWL 2 §5.8.1: Restriction must relate to a property.
+/// W3C OWL 2 §8.2: every `owl:Restriction` must relate to a property.
+///
+/// W3C OWL 2 Structural Specification (2012) §8.2 ("Property Restrictions"):
+/// every restriction is defined by exactly one `owl:onProperty` value
+/// (object or datatype). Baader et al. (2003) *Description Logic
+/// Handbook* ch. 2 frames the same constraint in DL syntax: restrictions
+/// are ∃R.C / ∀R.C / ≥nR.C / ≤nR.C, all parameterised by a property R.
 pub struct RestrictionNeedsProperty;
 
-impl pr4xis::logic::Axiom for RestrictionNeedsProperty {
-    fn description(&self) -> &str {
-        "every owl:Restriction must have exactly one owl:onProperty (W3C OWL 2 §8.2)"
-    }
-
-    fn holds(&self) -> bool {
+impl Axiom for RestrictionNeedsProperty {
+    fn verify(&self) -> Verdict {
         // Structural: Restriction has morphisms to ObjectProperty and DatatypeProperty
         let morphisms = OwlCategory::morphisms();
-        morphisms
+        let ok = morphisms
             .iter()
-            .any(|m| m.source == OwlConcept::Restriction && m.target == OwlConcept::ObjectProperty)
+            .any(|m| m.source == OwlConcept::Restriction && m.target == OwlConcept::ObjectProperty);
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "RestrictionNeedsProperty",
+        "every owl:Restriction must have exactly one owl:onProperty",
+        "W3C OWL 2 (2012) Structural Specification §8.2; Baader et al. (2003) ch. 2"
+    );
 }
-pr4xis::register_axiom!(RestrictionNeedsProperty);
+pr4xis::register_axiom!(
+    RestrictionNeedsProperty,
+    "W3C OWL 2 (2012) Structural Specification §8.2; Baader et al. (2003) ch. 2"
+);
 
 /// Quality: is this OWL concept a class expression?
 #[derive(Debug, Clone)]
@@ -521,7 +535,7 @@ impl Ontology for OwlMetaOntology {
     type Cat = OwlCategory;
     type Qual = IsClassExpression;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(RestrictionNeedsProperty)]
     }
 }
@@ -529,14 +543,16 @@ impl Ontology for OwlMetaOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<OwlCategory>().unwrap();
+        assert_category_laws::<OwlCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        OwlMetaOntology::validate().unwrap();
+        OwlMetaOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

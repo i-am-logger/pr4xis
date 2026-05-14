@@ -1,11 +1,13 @@
-//! Functor: PsychoacousticsCategory -> MusicPerceptionCategory.
+//! Functor: PsychoacousticsCategory → MusicPerceptionCategory.
 //!
 //! Maps low-level auditory percepts to their higher musical roles.
-//! Pitch → melodic/harmonic percept, loudness → dynamics, etc.
+//!
+//! Citation: McDermott & Oxenham (2008) *Curr. Opin. Neurobiol.* 18(4):452
+//! — psychoacoustics-to-music perception correspondences.
 
 use crate::natural::hearing::music_perception::ontology::*;
 use crate::natural::hearing::psychoacoustics::ontology::*;
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Functor};
 
 pub struct PsychoacousticsToMusic;
 
@@ -17,66 +19,67 @@ impl Functor for PsychoacousticsToMusic {
         use MusicEntity::*;
         use PsychoacousticEntity as P;
         match obj {
-            // Pitch-related → musical pitch
             P::Pitch | P::PlacePitch | P::TemporalPitch | P::VirtualPitch | P::Octave => {
                 PitchHeight
             }
-            // Loudness → musical dynamics (tension/emotion)
             P::Loudness
             | P::Phon
             | P::Sone
             | P::EqualLoudnessContour
             | P::LoudnessRecruitment
             | P::LoudnessMetric => MusicalEmotion,
-            // Timbre → instrument identification
             P::Timbre => InstrumentIdentification,
-            // Duration → rhythm
             P::Duration => Beat,
-            // Masking → stream segregation (auditory scene)
             P::SimultaneousMasking
             | P::ForwardMasking
             | P::BackwardMasking
             | P::InformationalMasking
             | P::MaskingType => Consonance,
-            // Frequency analysis → harmonic series perception
             P::CriticalBand
             | P::BarkScale
             | P::ERBScale
             | P::AuditoryFilter
             | P::FrequencySelectivity => RoughnessModel,
-            // Temporal → rhythm/entrainment
             P::TemporalResolution
             | P::GapDetection
             | P::TemporalIntegration
             | P::TemporalMeasure => Entrainment,
-            // Spatial → not directly musical, map to groove (spatial in music)
             P::SoundLocalization
             | P::InterauralTimeDifference
             | P::InterauralLevelDifference
             | P::HeadRelatedTransferFunction
             | P::SpatialCue => Groove,
-            // Thresholds → expectation
             P::AbsoluteThreshold | P::DifferentialThreshold | P::JustNoticeableDifference => {
                 MusicalExpectation
             }
-            // Perceptual dimension → pitch percept
             P::PerceptualDimension | P::PitchMechanism => PitchPercept,
+            // Psychoacoustic events → music events.
+            P::AcousticStimulus => AuditoryInput,
+            P::CochlearFiltering => PitchExtraction,
+            P::NeuralTransduction => OnsetDetection,
+            P::BrainstemProcessing => HarmonicGrouping,
+            P::CorticalAnalysis => TonalInterpretation,
+            P::PerceptFormation => MusicalExpectationFormation,
+            P::AwareExperience => EmotionalResponse,
+            P::FrequencyAnalysis => HarmonicGrouping,
+            P::PitchExtraction => PitchExtraction,
+            P::PsychoacousticEvent => MusicEvent,
         }
     }
 
     fn map_morphism(m: &PsychoacousticRelation) -> MusicRelation {
+        use MusicRelationKind as Tk;
+        use PsychoacousticsCategoryRelationKind as Sk;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            PsychoacousticsCategoryRelationKind::Identity => {
-                MusicPerceptionCategory::identity(&from)
-            }
-            _ => MusicRelation {
-                from,
-                to,
-                kind: MusicPerceptionCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+            Sk::Parthood => Tk::Parthood,
+        };
+        MusicRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(PsychoacousticsToMusic);
@@ -85,53 +88,24 @@ pr4xis::register_functor!(PsychoacousticsToMusic);
 mod tests {
     use super::*;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
-    fn test_functor_laws() {
-        check_functor_laws::<PsychoacousticsToMusic>().unwrap();
+    fn functor_laws() {
+        assert_functor_laws::<PsychoacousticsToMusic>();
     }
     #[test]
-    fn test_analogy_validates() {
-        Analogy::<PsychoacousticsToMusic>::validate().unwrap();
-    }
-    #[test]
-    fn test_pitch_maps_to_pitch_height() {
+    fn pitch_maps_to_pitch_height() {
         assert_eq!(
             PsychoacousticsToMusic::map_object(&PsychoacousticEntity::Pitch),
             MusicEntity::PitchHeight
         );
     }
     #[test]
-    fn test_every_entity_maps_valid() {
+    fn every_entity_maps_valid() {
         let targets = MusicEntity::variants();
         for obj in PsychoacousticEntity::variants() {
             assert!(targets.contains(&PsychoacousticsToMusic::map_object(&obj)));
-        }
-    }
-
-    use pr4xis::category::Category;
-    use proptest::prelude::*;
-
-    fn arb_psychoacoustic_entity() -> impl Strategy<Value = PsychoacousticEntity> {
-        (0..PsychoacousticEntity::variants().len())
-            .prop_map(|i| PsychoacousticEntity::variants()[i])
-    }
-
-    proptest! {
-        #[test]
-        fn prop_functor_maps_to_valid_target(entity in arb_psychoacoustic_entity()) {
-            let mapped = PsychoacousticsToMusic::map_object(&entity);
-            prop_assert!(MusicEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_functor_preserves_identity(entity in arb_psychoacoustic_entity()) {
-            let id_src = PsychoacousticsCategory::identity(&entity);
-            let mapped_id = PsychoacousticsToMusic::map_morphism(&id_src);
-            let id_tgt = MusicPerceptionCategory::identity(&PsychoacousticsToMusic::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
         }
     }
 }

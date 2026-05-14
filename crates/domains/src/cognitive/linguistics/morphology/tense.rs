@@ -1,11 +1,5 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
-use pr4xis::category::entity::Concept;
-use pr4xis::category::relationship::Relationship;
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 // Tense/Aspect ontology — the temporal structure of events in language.
 //
@@ -81,6 +75,16 @@ impl Concept for TenseAspect {
     }
 }
 
+/// Relation-kind tag for the tense-aspect category.
+///
+/// Per OBO-RO (Smith 2005), every arrow carries a canonical kind.
+/// The tense category has a single relation type: a temporal shift
+/// between tense-aspect combinations (Reichenbach 1947; Comrie 1976).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TenseRelationKind {
+    TemporalShift,
+}
+
 /// Tense transformation — a morphism between tense-aspect combinations.
 /// These are the functors that change temporal reference.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -89,16 +93,29 @@ pub struct TenseShift {
     pub to: TenseAspect,
 }
 
-impl Relationship for TenseShift {
+impl Arrow for TenseShift {
     type Object = TenseAspect;
-    type Kind = ();
+    type Kind = TenseRelationKind;
+
     fn source(&self) -> TenseAspect {
         self.from
     }
     fn target(&self) -> TenseAspect {
         self.to
     }
-    fn kind(&self) {}
+    fn kind(&self) -> TenseRelationKind {
+        TenseRelationKind::TemporalShift
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("TenseShift"),
+            description: Label::new_static(
+                "temporal shift between tense-aspect combinations (Reichenbach 1947)",
+            ),
+            citation: Citation::parse_static("Reichenbach (1947); Comrie (1976)"),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 /// The tense-aspect category.
@@ -139,10 +156,19 @@ impl Category for TenseCategory {
         if g.from == g.to {
             return Some(f.clone());
         }
-        Some(TenseShift {
+        let candidate = TenseShift {
             from: f.from,
             to: g.to,
-        })
+        };
+        // Closure law (Mac Lane CWM Ch. I §1): the composite must be in
+        // `morphisms()`. The morphism set now includes diagonal shifts
+        // (tense + aspect changing simultaneously), so general composition
+        // closes.
+        if Self::morphisms().contains(&candidate) {
+            Some(candidate)
+        } else {
+            None
+        }
     }
 
     fn morphisms() -> Vec<TenseShift> {
@@ -152,6 +178,18 @@ impl Category for TenseCategory {
         // Identities
         for ta in &all {
             m.push(TenseShift { from: *ta, to: *ta });
+        }
+
+        // Every ordered pair of distinct (tense, aspect) combinations is a
+        // structural morphism. This guarantees closure under composition
+        // for tense ∘ aspect chains and supports both single-dimension and
+        // diagonal shifts (Comrie 1976 *Aspect*).
+        for &from in &all {
+            for &to in &all {
+                if from != to {
+                    m.push(TenseShift { from, to });
+                }
+            }
         }
 
         // Tense shifts (same aspect, different tense)
@@ -200,19 +238,10 @@ impl Category for TenseCategory {
     }
 }
 
-impl Classified for TenseCategory {
-    fn being() -> Being {
-        Being::AbstractObject
-    }
-    fn classification_reason() -> &'static str {
-        "tense/aspect are abstract temporal relations (Reichenbach 1947)"
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn twelve_combinations() {
@@ -221,7 +250,7 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        check_category_laws::<TenseCategory>().unwrap();
+        assert_category_laws::<TenseCategory>();
     }
 
     #[test]

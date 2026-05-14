@@ -1,31 +1,13 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-
 /// Temporal alignment strategies for multi-sensor fusion.
 ///
-/// When sensors operate at different rates, measurements must be aligned
-/// to a common time before fusion. The strategy controls how measurements
-/// are interpolated or extrapolated to the target time.
+/// Backward-compatibility alias for the proc-macro-generated
+/// `SensorTimeConcept` in `super::ontology`. New code should prefer
+/// `SensorTimeConcept` directly; existing call sites keep the historical
+/// `SyncStrategy` spelling.
 ///
 /// Source: Bar-Shalom et al. (2001), Section 6.2.
 ///         Groves (2013), Section 17.2.4 — "Time synchronization."
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum SyncStrategy {
-    /// Use the measurement nearest in time to the target.
-    /// Simple, no assumptions about dynamics.
-    /// Error bounded by half the measurement period.
-    NearestNeighbor,
-    /// Linearly interpolate between two bracketing measurements.
-    /// Assumes approximately constant rate of change.
-    /// Requires one measurement before and one after target time.
-    LinearInterpolation,
-    /// Extrapolate from the latest measurement using a model.
-    /// Dangerous: error grows unboundedly with extrapolation distance.
-    /// Only use when no future measurement is available (real-time).
-    Extrapolation,
-}
+pub use super::ontology::SensorTimeConcept as SyncStrategy;
 
 /// Align a measurement value to a target time using interpolation.
 ///
@@ -104,6 +86,7 @@ pub fn max_sync_error(strategy: SyncStrategy, period: f64, max_dynamics: f64) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Concept;
 
     #[test]
     fn interpolate_midpoint() {

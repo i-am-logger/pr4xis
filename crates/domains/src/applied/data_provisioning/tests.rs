@@ -14,9 +14,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::decoders::{has_decoder_for, xml_lmf};
 use super::ontology::{
-    ContentType, DataProvisioningCategory, DataProvisioningOntology, DecoderTotalityPerContentType,
-    EveryDataSourceHasIdentity, IdentityClaimsUseLeaves, IsUsableLocally, ProvisioningConcept,
-    RegistryUniquenessByName, TriggersUpdate,
+    ContentType, DataProvisioningCategory, DataProvisioningConcept, DataProvisioningOntology,
+    DecoderTotalityPerContentType, EveryDataSourceHasIdentity, IdentityClaimsUseLeaves,
+    IsUsableLocally, RegistryUniquenessByName, TriggersUpdate,
 };
 use super::registry::{DATA_SOURCES, by_name, resolve_identity};
 use crate::cognitive::linguistics::english::English;
@@ -33,12 +33,13 @@ use proptest::prelude::*;
 
 #[test]
 fn category_laws() {
-    pr4xis::category::validate::check_category_laws::<DataProvisioningCategory>().unwrap();
+    pr4xis::category::laws::assert_category_laws::<DataProvisioningCategory>();
 }
 
 #[test]
 fn ontology_validates() {
-    DataProvisioningOntology::validate().unwrap();
+    DataProvisioningOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 // =============================================================================
@@ -78,7 +79,7 @@ fn registry_lookup_miss_returns_none() {
 #[test]
 fn verified_dataset_is_usable_locally() {
     assert_eq!(
-        IsUsableLocally.get(&ProvisioningConcept::VerifiedDataset),
+        IsUsableLocally.get(&DataProvisioningConcept::VerifiedDataset),
         Some(true)
     );
 }
@@ -86,11 +87,11 @@ fn verified_dataset_is_usable_locally() {
 #[test]
 fn stale_and_missing_are_not_usable() {
     assert_eq!(
-        IsUsableLocally.get(&ProvisioningConcept::StaleDataset),
+        IsUsableLocally.get(&DataProvisioningConcept::StaleDataset),
         Some(false)
     );
     assert_eq!(
-        IsUsableLocally.get(&ProvisioningConcept::MissingDataset),
+        IsUsableLocally.get(&DataProvisioningConcept::MissingDataset),
         Some(false)
     );
 }
@@ -98,11 +99,11 @@ fn stale_and_missing_are_not_usable() {
 #[test]
 fn stale_and_missing_trigger_update() {
     assert_eq!(
-        TriggersUpdate.get(&ProvisioningConcept::StaleDataset),
+        TriggersUpdate.get(&DataProvisioningConcept::StaleDataset),
         Some(true)
     );
     assert_eq!(
-        TriggersUpdate.get(&ProvisioningConcept::MissingDataset),
+        TriggersUpdate.get(&DataProvisioningConcept::MissingDataset),
         Some(true)
     );
 }
@@ -114,32 +115,30 @@ fn stale_and_missing_trigger_update() {
 #[test]
 fn axiom_every_datasource_has_identity() {
     assert!(!DATA_SOURCES.is_empty());
-    assert!(EveryDataSourceHasIdentity.holds());
+    assert!(EveryDataSourceHasIdentity.verify().is_ok());
 }
 
 #[test]
 fn axiom_registry_uniqueness_by_name() {
-    assert!(RegistryUniquenessByName.holds());
+    assert!(RegistryUniquenessByName.verify().is_ok());
 }
 
 #[test]
 fn axiom_decoder_totality_per_content_type() {
-    assert!(DecoderTotalityPerContentType.holds());
+    assert!(DecoderTotalityPerContentType.verify().is_ok());
 }
 
 #[test]
 fn axiom_identity_claims_use_leaves() {
-    assert!(IdentityClaimsUseLeaves.holds());
+    assert!(IdentityClaimsUseLeaves.verify().is_ok());
 }
 
 #[test]
-fn all_domain_axioms_hold() {
-    for axiom in DataProvisioningOntology::domain_axioms() {
-        assert!(
-            axiom.holds(),
-            "domain axiom failed: {}",
-            axiom.description()
-        );
+fn all_axioms_hold() {
+    for axiom in DataProvisioningOntology::axioms() {
+        if let Err(c) = axiom.verify() {
+            panic!("axiom failed: {}", c.meta().name.as_str());
+        }
     }
 }
 

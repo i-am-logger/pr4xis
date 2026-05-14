@@ -1,9 +1,7 @@
 use super::category::Category;
 use super::functor::Functor;
 use super::kinds::AdjunctionKind;
-use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, RelationshipMeta};
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 // Adjunction — a pair of functors that are "optimally inverse."
 //
@@ -44,7 +42,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 ///
 /// Per Mac Lane (1971) IV, an adjunction is a structured 1-cell pair in
 /// the 2-category Cat. Metadata flows through the unified
-/// [`RelationshipMeta`] shape; the [`AdjunctionKind`] tag records
+/// [`Provenance`] shape; the [`AdjunctionKind`] tag records
 /// whether it's a reflection, coreflection, equivalence, or generic
 /// adjunction.
 pub trait Adjunction {
@@ -83,9 +81,9 @@ pub trait Adjunction {
     /// — "literature citation not yet declared". Override via
     /// `pr4xis::adjunction!` or the
     /// [`relationship_meta!`](crate::relationship_meta!) helper.
-    fn meta() -> RelationshipMeta {
-        let tn = core::any::type_name::<Self>().to_string();
-        RelationshipMeta {
+    fn meta() -> Provenance {
+        let tn = std::any::type_name::<Self>().to_string();
+        Provenance {
             name: OntologyName::new(tn.clone()),
             description: Label::new(tn),
             citation: Citation::EMPTY,

@@ -47,7 +47,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "MapeK",
     source: "Kephart & Chess (2003), IEEE Computer 36(1)",
-    being: Process,
 
     concepts: [
         // === The four phases ===
@@ -95,57 +94,6 @@ pr4xis::ontology! {
         (Execute, Knowledge, Consults),
     ],
 
-    axioms: {
-        FourPhaseCycle: {
-            source: "Kephart & Chess (2003) §2",
-            description: "the direct children of MapeKPhase are exactly {Monitor, Analyze, Plan, Execute} (Kephart & Chess 2003)",
-            holds: {
-                let actual = direct_children_of(MapeKConcept::MapeKPhase);
-                let expected = [
-                    MapeKConcept::Monitor,
-                    MapeKConcept::Analyze,
-                    MapeKConcept::Plan,
-                    MapeKConcept::Execute,
-                ];
-                actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
-            },
-        },
-        LoopIsClosed: {
-            source: "Kephart & Chess (2003) §2",
-            description: "the four phases form a closed cycle M → A → P → E → M (Kephart & Chess 2003 §2)",
-            holds: {
-                use MapeKConcept as M;
-                use MapeKRelationKind as K;
-                use pr4xis::category::Category;
-                let morphs = MapeKCategory::morphisms();
-                let has = |from: M, to: M| {
-                    morphs
-                        .iter()
-                        .any(|r| r.from == from && r.to == to && r.kind == K::HandsOffTo)
-                };
-                has(M::Monitor, M::Analyze)
-                    && has(M::Analyze, M::Plan)
-                    && has(M::Plan, M::Execute)
-                    && has(M::Execute, M::Monitor)
-            },
-        },
-        EveryPhaseConsultsKnowledge: {
-            source: "Kephart & Chess (2003) §2",
-            description: "every MAPE phase has a Consults edge to Knowledge (Kephart & Chess 2003 §2 — shared K)",
-            holds: {
-                use MapeKConcept as M;
-                use MapeKRelationKind as K;
-                use pr4xis::category::Category;
-                let morphs = MapeKCategory::morphisms();
-                let consults = |from: M| {
-                    morphs
-                        .iter()
-                        .any(|r| r.from == from && r.to == M::Knowledge && r.kind == K::Consults)
-                };
-                consults(M::Monitor) && consults(M::Analyze) && consults(M::Plan) && consults(M::Execute)
-            },
-        },
-    },
 }
 
 // ---------------------------------------------------------------------------
@@ -178,65 +126,175 @@ impl Quality for MapeKRole {
 // ---------------------------------------------------------------------------
 
 fn direct_children_of(parent: MapeKConcept) -> Vec<MapeKConcept> {
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-    MapeKTaxonomy::relations()
-        .into_iter()
-        .filter_map(|(child, p)| if p == parent { Some(child) } else { None })
+    use pr4xis::category::{Arrow, Category};
+    MapeKCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == MapeKRelationKind::Subsumption && m.target() == parent)
+        .map(|m| m.source())
         .collect()
 }
 
+fn kinded_edge_exists(from: MapeKConcept, to: MapeKConcept, kind: MapeKRelationKind) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    MapeKCategory::morphisms()
+        .iter()
+        .any(|m| m.source() == from && m.target() == to && m.kind() == kind)
+}
+
 // ---------------------------------------------------------------------------
-// Ontology impl — wires the macro-generated axioms into the Ontology trait
+// Domain axioms — separate `impl Axiom` blocks (new `verify` / `axiom_meta!`
+// shape per #160 / #167).
 // ---------------------------------------------------------------------------
-//
-// FourPhaseCycle, LoopIsClosed, EveryPhaseConsultsKnowledge are all declared
-// in the `axioms:` clause above. `generated_domain_axioms()` builds the Vec
-// from those declarations; no hand-written `impl Axiom` blocks needed.
+
+/// Kephart & Chess (2003): the four phases are children of MapeKPhase.
+pub struct FourPhaseCycle;
+
+impl Axiom for FourPhaseCycle {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let actual = direct_children_of(MapeKConcept::MapeKPhase);
+        let expected = [
+            MapeKConcept::Monitor,
+            MapeKConcept::Analyze,
+            MapeKConcept::Plan,
+            MapeKConcept::Execute,
+        ];
+        let ok = actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "FourPhaseCycle",
+        "direct children of MapeKPhase are exactly {Monitor, Analyze, Plan, Execute}",
+        "Kephart & Chess (2003) IEEE Computer 36(1) \u{00a7}2"
+    );
+}
+pr4xis::register_axiom!(
+    FourPhaseCycle,
+    "Kephart & Chess (2003) IEEE Computer 36(1) \u{00a7}2"
+);
+
+/// Kephart & Chess (2003): the four phases form a closed cycle M -> A -> P -> E -> M.
+pub struct LoopIsClosed;
+
+impl Axiom for LoopIsClosed {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let ok = kinded_edge_exists(
+            MapeKConcept::Monitor,
+            MapeKConcept::Analyze,
+            MapeKRelationKind::HandsOffTo,
+        ) && kinded_edge_exists(
+            MapeKConcept::Analyze,
+            MapeKConcept::Plan,
+            MapeKRelationKind::HandsOffTo,
+        ) && kinded_edge_exists(
+            MapeKConcept::Plan,
+            MapeKConcept::Execute,
+            MapeKRelationKind::HandsOffTo,
+        ) && kinded_edge_exists(
+            MapeKConcept::Execute,
+            MapeKConcept::Monitor,
+            MapeKRelationKind::HandsOffTo,
+        );
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "LoopIsClosed",
+        "the four MAPE-K phases form a closed cycle: Monitor -> Analyze -> Plan -> Execute -> Monitor (HandsOffTo edges)",
+        "Kephart & Chess (2003) IEEE Computer 36(1) \u{00a7}2"
+    );
+}
+pr4xis::register_axiom!(
+    LoopIsClosed,
+    "Kephart & Chess (2003) IEEE Computer 36(1) \u{00a7}2"
+);
+
+/// Kephart & Chess (2003) — every MAPE phase has a Consults edge to Knowledge.
+pub struct EveryPhaseConsultsKnowledge;
+
+impl Axiom for EveryPhaseConsultsKnowledge {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let consults = |from: MapeKConcept| {
+            kinded_edge_exists(from, MapeKConcept::Knowledge, MapeKRelationKind::Consults)
+        };
+        let ok = consults(MapeKConcept::Monitor)
+            && consults(MapeKConcept::Analyze)
+            && consults(MapeKConcept::Plan)
+            && consults(MapeKConcept::Execute);
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "EveryPhaseConsultsKnowledge",
+        "every MAPE phase carries a Consults edge to Knowledge (shared K substrate)",
+        "Kephart & Chess (2003) IEEE Computer 36(1) \u{00a7}2"
+    );
+}
+pr4xis::register_axiom!(
+    EveryPhaseConsultsKnowledge,
+    "Kephart & Chess (2003) IEEE Computer 36(1) \u{00a7}2"
+);
+
+// ---------------------------------------------------------------------------
+// Ontology impl
+// ---------------------------------------------------------------------------
 
 impl Ontology for MapeKOntology {
     type Cat = MapeKCategory;
     type Qual = MapeKRole;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        MapeKOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        MapeKOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(FourPhaseCycle));
+        axioms.push(Box::new(LoopIsClosed));
+        axioms.push(Box::new(EveryPhaseConsultsKnowledge));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<MapeKCategory>().unwrap();
+        assert_category_laws::<MapeKCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        MapeKOntology::validate().unwrap();
+        MapeKOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
     fn four_phase_cycle_holds() {
-        assert!(FourPhaseCycle.holds(), "{}", FourPhaseCycle.description());
+        assert!(FourPhaseCycle.verify().is_ok());
     }
 
     #[test]
     fn loop_is_closed_holds() {
-        assert!(LoopIsClosed.holds(), "{}", LoopIsClosed.description());
+        assert!(LoopIsClosed.verify().is_ok());
     }
 
     #[test]
     fn every_phase_consults_knowledge_holds() {
-        assert!(
-            EveryPhaseConsultsKnowledge.holds(),
-            "{}",
-            EveryPhaseConsultsKnowledge.description()
-        );
+        assert!(EveryPhaseConsultsKnowledge.verify().is_ok());
     }
 }

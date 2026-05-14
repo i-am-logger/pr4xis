@@ -1,6 +1,23 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const WATER_JUGS_CITATION: &str = "Newell & Simon (1972) Human Problem Solving, Prentice-Hall, ch. 3; \
+     Atkinson (1996) Further Mathematical Diversions, ch. 7";
 
 /// Two jugs with different capacities. Measure a target amount.
+///
+/// Source: Newell & Simon (1972), human-problem-solving canon; the
+/// classical 3L/5L puzzle dates to Bachet (1612) *Problèmes plaisants*.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct State {
     pub jug_a: u32,
@@ -20,19 +37,14 @@ impl State {
             target,
         }
     }
-}
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        format!(
-            "A={}/{} B={}/{} target={}",
-            self.jug_a, self.cap_a, self.jug_b, self.cap_b, self.target
-        )
-    }
-    fn is_terminal(&self) -> bool {
+    /// The puzzle ends when either jug contains exactly the target amount.
+    pub fn is_terminal(&self) -> bool {
         self.jug_a == self.target || self.jug_b == self.target
     }
 }
+
+impl Situation for State {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JugAction {
@@ -46,32 +58,22 @@ pub enum JugAction {
 
 impl Action for JugAction {
     type Sit = State;
-    fn describe(&self) -> String {
-        format!("{:?}", self)
-    }
 }
 
 struct NoOp;
 impl Precondition<JugAction> for NoOp {
-    fn check(&self, s: &State, a: &JugAction) -> PreconditionResult {
+    fn check(&self, s: &State, a: &JugAction) -> Verdict {
+        let meta = axiom_meta("no_op", "action must change the state", WATER_JUGS_CITATION);
         let next = apply_jug(s, a).unwrap_or_else(|_| s.clone());
         if next.jug_a == s.jug_a && next.jug_b == s.jug_b {
-            PreconditionResult::violated(
-                "no_op",
-                "action has no effect",
-                &s.describe(),
-                &a.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         } else {
-            PreconditionResult::satisfied("no_op", "state changed")
+            Ok(Box::new(SimpleProof::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "action must change the state"
     }
 }
 
-fn apply_jug(s: &State, a: &JugAction) -> Result<State, String> {
+fn apply_jug(s: &State, a: &JugAction) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     match a {
         JugAction::FillA => n.jug_a = n.cap_a,
@@ -137,7 +139,7 @@ mod tests {
             .unwrap() // A=2 B=5
             .next(JugAction::PourBtoA)
             .unwrap(); // A=3 B=4
-        assert!(e.is_terminal());
+        assert!(e.situation().is_terminal());
         assert_eq!(e.situation().jug_b, 4);
     }
 

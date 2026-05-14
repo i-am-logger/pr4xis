@@ -50,9 +50,14 @@ impl Functor for DiscourseToNlg {
             DiscourseRelationKind::Explanation => NlgRelationKind::Organizes,
             DiscourseRelationKind::Parallel => NlgRelationKind::Organizes,
             DiscourseRelationKind::Continuation => NlgRelationKind::Precedes,
-            DiscourseRelationKind::Composed => NlgRelationKind::Composed,
             DiscourseRelationKind::Subsumption => NlgRelationKind::Organizes,
             DiscourseRelationKind::Opposition => NlgRelationKind::Organizes,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) emitted
+            // by the ontology! macro — unreachable when source has no edges
+            // of these kinds.
+            DiscourseRelationKind::Parthood | DiscourseRelationKind::Causation => {
+                NlgRelationKind::Organizes
+            }
         };
         NlgRelation { from, to, kind }
     }
@@ -62,10 +67,10 @@ pr4xis::register_functor!(DiscourseToNlg);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<DiscourseToNlg>().unwrap();
+        assert_functor_laws::<DiscourseToNlg>();
     }
 }

@@ -9,15 +9,12 @@
 //! Source: Borenstein et al. (1996) "Where am I?"; Thrun, Burgard & Fox (2005)
 //!         Chapter 5; Scaramuzza & Fraundorfer (2011).
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Odometry",
     source: "Borenstein et al. (1996); Thrun, Burgard & Fox (2005); Scaramuzza & Fraundorfer (2011)",
-    being: Process,
 
     concepts: [
         Source,
@@ -98,22 +95,26 @@ impl Quality for UpdateRate {
 pub struct DriftIsUnbounded;
 
 impl Axiom for DriftIsUnbounded {
-    fn description(&self) -> &str {
-        "odometry error grows without bound (no absolute reference)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let drift_rate = 0.02;
         let d1 = 100.0;
         let d2 = 1000.0;
         let e1 = drift_rate * d1;
         let e2 = drift_rate * d2;
-        e2 > e1 && e1 > 0.0
+        if e2 > e1 && e1 > 0.0 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "DriftIsUnbounded",
+        "odometry error grows without bound (no absolute reference)",
+        "Thrun, Burgard & Fox (2005) Section 5.4"
+    );
 }
-pr4xis::register_axiom!(
-    DriftIsUnbounded,
-    "Borenstein et al. (1996) \"Where am I?\"; Thrun, Burgard & Fox (2005)"
-);
+pr4xis::register_axiom!(DriftIsUnbounded, "Thrun, Burgard & Fox (2005) Section 5.4");
 
 /// Relative motion only: odometry measures CHANGE, not absolute position.
 ///
@@ -121,10 +122,7 @@ pr4xis::register_axiom!(
 pub struct RelativeMotionOnly;
 
 impl Axiom for RelativeMotionOnly {
-    fn description(&self) -> &str {
-        "odometry measures change in position, not absolute position"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let start_a: [f64; 2] = [0.0, 0.0];
         let start_b: [f64; 2] = [100.0, 200.0];
         let delta: [f64; 2] = [10.0, 5.0];
@@ -134,12 +132,22 @@ impl Axiom for RelativeMotionOnly {
 
         let disp_a = [end_a[0] - start_a[0], end_a[1] - start_a[1]];
         let disp_b = [end_b[0] - start_b[0], end_b[1] - start_b[1]];
-        (disp_a[0] - disp_b[0]).abs() < 1e-10 && (disp_a[1] - disp_b[1]).abs() < 1e-10
+        if (disp_a[0] - disp_b[0]).abs() < 1e-10 && (disp_a[1] - disp_b[1]).abs() < 1e-10 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "RelativeMotionOnly",
+        "odometry measures change in position, not absolute position",
+        "Borenstein et al. (1996) \"Where am I?\""
+    );
 }
 pr4xis::register_axiom!(
     RelativeMotionOnly,
-    "Borenstein et al. (1996) \"Where am I?\"; Thrun, Burgard & Fox (2005)"
+    "Borenstein et al. (1996) \"Where am I?\""
 );
 
 /// Slip corrupts wheel odometry: wheel slip causes measurement error.
@@ -148,51 +156,55 @@ pr4xis::register_axiom!(
 pub struct SlipCorruptsWheelOdometry;
 
 impl Axiom for SlipCorruptsWheelOdometry {
-    fn description(&self) -> &str {
-        "wheel slip causes wheel encoder error"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let encoder_distance = 100.0_f64;
         let slip_ratio = 0.1_f64;
         let actual_distance = encoder_distance * (1.0 - slip_ratio);
         let error = (encoder_distance - actual_distance).abs();
-        error > 0.0 && actual_distance < encoder_distance
+        if error > 0.0 && actual_distance < encoder_distance {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "SlipCorruptsWheelOdometry",
+        "wheel slip causes wheel encoder error",
+        "Borenstein et al. (1996) Section 3.2"
+    );
 }
 pr4xis::register_axiom!(
     SlipCorruptsWheelOdometry,
-    "Borenstein et al. (1996) \"Where am I?\"; Thrun, Burgard & Fox (2005)"
+    "Borenstein et al. (1996) Section 3.2"
 );
 
 impl Ontology for OdometryOntology {
     type Cat = OdometryCategory;
     type Qual = DriftRate;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(DriftIsUnbounded),
-            Box::new(RelativeMotionOnly),
-            Box::new(SlipCorruptsWheelOdometry),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(DriftIsUnbounded));
+        axioms.push(Box::new(RelativeMotionOnly));
+        axioms.push(Box::new(SlipCorruptsWheelOdometry));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<OdometryCategory>().unwrap();
+        assert_category_laws::<OdometryCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        OdometryOntology::validate().unwrap();
+        OdometryOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

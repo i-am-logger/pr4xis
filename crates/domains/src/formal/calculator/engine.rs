@@ -4,21 +4,12 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::calc::Calculator;
 use super::op::{BinaryOp, UnaryOp};
 use super::value::{AngleMode, Value};
-use crate::formal::math::ontology::MathDomain;
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use crate::formal::math::ontology::NumberConcept;
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
-impl Situation for Calculator {
-    fn describe(&self) -> String {
-        format!(
-            "display={} memory={} mode={:?}",
-            self.display, self.memory, self.angle_mode
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for Calculator {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalcAction {
@@ -36,20 +27,14 @@ pub enum CalcAction {
 
 impl Action for CalcAction {
     type Sit = Calculator;
+}
 
-    fn describe(&self) -> String {
-        match self {
-            CalcAction::Enter(v) => format!("enter {}", v),
-            CalcAction::Unary(op) => format!("{:?}", op),
-            CalcAction::Binary(op, v) => format!("{:?} {}", op, v),
-            CalcAction::Clear => "clear".into(),
-            CalcAction::AllClear => "all clear".into(),
-            CalcAction::StoreMemory => "M store".into(),
-            CalcAction::RecallMemory => "M recall".into(),
-            CalcAction::AddToMemory => "M+".into(),
-            CalcAction::ClearMemory => "MC".into(),
-            CalcAction::SetAngleMode(m) => format!("angle mode {:?}", m),
-        }
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
@@ -57,42 +42,30 @@ impl Action for CalcAction {
 pub struct DomainCheck;
 
 impl Precondition<CalcAction> for DomainCheck {
-    fn check(&self, calc: &Calculator, action: &CalcAction) -> PreconditionResult {
+    fn check(&self, calc: &Calculator, action: &CalcAction) -> Verdict {
+        let meta = axiom_meta(
+            "domain_check",
+            "mathematical domain must be valid (no division by zero, sqrt of negative, etc.)",
+            "Knuth (1997) TAOCP Vol. 2 §4.2.2; IEEE 754-2019 §7 invalid operation",
+        );
         match action {
             CalcAction::Unary(op) => match op.apply(&calc.display, calc.angle_mode) {
-                Ok(_) => PreconditionResult::satisfied(
-                    "domain_check",
-                    &format!("{:?}({}) is valid", op, calc.display),
-                ),
-                Err(e) => PreconditionResult::violated(
-                    "domain_check",
-                    &format!("{}", e),
-                    &calc.describe(),
-                    &action.describe(),
-                ),
+                Ok(_) => Ok(Box::new(SimpleProof::new(meta))),
+                Err(_) => Err(Box::new(SimpleCounterexample::new(meta))),
             },
             CalcAction::Binary(op, rhs) => match op.apply(&calc.display, rhs) {
-                Ok(_) => PreconditionResult::satisfied(
-                    "domain_check",
-                    &format!("{} {:?} {} is valid", calc.display, op, rhs),
-                ),
-                Err(e) => PreconditionResult::violated(
-                    "domain_check",
-                    &format!("{}", e),
-                    &calc.describe(),
-                    &action.describe(),
-                ),
+                Ok(_) => Ok(Box::new(SimpleProof::new(meta))),
+                Err(_) => Err(Box::new(SimpleCounterexample::new(meta))),
             },
-            _ => PreconditionResult::satisfied("domain_check", "no domain constraints"),
+            _ => Ok(Box::new(SimpleProof::new(meta))),
         }
-    }
-
-    fn describe(&self) -> &str {
-        "mathematical domain must be valid (no division by zero, sqrt of negative, etc.)"
     }
 }
 
-fn apply_calc(calc: &Calculator, action: &CalcAction) -> Result<Calculator, String> {
+fn apply_calc(
+    calc: &Calculator,
+    action: &CalcAction,
+) -> Result<Calculator, Box<dyn Counterexample>> {
     let mut next = calc.clone();
     match action {
         CalcAction::Enter(v) => next.enter(v.clone()),
@@ -119,50 +92,50 @@ fn apply_calc(calc: &Calculator, action: &CalcAction) -> Result<Calculator, Stri
 pub struct NumberDomainCheck;
 
 impl NumberDomainCheck {
-    /// Classify a calculator value into the smallest containing MathDomain.
-    fn classify(val: &Value) -> MathDomain {
+    /// Classify a calculator value into the smallest containing NumberConcept.
+    fn classify(val: &Value) -> NumberConcept {
         match val {
             Value::Rational(n, d) => {
                 if *d == 1 {
                     if *n >= 0 {
-                        MathDomain::NaturalNumbers
+                        NumberConcept::NaturalNumbers
                     } else {
-                        MathDomain::Integers
+                        NumberConcept::Integers
                     }
                 } else {
-                    MathDomain::Rationals
+                    NumberConcept::Rationals
                 }
             }
             Value::Float(f) => {
                 if f.fract() == 0.0 {
                     if *f >= 0.0 {
-                        MathDomain::NaturalNumbers
+                        NumberConcept::NaturalNumbers
                     } else {
-                        MathDomain::Integers
+                        NumberConcept::Integers
                     }
                 } else {
-                    MathDomain::Reals
+                    NumberConcept::Reals
                 }
             }
         }
     }
 
     /// Does this operation require at least a certain domain?
-    fn required_domain(action: &CalcAction, val: &Value) -> Option<(MathDomain, &'static str)> {
+    fn required_domain(action: &CalcAction, val: &Value) -> Option<(NumberConcept, &'static str)> {
         match action {
             CalcAction::Unary(UnaryOp::Factorial) => Some((
-                MathDomain::NaturalNumbers,
+                NumberConcept::NaturalNumbers,
                 "factorial requires natural numbers",
             )),
             CalcAction::Unary(UnaryOp::Sqrt) if val.is_negative() => Some((
-                MathDomain::Complex,
+                NumberConcept::Complex,
                 "sqrt of negative requires complex numbers",
             )),
             CalcAction::Unary(UnaryOp::Ln | UnaryOp::Log10 | UnaryOp::Log2)
                 if !val.to_f64().is_sign_positive() || val.is_zero() =>
             {
                 Some((
-                    MathDomain::Complex,
+                    NumberConcept::Complex,
                     "log of non-positive requires complex numbers",
                 ))
             }
@@ -171,7 +144,7 @@ impl NumberDomainCheck {
                 None // DomainCheck handles this
             }
             CalcAction::Binary(BinaryOp::Divide, _) => Some((
-                MathDomain::Rationals,
+                NumberConcept::Rationals,
                 "division requires rationals or above",
             )),
             _ => None,
@@ -180,44 +153,34 @@ impl NumberDomainCheck {
 }
 
 impl Precondition<CalcAction> for NumberDomainCheck {
-    fn check(&self, calc: &Calculator, action: &CalcAction) -> PreconditionResult {
+    fn check(&self, calc: &Calculator, action: &CalcAction) -> Verdict {
+        let meta = axiom_meta(
+            "number_domain",
+            "operations must be valid within the number domain hierarchy (N \u{2282} Z \u{2282} Q \u{2282} R \u{2282} C)",
+            "Bourbaki (1939) Theory of Sets; Mac Lane & Birkhoff (1967) Algebra",
+        );
         let current_domain = Self::classify(&calc.display);
 
-        if let Some((required, reason)) = Self::required_domain(action, &calc.display) {
+        if let Some((required, _reason)) = Self::required_domain(action, &calc.display) {
             let current_order = domain_order(current_domain);
             let required_order = domain_order(required);
 
             if current_order > required_order {
-                return PreconditionResult::violated(
-                    "number_domain",
-                    &format!(
-                        "{} — value is in {:?} but operation needs {:?}",
-                        reason, current_domain, required
-                    ),
-                    &calc.describe(),
-                    &action.describe(),
-                );
+                return Err(Box::new(SimpleCounterexample::new(meta)));
             }
         }
 
-        PreconditionResult::satisfied(
-            "number_domain",
-            &format!("value in {:?}, operation valid", current_domain),
-        )
-    }
-
-    fn describe(&self) -> &str {
-        "operations must be valid within the number domain hierarchy (N ⊂ Z ⊂ Q ⊂ R ⊂ C)"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn domain_order(d: MathDomain) -> u8 {
+fn domain_order(d: NumberConcept) -> u8 {
     match d {
-        MathDomain::NaturalNumbers => 0,
-        MathDomain::Integers => 1,
-        MathDomain::Rationals => 2,
-        MathDomain::Reals => 3,
-        MathDomain::Complex => 4,
+        NumberConcept::NaturalNumbers => 0,
+        NumberConcept::Integers => 1,
+        NumberConcept::Rationals => 2,
+        NumberConcept::Reals => 3,
+        NumberConcept::Complex => 4,
     }
 }
 

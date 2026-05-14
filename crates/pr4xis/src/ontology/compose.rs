@@ -29,7 +29,6 @@ use alloc::collections::BTreeMap;
 use alloc::collections::BTreeSet;
 
 use crate::ontology::Vocabulary;
-use crate::ontology::upper::being::Being;
 
 // `Lexical` is defined in crate::ontology::meta and re-exported.
 pub use crate::ontology::Lexical;
@@ -94,7 +93,6 @@ pub enum Staging {
 pub struct Ontology {
     name: String,
     source: String,
-    being: Option<Being>,
     concepts: BTreeMap<String, RuntimeConcept>,
     edges: BTreeSet<Edge>,
     level: usize,
@@ -108,7 +106,6 @@ impl Ontology {
         OntologyBuilder {
             name: String::from(name),
             source: String::new(),
-            being: None,
             concepts: BTreeMap::new(),
             edges: BTreeSet::new(),
             base_level: 0,
@@ -122,10 +119,6 @@ impl Ontology {
 
     pub fn source(&self) -> &str {
         &self.source
-    }
-
-    pub fn being(&self) -> Option<Being> {
-        self.being
     }
 
     /// The concepts in this ontology — a map from name to Concept.
@@ -185,7 +178,6 @@ impl Ontology {
         Ontology {
             name: format!("{}||{}", self.name, other.name),
             source: format!("{} + {}", self.source, other.source),
-            being: self.being.or(other.being),
             concepts,
             edges,
             level: core::cmp::max(self.level, other.level) + 1,
@@ -232,7 +224,6 @@ impl Ontology {
         Ontology {
             name: suffix,
             source: format!("{} + {}", self.source, other.source),
-            being: self.being.or(other.being),
             concepts,
             edges,
             level: core::cmp::max(self.level, other.level) + 1,
@@ -272,7 +263,6 @@ impl Ontology {
         Ontology {
             name: format!("{}+partial({})", self.name, other.name),
             source: format!("{} + {} (partial)", self.source, other.source),
-            being: self.being.or(other.being),
             concepts,
             edges,
             level: core::cmp::max(self.level, other.level) + 1,
@@ -324,7 +314,6 @@ impl Ontology {
         Some(Ontology {
             name: format!("{}[{}]", self.name, root),
             source: self.source.clone(),
-            being: self.being,
             concepts,
             edges,
             level: self.level,
@@ -371,7 +360,7 @@ impl Ontology {
                     EdgeKind::Parthood => MorphismKind::Parthood,
                     EdgeKind::Causation => MorphismKind::Causation,
                     EdgeKind::Opposition => MorphismKind::Opposition,
-                    EdgeKind::Custom => MorphismKind::Composed,
+                    EdgeKind::Custom => MorphismKind::Custom(std::borrow::Cow::Borrowed("Custom")),
                 };
                 Morphism::new(e.from.clone(), e.to.clone(), kind)
             })
@@ -380,7 +369,6 @@ impl Ontology {
             self.name.clone(),
             "runtime::compose",
             self.source.clone(),
-            self.being,
             concepts,
             morphisms,
         )
@@ -436,7 +424,6 @@ impl Ontology {
         OntologyBuilder {
             name: self.name.clone(),
             source: self.source.clone(),
-            being: self.being,
             concepts: self.concepts.clone(),
             edges: self
                 .edges
@@ -478,7 +465,6 @@ impl Ontology {
         Ontology {
             name: format!("{}-{}", self.name, concept),
             source: self.source.clone(),
-            being: self.being,
             concepts,
             edges,
             level: self.level,
@@ -516,7 +502,6 @@ impl Ontology {
         Ontology {
             name: format!("{}|restricted", self.name),
             source: self.source.clone(),
-            being: self.being,
             concepts,
             edges,
             level: self.level,
@@ -581,7 +566,6 @@ impl Ontology {
         Ontology {
             name: format!("{}[{}→{}]", self.name, old, new),
             source: self.source.clone(),
-            being: self.being,
             concepts,
             edges,
             level: self.level,
@@ -638,7 +622,6 @@ impl Ontology {
         Ontology {
             name: format!("{}→evolved", self.name),
             source: self.source.clone(),
-            being: self.being,
             concepts,
             edges,
             // Modification operations (evolve/without/restrict/rename) preserve
@@ -699,7 +682,6 @@ fn merge_provenance(
 pub struct OntologyBuilder {
     name: String,
     source: String,
-    being: Option<Being>,
     concepts: BTreeMap<String, RuntimeConcept>,
     edges: BTreeSet<Edge>,
     base_level: usize,
@@ -709,11 +691,6 @@ pub struct OntologyBuilder {
 impl OntologyBuilder {
     pub fn source(mut self, source: &str) -> Self {
         self.source = String::from(source);
-        self
-    }
-
-    pub fn being(mut self, being: Being) -> Self {
-        self.being = Some(being);
         self
     }
 
@@ -855,7 +832,6 @@ impl OntologyBuilder {
         Ontology {
             name: self.name,
             source: self.source,
-            being: self.being,
             concepts: self.concepts,
             edges: self.edges,
             level: self.base_level,
@@ -879,7 +855,6 @@ pub fn from_vocabulary(vocab: &Vocabulary) -> Ontology {
     Ontology {
         name: vocab.ontology_name.as_str().to_string(),
         source: vocab.source.as_str().to_string(),
-        being: vocab.being,
         concepts: BTreeMap::new(),
         edges: BTreeSet::new(),
         level: 0,
@@ -950,7 +925,6 @@ mod tests {
     fn create_and_build() {
         let bio = Ontology::create("Biology")
             .source("Mayr (1982)")
-            .being(Being::AbstractObject)
             .concept("Animal")
             .concept("Mammal")
             .concept("Dog")
@@ -1111,7 +1085,6 @@ mod tests {
     fn vocabulary_bridge() {
         let onto = Ontology::create("TestOntology")
             .source("Test (2024)")
-            .being(Being::AbstractObject)
             .concept("X")
             .concept("Y")
             .is_a("X", "Y")
@@ -1120,8 +1093,7 @@ mod tests {
         let vocab = onto.vocabulary();
         assert_eq!(vocab.ontology_name.as_str(), "TestOntology");
         assert_eq!(vocab.concepts().len(), 2);
-        assert!(vocab.morphisms().len() > 0);
-        assert_eq!(vocab.being, Some(Being::AbstractObject));
+        assert!(!vocab.morphisms().is_empty());
     }
 
     #[test]
@@ -1172,14 +1144,8 @@ mod tests {
                 )
             })
             .collect();
-        let vocab = Vocabulary::from_captured(
-            "Test",
-            "test::path",
-            "Test (2024)",
-            Some(Being::AbstractObject),
-            concepts,
-            morphisms,
-        );
+        let vocab =
+            Vocabulary::from_captured("Test", "test::path", "Test (2024)", concepts, morphisms);
 
         let s = from_vocabulary(&vocab);
         assert_eq!(s.staging(), Staging::Embedded);

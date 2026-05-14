@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 59dfad87614ef5481db4f462bf94d52854283dd2a93e4efe1032a136efa2ea4e # shrinks to _dummy = 0
+cc 1c9c4bc9bdccbb72ca9082f4dfbf0707f40002202c2e1103621e6bff8b392764 # shrinks to c = Trace

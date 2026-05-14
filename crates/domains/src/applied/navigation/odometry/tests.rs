@@ -1,6 +1,6 @@
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::navigation::odometry::engine::*;
 use crate::applied::navigation::odometry::ontology::*;
@@ -10,28 +10,29 @@ use crate::applied::navigation::odometry::ontology::*;
 // ---------------------------------------------------------------------------
 
 #[test]
-fn odometry_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<OdometryTaxonomy>>().unwrap();
+fn odometry_category_laws() {
+    assert_category_laws::<OdometryCategory>();
 }
 
 #[test]
 fn odometry_ontology_validates() {
-    OdometryOntology::validate().unwrap();
+    OdometryOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn drift_is_unbounded_axiom() {
-    assert!(DriftIsUnbounded.holds());
+    assert!(DriftIsUnbounded.verify().is_ok());
 }
 
 #[test]
 fn relative_motion_only_axiom() {
-    assert!(RelativeMotionOnly.holds());
+    assert!(RelativeMotionOnly.verify().is_ok());
 }
 
 #[test]
 fn slip_corrupts_wheel_odometry_axiom() {
-    assert!(SlipCorruptsWheelOdometry.holds());
+    assert!(SlipCorruptsWheelOdometry.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------

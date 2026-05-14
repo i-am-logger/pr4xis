@@ -1,6 +1,23 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const PRISONER_CITATION: &str = "Flood & Dresher (1950, RAND); Tucker (1950) A Two-Person Dilemma, Stanford lecture notes; \
+     Axelrod (1984) The Evolution of Cooperation, Basic Books";
 
 /// Prisoner's Dilemma: two players cooperate or defect.
+///
+/// Source: Flood & Dresher (1950, RAND); named and popularised by Tucker
+/// (1950); standard payoffs from Axelrod (1984).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Choice {
     Cooperate,
@@ -39,6 +56,11 @@ impl State {
         }
     }
 
+    /// The repeated game has no built-in terminal state.
+    pub fn is_terminal(&self) -> bool {
+        false
+    }
+
     fn payoff(a: Choice, b: Choice) -> (i32, i32) {
         match (a, b) {
             (Choice::Cooperate, Choice::Cooperate) => (3, 3),
@@ -49,20 +71,7 @@ impl State {
     }
 }
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        format!(
-            "round={} A={} B={} pending={:?}",
-            self.rounds.len() + 1,
-            self.total_a,
-            self.total_b,
-            self.pending_a
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for State {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrisonerAction {
@@ -72,44 +81,22 @@ pub enum PrisonerAction {
 
 impl Action for PrisonerAction {
     type Sit = State;
-    fn describe(&self) -> String {
-        match self {
-            PrisonerAction::PlayerA(c) => format!("A: {:?}", c),
-            PrisonerAction::PlayerB(c) => format!("B: {:?}", c),
-        }
-    }
 }
 
 struct TurnOrder;
 impl Precondition<PrisonerAction> for TurnOrder {
-    fn check(&self, s: &State, a: &PrisonerAction) -> PreconditionResult {
+    fn check(&self, s: &State, a: &PrisonerAction) -> Verdict {
+        let meta = axiom_meta("turn_order", "A chooses first, then B", PRISONER_CITATION);
         match (s.pending_a, a) {
-            (None, PrisonerAction::PlayerA(_)) => {
-                PreconditionResult::satisfied("turn_order", "A goes first")
-            }
-            (Some(_), PrisonerAction::PlayerB(_)) => {
-                PreconditionResult::satisfied("turn_order", "B goes after A")
-            }
-            (None, PrisonerAction::PlayerB(_)) => PreconditionResult::violated(
-                "turn_order",
-                "A must choose first",
-                &s.describe(),
-                &a.describe(),
-            ),
-            (Some(_), PrisonerAction::PlayerA(_)) => PreconditionResult::violated(
-                "turn_order",
-                "A already chose, waiting for B",
-                &s.describe(),
-                &a.describe(),
-            ),
+            (None, PrisonerAction::PlayerA(_)) => Ok(Box::new(SimpleProof::new(meta))),
+            (Some(_), PrisonerAction::PlayerB(_)) => Ok(Box::new(SimpleProof::new(meta))),
+            (None, PrisonerAction::PlayerB(_)) => Err(Box::new(SimpleCounterexample::new(meta))),
+            (Some(_), PrisonerAction::PlayerA(_)) => Err(Box::new(SimpleCounterexample::new(meta))),
         }
-    }
-    fn describe(&self) -> &str {
-        "A chooses first, then B"
     }
 }
 
-fn apply_prisoner(s: &State, a: &PrisonerAction) -> Result<State, String> {
+fn apply_prisoner(s: &State, a: &PrisonerAction) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     match a {
         PrisonerAction::PlayerA(c) => {

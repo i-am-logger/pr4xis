@@ -1,132 +1,93 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Event-driven systems — events as immutable facts; commands; handlers;
+//! event logs; projections; sagas.
+//!
+//! An event-driven system changes state by reacting to events rather than
+//! direct command. Events are immutable facts about what happened. The
+//! system reacts to events, producing new events or state changes.
+//!
+//! # Literature
+//!
+//! - **Fowler (2005)** "Event Sourcing", martinfowler.com — state
+//!   reconstructed from an immutable log; `state = fold(events)`.
+//! - **Young (2010)** *CQRS Documents*, cqrs.wordpress.com — Command-
+//!   Query Responsibility Segregation; projections as read-optimised
+//!   derived views.
+//! - **Guizzardi et al. (2013)** "Towards Ontological Foundations for
+//!   the Conceptual Modeling of Events", *Conceptual Modeling — ER
+//!   2013*, LNCS 8217 — UFO-B: events as perdurants with mereology,
+//!   causality, and correlation.
+//! - **Almeida & Falbo (2019)** "Events as Entities in Ontology-Driven
+//!   Conceptual Modeling", *Applied Ontology* 14(3):293-329.
+//! - **Hewitt (1973)** "A Universal Modular ACTOR Formalism for
+//!   Artificial Intelligence", IJCAI-73 — message-passing handlers.
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::{Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// Event-driven system ontology.
-//
-// An event-driven system is one where state changes are triggered by events,
-// not by direct command. Events are immutable facts about what happened.
-// The system reacts to events, producing new events or state changes.
-//
-// This connects to:
-// - DOLCE: events ARE perdurants (things that happen over time)
-// - UFO-B: events have mereology (composition), causality, and correlation
-// - Concurrency: events are the messages between concurrent agents
-// - Systems thinking: events are transitions in the cybernetic loop
-//
-// References:
-// - Martin Fowler, Event Sourcing (2005)
-// - Greg Young, CQRS Documents (2010)
-// - Guizzardi et al., UFO-B: Ontology of Events (2013)
-// - Almeida & Falbo, Events as Entities in Ontology-Driven Modeling (2019)
+pr4xis::ontology! {
+    name: "Event",
+    source: "Fowler (2005) Event Sourcing, martinfowler.com; Young (2010) CQRS Documents; Guizzardi et al. (2013) Towards Ontological Foundations for the Conceptual Modeling of Events, ER 2013 LNCS 8217; Almeida & Falbo (2019) Events as Entities in Ontology-Driven Conceptual Modeling, Applied Ontology 14(3):293-329; Hewitt (1973) A Universal Modular ACTOR Formalism for AI, IJCAI-73",
 
-/// Core concepts of event-driven systems.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum EventConcept {
-    /// Something that happened — an immutable fact.
-    /// A move was made. A signal changed. A message arrived.
-    Event,
+    concepts: [
+        Event,
+        Command,
+        State,
+        Handler,
+        EventLog,
+        EventBus,
+        Projection,
+        Subscription,
+        Saga,
+        EventSchema,
+    ],
 
-    /// A request to do something — may be accepted or rejected.
-    /// "Move pawn to e4" is a command; the move happening is an event.
-    Command,
+    labels: {
+        Event: ("en", "Event",
+            "Guizzardi et al. (2013) UFO-B: an immutable fact about what happened - a move made, a signal changed, a message arrived."),
+        Command: ("en", "Command",
+            "Young (2010) CQRS: a request to do something - may be accepted (producing an Event) or rejected."),
+        State: ("en", "State",
+            "Fowler (2005) Event Sourcing: current state derived from the history of events - state = fold(events)."),
+        Handler: ("en", "Handler",
+            "Hewitt (1973) actor model: reacts to events by producing side effects, new events, or state changes."),
+        EventLog: ("en", "Event log",
+            "Fowler (2005): ordered, immutable log of all events - the single source of truth in event sourcing."),
+        EventBus: ("en", "Event bus",
+            "Hewitt (1973): routes events to their subscribed handlers."),
+        Projection: ("en", "Projection",
+            "Young (2010) CQRS: a read-optimised view derived from the EventLog."),
+        Subscription: ("en", "Subscription",
+            "Hewitt (1973): listens for specific event patterns on the bus and triggers actions."),
+        Saga: ("en", "Saga",
+            "Garcia-Molina & Salem (1987) Sagas, ACM SIGMOD; long-running process composed of events that form a logical unit."),
+        EventSchema: ("en", "Event schema",
+            "Almeida & Falbo (2019): the contract that defines what an Event contains."),
+    },
 
-    /// The current state — derived from the history of events.
-    /// Event sourcing: state = fold(events).
-    State,
-
-    /// Reacts to events by producing side effects, new events, or state changes.
-    Handler,
-
-    /// An ordered, immutable log of all events that have occurred.
-    /// The single source of truth in event sourcing.
-    EventLog,
-
-    /// Routes events to the correct handlers.
-    EventBus,
-
-    /// A read-optimized view derived from events (CQRS pattern).
-    Projection,
-
-    /// Listens for specific event patterns and triggers actions.
-    Subscription,
-
-    /// A group of events that form a logical unit (saga/process manager).
-    Saga,
-
-    /// The schema/contract that defines what an event contains.
-    EventSchema,
+    edges: [
+        // Young (2010) CQRS: Command triggers Event (if accepted).
+        (Command, Event, Triggers),
+        // Fowler (2005): Event appended to immutable EventLog.
+        (Event, EventLog, AppendedTo),
+        // Hewitt (1973): Handler reacts to Event.
+        (Handler, Event, ReactsTo),
+        // EventBus routes Event to Handler.
+        (EventBus, Handler, Routes),
+        // Event changes State (via handler reaction; Fowler 2005).
+        (Event, State, Changes),
+        // Young (2010): Projection derived from EventLog.
+        (Projection, EventLog, DerivedFrom),
+        // Subscription listens to EventBus.
+        (Subscription, EventBus, ListensTo),
+        // Garcia-Molina & Salem (1987): Saga composes Events.
+        (Saga, Event, Composes),
+        // Almeida & Falbo (2019): EventSchema defines Event.
+        (EventSchema, Event, Defines),
+    ],
 }
 
-define_ontology! {
-    /// The event-driven category.
-    pub EventOntology for EventCategory {
-        concepts: EventConcept,
-        relation: EventRelation,
-        kind: EventRelationKind,
-        kinds: [
-            /// Command triggers Event (if accepted).
-            Triggers,
-            /// Event is appended to EventLog.
-            AppendedTo,
-            /// Handler reacts to Event.
-            ReactsTo,
-            /// EventBus routes Event to Handler.
-            Routes,
-            /// Event changes State (via handler).
-            Changes,
-            /// Projection is derived from EventLog.
-            DerivedFrom,
-            /// Subscription listens to EventBus.
-            ListensTo,
-            /// Saga composes Events.
-            Composes,
-            /// EventSchema defines Event structure.
-            Defines,
-        ],
-        edges: [
-            // Command triggers Event
-            (Command, Event, Triggers),
-            // Event appended to EventLog
-            (Event, EventLog, AppendedTo),
-            // Handler reacts to Event
-            (Handler, Event, ReactsTo),
-            // EventBus routes Event to Handler
-            (EventBus, Handler, Routes),
-            // Event changes State
-            (Event, State, Changes),
-            // Projection derived from EventLog
-            (Projection, EventLog, DerivedFrom),
-            // Subscription listens to EventBus
-            (Subscription, EventBus, ListensTo),
-            // Saga composes Events
-            (Saga, Event, Composes),
-            // EventSchema defines Event
-            (EventSchema, Event, Defines),
-        ],
-        composed: [
-            // Command → Event → State
-            (Command, State),
-            // Command → Event → EventLog
-            (Command, EventLog),
-            // EventBus → Handler → Event
-            (EventBus, Event),
-            // Subscription → EventBus → Handler
-            (Subscription, Handler),
-            // Saga → Event → State
-            (Saga, State),
-            // Saga → Event → EventLog
-            (Saga, EventLog),
-        ],
-        being: AbstractObject,
-        source: "Fowler (2005); Guizzardi et al. UFO-B (2013)",
-    }
-}
-
-/// Whether an event concept is immutable (core event sourcing property).
+/// Quality: whether an event-driven concept is immutable. Fowler (2005)
+/// Event Sourcing: events, the log, and the schema are immutable;
+/// projections and state are mutable views.
 #[derive(Debug, Clone)]
 pub struct IsImmutable;
 
@@ -134,13 +95,11 @@ impl Quality for IsImmutable {
     type Individual = EventConcept;
     type Value = bool;
 
-    fn get(&self, individual: &EventConcept) -> Option<bool> {
-        match individual {
-            EventConcept::Event => Some(true),
-            EventConcept::EventLog => Some(true),
-            EventConcept::EventSchema => Some(true),
-            EventConcept::State => Some(false),
-            EventConcept::Projection => Some(false),
+    fn get(&self, c: &EventConcept) -> Option<bool> {
+        use EventConcept as E;
+        match c {
+            E::Event | E::EventLog | E::EventSchema => Some(true),
+            E::State | E::Projection => Some(false),
             _ => None,
         }
     }
@@ -150,23 +109,88 @@ impl Ontology for EventOntology {
     type Cat = EventCategory;
     type Qual = IsImmutable;
 
-    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
-        Self::generated_structural_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<EventCategory>().unwrap();
+        assert_category_laws::<EventCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        EventOntology::validate().unwrap();
+        EventOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[test]
+    fn ten_concepts() {
+        assert_eq!(EventConcept::variants().len(), 10);
+    }
+
+    #[test]
+    fn command_triggers_event() {
+        let m = EventCategory::morphisms();
+        assert!(m.iter().any(|r| r.source() == EventConcept::Command
+            && r.target() == EventConcept::Event
+            && r.kind() == EventRelationKind::Triggers));
+    }
+
+    #[test]
+    fn event_appended_to_log() {
+        let m = EventCategory::morphisms();
+        assert!(m.iter().any(|r| r.source() == EventConcept::Event
+            && r.target() == EventConcept::EventLog
+            && r.kind() == EventRelationKind::AppendedTo));
+    }
+
+    #[test]
+    fn projection_derived_from_log() {
+        // Young (2010) CQRS.
+        let m = EventCategory::morphisms();
+        assert!(m.iter().any(|r| r.source() == EventConcept::Projection
+            && r.target() == EventConcept::EventLog
+            && r.kind() == EventRelationKind::DerivedFrom));
+    }
+
+    fn arb_concept() -> impl Strategy<Value = EventConcept> {
+        proptest::sample::select(EventConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in EventCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in EventOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_immutability_total_on_core(c in arb_concept()) {
+            use EventConcept as E;
+            let v = IsImmutable.get(&c);
+            let is_core = matches!(c,
+                E::Event | E::EventLog | E::EventSchema | E::State | E::Projection
+            );
+            prop_assert_eq!(v.is_some(), is_core);
+        }
     }
 }

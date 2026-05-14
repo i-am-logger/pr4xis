@@ -5,7 +5,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Situation: coefficients (a, b, c) and derived roots
 /// - Axioms: roots satisfy equation, Vieta's formulas, discriminant consistency
 /// - Actions: modify coefficients (roots auto-recomputed)
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Roots {
@@ -60,21 +62,7 @@ impl Quadratic {
     }
 }
 
-impl Situation for Quadratic {
-    fn describe(&self) -> String {
-        format!(
-            "{}x²+{}x+{}=0 d={:.4} roots={:?}",
-            self.a,
-            self.b,
-            self.c,
-            self.discriminant(),
-            self.roots
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for Quadratic {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum QuadAction {
@@ -85,58 +73,59 @@ pub enum QuadAction {
 
 impl Action for QuadAction {
     type Sit = Quadratic;
-    fn describe(&self) -> String {
-        format!("{:?}", self)
+}
+
+fn quad_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "al-Khwarizmi (c. 820) Al-Kitab al-mukhtasar fi hisab al-jabr wa'l-muqabala; Cardano (1545) Ars Magna",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
 struct NonZeroA;
 impl Precondition<QuadAction> for NonZeroA {
-    fn check(&self, q: &Quadratic, a: &QuadAction) -> PreconditionResult {
-        if let QuadAction::SetA(v) = a
+    fn check(&self, _q: &Quadratic, action: &QuadAction) -> Verdict {
+        let meta = quad_meta("NonZeroA", "a must be non-zero (else not quadratic)");
+        if let QuadAction::SetA(v) = action
             && *v == 0.0
         {
-            return PreconditionResult::violated(
-                "non_zero_a",
-                "a=0 not quadratic",
-                &q.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("non_zero_a", "a≠0")
-    }
-    fn describe(&self) -> &str {
-        "a must be non-zero"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
 struct RootsValid;
 impl Precondition<QuadAction> for RootsValid {
-    fn check(&self, q: &Quadratic, a: &QuadAction) -> PreconditionResult {
-        let next = apply_quad(q, a).unwrap_or_else(|_| q.clone());
+    fn check(&self, q: &Quadratic, action: &QuadAction) -> Verdict {
+        let meta = quad_meta("RootsValid", "roots must satisfy ax²+bx+c=0");
+        let next = apply_quad_inner(q, action).unwrap_or_else(|_| q.clone());
         if next.roots_valid() {
-            PreconditionResult::satisfied("roots_valid", "roots satisfy equation")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "roots_valid",
-                "roots don't satisfy",
-                &q.describe(),
-                &a.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "roots must satisfy ax²+bx+c=0"
     }
 }
 
-fn apply_quad(q: &Quadratic, action: &QuadAction) -> Result<Quadratic, String> {
+fn apply_quad_inner(q: &Quadratic, action: &QuadAction) -> Result<Quadratic, &'static str> {
     let (a, b, c) = match action {
         QuadAction::SetA(v) => (*v, q.b, q.c),
         QuadAction::SetB(v) => (q.a, *v, q.c),
         QuadAction::SetC(v) => (q.a, q.b, *v),
     };
-    Quadratic::new(a, b, c).map_err(|e| e.to_string())
+    Quadratic::new(a, b, c)
+}
+
+fn apply_quad(q: &Quadratic, action: &QuadAction) -> Result<Quadratic, Box<dyn Counterexample>> {
+    apply_quad_inner(q, action).map_err(|_| {
+        let meta = quad_meta("ApplyFailed", "could not apply quadratic transformation");
+        Box::new(SimpleCounterexample::new(meta)) as Box<dyn Counterexample>
+    })
 }
 
 pub fn new_equation(a: f64, b: f64, c: f64) -> Result<Engine<QuadAction>, &'static str> {

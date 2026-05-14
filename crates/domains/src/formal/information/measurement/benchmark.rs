@@ -18,7 +18,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "Benchmark",
     source: "JCGM 200:2012 (VIM)",
-    being: AbstractObject,
 
     concepts: [
         Benchmark,
@@ -72,11 +71,11 @@ mod tests {
     use super::*;
     use pr4xis::category::Category;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws_hold() {
-        check_category_laws::<BenchmarkCategory>().unwrap();
+        assert_category_laws::<BenchmarkCategory>();
     }
 
     #[test]
@@ -102,9 +101,34 @@ mod tests {
 
     #[test]
     fn steady_state_reachable_from_setup() {
-        let m = BenchmarkCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == BenchmarkConcept::Setup
-            && r.to == BenchmarkConcept::SteadyState));
+        // Setup → Warmup → SteadyState — same-kind `Precedes` chain. Not a
+        // canonical OBO-RO transitive kind, so the macro does not emit
+        // closure morphisms (#166); walk the graph.
+        assert!(reaches_via_kind(
+            BenchmarkConcept::Setup,
+            BenchmarkConcept::SteadyState,
+        ));
+    }
+
+    fn reaches_via_kind(from: BenchmarkConcept, to: BenchmarkConcept) -> bool {
+        use pr4xis::category::Arrow;
+        use std::collections::{HashSet, VecDeque};
+        let ms = BenchmarkCategory::morphisms();
+        let mut visited: HashSet<BenchmarkConcept> = HashSet::new();
+        let mut queue: VecDeque<BenchmarkConcept> = VecDeque::new();
+        queue.push_back(from);
+        while let Some(n) = queue.pop_front() {
+            if n == to {
+                return true;
+            }
+            if !visited.insert(n) {
+                continue;
+            }
+            for m in ms.iter().filter(|m| m.source() == n) {
+                queue.push_back(m.target());
+            }
+        }
+        false
     }
 
     #[test]
@@ -155,12 +179,12 @@ mod tests {
 
     #[test]
     fn baseline_reaches_regression() {
-        let m = BenchmarkCategory::morphisms();
-        assert!(
-            m.iter()
-                .any(|r| r.from == BenchmarkConcept::Baseline
-                    && r.to == BenchmarkConcept::Regression)
-        );
+        // Baseline → EffectSize → Regression — heterogeneous-kind chain
+        // (ComparesTo then Determines). Walk the graph.
+        assert!(reaches_via_kind(
+            BenchmarkConcept::Baseline,
+            BenchmarkConcept::Regression,
+        ));
     }
 
     #[test]

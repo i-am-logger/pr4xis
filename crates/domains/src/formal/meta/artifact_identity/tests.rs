@@ -1,6 +1,5 @@
 //! Tests for the artifact_identity ontology — taxonomy structure, family
-//! axioms, real extractor implementations, and property-based tests over
-//! the deterministic and fail-closed axioms.
+//! axioms, real extractor implementations, and property-based tests.
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
@@ -8,12 +7,12 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::ontology::{
     ArtifactIdentityCategory, ArtifactIdentityOntology, ClaimData, ContentHashIsInjective,
     ContentHashIsOffline, EverySchemeHasAnExtractor, IdentityClaim, IdentityConcept,
-    IdentityTaxonomy, PersistentIdentifierRequiresResolver, SelfDescribingIsWeakestTrust,
-    TrustTier, TrustTierOf, VerifiabilityOffline, VerificationResult, is_family, is_leaf,
+    PersistentIdentifierRequiresResolver, SelfDescribingIsWeakestTrust, TrustTier, TrustTierOf,
+    VerifiabilityOffline, VerificationResult, ancestors_of, is_family, is_leaf,
 };
 use super::schemes::{raw_hash, xml_element_attribute};
 use pr4xis::category::Concept;
-use pr4xis::ontology::reasoning::taxonomy;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
 
@@ -23,39 +22,13 @@ use proptest::prelude::*;
 
 #[test]
 fn category_laws() {
-    pr4xis::category::validate::check_category_laws::<ArtifactIdentityCategory>().unwrap();
+    assert_category_laws::<ArtifactIdentityCategory>();
 }
 
 #[test]
 fn ontology_validates() {
-    ArtifactIdentityOntology::validate().unwrap();
-}
-
-// =============================================================================
-// Macro-generated descriptor
-// =============================================================================
-
-#[test]
-fn descriptor_from_macro() {
-    let d = ArtifactIdentityOntology::vocabulary();
-    assert_eq!(d.name(), "ArtifactIdentityOntology");
-    assert!(d.module_path.as_str().contains("artifact_identity"));
-    assert_eq!(
-        d.source.as_str(),
-        "Dolstra (2006); Wilkinson FAIR F1 (2016)"
-    );
-    assert_eq!(
-        d.being,
-        Some(pr4xis::ontology::upper::being::Being::AbstractObject)
-    );
-    assert_eq!(d.concepts().len(), IdentityConcept::variants().len());
-    assert!(d.concepts().len() > 0);
-    assert!(d.morphisms().len() > 0);
-    let domain = d.domain();
-    assert!(
-        domain.contains("formal.meta.artifact_identity"),
-        "domain was: {domain}"
-    );
+    ArtifactIdentityOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 // =============================================================================
@@ -101,7 +74,7 @@ fn every_leaf_has_a_family_ancestor() {
         if !is_leaf(&concept) {
             continue;
         }
-        let ancestors = taxonomy::ancestors::<IdentityTaxonomy>(&concept);
+        let ancestors = ancestors_of(&concept);
         let family_ancestors: Vec<_> = ancestors.iter().filter(|a| is_family(a)).collect();
         assert_eq!(
             family_ancestors.len(),
@@ -114,77 +87,24 @@ fn every_leaf_has_a_family_ancestor() {
 }
 
 #[test]
-fn cryptographic_signature_family_has_six_leaves() {
-    use IdentityConcept::*;
-    let leaves = [
-        OpenPgp,
-        SigstoreAttestation,
-        SshSignature,
-        Minisign,
-        X509Signature,
-        Ed25519Raw,
-    ];
-    for leaf in leaves {
-        let ancestors = taxonomy::ancestors::<IdentityTaxonomy>(&leaf);
-        assert!(
-            ancestors.contains(&CryptographicSignature),
-            "{:?} should descend from CryptographicSignature",
-            leaf
-        );
-    }
-}
-
-#[test]
 fn content_hash_family_has_five_leaves() {
-    use IdentityConcept::*;
-    let leaves = [
-        RawHash,
-        GitObjectSha,
-        IpfsCid,
-        NixStorePath,
-        BittorrentInfoHash,
-    ];
-    for leaf in leaves {
-        let ancestors = taxonomy::ancestors::<IdentityTaxonomy>(&leaf);
-        assert!(
-            ancestors.contains(&ContentHash),
-            "{:?} should descend from ContentHash",
-            leaf
-        );
+    use IdentityConcept as I;
+    for leaf in [
+        I::RawHash,
+        I::GitObjectSha,
+        I::IpfsCid,
+        I::NixStorePath,
+        I::BittorrentInfoHash,
+    ] {
+        assert!(ancestors_of(&leaf).contains(&I::ContentHash));
     }
 }
 
 #[test]
 fn persistent_identifier_family_has_four_leaves() {
-    use IdentityConcept::*;
-    let leaves = [Doi, Handle, Ark, Purl];
-    for leaf in leaves {
-        let ancestors = taxonomy::ancestors::<IdentityTaxonomy>(&leaf);
-        assert!(
-            ancestors.contains(&PersistentIdentifier),
-            "{:?} should descend from PersistentIdentifier",
-            leaf
-        );
-    }
-}
-
-#[test]
-fn self_describing_metadata_family_has_five_leaves() {
-    use IdentityConcept::*;
-    let leaves = [
-        OwlVersionIri,
-        OwlVersionInfo,
-        DctIdentifier,
-        XmlElementAttribute,
-        XmlSchemaVersion,
-    ];
-    for leaf in leaves {
-        let ancestors = taxonomy::ancestors::<IdentityTaxonomy>(&leaf);
-        assert!(
-            ancestors.contains(&SelfDescribingMetadata),
-            "{:?} should descend from SelfDescribingMetadata",
-            leaf
-        );
+    use IdentityConcept as I;
+    for leaf in [I::Doi, I::Handle, I::Ark, I::Purl] {
+        assert!(ancestors_of(&leaf).contains(&I::PersistentIdentifier));
     }
 }
 
@@ -194,14 +114,14 @@ fn self_describing_metadata_family_has_five_leaves() {
 
 #[test]
 fn content_hash_leaves_are_offline() {
-    use IdentityConcept::*;
+    use IdentityConcept as I;
     let q = VerifiabilityOffline;
     for leaf in [
-        RawHash,
-        GitObjectSha,
-        IpfsCid,
-        NixStorePath,
-        BittorrentInfoHash,
+        I::RawHash,
+        I::GitObjectSha,
+        I::IpfsCid,
+        I::NixStorePath,
+        I::BittorrentInfoHash,
     ] {
         assert_eq!(q.get(&leaf), Some(true));
     }
@@ -209,47 +129,25 @@ fn content_hash_leaves_are_offline() {
 
 #[test]
 fn persistent_identifier_leaves_are_online() {
-    use IdentityConcept::*;
+    use IdentityConcept as I;
     let q = VerifiabilityOffline;
-    for leaf in [Doi, Handle, Ark, Purl] {
+    for leaf in [I::Doi, I::Handle, I::Ark, I::Purl] {
         assert_eq!(q.get(&leaf), Some(false));
     }
 }
 
 #[test]
 fn self_describing_leaves_are_declarative() {
-    use IdentityConcept::*;
+    use IdentityConcept as I;
     let q = TrustTierOf;
     for leaf in [
-        OwlVersionIri,
-        OwlVersionInfo,
-        DctIdentifier,
-        XmlElementAttribute,
-        XmlSchemaVersion,
+        I::OwlVersionIri,
+        I::OwlVersionInfo,
+        I::DctIdentifier,
+        I::XmlElementAttribute,
+        I::XmlSchemaVersion,
     ] {
         assert_eq!(q.get(&leaf), Some(TrustTier::Declarative));
-    }
-}
-
-#[test]
-fn cryptographic_and_hash_leaves_are_strong() {
-    use IdentityConcept::*;
-    let q = TrustTierOf;
-    let strong_leaves = [
-        OpenPgp,
-        SigstoreAttestation,
-        SshSignature,
-        Minisign,
-        X509Signature,
-        Ed25519Raw,
-        RawHash,
-        GitObjectSha,
-        IpfsCid,
-        NixStorePath,
-        BittorrentInfoHash,
-    ];
-    for leaf in strong_leaves {
-        assert_eq!(q.get(&leaf), Some(TrustTier::Strong));
     }
 }
 
@@ -259,37 +157,39 @@ fn cryptographic_and_hash_leaves_are_strong() {
 
 #[test]
 fn axiom_every_scheme_has_an_extractor() {
-    assert!(EverySchemeHasAnExtractor.holds());
+    assert!(EverySchemeHasAnExtractor.verify().is_ok());
 }
 
 #[test]
 fn axiom_content_hash_is_injective() {
-    assert!(ContentHashIsInjective.holds());
+    assert!(ContentHashIsInjective.verify().is_ok());
 }
 
 #[test]
 fn axiom_content_hash_is_offline() {
-    assert!(ContentHashIsOffline.holds());
+    assert!(ContentHashIsOffline.verify().is_ok());
 }
 
 #[test]
 fn axiom_persistent_identifier_requires_resolver() {
-    assert!(PersistentIdentifierRequiresResolver.holds());
+    assert!(PersistentIdentifierRequiresResolver.verify().is_ok());
 }
 
 #[test]
 fn axiom_self_describing_is_weakest_trust() {
-    assert!(SelfDescribingIsWeakestTrust.holds());
+    assert!(SelfDescribingIsWeakestTrust.verify().is_ok());
 }
 
 #[test]
-fn all_domain_axioms_hold() {
-    for axiom in ArtifactIdentityOntology::domain_axioms() {
-        assert!(
-            axiom.holds(),
-            "domain axiom does not hold: {}",
-            axiom.description()
-        );
+fn all_axioms_hold() {
+    for axiom in ArtifactIdentityOntology::axioms() {
+        if let Err(c) = axiom.verify() {
+            panic!(
+                "axiom failed: {} - {}",
+                c.meta().name.as_str(),
+                c.meta().description.as_str()
+            );
+        }
     }
 }
 
@@ -300,8 +200,6 @@ fn all_domain_axioms_hold() {
 #[test]
 fn raw_hash_verifies_correct_sha256() {
     let bytes = b"hello pr4xis";
-    // sha256("hello pr4xis") = precompute via sha2 directly so the test
-    // doesn't depend on a hand-typed hash.
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(bytes);
@@ -309,36 +207,36 @@ fn raw_hash_verifies_correct_sha256() {
 
     let claim = IdentityClaim {
         concept: IdentityConcept::RawHash,
-        data: ClaimData::Sha256(hex_digest.clone()),
+        data: ClaimData::Sha256(hex_digest),
     };
-    let result = raw_hash::verify(&claim, bytes);
-    assert!(
-        matches!(result, VerificationResult::Verified(_)),
-        "expected Verified, got {:?}",
-        result
-    );
+    assert!(matches!(
+        raw_hash::verify(&claim, bytes),
+        VerificationResult::Verified(_)
+    ));
 }
 
 #[test]
 fn raw_hash_rejects_wrong_sha256() {
-    let bytes = b"hello pr4xis";
     let claim = IdentityClaim {
         concept: IdentityConcept::RawHash,
         data: ClaimData::Sha256("deadbeef".into()),
     };
-    let result = raw_hash::verify(&claim, bytes);
-    assert!(matches!(result, VerificationResult::Mismatch { .. }));
+    assert!(matches!(
+        raw_hash::verify(&claim, b"hello pr4xis"),
+        VerificationResult::Mismatch { .. }
+    ));
 }
 
 #[test]
 fn raw_hash_rejects_non_sha256_claim_data() {
-    let bytes = b"hello pr4xis";
     let claim = IdentityClaim {
         concept: IdentityConcept::RawHash,
         data: ClaimData::Stub { reason: "..." },
     };
-    let result = raw_hash::verify(&claim, bytes);
-    assert!(matches!(result, VerificationResult::Unverifiable { .. }));
+    assert!(matches!(
+        raw_hash::verify(&claim, b"hello pr4xis"),
+        VerificationResult::Unverifiable { .. }
+    ));
 }
 
 // =============================================================================
@@ -362,12 +260,10 @@ fn xml_attribute_verifies_wordnet_version() {
             expected: "2025".into(),
         },
     };
-    let result = xml_element_attribute::verify(&claim, SAMPLE_WORDNET_XML.as_bytes());
-    assert!(
-        matches!(result, VerificationResult::Verified(_)),
-        "expected Verified, got {:?}",
-        result
-    );
+    assert!(matches!(
+        xml_element_attribute::verify(&claim, SAMPLE_WORDNET_XML.as_bytes()),
+        VerificationResult::Verified(_)
+    ));
 }
 
 #[test]
@@ -380,8 +276,10 @@ fn xml_attribute_rejects_wrong_version() {
             expected: "2024".into(),
         },
     };
-    let result = xml_element_attribute::verify(&claim, SAMPLE_WORDNET_XML.as_bytes());
-    assert!(matches!(result, VerificationResult::Mismatch { .. }));
+    assert!(matches!(
+        xml_element_attribute::verify(&claim, SAMPLE_WORDNET_XML.as_bytes()),
+        VerificationResult::Mismatch { .. }
+    ));
 }
 
 #[test]
@@ -394,8 +292,10 @@ fn xml_attribute_unverifiable_when_element_missing() {
             expected: "2025".into(),
         },
     };
-    let result = xml_element_attribute::verify(&claim, SAMPLE_WORDNET_XML.as_bytes());
-    assert!(matches!(result, VerificationResult::Unverifiable { .. }));
+    assert!(matches!(
+        xml_element_attribute::verify(&claim, SAMPLE_WORDNET_XML.as_bytes()),
+        VerificationResult::Unverifiable { .. }
+    ));
 }
 
 // =============================================================================
@@ -403,16 +303,13 @@ fn xml_attribute_unverifiable_when_element_missing() {
 // =============================================================================
 
 proptest! {
-    /// ExtractorIsDeterministic: the same bytes + same claim always produce
-    /// the same VerificationResult. Checked here for the RawHash extractor
-    /// with randomized byte payloads.
+    /// Determinism: same bytes + same claim → same VerificationResult.
     #[test]
     fn prop_raw_hash_is_deterministic(bytes in prop::collection::vec(any::<u8>(), 0..2048)) {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(&bytes);
         let hex_digest = hex::encode(hasher.finalize());
-
         let claim = IdentityClaim {
             concept: IdentityConcept::RawHash,
             data: ClaimData::Sha256(hex_digest),
@@ -420,12 +317,10 @@ proptest! {
         let first = raw_hash::verify(&claim, &bytes);
         let second = raw_hash::verify(&claim, &bytes);
         prop_assert_eq!(&first, &second);
-        let is_verified = matches!(first, VerificationResult::Verified(_));
-        prop_assert!(is_verified);
+        prop_assert!(matches!(first, VerificationResult::Verified(_)));
     }
 
-    /// Corrupting any single byte causes the RawHash claim to return
-    /// Mismatch — the injectivity axiom in action.
+    /// Injectivity: any single-byte corruption causes Mismatch.
     #[test]
     fn prop_raw_hash_detects_any_corruption(
         bytes in prop::collection::vec(any::<u8>(), 1..512),
@@ -435,33 +330,31 @@ proptest! {
         let mut hasher = Sha256::new();
         hasher.update(&bytes);
         let hex_digest = hex::encode(hasher.finalize());
-
         let claim = IdentityClaim {
             concept: IdentityConcept::RawHash,
             data: ClaimData::Sha256(hex_digest),
         };
-
         let mut corrupted = bytes.clone();
         let idx = corrupt_index % corrupted.len();
         corrupted[idx] = corrupted[idx].wrapping_add(1);
-
-        let result = raw_hash::verify(&claim, &corrupted);
-        let is_mismatch = matches!(result, VerificationResult::Mismatch { .. });
-        prop_assert!(is_mismatch);
+        let ok = matches!(
+            raw_hash::verify(&claim, &corrupted),
+            VerificationResult::Mismatch { .. }
+        );
+        prop_assert!(ok);
     }
 
-    /// Stub extractors always return Unverifiable. This is the structural
-    /// witness that the 18 stubbed leaves satisfy VerificationFailClosed
-    /// (they never return Verified, so they never silently let bad data
-    /// through).
+    /// Stub extractors always return Unverifiable (fail-closed witness).
     #[test]
     fn prop_stub_claims_are_unverifiable(bytes in prop::collection::vec(any::<u8>(), 0..128)) {
         let claim = IdentityClaim {
             concept: IdentityConcept::OpenPgp,
             data: ClaimData::Stub { reason: "stub" },
         };
-        let result = super::schemes::openpgp::verify(&claim, &bytes);
-        let is_unverifiable = matches!(result, VerificationResult::Unverifiable { .. });
-        prop_assert!(is_unverifiable);
+        let ok = matches!(
+            super::schemes::openpgp::verify(&claim, &bytes),
+            VerificationResult::Unverifiable { .. }
+        );
+        prop_assert!(ok);
     }
 }

@@ -1,9 +1,7 @@
 use super::action::Action;
-use super::precondition::{Precondition, PreconditionResult};
-use super::situation::Situation;
+use super::precondition::Precondition;
 use super::trace::{Trace, TraceEntry};
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use crate::logic::proof::{Counterexample, Verdict};
 
 /// Error returned by `Engine::next()`.
 #[derive(Debug)]
@@ -11,10 +9,14 @@ pub enum EngineError<A: Action> {
     /// Preconditions blocked the action.
     Violated {
         engine: Engine<A>,
-        violations: Vec<PreconditionResult>,
+        violations: Vec<Box<dyn Counterexample>>,
     },
     /// Preconditions passed but apply contradicted them — ontological inconsistency.
-    LogicalError { engine: Engine<A>, reason: String },
+    /// The counterexample describes the apply failure.
+    LogicalError {
+        engine: Engine<A>,
+        counterexample: Box<dyn Counterexample>,
+    },
 }
 
 /// The enforcement engine — applies actions to situations with precondition checking.
@@ -26,7 +28,7 @@ pub enum EngineError<A: Action> {
 /// let engine = engine.next(action2)?;   // validates + applies
 /// let engine = engine.back()?;          // undo
 /// let engine = engine.forward()?;       // redo
-/// engine.trace().dump()                 // full history
+/// engine.trace()                         // full history (typed Trace<A>)
 /// ```
 #[allow(clippy::type_complexity)]
 pub struct Engine<A: Action> {
@@ -34,8 +36,8 @@ pub struct Engine<A: Action> {
     past: Vec<A::Sit>,
     future: Vec<A::Sit>,
     preconditions: Vec<Box<dyn Precondition<A>>>,
-    apply_fn: Box<dyn Fn(&A::Sit, &A) -> Result<A::Sit, String>>,
-    trace: Trace,
+    apply_fn: Box<dyn Fn(&A::Sit, &A) -> Result<A::Sit, Box<dyn Counterexample>>>,
+    trace: Trace<A>,
 }
 
 impl<A: Action> core::fmt::Debug for Engine<A> {
@@ -55,7 +57,7 @@ impl<A: Action> Engine<A> {
     pub fn new(
         situation: A::Sit,
         preconditions: Vec<Box<dyn Precondition<A>>>,
-        apply_fn: impl Fn(&A::Sit, &A) -> Result<A::Sit, String> + 'static,
+        apply_fn: impl Fn(&A::Sit, &A) -> Result<A::Sit, Box<dyn Counterexample>> + 'static,
     ) -> Self {
         Self {
             situation,
@@ -78,47 +80,48 @@ impl<A: Action> Engine<A> {
     }
 
     /// The full trace of all actions.
-    pub fn trace(&self) -> &Trace {
+    pub fn trace(&self) -> &Trace<A> {
         &self.trace
-    }
-
-    /// Is the current situation terminal?
-    pub fn is_terminal(&self) -> bool {
-        self.situation.is_terminal()
     }
 
     /// Apply an action — the `.next()` method.
     ///
-    /// Checks all preconditions. If any fail, returns `EngineError::Violated`.
-    /// If all pass but apply fails, returns `EngineError::LogicalError`.
-    /// Both variants return the engine for rollback.
+    /// Checks all preconditions. If any return `Err` (Counterexample),
+    /// returns `EngineError::Violated`. If all pass but apply fails,
+    /// returns `EngineError::LogicalError` carrying the apply
+    /// counterexample. Both variants return the engine for rollback.
     #[allow(clippy::result_large_err)]
     pub fn next(mut self, action: A) -> Result<Self, EngineError<A>> {
-        let situation_before = self.situation.describe();
-        let action_desc = action.describe();
+        let situation_before = self.situation.clone();
         let step = self.step();
 
-        // Check all preconditions
-        let results: Vec<PreconditionResult> = self
+        // Check all preconditions — each returns a typed Verdict (#161).
+        let verdicts: Vec<Verdict> = self
             .preconditions
             .iter()
             .map(|p| p.check(&self.situation, &action))
             .collect();
 
-        let violations: Vec<PreconditionResult> = results
-            .iter()
-            .filter(|r| !r.is_satisfied())
-            .cloned()
-            .collect();
+        // Collect violations (the counterexamples). A Verdict is Err → violation.
+        let any_violation = verdicts.iter().any(|v| v.is_err());
 
-        if !violations.is_empty() {
+        if any_violation {
+            // Re-check to move out the counterexamples — verdicts above
+            // is borrowed in the filter; simplest is to re-run.
+            let rechecked: Vec<Verdict> = self
+                .preconditions
+                .iter()
+                .map(|p| p.check(&self.situation, &action))
+                .collect();
+            let violations: Vec<Box<dyn Counterexample>> =
+                rechecked.into_iter().filter_map(|v| v.err()).collect();
+
             self.trace.record(TraceEntry {
                 step,
                 situation_before,
-                action: action_desc,
-                precondition_results: results,
+                action,
+                precondition_verdicts: verdicts,
                 situation_after: None,
-                success: false,
             });
             return Err(EngineError::Violated {
                 engine: self,
@@ -126,18 +129,15 @@ impl<A: Action> Engine<A> {
             });
         }
 
-        // Apply the action
+        // Apply the action.
         match (self.apply_fn)(&self.situation, &action) {
             Ok(new_situation) => {
-                let situation_after = new_situation.describe();
-
                 self.trace.record(TraceEntry {
                     step,
                     situation_before,
-                    action: action_desc,
-                    precondition_results: results,
-                    situation_after: Some(situation_after),
-                    success: true,
+                    action,
+                    precondition_verdicts: verdicts,
+                    situation_after: Some(new_situation.clone()),
                 });
 
                 self.past.push(self.situation.clone());
@@ -145,18 +145,17 @@ impl<A: Action> Engine<A> {
                 self.situation = new_situation;
                 Ok(self)
             }
-            Err(reason) => {
+            Err(counterexample) => {
                 self.trace.record(TraceEntry {
                     step,
                     situation_before,
-                    action: action_desc,
-                    precondition_results: results,
+                    action,
+                    precondition_verdicts: verdicts,
                     situation_after: None,
-                    success: false,
                 });
                 Err(EngineError::LogicalError {
                     engine: self,
-                    reason,
+                    counterexample,
                 })
             }
         }
@@ -194,23 +193,5 @@ impl<A: Action> Engine<A> {
     /// How many steps forward are available (after back).
     pub fn forward_depth(&self) -> usize {
         self.future.len()
-    }
-
-    /// Try to apply an action, returning the new engine or the violations as strings.
-    pub fn try_next(self, action: A) -> Result<Self, Vec<String>> {
-        self.next(action).map_err(|e| match e {
-            EngineError::Violated { violations, .. } => violations
-                .into_iter()
-                .filter_map(|v| match v {
-                    PreconditionResult::Violated { rule, reason, .. } => {
-                        Some(format!("{}: {}", rule, reason))
-                    }
-                    PreconditionResult::Satisfied { .. } => None,
-                })
-                .collect(),
-            EngineError::LogicalError { reason, .. } => {
-                vec![format!("logical error: {}", reason)]
-            }
-        })
     }
 }

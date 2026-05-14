@@ -6,12 +6,12 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::Category;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "RadarCamera",
     source: "Nobis et al. (2019)",
-    being: Process,
 
     concepts: [RadarDetection, CameraDetection, TemporalAlignment, SpatialAssociation, FusedOutput],
 
@@ -55,10 +55,7 @@ impl Quality for StageDescription {
 pub struct BothModalitiesRequired;
 
 impl Axiom for BothModalitiesRequired {
-    fn description(&self) -> &str {
-        "both radar and camera detections feed into temporal alignment"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let morphisms = RadarCameraCategory::morphisms();
         let radar_to_align = morphisms.iter().any(|m| {
             m.from == RadarCameraConcept::RadarDetection
@@ -68,57 +65,76 @@ impl Axiom for BothModalitiesRequired {
             m.from == RadarCameraConcept::CameraDetection
                 && m.to == RadarCameraConcept::TemporalAlignment
         });
-        radar_to_align && camera_to_align
+        if radar_to_align && camera_to_align {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "BothModalitiesRequired",
+        "both radar and camera detections feed into temporal alignment",
+        "Nobis et al. (2019) A Deep Learning-based Radar and Camera Sensor Fusion Architecture"
+    );
 }
 pr4xis::register_axiom!(
     BothModalitiesRequired,
-    "Nobis et al. (2019), \"A Deep Learning-based Radar and Camera Sensor Fusion Architecture\""
+    "Nobis et al. (2019) A Deep Learning-based Radar and Camera Sensor Fusion Architecture"
 );
 
 /// Axiom: fused output is a terminal stage (no outgoing non-identity morphisms).
 pub struct FusedOutputIsTerminal;
 
 impl Axiom for FusedOutputIsTerminal {
-    fn description(&self) -> &str {
-        "fused output is the terminal stage of the pipeline"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let morphisms = RadarCameraCategory::morphisms();
-        !morphisms.iter().any(|m| {
+        let ok = !morphisms.iter().any(|m| {
             m.from == RadarCameraConcept::FusedOutput && m.to != RadarCameraConcept::FusedOutput
-        })
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "FusedOutputIsTerminal",
+        "fused output is the terminal stage of the pipeline",
+        "Nobis et al. (2019) A Deep Learning-based Radar and Camera Sensor Fusion Architecture"
+    );
 }
 pr4xis::register_axiom!(
     FusedOutputIsTerminal,
-    "Nobis et al. (2019), \"A Deep Learning-based Radar and Camera Sensor Fusion Architecture\""
+    "Nobis et al. (2019) A Deep Learning-based Radar and Camera Sensor Fusion Architecture"
 );
 
 impl Ontology for RadarCameraOntology {
     type Cat = RadarCameraCategory;
     type Qual = StageDescription;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(BothModalitiesRequired),
-            Box::new(FusedOutputIsTerminal),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(BothModalitiesRequired));
+        axioms.push(Box::new(FusedOutputIsTerminal));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<RadarCameraCategory>().unwrap();
+        assert_category_laws::<RadarCameraCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        RadarCameraOntology::validate().unwrap();
+        RadarCameraOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

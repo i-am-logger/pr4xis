@@ -1,10 +1,13 @@
-//! Functor: AcousticsCategory -> SpeechCategory.
+//! Functor: AcousticsCategory → SpeechCategory.
 //!
 //! Maps acoustic physics to speech production parameters.
+//!
+//! Citation: Fant (1960) *Acoustic Theory of Speech Production* —
+//! source-filter model grounds these correspondences.
 
 use crate::natural::hearing::acoustics::ontology::*;
 use crate::natural::hearing::speech::ontology::*;
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Functor};
 
 pub struct AcousticsToSpeech;
 
@@ -30,20 +33,34 @@ impl Functor for AcousticsToSpeech {
             A::Absorption | A::Attenuation => SignalToNoiseRatio,
             A::ImpedanceMismatch => VoiceOnsetTime,
             A::AcousticPhenomenon => AcousticParameter,
+            // Acoustic events → speech-production events.
+            A::SourceVibration => VocalFoldVibration,
+            A::MediumCoupling => GlottalPulse,
+            A::WavePropagation => AcousticRadiation,
+            A::BoundaryEncounter | A::ImpedanceTransition => VocalTractFiltering,
+            A::EnergyReflection => FormantTransition,
+            A::EnergyTransmission => FormantProduction,
+            A::EnergyAbsorption => CoarticulationEffect,
+            A::WaveAttenuation => CoarticulationEffect,
+            A::ResonantAmplification => FormantProduction,
+            A::ReceiverExcitation => ListenerPerception,
+            A::AcousticEvent => SpeechEvent,
         }
     }
 
     fn map_morphism(m: &AcousticRelation) -> SpeechRelation {
+        use AcousticsCategoryRelationKind as Sk;
+        use SpeechRelationKind as Tk;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            AcousticsCategoryRelationKind::Identity => SpeechCategory::identity(&from),
-            _ => SpeechRelation {
-                from,
-                to,
-                kind: SpeechCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        SpeechRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(AcousticsToSpeech);
@@ -52,52 +69,24 @@ pr4xis::register_functor!(AcousticsToSpeech);
 mod tests {
     use super::*;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
-    fn test_functor_laws() {
-        check_functor_laws::<AcousticsToSpeech>().unwrap();
+    fn functor_laws() {
+        assert_functor_laws::<AcousticsToSpeech>();
     }
     #[test]
-    fn test_analogy_validates() {
-        Analogy::<AcousticsToSpeech>::validate().unwrap();
-    }
-    #[test]
-    fn test_resonance_maps_to_formant() {
+    fn resonance_maps_to_formant() {
         assert_eq!(
             AcousticsToSpeech::map_object(&AcousticEntity::Resonance),
             SpeechEntity::Formant
         );
     }
     #[test]
-    fn test_every_entity_maps_valid() {
+    fn every_entity_maps_valid() {
         let targets = SpeechEntity::variants();
         for obj in AcousticEntity::variants() {
             assert!(targets.contains(&AcousticsToSpeech::map_object(&obj)));
-        }
-    }
-
-    use pr4xis::category::Category;
-    use proptest::prelude::*;
-
-    fn arb_acoustic_entity() -> impl Strategy<Value = AcousticEntity> {
-        (0..AcousticEntity::variants().len()).prop_map(|i| AcousticEntity::variants()[i])
-    }
-
-    proptest! {
-        #[test]
-        fn prop_functor_maps_to_valid_target(entity in arb_acoustic_entity()) {
-            let mapped = AcousticsToSpeech::map_object(&entity);
-            prop_assert!(SpeechEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_functor_preserves_identity(entity in arb_acoustic_entity()) {
-            let id_src = AcousticsCategory::identity(&entity);
-            let mapped_id = AcousticsToSpeech::map_morphism(&id_src);
-            let id_tgt = SpeechCategory::identity(&AcousticsToSpeech::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
         }
     }
 }

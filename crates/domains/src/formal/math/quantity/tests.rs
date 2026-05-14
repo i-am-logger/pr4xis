@@ -1,4 +1,4 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::quantity::dimension::Dimension;
@@ -8,7 +8,7 @@ use crate::formal::math::quantity::value::Quantity;
 
 #[test]
 fn dimension_category_laws() {
-    check_category_laws::<QuantityCategory>().unwrap();
+    assert_category_laws::<QuantityCategory>();
 }
 
 #[test]
@@ -18,42 +18,42 @@ fn quantity_ontology_validates() {
 
 #[test]
 fn dimension_commutativity() {
-    assert!(DimensionCommutativity.holds());
+    assert!(DimensionCommutativity.verify().is_ok());
 }
 
 #[test]
 fn dimension_associativity() {
-    assert!(DimensionAssociativity.holds());
+    assert!(DimensionAssociativity.verify().is_ok());
 }
 
 #[test]
 fn dimension_identity() {
-    assert!(DimensionIdentity.holds());
+    assert!(DimensionIdentity.verify().is_ok());
 }
 
 #[test]
 fn dimension_inverse() {
-    assert!(DimensionInverse.holds());
+    assert!(DimensionInverse.verify().is_ok());
 }
 
 #[test]
 fn addition_requires_same_dimension() {
-    assert!(AdditionRequiresSameDimension.holds());
+    assert!(AdditionRequiresSameDimension.verify().is_ok());
 }
 
 #[test]
 fn derived_dimension_consistency() {
-    assert!(DerivedDimensionConsistency.holds());
+    assert!(DerivedDimensionConsistency.verify().is_ok());
 }
 
 #[test]
 fn unit_conversion_roundtrip() {
-    assert!(UnitConversionRoundtrip.holds());
+    assert!(UnitConversionRoundtrip.verify().is_ok());
 }
 
 #[test]
 fn incompatible_unit_conversion_fails() {
-    assert!(IncompatibleUnitConversionFails.holds());
+    assert!(IncompatibleUnitConversionFails.verify().is_ok());
 }
 
 #[test]

@@ -136,14 +136,24 @@ pub struct PiecewiseContinuity {
 }
 
 impl Axiom for PiecewiseContinuity {
-    fn description(&self) -> &str {
-        "piecewise function is continuous at threshold"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if self.function.is_continuous(self.epsilon) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        self.function.is_continuous(self.epsilon)
-    }
+    pr4xis::axiom_meta!(
+        "PiecewiseContinuity",
+        "piecewise function is continuous at threshold",
+        "Piecewise functions: standard real analysis (file source attribution)"
+    );
 }
-pr4xis::register_axiom!(PiecewiseContinuity);
+pr4xis::register_axiom!(
+    PiecewiseContinuity,
+    "Piecewise functions: standard real analysis (file source attribution)"
+);
 
 /// Linear combination weights sum to 1 (convex combination).
 pub struct ConvexWeights {
@@ -151,14 +161,24 @@ pub struct ConvexWeights {
 }
 
 impl Axiom for ConvexWeights {
-    fn description(&self) -> &str {
-        "weights form a convex combination (sum to 1)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if self.combination.is_convex() && self.combination.is_non_negative() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        self.combination.is_convex() && self.combination.is_non_negative()
-    }
+    pr4xis::axiom_meta!(
+        "ConvexWeights",
+        "weights form a convex combination (sum to 1)",
+        "Linear combination: linear algebra fundamentals (file source attribution)"
+    );
 }
-pr4xis::register_axiom!(ConvexWeights);
+pr4xis::register_axiom!(
+    ConvexWeights,
+    "Linear combination: linear algebra fundamentals (file source attribution)"
+);
 
 /// Offset ratio is always >= 1.0 (by definition, lighter/darker).
 pub struct RatioBounded {
@@ -166,21 +186,29 @@ pub struct RatioBounded {
 }
 
 impl Axiom for RatioBounded {
-    fn description(&self) -> &str {
-        "offset ratio is >= 1.0"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         // For any a, b in [0, 1]: ratio(a, b) >= 1.0
         // Test with extremes
         let r = &self.ratio;
-        r.eval(0.0, 0.0) >= 1.0
+        let ok = r.eval(0.0, 0.0) >= 1.0
             && r.eval(1.0, 0.0) >= 1.0
             && r.eval(0.0, 1.0) >= 1.0
             && r.eval(1.0, 1.0) >= 1.0
-            && r.eval(0.5, 0.3) >= 1.0
+            && r.eval(0.5, 0.3) >= 1.0;
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "RatioBounded",
+        "offset ratio is >= 1.0",
+        "WCAG 2.1 \"contrast ratio\" definition"
+    );
 }
-pr4xis::register_axiom!(RatioBounded);
+pr4xis::register_axiom!(RatioBounded, "WCAG 2.1 \"contrast ratio\" definition");
 
 #[cfg(test)]
 mod tests {
@@ -251,19 +279,19 @@ mod tests {
         assert!((r.eval(0.5, 0.5) - 1.0).abs() < 1e-10);
 
         // Always >= 1.0
-        assert!(RatioBounded { ratio: r }.holds());
+        assert!(RatioBounded { ratio: r }.verify().is_ok());
     }
 
     #[test]
     fn test_convex_weights_axiom() {
         let lc = LinearCombination::new(vec![0.2126, 0.7152, 0.0722]);
-        assert!(ConvexWeights { combination: lc }.holds());
+        assert!(ConvexWeights { combination: lc }.verify().is_ok());
     }
 
     #[test]
     fn test_non_convex_rejected() {
         let lc = LinearCombination::new(vec![0.5, 0.5, 0.5]); // sums to 1.5
-        assert!(!ConvexWeights { combination: lc }.holds());
+        assert!(ConvexWeights { combination: lc }.verify().is_err());
     }
 
     // ── Property-based tests ──
@@ -279,7 +307,7 @@ mod tests {
                 above: |c| ((c + 0.055) / 1.055).powf(2.4),
             };
             let y = f.eval(x);
-            prop_assert!(y >= 0.0 && y <= 1.0, "f({}) = {} not in [0,1]", x, y);
+            prop_assert!((0.0..=1.0).contains(&y), "f({}) = {} not in [0,1]", x, y);
         }
 
         #[test]

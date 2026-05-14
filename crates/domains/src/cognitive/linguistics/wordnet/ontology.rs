@@ -24,7 +24,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "WordNet",
     source: "Miller (1995) CACM 38(11); Fellbaum (ed.) WordNet (MIT Press 1998)",
-    being: SocialObject,
 
     concepts: [
         Synset,
@@ -87,58 +86,72 @@ impl Quality for WordNetRole {
 pub struct WordNetTaxonomyHasInverses;
 
 impl Axiom for WordNetTaxonomyHasInverses {
-    fn description(&self) -> &str {
-        "Hypernym and Hyponym are inverse relations on synsets (Miller 1995): A Hypernym B ⇔ B Hyponym A"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let subs: Vec<_> = WordNetCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == WordNetRelationKind::Subsumption)
+            .collect();
+        let has_hypernym = subs.iter().any(|m| {
+            m.source() == WordNetConcept::Hypernym && m.target() == WordNetConcept::Synset
+        });
+        let has_hyponym = subs
+            .iter()
+            .any(|m| m.source() == WordNetConcept::Hyponym && m.target() == WordNetConcept::Synset);
+        if has_hypernym && has_hyponym {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = WordNetTaxonomy::relations();
-        rels.iter()
-            .any(|(c, p)| *c == WordNetConcept::Hypernym && *p == WordNetConcept::Synset)
-            && rels
-                .iter()
-                .any(|(c, p)| *c == WordNetConcept::Hyponym && *p == WordNetConcept::Synset)
-    }
+
+    pr4xis::axiom_meta!(
+        "WordNetTaxonomyHasInverses",
+        "Hypernym and Hyponym are inverse relations on synsets (Miller 1995): A Hypernym B ⇔ B Hyponym A",
+        "Miller (1995) WordNet: A Lexical Database for English, CACM 38(11)"
+    );
 }
 pr4xis::register_axiom!(
     WordNetTaxonomyHasInverses,
-    "- Miller, G. A. (1995). *WordNet: A Lexical Database for English*."
+    "Miller (1995) WordNet: A Lexical Database for English, CACM 38(11)"
 );
 
 impl Ontology for WordNetOntology {
     type Cat = WordNetCategory;
     type Qual = WordNetRole;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        WordNetOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(WordNetTaxonomyHasInverses)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(WordNetTaxonomyHasInverses));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<WordNetCategory>().unwrap();
+        assert_category_laws::<WordNetCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        WordNetOntology::validate().unwrap();
+        WordNetOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
     fn wordnet_taxonomy_has_inverses_holds() {
-        assert!(
-            WordNetTaxonomyHasInverses.holds(),
-            "{}",
-            WordNetTaxonomyHasInverses.description()
-        );
+        match WordNetTaxonomyHasInverses.verify() {
+            Ok(_) => {}
+            Err(c) => panic!(
+                "WordNetTaxonomyHasInverses failed: {}",
+                c.meta().description.as_str()
+            ),
+        }
     }
 }

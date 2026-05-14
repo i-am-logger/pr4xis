@@ -5,7 +5,6 @@ use super::ontology::*;
 use super::reader;
 use pr4xis::category::Category;
 use pr4xis::category::entity::Concept;
-use pr4xis::logic::Axiom;
 
 const SAMPLE_OWL: &str = r#"<?xml version="1.0"?>
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -221,8 +220,8 @@ fn owl_associativity() {
                 let fg = OwlCategory::compose(f, g);
                 let gh = OwlCategory::compose(g, h);
                 if let (Some(fg), Some(gh)) = (&fg, &gh) {
-                    let f_gh = OwlCategory::compose(f, &gh);
-                    let fg_h = OwlCategory::compose(&fg, h);
+                    let f_gh = OwlCategory::compose(f, gh);
+                    let fg_h = OwlCategory::compose(fg, h);
                     assert_eq!(f_gh, fg_h, "associativity: (f∘g)∘h = f∘(g∘h)");
                 }
             }
@@ -284,13 +283,14 @@ fn owl_concept_classification() {
 
 #[test]
 fn owl_restriction_needs_property_axiom() {
-    assert!(RestrictionNeedsProperty.holds());
+    use pr4xis::ontology::Axiom;
+    assert!(RestrictionNeedsProperty.verify().is_ok());
 }
 
 #[test]
 fn category_laws() {
-    use pr4xis::category::validate::check_category_laws;
-    check_category_laws::<OwlCategory>().unwrap();
+    use pr4xis::category::laws::assert_category_laws;
+    assert_category_laws::<OwlCategory>();
 }
 
 mod prop {

@@ -1,25 +1,18 @@
 pub mod analogy;
-pub mod cached;
+pub mod catalog;
 pub mod causation;
 pub mod context;
 pub mod equivalence;
-pub(crate) mod graph;
 pub mod mereology;
+pub mod ontology;
 pub mod opposition;
 pub mod structural;
 pub mod taxonomy;
 
+pub use ontology::{ReasoningCategory, ReasoningConcept, ReasoningOntology, ReasoningTradition};
+
 pub use analogy::Analogy;
-pub use cached::{CachedEquivalence, CachedMereology, CachedOpposition, CachedTaxonomy};
-pub use causation::{CausalCategory, CausalDef, Causes};
-pub use context::ContextDef;
-pub use equivalence::{EquivalenceCategory, EquivalenceDef, Equivalent};
-pub use mereology::{HasA, MereologyCategory, MereologyDef};
-pub use opposition::OppositionDef;
+pub use catalog::structural_axioms_for;
 pub use structural::{
     AntisymmetricOnKind, AsymmetricOnKind, IrreflexiveOnKind, NoCyclesOnKind, SymmetricOnKind,
 };
-pub use taxonomy::{IsA, TaxonomyCategory, TaxonomyDef};
-
-#[cfg(test)]
-mod tests;

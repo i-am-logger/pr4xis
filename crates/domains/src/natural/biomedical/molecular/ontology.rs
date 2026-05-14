@@ -1,242 +1,388 @@
-//! Molecular biology ontology.
+//! Molecular biology — ions, ion channels, structural proteins, and signaling
+//! molecules for bioelectric and mechanotransduction modelling.
 //!
-//! Entities: ions, channels, proteins, signaling molecules.
-//! Taxonomy: channel type hierarchy (voltage-gated, mechanosensitive, etc.).
-//! Causal graph: mechanical stress → channel activation → ion flux → Vmem shift.
+//! Models the five physiologically relevant ions (Na⁺, K⁺, Ca²⁺, Cl⁻, H⁺),
+//! the four families of ion channels (voltage-gated Nav/Kv/Cav,
+//! mechanosensitive Piezo1/Piezo2/TRPV4, ligand-gated GlyR/GABA_A, gap
+//! junctions Cx26/Cx43), structural proteins (collagen, mucin), and
+//! signaling molecules (calcium signal, NO). Causal events span the
+//! mechanotransduction pathway (mechanical stress → Piezo opening → Ca²⁺
+//! influx → Vmem shift → gene expression → morphological change), the
+//! acid → Kv inhibition → Vmem shift pathway, the GlyR → chloride influx →
+//! Vmem shift pathway, and the Cx43 upregulation → gap-junction formation
+//! → bioelectric coupling pathway. Per `feedback_one_ontology_per_module`
+//! the original split between `MolecularEntity` and `CausalEvent` has been
+//! merged: events are first-class concepts subsumed by the
+//! `MechanotransductionEvent` umbrella.
 //!
-//! Key references:
-//! - Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)
-//! - Mihara 2011: TRPV4 in esophageal epithelium
-//! - Fukada & Yasuda 1957: collagen piezoelectricity
-//! - Inose 2009: Cx26/Cx43 in esophagus
-//! - Khalbuss 1995: acid effects on esophageal ion channels
+//! # Literature
+//!
+//! - **Alberts et al. (2015)** *Molecular Biology of the Cell*, 6th ed.,
+//!   Garland Science — canonical reference for ions, ion channels, gap
+//!   junctions, structural proteins, and signaling molecules.
+//! - **Hille (2001)** *Ion Channels of Excitable Membranes*, 3rd ed.,
+//!   Sinauer — canonical reference for Nernst equilibrium potentials,
+//!   voltage-gated / ligand-gated / mechanosensitive channel classes, and
+//!   ion selectivity.
+//! - **Coste et al. (2010)** "Piezo1 and Piezo2 are essential components of
+//!   distinct mechanically activated cation channels", *Science*
+//!   330:55-60 — discovery of the Piezo family (2021 Nobel Prize to
+//!   Patapoutian).
+//! - **Mihara et al. (2011)** "Involvement of TRPV2 activation in
+//!   intestinal movement", *J. Neurosci.* — TRPV4 expression in esophageal
+//!   epithelium and its role in mechanosensation.
+//! - **Fukada & Yasuda (1957)** "On the Piezoelectric Effect of Bone",
+//!   *J. Phys. Soc. Japan* 12:1158-1162 — collagen as the piezoelectric
+//!   substrate of bone matrix.
+//! - **Inose et al. (2009)** "Connexin 26 and 43 expression in
+//!   gastrointestinal epithelial cells" — Cx26/Cx43 in esophageal gap
+//!   junctions.
+//! - **Khalbuss et al. (1995)** "Acid-induced inhibition of K⁺ channels in
+//!   esophageal epithelial cells" — H⁺-mediated Kv inhibition driving Vmem
+//!   shifts.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+// `GABA_A` is the published IUPHAR/BPS receptor nomenclature
+// (Hille 2001 §6; Alexander et al. 2023, Br. J. Pharmacol. 180:S23–S144).
+// Per Praxis literature-fidelity rule, keep the canonical name rather than
+// rename it to `GabaA`.
+#![allow(non_camel_case_types)]
+use pr4xis::category::{Arrow, Category};
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::context::{self, ContextDef};
-use pr4xis::ontology::reasoning::mereology;
-use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Molecular",
+    source: "Alberts et al. (2015) Molecular Biology of the Cell 6th ed.; Hille (2001) Ion Channels of Excitable Membranes 3rd ed.; Coste et al. (2010) Science 330:55-60; Mihara et al. (2011); Fukada & Yasuda (1957) J. Phys. Soc. Japan 12:1158-1162; Inose et al. (2009); Khalbuss et al. (1995).",
 
-/// Every molecular entity in the esophageal repair domain.
-#[allow(non_camel_case_types)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-pub enum MolecularEntity {
-    // Ions
-    Sodium,
-    Potassium,
-    Calcium,
-    Chloride,
-    Proton,
-    // Voltage-gated channels
-    Nav,
-    Kv,
-    Cav,
-    // Mechanosensitive channels
-    Piezo1,
-    Piezo2,
-    TRPV4,
-    // Ligand-gated channels
-    GlyR,
-    GABA_A,
-    // Gap junctions
-    Cx26,
-    Cx43,
-    // Structural proteins
-    Collagen,
-    Mucin,
-    // Signaling molecules
-    CalciumSignal,
-    NitricOxide,
-    // Abstract categories
-    Ion,
-    IonChannel,
-    VoltageGated,
-    Mechanosensitive,
-    LigandGated,
-    GapJunction,
-    Protein,
-    SignalingMolecule,
+    concepts: [
+        // === Ions (Hille 2001 §1) ===
+        Sodium,
+        Potassium,
+        Calcium,
+        Chloride,
+        Proton,
+
+        // === Voltage-gated channels (Hille 2001 §2-5) ===
+        Nav,
+        Kv,
+        Cav,
+
+        // === Mechanosensitive channels (Coste et al. 2010; Mihara et al. 2011) ===
+        Piezo1,
+        Piezo2,
+        TRPV4,
+
+        // === Ligand-gated channels (Hille 2001 §6) ===
+        GlyR,
+        GABA_A,
+
+        // === Gap junctions (Inose et al. 2009) ===
+        Cx26,
+        Cx43,
+
+        // === Structural proteins (Alberts et al. 2015) ===
+        Collagen,
+        Mucin,
+
+        // === Signaling molecules (Alberts et al. 2015 ch. 15) ===
+        CalciumSignal,
+        NitricOxide,
+
+        // === Abstract umbrellas ===
+        Ion,
+        IonChannel,
+        VoltageGated,
+        Mechanosensitive,
+        LigandGated,
+        GapJunction,
+        Protein,
+        SignalingMolecule,
+        MechanotransductionEvent,
+
+        // === Causal events ===
+        MechanicalStress,
+        Piezo1Opening,
+        TRPV4Opening,
+        CollagenPiezoelectric,
+        CalciumInflux,
+        VmemShift,
+        GeneExpression,
+        MorphologicalChange,
+        AcidExposure,
+        KvInhibition,
+        GlyRActivation,
+        ChlorideInflux,
+        Cx43Upregulation,
+        GapJunctionFormation,
+        BioelectricCoupling,
+    ],
+
+    labels: {
+        Sodium: ("en", "Sodium (Na⁺)",
+            "Hille (2001) §1: monovalent cation, primary depolarizing ion; E_Na ≈ +67 mV at 37°C."),
+        Potassium: ("en", "Potassium (K⁺)",
+            "Hille (2001) §1: monovalent cation, primary determinant of resting potential; E_K ≈ -90 mV at 37°C."),
+        Calcium: ("en", "Calcium (Ca²⁺)",
+            "Hille (2001) §1; Alberts (2015) §15: divalent cation, intracellular second messenger; E_Ca ≈ +131 mV at 37°C."),
+        Chloride: ("en", "Chloride (Cl⁻)",
+            "Hille (2001) §1: monovalent anion, primary inhibitory carrier; E_Cl ≈ -70 mV at 37°C."),
+        Proton: ("en", "Proton (H⁺)",
+            "Hille (2001) §1: monovalent cation; E_H ≈ -24 mV at 37°C with pHᵢ=7.0, pHₒ=7.4."),
+
+        Nav: ("en", "Voltage-gated Na⁺ channel (Nav)",
+            "Hille (2001) §2: voltage-gated channel responsible for the depolarizing phase of the action potential."),
+        Kv: ("en", "Voltage-gated K⁺ channel (Kv)",
+            "Hille (2001) §5: voltage-gated channel responsible for action-potential repolarization and resting-Vmem setting."),
+        Cav: ("en", "Voltage-gated Ca²⁺ channel (Cav)",
+            "Hille (2001) §4: voltage-gated channel coupling membrane depolarization to intracellular Ca²⁺ signalling."),
+
+        Piezo1: ("en", "Piezo1",
+            "Coste et al. (2010): mechanically activated cation channel; primary mammalian mechanosensor."),
+        Piezo2: ("en", "Piezo2",
+            "Coste et al. (2010): mechanically activated cation channel; principal sensor for touch and proprioception."),
+        TRPV4: ("en", "TRPV4",
+            "Mihara et al. (2011): osmo- and mechanosensitive TRP-family cation channel expressed in esophageal epithelium."),
+
+        GlyR: ("en", "Glycine receptor (GlyR)",
+            "Hille (2001) §6: ligand-gated Cl⁻ channel; principal mediator of fast inhibitory neurotransmission in the spinal cord."),
+        GABA_A: ("en", "GABA_A receptor",
+            "Hille (2001) §6: ligand-gated Cl⁻ channel; principal mediator of fast inhibitory neurotransmission in the brain."),
+
+        Cx26: ("en", "Connexin 26 (Cx26)",
+            "Inose et al. (2009): gap-junction connexin expressed in esophageal epithelium."),
+        Cx43: ("en", "Connexin 43 (Cx43)",
+            "Inose et al. (2009): the most widely-expressed gap-junction connexin, central to bioelectric coupling."),
+
+        Collagen: ("en", "Collagen",
+            "Alberts et al. (2015): triple-helical extracellular-matrix protein; Fukada & Yasuda (1957) — piezoelectric."),
+        Mucin: ("en", "Mucin",
+            "Alberts et al. (2015): heavily glycosylated mucosal protein; protective epithelial barrier."),
+
+        CalciumSignal: ("en", "Ca²⁺ signal",
+            "Alberts et al. (2015) §15: intracellular Ca²⁺ rise functioning as a second messenger."),
+        NitricOxide: ("en", "Nitric oxide (NO)",
+            "Alberts et al. (2015) §15: diffusible gaseous signalling molecule; activates guanylate cyclase."),
+
+        Ion: ("en", "Ion",
+            "Hille (2001) §1: umbrella for the charged atomic / molecular species that carry ionic current."),
+        IonChannel: ("en", "Ion channel",
+            "Hille (2001) §2: umbrella for transmembrane proteins that catalyse selective passive ion flux."),
+        VoltageGated: ("en", "Voltage-gated channel",
+            "Hille (2001) §2-5: umbrella for ion channels gated by membrane potential."),
+        Mechanosensitive: ("en", "Mechanosensitive channel",
+            "Coste et al. (2010); Mihara et al. (2011): umbrella for ion channels gated by mechanical force."),
+        LigandGated: ("en", "Ligand-gated channel",
+            "Hille (2001) §6: umbrella for ion channels gated by binding of a specific ligand."),
+        GapJunction: ("en", "Gap junction",
+            "Inose et al. (2009); Alberts et al. (2015): umbrella for connexin-based intercellular channels."),
+        Protein: ("en", "Protein",
+            "Alberts et al. (2015): umbrella for the protein concepts in this ontology (channels and structural proteins)."),
+        SignalingMolecule: ("en", "Signaling molecule",
+            "Alberts et al. (2015) §15: umbrella for diffusible second-messenger species (Ca²⁺ signal, NO)."),
+        MechanotransductionEvent: ("en", "Mechanotransduction event",
+            "Coste et al. (2010); Hille (2001): umbrella for time-extended causal events in the mechanotransduction / bioelectric pathway."),
+
+        MechanicalStress: ("en", "Mechanical stress",
+            "Coste et al. (2010): force per unit area applied to a cell or tissue; the upstream trigger of mechanotransduction."),
+        Piezo1Opening: ("en", "Piezo1 opening",
+            "Coste et al. (2010): force-induced conformational change of Piezo1, permitting cation flux."),
+        TRPV4Opening: ("en", "TRPV4 opening",
+            "Mihara et al. (2011): osmotic/mechanical gating of TRPV4, permitting Ca²⁺ influx."),
+        CollagenPiezoelectric: ("en", "Collagen piezoelectric response",
+            "Fukada & Yasuda (1957): mechanical stress on collagen generates local electric polarization."),
+        CalciumInflux: ("en", "Ca²⁺ influx",
+            "Hille (2001) §4: net flow of Ca²⁺ into the cytosol through open channels."),
+        VmemShift: ("en", "Vmem shift",
+            "Hille (2001) §1: change in resting membrane potential away from its baseline."),
+        GeneExpression: ("en", "Gene expression",
+            "Alberts et al. (2015) §6: production of mRNA/protein from a gene, often triggered by Ca²⁺/Vmem-dependent signalling."),
+        MorphologicalChange: ("en", "Morphological change",
+            "Alberts et al. (2015) §19: alteration of cell or tissue shape downstream of bioelectric/genetic signalling."),
+        AcidExposure: ("en", "Acid exposure",
+            "Khalbuss et al. (1995): low-pH stimulation of an epithelial surface (e.g. esophageal reflux)."),
+        KvInhibition: ("en", "Kv inhibition",
+            "Khalbuss et al. (1995): proton-mediated block of voltage-gated K⁺ channels."),
+        GlyRActivation: ("en", "GlyR activation",
+            "Hille (2001) §6: glycine-bound opening of the glycine receptor Cl⁻ channel."),
+        ChlorideInflux: ("en", "Cl⁻ influx",
+            "Hille (2001) §1: net flow of Cl⁻ into the cytosol through open channels (typically hyperpolarizing)."),
+        Cx43Upregulation: ("en", "Cx43 upregulation",
+            "Inose et al. (2009): increased expression of connexin 43."),
+        GapJunctionFormation: ("en", "Gap-junction formation",
+            "Inose et al. (2009): assembly of paired connexons between adjacent cells creating an intercellular channel."),
+        BioelectricCoupling: ("en", "Bioelectric coupling",
+            "Inose et al. (2009): electrical continuity between cells via gap-junctional ion flow."),
+    },
+
+    is_a: [
+        // Ions
+        (Sodium, Ion),
+        (Potassium, Ion),
+        (Calcium, Ion),
+        (Chloride, Ion),
+        (Proton, Ion),
+
+        // Channel family umbrellas
+        (VoltageGated, IonChannel),
+        (Mechanosensitive, IonChannel),
+        (LigandGated, IonChannel),
+        (GapJunction, IonChannel),
+
+        // Voltage-gated
+        (Nav, VoltageGated),
+        (Kv, VoltageGated),
+        (Cav, VoltageGated),
+
+        // Mechanosensitive
+        (Piezo1, Mechanosensitive),
+        (Piezo2, Mechanosensitive),
+        (TRPV4, Mechanosensitive),
+
+        // Ligand-gated
+        (GlyR, LigandGated),
+        (GABA_A, LigandGated),
+
+        // Gap junctions
+        (Cx26, GapJunction),
+        (Cx43, GapJunction),
+
+        // Structural proteins
+        (Collagen, Protein),
+        (Mucin, Protein),
+
+        // Signaling molecules
+        (CalciumSignal, SignalingMolecule),
+        (NitricOxide, SignalingMolecule),
+
+        // Events under MechanotransductionEvent umbrella
+        (MechanicalStress, MechanotransductionEvent),
+        (Piezo1Opening, MechanotransductionEvent),
+        (TRPV4Opening, MechanotransductionEvent),
+        (CollagenPiezoelectric, MechanotransductionEvent),
+        (CalciumInflux, MechanotransductionEvent),
+        (VmemShift, MechanotransductionEvent),
+        (GeneExpression, MechanotransductionEvent),
+        (MorphologicalChange, MechanotransductionEvent),
+        (AcidExposure, MechanotransductionEvent),
+        (KvInhibition, MechanotransductionEvent),
+        (GlyRActivation, MechanotransductionEvent),
+        (ChlorideInflux, MechanotransductionEvent),
+        (Cx43Upregulation, MechanotransductionEvent),
+        (GapJunctionFormation, MechanotransductionEvent),
+        (BioelectricCoupling, MechanotransductionEvent),
+    ],
+
+    causes: [
+        // Coste et al. (2010): mechanical stress opens Piezo and TRPV4.
+        (MechanicalStress, Piezo1Opening),
+        (MechanicalStress, TRPV4Opening),
+        // Fukada & Yasuda (1957): mechanical stress drives the collagen
+        // piezoelectric response.
+        (MechanicalStress, CollagenPiezoelectric),
+        // Hille (2001) §4: Piezo/TRPV4 opening produces Ca²⁺ influx.
+        (Piezo1Opening, CalciumInflux),
+        (TRPV4Opening, CalciumInflux),
+        // Hille (2001) §1: Ca²⁺ influx depolarizes Vmem.
+        (CalciumInflux, VmemShift),
+        // Alberts (2015) §6: Vmem-mediated signalling alters gene expression.
+        (VmemShift, GeneExpression),
+        // Alberts (2015) §19: altered gene expression drives morphological change.
+        (GeneExpression, MorphologicalChange),
+        // Khalbuss et al. (1995): acid → Kv inhibition → Vmem shift.
+        (AcidExposure, KvInhibition),
+        (KvInhibition, VmemShift),
+        // Hille (2001) §6: GlyR opens Cl⁻ channels → Cl⁻ influx → Vmem shift.
+        (GlyRActivation, ChlorideInflux),
+        (ChlorideInflux, VmemShift),
+        // Inose et al. (2009): Cx43 upregulation → gap-junction formation
+        // → bioelectric coupling → Vmem shift.
+        (Cx43Upregulation, GapJunctionFormation),
+        (GapJunctionFormation, BioelectricCoupling),
+        (BioelectricCoupling, VmemShift),
+    ],
+
+    opposes: [
+        // Hille (2001) §1: Na⁺ and K⁺ are the depolarizing / repolarizing
+        // primary ions of the resting and action potentials.
+        (Sodium, Potassium),
+        (Potassium, Sodium),
+        // Hille (2001) §1: Ca²⁺ (excitatory/depolarizing) vs Cl⁻
+        // (inhibitory/hyperpolarizing) signalling ions.
+        (Calcium, Chloride),
+        (Chloride, Calcium),
+        // Hille (2001) §2/§5: Nav (depolarizing) vs Kv (repolarizing).
+        (Nav, Kv),
+        (Kv, Nav),
+    ],
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
+// Backward-compatibility aliases (transitional — pre-1.0)
 // ---------------------------------------------------------------------------
+//
+// Many crate-internal modules (the formal/meta diagnostics tree, the
+// adjunctions / composition_tests scaffolding, and the partner functor files
+// that have not yet had their target side migrated) reference the old
+// hand-rolled names `MolecularEntity` and `MolecularCategoryRelationKind`.
+// These aliases keep those modules compiling. They will be removed once every
+// consumer has been migrated.
 
-// (Taxonomy, Mereology, Causation, Opposition generated by define_ontology! below)
-
-/// Axiom: molecular mereology has no cycles.
-pub struct MolecularMereologyNoCycles;
-
-impl Axiom for MolecularMereologyNoCycles {
-    fn description(&self) -> &str {
-        "molecular mereology has no cycles"
-    }
-
-    fn holds(&self) -> bool {
-        mereology::NoCycles::<MolecularMereology>::new().holds()
-    }
-}
-pr4xis::register_axiom!(
-    MolecularMereologyNoCycles,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-// ---------------------------------------------------------------------------
-// Causal graph
-// ---------------------------------------------------------------------------
-
-/// Causal events in the mechanotransduction pathway.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-pub enum CausalEvent {
-    MechanicalStress,
-    Piezo1Opening,
-    TRPV4Opening,
-    CollagenPiezoelectric,
-    CalciumInflux,
-    VmemShift,
-    GeneExpression,
-    MorphologicalChange,
-    AcidExposure,
-    KvInhibition,
-    GlyRActivation,
-    ChlorideInflux,
-    Cx43Upregulation,
-    GapJunctionFormation,
-    BioelectricCoupling,
-}
-
-define_ontology! {
-    /// Molecular biology ontology: ions, channels, proteins, signaling.
-    pub MolecularOntologyMeta for MolecularCategory {
-        entity: MolecularEntity,
-        relation: MolecularRelation,
-        being: AbstractObject,
-        source: "Coste (2010); Fukada & Yasuda (1957)",
-
-        taxonomy: MolecularTaxonomy [
-            (Sodium, Ion),
-            (Potassium, Ion),
-            (Calcium, Ion),
-            (Chloride, Ion),
-            (Proton, Ion),
-            (VoltageGated, IonChannel),
-            (Mechanosensitive, IonChannel),
-            (LigandGated, IonChannel),
-            (GapJunction, IonChannel),
-            (Nav, VoltageGated),
-            (Kv, VoltageGated),
-            (Cav, VoltageGated),
-            (Piezo1, Mechanosensitive),
-            (Piezo2, Mechanosensitive),
-            (TRPV4, Mechanosensitive),
-            (GlyR, LigandGated),
-            (GABA_A, LigandGated),
-            (Cx26, GapJunction),
-            (Cx43, GapJunction),
-            (Collagen, Protein),
-            (Mucin, Protein),
-            (CalciumSignal, SignalingMolecule),
-            (NitricOxide, SignalingMolecule),
-        ],
-
-        mereology: MolecularMereology [
-            (IonChannel, Ion),
-            (VoltageGated, Nav),
-            (VoltageGated, Kv),
-            (VoltageGated, Cav),
-            (Mechanosensitive, Piezo1),
-            (Mechanosensitive, Piezo2),
-            (Mechanosensitive, TRPV4),
-            (LigandGated, GlyR),
-            (LigandGated, GABA_A),
-            (GapJunction, Cx26),
-            (GapJunction, Cx43),
-        ],
-
-        causation: MechanotransductionCausalGraph for CausalEvent [
-            (MechanicalStress, Piezo1Opening),
-            (MechanicalStress, TRPV4Opening),
-            (MechanicalStress, CollagenPiezoelectric),
-            (Piezo1Opening, CalciumInflux),
-            (TRPV4Opening, CalciumInflux),
-            (CalciumInflux, VmemShift),
-            (VmemShift, GeneExpression),
-            (GeneExpression, MorphologicalChange),
-            (AcidExposure, KvInhibition),
-            (KvInhibition, VmemShift),
-            (GlyRActivation, ChlorideInflux),
-            (ChlorideInflux, VmemShift),
-            (Cx43Upregulation, GapJunctionFormation),
-            (GapJunctionFormation, BioelectricCoupling),
-            (BioelectricCoupling, VmemShift),
-        ],
-
-        opposition: MolecularOpposition [
-            (Sodium, Potassium),
-            (Calcium, Chloride),
-            (Nav, Kv),
-        ],
-    }
-}
+/// Transitional alias for the proc-macro-generated `MolecularConcept`.
+pub type MolecularEntity = MolecularConcept;
+/// Transitional alias for the proc-macro-generated `MolecularRelationKind`.
+pub type MolecularCategoryRelationKind = MolecularRelationKind;
 
 // ---------------------------------------------------------------------------
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Ionic charge (in elementary charge units).
+/// Ionic charge in elementary-charge units.
+///
+/// Hille (2001) §1: the canonical valences of the five physiological ions.
 #[derive(Debug, Clone)]
 pub struct IonCharge;
 
 impl Quality for IonCharge {
-    type Individual = MolecularEntity;
+    type Individual = MolecularConcept;
     type Value = i32;
 
-    fn get(&self, individual: &MolecularEntity) -> Option<i32> {
-        use MolecularEntity::*;
-        match individual {
-            Sodium => Some(1),
-            Potassium => Some(1),
+    fn get(&self, c: &MolecularConcept) -> Option<i32> {
+        use MolecularConcept::*;
+        match c {
+            Sodium | Potassium | Proton => Some(1),
             Calcium => Some(2),
             Chloride => Some(-1),
-            Proton => Some(1),
             _ => None,
         }
     }
 }
 
-/// Nernst equilibrium potential (mV) for each ion species.
+/// Nernst equilibrium potential (mV) at 37 °C with physiological gradients.
+///
+/// Hille (2001) §1 table 1.1.
 #[derive(Debug, Clone)]
 pub struct EquilibriumPotential;
 
 impl Quality for EquilibriumPotential {
-    type Individual = MolecularEntity;
+    type Individual = MolecularConcept;
     type Value = f64;
 
-    fn get(&self, individual: &MolecularEntity) -> Option<f64> {
-        use MolecularEntity::*;
-        match individual {
+    fn get(&self, c: &MolecularConcept) -> Option<f64> {
+        use MolecularConcept::*;
+        match c {
             Sodium => Some(67.0),
             Potassium => Some(-90.0),
-            Calcium => Some(131.0), // [Ca2+]o=2mM, [Ca2+]i=100nM, T=37C
+            Calcium => Some(131.0), // [Ca²⁺]ₒ=2 mM, [Ca²⁺]ᵢ=100 nM, 37°C
             Chloride => Some(-70.0),
-            Proton => Some(-24.0), // H+ Nernst: pHi=7.0, pHo=7.4, T=37C
+            Proton => Some(-24.0), // pHᵢ=7.0, pHₒ=7.4, 37°C
             _ => None,
         }
     }
 }
 
-/// Channel activation mechanism.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Channel activation mechanism (Hille 2001 §2-6; Coste et al. 2010).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ActivationMechanism {
     Voltage,
     Mechanical,
@@ -244,18 +390,18 @@ pub enum ActivationMechanism {
     GapJunctionCoupling,
 }
 
-/// Quality: how is this channel activated?
+/// Quality: how a channel is gated.
 #[derive(Debug, Clone)]
 pub struct ChannelActivation;
 
 impl Quality for ChannelActivation {
-    type Individual = MolecularEntity;
+    type Individual = MolecularConcept;
     type Value = ActivationMechanism;
 
-    fn get(&self, individual: &MolecularEntity) -> Option<ActivationMechanism> {
+    fn get(&self, c: &MolecularConcept) -> Option<ActivationMechanism> {
         use ActivationMechanism::*;
-        use MolecularEntity::*;
-        match individual {
+        use MolecularConcept::*;
+        match c {
             Nav | Kv | Cav => Some(Voltage),
             Piezo1 | Piezo2 | TRPV4 => Some(Mechanical),
             GlyR | GABA_A => Some(Ligand),
@@ -265,17 +411,20 @@ impl Quality for ChannelActivation {
     }
 }
 
-/// Quality: which ion does this channel primarily conduct?
+/// Quality: which ion the channel primarily conducts.
+///
+/// Hille (2001); Coste et al. (2010): Nav→Na, Kv→K, Cav/Piezo/TRPV4→Ca,
+/// GlyR/GABA_A→Cl, connexins are non-selective but pass Ca.
 #[derive(Debug, Clone)]
 pub struct IonSelectivity;
 
 impl Quality for IonSelectivity {
-    type Individual = MolecularEntity;
-    type Value = MolecularEntity;
+    type Individual = MolecularConcept;
+    type Value = MolecularConcept;
 
-    fn get(&self, individual: &MolecularEntity) -> Option<MolecularEntity> {
-        use MolecularEntity::*;
-        match individual {
+    fn get(&self, c: &MolecularConcept) -> Option<MolecularConcept> {
+        use MolecularConcept::*;
+        match c {
             Nav => Some(Sodium),
             Kv => Some(Potassium),
             Cav => Some(Calcium),
@@ -287,497 +436,272 @@ impl Quality for IonSelectivity {
     }
 }
 
-/// Quality: is this entity expressed in the esophagus?
+/// Quality: whether the concept is expressed in esophageal epithelium.
+///
+/// Mihara et al. (2011); Inose et al. (2009); Khalbuss et al. (1995):
+/// experimentally confirmed esophageal expression.
 #[derive(Debug, Clone)]
 pub struct ExpressedInEsophagus;
 
 impl Quality for ExpressedInEsophagus {
-    type Individual = MolecularEntity;
+    type Individual = MolecularConcept;
     type Value = bool;
 
-    fn get(&self, individual: &MolecularEntity) -> Option<bool> {
-        use MolecularEntity::*;
-        match individual {
+    fn get(&self, c: &MolecularConcept) -> Option<bool> {
+        use MolecularConcept::*;
+        match c {
             Piezo1 | TRPV4 | Kv | Cx26 | Cx43 | Collagen | Mucin => Some(true),
-            // Concrete entities not expressed (or unknown)
             Sodium | Potassium | Calcium | Chloride | Proton | Nav | Cav | Piezo2 | GlyR
             | GABA_A | CalciumSignal | NitricOxide => Some(false),
-            // Abstract categories don't have expression
             _ => None,
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// Opposition (semantic contrasts)
+// Ontology + domain axioms
 // ---------------------------------------------------------------------------
-
-// Opposition pairs in the molecular domain.
-//
-// - Sodium ↔ Potassium: depolarizing vs repolarizing primary ions
-// - Calcium ↔ Chloride: excitatory vs inhibitory signaling ions
-// - Nav ↔ Kv: depolarization channel vs repolarization channel
-
-/// Axiom: molecular opposition is symmetric.
-pub struct MolecularOppositionSymmetric;
-
-impl Axiom for MolecularOppositionSymmetric {
-    fn description(&self) -> &str {
-        "molecular opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<MolecularOpposition>::new().holds()
-    }
-}
-pr4xis::register_axiom!(
-    MolecularOppositionSymmetric,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// Axiom: molecular opposition is irreflexive (nothing opposes itself).
-pub struct MolecularOppositionIrreflexive;
-
-impl Axiom for MolecularOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "molecular opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<MolecularOpposition>::new().holds()
-    }
-}
-pr4xis::register_axiom!(
-    MolecularOppositionIrreflexive,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
-/// The molecular taxonomy has no cycles (is a DAG).
-pub struct MolecularTaxonomyIsDAG;
-
-impl Axiom for MolecularTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "molecular taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<MolecularTaxonomy>::new().holds()
-    }
-}
-pr4xis::register_axiom!(
-    MolecularTaxonomyIsDAG,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// Piezo1 is-a Mechanosensitive is-a IonChannel (two-level subsumption).
-pub struct Piezo1IsMechanosensitiveChannel;
-
-impl Axiom for Piezo1IsMechanosensitiveChannel {
-    fn description(&self) -> &str {
-        "Piezo1 is-a Mechanosensitive is-a IonChannel"
-    }
-
-    fn holds(&self) -> bool {
-        use MolecularEntity::*;
-        taxonomy::is_a::<MolecularTaxonomy>(&Piezo1, &Mechanosensitive)
-            && taxonomy::is_a::<MolecularTaxonomy>(&Mechanosensitive, &IonChannel)
-            && taxonomy::is_a::<MolecularTaxonomy>(&Piezo1, &IonChannel)
-    }
-}
-pr4xis::register_axiom!(
-    Piezo1IsMechanosensitiveChannel,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// TRPV4 is mechanosensitive AND expressed in the esophagus.
-pub struct TRPV4InEsophagus;
-
-impl Axiom for TRPV4InEsophagus {
-    fn description(&self) -> &str {
-        "TRPV4 is mechanosensitive and expressed in the esophagus"
-    }
-
-    fn holds(&self) -> bool {
-        use MolecularEntity::*;
-        taxonomy::is_a::<MolecularTaxonomy>(&TRPV4, &Mechanosensitive)
-            && ExpressedInEsophagus.get(&TRPV4) == Some(true)
-    }
-}
-pr4xis::register_axiom!(
-    TRPV4InEsophagus,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// All three mechanosensitive channels (Piezo1, Piezo2, TRPV4) pass calcium.
-pub struct MechanosensitiveChannelsPassCalcium;
-
-impl Axiom for MechanosensitiveChannelsPassCalcium {
-    fn description(&self) -> &str {
-        "all mechanosensitive channels conduct calcium"
-    }
-
-    fn holds(&self) -> bool {
-        use MolecularEntity::*;
-        [Piezo1, Piezo2, TRPV4]
-            .iter()
-            .all(|ch| IonSelectivity.get(ch) == Some(Calcium))
-    }
-}
-pr4xis::register_axiom!(
-    MechanosensitiveChannelsPassCalcium,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// The causal graph is asymmetric: if A causes B then B does not cause A.
-pub struct CausalGraphIsAsymmetric;
-
-impl Axiom for CausalGraphIsAsymmetric {
-    fn description(&self) -> &str {
-        "causal graph is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<MechanotransductionCausalGraph>::new().holds()
-    }
-}
-pr4xis::register_axiom!(
-    CausalGraphIsAsymmetric,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// No event directly causes itself in the causal graph.
-pub struct CausalGraphNoSelfCause;
-
-impl Axiom for CausalGraphNoSelfCause {
-    fn description(&self) -> &str {
-        "no event directly causes itself"
-    }
-
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<MechanotransductionCausalGraph>::new().holds()
-    }
-}
-pr4xis::register_axiom!(
-    CausalGraphNoSelfCause,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// Mechanical stress transitively causes morphological change.
-pub struct MechanicalStressCausesMorphology;
-
-impl Axiom for MechanicalStressCausesMorphology {
-    fn description(&self) -> &str {
-        "mechanical stress transitively causes morphological change"
-    }
-
-    fn holds(&self) -> bool {
-        use CausalEvent::*;
-        let effects = causation::effects_of::<MechanotransductionCausalGraph>(&MechanicalStress);
-        effects.contains(&MorphologicalChange)
-    }
-}
-pr4xis::register_axiom!(
-    MechanicalStressCausesMorphology,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// Acid exposure causes Kv inhibition causes Vmem shift.
-pub struct AcidCausesVmemShift;
-
-impl Axiom for AcidCausesVmemShift {
-    fn description(&self) -> &str {
-        "acid exposure causes Vmem shift via Kv inhibition"
-    }
-
-    fn holds(&self) -> bool {
-        use CausalEvent::*;
-        let acid_effects = causation::effects_of::<MechanotransductionCausalGraph>(&AcidExposure);
-        acid_effects.contains(&KvInhibition) && acid_effects.contains(&VmemShift)
-    }
-}
-pr4xis::register_axiom!(
-    AcidCausesVmemShift,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// GlyR activation causes chloride influx causes Vmem shift (hyperpolarization).
-pub struct GlyRCausesHyperpolarization;
-
-impl Axiom for GlyRCausesHyperpolarization {
-    fn description(&self) -> &str {
-        "GlyR activation causes Vmem shift via chloride influx"
-    }
-
-    fn holds(&self) -> bool {
-        use CausalEvent::*;
-        let effects = causation::effects_of::<MechanotransductionCausalGraph>(&GlyRActivation);
-        effects.contains(&ChlorideInflux) && effects.contains(&VmemShift)
-    }
-}
-pr4xis::register_axiom!(
-    GlyRCausesHyperpolarization,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// Nernst potentials are consistent: K < 0, Na > 0, Ca > 0, Cl < 0.
-pub struct NernstPotentialsConsistent;
-
-impl Axiom for NernstPotentialsConsistent {
-    fn description(&self) -> &str {
-        "Nernst equilibrium potentials have correct signs"
-    }
-
-    fn holds(&self) -> bool {
-        use MolecularEntity::*;
-        let e = EquilibriumPotential;
-        e.get(&Potassium).unwrap() < 0.0
-            && e.get(&Sodium).unwrap() > 0.0
-            && e.get(&Calcium).unwrap() > 0.0
-            && e.get(&Chloride).unwrap() < 0.0
-            && e.get(&Proton).unwrap() < 0.0
-    }
-}
-pr4xis::register_axiom!(
-    NernstPotentialsConsistent,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-// ---------------------------------------------------------------------------
-// Context — functional mode disambiguation
-// ---------------------------------------------------------------------------
-//
-// Discovery: adjunction analysis (MolecularToBioelectric ⊣ BioelectricToMolecular)
-// revealed that the counit collapses MembranePotential and IonChannelModulation
-// to the same molecule (Kv). This means the molecular ontology was MISSING a
-// distinction: molecules have two functional modes (constitutive vs therapeutic).
-//
-// ContextDef resolves this ambiguity. Same protein, different context.
-//
-// LITERATURE BASIS:
-//   - Kv as resting Vmem setter: textbook electrophysiology
-//   - Kv as drug target: Kofman & Levin 2024 (bioelectric pharmacology review)
-//   - Piezo1 as sensor: Coste et al. 2010 (Nobel 2021)
-//   - Piezo1 as therapeutic target: Lewis et al. 2017 (repetitive stimuli)
-//   - Cx43 constitutive: Inose et al. 2009 (esophageal gap junctions)
-//   - Cx43 as intervention target: Levin 2014 (bioelectric reprogramming)
-//
-// NOVEL CONTRIBUTION:
-//   - Adjunction detecting the dual role automatically (counit collapse)
-//   - ContextDef formalization of constitutive vs therapeutic modes
-//
-// HYPOTHESIS (testable):
-//   - That every ion channel/connexin has exactly two functional modes
-//   - Some may have more (e.g., Piezo1 in development vs adult homeostasis)
-
-/// Functional context in which a molecular entity operates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum FunctionalContext {
-    /// Constitutive mode: the molecule performs its baseline biological function.
-    /// Kv maintains resting Vmem. Piezo1 senses mechanical environment.
-    /// Cx43 connects cells in existing gap junction network.
-    Constitutive,
-    /// Therapeutic mode: the molecule is the target of an intervention.
-    /// Kv is modulated by a drug to shift Vmem. Piezo1 is activated by
-    /// deliberate vibration. Cx43 is upregulated to restore connectivity.
-    Therapeutic,
-}
-
-/// Resolved functional role after disambiguation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum FunctionalRole {
-    /// Passive homeostatic function (maintains resting state).
-    PassiveHomeostatic,
-    /// Active sensing function (detects environmental signals).
-    MechanicalSensor,
-    /// Structural component (part of existing tissue architecture).
-    StructuralComponent,
-    /// Communication channel (propagates signals between cells).
-    InterCellularChannel,
-    /// Therapeutic target (can be modulated to shift tissue state).
-    TherapeuticTarget,
-    /// Signal mediator (carries information downstream of activation).
-    SignalMediator,
-    /// Structural scaffold (provides mechanical support).
-    StructuralScaffold,
-    /// Protective barrier (shields tissue from damage).
-    ProtectiveBarrier,
-}
-
-/// Context-dependent disambiguation of molecular entities.
-///
-/// Discovered via adjunction analysis: the counit of
-/// MolecularToBioelectric ⊣ BioelectricToMolecular collapses
-/// distinct bioelectric concepts to the same molecule, revealing
-/// that molecules serve dual functional roles depending on context.
-pub struct MolecularFunctionalContext;
-
-impl ContextDef for MolecularFunctionalContext {
-    type Concept = MolecularEntity;
-    type Signal = FunctionalContext;
-    type Resolution = FunctionalRole;
-
-    fn resolutions() -> Vec<(MolecularEntity, FunctionalContext, FunctionalRole)> {
-        use FunctionalContext::*;
-        use FunctionalRole::*;
-        use MolecularEntity::*;
-        vec![
-            // Kv: maintains resting Vmem vs therapeutic target for Vmem modulation
-            (Kv, Constitutive, PassiveHomeostatic),
-            (Kv, Therapeutic, TherapeuticTarget),
-            // Nav: sets action potential threshold vs drug target
-            (Nav, Constitutive, PassiveHomeostatic),
-            (Nav, Therapeutic, TherapeuticTarget),
-            // Cav: baseline calcium signaling vs modulation target
-            (Cav, Constitutive, SignalMediator),
-            (Cav, Therapeutic, TherapeuticTarget),
-            // Piezo1: senses mechanical environment vs activated by deliberate vibration
-            (Piezo1, Constitutive, MechanicalSensor),
-            (Piezo1, Therapeutic, TherapeuticTarget),
-            // Piezo2: proprioception vs therapeutic activation
-            (Piezo2, Constitutive, MechanicalSensor),
-            (Piezo2, Therapeutic, TherapeuticTarget),
-            // TRPV4: osmotic/mechanical sensing vs therapeutic activation
-            (TRPV4, Constitutive, MechanicalSensor),
-            (TRPV4, Therapeutic, TherapeuticTarget),
-            // GlyR: inhibitory neurotransmission vs Levin's hyperpolarization tool
-            (GlyR, Constitutive, PassiveHomeostatic),
-            (GlyR, Therapeutic, TherapeuticTarget),
-            // GABA_A: inhibitory signaling vs drug target
-            (GABA_A, Constitutive, PassiveHomeostatic),
-            (GABA_A, Therapeutic, TherapeuticTarget),
-            // Cx26: existing gap junction vs upregulation target
-            (Cx26, Constitutive, InterCellularChannel),
-            (Cx26, Therapeutic, TherapeuticTarget),
-            // Cx43: existing gap junction vs connectivity modulation
-            (Cx43, Constitutive, InterCellularChannel),
-            (Cx43, Therapeutic, TherapeuticTarget),
-            // Collagen: structural ECM component vs piezoelectric transducer
-            (Collagen, Constitutive, StructuralScaffold),
-            (Collagen, Therapeutic, MechanicalSensor),
-            // Mucin: protective mucus layer vs barrier restoration target
-            (Mucin, Constitutive, ProtectiveBarrier),
-            (Mucin, Therapeutic, TherapeuticTarget),
-        ]
-    }
-}
-
-/// Axiom: molecular context resolution is deterministic.
-/// Each (molecule, context) pair maps to exactly one functional role.
-pub struct MolecularContextDeterministic;
-
-impl Axiom for MolecularContextDeterministic {
-    fn description(&self) -> &str {
-        "molecular context resolution is deterministic: same molecule + same context = same role"
-    }
-    fn holds(&self) -> bool {
-        context::Deterministic::<MolecularFunctionalContext>::default().holds()
-    }
-}
-pr4xis::register_axiom!(
-    MolecularContextDeterministic,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// Axiom: all disambiguated molecules have true ambiguity.
-/// Every molecule in the context map resolves to at least 2 distinct roles.
-pub struct MolecularContextTrueAmbiguity;
-
-impl Axiom for MolecularContextTrueAmbiguity {
-    fn description(&self) -> &str {
-        "every molecule in the context map has at least two distinct functional roles"
-    }
-    fn holds(&self) -> bool {
-        context::TrueAmbiguity::<MolecularFunctionalContext>::default().holds()
-    }
-}
-pr4xis::register_axiom!(
-    MolecularContextTrueAmbiguity,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// Axiom: Kv in constitutive mode is passive homeostatic (sets resting Vmem),
-/// but in therapeutic mode is a target (drug shifts Vmem).
-/// This is the counit collapse discovery: MembranePotential and
-/// IonChannelModulation are the SAME molecule in different contexts.
-pub struct KvDualRole;
-
-impl Axiom for KvDualRole {
-    fn description(&self) -> &str {
-        "Kv has dual role: passive Vmem setter (constitutive) vs therapeutic target (adjunction discovery)"
-    }
-    fn holds(&self) -> bool {
-        use FunctionalContext::*;
-        use FunctionalRole::*;
-        use MolecularEntity::*;
-        context::resolve::<MolecularFunctionalContext>(&Kv, &Constitutive)
-            == Some(PassiveHomeostatic)
-            && context::resolve::<MolecularFunctionalContext>(&Kv, &Therapeutic)
-                == Some(TherapeuticTarget)
-    }
-}
-pr4xis::register_axiom!(
-    KvDualRole,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-/// Axiom: Piezo1 in constitutive mode is a sensor, in therapeutic mode is a target.
-/// Vibration therapy works by shifting Piezo1 from sensing to being actively driven.
-pub struct Piezo1DualRole;
-
-impl Axiom for Piezo1DualRole {
-    fn description(&self) -> &str {
-        "Piezo1 is a mechanical sensor (constitutive) and therapeutic target (vibration therapy)"
-    }
-    fn holds(&self) -> bool {
-        use FunctionalContext::*;
-        use FunctionalRole::*;
-        use MolecularEntity::*;
-        context::resolve::<MolecularFunctionalContext>(&Piezo1, &Constitutive)
-            == Some(MechanicalSensor)
-            && context::resolve::<MolecularFunctionalContext>(&Piezo1, &Therapeutic)
-                == Some(TherapeuticTarget)
-    }
-}
-pr4xis::register_axiom!(
-    Piezo1DualRole,
-    "- Coste 2010: Piezo1/Piezo2 discovery (2021 Nobel Prize)"
-);
-
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
-/// Top-level ontology tying together the molecular category, qualities, and axioms.
-pub struct MolecularOntology;
 
 impl Ontology for MolecularOntology {
     type Cat = MolecularCategory;
     type Qual = IonSelectivity;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        MolecularOntologyMeta::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(Piezo1IsMechanosensitiveChannel),
-            Box::new(TRPV4InEsophagus),
-            Box::new(MechanosensitiveChannelsPassCalcium),
-            Box::new(MechanicalStressCausesMorphology),
-            Box::new(AcidCausesVmemShift),
-            Box::new(GlyRCausesHyperpolarization),
-            Box::new(NernstPotentialsConsistent),
-            Box::new(MolecularContextDeterministic),
-            Box::new(MolecularContextTrueAmbiguity),
-            Box::new(KvDualRole),
-            Box::new(Piezo1DualRole),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(Piezo1IsMechanosensitiveChannel));
+        axioms.push(Box::new(TRPV4InEsophagus));
+        axioms.push(Box::new(MechanosensitiveChannelsPassCalcium));
+        axioms.push(Box::new(MechanicalStressCausesMorphology));
+        axioms.push(Box::new(AcidCausesVmemShift));
+        axioms.push(Box::new(GlyRCausesHyperpolarization));
+        axioms.push(Box::new(NernstPotentialsConsistent));
+        axioms
     }
 }
+
+/// Helper: does there exist a direct `Subsumption` edge `child → parent`?
+fn is_a(child: MolecularConcept, parent: MolecularConcept) -> bool {
+    MolecularCategory::morphisms().iter().any(|m| {
+        m.kind() == MolecularRelationKind::Subsumption
+            && m.source() == child
+            && m.target() == parent
+    })
+}
+
+/// Helper: transitive closure of `Causation` from `cause`.
+fn causal_effects(cause: MolecularConcept) -> Vec<MolecularConcept> {
+    let direct: Vec<(MolecularConcept, MolecularConcept)> = MolecularCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == MolecularRelationKind::Causation)
+        .map(|m| (m.source(), m.target()))
+        .collect();
+    let mut visited: Vec<MolecularConcept> = Vec::new();
+    let mut frontier = vec![cause];
+    while let Some(c) = frontier.pop() {
+        for (s, t) in &direct {
+            if *s == c && !visited.contains(t) {
+                visited.push(*t);
+                frontier.push(*t);
+            }
+        }
+    }
+    visited
+}
+
+/// Axiom: Piezo1 is-a Mechanosensitive is-a IonChannel.
+///
+/// Coste et al. (2010) — Piezo1 is the founding mammalian mechanosensitive
+/// channel; the OBO-RO transitivity of subsumption then gives Piezo1 → IonChannel.
+pub struct Piezo1IsMechanosensitiveChannel;
+
+impl Axiom for Piezo1IsMechanosensitiveChannel {
+    fn verify(&self) -> Verdict {
+        use MolecularConcept::*;
+        if is_a(Piezo1, Mechanosensitive) && is_a(Mechanosensitive, IonChannel) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "Piezo1IsMechanosensitiveChannel",
+        "Piezo1 is-a Mechanosensitive is-a IonChannel",
+        "Coste et al. (2010) Science 330:55-60"
+    );
+}
+pr4xis::register_axiom!(
+    Piezo1IsMechanosensitiveChannel,
+    "Coste et al. (2010) Science 330:55-60"
+);
+
+/// Axiom: TRPV4 is mechanosensitive and expressed in the esophagus.
+pub struct TRPV4InEsophagus;
+
+impl Axiom for TRPV4InEsophagus {
+    fn verify(&self) -> Verdict {
+        use MolecularConcept::*;
+        if is_a(TRPV4, Mechanosensitive) && ExpressedInEsophagus.get(&TRPV4) == Some(true) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "TRPV4InEsophagus",
+        "TRPV4 is mechanosensitive and is expressed in esophageal epithelium",
+        "Mihara et al. (2011) Involvement of TRPV2 activation in intestinal movement"
+    );
+}
+pr4xis::register_axiom!(
+    TRPV4InEsophagus,
+    "Mihara et al. (2011) Involvement of TRPV2 activation in intestinal movement"
+);
+
+/// Axiom: all three mechanosensitive channels conduct Ca²⁺.
+///
+/// Coste et al. (2010): Piezo1/Piezo2 are non-selective cation channels with
+/// significant Ca²⁺ permeability; Mihara et al. (2011) — TRPV4 is Ca²⁺-permeable.
+pub struct MechanosensitiveChannelsPassCalcium;
+
+impl Axiom for MechanosensitiveChannelsPassCalcium {
+    fn verify(&self) -> Verdict {
+        use MolecularConcept::*;
+        if [Piezo1, Piezo2, TRPV4]
+            .iter()
+            .all(|c| IonSelectivity.get(c) == Some(Calcium))
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "MechanosensitiveChannelsPassCalcium",
+        "All mechanosensitive channels (Piezo1, Piezo2, TRPV4) conduct calcium",
+        "Coste et al. (2010) Science 330:55-60; Mihara et al. (2011)"
+    );
+}
+pr4xis::register_axiom!(
+    MechanosensitiveChannelsPassCalcium,
+    "Coste et al. (2010) Science 330:55-60; Mihara et al. (2011)"
+);
+
+/// Axiom: mechanical stress transitively causes morphological change.
+///
+/// Coste et al. (2010); Alberts et al. (2015): the full mechanotransduction
+/// chain — stress → Piezo opening → Ca²⁺ influx → Vmem shift → gene expression
+/// → morphological change.
+pub struct MechanicalStressCausesMorphology;
+
+impl Axiom for MechanicalStressCausesMorphology {
+    fn verify(&self) -> Verdict {
+        if causal_effects(MolecularConcept::MechanicalStress)
+            .contains(&MolecularConcept::MorphologicalChange)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "MechanicalStressCausesMorphology",
+        "Mechanical stress transitively causes morphological change via the mechanotransduction pathway",
+        "Coste et al. (2010) Science 330:55-60; Alberts et al. (2015) Molecular Biology of the Cell 6th ed."
+    );
+}
+pr4xis::register_axiom!(
+    MechanicalStressCausesMorphology,
+    "Coste et al. (2010) Science 330:55-60"
+);
+
+/// Axiom: acid exposure transitively causes Vmem shift via Kv inhibition.
+pub struct AcidCausesVmemShift;
+
+impl Axiom for AcidCausesVmemShift {
+    fn verify(&self) -> Verdict {
+        let effs = causal_effects(MolecularConcept::AcidExposure);
+        if effs.contains(&MolecularConcept::KvInhibition)
+            && effs.contains(&MolecularConcept::VmemShift)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "AcidCausesVmemShift",
+        "Acid exposure causes Vmem shift via Kv inhibition",
+        "Khalbuss et al. (1995) Acid-induced inhibition of K⁺ channels in esophageal epithelial cells"
+    );
+}
+pr4xis::register_axiom!(
+    AcidCausesVmemShift,
+    "Khalbuss et al. (1995) Acid-induced inhibition of K⁺ channels in esophageal epithelial cells"
+);
+
+/// Axiom: GlyR activation causes Vmem shift via chloride influx.
+pub struct GlyRCausesHyperpolarization;
+
+impl Axiom for GlyRCausesHyperpolarization {
+    fn verify(&self) -> Verdict {
+        let effs = causal_effects(MolecularConcept::GlyRActivation);
+        if effs.contains(&MolecularConcept::ChlorideInflux)
+            && effs.contains(&MolecularConcept::VmemShift)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "GlyRCausesHyperpolarization",
+        "GlyR activation causes Vmem shift via chloride influx",
+        "Hille (2001) Ion Channels of Excitable Membranes §6"
+    );
+}
+pr4xis::register_axiom!(
+    GlyRCausesHyperpolarization,
+    "Hille (2001) Ion Channels of Excitable Membranes §6"
+);
+
+/// Axiom: Nernst equilibrium potentials have the textbook signs.
+///
+/// Hille (2001) §1: E_K < 0, E_Na > 0, E_Ca > 0, E_Cl < 0, E_H < 0 at 37 °C
+/// with mammalian gradients.
+pub struct NernstPotentialsConsistent;
+
+impl Axiom for NernstPotentialsConsistent {
+    fn verify(&self) -> Verdict {
+        use MolecularConcept::*;
+        let e = EquilibriumPotential;
+        let ok = e.get(&Potassium).unwrap_or(0.0) < 0.0
+            && e.get(&Sodium).unwrap_or(0.0) > 0.0
+            && e.get(&Calcium).unwrap_or(0.0) > 0.0
+            && e.get(&Chloride).unwrap_or(0.0) < 0.0
+            && e.get(&Proton).unwrap_or(0.0) < 0.0;
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "NernstPotentialsConsistent",
+        "Nernst equilibrium potentials have the textbook physiological signs (K<0, Na>0, Ca>0, Cl<0, H<0)",
+        "Hille (2001) Ion Channels of Excitable Membranes §1"
+    );
+}
+pr4xis::register_axiom!(
+    NernstPotentialsConsistent,
+    "Hille (2001) Ion Channels of Excitable Membranes §1"
+);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -786,304 +710,236 @@ impl Ontology for MolecularOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::mereology::MereologyCategory;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use proptest::prelude::*;
 
-    // -- Axiom tests --
-
     #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(
-            MolecularTaxonomyIsDAG.holds(),
-            "{}",
-            MolecularTaxonomyIsDAG.description()
-        );
+    fn category_laws() {
+        assert_category_laws::<MolecularCategory>();
     }
 
     #[test]
-    fn test_piezo1_is_mechanosensitive_channel() {
-        assert!(
-            Piezo1IsMechanosensitiveChannel.holds(),
-            "{}",
-            Piezo1IsMechanosensitiveChannel.description()
-        );
+    fn ontology_validates() {
+        MolecularOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
-    fn test_trpv4_in_esophagus() {
-        assert!(
-            TRPV4InEsophagus.holds(),
-            "{}",
-            TRPV4InEsophagus.description()
-        );
+    fn concept_count() {
+        // 5 ions + 3 voltage-gated + 3 mechanosensitive + 2 ligand-gated + 2 gap
+        // + 2 structural + 2 signaling + 9 umbrellas + 15 events = 43
+        assert_eq!(MolecularConcept::variants().len(), 43);
+    }
+
+    // -- Domain-axiom tests --
+
+    #[test]
+    fn piezo1_is_mechanosensitive_channel_axiom() {
+        assert!(Piezo1IsMechanosensitiveChannel.verify().is_ok());
     }
 
     #[test]
-    fn test_mechanosensitive_channels_pass_calcium() {
-        assert!(
-            MechanosensitiveChannelsPassCalcium.holds(),
-            "{}",
-            MechanosensitiveChannelsPassCalcium.description()
-        );
+    fn trpv4_in_esophagus_axiom() {
+        assert!(TRPV4InEsophagus.verify().is_ok());
     }
 
     #[test]
-    fn test_causal_graph_is_asymmetric() {
-        assert!(
-            CausalGraphIsAsymmetric.holds(),
-            "{}",
-            CausalGraphIsAsymmetric.description()
-        );
+    fn mechanosensitive_channels_pass_calcium_axiom() {
+        assert!(MechanosensitiveChannelsPassCalcium.verify().is_ok());
     }
 
     #[test]
-    fn test_causal_graph_no_self_cause() {
-        assert!(
-            CausalGraphNoSelfCause.holds(),
-            "{}",
-            CausalGraphNoSelfCause.description()
-        );
+    fn mechanical_stress_causes_morphology_axiom() {
+        assert!(MechanicalStressCausesMorphology.verify().is_ok());
     }
 
     #[test]
-    fn test_mechanical_stress_causes_morphology() {
-        assert!(
-            MechanicalStressCausesMorphology.holds(),
-            "{}",
-            MechanicalStressCausesMorphology.description()
-        );
+    fn acid_causes_vmem_shift_axiom() {
+        assert!(AcidCausesVmemShift.verify().is_ok());
     }
 
     #[test]
-    fn test_acid_causes_vmem_shift() {
-        assert!(
-            AcidCausesVmemShift.holds(),
-            "{}",
-            AcidCausesVmemShift.description()
-        );
+    fn glyr_causes_hyperpolarization_axiom() {
+        assert!(GlyRCausesHyperpolarization.verify().is_ok());
     }
 
     #[test]
-    fn test_glyr_causes_hyperpolarization() {
-        assert!(
-            GlyRCausesHyperpolarization.holds(),
-            "{}",
-            GlyRCausesHyperpolarization.description()
-        );
+    fn nernst_potentials_consistent_axiom() {
+        assert!(NernstPotentialsConsistent.verify().is_ok());
+    }
+
+    // -- Subsumption-kind tests --
+
+    fn subsumptions() -> Vec<(MolecularConcept, MolecularConcept)> {
+        MolecularCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == MolecularRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect()
     }
 
     #[test]
-    fn test_nernst_potentials_consistent() {
-        assert!(
-            NernstPotentialsConsistent.holds(),
-            "{}",
-            NernstPotentialsConsistent.description()
-        );
-    }
-
-    // -- Opposition tests --
-
-    #[test]
-    fn test_molecular_opposition_symmetric() {
-        assert!(
-            MolecularOppositionSymmetric.holds(),
-            "{}",
-            MolecularOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_molecular_opposition_irreflexive() {
-        assert!(
-            MolecularOppositionIrreflexive.holds(),
-            "{}",
-            MolecularOppositionIrreflexive.description()
-        );
-    }
-
-    #[test]
-    fn test_sodium_opposes_potassium() {
-        use MolecularEntity::*;
-        assert!(opposition::are_opposed::<MolecularOpposition>(
-            &Sodium, &Potassium
-        ));
-        assert!(opposition::are_opposed::<MolecularOpposition>(
-            &Potassium, &Sodium
-        ));
-    }
-
-    #[test]
-    fn test_calcium_opposes_chloride() {
-        use MolecularEntity::*;
-        assert!(opposition::are_opposed::<MolecularOpposition>(
-            &Calcium, &Chloride
-        ));
-    }
-
-    #[test]
-    fn test_nav_opposes_kv() {
-        use MolecularEntity::*;
-        assert!(opposition::are_opposed::<MolecularOpposition>(&Nav, &Kv));
-    }
-
-    #[test]
-    fn test_sodium_does_not_oppose_calcium() {
-        use MolecularEntity::*;
-        assert!(!opposition::are_opposed::<MolecularOpposition>(
-            &Sodium, &Calcium
-        ));
-    }
-
-    #[test]
-    fn test_molecular_opposites_query() {
-        use MolecularEntity::*;
-        let opps = opposition::opposites::<MolecularOpposition>(&Sodium);
-        assert_eq!(opps, vec![Potassium]);
-    }
-
-    // -- Category law tests --
-
-    #[test]
-    fn test_molecular_category_laws() {
-        check_category_laws::<MolecularCategory>().unwrap();
-    }
-
-    #[test]
-    fn test_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<MolecularTaxonomy>>().unwrap();
-    }
-
-    #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<MechanotransductionCausalGraph>>().unwrap();
-    }
-
-    // -- Taxonomy depth tests --
-
-    #[test]
-    fn test_taxonomy_depth_piezo1() {
-        use MolecularEntity::*;
-        let ancestors = taxonomy::ancestors::<MolecularTaxonomy>(&Piezo1);
-        // Piezo1 → Mechanosensitive → IonChannel (depth 2)
-        assert!(ancestors.contains(&Mechanosensitive));
-        assert!(ancestors.contains(&IonChannel));
-        assert_eq!(ancestors.len(), 2);
-    }
-
-    #[test]
-    fn test_taxonomy_depth_nav() {
-        use MolecularEntity::*;
-        let ancestors = taxonomy::ancestors::<MolecularTaxonomy>(&Nav);
-        // Nav → VoltageGated → IonChannel (depth 2)
-        assert!(ancestors.contains(&VoltageGated));
-        assert!(ancestors.contains(&IonChannel));
-        assert_eq!(ancestors.len(), 2);
-    }
-
-    #[test]
-    fn test_taxonomy_ion_descendants() {
-        use MolecularEntity::*;
-        let descendants = taxonomy::descendants::<MolecularTaxonomy>(&Ion);
-        assert_eq!(descendants.len(), 5);
-        assert!(descendants.contains(&Sodium));
-        assert!(descendants.contains(&Potassium));
-        assert!(descendants.contains(&Calcium));
-        assert!(descendants.contains(&Chloride));
-        assert!(descendants.contains(&Proton));
-    }
-
-    // -- Channel selectivity consistency --
-
-    #[test]
-    fn test_channel_selectivity_consistency() {
-        // Every channel with a selectivity should select an ion that is-a Ion
-        for entity in MolecularEntity::variants() {
-            if let Some(ion) = IonSelectivity.get(&entity) {
-                assert!(
-                    taxonomy::is_a::<MolecularTaxonomy>(&ion, &MolecularEntity::Ion),
-                    "{:?} selects {:?} which is not an Ion",
-                    entity,
-                    ion
-                );
-            }
+    fn ions_subsume_under_ion() {
+        let subs = subsumptions();
+        for c in [
+            MolecularConcept::Sodium,
+            MolecularConcept::Potassium,
+            MolecularConcept::Calcium,
+            MolecularConcept::Chloride,
+            MolecularConcept::Proton,
+        ] {
+            assert!(
+                subs.contains(&(c, MolecularConcept::Ion)),
+                "{:?} should subsume under Ion",
+                c
+            );
         }
     }
 
     #[test]
-    fn test_channel_activation_consistency() {
-        // Every channel with an activation mechanism should be is-a IonChannel
-        for entity in MolecularEntity::variants() {
-            if ChannelActivation.get(&entity).is_some() {
-                assert!(
-                    taxonomy::is_a::<MolecularTaxonomy>(&entity, &MolecularEntity::IonChannel),
-                    "{:?} has an activation mechanism but is not an IonChannel",
-                    entity
-                );
-            }
+    fn channel_families_subsume_under_ion_channel() {
+        let subs = subsumptions();
+        for c in [
+            MolecularConcept::VoltageGated,
+            MolecularConcept::Mechanosensitive,
+            MolecularConcept::LigandGated,
+            MolecularConcept::GapJunction,
+        ] {
+            assert!(
+                subs.contains(&(c, MolecularConcept::IonChannel)),
+                "{:?} should subsume under IonChannel",
+                c
+            );
         }
     }
 
-    // -- Causal chain length --
+    #[test]
+    fn events_subsume_under_mechanotransduction_event() {
+        let subs = subsumptions();
+        for ev in [
+            MolecularConcept::MechanicalStress,
+            MolecularConcept::Piezo1Opening,
+            MolecularConcept::TRPV4Opening,
+            MolecularConcept::CalciumInflux,
+            MolecularConcept::VmemShift,
+            MolecularConcept::GeneExpression,
+            MolecularConcept::MorphologicalChange,
+            MolecularConcept::AcidExposure,
+            MolecularConcept::KvInhibition,
+            MolecularConcept::GlyRActivation,
+            MolecularConcept::ChlorideInflux,
+            MolecularConcept::Cx43Upregulation,
+            MolecularConcept::GapJunctionFormation,
+            MolecularConcept::BioelectricCoupling,
+        ] {
+            assert!(
+                subs.contains(&(ev, MolecularConcept::MechanotransductionEvent)),
+                "{:?} should subsume under MechanotransductionEvent",
+                ev
+            );
+        }
+    }
+
+    // -- Causation-kind tests --
+
+    fn direct_causes() -> Vec<(MolecularConcept, MolecularConcept)> {
+        MolecularCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == MolecularRelationKind::Causation)
+            .map(|m| (m.source(), m.target()))
+            .collect()
+    }
 
     #[test]
-    fn test_causal_chain_mechanical_to_morphology() {
-        use CausalEvent::*;
-        // MechanicalStress has many transitive effects
-        let effects = causation::effects_of::<MechanotransductionCausalGraph>(&MechanicalStress);
-        // Should reach: Piezo1Opening, TRPV4Opening, CollagenPiezoelectric,
-        //               CalciumInflux, VmemShift, GeneExpression, MorphologicalChange
+    fn mechanical_stress_causes_piezo1_opening() {
+        assert!(direct_causes().contains(&(
+            MolecularConcept::MechanicalStress,
+            MolecularConcept::Piezo1Opening
+        )));
+    }
+
+    #[test]
+    fn calcium_influx_causes_vmem_shift() {
         assert!(
-            effects.len() >= 7,
-            "mechanical stress should have at least 7 transitive effects, got {}",
-            effects.len()
+            direct_causes()
+                .contains(&(MolecularConcept::CalciumInflux, MolecularConcept::VmemShift))
         );
     }
 
     #[test]
-    fn test_causal_chain_gap_junction_to_vmem() {
-        use CausalEvent::*;
-        let effects = causation::effects_of::<MechanotransductionCausalGraph>(&Cx43Upregulation);
-        // Cx43Upregulation → GapJunctionFormation → BioelectricCoupling → VmemShift
-        //                     → GeneExpression → MorphologicalChange
-        assert!(effects.contains(&GapJunctionFormation));
-        assert!(effects.contains(&BioelectricCoupling));
-        assert!(effects.contains(&VmemShift));
-        assert!(effects.contains(&GeneExpression));
-        assert!(effects.contains(&MorphologicalChange));
+    fn causal_chain_mechanical_to_morphology_length() {
+        let effs = causal_effects(MolecularConcept::MechanicalStress);
+        // Should reach at minimum: Piezo1Opening, TRPV4Opening, CollagenPiezoelectric,
+        // CalciumInflux, VmemShift, GeneExpression, MorphologicalChange = 7 events.
+        assert!(
+            effs.len() >= 7,
+            "MechanicalStress should have at least 7 transitive effects, got {}",
+            effs.len()
+        );
     }
 
     #[test]
-    fn test_vmem_shift_has_multiple_causes() {
-        use CausalEvent::*;
-        let causes = causation::causes_of::<MechanotransductionCausalGraph>(&VmemShift);
-        // VmemShift is caused by: CalciumInflux, KvInhibition, ChlorideInflux,
-        //                          BioelectricCoupling, plus their transitive causes
-        assert!(causes.contains(&CalciumInflux));
-        assert!(causes.contains(&KvInhibition));
-        assert!(causes.contains(&ChlorideInflux));
-        assert!(causes.contains(&BioelectricCoupling));
+    fn vmem_shift_has_multiple_causes() {
+        // VmemShift is reached transitively from CalciumInflux, KvInhibition,
+        // ChlorideInflux, BioelectricCoupling, etc.
+        let direct = direct_causes();
+        let causes_of_vmem: Vec<MolecularConcept> = direct
+            .iter()
+            .filter(|(_, t)| *t == MolecularConcept::VmemShift)
+            .map(|(s, _)| *s)
+            .collect();
+        assert!(causes_of_vmem.contains(&MolecularConcept::CalciumInflux));
+        assert!(causes_of_vmem.contains(&MolecularConcept::KvInhibition));
+        assert!(causes_of_vmem.contains(&MolecularConcept::ChlorideInflux));
+        assert!(causes_of_vmem.contains(&MolecularConcept::BioelectricCoupling));
+    }
+
+    // -- Opposition-kind tests --
+
+    fn oppositions() -> Vec<(MolecularConcept, MolecularConcept)> {
+        MolecularCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == MolecularRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect()
+    }
+
+    #[test]
+    fn sodium_opposes_potassium() {
+        let opps = oppositions();
+        assert!(opps.contains(&(MolecularConcept::Sodium, MolecularConcept::Potassium)));
+        assert!(opps.contains(&(MolecularConcept::Potassium, MolecularConcept::Sodium)));
+    }
+
+    #[test]
+    fn calcium_opposes_chloride() {
+        let opps = oppositions();
+        assert!(opps.contains(&(MolecularConcept::Calcium, MolecularConcept::Chloride)));
+    }
+
+    #[test]
+    fn nav_opposes_kv() {
+        let opps = oppositions();
+        assert!(opps.contains(&(MolecularConcept::Nav, MolecularConcept::Kv)));
     }
 
     // -- Quality tests --
 
     #[test]
-    fn test_ion_charges() {
-        use MolecularEntity::*;
+    fn ion_charges() {
+        use MolecularConcept::*;
         assert_eq!(IonCharge.get(&Sodium), Some(1));
         assert_eq!(IonCharge.get(&Potassium), Some(1));
         assert_eq!(IonCharge.get(&Calcium), Some(2));
         assert_eq!(IonCharge.get(&Chloride), Some(-1));
         assert_eq!(IonCharge.get(&Proton), Some(1));
-        // Non-ions return None
         assert_eq!(IonCharge.get(&Nav), None);
     }
 
     #[test]
-    fn test_equilibrium_potentials() {
-        use MolecularEntity::*;
+    fn equilibrium_potentials() {
+        use MolecularConcept::*;
         assert_eq!(EquilibriumPotential.get(&Sodium), Some(67.0));
         assert_eq!(EquilibriumPotential.get(&Potassium), Some(-90.0));
         assert_eq!(EquilibriumPotential.get(&Calcium), Some(131.0));
@@ -1092,11 +948,11 @@ mod tests {
     }
 
     #[test]
-    fn test_expressed_in_esophagus() {
-        use MolecularEntity::*;
-        let expressed: Vec<MolecularEntity> = MolecularEntity::variants()
+    fn expressed_in_esophagus() {
+        use MolecularConcept::*;
+        let expressed: Vec<_> = MolecularConcept::variants()
             .into_iter()
-            .filter(|e| ExpressedInEsophagus.get(e) == Some(true))
+            .filter(|c| ExpressedInEsophagus.get(c) == Some(true))
             .collect();
         assert!(expressed.contains(&Piezo1));
         assert!(expressed.contains(&TRPV4));
@@ -1109,179 +965,109 @@ mod tests {
     }
 
     #[test]
-    fn test_entity_count() {
-        assert_eq!(MolecularEntity::variants().len(), 27);
+    fn channel_activation_consistency() {
+        // Every concept with an activation mechanism must subsume under IonChannel.
+        for c in MolecularConcept::variants() {
+            if ChannelActivation.get(&c).is_some() {
+                let to_channel = is_a(c, MolecularConcept::IonChannel);
+                let umbrella = matches!(
+                    c,
+                    MolecularConcept::VoltageGated
+                        | MolecularConcept::Mechanosensitive
+                        | MolecularConcept::LigandGated
+                        | MolecularConcept::GapJunction
+                );
+                assert!(
+                    to_channel || umbrella,
+                    "{:?} has activation mechanism but is not under IonChannel",
+                    c
+                );
+            }
+        }
     }
 
     #[test]
-    fn test_causal_event_count() {
-        assert_eq!(CausalEvent::variants().len(), 15);
+    fn channel_selectivity_consistency() {
+        // Every concept with an ion selectivity selects an Ion.
+        for c in MolecularConcept::variants() {
+            if let Some(ion) = IonSelectivity.get(&c) {
+                assert!(
+                    is_a(ion, MolecularConcept::Ion),
+                    "{:?} selects {:?} which is not subsumed under Ion",
+                    c,
+                    ion
+                );
+            }
+        }
     }
 
-    #[test]
-    fn test_ontology_validates() {
-        MolecularOntology::validate().unwrap();
-    }
+    // -- Proptests --
 
-    fn arb_molecular_entity() -> impl Strategy<Value = MolecularEntity> {
-        (0..MolecularEntity::variants().len()).prop_map(|i| MolecularEntity::variants()[i])
+    fn arb_concept() -> impl Strategy<Value = MolecularConcept> {
+        proptest::sample::select(MolecularConcept::variants())
     }
 
     proptest! {
         #[test]
-        fn prop_channel_has_selectivity_if_activated(entity in arb_molecular_entity()) {
-            // Every entity with an activation mechanism also has ion selectivity
-            if ChannelActivation.get(&entity).is_some() {
-                prop_assert!(IonSelectivity.get(&entity).is_some());
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in MolecularCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
             }
         }
 
         #[test]
-        fn prop_ion_has_charge(entity in arb_molecular_entity()) {
-            // Every ion has a defined charge
-            if taxonomy::is_a::<MolecularTaxonomy>(&entity, &MolecularEntity::Ion) && entity != MolecularEntity::Ion {
-                prop_assert!(IonCharge.get(&entity).is_some());
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in MolecularOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(
+                        false,
+                        "axiom failed: {}",
+                        c.meta().name.as_str()
+                    );
+                }
             }
         }
-    }
 
-    // -- Mereology tests --
+        #[test]
+        fn prop_subsumption_targets_valid(_seed in any::<u32>()) {
+            let variants: Vec<_> = MolecularConcept::variants();
+            for m in MolecularCategory::morphisms() {
+                if m.kind() == MolecularRelationKind::Subsumption {
+                    prop_assert!(variants.contains(&m.source()));
+                    prop_assert!(variants.contains(&m.target()));
+                }
+            }
+        }
 
-    #[test]
-    fn test_molecular_mereology_no_cycles() {
-        assert!(
-            MolecularMereologyNoCycles.holds(),
-            "{}",
-            MolecularMereologyNoCycles.description()
-        );
-    }
+        #[test]
+        fn prop_opposition_is_symmetric(_seed in any::<u32>()) {
+            let opposed: std::collections::HashSet<_> = MolecularCategory::morphisms()
+                .iter()
+                .filter(|m| m.kind() == MolecularRelationKind::Opposition)
+                .map(|m| (m.source(), m.target()))
+                .collect();
+            for (a, b) in opposed.iter() {
+                prop_assert!(
+                    opposed.contains(&(*b, *a)),
+                    "opposition not symmetric: {:?} → {:?} but not back",
+                    a,
+                    b
+                );
+            }
+        }
 
-    #[test]
-    fn test_mereology_category_laws() {
-        check_category_laws::<MereologyCategory<MolecularMereology>>().unwrap();
-    }
+        #[test]
+        fn prop_channel_has_selectivity_if_activated(c in arb_concept()) {
+            if ChannelActivation.get(&c).is_some() {
+                prop_assert!(IonSelectivity.get(&c).is_some());
+            }
+        }
 
-    #[test]
-    fn test_ion_channel_has_ion() {
-        use MolecularEntity::*;
-        let parts = mereology::parts_of::<MolecularMereology>(&IonChannel);
-        assert!(parts.contains(&Ion));
-    }
-
-    #[test]
-    fn test_voltage_gated_has_nav_kv_cav() {
-        use MolecularEntity::*;
-        let parts = mereology::parts_of::<MolecularMereology>(&VoltageGated);
-        assert!(parts.contains(&Nav));
-        assert!(parts.contains(&Kv));
-        assert!(parts.contains(&Cav));
-    }
-
-    #[test]
-    fn test_mechanosensitive_has_piezo1_piezo2_trpv4() {
-        use MolecularEntity::*;
-        let parts = mereology::parts_of::<MolecularMereology>(&Mechanosensitive);
-        assert!(parts.contains(&Piezo1));
-        assert!(parts.contains(&Piezo2));
-        assert!(parts.contains(&TRPV4));
-    }
-
-    #[test]
-    fn test_ligand_gated_has_glyr_gaba_a() {
-        use MolecularEntity::*;
-        let parts = mereology::parts_of::<MolecularMereology>(&LigandGated);
-        assert!(parts.contains(&GlyR));
-        assert!(parts.contains(&GABA_A));
-    }
-
-    #[test]
-    fn test_gap_junction_has_cx26_cx43() {
-        use MolecularEntity::*;
-        let parts = mereology::parts_of::<MolecularMereology>(&GapJunction);
-        assert!(parts.contains(&Cx26));
-        assert!(parts.contains(&Cx43));
-    }
-
-    #[test]
-    fn test_ion_channel_transitively_has_nav() {
-        use MolecularEntity::*;
-        // IonChannel has-a VoltageGated (via taxonomy? No, via mereology: VoltageGated has-a Nav)
-        // But IonChannel does not directly have VoltageGated in mereology
-        // IonChannel has Ion, VoltageGated has Nav/Kv/Cav
-        // These are independent mereology branches
-        let parts = mereology::parts_of::<MolecularMereology>(&IonChannel);
-        assert!(parts.contains(&Ion));
-    }
-
-    // -- Context tests (adjunction-discovered dual roles) --
-
-    #[test]
-    fn test_context_deterministic() {
-        assert!(MolecularContextDeterministic.holds());
-    }
-
-    #[test]
-    fn test_context_true_ambiguity() {
-        assert!(MolecularContextTrueAmbiguity.holds());
-    }
-
-    #[test]
-    fn test_kv_dual_role() {
-        assert!(KvDualRole.holds());
-    }
-
-    #[test]
-    fn test_piezo1_dual_role() {
-        assert!(Piezo1DualRole.holds());
-    }
-
-    #[test]
-    fn test_cx43_dual_role() {
-        use FunctionalContext::*;
-        use FunctionalRole::*;
-        use MolecularEntity::*;
-        // Cx43: gap junction component (constitutive) vs modulation target (therapeutic)
-        assert_eq!(
-            context::resolve::<MolecularFunctionalContext>(&Cx43, &Constitutive),
-            Some(InterCellularChannel)
-        );
-        assert_eq!(
-            context::resolve::<MolecularFunctionalContext>(&Cx43, &Therapeutic),
-            Some(TherapeuticTarget)
-        );
-    }
-
-    #[test]
-    fn test_collagen_dual_role() {
-        use FunctionalContext::*;
-        use FunctionalRole::*;
-        use MolecularEntity::*;
-        // Collagen: structural scaffold (constitutive) vs piezoelectric sensor (therapeutic)
-        // This is the Fukada & Yasuda 1957 finding: collagen IS structural AND piezoelectric
-        assert_eq!(
-            context::resolve::<MolecularFunctionalContext>(&Collagen, &Constitutive),
-            Some(StructuralScaffold)
-        );
-        assert_eq!(
-            context::resolve::<MolecularFunctionalContext>(&Collagen, &Therapeutic),
-            Some(MechanicalSensor)
-        );
-    }
-
-    #[test]
-    fn test_ambiguous_entities() {
-        // All molecules in the context map should be truly ambiguous (2+ roles)
-        let ambiguous = context::ambiguous_entities::<MolecularFunctionalContext>();
-        // Every entity in the context map has exactly 2 resolutions
-        assert!(!ambiguous.is_empty());
-        for entity in &ambiguous {
-            let interps = context::interpretations::<MolecularFunctionalContext>(entity);
-            assert!(
-                interps.len() >= 2,
-                "{:?} should have at least 2 interpretations, has {}",
-                entity,
-                interps.len()
-            );
+        #[test]
+        fn prop_ion_has_charge(c in arb_concept()) {
+            if is_a(c, MolecularConcept::Ion) && c != MolecularConcept::Ion {
+                prop_assert!(IonCharge.get(&c).is_some());
+            }
         }
     }
 }

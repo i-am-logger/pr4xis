@@ -1,11 +1,10 @@
 use super::ontology::*;
-use pr4xis::category::Category;
-use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::category::{Arrow, Category, Concept};
 
 #[test]
 fn category_laws() {
-    check_category_laws::<CommunicationCategory>().unwrap();
+    assert_category_laws::<CommunicationCategory>();
 }
 
 #[test]
@@ -15,40 +14,33 @@ fn eight_concepts() {
 
 #[test]
 fn sender_produces_message() {
-    let morphisms = CommunicationCategory::morphisms();
-    assert!(
-        morphisms
-            .iter()
-            .any(|m| m.from == CommunicationConcept::Sender
-                && m.to == CommunicationConcept::Message
-                && m.kind == CommunicationRelationKind::Produces)
-    );
+    let m = CommunicationCategory::morphisms();
+    assert!(m.iter().any(|r| r.source() == CommunicationConcept::Sender
+        && r.target() == CommunicationConcept::Message
+        && r.kind() == CommunicationRelationKind::Produces));
 }
 
 #[test]
 fn noise_corrupts_channel() {
-    let morphisms = CommunicationCategory::morphisms();
-    assert!(
-        morphisms
-            .iter()
-            .any(|m| m.from == CommunicationConcept::Noise
-                && m.to == CommunicationConcept::Channel
-                && m.kind == CommunicationRelationKind::Corrupts)
-    );
+    let m = CommunicationCategory::morphisms();
+    assert!(m.iter().any(|r| r.source() == CommunicationConcept::Noise
+        && r.target() == CommunicationConcept::Channel
+        && r.kind() == CommunicationRelationKind::Corrupts));
 }
 
 #[test]
 fn feedback_is_cybernetic() {
-    let morphisms = CommunicationCategory::morphisms();
-    // Receiver → Feedback → Sender (the cybernetic loop)
-    assert!(morphisms.iter().any(
-        |m| m.from == CommunicationConcept::Receiver && m.to == CommunicationConcept::Feedback
-    ));
+    let m = CommunicationCategory::morphisms();
+    // Wiener (1948): Receiver → Feedback → Sender (the cybernetic loop).
     assert!(
-        morphisms
-            .iter()
-            .any(|m| m.from == CommunicationConcept::Feedback
-                && m.to == CommunicationConcept::Sender)
+        m.iter()
+            .any(|r| r.source() == CommunicationConcept::Receiver
+                && r.target() == CommunicationConcept::Feedback)
+    );
+    assert!(
+        m.iter()
+            .any(|r| r.source() == CommunicationConcept::Feedback
+                && r.target() == CommunicationConcept::Sender)
     );
 }
 
@@ -59,7 +51,6 @@ fn jakobson_six_functions() {
 
 #[test]
 fn phatic_focuses_on_channel() {
-    // "Hello" is phatic — focuses on maintaining the channel
     assert_eq!(
         JakobsonFunction::Phatic.focused_component(),
         CommunicationConcept::Channel
@@ -68,7 +59,6 @@ fn phatic_focuses_on_channel() {
 
 #[test]
 fn metalingual_focuses_on_code() {
-    // "What does X mean?" is metalingual — about the code itself
     assert_eq!(
         JakobsonFunction::Metalingual.focused_component(),
         CommunicationConcept::Code
@@ -80,27 +70,11 @@ mod prop {
     use proptest::prelude::*;
 
     fn arb_communication() -> impl Strategy<Value = CommunicationConcept> {
-        prop_oneof![
-            Just(CommunicationConcept::Sender),
-            Just(CommunicationConcept::Receiver),
-            Just(CommunicationConcept::Message),
-            Just(CommunicationConcept::Channel),
-            Just(CommunicationConcept::Code),
-            Just(CommunicationConcept::Noise),
-            Just(CommunicationConcept::Feedback),
-            Just(CommunicationConcept::Context),
-        ]
+        proptest::sample::select(CommunicationConcept::variants())
     }
 
     fn arb_jakobson() -> impl Strategy<Value = JakobsonFunction> {
-        prop_oneof![
-            Just(JakobsonFunction::Referential),
-            Just(JakobsonFunction::Emotive),
-            Just(JakobsonFunction::Conative),
-            Just(JakobsonFunction::Phatic),
-            Just(JakobsonFunction::Metalingual),
-            Just(JakobsonFunction::Poetic),
-        ]
+        proptest::sample::select(JakobsonFunction::variants())
     }
 
     proptest! {
@@ -110,24 +84,22 @@ mod prop {
             prop_assert_eq!(CommunicationCategory::compose(&id, &id), Some(id));
         }
 
-        /// Every concept has both Identity and Composed self-morphisms.
+        /// Every concept has an Identity self-morphism. The legacy
+        /// `Composed` self-morphism check was removed when the proc macro
+        /// dropped its dense `Composed` kind (#166).
         #[test]
-        fn prop_self_morphisms(c in arb_communication()) {
+        fn prop_self_identity(c in arb_communication()) {
             let m = CommunicationCategory::morphisms();
-            let has_identity = m.iter().any(|r| r.from == c && r.to == c && r.kind == CommunicationRelationKind::Identity);
-            let has_composed = m.iter().any(|r| r.from == c && r.to == c && r.kind == CommunicationRelationKind::Composed);
-            prop_assert!(has_identity);
-            prop_assert!(has_composed);
+            prop_assert!(m.iter().any(|r| r.source() == c
+                && r.target() == c
+                && r.kind() == CommunicationRelationKind::Identity));
         }
 
-        /// Jakobson: every function focuses on exactly one communication component.
         #[test]
         fn prop_jakobson_focuses_valid(f in arb_jakobson()) {
-            let component = f.focused_component();
-            prop_assert!(CommunicationConcept::variants().contains(&component));
+            prop_assert!(CommunicationConcept::variants().contains(&f.focused_component()));
         }
 
-        /// Jakobson bijection: no two functions focus on the same component.
         #[test]
         fn prop_jakobson_injective(f1 in arb_jakobson(), f2 in arb_jakobson()) {
             if f1 != f2 {
@@ -135,22 +107,25 @@ mod prop {
             }
         }
 
-        /// Shannon's chain: Sender → Message → Channel exists.
         #[test]
         fn prop_shannon_chain(_dummy in 0..1i32) {
             let m = CommunicationCategory::morphisms();
-            prop_assert!(m.iter().any(|r| r.from == CommunicationConcept::Sender && r.to == CommunicationConcept::Message));
-            prop_assert!(m.iter().any(|r| r.from == CommunicationConcept::Message && r.to == CommunicationConcept::Channel));
+            prop_assert!(m.iter().any(|r| r.source() == CommunicationConcept::Sender
+                && r.target() == CommunicationConcept::Message));
+            prop_assert!(m.iter().any(|r| r.source() == CommunicationConcept::Message
+                && r.target() == CommunicationConcept::Channel));
         }
 
-        /// Composition with identity preserves any morphism.
         #[test]
         fn prop_left_identity(c in arb_communication()) {
             let m = CommunicationCategory::morphisms();
             let id = CommunicationCategory::identity(&c);
-            for morph in m.iter().filter(|r| r.from == c) {
+            for morph in m.iter().filter(|r| r.source() == c) {
                 let composed = CommunicationCategory::compose(&id, morph);
-                prop_assert_eq!(composed.as_ref().map(|r| (r.from, r.to)), Some((morph.from, morph.to)));
+                prop_assert_eq!(
+                    composed.as_ref().map(|r| (r.source(), r.target())),
+                    Some((morph.source(), morph.target()))
+                );
             }
         }
     }

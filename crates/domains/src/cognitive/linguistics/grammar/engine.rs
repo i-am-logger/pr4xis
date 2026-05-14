@@ -1,10 +1,20 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use super::super::lexicon::pos::*;
 use super::phrase::{PhraseType, SyntaxNode};
+
+fn grammar_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Chomsky (1957) Syntactic Structures; Chomsky (1965) Aspects of the Theory of Syntax — phrase-structure grammar",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
 
 /// The state of an in-progress parse — a stack of open phrases.
 #[derive(Debug, Clone, PartialEq)]
@@ -20,27 +30,7 @@ pub struct OpenPhrase {
     pub children: Vec<SyntaxNode>,
 }
 
-impl Situation for ParseState {
-    fn describe(&self) -> String {
-        if let Some(tree) = &self.completed {
-            format!("COMPLETE: \"{}\"", tree.text())
-        } else if let Some(top) = self.stack.last() {
-            let words: usize = self.stack.iter().map(|p| p.children.len()).sum();
-            format!(
-                "building {:?} | depth {} | {} nodes",
-                top.phrase,
-                self.stack.len(),
-                words
-            )
-        } else {
-            "empty".into()
-        }
-    }
-
-    fn is_terminal(&self) -> bool {
-        self.completed.is_some()
-    }
-}
+impl Situation for ParseState {}
 
 /// Actions for building a parse tree.
 #[derive(Debug, Clone, PartialEq)]
@@ -55,16 +45,6 @@ pub enum ParseAction {
 
 impl Action for ParseAction {
     type Sit = ParseState;
-
-    fn describe(&self) -> String {
-        match self {
-            Self::OpenPhrase { phrase } => format!("open {:?}", phrase),
-            Self::AddWord { entry } => {
-                format!("add \"{}\" ({:?})", entry.text(), entry.pos_tag())
-            }
-            Self::ClosePhrase => "close phrase".into(),
-        }
-    }
 }
 
 // ---- Preconditions ----
@@ -117,60 +97,29 @@ impl PhraseStructureRule {
 }
 
 impl Precondition<ParseAction> for PhraseStructureRule {
-    fn check(&self, state: &ParseState, action: &ParseAction) -> PreconditionResult {
-        match action {
-            ParseAction::AddWord { entry } => {
-                if let Some(top) = state.stack.last() {
-                    if Self::is_valid_child(top.phrase, entry.pos_tag()) {
-                        PreconditionResult::satisfied(
-                            "phrase_structure",
-                            &format!("{:?} is valid in {:?}", entry.pos_tag(), top.phrase),
-                        )
-                    } else {
-                        PreconditionResult::violated(
-                            "phrase_structure",
-                            &format!("{:?} is not valid in {:?}", entry.pos_tag(), top.phrase),
-                            &state.describe(),
-                            &action.describe(),
-                        )
-                    }
-                } else {
-                    PreconditionResult::violated(
-                        "phrase_structure",
-                        "no open phrase to add word to",
-                        &state.describe(),
-                        &action.describe(),
-                    )
-                }
-            }
-            ParseAction::OpenPhrase { phrase } => {
-                if let Some(top) = state.stack.last() {
-                    if Self::is_valid_subphrase(top.phrase, *phrase) {
-                        PreconditionResult::satisfied(
-                            "phrase_structure",
-                            &format!("{:?} is valid in {:?}", phrase, top.phrase),
-                        )
-                    } else {
-                        PreconditionResult::violated(
-                            "phrase_structure",
-                            &format!("{:?} is not valid in {:?}", phrase, top.phrase),
-                            &state.describe(),
-                            &action.describe(),
-                        )
-                    }
-                } else {
-                    // Opening the root phrase (Sentence) — always valid
-                    PreconditionResult::satisfied("phrase_structure", "opening root phrase")
-                }
-            }
-            ParseAction::ClosePhrase => {
-                PreconditionResult::satisfied("phrase_structure", "close is structural")
-            }
+    fn check(&self, state: &ParseState, action: &ParseAction) -> Verdict {
+        let meta = grammar_meta(
+            "PhraseStructureRule",
+            "children must be valid within their parent phrase",
+        );
+        let ok = match action {
+            ParseAction::AddWord { entry } => state
+                .stack
+                .last()
+                .map(|top| Self::is_valid_child(top.phrase, entry.pos_tag()))
+                .unwrap_or(false),
+            ParseAction::OpenPhrase { phrase } => state
+                .stack
+                .last()
+                .map(|top| Self::is_valid_subphrase(top.phrase, *phrase))
+                .unwrap_or(true),
+            ParseAction::ClosePhrase => true,
+        };
+        if ok {
+            Ok(Box::new(SimpleProof::new(meta)))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-
-    fn describe(&self) -> &str {
-        "children must be valid within their parent phrase"
     }
 }
 
@@ -178,20 +127,15 @@ impl Precondition<ParseAction> for PhraseStructureRule {
 pub struct StackNotEmpty;
 
 impl Precondition<ParseAction> for StackNotEmpty {
-    fn check(&self, state: &ParseState, action: &ParseAction) -> PreconditionResult {
+    fn check(&self, state: &ParseState, action: &ParseAction) -> Verdict {
+        let meta = grammar_meta(
+            "StackNotEmpty",
+            "cannot close a phrase when the stack is empty",
+        );
         if matches!(action, ParseAction::ClosePhrase) && state.stack.is_empty() {
-            return PreconditionResult::violated(
-                "stack_not_empty",
-                "cannot close phrase: stack is empty",
-                &state.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("stack_not_empty", "stack has open phrases")
-    }
-
-    fn describe(&self) -> &str {
-        "cannot close a phrase when the stack is empty"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
@@ -199,21 +143,13 @@ impl Precondition<ParseAction> for StackNotEmpty {
 pub struct NotComplete;
 
 impl Precondition<ParseAction> for NotComplete {
-    fn check(&self, state: &ParseState, action: &ParseAction) -> PreconditionResult {
+    fn check(&self, state: &ParseState, _action: &ParseAction) -> Verdict {
+        let meta = grammar_meta("NotComplete", "cannot modify a completed parse");
         if state.completed.is_some() {
-            PreconditionResult::violated(
-                "not_complete",
-                "parse is already complete",
-                &state.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         } else {
-            PreconditionResult::satisfied("not_complete", "parse in progress")
+            Ok(Box::new(SimpleProof::new(meta)))
         }
-    }
-
-    fn describe(&self) -> &str {
-        "cannot modify a completed parse"
     }
 }
 
@@ -221,24 +157,24 @@ impl Precondition<ParseAction> for NotComplete {
 pub struct SubjectVerbAgreement;
 
 impl Precondition<ParseAction> for SubjectVerbAgreement {
-    fn check(&self, state: &ParseState, action: &ParseAction) -> PreconditionResult {
-        // Only check when closing a Sentence
+    fn check(&self, state: &ParseState, action: &ParseAction) -> Verdict {
+        let meta = grammar_meta(
+            "SubjectVerbAgreement",
+            "subject and verb must agree in number",
+        );
         if matches!(action, ParseAction::ClosePhrase)
             && let Some(top) = state.stack.last()
             && top.phrase == PhraseType::Sentence
+            && !self.check_agreement(top)
         {
-            return self.check_agreement(top);
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("subject_verb_agreement", "not closing a sentence")
-    }
-
-    fn describe(&self) -> &str {
-        "subject and verb must agree in number"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
 impl SubjectVerbAgreement {
-    fn check_agreement(&self, sentence: &OpenPhrase) -> PreconditionResult {
+    fn check_agreement(&self, sentence: &OpenPhrase) -> bool {
         let mut subject_number = None;
         let mut verb_number = None;
 
@@ -265,26 +201,18 @@ impl SubjectVerbAgreement {
         }
 
         match (subject_number, verb_number) {
-            (Some(s), Some(v)) if s != v => PreconditionResult::violated(
-                "subject_verb_agreement",
-                &format!("subject is {:?} but verb is {:?}", s, v),
-                &format!("sentence with {} children", sentence.children.len()),
-                "close sentence",
-            ),
-            (Some(s), Some(v)) if s == v => {
-                PreconditionResult::satisfied("subject_verb_agreement", &format!("both {:?}", s))
-            }
-            _ => PreconditionResult::satisfied(
-                "subject_verb_agreement",
-                "agreement not applicable (missing subject or verb)",
-            ),
+            (Some(s), Some(v)) => s == v,
+            _ => true,
         }
     }
 }
 
 // ---- Apply function ----
 
-fn apply_parse(state: &ParseState, action: &ParseAction) -> Result<ParseState, String> {
+fn apply_parse(
+    state: &ParseState,
+    action: &ParseAction,
+) -> Result<ParseState, Box<dyn Counterexample>> {
     let mut next = state.clone();
     match action {
         ParseAction::OpenPhrase { phrase } => {

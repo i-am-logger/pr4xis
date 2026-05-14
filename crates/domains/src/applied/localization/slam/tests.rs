@@ -1,30 +1,29 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::localization::slam::engine::*;
 use crate::applied::localization::slam::ontology::*;
 
 #[test]
 fn slam_category_laws() {
-    check_category_laws::<SlamCategory>().unwrap();
+    assert_category_laws::<SlamCategory>();
 }
 
 #[test]
 fn slam_ontology_validates() {
-    SlamOntology::validate().unwrap();
+    SlamOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn constraint_reduces_uncertainty_holds() {
-    assert!(ConstraintReducesUncertainty.holds());
+    assert!(ConstraintReducesUncertainty.verify().is_ok());
 }
 
 #[test]
 fn loop_closure_connects_poses_holds() {
-    assert!(LoopClosureConnectsPoses.holds());
+    assert!(LoopClosureConnectsPoses.verify().is_ok());
 }
 
 #[test]

@@ -12,14 +12,13 @@
 //!
 //! Functor laws verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularConcept, MolecularRelation, MolecularRelationKind,
 };
 use crate::natural::biomedical::pharmacology::ontology::{
-    PharmacologyCategory, PharmacologyCategoryRelationKind, PharmacologyEntity,
-    PharmacologyRelation,
+    PharmacologyCategory, PharmacologyConcept, PharmacologyRelation, PharmacologyRelationKind,
 };
 
 /// Structure-preserving map from molecular entities to their pharmacological targeting.
@@ -29,9 +28,9 @@ impl Functor for MolecularToPharmacology {
     type Source = MolecularCategory;
     type Target = PharmacologyCategory;
 
-    fn map_object(obj: &MolecularEntity) -> PharmacologyEntity {
-        use MolecularEntity::*;
-        use PharmacologyEntity as P;
+    fn map_object(obj: &MolecularConcept) -> PharmacologyConcept {
+        use MolecularConcept::*;
+        use PharmacologyConcept as P;
         match obj {
             // Ions -> drugs that target ion channels for that ion
             Sodium => P::Decamethonium, // depolarizing Na+ channel agent
@@ -75,18 +74,26 @@ impl Functor for MolecularToPharmacology {
             GapJunction => P::GapJunctionModulator, // gap junctions → modulators
             Protein => P::Morphoceutical,          // proteins → morphoceuticals
             SignalingMolecule => P::Morphoceutical, // signaling → morphoceuticals
+
+            // Mechanotransduction events (umbrella + Piezo1Opening etc.) —
+            // the pharmacological view of these events is via the agents
+            // that modulate them; default to IonChannelModulator.
+            _ => P::IonChannelModulator,
         }
     }
 
     fn map_morphism(m: &MolecularRelation) -> PharmacologyRelation {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
+        // Identity preserved; all other kinds collapse onto Subsumption in the
+        // pharmacology target (the dense, always-present typed kind in this
+        // ontology). Identity-vs-non-Identity is what the functor laws check.
         match m.kind {
-            MolecularCategoryRelationKind::Identity => PharmacologyCategory::identity(&from),
+            MolecularRelationKind::Identity => PharmacologyCategory::identity(&from),
             _ => PharmacologyRelation {
                 from,
                 to,
-                kind: PharmacologyCategoryRelationKind::Composed,
+                kind: PharmacologyRelationKind::Subsumption,
             },
         }
     }
@@ -96,13 +103,15 @@ pr4xis::register_functor!(MolecularToPharmacology);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use crate::natural::biomedical::molecular::ontology::MolecularEntity;
+    use crate::natural::biomedical::pharmacology::ontology::PharmacologyEntity;
+    use pr4xis::category::laws::assert_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<MolecularToPharmacology>().unwrap();
+        assert_functor_laws::<MolecularToPharmacology>();
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::applied::tracking::multi_target::engine::ManagedTrack;
@@ -7,27 +7,28 @@ use crate::applied::tracking::multi_target::track_management::MofNLogic;
 
 #[test]
 fn track_lifecycle_category_laws() {
-    check_category_laws::<TrackLifecycleCategory>().unwrap();
+    assert_category_laws::<MultiTargetCategory>();
 }
 
 #[test]
 fn multi_target_ontology_validates() {
-    MultiTargetOntology::validate().unwrap();
+    MultiTargetOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn deleted_is_absorbing() {
-    assert!(DeletedIsAbsorbing.holds());
+    assert!(DeletedIsAbsorbing.verify().is_ok());
 }
 
 #[test]
 fn track_starts_tentative() {
-    assert!(TrackStartsTentative.holds());
+    assert!(TrackStartsTentative.verify().is_ok());
 }
 
 #[test]
 fn re_detection_possible() {
-    assert!(ReDetectionPossible.holds());
+    assert!(ReDetectionPossible.verify().is_ok());
 }
 
 #[test]
@@ -59,20 +60,20 @@ fn m_of_n_deletes_insufficient() {
 fn managed_track_lifecycle() {
     // 2-of-3 confirmation, 3 max coast
     let mut track = ManagedTrack::new_tentative(1, 2, 3, 3);
-    assert_eq!(track.state, TrackState::Tentative);
+    assert_eq!(track.state, MultiTargetConcept::Tentative);
 
     track.on_detection();
     track.on_detection();
     // 3 hits (initial + 2), should confirm after window fills
-    assert_eq!(track.state, TrackState::Confirmed);
+    assert_eq!(track.state, MultiTargetConcept::Confirmed);
 
     // Miss → coasting
     track.on_miss();
-    assert_eq!(track.state, TrackState::Coasting);
+    assert_eq!(track.state, MultiTargetConcept::Coasting);
 
     // Re-detection → confirmed
     track.on_detection();
-    assert_eq!(track.state, TrackState::Confirmed);
+    assert_eq!(track.state, MultiTargetConcept::Confirmed);
 
     // 3 consecutive misses → deleted
     track.on_miss();
@@ -80,20 +81,20 @@ fn managed_track_lifecycle() {
     track.on_miss();
     // First miss → coasting, then 2 more → may delete
     // Actually: miss→coast, miss→coast(2), miss→delete
-    assert_eq!(track.state, TrackState::Deleted);
+    assert_eq!(track.state, MultiTargetConcept::Deleted);
 }
 
 #[test]
 fn deleted_track_stays_deleted() {
     let mut track = ManagedTrack::new_tentative(1, 2, 3, 1);
     // Force deletion
-    track.state = TrackState::Deleted;
+    track.state = MultiTargetConcept::Deleted;
 
     // Try to revive — should stay deleted
     track.on_detection();
-    assert_eq!(track.state, TrackState::Deleted);
+    assert_eq!(track.state, MultiTargetConcept::Deleted);
     track.on_miss();
-    assert_eq!(track.state, TrackState::Deleted);
+    assert_eq!(track.state, MultiTargetConcept::Deleted);
 }
 
 #[cfg(test)]
@@ -107,7 +108,7 @@ mod proptest_proofs {
             hits in proptest::collection::vec(proptest::bool::ANY, 1..20),
         ) {
             let mut track = ManagedTrack::new_tentative(1, 2, 3, 1);
-            track.state = TrackState::Deleted;
+            track.state = MultiTargetConcept::Deleted;
 
             for &hit in &hits {
                 if hit {
@@ -115,7 +116,7 @@ mod proptest_proofs {
                 } else {
                     track.on_miss();
                 }
-                prop_assert_eq!(track.state, TrackState::Deleted,
+                prop_assert_eq!(track.state, MultiTargetConcept::Deleted,
                     "deleted track must stay deleted");
             }
         }
@@ -124,7 +125,7 @@ mod proptest_proofs {
         fn track_always_starts_tentative(m in 1..5_usize, n in 2..8_usize, max_coast in 1..10_usize) {
             let m = m.min(n); // m <= n
             let track = ManagedTrack::new_tentative(0, m, n, max_coast);
-            prop_assert_eq!(track.state, TrackState::Tentative);
+            prop_assert_eq!(track.state, MultiTargetConcept::Tentative);
         }
     }
 }

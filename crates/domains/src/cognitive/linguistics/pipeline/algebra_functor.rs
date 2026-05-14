@@ -58,7 +58,7 @@ impl Functor for PipelineToAlgebra {
             _ => AlgebraRelation {
                 from,
                 to,
-                kind: AlgebraCategoryRelationKind::Composed,
+                kind: AlgebraRelationKind::Subsumption,
             },
         }
     }
@@ -68,10 +68,10 @@ pr4xis::register_functor!(PipelineToAlgebra);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<PipelineToAlgebra>().unwrap();
+        assert_functor_laws::<PipelineToAlgebra>();
     }
 }

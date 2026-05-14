@@ -1,139 +1,92 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Concurrency — agents, shared resources, synchronisation, and hazards.
+//!
+//! Concurrency is not just "threads" — it is the fundamental concept of
+//! multiple agents acting on shared resources with coordination. Chess is
+//! concurrent (two players, one board, turn-taking); traffic is concurrent
+//! (many cars, shared intersections, signal control); conversation is
+//! concurrent (two speakers, shared discourse, turn-taking).
+//!
+//! # Literature
+//!
+//! - **Hoare (1978)** "Communicating Sequential Processes",
+//!   *Communications of the ACM* 21(8):666-677 — CSP; processes
+//!   synchronise on shared channels.
+//! - **Milner (1980)** *A Calculus of Communicating Systems*, LNCS 92 —
+//!   CCS; agents, actions, observation equivalence.
+//! - **Hewitt (1973)** "A Universal Modular ACTOR Formalism for Artificial
+//!   Intelligence", IJCAI-73 — actor model: agents react to messages.
+//! - **Lamport (1978)** "Time, Clocks, and the Ordering of Events in a
+//!   Distributed System", *Communications of the ACM* 21(7):558-565 —
+//!   happens-before; race conditions arise from unordered observations.
+//! - **Coffman, Elphick & Shoshani (1971)** "System Deadlocks",
+//!   *Computing Surveys* 3(2):67-78 — deadlock arises from circular
+//!   wait on synchronisation.
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::{Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// Concurrency ontology — the science of simultaneous activity.
-//
-// Concurrency is not just "threads" — it's the fundamental concept of
-// multiple agents acting on shared resources with coordination.
-// Chess is concurrent: two players, one board, turn-taking.
-// Traffic is concurrent: many cars, shared intersections, signal control.
-// Conversation is concurrent: two speakers, shared discourse, turn-taking.
-//
-// References:
-// - C.A.R. Hoare, Communicating Sequential Processes (1978)
-// - Robin Milner, A Calculus of Communicating Systems (1980)
-// - Carl Hewitt, Actor Model (1973)
+pr4xis::ontology! {
+    name: "Concurrency",
+    source: "Hoare (1978) Communicating Sequential Processes, CACM 21(8); Milner (1980) A Calculus of Communicating Systems, LNCS 92; Hewitt (1973) A Universal Modular ACTOR Formalism for AI, IJCAI-73; Lamport (1978) Time, Clocks, and the Ordering of Events in a Distributed System, CACM 21(7); Coffman, Elphick & Shoshani (1971) System Deadlocks, Computing Surveys 3(2)",
 
-/// Core concepts of concurrency.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum ConcurrencyConcept {
-    /// An entity that can act — a player, a car, a speaker, a process.
-    Agent,
+    concepts: [
+        Agent,
+        SharedResource,
+        Action,
+        Synchronization,
+        State,
+        Protocol,
+        Deadlock,
+        RaceCondition,
+        Future,
+        Message,
+    ],
 
-    /// Something agents compete for or share — the board, the road, the channel.
-    SharedResource,
+    labels: {
+        Agent: ("en", "Agent",
+            "Hewitt (1973): an entity that can act — a player, a car, a speaker, a process."),
+        SharedResource: ("en", "Shared resource",
+            "Hoare (1978): something agents compete for or share — the board, the road, the channel."),
+        Action: ("en", "Action",
+            "Milner (1980) CCS: an action performed by an agent on a shared resource."),
+        Synchronization: ("en", "Synchronization",
+            "Hoare (1978) CSP: a mechanism that controls who can act when — turn-taking, locks, semaphores, traffic signals."),
+        State: ("en", "State",
+            "Milner (1980): the current configuration of all agents and the shared resource."),
+        Protocol: ("en", "Protocol",
+            "Hoare (1978) §3: a rule about what an agent is allowed to do — in chess legal moves, in traffic right of way."),
+        Deadlock: ("en", "Deadlock",
+            "Coffman, Elphick & Shoshani (1971): agents cannot proceed because each is waiting for another. Chess prevents it by turn-taking; traffic exhibits gridlock."),
+        RaceCondition: ("en", "Race condition",
+            "Lamport (1978): the outcome depends on the order of concurrent actions — chess avoids it via strict alternation; traffic exhibits it at unsignalled intersections."),
+        Future: ("en", "Future",
+            "Hewitt (1973): a value that will exist after an action completes — the opponent's response, the light change, the server reply."),
+        Message: ("en", "Message",
+            "Hewitt (1973): a message passed between agents — a move announced, a signal displayed, an utterance spoken."),
+    },
 
-    /// An action performed by an agent on a shared resource.
-    Action,
-
-    /// A mechanism that controls who can act when.
-    /// Turn-taking, locks, semaphores, traffic signals.
-    Synchronization,
-
-    /// The current configuration of all agents and the shared resource.
-    State,
-
-    /// A rule about what an agent is allowed to do.
-    /// In chess: legal moves. In traffic: right of way.
-    Protocol,
-
-    /// When agents cannot proceed because they're waiting for each other.
-    /// In chess: impossible (turn-taking prevents it).
-    /// In traffic: gridlock.
-    Deadlock,
-
-    /// When the outcome depends on the order of concurrent actions.
-    /// In chess: n/a (strict alternation). In traffic: who enters first.
-    RaceCondition,
-
-    /// A value that will exist after an action completes.
-    /// The opponent's response, the light change, the server reply.
-    Future,
-
-    /// A message passed between agents.
-    /// A move announced, a signal displayed, an utterance spoken.
-    Message,
+    edges: [
+        // Hoare (1978) CSP: agent acts on shared resource.
+        (Agent, SharedResource, ActsOn),
+        // Synchronization controls Agent (who can act when).
+        (Synchronization, Agent, Controls),
+        // Protocol governs Action.
+        (Protocol, Action, Governs),
+        // Action changes State.
+        (Action, State, Changes),
+        // Action produces Message (Hewitt 1973 actor model).
+        (Action, Message, Produces),
+        // Message becomes Future once dispatched.
+        (Message, Future, Becomes),
+        // Coffman et al. (1971): Deadlock arises from Synchronization.
+        (Synchronization, Deadlock, ArisesFrom),
+        // Lamport (1978): RaceCondition arises from unsynchronised SharedResource access.
+        (SharedResource, RaceCondition, UnsynchronizedAccess),
+    ],
 }
 
-define_ontology! {
-    /// The concurrency category.
-    pub ConcurrencyOntology for ConcurrencyCategory {
-        concepts: ConcurrencyConcept,
-        relation: ConcurrencyRelation,
-        kind: ConcurrencyRelationKind,
-        kinds: [
-            /// Agent acts on SharedResource.
-            ActsOn,
-            /// Synchronization controls Agent (who can act when).
-            Controls,
-            /// Protocol governs Action (what's allowed).
-            Governs,
-            /// Action changes State.
-            Changes,
-            /// Action produces Message.
-            Produces,
-            /// Message becomes Future (until received).
-            Becomes,
-            /// Deadlock arises from mutual waiting.
-            ArisesFrom,
-            /// RaceCondition arises from unsynchronized access.
-            UnsynchronizedAccess,
-        ],
-        edges: [
-            // Agent acts on SharedResource
-            (Agent, SharedResource, ActsOn),
-            // Synchronization controls Agent
-            (Synchronization, Agent, Controls),
-            // Protocol governs Action
-            (Protocol, Action, Governs),
-            // Action changes State
-            (Action, State, Changes),
-            // Action produces Message
-            (Action, Message, Produces),
-            // Message becomes Future (pending receipt)
-            (Message, Future, Becomes),
-            // Deadlock arises from Synchronization (mutual blocking)
-            (Synchronization, Deadlock, ArisesFrom),
-            // RaceCondition arises from SharedResource (unsynchronized access)
-            (SharedResource, RaceCondition, UnsynchronizedAccess),
-        ],
-        composed: [
-            // Synchronization → Agent → SharedResource
-            (Synchronization, SharedResource),
-            // Protocol → Action → State
-            (Protocol, State),
-            // Protocol → Action → Message
-            (Protocol, Message),
-            // Agent → SharedResource → RaceCondition
-            (Agent, RaceCondition),
-            // Action → Message → Future
-            (Action, Future),
-            // Dense connectivity needed for systems functor
-            (Agent, State),
-            (State, Agent),
-            (State, SharedResource),
-            (State, Synchronization),
-            (State, Protocol),
-            (State, Action),
-            (State, RaceCondition),
-            (State, Deadlock),
-            (Synchronization, State),
-            (Synchronization, Action),
-            (Agent, Action),
-            (Agent, Synchronization),
-            (Protocol, SharedResource),
-            (SharedResource, State),
-        ],
-        being: AbstractObject,
-        source: "Hoare CSP (1978); Hewitt (1973)",
-    }
-}
-
-/// Whether a concurrency concept represents a hazard.
+/// Quality: whether a concurrency concept represents a hazard. Coffman et
+/// al. (1971) classify Deadlock and RaceCondition as the two canonical
+/// concurrency hazards.
 #[derive(Debug, Clone)]
 pub struct IsHazard;
 
@@ -141,12 +94,9 @@ impl Quality for IsHazard {
     type Individual = ConcurrencyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &ConcurrencyConcept) -> Option<bool> {
-        match individual {
-            ConcurrencyConcept::Deadlock => Some(true),
-            ConcurrencyConcept::RaceCondition => Some(true),
-            _ => Some(false),
-        }
+    fn get(&self, c: &ConcurrencyConcept) -> Option<bool> {
+        use ConcurrencyConcept as C;
+        Some(matches!(c, C::Deadlock | C::RaceCondition))
     }
 }
 
@@ -154,23 +104,92 @@ impl Ontology for ConcurrencyOntology {
     type Cat = ConcurrencyCategory;
     type Qual = IsHazard;
 
-    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
-        Self::generated_structural_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<ConcurrencyCategory>().unwrap();
+        assert_category_laws::<ConcurrencyCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ConcurrencyOntology::validate().unwrap();
+        ConcurrencyOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[test]
+    fn ten_concepts() {
+        assert_eq!(ConcurrencyConcept::variants().len(), 10);
+    }
+
+    #[test]
+    fn agent_acts_on_shared_resource() {
+        assert!(ConcurrencyCategory::morphisms().iter().any(|m| {
+            m.source() == ConcurrencyConcept::Agent
+                && m.target() == ConcurrencyConcept::SharedResource
+                && m.kind() == ConcurrencyRelationKind::ActsOn
+        }));
+    }
+
+    #[test]
+    fn deadlock_arises_from_synchronization() {
+        // Coffman, Elphick & Shoshani (1971).
+        assert!(ConcurrencyCategory::morphisms().iter().any(|m| {
+            m.source() == ConcurrencyConcept::Synchronization
+                && m.target() == ConcurrencyConcept::Deadlock
+        }));
+    }
+
+    #[test]
+    fn race_condition_arises_from_shared_resource() {
+        // Lamport (1978).
+        assert!(ConcurrencyCategory::morphisms().iter().any(|m| {
+            m.source() == ConcurrencyConcept::SharedResource
+                && m.target() == ConcurrencyConcept::RaceCondition
+        }));
+    }
+
+    #[test]
+    fn hazards_marked() {
+        assert_eq!(IsHazard.get(&ConcurrencyConcept::Deadlock), Some(true));
+        assert_eq!(IsHazard.get(&ConcurrencyConcept::RaceCondition), Some(true));
+        assert_eq!(IsHazard.get(&ConcurrencyConcept::Agent), Some(false));
+    }
+
+    fn arb_concept() -> impl Strategy<Value = ConcurrencyConcept> {
+        proptest::sample::select(ConcurrencyConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in ConcurrencyCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in ConcurrencyOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_hazard_total(c in arb_concept()) {
+            prop_assert!(IsHazard.get(&c).is_some());
+        }
     }
 }

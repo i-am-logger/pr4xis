@@ -1,8 +1,7 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-use pr4xis::category::Category;
-use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::category::{Category, Concept};
 
 // Benchmark all ontologies — category law verification, morphism enumeration,
 // entity variant enumeration, and the linguistics pipeline.
@@ -23,63 +22,63 @@ fn bench_category_laws(c: &mut Criterion) {
     // Core praxis ontologies
     group.bench_function("systems", |b| {
         b.iter(|| {
-            check_category_laws::<pr4xis_domains::formal::systems::ontology::SystemsCategory>()
+            assert_category_laws::<pr4xis_domains::formal::systems::ontology::SystemCategory>()
         })
     });
 
     // New ontologies from this session
     group.bench_function("schema", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::information::schema::ontology::SchemaCategory,
             >()
         })
     });
     group.bench_function("instance", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::information::schema::instance::InstanceCategory,
             >()
         })
     });
     group.bench_function("repository", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::information::storage::ontology::RepositoryCategory,
             >()
         })
     });
     group.bench_function("consistency", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::information::storage::consistency::ConsistencyCategory,
             >()
         })
     });
     group.bench_function("durability", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::information::storage::durability::DurabilityCategory,
             >()
         })
     });
     group.bench_function("volatility", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::information::storage::volatility::VolatilityCategory,
             >()
         })
     });
     group.bench_function("measurement", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::information::measurement::ontology::MeasurementCategory,
             >()
         })
     });
     group.bench_function("benchmark", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::information::measurement::benchmark::BenchmarkCategory,
             >()
         })
@@ -87,30 +86,38 @@ fn bench_category_laws(c: &mut Criterion) {
 
     // Math ontologies (from sensor-fusion)
     group.bench_function("geometry", |b| {
-        b.iter(|| check_category_laws::<pr4xis_domains::formal::math::geometry::ontology::GeometryCategory>())
+        b.iter(|| {
+            assert_category_laws::<
+                pr4xis_domains::formal::math::geometry::ontology::EuclideanGeometryCategory,
+            >()
+        })
     });
     group.bench_function("linear_algebra", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::math::linear_algebra::ontology::LinearAlgebraCategory,
             >()
         })
     });
     group.bench_function("probability", |b| {
         b.iter(|| {
-            check_category_laws::<
+            assert_category_laws::<
                 pr4xis_domains::formal::math::probability::ontology::ProbabilityCategory,
             >()
         })
     });
     group.bench_function("rotation", |b| {
-        b.iter(|| check_category_laws::<pr4xis_domains::formal::math::rotation::ontology::RotationCategory>())
+        b.iter(
+            assert_category_laws::<
+                pr4xis_domains::formal::math::rotation::ontology::RotationCategory,
+            >,
+        )
     });
 
     // Technology ontologies
     group.bench_function("chess", |b| {
         b.iter(|| {
-            check_category_laws::<pr4xis_domains::social::games::chess::ontology::ChessCategory>()
+            assert_category_laws::<pr4xis_domains::social::games::chess::ontology::ChessCategory>()
         })
     });
 
@@ -125,9 +132,7 @@ fn bench_morphisms(c: &mut Criterion) {
     let mut group = c.benchmark_group("morphisms");
 
     group.bench_function("systems", |b| {
-        b.iter(|| {
-            black_box(pr4xis_domains::formal::systems::ontology::SystemsCategory::morphisms())
-        })
+        b.iter(|| black_box(pr4xis_domains::formal::systems::ontology::SystemCategory::morphisms()))
     });
     group.bench_function("schema", |b| {
         b.iter(|| {
@@ -142,7 +147,7 @@ fn bench_morphisms(c: &mut Criterion) {
     group.bench_function("geometry", |b| {
         b.iter(|| {
             black_box(
-                pr4xis_domains::formal::math::geometry::ontology::GeometryCategory::morphisms(),
+                pr4xis_domains::formal::math::geometry::ontology::EuclideanGeometryCategory::morphisms(),
             )
         })
     });
@@ -188,7 +193,7 @@ fn bench_variants(c: &mut Criterion) {
     group.bench_function("geometric_primitives", |b| {
         b.iter(|| {
             black_box(
-                pr4xis_domains::formal::math::geometry::ontology::GeometricPrimitive::variants(),
+                pr4xis_domains::formal::math::geometry::ontology::EuclideanGeometryConcept::variants(),
             )
         })
     });
@@ -201,9 +206,9 @@ fn bench_variants(c: &mut Criterion) {
 // ============================================================================
 
 fn bench_linguistics(c: &mut Criterion) {
-    use pr4xis_domains::science::linguistics::english::English;
-    use pr4xis_domains::science::linguistics::lambek::{reduce, tokenize};
-    use pr4xis_domains::science::linguistics::language::Language;
+    use pr4xis_domains::cognitive::linguistics::english::English;
+    use pr4xis_domains::cognitive::linguistics::lambek::{reduce, tokenize};
+    use pr4xis_domains::cognitive::linguistics::language::Language;
 
     let en = English::sample();
 
@@ -242,7 +247,7 @@ fn bench_linguistics(c: &mut Criterion) {
     });
 
     // English construction
-    group.bench_function("english_sample", |b| b.iter(|| English::sample()));
+    group.bench_function("english_sample", |b| b.iter(English::sample));
 
     group.finish();
 }

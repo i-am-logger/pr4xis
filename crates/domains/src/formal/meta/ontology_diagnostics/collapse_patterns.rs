@@ -28,7 +28,7 @@ use hashbrown::HashMap;
 use pr4xis::category::{Concept, Functor};
 
 use crate::natural::biomedical::acoustics::biophysics_functor::AcousticsToBiophysics;
-use crate::natural::biomedical::acoustics::ontology::AcousticsEntity;
+use crate::natural::biomedical::acoustics::ontology::AcousticsConcept as AcousticsEntity;
 use crate::natural::biomedical::bioelectricity::ontology::BioelectricEntity;
 use crate::natural::biomedical::biophysics::ontology::BiophysicsEntity;
 use crate::natural::biomedical::molecular::bioelectricity_functor::MolecularToBioelectric;

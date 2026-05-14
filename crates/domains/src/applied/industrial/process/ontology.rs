@@ -2,15 +2,12 @@
 //!
 //! Source: Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Process",
     source: "Ogunnaike & Ray (1994); Seborg et al. (2011)",
-    being: Process,
 
     concepts: [Temperature, Pressure, Flow, Level],
 
@@ -44,62 +41,70 @@ impl Quality for PhysicalUnit {
 pub struct TemperatureAboveAbsoluteZero;
 
 impl Axiom for TemperatureAboveAbsoluteZero {
-    fn description(&self) -> &str {
-        "temperature must be >= absolute zero (0 K = -273.15 C)"
+    fn verify(&self) -> Verdict {
+        // Third law of thermodynamics: T ≥ 0 K — absolute zero is an
+        // unreachable lower bound (Nernst 1906).
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "TemperatureAboveAbsoluteZero",
+        "temperature must be >= absolute zero (0 K = -273.15 C)",
+        "Nernst (1906) Third Law of Thermodynamics"
+    );
 }
 pr4xis::register_axiom!(
     TemperatureAboveAbsoluteZero,
-    "Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*"
+    "Nernst (1906) Third Law of Thermodynamics"
 );
 
 /// Axiom: pressure is non-negative (absolute pressure).
 pub struct PressureNonNegative;
 
 impl Axiom for PressureNonNegative {
-    fn description(&self) -> &str {
-        "absolute pressure is non-negative"
+    fn verify(&self) -> Verdict {
+        // Absolute pressure is the integral of the molecular momentum
+        // flux on a surface; the flux is non-negative by definition,
+        // so absolute pressure ≥ 0.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "PressureNonNegative",
+        "absolute pressure is non-negative",
+        "Ogunnaike & Ray (1994) Process Dynamics, Modeling, and Control"
+    );
 }
 pr4xis::register_axiom!(
     PressureNonNegative,
-    "Ogunnaike & Ray (1994), *Process Dynamics, Modeling, and Control*"
+    "Ogunnaike & Ray (1994) Process Dynamics, Modeling, and Control"
 );
 
 impl Ontology for ProcessOntology {
     type Cat = ProcessCategory;
     type Qual = PhysicalUnit;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(TemperatureAboveAbsoluteZero),
-            Box::new(PressureNonNegative),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(TemperatureAboveAbsoluteZero));
+        axioms.push(Box::new(PressureNonNegative));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<ProcessCategory>().unwrap();
+        assert_category_laws::<ProcessCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ProcessOntology::validate().unwrap();
+        ProcessOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

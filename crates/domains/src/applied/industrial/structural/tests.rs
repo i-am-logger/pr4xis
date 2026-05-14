@@ -1,30 +1,29 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::industrial::structural::engine::*;
 use crate::applied::industrial::structural::ontology::*;
 
 #[test]
 fn structural_category_laws() {
-    check_category_laws::<StructuralCategory>().unwrap();
+    assert_category_laws::<StructuralCategory>();
 }
 
 #[test]
 fn structural_ontology_validates() {
-    StructuralOntology::validate().unwrap();
+    StructuralOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn strain_bounded_elastic_holds() {
-    assert!(StrainBoundedElastic.holds());
+    assert!(StrainBoundedElastic.verify().is_ok());
 }
 
 #[test]
 fn crack_monotonicity_holds() {
-    assert!(CrackMonotonicity.holds());
+    assert!(CrackMonotonicity.verify().is_ok());
 }
 
 #[test]

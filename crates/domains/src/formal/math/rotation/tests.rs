@@ -1,4 +1,4 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::rotation::ontology::{
@@ -8,7 +8,7 @@ use crate::formal::math::rotation::ontology::{
 
 #[test]
 fn rotation_category_laws() {
-    check_category_laws::<RotationCategory>().unwrap();
+    assert_category_laws::<RotationCategory>();
 }
 
 #[test]
@@ -18,32 +18,32 @@ fn rotation_ontology_validates() {
 
 #[test]
 fn so3_closure() {
-    assert!(UnitNormClosure.holds());
+    assert!(UnitNormClosure.verify().is_ok());
 }
 
 #[test]
 fn so3_associativity() {
-    assert!(Associativity.holds());
+    assert!(Associativity.verify().is_ok());
 }
 
 #[test]
 fn so3_identity() {
-    assert!(IdentityElement.holds());
+    assert!(IdentityElement.verify().is_ok());
 }
 
 #[test]
 fn so3_inverse() {
-    assert!(InverseExists.holds());
+    assert!(InverseExists.verify().is_ok());
 }
 
 #[test]
 fn dcm_is_proper_rotation() {
-    assert!(DcmOrthogonality.holds());
+    assert!(DcmOrthogonality.verify().is_ok());
 }
 
 #[test]
 fn quaternion_dcm_roundtrip() {
-    assert!(QuaternionDcmRoundtrip.holds());
+    assert!(QuaternionDcmRoundtrip.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------

@@ -11,22 +11,22 @@ fn rigid_motion_ontology_validates() {
 
 #[test]
 fn se3_associativity() {
-    assert!(Associativity.holds());
+    assert!(Associativity.verify().is_ok());
 }
 
 #[test]
 fn se3_identity() {
-    assert!(IdentityElement.holds());
+    assert!(IdentityElement.verify().is_ok());
 }
 
 #[test]
 fn se3_inverse() {
-    assert!(InverseExists.holds());
+    assert!(InverseExists.verify().is_ok());
 }
 
 #[test]
 fn se3_composition_consistency() {
-    assert!(CompositionConsistency.holds());
+    assert!(CompositionConsistency.verify().is_ok());
 }
 
 #[cfg(test)]

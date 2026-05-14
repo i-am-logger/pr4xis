@@ -1,5 +1,6 @@
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::space::orbit::engine::*;
 use crate::applied::space::orbit::ontology::*;
@@ -7,22 +8,23 @@ use crate::applied::space::orbit::propagator::*;
 
 #[test]
 fn orbit_category_laws() {
-    check_category_laws::<OrbitCategory>().unwrap();
+    assert_category_laws::<OrbitCategory>();
 }
 
 #[test]
 fn orbit_ontology_validates() {
-    OrbitOntology::validate().unwrap();
+    OrbitOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn eccentricity_bounded_holds() {
-    assert!(EccentricityBounded.holds());
+    assert!(EccentricityBounded.verify().is_ok());
 }
 
 #[test]
 fn semi_major_axis_positive_holds() {
-    assert!(SemiMajorAxisPositive.holds());
+    assert!(SemiMajorAxisPositive.verify().is_ok());
 }
 
 #[test]
@@ -114,7 +116,7 @@ mod proptest_proofs {
         #[test]
         fn radar_range_preserved(
             range in 100.0..100000.0_f64,
-            az in -3.14..3.14_f64,
+            az in -core::f64::consts::PI..core::f64::consts::PI,
             el in -1.5..1.5_f64
         ) {
             let obs = RadarObservation {

@@ -2,33 +2,17 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::board::Board;
-use super::piece::Color;
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
 use super::square::Square;
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
 
 // =============================================================================
-// Situation: Board
+// Situation: Board (Debug + Clone + PartialEq via derive on Board)
 // =============================================================================
 
-impl Situation for Board {
-    fn describe(&self) -> String {
-        let pieces_white = self.pieces(Color::White).len();
-        let pieces_black = self.pieces(Color::Black).len();
-        let check = if self.in_check(self.to_move) {
-            " CHECK"
-        } else {
-            ""
-        };
-        format!(
-            "move {} | white:{} black:{} | to_move:{:?}{}",
-            self.fullmove, pieces_white, pieces_black, self.to_move, check
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        self.is_checkmate() || self.is_stalemate() || self.is_fifty_move_rule()
-    }
-}
+impl Situation for Board {}
 
 // =============================================================================
 // Action: ChessAction (from square, to square)
@@ -48,9 +32,18 @@ impl ChessAction {
 
 impl Action for ChessAction {
     type Sit = Board;
+}
 
-    fn describe(&self) -> String {
-        format!("{} → {}", self.from.name(), self.to.name())
+/// Helper: build typed Provenance for a chess precondition axiom.
+fn chess_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        // Murray (1913) is the classical source on chess rules; FIDE codifies modern.
+        citation: Citation::parse_static(
+            "Murray (1913) A History of Chess; FIDE Laws of Chess (2023)",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
@@ -62,23 +55,12 @@ impl Action for ChessAction {
 pub struct PieceExists;
 
 impl Precondition<ChessAction> for PieceExists {
-    fn check(&self, board: &Board, action: &ChessAction) -> PreconditionResult {
+    fn check(&self, board: &Board, action: &ChessAction) -> Verdict {
+        let meta = chess_meta("PieceExists", "a piece must exist at the source square");
         match board.get(action.from) {
-            Some(_) => PreconditionResult::satisfied(
-                "piece_exists",
-                &format!("piece found at {}", action.from.name()),
-            ),
-            None => PreconditionResult::violated(
-                "piece_exists",
-                &format!("no piece at {}", action.from.name()),
-                &board.describe(),
-                &action.describe(),
-            ),
+            Some(_) => Ok(Box::new(SimpleProof::new(meta))),
+            None => Err(Box::new(SimpleCounterexample::new(meta))),
         }
-    }
-
-    fn describe(&self) -> &str {
-        "a piece must exist at the source square"
     }
 }
 
@@ -86,37 +68,12 @@ impl Precondition<ChessAction> for PieceExists {
 pub struct OwnPiece;
 
 impl Precondition<ChessAction> for OwnPiece {
-    fn check(&self, board: &Board, action: &ChessAction) -> PreconditionResult {
+    fn check(&self, board: &Board, action: &ChessAction) -> Verdict {
+        let meta = chess_meta("OwnPiece", "can only move your own pieces");
         match board.get(action.from) {
-            Some(piece) if piece.color == board.to_move => PreconditionResult::satisfied(
-                "own_piece",
-                &format!(
-                    "{:?} {:?} belongs to {:?}",
-                    piece.color, piece.kind, board.to_move
-                ),
-            ),
-            Some(piece) => PreconditionResult::violated(
-                "own_piece",
-                &format!(
-                    "{:?} piece at {} but {:?} to move",
-                    piece.color,
-                    action.from.name(),
-                    board.to_move
-                ),
-                &board.describe(),
-                &action.describe(),
-            ),
-            None => PreconditionResult::violated(
-                "own_piece",
-                &format!("no piece at {}", action.from.name()),
-                &board.describe(),
-                &action.describe(),
-            ),
+            Some(piece) if piece.color == board.to_move => Ok(Box::new(SimpleProof::new(meta))),
+            _ => Err(Box::new(SimpleCounterexample::new(meta))),
         }
-    }
-
-    fn describe(&self) -> &str {
-        "can only move your own pieces"
     }
 }
 
@@ -124,36 +81,17 @@ impl Precondition<ChessAction> for OwnPiece {
 pub struct LegalMove;
 
 impl Precondition<ChessAction> for LegalMove {
-    fn check(&self, board: &Board, action: &ChessAction) -> PreconditionResult {
+    fn check(&self, board: &Board, action: &ChessAction) -> Verdict {
+        let meta = chess_meta(
+            "LegalMove",
+            "move must follow piece movement rules (including check)",
+        );
         let legal = board.legal_moves(action.from);
         if legal.contains(&action.to) {
-            PreconditionResult::satisfied(
-                "legal_move",
-                &format!("{} → {} is legal", action.from.name(), action.to.name()),
-            )
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            let piece = board
-                .get(action.from)
-                .map(|p| format!("{:?}", p.kind))
-                .unwrap_or("?".into());
-            let legal_targets: Vec<String> = legal.iter().map(|s| s.name()).collect();
-            PreconditionResult::violated(
-                "legal_move",
-                &format!(
-                    "{} at {} cannot move to {} (legal: [{}])",
-                    piece,
-                    action.from.name(),
-                    action.to.name(),
-                    legal_targets.join(", ")
-                ),
-                &board.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-
-    fn describe(&self) -> &str {
-        "move must follow piece movement rules (including check)"
     }
 }
 
@@ -161,35 +99,16 @@ impl Precondition<ChessAction> for LegalMove {
 pub struct GameNotOver;
 
 impl Precondition<ChessAction> for GameNotOver {
-    fn check(&self, board: &Board, action: &ChessAction) -> PreconditionResult {
-        if board.is_checkmate() {
-            PreconditionResult::violated(
-                "game_not_over",
-                "game is over: checkmate",
-                &board.describe(),
-                &action.describe(),
-            )
-        } else if board.is_stalemate() {
-            PreconditionResult::violated(
-                "game_not_over",
-                "game is over: stalemate",
-                &board.describe(),
-                &action.describe(),
-            )
-        } else if board.is_fifty_move_rule() {
-            PreconditionResult::violated(
-                "game_not_over",
-                "game is over: 50-move rule",
-                &board.describe(),
-                &action.describe(),
-            )
+    fn check(&self, board: &Board, _action: &ChessAction) -> Verdict {
+        let meta = chess_meta(
+            "GameNotOver",
+            "game must not be over (checkmate, stalemate, or 50-move rule)",
+        );
+        if board.is_checkmate() || board.is_stalemate() || board.is_fifty_move_rule() {
+            Err(Box::new(SimpleCounterexample::new(meta)))
         } else {
-            PreconditionResult::satisfied("game_not_over", "game in progress")
+            Ok(Box::new(SimpleProof::new(meta)))
         }
-    }
-
-    fn describe(&self) -> &str {
-        "game must not be over (checkmate, stalemate, or 50-move rule)"
     }
 }
 
@@ -197,10 +116,14 @@ impl Precondition<ChessAction> for GameNotOver {
 // Apply function
 // =============================================================================
 
-fn apply_chess_move(board: &Board, action: &ChessAction) -> Result<Board, String> {
-    board
-        .apply_move(action.from, action.to)
-        .ok_or_else(|| "apply_move failed: preconditions passed but move was rejected".to_string())
+fn apply_chess_move(board: &Board, action: &ChessAction) -> Result<Board, Box<dyn Counterexample>> {
+    board.apply_move(action.from, action.to).ok_or_else(|| {
+        let meta = chess_meta(
+            "ApplyMoveFailed",
+            "preconditions passed but board.apply_move rejected the move",
+        );
+        Box::new(SimpleCounterexample::new(meta)) as Box<dyn Counterexample>
+    })
 }
 
 // =============================================================================

@@ -224,10 +224,10 @@ mod prop {
         #[test]
         fn prop_sentence_endings_position(idx in 0..12usize) {
             let marks = punctuation::standard_punctuation();
-            if let Some(mark) = marks.get(idx) {
-                if mark.is_sentence_ending() {
-                    prop_assert_eq!(mark.position, punctuation::Position::After);
-                }
+            if let Some(mark) = marks.get(idx)
+                && mark.is_sentence_ending()
+            {
+                prop_assert_eq!(mark.position, punctuation::Position::After);
             }
         }
 

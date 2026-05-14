@@ -2,8 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 use core::marker::PhantomData;
 
+use super::arrow::Arrow;
 use super::category::Category;
-use super::relationship::Relationship;
 
 /// The opposite (dual) category of `C`.
 ///
@@ -21,15 +21,15 @@ use super::relationship::Relationship;
 /// # Laws
 ///
 /// When `C` satisfies the category laws, `Op<C>` does automatically. Verified
-/// by [`crate::category::validate::check_category_laws`] applied to `Op<C>`.
+/// by [`crate::category::laws::category_law_axioms`] applied to `Op<C>`.
 pub struct Op<C>(PhantomData<C>);
 
-/// A morphism in `Op<C>`: the same underlying `C::Morphism`, but [`source`](Relationship::source)
-/// and [`target`](Relationship::target) are swapped.
+/// A morphism in `Op<C>`: the same underlying `C::Morphism`, but [`source`](Arrow::source)
+/// and [`target`](Arrow::target) are swapped.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OpMorphism<M>(pub M);
 
-impl<M: Relationship> Relationship for OpMorphism<M> {
+impl<M: Arrow> Arrow for OpMorphism<M> {
     type Object = M::Object;
     type Kind = M::Kind;
 
@@ -73,8 +73,8 @@ impl<C: Category> Category for Op<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::validate::check_category_laws;
-    use crate::category::{Concept, Relationship};
+    use crate::category::laws::assert_category_laws;
+    use crate::category::{Arrow, Concept};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Light {
@@ -94,7 +94,7 @@ mod tests {
         to: Light,
     }
 
-    impl Relationship for LightEdge {
+    impl Arrow for LightEdge {
         type Object = Light;
         type Kind = ();
         fn source(&self) -> Light {
@@ -149,8 +149,8 @@ mod tests {
 
     #[test]
     fn op_preserves_category_laws() {
-        check_category_laws::<LightCat>().unwrap();
-        check_category_laws::<Op<LightCat>>().unwrap();
+        assert_category_laws::<LightCat>();
+        assert_category_laws::<Op<LightCat>>();
     }
 
     #[test]

@@ -2,8 +2,10 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 use core::marker::PhantomData;
 
-use crate::category::validate::check_functor_laws;
+use crate::category::laws::functor_law_axioms;
 use crate::category::{Category, Functor};
+use crate::logic::proof::{Verdict, combine_verdicts};
+use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 /// An analogy is a structure-preserving map between two domains (a named Functor).
 ///
@@ -15,12 +17,29 @@ pub struct Analogy<F: Functor> {
 
 impl<F: Functor> Analogy<F> {
     /// Validate that the analogy preserves structure (functor laws).
-    pub fn validate() -> Result<(), Vec<String>>
+    pub fn validate() -> Verdict
     where
-        <F::Source as Category>::Morphism: PartialEq,
-        <F::Target as Category>::Morphism: PartialEq,
+        F: 'static,
+        <F::Source as Category>::Morphism: PartialEq + 'static,
+        <F::Target as Category>::Morphism: PartialEq + 'static,
     {
-        check_functor_laws::<F>().map_err(|e| vec![e])
+        let subverdicts: Vec<Verdict> = functor_law_axioms::<F>()
+            .iter()
+            .map(|l| l.verify())
+            .collect();
+        combine_verdicts(
+            Provenance {
+                name: OntologyName::new_static("AnalogyValidation"),
+                description: Label::new_static(
+                    "analogy preserves functor laws (identity and composition)",
+                ),
+                citation: Citation::parse_static(
+                    "Mac Lane (1971) Categories for the Working Mathematician Ch. II §1",
+                ),
+                module_path: ModulePath::new_static(module_path!()),
+            },
+            subverdicts,
+        )
     }
 
     /// Map a concept from the source domain to the target domain.

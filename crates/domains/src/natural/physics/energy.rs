@@ -5,7 +5,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Situation: a system with mass, velocity, height
 /// - Axiom: total mechanical energy (KE + PE) is conserved
 /// - Actions: change velocity or height (energy transforms, total constant)
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 pub const G: f64 = 9.81;
 
@@ -42,22 +44,7 @@ impl System {
     }
 }
 
-impl Situation for System {
-    fn describe(&self) -> String {
-        format!(
-            "m={:.2} v={:.2} h={:.2} KE={:.2} PE={:.2} E={:.2}",
-            self.mass,
-            self.velocity,
-            self.height,
-            self.kinetic_energy(),
-            self.potential_energy(),
-            self.total_energy()
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for System {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnergyAction {
@@ -69,97 +56,65 @@ pub enum EnergyAction {
 
 impl Action for EnergyAction {
     type Sit = System;
-    fn describe(&self) -> String {
-        match self {
-            EnergyAction::Drop { delta_h } => format!("drop {:.2}m", delta_h),
-            EnergyAction::Rise { delta_h } => format!("rise {:.2}m", delta_h),
-        }
+}
+
+fn energy_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Helmholtz (1847) Über die Erhaltung der Kraft; Joule (1843) On the calorific effects of magneto-electricity",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
 /// Axiom: total energy must be conserved.
 struct EnergyConservation;
 impl Precondition<EnergyAction> for EnergyConservation {
-    fn check(&self, sys: &System, action: &EnergyAction) -> PreconditionResult {
-        let next = apply_energy(sys, action).unwrap_or_else(|_| sys.clone());
+    fn check(&self, sys: &System, action: &EnergyAction) -> Verdict {
+        let meta = energy_meta("EnergyConservation", "KE + PE must remain constant");
+        let next = apply_energy_inner(sys, action).unwrap_or_else(|_| sys.clone());
         let e_before = sys.total_energy();
         let e_after = next.total_energy();
         let scale = e_before.abs().max(1.0);
         if (e_before - e_after).abs() / scale < 1e-6 {
-            PreconditionResult::satisfied(
-                "energy_conservation",
-                &format!("E={:.4} conserved", e_before),
-            )
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "energy_conservation",
-                &format!("E changed: {:.4} → {:.4}", e_before, e_after),
-                &sys.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "KE + PE must remain constant"
     }
 }
 
 /// Can't rise higher than KE allows, can't drop below ground.
 struct PhysicalConstraints;
 impl Precondition<EnergyAction> for PhysicalConstraints {
-    fn check(&self, sys: &System, action: &EnergyAction) -> PreconditionResult {
+    fn check(&self, sys: &System, action: &EnergyAction) -> Verdict {
+        let meta = energy_meta(
+            "PhysicalConstraints",
+            "must have enough energy and stay above ground",
+        );
         match action {
             EnergyAction::Drop { delta_h } => {
-                if *delta_h <= 0.0 {
-                    return PreconditionResult::violated(
-                        "physical",
-                        "drop must be positive",
-                        &sys.describe(),
-                        &action.describe(),
-                    );
-                }
-                if *delta_h > sys.height {
-                    return PreconditionResult::violated(
-                        "physical",
-                        "can't drop below ground",
-                        &sys.describe(),
-                        &action.describe(),
-                    );
+                if *delta_h <= 0.0 || *delta_h > sys.height {
+                    return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
             }
             EnergyAction::Rise { delta_h } => {
                 if *delta_h <= 0.0 {
-                    return PreconditionResult::violated(
-                        "physical",
-                        "rise must be positive",
-                        &sys.describe(),
-                        &action.describe(),
-                    );
+                    return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
-                // Check if enough KE to rise
                 let pe_needed = sys.mass * G * delta_h;
                 if pe_needed > sys.kinetic_energy() + 1e-6 {
-                    return PreconditionResult::violated(
-                        "physical",
-                        &format!(
-                            "need {:.2}J PE but only {:.2}J KE available",
-                            pe_needed,
-                            sys.kinetic_energy()
-                        ),
-                        &sys.describe(),
-                        &action.describe(),
-                    );
+                    return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
             }
         }
-        PreconditionResult::satisfied("physical", "physically valid")
-    }
-    fn describe(&self) -> &str {
-        "must have enough energy and stay above ground"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_energy(sys: &System, action: &EnergyAction) -> Result<System, String> {
+fn apply_energy_inner(sys: &System, action: &EnergyAction) -> Result<System, &'static str> {
     let mut next = sys.clone();
     match action {
         EnergyAction::Drop { delta_h } => {
@@ -176,6 +131,13 @@ fn apply_energy(sys: &System, action: &EnergyAction) -> Result<System, String> {
         }
     }
     Ok(next)
+}
+
+fn apply_energy(sys: &System, action: &EnergyAction) -> Result<System, Box<dyn Counterexample>> {
+    apply_energy_inner(sys, action).map_err(|_| {
+        let meta = energy_meta("ApplyFailed", "energy transformation failed");
+        Box::new(SimpleCounterexample::new(meta)) as Box<dyn Counterexample>
+    })
 }
 
 pub fn new_system(

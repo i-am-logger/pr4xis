@@ -12,6 +12,7 @@ use crate::formal::math::functions::Interval;
 /// - GLSL: intensity is a blend factor [0=original, 1=full monochrome]
 /// - Rec. 709: brightness is a luminance multiplier
 /// - Color science: saturation adjustment on the tint hue
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
 /// A shader parameter with formal bounds and semantics.
@@ -72,53 +73,94 @@ pub fn clamp_param(param: &ShaderParamDef, value: f64) -> f64 {
 pub struct DefaultsInRange;
 
 impl Axiom for DefaultsInRange {
-    fn description(&self) -> &str {
-        "all shader parameter defaults are within their intervals"
+    fn verify(&self) -> Verdict {
+        let ok = all_params().iter().all(|p| p.interval.contains(p.default));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        all_params().iter().all(|p| p.interval.contains(p.default))
-    }
+
+    pr4xis::axiom_meta!(
+        "DefaultsInRange",
+        "all shader parameter defaults are within their intervals",
+        "GLSL Specification 4.6 §8.2 (mix() blend factor in [0,1])"
+    );
 }
-pr4xis::register_axiom!(DefaultsInRange);
+pr4xis::register_axiom!(
+    DefaultsInRange,
+    "GLSL Specification 4.6 §8.2 (mix() blend factor in [0,1])"
+);
 
 /// Intensity default is 0.5 (balanced blend).
 pub struct IntensityBalanced;
 
 impl Axiom for IntensityBalanced {
-    fn description(&self) -> &str {
-        "intensity default is 0.5 (balanced blend, not full monochrome)"
+    fn verify(&self) -> Verdict {
+        if (intensity().default - 0.5).abs() < 1e-10 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        (intensity().default - 0.5).abs() < 1e-10
-    }
+
+    pr4xis::axiom_meta!(
+        "IntensityBalanced",
+        "intensity default is 0.5 (balanced blend, not full monochrome)",
+        "GLSL Specification 4.6 §8.2 (mix() blend factor in [0,1])"
+    );
 }
-pr4xis::register_axiom!(IntensityBalanced);
+pr4xis::register_axiom!(
+    IntensityBalanced,
+    "GLSL Specification 4.6 §8.2 (mix() blend factor in [0,1])"
+);
 
 /// Brightness default is 1.0 (no change).
 pub struct BrightnessNeutral;
 
 impl Axiom for BrightnessNeutral {
-    fn description(&self) -> &str {
-        "brightness default is 1.0 (neutral, no dimming or boosting)"
+    fn verify(&self) -> Verdict {
+        if (brightness().default - 1.0).abs() < 1e-10 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        (brightness().default - 1.0).abs() < 1e-10
-    }
+
+    pr4xis::axiom_meta!(
+        "BrightnessNeutral",
+        "brightness default is 1.0 (neutral, no dimming or boosting)",
+        "ITU-R Rec. BT.709-6 (HDTV luminance, identity = 1.0)"
+    );
 }
-pr4xis::register_axiom!(BrightnessNeutral);
+pr4xis::register_axiom!(
+    BrightnessNeutral,
+    "ITU-R Rec. BT.709-6 (HDTV luminance, identity = 1.0)"
+);
 
 /// Saturation default is 1.0 (no change).
 pub struct SaturationNeutral;
 
 impl Axiom for SaturationNeutral {
-    fn description(&self) -> &str {
-        "saturation default is 1.0 (neutral, no desaturation or boosting)"
+    fn verify(&self) -> Verdict {
+        if (saturation().default - 1.0).abs() < 1e-10 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        (saturation().default - 1.0).abs() < 1e-10
-    }
+
+    pr4xis::axiom_meta!(
+        "SaturationNeutral",
+        "saturation default is 1.0 (neutral, no desaturation or boosting)",
+        "Joblove & Greenberg (1978) Color spaces for computer graphics, SIGGRAPH"
+    );
 }
-pr4xis::register_axiom!(SaturationNeutral);
+pr4xis::register_axiom!(
+    SaturationNeutral,
+    "Joblove & Greenberg (1978) Color spaces for computer graphics, SIGGRAPH"
+);
 
 #[cfg(test)]
 mod tests {
@@ -131,22 +173,22 @@ mod tests {
 
     #[test]
     fn test_defaults_in_range() {
-        assert!(DefaultsInRange.holds());
+        assert!(DefaultsInRange.verify().is_ok());
     }
 
     #[test]
     fn test_intensity_balanced() {
-        assert!(IntensityBalanced.holds());
+        assert!(IntensityBalanced.verify().is_ok());
     }
 
     #[test]
     fn test_brightness_neutral() {
-        assert!(BrightnessNeutral.holds());
+        assert!(BrightnessNeutral.verify().is_ok());
     }
 
     #[test]
     fn test_saturation_neutral() {
-        assert!(SaturationNeutral.holds());
+        assert!(SaturationNeutral.verify().is_ok());
     }
 
     #[test]

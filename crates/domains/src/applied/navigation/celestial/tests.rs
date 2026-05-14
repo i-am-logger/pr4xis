@@ -1,13 +1,10 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
-use pr4xis::ontology::{Axiom, Ontology};
-
-use crate::applied::navigation::celestial::body::CelestialBodyTaxonomy;
+use crate::applied::navigation::celestial::body::CelestialBodyCategory;
 use crate::applied::navigation::celestial::engine::*;
-use crate::applied::navigation::celestial::observable::CelestialObservableTaxonomy;
+use crate::applied::navigation::celestial::observable::CelestialObservableCategory;
 use crate::applied::navigation::celestial::ontology::*;
 
 // ---------------------------------------------------------------------------
@@ -15,38 +12,39 @@ use crate::applied::navigation::celestial::ontology::*;
 // ---------------------------------------------------------------------------
 
 #[test]
-fn celestial_body_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<CelestialBodyTaxonomy>>().unwrap();
+fn celestial_body_category_laws() {
+    assert_category_laws::<CelestialBodyCategory>();
 }
 
 #[test]
-fn celestial_observable_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<CelestialObservableTaxonomy>>().unwrap();
+fn celestial_observable_category_laws() {
+    assert_category_laws::<CelestialObservableCategory>();
 }
 
 #[test]
-fn celestial_sensor_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<CelestialTaxonomy>>().unwrap();
+fn celestial_sensor_category_laws() {
+    assert_category_laws::<CelestialCategory>();
 }
 
 #[test]
 fn celestial_ontology_validates() {
-    CelestialOntology::validate().unwrap();
+    CelestialOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn two_sights_fix_axiom() {
-    assert!(TwoSightsFix.holds());
+    assert!(TwoSightsFix.verify().is_ok());
 }
 
 #[test]
 fn star_tracker_most_accurate_axiom() {
-    assert!(StarTrackerMostAccurate.holds());
+    assert!(StarTrackerMostAccurate.verify().is_ok());
 }
 
 #[test]
 fn atmospheric_refraction_axiom() {
-    assert!(AtmosphericRefraction.holds());
+    assert!(AtmosphericRefraction.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -198,11 +196,11 @@ fn celestial_fix_does_not_nan_on_extreme_declination() {
     };
     // Should not panic — may return Err for pole guard but must not NaN
     let result = apply_celestial(&sit, &CelestialAction::ComputeFix);
-    if let Ok(s) = &result {
-        if let Some(fix) = &s.fix {
-            assert!(!fix.latitude.is_nan(), "latitude must not be NaN");
-            assert!(!fix.longitude.is_nan(), "longitude must not be NaN");
-        }
+    if let Ok(s) = &result
+        && let Some(fix) = &s.fix
+    {
+        assert!(!fix.latitude.is_nan(), "latitude must not be NaN");
+        assert!(!fix.longitude.is_nan(), "longitude must not be NaN");
     }
 }
 

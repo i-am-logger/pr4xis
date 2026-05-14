@@ -2,9 +2,7 @@
 //!
 //! Source: Kalman (1960); Maybeck (1979).
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
@@ -17,7 +15,6 @@ use crate::applied::sensor_fusion::state::information::InformationEstimate;
 pr4xis::ontology! {
     name: "StateEstimation",
     source: "Kalman (1960); Maybeck (1979)",
-    being: AbstractObject,
 
     concepts: [StateVector, Covariance, InformationMatrix, CRLB],
 
@@ -50,15 +47,23 @@ impl Quality for ConceptDescription {
 pub struct CovarianceIsPSD;
 
 impl Axiom for CovarianceIsPSD {
-    fn description(&self) -> &str {
-        "covariance of a valid estimate is symmetric positive semi-definite"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let estimates = canonical_estimates();
-        estimates
+        let ok = estimates
             .iter()
-            .all(|e| covariance::is_valid(&e.covariance))
+            .all(|e| covariance::is_valid(&e.covariance));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "CovarianceIsPSD",
+        "covariance of a valid estimate is symmetric positive semi-definite",
+        "Kalman (1960); Maybeck (1979)."
+    );
 }
 pr4xis::register_axiom!(CovarianceIsPSD, "Kalman (1960); Maybeck (1979).");
 
@@ -66,10 +71,7 @@ pr4xis::register_axiom!(CovarianceIsPSD, "Kalman (1960); Maybeck (1979).");
 pub struct InformationRoundtrip;
 
 impl Axiom for InformationRoundtrip {
-    fn description(&self) -> &str {
-        "state -> information -> state roundtrip preserves estimate"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         for est in &canonical_estimates() {
             if let Some(info) = InformationEstimate::from_estimate(est) {
                 if let Some(est2) = info.to_estimate(est.epoch) {
@@ -81,17 +83,23 @@ impl Axiom for InformationRoundtrip {
                         .map(|(a, b)| (a - b).abs())
                         .sum();
                     if state_diff > 1e-6 {
-                        return false;
+                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
                 } else {
-                    return false;
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             } else {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "InformationRoundtrip",
+        "state -> information -> state roundtrip preserves estimate",
+        "Kalman (1960); Maybeck (1979)."
+    );
 }
 pr4xis::register_axiom!(InformationRoundtrip, "Kalman (1960); Maybeck (1979).");
 
@@ -99,10 +107,7 @@ pr4xis::register_axiom!(InformationRoundtrip, "Kalman (1960); Maybeck (1979).");
 pub struct InformationFusionAdditive;
 
 impl Axiom for InformationFusionAdditive {
-    fn description(&self) -> &str {
-        "information fusion: Y_fused = Y1 + Y2 (additive)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let e1 = StateEstimate::new(
             Vector::new(vec![1.0, 0.0]),
             Matrix::diagonal(&[2.0, 2.0]),
@@ -125,8 +130,18 @@ impl Axiom for InformationFusionAdditive {
             .zip(&expected_y.data)
             .map(|(a, b)| (a - b).abs())
             .sum();
-        diff < 1e-10
+        if diff < 1e-10 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "InformationFusionAdditive",
+        "information fusion: Y_fused = Y1 + Y2 (additive)",
+        "Kalman (1960); Maybeck (1979)."
+    );
 }
 pr4xis::register_axiom!(InformationFusionAdditive, "Kalman (1960); Maybeck (1979).");
 
@@ -134,32 +149,12 @@ impl Ontology for StateEstimationOntology {
     type Cat = StateEstimationCategory;
     type Qual = ConceptDescription;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(CovarianceIsPSD),
-            Box::new(InformationRoundtrip),
-            Box::new(InformationFusionAdditive),
-        ]
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pr4xis::ontology::Ontology;
-
-    #[test]
-    fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<StateEstimationCategory>().unwrap();
-    }
-
-    #[test]
-    fn ontology_validates() {
-        StateEstimationOntology::validate().unwrap();
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(CovarianceIsPSD));
+        axioms.push(Box::new(InformationRoundtrip));
+        axioms.push(Box::new(InformationFusionAdditive));
+        axioms
     }
 }
 
@@ -177,4 +172,21 @@ fn canonical_estimates() -> Vec<StateEstimate> {
             0.0,
         ),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::laws::assert_category_laws;
+
+    #[test]
+    fn category_laws() {
+        assert_category_laws::<StateEstimationCategory>();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        StateEstimationOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
 }
