@@ -90,10 +90,10 @@ where
                 if f.target() != g.source() {
                     continue;
                 }
-                if let Some(h) = C::compose(f, g) {
-                    if !ms.contains(&h) {
-                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
-                    }
+                if let Some(h) = C::compose(f, g)
+                    && !ms.contains(&h)
+                {
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
         }

@@ -30,7 +30,7 @@ use crate::formal::systems::ontology::*;
 pub struct SystemsToSchema;
 
 impl Functor for SystemsToSchema {
-    type Source = SystemsCategory;
+    type Source = SystemCategory;
     type Target = SchemaCategory;
 
     fn map_object(obj: &SystemConcept) -> SchemaConcept {
@@ -61,7 +61,12 @@ impl Functor for SystemsToSchema {
             SystemRelationKind::ArisesFrom => SchemaRelationKind::Evaluates,
             SystemRelationKind::Regulates => SchemaRelationKind::Maps,
             SystemRelationKind::Separates => SchemaRelationKind::Presents,
-            SystemRelationKind::Composed => SchemaRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+            // unreachable when source has no edges of these kinds.
+            SystemRelationKind::Subsumption
+            | SystemRelationKind::Parthood
+            | SystemRelationKind::Causation
+            | SystemRelationKind::Opposition => SchemaRelationKind::Identity,
         };
         SchemaRelation { from, to, kind }
     }
@@ -71,13 +76,13 @@ pr4xis::register_functor!(SystemsToSchema);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Concept;
     use pr4xis::category::Functor;
-    use pr4xis::category::entity::Concept;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<SystemsToSchema>().unwrap();
+        assert_functor_laws::<SystemsToSchema>();
     }
 
     #[test]

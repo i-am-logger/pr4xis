@@ -54,7 +54,12 @@ impl Functor for ReferenceToDialogue {
             ReferenceRelationKind::Ranks => DialogueRelationKind::Controls,
             ReferenceRelationKind::Links => DialogueRelationKind::Controls,
             ReferenceRelationKind::Binds => DialogueRelationKind::ArisesFrom,
-            ReferenceRelationKind::Composed => DialogueRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+            // unreachable when source has no edges of these kinds.
+            ReferenceRelationKind::Subsumption
+            | ReferenceRelationKind::Parthood
+            | ReferenceRelationKind::Causation
+            | ReferenceRelationKind::Opposition => DialogueRelationKind::Identity,
         };
         DialogueRelation { from, to, kind }
     }
@@ -64,11 +69,11 @@ pr4xis::register_functor!(ReferenceToDialogue);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<ReferenceToDialogue>().unwrap();
+        assert_functor_laws::<ReferenceToDialogue>();
     }
 
     #[test]

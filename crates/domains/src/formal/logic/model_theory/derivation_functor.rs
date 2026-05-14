@@ -67,7 +67,7 @@ impl Functor for ModelTheoryToDerivation {
             _ => DerivationRelation {
                 from,
                 to,
-                kind: DerivationRelationKind::Composed,
+                kind: DerivationRelationKind::Subsumption,
             },
         }
     }
@@ -81,11 +81,11 @@ pr4xis::register_functor!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws_pass() {
-        check_functor_laws::<ModelTheoryToDerivation>().unwrap();
+        assert_functor_laws::<ModelTheoryToDerivation>();
     }
 
     #[test]

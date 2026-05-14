@@ -211,19 +211,17 @@ proptest! {
 fn engine_full_request_cycle() {
     let e = new_connection(3);
     // Idle → Connecting → SendingRequest → AwaitingResponse → ReceivingResponse → Complete → Closed
-    let e = e.try_next(HttpAction(ConnectionAction::Connect)).unwrap();
+    let e = e.next(HttpAction(ConnectionAction::Connect)).unwrap();
+    let e = e.next(HttpAction(ConnectionAction::SendRequest)).unwrap();
     let e = e
-        .try_next(HttpAction(ConnectionAction::SendRequest))
-        .unwrap();
-    let e = e
-        .try_next(HttpAction(ConnectionAction::ReceiveResponse))
+        .next(HttpAction(ConnectionAction::ReceiveResponse))
         .unwrap(); // Sending → Awaiting
     let e = e
-        .try_next(HttpAction(ConnectionAction::ReceiveResponse))
+        .next(HttpAction(ConnectionAction::ReceiveResponse))
         .unwrap(); // Awaiting → Receiving
-    let e = e.try_next(HttpAction(ConnectionAction::Complete)).unwrap();
-    let e = e.try_next(HttpAction(ConnectionAction::Close)).unwrap();
-    assert!(e.is_terminal());
+    let e = e.next(HttpAction(ConnectionAction::Complete)).unwrap();
+    let e = e.next(HttpAction(ConnectionAction::Close)).unwrap();
+    assert!(e.situation().is_terminal());
     assert_eq!(e.step(), 6);
 }
 
@@ -231,17 +229,15 @@ fn engine_full_request_cycle() {
 fn engine_invalid_transition_rejected() {
     let e = new_connection(3);
     // Can't send request before connecting
-    let result = e.try_next(HttpAction(ConnectionAction::SendRequest));
+    let result = e.next(HttpAction(ConnectionAction::SendRequest));
     assert!(result.is_err());
 }
 
 #[test]
 fn engine_back_forward() {
     let e = new_connection(3);
-    let e = e.try_next(HttpAction(ConnectionAction::Connect)).unwrap();
-    let e = e
-        .try_next(HttpAction(ConnectionAction::SendRequest))
-        .unwrap();
+    let e = e.next(HttpAction(ConnectionAction::Connect)).unwrap();
+    let e = e.next(HttpAction(ConnectionAction::SendRequest)).unwrap();
     let e = e.back().unwrap();
     assert_eq!(e.step(), 1);
     let e = e.forward().unwrap();
@@ -259,5 +255,5 @@ fn engine_trace_on_failure() {
     };
     // Trace records the failed attempt
     assert_eq!(e.trace().entries().len(), 1);
-    assert!(!e.trace().entries()[0].success);
+    assert!(!e.trace().entries()[0].applied());
 }

@@ -52,23 +52,7 @@ pub struct OdometrySituation {
     pub step: usize,
 }
 
-impl Situation for OdometrySituation {
-    fn describe(&self) -> String {
-        format!(
-            "Odom step={}, pos=({:.2},{:.2}), heading={:.2} deg, dist={:.1}m, err={:.2}m",
-            self.step,
-            self.pose.x,
-            self.pose.y,
-            self.pose.heading.to_degrees(),
-            self.distance_traveled,
-            self.estimated_error,
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for OdometrySituation {}
 
 /// Odometry action: dead reckoning updates.
 #[derive(Debug, Clone)]
@@ -95,17 +79,6 @@ pub enum OdometryAction {
 
 impl Action for OdometryAction {
     type Sit = OdometrySituation;
-
-    fn describe(&self) -> String {
-        match self {
-            OdometryAction::DriveForward { velocity, dt, .. } => {
-                format!("drive v={:.2}m/s dt={:.4}s", velocity, dt)
-            }
-            OdometryAction::WheelTick { left, right, .. } => {
-                format!("wheel tick L={:.4}m R={:.4}m", left, right)
-            }
-        }
-    }
 }
 
 /// Apply an odometry action: dead reckoning integration.

@@ -11,7 +11,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Physics",
     source: "Newton (1687); Maxwell (1865)",
-    being: AbstractObject,
 
     concepts: [
         NewtonFirst,
@@ -52,12 +51,11 @@ impl Ontology for PhysicsOntology {
     type Cat = PhysicsCategory;
     type Qual = LawBranch;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(MaxwellDerivesC), Box::new(AllBranchesRepresented)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(MaxwellDerivesC));
+        axioms.push(Box::new(AllBranchesRepresented));
+        axioms
     }
 }
 
@@ -100,33 +98,53 @@ impl Quality for LawBranch {
 pub struct MaxwellDerivesC;
 
 impl Axiom for MaxwellDerivesC {
-    fn description(&self) -> &str {
-        "Maxwell's 4 equations together derive c = 1/sqrt(mu0 eps0)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let c = super::maxwell::speed_of_light();
-        (c - 2.998e8).abs() < 1e6
+        if (c - 2.998e8).abs() < 1e6 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "MaxwellDerivesC",
+        "Maxwell's 4 equations together derive c = 1/sqrt(mu0 eps0)",
+        "Maxwell (1865) A Dynamical Theory of the Electromagnetic Field"
+    );
 }
-pr4xis::register_axiom!(MaxwellDerivesC, "Newton (1687); Maxwell (1865).");
+pr4xis::register_axiom!(
+    MaxwellDerivesC,
+    "Maxwell (1865) A Dynamical Theory of the Electromagnetic Field"
+);
 
 /// Axiom: all branches are represented (no empty branch).
 pub struct AllBranchesRepresented;
 
 impl Axiom for AllBranchesRepresented {
-    fn description(&self) -> &str {
-        "every branch of physics has at least one law"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let branch = LawBranch;
         let branches: hashbrown::HashSet<Branch> = PhysicsConcept::variants()
             .iter()
             .map(|l| branch.get(l).unwrap())
             .collect();
-        branches.len() == 5
+        if branches.len() == 5 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "AllBranchesRepresented",
+        "every branch of physics has at least one law",
+        "Newton (1687) Principia; Maxwell (1865) A Dynamical Theory of the Electromagnetic Field"
+    );
 }
-pr4xis::register_axiom!(AllBranchesRepresented, "Newton (1687); Maxwell (1865).");
+pr4xis::register_axiom!(
+    AllBranchesRepresented,
+    "Newton (1687) Principia; Maxwell (1865) A Dynamical Theory of the Electromagnetic Field"
+);
 
 #[cfg(test)]
 mod tests {
@@ -139,17 +157,17 @@ mod tests {
 
     #[test]
     fn test_category_laws() {
-        pr4xis::category::validate::check_category_laws::<PhysicsCategory>().unwrap();
+        pr4xis::category::laws::assert_category_laws::<PhysicsCategory>();
     }
 
     #[test]
     fn test_all_branches() {
-        assert!(AllBranchesRepresented.holds());
+        assert!(AllBranchesRepresented.verify().is_ok());
     }
 
     #[test]
     fn test_maxwell_derives_c() {
-        assert!(MaxwellDerivesC.holds());
+        assert!(MaxwellDerivesC.verify().is_ok());
     }
 
     #[test]
@@ -174,6 +192,7 @@ mod tests {
 
     #[test]
     fn ontology_validates() {
-        PhysicsOntology::validate().unwrap();
+        PhysicsOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

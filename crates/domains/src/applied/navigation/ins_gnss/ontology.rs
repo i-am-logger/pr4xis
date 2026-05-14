@@ -6,16 +6,13 @@
 //!
 //! Source: Groves (2013) Chapters 14-17, Titterton & Weston (2004) Chapter 13.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::ontology::reasoning::taxonomy;
+use pr4xis::category::{Arrow, Category};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "InsGnss",
     source: "Groves (2013); Titterton & Weston (2004)",
-    being: Process,
 
     concepts: [Coupling, LooselyCoupled, TightlyCoupled, DeeplyCoupled],
 
@@ -86,16 +83,20 @@ impl Quality for CouplingBandwidth {
     }
 }
 
+/// Direct subsumption query: is there an `is_a` edge from `child` to `parent`?
+fn is_a(child: InsGnssConcept, parent: InsGnssConcept) -> bool {
+    InsGnssCategory::morphisms().iter().any(|m| {
+        m.kind() == InsGnssRelationKind::Subsumption && m.source() == child && m.target() == parent
+    })
+}
+
 /// Coasting degrades: without GNSS, INS position error grows quadratically.
 ///
 /// Source: Groves (2013) Eq. 14.1.
 pub struct CoastingDegrades;
 
 impl Axiom for CoastingDegrades {
-    fn description(&self) -> &str {
-        "without GNSS, INS position error grows quadratically (bias -> t^2 error)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let bias_mg = 1.0_f64;
         let bias_mps2 = bias_mg * 1e-3 * 9.80665;
         let t1 = 30.0_f64;
@@ -103,13 +104,20 @@ impl Axiom for CoastingDegrades {
         let error_t1 = 0.5 * bias_mps2 * t1 * t1;
         let error_t2 = 0.5 * bias_mps2 * t2 * t2;
         let ratio = error_t2 / error_t1;
-        (ratio - 4.0).abs() < 0.01
+        if (ratio - 4.0).abs() < 0.01 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "CoastingDegrades",
+        "without GNSS, INS position error grows quadratically (bias -> t^2 error)",
+        "Groves (2013) Eq. 14.1"
+    );
 }
-pr4xis::register_axiom!(
-    CoastingDegrades,
-    "Groves (2013) Chapters 14-17, Titterton & Weston (2004) Chapter 13."
-);
+pr4xis::register_axiom!(CoastingDegrades, "Groves (2013) Eq. 14.1");
 
 /// GNSS measurement update reduces position uncertainty.
 ///
@@ -117,20 +125,24 @@ pr4xis::register_axiom!(
 pub struct GnssUpdateReducesError;
 
 impl Axiom for GnssUpdateReducesError {
-    fn description(&self) -> &str {
-        "GNSS measurement update decreases position uncertainty"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let p_prior = 100.0;
         let r = 25.0;
         let p_post = p_prior * r / (p_prior + r);
-        p_post < p_prior
+        if p_post < p_prior {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "GnssUpdateReducesError",
+        "GNSS measurement update decreases position uncertainty",
+        "Brown & Hwang (2012), Chapter 5"
+    );
 }
-pr4xis::register_axiom!(
-    GnssUpdateReducesError,
-    "Groves (2013) Chapters 14-17, Titterton & Weston (2004) Chapter 13."
-);
+pr4xis::register_axiom!(GnssUpdateReducesError, "Brown & Hwang (2012), Chapter 5");
 
 /// Tighter coupling provides better performance in degraded GNSS.
 ///
@@ -138,53 +150,54 @@ pr4xis::register_axiom!(
 pub struct TighterCouplingBetter;
 
 impl Axiom for TighterCouplingBetter {
-    fn description(&self) -> &str {
-        "tighter coupling provides better performance in degraded GNSS"
+    fn verify(&self) -> Verdict {
+        if is_a(
+            InsGnssConcept::TightlyCoupled,
+            InsGnssConcept::LooselyCoupled,
+        ) && is_a(
+            InsGnssConcept::DeeplyCoupled,
+            InsGnssConcept::TightlyCoupled,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        taxonomy::is_a::<InsGnssTaxonomy>(
-            &InsGnssConcept::TightlyCoupled,
-            &InsGnssConcept::LooselyCoupled,
-        ) && taxonomy::is_a::<InsGnssTaxonomy>(
-            &InsGnssConcept::DeeplyCoupled,
-            &InsGnssConcept::TightlyCoupled,
-        )
-    }
+
+    pr4xis::axiom_meta!(
+        "TighterCouplingBetter",
+        "tighter coupling provides better performance in degraded GNSS",
+        "Groves (2013) Section 14.5"
+    );
 }
-pr4xis::register_axiom!(
-    TighterCouplingBetter,
-    "Groves (2013) Chapters 14-17, Titterton & Weston (2004) Chapter 13."
-);
+pr4xis::register_axiom!(TighterCouplingBetter, "Groves (2013) Section 14.5");
 
 impl Ontology for InsGnssOntology {
     type Cat = InsGnssCategory;
     type Qual = ErrorStateDescription;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(CoastingDegrades),
-            Box::new(GnssUpdateReducesError),
-            Box::new(TighterCouplingBetter),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(CoastingDegrades));
+        axioms.push(Box::new(GnssUpdateReducesError));
+        axioms.push(Box::new(TighterCouplingBetter));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<InsGnssCategory>().unwrap();
+        assert_category_laws::<InsGnssCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        InsGnssOntology::validate().unwrap();
+        InsGnssOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

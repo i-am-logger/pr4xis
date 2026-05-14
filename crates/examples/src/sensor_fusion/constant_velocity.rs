@@ -31,9 +31,9 @@ mod tests {
             let t = (i + 1) as f64;
             let true_position = true_pos + true_vel * t;
 
-            engine = engine.try_next(cv_predict_1d(dt, 0.1)).unwrap();
+            engine = engine.next(cv_predict_1d(dt, 0.1)).unwrap();
             engine = engine
-                .try_next(cv_update_position_1d(true_position, 4.0))
+                .next(cv_update_position_1d(true_position, 4.0))
                 .unwrap();
 
             // Covariance stays PSD
@@ -85,9 +85,9 @@ mod tests {
                 let mut engine = new_cv_tracker_1d(initial_guess, 0.0, 100.0, 0.1, 4.0);
                 for i in 0..30 {
                     let t = (i + 1) as f64;
-                    engine = engine.try_next(cv_predict_1d(1.0, 0.1)).unwrap();
+                    engine = engine.next(cv_predict_1d(1.0, 0.1)).unwrap();
                     engine = engine
-                        .try_next(cv_update_position_1d(true_vel * t, 4.0))
+                        .next(cv_update_position_1d(true_vel * t, 4.0))
                         .unwrap();
                 }
                 let est_vel = engine.situation().estimate.state.get(1);
@@ -101,8 +101,8 @@ mod tests {
             ) {
                 let mut engine = new_cv_tracker_1d(0.0, 0.0, 100.0, 0.1, 4.0);
                 for z in &measurements {
-                    engine = engine.try_next(cv_predict_1d(1.0, 0.1)).unwrap();
-                    engine = engine.try_next(cv_update_position_1d(*z, 4.0)).unwrap();
+                    engine = engine.next(cv_predict_1d(1.0, 0.1)).unwrap();
+                    engine = engine.next(cv_update_position_1d(*z, 4.0)).unwrap();
                     prop_assert!(positive_definite::is_positive_semidefinite(
                         &engine.situation().estimate.covariance
                     ));
@@ -118,10 +118,10 @@ mod tests {
                 let mut e2 = new_cv_tracker_1d(initial, 0.0, 100.0, 0.1, 4.0);
                 for i in 0..10 {
                     let z = true_vel * (i + 1) as f64;
-                    e1 = e1.try_next(cv_predict_1d(1.0, 0.1)).unwrap();
-                    e2 = e2.try_next(cv_predict_1d(1.0, 0.1)).unwrap();
-                    e1 = e1.try_next(cv_update_position_1d(z, 4.0)).unwrap();
-                    e2 = e2.try_next(cv_update_position_1d(z, 4.0)).unwrap();
+                    e1 = e1.next(cv_predict_1d(1.0, 0.1)).unwrap();
+                    e2 = e2.next(cv_predict_1d(1.0, 0.1)).unwrap();
+                    e1 = e1.next(cv_update_position_1d(z, 4.0)).unwrap();
+                    e2 = e2.next(cv_update_position_1d(z, 4.0)).unwrap();
                 }
                 prop_assert!(e1.situation().estimate.state.data
                     == e2.situation().estimate.state.data);

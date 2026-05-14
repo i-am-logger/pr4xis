@@ -8,11 +8,10 @@
 //! (two hops) should have lower information loss than the direct
 //! molecular → bioelectricity functor (one hop).
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::biochemistry::ontology::{
-    BiochemistryCategory, BiochemistryCategoryRelationKind, BiochemistryEntity,
-    BiochemistryRelation,
+    BiochemistryCategory, BiochemistryConcept, BiochemistryRelation, BiochemistryRelationKind,
 };
 use crate::natural::biomedical::bioelectricity::ontology::{
     BioelectricCategory, BioelectricEntity, BioelectricRelation, BioelectricRelationKind,
@@ -24,8 +23,8 @@ impl Functor for BiochemistryToBioelectric {
     type Source = BiochemistryCategory;
     type Target = BioelectricCategory;
 
-    fn map_object(obj: &BiochemistryEntity) -> BioelectricEntity {
-        use BiochemistryEntity as B;
+    fn map_object(obj: &BiochemistryConcept) -> BioelectricEntity {
+        use BiochemistryConcept as B;
         use BioelectricEntity as E;
         match obj {
             // Calcium ion IS the primary bioelectric signal carrier
@@ -52,10 +51,26 @@ impl Functor for BiochemistryToBioelectric {
             B::ADP => E::MembranePotential,
             B::Glycolysis => E::CurrentMorphology, // metabolic state = current state
             B::OxidativePhosphorylation => E::CurrentMorphology,
-            // Abstract categories
+            // Abstract umbrellas and the BiochemicalEvent root
             B::SignalingMolecule => E::Signal,
             B::BiochemicalProcess => E::Network,
             B::EnergyMetabolite => E::Signal,
+            B::BiochemicalEvent => E::Signal,
+
+            // Causal events — merged into the concept enum.
+            // Each event maps to the bioelectric phenomenon it underlies.
+            B::CalciumEntry => E::MembranePotential,
+            B::CalmodulinActivation => E::Signal,
+            B::CaMKIIPhosphorylation => E::Signal,
+            B::CREBActivation => E::MorphogeneticField,
+            B::GeneExpressionChange => E::MorphogeneticField,
+            B::ProteinSynthesisChange => E::TargetMorphology,
+            B::PKCActivation => E::Signal,
+            B::DownstreamSignaling => E::Signal,
+            B::NOSynthaseActivation => E::Signal,
+            B::NOProduction => E::Signal,
+            B::ATPHydrolysis => E::MembranePotential,
+            B::EnergyRelease => E::MembranePotential,
         }
     }
 
@@ -63,15 +78,14 @@ impl Functor for BiochemistryToBioelectric {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
         // Identity morphisms must map to identity (functor law). Other kinds
-        // collapse to Composed in the target — matching how the target's
-        // compose produces Composed morphisms for non-Identity inputs (so
-        // F(g∘f) == F(g)∘F(f) holds under collapse).
+        // collapse to Composed in the (dense) Bioelectric target so that
+        // F(g∘f) == F(g)∘F(f) holds under collapse.
         match m.kind {
-            BiochemistryCategoryRelationKind::Identity => BioelectricCategory::identity(&from),
+            BiochemistryRelationKind::Identity => BioelectricCategory::identity(&from),
             _ => BioelectricRelation {
                 from,
                 to,
-                kind: BioelectricRelationKind::Composed,
+                kind: BioelectricRelationKind::Subsumption,
             },
         }
     }
@@ -81,13 +95,13 @@ pr4xis::register_functor!(BiochemistryToBioelectric);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<BiochemistryToBioelectric>().unwrap();
+        assert_functor_laws::<BiochemistryToBioelectric>();
     }
 
     #[test]
@@ -97,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_identity_preservation() {
-        for obj in BiochemistryEntity::variants() {
+        for obj in BiochemistryConcept::variants() {
             let id_src = BiochemistryCategory::identity(&obj);
             let mapped = BiochemistryToBioelectric::map_morphism(&id_src);
             let id_tgt =
@@ -109,7 +123,7 @@ mod tests {
     #[test]
     fn test_every_entity_maps() {
         let target_variants = BioelectricEntity::variants();
-        for obj in BiochemistryEntity::variants() {
+        for obj in BiochemistryConcept::variants() {
             let mapped = BiochemistryToBioelectric::map_object(&obj);
             assert!(
                 target_variants.contains(&mapped),
@@ -123,7 +137,7 @@ mod tests {
     #[test]
     fn test_calcium_maps_to_membrane_potential() {
         assert_eq!(
-            BiochemistryToBioelectric::map_object(&BiochemistryEntity::CalciumIon),
+            BiochemistryToBioelectric::map_object(&BiochemistryConcept::CalciumIon),
             BioelectricEntity::MembranePotential
         );
     }
@@ -131,7 +145,7 @@ mod tests {
     #[test]
     fn test_creb_maps_to_morphogenetic_field() {
         assert_eq!(
-            BiochemistryToBioelectric::map_object(&BiochemistryEntity::CREB),
+            BiochemistryToBioelectric::map_object(&BiochemistryConcept::CREB),
             BioelectricEntity::MorphogeneticField
         );
     }
@@ -139,7 +153,7 @@ mod tests {
     #[test]
     fn test_gene_transcription_maps_to_morphogenetic_field() {
         assert_eq!(
-            BiochemistryToBioelectric::map_object(&BiochemistryEntity::GeneTranscription),
+            BiochemistryToBioelectric::map_object(&BiochemistryConcept::GeneTranscription),
             BioelectricEntity::MorphogeneticField
         );
     }
@@ -148,7 +162,7 @@ mod tests {
     fn test_atp_maps_to_membrane_potential() {
         // ATP drives Na/K-ATPase which sets Vmem
         assert_eq!(
-            BiochemistryToBioelectric::map_object(&BiochemistryEntity::ATP),
+            BiochemistryToBioelectric::map_object(&BiochemistryConcept::ATP),
             BioelectricEntity::MembranePotential
         );
     }

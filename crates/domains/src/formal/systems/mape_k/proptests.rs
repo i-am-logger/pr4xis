@@ -26,17 +26,17 @@ proptest! {
     /// hold regardless of which random sampling drives the test.
     #[test]
     fn four_phase_cycle_invariant(_ in 0..128u32) {
-        prop_assert!(FourPhaseCycle.holds());
+        prop_assert!(FourPhaseCycle.verify().is_ok());
     }
 
     #[test]
     fn loop_is_closed_invariant(_ in 0..128u32) {
-        prop_assert!(LoopIsClosed.holds());
+        prop_assert!(LoopIsClosed.verify().is_ok());
     }
 
     #[test]
     fn every_phase_consults_knowledge_invariant(_ in 0..128u32) {
-        prop_assert!(EveryPhaseConsultsKnowledge.holds());
+        prop_assert!(EveryPhaseConsultsKnowledge.verify().is_ok());
     }
 
     /// Ontology validation is a pure function of structure.

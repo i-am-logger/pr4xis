@@ -1,61 +1,62 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::temporal::ontology::*;
 
 #[test]
 fn time_system_category_laws() {
-    check_category_laws::<TimeSystemCategory>().unwrap();
+    assert_category_laws::<TimeCategory>();
 }
 
 #[test]
 fn time_ontology_validates() {
-    TimeOntology::validate().unwrap();
+    TimeOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn total_order() {
-    assert!(TotalOrder.holds());
+    assert!(TotalOrder.verify().is_ok());
 }
 
 #[test]
 fn duration_non_negativity() {
-    assert!(DurationNonNegativity.holds());
+    assert!(DurationNonNegativity.verify().is_ok());
 }
 
 #[test]
 fn duration_identity() {
-    assert!(DurationIdentity.holds());
+    assert!(DurationIdentity.verify().is_ok());
 }
 
 #[test]
 fn duration_antisymmetry() {
-    assert!(DurationAntisymmetry.holds());
+    assert!(DurationAntisymmetry.verify().is_ok());
 }
 
 #[test]
 fn duration_additivity() {
-    assert!(DurationAdditivity.holds());
+    assert!(DurationAdditivity.verify().is_ok());
 }
 
 #[test]
 fn allen_exhaustive() {
-    assert!(AllenExhaustive.holds());
+    assert!(AllenExhaustive.verify().is_ok());
 }
 
 #[test]
 fn allen_inverse_law() {
-    assert!(AllenInverseLaw.holds());
+    assert!(AllenInverseLaw.verify().is_ok());
 }
 
 #[test]
 fn gps_tai_conversion() {
-    assert!(GpsTaiConversion.holds());
+    assert!(GpsTaiConversion.verify().is_ok());
 }
 
 #[test]
 fn tt_tai_conversion() {
-    assert!(TtTaiConversion.holds());
+    assert!(TtTaiConversion.verify().is_ok());
 }
 
 #[cfg(test)]

@@ -20,7 +20,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "Epistemic",
     source: "von Foerster (1981)",
-    being: MentalObject,
 
     concepts: [KnownKnown, KnownUnknown, UnknownKnown, UnknownUnknown],
 

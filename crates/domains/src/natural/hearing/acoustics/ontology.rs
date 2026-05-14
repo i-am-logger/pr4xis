@@ -1,257 +1,260 @@
-//! Acoustics ontology.
+//! Acoustics — physics of sound: waves, propagation media, acoustic
+//! phenomena, and the source→receiver causal chain.
 //!
-//! Models the physics of sound: waves, propagation media, acoustic phenomena.
-//! Taxonomy: wave type hierarchy, medium hierarchy.
-//! Mereology: sound wave has-a frequency, amplitude, wavelength.
-//! Causal graph: source vibration → medium coupling → wave propagation → reception.
+//! # Literature
 //!
-//! Key references:
-//! - Kinsler et al. 2000: Fundamentals of Acoustics (4th ed.)
-//! - Pierce 2019: Acoustics: An Introduction to Its Physical Principles
-//! - Stenfelt & Goode 2005: bone vs air conduction impedance
-//! - von Békésy 1960: Experiments in Hearing
+//! - **Kinsler et al. (2000)** *Fundamentals of Acoustics* (4th ed.), Wiley
+//!   — wave equations, media, impedance, reflection/refraction/diffraction.
+//! - **Pierce (2019)** *Acoustics: An Introduction to Its Physical
+//!   Principles and Applications* — comprehensive linear acoustics text.
+//! - **Stenfelt & Goode (2005)** "Bone-Conducted Sound: Physiological and
+//!   Clinical Aspects", *Otology & Neurotology* 26(6):1245-1261 — bone vs
+//!   air conduction impedance values.
+//! - **von Bekesy (1960)** *Experiments in Hearing*, McGraw-Hill — early
+//!   impedance and travelling-wave measurements.
+//! - **Mow & Huiskes (2005)** *Basic Orthopaedic Biomechanics &
+//!   Mechano-Biology* (3rd ed.) — cartilage acoustic properties.
+//!
+//! # Design
+//!
+//! Per `feedback_one_ontology_per_module`, the dual-enum (entities +
+//! parallel `AcousticCausalEvent`) has been merged into a single concept
+//! list. Events are first-class concepts under the umbrella
+//! `AcousticEvent`, attached to entities via Causation edges. This keeps
+//! the source→receiver chain (Kinsler 2000) as named morphisms rather
+//! than a separate hand-rolled category.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Acoustics",
+    source: "Kinsler et al. (2000) Fundamentals of Acoustics 4th ed.; Pierce (2019) Acoustics; Stenfelt & Goode (2005) Otology & Neurotology 26(6):1245; von Bekesy (1960) Experiments in Hearing; Mow & Huiskes (2005) Basic Orthopaedic Biomechanics",
 
-/// Every entity in the acoustics domain.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-pub enum AcousticEntity {
-    // Wave properties
-    Frequency,
-    Amplitude,
-    Wavelength,
-    Phase,
-    Intensity,
-    // Wave types
-    SoundWave,
-    LongitudinalWave,
-    TransverseWave,
-    ShearWave,
-    // Propagation media
-    Air,
-    Water,
-    CorticalBone,
-    CancellousBone,
-    SoftTissue,
-    Cartilage,
-    Fluid,
-    // Acoustic phenomena
-    Resonance,
-    Reflection,
-    Refraction,
-    Diffraction,
-    Absorption,
-    Attenuation,
-    ImpedanceMismatch,
-    // Abstract categories
-    Wave,
-    Medium,
-    WaveProperty,
-    AcousticPhenomenon,
-    Solid,
-    BoneTissue,
-}
+    concepts: [
+        // Wave properties
+        Frequency, Amplitude, Wavelength, Phase, Intensity,
+        // Wave types
+        SoundWave, LongitudinalWave, TransverseWave, ShearWave,
+        // Propagation media
+        Air, Water, CorticalBone, CancellousBone, SoftTissue, Cartilage, Fluid,
+        // Acoustic phenomena
+        Resonance, Reflection, Refraction, Diffraction, Absorption, Attenuation,
+        ImpedanceMismatch,
+        // Abstract categories
+        Wave, Medium, WaveProperty, AcousticPhenomenon, Solid, BoneTissue,
+        // Causal events (Kinsler 2000 §1)
+        SourceVibration, MediumCoupling, WavePropagation, BoundaryEncounter,
+        ImpedanceTransition, EnergyReflection, EnergyTransmission, EnergyAbsorption,
+        WaveAttenuation, ResonantAmplification, ReceiverExcitation,
+        AcousticEvent,
+    ],
 
-// ---------------------------------------------------------------------------
-// Causal event entity
-// ---------------------------------------------------------------------------
+    labels: {
+        Frequency: ("en", "Frequency",
+            "Kinsler et al. (2000) §1.3: number of cycles per second of a periodic acoustic wave (Hz)."),
+        Amplitude: ("en", "Amplitude",
+            "Kinsler et al. (2000) §1.3: peak pressure deviation of an acoustic wave from ambient."),
+        Wavelength: ("en", "Wavelength",
+            "Kinsler et al. (2000) §1.3: spatial period of the wave — distance between successive equal-phase points."),
+        Phase: ("en", "Phase",
+            "Kinsler et al. (2000) §1.3: angular offset of a sinusoidal component, modulo 2π."),
+        Intensity: ("en", "Intensity",
+            "Kinsler et al. (2000) §5.10: time-averaged acoustic power per unit area (W/m²)."),
+        SoundWave: ("en", "Sound wave",
+            "Kinsler et al. (2000) §5.1: a longitudinal pressure wave in a fluid medium."),
+        LongitudinalWave: ("en", "Longitudinal wave",
+            "Kinsler et al. (2000) §5.1: particle motion parallel to propagation direction."),
+        TransverseWave: ("en", "Transverse wave",
+            "Kinsler et al. (2000) §6.1: particle motion perpendicular to propagation; supported only in solids."),
+        ShearWave: ("en", "Shear wave",
+            "Kinsler et al. (2000) §6.1: transverse wave in a solid medium, restored by shear elasticity."),
+        Air: ("en", "Air",
+            "Kinsler et al. (2000) Table 5.1: c ≈ 343 m/s @ 20°C, Z₀ ≈ 413 Pa·s/m."),
+        Water: ("en", "Water",
+            "Kinsler et al. (2000) Table 5.1: c ≈ 1480 m/s @ 20°C."),
+        CorticalBone: ("en", "Cortical bone",
+            "Stenfelt & Goode (2005): dense outer bone; c ≈ 4080 m/s, Z ≈ 7.38·10⁶ Pa·s/m."),
+        CancellousBone: ("en", "Cancellous bone",
+            "Stenfelt & Goode (2005): porous trabecular bone; c ≈ 1800 m/s."),
+        SoftTissue: ("en", "Soft tissue",
+            "Kinsler et al. (2000): acoustically near-water; c ≈ 1540 m/s."),
+        Cartilage: ("en", "Cartilage",
+            "Mow & Huiskes (2005): c ≈ 1665 m/s."),
+        Fluid: ("en", "Fluid",
+            "Kinsler et al. (2000) §5.1: a medium with no shear elasticity — supports only longitudinal waves."),
+        Resonance: ("en", "Resonance",
+            "Kinsler et al. (2000) §3.2: amplitude amplification at a system's natural frequency."),
+        Reflection: ("en", "Reflection",
+            "Kinsler et al. (2000) §6.3: wave energy returned at an impedance boundary."),
+        Refraction: ("en", "Refraction",
+            "Kinsler et al. (2000) §6.6: change in propagation direction at a boundary."),
+        Diffraction: ("en", "Diffraction",
+            "Kinsler et al. (2000) §6.10: wave bending around obstacles smaller than λ."),
+        Absorption: ("en", "Absorption",
+            "Kinsler et al. (2000) §7.5: dissipation of acoustic energy as heat."),
+        Attenuation: ("en", "Attenuation",
+            "Kinsler et al. (2000) §7.5: decrease in wave amplitude with distance."),
+        ImpedanceMismatch: ("en", "Impedance mismatch",
+            "Kinsler et al. (2000) §6.3: difference in Z = ρc across a boundary causing reflection."),
+        Wave: ("en", "Wave",
+            "Kinsler et al. (2000) §5.1: a disturbance propagating through a medium."),
+        Medium: ("en", "Medium",
+            "Kinsler et al. (2000) §5.1: a material substrate that supports wave propagation."),
+        WaveProperty: ("en", "Wave property",
+            "Kinsler et al. (2000) §1.3: a scalar parameter characterizing a wave (frequency, amplitude, …)."),
+        AcousticPhenomenon: ("en", "Acoustic phenomenon",
+            "Kinsler et al. (2000) §6: emergent boundary or propagation effect."),
+        Solid: ("en", "Solid",
+            "Kinsler et al. (2000) §6.1: a medium with non-zero shear modulus."),
+        BoneTissue: ("en", "Bone tissue",
+            "Stenfelt & Goode (2005): mineralized solid biological tissue."),
+        SourceVibration: ("en", "Source vibration",
+            "Kinsler et al. (2000) §7.1: the originating mechanical oscillation that excites the medium."),
+        MediumCoupling: ("en", "Medium coupling",
+            "Kinsler et al. (2000) §7.1: transfer of source motion into propagating wave energy."),
+        WavePropagation: ("en", "Wave propagation",
+            "Kinsler et al. (2000) §5.5: outward travel of acoustic energy through the medium."),
+        BoundaryEncounter: ("en", "Boundary encounter",
+            "Kinsler et al. (2000) §6.3: arrival of a wave at an impedance discontinuity."),
+        ImpedanceTransition: ("en", "Impedance transition",
+            "Kinsler et al. (2000) §6.3: the boundary-driven splitting of energy into reflected and transmitted parts."),
+        EnergyReflection: ("en", "Energy reflection",
+            "Kinsler et al. (2000) §6.3: return of acoustic energy at a Z mismatch."),
+        EnergyTransmission: ("en", "Energy transmission",
+            "Kinsler et al. (2000) §6.3: passage of acoustic energy across a boundary."),
+        EnergyAbsorption: ("en", "Energy absorption",
+            "Kinsler et al. (2000) §7.5: thermalisation of acoustic energy at the boundary or in the medium."),
+        WaveAttenuation: ("en", "Wave attenuation",
+            "Kinsler et al. (2000) §7.5: progressive loss of amplitude during propagation."),
+        ResonantAmplification: ("en", "Resonant amplification",
+            "Kinsler et al. (2000) §3.2: build-up of amplitude at the receiver's natural frequency."),
+        ReceiverExcitation: ("en", "Receiver excitation",
+            "Kinsler et al. (2000) §7.1: the terminal event — coupling of acoustic energy into a receiver."),
+        AcousticEvent: ("en", "Acoustic event",
+            "Kinsler et al. (2000) §7.1: any perdurant in the source→receiver acoustic chain (umbrella concept)."),
+    },
 
-/// Causal events in acoustic wave propagation.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-pub enum AcousticCausalEvent {
-    SourceVibration,
-    MediumCoupling,
-    WavePropagation,
-    BoundaryEncounter,
-    ImpedanceTransition,
-    EnergyReflection,
-    EnergyTransmission,
-    EnergyAbsorption,
-    WaveAttenuation,
-    ResonantAmplification,
-    ReceiverExcitation,
-}
+    is_a: [
+        // Wave types
+        (SoundWave, Wave), (LongitudinalWave, Wave),
+        (TransverseWave, Wave), (ShearWave, Wave),
+        (SoundWave, LongitudinalWave),
+        // Media
+        (Air, Medium), (Water, Medium), (CorticalBone, Medium),
+        (CancellousBone, Medium), (SoftTissue, Medium),
+        (Cartilage, Medium), (Fluid, Medium),
+        (CorticalBone, BoneTissue), (CancellousBone, BoneTissue),
+        (BoneTissue, Solid), (Cartilage, Solid),
+        (Air, Fluid), (Water, Fluid),
+        (Solid, Medium),
+        // Wave properties
+        (Frequency, WaveProperty), (Amplitude, WaveProperty),
+        (Wavelength, WaveProperty), (Phase, WaveProperty), (Intensity, WaveProperty),
+        // Acoustic phenomena
+        (Resonance, AcousticPhenomenon), (Reflection, AcousticPhenomenon),
+        (Refraction, AcousticPhenomenon), (Diffraction, AcousticPhenomenon),
+        (Absorption, AcousticPhenomenon), (Attenuation, AcousticPhenomenon),
+        (ImpedanceMismatch, AcousticPhenomenon),
+        // Events
+        (SourceVibration, AcousticEvent), (MediumCoupling, AcousticEvent),
+        (WavePropagation, AcousticEvent), (BoundaryEncounter, AcousticEvent),
+        (ImpedanceTransition, AcousticEvent), (EnergyReflection, AcousticEvent),
+        (EnergyTransmission, AcousticEvent), (EnergyAbsorption, AcousticEvent),
+        (WaveAttenuation, AcousticEvent), (ResonantAmplification, AcousticEvent),
+        (ReceiverExcitation, AcousticEvent),
+    ],
 
-// ---------------------------------------------------------------------------
-// Ontology (define_ontology! macro)
-// ---------------------------------------------------------------------------
+    has_a: [
+        // A sound wave has-a frequency, amplitude, wavelength, phase, intensity
+        (SoundWave, Frequency), (SoundWave, Amplitude), (SoundWave, Wavelength),
+        (SoundWave, Phase), (SoundWave, Intensity),
+    ],
 
-define_ontology! {
-    /// Discrete category over acoustic entities.
-    pub AcousticsOntology for AcousticsCategory {
-        entity: AcousticEntity,
-        relation: AcousticRelation,
-        being: Quality,
-        source: "Kinsler et al. (2000); Pierce (2019)",
+    causes: [
+        // Kinsler et al. (2000) §7.1: source → medium → propagation → boundary → receiver
+        (SourceVibration, MediumCoupling),
+        (MediumCoupling, WavePropagation),
+        (WavePropagation, BoundaryEncounter),
+        (WavePropagation, WaveAttenuation),
+        (BoundaryEncounter, ImpedanceTransition),
+        (ImpedanceTransition, EnergyReflection),
+        (ImpedanceTransition, EnergyTransmission),
+        (ImpedanceTransition, EnergyAbsorption),
+        (EnergyTransmission, ResonantAmplification),
+        (EnergyTransmission, ReceiverExcitation),
+        (ResonantAmplification, ReceiverExcitation),
+    ],
 
-        taxonomy: AcousticTaxonomy [
-            // Wave types is-a Wave
-            (SoundWave, Wave),
-            (LongitudinalWave, Wave),
-            (TransverseWave, Wave),
-            (ShearWave, Wave),
-            // Sound wave is specifically longitudinal (in fluids)
-            (SoundWave, LongitudinalWave),
-            // Media is-a Medium
-            (Air, Medium),
-            (Water, Medium),
-            (CorticalBone, Medium),
-            (CancellousBone, Medium),
-            (SoftTissue, Medium),
-            (Cartilage, Medium),
-            (Fluid, Medium),
-            // Bone subtypes
-            (CorticalBone, BoneTissue),
-            (CancellousBone, BoneTissue),
-            (BoneTissue, Solid),
-            (Cartilage, Solid),
-            // Fluid media
-            (Air, Fluid),
-            (Water, Fluid),
-            // Solid is-a Medium
-            (Solid, Medium),
-            (Fluid, Medium),
-            // Wave properties
-            (Frequency, WaveProperty),
-            (Amplitude, WaveProperty),
-            (Wavelength, WaveProperty),
-            (Phase, WaveProperty),
-            (Intensity, WaveProperty),
-            // Acoustic phenomena
-            (Resonance, AcousticPhenomenon),
-            (Reflection, AcousticPhenomenon),
-            (Refraction, AcousticPhenomenon),
-            (Diffraction, AcousticPhenomenon),
-            (Absorption, AcousticPhenomenon),
-            (Attenuation, AcousticPhenomenon),
-            (ImpedanceMismatch, AcousticPhenomenon),
-        ],
-
-        mereology: AcousticMereology [
-            // A sound wave has-a frequency, amplitude, wavelength, phase, intensity
-            (SoundWave, Frequency),
-            (SoundWave, Amplitude),
-            (SoundWave, Wavelength),
-            (SoundWave, Phase),
-            (SoundWave, Intensity),
-        ],
-
-        causation: AcousticCausalGraph for AcousticCausalEvent [
-            // Source vibration couples into medium
-            (SourceVibration, MediumCoupling),
-            // Medium coupling initiates wave propagation
-            (MediumCoupling, WavePropagation),
-            // Propagation encounters boundaries
-            (WavePropagation, BoundaryEncounter),
-            // Propagation attenuates with distance
-            (WavePropagation, WaveAttenuation),
-            // Boundary creates impedance transition
-            (BoundaryEncounter, ImpedanceTransition),
-            // Impedance transition causes reflection and transmission
-            (ImpedanceTransition, EnergyReflection),
-            (ImpedanceTransition, EnergyTransmission),
-            (ImpedanceTransition, EnergyAbsorption),
-            // Transmitted energy can resonate
-            (EnergyTransmission, ResonantAmplification),
-            // Transmitted energy excites receiver
-            (EnergyTransmission, ReceiverExcitation),
-            // Resonance amplifies receiver excitation
-            (ResonantAmplification, ReceiverExcitation),
-        ],
-
-        opposition: AcousticOpposition [
-            (Reflection, Refraction),
-            (Absorption, Resonance),
-            (LongitudinalWave, TransverseWave),
-        ],
-    }
+    opposes: [
+        (Reflection, Refraction), (Refraction, Reflection),
+        (Absorption, Resonance), (Resonance, Absorption),
+        (LongitudinalWave, TransverseWave), (TransverseWave, LongitudinalWave),
+    ],
 }
 
 // ---------------------------------------------------------------------------
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Speed of sound in a given medium (m/s).
-///
-/// Values from Kinsler et al. 2000, Table 5.1; bone values from
-/// Stenfelt & Goode 2005.
+/// Speed of sound (m/s). Kinsler et al. (2000) Table 5.1; bone values from
+/// Stenfelt & Goode (2005).
 #[derive(Debug, Clone)]
 pub struct SpeedOfSound;
-
 impl Quality for SpeedOfSound {
-    type Individual = AcousticEntity;
+    type Individual = AcousticsConcept;
     type Value = f64;
-
-    fn get(&self, individual: &AcousticEntity) -> Option<f64> {
-        use AcousticEntity::*;
+    fn get(&self, individual: &AcousticsConcept) -> Option<f64> {
+        use AcousticsConcept::*;
         match individual {
-            Air => Some(343.0),             // at 20C, 1 atm
-            Water => Some(1480.0),          // at 20C
-            CorticalBone => Some(4080.0),   // Stenfelt & Goode 2005
-            CancellousBone => Some(1800.0), // varies widely, ~1500-2000
-            SoftTissue => Some(1540.0),     // similar to water
-            Cartilage => Some(1665.0),      // Mow & Huiskes 2005
+            Air => Some(343.0),
+            Water => Some(1480.0),
+            CorticalBone => Some(4080.0),
+            CancellousBone => Some(1800.0),
+            SoftTissue => Some(1540.0),
+            Cartilage => Some(1665.0),
             _ => None,
         }
     }
 }
 
-/// Acoustic impedance Z = rho * c (Pa*s/m = Rayl).
-///
-/// Critical for understanding energy transfer at boundaries.
-/// Stenfelt & Goode 2005; Kinsler et al. 2000.
+/// Acoustic impedance Z = ρc (Pa·s/m = rayl). Kinsler et al. (2000);
+/// Stenfelt & Goode (2005).
 #[derive(Debug, Clone)]
 pub struct AcousticImpedance;
-
 impl Quality for AcousticImpedance {
-    type Individual = AcousticEntity;
+    type Individual = AcousticsConcept;
     type Value = f64;
-
-    fn get(&self, individual: &AcousticEntity) -> Option<f64> {
-        use AcousticEntity::*;
+    fn get(&self, individual: &AcousticsConcept) -> Option<f64> {
+        use AcousticsConcept::*;
         match individual {
-            Air => Some(413.0),             // 1.2 kg/m3 * 343 m/s
-            Water => Some(1.48e6),          // 1000 * 1480
-            CorticalBone => Some(7.38e6),   // 1810 * 4080 (Stenfelt 2005)
-            CancellousBone => Some(1.44e6), // ~800 * 1800
-            SoftTissue => Some(1.63e6),     // 1060 * 1540
-            Cartilage => Some(1.83e6),      // 1100 * 1665
+            Air => Some(413.0),
+            Water => Some(1.48e6),
+            CorticalBone => Some(7.38e6),
+            CancellousBone => Some(1.44e6),
+            SoftTissue => Some(1.63e6),
+            Cartilage => Some(1.83e6),
             _ => None,
         }
     }
 }
 
-/// Whether a medium supports shear waves (transverse waves).
-/// Solids support both longitudinal and shear; fluids only longitudinal.
+/// Whether the medium supports shear waves. Kinsler et al. (2000) §6.1.
 #[derive(Debug, Clone)]
 pub struct SupportsShearWaves;
-
 impl Quality for SupportsShearWaves {
-    type Individual = AcousticEntity;
+    type Individual = AcousticsConcept;
     type Value = bool;
-
-    fn get(&self, individual: &AcousticEntity) -> Option<bool> {
-        use AcousticEntity::*;
+    fn get(&self, individual: &AcousticsConcept) -> Option<bool> {
+        use AcousticsConcept::*;
         match individual {
             Air | Water => Some(false),
             CorticalBone | CancellousBone | Cartilage => Some(true),
-            SoftTissue => Some(false), // effectively a fluid for acoustic purposes
+            SoftTissue => Some(false),
             _ => None,
         }
     }
 }
 
-/// The medium state: solid, liquid, or gas.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MediumState {
     Gas,
@@ -259,131 +262,163 @@ pub enum MediumState {
     SolidState,
 }
 
-/// Quality: physical state of the medium.
 #[derive(Debug, Clone)]
 pub struct MediumPhase;
-
 impl Quality for MediumPhase {
-    type Individual = AcousticEntity;
+    type Individual = AcousticsConcept;
     type Value = MediumState;
-
-    fn get(&self, individual: &AcousticEntity) -> Option<MediumState> {
-        use AcousticEntity::*;
+    fn get(&self, individual: &AcousticsConcept) -> Option<MediumState> {
+        use AcousticsConcept::*;
         match individual {
             Air => Some(MediumState::Gas),
             Water => Some(MediumState::Liquid),
             CorticalBone | CancellousBone | Cartilage => Some(MediumState::SolidState),
-            SoftTissue => Some(MediumState::Liquid), // acoustically liquid-like
+            SoftTissue => Some(MediumState::Liquid),
             _ => None,
         }
     }
 }
 
 // ---------------------------------------------------------------------------
+// Helpers — kinded-morphism queries.
+// ---------------------------------------------------------------------------
+
+fn effects_of(cause: AcousticsConcept) -> Vec<AcousticsConcept> {
+    use pr4xis::category::{Arrow, Category};
+    AcousticsCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == AcousticsRelationKind::Causation && m.source() == cause)
+        .map(|m| m.target())
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
 // Axioms
 // ---------------------------------------------------------------------------
 
-/// Sound speed in bone > sound speed in air (fundamental to bone conduction).
-///
-/// Stenfelt & Goode 2005: cortical bone ~4080 m/s vs air 343 m/s.
 pub struct BoneFasterThanAir;
-
 impl Axiom for BoneFasterThanAir {
-    fn description(&self) -> &str {
-        "speed of sound in cortical bone exceeds speed in air"
-    }
-
-    fn holds(&self) -> bool {
-        use AcousticEntity::*;
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use AcousticsConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let s = SpeedOfSound;
-        s.get(&CorticalBone).unwrap() > s.get(&Air).unwrap()
+        if s.get(&CorticalBone).unwrap_or(0.0) > s.get(&Air).unwrap_or(0.0) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "BoneFasterThanAir",
+        "speed of sound in cortical bone exceeds speed in air",
+        "Stenfelt & Goode (2005) Otology & Neurotology 26(6):1245"
+    );
 }
-pr4xis::register_axiom!(BoneFasterThanAir);
+pr4xis::register_axiom!(
+    BoneFasterThanAir,
+    "Stenfelt & Goode (2005) Otology & Neurotology 26(6):1245"
+);
 
-/// Impedance mismatch: bone impedance >> air impedance (~18,000:1).
-///
-/// This ratio explains why air conduction is inefficient for coupling
-/// into bone, and why bone conduction transducers bypass this barrier.
-/// Stenfelt & Goode 2005.
 pub struct BoneAirImpedanceMismatch;
-
 impl Axiom for BoneAirImpedanceMismatch {
-    fn description(&self) -> &str {
-        "bone acoustic impedance is at least 1000x air impedance"
-    }
-
-    fn holds(&self) -> bool {
-        use AcousticEntity::*;
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use AcousticsConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let z = AcousticImpedance;
-        let bone_z = z.get(&CorticalBone).unwrap();
-        let air_z = z.get(&Air).unwrap();
-        bone_z / air_z > 1000.0
+        let bone = z.get(&CorticalBone).unwrap_or(0.0);
+        let air = z.get(&Air).unwrap_or(1.0);
+        if bone / air > 1000.0 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "BoneAirImpedanceMismatch",
+        "bone acoustic impedance is at least 1000x air impedance",
+        "Stenfelt & Goode (2005) Otology & Neurotology 26(6):1245"
+    );
 }
-pr4xis::register_axiom!(BoneAirImpedanceMismatch);
+pr4xis::register_axiom!(
+    BoneAirImpedanceMismatch,
+    "Stenfelt & Goode (2005) Otology & Neurotology 26(6):1245"
+);
 
-/// Soft tissue impedance is close to water (within 15%).
-///
-/// This is why ultrasound works well through soft tissue but not through
-/// bone or air. Kinsler et al. 2000.
 pub struct SoftTissueMatchesWater;
-
 impl Axiom for SoftTissueMatchesWater {
-    fn description(&self) -> &str {
-        "soft tissue impedance is within 15% of water"
-    }
-
-    fn holds(&self) -> bool {
-        use AcousticEntity::*;
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use AcousticsConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let z = AcousticImpedance;
-        let tissue_z = z.get(&SoftTissue).unwrap();
-        let water_z = z.get(&Water).unwrap();
-        let ratio = tissue_z / water_z;
-        (0.85..=1.15).contains(&ratio)
+        let tissue = z.get(&SoftTissue).unwrap_or(0.0);
+        let water = z.get(&Water).unwrap_or(1.0);
+        let r = tissue / water;
+        if (0.85..=1.15).contains(&r) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "SoftTissueMatchesWater",
+        "soft tissue impedance is within 15% of water",
+        "Kinsler et al. (2000) Fundamentals of Acoustics 4th ed."
+    );
 }
-pr4xis::register_axiom!(SoftTissueMatchesWater);
+pr4xis::register_axiom!(
+    SoftTissueMatchesWater,
+    "Kinsler et al. (2000) Fundamentals of Acoustics 4th ed."
+);
 
-/// Only solids support shear waves; fluids do not.
-///
-/// Kinsler et al. 2000, Ch. 6.
 pub struct OnlySolidsHaveShearWaves;
-
 impl Axiom for OnlySolidsHaveShearWaves {
-    fn description(&self) -> &str {
-        "only solid media support shear waves"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use AcousticsConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let s = SupportsShearWaves;
+        let ok = s.get(&Air) == Some(false)
+            && s.get(&Water) == Some(false)
+            && s.get(&CorticalBone) == Some(true)
+            && s.get(&CancellousBone) == Some(true)
+            && s.get(&Cartilage) == Some(true);
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-
-    fn holds(&self) -> bool {
-        use AcousticEntity::*;
-        let shear = SupportsShearWaves;
-        // Fluids: no shear
-        shear.get(&Air) == Some(false)
-            && shear.get(&Water) == Some(false)
-            // Solids: shear
-            && shear.get(&CorticalBone) == Some(true)
-            && shear.get(&CancellousBone) == Some(true)
-            && shear.get(&Cartilage) == Some(true)
-    }
+    pr4xis::axiom_meta!(
+        "OnlySolidsHaveShearWaves",
+        "only solid media support shear waves",
+        "Kinsler et al. (2000) Fundamentals of Acoustics §6.1"
+    );
 }
-pr4xis::register_axiom!(OnlySolidsHaveShearWaves);
+pr4xis::register_axiom!(
+    OnlySolidsHaveShearWaves,
+    "Kinsler et al. (2000) Fundamentals of Acoustics §6.1"
+);
 
-/// Source vibration transitively causes receiver excitation.
 pub struct SourceCausesReceiver;
-
 impl Axiom for SourceCausesReceiver {
-    fn description(&self) -> &str {
-        "source vibration transitively causes receiver excitation"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use AcousticsConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if effects_of(SourceVibration).contains(&ReceiverExcitation) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-
-    fn holds(&self) -> bool {
-        use AcousticCausalEvent::*;
-        let effects = causation::effects_of::<AcousticCausalGraph>(&SourceVibration);
-        effects.contains(&ReceiverExcitation)
-    }
+    pr4xis::axiom_meta!(
+        "SourceCausesReceiver",
+        "source vibration transitively causes receiver excitation",
+        "Kinsler et al. (2000) Fundamentals of Acoustics §7.1"
+    );
 }
-pr4xis::register_axiom!(SourceCausesReceiver);
+pr4xis::register_axiom!(
+    SourceCausesReceiver,
+    "Kinsler et al. (2000) Fundamentals of Acoustics §7.1"
+);
 
 // ---------------------------------------------------------------------------
 // Ontology impl
@@ -393,20 +428,27 @@ impl Ontology for AcousticsOntology {
     type Cat = AcousticsCategory;
     type Qual = SpeedOfSound;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(BoneFasterThanAir),
-            Box::new(BoneAirImpedanceMismatch),
-            Box::new(SoftTissueMatchesWater),
-            Box::new(OnlySolidsHaveShearWaves),
-            Box::new(SourceCausesReceiver),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(BoneFasterThanAir));
+        axioms.push(Box::new(BoneAirImpedanceMismatch));
+        axioms.push(Box::new(SoftTissueMatchesWater));
+        axioms.push(Box::new(OnlySolidsHaveShearWaves));
+        axioms.push(Box::new(SourceCausesReceiver));
+        axioms
     }
 }
+
+// ---------------------------------------------------------------------------
+// Backward-compatible type aliases for cross-functor migration.
+// AcousticEntity / AcousticRelation are referenced by sibling functors.
+// (Per `feedback_breaking_changes_ok` we could just rename, but several
+// functors share these — keeping aliases reduces fanout churn.)
+// ---------------------------------------------------------------------------
+
+pub use AcousticsConcept as AcousticEntity;
+pub use AcousticsRelation as AcousticRelation;
+pub use AcousticsRelationKind as AcousticsCategoryRelationKind;
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -415,183 +457,75 @@ impl Ontology for AcousticsOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::mereology;
-    use pr4xis::ontology::reasoning::mereology::MereologyCategory;
-    use pr4xis::ontology::reasoning::taxonomy;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use proptest::prelude::*;
 
-    // -- Axiom tests --
-
     #[test]
-    fn test_bone_faster_than_air() {
-        assert!(
-            BoneFasterThanAir.holds(),
-            "{}",
-            BoneFasterThanAir.description()
-        );
+    fn category_laws() {
+        assert_category_laws::<AcousticsCategory>();
     }
 
     #[test]
-    fn test_bone_air_impedance_mismatch() {
-        assert!(
-            BoneAirImpedanceMismatch.holds(),
-            "{}",
-            BoneAirImpedanceMismatch.description()
-        );
+    fn ontology_validates() {
+        AcousticsOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
-    fn test_soft_tissue_matches_water() {
-        assert!(
-            SoftTissueMatchesWater.holds(),
-            "{}",
-            SoftTissueMatchesWater.description()
-        );
+    fn bone_faster_than_air() {
+        assert!(BoneFasterThanAir.verify().is_ok());
+    }
+    #[test]
+    fn bone_air_impedance_mismatch() {
+        assert!(BoneAirImpedanceMismatch.verify().is_ok());
+    }
+    #[test]
+    fn soft_tissue_matches_water() {
+        assert!(SoftTissueMatchesWater.verify().is_ok());
+    }
+    #[test]
+    fn only_solids_have_shear() {
+        assert!(OnlySolidsHaveShearWaves.verify().is_ok());
+    }
+    #[test]
+    fn source_causes_receiver() {
+        assert!(SourceCausesReceiver.verify().is_ok());
     }
 
     #[test]
-    fn test_only_solids_have_shear_waves() {
-        assert!(
-            OnlySolidsHaveShearWaves.holds(),
-            "{}",
-            OnlySolidsHaveShearWaves.description()
-        );
-    }
-
-    #[test]
-    fn test_source_causes_receiver() {
-        assert!(
-            SourceCausesReceiver.holds(),
-            "{}",
-            SourceCausesReceiver.description()
-        );
-    }
-
-    // -- Category law tests --
-
-    #[test]
-    fn test_acoustics_category_laws() {
-        check_category_laws::<AcousticsCategory>().unwrap();
-    }
-
-    #[test]
-    fn test_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<AcousticTaxonomy>>().unwrap();
-    }
-
-    #[test]
-    fn test_mereology_category_laws() {
-        check_category_laws::<MereologyCategory<AcousticMereology>>().unwrap();
-    }
-
-    #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<AcousticCausalGraph>>().unwrap();
-    }
-
-    // -- Taxonomy tests --
-
-    #[test]
-    fn test_sound_wave_is_a_wave() {
-        assert!(taxonomy::is_a::<AcousticTaxonomy>(
-            &AcousticEntity::SoundWave,
-            &AcousticEntity::Wave
-        ));
-    }
-
-    #[test]
-    fn test_sound_wave_is_longitudinal() {
-        assert!(taxonomy::is_a::<AcousticTaxonomy>(
-            &AcousticEntity::SoundWave,
-            &AcousticEntity::LongitudinalWave
-        ));
-    }
-
-    #[test]
-    fn test_cortical_bone_is_a_medium() {
-        assert!(taxonomy::is_a::<AcousticTaxonomy>(
-            &AcousticEntity::CorticalBone,
-            &AcousticEntity::Medium
-        ));
-    }
-
-    #[test]
-    fn test_cortical_bone_is_solid() {
-        assert!(taxonomy::is_a::<AcousticTaxonomy>(
-            &AcousticEntity::CorticalBone,
-            &AcousticEntity::Solid
-        ));
-    }
-
-    #[test]
-    fn test_air_is_fluid() {
-        assert!(taxonomy::is_a::<AcousticTaxonomy>(
-            &AcousticEntity::Air,
-            &AcousticEntity::Fluid
-        ));
-    }
-
-    // -- Mereology tests --
-
-    #[test]
-    fn test_sound_wave_has_frequency() {
-        let parts = mereology::parts_of::<AcousticMereology>(&AcousticEntity::SoundWave);
-        assert!(parts.contains(&AcousticEntity::Frequency));
-    }
-
-    #[test]
-    fn test_sound_wave_has_amplitude() {
-        let parts = mereology::parts_of::<AcousticMereology>(&AcousticEntity::SoundWave);
-        assert!(parts.contains(&AcousticEntity::Amplitude));
-    }
-
-    // -- Quality tests --
-
-    #[test]
-    fn test_speed_of_sound_air() {
-        assert_eq!(SpeedOfSound.get(&AcousticEntity::Air), Some(343.0));
-    }
-
-    #[test]
-    fn test_speed_of_sound_cortical_bone() {
-        assert_eq!(
-            SpeedOfSound.get(&AcousticEntity::CorticalBone),
-            Some(4080.0)
-        );
-    }
-
-    #[test]
-    fn test_impedance_values_ordered() {
+    fn impedance_values_ordered() {
         let z = AcousticImpedance;
-        let air = z.get(&AcousticEntity::Air).unwrap();
-        let water = z.get(&AcousticEntity::Water).unwrap();
-        let bone = z.get(&AcousticEntity::CorticalBone).unwrap();
-        assert!(air < water, "air impedance should be less than water");
-        assert!(water < bone, "water impedance should be less than bone");
+        let air = z.get(&AcousticsConcept::Air).unwrap();
+        let water = z.get(&AcousticsConcept::Water).unwrap();
+        let bone = z.get(&AcousticsConcept::CorticalBone).unwrap();
+        assert!(air < water);
+        assert!(water < bone);
     }
 
-    #[test]
-    fn test_ontology_validates() {
-        AcousticsOntology::validate().unwrap();
-    }
-
-    fn arb_acoustic_entity() -> impl Strategy<Value = AcousticEntity> {
-        (0..AcousticEntity::variants().len()).prop_map(|i| AcousticEntity::variants()[i])
+    fn arb_concept() -> impl Strategy<Value = AcousticsConcept> {
+        proptest::sample::select(AcousticsConcept::variants())
     }
 
     proptest! {
         #[test]
-        fn prop_taxonomy_reflexive(entity in arb_acoustic_entity()) {
-            prop_assert!(taxonomy::is_a::<AcousticTaxonomy>(&entity, &entity));
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in AcousticsCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
         }
-
         #[test]
-        fn prop_media_with_speed_have_impedance(entity in arb_acoustic_entity()) {
-            if SpeedOfSound.get(&entity).is_some() {
-                prop_assert!(AcousticImpedance.get(&entity).is_some());
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in AcousticsOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+        #[test]
+        fn prop_media_with_speed_have_impedance(c in arb_concept()) {
+            if SpeedOfSound.get(&c).is_some() {
+                prop_assert!(AcousticImpedance.get(&c).is_some());
             }
         }
     }

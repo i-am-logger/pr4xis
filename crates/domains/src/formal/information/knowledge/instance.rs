@@ -75,10 +75,7 @@ impl Present for SelfModelInstance {
                 let mut ont = Presentation::new();
                 ont.set("name", SchemaValue::Text(v.name().into()));
                 ont.set("domain", SchemaValue::Text(v.domain()));
-                ont.set(
-                    "being",
-                    SchemaValue::Text(v.being.map_or("Unknown", |b| b.label()).into()),
-                );
+                // DOLCE Being was removed from Vocabulary per #165.
                 ont.set("source", SchemaValue::Text(v.source.as_str().to_string()));
                 ont.set("concepts", SchemaValue::Unsigned(v.concept_count() as u64));
                 ont.set(
@@ -107,14 +104,24 @@ impl Present for SelfModelInstance {
 pub struct KnowledgeBaseIsNonEmpty;
 
 impl Axiom for KnowledgeBaseIsNonEmpty {
-    fn description(&self) -> &str {
-        "describe_knowledge_base() returns at least one registered Vocabulary"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if !describe_knowledge_base().is_empty() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        !describe_knowledge_base().is_empty()
-    }
+    pr4xis::axiom_meta!(
+        "KnowledgeBaseIsNonEmpty",
+        "describe_knowledge_base() returns at least one registered Vocabulary",
+        "Smith (1984) Reflection and Semantics in Lisp, POPL 1984"
+    );
 }
-pr4xis::register_axiom!(KnowledgeBaseIsNonEmpty);
+pr4xis::register_axiom!(
+    KnowledgeBaseIsNonEmpty,
+    "Smith (1984) Reflection and Semantics in Lisp, POPL 1984"
+);
 
 /// Axiom: SelfModelOntology is registered in the knowledge base.
 /// The system can describe itself iff its own SelfModel ontology is
@@ -122,29 +129,51 @@ pr4xis::register_axiom!(KnowledgeBaseIsNonEmpty);
 pub struct SelfModelIsRegistered;
 
 impl Axiom for SelfModelIsRegistered {
-    fn description(&self) -> &str {
-        "SelfModelOntology is registered in the knowledge base"
-    }
-    fn holds(&self) -> bool {
-        describe_knowledge_base()
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if describe_knowledge_base()
             .iter()
             .any(|v| v.name() == "SelfModelOntology")
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "SelfModelIsRegistered",
+        "SelfModelOntology is registered in the knowledge base",
+        "Smith (1984) Reflection and Semantics in Lisp, POPL 1984"
+    );
 }
-pr4xis::register_axiom!(SelfModelIsRegistered);
+pr4xis::register_axiom!(
+    SelfModelIsRegistered,
+    "Smith (1984) Reflection and Semantics in Lisp, POPL 1984"
+);
 
 /// Axiom: KnowledgeOntology is registered in the knowledge base.
 /// The Knowledge ontology — root of the registry — must register itself.
 pub struct KnowledgeIsRegistered;
 
 impl Axiom for KnowledgeIsRegistered {
-    fn description(&self) -> &str {
-        "KnowledgeOntology is registered in the knowledge base"
-    }
-    fn holds(&self) -> bool {
-        describe_knowledge_base()
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if describe_knowledge_base()
             .iter()
             .any(|v| v.name() == "KnowledgeOntology")
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "KnowledgeIsRegistered",
+        "KnowledgeOntology is registered in the knowledge base",
+        "Smith (1984) Reflection and Semantics in Lisp, POPL 1984"
+    );
 }
-pr4xis::register_axiom!(KnowledgeIsRegistered);
+pr4xis::register_axiom!(
+    KnowledgeIsRegistered,
+    "Smith (1984) Reflection and Semantics in Lisp, POPL 1984"
+);

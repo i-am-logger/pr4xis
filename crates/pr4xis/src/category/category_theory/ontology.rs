@@ -403,10 +403,7 @@ mod tests {
             .filter(|m| m.kind() == CategoryTheoryRelationKind::Parthood)
             .map(|m| (m.source(), m.target()))
             .collect();
-        assert!(parthood.contains(&(
-            CategoryTheoryConcept::Monad,
-            CategoryTheoryConcept::Unit
-        )));
+        assert!(parthood.contains(&(CategoryTheoryConcept::Monad, CategoryTheoryConcept::Unit)));
         assert!(parthood.contains(&(
             CategoryTheoryConcept::Monad,
             CategoryTheoryConcept::Multiplication

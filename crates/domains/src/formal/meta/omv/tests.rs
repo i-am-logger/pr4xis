@@ -2,19 +2,19 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::*;
-use pr4xis::category::Category;
-use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::category::{Arrow, Category, Concept};
 use pr4xis::ontology::{Axiom, Ontology};
 
 #[test]
 fn category_laws() {
-    check_category_laws::<OmvCategory>().unwrap();
+    assert_category_laws::<OmvCategory>();
 }
 
 #[test]
 fn ontology_validates() {
-    OmvOntology::validate().unwrap();
+    OmvOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
@@ -23,31 +23,19 @@ fn ten_concepts() {
 }
 
 #[test]
-fn artefact_has_formality_level() {
-    assert!(ArtefactHasFormalityLevel.holds());
+fn artefact_has_formality_level_holds() {
+    assert!(ArtefactHasFormalityLevel.verify().is_ok());
 }
 
 #[test]
-fn artefact_has_analytics() {
-    assert!(ArtefactHasAnalytics.holds());
-}
-
-#[test]
-fn catalog_reaches_all() {
-    assert!(CatalogReachesAll.holds());
-}
-
-#[test]
-fn all_domain_axioms_hold() {
-    for axiom in OmvOntology::domain_axioms() {
-        assert!(axiom.holds(), "axiom failed: {}", axiom.description());
-    }
+fn artefact_has_analytics_holds() {
+    assert!(ArtefactHasAnalytics.verify().is_ok());
 }
 
 #[test]
 fn semantic_artefact_connects_to_all_metadata() {
     let m = OmvCategory::morphisms();
-    let targets: Vec<OmvConcept> = vec![
+    for target in [
         OmvConcept::FormalityLevel,
         OmvConcept::RepresentationParadigm,
         OmvConcept::Methodology,
@@ -56,13 +44,10 @@ fn semantic_artefact_connects_to_all_metadata() {
         OmvConcept::Evaluation,
         OmvConcept::NaturalLanguage,
         OmvConcept::CompetencyQuestion,
-    ];
-    for target in &targets {
+    ] {
         assert!(
             m.iter()
-                .any(|r| r.from == OmvConcept::SemanticArtefact && r.to == *target),
-            "SemanticArtefact should connect to {:?}",
-            target
+                .any(|r| r.source() == OmvConcept::SemanticArtefact && r.target() == target)
         );
     }
 }
@@ -72,18 +57,7 @@ mod prop {
     use proptest::prelude::*;
 
     fn arb_omv() -> impl Strategy<Value = OmvConcept> {
-        prop_oneof![
-            Just(OmvConcept::SemanticArtefact),
-            Just(OmvConcept::FormalityLevel),
-            Just(OmvConcept::RepresentationParadigm),
-            Just(OmvConcept::Methodology),
-            Just(OmvConcept::DesignedTask),
-            Just(OmvConcept::Analytics),
-            Just(OmvConcept::Evaluation),
-            Just(OmvConcept::Catalog),
-            Just(OmvConcept::NaturalLanguage),
-            Just(OmvConcept::CompetencyQuestion),
-        ]
+        proptest::sample::select(OmvConcept::variants())
     }
 
     proptest! {
@@ -94,14 +68,27 @@ mod prop {
         }
 
         #[test]
-        fn prop_self_morphisms(c in arb_omv()) {
+        fn prop_self_identity(c in arb_omv()) {
             let m = OmvCategory::morphisms();
-            let has_identity = m.iter().any(|r| r.from == c && r.to == c
-                && r.kind == OmvRelationKind::Identity);
-            let has_composed = m.iter().any(|r| r.from == c && r.to == c
-                && r.kind == OmvRelationKind::Composed);
-            prop_assert!(has_identity);
-            prop_assert!(has_composed);
+            prop_assert!(m.iter().any(|r| r.source() == c
+                && r.target() == c
+                && r.kind() == OmvRelationKind::Identity));
+        }
+
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in OmvCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in OmvOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
         }
     }
 }

@@ -1,30 +1,29 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::underwater::acoustic::engine::*;
 use crate::applied::underwater::acoustic::ontology::*;
 
 #[test]
 fn acoustic_category_laws() {
-    check_category_laws::<AcousticCategory>().unwrap();
+    assert_category_laws::<AcousticCategory>();
 }
 
 #[test]
 fn acoustic_ontology_validates() {
-    AcousticOntology::validate().unwrap();
+    AcousticOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn sound_speed_positive_holds() {
-    assert!(SoundSpeedPositive.holds());
+    assert!(SoundSpeedPositive.verify().is_ok());
 }
 
 #[test]
 fn range_non_negative_holds() {
-    assert!(RangeNonNegative.holds());
+    assert!(RangeNonNegative.verify().is_ok());
 }
 
 #[test]

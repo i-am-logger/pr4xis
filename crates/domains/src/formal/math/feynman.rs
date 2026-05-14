@@ -8,7 +8,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Actions: add path, compute amplitude
 ///
 /// Simplified: discrete paths on a grid, each path has a phase.
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 /// A path from point A to point B through intermediate points.
 #[derive(Debug, Clone, PartialEq)]
@@ -90,20 +92,7 @@ impl PathIntegral {
     }
 }
 
-impl Situation for PathIntegral {
-    fn describe(&self) -> String {
-        format!(
-            "{} paths, amplitude=({:.6},{:.6}), P={:.6}",
-            self.paths.len(),
-            self.total_amplitude.real,
-            self.total_amplitude.imag,
-            self.probability()
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for PathIntegral {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FeynmanAction {
@@ -115,51 +104,44 @@ pub enum FeynmanAction {
 
 impl Action for FeynmanAction {
     type Sit = PathIntegral;
-    fn describe(&self) -> String {
-        match self {
-            FeynmanAction::AddPath { path } => format!(
-                "add path (S={:.6}, {} points)",
-                path.action,
-                path.points.len()
-            ),
-            FeynmanAction::Reset => "reset".into(),
-        }
+}
+
+fn feynman_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Feynman (1948) Space-Time Approach to Non-Relativistic Quantum Mechanics, Rev. Mod. Phys. 20(2):367-387",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
 /// Axiom: each path contributes e^(iS/ℏ) to the amplitude.
 struct PhaseConsistency;
 impl Precondition<FeynmanAction> for PhaseConsistency {
-    fn check(&self, pi: &PathIntegral, action: &FeynmanAction) -> PreconditionResult {
+    fn check(&self, pi: &PathIntegral, action: &FeynmanAction) -> Verdict {
+        let meta = feynman_meta(
+            "PhaseConsistency",
+            "e^(iS/ℏ) must be well-defined for every added path",
+        );
         if let FeynmanAction::AddPath { path } = action {
             if pi.hbar <= 0.0 {
-                return PreconditionResult::violated(
-                    "phase_consistency",
-                    "ℏ must be positive",
-                    &pi.describe(),
-                    &action.describe(),
-                );
+                return Err(Box::new(SimpleCounterexample::new(meta)));
             }
             let phase = path.action / pi.hbar;
             if phase.is_nan() || phase.is_infinite() {
-                return PreconditionResult::violated(
-                    "phase_consistency",
-                    "phase is NaN/infinite",
-                    &pi.describe(),
-                    &action.describe(),
-                );
+                return Err(Box::new(SimpleCounterexample::new(meta)));
             }
-            PreconditionResult::satisfied("phase_consistency", &format!("phase S/ℏ={:.6}", phase))
-        } else {
-            PreconditionResult::satisfied("phase_consistency", "no path added")
         }
-    }
-    fn describe(&self) -> &str {
-        "e^(iS/ℏ) must be well-defined"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_feynman(pi: &PathIntegral, action: &FeynmanAction) -> Result<PathIntegral, String> {
+fn apply_feynman(
+    pi: &PathIntegral,
+    action: &FeynmanAction,
+) -> Result<PathIntegral, Box<dyn Counterexample>> {
     let mut next = pi.clone();
     match action {
         FeynmanAction::AddPath { path } => {

@@ -195,9 +195,8 @@ mod ontology_tests {
 
     #[test]
     fn ontology_validates() {
-        ReasoningOntology::validate().unwrap_or_else(|c| {
-            panic!("validation failed: {}", c.meta().description.as_str())
-        });
+        ReasoningOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     // ---------- Structural claims (hand-checked) ----------

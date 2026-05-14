@@ -70,18 +70,13 @@ impl Functor for SyntrometryToKripke {
         let to = map_concept(&m.to);
         match m.kind {
             SyntrometryRelationKind::Identity => KripkeCategory::identity(&from),
-            SyntrometryRelationKind::Composed => KripkeRelation {
-                from,
-                to,
-                kind: KripkeRelationKind::Composed,
-            },
-            // Either self-loop (Composed self-loop exists on every Kripke
-            // concept) or cross-concept (construct Composed at the target
-            // pair); both branches produce the same shape so share a body.
+            // Per #166 the auto-generated kind no longer emits a `Composed`
+            // variant — every non-Identity arrow projects to a Subsumption
+            // arrow in Kripke (OBO-RO transitive_over).
             _ => KripkeRelation {
                 from,
                 to,
-                kind: KripkeRelationKind::Composed,
+                kind: KripkeRelationKind::Subsumption,
             },
         }
     }
@@ -91,10 +86,10 @@ pr4xis::register_functor!(SyntrometryToKripke);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn syntrometry_to_kripke_laws_pass() {
-        check_functor_laws::<SyntrometryToKripke>().unwrap();
+        assert_functor_laws::<SyntrometryToKripke>();
     }
 }

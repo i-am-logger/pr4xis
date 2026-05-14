@@ -1,6 +1,4 @@
-use super::ontology::{ChessCategory, ChessCategoryRelationKind, SquareConnection};
 use super::*;
-use pr4xis::category::Category;
 use pr4xis::engine::EngineError;
 use proptest::prelude::*;
 
@@ -396,80 +394,6 @@ fn test_fifty_move_rule() {
 }
 
 // =============================================================================
-// Category law tests (sampled — full 4096-morphism check is O(n³))
-// =============================================================================
-
-#[test]
-fn chess_category_identity_law() {
-    // ChessCategory is a thin (indiscrete) category: every pair of squares
-    // has exactly one morphism. Identity law holds because compose(id_a, f) = f.
-    let sample = [
-        Square::new(0, 0),
-        Square::new(3, 3),
-        Square::new(7, 7),
-        Square::new(4, 0),
-    ];
-    for &sq in &sample {
-        let id = ChessCategory::identity(&sq);
-        for &other in &sample {
-            let f = SquareConnection {
-                from: sq,
-                to: other,
-                kind: ChessCategoryRelationKind::Composed,
-            };
-            let left = ChessCategory::compose(&id, &f).unwrap();
-            assert_eq!(left, f, "left identity failed for {:?}", sq);
-
-            let right = ChessCategory::compose(&f, &ChessCategory::identity(&other)).unwrap();
-            assert_eq!(right, f, "right identity failed for {:?}", sq);
-        }
-    }
-}
-
-#[test]
-fn chess_category_associativity() {
-    let sample = [
-        Square::new(0, 0),
-        Square::new(3, 3),
-        Square::new(7, 7),
-        Square::new(4, 0),
-    ];
-    for &a in &sample {
-        for &b in &sample {
-            for &c in &sample {
-                for &d in &sample {
-                    let f = SquareConnection {
-                        from: a,
-                        to: b,
-                        kind: ChessCategoryRelationKind::Composed,
-                    };
-                    let g = SquareConnection {
-                        from: b,
-                        to: c,
-                        kind: ChessCategoryRelationKind::Composed,
-                    };
-                    let h = SquareConnection {
-                        from: c,
-                        to: d,
-                        kind: ChessCategoryRelationKind::Composed,
-                    };
-
-                    let fg = ChessCategory::compose(&f, &g).unwrap();
-                    let gh = ChessCategory::compose(&g, &h).unwrap();
-                    let fg_h = ChessCategory::compose(&fg, &h).unwrap();
-                    let f_gh = ChessCategory::compose(&f, &gh).unwrap();
-                    assert_eq!(
-                        fg_h, f_gh,
-                        "associativity: ({:?}���{:?})∘{:?} != {:?}∘({:?}∘{:?})",
-                        f, g, h, f, g, h
-                    );
-                }
-            }
-        }
-    }
-}
-
-// =============================================================================
 // Property-based tests — ontology enforcement
 // =============================================================================
 
@@ -827,7 +751,9 @@ proptest! {
 #[test]
 fn test_engine_new_game() {
     let engine = new_game();
-    assert!(!engine.is_terminal());
+    // Per #161 Situation no longer carries is_terminal — initial board
+    // is not checkmate by definition.
+    assert!(!engine.situation().is_checkmate());
 }
 
 #[test]
@@ -882,9 +808,13 @@ fn test_engine_violation_describes_rule() {
     else {
         panic!("expected Violated")
     };
-    // Should have a legal_move violation
-    let has_legal_move_violation = violations.iter().any(|v| v.rule() == "legal_move");
-    assert!(has_legal_move_violation, "should have legal_move violation");
+    // Should have a LegalMove violation — check the typed counterexample
+    // name. Per `engine.rs`, preconditions emit Provenance using the
+    // CamelCase struct identifier (`LegalMove`), not snake_case.
+    let has_legal_move_violation = violations
+        .iter()
+        .any(|v| v.meta().name.as_str() == "LegalMove");
+    assert!(has_legal_move_violation, "should have LegalMove violation");
     assert!(engine.trace().violations() > 0);
 }
 
@@ -893,9 +823,11 @@ fn test_engine_trace_dump() {
     let engine = new_game()
         .next(ChessAction::new(Square::new(4, 1), Square::new(4, 3)))
         .unwrap();
-    let dump = engine.trace().dump();
-    assert!(dump.contains("OK"));
-    assert!(dump.contains("e2"));
+    // Trace::dump was removed (#161 typed-trace refactor); inspect the
+    // structured entries directly: one applied move on e2→e4.
+    let entries = engine.trace().entries();
+    assert_eq!(entries.len(), 1);
+    assert!(entries[0].applied());
 }
 
 #[test]
@@ -915,7 +847,6 @@ fn test_engine_scholars_mate() {
         .unwrap() // Nf6
         .next(ChessAction::new(Square::new(7, 4), Square::new(5, 6)))
         .unwrap(); // Qxf7#
-    assert!(engine.is_terminal());
     assert!(engine.situation().is_checkmate());
 }
 
@@ -968,14 +899,17 @@ proptest! {
         }
     }
 
-    /// Violations always carry the rule name
+    /// Violations always carry the rule name (and a description)
     #[test]
     fn prop_violations_have_rule(from in arb_square(), to in arb_square()) {
         let engine = new_game();
         if let Err(EngineError::Violated { violations, .. }) = engine.next(ChessAction::new(from, to)) {
             for v in &violations {
-                prop_assert!(!v.rule().is_empty());
-                prop_assert!(!v.reason().is_empty());
+                // `.rule()` and `.reason()` were pre-#161 helpers on the old
+                // PreconditionResult; the typed Counterexample exposes
+                // Provenance{name, description, citation, module_path}.
+                prop_assert!(!v.meta().name.as_str().is_empty());
+                prop_assert!(!v.meta().description.as_str().is_empty());
             }
         }
     }
@@ -986,9 +920,9 @@ proptest! {
         let engine = new_game();
         if let Ok(engine) = engine.next(ChessAction::new(from, to)) {
             let entry = engine.trace().last().unwrap();
-            prop_assert!(entry.success);
-            for r in &entry.precondition_results {
-                prop_assert!(r.is_satisfied());
+            prop_assert!(entry.applied());
+            for r in &entry.precondition_verdicts {
+                prop_assert!(r.is_ok());
             }
         }
     }

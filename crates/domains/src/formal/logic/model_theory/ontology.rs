@@ -27,7 +27,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "ModelTheory",
     source: "Tarski (1936) On the Concept of Logical Consequence; Tarski (1933) The Concept of Truth; Chang & Keisler (1990) Model Theory; Hodges (1997) A Shorter Model Theory; Gödel (1930, 1931)",
-    being: AbstractObject,
 
     concepts: [
         // === Core structures ===
@@ -205,43 +204,60 @@ impl Ontology for ModelTheoryOntology {
     type Cat = ModelTheoryCategory;
     type Qual = ModelTheoryTradition;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        ModelTheoryOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        ModelTheoryOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<ModelTheoryCategory>().unwrap();
+        assert_category_laws::<ModelTheoryCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ModelTheoryOntology::validate().unwrap();
+        ModelTheoryOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    /// Direct subsumption check via kinded-morphism filter (per_def
+    /// `TaxonomyDef::is_a` is gone).
+    fn direct_is_a(child: ModelTheoryConcept, parent: ModelTheoryConcept) -> bool {
+        use pr4xis::category::{Arrow, Category};
+        ModelTheoryCategory::morphisms().iter().any(|m| {
+            m.kind() == ModelTheoryRelationKind::Subsumption
+                && m.source() == child
+                && m.target() == parent
+        })
+    }
+
+    /// Direct opposites via kinded-morphism filter (per_def
+    /// `OppositionDef::opposites` is gone).
+    fn direct_opposites(c: ModelTheoryConcept) -> Vec<ModelTheoryConcept> {
+        use pr4xis::category::{Arrow, Category};
+        ModelTheoryCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == ModelTheoryRelationKind::Opposition && m.source() == c)
+            .map(|m| m.target())
+            .collect()
     }
 
     #[test]
     fn validity_is_a_truth() {
-        use pr4xis::ontology::reasoning::taxonomy;
-        assert!(taxonomy::is_a::<ModelTheoryTaxonomy>(
-            &ModelTheoryConcept::Validity,
-            &ModelTheoryConcept::Truth,
+        assert!(direct_is_a(
+            ModelTheoryConcept::Validity,
+            ModelTheoryConcept::Truth
         ));
     }
 
     #[test]
     fn truth_and_falsity_oppose() {
-        use pr4xis::ontology::reasoning::opposition;
-        let opposed = opposition::opposites::<ModelTheoryOpposition>(&ModelTheoryConcept::Truth);
+        let opposed = direct_opposites(ModelTheoryConcept::Truth);
         assert!(opposed.contains(&ModelTheoryConcept::Falsity));
     }
 }

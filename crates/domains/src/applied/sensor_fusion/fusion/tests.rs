@@ -4,7 +4,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::positive_definite;
 use crate::formal::math::linear_algebra::vector_space::Vector;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::applied::sensor_fusion::fusion::engine::{FusionAction, new_fusion_engine};
@@ -17,32 +17,33 @@ use crate::applied::sensor_fusion::state::estimate::StateEstimate;
 
 #[test]
 fn fusion_category_laws() {
-    check_category_laws::<FusionCategory>().unwrap();
+    assert_category_laws::<FusionCategory>();
 }
 
 #[test]
 fn fusion_ontology_validates() {
-    FusionOntology::validate().unwrap();
+    FusionOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn axiom_determinism() {
-    assert!(Determinism.holds());
+    assert!(Determinism.verify().is_ok());
 }
 
 #[test]
 fn axiom_predict_increases_uncertainty() {
-    assert!(PredictIncreasesUncertainty.holds());
+    assert!(PredictIncreasesUncertainty.verify().is_ok());
 }
 
 #[test]
 fn axiom_update_reduces_uncertainty() {
-    assert!(UpdateReducesUncertainty.holds());
+    assert!(UpdateReducesUncertainty.verify().is_ok());
 }
 
 #[test]
 fn axiom_covariance_invariant() {
-    assert!(CovarianceInvariant.holds());
+    assert!(CovarianceInvariant.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -74,7 +75,7 @@ fn fusion_engine_predict_increases_uncertainty() {
 
     let engine = new_fusion_engine(initial);
     let engine = engine
-        .try_next(FusionAction::Predict {
+        .next(FusionAction::Predict {
             dt: 1.0,
             transition: f,
             process_noise: q,
@@ -98,7 +99,7 @@ fn fusion_engine_update_reduces_uncertainty() {
 
     // Predict first
     let engine = engine
-        .try_next(FusionAction::Predict {
+        .next(FusionAction::Predict {
             dt: 1.0,
             transition: f,
             process_noise: q,
@@ -109,7 +110,7 @@ fn fusion_engine_update_reduces_uncertainty() {
 
     // Update with measurement at position 5.0
     let engine = engine
-        .try_next(FusionAction::Update {
+        .next(FusionAction::Update {
             observation_matrix: h,
             measurement: Vector::new(vec![5.0]),
             measurement_noise: r,
@@ -134,7 +135,7 @@ fn fusion_engine_covariance_stays_psd() {
     // Run 10 predict/update cycles
     for i in 0..10 {
         engine = engine
-            .try_next(FusionAction::Predict {
+            .next(FusionAction::Predict {
                 dt: 1.0,
                 transition: f.clone(),
                 process_noise: q.clone(),
@@ -142,7 +143,7 @@ fn fusion_engine_covariance_stays_psd() {
             .unwrap();
 
         engine = engine
-            .try_next(FusionAction::Update {
+            .next(FusionAction::Update {
                 observation_matrix: h.clone(),
                 measurement: Vector::new(vec![i as f64 * 0.5]),
                 measurement_noise: r.clone(),
@@ -167,7 +168,7 @@ fn fusion_engine_state_converges_to_measurement() {
     // Feed repeated measurements at the true position
     for _ in 0..20 {
         engine = engine
-            .try_next(FusionAction::Predict {
+            .next(FusionAction::Predict {
                 dt: 1.0,
                 transition: f.clone(),
                 process_noise: q.clone(),
@@ -175,7 +176,7 @@ fn fusion_engine_state_converges_to_measurement() {
             .unwrap();
 
         engine = engine
-            .try_next(FusionAction::Update {
+            .next(FusionAction::Update {
                 observation_matrix: h.clone(),
                 measurement: Vector::new(vec![true_position]),
                 measurement_noise: r.clone(),
@@ -197,7 +198,7 @@ fn fusion_engine_negative_dt_rejected() {
     let (initial, f, q, _h, _r) = simple_1d_filter();
     let engine = new_fusion_engine(initial);
 
-    let result = engine.try_next(FusionAction::Predict {
+    let result = engine.next(FusionAction::Predict {
         dt: -1.0,
         transition: f,
         process_noise: q,
@@ -212,7 +213,7 @@ fn fusion_engine_dimension_mismatch_rejected() {
     let engine = new_fusion_engine(initial);
 
     // Try to update with 2D measurement on 1D state
-    let result = engine.try_next(FusionAction::Update {
+    let result = engine.next(FusionAction::Update {
         observation_matrix: Matrix::new(2, 2, vec![1.0, 0.0, 0.0, 1.0]),
         measurement: Vector::new(vec![1.0, 2.0]),
         measurement_noise: Matrix::identity(2),
@@ -227,7 +228,7 @@ fn fusion_engine_back_forward() {
 
     let engine = new_fusion_engine(initial);
     let engine = engine
-        .try_next(FusionAction::Predict {
+        .next(FusionAction::Predict {
             dt: 1.0,
             transition: f.clone(),
             process_noise: q.clone(),
@@ -237,7 +238,7 @@ fn fusion_engine_back_forward() {
     let state_after_predict = engine.situation().clone();
 
     let engine = engine
-        .try_next(FusionAction::Update {
+        .next(FusionAction::Update {
             observation_matrix: h,
             measurement: Vector::new(vec![3.0]),
             measurement_noise: r,
@@ -259,7 +260,7 @@ fn fusion_engine_trace_records_all_steps() {
     let engine = new_fusion_engine(initial);
 
     let engine = engine
-        .try_next(FusionAction::Predict {
+        .next(FusionAction::Predict {
             dt: 1.0,
             transition: f,
             process_noise: q,
@@ -267,7 +268,7 @@ fn fusion_engine_trace_records_all_steps() {
         .unwrap();
 
     let engine = engine
-        .try_next(FusionAction::Update {
+        .next(FusionAction::Update {
             observation_matrix: h,
             measurement: Vector::new(vec![1.0]),
             measurement_noise: r,
@@ -275,8 +276,8 @@ fn fusion_engine_trace_records_all_steps() {
         .unwrap();
 
     assert_eq!(engine.trace().entries().len(), 2);
-    assert!(engine.trace().entries()[0].success);
-    assert!(engine.trace().entries()[1].success);
+    assert!(engine.trace().entries()[0].applied());
+    assert!(engine.trace().entries()[1].applied());
 }
 
 // ---------------------------------------------------------------------------
@@ -288,9 +289,7 @@ mod proptest_proofs {
     use super::*;
     use proptest::prelude::*;
 
-    /// Generate a random positive definite 1x1 matrix (scalar variance).
-
-    /// Generate a random 1D state estimate.
+    /// Generate a random 1D state estimate (positive definite 1x1 variance).
     fn arb_state_1d() -> impl Strategy<Value = StateEstimate> {
         (-100.0..100.0_f64, 0.01..100.0_f64).prop_map(|(x, p)| {
             StateEstimate::new(Vector::new(vec![x]), Matrix::new(1, 1, vec![p]), 0.0)
@@ -332,8 +331,8 @@ mod proptest_proofs {
                 process_noise: q.clone(),
             };
 
-            let r1 = engine1.try_next(action.clone()).unwrap();
-            let r2 = engine2.try_next(action).unwrap();
+            let r1 = engine1.next(action.clone()).unwrap();
+            let r2 = engine2.next(action).unwrap();
 
             // Exact equality — deterministic means bit-for-bit identical
             prop_assert!(r1.situation().estimate.state.data == r2.situation().estimate.state.data);
@@ -359,8 +358,8 @@ mod proptest_proofs {
                 measurement_noise: r.clone(),
             };
 
-            let r1 = engine1.try_next(action.clone()).unwrap();
-            let r2 = engine2.try_next(action).unwrap();
+            let r1 = engine1.next(action.clone()).unwrap();
+            let r2 = engine2.next(action).unwrap();
 
             prop_assert!(r1.situation().estimate.state.data == r2.situation().estimate.state.data);
             prop_assert!(r1.situation().estimate.covariance.data == r2.situation().estimate.covariance.data);
@@ -387,16 +386,16 @@ mod proptest_proofs {
                     transition: f.clone(),
                     process_noise: q.clone(),
                 };
-                e1 = e1.try_next(predict.clone()).unwrap();
-                e2 = e2.try_next(predict).unwrap();
+                e1 = e1.next(predict.clone()).unwrap();
+                e2 = e2.next(predict).unwrap();
 
                 let update = FusionAction::Update {
                     observation_matrix: h.clone(),
                     measurement: Vector::new(vec![z_val + i as f64]),
                     measurement_noise: r.clone(),
                 };
-                e1 = e1.try_next(update.clone()).unwrap();
-                e2 = e2.try_next(update).unwrap();
+                e1 = e1.next(update.clone()).unwrap();
+                e2 = e2.next(update).unwrap();
             }
 
             prop_assert!(e1.situation().estimate.state.data == e2.situation().estimate.state.data);
@@ -415,7 +414,7 @@ mod proptest_proofs {
             let before = state.uncertainty();
 
             let engine = new_fusion_engine(state);
-            let engine = engine.try_next(FusionAction::Predict {
+            let engine = engine.next(FusionAction::Predict {
                 dt,
                 transition: f,
                 process_noise: q,
@@ -440,7 +439,7 @@ mod proptest_proofs {
             let before = state.uncertainty();
 
             let engine = new_fusion_engine(state);
-            let engine = engine.try_next(FusionAction::Update {
+            let engine = engine.next(FusionAction::Update {
                 observation_matrix: h,
                 measurement: z,
                 measurement_noise: r,
@@ -466,13 +465,13 @@ mod proptest_proofs {
             let mut engine = new_fusion_engine(state);
 
             for z_val in &measurements {
-                engine = engine.try_next(FusionAction::Predict {
+                engine = engine.next(FusionAction::Predict {
                     dt: 1.0,
                     transition: f.clone(),
                     process_noise: q.clone(),
                 }).unwrap();
 
-                engine = engine.try_next(FusionAction::Update {
+                engine = engine.next(FusionAction::Update {
                     observation_matrix: h.clone(),
                     measurement: Vector::new(vec![*z_val]),
                     measurement_noise: r.clone(),
@@ -502,13 +501,13 @@ mod proptest_proofs {
 
             let engine = new_fusion_engine(state);
 
-            let engine = engine.try_next(FusionAction::Predict {
+            let engine = engine.next(FusionAction::Predict {
                 dt: 1.0,
                 transition: f,
                 process_noise: q,
             }).unwrap();
 
-            let engine = engine.try_next(FusionAction::Update {
+            let engine = engine.next(FusionAction::Update {
                 observation_matrix: h,
                 measurement: Vector::new(vec![z1, z2]),
                 measurement_noise: r,
@@ -530,7 +529,7 @@ mod proptest_proofs {
             dt in -100.0..-0.001_f64,
         ) {
             let engine = new_fusion_engine(state);
-            let result = engine.try_next(FusionAction::Predict {
+            let result = engine.next(FusionAction::Predict {
                 dt,
                 transition: Matrix::identity(1),
                 process_noise: Matrix::new(1, 1, vec![0.1]),
@@ -558,13 +557,13 @@ mod proptest_proofs {
             let mut engine = new_fusion_engine(state);
 
             for _ in 0..50 {
-                engine = engine.try_next(FusionAction::Predict {
+                engine = engine.next(FusionAction::Predict {
                     dt: 1.0,
                     transition: f.clone(),
                     process_noise: q.clone(),
                 }).unwrap();
 
-                engine = engine.try_next(FusionAction::Update {
+                engine = engine.next(FusionAction::Update {
                     observation_matrix: h.clone(),
                     measurement: Vector::new(vec![true_val]),
                     measurement_noise: r.clone(),
@@ -585,7 +584,7 @@ mod proptest_proofs {
         ) {
             let engine = new_fusion_engine(state);
 
-            let engine = engine.try_next(FusionAction::Predict {
+            let engine = engine.next(FusionAction::Predict {
                 dt: 1.0,
                 transition: Matrix::identity(1),
                 process_noise: Matrix::new(1, 1, vec![0.1]),
@@ -593,7 +592,7 @@ mod proptest_proofs {
 
             let state_after_predict = engine.situation().estimate.state.data.clone();
 
-            let engine = engine.try_next(FusionAction::Update {
+            let engine = engine.next(FusionAction::Update {
                 observation_matrix: Matrix::new(1, 1, vec![1.0]),
                 measurement: Vector::new(vec![z_val]),
                 measurement_noise: Matrix::new(1, 1, vec![1.0]),
@@ -646,10 +645,11 @@ fn singular_innovation_covariance_returns_err() {
         result
     );
     let err_msg = result.unwrap_err();
+    let description = err_msg.meta().description;
     assert!(
-        err_msg.contains("singular"),
+        description.as_str().contains("singular"),
         "error message should mention singular: {}",
-        err_msg
+        description.as_str()
     );
 }
 
@@ -664,7 +664,7 @@ fn dimension_consistency_rejects_non_square_process_noise() {
 
     // Process noise with wrong column count: 1x2 instead of 1x1
     let bad_q = Matrix::new(1, 2, vec![0.01, 0.0]);
-    let result = engine.try_next(FusionAction::Predict {
+    let result = engine.next(FusionAction::Predict {
         dt: 1.0,
         transition: f,
         process_noise: bad_q,
@@ -682,7 +682,7 @@ fn dimension_consistency_rejects_non_square_measurement_noise() {
 
     // Measurement noise with wrong column count: 1x2 instead of 1x1
     let bad_r = Matrix::new(1, 2, vec![1.0, 0.0]);
-    let result = engine.try_next(FusionAction::Update {
+    let result = engine.next(FusionAction::Update {
         observation_matrix: h,
         measurement: Vector::new(vec![5.0]),
         measurement_noise: bad_r,
@@ -752,7 +752,7 @@ mod proptest_cv_model {
             let state = StateEstimate::new(Vector::new(vec![pos, vel]), p0, 0.0);
 
             let engine = new_fusion_engine(state);
-            let engine = engine.try_next(FusionAction::Predict {
+            let engine = engine.next(FusionAction::Predict {
                 dt,
                 transition: f,
                 process_noise: q,

@@ -43,7 +43,7 @@ mod tests {
             // Control input: gravity adds -g*dt to velocity, -0.5*g*dt² to position
             // We model this by adjusting the prediction with gravity offset
             engine = engine
-                .try_next(FusionAction::Predict {
+                .next(FusionAction::Predict {
                     dt,
                     transition: f,
                     process_noise: q,
@@ -58,7 +58,7 @@ mod tests {
             let r = Matrix::new(1, 1, vec![5.0]); // 5m² noise
 
             engine = engine
-                .try_next(FusionAction::Update {
+                .next(FusionAction::Update {
                     observation_matrix: h,
                     measurement: Vector::new(vec![true_height]),
                     measurement_noise: r,

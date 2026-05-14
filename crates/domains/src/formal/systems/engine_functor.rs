@@ -1,9 +1,7 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::category::Arrow;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::relationship::Relationship;
 use pr4xis::category::{Category, Functor};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use super::control::*;
 
@@ -89,16 +87,31 @@ pub enum EngineRelationKind {
     Composed,
 }
 
-impl Relationship for EngineRelation {
+impl Arrow for EngineRelation {
     type Object = EngineElement;
-    type Kind = ();
+    type Kind = EngineRelationKind;
     fn source(&self) -> EngineElement {
         self.from
     }
     fn target(&self) -> EngineElement {
         self.to
     }
-    fn kind(&self) {}
+    fn kind(&self) -> EngineRelationKind {
+        self.kind
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new(format!("{:?}-[{:?}]-{:?}", self.from, self.kind, self.to)),
+            description: Label::new(format!(
+                "{:?} -[{:?}]-> {:?}",
+                self.from, self.kind, self.to
+            )),
+            citation: Citation::parse_static(
+                "Conant & Ashby (1970) Every good regulator of a system must be a model of that system, Int. J. Systems Sci. 1(2)",
+            ),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 pub struct EngineCategory;
@@ -125,19 +138,44 @@ impl Category for EngineCategory {
         if g.kind == EngineRelationKind::Identity {
             return Some(f.clone());
         }
-        Some(EngineRelation {
+        let candidate = EngineRelation {
             from: f.from,
             to: g.to,
             kind: EngineRelationKind::Composed,
-        })
+        };
+        // Partial category (#166): composition is defined only when the
+        // composite is itself a declared morphism. `morphisms()` lists the
+        // specific `Composed` edges produced by the engine control loop;
+        // any other path is undefined per OBO-RO partial-relations.
+        if Self::morphisms().contains(&candidate) {
+            Some(candidate)
+        } else {
+            None
+        }
     }
 
     fn morphisms() -> Vec<EngineRelation> {
         use EngineElement::*;
         use EngineRelationKind::*;
+        use std::collections::HashSet;
 
-        let mut m = Vec::new();
+        // Direct kinded edges of the Engine control loop.
+        let direct: Vec<(EngineElement, EngineElement, EngineRelationKind)> = vec![
+            (Observation, Situation, Observes),
+            (PreconditionCheck, Violation, Checks),
+            (ActionExecution, Situation, Applies),
+            (Goal, Violation, Compares),
+            (PreconditionCheck, ActionExecution, Records),
+            (Observation, Violation, Records),
+            (UnexpectedInput, Situation, Disrupts),
+            (Ontology, Situation, Models),
+            (PreconditionCheck, Ontology, Records),
+            (EngineCycle, Observation, Closes),
+            (EngineCycle, PreconditionCheck, Closes),
+            (TraceEntry, ActionExecution, Records),
+        ];
 
+        let mut m: Vec<EngineRelation> = Vec::new();
         for c in EngineElement::variants() {
             m.push(EngineRelation {
                 from: c,
@@ -145,97 +183,52 @@ impl Category for EngineCategory {
                 kind: Identity,
             });
         }
-
-        // The Engine control loop
-        m.push(EngineRelation {
-            from: Observation,
-            to: Situation,
-            kind: Observes,
-        });
-        m.push(EngineRelation {
-            from: PreconditionCheck,
-            to: Violation,
-            kind: Checks,
-        });
-        m.push(EngineRelation {
-            from: ActionExecution,
-            to: Situation,
-            kind: Applies,
-        });
-        m.push(EngineRelation {
-            from: Goal,
-            to: Violation,
-            kind: Compares,
-        });
-        m.push(EngineRelation {
-            from: PreconditionCheck,
-            to: ActionExecution,
-            kind: Records,
-        });
-        m.push(EngineRelation {
-            from: Observation,
-            to: Violation,
-            kind: Records,
-        });
-        m.push(EngineRelation {
-            from: UnexpectedInput,
-            to: Situation,
-            kind: Disrupts,
-        });
-        m.push(EngineRelation {
-            from: Ontology,
-            to: Situation,
-            kind: Models,
-        });
-        m.push(EngineRelation {
-            from: PreconditionCheck,
-            to: Ontology,
-            kind: Records,
-        });
-        m.push(EngineRelation {
-            from: EngineCycle,
-            to: Observation,
-            kind: Closes,
-        });
-        m.push(EngineRelation {
-            from: EngineCycle,
-            to: PreconditionCheck,
-            kind: Closes,
-        });
-        m.push(EngineRelation {
-            from: TraceEntry,
-            to: ActionExecution,
-            kind: Records,
-        });
-
-        // Transitive
-        m.push(EngineRelation {
-            from: PreconditionCheck,
-            to: Situation,
-            kind: Composed,
-        });
-        m.push(EngineRelation {
-            from: Observation,
-            to: PreconditionCheck,
-            kind: Composed,
-        });
-        m.push(EngineRelation {
-            from: Goal,
-            to: PreconditionCheck,
-            kind: Composed,
-        });
-        m.push(EngineRelation {
-            from: UnexpectedInput,
-            to: Violation,
-            kind: Composed,
-        });
-
-        for c in EngineElement::variants() {
+        for &(f, t, k) in &direct {
             m.push(EngineRelation {
+                from: f,
+                to: t,
+                kind: k,
+            });
+        }
+
+        // Transitive closure (Warshall 1962) over the kinded edges,
+        // collapsing all reachability into the `Composed` umbrella kind
+        // per Mac Lane CWM Ch. I §1 closure axiom.
+        let edges: HashSet<(EngineElement, EngineElement)> =
+            direct.iter().map(|&(f, t, _)| (f, t)).collect();
+        let mut closure = edges.clone();
+        loop {
+            let mut added = false;
+            let snap: Vec<_> = closure.iter().cloned().collect();
+            for &(a, b) in &snap {
+                for &(b2, c) in &snap {
+                    if b == b2 && !closure.contains(&(a, c)) {
+                        closure.insert((a, c));
+                        added = true;
+                    }
+                }
+            }
+            if !added {
+                break;
+            }
+        }
+        for (f, t) in closure {
+            m.push(EngineRelation {
+                from: f,
+                to: t,
+                kind: Composed,
+            });
+        }
+        // Self-loops under Composed (idempotent reflexive closure).
+        for c in EngineElement::variants() {
+            let r = EngineRelation {
                 from: c,
                 to: c,
                 kind: Composed,
-            });
+            };
+            if !m.contains(&r) {
+                m.push(r);
+            }
         }
 
         m
@@ -280,7 +273,12 @@ impl Functor for ControlToEngine {
             ControlRelationKind::Represents => EngineRelationKind::Models,
             ControlRelationKind::Closes => EngineRelationKind::Closes,
             ControlRelationKind::Carries => EngineRelationKind::Records,
-            ControlRelationKind::Composed => EngineRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+            // unreachable when source has no edges of these kinds.
+            ControlRelationKind::Subsumption
+            | ControlRelationKind::Parthood
+            | ControlRelationKind::Causation
+            | ControlRelationKind::Opposition => EngineRelationKind::Identity,
         };
         EngineRelation { from, to, kind }
     }
@@ -290,16 +288,16 @@ pr4xis::register_functor!(ControlToEngine);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::{check_category_laws, check_functor_laws};
+    use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
 
     #[test]
     fn engine_category_laws() {
-        check_category_laws::<EngineCategory>().unwrap();
+        assert_category_laws::<EngineCategory>();
     }
 
     #[test]
     fn control_to_engine_functor_laws() {
-        check_functor_laws::<ControlToEngine>().unwrap();
+        assert_functor_laws::<ControlToEngine>();
     }
 
     #[test]

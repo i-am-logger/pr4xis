@@ -429,11 +429,23 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         });
     }
     for p in &def.opposes {
+        // Opposition is symmetric per Smith (2005) OBO-RO and Tarski (1941)
+        // *Calculus of Relations*: `oppositeOf(a, b) ⟺ oppositeOf(b, a)`.
+        // The `SymmetricOnKind` structural axiom enforces this — auto-emit
+        // both directions from a single `opposes:` entry so authors don't
+        // have to spell out reciprocals.
         sugar_edges.push(SugarEdge {
             from: p.a.clone(),
             to: p.b.clone(),
             kind: format_ident!("Opposition"),
         });
+        if p.a != p.b {
+            sugar_edges.push(SugarEdge {
+                from: p.b.clone(),
+                to: p.a.clone(),
+                kind: format_ident!("Opposition"),
+            });
+        }
     }
 
     // Collect all edge-from/to/kind — custom `edges:` clause plus sugar.
@@ -458,13 +470,29 @@ pub fn generate(def: OntologyDef) -> TokenStream {
 
     // Unique kinds — preserves declaration order (custom edges first, then
     // the canonical sugar-derived kinds in is_a/has_a/causes/opposes order).
+    //
+    // The four canonical Relations-ontology kinds (Subsumption / Parthood /
+    // Causation / Opposition — per OBO-RO Smith 2005, SKOS, DOLCE) are always
+    // emitted, even if the ontology has no edges of that kind. Without this,
+    // cross-ontology functor authors would have to write `match` arms whose
+    // variant existence depends on the source's sugar clauses, which makes
+    // `F(g∘f) = F(g)∘F(f)` (Mac Lane CWM Ch. II §1) impossible to satisfy
+    // generically. A kind variant with no edges is harmless: `morphisms()`
+    // only emits actual edges, so `ClosureLaw` is unaffected.
+    let canonical_kinds = ["Subsumption", "Parthood", "Causation", "Opposition"];
     let unique_kinds: Vec<Ident> = {
         let mut seen = std::collections::HashSet::new();
-        all_edge_kind
+        let mut acc: Vec<Ident> = all_edge_kind
             .iter()
             .filter(|k| seen.insert(k.to_string()))
             .cloned()
-            .collect()
+            .collect();
+        for k in &canonical_kinds {
+            if seen.insert(k.to_string()) {
+                acc.push(format_ident!("{}", k));
+            }
+        }
+        acc
     };
 
     // Generate label static data
@@ -806,21 +834,28 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 pub struct #name_ident;
 
                 impl #pr4xis::logic::axiom::Axiom for #name_ident {
-                    fn description(&self) -> &str {
-                        #description
-                    }
-
-                    fn holds(&self) -> bool {
-                        #holds
-                    }
-
-                    fn meta(&self) -> #pr4xis::ontology::meta::Provenance {
-                        #pr4xis::ontology::meta::Provenance {
-                            name: #pr4xis::ontology::meta::OntologyName::new_static(#name_str_lit),
-                            description: #pr4xis::ontology::meta::Label::new_static(#description),
-                            citation: #pr4xis::ontology::meta::Citation::parse_static(#source),
-                            module_path: #pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+                    fn verify(&self) -> #pr4xis::logic::proof::Verdict {
+                        if #holds {
+                            Ok(Box::new(#pr4xis::logic::proof::SimpleProof::new(
+                                <Self as #pr4xis::logic::axiom::Axiom>::meta(self),
+                            )))
+                        } else {
+                            Err(Box::new(#pr4xis::logic::proof::SimpleCounterexample::new(
+                                <Self as #pr4xis::logic::axiom::Axiom>::meta(self),
+                            )))
                         }
+                    }
+
+                    fn citation(&self) -> #pr4xis::ontology::meta::Citation {
+                        #pr4xis::ontology::meta::Citation::parse_static(#source)
+                    }
+
+                    fn name(&self) -> #pr4xis::ontology::meta::OntologyName {
+                        #pr4xis::ontology::meta::OntologyName::new_static(#name_str_lit)
+                    }
+
+                    fn description(&self) -> #pr4xis::ontology::meta::Label {
+                        #pr4xis::ontology::meta::Label::new_static(#description)
                     }
                 }
             }

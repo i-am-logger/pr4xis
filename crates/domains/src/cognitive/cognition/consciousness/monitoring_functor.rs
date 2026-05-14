@@ -48,7 +48,14 @@ impl Functor for C2ToMetacognition {
             C2RelationKind::Generates => MetaCognitionRelationKind::Records,
             C2RelationKind::HasComponent => MetaCognitionRelationKind::Assesses,
             C2RelationKind::Enables => MetaCognitionRelationKind::Classifies,
-            C2RelationKind::Composed => MetaCognitionRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) are
+            // always emitted by the ontology! macro; if the source has no
+            // edges of these kinds, no morphism reaches this arm — Identity
+            // is the safe target value.
+            C2RelationKind::Subsumption
+            | C2RelationKind::Parthood
+            | C2RelationKind::Causation
+            | C2RelationKind::Opposition => MetaCognitionRelationKind::Identity,
         };
         MetaCognitionRelation { from, to, kind }
     }
@@ -58,10 +65,10 @@ pr4xis::register_functor!(C2ToMetacognition);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<C2ToMetacognition>().unwrap();
+        assert_functor_laws::<C2ToMetacognition>();
     }
 }

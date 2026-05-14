@@ -1,10 +1,44 @@
 use pr4xis::category::Category;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 
 use super::distinction::*;
 use super::epistemics::*;
 use super::metacognition::*;
+
+// -----------------------------------------------------------------------------
+// Reachability helper — BFS over the category's directed morphism graph.
+//
+// Per #166 the macro emits only same-kind transitive closure as direct
+// morphisms; heterogeneous-kind paths exist in the graph but are not
+// materialized as single edges. Tests that assert "concept A can reach
+// concept B" via a heterogeneous chain must walk the graph rather than
+// query `morphisms()` for a direct edge.
+// -----------------------------------------------------------------------------
+
+fn reaches<C: Category>(from: C::Object, to: C::Object) -> bool
+where
+    C::Object: Eq + Clone + std::hash::Hash,
+{
+    use pr4xis::category::Arrow;
+    use std::collections::{HashSet, VecDeque};
+    let ms = C::morphisms();
+    let mut visited: HashSet<C::Object> = HashSet::new();
+    let mut queue: VecDeque<C::Object> = VecDeque::new();
+    queue.push_back(from);
+    while let Some(node) = queue.pop_front() {
+        if node == to {
+            return true;
+        }
+        if !visited.insert(node.clone()) {
+            continue;
+        }
+        for m in ms.iter().filter(|m| m.source() == node) {
+            queue.push_back(m.target());
+        }
+    }
+    false
+}
 
 // =============================================================================
 // Distinction tests
@@ -12,7 +46,7 @@ use super::metacognition::*;
 
 #[test]
 fn distinction_category_laws() {
-    check_category_laws::<DistinctionCategory>().unwrap();
+    assert_category_laws::<DistinctionCategory>();
 }
 
 #[test]
@@ -64,7 +98,7 @@ fn draw_distinction_requires_difference() {
 
 #[test]
 fn epistemic_category_laws() {
-    check_category_laws::<EpistemicCategory>().unwrap();
+    assert_category_laws::<EpistemicCategory>();
 }
 
 #[test]
@@ -126,7 +160,7 @@ fn classify_unknown_unknown() {
 
 #[test]
 fn metacognition_category_laws() {
-    check_category_laws::<MetaCognitionCategory>().unwrap();
+    assert_category_laws::<MetaCognitionCategory>();
 }
 
 #[test]
@@ -164,10 +198,13 @@ fn gap_triggers_repair_or_clarification() {
 
 #[test]
 fn meta_reaches_clarification() {
-    // The full loop: MetaLevel → ... → Clarification
-    let m = MetaCognitionCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == MetaCognitionConcept::MetaLevel
-        && r.to == MetaCognitionConcept::Clarification));
+    // The full loop: MetaLevel → ... → Clarification. Per #166 the
+    // heterogeneous-kind chain (Orchestrates ∘ Decides) is not emitted as a
+    // direct morphism — walk the graph.
+    assert!(reaches::<MetaCognitionCategory>(
+        MetaCognitionConcept::MetaLevel,
+        MetaCognitionConcept::Clarification
+    ));
 }
 
 // =============================================================================
@@ -218,17 +255,18 @@ mod prop {
         /// The goal state is always KnownKnown — every other state has a path to it.
         #[test]
         fn prop_known_known_reachable(s in arb_epistemic()) {
-            let m = EpistemicCategory::morphisms();
-            let reaches = m.iter().any(|r| r.from == s && r.to == EpistemicConcept::KnownKnown);
-            prop_assert!(reaches, "{:?} should be able to reach KnownKnown", s);
+            // Self-trivially reaches; the test exercises non-identity paths.
+            let r = s == EpistemicConcept::KnownKnown
+                || super::reaches::<EpistemicCategory>(s, EpistemicConcept::KnownKnown);
+            prop_assert!(r, "{:?} should be able to reach KnownKnown", s);
         }
 
         /// MetaLevel can reach all concepts (it observes everything).
         #[test]
         fn prop_meta_reaches_all(c in arb_meta()) {
-            let m = MetaCognitionCategory::morphisms();
-            let reaches = m.iter().any(|r| r.from == MetaCognitionConcept::MetaLevel && r.to == c);
-            prop_assert!(reaches, "MetaLevel should reach {:?}", c);
+            let r = c == MetaCognitionConcept::MetaLevel
+                || super::reaches::<MetaCognitionCategory>(MetaCognitionConcept::MetaLevel, c);
+            prop_assert!(r, "MetaLevel should reach {:?}", c);
         }
 
         // ---- Distinction property tests ----
@@ -265,15 +303,18 @@ mod prop {
         }
 
         /// ReEntry reaches both spaces (self-reference sees both sides).
+        /// Per #166 the heterogeneous chain (AppliesTo ∘ Creates ∘ Separates)
+        /// isn't a direct morphism — walk the graph.
         #[test]
         fn prop_reentry_reaches_both_spaces(_dummy in 0..1i32) {
-            let m = DistinctionCategory::morphisms();
-            let to_marked = m.iter().any(|r|
-                r.from == DistinctionConcept::ReEntry
-                && r.to == DistinctionConcept::MarkedSpace);
-            let to_unmarked = m.iter().any(|r|
-                r.from == DistinctionConcept::ReEntry
-                && r.to == DistinctionConcept::UnmarkedSpace);
+            let to_marked = super::reaches::<DistinctionCategory>(
+                DistinctionConcept::ReEntry,
+                DistinctionConcept::MarkedSpace,
+            );
+            let to_unmarked = super::reaches::<DistinctionCategory>(
+                DistinctionConcept::ReEntry,
+                DistinctionConcept::UnmarkedSpace,
+            );
             prop_assert!(to_marked);
             prop_assert!(to_unmarked);
         }
@@ -281,12 +322,14 @@ mod prop {
         // ---- Epistemic property tests ----
 
         /// Observation then Learning gives UU → KK (composed transition).
+        /// Per #166 heterogeneous-kind chain isn't materialized as a direct
+        /// morphism — walk the graph.
         #[test]
         fn prop_observe_then_learn(_dummy in 0..1i32) {
-            let m = EpistemicCategory::morphisms();
-            let uu_to_kk = m.iter().any(|r|
-                r.from == EpistemicConcept::UnknownUnknown
-                && r.to == EpistemicConcept::KnownKnown);
+            let uu_to_kk = super::reaches::<EpistemicCategory>(
+                EpistemicConcept::UnknownUnknown,
+                EpistemicConcept::KnownKnown,
+            );
             prop_assert!(uu_to_kk, "UU should reach KK via observation+learning");
         }
 

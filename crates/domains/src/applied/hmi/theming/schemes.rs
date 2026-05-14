@@ -15,6 +15,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// Ansi16 maps to terminal SGR codes (ECMA-48).
 use super::base16::ColorSlot;
 use pr4xis::category::Concept;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
 /// Color scheme type — each defines a different mapping/naming convention
@@ -318,46 +319,68 @@ impl Ansi16Color {
 pub struct Vogix16Bijection;
 
 impl Axiom for Vogix16Bijection {
-    fn description(&self) -> &str {
-        "vogix16 semantic names map bijectively to base16 slots"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let slots: Vec<ColorSlot> = Vogix16Semantic::variants()
             .iter()
             .map(|s| s.to_slot())
             .collect();
         // All 16 slots, all distinct
-        slots.len() == 16 && {
+        let ok = slots.len() == 16 && {
             let mut deduped = slots.clone();
             deduped.sort_by_key(|s| format!("{:?}", s));
             deduped.dedup();
             deduped.len() == 16
+        };
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
         }
     }
+
+    pr4xis::axiom_meta!(
+        "Vogix16Bijection",
+        "vogix16 semantic names map bijectively to base16 slots",
+        "tinted-theming base16 spec — schemes have 16 named slots"
+    );
 }
-pr4xis::register_axiom!(Vogix16Bijection);
+pr4xis::register_axiom!(
+    Vogix16Bijection,
+    "tinted-theming base16 spec — schemes have 16 named slots"
+);
 
 /// All ANSI colors map to distinct base16 slots (bijection on 16 slots).
 pub struct Ansi16Bijection;
 
 impl Axiom for Ansi16Bijection {
-    fn description(&self) -> &str {
-        "ANSI 16 colors map bijectively to base16/base24 slots"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let slots: Vec<ColorSlot> = Ansi16Color::variants()
             .iter()
             .map(|c| c.to_base16_slot())
             .collect();
-        slots.len() == 16 && {
+        let ok = slots.len() == 16 && {
             let mut deduped = slots.clone();
             deduped.sort_by_key(|s| format!("{:?}", s));
             deduped.dedup();
             deduped.len() == 16
+        };
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
         }
     }
+
+    pr4xis::axiom_meta!(
+        "Ansi16Bijection",
+        "ANSI 16 colors map bijectively to base16/base24 slots",
+        "ECMA-48 §8.3.117 (SGR colour parameters) + base24 spec"
+    );
 }
-pr4xis::register_axiom!(Ansi16Bijection);
+pr4xis::register_axiom!(
+    Ansi16Bijection,
+    "ECMA-48 §8.3.117 (SGR colour parameters) + base24 spec"
+);
 
 /// ANSI-to-base16 mapping is consistent with ColorSlot::ansi_index().
 /// Every ColorSlot that has an ansi_index maps to the same ANSI color
@@ -365,34 +388,53 @@ pr4xis::register_axiom!(Ansi16Bijection);
 pub struct AnsiBase16Consistency;
 
 impl Axiom for AnsiBase16Consistency {
-    fn description(&self) -> &str {
-        "ANSI↔base16 mapping is consistent (round-trip)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         // For each ANSI color, to_base16_slot().ansi_index() == self.index()
-        Ansi16Color::variants().iter().all(|ansi| {
+        let ok = Ansi16Color::variants().iter().all(|ansi| {
             let slot = ansi.to_base16_slot();
             slot.ansi_index() == Some(ansi.index())
-        })
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "AnsiBase16Consistency",
+        "ANSI↔base16 mapping is consistent (round-trip)",
+        "ECMA-48 §8.3.117 + tinted-theming shell-template spec"
+    );
 }
-pr4xis::register_axiom!(AnsiBase16Consistency);
+pr4xis::register_axiom!(
+    AnsiBase16Consistency,
+    "ECMA-48 §8.3.117 + tinted-theming shell-template spec"
+);
 
 /// SGR codes follow ECMA-48: fg = 30-37 (normal), 90-97 (bright).
 pub struct SgrRanges;
 
 impl Axiom for SgrRanges {
-    fn description(&self) -> &str {
-        "SGR foreground codes in [30-37] ∪ [90-97] per ECMA-48"
-    }
-    fn holds(&self) -> bool {
-        Ansi16Color::variants().iter().all(|c| {
+    fn verify(&self) -> Verdict {
+        let ok = Ansi16Color::variants().iter().all(|c| {
             let fg = c.sgr_fg();
             (30..=37).contains(&fg) || (90..=97).contains(&fg)
-        })
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "SgrRanges",
+        "SGR foreground codes in [30-37] ∪ [90-97] per ECMA-48",
+        "ECMA-48 §8.3.117 (Select Graphic Rendition)"
+    );
 }
-pr4xis::register_axiom!(SgrRanges);
+pr4xis::register_axiom!(SgrRanges, "ECMA-48 §8.3.117 (Select Graphic Rendition)");
 
 #[cfg(test)]
 mod tests {
@@ -459,7 +501,7 @@ mod tests {
 
     #[test]
     fn test_vogix16_bijection() {
-        assert!(Vogix16Bijection.holds());
+        assert!(Vogix16Bijection.verify().is_ok());
     }
 
     #[test]
@@ -503,17 +545,17 @@ mod tests {
 
     #[test]
     fn test_ansi16_bijection() {
-        assert!(Ansi16Bijection.holds());
+        assert!(Ansi16Bijection.verify().is_ok());
     }
 
     #[test]
     fn test_ansi_base16_consistency() {
-        assert!(AnsiBase16Consistency.holds());
+        assert!(AnsiBase16Consistency.verify().is_ok());
     }
 
     #[test]
     fn test_sgr_ranges() {
-        assert!(SgrRanges.holds());
+        assert!(SgrRanges.verify().is_ok());
     }
 
     #[test]

@@ -93,18 +93,18 @@ where
         let name = format!("{kind:?}");
         match name.as_str() {
             "Subsumption" => {
-                axioms.push(Box::new(NoCyclesOnKind::<C>::new(kind.clone())));
+                axioms.push(Box::new(NoCyclesOnKind::<C>::new(kind)));
                 axioms.push(Box::new(AntisymmetricOnKind::<C>::new(kind)));
             }
             "Parthood" => {
                 axioms.push(Box::new(NoCyclesOnKind::<C>::new(kind)));
             }
             "Causation" => {
-                axioms.push(Box::new(AsymmetricOnKind::<C>::new(kind.clone())));
+                axioms.push(Box::new(AsymmetricOnKind::<C>::new(kind)));
                 axioms.push(Box::new(IrreflexiveOnKind::<C>::new(kind)));
             }
             "Opposition" => {
-                axioms.push(Box::new(SymmetricOnKind::<C>::new(kind.clone())));
+                axioms.push(Box::new(SymmetricOnKind::<C>::new(kind)));
                 axioms.push(Box::new(IrreflexiveOnKind::<C>::new(kind)));
             }
             _ => {}

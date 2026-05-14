@@ -13,13 +13,13 @@
 //!
 //! Functor laws (identity + composition preservation) verified by tests.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::bioelectricity::ontology::{
     BioelectricCategory, BioelectricEntity, BioelectricRelation, BioelectricRelationKind,
 };
 use crate::natural::biomedical::pathology::ontology::{
-    PathologyCategory, PathologyCategoryRelationKind, PathologyEntity, PathologyRelation,
+    PathologyCategory, PathologyEntity, PathologyRelation, PathologyRelationKind,
 };
 
 /// Structure-preserving map from pathology entities to bioelectric framework.
@@ -60,22 +60,35 @@ impl Functor for PathologyToBioelectric {
             P::Stage => B::Signal,
             P::Classification => B::Morphospace,
             P::PathologicalProcess => B::Intervention,
+            P::PathologyEvent => B::Signal,
+
+            // Causal events (merged into the concept enum): map each step
+            // to the bioelectric phenomenon it underlies.
+            P::TissueInsult => B::Signal,
+            P::AcuteResponse => B::Signal,
+            P::ChronicAdaptation => B::MorphogeneticField,
+            P::MetaplasticTransformation => B::CurrentMorphology,
+            P::DysplasticProgression => B::CurrentMorphology,
+            P::NeoplasticTransformation => B::CurrentMorphology,
+            P::FibroticRemodeling => B::CurrentMorphology,
+            P::StrictureFormation => B::CurrentMorphology,
+            P::LowGradeProgression => B::CurrentMorphology,
+            P::HighGradeProgression => B::CurrentMorphology,
         }
     }
 
     fn map_morphism(m: &PathologyRelation) -> BioelectricRelation {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        // Identity morphisms must map to identity (functor law). Other kinds
-        // collapse to Composed in the target — matching how the target's
-        // compose produces Composed morphisms for non-Identity inputs (so
-        // F(g∘f) == F(g)∘F(f) holds under collapse).
+        // Identity preserved; non-Identity kinds collapse to Subsumption in
+        // the (migrated) bioelectricity target so functor laws hold under
+        // same-kind transitive composition (#166).
         match m.kind {
-            PathologyCategoryRelationKind::Identity => BioelectricCategory::identity(&from),
+            PathologyRelationKind::Identity => BioelectricCategory::identity(&from),
             _ => BioelectricRelation {
                 from,
                 to,
-                kind: BioelectricRelationKind::Composed,
+                kind: BioelectricRelationKind::Subsumption,
             },
         }
     }
@@ -85,13 +98,13 @@ pr4xis::register_functor!(PathologyToBioelectric);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<PathologyToBioelectric>().unwrap();
+        assert_functor_laws::<PathologyToBioelectric>();
     }
 
     #[test]
@@ -109,36 +122,38 @@ mod tests {
         }
     }
 
+    /// Composition preservation over a Causation chain that actually
+    /// composes in the source: TissueInsult -> AcuteResponse ->
+    /// ChronicAdaptation compose under Causation-transitivity. After
+    /// mapping, both become Subsumption arrows in the target; same-kind
+    /// transitive composition keeps F(g∘f) == F(g)∘F(f).
     #[test]
-    fn test_composition_preservation() {
-        let objs = PathologyEntity::variants();
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = PathologyRelation {
-                        from: a,
-                        to: b,
-                        kind: PathologyCategoryRelationKind::Composed,
-                    };
-                    let g = PathologyRelation {
-                        from: b,
-                        to: c,
-                        kind: PathologyCategoryRelationKind::Composed,
-                    };
-                    let composed = PathologyCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = PathologyToBioelectric::map_morphism(&composed);
-                    let composed_mapped = BioelectricCategory::compose(
-                        &PathologyToBioelectric::map_morphism(&f),
-                        &PathologyToBioelectric::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
-                }
-            }
+    fn test_composition_preservation_causation_chain() {
+        let f = PathologyRelation {
+            from: PathologyEntity::TissueInsult,
+            to: PathologyEntity::AcuteResponse,
+            kind: PathologyRelationKind::Causation,
+        };
+        let g = PathologyRelation {
+            from: PathologyEntity::AcuteResponse,
+            to: PathologyEntity::ChronicAdaptation,
+            kind: PathologyRelationKind::Causation,
+        };
+        let composed = PathologyCategory::compose(&f, &g)
+            .expect("Causation chain must compose under transitive same-kind inheritance");
+        let mapped_composed = PathologyToBioelectric::map_morphism(&composed);
+        let f_mapped = PathologyToBioelectric::map_morphism(&f);
+        let g_mapped = PathologyToBioelectric::map_morphism(&g);
+        if f_mapped.target() == g_mapped.source() {
+            let composed_mapped = BioelectricCategory::compose(&f_mapped, &g_mapped)
+                .expect("Subsumption-on-Subsumption composes in the target");
+            assert_eq!(mapped_composed, composed_mapped);
+        } else {
+            // Heterogeneous: at minimum the source-image is preserved.
+            assert_eq!(
+                mapped_composed.source(),
+                PathologyToBioelectric::map_object(&PathologyEntity::TissueInsult)
+            );
         }
     }
 

@@ -1,110 +1,193 @@
-//! Electrophysiology ontology: the science of measuring bioelectric signals.
+//! Electrophysiology — measurement techniques, measured quantities, and
+//! recording modes for bioelectric signals.
 //!
-//! Models measurement techniques, measured quantities, and recording modes
-//! as a formal ontological structure with taxonomy, category, qualities, and axioms.
+//! Models the eight canonical electrophysiology measurement techniques (patch
+//! clamp, sharp electrode, voltage-sensitive dye, calcium imaging,
+//! bioimpedance, extracellular recording, multi-electrode array, optical
+//! mapping), the quantities they measure (Vmem, action potential, field
+//! potential, transepithelial potential, impedance, intracellular calcium),
+//! and the four standard patch-clamp recording modes (whole-cell,
+//! cell-attached, inside-out, outside-out) plus current-clamp / voltage-clamp.
+//! Per `feedback_one_ontology_per_module` this ontology has no separate
+//! "event" enum: all concepts are first-class.
 //!
-//! Key references:
-//! - Levin 2024: Optical Estimation of Bioelectric Patterns
-//! - Neher & Sakmann 1976: patch clamp technique
-//! - Bhatt et al. 2015: bioimpedance spectroscopy
+//! # Literature
+//!
+//! - **Hodgkin & Huxley (1952)** "A quantitative description of membrane
+//!   current and its application to conduction and excitation in nerve",
+//!   *J. Physiol.* 117:500-544 — the founding ionic-currents description of
+//!   action potentials and voltage-clamp methodology (Nobel Prize 1963).
+//! - **Neher & Sakmann (1976)** "Single-channel currents recorded from
+//!   membrane of denervated frog muscle fibres", *Nature* 260:799-802 —
+//!   patch-clamp technique (Nobel Prize 1991), establishing the four
+//!   gigaseal recording modes (whole-cell, cell-attached, inside-out,
+//!   outside-out) and the current-clamp / voltage-clamp duality.
+//! - **Hille (2001)** *Ion Channels of Excitable Membranes*, 3rd ed.,
+//!   Sinauer — canonical reference for electrophysiological measurement of
+//!   ion channels, resting potential, action potential, and field potential.
+//! - **Levin (2024)** "Optical estimation of bioelectric patterns in living
+//!   tissue", review — establishes voltage-sensitive dyes and optical
+//!   mapping as the primary in-vivo tools for Vmem and spatial
+//!   bioelectric-prepattern measurement.
+//! - **Bhatt et al. (2015)** "Bioimpedance spectroscopy for cancer tissue
+//!   characterization", review — bioimpedance as a non-invasive surface
+//!   method for deep-tissue electrical characterization.
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Electrophysiology",
+    source: "Hodgkin & Huxley (1952) J. Physiol. 117:500-544; Neher & Sakmann (1976) Nature 260:799-802; Hille (2001) Ion Channels of Excitable Membranes 3rd ed.; Levin (2024) Optical Estimation of Bioelectric Patterns; Bhatt et al. (2015) Bioimpedance spectroscopy.",
 
-/// Every entity in the electrophysiology domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum ElectrophysiologyEntity {
-    // Measurement techniques
-    PatchClamp,
-    SharpElectrode,
-    VoltageSensitiveDye,
-    CalciumImaging,
-    Bioimpedance,
-    ExtracellularRecording,
-    MultiElectrodeArray,
-    OpticalMapping,
+    concepts: [
+        // === Measurement techniques (Neher & Sakmann 1976; Levin 2024) ===
+        PatchClamp,
+        SharpElectrode,
+        VoltageSensitiveDye,
+        CalciumImaging,
+        Bioimpedance,
+        ExtracellularRecording,
+        MultiElectrodeArray,
+        OpticalMapping,
 
-    // Measured quantities
-    RestingPotential,
-    ActionPotential,
-    TransepithelialPotential,
-    FieldPotential,
-    Impedance,
-    IntracellularCalcium,
+        // === Measured quantities (Hodgkin & Huxley 1952; Hille 2001) ===
+        RestingPotential,
+        ActionPotential,
+        TransepithelialPotential,
+        FieldPotential,
+        Impedance,
+        IntracellularCalcium,
 
-    // Recording modes
-    WholeCell,
-    CellAttached,
-    InsideOut,
-    OutsideOut,
-    CurrentClamp,
-    VoltageClamp,
+        // === Recording modes (Neher & Sakmann 1976) ===
+        WholeCell,
+        CellAttached,
+        InsideOut,
+        OutsideOut,
+        CurrentClamp,
+        VoltageClamp,
 
-    // Abstract categories
-    MeasurementTechnique,
-    MeasuredQuantity,
-    RecordingMode,
+        // === Abstract umbrellas ===
+        MeasurementTechnique,
+        MeasuredQuantity,
+        RecordingMode,
+    ],
+
+    labels: {
+        PatchClamp: ("en", "Patch clamp",
+            "Neher & Sakmann (1976): a glass micropipette forms a gigaohm seal with the cell membrane, allowing direct measurement of single-channel or whole-cell currents."),
+        SharpElectrode: ("en", "Sharp electrode",
+            "Hille (2001) §3: a fine-tipped glass electrode impales the cell membrane to measure intracellular potential or pass current."),
+        VoltageSensitiveDye: ("en", "Voltage-sensitive dye",
+            "Levin (2024): a fluorescent dye whose emission shifts with membrane potential, enabling optical Vmem readout from many cells in parallel."),
+        CalciumImaging: ("en", "Calcium imaging",
+            "Levin (2024): fluorescent Ca²⁺ indicators (e.g. GCaMP, Fluo-4) report intracellular [Ca²⁺] as a proxy for activity."),
+        Bioimpedance: ("en", "Bioimpedance",
+            "Bhatt et al. (2015): surface-electrode measurement of tissue electrical impedance over a frequency range, characterizing deep-tissue properties non-invasively."),
+        ExtracellularRecording: ("en", "Extracellular recording",
+            "Hille (2001) §3: an electrode placed near (but not inside) cells records the local extracellular field generated by ionic currents."),
+        MultiElectrodeArray: ("en", "Multi-electrode array",
+            "Hille (2001) §3: a planar array of extracellular electrodes records the simultaneous activity of many cells or sites."),
+        OpticalMapping: ("en", "Optical mapping",
+            "Levin (2024): wide-field imaging of voltage-sensitive (or Ca²⁺) dyes to reconstruct the spatial pattern of bioelectric activity across tissue."),
+
+        RestingPotential: ("en", "Resting potential",
+            "Hodgkin & Huxley (1952); Hille (2001) §1: the steady-state membrane potential of a quiescent cell, typically -60 to -90 mV, set by K⁺ leak."),
+        ActionPotential: ("en", "Action potential",
+            "Hodgkin & Huxley (1952): a transient depolarizing excursion of Vmem driven by voltage-gated Na⁺ and K⁺ currents."),
+        TransepithelialPotential: ("en", "Transepithelial potential",
+            "Hille (2001) §3: the steady-state potential difference across an epithelial sheet, generated by polarized ion transport."),
+        FieldPotential: ("en", "Field potential",
+            "Hille (2001) §3: the extracellular voltage produced by the summed transmembrane currents of nearby cells."),
+        Impedance: ("en", "Impedance",
+            "Bhatt et al. (2015): the frequency-dependent complex ratio of voltage to current in tissue; combines resistive and capacitive components."),
+        IntracellularCalcium: ("en", "Intracellular calcium",
+            "Hille (2001) §10: the cytosolic Ca²⁺ concentration, ~100 nM at rest, that serves as a near-universal second messenger."),
+
+        WholeCell: ("en", "Whole-cell mode",
+            "Neher & Sakmann (1976): after gigaseal, the membrane patch is ruptured to give electrical access to the entire cell interior."),
+        CellAttached: ("en", "Cell-attached mode",
+            "Neher & Sakmann (1976): the gigaseal is formed but the patch remains intact, isolating single-channel currents within the patch."),
+        InsideOut: ("en", "Inside-out mode",
+            "Neher & Sakmann (1976): the patch is excised so that the cytoplasmic face is exposed to the bath."),
+        OutsideOut: ("en", "Outside-out mode",
+            "Neher & Sakmann (1976): the patch is excised after whole-cell, exposing the extracellular face to the bath."),
+        CurrentClamp: ("en", "Current clamp",
+            "Hodgkin & Huxley (1952); Neher & Sakmann (1976): a controlled current is injected and the resulting Vmem is recorded."),
+        VoltageClamp: ("en", "Voltage clamp",
+            "Hodgkin & Huxley (1952): Vmem is held at a command value by a feedback amplifier; the injected current equals the ionic current at that voltage."),
+
+        MeasurementTechnique: ("en", "Measurement technique",
+            "Hille (2001) §3: umbrella for the experimental methods that read out bioelectric signals from cells or tissue."),
+        MeasuredQuantity: ("en", "Measured quantity",
+            "Hille (2001) §1: umbrella for the physical observables (potentials, currents, impedances, ion concentrations) that techniques report."),
+        RecordingMode: ("en", "Recording mode",
+            "Neher & Sakmann (1976): umbrella for the configurations (whole-cell, cell-attached, inside-out, outside-out, current clamp, voltage clamp) in which a measurement is performed."),
+    },
+
+    is_a: [
+        // Measurement techniques
+        (PatchClamp, MeasurementTechnique),
+        (SharpElectrode, MeasurementTechnique),
+        (VoltageSensitiveDye, MeasurementTechnique),
+        (CalciumImaging, MeasurementTechnique),
+        (Bioimpedance, MeasurementTechnique),
+        (ExtracellularRecording, MeasurementTechnique),
+        (MultiElectrodeArray, MeasurementTechnique),
+        (OpticalMapping, MeasurementTechnique),
+
+        // Measured quantities
+        (RestingPotential, MeasuredQuantity),
+        (ActionPotential, MeasuredQuantity),
+        (TransepithelialPotential, MeasuredQuantity),
+        (FieldPotential, MeasuredQuantity),
+        (Impedance, MeasuredQuantity),
+        (IntracellularCalcium, MeasuredQuantity),
+
+        // Recording modes
+        (WholeCell, RecordingMode),
+        (CellAttached, RecordingMode),
+        (InsideOut, RecordingMode),
+        (OutsideOut, RecordingMode),
+        (CurrentClamp, RecordingMode),
+        (VoltageClamp, RecordingMode),
+    ],
+
+    opposes: [
+        // PatchClamp ↔ OpticalMapping: invasive/single-cell vs non-invasive/spatial
+        // (Neher & Sakmann 1976 vs Levin 2024 — the two endpoints of the
+        //  invasiveness-vs-spatial-scale trade-off).
+        (PatchClamp, OpticalMapping),
+        (OpticalMapping, PatchClamp),
+        // CurrentClamp ↔ VoltageClamp: hold-current/read-V vs hold-V/read-current
+        // (Hodgkin & Huxley 1952; Neher & Sakmann 1976).
+        (CurrentClamp, VoltageClamp),
+        (VoltageClamp, CurrentClamp),
+        // RestingPotential ↔ ActionPotential: steady-state vs transient
+        // (Hodgkin & Huxley 1952).
+        (RestingPotential, ActionPotential),
+        (ActionPotential, RestingPotential),
+    ],
 }
 
 // ---------------------------------------------------------------------------
-// Taxonomy (is-a)
+// Backward-compatibility aliases (transitional — pre-1.0)
 // ---------------------------------------------------------------------------
 
-// Subsumption hierarchy for electrophysiology entities.
-define_ontology! {
-    /// Electrophysiology ontology: techniques, quantities, recording modes.
-    pub ElectrophysiologyOntologyMeta for ElectrophysiologyCategory {
-        entity: ElectrophysiologyEntity,
-        relation: ElectrophysiologyRelation,
-        being: Quality,
-        source: "Neher & Sakmann (1976); Levin (2024)",
-
-        taxonomy: ElectrophysiologyTaxonomy [
-            (PatchClamp, MeasurementTechnique),
-            (SharpElectrode, MeasurementTechnique),
-            (VoltageSensitiveDye, MeasurementTechnique),
-            (CalciumImaging, MeasurementTechnique),
-            (Bioimpedance, MeasurementTechnique),
-            (ExtracellularRecording, MeasurementTechnique),
-            (MultiElectrodeArray, MeasurementTechnique),
-            (OpticalMapping, MeasurementTechnique),
-            (RestingPotential, MeasuredQuantity),
-            (ActionPotential, MeasuredQuantity),
-            (TransepithelialPotential, MeasuredQuantity),
-            (FieldPotential, MeasuredQuantity),
-            (Impedance, MeasuredQuantity),
-            (IntracellularCalcium, MeasuredQuantity),
-            (WholeCell, RecordingMode),
-            (CellAttached, RecordingMode),
-            (InsideOut, RecordingMode),
-            (OutsideOut, RecordingMode),
-            (CurrentClamp, RecordingMode),
-            (VoltageClamp, RecordingMode),
-        ],
-
-        opposition: ElectrophysiologyOpposition [
-            (PatchClamp, OpticalMapping),
-            (CurrentClamp, VoltageClamp),
-            (RestingPotential, ActionPotential),
-        ],
-    }
-}
+/// Transitional alias for the proc-macro-generated `ElectrophysiologyConcept`.
+pub type ElectrophysiologyEntity = ElectrophysiologyConcept;
+/// Transitional alias for the proc-macro-generated `ElectrophysiologyRelationKind`.
+pub type ElectrophysiologyCategoryRelationKind = ElectrophysiologyRelationKind;
 
 // ---------------------------------------------------------------------------
-// Spatial and temporal resolution enums
+// Resolution enums for qualities
 // ---------------------------------------------------------------------------
 
-/// Spatial resolution achievable by a measurement technique.
+/// Spatial resolution achievable by a measurement technique (Hille 2001 §3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SpatialScale {
     SingleCell,
@@ -113,7 +196,7 @@ pub enum SpatialScale {
     Organ,
 }
 
-/// Temporal resolution achievable by a measurement technique.
+/// Temporal resolution achievable by a measurement technique (Hille 2001 §3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TemporalScale {
     Microseconds,
@@ -126,17 +209,20 @@ pub enum TemporalScale {
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Quality: is this measurement technique invasive (damages or penetrates the cell)?
+/// Whether a measurement technique penetrates or damages the cell.
+///
+/// Neher & Sakmann (1976): patch clamp and sharp electrode both rupture or
+/// adhere to the membrane; the optical and surface methods do not.
 #[derive(Debug, Clone)]
 pub struct IsInvasive;
 
 impl Quality for IsInvasive {
-    type Individual = ElectrophysiologyEntity;
+    type Individual = ElectrophysiologyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &ElectrophysiologyEntity) -> Option<bool> {
-        use ElectrophysiologyEntity::*;
-        match individual {
+    fn get(&self, c: &ElectrophysiologyConcept) -> Option<bool> {
+        use ElectrophysiologyConcept::*;
+        match c {
             PatchClamp | SharpElectrode => Some(true),
             VoltageSensitiveDye
             | CalciumImaging
@@ -149,18 +235,18 @@ impl Quality for IsInvasive {
     }
 }
 
-/// Quality: what spatial resolution does this technique achieve?
+/// Spatial resolution of a measurement technique (Hille 2001 §3; Levin 2024).
 #[derive(Debug, Clone)]
 pub struct SpatialResolution;
 
 impl Quality for SpatialResolution {
-    type Individual = ElectrophysiologyEntity;
+    type Individual = ElectrophysiologyConcept;
     type Value = SpatialScale;
 
-    fn get(&self, individual: &ElectrophysiologyEntity) -> Option<SpatialScale> {
-        use ElectrophysiologyEntity::*;
+    fn get(&self, c: &ElectrophysiologyConcept) -> Option<SpatialScale> {
+        use ElectrophysiologyConcept::*;
         use SpatialScale::*;
-        match individual {
+        match c {
             PatchClamp | SharpElectrode => Some(SingleCell),
             VoltageSensitiveDye | CalciumImaging | OpticalMapping => Some(Tissue),
             MultiElectrodeArray | ExtracellularRecording => Some(CellCluster),
@@ -170,18 +256,18 @@ impl Quality for SpatialResolution {
     }
 }
 
-/// Quality: what temporal resolution does this technique achieve?
+/// Temporal resolution of a measurement technique (Hille 2001 §3; Levin 2024).
 #[derive(Debug, Clone)]
 pub struct TemporalResolution;
 
 impl Quality for TemporalResolution {
-    type Individual = ElectrophysiologyEntity;
+    type Individual = ElectrophysiologyConcept;
     type Value = TemporalScale;
 
-    fn get(&self, individual: &ElectrophysiologyEntity) -> Option<TemporalScale> {
-        use ElectrophysiologyEntity::*;
+    fn get(&self, c: &ElectrophysiologyConcept) -> Option<TemporalScale> {
+        use ElectrophysiologyConcept::*;
         use TemporalScale::*;
-        match individual {
+        match c {
             PatchClamp | SharpElectrode => Some(Microseconds),
             ExtracellularRecording | MultiElectrodeArray => Some(Milliseconds),
             VoltageSensitiveDye | OpticalMapping | CalciumImaging => Some(Milliseconds),
@@ -191,17 +277,21 @@ impl Quality for TemporalResolution {
     }
 }
 
-/// Quality: does this technique measure membrane potential (Vmem)?
+/// Whether a technique reports membrane potential (Vmem) directly.
+///
+/// Hodgkin & Huxley (1952); Levin (2024): electrode-on-membrane and
+/// voltage-sensitive optical methods measure Vmem; calcium / impedance /
+/// extracellular methods do not.
 #[derive(Debug, Clone)]
 pub struct MeasuresVmem;
 
 impl Quality for MeasuresVmem {
-    type Individual = ElectrophysiologyEntity;
+    type Individual = ElectrophysiologyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &ElectrophysiologyEntity) -> Option<bool> {
-        use ElectrophysiologyEntity::*;
-        match individual {
+    fn get(&self, c: &ElectrophysiologyConcept) -> Option<bool> {
+        use ElectrophysiologyConcept::*;
+        match c {
             PatchClamp | SharpElectrode | VoltageSensitiveDye | OpticalMapping => Some(true),
             CalciumImaging | Bioimpedance | ExtracellularRecording | MultiElectrodeArray => {
                 Some(false)
@@ -211,17 +301,17 @@ impl Quality for MeasuresVmem {
     }
 }
 
-/// Quality: can this technique be used in vivo?
+/// Whether a technique is usable in vivo (Levin 2024; Bhatt et al. 2015).
 #[derive(Debug, Clone)]
 pub struct CanMeasureInVivo;
 
 impl Quality for CanMeasureInVivo {
-    type Individual = ElectrophysiologyEntity;
+    type Individual = ElectrophysiologyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &ElectrophysiologyEntity) -> Option<bool> {
-        use ElectrophysiologyEntity::*;
-        match individual {
+    fn get(&self, c: &ElectrophysiologyConcept) -> Option<bool> {
+        use ElectrophysiologyConcept::*;
+        match c {
             VoltageSensitiveDye
             | CalciumImaging
             | Bioimpedance
@@ -233,17 +323,17 @@ impl Quality for CanMeasureInVivo {
     }
 }
 
-/// Quality: does this technique require direct physical contact with the cell?
+/// Whether the technique requires direct physical contact with the cell.
 #[derive(Debug, Clone)]
 pub struct RequiresContactWithCell;
 
 impl Quality for RequiresContactWithCell {
-    type Individual = ElectrophysiologyEntity;
+    type Individual = ElectrophysiologyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &ElectrophysiologyEntity) -> Option<bool> {
-        use ElectrophysiologyEntity::*;
-        match individual {
+    fn get(&self, c: &ElectrophysiologyConcept) -> Option<bool> {
+        use ElectrophysiologyConcept::*;
+        match c {
             PatchClamp | SharpElectrode => Some(true),
             VoltageSensitiveDye | CalciumImaging | OpticalMapping => Some(false),
             ExtracellularRecording | MultiElectrodeArray => Some(true),
@@ -254,226 +344,256 @@ impl Quality for RequiresContactWithCell {
 }
 
 // ---------------------------------------------------------------------------
-// Opposition (semantic contrasts)
+// Ontology + domain axioms
 // ---------------------------------------------------------------------------
-
-// Opposition pairs in the electrophysiology domain.
-//
-// - PatchClamp ↔ OpticalMapping: invasive/single-cell vs non-invasive/spatial
-// - CurrentClamp ↔ VoltageClamp: measure voltage vs measure current
-// - RestingPotential ↔ ActionPotential: steady-state vs transient
-
-/// Axiom: electrophysiology opposition is symmetric.
-pub struct ElectrophysiologyOppositionSymmetric;
-
-impl Axiom for ElectrophysiologyOppositionSymmetric {
-    fn description(&self) -> &str {
-        "electrophysiology opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<ElectrophysiologyOpposition>::new().holds()
-    }
-}
-pr4xis::register_axiom!(ElectrophysiologyOppositionSymmetric);
-
-/// Axiom: electrophysiology opposition is irreflexive (nothing opposes itself).
-pub struct ElectrophysiologyOppositionIrreflexive;
-
-impl Axiom for ElectrophysiologyOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "electrophysiology opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<ElectrophysiologyOpposition>::new().holds()
-    }
-}
-pr4xis::register_axiom!(ElectrophysiologyOppositionIrreflexive);
-
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
-/// Taxonomy is a directed acyclic graph.
-pub struct TaxonomyIsDAG;
-
-impl Axiom for TaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "electrophysiology taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<ElectrophysiologyTaxonomy>::new().holds()
-    }
-}
-pr4xis::register_axiom!(TaxonomyIsDAG);
-
-/// Category identity and composition laws hold.
-pub struct CategoryLawsHold;
-
-impl Axiom for CategoryLawsHold {
-    fn description(&self) -> &str {
-        "electrophysiology category satisfies identity, associativity, and closure"
-    }
-
-    fn holds(&self) -> bool {
-        use pr4xis::category::validate::check_category_laws;
-        check_category_laws::<ElectrophysiologyCategory>().is_ok()
-    }
-}
-pr4xis::register_axiom!(CategoryLawsHold);
-
-/// At least one non-invasive measurement technique exists.
-pub struct NonInvasiveMethodExists;
-
-impl Axiom for NonInvasiveMethodExists {
-    fn description(&self) -> &str {
-        "at least one non-invasive measurement technique exists"
-    }
-
-    fn holds(&self) -> bool {
-        let q = IsInvasive;
-        ElectrophysiologyEntity::variants()
-            .iter()
-            .any(|e| q.get(e) == Some(false))
-    }
-}
-pr4xis::register_axiom!(NonInvasiveMethodExists);
-
-/// Both single-cell and tissue-level resolution methods exist.
-pub struct MultiscaleMethods;
-
-impl Axiom for MultiscaleMethods {
-    fn description(&self) -> &str {
-        "both single-cell and tissue-level spatial resolution methods exist"
-    }
-
-    fn holds(&self) -> bool {
-        let q = SpatialResolution;
-        let all = ElectrophysiologyEntity::variants();
-        let has_single_cell = all
-            .iter()
-            .any(|e| q.get(e) == Some(SpatialScale::SingleCell));
-        let has_tissue = all.iter().any(|e| q.get(e) == Some(SpatialScale::Tissue));
-        has_single_cell && has_tissue
-    }
-}
-pr4xis::register_axiom!(MultiscaleMethods);
-
-/// At least one method can measure Vmem in vivo (Levin's voltage-sensitive dyes).
-pub struct VmemInVivoMethodExists;
-
-impl Axiom for VmemInVivoMethodExists {
-    fn description(&self) -> &str {
-        "at least one method measures Vmem in vivo (voltage-sensitive dye — Levin's primary tool)"
-    }
-
-    fn holds(&self) -> bool {
-        let vmem = MeasuresVmem;
-        let in_vivo = CanMeasureInVivo;
-        ElectrophysiologyEntity::variants()
-            .iter()
-            .any(|e| vmem.get(e) == Some(true) && in_vivo.get(e) == Some(true))
-    }
-}
-pr4xis::register_axiom!(VmemInVivoMethodExists);
-
-/// Patch clamp is invasive AND has single-cell resolution (gold standard but destructive).
-pub struct PatchClampGoldStandard;
-
-impl Axiom for PatchClampGoldStandard {
-    fn description(&self) -> &str {
-        "patch clamp is invasive with single-cell resolution (gold standard)"
-    }
-
-    fn holds(&self) -> bool {
-        use ElectrophysiologyEntity::*;
-        IsInvasive.get(&PatchClamp) == Some(true)
-            && SpatialResolution.get(&PatchClamp) == Some(SpatialScale::SingleCell)
-    }
-}
-pr4xis::register_axiom!(PatchClampGoldStandard);
-
-/// Bioimpedance is non-invasive (surface method for deep tissue proxy).
-pub struct BioimpedanceNonInvasive;
-
-impl Axiom for BioimpedanceNonInvasive {
-    fn description(&self) -> &str {
-        "bioimpedance is non-invasive (surface electrodes, deep tissue proxy)"
-    }
-
-    fn holds(&self) -> bool {
-        use ElectrophysiologyEntity::*;
-        IsInvasive.get(&Bioimpedance) == Some(false)
-    }
-}
-pr4xis::register_axiom!(BioimpedanceNonInvasive);
-
-/// Optical methods (VSD, calcium imaging, optical mapping) do not require cell contact.
-pub struct OpticalMethodsNoContact;
-
-impl Axiom for OpticalMethodsNoContact {
-    fn description(&self) -> &str {
-        "optical methods do not require direct cell contact"
-    }
-
-    fn holds(&self) -> bool {
-        use ElectrophysiologyEntity::*;
-        let q = RequiresContactWithCell;
-        q.get(&VoltageSensitiveDye) == Some(false)
-            && q.get(&CalciumImaging) == Some(false)
-            && q.get(&OpticalMapping) == Some(false)
-    }
-}
-pr4xis::register_axiom!(OpticalMethodsNoContact);
-
-/// Both Vmem-measuring and non-Vmem-measuring techniques exist.
-pub struct VmemAndNonVmemTechniques;
-
-impl Axiom for VmemAndNonVmemTechniques {
-    fn description(&self) -> &str {
-        "both Vmem-measuring and non-Vmem-measuring techniques exist"
-    }
-
-    fn holds(&self) -> bool {
-        let q = MeasuresVmem;
-        let all = ElectrophysiologyEntity::variants();
-        let has_vmem = all.iter().any(|e| q.get(e) == Some(true));
-        let has_non_vmem = all.iter().any(|e| q.get(e) == Some(false));
-        has_vmem && has_non_vmem
-    }
-}
-pr4xis::register_axiom!(VmemAndNonVmemTechniques);
-
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
-/// Top-level ontology tying together the electrophysiology category, qualities, and axioms.
-pub struct ElectrophysiologyOntology;
 
 impl Ontology for ElectrophysiologyOntology {
     type Cat = ElectrophysiologyCategory;
     type Qual = IsInvasive;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        ElectrophysiologyOntologyMeta::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(CategoryLawsHold),
-            Box::new(NonInvasiveMethodExists),
-            Box::new(MultiscaleMethods),
-            Box::new(VmemInVivoMethodExists),
-            Box::new(PatchClampGoldStandard),
-            Box::new(BioimpedanceNonInvasive),
-            Box::new(OpticalMethodsNoContact),
-            Box::new(VmemAndNonVmemTechniques),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(NonInvasiveMethodExists));
+        axioms.push(Box::new(MultiscaleMethods));
+        axioms.push(Box::new(VmemInVivoMethodExists));
+        axioms.push(Box::new(PatchClampGoldStandard));
+        axioms.push(Box::new(BioimpedanceNonInvasive));
+        axioms.push(Box::new(OpticalMethodsNoContact));
+        axioms.push(Box::new(VmemAndNonVmemTechniques));
+        axioms.push(Box::new(InvasiveImpliesContact));
+        axioms
     }
 }
+
+/// Axiom: at least one non-invasive measurement technique exists.
+///
+/// Levin (2024); Bhatt et al. (2015): voltage-sensitive dyes, optical mapping,
+/// calcium imaging, bioimpedance, and extracellular recording are all
+/// non-invasive at the cell-rupture level.
+pub struct NonInvasiveMethodExists;
+
+impl Axiom for NonInvasiveMethodExists {
+    fn verify(&self) -> Verdict {
+        let q = IsInvasive;
+        if ElectrophysiologyConcept::variants()
+            .iter()
+            .any(|c| q.get(c) == Some(false))
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "NonInvasiveMethodExists",
+        "At least one non-invasive measurement technique exists in the ontology",
+        "Levin (2024) Optical Estimation of Bioelectric Patterns"
+    );
+}
+pr4xis::register_axiom!(
+    NonInvasiveMethodExists,
+    "Levin (2024) Optical Estimation of Bioelectric Patterns"
+);
+
+/// Axiom: techniques cover both single-cell and tissue spatial scales.
+///
+/// Hille (2001) §3: patch clamp / sharp electrode give single-cell access;
+/// VSD / Ca²⁺ imaging / optical mapping give tissue-scale spatial readout.
+pub struct MultiscaleMethods;
+
+impl Axiom for MultiscaleMethods {
+    fn verify(&self) -> Verdict {
+        let q = SpatialResolution;
+        let all = ElectrophysiologyConcept::variants();
+        let has_single = all
+            .iter()
+            .any(|c| q.get(c) == Some(SpatialScale::SingleCell));
+        let has_tissue = all.iter().any(|c| q.get(c) == Some(SpatialScale::Tissue));
+        if has_single && has_tissue {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "MultiscaleMethods",
+        "The ontology contains both single-cell and tissue-scale spatial-resolution techniques",
+        "Hille (2001) Ion Channels of Excitable Membranes §3"
+    );
+}
+pr4xis::register_axiom!(
+    MultiscaleMethods,
+    "Hille (2001) Ion Channels of Excitable Membranes §3"
+);
+
+/// Axiom: at least one method measures Vmem in vivo.
+///
+/// Levin (2024): voltage-sensitive dyes are the canonical in-vivo Vmem
+/// readout — the foundation of bioelectric-prepattern measurement.
+pub struct VmemInVivoMethodExists;
+
+impl Axiom for VmemInVivoMethodExists {
+    fn verify(&self) -> Verdict {
+        let vmem = MeasuresVmem;
+        let in_vivo = CanMeasureInVivo;
+        if ElectrophysiologyConcept::variants()
+            .iter()
+            .any(|c| vmem.get(c) == Some(true) && in_vivo.get(c) == Some(true))
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "VmemInVivoMethodExists",
+        "At least one technique measures membrane potential in vivo",
+        "Levin (2024) Optical Estimation of Bioelectric Patterns"
+    );
+}
+pr4xis::register_axiom!(
+    VmemInVivoMethodExists,
+    "Levin (2024) Optical Estimation of Bioelectric Patterns"
+);
+
+/// Axiom: patch clamp is invasive at single-cell resolution.
+///
+/// Neher & Sakmann (1976): the gold-standard single-channel/whole-cell
+/// technique, with the trade-off that membrane access destroys long-term
+/// viability.
+pub struct PatchClampGoldStandard;
+
+impl Axiom for PatchClampGoldStandard {
+    fn verify(&self) -> Verdict {
+        use ElectrophysiologyConcept::*;
+        if IsInvasive.get(&PatchClamp) == Some(true)
+            && SpatialResolution.get(&PatchClamp) == Some(SpatialScale::SingleCell)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "PatchClampGoldStandard",
+        "Patch clamp is invasive and has single-cell spatial resolution (gold standard)",
+        "Neher & Sakmann (1976) Nature 260:799-802"
+    );
+}
+pr4xis::register_axiom!(
+    PatchClampGoldStandard,
+    "Neher & Sakmann (1976) Nature 260:799-802"
+);
+
+/// Axiom: bioimpedance is non-invasive (surface electrodes).
+pub struct BioimpedanceNonInvasive;
+
+impl Axiom for BioimpedanceNonInvasive {
+    fn verify(&self) -> Verdict {
+        if IsInvasive.get(&ElectrophysiologyConcept::Bioimpedance) == Some(false) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "BioimpedanceNonInvasive",
+        "Bioimpedance spectroscopy is a non-invasive surface-electrode technique",
+        "Bhatt et al. (2015) Bioimpedance spectroscopy for cancer tissue characterization"
+    );
+}
+pr4xis::register_axiom!(
+    BioimpedanceNonInvasive,
+    "Bhatt et al. (2015) Bioimpedance spectroscopy"
+);
+
+/// Axiom: optical methods do not require direct cell contact.
+pub struct OpticalMethodsNoContact;
+
+impl Axiom for OpticalMethodsNoContact {
+    fn verify(&self) -> Verdict {
+        use ElectrophysiologyConcept::*;
+        let q = RequiresContactWithCell;
+        if q.get(&VoltageSensitiveDye) == Some(false)
+            && q.get(&CalciumImaging) == Some(false)
+            && q.get(&OpticalMapping) == Some(false)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "OpticalMethodsNoContact",
+        "Voltage-sensitive dye, calcium imaging, and optical mapping do not require physical contact with the cell",
+        "Levin (2024) Optical Estimation of Bioelectric Patterns"
+    );
+}
+pr4xis::register_axiom!(
+    OpticalMethodsNoContact,
+    "Levin (2024) Optical Estimation of Bioelectric Patterns"
+);
+
+/// Axiom: both Vmem-measuring and non-Vmem-measuring techniques exist.
+pub struct VmemAndNonVmemTechniques;
+
+impl Axiom for VmemAndNonVmemTechniques {
+    fn verify(&self) -> Verdict {
+        let q = MeasuresVmem;
+        let all = ElectrophysiologyConcept::variants();
+        let has_vmem = all.iter().any(|c| q.get(c) == Some(true));
+        let has_non = all.iter().any(|c| q.get(c) == Some(false));
+        if has_vmem && has_non {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "VmemAndNonVmemTechniques",
+        "The ontology contains both Vmem-measuring and non-Vmem-measuring techniques",
+        "Hille (2001) Ion Channels of Excitable Membranes §3"
+    );
+}
+pr4xis::register_axiom!(
+    VmemAndNonVmemTechniques,
+    "Hille (2001) Ion Channels of Excitable Membranes §3"
+);
+
+/// Axiom: every invasive technique requires cell contact.
+///
+/// Neher & Sakmann (1976): the only path to single-channel resolution is
+/// physical membrane access; conversely, every method that breaks the
+/// membrane necessarily contacts it.
+pub struct InvasiveImpliesContact;
+
+impl Axiom for InvasiveImpliesContact {
+    fn verify(&self) -> Verdict {
+        for c in ElectrophysiologyConcept::variants() {
+            if IsInvasive.get(&c) == Some(true) && RequiresContactWithCell.get(&c) != Some(true) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "InvasiveImpliesContact",
+        "Every invasive measurement technique requires physical contact with the cell",
+        "Neher & Sakmann (1976) Nature 260:799-802"
+    );
+}
+pr4xis::register_axiom!(
+    InvasiveImpliesContact,
+    "Neher & Sakmann (1976) Nature 260:799-802"
+);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -482,237 +602,227 @@ impl Ontology for ElectrophysiologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use proptest::prelude::*;
 
-    // -- Entity count --
+    #[test]
+    fn category_laws() {
+        assert_category_laws::<ElectrophysiologyCategory>();
+    }
 
     #[test]
-    fn test_entity_count() {
+    fn ontology_validates() {
+        ElectrophysiologyOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[test]
+    fn concept_count() {
         // 8 techniques + 6 quantities + 6 recording modes + 3 abstract = 23
-        assert_eq!(ElectrophysiologyEntity::variants().len(), 23);
+        assert_eq!(ElectrophysiologyConcept::variants().len(), 23);
     }
 
-    // -- Axiom tests --
+    // -- Domain-axiom tests --
 
     #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(TaxonomyIsDAG.holds(), "{}", TaxonomyIsDAG.description());
-    }
-
-    #[test]
-    fn test_category_laws_hold() {
-        assert!(
-            CategoryLawsHold.holds(),
-            "{}",
-            CategoryLawsHold.description()
-        );
+    fn non_invasive_method_exists_axiom() {
+        assert!(NonInvasiveMethodExists.verify().is_ok());
     }
 
     #[test]
-    fn test_non_invasive_method_exists() {
-        assert!(
-            NonInvasiveMethodExists.holds(),
-            "{}",
-            NonInvasiveMethodExists.description()
-        );
+    fn multiscale_methods_axiom() {
+        assert!(MultiscaleMethods.verify().is_ok());
     }
 
     #[test]
-    fn test_multiscale_methods() {
-        assert!(
-            MultiscaleMethods.holds(),
-            "{}",
-            MultiscaleMethods.description()
-        );
+    fn vmem_in_vivo_method_exists_axiom() {
+        assert!(VmemInVivoMethodExists.verify().is_ok());
     }
 
     #[test]
-    fn test_vmem_in_vivo_method_exists() {
-        assert!(
-            VmemInVivoMethodExists.holds(),
-            "{}",
-            VmemInVivoMethodExists.description()
-        );
+    fn patch_clamp_gold_standard_axiom() {
+        assert!(PatchClampGoldStandard.verify().is_ok());
     }
 
     #[test]
-    fn test_patch_clamp_gold_standard() {
-        assert!(
-            PatchClampGoldStandard.holds(),
-            "{}",
-            PatchClampGoldStandard.description()
-        );
+    fn bioimpedance_non_invasive_axiom() {
+        assert!(BioimpedanceNonInvasive.verify().is_ok());
     }
 
     #[test]
-    fn test_bioimpedance_non_invasive() {
-        assert!(
-            BioimpedanceNonInvasive.holds(),
-            "{}",
-            BioimpedanceNonInvasive.description()
-        );
+    fn optical_methods_no_contact_axiom() {
+        assert!(OpticalMethodsNoContact.verify().is_ok());
     }
 
     #[test]
-    fn test_optical_methods_no_contact() {
-        assert!(
-            OpticalMethodsNoContact.holds(),
-            "{}",
-            OpticalMethodsNoContact.description()
-        );
+    fn vmem_and_non_vmem_techniques_axiom() {
+        assert!(VmemAndNonVmemTechniques.verify().is_ok());
     }
 
     #[test]
-    fn test_vmem_and_non_vmem_techniques() {
-        assert!(
-            VmemAndNonVmemTechniques.holds(),
-            "{}",
-            VmemAndNonVmemTechniques.description()
-        );
+    fn invasive_implies_contact_axiom() {
+        assert!(InvasiveImpliesContact.verify().is_ok());
     }
 
-    // -- Category law tests --
+    // -- Subsumption-kind tests --
 
-    #[test]
-    fn test_electrophysiology_category_laws() {
-        check_category_laws::<ElectrophysiologyCategory>().unwrap();
+    fn subsumptions() -> Vec<(ElectrophysiologyConcept, ElectrophysiologyConcept)> {
+        ElectrophysiologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == ElectrophysiologyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect()
     }
 
     #[test]
-    fn test_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<ElectrophysiologyTaxonomy>>().unwrap();
-    }
-
-    // -- Taxonomy tests --
-
-    #[test]
-    fn test_techniques_are_measurement_techniques() {
-        use ElectrophysiologyEntity::*;
-        for tech in [
-            PatchClamp,
-            SharpElectrode,
-            VoltageSensitiveDye,
-            CalciumImaging,
-            Bioimpedance,
-            ExtracellularRecording,
-            MultiElectrodeArray,
-            OpticalMapping,
+    fn techniques_subsume_under_measurement_technique() {
+        let subs = subsumptions();
+        for c in [
+            ElectrophysiologyConcept::PatchClamp,
+            ElectrophysiologyConcept::SharpElectrode,
+            ElectrophysiologyConcept::VoltageSensitiveDye,
+            ElectrophysiologyConcept::CalciumImaging,
+            ElectrophysiologyConcept::Bioimpedance,
+            ElectrophysiologyConcept::ExtracellularRecording,
+            ElectrophysiologyConcept::MultiElectrodeArray,
+            ElectrophysiologyConcept::OpticalMapping,
         ] {
             assert!(
-                taxonomy::is_a::<ElectrophysiologyTaxonomy>(&tech, &MeasurementTechnique),
-                "{:?} should be a MeasurementTechnique",
-                tech
+                subs.contains(&(c, ElectrophysiologyConcept::MeasurementTechnique)),
+                "{:?} should subsume under MeasurementTechnique",
+                c
             );
         }
     }
 
     #[test]
-    fn test_quantities_are_measured_quantities() {
-        use ElectrophysiologyEntity::*;
-        for qty in [
-            RestingPotential,
-            ActionPotential,
-            TransepithelialPotential,
-            FieldPotential,
-            Impedance,
-            IntracellularCalcium,
+    fn quantities_subsume_under_measured_quantity() {
+        let subs = subsumptions();
+        for c in [
+            ElectrophysiologyConcept::RestingPotential,
+            ElectrophysiologyConcept::ActionPotential,
+            ElectrophysiologyConcept::TransepithelialPotential,
+            ElectrophysiologyConcept::FieldPotential,
+            ElectrophysiologyConcept::Impedance,
+            ElectrophysiologyConcept::IntracellularCalcium,
         ] {
             assert!(
-                taxonomy::is_a::<ElectrophysiologyTaxonomy>(&qty, &MeasuredQuantity),
-                "{:?} should be a MeasuredQuantity",
-                qty
+                subs.contains(&(c, ElectrophysiologyConcept::MeasuredQuantity)),
+                "{:?} should subsume under MeasuredQuantity",
+                c
             );
         }
     }
 
     #[test]
-    fn test_recording_modes() {
-        use ElectrophysiologyEntity::*;
-        for mode in [
-            WholeCell,
-            CellAttached,
-            InsideOut,
-            OutsideOut,
-            CurrentClamp,
-            VoltageClamp,
+    fn modes_subsume_under_recording_mode() {
+        let subs = subsumptions();
+        for c in [
+            ElectrophysiologyConcept::WholeCell,
+            ElectrophysiologyConcept::CellAttached,
+            ElectrophysiologyConcept::InsideOut,
+            ElectrophysiologyConcept::OutsideOut,
+            ElectrophysiologyConcept::CurrentClamp,
+            ElectrophysiologyConcept::VoltageClamp,
         ] {
             assert!(
-                taxonomy::is_a::<ElectrophysiologyTaxonomy>(&mode, &RecordingMode),
-                "{:?} should be a RecordingMode",
-                mode
+                subs.contains(&(c, ElectrophysiologyConcept::RecordingMode)),
+                "{:?} should subsume under RecordingMode",
+                c
             );
         }
     }
 
-    #[test]
-    fn test_technique_descendants_count() {
-        let descendants = taxonomy::descendants::<ElectrophysiologyTaxonomy>(
-            &ElectrophysiologyEntity::MeasurementTechnique,
-        );
-        assert_eq!(descendants.len(), 8);
+    // -- Opposition-kind tests --
+
+    fn oppositions() -> Vec<(ElectrophysiologyConcept, ElectrophysiologyConcept)> {
+        ElectrophysiologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == ElectrophysiologyRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect()
     }
 
     #[test]
-    fn test_recording_mode_descendants_count() {
-        let descendants = taxonomy::descendants::<ElectrophysiologyTaxonomy>(
-            &ElectrophysiologyEntity::RecordingMode,
-        );
-        assert_eq!(descendants.len(), 6);
+    fn patch_clamp_opposes_optical_mapping() {
+        let opps = oppositions();
+        assert!(opps.contains(&(
+            ElectrophysiologyConcept::PatchClamp,
+            ElectrophysiologyConcept::OpticalMapping
+        )));
+        assert!(opps.contains(&(
+            ElectrophysiologyConcept::OpticalMapping,
+            ElectrophysiologyConcept::PatchClamp
+        )));
     }
 
-    // -- Quality consistency tests --
+    #[test]
+    fn current_clamp_opposes_voltage_clamp() {
+        let opps = oppositions();
+        assert!(opps.contains(&(
+            ElectrophysiologyConcept::CurrentClamp,
+            ElectrophysiologyConcept::VoltageClamp
+        )));
+    }
 
     #[test]
-    fn test_invasive_count() {
+    fn resting_opposes_action_potential() {
+        let opps = oppositions();
+        assert!(opps.contains(&(
+            ElectrophysiologyConcept::RestingPotential,
+            ElectrophysiologyConcept::ActionPotential
+        )));
+    }
+
+    // -- Quality tests --
+
+    #[test]
+    fn invasive_count() {
         let q = IsInvasive;
-        let invasive: Vec<_> = ElectrophysiologyEntity::variants()
+        let invasive: Vec<_> = ElectrophysiologyConcept::variants()
             .into_iter()
-            .filter(|e| q.get(e) == Some(true))
+            .filter(|c| q.get(c) == Some(true))
             .collect();
-        let non_invasive: Vec<_> = ElectrophysiologyEntity::variants()
+        let non_invasive: Vec<_> = ElectrophysiologyConcept::variants()
             .into_iter()
-            .filter(|e| q.get(e) == Some(false))
+            .filter(|c| q.get(c) == Some(false))
             .collect();
-        // PatchClamp, SharpElectrode = 2 invasive
         assert_eq!(invasive.len(), 2);
-        // 6 non-invasive techniques
         assert_eq!(non_invasive.len(), 6);
     }
 
     #[test]
-    fn test_vmem_measuring_techniques() {
-        use ElectrophysiologyEntity::*;
+    fn vmem_measuring_techniques() {
+        use ElectrophysiologyConcept::*;
         let q = MeasuresVmem;
-        let vmem_techniques: Vec<_> = ElectrophysiologyEntity::variants()
+        let v: Vec<_> = ElectrophysiologyConcept::variants()
             .into_iter()
-            .filter(|e| q.get(e) == Some(true))
+            .filter(|c| q.get(c) == Some(true))
             .collect();
-        assert_eq!(vmem_techniques.len(), 4);
-        assert!(vmem_techniques.contains(&PatchClamp));
-        assert!(vmem_techniques.contains(&SharpElectrode));
-        assert!(vmem_techniques.contains(&VoltageSensitiveDye));
-        assert!(vmem_techniques.contains(&OpticalMapping));
+        assert_eq!(v.len(), 4);
+        assert!(v.contains(&PatchClamp));
+        assert!(v.contains(&SharpElectrode));
+        assert!(v.contains(&VoltageSensitiveDye));
+        assert!(v.contains(&OpticalMapping));
     }
 
     #[test]
-    fn test_in_vivo_techniques() {
-        use ElectrophysiologyEntity::*;
+    fn in_vivo_techniques() {
+        use ElectrophysiologyConcept::*;
         let q = CanMeasureInVivo;
-        let in_vivo: Vec<_> = ElectrophysiologyEntity::variants()
+        let v: Vec<_> = ElectrophysiologyConcept::variants()
             .into_iter()
-            .filter(|e| q.get(e) == Some(true))
+            .filter(|c| q.get(c) == Some(true))
             .collect();
-        assert_eq!(in_vivo.len(), 5);
-        // VSD is both Vmem and in vivo (Levin's primary tool)
-        assert!(in_vivo.contains(&VoltageSensitiveDye));
+        assert_eq!(v.len(), 5);
+        assert!(v.contains(&VoltageSensitiveDye));
     }
 
     #[test]
-    fn test_spatial_resolution_all_scales_covered() {
+    fn spatial_resolution_all_scales_covered() {
         let q = SpatialResolution;
-        let all = ElectrophysiologyEntity::variants();
+        let all = ElectrophysiologyConcept::variants();
         for scale in [
             SpatialScale::SingleCell,
             SpatialScale::CellCluster,
@@ -720,7 +830,7 @@ mod tests {
             SpatialScale::Organ,
         ] {
             assert!(
-                all.iter().any(|e| q.get(e) == Some(scale)),
+                all.iter().any(|c| q.get(c) == Some(scale)),
                 "no technique covers spatial scale {:?}",
                 scale
             );
@@ -728,110 +838,95 @@ mod tests {
     }
 
     #[test]
-    fn test_ontology_validates() {
-        ElectrophysiologyOntology::validate().unwrap();
+    fn contact_vs_noncontact_consistency() {
+        use ElectrophysiologyConcept::*;
+        let q = RequiresContactWithCell;
+        assert_eq!(q.get(&PatchClamp), Some(true));
+        assert_eq!(q.get(&SharpElectrode), Some(true));
+        assert_eq!(q.get(&VoltageSensitiveDye), Some(false));
+        assert_eq!(q.get(&OpticalMapping), Some(false));
+        assert_eq!(q.get(&CalciumImaging), Some(false));
     }
 
-    #[test]
-    fn test_contact_vs_noncontact_consistency() {
-        // Invasive methods require contact, optical methods do not
-        use ElectrophysiologyEntity::*;
-        let contact = RequiresContactWithCell;
-        assert_eq!(contact.get(&PatchClamp), Some(true));
-        assert_eq!(contact.get(&SharpElectrode), Some(true));
-        assert_eq!(contact.get(&VoltageSensitiveDye), Some(false));
-        assert_eq!(contact.get(&OpticalMapping), Some(false));
-        assert_eq!(contact.get(&CalciumImaging), Some(false));
-    }
+    // -- Proptests --
 
-    // -- Opposition tests --
-
-    #[test]
-    fn test_electrophysiology_opposition_symmetric() {
-        assert!(
-            ElectrophysiologyOppositionSymmetric.holds(),
-            "{}",
-            ElectrophysiologyOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_electrophysiology_opposition_irreflexive() {
-        assert!(
-            ElectrophysiologyOppositionIrreflexive.holds(),
-            "{}",
-            ElectrophysiologyOppositionIrreflexive.description()
-        );
-    }
-
-    #[test]
-    fn test_patch_clamp_opposes_optical_mapping() {
-        use ElectrophysiologyEntity::*;
-        assert!(opposition::are_opposed::<ElectrophysiologyOpposition>(
-            &PatchClamp,
-            &OpticalMapping
-        ));
-        assert!(opposition::are_opposed::<ElectrophysiologyOpposition>(
-            &OpticalMapping,
-            &PatchClamp
-        ));
-    }
-
-    #[test]
-    fn test_current_clamp_opposes_voltage_clamp() {
-        use ElectrophysiologyEntity::*;
-        assert!(opposition::are_opposed::<ElectrophysiologyOpposition>(
-            &CurrentClamp,
-            &VoltageClamp
-        ));
-    }
-
-    #[test]
-    fn test_resting_potential_opposes_action_potential() {
-        use ElectrophysiologyEntity::*;
-        assert!(opposition::are_opposed::<ElectrophysiologyOpposition>(
-            &RestingPotential,
-            &ActionPotential
-        ));
-    }
-
-    #[test]
-    fn test_patch_clamp_does_not_oppose_sharp_electrode() {
-        use ElectrophysiologyEntity::*;
-        assert!(!opposition::are_opposed::<ElectrophysiologyOpposition>(
-            &PatchClamp,
-            &SharpElectrode
-        ));
-    }
-
-    #[test]
-    fn test_electrophysiology_opposites_query() {
-        use ElectrophysiologyEntity::*;
-        let opps = opposition::opposites::<ElectrophysiologyOpposition>(&PatchClamp);
-        assert_eq!(opps, vec![OpticalMapping]);
-    }
-
-    fn arb_ephys_entity() -> impl Strategy<Value = ElectrophysiologyEntity> {
-        (0..ElectrophysiologyEntity::variants().len())
-            .prop_map(|i| ElectrophysiologyEntity::variants()[i])
+    fn arb_concept() -> impl Strategy<Value = ElectrophysiologyConcept> {
+        proptest::sample::select(ElectrophysiologyConcept::variants())
     }
 
     proptest! {
         #[test]
-        fn prop_technique_has_invasiveness(entity in arb_ephys_entity()) {
-            // Every concrete measurement technique has a defined invasiveness
-            use ElectrophysiologyEntity::*;
-            let is_abstract = matches!(entity, MeasurementTechnique | MeasuredQuantity | RecordingMode);
-            if !is_abstract && taxonomy::is_a::<ElectrophysiologyTaxonomy>(&entity, &MeasurementTechnique) {
-                prop_assert!(IsInvasive.get(&entity).is_some());
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in ElectrophysiologyCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
             }
         }
 
         #[test]
-        fn prop_invasive_requires_contact(entity in arb_ephys_entity()) {
-            // Invasive techniques always require cell contact
-            if IsInvasive.get(&entity) == Some(true) {
-                prop_assert!(RequiresContactWithCell.get(&entity) == Some(true));
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in ElectrophysiologyOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(
+                        false,
+                        "axiom failed: {}",
+                        c.meta().name.as_str()
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn prop_subsumption_targets_valid(_seed in any::<u32>()) {
+            let variants: Vec<_> = ElectrophysiologyConcept::variants();
+            for m in ElectrophysiologyCategory::morphisms() {
+                if m.kind() == ElectrophysiologyRelationKind::Subsumption {
+                    prop_assert!(variants.contains(&m.source()));
+                    prop_assert!(variants.contains(&m.target()));
+                }
+            }
+        }
+
+        #[test]
+        fn prop_opposition_is_symmetric(_seed in any::<u32>()) {
+            let opposed: std::collections::HashSet<_> = ElectrophysiologyCategory::morphisms()
+                .iter()
+                .filter(|m| m.kind() == ElectrophysiologyRelationKind::Opposition)
+                .map(|m| (m.source(), m.target()))
+                .collect();
+            for (a, b) in opposed.iter() {
+                prop_assert!(
+                    opposed.contains(&(*b, *a)),
+                    "opposition not symmetric: {:?} → {:?} but not back",
+                    a,
+                    b
+                );
+            }
+        }
+
+        #[test]
+        fn prop_technique_has_invasiveness(c in arb_concept()) {
+            use ElectrophysiologyConcept::*;
+            let is_abstract = matches!(c, MeasurementTechnique | MeasuredQuantity | RecordingMode);
+            if !is_abstract {
+                // Every concrete technique subsumes under MeasurementTechnique
+                // iff IsInvasive returns Some.
+                let is_technique = ElectrophysiologyCategory::morphisms()
+                    .iter()
+                    .any(|m| {
+                        m.kind() == ElectrophysiologyRelationKind::Subsumption
+                            && m.source() == c
+                            && m.target() == MeasurementTechnique
+                    });
+                if is_technique {
+                    prop_assert!(IsInvasive.get(&c).is_some());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_invasive_implies_contact(c in arb_concept()) {
+            if IsInvasive.get(&c) == Some(true) {
+                prop_assert!(RequiresContactWithCell.get(&c) == Some(true));
             }
         }
     }

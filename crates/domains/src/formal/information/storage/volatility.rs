@@ -1,65 +1,73 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Volatility — storage-media latency hierarchy and persistence domains.
+//!
+//! Models the physical storage hierarchy from CPU registers down to
+//! magnetic tape, partitioned by volatility (loses data on power loss?)
+//! and ordered by access latency. The "faster-than" relation forms a
+//! total order.
+//!
+//! # Literature
+//!
+//! - **SNIA (2017)** *NVM Programming Model v1.2*, Storage Networking
+//!   Industry Association — persistent-memory taxonomy (NVM.PM.FILE,
+//!   DAX mode).
+//! - **IEEE Std 1005** — volatile vs non-volatile memory
+//!   classification.
+//! - **Pelley, Chen & Wenisch (2014)** "Memory Persistency",
+//!   *ISCA 2014* — persistence domains; separating volatile
+//!   consistency from persistent ordering.
+//! - **Intel Software Developer Manual** — CLFLUSH, CLWB, SFENCE
+//!   instructions for persistent-memory ordering.
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// Volatility ontology — storage media hierarchy and persistence domains.
-//
-// Models the physical storage hierarchy from CPU registers to tape,
-// classified by volatility (loses data on power loss?) and access latency.
-// The hierarchy forms a preorder: "can serve as backing store for."
-//
-// References:
-// - SNIA, "NVM Programming Model v1.2" (2017) — persistent memory taxonomy
-// - IEEE Std 1005 — volatile/non-volatile memory classification
-// - Pelley et al., "Memory Persistency" (2014, ISCA) — persistence domains,
-//   separating volatile consistency from persistent ordering
-// - Intel Software Developer Manual — CLFLUSH, CLWB, SFENCE instructions
+pr4xis::ontology! {
+    name: "Volatility",
+    source: "SNIA (2017) NVM Programming Model v1.2; IEEE Std 1005 (volatile/non-volatile memory); Pelley, Chen & Wenisch (2014) Memory Persistency, ISCA; Intel Software Developer Manual (CLFLUSH/CLWB/SFENCE)",
 
-/// Storage media types — objects in the volatility hierarchy.
-///
-/// Ordered by latency (fastest first) and partitioned into
-/// volatile (loses data on power loss) and non-volatile.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum StorageMedia {
-    /// CPU register — ~0.3ns, volatile.
-    /// Fastest, smallest, most ephemeral.
-    Register,
+    concepts: [
+        Register,
+        Cache,
+        Dram,
+        PersistentMemory,
+        Flash,
+        Disk,
+        Tape,
+    ],
 
-    /// CPU cache (L1/L2/L3) — ~1-10ns, volatile.
-    /// Hardware-managed, transparent to software.
-    Cache,
+    labels: {
+        Register: ("en", "Register",
+            "CPU register - ~0.3ns, volatile (IEEE Std 1005). Fastest, smallest, most ephemeral."),
+        Cache: ("en", "Cache",
+            "CPU cache (L1/L2/L3) - ~1-10ns, volatile. Hardware-managed."),
+        Dram: ("en", "DRAM",
+            "Dynamic RAM - ~100ns, volatile. Main system memory; lost on power failure."),
+        PersistentMemory: ("en", "Persistent memory",
+            "SNIA (2017) NVM Programming Model: ~300ns, non-volatile. Byte-addressable via load/store on the memory bus. Pelley et al. (2014) boundary between volatile and non-volatile."),
+        Flash: ("en", "Flash",
+            "Flash / NVMe SSD - ~10us, non-volatile. Block-addressable; write endurance limited."),
+        Disk: ("en", "Disk",
+            "Hard disk drive - ~10ms, non-volatile. Sequential access fast, random slow."),
+        Tape: ("en", "Tape",
+            "Magnetic tape - seconds to minutes, non-volatile. Sequential only; highest density, lowest cost per byte; archival."),
+    },
 
-    /// Dynamic RAM — ~100ns, volatile.
-    /// Main system memory. Lost on power failure.
-    Dram,
-
-    /// Persistent memory — ~300ns, non-volatile.
-    /// Byte-addressable via load/store on the memory bus.
-    /// SNIA NVM Model (2017). Intel Optane (defunct), CXL.
-    /// The boundary between volatile and non-volatile.
-    PersistentMemory,
-
-    /// Flash / NVMe SSD — ~10us, non-volatile.
-    /// Block-addressable. Write endurance limited.
-    Flash,
-
-    /// Hard disk drive — ~10ms, non-volatile.
-    /// Spinning platters. Sequential access fast, random slow.
-    Disk,
-
-    /// Magnetic tape — seconds to minutes, non-volatile.
-    /// Sequential only. Highest density, lowest cost per byte.
-    /// Archival / cold storage.
-    Tape,
+    edges: [
+        // Pelley et al. (2014) / SNIA latency hierarchy.
+        (Register, Cache, FasterThan),
+        (Cache, Dram, FasterThan),
+        (Dram, PersistentMemory, FasterThan),
+        (PersistentMemory, Flash, FasterThan),
+        (Flash, Disk, FasterThan),
+        (Disk, Tape, FasterThan),
+    ],
 }
 
-/// Is this storage media volatile?
-///
-/// IEEE Std 1005: volatile = loses contents when power removed.
-/// Pelley et al. (2014): the persistence domain boundary.
-impl StorageMedia {
+/// Legacy alias — earlier code called the concept enum `StorageMedia`.
+pub type StorageMedia = VolatilityConcept;
+
+impl VolatilityConcept {
+    /// IEEE Std 1005: volatile = loses contents when power removed.
+    /// Pelley et al. (2014): the persistence-domain boundary.
     pub fn is_volatile(&self) -> bool {
         matches!(self, Self::Register | Self::Cache | Self::Dram)
     }
@@ -69,167 +77,130 @@ impl StorageMedia {
     }
 }
 
-define_ontology! {
-    pub VolatilityOntology for VolatilityCategory {
-        concepts: StorageMedia,
-        relation: VolatilityRelation,
-        kind: VolatilityRelationKind,
-        kinds: [
-            /// from is faster (lower latency) than to — can be cached by to.
-            /// This is "can serve as cache for" in the hierarchy.
-            FasterThan,
-            /// from is in the same volatility class as to.
-            SameVolatility,
-        ],
-        edges: [
-            // The latency hierarchy (direct edges):
-            // Register → Cache → DRAM → PersistentMemory → Flash → Disk → Tape
-            (Register, Cache, FasterThan),
-            (Cache, Dram, FasterThan),
-            (Dram, PersistentMemory, FasterThan),
-            (PersistentMemory, Flash, FasterThan),
-            (Flash, Disk, FasterThan),
-            (Disk, Tape, FasterThan),
-        ],
-        composed: [
-            // Transitive closure
-            (Register, Dram),
-            (Register, PersistentMemory),
-            (Register, Flash),
-            (Register, Disk),
-            (Register, Tape),
-            (Cache, PersistentMemory),
-            (Cache, Flash),
-            (Cache, Disk),
-            (Cache, Tape),
-            (Dram, Flash),
-            (Dram, Disk),
-            (Dram, Tape),
-            (PersistentMemory, Disk),
-            (PersistentMemory, Tape),
-            (Flash, Tape),
-        ],
-        being: AbstractObject,
-        source: "Pelley et al. (2014)",
+/// Quality: is this medium volatile? IEEE Std 1005 binary partition.
+#[derive(Debug, Clone)]
+pub struct IsVolatile;
+
+impl Quality for IsVolatile {
+    type Individual = VolatilityConcept;
+    type Value = bool;
+
+    fn get(&self, c: &VolatilityConcept) -> Option<bool> {
+        Some(c.is_volatile())
+    }
+}
+
+impl Ontology for VolatilityOntology {
+    type Cat = VolatilityCategory;
+    type Qual = IsVolatile;
+
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
-    fn category_laws_hold() {
-        check_category_laws::<VolatilityCategory>().unwrap();
+    fn category_laws() {
+        assert_category_laws::<VolatilityCategory>();
     }
 
     #[test]
-    fn has_seven_media_types() {
-        assert_eq!(StorageMedia::variants().len(), 7);
+    fn ontology_validates() {
+        VolatilityOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
-    // --- IEEE Std 1005: volatile/non-volatile partition ---
+    #[test]
+    fn seven_media_types() {
+        assert_eq!(VolatilityConcept::variants().len(), 7);
+    }
 
     #[test]
     fn volatile_partition() {
-        assert!(StorageMedia::Register.is_volatile());
-        assert!(StorageMedia::Cache.is_volatile());
-        assert!(StorageMedia::Dram.is_volatile());
-        assert!(!StorageMedia::PersistentMemory.is_volatile());
-        assert!(!StorageMedia::Flash.is_volatile());
-        assert!(!StorageMedia::Disk.is_volatile());
-        assert!(!StorageMedia::Tape.is_volatile());
+        // IEEE Std 1005.
+        assert!(VolatilityConcept::Register.is_volatile());
+        assert!(VolatilityConcept::Cache.is_volatile());
+        assert!(VolatilityConcept::Dram.is_volatile());
+        assert!(!VolatilityConcept::PersistentMemory.is_volatile());
+        assert!(!VolatilityConcept::Flash.is_volatile());
+        assert!(!VolatilityConcept::Disk.is_volatile());
+        assert!(!VolatilityConcept::Tape.is_volatile());
     }
 
     #[test]
     fn volatile_non_volatile_exhaustive() {
-        // Every media type is exactly one of volatile or non-volatile
-        for media in StorageMedia::variants() {
-            assert_ne!(
-                media.is_volatile(),
-                media.is_non_volatile(),
-                "{media:?} must be exactly volatile XOR non-volatile"
-            );
+        for media in VolatilityConcept::variants() {
+            assert_ne!(media.is_volatile(), media.is_non_volatile());
         }
     }
-
-    // --- Pelley et al. (2014): PersistentMemory is the boundary ---
 
     #[test]
     fn persistent_memory_is_boundary() {
-        // PM is the first non-volatile tier
-        assert!(StorageMedia::Dram.is_volatile());
-        assert!(StorageMedia::PersistentMemory.is_non_volatile());
-    }
-
-    // --- SNIA NVM Model: latency hierarchy ---
-
-    #[test]
-    fn register_is_fastest() {
-        let m = VolatilityCategory::morphisms();
-        // Register is faster than everything
-        for media in StorageMedia::variants() {
-            if media == StorageMedia::Register {
-                continue;
-            }
-            assert!(
-                m.iter()
-                    .any(|r| r.from == StorageMedia::Register && r.to == media),
-                "Register should be faster than {media:?}"
-            );
-        }
+        // Pelley et al. (2014).
+        assert!(VolatilityConcept::Dram.is_volatile());
+        assert!(VolatilityConcept::PersistentMemory.is_non_volatile());
     }
 
     #[test]
-    fn tape_is_slowest() {
-        let m = VolatilityCategory::morphisms();
-        // Nothing is slower than tape
-        assert!(
-            !m.iter()
-                .any(|r| r.from == StorageMedia::Tape
-                    && r.kind == VolatilityRelationKind::FasterThan)
-        );
-    }
-
-    #[test]
-    fn hierarchy_is_total_order() {
+    fn hierarchy_direct_edges() {
         let m = VolatilityCategory::morphisms();
         let hierarchy = [
-            StorageMedia::Register,
-            StorageMedia::Cache,
-            StorageMedia::Dram,
-            StorageMedia::PersistentMemory,
-            StorageMedia::Flash,
-            StorageMedia::Disk,
-            StorageMedia::Tape,
+            VolatilityConcept::Register,
+            VolatilityConcept::Cache,
+            VolatilityConcept::Dram,
+            VolatilityConcept::PersistentMemory,
+            VolatilityConcept::Flash,
+            VolatilityConcept::Disk,
+            VolatilityConcept::Tape,
         ];
         for i in 0..hierarchy.len() - 1 {
-            assert!(
-                m.iter().any(|r| r.from == hierarchy[i]
-                    && r.to == hierarchy[i + 1]
-                    && r.kind == VolatilityRelationKind::FasterThan),
-                "{:?} should be faster than {:?}",
-                hierarchy[i],
-                hierarchy[i + 1]
-            );
+            assert!(m.iter().any(|r| r.source() == hierarchy[i]
+                && r.target() == hierarchy[i + 1]
+                && r.kind() == VolatilityRelationKind::FasterThan));
         }
     }
-
-    // --- Three volatile, four non-volatile ---
 
     #[test]
     fn three_volatile_four_non_volatile() {
-        let volatile_count = StorageMedia::variants()
+        let volatile_count = VolatilityConcept::variants()
             .iter()
             .filter(|m| m.is_volatile())
             .count();
-        let non_volatile_count = StorageMedia::variants()
-            .iter()
-            .filter(|m| m.is_non_volatile())
-            .count();
         assert_eq!(volatile_count, 3);
-        assert_eq!(non_volatile_count, 4);
+        assert_eq!(VolatilityConcept::variants().len() - volatile_count, 4);
+    }
+
+    fn arb_concept() -> impl Strategy<Value = VolatilityConcept> {
+        proptest::sample::select(VolatilityConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in VolatilityCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in VolatilityOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_volatility_total(c in arb_concept()) {
+            prop_assert!(IsVolatile.get(&c).is_some());
+        }
     }
 }

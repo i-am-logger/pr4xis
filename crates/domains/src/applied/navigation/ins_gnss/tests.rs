@@ -1,44 +1,45 @@
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::navigation::ins_gnss::coupling::*;
 use crate::applied::navigation::ins_gnss::engine::*;
 use crate::applied::navigation::ins_gnss::ontology::*;
-use crate::applied::navigation::ins_gnss::state::InsGnssStateTaxonomy;
+use crate::applied::navigation::ins_gnss::state::InsGnssStateCategory;
 
 // ---------------------------------------------------------------------------
 // Ontology
 // ---------------------------------------------------------------------------
 
 #[test]
-fn coupling_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<InsGnssTaxonomy>>().unwrap();
+fn coupling_category_laws() {
+    assert_category_laws::<InsGnssCategory>();
 }
 
 #[test]
-fn ins_gnss_state_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<InsGnssStateTaxonomy>>().unwrap();
+fn ins_gnss_state_category_laws() {
+    assert_category_laws::<InsGnssStateCategory>();
 }
 
 #[test]
 fn ins_gnss_ontology_validates() {
-    InsGnssOntology::validate().unwrap();
+    InsGnssOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn coasting_degrades_axiom() {
-    assert!(CoastingDegrades.holds());
+    assert!(CoastingDegrades.verify().is_ok());
 }
 
 #[test]
 fn gnss_update_reduces_error_axiom() {
-    assert!(GnssUpdateReducesError.holds());
+    assert!(GnssUpdateReducesError.verify().is_ok());
 }
 
 #[test]
 fn tighter_coupling_better_axiom() {
-    assert!(TighterCouplingBetter.holds());
+    assert!(TighterCouplingBetter.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------

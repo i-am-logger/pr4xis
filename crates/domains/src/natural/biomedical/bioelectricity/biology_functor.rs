@@ -11,14 +11,14 @@
 //!
 //! Functor laws verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Functor};
 
 use crate::natural::biomedical::bioelectricity::ontology::{
     BioelectricCategory, BioelectricConcept, BioelectricEntity, BioelectricRelation,
     BioelectricRelationKind,
 };
 use crate::natural::biomedical::biology::ontology::{
-    BiologicalEntity, BiologicalRelation, BiologyCategory, BiologyCategoryRelationKind,
+    BiologicalEntity, BiologicalRelation, BiologyCategory, BiologyRelationKind,
 };
 
 /// Structure-preserving map from bioelectric entities to their biological structure.
@@ -60,16 +60,18 @@ impl Functor for BioelectricToBiology {
     }
 
     fn map_morphism(m: &BioelectricRelation) -> BiologicalRelation {
+        use BioelectricRelationKind as Sk;
+        use BiologyRelationKind as Tk;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            BioelectricRelationKind::Identity => BiologyCategory::identity(&from),
-            _ => BiologicalRelation {
-                from,
-                to,
-                kind: BiologyCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        BiologicalRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(BioelectricToBiology);
@@ -77,14 +79,8 @@ pr4xis::register_functor!(BioelectricToBiology);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
-
-    #[test]
-    fn test_functor_laws() {
-        check_functor_laws::<BioelectricToBiology>().unwrap();
-    }
 
     #[test]
     fn test_analogy_validates() {

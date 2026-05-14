@@ -1,4 +1,4 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::social::military::situation::engine::*;
@@ -6,22 +6,23 @@ use crate::social::military::situation::ontology::*;
 
 #[test]
 fn situation_category_laws() {
-    check_category_laws::<SituationCategory>().unwrap();
+    assert_category_laws::<SituationCategory>();
 }
 
 #[test]
 fn situation_ontology_validates() {
-    SituationOntology::validate().unwrap();
+    SituationOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn entity_identification_first_holds() {
-    assert!(EntityIdentificationFirst.holds());
+    assert!(EntityIdentificationFirst.verify().is_ok());
 }
 
 #[test]
 fn intent_requires_relationship_holds() {
-    assert!(IntentRequiresRelationship.holds());
+    assert!(IntentRequiresRelationship.verify().is_ok());
 }
 
 #[test]
@@ -99,7 +100,7 @@ fn assess_relationships_populates() {
     sa.assess_relationships();
     // 3 entities -> 3 pairs
     assert_eq!(sa.num_relationships(), 3);
-    assert_eq!(sa.current_level, SituationElement::Relationship);
+    assert_eq!(sa.current_level, SituationConcept::Relationship);
 }
 
 #[cfg(test)]

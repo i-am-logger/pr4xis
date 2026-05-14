@@ -1,155 +1,103 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Trace Schema Functor T: Sch → Sch — given any ontology schema C,
+//! T(C) automatically generates a trace schema that records every
+//! concept access and morphism traversal.
+//!
+//! `T(C) = El(C) +_O O_obs`
+//!
+//! Where `El(C)` is the category of elements (Spivak 2012 §4.3) — one
+//! trace object per schema element — and `O_obs` is the fixed PROV-O
+//! observability schema (W3C 2013). The instance lift `T(I) =
+//! cofree_W(Δ_i(I))` is the cofree comonad of the writer monad applied
+//! to the pullback along `i: C → T(C)` (Uustalu & Vene 2008;
+//! Moggi 1991).
+//!
+//! # Literature
+//!
+//! - **Spivak (2012)** "Functorial Data Migration", *Information and
+//!   Computation* 217:31-51 — El construction §4.3.
+//! - **Spivak (2014)** *Category Theory for the Sciences*, MIT Press
+//!   Ch. 4 — elements of a functor.
+//! - **Moggi (1991)** "Notions of Computation and Monads",
+//!   *Information and Computation* 93(1):55-92 — writer monad.
+//! - **Uustalu & Vene (2008)** "Comonadic Notions of Computation",
+//!   *Electronic Notes in Theoretical Computer Science* 203(5):263-284
+//!   — cofree comonad construction.
+//! - **W3C PROV-O (2013)** *PROV-O: The PROV Ontology* — observability
+//!   schema (Activity / Agent / atTime).
+//! - **Grothendieck (1961)** SGA 1 — fibered categories.
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// Trace Schema Functor T: Sch → Sch
-//
-// Given any ontology schema C, T(C) automatically generates a trace schema
-// that records every concept access and morphism traversal.
-//
-// T(C) = El(C) +_O O_obs
-//
-// Where:
-// - El(C) = category of elements (Spivak 2012, §4.3) — one trace object
-//   per schema element (entity type or morphism type)
-// - O_obs = fixed PROV-O observability schema (W3C 2013) — timestamp,
-//   status, agent, context
-// - +_O = coproduct (pushout) gluing observation points to PROV decorations
-//
-// The instance lift T(I) = cofree_W(Delta_i(I)) is the cofree comonad
-// of the writer monad applied to the pullback along i: C → T(C).
-// (Uustalu & Vene 2008; Moggi 1991)
-//
-// References:
-// - Spivak, "Functorial Data Migration" (2012) — El construction, §4.3
-// - Spivak, "Category Theory for the Sciences" (2014) — Ch 4
-// - Moggi, "Notions of Computation and Monads" (1991) — writer monad
-// - Uustalu & Vene, "Comonadic Notions of Computation" (2008) — cofree
-// - W3C PROV-O (2013) — observability schema
-// - Grothendieck SGA1 (1961) — fibered categories
+pr4xis::ontology! {
+    name: "TraceSchema",
+    source: "Spivak (2012) Functorial Data Migration §4.3, Information and Computation 217:31-51; Spivak (2014) Category Theory for the Sciences Ch. 4, MIT Press; Moggi (1991) Notions of Computation and Monads, Information and Computation 93(1):55-92; Uustalu & Vene (2008) Comonadic Notions of Computation, ENTCS 203(5):263-284; W3C PROV-O (2013); Grothendieck (1961) SGA 1",
 
-/// Concepts in the trace schema — derived from El(C) + O_obs.
-///
-/// For an ontology with N entity types and M morphism types,
-/// T automatically generates N access objects + M traversal objects
-/// + the fixed PROV-O objects.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum TraceSchemaElement {
-    // === El(C): derived from the ontology schema ===
-    /// An access to an entity type — records when a concept was queried.
-    /// One per entity type in the original schema.
-    /// El(C) object for each object of C.
-    EntityAccess,
+    concepts: [
+        // El(C) - derived from the source ontology schema.
+        EntityAccess,
+        MorphismTraversal,
+        // O_obs - fixed PROV-O observability schema.
+        Timestamp,
+        Status,
+        Agent,
+        TraceContext,
+        Input,
+        Output,
+    ],
 
-    /// A traversal of a morphism — records when a relationship was used.
-    /// One per morphism type in the original schema.
-    /// El(C) object for each morphism of C.
-    MorphismTraversal,
+    labels: {
+        EntityAccess: ("en", "Entity access",
+            "Spivak (2012) §4.3 El(C) object: an access to an entity type - records when a concept was queried. One per object of C."),
+        MorphismTraversal: ("en", "Morphism traversal",
+            "Spivak (2012) §4.3 El(C) object: a traversal of a morphism - records when a relationship was used. One per morphism of C."),
+        Timestamp: ("en", "Timestamp",
+            "W3C PROV-O (2013) prov:atTime - when the access or traversal happened."),
+        Status: ("en", "Status",
+            "Outcome of the access/traversal - ok / warning / error."),
+        Agent: ("en", "Agent",
+            "W3C PROV-O (2013) prov:wasAssociatedWith - what process performed the access."),
+        TraceContext: ("en", "Trace context",
+            "OpenTelemetry SpanContext: span id, parent span, baggage."),
+        Input: ("en", "Input",
+            "The input to the operation."),
+        Output: ("en", "Output",
+            "The output / result of the operation."),
+    },
 
-    // === O_obs: fixed PROV-O observability schema ===
-    /// When the access/traversal happened (prov:atTime).
-    Timestamp,
-
-    /// Whether it succeeded (ok/warning/error).
-    Status,
-
-    /// What process performed the access (prov:wasAssociatedWith).
-    Agent,
-
-    /// The trace context — span ID, parent span, etc. (OpenTelemetry).
-    TraceContext,
-
-    /// The input to the operation.
-    Input,
-
-    /// The output/result of the operation.
-    Output,
-}
-
-define_ontology! {
-    /// The trace schema category T — the target of the trace schema functor.
-    pub TraceSchemaOntology for TraceSchemaCategory {
-        concepts: TraceSchemaElement,
-        relation: TraceSchemaRelation,
-        kind: TraceSchemaRelationKind,
-        kinds: [
-            /// EntityAccess records which entity was accessed.
-            /// Foreign key back to the original schema: subject_A: Accessed_A → A.
-            RecordsSubject,
-            /// MorphismTraversal records source entity access.
-            /// source_f: Traversed_f → Accessed_A.
-            RecordsSource,
-            /// MorphismTraversal records target entity access.
-            /// target_f: Traversed_f → Accessed_B.
-            RecordsTarget,
-            /// Any trace element has a timestamp.
-            HasTimestamp,
-            /// Any trace element has a status.
-            HasStatus,
-            /// Any trace element was performed by an agent.
-            PerformedBy,
-            /// Any trace element exists within a trace context.
-            InContext,
-            /// Any trace element has an input.
-            HasInput,
-            /// Any trace element has an output.
-            HasOutput,
-            /// MorphismTraversal is a refinement of EntityAccess
-            /// (traversing a morphism implies accessing its endpoints).
-            Refines,
-        ],
-        edges: [
-            // El(C) structure: access and traversal foreign keys
-            (MorphismTraversal, EntityAccess, RecordsSource),
-            (MorphismTraversal, EntityAccess, RecordsTarget),
-            (MorphismTraversal, EntityAccess, Refines),
-            // O_obs: PROV decorations on EntityAccess
-            (EntityAccess, Timestamp, HasTimestamp),
-            (EntityAccess, Status, HasStatus),
-            (EntityAccess, Agent, PerformedBy),
-            (EntityAccess, TraceContext, InContext),
-            (EntityAccess, Input, HasInput),
-            (EntityAccess, Output, HasOutput),
-            // O_obs: PROV decorations on MorphismTraversal
-            (MorphismTraversal, Timestamp, HasTimestamp),
-            (MorphismTraversal, Status, HasStatus),
-            (MorphismTraversal, Agent, PerformedBy),
-            (MorphismTraversal, TraceContext, InContext),
-            (MorphismTraversal, Input, HasInput),
-            (MorphismTraversal, Output, HasOutput),
-        ],
-        composed: [
-            (MorphismTraversal, Timestamp),
-            (MorphismTraversal, Status),
-            (MorphismTraversal, Agent),
-        ],
-        being: AbstractObject,
-        source: "W3C PROV-O (2013)",
-    }
+    edges: [
+        // El(C) structure: foreign keys back into the schema.
+        (MorphismTraversal, EntityAccess, RecordsSource),
+        (MorphismTraversal, EntityAccess, RecordsTarget),
+        (MorphismTraversal, EntityAccess, Refines),
+        // PROV-O decorations on EntityAccess.
+        (EntityAccess, Timestamp, HasTimestamp),
+        (EntityAccess, Status, HasStatus),
+        (EntityAccess, Agent, PerformedBy),
+        (EntityAccess, TraceContext, InContext),
+        (EntityAccess, Input, HasInput),
+        (EntityAccess, Output, HasOutput),
+        // PROV-O decorations on MorphismTraversal.
+        (MorphismTraversal, Timestamp, HasTimestamp),
+        (MorphismTraversal, Status, HasStatus),
+        (MorphismTraversal, Agent, PerformedBy),
+        (MorphismTraversal, TraceContext, InContext),
+        (MorphismTraversal, Input, HasInput),
+        (MorphismTraversal, Output, HasOutput),
+    ],
 }
 
 /// A concrete trace entry — an element of T(I) for a specific ontology.
-///
-/// This is what gets produced when an ontology is used.
-/// The trace entry carries all the PROV-O decoration automatically.
+/// Carries PROV-O decoration automatically.
 #[derive(Debug, Clone)]
 pub struct TraceEntry {
-    /// Which ontology was accessed (the Agent).
     pub ontology_name: String,
-    /// What was the operation (access or traversal).
     pub operation: String,
-    /// The input to the operation.
     pub input: String,
-    /// The output/result.
     pub output: String,
-    /// Success or failure.
     pub success: bool,
 }
 
 impl TraceEntry {
-    /// Serialize for transport.
     pub fn serialize(&self) -> String {
         let status = if self.success { "ok" } else { "warn" };
         format!(
@@ -160,14 +108,12 @@ impl TraceEntry {
 }
 
 /// A trace instance — T(I) for a specific pipeline execution.
-/// Accumulates TraceEntry elements as ontologies are accessed.
 #[derive(Debug, Clone, Default)]
 pub struct TraceInstance {
     pub entries: Vec<TraceEntry>,
 }
 
 impl TraceInstance {
-    /// Record an entity access.
     pub fn access(&mut self, ontology: &str, entity: &str, result: &str, success: bool) {
         self.entries.push(TraceEntry {
             ontology_name: ontology.into(),
@@ -178,7 +124,6 @@ impl TraceInstance {
         });
     }
 
-    /// Record a morphism traversal.
     pub fn traverse(
         &mut self,
         ontology: &str,
@@ -196,7 +141,6 @@ impl TraceInstance {
         });
     }
 
-    /// Serialize for transport.
     pub fn serialize(&self) -> String {
         self.entries
             .iter()
@@ -206,20 +150,58 @@ impl TraceInstance {
     }
 }
 
+/// Legacy alias — `TraceSchemaElement` was the hand-written enum's name.
+pub type TraceSchemaElement = TraceSchemaConcept;
+
+/// Quality: whether a concept is a PROV-O decoration vs an El(C)
+/// foreign-key element. W3C PROV-O (2013) distinguishes provenance
+/// metadata from the schema-element layer.
+#[derive(Debug, Clone)]
+pub struct IsProvDecoration;
+
+impl Quality for IsProvDecoration {
+    type Individual = TraceSchemaConcept;
+    type Value = bool;
+
+    fn get(&self, c: &TraceSchemaConcept) -> Option<bool> {
+        use TraceSchemaConcept as T;
+        Some(matches!(
+            c,
+            T::Timestamp | T::Status | T::Agent | T::TraceContext | T::Input | T::Output
+        ))
+    }
+}
+
+impl Ontology for TraceSchemaOntology {
+    type Cat = TraceSchemaCategory;
+    type Qual = IsProvDecoration;
+
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<TraceSchemaCategory>().unwrap();
+        assert_category_laws::<TraceSchemaCategory>();
     }
 
     #[test]
-    fn has_eight_elements() {
-        assert_eq!(TraceSchemaElement::variants().len(), 8);
+    fn ontology_validates() {
+        TraceSchemaOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[test]
+    fn eight_elements() {
+        assert_eq!(TraceSchemaConcept::variants().len(), 8);
     }
 
     #[test]
@@ -227,26 +209,21 @@ mod tests {
         let m = TraceSchemaCategory::morphisms();
         assert!(
             m.iter()
-                .any(|r| r.from == TraceSchemaElement::MorphismTraversal
-                    && r.to == TraceSchemaElement::EntityAccess
-                    && r.kind == TraceSchemaRelationKind::RecordsSource)
+                .any(|r| r.source() == TraceSchemaConcept::MorphismTraversal
+                    && r.target() == TraceSchemaConcept::EntityAccess
+                    && r.kind() == TraceSchemaRelationKind::RecordsSource)
         );
     }
 
     #[test]
     fn entity_access_has_timestamp() {
         let m = TraceSchemaCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == TraceSchemaElement::EntityAccess
-            && r.to == TraceSchemaElement::Timestamp
-            && r.kind == TraceSchemaRelationKind::HasTimestamp));
-    }
-
-    #[test]
-    fn entity_access_has_status() {
-        let m = TraceSchemaCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == TraceSchemaElement::EntityAccess
-            && r.to == TraceSchemaElement::Status
-            && r.kind == TraceSchemaRelationKind::HasStatus));
+        assert!(
+            m.iter()
+                .any(|r| r.source() == TraceSchemaConcept::EntityAccess
+                    && r.target() == TraceSchemaConcept::Timestamp
+                    && r.kind() == TraceSchemaRelationKind::HasTimestamp)
+        );
     }
 
     #[test]
@@ -254,9 +231,9 @@ mod tests {
         let m = TraceSchemaCategory::morphisms();
         assert!(
             m.iter()
-                .any(|r| r.from == TraceSchemaElement::MorphismTraversal
-                    && r.to == TraceSchemaElement::EntityAccess
-                    && r.kind == TraceSchemaRelationKind::Refines)
+                .any(|r| r.source() == TraceSchemaConcept::MorphismTraversal
+                    && r.target() == TraceSchemaConcept::EntityAccess
+                    && r.kind() == TraceSchemaRelationKind::Refines)
         );
     }
 
@@ -276,5 +253,32 @@ mod tests {
         ti.access("WordNet", "dog", "8 senses", true);
         let s = ti.serialize();
         assert!(s.contains("ok:WordNet:access:dog→8 senses"));
+    }
+
+    fn arb_concept() -> impl Strategy<Value = TraceSchemaConcept> {
+        proptest::sample::select(TraceSchemaConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in TraceSchemaCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in TraceSchemaOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_prov_decoration_total(c in arb_concept()) {
+            prop_assert!(IsProvDecoration.get(&c).is_some());
+        }
     }
 }

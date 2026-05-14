@@ -9,15 +9,12 @@
 //! Source: Madgwick (2010), Mahony et al. (2008), Titterton & Weston (2004)
 //!         Chapter 10.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Ahrs",
     source: "Madgwick (2010); Mahony et al. (2008); Titterton & Weston (2004)",
-    being: Process,
 
     concepts: [
         Filter,
@@ -93,10 +90,7 @@ impl Quality for ComputationalCost {
 pub struct GravityGivesLevelAttitude;
 
 impl Axiom for GravityGivesLevelAttitude {
-    fn description(&self) -> &str {
-        "accelerometer at rest determines roll/pitch via gravity vector"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let g = 9.80665_f64;
         let tilt = 10.0_f64.to_radians();
         let ax = 0.0_f64;
@@ -106,12 +100,22 @@ impl Axiom for GravityGivesLevelAttitude {
         let roll_recovered = ay.atan2(-az);
         let pitch_recovered = (-ax).atan2((az * az + ay * ay).sqrt());
 
-        (roll_recovered - tilt).abs() < 0.01 && pitch_recovered.abs() < 0.01
+        if (roll_recovered - tilt).abs() < 0.01 && pitch_recovered.abs() < 0.01 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "GravityGivesLevelAttitude",
+        "accelerometer at rest determines roll/pitch via gravity vector",
+        "Titterton & Weston (2004) Section 10.3"
+    );
 }
 pr4xis::register_axiom!(
     GravityGivesLevelAttitude,
-    "Madgwick (2010), Mahony et al. (2008), Titterton & Weston (2004)"
+    "Titterton & Weston (2004) Section 10.3"
 );
 
 /// Magnetometer gives heading: mag + level attitude determines yaw.
@@ -120,22 +124,26 @@ pr4xis::register_axiom!(
 pub struct MagnetometerGivesHeading;
 
 impl Axiom for MagnetometerGivesHeading {
-    fn description(&self) -> &str {
-        "magnetometer + level attitude determines yaw (heading)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let b_horizontal = 20.0e-6;
         let bx = b_horizontal;
         let by = 0.0_f64;
 
         let heading = (-by).atan2(bx);
-        heading.abs() < 0.01
+        if heading.abs() < 0.01 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "MagnetometerGivesHeading",
+        "magnetometer + level attitude determines yaw (heading)",
+        "Groves (2013) Section 6.4"
+    );
 }
-pr4xis::register_axiom!(
-    MagnetometerGivesHeading,
-    "Madgwick (2010), Mahony et al. (2008), Titterton & Weston (2004)"
-);
+pr4xis::register_axiom!(MagnetometerGivesHeading, "Groves (2013) Section 6.4");
 
 /// Gyroscope integration drifts: gyro-only attitude accumulates error.
 ///
@@ -143,52 +151,56 @@ pr4xis::register_axiom!(
 pub struct GyroIntegrationDrifts;
 
 impl Axiom for GyroIntegrationDrifts {
-    fn description(&self) -> &str {
-        "gyroscope-only attitude drifts over time (needs external correction)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let gyro_bias_deg_per_hr = 1.0;
         let gyro_bias_rad_per_s = gyro_bias_deg_per_hr * core::f64::consts::PI / (180.0 * 3600.0);
         let t = 3600.0;
         let drift_rad = gyro_bias_rad_per_s * t;
-        let drift_deg = drift_rad * 180.0 / core::f64::consts::PI;
-        (drift_deg - 1.0).abs() < 0.01
+        let drift_deg = drift_rad * 180.0 / std::f64::consts::PI;
+        if (drift_deg - 1.0).abs() < 0.01 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "GyroIntegrationDrifts",
+        "gyroscope-only attitude drifts over time (needs external correction)",
+        "Titterton & Weston (2004) Section 10.2"
+    );
 }
 pr4xis::register_axiom!(
     GyroIntegrationDrifts,
-    "Madgwick (2010), Mahony et al. (2008), Titterton & Weston (2004)"
+    "Titterton & Weston (2004) Section 10.2"
 );
 
 impl Ontology for AhrsOntology {
     type Cat = AhrsCategory;
     type Qual = AttitudeAccuracy;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(GravityGivesLevelAttitude),
-            Box::new(MagnetometerGivesHeading),
-            Box::new(GyroIntegrationDrifts),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(GravityGivesLevelAttitude));
+        axioms.push(Box::new(MagnetometerGivesHeading));
+        axioms.push(Box::new(GyroIntegrationDrifts));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<AhrsCategory>().unwrap();
+        assert_category_laws::<AhrsCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        AhrsOntology::validate().unwrap();
+        AhrsOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

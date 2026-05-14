@@ -22,7 +22,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Lambek",
     source: "Lambek (1958) American Mathematical Monthly 65(3); Lambek (1999)",
-    being: AbstractObject,
 
     concepts: [
         LambekType,
@@ -76,58 +75,72 @@ impl Quality for LambekRole {
 pub struct LambekHasBothAdjoints;
 
 impl Axiom for LambekHasBothAdjoints {
-    fn description(&self) -> &str {
-        "LambekType has both LeftAdjoint and RightAdjoint as sub-kinds (Lambek 1999: pregroup = non-commutative adjoint calculus)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let subs: Vec<_> = LambekCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == LambekRelationKind::Subsumption)
+            .collect();
+        let left = subs.iter().any(|m| {
+            m.source() == LambekConcept::LeftAdjoint && m.target() == LambekConcept::LambekType
+        });
+        let right = subs.iter().any(|m| {
+            m.source() == LambekConcept::RightAdjoint && m.target() == LambekConcept::LambekType
+        });
+        if left && right {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = LambekTaxonomy::relations();
-        rels.iter()
-            .any(|(c, p)| *c == LambekConcept::LeftAdjoint && *p == LambekConcept::LambekType)
-            && rels
-                .iter()
-                .any(|(c, p)| *c == LambekConcept::RightAdjoint && *p == LambekConcept::LambekType)
-    }
+
+    pr4xis::axiom_meta!(
+        "LambekHasBothAdjoints",
+        "LambekType has both LeftAdjoint and RightAdjoint as sub-kinds (Lambek 1999: pregroup = non-commutative adjoint calculus)",
+        "Lambek (1958) The Mathematics of Sentence Structure, American Mathematical Monthly 65(3); Lambek (1999) Type Grammars Revisited"
+    );
 }
 pr4xis::register_axiom!(
     LambekHasBothAdjoints,
-    "- Lambek, J. (1958). *The Mathematics of Sentence Structure*. American"
+    "Lambek (1958) The Mathematics of Sentence Structure, American Mathematical Monthly 65(3); Lambek (1999) Type Grammars Revisited"
 );
 
 impl Ontology for LambekOntology {
     type Cat = LambekCategory;
     type Qual = LambekRole;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        LambekOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(LambekHasBothAdjoints)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(LambekHasBothAdjoints));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<LambekCategory>().unwrap();
+        assert_category_laws::<LambekCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        LambekOntology::validate().unwrap();
+        LambekOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
     fn lambek_has_both_adjoints_holds() {
-        assert!(
-            LambekHasBothAdjoints.holds(),
-            "{}",
-            LambekHasBothAdjoints.description()
-        );
+        match LambekHasBothAdjoints.verify() {
+            Ok(_) => {}
+            Err(c) => panic!(
+                "LambekHasBothAdjoints failed: {}",
+                c.meta().description.as_str()
+            ),
+        }
     }
 }

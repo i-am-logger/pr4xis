@@ -10,7 +10,7 @@ use super::ontology::{
     InferenceRulesCategory, InferenceRulesConcept, InferenceRulesRelation,
     InferenceRulesRelationKind,
 };
-use crate::formal::logic::proof_theory::ontology::{
+use pr4xis::logic::proof_theory::ontology::{
     ProofTheoryCategory, ProofTheoryConcept, ProofTheoryRelation, ProofTheoryRelationKind,
 };
 
@@ -70,7 +70,7 @@ impl Functor for InferenceRulesToProofTheory {
             _ => ProofTheoryRelation {
                 from,
                 to,
-                kind: ProofTheoryRelationKind::Composed,
+                kind: ProofTheoryRelationKind::Subsumption,
             },
         }
     }
@@ -84,11 +84,11 @@ pr4xis::register_functor!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws_pass() {
-        check_functor_laws::<InferenceRulesToProofTheory>().unwrap();
+        assert_functor_laws::<InferenceRulesToProofTheory>();
     }
 
     #[test]

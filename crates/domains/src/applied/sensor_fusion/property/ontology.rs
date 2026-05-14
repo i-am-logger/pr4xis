@@ -1,36 +1,41 @@
-//! ObservableProperty ontology — the physical/geometric properties that sensors observe
+//! ObservableProperty — physical / geometric properties that sensors observe
 //! and actuators change.
 //!
-//! Grounded in W3C SSN/SOSA (Semantic Sensor Network / Sensor, Observation, Sample, Actuator).
-//! The abstract SSN hierarchy is `Property → {ObservableProperty, ActuatableProperty}`;
-//! this ontology adds concrete properties common in robotics, navigation, and physics
-//! (Position, Velocity, Attitude, Heading, Range, Bearing, Acceleration, AngularVelocity,
-//! Force, Torque, Temperature, Pressure, MagneticField).
+//! Grounded in the W3C SSN/SOSA standard (Semantic Sensor Network /
+//! Sensor, Observation, Sample, Actuator). The abstract SSN hierarchy is
+//! `Property → {ObservableProperty, ActuatableProperty}`; this ontology
+//! adds the concrete properties common in robotics, navigation, and
+//! physics (Position, Velocity, Attitude, Heading, Range, Bearing,
+//! Acceleration, AngularVelocity, Force, Torque, Temperature, Pressure,
+//! MagneticField, etc.).
 //!
-//! Fills a gap identified in #118: domains such as odometry and AHRS previously
-//! re-declared these property enums locally, leading to the dual-enum smell where
-//! a module's primary `define_ontology!` block was paired with a manual
-//! `TaxonomyDef` impl for a separate "state" enum. With this ontology in place,
-//! those domains compose from here via functors (`SensorToProperty` etc.) and
-//! keep their own concepts scoped to sensors/methods, not properties.
+//! Fills the gap identified in #118: domains such as odometry and AHRS
+//! previously re-declared these property enums locally; with this
+//! ontology in place they compose from here via functors (`SensorToProperty`,
+//! `AhrsToProperty`, …) and keep their own concepts scoped to sensors and
+//! methods, not properties.
 //!
-//! References:
-//! - Haller, Janowicz, Cox, Lefrançois, Taylor, Le Phuoc, Lieberman, García-Castro,
-//!   Atkinson, Stadler (2019), "The modular SSN ontology: A joint W3C and OGC standard
-//!   specifying the semantics of sensors, observations, sampling, and actuation",
-//!   *Semantic Web Journal*, Vol. 10, Issue 1, pp. 9-32. DOI: 10.3233/SW-180320.
-//! - W3C Recommendation (2017), "Semantic Sensor Network Ontology",
-//!   https://www.w3.org/TR/vocab-ssn/
-//! - Compton et al. (2012), "The SSN ontology of the W3C semantic sensor network
-//!   incubator group", *Journal of Web Semantics*, Vol. 17, pp. 25-32.
+//! # Literature
+//!
+//! - **Haller, Janowicz, Cox, Lefrançois, Taylor, Le Phuoc, Lieberman,
+//!   García-Castro, Atkinson, Stadler (2019)** "The modular SSN ontology:
+//!   A joint W3C and OGC standard specifying the semantics of sensors,
+//!   observations, sampling, and actuation", *Semantic Web Journal*
+//!   10(1), pp. 9–32. DOI: 10.3233/SW-180320.
+//! - **W3C Recommendation (2017)** *Semantic Sensor Network Ontology*,
+//!   <https://www.w3.org/TR/vocab-ssn/>.
+//! - **Compton et al. (2012)** "The SSN ontology of the W3C semantic
+//!   sensor network incubator group", *Journal of Web Semantics* 17,
+//!   pp. 25–32.
+
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 pr4xis::ontology! {
     name: "ObservableProperty",
-    source: "Haller et al. (2019); W3C SSN/SOSA (2017)",
-    being: Quality,
+    source: "Haller et al. (2019) The modular SSN ontology, Semantic Web Journal 10(1); W3C Recommendation (2017) Semantic Sensor Network Ontology; Compton et al. (2012) The SSN ontology of the W3C semantic sensor network incubator group, Journal of Web Semantics 17",
 
     concepts: [
         // --- SSN/SOSA abstract hierarchy ---
@@ -168,8 +173,7 @@ pr4xis::ontology! {
         (Heading, Yaw),
     ],
 
-    // Causal/derivational relationships: differentiation relates position,
-    // velocity, acceleration.
+    // Causal/derivational relationships: differentiation chain.
     causes: [
         // Time-differentiation chain: Position → Velocity → Acceleration → Jerk
         (Position, Velocity),
@@ -184,11 +188,12 @@ pr4xis::ontology! {
     ],
 }
 
-/// Quality: the dimensional symbol of each observable property (from SI Quantity ontology).
+/// Quality: the dimensional symbol of each observable property (from the
+/// SI Quantity ontology — base dimensions L, M, T, I, Θ, N, J).
 #[derive(Debug, Clone)]
 pub struct PropertyDimension;
 
-impl pr4xis::ontology::Quality for PropertyDimension {
+impl Quality for PropertyDimension {
     type Individual = ObservablePropertyConcept;
     type Value = &'static str;
 
@@ -198,13 +203,13 @@ impl pr4xis::ontology::Quality for PropertyDimension {
             // Abstract — no dimension
             P::Property | P::ObservableProperty | P::ActuatableProperty => return None,
 
-            // Kinematic linear: Position [L], Velocity [L·T^-1], Acceleration [L·T^-2], Jerk [L·T^-3]
+            // Kinematic linear
             P::Position => "L",
             P::Velocity => "L·T^-1",
             P::Acceleration => "L·T^-2",
             P::Jerk => "L·T^-3",
 
-            // Kinematic angular: dimensionless, rad/s, rad/s^2
+            // Kinematic angular
             P::Attitude | P::Orientation | P::Roll | P::Pitch | P::Yaw | P::Heading => "rad",
             P::AngularVelocity => "T^-1",
             P::AngularAcceleration => "T^-2",
@@ -236,41 +241,48 @@ impl pr4xis::ontology::Quality for PropertyDimension {
     }
 }
 
-impl pr4xis::ontology::Ontology for ObservablePropertyOntology {
+impl Ontology for ObservablePropertyOntology {
     type Cat = ObservablePropertyCategory;
     type Qual = PropertyDimension;
 
-    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
-        Self::generated_structural_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
-    use pr4xis::ontology::Ontology;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
     fn concept_count() {
+        // 3 SSN + 4 linear kin + 4 angular kin + 4 attitude components +
+        // 3 geometric + 4 dynamics + 3 fields + 3 thermodynamic + 3 time = 31.
         assert_eq!(ObservablePropertyConcept::variants().len(), 31);
     }
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<ObservablePropertyCategory>().unwrap();
+        assert_category_laws::<ObservablePropertyCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ObservablePropertyOntology::validate().unwrap();
+        ObservablePropertyOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
     fn position_is_observable_property() {
-        let rels = ObservablePropertyTaxonomy::relations();
-        assert!(rels.contains(&(
+        let sub: Vec<_> = ObservablePropertyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == ObservablePropertyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(sub.contains(&(
             ObservablePropertyConcept::Position,
             ObservablePropertyConcept::ObservableProperty
         )));
@@ -278,9 +290,13 @@ mod tests {
 
     #[test]
     fn heading_is_a_yaw() {
-        // Heading is yaw with geographic meaning — Heading is_a Yaw
-        let rels = ObservablePropertyTaxonomy::relations();
-        assert!(rels.contains(&(
+        // Heading is yaw with geographic meaning — Heading is_a Yaw.
+        let sub: Vec<_> = ObservablePropertyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == ObservablePropertyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(sub.contains(&(
             ObservablePropertyConcept::Heading,
             ObservablePropertyConcept::Yaw
         )));
@@ -288,17 +304,119 @@ mod tests {
 
     #[test]
     fn roll_pitch_yaw_are_attitude() {
-        // The classic Euler-angle decomposition: Attitude is composed of Roll, Pitch, Yaw
-        let rels = ObservablePropertyTaxonomy::relations();
+        // The classic Euler-angle decomposition: Attitude is composed of Roll, Pitch, Yaw.
+        let sub: Vec<_> = ObservablePropertyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == ObservablePropertyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
         for component in [
             ObservablePropertyConcept::Roll,
             ObservablePropertyConcept::Pitch,
             ObservablePropertyConcept::Yaw,
         ] {
             assert!(
-                rels.contains(&(component, ObservablePropertyConcept::Attitude)),
+                sub.contains(&(component, ObservablePropertyConcept::Attitude)),
                 "{component:?} should be_a Attitude"
             );
+        }
+    }
+
+    #[test]
+    fn position_causes_velocity_via_differentiation() {
+        let caus: Vec<_> = ObservablePropertyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == ObservablePropertyRelationKind::Causation)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(caus.contains(&(
+            ObservablePropertyConcept::Position,
+            ObservablePropertyConcept::Velocity
+        )));
+    }
+
+    #[test]
+    fn force_causes_acceleration() {
+        // Newton's second law: F = ma — Force causes Acceleration given Mass.
+        let caus: Vec<_> = ObservablePropertyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == ObservablePropertyRelationKind::Causation)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(caus.contains(&(
+            ObservablePropertyConcept::Force,
+            ObservablePropertyConcept::Acceleration
+        )));
+    }
+
+    #[test]
+    fn dimension_total_on_concrete_properties() {
+        // PropertyDimension is None on the abstract trio, Some on every
+        // concrete property.
+        let q = PropertyDimension;
+        let abstract_concepts = [
+            ObservablePropertyConcept::Property,
+            ObservablePropertyConcept::ObservableProperty,
+            ObservablePropertyConcept::ActuatableProperty,
+        ];
+        for c in ObservablePropertyConcept::variants() {
+            let v = q.get(&c);
+            if abstract_concepts.contains(&c) {
+                assert!(v.is_none(), "{:?} abstract should have None dimension", c);
+            } else {
+                assert!(v.is_some(), "{:?} concrete should have Some dimension", c);
+            }
+        }
+    }
+
+    fn arb_concept() -> impl Strategy<Value = ObservablePropertyConcept> {
+        proptest::sample::select(ObservablePropertyConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in ObservablePropertyCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in ObservablePropertyOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(
+                        false,
+                        "axiom failed: {}",
+                        c.meta().name.as_str()
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn prop_dimension_total_on_concrete(c in arb_concept()) {
+            // Total on every non-abstract concept; None on the three SSN
+            // abstract concepts (Property, ObservableProperty, ActuatableProperty).
+            let v = PropertyDimension.get(&c);
+            let is_abstract = matches!(
+                c,
+                ObservablePropertyConcept::Property
+                | ObservablePropertyConcept::ObservableProperty
+                | ObservablePropertyConcept::ActuatableProperty
+            );
+            prop_assert_eq!(v.is_some(), !is_abstract);
+        }
+
+        #[test]
+        fn prop_subsumption_targets_valid(_seed in any::<u32>()) {
+            let variants: Vec<_> = ObservablePropertyConcept::variants();
+            for m in ObservablePropertyCategory::morphisms() {
+                if m.kind() == ObservablePropertyRelationKind::Subsumption {
+                    prop_assert!(variants.contains(&m.source()));
+                    prop_assert!(variants.contains(&m.target()));
+                }
+            }
         }
     }
 }

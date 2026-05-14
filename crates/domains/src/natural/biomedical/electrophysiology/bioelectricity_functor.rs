@@ -9,14 +9,14 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::bioelectricity::ontology::{
     BioelectricCategory, BioelectricEntity, BioelectricRelation, BioelectricRelationKind,
 };
 use crate::natural::biomedical::electrophysiology::ontology::{
-    ElectrophysiologyCategory, ElectrophysiologyCategoryRelationKind, ElectrophysiologyEntity,
-    ElectrophysiologyRelation,
+    ElectrophysiologyCategory, ElectrophysiologyEntity, ElectrophysiologyRelation,
+    ElectrophysiologyRelationKind,
 };
 
 /// Structure-preserving map from electrophysiology entities to their bioelectric role.
@@ -67,16 +67,14 @@ impl Functor for ElectrophysiologyToBioelectric {
     fn map_morphism(m: &ElectrophysiologyRelation) -> BioelectricRelation {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        // Identity morphisms must map to identity (functor law). Other kinds
-        // collapse to Composed in the target — matching how the target's
-        // compose produces Composed morphisms for non-Identity inputs (so
-        // F(g∘f) == F(g)∘F(f) holds under collapse).
+        // Identity preserved; non-Identity kinds collapse to Subsumption in the
+        // target so same-kind composition is preserved (#166).
         match m.kind {
-            ElectrophysiologyCategoryRelationKind::Identity => BioelectricCategory::identity(&from),
+            ElectrophysiologyRelationKind::Identity => BioelectricCategory::identity(&from),
             _ => BioelectricRelation {
                 from,
                 to,
-                kind: BioelectricRelationKind::Composed,
+                kind: BioelectricRelationKind::Subsumption,
             },
         }
     }
@@ -86,13 +84,13 @@ pr4xis::register_functor!(ElectrophysiologyToBioelectric);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
     use pr4xis::category::{Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<ElectrophysiologyToBioelectric>().unwrap();
+        assert_functor_laws::<ElectrophysiologyToBioelectric>();
     }
 
     #[test]
@@ -112,34 +110,36 @@ mod tests {
     }
 
     #[test]
-    fn test_composition_preservation() {
-        let objs = ElectrophysiologyEntity::variants();
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = ElectrophysiologyRelation {
-                        from: a,
-                        to: b,
-                        kind: ElectrophysiologyCategoryRelationKind::Composed,
-                    };
-                    let g = ElectrophysiologyRelation {
-                        from: b,
-                        to: c,
-                        kind: ElectrophysiologyCategoryRelationKind::Composed,
-                    };
-                    let composed = ElectrophysiologyCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = ElectrophysiologyToBioelectric::map_morphism(&composed);
-                    let composed_mapped = BioelectricCategory::compose(
-                        &ElectrophysiologyToBioelectric::map_morphism(&f),
-                        &ElectrophysiologyToBioelectric::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
+    fn test_composition_preservation_on_subsumption() {
+        // Electrophysiology is kinded and partial (#166); compose only succeeds
+        // for same-kind transitive relations. Exercise composition along
+        // Subsumption chains.
+        for m in ElectrophysiologyCategory::morphisms() {
+            if m.kind() != ElectrophysiologyRelationKind::Subsumption {
+                continue;
+            }
+            for n in ElectrophysiologyCategory::morphisms() {
+                if n.kind() != ElectrophysiologyRelationKind::Subsumption {
+                    continue;
                 }
+                if m.target() != n.source() {
+                    continue;
+                }
+                let composed = match ElectrophysiologyCategory::compose(&m, &n) {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let mapped_composed = ElectrophysiologyToBioelectric::map_morphism(&composed);
+                let composed_mapped = BioelectricCategory::compose(
+                    &ElectrophysiologyToBioelectric::map_morphism(&m),
+                    &ElectrophysiologyToBioelectric::map_morphism(&n),
+                )
+                .expect("target composition is total for same-kind");
+                assert_eq!(
+                    mapped_composed, composed_mapped,
+                    "composition law failed for {:?} ∘ {:?}",
+                    m, n
+                );
             }
         }
     }

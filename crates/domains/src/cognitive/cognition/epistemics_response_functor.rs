@@ -47,7 +47,7 @@ impl Functor for EpistemicsToResponse {
             _ => ResponseRelation {
                 from,
                 to,
-                kind: ResponseRelationKind::Composed,
+                kind: ResponseRelationKind::Identity,
             },
         }
     }
@@ -57,11 +57,11 @@ pr4xis::register_functor!(EpistemicsToResponse);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     #[ignore = "epistemics has Repair/Forgetting cycles that response doesn't model — need intermediate ontology or richer response (#98)"]
     fn functor_laws() {
-        check_functor_laws::<EpistemicsToResponse>().unwrap();
+        assert_functor_laws::<EpistemicsToResponse>();
     }
 }

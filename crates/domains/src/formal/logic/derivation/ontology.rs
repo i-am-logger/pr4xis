@@ -39,7 +39,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Derivation",
     source: "Joyal-Street-Verity (1996) Traced Monoidal Categories; Plotkin (1981) SOS; Lambek (1968) Deductive Systems and Categories I; Mac Lane (1971) Ch. II §1; Curry & Feys (1958) Combinatory Logic",
-    being: AbstractObject,
 
     concepts: [
         // === Genus ===
@@ -188,41 +187,50 @@ impl Ontology for DerivationOntology {
     type Cat = DerivationCategory;
     type Qual = DerivationAspect;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        DerivationOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        DerivationOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<DerivationCategory>().unwrap();
+        assert_category_laws::<DerivationCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        DerivationOntology::validate().unwrap();
+        DerivationOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    /// Subsumption check via kinded-morphism filter (per_def `TaxonomyDef::is_a`
+    /// is gone). Since Subsumption is transitive (per OBO-RO transitive_over),
+    /// the proc macro emits closure edges into `morphisms()` — so this
+    /// check covers both direct and transitive subsumption.
+    fn is_a(child: DerivationConcept, parent: DerivationConcept) -> bool {
+        use pr4xis::category::{Arrow, Category};
+        DerivationCategory::morphisms().iter().any(|m| {
+            m.kind() == DerivationRelationKind::Subsumption
+                && m.source() == child
+                && m.target() == parent
+        })
     }
 
     #[test]
     fn proof_and_trace_are_both_derivations() {
-        use pr4xis::ontology::reasoning::taxonomy;
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &DerivationConcept::Proof,
-            &DerivationConcept::Derivation,
+        assert!(is_a(
+            DerivationConcept::Proof,
+            DerivationConcept::Derivation,
         ));
         // Trace is-a Proof is-a Derivation (transitive).
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &DerivationConcept::Trace,
-            &DerivationConcept::Derivation,
+        assert!(is_a(
+            DerivationConcept::Trace,
+            DerivationConcept::Derivation,
         ));
     }
 
@@ -231,10 +239,6 @@ mod tests {
         // Curry-Howard (1958) / Hyland-Ong (2000): a trace IS a proof —
         // the temporal dimension is additive. Every trace is structurally
         // a proof; it just additionally records WHEN each step fired.
-        use pr4xis::ontology::reasoning::taxonomy;
-        assert!(taxonomy::is_a::<DerivationTaxonomy>(
-            &DerivationConcept::Trace,
-            &DerivationConcept::Proof,
-        ));
+        assert!(is_a(DerivationConcept::Trace, DerivationConcept::Proof));
     }
 }

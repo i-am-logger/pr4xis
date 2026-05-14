@@ -49,7 +49,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Classification",
     source: "Guarino (2009); Guarino & Welty (2002); Ghiselin (1974) Syst. Zool. 23; Hull (1978) Phil. Sci. 45; Linnaeus (1735) Systema Naturae; Ereshefsky (2001) Poverty of Linnaean Hierarchy; Aristotle Categories",
-    being: AbstractObject,
 
     concepts: [
         // === Ontological-level classification ===
@@ -146,85 +145,176 @@ pr4xis::ontology! {
         (Taxon, Category, Is),
     ],
 
-    axioms: {
-        SevenLinnaeanRanks: {
-            source: "Linnaeus (1735) Systema Naturae — seven classical ranks",
-            description: "the direct children of Taxon are exactly the seven Linnaean ranks: Species, Genus, Family, Order, Class, Phylum, Kingdom",
-            holds: {
-                use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-                let rels = ClassificationTaxonomy::relations();
-                let expected = [
-                    ClassificationConcept::Species,
-                    ClassificationConcept::Genus,
-                    ClassificationConcept::Family,
-                    ClassificationConcept::Order,
-                    ClassificationConcept::Class,
-                    ClassificationConcept::Phylum,
-                    ClassificationConcept::Kingdom,
-                ];
-                let actual: Vec<_> = rels
-                    .iter()
-                    .filter_map(|(c, p)| if *p == ClassificationConcept::Taxon { Some(*c) } else { None })
-                    .collect();
-                actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
-            },
-        },
-        KindIsCategory: {
-            source: "Guarino (2009) OntoClean — Kind specialises Category by carrying identity",
-            description: "Kind is declared as a specialisation of Category (via is_a), encoding the OntoClean distinction that every Kind is a Category but Kinds additionally supply identity criteria",
-            holds: {
-                use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-                ClassificationTaxonomy::relations().iter().any(|(c, p)| {
-                    *c == ClassificationConcept::Kind && *p == ClassificationConcept::Category
-                })
-            },
-        },
-        LinnaeanSubordinationChain: {
-            source: "Linnaeus (1735); modern systematics (ICZN)",
-            description: "the Linnaean ranks form an ascending chain: Species → Genus → Family → Order → Class → Phylum → Kingdom, connected by SubordinateTo edges",
-            holds: {
-                use pr4xis::category::Category;
-                let morphs = ClassificationCategory::morphisms();
-                let has = |from: ClassificationConcept, to: ClassificationConcept| {
-                    morphs.iter().any(|r| {
-                        r.from == from
-                            && r.to == to
-                            && r.kind == ClassificationRelationKind::SubordinateTo
-                    })
-                };
-                has(ClassificationConcept::Species, ClassificationConcept::Genus)
-                    && has(ClassificationConcept::Genus, ClassificationConcept::Family)
-                    && has(ClassificationConcept::Family, ClassificationConcept::Order)
-                    && has(ClassificationConcept::Order, ClassificationConcept::Class)
-                    && has(ClassificationConcept::Class, ClassificationConcept::Phylum)
-                    && has(ClassificationConcept::Phylum, ClassificationConcept::Kingdom)
-            },
-        },
-        DifferentiaDistinguishesSpecies: {
-            source: "Aristotle Categories; Porphyry Isagoge",
-            description: "the edge (Differentia, Species, Distinguishes) exists, encoding the Porphyrian tree: within a Genus, a Differentia picks out a Species",
-            holds: {
-                use pr4xis::category::Category;
-                ClassificationCategory::morphisms().iter().any(|r| {
-                    r.from == ClassificationConcept::Differentia
-                        && r.to == ClassificationConcept::Species
-                        && r.kind == ClassificationRelationKind::Distinguishes
-                })
-            },
-        },
-        SpeciesMayBeIndividual: {
-            source: "Ghiselin (1974) Syst. Zool. 23; Hull (1978) Phil. Sci. 45",
-            description: "the edge (Species, Individual, MayBe) exists, acknowledging the Ghiselin-Hull thesis that species are spatiotemporal individuals rather than abstract Kinds — a live debate in philosophy of biology",
-            holds: {
-                use pr4xis::category::Category;
-                ClassificationCategory::morphisms().iter().any(|r| {
-                    r.from == ClassificationConcept::Species
-                        && r.to == ClassificationConcept::Individual
-                        && r.kind == ClassificationRelationKind::MayBe
-                })
-            },
-        },
-    },
+}
+
+// -----------------------------------------------------------------------------
+// Domain axioms — separate `impl Axiom` blocks (new `verify` / `axiom_meta!`
+// shape per #160 / #167). Each axiom filters
+// `ClassificationCategory::morphisms()` by kind, per the kinded-morphism
+// canonical pattern (per_def traits are gone).
+// -----------------------------------------------------------------------------
+
+fn subsumption_pair_exists(child: ClassificationConcept, parent: ClassificationConcept) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    ClassificationCategory::morphisms().iter().any(|m| {
+        m.source() == child
+            && m.target() == parent
+            && m.kind() == ClassificationRelationKind::Subsumption
+    })
+}
+
+fn direct_children_of(parent: ClassificationConcept) -> Vec<ClassificationConcept> {
+    use pr4xis::category::{Arrow, Category};
+    ClassificationCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == ClassificationRelationKind::Subsumption && m.target() == parent)
+        .map(|m| m.source())
+        .collect()
+}
+
+fn kinded_edge_exists(
+    from: ClassificationConcept,
+    to: ClassificationConcept,
+    kind: ClassificationRelationKind,
+) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    ClassificationCategory::morphisms()
+        .iter()
+        .any(|m| m.source() == from && m.target() == to && m.kind() == kind)
+}
+
+/// Linnaeus (1735) — the seven classical taxonomic ranks.
+pub struct SevenLinnaeanRanks;
+
+impl Axiom for SevenLinnaeanRanks {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let expected = [
+            ClassificationConcept::Species,
+            ClassificationConcept::Genus,
+            ClassificationConcept::Family,
+            ClassificationConcept::Order,
+            ClassificationConcept::Class,
+            ClassificationConcept::Phylum,
+            ClassificationConcept::Kingdom,
+        ];
+        let actual = direct_children_of(ClassificationConcept::Taxon);
+        let ok = actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SevenLinnaeanRanks",
+        "direct children of Taxon are exactly the seven Linnaean ranks: Species, Genus, Family, Order, Class, Phylum, Kingdom",
+        "Linnaeus (1735) Systema Naturae"
+    );
+}
+
+/// Guarino (2009) OntoClean — Kind specialises Category.
+pub struct KindIsCategory;
+
+impl Axiom for KindIsCategory {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if subsumption_pair_exists(ClassificationConcept::Kind, ClassificationConcept::Category) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "KindIsCategory",
+        "Kind is-a Category (OntoClean: Kinds add identity criteria; every Kind is a Category)",
+        "Guarino (2009) OntoClean"
+    );
+}
+
+/// Linnaean ranks form an ascending subordination chain
+/// Species → Genus → Family → Order → Class → Phylum → Kingdom.
+pub struct LinnaeanSubordinationChain;
+
+impl Axiom for LinnaeanSubordinationChain {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let chain = [
+            (ClassificationConcept::Species, ClassificationConcept::Genus),
+            (ClassificationConcept::Genus, ClassificationConcept::Family),
+            (ClassificationConcept::Family, ClassificationConcept::Order),
+            (ClassificationConcept::Order, ClassificationConcept::Class),
+            (ClassificationConcept::Class, ClassificationConcept::Phylum),
+            (
+                ClassificationConcept::Phylum,
+                ClassificationConcept::Kingdom,
+            ),
+        ];
+        let ok = chain.iter().all(|&(from, to)| {
+            kinded_edge_exists(from, to, ClassificationRelationKind::SubordinateTo)
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "LinnaeanSubordinationChain",
+        "Species → Genus → Family → Order → Class → Phylum → Kingdom (SubordinateTo edges)",
+        "Linnaeus (1735) Systema Naturae; modern systematics (ICZN / ICNafp)"
+    );
+}
+
+/// Aristotle / Porphyry — Differentia distinguishes Species within Genus.
+pub struct DifferentiaDistinguishesSpecies;
+
+impl Axiom for DifferentiaDistinguishesSpecies {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if kinded_edge_exists(
+            ClassificationConcept::Differentia,
+            ClassificationConcept::Species,
+            ClassificationRelationKind::Distinguishes,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "DifferentiaDistinguishesSpecies",
+        "(Differentia, Species, Distinguishes) edge encodes the Porphyrian tree: within a Genus a Differentia picks out a Species",
+        "Aristotle Categories (c. 350 BCE); Porphyry Isagoge (c. 270 CE)"
+    );
+}
+
+/// Ghiselin (1974) / Hull (1978) — species may be Individuals.
+pub struct SpeciesMayBeIndividual;
+
+impl Axiom for SpeciesMayBeIndividual {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if kinded_edge_exists(
+            ClassificationConcept::Species,
+            ClassificationConcept::Individual,
+            ClassificationRelationKind::MayBe,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SpeciesMayBeIndividual",
+        "(Species, Individual, MayBe) edge acknowledges the Ghiselin-Hull thesis: species are spatiotemporal individuals, not abstract Kinds",
+        "Ghiselin (1974) Syst. Zool. 23; Hull (1978) Phil. Sci. 45"
+    );
 }
 
 // -----------------------------------------------------------------------------
@@ -257,52 +347,55 @@ impl Ontology for ClassificationOntology {
     type Cat = ClassificationCategory;
     type Qual = ClassificationLineage;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        ClassificationOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        ClassificationOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(SevenLinnaeanRanks));
+        axioms.push(Box::new(KindIsCategory));
+        axioms.push(Box::new(LinnaeanSubordinationChain));
+        axioms.push(Box::new(DifferentiaDistinguishesSpecies));
+        axioms.push(Box::new(SpeciesMayBeIndividual));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<ClassificationCategory>().unwrap();
+        assert_category_laws::<ClassificationCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ClassificationOntology::validate().unwrap();
+        ClassificationOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
     fn seven_linnaean_ranks_holds() {
-        assert!(SevenLinnaeanRanks.holds());
+        assert!(SevenLinnaeanRanks.verify().is_ok());
     }
 
     #[test]
     fn kind_is_category_holds() {
-        assert!(KindIsCategory.holds());
+        assert!(KindIsCategory.verify().is_ok());
     }
 
     #[test]
     fn linnaean_subordination_chain_holds() {
-        assert!(LinnaeanSubordinationChain.holds());
+        assert!(LinnaeanSubordinationChain.verify().is_ok());
     }
 
     #[test]
     fn differentia_distinguishes_species_holds() {
-        assert!(DifferentiaDistinguishesSpecies.holds());
+        assert!(DifferentiaDistinguishesSpecies.verify().is_ok());
     }
 
     #[test]
     fn species_may_be_individual_holds() {
-        assert!(SpeciesMayBeIndividual.holds());
+        assert!(SpeciesMayBeIndividual.verify().is_ok());
     }
 }

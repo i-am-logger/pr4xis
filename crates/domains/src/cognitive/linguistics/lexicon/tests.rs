@@ -3,7 +3,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use crate::cognitive::linguistics::language::Language;
 use pr4xis::category::Category;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::Quality;
 
 use super::ontology::*;
@@ -132,7 +132,7 @@ fn verb_has_both_transitive_and_intransitive() {
 
 #[test]
 fn lexical_category_laws() {
-    check_category_laws::<LexicalCategory>().unwrap();
+    assert_category_laws::<LexicalCategory>();
 }
 
 #[test]

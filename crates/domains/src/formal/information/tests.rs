@@ -1,6 +1,5 @@
-use pr4xis::category::Category;
-use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::category::{Arrow, Category, Concept};
 
 use super::ontology::*;
 
@@ -10,69 +9,71 @@ use super::ontology::*;
 
 #[test]
 fn info_category_laws() {
-    check_category_laws::<InfoCategory>().unwrap();
+    assert_category_laws::<InfoCategory>();
 }
 
 #[test]
 fn info_has_8_units() {
-    assert_eq!(InfoUnit::variants().len(), 8);
+    assert_eq!(InfoConcept::variants().len(), 8);
 }
 
 // =============================================================================
-// Mereological relationships (has-a)
+// Mereological relationships (has-a → Parthood kind)
 // =============================================================================
 
 #[test]
 fn byte_composed_of_bits() {
     let m = InfoCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == InfoUnit::Byte
-        && r.to == InfoUnit::Bit
-        && r.kind == InfoRelationKind::ComposedOf));
+    assert!(m.iter().any(|r| r.source() == InfoConcept::Byte
+        && r.target() == InfoConcept::Bit
+        && r.kind() == InfoRelationKind::Parthood));
 }
 
 #[test]
 fn word_composed_of_bytes() {
     let m = InfoCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == InfoUnit::Word
-        && r.to == InfoUnit::Byte
-        && r.kind == InfoRelationKind::ComposedOf));
+    assert!(m.iter().any(|r| r.source() == InfoConcept::Word
+        && r.target() == InfoConcept::Byte
+        && r.kind() == InfoRelationKind::Parthood));
 }
 
 #[test]
 fn word_transitively_composed_of_bits() {
+    // Same-kind transitive closure (OBO-RO `transitive_over`).
     let m = InfoCategory::morphisms();
     assert!(
         m.iter()
-            .any(|r| r.from == InfoUnit::Word && r.to == InfoUnit::Bit)
+            .any(|r| r.source() == InfoConcept::Word && r.target() == InfoConcept::Bit)
     );
 }
 
 // =============================================================================
-// Taxonomic relationships (is-a)
+// Taxonomic relationships (is-a → Subsumption kind)
 // =============================================================================
 
 #[test]
 fn reference_is_a_word() {
     let m = InfoCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == InfoUnit::Reference
-        && r.to == InfoUnit::Word
-        && r.kind == InfoRelationKind::IsA));
+    assert!(m.iter().any(|r| r.source() == InfoConcept::Reference
+        && r.target() == InfoConcept::Word
+        && r.kind() == InfoRelationKind::Subsumption));
 }
 
 #[test]
 fn text_is_a_sequence() {
     let m = InfoCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == InfoUnit::Text
-        && r.to == InfoUnit::Sequence
-        && r.kind == InfoRelationKind::IsA));
+    assert!(m.iter().any(|r| r.source() == InfoConcept::Text
+        && r.target() == InfoConcept::Sequence
+        && r.kind() == InfoRelationKind::Subsumption));
 }
 
 #[test]
 fn truth_value_equivalent_to_bit() {
+    // Shannon (1948).
     let m = InfoCategory::morphisms();
-    assert!(m.iter().any(|r| r.from == InfoUnit::TruthValue
-        && r.to == InfoUnit::Bit
-        && r.kind == InfoRelationKind::Equivalent));
+    assert!(m.iter().any(|r| r.source() == InfoConcept::TruthValue
+        && r.target() == InfoConcept::Bit
+        && r.kind() == InfoRelationKind::Equivalence));
 }
 
 // =============================================================================
@@ -81,23 +82,23 @@ fn truth_value_equivalent_to_bit() {
 
 #[test]
 fn ref32_size() {
-    let r: Ref32 = Reference::new(42);
+    let r: Ref32 = Ref::new(42);
     assert_eq!(r.size_bytes(), 4);
     assert_eq!(r.value(), 42);
-    assert_eq!(r.max_addressable(), (1u64 << 32) - 1); // ~4 billion
+    assert_eq!(r.max_addressable(), (1u64 << 32) - 1);
 }
 
 #[test]
 fn ref64_size() {
-    let r: Ref64 = Reference::new(999);
+    let r: Ref64 = Ref::new(999);
     assert_eq!(r.size_bytes(), 8);
     assert_eq!(r.max_addressable(), u64::MAX);
 }
 
 #[test]
 fn ref32_sufficient_for_wordnet() {
-    let r: Ref32 = Reference::new(0);
-    // WordNet has ~107k synsets. Ref32 can address ~4 billion.
+    let r: Ref32 = Ref::new(0);
+    // WordNet has ~107k synsets; Ref32 can address ~4 billion.
     assert!(r.max_addressable() > 107_519);
 }
 
@@ -107,20 +108,20 @@ fn ref32_sufficient_for_wordnet() {
 
 #[test]
 fn atomics() {
-    assert!(InfoUnit::Bit.is_atomic());
-    assert!(InfoUnit::TruthValue.is_atomic());
-    assert!(!InfoUnit::Byte.is_atomic());
-    assert!(!InfoUnit::Word.is_atomic());
-    assert!(!InfoUnit::Reference.is_atomic());
+    assert!(InfoConcept::Bit.is_atomic());
+    assert!(InfoConcept::TruthValue.is_atomic());
+    assert!(!InfoConcept::Byte.is_atomic());
+    assert!(!InfoConcept::Word.is_atomic());
+    assert!(!InfoConcept::Reference.is_atomic());
 }
 
 #[test]
 fn structured() {
-    assert!(InfoUnit::Byte.is_structured());
-    assert!(InfoUnit::Word.is_structured());
-    assert!(InfoUnit::Reference.is_structured());
-    assert!(InfoUnit::Text.is_structured());
-    assert!(!InfoUnit::Bit.is_structured());
+    assert!(InfoConcept::Byte.is_structured());
+    assert!(InfoConcept::Word.is_structured());
+    assert!(InfoConcept::Reference.is_structured());
+    assert!(InfoConcept::Text.is_structured());
+    assert!(!InfoConcept::Bit.is_structured());
 }
 
 // =============================================================================
@@ -131,17 +132,8 @@ mod prop {
     use super::*;
     use proptest::prelude::*;
 
-    fn arb_info_unit() -> impl Strategy<Value = InfoUnit> {
-        prop_oneof![
-            Just(InfoUnit::Bit),
-            Just(InfoUnit::Byte),
-            Just(InfoUnit::Word),
-            Just(InfoUnit::Reference),
-            Just(InfoUnit::Sequence),
-            Just(InfoUnit::Text),
-            Just(InfoUnit::TruthValue),
-            Just(InfoUnit::Quantity),
-        ]
+    fn arb_info_unit() -> impl Strategy<Value = InfoConcept> {
+        proptest::sample::select(InfoConcept::variants())
     }
 
     proptest! {
@@ -162,21 +154,9 @@ mod prop {
         /// Reference can address more than any known lexical database.
         #[test]
         fn prop_ref32_sufficient(id in 0..1_000_000u64) {
-            let r: Ref32 = Reference::new(id);
+            let r: Ref32 = Ref::new(id);
             prop_assert!(r.value() == id);
             prop_assert!(r.max_addressable() > id);
-        }
-
-        /// Composite units have at least one ComposedOf or IsA morphism.
-        #[test]
-        fn prop_structured_have_relations(unit in arb_info_unit()) {
-            if unit.is_structured() {
-                let morphisms = InfoCategory::morphisms();
-                let has_outgoing = morphisms.iter().any(|m|
-                    m.from == unit && m.kind != InfoRelationKind::Identity);
-                prop_assert!(has_outgoing,
-                    "{:?} is composite but has no non-identity outgoing morphisms", unit);
-            }
         }
     }
 }

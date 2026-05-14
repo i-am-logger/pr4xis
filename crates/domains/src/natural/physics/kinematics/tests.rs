@@ -1,56 +1,57 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::natural::physics::kinematics::ontology::*;
 
 #[test]
 fn kinematics_category_laws() {
-    check_category_laws::<KinematicsCategory>().unwrap();
+    assert_category_laws::<KinematicsCategory>();
 }
 
 #[test]
 fn kinematics_ontology_validates() {
-    KinematicsOntology::validate().unwrap();
+    KinematicsOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn velocity_is_derivative_of_position() {
-    assert!(VelocityIsDerivativeOfPosition.holds());
+    assert!(VelocityIsDerivativeOfPosition.verify().is_ok());
 }
 
 #[test]
 fn acceleration_is_derivative_of_velocity() {
-    assert!(AccelerationIsDerivativeOfVelocity.holds());
+    assert!(AccelerationIsDerivativeOfVelocity.verify().is_ok());
 }
 
 #[test]
 fn constant_velocity_propagation() {
-    assert!(ConstantVelocityPropagation.holds());
+    assert!(ConstantVelocityPropagation.verify().is_ok());
 }
 
 #[test]
 fn constant_acceleration_propagation() {
-    assert!(ConstantAccelerationPropagation.holds());
+    assert!(ConstantAccelerationPropagation.verify().is_ok());
 }
 
 #[test]
 fn velocity_update_under_acceleration() {
-    assert!(VelocityUpdateUnderAcceleration.holds());
+    assert!(VelocityUpdateUnderAcceleration.verify().is_ok());
 }
 
 #[test]
 fn static_model_invariance() {
-    assert!(StaticModelInvariance.holds());
+    assert!(StaticModelInvariance.verify().is_ok());
 }
 
 #[test]
 fn speed_non_negative() {
-    assert!(SpeedNonNegative.holds());
+    assert!(SpeedNonNegative.verify().is_ok());
 }
 
 #[test]
 fn velocity_addition_commutative() {
-    assert!(VelocityAdditionCommutative.holds());
+    assert!(VelocityAdditionCommutative.verify().is_ok());
 }
 
 #[cfg(test)]

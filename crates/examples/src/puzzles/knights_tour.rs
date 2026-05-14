@@ -1,7 +1,23 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use std::collections::HashSet;
 
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const KNIGHTS_TOUR_CITATION: &str = "Euler (1759) Solution d'une question curieuse qui ne paroît soumise à aucune analyse, \
+     Mémoires de l'Académie Royale des Sciences et Belles-Lettres de Berlin 15:310-337";
+
 /// Knight's Tour: visit every square on NxN board exactly once.
+///
+/// Source: Euler (1759) — earliest systematic treatment of the knight's tour.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     pub n: usize,
@@ -22,6 +38,11 @@ impl State {
 
     pub fn is_complete(&self) -> bool {
         self.visited.len() == self.n * self.n
+    }
+
+    /// The tour is terminal when every square has been visited exactly once.
+    pub fn is_terminal(&self) -> bool {
+        self.is_complete()
     }
 
     pub fn knight_moves(&self) -> Vec<(usize, usize)> {
@@ -51,22 +72,7 @@ impl State {
     }
 }
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        format!(
-            "{}x{} at ({},{}) visited={}/{}",
-            self.n,
-            self.n,
-            self.position.0,
-            self.position.1,
-            self.visited.len(),
-            self.n * self.n
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        self.is_complete()
-    }
-}
+impl Situation for State {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KnightMove {
@@ -75,41 +81,27 @@ pub struct KnightMove {
 
 impl Action for KnightMove {
     type Sit = State;
-    fn describe(&self) -> String {
-        format!("move to ({},{})", self.to.0, self.to.1)
-    }
 }
 
 struct ValidKnightMove;
 impl Precondition<KnightMove> for ValidKnightMove {
-    fn check(&self, s: &State, a: &KnightMove) -> PreconditionResult {
+    fn check(&self, s: &State, a: &KnightMove) -> Verdict {
+        let meta = axiom_meta(
+            "valid_move",
+            "must be L-shaped move to unvisited square",
+            KNIGHTS_TOUR_CITATION,
+        );
         if !s.knight_moves().contains(&a.to) {
-            return PreconditionResult::violated(
-                "valid_move",
-                "not a valid knight move",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         if s.visited.contains(&a.to) {
-            return PreconditionResult::violated(
-                "valid_move",
-                "square already visited",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied(
-            "valid_move",
-            &format!("({},{}) is valid and unvisited", a.to.0, a.to.1),
-        )
-    }
-    fn describe(&self) -> &str {
-        "must be L-shaped move to unvisited square"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_knight(s: &State, a: &KnightMove) -> Result<State, String> {
+fn apply_knight(s: &State, a: &KnightMove) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     n.position = a.to;
     n.visited.insert(a.to);

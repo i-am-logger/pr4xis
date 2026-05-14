@@ -1,4 +1,4 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::applied::sensor_fusion::time::clock::SensorClock;
@@ -16,7 +16,7 @@ use crate::formal::math::temporal::time_system::TimeSystem;
 
 #[test]
 fn sensor_time_category_laws() {
-    check_category_laws::<SensorTimeCategory>().unwrap();
+    assert_category_laws::<SensorTimeCategory>();
 }
 
 // ---------------------------------------------------------------------------
@@ -25,22 +25,23 @@ fn sensor_time_category_laws() {
 
 #[test]
 fn sensor_time_ontology_validates() {
-    SensorTimeOntology::validate().unwrap();
+    SensorTimeOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn axiom_interpolation_bounded() {
-    assert!(InterpolationBounded.holds());
+    assert!(InterpolationBounded.verify().is_ok());
 }
 
 #[test]
 fn axiom_extrapolation_unbounded() {
-    assert!(ExtrapolationUnbounded.holds());
+    assert!(ExtrapolationUnbounded.verify().is_ok());
 }
 
 #[test]
 fn axiom_nearest_neighbor_bounded() {
-    assert!(NearestNeighborBounded.holds());
+    assert!(NearestNeighborBounded.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------

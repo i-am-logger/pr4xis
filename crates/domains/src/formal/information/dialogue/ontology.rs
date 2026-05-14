@@ -25,7 +25,6 @@ use pr4xis::ontology::{Ontology, Quality};
 pr4xis::ontology! {
     name: "Dialogue",
     source: "Austin (1962); Traum (1994); Clark (1996); Ginzburg (2012); Stalnaker (2002); Levelt (1989)",
-    being: Process,
 
     concepts: [
         Utterance,
@@ -106,19 +105,19 @@ impl Ontology for DialogueOntology {
     type Cat = DialogueCategory;
     type Qual = IsAgentFacing;
 
-    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
-        Self::generated_structural_axioms()
+    fn axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<DialogueCategory>().unwrap();
+        assert_category_laws::<DialogueCategory>();
     }
 
     #[test]

@@ -9,7 +9,9 @@
 //! Adding a real implementation for any stubbed scheme is a focused PR that
 //! touches exactly one file here.
 
-use super::ontology::IdentityConcept;
+use super::ontology::ArtifactIdentityConcept;
+// Back-compat alias for existing call sites.
+pub use super::ontology::ArtifactIdentityConcept as IdentityConcept;
 
 pub mod raw_hash;
 pub mod xml_element_attribute;
@@ -51,8 +53,8 @@ pub mod xml_schema_version;
 ///
 /// This is the real backing for the `EverySchemeHasAnExtractor` axiom —
 /// the axiom walks every leaf and asserts this returns `true`.
-pub fn extractor_exists_for(concept: &IdentityConcept) -> bool {
-    use IdentityConcept::*;
+pub fn extractor_exists_for(concept: &ArtifactIdentityConcept) -> bool {
+    use ArtifactIdentityConcept::*;
     match concept {
         // Root + families have no direct extractor; they are abstract.
         Identity | CryptographicSignature | ContentHash | PersistentIdentifier

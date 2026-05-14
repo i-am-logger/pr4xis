@@ -78,7 +78,7 @@ impl Functor for DistinctionToSyntrometry {
             _ => SyntrometryRelation {
                 from,
                 to,
-                kind: SyntrometryRelationKind::Composed,
+                kind: SyntrometryRelationKind::Subsumption,
             },
         }
     }
@@ -91,10 +91,10 @@ pr4xis::register_functor!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn distinction_to_syntrometry_laws_pass() {
-        check_functor_laws::<DistinctionToSyntrometry>().unwrap();
+        assert_functor_laws::<DistinctionToSyntrometry>();
     }
 }

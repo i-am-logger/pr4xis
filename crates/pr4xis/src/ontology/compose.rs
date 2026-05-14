@@ -1093,7 +1093,7 @@ mod tests {
         let vocab = onto.vocabulary();
         assert_eq!(vocab.ontology_name.as_str(), "TestOntology");
         assert_eq!(vocab.concepts().len(), 2);
-        assert!(vocab.morphisms().len() > 0);
+        assert!(!vocab.morphisms().is_empty());
     }
 
     #[test]

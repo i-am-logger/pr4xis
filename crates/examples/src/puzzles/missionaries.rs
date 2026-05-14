@@ -1,7 +1,23 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const MC_CITATION: &str = "Amarel (1968) On Representations of Problems of Reasoning About Actions, \
+     Machine Intelligence 3:131-171";
 
 /// Missionaries and cannibals. Boat holds 2.
 /// Cannibals can't outnumber missionaries on either bank.
+///
+/// Source: Amarel (1968) — the canonical AI-planning formulation.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct State {
     pub missionaries_left: u8,
@@ -33,25 +49,14 @@ impl State {
             self.missionaries_right() == 0 || self.missionaries_right() >= self.cannibals_right();
         safe_left && safe_right
     }
-}
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        let boat = if self.boat_left { "<boat>" } else { "" };
-        format!(
-            "[{}M {}C {}] ~~~ [{}M {}C {}]",
-            self.missionaries_left,
-            self.cannibals_left,
-            boat,
-            self.missionaries_right(),
-            self.cannibals_right(),
-            if !self.boat_left { "<boat>" } else { "" }
-        )
-    }
-    fn is_terminal(&self) -> bool {
+    /// Goal: every missionary and cannibal has crossed to the right bank.
+    pub fn is_terminal(&self) -> bool {
         self.missionaries_left == 0 && self.cannibals_left == 0
     }
 }
+
+impl Situation for State {}
 
 /// Move: (missionaries, cannibals) in the boat. At least 1, at most 2 total.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,69 +79,48 @@ impl Crossing {
 
 impl Action for Crossing {
     type Sit = State;
-    fn describe(&self) -> String {
-        format!("cross {}M {}C", self.missionaries, self.cannibals)
-    }
 }
 
 struct ValidCrossing;
 impl Precondition<Crossing> for ValidCrossing {
-    fn check(&self, s: &State, a: &Crossing) -> PreconditionResult {
+    fn check(&self, s: &State, a: &Crossing) -> Verdict {
+        let meta = axiom_meta(
+            "valid_crossing",
+            "boat holds 1-2, people must be available",
+            MC_CITATION,
+        );
         if a.total() == 0 || a.total() > 2 {
-            return PreconditionResult::violated(
-                "valid_crossing",
-                "boat holds 1-2 people",
-                &s.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         if s.boat_left {
             if a.missionaries > s.missionaries_left || a.cannibals > s.cannibals_left {
-                return PreconditionResult::violated(
-                    "valid_crossing",
-                    "not enough people on left bank",
-                    &s.describe(),
-                    &a.describe(),
-                );
+                return Err(Box::new(SimpleCounterexample::new(meta)));
             }
-        } else {
-            if a.missionaries > s.missionaries_right() || a.cannibals > s.cannibals_right() {
-                return PreconditionResult::violated(
-                    "valid_crossing",
-                    "not enough people on right bank",
-                    &s.describe(),
-                    &a.describe(),
-                );
-            }
+        } else if a.missionaries > s.missionaries_right() || a.cannibals > s.cannibals_right() {
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("valid_crossing", "crossing is valid")
-    }
-    fn describe(&self) -> &str {
-        "boat holds 1-2, people must be available"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
 struct SafeResult;
 impl Precondition<Crossing> for SafeResult {
-    fn check(&self, s: &State, a: &Crossing) -> PreconditionResult {
+    fn check(&self, s: &State, a: &Crossing) -> Verdict {
+        let meta = axiom_meta(
+            "safe_result",
+            "cannibals can't outnumber missionaries on either bank",
+            MC_CITATION,
+        );
         let next = apply_mc(s, a).unwrap_or_else(|_| s.clone());
         if next.is_safe() {
-            PreconditionResult::satisfied("safe_result", "missionaries safe on both banks")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "safe_result",
-                "cannibals would outnumber missionaries",
-                &s.describe(),
-                &a.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "cannibals can't outnumber missionaries on either bank"
     }
 }
 
-fn apply_mc(s: &State, a: &Crossing) -> Result<State, String> {
+fn apply_mc(s: &State, a: &Crossing) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     if s.boat_left {
         n.missionaries_left = n.missionaries_left.saturating_sub(a.missionaries);
@@ -188,7 +172,7 @@ mod tests {
             .unwrap() // 0M2C | 3M1C
             .next(Crossing::new(0, 2))
             .unwrap(); // 0M0C | 3M3C
-        assert!(e.is_terminal());
+        assert!(e.situation().is_terminal());
     }
 
     #[test]

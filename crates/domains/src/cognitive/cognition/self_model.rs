@@ -36,7 +36,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "SelfModel",
     source: "von Foerster (1981); IEEE AuR (2021); MAPE-K (2003); Maturana & Varela (1972); Bateson (1972); Lewis (2011)",
-    being: MentalObject,
 
     concepts: [
         SelfModel,
@@ -300,21 +299,24 @@ mod tests {
 
     #[test]
     fn eigenform_is_fixed_point() {
-        // Self(Self) = Self: composing ConvergesTo with ReEnters
-        // gives SelfModel → SelfModel (the fixed point).
-        let converge = SelfModelRelation {
-            from: SelfModelConcept::SelfModel,
-            to: SelfModelConcept::Eigenform,
-            kind: SelfModelRelationKind::ConvergesTo,
-        };
-        let reenter = SelfModelRelation {
-            from: SelfModelConcept::Eigenform,
-            to: SelfModelConcept::SelfModel,
-            kind: SelfModelRelationKind::ReEnters,
-        };
-        let composed = SelfModelCategory::compose(&converge, &reenter).unwrap();
-        assert_eq!(composed.from, SelfModelConcept::SelfModel);
-        assert_eq!(composed.to, SelfModelConcept::SelfModel);
+        // Self(Self) = Self: the fixed point is witnessed by the existence
+        // of the cycle SelfModel → Eigenform → SelfModel in the morphism
+        // graph. Per #166 (partial category), the heterogeneous-kind
+        // composition `ReEnters ∘ ConvergesTo` is not a typed morphism in
+        // the category — but the path is observable through the graph.
+        let ms = SelfModelCategory::morphisms();
+        let has_converge = ms.iter().any(|m| {
+            m.from == SelfModelConcept::SelfModel
+                && m.to == SelfModelConcept::Eigenform
+                && m.kind == SelfModelRelationKind::ConvergesTo
+        });
+        let has_reenter = ms.iter().any(|m| {
+            m.from == SelfModelConcept::Eigenform
+                && m.to == SelfModelConcept::SelfModel
+                && m.kind == SelfModelRelationKind::ReEnters
+        });
+        assert!(has_converge, "SelfModel must converge to Eigenform");
+        assert!(has_reenter, "Eigenform must re-enter SelfModel");
     }
 
     #[test]
@@ -413,20 +415,23 @@ mod tests {
 
     #[test]
     fn autopoiesis_to_eigenform_path() {
-        // SelfModel → OperationalClosure → Eigenform (autopoiesis enables fixed point)
-        let maintain = SelfModelRelation {
-            from: SelfModelConcept::SelfModel,
-            to: SelfModelConcept::OperationalClosure,
-            kind: SelfModelRelationKind::Maintains,
-        };
-        let ground = SelfModelRelation {
-            from: SelfModelConcept::OperationalClosure,
-            to: SelfModelConcept::Eigenform,
-            kind: SelfModelRelationKind::Grounds,
-        };
-        let composed = SelfModelCategory::compose(&maintain, &ground).unwrap();
-        assert_eq!(composed.from, SelfModelConcept::SelfModel);
-        assert_eq!(composed.to, SelfModelConcept::Eigenform);
+        // SelfModel → OperationalClosure → Eigenform (autopoiesis enables
+        // fixed point). Per #166 (partial category) heterogeneous-kind
+        // composition is not a typed morphism — assert the two edges of the
+        // path exist instead.
+        let ms = SelfModelCategory::morphisms();
+        let maintains_oc = ms.iter().any(|m| {
+            m.from == SelfModelConcept::SelfModel
+                && m.to == SelfModelConcept::OperationalClosure
+                && m.kind == SelfModelRelationKind::Maintains
+        });
+        let oc_grounds_eigen = ms.iter().any(|m| {
+            m.from == SelfModelConcept::OperationalClosure
+                && m.to == SelfModelConcept::Eigenform
+                && m.kind == SelfModelRelationKind::Grounds
+        });
+        assert!(maintains_oc, "SelfModel must Maintain OperationalClosure");
+        assert!(oc_grounds_eigen, "OperationalClosure must Ground Eigenform");
     }
 
     // === Double description tests (Bateson) ===

@@ -32,7 +32,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Dialectics",
     source: "Aristotle (~350 BCE); Hegel (1807, 1812); Marx (1867); Adorno (1966); Priest (1987)",
-    being: AbstractObject,
 
     concepts: [
         // === Aristotelian Square of Opposition ===
@@ -199,12 +198,28 @@ impl Quality for DialecticsTradition {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/// Direct subsumption children of `parent`. Filters
+/// `DialecticsCategory::morphisms()` by the `Subsumption` kind, per the
+/// kinded-morphism canonical pattern (per_def `TaxonomyDef` is gone).
 fn direct_children_of(parent: DialecticsConcept) -> Vec<DialecticsConcept> {
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-    DialecticsTaxonomy::relations()
-        .into_iter()
-        .filter_map(|(child, p)| if p == parent { Some(child) } else { None })
+    use pr4xis::category::{Arrow, Category};
+    DialecticsCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == DialecticsRelationKind::Subsumption && m.target() == parent)
+        .map(|m| m.source())
         .collect()
+}
+
+/// Whether an `Opposition`-kinded edge exists between `a` and `b` in either
+/// direction. Filters `DialecticsCategory::morphisms()` by the `Opposition`
+/// kind, per the kinded-morphism canonical pattern (per_def `OppositionDef`
+/// is gone).
+fn opposed_either_direction(a: DialecticsConcept, b: DialecticsConcept) -> bool {
+    use pr4xis::category::{Arrow, Category};
+    DialecticsCategory::morphisms().iter().any(|m| {
+        m.kind() == DialecticsRelationKind::Opposition
+            && ((m.source() == a && m.target() == b) || (m.source() == b && m.target() == a))
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -216,30 +231,35 @@ fn direct_children_of(parent: DialecticsConcept) -> Vec<DialecticsConcept> {
 pub struct HegelianTriad;
 
 impl Axiom for HegelianTriad {
-    fn description(&self) -> &str {
-        "the direct children of DialecticalMoment are exactly {Thesis, Antithesis, Synthesis} (Hegel 1807)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let actual = direct_children_of(DialecticsConcept::DialecticalMoment);
         let expected = [
             DialecticsConcept::Thesis,
             DialecticsConcept::Antithesis,
             DialecticsConcept::Synthesis,
         ];
-        actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
+        if actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "HegelianTriad",
+        "the direct children of DialecticalMoment are exactly {Thesis, Antithesis, Synthesis} (Hegel 1807)",
+        "Hegel (1807) Phenomenology of Spirit"
+    );
 }
-pr4xis::register_axiom!(HegelianTriad, "Blanché (1966) hexagonal extension.");
+pr4xis::register_axiom!(HegelianTriad, "Hegel (1807) Phenomenology of Spirit");
 
 /// Axiom: Aristotle's Square of Opposition has exactly four direct
 /// children — contraries, contradictories, subalterns, subcontraries.
 pub struct AristotelianSquareHasFourVertices;
 
 impl Axiom for AristotelianSquareHasFourVertices {
-    fn description(&self) -> &str {
-        "the direct children of SquareOfOpposition are exactly {Contrary, Contradictory, Subaltern, Subcontrary} (Aristotle / Apuleius)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let actual = direct_children_of(DialecticsConcept::SquareOfOpposition);
         let expected = [
             DialecticsConcept::Contrary,
@@ -247,12 +267,21 @@ impl Axiom for AristotelianSquareHasFourVertices {
             DialecticsConcept::Subaltern,
             DialecticsConcept::Subcontrary,
         ];
-        actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
+        if actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "AristotelianSquareHasFourVertices",
+        "the direct children of SquareOfOpposition are exactly {Contrary, Contradictory, Subaltern, Subcontrary} (Aristotle / Apuleius)",
+        "Aristotle (~350 BCE) Peri Hermeneias; Apuleius; Blanché (1966) hexagonal extension."
+    );
 }
 pr4xis::register_axiom!(
     AristotelianSquareHasFourVertices,
-    "Blanché (1966) hexagonal extension."
+    "Aristotle (~350 BCE) Peri Hermeneias; Apuleius; Blanché (1966) hexagonal extension."
 );
 
 /// Axiom: every Synthesis has an upstream Sublation producing it —
@@ -261,38 +290,49 @@ pr4xis::register_axiom!(
 pub struct SynthesisHasSublation;
 
 impl Axiom for SynthesisHasSublation {
-    fn description(&self) -> &str {
-        "Sublation produces Synthesis (Hegel, Aufhebung is the mechanism)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use DialecticsConcept as D;
         use DialecticsRelationKind as K;
-        DialecticsCategory::morphisms()
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if DialecticsCategory::morphisms()
             .iter()
             .any(|r| r.from == D::Sublation && r.to == D::Synthesis && r.kind == K::Produces)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "SynthesisHasSublation",
+        "Sublation produces Synthesis (Hegel, Aufhebung is the mechanism)",
+        "Hegel (1812-16) Science of Logic"
+    );
 }
-pr4xis::register_axiom!(SynthesisHasSublation, "Blanché (1966) hexagonal extension.");
+pr4xis::register_axiom!(SynthesisHasSublation, "Hegel (1812-16) Science of Logic");
 
 /// Axiom: Thesis and Antithesis oppose each other at the opposition-reasoning
 /// level. This is the dialectical reading of the generic `opposes` relation.
 pub struct ThesisAntithesisOppose;
 
 impl Axiom for ThesisAntithesisOppose {
-    fn description(&self) -> &str {
-        "Thesis opposes Antithesis (the canonical dialectical opposition)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if opposed_either_direction(DialecticsConcept::Thesis, DialecticsConcept::Antithesis) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::opposition::OppositionDef;
-        DialecticsOpposition::pairs().iter().any(|(a, b)| {
-            (*a == DialecticsConcept::Thesis && *b == DialecticsConcept::Antithesis)
-                || (*a == DialecticsConcept::Antithesis && *b == DialecticsConcept::Thesis)
-        })
-    }
+    pr4xis::axiom_meta!(
+        "ThesisAntithesisOppose",
+        "Thesis opposes Antithesis (the canonical dialectical opposition)",
+        "Hegel (1807) Phenomenology of Spirit"
+    );
 }
 pr4xis::register_axiom!(
     ThesisAntithesisOppose,
-    "Blanché (1966) hexagonal extension."
+    "Hegel (1807) Phenomenology of Spirit"
 );
 
 /// Axiom: Adorno's rejection of Synthesis is encoded — NegativeDialectics
@@ -300,72 +340,77 @@ pr4xis::register_axiom!(
 pub struct AdornoRefusesSynthesis;
 
 impl Axiom for AdornoRefusesSynthesis {
-    fn description(&self) -> &str {
-        "NegativeDialectics opposes Synthesis (Adorno 1966 refuses Hegelian reconciliation)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if opposed_either_direction(
+            DialecticsConcept::NegativeDialectics,
+            DialecticsConcept::Synthesis,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::opposition::OppositionDef;
-        DialecticsOpposition::pairs().iter().any(|(a, b)| {
-            (*a == DialecticsConcept::NegativeDialectics && *b == DialecticsConcept::Synthesis)
-                || (*a == DialecticsConcept::Synthesis
-                    && *b == DialecticsConcept::NegativeDialectics)
-        })
-    }
+    pr4xis::axiom_meta!(
+        "AdornoRefusesSynthesis",
+        "NegativeDialectics opposes Synthesis (Adorno 1966 refuses Hegelian reconciliation)",
+        "Adorno (1966) Negative Dialectics"
+    );
 }
-pr4xis::register_axiom!(
-    AdornoRefusesSynthesis,
-    "Blanché (1966) hexagonal extension."
-);
+pr4xis::register_axiom!(AdornoRefusesSynthesis, "Adorno (1966) Negative Dialectics");
 
 /// Axiom: Priest's dialetheism requires paraconsistent logic — the
 /// edge `(TrueContradiction, Paraconsistent, Requires)` must exist.
 pub struct DialetheismNeedsParaconsistency;
 
 impl Axiom for DialetheismNeedsParaconsistency {
-    fn description(&self) -> &str {
-        "TrueContradiction requires Paraconsistent logic (Priest 1987)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use DialecticsConcept as D;
         use DialecticsRelationKind as K;
-        DialecticsCategory::morphisms().iter().any(|r| {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if DialecticsCategory::morphisms().iter().any(|r| {
             r.from == D::TrueContradiction && r.to == D::Paraconsistent && r.kind == K::Requires
-        })
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "DialetheismNeedsParaconsistency",
+        "TrueContradiction requires Paraconsistent logic (Priest 1987)",
+        "Priest (1987) In Contradiction"
+    );
 }
 pr4xis::register_axiom!(
     DialetheismNeedsParaconsistency,
-    "Blanché (1966) hexagonal extension."
+    "Priest (1987) In Contradiction"
 );
 
 impl Ontology for DialecticsOntology {
     type Cat = DialecticsCategory;
     type Qual = DialecticsTradition;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        DialecticsOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(HegelianTriad),
-            Box::new(AristotelianSquareHasFourVertices),
-            Box::new(SynthesisHasSublation),
-            Box::new(ThesisAntithesisOppose),
-            Box::new(AdornoRefusesSynthesis),
-            Box::new(DialetheismNeedsParaconsistency),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = DialecticsOntology::generated_structural_axioms();
+        axioms.push(Box::new(HegelianTriad));
+        axioms.push(Box::new(AristotelianSquareHasFourVertices));
+        axioms.push(Box::new(SynthesisHasSublation));
+        axioms.push(Box::new(ThesisAntithesisOppose));
+        axioms.push(Box::new(AdornoRefusesSynthesis));
+        axioms.push(Box::new(DialetheismNeedsParaconsistency));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<DialecticsCategory>().unwrap();
+        assert_category_laws::<DialecticsCategory>();
     }
 
     #[test]
@@ -375,51 +420,55 @@ mod tests {
 
     #[test]
     fn hegelian_triad_holds() {
-        assert!(HegelianTriad.holds(), "{}", HegelianTriad.description());
+        assert!(
+            HegelianTriad.verify().is_ok(),
+            "{}",
+            HegelianTriad.description().as_str()
+        );
     }
 
     #[test]
     fn aristotelian_square_has_four_vertices_holds() {
         assert!(
-            AristotelianSquareHasFourVertices.holds(),
+            AristotelianSquareHasFourVertices.verify().is_ok(),
             "{}",
-            AristotelianSquareHasFourVertices.description()
+            AristotelianSquareHasFourVertices.description().as_str()
         );
     }
 
     #[test]
     fn synthesis_has_sublation_holds() {
         assert!(
-            SynthesisHasSublation.holds(),
+            SynthesisHasSublation.verify().is_ok(),
             "{}",
-            SynthesisHasSublation.description()
+            SynthesisHasSublation.description().as_str()
         );
     }
 
     #[test]
     fn thesis_antithesis_oppose_holds() {
         assert!(
-            ThesisAntithesisOppose.holds(),
+            ThesisAntithesisOppose.verify().is_ok(),
             "{}",
-            ThesisAntithesisOppose.description()
+            ThesisAntithesisOppose.description().as_str()
         );
     }
 
     #[test]
     fn adorno_refuses_synthesis_holds() {
         assert!(
-            AdornoRefusesSynthesis.holds(),
+            AdornoRefusesSynthesis.verify().is_ok(),
             "{}",
-            AdornoRefusesSynthesis.description()
+            AdornoRefusesSynthesis.description().as_str()
         );
     }
 
     #[test]
     fn dialetheism_needs_paraconsistency_holds() {
         assert!(
-            DialetheismNeedsParaconsistency.holds(),
+            DialetheismNeedsParaconsistency.verify().is_ok(),
             "{}",
-            DialetheismNeedsParaconsistency.description()
+            DialetheismNeedsParaconsistency.description().as_str()
         );
     }
 }

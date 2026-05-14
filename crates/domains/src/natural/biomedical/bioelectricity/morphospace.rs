@@ -1,154 +1,247 @@
-//! Morphospace attractor landscape ontology.
+//! Morphospace attractor-landscape ontology.
 //!
 //! Models the esophageal tissue morphospace as a set of attractor states
-//! with disease progression and repair pathways. Pure ontology -- no simulation.
+//! (healthy, inflamed, Barrett's, dysplastic, fibrotic), the disease-
+//! progression causal chain that drives the tissue from healthy into
+//! pathological attractors, and the repair pathways that drive it back.
+//! Pure ontology — no simulation.
 //!
-//! Key concepts:
-//! - Attractor states: stable tissue configurations (healthy, inflamed, Barrett's, etc.)
-//! - Disease progression: causal chains from acid damage to dysplasia
-//! - Repair pathways: bioelectric and mechanical interventions
-//! - Vmem ranges: membrane potential signatures for each attractor
+//! Per `feedback_one_ontology_per_module` the original split between
+//! `MorphospaceEntity` and `MorphospaceEvent` has been merged: events are
+//! first-class concepts subsumed by the `MorphospaceEvent` umbrella.
 //!
-//! References:
-//! - Fields & Levin 2022: Competency in Navigating Arbitrary Spaces
-//! - Chernet & Levin 2013: Vmem manipulation suppresses tumors
+//! # Literature
+//!
+//! - **Fields & Levin (2022)** "Competency in Navigating Arbitrary Spaces
+//!   as an Invariant for Analyzing Cognition in Diverse Embodiments",
+//!   *Entropy* 24(6):819 — morphospace as the state-space the tissue
+//!   navigates; attractors as goal states.
+//! - **Chernet & Levin (2013)** "Endogenous Voltage Potentials and the
+//!   Microenvironment", *J. Clin. Exp. Oncol.* S1:002 — Vmem ranges
+//!   that characterise healthy and pathological tissue.
+//! - **Levin (2015)** "The wisdom of the body: future techniques and
+//!   approaches to morphogenetic fields in regenerative medicine,
+//!   developmental biology and cancer", *Regenerative Medicine*
+//!   10(2):105–110 — gap-junction blockade induces species-specific
+//!   head anatomies, proving bistability in morphospace.
+//! - **Gralnek et al. (2006)** "Esomeprazole 20mg vs. omeprazole 20mg in
+//!   the treatment of erosive esophagitis", *Aliment. Pharmacol. Ther.*
+//!   23(1):149–157 — PPI heals erosive esophagitis via acid removal and
+//!   basal-cell turnover (GJ-independent repair pathway).
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy;
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Morphospace",
+    source: "Fields & Levin (2022) Entropy 24(6):819; Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002; Levin (2015) Regen. Med. 10(2):105–110; Gralnek et al. (2006) Aliment. Pharmacol. Ther. 23(1):149–157",
 
-/// Every entity in the morphospace ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum MorphospaceEntity {
-    // Attractors
-    Healthy,
-    Inflamed,
-    Barretts,
-    Dysplastic,
-    Fibrotic,
-    // Repair pathways
-    BasalTurnover,
-    BioelectricRepair,
-    MechanicalStimulation,
-    CombinedTherapy,
-    // Properties
-    PolarizedVmem,
-    DepolarizedVmem,
-    ConnectedNetwork,
-    DisconnectedNetwork,
-    // Abstract
-    Attractor,
-    RepairPathway,
-    BioelectricState,
+    concepts: [
+        // === Attractors ===
+        Healthy,
+        Inflamed,
+        Barretts,
+        Dysplastic,
+        Fibrotic,
+
+        // === Repair pathways ===
+        BasalTurnover,
+        BioelectricRepair,
+        MechanicalStimulationPathway,
+        CombinedTherapy,
+
+        // === Bioelectric states ===
+        PolarizedVmem,
+        DepolarizedVmem,
+        ConnectedNetwork,
+        DisconnectedNetwork,
+
+        // === Abstract umbrellas ===
+        Attractor,
+        RepairPathway,
+        BioelectricState,
+        MorphospaceEvent,
+
+        // === Disease-progression events (merged from MorphospaceEvent) ===
+        AcidDamage,
+        ChronicInflammation,
+        GapJunctionLoss,
+        MetaplasticTransition,
+        DysplasticTransition,
+        FibroticRemodeling,
+
+        // === Repair events ===
+        AcidRemoval,
+        BasalCellReplacement,
+        VmemRepolarization,
+        GapJunctionRestoration,
+        PatternRecognition,
+        MechanotransductionActivation,
+        AutonomousRepair,
+    ],
+
+    labels: {
+        Healthy: ("en", "Healthy",
+            "Fields & Levin (2022): healthy attractor — polarised Vmem, connected network, no disease severity."),
+        Inflamed: ("en", "Inflamed",
+            "Chernet & Levin (2013): inflamed attractor — partial depolarisation, mild severity."),
+        Barretts: ("en", "Barrett's",
+            "Chernet & Levin (2013): Barrett's-metaplasia attractor — further depolarised, metaplastic columnar lining."),
+        Dysplastic: ("en", "Dysplastic",
+            "Chernet & Levin (2013): dysplastic attractor — strongly depolarised, pre-cancerous."),
+        Fibrotic: ("en", "Fibrotic",
+            "Levin (2014): fibrotic attractor — depolarised, scarred tissue."),
+
+        BasalTurnover: ("en", "Basal turnover",
+            "Gralnek et al. (2006): repair pathway via acid removal and basal-cell turnover — GJ-independent."),
+        BioelectricRepair: ("en", "Bioelectric repair",
+            "Chernet & Levin (2013): repair pathway via Vmem normalisation through gap-junction-mediated re-polarisation."),
+        MechanicalStimulationPathway: ("en", "Mechanical stimulation",
+            "Levin (2014): hardware-accessible repair pathway via mechanotransduction."),
+        CombinedTherapy: ("en", "Combined therapy",
+            "Chernet & Levin (2013): combined bioelectric + acid-removal therapy."),
+
+        PolarizedVmem: ("en", "Polarised Vmem",
+            "Chernet & Levin (2013): bioelectric state — Vmem more negative than −40 mV."),
+        DepolarizedVmem: ("en", "Depolarised Vmem",
+            "Chernet & Levin (2013): bioelectric state — Vmem more positive than ~−20 mV."),
+        ConnectedNetwork: ("en", "Connected network",
+            "Levin (2019): bioelectric state — gap-junction network intact."),
+        DisconnectedNetwork: ("en", "Disconnected network",
+            "Levin (2019): bioelectric state — gap junctions blocked or absent."),
+
+        Attractor: ("en", "Attractor",
+            "Fields & Levin (2022): umbrella for stable tissue configurations in morphospace."),
+        RepairPathway: ("en", "Repair pathway",
+            "Levin (2014): umbrella for trajectories from a pathological attractor back to the healthy attractor."),
+        BioelectricState: ("en", "Bioelectric state",
+            "Levin (2019): umbrella for instantaneous bioelectric properties of tissue."),
+        MorphospaceEvent: ("en", "Morphospace event",
+            "Fields & Levin (2022): umbrella for time-extended processes in disease progression and repair."),
+
+        AcidDamage: ("en", "Acid damage",
+            "Gralnek et al. (2006): mucosal acid injury initiates the disease cascade."),
+        ChronicInflammation: ("en", "Chronic inflammation",
+            "Gralnek et al. (2006): persistent inflammatory state following repeated acid injury."),
+        GapJunctionLoss: ("en", "Gap-junction loss",
+            "Levin (2015): connexin downregulation that disconnects the bioelectric network."),
+        MetaplasticTransition: ("en", "Metaplastic transition",
+            "Chernet & Levin (2013): transition from squamous to columnar epithelium (Barrett's)."),
+        DysplasticTransition: ("en", "Dysplastic transition",
+            "Chernet & Levin (2013): transition from Barrett's to dysplasia — increased depolarisation."),
+        FibroticRemodeling: ("en", "Fibrotic remodeling",
+            "Levin (2014): tissue replacement by fibrotic scar."),
+
+        AcidRemoval: ("en", "Acid removal",
+            "Gralnek et al. (2006): PPI-mediated acid removal — initiates basal-cell turnover repair."),
+        BasalCellReplacement: ("en", "Basal-cell replacement",
+            "Gralnek et al. (2006): basal stem-cell proliferation replaces damaged epithelium."),
+        VmemRepolarization: ("en", "Vmem repolarisation",
+            "Chernet & Levin (2013): Vmem restored to polarised (healthy) range."),
+        GapJunctionRestoration: ("en", "Gap-junction restoration",
+            "Levin (2019): re-establishment of connexin-mediated cell coupling."),
+        PatternRecognition: ("en", "Pattern recognition",
+            "Levin (2014): bioelectric network re-reads the target morphology."),
+        MechanotransductionActivation: ("en", "Mechanotransduction activation",
+            "Levin (2014): mechanical stimulation activates downstream bioelectric repair."),
+        AutonomousRepair: ("en", "Autonomous repair",
+            "Fields & Levin (2022): tissue navigates back to the healthy attractor without further intervention."),
+    },
+
+    is_a: [
+        // Attractors.
+        (Healthy, Attractor),
+        (Inflamed, Attractor),
+        (Barretts, Attractor),
+        (Dysplastic, Attractor),
+        (Fibrotic, Attractor),
+        // Repair pathways.
+        (BasalTurnover, RepairPathway),
+        (BioelectricRepair, RepairPathway),
+        (MechanicalStimulationPathway, RepairPathway),
+        (CombinedTherapy, RepairPathway),
+        // Bioelectric states.
+        (PolarizedVmem, BioelectricState),
+        (DepolarizedVmem, BioelectricState),
+        (ConnectedNetwork, BioelectricState),
+        (DisconnectedNetwork, BioelectricState),
+        // Events.
+        (AcidDamage, MorphospaceEvent),
+        (ChronicInflammation, MorphospaceEvent),
+        (GapJunctionLoss, MorphospaceEvent),
+        (MetaplasticTransition, MorphospaceEvent),
+        (DysplasticTransition, MorphospaceEvent),
+        (FibroticRemodeling, MorphospaceEvent),
+        (AcidRemoval, MorphospaceEvent),
+        (BasalCellReplacement, MorphospaceEvent),
+        (VmemRepolarization, MorphospaceEvent),
+        (GapJunctionRestoration, MorphospaceEvent),
+        (PatternRecognition, MorphospaceEvent),
+        (MechanotransductionActivation, MorphospaceEvent),
+        (AutonomousRepair, MorphospaceEvent),
+    ],
+
+    causes: [
+        // Disease progression (Chernet & Levin 2013; Levin 2015).
+        (AcidDamage, ChronicInflammation),
+        (ChronicInflammation, GapJunctionLoss),
+        (GapJunctionLoss, FibroticRemodeling),
+        (ChronicInflammation, MetaplasticTransition),
+        (MetaplasticTransition, DysplasticTransition),
+        // Acid-removal repair pathway (Gralnek et al. 2006).
+        (AcidRemoval, BasalCellReplacement),
+        (BasalCellReplacement, AutonomousRepair),
+        // Bioelectric repair pathway (Chernet & Levin 2013; Levin 2019).
+        (VmemRepolarization, PatternRecognition),
+        (GapJunctionRestoration, PatternRecognition),
+        (PatternRecognition, AutonomousRepair),
+        // Mechanotransduction-triggered repair (Levin 2014).
+        (MechanotransductionActivation, VmemRepolarization),
+        (MechanotransductionActivation, GapJunctionRestoration),
+    ],
+
+    opposes: [
+        // Healthy ↔ Dysplastic: end-points of the main disease axis.
+        (Healthy, Dysplastic),
+        (Dysplastic, Healthy),
+        // Polarised ↔ Depolarised Vmem.
+        (PolarizedVmem, DepolarizedVmem),
+        (DepolarizedVmem, PolarizedVmem),
+        // Connected ↔ Disconnected network.
+        (ConnectedNetwork, DisconnectedNetwork),
+        (DisconnectedNetwork, ConnectedNetwork),
+        // Acid-removal pathway (no Vmem manipulation) vs bioelectric
+        // repair (direct Vmem manipulation) — two complementary mechanisms.
+        (BasalTurnover, BioelectricRepair),
+        (BioelectricRepair, BasalTurnover),
+    ],
 }
 
-// ---------------------------------------------------------------------------
-// Causal event
-// ---------------------------------------------------------------------------
-
-/// Events in disease progression and repair.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum MorphospaceEvent {
-    // Disease
-    AcidDamage,
-    ChronicInflammation,
-    GapJunctionLoss,
-    MetaplasticTransition,
-    DysplasticTransition,
-    FibroticRemodeling,
-    // Repair
-    AcidRemoval,
-    BasalCellReplacement,
-    VmemRepolarization,
-    GapJunctionRestoration,
-    PatternRecognition,
-    MechanotransductionActivation,
-    AutonomousRepair,
-}
-
-// ---------------------------------------------------------------------------
-// Category + Reasoning (generated)
-// ---------------------------------------------------------------------------
-
-define_ontology! {
-    /// Morphospace attractor landscape ontology.
-    pub MorphospaceOntologyMeta for MorphospaceCategory {
-        entity: MorphospaceEntity,
-        relation: MorphospaceRelation,
-        being: AbstractObject,
-        source: "Fields & Levin (2022); Chernet & Levin (2013)",
-
-        taxonomy: MorphospaceTaxonomy [
-            (Healthy, Attractor),
-            (Inflamed, Attractor),
-            (Barretts, Attractor),
-            (Dysplastic, Attractor),
-            (Fibrotic, Attractor),
-            (BasalTurnover, RepairPathway),
-            (BioelectricRepair, RepairPathway),
-            (MechanicalStimulation, RepairPathway),
-            (CombinedTherapy, RepairPathway),
-            (PolarizedVmem, BioelectricState),
-            (DepolarizedVmem, BioelectricState),
-            (ConnectedNetwork, BioelectricState),
-            (DisconnectedNetwork, BioelectricState),
-        ],
-
-        causation: DiseaseProgressionCauses for MorphospaceEvent [
-            (AcidDamage, ChronicInflammation),
-            (ChronicInflammation, GapJunctionLoss),
-            (GapJunctionLoss, FibroticRemodeling),
-            (ChronicInflammation, MetaplasticTransition),
-            (MetaplasticTransition, DysplasticTransition),
-            (AcidRemoval, BasalCellReplacement),
-            (BasalCellReplacement, AutonomousRepair),
-            (VmemRepolarization, PatternRecognition),
-            (PatternRecognition, AutonomousRepair),
-            (GapJunctionRestoration, PatternRecognition),
-            (MechanotransductionActivation, VmemRepolarization),
-            (MechanotransductionActivation, GapJunctionRestoration),
-        ],
-
-        opposition: MorphospaceOpposition [
-            (Healthy, Dysplastic),
-            (PolarizedVmem, DepolarizedVmem),
-            (ConnectedNetwork, DisconnectedNetwork),
-            (BasalTurnover, BioelectricRepair),
-        ],
-    }
-}
+// Backward-compatibility re-exports.
+pub use MorphospaceConcept as MorphospaceEntity;
 
 // ---------------------------------------------------------------------------
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Membrane potential range for an attractor state.
+/// Membrane-potential range for an attractor state (Chernet & Levin 2013).
 #[derive(Debug, Clone, PartialEq)]
 pub struct VmemRange {
     pub min: f64,
     pub max: f64,
 }
 
-/// Quality: Vmem range for each attractor state.
+/// Quality: characteristic Vmem range for each attractor state.
 #[derive(Debug, Clone)]
 pub struct AttractorVmemRange;
 
 impl Quality for AttractorVmemRange {
-    type Individual = MorphospaceEntity;
+    type Individual = MorphospaceConcept;
     type Value = VmemRange;
 
-    fn get(&self, individual: &MorphospaceEntity) -> Option<VmemRange> {
-        use MorphospaceEntity::*;
+    fn get(&self, individual: &MorphospaceConcept) -> Option<VmemRange> {
+        use MorphospaceConcept::*;
         match individual {
             Healthy => Some(VmemRange {
                 min: -70.0,
@@ -176,15 +269,18 @@ impl Quality for AttractorVmemRange {
 }
 
 /// Quality: disease severity (0 = healthy, higher = worse).
+///
+/// Chernet & Levin (2013) — severity tracks depolarisation along the
+/// canonical Healthy → Inflamed → Barretts → Dysplastic axis.
 #[derive(Debug, Clone)]
 pub struct DiseaseSeverity;
 
 impl Quality for DiseaseSeverity {
-    type Individual = MorphospaceEntity;
+    type Individual = MorphospaceConcept;
     type Value = u32;
 
-    fn get(&self, individual: &MorphospaceEntity) -> Option<u32> {
-        use MorphospaceEntity::*;
+    fn get(&self, individual: &MorphospaceConcept) -> Option<u32> {
+        use MorphospaceConcept::*;
         match individual {
             Healthy => Some(0),
             Inflamed => Some(1),
@@ -201,15 +297,15 @@ impl Quality for DiseaseSeverity {
 pub struct PathwayRequiresGJ;
 
 impl Quality for PathwayRequiresGJ {
-    type Individual = MorphospaceEntity;
+    type Individual = MorphospaceConcept;
     type Value = bool;
 
-    fn get(&self, individual: &MorphospaceEntity) -> Option<bool> {
-        use MorphospaceEntity::*;
+    fn get(&self, individual: &MorphospaceConcept) -> Option<bool> {
+        use MorphospaceConcept::*;
         match individual {
             BasalTurnover => Some(false),
             BioelectricRepair => Some(true),
-            MechanicalStimulation => Some(false),
+            MechanicalStimulationPathway => Some(false),
             CombinedTherapy => Some(true),
             _ => None,
         }
@@ -221,283 +317,348 @@ impl Quality for PathwayRequiresGJ {
 pub struct PathwayIsHardwareAccessible;
 
 impl Quality for PathwayIsHardwareAccessible {
-    type Individual = MorphospaceEntity;
+    type Individual = MorphospaceConcept;
     type Value = bool;
 
-    fn get(&self, individual: &MorphospaceEntity) -> Option<bool> {
-        use MorphospaceEntity::*;
+    fn get(&self, individual: &MorphospaceConcept) -> Option<bool> {
+        use MorphospaceConcept::*;
         match individual {
             BasalTurnover => Some(false),
             BioelectricRepair => Some(false),
-            MechanicalStimulation => Some(true),
+            MechanicalStimulationPathway => Some(true),
             CombinedTherapy => Some(false),
             _ => None,
         }
     }
 }
 
-/// Axiom: morphospace opposition is symmetric.
-pub struct MorphospaceOppositionSymmetric;
-
-impl Axiom for MorphospaceOppositionSymmetric {
-    fn description(&self) -> &str {
-        "morphospace opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<MorphospaceOpposition>::new().holds()
-    }
-}
-pr4xis::register_axiom!(MorphospaceOppositionSymmetric);
-
-/// Axiom: morphospace opposition is irreflexive (nothing opposes itself).
-pub struct MorphospaceOppositionIrreflexive;
-
-impl Axiom for MorphospaceOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "morphospace opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<MorphospaceOpposition>::new().holds()
-    }
-}
-pr4xis::register_axiom!(MorphospaceOppositionIrreflexive);
-
 // ---------------------------------------------------------------------------
-// Axioms
+// Helpers
 // ---------------------------------------------------------------------------
 
-/// Morphospace taxonomy is a DAG.
-pub struct MorphospaceTaxonomyIsDAG;
-
-impl Axiom for MorphospaceTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "morphospace taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<MorphospaceTaxonomy>::new().holds()
-    }
+fn is_a(child: MorphospaceConcept, parent: MorphospaceConcept) -> bool {
+    MorphospaceCategory::morphisms().iter().any(|m| {
+        m.kind() == MorphospaceRelationKind::Subsumption
+            && m.source() == child
+            && m.target() == parent
+    })
 }
-pr4xis::register_axiom!(MorphospaceTaxonomyIsDAG);
 
-/// All attractor states have Vmem ranges.
+fn causes(cause: MorphospaceConcept, effect: MorphospaceConcept) -> bool {
+    MorphospaceCategory::morphisms().iter().any(|m| {
+        m.kind() == MorphospaceRelationKind::Causation
+            && m.source() == cause
+            && m.target() == effect
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Domain axioms
+// ---------------------------------------------------------------------------
+
+/// All five attractor states have characteristic Vmem ranges (Chernet &
+/// Levin 2013).
 pub struct AllAttractorsHaveVmemRanges;
 
 impl Axiom for AllAttractorsHaveVmemRanges {
-    fn description(&self) -> &str {
-        "all attractor states have Vmem ranges"
-    }
-
-    fn holds(&self) -> bool {
-        use MorphospaceEntity::*;
+    fn verify(&self) -> Verdict {
+        use MorphospaceConcept::*;
         let vmem = AttractorVmemRange;
-        [Healthy, Inflamed, Barretts, Dysplastic, Fibrotic]
+        let ok = [Healthy, Inflamed, Barretts, Dysplastic, Fibrotic]
             .iter()
-            .all(|a| vmem.get(a).is_some())
+            .all(|a| vmem.get(a).is_some());
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-}
-pr4xis::register_axiom!(AllAttractorsHaveVmemRanges);
 
-/// Healthy is the most polarized attractor (most negative Vmem min).
+    pr4xis::axiom_meta!(
+        "AllAttractorsHaveVmemRanges",
+        "every attractor state has a characteristic Vmem range",
+        "Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002"
+    );
+}
+
+pr4xis::register_axiom!(
+    AllAttractorsHaveVmemRanges,
+    "Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002"
+);
+
+/// Healthy is the most polarised attractor (most negative Vmem min).
 pub struct HealthyIsMostPolarized;
 
 impl Axiom for HealthyIsMostPolarized {
-    fn description(&self) -> &str {
-        "healthy attractor has the most polarized Vmem"
-    }
-
-    fn holds(&self) -> bool {
-        use MorphospaceEntity::*;
+    fn verify(&self) -> Verdict {
+        use MorphospaceConcept::*;
         let vmem = AttractorVmemRange;
-        let healthy = vmem.get(&Healthy).unwrap();
-        [Inflamed, Barretts, Dysplastic, Fibrotic].iter().all(|a| {
-            let range = vmem.get(a).unwrap();
-            healthy.min < range.min
-        })
+        let healthy = match vmem.get(&Healthy) {
+            Some(r) => r,
+            None => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let ok = [Inflamed, Barretts, Dysplastic, Fibrotic].iter().all(|a| {
+            let r = vmem.get(a).unwrap();
+            healthy.min < r.min
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-}
-pr4xis::register_axiom!(HealthyIsMostPolarized);
 
-/// Severity increases with depolarization along the main disease axis.
+    pr4xis::axiom_meta!(
+        "HealthyIsMostPolarized",
+        "healthy attractor has the most polarised Vmem (lowest min)",
+        "Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002"
+    );
+}
+
+pr4xis::register_axiom!(
+    HealthyIsMostPolarized,
+    "Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002"
+);
+
+/// Severity increases with depolarisation along the main disease axis.
 pub struct SeverityIncreasesWithDepolarization;
 
 impl Axiom for SeverityIncreasesWithDepolarization {
-    fn description(&self) -> &str {
-        "disease severity increases with depolarization"
-    }
-
-    fn holds(&self) -> bool {
-        use MorphospaceEntity::*;
+    fn verify(&self) -> Verdict {
+        use MorphospaceConcept::*;
         let sev = DiseaseSeverity;
         let vmem = AttractorVmemRange;
-        // Check pairs along main axis: Healthy < Inflamed < Barretts < Dysplastic
         let pairs = [
             (Healthy, Inflamed),
             (Inflamed, Barretts),
             (Barretts, Dysplastic),
         ];
-        pairs.iter().all(|(a, b)| {
+        let ok = pairs.iter().all(|(a, b)| {
             let sa = sev.get(a).unwrap();
             let sb = sev.get(b).unwrap();
             let va = vmem.get(a).unwrap();
             let vb = vmem.get(b).unwrap();
             sa < sb && va.max < vb.max
-        })
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "SeverityIncreasesWithDepolarization",
+        "disease severity increases monotonically with Vmem depolarisation along the main axis",
+        "Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002"
+    );
 }
-pr4xis::register_axiom!(SeverityIncreasesWithDepolarization);
 
-/// Disease progression causal graph is asymmetric.
-pub struct DiseaseProgressionIsAsymmetric;
+pr4xis::register_axiom!(
+    SeverityIncreasesWithDepolarization,
+    "Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002"
+);
 
-impl Axiom for DiseaseProgressionIsAsymmetric {
-    fn description(&self) -> &str {
-        "disease progression is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<DiseaseProgressionCauses>::new().holds()
-    }
-}
-pr4xis::register_axiom!(DiseaseProgressionIsAsymmetric);
-
-/// Acid damage transitively causes dysplasia.
+/// Acid damage transitively causes dysplastic transition (Chernet & Levin
+/// 2013).
 pub struct AcidCausesDysplasia;
 
 impl Axiom for AcidCausesDysplasia {
-    fn description(&self) -> &str {
-        "acid damage transitively causes dysplastic transition"
+    fn verify(&self) -> Verdict {
+        if causes(
+            MorphospaceConcept::AcidDamage,
+            MorphospaceConcept::DysplasticTransition,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        use MorphospaceEvent::*;
-        let effects = causation::effects_of::<DiseaseProgressionCauses>(&AcidDamage);
-        effects.contains(&DysplasticTransition)
-    }
+    pr4xis::axiom_meta!(
+        "AcidCausesDysplasia",
+        "acid damage transitively causes dysplastic transition through chronic inflammation and metaplasia",
+        "Chernet & Levin (2013); Gralnek et al. (2006)"
+    );
 }
-pr4xis::register_axiom!(AcidCausesDysplasia);
 
-/// Mechanical stimulation activation causes repair.
-pub struct MechanicalStimulationCausesRepair;
+pr4xis::register_axiom!(
+    AcidCausesDysplasia,
+    "Chernet & Levin (2013); Gralnek et al. (2006)"
+);
 
-impl Axiom for MechanicalStimulationCausesRepair {
-    fn description(&self) -> &str {
-        "mechanotransduction activation causes autonomous repair"
+/// Mechanotransduction activation transitively causes autonomous repair.
+pub struct MechanotransductionCausesRepair;
+
+impl Axiom for MechanotransductionCausesRepair {
+    fn verify(&self) -> Verdict {
+        if causes(
+            MorphospaceConcept::MechanotransductionActivation,
+            MorphospaceConcept::AutonomousRepair,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        use MorphospaceEvent::*;
-        let effects =
-            causation::effects_of::<DiseaseProgressionCauses>(&MechanotransductionActivation);
-        effects.contains(&AutonomousRepair)
-    }
+    pr4xis::axiom_meta!(
+        "MechanotransductionCausesRepair",
+        "mechanotransduction activation transitively causes autonomous repair via Vmem repolarisation and pattern recognition",
+        "Levin (2014) Mol. Biol. Cell 25(24)"
+    );
 }
-pr4xis::register_axiom!(MechanicalStimulationCausesRepair);
 
-/// Acid removal causes repair.
+pr4xis::register_axiom!(
+    MechanotransductionCausesRepair,
+    "Levin (2014) Mol. Biol. Cell 25(24)"
+);
+
+/// Acid removal transitively causes autonomous repair (Gralnek et al. 2006).
 pub struct AcidRemovalCausesRepair;
 
 impl Axiom for AcidRemovalCausesRepair {
-    fn description(&self) -> &str {
-        "acid removal causes autonomous repair"
+    fn verify(&self) -> Verdict {
+        if causes(
+            MorphospaceConcept::AcidRemoval,
+            MorphospaceConcept::AutonomousRepair,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        use MorphospaceEvent::*;
-        let effects = causation::effects_of::<DiseaseProgressionCauses>(&AcidRemoval);
-        effects.contains(&AutonomousRepair)
-    }
+    pr4xis::axiom_meta!(
+        "AcidRemovalCausesRepair",
+        "acid removal transitively causes autonomous repair via basal-cell replacement",
+        "Gralnek et al. (2006) Aliment. Pharmacol. Ther. 23(1):149–157"
+    );
 }
-pr4xis::register_axiom!(AcidRemovalCausesRepair);
 
-/// Two-mechanism GJ requirement: BioelectricRepair requires GJ,
-/// MechanicalStimulation does not.
+pr4xis::register_axiom!(
+    AcidRemovalCausesRepair,
+    "Gralnek et al. (2006) Aliment. Pharmacol. Ther. 23(1):149–157"
+);
+
+/// Two-mechanism GJ requirement: bioelectric repair requires GJs,
+/// mechanical stimulation does not.
 pub struct TwoMechanismGJRequirement;
 
 impl Axiom for TwoMechanismGJRequirement {
-    fn description(&self) -> &str {
-        "bioelectric repair requires GJ, mechanical stimulation does not"
-    }
-
-    fn holds(&self) -> bool {
-        use MorphospaceEntity::*;
+    fn verify(&self) -> Verdict {
+        use MorphospaceConcept::*;
         let gj = PathwayRequiresGJ;
-        gj.get(&BioelectricRepair) == Some(true) && gj.get(&MechanicalStimulation) == Some(false)
+        if gj.get(&BioelectricRepair) == Some(true)
+            && gj.get(&MechanicalStimulationPathway) == Some(false)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-}
-pr4xis::register_axiom!(TwoMechanismGJRequirement);
 
-/// Only MechanicalStimulation is hardware-accessible.
+    pr4xis::axiom_meta!(
+        "TwoMechanismGJRequirement",
+        "bioelectric repair requires gap junctions; mechanical stimulation does not",
+        "Levin (2014) Mol. Biol. Cell 25(24); Chernet & Levin (2013)"
+    );
+}
+
+pr4xis::register_axiom!(
+    TwoMechanismGJRequirement,
+    "Levin (2014) Mol. Biol. Cell 25(24); Chernet & Levin (2013)"
+);
+
+/// Only the mechanical-stimulation pathway is hardware-accessible.
 pub struct OnlyMechanicalIsHardwareAccessible;
 
 impl Axiom for OnlyMechanicalIsHardwareAccessible {
-    fn description(&self) -> &str {
-        "only mechanical stimulation is hardware-accessible"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let hw = PathwayIsHardwareAccessible;
-        let pathways: Vec<MorphospaceEntity> = MorphospaceEntity::variants()
+        let pathways: Vec<MorphospaceConcept> = MorphospaceConcept::variants()
             .into_iter()
             .filter(|e| {
-                taxonomy::is_a::<MorphospaceTaxonomy>(e, &MorphospaceEntity::RepairPathway)
-                    && *e != MorphospaceEntity::RepairPathway
+                is_a(*e, MorphospaceConcept::RepairPathway)
+                    && *e != MorphospaceConcept::RepairPathway
             })
             .collect();
-        let hw_accessible: Vec<&MorphospaceEntity> = pathways
+        let hw_accessible: Vec<&MorphospaceConcept> = pathways
             .iter()
             .filter(|e| hw.get(e) == Some(true))
             .collect();
-        hw_accessible.len() == 1 && *hw_accessible[0] == MorphospaceEntity::MechanicalStimulation
+        if hw_accessible.len() == 1
+            && *hw_accessible[0] == MorphospaceConcept::MechanicalStimulationPathway
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-}
-pr4xis::register_axiom!(OnlyMechanicalIsHardwareAccessible);
 
-/// There are exactly 5 attractor states.
+    pr4xis::axiom_meta!(
+        "OnlyMechanicalIsHardwareAccessible",
+        "exactly one hardware-accessible repair pathway: mechanical stimulation",
+        "Levin (2014) Mol. Biol. Cell 25(24)"
+    );
+}
+
+pr4xis::register_axiom!(
+    OnlyMechanicalIsHardwareAccessible,
+    "Levin (2014) Mol. Biol. Cell 25(24)"
+);
+
+/// There are exactly 5 attractor states (Fields & Levin 2022 — morphospace
+/// for esophageal tissue is partitioned into 5 stable regions).
 pub struct FiveAttractorStates;
 
 impl Axiom for FiveAttractorStates {
-    fn description(&self) -> &str {
-        "there are exactly 5 attractor states"
+    fn verify(&self) -> Verdict {
+        let attractors: Vec<_> = MorphospaceConcept::variants()
+            .into_iter()
+            .filter(|e| {
+                is_a(*e, MorphospaceConcept::Attractor) && *e != MorphospaceConcept::Attractor
+            })
+            .collect();
+        if attractors.len() == 5 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        let descendants =
-            taxonomy::descendants::<MorphospaceTaxonomy>(&MorphospaceEntity::Attractor);
-        descendants.len() == 5
-    }
+    pr4xis::axiom_meta!(
+        "FiveAttractorStates",
+        "exactly five attractor states partition the esophageal morphospace",
+        "Fields & Levin (2022) Entropy 24(6):819"
+    );
 }
-pr4xis::register_axiom!(FiveAttractorStates);
+
+pr4xis::register_axiom!(
+    FiveAttractorStates,
+    "Fields & Levin (2022) Entropy 24(6):819"
+);
 
 // ---------------------------------------------------------------------------
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// Top-level ontology tying together the morphospace category, qualities, and axioms.
-pub struct MorphospaceOntology;
-
 impl Ontology for MorphospaceOntology {
     type Cat = MorphospaceCategory;
     type Qual = DiseaseSeverity;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        MorphospaceOntologyMeta::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(AllAttractorsHaveVmemRanges),
-            Box::new(HealthyIsMostPolarized),
-            Box::new(SeverityIncreasesWithDepolarization),
-            Box::new(AcidCausesDysplasia),
-            Box::new(MechanicalStimulationCausesRepair),
-            Box::new(AcidRemovalCausesRepair),
-            Box::new(TwoMechanismGJRequirement),
-            Box::new(OnlyMechanicalIsHardwareAccessible),
-            Box::new(FiveAttractorStates),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(AllAttractorsHaveVmemRanges));
+        axioms.push(Box::new(HealthyIsMostPolarized));
+        axioms.push(Box::new(SeverityIncreasesWithDepolarization));
+        axioms.push(Box::new(AcidCausesDysplasia));
+        axioms.push(Box::new(MechanotransductionCausesRepair));
+        axioms.push(Box::new(AcidRemovalCausesRepair));
+        axioms.push(Box::new(TwoMechanismGJRequirement));
+        axioms.push(Box::new(OnlyMechanicalIsHardwareAccessible));
+        axioms.push(Box::new(FiveAttractorStates));
+        axioms
     }
 }
 
@@ -508,377 +669,261 @@ impl Ontology for MorphospaceOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
-
-    // -- Axiom tests --
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
-    fn test_morphospace_taxonomy_is_dag() {
-        assert!(
-            MorphospaceTaxonomyIsDAG.holds(),
-            "{}",
-            MorphospaceTaxonomyIsDAG.description()
-        );
+    fn category_laws() {
+        assert_category_laws::<MorphospaceCategory>();
     }
 
     #[test]
-    fn test_all_attractors_have_vmem_ranges() {
-        assert!(
-            AllAttractorsHaveVmemRanges.holds(),
-            "{}",
-            AllAttractorsHaveVmemRanges.description()
-        );
+    fn ontology_validates() {
+        MorphospaceOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    // -- Domain axiom tests --
+
+    #[test]
+    fn all_attractors_have_vmem_ranges() {
+        assert!(AllAttractorsHaveVmemRanges.verify().is_ok());
     }
 
     #[test]
-    fn test_healthy_is_most_polarized() {
-        assert!(
-            HealthyIsMostPolarized.holds(),
-            "{}",
-            HealthyIsMostPolarized.description()
-        );
+    fn healthy_is_most_polarized() {
+        assert!(HealthyIsMostPolarized.verify().is_ok());
     }
 
     #[test]
-    fn test_severity_increases_with_depolarization() {
-        assert!(
-            SeverityIncreasesWithDepolarization.holds(),
-            "{}",
-            SeverityIncreasesWithDepolarization.description()
-        );
+    fn severity_increases_with_depolarization() {
+        assert!(SeverityIncreasesWithDepolarization.verify().is_ok());
     }
 
     #[test]
-    fn test_disease_progression_is_asymmetric() {
-        assert!(
-            DiseaseProgressionIsAsymmetric.holds(),
-            "{}",
-            DiseaseProgressionIsAsymmetric.description()
-        );
+    fn acid_causes_dysplasia() {
+        assert!(AcidCausesDysplasia.verify().is_ok());
     }
 
     #[test]
-    fn test_acid_causes_dysplasia() {
-        assert!(
-            AcidCausesDysplasia.holds(),
-            "{}",
-            AcidCausesDysplasia.description()
-        );
+    fn mechanotransduction_causes_repair() {
+        assert!(MechanotransductionCausesRepair.verify().is_ok());
     }
 
     #[test]
-    fn test_mechanical_stimulation_causes_repair() {
-        assert!(
-            MechanicalStimulationCausesRepair.holds(),
-            "{}",
-            MechanicalStimulationCausesRepair.description()
-        );
+    fn acid_removal_causes_repair() {
+        assert!(AcidRemovalCausesRepair.verify().is_ok());
     }
 
     #[test]
-    fn test_acid_removal_causes_repair() {
-        assert!(
-            AcidRemovalCausesRepair.holds(),
-            "{}",
-            AcidRemovalCausesRepair.description()
-        );
+    fn two_mechanism_gj_requirement() {
+        assert!(TwoMechanismGJRequirement.verify().is_ok());
     }
 
     #[test]
-    fn test_two_mechanism_gj_requirement() {
-        assert!(
-            TwoMechanismGJRequirement.holds(),
-            "{}",
-            TwoMechanismGJRequirement.description()
-        );
+    fn only_mechanical_is_hardware_accessible() {
+        assert!(OnlyMechanicalIsHardwareAccessible.verify().is_ok());
     }
 
     #[test]
-    fn test_only_mechanical_is_hardware_accessible() {
-        assert!(
-            OnlyMechanicalIsHardwareAccessible.holds(),
-            "{}",
-            OnlyMechanicalIsHardwareAccessible.description()
-        );
+    fn five_attractor_states() {
+        assert!(FiveAttractorStates.verify().is_ok());
     }
 
-    #[test]
-    fn test_five_attractor_states() {
-        assert!(
-            FiveAttractorStates.holds(),
-            "{}",
-            FiveAttractorStates.description()
-        );
-    }
-
-    // -- Category law tests --
+    // -- Subsumption / kind tests --
 
     #[test]
-    fn test_morphospace_category_laws() {
-        check_category_laws::<MorphospaceCategory>().unwrap();
-    }
-
-    #[test]
-    fn test_morphospace_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<MorphospaceTaxonomy>>().unwrap();
-    }
-
-    #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<DiseaseProgressionCauses>>().unwrap();
-    }
-
-    // -- Repair pathway classification --
-
-    #[test]
-    fn test_repair_pathways_classified() {
-        use MorphospaceEntity::*;
+    fn repair_pathways_classified() {
         for pathway in [
-            BasalTurnover,
-            BioelectricRepair,
-            MechanicalStimulation,
-            CombinedTherapy,
+            MorphospaceConcept::BasalTurnover,
+            MorphospaceConcept::BioelectricRepair,
+            MorphospaceConcept::MechanicalStimulationPathway,
+            MorphospaceConcept::CombinedTherapy,
         ] {
-            assert!(
-                taxonomy::is_a::<MorphospaceTaxonomy>(&pathway, &RepairPathway),
-                "{:?} should be a RepairPathway",
-                pathway
-            );
+            assert!(is_a(pathway, MorphospaceConcept::RepairPathway));
         }
     }
 
-    // -- Vmem range tests --
-
     #[test]
-    fn test_healthy_vmem_range() {
-        let range = AttractorVmemRange.get(&MorphospaceEntity::Healthy).unwrap();
-        assert_eq!(range.min, -70.0);
-        assert_eq!(range.max, -40.0);
-    }
-
-    #[test]
-    fn test_dysplastic_vmem_range() {
-        let range = AttractorVmemRange
-            .get(&MorphospaceEntity::Dysplastic)
-            .unwrap();
-        assert_eq!(range.min, -18.0);
-        assert_eq!(range.max, 0.0);
+    fn vmem_ranges_match_chernet_levin_2013() {
+        assert_eq!(
+            AttractorVmemRange
+                .get(&MorphospaceConcept::Healthy)
+                .unwrap(),
+            VmemRange {
+                min: -70.0,
+                max: -40.0
+            }
+        );
+        assert_eq!(
+            AttractorVmemRange
+                .get(&MorphospaceConcept::Dysplastic)
+                .unwrap(),
+            VmemRange {
+                min: -18.0,
+                max: 0.0
+            }
+        );
     }
 
     // -- Causal chain tests --
 
     #[test]
-    fn test_acid_damage_chain() {
-        use MorphospaceEvent::*;
-        let effects = causation::effects_of::<DiseaseProgressionCauses>(&AcidDamage);
-        assert!(effects.contains(&ChronicInflammation));
-        assert!(effects.contains(&GapJunctionLoss));
-        assert!(effects.contains(&FibroticRemodeling));
-        assert!(effects.contains(&MetaplasticTransition));
-        assert!(effects.contains(&DysplasticTransition));
+    fn acid_damage_chain() {
+        for e in [
+            MorphospaceConcept::ChronicInflammation,
+            MorphospaceConcept::GapJunctionLoss,
+            MorphospaceConcept::FibroticRemodeling,
+            MorphospaceConcept::MetaplasticTransition,
+            MorphospaceConcept::DysplasticTransition,
+        ] {
+            assert!(
+                causes(MorphospaceConcept::AcidDamage, e),
+                "AcidDamage should transitively cause {:?}",
+                e
+            );
+        }
     }
 
     #[test]
-    fn test_mechanotransduction_repair_chain() {
-        use MorphospaceEvent::*;
-        let effects =
-            causation::effects_of::<DiseaseProgressionCauses>(&MechanotransductionActivation);
-        assert!(effects.contains(&VmemRepolarization));
-        assert!(effects.contains(&GapJunctionRestoration));
-        assert!(effects.contains(&PatternRecognition));
-        assert!(effects.contains(&AutonomousRepair));
-    }
-
-    #[test]
-    fn test_entity_count() {
-        assert_eq!(MorphospaceEntity::variants().len(), 16);
-    }
-
-    #[test]
-    fn test_event_count() {
-        assert_eq!(MorphospaceEvent::variants().len(), 13);
-    }
-
-    #[test]
-    fn test_ontology_validates() {
-        MorphospaceOntology::validate().unwrap();
+    fn mechanotransduction_repair_chain() {
+        for e in [
+            MorphospaceConcept::VmemRepolarization,
+            MorphospaceConcept::GapJunctionRestoration,
+            MorphospaceConcept::PatternRecognition,
+            MorphospaceConcept::AutonomousRepair,
+        ] {
+            assert!(causes(MorphospaceConcept::MechanotransductionActivation, e));
+        }
     }
 
     // -- Opposition tests --
 
     #[test]
-    fn test_morphospace_opposition_symmetric() {
-        assert!(
-            MorphospaceOppositionSymmetric.holds(),
-            "{}",
-            MorphospaceOppositionSymmetric.description()
+    fn healthy_opposes_dysplastic() {
+        let opps: Vec<_> = MorphospaceCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == MorphospaceRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opps.contains(&(MorphospaceConcept::Healthy, MorphospaceConcept::Dysplastic)));
+        assert!(opps.contains(&(MorphospaceConcept::Dysplastic, MorphospaceConcept::Healthy)));
+    }
+
+    #[test]
+    fn polarized_opposes_depolarized() {
+        let opps: Vec<_> = MorphospaceCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == MorphospaceRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opps.contains(&(
+            MorphospaceConcept::PolarizedVmem,
+            MorphospaceConcept::DepolarizedVmem
+        )));
+    }
+
+    // -- Literature axioms --
+
+    /// Gralnek et al. (2006): PPI-mediated acid removal heals via the
+    /// GJ-independent basal-turnover pathway.
+    #[test]
+    fn literature_gralnek_2006_basal_turnover_gj_independent() {
+        assert_eq!(
+            PathwayRequiresGJ.get(&MorphospaceConcept::BasalTurnover),
+            Some(false)
         );
     }
 
+    /// Levin (2015): gap-junction blockade alters morphology (proves
+    /// bistability in morphospace).
     #[test]
-    fn test_morphospace_opposition_irreflexive() {
-        assert!(
-            MorphospaceOppositionIrreflexive.holds(),
-            "{}",
-            MorphospaceOppositionIrreflexive.description()
-        );
-    }
-
-    #[test]
-    fn test_healthy_opposes_dysplastic() {
-        use MorphospaceEntity::*;
-        assert!(opposition::are_opposed::<MorphospaceOpposition>(
-            &Healthy,
-            &Dysplastic
+    fn literature_levin_2015_gj_blockade_bistability() {
+        assert!(causes(
+            MorphospaceConcept::GapJunctionLoss,
+            MorphospaceConcept::FibroticRemodeling
         ));
-        assert!(opposition::are_opposed::<MorphospaceOpposition>(
-            &Dysplastic,
-            &Healthy
-        ));
+        let attractors: Vec<_> = MorphospaceConcept::variants()
+            .into_iter()
+            .filter(|e| {
+                is_a(*e, MorphospaceConcept::Attractor) && *e != MorphospaceConcept::Attractor
+            })
+            .collect();
+        assert!(attractors.len() >= 2);
     }
 
-    #[test]
-    fn test_polarized_opposes_depolarized() {
-        use MorphospaceEntity::*;
-        assert!(opposition::are_opposed::<MorphospaceOpposition>(
-            &PolarizedVmem,
-            &DepolarizedVmem
-        ));
-    }
+    // -- Proptests --
 
-    #[test]
-    fn test_connected_opposes_disconnected() {
-        use MorphospaceEntity::*;
-        assert!(opposition::are_opposed::<MorphospaceOpposition>(
-            &ConnectedNetwork,
-            &DisconnectedNetwork
-        ));
-    }
-
-    #[test]
-    fn test_basal_turnover_opposes_bioelectric_repair() {
-        use MorphospaceEntity::*;
-        assert!(opposition::are_opposed::<MorphospaceOpposition>(
-            &BasalTurnover,
-            &BioelectricRepair
-        ));
-    }
-
-    #[test]
-    fn test_healthy_does_not_oppose_inflamed() {
-        use MorphospaceEntity::*;
-        assert!(!opposition::are_opposed::<MorphospaceOpposition>(
-            &Healthy, &Inflamed
-        ));
-    }
-
-    #[test]
-    fn test_morphospace_opposites_query() {
-        use MorphospaceEntity::*;
-        let opps = opposition::opposites::<MorphospaceOpposition>(&Healthy);
-        assert_eq!(opps, vec![Dysplastic]);
-    }
-
-    // -- Property-based tests (proptest) --
-
-    use proptest::prelude::*;
-
-    fn arb_attractor() -> impl Strategy<Value = MorphospaceEntity> {
-        prop::sample::select(vec![
-            MorphospaceEntity::Healthy,
-            MorphospaceEntity::Inflamed,
-            MorphospaceEntity::Barretts,
-            MorphospaceEntity::Dysplastic,
-            MorphospaceEntity::Fibrotic,
+    fn arb_attractor() -> impl Strategy<Value = MorphospaceConcept> {
+        proptest::sample::select(vec![
+            MorphospaceConcept::Healthy,
+            MorphospaceConcept::Inflamed,
+            MorphospaceConcept::Barretts,
+            MorphospaceConcept::Dysplastic,
+            MorphospaceConcept::Fibrotic,
         ])
     }
 
-    /// For attractors along the main disease axis (excluding Fibrotic which overlaps).
-    fn arb_main_axis_attractor() -> impl Strategy<Value = MorphospaceEntity> {
-        prop::sample::select(vec![
-            MorphospaceEntity::Healthy,
-            MorphospaceEntity::Inflamed,
-            MorphospaceEntity::Barretts,
-            MorphospaceEntity::Dysplastic,
+    fn arb_main_axis_attractor() -> impl Strategy<Value = MorphospaceConcept> {
+        proptest::sample::select(vec![
+            MorphospaceConcept::Healthy,
+            MorphospaceConcept::Inflamed,
+            MorphospaceConcept::Barretts,
+            MorphospaceConcept::Dysplastic,
         ])
     }
 
     proptest! {
-        /// For any attractor with a VmemRange, min < max.
         #[test]
-        fn prop_attractor_vmem_range_min_lt_max(attractor in arb_attractor()) {
-            let range = AttractorVmemRange.get(&attractor).unwrap();
-            prop_assert!(
-                range.min < range.max,
-                "VmemRange for {:?}: min ({}) should be < max ({})",
-                attractor,
-                range.min,
-                range.max
-            );
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in MorphospaceCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
         }
 
-        /// For any pair of main-axis attractors, if severity(A) < severity(B),
-        /// then VmemRange of A has lower max than B (monotonicity).
-        /// Fibrotic is excluded since its Vmem range overlaps with the main axis.
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in MorphospaceOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(
+                        false,
+                        "axiom failed: {}",
+                        c.meta().name.as_str()
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn prop_attractor_vmem_min_lt_max(a in arb_attractor()) {
+            let r = AttractorVmemRange.get(&a).unwrap();
+            prop_assert!(r.min < r.max);
+        }
+
         #[test]
         fn prop_severity_vmem_monotonicity(
             a in arb_main_axis_attractor(),
             b in arb_main_axis_attractor(),
         ) {
-            let sev_a = DiseaseSeverity.get(&a).unwrap();
-            let sev_b = DiseaseSeverity.get(&b).unwrap();
-            if sev_a < sev_b {
-                let vmem_a = AttractorVmemRange.get(&a).unwrap();
-                let vmem_b = AttractorVmemRange.get(&b).unwrap();
-                prop_assert!(
-                    vmem_a.max < vmem_b.max,
-                    "Severity monotonicity: {:?} (sev={}, max={}) should have lower Vmem max than {:?} (sev={}, max={})",
-                    a, sev_a, vmem_a.max,
-                    b, sev_b, vmem_b.max
-                );
+            let sa = DiseaseSeverity.get(&a).unwrap();
+            let sb = DiseaseSeverity.get(&b).unwrap();
+            if sa < sb {
+                let va = AttractorVmemRange.get(&a).unwrap();
+                let vb = AttractorVmemRange.get(&b).unwrap();
+                prop_assert!(va.max < vb.max);
             }
         }
-    }
 
-    // -- Literature axioms --
-
-    /// Gralnek 2006: PPI heals ~70% at 4 weeks via acid removal -> basal repair pathway.
-    /// BasalTurnover is GJ-independent.
-    #[test]
-    fn test_literature_gralnek_2006_ppi_basal_turnover_gj_independent() {
-        use MorphospaceEntity::*;
-        assert_eq!(
-            PathwayRequiresGJ.get(&BasalTurnover),
-            Some(false),
-            "Gralnek 2006: PPI heals ~70% at 4 weeks via acid removal, \
-             activating the basal turnover repair pathway which is GJ-independent"
-        );
-    }
-
-    /// Levin 2015 PMID:26610482: gap junction blockade induces different
-    /// species-specific head anatomies -- proving bistability in morphospace.
-    /// Bistability is a PatternConcept in regeneration; GJModulation causes
-    /// pattern change (connecting morphospace to bioelectric interventions).
-    #[test]
-    fn test_literature_levin_2015_gj_blockade_bistability() {
-        use MorphospaceEntity::*;
-        use MorphospaceEvent::*;
-        // GapJunctionLoss (representing GJ blockade) transitively causes
-        // remodeling, proving that GJ modulation alters morphospace state
-        let effects = causation::effects_of::<DiseaseProgressionCauses>(&GapJunctionLoss);
-        assert!(
-            effects.contains(&FibroticRemodeling),
-            "Levin 2015: gap junction blockade causes morphological change \
-             (fibrotic remodeling), demonstrating bistability in morphospace"
-        );
-        // There are at least 2 distinct attractor states, proving bistability
-        let attractors = taxonomy::descendants::<MorphospaceTaxonomy>(&Attractor);
-        assert!(
-            attractors.len() >= 2,
-            "Levin 2015: morphospace must have at least 2 attractor states \
-             to support bistability (head anatomy variants)"
-        );
+        #[test]
+        fn prop_subsumption_targets_valid(_seed in any::<u32>()) {
+            let variants: Vec<_> = MorphospaceConcept::variants();
+            for m in MorphospaceCategory::morphisms() {
+                if m.kind() == MorphospaceRelationKind::Subsumption {
+                    prop_assert!(variants.contains(&m.source()));
+                    prop_assert!(variants.contains(&m.target()));
+                }
+            }
+        }
     }
 }

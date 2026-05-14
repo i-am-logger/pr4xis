@@ -2,44 +2,21 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::building::Building;
-use super::elevator::DoorState;
 use super::request::Request;
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
-impl Situation for Building {
-    fn describe(&self) -> String {
-        let floors: Vec<String> = self
-            .elevators
-            .iter()
-            .map(|e| {
-                format!(
-                    "E{}@F{}{}",
-                    e.id,
-                    e.floor,
-                    if e.door == DoorState::Open {
-                        "(open)"
-                    } else {
-                        ""
-                    }
-                )
-            })
-            .collect();
-        format!(
-            "floors={} pending={} [{}]",
-            self.num_floors,
-            self.pending_requests.len(),
-            floors.join(", ")
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        self.pending_requests.is_empty()
-            && self
-                .elevators
-                .iter()
-                .all(|e| e.is_idle() && e.door == DoorState::Closed)
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
+
+impl Situation for Building {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ElevatorAction {
@@ -51,56 +28,32 @@ pub enum ElevatorAction {
 
 impl Action for ElevatorAction {
     type Sit = Building;
-
-    fn describe(&self) -> String {
-        match self {
-            ElevatorAction::Request(r) => format!("request floor {} → {}", r.floor, r.destination),
-            ElevatorAction::Dispatch => "dispatch".into(),
-            ElevatorAction::Step => "step".into(),
-            ElevatorAction::RunToCompletion { max_steps } => format!("run (max {})", max_steps),
-        }
-    }
 }
 
 pub struct ValidRequest;
 
 impl Precondition<ElevatorAction> for ValidRequest {
-    fn check(&self, building: &Building, action: &ElevatorAction) -> PreconditionResult {
-        if let ElevatorAction::Request(req) = action {
-            if req.floor >= building.num_floors {
-                return PreconditionResult::violated(
-                    "valid_request",
-                    "floor out of range",
-                    &building.describe(),
-                    &action.describe(),
-                );
-            }
-            if req.destination >= building.num_floors {
-                return PreconditionResult::violated(
-                    "valid_request",
-                    "destination out of range",
-                    &building.describe(),
-                    &action.describe(),
-                );
-            }
-            if req.floor == req.destination {
-                return PreconditionResult::violated(
-                    "valid_request",
-                    "same floor",
-                    &building.describe(),
-                    &action.describe(),
-                );
-            }
+    fn check(&self, building: &Building, action: &ElevatorAction) -> Verdict {
+        let meta = axiom_meta(
+            "valid_request",
+            "requests must have valid floors and different origin/destination",
+            "Strakosch & Caporale (2010) The Vertical Transportation Handbook §6; ASME A17.1 Safety Code for Elevators and Escalators",
+        );
+        if let ElevatorAction::Request(req) = action
+            && (req.floor >= building.num_floors
+                || req.destination >= building.num_floors
+                || req.floor == req.destination)
+        {
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("valid_request", "request is valid")
-    }
-
-    fn describe(&self) -> &str {
-        "requests must have valid floors and different origin/destination"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_elevator(building: &Building, action: &ElevatorAction) -> Result<Building, String> {
+fn apply_elevator(
+    building: &Building,
+    action: &ElevatorAction,
+) -> Result<Building, Box<dyn Counterexample>> {
     let mut next = building.clone();
     match action {
         ElevatorAction::Request(req) => {

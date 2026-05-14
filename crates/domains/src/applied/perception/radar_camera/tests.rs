@@ -1,30 +1,29 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::perception::radar_camera::engine::*;
 use crate::applied::perception::radar_camera::ontology::*;
 
 #[test]
 fn radar_camera_category_laws() {
-    check_category_laws::<RadarCameraCategory>().unwrap();
+    assert_category_laws::<RadarCameraCategory>();
 }
 
 #[test]
 fn radar_camera_ontology_validates() {
-    RadarCameraOntology::validate().unwrap();
+    RadarCameraOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn both_modalities_required_holds() {
-    assert!(BothModalitiesRequired.holds());
+    assert!(BothModalitiesRequired.verify().is_ok());
 }
 
 #[test]
 fn fused_output_is_terminal_holds() {
-    assert!(FusedOutputIsTerminal.holds());
+    assert!(FusedOutputIsTerminal.verify().is_ok());
 }
 
 #[test]

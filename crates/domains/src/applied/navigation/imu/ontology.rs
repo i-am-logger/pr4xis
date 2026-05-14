@@ -2,16 +2,13 @@
 //!
 //! Source: Titterton & Weston (2004), Chapter 4; Groves (2013), Chapter 4.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::ontology::reasoning::taxonomy;
+use pr4xis::category::{Arrow, Category};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Imu",
     source: "Titterton & Weston (2004); Groves (2013)",
-    being: PhysicalEndurant,
 
     concepts: [
         Measurement,
@@ -41,6 +38,16 @@ pr4xis::ontology! {
         (AccelerometerScaleFactor, SpecificForce),
         (GyroscopeScaleFactor, AngularRate),
     ],
+}
+
+/// Direct subsumption query: is there an `is_a` edge from `child` to `parent`?
+///
+/// Per #169, the prior `taxonomy::is_a` helper was removed; the taxonomy
+/// lives as `Subsumption`-kinded morphisms in `ImuCategory`.
+fn is_a(child: ImuConcept, parent: ImuConcept) -> bool {
+    ImuCategory::morphisms().iter().any(|m| {
+        m.kind() == ImuRelationKind::Subsumption && m.source() == child && m.target() == parent
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -76,12 +83,19 @@ impl Quality for MeasurementUnit {
 pub struct BiasIsAMeasurement;
 
 impl Axiom for BiasIsAMeasurement {
-    fn description(&self) -> &str {
-        "accelerometer bias is-a specific force measurement (error term)"
+    fn verify(&self) -> Verdict {
+        if is_a(ImuConcept::AccelerometerBias, ImuConcept::SpecificForce) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        taxonomy::is_a::<ImuTaxonomy>(&ImuConcept::AccelerometerBias, &ImuConcept::SpecificForce)
-    }
+
+    pr4xis::axiom_meta!(
+        "BiasIsAMeasurement",
+        "accelerometer bias is-a specific force measurement (error term)",
+        "Titterton & Weston (2004), Chapter 4; Groves (2013), Chapter 4."
+    );
 }
 pr4xis::register_axiom!(
     BiasIsAMeasurement,
@@ -94,30 +108,41 @@ pr4xis::register_axiom!(
 pub struct SpecificForceDefinition;
 
 impl Axiom for SpecificForceDefinition {
-    fn description(&self) -> &str {
-        "specific force = acceleration - gravity: at rest, accelerometer reads -g"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let g = crate::formal::math::quantity::constants::standard_gravity().value;
         let specific_force_at_rest = -g;
-        (specific_force_at_rest + g).abs() < 1e-10
+        if (specific_force_at_rest + g).abs() < 1e-10 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "SpecificForceDefinition",
+        "specific force = acceleration - gravity: at rest, accelerometer reads -g",
+        "Groves (2013), Eq. 4.1."
+    );
 }
-pr4xis::register_axiom!(
-    SpecificForceDefinition,
-    "Titterton & Weston (2004), Chapter 4; Groves (2013), Chapter 4."
-);
+pr4xis::register_axiom!(SpecificForceDefinition, "Groves (2013), Eq. 4.1.");
 
 /// Gyroscope measures angular rate in body frame.
 pub struct GyroscopeBodyFrame;
 
 impl Axiom for GyroscopeBodyFrame {
-    fn description(&self) -> &str {
-        "gyroscope measures angular rate in body frame (3 axes)"
+    fn verify(&self) -> Verdict {
+        if is_a(ImuConcept::AngularRate, ImuConcept::Measurement) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        taxonomy::is_a::<ImuTaxonomy>(&ImuConcept::AngularRate, &ImuConcept::Measurement)
-    }
+
+    pr4xis::axiom_meta!(
+        "GyroscopeBodyFrame",
+        "gyroscope measures angular rate in body frame (3 axes)",
+        "Titterton & Weston (2004), Chapter 4; Groves (2013), Chapter 4."
+    );
 }
 pr4xis::register_axiom!(
     GyroscopeBodyFrame,
@@ -132,31 +157,28 @@ impl Ontology for ImuOntology {
     type Cat = ImuCategory;
     type Qual = MeasurementUnit;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(BiasIsAMeasurement),
-            Box::new(SpecificForceDefinition),
-            Box::new(GyroscopeBodyFrame),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(BiasIsAMeasurement));
+        axioms.push(Box::new(SpecificForceDefinition));
+        axioms.push(Box::new(GyroscopeBodyFrame));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<ImuCategory>().unwrap();
+        assert_category_laws::<ImuCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ImuOntology::validate().unwrap();
+        ImuOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

@@ -1,7 +1,18 @@
-//! Tests for functor composition across domains.
+//! Tests for functor composition across biomedical domains.
 //!
 //! Verifies that chaining functors between domains produces well-defined
 //! composed maps that preserve identity and composition laws.
+//!
+//! # #166 / Subsumption fallback
+//!
+//! Per #166 the synthetic `Composed` relation-kind has been removed from
+//! the proc-macro-generated `*RelationKind` enums. Cross-ontology
+//! synthetic morphisms used here carry `Subsumption` instead — it is the
+//! closest kind in OBO-RO (Smith et al. 2005) for an arbitrary "this
+//! refines that" arrow, and same-kind transitive composition
+//! (`Subsumption∘Subsumption = Subsumption`) is supported by the new
+//! partial-category `compose` so the F(g∘f) = F(g)∘F(f) checks below
+//! remain well-defined.
 
 #[cfg(test)]
 mod tests {
@@ -18,11 +29,10 @@ mod tests {
         use crate::natural::biomedical::pharmacology::molecular_functor::PharmacologyToMolecular;
         use crate::natural::biomedical::pharmacology::ontology::*;
 
-        // For every pharmacology entity, the composed map should be well-defined
+        // For every pharmacology entity, the composed map should be well-defined.
         for entity in PharmacologyEntity::variants() {
             let molecular = PharmacologyToMolecular::map_object(&entity);
             let bioelectric = MolecularToBioelectric::map_object(&molecular);
-            // Verify the composed map exists and maps to a valid entity
             assert!(
                 BioelectricEntity::variants().contains(&bioelectric),
                 "pharma->mol->bioelectric: {:?} -> {:?} -> {:?} is not a valid BioelectricEntity",
@@ -32,7 +42,7 @@ mod tests {
             );
         }
 
-        // Verify composition preserves identity
+        // Verify composition preserves identity.
         for entity in PharmacologyEntity::variants() {
             let id_pharma = PharmacologyCategory::identity(&entity);
             let mapped_once = PharmacologyToMolecular::map_morphism(&id_pharma);
@@ -47,7 +57,8 @@ mod tests {
             );
         }
 
-        // Verify a sample morphism composition
+        // Verify a sample morphism composition under same-kind transitive
+        // Subsumption (#166 — replaces the deleted `Composed` kind).
         let objs = PharmacologyEntity::variants();
         let a = objs[0];
         let b = objs[5];
@@ -55,18 +66,16 @@ mod tests {
         let f = PharmacologyRelation {
             from: a,
             to: b,
-            kind: PharmacologyCategoryRelationKind::Composed,
+            kind: PharmacologyRelationKind::Subsumption,
         };
         let g = PharmacologyRelation {
             from: b,
             to: c,
-            kind: PharmacologyCategoryRelationKind::Composed,
+            kind: PharmacologyRelationKind::Subsumption,
         };
         let composed = PharmacologyCategory::compose(&f, &g).unwrap();
-        // Map composed morphism through both functors
         let mapped_composed =
             MolecularToBioelectric::map_morphism(&PharmacologyToMolecular::map_morphism(&composed));
-        // Map individual morphisms and compose in target
         let f_mapped =
             MolecularToBioelectric::map_morphism(&PharmacologyToMolecular::map_morphism(&f));
         let g_mapped =
@@ -89,7 +98,6 @@ mod tests {
         use crate::natural::biomedical::pharmacology::immunology_functor::PharmacologyToImmunology;
         use crate::natural::biomedical::pharmacology::ontology::*;
 
-        // For every pharmacology entity, the composed map should be well-defined
         for entity in PharmacologyEntity::variants() {
             let immunology = PharmacologyToImmunology::map_object(&entity);
             let biology = ImmunologyToBiology::map_object(&immunology);
@@ -102,7 +110,6 @@ mod tests {
             );
         }
 
-        // Verify composition preserves identity
         for entity in PharmacologyEntity::variants() {
             let id_pharma = PharmacologyCategory::identity(&entity);
             let mapped_once = PharmacologyToImmunology::map_morphism(&id_pharma);
@@ -117,7 +124,6 @@ mod tests {
             );
         }
 
-        // Verify a sample morphism composition
         let objs = PharmacologyEntity::variants();
         let a = objs[0];
         let b = objs[5];
@@ -125,12 +131,12 @@ mod tests {
         let f = PharmacologyRelation {
             from: a,
             to: b,
-            kind: PharmacologyCategoryRelationKind::Composed,
+            kind: PharmacologyRelationKind::Subsumption,
         };
         let g = PharmacologyRelation {
             from: b,
             to: c,
-            kind: PharmacologyCategoryRelationKind::Composed,
+            kind: PharmacologyRelationKind::Subsumption,
         };
         let composed = PharmacologyCategory::compose(&f, &g).unwrap();
         let mapped_composed =
@@ -157,7 +163,6 @@ mod tests {
         use crate::natural::biomedical::pharmacology::immunology_functor::PharmacologyToImmunology;
         use crate::natural::biomedical::pharmacology::ontology::*;
 
-        // For every pharmacology entity, the composed map should be well-defined
         for entity in PharmacologyEntity::variants() {
             let immunology = PharmacologyToImmunology::map_object(&entity);
             let bioelectric = ImmunologyToBioelectric::map_object(&immunology);
@@ -170,7 +175,6 @@ mod tests {
             );
         }
 
-        // Verify composition preserves identity
         for entity in PharmacologyEntity::variants() {
             let id_pharma = PharmacologyCategory::identity(&entity);
             let mapped_once = PharmacologyToImmunology::map_morphism(&id_pharma);
@@ -185,7 +189,6 @@ mod tests {
             );
         }
 
-        // Verify a sample morphism composition
         let objs = PharmacologyEntity::variants();
         let a = objs[1];
         let b = objs[6];
@@ -193,12 +196,12 @@ mod tests {
         let f = PharmacologyRelation {
             from: a,
             to: b,
-            kind: PharmacologyCategoryRelationKind::Composed,
+            kind: PharmacologyRelationKind::Subsumption,
         };
         let g = PharmacologyRelation {
             from: b,
             to: c,
-            kind: PharmacologyCategoryRelationKind::Composed,
+            kind: PharmacologyRelationKind::Subsumption,
         };
         let composed = PharmacologyCategory::compose(&f, &g).unwrap();
         let mapped_composed = ImmunologyToBioelectric::map_morphism(
@@ -226,7 +229,6 @@ mod tests {
         use crate::natural::biomedical::biology::ontology::*;
         use crate::natural::biomedical::regeneration::biology_functor::RegenerationToBiology;
 
-        // For every bioelectric entity, the composed map should be well-defined
         for entity in BioelectricEntity::variants() {
             let regeneration = BioelectricToRegeneration::map_object(&entity);
             let biology = RegenerationToBiology::map_object(&regeneration);
@@ -239,7 +241,6 @@ mod tests {
             );
         }
 
-        // Verify composition preserves identity
         for entity in BioelectricEntity::variants() {
             let id_be = BioelectricCategory::identity(&entity);
             let mapped_once = BioelectricToRegeneration::map_morphism(&id_be);
@@ -254,7 +255,6 @@ mod tests {
             );
         }
 
-        // Verify a sample morphism composition
         let objs = BioelectricEntity::variants();
         let a = objs[0];
         let b = objs[5];
@@ -262,12 +262,12 @@ mod tests {
         let f = BioelectricRelation {
             from: a,
             to: b,
-            kind: BioelectricRelationKind::Composed,
+            kind: BioelectricRelationKind::Subsumption,
         };
         let g = BioelectricRelation {
             from: b,
             to: c,
-            kind: BioelectricRelationKind::Composed,
+            kind: BioelectricRelationKind::Subsumption,
         };
         let composed = BioelectricCategory::compose(&f, &g).unwrap();
         let mapped_composed = RegenerationToBiology::map_morphism(
@@ -295,7 +295,6 @@ mod tests {
         use crate::natural::biomedical::electrophysiology::ontology::*;
         use crate::natural::biomedical::regeneration::ontology::*;
 
-        // For every electrophysiology entity, the composed map should be well-defined
         for entity in ElectrophysiologyEntity::variants() {
             let bioelectric = ElectrophysiologyToBioelectric::map_object(&entity);
             let regeneration = BioelectricToRegeneration::map_object(&bioelectric);
@@ -308,7 +307,6 @@ mod tests {
             );
         }
 
-        // Verify composition preserves identity
         for entity in ElectrophysiologyEntity::variants() {
             let id_ephys = ElectrophysiologyCategory::identity(&entity);
             let mapped_once = ElectrophysiologyToBioelectric::map_morphism(&id_ephys);
@@ -323,7 +321,6 @@ mod tests {
             );
         }
 
-        // Verify a sample morphism composition
         let objs = ElectrophysiologyEntity::variants();
         let a = objs[0];
         let b = objs[5];
@@ -331,12 +328,12 @@ mod tests {
         let f = ElectrophysiologyRelation {
             from: a,
             to: b,
-            kind: ElectrophysiologyCategoryRelationKind::Composed,
+            kind: ElectrophysiologyRelationKind::Subsumption,
         };
         let g = ElectrophysiologyRelation {
             from: b,
             to: c,
-            kind: ElectrophysiologyCategoryRelationKind::Composed,
+            kind: ElectrophysiologyRelationKind::Subsumption,
         };
         let composed = ElectrophysiologyCategory::compose(&f, &g).unwrap();
         let mapped_composed = BioelectricToRegeneration::map_morphism(

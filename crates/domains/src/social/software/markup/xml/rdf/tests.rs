@@ -1,7 +1,6 @@
 use super::ontology::*;
 use pr4xis::category::Category;
 use pr4xis::category::entity::Concept;
-use pr4xis::logic::Axiom;
 
 // =============================================================================
 // Category law tests
@@ -41,8 +40,8 @@ fn associativity() {
                 let fg = RdfCategory::compose(f, g);
                 let gh = RdfCategory::compose(g, h);
                 if let (Some(fg), Some(gh)) = (&fg, &gh) {
-                    let f_gh = RdfCategory::compose(f, &gh);
-                    let fg_h = RdfCategory::compose(&fg, h);
+                    let f_gh = RdfCategory::compose(f, gh);
+                    let fg_h = RdfCategory::compose(fg, h);
                     assert_eq!(f_gh, fg_h, "associativity: (f∘g)∘h = f∘(g∘h)");
                 }
             }
@@ -56,12 +55,14 @@ fn associativity() {
 
 #[test]
 fn literals_cannot_be_subjects() {
-    assert!(LiteralsCannotBeSubjects.holds());
+    use pr4xis::ontology::Axiom;
+    assert!(LiteralsCannotBeSubjects.verify().is_ok());
 }
 
 #[test]
 fn predicates_must_be_properties() {
-    assert!(PredicatesMustBeProperties.holds());
+    use pr4xis::ontology::Axiom;
+    assert!(PredicatesMustBeProperties.verify().is_ok());
 }
 
 // =============================================================================
@@ -144,8 +145,8 @@ fn morphism_set_is_nonempty() {
 
 #[test]
 fn category_laws() {
-    use pr4xis::category::validate::check_category_laws;
-    check_category_laws::<RdfCategory>().unwrap();
+    use pr4xis::category::laws::assert_category_laws;
+    assert_category_laws::<RdfCategory>();
 }
 
 mod prop {

@@ -19,7 +19,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Text",
     source: "Hellmann NIF (2013); Chiarcos OLiA (2015); Coecke DisCoCat (2010)",
-    being: AbstractObject,
 
     concepts: [
         // NIF structural concepts (Hellmann 2013)
@@ -90,28 +89,39 @@ impl Quality for IsStructural {
 pub struct WordIsFullyConnected;
 
 impl Axiom for WordIsFullyConnected {
-    fn description(&self) -> &str {
-        "Word has LexiconReference, GrammaticalType, MeaningReference, Annotation"
-    }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::mereology::MereologyDef;
-        let parts = TextMereology::relations();
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let parts: Vec<_> = TextCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == TextRelationKind::Parthood)
+            .collect();
         let targets = [
             TextConcept::LexiconReference,
             TextConcept::GrammaticalType,
             TextConcept::MeaningReference,
             TextConcept::Annotation,
         ];
-        targets.iter().all(|t| {
+        if targets.iter().all(|t| {
             parts
                 .iter()
-                .any(|(whole, part)| *whole == TextConcept::Word && part == t)
-        })
+                .any(|m| m.source() == TextConcept::Word && m.target() == *t)
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "WordIsFullyConnected",
+        "Word has LexiconReference, GrammaticalType, MeaningReference, Annotation",
+        "Hellmann et al. (2013) NIF 2.0 Core Ontology; Chiarcos & Sukhareva (2015) OLiA"
+    );
 }
 pr4xis::register_axiom!(
     WordIsFullyConnected,
-    "Hellmann et al. NIF (2013); Chiarcos & Sukhareva OLiA (2015);"
+    "Hellmann et al. (2013) NIF 2.0 Core Ontology; Chiarcos & Sukhareva (2015) OLiA"
 );
 
 /// Context contains Sentences which contain Words (two-level mereology).
@@ -119,38 +129,45 @@ pr4xis::register_axiom!(
 pub struct TwoLevelContainment;
 
 impl Axiom for TwoLevelContainment {
-    fn description(&self) -> &str {
-        "Context contains Sentences, Sentences contain Words (NIF structure)"
-    }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::mereology::MereologyDef;
-        let parts = TextMereology::relations();
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let parts: Vec<_> = TextCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == TextRelationKind::Parthood)
+            .collect();
         let ctx_has_sent = parts
             .iter()
-            .any(|(w, p)| *w == TextConcept::Context && *p == TextConcept::Sentence);
+            .any(|m| m.source() == TextConcept::Context && m.target() == TextConcept::Sentence);
         let sent_has_word = parts
             .iter()
-            .any(|(w, p)| *w == TextConcept::Sentence && *p == TextConcept::Word);
-        ctx_has_sent && sent_has_word
+            .any(|m| m.source() == TextConcept::Sentence && m.target() == TextConcept::Word);
+        if ctx_has_sent && sent_has_word {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "TwoLevelContainment",
+        "Context contains Sentences, Sentences contain Words (NIF structure)",
+        "Hellmann et al. (2013) NIF 2.0 Core Ontology"
+    );
 }
 pr4xis::register_axiom!(
     TwoLevelContainment,
-    "Hellmann et al. NIF (2013); Chiarcos & Sukhareva OLiA (2015);"
+    "Hellmann et al. (2013) NIF 2.0 Core Ontology"
 );
 
 impl Ontology for TextOntology {
     type Cat = TextCategory;
     type Qual = IsStructural;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        TextOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(WordIsFullyConnected),
-            Box::new(TwoLevelContainment),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(WordIsFullyConnected));
+        axioms.push(Box::new(TwoLevelContainment));
+        axioms
     }
 }

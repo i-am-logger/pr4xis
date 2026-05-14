@@ -30,7 +30,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "Response",
     source: "Reiter & Dale (2000); Lambek & Scott (1986)",
-    being: Process,
 
     concepts: [Intent, EpistemicFrame, Content, SpeechActType, SurfaceForm, Context],
 
@@ -141,13 +140,22 @@ mod tests {
 
     #[test]
     fn context_reaches_surface_form() {
-        // Full path: Context → Intent → SpeechActType → SurfaceForm
+        // Per #166 the auto-generated kind no longer emits `Composed`;
+        // verify that the direct edges along the path (Context → Intent →
+        // SpeechActType → SurfaceForm) all exist.
+        let m = ResponseCategory::morphisms();
         assert!(
-            ResponseCategory::morphisms()
-                .iter()
-                .any(|m| m.from == ResponseConcept::Context
-                    && m.to == ResponseConcept::SurfaceForm
-                    && m.kind == ResponseRelationKind::Composed)
+            m.iter()
+                .any(|r| r.from == ResponseConcept::Context && r.to == ResponseConcept::Intent)
+        );
+        assert!(
+            m.iter().any(
+                |r| r.from == ResponseConcept::Intent && r.to == ResponseConcept::SpeechActType
+            )
+        );
+        assert!(
+            m.iter().any(|r| r.from == ResponseConcept::SpeechActType
+                && r.to == ResponseConcept::SurfaceForm)
         );
     }
 

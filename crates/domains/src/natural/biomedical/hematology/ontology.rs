@@ -1,172 +1,278 @@
-//! Hematology ontology: blood and blood plasma science.
+//! Hematology ontology — blood and plasma science.
 //!
 //! Models blood components (whole blood, plasma, serum, cells, platelets),
-//! plasma proteins (albumin, globulin, fibrinogen, immunoglobulin),
-//! plasma electrolytes (Na+, K+, Ca2+, Cl-, HCO3-), and blood properties
-//! (osmotic pressure, oncotic pressure, pH, hematocrit, viscosity).
+//! plasma proteins (albumin, globulin, fibrinogen, immunoglobulin), plasma
+//! electrolytes (Na⁺, K⁺, Ca²⁺, Cl⁻, HCO₃⁻), blood properties (osmotic
+//! and oncotic pressure, pH, hematocrit, viscosity), and the canonical
+//! hematology causal chains (hemorrhage → electrolyte imbalance,
+//! inflammation → albumin decrease, acid-base disturbance → buffering,
+//! coagulation cascade → fibrin formation).
+//!
+//! Per `feedback_one_ontology_per_module` the original split between
+//! `HematologyEntity` and `HematologyCausalEvent` has been merged into
+//! one concept list, with events subsumed by the `HematologyEvent`
+//! umbrella.
+//!
+//! # Literature
+//!
+//! - **Hoffman et al. (2018)** *Hematology: Basic Principles and Practice*,
+//!   7th ed., Elsevier — canonical reference for blood-component
+//!   taxonomy (whole blood, plasma, serum, RBC, WBC, platelets), plasma
+//!   proteins (albumin, globulin, fibrinogen, immunoglobulin), and
+//!   the coagulation cascade.
+//! - **Greer et al. (eds.) (2018)** *Wintrobe's Clinical Hematology*,
+//!   14th ed., Wolters Kluwer — comprehensive reference for blood
+//!   physiology, including erythrocyte and leukocyte biology and the
+//!   coagulation cascade fibrin-formation pathway.
+//! - **Williams** *Hematology*, 10th ed., McGraw-Hill (Kaushansky et al.
+//!   eds.) — companion reference for hematopoiesis and the acute-phase
+//!   response (Inflammation → AcutePhaseResponse → AlbuminDecrease).
+//! - **Guyton & Hall (2020)** *Textbook of Medical Physiology*, 14th ed.,
+//!   Elsevier — canonical source for plasma-electrolyte concentrations
+//!   (Na⁺ ≈ 140, K⁺ ≈ 4.5, Ca²⁺ ≈ 2.5, Cl⁻ ≈ 100, HCO₃⁻ ≈ 24 mmol/L)
+//!   and the bicarbonate-buffering / pH-regulation system (blood pH
+//!   7.35–7.45).
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::mereology;
-use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy;
+use pr4xis::category::{Arrow, Category};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entity
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Hematology",
+    source: "Hoffman et al. (2018) Hematology: Basic Principles and Practice 7th ed.; Greer et al. (eds.) (2018) Wintrobe's Clinical Hematology 14th ed.; Kaushansky et al. (eds.) Williams Hematology 10th ed.; Guyton & Hall (2020) Textbook of Medical Physiology 14th ed.",
 
-/// Every entity in the hematology ontology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum HematologyEntity {
-    // Blood components
-    WholeBlood,
-    BloodPlasma,
-    Serum,
-    RedBloodCell,
-    WhiteBloodCell,
-    Platelet,
+    concepts: [
+        // === Blood components (Hoffman et al. 2018 §1) ===
+        WholeBlood,
+        BloodPlasma,
+        Serum,
+        RedBloodCell,
+        WhiteBloodCell,
+        Platelet,
 
-    // Plasma proteins
-    Albumin,
-    Globulin,
-    Fibrinogen,
-    Immunoglobulin,
+        // === Plasma proteins (Hoffman et al. 2018 §3) ===
+        Albumin,
+        Globulin,
+        Fibrinogen,
+        Immunoglobulin,
 
-    // Plasma electrolytes
-    SodiumPlasma,
-    PotassiumPlasma,
-    CalciumPlasma,
-    ChloridePlasma,
-    BicarbonatePlasma,
+        // === Plasma electrolytes (Guyton & Hall 2020 Ch. 25) ===
+        SodiumPlasma,
+        PotassiumPlasma,
+        CalciumPlasma,
+        ChloridePlasma,
+        BicarbonatePlasma,
 
-    // Properties
-    OsmoticPressure,
-    OncoticPressure,
-    BloodPH,
-    Hematocrit,
-    Viscosity,
+        // === Blood properties ===
+        OsmoticPressure,
+        OncoticPressure,
+        BloodPH,
+        Hematocrit,
+        Viscosity,
 
-    // Abstract
-    BloodComponent,
-    PlasmaProtein,
-    PlasmaElectrolyte,
-    BloodProperty,
+        // === Abstract umbrellas ===
+        BloodComponent,
+        PlasmaProtein,
+        PlasmaElectrolyte,
+        BloodProperty,
+        HematologyEvent,
+
+        // === Causal events (merged from HematologyCausalEvent) ===
+        Hemorrhage,
+        PlasmaVolumeLoss,
+        ElectrolyteImbalance,
+        Inflammation,
+        AcutePhaseResponse,
+        AlbuminDecrease,
+        AcidBaseDisturbance,
+        BicarbonateBuffering,
+        PHCorrection,
+        CoagulationCascade,
+        FibrinFormation,
+    ],
+
+    labels: {
+        WholeBlood: ("en", "Whole blood",
+            "Hoffman et al. (2018) §1: blood as collected, including plasma and cellular elements."),
+        BloodPlasma: ("en", "Blood plasma",
+            "Hoffman et al. (2018) §1: the liquid component of blood — water, proteins, electrolytes, dissolved gases."),
+        Serum: ("en", "Serum",
+            "Hoffman et al. (2018) §1: plasma minus the clotting factors — the supernatant after coagulation."),
+        RedBloodCell: ("en", "Red blood cell",
+            "Greer et al. (2018): erythrocyte — anucleate cell carrying hemoglobin for O₂/CO₂ transport."),
+        WhiteBloodCell: ("en", "White blood cell",
+            "Greer et al. (2018): leukocyte — nucleated immune cell."),
+        Platelet: ("en", "Platelet",
+            "Greer et al. (2018): thrombocyte — small anucleate cell fragment mediating primary hemostasis."),
+
+        Albumin: ("en", "Albumin",
+            "Hoffman et al. (2018) §3: the dominant plasma protein; maintains oncotic pressure and transports many ligands."),
+        Globulin: ("en", "Globulin",
+            "Hoffman et al. (2018) §3: plasma protein class including immunoglobulins and transport globulins."),
+        Fibrinogen: ("en", "Fibrinogen",
+            "Hoffman et al. (2018) §3: plasma protein converted to fibrin during coagulation."),
+        Immunoglobulin: ("en", "Immunoglobulin",
+            "Hoffman et al. (2018) §3: antibody — gamma-globulin produced by plasma cells."),
+
+        SodiumPlasma: ("en", "Plasma sodium",
+            "Guyton & Hall (2020) Ch. 25: Na⁺; normal ~140 mmol/L; dominant plasma cation."),
+        PotassiumPlasma: ("en", "Plasma potassium",
+            "Guyton & Hall (2020) Ch. 25: K⁺; normal ~4.5 mmol/L."),
+        CalciumPlasma: ("en", "Plasma calcium",
+            "Guyton & Hall (2020) Ch. 25: Ca²⁺; normal ~2.5 mmol/L."),
+        ChloridePlasma: ("en", "Plasma chloride",
+            "Guyton & Hall (2020) Ch. 25: Cl⁻; normal ~100 mmol/L; dominant plasma anion."),
+        BicarbonatePlasma: ("en", "Plasma bicarbonate",
+            "Guyton & Hall (2020) Ch. 25: HCO₃⁻; normal ~24 mmol/L; primary blood buffer."),
+
+        OsmoticPressure: ("en", "Osmotic pressure",
+            "Guyton & Hall (2020): total osmotic pressure of plasma — dominated by electrolytes."),
+        OncoticPressure: ("en", "Oncotic pressure",
+            "Guyton & Hall (2020): the colloid osmotic pressure contributed by plasma proteins, primarily albumin."),
+        BloodPH: ("en", "Blood pH",
+            "Guyton & Hall (2020): the −log₁₀ H⁺ activity of blood; tightly regulated to 7.35–7.45."),
+        Hematocrit: ("en", "Hematocrit",
+            "Greer et al. (2018): the volume fraction of erythrocytes in whole blood."),
+        Viscosity: ("en", "Blood viscosity",
+            "Greer et al. (2018): the resistance of blood to flow — depends on hematocrit and plasma proteins."),
+
+        BloodComponent: ("en", "Blood component (abstract)",
+            "Hoffman et al. (2018): umbrella for the components of whole blood."),
+        PlasmaProtein: ("en", "Plasma protein (abstract)",
+            "Hoffman et al. (2018) §3: umbrella for soluble protein constituents of plasma."),
+        PlasmaElectrolyte: ("en", "Plasma electrolyte (abstract)",
+            "Guyton & Hall (2020) Ch. 25: umbrella for ionic solutes in plasma."),
+        BloodProperty: ("en", "Blood property (abstract)",
+            "Greer et al. (2018): umbrella for measurable properties of blood."),
+        HematologyEvent: ("en", "Hematology event (abstract)",
+            "Hoffman et al. (2018): umbrella for time-extended processes in hematology (hemorrhage, coagulation, buffering, acute-phase response)."),
+
+        Hemorrhage: ("en", "Hemorrhage",
+            "Hoffman et al. (2018): loss of blood from the vascular compartment."),
+        PlasmaVolumeLoss: ("en", "Plasma volume loss",
+            "Hoffman et al. (2018): reduction in circulating plasma volume."),
+        ElectrolyteImbalance: ("en", "Electrolyte imbalance",
+            "Guyton & Hall (2020): deviation of plasma electrolyte concentrations from normal."),
+        Inflammation: ("en", "Inflammation",
+            "Williams Hematology: systemic inflammatory state."),
+        AcutePhaseResponse: ("en", "Acute-phase response",
+            "Williams Hematology: hepatic response to inflammation — altered synthesis of acute-phase proteins."),
+        AlbuminDecrease: ("en", "Albumin decrease",
+            "Williams Hematology: decreased albumin synthesis during the acute-phase response."),
+        AcidBaseDisturbance: ("en", "Acid-base disturbance",
+            "Guyton & Hall (2020): perturbation of normal blood pH."),
+        BicarbonateBuffering: ("en", "Bicarbonate buffering",
+            "Guyton & Hall (2020) Ch. 30: HCO₃⁻/H₂CO₃ buffering — the primary plasma buffer system."),
+        PHCorrection: ("en", "pH correction",
+            "Guyton & Hall (2020): restoration of blood pH to the 7.35–7.45 range."),
+        CoagulationCascade: ("en", "Coagulation cascade",
+            "Hoffman et al. (2018) §10: the canonical clotting-factor cascade."),
+        FibrinFormation: ("en", "Fibrin formation",
+            "Hoffman et al. (2018) §10: thrombin-mediated conversion of fibrinogen to fibrin polymer."),
+    },
+
+    is_a: [
+        // Blood components.
+        (WholeBlood, BloodComponent),
+        (BloodPlasma, BloodComponent),
+        (Serum, BloodComponent),
+        (RedBloodCell, BloodComponent),
+        (WhiteBloodCell, BloodComponent),
+        (Platelet, BloodComponent),
+        // Plasma proteins.
+        (Albumin, PlasmaProtein),
+        (Globulin, PlasmaProtein),
+        (Fibrinogen, PlasmaProtein),
+        (Immunoglobulin, PlasmaProtein),
+        // Plasma electrolytes.
+        (SodiumPlasma, PlasmaElectrolyte),
+        (PotassiumPlasma, PlasmaElectrolyte),
+        (CalciumPlasma, PlasmaElectrolyte),
+        (ChloridePlasma, PlasmaElectrolyte),
+        (BicarbonatePlasma, PlasmaElectrolyte),
+        // Blood properties.
+        (OsmoticPressure, BloodProperty),
+        (OncoticPressure, BloodProperty),
+        (BloodPH, BloodProperty),
+        (Hematocrit, BloodProperty),
+        (Viscosity, BloodProperty),
+        // Events.
+        (Hemorrhage, HematologyEvent),
+        (PlasmaVolumeLoss, HematologyEvent),
+        (ElectrolyteImbalance, HematologyEvent),
+        (Inflammation, HematologyEvent),
+        (AcutePhaseResponse, HematologyEvent),
+        (AlbuminDecrease, HematologyEvent),
+        (AcidBaseDisturbance, HematologyEvent),
+        (BicarbonateBuffering, HematologyEvent),
+        (PHCorrection, HematologyEvent),
+        (CoagulationCascade, HematologyEvent),
+        (FibrinFormation, HematologyEvent),
+    ],
+
+    has_a: [
+        // Whole blood = plasma + cellular elements (Hoffman et al. 2018 §1).
+        (WholeBlood, BloodPlasma),
+        (WholeBlood, RedBloodCell),
+        (WholeBlood, WhiteBloodCell),
+        (WholeBlood, Platelet),
+        // Plasma contains proteins (Hoffman et al. 2018 §3) and
+        // electrolytes (Guyton & Hall 2020 Ch. 25).
+        (BloodPlasma, Albumin),
+        (BloodPlasma, Globulin),
+        (BloodPlasma, Fibrinogen),
+        (BloodPlasma, Immunoglobulin),
+        (BloodPlasma, SodiumPlasma),
+        (BloodPlasma, PotassiumPlasma),
+        (BloodPlasma, CalciumPlasma),
+        (BloodPlasma, ChloridePlasma),
+        (BloodPlasma, BicarbonatePlasma),
+    ],
+
+    causes: [
+        // Hemorrhage chain (Hoffman et al. 2018).
+        (Hemorrhage, PlasmaVolumeLoss),
+        (PlasmaVolumeLoss, ElectrolyteImbalance),
+        // Acute-phase response (Williams Hematology).
+        (Inflammation, AcutePhaseResponse),
+        (AcutePhaseResponse, AlbuminDecrease),
+        // Buffering / pH regulation (Guyton & Hall 2020 Ch. 30).
+        (AcidBaseDisturbance, BicarbonateBuffering),
+        (BicarbonateBuffering, PHCorrection),
+        // Coagulation cascade (Hoffman et al. 2018 §10).
+        (CoagulationCascade, FibrinFormation),
+    ],
+
+    opposes: [
+        // Transport vs immune function: albumin (oncotic / transport) vs
+        // globulin (which includes immunoglobulins).
+        (Albumin, Globulin),
+        (Globulin, Albumin),
+        // Oxygen transport vs immune defense.
+        (RedBloodCell, WhiteBloodCell),
+        (WhiteBloodCell, RedBloodCell),
+    ],
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy (is-a)
-// ---------------------------------------------------------------------------
-
-/// Subsumption hierarchy for hematology entities.
-///
-/// Components -> BloodComponent, proteins -> PlasmaProtein,
-/// electrolytes -> PlasmaElectrolyte, properties -> BloodProperty.
-/// Serum is plasma minus clotting factors (both are BloodComponent).
-/// Events in the hematology causal chain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum HematologyCausalEvent {
-    Hemorrhage,
-    PlasmaVolumeLoss,
-    ElectrolyteImbalance,
-    Inflammation,
-    AcutePhaseResponse,
-    AlbuminDecrease,
-    AcidBaseDisturbance,
-    BicarbonateBuffering,
-    PHCorrection,
-    CoagulationCascade,
-    FibrinFormation,
-}
-
-// Causal graph for hematology.
-//
-// Hemorrhage -> PlasmaVolumeLoss -> ElectrolyteImbalance
-// Inflammation -> AcutePhaseResponse -> AlbuminDecrease
-// AcidBaseDisturbance -> BicarbonateBuffering -> PHCorrection
-// CoagulationCascade -> FibrinFormation
-define_ontology! {
-    /// Hematology ontology: blood, plasma, electrolytes, properties.
-    pub HematologyOntologyMeta for HematologyCategory {
-        entity: HematologyEntity,
-        relation: HematologyRelation,
-        being: AbstractObject,
-        source: "citings pending",
-
-        taxonomy: HematologyTaxonomy [
-            (WholeBlood, BloodComponent),
-            (BloodPlasma, BloodComponent),
-            (Serum, BloodComponent),
-            (RedBloodCell, BloodComponent),
-            (WhiteBloodCell, BloodComponent),
-            (Platelet, BloodComponent),
-            (Albumin, PlasmaProtein),
-            (Globulin, PlasmaProtein),
-            (Fibrinogen, PlasmaProtein),
-            (Immunoglobulin, PlasmaProtein),
-            (SodiumPlasma, PlasmaElectrolyte),
-            (PotassiumPlasma, PlasmaElectrolyte),
-            (CalciumPlasma, PlasmaElectrolyte),
-            (ChloridePlasma, PlasmaElectrolyte),
-            (BicarbonatePlasma, PlasmaElectrolyte),
-            (OsmoticPressure, BloodProperty),
-            (OncoticPressure, BloodProperty),
-            (BloodPH, BloodProperty),
-            (Hematocrit, BloodProperty),
-            (Viscosity, BloodProperty),
-        ],
-
-        mereology: HematologyMereology [
-            (WholeBlood, BloodPlasma),
-            (WholeBlood, RedBloodCell),
-            (WholeBlood, WhiteBloodCell),
-            (WholeBlood, Platelet),
-            (BloodPlasma, Albumin),
-            (BloodPlasma, Globulin),
-            (BloodPlasma, Fibrinogen),
-            (BloodPlasma, Immunoglobulin),
-            (BloodPlasma, SodiumPlasma),
-            (BloodPlasma, PotassiumPlasma),
-            (BloodPlasma, CalciumPlasma),
-            (BloodPlasma, ChloridePlasma),
-            (BloodPlasma, BicarbonatePlasma),
-        ],
-
-        causation: HematologyCauses for HematologyCausalEvent [
-            (Hemorrhage, PlasmaVolumeLoss),
-            (PlasmaVolumeLoss, ElectrolyteImbalance),
-            (Inflammation, AcutePhaseResponse),
-            (AcutePhaseResponse, AlbuminDecrease),
-            (AcidBaseDisturbance, BicarbonateBuffering),
-            (BicarbonateBuffering, PHCorrection),
-            (CoagulationCascade, FibrinFormation),
-        ],
-
-        opposition: HematologyOpposition [
-            (Albumin, Globulin),
-            (RedBloodCell, WhiteBloodCell),
-        ],
-    }
-}
+// Backward-compatibility re-exports.
+pub use HematologyConcept as HematologyEntity;
+pub use HematologyRelationKind as HematologyCategoryRelationKind;
 
 // ---------------------------------------------------------------------------
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Normal plasma concentration in mmol/L for electrolytes.
+/// Normal plasma concentration in mmol/L for electrolytes (Guyton & Hall
+/// 2020 Ch. 25).
 #[derive(Debug, Clone)]
 pub struct NormalConcentration;
 
 impl Quality for NormalConcentration {
-    type Individual = HematologyEntity;
+    type Individual = HematologyConcept;
     type Value = f64;
 
-    fn get(&self, individual: &HematologyEntity) -> Option<f64> {
-        use HematologyEntity::*;
+    fn get(&self, individual: &HematologyConcept) -> Option<f64> {
+        use HematologyConcept::*;
         match individual {
             SodiumPlasma => Some(140.0),
             PotassiumPlasma => Some(4.5),
@@ -178,30 +284,31 @@ impl Quality for NormalConcentration {
     }
 }
 
-/// Whether an entity is a clotting factor.
+/// Quality: is this entity a clotting factor (Hoffman et al. 2018 §10)?
 #[derive(Debug, Clone)]
 pub struct IsClottingFactor;
 
 impl Quality for IsClottingFactor {
-    type Individual = HematologyEntity;
+    type Individual = HematologyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &HematologyEntity) -> Option<bool> {
-        use HematologyEntity::*;
+    fn get(&self, individual: &HematologyConcept) -> Option<bool> {
+        use HematologyConcept::*;
         Some(matches!(individual, Fibrinogen | Platelet))
     }
 }
 
-/// Whether an entity affects osmolarity.
+/// Quality: does this entity contribute to plasma osmolarity (Guyton &
+/// Hall 2020 Ch. 25)?
 #[derive(Debug, Clone)]
 pub struct AffectsOsmolarity;
 
 impl Quality for AffectsOsmolarity {
-    type Individual = HematologyEntity;
+    type Individual = HematologyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &HematologyEntity) -> Option<bool> {
-        use HematologyEntity::*;
+    fn get(&self, individual: &HematologyConcept) -> Option<bool> {
+        use HematologyConcept::*;
         Some(matches!(
             individual,
             SodiumPlasma
@@ -215,229 +322,245 @@ impl Quality for AffectsOsmolarity {
 }
 
 // ---------------------------------------------------------------------------
-// Opposition
+// Helpers
 // ---------------------------------------------------------------------------
 
-// Opposition pairs in hematology.
-//
-// - Hemorrhage ↔ CoagulationCascade (bleeding vs clotting) — modeled via
-//   causal events, but also as entity-level opposition using Platelet vs
-//   the abstract BloodComponent to capture the semantic contrast.
-// - Albumin ↔ Globulin (transport vs immune function)
-// - RedBloodCell ↔ WhiteBloodCell (oxygen transport vs immune defense)
+fn parts_of(whole: HematologyConcept) -> Vec<HematologyConcept> {
+    HematologyCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == HematologyRelationKind::Parthood && m.source() == whole)
+        .map(|m| m.target())
+        .collect()
+}
+
+fn causes(cause: HematologyConcept, effect: HematologyConcept) -> bool {
+    HematologyCategory::morphisms().iter().any(|m| {
+        m.kind() == HematologyRelationKind::Causation && m.source() == cause && m.target() == effect
+    })
+}
 
 // ---------------------------------------------------------------------------
-// Axioms
+// Domain axioms
 // ---------------------------------------------------------------------------
 
-/// The taxonomy has no cycles (is a DAG).
-pub struct HematologyTaxonomyIsDAG;
-
-impl Axiom for HematologyTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "hematology taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<HematologyTaxonomy>::new().holds()
-    }
-}
-pr4xis::register_axiom!(HematologyTaxonomyIsDAG);
-
-/// The taxonomy is antisymmetric.
-pub struct HematologyTaxonomyAntisymmetric;
-
-impl Axiom for HematologyTaxonomyAntisymmetric {
-    fn description(&self) -> &str {
-        "hematology taxonomy is antisymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::Antisymmetric::<HematologyTaxonomy>::new().holds()
-    }
-}
-pr4xis::register_axiom!(HematologyTaxonomyAntisymmetric);
-
-/// The mereology has no cycles (is a DAG).
-pub struct HematologyMereologyIsDAG;
-
-impl Axiom for HematologyMereologyIsDAG {
-    fn description(&self) -> &str {
-        "hematology mereology is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        mereology::NoCycles::<HematologyMereology>::new().holds()
-    }
-}
-pr4xis::register_axiom!(HematologyMereologyIsDAG);
-
-/// Causal graph is asymmetric.
-pub struct HematologyCausalAsymmetric;
-
-impl Axiom for HematologyCausalAsymmetric {
-    fn description(&self) -> &str {
-        "hematology causal graph is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<HematologyCauses>::new().holds()
-    }
-}
-pr4xis::register_axiom!(HematologyCausalAsymmetric);
-
-/// No self-causation.
-pub struct HematologyCausalNoSelfCausation;
-
-impl Axiom for HematologyCausalNoSelfCausation {
-    fn description(&self) -> &str {
-        "no hematology event directly causes itself"
-    }
-
-    fn holds(&self) -> bool {
-        causation::NoSelfCausation::<HematologyCauses>::new().holds()
-    }
-}
-pr4xis::register_axiom!(HematologyCausalNoSelfCausation);
-
-/// WholeBlood contains BloodPlasma (mereology).
+/// Whole blood contains blood plasma (Hoffman et al. 2018 §1).
 pub struct WholeBloodContainsPlasma;
 
 impl Axiom for WholeBloodContainsPlasma {
-    fn description(&self) -> &str {
-        "whole blood contains blood plasma"
+    fn verify(&self) -> Verdict {
+        if parts_of(HematologyConcept::WholeBlood).contains(&HematologyConcept::BloodPlasma) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        use HematologyEntity::*;
-        let parts = mereology::parts_of::<HematologyMereology>(&WholeBlood);
-        parts.contains(&BloodPlasma)
-    }
+    pr4xis::axiom_meta!(
+        "WholeBloodContainsPlasma",
+        "whole blood contains blood plasma",
+        "Hoffman et al. (2018) Hematology: Basic Principles and Practice 7th ed. §1"
+    );
 }
-pr4xis::register_axiom!(WholeBloodContainsPlasma);
 
-/// BloodPlasma contains all electrolytes (mereology).
+pr4xis::register_axiom!(
+    WholeBloodContainsPlasma,
+    "Hoffman et al. (2018) Hematology 7th ed. §1"
+);
+
+/// Blood plasma contains all five plasma electrolytes (Guyton & Hall 2020
+/// Ch. 25).
 pub struct PlasmaContainsAllElectrolytes;
 
 impl Axiom for PlasmaContainsAllElectrolytes {
-    fn description(&self) -> &str {
-        "blood plasma contains all plasma electrolytes"
-    }
-
-    fn holds(&self) -> bool {
-        use HematologyEntity::*;
-        let parts = mereology::parts_of::<HematologyMereology>(&BloodPlasma);
-        parts.contains(&SodiumPlasma)
+    fn verify(&self) -> Verdict {
+        use HematologyConcept::*;
+        let parts = parts_of(BloodPlasma);
+        let ok = parts.contains(&SodiumPlasma)
             && parts.contains(&PotassiumPlasma)
             && parts.contains(&CalciumPlasma)
             && parts.contains(&ChloridePlasma)
-            && parts.contains(&BicarbonatePlasma)
+            && parts.contains(&BicarbonatePlasma);
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-}
-pr4xis::register_axiom!(PlasmaContainsAllElectrolytes);
 
-/// Sodium is the dominant plasma cation: Na >> K.
+    pr4xis::axiom_meta!(
+        "PlasmaContainsAllElectrolytes",
+        "blood plasma contains all five canonical plasma electrolytes (Na⁺, K⁺, Ca²⁺, Cl⁻, HCO₃⁻)",
+        "Guyton & Hall (2020) Textbook of Medical Physiology 14th ed. Ch. 25"
+    );
+}
+
+pr4xis::register_axiom!(
+    PlasmaContainsAllElectrolytes,
+    "Guyton & Hall (2020) Textbook of Medical Physiology 14th ed. Ch. 25"
+);
+
+/// Sodium is the dominant plasma cation: [Na⁺] ≫ [K⁺] by more than an
+/// order of magnitude (Guyton & Hall 2020 Ch. 25: 140 mmol/L vs 4.5 mmol/L).
 pub struct SodiumIsDominantCation;
 
 impl Axiom for SodiumIsDominantCation {
-    fn description(&self) -> &str {
-        "sodium is the dominant plasma cation (140 mmol/L >> 4.5 mmol/L potassium)"
+    fn verify(&self) -> Verdict {
+        let na = NormalConcentration.get(&HematologyConcept::SodiumPlasma);
+        let k = NormalConcentration.get(&HematologyConcept::PotassiumPlasma);
+        let ok = match (na, k) {
+            (Some(na), Some(k)) if k > 0.0 => na > k * 10.0,
+            _ => false,
+        };
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        use HematologyEntity::*;
-        let na = NormalConcentration.get(&SodiumPlasma).unwrap();
-        let k = NormalConcentration.get(&PotassiumPlasma).unwrap();
-        na > k * 10.0 // Na is ~31x K
-    }
+    pr4xis::axiom_meta!(
+        "SodiumIsDominantCation",
+        "sodium is the dominant plasma cation — [Na⁺]/[K⁺] > 10 (140 mmol/L vs 4.5 mmol/L)",
+        "Guyton & Hall (2020) Textbook of Medical Physiology 14th ed. Ch. 25"
+    );
 }
-pr4xis::register_axiom!(SodiumIsDominantCation);
 
-/// Blood pH is tightly regulated (7.35-7.45).
+pr4xis::register_axiom!(
+    SodiumIsDominantCation,
+    "Guyton & Hall (2020) Textbook of Medical Physiology 14th ed. Ch. 25"
+);
+
+/// Blood pH is tightly regulated by bicarbonate buffering: acid-base
+/// disturbance transitively causes pH correction (Guyton & Hall 2020
+/// Ch. 30).
 pub struct BloodPHRegulated;
 
 impl Axiom for BloodPHRegulated {
-    fn description(&self) -> &str {
-        "blood pH is tightly regulated between 7.35 and 7.45"
+    fn verify(&self) -> Verdict {
+        if causes(
+            HematologyConcept::AcidBaseDisturbance,
+            HematologyConcept::PHCorrection,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        // The normal blood pH range is a scientific fact axiom.
-        // We verify the bicarbonate buffering system exists to maintain it.
-        use HematologyCausalEvent::*;
-        let effects = causation::effects_of::<HematologyCauses>(&AcidBaseDisturbance);
-        effects.contains(&PHCorrection)
-    }
+    pr4xis::axiom_meta!(
+        "BloodPHRegulated",
+        "acid-base disturbance is corrected via bicarbonate buffering (blood pH regulated to 7.35–7.45)",
+        "Guyton & Hall (2020) Textbook of Medical Physiology 14th ed. Ch. 30"
+    );
 }
-pr4xis::register_axiom!(BloodPHRegulated);
 
-/// Hemorrhage transitively causes electrolyte imbalance.
+pr4xis::register_axiom!(
+    BloodPHRegulated,
+    "Guyton & Hall (2020) Textbook of Medical Physiology 14th ed. Ch. 30"
+);
+
+/// Hemorrhage transitively causes electrolyte imbalance (Hoffman et al.
+/// 2018 — hemorrhage → plasma-volume loss → electrolyte imbalance).
 pub struct HemorrhageCausesElectrolyteImbalance;
 
 impl Axiom for HemorrhageCausesElectrolyteImbalance {
-    fn description(&self) -> &str {
-        "hemorrhage transitively causes electrolyte imbalance"
+    fn verify(&self) -> Verdict {
+        if causes(
+            HematologyConcept::Hemorrhage,
+            HematologyConcept::ElectrolyteImbalance,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        use HematologyCausalEvent::*;
-        let effects = causation::effects_of::<HematologyCauses>(&Hemorrhage);
-        effects.contains(&ElectrolyteImbalance)
-    }
+    pr4xis::axiom_meta!(
+        "HemorrhageCausesElectrolyteImbalance",
+        "hemorrhage transitively causes electrolyte imbalance via plasma-volume loss",
+        "Hoffman et al. (2018) Hematology 7th ed."
+    );
 }
-pr4xis::register_axiom!(HemorrhageCausesElectrolyteImbalance);
 
-/// Opposition is symmetric.
-pub struct HematologyOppositionSymmetric;
+pr4xis::register_axiom!(
+    HemorrhageCausesElectrolyteImbalance,
+    "Hoffman et al. (2018) Hematology 7th ed."
+);
 
-impl Axiom for HematologyOppositionSymmetric {
-    fn description(&self) -> &str {
-        "hematology opposition is symmetric"
+/// Inflammation transitively causes albumin decrease (Williams Hematology
+/// — acute-phase response down-regulates hepatic albumin synthesis).
+pub struct InflammationCausesAlbuminDecrease;
+
+impl Axiom for InflammationCausesAlbuminDecrease {
+    fn verify(&self) -> Verdict {
+        if causes(
+            HematologyConcept::Inflammation,
+            HematologyConcept::AlbuminDecrease,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<HematologyOpposition>::new().holds()
-    }
+    pr4xis::axiom_meta!(
+        "InflammationCausesAlbuminDecrease",
+        "inflammation transitively causes albumin decrease via the acute-phase response",
+        "Kaushansky et al. (eds.) Williams Hematology 10th ed."
+    );
 }
-pr4xis::register_axiom!(HematologyOppositionSymmetric);
 
-/// Opposition is irreflexive.
-pub struct HematologyOppositionIrreflexive;
+pr4xis::register_axiom!(
+    InflammationCausesAlbuminDecrease,
+    "Kaushansky et al. (eds.) Williams Hematology 10th ed."
+);
 
-impl Axiom for HematologyOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "hematology opposition is irreflexive"
+/// Coagulation cascade transitively causes fibrin formation (Hoffman et
+/// al. 2018 §10).
+pub struct CoagulationProducesFibrin;
+
+impl Axiom for CoagulationProducesFibrin {
+    fn verify(&self) -> Verdict {
+        if causes(
+            HematologyConcept::CoagulationCascade,
+            HematologyConcept::FibrinFormation,
+        ) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<HematologyOpposition>::new().holds()
-    }
+    pr4xis::axiom_meta!(
+        "CoagulationProducesFibrin",
+        "the coagulation cascade transitively causes fibrin formation",
+        "Hoffman et al. (2018) Hematology 7th ed. §10"
+    );
 }
-pr4xis::register_axiom!(HematologyOppositionIrreflexive);
+
+pr4xis::register_axiom!(
+    CoagulationProducesFibrin,
+    "Hoffman et al. (2018) Hematology 7th ed. §10"
+);
 
 // ---------------------------------------------------------------------------
 // Ontology
 // ---------------------------------------------------------------------------
 
-/// Top-level hematology ontology.
-pub struct HematologyOntology;
-
 impl Ontology for HematologyOntology {
     type Cat = HematologyCategory;
     type Qual = NormalConcentration;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        HematologyOntologyMeta::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(WholeBloodContainsPlasma),
-            Box::new(PlasmaContainsAllElectrolytes),
-            Box::new(SodiumIsDominantCation),
-            Box::new(BloodPHRegulated),
-            Box::new(HemorrhageCausesElectrolyteImbalance),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(WholeBloodContainsPlasma));
+        axioms.push(Box::new(PlasmaContainsAllElectrolytes));
+        axioms.push(Box::new(SodiumIsDominantCation));
+        axioms.push(Box::new(BloodPHRegulated));
+        axioms.push(Box::new(HemorrhageCausesElectrolyteImbalance));
+        axioms.push(Box::new(InflammationCausesAlbuminDecrease));
+        axioms.push(Box::new(CoagulationProducesFibrin));
+        axioms
     }
 }
 
@@ -448,392 +571,310 @@ impl Ontology for HematologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::mereology::MereologyCategory;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use proptest::prelude::*;
 
-    // -- Axiom tests --
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(
-            HematologyTaxonomyIsDAG.holds(),
-            "{}",
-            HematologyTaxonomyIsDAG.description()
-        );
+    /// Local subsumption query: is there an `is_a` edge from `child` to `parent`?
+    /// (Per `feedback_no_helpers_in_core`, this lives in the test module, not core.)
+    fn is_a(child: HematologyConcept, parent: HematologyConcept) -> bool {
+        HematologyCategory::morphisms().iter().any(|m| {
+            m.kind() == HematologyRelationKind::Subsumption
+                && m.source() == child
+                && m.target() == parent
+        })
     }
 
     #[test]
-    fn test_taxonomy_antisymmetric() {
-        assert!(
-            HematologyTaxonomyAntisymmetric.holds(),
-            "{}",
-            HematologyTaxonomyAntisymmetric.description()
-        );
+    fn category_laws() {
+        assert_category_laws::<HematologyCategory>();
     }
 
     #[test]
-    fn test_mereology_is_dag() {
-        assert!(
-            HematologyMereologyIsDAG.holds(),
-            "{}",
-            HematologyMereologyIsDAG.description()
-        );
+    fn ontology_validates() {
+        HematologyOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    // -- Domain axiom tests --
+
+    #[test]
+    fn whole_blood_contains_plasma() {
+        assert!(WholeBloodContainsPlasma.verify().is_ok());
     }
 
     #[test]
-    fn test_causal_asymmetric() {
-        assert!(
-            HematologyCausalAsymmetric.holds(),
-            "{}",
-            HematologyCausalAsymmetric.description()
-        );
+    fn plasma_contains_all_electrolytes() {
+        assert!(PlasmaContainsAllElectrolytes.verify().is_ok());
     }
 
     #[test]
-    fn test_causal_no_self_causation() {
-        assert!(
-            HematologyCausalNoSelfCausation.holds(),
-            "{}",
-            HematologyCausalNoSelfCausation.description()
-        );
+    fn sodium_is_dominant_cation() {
+        assert!(SodiumIsDominantCation.verify().is_ok());
     }
 
     #[test]
-    fn test_whole_blood_contains_plasma() {
-        assert!(
-            WholeBloodContainsPlasma.holds(),
-            "{}",
-            WholeBloodContainsPlasma.description()
-        );
+    fn blood_ph_regulated() {
+        assert!(BloodPHRegulated.verify().is_ok());
     }
 
     #[test]
-    fn test_plasma_contains_all_electrolytes() {
-        assert!(
-            PlasmaContainsAllElectrolytes.holds(),
-            "{}",
-            PlasmaContainsAllElectrolytes.description()
-        );
+    fn hemorrhage_causes_electrolyte_imbalance() {
+        assert!(HemorrhageCausesElectrolyteImbalance.verify().is_ok());
     }
 
     #[test]
-    fn test_sodium_is_dominant_cation() {
-        assert!(
-            SodiumIsDominantCation.holds(),
-            "{}",
-            SodiumIsDominantCation.description()
-        );
+    fn inflammation_causes_albumin_decrease() {
+        assert!(InflammationCausesAlbuminDecrease.verify().is_ok());
     }
 
     #[test]
-    fn test_blood_ph_regulated() {
-        assert!(
-            BloodPHRegulated.holds(),
-            "{}",
-            BloodPHRegulated.description()
-        );
+    fn coagulation_produces_fibrin() {
+        assert!(CoagulationProducesFibrin.verify().is_ok());
     }
 
-    #[test]
-    fn test_hemorrhage_causes_electrolyte_imbalance() {
-        assert!(
-            HemorrhageCausesElectrolyteImbalance.holds(),
-            "{}",
-            HemorrhageCausesElectrolyteImbalance.description()
-        );
-    }
+    // -- Subsumption / kind tests --
 
     #[test]
-    fn test_opposition_symmetric() {
-        assert!(
-            HematologyOppositionSymmetric.holds(),
-            "{}",
-            HematologyOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_opposition_irreflexive() {
-        assert!(
-            HematologyOppositionIrreflexive.holds(),
-            "{}",
-            HematologyOppositionIrreflexive.description()
-        );
-    }
-
-    // -- Category law tests --
-
-    #[test]
-    fn test_hematology_category_laws() {
-        check_category_laws::<HematologyCategory>().unwrap();
-    }
-
-    #[test]
-    fn test_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<HematologyTaxonomy>>().unwrap();
-    }
-
-    #[test]
-    fn test_mereology_category_laws() {
-        check_category_laws::<MereologyCategory<HematologyMereology>>().unwrap();
-    }
-
-    #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<HematologyCauses>>().unwrap();
-    }
-
-    // -- Taxonomy tests --
-
-    #[test]
-    fn test_blood_plasma_is_a_blood_component() {
-        assert!(taxonomy::is_a::<HematologyTaxonomy>(
-            &HematologyEntity::BloodPlasma,
-            &HematologyEntity::BloodComponent
+    fn blood_plasma_is_a_blood_component() {
+        assert!(is_a(
+            HematologyConcept::BloodPlasma,
+            HematologyConcept::BloodComponent
         ));
     }
 
     #[test]
-    fn test_serum_is_a_blood_component() {
-        assert!(taxonomy::is_a::<HematologyTaxonomy>(
-            &HematologyEntity::Serum,
-            &HematologyEntity::BloodComponent
+    fn albumin_is_a_plasma_protein() {
+        assert!(is_a(
+            HematologyConcept::Albumin,
+            HematologyConcept::PlasmaProtein
         ));
     }
 
     #[test]
-    fn test_albumin_is_a_plasma_protein() {
-        assert!(taxonomy::is_a::<HematologyTaxonomy>(
-            &HematologyEntity::Albumin,
-            &HematologyEntity::PlasmaProtein
+    fn sodium_is_a_plasma_electrolyte() {
+        assert!(is_a(
+            HematologyConcept::SodiumPlasma,
+            HematologyConcept::PlasmaElectrolyte
         ));
     }
 
     #[test]
-    fn test_sodium_is_a_plasma_electrolyte() {
-        assert!(taxonomy::is_a::<HematologyTaxonomy>(
-            &HematologyEntity::SodiumPlasma,
-            &HematologyEntity::PlasmaElectrolyte
+    fn hematocrit_is_a_blood_property() {
+        assert!(is_a(
+            HematologyConcept::Hematocrit,
+            HematologyConcept::BloodProperty
         ));
     }
 
-    #[test]
-    fn test_hematocrit_is_a_blood_property() {
-        assert!(taxonomy::is_a::<HematologyTaxonomy>(
-            &HematologyEntity::Hematocrit,
-            &HematologyEntity::BloodProperty
-        ));
-    }
-
-    // -- Mereology tests --
+    // -- Mereology / kind tests --
 
     #[test]
-    fn test_whole_blood_contains_rbc() {
-        let parts = mereology::parts_of::<HematologyMereology>(&HematologyEntity::WholeBlood);
-        assert!(parts.contains(&HematologyEntity::RedBloodCell));
+    fn whole_blood_contains_rbc() {
+        assert!(parts_of(HematologyConcept::WholeBlood).contains(&HematologyConcept::RedBloodCell));
     }
 
     #[test]
-    fn test_whole_blood_transitively_contains_sodium() {
-        let parts = mereology::parts_of::<HematologyMereology>(&HematologyEntity::WholeBlood);
-        assert!(
-            parts.contains(&HematologyEntity::SodiumPlasma),
-            "whole blood should transitively contain sodium via plasma"
-        );
+    fn whole_blood_transitively_contains_sodium() {
+        assert!(parts_of(HematologyConcept::WholeBlood).contains(&HematologyConcept::SodiumPlasma));
     }
 
     #[test]
-    fn test_whole_blood_transitively_contains_albumin() {
-        let parts = mereology::parts_of::<HematologyMereology>(&HematologyEntity::WholeBlood);
-        assert!(
-            parts.contains(&HematologyEntity::Albumin),
-            "whole blood should transitively contain albumin via plasma"
-        );
+    fn whole_blood_transitively_contains_albumin() {
+        assert!(parts_of(HematologyConcept::WholeBlood).contains(&HematologyConcept::Albumin));
     }
 
     #[test]
-    fn test_plasma_contains_fibrinogen() {
-        let parts = mereology::parts_of::<HematologyMereology>(&HematologyEntity::BloodPlasma);
-        assert!(parts.contains(&HematologyEntity::Fibrinogen));
+    fn plasma_contains_fibrinogen() {
+        assert!(parts_of(HematologyConcept::BloodPlasma).contains(&HematologyConcept::Fibrinogen));
     }
 
     // -- Opposition tests --
 
     #[test]
-    fn test_albumin_opposes_globulin() {
-        assert!(opposition::are_opposed::<HematologyOpposition>(
-            &HematologyEntity::Albumin,
-            &HematologyEntity::Globulin
-        ));
-        assert!(opposition::are_opposed::<HematologyOpposition>(
-            &HematologyEntity::Globulin,
-            &HematologyEntity::Albumin
-        ));
+    fn albumin_opposes_globulin() {
+        let opps: Vec<_> = HematologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == HematologyRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opps.contains(&(HematologyConcept::Albumin, HematologyConcept::Globulin)));
+        assert!(opps.contains(&(HematologyConcept::Globulin, HematologyConcept::Albumin)));
     }
 
     #[test]
-    fn test_rbc_opposes_wbc() {
-        assert!(opposition::are_opposed::<HematologyOpposition>(
-            &HematologyEntity::RedBloodCell,
-            &HematologyEntity::WhiteBloodCell
-        ));
+    fn rbc_opposes_wbc() {
+        let opps: Vec<_> = HematologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == HematologyRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opps.contains(&(
+            HematologyConcept::RedBloodCell,
+            HematologyConcept::WhiteBloodCell
+        )));
     }
 
     // -- Quality tests --
 
     #[test]
-    fn test_sodium_concentration() {
+    fn electrolyte_concentrations_match_guyton_hall() {
         assert_eq!(
-            NormalConcentration.get(&HematologyEntity::SodiumPlasma),
+            NormalConcentration.get(&HematologyConcept::SodiumPlasma),
             Some(140.0)
         );
-    }
-
-    #[test]
-    fn test_potassium_concentration() {
         assert_eq!(
-            NormalConcentration.get(&HematologyEntity::PotassiumPlasma),
+            NormalConcentration.get(&HematologyConcept::PotassiumPlasma),
             Some(4.5)
         );
-    }
-
-    #[test]
-    fn test_calcium_concentration() {
         assert_eq!(
-            NormalConcentration.get(&HematologyEntity::CalciumPlasma),
+            NormalConcentration.get(&HematologyConcept::CalciumPlasma),
             Some(2.5)
         );
-    }
-
-    #[test]
-    fn test_chloride_concentration() {
         assert_eq!(
-            NormalConcentration.get(&HematologyEntity::ChloridePlasma),
+            NormalConcentration.get(&HematologyConcept::ChloridePlasma),
             Some(100.0)
         );
-    }
-
-    #[test]
-    fn test_bicarbonate_concentration() {
         assert_eq!(
-            NormalConcentration.get(&HematologyEntity::BicarbonatePlasma),
+            NormalConcentration.get(&HematologyConcept::BicarbonatePlasma),
             Some(24.0)
         );
     }
 
     #[test]
-    fn test_fibrinogen_is_clotting_factor() {
+    fn fibrinogen_is_clotting_factor() {
         assert_eq!(
-            IsClottingFactor.get(&HematologyEntity::Fibrinogen),
+            IsClottingFactor.get(&HematologyConcept::Fibrinogen),
             Some(true)
         );
     }
 
     #[test]
-    fn test_platelet_is_clotting_factor() {
+    fn platelet_is_clotting_factor() {
         assert_eq!(
-            IsClottingFactor.get(&HematologyEntity::Platelet),
+            IsClottingFactor.get(&HematologyConcept::Platelet),
             Some(true)
         );
     }
 
     #[test]
-    fn test_albumin_is_not_clotting_factor() {
+    fn albumin_not_clotting_factor() {
         assert_eq!(
-            IsClottingFactor.get(&HematologyEntity::Albumin),
+            IsClottingFactor.get(&HematologyConcept::Albumin),
             Some(false)
         );
     }
 
     #[test]
-    fn test_sodium_affects_osmolarity() {
+    fn sodium_affects_osmolarity() {
         assert_eq!(
-            AffectsOsmolarity.get(&HematologyEntity::SodiumPlasma),
+            AffectsOsmolarity.get(&HematologyConcept::SodiumPlasma),
             Some(true)
         );
     }
 
     #[test]
-    fn test_albumin_affects_osmolarity() {
+    fn albumin_affects_osmolarity() {
+        // Oncotic pressure (Guyton & Hall 2020).
         assert_eq!(
-            AffectsOsmolarity.get(&HematologyEntity::Albumin),
+            AffectsOsmolarity.get(&HematologyConcept::Albumin),
             Some(true)
-        );
-    }
-
-    #[test]
-    fn test_rbc_does_not_affect_osmolarity() {
-        assert_eq!(
-            AffectsOsmolarity.get(&HematologyEntity::RedBloodCell),
-            Some(false)
         );
     }
 
     // -- Causal chain tests --
 
     #[test]
-    fn test_hemorrhage_transitively_causes_electrolyte_imbalance() {
-        use HematologyCausalEvent::*;
-        let effects = causation::effects_of::<HematologyCauses>(&Hemorrhage);
-        assert!(effects.contains(&ElectrolyteImbalance));
+    fn hemorrhage_transitively_causes_electrolyte_imbalance() {
+        assert!(causes(
+            HematologyConcept::Hemorrhage,
+            HematologyConcept::ElectrolyteImbalance
+        ));
     }
 
     #[test]
-    fn test_inflammation_causes_albumin_decrease() {
-        use HematologyCausalEvent::*;
-        let effects = causation::effects_of::<HematologyCauses>(&Inflammation);
-        assert!(effects.contains(&AlbuminDecrease));
+    fn inflammation_transitively_causes_albumin_decrease() {
+        assert!(causes(
+            HematologyConcept::Inflammation,
+            HematologyConcept::AlbuminDecrease
+        ));
     }
 
     #[test]
-    fn test_acid_base_disturbance_causes_ph_correction() {
-        use HematologyCausalEvent::*;
-        let effects = causation::effects_of::<HematologyCauses>(&AcidBaseDisturbance);
-        assert!(effects.contains(&PHCorrection));
+    fn acid_base_disturbance_causes_ph_correction() {
+        assert!(causes(
+            HematologyConcept::AcidBaseDisturbance,
+            HematologyConcept::PHCorrection
+        ));
     }
 
     #[test]
-    fn test_coagulation_cascade_causes_fibrin_formation() {
-        use HematologyCausalEvent::*;
-        let effects = causation::effects_of::<HematologyCauses>(&CoagulationCascade);
-        assert!(effects.contains(&FibrinFormation));
+    fn coagulation_causes_fibrin_formation() {
+        assert!(causes(
+            HematologyConcept::CoagulationCascade,
+            HematologyConcept::FibrinFormation
+        ));
     }
 
-    #[test]
-    fn test_causal_event_count() {
-        assert_eq!(HematologyCausalEvent::variants().len(), 11);
-    }
+    // -- Proptests --
 
-    // -- Ontology validation --
-
-    #[test]
-    fn test_ontology_validates() {
-        HematologyOntology::validate().unwrap();
-    }
-
-    // -- Proptest --
-
-    fn arb_hematology_entity() -> impl Strategy<Value = HematologyEntity> {
-        (0..HematologyEntity::variants().len()).prop_map(|i| HematologyEntity::variants()[i])
+    fn arb_concept() -> impl Strategy<Value = HematologyConcept> {
+        proptest::sample::select(HematologyConcept::variants())
     }
 
     proptest! {
         #[test]
-        fn prop_taxonomy_is_a_reflexive(entity in arb_hematology_entity()) {
-            prop_assert!(taxonomy::is_a::<HematologyTaxonomy>(&entity, &entity));
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in HematologyCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
         }
 
         #[test]
-        fn prop_clotting_factor_total(entity in arb_hematology_entity()) {
-            prop_assert!(IsClottingFactor.get(&entity).is_some());
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in HematologyOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(
+                        false,
+                        "axiom failed: {}",
+                        c.meta().name.as_str()
+                    );
+                }
+            }
         }
 
         #[test]
-        fn prop_affects_osmolarity_total(entity in arb_hematology_entity()) {
-            prop_assert!(AffectsOsmolarity.get(&entity).is_some());
+        fn prop_clotting_factor_total(c in arb_concept()) {
+            prop_assert!(IsClottingFactor.get(&c).is_some());
+        }
+
+        #[test]
+        fn prop_affects_osmolarity_total(c in arb_concept()) {
+            prop_assert!(AffectsOsmolarity.get(&c).is_some());
+        }
+
+        #[test]
+        fn prop_subsumption_targets_valid(_seed in any::<u32>()) {
+            let variants: Vec<_> = HematologyConcept::variants();
+            for m in HematologyCategory::morphisms() {
+                if m.kind() == HematologyRelationKind::Subsumption {
+                    prop_assert!(variants.contains(&m.source()));
+                    prop_assert!(variants.contains(&m.target()));
+                }
+            }
+        }
+
+        #[test]
+        fn prop_opposition_is_symmetric(_seed in any::<u32>()) {
+            let opposed: std::collections::HashSet<_> = HematologyCategory::morphisms()
+                .iter()
+                .filter(|m| m.kind() == HematologyRelationKind::Opposition)
+                .map(|m| (m.source(), m.target()))
+                .collect();
+            for (a, b) in opposed.iter() {
+                prop_assert!(opposed.contains(&(*b, *a)),
+                    "opposition not symmetric: {:?} → {:?} but not back", a, b);
+            }
         }
     }
 }

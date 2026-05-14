@@ -1,11 +1,6 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
-use pr4xis::category::Concept;
-use pr4xis::category::relationship::Relationship;
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::logic::proof::{SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 use super::super::ontology::{MarkupNode, NodeKind};
@@ -42,6 +37,16 @@ pub enum XmlNodeKind {
     Namespace,
 }
 
+/// Relation kind for XML containment arrows.
+///
+/// Per OBO-RO (Smith et al. 2005), every arrow carries a relation-kind
+/// tag. XML's structural relation is the W3C-defined parent-child
+/// containment between node kinds (W3C XML 1.0 §2.1, §3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XmlRelationKind {
+    Containment,
+}
+
 /// XML containment relationships.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct XmlContains {
@@ -49,16 +54,28 @@ pub struct XmlContains {
     pub child: XmlNodeKind,
 }
 
-impl Relationship for XmlContains {
+impl Arrow for XmlContains {
     type Object = XmlNodeKind;
-    type Kind = ();
+    type Kind = XmlRelationKind;
     fn source(&self) -> XmlNodeKind {
         self.parent
     }
     fn target(&self) -> XmlNodeKind {
         self.child
     }
-    fn kind(&self) {}
+    fn kind(&self) -> XmlRelationKind {
+        XmlRelationKind::Containment
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("XmlContains"),
+            description: Label::new_static(
+                "XML containment — parent node kind contains child node kind per W3C XML 1.0 §3",
+            ),
+            citation: Citation::parse_static("W3C XML 1.0 (2008) Fifth Edition §2.1, §3"),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 /// The XML category — W3C well-formedness rules as category laws.
@@ -164,15 +181,6 @@ impl Category for XmlCategory {
         }
 
         m
-    }
-}
-
-impl Classified for XmlCategory {
-    fn being() -> Being {
-        Being::SocialObject
-    }
-    fn classification_reason() -> &'static str {
-        "XML is a W3C standard — an agreed-upon markup language"
     }
 }
 
@@ -389,32 +397,53 @@ fn find_elements_recursive<'a>(
 }
 
 /// W3C well-formedness axiom: an XML document must have exactly one root element.
+///
+/// W3C XML 1.0 (2008) Fifth Edition §2.1: "There is exactly one element,
+/// called the root, or document element, no part of which appears in the
+/// content of any other element." This is enforced structurally by
+/// [`XmlDocument`] holding exactly one `root: XmlElement` field; the axiom
+/// asserts the rule at the ontology level.
 pub struct SingleRootElement;
 
-impl pr4xis::logic::Axiom for SingleRootElement {
-    fn description(&self) -> &str {
-        "an XML document must have exactly one root element (W3C XML 1.0 §2.1)"
+impl Axiom for SingleRootElement {
+    fn verify(&self) -> Verdict {
+        // Structural: enforced by XmlDocument having a single `root` field.
+        // The W3C rule is satisfied at the type level — there is no way to
+        // construct a multi-root XmlDocument.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
 
-    fn holds(&self) -> bool {
-        true // structural — enforced by XmlDocument having exactly one root field
-    }
+    pr4xis::axiom_meta!(
+        "SingleRootElement",
+        "an XML document must have exactly one root element",
+        "W3C XML 1.0 (2008) Fifth Edition §2.1"
+    );
 }
-pr4xis::register_axiom!(SingleRootElement);
+pr4xis::register_axiom!(SingleRootElement, "W3C XML 1.0 (2008) Fifth Edition §2.1");
 
 /// W3C well-formedness axiom: element tags must be properly nested.
+///
+/// W3C XML 1.0 (2008) Fifth Edition §2.4 ("Character Data and Markup")
+/// and §3 ("Logical Structures"): for any non-empty element, the start-tag,
+/// content, and end-tag form a contiguous, non-overlapping span. This
+/// constraint is enforced structurally by the [`XmlNode`] tree
+/// representation — a tree cannot encode overlapping spans.
 pub struct ProperNesting;
 
-impl pr4xis::logic::Axiom for ProperNesting {
-    fn description(&self) -> &str {
-        "XML elements must be properly nested — no overlapping tags (W3C XML 1.0 §2.4)"
+impl Axiom for ProperNesting {
+    fn verify(&self) -> Verdict {
+        // Structural: enforced by the tree representation. A tree of
+        // XmlNode values cannot encode overlapping tags by construction.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
 
-    fn holds(&self) -> bool {
-        true // structural — enforced by the tree representation (can't overlap in a tree)
-    }
+    pr4xis::axiom_meta!(
+        "ProperNesting",
+        "XML elements must be properly nested — no overlapping tags",
+        "W3C XML 1.0 (2008) Fifth Edition §2.4, §3"
+    );
 }
-pr4xis::register_axiom!(ProperNesting);
+pr4xis::register_axiom!(ProperNesting, "W3C XML 1.0 (2008) Fifth Edition §2.4, §3");
 
 /// Quality: is this XML node kind a content node (can appear inside elements)?
 #[derive(Debug, Clone)]
@@ -443,7 +472,7 @@ impl Ontology for XmlOntology {
     type Cat = XmlCategory;
     type Qual = IsContentNode;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(SingleRootElement), Box::new(ProperNesting)]
     }
 }
@@ -451,14 +480,16 @@ impl Ontology for XmlOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<XmlCategory>().unwrap();
+        assert_category_laws::<XmlCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        XmlOntology::validate().unwrap();
+        XmlOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

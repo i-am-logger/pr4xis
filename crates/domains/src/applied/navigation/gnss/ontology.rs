@@ -8,16 +8,13 @@
 
 #![allow(clippy::needless_range_loop)]
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::ontology::reasoning::taxonomy;
+use pr4xis::category::{Arrow, Category};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Gnss",
     source: "IS-GPS-200 (2022); Groves (2013); Misra & Enge (2011)",
-    being: Process,
 
     concepts: [Observable, Pseudorange, CarrierPhase, Doppler, NavigationMessage],
 
@@ -75,19 +72,33 @@ impl Quality for SignalStrength {
     }
 }
 
+/// Direct subsumption query: is there an `is_a` edge from `child` to `parent`?
+fn is_a(child: GnssConcept, parent: GnssConcept) -> bool {
+    GnssCategory::morphisms().iter().any(|m| {
+        m.kind() == GnssRelationKind::Subsumption && m.source() == child && m.target() == parent
+    })
+}
+
 /// Minimum 4 satellites required for 3D position fix.
 pub struct MinimumSatellites;
 
 impl Axiom for MinimumSatellites {
-    fn description(&self) -> &str {
-        "need >= 4 satellites for 3D fix (3 spatial + 1 clock unknown)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let spatial_unknowns = 3;
         let clock_unknowns = 1;
         let min_satellites = spatial_unknowns + clock_unknowns;
-        min_satellites == 4
+        if min_satellites == 4 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "MinimumSatellites",
+        "need >= 4 satellites for 3D fix (3 spatial + 1 clock unknown)",
+        "IS-GPS-200 (2022), Groves (2013) Chapter 8, Misra & Enge (2011)."
+    );
 }
 pr4xis::register_axiom!(
     MinimumSatellites,
@@ -98,10 +109,7 @@ pr4xis::register_axiom!(
 pub struct DopGeometry;
 
 impl Axiom for DopGeometry {
-    fn description(&self) -> &str {
-        "DOP improves with wider satellite angular spread"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let gdop_wide = compute_gdop_from_elevations_azimuths(
             &[45.0, 45.0, 45.0, 45.0, 89.0],
             &[0.0, 90.0, 180.0, 270.0, 0.0],
@@ -110,29 +118,42 @@ impl Axiom for DopGeometry {
             &[45.0, 44.0, 46.0, 45.0, 43.0],
             &[0.0, 5.0, 10.0, 15.0, 20.0],
         );
-        gdop_wide < gdop_narrow
+        if gdop_wide < gdop_narrow {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "DopGeometry",
+        "DOP improves with wider satellite angular spread",
+        "Misra & Enge (2011), Chapter 7"
+    );
 }
-pr4xis::register_axiom!(
-    DopGeometry,
-    "IS-GPS-200 (2022), Groves (2013) Chapter 8, Misra & Enge (2011)."
-);
+pr4xis::register_axiom!(DopGeometry, "Misra & Enge (2011), Chapter 7");
 
 /// Pseudorange must be non-negative.
 pub struct PseudorangePositive;
 
 impl Axiom for PseudorangePositive {
-    fn description(&self) -> &str {
-        "pseudorange >= 0 (signal travel time * speed of light)"
-    }
-    fn holds(&self) -> bool {
-        taxonomy::is_a::<GnssTaxonomy>(&GnssConcept::Pseudorange, &GnssConcept::Observable) && {
-            let speed_of_light = 299_792_458.0_f64;
-            let min_travel_time = 0.0_f64;
-            let min_pseudorange = speed_of_light * min_travel_time;
-            min_pseudorange >= 0.0
+    fn verify(&self) -> Verdict {
+        let subsumption_ok = is_a(GnssConcept::Pseudorange, GnssConcept::Observable);
+        let speed_of_light = 299_792_458.0_f64;
+        let min_travel_time = 0.0_f64;
+        let min_pseudorange = speed_of_light * min_travel_time;
+        if subsumption_ok && min_pseudorange >= 0.0 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
         }
     }
+
+    pr4xis::axiom_meta!(
+        "PseudorangePositive",
+        "pseudorange >= 0 (signal travel time * speed of light)",
+        "IS-GPS-200 (2022), Groves (2013) Chapter 8, Misra & Enge (2011)."
+    );
 }
 pr4xis::register_axiom!(
     PseudorangePositive,
@@ -225,31 +246,28 @@ impl Ontology for GnssOntology {
     type Cat = GnssCategory;
     type Qual = SignalStrength;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(MinimumSatellites),
-            Box::new(DopGeometry),
-            Box::new(PseudorangePositive),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(MinimumSatellites));
+        axioms.push(Box::new(DopGeometry));
+        axioms.push(Box::new(PseudorangePositive));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<GnssCategory>().unwrap();
+        assert_category_laws::<GnssCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        GnssOntology::validate().unwrap();
+        GnssOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

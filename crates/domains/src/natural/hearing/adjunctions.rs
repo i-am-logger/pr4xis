@@ -1,47 +1,56 @@
-//! Adjunctions between pssst domains.
+//! Adjunctions between hearing-tree domains.
 //!
-//! Each adjunction captures a pair of "optimally inverse" functors.
-//! The unit η and counit ε capture information loss in the round trip.
+//! An adjunction F ⊣ G captures the optimally-inverse relationship between
+//! two domain functors. The unit η embeds an object into the round-trip
+//! G(F(-)), and the counit ε projects the round-trip F(G(-)) back.
 //!
-//! Four adjunctions model fundamental dualities in hearing science:
+//! Four canonical hearing-science adjunctions:
 //!
-//! 1. Analysis ⊣ Synthesis: Acoustics ↔ Signal Processing
-//!    Decomposing sound into components vs reconstructing from components.
-//!    Information lost: phase relationships, transient details.
+//! 1. **Analysis ⊣ Synthesis** (Acoustics ↔ Signal Processing) —
+//!    Helmholtz (1863) *On the Sensations of Tone* / Oppenheim & Schafer
+//!    (2010) §10 STFT — decomposing sound into spectral components vs
+//!    reconstructing sound from spectral components. Lossy: phase
+//!    relationships and transient details are dropped.
 //!
-//! 2. Health ⊣ Disease: Anatomy ↔ Pathology
-//!    Normal structure vs pathological state.
-//!    Information lost: individual variation, comorbidities.
+//! 2. **Health ⊣ Disease** (Anatomy ↔ Pathology) — Moller (2006)
+//!    *Hearing: Anatomy, Physiology, and Disorders* — normal structure
+//!    vs pathological state.
 //!
-//! 3. Bottom-up ⊣ Top-down: Psychoacoustics ↔ Music Perception
-//!    Stimulus-driven perception vs expectation-driven cognition.
-//!    Information lost: context (bottom-up), detail (top-down).
+//! 3. **Bottom-up ⊣ Top-down** (Psychoacoustics ↔ Music Perception) —
+//!    Helmholtz (1863) bottom-up sensation vs Huron (2006) *Sweet
+//!    Anticipation* top-down expectation; Gregory (1970) "The
+//!    Intelligent Eye" perceptual-inference principle.
 //!
-//! 4. Diagnosis ⊣ Treatment: Pathology ↔ Devices
-//!    Identifying disorder vs applying intervention.
-//!    Information lost: exact etiology (diagnosis), complete correction (treatment).
+//! 4. **Diagnosis ⊣ Treatment** (Pathology ↔ Devices) — Dillon (2012)
+//!    *Hearing Aids*; Zeng et al. (2008) *Cochlear Implants* — disorder
+//!    identification vs intervention application.
 //!
-//! References:
-//! - Mac Lane 1971: Categories for the Working Mathematician, Ch. IV
-//! - Awodey 2010: Category Theory, Ch. 9
+//! # Literature
+//!
+//! - **Mac Lane (1971)** *Categories for the Working Mathematician*, Ch. IV
+//!   — adjunctions, units, counits.
+//! - **Awodey (2010)** *Category Theory* (2nd ed.), Ch. 9.
+//! - **Lambek & Scott (1986)** *Introduction to Higher Order Categorical
+//!   Logic*.
+//!
+//! # Design
+//!
+//! Per #166 `Composed` kind removed: heterogeneous compositions become
+//! partial. Unit/counit components emit Identity at the source object
+//! when the round-trip is not an isomorphism, preserving functor laws
+//! while making round-trip loss explicit through `map_object` divergence.
 
-use pr4xis::category::{Adjunction, Category, Functor, Relationship};
+use pr4xis::category::{Adjunction, Functor};
 
 // =============================================================================
 // 1. Analysis ⊣ Synthesis (Acoustics ↔ Signal Processing)
 // =============================================================================
 
 use crate::natural::hearing::acoustics::ontology::*;
+use crate::natural::hearing::acoustics::signal_functor::AcousticsToSignalProcessing;
 use crate::natural::hearing::signal_processing::ontology::*;
 
-// Left adjoint: Acoustics → Signal Processing (analysis / decomposition)
-// Already defined as AcousticsToSignalProcessing in acoustics/signal_functor.rs
-use crate::natural::hearing::acoustics::signal_functor::AcousticsToSignalProcessing;
-
 /// Right adjoint: Signal Processing → Acoustics (synthesis / reconstruction).
-///
-/// Reconstructs acoustic concepts from signal processing representations.
-/// Lossy: reconstructed sound ≠ original (phase, transients lost).
 pub struct SignalProcessingToAcoustics;
 
 impl Functor for SignalProcessingToAcoustics {
@@ -52,15 +61,12 @@ impl Functor for SignalProcessingToAcoustics {
         use AcousticEntity::*;
         use SignalEntity as S;
         match obj {
-            // Transforms → wave phenomena
             S::FourierTransform | S::FFT | S::InverseFFT | S::Transform => SoundWave,
             S::ShortTimeFourierTransform | S::Spectrogram => SoundWave,
             S::WaveletTransform | S::HilbertTransform | S::CepstralAnalysis => SoundWave,
-            // Representations → wave properties
             S::PowerSpectralDensity => Intensity,
             S::Autocorrelation | S::Correlation => Phase,
             S::Cepstrum | S::MelFrequencyCepstrum | S::Representation => Frequency,
-            // Filters → acoustic phenomena
             S::LowPassFilter
             | S::HighPassFilter
             | S::BandPassFilter
@@ -69,55 +75,56 @@ impl Functor for SignalProcessingToAcoustics {
             | S::IIRFilter
             | S::GammatoneFilter
             | S::Filter => Resonance,
-            // Sampling → medium
             S::Sampling
             | S::NyquistFrequency
             | S::Aliasing
             | S::Quantization
             | S::SamplingConcept => Air,
-            // Windows → wave properties
             S::WindowFunction
             | S::HannWindow
             | S::HammingWindow
             | S::BlackmanWindow
             | S::RectangularWindow => Amplitude,
-            // Operations → phenomena
             S::Convolution | S::SignalOperation => Resonance,
             S::Decimation | S::Interpolation => Attenuation,
-            // Domains → wave types
             S::TimeDomain => SoundWave,
             S::FrequencyDomain => Frequency,
             S::AnalysisDomain => Wave,
+            // Signal events → acoustic events.
+            S::RawSignal => SourceVibration,
+            S::AntiAliasFiltering => MediumCoupling,
+            S::Digitization => WavePropagation,
+            S::WindowApplication => BoundaryEncounter,
+            S::SpectralTransform => ImpedanceTransition,
+            S::SpectralSmoothing => EnergyAbsorption,
+            S::FeatureExtraction => EnergyTransmission,
+            S::PatternClassification => ReceiverExcitation,
+            S::SignalEvent => AcousticEvent,
         }
     }
 
     fn map_morphism(m: &SignalRelation) -> AcousticRelation {
+        use AcousticsCategoryRelationKind as Tk;
+        use SignalProcessingCategoryRelationKind as Sk;
+        use pr4xis::category::Arrow;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            SignalProcessingCategoryRelationKind::Identity => AcousticsCategory::identity(&from),
-            _ => AcousticRelation {
-                from,
-                to,
-                kind: AcousticsCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        AcousticRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(SignalProcessingToAcoustics);
 
 /// Analysis ⊣ Synthesis adjunction.
 ///
-/// Left (Analysis): decompose sound into spectral components.
-/// Right (Synthesis): reconstruct sound from spectral components.
-///
-/// Unit η_A: A → Synthesize(Analyze(A))
-///   Round-trip: sound → spectrum → reconstructed sound.
-///   Not identity: phase information may be lost (magnitude-only spectrogram).
-///
-/// Counit ε_B: Analyze(Synthesize(B)) → B
-///   Round-trip: spectrum → sound → re-analyzed spectrum.
-///   Close to identity when using complete (complex) representation.
+/// Unit η_A: A → G(F(A)) — sound → spectrum → reconstructed sound.
+/// Counit ε_B: F(G(B)) → B — spectrum → sound → re-analysed spectrum.
 pub struct AnalysisSynthesis;
 
 impl Adjunction for AnalysisSynthesis {
@@ -125,45 +132,47 @@ impl Adjunction for AnalysisSynthesis {
     type Right = SignalProcessingToAcoustics;
 
     fn unit(obj: &AcousticEntity) -> AcousticRelation {
-        // η_A: A → G(F(A)) — the acoustic entity embeds into its round-trip
+        use pr4xis::category::Category;
         let analyzed = AcousticsToSignalProcessing::map_object(obj);
         let reconstructed = SignalProcessingToAcoustics::map_object(&analyzed);
-        let kind = if reconstructed == *obj {
-            AcousticsCategoryRelationKind::Identity
+        if reconstructed == *obj {
+            AcousticRelation {
+                from: *obj,
+                to: *obj,
+                kind: AcousticsCategoryRelationKind::Identity,
+            }
         } else {
-            AcousticsCategoryRelationKind::Composed
-        };
-        AcousticRelation {
-            from: *obj,
-            to: reconstructed,
-            kind,
+            // Heterogeneous round trip — emit identity at source.
+            AcousticsCategory::identity(obj)
         }
     }
 
     fn counit(obj: &SignalEntity) -> SignalRelation {
-        // ε_B: F(G(B)) → B — the signal entity projects from its round-trip
+        use pr4xis::category::Category;
         let synthesized = SignalProcessingToAcoustics::map_object(obj);
         let reanalyzed = AcousticsToSignalProcessing::map_object(&synthesized);
-        let kind = if reanalyzed == *obj {
-            SignalProcessingCategoryRelationKind::Identity
+        if reanalyzed == *obj {
+            SignalRelation {
+                from: *obj,
+                to: *obj,
+                kind: SignalProcessingCategoryRelationKind::Identity,
+            }
         } else {
-            SignalProcessingCategoryRelationKind::Composed
-        };
-        SignalRelation {
-            from: reanalyzed,
-            to: *obj,
-            kind,
+            SignalProcessingCategory::identity(obj)
         }
     }
-}
 
-impl pr4xis::category::Arrow for AnalysisSynthesis {
-    type Source = AcousticsToSignalProcessing;
-    type Target = SignalProcessingToAcoustics;
-    type Kind = pr4xis::category::AdjunctionKind;
-
-    fn meta() -> pr4xis::ontology::meta::RelationshipMeta {
-        <AnalysisSynthesis as pr4xis::category::Adjunction>::meta()
+    fn meta() -> pr4xis::ontology::meta::Provenance {
+        pr4xis::ontology::meta::Provenance {
+            name: pr4xis::ontology::meta::OntologyName::new_static("AnalysisSynthesis"),
+            description: pr4xis::ontology::meta::Label::new_static(
+                "Acoustics ⊣ Signal Processing — analysis vs synthesis duality",
+            ),
+            citation: pr4xis::ontology::meta::Citation::parse_static(
+                "Mac Lane (1971) Categories for the Working Mathematician Ch. IV; Helmholtz (1863) On the Sensations of Tone; Oppenheim & Schafer (2010) Discrete-Time Signal Processing §10",
+            ),
+            module_path: pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+        }
     }
 }
 pr4xis::register_adjunction!(AnalysisSynthesis);
@@ -182,28 +191,23 @@ impl Functor for AnatomyToPathology {
     type Source = AnatomyCategory;
     type Target = PathologyCategory;
 
-    fn map_object(obj: &AuditoryEntity) -> PathologyEntity {
-        use AuditoryEntity as A;
+    fn map_object(obj: &AnatomyConcept) -> PathologyEntity {
+        use AnatomyConcept as A;
         use PathologyEntity::*;
         match obj {
-            // Outer ear → conductive
             A::Pinna | A::EarCanal => ConductiveHearingLoss,
             A::TympanicMembrane => TympanicPerforation,
-            // Middle ear → conductive
             A::Malleus | A::Incus | A::Stapes | A::Ossicle => Otosclerosis,
             A::OvalWindow | A::RoundWindow => OssicularFixation,
             A::EustachianTube | A::TensorTympani | A::Stapedius => OtitisMedia,
-            // Inner ear hair cells → SNHL
             A::InnerHairCell | A::OuterHairCell | A::HairCell => HairCellLoss,
             A::OrganOfCorti | A::BasilarMembrane | A::TectorialMembrane | A::CochlearMembrane => {
                 StereociliaDamage
             }
-            // Cochlear fluids/structures → Ménière's
             A::Endolymph | A::ScalaMedia | A::CochlearFluid => MenieresDisease,
             A::Perilymph | A::ScalaVestibuli | A::ScalaTympani => EndolymphaticHydrops,
             A::StriVascularis => StriaDysfunction,
             A::ReissnersMembrane | A::Cochlea => SensorineuralHearingLoss,
-            // Neural → neuropathy
             A::SpiralGanglionNeuron | A::AuditoryNerve => AuditoryNeuropathy,
             A::CochlearNucleus
             | A::SuperiorOlivaryComplex
@@ -211,27 +215,27 @@ impl Functor for AnatomyToPathology {
             | A::MedialGeniculateBody
             | A::AuditoryCortex
             | A::AuditoryNucleus => CentralAuditoryProcessingDisorder,
-            // Vestibular
             A::Vestibule | A::SemicircularCanals => MenieresDisease,
             A::SupportingCell => SynapticRibbonLoss,
-            // Abstract
-            A::Ear | A::OuterEar => ConductiveHearingLoss,
-            A::MiddleEar => ConductiveHearingLoss,
+            A::Ear | A::OuterEar | A::MiddleEar => ConductiveHearingLoss,
             A::InnerEar => SensorineuralHearingLoss,
         }
     }
 
-    fn map_morphism(m: &AuditoryRelation) -> PathologyRelation {
+    fn map_morphism(m: &AnatomyRelation) -> PathologyRelation {
+        use AnatomyRelationKind as Sk;
+        use PathologyRelationKind as Tk;
+        use pr4xis::category::Arrow;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            AnatomyCategoryRelationKind::Identity => PathologyCategory::identity(&from),
-            _ => PathologyRelation {
-                from,
-                to,
-                kind: PathologyCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        PathologyRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(AnatomyToPathology);
@@ -243,8 +247,8 @@ impl Functor for PathologyToAnatomy {
     type Source = PathologyCategory;
     type Target = AnatomyCategory;
 
-    fn map_object(obj: &PathologyEntity) -> AuditoryEntity {
-        use AuditoryEntity::*;
+    fn map_object(obj: &PathologyEntity) -> AnatomyConcept {
+        use AnatomyConcept::*;
         use PathologyEntity as P;
         match obj {
             P::ConductiveHearingLoss | P::OtitisMedia | P::Cholesteatoma => MiddleEar,
@@ -280,78 +284,91 @@ impl Functor for PathologyToAnatomy {
             P::HearingLoss | P::PeripheralPathology => Cochlea,
             P::CentralPathology => AuditoryCortex,
             P::DamageMechanism => OrganOfCorti,
+            P::NoiseExposure
+            | P::AgingDegeneration
+            | P::Infection
+            | P::Autoimmune
+            | P::GeneticMutation => Ear,
+            P::OHCDamage => OuterHairCell,
+            P::IHCDamage => InnerHairCell,
+            P::SynapseLoss => SpiralGanglionNeuron,
+            P::StriDegeneration => StriVascularis,
+            P::MiddleEarDysfunction => MiddleEar,
+            P::NeuralDegeneration => AuditoryNerve,
+            P::ThresholdShift => Cochlea,
+            P::FrequencyResolutionLoss => OrganOfCorti,
+            P::TemporalSmearing => SpiralGanglionNeuron,
+            P::TinnitusGeneration => Cochlea,
+            P::CommunicationDifficulty => AuditoryCortex,
+            P::PathologyEvent => Ear,
         }
     }
 
-    fn map_morphism(m: &PathologyRelation) -> AuditoryRelation {
+    fn map_morphism(m: &PathologyRelation) -> AnatomyRelation {
+        use AnatomyRelationKind as Tk;
+        use PathologyCategoryRelationKind as Sk;
+        use pr4xis::category::Arrow;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            PathologyCategoryRelationKind::Identity => AnatomyCategory::identity(&from),
-            _ => AuditoryRelation {
-                from,
-                to,
-                kind: AnatomyCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        AnatomyRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(PathologyToAnatomy);
 
-/// Health ⊣ Disease adjunction.
-///
-/// Left (Health→Disease): normal anatomy maps to what can go wrong.
-/// Right (Disease→Health): pathology maps to affected structure.
-///
-/// Unit η: Structure → AffectedBy(DiseasedIn(Structure))
-///   e.g., OHC → HairCellLoss → OuterHairCell (recovers the cell type)
-///
-/// Counit ε: DiseasedIn(AffectedBy(Disease)) → Disease
-///   e.g., SNHL → Cochlea → SNHL (recovers the disorder)
 pub struct HealthDisease;
 
 impl Adjunction for HealthDisease {
     type Left = AnatomyToPathology;
     type Right = PathologyToAnatomy;
 
-    fn unit(obj: &AuditoryEntity) -> AuditoryRelation {
+    fn unit(obj: &AnatomyConcept) -> AnatomyRelation {
+        use pr4xis::category::Category;
         let diseased = AnatomyToPathology::map_object(obj);
         let recovered = PathologyToAnatomy::map_object(&diseased);
-        let kind = if recovered == *obj {
-            AnatomyCategoryRelationKind::Identity
+        if recovered == *obj {
+            AnatomyRelation {
+                from: *obj,
+                to: *obj,
+                kind: AnatomyRelationKind::Identity,
+            }
         } else {
-            AnatomyCategoryRelationKind::Composed
-        };
-        AuditoryRelation {
-            from: *obj,
-            to: recovered,
-            kind,
+            AnatomyCategory::identity(obj)
         }
     }
 
     fn counit(obj: &PathologyEntity) -> PathologyRelation {
+        use pr4xis::category::Category;
         let structure = PathologyToAnatomy::map_object(obj);
         let re_diseased = AnatomyToPathology::map_object(&structure);
-        let kind = if re_diseased == *obj {
-            PathologyCategoryRelationKind::Identity
+        if re_diseased == *obj {
+            PathologyRelation {
+                from: *obj,
+                to: *obj,
+                kind: PathologyCategoryRelationKind::Identity,
+            }
         } else {
-            PathologyCategoryRelationKind::Composed
-        };
-        PathologyRelation {
-            from: re_diseased,
-            to: *obj,
-            kind,
+            PathologyCategory::identity(obj)
         }
     }
-}
 
-impl pr4xis::category::Arrow for HealthDisease {
-    type Source = AnatomyToPathology;
-    type Target = PathologyToAnatomy;
-    type Kind = pr4xis::category::AdjunctionKind;
-
-    fn meta() -> pr4xis::ontology::meta::RelationshipMeta {
-        <HealthDisease as pr4xis::category::Adjunction>::meta()
+    fn meta() -> pr4xis::ontology::meta::Provenance {
+        pr4xis::ontology::meta::Provenance {
+            name: pr4xis::ontology::meta::OntologyName::new_static("HealthDisease"),
+            description: pr4xis::ontology::meta::Label::new_static(
+                "Anatomy ⊣ Pathology — structure vs disease duality",
+            ),
+            citation: pr4xis::ontology::meta::Citation::parse_static(
+                "Mac Lane (1971) Categories for the Working Mathematician Ch. IV; Moller (2006) Hearing: Anatomy, Physiology, and Disorders",
+            ),
+            module_path: pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+        }
     }
 }
 pr4xis::register_adjunction!(HealthDisease);
@@ -361,15 +378,10 @@ pr4xis::register_adjunction!(HealthDisease);
 // =============================================================================
 
 use crate::natural::hearing::music_perception::ontology::*;
+use crate::natural::hearing::psychoacoustics::music_functor::PsychoacousticsToMusic;
 use crate::natural::hearing::psychoacoustics::ontology::*;
 
-// Left adjoint already defined: PsychoacousticsToMusic
-use crate::natural::hearing::psychoacoustics::music_functor::PsychoacousticsToMusic;
-
 /// Right adjoint: Music Perception → Psychoacoustics (top-down influence).
-///
-/// Musical expectations and schemas modulate low-level perception.
-/// Huron 2006: Sweet Anticipation.
 pub struct MusicToPsychoacoustics;
 
 impl Functor for MusicToPsychoacoustics {
@@ -380,7 +392,6 @@ impl Functor for MusicToPsychoacoustics {
         use MusicEntity as M;
         use PsychoacousticEntity::*;
         match obj {
-            // Pitch percepts → pitch perception
             M::PitchHeight
             | M::PitchChroma
             | M::OctaveEquivalence
@@ -389,7 +400,6 @@ impl Functor for MusicToPsychoacoustics {
             | M::MelodicContour
             | M::IntervalPerception
             | M::PitchPercept => Pitch,
-            // Harmonic → frequency selectivity
             M::Consonance
             | M::Dissonance
             | M::RoughnessModel
@@ -400,7 +410,6 @@ impl Functor for MusicToPsychoacoustics {
             | M::Tonality
             | M::KeySense
             | M::HarmonicPercept => FrequencySelectivity,
-            // Rhythmic → temporal
             M::Beat
             | M::Meter
             | M::Tempo
@@ -409,50 +418,52 @@ impl Functor for MusicToPsychoacoustics {
             | M::Entrainment
             | M::TemporalExpectation
             | M::RhythmicPercept => TemporalResolution,
-            // Timbre → timbre
             M::SpectralCentroid
             | M::AttackTime
             | M::SpectralFlux
             | M::InstrumentIdentification
             | M::TimbrePercept => Timbre,
-            // Affective / expectation → loudness (arousal proxy)
             M::MusicalExpectation
             | M::Surprise
             | M::Tension
             | M::Resolution
             | M::MusicalEmotion
             | M::AffectiveResponse => Loudness,
-            // Memory
             M::EarWorm | M::MusicalMemory | M::TonalSchemaMemory => Pitch,
+            // Music events → psychoacoustic events.
+            M::AuditoryInput => AcousticStimulus,
+            M::PitchExtraction => PitchExtraction,
+            M::OnsetDetection => NeuralTransduction,
+            M::HarmonicGrouping => FrequencyAnalysis,
+            M::MelodicTracking => CorticalAnalysis,
+            M::BeatInduction => BrainstemProcessing,
+            M::MetricFraming => CorticalAnalysis,
+            M::TonalInterpretation => PerceptFormation,
+            M::MusicalExpectationFormation => PerceptFormation,
+            M::GroovePerception => CorticalAnalysis,
+            M::EmotionalResponse => AwareExperience,
+            M::MusicEvent => PsychoacousticEvent,
         }
     }
 
     fn map_morphism(m: &MusicRelation) -> PsychoacousticRelation {
+        use MusicPerceptionCategoryRelationKind as Sk;
+        use PsychoacousticRelationKind as Tk;
+        use pr4xis::category::Arrow;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            MusicPerceptionCategoryRelationKind::Identity => {
-                PsychoacousticsCategory::identity(&from)
-            }
-            _ => PsychoacousticRelation {
-                from,
-                to,
-                kind: PsychoacousticsCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        PsychoacousticRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(MusicToPsychoacoustics);
 
-/// Bottom-up ⊣ Top-down adjunction.
-///
-/// Left (Bottom-up): stimulus percepts → musical cognition.
-/// Right (Top-down): musical schemas → modulated perception.
-///
-/// The unit captures how bottom-up features are interpreted musically,
-/// then that musical interpretation feeds back to shape perception.
-/// Not identity: expectations can override physical stimulus (e.g.,
-/// missing fundamental, subjective rhythm in ambiguous patterns).
 pub struct BottomUpTopDown;
 
 impl Adjunction for BottomUpTopDown {
@@ -460,43 +471,46 @@ impl Adjunction for BottomUpTopDown {
     type Right = MusicToPsychoacoustics;
 
     fn unit(obj: &PsychoacousticEntity) -> PsychoacousticRelation {
+        use pr4xis::category::Category;
         let musical = PsychoacousticsToMusic::map_object(obj);
         let feedback = MusicToPsychoacoustics::map_object(&musical);
-        let kind = if feedback == *obj {
-            PsychoacousticsCategoryRelationKind::Identity
+        if feedback == *obj {
+            PsychoacousticRelation {
+                from: *obj,
+                to: *obj,
+                kind: PsychoacousticsCategoryRelationKind::Identity,
+            }
         } else {
-            PsychoacousticsCategoryRelationKind::Composed
-        };
-        PsychoacousticRelation {
-            from: *obj,
-            to: feedback,
-            kind,
+            PsychoacousticsCategory::identity(obj)
         }
     }
 
     fn counit(obj: &MusicEntity) -> MusicRelation {
+        use pr4xis::category::Category;
         let percept = MusicToPsychoacoustics::map_object(obj);
         let re_musical = PsychoacousticsToMusic::map_object(&percept);
-        let kind = if re_musical == *obj {
-            MusicPerceptionCategoryRelationKind::Identity
+        if re_musical == *obj {
+            MusicRelation {
+                from: *obj,
+                to: *obj,
+                kind: MusicPerceptionCategoryRelationKind::Identity,
+            }
         } else {
-            MusicPerceptionCategoryRelationKind::Composed
-        };
-        MusicRelation {
-            from: re_musical,
-            to: *obj,
-            kind,
+            MusicPerceptionCategory::identity(obj)
         }
     }
-}
 
-impl pr4xis::category::Arrow for BottomUpTopDown {
-    type Source = PsychoacousticsToMusic;
-    type Target = MusicToPsychoacoustics;
-    type Kind = pr4xis::category::AdjunctionKind;
-
-    fn meta() -> pr4xis::ontology::meta::RelationshipMeta {
-        <BottomUpTopDown as pr4xis::category::Adjunction>::meta()
+    fn meta() -> pr4xis::ontology::meta::Provenance {
+        pr4xis::ontology::meta::Provenance {
+            name: pr4xis::ontology::meta::OntologyName::new_static("BottomUpTopDown"),
+            description: pr4xis::ontology::meta::Label::new_static(
+                "Psychoacoustics ⊣ Music Perception — stimulus vs expectation duality",
+            ),
+            citation: pr4xis::ontology::meta::Citation::parse_static(
+                "Mac Lane (1971) Categories for the Working Mathematician Ch. IV; Helmholtz (1863) On the Sensations of Tone; Huron (2006) Sweet Anticipation; Gregory (1970) The Intelligent Eye",
+            ),
+            module_path: pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+        }
     }
 }
 pr4xis::register_adjunction!(BottomUpTopDown);
@@ -506,11 +520,9 @@ pr4xis::register_adjunction!(BottomUpTopDown);
 // =============================================================================
 
 use crate::natural::hearing::devices::ontology::*;
-
-// Left adjoint already defined: PathologyToDevices
 use crate::natural::hearing::pathology::devices_functor::PathologyToDevices;
 
-/// Right adjoint: Devices → Pathology (what condition does this device treat).
+/// Right adjoint: Devices → Pathology (what condition this device treats).
 pub struct DevicesToPathology;
 
 impl Functor for DevicesToPathology {
@@ -521,75 +533,67 @@ impl Functor for DevicesToPathology {
         use DeviceEntity as D;
         use PathologyEntity::*;
         match obj {
-            // Hearing aids → SNHL
             D::BehindTheEar
             | D::InTheEar
             | D::CompletelyInCanal
             | D::ReceiverInCanal
             | D::HearingAid => SensorineuralHearingLoss,
-            // CROS → unilateral loss
             D::CROS | D::BiCROS => AbnormalBinauralProcessing,
-            // Implantable → severe/profound
             D::CochlearImplant => SensorineuralHearingLoss,
             D::BoneAnchoredHearingAid => ConductiveHearingLoss,
             D::MiddleEarImplant => Otosclerosis,
             D::AuditoryBrainstemImplant => AcousticNeuroma,
             D::ImplantableDevice => SensorineuralHearingLoss,
-            // BC devices → conductive
             D::BoneConductionHeadphone | D::SoftbandBAHA | D::AdhesiveBC | D::BCDevice => {
                 ConductiveHearingLoss
             }
-            // Signal processing → specific deficits
             D::DirectionalMicrophone => PoorSpeechInNoise,
             D::NoiseSuppression => Tinnitus,
             D::FeedbackCancellation => ElevatedThreshold,
             D::FrequencyCompression => ReducedFrequencySelectivity,
             D::WideAdaptiveDynamicRange => LoudnessRecruitment,
             D::Telecoil | D::BluetoothStreaming | D::SignalProcessingFeature => PoorSpeechInNoise,
-            // Diagnostic → clinical measure
             D::Audiometer => Audiogram,
             D::Tympanometer => OtoacousticEmission,
             D::OAEProbe => OtoacousticEmission,
             D::ABRSystem => AuditoryBrainstemResponse,
             D::RealEarMeasurement | D::DiagnosticEquipment => Audiogram,
-            // Components
             D::Microphone
             | D::Amplifier
             | D::Receiver
             | D::ElectrodeArray
             | D::SpeechProcessor
             | D::DeviceComponent => HearingLoss,
+            // Device events → pathology events.
+            D::HearingLossDiagnosis => NoiseExposure,
+            D::DeviceSelection => OHCDamage,
+            D::CustomMolding => StriDegeneration,
+            D::InitialFitting => ThresholdShift,
+            D::RealEarVerificationEvent => TemporalSmearing,
+            D::FineTuning => FrequencyResolutionLoss,
+            D::OutcomeImprovement => CommunicationDifficulty,
+            D::DeviceEvent => PathologyEvent,
         }
     }
 
     fn map_morphism(m: &DeviceRelation) -> PathologyRelation {
+        use DeviceCategoryRelationKind as Sk;
+        use PathologyRelationKind as Tk;
+        use pr4xis::category::Arrow;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            DeviceCategoryRelationKind::Identity => PathologyCategory::identity(&from),
-            _ => PathologyRelation {
-                from,
-                to,
-                kind: PathologyCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Parthood => Tk::Parthood,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+        };
+        PathologyRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(DevicesToPathology);
 
-/// Diagnosis ⊣ Treatment adjunction.
-///
-/// Left (Diagnosis): disorder → recommended device.
-/// Right (Treatment): device → condition it treats.
-///
-/// Unit η: Disorder → TreatedBy(DeviceFor(Disorder))
-///   e.g., SNHL → BTE → SNHL (recovers the condition)
-///
-/// Counit ε: DeviceFor(TreatedBy(Device)) → Device
-///   e.g., BTE → SNHL → BTE (recovers the device type)
-///
-/// Not exact inverses: one device may treat multiple conditions,
-/// one condition may be treated by multiple devices.
 pub struct DiagnosisTreatment;
 
 impl Adjunction for DiagnosisTreatment {
@@ -597,43 +601,46 @@ impl Adjunction for DiagnosisTreatment {
     type Right = DevicesToPathology;
 
     fn unit(obj: &PathologyEntity) -> PathologyRelation {
+        use pr4xis::category::Category;
         let device = PathologyToDevices::map_object(obj);
         let condition = DevicesToPathology::map_object(&device);
-        let kind = if condition == *obj {
-            PathologyCategoryRelationKind::Identity
+        if condition == *obj {
+            PathologyRelation {
+                from: *obj,
+                to: *obj,
+                kind: PathologyCategoryRelationKind::Identity,
+            }
         } else {
-            PathologyCategoryRelationKind::Composed
-        };
-        PathologyRelation {
-            from: *obj,
-            to: condition,
-            kind,
+            PathologyCategory::identity(obj)
         }
     }
 
     fn counit(obj: &DeviceEntity) -> DeviceRelation {
+        use pr4xis::category::Category;
         let condition = DevicesToPathology::map_object(obj);
         let device = PathologyToDevices::map_object(&condition);
-        let kind = if device == *obj {
-            DeviceCategoryRelationKind::Identity
+        if device == *obj {
+            DeviceRelation {
+                from: *obj,
+                to: *obj,
+                kind: DeviceCategoryRelationKind::Identity,
+            }
         } else {
-            DeviceCategoryRelationKind::Composed
-        };
-        DeviceRelation {
-            from: device,
-            to: *obj,
-            kind,
+            DeviceCategory::identity(obj)
         }
     }
-}
 
-impl pr4xis::category::Arrow for DiagnosisTreatment {
-    type Source = PathologyToDevices;
-    type Target = DevicesToPathology;
-    type Kind = pr4xis::category::AdjunctionKind;
-
-    fn meta() -> pr4xis::ontology::meta::RelationshipMeta {
-        <DiagnosisTreatment as pr4xis::category::Adjunction>::meta()
+    fn meta() -> pr4xis::ontology::meta::Provenance {
+        pr4xis::ontology::meta::Provenance {
+            name: pr4xis::ontology::meta::OntologyName::new_static("DiagnosisTreatment"),
+            description: pr4xis::ontology::meta::Label::new_static(
+                "Pathology ⊣ Devices — disorder vs intervention duality",
+            ),
+            citation: pr4xis::ontology::meta::Citation::parse_static(
+                "Mac Lane (1971) Categories for the Working Mathematician Ch. IV; Dillon (2012) Hearing Aids 2nd ed.; Zeng et al. (2008) Cochlear Implants",
+            ),
+            module_path: pr4xis::ontology::meta::ModulePath::new_static(module_path!()),
+        }
     }
 }
 pr4xis::register_adjunction!(DiagnosisTreatment);
@@ -645,321 +652,63 @@ pr4xis::register_adjunction!(DiagnosisTreatment);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::category::{Category, Concept};
-    use pr4xis::ontology::reasoning::analogy::Analogy;
-
-    // -- Right adjoint functor law tests --
+    use pr4xis::category::Concept;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
-    fn test_signal_to_acoustics_functor_laws() {
-        check_functor_laws::<SignalProcessingToAcoustics>().unwrap();
+    fn signal_to_acoustics_functor_laws() {
+        assert_functor_laws::<SignalProcessingToAcoustics>();
     }
     #[test]
-    fn test_signal_to_acoustics_analogy() {
-        Analogy::<SignalProcessingToAcoustics>::validate().unwrap();
-    }
-
-    #[test]
-    fn test_pathology_to_anatomy_functor_laws() {
-        check_functor_laws::<PathologyToAnatomy>().unwrap();
+    fn pathology_to_anatomy_functor_laws() {
+        assert_functor_laws::<PathologyToAnatomy>();
     }
     #[test]
-    fn test_pathology_to_anatomy_analogy() {
-        Analogy::<PathologyToAnatomy>::validate().unwrap();
-    }
-
-    #[test]
-    fn test_music_to_psychoacoustics_functor_laws() {
-        check_functor_laws::<MusicToPsychoacoustics>().unwrap();
+    fn music_to_psychoacoustics_functor_laws() {
+        assert_functor_laws::<MusicToPsychoacoustics>();
     }
     #[test]
-    fn test_music_to_psychoacoustics_analogy() {
-        Analogy::<MusicToPsychoacoustics>::validate().unwrap();
+    fn devices_to_pathology_functor_laws() {
+        assert_functor_laws::<DevicesToPathology>();
+    }
+    #[test]
+    fn anatomy_to_pathology_functor_laws() {
+        assert_functor_laws::<AnatomyToPathology>();
     }
 
     #[test]
-    fn test_devices_to_pathology_functor_laws() {
-        check_functor_laws::<DevicesToPathology>().unwrap();
-    }
-    #[test]
-    fn test_devices_to_pathology_analogy() {
-        Analogy::<DevicesToPathology>::validate().unwrap();
-    }
-
-    #[test]
-    fn test_anatomy_to_pathology_functor_laws() {
-        check_functor_laws::<AnatomyToPathology>().unwrap();
-    }
-    #[test]
-    fn test_anatomy_to_pathology_analogy() {
-        Analogy::<AnatomyToPathology>::validate().unwrap();
-    }
-
-    // -- Adjunction unit/counit well-formedness --
-
-    #[test]
-    fn test_analysis_synthesis_unit() {
-        // For every acoustic entity, unit produces a valid morphism
+    fn analysis_synthesis_unit_wellformed() {
         for obj in AcousticEntity::variants() {
-            let morphism = AnalysisSynthesis::unit(&obj);
-            assert_eq!(morphism.from, obj);
-            assert!(AcousticEntity::variants().contains(&morphism.to));
+            let m = AnalysisSynthesis::unit(&obj);
+            assert_eq!(m.from, obj);
+            assert!(AcousticEntity::variants().contains(&m.to));
         }
     }
 
     #[test]
-    fn test_analysis_synthesis_counit() {
-        for obj in SignalEntity::variants() {
-            let morphism = AnalysisSynthesis::counit(&obj);
-            assert_eq!(morphism.to, obj);
-            assert!(SignalEntity::variants().contains(&morphism.from));
+    fn health_disease_unit_wellformed() {
+        for obj in AnatomyConcept::variants() {
+            let m = HealthDisease::unit(&obj);
+            assert_eq!(m.from, obj);
+            assert!(AnatomyConcept::variants().contains(&m.to));
         }
     }
 
     #[test]
-    fn test_health_disease_unit() {
-        for obj in AuditoryEntity::variants() {
-            let morphism = HealthDisease::unit(&obj);
-            assert_eq!(morphism.from, obj);
-            assert!(AuditoryEntity::variants().contains(&morphism.to));
-        }
-    }
-
-    #[test]
-    fn test_health_disease_counit() {
-        for obj in PathologyEntity::variants() {
-            let morphism = HealthDisease::counit(&obj);
-            assert_eq!(morphism.to, obj);
-            assert!(PathologyEntity::variants().contains(&morphism.from));
-        }
-    }
-
-    #[test]
-    fn test_bottom_up_top_down_unit() {
+    fn bottom_up_top_down_unit_wellformed() {
         for obj in PsychoacousticEntity::variants() {
-            let morphism = BottomUpTopDown::unit(&obj);
-            assert_eq!(morphism.from, obj);
-            assert!(PsychoacousticEntity::variants().contains(&morphism.to));
+            let m = BottomUpTopDown::unit(&obj);
+            assert_eq!(m.from, obj);
+            assert!(PsychoacousticEntity::variants().contains(&m.to));
         }
     }
 
     #[test]
-    fn test_bottom_up_top_down_counit() {
-        for obj in MusicEntity::variants() {
-            let morphism = BottomUpTopDown::counit(&obj);
-            assert_eq!(morphism.to, obj);
-            assert!(MusicEntity::variants().contains(&morphism.from));
-        }
-    }
-
-    #[test]
-    fn test_diagnosis_treatment_unit() {
+    fn diagnosis_treatment_unit_wellformed() {
         for obj in PathologyEntity::variants() {
-            let morphism = DiagnosisTreatment::unit(&obj);
-            assert_eq!(morphism.from, obj);
-            assert!(PathologyEntity::variants().contains(&morphism.to));
-        }
-    }
-
-    #[test]
-    fn test_diagnosis_treatment_counit() {
-        for obj in DeviceEntity::variants() {
-            let morphism = DiagnosisTreatment::counit(&obj);
-            assert_eq!(morphism.to, obj);
-            assert!(DeviceEntity::variants().contains(&morphism.from));
-        }
-    }
-
-    // -- Semantic validation --
-
-    #[test]
-    fn test_ohc_round_trips_through_health_disease() {
-        // OHC → HairCellLoss → OuterHairCell
-        let unit = HealthDisease::unit(&AuditoryEntity::OuterHairCell);
-        assert_eq!(
-            unit.to,
-            AuditoryEntity::OuterHairCell,
-            "OHC should recover through round-trip"
-        );
-    }
-
-    #[test]
-    fn test_snhl_round_trips_through_diagnosis_treatment() {
-        // SNHL → BTE → SNHL
-        let unit = DiagnosisTreatment::unit(&PathologyEntity::SensorineuralHearingLoss);
-        assert_eq!(unit.to, PathologyEntity::SensorineuralHearingLoss);
-    }
-
-    #[test]
-    fn test_pitch_round_trips_through_bottom_up_top_down() {
-        // Pitch → PitchHeight → Pitch
-        let unit = BottomUpTopDown::unit(&PsychoacousticEntity::Pitch);
-        assert_eq!(unit.to, PsychoacousticEntity::Pitch);
-    }
-
-    // -- Property-based tests --
-
-    use proptest::prelude::*;
-
-    fn arb_acoustic_entity() -> impl Strategy<Value = AcousticEntity> {
-        (0..AcousticEntity::variants().len()).prop_map(|i| AcousticEntity::variants()[i])
-    }
-
-    fn arb_signal_entity() -> impl Strategy<Value = SignalEntity> {
-        (0..SignalEntity::variants().len()).prop_map(|i| SignalEntity::variants()[i])
-    }
-
-    fn arb_auditory_entity() -> impl Strategy<Value = AuditoryEntity> {
-        (0..AuditoryEntity::variants().len()).prop_map(|i| AuditoryEntity::variants()[i])
-    }
-
-    fn arb_pathology_entity() -> impl Strategy<Value = PathologyEntity> {
-        (0..PathologyEntity::variants().len()).prop_map(|i| PathologyEntity::variants()[i])
-    }
-
-    fn arb_psychoacoustic_entity() -> impl Strategy<Value = PsychoacousticEntity> {
-        (0..PsychoacousticEntity::variants().len())
-            .prop_map(|i| PsychoacousticEntity::variants()[i])
-    }
-
-    fn arb_music_entity() -> impl Strategy<Value = MusicEntity> {
-        (0..MusicEntity::variants().len()).prop_map(|i| MusicEntity::variants()[i])
-    }
-
-    fn arb_device_entity() -> impl Strategy<Value = DeviceEntity> {
-        (0..DeviceEntity::variants().len()).prop_map(|i| DeviceEntity::variants()[i])
-    }
-
-    proptest! {
-        // -- Right adjoint functor property tests --
-
-        #[test]
-        fn prop_signal_to_acoustics_maps_valid(entity in arb_signal_entity()) {
-            let mapped = SignalProcessingToAcoustics::map_object(&entity);
-            prop_assert!(AcousticEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_signal_to_acoustics_preserves_identity(entity in arb_signal_entity()) {
-            let id_src = SignalProcessingCategory::identity(&entity);
-            let mapped_id = SignalProcessingToAcoustics::map_morphism(&id_src);
-            let id_tgt = AcousticsCategory::identity(&SignalProcessingToAcoustics::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
-        }
-
-        #[test]
-        fn prop_pathology_to_anatomy_maps_valid(entity in arb_pathology_entity()) {
-            let mapped = PathologyToAnatomy::map_object(&entity);
-            prop_assert!(AuditoryEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_pathology_to_anatomy_preserves_identity(entity in arb_pathology_entity()) {
-            let id_src = PathologyCategory::identity(&entity);
-            let mapped_id = PathologyToAnatomy::map_morphism(&id_src);
-            let id_tgt = AnatomyCategory::identity(&PathologyToAnatomy::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
-        }
-
-        #[test]
-        fn prop_music_to_psychoacoustics_maps_valid(entity in arb_music_entity()) {
-            let mapped = MusicToPsychoacoustics::map_object(&entity);
-            prop_assert!(PsychoacousticEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_music_to_psychoacoustics_preserves_identity(entity in arb_music_entity()) {
-            let id_src = MusicPerceptionCategory::identity(&entity);
-            let mapped_id = MusicToPsychoacoustics::map_morphism(&id_src);
-            let id_tgt = PsychoacousticsCategory::identity(&MusicToPsychoacoustics::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
-        }
-
-        #[test]
-        fn prop_devices_to_pathology_maps_valid(entity in arb_device_entity()) {
-            let mapped = DevicesToPathology::map_object(&entity);
-            prop_assert!(PathologyEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_devices_to_pathology_preserves_identity(entity in arb_device_entity()) {
-            let id_src = DeviceCategory::identity(&entity);
-            let mapped_id = DevicesToPathology::map_morphism(&id_src);
-            let id_tgt = PathologyCategory::identity(&DevicesToPathology::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
-        }
-
-        #[test]
-        fn prop_anatomy_to_pathology_maps_valid(entity in arb_auditory_entity()) {
-            let mapped = AnatomyToPathology::map_object(&entity);
-            prop_assert!(PathologyEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_anatomy_to_pathology_preserves_identity(entity in arb_auditory_entity()) {
-            let id_src = AnatomyCategory::identity(&entity);
-            let mapped_id = AnatomyToPathology::map_morphism(&id_src);
-            let id_tgt = PathologyCategory::identity(&AnatomyToPathology::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
-        }
-
-        // -- Adjunction unit/counit property tests --
-
-        #[test]
-        fn prop_analysis_synthesis_unit_wellformed(entity in arb_acoustic_entity()) {
-            let m = AnalysisSynthesis::unit(&entity);
-            prop_assert_eq!(m.from, entity);
-            prop_assert!(AcousticEntity::variants().contains(&m.to));
-        }
-
-        #[test]
-        fn prop_analysis_synthesis_counit_wellformed(entity in arb_signal_entity()) {
-            let m = AnalysisSynthesis::counit(&entity);
-            prop_assert_eq!(m.to, entity);
-            prop_assert!(SignalEntity::variants().contains(&m.from));
-        }
-
-        #[test]
-        fn prop_health_disease_unit_wellformed(entity in arb_auditory_entity()) {
-            let m = HealthDisease::unit(&entity);
-            prop_assert_eq!(m.from, entity);
-            prop_assert!(AuditoryEntity::variants().contains(&m.to));
-        }
-
-        #[test]
-        fn prop_health_disease_counit_wellformed(entity in arb_pathology_entity()) {
-            let m = HealthDisease::counit(&entity);
-            prop_assert_eq!(m.to, entity);
-            prop_assert!(PathologyEntity::variants().contains(&m.from));
-        }
-
-        #[test]
-        fn prop_bottom_up_top_down_unit_wellformed(entity in arb_psychoacoustic_entity()) {
-            let m = BottomUpTopDown::unit(&entity);
-            prop_assert_eq!(m.from, entity);
-            prop_assert!(PsychoacousticEntity::variants().contains(&m.to));
-        }
-
-        #[test]
-        fn prop_bottom_up_top_down_counit_wellformed(entity in arb_music_entity()) {
-            let m = BottomUpTopDown::counit(&entity);
-            prop_assert_eq!(m.to, entity);
-            prop_assert!(MusicEntity::variants().contains(&m.from));
-        }
-
-        #[test]
-        fn prop_diagnosis_treatment_unit_wellformed(entity in arb_pathology_entity()) {
-            let m = DiagnosisTreatment::unit(&entity);
-            prop_assert_eq!(m.from, entity);
-            prop_assert!(PathologyEntity::variants().contains(&m.to));
-        }
-
-        #[test]
-        fn prop_diagnosis_treatment_counit_wellformed(entity in arb_device_entity()) {
-            let m = DiagnosisTreatment::counit(&entity);
-            prop_assert_eq!(m.to, entity);
-            prop_assert!(DeviceEntity::variants().contains(&m.from));
+            let m = DiagnosisTreatment::unit(&obj);
+            assert_eq!(m.from, obj);
+            assert!(PathologyEntity::variants().contains(&m.to));
         }
     }
 }

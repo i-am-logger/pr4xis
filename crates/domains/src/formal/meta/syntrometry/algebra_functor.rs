@@ -31,7 +31,7 @@ use super::ontology::{
     SyntrometryCategory, SyntrometryConcept, SyntrometryRelation, SyntrometryRelationKind,
 };
 use crate::formal::meta::algebra::ontology::{
-    AlgebraCategory, AlgebraCategoryRelationKind, AlgebraConcept, AlgebraRelation,
+    AlgebraCategory, AlgebraConcept, AlgebraRelation, AlgebraRelationKind,
 };
 
 fn map_concept(c: &SyntrometryConcept) -> AlgebraConcept {
@@ -75,7 +75,7 @@ impl Functor for SyntrometryToAlgebra {
             _ => AlgebraRelation {
                 from,
                 to,
-                kind: AlgebraCategoryRelationKind::Composed,
+                kind: AlgebraRelationKind::Subsumption,
             },
         }
     }
@@ -85,10 +85,10 @@ pr4xis::register_functor!(SyntrometryToAlgebra);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn algebra_functor_laws_pass() {
-        check_functor_laws::<SyntrometryToAlgebra>().unwrap();
+        assert_functor_laws::<SyntrometryToAlgebra>();
     }
 }

@@ -39,7 +39,7 @@ mod tests {
         for i in 0..500 {
             // IMU prediction (high rate)
             engine = engine
-                .try_next(FusionAction::Predict {
+                .next(FusionAction::Predict {
                     dt: imu_dt,
                     transition: f_imu.clone(),
                     process_noise: q_imu.clone(),
@@ -53,7 +53,7 @@ mod tests {
                 let uncertainty_before = engine.situation().estimate.uncertainty();
 
                 engine = engine
-                    .try_next(FusionAction::Update {
+                    .next(FusionAction::Update {
                         observation_matrix: h_gps.clone(),
                         measurement: Vector::new(vec![true_position]),
                         measurement_noise: r_gps.clone(),

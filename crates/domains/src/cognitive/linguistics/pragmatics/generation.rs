@@ -21,7 +21,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "Production",
     source: "Levelt (1989); de Groote (2001); Reiter & Dale (2000); Appelt (1985); McKeown (1985)",
-    being: Process,
 
     concepts: [
         CommunicativeGoal,
@@ -114,29 +113,47 @@ mod tests {
 
     #[test]
     fn full_pipeline_composes() {
-        let conceptualize = ProductionRelation {
-            from: ProductionConcept::CommunicativeGoal,
-            to: ProductionConcept::PreverbalMessage,
-            kind: ProductionRelationKind::Conceptualizes,
-        };
-        let formulate = ProductionRelation {
-            from: ProductionConcept::PreverbalMessage,
-            to: ProductionConcept::SentencePlan,
-            kind: ProductionRelationKind::Formulates,
-        };
-        let composed = ProductionCategory::compose(&conceptualize, &formulate).unwrap();
-        assert_eq!(composed.from, ProductionConcept::CommunicativeGoal);
-        assert_eq!(composed.to, ProductionConcept::SentencePlan);
+        // Per #166 (partial category) composition of distinct-kind
+        // morphisms (Conceptualizes ∘ Formulates) is undefined as a typed
+        // arrow. Verify the pipeline as a path in the morphism graph
+        // rather than as a single composite.
+        let ms = ProductionCategory::morphisms();
+        let step1 = ms.iter().any(|r| {
+            r.from == ProductionConcept::CommunicativeGoal
+                && r.to == ProductionConcept::PreverbalMessage
+                && r.kind == ProductionRelationKind::Conceptualizes
+        });
+        let step2 = ms.iter().any(|r| {
+            r.from == ProductionConcept::PreverbalMessage
+                && r.to == ProductionConcept::SentencePlan
+                && r.kind == ProductionRelationKind::Formulates
+        });
+        assert!(step1, "Conceptualize step missing");
+        assert!(step2, "Formulate step missing");
     }
 
     #[test]
     fn goal_reaches_surface_form() {
+        // Per #166 composition of distinct-kind morphisms is partial — the
+        // Levelt pipeline path Goal → PreverbalMessage (Conceptualizes) →
+        // SentencePlan (Formulates) → SurfaceForm (Realizes) is no longer
+        // closed by an explicit Composed arrow. Verify each direct edge
+        // exists; transitive reachability via heterogeneous composition is
+        // an extension-level concern (see #166).
+        let m = ProductionCategory::morphisms();
         assert!(
-            ProductionCategory::morphisms()
-                .iter()
+            m.iter()
                 .any(|r| r.from == ProductionConcept::CommunicativeGoal
-                    && r.to == ProductionConcept::SurfaceForm
-                    && r.kind == ProductionRelationKind::Composed)
+                    && r.to == ProductionConcept::PreverbalMessage)
+        );
+        assert!(
+            m.iter()
+                .any(|r| r.from == ProductionConcept::PreverbalMessage
+                    && r.to == ProductionConcept::SentencePlan)
+        );
+        assert!(
+            m.iter().any(|r| r.from == ProductionConcept::SentencePlan
+                && r.to == ProductionConcept::SurfaceForm)
         );
     }
 

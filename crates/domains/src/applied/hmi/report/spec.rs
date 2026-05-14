@@ -18,6 +18,7 @@ use crate::applied::hmi::visualization::ontology::{
     AccuracyRank, DataLevel, GeomType, InteractionLevel, PerceptualTask, VisualVariable,
     suitable_encodings, suitable_geoms,
 };
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 
 /// A data field in the report — name + measurement level.
@@ -248,45 +249,76 @@ pub fn theme_report_fields() -> Vec<DataField> {
 pub struct DefaultIsOptimal;
 
 impl Axiom for DefaultIsOptimal {
-    fn description(&self) -> &str {
-        "default report spec uses optimal encodings for all fields (Cleveland-McGill 1984)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let spec = ReportSpec::from_fields("test", theme_report_fields());
-        spec.assignments.iter().all(|a| a.is_optimal())
+        let ok = spec.assignments.iter().all(|a| a.is_optimal());
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "DefaultIsOptimal",
+        "default report spec uses optimal encodings for all fields",
+        "Cleveland & McGill (1984) Graphical Perception: Theory, Experimentation, and Application, JASA 79(387)"
+    );
 }
-pr4xis::register_axiom!(DefaultIsOptimal);
+pr4xis::register_axiom!(
+    DefaultIsOptimal,
+    "Cleveland & McGill (1984) Graphical Perception: Theory, Experimentation, and Application, JASA 79(387)"
+);
 
 /// Default report has no validation issues.
 pub struct DefaultIsValid;
 
 impl Axiom for DefaultIsValid {
-    fn description(&self) -> &str {
-        "default report spec passes all validation checks"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let spec = ReportSpec::from_fields("test", theme_report_fields());
-        spec.validate().is_empty()
+        if spec.validate().is_empty() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "DefaultIsValid",
+        "default report spec passes all validation checks",
+        "Cleveland & McGill (1984) Graphical Perception, JASA 79(387)"
+    );
 }
-pr4xis::register_axiom!(DefaultIsValid);
+pr4xis::register_axiom!(
+    DefaultIsValid,
+    "Cleveland & McGill (1984) Graphical Perception, JASA 79(387)"
+);
 
 /// Overriding to a less accurate encoding produces a warning.
 pub struct OverrideWarns;
 
 impl Axiom for OverrideWarns {
-    fn description(&self) -> &str {
-        "overriding to a suboptimal encoding produces a warning"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let mut spec = ReportSpec::from_fields("test", theme_report_fields());
         // Override luminance (ratio) from position (rank 1) to color (rank 6)
         let warning = spec.override_encoding("luminance", VisualVariable::Color);
-        warning.is_some() // should warn
+        if warning.is_some() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "OverrideWarns",
+        "overriding to a suboptimal encoding produces a warning",
+        "Cleveland & McGill (1984) Graphical Perception — accuracy ranking of visual variables"
+    );
 }
-pr4xis::register_axiom!(OverrideWarns);
+pr4xis::register_axiom!(
+    OverrideWarns,
+    "Cleveland & McGill (1984) Graphical Perception — accuracy ranking of visual variables"
+);
 
 #[cfg(test)]
 mod tests {
@@ -317,17 +349,17 @@ mod tests {
 
     #[test]
     fn test_default_spec_is_optimal() {
-        assert!(DefaultIsOptimal.holds());
+        assert!(DefaultIsOptimal.verify().is_ok());
     }
 
     #[test]
     fn test_default_spec_is_valid() {
-        assert!(DefaultIsValid.holds());
+        assert!(DefaultIsValid.verify().is_ok());
     }
 
     #[test]
     fn test_override_warns() {
-        assert!(OverrideWarns.holds());
+        assert!(OverrideWarns.verify().is_ok());
     }
 
     #[test]

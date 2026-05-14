@@ -112,34 +112,30 @@ fn parse_simple_sentence() {
     // "the dog runs"
     let e = new_parse();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::Sentence,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::NounPhrase,
         })
         .unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("the") }).unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("dog") }).unwrap();
+    let e = e.next(ParseAction::ClosePhrase).unwrap(); // close NP
     let e = e
-        .try_next(ParseAction::AddWord { entry: word("the") })
-        .unwrap();
-    let e = e
-        .try_next(ParseAction::AddWord { entry: word("dog") })
-        .unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap(); // close NP
-    let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::VerbPhrase,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::AddWord {
+        .next(ParseAction::AddWord {
             entry: word("runs"),
         })
         .unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap(); // close VP
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap(); // close S
+    let e = e.next(ParseAction::ClosePhrase).unwrap(); // close VP
+    let e = e.next(ParseAction::ClosePhrase).unwrap(); // close S
     assert!(e.situation().completed.is_some());
     assert_eq!(
         e.situation().completed.as_ref().unwrap().text(),
@@ -152,43 +148,37 @@ fn parse_with_adjective() {
     // "the big dog runs quickly"
     let e = new_parse();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::Sentence,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::NounPhrase,
         })
         .unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("the") }).unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("big") }).unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("dog") }).unwrap();
+    let e = e.next(ParseAction::ClosePhrase).unwrap(); // close NP
     let e = e
-        .try_next(ParseAction::AddWord { entry: word("the") })
-        .unwrap();
-    let e = e
-        .try_next(ParseAction::AddWord { entry: word("big") })
-        .unwrap();
-    let e = e
-        .try_next(ParseAction::AddWord { entry: word("dog") })
-        .unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap(); // close NP
-    let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::VerbPhrase,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::AddWord {
+        .next(ParseAction::AddWord {
             entry: word("runs"),
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::AddWord {
+        .next(ParseAction::AddWord {
             entry: word("quickly"),
         })
         .unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap(); // close VP
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap(); // close S
-    assert!(e.is_terminal());
+    let e = e.next(ParseAction::ClosePhrase).unwrap(); // close VP
+    let e = e.next(ParseAction::ClosePhrase).unwrap(); // close S
+    assert!(e.situation().completed.is_some());
     assert_eq!(
         e.situation().completed.as_ref().unwrap().text(),
         "the big dog runs quickly"
@@ -200,35 +190,31 @@ fn parse_plural_agreement() {
     // "the dogs run" — plural subject + plural verb
     let e = new_parse();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::Sentence,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::NounPhrase,
         })
         .unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("the") }).unwrap();
     let e = e
-        .try_next(ParseAction::AddWord { entry: word("the") })
-        .unwrap();
-    let e = e
-        .try_next(ParseAction::AddWord {
+        .next(ParseAction::AddWord {
             entry: word("dogs"),
         })
         .unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap();
+    let e = e.next(ParseAction::ClosePhrase).unwrap();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::VerbPhrase,
         })
         .unwrap();
-    let e = e
-        .try_next(ParseAction::AddWord { entry: word("run") })
-        .unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap();
-    assert!(e.is_terminal());
+    let e = e.next(ParseAction::AddWord { entry: word("run") }).unwrap();
+    let e = e.next(ParseAction::ClosePhrase).unwrap();
+    let e = e.next(ParseAction::ClosePhrase).unwrap();
+    assert!(e.situation().completed.is_some());
 }
 
 // =============================================================================
@@ -239,17 +225,17 @@ fn parse_plural_agreement() {
 fn reject_verb_in_noun_phrase() {
     let e = new_parse();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::Sentence,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::NounPhrase,
         })
         .unwrap();
     // Can't put a verb in an NP
-    let result = e.try_next(ParseAction::AddWord {
+    let result = e.next(ParseAction::AddWord {
         entry: word("runs"),
     });
     assert!(result.is_err());
@@ -260,43 +246,37 @@ fn reject_agreement_violation() {
     // "the dog run" — singular subject + plural verb
     let e = new_parse();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::Sentence,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::NounPhrase,
         })
         .unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("the") }).unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("dog") }).unwrap();
+    let e = e.next(ParseAction::ClosePhrase).unwrap();
     let e = e
-        .try_next(ParseAction::AddWord { entry: word("the") })
-        .unwrap();
-    let e = e
-        .try_next(ParseAction::AddWord { entry: word("dog") })
-        .unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap();
-    let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::VerbPhrase,
         })
         .unwrap();
-    let e = e
-        .try_next(ParseAction::AddWord { entry: word("run") })
-        .unwrap(); // "run" is plural
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("run") }).unwrap(); // "run" is plural
+    let e = e.next(ParseAction::ClosePhrase).unwrap();
     // Closing the sentence should fail: "dog" (sg) + "run" (pl).
     // NOTE: This test requires verb inflection data (number agreement).
     // WordNet doesn't carry number/person for verb forms — needs morphological analysis.
     // Until verb inflection is loaded from the language ontology, skip this check.
-    let _result = e.try_next(ParseAction::ClosePhrase);
+    let _result = e.next(ParseAction::ClosePhrase);
     // assert!(result.is_err()); // Re-enable when verb inflection is loaded
 }
 
 #[test]
 fn reject_close_empty_stack() {
     let e = new_parse();
-    let result = e.try_next(ParseAction::ClosePhrase);
+    let result = e.next(ParseAction::ClosePhrase);
     assert!(result.is_err());
 }
 
@@ -304,35 +284,33 @@ fn reject_close_empty_stack() {
 fn reject_action_after_complete() {
     let e = new_parse();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::Sentence,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::NounPhrase,
         })
         .unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("dog") }).unwrap();
+    let e = e.next(ParseAction::ClosePhrase).unwrap();
     let e = e
-        .try_next(ParseAction::AddWord { entry: word("dog") })
-        .unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap();
-    let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::VerbPhrase,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::AddWord {
+        .next(ParseAction::AddWord {
             entry: word("runs"),
         })
         .unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap();
-    let e = e.try_next(ParseAction::ClosePhrase).unwrap(); // complete
-    assert!(e.is_terminal());
+    let e = e.next(ParseAction::ClosePhrase).unwrap();
+    let e = e.next(ParseAction::ClosePhrase).unwrap(); // complete
+    assert!(e.situation().completed.is_some());
 
     // Can't add more after completion
-    let result = e.try_next(ParseAction::OpenPhrase {
+    let result = e.next(ParseAction::OpenPhrase {
         phrase: PhraseType::NounPhrase,
     });
     assert!(result.is_err());
@@ -342,18 +320,16 @@ fn reject_action_after_complete() {
 fn parse_back_forward() {
     let e = new_parse();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::Sentence,
         })
         .unwrap();
     let e = e
-        .try_next(ParseAction::OpenPhrase {
+        .next(ParseAction::OpenPhrase {
             phrase: PhraseType::NounPhrase,
         })
         .unwrap();
-    let e = e
-        .try_next(ParseAction::AddWord { entry: word("dog") })
-        .unwrap();
+    let e = e.next(ParseAction::AddWord { entry: word("dog") }).unwrap();
 
     // Undo the word add
     let e = e.back().unwrap();

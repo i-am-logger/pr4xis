@@ -1,5 +1,5 @@
 use crate::formal::math::linear_algebra::positive_definite;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::Ontology;
 
 use crate::applied::tracking::single_target::engine::*;
@@ -8,12 +8,13 @@ use crate::applied::tracking::single_target::ontology::*;
 
 #[test]
 fn target_state_category_laws() {
-    check_category_laws::<TargetStateCategory>().unwrap();
+    assert_category_laws::<SingleTargetCategory>();
 }
 
 #[test]
 fn single_target_ontology_validates() {
-    SingleTargetOntology::validate().unwrap();
+    SingleTargetOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
@@ -25,9 +26,9 @@ fn cv_tracker_converges_to_true_position() {
     for i in 0..30 {
         let dt = 1.0;
         let t = i as f64;
-        engine = engine.try_next(cv_predict_1d(dt, 0.1)).unwrap();
+        engine = engine.next(cv_predict_1d(dt, 0.1)).unwrap();
         engine = engine
-            .try_next(cv_update_position_1d(true_pos + true_vel * t, 1.0))
+            .next(cv_update_position_1d(true_pos + true_vel * t, 1.0))
             .unwrap();
     }
 
@@ -47,9 +48,9 @@ fn cv_tracker_covariance_stays_psd() {
     let mut engine = new_cv_tracker_1d(0.0, 0.0, 100.0, 0.1, 1.0);
 
     for i in 0..20 {
-        engine = engine.try_next(cv_predict_1d(1.0, 0.1)).unwrap();
+        engine = engine.next(cv_predict_1d(1.0, 0.1)).unwrap();
         engine = engine
-            .try_next(cv_update_position_1d(i as f64 * 0.5, 1.0))
+            .next(cv_update_position_1d(i as f64 * 0.5, 1.0))
             .unwrap();
         assert!(positive_definite::is_positive_semidefinite(
             &engine.situation().estimate.covariance
@@ -127,11 +128,11 @@ mod proptest_proofs {
             let e1 = new_cv_tracker_1d(initial, 0.0, 100.0, 0.1, 1.0);
             let e2 = new_cv_tracker_1d(initial, 0.0, 100.0, 0.1, 1.0);
 
-            let e1 = e1.try_next(cv_predict_1d(1.0, 0.1)).unwrap();
-            let e2 = e2.try_next(cv_predict_1d(1.0, 0.1)).unwrap();
+            let e1 = e1.next(cv_predict_1d(1.0, 0.1)).unwrap();
+            let e2 = e2.next(cv_predict_1d(1.0, 0.1)).unwrap();
 
-            let e1 = e1.try_next(cv_update_position_1d(meas, 1.0)).unwrap();
-            let e2 = e2.try_next(cv_update_position_1d(meas, 1.0)).unwrap();
+            let e1 = e1.next(cv_update_position_1d(meas, 1.0)).unwrap();
+            let e2 = e2.next(cv_update_position_1d(meas, 1.0)).unwrap();
 
             prop_assert!(e1.situation().estimate.state.data == e2.situation().estimate.state.data);
         }

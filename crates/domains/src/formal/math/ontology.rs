@@ -1,163 +1,211 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Number-system hierarchy ontology — the inclusion chain
+//! N ⊂ Z ⊂ Q ⊂ R ⊂ C.
+//!
+//! The five canonical number systems of mathematical analysis,
+//! constructed in turn by Landau (1930): the naturals as Peano's
+//! inductive set; the integers as quotient-pairs of naturals; the
+//! rationals as quotient-pairs of integers; the reals via Dedekind
+//! cuts or Cauchy sequences; the complex numbers as pairs of reals
+//! under the Hamilton multiplication rule.
+//!
+//! # Literature
+//!
+//! - **Landau (1930)** *Grundlagen der Analysis* — the canonical
+//!   construction of N → Z → Q → R → C as inclusions of number systems.
+//! - **Peano (1889)** *Arithmetices Principia, Nova Methodo Exposita* —
+//!   the axioms for the natural numbers.
+//! - **Hamilton (1837)** "Theory of Conjugate Functions, or Algebraic
+//!   Couples", *Trans. Royal Irish Academy* 17 — the construction of
+//!   complex numbers as ordered pairs of reals.
 
-/// Math ontology: mathematical domains as entities with axioms.
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Mathematical domains as entities.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum MathDomain {
-    NaturalNumbers,
-    Integers,
-    Rationals,
-    Reals,
-    Complex,
+pr4xis::ontology! {
+    name: "Number",
+    source: "Landau (1930) Grundlagen der Analysis; Peano (1889) Arithmetices Principia; Hamilton (1837) Theory of Conjugate Functions, Trans. Royal Irish Academy 17",
+
+    concepts: [
+        NaturalNumbers,
+        Integers,
+        Rationals,
+        Reals,
+        Complex,
+    ],
+
+    labels: {
+        NaturalNumbers: ("en", "Natural numbers",
+            "Peano (1889): the non-negative integers {0, 1, 2, ...} characterised by the Peano axioms (zero, successor, induction)."),
+        Integers: ("en", "Integers",
+            "Landau (1930) §2: the ring Z constructed as equivalence classes of pairs of naturals under the relation (a,b) ~ (c,d) iff a+d = b+c."),
+        Rationals: ("en", "Rationals",
+            "Landau (1930) §3: the field Q constructed as equivalence classes of pairs of integers (p, q != 0) under (a,b) ~ (c,d) iff ad = bc."),
+        Reals: ("en", "Reals",
+            "Landau (1930) §4: the field R obtained by Dedekind cuts (or equivalently Cauchy sequences) of rationals; the unique complete ordered field."),
+        Complex: ("en", "Complex numbers",
+            "Hamilton (1837): the field C constructed as ordered pairs (a, b) of reals with multiplication (a,b)(c,d) = (ac-bd, ad+bc); equivalently R[X]/(X^2 + 1)."),
+    },
+
+    // Strict inclusion chain — each smaller system embeds into the next
+    // larger one. Landau (1930) constructs each step explicitly.
+    is_a: [
+        (NaturalNumbers, Integers),
+        (Integers, Rationals),
+        (Rationals, Reals),
+        (Reals, Complex),
+    ],
 }
 
-// ---------------------------------------------------------------------------
-// Category
-// ---------------------------------------------------------------------------
-
-define_ontology! {
-    /// Discrete category over MathDomain entities.
-    pub MathOntology for NumberHierarchy {
-        concepts: MathDomain,
-        relation: Subset,
-        being: AbstractObject,
-        source: "Landau (1930)",
-    }
-}
-
-/// Quality: ordering of number domains by containment.
+/// Quality: position of each number system in the inclusion chain
+/// N ⊂ Z ⊂ Q ⊂ R ⊂ C — Landau (1930) construction order.
 #[derive(Debug, Clone)]
 pub struct DomainOrder;
 
 impl Quality for DomainOrder {
-    type Individual = MathDomain;
+    type Individual = NumberConcept;
     type Value = u8;
 
-    fn get(&self, domain: &MathDomain) -> Option<u8> {
+    fn get(&self, domain: &NumberConcept) -> Option<u8> {
         Some(match domain {
-            MathDomain::NaturalNumbers => 0,
-            MathDomain::Integers => 1,
-            MathDomain::Rationals => 2,
-            MathDomain::Reals => 3,
-            MathDomain::Complex => 4,
+            NumberConcept::NaturalNumbers => 0,
+            NumberConcept::Integers => 1,
+            NumberConcept::Rationals => 2,
+            NumberConcept::Reals => 3,
+            NumberConcept::Complex => 4,
         })
     }
 }
 
-/// Quality: does this domain support division?
+/// Quality: which systems form a field — closed under division.
+/// Landau (1930) §3: Q is the smallest field containing the integers,
+/// so Q, R, C are fields and N, Z are not.
 #[derive(Debug, Clone)]
 pub struct SupportsDivision;
 
 impl Quality for SupportsDivision {
-    type Individual = MathDomain;
+    type Individual = NumberConcept;
     type Value = ();
 
-    fn get(&self, domain: &MathDomain) -> Option<()> {
+    fn get(&self, domain: &NumberConcept) -> Option<()> {
         match domain {
-            MathDomain::Rationals | MathDomain::Reals | MathDomain::Complex => Some(()),
+            NumberConcept::Rationals | NumberConcept::Reals | NumberConcept::Complex => Some(()),
             _ => None,
         }
     }
 }
 
-/// Quality: does this domain support square roots of negatives?
+/// Quality: which systems support square roots of negatives.
+/// Hamilton (1837): only C contains a root of X² + 1.
 #[derive(Debug, Clone)]
 pub struct SupportsNegativeSqrt;
 
 impl Quality for SupportsNegativeSqrt {
-    type Individual = MathDomain;
+    type Individual = NumberConcept;
     type Value = ();
 
-    fn get(&self, domain: &MathDomain) -> Option<()> {
+    fn get(&self, domain: &NumberConcept) -> Option<()> {
         match domain {
-            MathDomain::Complex => Some(()),
+            NumberConcept::Complex => Some(()),
             _ => None,
         }
     }
 }
 
-impl Ontology for MathOntology {
-    type Cat = NumberHierarchy;
+impl Ontology for NumberOntology {
+    type Cat = NumberCategory;
     type Qual = DomainOrder;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(ContainmentChain)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(ContainmentChain));
+        axioms
     }
 }
 
-/// Axiom: N < Z < Q < R < C (strict containment chain).
+/// Domain axiom: the construction order N < Z < Q < R < C is strict —
+/// each domain's order index is strictly less than its successor's.
+/// Verifies the `DomainOrder` quality is consistent with the
+/// `is_a` chain declared above.
 pub struct ContainmentChain;
 
 impl Axiom for ContainmentChain {
-    fn description(&self) -> &str {
-        "N < Z < Q < R < C"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::Concept;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let order = DomainOrder;
-        let domains = MathDomain::variants();
-        // Each domain has a strictly increasing order
+        let domains = NumberConcept::variants();
         for i in 0..domains.len() {
             for j in i + 1..domains.len() {
                 if order.get(&domains[i]).unwrap() >= order.get(&domains[j]).unwrap() {
-                    return false;
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "ContainmentChain",
+        "N < Z < Q < R < C (strict inclusion of number systems)",
+        "Landau (1930) Grundlagen der Analysis"
+    );
 }
-pr4xis::register_axiom!(ContainmentChain);
+
+pr4xis::register_axiom!(ContainmentChain, "Landau (1930) Grundlagen der Analysis");
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Concept;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
-    fn test_5_domains() {
-        assert_eq!(MathDomain::variants().len(), 5);
+    fn five_number_systems() {
+        assert_eq!(NumberConcept::variants().len(), 5);
     }
 
     #[test]
-    fn test_category_laws() {
-        pr4xis::category::validate::check_category_laws::<NumberHierarchy>().unwrap();
+    fn category_laws() {
+        assert_category_laws::<NumberCategory>();
     }
 
     #[test]
-    fn test_containment_chain() {
-        assert!(ContainmentChain.holds());
+    fn containment_chain_holds() {
+        assert!(ContainmentChain.verify().is_ok());
     }
 
     #[test]
-    fn test_division_support() {
-        assert_eq!(SupportsDivision.individuals_with().len(), 3); // Q, R, C
+    fn division_supported_in_q_r_c() {
+        // Three of the five (Q, R, C) form fields.
+        let q = SupportsDivision;
+        let count = NumberConcept::variants()
+            .iter()
+            .filter(|d| q.get(d).is_some())
+            .count();
+        assert_eq!(count, 3);
     }
 
     #[test]
-    fn test_negative_sqrt_only_complex() {
-        assert_eq!(SupportsNegativeSqrt.individuals_with().len(), 1); // C only
+    fn negative_sqrt_only_in_complex() {
+        let q = SupportsNegativeSqrt;
+        let count = NumberConcept::variants()
+            .iter()
+            .filter(|d| q.get(d).is_some())
+            .count();
+        assert_eq!(count, 1);
     }
 
     #[test]
-    fn test_domain_ordering() {
+    fn domain_ordering() {
         let order = DomainOrder;
         assert!(
-            order.get(&MathDomain::NaturalNumbers).unwrap()
-                < order.get(&MathDomain::Complex).unwrap()
+            order.get(&NumberConcept::NaturalNumbers).unwrap()
+                < order.get(&NumberConcept::Complex).unwrap()
         );
     }
 
     #[test]
     fn ontology_validates() {
-        MathOntology::validate().unwrap();
+        NumberOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

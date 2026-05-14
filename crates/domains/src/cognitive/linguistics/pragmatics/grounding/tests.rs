@@ -1,17 +1,18 @@
 use super::ontology::*;
-use pr4xis::category::Category;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::category::{Arrow, Category};
 use pr4xis::ontology::{Axiom, Ontology};
 
 #[test]
 fn category_laws() {
-    check_category_laws::<GroundingCategory>().unwrap();
+    assert_category_laws::<GroundingCategory>();
 }
 
 #[test]
 fn ontology_validates() {
-    GroundingOntology::validate().unwrap();
+    GroundingOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
@@ -21,38 +22,45 @@ fn nineteen_concepts() {
 
 #[test]
 fn all_acts_classified() {
-    assert!(AllActsClassified.holds());
+    assert!(AllActsClassified.verify().is_ok());
 }
 
 #[test]
 fn presentation_has_consequence() {
-    assert!(PresentationHasConsequence.holds());
+    assert!(PresentationHasConsequence.verify().is_ok());
 }
 
 #[test]
 fn common_ground_has_contributions() {
-    use pr4xis::ontology::reasoning::mereology::MereologyDef;
-    let parts = GroundingMereology::relations();
-    assert!(parts.iter().any(|(whole, part)| {
-        *whole == GroundingConcept::CommonGround && *part == GroundingConcept::Contribution
+    let parts: Vec<_> = GroundingCategory::morphisms()
+        .into_iter()
+        .filter(|m| m.kind() == GroundingRelationKind::Parthood)
+        .collect();
+    assert!(parts.iter().any(|m| {
+        m.source() == GroundingConcept::CommonGround && m.target() == GroundingConcept::Contribution
     }));
 }
 
 #[test]
 fn info_state_has_gameboard() {
-    use pr4xis::ontology::reasoning::mereology::MereologyDef;
-    let parts = GroundingMereology::relations();
-    assert!(parts.iter().any(|(whole, part)| {
-        *whole == GroundingConcept::InfoState && *part == GroundingConcept::DialogueGameBoard
+    let parts: Vec<_> = GroundingCategory::morphisms()
+        .into_iter()
+        .filter(|m| m.kind() == GroundingRelationKind::Parthood)
+        .collect();
+    assert!(parts.iter().any(|m| {
+        m.source() == GroundingConcept::InfoState
+            && m.target() == GroundingConcept::DialogueGameBoard
     }));
 }
 
 #[test]
 fn gameboard_has_qud() {
-    use pr4xis::ontology::reasoning::mereology::MereologyDef;
-    let parts = GroundingMereology::relations();
-    assert!(parts.iter().any(|(whole, part)| {
-        *whole == GroundingConcept::DialogueGameBoard && *part == GroundingConcept::MaxQUD
+    let parts: Vec<_> = GroundingCategory::morphisms()
+        .into_iter()
+        .filter(|m| m.kind() == GroundingRelationKind::Parthood)
+        .collect();
+    assert!(parts.iter().any(|m| {
+        m.source() == GroundingConcept::DialogueGameBoard && m.target() == GroundingConcept::MaxQUD
     }));
 }
 

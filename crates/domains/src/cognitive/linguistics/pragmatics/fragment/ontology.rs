@@ -16,7 +16,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Fragment",
     source: "Fernandez & Ginzburg (2002, 2006); Ginzburg (2012); Schlangen (2003)",
-    being: AbstractObject,
 
     concepts: [
         Fragment,
@@ -89,12 +88,13 @@ impl Quality for IsFragmentType {
 pub struct AllFragmentsClassified;
 
 impl Axiom for AllFragmentsClassified {
-    fn description(&self) -> &str {
-        "every fragment type is-a Fragment (Fernandez & Ginzburg 2002)"
-    }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = FragmentTaxonomy::relations();
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let subs: Vec<_> = FragmentCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == FragmentRelationKind::Subsumption)
+            .collect();
         let types = [
             FragmentConcept::ShortAnswer,
             FragmentConcept::Affirmation,
@@ -105,26 +105,34 @@ impl Axiom for AllFragmentsClassified {
             FragmentConcept::Correction,
             FragmentConcept::AcknowledgmentToken,
         ];
-        types.iter().all(|t| {
-            rels.iter()
-                .any(|(child, parent)| child == t && *parent == FragmentConcept::Fragment)
-        })
+        if types.iter().all(|t| {
+            subs.iter()
+                .any(|m| m.source() == *t && m.target() == FragmentConcept::Fragment)
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "AllFragmentsClassified",
+        "every fragment type is-a Fragment (Fernandez & Ginzburg 2002)",
+        "Fernandez & Ginzburg (2002, 2006); Ginzburg (2012) The Interactive Stance; Schlangen (2003)"
+    );
 }
 pr4xis::register_axiom!(
     AllFragmentsClassified,
-    "Fernandez & Ginzburg (2002, 2006); Ginzburg \"The Interactive Stance\" (2012);"
+    "Fernandez & Ginzburg (2002, 2006); Ginzburg (2012) The Interactive Stance; Schlangen (2003)"
 );
 
 impl Ontology for FragmentOntology {
     type Cat = FragmentCategory;
     type Qual = IsFragmentType;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        FragmentOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(AllFragmentsClassified)]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(AllFragmentsClassified));
+        axioms
     }
 }

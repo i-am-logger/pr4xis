@@ -319,29 +319,29 @@ proptest! {
 fn engine_request_dispatch_run() {
     let e = new_building(10, 2, 4);
     let e = e
-        .try_next(ElevatorAction::Request(Request::new(0, 5, 70)))
+        .next(ElevatorAction::Request(Request::new(0, 5, 70)))
         .unwrap();
-    let e = e.try_next(ElevatorAction::Dispatch).unwrap();
+    let e = e.next(ElevatorAction::Dispatch).unwrap();
     let e = e
-        .try_next(ElevatorAction::RunToCompletion { max_steps: 200 })
+        .next(ElevatorAction::RunToCompletion { max_steps: 200 })
         .unwrap();
     // After dispatch + run, the elevator should have serviced the request
     assert_eq!(e.step(), 3);
-    assert!(e.trace().entries().iter().all(|entry| entry.success));
+    assert!(e.trace().entries().iter().all(|entry| entry.applied()));
 }
 
 #[test]
 fn engine_invalid_request_rejected() {
     let e = new_building(5, 1, 2);
     // Same floor request
-    let result = e.try_next(ElevatorAction::Request(Request::new(3, 3, 70)));
+    let result = e.next(ElevatorAction::Request(Request::new(3, 3, 70)));
     assert!(result.is_err());
 }
 
 #[test]
 fn engine_out_of_range_rejected() {
     let e = new_building(5, 1, 2);
-    let result = e.try_next(ElevatorAction::Request(Request::new(0, 99, 70)));
+    let result = e.next(ElevatorAction::Request(Request::new(0, 99, 70)));
     assert!(result.is_err());
 }
 
@@ -349,9 +349,9 @@ fn engine_out_of_range_rejected() {
 fn engine_back_forward() {
     let e = new_building(10, 1, 4);
     let e = e
-        .try_next(ElevatorAction::Request(Request::new(0, 3, 70)))
+        .next(ElevatorAction::Request(Request::new(0, 3, 70)))
         .unwrap();
-    let e = e.try_next(ElevatorAction::Dispatch).unwrap();
+    let e = e.next(ElevatorAction::Dispatch).unwrap();
     assert_eq!(e.step(), 2);
     let e = e.back().unwrap();
     assert_eq!(e.step(), 1);
@@ -363,9 +363,9 @@ fn engine_back_forward() {
 fn engine_trace_records_all() {
     let e = new_building(5, 1, 2);
     let e = e
-        .try_next(ElevatorAction::Request(Request::new(0, 4, 70)))
+        .next(ElevatorAction::Request(Request::new(0, 4, 70)))
         .unwrap();
-    let e = e.try_next(ElevatorAction::Dispatch).unwrap();
-    let e = e.try_next(ElevatorAction::Step).unwrap();
+    let e = e.next(ElevatorAction::Dispatch).unwrap();
+    let e = e.next(ElevatorAction::Step).unwrap();
     assert_eq!(e.trace().entries().len(), 3);
 }

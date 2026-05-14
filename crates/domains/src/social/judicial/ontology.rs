@@ -1,12 +1,12 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use hashbrown::HashMap;
 
 use super::authority::Authority;
 use super::lifecycle::PhaseTag;
-use hashbrown::HashMap;
-use pr4xis::category::{Category, Concept, Relationship};
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 /// Valence of a legal term.
@@ -232,23 +232,46 @@ impl Concept for PhaseTag {
     }
 }
 
-/// Phase transition relationship.
+/// Relation kind for the judicial case lifecycle category.
+///
+/// Per OBO-RO (Smith et al. 2005), every arrow carries a relation-kind
+/// tag. The case lifecycle has one relation: phase transition under
+/// procedural rules (Hart 1961 secondary rules; Sartor 2005 ch. 7
+/// procedural norms).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JudicialRelationKind {
+    PhaseTransition,
+}
+
+/// Phase transition arrow.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PhaseTransitionRel {
     pub from: PhaseTag,
     pub to: PhaseTag,
 }
 
-impl Relationship for PhaseTransitionRel {
+impl Arrow for PhaseTransitionRel {
     type Object = PhaseTag;
-    type Kind = ();
+    type Kind = JudicialRelationKind;
     fn source(&self) -> PhaseTag {
         self.from
     }
     fn target(&self) -> PhaseTag {
         self.to
     }
-    fn kind(&self) {}
+    fn kind(&self) -> JudicialRelationKind {
+        JudicialRelationKind::PhaseTransition
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("PhaseTransitionRel"),
+            description: Label::new_static(
+                "case lifecycle phase transition under procedural rules",
+            ),
+            citation: Citation::parse_static("Hart (1961); Sartor (2005)"),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 /// The case lifecycle as a category.
@@ -269,46 +292,53 @@ impl Category for CaseLifecycleCategory {
         if f.to != g.from {
             return None;
         }
-        Some(PhaseTransitionRel {
+        let candidate = PhaseTransitionRel {
             from: f.from,
             to: g.to,
-        })
+        };
+        // Partial category (#166): only emit composites that are themselves
+        // declared morphisms. `morphisms()` builds the full reachability
+        // closure (Warshall 1962), so any composable pair lands inside it.
+        if Self::morphisms().contains(&candidate) {
+            Some(candidate)
+        } else {
+            None
+        }
     }
 
     fn morphisms() -> Vec<PhaseTransitionRel> {
+        use hashbrown::HashSet;
         let phases = PhaseTag::variants();
-        let mut m = Vec::new();
+        // Direct edges = identities + declared valid_transitions
+        let mut direct: HashSet<(PhaseTag, PhaseTag)> = HashSet::new();
         for &p in &phases {
-            m.push(PhaseTransitionRel { from: p, to: p });
+            direct.insert((p, p));
             for &t in &p.valid_transitions() {
-                m.push(PhaseTransitionRel { from: p, to: t });
+                direct.insert((p, t));
             }
         }
-        // Composites for closure
-        let direct = m.clone();
-        for f in &direct {
-            for g in &direct {
-                if f.to == g.from {
-                    let composed = PhaseTransitionRel {
-                        from: f.from,
-                        to: g.to,
-                    };
-                    if !m.contains(&composed) {
-                        m.push(composed);
+        // Warshall transitive closure — required for associativity:
+        // every (f∘g)∘h and f∘(g∘h) must produce a member of morphisms().
+        let mut closure = direct.clone();
+        loop {
+            let mut added = false;
+            let snap: Vec<_> = closure.iter().cloned().collect();
+            for &(a, b) in &snap {
+                for &(b2, c) in &snap {
+                    if b == b2 && !closure.contains(&(a, c)) {
+                        closure.insert((a, c));
+                        added = true;
                     }
                 }
             }
+            if !added {
+                break;
+            }
         }
-        m
-    }
-}
-
-impl Classified for CaseLifecycleCategory {
-    fn being() -> Being {
-        Being::Process
-    }
-    fn classification_reason() -> &'static str {
-        "a court case is a social process unfolding over time"
+        closure
+            .into_iter()
+            .map(|(a, b)| PhaseTransitionRel { from: a, to: b })
+            .collect()
     }
 }
 
@@ -324,35 +354,60 @@ impl Quality for IsTerminalPhase {
     }
 }
 
-/// Axiom: only Closed is terminal.
+/// Axiom: only `Closed` is a terminal phase.
+///
+/// Sartor (2005) ch. 7: procedural norms partition phases into transitional
+/// (those with at least one outgoing procedural move) and terminal
+/// (those from which no further procedural move is defined). For the
+/// judicial case lifecycle modelled here, `Closed` is the unique
+/// terminal phase.
 pub struct OnlyClosedIsTerminal;
 
 impl Axiom for OnlyClosedIsTerminal {
-    fn description(&self) -> &str {
-        "only Closed is a terminal phase"
-    }
-    fn holds(&self) -> bool {
-        PhaseTag::variants()
+    fn verify(&self) -> Verdict {
+        if PhaseTag::variants()
             .iter()
             .all(|p| p.is_terminal() == (*p == PhaseTag::Closed))
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "OnlyClosedIsTerminal",
+        "only Closed is a terminal phase",
+        "Hart (1961); Sartor (2005) ch. 7"
+    );
 }
-pr4xis::register_axiom!(OnlyClosedIsTerminal);
+pr4xis::register_axiom!(OnlyClosedIsTerminal, "Hart (1961); Sartor (2005) ch. 7");
 
-/// Axiom: every non-terminal phase has at least one transition.
+/// Axiom: every non-terminal phase has at least one valid transition.
+///
+/// Hart (1961) "rules of change": a legal process without an
+/// onward procedural move from a non-terminal state would be
+/// deadlocked. Sartor (2005) ch. 7 frames this as a well-formedness
+/// constraint on procedural norm systems.
 pub struct NoDeadPhases;
 
 impl Axiom for NoDeadPhases {
-    fn description(&self) -> &str {
-        "every non-terminal phase has transitions"
-    }
-    fn holds(&self) -> bool {
-        PhaseTag::variants()
+    fn verify(&self) -> Verdict {
+        if PhaseTag::variants()
             .iter()
             .all(|p| p.is_terminal() || !p.valid_transitions().is_empty())
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "NoDeadPhases",
+        "every non-terminal phase has at least one valid transition",
+        "Hart (1961); Sartor (2005) ch. 7"
+    );
 }
-pr4xis::register_axiom!(NoDeadPhases);
+pr4xis::register_axiom!(NoDeadPhases, "Hart (1961); Sartor (2005) ch. 7");
 
 /// The judicial case lifecycle ontology.
 pub struct CaseLifecycleOntology;
@@ -361,7 +416,7 @@ impl Ontology for CaseLifecycleOntology {
     type Cat = CaseLifecycleCategory;
     type Qual = IsTerminalPhase;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![Box::new(OnlyClosedIsTerminal), Box::new(NoDeadPhases)]
     }
 }
@@ -369,14 +424,16 @@ impl Ontology for CaseLifecycleOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<CaseLifecycleCategory>().unwrap();
+        assert_category_laws::<CaseLifecycleCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        CaseLifecycleOntology::validate().unwrap();
+        CaseLifecycleOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

@@ -3,7 +3,18 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::note::Note;
 use super::scale::{Scale, ScaleKind};
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
 
 /// Musical state: a current note in a scale context.
 #[derive(Debug, Clone, PartialEq)]
@@ -12,23 +23,7 @@ pub struct MusicState {
     pub scale: Option<Scale>,
 }
 
-impl Situation for MusicState {
-    fn describe(&self) -> String {
-        match &self.scale {
-            Some(scale) => format!(
-                "{} (in {:?} scale from {})",
-                self.note.name(),
-                scale.kind,
-                scale.root.name()
-            ),
-            None => format!("{} (no scale context)", self.note.name()),
-        }
-    }
-
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for MusicState {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MusicAction {
@@ -40,57 +35,33 @@ pub enum MusicAction {
 
 impl Action for MusicAction {
     type Sit = MusicState;
-
-    fn describe(&self) -> String {
-        match self {
-            MusicAction::Transpose { semitones } => format!("transpose {} semitones", semitones),
-            MusicAction::SetScale { kind } => format!("set scale {:?}", kind),
-            MusicAction::ClearScale => "clear scale".into(),
-            MusicAction::MoveTo { note } => format!("move to {}", note.name()),
-        }
-    }
 }
 
 /// If a scale is set, transpositions must land on scale tones.
 pub struct ScaleEnforcement;
 
 impl Precondition<MusicAction> for ScaleEnforcement {
-    fn check(&self, state: &MusicState, action: &MusicAction) -> PreconditionResult {
+    fn check(&self, state: &MusicState, action: &MusicAction) -> Verdict {
+        let meta = axiom_meta(
+            "scale_enforcement",
+            "notes must be in the current scale (if set)",
+            "Lerdahl & Jackendoff (1983) A Generative Theory of Tonal Music §3; Schoenberg (1954) Structural Functions of Harmony",
+        );
         let target_note = match action {
             MusicAction::Transpose { semitones } => match state.note.transpose(*semitones) {
                 Some(n) => n,
-                None => {
-                    return PreconditionResult::satisfied(
-                        "scale_enforcement",
-                        "out of range — deferred to range_check",
-                    );
-                }
+                None => return Ok(Box::new(SimpleProof::new(meta))),
             },
             MusicAction::MoveTo { note } => *note,
-            _ => return PreconditionResult::satisfied("scale_enforcement", "no note change"),
+            _ => return Ok(Box::new(SimpleProof::new(meta))),
         };
 
         match &state.scale {
-            Some(scale) if !scale.contains(target_note) => PreconditionResult::violated(
-                "scale_enforcement",
-                &format!(
-                    "{} is not in the {:?} scale",
-                    target_note.name(),
-                    scale.kind
-                ),
-                &state.describe(),
-                &action.describe(),
-            ),
-            Some(scale) => PreconditionResult::satisfied(
-                "scale_enforcement",
-                &format!("{} is in the {:?} scale", target_note.name(), scale.kind),
-            ),
-            None => PreconditionResult::satisfied("scale_enforcement", "no scale context"),
+            Some(scale) if !scale.contains(target_note) => {
+                Err(Box::new(SimpleCounterexample::new(meta)))
+            }
+            _ => Ok(Box::new(SimpleProof::new(meta))),
         }
-    }
-
-    fn describe(&self) -> &str {
-        "notes must be in the current scale (if set)"
     }
 }
 
@@ -98,42 +69,33 @@ impl Precondition<MusicAction> for ScaleEnforcement {
 pub struct RangeCheck;
 
 impl Precondition<MusicAction> for RangeCheck {
-    fn check(&self, state: &MusicState, action: &MusicAction) -> PreconditionResult {
+    fn check(&self, state: &MusicState, action: &MusicAction) -> Verdict {
+        let meta = axiom_meta(
+            "range_check",
+            "notes must be within MIDI range 0-127",
+            "MIDI 1.0 Detailed Specification (1996) §A.4 Note Number Range",
+        );
         match action {
             MusicAction::Transpose { semitones } => match state.note.transpose(*semitones) {
-                Some(_) => PreconditionResult::satisfied("range_check", "in MIDI range"),
-                None => PreconditionResult::violated(
-                    "range_check",
-                    &format!(
-                        "note {} + {} semitones out of MIDI range 0-127",
-                        state.note.0, semitones
-                    ),
-                    &state.describe(),
-                    &action.describe(),
-                ),
+                Some(_) => Ok(Box::new(SimpleProof::new(meta))),
+                None => Err(Box::new(SimpleCounterexample::new(meta))),
             },
             MusicAction::MoveTo { note } => {
                 if note.0 <= 127 {
-                    PreconditionResult::satisfied("range_check", "in MIDI range")
+                    Ok(Box::new(SimpleProof::new(meta)))
                 } else {
-                    PreconditionResult::violated(
-                        "range_check",
-                        &format!("note {} out of MIDI range 0-127", note.0),
-                        &state.describe(),
-                        &action.describe(),
-                    )
+                    Err(Box::new(SimpleCounterexample::new(meta)))
                 }
             }
-            _ => PreconditionResult::satisfied("range_check", "no range concern"),
+            _ => Ok(Box::new(SimpleProof::new(meta))),
         }
-    }
-
-    fn describe(&self) -> &str {
-        "notes must be within MIDI range 0-127"
     }
 }
 
-fn apply_music(state: &MusicState, action: &MusicAction) -> Result<MusicState, String> {
+fn apply_music(
+    state: &MusicState,
+    action: &MusicAction,
+) -> Result<MusicState, Box<dyn Counterexample>> {
     let mut next = state.clone();
     match action {
         MusicAction::Transpose { semitones } => {

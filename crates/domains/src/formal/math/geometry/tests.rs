@@ -1,4 +1,4 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::geometry::ontology::*;
@@ -9,12 +9,13 @@ use crate::formal::math::geometry::ontology::*;
 
 #[test]
 fn geometry_category_laws() {
-    check_category_laws::<GeometryCategory>().unwrap();
+    assert_category_laws::<EuclideanGeometryCategory>();
 }
 
 #[test]
 fn geometry_ontology_validates() {
-    EuclideanGeometryOntology::validate().unwrap();
+    EuclideanGeometryOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 // ---------------------------------------------------------------------------
@@ -23,22 +24,22 @@ fn geometry_ontology_validates() {
 
 #[test]
 fn metric_non_negativity() {
-    assert!(MetricNonNegativity.holds());
+    assert!(MetricNonNegativity.verify().is_ok());
 }
 
 #[test]
 fn metric_identity_of_indiscernibles() {
-    assert!(MetricIdentity.holds());
+    assert!(MetricIdentity.verify().is_ok());
 }
 
 #[test]
 fn metric_symmetry() {
-    assert!(MetricSymmetry.holds());
+    assert!(MetricSymmetry.verify().is_ok());
 }
 
 #[test]
 fn metric_triangle_inequality() {
-    assert!(TriangleInequality.holds());
+    assert!(TriangleInequality.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -47,12 +48,12 @@ fn metric_triangle_inequality() {
 
 #[test]
 fn triangle_angle_sum_is_pi() {
-    assert!(TriangleAngleSum.holds());
+    assert!(TriangleAngleSum.verify().is_ok());
 }
 
 #[test]
 fn pythagorean_theorem() {
-    assert!(PythagoreanTheorem.holds());
+    assert!(PythagoreanTheorem.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -61,12 +62,12 @@ fn pythagorean_theorem() {
 
 #[test]
 fn vector_addition_is_commutative() {
-    assert!(VectorAdditionCommutativity.holds());
+    assert!(VectorAdditionCommutativity.verify().is_ok());
 }
 
 #[test]
 fn vector_addition_is_associative() {
-    assert!(VectorAdditionAssociativity.holds());
+    assert!(VectorAdditionAssociativity.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -75,17 +76,17 @@ fn vector_addition_is_associative() {
 
 #[test]
 fn dot_product_is_commutative() {
-    assert!(DotProductCommutativity.holds());
+    assert!(DotProductCommutativity.verify().is_ok());
 }
 
 #[test]
 fn cross_product_is_anticommutative() {
-    assert!(CrossProductAnticommutativity.holds());
+    assert!(CrossProductAnticommutativity.verify().is_ok());
 }
 
 #[test]
 fn cross_product_is_perpendicular() {
-    assert!(CrossProductPerpendicularity.holds());
+    assert!(CrossProductPerpendicularity.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -94,7 +95,7 @@ fn cross_product_is_perpendicular() {
 
 #[test]
 fn projection_is_idempotent() {
-    assert!(ProjectionIdempotent.holds());
+    assert!(ProjectionIdempotent.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -103,7 +104,7 @@ fn projection_is_idempotent() {
 
 #[test]
 fn betweenness_is_symmetric() {
-    assert!(BetweennessSymmetry.holds());
+    assert!(BetweennessSymmetry.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------

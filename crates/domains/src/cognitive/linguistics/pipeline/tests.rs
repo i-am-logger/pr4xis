@@ -1,16 +1,18 @@
 use super::ontology::*;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::category::{Arrow, Category};
 use pr4xis::ontology::{Axiom, Ontology};
 
 #[test]
 fn category_laws() {
-    check_category_laws::<PipelineCategory>().unwrap();
+    assert_category_laws::<PipelineCategory>();
 }
 
 #[test]
 fn ontology_validates() {
-    PipelineOntology::validate().unwrap();
+    PipelineOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
@@ -20,23 +22,25 @@ fn twelve_concepts() {
 
 #[test]
 fn shared_lexicon() {
-    assert!(SharedLexicon.holds());
+    assert!(SharedLexicon.verify().is_ok());
 }
 
 #[test]
 fn parse_generate_adjoint() {
-    assert!(ParseGenerateAdjoint.holds());
+    assert!(ParseGenerateAdjoint.verify().is_ok());
 }
 
 #[test]
 fn surface_meaning_opposed() {
-    assert!(SurfaceMeaningOpposed.holds());
+    assert!(SurfaceMeaningOpposed.verify().is_ok());
 }
 
 #[test]
 fn parse_has_three_stages() {
-    use pr4xis::ontology::reasoning::mereology::MereologyDef;
-    let parts = PipelineMereology::relations();
+    let parts: Vec<_> = PipelineCategory::morphisms()
+        .into_iter()
+        .filter(|m| m.kind() == PipelineRelationKind::Parthood)
+        .collect();
     let stages = [
         PipelineConcept::SurfaceForm,
         PipelineConcept::SyntacticStructure,
@@ -46,7 +50,7 @@ fn parse_has_three_stages() {
         assert!(
             parts
                 .iter()
-                .any(|(w, p)| *w == PipelineConcept::Parse && p == s),
+                .any(|m| m.source() == PipelineConcept::Parse && m.target() == *s),
             "Parse missing stage {:?}",
             s
         );
@@ -55,8 +59,10 @@ fn parse_has_three_stages() {
 
 #[test]
 fn generate_has_three_stages() {
-    use pr4xis::ontology::reasoning::mereology::MereologyDef;
-    let parts = PipelineMereology::relations();
+    let parts: Vec<_> = PipelineCategory::morphisms()
+        .into_iter()
+        .filter(|m| m.kind() == PipelineRelationKind::Parthood)
+        .collect();
     let stages = [
         PipelineConcept::SemanticRepresentation,
         PipelineConcept::SyntacticStructure,
@@ -66,7 +72,7 @@ fn generate_has_three_stages() {
         assert!(
             parts
                 .iter()
-                .any(|(w, p)| *w == PipelineConcept::Generate && p == s),
+                .any(|m| m.source() == PipelineConcept::Generate && m.target() == *s),
             "Generate missing stage {:?}",
             s
         );
@@ -75,15 +81,18 @@ fn generate_has_three_stages() {
 
 #[test]
 fn causal_chain_surface_to_meaning() {
-    use pr4xis::ontology::reasoning::causation::CausalDef;
-    let rels = PipelineCausation::relations();
+    let rels: Vec<_> = PipelineCategory::morphisms()
+        .into_iter()
+        .filter(|m| m.kind() == PipelineRelationKind::Causation)
+        .collect();
     assert!(
-        rels.iter().any(|(c, e)| *c == PipelineConcept::SurfaceForm
-            && *e == PipelineConcept::SyntacticStructure)
+        rels.iter()
+            .any(|m| m.source() == PipelineConcept::SurfaceForm
+                && m.target() == PipelineConcept::SyntacticStructure)
     );
     assert!(
         rels.iter()
-            .any(|(c, e)| *c == PipelineConcept::SyntacticStructure
-                && *e == PipelineConcept::SemanticRepresentation)
+            .any(|m| m.source() == PipelineConcept::SyntacticStructure
+                && m.target() == PipelineConcept::SemanticRepresentation)
     );
 }

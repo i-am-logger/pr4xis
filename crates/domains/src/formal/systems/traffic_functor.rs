@@ -1,11 +1,9 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::category::Arrow;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::relationship::Relationship;
 use pr4xis::category::{Category, Functor};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
-use super::ontology::{SystemConcept, SystemRelation, SystemRelationKind, SystemsCategory};
+use super::ontology::{SystemCategory, SystemConcept, SystemRelation, SystemRelationKind};
 
 /// Traffic system concepts — the objects in the traffic domain
 /// that map to systems thinking concepts.
@@ -83,16 +81,31 @@ pub enum TrafficRelationKind {
     Composed,
 }
 
-impl Relationship for TrafficSystemRelation {
+impl Arrow for TrafficSystemRelation {
     type Object = TrafficSystemElement;
-    type Kind = ();
+    type Kind = TrafficRelationKind;
     fn source(&self) -> TrafficSystemElement {
         self.from
     }
     fn target(&self) -> TrafficSystemElement {
         self.to
     }
-    fn kind(&self) {}
+    fn kind(&self) -> TrafficRelationKind {
+        self.kind
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new(format!("{:?}-[{:?}]-{:?}", self.from, self.kind, self.to)),
+            description: Label::new(format!(
+                "{:?} -[{:?}]-> {:?}",
+                self.from, self.kind, self.to
+            )),
+            citation: Citation::parse_static(
+                "Webster (1928) Highway Traffic Analysis; Robertson (1969) TRANSYT; Meadows (2008) Thinking in Systems",
+            ),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 /// The traffic system category.
@@ -123,19 +136,51 @@ impl Category for TrafficSystemCategory {
         if g.kind == TrafficRelationKind::Identity {
             return Some(f.clone());
         }
-        Some(TrafficSystemRelation {
-            from: f.from,
-            to: g.to,
-            kind: TrafficRelationKind::Composed,
-        })
+        // Same-kind composition under `Composed` only (#166 partial
+        // category): heterogeneous source kinds have no declared
+        // composition rule, matching the macro-generated target's
+        // behaviour. Two `Composed` edges compose into another
+        // `Composed` edge when the result is itself a declared morphism.
+        if f.kind == TrafficRelationKind::Composed && g.kind == TrafficRelationKind::Composed {
+            let candidate = TrafficSystemRelation {
+                from: f.from,
+                to: g.to,
+                kind: TrafficRelationKind::Composed,
+            };
+            if Self::morphisms().contains(&candidate) {
+                return Some(candidate);
+            }
+        }
+        None
     }
 
     fn morphisms() -> Vec<TrafficSystemRelation> {
         use TrafficRelationKind::*;
         use TrafficSystemElement::*;
+        use std::collections::HashSet;
 
-        let mut m = Vec::new();
+        // Direct kinded edges of the traffic system.
+        let direct: Vec<(
+            TrafficSystemElement,
+            TrafficSystemElement,
+            TrafficRelationKind,
+        )> = vec![
+            (Signal, IntersectionState, ComposesInto),
+            (DirectionConflict, IntersectionState, ComposesInto),
+            (SignalAdvance, IntersectionState, Changes),
+            (SafetyRule, SignalAdvance, Governs),
+            (IntersectionState, CongestionFeedback, FeedsBack),
+            (CongestionFeedback, SignalAdvance, FeedsBack),
+            (GreenWaveTiming, IntersectionState, Stabilizes),
+            (CongestionFeedback, GreenWaveTiming, Stabilizes),
+            (DirectionConflict, FlowRate, ArisesFrom),
+            (SignalController, SafetyRule, Regulates),
+            (IntersectionBoundary, Signal, Separates),
+            (SignalAdvance, Signal, Changes),
+            (CongestionFeedback, SignalController, FeedsBack),
+        ];
 
+        let mut m: Vec<TrafficSystemRelation> = Vec::new();
         for c in TrafficSystemElement::variants() {
             m.push(TrafficSystemRelation {
                 from: c,
@@ -143,182 +188,52 @@ impl Category for TrafficSystemCategory {
                 kind: Identity,
             });
         }
+        for &(f, t, k) in &direct {
+            m.push(TrafficSystemRelation {
+                from: f,
+                to: t,
+                kind: k,
+            });
+        }
 
-        // Signal composes into IntersectionState
-        m.push(TrafficSystemRelation {
-            from: Signal,
-            to: IntersectionState,
-            kind: ComposesInto,
-        });
-        // DirectionConflict composes into IntersectionState
-        m.push(TrafficSystemRelation {
-            from: DirectionConflict,
-            to: IntersectionState,
-            kind: ComposesInto,
-        });
-        // SignalAdvance changes IntersectionState
-        m.push(TrafficSystemRelation {
-            from: SignalAdvance,
-            to: IntersectionState,
-            kind: Changes,
-        });
-        // SafetyRule governs SignalAdvance
-        m.push(TrafficSystemRelation {
-            from: SafetyRule,
-            to: SignalAdvance,
-            kind: Governs,
-        });
-        // IntersectionState feeds back to CongestionFeedback
-        m.push(TrafficSystemRelation {
-            from: IntersectionState,
-            to: CongestionFeedback,
-            kind: FeedsBack,
-        });
-        // CongestionFeedback feeds back to SignalAdvance
-        m.push(TrafficSystemRelation {
-            from: CongestionFeedback,
-            to: SignalAdvance,
-            kind: FeedsBack,
-        });
-        // GreenWaveTiming stabilizes IntersectionState
-        m.push(TrafficSystemRelation {
-            from: GreenWaveTiming,
-            to: IntersectionState,
-            kind: Stabilizes,
-        });
-        // CongestionFeedback stabilizes via GreenWaveTiming
-        m.push(TrafficSystemRelation {
-            from: CongestionFeedback,
-            to: GreenWaveTiming,
-            kind: Stabilizes,
-        });
-        // FlowRate emerges from DirectionConflict
-        m.push(TrafficSystemRelation {
-            from: DirectionConflict,
-            to: FlowRate,
-            kind: ArisesFrom,
-        });
-        // SignalController regulates via SafetyRule
-        m.push(TrafficSystemRelation {
-            from: SignalController,
-            to: SafetyRule,
-            kind: Regulates,
-        });
-        // IntersectionBoundary separates Signal
-        m.push(TrafficSystemRelation {
-            from: IntersectionBoundary,
-            to: Signal,
-            kind: Separates,
-        });
-        // SignalAdvance modifies Signal (transition changes components)
-        m.push(TrafficSystemRelation {
-            from: SignalAdvance,
-            to: Signal,
-            kind: Changes,
-        });
-        // CongestionFeedback informs SignalController (feedback to regulator)
-        m.push(TrafficSystemRelation {
-            from: CongestionFeedback,
-            to: SignalController,
-            kind: FeedsBack,
-        });
-
-        // Transitive (mirrors SystemsCategory pattern)
-        m.push(TrafficSystemRelation {
-            from: IntersectionState,
-            to: SignalAdvance,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: IntersectionState,
-            to: GreenWaveTiming,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: IntersectionState,
-            to: SignalController,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: IntersectionState,
-            to: SafetyRule,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: IntersectionState,
-            to: Signal,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: IntersectionState,
-            to: DirectionConflict,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: IntersectionState,
-            to: FlowRate,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: IntersectionState,
-            to: IntersectionBoundary,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: CongestionFeedback,
-            to: IntersectionState,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: SignalController,
-            to: SignalAdvance,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: SignalController,
-            to: IntersectionState,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: SignalController,
-            to: Signal,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: SafetyRule,
-            to: IntersectionState,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: SafetyRule,
-            to: Signal,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: Signal,
-            to: CongestionFeedback,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: DirectionConflict,
-            to: CongestionFeedback,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: DirectionConflict,
-            to: IntersectionState,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: IntersectionBoundary,
-            to: IntersectionState,
-            kind: Composed,
-        });
-        m.push(TrafficSystemRelation {
-            from: DirectionConflict,
-            to: FlowRate,
-            kind: Composed,
-        });
+        // Warshall (1962) transitive closure under the `Composed` umbrella
+        // kind, so AssociativityLaw holds (Mac Lane CWM Ch. I §1).
+        let edges: HashSet<(TrafficSystemElement, TrafficSystemElement)> =
+            direct.iter().map(|&(f, t, _)| (f, t)).collect();
+        let mut closure = edges.clone();
+        loop {
+            let mut added = false;
+            let snap: Vec<_> = closure.iter().cloned().collect();
+            for &(a, b) in &snap {
+                for &(b2, c) in &snap {
+                    if b == b2 && !closure.contains(&(a, c)) {
+                        closure.insert((a, c));
+                        added = true;
+                    }
+                }
+            }
+            if !added {
+                break;
+            }
+        }
+        for (f, t) in closure {
+            m.push(TrafficSystemRelation {
+                from: f,
+                to: t,
+                kind: Composed,
+            });
+        }
+        // Composed self-loops for every variant
+        for c in TrafficSystemElement::variants() {
+            let r = TrafficSystemRelation {
+                from: c,
+                to: c,
+                kind: Composed,
+            };
+            if !m.contains(&r) {
+                m.push(r);
+            }
+        }
 
         m
     }
@@ -334,7 +249,7 @@ pub struct TrafficToSystems;
 
 impl Functor for TrafficToSystems {
     type Source = TrafficSystemCategory;
-    type Target = SystemsCategory;
+    type Target = SystemCategory;
 
     fn map_object(obj: &TrafficSystemElement) -> SystemConcept {
         match obj {
@@ -364,7 +279,13 @@ impl Functor for TrafficToSystems {
             TrafficRelationKind::ArisesFrom => SystemRelationKind::ArisesFrom,
             TrafficRelationKind::Regulates => SystemRelationKind::Regulates,
             TrafficRelationKind::Separates => SystemRelationKind::Separates,
-            TrafficRelationKind::Composed => SystemRelationKind::Composed,
+            // Composed source morphisms cover transitive paths. They must
+            // map to a non-Identity target kind, otherwise target's
+            // identity-aware compose treats them as identities — breaking
+            // FunctorCompositionLaw when source(F(m)) ≠ target(F(m)).
+            // `Subsumption` is the canonical Relations-kind always emitted
+            // by the macro (Smith 2005 OBO-RO).
+            TrafficRelationKind::Composed => SystemRelationKind::Subsumption,
         };
         SystemRelation { from, to, kind }
     }

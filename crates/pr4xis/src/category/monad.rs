@@ -173,8 +173,10 @@ mod tests {
             #[test]
             fn prop_writer_left_identity(a in -100..100i32) {
                 let f = |x: i32| Writer::new(x * 2, vec![x]);
-                let left = Writer::<Vec<i32>, i32>::pure(a).bind(&f);
-                let right = f(a);
+                let left = Writer::<Vec<i32>, i32>::pure(a).bind(f);
+                // f(a) inlined — `bind` consumes f, so we reconstruct the
+                // expression rather than re-call.
+                let right = Writer::new(a * 2, vec![a]);
                 prop_assert_eq!(left.value, right.value);
                 prop_assert_eq!(left.log, right.log);
             }

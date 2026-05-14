@@ -249,18 +249,16 @@ proptest! {
 // Engine tests — Situation/Action/Precondition/Trace
 // =============================================================================
 
-use pr4xis::engine::Precondition;
-
 #[test]
 fn engine_transpose_in_scale() {
     let e = new_music(Note(60)); // Middle C
     let e = e
-        .try_next(MusicAction::SetScale {
+        .next(MusicAction::SetScale {
             kind: ScaleKind::Major,
         })
         .unwrap();
     // Transpose up 2 semitones (C → D, which is in C Major)
-    let e = e.try_next(MusicAction::Transpose { semitones: 2 }).unwrap();
+    let e = e.next(MusicAction::Transpose { semitones: 2 }).unwrap();
     assert_eq!(e.situation().note, Note(62));
 }
 
@@ -268,12 +266,12 @@ fn engine_transpose_in_scale() {
 fn engine_transpose_outside_scale_rejected() {
     let e = new_music(Note(60)); // Middle C
     let e = e
-        .try_next(MusicAction::SetScale {
+        .next(MusicAction::SetScale {
             kind: ScaleKind::Major,
         })
         .unwrap();
     // Transpose up 1 semitone (C → C#, NOT in C Major)
-    let result = e.try_next(MusicAction::Transpose { semitones: 1 });
+    let result = e.next(MusicAction::Transpose { semitones: 1 });
     assert!(result.is_err());
 }
 
@@ -281,15 +279,15 @@ fn engine_transpose_outside_scale_rejected() {
 fn engine_out_of_range_rejected() {
     let e = new_music(Note(125));
     // Transpose beyond MIDI range
-    let result = e.try_next(MusicAction::Transpose { semitones: 10 });
+    let result = e.next(MusicAction::Transpose { semitones: 10 });
     assert!(result.is_err());
 }
 
 #[test]
 fn engine_back_forward() {
     let e = new_music(Note(60));
-    let e = e.try_next(MusicAction::Transpose { semitones: 7 }).unwrap();
-    let e = e.try_next(MusicAction::Transpose { semitones: 5 }).unwrap();
+    let e = e.next(MusicAction::Transpose { semitones: 7 }).unwrap();
+    let e = e.next(MusicAction::Transpose { semitones: 5 }).unwrap();
     let e = e.back().unwrap();
     assert_eq!(e.situation().note, Note(67));
     let e = e.forward().unwrap();
@@ -300,13 +298,13 @@ fn engine_back_forward() {
 fn engine_clear_scale_allows_any() {
     let e = new_music(Note(60));
     let e = e
-        .try_next(MusicAction::SetScale {
+        .next(MusicAction::SetScale {
             kind: ScaleKind::Major,
         })
         .unwrap();
-    let e = e.try_next(MusicAction::ClearScale).unwrap();
+    let e = e.next(MusicAction::ClearScale).unwrap();
     // Now C# should be allowed (no scale)
-    let e = e.try_next(MusicAction::Transpose { semitones: 1 }).unwrap();
+    let e = e.next(MusicAction::Transpose { semitones: 1 }).unwrap();
     assert_eq!(e.situation().note, Note(61));
 }
 
@@ -479,27 +477,9 @@ fn test_scale_degree_count_whole_tone() {
     assert_eq!(Scale::new(Note::C4, ScaleKind::WholeTone).degree_count(), 6);
 }
 
-// =============================================================================
-// ScaleEnforcement::describe and RangeCheck::describe tests
-// =============================================================================
-
-#[test]
-fn test_scale_enforcement_describe() {
-    let precondition = ScaleEnforcement;
-    assert_eq!(
-        precondition.describe(),
-        "notes must be in the current scale (if set)"
-    );
-}
-
-#[test]
-fn test_range_check_describe() {
-    let precondition = RangeCheck;
-    assert_eq!(
-        precondition.describe(),
-        "notes must be within MIDI range 0-127"
-    );
-}
+// Per #161 (typed engine API): Precondition no longer exposes a
+// `describe()` primitive-leak method — the descriptive metadata is
+// now carried on the Proof / Counterexample meta() returned by check().
 
 // =============================================================================
 // Additional engine tests for MoveTo action paths
@@ -509,12 +489,12 @@ fn test_range_check_describe() {
 fn engine_move_to_in_scale() {
     let e = new_music(Note(60));
     let e = e
-        .try_next(MusicAction::SetScale {
+        .next(MusicAction::SetScale {
             kind: ScaleKind::Major,
         })
         .unwrap();
     // Move to E4 (64), which is in C Major
-    let e = e.try_next(MusicAction::MoveTo { note: Note::E4 }).unwrap();
+    let e = e.next(MusicAction::MoveTo { note: Note::E4 }).unwrap();
     assert_eq!(e.situation().note, Note::E4);
 }
 
@@ -522,11 +502,11 @@ fn engine_move_to_in_scale() {
 fn engine_move_to_outside_scale_rejected() {
     let e = new_music(Note(60));
     let e = e
-        .try_next(MusicAction::SetScale {
+        .next(MusicAction::SetScale {
             kind: ScaleKind::Major,
         })
         .unwrap();
     // Move to C#4 (61), which is NOT in C Major
-    let result = e.try_next(MusicAction::MoveTo { note: Note(61) });
+    let result = e.next(MusicAction::MoveTo { note: Note(61) });
     assert!(result.is_err());
 }

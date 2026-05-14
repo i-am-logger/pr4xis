@@ -30,7 +30,7 @@
 //! # Verification
 //!
 //! The single test in this module calls
-//! [`pr4xis::category::validate::check_functor_laws`] on
+//! [`pr4xis::category::laws::assert_functor_laws`] on
 //! `SyntrometryToPr4xisSubstrate`. If it passes, the lineage claim is
 //! verified at test time. If the encoding or the mapping is wrong, the
 //! laws fail — not the prose.
@@ -106,7 +106,7 @@ impl Functor for SyntrometryToPr4xisSubstrate {
             _ => Pr4xisSubstrateRelation {
                 from,
                 to,
-                kind: Pr4xisSubstrateRelationKind::Composed,
+                kind: Pr4xisSubstrateRelationKind::Subsumption,
             },
         }
     }
@@ -116,7 +116,7 @@ pr4xis::register_functor!(SyntrometryToPr4xisSubstrate);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     /// The headline test: the lineage claim, verified by functor laws.
     ///
@@ -125,6 +125,6 @@ mod tests {
     /// > functor whose laws are checked at test time."
     #[test]
     fn lineage_functor_laws_pass() {
-        check_functor_laws::<SyntrometryToPr4xisSubstrate>().unwrap();
+        assert_functor_laws::<SyntrometryToPr4xisSubstrate>();
     }
 }

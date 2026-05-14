@@ -1,9 +1,17 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use crate::cognitive::linguistics::pragmatics::speech_act::{DialogueType, SpeechAct};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
 
 // Dialogue engine — a cybernetic loop for conversation.
 //
@@ -96,25 +104,7 @@ impl Default for DialogueState {
     }
 }
 
-impl Situation for DialogueState {
-    fn describe(&self) -> String {
-        let last = self
-            .turns
-            .last()
-            .map(|t| t.text.as_str())
-            .unwrap_or("(start)");
-        format!(
-            "turn {} | topic: {} | last: {}",
-            self.turns.len(),
-            self.topic.as_deref().unwrap_or("none"),
-            last
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        self.terminated
-    }
-}
+impl Situation for DialogueState {}
 
 /// Actions in the dialogue engine.
 #[derive(Debug, Clone)]
@@ -135,21 +125,13 @@ pub enum DialogueAction {
 
 impl Action for DialogueAction {
     type Sit = DialogueState;
-
-    fn describe(&self) -> String {
-        match self {
-            Self::UserUtterance { text, .. } => format!("user: {}", text),
-            Self::SystemResponse { text, .. } => format!("system: {}", text),
-            Self::EndDialogue => "end dialogue".into(),
-        }
-    }
 }
 
 /// Apply a dialogue action to the state.
 pub fn apply_dialogue(
     state: &DialogueState,
     action: &DialogueAction,
-) -> Result<DialogueState, String> {
+) -> Result<DialogueState, Box<dyn Counterexample>> {
     let mut new_state = state.clone();
 
     match action {
@@ -198,26 +180,22 @@ pub fn apply_dialogue(
 pub struct TurnTaking;
 
 impl Precondition<DialogueAction> for TurnTaking {
-    fn check(&self, state: &DialogueState, action: &DialogueAction) -> PreconditionResult {
+    fn check(&self, state: &DialogueState, action: &DialogueAction) -> Verdict {
+        let meta = axiom_meta(
+            "turn-taking",
+            "dialogue turn-taking: system responds only after user speaks",
+            "Sacks, Schegloff & Jefferson (1974) A Simplest Systematics for the Organization of Turn-Taking for Conversation, Language 50(4):696-735",
+        );
         match action {
             DialogueAction::SystemResponse { .. } => {
                 if state.last_speaker() == Some(Speaker::System) && !state.turns.is_empty() {
-                    PreconditionResult::violated(
-                        "turn-taking",
-                        "system cannot respond twice in a row without user input",
-                        &state.describe(),
-                        &action.describe(),
-                    )
+                    Err(Box::new(SimpleCounterexample::new(meta)))
                 } else {
-                    PreconditionResult::satisfied("turn-taking", "turn available")
+                    Ok(Box::new(SimpleProof::new(meta)))
                 }
             }
-            _ => PreconditionResult::satisfied("turn-taking", "not a system response"),
+            _ => Ok(Box::new(SimpleProof::new(meta))),
         }
-    }
-
-    fn describe(&self) -> &str {
-        "dialogue turn-taking: system responds only after user speaks"
     }
 }
 

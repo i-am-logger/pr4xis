@@ -6,7 +6,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Axioms: F=ma, mass conservation
 /// - Actions: apply force, free fall
 /// - Enforcement: Newton's laws are preconditions
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 pub const G: f64 = 6.674e-11;
 pub const EARTH_G: f64 = 9.81;
@@ -49,19 +51,16 @@ impl Particle {
     }
 }
 
-impl Situation for Particle {
-    fn describe(&self) -> String {
-        format!(
-            "m={:.4} pos={:.4} v={:.4} p={:.4} KE={:.4}",
-            self.mass,
-            self.position,
-            self.velocity,
-            self.momentum(),
-            self.kinetic_energy()
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
+impl Situation for Particle {}
+
+fn mech_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Newton (1687) Philosophiae Naturalis Principia Mathematica",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
@@ -73,60 +72,38 @@ pub enum MechanicsAction {
 
 impl Action for MechanicsAction {
     type Sit = Particle;
-    fn describe(&self) -> String {
-        match self {
-            MechanicsAction::ApplyForce { force, duration } => {
-                format!("F={:.4}N for {:.4}s", force, duration)
-            }
-            MechanicsAction::FreeFall { duration } => format!("free fall {:.4}s", duration),
-        }
-    }
 }
 
 struct MassConservation;
 impl Precondition<MechanicsAction> for MassConservation {
-    fn check(&self, p: &Particle, action: &MechanicsAction) -> PreconditionResult {
-        let next = apply(p, action).unwrap_or_else(|_| p.clone());
+    fn check(&self, p: &Particle, action: &MechanicsAction) -> Verdict {
+        let meta = mech_meta("MassConservation", "mass must be conserved");
+        let next = apply_inner(p, action);
         if (next.mass - p.mass).abs() < 1e-10 {
-            PreconditionResult::satisfied("mass_conservation", "mass preserved")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "mass_conservation",
-                "mass changed",
-                &p.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "mass must be conserved"
     }
 }
 
 struct PositiveDuration;
 impl Precondition<MechanicsAction> for PositiveDuration {
-    fn check(&self, p: &Particle, action: &MechanicsAction) -> PreconditionResult {
+    fn check(&self, _p: &Particle, action: &MechanicsAction) -> Verdict {
+        let meta = mech_meta("PositiveDuration", "time must move forward");
         let dt = match action {
             MechanicsAction::ApplyForce { duration, .. } => *duration,
             MechanicsAction::FreeFall { duration } => *duration,
         };
         if dt >= 0.0 {
-            PreconditionResult::satisfied("positive_duration", "time moves forward")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "positive_duration",
-                "duration must be non-negative",
-                &p.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "time must move forward"
     }
 }
 
-fn apply(p: &Particle, action: &MechanicsAction) -> Result<Particle, String> {
+fn apply_inner(p: &Particle, action: &MechanicsAction) -> Particle {
     let mut next = p.clone();
     match action {
         MechanicsAction::ApplyForce { force, duration } => {
@@ -139,7 +116,11 @@ fn apply(p: &Particle, action: &MechanicsAction) -> Result<Particle, String> {
             next.velocity += EARTH_G * duration;
         }
     }
-    Ok(next)
+    next
+}
+
+fn apply(p: &Particle, action: &MechanicsAction) -> Result<Particle, Box<dyn Counterexample>> {
+    Ok(apply_inner(p, action))
 }
 
 pub fn new_particle(mass: f64) -> Result<Engine<MechanicsAction>, &'static str> {

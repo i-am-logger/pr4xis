@@ -46,10 +46,10 @@ pub type ResilienceToFaultTolerance = TerminalFunctor<ResilienceCategory, FaultT
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn terminal_functor_satisfies_laws() {
-        check_functor_laws::<ResilienceToFaultTolerance>().unwrap();
+        assert_functor_laws::<ResilienceToFaultTolerance>();
     }
 }

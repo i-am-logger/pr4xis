@@ -1,27 +1,29 @@
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::underwater::auv::engine::*;
 use crate::applied::underwater::auv::ontology::*;
 
 #[test]
 fn auv_category_laws() {
-    check_category_laws::<AuvCategory>().unwrap();
+    assert_category_laws::<AuvCategory>();
 }
 
 #[test]
 fn auv_ontology_validates() {
-    AuvOntology::validate().unwrap();
+    AuvOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn depth_non_negative_holds() {
-    assert!(DepthNonNegative.holds());
+    assert!(DepthNonNegative.verify().is_ok());
 }
 
 #[test]
 fn dvl_requires_bottom_lock_holds() {
-    assert!(DvlRequiresBottomLock.holds());
+    assert!(DvlRequiresBottomLock.verify().is_ok());
 }
 
 #[test]
@@ -108,7 +110,7 @@ mod proptest_proofs {
             north in -1000.0..1000.0_f64,
             east in -1000.0..1000.0_f64,
             depth in 0.0..1000.0_f64,
-            heading in 0.0..6.28_f64,
+            heading in 0.0..core::f64::consts::TAU,
             dt in 0.1..100.0_f64
         ) {
             let state = AuvState { north, east, depth, heading };

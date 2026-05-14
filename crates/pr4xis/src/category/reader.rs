@@ -108,7 +108,8 @@ mod tests {
         let f = |x: i32| Reader::new(move |env: &i32| x + env);
 
         let left = Reader::<i32, i32>::pure(a).bind(f);
-        let right = (|x: i32| Reader::new(move |env: &i32| x + env))(a);
+        // bind(pure(a), f) = f(a) — inline `f(a)` directly.
+        let right = Reader::new(move |env: &i32| a + env);
 
         assert_eq!(left.run(&10), right.run(&10));
     }
@@ -117,7 +118,7 @@ mod tests {
     fn right_identity() {
         // bind(m, pure) = m
         let m = Reader::new(|env: &i32| env * 2);
-        let result = Reader::new(|env: &i32| env * 2).bind(|a| Reader::<i32, i32>::pure(a));
+        let result = Reader::new(|env: &i32| env * 2).bind(Reader::<i32, i32>::pure);
 
         assert_eq!(m.run(&21), result.run(&21));
     }
@@ -134,8 +135,8 @@ mod tests {
             .bind(|x| Reader::new(move |_env: &i32| x + 100));
 
         let right = Reader::new(|env: &i32| env + 1).bind(|x| {
-            (|x: i32| Reader::new(move |env: &i32| x * env))(x)
-                .bind(|y| Reader::new(move |_env: &i32| y + 100))
+            // f(x) inlined: Reader::new(move |env| x * env)
+            Reader::new(move |env: &i32| x * env).bind(|y| Reader::new(move |_env: &i32| y + 100))
         });
 
         let _ = (m, f, g); // suppress unused warnings

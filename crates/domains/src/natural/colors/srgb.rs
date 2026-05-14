@@ -116,14 +116,21 @@ pub fn is_dark(color: &Rgb) -> bool {
 pub struct SrgbContinuity;
 
 impl Axiom for SrgbContinuity {
-    fn description(&self) -> &str {
-        "sRGB EOTF is continuous at threshold 0.04045 (IEC 61966-2-1)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if srgb_linearize().is_continuous(1e-6) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        srgb_linearize().is_continuous(1e-6)
-    }
+    pr4xis::axiom_meta!(
+        "SrgbContinuity",
+        "sRGB EOTF is continuous at threshold 0.04045",
+        "IEC 61966-2-1 (1999) sRGB standard"
+    );
 }
-pr4xis::register_axiom!(SrgbContinuity);
+pr4xis::register_axiom!(SrgbContinuity, "IEC 61966-2-1 (1999) sRGB standard");
 
 /// BT.709 luma coefficients are a convex combination (sum to 1.0, all non-negative).
 ///
@@ -131,15 +138,25 @@ pr4xis::register_axiom!(SrgbContinuity);
 pub struct LumaConvex;
 
 impl Axiom for LumaConvex {
-    fn description(&self) -> &str {
-        "BT.709 luma coefficients sum to 1.0 (ITU-R BT.709-6)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let lc = bt709_luminance();
-        lc.is_convex() && lc.is_non_negative()
+        if lc.is_convex() && lc.is_non_negative() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "LumaConvex",
+        "BT.709 luma coefficients sum to 1.0",
+        "ITU-R BT.709-6 (2015) Parameter values for the HDTV standards"
+    );
 }
-pr4xis::register_axiom!(LumaConvex);
+pr4xis::register_axiom!(
+    LumaConvex,
+    "ITU-R BT.709-6 (2015) Parameter values for the HDTV standards"
+);
 
 /// Luminance is bounded: 0.0 for black, ~1.0 for white.
 ///
@@ -147,19 +164,27 @@ pr4xis::register_axiom!(LumaConvex);
 pub struct LuminanceBounded;
 
 impl Axiom for LuminanceBounded {
-    fn description(&self) -> &str {
-        "luminance in [0, 1] for valid sRGB colors"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let black_l = relative_luminance(&Rgb::BLACK);
         let white_l = relative_luminance(&Rgb::WHITE);
-        Interval::UNIT.contains(black_l)
+        if Interval::UNIT.contains(black_l)
             && Interval::UNIT.contains(white_l)
             && black_l < 0.01
             && white_l > 0.99
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "LuminanceBounded",
+        "luminance in [0, 1] for valid sRGB colors",
+        "ITU-R BT.709-6 (2015); follows from convexity of weights on inputs in [0,1]"
+    );
 }
-pr4xis::register_axiom!(LuminanceBounded);
+pr4xis::register_axiom!(LuminanceBounded, "ITU-R BT.709-6 (2015)");
 
 /// WCAG contrast ratio is bounded: [1.0, 21.0].
 ///
@@ -167,16 +192,26 @@ pr4xis::register_axiom!(LuminanceBounded);
 pub struct ContrastBounded;
 
 impl Axiom for ContrastBounded {
-    fn description(&self) -> &str {
-        "WCAG contrast ratio in [1.0, 21.0]"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let min = contrast_ratio(&Rgb::BLACK, &Rgb::BLACK);
         let max = contrast_ratio(&Rgb::WHITE, &Rgb::BLACK);
-        (min - 1.0).abs() < 0.01 && (max - 21.0).abs() < 0.1
+        if (min - 1.0).abs() < 0.01 && (max - 21.0).abs() < 0.1 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "ContrastBounded",
+        "WCAG contrast ratio in [1.0, 21.0]",
+        "W3C WCAG 2.1 (2018) Success Criterion 1.4.3"
+    );
 }
-pr4xis::register_axiom!(ContrastBounded);
+pr4xis::register_axiom!(
+    ContrastBounded,
+    "W3C WCAG 2.1 (2018) Success Criterion 1.4.3"
+);
 
 /// Luminance monotonicity: brighter colors have higher luminance.
 ///
@@ -184,19 +219,26 @@ pr4xis::register_axiom!(ContrastBounded);
 pub struct LuminanceMonotone;
 
 impl Axiom for LuminanceMonotone {
-    fn description(&self) -> &str {
-        "luminance is monotone: brighter channels → higher luminance"
-    }
-    fn holds(&self) -> bool {
-        // Test: (128,128,128) has higher luminance than (64,64,64)
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let dark = Rgb::new(64, 64, 64);
         let mid = Rgb::new(128, 128, 128);
         let light = Rgb::new(192, 192, 192);
-        relative_luminance(&dark) < relative_luminance(&mid)
+        if relative_luminance(&dark) < relative_luminance(&mid)
             && relative_luminance(&mid) < relative_luminance(&light)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "LuminanceMonotone",
+        "luminance is monotone: brighter channels → higher luminance",
+        "ITU-R BT.709-6 (2015) — follows from non-negativity of luminance coefficients"
+    );
 }
-pr4xis::register_axiom!(LuminanceMonotone);
+pr4xis::register_axiom!(LuminanceMonotone, "ITU-R BT.709-6 (2015)");
 
 /// Screen blend is dual of multiply: Screen(a,b) = 1 - Multiply(1-a, 1-b).
 ///
@@ -204,33 +246,41 @@ pr4xis::register_axiom!(LuminanceMonotone);
 pub struct ScreenDualOfMultiply;
 
 impl Axiom for ScreenDualOfMultiply {
-    fn description(&self) -> &str {
-        "screen blend is dual of multiply (W3C Compositing Level 1)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use super::mixing::{MixMode, mix};
-        // Test with several color pairs
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let pairs = [
             (Rgb::new(100, 150, 200), Rgb::new(50, 100, 150)),
             (Rgb::RED, Rgb::BLUE),
             (Rgb::new(0, 0, 0), Rgb::new(255, 255, 255)),
         ];
-        pairs.iter().all(|(a, b)| {
+        let all_dual = pairs.iter().all(|(a, b)| {
             let screen = mix(*a, *b, MixMode::Screen);
-            // Manual: 1 - (1-a)(1-b) per channel
             let manual = Rgb::new(
                 (255.0 - (255.0 - a.r as f64) * (255.0 - b.r as f64) / 255.0) as u8,
                 (255.0 - (255.0 - a.g as f64) * (255.0 - b.g as f64) / 255.0) as u8,
                 (255.0 - (255.0 - a.b as f64) * (255.0 - b.b as f64) / 255.0) as u8,
             );
-            // Allow 1 unit rounding error per channel
             (screen.r as i16 - manual.r as i16).abs() <= 1
                 && (screen.g as i16 - manual.g as i16).abs() <= 1
                 && (screen.b as i16 - manual.b as i16).abs() <= 1
-        })
+        });
+        if all_dual {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "ScreenDualOfMultiply",
+        "screen blend is dual of multiply: Screen(a,b) = 1 - Multiply(1-a, 1-b)",
+        "W3C Compositing and Blending Level 1 (2015) §13.1"
+    );
 }
-pr4xis::register_axiom!(ScreenDualOfMultiply);
+pr4xis::register_axiom!(
+    ScreenDualOfMultiply,
+    "W3C Compositing and Blending Level 1 (2015) §13.1"
+);
 
 #[cfg(test)]
 mod tests {
@@ -250,12 +300,12 @@ mod tests {
 
     #[test]
     fn test_srgb_continuity() {
-        assert!(SrgbContinuity.holds());
+        assert!(SrgbContinuity.verify().is_ok());
     }
 
     #[test]
     fn test_bt709_convex() {
-        assert!(LumaConvex.holds());
+        assert!(LumaConvex.verify().is_ok());
     }
 
     #[test]
@@ -270,7 +320,7 @@ mod tests {
 
     #[test]
     fn test_luminance_bounded() {
-        assert!(LuminanceBounded.holds());
+        assert!(LuminanceBounded.verify().is_ok());
     }
 
     #[test]
@@ -287,12 +337,12 @@ mod tests {
 
     #[test]
     fn test_contrast_bounded() {
-        assert!(ContrastBounded.holds());
+        assert!(ContrastBounded.verify().is_ok());
     }
 
     #[test]
     fn test_luminance_monotone() {
-        assert!(LuminanceMonotone.holds());
+        assert!(LuminanceMonotone.verify().is_ok());
     }
 
     #[test]
@@ -321,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_screen_dual_of_multiply() {
-        assert!(ScreenDualOfMultiply.holds());
+        assert!(ScreenDualOfMultiply.verify().is_ok());
     }
 
     // ── Property-based tests ──
@@ -332,7 +382,7 @@ mod tests {
         fn prop_luminance_bounded(r in 0u8..=255, g in 0u8..=255, b in 0u8..=255) {
             let color = Rgb::new(r, g, b);
             let l = relative_luminance(&color);
-            prop_assert!(l >= 0.0 && l <= 1.0, "luminance({:?}) = {} not in [0,1]", color, l);
+            prop_assert!((0.0..=1.0).contains(&l), "luminance({:?}) = {} not in [0,1]", color, l);
         }
 
         #[test]
@@ -343,7 +393,7 @@ mod tests {
             let a = Rgb::new(r1, g1, b1);
             let b = Rgb::new(r2, g2, b2);
             let cr = contrast_ratio(&a, &b);
-            prop_assert!(cr >= 1.0 && cr <= 21.1, "contrast({:?}, {:?}) = {}", a, b, cr);
+            prop_assert!((1.0..=21.1).contains(&cr), "contrast({:?}, {:?}) = {}", a, b, cr);
         }
 
         #[test]

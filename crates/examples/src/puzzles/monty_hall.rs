@@ -1,7 +1,24 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const MONTY_CITATION: &str =
+    "Selvin (1975) A Problem in Probability (letter), The American Statistician 29(1):67-71";
 
 /// Monty Hall: 3 doors, 1 car, 2 goats.
 /// Host always reveals a goat, player can switch.
+///
+/// Source: Selvin (1975) — original formulation; vos Savant (1990, Parade)
+/// popularised the "always switch" answer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     pub car_door: u8, // 0-2: which door has the car
@@ -34,19 +51,14 @@ impl State {
     pub fn won(&self) -> Option<bool> {
         self.final_choice.map(|c| c == self.car_door)
     }
-}
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        format!(
-            "phase={:?} choice={:?} revealed={:?} final={:?}",
-            self.phase, self.player_choice, self.host_revealed, self.final_choice
-        )
-    }
-    fn is_terminal(&self) -> bool {
+    /// The game ends once the player has chosen Stay or Switch.
+    pub fn is_terminal(&self) -> bool {
         self.phase == Phase::Resolved
     }
 }
+
+impl Situation for State {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MontyAction {
@@ -58,81 +70,42 @@ pub enum MontyAction {
 
 impl Action for MontyAction {
     type Sit = State;
-    fn describe(&self) -> String {
-        match self {
-            MontyAction::ChooseDoor(d) => format!("choose door {}", d),
-            MontyAction::HostReveal(d) => format!("host reveals door {}", d),
-            MontyAction::Stay => "stay".into(),
-            MontyAction::Switch => "switch".into(),
-        }
-    }
 }
 
 struct MontyRules;
 impl Precondition<MontyAction> for MontyRules {
-    fn check(&self, s: &State, a: &MontyAction) -> PreconditionResult {
+    fn check(&self, s: &State, a: &MontyAction) -> Verdict {
+        let meta = axiom_meta("monty_rules", "Monty Hall game rules", MONTY_CITATION);
         match (s.phase, a) {
             (Phase::ChooseDoor, MontyAction::ChooseDoor(d)) => {
                 if *d >= 3 {
-                    PreconditionResult::violated(
-                        "monty_rules",
-                        "door must be 0-2",
-                        &s.describe(),
-                        &a.describe(),
-                    )
+                    Err(Box::new(SimpleCounterexample::new(meta)))
                 } else {
-                    PreconditionResult::satisfied("monty_rules", "valid door choice")
+                    Ok(Box::new(SimpleProof::new(meta)))
                 }
             }
             (Phase::HostReveals, MontyAction::HostReveal(d)) => {
                 if *d >= 3 {
-                    return PreconditionResult::violated(
-                        "monty_rules",
-                        "door must be 0-2",
-                        &s.describe(),
-                        &a.describe(),
-                    );
+                    return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
                 // Host can't reveal the car
                 if *d == s.car_door {
-                    return PreconditionResult::violated(
-                        "monty_rules",
-                        "host cannot reveal the car",
-                        &s.describe(),
-                        &a.describe(),
-                    );
+                    return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
                 // Host can't reveal player's choice
                 if Some(*d) == s.player_choice {
-                    return PreconditionResult::violated(
-                        "monty_rules",
-                        "host cannot reveal player's door",
-                        &s.describe(),
-                        &a.describe(),
-                    );
+                    return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
-                PreconditionResult::satisfied("monty_rules", "host reveals a goat")
+                Ok(Box::new(SimpleProof::new(meta)))
             }
-            (Phase::SwitchOrStay, MontyAction::Stay) => {
-                PreconditionResult::satisfied("monty_rules", "player stays")
-            }
-            (Phase::SwitchOrStay, MontyAction::Switch) => {
-                PreconditionResult::satisfied("monty_rules", "player switches")
-            }
-            _ => PreconditionResult::violated(
-                "monty_rules",
-                &format!("{:?} not valid in {:?} phase", a, s.phase),
-                &s.describe(),
-                &a.describe(),
-            ),
+            (Phase::SwitchOrStay, MontyAction::Stay) => Ok(Box::new(SimpleProof::new(meta))),
+            (Phase::SwitchOrStay, MontyAction::Switch) => Ok(Box::new(SimpleProof::new(meta))),
+            _ => Err(Box::new(SimpleCounterexample::new(meta))),
         }
-    }
-    fn describe(&self) -> &str {
-        "Monty Hall game rules"
     }
 }
 
-fn apply_monty(s: &State, a: &MontyAction) -> Result<State, String> {
+fn apply_monty(s: &State, a: &MontyAction) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     match a {
         MontyAction::ChooseDoor(d) => {
@@ -182,7 +155,7 @@ mod tests {
             .unwrap()
             .next(MontyAction::Switch)
             .unwrap();
-        assert!(e.is_terminal());
+        assert!(e.situation().is_terminal());
         assert_eq!(e.situation().won(), Some(true));
     }
 
@@ -269,7 +242,7 @@ mod tests {
                 .next(MontyAction::ChooseDoor(choice)).unwrap()
                 .next(MontyAction::HostReveal(host_door)).unwrap()
                 .next(if switch { MontyAction::Switch } else { MontyAction::Stay }).unwrap();
-            prop_assert!(e.is_terminal());
+            prop_assert!(e.situation().is_terminal());
         }
     }
 }

@@ -3,8 +3,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::vector_space::Vector;
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::sensor_fusion::state::covariance;
 use crate::applied::sensor_fusion::state::estimate::StateEstimate;
@@ -13,27 +14,28 @@ use crate::applied::sensor_fusion::state::ontology::*;
 
 #[test]
 fn estimation_category_laws() {
-    check_category_laws::<StateEstimationCategory>().unwrap();
+    assert_category_laws::<StateEstimationCategory>();
 }
 
 #[test]
 fn state_estimation_ontology_validates() {
-    StateEstimationOntology::validate().unwrap();
+    StateEstimationOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn covariance_is_psd() {
-    assert!(CovarianceIsPSD.holds());
+    assert!(CovarianceIsPSD.verify().is_ok());
 }
 
 #[test]
 fn information_roundtrip() {
-    assert!(InformationRoundtrip.holds());
+    assert!(InformationRoundtrip.verify().is_ok());
 }
 
 #[test]
 fn information_fusion_additive() {
-    assert!(InformationFusionAdditive.holds());
+    assert!(InformationFusionAdditive.verify().is_ok());
 }
 
 #[test]

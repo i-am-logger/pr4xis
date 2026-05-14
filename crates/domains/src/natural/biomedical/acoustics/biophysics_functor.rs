@@ -8,13 +8,14 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::acoustics::ontology::{
-    AcousticsCategory, AcousticsCategoryRelationKind, AcousticsEntity, AcousticsRelation,
+    AcousticsCategory, AcousticsConcept, AcousticsRelation, AcousticsRelationKind,
 };
 use crate::natural::biomedical::biophysics::ontology::{
-    BiophysicsCategory, BiophysicsCategoryRelationKind, BiophysicsEntity, BiophysicsRelation,
+    BiophysicsCategory, BiophysicsConcept as BiophysicsEntity, BiophysicsRelation,
+    BiophysicsRelationKind,
 };
 
 /// Structure-preserving map from acoustics entities to their biophysical substrate.
@@ -24,8 +25,8 @@ impl Functor for AcousticsToBiophysics {
     type Source = AcousticsCategory;
     type Target = BiophysicsCategory;
 
-    fn map_object(obj: &AcousticsEntity) -> BiophysicsEntity {
-        use AcousticsEntity as A;
+    fn map_object(obj: &AcousticsConcept) -> BiophysicsEntity {
+        use AcousticsConcept as A;
         use BiophysicsEntity as BP;
         match obj {
             // Wave properties -> biophysics wave/mechanical
@@ -59,12 +60,26 @@ impl Functor for AcousticsToBiophysics {
             A::SoftTissue => BP::SoftTissue,
             A::Fluid => BP::FluidMedium,
 
-            // Abstract categories
+            // Abstract umbrellas and the AcousticEvent root
             A::WaveProperty => BP::WaveProperty,
             A::ImpedanceProperty => BP::WaveProperty,
             A::ConductionPath => BP::BiologicalMedium,
             A::TransducerType => BP::MechanicalProperty,
             A::AcousticMedium => BP::BiologicalMedium,
+            A::AcousticEvent => BP::MechanicalWave,
+
+            // Causal events — merged into the concept enum.
+            // Each event maps to the biophysical substrate that carries it.
+            A::ElectricalSignalInput => BP::MechanicalStress,
+            A::TransducerActivation => BP::MechanicalWave,
+            A::SurfaceOscillation => BP::MechanicalWave,
+            A::AcousticWaveGeneration => BP::MechanicalWave,
+            A::MediumPropagation => BP::MechanicalWave,
+            A::ImpedanceBoundary => BP::AcousticImpedance,
+            A::PartialReflection => BP::AcousticImpedance,
+            A::PartialTransmission => BP::AcousticImpedance,
+            A::BoneCoupledTransmission => BP::BoneMatrix,
+            A::DeepTissuePenetration => BP::SoftTissue,
         }
     }
 
@@ -72,14 +87,17 @@ impl Functor for AcousticsToBiophysics {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
         // Preserve source's Identity → target's identity; everything else
-        // maps to Composed in the dense target (so F(g∘f) == F(g)∘F(f) holds
-        // under collapse).
+        // maps to Composed in the (dense) Biophysics target so that
+        // F(g∘f) == F(g)∘F(f) holds under collapse.
+        // Identity preserved; other source kinds collapse to Subsumption in
+        // the (kinded, partial) Biophysics target. Same-kind preservation
+        // keeps F(g∘f) = F(g)∘F(f) under #166 (no Composed kind).
         match m.kind {
-            AcousticsCategoryRelationKind::Identity => BiophysicsCategory::identity(&from),
+            AcousticsRelationKind::Identity => BiophysicsCategory::identity(&from),
             _ => BiophysicsRelation {
                 from,
                 to,
-                kind: BiophysicsCategoryRelationKind::Composed,
+                kind: BiophysicsRelationKind::Subsumption,
             },
         }
     }
@@ -89,13 +107,13 @@ pr4xis::register_functor!(AcousticsToBiophysics);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::category::{Category, Concept};
+    use pr4xis::category::laws::assert_functor_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<AcousticsToBiophysics>().unwrap();
+        assert_functor_laws::<AcousticsToBiophysics>();
     }
 
     #[test]
@@ -105,7 +123,7 @@ mod tests {
 
     #[test]
     fn test_identity_preservation() {
-        for obj in AcousticsEntity::variants() {
+        for obj in AcousticsConcept::variants() {
             let id_src = AcousticsCategory::identity(&obj);
             let mapped_id = AcousticsToBiophysics::map_morphism(&id_src);
             let id_tgt = BiophysicsCategory::identity(&AcousticsToBiophysics::map_object(&obj));
@@ -114,34 +132,37 @@ mod tests {
     }
 
     #[test]
-    fn test_composition_preservation() {
-        let objs = AcousticsEntity::variants();
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = AcousticsRelation {
-                        from: a,
-                        to: b,
-                        kind: AcousticsCategoryRelationKind::Composed,
-                    };
-                    let g = AcousticsRelation {
-                        from: b,
-                        to: c,
-                        kind: AcousticsCategoryRelationKind::Composed,
-                    };
-                    let composed = AcousticsCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = AcousticsToBiophysics::map_morphism(&composed);
-                    let composed_mapped = BiophysicsCategory::compose(
-                        &AcousticsToBiophysics::map_morphism(&f),
-                        &AcousticsToBiophysics::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
+    fn test_composition_preservation_on_subsumption() {
+        // The migrated Acoustics category is kinded and partial (per OBO-RO,
+        // #166): compose only succeeds for same-kind transitive relations.
+        // Exercise composition along Subsumption chains and verify that the
+        // functor preserves the composite.
+        for m in AcousticsCategory::morphisms() {
+            if m.kind() != AcousticsRelationKind::Subsumption {
+                continue;
+            }
+            for n in AcousticsCategory::morphisms() {
+                if n.kind() != AcousticsRelationKind::Subsumption {
+                    continue;
                 }
+                if m.target() != n.source() {
+                    continue;
+                }
+                let composed = match AcousticsCategory::compose(&m, &n) {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let mapped_composed = AcousticsToBiophysics::map_morphism(&composed);
+                let composed_mapped = BiophysicsCategory::compose(
+                    &AcousticsToBiophysics::map_morphism(&m),
+                    &AcousticsToBiophysics::map_morphism(&n),
+                )
+                .expect("target composition is total");
+                assert_eq!(
+                    mapped_composed, composed_mapped,
+                    "composition law failed for {:?} ∘ {:?}",
+                    m, n
+                );
             }
         }
     }
@@ -149,7 +170,7 @@ mod tests {
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = BiophysicsEntity::variants();
-        for obj in AcousticsEntity::variants() {
+        for obj in AcousticsConcept::variants() {
             let mapped = AcousticsToBiophysics::map_object(&obj);
             assert!(
                 target_variants.contains(&mapped),
@@ -165,7 +186,7 @@ mod tests {
     #[test]
     fn test_sound_wave_maps_to_mechanical_wave() {
         assert_eq!(
-            AcousticsToBiophysics::map_object(&AcousticsEntity::SoundWave),
+            AcousticsToBiophysics::map_object(&AcousticsConcept::SoundWave),
             BiophysicsEntity::MechanicalWave,
         );
     }
@@ -173,7 +194,7 @@ mod tests {
     #[test]
     fn test_acoustic_pressure_maps_to_mechanical_stress() {
         assert_eq!(
-            AcousticsToBiophysics::map_object(&AcousticsEntity::AcousticPressure),
+            AcousticsToBiophysics::map_object(&AcousticsConcept::AcousticPressure),
             BiophysicsEntity::MechanicalStress,
         );
     }
@@ -181,7 +202,7 @@ mod tests {
     #[test]
     fn test_bone_conduction_maps_to_bone_matrix() {
         assert_eq!(
-            AcousticsToBiophysics::map_object(&AcousticsEntity::BoneConduction),
+            AcousticsToBiophysics::map_object(&AcousticsConcept::BoneConduction),
             BiophysicsEntity::BoneMatrix,
         );
     }
@@ -189,7 +210,7 @@ mod tests {
     #[test]
     fn test_air_conduction_maps_to_fluid_medium() {
         assert_eq!(
-            AcousticsToBiophysics::map_object(&AcousticsEntity::AirConduction),
+            AcousticsToBiophysics::map_object(&AcousticsConcept::AirConduction),
             BiophysicsEntity::FluidMedium,
         );
     }
@@ -197,7 +218,7 @@ mod tests {
     #[test]
     fn test_air_maps_to_fluid_medium() {
         assert_eq!(
-            AcousticsToBiophysics::map_object(&AcousticsEntity::Air),
+            AcousticsToBiophysics::map_object(&AcousticsConcept::Air),
             BiophysicsEntity::FluidMedium,
         );
     }
@@ -205,7 +226,7 @@ mod tests {
     #[test]
     fn test_bone_maps_to_bone_matrix() {
         assert_eq!(
-            AcousticsToBiophysics::map_object(&AcousticsEntity::Bone),
+            AcousticsToBiophysics::map_object(&AcousticsConcept::Bone),
             BiophysicsEntity::BoneMatrix,
         );
     }
@@ -213,7 +234,7 @@ mod tests {
     #[test]
     fn test_piezoelectric_transducer_maps_to_mechanical_wave() {
         assert_eq!(
-            AcousticsToBiophysics::map_object(&AcousticsEntity::PiezoelectricTransducer),
+            AcousticsToBiophysics::map_object(&AcousticsConcept::PiezoelectricTransducer),
             BiophysicsEntity::MechanicalWave,
         );
     }
@@ -221,7 +242,7 @@ mod tests {
     #[test]
     fn test_acoustic_frequency_maps_to_frequency() {
         assert_eq!(
-            AcousticsToBiophysics::map_object(&AcousticsEntity::AcousticFrequency),
+            AcousticsToBiophysics::map_object(&AcousticsConcept::AcousticFrequency),
             BiophysicsEntity::Frequency,
         );
     }
@@ -229,7 +250,7 @@ mod tests {
     #[test]
     fn test_conduction_path_maps_to_biological_medium() {
         assert_eq!(
-            AcousticsToBiophysics::map_object(&AcousticsEntity::ConductionPath),
+            AcousticsToBiophysics::map_object(&AcousticsConcept::ConductionPath),
             BiophysicsEntity::BiologicalMedium,
         );
     }

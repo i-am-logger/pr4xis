@@ -15,7 +15,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Pr4xisSubstrate",
     source: "pr4xis/src/category/*.rs — Concept, Relationship, Category, Functor, Endofunctor, Ontology trait definitions",
-    being: AbstractObject,
 
     concepts: [
         // Categorical core primitives.
@@ -132,11 +131,15 @@ impl Quality for SubstrateLocation {
 // sub-kinds of the substrate.
 // ---------------------------------------------------------------------------
 
+/// Direct subsumption children of `parent`. Filters
+/// `Pr4xisSubstrateCategory::morphisms()` by the `Subsumption` kind, per
+/// the kinded-morphism canonical pattern (per_def `TaxonomyDef` is gone).
 fn direct_children_of(parent: Pr4xisSubstrateConcept) -> Vec<Pr4xisSubstrateConcept> {
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-    Pr4xisSubstrateTaxonomy::relations()
-        .into_iter()
-        .filter_map(|(child, p)| if p == parent { Some(child) } else { None })
+    use pr4xis::category::{Arrow, Category};
+    Pr4xisSubstrateCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == Pr4xisSubstrateRelationKind::Subsumption && m.target() == parent)
+        .map(|m| m.source())
         .collect()
 }
 
@@ -146,15 +149,26 @@ fn direct_children_of(parent: Pr4xisSubstrateConcept) -> Vec<Pr4xisSubstrateConc
 pub struct EndofunctorIsFunctor;
 
 impl Axiom for EndofunctorIsFunctor {
-    fn description(&self) -> &str {
-        "SubEndofunctor is a direct taxonomic sub-kind of SubFunctor (Mac Lane 1971 Ch. II §1)"
-    }
-    fn holds(&self) -> bool {
-        direct_children_of(Pr4xisSubstrateConcept::SubFunctor)
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if direct_children_of(Pr4xisSubstrateConcept::SubFunctor)
             .contains(&Pr4xisSubstrateConcept::SubEndofunctor)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "EndofunctorIsFunctor",
+        "SubEndofunctor is a direct taxonomic sub-kind of SubFunctor (Mac Lane 1971 Ch. II §1)",
+        "Mac Lane (1971) Categories for the Working Mathematician, Ch. II §1"
+    );
 }
-pr4xis::register_axiom!(EndofunctorIsFunctor);
+pr4xis::register_axiom!(
+    EndofunctorIsFunctor,
+    "Mac Lane (1971) Categories for the Working Mathematician, Ch. II §1"
+);
 
 /// Axiom: `SubProductCategory` is a sub-kind of `SubCategory`. Mac Lane,
 /// *CWM* (1971) Ch. II §3 — the product of two categories is itself a
@@ -162,15 +176,26 @@ pr4xis::register_axiom!(EndofunctorIsFunctor);
 pub struct ProductCategoryIsCategory;
 
 impl Axiom for ProductCategoryIsCategory {
-    fn description(&self) -> &str {
-        "SubProductCategory is a direct taxonomic sub-kind of SubCategory (Mac Lane 1971 Ch. II §3)"
-    }
-    fn holds(&self) -> bool {
-        direct_children_of(Pr4xisSubstrateConcept::SubCategory)
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if direct_children_of(Pr4xisSubstrateConcept::SubCategory)
             .contains(&Pr4xisSubstrateConcept::SubProductCategory)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "ProductCategoryIsCategory",
+        "SubProductCategory is a direct taxonomic sub-kind of SubCategory (Mac Lane 1971 Ch. II §3)",
+        "Mac Lane (1971) Categories for the Working Mathematician, Ch. II §3"
+    );
 }
-pr4xis::register_axiom!(ProductCategoryIsCategory);
+pr4xis::register_axiom!(
+    ProductCategoryIsCategory,
+    "Mac Lane (1971) Categories for the Working Mathematician, Ch. II §3"
+);
 
 /// Axiom: `SubGradedObject` is a sub-kind of `SubEntity`. A graded
 /// object is an entity equipped with a decomposition indexed by an index
@@ -180,15 +205,26 @@ pr4xis::register_axiom!(ProductCategoryIsCategory);
 pub struct GradedObjectIsEntity;
 
 impl Axiom for GradedObjectIsEntity {
-    fn description(&self) -> &str {
-        "SubGradedObject is a direct taxonomic sub-kind of SubEntity (Mac Lane, Homology 1963 Ch. II §2; Stanley, Enumerative Combinatorics 1986 Ch. 3)"
-    }
-    fn holds(&self) -> bool {
-        direct_children_of(Pr4xisSubstrateConcept::SubEntity)
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if direct_children_of(Pr4xisSubstrateConcept::SubEntity)
             .contains(&Pr4xisSubstrateConcept::SubGradedObject)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "GradedObjectIsEntity",
+        "SubGradedObject is a direct taxonomic sub-kind of SubEntity (Mac Lane, Homology 1963 Ch. II §2; Stanley, Enumerative Combinatorics 1986 Ch. 3)",
+        "Mac Lane (1963) Homology, Ch. II §2; Stanley (1986) Enumerative Combinatorics, Ch. 3"
+    );
 }
-pr4xis::register_axiom!(GradedObjectIsEntity);
+pr4xis::register_axiom!(
+    GradedObjectIsEntity,
+    "Mac Lane (1963) Homology, Ch. II §2; Stanley (1986) Enumerative Combinatorics, Ch. 3"
+);
 
 /// Axiom: `SubObject` is a sub-kind of `SubMorphism`. A subobject is
 /// an equivalence class of monomorphisms A ↪ B — the formal categorical
@@ -198,77 +234,84 @@ pr4xis::register_axiom!(GradedObjectIsEntity);
 pub struct SubobjectIsMorphism;
 
 impl Axiom for SubobjectIsMorphism {
-    fn description(&self) -> &str {
-        "SubObject is a direct taxonomic sub-kind of SubMorphism (Mac Lane 1971 Ch. V §1; Awodey 2010 Ch. 5)"
-    }
-    fn holds(&self) -> bool {
-        direct_children_of(Pr4xisSubstrateConcept::SubMorphism)
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if direct_children_of(Pr4xisSubstrateConcept::SubMorphism)
             .contains(&Pr4xisSubstrateConcept::SubObject)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "SubobjectIsMorphism",
+        "SubObject is a direct taxonomic sub-kind of SubMorphism (Mac Lane 1971 Ch. V §1; Awodey 2010 Ch. 5)",
+        "Mac Lane (1971) Categories for the Working Mathematician, Ch. V §1; Awodey (2010) Category Theory, Ch. 5"
+    );
 }
-pr4xis::register_axiom!(SubobjectIsMorphism);
+pr4xis::register_axiom!(
+    SubobjectIsMorphism,
+    "Mac Lane (1971) Categories for the Working Mathematician, Ch. V §1; Awodey (2010) Category Theory, Ch. 5"
+);
 
 impl Ontology for Pr4xisSubstrateOntology {
     type Cat = Pr4xisSubstrateCategory;
     type Qual = SubstrateLocation;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Pr4xisSubstrateOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(EndofunctorIsFunctor),
-            Box::new(ProductCategoryIsCategory),
-            Box::new(GradedObjectIsEntity),
-            Box::new(SubobjectIsMorphism),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = Pr4xisSubstrateOntology::generated_structural_axioms();
+        axioms.push(Box::new(EndofunctorIsFunctor));
+        axioms.push(Box::new(ProductCategoryIsCategory));
+        axioms.push(Box::new(GradedObjectIsEntity));
+        axioms.push(Box::new(SubobjectIsMorphism));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<Pr4xisSubstrateCategory>().unwrap();
+        assert_category_laws::<Pr4xisSubstrateCategory>();
     }
 
     #[test]
     fn endofunctor_is_functor_holds() {
         assert!(
-            EndofunctorIsFunctor.holds(),
+            EndofunctorIsFunctor.verify().is_ok(),
             "{}",
-            EndofunctorIsFunctor.description()
+            EndofunctorIsFunctor.description().as_str()
         );
     }
 
     #[test]
     fn product_category_is_category_holds() {
         assert!(
-            ProductCategoryIsCategory.holds(),
+            ProductCategoryIsCategory.verify().is_ok(),
             "{}",
-            ProductCategoryIsCategory.description()
+            ProductCategoryIsCategory.description().as_str()
         );
     }
 
     #[test]
     fn graded_object_is_entity_holds() {
         assert!(
-            GradedObjectIsEntity.holds(),
+            GradedObjectIsEntity.verify().is_ok(),
             "{}",
-            GradedObjectIsEntity.description()
+            GradedObjectIsEntity.description().as_str()
         );
     }
 
     #[test]
     fn subobject_is_morphism_holds() {
         assert!(
-            SubobjectIsMorphism.holds(),
+            SubobjectIsMorphism.verify().is_ok(),
             "{}",
-            SubobjectIsMorphism.description()
+            SubobjectIsMorphism.description().as_str()
         );
     }
 

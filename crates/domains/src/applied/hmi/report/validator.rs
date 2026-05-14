@@ -170,8 +170,8 @@ pub fn validate_palette(palette: &Palette) -> ValidationDetail {
     };
 
     ValidationDetail {
-        monotone: mono_axiom.holds(),
-        wcag_aa: contrast_axiom.holds(),
+        monotone: mono_axiom.verify().is_ok(),
+        wcag_aa: contrast_axiom.verify().is_ok(),
         contrast_ratio: cr,
         luminance_ramp,
         mono_break_at,

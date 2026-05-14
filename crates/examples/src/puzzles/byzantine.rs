@@ -1,8 +1,24 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
+
+const BYZ_CITATION: &str =
+    "Lamport, Shostak & Pease (1982) The Byzantine Generals Problem, ACM TOPLAS 4(3):382-401";
 
 /// Byzantine Generals: N generals must agree on Attack or Retreat.
 /// Up to F are traitors who send conflicting messages.
 /// Consensus requires N > 3F.
+///
+/// Source: Lamport, Shostak & Pease (1982).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Order {
     Attack,
@@ -56,6 +72,11 @@ impl State {
             .count()
     }
 
+    /// The protocol terminates when the Resolve action has been applied.
+    pub fn is_terminal(&self) -> bool {
+        self.phase == ByzPhase::Resolved
+    }
+
     /// Did all loyal generals reach the same decision?
     pub fn consensus_reached(&self) -> bool {
         let loyal_decisions: Vec<Order> = self
@@ -72,22 +93,7 @@ impl State {
     }
 }
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        let decided: usize = self.decisions.iter().filter(|d| d.is_some()).count();
-        format!(
-            "n={} traitors={} phase={:?} decided={}/{}",
-            self.n(),
-            self.traitor_count(),
-            self.phase,
-            decided,
-            self.n()
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        self.phase == ByzPhase::Resolved
-    }
-}
+impl Situation for State {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ByzAction {
@@ -107,29 +113,19 @@ pub enum ByzAction {
 
 impl Action for ByzAction {
     type Sit = State;
-    fn describe(&self) -> String {
-        match self {
-            ByzAction::CommanderBroadcast(o) => format!("commander broadcasts {:?}", o),
-            ByzAction::Relay {
-                from,
-                to,
-                claimed_order,
-            } => format!(
-                "general {} tells {} the order is {:?}",
-                from, to, claimed_order
-            ),
-            ByzAction::Decide(i) => format!("general {} decides", i),
-            ByzAction::Resolve => "resolve".into(),
-        }
-    }
 }
 
 struct ByzRules;
 impl Precondition<ByzAction> for ByzRules {
-    fn check(&self, s: &State, a: &ByzAction) -> PreconditionResult {
+    fn check(&self, s: &State, a: &ByzAction) -> Verdict {
+        let meta = axiom_meta(
+            "byz_rules",
+            "Byzantine generals protocol rules",
+            BYZ_CITATION,
+        );
         match (s.phase, a) {
             (ByzPhase::CommanderSends, ByzAction::CommanderBroadcast(_)) => {
-                PreconditionResult::satisfied("byz_rules", "commander phase")
+                Ok(Box::new(SimpleProof::new(meta)))
             }
             (
                 ByzPhase::LieutenantsSend,
@@ -140,75 +136,37 @@ impl Precondition<ByzAction> for ByzRules {
                 },
             ) => {
                 if *from >= s.n() || *to >= s.n() {
-                    return PreconditionResult::violated(
-                        "byz_rules",
-                        "general index out of range",
-                        &s.describe(),
-                        &a.describe(),
-                    );
+                    return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
                 // Loyal generals must relay truthfully
                 if s.generals[*from] == Loyalty::Loyal
                     && let Some(received) = s.messages[0][*from]
                     && *claimed_order != received
                 {
-                    return PreconditionResult::violated(
-                        "byz_rules",
-                        &format!(
-                            "loyal general {} must relay truthfully (received {:?})",
-                            from, received
-                        ),
-                        &s.describe(),
-                        &a.describe(),
-                    );
+                    return Err(Box::new(SimpleCounterexample::new(meta)));
                 }
-                PreconditionResult::satisfied("byz_rules", "relay valid")
+                Ok(Box::new(SimpleProof::new(meta)))
             }
             (ByzPhase::Decide, ByzAction::Decide(i)) => {
-                if *i >= s.n() {
-                    PreconditionResult::violated(
-                        "byz_rules",
-                        "general index out of range",
-                        &s.describe(),
-                        &a.describe(),
-                    )
-                } else if s.decisions[*i].is_some() {
-                    PreconditionResult::violated(
-                        "byz_rules",
-                        "already decided",
-                        &s.describe(),
-                        &a.describe(),
-                    )
+                if *i >= s.n() || s.decisions[*i].is_some() {
+                    Err(Box::new(SimpleCounterexample::new(meta)))
                 } else {
-                    PreconditionResult::satisfied("byz_rules", "can decide")
+                    Ok(Box::new(SimpleProof::new(meta)))
                 }
             }
             (ByzPhase::Decide, ByzAction::Resolve) => {
                 if s.decisions.iter().all(|d| d.is_some()) {
-                    PreconditionResult::satisfied("byz_rules", "all decided")
+                    Ok(Box::new(SimpleProof::new(meta)))
                 } else {
-                    PreconditionResult::violated(
-                        "byz_rules",
-                        "not all generals decided",
-                        &s.describe(),
-                        &a.describe(),
-                    )
+                    Err(Box::new(SimpleCounterexample::new(meta)))
                 }
             }
-            _ => PreconditionResult::violated(
-                "byz_rules",
-                &format!("{:?} not valid in {:?} phase", a, s.phase),
-                &s.describe(),
-                &a.describe(),
-            ),
+            _ => Err(Box::new(SimpleCounterexample::new(meta))),
         }
-    }
-    fn describe(&self) -> &str {
-        "Byzantine generals protocol rules"
     }
 }
 
-fn apply_byz(s: &State, a: &ByzAction) -> Result<State, String> {
+fn apply_byz(s: &State, a: &ByzAction) -> Result<State, Box<dyn Counterexample>> {
     let mut n = s.clone();
     match a {
         ByzAction::CommanderBroadcast(order) => {

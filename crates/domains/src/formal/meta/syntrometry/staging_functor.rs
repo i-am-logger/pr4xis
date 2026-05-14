@@ -35,7 +35,7 @@ use super::ontology::{
     SyntrometryCategory, SyntrometryConcept, SyntrometryRelation, SyntrometryRelationKind,
 };
 use crate::formal::meta::staging::ontology::{
-    StageConcept, StagingCategory, StagingCategoryRelationKind, StagingRelation,
+    StageConcept, StagingCategory, StagingRelation, StagingRelationKind,
 };
 
 fn map_concept(c: &SyntrometryConcept) -> StageConcept {
@@ -75,14 +75,16 @@ impl Functor for SyntrometryToStaging {
     fn map_morphism(m: &SyntrometryRelation) -> StagingRelation {
         let from = map_concept(&m.from);
         let to = map_concept(&m.to);
-        // Preserve source's Identity → target's Identity; everything else
-        // becomes a non-identity arrow in the dense target.
         match m.kind {
             SyntrometryRelationKind::Identity => StagingCategory::identity(&from),
+            // Non-identity arrows project to Subsumption (Smith 2005
+            // OBO-RO). Identity-with-distinct-objects breaks
+            // FunctorCompositionLaw (Mac Lane CWM Ch. II §1) because the
+            // target's identity-aware compose discards them.
             _ => StagingRelation {
                 from,
                 to,
-                kind: StagingCategoryRelationKind::Composed,
+                kind: StagingRelationKind::Subsumption,
             },
         }
     }
@@ -95,10 +97,10 @@ pr4xis::register_functor!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn staging_functor_laws_pass() {
-        check_functor_laws::<SyntrometryToStaging>().unwrap();
+        assert_functor_laws::<SyntrometryToStaging>();
     }
 }

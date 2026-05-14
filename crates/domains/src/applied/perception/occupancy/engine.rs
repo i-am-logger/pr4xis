@@ -1,7 +1,4 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use crate::applied::perception::occupancy::ontology::CellState;
+use crate::applied::perception::occupancy::ontology::OccupancyConcept;
 
 /// A Bayesian occupancy grid using log-odds representation.
 ///
@@ -58,14 +55,14 @@ impl OccupancyGrid {
     }
 
     /// Get the cell state based on threshold.
-    pub fn cell_state(&self, x: usize, y: usize, threshold: f64) -> CellState {
+    pub fn cell_state(&self, x: usize, y: usize, threshold: f64) -> OccupancyConcept {
         let p = self.probability(x, y);
         if (p - 0.5).abs() < threshold {
-            CellState::Unknown
+            OccupancyConcept::Unknown
         } else if p > 0.5 {
-            CellState::Occupied
+            OccupancyConcept::Occupied
         } else {
-            CellState::Free
+            OccupancyConcept::Free
         }
     }
 }

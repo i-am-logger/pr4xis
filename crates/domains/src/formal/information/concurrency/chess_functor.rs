@@ -2,8 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::entity::Concept;
-use pr4xis::category::relationship::Relationship;
-use pr4xis::category::{Category, Functor};
+use pr4xis::category::{Arrow, Category, Functor};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use super::ontology::*;
 
@@ -74,16 +74,30 @@ pub enum ChessConcurrentRelationKind {
     Composed,
 }
 
-impl Relationship for ChessConcurrentRelation {
+impl Arrow for ChessConcurrentRelation {
     type Object = ChessConcurrent;
-    type Kind = ();
+    type Kind = ChessConcurrentRelationKind;
     fn source(&self) -> ChessConcurrent {
         self.from
     }
     fn target(&self) -> ChessConcurrent {
         self.to
     }
-    fn kind(&self) {}
+    fn kind(&self) -> ChessConcurrentRelationKind {
+        self.kind
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("ChessConcurrentRelation"),
+            description: Label::new_static(
+                "Chess as concurrent system: players (agents) sharing the board (resource) under turn-taking (synchronization).",
+            ),
+            citation: Citation::parse_static(
+                "Hoare (1978) Communicating Sequential Processes, CACM 21(8); Hewitt (1973) A Universal Modular ACTOR Formalism for AI, IJCAI-73; Lamport (1978) Time, Clocks, and the Ordering of Events in a Distributed System, CACM 21(7)",
+            ),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 pub struct ChessConcurrentCategory;
@@ -252,7 +266,7 @@ impl Functor for ChessToConcurrency {
             ChessConcurrentRelationKind::UnsynchronizedAccess => {
                 ConcurrencyRelationKind::UnsynchronizedAccess
             }
-            ChessConcurrentRelationKind::Composed => ConcurrencyRelationKind::Composed,
+            ChessConcurrentRelationKind::Composed => ConcurrencyRelationKind::Identity,
         };
         ConcurrencyRelation { from, to, kind }
     }

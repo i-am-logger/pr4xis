@@ -22,6 +22,7 @@ use hashbrown::HashMap;
 /// - Harel, "Statecharts" (1987): parallel regions (surfaces update simultaneously)
 /// - Czaplicki & Chong, "Async FRP for GUIs" (2013): sync vs async propagation
 use pr4xis::category::Concept;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 /// A surface capability — what a rendering target can express.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -190,10 +191,7 @@ pub struct ThemeChangeNaturality {
 }
 
 impl Axiom for ThemeChangeNaturality {
-    fn description(&self) -> &str {
-        "theme change is a natural transformation (surfaces are independent)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         // The naturality condition holds if each functor's apply()
         // depends ONLY on the palette, not on other functors' outputs
         // or previous palette state.
@@ -220,19 +218,24 @@ impl Axiom for ThemeChangeNaturality {
 
                 // If slot colors are the same, config values must be the same
                 if c1 == c2 && v1 != v2 {
-                    return false; // functor is non-deterministic
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
                 // If slot colors differ, config values must differ
                 // (unless the transform loses information, which we don't allow)
                 if c1 != c2 && v1 == v2 {
-                    return false; // functor lost information
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "ThemeChangeNaturality",
+        "theme change is a natural transformation (surfaces are independent)",
+        "Mac Lane (1971) Categories for the Working Mathematician Ch. I §4 (natural transformations)"
+    );
 }
-pr4xis::register_axiom!(ThemeChangeNaturality);
 /// Quality: how many palette slots a surface consumes.
 #[derive(Debug, Clone)]
 pub struct SlotCoverage;
@@ -433,7 +436,7 @@ mod tests {
         let axiom = ThemeChangeNaturality {
             functors: vec![terminal_functor(), border_functor(), led_functor()],
         };
-        assert!(axiom.holds());
+        assert!(axiom.verify().is_ok());
     }
 
     #[test]

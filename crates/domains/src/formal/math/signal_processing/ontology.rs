@@ -13,7 +13,6 @@ use crate::formal::math::signal_processing::sampling;
 pr4xis::ontology! {
     name: "SignalProcessing",
     source: "Shannon (1949); Nyquist (1928)",
-    being: AbstractObject,
 
     concepts: [TimeDomain, FrequencyDomain, SampleRate, Bandwidth, NyquistRate, AliasFrequency],
 
@@ -58,23 +57,25 @@ impl Quality for ConceptDescription {
 pub struct NyquistTheorem;
 
 impl Axiom for NyquistTheorem {
-    fn description(&self) -> &str {
-        "Nyquist theorem: sampling at f_s >= 2*bandwidth preserves signal information"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let bandwidths = [1.0, 100.0, 22050.0, 1e6];
         for &bw in &bandwidths {
             let nyquist = sampling::nyquist_rate(bw);
             if !sampling::is_adequately_sampled(nyquist, bw) {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
             if !sampling::is_adequately_sampled(nyquist + 1.0, bw) {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "NyquistTheorem",
+        "Nyquist theorem: sampling at f_s >= 2*bandwidth preserves signal information",
+        "Shannon (1949), Nyquist (1928)."
+    );
 }
 pr4xis::register_axiom!(NyquistTheorem, "Shannon (1949), Nyquist (1928).");
 
@@ -82,20 +83,22 @@ pr4xis::register_axiom!(NyquistTheorem, "Shannon (1949), Nyquist (1928).");
 pub struct AliasingOccursBelowNyquist;
 
 impl Axiom for AliasingOccursBelowNyquist {
-    fn description(&self) -> &str {
-        "aliasing occurs when sample rate < 2 * bandwidth (below Nyquist rate)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let bandwidths = [100.0, 1000.0, 22050.0];
         for &bw in &bandwidths {
             let nyquist = sampling::nyquist_rate(bw);
             if sampling::is_adequately_sampled(nyquist - 1.0, bw) {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "AliasingOccursBelowNyquist",
+        "aliasing occurs when sample rate < 2 * bandwidth (below Nyquist rate)",
+        "Shannon (1949), Nyquist (1928)."
+    );
 }
 pr4xis::register_axiom!(
     AliasingOccursBelowNyquist,
@@ -106,22 +109,24 @@ pr4xis::register_axiom!(
 pub struct BandwidthPositive;
 
 impl Axiom for BandwidthPositive {
-    fn description(&self) -> &str {
-        "bandwidth is positive, therefore Nyquist rate is positive"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let bandwidths = [0.001, 1.0, 100.0, 1e9];
         for &bw in &bandwidths {
             if bw <= 0.0 {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
             if sampling::nyquist_rate(bw) <= 0.0 {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "BandwidthPositive",
+        "bandwidth is positive, therefore Nyquist rate is positive",
+        "Shannon (1949), Nyquist (1928)."
+    );
 }
 pr4xis::register_axiom!(BandwidthPositive, "Shannon (1949), Nyquist (1928).");
 
@@ -129,16 +134,12 @@ impl Ontology for SignalProcessingOntology {
     type Cat = SignalProcessingCategory;
     type Qual = ConceptDescription;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(NyquistTheorem),
-            Box::new(AliasingOccursBelowNyquist),
-            Box::new(BandwidthPositive),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(NyquistTheorem));
+        axioms.push(Box::new(AliasingOccursBelowNyquist));
+        axioms.push(Box::new(BandwidthPositive));
+        axioms
     }
 }
 
@@ -153,7 +154,7 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<SignalProcessingCategory>().unwrap();
+        pr4xis::category::laws::assert_category_laws::<SignalProcessingCategory>();
     }
 
     #[test]

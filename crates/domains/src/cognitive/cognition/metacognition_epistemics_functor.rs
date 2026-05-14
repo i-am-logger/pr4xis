@@ -55,14 +55,18 @@ impl Functor for MetacognitionToEpistemics {
     fn map_morphism(m: &MetaCognitionRelation) -> EpistemicRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
-        // Preserve source's Identity → target's Identity; everything else
-        // maps to Composed so F(g∘f) == F(g)∘F(f) holds under collapse.
+        // Identity → Identity. All other source kinds (Observes /
+        // Orchestrates / Records / Detects / etc.) project into the
+        // canonical Subsumption kind on the target — this preserves
+        // `F(g∘f) = F(g)∘F(f)` (Mac Lane CWM Ch. II §1) since source-side
+        // compose for heterogeneous kinds is partial-None (#166), and
+        // identity composition in target reduces to the original arrow.
         match m.kind {
             MetaCognitionRelationKind::Identity => EpistemicCategory::identity(&from),
             _ => EpistemicRelation {
                 from,
                 to,
-                kind: EpistemicRelationKind::Composed,
+                kind: EpistemicRelationKind::Subsumption,
             },
         }
     }
@@ -72,10 +76,10 @@ pr4xis::register_functor!(MetacognitionToEpistemics);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<MetacognitionToEpistemics>().unwrap();
+        assert_functor_laws::<MetacognitionToEpistemics>();
     }
 }

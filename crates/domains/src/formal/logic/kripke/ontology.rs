@@ -25,7 +25,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Kripke",
     source: "Kripke (1959, 1963); Hughes & Cresswell (1996)",
-    being: AbstractObject,
 
     concepts: [
         // === Frames and worlds ===
@@ -127,11 +126,15 @@ impl Quality for KripkeFamily {
     }
 }
 
+/// Direct subsumption children of `parent`. Filters
+/// `KripkeCategory::morphisms()` by the `Subsumption` kind, per the
+/// kinded-morphism canonical pattern (per_def `TaxonomyDef` is gone).
 fn direct_children_of(parent: KripkeConcept) -> Vec<KripkeConcept> {
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-    KripkeTaxonomy::relations()
-        .into_iter()
-        .filter_map(|(child, p)| if p == parent { Some(child) } else { None })
+    use pr4xis::category::{Arrow, Category};
+    KripkeCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == KripkeRelationKind::Subsumption && m.target() == parent)
+        .map(|m| m.source())
         .collect()
 }
 
@@ -139,18 +142,25 @@ fn direct_children_of(parent: KripkeConcept) -> Vec<KripkeConcept> {
 pub struct TwoModalOperators;
 
 impl Axiom for TwoModalOperators {
-    fn description(&self) -> &str {
-        "the direct children of ModalOperator are exactly {Necessity, Possibility} (Kripke 1963)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let actual = direct_children_of(KripkeConcept::ModalOperator);
         let expected = [KripkeConcept::Necessity, KripkeConcept::Possibility];
-        actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
+        if actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "TwoModalOperators",
+        "the direct children of ModalOperator are exactly {Necessity, Possibility} (Kripke 1963)",
+        "Kripke, S. (1959). A Completeness Theorem in Modal Logic. JSL 24(1)."
+    );
 }
 pr4xis::register_axiom!(
     TwoModalOperators,
-    "- Kripke, S. (1959). *A Completeness Theorem in Modal Logic*. JSL 24(1)."
+    "Kripke, S. (1959). A Completeness Theorem in Modal Logic. JSL 24(1)."
 );
 
 /// Axiom: the four standard frame conditions are all direct children of
@@ -160,10 +170,8 @@ pr4xis::register_axiom!(
 pub struct StandardFrameConditions;
 
 impl Axiom for StandardFrameConditions {
-    fn description(&self) -> &str {
-        "FrameCondition has {Reflexive, Symmetric, Transitive, Euclidean} as direct children (Kripke 1963; Hughes & Cresswell 1996)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let actual = direct_children_of(KripkeConcept::FrameCondition);
         let expected = [
             KripkeConcept::Reflexive,
@@ -171,12 +179,21 @@ impl Axiom for StandardFrameConditions {
             KripkeConcept::Transitive,
             KripkeConcept::Euclidean,
         ];
-        actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c))
+        if actual.len() == expected.len() && expected.iter().all(|c| actual.contains(c)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "StandardFrameConditions",
+        "FrameCondition has {Reflexive, Symmetric, Transitive, Euclidean} as direct children (Kripke 1963; Hughes & Cresswell 1996)",
+        "Kripke (1963) Semantical Analysis of Modal Logic I; Hughes & Cresswell (1996) A New Introduction to Modal Logic"
+    );
 }
 pr4xis::register_axiom!(
     StandardFrameConditions,
-    "- Kripke, S. (1959). *A Completeness Theorem in Modal Logic*. JSL 24(1)."
+    "Kripke (1963) Semantical Analysis of Modal Logic I; Hughes & Cresswell (1996) A New Introduction to Modal Logic"
 );
 
 /// Axiom: the Kripke frame mereologically contains both `PossibleWorld` and
@@ -185,55 +202,58 @@ pr4xis::register_axiom!(
 pub struct FrameContainsWorldsAndRelation;
 
 impl Axiom for FrameContainsWorldsAndRelation {
-    fn description(&self) -> &str {
-        "KripkeFrame contains {PossibleWorld, AccessibilityRelation} as mereological parts (Kripke 1963: a frame IS the (W, R) pair)"
-    }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::mereology::MereologyDef;
-        let parts: Vec<_> = KripkeMereology::relations()
-            .into_iter()
-            .filter_map(|(w, p)| {
-                if w == KripkeConcept::KripkeFrame {
-                    Some(p)
-                } else {
-                    None
-                }
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        // Direct mereological parts of KripkeFrame — filter morphisms by the
+        // Parthood kind (per_def `MereologyDef` is gone).
+        let parts: Vec<KripkeConcept> = KripkeCategory::morphisms()
+            .iter()
+            .filter(|m| {
+                m.kind() == KripkeRelationKind::Parthood && m.source() == KripkeConcept::KripkeFrame
             })
+            .map(|m| m.target())
             .collect();
-        parts.contains(&KripkeConcept::PossibleWorld)
+        if parts.contains(&KripkeConcept::PossibleWorld)
             && parts.contains(&KripkeConcept::AccessibilityRelation)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "FrameContainsWorldsAndRelation",
+        "KripkeFrame contains {PossibleWorld, AccessibilityRelation} as mereological parts (Kripke 1963: a frame IS the (W, R) pair)",
+        "Kripke (1963) Semantical Analysis of Modal Logic I"
+    );
 }
 pr4xis::register_axiom!(
     FrameContainsWorldsAndRelation,
-    "- Kripke, S. (1959). *A Completeness Theorem in Modal Logic*. JSL 24(1)."
+    "Kripke (1963) Semantical Analysis of Modal Logic I"
 );
 
 impl Ontology for KripkeOntology {
     type Cat = KripkeCategory;
     type Qual = KripkeFamily;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        KripkeOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(TwoModalOperators),
-            Box::new(StandardFrameConditions),
-            Box::new(FrameContainsWorldsAndRelation),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = KripkeOntology::generated_structural_axioms();
+        axioms.push(Box::new(TwoModalOperators));
+        axioms.push(Box::new(StandardFrameConditions));
+        axioms.push(Box::new(FrameContainsWorldsAndRelation));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<KripkeCategory>().unwrap();
+        assert_category_laws::<KripkeCategory>();
     }
 
     #[test]
@@ -244,27 +264,27 @@ mod tests {
     #[test]
     fn two_modal_operators_holds() {
         assert!(
-            TwoModalOperators.holds(),
+            TwoModalOperators.verify().is_ok(),
             "{}",
-            TwoModalOperators.description()
+            TwoModalOperators.description().as_str()
         );
     }
 
     #[test]
     fn standard_frame_conditions_holds() {
         assert!(
-            StandardFrameConditions.holds(),
+            StandardFrameConditions.verify().is_ok(),
             "{}",
-            StandardFrameConditions.description()
+            StandardFrameConditions.description().as_str()
         );
     }
 
     #[test]
     fn frame_contains_worlds_and_relation_holds() {
         assert!(
-            FrameContainsWorldsAndRelation.holds(),
+            FrameContainsWorldsAndRelation.verify().is_ok(),
             "{}",
-            FrameContainsWorldsAndRelation.description()
+            FrameContainsWorldsAndRelation.description().as_str()
         );
     }
 }

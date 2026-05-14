@@ -77,6 +77,7 @@ mod tests {
     ///   endomorphisms; substrate collapses them with Synkolator.
     /// - `Aspektivsystem` → a predicate-system-of-aspects; substrate
     ///   collapses it with Predikatrix.
+    ///
     /// Richer distinctions live in the Syntrometry ontology itself and
     /// in the Dialectics cross-functor.
     #[test]

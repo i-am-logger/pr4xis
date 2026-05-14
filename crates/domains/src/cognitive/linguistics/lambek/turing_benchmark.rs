@@ -11,6 +11,11 @@
 // - Turing, Computing Machinery and Intelligence (1950)
 
 #[cfg(test)]
+#[allow(clippy::todo)]
+// These tests are intentionally `#[ignore]`-d research markers: each `todo!()`
+// documents a missing ontology (geography, literature, arithmetic, …) that
+// future work must build. The macro is the canonical "not implemented yet"
+// signal and is the point of the file — see the doc block at the top.
 mod tests {
     use crate::cognitive::linguistics::english::English;
     use crate::cognitive::linguistics::lambek::{montague, tokenize};

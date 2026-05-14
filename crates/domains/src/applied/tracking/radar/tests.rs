@@ -5,7 +5,7 @@ use pr4xis::ontology::Axiom;
 
 #[test]
 fn range_non_negative() {
-    assert!(RangeNonNegative.holds());
+    assert!(RangeNonNegative.verify().is_ok());
 }
 
 #[test]

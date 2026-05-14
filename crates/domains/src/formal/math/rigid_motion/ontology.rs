@@ -11,11 +11,8 @@ use crate::formal::math::rigid_motion::pose::Pose;
 pub struct Associativity;
 
 impl Axiom for Associativity {
-    fn description(&self) -> &str {
-        "SE(3) composition is associative: (A*B)*C = A*(B*C)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let poses = canonical_poses();
         for a in &poses {
             for b in &poses {
@@ -23,65 +20,80 @@ impl Axiom for Associativity {
                     let ab_c = a.compose(b).compose(c);
                     let a_bc = a.compose(&b.compose(c));
                     if ab_c != a_bc {
-                        return false;
+                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "Associativity",
+        "SE(3) composition is associative: (A*B)*C = A*(B*C)",
+        "Murray, Li & Sastry (1994) A Mathematical Introduction to Robotic Manipulation; Lynch & Park (2017) Modern Robotics"
+    );
 }
-pr4xis::register_axiom!(Associativity);
+pr4xis::register_axiom!(
+    Associativity,
+    "Murray, Li & Sastry (1994) A Mathematical Introduction to Robotic Manipulation; Lynch & Park (2017) Modern Robotics"
+);
 
 /// Axiom: identity pose is the neutral element.
 pub struct IdentityElement;
 
 impl Axiom for IdentityElement {
-    fn description(&self) -> &str {
-        "identity pose is the neutral element"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let id = Pose::identity();
         for p in &canonical_poses() {
             if p.compose(&id) != *p || id.compose(p) != *p {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "IdentityElement",
+        "identity pose is the neutral element",
+        "Murray, Li & Sastry (1994) A Mathematical Introduction to Robotic Manipulation; Lynch & Park (2017) Modern Robotics"
+    );
 }
-pr4xis::register_axiom!(IdentityElement);
+pr4xis::register_axiom!(
+    IdentityElement,
+    "Murray, Li & Sastry (1994) A Mathematical Introduction to Robotic Manipulation; Lynch & Park (2017) Modern Robotics"
+);
 
 /// Axiom: every pose has an inverse such that T * T^{-1} = I.
 pub struct InverseExists;
 
 impl Axiom for InverseExists {
-    fn description(&self) -> &str {
-        "every SE(3) element has an inverse: T * T^{-1} = identity"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let id = Pose::identity();
         for p in &canonical_poses() {
             if p.compose(&p.inverse()) != id {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "InverseExists",
+        "every SE(3) element has an inverse: T * T^{-1} = identity",
+        "Murray, Li & Sastry (1994) A Mathematical Introduction to Robotic Manipulation; Lynch & Park (2017) Modern Robotics"
+    );
 }
-pr4xis::register_axiom!(InverseExists);
+pr4xis::register_axiom!(
+    InverseExists,
+    "Murray, Li & Sastry (1994) A Mathematical Introduction to Robotic Manipulation; Lynch & Park (2017) Modern Robotics"
+);
 
 /// Axiom: composing poses then transforming equals sequential transforms.
 pub struct CompositionConsistency;
 
 impl Axiom for CompositionConsistency {
-    fn description(&self) -> &str {
-        "composing poses then transforming equals sequential transforms"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let poses = canonical_poses();
         let test_points = [
             [1.0, 0.0, 0.0],
@@ -100,15 +112,23 @@ impl Axiom for CompositionConsistency {
                         || (direct[1] - sequential[1]).abs() > tol
                         || (direct[2] - sequential[2]).abs() > tol
                     {
-                        return false;
+                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "CompositionConsistency",
+        "composing poses then transforming equals sequential transforms",
+        "Murray, Li & Sastry (1994) A Mathematical Introduction to Robotic Manipulation; Lynch & Park (2017) Modern Robotics"
+    );
 }
-pr4xis::register_axiom!(CompositionConsistency);
+pr4xis::register_axiom!(
+    CompositionConsistency,
+    "Murray, Li & Sastry (1994) A Mathematical Introduction to Robotic Manipulation; Lynch & Park (2017) Modern Robotics"
+);
 
 /// The rigid motion ontology — SE(3) group axioms.
 ///
@@ -120,23 +140,13 @@ impl Ontology for RigidMotionOntology {
     type Cat = RotationCategory;
     type Qual = crate::formal::math::rotation::ontology::ParameterCount;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(Associativity),
             Box::new(IdentityElement),
             Box::new(InverseExists),
             Box::new(CompositionConsistency),
         ]
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ontology_validates() {
-        RigidMotionOntology::validate().unwrap();
     }
 }
 
@@ -160,4 +170,14 @@ fn canonical_poses() -> Vec<Pose> {
             translation: [-1.0, 0.5, 2.0],
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ontology_validates() {
+        RigidMotionOntology::validate().unwrap();
+    }
 }

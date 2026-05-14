@@ -338,7 +338,20 @@
       "WebFetch(domain:www.engon.de)",
       "WebFetch(domain:holy-time-dimension.webnode.page)",
       "WebFetch(domain:static.twoday.net)",
-      "Bash(git cherry-pick *)"
+      "Bash(git cherry-pick *)",
+      "Bash(awk '{s+=$4} END {print \"total passing:\", s}')",
+      "Bash(awk '{s+=$4} END {print \"total:\", s}')",
+      "Bash(awk 'NR>=60 && NR<=420 {print NR\": \"$0}' /home/logger/Code/github/logger/praxis/crates/pr4xis/src/ontology/macros.rs)",
+      "Bash(awk 'NR>=1 && NR<=70 {print NR\": \"$0}' /home/logger/Code/github/logger/praxis/crates/pr4xis/src/ontology/macros.rs)",
+      "Bash(sed -i '413,583d' /home/logger/Code/github/logger/praxis/crates/pr4xis/src/ontology/tests.rs)",
+      "Bash(awk 'NR>=410 && NR<=420 {print NR\": \"$0}' /home/logger/Code/github/logger/praxis/crates/pr4xis/src/ontology/tests.rs)",
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\"; grep -A1 \"name:\" {} | head -4')",
+      "Bash(git log *)",
+      "Bash(gpgconf --kill gpg-agent)",
+      "Bash(gpgconf --launch gpg-agent)",
+      "Bash(sqlite3 -version)",
+      "Bash(awk '/upper|being|classify|dolce|Classified|Praxis/')",
+      "WebFetch(domain:www.palantir.com)"
     ]
   }
 }

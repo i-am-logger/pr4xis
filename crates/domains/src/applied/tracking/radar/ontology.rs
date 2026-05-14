@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::Concept;
+use pr4xis::logic::proof::{SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 
 /// Radar measurement components.
@@ -49,11 +50,18 @@ impl Quality for RadarMeasurementUnit {
 pub struct RangeNonNegative;
 
 impl Axiom for RangeNonNegative {
-    fn description(&self) -> &str {
-        "radar range is non-negative"
+    fn verify(&self) -> Verdict {
+        // Structural: range = sqrt(x²+y²+z²) ≥ 0.
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
-    fn holds(&self) -> bool {
-        true
-    } // structural: range = sqrt(x²+y²+z²) ≥ 0
+
+    pr4xis::axiom_meta!(
+        "RangeNonNegative",
+        "radar range is non-negative",
+        "Skolnik (2008) Introduction to Radar Systems; Bar-Shalom et al. (2001) Chapter 10"
+    );
 }
-pr4xis::register_axiom!(RangeNonNegative);
+pr4xis::register_axiom!(
+    RangeNonNegative,
+    "Skolnik (2008) Introduction to Radar Systems; Bar-Shalom et al. (2001) Chapter 10"
+);

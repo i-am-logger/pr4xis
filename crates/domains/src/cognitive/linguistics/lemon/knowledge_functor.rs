@@ -19,7 +19,7 @@ pub struct LemonToKnowledge;
 
 impl Functor for LemonToKnowledge {
     type Source = LemonCategory;
-    type Target = KnowledgeBaseCategory;
+    type Target = KnowledgeCategory;
 
     fn map_object(obj: &LemonConcept) -> KnowledgeConcept {
         match obj {
@@ -70,8 +70,13 @@ fn map_kind(kind: &LemonRelationKind) -> KnowledgeRelationKind {
         // LexicalSense → OntologyReference (Reference) maps to Vocabulary derived from DataSource
         LemonRelationKind::Reference => KnowledgeRelationKind::DerivedFrom,
 
-        // LexicalEntry → OntologyReference (Denotes) maps to Entry in Vocabulary (Composed)
-        LemonRelationKind::Denotes => KnowledgeRelationKind::Composed,
+        // LexicalEntry → OntologyReference (Denotes) — the canonical
+        // Lemon "denotes" relation maps to the knowledge-base Subsumption
+        // (Smith 2005 OBO-RO): the lexical entry IS-A reference to the
+        // ontology entry. Identity would be wrong: the source and target
+        // images differ, and target's identity-aware compose would then
+        // break FunctorCompositionLaw (Mac Lane CWM Ch. II §1).
+        LemonRelationKind::Denotes => KnowledgeRelationKind::Subsumption,
 
         // LexicalEntry → LexicalConcept (Evokes) maps to Entry conforming to Schema
         LemonRelationKind::Evokes => KnowledgeRelationKind::ConformsTo,
@@ -83,17 +88,23 @@ fn map_kind(kind: &LemonRelationKind) -> KnowledgeRelationKind {
         LemonRelationKind::LexicalizedSense => KnowledgeRelationKind::ConformsTo,
 
         LemonRelationKind::Identity => KnowledgeRelationKind::Identity,
-        LemonRelationKind::Composed => KnowledgeRelationKind::Composed,
+
+        // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) — unreachable
+        // when no source edges use these kinds.
+        LemonRelationKind::Subsumption
+        | LemonRelationKind::Parthood
+        | LemonRelationKind::Causation
+        | LemonRelationKind::Opposition => KnowledgeRelationKind::Identity,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<LemonToKnowledge>().unwrap();
+        assert_functor_laws::<LemonToKnowledge>();
     }
 }

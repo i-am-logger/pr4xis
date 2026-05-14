@@ -39,7 +39,7 @@ mod tests {
 
         for _ in 0..30 {
             engine = engine
-                .try_next(FusionAction::Predict {
+                .next(FusionAction::Predict {
                     dt,
                     transition: f.clone(),
                     process_noise: q.clone(),
@@ -47,7 +47,7 @@ mod tests {
                 .unwrap();
 
             engine = engine
-                .try_next(FusionAction::Update {
+                .next(FusionAction::Update {
                     observation_matrix: h_dvl.clone(),
                     measurement: Vector::new(vec![true_velocity]),
                     measurement_noise: r_dvl.clone(),

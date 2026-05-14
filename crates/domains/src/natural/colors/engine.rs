@@ -3,23 +3,20 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::mixing::{MixMode, blend, mix};
 use super::rgb::Rgb;
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
-impl Situation for Rgb {
-    fn describe(&self) -> String {
-        format!(
-            "rgb({}, {}, {}) lum={:.2}",
-            self.r,
-            self.g,
-            self.b,
-            self.luminance()
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        false
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
+
+impl Situation for Rgb {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ColorAction {
@@ -42,58 +39,28 @@ pub enum ColorAction {
 
 impl Action for ColorAction {
     type Sit = Rgb;
-
-    fn describe(&self) -> String {
-        match self {
-            ColorAction::Mix { color, mode } => format!(
-                "mix {:?} with rgb({},{},{})",
-                mode, color.r, color.g, color.b
-            ),
-            ColorAction::Blend { color, alpha } => format!(
-                "blend rgb({},{},{}) at {:.0}%",
-                color.r,
-                color.g,
-                color.b,
-                alpha * 100.0
-            ),
-            ColorAction::Invert => "invert".into(),
-            ColorAction::Grayscale => "grayscale".into(),
-            ColorAction::SetChannel { r, g, b } => format!("set r={:?} g={:?} b={:?}", r, g, b),
-        }
-    }
 }
 
 /// WCAG contrast check: warn if resulting color has poor contrast with black/white.
 pub struct ContrastCheck;
 
 impl Precondition<ColorAction> for ContrastCheck {
-    fn check(&self, color: &Rgb, action: &ColorAction) -> PreconditionResult {
-        // Apply the action speculatively to check the result
+    fn check(&self, color: &Rgb, action: &ColorAction) -> Verdict {
+        let meta = axiom_meta(
+            "contrast_check",
+            "result must have usable contrast",
+            "WCAG 2.1 (2018) §1.4.3 Contrast (Minimum); ISO 9241-303:2011 luminance contrast",
+        );
         let result = apply_color(color, action).unwrap_or(*color);
         let contrast_black = result.contrast_ratio(Rgb::BLACK);
         let contrast_white = result.contrast_ratio(Rgb::WHITE);
         let best_contrast = contrast_black.max(contrast_white);
 
         if best_contrast < 2.0 {
-            PreconditionResult::violated(
-                "contrast_check",
-                &format!(
-                    "result rgb({},{},{}) has very low contrast ({:.1}:1)",
-                    result.r, result.g, result.b, best_contrast
-                ),
-                &color.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         } else {
-            PreconditionResult::satisfied(
-                "contrast_check",
-                &format!("contrast {:.1}:1 with best background", best_contrast),
-            )
+            Ok(Box::new(SimpleProof::new(meta)))
         }
-    }
-
-    fn describe(&self) -> &str {
-        "result must have usable contrast"
     }
 }
 
@@ -101,26 +68,22 @@ impl Precondition<ColorAction> for ContrastCheck {
 pub struct ValidAlpha;
 
 impl Precondition<ColorAction> for ValidAlpha {
-    fn check(&self, _color: &Rgb, action: &ColorAction) -> PreconditionResult {
+    fn check(&self, _color: &Rgb, action: &ColorAction) -> Verdict {
+        let meta = axiom_meta(
+            "valid_alpha",
+            "blend alpha must be 0.0-1.0",
+            "Porter & Duff (1984) Compositing Digital Images, SIGGRAPH '84 §3",
+        );
         if let ColorAction::Blend { alpha, .. } = action
             && (*alpha < 0.0 || *alpha > 1.0)
         {
-            return PreconditionResult::violated(
-                "valid_alpha",
-                &format!("alpha {} out of range [0,1]", alpha),
-                &_color.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("valid_alpha", "alpha in range")
-    }
-
-    fn describe(&self) -> &str {
-        "blend alpha must be 0.0-1.0"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_color(color: &Rgb, action: &ColorAction) -> Result<Rgb, String> {
+fn apply_color(color: &Rgb, action: &ColorAction) -> Result<Rgb, Box<dyn Counterexample>> {
     Ok(match action {
         ColorAction::Mix { color: other, mode } => mix(*color, *other, *mode),
         ColorAction::Blend { color: fg, alpha } => blend(*color, *fg, *alpha),

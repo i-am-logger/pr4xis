@@ -1,7 +1,21 @@
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+
+fn axiom_meta(name: &'static str, description: &'static str, citation: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(citation),
+        module_path: ModulePath::new_static(module_path!()),
+    }
+}
 
 /// Tower of Hanoi: move N disks from peg A to peg C.
 /// Rule: never place a larger disk on a smaller one.
+///
+/// Source: Lucas (1883) *Récréations Mathématiques*, vol. III, "La Tour
+/// d'Hanoï".
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     /// pegs[0..3], each is a stack of disk sizes (bottom to top, decreasing)
@@ -16,22 +30,16 @@ impl State {
             num_disks,
         }
     }
-}
 
-impl Situation for State {
-    fn describe(&self) -> String {
-        format!(
-            "A:{:?} B:{:?} C:{:?}",
-            self.pegs[0], self.pegs[1], self.pegs[2]
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
+    /// All disks moved to peg C, in order — the puzzle's goal state.
+    pub fn is_terminal(&self) -> bool {
         self.pegs[0].is_empty()
             && self.pegs[1].is_empty()
             && self.pegs[2].len() == self.num_disks as usize
     }
 }
+
+impl Situation for State {}
 
 /// Move top disk from one peg to another.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,64 +56,46 @@ impl Move {
 
 impl Action for Move {
     type Sit = State;
-    fn describe(&self) -> String {
-        let names = ['A', 'B', 'C'];
-        format!("{} → {}", names[self.from], names[self.to])
-    }
 }
 
 struct ValidMove;
 impl Precondition<Move> for ValidMove {
-    fn check(&self, state: &State, action: &Move) -> PreconditionResult {
+    fn check(&self, state: &State, action: &Move) -> Verdict {
+        let meta = axiom_meta(
+            "valid_move",
+            "cannot place larger disk on smaller disk",
+            "Lucas (1883) Récréations Mathématiques, vol. III",
+        );
         if action.from >= 3 || action.to >= 3 {
-            return PreconditionResult::violated(
-                "valid_move",
-                "peg index out of range",
-                &state.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         if action.from == action.to {
-            return PreconditionResult::violated(
-                "valid_move",
-                "same peg",
-                &state.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         let source = &state.pegs[action.from];
         if source.is_empty() {
-            return PreconditionResult::violated(
-                "valid_move",
-                "source peg is empty",
-                &state.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
         let disk = *source.last().unwrap();
         let target = &state.pegs[action.to];
         if let Some(&top) = target.last()
             && disk > top
         {
-            return PreconditionResult::violated(
-                "valid_move",
-                &format!("disk {} cannot go on top of disk {}", disk, top),
-                &state.describe(),
-                &action.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("valid_move", &format!("disk {} → peg", disk))
-    }
-    fn describe(&self) -> &str {
-        "cannot place larger disk on smaller disk"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_hanoi(state: &State, action: &Move) -> Result<State, String> {
+fn apply_hanoi(state: &State, action: &Move) -> Result<State, Box<dyn Counterexample>> {
     let mut next = state.clone();
-    let disk = next.pegs[action.from]
-        .pop()
-        .ok_or_else(|| "source peg is empty".to_string())?;
+    let disk = next.pegs[action.from].pop().ok_or_else(|| {
+        Box::new(SimpleCounterexample::new(axiom_meta(
+            "apply_hanoi",
+            "source peg is empty",
+            "Lucas (1883) Récréations Mathématiques, vol. III",
+        ))) as Box<dyn Counterexample>
+    })?;
     next.pegs[action.to].push(disk);
     Ok(next)
 }
@@ -141,7 +131,7 @@ mod tests {
             .unwrap()
             .next(Move::new(0, 2))
             .unwrap();
-        assert!(e.is_terminal());
+        assert!(e.situation().is_terminal());
         assert_eq!(e.trace().successful_steps(), 7); // 2^3 - 1
     }
 

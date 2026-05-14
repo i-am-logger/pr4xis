@@ -16,7 +16,7 @@ pub struct OmvToKnowledge;
 
 impl Functor for OmvToKnowledge {
     type Source = OmvCategory;
-    type Target = KnowledgeBaseCategory;
+    type Target = KnowledgeCategory;
 
     fn map_object(obj: &OmvConcept) -> KnowledgeConcept {
         match obj {
@@ -55,17 +55,22 @@ fn map_kind(kind: &OmvRelationKind) -> KnowledgeRelationKind {
         OmvRelationKind::HasLanguage => KnowledgeRelationKind::Contains,
         OmvRelationKind::HasCompetencyQuestion => KnowledgeRelationKind::Contains,
         OmvRelationKind::Identity => KnowledgeRelationKind::Identity,
-        OmvRelationKind::Composed => KnowledgeRelationKind::Composed,
+        // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+        // unreachable when source has no edges of these kinds.
+        OmvRelationKind::Subsumption
+        | OmvRelationKind::Parthood
+        | OmvRelationKind::Causation
+        | OmvRelationKind::Opposition => KnowledgeRelationKind::Identity,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<OmvToKnowledge>().unwrap();
+        assert_functor_laws::<OmvToKnowledge>();
     }
 }

@@ -11,15 +11,12 @@
 //! Source: Wertz (2001) "Space Mission Engineering"; Bowditch (2002);
 //!         Groves (2013) Section 6.5.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Celestial",
     source: "Bowditch (2002); Wertz (2001)",
-    being: Process,
 
     concepts: [Sensor, StarTracker, SunSensor, HorizonSensor],
 
@@ -63,20 +60,24 @@ impl Quality for AngularAccuracy {
 pub struct TwoSightsFix;
 
 impl Axiom for TwoSightsFix {
-    fn description(&self) -> &str {
-        "two celestial observations determine a position (intersection of circles of position)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let unknowns = 2;
         let observations_per_sight = 1;
         let min_sights = unknowns / observations_per_sight;
-        min_sights == 2
+        if min_sights == 2 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "TwoSightsFix",
+        "two celestial observations determine a position (intersection of circles of position)",
+        "Bowditch (2002) Chapter 18"
+    );
 }
-pr4xis::register_axiom!(
-    TwoSightsFix,
-    "Wertz (2001) \"Space Mission Engineering\"; Bowditch (2002);"
-);
+pr4xis::register_axiom!(TwoSightsFix, "Bowditch (2002) Chapter 18");
 
 /// Star trackers provide arcsecond-level accuracy.
 ///
@@ -84,19 +85,26 @@ pr4xis::register_axiom!(
 pub struct StarTrackerMostAccurate;
 
 impl Axiom for StarTrackerMostAccurate {
-    fn description(&self) -> &str {
-        "star trackers provide arcsecond-level accuracy (most accurate celestial sensor)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let star_tracker_arcsec = 5.0;
         let sun_sensor_arcsec = 180.0;
         let horizon_sensor_arcsec = 360.0;
-        star_tracker_arcsec < sun_sensor_arcsec && star_tracker_arcsec < horizon_sensor_arcsec
+        if star_tracker_arcsec < sun_sensor_arcsec && star_tracker_arcsec < horizon_sensor_arcsec {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "StarTrackerMostAccurate",
+        "star trackers provide arcsecond-level accuracy (most accurate celestial sensor)",
+        "Wertz (2001) Table 7-2; Liebe (2002)"
+    );
 }
 pr4xis::register_axiom!(
     StarTrackerMostAccurate,
-    "Wertz (2001) \"Space Mission Engineering\"; Bowditch (2002);"
+    "Wertz (2001) Table 7-2; Liebe (2002)"
 );
 
 /// Atmospheric refraction corrupts near-horizon observations.
@@ -105,18 +113,25 @@ pr4xis::register_axiom!(
 pub struct AtmosphericRefraction;
 
 impl Axiom for AtmosphericRefraction {
-    fn description(&self) -> &str {
-        "near-horizon observations are corrupted by atmospheric refraction"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let refraction_at_horizon = approximate_refraction_arcmin(0.5);
         let refraction_at_45deg = approximate_refraction_arcmin(45.0);
-        refraction_at_horizon > refraction_at_45deg * 10.0
+        if refraction_at_horizon > refraction_at_45deg * 10.0 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "AtmosphericRefraction",
+        "near-horizon observations are corrupted by atmospheric refraction",
+        "Bowditch (2002) Chapter 19; Meeus (1991)"
+    );
 }
 pr4xis::register_axiom!(
     AtmosphericRefraction,
-    "Wertz (2001) \"Space Mission Engineering\"; Bowditch (2002);"
+    "Bowditch (2002) Chapter 19; Meeus (1991)"
 );
 
 /// Approximate atmospheric refraction in arcminutes.
@@ -135,31 +150,28 @@ impl Ontology for CelestialOntology {
     type Cat = CelestialCategory;
     type Qual = AngularAccuracy;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(TwoSightsFix),
-            Box::new(StarTrackerMostAccurate),
-            Box::new(AtmosphericRefraction),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(TwoSightsFix));
+        axioms.push(Box::new(StarTrackerMostAccurate));
+        axioms.push(Box::new(AtmosphericRefraction));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<CelestialCategory>().unwrap();
+        assert_category_laws::<CelestialCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        CelestialOntology::validate().unwrap();
+        CelestialOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

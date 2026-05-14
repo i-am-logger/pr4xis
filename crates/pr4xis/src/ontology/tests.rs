@@ -471,7 +471,7 @@ mod proc_macro_test {
     fn proc_macro_generates_vocabulary() {
         let vocab = CommunicationOntology::vocabulary();
         assert_eq!(vocab.concepts().len(), 8);
-        assert!(vocab.morphisms().len() > 0);
+        assert!(!vocab.morphisms().is_empty());
         assert_eq!(vocab.source.as_str(), "Shannon (1948); Jakobson (1960)");
     }
 
@@ -499,13 +499,11 @@ mod proc_macro_test {
     fn proc_macro_opposition() {
         // Opposition is now expressed as kinded morphisms in the category.
         use crate::category::Arrow;
-        let has_opposition = CommunicationCategory::morphisms()
-            .iter()
-            .any(|m| {
-                m.kind() == CommunicationRelationKind::Opposition
-                    && m.source() == CommunicationConcept::Noise
-                    && m.target() == CommunicationConcept::Code
-            });
+        let has_opposition = CommunicationCategory::morphisms().iter().any(|m| {
+            m.kind() == CommunicationRelationKind::Opposition
+                && m.source() == CommunicationConcept::Noise
+                && m.target() == CommunicationConcept::Code
+        });
         assert!(has_opposition);
     }
 }

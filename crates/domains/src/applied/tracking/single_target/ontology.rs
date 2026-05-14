@@ -1,89 +1,255 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Single-target tracking — target state-component ontology.
+//!
+//! Models the kinematic state components a tracker estimates for a
+//! single target: position, velocity, acceleration, and turn-rate
+//! (for maneuvering models). The causal-derivation chain
+//! `Position → Velocity → Acceleration` is recorded as `causes:` edges,
+//! reflecting that each higher derivative is the time-derivative of the
+//! one below.
+//!
+//! # Literature
+//!
+//! - **Bar-Shalom, Li & Kirubarajan (2001)** *Estimation with
+//!   Applications to Tracking and Navigation*, Ch. 6 — the canonical
+//!   single-target kinematic state-vector decomposition (position /
+//!   velocity / acceleration / turn-rate) used in constant-velocity,
+//!   constant-acceleration, and coordinated-turn motion models.
+//! - **Li & Jilkov (2003)** "Survey of Maneuvering Target Tracking. Part I:
+//!   Dynamic Models", *IEEE Transactions on Aerospace and Electronic
+//!   Systems* 39(4) — the multi-model dynamic survey establishing the
+//!   turn-rate component for maneuvering-target trackers.
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
+use pr4xis::category::{Arrow, Category};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Target kinematic state components.
+pr4xis::ontology! {
+    name: "SingleTarget",
+    source: "Bar-Shalom, Li & Kirubarajan (2001) Estimation with Applications to Tracking and Navigation Ch. 6; Li & Jilkov (2003) Survey of Maneuvering Target Tracking. Part I: Dynamic Models, IEEE Transactions on Aerospace and Electronic Systems 39(4)",
+
+    concepts: [
+        // Bar-Shalom (2001) §6.2 single-target kinematic state components.
+        Position,
+        Velocity,
+        Acceleration,
+        // Li & Jilkov (2003): turn-rate for the coordinated-turn model.
+        TurnRate,
+    ],
+
+    labels: {
+        Position: ("en", "Position",
+            "Bar-Shalom (2001) §6.2: target Cartesian position (x, y, z)."),
+        Velocity: ("en", "Velocity",
+            "Bar-Shalom (2001) §6.2: target velocity (vx, vy, vz) — first time-derivative of position."),
+        Acceleration: ("en", "Acceleration",
+            "Bar-Shalom (2001) §6.2: target acceleration (ax, ay, az) — second time-derivative of position."),
+        TurnRate: ("en", "Turn rate",
+            "Li & Jilkov (2003): angular turn rate ω — used in the coordinated-turn model for maneuvering targets."),
+    },
+
+    // Bar-Shalom (2001) §6.2 — the kinematic differentiation chain.
+    causes: [
+        (Position, Velocity),
+        (Velocity, Acceleration),
+    ],
+}
+
+/// Quality: dimensionality of each state component in the standard 3D
+/// Cartesian formulation.
 ///
-/// Source: Bar-Shalom, Li & Kirubarajan (2001), Chapter 6.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum TargetStateComponent {
-    /// Position (x, y, z).
-    Position,
-    /// Velocity (vx, vy, vz).
-    Velocity,
-    /// Acceleration (ax, ay, az).
-    Acceleration,
-    /// Turn rate (ω) — for maneuvering targets.
-    TurnRate,
-}
-
-define_ontology! {
-    pub SingleTargetOntology for TargetStateCategory {
-        entity: TargetStateComponent,
-        relation: StateDerivative,
-        being: Process,
-        source: "Bar-Shalom et al. (2001); Li & Jilkov (2003)",
-    }
-}
-
+/// Bar-Shalom (2001) §6.2 — Position / Velocity / Acceleration are
+/// 3-vectors in the ECEF / ENU frame; TurnRate is a scalar in the
+/// coordinated-turn model.
 #[derive(Debug, Clone)]
 pub struct ComponentDimension;
 
 impl Quality for ComponentDimension {
-    type Individual = TargetStateComponent;
+    type Individual = SingleTargetConcept;
     type Value = usize;
 
-    fn get(&self, c: &TargetStateComponent) -> Option<usize> {
+    fn get(&self, c: &SingleTargetConcept) -> Option<usize> {
         Some(match c {
-            TargetStateComponent::Position => 3,
-            TargetStateComponent::Velocity => 3,
-            TargetStateComponent::Acceleration => 3,
-            TargetStateComponent::TurnRate => 1,
+            SingleTargetConcept::Position => 3,
+            SingleTargetConcept::Velocity => 3,
+            SingleTargetConcept::Acceleration => 3,
+            SingleTargetConcept::TurnRate => 1,
         })
     }
 }
 
-/// Axiom: velocity is derivative of position (kinematics).
+impl Ontology for SingleTargetOntology {
+    type Cat = SingleTargetCategory;
+    type Qual = ComponentDimension;
+
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(VelocityDerivesFromPosition));
+        axioms.push(Box::new(AccelerationDerivesFromVelocity));
+        axioms
+    }
+}
+
+/// Axiom: velocity is the time derivative of position — recorded as a
+/// Causation edge in the ontology.
+///
+/// Bar-Shalom, Li & Kirubarajan (2001) §6.2 — in the constant-velocity
+/// state-space model `x_dot = [v; 0]`, position differentiates to
+/// velocity by construction.
 pub struct VelocityDerivesFromPosition;
 
 impl Axiom for VelocityDerivesFromPosition {
-    fn description(&self) -> &str {
-        "velocity is the time derivative of position"
+    fn verify(&self) -> Verdict {
+        let has_causation = SingleTargetCategory::morphisms().iter().any(|m| {
+            m.kind() == SingleTargetRelationKind::Causation
+                && m.source() == SingleTargetConcept::Position
+                && m.target() == SingleTargetConcept::Velocity
+        });
+        if has_causation {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        true
-    }
+
+    pr4xis::axiom_meta!(
+        "VelocityDerivesFromPosition",
+        "velocity is the time derivative of position",
+        "Bar-Shalom, Li & Kirubarajan (2001) Estimation with Applications to Tracking and Navigation §6.2"
+    );
 }
-pr4xis::register_axiom!(VelocityDerivesFromPosition);
 
-impl Ontology for SingleTargetOntology {
-    type Cat = TargetStateCategory;
-    type Qual = ComponentDimension;
+pr4xis::register_axiom!(
+    VelocityDerivesFromPosition,
+    "Bar-Shalom, Li & Kirubarajan (2001) Estimation with Applications to Tracking and Navigation §6.2"
+);
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
+/// Axiom: acceleration is the time derivative of velocity — recorded as
+/// a Causation edge in the ontology.
+///
+/// Bar-Shalom (2001) §6.2 — in the constant-acceleration state-space
+/// model `v_dot = a`.
+pub struct AccelerationDerivesFromVelocity;
+
+impl Axiom for AccelerationDerivesFromVelocity {
+    fn verify(&self) -> Verdict {
+        let has_causation = SingleTargetCategory::morphisms().iter().any(|m| {
+            m.kind() == SingleTargetRelationKind::Causation
+                && m.source() == SingleTargetConcept::Velocity
+                && m.target() == SingleTargetConcept::Acceleration
+        });
+        if has_causation {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![Box::new(VelocityDerivesFromPosition)]
-    }
+    pr4xis::axiom_meta!(
+        "AccelerationDerivesFromVelocity",
+        "acceleration is the time derivative of velocity",
+        "Bar-Shalom, Li & Kirubarajan (2001) Estimation with Applications to Tracking and Navigation §6.2"
+    );
 }
+
+pr4xis::register_axiom!(
+    AccelerationDerivesFromVelocity,
+    "Bar-Shalom, Li & Kirubarajan (2001) Estimation with Applications to Tracking and Navigation §6.2"
+);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::ontology::Ontology;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<TargetStateCategory>().unwrap();
+        assert_category_laws::<SingleTargetCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        SingleTargetOntology::validate().unwrap();
+        SingleTargetOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[test]
+    fn four_state_components() {
+        assert_eq!(SingleTargetConcept::variants().len(), 4);
+    }
+
+    #[test]
+    fn position_3d() {
+        assert_eq!(
+            ComponentDimension.get(&SingleTargetConcept::Position),
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn turnrate_scalar() {
+        assert_eq!(
+            ComponentDimension.get(&SingleTargetConcept::TurnRate),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn position_causes_velocity() {
+        let caus: Vec<_> = SingleTargetCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == SingleTargetRelationKind::Causation)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(caus.contains(&(SingleTargetConcept::Position, SingleTargetConcept::Velocity)));
+    }
+
+    #[test]
+    fn velocity_derives_axiom_holds() {
+        assert!(VelocityDerivesFromPosition.verify().is_ok());
+    }
+
+    #[test]
+    fn acceleration_derives_axiom_holds() {
+        assert!(AccelerationDerivesFromVelocity.verify().is_ok());
+    }
+
+    fn arb_concept() -> impl Strategy<Value = SingleTargetConcept> {
+        proptest::sample::select(SingleTargetConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in SingleTargetCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in SingleTargetOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(
+                        false,
+                        "axiom failed: {}",
+                        c.meta().name.as_str()
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn prop_dimension_total(c in arb_concept()) {
+            prop_assert!(ComponentDimension.get(&c).is_some());
+        }
+
+        #[test]
+        fn prop_dimension_positive(c in arb_concept()) {
+            // Every component has at least one dimension.
+            let d = ComponentDimension.get(&c).unwrap();
+            prop_assert!(d >= 1);
+        }
     }
 }

@@ -24,7 +24,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Syntrometry",
     source: "Heim (~1980 *Syntrometrische Maximentelezentrik*); modernized 2025 paper on heim-theory.com",
-    being: AbstractObject,
 
     concepts: [
         // === Distinction primitives (§1) ===
@@ -203,11 +202,14 @@ impl Quality for SyntrometryCategoryOf {
 // ---------------------------------------------------------------------------
 
 /// Direct mereological parts of a whole (non-transitive).
+/// Filters `SyntrometryCategory::morphisms()` by the `Parthood` kind, per
+/// the kinded-morphism canonical pattern (per_def `MereologyDef` is gone).
 fn direct_parts_of(whole: SyntrometryConcept) -> Vec<SyntrometryConcept> {
-    use pr4xis::ontology::reasoning::mereology::MereologyDef;
-    SyntrometryMereology::relations()
-        .into_iter()
-        .filter_map(|(w, part)| if w == whole { Some(part) } else { None })
+    use pr4xis::category::{Arrow, Category};
+    SyntrometryCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == SyntrometryRelationKind::Parthood && m.source() == whole)
+        .map(|m| m.target())
         .collect()
 }
 
@@ -221,22 +223,29 @@ fn direct_parts_of(whole: SyntrometryConcept) -> Vec<SyntrometryConcept> {
 pub struct AspectIsTripleProduct;
 
 impl Axiom for AspectIsTripleProduct {
-    fn description(&self) -> &str {
-        "Aspect mereologically contains {Dialectic, Coordination, PredicateMatrix} (Heim §1)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let parts = direct_parts_of(SyntrometryConcept::Aspect);
         let expected = [
             SyntrometryConcept::Dialectic,
             SyntrometryConcept::Coordination,
             SyntrometryConcept::PredicateMatrix,
         ];
-        expected.iter().all(|e| parts.contains(e))
+        if expected.iter().all(|e| parts.contains(e)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "AspectIsTripleProduct",
+        "Aspect mereologically contains {Dialectic, Coordination, PredicateMatrix} (Heim §1)",
+        "\"A Modernized Syntrometric Logic: Foundations and Applications\" (2025)"
+    );
 }
 pr4xis::register_axiom!(
     AspectIsTripleProduct,
-    "> \"A Modernized Syntrometric Logic: Foundations and Applications\" (2025)"
+    "\"A Modernized Syntrometric Logic: Foundations and Applications\" (2025)"
 );
 
 /// Axiom: Syncolator is-a Composer — every endofunctor is a functor
@@ -244,19 +253,29 @@ pr4xis::register_axiom!(
 pub struct SyncolatorIsComposer;
 
 impl Axiom for SyncolatorIsComposer {
-    fn description(&self) -> &str {
-        "Syncolator is-a Composer (endofunctor specialises functor)"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let ok = SyntrometryCategory::morphisms().iter().any(|m| {
+            m.kind() == SyntrometryRelationKind::Subsumption
+                && m.source() == SyntrometryConcept::Syncolator
+                && m.target() == SyntrometryConcept::Composer
+        });
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        SyntrometryTaxonomy::relations().iter().any(|(c, p)| {
-            *c == SyntrometryConcept::Syncolator && *p == SyntrometryConcept::Composer
-        })
-    }
+    pr4xis::axiom_meta!(
+        "SyncolatorIsComposer",
+        "Syncolator is-a Composer (endofunctor specialises functor)",
+        "Mac Lane (1971) Categories for the Working Mathematician, Ch. II §1"
+    );
 }
 pr4xis::register_axiom!(
     SyncolatorIsComposer,
-    "> \"A Modernized Syntrometric Logic: Foundations and Applications\" (2025)"
+    "Mac Lane (1971) Categories for the Working Mathematician, Ch. II §1"
 );
 
 /// Axiom: the Syntrix hierarchy has the expected level/aspekt edges into
@@ -264,24 +283,32 @@ pr4xis::register_axiom!(
 pub struct SyntrixIsLeveled;
 
 impl Axiom for SyntrixIsLeveled {
-    fn description(&self) -> &str {
-        "Syntrix carries LevelOf and InhabitsLevelOf edges from SyntrixLevel and Aspect"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use SyntrometryConcept as S;
         use SyntrometryRelationKind as K;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let m = SyntrometryCategory::morphisms();
         let has = |from: S, to: S, kind: K| {
             m.iter()
                 .any(|r| r.from == from && r.to == to && r.kind == kind)
         };
-        has(S::SyntrixLevel, S::Syntrix, K::LevelOf)
+        if has(S::SyntrixLevel, S::Syntrix, K::LevelOf)
             && has(S::Aspect, S::Syntrix, K::InhabitsLevelOf)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "SyntrixIsLeveled",
+        "Syntrix carries LevelOf and InhabitsLevelOf edges from SyntrixLevel and Aspect",
+        "\"A Modernized Syntrometric Logic: Foundations and Applications\" (2025), §2.2"
+    );
 }
 pr4xis::register_axiom!(
     SyntrixIsLeveled,
-    "> \"A Modernized Syntrometric Logic: Foundations and Applications\" (2025)"
+    "\"A Modernized Syntrometric Logic: Foundations and Applications\" (2025), §2.2"
 );
 
 /// A Metroplex mereologically contains Syntrices organised
@@ -289,18 +316,26 @@ pr4xis::register_axiom!(
 pub struct MetroplexContainsSyntrixAndLevels;
 
 impl Axiom for MetroplexContainsSyntrixAndLevels {
-    fn description(&self) -> &str {
-        "Metroplex contains {Syntrix, TranscendenceLevel} (Heim Metroplextheorie)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let parts = direct_parts_of(SyntrometryConcept::Metroplex);
-        parts.contains(&SyntrometryConcept::Syntrix)
+        if parts.contains(&SyntrometryConcept::Syntrix)
             && parts.contains(&SyntrometryConcept::TranscendenceLevel)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "MetroplexContainsSyntrixAndLevels",
+        "Metroplex contains {Syntrix, TranscendenceLevel} (Heim Metroplextheorie)",
+        "Heim (~1980) Syntrometrische Maximentelezentrik §§ Metroplextheorie"
+    );
 }
 pr4xis::register_axiom!(
     MetroplexContainsSyntrixAndLevels,
-    "> \"A Modernized Syntrometric Logic: Foundations and Applications\" (2025)"
+    "Heim (~1980) Syntrometrische Maximentelezentrik §§ Metroplextheorie"
 );
 
 /// Every Maxim ConvergesToward a Telecenter. The pair
@@ -310,20 +345,28 @@ pr4xis::register_axiom!(
 pub struct MaximConvergesTowardTelecenter;
 
 impl Axiom for MaximConvergesTowardTelecenter {
-    fn description(&self) -> &str {
-        "Maxim carries a ConvergesToward edge into Telecenter (Heim Telezentrik)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use SyntrometryConcept as S;
         use SyntrometryRelationKind as K;
-        SyntrometryCategory::morphisms()
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if SyntrometryCategory::morphisms()
             .iter()
             .any(|r| r.from == S::Maxim && r.to == S::Telecenter && r.kind == K::ConvergesToward)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "MaximConvergesTowardTelecenter",
+        "Maxim carries a ConvergesToward edge into Telecenter (Heim Telezentrik)",
+        "Heim (~1980) Syntrometrische Maximentelezentrik (Telezentrik)"
+    );
 }
 pr4xis::register_axiom!(
     MaximConvergesTowardTelecenter,
-    "> \"A Modernized Syntrometric Logic: Foundations and Applications\" (2025)"
+    "Heim (~1980) Syntrometrische Maximentelezentrik (Telezentrik)"
 );
 
 /// A Telecenter is a fixed-point of a Syncolator — the categorical
@@ -334,50 +377,54 @@ pr4xis::register_axiom!(
 pub struct TelecenterIsSyncolatorFixedPoint;
 
 impl Axiom for TelecenterIsSyncolatorFixedPoint {
-    fn description(&self) -> &str {
-        "Telecenter is a FixedPointOf Syncolator (eigenform X=F(X))"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
         use SyntrometryConcept as S;
         use SyntrometryRelationKind as K;
-        SyntrometryCategory::morphisms()
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if SyntrometryCategory::morphisms()
             .iter()
             .any(|r| r.from == S::Telecenter && r.to == S::Syncolator && r.kind == K::FixedPointOf)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "TelecenterIsSyncolatorFixedPoint",
+        "Telecenter is a FixedPointOf Syncolator (eigenform X=F(X))",
+        "Heim (~1980) Syntrometrische Maximentelezentrik (Telezentrik); von Foerster eigenform X=F(X)"
+    );
 }
 pr4xis::register_axiom!(
     TelecenterIsSyncolatorFixedPoint,
-    "> \"A Modernized Syntrometric Logic: Foundations and Applications\" (2025)"
+    "Heim (~1980) Syntrometrische Maximentelezentrik (Telezentrik); von Foerster eigenform X=F(X)"
 );
 
 impl Ontology for SyntrometryOntology {
     type Cat = SyntrometryCategory;
     type Qual = SyntrometryCategoryOf;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        SyntrometryOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(AspectIsTripleProduct),
-            Box::new(SyncolatorIsComposer),
-            Box::new(SyntrixIsLeveled),
-            Box::new(MetroplexContainsSyntrixAndLevels),
-            Box::new(MaximConvergesTowardTelecenter),
-            Box::new(TelecenterIsSyncolatorFixedPoint),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = SyntrometryOntology::generated_structural_axioms();
+        axioms.push(Box::new(AspectIsTripleProduct));
+        axioms.push(Box::new(SyncolatorIsComposer));
+        axioms.push(Box::new(SyntrixIsLeveled));
+        axioms.push(Box::new(MetroplexContainsSyntrixAndLevels));
+        axioms.push(Box::new(MaximConvergesTowardTelecenter));
+        axioms.push(Box::new(TelecenterIsSyncolatorFixedPoint));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<SyntrometryCategory>().unwrap();
+        assert_category_laws::<SyntrometryCategory>();
     }
 
     #[test]
@@ -388,54 +435,54 @@ mod tests {
     #[test]
     fn aspekt_triple_product_axiom_holds() {
         assert!(
-            AspectIsTripleProduct.holds(),
+            AspectIsTripleProduct.verify().is_ok(),
             "{}",
-            AspectIsTripleProduct.description()
+            AspectIsTripleProduct.description().as_str()
         );
     }
 
     #[test]
     fn synkolator_is_korporator_axiom_holds() {
         assert!(
-            SyncolatorIsComposer.holds(),
+            SyncolatorIsComposer.verify().is_ok(),
             "{}",
-            SyncolatorIsComposer.description()
+            SyncolatorIsComposer.description().as_str()
         );
     }
 
     #[test]
     fn syntrix_is_leveled_axiom_holds() {
         assert!(
-            SyntrixIsLeveled.holds(),
+            SyntrixIsLeveled.verify().is_ok(),
             "{}",
-            SyntrixIsLeveled.description()
+            SyntrixIsLeveled.description().as_str()
         );
     }
 
     #[test]
     fn metroplex_contains_syntrix_and_levels_holds() {
         assert!(
-            MetroplexContainsSyntrixAndLevels.holds(),
+            MetroplexContainsSyntrixAndLevels.verify().is_ok(),
             "{}",
-            MetroplexContainsSyntrixAndLevels.description()
+            MetroplexContainsSyntrixAndLevels.description().as_str()
         );
     }
 
     #[test]
     fn maxime_converges_toward_telecenter_holds() {
         assert!(
-            MaximConvergesTowardTelecenter.holds(),
+            MaximConvergesTowardTelecenter.verify().is_ok(),
             "{}",
-            MaximConvergesTowardTelecenter.description()
+            MaximConvergesTowardTelecenter.description().as_str()
         );
     }
 
     #[test]
     fn telecenter_is_synkolator_fixed_point_holds() {
         assert!(
-            TelecenterIsSyncolatorFixedPoint.holds(),
+            TelecenterIsSyncolatorFixedPoint.verify().is_ok(),
             "{}",
-            TelecenterIsSyncolatorFixedPoint.description()
+            TelecenterIsSyncolatorFixedPoint.description().as_str()
         );
     }
 }

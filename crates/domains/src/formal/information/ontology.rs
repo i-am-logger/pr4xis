@@ -1,60 +1,88 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+//! Information — fundamental units of representation that bridge abstract
+//! concepts (meanings, truths, quantities) and concrete representations
+//! (bits, bytes, text, references).
+//!
+//! This ontology names WHAT information units ARE — Rust types like
+//! `u8`, `u32`, `String` are implementations of these concepts.
+//!
+//! # Literature
+//!
+//! - **Shannon (1948)** "A Mathematical Theory of Communication", *Bell
+//!   System Technical Journal* 27 — bit as the fundamental unit of
+//!   information; entropy as the measure of representational content.
+//! - **Turing (1936)** "On Computable Numbers, with an Application to
+//!   the Entscheidungsproblem", *Proc. London Mathematical Society* 42 —
+//!   addressing, sequences, the tape model of computation.
+//! - **IEEE 1872-2015** *Standard Ontologies for Robotics and
+//!   Automation* — has-a / is-a / equivalent relation conventions
+//!   adopted here (SUMO/BFO-compatible).
 
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::{Ontology, Quality};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// Information ontology — the science of how knowledge is represented.
-//
-// Information is the bridge between abstract concepts (meanings, truths,
-// quantities) and concrete representations (bits, bytes, text, references).
-//
-// This ontology defines WHAT information units ARE — not Rust types,
-// but the concepts that Rust types implement.
-//
-// References:
-// - Claude Shannon, A Mathematical Theory of Communication (1948)
-// - Alan Turing, On Computable Numbers (1936)
+pr4xis::ontology! {
+    name: "Info",
+    source: "Shannon (1948) A Mathematical Theory of Communication, Bell System Technical Journal 27; Turing (1936) On Computable Numbers, Proc. London Mathematical Society 42; IEEE 1872-2015 Standard Ontologies for Robotics and Automation",
 
-/// Fundamental units of information representation.
-///
-/// These are the ontological concepts — what things ARE.
-/// Rust types (u8, u32, String) are implementations of these concepts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum InfoUnit {
-    /// The fundamental unit of binary information. Two states: 0 or 1.
-    /// Connects to logic: a Bit IS a truth value.
-    Bit,
+    concepts: [
+        Bit,
+        Byte,
+        Word,
+        Reference,
+        Sequence,
+        Text,
+        TruthValue,
+        Quantity,
+    ],
 
-    /// 8 bits. The standard addressable unit of information.
-    Byte,
+    labels: {
+        Bit: ("en", "Bit",
+            "Shannon (1948): fundamental unit of binary information - two states 0 or 1; semantically equivalent to a single truth value."),
+        Byte: ("en", "Byte",
+            "Eight Bits - the standard addressable unit of information."),
+        Word: ("en", "Word",
+            "A fixed-size group of Bytes processed as a single unit. Architecture-dependent (2, 4, or 8 bytes typically)."),
+        Reference: ("en", "Reference",
+            "Turing (1936): an address pointing to an entity - a Word used as a location identifier (e.g., SynsetId IS a Reference)."),
+        Sequence: ("en", "Sequence",
+            "An ordered collection of information units."),
+        Text: ("en", "Text",
+            "A Sequence of characters - human-readable information."),
+        TruthValue: ("en", "Truth value",
+            "Shannon (1948): a true/false value - semantically equivalent to a single Bit."),
+        Quantity: ("en", "Quantity",
+            "A numeric value representing magnitude - a Sequence of digits in a numeral system."),
+    },
 
-    /// A fixed-size group of bytes processed as a single unit.
-    /// Size depends on architecture (2, 4, or 8 bytes typically).
-    Word,
+    is_a: [
+        // IEEE 1872 is-a: a Reference IS a Word (used as an address).
+        (Reference, Word),
+        // Text IS a Sequence (of characters).
+        (Text, Sequence),
+        // Quantity IS a Sequence (of digits).
+        (Quantity, Sequence),
+    ],
 
-    /// An address that points to an entity. A Word used as a location.
-    /// SynsetId IS a Reference — it points to a concept.
-    Reference,
+    has_a: [
+        // Mereological: Byte has-a Bit (composed of 8 bits).
+        (Byte, Bit),
+        // Word has-a Byte (composed of bytes).
+        (Word, Byte),
+        // Text has-a Sequence (its underlying carrier).
+        (Text, Sequence),
+    ],
 
-    /// An ordered collection of information units.
-    Sequence,
-
-    /// A sequence of characters — human-readable information.
-    /// Connects to linguistics/symbols: Text has-a Characters.
-    Text,
-
-    /// A true/false value. Semantically equivalent to a single Bit.
-    /// Connects to pr4xis::logic: TruthValue IS a proposition's result.
-    TruthValue,
-
-    /// A quantity — a numeric value representing magnitude.
-    /// Connects to science/math.
-    Quantity,
+    edges: [
+        // Shannon (1948): TruthValue and Bit are semantically equivalent.
+        (TruthValue, Bit, Equivalence),
+        (Bit, TruthValue, Equivalence),
+    ],
 }
 
-impl InfoUnit {
+/// Legacy alias for the generated concept enum — preserves the
+/// `InfoUnit` name used by existing call-sites.
+pub type InfoUnit = InfoConcept;
+
+impl InfoConcept {
     /// Is this an atomic unit (no internal structure)?
     pub fn is_atomic(&self) -> bool {
         matches!(self, Self::Bit | Self::TruthValue | Self::Sequence)
@@ -66,109 +94,45 @@ impl InfoUnit {
     }
 }
 
-define_ontology! {
-    /// The information category.
-    pub InformationOntology for InfoCategory {
-        concepts: InfoUnit,
-        relation: InfoRelation,
-        kind: InfoRelationKind,
-        kinds: [
-            /// Mereological: A has-a B (Byte has-a Bits).
-            ComposedOf,
-            /// Taxonomic: A is-a B (Reference is-a Word).
-            IsA,
-            /// Semantic equivalence (TruthValue is-like Bit).
-            Equivalent,
-        ],
-        edges: [
-            // Composition (has-a / mereology)
-            // Byte is composed of Bits
-            (Byte, Bit, ComposedOf),
-            // Word is composed of Bytes
-            (Word, Byte, ComposedOf),
-            // Text is composed of a Sequence
-            (Text, Sequence, ComposedOf),
-            // Taxonomy (is-a)
-            // Reference is-a Word (a word used as an address)
-            (Reference, Word, IsA),
-            // Text is-a Sequence (of characters)
-            (Text, Sequence, IsA),
-            // Quantity is-a Sequence (of digits)
-            (Quantity, Sequence, IsA),
-            // TruthValue equivalent to Bit (semantically)
-            (TruthValue, Bit, Equivalent),
-        ],
-        composed: [
-            // Word composed of Bits (via Bytes)
-            (Word, Bit),
-            // Reference composed of Bytes (via Word)
-            (Reference, Byte),
-            // Reference composed of Bits
-            (Reference, Bit),
-        ],
-        being: AbstractObject,
-        source: "Shannon (1948); Turing (1936)",
-    }
-}
-
-/// Size in bits for each information unit.
+/// Quality: size in bits of each information unit. Atomic units have a
+/// fixed bit-width; structured units vary by architecture or content.
 #[derive(Debug, Clone)]
 pub struct BitSize;
 
 impl Quality for BitSize {
-    type Individual = InfoUnit;
+    type Individual = InfoConcept;
     type Value = usize;
 
-    fn get(&self, individual: &InfoUnit) -> Option<usize> {
-        match individual {
-            InfoUnit::Bit => Some(1),
-            InfoUnit::TruthValue => Some(1),
-            InfoUnit::Byte => Some(8),
-            _ => None, // variable-size or architecture-dependent
+    fn get(&self, c: &InfoConcept) -> Option<usize> {
+        match c {
+            InfoConcept::Bit | InfoConcept::TruthValue => Some(1),
+            InfoConcept::Byte => Some(8),
+            _ => None,
         }
     }
 }
 
-impl Ontology for InformationOntology {
+impl Ontology for InfoOntology {
     type Cat = InfoCategory;
     type Qual = BitSize;
 
-    fn structural_axioms() -> Vec<Box<dyn pr4xis::ontology::Axiom>> {
-        Self::generated_structural_axioms()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pr4xis::category::validate::check_category_laws;
-
-    #[test]
-    fn category_laws() {
-        check_category_laws::<InfoCategory>().unwrap();
-    }
-
-    #[test]
-    fn ontology_validates() {
-        InformationOntology::validate().unwrap();
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 /// A Reference — an address that points to an entity.
 ///
-/// This is the ontological definition of what SynsetId, NodeId, etc. ARE.
-/// A Reference is a Word (fixed-size) used as a location identifier.
-/// The referent (what it points to) gives it meaning — the Reference
-/// itself is just an address.
-///
-/// In category theory terms: a Reference's identity comes from its
-/// morphisms (what it relates to), not from its value (Yoneda lemma).
+/// This is the value-level realisation of `InfoConcept::Reference`. A
+/// Reference is a Word (fixed-size) used as a location identifier. The
+/// referent (what it points to) gives it meaning; the Reference itself is
+/// just an address.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Reference<const BYTES: usize> {
+pub struct Ref<const BYTES: usize> {
     value: u64,
 }
 
-impl<const BYTES: usize> Reference<BYTES> {
+impl<const BYTES: usize> Ref<BYTES> {
     pub fn new(value: u64) -> Self {
         Self { value }
     }
@@ -192,9 +156,116 @@ impl<const BYTES: usize> Reference<BYTES> {
     }
 }
 
-/// A 4-byte reference — can address up to ~4 billion entities.
-/// This is what SynsetId uses: efficient for any lexical database.
-pub type Ref32 = Reference<4>;
+/// A 4-byte reference — can address ~4 billion entities. Used by
+/// SynsetId for any reasonable lexical database.
+pub type Ref32 = Ref<4>;
 
-/// An 8-byte reference — can address up to ~18 quintillion entities.
-pub type Ref64 = Reference<8>;
+/// An 8-byte reference — can address ~18 quintillion entities.
+pub type Ref64 = Ref<8>;
+
+// Re-export the legacy `Reference<N>` name to avoid breaking call-sites.
+// The new concept-level `InfoConcept::Reference` and the value-level
+// `Reference<N>` resolved through their type kind, so `Reference<N>`
+// continues to refer to the value-level struct here.
+pub type Reference<const N: usize> = Ref<N>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
+
+    #[test]
+    fn category_laws() {
+        assert_category_laws::<InfoCategory>();
+    }
+
+    #[test]
+    fn ontology_validates() {
+        InfoOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    #[test]
+    fn eight_concepts() {
+        assert_eq!(InfoConcept::variants().len(), 8);
+    }
+
+    #[test]
+    fn byte_composed_of_bits() {
+        // Mereological: Byte has-a Bit.
+        let m = InfoCategory::morphisms();
+        assert!(m.iter().any(|r| r.source() == InfoConcept::Byte
+            && r.target() == InfoConcept::Bit
+            && r.kind() == InfoRelationKind::Parthood));
+    }
+
+    #[test]
+    fn reference_is_a_word() {
+        // Subsumption: Reference IS-A Word.
+        let m = InfoCategory::morphisms();
+        assert!(m.iter().any(|r| r.source() == InfoConcept::Reference
+            && r.target() == InfoConcept::Word
+            && r.kind() == InfoRelationKind::Subsumption));
+    }
+
+    #[test]
+    fn truth_value_equivalent_to_bit() {
+        // Shannon (1948): TruthValue and Bit are semantically equivalent.
+        let m = InfoCategory::morphisms();
+        assert!(m.iter().any(|r| r.source() == InfoConcept::TruthValue
+            && r.target() == InfoConcept::Bit
+            && r.kind() == InfoRelationKind::Equivalence));
+    }
+
+    #[test]
+    fn ref32_size() {
+        let r: Ref32 = Ref::new(42);
+        assert_eq!(r.size_bytes(), 4);
+        assert_eq!(r.value(), 42);
+        assert_eq!(r.max_addressable(), (1u64 << 32) - 1);
+    }
+
+    #[test]
+    fn ref64_size() {
+        let r: Ref64 = Ref::new(999);
+        assert_eq!(r.size_bytes(), 8);
+        assert_eq!(r.max_addressable(), u64::MAX);
+    }
+
+    fn arb_concept() -> impl Strategy<Value = InfoConcept> {
+        proptest::sample::select(InfoConcept::variants())
+    }
+
+    proptest! {
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in InfoCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in InfoOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
+
+        #[test]
+        fn prop_atomic_or_structured(c in arb_concept()) {
+            prop_assert!(c.is_atomic() != c.is_structured());
+        }
+
+        #[test]
+        fn prop_bitsize_partial(c in arb_concept()) {
+            // Defined only on Bit, Byte, TruthValue.
+            let v = BitSize.get(&c);
+            let is_fixed = matches!(c, InfoConcept::Bit | InfoConcept::Byte | InfoConcept::TruthValue);
+            prop_assert_eq!(v.is_some(), is_fixed);
+        }
+    }
+}

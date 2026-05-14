@@ -5,3 +5,5 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 903c13fa65222c9fec49e25868f9a5b31fdcb51e9bde6a96cacaa3dbdcbbf637 # shrinks to a = SafetyRule, b = IntersectionState, c = SafetyRule
+cc 3e0c1b636578960214bddb751632eda7b1b427ad66ca6338bdb1be1a8b888ad1 # shrinks to a = Signal, b = CongestionFeedback, c = SignalController
+cc a958da5896c736bfc5f40c95254f82c6018024920ba7b65bbf6e8875028bdf75 # shrinks to concept = Emergence

@@ -1,34 +1,32 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::control_theory::ontology::*;
 
 #[test]
 fn control_category_laws() {
-    check_category_laws::<ControlCategory>().unwrap();
+    assert_category_laws::<ControlTheoryCategory>();
 }
 
 #[test]
 fn control_theory_ontology_validates() {
-    ControlTheoryOntology::validate().unwrap();
+    ControlTheoryOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn negative_feedback_stabilizes_holds() {
-    assert!(NegativeFeedbackStabilizes.holds());
+    assert!(NegativeFeedbackStabilizes.verify().is_ok());
 }
 
 #[test]
 fn error_converges_to_zero_holds() {
-    assert!(ErrorConvergesToZero.holds());
+    assert!(ErrorConvergesToZero.verify().is_ok());
 }
 
 #[test]
 fn bibo_stability_definition_holds() {
-    assert!(BIBOStabilityDefinition.holds());
+    assert!(BIBOStabilityDefinition.verify().is_ok());
 }
 
 #[cfg(test)]

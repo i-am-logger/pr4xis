@@ -13,7 +13,6 @@ use crate::formal::math::statistics::estimator;
 pr4xis::ontology! {
     name: "Statistics",
     source: "Fisher (1925); Neyman & Pearson (1933)",
-    being: AbstractObject,
 
     concepts: [Estimator, Hypothesis, ConfidenceInterval, TestStatistic, PValue, SignificanceLevel],
 
@@ -60,11 +59,8 @@ impl Quality for ConceptDescription {
 pub struct MSEDecomposition;
 
 impl Axiom for MSEDecomposition {
-    fn description(&self) -> &str {
-        "MSE decomposition: MSE = bias^2 + variance"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let test_cases = [
             (vec![1.0, 2.0, 3.0, 4.0, 5.0], 3.0),
             (vec![10.0, 10.5, 9.5, 10.0], 9.0),
@@ -85,11 +81,16 @@ impl Axiom for MSEDecomposition {
             let mse_direct = estimator::mse_from_data(estimates, *true_value);
 
             if (mse_decomposed - mse_direct).abs() > 1e-10 {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "MSEDecomposition",
+        "MSE decomposition: MSE = bias^2 + variance",
+        "Fisher (1925), Neyman & Pearson (1933)."
+    );
 }
 pr4xis::register_axiom!(MSEDecomposition, "Fisher (1925), Neyman & Pearson (1933).");
 
@@ -97,11 +98,8 @@ pr4xis::register_axiom!(MSEDecomposition, "Fisher (1925), Neyman & Pearson (1933
 pub struct ConfidenceMonotonicity;
 
 impl Axiom for ConfidenceMonotonicity {
-    fn description(&self) -> &str {
-        "wider confidence interval implies higher confidence level"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let estimate = 5.0;
         let se = 1.0;
 
@@ -109,8 +107,17 @@ impl Axiom for ConfidenceMonotonicity {
         let ci_95 = confidence::confidence_interval_for_mean(estimate, se, confidence::Z_95, 0.95);
         let ci_99 = confidence::confidence_interval_for_mean(estimate, se, confidence::Z_99, 0.99);
 
-        ci_90.width() < ci_95.width() && ci_95.width() < ci_99.width()
+        if ci_90.width() < ci_95.width() && ci_95.width() < ci_99.width() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "ConfidenceMonotonicity",
+        "wider confidence interval implies higher confidence level",
+        "Fisher (1925), Neyman & Pearson (1933)."
+    );
 }
 pr4xis::register_axiom!(
     ConfidenceMonotonicity,
@@ -121,17 +128,23 @@ pr4xis::register_axiom!(
 pub struct TypeITypeIITradeoff;
 
 impl Axiom for TypeITypeIITradeoff {
-    fn description(&self) -> &str {
-        "Type I / Type II error tradeoff: lower significance level means wider acceptance region"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let z_10 = confidence::Z_90;
         let z_05 = confidence::Z_95;
         let z_01 = confidence::Z_99;
 
-        z_10 < z_05 && z_05 < z_01
+        if z_10 < z_05 && z_05 < z_01 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "TypeITypeIITradeoff",
+        "Type I / Type II error tradeoff: lower significance level means wider acceptance region",
+        "Fisher (1925), Neyman & Pearson (1933)."
+    );
 }
 pr4xis::register_axiom!(
     TypeITypeIITradeoff,
@@ -142,16 +155,12 @@ impl Ontology for StatisticsOntology {
     type Cat = StatisticsCategory;
     type Qual = ConceptDescription;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(MSEDecomposition),
-            Box::new(ConfidenceMonotonicity),
-            Box::new(TypeITypeIITradeoff),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(MSEDecomposition));
+        axioms.push(Box::new(ConfidenceMonotonicity));
+        axioms.push(Box::new(TypeITypeIITradeoff));
+        axioms
     }
 }
 
@@ -161,7 +170,7 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<StatisticsCategory>().unwrap();
+        pr4xis::category::laws::assert_category_laws::<StatisticsCategory>();
     }
 
     #[test]

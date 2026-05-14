@@ -40,7 +40,12 @@ impl Functor for ResponseToDiscourse {
             ResponseRelationKind::Realizes => DiscourseRelationKind::Restatement,
             ResponseRelationKind::Constrains => DiscourseRelationKind::Condition,
             ResponseRelationKind::Shapes => DiscourseRelationKind::Contains,
-            ResponseRelationKind::Composed => DiscourseRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+            // unreachable when source has no edges of these kinds.
+            ResponseRelationKind::Subsumption
+            | ResponseRelationKind::Parthood
+            | ResponseRelationKind::Causation
+            | ResponseRelationKind::Opposition => DiscourseRelationKind::Identity,
         };
         DiscourseRelation { from, to, kind }
     }
@@ -50,10 +55,10 @@ pr4xis::register_functor!(ResponseToDiscourse);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<ResponseToDiscourse>().unwrap();
+        assert_functor_laws::<ResponseToDiscourse>();
     }
 }

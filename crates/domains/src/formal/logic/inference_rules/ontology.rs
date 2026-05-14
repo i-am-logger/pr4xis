@@ -25,7 +25,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "InferenceRules",
     source: "Hilbert & Ackermann (1928) Grundzüge der theoretischen Logik; Gentzen (1935) natural deduction; Prawitz (1965) Natural Deduction; Peirce (1878) Deduction, Induction, and Hypothesis; Carnap (1950) Logical Foundations of Probability",
-    being: AbstractObject,
 
     concepts: [
         // === Genus ===
@@ -258,51 +257,55 @@ impl Ontology for InferenceRulesOntology {
     type Cat = InferenceRulesCategory;
     type Qual = RuleOrigin;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        InferenceRulesOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        InferenceRulesOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<InferenceRulesCategory>().unwrap();
+        assert_category_laws::<InferenceRulesCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        InferenceRulesOntology::validate().unwrap();
+        InferenceRulesOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    /// Direct subsumption check via kinded-morphism filter (per_def
+    /// `TaxonomyDef::is_a` is gone). Returns true if `(child, parent,
+    /// Subsumption)` exists as a direct edge.
+    fn direct_is_a(child: InferenceRulesConcept, parent: InferenceRulesConcept) -> bool {
+        use pr4xis::category::{Arrow, Category};
+        InferenceRulesCategory::morphisms().iter().any(|m| {
+            m.kind() == InferenceRulesRelationKind::Subsumption
+                && m.source() == child
+                && m.target() == parent
+        })
     }
 
     #[test]
     fn modus_ponens_is_deductive() {
-        use pr4xis::ontology::reasoning::taxonomy;
-        assert!(taxonomy::is_a::<InferenceRulesTaxonomy>(
-            &InferenceRulesConcept::ModusPonens,
-            &InferenceRulesConcept::Deduction,
+        assert!(direct_is_a(
+            InferenceRulesConcept::ModusPonens,
+            InferenceRulesConcept::Deduction,
         ));
     }
 
     #[test]
     fn three_modes_all_are_inference_rules() {
-        use pr4xis::ontology::reasoning::taxonomy;
         for mode in [
             InferenceRulesConcept::Deduction,
             InferenceRulesConcept::Induction,
             InferenceRulesConcept::Abduction,
         ] {
-            assert!(taxonomy::is_a::<InferenceRulesTaxonomy>(
-                &mode,
-                &InferenceRulesConcept::InferenceRule,
-            ));
+            assert!(direct_is_a(mode, InferenceRulesConcept::InferenceRule));
         }
     }
 }

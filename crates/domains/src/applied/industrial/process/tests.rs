@@ -1,27 +1,29 @@
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::industrial::process::engine::*;
 use crate::applied::industrial::process::ontology::*;
 
 #[test]
 fn process_category_laws() {
-    check_category_laws::<ProcessCategory>().unwrap();
+    assert_category_laws::<ProcessCategory>();
 }
 
 #[test]
 fn process_ontology_validates() {
-    ProcessOntology::validate().unwrap();
+    ProcessOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn temperature_above_absolute_zero_holds() {
-    assert!(TemperatureAboveAbsoluteZero.holds());
+    assert!(TemperatureAboveAbsoluteZero.verify().is_ok());
 }
 
 #[test]
 fn pressure_non_negative_holds() {
-    assert!(PressureNonNegative.holds());
+    assert!(PressureNonNegative.verify().is_ok());
 }
 
 #[test]
@@ -154,7 +156,7 @@ mod proptest_proofs {
         ) {
             let mut pid = PidController::new(kp, 0.0, 0.0, 0.0, 100.0);
             let output = pid.update(setpoint, measured, 0.1);
-            prop_assert!(output >= 0.0 && output <= 100.0,
+            prop_assert!((0.0..=100.0).contains(&output),
                 "output {} out of [0, 100]", output);
         }
 

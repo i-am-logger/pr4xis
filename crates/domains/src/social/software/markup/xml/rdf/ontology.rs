@@ -1,11 +1,6 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
-use pr4xis::category::Concept;
-use pr4xis::category::relationship::Relationship;
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 // RDF 1.1 Concepts and Abstract Syntax — W3C Recommendation (2014)
@@ -72,6 +67,17 @@ impl RdfNodeKind {
     }
 }
 
+/// Relation kind for RDF abstract-syntax arrows.
+///
+/// Per OBO-RO (Smith et al. 2005), every arrow carries a relation-kind
+/// tag. The RDF category's only relation is the W3C-defined triple
+/// connection between node kinds (W3C RDF 1.1 §3) — which combinations
+/// of subject and object node kinds may co-occur.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RdfRelationKind {
+    TripleConnection,
+}
+
 /// A morphism in the RDF category: one node kind can relate to another.
 /// This captures the "abstract syntax" constraints — which combinations
 /// of node kinds can appear together in a triple.
@@ -83,16 +89,28 @@ pub struct RdfRelation {
     pub target: RdfNodeKind,
 }
 
-impl Relationship for RdfRelation {
+impl Arrow for RdfRelation {
     type Object = RdfNodeKind;
-    type Kind = ();
+    type Kind = RdfRelationKind;
     fn source(&self) -> RdfNodeKind {
         self.source
     }
     fn target(&self) -> RdfNodeKind {
         self.target
     }
-    fn kind(&self) {}
+    fn kind(&self) -> RdfRelationKind {
+        RdfRelationKind::TripleConnection
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("RdfRelation"),
+            description: Label::new_static(
+                "RDF abstract-syntax connection between subject and object node kinds",
+            ),
+            citation: Citation::parse_static("W3C RDF 1.1 (2014) §3"),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 /// The RDF category.
@@ -178,15 +196,6 @@ impl Category for RdfCategory {
     }
 }
 
-impl Classified for RdfCategory {
-    fn being() -> Being {
-        Being::SocialObject
-    }
-    fn classification_reason() -> &'static str {
-        "RDF is a W3C standard — an agreed-upon data model"
-    }
-}
-
 // =============================================================================
 // RDFS built-in taxonomy — W3C RDFS §2
 // =============================================================================
@@ -263,34 +272,64 @@ impl RdfVocabulary {
 // Axioms — structural invariants from W3C specs
 // =============================================================================
 
-/// W3C axiom: Literals cannot be subjects (RDF 1.1 §3).
+/// W3C axiom: literals cannot be subjects.
+///
+/// W3C RDF 1.1 Concepts and Abstract Syntax (2014) §3 ("RDF Graphs"):
+/// "An RDF triple consists of three components: the subject, which is
+/// an IRI or a blank node; the predicate, which is an IRI; the object,
+/// which is an IRI, a literal or a blank node." Literals are excluded
+/// from the subject position.
 pub struct LiteralsCannotBeSubjects;
 
-impl pr4xis::logic::Axiom for LiteralsCannotBeSubjects {
-    fn description(&self) -> &str {
-        "RDF literals cannot appear in subject position (W3C RDF 1.1 §3)"
+impl Axiom for LiteralsCannotBeSubjects {
+    fn verify(&self) -> Verdict {
+        if !RdfNodeKind::PlainLiteral.can_be_subject()
+            && !RdfNodeKind::TypedLiteral.can_be_subject()
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        !RdfNodeKind::PlainLiteral.can_be_subject() && !RdfNodeKind::TypedLiteral.can_be_subject()
-    }
+    pr4xis::axiom_meta!(
+        "LiteralsCannotBeSubjects",
+        "RDF literals cannot appear in subject position",
+        "W3C RDF 1.1 (2014) Concepts and Abstract Syntax §3"
+    );
 }
-pr4xis::register_axiom!(LiteralsCannotBeSubjects);
+pr4xis::register_axiom!(
+    LiteralsCannotBeSubjects,
+    "W3C RDF 1.1 (2014) Concepts and Abstract Syntax §3"
+);
 
-/// W3C axiom: Predicates must be IRIs — they are Properties (RDF 1.1 §3).
+/// W3C axiom: predicates must be IRIs — they are Properties.
+///
+/// W3C RDF 1.1 Concepts and Abstract Syntax (2014) §3: "the predicate
+/// [is] an IRI". A predicate cannot be a blank node or a literal —
+/// it is a name (rdf:Property) drawn from a vocabulary.
 pub struct PredicatesMustBeProperties;
 
-impl pr4xis::logic::Axiom for PredicatesMustBeProperties {
-    fn description(&self) -> &str {
-        "RDF predicates must be IRI references (rdf:Property), not blank nodes or literals (W3C RDF 1.1 §3)"
+impl Axiom for PredicatesMustBeProperties {
+    fn verify(&self) -> Verdict {
+        // Properties are IRIs, and only IRI-identified things can be predicates
+        if RdfNodeKind::Property.is_resource() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        // Properties are IRIs, and only IRI-identified things can be predicates
-        RdfNodeKind::Property.is_resource()
-    }
+    pr4xis::axiom_meta!(
+        "PredicatesMustBeProperties",
+        "RDF predicates must be IRI references (rdf:Property), not blank nodes or literals",
+        "W3C RDF 1.1 (2014) Concepts and Abstract Syntax §3"
+    );
 }
-pr4xis::register_axiom!(PredicatesMustBeProperties);
+pr4xis::register_axiom!(
+    PredicatesMustBeProperties,
+    "W3C RDF 1.1 (2014) Concepts and Abstract Syntax §3"
+);
 
 /// Quality: can this RDF node kind appear as a subject?
 #[derive(Debug, Clone)]
@@ -316,7 +355,7 @@ impl Ontology for RdfOntology {
     type Cat = RdfCategory;
     type Qual = CanBeSubject;
 
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
+    fn axioms() -> Vec<Box<dyn Axiom>> {
         vec![
             Box::new(LiteralsCannotBeSubjects),
             Box::new(PredicatesMustBeProperties),
@@ -327,14 +366,16 @@ impl Ontology for RdfOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<RdfCategory>().unwrap();
+        assert_category_laws::<RdfCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        RdfOntology::validate().unwrap();
+        RdfOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

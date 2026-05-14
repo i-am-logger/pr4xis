@@ -13,7 +13,6 @@ use crate::formal::math::rotation::quaternion::Quaternion;
 pr4xis::ontology! {
     name: "Rotation",
     source: "Hamilton (1844); Shoemake (1985)",
-    being: AbstractObject,
 
     concepts: [Quaternion, DCM, Euler, AxisAngle],
 
@@ -65,22 +64,24 @@ impl Quality for HasSingularity {
 pub struct UnitNormClosure;
 
 impl Axiom for UnitNormClosure {
-    fn description(&self) -> &str {
-        "quaternion multiplication preserves unit norm (SO(3) closure)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let rotations = canonical_rotations();
         for a in &rotations {
             for b in &rotations {
                 let c = a.multiply(b);
                 if (c.norm() - 1.0).abs() > 1e-10 {
-                    return false;
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "UnitNormClosure",
+        "quaternion multiplication preserves unit norm (SO(3) closure)",
+        "Hamilton (1844); Shoemake (1985)."
+    );
 }
 pr4xis::register_axiom!(UnitNormClosure, "Hamilton (1844); Shoemake (1985).");
 
@@ -88,11 +89,8 @@ pr4xis::register_axiom!(UnitNormClosure, "Hamilton (1844); Shoemake (1985).");
 pub struct Associativity;
 
 impl Axiom for Associativity {
-    fn description(&self) -> &str {
-        "rotation composition is associative: (a*b)*c = a*(b*c)"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let rotations = canonical_rotations();
         for a in &rotations {
             for b in &rotations {
@@ -100,13 +98,18 @@ impl Axiom for Associativity {
                     let ab_c = a.multiply(b).multiply(c);
                     let a_bc = a.multiply(&b.multiply(c));
                     if ab_c != a_bc {
-                        return false;
+                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "Associativity",
+        "rotation composition is associative: (a*b)*c = a*(b*c)",
+        "Hamilton (1844); Shoemake (1985)."
+    );
 }
 pr4xis::register_axiom!(Associativity, "Hamilton (1844); Shoemake (1985).");
 
@@ -114,19 +117,21 @@ pr4xis::register_axiom!(Associativity, "Hamilton (1844); Shoemake (1985).");
 pub struct IdentityElement;
 
 impl Axiom for IdentityElement {
-    fn description(&self) -> &str {
-        "identity quaternion is the neutral element: q*I = I*q = q"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let id = Quaternion::identity();
         for q in &canonical_rotations() {
             if q.multiply(&id) != *q || id.multiply(q) != *q {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "IdentityElement",
+        "identity quaternion is the neutral element: q*I = I*q = q",
+        "Hamilton (1844); Shoemake (1985)."
+    );
 }
 pr4xis::register_axiom!(IdentityElement, "Hamilton (1844); Shoemake (1985).");
 
@@ -134,19 +139,21 @@ pr4xis::register_axiom!(IdentityElement, "Hamilton (1844); Shoemake (1985).");
 pub struct InverseExists;
 
 impl Axiom for InverseExists {
-    fn description(&self) -> &str {
-        "every rotation has an inverse: q * q^{-1} = identity"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let id = Quaternion::identity();
         for q in &canonical_rotations() {
             if q.multiply(&q.inverse()) != id {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "InverseExists",
+        "every rotation has an inverse: q * q^{-1} = identity",
+        "Hamilton (1844); Shoemake (1985)."
+    );
 }
 pr4xis::register_axiom!(InverseExists, "Hamilton (1844); Shoemake (1985).");
 
@@ -154,19 +161,21 @@ pr4xis::register_axiom!(InverseExists, "Hamilton (1844); Shoemake (1985).");
 pub struct DcmOrthogonality;
 
 impl Axiom for DcmOrthogonality {
-    fn description(&self) -> &str {
-        "quaternion-to-DCM produces proper rotation: R^T R = I, det(R) = +1"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for q in &canonical_rotations() {
             let dcm = Dcm::from_quaternion(q);
             if !dcm.is_proper_rotation(1e-10) {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "DcmOrthogonality",
+        "quaternion-to-DCM produces proper rotation: R^T R = I, det(R) = +1",
+        "Hamilton (1844); Shoemake (1985)."
+    );
 }
 pr4xis::register_axiom!(DcmOrthogonality, "Hamilton (1844); Shoemake (1985).");
 
@@ -174,20 +183,22 @@ pr4xis::register_axiom!(DcmOrthogonality, "Hamilton (1844); Shoemake (1985).");
 pub struct QuaternionDcmRoundtrip;
 
 impl Axiom for QuaternionDcmRoundtrip {
-    fn description(&self) -> &str {
-        "quaternion -> DCM -> quaternion roundtrip preserves rotation"
-    }
-
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for q in &canonical_rotations() {
             let dcm = Dcm::from_quaternion(q);
             let q2 = dcm.to_quaternion();
             if *q != q2 {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "QuaternionDcmRoundtrip",
+        "quaternion -> DCM -> quaternion roundtrip preserves rotation",
+        "Hamilton (1844); Shoemake (1985)."
+    );
 }
 pr4xis::register_axiom!(QuaternionDcmRoundtrip, "Hamilton (1844); Shoemake (1985).");
 
@@ -195,19 +206,15 @@ impl Ontology for RotationOntology {
     type Cat = RotationCategory;
     type Qual = ParameterCount;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(UnitNormClosure),
-            Box::new(Associativity),
-            Box::new(IdentityElement),
-            Box::new(InverseExists),
-            Box::new(DcmOrthogonality),
-            Box::new(QuaternionDcmRoundtrip),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(UnitNormClosure));
+        axioms.push(Box::new(Associativity));
+        axioms.push(Box::new(IdentityElement));
+        axioms.push(Box::new(InverseExists));
+        axioms.push(Box::new(DcmOrthogonality));
+        axioms.push(Box::new(QuaternionDcmRoundtrip));
+        axioms
     }
 }
 
@@ -238,11 +245,12 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<RotationCategory>().unwrap();
+        pr4xis::category::laws::assert_category_laws::<RotationCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        RotationOntology::validate().unwrap();
+        RotationOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 }

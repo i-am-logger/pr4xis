@@ -25,7 +25,6 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 pr4xis::ontology! {
     name: "Nlg",
     source: "Reiter & Dale (2000); Levelt (1989); Mann & Thompson (1988); Appelt (1985)",
-    being: AbstractObject,
 
     concepts: [
         CommunicativeGoal,
@@ -83,11 +82,11 @@ mod tests {
     use super::*;
     use pr4xis::category::Category;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws_hold() {
-        check_category_laws::<NlgCategory>().unwrap();
+        assert_category_laws::<NlgCategory>();
     }
 
     #[test]
@@ -119,9 +118,30 @@ mod tests {
 
     #[test]
     fn goal_reaches_surface_text() {
-        let m = NlgCategory::morphisms();
-        assert!(m.iter().any(|r| r.from == NlgConcept::CommunicativeGoal
-            && r.to == NlgConcept::SurfaceText));
+        // Reiter & Dale (2000) NLG pipeline: Goal → ContentDetermination →
+        // … → Realization → SurfaceText. The chain spans heterogeneous
+        // kinds (Drives, Selects, Generates) so closure isn't a single
+        // morphism per #166 — walk the graph.
+        use pr4xis::category::{Arrow, Category};
+        use std::collections::{HashSet, VecDeque};
+        let ms = NlgCategory::morphisms();
+        let mut visited: HashSet<NlgConcept> = HashSet::new();
+        let mut queue: VecDeque<NlgConcept> = VecDeque::new();
+        queue.push_back(NlgConcept::CommunicativeGoal);
+        let mut reaches = false;
+        while let Some(n) = queue.pop_front() {
+            if n == NlgConcept::SurfaceText {
+                reaches = true;
+                break;
+            }
+            if !visited.insert(n) {
+                continue;
+            }
+            for m in ms.iter().filter(|m| m.source() == n) {
+                queue.push_back(m.target());
+            }
+        }
+        assert!(reaches);
     }
 
     #[test]

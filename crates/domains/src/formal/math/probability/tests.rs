@@ -1,84 +1,82 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::formal::math::probability::ontology::*;
 
 #[test]
 fn probability_category_laws() {
-    check_category_laws::<ProbabilityCategory>().unwrap();
+    assert_category_laws::<ProbabilityCategory>();
 }
 
 #[test]
 fn probability_ontology_validates() {
-    ProbabilityOntology::validate().unwrap();
+    ProbabilityOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn kolmogorov_non_negativity() {
-    assert!(NonNegativity.holds());
+    assert!(NonNegativity.verify().is_ok());
 }
 
 #[test]
 fn kolmogorov_normalization() {
-    assert!(Normalization.holds());
+    assert!(Normalization.verify().is_ok());
 }
 
 #[test]
 fn empty_set_zero() {
-    assert!(EmptySetZero.holds());
+    assert!(EmptySetZero.verify().is_ok());
 }
 
 #[test]
 fn complement_rule() {
-    assert!(ComplementRule.holds());
+    assert!(ComplementRule.verify().is_ok());
 }
 
 #[test]
 fn probability_bounds() {
-    assert!(ProbabilityBounds.holds());
+    assert!(ProbabilityBounds.verify().is_ok());
 }
 
 #[test]
 fn bayes_theorem() {
-    assert!(BayesTheorem.holds());
+    assert!(BayesTheorem.verify().is_ok());
 }
 
 #[test]
 fn gaussian_fusion_reduces_variance() {
-    assert!(GaussianFusionReducesVariance.holds());
+    assert!(GaussianFusionReducesVariance.verify().is_ok());
 }
 
 #[test]
 fn kl_divergence_non_negative() {
-    assert!(KlDivergenceNonNegative.holds());
+    assert!(KlDivergenceNonNegative.verify().is_ok());
 }
 
 #[test]
 fn kl_divergence_zero_iff_equal() {
-    assert!(KlDivergenceZeroIffEqual.holds());
+    assert!(KlDivergenceZeroIffEqual.verify().is_ok());
 }
 
 #[test]
 fn entropy_non_negative() {
-    assert!(EntropyNonNegative.holds());
+    assert!(EntropyNonNegative.verify().is_ok());
 }
 
 #[test]
 fn uniform_maximizes_entropy() {
-    assert!(UniformMaximizesEntropy.holds());
+    assert!(UniformMaximizesEntropy.verify().is_ok());
 }
 
 #[test]
 fn mahalanobis_non_negative() {
-    assert!(MahalanobisNonNegative.holds());
+    assert!(MahalanobisNonNegative.verify().is_ok());
 }
 
 #[test]
 fn mahalanobis_reduces_to_euclidean() {
-    assert!(MahalanobisReducesToEuclidean.holds());
+    assert!(MahalanobisReducesToEuclidean.verify().is_ok());
 }
 
 #[cfg(test)]

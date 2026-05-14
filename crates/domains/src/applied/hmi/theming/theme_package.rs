@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+use hashbrown::HashMap;
 
 use super::base16::Polarity;
 use super::ontology::Palette;
@@ -13,7 +14,7 @@ use super::schemes::SchemeType;
 /// - Base16 builder spec: theme structure requirements
 /// - tinted-theming: directory-based theme organization
 use super::variants::VariantSet;
-use hashbrown::HashMap;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
 /// A complete theme package — name, scheme, variants, palettes.
@@ -73,8 +74,8 @@ impl ThemePackage {
         ];
 
         for axiom in &axioms {
-            if !axiom.holds() {
-                failures.push(axiom.description().to_string());
+            if axiom.verify().is_err() {
+                failures.push(axiom.description().as_str().to_string());
             }
         }
 
@@ -90,14 +91,20 @@ pub struct HasAtLeastOneVariant {
 }
 
 impl Axiom for HasAtLeastOneVariant {
-    fn description(&self) -> &str {
-        "theme must have at least one variant"
+    fn verify(&self) -> Verdict {
+        if !self.theme.variants.is_empty() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        !self.theme.variants.is_empty()
-    }
+
+    pr4xis::axiom_meta!(
+        "HasAtLeastOneVariant",
+        "theme must have at least one variant",
+        "tinted-theming base16 spec — a scheme must define at least one palette"
+    );
 }
-pr4xis::register_axiom!(HasAtLeastOneVariant);
 
 /// Every variant must have a corresponding palette.
 pub struct AllVariantsHavePalettes {
@@ -105,18 +112,26 @@ pub struct AllVariantsHavePalettes {
 }
 
 impl Axiom for AllVariantsHavePalettes {
-    fn description(&self) -> &str {
-        "every variant must have a palette"
-    }
-    fn holds(&self) -> bool {
-        self.theme
+    fn verify(&self) -> Verdict {
+        let ok = self
+            .theme
             .variants
             .variants
             .iter()
-            .all(|v| self.theme.palettes.contains_key(&v.name))
+            .all(|v| self.theme.palettes.contains_key(&v.name));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "AllVariantsHavePalettes",
+        "every variant must have a palette",
+        "tinted-theming base16 spec — each scheme variant must have a complete palette"
+    );
 }
-pr4xis::register_axiom!(AllVariantsHavePalettes);
 
 /// Each palette must have the minimum required slots for its scheme type.
 /// Base16/Vogix16/Ansi16: at least base00 + base05 (background + foreground)
@@ -126,18 +141,26 @@ pub struct PalettesHaveRequiredSlots {
 }
 
 impl Axiom for PalettesHaveRequiredSlots {
-    fn description(&self) -> &str {
-        "palettes must have required slots (at least base00 + base05)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         use super::base16::ColorSlot;
-        self.theme
+        let ok = self
+            .theme
             .palettes
             .values()
-            .all(|p| p.contains_key(&ColorSlot::Base00) && p.contains_key(&ColorSlot::Base05))
+            .all(|p| p.contains_key(&ColorSlot::Base00) && p.contains_key(&ColorSlot::Base05));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "PalettesHaveRequiredSlots",
+        "palettes must have required slots (at least base00 + base05)",
+        "tinted-theming base16 spec — base00 (bg) and base05 (fg) are mandatory"
+    );
 }
-pr4xis::register_axiom!(PalettesHaveRequiredSlots);
 
 /// Variant orders must be unique.
 pub struct VariantOrdersUnique {
@@ -145,17 +168,19 @@ pub struct VariantOrdersUnique {
 }
 
 impl Axiom for VariantOrdersUnique {
-    fn description(&self) -> &str {
-        "variant orders must be unique"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         super::variants::UniqueOrders {
             variants: self.theme.variants.clone(),
         }
-        .holds()
+        .verify()
     }
+
+    pr4xis::axiom_meta!(
+        "VariantOrdersUnique",
+        "variant orders must be unique",
+        "tinted-theming base16 spec — variant ordering must be a total order"
+    );
 }
-pr4xis::register_axiom!(VariantOrdersUnique);
 
 #[cfg(test)]
 mod tests {

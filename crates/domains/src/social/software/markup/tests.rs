@@ -1,7 +1,4 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 
 use super::ontology::*;
 
@@ -11,7 +8,7 @@ use super::ontology::*;
 
 #[test]
 fn markup_category_laws() {
-    check_category_laws::<MarkupCategory>().unwrap();
+    assert_category_laws::<MarkupCategory>();
 }
 
 #[test]

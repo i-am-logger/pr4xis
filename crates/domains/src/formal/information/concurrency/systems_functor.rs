@@ -23,7 +23,7 @@ use crate::formal::systems::ontology::*;
 pub struct SystemsToConcurrency;
 
 impl Functor for SystemsToConcurrency {
-    type Source = SystemsCategory;
+    type Source = SystemCategory;
     type Target = ConcurrencyCategory;
 
     fn map_object(obj: &SystemConcept) -> ConcurrencyConcept {
@@ -44,15 +44,14 @@ impl Functor for SystemsToConcurrency {
     fn map_morphism(m: &SystemRelation) -> ConcurrencyRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
+        // Per #166 the proc-macro `ontology!` no longer emits a `Composed`
+        // kind — composition of typed morphisms is partial (OBO-RO
+        // transitive_over). For functor purposes, identity maps to
+        // identity; the remaining direct-edge kinds are projected by
+        // (source, target) pair.
         let kind = if m.kind == SystemRelationKind::Identity {
             ConcurrencyRelationKind::Identity
-        } else if m.kind == SystemRelationKind::Composed || from == to {
-            // Composed system morphisms always map to Composed concurrency morphisms.
-            // This ensures functor composition law: F(g∘f) = F(g)∘F(f)
-            // since compose in target always produces Composed.
-            ConcurrencyRelationKind::Composed
         } else {
-            // Only direct (non-composed) system morphisms get specific kinds
             match (from, to) {
                 (ConcurrencyConcept::Agent, ConcurrencyConcept::SharedResource) => {
                     ConcurrencyRelationKind::ActsOn
@@ -72,7 +71,11 @@ impl Functor for SystemsToConcurrency {
                 (ConcurrencyConcept::Synchronization, ConcurrencyConcept::Deadlock) => {
                     ConcurrencyRelationKind::ArisesFrom
                 }
-                _ => ConcurrencyRelationKind::Composed,
+                // Off-pattern pairs project to Subsumption (canonical
+                // OBO-RO kind, Smith 2005) — Identity is wrong when
+                // from ≠ to because target's identity-aware compose then
+                // breaks FunctorCompositionLaw.
+                _ => ConcurrencyRelationKind::Subsumption,
             }
         };
         ConcurrencyRelation { from, to, kind }

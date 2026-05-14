@@ -5,7 +5,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Situation: Circuit (V, I, R)
 /// - Axiom: Ohm's law V=IR enforced on every change
 /// - Actions: set voltage, set resistance (current derived)
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 pub const K_E: f64 = 8.988e9;
 
@@ -39,20 +41,7 @@ impl Circuit {
     }
 }
 
-impl Situation for Circuit {
-    fn describe(&self) -> String {
-        format!(
-            "V={:.4} I={:.4} R={:.4} P={:.4}",
-            self.voltage,
-            self.current,
-            self.resistance,
-            self.power()
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for Circuit {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CircuitAction {
@@ -62,47 +51,46 @@ pub enum CircuitAction {
 
 impl Action for CircuitAction {
     type Sit = Circuit;
-    fn describe(&self) -> String {
-        format!("{:?}", self)
+}
+
+fn em_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Ohm (1827) Die galvanische Kette, mathematisch bearbeitet; Coulomb (1785) Premier mémoire sur l'électricité et le magnétisme",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
 struct OhmsLaw;
 impl Precondition<CircuitAction> for OhmsLaw {
-    fn check(&self, c: &Circuit, a: &CircuitAction) -> PreconditionResult {
-        let next = apply_circuit(c, a).unwrap_or_else(|_| c.clone());
+    fn check(&self, c: &Circuit, action: &CircuitAction) -> Verdict {
+        let meta = em_meta("OhmsLaw", "V = IR");
+        let next = apply_circuit_inner(c, action).unwrap_or_else(|_| c.clone());
         if next.ohms_law_holds() {
-            PreconditionResult::satisfied("ohms_law", "V=IR holds")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated("ohms_law", "V≠IR", &c.describe(), &a.describe())
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "V = IR"
     }
 }
 
 struct PositiveR;
 impl Precondition<CircuitAction> for PositiveR {
-    fn check(&self, c: &Circuit, a: &CircuitAction) -> PreconditionResult {
-        if let CircuitAction::SetResistance(r) = a
+    fn check(&self, _c: &Circuit, action: &CircuitAction) -> Verdict {
+        let meta = em_meta("PositiveR", "R > 0");
+        if let CircuitAction::SetResistance(r) = action
             && *r <= 0.0
         {
-            return PreconditionResult::violated(
-                "positive_r",
-                "R must be > 0",
-                &c.describe(),
-                &a.describe(),
-            );
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::satisfied("positive_r", "R>0")
-    }
-    fn describe(&self) -> &str {
-        "R > 0"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
-fn apply_circuit(c: &Circuit, a: &CircuitAction) -> Result<Circuit, String> {
+fn apply_circuit_inner(c: &Circuit, a: &CircuitAction) -> Result<Circuit, &'static str> {
     Ok(match a {
         CircuitAction::SetVoltage(v) => Circuit {
             voltage: *v,
@@ -120,6 +108,13 @@ fn apply_circuit(c: &Circuit, a: &CircuitAction) -> Result<Circuit, String> {
                 c.clone()
             }
         }
+    })
+}
+
+fn apply_circuit(c: &Circuit, a: &CircuitAction) -> Result<Circuit, Box<dyn Counterexample>> {
+    apply_circuit_inner(c, a).map_err(|_| {
+        let meta = em_meta("ApplyFailed", "circuit transformation failed");
+        Box::new(SimpleCounterexample::new(meta)) as Box<dyn Counterexample>
     })
 }
 

@@ -1,4 +1,4 @@
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 use crate::social::compliance::classification::*;
@@ -12,12 +12,13 @@ use crate::social::compliance::ontology::*;
 
 #[test]
 fn compliance_category_laws() {
-    check_category_laws::<ComplianceCategory>().unwrap();
+    assert_category_laws::<ComplianceCategory>();
 }
 
 #[test]
 fn compliance_ontology_validates() {
-    ComplianceOntology::validate().unwrap();
+    ComplianceOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 // ---------------------------------------------------------------------------
@@ -26,32 +27,32 @@ fn compliance_ontology_validates() {
 
 #[test]
 fn loac_distinction_principle() {
-    assert!(DistinctionPrinciple.holds());
+    assert!(DistinctionPrinciple.verify().is_ok());
 }
 
 #[test]
 fn loac_civilian_presumption() {
-    assert!(CivilianPresumption.holds());
+    assert!(CivilianPresumption.verify().is_ok());
 }
 
 #[test]
 fn loac_human_in_the_loop() {
-    assert!(HumanInTheLoop.holds());
+    assert!(HumanInTheLoop.verify().is_ok());
 }
 
 #[test]
 fn loac_sequential_escalation() {
-    assert!(SequentialEscalation.holds());
+    assert!(SequentialEscalation.verify().is_ok());
 }
 
 #[test]
 fn loac_advance_warning() {
-    assert!(AdvanceWarning.holds());
+    assert!(AdvanceWarning.verify().is_ok());
 }
 
 #[test]
 fn loac_abort_always_available() {
-    assert!(AbortAlwaysAvailable.holds());
+    assert!(AbortAlwaysAvailable.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -774,18 +775,18 @@ mod prop {
         /// Abort always available from any escalation level.
         #[test]
         fn prop_abort_always_available(_dummy in 0..1i32) {
-            prop_assert!(AbortAlwaysAvailable.holds());
+            prop_assert!(AbortAlwaysAvailable.verify().is_ok());
         }
 
         /// All 6 LOAC axioms hold.
         #[test]
         fn prop_all_axioms_hold(_dummy in 0..1i32) {
-            prop_assert!(DistinctionPrinciple.holds());
-            prop_assert!(CivilianPresumption.holds());
-            prop_assert!(HumanInTheLoop.holds());
-            prop_assert!(SequentialEscalation.holds());
-            prop_assert!(AdvanceWarning.holds());
-            prop_assert!(AbortAlwaysAvailable.holds());
+            prop_assert!(DistinctionPrinciple.verify().is_ok());
+            prop_assert!(CivilianPresumption.verify().is_ok());
+            prop_assert!(HumanInTheLoop.verify().is_ok());
+            prop_assert!(SequentialEscalation.verify().is_ok());
+            prop_assert!(AdvanceWarning.verify().is_ok());
+            prop_assert!(AbortAlwaysAvailable.verify().is_ok());
         }
     }
 }

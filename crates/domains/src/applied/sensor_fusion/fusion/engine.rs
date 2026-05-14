@@ -1,7 +1,6 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use crate::formal::math::linear_algebra::matrix::Matrix;
 use crate::formal::math::linear_algebra::positive_definite;
@@ -24,19 +23,16 @@ pub struct FusionState {
     pub sensors_active: usize,
 }
 
-impl Situation for FusionState {
-    fn describe(&self) -> String {
-        format!(
-            "step={}, dim={}, uncertainty={:.4}, sensors={}",
-            self.estimate.step,
-            self.estimate.dim(),
-            self.estimate.uncertainty(),
-            self.sensors_active,
-        )
-    }
+impl Situation for FusionState {}
 
-    fn is_terminal(&self) -> bool {
-        false // fusion runs indefinitely
+fn fusion_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Kalman (1960) A New Approach to Linear Filtering and Prediction Problems, J. Basic Eng. 82(1):35-45; Maybeck (1979) Stochastic Models, Estimation, and Control Vol. 1",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
@@ -71,16 +67,6 @@ pub enum FusionAction {
 
 impl Action for FusionAction {
     type Sit = FusionState;
-
-    fn describe(&self) -> String {
-        match self {
-            Self::Predict { dt, .. } => format!("Predict(dt={dt:.4})"),
-            Self::Update { measurement, .. } => {
-                format!("Update(dim={})", measurement.dim())
-            }
-            Self::Reset { .. } => "Reset".to_string(),
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -91,29 +77,17 @@ impl Action for FusionAction {
 pub struct PositiveTimeStep;
 
 impl Precondition<FusionAction> for PositiveTimeStep {
-    fn check(&self, _situation: &FusionState, action: &FusionAction) -> PreconditionResult {
-        if let FusionAction::Predict { dt, .. } = action {
-            if *dt >= 0.0 {
-                return PreconditionResult::Satisfied {
-                    rule: "PositiveTimeStep".into(),
-                    reason: format!("dt={dt} >= 0"),
-                };
-            }
-            return PreconditionResult::Violated {
-                rule: "PositiveTimeStep".into(),
-                reason: format!("dt={dt} is negative"),
-                situation: _situation.describe(),
-                attempted_action: action.describe(),
-            };
+    fn check(&self, _situation: &FusionState, action: &FusionAction) -> Verdict {
+        let meta = fusion_meta(
+            "PositiveTimeStep",
+            "prediction time step must be non-negative",
+        );
+        if let FusionAction::Predict { dt, .. } = action
+            && *dt < 0.0
+        {
+            return Err(Box::new(SimpleCounterexample::new(meta)));
         }
-        PreconditionResult::Satisfied {
-            rule: "PositiveTimeStep".into(),
-            reason: "not a predict action".into(),
-        }
-    }
-
-    fn describe(&self) -> &str {
-        "prediction time step must be non-negative"
+        Ok(Box::new(SimpleProof::new(meta)))
     }
 }
 
@@ -121,7 +95,11 @@ impl Precondition<FusionAction> for PositiveTimeStep {
 pub struct DimensionConsistency;
 
 impl Precondition<FusionAction> for DimensionConsistency {
-    fn check(&self, situation: &FusionState, action: &FusionAction) -> PreconditionResult {
+    fn check(&self, situation: &FusionState, action: &FusionAction) -> Verdict {
+        let meta = fusion_meta(
+            "DimensionConsistency",
+            "matrix dimensions must be consistent with state dimension",
+        );
         let n = situation.estimate.dim();
         let ok = match action {
             FusionAction::Predict {
@@ -148,22 +126,10 @@ impl Precondition<FusionAction> for DimensionConsistency {
             FusionAction::Reset { .. } => true,
         };
         if ok {
-            PreconditionResult::Satisfied {
-                rule: "DimensionConsistency".into(),
-                reason: "dimensions match".into(),
-            }
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::Violated {
-                rule: "DimensionConsistency".into(),
-                reason: "matrix/vector dimensions incompatible".into(),
-                situation: situation.describe(),
-                attempted_action: action.describe(),
-            }
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-
-    fn describe(&self) -> &str {
-        "matrix dimensions must be consistent with state dimension"
     }
 }
 
@@ -172,24 +138,16 @@ impl Precondition<FusionAction> for DimensionConsistency {
 pub struct CovariancePSD;
 
 impl Precondition<FusionAction> for CovariancePSD {
-    fn check(&self, situation: &FusionState, _action: &FusionAction) -> PreconditionResult {
+    fn check(&self, situation: &FusionState, _action: &FusionAction) -> Verdict {
+        let meta = fusion_meta(
+            "CovariancePSD",
+            "covariance must be positive semi-definite (uncertainty cannot be negative)",
+        );
         if positive_definite::is_positive_semidefinite(&situation.estimate.covariance) {
-            PreconditionResult::Satisfied {
-                rule: "CovariancePSD".into(),
-                reason: "P is positive semi-definite".into(),
-            }
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::Violated {
-                rule: "CovariancePSD".into(),
-                reason: "P is not positive semi-definite — filter diverged".into(),
-                situation: situation.describe(),
-                attempted_action: _action.describe(),
-            }
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-
-    fn describe(&self) -> &str {
-        "covariance must be positive semi-definite (uncertainty cannot be negative)"
     }
 }
 
@@ -221,7 +179,7 @@ impl Precondition<FusionAction> for CovariancePSD {
 pub(crate) fn apply_fusion(
     situation: &FusionState,
     action: &FusionAction,
-) -> Result<FusionState, String> {
+) -> Result<FusionState, Box<dyn Counterexample>> {
     match action {
         FusionAction::Predict {
             dt,
@@ -272,8 +230,11 @@ pub(crate) fn apply_fusion(
                 let solved =
                     crate::formal::math::linear_algebra::decomposition::solve_spd(&s, &col)
                         .ok_or_else(|| {
-                            "innovation covariance S is singular — cannot compute Kalman gain"
-                                .to_string()
+                            let meta = fusion_meta(
+                                "SingularInnovationCovariance",
+                                "innovation covariance S is singular — cannot compute Kalman gain",
+                            );
+                            Box::new(SimpleCounterexample::new(meta)) as Box<dyn Counterexample>
                         })?;
                 k_data.extend(solved);
             }

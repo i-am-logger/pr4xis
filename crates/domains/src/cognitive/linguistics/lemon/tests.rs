@@ -1,17 +1,18 @@
 use super::ontology::*;
 use pr4xis::category::Category;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 #[test]
 fn category_laws() {
-    check_category_laws::<LemonCategory>().unwrap();
+    assert_category_laws::<LemonCategory>();
 }
 
 #[test]
 fn ontology_validates() {
-    LemonOntology::validate().unwrap();
+    LemonOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
@@ -21,17 +22,17 @@ fn six_concepts() {
 
 #[test]
 fn denotes_property_chain_holds() {
-    assert!(DenotesIsPropertyChain.holds());
+    assert!(DenotesIsPropertyChain.verify().is_ok());
 }
 
 #[test]
 fn canonical_form_is_functional() {
-    assert!(CanonicalFormIsFunctional.holds());
+    assert!(CanonicalFormIsFunctional.verify().is_ok());
 }
 
 #[test]
 fn reference_is_functional() {
-    assert!(ReferenceIsFunctional.holds());
+    assert!(ReferenceIsFunctional.verify().is_ok());
 }
 
 #[test]
@@ -67,21 +68,42 @@ fn lexicon_contains_entries() {
 
 #[test]
 fn lexicon_reaches_all_concepts() {
-    let m = LemonCategory::morphisms();
+    // The Lemon model (W3C OntoLex 2016) is rooted at Lexicon; every
+    // other concept is reachable through the heterogeneous-kind edges
+    // (Entry / Form / Sense / Reference / etc.). Per #166 closure across
+    // heterogeneous kinds isn't materialized as a single morphism — walk
+    // the graph.
+    use pr4xis::category::Arrow;
+    use std::collections::{HashSet, VecDeque};
+    let ms = LemonCategory::morphisms();
     for concept in LemonConcept::variants() {
-        assert!(
-            m.iter()
-                .any(|r| r.from == LemonConcept::Lexicon && r.to == concept),
-            "Lexicon should reach {:?}",
-            concept
-        );
+        let mut visited: HashSet<LemonConcept> = HashSet::new();
+        let mut queue: VecDeque<LemonConcept> = VecDeque::new();
+        queue.push_back(LemonConcept::Lexicon);
+        let mut reaches = LemonConcept::Lexicon == concept;
+        while let Some(n) = queue.pop_front() {
+            if n == concept {
+                reaches = true;
+                break;
+            }
+            if !visited.insert(n) {
+                continue;
+            }
+            for m in ms.iter().filter(|m| m.source() == n) {
+                queue.push_back(m.target());
+            }
+        }
+        assert!(reaches, "Lexicon should reach {:?}", concept);
     }
 }
 
 #[test]
 fn all_domain_axioms_hold() {
-    for axiom in LemonOntology::domain_axioms() {
-        assert!(axiom.holds(), "axiom failed: {}", axiom.description());
+    for axiom in LemonOntology::axioms() {
+        match axiom.verify() {
+            Ok(_) => {}
+            Err(c) => panic!("axiom failed: {}", c.meta().description.as_str()),
+        }
     }
 }
 
@@ -107,15 +129,15 @@ mod prop {
             prop_assert_eq!(LemonCategory::compose(&id, &id), Some(id));
         }
 
+        /// Every concept has an Identity self-morphism. Per #166 the
+        /// auto-generated kind no longer emits `Composed` self-loops;
+        /// composition is partial.
         #[test]
         fn prop_self_morphisms(c in arb_lemon()) {
             let m = LemonCategory::morphisms();
             let has_identity = m.iter().any(|r| r.from == c && r.to == c
                 && r.kind == LemonRelationKind::Identity);
-            let has_composed = m.iter().any(|r| r.from == c && r.to == c
-                && r.kind == LemonRelationKind::Composed);
             prop_assert!(has_identity);
-            prop_assert!(has_composed);
         }
     }
 }

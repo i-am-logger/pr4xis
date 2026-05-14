@@ -217,8 +217,14 @@ impl Quality for OpticsLineage {
             O::Optic | O::Focus | O::ViewFunction | O::UpdateFunction => "foster-et-al-2007",
             O::Lens | O::LensLaws => "foster-et-al-2007",
             O::Iso | O::IsoLaws => "mac-lane-1971",
-            O::Prism | O::PrismLaws | O::Traversal | O::Getter | O::Setter | O::Fold
-            | O::Optional | O::Review => "kmett-lens",
+            O::Prism
+            | O::PrismLaws
+            | O::Traversal
+            | O::Getter
+            | O::Setter
+            | O::Fold
+            | O::Optional
+            | O::Review => "kmett-lens",
             O::ProfunctorOptic => "pickering-gibbons-wu-2017",
             O::Profunctor => "benabou-1973",
             O::Product | O::Sum => "mac-lane-1971",

@@ -29,16 +29,13 @@
 //!    "Recovery-Oriented Computing (ROC)". UC Berkeley + Stanford.
 //!    Concepts: `UndoOperation`, `Microreboot`, `Quarantine`.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
+use pr4xis::category::{Arrow, Category};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Resilience",
     source: "Nygard (2007); Brooker (2015); Metcalfe & Boggs (1976); Armstrong (2003); Patterson et al. (2002)",
-    being: Process,
 
     concepts: [
         // === Pattern families (parents for classification) ===
@@ -258,13 +255,38 @@ impl Quality for ResilienceCategoryOf {
 // ---------------------------------------------------------------------------
 
 /// Collect direct (non-transitive) children of a concept under the resilience
-/// taxonomy.
+/// subsumption hierarchy. Filters Subsumption-kinded morphisms and drops the
+/// synthesised transitive closure edges (paths via an intermediate ancestor).
 fn direct_children_of(parent: ResilienceConcept) -> Vec<ResilienceConcept> {
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-    ResilienceTaxonomy::relations()
+    ResilienceCategory::morphisms()
         .into_iter()
-        .filter_map(|(child, p)| if p == parent { Some(child) } else { None })
+        .filter(|m| {
+            m.kind() == ResilienceRelationKind::Subsumption
+                && m.target() == parent
+                && m.source() != parent
+        })
+        .map(|m| m.source())
+        .filter(|child| !is_transitive_via(*child, parent))
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
         .collect()
+}
+
+/// Is `child → parent` reachable via an intermediate Subsumption node? Used
+/// to filter transitive-closure edges out of `direct_children_of`.
+fn is_transitive_via(child: ResilienceConcept, parent: ResilienceConcept) -> bool {
+    let morphisms = ResilienceCategory::morphisms();
+    morphisms.iter().any(|first| {
+        first.kind() == ResilienceRelationKind::Subsumption
+            && first.source() == child
+            && first.target() != parent
+            && first.target() != child
+            && morphisms.iter().any(|second| {
+                second.kind() == ResilienceRelationKind::Subsumption
+                    && second.source() == first.target()
+                    && second.target() == parent
+            })
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -276,22 +298,29 @@ fn direct_children_of(parent: ResilienceConcept) -> Vec<ResilienceConcept> {
 pub struct CircuitBreakerThreeStates;
 
 impl Axiom for CircuitBreakerThreeStates {
-    fn description(&self) -> &str {
-        "the direct children of CircuitBreaker are exactly {Closed, Open, HalfOpen} (Nygard 2007)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let actual = direct_children_of(ResilienceConcept::CircuitBreaker);
         let expected = [
             ResilienceConcept::CircuitBreakerClosed,
             ResilienceConcept::CircuitBreakerOpen,
             ResilienceConcept::CircuitBreakerHalfOpen,
         ];
-        actual.len() == expected.len() && expected.iter().all(|s| actual.contains(s))
+        if actual.len() == expected.len() && expected.iter().all(|s| actual.contains(s)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "CircuitBreakerThreeStates",
+        "the direct children of CircuitBreaker are exactly {Closed, Open, HalfOpen} (Nygard 2007)",
+        "Nygard (2007) Release It!: Design and Deploy Production-Ready Software, Pragmatic"
+    );
 }
 pr4xis::register_axiom!(
     CircuitBreakerThreeStates,
-    "1. **Stability patterns** — Nygard, M. (2007). *Release It!: Design and"
+    "Nygard (2007) Release It!: Design and Deploy Production-Ready Software, Pragmatic"
 );
 
 /// Axiom: the three jitter strategies from Brooker (2015) are all classified
@@ -300,22 +329,29 @@ pr4xis::register_axiom!(
 pub struct BrookerJitterStrategiesExist;
 
 impl Axiom for BrookerJitterStrategiesExist {
-    fn description(&self) -> &str {
-        "the three Brooker (2015) jitter strategies {Full, Equal, Decorrelated} are all classified as JitterStrategy"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let actual = direct_children_of(ResilienceConcept::JitterStrategy);
         let expected = [
             ResilienceConcept::FullJitter,
             ResilienceConcept::EqualJitter,
             ResilienceConcept::DecorrelatedJitter,
         ];
-        expected.iter().all(|j| actual.contains(j))
+        if expected.iter().all(|j| actual.contains(j)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "BrookerJitterStrategiesExist",
+        "the three Brooker (2015) jitter strategies {Full, Equal, Decorrelated} are all classified as JitterStrategy",
+        "Brooker (2015) Exponential Backoff And Jitter, AWS Architecture Blog"
+    );
 }
 pr4xis::register_axiom!(
     BrookerJitterStrategiesExist,
-    "1. **Stability patterns** — Nygard, M. (2007). *Release It!: Design and"
+    "Brooker (2015) Exponential Backoff And Jitter, AWS Architecture Blog"
 );
 
 /// Axiom: Armstrong (2003) supervision strategies are exactly
@@ -323,22 +359,29 @@ pr4xis::register_axiom!(
 pub struct OtpSupervisionStrategies;
 
 impl Axiom for OtpSupervisionStrategies {
-    fn description(&self) -> &str {
-        "the direct children of SupervisionStrategy are exactly {OneForOne, OneForAll, RestForOne} (Armstrong 2003 OTP)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let actual = direct_children_of(ResilienceConcept::SupervisionStrategy);
         let expected = [
             ResilienceConcept::OneForOne,
             ResilienceConcept::OneForAll,
             ResilienceConcept::RestForOne,
         ];
-        actual.len() == expected.len() && expected.iter().all(|s| actual.contains(s))
+        if actual.len() == expected.len() && expected.iter().all(|s| actual.contains(s)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "OtpSupervisionStrategies",
+        "the direct children of SupervisionStrategy are exactly {OneForOne, OneForAll, RestForOne} (Armstrong 2003 OTP)",
+        "Armstrong (2003) Making reliable distributed systems in the presence of software errors, PhD thesis, KTH"
+    );
 }
 pr4xis::register_axiom!(
     OtpSupervisionStrategies,
-    "1. **Stability patterns** — Nygard, M. (2007). *Release It!: Design and"
+    "Armstrong (2003) Making reliable distributed systems in the presence of software errors, PhD thesis, KTH"
 );
 
 /// Axiom: the circuit breaker state machine is a cycle closed ↔ open ↔ half-open.
@@ -346,10 +389,7 @@ pr4xis::register_axiom!(
 pub struct CircuitBreakerTransitionsExist;
 
 impl Axiom for CircuitBreakerTransitionsExist {
-    fn description(&self) -> &str {
-        "circuit breaker transitions {Closed→Open, Open→HalfOpen, HalfOpen→Closed, HalfOpen→Open} all exist (Nygard 2007)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         use ResilienceConcept as R;
         use ResilienceRelationKind as K;
         let m = ResilienceCategory::morphisms();
@@ -358,9 +398,9 @@ impl Axiom for CircuitBreakerTransitionsExist {
         // edges being declared.
         let has = |from: R, to: R, kind: K| {
             m.iter()
-                .any(|r| r.from == from && r.to == to && r.kind == kind)
+                .any(|r| r.source() == from && r.target() == to && r.kind() == kind)
         };
-        has(R::CircuitBreakerClosed, R::CircuitBreakerOpen, K::TripsTo)
+        let ok = has(R::CircuitBreakerClosed, R::CircuitBreakerOpen, K::TripsTo)
             && has(R::CircuitBreakerOpen, R::CircuitBreakerHalfOpen, K::CoolsTo)
             && has(
                 R::CircuitBreakerHalfOpen,
@@ -371,12 +411,23 @@ impl Axiom for CircuitBreakerTransitionsExist {
                 R::CircuitBreakerHalfOpen,
                 R::CircuitBreakerOpen,
                 K::RelapsesTo,
-            )
+            );
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "CircuitBreakerTransitionsExist",
+        "circuit breaker transitions {Closed→Open, Open→HalfOpen, HalfOpen→Closed, HalfOpen→Open} all exist (Nygard 2007)",
+        "Nygard (2007) Release It! Ch. 5 (Stability Patterns) — Circuit Breaker"
+    );
 }
 pr4xis::register_axiom!(
     CircuitBreakerTransitionsExist,
-    "1. **Stability patterns** — Nygard, M. (2007). *Release It!: Design and"
+    "Nygard (2007) Release It! Ch. 5 (Stability Patterns) — Circuit Breaker"
 );
 
 /// Axiom: Patterson (2002) ROC recovery patterns are all classified under
@@ -384,100 +435,84 @@ pr4xis::register_axiom!(
 pub struct RocPatternsClassified;
 
 impl Axiom for RocPatternsClassified {
-    fn description(&self) -> &str {
-        "Patterson et al. (2002) ROC patterns {Undo, Microreboot, Quarantine} are all classified as RecoveryPattern"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         let actual = direct_children_of(ResilienceConcept::RecoveryPattern);
         let expected = [
             ResilienceConcept::UndoOperation,
             ResilienceConcept::Microreboot,
             ResilienceConcept::Quarantine,
         ];
-        expected.iter().all(|p| actual.contains(p))
+        if expected.iter().all(|p| actual.contains(p)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "RocPatternsClassified",
+        "Patterson et al. (2002) ROC patterns {Undo, Microreboot, Quarantine} are all classified as RecoveryPattern",
+        "Patterson et al. (2002) Recovery-Oriented Computing, UC Berkeley CS Tech Report UCB//CSD-02-1175"
+    );
 }
 pr4xis::register_axiom!(
     RocPatternsClassified,
-    "1. **Stability patterns** — Nygard, M. (2007). *Release It!: Design and"
+    "Patterson et al. (2002) Recovery-Oriented Computing, UC Berkeley CS Tech Report UCB//CSD-02-1175"
 );
 
 impl Ontology for ResilienceOntology {
     type Cat = ResilienceCategory;
     type Qual = ResilienceCategoryOf;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        ResilienceOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(CircuitBreakerThreeStates),
-            Box::new(BrookerJitterStrategiesExist),
-            Box::new(OtpSupervisionStrategies),
-            Box::new(CircuitBreakerTransitionsExist),
-            Box::new(RocPatternsClassified),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(CircuitBreakerThreeStates));
+        axioms.push(Box::new(BrookerJitterStrategiesExist));
+        axioms.push(Box::new(OtpSupervisionStrategies));
+        axioms.push(Box::new(CircuitBreakerTransitionsExist));
+        axioms.push(Box::new(RocPatternsClassified));
+        axioms
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<ResilienceCategory>().unwrap();
+        assert_category_laws::<ResilienceCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        ResilienceOntology::validate().unwrap();
+        ResilienceOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
     fn circuit_breaker_three_states_axiom_holds() {
-        assert!(
-            CircuitBreakerThreeStates.holds(),
-            "{}",
-            CircuitBreakerThreeStates.description()
-        );
+        assert!(CircuitBreakerThreeStates.verify().is_ok());
     }
 
     #[test]
     fn brooker_jitter_axiom_holds() {
-        assert!(
-            BrookerJitterStrategiesExist.holds(),
-            "{}",
-            BrookerJitterStrategiesExist.description()
-        );
+        assert!(BrookerJitterStrategiesExist.verify().is_ok());
     }
 
     #[test]
     fn otp_supervision_axiom_holds() {
-        assert!(
-            OtpSupervisionStrategies.holds(),
-            "{}",
-            OtpSupervisionStrategies.description()
-        );
+        assert!(OtpSupervisionStrategies.verify().is_ok());
     }
 
     #[test]
     fn circuit_breaker_transitions_axiom_holds() {
-        assert!(
-            CircuitBreakerTransitionsExist.holds(),
-            "{}",
-            CircuitBreakerTransitionsExist.description()
-        );
+        assert!(CircuitBreakerTransitionsExist.verify().is_ok());
     }
 
     #[test]
     fn roc_patterns_axiom_holds() {
-        assert!(
-            RocPatternsClassified.holds(),
-            "{}",
-            RocPatternsClassified.description()
-        );
+        assert!(RocPatternsClassified.verify().is_ok());
     }
 }

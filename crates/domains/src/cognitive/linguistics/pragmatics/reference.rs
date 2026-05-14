@@ -31,7 +31,6 @@ use pr4xis::category::Concept;
 pr4xis::ontology! {
     name: "Reference",
     source: "Kamp (1981); Grosz, Joshi & Weinstein (1995)",
-    being: AbstractObject,
 
     concepts: [
         Referent,
@@ -94,11 +93,11 @@ pub enum CenteringTransition {
 mod tests {
     use super::*;
     use pr4xis::category::Category;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<ReferenceCategory>().unwrap();
+        assert_category_laws::<ReferenceCategory>();
     }
 
     #[test]
@@ -145,13 +144,28 @@ mod tests {
 
     #[test]
     fn accessibility_reaches_referents() {
-        let morphisms = ReferenceCategory::morphisms();
-        assert!(
-            morphisms
-                .iter()
-                .any(|m| m.from == ReferenceConcept::Accessibility
-                    && m.to == ReferenceConcept::Referent
-                    && m.kind == ReferenceRelationKind::Composed)
-        );
+        // Per #166 the auto-generated kind no longer emits `Composed`;
+        // walk the morphism graph (Accessibility → DRS → Referent through
+        // the heterogeneous Accessible + Contains kinds).
+        use pr4xis::category::{Arrow, Category};
+        use std::collections::{HashSet, VecDeque};
+        let ms = ReferenceCategory::morphisms();
+        let mut visited: HashSet<ReferenceConcept> = HashSet::new();
+        let mut queue: VecDeque<ReferenceConcept> = VecDeque::new();
+        queue.push_back(ReferenceConcept::Accessibility);
+        let mut reaches = false;
+        while let Some(n) = queue.pop_front() {
+            if n == ReferenceConcept::Referent {
+                reaches = true;
+                break;
+            }
+            if !visited.insert(n) {
+                continue;
+            }
+            for m in ms.iter().filter(|m| m.source() == n) {
+                queue.push_back(m.target());
+            }
+        }
+        assert!(reaches);
     }
 }

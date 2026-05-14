@@ -1,9 +1,6 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::navigation::imu::ontology::*;
 use crate::applied::navigation::imu::strapdown::*;
@@ -16,23 +13,24 @@ use crate::natural::physics::kinematics::velocity::Velocity;
 // ---------------------------------------------------------------------------
 
 #[test]
-fn imu_taxonomy_category_laws() {
-    check_category_laws::<TaxonomyCategory<ImuTaxonomy>>().unwrap();
+fn imu_category_laws() {
+    assert_category_laws::<ImuCategory>();
 }
 
 #[test]
 fn imu_ontology_validates() {
-    ImuOntology::validate().unwrap();
+    ImuOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn bias_is_a_measurement() {
-    assert!(BiasIsAMeasurement.holds());
+    assert!(BiasIsAMeasurement.verify().is_ok());
 }
 
 #[test]
 fn specific_force_definition() {
-    assert!(SpecificForceDefinition.holds());
+    assert!(SpecificForceDefinition.verify().is_ok());
 }
 
 // ---------------------------------------------------------------------------

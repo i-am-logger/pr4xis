@@ -57,7 +57,12 @@ impl Functor for DiagnosticsToControl {
             DiagnosticRelationKind::HasSeverity => ControlRelationKind::ComparedWith,
             DiagnosticRelationKind::Prescribes => ControlRelationKind::ActsOn,
             DiagnosticRelationKind::Contextualizes => ControlRelationKind::Closes,
-            DiagnosticRelationKind::Composed => ControlRelationKind::Composed,
+            // Canonical Relations-ontology kinds (Smith 2005 OBO-RO) —
+            // unreachable when source has no edges of these kinds.
+            DiagnosticRelationKind::Subsumption
+            | DiagnosticRelationKind::Parthood
+            | DiagnosticRelationKind::Causation
+            | DiagnosticRelationKind::Opposition => ControlRelationKind::Identity,
         };
         ControlRelation { from, to, kind }
     }
@@ -67,11 +72,11 @@ pr4xis::register_functor!(DiagnosticsToControl);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws() {
-        check_functor_laws::<DiagnosticsToControl>().unwrap();
+        assert_functor_laws::<DiagnosticsToControl>();
     }
 
     #[test]

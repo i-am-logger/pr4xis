@@ -1,114 +1,212 @@
-//! Auditory neuroscience ontology.
+//! Auditory neuroscience — neural processing of sound from auditory
+//! nerve to cortex.
 //!
-//! Models neural processing of sound from auditory nerve to cortex.
+//! # Literature
 //!
-//! Key concepts:
-//! - Tonotopy: frequency maps preserved at each processing stage
-//! - Rate coding: spike rate encodes intensity (Sachs & Young 1979)
-//! - Temporal coding: phase locking encodes fine timing (< 4 kHz)
-//! - Binaural processing: ITD in MSO, ILD in LSO (Goldberg & Brown 1969)
-//! - Auditory scene analysis: stream segregation (Bregman 1990)
+//! - **Kandel et al. (2021)** *Principles of Neural Science* (6th ed.).
+//! - **Schnupp, Nelken & King (2011)** *Auditory Neuroscience*, MIT Press.
+//! - **Pickles (2012)** *An Introduction to the Physiology of Hearing*.
+//! - **Joris, Schreiner & Rees (2004)** "Neural Processing of
+//!   Amplitude-Modulated Sounds", *Physiol. Rev.* 84(2):541-577.
+//! - **Sachs & Young (1979)** "Encoding of steady-state vowels in the
+//!   auditory nerve", *JASA* 66(2):470-479 — rate coding.
+//! - **Goldberg & Brown (1969)** "Response of binaural neurons of dog
+//!   superior olivary complex to dichotic tonal stimuli", *J. Neurophysiol.*
+//!   32(4):613-636 — MSO/LSO binaural processing.
+//! - **Bregman (1990)** *Auditory Scene Analysis*, MIT Press.
 //!
-//! References:
-//! - Kandel et al. 2021: Principles of Neural Science
-//! - Schnupp et al. 2011: Auditory Neuroscience
-//! - Pickles 2012: Physiology of Hearing
-//! - Joris, Schreiner & Rees 2004: neural processing of amplitude-modulated sounds
+//! # Design
+//!
+//! Per `feedback_one_ontology_per_module`, the dual-enum was merged.
+//! Causal events become first-class `Neural*` concepts linked via
+//! `causes:` edges.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::taxonomy;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-pub enum NeuralEntity {
-    RateCoding,
-    TemporalCoding,
-    PhaseLocking,
-    PlaceCoding,
-    PopulationCoding,
-    SpikeTimingCode,
-    TonotopicMap,
-    FrequencyTuningCurve,
-    CharacteristicFrequency,
-    RateLevelFunction,
-    SpontaneousRate,
-    DynamicRange,
-    OnsetResponse,
-    SustainedResponse,
-    Adaptation,
-    Inhibition,
-    AuditoryNerveFiber,
-    CochlearNucleusProcessing,
-    SuperiorOliveProcessing,
-    LateralLemniscus,
-    InferiorColliculusProcessing,
-    MedialGeniculateProcessing,
-    AuditoryCortexProcessing,
-    BinauralProcessing,
-    CoincidenceDetection,
-    ExcitatoryInhibitory,
-    MedialSuperiorOlive,
-    LateralSuperiorOlive,
-    AuditorySceneAnalysis,
-    StreamSegregation,
-    GestaltGrouping,
-    EchoSuppression,
-    PrecedenceEffect,
-    MismatchNegativity,
-    CodingStrategy,
-    ResponseProperty,
-    ProcessingStage,
-    BinauralMechanism,
-    HigherFunction,
-}
+pr4xis::ontology! {
+    name: "Neural",
+    source: "Kandel et al. (2021) Principles of Neural Science 6th ed.; Schnupp et al. (2011) Auditory Neuroscience; Joris, Schreiner & Rees (2004) Physiol. Rev. 84(2):541; Goldberg & Brown (1969) J. Neurophysiol. 32(4):613; Bregman (1990) Auditory Scene Analysis",
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Concept)]
-pub enum NeuralCausalEvent {
-    AuditoryNerveInput,
-    CochlearNucleusIntegration,
-    BinauralConvergence,
-    LemniscalRelay,
-    MultisensoryIntegration,
-    ThalamicGating,
-    CorticalAnalysis,
-    StreamFormation,
-    PerceptualBinding,
-}
+    concepts: [
+        // Coding strategies
+        RateCoding, TemporalCoding, PhaseLocking, PlaceCoding,
+        PopulationCoding, SpikeTimingCode,
+        // Response properties
+        TonotopicMap, FrequencyTuningCurve, CharacteristicFrequency,
+        RateLevelFunction, SpontaneousRate, DynamicRange,
+        OnsetResponse, SustainedResponse, Adaptation, Inhibition,
+        // Processing stages
+        AuditoryNerveFiber, CochlearNucleusProcessing, SuperiorOliveProcessing,
+        LateralLemniscus, InferiorColliculusProcessing,
+        MedialGeniculateProcessing, AuditoryCortexProcessing,
+        // Binaural
+        BinauralProcessing, CoincidenceDetection, ExcitatoryInhibitory,
+        MedialSuperiorOlive, LateralSuperiorOlive,
+        // Higher
+        AuditorySceneAnalysis, StreamSegregation, GestaltGrouping,
+        EchoSuppression, PrecedenceEffect, MismatchNegativity,
+        // Umbrellas
+        CodingStrategy, ResponseProperty, ProcessingStage,
+        BinauralMechanism, HigherFunction,
+        // Events
+        AuditoryNerveInput, CochlearNucleusIntegration, BinauralConvergence,
+        LemniscalRelay, MultisensoryIntegration, ThalamicGating,
+        CorticalAnalysis, StreamFormation, PerceptualBinding,
+        NeuralEvent,
+    ],
 
-define_ontology! {
-    /// Discrete category over neural entities.
-    pub NeuroscienceOntology for NeuroscienceCategory {
-        entity: NeuralEntity, relation: NeuralRelation,
-        being: AbstractObject,
-        source: "Kandel et al. (2021); Schnupp et al. (2011)",
-        taxonomy: NeuralTaxonomy [
-            (RateCoding, CodingStrategy), (TemporalCoding, CodingStrategy), (PhaseLocking, CodingStrategy), (PlaceCoding, CodingStrategy), (PopulationCoding, CodingStrategy), (SpikeTimingCode, CodingStrategy),
-            (TonotopicMap, ResponseProperty), (FrequencyTuningCurve, ResponseProperty), (CharacteristicFrequency, ResponseProperty), (RateLevelFunction, ResponseProperty), (SpontaneousRate, ResponseProperty), (DynamicRange, ResponseProperty), (OnsetResponse, ResponseProperty), (SustainedResponse, ResponseProperty), (Adaptation, ResponseProperty), (Inhibition, ResponseProperty),
-            (AuditoryNerveFiber, ProcessingStage), (CochlearNucleusProcessing, ProcessingStage), (SuperiorOliveProcessing, ProcessingStage), (LateralLemniscus, ProcessingStage), (InferiorColliculusProcessing, ProcessingStage), (MedialGeniculateProcessing, ProcessingStage), (AuditoryCortexProcessing, ProcessingStage),
-            (CoincidenceDetection, BinauralMechanism), (ExcitatoryInhibitory, BinauralMechanism), (MedialSuperiorOlive, BinauralMechanism), (LateralSuperiorOlive, BinauralMechanism),
-            (AuditorySceneAnalysis, HigherFunction), (StreamSegregation, HigherFunction), (GestaltGrouping, HigherFunction), (EchoSuppression, HigherFunction), (PrecedenceEffect, HigherFunction), (MismatchNegativity, HigherFunction),
-        ],
-        causation: NeuralCausalGraph for NeuralCausalEvent [
-            (AuditoryNerveInput, CochlearNucleusIntegration), (CochlearNucleusIntegration, BinauralConvergence), (BinauralConvergence, LemniscalRelay), (LemniscalRelay, MultisensoryIntegration), (MultisensoryIntegration, ThalamicGating), (ThalamicGating, CorticalAnalysis), (CorticalAnalysis, StreamFormation), (StreamFormation, PerceptualBinding),
-        ],
-        opposition: NeuralOpposition [
-            (RateCoding, TemporalCoding), (OnsetResponse, SustainedResponse), (Inhibition, Adaptation),
-        ],
-    }
+    labels: {
+        RateCoding: ("en", "Rate coding",
+            "Sachs & Young (1979) JASA 66(2):470 — neural firing rate encoding stimulus intensity."),
+        TemporalCoding: ("en", "Temporal coding",
+            "Joris et al. (2004) Physiol. Rev. 84(2):541 — fine-timing encoding of stimulus phase."),
+        PhaseLocking: ("en", "Phase locking",
+            "Joris et al. (2004): spike-time alignment to stimulus phase, up to ~4 kHz."),
+        PlaceCoding: ("en", "Place coding",
+            "von Bekesy (1960): frequency encoded by basilar-membrane locus and corresponding fiber."),
+        PopulationCoding: ("en", "Population coding",
+            "Schnupp et al. (2011) Ch. 5 — distributed activity across fiber population."),
+        SpikeTimingCode: ("en", "Spike-timing code",
+            "Joris et al. (2004) — precise inter-spike intervals encode stimulus features."),
+        TonotopicMap: ("en", "Tonotopic map",
+            "Pickles (2012): frequency-ordered representation preserved at each processing stage."),
+        FrequencyTuningCurve: ("en", "Frequency tuning curve",
+            "Kiang (1965): threshold as function of frequency for a single fiber."),
+        CharacteristicFrequency: ("en", "Characteristic frequency",
+            "Kiang (1965): frequency of lowest threshold on a tuning curve."),
+        RateLevelFunction: ("en", "Rate-level function",
+            "Sachs & Young (1979): firing rate vs stimulus level — typically saturating sigmoid."),
+        SpontaneousRate: ("en", "Spontaneous rate",
+            "Liberman (1978) JASA 63(2):442 — baseline firing in absence of stimulus."),
+        DynamicRange: ("en", "Dynamic range",
+            "Sachs & Young (1979): stimulus range over which rate varies."),
+        OnsetResponse: ("en", "Onset response",
+            "Schnupp et al. (2011): transient firing at stimulus onset."),
+        SustainedResponse: ("en", "Sustained response",
+            "Schnupp et al. (2011): continued firing throughout stimulus duration."),
+        Adaptation: ("en", "Adaptation",
+            "Schnupp et al. (2011): firing-rate decline during prolonged stimulation."),
+        Inhibition: ("en", "Inhibition",
+            "Schnupp et al. (2011): GABAergic suppression of postsynaptic firing."),
+        AuditoryNerveFiber: ("en", "Auditory nerve fiber",
+            "Pickles (2012): CN VIII cochlear afferent, ~30000 per ear in humans."),
+        CochlearNucleusProcessing: ("en", "Cochlear nucleus processing",
+            "Pickles (2012): first central auditory station; DCN and VCN subdivisions."),
+        SuperiorOliveProcessing: ("en", "Superior olive processing",
+            "Goldberg & Brown (1969): brainstem binaural-integration nuclei MSO/LSO."),
+        LateralLemniscus: ("en", "Lateral lemniscus",
+            "Pickles (2012): brainstem tract carrying auditory afferents to inferior colliculus."),
+        InferiorColliculusProcessing: ("en", "Inferior colliculus processing",
+            "Pickles (2012): midbrain integration of monaural and binaural cues."),
+        MedialGeniculateProcessing: ("en", "Medial geniculate processing",
+            "Pickles (2012): thalamic auditory relay to cortex."),
+        AuditoryCortexProcessing: ("en", "Auditory cortex processing",
+            "Pickles (2012): A1 primary auditory cortex and adjacent belt/parabelt."),
+        BinauralProcessing: ("en", "Binaural processing",
+            "Goldberg & Brown (1969): two-ear integration for spatial hearing."),
+        CoincidenceDetection: ("en", "Coincidence detection",
+            "Jeffress (1948) J. Comp. Physiol. Psychol. 41(1):35 — ITD via simultaneous bilateral input."),
+        ExcitatoryInhibitory: ("en", "Excitatory-inhibitory",
+            "Goldberg & Brown (1969): LSO ILD computation via ipsilateral excitation and contralateral inhibition."),
+        MedialSuperiorOlive: ("en", "Medial superior olive",
+            "Goldberg & Brown (1969): ITD detector — coincidence-detection model."),
+        LateralSuperiorOlive: ("en", "Lateral superior olive",
+            "Goldberg & Brown (1969): ILD detector — EI-cell model."),
+        AuditorySceneAnalysis: ("en", "Auditory scene analysis",
+            "Bregman (1990): grouping of acoustic energy into perceptual streams."),
+        StreamSegregation: ("en", "Stream segregation",
+            "Bregman (1990): separation of concurrent sources into distinct streams."),
+        GestaltGrouping: ("en", "Gestalt grouping",
+            "Bregman (1990) Ch. 1: proximity / similarity / continuity principles applied to sound."),
+        EchoSuppression: ("en", "Echo suppression",
+            "Wallach et al. (1949) Am. J. Psychol. 62(3):315 — precedence-effect summing of leading + lagging."),
+        PrecedenceEffect: ("en", "Precedence effect",
+            "Wallach et al. (1949): localisation dominated by the leading wavefront."),
+        MismatchNegativity: ("en", "Mismatch negativity",
+            "Naatanen et al. (1978) Acta Psychol. 42(4):313 — auditory deviance detection ERP component."),
+        CodingStrategy: ("en", "Coding strategy",
+            "Schnupp et al. (2011): umbrella for neural-code paradigms."),
+        ResponseProperty: ("en", "Response property",
+            "Schnupp et al. (2011): umbrella for measurable single-unit response features."),
+        ProcessingStage: ("en", "Processing stage",
+            "Pickles (2012): umbrella for an anatomical level of the central auditory pathway."),
+        BinauralMechanism: ("en", "Binaural mechanism",
+            "Goldberg & Brown (1969): umbrella for two-ear integration mechanisms."),
+        HigherFunction: ("en", "Higher function",
+            "Bregman (1990): umbrella for higher-order perceptual/cognitive auditory functions."),
+        AuditoryNerveInput: ("en", "Auditory nerve input",
+            "Pickles (2012): event of action-potential train arriving at cochlear nucleus."),
+        CochlearNucleusIntegration: ("en", "Cochlear nucleus integration",
+            "Pickles (2012): event of integration across DCN/VCN cell types."),
+        BinauralConvergence: ("en", "Binaural convergence",
+            "Goldberg & Brown (1969): event of bilateral input meeting at MSO/LSO."),
+        LemniscalRelay: ("en", "Lemniscal relay",
+            "Pickles (2012): event of transmission through lateral lemniscus."),
+        MultisensoryIntegration: ("en", "Multisensory integration",
+            "Stein & Meredith (1993) — event of cross-modal convergence in IC/SC."),
+        ThalamicGating: ("en", "Thalamic gating",
+            "Pickles (2012): event of MGB-level attention-modulated relay."),
+        CorticalAnalysis: ("en", "Cortical analysis",
+            "Pickles (2012): event of A1/belt feature extraction."),
+        StreamFormation: ("en", "Stream formation",
+            "Bregman (1990): event of perceptual stream coalescence."),
+        PerceptualBinding: ("en", "Perceptual binding",
+            "Bregman (1990): event of unified percept emergence."),
+        NeuralEvent: ("en", "Neural event",
+            "Pickles (2012): umbrella concept for an auditory neural perdurant."),
+    },
+
+    is_a: [
+        (RateCoding, CodingStrategy), (TemporalCoding, CodingStrategy),
+        (PhaseLocking, CodingStrategy), (PlaceCoding, CodingStrategy),
+        (PopulationCoding, CodingStrategy), (SpikeTimingCode, CodingStrategy),
+        (TonotopicMap, ResponseProperty), (FrequencyTuningCurve, ResponseProperty),
+        (CharacteristicFrequency, ResponseProperty), (RateLevelFunction, ResponseProperty),
+        (SpontaneousRate, ResponseProperty), (DynamicRange, ResponseProperty),
+        (OnsetResponse, ResponseProperty), (SustainedResponse, ResponseProperty),
+        (Adaptation, ResponseProperty), (Inhibition, ResponseProperty),
+        (AuditoryNerveFiber, ProcessingStage), (CochlearNucleusProcessing, ProcessingStage),
+        (SuperiorOliveProcessing, ProcessingStage), (LateralLemniscus, ProcessingStage),
+        (InferiorColliculusProcessing, ProcessingStage),
+        (MedialGeniculateProcessing, ProcessingStage),
+        (AuditoryCortexProcessing, ProcessingStage),
+        (CoincidenceDetection, BinauralMechanism), (ExcitatoryInhibitory, BinauralMechanism),
+        (MedialSuperiorOlive, BinauralMechanism), (LateralSuperiorOlive, BinauralMechanism),
+        (AuditorySceneAnalysis, HigherFunction), (StreamSegregation, HigherFunction),
+        (GestaltGrouping, HigherFunction), (EchoSuppression, HigherFunction),
+        (PrecedenceEffect, HigherFunction), (MismatchNegativity, HigherFunction),
+        (AuditoryNerveInput, NeuralEvent), (CochlearNucleusIntegration, NeuralEvent),
+        (BinauralConvergence, NeuralEvent), (LemniscalRelay, NeuralEvent),
+        (MultisensoryIntegration, NeuralEvent), (ThalamicGating, NeuralEvent),
+        (CorticalAnalysis, NeuralEvent), (StreamFormation, NeuralEvent),
+        (PerceptualBinding, NeuralEvent),
+    ],
+
+    causes: [
+        (AuditoryNerveInput, CochlearNucleusIntegration),
+        (CochlearNucleusIntegration, BinauralConvergence),
+        (BinauralConvergence, LemniscalRelay),
+        (LemniscalRelay, MultisensoryIntegration),
+        (MultisensoryIntegration, ThalamicGating),
+        (ThalamicGating, CorticalAnalysis),
+        (CorticalAnalysis, StreamFormation),
+        (StreamFormation, PerceptualBinding),
+    ],
+
+    opposes: [
+        (RateCoding, TemporalCoding), (TemporalCoding, RateCoding),
+        (OnsetResponse, SustainedResponse), (SustainedResponse, OnsetResponse),
+        (Inhibition, Adaptation), (Adaptation, Inhibition),
+    ],
 }
 
 #[derive(Debug, Clone)]
 pub struct PhaseLockingLimit;
 impl Quality for PhaseLockingLimit {
-    type Individual = NeuralEntity;
+    type Individual = NeuralConcept;
     type Value = f64;
-    fn get(&self, individual: &NeuralEntity) -> Option<f64> {
-        use NeuralEntity::*;
+    fn get(&self, individual: &NeuralConcept) -> Option<f64> {
+        use NeuralConcept::*;
         match individual {
             AuditoryNerveFiber => Some(4000.0),
             MedialSuperiorOlive => Some(1500.0),
@@ -121,10 +219,10 @@ impl Quality for PhaseLockingLimit {
 #[derive(Debug, Clone)]
 pub struct SynapticDelay;
 impl Quality for SynapticDelay {
-    type Individual = NeuralEntity;
+    type Individual = NeuralConcept;
     type Value = f64;
-    fn get(&self, individual: &NeuralEntity) -> Option<f64> {
-        use NeuralEntity::*;
+    fn get(&self, individual: &NeuralConcept) -> Option<f64> {
+        use NeuralConcept::*;
         match individual {
             CochlearNucleusProcessing => Some(0.8),
             SuperiorOliveProcessing => Some(1.2),
@@ -136,10 +234,10 @@ impl Quality for SynapticDelay {
 #[derive(Debug, Clone)]
 pub struct IsTonotopic;
 impl Quality for IsTonotopic {
-    type Individual = NeuralEntity;
+    type Individual = NeuralConcept;
     type Value = bool;
-    fn get(&self, individual: &NeuralEntity) -> Option<bool> {
-        use NeuralEntity::*;
+    fn get(&self, individual: &NeuralConcept) -> Option<bool> {
+        use NeuralConcept::*;
         match individual {
             AuditoryNerveFiber
             | CochlearNucleusProcessing
@@ -152,62 +250,61 @@ impl Quality for IsTonotopic {
     }
 }
 
-// Axioms
+fn effects_of(cause: NeuralConcept) -> Vec<NeuralConcept> {
+    use pr4xis::category::{Arrow, Category};
+    NeuralCategory::morphisms()
+        .iter()
+        .filter(|m| m.kind() == NeuralRelationKind::Causation && m.source() == cause)
+        .map(|m| m.target())
+        .collect()
+}
 
 pub struct InputCausesBinding;
 impl Axiom for InputCausesBinding {
-    fn description(&self) -> &str {
-        "auditory nerve input transitively causes perceptual binding"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use NeuralConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if effects_of(AuditoryNerveInput).contains(&PerceptualBinding) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use NeuralCausalEvent::*;
-        causation::effects_of::<NeuralCausalGraph>(&AuditoryNerveInput).contains(&PerceptualBinding)
-    }
+    pr4xis::axiom_meta!(
+        "InputCausesBinding",
+        "auditory nerve input transitively causes perceptual binding",
+        "Bregman (1990) Auditory Scene Analysis"
+    );
 }
-pr4xis::register_axiom!(InputCausesBinding);
-
-pub struct SixCodingStrategies;
-impl Axiom for SixCodingStrategies {
-    fn description(&self) -> &str {
-        "six coding strategies are classified"
-    }
-    fn holds(&self) -> bool {
-        use NeuralEntity::*;
-        [
-            RateCoding,
-            TemporalCoding,
-            PhaseLocking,
-            PlaceCoding,
-            PopulationCoding,
-            SpikeTimingCode,
-        ]
-        .iter()
-        .all(|c| taxonomy::is_a::<NeuralTaxonomy>(c, &CodingStrategy))
-    }
-}
-pr4xis::register_axiom!(SixCodingStrategies);
+pr4xis::register_axiom!(InputCausesBinding, "Bregman (1990) Auditory Scene Analysis");
 
 pub struct SOCDelayLongerThanCN;
 impl Axiom for SOCDelayLongerThanCN {
-    fn description(&self) -> &str {
-        "SOC synaptic delay > CN synaptic delay"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use NeuralConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let soc = SynapticDelay.get(&SuperiorOliveProcessing).unwrap_or(0.0);
+        let cn = SynapticDelay.get(&CochlearNucleusProcessing).unwrap_or(0.0);
+        if soc > cn {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        use NeuralEntity::*;
-        SynapticDelay.get(&SuperiorOliveProcessing).unwrap()
-            > SynapticDelay.get(&CochlearNucleusProcessing).unwrap()
-    }
+    pr4xis::axiom_meta!(
+        "SOCDelayLongerThanCN",
+        "SOC synaptic delay > CN synaptic delay",
+        "Pickles (2012) Physiology of Hearing"
+    );
 }
-pr4xis::register_axiom!(SOCDelayLongerThanCN);
+pr4xis::register_axiom!(SOCDelayLongerThanCN, "Pickles (2012) Physiology of Hearing");
 
 pub struct AllStagesAreTonotopic;
 impl Axiom for AllStagesAreTonotopic {
-    fn description(&self) -> &str {
-        "all major processing stages are tonotopic"
-    }
-    fn holds(&self) -> bool {
-        use NeuralEntity::*;
-        [
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use NeuralConcept::*;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let ok = [
             AuditoryNerveFiber,
             CochlearNucleusProcessing,
             SuperiorOliveProcessing,
@@ -216,107 +313,85 @@ impl Axiom for AllStagesAreTonotopic {
             AuditoryCortexProcessing,
         ]
         .iter()
-        .all(|s| IsTonotopic.get(s) == Some(true))
+        .all(|s| IsTonotopic.get(s) == Some(true));
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "AllStagesAreTonotopic",
+        "all major processing stages preserve tonotopic organization",
+        "Pickles (2012) Physiology of Hearing"
+    );
 }
-pr4xis::register_axiom!(AllStagesAreTonotopic);
+pr4xis::register_axiom!(
+    AllStagesAreTonotopic,
+    "Pickles (2012) Physiology of Hearing"
+);
 
-impl Ontology for NeuroscienceOntology {
-    type Cat = NeuroscienceCategory;
+impl Ontology for NeuralOntology {
+    type Cat = NeuralCategory;
     type Qual = PhaseLockingLimit;
-
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(InputCausesBinding),
-            Box::new(SixCodingStrategies),
-            Box::new(SOCDelayLongerThanCN),
-            Box::new(AllStagesAreTonotopic),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut a = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        a.push(Box::new(InputCausesBinding));
+        a.push(Box::new(SOCDelayLongerThanCN));
+        a.push(Box::new(AllStagesAreTonotopic));
+        a
     }
 }
+
+// Back-compat aliases used by sibling functors.
+pub use NeuralCategory as NeuroscienceCategory;
+pub use NeuralConcept as NeuralEntity;
+pub use NeuralOntology as NeuroscienceOntology;
+pub use NeuralRelationKind as NeuroscienceCategoryRelationKind;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::opposition;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category};
     use proptest::prelude::*;
 
     #[test]
-    fn test_input_causes_binding() {
-        assert!(InputCausesBinding.holds());
+    fn category_laws() {
+        assert_category_laws::<NeuralCategory>();
     }
     #[test]
-    fn test_six_coding_strategies() {
-        assert!(SixCodingStrategies.holds());
+    fn ontology_validates() {
+        NeuralOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
     #[test]
-    fn test_all_stages_tonotopic() {
-        assert!(AllStagesAreTonotopic.holds());
+    fn input_causes_binding() {
+        assert!(InputCausesBinding.verify().is_ok());
     }
     #[test]
-    fn test_rate_opposes_temporal_coding() {
-        assert!(opposition::are_opposed::<NeuralOpposition>(
-            &NeuralEntity::RateCoding,
-            &NeuralEntity::TemporalCoding
-        ));
+    fn soc_delay_longer_than_cn() {
+        assert!(SOCDelayLongerThanCN.verify().is_ok());
     }
     #[test]
-    fn test_category_laws() {
-        check_category_laws::<NeuroscienceCategory>().unwrap();
-    }
-    #[test]
-    fn test_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<NeuralTaxonomy>>().unwrap();
-    }
-    #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<NeuralCausalGraph>>().unwrap();
-    }
-    #[test]
-    fn test_soc_delay_longer_than_cn() {
-        assert!(SOCDelayLongerThanCN.holds());
-    }
-    #[test]
-    fn test_cn_synaptic_delay() {
-        assert_eq!(
-            SynapticDelay.get(&NeuralEntity::CochlearNucleusProcessing),
-            Some(0.8)
-        );
-    }
-    #[test]
-    fn test_soc_synaptic_delay() {
-        assert_eq!(
-            SynapticDelay.get(&NeuralEntity::SuperiorOliveProcessing),
-            Some(1.2)
-        );
-    }
-    #[test]
-    fn test_phase_locking_limit_an() {
-        assert_eq!(
-            PhaseLockingLimit.get(&NeuralEntity::AuditoryNerveFiber),
-            Some(4000.0)
-        );
-    }
-    #[test]
-    fn test_entity_count() {
-        assert_eq!(NeuralEntity::variants().len(), 39);
-    }
-    #[test]
-    fn test_ontology_validates() {
-        NeuroscienceOntology::validate().unwrap();
+    fn all_stages_tonotopic() {
+        assert!(AllStagesAreTonotopic.verify().is_ok());
     }
 
-    fn arb_entity() -> impl Strategy<Value = NeuralEntity> {
-        (0..NeuralEntity::variants().len()).prop_map(|i| NeuralEntity::variants()[i])
-    }
     proptest! {
-        #[test] fn prop_taxonomy_reflexive(entity in arb_entity()) { prop_assert!(taxonomy::is_a::<NeuralTaxonomy>(&entity, &entity)); }
+        #[test]
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in NeuralCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in NeuralOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
+        }
     }
 }

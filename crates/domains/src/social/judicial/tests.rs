@@ -4,7 +4,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::*;
 use chrono::{NaiveDate, Utc};
 use pr4xis::category::{Category, Concept as CategoryEntity};
-use pr4xis::engine::{Action, EngineError, Precondition, Situation};
+use pr4xis::engine::{EngineError, Precondition};
 use pr4xis::logic::Axiom;
 use pr4xis::ontology::Quality;
 use proptest::prelude::*;
@@ -2508,7 +2508,7 @@ fn test_phase_tag_entity_variants() {
 
 #[test]
 fn test_phase_transition_rel_source_target() {
-    use pr4xis::category::Relationship;
+    use pr4xis::category::Arrow;
     let rel = PhaseTransitionRel {
         from: PhaseTag::Filed,
         to: PhaseTag::Discovery,
@@ -2519,8 +2519,8 @@ fn test_phase_transition_rel_source_target() {
 
 #[test]
 fn case_lifecycle_category_laws() {
-    use pr4xis::category::validate::check_category_laws;
-    check_category_laws::<CaseLifecycleCategory>().unwrap();
+    use pr4xis::category::laws::assert_category_laws;
+    assert_category_laws::<CaseLifecycleCategory>();
 }
 
 #[test]
@@ -2611,17 +2611,20 @@ fn test_is_terminal_phase_quality() {
 #[test]
 fn test_only_closed_is_terminal_axiom() {
     let axiom = OnlyClosedIsTerminal;
-    assert!(axiom.holds());
-    assert_eq!(axiom.description(), "only Closed is a terminal phase");
+    assert!(axiom.verify().is_ok());
+    assert_eq!(
+        axiom.description().as_str(),
+        "only Closed is a terminal phase"
+    );
 }
 
 #[test]
 fn test_no_dead_phases_axiom() {
     let axiom = NoDeadPhases;
-    assert!(axiom.holds());
+    assert!(axiom.verify().is_ok());
     assert_eq!(
-        axiom.description(),
-        "every non-terminal phase has transitions"
+        axiom.description().as_str(),
+        "every non-terminal phase has at least one valid transition"
     );
 }
 
@@ -2629,96 +2632,10 @@ fn test_no_dead_phases_axiom() {
 // engine.rs tests
 // =============================================================================
 
-#[test]
-fn test_case_situation_describe() {
-    let case = Case::new("Smith v. Corp");
-    let desc = case.describe();
-    assert!(desc.contains("Smith v. Corp"));
-    assert!(desc.contains("PreFiling"));
-}
-
-#[test]
-fn test_case_situation_is_terminal() {
-    let case = Case::new("Test");
-    assert!(!case.is_terminal());
-
-    let mut closed_case = Case::new("Test");
-    let _ = closed_case.act(CaseAction::File {
-        court: test_court(),
-        date: date(2024, 1, 1),
-    });
-    let _ = closed_case.act(CaseAction::Settle {
-        terms: "terms".into(),
-        date: date(2024, 2, 1),
-    });
-    assert!(closed_case.is_terminal());
-}
-
-#[test]
-fn test_legal_action_describe_variants() {
-    let file_action = LegalAction(CaseAction::File {
-        court: test_court(),
-        date: date(2024, 1, 1),
-    });
-    assert!(file_action.describe().contains("file case"));
-
-    let discovery = LegalAction(CaseAction::BeginDiscovery {
-        date: date(2024, 2, 1),
-    });
-    assert!(discovery.describe().contains("discovery"));
-
-    let motion = LegalAction(CaseAction::FileMotion {
-        motion: test_pending_motion(),
-        date: date(2024, 3, 1),
-    });
-    assert!(motion.describe().contains("file motion"));
-
-    let rule_motion = LegalAction(CaseAction::RuleOnMotion {
-        motion_index: 0,
-        action: MotionAction::Grant {
-            date: date(2024, 5, 1),
-            judge: test_judge(),
-            order: "granted".into(),
-        },
-        date: date(2024, 5, 1),
-    });
-    assert!(rule_motion.describe().contains("rule on motion"));
-
-    let set_trial = LegalAction(CaseAction::SetForTrial {
-        date: date(2024, 12, 1),
-    });
-    assert!(set_trial.describe().contains("trial"));
-
-    let begin_trial = LegalAction(CaseAction::BeginTrial {
-        date: date(2024, 12, 1),
-    });
-    assert!(begin_trial.describe().contains("trial"));
-
-    let verdict = LegalAction(CaseAction::Verdict {
-        outcome: "plaintiff wins".into(),
-        date: date(2024, 12, 15),
-    });
-    assert!(verdict.describe().contains("verdict"));
-
-    let appeal = LegalAction(CaseAction::Appeal {
-        court: test_court(),
-        date: date(2025, 1, 15),
-    });
-    assert!(appeal.describe().contains("appeal"));
-
-    let settle = LegalAction(CaseAction::Settle {
-        terms: "confidential".into(),
-        date: date(2024, 6, 1),
-    });
-    assert!(settle.describe().contains("settle"));
-
-    let dismiss = LegalAction(CaseAction::Dismiss {
-        reason: "moot".into(),
-        with_prejudice: false,
-        date: date(2024, 6, 1),
-    });
-    assert!(dismiss.describe().contains("dismiss"));
-}
+// Per #161 (typed engine API): Situation and Action no longer carry
+// `describe()` / `is_terminal()` primitive-leak methods. Case-level
+// terminal/phase state is queried directly through Case::phase and
+// PhaseTag::is_terminal, both of which remain.
 
 #[test]
 fn test_phase_transition_precondition_on_closed() {
@@ -2738,7 +2655,7 @@ fn test_phase_transition_precondition_on_closed() {
         date: date(2024, 3, 1),
     });
     let result = precond.check(&case, &action);
-    assert!(!result.is_satisfied());
+    assert!(result.is_err());
 }
 
 #[test]
@@ -2757,7 +2674,7 @@ fn test_phase_transition_precondition_wrong_phase_for_file() {
         date: date(2024, 1, 2),
     });
     let result = precond.check(&case, &action);
-    assert!(!result.is_satisfied());
+    assert!(result.is_err());
 }
 
 #[test]
@@ -2774,7 +2691,7 @@ fn test_phase_transition_precondition_valid_action() {
         date: date(2024, 2, 1),
     });
     let result = precond.check(&case, &action);
-    assert!(result.is_satisfied());
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -2787,7 +2704,7 @@ fn test_phase_transition_precondition_invalid_transition() {
         date: date(2024, 12, 1),
     });
     let result = precond.check(&case, &action);
-    assert!(!result.is_satisfied());
+    assert!(result.is_err());
 }
 
 #[test]
@@ -2801,7 +2718,7 @@ fn test_phase_transition_file_motion_in_wrong_phase() {
         date: date(2024, 3, 1),
     });
     let result = precond.check(&case, &action);
-    assert!(!result.is_satisfied());
+    assert!(result.is_err());
 }
 
 #[test]
@@ -2819,23 +2736,17 @@ fn test_phase_transition_file_motion_in_valid_phase() {
         date: date(2024, 3, 1),
     });
     let result = precond.check(&case, &action);
-    assert!(result.is_satisfied());
+    assert!(result.is_ok());
 }
 
-#[test]
-fn test_phase_transition_describe() {
-    let precond = PhaseTransition;
-    assert_eq!(
-        precond.describe(),
-        "action must be valid for the current case phase"
-    );
-}
+// Per #161 (typed engine API): Precondition no longer carries
+// `describe()` — descriptive metadata lives on the Proof/Counterexample
+// meta() returned by check().
 
 #[test]
 fn test_new_case_engine() {
     let engine = new_case("Test v. Corp");
     assert_eq!(engine.situation().phase.tag(), PhaseTag::PreFiling);
-    assert!(!engine.is_terminal());
     assert_eq!(engine.step(), 0);
 }
 
@@ -2931,7 +2842,7 @@ fn test_engine_trace() {
     assert_eq!(trace.successful_steps(), 1);
     assert_eq!(trace.violations(), 0);
     let last = trace.last().unwrap();
-    assert!(last.success);
+    assert!(last.applied());
     assert!(last.situation_after.is_some());
 }
 
@@ -2951,7 +2862,7 @@ fn test_engine_trace_with_violation() {
     assert_eq!(trace.successful_steps(), 0);
     let violation_entries = trace.violation_entries();
     assert_eq!(violation_entries.len(), 1);
-    assert!(!violation_entries[0].success);
+    assert!(!violation_entries[0].applied());
     assert!(violation_entries[0].situation_after.is_none());
 }
 
@@ -2965,15 +2876,18 @@ fn test_engine_trace_dump() {
         }))
         .unwrap();
 
-    let dump = engine.trace().dump();
-    assert!(dump.contains("OK"));
-    assert!(dump.contains("file case"));
+    // Trace::dump was removed (#161 typed-trace refactor). Inspect the
+    // structured entries directly: the trace must record exactly the one
+    // File action, with the action successfully applied.
+    let entries = engine.trace().entries();
+    assert_eq!(entries.len(), 1);
+    assert!(entries[0].applied(), "the File action should have applied");
 }
 
 #[test]
 fn test_engine_try_next_valid() {
     let engine = new_case("Test v. Corp");
-    let result = engine.try_next(LegalAction(CaseAction::File {
+    let result = engine.next(LegalAction(CaseAction::File {
         court: test_court(),
         date: date(2024, 1, 1),
     }));
@@ -2983,13 +2897,32 @@ fn test_engine_try_next_valid() {
 #[test]
 fn test_engine_try_next_invalid() {
     let engine = new_case("Test v. Corp");
-    let result = engine.try_next(LegalAction(CaseAction::BeginTrial {
+    let result = engine.next(LegalAction(CaseAction::BeginTrial {
         date: date(2024, 12, 1),
     }));
     assert!(result.is_err());
-    let errors = result.unwrap_err();
-    assert!(!errors.is_empty());
-    assert!(errors[0].contains("phase_transition"));
+    // EngineError is the typed enum (#161); for a precondition violation we
+    // get Violated { violations: Vec<...> }. Inspect the structured
+    // counterexamples rather than substring-matching a stringified error.
+    let err = result.unwrap_err();
+    match err {
+        EngineError::Violated { violations, .. } => {
+            assert!(
+                !violations.is_empty(),
+                "should record at least one violation"
+            );
+            let names: Vec<_> = violations
+                .iter()
+                .map(|v| v.meta().name.as_str().to_string())
+                .collect();
+            assert!(
+                names.iter().any(|n| n.contains("phase_transition")),
+                "expected a phase_transition violation, got {:?}",
+                names
+            );
+        }
+        EngineError::LogicalError { .. } => panic!("expected Violated, got LogicalError"),
+    }
 }
 
 #[test]
@@ -3026,7 +2959,7 @@ fn test_engine_full_lifecycle() {
     assert_eq!(engine.situation().phase.tag(), PhaseTag::PostTrial);
     assert_eq!(engine.step(), 5);
     assert_eq!(engine.trace().successful_steps(), 5);
-    assert!(!engine.is_terminal());
+    assert!(!engine.situation().phase.tag().is_terminal());
 }
 
 #[test]
@@ -3045,7 +2978,7 @@ fn test_engine_settlement_is_terminal() {
         }))
         .unwrap();
 
-    assert!(engine.is_terminal());
+    assert!(engine.situation().phase.tag().is_terminal());
     assert_eq!(engine.situation().phase.tag(), PhaseTag::Closed);
 }
 
@@ -3066,7 +2999,7 @@ fn test_engine_no_action_after_terminal() {
         .unwrap();
 
     // Trying any action on a closed case should fail
-    let result = engine.try_next(LegalAction(CaseAction::BeginDiscovery {
+    let result = engine.next(LegalAction(CaseAction::BeginDiscovery {
         date: date(2024, 7, 1),
     }));
     assert!(result.is_err());
@@ -3460,6 +3393,10 @@ proptest! {
         let from = phases[from_idx];
         let to = phases[to_idx];
         let f = PhaseTransitionRel { from, to };
+        // Identity law (Mac Lane CWM Ch. I §1) is only defined for morphisms
+        // f ∈ Hom(A,B). The case-lifecycle category is partial — only
+        // declared phase transitions are morphisms — so restrict to those.
+        prop_assume!(CaseLifecycleCategory::morphisms().contains(&f));
         let id = CaseLifecycleCategory::identity(&from);
         let composed = CaseLifecycleCategory::compose(&id, &f);
         prop_assert_eq!(composed, Some(f.clone()));
@@ -3472,6 +3409,7 @@ proptest! {
         let from = phases[from_idx];
         let to = phases[to_idx];
         let f = PhaseTransitionRel { from, to };
+        prop_assume!(CaseLifecycleCategory::morphisms().contains(&f));
         let id = CaseLifecycleCategory::identity(&to);
         let composed = CaseLifecycleCategory::compose(&f, &id);
         prop_assert_eq!(composed, Some(f.clone()));

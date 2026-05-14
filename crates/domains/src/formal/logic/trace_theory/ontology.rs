@@ -26,7 +26,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "TraceTheory",
     source: "Plotkin (1981) SOS; Plotkin-Power (2002) Notions of Computation; Abramsky-Jung (1994) Domain Theory; Hyland-Ong (2000) Full Abstraction for PCF; Abramsky (1996) process algebra",
-    being: AbstractObject,
 
     concepts: [
         // === Genus ===
@@ -180,45 +179,51 @@ impl Ontology for TraceTheoryOntology {
     type Cat = TraceTheoryCategory;
     type Qual = TraceTradition;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        TraceTheoryOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        TraceTheoryOntology::generated_domain_axioms()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<TraceTheoryCategory>().unwrap();
+        assert_category_laws::<TraceTheoryCategory>();
     }
 
     #[test]
     fn ontology_validates() {
-        TraceTheoryOntology::validate().unwrap();
+        TraceTheoryOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
+    }
+
+    /// Direct subsumption check via kinded-morphism filter (per_def
+    /// `TaxonomyDef::is_a` is gone).
+    fn direct_is_a(child: TraceTheoryConcept, parent: TraceTheoryConcept) -> bool {
+        use pr4xis::category::{Arrow, Category};
+        TraceTheoryCategory::morphisms().iter().any(|m| {
+            m.kind() == TraceTheoryRelationKind::Subsumption
+                && m.source() == child
+                && m.target() == parent
+        })
     }
 
     #[test]
     fn reduction_sequence_is_a_trace() {
-        use pr4xis::ontology::reasoning::taxonomy;
-        assert!(taxonomy::is_a::<TraceTheoryTaxonomy>(
-            &TraceTheoryConcept::ReductionSequence,
-            &TraceTheoryConcept::Trace,
+        assert!(direct_is_a(
+            TraceTheoryConcept::ReductionSequence,
+            TraceTheoryConcept::Trace,
         ));
     }
 
     #[test]
     fn play_is_a_trace() {
-        use pr4xis::ontology::reasoning::taxonomy;
-        assert!(taxonomy::is_a::<TraceTheoryTaxonomy>(
-            &TraceTheoryConcept::Play,
-            &TraceTheoryConcept::Trace,
+        assert!(direct_is_a(
+            TraceTheoryConcept::Play,
+            TraceTheoryConcept::Trace,
         ));
     }
 }

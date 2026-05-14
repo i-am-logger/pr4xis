@@ -1,11 +1,11 @@
 use super::ontology::*;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 #[test]
 fn category_laws() {
-    check_category_laws::<PlanningCategory>().unwrap();
+    assert_category_laws::<PlanningCategory>();
 }
 
 #[test]
@@ -20,17 +20,17 @@ fn fourteen_concepts() {
 
 #[test]
 fn bdi_produces_intention() {
-    assert!(BdiProducesIntention.holds());
+    assert!(BdiProducesIntention.verify().is_ok());
 }
 
 #[test]
 fn effect_updates_common_ground() {
-    assert!(EffectUpdatesCommonGround.holds());
+    assert!(EffectUpdatesCommonGround.verify().is_ok());
 }
 
 #[test]
 fn goals_specialize() {
-    assert!(GoalsSpecialize.holds());
+    assert!(GoalsSpecialize.verify().is_ok());
 }
 
 #[test]
@@ -42,11 +42,27 @@ fn all_concepts_have_role() {
 
 #[test]
 fn plan_reaches_common_ground() {
-    use pr4xis::category::Category;
-    let m = PlanningCategory::morphisms();
-    assert!(
-        m.iter()
-            .any(|r| r.from == PlanningConcept::Plan && r.to == PlanningConcept::CommonGround),
-        "Plan should reach CommonGround transitively"
-    );
+    // Plan → Action → … → CommonGround spans heterogeneous kinds. Per #166
+    // closure across heterogeneous kinds isn't a single morphism — walk
+    // the graph.
+    use pr4xis::category::{Arrow, Category};
+    use std::collections::{HashSet, VecDeque};
+    let ms = PlanningCategory::morphisms();
+    let mut visited: HashSet<PlanningConcept> = HashSet::new();
+    let mut queue: VecDeque<PlanningConcept> = VecDeque::new();
+    queue.push_back(PlanningConcept::Plan);
+    let mut reaches = false;
+    while let Some(n) = queue.pop_front() {
+        if n == PlanningConcept::CommonGround {
+            reaches = true;
+            break;
+        }
+        if !visited.insert(n) {
+            continue;
+        }
+        for m in ms.iter().filter(|m| m.source() == n) {
+            queue.push_back(m.target());
+        }
+    }
+    assert!(reaches, "Plan should reach CommonGround transitively");
 }

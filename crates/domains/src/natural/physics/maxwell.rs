@@ -10,7 +10,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// Gauss (magnetic):    ∇⋅B = 0
 /// Faraday:             ∇×E = -∂B/∂t
 /// Ampère-Maxwell:      ∇×B = μ₀J + μ₀ε₀∂E/∂t
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 pub const EPSILON_0: f64 = 8.854e-12; // vacuum permittivity (F/m)
 pub const MU_0: f64 = 1.257e-6; // vacuum permeability (H/m)
@@ -118,20 +120,16 @@ impl EMField {
     }
 }
 
-impl Situation for EMField {
-    fn describe(&self) -> String {
-        format!(
-            "|E|={:.4} |B|={:.4} ρ={:.4e} ∇⋅E={:.4e} ∇⋅B={:.4e} u={:.4e}",
-            self.e_field.magnitude(),
-            self.b_field.magnitude(),
-            self.charge_density,
-            self.div_e,
-            self.div_b,
-            self.energy_density()
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
+impl Situation for EMField {}
+
+fn maxwell_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Maxwell (1865) A Dynamical Theory of the Electromagnetic Field, Phil. Trans. R. Soc. 155:459-512",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
@@ -149,96 +147,55 @@ pub enum MaxwellAction {
 
 impl Action for MaxwellAction {
     type Sit = EMField;
-    fn describe(&self) -> String {
-        match self {
-            MaxwellAction::SetChargeDensity { rho } => format!("set ρ={:.4e}", rho),
-            MaxwellAction::SetEField { e } => format!("set E=({:.4},{:.4},{:.4})", e.x, e.y, e.z),
-            MaxwellAction::SetBField { b } => format!("set B=({:.4},{:.4},{:.4})", b.x, b.y, b.z),
-            MaxwellAction::SetCurrentDensity { j } => {
-                format!("set J=({:.4},{:.4},{:.4})", j.x, j.y, j.z)
-            }
-        }
-    }
 }
 
 /// Gauss's law for electricity: ∇⋅E = ρ/ε₀
 struct GaussElectric;
 impl Precondition<MaxwellAction> for GaussElectric {
-    fn check(&self, field: &EMField, action: &MaxwellAction) -> PreconditionResult {
-        let next = apply_maxwell(field, action).unwrap_or_else(|_| field.clone());
+    fn check(&self, field: &EMField, action: &MaxwellAction) -> Verdict {
+        let meta = maxwell_meta("GaussElectric", "∇⋅E = ρ/ε₀ (Gauss's law)");
+        let next = apply_maxwell_inner(field, action);
         if next.gauss_electric_holds() {
-            PreconditionResult::satisfied(
-                "gauss_electric",
-                &format!(
-                    "∇⋅E={:.4e} = ρ/ε₀={:.4e}",
-                    next.div_e,
-                    next.charge_density / EPSILON_0
-                ),
-            )
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "gauss_electric",
-                "∇⋅E ≠ ρ/ε₀",
-                &field.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "∇⋅E = ρ/ε₀ (Gauss's law)"
     }
 }
 
 /// Gauss's law for magnetism: ∇⋅B = 0 (no magnetic monopoles)
 struct GaussMagnetic;
 impl Precondition<MaxwellAction> for GaussMagnetic {
-    fn check(&self, field: &EMField, action: &MaxwellAction) -> PreconditionResult {
-        let next = apply_maxwell(field, action).unwrap_or_else(|_| field.clone());
+    fn check(&self, field: &EMField, action: &MaxwellAction) -> Verdict {
+        let meta = maxwell_meta("GaussMagnetic", "∇⋅B = 0 (no magnetic monopoles)");
+        let next = apply_maxwell_inner(field, action);
         if next.gauss_magnetic_holds() {
-            PreconditionResult::satisfied("gauss_magnetic", "∇⋅B = 0 (no monopoles)")
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "gauss_magnetic",
-                &format!(
-                    "∇⋅B = {:.4e} ≠ 0: magnetic monopoles don't exist",
-                    next.div_b
-                ),
-                &field.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "∇⋅B = 0 (no magnetic monopoles)"
     }
 }
 
 /// Energy density must be non-negative.
 struct NonNegativeEnergy;
 impl Precondition<MaxwellAction> for NonNegativeEnergy {
-    fn check(&self, field: &EMField, action: &MaxwellAction) -> PreconditionResult {
-        let next = apply_maxwell(field, action).unwrap_or_else(|_| field.clone());
+    fn check(&self, field: &EMField, action: &MaxwellAction) -> Verdict {
+        let meta = maxwell_meta(
+            "NonNegativeEnergy",
+            "electromagnetic energy density must be non-negative",
+        );
+        let next = apply_maxwell_inner(field, action);
         if next.energy_density() >= -1e-20 {
-            PreconditionResult::satisfied(
-                "energy_nonneg",
-                &format!("u={:.4e} ≥ 0", next.energy_density()),
-            )
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "energy_nonneg",
-                "energy density cannot be negative",
-                &field.describe(),
-                &action.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "electromagnetic energy density must be non-negative"
     }
 }
 
-fn apply_maxwell(field: &EMField, action: &MaxwellAction) -> Result<EMField, String> {
-    Ok(match action {
+fn apply_maxwell_inner(field: &EMField, action: &MaxwellAction) -> EMField {
+    match action {
         MaxwellAction::SetChargeDensity { rho } => EMField::new(
             field.e_field.clone(),
             field.b_field.clone(),
@@ -263,7 +220,14 @@ fn apply_maxwell(field: &EMField, action: &MaxwellAction) -> Result<EMField, Str
             field.charge_density,
             j.clone(),
         ),
-    })
+    }
+}
+
+fn apply_maxwell(
+    field: &EMField,
+    action: &MaxwellAction,
+) -> Result<EMField, Box<dyn Counterexample>> {
+    Ok(apply_maxwell_inner(field, action))
 }
 
 pub fn new_field() -> Engine<MaxwellAction> {

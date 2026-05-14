@@ -1,11 +1,5 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Category;
-use pr4xis::category::entity::Concept;
-use pr4xis::category::relationship::Relationship;
-use pr4xis::ontology::upper::being::Being;
-use pr4xis::ontology::upper::classify::Classified;
+use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 // Spelling Error Ontology — the science of misspelling.
 //
@@ -235,22 +229,46 @@ impl Concept for SpellingErrorConcept {
     }
 }
 
+/// Relation-kind tag for the spelling-error category.
+///
+/// Per OBO-RO (Smith 2005), every arrow carries a canonical kind.
+/// The spelling-error category has a single relation type: the
+/// directed flow from etiology → linguistic level → operation →
+/// observation → correction → intention (Damerau 1964; Brill & Moore 2000).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpellingErrorRelationKind {
+    Flow,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SpellingRelation {
     pub from: SpellingErrorConcept,
     pub to: SpellingErrorConcept,
 }
 
-impl Relationship for SpellingRelation {
+impl Arrow for SpellingRelation {
     type Object = SpellingErrorConcept;
-    type Kind = ();
+    type Kind = SpellingErrorRelationKind;
+
     fn source(&self) -> SpellingErrorConcept {
         self.from
     }
     fn target(&self) -> SpellingErrorConcept {
         self.to
     }
-    fn kind(&self) {}
+    fn kind(&self) -> SpellingErrorRelationKind {
+        SpellingErrorRelationKind::Flow
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("SpellingRelation"),
+            description: Label::new_static(
+                "directed flow between spelling-error category concepts",
+            ),
+            citation: Citation::parse_static("Damerau (1964); Brill & Moore (2000)"),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 pub struct SpellingErrorCategory;
@@ -276,77 +294,66 @@ impl Category for SpellingErrorCategory {
         if g.from == g.to {
             return Some(f.clone());
         }
-        Some(SpellingRelation {
+        let candidate = SpellingRelation {
             from: f.from,
             to: g.to,
-        })
+        };
+        // Partial category (#166): composition is defined only when the
+        // composite is itself a declared morphism. The morphism set
+        // computes the full reachability closure below, so any composable
+        // pair lands inside it.
+        if Self::morphisms().contains(&candidate) {
+            Some(candidate)
+        } else {
+            None
+        }
     }
 
     fn morphisms() -> Vec<SpellingRelation> {
         use SpellingErrorConcept::*;
-        let mut m = Vec::new();
+        use std::collections::HashSet;
 
+        // Direct relations from the spelling-error ontology.
+        let direct: Vec<(SpellingErrorConcept, SpellingErrorConcept)> = vec![
+            (Etiology, LinguisticLevel),
+            (LinguisticLevel, Operation),
+            (OrthographicDepth, Etiology),
+            (Intention, Operation),
+            (Operation, Observation),
+            (Observation, Correction),
+            (Correction, Intention),
+        ];
+
+        // Warshall (1962) transitive closure — required for AssociativityLaw
+        // (Mac Lane CWM Ch. I §1).
+        let mut closure: HashSet<(SpellingErrorConcept, SpellingErrorConcept)> =
+            direct.iter().cloned().collect();
+        loop {
+            let mut added = false;
+            let snap: Vec<_> = closure.iter().cloned().collect();
+            for &(a, b) in &snap {
+                for &(b2, c) in &snap {
+                    if b == b2 && !closure.contains(&(a, c)) {
+                        closure.insert((a, c));
+                        added = true;
+                    }
+                }
+            }
+            if !added {
+                break;
+            }
+        }
+
+        let mut m: Vec<SpellingRelation> = Vec::new();
         for c in SpellingErrorConcept::variants() {
             m.push(SpellingRelation { from: c, to: c });
         }
-
-        // Etiology causes errors at a linguistic level
-        m.push(SpellingRelation {
-            from: Etiology,
-            to: LinguisticLevel,
-        });
-        // Linguistic level errors manifest as operations
-        m.push(SpellingRelation {
-            from: LinguisticLevel,
-            to: Operation,
-        });
-        // Orthographic depth determines dominant etiology
-        m.push(SpellingRelation {
-            from: OrthographicDepth,
-            to: Etiology,
-        });
-        // Observation is produced by operation on intention
-        m.push(SpellingRelation {
-            from: Intention,
-            to: Operation,
-        });
-        m.push(SpellingRelation {
-            from: Operation,
-            to: Observation,
-        });
-        // Correction is the inverse: observation → correction → intention
-        m.push(SpellingRelation {
-            from: Observation,
-            to: Correction,
-        });
-        m.push(SpellingRelation {
-            from: Correction,
-            to: Intention,
-        });
-        // Transitive
-        m.push(SpellingRelation {
-            from: Etiology,
-            to: Operation,
-        });
-        m.push(SpellingRelation {
-            from: OrthographicDepth,
-            to: LinguisticLevel,
-        });
-        m.push(SpellingRelation {
-            from: Intention,
-            to: Observation,
-        });
-
+        for (f, t) in closure {
+            if f != t {
+                m.push(SpellingRelation { from: f, to: t });
+            }
+        }
         m
-    }
-}
-
-impl Classified for SpellingErrorCategory {
-    fn being() -> Being {
-        Being::Quality
-    }
-    fn classification_reason() -> &'static str {
-        "spelling errors are measurable deviations in written language quality"
     }
 }
 
@@ -436,11 +443,11 @@ pub fn classify_etiology(original: &str, misspelled: &str) -> ErrorEtiology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
+    use pr4xis::category::laws::assert_category_laws;
 
     #[test]
     fn category_laws() {
-        check_category_laws::<SpellingErrorCategory>().unwrap();
+        assert_category_laws::<SpellingErrorCategory>();
     }
 
     #[test]

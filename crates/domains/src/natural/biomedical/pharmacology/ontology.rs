@@ -1,232 +1,346 @@
-//! Bioelectric pharmacology ontology.
+//! Bioelectric pharmacology — drugs, targets, and bioelectric effects.
 //!
-//! Models bioelectric pharmacology as a formal ontology: drug classes, specific
-//! agents, molecular targets, and bioelectric effects — plus the causal graph
-//! from drug administration through Vmem shift to collective reprogramming.
+//! Models drug classes (ion-channel modulators, gap-junction modulators,
+//! voltage-gated openers/blockers, proton-pump inhibitors, morphoceuticals),
+//! specific agents (ivermectin, decamethonium, glibenclamide, minoxidil,
+//! omeprazole), molecular targets (ion channel, gap junction, transporter,
+//! receptor), bioelectric effects (hyperpolarization, depolarization,
+//! gap-junction opening/closing, anti-inflammatory), and the causal chains
+//! drug → target binding → channel state change → ion flux → Vmem shift →
+//! downstream signaling, and GJ modulator binding → gap-junction state
+//! change → bioelectric network change → collective reprogramming. Per
+//! `feedback_one_ontology_per_module` the original split between
+//! `PharmacologyEntity` and `PharmacologyEvent` has been merged: events are
+//! first-class concepts subsumed by the `PharmacologyEvent` umbrella.
 //!
-//! Key references:
-//! - Kofman & Levin 2024: Bioelectric pharmacology of cancer
-//! - Levin 2023: Morphoceuticals — drugs targeting anatomical outcomes
-//! - Adams & Levin 2013: Vmem manipulation via ion channel/pump cocktails
-//! - Chernet & Levin 2013: depolarization → oncogene-like transformation
+//! # Literature
+//!
+//! - **Goodman & Gilman (2018)** *The Pharmacological Basis of Therapeutics*,
+//!   13th ed., McGraw-Hill — canonical reference for receptor-ligand
+//!   pharmacology, ion-channel drugs (Kv openers/blockers, Na+/K+ blockers),
+//!   proton-pump inhibitors, and drug-target classification.
+//! - **Katzung (2018)** *Basic and Clinical Pharmacology*, 14th ed.,
+//!   McGraw-Hill — class definitions for ion-channel modulators, gap-junction
+//!   pharmacology, mechanosensitive-channel drugs, and prescription status.
+//! - **Kofman & Levin (2024)** "Bioelectric pharmacology of cancer", review
+//!   article — ion-channel drugs that reverse depolarised cancer Vmem.
+//! - **Levin (2023)** "Morphoceuticals: drugs targeting anatomical
+//!   outcomes" — drugs whose therapeutic endpoint is an anatomical
+//!   structure rather than a molecular pathway.
+//! - **Chernet & Levin (2013)** "Endogenous Voltage Potentials and the
+//!   Microenvironment: Bioelectric Signals that Reveal, Induce and Normalize
+//!   Cancer", *J. Clin. Exp. Oncol.* S1:002 — ivermectin (GlyR agonist) shifts
+//!   Vmem by +19.4 mV and suppresses oncogene-induced tumors.
+//! - **Adams & Levin (2013)** "Endogenous voltage gradients as mediators of
+//!   cell-cell communication: strategies for investigating bioelectrical
+//!   signals during pattern formation", *Cell Tissue Res.* 352(1):95–122 —
+//!   ion channel / pump cocktails for Vmem manipulation.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
-use pr4xis::ontology::reasoning::opposition;
-use pr4xis::ontology::reasoning::taxonomy;
+use pr4xis::category::{Arrow, Category};
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Pharmacology Entity
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Pharmacology",
+    source: "Goodman & Gilman (2018) The Pharmacological Basis of Therapeutics 13th ed.; Katzung (2018) Basic and Clinical Pharmacology 14th ed.; Kofman & Levin (2024); Levin (2023) Morphoceuticals; Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002; Adams & Levin (2013) Cell Tissue Res. 352(1):95-122",
 
-/// Every entity in the bioelectric pharmacology domain.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum PharmacologyEntity {
-    // Drug classes
-    IonChannelModulator,
-    GapJunctionModulator,
-    VoltageGatedBlocker,
-    VoltageGatedOpener,
-    MechanosensitiveModulator,
-    ProtonPumpInhibitor,
-    Morphoceutical,
+    concepts: [
+        // === Drug classes (Goodman & Gilman 2018 Ch. 14, 30; Katzung 2018) ===
+        IonChannelModulator,
+        GapJunctionModulator,
+        VoltageGatedBlocker,
+        VoltageGatedOpener,
+        MechanosensitiveModulator,
+        ProtonPumpInhibitor,
+        Morphoceutical,
 
-    // Specific agents
-    Ivermectin,    // GlyR agonist — Cl- influx → hyperpolarization (Levin)
-    Decamethonium, // Depolarizing neuromuscular blocker
-    Glibenclamide, // KATP blocker → depolarization
-    Minoxidil,     // KATP opener → hyperpolarization
-    Omeprazole,    // Proton pump inhibitor (acid suppression, not morphoceutical)
+        // === Specific agents (Goodman & Gilman 2018; Chernet & Levin 2013) ===
+        Ivermectin,
+        Decamethonium,
+        Glibenclamide,
+        Minoxidil,
+        Omeprazole,
 
-    // Targets
-    IonChannel,
-    GapJunction,
-    Transporter,
-    Receptor,
+        // === Molecular targets (Goodman & Gilman 2018 Ch. 3) ===
+        IonChannel,
+        GapJunction,
+        Transporter,
+        Receptor,
 
-    // Effects
-    Hyperpolarization,
-    Depolarization,
-    GapJunctionOpening,
-    GapJunctionClosing,
-    AntiInflammatory,
+        // === Bioelectric effects (Adams & Levin 2013; Chernet & Levin 2013) ===
+        Hyperpolarization,
+        Depolarization,
+        GapJunctionOpening,
+        GapJunctionClosing,
+        AntiInflammatory,
 
-    // Abstract categories
-    DrugClass,
-    Agent,
-    Target,
-    Effect,
+        // === Abstract umbrellas ===
+        DrugClass,
+        Agent,
+        Target,
+        Effect,
+        PharmacologyEvent,
+
+        // === Causal events (Adams & Levin 2013; Kofman & Levin 2024) ===
+        DrugAdministration,
+        TargetBinding,
+        ChannelStateChange,
+        IonFluxChange,
+        VmemShift,
+        DownstreamSignaling,
+        GJModulatorBinding,
+        GapJunctionStateChange,
+        BioelectricNetworkChange,
+        CollectiveReprogramming,
+    ],
+
+    labels: {
+        IonChannelModulator: ("en", "Ion channel modulator",
+            "Goodman & Gilman (2018) Ch. 14: drug class acting on voltage- or ligand-gated ion channels to alter membrane excitability."),
+        GapJunctionModulator: ("en", "Gap junction modulator",
+            "Levin (2023): drug class that opens or closes connexin gap-junction channels and thus alters intercellular bioelectric coupling."),
+        VoltageGatedBlocker: ("en", "Voltage-gated blocker",
+            "Goodman & Gilman (2018) Ch. 14: agent that occludes a voltage-gated ion channel and prevents ion flux."),
+        VoltageGatedOpener: ("en", "Voltage-gated opener",
+            "Goodman & Gilman (2018) Ch. 14: agent that holds a voltage-gated ion channel open and increases ion flux."),
+        MechanosensitiveModulator: ("en", "Mechanosensitive modulator",
+            "Katzung (2018): drug class acting on mechanosensitive ion channels (Piezo-family); also activatable by direct mechanical stimulation."),
+        ProtonPumpInhibitor: ("en", "Proton pump inhibitor",
+            "Goodman & Gilman (2018) Ch. 49: drug class that irreversibly inhibits H+/K+-ATPase on parietal cells (e.g. omeprazole)."),
+        Morphoceutical: ("en", "Morphoceutical",
+            "Levin (2023): drug whose therapeutic endpoint is a specific anatomical structure rather than a molecular pathway."),
+
+        Ivermectin: ("en", "Ivermectin",
+            "Goodman & Gilman (2018) Ch. 54: glycine-receptor (GlyR) and glutamate-gated chloride-channel agonist; Chernet & Levin (2013) used it to hyperpolarise tumor cells by +19.4 mV."),
+        Decamethonium: ("en", "Decamethonium",
+            "Goodman & Gilman (2018) Ch. 11: depolarising neuromuscular blocker acting on the nicotinic acetylcholine receptor (nAChR)."),
+        Glibenclamide: ("en", "Glibenclamide",
+            "Goodman & Gilman (2018) Ch. 47: sulfonylurea that blocks pancreatic-beta-cell K_ATP channels, depolarising the cell to trigger insulin release."),
+        Minoxidil: ("en", "Minoxidil",
+            "Goodman & Gilman (2018) Ch. 27: K_ATP-channel opener; hyperpolarises vascular smooth muscle and is used topically for hair regrowth."),
+        Omeprazole: ("en", "Omeprazole",
+            "Goodman & Gilman (2018) Ch. 49: irreversible H+/K+-ATPase inhibitor used for acid suppression; Vmem-neutral."),
+
+        IonChannel: ("en", "Ion channel",
+            "Goodman & Gilman (2018) Ch. 3: transmembrane protein forming a selective conductance pathway for one or more ion species."),
+        GapJunction: ("en", "Gap junction",
+            "Levin (2023): cluster of connexin channels coupling the cytoplasm of adjacent cells; permits ionic and small-molecule diffusion."),
+        Transporter: ("en", "Transporter",
+            "Goodman & Gilman (2018) Ch. 3: ATPase or carrier protein that moves substrates across the membrane against or down a gradient."),
+        Receptor: ("en", "Receptor",
+            "Goodman & Gilman (2018) Ch. 3: protein that binds a ligand and transduces the binding event into a cellular response."),
+
+        Hyperpolarization: ("en", "Hyperpolarization",
+            "Adams & Levin (2013): shift of Vmem to a more negative value, typically via K+ efflux or Cl- influx."),
+        Depolarization: ("en", "Depolarization",
+            "Adams & Levin (2013): shift of Vmem to a less negative value, typically via Na+ influx or K+ blockade."),
+        GapJunctionOpening: ("en", "Gap junction opening",
+            "Levin (2023): increase in connexin channel permeability, expanding the bioelectric network."),
+        GapJunctionClosing: ("en", "Gap junction closing",
+            "Levin (2023): decrease in connexin channel permeability, electrically isolating cells from the network."),
+        AntiInflammatory: ("en", "Anti-inflammatory effect",
+            "Goodman & Gilman (2018) Ch. 38: damping of inflammatory signalling cascades (cytokines, prostaglandins, immune-cell recruitment)."),
+
+        DrugClass: ("en", "Drug class",
+            "Goodman & Gilman (2018): grouping of agents that share a mechanism of action or therapeutic endpoint."),
+        Agent: ("en", "Agent",
+            "Goodman & Gilman (2018): a specific chemical entity administered as a drug."),
+        Target: ("en", "Target",
+            "Goodman & Gilman (2018) Ch. 3: molecular entity to which a drug binds to produce its effect."),
+        Effect: ("en", "Effect",
+            "Goodman & Gilman (2018): physiological consequence produced when a drug engages its target."),
+        PharmacologyEvent: ("en", "Pharmacology event",
+            "Adams & Levin (2013): umbrella for time-extended pharmacological processes (administration, binding, state change, ion flux, Vmem shift, signalling)."),
+
+        DrugAdministration: ("en", "Drug administration",
+            "Goodman & Gilman (2018) Ch. 1: delivery of a drug to the organism (oral, parenteral, topical, etc.)."),
+        TargetBinding: ("en", "Target binding",
+            "Goodman & Gilman (2018) Ch. 3: physical engagement of the drug with its molecular target."),
+        ChannelStateChange: ("en", "Channel state change",
+            "Goodman & Gilman (2018) Ch. 14: transition of an ion-channel target between open, closed, or inactivated conformations."),
+        IonFluxChange: ("en", "Ion flux change",
+            "Adams & Levin (2013): change in transmembrane ionic current following channel state change."),
+        VmemShift: ("en", "Vmem shift",
+            "Adams & Levin (2013): change in membrane potential resulting from net ion-flux change."),
+        DownstreamSignaling: ("en", "Downstream signaling",
+            "Goodman & Gilman (2018) Ch. 3: cascade of intracellular events triggered by Vmem shift or receptor activation."),
+        GJModulatorBinding: ("en", "Gap junction modulator binding",
+            "Levin (2023): engagement of a connexin channel by a GJ-modulating drug."),
+        GapJunctionStateChange: ("en", "Gap junction state change",
+            "Levin (2023): transition of a connexin channel between open and closed states."),
+        BioelectricNetworkChange: ("en", "Bioelectric network change",
+            "Kofman & Levin (2024): alteration of the GJ-coupled bioelectric circuit topology."),
+        CollectiveReprogramming: ("en", "Collective reprogramming",
+            "Kofman & Levin (2024): tissue-scale change in cell fate or anatomy driven by altered bioelectric network state."),
+    },
+
+    is_a: [
+        // Drug classes
+        (IonChannelModulator, DrugClass),
+        (GapJunctionModulator, DrugClass),
+        (VoltageGatedBlocker, DrugClass),
+        (VoltageGatedOpener, DrugClass),
+        (MechanosensitiveModulator, DrugClass),
+        (ProtonPumpInhibitor, DrugClass),
+        (Morphoceutical, DrugClass),
+
+        // Agents
+        (Ivermectin, Agent),
+        (Decamethonium, Agent),
+        (Glibenclamide, Agent),
+        (Minoxidil, Agent),
+        (Omeprazole, Agent),
+
+        // Agents within drug classes
+        (Ivermectin, IonChannelModulator),
+        (Decamethonium, IonChannelModulator),
+        (Glibenclamide, VoltageGatedBlocker),
+        (Minoxidil, VoltageGatedOpener),
+        (Omeprazole, ProtonPumpInhibitor),
+
+        // Targets
+        (IonChannel, Target),
+        (GapJunction, Target),
+        (Transporter, Target),
+        (Receptor, Target),
+
+        // Effects
+        (Hyperpolarization, Effect),
+        (Depolarization, Effect),
+        (GapJunctionOpening, Effect),
+        (GapJunctionClosing, Effect),
+        (AntiInflammatory, Effect),
+
+        // Events under the PharmacologyEvent umbrella
+        (DrugAdministration, PharmacologyEvent),
+        (TargetBinding, PharmacologyEvent),
+        (ChannelStateChange, PharmacologyEvent),
+        (IonFluxChange, PharmacologyEvent),
+        (VmemShift, PharmacologyEvent),
+        (DownstreamSignaling, PharmacologyEvent),
+        (GJModulatorBinding, PharmacologyEvent),
+        (GapJunctionStateChange, PharmacologyEvent),
+        (BioelectricNetworkChange, PharmacologyEvent),
+        (CollectiveReprogramming, PharmacologyEvent),
+    ],
+
+    causes: [
+        // Adams & Levin (2013): canonical bioelectric drug-action chain.
+        (DrugAdministration, TargetBinding),
+        (TargetBinding, ChannelStateChange),
+        (ChannelStateChange, IonFluxChange),
+        (IonFluxChange, VmemShift),
+        (VmemShift, DownstreamSignaling),
+        // Kofman & Levin (2024): gap-junction-modulator network effect.
+        (GJModulatorBinding, GapJunctionStateChange),
+        (GapJunctionStateChange, BioelectricNetworkChange),
+        (BioelectricNetworkChange, CollectiveReprogramming),
+    ],
+
+    opposes: [
+        // Hyperpolarization vs Depolarization — opposite Vmem effects
+        // (Adams & Levin 2013).
+        (Hyperpolarization, Depolarization),
+        (Depolarization, Hyperpolarization),
+        // GJ opening vs closing — opposite gap-junction modulations
+        // (Levin 2023).
+        (GapJunctionOpening, GapJunctionClosing),
+        (GapJunctionClosing, GapJunctionOpening),
+        // Blocker vs Opener — opposite drug-class actions on the same
+        // channel (Goodman & Gilman 2018 Ch. 14).
+        (VoltageGatedBlocker, VoltageGatedOpener),
+        (VoltageGatedOpener, VoltageGatedBlocker),
+    ],
 }
 
-// ---------------------------------------------------------------------------
-// Taxonomy (is-a)
-// ---------------------------------------------------------------------------
-
-// (Taxonomy, Causation, Opposition generated by define_ontology! below)
-
-// ---------------------------------------------------------------------------
-// Causal graph (PharmacologyEvent)
-// ---------------------------------------------------------------------------
-
-/// Causal events in bioelectric pharmacology.
-///
-/// Two causal chains:
-/// 1. Drug → target binding → channel state → ion flux → Vmem shift → signaling
-/// 2. GJ modulator → GJ state change → network change → collective reprogramming
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum PharmacologyEvent {
-    DrugAdministration,
-    TargetBinding,
-    ChannelStateChange,
-    IonFluxChange,
-    VmemShift,
-    DownstreamSignaling,
-    GJModulatorBinding,
-    GapJunctionStateChange,
-    BioelectricNetworkChange,
-    CollectiveReprogramming,
-}
-
-define_ontology! {
-    /// Pharmacology ontology: drugs, targets, bioelectric effects.
-    pub PharmacologyOntologyMeta for PharmacologyCategory {
-        entity: PharmacologyEntity,
-        relation: PharmacologyRelation,
-        being: Process,
-        source: "Kofman & Levin (2024); Adams & Levin (2013)",
-
-        taxonomy: PharmacologyTaxonomy [
-            (IonChannelModulator, DrugClass),
-            (GapJunctionModulator, DrugClass),
-            (VoltageGatedBlocker, DrugClass),
-            (VoltageGatedOpener, DrugClass),
-            (MechanosensitiveModulator, DrugClass),
-            (ProtonPumpInhibitor, DrugClass),
-            (Morphoceutical, DrugClass),
-            (Ivermectin, Agent),
-            (Decamethonium, Agent),
-            (Glibenclamide, Agent),
-            (Minoxidil, Agent),
-            (Omeprazole, Agent),
-            (Ivermectin, IonChannelModulator),
-            (Decamethonium, IonChannelModulator),
-            (Glibenclamide, VoltageGatedBlocker),
-            (Minoxidil, VoltageGatedOpener),
-            (Omeprazole, ProtonPumpInhibitor),
-            (IonChannel, Target),
-            (GapJunction, Target),
-            (Transporter, Target),
-            (Receptor, Target),
-            (Hyperpolarization, Effect),
-            (Depolarization, Effect),
-            (GapJunctionOpening, Effect),
-            (GapJunctionClosing, Effect),
-            (AntiInflammatory, Effect),
-        ],
-
-        causation: PharmacologyCauses for PharmacologyEvent [
-            (DrugAdministration, TargetBinding),
-            (TargetBinding, ChannelStateChange),
-            (ChannelStateChange, IonFluxChange),
-            (IonFluxChange, VmemShift),
-            (VmemShift, DownstreamSignaling),
-            (GJModulatorBinding, GapJunctionStateChange),
-            (GapJunctionStateChange, BioelectricNetworkChange),
-            (BioelectricNetworkChange, CollectiveReprogramming),
-        ],
-
-        opposition: PharmacologyOpposition [
-            (Hyperpolarization, Depolarization),
-            (GapJunctionOpening, GapJunctionClosing),
-            (VoltageGatedBlocker, VoltageGatedOpener),
-        ],
-    }
-}
+// Backward-compatibility re-exports for sibling crates / partner functors
+// that still reference the legacy `*Entity` / `*CategoryRelationKind` names.
+pub use PharmacologyConcept as PharmacologyEntity;
+pub use PharmacologyRelationKind as PharmacologyCategoryRelationKind;
 
 // ---------------------------------------------------------------------------
 // Qualities
 // ---------------------------------------------------------------------------
 
-/// Quality: what target does an agent act on?
+/// Quality: what target does a given agent (or drug class) act on?
+///
+/// Goodman & Gilman (2018) Ch. 3 — every drug has a primary molecular target.
 #[derive(Debug, Clone)]
 pub struct DrugTarget;
 
 impl Quality for DrugTarget {
-    type Individual = PharmacologyEntity;
-    type Value = PharmacologyEntity;
+    type Individual = PharmacologyConcept;
+    type Value = PharmacologyConcept;
 
-    fn get(&self, individual: &PharmacologyEntity) -> Option<PharmacologyEntity> {
-        use PharmacologyEntity::*;
+    fn get(&self, individual: &PharmacologyConcept) -> Option<PharmacologyConcept> {
+        use PharmacologyConcept::*;
         match individual {
             Ivermectin => Some(Receptor),      // GlyR (glycine receptor)
             Decamethonium => Some(Receptor),   // nAChR
-            Glibenclamide => Some(IonChannel), // KATP channel
-            Minoxidil => Some(IonChannel),     // KATP channel
+            Glibenclamide => Some(IonChannel), // K_ATP channel
+            Minoxidil => Some(IonChannel),     // K_ATP channel
             Omeprazole => Some(Transporter),   // H+/K+-ATPase
             _ => None,
         }
     }
 }
 
-/// Direction of Vmem effect.
+/// Direction of Vmem effect produced by an agent (Adams & Levin 2013).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum VmemDirection {
+    /// Vmem shifts to a more negative value (Adams & Levin 2013).
     Hyperpolarizing,
+    /// Vmem shifts to a less negative value (Adams & Levin 2013).
     Depolarizing,
+    /// Vmem is not perturbed by this agent.
     Neutral,
 }
 
-/// Quality: does this agent hyperpolarize, depolarize, or neither?
+/// Quality: direction of Vmem effect.
 #[derive(Debug, Clone)]
 pub struct VmemEffect;
 
 impl Quality for VmemEffect {
-    type Individual = PharmacologyEntity;
+    type Individual = PharmacologyConcept;
     type Value = VmemDirection;
 
-    fn get(&self, individual: &PharmacologyEntity) -> Option<VmemDirection> {
-        use PharmacologyEntity::*;
+    fn get(&self, individual: &PharmacologyConcept) -> Option<VmemDirection> {
+        use PharmacologyConcept::*;
         use VmemDirection::*;
         match individual {
-            // Ivermectin: GlyR agonist → Cl- influx → hyperpolarization
+            // Chernet & Levin (2013): ivermectin (GlyR agonist) hyperpolarises by +19.4 mV
             Ivermectin => Some(Hyperpolarizing),
-            // Minoxidil: KATP opener → K+ efflux → hyperpolarization
+            // Goodman & Gilman (2018) Ch. 27: minoxidil opens K_ATP -> K+ efflux -> hyperpolarisation
             Minoxidil => Some(Hyperpolarizing),
-            // Decamethonium: depolarizing blocker
+            // Goodman & Gilman (2018) Ch. 11: decamethonium is a depolarising NMJ blocker
             Decamethonium => Some(Depolarizing),
-            // Glibenclamide: KATP blocker → depolarization
+            // Goodman & Gilman (2018) Ch. 47: glibenclamide blocks K_ATP -> depolarisation
             Glibenclamide => Some(Depolarizing),
-            // Omeprazole: acid suppression, Vmem-neutral
+            // Goodman & Gilman (2018) Ch. 49: omeprazole inhibits H+/K+-ATPase, Vmem-neutral
             Omeprazole => Some(Neutral),
             _ => None,
         }
     }
 }
 
-/// Quality: is this drug a morphoceutical (targets anatomical outcomes, not
-/// just molecular pathways)?
+/// Quality: is this drug a morphoceutical (targets anatomical outcomes)?
 ///
-/// Levin 2023: morphoceuticals are drugs whose therapeutic endpoint is a
-/// specific anatomical structure, not merely a molecular target.
+/// Levin (2023) — morphoceuticals are drugs whose therapeutic endpoint is
+/// a specific anatomical structure, not merely a molecular target.
 #[derive(Debug, Clone)]
 pub struct IsMorphoceutical;
 
 impl Quality for IsMorphoceutical {
-    type Individual = PharmacologyEntity;
+    type Individual = PharmacologyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &PharmacologyEntity) -> Option<bool> {
-        use PharmacologyEntity::*;
+    fn get(&self, individual: &PharmacologyConcept) -> Option<bool> {
+        use PharmacologyConcept::*;
         match individual {
-            // Ivermectin used as morphoceutical in Levin's planaria/frog work
+            // Ivermectin and minoxidil used as morphoceuticals in Levin's regeneration work
             Ivermectin => Some(true),
             Minoxidil => Some(true),
-            // Omeprazole targets acid secretion, not anatomical outcome
+            // Omeprazole targets acid secretion, not anatomy
             Omeprazole => Some(false),
             Decamethonium => Some(false),
             Glibenclamide => Some(false),
@@ -238,15 +352,17 @@ impl Quality for IsMorphoceutical {
 }
 
 /// Quality: does this agent require a prescription?
+///
+/// Goodman & Gilman (2018) and Katzung (2018) — drug-scheduling status.
 #[derive(Debug, Clone)]
 pub struct RequiresPrescription;
 
 impl Quality for RequiresPrescription {
-    type Individual = PharmacologyEntity;
+    type Individual = PharmacologyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &PharmacologyEntity) -> Option<bool> {
-        use PharmacologyEntity::*;
+    fn get(&self, individual: &PharmacologyConcept) -> Option<bool> {
+        use PharmacologyConcept::*;
         match individual {
             Ivermectin => Some(true),
             Decamethonium => Some(true),
@@ -258,21 +374,21 @@ impl Quality for RequiresPrescription {
     }
 }
 
-/// Quality: can the drug's bioelectric effect be achieved without the drug,
-/// e.g., via mechanical stimulation or endogenous ion channel expression?
+/// Quality: can the bioelectric effect be achieved endogenously (without the drug)?
+///
+/// Mechanosensitive channels can be opened by vibration / pressure
+/// (Katzung 2018; Coste et al. 2010 Piezo1 discovery).
 #[derive(Debug, Clone)]
 pub struct IsEndogenouslyDerivable;
 
 impl Quality for IsEndogenouslyDerivable {
-    type Individual = PharmacologyEntity;
+    type Individual = PharmacologyConcept;
     type Value = bool;
 
-    fn get(&self, individual: &PharmacologyEntity) -> Option<bool> {
-        use PharmacologyEntity::*;
+    fn get(&self, individual: &PharmacologyConcept) -> Option<bool> {
+        use PharmacologyConcept::*;
         match individual {
-            // Mechanosensitive channels can be opened by vibration/pressure
             MechanosensitiveModulator => Some(true),
-            // Ion channel drugs — not achievable without exogenous agent
             IonChannelModulator => Some(false),
             VoltageGatedBlocker => Some(false),
             VoltageGatedOpener => Some(false),
@@ -284,183 +400,258 @@ impl Quality for IsEndogenouslyDerivable {
 }
 
 // ---------------------------------------------------------------------------
-// Opposition (semantic contrasts)
+// Ontology + domain axioms
 // ---------------------------------------------------------------------------
 
-// Opposition pairs in the pharmacology domain.
-//
-// - Hyperpolarization ↔ Depolarization: opposite Vmem effects
-// - GapJunctionOpening ↔ GapJunctionClosing: opposite GJ modulations
-// - VoltageGatedBlocker ↔ VoltageGatedOpener: opposite drug classes
+impl Ontology for PharmacologyOntology {
+    type Cat = PharmacologyCategory;
+    type Qual = IsMorphoceutical;
 
-/// Axiom: pharmacology opposition is symmetric.
-pub struct PharmacologyOppositionSymmetric;
-
-impl Axiom for PharmacologyOppositionSymmetric {
-    fn description(&self) -> &str {
-        "pharmacology opposition is symmetric"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Symmetric::<PharmacologyOpposition>::new().holds()
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(DrugAdministrationCausesVmemShift));
+        axioms.push(Box::new(GJModulatorCausesCollectiveReprogramming));
+        axioms.push(Box::new(IvermectinIsHyperpolarizing));
+        axioms.push(Box::new(OmeprazoleIsNotMorphoceutical));
+        axioms.push(Box::new(MorphoceuticalsTargetAnatomy));
+        axioms.push(Box::new(MechanosensitiveIsEndogenous));
+        axioms.push(Box::new(EveryAgentHasTarget));
+        axioms
     }
 }
-pr4xis::register_axiom!(PharmacologyOppositionSymmetric);
 
-/// Axiom: pharmacology opposition is irreflexive (nothing opposes itself).
-pub struct PharmacologyOppositionIrreflexive;
-
-impl Axiom for PharmacologyOppositionIrreflexive {
-    fn description(&self) -> &str {
-        "pharmacology opposition is irreflexive"
-    }
-
-    fn holds(&self) -> bool {
-        opposition::Irreflexive::<PharmacologyOpposition>::new().holds()
-    }
+/// Helper: does a `Causation` edge exist from `cause` to `effect`?
+fn causes(cause: PharmacologyConcept, effect: PharmacologyConcept) -> bool {
+    PharmacologyCategory::morphisms().iter().any(|m| {
+        m.kind() == PharmacologyRelationKind::Causation
+            && m.source() == cause
+            && m.target() == effect
+    })
 }
-pr4xis::register_axiom!(PharmacologyOppositionIrreflexive);
 
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
-/// Taxonomy is a DAG (no cycles).
-pub struct PharmacologyTaxonomyIsDAG;
-
-impl Axiom for PharmacologyTaxonomyIsDAG {
-    fn description(&self) -> &str {
-        "pharmacology taxonomy is a directed acyclic graph"
-    }
-
-    fn holds(&self) -> bool {
-        taxonomy::NoCycles::<PharmacologyTaxonomy>::new().holds()
-    }
+/// Helper: does a `Subsumption` edge exist from `child` to `parent`?
+fn is_a(child: PharmacologyConcept, parent: PharmacologyConcept) -> bool {
+    PharmacologyCategory::morphisms().iter().any(|m| {
+        m.kind() == PharmacologyRelationKind::Subsumption
+            && m.source() == child
+            && m.target() == parent
+    })
 }
-pr4xis::register_axiom!(PharmacologyTaxonomyIsDAG);
 
-/// Causal asymmetry: if A causes B then B does not cause A.
-pub struct PharmacologyCausalAsymmetry;
-
-impl Axiom for PharmacologyCausalAsymmetry {
-    fn description(&self) -> &str {
-        "pharmacology causal graph is asymmetric"
-    }
-
-    fn holds(&self) -> bool {
-        causation::Asymmetric::<PharmacologyCauses>::new().holds()
-    }
-}
-pr4xis::register_axiom!(PharmacologyCausalAsymmetry);
-
-/// Drug administration transitively causes VmemShift.
+/// Axiom: DrugAdministration transitively causes VmemShift.
 ///
-/// Chain: DrugAdministration → TargetBinding → ChannelStateChange →
-///        IonFluxChange → VmemShift
+/// Adams & Levin (2013) — the canonical bioelectric-drug chain:
+/// DrugAdministration → TargetBinding → ChannelStateChange →
+/// IonFluxChange → VmemShift.
 pub struct DrugAdministrationCausesVmemShift;
 
 impl Axiom for DrugAdministrationCausesVmemShift {
-    fn description(&self) -> &str {
-        "drug administration transitively causes Vmem shift"
+    fn verify(&self) -> Verdict {
+        // Walk the per-step causation chain (each edge is direct).
+        let steps = [
+            (
+                PharmacologyConcept::DrugAdministration,
+                PharmacologyConcept::TargetBinding,
+            ),
+            (
+                PharmacologyConcept::TargetBinding,
+                PharmacologyConcept::ChannelStateChange,
+            ),
+            (
+                PharmacologyConcept::ChannelStateChange,
+                PharmacologyConcept::IonFluxChange,
+            ),
+            (
+                PharmacologyConcept::IonFluxChange,
+                PharmacologyConcept::VmemShift,
+            ),
+        ];
+        if steps.iter().all(|(c, e)| causes(*c, *e)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        use PharmacologyEvent::*;
-        let effects = causation::effects_of::<PharmacologyCauses>(&DrugAdministration);
-        effects.contains(&VmemShift)
-    }
+    pr4xis::axiom_meta!(
+        "DrugAdministrationCausesVmemShift",
+        "Drug administration transitively causes Vmem shift via the binding → channel-state → ion-flux chain",
+        "Adams & Levin (2013) Cell Tissue Res. 352(1):95-122"
+    );
 }
-pr4xis::register_axiom!(DrugAdministrationCausesVmemShift);
 
-/// GJ modulator binding causes collective reprogramming (Levin's network effect).
+pr4xis::register_axiom!(
+    DrugAdministrationCausesVmemShift,
+    "Adams & Levin (2013) Cell Tissue Res. 352(1):95-122"
+);
+
+/// Axiom: GJ modulator binding transitively causes collective reprogramming.
 ///
-/// Chain: GJModulatorBinding → GapJunctionStateChange →
-///        BioelectricNetworkChange → CollectiveReprogramming
+/// Kofman & Levin (2024) — the network-effect chain:
+/// GJModulatorBinding → GapJunctionStateChange →
+/// BioelectricNetworkChange → CollectiveReprogramming.
 pub struct GJModulatorCausesCollectiveReprogramming;
 
 impl Axiom for GJModulatorCausesCollectiveReprogramming {
-    fn description(&self) -> &str {
-        "gap junction modulator causes collective reprogramming (Levin network effect)"
+    fn verify(&self) -> Verdict {
+        let steps = [
+            (
+                PharmacologyConcept::GJModulatorBinding,
+                PharmacologyConcept::GapJunctionStateChange,
+            ),
+            (
+                PharmacologyConcept::GapJunctionStateChange,
+                PharmacologyConcept::BioelectricNetworkChange,
+            ),
+            (
+                PharmacologyConcept::BioelectricNetworkChange,
+                PharmacologyConcept::CollectiveReprogramming,
+            ),
+        ];
+        if steps.iter().all(|(c, e)| causes(*c, *e)) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        use PharmacologyEvent::*;
-        let effects = causation::effects_of::<PharmacologyCauses>(&GJModulatorBinding);
-        effects.contains(&CollectiveReprogramming)
-    }
+    pr4xis::axiom_meta!(
+        "GJModulatorCausesCollectiveReprogramming",
+        "Gap-junction modulator binding transitively causes collective tissue reprogramming",
+        "Kofman & Levin (2024) Bioelectric pharmacology of cancer"
+    );
 }
-pr4xis::register_axiom!(GJModulatorCausesCollectiveReprogramming);
 
-/// Ivermectin is hyperpolarizing (GlyR agonist → Cl- influx).
+pr4xis::register_axiom!(
+    GJModulatorCausesCollectiveReprogramming,
+    "Kofman & Levin (2024) Bioelectric pharmacology of cancer"
+);
+
+/// Axiom: Ivermectin is hyperpolarising.
+///
+/// Chernet & Levin (2013) — ivermectin (GlyR agonist) hyperpolarised tumor
+/// cells by +19.4 mV and suppressed oncogene-induced tumors.
 pub struct IvermectinIsHyperpolarizing;
 
 impl Axiom for IvermectinIsHyperpolarizing {
-    fn description(&self) -> &str {
-        "ivermectin is hyperpolarizing (GlyR agonist, Cl- influx)"
+    fn verify(&self) -> Verdict {
+        if VmemEffect.get(&PharmacologyConcept::Ivermectin) == Some(VmemDirection::Hyperpolarizing)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        VmemEffect.get(&PharmacologyEntity::Ivermectin) == Some(VmemDirection::Hyperpolarizing)
-    }
+    pr4xis::axiom_meta!(
+        "IvermectinIsHyperpolarizing",
+        "Ivermectin (GlyR agonist) produces a hyperpolarising Vmem shift via Cl- influx",
+        "Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002"
+    );
 }
-pr4xis::register_axiom!(IvermectinIsHyperpolarizing);
 
-/// Omeprazole is NOT a morphoceutical — it targets acid secretion, not anatomy.
+pr4xis::register_axiom!(
+    IvermectinIsHyperpolarizing,
+    "Chernet & Levin (2013) J. Clin. Exp. Oncol. S1:002"
+);
+
+/// Axiom: Omeprazole is not a morphoceutical.
+///
+/// Goodman & Gilman (2018) Ch. 49 — omeprazole targets acid secretion via
+/// H+/K+-ATPase; its therapeutic endpoint is biochemical, not anatomical.
 pub struct OmeprazoleIsNotMorphoceutical;
 
 impl Axiom for OmeprazoleIsNotMorphoceutical {
-    fn description(&self) -> &str {
-        "omeprazole is not a morphoceutical (targets acid, not anatomy)"
+    fn verify(&self) -> Verdict {
+        if IsMorphoceutical.get(&PharmacologyConcept::Omeprazole) == Some(false) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        IsMorphoceutical.get(&PharmacologyEntity::Omeprazole) == Some(false)
-    }
+    pr4xis::axiom_meta!(
+        "OmeprazoleIsNotMorphoceutical",
+        "Omeprazole targets acid secretion (H+/K+-ATPase), not an anatomical outcome",
+        "Goodman & Gilman (2018) The Pharmacological Basis of Therapeutics 13th ed. Ch. 49"
+    );
 }
-pr4xis::register_axiom!(OmeprazoleIsNotMorphoceutical);
 
-/// Morphoceuticals target anatomical outcomes: the Morphoceutical class itself
-/// has IsMorphoceutical = true, and it is a subset of DrugClass.
+pr4xis::register_axiom!(
+    OmeprazoleIsNotMorphoceutical,
+    "Goodman & Gilman (2018) The Pharmacological Basis of Therapeutics 13th ed. Ch. 49"
+);
+
+/// Axiom: Morphoceuticals target anatomical outcomes and are a DrugClass.
+///
+/// Levin (2023) — the Morphoceutical class is itself a morphoceutical and
+/// it is subsumed under DrugClass in the taxonomy.
 pub struct MorphoceuticalsTargetAnatomy;
 
 impl Axiom for MorphoceuticalsTargetAnatomy {
-    fn description(&self) -> &str {
-        "morphoceuticals target anatomical outcomes (subset of drugs, Levin 2023)"
+    fn verify(&self) -> Verdict {
+        let is_morpho = IsMorphoceutical.get(&PharmacologyConcept::Morphoceutical) == Some(true);
+        let is_drug_class = is_a(
+            PharmacologyConcept::Morphoceutical,
+            PharmacologyConcept::DrugClass,
+        );
+        if is_morpho && is_drug_class {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        use PharmacologyEntity::*;
-        IsMorphoceutical.get(&Morphoceutical) == Some(true)
-            && taxonomy::is_a::<PharmacologyTaxonomy>(&Morphoceutical, &DrugClass)
-    }
+    pr4xis::axiom_meta!(
+        "MorphoceuticalsTargetAnatomy",
+        "Morphoceuticals target anatomical outcomes and form a drug class",
+        "Levin (2023) Morphoceuticals: drugs targeting anatomical outcomes"
+    );
 }
-pr4xis::register_axiom!(MorphoceuticalsTargetAnatomy);
 
-/// MechanosensitiveModulator IS endogenously derivable — vibration/pressure
-/// can activate mechanosensitive channels without drugs.
+pr4xis::register_axiom!(
+    MorphoceuticalsTargetAnatomy,
+    "Levin (2023) Morphoceuticals: drugs targeting anatomical outcomes"
+);
+
+/// Axiom: MechanosensitiveModulator is endogenously derivable.
+///
+/// Katzung (2018) — mechanosensitive ion channels (Piezo family) can be
+/// activated by direct mechanical stimulation (vibration, pressure) without
+/// any pharmacological agent.
 pub struct MechanosensitiveIsEndogenous;
 
 impl Axiom for MechanosensitiveIsEndogenous {
-    fn description(&self) -> &str {
-        "mechanosensitive modulator is endogenously derivable (vibration suffices)"
+    fn verify(&self) -> Verdict {
+        if IsEndogenouslyDerivable.get(&PharmacologyConcept::MechanosensitiveModulator)
+            == Some(true)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
 
-    fn holds(&self) -> bool {
-        IsEndogenouslyDerivable.get(&PharmacologyEntity::MechanosensitiveModulator) == Some(true)
-    }
+    pr4xis::axiom_meta!(
+        "MechanosensitiveIsEndogenous",
+        "Mechanosensitive-channel modulation can be achieved endogenously by mechanical stimulation",
+        "Katzung (2018) Basic and Clinical Pharmacology 14th ed."
+    );
 }
-pr4xis::register_axiom!(MechanosensitiveIsEndogenous);
 
-/// Every agent has a target (DrugTarget quality is defined for all agents).
+pr4xis::register_axiom!(
+    MechanosensitiveIsEndogenous,
+    "Katzung (2018) Basic and Clinical Pharmacology 14th ed."
+);
+
+/// Axiom: every named agent has a defined molecular target.
+///
+/// Goodman & Gilman (2018) Ch. 3 — pharmacological drug-target principle.
 pub struct EveryAgentHasTarget;
 
 impl Axiom for EveryAgentHasTarget {
-    fn description(&self) -> &str {
-        "every agent has a drug target"
-    }
-
-    fn holds(&self) -> bool {
-        use PharmacologyEntity::*;
+    fn verify(&self) -> Verdict {
+        use PharmacologyConcept::*;
         let agents = [
             Ivermectin,
             Decamethonium,
@@ -468,38 +659,24 @@ impl Axiom for EveryAgentHasTarget {
             Minoxidil,
             Omeprazole,
         ];
-        agents.iter().all(|a| DrugTarget.get(a).is_some())
+        if agents.iter().all(|a| DrugTarget.get(a).is_some()) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "EveryAgentHasTarget",
+        "Every pharmacological agent has a defined molecular target",
+        "Goodman & Gilman (2018) The Pharmacological Basis of Therapeutics 13th ed. Ch. 3"
+    );
 }
-pr4xis::register_axiom!(EveryAgentHasTarget);
 
-// ---------------------------------------------------------------------------
-// Ontology
-// ---------------------------------------------------------------------------
-
-/// Top-level ontology tying together the pharmacology category, qualities, and axioms.
-pub struct PharmacologyOntology;
-
-impl Ontology for PharmacologyOntology {
-    type Cat = PharmacologyCategory;
-    type Qual = IsMorphoceutical;
-
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        PharmacologyOntologyMeta::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(DrugAdministrationCausesVmemShift),
-            Box::new(GJModulatorCausesCollectiveReprogramming),
-            Box::new(IvermectinIsHyperpolarizing),
-            Box::new(OmeprazoleIsNotMorphoceutical),
-            Box::new(MorphoceuticalsTargetAnatomy),
-            Box::new(MechanosensitiveIsEndogenous),
-            Box::new(EveryAgentHasTarget),
-        ]
-    }
-}
+pr4xis::register_axiom!(
+    EveryAgentHasTarget,
+    "Goodman & Gilman (2018) The Pharmacological Basis of Therapeutics 13th ed. Ch. 3"
+);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -508,194 +685,76 @@ impl Ontology for PharmacologyOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
-
-    // -- Entity count --
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
+    use proptest::prelude::*;
 
     #[test]
-    fn test_entity_count() {
-        assert_eq!(PharmacologyEntity::variants().len(), 25);
+    fn category_laws() {
+        assert_category_laws::<PharmacologyCategory>();
     }
 
     #[test]
-    fn test_event_count() {
-        assert_eq!(PharmacologyEvent::variants().len(), 10);
-    }
-
-    // -- Axiom tests --
-
-    #[test]
-    fn test_taxonomy_is_dag() {
-        assert!(
-            PharmacologyTaxonomyIsDAG.holds(),
-            "{}",
-            PharmacologyTaxonomyIsDAG.description()
-        );
+    fn ontology_validates() {
+        PharmacologyOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
-    fn test_causal_asymmetry() {
-        assert!(
-            PharmacologyCausalAsymmetry.holds(),
-            "{}",
-            PharmacologyCausalAsymmetry.description()
-        );
+    fn concept_count() {
+        // 7 drug classes + 5 agents + 4 targets + 5 effects
+        // + 5 abstract umbrellas (DrugClass, Agent, Target, Effect, PharmacologyEvent)
+        // + 10 events = 36.
+        assert_eq!(PharmacologyConcept::variants().len(), 36);
+    }
+
+    // -- Domain axiom tests --
+
+    #[test]
+    fn drug_administration_causes_vmem_shift_axiom() {
+        assert!(DrugAdministrationCausesVmemShift.verify().is_ok());
     }
 
     #[test]
-    fn test_drug_administration_causes_vmem_shift() {
-        assert!(
-            DrugAdministrationCausesVmemShift.holds(),
-            "{}",
-            DrugAdministrationCausesVmemShift.description()
-        );
+    fn gj_modulator_causes_collective_reprogramming_axiom() {
+        assert!(GJModulatorCausesCollectiveReprogramming.verify().is_ok());
     }
 
     #[test]
-    fn test_gj_modulator_causes_collective_reprogramming() {
-        assert!(
-            GJModulatorCausesCollectiveReprogramming.holds(),
-            "{}",
-            GJModulatorCausesCollectiveReprogramming.description()
-        );
+    fn ivermectin_is_hyperpolarizing_axiom() {
+        assert!(IvermectinIsHyperpolarizing.verify().is_ok());
     }
 
     #[test]
-    fn test_ivermectin_is_hyperpolarizing() {
-        assert!(
-            IvermectinIsHyperpolarizing.holds(),
-            "{}",
-            IvermectinIsHyperpolarizing.description()
-        );
+    fn omeprazole_is_not_morphoceutical_axiom() {
+        assert!(OmeprazoleIsNotMorphoceutical.verify().is_ok());
     }
 
     #[test]
-    fn test_omeprazole_is_not_morphoceutical() {
-        assert!(
-            OmeprazoleIsNotMorphoceutical.holds(),
-            "{}",
-            OmeprazoleIsNotMorphoceutical.description()
-        );
+    fn morphoceuticals_target_anatomy_axiom() {
+        assert!(MorphoceuticalsTargetAnatomy.verify().is_ok());
     }
 
     #[test]
-    fn test_morphoceuticals_target_anatomy() {
-        assert!(
-            MorphoceuticalsTargetAnatomy.holds(),
-            "{}",
-            MorphoceuticalsTargetAnatomy.description()
-        );
+    fn mechanosensitive_is_endogenous_axiom() {
+        assert!(MechanosensitiveIsEndogenous.verify().is_ok());
     }
 
     #[test]
-    fn test_mechanosensitive_is_endogenous() {
-        assert!(
-            MechanosensitiveIsEndogenous.holds(),
-            "{}",
-            MechanosensitiveIsEndogenous.description()
-        );
+    fn every_agent_has_target_axiom() {
+        assert!(EveryAgentHasTarget.verify().is_ok());
     }
 
-    #[test]
-    fn test_every_agent_has_target() {
-        assert!(
-            EveryAgentHasTarget.holds(),
-            "{}",
-            EveryAgentHasTarget.description()
-        );
-    }
-
-    // -- Opposition tests --
+    // -- Subsumption-kind tests --
 
     #[test]
-    fn test_pharmacology_opposition_symmetric() {
-        assert!(
-            PharmacologyOppositionSymmetric.holds(),
-            "{}",
-            PharmacologyOppositionSymmetric.description()
-        );
-    }
-
-    #[test]
-    fn test_pharmacology_opposition_irreflexive() {
-        assert!(
-            PharmacologyOppositionIrreflexive.holds(),
-            "{}",
-            PharmacologyOppositionIrreflexive.description()
-        );
-    }
-
-    #[test]
-    fn test_hyperpolarization_opposes_depolarization() {
-        use PharmacologyEntity::*;
-        assert!(opposition::are_opposed::<PharmacologyOpposition>(
-            &Hyperpolarization,
-            &Depolarization
-        ));
-        assert!(opposition::are_opposed::<PharmacologyOpposition>(
-            &Depolarization,
-            &Hyperpolarization
-        ));
-    }
-
-    #[test]
-    fn test_gj_opening_opposes_gj_closing() {
-        use PharmacologyEntity::*;
-        assert!(opposition::are_opposed::<PharmacologyOpposition>(
-            &GapJunctionOpening,
-            &GapJunctionClosing
-        ));
-    }
-
-    #[test]
-    fn test_blocker_opposes_opener() {
-        use PharmacologyEntity::*;
-        assert!(opposition::are_opposed::<PharmacologyOpposition>(
-            &VoltageGatedBlocker,
-            &VoltageGatedOpener
-        ));
-    }
-
-    #[test]
-    fn test_hyperpolarization_does_not_oppose_gj_opening() {
-        use PharmacologyEntity::*;
-        assert!(!opposition::are_opposed::<PharmacologyOpposition>(
-            &Hyperpolarization,
-            &GapJunctionOpening
-        ));
-    }
-
-    #[test]
-    fn test_pharmacology_opposites_query() {
-        use PharmacologyEntity::*;
-        let opps = opposition::opposites::<PharmacologyOpposition>(&Hyperpolarization);
-        assert_eq!(opps, vec![Depolarization]);
-    }
-
-    // -- Category law tests --
-
-    #[test]
-    fn test_pharmacology_category_laws() {
-        check_category_laws::<PharmacologyCategory>().unwrap();
-    }
-
-    #[test]
-    fn test_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<PharmacologyTaxonomy>>().unwrap();
-    }
-
-    #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<PharmacologyCauses>>().unwrap();
-    }
-
-    // -- Taxonomy tests --
-
-    #[test]
-    fn test_agents_are_agents() {
-        use PharmacologyEntity::*;
+    fn agents_subsume_under_agent_umbrella() {
+        use PharmacologyConcept::*;
+        let subs: Vec<_> = PharmacologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == PharmacologyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
         for agent in [
             Ivermectin,
             Decamethonium,
@@ -704,17 +763,22 @@ mod tests {
             Omeprazole,
         ] {
             assert!(
-                taxonomy::is_a::<PharmacologyTaxonomy>(&agent, &Agent),
-                "{:?} should be an Agent",
+                subs.contains(&(agent, Agent)),
+                "{:?} should subsume under Agent",
                 agent
             );
         }
     }
 
     #[test]
-    fn test_drug_classes_are_drug_classes() {
-        use PharmacologyEntity::*;
-        for class in [
+    fn drug_classes_subsume_under_drug_class_umbrella() {
+        use PharmacologyConcept::*;
+        let subs: Vec<_> = PharmacologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == PharmacologyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        for cls in [
             IonChannelModulator,
             GapJunctionModulator,
             VoltageGatedBlocker,
@@ -724,219 +788,272 @@ mod tests {
             Morphoceutical,
         ] {
             assert!(
-                taxonomy::is_a::<PharmacologyTaxonomy>(&class, &DrugClass),
-                "{:?} should be a DrugClass",
-                class
+                subs.contains(&(cls, DrugClass)),
+                "{:?} should subsume under DrugClass",
+                cls
             );
         }
     }
 
     #[test]
-    fn test_ivermectin_is_ion_channel_modulator() {
-        use PharmacologyEntity::*;
-        assert!(taxonomy::is_a::<PharmacologyTaxonomy>(
-            &Ivermectin,
-            &IonChannelModulator
-        ));
-    }
-
-    #[test]
-    fn test_omeprazole_is_proton_pump_inhibitor() {
-        use PharmacologyEntity::*;
-        assert!(taxonomy::is_a::<PharmacologyTaxonomy>(
-            &Omeprazole,
-            &ProtonPumpInhibitor
-        ));
-    }
-
-    #[test]
-    fn test_ivermectin_transitively_is_drug_class() {
-        use PharmacologyEntity::*;
-        // Ivermectin → IonChannelModulator → DrugClass
-        assert!(taxonomy::is_a::<PharmacologyTaxonomy>(
-            &Ivermectin,
-            &DrugClass
-        ));
-    }
-
-    #[test]
-    fn test_targets_are_targets() {
-        use PharmacologyEntity::*;
-        for target in [IonChannel, GapJunction, Transporter, Receptor] {
-            assert!(
-                taxonomy::is_a::<PharmacologyTaxonomy>(&target, &Target),
-                "{:?} should be a Target",
-                target
-            );
-        }
-    }
-
-    #[test]
-    fn test_effects_are_effects() {
-        use PharmacologyEntity::*;
-        for effect in [
-            Hyperpolarization,
-            Depolarization,
-            GapJunctionOpening,
-            GapJunctionClosing,
-            AntiInflammatory,
+    fn events_subsume_under_pharmacology_event() {
+        use PharmacologyConcept::*;
+        let subs: Vec<_> = PharmacologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == PharmacologyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        for ev in [
+            DrugAdministration,
+            TargetBinding,
+            ChannelStateChange,
+            IonFluxChange,
+            VmemShift,
+            DownstreamSignaling,
+            GJModulatorBinding,
+            GapJunctionStateChange,
+            BioelectricNetworkChange,
+            CollectiveReprogramming,
         ] {
             assert!(
-                taxonomy::is_a::<PharmacologyTaxonomy>(&effect, &Effect),
-                "{:?} should be an Effect",
-                effect
+                subs.contains(&(ev, PharmacologyEvent)),
+                "{:?} should subsume under PharmacologyEvent",
+                ev
             );
         }
     }
 
-    // -- Causal chain tests --
+    // -- Causation-kind tests --
 
     #[test]
-    fn test_drug_administration_full_chain() {
-        use PharmacologyEvent::*;
-        let effects = causation::effects_of::<PharmacologyCauses>(&DrugAdministration);
-        assert!(effects.contains(&TargetBinding));
-        assert!(effects.contains(&ChannelStateChange));
-        assert!(effects.contains(&IonFluxChange));
-        assert!(effects.contains(&VmemShift));
-        assert!(effects.contains(&DownstreamSignaling));
+    fn drug_administration_directly_causes_target_binding() {
+        assert!(causes(
+            PharmacologyConcept::DrugAdministration,
+            PharmacologyConcept::TargetBinding
+        ));
     }
 
     #[test]
-    fn test_gj_modulator_full_chain() {
-        use PharmacologyEvent::*;
-        let effects = causation::effects_of::<PharmacologyCauses>(&GJModulatorBinding);
-        assert!(effects.contains(&GapJunctionStateChange));
-        assert!(effects.contains(&BioelectricNetworkChange));
-        assert!(effects.contains(&CollectiveReprogramming));
+    fn ion_flux_change_causes_vmem_shift() {
+        assert!(causes(
+            PharmacologyConcept::IonFluxChange,
+            PharmacologyConcept::VmemShift
+        ));
     }
 
     #[test]
-    fn test_vmem_shift_does_not_cause_drug_administration() {
-        use PharmacologyEvent::*;
-        let effects = causation::effects_of::<PharmacologyCauses>(&VmemShift);
-        assert!(!effects.contains(&DrugAdministration));
+    fn gj_modulator_binding_causes_state_change() {
+        assert!(causes(
+            PharmacologyConcept::GJModulatorBinding,
+            PharmacologyConcept::GapJunctionStateChange
+        ));
+    }
+
+    #[test]
+    fn vmem_shift_does_not_cause_drug_administration() {
+        assert!(!causes(
+            PharmacologyConcept::VmemShift,
+            PharmacologyConcept::DrugAdministration
+        ));
+    }
+
+    // -- Opposition-kind tests --
+
+    #[test]
+    fn hyperpolarization_and_depolarization_oppose() {
+        let opps: Vec<_> = PharmacologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == PharmacologyRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opps.contains(&(
+            PharmacologyConcept::Hyperpolarization,
+            PharmacologyConcept::Depolarization
+        )));
+        assert!(opps.contains(&(
+            PharmacologyConcept::Depolarization,
+            PharmacologyConcept::Hyperpolarization
+        )));
+    }
+
+    #[test]
+    fn gj_opening_and_closing_oppose() {
+        let opps: Vec<_> = PharmacologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == PharmacologyRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opps.contains(&(
+            PharmacologyConcept::GapJunctionOpening,
+            PharmacologyConcept::GapJunctionClosing
+        )));
+    }
+
+    #[test]
+    fn blocker_and_opener_oppose() {
+        let opps: Vec<_> = PharmacologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == PharmacologyRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opps.contains(&(
+            PharmacologyConcept::VoltageGatedBlocker,
+            PharmacologyConcept::VoltageGatedOpener
+        )));
+    }
+
+    #[test]
+    fn hyperpolarization_does_not_oppose_gj_opening() {
+        let opps: Vec<_> = PharmacologyCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == PharmacologyRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(!opps.contains(&(
+            PharmacologyConcept::Hyperpolarization,
+            PharmacologyConcept::GapJunctionOpening
+        )));
     }
 
     // -- Quality tests --
 
     #[test]
-    fn test_glibenclamide_is_depolarizing() {
+    fn ivermectin_targets_receptor() {
         assert_eq!(
-            VmemEffect.get(&PharmacologyEntity::Glibenclamide),
+            DrugTarget.get(&PharmacologyConcept::Ivermectin),
+            Some(PharmacologyConcept::Receptor)
+        );
+    }
+
+    #[test]
+    fn omeprazole_targets_transporter() {
+        assert_eq!(
+            DrugTarget.get(&PharmacologyConcept::Omeprazole),
+            Some(PharmacologyConcept::Transporter)
+        );
+    }
+
+    #[test]
+    fn glibenclamide_is_depolarizing() {
+        assert_eq!(
+            VmemEffect.get(&PharmacologyConcept::Glibenclamide),
             Some(VmemDirection::Depolarizing)
         );
     }
 
     #[test]
-    fn test_minoxidil_is_hyperpolarizing() {
+    fn minoxidil_is_hyperpolarizing() {
         assert_eq!(
-            VmemEffect.get(&PharmacologyEntity::Minoxidil),
+            VmemEffect.get(&PharmacologyConcept::Minoxidil),
             Some(VmemDirection::Hyperpolarizing)
         );
     }
 
     #[test]
-    fn test_omeprazole_is_vmem_neutral() {
+    fn omeprazole_is_vmem_neutral() {
         assert_eq!(
-            VmemEffect.get(&PharmacologyEntity::Omeprazole),
+            VmemEffect.get(&PharmacologyConcept::Omeprazole),
             Some(VmemDirection::Neutral)
         );
     }
 
     #[test]
-    fn test_omeprazole_targets_transporter() {
+    fn minoxidil_is_otc() {
         assert_eq!(
-            DrugTarget.get(&PharmacologyEntity::Omeprazole),
-            Some(PharmacologyEntity::Transporter)
-        );
-    }
-
-    #[test]
-    fn test_minoxidil_is_otc() {
-        assert_eq!(
-            RequiresPrescription.get(&PharmacologyEntity::Minoxidil),
+            RequiresPrescription.get(&PharmacologyConcept::Minoxidil),
             Some(false)
         );
     }
 
     #[test]
-    fn test_ontology_validates() {
-        PharmacologyOntology::validate().unwrap();
+    fn ivermectin_requires_prescription() {
+        assert_eq!(
+            RequiresPrescription.get(&PharmacologyConcept::Ivermectin),
+            Some(true)
+        );
     }
 
-    // -- Property-based tests (proptest) --
+    #[test]
+    fn morphoceutical_class_is_morphoceutical() {
+        assert_eq!(
+            IsMorphoceutical.get(&PharmacologyConcept::Morphoceutical),
+            Some(true)
+        );
+    }
 
-    use proptest::prelude::*;
+    // -- Proptests --
 
-    fn arb_pharmacology_entity() -> impl Strategy<Value = PharmacologyEntity> {
-        (0..PharmacologyEntity::variants().len()).prop_map(|i| PharmacologyEntity::variants()[i])
+    fn arb_concept() -> impl Strategy<Value = PharmacologyConcept> {
+        proptest::sample::select(PharmacologyConcept::variants())
     }
 
     proptest! {
-        /// For any PharmacologyEntity that is an Agent, DrugTarget always returns Some
-        /// (every drug has a target).
         #[test]
-        fn prop_agent_has_drug_target(entity in arb_pharmacology_entity()) {
-            if taxonomy::is_a::<PharmacologyTaxonomy>(
-                &entity,
-                &PharmacologyEntity::Agent,
-            ) && entity != PharmacologyEntity::Agent
-            {
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in PharmacologyCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in PharmacologyOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(
+                        false,
+                        "axiom failed: {}",
+                        c.meta().name.as_str()
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn prop_subsumption_targets_valid(_seed in any::<u32>()) {
+            let variants: Vec<_> = PharmacologyConcept::variants();
+            for m in PharmacologyCategory::morphisms() {
+                if m.kind() == PharmacologyRelationKind::Subsumption {
+                    prop_assert!(variants.contains(&m.source()));
+                    prop_assert!(variants.contains(&m.target()));
+                }
+            }
+        }
+
+        #[test]
+        fn prop_opposition_is_symmetric(_seed in any::<u32>()) {
+            let opposed: std::collections::HashSet<_> = PharmacologyCategory::morphisms()
+                .iter()
+                .filter(|m| m.kind() == PharmacologyRelationKind::Opposition)
+                .map(|m| (m.source(), m.target()))
+                .collect();
+            for (a, b) in opposed.iter() {
                 prop_assert!(
-                    DrugTarget.get(&entity).is_some(),
-                    "Agent {:?} must have a DrugTarget defined",
-                    entity
+                    opposed.contains(&(*b, *a)),
+                    "opposition not symmetric: {:?} -> {:?} but not back",
+                    a,
+                    b
                 );
             }
         }
-    }
 
-    // -- Literature axioms --
-
-    /// Kofman & Levin 2024: systematic review found ion channel drugs affect
-    /// cancer phenotype. Every IonChannelModulator is a DrugClass.
-    #[test]
-    fn test_literature_kofman_levin_2024_ion_channel_drugs() {
-        use PharmacologyEntity::*;
-        // IonChannelModulator is-a DrugClass
-        assert!(
-            taxonomy::is_a::<PharmacologyTaxonomy>(&IonChannelModulator, &DrugClass),
-            "Kofman & Levin 2024: IonChannelModulator must be a DrugClass"
-        );
-        // All agents that are IonChannelModulators are also transitively DrugClass
-        let agents = [Ivermectin, Decamethonium];
-        for agent in agents {
-            assert!(
-                taxonomy::is_a::<PharmacologyTaxonomy>(&agent, &IonChannelModulator),
-                "Kofman & Levin 2024: {:?} must be an IonChannelModulator",
-                agent
-            );
-            assert!(
-                taxonomy::is_a::<PharmacologyTaxonomy>(&agent, &DrugClass),
-                "Kofman & Levin 2024: {:?} must transitively be a DrugClass \
-                 (ion channel drugs affect cancer phenotype)",
-                agent
-            );
+        /// Every agent has a defined DrugTarget.
+        #[test]
+        fn prop_agents_have_drug_target(c in arb_concept()) {
+            // Agents are direct subsumers of `Agent` in the taxonomy.
+            let subs: Vec<_> = PharmacologyCategory::morphisms()
+                .iter()
+                .filter(|m| m.kind() == PharmacologyRelationKind::Subsumption)
+                .map(|m| (m.source(), m.target()))
+                .collect();
+            let is_agent =
+                subs.contains(&(c, PharmacologyConcept::Agent)) && c != PharmacologyConcept::Agent;
+            if is_agent {
+                prop_assert!(
+                    DrugTarget.get(&c).is_some(),
+                    "Agent {:?} must have a DrugTarget defined",
+                    c
+                );
+            }
         }
-    }
-
-    /// Chernet & Levin 2013: ivermectin (GlyR agonist) hyperpolarized cells by
-    /// +19.4 mV, suppressing oncogene-induced tumors. Ivermectin is hyperpolarizing.
-    #[test]
-    fn test_literature_chernet_levin_2013_ivermectin_hyperpolarizing() {
-        use PharmacologyEntity::*;
-        assert_eq!(
-            VmemEffect.get(&Ivermectin),
-            Some(VmemDirection::Hyperpolarizing),
-            "Chernet & Levin 2013: ivermectin (GlyR agonist) must be hyperpolarizing \
-             (+19.4 mV shift, Cl- influx, suppresses oncogene-induced tumors)"
-        );
-        // Ivermectin targets a receptor (GlyR)
-        assert_eq!(
-            DrugTarget.get(&Ivermectin),
-            Some(Receptor),
-            "Chernet & Levin 2013: ivermectin targets GlyR (a receptor)"
-        );
     }
 }

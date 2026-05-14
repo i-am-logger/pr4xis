@@ -1,537 +1,425 @@
-//! Ontology of optimization methods.
+//! Optimization — formalises search methods, objective evaluation,
+//! constraint satisfaction, and characterisation of optimal points.
 //!
-//! Formalizes the science of finding best configurations: methods for
-//! searching solution spaces, evaluating objectives, and characterizing
-//! optimal points.
+//! This is a PURE-SCIENCE ontology of optimisation — not an
+//! implementation of an optimiser.
 //!
-//! LITERATURE BASIS:
-//!   - Boyd & Vandenberghe 2004: Convex Optimization (objective functions, constraints, feasibility)
-//!   - Pareto 1906: Manual of Political Economy (Pareto optimality, multi-objective tradeoffs)
-//!   - Holland 1975: Adaptation in Natural and Artificial Systems (genetic algorithms)
-//!   - Kirkpatrick et al. 1983: Optimization by Simulated Annealing
+//! # Literature
 //!
-//! This is a PURE SCIENCE ontology of optimization — not an implementation
-//! of an optimizer. It formalizes the reasoning that ontology_diagnostics uses
-//! when searching for optimal ontological configurations.
+//! - **Boyd & Vandenberghe (2004)** *Convex Optimization*, Cambridge
+//!   UP — objective functions, constraints, feasibility; convex /
+//!   non-convex distinctions.
+//! - **Pareto (1906)** *Manuale di Economia Politica*, Società
+//!   Editrice Libraria — Pareto optimality; multi-objective tradeoffs.
+//! - **Holland (1975)** *Adaptation in Natural and Artificial
+//!   Systems*, University of Michigan Press — genetic algorithms.
+//! - **Kirkpatrick, Gelatt & Vecchi (1983)** "Optimization by
+//!   Simulated Annealing", *Science* 220(4598):671-680.
 
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::Concept;
-use pr4xis::define_ontology;
-use pr4xis::ontology::reasoning::causation;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-// ---------------------------------------------------------------------------
-// Entities
-// ---------------------------------------------------------------------------
+pr4xis::ontology! {
+    name: "Optimization",
+    source: "Boyd & Vandenberghe (2004) Convex Optimization, Cambridge UP; Pareto (1906) Manuale di Economia Politica; Holland (1975) Adaptation in Natural and Artificial Systems, University of Michigan Press; Kirkpatrick, Gelatt & Vecchi (1983) Optimization by Simulated Annealing, Science 220(4598):671-680",
 
-/// Components of the optimization methodology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum OptimizationEntity {
-    // Methods (how you optimize)
-    ExhaustiveSearch,
-    GradientDescent,
-    GeneticAlgorithm,
-    SimulatedAnnealing,
-    ParetoOptimization,
-    GridSearch,
+    concepts: [
+        // === Methods ===
+        ExhaustiveSearch,
+        GradientDescent,
+        GeneticAlgorithm,
+        SimulatedAnnealing,
+        ParetoOptimization,
+        GridSearch,
+        // === Components ===
+        ObjectiveFunction,
+        Constraint,
+        SearchSpace,
+        FeasibleRegion,
+        OptimalPoint,
+        ParetoFront,
+        // === Properties ===
+        Convergence,
+        LocalOptimum,
+        GlobalOptimum,
+        Tradeoff,
+        // === Abstract categories ===
+        OptimizationMethod,
+        OptimizationComponent,
+        OptimalityProperty,
+        // === Pipeline stages ===
+        ProblemFormulation,
+        SearchSpaceDefinition,
+        ConstraintSpecification,
+        ObjectiveEvaluation,
+        CandidateGeneration,
+        FeasibilityCheck,
+        OptimalityAssessment,
+        SolutionSelection,
+    ],
 
-    // Components (what you work with)
-    ObjectiveFunction,
-    Constraint,
-    SearchSpace,
-    FeasibleRegion,
-    OptimalPoint,
-    ParetoFront,
+    labels: {
+        ExhaustiveSearch: ("en", "Exhaustive search",
+            "Boyd & Vandenberghe (2004): enumerate the entire search space - guarantees the global optimum but is exponential."),
+        GradientDescent: ("en", "Gradient descent",
+            "Boyd & Vandenberghe (2004): local-gradient method - polynomial-time but can stick in local optima."),
+        GeneticAlgorithm: ("en", "Genetic algorithm",
+            "Holland (1975): population-based stochastic search."),
+        SimulatedAnnealing: ("en", "Simulated annealing",
+            "Kirkpatrick, Gelatt & Vecchi (1983): probabilistic acceptance with cooling schedule."),
+        ParetoOptimization: ("en", "Pareto optimization",
+            "Pareto (1906): finds the Pareto-optimal front in multi-objective space."),
+        GridSearch: ("en", "Grid search",
+            "Enumerate solutions on a discretized grid."),
+        ObjectiveFunction: ("en", "Objective function",
+            "Boyd & Vandenberghe (2004): the scalar (or vector) function being minimised / maximised."),
+        Constraint: ("en", "Constraint",
+            "Boyd & Vandenberghe (2004): a condition the solution must satisfy."),
+        SearchSpace: ("en", "Search space",
+            "The set of candidate solutions."),
+        FeasibleRegion: ("en", "Feasible region",
+            "Boyd & Vandenberghe (2004): the subset of the search space satisfying all constraints."),
+        OptimalPoint: ("en", "Optimal point",
+            "A solution at which the objective attains its optimum value."),
+        ParetoFront: ("en", "Pareto front",
+            "Pareto (1906): the set of non-dominated solutions in multi-objective space."),
+        Convergence: ("en", "Convergence",
+            "Boyd & Vandenberghe (2004): the property that the iteration approaches an optimum as time grows."),
+        LocalOptimum: ("en", "Local optimum",
+            "A solution that is optimal within a neighbourhood."),
+        GlobalOptimum: ("en", "Global optimum",
+            "A solution that is optimal over the entire search space."),
+        Tradeoff: ("en", "Tradeoff",
+            "Pareto (1906): a multi-objective compromise - improving one objective worsens another."),
+        OptimizationMethod: ("en", "Optimization method", "Abstract category for optimisation methods."),
+        OptimizationComponent: ("en", "Optimization component", "Abstract category for optimisation problem components."),
+        OptimalityProperty: ("en", "Optimality property", "Abstract category for properties characterising optimal solutions."),
 
-    // Properties (what characterizes solutions)
-    Convergence,
-    LocalOptimum,
-    GlobalOptimum,
-    Tradeoff,
+        ProblemFormulation: ("en", "Problem formulation", "Pipeline stage 1: state the optimisation problem."),
+        SearchSpaceDefinition: ("en", "Search space definition", "Pipeline stage 2: define the candidate solution space."),
+        ConstraintSpecification: ("en", "Constraint specification", "Pipeline stage 3: specify what solutions must satisfy."),
+        ObjectiveEvaluation: ("en", "Objective evaluation", "Pipeline stage 4: evaluate objective on candidates."),
+        CandidateGeneration: ("en", "Candidate generation", "Pipeline stage 5: generate candidate solutions."),
+        FeasibilityCheck: ("en", "Feasibility check", "Pipeline stage 6: check feasibility against constraints."),
+        OptimalityAssessment: ("en", "Optimality assessment", "Pipeline stage 7: assess optimality of feasible candidates."),
+        SolutionSelection: ("en", "Solution selection", "Pipeline stage 8: select the best solution."),
+    },
 
-    // Abstract categories
-    OptimizationMethod,
-    OptimizationComponent,
-    OptimalityProperty,
+    is_a: [
+        (ExhaustiveSearch, OptimizationMethod),
+        (GradientDescent, OptimizationMethod),
+        (GeneticAlgorithm, OptimizationMethod),
+        (SimulatedAnnealing, OptimizationMethod),
+        (ParetoOptimization, OptimizationMethod),
+        (GridSearch, OptimizationMethod),
+        (ObjectiveFunction, OptimizationComponent),
+        (Constraint, OptimizationComponent),
+        (SearchSpace, OptimizationComponent),
+        (FeasibleRegion, OptimizationComponent),
+        (OptimalPoint, OptimizationComponent),
+        (ParetoFront, OptimizationComponent),
+        (Convergence, OptimalityProperty),
+        (LocalOptimum, OptimalityProperty),
+        (GlobalOptimum, OptimalityProperty),
+        (Tradeoff, OptimalityProperty),
+    ],
+
+    causes: [
+        (ProblemFormulation, SearchSpaceDefinition),
+        (SearchSpaceDefinition, ConstraintSpecification),
+        (ConstraintSpecification, ObjectiveEvaluation),
+        (ObjectiveEvaluation, CandidateGeneration),
+        (CandidateGeneration, FeasibilityCheck),
+        (FeasibilityCheck, OptimalityAssessment),
+        (OptimalityAssessment, SolutionSelection),
+    ],
+
+    opposes: [
+        // Boyd & Vandenberghe (2004): local vs global - the central tension.
+        (LocalOptimum, GlobalOptimum),
+        (GlobalOptimum, LocalOptimum),
+        // Exact vs heuristic.
+        (ExhaustiveSearch, GeneticAlgorithm),
+        (GeneticAlgorithm, ExhaustiveSearch),
+    ],
 }
 
-/// Steps in the optimization pipeline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]
-pub enum OptimizationStep {
-    /// Formulate the optimization problem.
-    ProblemFormulation,
-    /// Define the search space of possible solutions.
-    SearchSpaceDefinition,
-    /// Specify constraints that solutions must satisfy.
-    ConstraintSpecification,
-    /// Evaluate objective function on candidates.
-    ObjectiveEvaluation,
-    /// Generate candidate solutions.
-    CandidateGeneration,
-    /// Check candidate feasibility against constraints.
-    FeasibilityCheck,
-    /// Assess optimality of feasible candidates.
-    OptimalityAssessment,
-    /// Select the best solution.
-    SolutionSelection,
-}
-
-// ---------------------------------------------------------------------------
-// Ontology (category + reasoning)
-// ---------------------------------------------------------------------------
-
-define_ontology! {
-    /// Dense category over optimization entities.
-    pub OptimizationOntology for OptimizationCategory {
-        entity: OptimizationEntity,
-        relation: OptimizationRelation,
-        being: AbstractObject,
-        source: "Boyd & Vandenberghe (2004); Pareto (1906)",
-
-        taxonomy: OptimizationTaxonomy [
-            // Methods → OptimizationMethod
-            (ExhaustiveSearch, OptimizationMethod),
-            (GradientDescent, OptimizationMethod),
-            (GeneticAlgorithm, OptimizationMethod),
-            (SimulatedAnnealing, OptimizationMethod),
-            (ParetoOptimization, OptimizationMethod),
-            (GridSearch, OptimizationMethod),
-            // Components → OptimizationComponent
-            (ObjectiveFunction, OptimizationComponent),
-            (Constraint, OptimizationComponent),
-            (SearchSpace, OptimizationComponent),
-            (FeasibleRegion, OptimizationComponent),
-            (OptimalPoint, OptimizationComponent),
-            (ParetoFront, OptimizationComponent),
-            // Properties → OptimalityProperty
-            (Convergence, OptimalityProperty),
-            (LocalOptimum, OptimalityProperty),
-            (GlobalOptimum, OptimalityProperty),
-            (Tradeoff, OptimalityProperty),
-        ],
-
-        causation: OptimizationCausalGraph for OptimizationStep [
-            (ProblemFormulation, SearchSpaceDefinition),
-            (SearchSpaceDefinition, ConstraintSpecification),
-            (ConstraintSpecification, ObjectiveEvaluation),
-            (ObjectiveEvaluation, CandidateGeneration),
-            (CandidateGeneration, FeasibilityCheck),
-            (FeasibilityCheck, OptimalityAssessment),
-            (OptimalityAssessment, SolutionSelection),
-        ],
-
-        opposition: OptimizationOpposition [
-            // Local vs global (partial vs complete optimality)
-            (LocalOptimum, GlobalOptimum),
-            // Exact vs heuristic (guaranteed vs approximate)
-            (ExhaustiveSearch, GeneticAlgorithm),
-        ],
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Qualities
-// ---------------------------------------------------------------------------
-
-/// Whether a method guarantees finding the global optimum.
-#[derive(Debug, Clone)]
-pub struct GuaranteesGlobal;
-
-impl Quality for GuaranteesGlobal {
-    type Individual = OptimizationEntity;
-    type Value = bool;
-
-    fn get(&self, entity: &OptimizationEntity) -> Option<bool> {
-        use OptimizationEntity::*;
-        match entity {
-            ExhaustiveSearch => Some(true),    // checks everything
-            GridSearch => Some(true),          // checks everything on grid
-            GradientDescent => Some(false),    // can get stuck in local optima
-            GeneticAlgorithm => Some(false),   // heuristic, no guarantee
-            SimulatedAnnealing => Some(false), // probabilistic, no guarantee
-            ParetoOptimization => Some(false), // finds Pareto front, not single global
-            _ => None,
-        }
-    }
-}
-
-/// Time complexity class of an optimization method.
+/// Time complexity class. Boyd & Vandenberghe (2004): polynomial =
+/// tractable; exponential = intractable in general.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TimeComplexityClass {
     Polynomial,
     Exponential,
 }
 
+/// Quality: does the method guarantee finding the global optimum?
+#[derive(Debug, Clone)]
+pub struct GuaranteesGlobal;
+
+impl Quality for GuaranteesGlobal {
+    type Individual = OptimizationConcept;
+    type Value = bool;
+
+    fn get(&self, c: &OptimizationConcept) -> Option<bool> {
+        use OptimizationConcept as O;
+        match c {
+            O::ExhaustiveSearch | O::GridSearch => Some(true),
+            O::GradientDescent
+            | O::GeneticAlgorithm
+            | O::SimulatedAnnealing
+            | O::ParetoOptimization => Some(false),
+            _ => None,
+        }
+    }
+}
+
+/// Quality: time complexity class of the method.
 #[derive(Debug, Clone)]
 pub struct TimeComplexity;
 
 impl Quality for TimeComplexity {
-    type Individual = OptimizationEntity;
+    type Individual = OptimizationConcept;
     type Value = TimeComplexityClass;
 
-    fn get(&self, entity: &OptimizationEntity) -> Option<TimeComplexityClass> {
-        use OptimizationEntity::*;
-        match entity {
-            GradientDescent => Some(TimeComplexityClass::Polynomial),
-            GeneticAlgorithm => Some(TimeComplexityClass::Polynomial),
-            SimulatedAnnealing => Some(TimeComplexityClass::Polynomial),
-            ParetoOptimization => Some(TimeComplexityClass::Polynomial),
-            ExhaustiveSearch => Some(TimeComplexityClass::Exponential),
-            GridSearch => Some(TimeComplexityClass::Exponential),
+    fn get(&self, c: &OptimizationConcept) -> Option<TimeComplexityClass> {
+        use OptimizationConcept as O;
+        match c {
+            O::GradientDescent
+            | O::GeneticAlgorithm
+            | O::SimulatedAnnealing
+            | O::ParetoOptimization => Some(TimeComplexityClass::Polynomial),
+            O::ExhaustiveSearch | O::GridSearch => Some(TimeComplexityClass::Exponential),
             _ => None,
         }
     }
 }
 
-/// Whether a method handles multi-objective optimization.
+/// Quality: can the method handle multi-objective optimisation?
 #[derive(Debug, Clone)]
 pub struct HandlesMultiObjective;
 
 impl Quality for HandlesMultiObjective {
-    type Individual = OptimizationEntity;
+    type Individual = OptimizationConcept;
     type Value = bool;
 
-    fn get(&self, entity: &OptimizationEntity) -> Option<bool> {
-        use OptimizationEntity::*;
-        match entity {
-            ParetoOptimization => Some(true),  // designed for multi-objective
-            GeneticAlgorithm => Some(true),    // NSGA-II and variants
-            ExhaustiveSearch => Some(true),    // can evaluate multiple objectives
-            GradientDescent => Some(false),    // single objective gradient
-            SimulatedAnnealing => Some(false), // single objective energy
-            GridSearch => Some(true),          // can evaluate multiple objectives
+    fn get(&self, c: &OptimizationConcept) -> Option<bool> {
+        use OptimizationConcept as O;
+        match c {
+            O::ParetoOptimization | O::GeneticAlgorithm | O::ExhaustiveSearch | O::GridSearch => {
+                Some(true)
+            }
+            O::GradientDescent | O::SimulatedAnnealing => Some(false),
             _ => None,
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// Axioms
-// ---------------------------------------------------------------------------
-
-/// Axiom: problem formulation transitively causes solution selection.
-pub struct FormulationCausesSolution;
-
-impl Axiom for FormulationCausesSolution {
-    fn description(&self) -> &str {
-        "problem formulation transitively causes solution selection (full pipeline)"
-    }
-    fn holds(&self) -> bool {
-        use OptimizationStep::*;
-        let effects = causation::effects_of::<OptimizationCausalGraph>(&ProblemFormulation);
-        effects.contains(&SolutionSelection)
-    }
-}
-pr4xis::register_axiom!(FormulationCausesSolution);
-
-/// Axiom: exhaustive search guarantees global, gradient descent does not.
-pub struct ExhaustiveGuaranteesGradientDoesNot;
-
-impl Axiom for ExhaustiveGuaranteesGradientDoesNot {
-    fn description(&self) -> &str {
-        "exhaustive search guarantees global optimum but gradient descent does not"
-    }
-    fn holds(&self) -> bool {
-        use OptimizationEntity::*;
-        GuaranteesGlobal.get(&ExhaustiveSearch) == Some(true)
-            && GuaranteesGlobal.get(&GradientDescent) == Some(false)
-    }
-}
-pr4xis::register_axiom!(ExhaustiveGuaranteesGradientDoesNot);
-
-/// Axiom: exact methods are exponential, heuristic methods are polynomial.
-pub struct ExactExponentialHeuristicPolynomial;
-
-impl Axiom for ExactExponentialHeuristicPolynomial {
-    fn description(&self) -> &str {
-        "exact methods (exhaustive) are exponential; heuristic methods (genetic) are polynomial"
-    }
-    fn holds(&self) -> bool {
-        use OptimizationEntity::*;
-        TimeComplexity.get(&ExhaustiveSearch) == Some(TimeComplexityClass::Exponential)
-            && TimeComplexity.get(&GeneticAlgorithm) == Some(TimeComplexityClass::Polynomial)
-    }
-}
-pr4xis::register_axiom!(ExactExponentialHeuristicPolynomial);
-
-/// Axiom: Pareto optimization handles multi-objective; gradient descent does not.
-pub struct ParetoMultiObjectiveGradientNot;
-
-impl Axiom for ParetoMultiObjectiveGradientNot {
-    fn description(&self) -> &str {
-        "Pareto optimization handles multi-objective; gradient descent does not"
-    }
-    fn holds(&self) -> bool {
-        use OptimizationEntity::*;
-        HandlesMultiObjective.get(&ParetoOptimization) == Some(true)
-            && HandlesMultiObjective.get(&GradientDescent) == Some(false)
-    }
-}
-pr4xis::register_axiom!(ParetoMultiObjectiveGradientNot);
-
-// ---------------------------------------------------------------------------
-// Ontology impl
-// ---------------------------------------------------------------------------
+// Legacy alias for the old enum name.
+pub type OptimizationEntity = OptimizationConcept;
 
 impl Ontology for OptimizationOntology {
     type Cat = OptimizationCategory;
     type Qual = GuaranteesGlobal;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(FormulationCausesSolution),
-            Box::new(ExhaustiveGuaranteesGradientDoesNot),
-            Box::new(ExactExponentialHeuristicPolynomial),
-            Box::new(ParetoMultiObjectiveGradientNot),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(ExhaustiveGuaranteesGradientDoesNot));
+        axioms.push(Box::new(ExactExponentialHeuristicPolynomial));
+        axioms.push(Box::new(ParetoMultiObjectiveGradientNot));
+        axioms
     }
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Domain axioms
 // ---------------------------------------------------------------------------
+
+pub struct ExhaustiveGuaranteesGradientDoesNot;
+
+impl Axiom for ExhaustiveGuaranteesGradientDoesNot {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use OptimizationConcept as O;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if GuaranteesGlobal.get(&O::ExhaustiveSearch) == Some(true)
+            && GuaranteesGlobal.get(&O::GradientDescent) == Some(false)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "ExhaustiveGuaranteesGradientDoesNot",
+        "ExhaustiveSearch guarantees the global optimum; GradientDescent does not",
+        "Boyd & Vandenberghe (2004) Convex Optimization, Cambridge UP"
+    );
+}
+
+pr4xis::register_axiom!(
+    ExhaustiveGuaranteesGradientDoesNot,
+    "Boyd & Vandenberghe (2004) Convex Optimization, Cambridge UP"
+);
+
+pub struct ExactExponentialHeuristicPolynomial;
+
+impl Axiom for ExactExponentialHeuristicPolynomial {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use OptimizationConcept as O;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if TimeComplexity.get(&O::ExhaustiveSearch) == Some(TimeComplexityClass::Exponential)
+            && TimeComplexity.get(&O::GeneticAlgorithm) == Some(TimeComplexityClass::Polynomial)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "ExactExponentialHeuristicPolynomial",
+        "Exact methods (ExhaustiveSearch) are exponential; heuristic methods (GeneticAlgorithm) are polynomial",
+        "Holland (1975) Adaptation in Natural and Artificial Systems"
+    );
+}
+
+pr4xis::register_axiom!(
+    ExactExponentialHeuristicPolynomial,
+    "Holland (1975) Adaptation in Natural and Artificial Systems"
+);
+
+pub struct ParetoMultiObjectiveGradientNot;
+
+impl Axiom for ParetoMultiObjectiveGradientNot {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use OptimizationConcept as O;
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if HandlesMultiObjective.get(&O::ParetoOptimization) == Some(true)
+            && HandlesMultiObjective.get(&O::GradientDescent) == Some(false)
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "ParetoMultiObjectiveGradientNot",
+        "ParetoOptimization handles multi-objective; GradientDescent does not",
+        "Pareto (1906) Manuale di Economia Politica"
+    );
+}
+
+pr4xis::register_axiom!(
+    ParetoMultiObjectiveGradientNot,
+    "Pareto (1906) Manuale di Economia Politica"
+);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_category_laws;
-    use pr4xis::ontology::reasoning::causation::CausalCategory;
-    use pr4xis::ontology::reasoning::opposition;
-    use pr4xis::ontology::reasoning::taxonomy;
-    use pr4xis::ontology::reasoning::taxonomy::TaxonomyCategory;
+    use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use proptest::prelude::*;
 
     #[test]
-    fn test_entity_count() {
-        assert_eq!(OptimizationEntity::variants().len(), 19);
+    fn category_laws() {
+        assert_category_laws::<OptimizationCategory>();
     }
 
     #[test]
-    fn test_step_count() {
-        assert_eq!(OptimizationStep::variants().len(), 8);
+    fn ontology_validates() {
+        OptimizationOntology::validate()
+            .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
     }
 
     #[test]
-    fn test_category_laws() {
-        check_category_laws::<OptimizationCategory>().unwrap();
+    fn pipeline_reaches_solution_selection() {
+        let caus: Vec<_> = OptimizationCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == OptimizationRelationKind::Causation)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(caus.contains(&(
+            OptimizationConcept::ProblemFormulation,
+            OptimizationConcept::SolutionSelection
+        )));
     }
 
     #[test]
-    fn test_taxonomy_category_laws() {
-        check_category_laws::<TaxonomyCategory<OptimizationTaxonomy>>().unwrap();
+    fn local_opposes_global() {
+        let opp: Vec<_> = OptimizationCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == OptimizationRelationKind::Opposition)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        assert!(opp.contains(&(
+            OptimizationConcept::LocalOptimum,
+            OptimizationConcept::GlobalOptimum
+        )));
     }
 
     #[test]
-    fn test_causal_category_laws() {
-        check_category_laws::<CausalCategory<OptimizationCausalGraph>>().unwrap();
+    fn methods_subsume_optimization_method() {
+        use OptimizationConcept as O;
+        let sub: Vec<_> = OptimizationCategory::morphisms()
+            .iter()
+            .filter(|m| m.kind() == OptimizationRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
+        for method in [
+            O::ExhaustiveSearch,
+            O::GradientDescent,
+            O::GeneticAlgorithm,
+            O::SimulatedAnnealing,
+            O::ParetoOptimization,
+            O::GridSearch,
+        ] {
+            assert!(sub.contains(&(method, O::OptimizationMethod)));
+        }
     }
 
     #[test]
-    fn test_ontology_validates() {
-        OptimizationOntology::validate().unwrap();
+    fn all_axioms_hold() {
+        for axiom in OptimizationOntology::axioms() {
+            if let Err(c) = axiom.verify() {
+                panic!(
+                    "axiom failed: {} - {}",
+                    c.meta().name.as_str(),
+                    c.meta().description.as_str()
+                );
+            }
+        }
     }
 
-    // -- Individual axiom tests --
-
-    #[test]
-    fn test_formulation_causes_solution() {
-        assert!(FormulationCausesSolution.holds());
-    }
-
-    #[test]
-    fn test_exhaustive_guarantees_gradient_does_not() {
-        assert!(ExhaustiveGuaranteesGradientDoesNot.holds());
-    }
-
-    #[test]
-    fn test_exact_exponential_heuristic_polynomial() {
-        assert!(ExactExponentialHeuristicPolynomial.holds());
-    }
-
-    #[test]
-    fn test_pareto_multi_objective() {
-        assert!(ParetoMultiObjectiveGradientNot.holds());
-    }
-
-    // -- Taxonomy tests --
-
-    #[test]
-    fn test_methods_are_optimization_methods() {
-        use OptimizationEntity::*;
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &ExhaustiveSearch,
-            &OptimizationMethod
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &GradientDescent,
-            &OptimizationMethod
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &GeneticAlgorithm,
-            &OptimizationMethod
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &SimulatedAnnealing,
-            &OptimizationMethod
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &ParetoOptimization,
-            &OptimizationMethod
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &GridSearch,
-            &OptimizationMethod
-        ));
-    }
-
-    #[test]
-    fn test_components_are_optimization_components() {
-        use OptimizationEntity::*;
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &ObjectiveFunction,
-            &OptimizationComponent
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &Constraint,
-            &OptimizationComponent
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &SearchSpace,
-            &OptimizationComponent
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &FeasibleRegion,
-            &OptimizationComponent
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &OptimalPoint,
-            &OptimizationComponent
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &ParetoFront,
-            &OptimizationComponent
-        ));
-    }
-
-    #[test]
-    fn test_properties_are_optimality_properties() {
-        use OptimizationEntity::*;
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &Convergence,
-            &OptimalityProperty
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &LocalOptimum,
-            &OptimalityProperty
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &GlobalOptimum,
-            &OptimalityProperty
-        ));
-        assert!(taxonomy::is_a::<OptimizationTaxonomy>(
-            &Tradeoff,
-            &OptimalityProperty
-        ));
-    }
-
-    // -- Causal chain tests --
-
-    #[test]
-    fn test_full_pipeline_connected() {
-        use OptimizationStep::*;
-        let effects = causation::effects_of::<OptimizationCausalGraph>(&ProblemFormulation);
-        assert!(effects.contains(&SearchSpaceDefinition));
-        assert!(effects.contains(&ConstraintSpecification));
-        assert!(effects.contains(&ObjectiveEvaluation));
-        assert!(effects.contains(&CandidateGeneration));
-        assert!(effects.contains(&FeasibilityCheck));
-        assert!(effects.contains(&OptimalityAssessment));
-        assert!(effects.contains(&SolutionSelection));
-    }
-
-    // -- Opposition tests --
-
-    #[test]
-    fn test_local_opposes_global() {
-        use OptimizationEntity::*;
-        assert!(opposition::are_opposed::<OptimizationOpposition>(
-            &LocalOptimum,
-            &GlobalOptimum
-        ));
-    }
-
-    #[test]
-    fn test_exhaustive_opposes_genetic() {
-        use OptimizationEntity::*;
-        assert!(opposition::are_opposed::<OptimizationOpposition>(
-            &ExhaustiveSearch,
-            &GeneticAlgorithm
-        ));
-    }
-
-    // -- Quality tests --
-
-    #[test]
-    fn test_guarantees_global() {
-        use OptimizationEntity::*;
-        assert_eq!(GuaranteesGlobal.get(&ExhaustiveSearch), Some(true));
-        assert_eq!(GuaranteesGlobal.get(&GridSearch), Some(true));
-        assert_eq!(GuaranteesGlobal.get(&GradientDescent), Some(false));
-        assert_eq!(GuaranteesGlobal.get(&GeneticAlgorithm), Some(false));
-        assert_eq!(GuaranteesGlobal.get(&SimulatedAnnealing), Some(false));
-    }
-
-    #[test]
-    fn test_time_complexity() {
-        use OptimizationEntity::*;
-        assert_eq!(
-            TimeComplexity.get(&ExhaustiveSearch),
-            Some(TimeComplexityClass::Exponential)
-        );
-        assert_eq!(
-            TimeComplexity.get(&GradientDescent),
-            Some(TimeComplexityClass::Polynomial)
-        );
-        assert_eq!(
-            TimeComplexity.get(&GeneticAlgorithm),
-            Some(TimeComplexityClass::Polynomial)
-        );
-    }
-
-    #[test]
-    fn test_handles_multi_objective() {
-        use OptimizationEntity::*;
-        assert_eq!(HandlesMultiObjective.get(&ParetoOptimization), Some(true));
-        assert_eq!(HandlesMultiObjective.get(&GeneticAlgorithm), Some(true));
-        assert_eq!(HandlesMultiObjective.get(&GradientDescent), Some(false));
-    }
-
-    // -- Proptest --
-
-    fn arb_entity() -> impl Strategy<Value = OptimizationEntity> {
-        (0..OptimizationEntity::variants().len()).prop_map(|i| OptimizationEntity::variants()[i])
+    fn arb_concept() -> impl Strategy<Value = OptimizationConcept> {
+        proptest::sample::select(OptimizationConcept::variants())
     }
 
     proptest! {
         #[test]
-        fn prop_taxonomy_reflexive(entity in arb_entity()) {
-            prop_assert!(taxonomy::is_a::<OptimizationTaxonomy>(&entity, &entity));
+        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
+            for m in OptimizationCategory::morphisms() {
+                prop_assert!(!m.meta().name.as_str().is_empty());
+            }
         }
 
         #[test]
-        fn prop_every_entity_has_category(entity in arb_entity()) {
-            use OptimizationEntity::*;
-            let categories = [OptimizationMethod, OptimizationComponent, OptimalityProperty];
-            let belongs = categories.iter().any(|cat| taxonomy::is_a::<OptimizationTaxonomy>(&entity, cat));
-            let is_abstract = categories.contains(&entity);
-            prop_assert!(belongs || is_abstract,
-                "{:?} should belong to at least one category", entity);
+        fn prop_guarantees_global_total_on_methods(c in arb_concept()) {
+            use OptimizationConcept as O;
+            let v = GuaranteesGlobal.get(&c);
+            let is_method = matches!(c,
+                O::ExhaustiveSearch | O::GradientDescent | O::GeneticAlgorithm
+                | O::SimulatedAnnealing | O::ParetoOptimization | O::GridSearch);
+            prop_assert_eq!(v.is_some(), is_method);
+        }
+
+        #[test]
+        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
+            for axiom in OptimizationOntology::axioms() {
+                if let Err(c) = axiom.verify() {
+                    prop_assert!(false, "axiom failed: {}", c.meta().name.as_str());
+                }
+            }
         }
     }
 }

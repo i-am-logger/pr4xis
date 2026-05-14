@@ -1,7 +1,7 @@
 use pr4xis::category::{Ap, NonEmpty, Product, Writer};
-pub use pr4xis::ontology::RelationshipMeta;
 use pr4xis::ontology::Vocabulary;
-use pr4xis::ontology::upper::being::Being;
+pub use pr4xis::ontology::meta::Provenance;
+pub use pr4xis::ontology::meta::Provenance as RelationshipMeta;
 use pr4xis_domains::cognitive::cognition::epistemics;
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::lambek::{
@@ -767,7 +767,6 @@ pub fn loaded_ontologies(_lang: &English) -> Vec<Vocabulary> {
         "English (WordNet)",
         "pr4xis_domains::cognitive::linguistics::english",
         "Open English WordNet 2025; Princeton WordNet",
-        Some(Being::SocialObject),
     ));
     ontologies
 }
@@ -856,7 +855,7 @@ mod tests {
         // This is applicative, not monadic — neither depends on the other.
         let child_ids = Ap::pure(vec![1, 2]);
         let parent_ids = Ap::pure(vec![3, 4, 5]);
-        let combined = child_ids.map2(parent_ids, |c, p| Product::new(c, p));
+        let combined = child_ids.map2(parent_ids, Product::new);
         assert_eq!(combined.value.left.len(), 2);
         assert_eq!(combined.value.right.len(), 3);
     }
@@ -928,7 +927,7 @@ mod tests {
             &SelfModelIsRegistered,
             &KnowledgeIsRegistered,
         ] {
-            assert!(axiom.holds(), "{}", axiom.description());
+            assert!(axiom.verify().is_ok(), "{}", axiom.description());
         }
     }
 

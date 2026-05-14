@@ -47,12 +47,12 @@ proptest! {
     /// any non-determinism or state mutation that would break invariance.
     #[test]
     fn aspekt_triple_product_invariant_under_sweep(_ in 0..256u32) {
-        prop_assert!(AspectIsTripleProduct.holds());
+        prop_assert!(AspectIsTripleProduct.verify().is_ok());
     }
 
     #[test]
     fn syntrix_is_leveled_invariant_under_sweep(_ in 0..256u32) {
-        prop_assert!(SyntrixIsLeveled.holds());
+        prop_assert!(SyntrixIsLeveled.verify().is_ok());
     }
 
     // -----------------------------------------------------------------------
@@ -168,10 +168,10 @@ proptest! {
             EndofunctorIsFunctor, GradedObjectIsEntity, ProductCategoryIsCategory,
             SubobjectIsMorphism,
         };
-        prop_assert!(EndofunctorIsFunctor.holds());
-        prop_assert!(ProductCategoryIsCategory.holds());
-        prop_assert!(GradedObjectIsEntity.holds());
-        prop_assert!(SubobjectIsMorphism.holds());
+        prop_assert!(EndofunctorIsFunctor.verify().is_ok());
+        prop_assert!(ProductCategoryIsCategory.verify().is_ok());
+        prop_assert!(GradedObjectIsEntity.verify().is_ok());
+        prop_assert!(SubobjectIsMorphism.verify().is_ok());
     }
 
     // -----------------------------------------------------------------------
@@ -264,22 +264,18 @@ proptest! {
         }
     }
 
-    /// Every kind of Syntrometry morphism (Identity, every declared edge
-    /// kind, Composed) shows up in `morphisms()`. Without this the
-    /// category's closure claim would be empty.
+    /// Identity is emitted for every concept. Per #166 the auto-generated
+    /// kind no longer carries a `Composed` variant — closure is reached
+    /// via compose() at use sites, not by enumerated transitive edges.
     #[test]
     fn syntrometry_morphism_kinds_are_exhaustive(_ in 0..16u32) {
         let morphisms = SyntrometryCategory::morphisms();
         let mut saw_identity = false;
-        let mut saw_composed = false;
         for m in &morphisms {
-            match m.kind {
-                SyntrometryRelationKind::Identity => saw_identity = true,
-                SyntrometryRelationKind::Composed => saw_composed = true,
-                _ => {}
+            if let SyntrometryRelationKind::Identity = m.kind {
+                saw_identity = true;
             }
         }
         prop_assert!(saw_identity);
-        prop_assert!(saw_composed);
     }
 }

@@ -27,18 +27,7 @@ pub struct InsGnssSituation {
     pub step: usize,
 }
 
-impl Situation for InsGnssSituation {
-    fn describe(&self) -> String {
-        format!(
-            "INS/GNSS step={}, state={:?}, coupling={:?}, pos_err={:.2}m, t_gnss={:.1}s",
-            self.step, self.state, self.coupling, self.position_error, self.time_since_gnss
-        )
-    }
-
-    fn is_terminal(&self) -> bool {
-        false
-    }
-}
+impl Situation for InsGnssSituation {}
 
 /// INS/GNSS integration action.
 #[derive(Debug, Clone)]
@@ -66,23 +55,6 @@ pub enum InsGnssAction {
 
 impl Action for InsGnssAction {
     type Sit = InsGnssSituation;
-
-    fn describe(&self) -> String {
-        match self {
-            InsGnssAction::InsPropagation { dt } => format!("INS propagation dt={:.4}s", dt),
-            InsGnssAction::GnssUpdate {
-                num_satellites,
-                measurement_noise,
-            } => format!(
-                "GNSS update ({} sats, noise={:.1}m)",
-                num_satellites, measurement_noise
-            ),
-            InsGnssAction::GnssOutage => "GNSS outage".to_string(),
-            InsGnssAction::GnssReacquisition { measurement_noise } => {
-                format!("GNSS reacquisition (noise={:.1}m)", measurement_noise)
-            }
-        }
-    }
 }
 
 /// Apply an INS/GNSS action to the current situation.

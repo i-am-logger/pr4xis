@@ -2,8 +2,8 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::category::entity::Concept;
-use pr4xis::category::relationship::Relationship;
-use pr4xis::category::{Category, Functor};
+use pr4xis::category::{Arrow, Category, Functor};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 use super::ontology::*;
 
@@ -75,16 +75,30 @@ pub enum ChessEventRelationKind {
     Composed,
 }
 
-impl Relationship for ChessEventRelation {
+impl Arrow for ChessEventRelation {
     type Object = ChessEvent;
-    type Kind = ();
+    type Kind = ChessEventRelationKind;
     fn source(&self) -> ChessEvent {
         self.from
     }
     fn target(&self) -> ChessEvent {
         self.to
     }
-    fn kind(&self) {}
+    fn kind(&self) -> ChessEventRelationKind {
+        self.kind
+    }
+    fn meta(&self) -> Provenance {
+        Provenance {
+            name: OntologyName::new_static("ChessEventRelation"),
+            description: Label::new_static(
+                "Chess as event-driven system: moves are immutable events appended to the game record; rules engine reacts to events; positions derived from event history.",
+            ),
+            citation: Citation::parse_static(
+                "Fowler (2005) Event Sourcing, martinfowler.com; Young (2010) CQRS Documents; Hewitt (1973) A Universal Modular ACTOR Formalism for AI, IJCAI-73",
+            ),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 pub struct ChessEventCategory;
@@ -248,10 +262,16 @@ impl Functor for ChessToEvents {
     fn map_morphism(m: &ChessEventRelation) -> EventRelation {
         let from = Self::map_object(&m.from);
         let to = Self::map_object(&m.to);
+        // Per #166: EventRelationKind (auto-generated) no longer emits a
+        // Composed variant. Source-side ChessEventRelationKind::Composed
+        // collapses to the target's Identity (heterogeneous composition is
+        // partial — the functor preserves identity and the typed direct
+        // edges; transitive paths are reconstructed by the target's
+        // compose()).
         let kind = if m.kind == ChessEventRelationKind::Identity {
             EventRelationKind::Identity
         } else if m.kind == ChessEventRelationKind::Composed || from == to {
-            EventRelationKind::Composed
+            EventRelationKind::Identity
         } else {
             match m.kind {
                 ChessEventRelationKind::Triggers => EventRelationKind::Triggers,
@@ -263,7 +283,7 @@ impl Functor for ChessToEvents {
                 ChessEventRelationKind::ListensTo => EventRelationKind::ListensTo,
                 ChessEventRelationKind::Composes => EventRelationKind::Composes,
                 ChessEventRelationKind::Defines => EventRelationKind::Defines,
-                _ => EventRelationKind::Composed,
+                _ => EventRelationKind::Identity,
             }
         };
         EventRelation { from, to, kind }

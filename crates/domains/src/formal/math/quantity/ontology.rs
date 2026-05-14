@@ -14,7 +14,6 @@ use crate::formal::math::quantity::value::Quantity;
 pr4xis::ontology! {
     name: "Quantity",
     source: "BIPM SI Brochure (2019)",
-    being: AbstractObject,
 
     concepts: [
         Length,
@@ -64,20 +63,23 @@ impl Quality for DimensionSymbol {
 pub struct DimensionCommutativity;
 
 impl Axiom for DimensionCommutativity {
-    fn description(&self) -> &str {
-        "dimension multiplication is commutative: [A]·[B] = [B]·[A]"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let dims = canonical_dimensions();
         for a in &dims {
             for b in &dims {
                 if a.multiply(b) != b.multiply(a) {
-                    return false;
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "DimensionCommutativity",
+        "dimension multiplication is commutative: [A]·[B] = [B]·[A]",
+        "BIPM SI Brochure (2019), Table 1."
+    );
 }
 pr4xis::register_axiom!(DimensionCommutativity, "BIPM SI Brochure (2019), Table 1.");
 
@@ -85,22 +87,25 @@ pr4xis::register_axiom!(DimensionCommutativity, "BIPM SI Brochure (2019), Table 
 pub struct DimensionAssociativity;
 
 impl Axiom for DimensionAssociativity {
-    fn description(&self) -> &str {
-        "dimension multiplication is associative: ([A]·[B])·[C] = [A]·([B]·[C])"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let dims = canonical_dimensions();
         for a in &dims {
             for b in &dims {
                 for c in &dims {
                     if a.multiply(b).multiply(c) != a.multiply(&b.multiply(c)) {
-                        return false;
+                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
                     }
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "DimensionAssociativity",
+        "dimension multiplication is associative: ([A]·[B])·[C] = [A]·([B]·[C])",
+        "BIPM SI Brochure (2019), Table 1."
+    );
 }
 pr4xis::register_axiom!(DimensionAssociativity, "BIPM SI Brochure (2019), Table 1.");
 
@@ -108,18 +113,21 @@ pr4xis::register_axiom!(DimensionAssociativity, "BIPM SI Brochure (2019), Table 
 pub struct DimensionIdentity;
 
 impl Axiom for DimensionIdentity {
-    fn description(&self) -> &str {
-        "dimensionless is the identity: [A]·1 = [A]"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let one = Dimension::DIMENSIONLESS;
         for d in &canonical_dimensions() {
             if d.multiply(&one) != *d || one.multiply(d) != *d {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "DimensionIdentity",
+        "dimensionless is the identity: [A]·1 = [A]",
+        "BIPM SI Brochure (2019), Table 1."
+    );
 }
 pr4xis::register_axiom!(DimensionIdentity, "BIPM SI Brochure (2019), Table 1.");
 
@@ -127,17 +135,20 @@ pr4xis::register_axiom!(DimensionIdentity, "BIPM SI Brochure (2019), Table 1.");
 pub struct DimensionInverse;
 
 impl Axiom for DimensionInverse {
-    fn description(&self) -> &str {
-        "every dimension has an inverse: [A]·[A]^{-1} = dimensionless"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         for d in &canonical_dimensions() {
             if !d.multiply(&d.inverse()).is_dimensionless() {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "DimensionInverse",
+        "every dimension has an inverse: [A]·[A]^{-1} = dimensionless",
+        "BIPM SI Brochure (2019), Table 1."
+    );
 }
 pr4xis::register_axiom!(DimensionInverse, "BIPM SI Brochure (2019), Table 1.");
 
@@ -145,31 +156,34 @@ pr4xis::register_axiom!(DimensionInverse, "BIPM SI Brochure (2019), Table 1.");
 pub struct AdditionRequiresSameDimension;
 
 impl Axiom for AdditionRequiresSameDimension {
-    fn description(&self) -> &str {
-        "addition requires same dimension: meters + seconds = error"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let length = Quantity::new(5.0, Dimension::LENGTH);
         let time = Quantity::new(3.0, Dimension::TIME);
         let velocity = Quantity::new(2.0, Dimension::VELOCITY);
 
         let ok = length.add(&Quantity::new(3.0, Dimension::LENGTH));
         if ok.is_none() {
-            return false;
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
 
         let err1 = length.add(&time);
         if err1.is_some() {
-            return false;
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
 
         let err2 = length.add(&velocity);
         if err2.is_some() {
-            return false;
+            return Err(Box::new(SimpleCounterexample::new(self.meta())));
         }
 
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+    pr4xis::axiom_meta!(
+        "AdditionRequiresSameDimension",
+        "addition requires same dimension: meters + seconds = error",
+        "BIPM SI Brochure (2019), Table 1."
+    );
 }
 pr4xis::register_axiom!(
     AdditionRequiresSameDimension,
@@ -180,16 +194,23 @@ pr4xis::register_axiom!(
 pub struct DerivedDimensionConsistency;
 
 impl Axiom for DerivedDimensionConsistency {
-    fn description(&self) -> &str {
-        "velocity = length / time: [v] = L·T^{-1}"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let l = Quantity::new(10.0, Dimension::LENGTH);
         let t = Quantity::new(2.0, Dimension::TIME);
         let v = l.div(&t);
 
-        v.dimension == Dimension::VELOCITY && (v.value - 5.0).abs() < 1e-10
+        if v.dimension == Dimension::VELOCITY && (v.value - 5.0).abs() < 1e-10 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "DerivedDimensionConsistency",
+        "velocity = length / time: [v] = L·T^{-1}",
+        "BIPM SI Brochure (2019), Table 1."
+    );
 }
 pr4xis::register_axiom!(
     DerivedDimensionConsistency,
@@ -200,15 +221,22 @@ pr4xis::register_axiom!(
 pub struct UnitConversionRoundtrip;
 
 impl Axiom for UnitConversionRoundtrip {
-    fn description(&self) -> &str {
-        "unit conversion is invertible: km -> m -> km roundtrip"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let km_val = 5.0;
         let m_val = unit::KILOMETER.to_si(km_val);
         let km_back = unit::KILOMETER.from_si(m_val);
-        (km_val - km_back).abs() < 1e-10 && (m_val - 5000.0).abs() < 1e-10
+        if (km_val - km_back).abs() < 1e-10 && (m_val - 5000.0).abs() < 1e-10 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+    pr4xis::axiom_meta!(
+        "UnitConversionRoundtrip",
+        "unit conversion is invertible: km -> m -> km roundtrip",
+        "BIPM SI Brochure (2019), Table 1."
+    );
 }
 pr4xis::register_axiom!(UnitConversionRoundtrip, "BIPM SI Brochure (2019), Table 1.");
 
@@ -216,12 +244,19 @@ pr4xis::register_axiom!(UnitConversionRoundtrip, "BIPM SI Brochure (2019), Table
 pub struct IncompatibleUnitConversionFails;
 
 impl Axiom for IncompatibleUnitConversionFails {
-    fn description(&self) -> &str {
-        "incompatible unit conversion returns None: meters ≠ seconds"
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        if unit::METER.convert(5.0, &unit::SECOND).is_none() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
-    fn holds(&self) -> bool {
-        unit::METER.convert(5.0, &unit::SECOND).is_none()
-    }
+    pr4xis::axiom_meta!(
+        "IncompatibleUnitConversionFails",
+        "incompatible unit conversion returns None: meters ≠ seconds",
+        "BIPM SI Brochure (2019), Table 1."
+    );
 }
 pr4xis::register_axiom!(
     IncompatibleUnitConversionFails,
@@ -232,21 +267,17 @@ impl Ontology for QuantityOntology {
     type Cat = QuantityCategory;
     type Qual = DimensionSymbol;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        Self::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(DimensionCommutativity),
-            Box::new(DimensionAssociativity),
-            Box::new(DimensionIdentity),
-            Box::new(DimensionInverse),
-            Box::new(AdditionRequiresSameDimension),
-            Box::new(DerivedDimensionConsistency),
-            Box::new(UnitConversionRoundtrip),
-            Box::new(IncompatibleUnitConversionFails),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(DimensionCommutativity));
+        axioms.push(Box::new(DimensionAssociativity));
+        axioms.push(Box::new(DimensionIdentity));
+        axioms.push(Box::new(DimensionInverse));
+        axioms.push(Box::new(AdditionRequiresSameDimension));
+        axioms.push(Box::new(DerivedDimensionConsistency));
+        axioms.push(Box::new(UnitConversionRoundtrip));
+        axioms.push(Box::new(IncompatibleUnitConversionFails));
+        axioms
     }
 }
 
@@ -270,7 +301,7 @@ mod tests {
 
     #[test]
     fn category_laws() {
-        pr4xis::category::validate::check_category_laws::<QuantityCategory>().unwrap();
+        pr4xis::category::laws::assert_category_laws::<QuantityCategory>();
     }
 
     #[test]

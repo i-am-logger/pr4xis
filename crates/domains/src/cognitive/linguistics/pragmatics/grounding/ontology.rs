@@ -25,7 +25,6 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 pr4xis::ontology! {
     name: "Grounding",
     source: "Clark & Schaefer (1989); Clark (1996); Traum (1994); Ginzburg (2012)",
-    being: Process,
 
     concepts: [
         CommonGround,
@@ -132,12 +131,13 @@ impl Quality for IsKosFramework {
 pub struct AllActsClassified;
 
 impl Axiom for AllActsClassified {
-    fn description(&self) -> &str {
-        "every grounding act is-a GroundingAct (Traum 1994 taxonomy)"
-    }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::taxonomy::TaxonomyDef;
-        let rels = GroundingTaxonomy::relations();
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let subs: Vec<_> = GroundingCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == GroundingRelationKind::Subsumption)
+            .collect();
         let acts = [
             GroundingConcept::Acknowledgment,
             GroundingConcept::Continuation,
@@ -145,15 +145,25 @@ impl Axiom for AllActsClassified {
             GroundingConcept::Repair,
             GroundingConcept::ClarificationRequest,
         ];
-        acts.iter().all(|act| {
-            rels.iter()
-                .any(|(child, parent)| child == act && *parent == GroundingConcept::GroundingAct)
-        })
+        if acts.iter().all(|act| {
+            subs.iter()
+                .any(|m| m.source() == *act && m.target() == GroundingConcept::GroundingAct)
+        }) {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "AllActsClassified",
+        "every grounding act is-a GroundingAct (Traum 1994 taxonomy)",
+        "Traum (1994) A Computational Theory of Grounding in Natural Language Conversation"
+    );
 }
 pr4xis::register_axiom!(
     AllActsClassified,
-    "Clark & Schaefer (1989): contributions have two phases — presentation"
+    "Traum (1994) A Computational Theory of Grounding in Natural Language Conversation"
 );
 
 /// Presentation causes either Acceptance or Repair (Clark & Schaefer 1989).
@@ -161,38 +171,46 @@ pr4xis::register_axiom!(
 pub struct PresentationHasConsequence;
 
 impl Axiom for PresentationHasConsequence {
-    fn description(&self) -> &str {
-        "Presentation causes Acceptance or Repair (Clark & Schaefer 1989)"
-    }
-    fn holds(&self) -> bool {
-        use pr4xis::ontology::reasoning::causation::CausalDef;
-        let rels = GroundingCausation::relations();
-        let causes_accept = rels.iter().any(|(cause, effect)| {
-            *cause == GroundingConcept::Presentation && *effect == GroundingConcept::Acceptance
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use pr4xis::category::{Arrow, Category};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+        let causal: Vec<_> = GroundingCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == GroundingRelationKind::Causation)
+            .collect();
+        let causes_accept = causal.iter().any(|m| {
+            m.source() == GroundingConcept::Presentation
+                && m.target() == GroundingConcept::Acceptance
         });
-        let causes_repair = rels.iter().any(|(cause, effect)| {
-            *cause == GroundingConcept::Presentation && *effect == GroundingConcept::Repair
+        let causes_repair = causal.iter().any(|m| {
+            m.source() == GroundingConcept::Presentation && m.target() == GroundingConcept::Repair
         });
-        causes_accept && causes_repair
+        if causes_accept && causes_repair {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "PresentationHasConsequence",
+        "Presentation causes Acceptance or Repair (Clark & Schaefer 1989)",
+        "Clark & Schaefer (1989) Contributing to Discourse, Cognitive Science 13"
+    );
 }
 pr4xis::register_axiom!(
     PresentationHasConsequence,
-    "Clark & Schaefer (1989): contributions have two phases — presentation"
+    "Clark & Schaefer (1989) Contributing to Discourse, Cognitive Science 13"
 );
 
 impl Ontology for GroundingOntology {
     type Cat = GroundingCategory;
     type Qual = IsKosFramework;
 
-    fn structural_axioms() -> Vec<Box<dyn Axiom>> {
-        GroundingOntology::generated_structural_axioms()
-    }
-
-    fn domain_axioms() -> Vec<Box<dyn Axiom>> {
-        vec![
-            Box::new(AllActsClassified),
-            Box::new(PresentationHasConsequence),
-        ]
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(AllActsClassified));
+        axioms.push(Box::new(PresentationHasConsequence));
+        axioms
     }
 }

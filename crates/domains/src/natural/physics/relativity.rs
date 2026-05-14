@@ -6,7 +6,9 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// - Axiom: v < c enforced, rest mass invariant
 /// - Actions: accelerate, set velocity
 /// - Derived: Lorentz factor, time dilation, length contraction, E=mc²
-use pr4xis::engine::{Action, Engine, Precondition, PreconditionResult, Situation};
+use pr4xis::engine::{Action, Engine, Precondition, Situation};
+use pr4xis::logic::proof::{Counterexample, SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
 pub const C: f64 = 299_792_458.0;
 
@@ -52,17 +54,16 @@ impl Body {
     }
 }
 
-impl Situation for Body {
-    fn describe(&self) -> String {
-        format!(
-            "m₀={:.4} v={:.4} γ={:.6}",
-            self.rest_mass,
-            self.velocity,
-            self.lorentz_factor()
-        )
-    }
-    fn is_terminal(&self) -> bool {
-        false
+impl Situation for Body {}
+
+fn rel_meta(name: &'static str, description: &'static str) -> Provenance {
+    Provenance {
+        name: OntologyName::new_static(name),
+        description: Label::new_static(description),
+        citation: Citation::parse_static(
+            "Einstein (1905) Zur Elektrodynamik bewegter Körper, Annalen der Physik 17:891-921",
+        ),
+        module_path: ModulePath::new_static(module_path!()),
     }
 }
 
@@ -74,41 +75,32 @@ pub enum RelativityAction {
 
 impl Action for RelativityAction {
     type Sit = Body;
-    fn describe(&self) -> String {
-        format!("{:?}", self)
-    }
 }
 
 struct SpeedLimit;
 impl Precondition<RelativityAction> for SpeedLimit {
-    fn check(&self, body: &Body, a: &RelativityAction) -> PreconditionResult {
-        let next = apply_rel(body, a).unwrap_or_else(|_| body.clone());
+    fn check(&self, body: &Body, a: &RelativityAction) -> Verdict {
+        let meta = rel_meta("SpeedLimit", "v < c");
+        let next = apply_rel_inner(body, a);
         if next.velocity.abs() < C {
-            PreconditionResult::satisfied(
-                "speed_limit",
-                &format!("|v|={:.4} < c", next.velocity.abs()),
-            )
+            Ok(Box::new(SimpleProof::new(meta)))
         } else {
-            PreconditionResult::violated(
-                "speed_limit",
-                "cannot reach speed of light",
-                &body.describe(),
-                &a.describe(),
-            )
+            Err(Box::new(SimpleCounterexample::new(meta)))
         }
-    }
-    fn describe(&self) -> &str {
-        "v < c"
     }
 }
 
-fn apply_rel(body: &Body, a: &RelativityAction) -> Result<Body, String> {
+fn apply_rel_inner(body: &Body, a: &RelativityAction) -> Body {
     let mut next = body.clone();
     match a {
         RelativityAction::Accelerate { delta_v } => next.velocity += delta_v,
         RelativityAction::SetVelocity { v } => next.velocity = *v,
     }
-    Ok(next)
+    next
+}
+
+fn apply_rel(body: &Body, a: &RelativityAction) -> Result<Body, Box<dyn Counterexample>> {
+    Ok(apply_rel_inner(body, a))
 }
 
 pub fn new_body(rest_mass: f64) -> Result<Engine<RelativityAction>, &'static str> {

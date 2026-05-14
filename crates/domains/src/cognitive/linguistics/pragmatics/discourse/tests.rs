@@ -1,12 +1,12 @@
 use super::ontology::*;
 use pr4xis::category::Category;
 use pr4xis::category::entity::Concept;
-use pr4xis::category::validate::check_category_laws;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 
 #[test]
 fn category_laws() {
-    check_category_laws::<DiscourseCategory>().unwrap();
+    assert_category_laws::<DiscourseCategory>();
 }
 
 #[test]
@@ -21,12 +21,12 @@ fn six_concepts() {
 
 #[test]
 fn nucleus_satellite_asymmetric() {
-    assert!(NucleusSatelliteAsymmetric.holds());
+    assert!(NucleusSatelliteAsymmetric.verify().is_ok());
 }
 
 #[test]
 fn multinuclear_exists() {
-    assert!(MultinuclearExists.holds());
+    assert!(MultinuclearExists.verify().is_ok());
 }
 
 #[test]

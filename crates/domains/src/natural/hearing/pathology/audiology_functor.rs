@@ -1,10 +1,13 @@
-//! Functor: PathologyCategory -> AudiologyCategory.
+//! Functor: PathologyCategory → AudiologyCategory.
 //!
 //! Maps hearing disorders to the clinical tests used to diagnose them.
+//!
+//! Citation: Katz et al. (2015) *Handbook of Clinical Audiology* — the
+//! disorder→test correspondences are clinical textbook content.
 
 use crate::natural::hearing::audiology::ontology::*;
 use crate::natural::hearing::pathology::ontology::*;
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Functor};
 
 pub struct PathologyToAudiology;
 
@@ -48,20 +51,36 @@ impl Functor for PathologyToAudiology {
             P::DamageMechanism => DiagnosticTest,
             P::PerceptualDeficit => SpeechTest,
             P::ClinicalMeasure => DiagnosticTest,
+            // Pathology events → audiology events.
+            P::NoiseExposure => CaseHistory,
+            P::AgingDegeneration => CaseHistory,
+            P::Infection | P::Autoimmune | P::GeneticMutation => CaseHistory,
+            P::OHCDamage | P::IHCDamage | P::SynapseLoss => OAECompleted,
+            P::StriDegeneration | P::MiddleEarDysfunction | P::NeuralDegeneration => {
+                ImmittanceCompleted
+            }
+            P::ThresholdShift | P::FrequencyResolutionLoss | P::TemporalSmearing => {
+                PureToneCompleted
+            }
+            P::TinnitusGeneration => HistoryTaken,
+            P::CommunicationDifficulty => SpeechTestCompleted,
+            P::PathologyEvent => AudiologyEvent,
         }
     }
 
     fn map_morphism(m: &PathologyRelation) -> AudiologyRelation {
+        use AudiologyRelationKind as Tk;
+        use PathologyCategoryRelationKind as Sk;
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
-        match m.kind {
-            PathologyCategoryRelationKind::Identity => AudiologyCategory::identity(&from),
-            _ => AudiologyRelation {
-                from,
-                to,
-                kind: AudiologyCategoryRelationKind::Composed,
-            },
-        }
+        let kind = match m.kind {
+            Sk::Identity => Tk::Identity,
+            Sk::Subsumption => Tk::Subsumption,
+            Sk::Causation => Tk::Causation,
+            Sk::Opposition => Tk::Opposition,
+            Sk::Parthood => Tk::Parthood,
+        };
+        AudiologyRelation { from, to, kind }
     }
 }
 pr4xis::register_functor!(PathologyToAudiology);
@@ -70,52 +89,24 @@ pr4xis::register_functor!(PathologyToAudiology);
 mod tests {
     use super::*;
     use pr4xis::category::Concept;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::ontology::reasoning::analogy::Analogy;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
-    fn test_functor_laws() {
-        check_functor_laws::<PathologyToAudiology>().unwrap();
+    fn functor_laws() {
+        assert_functor_laws::<PathologyToAudiology>();
     }
     #[test]
-    fn test_analogy_validates() {
-        Analogy::<PathologyToAudiology>::validate().unwrap();
-    }
-    #[test]
-    fn test_conductive_maps_to_air_bone_gap() {
+    fn conductive_maps_to_air_bone_gap() {
         assert_eq!(
             PathologyToAudiology::map_object(&PathologyEntity::ConductiveHearingLoss),
             AudiologyEntity::AirBoneGap
         );
     }
     #[test]
-    fn test_every_entity_maps_valid() {
+    fn every_entity_maps_valid() {
         let targets = AudiologyEntity::variants();
         for obj in PathologyEntity::variants() {
             assert!(targets.contains(&PathologyToAudiology::map_object(&obj)));
-        }
-    }
-
-    use pr4xis::category::Category;
-    use proptest::prelude::*;
-
-    fn arb_pathology_entity() -> impl Strategy<Value = PathologyEntity> {
-        (0..PathologyEntity::variants().len()).prop_map(|i| PathologyEntity::variants()[i])
-    }
-
-    proptest! {
-        #[test]
-        fn prop_functor_maps_to_valid_target(entity in arb_pathology_entity()) {
-            let mapped = PathologyToAudiology::map_object(&entity);
-            prop_assert!(AudiologyEntity::variants().contains(&mapped));
-        }
-
-        #[test]
-        fn prop_functor_preserves_identity(entity in arb_pathology_entity()) {
-            let id_src = PathologyCategory::identity(&entity);
-            let mapped_id = PathologyToAudiology::map_morphism(&id_src);
-            let id_tgt = AudiologyCategory::identity(&PathologyToAudiology::map_object(&entity));
-            prop_assert_eq!(mapped_id, id_tgt);
         }
     }
 }

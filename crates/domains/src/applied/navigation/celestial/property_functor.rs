@@ -6,7 +6,7 @@
 //!
 //! Source: Wertz (2001); Bowditch (2002); Groves (2013).
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::applied::navigation::celestial::ontology::{
     CelestialCategory, CelestialConcept, CelestialRelationKind,
@@ -41,13 +41,15 @@ impl Functor for CelestialToProperty {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
         // Preserve source's Identity → target's Identity; everything else
-        // maps to Composed so F(g∘f) == F(g)∘F(f) holds under collapse.
+        // collapses to Subsumption (#166 removed `Composed` from auto-generated
+        // kinds — heterogeneous composition is now expressed as the most
+        // general structural kind, OBO-RO Subsumption).
         match m.kind {
             CelestialRelationKind::Identity => ObservablePropertyCategory::identity(&from),
             _ => ObservablePropertyRelation {
                 from,
                 to,
-                kind: ObservablePropertyRelationKind::Composed,
+                kind: ObservablePropertyRelationKind::Subsumption,
             },
         }
     }
@@ -60,11 +62,11 @@ pr4xis::register_functor!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn functor_laws_hold() {
-        check_functor_laws::<CelestialToProperty>().unwrap();
+        assert_functor_laws::<CelestialToProperty>();
     }
 
     #[test]

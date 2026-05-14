@@ -17,6 +17,7 @@ use hashbrown::{HashMap, HashSet};
 /// - vim modal editing (Normal/Insert/Visual/Command)
 /// - Hyprland submaps (https://wiki.hypr.land/Configuring/Binds/#submaps)
 /// - macOS Mission Control (Desktop mode inspiration)
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 /// A mode definition — part of a user-configured mode graph.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -125,8 +126,8 @@ impl ModeGraph {
         ];
 
         for axiom in &axioms {
-            if !axiom.holds() {
-                failures.push(axiom.description().to_string());
+            if axiom.verify().is_err() {
+                failures.push(axiom.description().as_str().to_string());
             }
         }
 
@@ -202,10 +203,7 @@ pub struct NoDeadStates {
 }
 
 impl Axiom for NoDeadStates {
-    fn description(&self) -> &str {
-        "every mode can reach root (no dead states)"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         for mode_id in self.graph.modes.keys() {
             if *mode_id == self.graph.root {
                 continue;
@@ -218,7 +216,7 @@ impl Axiom for NoDeadStates {
                     break;
                 }
                 if steps > 10 {
-                    return false; // cycle or too deep
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
                 match self.graph.modes.get(&current) {
                     Some(props) => match &props.parent {
@@ -226,54 +224,71 @@ impl Axiom for NoDeadStates {
                             current = parent.clone();
                             steps += 1;
                         }
-                        None => return false, // non-root with no parent
+                        None => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
                     },
-                    None => return false, // mode not in graph
+                    None => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
                 }
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "NoDeadStates",
+        "every mode can reach root (no dead states)",
+        "Harel (1987) Statecharts: A Visual Formalism, Science of Computer Programming 8"
+    );
 }
-pr4xis::register_axiom!(NoDeadStates);
+
 /// Root mode is reachable from every mode via transitions.
 pub struct RootReachable {
     pub graph: ModeGraph,
 }
 
 impl Axiom for RootReachable {
-    fn description(&self) -> &str {
-        "root is reachable from every mode via transitions"
-    }
-    fn holds(&self) -> bool {
+    fn verify(&self) -> Verdict {
         for mode_id in self.graph.modes.keys() {
             let reachable = self.graph.reachable_from(mode_id);
             if !reachable.contains(&self.graph.root) {
-                return false;
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
-        true
+        Ok(Box::new(SimpleProof::new(self.meta())))
     }
+
+    pr4xis::axiom_meta!(
+        "RootReachable",
+        "root is reachable from every mode via transitions",
+        "Harel (1987) Statecharts — root state reachability"
+    );
 }
-pr4xis::register_axiom!(RootReachable);
+
 /// Root mode has no parent.
 pub struct RootNoParent {
     pub graph: ModeGraph,
 }
 
 impl Axiom for RootNoParent {
-    fn description(&self) -> &str {
-        "root mode has no parent"
-    }
-    fn holds(&self) -> bool {
-        self.graph
+    fn verify(&self) -> Verdict {
+        let ok = self
+            .graph
             .modes
             .get(&self.graph.root)
             .map(|p| p.parent.is_none())
-            .unwrap_or(false)
+            .unwrap_or(false);
+        if ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
     }
+
+    pr4xis::axiom_meta!(
+        "RootNoParent",
+        "root mode has no parent",
+        "Harel (1987) Statecharts — root state is the OR-decomposition apex"
+    );
 }
-pr4xis::register_axiom!(RootNoParent);
 
 #[cfg(test)]
 mod tests {
@@ -379,19 +394,19 @@ mod tests {
     #[test]
     fn test_no_dead_states() {
         let g = default_graph();
-        assert!(NoDeadStates { graph: g }.holds());
+        assert!(NoDeadStates { graph: g }.verify().is_ok());
     }
 
     #[test]
     fn test_root_reachable() {
         let g = default_graph();
-        assert!(RootReachable { graph: g }.holds());
+        assert!(RootReachable { graph: g }.verify().is_ok());
     }
 
     #[test]
     fn test_root_no_parent() {
         let g = default_graph();
-        assert!(RootNoParent { graph: g }.holds());
+        assert!(RootNoParent { graph: g }.verify().is_ok());
     }
 
     #[test]
@@ -412,7 +427,7 @@ mod tests {
                 depth: 1,
             },
         );
-        assert!(!NoDeadStates { graph: g }.holds());
+        assert!(NoDeadStates { graph: g }.verify().is_err());
     }
 
     #[test]
@@ -427,7 +442,7 @@ mod tests {
             },
         );
         // No transitions to/from island
-        assert!(!RootReachable { graph: g }.holds());
+        assert!(RootReachable { graph: g }.verify().is_err());
     }
 
     // ── Custom mode graph test ──
@@ -513,7 +528,7 @@ mod tests {
             });
             // No transitions added — island
             let axiom = RootReachable { graph: g };
-            prop_assert!(!axiom.holds());
+            prop_assert!(axiom.verify().is_err());
         }
 
         #[test]

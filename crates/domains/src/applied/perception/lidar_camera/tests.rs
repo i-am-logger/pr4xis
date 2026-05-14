@@ -1,8 +1,6 @@
-#[allow(unused_imports)]
-use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
-
-use pr4xis::category::validate::check_category_laws;
-use pr4xis::ontology::{Axiom, Ontology};
+use pr4xis::category::laws::assert_category_laws;
+use pr4xis::logic::Axiom;
+use pr4xis::ontology::Ontology;
 
 use crate::applied::perception::lidar_camera::calibration::{
     CameraIntrinsics, ExtrinsicCalibration,
@@ -12,22 +10,23 @@ use crate::applied::perception::lidar_camera::ontology::*;
 
 #[test]
 fn lidar_camera_category_laws() {
-    check_category_laws::<LidarCameraCategory>().unwrap();
+    assert_category_laws::<LidarCameraCategory>();
 }
 
 #[test]
 fn lidar_camera_ontology_validates() {
-    LidarCameraOntology::validate().unwrap();
+    LidarCameraOntology::validate()
+        .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
 #[test]
 fn projection_preserves_ordering_holds() {
-    assert!(ProjectionPreservesOrdering.holds());
+    assert!(ProjectionPreservesOrdering.verify().is_ok());
 }
 
 #[test]
 fn pipeline_is_sequential_holds() {
-    assert!(PipelineIsSequential.holds());
+    assert!(PipelineIsSequential.verify().is_ok());
 }
 
 #[test]

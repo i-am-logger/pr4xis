@@ -87,16 +87,40 @@ impl PipelineStepMorphism {
     }
 }
 
-impl pr4xis::category::Relationship for PipelineStepMorphism {
+/// The single relation kind in the discrete `PipelineStepCategory`: every
+/// morphism is an identity tagged with `Identity`. Per OBO-RO (Smith 2005)
+/// every arrow carries a relation-kind tag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PipelineStepRelationKind {
+    Identity,
+}
+
+impl pr4xis::category::Arrow for PipelineStepMorphism {
     type Object = PipelineStep;
-    type Kind = ();
+    type Kind = PipelineStepRelationKind;
+
     fn source(&self) -> PipelineStep {
         self.from
     }
     fn target(&self) -> PipelineStep {
         self.to
     }
-    fn kind(&self) {}
+    fn kind(&self) -> PipelineStepRelationKind {
+        PipelineStepRelationKind::Identity
+    }
+    fn meta(&self) -> pr4xis::ontology::meta::Provenance {
+        use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
+        Provenance {
+            name: OntologyName::new_static("PipelineStepMorphism"),
+            description: Label::new_static(
+                "identity morphism in the discrete PipelineStep category; carries Identity kind tag per OBO-RO",
+            ),
+            citation: Citation::parse_static(
+                "Smith et al. (2005) Genome Biology 6:R46 OBO-RO; Kephart & Chess (2003) IEEE Computer 36(1)",
+            ),
+            module_path: ModulePath::new_static(module_path!()),
+        }
+    }
 }
 
 // `PipelineStep` derives `Entity` at its definition in `trace_functors.rs`,
@@ -152,7 +176,7 @@ pr4xis::functor! {
     map_morphism: |m: &PipelineStepMorphism| -> MapeKRelation {
         // Source is a discrete category; every morphism is an identity,
         // enforced at construction by `PipelineStepMorphism::identity(..)`.
-        use pr4xis::category::Relationship;
+        use pr4xis::category::Arrow;
         debug_assert_eq!(
             m.source(),
             m.target(),
@@ -166,11 +190,11 @@ pr4xis::functor! {
 mod tests {
     use super::*;
     use pr4xis::category::Functor;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::assert_functor_laws;
 
     #[test]
     fn pipeline_step_to_mape_k_laws_pass() {
-        check_functor_laws::<PipelineStepToMapeK>().unwrap();
+        assert_functor_laws::<PipelineStepToMapeK>();
     }
 
     /// The functor's meta carries its Lemon identity — same three-field

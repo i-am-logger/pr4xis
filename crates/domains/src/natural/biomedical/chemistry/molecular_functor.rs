@@ -9,13 +9,13 @@
 //! Functor laws (identity + composition preservation) guarantee the mapping is
 //! mathematically valid -- verified by `check_functor_laws`.
 
-use pr4xis::category::{Category, Functor, Relationship};
+use pr4xis::category::{Arrow, Category, Functor};
 
 use crate::natural::biomedical::chemistry::ontology::{
-    ChemistryCategory, ChemistryCategoryRelationKind, ChemistryEntity, ChemistryRelation,
+    ChemistryCategory, ChemistryConcept, ChemistryRelation, ChemistryRelationKind,
 };
 use crate::natural::biomedical::molecular::ontology::{
-    MolecularCategory, MolecularCategoryRelationKind, MolecularEntity, MolecularRelation,
+    MolecularCategory, MolecularEntity, MolecularRelation, MolecularRelationKind,
 };
 
 /// Structure-preserving map from chemistry entities to molecular components.
@@ -25,8 +25,8 @@ impl Functor for ChemistryToMolecular {
     type Source = ChemistryCategory;
     type Target = MolecularCategory;
 
-    fn map_object(obj: &ChemistryEntity) -> MolecularEntity {
-        use ChemistryEntity as C;
+    fn map_object(obj: &ChemistryConcept) -> MolecularEntity {
+        use ChemistryConcept as C;
         use MolecularEntity as M;
         match obj {
             // Solution components -> Ion (electrolyte/ionic basis)
@@ -57,11 +57,25 @@ impl Functor for ChemistryToMolecular {
             C::Gas => M::Ion,        // dissolved gases as ions
             C::Plasma => M::Calcium, // ionized plasma; Ca2+ is key plasma ion
 
-            // Abstract categories
+            // Abstract categories and ChemicalEvent umbrella
             C::StateOfMatter => M::Ion,
             C::ChemicalBond => M::Protein,
             C::PhysicalProperty => M::Ion,
             C::SolutionComponent => M::Ion,
+            C::ChemicalEvent => M::Ion,
+
+            // Causal events — merged into the concept enum.
+            // Aqueous-phase reactions are predominantly ionic processes.
+            C::Dissolution => M::Ion,
+            C::IonDissociation => M::Ion,
+            C::ElectrolyteFormation => M::Ion,
+            C::AcidBaseReaction => M::Proton,
+            C::PHChange => M::Proton,
+            C::ProteinDenaturation => M::Protein,
+            C::TemperatureChange => M::Ion,
+            C::PhaseTransition => M::Ion,
+            C::ConcentrationGradient => M::Ion,
+            C::Diffusion => M::Ion,
         }
     }
 
@@ -69,11 +83,11 @@ impl Functor for ChemistryToMolecular {
         let from = Self::map_object(&m.source());
         let to = Self::map_object(&m.target());
         match m.kind {
-            ChemistryCategoryRelationKind::Identity => MolecularCategory::identity(&from),
+            ChemistryRelationKind::Identity => MolecularCategory::identity(&from),
             _ => MolecularRelation {
                 from,
                 to,
-                kind: MolecularCategoryRelationKind::Composed,
+                kind: MolecularRelationKind::Subsumption,
             },
         }
     }
@@ -83,13 +97,13 @@ pr4xis::register_functor!(ChemistryToMolecular);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
-    use pr4xis::category::{Category, Concept};
+    use pr4xis::category::laws::assert_functor_laws;
+    use pr4xis::category::{Arrow, Category, Concept};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     #[test]
     fn test_functor_laws() {
-        check_functor_laws::<ChemistryToMolecular>().unwrap();
+        assert_functor_laws::<ChemistryToMolecular>();
     }
 
     #[test]
@@ -99,7 +113,7 @@ mod tests {
 
     #[test]
     fn test_identity_preservation() {
-        for obj in ChemistryEntity::variants() {
+        for obj in ChemistryConcept::variants() {
             let id_src = ChemistryCategory::identity(&obj);
             let mapped_id = ChemistryToMolecular::map_morphism(&id_src);
             let id_tgt = MolecularCategory::identity(&ChemistryToMolecular::map_object(&obj));
@@ -108,34 +122,37 @@ mod tests {
     }
 
     #[test]
-    fn test_composition_preservation() {
-        let objs = ChemistryEntity::variants();
-        for &a in &objs[..5] {
-            for &b in &objs[5..10] {
-                for &c in &objs[10..15] {
-                    let f = ChemistryRelation {
-                        from: a,
-                        to: b,
-                        kind: ChemistryCategoryRelationKind::Composed,
-                    };
-                    let g = ChemistryRelation {
-                        from: b,
-                        to: c,
-                        kind: ChemistryCategoryRelationKind::Composed,
-                    };
-                    let composed = ChemistryCategory::compose(&f, &g).unwrap();
-                    let mapped_composed = ChemistryToMolecular::map_morphism(&composed);
-                    let composed_mapped = MolecularCategory::compose(
-                        &ChemistryToMolecular::map_morphism(&f),
-                        &ChemistryToMolecular::map_morphism(&g),
-                    )
-                    .unwrap();
-                    assert_eq!(
-                        mapped_composed, composed_mapped,
-                        "composition law failed for {:?} -> {:?} -> {:?}",
-                        a, b, c
-                    );
+    fn test_composition_preservation_on_subsumption() {
+        // The migrated Chemistry category is kinded and partial (per OBO-RO,
+        // #166): compose only succeeds for same-kind transitive relations.
+        // Exercise composition along Subsumption chains and verify that the
+        // functor preserves the composite.
+        for m in ChemistryCategory::morphisms() {
+            if m.kind() != ChemistryRelationKind::Subsumption {
+                continue;
+            }
+            for n in ChemistryCategory::morphisms() {
+                if n.kind() != ChemistryRelationKind::Subsumption {
+                    continue;
                 }
+                if m.target() != n.source() {
+                    continue;
+                }
+                let composed = match ChemistryCategory::compose(&m, &n) {
+                    Some(c) => c,
+                    None => continue,
+                };
+                let mapped_composed = ChemistryToMolecular::map_morphism(&composed);
+                let composed_mapped = MolecularCategory::compose(
+                    &ChemistryToMolecular::map_morphism(&m),
+                    &ChemistryToMolecular::map_morphism(&n),
+                )
+                .expect("target composition is total");
+                assert_eq!(
+                    mapped_composed, composed_mapped,
+                    "composition law failed for {:?} ∘ {:?}",
+                    m, n
+                );
             }
         }
     }
@@ -145,7 +162,7 @@ mod tests {
     #[test]
     fn test_electrolyte_maps_to_ion() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::Electrolyte),
+            ChemistryToMolecular::map_object(&ChemistryConcept::Electrolyte),
             MolecularEntity::Ion,
         );
     }
@@ -153,7 +170,7 @@ mod tests {
     #[test]
     fn test_buffer_maps_to_ion() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::Buffer),
+            ChemistryToMolecular::map_object(&ChemistryConcept::Buffer),
             MolecularEntity::Ion,
         );
     }
@@ -161,7 +178,7 @@ mod tests {
     #[test]
     fn test_solvent_maps_to_sodium() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::Solvent),
+            ChemistryToMolecular::map_object(&ChemistryConcept::Solvent),
             MolecularEntity::Sodium,
         );
     }
@@ -169,7 +186,7 @@ mod tests {
     #[test]
     fn test_ionic_bond_maps_to_ion() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::IonicBond),
+            ChemistryToMolecular::map_object(&ChemistryConcept::IonicBond),
             MolecularEntity::Ion,
         );
     }
@@ -177,7 +194,7 @@ mod tests {
     #[test]
     fn test_covalent_bond_maps_to_protein() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::CovalentBond),
+            ChemistryToMolecular::map_object(&ChemistryConcept::CovalentBond),
             MolecularEntity::Protein,
         );
     }
@@ -185,7 +202,7 @@ mod tests {
     #[test]
     fn test_hydrogen_bond_maps_to_protein() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::HydrogenBond),
+            ChemistryToMolecular::map_object(&ChemistryConcept::HydrogenBond),
             MolecularEntity::Protein,
         );
     }
@@ -193,7 +210,7 @@ mod tests {
     #[test]
     fn test_ph_maps_to_proton() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::PH),
+            ChemistryToMolecular::map_object(&ChemistryConcept::PH),
             MolecularEntity::Proton,
         );
     }
@@ -201,7 +218,7 @@ mod tests {
     #[test]
     fn test_osmolarity_maps_to_sodium() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::Osmolarity),
+            ChemistryToMolecular::map_object(&ChemistryConcept::Osmolarity),
             MolecularEntity::Sodium,
         );
     }
@@ -209,7 +226,7 @@ mod tests {
     #[test]
     fn test_solid_maps_to_collagen() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::Solid),
+            ChemistryToMolecular::map_object(&ChemistryConcept::Solid),
             MolecularEntity::Collagen,
         );
     }
@@ -217,7 +234,7 @@ mod tests {
     #[test]
     fn test_liquid_maps_to_mucin() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::Liquid),
+            ChemistryToMolecular::map_object(&ChemistryConcept::Liquid),
             MolecularEntity::Mucin,
         );
     }
@@ -225,7 +242,7 @@ mod tests {
     #[test]
     fn test_gel_maps_to_mucin() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::Gel),
+            ChemistryToMolecular::map_object(&ChemistryConcept::Gel),
             MolecularEntity::Mucin,
         );
     }
@@ -233,7 +250,7 @@ mod tests {
     #[test]
     fn test_plasma_maps_to_calcium() {
         assert_eq!(
-            ChemistryToMolecular::map_object(&ChemistryEntity::Plasma),
+            ChemistryToMolecular::map_object(&ChemistryConcept::Plasma),
             MolecularEntity::Calcium,
         );
     }
@@ -241,7 +258,7 @@ mod tests {
     #[test]
     fn test_every_entity_maps_to_valid_target() {
         let target_variants = MolecularEntity::variants();
-        for obj in ChemistryEntity::variants() {
+        for obj in ChemistryConcept::variants() {
             let mapped = ChemistryToMolecular::map_object(&obj);
             assert!(
                 target_variants.contains(&mapped),
