@@ -17,10 +17,14 @@ hex = "0.4"
 anyhow = "1"
 hashbrown = "0.17"
 
-# Network + compression — optional, behind the `fetch` feature. The TLS
-# stack is pure Rust (rustls + rustls-rustcrypto), so the workspace has
-# zero C build deps. The feature stays opt-in because flate2 + std-only I/O
-# would otherwise pull into the WASM build (WASM depends on this crate with
+# Network + compression — optional, behind the `fetch` feature. TLS uses
+# rustls with the rustls-rustcrypto CryptoProvider; under the workspace's
+# active feature set no `ring` / `cc` code path is enabled (`cargo tree
+# --workspace -e build,normal --invert ring` is empty). Cargo.lock still
+# names `ring` as a gated potential dep of rustls-webpki — the resolver
+# declares it, it just doesn't activate the feature that pulls it.
+# The fetch feature stays opt-in because flate2 + std-only I/O would
+# otherwise pull into the WASM build (WASM depends on this crate with
 # default features).
 ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "rustls-webpki-roots"], optional = true }
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "logging"], optional = true }
