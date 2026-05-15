@@ -111,10 +111,14 @@ fn run_update(
 fn print_list() {
     println!("Registered datasets:");
     for entry in data_sources() {
-        println!("  {} — {}", entry.name, entry.description);
-        println!("    remote: {}", entry.remote_location);
-        println!("    local:  {}", entry.local_path);
-        println!("    content-type: {:?}", entry.content_type);
+        let desc = entry.description.as_deref().unwrap_or("");
+        println!(
+            "  {}@{} [{:?}] {}",
+            entry.name, entry.version, entry.kind, desc
+        );
+        println!("    remote: {}", entry.url);
+        println!("    local:  {}", entry.local_path());
+        println!("    content-type: {:?}", entry.content_type());
     }
 }
 

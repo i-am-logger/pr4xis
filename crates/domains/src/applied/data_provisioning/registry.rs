@@ -1,111 +1,113 @@
 //! Runtime registry — `RegistryEntry` instances loaded from the
-//! workspace-root `praxis.toml` (Cargo-precedent naming: manifest →
-//! `praxis.toml`, future lock file → `praxis.lock`).
+//! workspace-root `praxis.toml`. Lock hashes loaded from `praxis.lock`.
 //!
-//! The TOML bytes are embedded at compile time via `include_str!` and
-//! parsed lazily on first access via `OnceLock`. Adding a managed dataset
-//! = appending a `[[source]]` table to `praxis.toml`; no Rust code
-//! changes are needed for new entries that fit the existing decoder
-//! dispatch.
+//! Both files are embedded at compile time via `include_str!` and parsed
+//! lazily on first access via `OnceLock`. The schema and parsing rules
+//! are described inline below; the user-facing documentation lives in
+//! the comments at the top of `praxis.toml` and `praxis.lock`.
 //!
-//! ### TOML schema
+//! # Mapping
+//!
+//! `praxis.toml` declares manifest entries:
 //!
 //! ```toml
-//! [[source]]
-//! name = "wordnet"
-//! description = "..."
-//! remote_location = "https://..."
-//! local_path = "crates/domains/data/wordnet/english-wordnet-2025.xml"
-//! content_type = "XmlLmf"   # one of the ContentType variants
-//! gzipped = true
-//!
-//! [[source.identity]]
-//! kind = "XmlElementAttribute"
-//! element = "Lexicon"
-//! attribute = "version"
-//! expected = "2025"
-//!
-//! [[source.identity]]
-//! kind = "RawHash"
-//! sha256 = "6f49adeec1..."
+//! [sources.english_wordnet]
+//! version = "2025"
+//! type    = "Language"
+//! url     = "https://..."
 //! ```
 //!
-//! The `kind` discriminator on `[[source.identity]]` selects the
-//! `ClaimData` variant. Currently understood kinds: `XmlElementAttribute`,
-//! `RawHash`, `Sha256` (alias for `RawHash`). Unknown kinds fail the parse
-//! at startup — fail-closed.
+//! `praxis.lock` pins their hashes:
 //!
-//! ### Why `include_str!` not `fs::read`
+//! ```toml
+//! [hashes]
+//! "english_wordnet@2025" = "6f49adeec..."
+//! ```
 //!
-//! The registry is needed in WASM and other no-filesystem contexts.
-//! Embedding the TOML at compile time keeps the registry a single
-//! self-contained artifact. `pr4xis source add` (M6) will rewrite the
-//! checked-in file; the running process re-reads on next start.
+//! At load time the parser:
+//! 1. Reads each `[sources.<name>]` table.
+//! 2. Maps `type = "<concept>"` → typed [`SourceTaxonomyConcept`] via
+//!    [`parse_concept`]. Unknown names panic at startup (fail-closed).
+//! 3. Looks up `"<name>@<version>"` in `praxis.lock`'s `[hashes]` table
+//!    to get the pinned sha256.
+//! 4. Synthesizes the `CompositeIdentity`:
+//!      - `XmlElementAttribute` claim for `<Lexicon version=...>` if the
+//!        kind is in the Lexicon family (Global WordNet LMF convention).
+//!      - `RawHash::Sha256` claim from the lock hash, applied to every
+//!        kind (Dolstra 2006 content-addressing).
+//! 5. Returns a `Vec<RegistryEntry>` cached for process lifetime.
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-use super::ontology::{ContentType, RegistryEntry};
+use super::ontology::RegistryEntry;
 use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, CompositeIdentity, IdentityClaim, IdentityConcept,
 };
+use crate::formal::meta::source_taxonomy::ontology::{
+    SourceTaxonomyConcept, is_lexicon, parse_concept,
+};
 
-/// Embedded manifest. Single source of truth for the bundled (committed)
-/// entries; M6's `pr4xis source add` mutates the file on disk and the
-/// running process picks up changes on next start.
-///
-/// Path is workspace-root relative: this file is at
-/// `crates/domains/src/applied/data_provisioning/registry.rs`, so four
-/// `..` segments reach the workspace root where `praxis.toml` lives.
+// `SourceTaxonomyConcept` is referenced by the `build_entry_succeeds` parser
+// test below; the doc-comment near `build_entry` also references the typed
+// variant. Keeping the import unconditional reads cleaner than two
+// `#[cfg(test)]` aliases.
+#[allow(dead_code)]
+const _SOURCE_TAXONOMY_CONCEPT_WITNESS: Option<SourceTaxonomyConcept> = None;
+
 const PRAXIS_TOML: &str = include_str!("../../../../../praxis.toml");
+const PRAXIS_LOCK: &str = include_str!("../../../../../praxis.lock");
 
-/// Process-wide cache of the parsed registry. Lazily initialized on
-/// first call to [`data_sources`]; any parse error panics, because a
-/// broken `praxis.toml` would corrupt every axiom that iterates the
-/// registry — fail-closed at startup is preferable to fail-mysteriously
-/// at axiom-check time.
 static REGISTRY: OnceLock<Vec<RegistryEntry>> = OnceLock::new();
+static LOCK: OnceLock<HashMap<String, String>> = OnceLock::new();
 
-/// Return the loaded registry. First call parses `praxis.toml`;
-/// subsequent calls return the cached slice.
+/// The loaded registry. First call parses both files and synthesizes the
+/// identity claims; subsequent calls return the cached slice.
 pub fn data_sources() -> &'static [RegistryEntry] {
     REGISTRY
         .get_or_init(|| {
-            parse_sources_toml(PRAXIS_TOML)
-                .unwrap_or_else(|e| panic!("invalid workspace-root praxis.toml: {e}"))
+            let manifest = parse_praxis_toml(PRAXIS_TOML)
+                .unwrap_or_else(|e| panic!("invalid praxis.toml: {e}"));
+            let lock = lock_hashes();
+            manifest
+                .into_iter()
+                .map(|raw| build_entry(raw, lock))
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap_or_else(|e| panic!("praxis.toml/praxis.lock integration: {e}"))
         })
         .as_slice()
 }
 
-/// Look up a `RegistryEntry` by name. Linear scan because the registry is
-/// small; switch to a map if it grows past ~100 entries.
+/// The pinned hashes from `praxis.lock`. Keys are `"<name>@<version>"`
+/// strings; values are hex sha256.
+pub fn lock_hashes() -> &'static HashMap<String, String> {
+    LOCK.get_or_init(|| {
+        parse_praxis_lock(PRAXIS_LOCK).unwrap_or_else(|e| panic!("invalid praxis.lock: {e}"))
+    })
+}
+
+/// Look up a `RegistryEntry` by `name`. Returns the first match; if
+/// multiple versions of the same name are registered, callers should use
+/// [`by_name_version`] instead.
 pub fn by_name(name: &str) -> Option<&'static RegistryEntry> {
     data_sources().iter().find(|e| e.name == name)
 }
 
-/// Resolve the composite identity for a registered entry. Returns the
-/// entry's embedded `CompositeIdentity` (cloned) so callers don't have to
-/// deal with the registry's `'static` lifetime. `None` if `name` is not
-/// registered.
-///
-/// Kept as a name-keyed function for source-compatibility with the old
-/// hardcoded-match implementation; equivalent to
-/// `by_name(name).map(|e| e.identity.clone())`.
-pub fn resolve_identity(name: &str) -> Option<CompositeIdentity> {
-    by_name(name).map(|e| e.identity.clone())
-}
-
-/// Every registry entry's resolved identity. Used by callers that want to
-/// iterate the full set without re-doing the name lookup.
-pub fn resolved_identities() -> Vec<(&'static str, CompositeIdentity)> {
+/// Look up a `RegistryEntry` by `(name, version)` — the primary key.
+pub fn by_name_version(name: &str, version: &str) -> Option<&'static RegistryEntry> {
     data_sources()
         .iter()
-        .map(|e| (e.name.as_str(), e.identity.clone()))
-        .collect()
+        .find(|e| e.name == name && e.version == version)
+}
+
+/// Convenience for callers that want the entry's composite identity by name.
+pub fn resolve_identity(name: &str) -> Option<CompositeIdentity> {
+    by_name(name).map(|e| e.identity.clone())
 }
 
 // =============================================================================
@@ -115,120 +117,104 @@ pub fn resolved_identities() -> Vec<(&'static str, CompositeIdentity)> {
 #[derive(Debug, Deserialize)]
 struct RawManifest {
     #[serde(default)]
-    source: Vec<RawSource>,
+    sources: HashMap<String, RawSource>,
 }
 
 #[derive(Debug, Deserialize)]
 struct RawSource {
-    name: String,
-    description: String,
-    remote_location: String,
-    local_path: String,
-    content_type: String,
-    #[serde(default)]
-    gzipped: bool,
-    #[serde(default)]
-    identity: Vec<RawIdentity>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RawIdentity {
+    version: String,
+    #[serde(rename = "type")]
     kind: String,
-    // XmlElementAttribute fields
+    url: String,
     #[serde(default)]
-    element: Option<String>,
-    #[serde(default)]
-    attribute: Option<String>,
-    #[serde(default)]
-    expected: Option<String>,
-    // RawHash / Sha256 field
-    #[serde(default)]
-    sha256: Option<String>,
+    description: Option<String>,
 }
 
-fn parse_sources_toml(text: &str) -> Result<Vec<RegistryEntry>, String> {
+/// Intermediate form: name + raw source. We keep names sorted at the
+/// output boundary so the registry has a stable iteration order
+/// (HashMap iteration is non-deterministic).
+struct RawSourceWithName {
+    name: String,
+    raw: RawSource,
+}
+
+fn parse_praxis_toml(text: &str) -> Result<Vec<RawSourceWithName>, String> {
     let manifest: RawManifest = toml::from_str(text).map_err(|e| format!("toml parse: {e}"))?;
-    manifest
-        .source
+    let mut items: Vec<_> = manifest
+        .sources
         .into_iter()
-        .map(raw_to_entry)
-        .collect::<Result<Vec<_>, _>>()
+        .map(|(name, raw)| RawSourceWithName { name, raw })
+        .collect();
+    items.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(items)
 }
 
-fn raw_to_entry(raw: RawSource) -> Result<RegistryEntry, String> {
-    let content_type = parse_content_type(&raw.content_type).ok_or_else(|| {
+fn build_entry(
+    item: RawSourceWithName,
+    lock: &HashMap<String, String>,
+) -> Result<RegistryEntry, String> {
+    let RawSourceWithName { name, raw } = item;
+    let kind = parse_concept(&raw.kind).ok_or_else(|| {
         format!(
-            "source `{}`: unknown content_type `{}`",
-            raw.name, raw.content_type
+            "source `{}`: unknown type `{}` — must be a leaf concept in SourceTaxonomy",
+            name, raw.kind
         )
     })?;
-    let claims = raw
-        .identity
-        .into_iter()
-        .map(|i| raw_identity_to_claim(&raw.name, i))
-        .collect::<Result<Vec<_>, _>>()?;
+
+    let key = format!("{}@{}", name, raw.version);
+    let lock_sha = lock
+        .get(&key)
+        .ok_or_else(|| {
+            format!("praxis.lock missing hash for `{key}` — run `pr4xis lock` to regenerate")
+        })?
+        .clone();
+
+    let mut claims = Vec::with_capacity(2);
+    // Lexicon-family kinds (Language, DomainLexicon, LegalLexicon) ship
+    // as XML-LMF and self-declare their version in the `<Lexicon
+    // version="...">` attribute (Global WordNet LMF 1.3 convention).
+    // We synthesize the corresponding identity claim so the existing
+    // XML attribute extractor validates the upstream's self-description.
+    if is_lexicon(kind) {
+        claims.push(IdentityClaim {
+            concept: IdentityConcept::XmlElementAttribute,
+            data: ClaimData::XmlAttribute {
+                element: "Lexicon".into(),
+                attribute: "version".into(),
+                expected: raw.version.clone(),
+            },
+        });
+    }
+    // Every entry carries the cryptographic hash claim from praxis.lock
+    // (Dolstra 2006 content-addressing).
+    claims.push(IdentityClaim {
+        concept: IdentityConcept::RawHash,
+        data: ClaimData::Sha256(lock_sha),
+    });
+
     Ok(RegistryEntry {
-        name: raw.name,
+        name,
+        version: raw.version,
+        kind,
+        url: raw.url,
         description: raw.description,
-        remote_location: raw.remote_location,
-        local_path: raw.local_path,
-        content_type,
-        gzipped: raw.gzipped,
         identity: CompositeIdentity(claims),
     })
 }
 
-fn parse_content_type(s: &str) -> Option<ContentType> {
-    Some(match s {
-        "XmlLmf" => ContentType::XmlLmf,
-        "Pdf" => ContentType::Pdf,
-        "Plaintext" => ContentType::Plaintext,
-        "Json" => ContentType::Json,
-        "Video" => ContentType::Video,
-        "Audio" => ContentType::Audio,
-        "Binary" => ContentType::Binary,
-        "Statute" => ContentType::Statute,
-        _ => return None,
-    })
+// =============================================================================
+// praxis.lock parsing
+// =============================================================================
+
+#[derive(Debug, Deserialize)]
+struct RawLockFile {
+    #[serde(default)]
+    hashes: HashMap<String, String>,
 }
 
-fn raw_identity_to_claim(source_name: &str, raw: RawIdentity) -> Result<IdentityClaim, String> {
-    match raw.kind.as_str() {
-        "XmlElementAttribute" => {
-            let element = raw.element.ok_or_else(|| {
-                format!("source `{source_name}`: XmlElementAttribute claim missing `element`")
-            })?;
-            let attribute = raw.attribute.ok_or_else(|| {
-                format!("source `{source_name}`: XmlElementAttribute claim missing `attribute`")
-            })?;
-            let expected = raw.expected.ok_or_else(|| {
-                format!("source `{source_name}`: XmlElementAttribute claim missing `expected`")
-            })?;
-            Ok(IdentityClaim {
-                concept: IdentityConcept::XmlElementAttribute,
-                data: ClaimData::XmlAttribute {
-                    element,
-                    attribute,
-                    expected,
-                },
-            })
-        }
-        // `RawHash` and `Sha256` are aliases — the leaf concept is
-        // `RawHash`; `Sha256` names the algorithm, which is currently the
-        // only supported one.
-        "RawHash" | "Sha256" => {
-            let hex = raw
-                .sha256
-                .ok_or_else(|| format!("source `{source_name}`: RawHash claim missing `sha256`"))?;
-            Ok(IdentityClaim {
-                concept: IdentityConcept::RawHash,
-                data: ClaimData::Sha256(hex),
-            })
-        }
-        other => Err(format!(
-            "source `{source_name}`: unknown identity kind `{other}` — supported: XmlElementAttribute, RawHash, Sha256"
-        )),
-    }
+fn parse_praxis_lock(text: &str) -> Result<HashMap<String, String>, String> {
+    let raw: RawLockFile = toml::from_str(text).map_err(|e| format!("toml parse: {e}"))?;
+    Ok(raw.hashes)
 }
 
 #[cfg(test)]
@@ -237,101 +223,140 @@ mod parser_tests {
 
     #[test]
     fn parses_empty_manifest() {
-        let entries = parse_sources_toml("").unwrap();
-        assert!(entries.is_empty());
+        let items = parse_praxis_toml("").unwrap();
+        assert!(items.is_empty());
     }
 
     #[test]
-    fn parses_wordnet_shape() {
+    fn parses_simple_source() {
         let text = r#"
-[[source]]
-name = "wn"
-description = "test"
-remote_location = "https://example.com"
-local_path = "tmp/wn.xml"
-content_type = "XmlLmf"
-gzipped = true
-
-[[source.identity]]
-kind = "XmlElementAttribute"
-element = "Lexicon"
-attribute = "version"
-expected = "2025"
-
-[[source.identity]]
-kind = "RawHash"
-sha256 = "deadbeef"
+[sources.english_wordnet]
+version = "2025"
+type    = "Language"
+url     = "https://example.com/wordnet.xml.gz"
 "#;
-        let entries = parse_sources_toml(text).unwrap();
-        assert_eq!(entries.len(), 1);
-        let e = &entries[0];
-        assert_eq!(e.name, "wn");
-        assert!(matches!(e.content_type, ContentType::XmlLmf));
-        assert!(e.gzipped);
-        assert_eq!(e.identity.0.len(), 2);
+        let items = parse_praxis_toml(text).unwrap();
+        assert_eq!(items.len(), 1);
+        let item = &items[0];
+        assert_eq!(item.name, "english_wordnet");
+        assert_eq!(item.raw.version, "2025");
+        assert_eq!(item.raw.kind, "Language");
+        assert_eq!(item.raw.url, "https://example.com/wordnet.xml.gz");
     }
 
     #[test]
-    fn rejects_unknown_content_type() {
+    fn parses_multiple_sources_sorted() {
         let text = r#"
-[[source]]
-name = "x"
-description = ""
-remote_location = ""
-local_path = ""
-content_type = "NotAType"
+[sources.zebra_corpus]
+version = "1"
+type    = "Statute"
+url     = "https://example.com/zebra.txt"
+
+[sources.alpha_corpus]
+version = "1"
+type    = "Statute"
+url     = "https://example.com/alpha.txt"
 "#;
-        let err = parse_sources_toml(text).unwrap_err();
-        assert!(err.contains("unknown content_type"), "got: {err}");
+        let items = parse_praxis_toml(text).unwrap();
+        assert_eq!(items.len(), 2);
+        assert_eq!(
+            items[0].name, "alpha_corpus",
+            "names should sort lexicographically"
+        );
+        assert_eq!(items[1].name, "zebra_corpus");
     }
 
     #[test]
-    fn rejects_unknown_identity_kind() {
+    fn parses_lock_file() {
         let text = r#"
-[[source]]
-name = "x"
-description = ""
-remote_location = ""
-local_path = ""
-content_type = "XmlLmf"
-
-[[source.identity]]
-kind = "InventedScheme"
+[hashes]
+"english_wordnet@2025" = "deadbeef"
+"sox_1514a@2002"       = "cafef00d"
 "#;
-        let err = parse_sources_toml(text).unwrap_err();
-        assert!(err.contains("unknown identity kind"), "got: {err}");
+        let hashes = parse_praxis_lock(text).unwrap();
+        assert_eq!(hashes.len(), 2);
+        assert_eq!(hashes.get("english_wordnet@2025").unwrap(), "deadbeef");
+        assert_eq!(hashes.get("sox_1514a@2002").unwrap(), "cafef00d");
     }
 
     #[test]
-    fn rejects_xml_claim_missing_field() {
-        let text = r#"
-[[source]]
-name = "x"
-description = ""
-remote_location = ""
-local_path = ""
-content_type = "XmlLmf"
-
-[[source.identity]]
-kind = "XmlElementAttribute"
-element = "Lexicon"
-# missing attribute and expected
-"#;
-        let err = parse_sources_toml(text).unwrap_err();
-        assert!(err.contains("missing `attribute`"), "got: {err}");
+    fn parses_empty_lock() {
+        let lock = parse_praxis_lock("").unwrap();
+        assert!(lock.is_empty());
     }
 
     #[test]
-    fn statute_content_type_parses() {
-        let text = r#"
-[[source]]
-name = "sox"
-description = ""
-remote_location = ""
-local_path = ""
-content_type = "Statute"
-"#;
-        let entries = parse_sources_toml(text).unwrap();
-        assert!(matches!(entries[0].content_type, ContentType::Statute));
+    fn build_entry_rejects_unknown_type() {
+        let item = RawSourceWithName {
+            name: "x".into(),
+            raw: RawSource {
+                version: "1".into(),
+                kind: "NotAConcept".into(),
+                url: "".into(),
+                description: None,
+            },
+        };
+        let lock = HashMap::new();
+        let err = build_entry(item, &lock).unwrap_err();
+        assert!(err.contains("unknown type"), "got: {err}");
+    }
+
+    #[test]
+    fn build_entry_rejects_missing_lock() {
+        let item = RawSourceWithName {
+            name: "x".into(),
+            raw: RawSource {
+                version: "1".into(),
+                kind: "Statute".into(),
+                url: "".into(),
+                description: None,
+            },
+        };
+        let lock = HashMap::new();
+        let err = build_entry(item, &lock).unwrap_err();
+        assert!(err.contains("praxis.lock missing hash"), "got: {err}");
+    }
+
+    #[test]
+    fn build_entry_succeeds_with_lock_hash() {
+        let item = RawSourceWithName {
+            name: "english_wordnet".into(),
+            raw: RawSource {
+                version: "2025".into(),
+                kind: "Language".into(),
+                url: "https://example.com/wn.xml.gz".into(),
+                description: Some("test".into()),
+            },
+        };
+        let mut lock = HashMap::new();
+        lock.insert("english_wordnet@2025".into(), "deadbeef".into());
+        let entry = build_entry(item, &lock).unwrap();
+        assert_eq!(entry.name, "english_wordnet");
+        assert_eq!(entry.version, "2025");
+        assert_eq!(entry.kind, SourceTaxonomyConcept::Language);
+        // Lexicon-family: gets BOTH an XML-attribute claim AND a hash claim.
+        assert_eq!(entry.identity.0.len(), 2);
+    }
+
+    #[test]
+    fn build_entry_statute_gets_only_hash_claim() {
+        let item = RawSourceWithName {
+            name: "sox_1514a".into(),
+            raw: RawSource {
+                version: "2002".into(),
+                kind: "Statute".into(),
+                url: "https://example.com/sox.txt".into(),
+                description: None,
+            },
+        };
+        let mut lock = HashMap::new();
+        lock.insert("sox_1514a@2002".into(), "deadbeef".into());
+        let entry = build_entry(item, &lock).unwrap();
+        // Non-Lexicon: just the hash claim.
+        assert_eq!(entry.identity.0.len(), 1);
+        assert!(matches!(
+            entry.identity.0[0].concept,
+            IdentityConcept::RawHash
+        ));
     }
 }

@@ -1,8 +1,9 @@
 //! Data provisioning — managed external data sources, cache, and lifecycle states.
 //!
 //! Composes `formal/meta/artifact_identity/` (identity claims),
-//! `formal/information/storage/` (cache semantics), `formal/information/provenance/`
-//! (fetch events), and `formal/meta/staging/` (the freeze functor framing).
+//! `formal/meta/source_taxonomy/` (the typed kinds of corpus this layer can
+//! ingest), `formal/information/storage/` (cache semantics), and
+//! `formal/information/provenance/` (fetch events).
 //!
 //! # Literature
 //!
@@ -19,6 +20,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use hashbrown::HashSet;
 
 use crate::formal::meta::artifact_identity::ontology::{CompositeIdentity, IdentityConcept};
+use crate::formal::meta::source_taxonomy::ontology::{SourceTaxonomyConcept, concept_name};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -47,7 +49,7 @@ pr4xis::ontology! {
         ProvisioningEvent: ("en", "Provisioning event",
             "A timestamped fetch or verification event — a `prov:Activity` per W3C PROV-O."),
         DecoderFunctor: ("en", "Decoder functor",
-            "A typed transformation from raw bytes to a content-type-specific domain ontology instance. One decoder per ContentType variant."),
+            "A typed transformation from raw bytes to a SourceTaxonomy-typed ontology instance. One decoder per `SourceTaxonomyConcept` leaf via `canonical_encoding`."),
         VerifiedDataset: ("en", "Verified dataset",
             "Dolstra (2006): a DataSource whose local copy verifies against every declared identity claim."),
         StaleDataset: ("en", "Stale dataset",
@@ -75,20 +77,30 @@ pr4xis::ontology! {
 }
 
 // ---------------------------------------------------------------------------
-// ContentType — polymorphism over what's inside the bytes
+// ContentType — encoding format (internal; derived from SourceTaxonomyConcept)
 // ---------------------------------------------------------------------------
 
-/// What kind of content a `DataSource` holds. The fetch pipeline is uniform
-/// across content types; the decoder chain is specific per variant.
+/// The on-the-wire encoding praxis must decode for a given source. Distinct
+/// from the source's *kind* in [`SourceTaxonomyConcept`]: kind is semantic
+/// (Language, Statute, Regulation, …); ContentType is the byte-level format
+/// (XML, plaintext, JSON, …). The mapping is canonical and derived by
+/// [`canonical_encoding`] — `praxis.toml` does not declare encoding.
+///
+/// Most kinds have a single canonical encoding: legal corpora ship as
+/// plaintext from .gov sources; lexicons ship as LMF XML per ISO 24613.
+/// A future kind that genuinely needs alternative encodings (e.g. a
+/// statute also available as PDF) would call for an optional `format`
+/// override on the registry entry; we defer that until a real source
+/// demands it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ContentType {
-    /// WordNet LMF XML. Decoder: `xml_reader::read_xml → lmf::reader::read_wordnet`.
+    /// WordNet LMF XML (ISO 24613). Decoder: `xml_reader::read_xml → lmf::reader::read_wordnet`.
     XmlLmf,
-    /// Academic PDF. Decoder: not yet implemented.
+    /// PDF, ISO 32000-2. Decoder: not yet implemented.
     Pdf,
     /// Plain text, UTF-8. Decoder: direct.
     Plaintext,
-    /// JSON document. Decoder: serde_json parse.
+    /// JSON document, RFC 8259. Decoder: serde_json parse.
     Json,
     /// Video file (mp4, webm). Decoder: not yet implemented.
     Video,
@@ -96,9 +108,25 @@ pub enum ContentType {
     Audio,
     /// Raw bytes with no further decoding.
     Binary,
-    /// Statutory text + lock-file structural extraction. Decoder:
-    /// `pr4xis::codegen::statute::parse_statute_json` over the lock file.
-    Statute,
+}
+
+/// Canonical encoding for a [`SourceTaxonomyConcept`] leaf.
+///
+/// Lexicons ship per ISO 24613 (LMF XML). Legal text corpora ship as
+/// UTF-8 plaintext (govinfo.gov, ecfr.gov, court opinion repositories all
+/// expose plaintext as their primary format). LegalLexicons ship as JSON
+/// (Black's, statutory definitions sections after extraction).
+pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
+    use SourceTaxonomyConcept as C;
+    match kind {
+        C::Language => ContentType::XmlLmf,
+        C::Statute | C::Regulation | C::ConstitutionalArticle | C::ProceduralRule | C::CaseLaw => {
+            ContentType::Plaintext
+        }
+        C::LegalLexicon => ContentType::Json,
+        // Non-leaf concepts have no decoder — they're abstract.
+        C::Source | C::Lexicon | C::DomainLexicon | C::LegalCorpus => ContentType::Binary,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -107,22 +135,101 @@ pub enum ContentType {
 
 /// One row in the data-provisioning registry. The registry is the ontology's
 /// instance layer; each entry is a typed value declaring a `DataSource`'s
-/// metadata, identity claims, and content type.
+/// metadata, semantic kind, and identity claims.
 ///
-/// Entries are loaded from `crates/domains/data/sources.toml` at runtime via
-/// `OnceLock` in [`super::registry`]. Owned `String` fields (vs the historical
-/// `&'static str`) are required because TOML deserialization produces owned
-/// values; the lifetime of `data_sources()` is `'static` because the registry
-/// itself lives in a static `OnceLock`.
+/// Entries are loaded from the workspace-root `praxis.toml` at runtime via
+/// `OnceLock` in [`super::registry`]. The semantic kind is a typed
+/// [`SourceTaxonomyConcept`] (not a string); the parser maps the TOML
+/// `type = "Statute"` string to its variant at load time and fails closed
+/// on unknown names.
+///
+/// The identity claims are synthesized at load time from the manifest's
+/// declared `version` (used as the expected value for the XML-LMF version
+/// attribute on Lexicon kinds) and from `praxis.lock`'s pinned sha256 for
+/// `name@version`. Drift between manifest and lock is caught by the
+/// `LockManifestAgreement` axiom.
 #[derive(Debug, Clone)]
 pub struct RegistryEntry {
+    /// Primary key: matches `[sources.<name>]` in praxis.toml.
     pub name: String,
-    pub description: String,
-    pub remote_location: String,
-    pub local_path: String,
-    pub content_type: ContentType,
+    /// Free-form publication identifier (calendar year, amendment cycle,
+    /// edition, etc.). Not semver.
+    pub version: String,
+    /// Semantic kind — a leaf concept in [`SourceTaxonomyConcept`].
+    pub kind: SourceTaxonomyConcept,
+    /// Fetch URL.
+    pub url: String,
+    /// Optional human description (carried through from `praxis.toml`).
+    pub description: Option<String>,
+    /// Identity claims, synthesized from manifest + lock at load time.
     pub identity: CompositeIdentity,
-    pub gzipped: bool,
+}
+
+impl RegistryEntry {
+    /// `true` if the URL serves gzip-compressed bytes (i.e. ends with `.gz`).
+    /// Implied from the URL; not a separate manifest field.
+    pub fn gzipped(&self) -> bool {
+        self.url.ends_with(".gz")
+    }
+
+    /// The encoding praxis decodes this source as, derived from `kind`.
+    pub fn content_type(&self) -> ContentType {
+        canonical_encoding(self.kind)
+    }
+
+    /// Workspace-relative local path where this entry materializes. Derived
+    /// by convention from the kind's family and the source's `(name, version)`.
+    ///
+    /// Layout:
+    ///   `crates/domains/data/<family>/<name>/<name>-<version>.<ext>`
+    ///
+    /// where `<family>` is `lexicons` (for Lexicon-family kinds) or `legal`
+    /// (for LegalCorpus-family kinds), and `<ext>` is `.xml` for XmlLmf,
+    /// `.txt` for Plaintext, `.json` for Json, `.pdf` for Pdf, `.bin`
+    /// otherwise.
+    pub fn local_path(&self) -> String {
+        let family = family_dir(self.kind);
+        let ext = match self.content_type() {
+            ContentType::XmlLmf => "xml",
+            ContentType::Plaintext => "txt",
+            ContentType::Json => "json",
+            ContentType::Pdf => "pdf",
+            ContentType::Video => "bin",
+            ContentType::Audio => "bin",
+            ContentType::Binary => "bin",
+        };
+        format!(
+            "crates/domains/data/{family}/{name}/{name}-{version}.{ext}",
+            family = family,
+            name = self.name,
+            version = self.version,
+            ext = ext
+        )
+    }
+}
+
+/// The on-disk family directory for a given kind. Mirrors the praxis-domains
+/// code-path convention so the data layout matches the ontology layout.
+pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
+    use crate::formal::meta::source_taxonomy::ontology::is_legal_corpus;
+    use SourceTaxonomyConcept as C;
+    if is_legal_corpus(kind) {
+        match kind {
+            C::Statute => "legal/statutes",
+            C::Regulation => "legal/regulations",
+            C::ConstitutionalArticle => "legal/constitution",
+            C::ProceduralRule => "legal/procedure",
+            C::CaseLaw => "legal/case_law",
+            _ => "legal",
+        }
+    } else {
+        match kind {
+            C::Language => "lexicons/languages",
+            C::LegalLexicon => "lexicons/legal",
+            C::DomainLexicon => "lexicons/domains",
+            _ => "lexicons",
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -178,9 +285,11 @@ impl Ontology for DataProvisioningOntology {
     fn axioms() -> Vec<Box<dyn Axiom>> {
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
         axioms.push(Box::new(EveryDataSourceHasIdentity));
-        axioms.push(Box::new(RegistryUniquenessByName));
-        axioms.push(Box::new(DecoderTotalityPerContentType));
+        axioms.push(Box::new(RegistryUniquenessByNameVersion));
+        axioms.push(Box::new(DecoderTotalityPerKind));
         axioms.push(Box::new(IdentityClaimsUseLeaves));
+        axioms.push(Box::new(KindIsTaxonomyLeaf));
+        axioms.push(Box::new(LockManifestAgreement));
         axioms
     }
 }
@@ -217,19 +326,18 @@ pr4xis::register_axiom!(
     "Wilkinson et al. (2016) FAIR Guiding Principles, Scientific Data 3 — F1"
 );
 
-/// Axiom: no two `RegistryEntry` instances share a name. The name is the
-/// primary key the CLI uses to look up a source.
+/// Axiom: `(name, version)` is the primary key — no two entries share both.
 ///
 /// Dolstra (2006) §5.1 — every derivation is uniquely identified by its
-/// store path; for the user-facing registry layer, the human-readable name
-/// must likewise be unique.
-pub struct RegistryUniquenessByName;
+/// store path; for the user-facing registry layer, the human-readable
+/// `(name, version)` pair plays the same role.
+pub struct RegistryUniquenessByNameVersion;
 
-impl Axiom for RegistryUniquenessByName {
+impl Axiom for RegistryUniquenessByNameVersion {
     fn verify(&self) -> Verdict {
-        let mut names = HashSet::new();
+        let mut seen: HashSet<(&str, &str)> = HashSet::new();
         for entry in crate::applied::data_provisioning::registry::data_sources() {
-            if !names.insert(entry.name.as_str()) {
+            if !seen.insert((entry.name.as_str(), entry.version.as_str())) {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -237,29 +345,29 @@ impl Axiom for RegistryUniquenessByName {
     }
 
     pr4xis::axiom_meta!(
-        "RegistryUniquenessByName",
-        "every RegistryEntry has a unique name",
+        "RegistryUniquenessByNameVersion",
+        "every RegistryEntry has a unique (name, version) pair",
         "Dolstra (2006) The Purely Functional Software Deployment Model §5.1"
     );
 }
 
 pr4xis::register_axiom!(
-    RegistryUniquenessByName,
+    RegistryUniquenessByNameVersion,
     "Dolstra (2006) The Purely Functional Software Deployment Model §5.1"
 );
 
-/// Axiom: every `ContentType` variant in use by some `RegistryEntry` has a
-/// defined `DecoderFunctor`. If a new content type is added to a registry
-/// entry without a corresponding decoder, this axiom fails at test time.
+/// Axiom: every registered `kind` has a defined decoder (its
+/// `canonical_encoding` is one of the implemented `ContentType` variants).
 ///
-/// Structural / type-theoretic — totality of the decoder dispatch over the
-/// `ContentType` variants actually referenced in the registry.
-pub struct DecoderTotalityPerContentType;
+/// Closes the loop on the M2 design: an entry whose kind has no decoder
+/// would be unreachable through the data-provisioning pipeline.
+pub struct DecoderTotalityPerKind;
 
-impl Axiom for DecoderTotalityPerContentType {
+impl Axiom for DecoderTotalityPerKind {
     fn verify(&self) -> Verdict {
         for entry in crate::applied::data_provisioning::registry::data_sources() {
-            if !crate::applied::data_provisioning::decoders::has_decoder_for(entry.content_type) {
+            let ct = canonical_encoding(entry.kind);
+            if !crate::applied::data_provisioning::decoders::has_decoder_for(ct) {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -267,23 +375,20 @@ impl Axiom for DecoderTotalityPerContentType {
     }
 
     pr4xis::axiom_meta!(
-        "DecoderTotalityPerContentType",
-        "every ContentType in use has a defined decoder",
+        "DecoderTotalityPerKind",
+        "every registered SourceTaxonomyConcept's canonical_encoding has a defined decoder",
         "Wilkinson et al. (2016) FAIR Guiding Principles, Scientific Data 3 — R1 reusable"
     );
 }
 
 pr4xis::register_axiom!(
-    DecoderTotalityPerContentType,
+    DecoderTotalityPerKind,
     "Wilkinson et al. (2016) FAIR Guiding Principles, Scientific Data 3 — R1 reusable"
 );
 
 /// Axiom: every resolved identity claim uses a LEAF `IdentityConcept` — not
 /// a family or the root. A claim with an abstract family concept would be
 /// ill-formed because families do not specify a verification scheme.
-///
-/// Mirrors the artifact_identity ontology's taxonomy invariant: claims are
-/// expressed at the leaves, never at internal subsumption nodes.
 pub struct IdentityClaimsUseLeaves;
 
 impl Axiom for IdentityClaimsUseLeaves {
@@ -311,16 +416,110 @@ pr4xis::register_axiom!(
     "Dolstra (2006) The Purely Functional Software Deployment Model §5.1"
 );
 
-// Silence unused-import warning; IdentityConcept is re-exported for callers.
+/// Axiom: every registered `kind` is a *leaf* in the SourceTaxonomy
+/// (not Source, Lexicon, DomainLexicon, or LegalCorpus). Abstract
+/// (family) kinds have no canonical encoding and would break decoder
+/// dispatch.
+///
+/// Mirrors the `IdentityClaimsUseLeaves` invariant at the taxonomy level.
+pub struct KindIsTaxonomyLeaf;
+
+impl Axiom for KindIsTaxonomyLeaf {
+    fn verify(&self) -> Verdict {
+        use crate::formal::meta::source_taxonomy::ontology::is_leaf;
+        for entry in crate::applied::data_provisioning::registry::data_sources() {
+            if !is_leaf(entry.kind) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "KindIsTaxonomyLeaf",
+        "every RegistryEntry's kind is a leaf in SourceTaxonomy",
+        "Hart (1961) The Concept of Law — only concrete kinds can be instantiated"
+    );
+}
+
+pr4xis::register_axiom!(KindIsTaxonomyLeaf, "Hart (1961) The Concept of Law");
+
+/// Axiom: `praxis.lock` and `praxis.toml` agree.
+///
+/// Every manifest entry must have a matching lock hash; every lock hash
+/// must match a manifest entry; every lock hash must match what the
+/// manifest's identity claim records. Three failure modes:
+///   - manifest entry with no lock hash → "regenerate praxis.lock"
+///   - lock hash with no manifest entry → straggler from a removed source
+///   - manifest+lock disagree on the hash → source drift
+///
+/// Dolstra (2006) §5.1 — content-addressing: a derivation's identity is
+/// the hash of its inputs. The lock pins inputs; the manifest declares
+/// expected inputs; agreement is the invariant.
+pub struct LockManifestAgreement;
+
+impl Axiom for LockManifestAgreement {
+    fn verify(&self) -> Verdict {
+        use crate::formal::meta::artifact_identity::ontology::ClaimData;
+        let entries = crate::applied::data_provisioning::registry::data_sources();
+        let lock = crate::applied::data_provisioning::registry::lock_hashes();
+
+        // Every manifest entry's RawHash claim must equal the lock hash
+        // for its (name, version). Identity is synthesized from the lock
+        // at load time, so this checks the round-trip integrity.
+        for entry in entries {
+            let key = format!("{}@{}", entry.name, entry.version);
+            let lock_sha = lock.get(&key);
+            let manifest_sha = entry.identity.0.iter().find_map(|c| match &c.data {
+                ClaimData::Sha256(hex) => Some(hex.as_str()),
+                _ => None,
+            });
+            match (manifest_sha, lock_sha) {
+                (Some(m), Some(l)) if m.eq_ignore_ascii_case(l.as_str()) => {}
+                _ => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+            }
+        }
+
+        // Lock entries with no matching manifest key are stragglers.
+        let manifest_keys: HashSet<String> = entries
+            .iter()
+            .map(|e| format!("{}@{}", e.name, e.version))
+            .collect();
+        for lock_key in lock.keys() {
+            if !manifest_keys.contains(lock_key) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "LockManifestAgreement",
+        "every praxis.lock entry agrees with its praxis.toml counterpart on hash; no stragglers either side",
+        "Dolstra (2006) The Purely Functional Software Deployment Model §5.1"
+    );
+}
+
+pr4xis::register_axiom!(
+    LockManifestAgreement,
+    "Dolstra (2006) The Purely Functional Software Deployment Model §5.1"
+);
+
+// Silence unused-import warnings; `IdentityConcept` and `concept_name` are
+// part of the public re-export surface this module advertises.
 #[allow(dead_code)]
 fn _identity_concept_witness(_: IdentityConcept) {}
+#[allow(dead_code)]
+fn _concept_name_witness(_: SourceTaxonomyConcept) -> &'static str {
+    concept_name(SourceTaxonomyConcept::Source)
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pr4xis::category::Concept;
     use pr4xis::category::laws::assert_category_laws;
-    use pr4xis::category::{Arrow, Category, Concept};
-    use proptest::prelude::*;
 
     #[test]
     fn category_laws() {
@@ -335,169 +534,29 @@ mod tests {
 
     #[test]
     fn seven_concepts() {
-        // DataSource, DataCache, ProvisioningEvent, DecoderFunctor,
-        // VerifiedDataset, StaleDataset, MissingDataset.
         assert_eq!(DataProvisioningConcept::variants().len(), 7);
     }
 
     #[test]
-    fn lifecycle_states_subsume_data_source() {
-        let sub: Vec<_> = DataProvisioningCategory::morphisms()
-            .iter()
-            .filter(|m| m.kind() == DataProvisioningRelationKind::Subsumption)
-            .map(|m| (m.source(), m.target()))
-            .collect();
-        for state in [
-            DataProvisioningConcept::VerifiedDataset,
-            DataProvisioningConcept::StaleDataset,
-            DataProvisioningConcept::MissingDataset,
-        ] {
-            assert!(
-                sub.contains(&(state, DataProvisioningConcept::DataSource)),
-                "{:?} should subsume DataSource",
-                state
-            );
-        }
-    }
-
-    #[test]
-    fn lifecycle_states_pairwise_oppose() {
-        let opp: Vec<_> = DataProvisioningCategory::morphisms()
-            .iter()
-            .filter(|m| m.kind() == DataProvisioningRelationKind::Opposition)
-            .map(|m| (m.source(), m.target()))
-            .collect();
-        let states = [
-            DataProvisioningConcept::VerifiedDataset,
-            DataProvisioningConcept::StaleDataset,
-            DataProvisioningConcept::MissingDataset,
-        ];
-        for a in states {
-            for b in states {
-                if a != b {
-                    assert!(
-                        opp.contains(&(a, b)),
-                        "lifecycle states {:?} and {:?} should oppose",
-                        a,
-                        b
-                    );
-                }
+    fn canonical_encoding_covers_every_leaf() {
+        use crate::formal::meta::source_taxonomy::ontology::is_leaf;
+        for c in SourceTaxonomyConcept::variants() {
+            if !is_leaf(c) {
+                continue;
             }
+            // Every leaf must map to a decoder-capable encoding (not
+            // Binary, which is the "no decoder" sentinel).
+            let ct = canonical_encoding(c);
+            assert_ne!(ct, ContentType::Binary, "leaf {:?} has no decoder", c);
         }
     }
 
     #[test]
-    fn verified_is_usable_locally() {
-        assert_eq!(
-            IsUsableLocally.get(&DataProvisioningConcept::VerifiedDataset),
-            Some(true)
-        );
-    }
-
-    #[test]
-    fn stale_and_missing_trigger_update() {
-        assert_eq!(
-            TriggersUpdate.get(&DataProvisioningConcept::StaleDataset),
-            Some(true)
-        );
-        assert_eq!(
-            TriggersUpdate.get(&DataProvisioningConcept::MissingDataset),
-            Some(true)
-        );
-    }
-
-    #[test]
-    fn every_data_source_has_identity_axiom() {
-        assert!(EveryDataSourceHasIdentity.verify().is_ok());
-    }
-
-    #[test]
-    fn registry_uniqueness_axiom() {
-        assert!(RegistryUniquenessByName.verify().is_ok());
-    }
-
-    #[test]
-    fn decoder_totality_axiom() {
-        assert!(DecoderTotalityPerContentType.verify().is_ok());
-    }
-
-    #[test]
-    fn identity_claims_use_leaves_axiom() {
-        assert!(IdentityClaimsUseLeaves.verify().is_ok());
-    }
-
-    fn arb_concept() -> impl Strategy<Value = DataProvisioningConcept> {
-        proptest::sample::select(DataProvisioningConcept::variants())
-    }
-
-    proptest! {
-        #[test]
-        fn prop_every_arrow_is_named(_seed in any::<u32>()) {
-            for m in DataProvisioningCategory::morphisms() {
-                prop_assert!(!m.meta().name.as_str().is_empty());
-            }
-        }
-
-        #[test]
-        fn prop_structural_axioms_hold(_seed in any::<u32>()) {
-            for axiom in DataProvisioningOntology::axioms() {
-                if let Err(c) = axiom.verify() {
-                    prop_assert!(
-                        false,
-                        "axiom failed: {}",
-                        c.meta().name.as_str()
-                    );
-                }
-            }
-        }
-
-        #[test]
-        fn prop_is_usable_total_on_lifecycle(c in arb_concept()) {
-            // IsUsableLocally is total on the three lifecycle states and
-            // None on the four non-state concepts.
-            let v = IsUsableLocally.get(&c);
-            let is_state = matches!(
-                c,
-                DataProvisioningConcept::VerifiedDataset
-                | DataProvisioningConcept::StaleDataset
-                | DataProvisioningConcept::MissingDataset
-            );
-            prop_assert_eq!(v.is_some(), is_state);
-        }
-
-        #[test]
-        fn prop_triggers_update_total_on_lifecycle(c in arb_concept()) {
-            let v = TriggersUpdate.get(&c);
-            let is_state = matches!(
-                c,
-                DataProvisioningConcept::VerifiedDataset
-                | DataProvisioningConcept::StaleDataset
-                | DataProvisioningConcept::MissingDataset
-            );
-            prop_assert_eq!(v.is_some(), is_state);
-        }
-
-        #[test]
-        fn prop_opposition_is_symmetric(_seed in any::<u32>()) {
-            let opposed: std::collections::HashSet<_> = DataProvisioningCategory::morphisms()
-                .iter()
-                .filter(|m| m.kind() == DataProvisioningRelationKind::Opposition)
-                .map(|m| (m.source(), m.target()))
-                .collect();
-            for (a, b) in opposed.iter() {
-                prop_assert!(opposed.contains(&(*b, *a)),
-                    "opposition not symmetric: {:?} → {:?} but not back", a, b);
-            }
-        }
-
-        #[test]
-        fn prop_subsumption_targets_data_source(_seed in any::<u32>()) {
-            // Every is-a edge in this ontology has DataSource as target.
-            for m in DataProvisioningCategory::morphisms() {
-                if m.kind() == DataProvisioningRelationKind::Subsumption {
-                    prop_assert_eq!(m.target(), DataProvisioningConcept::DataSource);
-                }
-            }
-        }
+    fn family_dir_partitions_legal_and_lexicon() {
+        use SourceTaxonomyConcept as C;
+        assert!(family_dir(C::Statute).starts_with("legal/"));
+        assert!(family_dir(C::Regulation).starts_with("legal/"));
+        assert!(family_dir(C::Language).starts_with("lexicons/"));
+        assert!(family_dir(C::LegalLexicon).starts_with("lexicons/"));
     }
 }

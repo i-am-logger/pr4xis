@@ -1,13 +1,14 @@
-//! Tests for the data_provisioning ontology.
+//! Tests for the data_provisioning ontology + new SourceTaxonomy-driven
+//! registry.
 //!
 //! The headline test is the **full-chain integration test**:
 //! given raw bytes (synthesized WordNet LMF XML with a matching version
 //! attribute and a matching declared hash), run them through
 //! `XmlElementAttribute` verification, `RawHash` verification, the XmlLmf
-//! decoder, and finally `English::from_wordnet`, producing a real, queryable
-//! `English` ontology instance. This test proves the new data-provisioning
+//! decoder, and finally `English::from_wordnet`, producing a real,
+//! queryable `English` ontology instance. This proves the data-provisioning
 //! layer composes cleanly with the existing XML/LMF/English pipeline and
-//! with the `artifact_identity` meta ontology.
+//! with the `artifact_identity` + `source_taxonomy` meta ontologies.
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
@@ -15,15 +16,17 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use super::decoders::{has_decoder_for, xml_lmf};
 use super::ontology::{
     ContentType, DataProvisioningCategory, DataProvisioningConcept, DataProvisioningOntology,
-    DecoderTotalityPerContentType, EveryDataSourceHasIdentity, IdentityClaimsUseLeaves,
-    IsUsableLocally, RegistryUniquenessByName, TriggersUpdate,
+    DecoderTotalityPerKind, EveryDataSourceHasIdentity, IdentityClaimsUseLeaves, IsUsableLocally,
+    KindIsTaxonomyLeaf, LockManifestAgreement, RegistryUniquenessByNameVersion, TriggersUpdate,
+    canonical_encoding,
 };
-use super::registry::{by_name, data_sources, resolve_identity};
+use super::registry::{by_name, by_name_version, data_sources, lock_hashes, resolve_identity};
 use crate::cognitive::linguistics::english::English;
 use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
 };
 use crate::formal::meta::artifact_identity::schemes::{raw_hash, xml_element_attribute};
+use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
 
@@ -47,29 +50,70 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn registry_has_wordnet() {
-    assert!(by_name("wordnet").is_some());
+fn registry_has_english_wordnet() {
+    assert!(by_name("english_wordnet").is_some());
 }
 
 #[test]
-fn registry_wordnet_has_composite_identity() {
-    let identity = resolve_identity("wordnet").expect("wordnet registered");
+fn registry_english_wordnet_kind_is_language() {
+    let entry = by_name("english_wordnet").unwrap();
+    assert_eq!(entry.kind, SourceTaxonomyConcept::Language);
+}
+
+#[test]
+fn registry_english_wordnet_has_version_2025() {
+    let entry = by_name("english_wordnet").unwrap();
+    assert_eq!(entry.version, "2025");
+}
+
+#[test]
+fn registry_english_wordnet_has_composite_identity() {
+    let identity = resolve_identity("english_wordnet").expect("english_wordnet registered");
     assert_eq!(
         identity.0.len(),
         2,
-        "wordnet should have 2 identity claims (XmlElementAttribute + RawHash)"
+        "Lexicon-family source should have 2 identity claims (XmlElementAttribute + RawHash)"
     );
 }
 
 #[test]
-fn registry_wordnet_uses_xml_lmf_content_type() {
-    let entry = by_name("wordnet").unwrap();
-    assert!(matches!(entry.content_type, ContentType::XmlLmf));
+fn registry_canonical_encoding_for_wordnet_is_xml_lmf() {
+    let entry = by_name("english_wordnet").unwrap();
+    assert_eq!(canonical_encoding(entry.kind), ContentType::XmlLmf);
 }
 
 #[test]
 fn registry_lookup_miss_returns_none() {
     assert!(by_name("not-a-real-dataset").is_none());
+}
+
+#[test]
+fn by_name_version_matches_pair() {
+    assert!(by_name_version("english_wordnet", "2025").is_some());
+    assert!(by_name_version("english_wordnet", "9999").is_none());
+}
+
+#[test]
+fn english_wordnet_local_path_under_lexicons_languages() {
+    let entry = by_name("english_wordnet").unwrap();
+    let path = entry.local_path();
+    assert!(
+        path.starts_with("crates/domains/data/lexicons/languages/"),
+        "expected lexicons/languages/ family directory; got {path}"
+    );
+    assert!(path.ends_with(".xml"), "got {path}");
+}
+
+#[test]
+fn english_wordnet_url_is_gzipped() {
+    let entry = by_name("english_wordnet").unwrap();
+    assert!(entry.gzipped());
+}
+
+#[test]
+fn lock_hashes_contains_wordnet() {
+    let key = "english_wordnet@2025";
+    assert!(lock_hashes().contains_key(key), "missing {key}");
 }
 
 // =============================================================================
@@ -119,18 +163,28 @@ fn axiom_every_datasource_has_identity() {
 }
 
 #[test]
-fn axiom_registry_uniqueness_by_name() {
-    assert!(RegistryUniquenessByName.verify().is_ok());
+fn axiom_registry_uniqueness_by_name_version() {
+    assert!(RegistryUniquenessByNameVersion.verify().is_ok());
 }
 
 #[test]
-fn axiom_decoder_totality_per_content_type() {
-    assert!(DecoderTotalityPerContentType.verify().is_ok());
+fn axiom_decoder_totality_per_kind() {
+    assert!(DecoderTotalityPerKind.verify().is_ok());
 }
 
 #[test]
 fn axiom_identity_claims_use_leaves() {
     assert!(IdentityClaimsUseLeaves.verify().is_ok());
+}
+
+#[test]
+fn axiom_kind_is_taxonomy_leaf() {
+    assert!(KindIsTaxonomyLeaf.verify().is_ok());
+}
+
+#[test]
+fn axiom_lock_manifest_agreement() {
+    assert!(LockManifestAgreement.verify().is_ok());
 }
 
 #[test]
@@ -155,14 +209,12 @@ fn no_decoder_for_unimplemented_content_types() {
 }
 
 // =============================================================================
-// Full-chain integration test — the headline test
+// Full-chain integration test
 // =============================================================================
 
 /// Synthesized WordNet LMF XML that matches what an actual small WordNet
-/// fragment looks like. This is what the data-provisioning layer would
-/// receive after a successful fetch of `english-wordnet-2025.xml.gz`,
-/// gunzipped. The integration test below runs it through the complete
-/// pipeline.
+/// fragment looks like. After a successful fetch of
+/// `english-wordnet-2025.xml.gz` + gunzip, the bytes look like this.
 const FAKE_WORDNET_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <LexicalResource>
   <Lexicon id="oewn" label="English WordNet" language="en" email="test@example.com" license="CC BY 4.0" version="2025" url="https://en-word.net/">
@@ -175,26 +227,19 @@ const FAKE_WORDNET_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 
 /// **The full-chain integration test.**
 ///
-/// Takes raw bytes → verifies the XmlElementAttribute identity claim
-/// (`<Lexicon version="2025">`) → verifies the RawHash identity claim
-/// (sha256 computed live) → runs the XmlLmf decoder → runs
-/// `English::from_wordnet` → confirms we end up with a queryable `English`
-/// ontology instance.
-///
-/// This is the "prove the composition works" test from the approved plan.
-/// If it passes, the data-provisioning layer composes cleanly with the
-/// existing XML/LMF/English pipeline.
+/// Bytes → XmlElementAttribute → RawHash → XmlLmf decoder →
+/// `English::from_wordnet` → queryable `English`. If it passes, the
+/// data-provisioning layer composes cleanly with the existing
+/// XML/LMF/English pipeline and with the SourceTaxonomy.
 #[test]
 fn full_chain_raw_bytes_to_english_ontology() {
     let bytes = FAKE_WORDNET_XML.as_bytes();
 
-    // Step 1: compute the real sha256 so we can build a matching claim.
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     let real_hash = hex::encode(hasher.finalize());
 
-    // Step 2: verify the XmlElementAttribute claim (upstream self-description)
     let version_claim = IdentityClaim {
         concept: IdentityConcept::XmlElementAttribute,
         data: ClaimData::XmlAttribute {
@@ -210,7 +255,6 @@ fn full_chain_raw_bytes_to_english_ontology() {
         version_result
     );
 
-    // Step 3: verify the RawHash claim (cryptographic integrity)
     let hash_claim = IdentityClaim {
         concept: IdentityConcept::RawHash,
         data: ClaimData::Sha256(real_hash),
@@ -222,16 +266,11 @@ fn full_chain_raw_bytes_to_english_ontology() {
         hash_result
     );
 
-    // Step 4: decode via the XmlLmf decoder
     let wordnet = xml_lmf::decode(bytes).expect("xml_lmf decoder should succeed on fake data");
     assert_eq!(wordnet.synsets.len(), 2);
     assert_eq!(wordnet.entries.len(), 2);
 
-    // Step 5: run through the existing from_wordnet functor
     let english = English::from_wordnet(&wordnet);
-
-    // Step 6: confirm the resulting English ontology is queryable with real data
-    // The word_index should contain the lemmas we authored.
     assert!(english.word_index.contains_key("dog"));
     assert!(english.word_index.contains_key("cat"));
     assert_eq!(english.concepts.len(), 2);
@@ -260,10 +299,6 @@ fn full_chain_rejects_wrong_version() {
 // Property-based tests
 // =============================================================================
 
-/// Every `ContentType` is either a real wired decoder or is not. The
-/// invariant: `has_decoder_for` returns a stable truth value per variant,
-/// independent of call order, and is true only for variants that actually
-/// have a dispatch arm.
 fn every_content_type() -> Vec<ContentType> {
     vec![
         ContentType::XmlLmf,
@@ -277,10 +312,7 @@ fn every_content_type() -> Vec<ContentType> {
 }
 
 proptest! {
-    /// `has_decoder_for` must be a pure function of the variant. Calling it
-    /// many times for the same variant must return the same answer. This
-    /// guards against someone accidentally introducing statefulness in
-    /// decoder dispatch.
+    /// `has_decoder_for` must be a pure function of the variant.
     #[test]
     fn prop_has_decoder_for_is_pure(idx in 0usize..7) {
         let variant = every_content_type()[idx];
@@ -290,30 +322,36 @@ proptest! {
         }
     }
 
-    /// `by_name` never panics and returns `None` for random names that
-    /// aren't in the registry. The only name that should resolve in the
-    /// current registry is "wordnet".
+    /// `by_name` returns the registered entry for "english_wordnet" and
+    /// `None` for everything else random.
     #[test]
-    fn prop_by_name_misses_random_strings(name in "[a-z]{1,20}") {
-        if name != "wordnet" {
+    fn prop_by_name_misses_random_strings(name in "[a-z_]{1,20}") {
+        if name != "english_wordnet" {
             prop_assert!(by_name(&name).is_none());
         } else {
             prop_assert!(by_name(&name).is_some());
         }
     }
 
-    /// Every resolved identity claim on every registered entry must use a
-    /// leaf `IdentityConcept`. Repeats the `IdentityClaimsUseLeaves` axiom
-    /// over a proptest loop as a regression guard against accidentally
-    /// adding a family-level concept to the registry.
+    /// Every resolved identity claim on every registered entry uses a
+    /// leaf IdentityConcept.
     #[test]
     fn prop_all_resolved_claims_use_leaves(_seed in any::<u64>()) {
         use crate::formal::meta::artifact_identity::ontology::is_leaf;
         for entry in data_sources() {
-            let resolved = resolve_identity(&entry.name).unwrap();
-            for claim in &resolved.0 {
+            for claim in &entry.identity.0 {
                 prop_assert!(is_leaf(&claim.concept));
             }
+        }
+    }
+
+    /// Every registered entry's kind is a leaf in the SourceTaxonomy.
+    #[test]
+    fn prop_every_entry_kind_is_leaf(_seed in any::<u64>()) {
+        use crate::formal::meta::source_taxonomy::ontology::is_leaf as is_kind_leaf;
+        for entry in data_sources() {
+            prop_assert!(is_kind_leaf(entry.kind),
+                "entry {} has non-leaf kind {:?}", entry.name, entry.kind);
         }
     }
 }

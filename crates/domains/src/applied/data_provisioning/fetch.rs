@@ -112,7 +112,7 @@ pub fn fetch_entry(
     opts: FetchOptions,
     workspace_root: &Path,
 ) -> FetchOutcome {
-    let path = workspace_root.join(&entry.local_path);
+    let path = workspace_root.join(entry.local_path());
 
     // `--check` is read-only and always wins over `--force`.
     if opts.check {
@@ -167,7 +167,7 @@ pub fn fetch_entry(
 // --------------------------------------------------------------------------
 
 fn do_fetch(entry: &RegistryEntry, path: &Path) -> FetchOutcome {
-    let bytes = match download(&entry.remote_location) {
+    let bytes = match download(&entry.url) {
         Ok(b) => b,
         Err(e) => {
             return FetchOutcome::FetchError {
@@ -177,7 +177,7 @@ fn do_fetch(entry: &RegistryEntry, path: &Path) -> FetchOutcome {
         }
     };
 
-    let bytes = if entry.gzipped {
+    let bytes = if entry.gzipped() {
         match gunzip(&bytes) {
             Ok(b) => b,
             Err(e) => {
@@ -451,17 +451,17 @@ mod tests {
     }
 
     #[test]
-    fn verify_bytes_fails_on_unknown_entry() {
+    fn verify_bytes_fails_on_empty_identity() {
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
         let bogus = RegistryEntry {
             name: "not-in-registry".into(),
-            description: "test".into(),
-            remote_location: String::new(),
-            local_path: String::new(),
-            content_type: super::super::ontology::ContentType::Binary,
+            version: "0".into(),
+            kind: SourceTaxonomyConcept::Statute,
+            url: String::new(),
+            description: None,
             identity: crate::formal::meta::artifact_identity::ontology::CompositeIdentity(
                 Vec::new(),
             ),
-            gzipped: false,
         };
         let result = verify_bytes(&bogus, b"bytes");
         assert!(result.is_err());
@@ -469,13 +469,14 @@ mod tests {
 
     #[test]
     fn verify_bytes_passes_on_real_wordnet_entry() {
-        let wordnet = super::super::registry::by_name("wordnet").expect("wordnet registered");
+        let wordnet =
+            super::super::registry::by_name("english_wordnet").expect("english_wordnet registered");
         let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
             .parent()
             .unwrap();
-        let path = workspace_root.join(&wordnet.local_path);
+        let path = workspace_root.join(wordnet.local_path());
         if !path.exists() {
             eprintln!("skipping: wordnet file not on disk at {}", path.display());
             return;
@@ -492,7 +493,7 @@ mod tests {
     #[test]
     fn fetch_entry_check_only_missing_returns_missing() {
         let tmp = tempdir_path();
-        let wordnet = super::super::registry::by_name("wordnet").unwrap();
+        let wordnet = super::super::registry::by_name("english_wordnet").unwrap();
         let opts = FetchOptions {
             check: true,
             force: false,
@@ -505,7 +506,7 @@ mod tests {
     #[test]
     fn fetch_entry_offline_missing_returns_offline() {
         let tmp = tempdir_path();
-        let wordnet = super::super::registry::by_name("wordnet").unwrap();
+        let wordnet = super::super::registry::by_name("english_wordnet").unwrap();
         let opts = FetchOptions {
             check: false,
             force: false,
