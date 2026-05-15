@@ -3,6 +3,7 @@
 //! statutes generated from `praxis.lock`.
 pub mod case_law;
 pub mod classification;
+pub mod compositions;
 pub mod escalation;
 pub mod law;
 pub mod ontology;
