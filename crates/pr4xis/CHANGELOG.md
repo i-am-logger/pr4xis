@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.14.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.13.0...pr4xis-v0.14.0) (2026-05-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* document the substrate API surface — release-please marker for #170 ([#172](https://github.com/i-am-logger/pr4xis/issues/172))
+
+### Features
+
+* document the substrate API surface — release-please marker for [#170](https://github.com/i-am-logger/pr4xis/issues/170) ([#172](https://github.com/i-am-logger/pr4xis/issues/172)) ([47daf96](https://github.com/i-am-logger/pr4xis/commit/47daf96ffc04b87de6f7e0ed0eeb57179c5d6f78))
+
 ## [0.13.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.12.0...pr4xis-v0.13.0) (2026-04-18)
 
 
