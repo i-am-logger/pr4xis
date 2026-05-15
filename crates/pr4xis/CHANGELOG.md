@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.15.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.14.1...pr4xis-v0.15.0) (2026-05-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps,ci:** pure-Rust crypto + always-latest devenv + PR-title gate ([#177](https://github.com/i-am-logger/pr4xis/issues/177))
+
+### Features
+
+* **deps,ci:** pure-Rust crypto + always-latest devenv + PR-title gate ([#177](https://github.com/i-am-logger/pr4xis/issues/177)) ([aee4c3a](https://github.com/i-am-logger/pr4xis/commit/aee4c3a77a4f3102d11ae9eb121420b01857f9f3))
+
 ## [0.14.1](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.14.0...pr4xis-v0.14.1) (2026-05-15)
 
 
