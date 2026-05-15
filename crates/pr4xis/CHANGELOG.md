@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.14.0...pr4xis-v0.14.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **codegen:** WASM build no longer emits deleted per-def traits + CI catches it ([#174](https://github.com/i-am-logger/pr4xis/issues/174)) ([ba493f8](https://github.com/i-am-logger/pr4xis/commit/ba493f82576a3d71b5ac360ca8760cffac274163))
+
 ## [0.14.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.13.0...pr4xis-v0.14.0) (2026-05-15)
 
 
