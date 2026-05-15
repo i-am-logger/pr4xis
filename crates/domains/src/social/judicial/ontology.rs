@@ -9,21 +9,23 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Valence of a legal term.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Valence {
-    Supportive, // pro-claimant
-    Defensive,  // pro-respondent
-    Procedural, // scope, jurisdiction
-}
+// `Valence` was previously a bare Rust enum (Supportive/Defensive/Procedural)
+// with no praxis-ontology grounding. As of M3.5a it is the typed concept
+// `super::valence::ontology::ValenceConcept`, with literature citations
+// (Hart 1961, MacCormick 1978, Wigmore 1937) and four axioms covering the
+// partition. The legacy short name `Valence` here is a re-export alias so
+// `LegalTerm.valence: Valence` reads naturally at call sites; the macro-
+// canonical name `ValenceConcept` is preferred in new code.
+pub use super::valence::ontology::ValenceConcept as Valence;
 
-/// Proof standard.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProofStandard {
-    Preponderance,
-    ClearAndConvincing,
-    BeyondReasonableDoubt,
-}
+// `ProofStandard` similarly: was a bare 3-variant Rust enum
+// (Preponderance/ClearAndConvincing/BeyondReasonableDoubt); as of M3.5c it
+// is the typed concept `super::proof_standard::ontology::ProofStandardConcept`
+// with 4 leaves (adds `ContributingFactor` — SOX 1514A / AIR21 burden-
+// shifting), a `StringencyOf` Quality giving a total order, and five
+// axioms grounded in McCauliff (1982), Brilmayer (1990), Lawson v. FMR LLC
+// (2014), and Murray v. UBS (2024).
+pub use super::proof_standard::ontology::ProofStandardConcept as ProofStandard;
 
 /// Obligation language.
 #[derive(Debug, Clone, PartialEq)]

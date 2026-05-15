@@ -7,9 +7,12 @@ pub mod entity;
 pub mod fact;
 pub mod finding;
 pub mod lifecycle;
+pub mod modality;
 pub mod ontology;
+pub mod proof_standard;
 pub mod rule;
 pub mod source;
+pub mod valence;
 
 pub use engine::{LegalAction, LegalEngine, new_case};
 pub use entity::Concept;
