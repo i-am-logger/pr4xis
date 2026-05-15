@@ -29,7 +29,7 @@ pub trait Monoid: Clone + Debug {
 
 // --- Standard monoid instances ---
 
-/// Vec<T> is a monoid under concatenation.
+/// `Vec<T>` is a monoid under concatenation.
 impl<T: Clone + Debug> Monoid for Vec<T> {
     fn empty() -> Self {
         Vec::new()

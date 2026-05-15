@@ -14,7 +14,7 @@ dev-web
 
 You will see something like:
 
-```
+```text
 Building WASM...
 Starting pr4xis-web with live reload...
   /                — WASM chatbot
@@ -28,7 +28,7 @@ If you don't have `dev-web` on your path, you are not in the dev shell. Run `dev
 
 ## Try a few queries
 
-```
+```text
 is a cat a mammal
 define telescope
 is a guitar a string instrument
@@ -96,7 +96,7 @@ When something goes wrong, the trace is where you look first. Every entry tells 
 
 ## Next
 
-Continue with **[03 — First Ontology](03-first-ontology.md)** to write your own minimal `define_ontology!` block.
+Continue with **[03 — First Ontology](03-first-ontology.md)** to write your own minimal `ontology!` block.
 
 ---
 

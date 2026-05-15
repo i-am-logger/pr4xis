@@ -70,8 +70,8 @@ pub struct EntityRef {
 }
 
 /// A proposition — a predicate applied to entities with roles.
-/// "The dog runs" → Proposition { predicate: run, arguments: [dog:Agent] }
-/// "The dog sees the cat" → Proposition { predicate: see, arguments: [dog:Agent, cat:Patient] }
+/// "The dog runs" → `Proposition { predicate: run, arguments: [dog:Agent] }`
+/// "The dog sees the cat" → `Proposition { predicate: see, arguments: [dog:Agent, cat:Patient] }`
 #[derive(Debug, Clone, PartialEq)]
 pub struct SemanticProposition {
     pub predicate: Predicate,

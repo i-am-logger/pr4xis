@@ -72,7 +72,7 @@ impl<A: Clone + Debug> Ap<A> {
     }
 
     /// Apply a function in context to a value in context.
-    /// In Rust, map2 is preferred over ap (avoids Box<dyn FnOnce> issues).
+    /// In Rust, map2 is preferred over ap (avoids `Box<dyn FnOnce>` issues).
     pub fn ap<B: Clone + Debug>(self, f: impl FnOnce(A) -> B) -> Ap<B> {
         Ap {
             value: f(self.value),

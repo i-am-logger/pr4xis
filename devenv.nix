@@ -23,6 +23,7 @@ in
     pkgs.git
     pkgs.pkg-config
     pkgs.marp-cli
+    pkgs.mdbook
     pkgs.miniserve
   ];
 

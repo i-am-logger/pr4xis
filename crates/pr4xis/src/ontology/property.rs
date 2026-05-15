@@ -53,7 +53,7 @@ pub enum QualityKind {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// impl Quality for Brightness {
 ///     type Individual = Lamp;
 ///     type Value = u8;

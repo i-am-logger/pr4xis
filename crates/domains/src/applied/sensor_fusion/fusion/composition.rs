@@ -22,7 +22,7 @@ pub enum CompositionStrategy {
     ///
     /// P_fused^{-1} = omega * P1^{-1} + (1-omega) * P2^{-1}
     ///
-    /// where omega in [0,1] is optimized to minimize trace(P_fused).
+    /// where omega in `[0,1]` is optimized to minimize trace(P_fused).
     ///
     /// Source: Julier & Uhlmann (1997).
     CovarianceIntersection,

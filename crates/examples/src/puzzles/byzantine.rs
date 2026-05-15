@@ -34,7 +34,7 @@ pub enum Loyalty {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     pub generals: Vec<Loyalty>,
-    /// messages[i][j] = order that general i sent to general j
+    /// `messages[i][j]` = order that general i sent to general j
     pub messages: Vec<Vec<Option<Order>>>,
     /// What each general decides
     pub decisions: Vec<Option<Order>>,

@@ -16,7 +16,7 @@ The honest claim: pr4xis is the first **executable, machine-checkable** instance
 
 The lineage claim is **verified, not asserted**. Heim's 18 syntrometric primitives — distinction primitives (`Predicate`, `Predikatrix`, `Dialektik`, `Koordination`, `Aspekt`), structures (`Syntrix`, `SyntrixLevel`, `Synkolator`, `Korporator`), mereology (`Part`), teleological/hierarchical concepts (`Telecenter`, `Maxime`, `Transzendenzstufe`, `Metroplex`), permutation operators (`SequencePermutation` C, `OrientationPermutation` c), multi-aspect structure (`Aspektivsystem`), and self-observation (`Reflexivity` ρ) — are encoded at [`crates/domains/src/formal/meta/syntrometry/`](../../crates/domains/src/formal/meta/syntrometry/). Cross-functors verify the lineage at test time:
 
-```
+```bash
 cargo test -p pr4xis-domains -- syntrometry
 ```
 
@@ -39,7 +39,7 @@ Per-functor collapse profiles and gap-analysis numbers live in the [per-ontology
 The mathematical foundation. Category theory studies composition — how things combine while preserving structure.
 
 **Key concepts used in pr4xis:**
-- Objects and morphisms → Entity and Relationship
+- Objects and morphisms → Concept and Arrow
 - Composition → transitive closure in reasoning ontology
 - Functors → structure-preserving maps (analogy, translation, ontology evolution)
 - Natural transformations → transformations between functors
@@ -65,7 +65,7 @@ The conceptual foundation. Systems thinking studies wholes, relationships, and p
 | Category theory | Systems thinking |
 |---|---|
 | Object | Component |
-| Morphism | Relationship |
+| Morphism | Arrow |
 | Composition | Integration |
 | Functor | Analogy/Mapping |
 | Natural transformation | Evolution |
@@ -209,7 +209,7 @@ Types-as-formulas, proofs-as-programs applied to natural language. A derivation 
 
 ### The Pipeline (all functors)
 
-```
+```text
 Text → Tokens → SyntaxCategory → SemanticCategory → PragmaticCategory
          ↑            ↑                 ↑                  ↑
       Lexicon     Lambek grammar   Montague functor    Speech acts
@@ -297,7 +297,7 @@ The most fundamental concept. Before categories, before logic, before knowledge 
 
 Spencer-Brown's *Laws of Form* (1969) starts with one instruction: "Draw a distinction." From that single act, all of logic, Boolean algebra, and self-reference emerge. Von Foerster recognized this as the foundation of second-order cybernetics — the observer draws the distinction between self and observed.
 
-In pr4xis, distinction is everywhere: Entity (this vs not-this), Boundary (inside vs outside), Opposition (A vs not-A), Bit (0 vs 1), Context (this meaning vs that meaning).
+In pr4xis, distinction is everywhere: Concept (this vs not-this), Boundary (inside vs outside), Opposition (A vs not-A), Bit (0 vs 1), Context (this meaning vs that meaning).
 
 **Key references:**
 - G. Spencer-Brown, *Laws of Form* (1969) — the founding text

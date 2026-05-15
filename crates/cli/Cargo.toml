@@ -11,6 +11,9 @@ homepage = "https://github.com/i-am-logger/pr4xis"
 [[bin]]
 name = "pr4xis"
 path = "src/main.rs"
+# Avoid output filename collision with the `pr4xis` lib at target/doc/pr4xis/.
+# See https://github.com/rust-lang/cargo/issues/6313.
+doc = false
 
 [dependencies]
 pr4xis = { version = "0.14.1", path = "../pr4xis" }

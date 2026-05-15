@@ -1,6 +1,6 @@
 //! Trace theory — operational / temporal view of derivations.
 //!
-//! The atemporal side is [`formal::logic::proof_theory`]; this is its
+//! The atemporal side is [`pr4xis::logic::proof_theory`]; this is its
 //! operational twin. Under Curry-Howard and the Hyland-Ong
 //! characterisation of PCF, a trace IS a proof presented as a sequence
 //! of moves. This ontology names the operational-semantics and

@@ -4,7 +4,7 @@ This page is the contributor's authoring guide for adding a new ontology to pr4x
 
 ## Before you start
 
-Open one of the existing ontologies and read the source. The biology ontology at `crates/domains/src/natural/biomedical/biology/ontology.rs` is the canonical reference example — small enough to read in one sitting, complex enough to show all the patterns. Compare it to its source paper (Alberts et al., *Molecular Biology of the Cell*, 6th ed.) by reading both side by side. The mapping from "what the paper says" to "what the `define_ontology!` block contains" is the workflow you will follow.
+Open one of the existing ontologies and read the source. The biology ontology at `crates/domains/src/natural/biomedical/biology/ontology.rs` is the canonical reference example — small enough to read in one sitting, complex enough to show all the patterns. Compare it to its source paper (Alberts et al., *Molecular Biology of the Cell*, 6th ed.) by reading both side by side. The mapping from "what the paper says" to "what the `ontology!` block contains" is the workflow you will follow.
 
 ## The workflow
 
@@ -21,7 +21,7 @@ Avoid: blog posts, Wikipedia pages, AI summaries, your own notes. The point of p
 
 ### Step 2: Extract the concepts
 
-Read the source carefully and list the *named things* it talks about. These become the variants of your `Entity` enum. For the biology ontology, the source paper named: cell, tissue, organ, organism, stem cell, fibroblast, columnar epithelial cell, etc.
+Read the source carefully and list the *named things* it talks about. These become the variants of your `Concept` enum (Guarino 2009 — closed-world named objects). For the biology ontology, the source paper named: cell, tissue, organ, organism, stem cell, fibroblast, columnar epithelial cell, etc.
 
 Two rules:
 
@@ -30,46 +30,47 @@ Two rules:
 
 ### Step 3: Extract the relations
 
-For each pair of concepts, ask: does the source say one is a *kind of* the other? a *part of* the other? a *cause of* the other? an *opposite of* the other? Each answer is a different reasoning system:
+For each pair of concepts, ask: does the source say one is a *kind of* the other? a *part of* the other? a *cause of* the other? an *opposite of* the other? Each answer becomes a kinded morphism, and the structural-axioms catalog attaches the right axioms automatically (OBO-RO; Smith et al. 2005):
 
-- **Taxonomy** (`is-a`): "a fibroblast is a kind of cell" → `(Fibroblast, Cell)` in the taxonomy
-- **Mereology** (`part-of`): "a cell membrane is part of a cell" → `(CellMembrane, Cell)` in the mereology
-- **Causation**: "stem cell division causes cell differentiation" → `(StemCellDivision, CellDifferentiation)` in the causation
-- **Opposition**: "M1 macrophages are the functional opposite of M2 macrophages" → `(MacrophageM1, MacrophageM2)` in the opposition
+- **Subsumption** (`is_a`): "a fibroblast is a kind of cell" → `(Fibroblast, Cell)` — catalog attaches `NoCyclesOnKind` + `AntisymmetricOnKind`
+- **Parthood** (`has_a`): "a cell membrane is part of a cell" → `(CellMembrane, Cell)` — catalog attaches `NoCyclesOnKind`
+- **Causation** (`causes`): "stem cell division causes cell differentiation" → `(StemCellDivision, CellDifferentiation)` — catalog attaches `AsymmetricOnKind` + `IrreflexiveOnKind` (Lewis 1973; Reichenbach 1956)
+- **Opposition** (`opposes`): "M1 macrophages are the functional opposite of M2 macrophages" → `(MacrophageM1, MacrophageM2)` — catalog attaches `SymmetricOnKind` + `IrreflexiveOnKind`
 
 The source is the authority. If the source says it, the relation goes in. If the source doesn't say it, the relation does not go in — even if it "feels obvious".
 
-### Step 4: Write the `define_ontology!` block
+### Step 4: Write the `ontology!` block
 
 The macro takes a declarative spec and emits the full implementation. Skeleton:
 
-```rust
-use pr4xis::define_ontology;
+```text
+pr4xis::ontology! {
+    name: "MyOntology",
+    source: "<Author, Title, Year, Edition>",
 
-define_ontology! {
-    /// One-paragraph abstract of what this ontology models, citing the source.
-    /// Source: <Author, Title, Year, Edition>.
-    pub MyOntology {
-        entity: MyEntity,
-        category: MyCategory,
-        relation: MyRelation,
+    concepts: [ParentConcept, ChildConcept, Part, Whole, /* … */],
 
-        taxonomy: MyTaxonomy [
-            (ChildConcept, ParentConcept),
-            // ... one row per is-a relation in the source
-        ],
+    labels: {
+        ParentConcept: ("en", "Parent concept", "One-line description."),
+        // … one row per concept …
+    },
 
-        mereology: MyMereology [
-            (Part, Whole),
-            // ... one row per part-of relation in the source
-        ],
+    is_a: [
+        (ChildConcept, ParentConcept),
+        // … one row per is-a relation in the source
+    ],
 
-        // omit any reasoning system the source doesn't motivate
-    }
+    has_a: [
+        (Part, Whole),
+        // … one row per part-of relation in the source
+    ],
+
+    // Omit any sugar clause the source doesn't motivate.
+    // For arbitrary kinded morphisms, use `edges: [(Source, Target, Kind)]`.
 }
 ```
 
-Then define the `MyEntity` enum with `#[derive(Entity)]` listing every concept, and the `MyRelation` enum (or struct) listing every relation morphism. The macro generates the category, the reasoning systems, the structural axioms, the `OntologyMeta`, and the test scaffolding. Run `cargo test -p pr4xis-domains` to verify the laws hold.
+The macro generates the `MyOntologyConcept` enum (`Concept` impl), the `MyOntologyCategory` struct (`Category` impl), the `MyOntologyRelation` + `MyOntologyRelationKind` (`Arrow` impl with kind tagging), an `Ontology` impl whose `fn axioms()` returns the catalog's structural axioms for every kind in use, and a type-level `fn meta() -> Provenance` carrying the `name:` + `source:` for trace attribution. Run `cargo test -p pr4xis-domains` to verify the laws hold.
 
 ### Step 5: Add the citation
 
@@ -77,11 +78,11 @@ Create a `citings.md` file alongside `ontology.rs` (per [#57](https://github.com
 
 ### Step 6: Add Quality types where the source quantifies
 
-If the source paper says "neurons fire when the membrane potential exceeds −55 mV", the threshold is a `Quality` attached to the `Neuron` entity. Create a Quality type, attach it via the ontology's `qualities()` method, and write a unit test that uses the value.
+If the source paper says "neurons fire when the membrane potential exceeds −55 mV", the threshold is a `Quality` attached to the `Neuron` concept. Implement the `Quality` trait for a marker struct, wire it as `type Qual = …` in your `Ontology` impl, and write a unit test that exercises the value.
 
 ### Step 7: Add domain axioms
 
-Structural axioms (no cycles, antisymmetric is-a, weak supplementation) are emitted automatically by the macro. **Domain axioms** are the constraints that come from the source paper: "neurons cannot have more than one axon", "an enzyme catalyzes exactly one reaction class", "a chess king moves at most one square per turn". Implement each as an `Axiom` trait impl and add it to the ontology's `domain_axioms()` method.
+Structural axioms (no cycles, antisymmetric subsumption, symmetric opposition, …) are inherited automatically by the macro via `structural_axioms_for::<Self::Cat>()` in `Ontology::axioms()`. **Domain axioms** are the constraints that come from the source paper: "neurons cannot have more than one axon", "an enzyme catalyzes exactly one reaction class", "a chess king moves at most one square per turn", "if a whole has a proper part, it has another disjoint part" (Casati & Varzi 1999 `WeakSupplementation`). Implement each as an `Axiom` impl (with `verify()` returning a typed `Verdict` and a `citation()` to the source) and push it onto the vec returned by `Ontology::axioms()`.
 
 ### Step 8: Compose with other ontologies
 
@@ -104,7 +105,7 @@ If anything that was passing is now failing, you have introduced a contradiction
 ## Where to get help
 
 - **Look at existing ontologies first.** `crates/domains/src/natural/biomedical/biology/ontology.rs` is the reference. Pick another close to your domain and pattern-match.
-- **The `define_ontology!` macro source** at `crates/pr4xis/src/ontology/macros.rs` documents every supported field with examples.
+- **The `ontology!` proc macro source** at `crates/pr4xis-derive/src/ontology.rs` documents every supported field; the surrounding `lib.rs` carries an example.
 - **[Concepts](../understand/concepts.md)** explains what each reasoning system means, with worked examples.
 - **[Architecture](../understand/architecture.md)** explains where the ontology fits in the larger stack.
 

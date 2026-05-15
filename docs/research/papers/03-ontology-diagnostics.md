@@ -60,7 +60,7 @@ proofs[^V-tests].
 
 ### Methodology Pipeline (14 steps)
 
-```
+```text
 FormalizeDomains → ConstructFunctors → VerifyFunctorLaws → ConstructAdjunction
 → ComputeUnit + ComputeCounit → DetectGaps → ClassifyGaps + ComputeLossRatios
 → ProposeResolution → VerifyAgainstLiterature → ImplementResolution
@@ -118,7 +118,7 @@ reduce the direct loss.
 The adjunction between molecular biology and bioelectricity detected that
 the potassium channel Kv COLLAPSES on the round-trip:
 
-```
+```text
 Kv → (MolecularToBioelectric) → IonChannelModulation
    → (BioelectricToMolecular) → GlyR
 ```
@@ -132,7 +132,7 @@ are implemented by the same Kv channel. The molecular ontology was
 missing a distinction between constitutive and therapeutic functional modes.
 
 **How ContextDef resolved it**:
-```
+```text
 (Kv, Constitutive)  → PassiveHomeostatic    — sets resting Vmem
 (Kv, Therapeutic)   → TherapeuticTarget     — drug shifts Vmem
 ```
@@ -195,7 +195,7 @@ The first command runs the full workspace test suite. The second prints the live
 
 ### Key files
 
-- **The meta-ontology itself** lives at `crates/domains/src/formal/meta/ontology_diagnostics/ontology.rs` — the `define_ontology!` block that encodes the 29 entities, the 14-step methodology pipeline, and the 13 axioms about ontology engineering. The directory also contains `collapse_patterns.rs` (the loss-threshold classifications) and a `README.md`.
+- **The meta-ontology itself** lives at `crates/domains/src/formal/meta/ontology_diagnostics/ontology.rs` — the `pr4xis::ontology!` block that encodes the 29 concepts, the 14-step methodology pipeline, and the 13 axioms about ontology engineering. The directory also contains `collapse_patterns.rs` (the loss-threshold classifications) and a `README.md`.
 - **The computational gap analysis** is at `crates/domains/src/formal/meta/gap_analysis.rs` — the live functions (`analyze_molecular_bioelectric()`, `analyze_pharmacology_molecular()`, `analyze_biology_bioelectric()`, `test_full_chain_collapse_measurement`) that compute the collapse percentages from the actual functor implementations every test run.
 - **The three adjunctions** themselves live at `crates/domains/src/natural/biomedical/adjunctions.rs` — `MolecularBioelectricAdjunction`, `PharmacologyMolecularAdjunction`, `BiologyBioelectricAdjunction`, each with `unit` and `counit` implementations and the test suite that verifies them.
 - **The Kv gap and its `ContextDef` resolution** live at `crates/domains/src/natural/biomedical/molecular/ontology.rs` — the `MolecularEntity` enum, the `MolecularFunctionalContext` enum, and the `ContextDef` impl that disambiguates `(Kv, Constitutive)` from `(Kv, Therapeutic)`.
@@ -233,7 +233,7 @@ The "894 machine-verified tests" count in §1 is the meta-ontology subset at the
 
 [^V-tests]: Re-derive by running `cargo test --workspace`. The "894" count is the meta-ontology subset at drafting time; the workspace total is computed live on every run.
 
-[^V-meta]: The meta-ontology lives at `crates/domains/src/formal/meta/ontology_diagnostics/ontology.rs`. The 29 entities, 14 methodology steps, and 13 axioms are encoded in the `define_ontology!` block. Run `cargo test -p pr4xis-domains formal::meta::ontology_diagnostics` to verify the encoding compiles and the structural axioms hold.
+[^V-meta]: The meta-ontology lives at `crates/domains/src/formal/meta/ontology_diagnostics/ontology.rs`. The 29 concepts, 14 methodology steps, and 13 axioms are encoded in the `pr4xis::ontology!` block. Run `cargo test -p pr4xis-domains formal::meta::ontology_diagnostics` to verify the encoding compiles and the structural axioms hold.
 
 [^V-collapse]: Every collapse percentage in this paper is computed live by `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture`. The output prints per-adjunction unit-loss and counit-loss percentages from the actual functor implementations in `crates/domains/src/natural/biomedical/adjunctions.rs`. Numbers update automatically as the biomedical ontologies evolve.
 

@@ -18,30 +18,30 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// while capturing syntactic distinctions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SentenceFeature {
-    /// S[dcl] — declarative finite clause: "the dog runs"
+    /// `S[dcl]` — declarative finite clause: "the dog runs"
     Dcl,
-    /// S[adj] — adjective-headed predicate: "big", "happy" (predicative)
+    /// `S[adj]` — adjective-headed predicate: "big", "happy" (predicative)
     Adj,
-    /// S[q] — yes/no question: "is it a dog?"
+    /// `S[q]` — yes/no question: "is it a dog?"
     Q,
-    /// S[wq] — wh-question: "what is a dog?"
+    /// `S[wq]` — wh-question: "what is a dog?"
     Wq,
-    /// S[b] — bare stem/infinitive: "run" in "can run"
+    /// `S[b]` — bare stem/infinitive: "run" in "can run"
     Bare,
-    /// S[ng] — present participle: "running"
+    /// `S[ng]` — present participle: "running"
     Ng,
-    /// S[pss] — passive participle: "seen" in "was seen"
+    /// `S[pss]` — passive participle: "seen" in "was seen"
     Pss,
-    /// S[pt] — past participle: "gone" in "has gone"
+    /// `S[pt]` — past participle: "gone" in "has gone"
     Pt,
-    /// S[to] — to-infinitive: "to run"
+    /// `S[to]` — to-infinitive: "to run"
     To,
 }
 
 /// An atomic syntactic type — the base types from which complex types are built.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AtomicType {
-    /// S — a sentence, optionally with a feature (S[dcl], S[adj], S[q], etc.).
+    /// S — a sentence, optionally with a feature (`S[dcl]`, `S[adj]`, `S[q]`, etc.).
     /// None = unspecified S (matches any feature in reduction).
     S(Option<SentenceFeature>),
     /// NP — a noun phrase.
@@ -86,22 +86,22 @@ impl LambekType {
         Self::Atom(AtomicType::S(None))
     }
 
-    /// S[dcl] — declarative sentence.
+    /// `S[dcl]` — declarative sentence.
     pub fn s_dcl() -> Self {
         Self::Atom(AtomicType::S(Some(SentenceFeature::Dcl)))
     }
 
-    /// S[adj] — adjective-headed predicate.
+    /// `S[adj]` — adjective-headed predicate.
     pub fn s_adj() -> Self {
         Self::Atom(AtomicType::S(Some(SentenceFeature::Adj)))
     }
 
-    /// S[q] — yes/no question (replaces old Q atomic type).
+    /// `S[q]` — yes/no question (replaces old Q atomic type).
     pub fn q() -> Self {
         Self::Atom(AtomicType::S(Some(SentenceFeature::Q)))
     }
 
-    /// S[wq] — wh-question.
+    /// `S[wq]` — wh-question.
     pub fn wq() -> Self {
         Self::Atom(AtomicType::S(Some(SentenceFeature::Wq)))
     }
@@ -320,7 +320,7 @@ pub mod svo {
 
     // ---- Predicate adjective (CCGbank: S[adj]\NP) ----
 
-    /// Predicate adjective: S[adj]\NP — "big" in "a dog is big"
+    /// Predicate adjective: `S[adj]\NP` — "big" in "a dog is big"
     /// From Hockenmaier & Steedman (2007): predicative adjectives are
     /// sentence-like, headed by the adjective feature.
     pub fn predicate_adjective() -> LambekType {
@@ -337,7 +337,7 @@ pub mod svo {
         )
     }
 
-    /// Copula with adjective complement: (S[dcl]\NP)/(S[adj]\NP)
+    /// Copula with adjective complement: `(S[dcl]\NP)/(S[adj]\NP)`
     /// "is" in "a dog is big" — takes predicate adjective, produces declarative VP
     pub fn copula_adj() -> LambekType {
         LambekType::right_div(
@@ -348,7 +348,7 @@ pub mod svo {
 
     // ---- Question types ----
 
-    /// Question copula (sentence-initial "is"): (S[q]/NP)/NP
+    /// Question copula (sentence-initial "is"): `(S[q]/NP)/NP`
     /// "is" in "is a dog a mammal?" — takes two NPs, produces question.
     pub fn question_copula() -> LambekType {
         LambekType::right_div(
@@ -357,7 +357,7 @@ pub mod svo {
         )
     }
 
-    /// "what" as question word: S[wq]/(S/NP) — "what is a dog?"
+    /// "what" as question word: `S[wq]/(S/NP)` — "what is a dog?"
     /// Takes a sentence-missing-NP on right, produces wh-question.
     pub fn wh_what() -> LambekType {
         // CCGbank: S[wq]/(S[dcl]\NP) — takes a sentence-missing-subject on the right.

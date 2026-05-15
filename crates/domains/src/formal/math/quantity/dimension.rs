@@ -7,7 +7,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// multiplication. Every physical dimension is a product of powers
 /// of these base dimensions:
 ///
-///   [Q] = L^a · M^b · T^c · I^d · Θ^e · N^f · J^g
+///   `[Q] = L^a · M^b · T^c · I^d · Θ^e · N^f · J^g`
 ///
 /// where the exponents (a,b,c,d,e,f,g) uniquely identify the dimension.
 ///
@@ -124,7 +124,7 @@ impl Dimension {
     /// Group operation: multiply dimensions (add exponents).
     ///
     /// This is the abelian group operation.
-    /// [A] · [B] = L^(a1+a2) · M^(b1+b2) · ...
+    /// `[A] · [B] = L^(a1+a2) · M^(b1+b2) · ...`
     pub fn multiply(&self, other: &Self) -> Self {
         Self {
             length: self.length + other.length,
@@ -139,7 +139,7 @@ impl Dimension {
 
     /// Group inverse: reciprocal dimension (negate exponents).
     ///
-    /// [A]⁻¹ = L^(-a) · M^(-b) · ...
+    /// `[A]⁻¹ = L^(-a) · M^(-b) · ...`
     pub fn inverse(&self) -> Self {
         Self {
             length: -self.length,
@@ -152,12 +152,12 @@ impl Dimension {
         }
     }
 
-    /// Divide dimensions: [A] / [B] = [A] · [B]⁻¹.
+    /// Divide dimensions: `[A] / [B] = [A] · [B]⁻¹`.
     pub fn divide(&self, other: &Self) -> Self {
         self.multiply(&other.inverse())
     }
 
-    /// Raise to an integer power: [A]^n.
+    /// Raise to an integer power: `[A]^n`.
     pub fn power(&self, n: i8) -> Self {
         Self {
             length: self.length * n,

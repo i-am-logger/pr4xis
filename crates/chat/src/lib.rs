@@ -65,7 +65,7 @@ pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
 
 /// Process with full metadata — timing, token count.
 ///
-/// The pipeline IS a writer monad computation: TracedPipeline<A> = Writer<PipelineTrace, A>.
+/// The pipeline IS a writer monad computation: `TracedPipeline<A> = Writer<PipelineTrace, A>`.
 /// Each stage returns a traced value, and composition through `.bind()` / `.tell()`
 /// accumulates trace entries automatically via the PipelineTrace monoid.
 /// No mutation. No manual trace.record() calls.

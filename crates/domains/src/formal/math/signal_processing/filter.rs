@@ -41,7 +41,7 @@ impl FilterSpec {
 
 /// A first-order IIR low-pass filter (exponential moving average).
 ///
-/// Difference equation: y[n] = α * x[n] + (1 - α) * y[n-1]
+/// Difference equation: `y[n] = α * x[n] + (1 - α) * y[n-1]`
 /// where α = dt / (RC + dt), and RC = 1 / (2π * f_cutoff).
 #[derive(Debug, Clone, PartialEq)]
 pub struct FirstOrderLowPass {

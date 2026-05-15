@@ -30,11 +30,11 @@ The structural alignment between pr4xis and the modernized syntrometric logic is
 
 1. **Syntrix as category of leveled structures, Synkolator as endofunctor** ↔ pr4xis's ontology-as-category + functors-as-morphisms-of-ontologies
 2. **Aspektrelativität via Kripke frames** ↔ pr4xis's multiple ontologies viewing the same domain via functorial alignment
-3. **Classical extensional mereology for Part(A,B)** ↔ pr4xis's `MereologyDef` reasoning system with `WeakSupplementation`
+3. **Classical extensional mereology for Part(A,B)** ↔ pr4xis's `Kind::Parthood`-tagged morphisms (`NoCyclesOnKind` from the catalog; `WeakSupplementation` available as a domain axiom)
 4. **Reflexivity as natural transformation** ↔ pr4xis's `Self-Model` ontology describing its own structure
 5. **Korporator as structure-mapping functor** ↔ pr4xis's cross-domain functors
 6. **Hypersyntrix as category-of-categories** ↔ pr4xis's higher-order composition through repeated functor application
-7. **Predicates as primitives** ↔ pr4xis's `Entity` enums
+7. **Predicates as primitives** ↔ pr4xis's `Concept` enums (Guarino 2009)
 8. **C/c permutation operators (sequence and orientation)** ↔ pr4xis's morphism composition under associativity
 
 The one that does NOT map: **adjunctions**. Heim does not have adjoint functors; the gap-detection mechanism that pr4xis uses — `F` and `G` as paired functors with unit and counit, round-trip collapse as a missing-distinction signal — has no Heim counterpart. This is genuinely pr4xis's contribution.

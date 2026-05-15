@@ -8,9 +8,9 @@ use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenanc
 /// Under Martin-Löf (1984), a proof IS a term inhabiting its claim-type;
 /// a refutation is a term of type `P → ⊥` (Curry & Feys 1958). These are
 /// structurally distinct kinds of evidence — pr4xis core never collapses
-/// them into a bool. [`verify`] returns [`Verdict`] = `Result<Box<dyn Proof>,
-/// Box<dyn Counterexample>>`. Pattern-match the result; do not reach for
-/// a boolean shortcut.
+/// them into a bool. [`Axiom::verify`] returns [`Verdict`] =
+/// `Result<Box<dyn Proof>, Box<dyn Counterexample>>`. Pattern-match the
+/// result; do not reach for a boolean shortcut.
 ///
 /// See `feedback_core_no_bool_api` — core's public API must never expose
 /// `bool`-returning methods or `bool`-accepting helpers.
@@ -18,7 +18,7 @@ use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenanc
 /// # Citation is required (#167)
 ///
 /// Every axiom declares its literature citation by implementing
-/// [`citation`]. There is no default. An axiom without a published
+/// [`Axiom::citation`]. There is no default. An axiom without a published
 /// source is not an axiom — per `feedback_literature_or_remove`, if
 /// you can't cite it, collapse it into a parent concept or remove it.
 /// Absence at the type level is a compile error, not a runtime `None`.
@@ -29,7 +29,7 @@ use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenanc
 ///
 /// Example:
 ///
-/// ```ignore
+/// ```text
 /// impl Axiom for MyAxiom {
 ///     fn verify(&self) -> Verdict { ... }
 ///     fn citation(&self) -> Citation {
@@ -38,7 +38,7 @@ use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenanc
 /// }
 /// ```
 ///
-/// The [`axiom_meta!`] helper macro emits the three override methods
+/// The [`crate::axiom_meta!`] helper macro emits the three override methods
 /// (`name`, `description`, `citation`) in one line for the common case
 /// where all three are string literals.
 ///
@@ -77,8 +77,9 @@ pub trait Axiom {
         ModulePath::new_static(module_path!())
     }
 
-    /// Structured metadata — composed from [`name`], [`description`],
-    /// [`citation`], and [`module_path`]. Typically not overridden.
+    /// Structured metadata — composed from [`Axiom::name`],
+    /// [`Axiom::description`], [`Axiom::citation`], and
+    /// [`Axiom::module_path`]. Typically not overridden.
     fn meta(&self) -> Provenance {
         Provenance {
             name: self.name(),

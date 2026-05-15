@@ -11,7 +11,7 @@ use core::hash::Hash;
 /// finer-grained sub-concepts and (in closed-world ontologies) the only
 /// individuals — there is no separate runtime individual layer.
 ///
-/// This base trait requires finite enumeration via [`variants`]. The
+/// This base trait requires finite enumeration via [`Concept::variants`]. The
 /// [`FinitelyGenerated`] marker trait identifies concepts satisfying the
 /// closed-world assumption — algebraically, concepts whose variants form a
 /// finite generator set for a free monoid (or equivalently, a free sum
@@ -20,7 +20,7 @@ use core::hash::Hash;
 /// move it to `FinitelyGenerated`.
 ///
 /// Can be derived for enums with unit variants:
-/// ```ignore
+/// ```text
 /// use pr4xis::category::Concept;
 ///
 /// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]

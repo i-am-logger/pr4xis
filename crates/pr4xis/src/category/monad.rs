@@ -28,7 +28,7 @@ use super::monoid::Monoid;
 ///
 /// The trace accumulates automatically through composition.
 /// This is how TracedCategory works: morphisms carry trace records,
-/// and composition concatenates them (Vec<TraceRecord> is the monoid).
+/// and composition concatenates them (`Vec<TraceRecord>` is the monoid).
 #[derive(Debug, Clone)]
 pub struct Writer<W: Monoid, A: Clone + Debug> {
     /// The computed value.

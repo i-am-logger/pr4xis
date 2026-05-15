@@ -28,7 +28,7 @@ cargo test --workspace
 
 This runs the entire test suite — currently 4,855 tests across the workspace, including category laws, functor laws, axiom checks, and property-based tests via [proptest](https://github.com/proptest-rs/proptest). On a modern machine this finishes in under a minute on a single core. You should see something like:
 
-```
+```text
 test result: ok. 4855 passed; 0 failed; ...
 ```
 

@@ -5,13 +5,13 @@ use super::face::{Color, Face};
 use super::moves::Move;
 
 /// A 3×3 Rubik's cube. Each face has 9 stickers (3×3 grid).
-/// Positions are indexed [row][col] where (0,0) is top-left when facing that side.
+/// Positions are indexed `[row][col]` where (0,0) is top-left when facing that side.
 ///
 /// The cube state is the sticker colors. The ontology enforces that
 /// only valid face rotations can change the state.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Cube {
-    /// faces[face][row][col] = Color
+    /// `faces[face][row][col]` = Color
     pub faces: [[Color; 9]; 6],
 }
 

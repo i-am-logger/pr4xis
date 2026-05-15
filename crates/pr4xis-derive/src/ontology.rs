@@ -89,7 +89,7 @@ impl Parse for ComposedEntry {
 /// A domain axiom declared inside `ontology!`'s `axioms:` clause.
 ///
 /// Shape:
-/// ```ignore
+/// ```text
 /// axioms: {
 ///     FourPhaseCycle: {
 ///         source: "Kephart & Chess (2003) §2",

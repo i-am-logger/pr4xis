@@ -1,12 +1,12 @@
 # Get Started
 
-This is the entry point for new users learning pr4xis. It is a three-step tutorial sequence — each step is a short, focused page you can complete in 10 minutes or less. By the end you will have pr4xis built locally, made your first query against the engine, and written your own minimal `define_ontology!` block.
+This is the entry point for new users learning pr4xis. It is a three-step tutorial sequence — each step is a short, focused page you can complete in 10 minutes or less. By the end you will have pr4xis built locally, made your first query against the engine, and written your own minimal `ontology!` block.
 
 ## The sequence
 
 1. **[01 — Install](01-install.md)** — clone, build, run the test suite. Verifies your environment.
 2. **[02 — First Query](02-first-query.md)** — interact with the engine through the CLI chatbot or the WASM browser demo, and learn how to read the trace.
-3. **[03 — Your First Ontology](03-first-ontology.md)** — write a minimal `define_ontology!` block of your own, and watch the categorical machinery validate it.
+3. **[03 — Your First Ontology](03-first-ontology.md)** — write a minimal `ontology!` block of your own, and watch the categorical machinery validate it.
 
 Each page links forward to the next, and back to this index. You can also jump straight in if you already know what you need.
 

@@ -70,14 +70,19 @@ precise what it means for two domains to be "the same up to information loss."
 
 We use the praxis ontology framework, which implements:
 
-- **Category**: objects (entities) + morphisms (relationships) with identity
-  and composition laws
-- **Taxonomy** (TaxonomyDef): is-a hierarchies as directed acyclic graphs
-- **Mereology** (MereologyDef): part-whole relationships
-- **Causation** (CausalDef): cause-effect directed acyclic graphs
-- **Opposition** (OppositionDef): symmetric, irreflexive contrast pairs
-- **Quality**: properties that inhere in entities
-- **Axiom**: provable boolean predicates
+- **Category**: objects (concepts) + morphisms (kinded relationships) with
+  identity and composition laws (Mac Lane 1971; Awodey 2010)
+- **Taxonomy** (`Kind::Subsumption`): is-a hierarchies as directed acyclic
+  graphs, with `NoCyclesOnKind` + `AntisymmetricOnKind` from the catalog
+- **Mereology** (`Kind::Parthood`): part-whole relationships, with
+  `NoCyclesOnKind` from the catalog
+- **Causation** (`Kind::Causation`): cause-effect directed acyclic graphs,
+  with `AsymmetricOnKind` + `IrreflexiveOnKind` from the catalog
+- **Opposition** (`Kind::Opposition`): symmetric, irreflexive contrast pairs,
+  with `SymmetricOnKind` + `IrreflexiveOnKind` from the catalog
+- **Quality**: properties that inhere in concepts
+- **Axiom**: a `verify()` predicate returning a typed `Verdict` plus a
+  required `citation()` to published literature
 - **Ontology**: bundles Category + Quality + Axioms with self-validation
 - **Functor**: structure-preserving maps between categories
 - **Adjunction**: optimally inverse functor pairs with unit and counit
@@ -109,11 +114,12 @@ framework and grounded in published literature:
 
 Each axiom encodes a specific claim from published literature:
 
-```
+```text
 Axiom: Piezo1IsMechanosensitiveChannel
 Source: Coste et al. 2010, Science (Nobel 2021)
-Proof: taxonomy::is_a(Piezo1, Mechanosensitive) AND
-       taxonomy::is_a(Piezo1, IonChannel)
+Proof: ∃ a Subsumption-kinded morphism Piezo1 → Mechanosensitive
+       AND ∃ a Subsumption-kinded morphism Piezo1 → IonChannel
+       in BiomedicalCategory::morphisms()
 ```
 
 Axioms are not structural trivia — they are falsifiable scientific claims
@@ -294,9 +300,9 @@ The numerical counts in the abstract and Section 3 (12 domains, 839 tests, 21 fu
 
 [^V-adjunctions]: The three adjunctions (`MolecularBioelectricAdjunction`, `PharmacologyMolecularAdjunction`, `BiologyBioelectricAdjunction`) live at `crates/domains/src/natural/biomedical/adjunctions.rs`. Their `unit` and `counit` implementations are verified by the test suite in the same file. Run `cargo test -p pr4xis-domains adjunctions::tests`.
 
-[^V-causal]: Causal graphs are encoded via the `CausalDef` reasoning system inside each ontology's `define_ontology!` block. Count via `grep -rn "causation:" crates/domains/src/natural/biomedical/`.
+[^V-causal]: Causal graphs are encoded as `Kind::Causation`-tagged morphisms in each ontology's `Category::morphisms()`, declared via the `causes:` sugar clause of the `ontology!` macro. Count via `grep -rn "causes:" crates/domains/src/natural/biomedical/`.
 
-[^V-opposition]: Opposition pairs are encoded via the `OppositionDef` reasoning system inside each ontology's `define_ontology!` block. Count via `grep -rn "opposition:" crates/domains/src/natural/biomedical/`.
+[^V-opposition]: Opposition pairs are encoded as `Kind::Opposition`-tagged morphisms in each ontology's `Category::morphisms()`, declared via the `opposes:` sugar clause of the `ontology!` macro. Count via `grep -rn "opposes:" crates/domains/src/natural/biomedical/`.
 
 [^V-tame]: The TAME hierarchy is encoded in the bioelectricity ontology at `crates/domains/src/natural/biomedical/bioelectricity/ontology.rs`. Run `cargo test -p pr4xis-domains bioelectricity::tests` to verify the taxonomy structure.
 

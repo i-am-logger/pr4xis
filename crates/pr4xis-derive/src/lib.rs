@@ -76,18 +76,20 @@ pub fn derive_concept(input: TokenStream) -> TokenStream {
 
 /// Define an ontology with compile-time validation and static code generation.
 ///
-/// Generates: Entity enum, Category impl, Arrow impl, reasoning systems,
-/// structural axioms, Vocabulary, and Lemon lexical data — all static.
+/// Generates: `Concept` enum, `Category` impl, `Arrow` impl (with kind
+/// tagging), structural axioms inherited from the catalog, `Ontology`
+/// impl, and a type-level `fn meta() -> Provenance` for trace
+/// attribution.
 ///
-/// Concept names in edges/is_a/has_a/causes/opposes are validated at compile time.
+/// Concept names referenced in `edges:` / `is_a:` / `has_a:` /
+/// `causes:` / `opposes:` are validated at compile time.
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// pr4xis::ontology! {
 ///     name: "Biology",
-///     source: "Mayr (1982)",
-///     being: AbstractObject,
+///     source: "Mayr (1982) The Growth of Biological Thought",
 ///     concepts: [Cell, Tissue, Organism],
 ///     labels: {
 ///         Cell: ("en", "Cell", "The basic structural unit"),

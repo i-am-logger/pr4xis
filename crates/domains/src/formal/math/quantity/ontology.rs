@@ -131,7 +131,7 @@ impl Axiom for DimensionIdentity {
 }
 pr4xis::register_axiom!(DimensionIdentity, "BIPM SI Brochure (2019), Table 1.");
 
-/// Every dimension has an inverse: [A]·[A]⁻¹ = 1.
+/// Every dimension has an inverse: `[A]·[A]⁻¹ = 1`.
 pub struct DimensionInverse;
 
 impl Axiom for DimensionInverse {

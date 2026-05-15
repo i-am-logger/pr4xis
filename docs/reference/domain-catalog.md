@@ -6,17 +6,17 @@
 
 Every ontology lives at exactly one path under `crates/domains/src/`. The full list is re-derivable by:
 
-```
+```bash
 find crates/domains/src -name ontology.rs
 ```
 
 Total: 106 ontologies.
 
-Every ontology directory contains an `ontology.rs` file with the `define_ontology!` invocation that declares its concepts, relations, reasoning systems, axioms, and metadata. To understand any specific ontology, read its `ontology.rs` directly. Per-ontology `README.md` and `citings.md` files are pending [#57](https://github.com/i-am-logger/pr4xis/issues/57).
+Every ontology directory contains an `ontology.rs` file with the `pr4xis::ontology!` invocation that declares its concepts, kinded morphisms, axioms, and metadata. To understand any specific ontology, read its `ontology.rs` directly. Per-ontology `README.md` and `citings.md` files are pending [#57](https://github.com/i-am-logger/pr4xis/issues/57).
 
 ## Current organization
 
-```
+```text
 crates/domains/src/
 ├── formal/                      formal sciences — math, information, calculator, meta
 │   ├── math/                    linear algebra, geometry, probability, statistics, signal
@@ -71,13 +71,13 @@ This tree is the schematic view; it is not exhaustive (some sub-modules are omit
 
 Domains are not isolated. They compose through proven functors — structure-preserving maps verified at test time. The current workspace contains 61 functor implementations:
 
-```
+```bash
 grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ | wc -l
 ```
 
 The most distinctive use of the functor machinery is in the biomedical stack, where three categorical adjunctions (Molecular ⊣ Bioelectric, Biology ⊣ Bioelectric, Pharmacology ⊣ Molecular) automatically detect missing distinctions in the source ontologies. To see the live percentages of how much information is lost in each round-trip:
 
-```
+```bash
 cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture
 ```
 
@@ -88,7 +88,7 @@ For the explanation of what these numbers mean, see the [README](../../README.md
 A domain catalog written by hand goes stale immediately. Every commit that adds, removes, or renames an ontology silently invalidates a hand-maintained list. The right shape for this page is **automated generation** from the codebase, plus per-ontology pages for depth. Both are in flight:
 
 - **[#57](https://github.com/i-am-logger/pr4xis/issues/57)** — every ontology directory gets a `README.md` (one paragraph: what it models, its scope, its functor connections, its status) and a `citings.md` (the ontology's bibliography). The README is the abstract, citings.md is the bibliography.
-- **[#59](https://github.com/i-am-logger/pr4xis/issues/59)** — every per-ontology README also gets two mermaid diagrams: an internal structure view (concepts and relations) and an external connections view (functors and adjunctions to other ontologies). Auto-generated from `Entity::variants()` and the existing functor implementations.
+- **[#59](https://github.com/i-am-logger/pr4xis/issues/59)** — every per-ontology README also gets two mermaid diagrams: an internal structure view (concepts and relations) and an external connections view (functors and adjunctions to other ontologies). Auto-generated from `Concept::variants()` and the existing functor implementations.
 - **[#60](https://github.com/i-am-logger/pr4xis/issues/60)** — a CI-generated `pr4xis-report.json` that captures every numerical metric the codebase produces (test counts, ontology counts, functor counts, adjunction collapse percentages, per-ontology entity/relation counts) and publishes it to GitHub Pages so the README and this catalog can pull live numbers instead of hand-typing them.
 
 When all three land, this page becomes either a redirect to a generated catalog or a thin wrapper around the live JSON.

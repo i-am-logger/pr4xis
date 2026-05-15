@@ -3,7 +3,7 @@
 //! # Why this ontology lives in core
 //!
 //! `ontology::reasoning` provides machinery — OnKind structural axioms,
-//! the axiom catalog, and the [`Analogy`] functor — that operates
+//! the axiom catalog, and the [`Analogy`](super::analogy::Analogy) functor — that operates
 //! UNDER the concept of reasoning. Per the project's substrate-grounding
 //! principle, the concept itself must live with the machinery. This
 //! ontology names Reasoning as an umbrella concept and the four canonical

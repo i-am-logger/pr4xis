@@ -61,7 +61,7 @@ use super::structural::{
 ///
 /// Typical call site — inside an ontology's `axioms()` method:
 ///
-/// ```ignore
+/// ```text
 /// impl Ontology for FooOntology {
 ///     fn axioms() -> Vec<Box<dyn Axiom>> {
 ///         let mut all = structural_axioms_for::<Self::Cat>();

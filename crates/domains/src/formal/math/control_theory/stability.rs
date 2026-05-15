@@ -47,7 +47,7 @@ pub fn classify_stability(pole_real_parts: &[f64]) -> StabilityClass {
     }
 }
 
-/// Check if a first-order discrete system y[n] = a*y[n-1] + b*x[n] is stable.
+/// Check if a first-order discrete system `y[n] = a*y[n-1] + b*x[n]` is stable.
 ///
 /// Stable iff |a| < 1.
 pub fn is_discrete_first_order_stable(a: f64) -> bool {

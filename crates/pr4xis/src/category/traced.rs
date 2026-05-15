@@ -44,7 +44,7 @@ pub enum TraceRecordStatus {
     Error,
 }
 
-/// A traced morphism: the writer monad Writer<Vec<TraceRecord>, M>.
+/// A traced morphism: the writer monad `Writer<Vec<TraceRecord>, M>`.
 ///
 /// The morphism carries its provenance. Composition concatenates traces
 /// via the Vec monoid — no manual instrumentation needed.
@@ -103,7 +103,7 @@ impl<M: Clone + core::fmt::Debug> TracedMorphismExt<M> for TracedMorphism<M> {
 
 /// A traced category: wraps any Category C with the writer monad.
 ///
-/// Every morphism becomes Writer<Vec<TraceRecord>, M>.
+/// Every morphism becomes `Writer<Vec<TraceRecord>, M>`.
 /// Composition accumulates traces via the Vec monoid.
 pub struct TracedCategory<C: Category>(core::marker::PhantomData<C>);
 
@@ -131,7 +131,7 @@ where
 
 // ---- Algebraic structure integrations ----
 
-/// Convert a flat trace (Vec<TraceRecord>) into a Cofree tree.
+/// Convert a flat trace (`Vec<TraceRecord>`) into a Cofree tree.
 ///
 /// The Cofree comonad gives each trace record its full context.
 /// The root is the first record, children are subsequent records.

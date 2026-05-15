@@ -34,7 +34,7 @@ Depends on logic. Provides entities, relationships, categories, morphisms, funct
 
 ### `pr4xis::ontology` — structural rules
 
-Depends on category and logic. Defines what things ARE and how they relate. The `Ontology` trait bundles a category, qualities, structural axioms, and domain axioms. The `define_ontology!` macro is the declarative entry point — author an entity enum and a relation enum, and the macro emits the category implementation, all the reasoning systems (taxonomy, mereology, causation, opposition), structural axioms (no cycles, antisymmetric, weak supplementation, etc.), and the `OntologyMeta` used by the engine for trace attribution. Verified by `cargo test -p pr4xis ontology`.
+Depends on category and logic. Defines what things ARE and how they relate. The `Ontology` trait bundles a category (`type Cat`), a quality (`type Qual`), and `fn axioms() -> Vec<Box<dyn Axiom>>` — the union of structural axioms inherited from the catalog and any domain axioms the ontology adds. The `ontology!` proc macro is the declarative entry point — author concept names, labels, and kinded edges (`is_a:` / `has_a:` / `causes:` / `opposes:` / free-form `edges:`) and the macro emits the `Concept` enum, the `Category` impl, the kinded `Arrow` impl, an `Ontology` impl whose `axioms()` calls `structural_axioms_for::<Self::Cat>()` to inherit the catalog's structural axioms (no cycles, antisymmetric subsumption, symmetric opposition, …), and a type-level `fn meta() -> Provenance` used by the engine for trace attribution. Verified by `cargo test -p pr4xis ontology`.
 
 ### `pr4xis::engine` — runtime enforcement
 
@@ -69,28 +69,29 @@ All three produce the same ontology because each is a verified functor from the 
 
 ## The Ontology trait
 
-Every ontology in pr4xis is a category plus the reasoning systems that operate on it. The `define_ontology!` macro emits all of them in a single declarative block, including the metadata used for trace attribution.
+Every ontology in pr4xis is a category whose morphisms carry `Kind` tags. The `ontology!` macro emits the category, the kinded morphisms, the inherited structural axioms, and the type-level `Provenance` metadata used for trace attribution — all in a single declarative block.
 
 ```mermaid
 graph LR
     O["Ontology trait"]
     C[Category]
-    R[Reasoning systems]
+    K[Kinded morphisms]
     A[Axioms]
-    M[OntologyMeta]
+    M[Provenance]
 
     O --> C
-    O --> R
+    C --> K
     O --> A
     O --> M
 ```
 
-The reasoning systems available to every ontology are:
+The canonical relation kinds tracked by the structural-axioms catalog (OBO-RO; Smith et al. 2005) are:
 
-- **Taxonomy** — `is-a` hierarchies (`NoCycles`, `Antisymmetric`)
-- **Mereology** — part-whole relationships (`WeakSupplementation`)
-- **Causation** — causal DAGs (`NoSelfCausation`)
-- **Opposition** — symmetric, irreflexive opposition pairs
+- **Subsumption** (`is_a` sugar clause) — `NoCyclesOnKind` + `AntisymmetricOnKind` (Tarski 1941)
+- **Parthood** (`has_a` sugar clause) — `NoCyclesOnKind`; `WeakSupplementation` available as a hand-written domain axiom (Casati & Varzi 1999)
+- **Causation** (`causes` sugar clause) — `AsymmetricOnKind` + `IrreflexiveOnKind` (Lewis 1973; Reichenbach 1956)
+- **Opposition** (`opposes` sugar clause) — `SymmetricOnKind` + `IrreflexiveOnKind`
+- **Equivalence** — canonical properties (reflexive + symmetric + transitive) per Tarski (1941); when a catalog entry is added it will be inherited the same way
 - **Context** — disambiguation by context (`ContextDef`, `resolve`)
 - **Analogy** — structure-preserving maps between ontologies (functors as Analogies)
 
@@ -98,7 +99,7 @@ For what each looks like in a specific domain, see the per-ontology README. For 
 
 ## Domain organization
 
-```
+```text
 crates/domains/src/
 ├── formal/        — math, information, calculator, meta (ontology diagnostics)
 ├── applied/       — sensor fusion, navigation, perception, tracking, space, underwater,

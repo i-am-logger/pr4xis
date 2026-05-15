@@ -36,7 +36,7 @@ After subtracting the prior art, the things we believe pr4xis contributes — pe
 
 2. **A multi-domain categorical substrate that compiles and runs.** Spivak's ologs are categorical knowledge representations but are presented mathematically rather than as a living codebase. Coq/Agda/Lean libraries for category theory exist but are oriented toward pure-math theorem proving, not applied domain reasoning across many fields. The combination — categorical substrate, multi-domain coverage, executable Rust, runtime engine, WASM browser surface — does not appear to exist in another project, but we have not done the exhaustive survey.
 
-3. **The `define_ontology!` macro pattern.** A declarative way to specify an ontology that emits the category, the reasoning systems (taxonomy, mereology, causation, opposition), the structural axioms, and the metadata in a single block. The pattern is similar to Spivak's olog notation but is concrete Rust code that the type system checks. We are not aware of an equivalent in another applied-CT framework.
+3. **The `ontology!` proc macro pattern.** A declarative way to specify an ontology that emits the `Concept` enum, the `Category` impl, the kinded `Arrow` impl (Subsumption / Parthood / Causation / Opposition / arbitrary user-defined kinds), the structural axioms inherited from the catalog (OBO-RO; Smith et al. 2005), and the `Provenance` metadata — all in a single block. The pattern is similar to Spivak's olog notation but is concrete Rust code that the type system checks. We are not aware of an equivalent in another applied-CT framework.
 
 4. **Functor-based ontology evolution as a first-class concern.** See [Evolution](../understand/evolution.md). The pattern of "transform via functor, never rewrite" is implicit in Spivak's functorial data migration but pr4xis applies it to ontological evolution explicitly and operationally — every evolution is a functor whose laws are checked at test time.
 
@@ -48,7 +48,7 @@ The most prominent lineage claim in the project is the structural alignment with
 
 ### Verify
 
-```
+```bash
 cargo test -p pr4xis-domains -- syntrometry
 ```
 

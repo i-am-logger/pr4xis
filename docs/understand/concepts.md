@@ -8,14 +8,14 @@ Most ontology systems treat an ontology as a **graph of facts** — a set of tri
 
 The difference matters because it determines what you can prove. A graph of facts can be queried; a category can be *composed* with other categories under proof, and the composition can be checked at compile time and test time. If two ontologies share structure, a categorical functor between them is a theorem about that shared structure — not a heuristic, not an alignment score, not a similarity measurement.
 
-Every domain in `crates/domains/src/` is an ontology in this stricter sense: an enum of concepts (the objects), an enum of relations (the morphisms), a set of reasoning systems that interpret those relations (taxonomy, mereology, causation, opposition), a set of axioms that the system must satisfy (no cycles, antisymmetric is-a, weak supplementation, etc.), and metadata used by the engine for trace attribution. The `define_ontology!` macro emits all of this from a single declarative block.
+Every domain in `crates/domains/src/` is an ontology in this stricter sense: an enum of concepts (the objects), an `Arrow` impl whose morphisms carry `Kind` tags (Subsumption / Parthood / Causation / Opposition / Equivalence / domain-specific kinds), the structural axioms attached to each kind by the catalog (no cycles, antisymmetric subsumption, symmetric opposition, …), any domain-specific axioms the source paper motivates, and a `Provenance` carried by `fn meta()` for trace attribution. The `ontology!` macro emits all of this from a single declarative block.
 
 ## Categories
 
 A category has:
 
-- **Objects** — the things the category is about. In pr4xis, every object is an `Entity` (a finite, enumerable Rust enum variant).
-- **Morphisms** — directed maps between objects. In pr4xis, every morphism is a `Relationship` between two entities.
+- **Objects** — the things the category is about. In pr4xis, every object is a `Concept` (Guarino 2009 — a finite, enumerable Rust enum variant).
+- **Morphisms** — directed maps between objects. In pr4xis, every morphism is an `Arrow` between two concepts, carrying a `Kind` tag and per-instance provenance (Mac Lane 1971; Awodey 2010).
 - **Composition** — if `f: A → B` and `g: B → C`, then `g ∘ f: A → C` exists and is itself a morphism.
 - **Identity** — for every object `A`, there is a morphism `id_A: A → A`.
 
@@ -28,15 +28,15 @@ These laws sound trivial but they have a consequence pr4xis exploits everywhere:
 
 ## Reasoning systems
 
-A category is a structure. **Reasoning systems** are interpretations of that structure that answer specific kinds of questions.
+A category is a structure. **Relation kinds** are interpretations of its morphisms that answer specific kinds of questions. The structural-axioms catalog (`pr4xis::ontology::reasoning::structural_axioms_for`) reads each morphism's `Kind` and attaches the right algebraic properties (OBO-RO; Smith et al. 2005; Tarski 1941):
 
-- **Taxonomy** — interprets some morphisms as `is-a`. Adds the `NoCycles` axiom (a thing cannot be its own ancestor) and `Antisymmetric` (if A is-a B and B is-a A, then A = B). Answers questions like "is dog a mammal?".
-- **Mereology** — interprets some morphisms as `part-of`. Adds the `WeakSupplementation` axiom (if a whole has a proper part, it has another disjoint part). Answers questions like "what are the parts of an esophagus?".
-- **Causation** — interprets some morphisms as `causes`. Adds the `NoSelfCausation` axiom (a thing cannot cause itself). Answers questions like "what caused this event?".
-- **Opposition** — interprets some morphism pairs as `opposes`. Adds `Symmetric` (if A opposes B, B opposes A) and `Irreflexive` (a thing does not oppose itself). Answers questions like "what is the opposite of cold?".
-- **Context** — disambiguates entities by context (`ContextDef::resolve`). A potassium channel in a constitutive context is not the same as a potassium channel in a therapeutic context. Closes gaps that adjunctions surface.
+- **Subsumption** (`is-a`) — `NoCyclesOnKind` (a thing cannot be its own ancestor) and `AntisymmetricOnKind` (if A is-a B and B is-a A, then A = B). Answers "is dog a mammal?".
+- **Parthood** (`part-of`) — `NoCyclesOnKind`. The full CEM `WeakSupplementation` (Casati & Varzi 1999) is available as a hand-written domain axiom for ontologies that need it. Answers "what are the parts of an esophagus?".
+- **Causation** (`causes`) — `AsymmetricOnKind` (Lewis 1973) and `IrreflexiveOnKind`. Answers "what caused this event?".
+- **Opposition** (`opposes`) — `SymmetricOnKind` (if A opposes B, B opposes A) and `IrreflexiveOnKind` (a thing does not oppose itself). Answers "what is the opposite of cold?".
+- **Context** — disambiguates concepts by context (`ContextDef::resolve`). A potassium channel in a constitutive context is not the same as a potassium channel in a therapeutic context. Closes gaps that adjunctions surface.
 
-Every reasoning system is its own trait that an ontology can choose to implement. The `define_ontology!` macro provides a declarative shorthand for all of them.
+The `ontology!` macro provides sugar clauses (`is_a:` / `has_a:` / `causes:` / `opposes:`) for the canonical kinds and a free-form `edges:` clause for any other kinded morphism the ontology needs.
 
 ## Functors
 

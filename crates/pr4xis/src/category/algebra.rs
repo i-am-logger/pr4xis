@@ -57,7 +57,7 @@ impl<A: 'static, F: 'static> Algebra<A, F> {
     }
 }
 
-/// An F-coalgebra: a seed type S with an unfolding function S → (A, [S]).
+/// An F-coalgebra: a seed type S with an unfolding function `S → (A, [S])`.
 ///
 /// Produces a node value and zero or more seeds for children.
 /// This is the generalization of `unfold`.

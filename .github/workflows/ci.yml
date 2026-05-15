@@ -41,6 +41,23 @@ jobs:
             command: cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown
             wasm-target: true
             needs-wordnet: true
+          - name: Docs
+            command: cargo doc --workspace --no-deps
+            rustdocflags: "-D warnings -D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags"
+            needs-wordnet: true
+          - name: Doc Tests
+            command: cargo test --doc --workspace
+            needs-wordnet: true
+          - name: No ignored doctests
+            command: |
+              if command grep -rn '```ignore' crates/ docs/ --include='*.rs' --include='*.md' ; then
+                echo "::error::\`\`\`ignore is forbidden — every doctest must be machine-verified. Use \`\`\`text for pseudo-syntax illustrations, \`\`\`no_run / \`\`\`compile_fail when appropriate. See memory:feedback_no_unvalidated_doc_code."
+                exit 1
+              fi
+          - name: mdBook Test
+            command: mdbook test docs/
+            needs-wordnet: true
+            needs-mdbook: true
     steps:
       - uses: actions/checkout@v4
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
@@ -58,6 +75,9 @@ jobs:
         if: matrix.name == 'Coverage' && github.event_name == 'push' && github.ref == 'refs/heads/master'
       - uses: taiki-e/install-action@cargo-nextest
         if: matrix.name == 'Test Results' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - name: Install mdBook
+        if: matrix.needs-mdbook
+        run: cargo install mdbook --locked
       - name: Cache WordNet XML
         if: "(matrix.name == 'Test' || matrix.name == 'Coverage' || matrix.name == 'Test Results' || matrix.needs-wordnet) && (!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master'))"
         uses: actions/cache@v4
@@ -72,6 +92,7 @@ jobs:
         run: ${{ matrix.command }}
         env:
           RUSTFLAGS: ${{ matrix.rustflags || '' }}
+          RUSTDOCFLAGS: ${{ matrix.rustdocflags || '' }}
       - name: Upload coverage to Codecov
         if: matrix.name == 'Coverage' && github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: codecov/codecov-action@v5

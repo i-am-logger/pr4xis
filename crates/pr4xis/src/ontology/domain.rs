@@ -15,7 +15,7 @@ use super::property::Quality;
 ///
 /// # One method for axioms (#168)
 ///
-/// `Ontology` exposes a single required [`axioms`] method. The prior
+/// `Ontology` exposes a single required [`Ontology::axioms`] method. The prior
 /// `structural_axioms()` / `domain_axioms()` split was coding convenience
 /// — no source literature (Gruber 1993; Guarino 2009; Spivak 2012;
 /// Smith et al. 2005 OBO-RO) distinguishes them as categories of
@@ -28,7 +28,7 @@ use super::property::Quality;
 /// to inherit structural axioms from the Relations catalog (Smith et
 /// al. 2005 OBO-RO), then appends hand-written domain axioms:
 ///
-/// ```ignore
+/// ```text
 /// impl Ontology for FooOntology {
 ///     fn axioms() -> Vec<Box<dyn Axiom>> {
 ///         let mut all = structural_axioms_for::<Self::Cat>();

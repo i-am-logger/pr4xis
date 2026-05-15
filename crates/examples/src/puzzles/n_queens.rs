@@ -21,7 +21,7 @@ const N_QUEENS_CITATION: &str =
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct State {
     pub n: usize,
-    /// queens[row] = column (placed row by row from 0)
+    /// `queens[row]` = column (placed row by row from 0)
     pub queens: Vec<usize>,
 }
 

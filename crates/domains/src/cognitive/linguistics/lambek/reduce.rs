@@ -121,7 +121,7 @@ pub fn reduce_sequence(tokens: &[TypedToken]) -> ReductionResult {
 /// For natural language (K ≤ 10, n ≤ 20): trivially real-time.
 ///
 /// `type_sets` provides all possible types for each token position.
-/// type_sets[i] = all Lambek types that word_i could have.
+/// `type_sets[i]` = all Lambek types that word_i could have.
 pub fn chart_reduce(words: &[String], type_sets: &[Vec<LambekType>]) -> ReductionResult {
     use hashbrown::HashMap;
     use hashbrown::HashSet;

@@ -275,7 +275,7 @@ pub enum VerbTransitivity {
 
 impl VerbTransitivity {
     /// Determine transitivity from a WordNet subcategorization frame ID.
-    /// Frame IDs follow the pattern: v[ti][ai][ai][-suffix]
+    /// Frame IDs follow the pattern: `v[ti][ai][ai][-suffix]`
     /// - "via" / "vii" = intransitive (Somebody/Something ----s)
     /// - "vtaa" / "vtai" / "vtia" / "vtii" = transitive
     /// - "ditransitive" = ditransitive
