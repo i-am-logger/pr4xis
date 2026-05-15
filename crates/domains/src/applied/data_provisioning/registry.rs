@@ -183,12 +183,7 @@ fn build_entry(
     })?;
 
     let key = format!("{}@{}", name, raw.version);
-    let lock_sha = lock
-        .get(&key)
-        .ok_or_else(|| {
-            format!("praxis.lock missing hash for `{key}` — run `pr4xis lock` to regenerate")
-        })?
-        .clone();
+    let lock_sha = lock.get(&key).cloned();
 
     let mut claims = Vec::with_capacity(2);
     // Lexicon-family kinds (Language, DomainLexicon, LegalLexicon) ship
@@ -206,12 +201,27 @@ fn build_entry(
             },
         });
     }
-    // Every entry carries the cryptographic hash claim from praxis.lock
-    // (Dolstra 2006 content-addressing).
-    claims.push(IdentityClaim {
-        concept: IdentityConcept::RawHash,
-        data: ClaimData::Sha256(lock_sha),
-    });
+    // Sources with a praxis.lock entry carry the cryptographic hash
+    // claim (Dolstra 2006 content-addressing). Sources registered in
+    // praxis.toml without a lock entry — typical for sources awaiting
+    // the PDF loader + NLP extraction infrastructure to become loadable
+    // — carry a Stub identity claim that EveryDataSourceHasIdentity
+    // recognizes as a registered-but-not-yet-loadable state. The
+    // LockManifestAgreement axiom skips Stub-only entries (no claim to
+    // compare against the lock).
+    match lock_sha {
+        Some(hex) => claims.push(IdentityClaim {
+            concept: IdentityConcept::RawHash,
+            data: ClaimData::Sha256(hex),
+        }),
+        None => claims.push(IdentityClaim {
+            concept: IdentityConcept::RawHash,
+            data: ClaimData::Stub {
+                reason: "registered in praxis.toml; awaiting praxis.lock hash + PDF/NLP loader"
+                    .into(),
+            },
+        }),
+    }
 
     Ok(RegistryEntry {
         name,
@@ -540,7 +550,13 @@ relation = "Requires"
     }
 
     #[test]
-    fn build_entry_rejects_missing_lock() {
+    fn build_entry_without_lock_yields_stub_identity() {
+        // Sources registered in praxis.toml without a praxis.lock entry
+        // get a Stub identity claim marking them as pending PDF/NLP
+        // loader infrastructure. This is the "registered but not yet
+        // loadable" state — the LockManifestAgreement axiom skips Stub
+        // entries; EveryDataSourceHasIdentity treats Stub as a valid
+        // identity claim.
         let item = RawSourceWithName {
             name: "x".into(),
             raw: RawSource {
@@ -551,8 +567,9 @@ relation = "Requires"
             },
         };
         let lock = HashMap::new();
-        let err = build_entry(item, &lock).unwrap_err();
-        assert!(err.contains("praxis.lock missing hash"), "got: {err}");
+        let entry = build_entry(item, &lock).expect("registration without lock should succeed");
+        assert_eq!(entry.identity.0.len(), 1);
+        assert!(matches!(entry.identity.0[0].data, ClaimData::Stub { .. }));
     }
 
     #[test]

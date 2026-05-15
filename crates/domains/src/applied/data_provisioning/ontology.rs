@@ -369,7 +369,23 @@ pub struct DecoderTotalityPerKind;
 
 impl Axiom for DecoderTotalityPerKind {
     fn verify(&self) -> Verdict {
+        use crate::formal::meta::artifact_identity::ontology::ClaimData;
         for entry in crate::applied::data_provisioning::registry::data_sources() {
+            // Sources whose RawHash identity claim is a Stub are
+            // registered in praxis.toml but not yet loadable (awaiting
+            // PDF/NLP infrastructure). They are not expected to be
+            // materializable through the runtime decoder or the lock-
+            // structural path until the loader exists; the
+            // decoder-totality check re-activates automatically when
+            // the loader fills in their hash + structural data.
+            let is_stub_only = !entry.identity.0.is_empty()
+                && entry.identity.0.iter().all(|c| {
+                    matches!(c.concept, IdentityConcept::RawHash)
+                        && matches!(c.data, ClaimData::Stub { .. })
+                });
+            if is_stub_only {
+                continue;
+            }
             let ct = canonical_encoding(entry.kind);
             let runtime_decoder = crate::applied::data_provisioning::decoders::has_decoder_for(ct);
             let lock_structural = crate::applied::data_provisioning::registry::structural_for(
@@ -477,15 +493,39 @@ impl Axiom for LockManifestAgreement {
         // Every manifest entry's RawHash claim must equal the lock hash
         // for its (name, version). Identity is synthesized from the lock
         // at load time, so this checks the round-trip integrity.
+        //
+        // Exception: an entry whose RawHash claim is a Stub means it's
+        // registered in praxis.toml but not yet loadable (no lock hash;
+        // awaiting PDF loader / NLP extraction infrastructure). Stub-
+        // only entries are skipped — they cannot drift because they
+        // have nothing pinned. Drift detection re-activates when the
+        // loader fills in the hash.
         for entry in entries {
             let key = format!("{}@{}", entry.name, entry.version);
             let lock_sha = lock.get(&key);
-            let manifest_sha = entry.identity.0.iter().find_map(|c| match &c.data {
+            let raw_hash_claim = entry
+                .identity
+                .0
+                .iter()
+                .find(|c| matches!(c.concept, IdentityConcept::RawHash));
+            let manifest_sha = raw_hash_claim.and_then(|c| match &c.data {
                 ClaimData::Sha256(hex) => Some(hex.as_str()),
                 _ => None,
             });
-            match (manifest_sha, lock_sha) {
-                (Some(m), Some(l)) if m.eq_ignore_ascii_case(l.as_str()) => {}
+            let is_stub = raw_hash_claim
+                .map(|c| matches!(c.data, ClaimData::Stub { .. }))
+                .unwrap_or(false);
+            match (is_stub, manifest_sha, lock_sha) {
+                // Stub claim (loadable-pending) and no lock entry: OK.
+                (true, _, None) => {}
+                // Stub claim but lock has an entry: drift (manifest
+                // forgot to pin even though the lock has data).
+                (true, _, Some(_)) => {
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
+                }
+                // Real hash on both sides, agree: OK.
+                (false, Some(m), Some(l)) if m.eq_ignore_ascii_case(l.as_str()) => {}
+                // Any other state is drift.
                 _ => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
             }
         }

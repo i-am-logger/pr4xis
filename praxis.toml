@@ -38,6 +38,10 @@ version = "2025"
 type    = "Language"
 url     = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz"
 
+# ---------------------------------------------------------------------------
+# Statutes
+# ---------------------------------------------------------------------------
+
 # Sarbanes–Oxley Act § 806, codified at 18 U.S.C. § 1514A (2002).
 # Whistleblower protection for employees of publicly-traded companies.
 # Static-store source: the parsed structural data lives in praxis.lock's
@@ -48,3 +52,101 @@ version     = "2002"
 type        = "Statute"
 url         = "https://www.govinfo.gov/content/pkg/USCODE-2018-title18/html/USCODE-2018-title18-partI-chap73-sec1514A.htm"
 description = "18 U.S.C. § 1514A — Civil action to protect against retaliation in fraud cases"
+
+# ---------------------------------------------------------------------------
+# Procedural rules (federal)
+# ---------------------------------------------------------------------------
+#
+# Each rule is registered with its primary source URL. praxis.lock entries
+# are pending until the PDF loader + NLP extraction infrastructure are
+# built (see ROADMAP). Registered-but-not-yet-loadable sources carry a
+# Stub identity claim; LockManifestAgreement skips them.
+
+# FRCP Rule 17 — Plaintiff and Defendant; Capacity; Public Officers.
+# Primary source for the Plaintiff / Defendant litigation roles.
+[sources.frcp_rule_17]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/cv_rules_eff._dec._1_2024_0.pdf"
+description = "Federal Rules of Civil Procedure, Rule 17 — Plaintiff and Defendant; Capacity"
+
+# FRCP Rule 38 — Right to a Jury Trial; Demand. Primary source for Jury
+# as adjudicator concept.
+[sources.frcp_rule_38]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/cv_rules_eff._dec._1_2024_0.pdf"
+description = "Federal Rules of Civil Procedure, Rule 38 — Right to a Jury Trial"
+
+# FRCP Rule 72 — Magistrate Judges. Primary source for Magistrate as
+# adjudicator concept.
+[sources.frcp_rule_72]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/cv_rules_eff._dec._1_2024_0.pdf"
+description = "Federal Rules of Civil Procedure, Rule 72 — Magistrate Judges: Pretrial Order"
+
+# FRCP Rule 6 — Computing and Extending Time. Primary source for
+# BusinessDay temporal concept (Rule 6(a)(6) excludes federal holidays).
+[sources.frcp_rule_6]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/cv_rules_eff._dec._1_2024_0.pdf"
+description = "Federal Rules of Civil Procedure, Rule 6 — Computing and Extending Time"
+
+# FRE Rule 702 — Testimony by Expert Witnesses. Primary source for
+# ExpertWitness concept (qualification by knowledge / skill / experience /
+# training / education).
+[sources.fre_rule_702]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/federal_rules_of_evidence_dec_1_2024_0.pdf"
+description = "Federal Rules of Evidence, Rule 702 — Testimony by Expert Witnesses"
+
+# FRE Rule 104 — Preliminary Questions. Primary source for the federal
+# evidentiary-admissibility framework.
+[sources.fre_rule_104]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/federal_rules_of_evidence_dec_1_2024_0.pdf"
+description = "Federal Rules of Evidence, Rule 104 — Preliminary Questions"
+
+# ---------------------------------------------------------------------------
+# Case law
+# ---------------------------------------------------------------------------
+
+# In re Winship, 397 U.S. 358 (1970). Establishes BeyondReasonableDoubt as
+# the constitutional standard for every element of a criminal offense.
+# Primary source for the ProofStandard::BeyondReasonableDoubt concept's
+# constitutional grounding.
+[sources.in_re_winship_1970]
+version     = "1970"
+type        = "CaseLaw"
+url         = "https://supreme.justia.com/cases/federal/us/397/358/"
+description = "In re Winship, 397 U.S. 358 (1970) — BeyondReasonableDoubt as constitutional standard"
+
+# Tumey v. Ohio, 273 U.S. 510 (1927). Establishes the judge-impartiality
+# doctrine prohibiting overlapping Party / Adjudicator roles.
+[sources.tumey_v_ohio_1927]
+version     = "1927"
+type        = "CaseLaw"
+url         = "https://supreme.justia.com/cases/federal/us/273/510/"
+description = "Tumey v. Ohio, 273 U.S. 510 (1927) — judge-impartiality doctrine"
+
+# Lawson v. FMR LLC, 571 U.S. 429 (2014). Supreme Court extension of SOX
+# 1514A whistleblower protection to private-contractor employees. Primary
+# source for SOX-specific application contexts.
+[sources.lawson_v_fmr_llc_2014]
+version     = "2014"
+type        = "CaseLaw"
+url         = "https://supreme.justia.com/cases/federal/us/571/429/"
+description = "Lawson v. FMR LLC, 571 U.S. 429 (2014) — SOX 1514A applies to private contractors"
+
+# Murray v. UBS Securities, LLC, 601 U.S. 23 (2024). Clarifies the
+# contributing-factor pleading standard under SOX 1514A / AIR21
+# § 42121(b)(2)(B).
+[sources.murray_v_ubs_2024]
+version     = "2024"
+type        = "CaseLaw"
+url         = "https://supreme.justia.com/cases/federal/us/601/23/"
+description = "Murray v. UBS Securities, LLC, 601 U.S. 23 (2024) — contributing-factor standard"
