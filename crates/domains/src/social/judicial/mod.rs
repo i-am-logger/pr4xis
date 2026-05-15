@@ -16,6 +16,7 @@ pub mod proof_standard;
 pub mod rule;
 pub mod source;
 pub mod source_text;
+pub mod statute_structure;
 
 // `legal_actor`, `temporal_constraint`, and `valence` are NOT exported. Each
 // declared a single ontology that synthesized concepts across multiple
