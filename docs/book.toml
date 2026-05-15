@@ -1,0 +1,4 @@
+[book]
+title = "Praxis Documentation"
+src = "."
+description = "Validation-only mdBook setup for testing ```rust blocks in praxis docs."

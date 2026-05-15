@@ -43,7 +43,7 @@ The source is the authority. If the source says it, the relation goes in. If the
 
 The macro takes a declarative spec and emits the full implementation. Skeleton:
 
-```rust
+```text
 pr4xis::ontology! {
     name: "MyOntology",
     source: "<Author, Title, Year, Edition>",

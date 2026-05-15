@@ -48,7 +48,7 @@ The most prominent lineage claim in the project is the structural alignment with
 
 ### Verify
 
-```
+```bash
 cargo test -p pr4xis-domains -- syntrometry
 ```
 

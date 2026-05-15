@@ -2,7 +2,7 @@
 
 > **One-paragraph result.** A pr4xis [adjunction](../reference/glossary.md#adjunction) automatically detected that the molecular biology ontology had collapsed two functionally distinct roles of voltage-gated potassium channels (Kv) into a single entity. Categorical math surfaced the gap; a `ContextDef` resolution disambiguated the two roles; the gap closed. **85.2%** of molecular entities collapse in the Molecular ⊣ Bioelectric round-trip — every collapse is a missing distinction the math detected automatically. Reproduce in 5 seconds:
 >
-> ```
+> ```bash
 > cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture
 > ```
 

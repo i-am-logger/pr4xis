@@ -30,7 +30,7 @@ With no target object for these, any functor has to map them to *something*, and
 
 The original framing ("many-to-one collapse") is wrong. Look at the two chains:
 
-```
+```text
 Dependability:   Fault  →  Error  →  Failure             (causal)
 Diagnostics:     Symptom → Hypothesis → Diagnosis → FaultMode   (abductive / Reiter 1987)
 ```
@@ -49,7 +49,7 @@ When `f = Op(DepRel{A, B})` and `g = Op(DepRel{B, A})` are composed in `Op<Dep>`
 **Options that would fix case 2:**
 
 1. **Make Dependability kinded** (e.g., give `causes:` / `is_a:` / `opposes:` edges real kind names). This loses some dense-category closure convenience but makes the target reachable by strict functors from either direction.
-2. **Sub-category restriction** — define the functor only on the causal sub-category `{Fault, Error, Failure, ServiceFailure, ErrorDetection, ErrorRecovery, ...}` carrying kinded causal edges; the dense part of Dependability (that's just carried by Entity variants, not by semantic morphisms) is irrelevant to the abductive structure.
+2. **Sub-category restriction** — define the functor only on the causal sub-category `{Fault, Error, Failure, ServiceFailure, ErrorDetection, ErrorRecovery, ...}` carrying kinded causal edges; the dense part of Dependability (that's just carried by Concept variants, not by semantic morphisms) is irrelevant to the abductive structure.
 3. **Enrich Diagnostics to be dense** — aligns with option (b) of case 3 below; loses kind information in Diagnostics.
 
 All three are content decisions rather than framework extensions. Recommendation: option (2) once a sub-category construction lands. No framework piece available today can make the literal `Op<DependabilityCategory> → DiagnosticCategory` functor pass strict laws.
@@ -60,7 +60,7 @@ Every Resilience pattern (CircuitBreaker, Retry, Supervisor, Microreboot, …) i
 
 **Verified empirically:**
 
-```
+```bash
 cargo test -p pr4xis-domains -- resilience::dependability_functor
 # test applied::resilience::dependability_functor::tests::trivial_functor_satisfies_laws ... ok
 ```

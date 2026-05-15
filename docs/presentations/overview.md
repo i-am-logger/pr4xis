@@ -66,7 +66,7 @@ Every transformation is a proven functor. Every claim traces to an axiom.
 
 # How it works
 
-```
+```text
 Define rules (Ontology) → Check rules (Engine) → Prove rules hold (Tests)
          ↑                                              |
          └──────────── feedback ────────────────────────┘
@@ -109,7 +109,7 @@ then Chess IS Concurrent (composition). **The proof is automatic.**
 
 # Natural Language Pipeline
 
-```
+```text
 Text → Language::lexical_lookup → Pregroup types → Contract → Semantics → Response
 ```
 

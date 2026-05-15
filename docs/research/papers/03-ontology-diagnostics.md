@@ -60,7 +60,7 @@ proofs[^V-tests].
 
 ### Methodology Pipeline (14 steps)
 
-```
+```text
 FormalizeDomains → ConstructFunctors → VerifyFunctorLaws → ConstructAdjunction
 → ComputeUnit + ComputeCounit → DetectGaps → ClassifyGaps + ComputeLossRatios
 → ProposeResolution → VerifyAgainstLiterature → ImplementResolution
@@ -118,7 +118,7 @@ reduce the direct loss.
 The adjunction between molecular biology and bioelectricity detected that
 the potassium channel Kv COLLAPSES on the round-trip:
 
-```
+```text
 Kv → (MolecularToBioelectric) → IonChannelModulation
    → (BioelectricToMolecular) → GlyR
 ```
@@ -132,7 +132,7 @@ are implemented by the same Kv channel. The molecular ontology was
 missing a distinction between constitutive and therapeutic functional modes.
 
 **How ContextDef resolved it**:
-```
+```text
 (Kv, Constitutive)  → PassiveHomeostatic    — sets resting Vmem
 (Kv, Therapeutic)   → TherapeuticTarget     — drug shifts Vmem
 ```

@@ -99,7 +99,7 @@ For what each looks like in a specific domain, see the per-ontology README. For 
 
 ## Domain organization
 
-```
+```text
 crates/domains/src/
 ├── formal/        — math, information, calculator, meta (ontology diagnostics)
 ├── applied/       — sensor fusion, navigation, perception, tracking, space, underwater,

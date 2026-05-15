@@ -43,9 +43,9 @@ Masolo et al. (2003): classification of being into Endurant (Physical, Social, M
 
 ### 3.1 Five Layers
 
-```
+```text
 Logic     → Axioms, propositions, inference
-Category  → Entity, Relationship, Category, Functor
+Category  → Concept, Arrow, Category, Functor
 Ontology  → Domain knowledge, reasoning patterns, DOLCE
 Engine    → Situation, Action, Precondition, enforcement
 Codegen   → Build-time ontology generation from data sources
@@ -67,7 +67,7 @@ The Engine implements a closed-loop control pattern. We prove this with a functo
 ### 3.3 Domain Knowledge in Ontologies, Not in Mechanical Logic
 
 The Engine trait, Category trait, and Functor trait contain no domain-specific logic — no parser-with-special-cases, no rule-engine-with-hardcoded-strings, no if-statements branching on domain values. Domain knowledge lives in the ontologies (which are themselves Rust code, but Rust code that the type system checks as categorically valid). Adding a new domain (e.g., chess, traffic, English grammar) requires only:
-1. Defining an ontology (Entity enum + Relationship struct + Category impl)
+1. Defining an ontology (Concept enum + Arrow impl + Category impl)
 2. Defining actions and situations (Action + Situation traits)
 3. Defining preconditions (Precondition trait)
 
@@ -95,7 +95,7 @@ Proven functors include:
 
 If A IS B (functor) and B IS C (functor), then A IS C (composition). The composed proof is automatic and correct by the functor composition theorem. This gives us:
 
-```
+```text
 Chess IS EventDriven IS Concurrent
 Systems IS Concurrent IS EventDriven
 Traffic IS Systems IS Concurrent
@@ -109,7 +109,7 @@ When transforming ontologies, pr4xis creates the new ontology alongside the old 
 
 ### 5.1 The Linguistics Pipeline
 
-```
+```text
 Text → Language::lexical_lookup → Pregroup algebra → Montague functor → Speech acts → Discourse
 ```
 

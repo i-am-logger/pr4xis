@@ -19,7 +19,7 @@ If the source says it, the axiom should encode it. If the engine ever produces a
 
 An axiom in pr4xis is a Rust type that implements the `Axiom` trait:
 
-```rust
+```text
 use pr4xis::logic::Axiom;
 
 pub struct MyAxiom;
@@ -53,7 +53,7 @@ Most domain axioms are state-dependent — they live as `Precondition` implement
 
 If your axiom needs to know the current situation to be checked, implement `Precondition` instead of (or in addition to) `Axiom`:
 
-```rust
+```text
 use pr4xis::engine::{Precondition, PreconditionResult, Situation, Action};
 
 pub struct EnergyConservation;
@@ -92,7 +92,7 @@ Two things to note:
 
 When you create an engine, you pass it the list of preconditions:
 
-```rust
+```text
 use pr4xis::engine::Engine;
 
 let engine = Engine::new(
@@ -112,7 +112,7 @@ Every call to `engine.next(action)` runs every precondition in order. If any ret
 
 The strongest verification for a domain axiom is property-based: define a property the axiom should ensure, then let `proptest` generate random inputs and look for counterexamples. Pattern:
 
-```rust
+```text
 use proptest::prelude::*;
 
 proptest! {
@@ -132,7 +132,7 @@ The proptest harness will run hundreds of random inputs and shrink any failure t
 
 Every axiom needs a citation. The recommended pattern is a doc comment on the axiom struct:
 
-```rust
+```text
 /// Energy conservation under closed-system mechanics.
 ///
 /// **Source:** Newton's *Principia* (1687), Book I, Definitions and Laws of Motion.

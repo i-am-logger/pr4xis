@@ -28,11 +28,11 @@ If the laws hold, the functor is a categorical theorem that the source domain's 
 
 Skeleton for a functor between two existing ontologies:
 
-```rust
-use pr4xis::category::{Functor, Relationship};
+```text
+use pr4xis::category::{Arrow, Functor};
 
-use crate::domain_a::{ACategory, AEntity, ARelation};
-use crate::domain_b::{BCategory, BEntity, BRelation};
+use crate::domain_a::{ACategory, AConcept, ARelation};
+use crate::domain_b::{BCategory, BConcept, BRelation};
 
 pub struct AToB;
 
@@ -40,11 +40,11 @@ impl Functor for AToB {
     type Source = ACategory;
     type Target = BCategory;
 
-    fn map_object(obj: &AEntity) -> BEntity {
+    fn map_object(obj: &AConcept) -> BConcept {
         match obj {
-            AEntity::Foo => BEntity::CorrespondingFoo,
-            AEntity::Bar => BEntity::CorrespondingBar,
-            // ... one arm per source entity
+            AConcept::Foo => BConcept::CorrespondingFoo,
+            AConcept::Bar => BConcept::CorrespondingBar,
+            // … one arm per source concept
         }
     }
 
@@ -52,6 +52,7 @@ impl Functor for AToB {
         BRelation {
             from: Self::map_object(&m.source()),
             to: Self::map_object(&m.target()),
+            kind: /* map kinds analogously */ todo!(),
         }
     }
 }
@@ -59,7 +60,7 @@ impl Functor for AToB {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::validate::check_functor_laws;
+    use pr4xis::category::laws::check_functor_laws;
 
     #[test]
     fn test_a_to_b_functor_laws() {
@@ -68,21 +69,21 @@ mod tests {
 }
 ```
 
-That's it. The validator iterates through every source entity, maps it, maps the identity morphism, and checks that `F(id_x) == id_{F(x)}`. Then it iterates through every morphism, maps it, and checks that the source and target of the mapped morphism match the mapped source and mapped target.
+That's it. The validator iterates through every source concept, maps it, maps the identity morphism, and checks that `F(id_x) == id_{F(x)}`. Then it iterates through every morphism, maps it, and checks that the source and target of the mapped morphism match the mapped source and mapped target.
 
-If the test passes, the functor is verified. If it fails, the error message names the specific entity or morphism where the laws break, and you fix the `map_object` arm that's wrong.
+If the test passes, the functor is verified. If it fails, the error message names the specific concept or morphism where the laws break, and you fix the `map_object` arm that's wrong.
 
 ## Three things to know
 
 ### 1. `map_object` must be total
 
-Every variant of `AEntity` must have a corresponding case in the match. The Rust compiler enforces this — exhaustiveness checking is your friend. If the source ontology adds a new entity, the compiler tells you to add a new case to every functor that uses it. This is one of the safety guarantees of writing functors as Rust types instead of as runtime mappings.
+Every variant of `AConcept` must have a corresponding case in the match. The Rust compiler enforces this — exhaustiveness checking is your friend. If the source ontology adds a new concept, the compiler tells you to add a new case to every functor that uses it. This is one of the safety guarantees of writing functors as Rust types instead of as runtime mappings.
 
 ### 2. `map_object` does not need to be injective
 
-Two distinct source entities can map to the same target entity. This is how the molecular-bioelectric functor collapses 27 molecular entities onto 4 unique bioelectric entities (the 85.2% collapse from [Gap detection](../research/gap-detection.md)). The collapse is not a bug — it's a *measurement* of how much information the target ontology cannot represent.
+Two distinct source concepts can map to the same target concept. This is how the molecular-bioelectric functor collapses 27 molecular concepts onto 4 unique bioelectric concepts (the 85.2% collapse from [Gap detection](../research/gap-detection.md)). The collapse is not a bug — it's a *measurement* of how much information the target ontology cannot represent.
 
-If you want to detect collapses, pair your forward functor with a reverse functor and check whether they form an [adjunction](../reference/glossary.md#adjunction). The round-trip `G(F(x))` will collapse onto a different entity for every concept the source ontology distinguishes that the target cannot.
+If you want to detect collapses, pair your forward functor with a reverse functor and check whether they form an [adjunction](../reference/glossary.md#adjunction). The round-trip `G(F(x))` will collapse onto a different concept for every concept the source ontology distinguishes that the target cannot.
 
 ### 3. The functor is a *theorem*, not a translation
 
@@ -101,7 +102,7 @@ If you have two functors `F: A → B` and `G: B → A` going in opposite directi
 
 To check whether your functor pair is an adjunction, implement the `Adjunction` trait:
 
-```rust
+```text
 use pr4xis::category::Adjunction;
 
 pub struct ABAdjunction;
@@ -110,16 +111,16 @@ impl Adjunction for ABAdjunction {
     type Left = AToB;
     type Right = BToA;
 
-    fn unit(obj: &AEntity) -> ARelation {
+    fn unit(obj: &AConcept) -> ARelation {
         // η_A: A → G(F(A))
         let round_trip = BToA::map_object(&AToB::map_object(obj));
-        ARelation { from: *obj, to: round_trip }
+        ARelation { from: *obj, to: round_trip, kind: /* … */ todo!() }
     }
 
-    fn counit(obj: &BEntity) -> BRelation {
+    fn counit(obj: &BConcept) -> BRelation {
         // ε_B: F(G(B)) → B
         let round_trip = AToB::map_object(&BToA::map_object(obj));
-        BRelation { from: round_trip, to: *obj }
+        BRelation { from: round_trip, to: *obj, kind: /* … */ todo!() }
     }
 }
 ```

@@ -14,7 +14,7 @@ dev-web
 
 You will see something like:
 
-```
+```text
 Building WASM...
 Starting pr4xis-web with live reload...
   /                — WASM chatbot
@@ -28,7 +28,7 @@ If you don't have `dev-web` on your path, you are not in the dev shell. Run `dev
 
 ## Try a few queries
 
-```
+```text
 is a cat a mammal
 define telescope
 is a guitar a string instrument

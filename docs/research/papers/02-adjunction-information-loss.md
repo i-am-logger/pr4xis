@@ -136,7 +136,7 @@ to existing entities.
 
 **Unit analysis** (eta: A -> G(F(A))):
 
-| Entity A | F(A) | G(F(A)) | eta_A = id? | Gap? |
+| Concept A | F(A) | G(F(A)) | eta_A = id? | Gap? |
 |---|---|---|---|---|
 | Piezo1 | MechanicalStimulation | Piezo1 | YES | No |
 | Piezo2 | MechanicalStimulation | Piezo1 | NO | YES: Piezo2 != Piezo1 |
@@ -156,7 +156,7 @@ molecular distinctions are invisible at the bioelectric scale.
 
 **Counit analysis** (epsilon: F(G(B)) -> B):
 
-| Entity B | G(B) | F(G(B)) | epsilon_B = id? | Gap? |
+| Concept B | G(B) | F(G(B)) | epsilon_B = id? | Gap? |
 |---|---|---|---|---|
 | MechanicalStimulation | Piezo1 | MechanicalStimulation | YES | No |
 | IonChannelModulation | GlyR | IonChannelModulation | YES | No |
@@ -190,7 +190,7 @@ CORRECT but INCOMPLETE — it lacked the functional-mode distinction.
 
 We resolve the gap using context-dependent disambiguation:
 
-```
+```text
 (Kv, Constitutive)  -> PassiveHomeostatic    (sets resting Vmem)
 (Kv, Therapeutic)   -> TherapeuticTarget     (drug shifts Vmem)
 

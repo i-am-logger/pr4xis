@@ -21,7 +21,7 @@ touch crates/domains/src/social/music_intro/{mod.rs,ontology.rs,tests.rs}
 
 Add the module to `crates/domains/src/social/mod.rs`:
 
-```rust
+```text
 pub mod music_intro;
 ```
 
@@ -29,7 +29,7 @@ pub mod music_intro;
 
 In `crates/domains/src/social/music_intro/ontology.rs`:
 
-```rust
+```text
 pr4xis::ontology! {
     name: "MusicalInstruments",
     source: "tutorial example, not a published paper",
@@ -65,7 +65,7 @@ Everything is type-checked: a typo in a concept name fails at compile time, not 
 
 In `crates/domains/src/social/music_intro/tests.rs`:
 
-```rust
+```text
 use super::ontology::*;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::category::{Arrow, Category, Concept};
@@ -93,7 +93,7 @@ fn string_is_an_instrument() {
 
 In `mod.rs`:
 
-```rust
+```text
 pub mod ontology;
 
 #[cfg(test)]
@@ -110,7 +110,7 @@ cargo test -p pr4xis-domains music_intro
 
 You should see three passing tests:
 
-```
+```text
 test social::music_intro::tests::category_laws ... ok
 test social::music_intro::tests::ontology_validates ... ok
 test social::music_intro::tests::string_is_an_instrument ... ok

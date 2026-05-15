@@ -114,7 +114,7 @@ framework and grounded in published literature:
 
 Each axiom encodes a specific claim from published literature:
 
-```
+```text
 Axiom: Piezo1IsMechanosensitiveChannel
 Source: Coste et al. 2010, Science (Nobel 2021)
 Proof: ∃ a Subsumption-kinded morphism Piezo1 → Mechanosensitive
