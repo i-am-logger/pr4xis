@@ -4,7 +4,7 @@ use super::category::Category;
 /// A morphism bound to its category — enables functional chaining.
 ///
 /// Wraps a raw relationship with its category context so you can write:
-/// ```ignore
+/// ```text
 /// Morphism::of::<MyCat>(f)
 ///     .then(&g)
 ///     .then(&h)
@@ -77,7 +77,7 @@ impl<C: Category> Eq for Morphism<C> where C::Morphism: Eq {}
 
 /// Compose a sequence of morphisms left to right.
 ///
-/// ```ignore
+/// ```text
 /// let path = compose_all::<MyCat>(&[f, g, h]);
 /// // equivalent to: f.then(g).then(h)
 /// ```

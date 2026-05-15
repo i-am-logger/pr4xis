@@ -22,7 +22,7 @@
 //! [`crate::ontology::Ontology::axioms`] via [`category_law_axioms`], or verify them
 //! directly:
 //!
-//! ```ignore
+//! ```text
 //! for law in category_law_axioms::<FooCategory>() {
 //!     law.verify().unwrap_or_else(|c| panic!("{}", c.meta().name.as_str()));
 //! }

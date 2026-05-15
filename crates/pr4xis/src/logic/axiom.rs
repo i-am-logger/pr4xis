@@ -29,7 +29,7 @@ use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenanc
 ///
 /// Example:
 ///
-/// ```ignore
+/// ```text
 /// impl Axiom for MyAxiom {
 ///     fn verify(&self) -> Verdict { ... }
 ///     fn citation(&self) -> Citation {

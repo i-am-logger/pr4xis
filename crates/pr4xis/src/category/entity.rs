@@ -20,7 +20,7 @@ use core::hash::Hash;
 /// move it to `FinitelyGenerated`.
 ///
 /// Can be derived for enums with unit variants:
-/// ```ignore
+/// ```text
 /// use pr4xis::category::Concept;
 ///
 /// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Concept)]

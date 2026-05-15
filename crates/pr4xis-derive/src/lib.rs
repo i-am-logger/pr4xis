@@ -86,7 +86,7 @@ pub fn derive_concept(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// pr4xis::ontology! {
 ///     name: "Biology",
 ///     source: "Mayr (1982) The Growth of Biological Thought",

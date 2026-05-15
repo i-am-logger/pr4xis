@@ -28,7 +28,7 @@ use super::property::Quality;
 /// to inherit structural axioms from the Relations catalog (Smith et
 /// al. 2005 OBO-RO), then appends hand-written domain axioms:
 ///
-/// ```ignore
+/// ```text
 /// impl Ontology for FooOntology {
 ///     fn axioms() -> Vec<Box<dyn Axiom>> {
 ///         let mut all = structural_axioms_for::<Self::Cat>();

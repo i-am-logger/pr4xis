@@ -10,7 +10,7 @@ use super::functor::Functor;
 /// Implement this on a zero-sized marker type to declare which object of which
 /// category every source is being collapsed to.
 ///
-/// ```ignore
+/// ```text
 /// struct FaultToleranceTarget;
 /// impl TerminalTarget for FaultToleranceTarget {
 ///     type Category = DependabilityCategory;

@@ -28,7 +28,7 @@ use super::functor::Functor;
 /// the same category." The compiler enforces it via the `Source = Self::Category` and
 /// `Target = Self::Category` constraints on the associated type.
 ///
-/// ```ignore
+/// ```text
 /// impl Endofunctor for MyInvolution {
 ///     type Category = MyCategory;
 /// }

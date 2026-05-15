@@ -22,7 +22,7 @@ pub enum EngineError<A: Action> {
 /// The enforcement engine — applies actions to situations with precondition checking.
 ///
 /// Implements the `.next()` pattern with back/forward history:
-/// ```ignore
+/// ```text
 /// let engine = Engine::new(initial_situation, preconditions, apply_fn);
 /// let engine = engine.next(action1)?;   // validates + applies
 /// let engine = engine.next(action2)?;   // validates + applies

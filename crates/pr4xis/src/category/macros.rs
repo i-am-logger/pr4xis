@@ -14,7 +14,7 @@
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// define_category! {
 ///     /// Communication ontology.
 ///     pub CommunicationCategory {

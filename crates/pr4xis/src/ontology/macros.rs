@@ -55,7 +55,7 @@ macro_rules! register_manual {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// pr4xis::functor! {
 ///     name: SomeFunctor,
 ///     source: SourceCategory,
@@ -137,7 +137,7 @@ macro_rules! functor {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// pr4xis::adjunction! {
 ///     name: ParseGenerate,
 ///     left: ParseFunctor,
@@ -215,7 +215,7 @@ macro_rules! adjunction {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// pr4xis::natural_transformation! {
 ///     name: Reflexivity,
 ///     from: IdentityFunctor,
@@ -283,7 +283,7 @@ macro_rules! natural_transformation {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// pub struct NoCycles;
 /// impl Axiom for NoCycles { ... }
 /// pr4xis::register_axiom!(NoCycles, "Guarino (2009); Gruber (1993)");
@@ -413,7 +413,7 @@ macro_rules! register_natural_transformation {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// impl Functor for MyFunctor {
 ///     type Source = ...;
 ///     type Target = ...;
@@ -428,7 +428,7 @@ macro_rules! register_natural_transformation {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// impl Axiom for NoCycles {
 ///     fn verify(&self) -> Verdict { ... }
 ///     pr4xis::axiom_meta!(
@@ -441,7 +441,7 @@ macro_rules! register_natural_transformation {
 ///
 /// The macro expands to:
 ///
-/// ```ignore
+/// ```text
 /// fn name(&self) -> OntologyName { OntologyName::new_static(name_literal) }
 /// fn description(&self) -> Label { Label::new_static(description_literal) }
 /// fn citation(&self) -> Citation { Citation::parse_static(citation_literal) }
