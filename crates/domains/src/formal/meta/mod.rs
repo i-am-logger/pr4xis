@@ -9,6 +9,7 @@
 pub mod algebra;
 pub mod artifact_identity;
 pub mod gap_analysis;
+pub mod identifier_format;
 pub mod omv;
 pub mod ontology_diagnostics;
 pub mod source_taxonomy;

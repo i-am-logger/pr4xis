@@ -1,17 +1,21 @@
 pub mod argument;
 pub mod authority;
+pub mod citation;
 pub mod decision;
 pub mod element;
 pub mod engine;
 pub mod entity;
+pub mod evidence_requirement;
 pub mod fact;
 pub mod finding;
+pub mod legal_actor;
 pub mod lifecycle;
 pub mod modality;
 pub mod ontology;
 pub mod proof_standard;
 pub mod rule;
 pub mod source;
+pub mod temporal_constraint;
 pub mod valence;
 
 pub use engine::{LegalAction, LegalEngine, new_case};
