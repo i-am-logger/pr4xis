@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.19.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.18.2...pr4xis-domains-v0.19.0) (2026-05-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps,ci:** pure-Rust crypto + always-latest devenv + PR-title gate ([#177](https://github.com/i-am-logger/pr4xis/issues/177))
+
+### Features
+
+* **deps,ci:** pure-Rust crypto + always-latest devenv + PR-title gate ([#177](https://github.com/i-am-logger/pr4xis/issues/177)) ([aee4c3a](https://github.com/i-am-logger/pr4xis/commit/aee4c3a77a4f3102d11ae9eb121420b01857f9f3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.14.1 to 0.15.0
+
 ## [0.18.2](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.18.1...pr4xis-domains-v0.18.2) (2026-05-15)
 
 

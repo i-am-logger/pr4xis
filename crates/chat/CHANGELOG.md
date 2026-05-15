@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.5](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.7.4...pr4xis-chat-v0.7.5) (2026-05-15)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.14.1 to 0.15.0
+    * pr4xis-domains bumped from 0.18.2 to 0.19.0
+
 ## [0.7.4](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.7.3...pr4xis-chat-v0.7.4) (2026-05-15)
 
 
