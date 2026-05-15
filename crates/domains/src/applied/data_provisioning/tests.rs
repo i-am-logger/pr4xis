@@ -117,6 +117,92 @@ fn lock_hashes_contains_wordnet() {
 }
 
 // =============================================================================
+// SOX 1514A registration (M3 vertical slice)
+// =============================================================================
+
+#[test]
+fn registry_has_sox_1514a() {
+    assert!(by_name("sox_1514a").is_some());
+}
+
+#[test]
+fn sox_1514a_kind_is_statute() {
+    let entry = by_name("sox_1514a").unwrap();
+    assert_eq!(entry.kind, SourceTaxonomyConcept::Statute);
+}
+
+#[test]
+fn sox_1514a_version_is_2002() {
+    let entry = by_name("sox_1514a").unwrap();
+    assert_eq!(entry.version, "2002");
+}
+
+#[test]
+fn sox_1514a_local_path_under_legal_statutes() {
+    let entry = by_name("sox_1514a").unwrap();
+    let path = entry.local_path();
+    assert!(
+        path.starts_with("crates/domains/data/legal/statutes/"),
+        "expected legal/statutes/ family directory; got {path}"
+    );
+    assert!(path.ends_with(".txt"), "got {path}");
+}
+
+#[test]
+fn sox_1514a_canonical_encoding_is_plaintext() {
+    let entry = by_name("sox_1514a").unwrap();
+    assert_eq!(canonical_encoding(entry.kind), ContentType::Plaintext);
+}
+
+#[test]
+fn sox_1514a_lock_hash_present() {
+    assert!(lock_hashes().contains_key("sox_1514a@2002"));
+}
+
+#[test]
+fn sox_1514a_structural_block_present() {
+    use super::registry::structural_for;
+    let s = structural_for("sox_1514a", "2002").expect("structural block present");
+    assert_eq!(s.terms.len(), 28, "SOX 1514A should have 28 terms");
+    assert_eq!(s.relations.len(), 18, "SOX 1514A should have 18 relations");
+}
+
+#[test]
+fn sox_1514a_relations_use_known_kinds() {
+    use super::registry::structural_for;
+    let s = structural_for("sox_1514a", "2002").expect("structural block present");
+    // Every relation must map to one of the 13 RawRel variants. The
+    // codegen drops unknown kinds at conversion time; this test asserts
+    // every committed relation in praxis.lock IS a recognized kind, so
+    // we catch upstream extractor drift.
+    use super::registry::StructuralData;
+    let _: &StructuralData = s; // type ascription
+    for rel in &s.relations {
+        let recognized = matches!(
+            rel.relation.as_str(),
+            "Requires"
+                | "SubtypeOf"
+                | "Contradicts"
+                | "Negates"
+                | "AlternativeTo"
+                | "AffirmativeDefenseTo"
+                | "SafeHarborFor"
+                | "ExhaustionRequiredFor"
+                | "Precedes"
+                | "Implies"
+                | "Composes"
+                | "Triggers"
+                | "Rebuts"
+        );
+        assert!(
+            recognized,
+            "SOX 1514A relation `{}` from `{}` to `{}` is not a recognized RawRel variant",
+            rel.relation, rel.from, rel.to
+        );
+    }
+}
+
+// =============================================================================
 // Qualities
 // =============================================================================
 

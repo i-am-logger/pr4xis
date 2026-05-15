@@ -356,18 +356,28 @@ pr4xis::register_axiom!(
     "Dolstra (2006) The Purely Functional Software Deployment Model §5.1"
 );
 
-/// Axiom: every registered `kind` has a defined decoder (its
-/// `canonical_encoding` is one of the implemented `ContentType` variants).
+/// Axiom: every registered source is *realizable* — either through a
+/// runtime decoder (Heap-store path: bytes fetched from URL, decoded
+/// per `canonical_encoding`) or through lock-time structural data
+/// (Static-store path: the parsed ontology lives directly in
+/// `praxis.lock`'s `[structural.*]` block, ready for build-time
+/// codegen consumption).
 ///
-/// Closes the loop on the M2 design: an entry whose kind has no decoder
-/// would be unreachable through the data-provisioning pipeline.
+/// An entry with neither path would be unreachable: no decoder, no
+/// pre-baked structure. The axiom catches that asymmetry at startup.
 pub struct DecoderTotalityPerKind;
 
 impl Axiom for DecoderTotalityPerKind {
     fn verify(&self) -> Verdict {
         for entry in crate::applied::data_provisioning::registry::data_sources() {
             let ct = canonical_encoding(entry.kind);
-            if !crate::applied::data_provisioning::decoders::has_decoder_for(ct) {
+            let runtime_decoder = crate::applied::data_provisioning::decoders::has_decoder_for(ct);
+            let lock_structural = crate::applied::data_provisioning::registry::structural_for(
+                &entry.name,
+                &entry.version,
+            )
+            .is_some();
+            if !runtime_decoder && !lock_structural {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -376,7 +386,7 @@ impl Axiom for DecoderTotalityPerKind {
 
     pr4xis::axiom_meta!(
         "DecoderTotalityPerKind",
-        "every registered SourceTaxonomyConcept's canonical_encoding has a defined decoder",
+        "every registered source has a runtime decoder for its canonical_encoding OR a lock structural block",
         "Wilkinson et al. (2016) FAIR Guiding Principles, Scientific Data 3 — R1 reusable"
     );
 }

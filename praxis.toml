@@ -37,3 +37,14 @@
 version = "2025"
 type    = "Language"
 url     = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz"
+
+# Sarbanes–Oxley Act § 806, codified at 18 U.S.C. § 1514A (2002).
+# Whistleblower protection for employees of publicly-traded companies.
+# Static-store source: the parsed structural data lives in praxis.lock's
+# [structural."sox_1514a@2002"] block and is baked into the binary at
+# build time. The URL is for human reference / future re-extraction.
+[sources.sox_1514a]
+version     = "2002"
+type        = "Statute"
+url         = "https://www.govinfo.gov/content/pkg/USCODE-2018-title18/html/USCODE-2018-title18-partI-chap73-sec1514A.htm"
+description = "18 U.S.C. § 1514A — Civil action to protect against retaliation in fraud cases"

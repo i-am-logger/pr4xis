@@ -64,7 +64,7 @@ const PRAXIS_TOML: &str = include_str!("../../../../../praxis.toml");
 const PRAXIS_LOCK: &str = include_str!("../../../../../praxis.lock");
 
 static REGISTRY: OnceLock<Vec<RegistryEntry>> = OnceLock::new();
-static LOCK: OnceLock<HashMap<String, String>> = OnceLock::new();
+static LOCK: OnceLock<LockData> = OnceLock::new();
 
 /// The loaded registry. First call parses both files and synthesizes the
 /// identity claims; subsequent calls return the cached slice.
@@ -86,6 +86,27 @@ pub fn data_sources() -> &'static [RegistryEntry] {
 /// The pinned hashes from `praxis.lock`. Keys are `"<name>@<version>"`
 /// strings; values are hex sha256.
 pub fn lock_hashes() -> &'static HashMap<String, String> {
+    &lock_data().hashes
+}
+
+/// Per-source structural extraction blocks from `praxis.lock`. Populated
+/// for sources whose `Store` backend bakes their derived ontology at
+/// build time (typically Statutes and other LegalCorpus kinds). Keys
+/// match the hash map's `"<name>@<version>"` form.
+pub fn lock_structural() -> &'static HashMap<String, StructuralData> {
+    &lock_data().structural
+}
+
+/// Look up the structural extraction for a specific source. Returns
+/// `None` if the lock has no structural block for that `(name,
+/// version)` — common for `Heap`-store sources like WordNet whose data
+/// is realized at runtime, not lock time.
+pub fn structural_for(name: &str, version: &str) -> Option<&'static StructuralData> {
+    let key = format!("{name}@{version}");
+    lock_structural().get(&key)
+}
+
+fn lock_data() -> &'static LockData {
     LOCK.get_or_init(|| {
         parse_praxis_lock(PRAXIS_LOCK).unwrap_or_else(|e| panic!("invalid praxis.lock: {e}"))
     })
@@ -206,15 +227,130 @@ fn build_entry(
 // praxis.lock parsing
 // =============================================================================
 
+/// The parsed `praxis.lock` payload. Hashes are the universal
+/// drift-detection vehicle; structural data is the lock-baked ontology
+/// content for sources whose `Store` backend is `StaticStore` (statutes
+/// today; potentially future cached lexicons).
+#[derive(Debug, Default)]
+pub struct LockData {
+    pub hashes: HashMap<String, String>,
+    pub structural: HashMap<String, StructuralData>,
+}
+
+/// One source's structural extraction. The schema matches the praxis
+/// statute codegen input (`pr4xis::codegen::statute::RawStatuteDoc`);
+/// conversion is one-to-one via [`Self::to_raw_statute_doc`].
+#[derive(Debug, Default, Deserialize)]
+pub struct StructuralData {
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub terms: Vec<StructuralTerm>,
+    #[serde(default)]
+    pub relations: Vec<StructuralRelation>,
+}
+
+impl StructuralData {
+    /// Convert into the praxis statute codegen's input format. Names
+    /// the doc with `name` (caller supplies it because the structural
+    /// block in the lock is keyed by `name@version`, not embedded in
+    /// the block itself). Relations whose `relation` field doesn't
+    /// match a known [`RawRel`] variant are skipped — the upstream
+    /// extraction tool is expected to emit only PascalCase relation
+    /// names matching the 13-kind enum.
+    pub fn to_raw_statute_doc(&self, name: &str) -> pr4xis::codegen::statute::RawStatuteDoc {
+        use pr4xis::codegen::statute::{RawRelation, RawStatuteDoc, RawTerm};
+        let terms = self
+            .terms
+            .iter()
+            .map(|t| RawTerm {
+                id: t.id.clone(),
+                name: t.name.clone(),
+                definition: t.definition.clone(),
+                lemmas: t.lemmas.clone(),
+            })
+            .collect();
+        let relations = self
+            .relations
+            .iter()
+            .filter_map(|r| {
+                parse_simple_relation(&r.relation).map(|rel| RawRelation {
+                    from: r.from.clone(),
+                    to: r.to.clone(),
+                    relation: rel,
+                })
+            })
+            .collect();
+        RawStatuteDoc {
+            name: name.to_string(),
+            description: self.description.clone(),
+            terms,
+            relations,
+        }
+    }
+}
+
+/// Map a PascalCase relation string to a [`RawRel`] variant. Only the
+/// parameter-free spellings are supported here; relations whose
+/// upstream extraction carries parametric qualifiers (Composes-into,
+/// Precedes-max_days, etc.) collapse to their parameter-free form,
+/// matching the codegen's lossy mapping.
+fn parse_simple_relation(s: &str) -> Option<pr4xis::codegen::statute::RawRel> {
+    use pr4xis::codegen::statute::RawRel;
+    Some(match s {
+        "Requires" => RawRel::Requires,
+        "SubtypeOf" => RawRel::SubtypeOf,
+        "Contradicts" => RawRel::Contradicts,
+        "Negates" => RawRel::Negates,
+        "AlternativeTo" => RawRel::AlternativeTo,
+        "AffirmativeDefenseTo" => RawRel::AffirmativeDefenseTo,
+        "SafeHarborFor" => RawRel::SafeHarborFor,
+        "ExhaustionRequiredFor" => RawRel::ExhaustionRequiredFor,
+        "Precedes" => RawRel::Precedes { max_days: None },
+        "Implies" => RawRel::Implies { consequence: None },
+        "Composes" => RawRel::Composes { into: None },
+        "Triggers" => RawRel::Triggers { obligation: None },
+        "Rebuts" => RawRel::Rebuts { burden: None },
+        _ => return None,
+    })
+}
+
+/// One term in a statute's structural extraction.
+#[derive(Debug, Deserialize)]
+pub struct StructuralTerm {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub definition: String,
+    #[serde(default)]
+    pub lemmas: Vec<String>,
+}
+
+/// One relation between two terms. The `relation` field is the
+/// PascalCase relation name (`Requires`, `Composes`, `SubtypeOf`, …);
+/// parametric qualifiers from the source extraction are not carried in
+/// the lock per the codegen mapping's documented losses.
+#[derive(Debug, Deserialize)]
+pub struct StructuralRelation {
+    pub from: String,
+    pub to: String,
+    pub relation: String,
+}
+
 #[derive(Debug, Deserialize)]
 struct RawLockFile {
     #[serde(default)]
     hashes: HashMap<String, String>,
+    #[serde(default)]
+    structural: HashMap<String, StructuralData>,
 }
 
-fn parse_praxis_lock(text: &str) -> Result<HashMap<String, String>, String> {
+fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
     let raw: RawLockFile = toml::from_str(text).map_err(|e| format!("toml parse: {e}"))?;
-    Ok(raw.hashes)
+    Ok(LockData {
+        hashes: raw.hashes,
+        structural: raw.structural,
+    })
 }
 
 #[cfg(test)]
@@ -273,16 +409,118 @@ url     = "https://example.com/alpha.txt"
 "english_wordnet@2025" = "deadbeef"
 "sox_1514a@2002"       = "cafef00d"
 "#;
-        let hashes = parse_praxis_lock(text).unwrap();
-        assert_eq!(hashes.len(), 2);
-        assert_eq!(hashes.get("english_wordnet@2025").unwrap(), "deadbeef");
-        assert_eq!(hashes.get("sox_1514a@2002").unwrap(), "cafef00d");
+        let lock = parse_praxis_lock(text).unwrap();
+        assert_eq!(lock.hashes.len(), 2);
+        assert_eq!(lock.hashes.get("english_wordnet@2025").unwrap(), "deadbeef");
+        assert_eq!(lock.hashes.get("sox_1514a@2002").unwrap(), "cafef00d");
+        assert!(lock.structural.is_empty());
     }
 
     #[test]
     fn parses_empty_lock() {
         let lock = parse_praxis_lock("").unwrap();
-        assert!(lock.is_empty());
+        assert!(lock.hashes.is_empty());
+        assert!(lock.structural.is_empty());
+    }
+
+    #[test]
+    fn parses_lock_with_structural_block() {
+        let text = r#"
+[hashes]
+"sox_1514a@2002" = "deadbeef"
+
+[structural."sox_1514a@2002"]
+description = "test statute"
+
+[[structural."sox_1514a@2002".terms]]
+id = "sox:a"
+name = "Term A"
+definition = "First."
+lemmas = ["report"]
+
+[[structural."sox_1514a@2002".terms]]
+id = "sox:b"
+name = "Term B"
+definition = "Second."
+
+[[structural."sox_1514a@2002".relations]]
+from = "sox:a"
+to = "sox:b"
+relation = "Requires"
+"#;
+        let lock = parse_praxis_lock(text).unwrap();
+        let s = lock
+            .structural
+            .get("sox_1514a@2002")
+            .expect("structural block present");
+        assert_eq!(s.description, "test statute");
+        assert_eq!(s.terms.len(), 2);
+        assert_eq!(s.terms[0].id, "sox:a");
+        assert_eq!(s.terms[0].lemmas, vec!["report".to_string()]);
+        assert_eq!(s.relations.len(), 1);
+        assert_eq!(s.relations[0].relation, "Requires");
+    }
+
+    #[test]
+    fn structural_data_converts_to_raw_statute_doc() {
+        let s = StructuralData {
+            description: "demo".into(),
+            terms: vec![
+                StructuralTerm {
+                    id: "t:a".into(),
+                    name: "A".into(),
+                    definition: "first".into(),
+                    lemmas: vec!["report".into()],
+                },
+                StructuralTerm {
+                    id: "t:b".into(),
+                    name: "B".into(),
+                    definition: "second".into(),
+                    lemmas: vec![],
+                },
+            ],
+            relations: vec![
+                StructuralRelation {
+                    from: "t:a".into(),
+                    to: "t:b".into(),
+                    relation: "Requires".into(),
+                },
+                StructuralRelation {
+                    from: "t:a".into(),
+                    to: "t:b".into(),
+                    relation: "UnknownKind".into(), // should be skipped
+                },
+            ],
+        };
+        let doc = s.to_raw_statute_doc("test");
+        assert_eq!(doc.name, "test");
+        assert_eq!(doc.description, "demo");
+        assert_eq!(doc.terms.len(), 2);
+        assert_eq!(doc.terms[0].id, "t:a");
+        assert_eq!(doc.terms[0].lemmas, vec!["report".to_string()]);
+        assert_eq!(
+            doc.relations.len(),
+            1,
+            "unknown relation should have been dropped"
+        );
+    }
+
+    #[test]
+    fn parse_simple_relation_covers_thirteen_variants() {
+        assert!(parse_simple_relation("Requires").is_some());
+        assert!(parse_simple_relation("SubtypeOf").is_some());
+        assert!(parse_simple_relation("Contradicts").is_some());
+        assert!(parse_simple_relation("Negates").is_some());
+        assert!(parse_simple_relation("AlternativeTo").is_some());
+        assert!(parse_simple_relation("AffirmativeDefenseTo").is_some());
+        assert!(parse_simple_relation("SafeHarborFor").is_some());
+        assert!(parse_simple_relation("ExhaustionRequiredFor").is_some());
+        assert!(parse_simple_relation("Precedes").is_some());
+        assert!(parse_simple_relation("Implies").is_some());
+        assert!(parse_simple_relation("Composes").is_some());
+        assert!(parse_simple_relation("Triggers").is_some());
+        assert!(parse_simple_relation("Rebuts").is_some());
+        assert!(parse_simple_relation("InventedKind").is_none());
     }
 
     #[test]

@@ -103,10 +103,12 @@ pub fn parse_statute_json(path: &Path) -> Result<OntologyBuilder, ParseError> {
     Ok(build_from_doc(&doc))
 }
 
-/// Build an [`OntologyBuilder`] from a parsed `RawStatuteDoc`. Pulled
-/// out for testability — call sites with in-memory test fixtures use
-/// this directly.
-fn build_from_doc(doc: &RawStatuteDoc) -> OntologyBuilder {
+/// Build an [`OntologyBuilder`] from a parsed `RawStatuteDoc`. Public
+/// so callers that obtain the doc through some other path (e.g.,
+/// pr4xis-domains' build.rs reading praxis.lock TOML and converting in
+/// memory) can drive the codegen without round-tripping through a JSON
+/// file on disk.
+pub fn build_from_doc(doc: &RawStatuteDoc) -> OntologyBuilder {
     let mut b = OntologyBuilder::new();
 
     for term in &doc.terms {
@@ -172,38 +174,42 @@ fn build_from_doc(doc: &RawStatuteDoc) -> OntologyBuilder {
 // downstream consumers need them.
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Deserialize)]
-struct RawStatuteDoc {
+/// Parsed statute structural document. Public so callers driving the
+/// codegen from in-memory data (e.g., pr4xis-domains' build.rs reading
+/// TOML structural blocks from praxis.lock) can construct an instance
+/// and feed it to [`build_from_doc`].
+#[derive(Debug, Default, Deserialize)]
+pub struct RawStatuteDoc {
     #[serde(default)]
-    #[allow(dead_code)]
-    name: String,
+    pub name: String,
     #[serde(default)]
-    #[allow(dead_code)]
-    description: String,
+    pub description: String,
     #[serde(default)]
-    terms: Vec<RawTerm>,
+    pub terms: Vec<RawTerm>,
     #[serde(default)]
-    relations: Vec<RawRelation>,
+    pub relations: Vec<RawRelation>,
 }
 
+/// One statutory term. Surface a public constructor for in-memory use.
 #[derive(Debug, Deserialize)]
-struct RawTerm {
-    id: String,
-    name: String,
+pub struct RawTerm {
+    pub id: String,
+    pub name: String,
     #[serde(default)]
-    definition: String,
+    pub definition: String,
     /// Surface-form lemmas the term uses. Optional in the schema;
-    /// populated for the cases where the JSON carries them. Seed for
+    /// populated for the cases where the source carries them. Seed for
     /// the statute↔English adjunction (downstream codegen pass).
     #[serde(default)]
-    lemmas: Vec<String>,
+    pub lemmas: Vec<String>,
 }
 
+/// One relation between two statutory terms.
 #[derive(Debug, Deserialize)]
-struct RawRelation {
-    from: String,
-    to: String,
-    relation: RawRel,
+pub struct RawRelation {
+    pub from: String,
+    pub to: String,
+    pub relation: RawRel,
 }
 
 /// The 13 statute relation types. The on-disk format serialises
@@ -211,7 +217,7 @@ struct RawRelation {
 /// "claim"}}`), which serde's default external tagging produces
 /// naturally for enums.
 #[derive(Debug, Deserialize)]
-enum RawRel {
+pub enum RawRel {
     Requires,
     SubtypeOf,
     Contradicts,
