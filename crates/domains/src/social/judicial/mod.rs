@@ -8,15 +8,32 @@ pub mod entity;
 pub mod evidence_requirement;
 pub mod fact;
 pub mod finding;
-pub mod legal_actor;
 pub mod lifecycle;
 pub mod modality;
 pub mod ontology;
 pub mod proof_standard;
 pub mod rule;
 pub mod source;
-pub mod temporal_constraint;
-pub mod valence;
+pub mod source_text;
+
+// `legal_actor`, `temporal_constraint`, and `valence` are NOT exported. Each
+// declared a single ontology that synthesized concepts across multiple
+// primary sources (LegalActor's four-family Party/Adjudicator/Witness/
+// Counsel hierarchy; TemporalConstraint's six-granularity unification of
+// ISO 8601 + TimeML + FRCP Rule 6; Valence's Supportive/Defensive/
+// Procedural trichotomy with no single primary attestation). Synthesis
+// across sources is approximation — the praxis way is one ontology per
+// primary source, then unions composed via the SourceTaxonomy Adjoins
+// graph. The directories remain on disk for ease of revival if a single
+// primary source is later identified for the synthesized hierarchy; until
+// then they are intentionally excluded from the module tree.
+//
+// Replacement: per-source faithful ontologies live in the module list above
+// (e.g. `frcp_rule_17`, `iso8601_calendar`, …). The container-type fields
+// that previously referenced these synthesized ontologies use
+// `formal::meta::identifier_format::Identifier` CURIE references, which
+// resolve into the union of loaded per-source concepts via the
+// `SourceTaxonomy` `Adjoins` graph.
 
 pub use engine::{LegalAction, LegalEngine, new_case};
 pub use entity::Concept;

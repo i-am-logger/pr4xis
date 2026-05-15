@@ -1,35 +1,34 @@
 //! Proof standard — the fraction-of-evidence tier required for a party
 //! to carry its burden on a given issue.
 //!
-//! Different bodies of law impose different stringency tiers. Praxis
-//! captures the four standards relevant to U.S. civil and SOX-1514A
-//! whistleblower litigation:
+//! Praxis captures the three classical proof standards of U.S. civil
+//! and criminal evidence law:
 //!
 //! ```text
 //! ProofStandard
-//!   ├── ContributingFactor       — AIR21 § 42121(b)(2)(B) burden-shifting
 //!   ├── Preponderance            — civil default; > 50% probability
 //!   ├── ClearAndConvincing       — heightened civil; ~ 75% probability
 //!   └── BeyondReasonableDoubt    — criminal; ~ 95% probability
 //! ```
 //!
-//! The four leaves admit a natural **stringency order** captured by the
-//! `StringencyOf` quality: `ContributingFactor < Preponderance <
-//! ClearAndConvincing < BeyondReasonableDoubt`. The order is *total* on
-//! the leaves; the root `ProofStandard` is abstract.
+//! The three leaves admit a strict **stringency order** captured by the
+//! `StringencyOf` quality: `Preponderance < ClearAndConvincing <
+//! BeyondReasonableDoubt`. The order is *total* on the leaves; the
+//! root `ProofStandard` is abstract.
 //!
-//! # Why ContributingFactor is a separate concept
+//! # Reference layer only
 //!
-//! SOX § 806 (18 U.S.C. § 1514A) incorporates the AIR21 burden-shifting
-//! framework: the plaintiff need only show that protected activity was
-//! a "contributing factor" in the adverse action. The defendant can
-//! then rebut only by **clear and convincing** evidence that it would
-//! have taken the same action absent the protected activity. The
-//! *Lawson v. FMR LLC* (2014) decision (Supreme Court extending SOX
-//! 1514A to private-contractor employees) cites this asymmetric
-//! framework as a deliberate plaintiff-friendly tilt. ContributingFactor
-//! is therefore lower than Preponderance for the plaintiff's prima
-//! facie showing but interacts with a CC-standard defendant rebuttal.
+//! This ontology is the **reference (domain-general)** layer
+//! (Stuckenschmidt, Parent, Spaccapietra 2009). Statute-specific tiers
+//! — e.g., the contributing-factor / clear-and-convincing-rebuttal
+//! burden-shifting framework of AIR21 § 42121(b)(2)(B) (applied to
+//! SOX 1514A whistleblower actions) — live in their own
+//! **statute-specific (application)** ontologies, codegen'd from
+//! `praxis.lock`. Statute-specific concepts adjoin into the reference
+//! layer through the `SourceTaxonomy` `Adjoins` graph
+//! (`Statute ⊣ LegalLexicon`), not by being added as leaves here.
+//! That keeps this ontology's literature free of statute-specific
+//! cites and its concept partition free of statute-specific tiers.
 //!
 //! # Literature
 //!
@@ -41,18 +40,22 @@
 //! - **Brilmayer (1990)** "Second-Order Evidence and Bayesian Logic"
 //!   *Boston University Law Review* 66:673–701 — Bayesian
 //!   formalization of the stringency tiers.
-//! - **Lawson v. FMR LLC**, 571 U.S. 429 (2014) — Supreme Court
-//!   extension of SOX 1514A to private contractor employees;
-//!   discusses the contributing-factor / clear-and-convincing
-//!   asymmetry.
-//! - **18 U.S.C. § 1514A(b)(2)(C)** — the SOX statute incorporating
-//!   AIR21 § 42121(b)(2)(B)'s burden-shifting framework.
-//! - **AIR21 — 49 U.S.C. § 42121(b)(2)(B)** — the original
-//!   contributing-factor / clear-and-convincing-rebuttal statute.
-//! - **Marx v. Schnuck Markets**, 869 F.3d 656 (8th Cir. 2014) and
-//!   *Murray v. UBS Securities, LLC*, 601 U.S. 23 (2024) — appellate
-//!   and Supreme Court clarification of the contributing-factor
-//!   standard's pleading and proof requirements.
+//! - **In re Winship**, 397 U.S. 358 (1970) — establishes
+//!   BeyondReasonableDoubt as the constitutional standard for every
+//!   element of a criminal offense.
+//! - **McCormick on Evidence (Strong et al., 8th ed. 2022)** §339-343
+//!   — the leading U.S. evidence treatise's treatment of burdens of
+//!   proof.
+//! - **Federal Rules of Evidence (2024)** — the modern federal
+//!   codification of evidence standards.
+//! - **Guarino & Welty (2002)** "Evaluating Ontological Decisions with
+//!   OntoClean", *Communications of the ACM* 45(2):61–65 — type vs
+//!   role distinction; rationale for keeping the reference layer
+//!   free of application-specific concepts.
+//! - **Stuckenschmidt, Parent, Spaccapietra (eds.) (2009)** *Modular
+//!   Ontologies: Concepts, Theories and Techniques for Knowledge
+//!   Modularization*, Springer LNCS 5445 — three-tier
+//!   foundational/reference/application architecture.
 
 pub mod ontology;
 

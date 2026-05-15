@@ -4,9 +4,9 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::{
-    BeyondReasonableDoubtIsMostStringent, ContributingFactorIsLeastStringent,
-    PartitionCompleteness, ProofStandardCategory, ProofStandardConcept, ProofStandardOntology,
-    SoxAsymmetry, StringencyIsTotalOnLeaves, StringencyOf, at_least_as_stringent, is_leaf, leaves,
+    BeyondReasonableDoubtIsMostStringent, PartitionCompleteness, ProofStandardCategory,
+    ProofStandardConcept, ProofStandardOntology, StringencyIsTotalOnLeaves, StringencyOf,
+    at_least_as_stringent, is_leaf, leaves,
 };
 use pr4xis::category::Concept;
 use pr4xis::category::laws::assert_category_laws;
@@ -33,14 +33,14 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn five_concepts() {
-    // Root + 4 leaves.
-    assert_eq!(ProofStandardConcept::variants().len(), 5);
+fn four_concepts() {
+    // Root + 3 leaves.
+    assert_eq!(ProofStandardConcept::variants().len(), 4);
 }
 
 #[test]
-fn four_leaves() {
-    assert_eq!(leaves().len(), 4);
+fn three_leaves() {
+    assert_eq!(leaves().len(), 3);
 }
 
 // =============================================================================
@@ -48,9 +48,9 @@ fn four_leaves() {
 // =============================================================================
 
 #[test]
-fn contributing_factor_lowest() {
+fn preponderance_lowest() {
     assert_eq!(
-        StringencyOf.get(&ProofStandardConcept::ContributingFactor),
+        StringencyOf.get(&ProofStandardConcept::Preponderance),
         Some(1)
     );
 }
@@ -59,7 +59,7 @@ fn contributing_factor_lowest() {
 fn beyond_reasonable_doubt_highest() {
     assert_eq!(
         StringencyOf.get(&ProofStandardConcept::BeyondReasonableDoubt),
-        Some(4)
+        Some(3)
     );
 }
 
@@ -117,20 +117,8 @@ fn axiom_stringency_total_on_leaves() {
 }
 
 #[test]
-fn axiom_contributing_factor_least_stringent() {
-    assert!(ContributingFactorIsLeastStringent.verify().is_ok());
-}
-
-#[test]
 fn axiom_beyond_reasonable_doubt_most_stringent() {
     assert!(BeyondReasonableDoubtIsMostStringent.verify().is_ok());
-}
-
-#[test]
-fn axiom_sox_asymmetry() {
-    // The SOX 1514A burden-shifting framework: plaintiff at CF,
-    // defendant rebuts at CC. CC > CF in stringency.
-    assert!(SoxAsymmetry.verify().is_ok());
 }
 
 #[test]
@@ -170,7 +158,7 @@ proptest! {
         }
     }
 
-    /// `at_least_as_stringent` is antisymmetric: if a >= b and b >= a, then a == b.
+    /// Antisymmetric: a >= b and b >= a implies a == b.
     #[test]
     fn prop_at_least_antisymmetric(a in arb_concept(), b in arb_concept()) {
         if is_leaf(a) && is_leaf(b) {
@@ -182,7 +170,7 @@ proptest! {
         }
     }
 
-    /// `at_least_as_stringent` is transitive: a >= b and b >= c implies a >= c.
+    /// Transitive: a >= b and b >= c implies a >= c.
     #[test]
     fn prop_at_least_transitive(a in arb_concept(), b in arb_concept(), c in arb_concept()) {
         if is_leaf(a) && is_leaf(b) && is_leaf(c) {
@@ -195,7 +183,7 @@ proptest! {
         }
     }
 
-    /// Stringency values are dense — every leaf has a unique tier.
+    /// Every leaf has a unique stringency tier.
     #[test]
     fn prop_tiers_unique(_seed in any::<u32>()) {
         let mut tiers: Vec<u8> = leaves().iter().map(|c| StringencyOf.get(c).unwrap()).collect();
