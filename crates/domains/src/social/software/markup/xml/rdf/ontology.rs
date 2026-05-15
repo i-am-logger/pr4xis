@@ -306,7 +306,7 @@ pr4xis::register_axiom!(
 /// W3C axiom: predicates must be IRIs — they are Properties.
 ///
 /// W3C RDF 1.1 Concepts and Abstract Syntax (2014) §3: "the predicate
-/// [is] an IRI". A predicate cannot be a blank node or a literal —
+/// \[is\] an IRI". A predicate cannot be a blank node or a literal —
 /// it is a name (rdf:Property) drawn from a vocabulary.
 pub struct PredicatesMustBeProperties;
 

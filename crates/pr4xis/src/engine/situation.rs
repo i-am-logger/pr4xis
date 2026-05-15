@@ -27,7 +27,8 @@ use core::fmt::Debug;
 ///
 /// If an engine needs a terminal check, it's configured via a typed
 /// precondition/axiom at Engine construction (see
-/// [`Precondition`](super::Precondition)), returning a [`Verdict`]. No
+/// [`Precondition`](super::Precondition)), returning a
+/// [`Verdict`](crate::logic::proof::Verdict). No
 /// booleans in the public API (see `feedback_core_no_bool_api`).
 ///
 /// # No `describe() -> String`

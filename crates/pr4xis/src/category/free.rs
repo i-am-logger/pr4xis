@@ -38,7 +38,7 @@ pub enum Free<F: Clone + Debug, A: Clone + Debug> {
     Suspend(F, Box<dyn CloneFn<F, A>>),
 }
 
-/// Trait for clonable continuations (workaround for Box<dyn FnOnce>).
+/// Trait for clonable continuations (workaround for `Box<dyn FnOnce>`).
 pub trait CloneFn<F: Clone + Debug, A: Clone + Debug>: Debug {
     fn call(&self, f: F) -> Free<F, A>;
     fn clone_box(&self) -> Box<dyn CloneFn<F, A>>;

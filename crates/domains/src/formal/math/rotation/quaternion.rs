@@ -178,7 +178,7 @@ impl Quaternion {
     }
 
     /// Extract axis-angle. Returns (unit axis, angle in radians).
-    /// For identity rotation, returns ([0,0,1], 0.0).
+    /// For identity rotation, returns `([0,0,1], 0.0)`.
     pub fn to_axis_angle(&self) -> ([f64; 3], f64) {
         let angle = 2.0 * self.w.clamp(-1.0, 1.0).acos();
         let s = (1.0 - self.w * self.w).sqrt();

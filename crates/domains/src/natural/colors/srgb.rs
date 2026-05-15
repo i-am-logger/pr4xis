@@ -14,7 +14,7 @@ use crate::formal::math::functions::{Interval, LinearCombination, OffsetRatio, P
 use pr4xis::ontology::Axiom;
 
 /// sRGB electro-optical transfer function (EOTF).
-/// Converts gamma-encoded sRGB [0,1] to linear light [0,1].
+/// Converts gamma-encoded sRGB `[0,1]` to linear light `[0,1]`.
 ///
 /// Source: IEC 61966-2-1, Section 5.2
 ///   if C_srgb <= 0.04045: C_lin = C_srgb / 12.92
@@ -160,7 +160,7 @@ pr4xis::register_axiom!(
 
 /// Luminance is bounded: 0.0 for black, ~1.0 for white.
 ///
-/// Source: follows from convexity of weights on inputs in [0,1].
+/// Source: follows from convexity of weights on inputs in `[0,1]`.
 pub struct LuminanceBounded;
 
 impl Axiom for LuminanceBounded {

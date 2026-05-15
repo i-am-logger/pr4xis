@@ -91,10 +91,10 @@ impl PregroupElement {
 /// This IS the word's grammatical type.
 ///
 /// Examples:
-///   "dog"  → [n]
-///   "the"  → [n^r, np]          (takes noun on right, produces NP)
-///   "runs" → [np^l, s]          (takes NP on left, produces S)
-///   "sees" → [np^l, s, np^r]    (takes NP on left, produces S, takes NP on right... wait)
+///   "dog"  → `[n]`
+///   "the"  → `[n^r, np]`          (takes noun on right, produces NP)
+///   "runs" → `[np^l, s]`          (takes NP on left, produces S)
+///   "sees" → `[np^l, s, np^r]`    (takes NP on left, produces S, takes NP on right... wait)
 ///
 /// Actually for transitive verb in pregroups:
 ///   "sees" → [np^l, s, np^l]... no.
@@ -172,7 +172,7 @@ impl PregroupType {
     /// Attempt to contract this type by applying the pregroup laws.
     /// Returns the contracted type (with adjacent adjoint pairs removed).
     ///
-    /// Contraction: if element[i] contracts_with element[i+1],
+    /// Contraction: if `element[i]` contracts_with `element[i+1]`,
     /// remove both (they reduce to the identity 1).
     pub fn contract(&self) -> PregroupType {
         let mut elements = self.elements.clone();

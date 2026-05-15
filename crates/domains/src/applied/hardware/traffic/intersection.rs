@@ -18,7 +18,7 @@ pub enum IntersectionResult {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Intersection {
     pub signals: Vec<Signal>,
-    /// Conflict matrix: conflicts[i] = list of directions that conflict with i.
+    /// Conflict matrix: `conflicts[i]` = list of directions that conflict with i.
     /// If signal i is green/leftarrow, all conflicting signals must be red.
     pub conflicts: Vec<Vec<usize>>,
 }

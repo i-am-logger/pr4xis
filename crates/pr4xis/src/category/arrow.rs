@@ -4,7 +4,7 @@
 //! # Ontological grounding
 //!
 //! Arrow is the Rust realisation of
-//! [`pr4xis::category::category_theory::CategoryTheoryConcept::Morphism`].
+//! [`crate::category::category_theory::CategoryTheoryConcept::Morphism`].
 //! Mac Lane (1971) CWM Ch. I §1 uses "morphism" and "arrow" as synonyms;
 //! Awodey (2010) uses "arrow" as primary. The Rust trait is `Arrow`
 //! (avoids naming collision with the `Morphism` struct) and both names
@@ -17,7 +17,7 @@
 //!
 //! # Per-instance provenance (required)
 //!
-//! Every arrow carries its own [`Provenance`] via [`meta`]. Per
+//! Every arrow carries its own [`Provenance`] via [`Arrow::meta`]. Per
 //! Gruber (1993) KAS 5 "formally-named relations", Smith et al. (2005)
 //! OBO-RO "every relation-instance is named", W3C PROV-O (2013) "every
 //! entity has provenance", W3C SKOS (2009) "every concept mapping has

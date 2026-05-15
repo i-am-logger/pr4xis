@@ -14,7 +14,7 @@ use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenanc
 /// - **Identity preservation**: F(id_A) == id_{F(A)}
 /// - **Composition preservation**: F(g∘f) == F(g)∘F(f)
 ///
-/// Use [`crate::validate`] to verify these laws.
+/// Use [`crate::category::laws`] to verify these laws.
 ///
 /// # Metadata + kind
 ///

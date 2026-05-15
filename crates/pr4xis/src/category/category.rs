@@ -12,7 +12,7 @@ use super::entity::Concept;
 /// - **Associativity**: compose(compose(f, g), h) == compose(f, compose(g, h))
 /// - **Closure**: If f: A → B and g: B → C, then compose(f, g): A → C exists.
 ///
-/// Use [`crate::validate`] to verify these laws via property-based testing.
+/// Use [`crate::category::laws`] to verify these laws via property-based testing.
 pub trait Category {
     type Object: Concept;
     type Morphism: Arrow<Object = Self::Object>;

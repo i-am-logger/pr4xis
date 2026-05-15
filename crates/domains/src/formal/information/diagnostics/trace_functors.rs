@@ -386,7 +386,7 @@ impl pr4xis::category::Monoid for PipelineTrace {
 /// A traced pipeline computation: Writer<PipelineTrace, A>.
 ///
 /// The pipeline IS the writer monad over PipelineTrace.
-/// Each pipeline step returns TracedPipeline<StepResult>, and monadic bind
+/// Each pipeline step returns `TracedPipeline<StepResult>`, and monadic bind
 /// composes steps while accumulating trace entries through the PipelineTrace monoid.
 ///
 /// This is Moggi (1991): computational effects (tracing) factored through monads.
@@ -449,7 +449,7 @@ impl PipelineTrace {
     /// Create a single-entry PipelineTrace for use with TracedPipeline.
     ///
     /// This enables monadic composition: instead of mutating a trace,
-    /// each step returns a TracedPipeline<A> that carries its own trace,
+    /// each step returns a `TracedPipeline<A>` that carries its own trace,
     /// and bind composes them via the PipelineTrace monoid.
     pub fn single(step: PipelineStep, detail: &str, success: bool) -> Self {
         Self {

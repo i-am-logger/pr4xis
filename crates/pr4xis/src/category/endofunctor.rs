@@ -20,10 +20,7 @@ use super::functor::Functor;
 /// # Laws
 ///
 /// Endofunctors inherit the [`Functor`] laws (identity and composition preservation).
-/// There are no additional laws — but
-/// [`crate::category::validate::check_endofunctor_laws`] specialises those checks to a
-/// single carrier category, which makes involution and fixed-point mistakes easier to
-/// localise.
+/// There are no additional laws.
 ///
 /// # Implementing
 ///

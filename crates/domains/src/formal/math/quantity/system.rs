@@ -22,7 +22,7 @@ pub enum MeasurementSystem {
 /// Verify that a derived dimension equals its definition.
 ///
 /// Example: velocity = length / time
-///   [v] = [L] · [T]⁻¹ = L¹·T⁻¹ ✓
+///   `[v] = [L] · [T]⁻¹ = L¹·T⁻¹` ✓
 pub fn verify_derived(derived: Dimension, definition: Dimension) -> bool {
     derived == definition
 }

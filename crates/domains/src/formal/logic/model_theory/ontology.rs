@@ -4,7 +4,8 @@
 //! *truth in a structure*. A sentence is a consequence of a theory
 //! (Tarski 1936) iff every model of the theory is also a model of the
 //! sentence. Model-theoretic validity is what `Axiom::holds() -> bool`
-//! currently checks — a ModelCheck witness in the [`Derivation`] framework.
+//! currently checks — a ModelCheck witness in the
+//! [`derivation`](crate::formal::logic::derivation) framework.
 //!
 //! # Literature
 //!

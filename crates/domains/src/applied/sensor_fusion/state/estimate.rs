@@ -52,8 +52,8 @@ impl StateEstimate {
     /// Confidence interval for state component at the given index.
     ///
     /// Uses the statistics ontology to compute the interval from the
-    /// estimator's distribution: the state component has mean x̂[i] and
-    /// standard deviation sqrt(P[i,i]).
+    /// estimator's distribution: the state component has mean `x̂[i]` and
+    /// standard deviation `sqrt(P[i,i])`.
     ///
     /// The confidence level (e.g. 0.95 for 95%) determines the z-score
     /// used to scale the standard deviation.

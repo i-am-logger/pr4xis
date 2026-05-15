@@ -63,7 +63,7 @@ impl DiscreteDistribution {
         1.0 - self.event_prob(indices)
     }
 
-    /// Expected value E[X] given a value function f(i).
+    /// Expected value `E[X]` given a value function f(i).
     pub fn expected_value(&self, f: &dyn Fn(usize) -> f64) -> f64 {
         self.probabilities
             .iter()
@@ -72,7 +72,7 @@ impl DiscreteDistribution {
             .sum()
     }
 
-    /// Variance Var[X] = E[X²] - E[X]².
+    /// Variance `Var[X] = E[X²] - E[X]²`.
     pub fn variance(&self, f: &dyn Fn(usize) -> f64) -> f64 {
         let mean = self.expected_value(f);
         let mean_sq = self.expected_value(&|i| f(i) * f(i));

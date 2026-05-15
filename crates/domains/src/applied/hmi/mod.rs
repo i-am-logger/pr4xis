@@ -19,8 +19,8 @@
 /// - `explorer`: self-referential reasoning-trace visualization, shader params
 ///
 /// Sources:
-/// - Base16: https://github.com/tinted-theming/home/blob/main/styling.md
-/// - Base24: https://github.com/tinted-theming/base24/blob/main/styling.md
+/// - Base16: <https://github.com/tinted-theming/home/blob/main/styling.md>
+/// - Base24: <https://github.com/tinted-theming/base24/blob/main/styling.md>
 /// - ECMA-48 (5th Ed, 1991): SGR parameters 30-37, 90-97 for ANSI colors
 /// - WCAG 2.1: contrast requirements for accessibility
 /// - Bertin, *Semiology of Graphics* (1967): visual variables

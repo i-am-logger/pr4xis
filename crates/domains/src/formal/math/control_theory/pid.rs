@@ -9,7 +9,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 /// PID control law: u(t) = Kp*e(t) + Ki*∫e(τ)dτ + Kd*de(t)/dt
 ///
 /// Discrete-time approximation:
-///   u[n] = Kp*e[n] + Ki*Σe[k]*dt + Kd*(e[n] - e[n-1])/dt
+///   `u[n] = Kp*e[n] + Ki*Σe[k]*dt + Kd*(e[n] - e[n-1])/dt`
 /// PID controller gains.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PidGains {

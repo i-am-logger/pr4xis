@@ -19,7 +19,7 @@
 //! # Use
 //!
 //! To verify a category's laws, compose them into an ontology's
-//! [`Ontology::axioms`] via [`category_law_axioms`], or verify them
+//! [`crate::ontology::Ontology::axioms`] via [`category_law_axioms`], or verify them
 //! directly:
 //!
 //! ```ignore
@@ -235,7 +235,7 @@ where
 }
 
 /// The three category laws as `Box<dyn Axiom>` instances, suitable
-/// for splicing into [`Ontology::axioms`].
+/// for splicing into [`crate::ontology::Ontology::axioms`].
 pub fn category_law_axioms<C>() -> Vec<Box<dyn Axiom>>
 where
     C: Category + 'static,
