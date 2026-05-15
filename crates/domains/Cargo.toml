@@ -41,6 +41,15 @@ default = ["std"]
 std = ["pr4xis/std"]
 fetch = ["std", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto", "dep:flate2"]
 
+[build-dependencies]
+# Statute codegen at build time. Reads workspace-root praxis.toml + praxis.lock,
+# emits Rust modules under $OUT_DIR/<name>_codegen.rs for every Statute-kind
+# source whose lock carries structural data. The crate's runtime tree then
+# `include!`s those modules under `social::compliance::law::<name>::`.
+pr4xis = { version = "0.15.0", path = "../pr4xis", default-features = false, features = ["codegen"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "1"
+
 [lints]
 workspace = true
 

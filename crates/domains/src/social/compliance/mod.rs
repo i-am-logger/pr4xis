@@ -1,8 +1,11 @@
-//! The compliance ontology — IFF classification, escalation of force, LOAC engagement rules, Geneva Convention axioms
+//! The compliance ontology — IFF classification, escalation of force,
+//! LOAC engagement rules, Geneva Convention axioms, plus US legal
+//! statutes generated from `praxis.lock`.
 pub mod classification;
 pub mod escalation;
 pub mod law;
 pub mod ontology;
+pub mod statutes;
 
 #[cfg(test)]
 mod tests;

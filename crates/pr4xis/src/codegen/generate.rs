@@ -152,11 +152,12 @@ fn write_entity_data(
 }
 
 fn write_word_index(out: &mut String, builder: &OntologyBuilder, id_map: &HashMap<&str, u32>) {
-    if builder.word_index.is_empty() {
-        return;
-    }
+    // Always emit WORD_INDEX (possibly empty) — `CODEGEN_DATA` references
+    // it unconditionally. A source whose terms carry no lemmas (e.g.,
+    // statute structural extractions before adjunction-to-English
+    // codegen runs) still needs the symbol to resolve.
 
-    // Group words by text for multi-sense lookup
+    // Group words by text for multi-sense lookup.
     let mut by_word: HashMap<&str, Vec<u32>> = HashMap::new();
     for (word, entity_id) in &builder.word_index {
         if let Some(&idx) = id_map.get(entity_id.as_str()) {
@@ -164,7 +165,7 @@ fn write_word_index(out: &mut String, builder: &OntologyBuilder, id_map: &HashMa
         }
     }
 
-    // Sort for binary search
+    // Sort for binary search.
     let mut sorted_words: Vec<(&str, &Vec<u32>)> = by_word.iter().map(|(&k, v)| (k, v)).collect();
     sorted_words.sort_by_key(|(w, _)| *w);
 
