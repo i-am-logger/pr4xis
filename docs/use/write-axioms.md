@@ -1,6 +1,6 @@
 # Write a Domain Axiom
 
-This page covers how to write a domain-specific axiom that the engine enforces at runtime. For the structural axioms that come for free with `define_ontology!` (no cycles in taxonomies, antisymmetric is-a, weak supplementation in mereologies, etc.), see [Architecture](../understand/architecture.md). This page is about the axioms *your* domain adds on top.
+This page covers how to write a domain-specific axiom that the engine enforces at runtime. For the structural axioms inherited automatically via `pr4xis::ontology::reasoning::structural_axioms_for` (no cycles on Subsumption / Parthood, antisymmetric Subsumption, symmetric Opposition, etc. — OBO-RO; Smith et al. 2005), see [Architecture](../understand/architecture.md). This page is about the axioms *your* domain adds on top.
 
 ## When you need a domain axiom
 

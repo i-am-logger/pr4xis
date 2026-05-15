@@ -96,7 +96,7 @@ When something goes wrong, the trace is where you look first. Every entry tells 
 
 ## Next
 
-Continue with **[03 — First Ontology](03-first-ontology.md)** to write your own minimal `define_ontology!` block.
+Continue with **[03 — First Ontology](03-first-ontology.md)** to write your own minimal `ontology!` block.
 
 ---
 

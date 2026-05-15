@@ -12,7 +12,7 @@ find crates/domains/src -name ontology.rs
 
 Total: 106 ontologies.
 
-Every ontology directory contains an `ontology.rs` file with the `define_ontology!` invocation that declares its concepts, relations, reasoning systems, axioms, and metadata. To understand any specific ontology, read its `ontology.rs` directly. Per-ontology `README.md` and `citings.md` files are pending [#57](https://github.com/i-am-logger/pr4xis/issues/57).
+Every ontology directory contains an `ontology.rs` file with the `pr4xis::ontology!` invocation that declares its concepts, kinded morphisms, axioms, and metadata. To understand any specific ontology, read its `ontology.rs` directly. Per-ontology `README.md` and `citings.md` files are pending [#57](https://github.com/i-am-logger/pr4xis/issues/57).
 
 ## Current organization
 
