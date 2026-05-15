@@ -38,8 +38,19 @@ jobs:
         run: |
           set -euo pipefail
           echo "PR title: $PR_TITLE"
-          if [[ ! "$PR_TITLE" =~ ^(fix|feat|feat!)(\([^)]+\))?:\  ]]; then
-            echo "::error::PR title must start with 'fix:', 'feat:', or 'feat!:' (optionally with scope, e.g. 'fix(deps): …')."
+          # Conventional Commits grammar:
+          #   <type>[(<scope>)][!]: <subject>
+          # Allowed types: fix, feat. Optional scope. Optional `!` after
+          # scope marks a breaking change (drives release-please major).
+          # Store regex in a variable — inline regex inside `[[ =~ ]]`
+          # tickles bash's shell-quoting parse rules.
+          PATTERN='^(fix|feat)(\([^)]+\))?!?: .+'
+          if [[ ! "$PR_TITLE" =~ $PATTERN ]]; then
+            echo "::error::PR title must match Conventional Commits with type 'fix' or 'feat':"
+            echo "::error::  fix: <subject>"
+            echo "::error::  fix(scope): <subject>"
+            echo "::error::  feat: <subject>"
+            echo "::error::  feat(scope)!: <subject>   (breaking change)"
             echo "::error::Got: $PR_TITLE"
             echo "::error::See memory/feedback_fix_for_release_worthy for rationale."
             exit 1
