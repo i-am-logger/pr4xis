@@ -22,3 +22,6 @@
 //! the compliance ontology.
 
 pub mod sox_1514a;
+pub mod statute;
+
+pub use statute::{Statute, StatuteConstructError};
