@@ -1293,6 +1293,8 @@ dependencies = [
  "pr4xis-derive",
  "proptest",
  "quick-xml",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
