@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.10](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.5.9...pr4xis-cli-v0.5.10) (2026-05-15)
+
+
+### Bug Fixes
+
+* **codegen:** WASM build no longer emits deleted per-def traits + CI catches it ([#174](https://github.com/i-am-logger/pr4xis/issues/174)) ([ba493f8](https://github.com/i-am-logger/pr4xis/commit/ba493f82576a3d71b5ac360ca8760cffac274163))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.14.0 to 0.14.1
+    * pr4xis-chat bumped from 0.7.3 to 0.7.4
+    * pr4xis-domains bumped from 0.18.1 to 0.18.2
+  * build-dependencies
+    * pr4xis bumped from 0.14.0 to 0.14.1
+
 ## [0.5.9](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.5.8...pr4xis-cli-v0.5.9) (2026-05-15)
 
 
