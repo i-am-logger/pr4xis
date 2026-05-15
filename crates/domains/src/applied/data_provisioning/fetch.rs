@@ -1,10 +1,18 @@
 //! Network fetch + identity verification + disk write — the materialization
 //! half of the data-provisioning layer.
 //!
-//! This module is gated behind the `fetch` feature because `ureq` + `flate2`
-//! don't build on wasm32 without additional getrandom configuration, and the
-//! WASM crate depends on pr4xis-domains with default features. Keeping these
-//! deps optional means the default build stays wasm-compatible.
+//! TLS uses `rustls` with the `rustls-rustcrypto` `CryptoProvider`. Under
+//! the workspace's default + `fetch` feature set, no `ring` / `cc` build
+//! path is enabled — `cargo tree --workspace -e build,normal --invert ring`
+//! returns empty. The `Cargo.lock` still names `ring` as a gated potential
+//! dep of `rustls-webpki` (it's behind webpki's `ring` feature, which we
+//! don't turn on); resolution declares the entry, the resolver doesn't
+//! activate it.
+//!
+//! The module is gated behind the `fetch` feature because `ureq` +
+//! `flate2` + std-only I/O don't fit the WASM build path (the WASM crate
+//! depends on pr4xis-domains with default features). Keeping these deps
+//! optional means the default build stays wasm-compatible.
 //!
 //! The module exposes a small surface:
 //!
@@ -209,18 +217,75 @@ fn do_fetch(entry: &'static RegistryEntry, path: &Path) -> FetchOutcome {
     }
 }
 
+/// Install the pure-Rust `rustls-rustcrypto` provider as the rustls process
+/// default. Called once per process from `download()`; subsequent calls are
+/// no-ops via `std::sync::Once`. `ureq` is built with the
+/// `rustls-no-provider` feature, so a provider must be installed before any
+/// TLS handshake — without this, the first HTTPS request panics inside
+/// rustls with "no process-level CryptoProvider available".
+///
+/// `install_default` returns `Err` if some other library in the same
+/// process already installed a provider (e.g. the embedding application
+/// or another rustls user). We ignore that `Err` — the existing provider
+/// will be used. We do NOT panic, because the rustls invariant is "a
+/// provider is installed," not "this specific provider is installed."
+fn install_crypto_provider() {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        // Ignore `Err` from install_default — it returns Err only when a
+        // provider is already installed, which satisfies our invariant.
+        let _ = rustls::crypto::CryptoProvider::install_default(rustls_rustcrypto::provider());
+    });
+}
+
+/// Max body bytes accepted by `download()` (the compressed wire size).
+/// ureq 3 defaults to 10 MiB; the largest registered dataset (WordNet 2025
+/// XML, gzipped on the wire) is ~12 MiB compressed, and other planned
+/// corpora can exceed that. 1 GiB is high enough to cover the foreseeable
+/// registry while still bounding the worst-case allocation if a server
+/// returns a runaway response.
+const MAX_BODY_BYTES: u64 = 1024 * 1024 * 1024;
+
+/// Max decompressed bytes accepted by `gunzip()`. The wire-side
+/// `MAX_BODY_BYTES` only caps the compressed payload; without a separate
+/// decompressed limit, a small zip bomb (e.g. 1 KiB gzip expanding to
+/// many GiB) could exhaust memory before identity verification runs.
+/// WordNet 2025 XML decompresses to ~89 MiB; 2 GiB is high enough to
+/// cover the foreseeable registry while still bounding worst-case
+/// allocation.
+const MAX_DECOMPRESSED_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+
 fn download(url: &str) -> anyhow::Result<Vec<u8>> {
-    let resp = ureq::get(url).call().map_err(|e| anyhow::anyhow!("{e}"))?;
-    let mut buf = Vec::new();
-    resp.into_reader().read_to_end(&mut buf)?;
+    install_crypto_provider();
+    let buf = ureq::get(url)
+        .call()
+        .map_err(|e| anyhow::anyhow!("{e}"))?
+        .body_mut()
+        .with_config()
+        .limit(MAX_BODY_BYTES)
+        .read_to_vec()
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
     Ok(buf)
 }
 
 fn gunzip(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     use flate2::read::GzDecoder;
-    let mut decoder = GzDecoder::new(bytes);
+    // Cap the reader at MAX_DECOMPRESSED_BYTES + 1 so we can distinguish
+    // "exactly at the limit" from "exceeded the limit." If decode produces
+    // more than MAX_DECOMPRESSED_BYTES bytes, the truncated tail is still
+    // present, so the size check below catches it.
+    let limited = std::io::Read::take(GzDecoder::new(bytes), MAX_DECOMPRESSED_BYTES + 1);
+    let mut decoder = limited;
     let mut out = Vec::new();
     decoder.read_to_end(&mut out)?;
+    if out.len() as u64 > MAX_DECOMPRESSED_BYTES {
+        anyhow::bail!(
+            "decompressed payload exceeds {} bytes (got > {})",
+            MAX_DECOMPRESSED_BYTES,
+            out.len()
+        );
+    }
     Ok(out)
 }
 

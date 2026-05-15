@@ -143,7 +143,11 @@ pub fn parse_wordnet_xml(path: &Path) -> Result<OntologyBuilder, ParseError> {
                 _ => {}
             },
             Ok(Event::Text(ref e)) => {
-                let text = e.unescape().unwrap_or_default().into_owned();
+                let decoded = e.decode().unwrap_or_default();
+                let text = match quick_xml::escape::unescape(&decoded) {
+                    Ok(unescaped) => unescaped.into_owned(),
+                    Err(_) => decoded.into_owned(),
+                };
                 match state {
                     ParseState::InDefinition => {
                         if let Some(ref mut synset) = current_synset {

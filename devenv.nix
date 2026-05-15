@@ -25,6 +25,7 @@ in
     pkgs.marp-cli
     pkgs.mdbook
     pkgs.miniserve
+    pkgs.cargo-edit
   ];
 
   # Development scripts
@@ -85,6 +86,25 @@ in
     echo "WASM ready at crates/wasm/pkg/"
   '';
 
+  # Bump every direct dep in every Cargo.toml to its latest published version
+  # (across-semver), then update Cargo.lock to the new resolution, then run
+  # the test suite to catch any breaking-API changes. The "always be on
+  # latest" policy: contributors run this periodically; new majors land in
+  # PRs labelled fix(deps): with the API-migration commit alongside.
+  scripts.dev-upgrade.exec = ''
+    echo "=== cargo upgrade (cross-semver, edits Cargo.toml) ==="
+    cargo upgrade --incompatible
+    echo "=== cargo update (within-semver, edits Cargo.lock) ==="
+    cargo update
+    echo "=== cargo test (verify upgrades don't break) ==="
+    cargo test --workspace --quiet
+    echo ""
+    echo "All deps updated to latest. Review the Cargo.toml + Cargo.lock"
+    echo "diff and commit as 'fix(deps): bump to latest <date>' (or break"
+    echo "into smaller PRs if a major-version migration touched a lot of"
+    echo "call sites)."
+  '';
+
   scripts.dev-web.exec = ''
     echo "Building WASM..."
     dev-wasm
@@ -123,6 +143,7 @@ in
     echo "  dev-data      - Fetch external data (WordNet, etc.) via 'pr4xis update'"
     echo "  dev-web       - Start dev server (/ = chatbot, /decks/technical = presentation)"
     echo "  dev-wasm      - Build WASM"
+    echo "  dev-upgrade   - Bump all deps to latest (Cargo.toml + Cargo.lock) and run tests"
     echo ""
   '';
 

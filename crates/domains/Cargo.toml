@@ -12,17 +12,23 @@ homepage = "https://github.com/i-am-logger/pr4xis"
 pr4xis = { version = "0.14.1", path = "../pr4xis", default-features = false }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
-sha2 = "0.10"
+sha2 = "0.11"
 hex = "0.4"
 anyhow = "1"
-hashbrown = "0.15"
+hashbrown = "0.17"
 
-# Network + compression — optional, behind the "fetch" feature. Excluded from
-# the default feature set because `ureq` transitively pulls in `ring` via
-# rustls, which does not build on wasm32 without additional getrandom config.
-# The WASM crate depends on pr4xis-domains with default-features, so default
-# features must stay wasm-compatible.
-ureq = { version = "2", default-features = false, features = ["tls"], optional = true }
+# Network + compression — optional, behind the `fetch` feature. TLS uses
+# rustls with the rustls-rustcrypto CryptoProvider; under the workspace's
+# active feature set no `ring` / `cc` code path is enabled (`cargo tree
+# --workspace -e build,normal --invert ring` is empty). Cargo.lock still
+# names `ring` as a gated potential dep of rustls-webpki — the resolver
+# declares it, it just doesn't activate the feature that pulls it.
+# The fetch feature stays opt-in because flate2 + std-only I/O would
+# otherwise pull into the WASM build (WASM depends on this crate with
+# default features).
+ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "rustls-webpki-roots"], optional = true }
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "logging"], optional = true }
+rustls-rustcrypto = { version = "0.0.2-alpha", optional = true }
 flate2 = { version = "1", optional = true }
 
 [features]
@@ -32,7 +38,7 @@ default = ["std"]
 # loader). The categorical stack (ontologies + functors + axioms) runs
 # no_std + alloc; per issue #91, only these 4 I/O surfaces need std.
 std = ["pr4xis/std"]
-fetch = ["std", "dep:ureq", "dep:flate2"]
+fetch = ["std", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto", "dep:flate2"]
 
 [lints]
 workspace = true
