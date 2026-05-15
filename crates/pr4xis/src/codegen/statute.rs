@@ -1,11 +1,12 @@
 //! Statute → `OntologyBuilder` codegen.
 //!
 //! Mirrors the [`super::wordnet`] codegen path but for legal statutes.
-//! Input: a structural JSON file (Lumen-style: `terms[]` + `relations[]`)
-//! that names the statute's concepts and the relations between them. The
-//! verbatim statutory text lives in a sibling `.txt` file (fetched via
-//! [`data_provisioning`][crate-doc] and hash-verified); this parser does
-//! not read it directly — it only consumes the structured terms.
+//! Input: a structural JSON file (praxis's statute schema: `terms[]` +
+//! `relations[]`) that names the statute's concepts and the relations
+//! between them. The verbatim statutory text lives in a sibling `.txt`
+//! file (fetched via [`data_provisioning`][crate-doc] and hash-verified);
+//! this parser does not read it directly — it only consumes the
+//! structured terms.
 //!
 //! Output: an [`OntologyBuilder`] populated with entities + relations,
 //! ready for [`generate_rust`][super::generate_rust] to emit a static
@@ -15,10 +16,9 @@
 //!
 //! # Relation-type mapping
 //!
-//! Statutes naturally carry richer relation semantics than the five
-//! canonical kinds [`OntologyBuilder`] currently models. The 13
-//! conventional-commit relation types in the structural JSON (per the
-//! Lumen schema) map as follows:
+//! Statutes carry richer relation semantics than the five canonical
+//! kinds [`OntologyBuilder`] currently models. The 13 statute relation
+//! types in the structural JSON map as follows:
 //!
 //! | JSON `relation` | OntologyBuilder kind | Rationale |
 //! |---|---|---|
@@ -93,10 +93,9 @@ impl core::fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
-/// Parse a Lumen-style structural-statute JSON file into an
-/// [`OntologyBuilder`]. Each `term` becomes an `EntityDef`; each
-/// `relation` becomes a kinded edge per the mapping in the module-level
-/// doc table.
+/// Parse a structural-statute JSON file into an [`OntologyBuilder`].
+/// Each `term` becomes an `EntityDef`; each `relation` becomes a kinded
+/// edge per the mapping in the module-level doc table.
 pub fn parse_statute_json(path: &Path) -> Result<OntologyBuilder, ParseError> {
     let raw = std::fs::read_to_string(path)
         .map_err(|e| ParseError::Read(path.display().to_string(), e))?;
@@ -162,7 +161,7 @@ fn build_from_doc(doc: &RawStatuteDoc) -> OntologyBuilder {
 }
 
 // ---------------------------------------------------------------------------
-// Lumen-compatible JSON schema (serde-deserialized).
+// Statute structural-JSON schema (serde-deserialized).
 //
 // Fields not consumed at this layer (e.g. `valence`, `obligations`,
 // `deadlines`, `rights`, `remedies`, `burdens`, `exceptions`,
@@ -193,9 +192,9 @@ struct RawTerm {
     name: String,
     #[serde(default)]
     definition: String,
-    /// Surface-form lemmas the term uses. Optional in the Lumen schema
-    /// today; populated for the cases where the JSON carries them. Seed
-    /// for the statute↔English adjunction.
+    /// Surface-form lemmas the term uses. Optional in the schema;
+    /// populated for the cases where the JSON carries them. Seed for
+    /// the statute↔English adjunction (downstream codegen pass).
     #[serde(default)]
     lemmas: Vec<String>,
 }
@@ -207,10 +206,10 @@ struct RawRelation {
     relation: RawRel,
 }
 
-/// The 13 Lumen-conventional relation types. `#[serde(rename_all)]` is
-/// intentionally omitted: Lumen serialises variants as struct-tagged
-/// PascalCase (`{"Composes": {"into": "claim"}}`), which serde-untagged
-/// + the default external tagging produce naturally for enums.
+/// The 13 statute relation types. The on-disk format serialises
+/// variants as struct-tagged PascalCase (`{"Composes": {"into":
+/// "claim"}}`), which serde's default external tagging produces
+/// naturally for enums.
 #[derive(Debug, Deserialize)]
 enum RawRel {
     Requires,
@@ -342,8 +341,9 @@ mod tests {
 
     #[test]
     fn unknown_fields_are_ignored() {
-        // Real Lumen JSON carries valence, obligations, deadlines, etc.
-        // We accept-and-ignore them at this layer.
+        // Real-world statute JSONs may carry additional fields like
+        // valence, obligations, deadlines, etc. We accept-and-ignore
+        // them at this layer; a later codegen pass will lift them.
         let json = r#"{
             "name": "test",
             "description": "x",
