@@ -261,3 +261,201 @@ from = "sox_1514a:d"
 to = "sox_1514a:c1"
 relation = "Implies"
 
+# AIR21 § 42121 (49 U.S.C. § 42121). 17 terms / 21 relations covering
+# both subsection (a) substantive whistleblower protection and the
+# subsection (b) procedural framework that SOX § 1514A(b)(2)(C)
+# imports by reference. Bootstrap extraction pending PDF/HTML loader;
+# no [hashes] entry — Stub identity claim until the loader exists.
+[structural."air21_42121@2010"]
+description = "49 U.S.C. § 42121 — Protection of employees providing air safety information; substantive prohibition in (a) and the four-clause burden-shifting framework in (b)(2)(B) that SOX § 1514A imports by reference."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:a"
+name = "Discrimination Prohibited"
+definition = "An air carrier, or contractor or subcontractor of an air carrier, may not discharge an employee or otherwise discriminate against an employee with respect to compensation, terms, conditions, or privileges of employment because the employee engaged in protected activity."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:a_1"
+name = "Protected Activity: Provided Information"
+definition = "Employee provided, caused to be provided, or is about to provide (with knowledge of the employer) to the employer or to the Federal Government information relating to any violation or alleged violation of any order, regulation, or standard of the Federal Aviation Administration or any other provision of Federal law relating to air carrier safety."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:a_2"
+name = "Protected Activity: Filed Proceeding"
+definition = "Employee has filed, caused to be filed, or is about to file (with any knowledge of the employer) a proceeding relating to any violation or alleged violation of air carrier safety law."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:a_3"
+name = "Protected Activity: Testified or Participated"
+definition = "Employee testified or will testify in such a proceeding."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:a_4"
+name = "Protected Activity: Assisted or Participated"
+definition = "Employee assisted or participated, or is about to assist or participate, in such a proceeding."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b1"
+name = "Complaint Filing with Secretary of Labor"
+definition = "A person who believes that the person has been discharged or otherwise discriminated against by any person in violation of subsection (a) may file (or have any person file on the person's behalf) a complaint with the Secretary of Labor alleging the discharge or discrimination."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b2"
+name = "Investigation"
+definition = "The Secretary of Labor shall conduct an investigation of the complaint and notify in writing the complainant and the person alleged to have committed the violation of the allegations and of the substance of evidence supporting the complaint."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b2a"
+name = "Investigation Procedures"
+definition = "Within 60 days of receipt of a complaint, and after affording the person alleged to have committed the violation an opportunity to submit a response and to meet with the investigators to present statements from witnesses, the Secretary of Labor shall conduct an investigation."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b2b"
+name = "Required Showing of Complaint"
+definition = "The burden-shifting framework governing dismissal, investigation, merits determination, and ordering of relief. Contains the four operative clauses (i)-(iv) establishing contributing-factor and clear-and-convincing same-action standards."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b2b_i"
+name = "Prima Facie Investigation Gate"
+definition = "The Secretary shall dismiss a complaint and shall not conduct an investigation unless the complainant makes a prima facie showing that any behavior described in paragraphs (1)-(4) of subsection (a) was a contributing factor in the unfavorable personnel action alleged in the complaint."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b2b_ii"
+name = "Investigation-Gate Same-Action Defense"
+definition = "Notwithstanding a finding by the Secretary that the complainant has made the prima facie showing required under clause (i), no investigation shall be conducted if the employer demonstrates, by clear and convincing evidence, that the employer would have taken the same unfavorable personnel action in the absence of that behavior."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b2b_iii"
+name = "Merits Contributing-Factor Demonstration"
+definition = "The Secretary may determine that a violation of subsection (a) has occurred only if the complainant demonstrates that any behavior described in paragraphs (1)-(4) of subsection (a) was a contributing factor in the unfavorable personnel action alleged in the complaint."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b2b_iv"
+name = "Merits Same-Action Defense"
+definition = "Relief may not be ordered if the employer demonstrates by clear and convincing evidence that the employer would have taken the same unfavorable personnel action in the absence of that behavior."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b3"
+name = "Final Order"
+definition = "Not later than 120 days after the date of conclusion of the hearing, the Secretary of Labor shall issue a final order providing the relief prescribed by this section or denying the complaint. The Secretary may enter into a settlement agreement at any time before the issuance of the final order."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b4"
+name = "Civil Action to Enforce Order"
+definition = "If the Secretary of Labor has not issued a final order within 210 days after the filing of the complaint or within 90 days after receipt of a written determination, the complainant may bring an action at law or equity for de novo review in the appropriate district court, which shall have jurisdiction without regard to amount in controversy."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b5"
+name = "De Novo Review in District Court"
+definition = "An action brought under paragraph (4) shall be governed by the same legal burdens of proof set forth in paragraph (2)(B). The complainant has the right to trial by jury."
+
+[[structural."air21_42121@2010".terms]]
+id = "air21_42121:b6"
+name = "Filing Penalties"
+definition = "If the Secretary finds that a complaint under paragraph (1) is frivolous or has been brought in bad faith, the Secretary may award to the prevailing employer a reasonable attorney's fee not to exceed $1,000."
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:a_1"
+to = "air21_42121:a"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:a_2"
+to = "air21_42121:a"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:a_3"
+to = "air21_42121:a"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:a_4"
+to = "air21_42121:a"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:a_1"
+to = "air21_42121:a_2"
+relation = "AlternativeTo"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:a_2"
+to = "air21_42121:a_3"
+relation = "AlternativeTo"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:a_3"
+to = "air21_42121:a_4"
+relation = "AlternativeTo"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b1"
+to = "air21_42121:b2"
+relation = "Precedes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b1"
+to = "air21_42121:a"
+relation = "Requires"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2a"
+to = "air21_42121:b2"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2b"
+to = "air21_42121:b2"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2b_i"
+to = "air21_42121:b2b"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2b_ii"
+to = "air21_42121:b2b"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2b_iii"
+to = "air21_42121:b2b"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2b_iv"
+to = "air21_42121:b2b"
+relation = "Composes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2b_ii"
+to = "air21_42121:b2b_i"
+relation = "AffirmativeDefenseTo"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2b_iv"
+to = "air21_42121:b2b_iii"
+relation = "AffirmativeDefenseTo"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2b_i"
+to = "air21_42121:b2b_iii"
+relation = "ExhaustionRequiredFor"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b2"
+to = "air21_42121:b3"
+relation = "Precedes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b3"
+to = "air21_42121:b5"
+relation = "Precedes"
+
+[[structural."air21_42121@2010".relations]]
+from = "air21_42121:b5"
+to = "air21_42121:b4"
+relation = "AlternativeTo"
+

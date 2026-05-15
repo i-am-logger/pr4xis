@@ -53,6 +53,17 @@ type        = "Statute"
 url         = "https://www.govinfo.gov/content/pkg/USCODE-2018-title18/html/USCODE-2018-title18-partI-chap73-sec1514A.htm"
 description = "18 U.S.C. § 1514A — Civil action to protect against retaliation in fraud cases"
 
+# AIR21 — Wendell H. Ford Aviation Investment and Reform Act for the
+# 21st Century, codified at 49 U.S.C. § 42121 (added 2000; substantive
+# Dodd-Frank amendments 2010). § 42121(b)(2)(B) is the four-clause
+# burden-shifting framework that SOX § 1514A(b)(2)(C) imports by
+# reference. Same static-store pattern as sox_1514a.
+[sources.air21_42121]
+version     = "2010"
+type        = "Statute"
+url         = "https://www.govinfo.gov/content/pkg/USCODE-2018-title49/html/USCODE-2018-title49-subtitleVII-partA-subpartiii-chap421-sec42121.htm"
+description = "49 U.S.C. § 42121 — Protection of employees providing air safety information; the four-clause burden-shifting framework SOX § 1514A imports by reference"
+
 # ---------------------------------------------------------------------------
 # Procedural rules (federal)
 # ---------------------------------------------------------------------------

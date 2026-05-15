@@ -21,6 +21,7 @@
 //! the `law` module name while still grouping them with the rest of
 //! the compliance ontology.
 
+pub mod air21_42121;
 pub mod sox_1514a;
 pub mod statute;
 
