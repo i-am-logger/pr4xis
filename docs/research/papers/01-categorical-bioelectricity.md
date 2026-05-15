@@ -4,8 +4,6 @@
 
 Provable Ontologies for Levin's Bioelectric Framework via Functors, Adjunctions, and Machine-Verified Axioms
 
-> **Editorial note (2026-05-14):** the praxis API has evolved since this paper's first draft. Where the text names per-relation traits — `TaxonomyDef`, `MereologyDef`, `CausalDef`, `OppositionDef` — the current implementation expresses the same content as kind-tagged morphisms (`Kind::Subsumption`, `Kind::Parthood`, `Kind::Causation`, `Kind::Opposition`) on a single `Arrow` trait, with structural axioms (`NoCyclesOnKind`, `AntisymmetricOnKind`, `AsymmetricOnKind`, `IrreflexiveOnKind`, `SymmetricOnKind`) attached automatically by the catalog at `pr4xis::ontology::reasoning::structural_axioms_for` (OBO-RO; Smith et al. 2005; Tarski 1941). The *content* and *axioms* are unchanged — only the trait surface differs. Footnote grep commands have been updated to reflect the current source layout.
-
 ## Abstract
 
 Dr. Michael Levin's bioelectric framework proposes that endogenous membrane
