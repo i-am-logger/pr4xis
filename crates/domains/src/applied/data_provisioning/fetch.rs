@@ -1,10 +1,12 @@
 //! Network fetch + identity verification + disk write — the materialization
 //! half of the data-provisioning layer.
 //!
-//! This module is gated behind the `fetch` feature because `ureq` + `flate2`
-//! don't build on wasm32 without additional getrandom configuration, and the
-//! WASM crate depends on pr4xis-domains with default features. Keeping these
-//! deps optional means the default build stays wasm-compatible.
+//! TLS is pure Rust (`rustls` + `rustls-rustcrypto`), so the network stack
+//! pulls in zero C build dependencies. The module is still gated behind the
+//! `fetch` feature because `ureq` + `flate2` + std-only I/O don't fit the
+//! WASM build path (the WASM crate depends on pr4xis-domains with default
+//! features). Keeping these deps optional means the default build stays
+//! wasm-compatible.
 //!
 //! The module exposes a small surface:
 //!
@@ -209,10 +211,39 @@ fn do_fetch(entry: &'static RegistryEntry, path: &Path) -> FetchOutcome {
     }
 }
 
+/// Install the pure-Rust `rustls-rustcrypto` provider as the rustls process
+/// default. Called once per process from `download()`; subsequent calls are
+/// no-ops via `std::sync::Once`. `ureq` is built with the
+/// `rustls-no-provider` feature, so a provider must be installed before any
+/// TLS handshake — without this, the first HTTPS request panics inside
+/// rustls with "no process-level CryptoProvider available".
+fn install_crypto_provider() {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        rustls::crypto::CryptoProvider::install_default(rustls_rustcrypto::provider())
+            .expect("install rustcrypto provider");
+    });
+}
+
+/// Max body bytes accepted by `download()`. ureq 3 defaults to 10 MiB to
+/// prevent memory exhaustion on hostile servers; the largest registered
+/// dataset (WordNet 2025 XML) is ~89 MiB, and other planned corpora can
+/// exceed that. 1 GiB is high enough to cover the foreseeable registry
+/// while still bounding the worst-case allocation if a server returns a
+/// runaway response.
+const MAX_BODY_BYTES: u64 = 1024 * 1024 * 1024;
+
 fn download(url: &str) -> anyhow::Result<Vec<u8>> {
-    let resp = ureq::get(url).call().map_err(|e| anyhow::anyhow!("{e}"))?;
-    let mut buf = Vec::new();
-    resp.into_reader().read_to_end(&mut buf)?;
+    install_crypto_provider();
+    let buf = ureq::get(url)
+        .call()
+        .map_err(|e| anyhow::anyhow!("{e}"))?
+        .body_mut()
+        .with_config()
+        .limit(MAX_BODY_BYTES)
+        .read_to_vec()
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
     Ok(buf)
 }
 
