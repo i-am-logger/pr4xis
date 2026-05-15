@@ -29,22 +29,6 @@ pub fn generate_rust(builder: &OntologyBuilder, config: &GenerateConfig) -> Stri
     write_entity_type(&mut out, config, builder, &id_map);
     write_entity_data(&mut out, config, builder, &id_map);
     write_word_index(&mut out, builder, &id_map);
-
-    // Per-def trait impls (TaxonomyDef, EquivalenceDef, OppositionDef,
-    // MereologyDef, CausalDef) were deleted in #168 — relations now live
-    // as kinded morphisms in Category::morphisms() filtered by Kind, and
-    // the catalog (`structural_axioms_for::<C>()`) replaces per-def
-    // axiom types. Downstream consumers read RAW_* arrays written by
-    // `write_codegen_data` instead (see `from_codegen` in
-    // `pr4xis-domains::cognitive::linguistics::language`).
-    let _ = (
-        &config.taxonomy_name,
-        &config.equivalence_name,
-        &config.opposition_name,
-        &config.mereology_name,
-        &config.causation_name,
-    );
-
     write_stats(&mut out, builder);
     write_codegen_data(&mut out, config, builder, &id_map);
 

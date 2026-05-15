@@ -15,11 +15,7 @@ fn main() {
     let builder = pr4xis::codegen::wordnet::parse_wordnet_xml(path)
         .expect("failed to parse WordNet XML at build time");
 
-    let config = pr4xis::codegen::GenerateConfig::new("english_codegen", "ConceptId")
-        .taxonomy("EnglishTaxonomy")
-        .equivalence("EnglishEquivalence")
-        .opposition("EnglishOpposition")
-        .mereology("EnglishMereology");
+    let config = pr4xis::codegen::GenerateConfig::new("english_codegen", "ConceptId");
 
     let code = builder.generate(&config);
 
