@@ -34,6 +34,8 @@
 
 include!(concat!(env!("OUT_DIR"), "/air21_42121_codegen.rs"));
 
+pub mod canonical_audit;
+
 use std::sync::OnceLock;
 
 use super::{Statute, StatuteConstructError};
