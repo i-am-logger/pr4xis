@@ -1,5 +1,6 @@
 pub mod argument;
 pub mod authority;
+pub mod authority_strength;
 pub mod citation;
 pub mod decision;
 pub mod element;

@@ -16,6 +16,8 @@
 
 include!(concat!(env!("OUT_DIR"), "/sox_1514a_codegen.rs"));
 
+pub mod proof_standard;
+
 use std::sync::OnceLock;
 
 use super::{Statute, StatuteConstructError};
