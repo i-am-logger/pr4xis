@@ -38,15 +38,15 @@ impl EntityDef {
 }
 
 /// Configuration for code generation.
+///
+/// Per-def trait names (taxonomy/equivalence/opposition/mereology/causation)
+/// were removed in #168 alongside the per-def traits themselves. Relations
+/// now travel through the codegen output as `RAW_*` arrays consumed by
+/// `from_codegen` in `pr4xis-domains::cognitive::linguistics::language`.
 #[derive(Debug, Clone)]
 pub struct GenerateConfig {
     pub module_name: String,
     pub entity_type_name: String,
-    pub taxonomy_name: Option<String>,
-    pub equivalence_name: Option<String>,
-    pub opposition_name: Option<String>,
-    pub mereology_name: Option<String>,
-    pub causation_name: Option<String>,
 }
 
 impl GenerateConfig {
@@ -54,37 +54,7 @@ impl GenerateConfig {
         Self {
             module_name: module_name.into(),
             entity_type_name: entity_type.into(),
-            taxonomy_name: None,
-            equivalence_name: None,
-            opposition_name: None,
-            mereology_name: None,
-            causation_name: None,
         }
-    }
-
-    pub fn taxonomy(mut self, name: &str) -> Self {
-        self.taxonomy_name = Some(name.into());
-        self
-    }
-
-    pub fn equivalence(mut self, name: &str) -> Self {
-        self.equivalence_name = Some(name.into());
-        self
-    }
-
-    pub fn opposition(mut self, name: &str) -> Self {
-        self.opposition_name = Some(name.into());
-        self
-    }
-
-    pub fn mereology(mut self, name: &str) -> Self {
-        self.mereology_name = Some(name.into());
-        self
-    }
-
-    pub fn causation(mut self, name: &str) -> Self {
-        self.causation_name = Some(name.into());
-        self
     }
 }
 

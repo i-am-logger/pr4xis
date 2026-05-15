@@ -37,6 +37,10 @@ jobs:
           - name: Test Results
             command: cargo nextest run --workspace --profile ci
             master-only: true
+          - name: WASM
+            command: cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown
+            wasm-target: true
+            needs-wordnet: true
     steps:
       - uses: actions/checkout@v4
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
@@ -47,14 +51,21 @@ jobs:
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
         with:
           components: clippy, rustfmt, llvm-tools-preview
+          targets: ${{ matrix.wasm-target && 'wasm32-unknown-unknown' || '' }}
       - uses: Swatinem/rust-cache@v2
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
       - uses: taiki-e/install-action@cargo-llvm-cov
         if: matrix.name == 'Coverage' && github.event_name == 'push' && github.ref == 'refs/heads/master'
       - uses: taiki-e/install-action@cargo-nextest
         if: matrix.name == 'Test Results' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - name: Cache WordNet XML
+        if: "(matrix.name == 'Test' || matrix.name == 'Coverage' || matrix.name == 'Test Results' || matrix.needs-wordnet) && (!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master'))"
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
       - name: Fetch external data via pr4xis update
-        if: "(matrix.name == 'Test' || matrix.name == 'Coverage' || matrix.name == 'Test Results') && (!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master'))"
+        if: "(matrix.name == 'Test' || matrix.name == 'Coverage' || matrix.name == 'Test Results' || matrix.needs-wordnet) && (!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master'))"
         run: cargo run -p pr4xis-cli --release -- update
       - name: Run ${{ matrix.name }}
         if: "!matrix.master-only || (github.event_name == 'push' && github.ref == 'refs/heads/master')"
@@ -93,6 +104,11 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+      - name: Cache WordNet XML
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
       - name: Fetch WordNet (needed by wasm build.rs codegen step)
         run: cargo run -p pr4xis-cli --release --quiet -- update
       - name: Install wasm-pack

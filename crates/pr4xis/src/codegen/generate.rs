@@ -6,10 +6,14 @@ use super::builder::{GenerateConfig, OntologyBuilder};
 /// Generate Rust source code from ontology data.
 ///
 /// Produces a module containing:
-/// - Entity type (newtype over u32) implementing pr4xis::category::Entity
-/// - Static arrays for all entities and relations
-/// - TaxonomyDef, EquivalenceDef, OppositionDef, MereologyDef, CausalDef implementations
-/// - Word lookup functions with cached adjacency maps
+/// - Entity type (newtype over u32) implementing `pr4xis::category::Concept`
+/// - Static `ENTITY_LABELS` + raw relation arrays (`RAW_TAXONOMY`,
+///   `RAW_EQUIVALENCE`, `RAW_OPPOSITION`, `RAW_MEREOLOGY`, `RAW_CAUSATION`)
+/// - Word-lookup functions with cached adjacency maps
+///
+/// Per-def trait impls (`TaxonomyDef`, `EquivalenceDef`, `OppositionDef`,
+/// `MereologyDef`, `CausalDef`) were deleted in #168; consumers read the
+/// `RAW_*` arrays and feed them into kinded morphisms.
 pub fn generate_rust(builder: &OntologyBuilder, config: &GenerateConfig) -> String {
     let mut out = String::new();
 
@@ -25,58 +29,6 @@ pub fn generate_rust(builder: &OntologyBuilder, config: &GenerateConfig) -> Stri
     write_entity_type(&mut out, config, builder, &id_map);
     write_entity_data(&mut out, config, builder, &id_map);
     write_word_index(&mut out, builder, &id_map);
-
-    if let Some(name) = &config.taxonomy_name {
-        write_relation_impl(
-            &mut out,
-            name,
-            "TaxonomyDef",
-            &config.entity_type_name,
-            &builder.taxonomy,
-            &id_map,
-        );
-    }
-    if let Some(name) = &config.equivalence_name {
-        write_relation_impl(
-            &mut out,
-            name,
-            "EquivalenceDef",
-            &config.entity_type_name,
-            &builder.equivalence,
-            &id_map,
-        );
-    }
-    if let Some(name) = &config.opposition_name {
-        write_relation_impl(
-            &mut out,
-            name,
-            "OppositionDef",
-            &config.entity_type_name,
-            &builder.opposition,
-            &id_map,
-        );
-    }
-    if let Some(name) = &config.mereology_name {
-        write_relation_impl(
-            &mut out,
-            name,
-            "MereologyDef",
-            &config.entity_type_name,
-            &builder.mereology,
-            &id_map,
-        );
-    }
-    if let Some(name) = &config.causation_name {
-        write_relation_impl(
-            &mut out,
-            name,
-            "CausalDef",
-            &config.entity_type_name,
-            &builder.causation,
-            &id_map,
-        );
-    }
-
     write_stats(&mut out, builder);
     write_codegen_data(&mut out, config, builder, &id_map);
 
@@ -237,79 +189,6 @@ fn write_word_index(out: &mut String, builder: &OntologyBuilder, id_map: &HashMa
     writeln!(out, "    }}").unwrap();
     writeln!(out, "}}").unwrap();
     writeln!(out).unwrap();
-}
-
-fn write_relation_impl(
-    out: &mut String,
-    struct_name: &str,
-    trait_name: &str,
-    entity_type: &str,
-    relations: &[(String, String)],
-    id_map: &HashMap<&str, u32>,
-) {
-    // Static array of relation pairs
-    let array_name = format!("{}_RELATIONS", struct_name.to_uppercase());
-    writeln!(
-        out,
-        "static {array_name}: &[({entity_type}, {entity_type})] = &["
-    )
-    .unwrap();
-
-    let mut count = 0;
-    for (a, b) in relations {
-        if let (Some(&a_idx), Some(&b_idx)) = (id_map.get(a.as_str()), id_map.get(b.as_str())) {
-            writeln!(out, "    ({entity_type}({a_idx}), {entity_type}({b_idx})),").unwrap();
-            count += 1;
-        }
-    }
-    writeln!(out, "];").unwrap();
-    writeln!(out).unwrap();
-
-    // Struct + trait impl
-    writeln!(out, "pub struct {struct_name};").unwrap();
-    writeln!(out).unwrap();
-
-    // Map trait name to the correct use path and method
-    let (use_path, method_sig) = match trait_name {
-        "TaxonomyDef" => (
-            "pr4xis::ontology::reasoning::taxonomy::TaxonomyDef",
-            format!(
-                "    type Concept = {entity_type};\n    fn relations() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
-            ),
-        ),
-        "EquivalenceDef" => (
-            "pr4xis::ontology::reasoning::equivalence::EquivalenceDef",
-            format!(
-                "    type Concept = {entity_type};\n    fn pairs() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
-            ),
-        ),
-        "OppositionDef" => (
-            "pr4xis::ontology::reasoning::opposition::OppositionDef",
-            format!(
-                "    type Concept = {entity_type};\n    fn pairs() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
-            ),
-        ),
-        "MereologyDef" => (
-            "pr4xis::ontology::reasoning::mereology::MereologyDef",
-            format!(
-                "    type Concept = {entity_type};\n    fn relations() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
-            ),
-        ),
-        "CausalDef" => (
-            "pr4xis::ontology::reasoning::causation::CausalDef",
-            format!(
-                "    type Concept = {entity_type};\n    fn relations() -> Vec<({entity_type}, {entity_type})> {{ {array_name}.to_vec() }}"
-            ),
-        ),
-        _ => return,
-    };
-
-    writeln!(out, "impl {use_path} for {struct_name} {{").unwrap();
-    writeln!(out, "{method_sig}").unwrap();
-    writeln!(out, "}}").unwrap();
-    writeln!(out).unwrap();
-
-    eprintln!("  codegen: {struct_name} ({trait_name}) — {count} relations");
 }
 
 fn write_codegen_data(
