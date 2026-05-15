@@ -5,7 +5,7 @@ use std::sync::Arc;
 use clap::{Parser, Subcommand};
 use pr4xis_chat as chat;
 use pr4xis_domains::applied::data_provisioning::fetch::{self, FetchOptions, FetchOutcome};
-use pr4xis_domains::applied::data_provisioning::registry::{DATA_SOURCES, by_name};
+use pr4xis_domains::applied::data_provisioning::registry::{by_name, data_sources};
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
@@ -110,7 +110,7 @@ fn run_update(
 
 fn print_list() {
     println!("Registered datasets:");
-    for entry in DATA_SOURCES {
+    for entry in data_sources() {
         println!("  {} — {}", entry.name, entry.description);
         println!("    remote: {}", entry.remote_location);
         println!("    local:  {}", entry.local_path);

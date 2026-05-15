@@ -168,12 +168,12 @@ pub enum ClaimData {
         digest_hex: String,
     },
     XmlAttribute {
-        element: &'static str,
-        attribute: &'static str,
+        element: String,
+        attribute: String,
         expected: String,
     },
     Stub {
-        reason: &'static str,
+        reason: String,
     },
 }
 

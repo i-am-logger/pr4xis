@@ -36,7 +36,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::RegistryEntry;
-use super::registry::{DATA_SOURCES, resolve_identity};
+use super::registry::data_sources;
 use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
 };
@@ -62,26 +62,26 @@ pub struct FetchOptions {
 #[derive(Debug)]
 pub enum FetchOutcome {
     /// Local copy exists and every identity claim verifies.
-    AlreadyVerified { name: &'static str },
+    AlreadyVerified { name: String },
     /// Fetched fresh bytes and wrote them to disk; every claim verified.
     Fetched {
-        name: &'static str,
+        name: String,
         path: PathBuf,
         bytes: usize,
     },
     /// Local file exists but at least one identity claim failed. The file
     /// is kept on disk; callers decide whether to retry or give up.
     VerificationFailed {
-        name: &'static str,
+        name: String,
         path: PathBuf,
         reason: String,
     },
     /// File is absent and `check` was set, so nothing was fetched.
-    MissingAndCheckOnly { name: &'static str, path: PathBuf },
+    MissingAndCheckOnly { name: String, path: PathBuf },
     /// File is absent and `offline` was set, so we couldn't fetch.
-    MissingAndOffline { name: &'static str, path: PathBuf },
+    MissingAndOffline { name: String, path: PathBuf },
     /// Network or disk error during fetch.
-    FetchError { name: &'static str, reason: String },
+    FetchError { name: String, reason: String },
 }
 
 impl FetchOutcome {
@@ -98,7 +98,7 @@ impl FetchOutcome {
 /// per-entry failures so the caller gets a full report — one outcome per
 /// registered dataset, in registry order.
 pub fn fetch_all(opts: FetchOptions, workspace_root: &Path) -> Vec<FetchOutcome> {
-    DATA_SOURCES
+    data_sources()
         .iter()
         .map(|entry| fetch_entry(entry, opts, workspace_root))
         .collect()
@@ -108,26 +108,28 @@ pub fn fetch_all(opts: FetchOptions, workspace_root: &Path) -> Vec<FetchOutcome>
 /// precedence (`check` dominates `force`; `offline` never changes to
 /// `MissingAndOffline` when a local file is present).
 pub fn fetch_entry(
-    entry: &'static RegistryEntry,
+    entry: &RegistryEntry,
     opts: FetchOptions,
     workspace_root: &Path,
 ) -> FetchOutcome {
-    let path = workspace_root.join(entry.local_path);
+    let path = workspace_root.join(&entry.local_path);
 
     // `--check` is read-only and always wins over `--force`.
     if opts.check {
         return if path.exists() {
             match verify_local(entry, &path) {
-                Ok(()) => FetchOutcome::AlreadyVerified { name: entry.name },
+                Ok(()) => FetchOutcome::AlreadyVerified {
+                    name: entry.name.clone(),
+                },
                 Err(reason) => FetchOutcome::VerificationFailed {
-                    name: entry.name,
+                    name: entry.name.clone(),
                     path,
                     reason,
                 },
             }
         } else {
             FetchOutcome::MissingAndCheckOnly {
-                name: entry.name,
+                name: entry.name.clone(),
                 path,
             }
         };
@@ -135,12 +137,14 @@ pub fn fetch_entry(
 
     if path.exists() && !opts.force {
         return match verify_local(entry, &path) {
-            Ok(()) => FetchOutcome::AlreadyVerified { name: entry.name },
+            Ok(()) => FetchOutcome::AlreadyVerified {
+                name: entry.name.clone(),
+            },
             // Local file exists but verification failed: report the
             // failure reason. `offline` does NOT mask it — the file is
             // not missing, it's unverified.
             Err(reason) if opts.offline => FetchOutcome::VerificationFailed {
-                name: entry.name,
+                name: entry.name.clone(),
                 path,
                 reason,
             },
@@ -150,7 +154,7 @@ pub fn fetch_entry(
 
     if opts.offline {
         return FetchOutcome::MissingAndOffline {
-            name: entry.name,
+            name: entry.name.clone(),
             path,
         };
     }
@@ -162,12 +166,12 @@ pub fn fetch_entry(
 // Internal: download + verify + write
 // --------------------------------------------------------------------------
 
-fn do_fetch(entry: &'static RegistryEntry, path: &Path) -> FetchOutcome {
-    let bytes = match download(entry.remote_location) {
+fn do_fetch(entry: &RegistryEntry, path: &Path) -> FetchOutcome {
+    let bytes = match download(&entry.remote_location) {
         Ok(b) => b,
         Err(e) => {
             return FetchOutcome::FetchError {
-                name: entry.name,
+                name: entry.name.clone(),
                 reason: format!("download failed: {e}"),
             };
         }
@@ -178,7 +182,7 @@ fn do_fetch(entry: &'static RegistryEntry, path: &Path) -> FetchOutcome {
             Ok(b) => b,
             Err(e) => {
                 return FetchOutcome::FetchError {
-                    name: entry.name,
+                    name: entry.name.clone(),
                     reason: format!("gunzip failed: {e}"),
                 };
             }
@@ -189,7 +193,7 @@ fn do_fetch(entry: &'static RegistryEntry, path: &Path) -> FetchOutcome {
 
     if let Err(reason) = verify_bytes(entry, &bytes) {
         return FetchOutcome::VerificationFailed {
-            name: entry.name,
+            name: entry.name.clone(),
             path: path.to_path_buf(),
             reason,
         };
@@ -199,19 +203,19 @@ fn do_fetch(entry: &'static RegistryEntry, path: &Path) -> FetchOutcome {
         && let Err(e) = fs::create_dir_all(parent)
     {
         return FetchOutcome::FetchError {
-            name: entry.name,
+            name: entry.name.clone(),
             reason: format!("mkdir {}: {e}", parent.display()),
         };
     }
     if let Err(e) = fs::write(path, &bytes) {
         return FetchOutcome::FetchError {
-            name: entry.name,
+            name: entry.name.clone(),
             reason: format!("write {}: {e}", path.display()),
         };
     }
 
     FetchOutcome::Fetched {
-        name: entry.name,
+        name: entry.name.clone(),
         path: path.to_path_buf(),
         bytes: bytes.len(),
     }
@@ -289,7 +293,7 @@ fn gunzip(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(out)
 }
 
-fn verify_local(entry: &'static RegistryEntry, path: &Path) -> Result<(), String> {
+fn verify_local(entry: &RegistryEntry, path: &Path) -> Result<(), String> {
     let bytes = fs::read(path).map_err(|e| format!("read {}: {e}", path.display()))?;
     verify_bytes(entry, &bytes)
 }
@@ -300,12 +304,9 @@ fn verify_local(entry: &'static RegistryEntry, path: &Path) -> Result<(), String
 /// rejection here — the pipeline is fail-closed, so a claim we cannot
 /// evaluate is treated as a failure, not a skip. This keeps
 /// `VerificationFailClosed` honest.
-fn verify_bytes(entry: &'static RegistryEntry, bytes: &[u8]) -> Result<(), String> {
-    let identity = resolve_identity(entry.name)
-        .ok_or_else(|| format!("no resolved identity for {}", entry.name))?;
-
+fn verify_bytes(entry: &RegistryEntry, bytes: &[u8]) -> Result<(), String> {
     let mut verified = 0usize;
-    for claim in &identity.0 {
+    for claim in &entry.identity.0 {
         match run_extractor(claim, bytes) {
             VerificationResult::Verified(_) => verified += 1,
             VerificationResult::Mismatch { expected, actual } => {
@@ -402,8 +403,8 @@ mod tests {
         let claim = IdentityClaim {
             concept: IdentityConcept::XmlElementAttribute,
             data: ClaimData::XmlAttribute {
-                element: "Lexicon",
-                attribute: "version",
+                element: "Lexicon".into(),
+                attribute: "version".into(),
                 expected: "2025".into(),
             },
         };
@@ -416,8 +417,8 @@ mod tests {
         let claim = IdentityClaim {
             concept: IdentityConcept::XmlElementAttribute,
             data: ClaimData::XmlAttribute {
-                element: "Lexicon",
-                attribute: "version",
+                element: "Lexicon".into(),
+                attribute: "version".into(),
                 expected: "2099".into(),
             },
         };
@@ -429,7 +430,9 @@ mod tests {
     fn run_extractor_stub_concept_is_unverifiable() {
         let claim = IdentityClaim {
             concept: IdentityConcept::Doi,
-            data: ClaimData::Stub { reason: "test" },
+            data: ClaimData::Stub {
+                reason: "test".into(),
+            },
         };
         let result = run_extractor(&claim, b"anything");
         assert!(matches!(result, VerificationResult::Unverifiable { .. }));
@@ -440,7 +443,7 @@ mod tests {
         let claim = IdentityClaim {
             concept: IdentityConcept::RawHash,
             data: ClaimData::Stub {
-                reason: "wrong shape",
+                reason: "wrong shape".into(),
             },
         };
         let result = run_extractor(&claim, b"bytes");
@@ -450,18 +453,17 @@ mod tests {
     #[test]
     fn verify_bytes_fails_on_unknown_entry() {
         let bogus = RegistryEntry {
-            name: "not-in-registry",
-            description: "test",
-            remote_location: "",
-            local_path: "",
+            name: "not-in-registry".into(),
+            description: "test".into(),
+            remote_location: String::new(),
+            local_path: String::new(),
             content_type: super::super::ontology::ContentType::Binary,
             identity: crate::formal::meta::artifact_identity::ontology::CompositeIdentity(
                 Vec::new(),
             ),
             gzipped: false,
         };
-        let bogus_static: &'static RegistryEntry = Box::leak(Box::new(bogus));
-        let result = verify_bytes(bogus_static, b"bytes");
+        let result = verify_bytes(&bogus, b"bytes");
         assert!(result.is_err());
     }
 
@@ -473,7 +475,7 @@ mod tests {
             .unwrap()
             .parent()
             .unwrap();
-        let path = workspace_root.join(wordnet.local_path);
+        let path = workspace_root.join(&wordnet.local_path);
         if !path.exists() {
             eprintln!("skipping: wordnet file not on disk at {}", path.display());
             return;
@@ -515,10 +517,10 @@ mod tests {
 
     #[test]
     fn fetch_outcome_is_ok_only_for_success_variants() {
-        assert!(FetchOutcome::AlreadyVerified { name: "x" }.is_ok());
+        assert!(FetchOutcome::AlreadyVerified { name: "x".into() }.is_ok());
         assert!(
             FetchOutcome::Fetched {
-                name: "x",
+                name: "x".into(),
                 path: PathBuf::new(),
                 bytes: 0,
             }
@@ -526,21 +528,21 @@ mod tests {
         );
         assert!(
             !FetchOutcome::MissingAndCheckOnly {
-                name: "x",
+                name: "x".into(),
                 path: PathBuf::new(),
             }
             .is_ok()
         );
         assert!(
             !FetchOutcome::MissingAndOffline {
-                name: "x",
+                name: "x".into(),
                 path: PathBuf::new(),
             }
             .is_ok()
         );
         assert!(
             !FetchOutcome::VerificationFailed {
-                name: "x",
+                name: "x".into(),
                 path: PathBuf::new(),
                 reason: String::new(),
             }
@@ -548,7 +550,7 @@ mod tests {
         );
         assert!(
             !FetchOutcome::FetchError {
-                name: "x",
+                name: "x".into(),
                 reason: String::new(),
             }
             .is_ok()

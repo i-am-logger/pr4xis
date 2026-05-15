@@ -96,6 +96,9 @@ pub enum ContentType {
     Audio,
     /// Raw bytes with no further decoding.
     Binary,
+    /// Statutory text + lock-file structural extraction. Decoder:
+    /// `pr4xis::codegen::statute::parse_statute_json` over the lock file.
+    Statute,
 }
 
 // ---------------------------------------------------------------------------
@@ -105,12 +108,18 @@ pub enum ContentType {
 /// One row in the data-provisioning registry. The registry is the ontology's
 /// instance layer; each entry is a typed value declaring a `DataSource`'s
 /// metadata, identity claims, and content type.
+///
+/// Entries are loaded from `crates/domains/data/sources.toml` at runtime via
+/// `OnceLock` in [`super::registry`]. Owned `String` fields (vs the historical
+/// `&'static str`) are required because TOML deserialization produces owned
+/// values; the lifetime of `data_sources()` is `'static` because the registry
+/// itself lives in a static `OnceLock`.
 #[derive(Debug, Clone)]
 pub struct RegistryEntry {
-    pub name: &'static str,
-    pub description: &'static str,
-    pub remote_location: &'static str,
-    pub local_path: &'static str,
+    pub name: String,
+    pub description: String,
+    pub remote_location: String,
+    pub local_path: String,
     pub content_type: ContentType,
     pub identity: CompositeIdentity,
     pub gzipped: bool,
@@ -186,12 +195,9 @@ pub struct EveryDataSourceHasIdentity;
 
 impl Axiom for EveryDataSourceHasIdentity {
     fn verify(&self) -> Verdict {
-        let ok = crate::applied::data_provisioning::registry::DATA_SOURCES
+        let ok = crate::applied::data_provisioning::registry::data_sources()
             .iter()
-            .all(|entry| {
-                crate::applied::data_provisioning::registry::resolve_identity(entry.name)
-                    .is_some_and(|id| !id.0.is_empty())
-            });
+            .all(|entry| !entry.identity.0.is_empty());
         if ok {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {
@@ -222,8 +228,8 @@ pub struct RegistryUniquenessByName;
 impl Axiom for RegistryUniquenessByName {
     fn verify(&self) -> Verdict {
         let mut names = HashSet::new();
-        for entry in crate::applied::data_provisioning::registry::DATA_SOURCES {
-            if !names.insert(entry.name) {
+        for entry in crate::applied::data_provisioning::registry::data_sources() {
+            if !names.insert(entry.name.as_str()) {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -252,7 +258,7 @@ pub struct DecoderTotalityPerContentType;
 
 impl Axiom for DecoderTotalityPerContentType {
     fn verify(&self) -> Verdict {
-        for entry in crate::applied::data_provisioning::registry::DATA_SOURCES {
+        for entry in crate::applied::data_provisioning::registry::data_sources() {
             if !crate::applied::data_provisioning::decoders::has_decoder_for(entry.content_type) {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
@@ -283,14 +289,10 @@ pub struct IdentityClaimsUseLeaves;
 impl Axiom for IdentityClaimsUseLeaves {
     fn verify(&self) -> Verdict {
         use crate::formal::meta::artifact_identity::ontology::is_leaf;
-        for entry in crate::applied::data_provisioning::registry::DATA_SOURCES {
-            if let Some(identity) =
-                crate::applied::data_provisioning::registry::resolve_identity(entry.name)
-            {
-                for claim in &identity.0 {
-                    if !is_leaf(&claim.concept) {
-                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
-                    }
+        for entry in crate::applied::data_provisioning::registry::data_sources() {
+            for claim in &entry.identity.0 {
+                if !is_leaf(&claim.concept) {
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }
             }
         }

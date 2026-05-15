@@ -18,7 +18,7 @@ use super::ontology::{
     DecoderTotalityPerContentType, EveryDataSourceHasIdentity, IdentityClaimsUseLeaves,
     IsUsableLocally, RegistryUniquenessByName, TriggersUpdate,
 };
-use super::registry::{DATA_SOURCES, by_name, resolve_identity};
+use super::registry::{by_name, data_sources, resolve_identity};
 use crate::cognitive::linguistics::english::English;
 use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
@@ -114,7 +114,7 @@ fn stale_and_missing_trigger_update() {
 
 #[test]
 fn axiom_every_datasource_has_identity() {
-    assert!(!DATA_SOURCES.is_empty());
+    assert!(!data_sources().is_empty());
     assert!(EveryDataSourceHasIdentity.verify().is_ok());
 }
 
@@ -198,8 +198,8 @@ fn full_chain_raw_bytes_to_english_ontology() {
     let version_claim = IdentityClaim {
         concept: IdentityConcept::XmlElementAttribute,
         data: ClaimData::XmlAttribute {
-            element: "Lexicon",
-            attribute: "version",
+            element: "Lexicon".into(),
+            attribute: "version".into(),
             expected: "2025".into(),
         },
     };
@@ -246,8 +246,8 @@ fn full_chain_rejects_wrong_version() {
     let claim = IdentityClaim {
         concept: IdentityConcept::XmlElementAttribute,
         data: ClaimData::XmlAttribute {
-            element: "Lexicon",
-            attribute: "version",
+            element: "Lexicon".into(),
+            attribute: "version".into(),
             expected: "2025".into(),
         },
     };
@@ -309,8 +309,8 @@ proptest! {
     #[test]
     fn prop_all_resolved_claims_use_leaves(_seed in any::<u64>()) {
         use crate::formal::meta::artifact_identity::ontology::is_leaf;
-        for entry in DATA_SOURCES {
-            let resolved = resolve_identity(entry.name).unwrap();
+        for entry in data_sources() {
+            let resolved = resolve_identity(&entry.name).unwrap();
             for claim in &resolved.0 {
                 prop_assert!(is_leaf(&claim.concept));
             }

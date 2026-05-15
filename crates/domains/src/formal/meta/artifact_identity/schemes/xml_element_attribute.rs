@@ -29,7 +29,7 @@ pub fn verify(claim: &IdentityClaim, bytes: &[u8]) -> VerificationResult {
             element,
             attribute,
             expected,
-        } => (*element, *attribute, expected.clone()),
+        } => (element.clone(), attribute.clone(), expected.clone()),
         _ => {
             return VerificationResult::Unverifiable {
                 reason: "XmlElementAttribute extractor expected XmlAttribute ClaimData".into(),
@@ -59,7 +59,7 @@ pub fn verify(claim: &IdentityClaim, bytes: &[u8]) -> VerificationResult {
     // Walk every element in the parsed tree looking for the first element
     // whose name matches `element_name`. `find_all` returns a Vec<&XmlElement>
     // (through its existing API); we iterate that vec.
-    let matching = doc.find_all(element_name);
+    let matching = doc.find_all(&element_name);
     let first = match matching.first() {
         Some(e) => e,
         None => {

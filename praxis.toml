@@ -1,0 +1,53 @@
+# praxis.toml — Praxis external-data registry manifest.
+#
+# Cargo-precedent naming: `praxis.toml` is the manifest (this file);
+# `praxis.lock` (M2) will be the derived lock layer with hash-pinned
+# resolved entries. Lives at the workspace root, next to `Cargo.toml`,
+# so downstream applications using praxis can place their own
+# `praxis.toml` at *their* project root.
+#
+# This is the single source of truth for every managed external corpus
+# praxis ships (lexicons, statutes, datasets). Loaded at runtime by
+# `crates/domains/src/applied/data_provisioning/registry.rs` into a
+# `OnceLock<Vec<RegistryEntry>>`; the TOML bytes are embedded via
+# `include_str!` so deployment is single-binary.
+#
+# Schema (per [[source]]):
+#   name             — primary key, used by CLI and `by_name()`
+#   description      — human-readable
+#   remote_location  — fetch URL (HTTPS)
+#   local_path       — workspace-relative materialization path
+#   content_type     — variant of `ContentType` (XmlLmf, Statute, Pdf, …)
+#   gzipped          — whether `remote_location` serves gzipped bytes
+#
+# Each [[source]] carries zero or more [[source.identity]] tables — these
+# are the CompositeIdentity claims that `fetch.rs::verify_bytes` evaluates
+# (CompositeRequiresAll semantics). Per-claim schema is documented in
+# `registry::loader`.
+#
+# `pr4xis source add` / `remove` (M6) mutate this file. Hand-editing is
+# fine; the `OnceLock` is process-scoped so a running process only sees
+# entries present at first load.
+
+[[source]]
+name = "wordnet"
+description = "Open English WordNet 2025 — Global WordNet Association WN-LMF 1.3"
+remote_location = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz"
+local_path = "crates/domains/data/wordnet/english-wordnet-2025.xml"
+content_type = "XmlLmf"
+gzipped = true
+
+# SelfDescribingMetadata: the upstream XML declares <Lexicon version="2025">.
+[[source.identity]]
+kind = "XmlElementAttribute"
+element = "Lexicon"
+attribute = "version"
+expected = "2025"
+
+# ContentHash: belt-and-braces cryptographic integrity. Pins the exact
+# release at <https://github.com/globalwordnet/english-wordnet/releases/tag/2025-edition>.
+# If the upstream ever republishes different bytes under the same tag,
+# verification fails and pr4xis refuses the update (VerificationFailClosed).
+[[source.identity]]
+kind = "RawHash"
+sha256 = "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2"
