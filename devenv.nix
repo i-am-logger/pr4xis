@@ -111,6 +111,12 @@ in
   # Net effect: mutants run serially, but each mutant's test cycle
   # uses every CPU thread on the machine.
   #
+  # NOT IN CI by deliberate choice: workspace-wide is 4–8 hours per
+  # run; even a focused subtree is too slow to block PR or master
+  # CI cycles. Run locally on a regular cadence (per `feedback_local_
+  # ci_parity`); add a scheduled cron job to ci.yml later if/when
+  # the team commits to an operational-error-rate dashboard.
+  #
   # Usage:
   #   dev-mutants                         — workspace-wide (slow)
   #   dev-mutants -- --file <path>        — focus on one file
