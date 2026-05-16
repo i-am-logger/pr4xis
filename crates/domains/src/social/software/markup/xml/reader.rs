@@ -376,6 +376,93 @@ mod tests {
         assert!(err.message.contains("unclosed comment"));
     }
 
+    // ── Adversarial-input properties (compliance: no panic on
+    // ── malformed input) ──────────────────────────────────────────
+
+    #[test]
+    fn adversarial_random_bytes_never_panic() {
+        // FRE 901 + Daubert prong 3: when input is malformed,
+        // produce a typed Err — never panic, never silently succeed.
+        let cases: &[&str] = &[
+            "",
+            "<",
+            ">",
+            "<<<",
+            ">>>",
+            "<r",
+            "<r>",
+            "<r>>",
+            "<r><r></r>",
+            "<r></s>",
+            "<r/>extra",
+            "<r attr=\"unclosed",
+            "<r attr='unclosed",
+            "<?xml",
+            "<?xml version=\"1.0\"",
+            "<!--",
+            "<!-- unclosed root",
+            "<!DOCTYPE",
+            "<!DOCTYPE r",
+            "<![CDATA[unclosed",
+            "&amp;",
+            "<r>&amp;</r>",
+            // Mixed content with unbalanced tags
+            "<a><b><c></a></b></c>",
+            // Self-close with content
+            "<r><nested/></nested>",
+        ];
+        for input in cases {
+            let result = read_xml(input);
+            // Caller gets either Ok or Err. The function MUST NOT
+            // panic — that would crash the auditor pipeline.
+            let _ = result;
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn property_random_input_never_panics(s in "[\\x00-\\x7F]{0,200}") {
+            // Random ASCII byte streams (incl. nul and control chars)
+            // must never cause the parser to panic. Daubert prong 3.
+            let _ = read_xml(&s);
+        }
+
+        #[test]
+        fn property_random_tags_never_panic(
+            tag in "[a-z]{1,8}",
+            content in "[a-z0-9 ]{0,32}",
+            attrs in proptest::collection::vec(("[a-z]{1,4}", "[a-z]{1,8}"), 0..3),
+        ) {
+            // Build syntactically-valid but semantically-arbitrary
+            // XML and verify the parser doesn't panic.
+            let mut s = format!("<{tag}");
+            for (k, v) in &attrs {
+                s.push_str(&format!(" {k}=\"{v}\""));
+            }
+            s.push('>');
+            s.push_str(&content);
+            s.push_str(&format!("</{tag}>"));
+            let _ = read_xml(&s);
+        }
+
+        #[test]
+        fn property_truncated_input_never_panics(
+            full in "<r[a-z ]{0,20}>[a-z ]{0,20}</r>",
+            cut_at in 0usize..50,
+        ) {
+            // Truncate input at an arbitrary position; parser must
+            // return Ok or Err, never panic.
+            let len = full.len().min(cut_at);
+            // Truncate at char boundary to avoid str slicing panic
+            // (that's an input-validation concern, not parser-bug).
+            let boundary = full.char_indices().take_while(|(i, _)| *i <= len).last()
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            let truncated = &full[..boundary];
+            let _ = read_xml(truncated);
+        }
+    }
+
     proptest! {
         #[test]
         fn property_prolog_with_arbitrary_comments_parses(

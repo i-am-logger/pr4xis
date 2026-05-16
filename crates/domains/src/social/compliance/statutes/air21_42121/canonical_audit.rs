@@ -700,6 +700,48 @@ mod tests {
             resolved_lemmas,
             total_lemmas
         );
+
+        // Compliance: AIR21 currently resolves 100%. Any drop is a
+        // regression in either the resolver or the canonical text.
+        assert_eq!(
+            resolved_lemmas, total_lemmas,
+            "AIR21 lemma resolution dropped below 100% ({resolved_lemmas}/{total_lemmas}) — unresolved: {unresolved:?}"
+        );
+    }
+
+    /// Daubert prong 2: same input → same output. Reproducibility
+    /// over the AIR21 audit pipeline.
+    #[test]
+    fn bridge_adjunction_is_deterministic() {
+        use crate::social::judicial::statute_structure::english_adjunction::test_helpers::cached_english;
+        use crate::social::judicial::statute_structure::resolve_term_name_to_senses;
+
+        let en = cached_english();
+        let collect = || -> alloc::vec::Vec<(String, String, alloc::vec::Vec<String>)> {
+            let mut out = alloc::vec::Vec::new();
+            for term in statute().terms() {
+                for m in resolve_term_name_to_senses(&term.name.text, en) {
+                    let mut concept_ids: alloc::vec::Vec<String> = m
+                        .senses
+                        .iter()
+                        .map(|s| s.reference.concept.clone())
+                        .collect();
+                    concept_ids.sort();
+                    out.push((
+                        term.id.value.clone(),
+                        m.form.written_rep.clone(),
+                        concept_ids,
+                    ));
+                }
+            }
+            out
+        };
+        let a = collect();
+        let b = collect();
+        assert_eq!(
+            a, b,
+            "AIR21 adjunction resolver is non-deterministic — same input produced different output across two runs"
+        );
     }
 
     #[test]
