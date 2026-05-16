@@ -69,8 +69,10 @@
 pub mod bridge;
 pub mod invariants;
 pub mod parser;
+pub mod term_extractor;
 
 pub use parser::{ClauseNode, ClauseTree, LabelKind, ParseError, parse_statute_text};
+pub use term_extractor::{ExtractedTerm, extract_terms};
 
 #[cfg(test)]
 mod tests;
