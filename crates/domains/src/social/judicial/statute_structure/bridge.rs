@@ -27,9 +27,12 @@
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 
-use crate::applied::data_provisioning::registry::StructuralData;
+use crate::applied::data_provisioning::registry::{StructuralData, StructuralRelation};
 use crate::social::judicial::citation::PinpointCite;
 use crate::social::judicial::statute_structure::parser::{ClauseNode, ClauseTree};
+use crate::social::judicial::statute_structure::relation_extractor::{
+    RelationCandidate, RelationKind,
+};
 use crate::social::judicial::statute_structure::term_extractor::extract_terms;
 
 // ─────────────────────────────────────────────────────────────────────
@@ -382,6 +385,174 @@ fn lock_name_in_body(lock_name: &str, body: &str) -> bool {
     haystack.contains(&needle)
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Relation-side bridge: extracted phrase candidates vs lock relations
+// ─────────────────────────────────────────────────────────────────────
+
+/// Per-extracted-candidate result of the relation-side bridge audit.
+/// Mirrors `TermMatchResult` but for relations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExtractedRelationResult {
+    /// Extracted phrase has a corresponding lock relation: same
+    /// from-clause subsection path, and lock-relation kind
+    /// corresponds to the extractor's `RelationKind`.
+    LockBacked {
+        candidate_index: usize,
+        lock_relation: LockRelationRef,
+    },
+    /// Extracted phrase found a clause but no matching lock relation
+    /// — potential gap (lock might be missing a relation visible in
+    /// canonical text) OR an intentional non-modeled phrase.
+    NoLockMatch {
+        candidate_index: usize,
+        from_path: Vec<String>,
+        kind: RelationKind,
+    },
+}
+
+/// A reference to a specific lock relation by `(from, to, kind)`.
+/// Kind is the praxis.lock string spelling (PascalCase).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LockRelationRef {
+    pub from: String,
+    pub to: String,
+    pub kind: String,
+}
+
+/// The relation-side bridge audit report.
+#[derive(Debug, Clone)]
+pub struct RelationBridgeReport {
+    pub by_extracted: Vec<ExtractedRelationResult>,
+}
+
+impl RelationBridgeReport {
+    pub fn lock_backed_count(&self) -> usize {
+        self.by_extracted
+            .iter()
+            .filter(|r| matches!(r, ExtractedRelationResult::LockBacked { .. }))
+            .count()
+    }
+
+    pub fn no_match_count(&self) -> usize {
+        self.by_extracted
+            .iter()
+            .filter(|r| matches!(r, ExtractedRelationResult::NoLockMatch { .. }))
+            .count()
+    }
+
+    /// Indices of extracted candidates that found no lock match.
+    pub fn unmatched_candidate_indices(&self) -> Vec<usize> {
+        self.by_extracted
+            .iter()
+            .filter_map(|r| match r {
+                ExtractedRelationResult::NoLockMatch {
+                    candidate_index, ..
+                } => Some(*candidate_index),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+/// Match an extracted `RelationKind` to one or more lock-relation
+/// kind strings. Returns the list of acceptable lock-kind strings
+/// the extracted variant can correspond to.
+pub fn lock_kinds_for(extracted: RelationKind) -> &'static [&'static str] {
+    match extracted {
+        // "shall be governed by/under" / "subject to" can manifest as
+        // either Requires or ExhaustionRequiredFor in the lock.
+        RelationKind::Requires => &["Requires", "ExhaustionRequiredFor"],
+        RelationKind::AffirmativeDefenseTo => &["AffirmativeDefenseTo"],
+        // Excludes has no clear 1:1 lock-relation analogue in the
+        // current RelationType taxonomy; the closest is
+        // AlternativeTo (mutual exclusion) or Negates.
+        RelationKind::Excludes => &["AlternativeTo", "Negates"],
+    }
+}
+
+/// Audit extracted relation candidates against the lock's
+/// `StructuralRelation`s. For each candidate, find a lock relation
+/// where:
+/// - The lock relation's `from` CURIE maps (via `curie_mapper`) to
+///   the candidate's `from_cite` subsection path.
+/// - The lock relation's `kind` string is in
+///   [`lock_kinds_for`]`(candidate.kind)`.
+///
+/// `root_segment_count` is the number of leading `PinpointCite`
+/// segments (typically Title + Section) that come BEFORE the
+/// subdivision-path portion. These are stripped before comparison
+/// with the curie-mapped paths.
+pub fn audit_extracted_relations_against_lock(
+    extracted: &[RelationCandidate],
+    structural: &StructuralData,
+    curie_mapper: impl Fn(&str) -> Option<Vec<String>>,
+    root_segment_count: usize,
+) -> RelationBridgeReport {
+    // Pre-compute (lock_from_subsection_path, lock_relation) pairs
+    // for quick lookup.
+    let lock_indexed: Vec<(Vec<String>, &StructuralRelation)> = structural
+        .relations
+        .iter()
+        .filter_map(|rel| {
+            let local = rel
+                .from
+                .split_once(':')
+                .map(|(_, l)| l)
+                .unwrap_or(rel.from.as_str());
+            curie_mapper(local).map(|path| (path, rel))
+        })
+        .collect();
+
+    let mut results: Vec<ExtractedRelationResult> = Vec::with_capacity(extracted.len());
+    for (i, candidate) in extracted.iter().enumerate() {
+        // Build the subsection path from the candidate's from_cite,
+        // stripping the leading Title/Section segments.
+        let candidate_path: Vec<String> = candidate
+            .from_cite
+            .segments
+            .iter()
+            .skip(root_segment_count)
+            .map(|s| s.label.clone())
+            .collect();
+
+        let acceptable_lock_kinds = lock_kinds_for(candidate.kind);
+
+        let matched = lock_indexed.iter().find(|(path, rel)| {
+            paths_equal_case_insensitive(path, &candidate_path)
+                && acceptable_lock_kinds.contains(&rel.relation.as_str())
+        });
+
+        match matched {
+            Some((_, rel)) => results.push(ExtractedRelationResult::LockBacked {
+                candidate_index: i,
+                lock_relation: LockRelationRef {
+                    from: rel.from.clone(),
+                    to: rel.to.clone(),
+                    kind: rel.relation.clone(),
+                },
+            }),
+            None => results.push(ExtractedRelationResult::NoLockMatch {
+                candidate_index: i,
+                from_path: candidate_path,
+                kind: candidate.kind,
+            }),
+        }
+    }
+
+    RelationBridgeReport {
+        by_extracted: results,
+    }
+}
+
+fn paths_equal_case_insensitive(a: &[String], b: &[String]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter()
+        .zip(b.iter())
+        .all(|(x, y)| x.eq_ignore_ascii_case(y))
+}
+
 /// Classification of how a lock-term name relates to its matched
 /// clause's canonical heading. Returned by
 /// [`classify_heading_vs_name`]; used by per-statute audits to
@@ -717,5 +888,135 @@ mod tests {
             classify_heading_vs_name("Anything", None),
             HeadingRelation::NoHeading
         );
+    }
+
+    // ── Relation-side bridge tests ───────────────────────────────────
+
+    use crate::social::judicial::citation::PinpointSegment;
+    use crate::social::judicial::statute_structure::relation_extractor::RelationCandidate;
+
+    fn make_rel(from: &str, to: &str, kind: &str) -> StructuralRelation {
+        StructuralRelation {
+            from: from.to_string(),
+            to: to.to_string(),
+            relation: kind.to_string(),
+        }
+    }
+
+    fn make_candidate(path_labels: &[&str], kind: RelationKind, phrase: &str) -> RelationCandidate {
+        let mut cite = PinpointCite::new()
+            .push(PinpointCitationConcept::Title, "TEST")
+            .push(PinpointCitationConcept::Section, "1");
+        for (i, label) in path_labels.iter().enumerate() {
+            let level = match i {
+                0 => PinpointCitationConcept::Subsection,
+                1 => PinpointCitationConcept::Paragraph,
+                2 => PinpointCitationConcept::Subparagraph,
+                _ => PinpointCitationConcept::Clause,
+            };
+            cite.segments.push(PinpointSegment {
+                level,
+                label: label.to_string(),
+            });
+        }
+        RelationCandidate {
+            from_cite: cite,
+            kind,
+            phrase: phrase.to_string(),
+            offset_in_body: 0,
+            target_text: "test target".to_string(),
+        }
+    }
+
+    #[test]
+    fn extracted_requires_matches_lock_requires() {
+        let extracted = vec![make_candidate(
+            &["b", "2", "A"],
+            RelationKind::Requires,
+            "shall be governed by",
+        )];
+        let mut data = make_data(Vec::new());
+        data.relations = vec![make_rel("test:b2a", "test:other", "Requires")];
+
+        let report = audit_extracted_relations_against_lock(
+            &extracted,
+            &data,
+            sox_like_mapper,
+            2, // Title + Section
+        );
+        assert_eq!(report.lock_backed_count(), 1);
+        assert_eq!(report.no_match_count(), 0);
+    }
+
+    #[test]
+    fn extracted_affirmative_defense_matches_lock_kind() {
+        // Use SOX-style CURIEs (avoid roman-numeral ambiguity in the
+        // mock sox_like_mapper). The AIR21 (b)(2)(B)(ii) case is
+        // covered by the real-corpus test in canonical_audit.
+        let extracted = vec![make_candidate(
+            &["b", "1", "A"],
+            RelationKind::AffirmativeDefenseTo,
+            "Notwithstanding",
+        )];
+        let mut data = make_data(Vec::new());
+        data.relations = vec![make_rel("test:b1a", "test:b1b", "AffirmativeDefenseTo")];
+
+        let report = audit_extracted_relations_against_lock(&extracted, &data, sox_like_mapper, 2);
+        assert_eq!(report.lock_backed_count(), 1);
+    }
+
+    #[test]
+    fn extracted_requires_no_match_when_path_differs() {
+        let extracted = vec![make_candidate(
+            &["b", "2", "A"],
+            RelationKind::Requires,
+            "shall be governed by",
+        )];
+        let mut data = make_data(Vec::new());
+        // Lock relation FROM a different clause.
+        data.relations = vec![make_rel("test:c1", "test:other", "Requires")];
+
+        let report = audit_extracted_relations_against_lock(&extracted, &data, sox_like_mapper, 2);
+        assert_eq!(report.no_match_count(), 1);
+    }
+
+    #[test]
+    fn extracted_requires_matches_exhaustion_required_for() {
+        // lock_kinds_for(Requires) includes ExhaustionRequiredFor.
+        let extracted = vec![make_candidate(
+            &["b", "1"],
+            RelationKind::Requires,
+            "subject to",
+        )];
+        let mut data = make_data(Vec::new());
+        data.relations = vec![make_rel("test:b1", "test:other", "ExhaustionRequiredFor")];
+
+        let report = audit_extracted_relations_against_lock(&extracted, &data, sox_like_mapper, 2);
+        assert_eq!(report.lock_backed_count(), 1);
+    }
+
+    #[test]
+    fn lock_kinds_for_requires() {
+        let kinds = lock_kinds_for(RelationKind::Requires);
+        assert!(kinds.contains(&"Requires"));
+        assert!(kinds.contains(&"ExhaustionRequiredFor"));
+    }
+
+    #[test]
+    fn lock_kinds_for_affirmative_defense_to() {
+        let kinds = lock_kinds_for(RelationKind::AffirmativeDefenseTo);
+        assert_eq!(kinds, &["AffirmativeDefenseTo"]);
+    }
+
+    #[test]
+    fn paths_equal_case_insensitive_basic() {
+        assert!(paths_equal_case_insensitive(
+            &["a".to_string(), "B".to_string()],
+            &["A".to_string(), "b".to_string()]
+        ));
+        assert!(!paths_equal_case_insensitive(
+            &["a".to_string()],
+            &["a".to_string(), "1".to_string()]
+        ));
     }
 }

@@ -771,6 +771,77 @@ mod tests {
     }
 
     #[test]
+    fn bridge_relation_audit_extracts_match_composition_layer() {
+        // SOX's extracted "shall be governed by/under" phrases are
+        // *cross-statute* references to § 42121 — captured at the
+        // sox_retaliation proof_framework composition layer rather
+        // than as intra-statute sox_1514a@2002 lock relations. The
+        // relation-side audit correctly surfaces them as unmatched
+        // *within* SOX's lock; this test documents that expectation
+        // and verifies the cross-statute references are captured at
+        // the composition layer.
+        use crate::social::compliance::compositions::proof_framework::sox_retaliation;
+        use crate::social::judicial::citation::ontology::PinpointCitationConcept;
+        use crate::social::judicial::statute_structure::bridge::{
+            ExtractedRelationResult, audit_extracted_relations_against_lock,
+        };
+        use crate::social::judicial::statute_structure::{extract_relations, parse_statute_text};
+
+        let root = crate::social::judicial::citation::PinpointCite::new()
+            .push(PinpointCitationConcept::Title, "18")
+            .push(PinpointCitationConcept::Section, "1514A");
+        let tree =
+            parse_statute_text(CANONICAL_TEXT, root, "praxis-lock://sox_1514a@2002").unwrap();
+        let extracted = extract_relations(&tree);
+        let registry =
+            crate::applied::data_provisioning::registry::structural_for("sox_1514a", "2002")
+                .expect("lock has sox_1514a@2002");
+
+        let report = audit_extracted_relations_against_lock(
+            &extracted,
+            registry,
+            |local| Some(parse_curie_subsection_path(local)),
+            2,
+        );
+
+        // Both extracted candidates are cross-statute — unmatched at
+        // the intra-statute lock level by design.
+        assert_eq!(report.lock_backed_count(), 0);
+        assert_eq!(report.no_match_count(), 2);
+
+        // Each unmatched candidate's from-clause has a covering
+        // cross-reference in the sox_retaliation composition.
+        let composition = sox_retaliation::framework();
+        // Build the set of from-CURIE locals in the composition for
+        // case-insensitive comparison against our path's letter+digit
+        // signature.
+        let composition_locals: alloc::collections::BTreeSet<String> = composition
+            .cross_references()
+            .iter()
+            .filter_map(|cr| {
+                cr.from_term
+                    .value
+                    .strip_prefix("sox_1514a:")
+                    .map(String::from)
+            })
+            .collect();
+
+        for r in &report.by_extracted {
+            if let ExtractedRelationResult::NoLockMatch { from_path, .. } = r {
+                let path_concat = from_path.join("").to_lowercase();
+                let has_composition_ref = composition_locals
+                    .iter()
+                    .any(|local| local.to_lowercase() == path_concat);
+                assert!(
+                    has_composition_ref,
+                    "extracted unmatched phrase from path {from_path:?} (joined+lowercased = {path_concat:?}) has no covering cross-reference in sox_retaliation composition; composition locals are {:?}",
+                    composition_locals
+                );
+            }
+        }
+    }
+
+    #[test]
     fn bridge_heading_relations_classified() {
         // For every lock term that matches a canonical clause with a
         // detected heading: either the heading agrees with the lock

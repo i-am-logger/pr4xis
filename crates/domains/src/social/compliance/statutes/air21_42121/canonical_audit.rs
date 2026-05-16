@@ -648,6 +648,40 @@ mod tests {
     }
 
     #[test]
+    fn bridge_relation_audit_finds_lock_backed_extracts() {
+        use crate::social::judicial::citation::ontology::PinpointCitationConcept;
+        use crate::social::judicial::statute_structure::bridge::audit_extracted_relations_against_lock;
+        use crate::social::judicial::statute_structure::{extract_relations, parse_statute_text};
+
+        let root = crate::social::judicial::citation::PinpointCite::new()
+            .push(PinpointCitationConcept::Title, "49")
+            .push(PinpointCitationConcept::Section, "42121");
+        let tree =
+            parse_statute_text(CANONICAL_TEXT, root, "praxis-lock://air21_42121@2010").unwrap();
+        let extracted = extract_relations(&tree);
+        let registry =
+            crate::applied::data_provisioning::registry::structural_for("air21_42121", "2010")
+                .expect("lock has air21_42121@2010");
+
+        let report = audit_extracted_relations_against_lock(
+            &extracted,
+            registry,
+            |local| Some(parse_curie_subsection_path(local)),
+            2,
+        );
+
+        // AIR21's 1 "Notwithstanding" candidate at (b)(2)(B)(ii)
+        // should map to the lock AffirmativeDefenseTo relation
+        // b2b_ii → b2b_i.
+        assert!(
+            report.lock_backed_count() >= 1,
+            "expected at least 1 lock-backed AffirmativeDefenseTo, got {} (unmatched: {:?})",
+            report.lock_backed_count(),
+            report.unmatched_candidate_indices()
+        );
+    }
+
+    #[test]
     fn bridge_heading_relations_classified() {
         use crate::social::judicial::statute_structure::bridge::{
             HeadingRelation, TermMatchResult, classify_heading_vs_name,
