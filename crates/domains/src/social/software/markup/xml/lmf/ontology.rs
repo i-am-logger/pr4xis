@@ -78,6 +78,10 @@ pub struct SenseRelation {
 }
 
 /// Types of synset-level relations in WordNet.
+///
+/// Covers the Global WordNet Association LMF schema (Vossen et al.)
+/// — synset relations in WordNet 2025 fall into these categories.
+/// See <https://globalwordnet.github.io/schemas/>.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SynsetRelationType {
     Hypernym,
@@ -91,13 +95,19 @@ pub enum SynsetRelationType {
     MeroPart,
     MeroSubstance,
     Causes,
+    IsCausedBy,
     Entails,
+    IsEntailedBy,
     Similar,
     Also,
     Attribute,
     DomainTopic,
+    HasDomainTopic,
     DomainRegion,
+    HasDomainRegion,
     Exemplifies,
+    IsExemplifiedBy,
+    Participle,
     Other(u8),
 }
 
@@ -115,13 +125,19 @@ impl SynsetRelationType {
             "mero_part" => Self::MeroPart,
             "mero_substance" => Self::MeroSubstance,
             "causes" => Self::Causes,
+            "is_caused_by" => Self::IsCausedBy,
             "entails" => Self::Entails,
+            "is_entailed_by" => Self::IsEntailedBy,
             "similar" => Self::Similar,
             "also" => Self::Also,
             "attribute" => Self::Attribute,
             "domain_topic" => Self::DomainTopic,
+            "has_domain_topic" => Self::HasDomainTopic,
             "domain_region" => Self::DomainRegion,
+            "has_domain_region" => Self::HasDomainRegion,
             "exemplifies" => Self::Exemplifies,
+            "is_exemplified_by" => Self::IsExemplifiedBy,
+            "participle" => Self::Participle,
             _ => Self::Other(0),
         }
     }
@@ -151,13 +167,20 @@ impl SynsetRelationType {
 }
 
 /// Types of sense-level relations.
+///
+/// Per Global WordNet Association LMF schema; documented in
+/// Fellbaum (1998) Ch. 1 + Ch. 5, Fellbaum-Osherson-Clark (2009)
+/// for `derivation` morphosemantic links.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SenseRelationType {
     Antonym,
     Similar,
     Pertainym,
     Derivation,
+    Also,
     Exemplifies,
+    IsExemplifiedBy,
+    Participle,
     Other(u8),
 }
 
@@ -168,7 +191,10 @@ impl SenseRelationType {
             "similar" => Self::Similar,
             "pertainym" => Self::Pertainym,
             "derivation" => Self::Derivation,
+            "also" => Self::Also,
             "exemplifies" => Self::Exemplifies,
+            "is_exemplified_by" => Self::IsExemplifiedBy,
+            "participle" => Self::Participle,
             _ => Self::Other(0),
         }
     }
