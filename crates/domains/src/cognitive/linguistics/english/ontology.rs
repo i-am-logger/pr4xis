@@ -263,7 +263,7 @@ impl English {
         let verb_transitivity =
             crate::cognitive::linguistics::language::build_verb_transitivity(wn);
         let writing = crate::cognitive::linguistics::orthography::english_writing_system();
-        let morphology = crate::cognitive::linguistics::morphology::english_rules();
+        let morphology = crate::cognitive::linguistics::morphology::english::english_rules();
 
         English {
             concepts,

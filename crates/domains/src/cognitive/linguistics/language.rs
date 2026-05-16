@@ -87,7 +87,7 @@ impl EnglishLanguage {
         Self {
             ontology: super::english::English::from_wordnet(wn),
             writing: super::orthography::english_writing_system(),
-            morphology: super::morphology::english_rules(),
+            morphology: super::morphology::english::english_rules(),
             function_words,
             function_word_list,
             verb_transitivity,
@@ -754,7 +754,7 @@ pub fn from_codegen(data: &pr4xis::codegen_data::CodegenData) -> super::english:
     let function_words = build_english_function_words();
     let function_word_list: Vec<String> = function_words.keys().cloned().collect();
     let writing = super::orthography::english_writing_system();
-    let morphology = super::morphology::english_rules();
+    let morphology = super::morphology::english::english_rules();
 
     super::english::English::new(
         concepts,

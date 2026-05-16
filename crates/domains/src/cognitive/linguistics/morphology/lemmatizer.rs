@@ -4,20 +4,18 @@
 //! Pipeline (Plisson, Lavrac & Mladenic 2004 — "A Rule Based
 //! Approach to Word Lemmatization", *Proc. IS-2004*):
 //!
-//! 1. **Identity** — `surface` is itself a candidate lemma. If
-//!    `surface` is already canonical (e.g. `right`, `walk`), the
-//!    direct WordNet lookup downstream will succeed and we skip
-//!    rule application.
-//! 2. **Irregular lookup** — consult
-//!    [`super::irregular::lookup_irregular`]. Suppletive and
-//!    umlaut-driven inflection (`went` → `go`, `children` → `child`)
-//!    is data, not derivable from rule.
-//! 3. **Rule inversion** — for every
-//!    [`super::MorphologicalRule`] in [`super::english_rules`],
-//!    invoke [`super::MorphologicalRule::invert`] on `surface`. The
-//!    rule's allomorphy patches handle silent-e, doubled-consonant
-//!    and y/i alternations.
-//! 4. **Deduplication and lower-casing** — the final candidate set
+//! 1. **Identity** — `surface` is itself a candidate lemma.
+//! 2. **Irregular lookup** — consult the per-language irregular
+//!    table. Suppletive and umlaut-driven inflection (`went` →
+//!    `go`, `children` → `child`) is data, not derivable from rule.
+//! 3. **Rule inversion** — for every per-language morphological
+//!    rule, invoke [`super::MorphologicalRule::invert`] on
+//!    `surface` to get the bare-strip candidate.
+//! 4. **Allomorphy expansion** — for every per-language allomorphy
+//!    rule, apply [`super::allomorphy::AllomorphyRule::expand`] to
+//!    each bare-strip candidate to recover stems that triggered
+//!    silent-e, doubled-consonant, y/i, etc. alternations.
+//! 5. **Deduplication and lower-casing** — the final candidate set
 //!    is normalised so case-only variants collapse and the surface
 //!    itself appears at most once.
 //!
@@ -25,6 +23,13 @@
 //! language-tagged) — never bare `String` — so downstream consumers
 //! (the statute → English adjunction) preserve typing through the
 //! whole pipeline.
+//!
+//! # Language dispatch
+//!
+//! The [`Language`] enum carries one variant per supported
+//! language. Adding a language = adding a variant + a
+//! `morphology::<lang>` submodule with `rules()` /
+//! `allomorphy_rules()` / `lookup_irregular()` exposed.
 //!
 //! # Literature
 //!
@@ -44,14 +49,14 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use alloc::collections::BTreeSet;
 
-use super::{english_rules, irregular};
+use super::allomorphy::AllomorphyRule;
+use super::{Affix, MorphologicalRule, english};
 use crate::cognitive::linguistics::lemon::lexicon::Form;
 
 /// Supported lemmatisation languages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Language {
-    /// English. Uses [`super::english_rules`] +
-    /// [`super::irregular::english_irregulars`].
+    /// English. Uses `morphology::english::*`.
     English,
 }
 
@@ -60,6 +65,27 @@ impl Language {
     pub fn bcp47_tag(self) -> &'static str {
         match self {
             Self::English => "en",
+        }
+    }
+
+    fn rules(self) -> Vec<MorphologicalRule> {
+        match self {
+            Self::English => english::english_rules(),
+        }
+    }
+
+    fn allomorphy_rules(self) -> Vec<AllomorphyRule> {
+        match self {
+            Self::English => english::english_allomorphy_rules(),
+        }
+    }
+
+    fn lookup_irregular(self, surface: &str) -> Vec<String> {
+        match self {
+            Self::English => english::lookup_irregular(surface)
+                .into_iter()
+                .map(|e| e.lemma)
+                .collect(),
         }
     }
 }
@@ -95,20 +121,40 @@ pub fn lemmatize(surface: &str, language: Language) -> Vec<Form> {
     push(canon.clone(), &mut seen, &mut out);
 
     // (2) Irregular lookup.
-    match language {
-        Language::English => {
-            for entry in irregular::lookup_irregular(&canon) {
-                push(entry.lemma, &mut seen, &mut out);
-            }
-        }
+    for lemma in language.lookup_irregular(&canon) {
+        push(lemma, &mut seen, &mut out);
     }
 
-    // (3) Rule inversion.
-    match language {
-        Language::English => {
-            for rule in english_rules() {
-                for cand in rule.invert(&canon) {
-                    push(cand, &mut seen, &mut out);
+    // (3) + (4) Rule inversion + allomorphy expansion.
+    let allomorphy = language.allomorphy_rules();
+    for rule in language.rules() {
+        let bare_candidates = rule.invert(&canon);
+        // Push the bare-strip candidates first.
+        for bare in &bare_candidates {
+            push(bare.clone(), &mut seen, &mut out);
+        }
+        // Then expand via allomorphy for suffix rules.
+        if let Affix::Suffix(suf) = &rule.affix {
+            for bare in &bare_candidates {
+                for allo in &allomorphy {
+                    let extras = (allo.expand)(bare, &canon, &suf.text);
+                    for extra in extras {
+                        push(extra, &mut seen, &mut out);
+                    }
+                }
+            }
+            // Some allomorphy rules (y/i past, y/i plural, es→e) act
+            // directly on the surface, not on the bare-strip. They
+            // need to fire even when bare-strip is empty (e.g.
+            // surface "cried" + rule "ed" yields bare "cri" already,
+            // but the y/i rule transforms "cri" → "cry" using surface).
+            // The expand contract handles both reads from `surface`
+            // and `bare`, so a pass with bare="" is intentional for
+            // surface-driven rules.
+            for allo in &allomorphy {
+                let extras = (allo.expand)("", &canon, &suf.text);
+                for extra in extras {
+                    push(extra, &mut seen, &mut out);
                 }
             }
         }
@@ -246,9 +292,6 @@ mod tests {
 
     #[test]
     fn deduplicates_repeated_candidates() {
-        // "boxes" can be reached by both the direct -s strip (yielding
-        // "boxe") and the -es-restoration allomorphy ("box"). Make
-        // sure neither "boxe" nor "box" appears more than once.
         let lemmas = lemma_strings(&lemmatize("boxes", Language::English));
         let unique: BTreeSet<&String> = lemmas.iter().collect();
         assert_eq!(unique.len(), lemmas.len(), "duplicates in {lemmas:?}");
@@ -265,31 +308,17 @@ mod tests {
         }
     }
 
-    // ── Already-canonical inputs ───────────────────────────────────
-
     #[test]
     fn canonical_form_passes_through() {
-        // "right" is already canonical — surface should be first; no
-        // crash. Other candidates are accidental (`right` doesn't end
-        // in any of our affixes) so we mostly get back just `right`.
         let lemmas = lemma_strings(&lemmatize("right", Language::English));
         assert_eq!(lemmas.first(), Some(&"right".to_string()));
     }
 
-    // ── Property-style coverage ────────────────────────────────────
-
     // ── Property-based invariants ──────────────────────────────────
-    //
-    // Beesley & Karttunen (2003) Ch. 3: the inverse-application
-    // semantics demand specific universal properties hold for every
-    // surface form, not just hand-picked examples. proptest exercises
-    // these laws over randomly-generated lowercase-ASCII strings.
 
     use proptest::prelude::*;
 
     fn arb_lowercase_word() -> impl Strategy<Value = String> {
-        // 2..16 lowercase ASCII letters — covers realistic English-
-        // word lengths without exploding the search space.
         proptest::collection::vec(prop::char::range('a', 'z'), 2..16)
             .prop_map(|chars| chars.into_iter().collect())
     }
