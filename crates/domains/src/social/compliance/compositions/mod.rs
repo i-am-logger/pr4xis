@@ -51,8 +51,13 @@
 //!   General Jurisprudence vol. 5) — Ch. 21 formal modeling of
 //!   normative authority including composition rules.
 
+pub mod audit;
 pub mod proof_framework;
 
+pub use audit::{
+    CompositionAuditReport, CrossRefAuditResult, CrossRefClassification,
+    audit_composition_cross_refs,
+};
 pub use proof_framework::{
     CrossReference, CrossReferenceKind, ProofFramework, ProofFrameworkBuildError,
 };
