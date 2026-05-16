@@ -54,7 +54,7 @@ in
 
   scripts.dev-lint.exec = ''
     echo "Running clippy..."
-    cargo clippy --quiet -- -D warnings
+    cargo clippy --workspace --all-targets --quiet -- -D warnings
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings
   '';
 
@@ -68,7 +68,7 @@ in
     echo "=== fmt ==="
     treefmt --fail-on-change || { echo "FAILED: fmt"; exit 1; }
     echo "=== clippy ==="
-    cargo clippy --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
+    cargo clippy --workspace --all-targets --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
     echo "=== clippy (wasm) ==="
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
     echo "=== check ==="
@@ -246,7 +246,7 @@ in
     };
 
     "test:clippy" = {
-      exec = "cargo clippy --quiet -- -D warnings && cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings";
+      exec = "cargo clippy --workspace --all-targets --quiet -- -D warnings && cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings";
     };
 
     "test:check" = {

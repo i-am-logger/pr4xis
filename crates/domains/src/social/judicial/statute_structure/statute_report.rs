@@ -221,7 +221,7 @@ where
         for cite in &orphans {
             out.push_str(&format!("- `{}`\n", cite.to_bluebook()));
         }
-        out.push_str("\n");
+        out.push('\n');
     }
 
     // Unmatched lock terms.
@@ -231,7 +231,7 @@ where
         for id in &unmatched_ids {
             out.push_str(&format!("- `{id}`\n"));
         }
-        out.push_str("\n");
+        out.push('\n');
     }
 
     // Relation-side audit summary.
@@ -253,7 +253,7 @@ where
             }
         ));
     }
-    out.push_str("\n");
+    out.push('\n');
 
     // Known paraphrases.
     if !ctx.paraphrases.is_empty() {
@@ -268,7 +268,7 @@ where
                 p.term_id, p.canonical_subsection, p.rationale
             ));
         }
-        out.push_str("\n");
+        out.push('\n');
     }
 
     // Known gaps.
@@ -281,7 +281,7 @@ where
                 g.term_id, g.canonical_subsection, g.kind_name, g.note, g.resolution_blocker
             ));
         }
-        out.push_str("\n");
+        out.push('\n');
     }
 
     // Footer.

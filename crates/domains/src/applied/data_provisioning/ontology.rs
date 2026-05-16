@@ -120,9 +120,12 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
     use SourceTaxonomyConcept as C;
     match kind {
         C::Language => ContentType::XmlLmf,
-        C::Statute | C::Regulation | C::ConstitutionalArticle | C::ProceduralRule | C::CaseLaw => {
-            ContentType::Plaintext
-        }
+        C::Statute
+        | C::UsFederalStatute
+        | C::Regulation
+        | C::ConstitutionalArticle
+        | C::ProceduralRule
+        | C::CaseLaw => ContentType::Plaintext,
         C::LegalLexicon => ContentType::Json,
         // Non-leaf concepts have no decoder — they're abstract.
         C::Source | C::Lexicon | C::DomainLexicon | C::LegalCorpus => ContentType::Binary,
@@ -216,6 +219,7 @@ pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
     if is_legal_corpus(kind) {
         match kind {
             C::Statute => "legal/statutes",
+            C::UsFederalStatute => "legal/statutes/us_federal",
             C::Regulation => "legal/regulations",
             C::ConstitutionalArticle => "legal/constitution",
             C::ProceduralRule => "legal/procedure",

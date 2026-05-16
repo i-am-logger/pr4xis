@@ -67,31 +67,31 @@ fn check_canonical_order_node(node: &ClauseNode, violations: &mut Vec<Violation>
                 }
             };
             // Uniform-kind-at-depth check.
-            if let Some(prev) = last_kind {
-                if prev != kind {
-                    violations.push(Violation {
-                        invariant: "SubdivisionsInCanonicalOrder",
-                        node: Some(child.id.clone()),
-                        note: format!(
-                            "sibling kind drift: previous was {:?}, this is {:?}",
-                            prev, kind
-                        ),
-                    });
-                }
+            if let Some(prev) = last_kind
+                && prev != kind
+            {
+                violations.push(Violation {
+                    invariant: "SubdivisionsInCanonicalOrder",
+                    node: Some(child.id.clone()),
+                    note: format!(
+                        "sibling kind drift: previous was {:?}, this is {:?}",
+                        prev, kind
+                    ),
+                });
             }
             // Ordering check.
             let value = label_to_ord(&seg.label, kind);
-            if let (Some(prev_val), Some(this_val)) = (last_value, value) {
-                if this_val <= prev_val {
-                    violations.push(Violation {
-                        invariant: "SubdivisionsInCanonicalOrder",
-                        node: Some(child.id.clone()),
-                        note: format!(
-                            "label `({})` (ord {}) not strictly after previous (ord {})",
-                            seg.label, this_val, prev_val
-                        ),
-                    });
-                }
+            if let (Some(prev_val), Some(this_val)) = (last_value, value)
+                && this_val <= prev_val
+            {
+                violations.push(Violation {
+                    invariant: "SubdivisionsInCanonicalOrder",
+                    node: Some(child.id.clone()),
+                    note: format!(
+                        "label `({})` (ord {}) not strictly after previous (ord {})",
+                        seg.label, this_val, prev_val
+                    ),
+                });
             }
             last_kind = Some(kind);
             last_value = value;
@@ -187,14 +187,11 @@ pub fn check_pinpoint_cites_valid_per_bluebook(tree: &ClauseTree) -> Result<(), 
                 });
             }
             // Level-progression: each segment's level concept matches
-            // its position-in-path under Bluebook ordering.
-            let expected_level = match i {
-                // Outer-most segments may be Title or Section if the
-                // caller supplied them; we only enforce ordering for
-                // the *subdivision* tail (Subsection → Paragraph →
-                // Subparagraph → Clause).
-                _ => seg.level,
-            };
+            // its position-in-path under Bluebook ordering. Outer-most
+            // segments may be Title or Section if the caller supplied
+            // them; we only enforce ordering for the *subdivision* tail
+            // (Subsection → Paragraph → Subparagraph → Clause).
+            let expected_level = seg.level;
             if expected_level != seg.level {
                 violations.push(Violation {
                     invariant: "PinpointCitesValidPerBluebook",
@@ -336,17 +333,17 @@ pub fn check_subdivision_labels_unique(tree: &ClauseTree) -> Result<(), Vec<Viol
 fn check_unique_labels_node(node: &ClauseNode, violations: &mut Vec<Violation>) {
     let mut seen: alloc::collections::BTreeSet<&str> = Default::default();
     for child in &node.children {
-        if let Some(seg) = child.id.segments.last() {
-            if !seen.insert(seg.label.as_str()) {
-                violations.push(Violation {
-                    invariant: "SubdivisionLabelsUnique",
-                    node: Some(child.id.clone()),
-                    note: format!(
-                        "duplicate sibling label `({})` under parent {:?}",
-                        seg.label, node.id.segments
-                    ),
-                });
-            }
+        if let Some(seg) = child.id.segments.last()
+            && !seen.insert(seg.label.as_str())
+        {
+            violations.push(Violation {
+                invariant: "SubdivisionLabelsUnique",
+                node: Some(child.id.clone()),
+                note: format!(
+                    "duplicate sibling label `({})` under parent {:?}",
+                    seg.label, node.id.segments
+                ),
+            });
         }
         check_unique_labels_node(child, violations);
     }

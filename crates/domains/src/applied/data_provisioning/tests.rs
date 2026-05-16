@@ -126,9 +126,9 @@ fn registry_has_sox_1514a() {
 }
 
 #[test]
-fn sox_1514a_kind_is_statute() {
+fn sox_1514a_kind_is_us_federal_statute() {
     let entry = by_name("sox_1514a").unwrap();
-    assert_eq!(entry.kind, SourceTaxonomyConcept::Statute);
+    assert_eq!(entry.kind, SourceTaxonomyConcept::UsFederalStatute);
 }
 
 #[test]
@@ -138,12 +138,12 @@ fn sox_1514a_version_is_2002() {
 }
 
 #[test]
-fn sox_1514a_local_path_under_legal_statutes() {
+fn sox_1514a_local_path_under_legal_statutes_us_federal() {
     let entry = by_name("sox_1514a").unwrap();
     let path = entry.local_path();
     assert!(
-        path.starts_with("crates/domains/data/legal/statutes/"),
-        "expected legal/statutes/ family directory; got {path}"
+        path.starts_with("crates/domains/data/legal/statutes/us_federal/"),
+        "expected legal/statutes/us_federal/ family directory; got {path}"
     );
     assert!(path.ends_with(".txt"), "got {path}");
 }

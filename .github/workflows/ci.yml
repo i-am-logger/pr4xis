@@ -27,7 +27,7 @@ jobs:
           - name: Format
             command: cargo fmt --check
           - name: Clippy
-            command: cargo clippy -- -D warnings
+            command: cargo clippy --workspace --all-targets -- -D warnings
           - name: Test
             command: cargo test --workspace
             rustflags: "-D warnings"

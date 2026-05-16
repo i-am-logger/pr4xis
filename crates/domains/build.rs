@@ -128,7 +128,13 @@ fn main() {
 
     for name in sorted_names {
         let src = &manifest.sources[name];
-        if src.kind != "Statute" {
+        // Codegen runs for `Statute` (jurisdiction-agnostic parent) and
+        // every leaf concept that `is_a Statute` in SourceTaxonomy.
+        // Listed explicitly here because build.rs reads praxis.toml as
+        // raw TOML without the runtime taxonomy; new statute leaves
+        // need an entry in both source_taxonomy/ontology.rs `is_a`
+        // edges AND this list.
+        if !matches!(src.kind.as_str(), "Statute" | "UsFederalStatute") {
             continue;
         }
         let key = format!("{}@{}", name, src.version);

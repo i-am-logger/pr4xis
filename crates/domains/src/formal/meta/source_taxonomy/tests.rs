@@ -34,11 +34,11 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn eleven_concepts() {
+fn twelve_concepts() {
     // Source, Lexicon, Language, DomainLexicon, LegalLexicon,
-    // LegalCorpus, Statute, Regulation, ConstitutionalArticle,
-    // ProceduralRule, CaseLaw.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 11);
+    // LegalCorpus, Statute, UsFederalStatute, Regulation,
+    // ConstitutionalArticle, ProceduralRule, CaseLaw.
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 12);
 }
 
 #[test]
@@ -106,11 +106,14 @@ fn is_leaf_identifies_seven_leaves() {
         .into_iter()
         .filter(|c| is_leaf(*c))
         .collect();
-    // Language, LegalLexicon, Statute, Regulation,
+    // Language, LegalLexicon, UsFederalStatute, Regulation,
     // ConstitutionalArticle, ProceduralRule, CaseLaw.
+    // Statute is the jurisdiction-agnostic parent of UsFederalStatute
+    // and therefore NOT a leaf.
     assert_eq!(leaves.len(), 7);
     assert!(leaves.contains(&C::Language));
-    assert!(leaves.contains(&C::Statute));
+    assert!(leaves.contains(&C::UsFederalStatute));
+    assert!(!leaves.contains(&C::Statute));
     assert!(!leaves.contains(&C::Source));
     assert!(!leaves.contains(&C::LegalCorpus));
 }
@@ -273,9 +276,13 @@ proptest! {
         let q = HartRule;
         let v = q.get(&c);
         prop_assert!(v.is_some(), "HartRule should be total");
+        // Concepts where HartRule's primary/secondary classification
+        // applies. Statute is the jurisdiction-agnostic parent and
+        // UsFederalStatute is its leaf — both classify as Primary.
         let is_legal_leaf = matches!(c,
-            C::Statute | C::Regulation | C::ConstitutionalArticle
-            | C::ProceduralRule | C::CaseLaw | C::LegalLexicon);
+            C::Statute | C::UsFederalStatute | C::Regulation
+            | C::ConstitutionalArticle | C::ProceduralRule
+            | C::CaseLaw | C::LegalLexicon);
         if is_legal_leaf {
             prop_assert!(v != Some(HartRuleKind::NotApplicable));
         } else {

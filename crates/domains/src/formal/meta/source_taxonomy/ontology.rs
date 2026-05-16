@@ -25,7 +25,8 @@ pr4xis::ontology! {
 
         // === LegalCorpus family (Hart 1961 primary + secondary rules) ===
         LegalCorpus,
-        Statute,                // primary rule (legislative enactment)
+        Statute,                // primary rule (legislative enactment) — generic, jurisdiction-agnostic
+        UsFederalStatute,       // leaf: a Title-of-the-U.S.-Code section (e.g., 18 U.S.C. § 1514A)
         Regulation,             // secondary rule (agency-promulgated, implements statute)
         ConstitutionalArticle,  // supreme primary rule (Marbury v. Madison 1803)
         ProceduralRule,         // primary rule of procedure (FRCP, OALJ rules)
@@ -46,7 +47,9 @@ pr4xis::ontology! {
         LegalCorpus: ("en", "Legal corpus",
             "Hart (1961) The Concept of Law: the root of legal text resources — primary rules (statutes, constitutional articles, procedural rules) and secondary rules (regulations, case law) about them."),
         Statute: ("en", "Statute",
-            "Hart (1961) primary rule: a legislative enactment binding within its jurisdiction (e.g., 18 U.S.C. § 1514A)."),
+            "Hart (1961) primary rule: a legislative enactment binding within its jurisdiction. Jurisdiction-agnostic parent; instances declare a specific leaf (UsFederalStatute, …)."),
+        UsFederalStatute: ("en", "U.S. federal statute",
+            "A Title-of-the-U.S.-Code section enacted by Congress, structured per House Legislative Counsel's Manual on Drafting Style (2017) and cited per Bluebook §3.3.4 (e.g., 18 U.S.C. § 1514A, 49 U.S.C. § 42121)."),
         Regulation: ("en", "Regulation",
             "Hart (1961) secondary rule: an agency-promulgated rule implementing a statute (e.g., 29 CFR Part 1980)."),
         ConstitutionalArticle: ("en", "Constitutional article",
@@ -67,6 +70,7 @@ pr4xis::ontology! {
         // LegalCorpus family
         (LegalCorpus, Source),
         (Statute, LegalCorpus),
+        (UsFederalStatute, Statute),
         (Regulation, LegalCorpus),
         (ConstitutionalArticle, LegalCorpus),
         (ProceduralRule, LegalCorpus),
@@ -142,6 +146,7 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "LegalLexicon" => C::LegalLexicon,
         "LegalCorpus" => C::LegalCorpus,
         "Statute" => C::Statute,
+        "UsFederalStatute" => C::UsFederalStatute,
         "Regulation" => C::Regulation,
         "ConstitutionalArticle" => C::ConstitutionalArticle,
         "ProceduralRule" => C::ProceduralRule,
@@ -162,6 +167,7 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::LegalLexicon => "LegalLexicon",
         C::LegalCorpus => "LegalCorpus",
         C::Statute => "Statute",
+        C::UsFederalStatute => "UsFederalStatute",
         C::Regulation => "Regulation",
         C::ConstitutionalArticle => "ConstitutionalArticle",
         C::ProceduralRule => "ProceduralRule",
@@ -216,7 +222,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
         concept,
         C::Language
             | C::LegalLexicon
-            | C::Statute
+            | C::UsFederalStatute
             | C::Regulation
             | C::ConstitutionalArticle
             | C::ProceduralRule
@@ -263,7 +269,9 @@ impl Quality for HartRule {
     fn get(&self, concept: &SourceTaxonomyConcept) -> Option<HartRuleKind> {
         use SourceTaxonomyConcept as C;
         Some(match concept {
-            C::Statute | C::ConstitutionalArticle | C::ProceduralRule => HartRuleKind::Primary,
+            C::Statute | C::UsFederalStatute | C::ConstitutionalArticle | C::ProceduralRule => {
+                HartRuleKind::Primary
+            }
             C::Regulation | C::CaseLaw | C::LegalLexicon => HartRuleKind::Secondary,
             _ => HartRuleKind::NotApplicable,
         })
@@ -374,11 +382,20 @@ impl Axiom for LegalAdjunctionsTerminateInLanguage {
             .filter(|m| m.kind() == SourceTaxonomyRelationKind::Adjoins)
             .map(|m| (m.source(), m.target()))
             .collect();
+        let is_a_edges: Vec<_> = SourceTaxonomyCategory::morphisms()
+            .into_iter()
+            .filter(|m| m.kind() == SourceTaxonomyRelationKind::Subsumption)
+            .map(|m| (m.source(), m.target()))
+            .collect();
         for c in SourceTaxonomyConcept::variants() {
             if !is_legal_corpus(c) || !is_leaf(c) {
                 continue;
             }
-            // BFS from c over Adjoins edges; must reach Language.
+            // BFS from c over Adjoins ∪ is_a edges; must reach
+            // Language. is_a inclusion means a jurisdiction-specific
+            // leaf (UsFederalStatute) inherits its parent's
+            // (Statute's) adjunction reachability without duplicating
+            // every Adjoins edge per leaf.
             let mut seen = vec![c];
             let mut stack = vec![c];
             let mut reached = false;
@@ -388,6 +405,12 @@ impl Axiom for LegalAdjunctionsTerminateInLanguage {
                     break;
                 }
                 for (s, t) in &adjoins {
+                    if *s == curr && !seen.contains(t) {
+                        seen.push(*t);
+                        stack.push(*t);
+                    }
+                }
+                for (s, t) in &is_a_edges {
                     if *s == curr && !seen.contains(t) {
                         seen.push(*t);
                         stack.push(*t);
@@ -427,7 +450,12 @@ impl Axiom for PrimarySecondaryDistinction {
     fn verify(&self) -> Verdict {
         use SourceTaxonomyConcept as C;
         let q = HartRule;
-        let primary = [C::Statute, C::ConstitutionalArticle, C::ProceduralRule];
+        let primary = [
+            C::Statute,
+            C::UsFederalStatute,
+            C::ConstitutionalArticle,
+            C::ProceduralRule,
+        ];
         let secondary = [C::Regulation, C::CaseLaw, C::LegalLexicon];
         for c in primary {
             if q.get(&c) != Some(HartRuleKind::Primary) {
@@ -444,7 +472,7 @@ impl Axiom for PrimarySecondaryDistinction {
 
     pr4xis::axiom_meta!(
         "PrimarySecondaryDistinction",
-        "Statute/ConstitutionalArticle/ProceduralRule are Primary; Regulation/CaseLaw/LegalLexicon are Secondary",
+        "Statute (+ UsFederalStatute) / ConstitutionalArticle / ProceduralRule are Primary; Regulation / CaseLaw / LegalLexicon are Secondary",
         "Hart (1961) The Concept of Law §V"
     );
 }
