@@ -324,3 +324,107 @@ impl core::fmt::Display for XmlReadError {
 
 #[cfg(feature = "std")]
 impl std::error::Error for XmlReadError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    // ── Prolog-handling property tests ─────────────────────────────
+    //
+    // W3C XML 1.0 §2.8: the prolog allows arbitrary intermixing of
+    // comments, processing instructions, and whitespace before the
+    // root element (with at most one DOCTYPE). These properties
+    // verify the read_xml prolog loop respects that ordering
+    // freedom.
+
+    const MINIMAL_ROOT: &str = "<r/>";
+
+    #[test]
+    fn prolog_with_no_extras_parses() {
+        assert!(read_xml(MINIMAL_ROOT).is_ok());
+    }
+
+    #[test]
+    fn prolog_with_xml_decl_parses() {
+        let s = format!("<?xml version=\"1.0\"?>{MINIMAL_ROOT}");
+        assert!(read_xml(&s).is_ok());
+    }
+
+    #[test]
+    fn prolog_with_comment_parses() {
+        let s = format!("<!-- hi --> {MINIMAL_ROOT}");
+        assert!(read_xml(&s).is_ok());
+    }
+
+    #[test]
+    fn prolog_with_xml_decl_and_comment_parses() {
+        let s = format!("<?xml version=\"1.0\"?>\n<!-- doc -->\n{MINIMAL_ROOT}");
+        assert!(read_xml(&s).is_ok());
+    }
+
+    #[test]
+    fn prolog_with_multiple_comments_parses() {
+        let s = format!("<!--a--><!--b--><!--c-->{MINIMAL_ROOT}");
+        assert!(read_xml(&s).is_ok());
+    }
+
+    #[test]
+    fn unclosed_prolog_comment_errors_cleanly() {
+        let s = format!("<!-- never-closed {MINIMAL_ROOT}");
+        let err = read_xml(&s).unwrap_err();
+        assert!(err.message.contains("unclosed comment"));
+    }
+
+    proptest! {
+        #[test]
+        fn property_prolog_with_arbitrary_comments_parses(
+            comments in proptest::collection::vec("[a-z ]{0,20}", 0..6),
+        ) {
+            // Any sequence of comments (with safe ASCII content) in
+            // the prolog should not break the parser.
+            let mut s = String::new();
+            for c in &comments {
+                s.push_str("<!--");
+                s.push_str(c);
+                s.push_str("-->");
+            }
+            s.push_str(MINIMAL_ROOT);
+            prop_assert!(
+                read_xml(&s).is_ok(),
+                "failed to parse prolog with {} comments: {s:?}",
+                comments.len()
+            );
+        }
+
+        #[test]
+        fn property_xml_decl_position_invariant(
+            ws_count in 0usize..5,
+            comment_count in 0usize..3,
+        ) {
+            // <?xml ?> followed by whitespace and comments must still
+            // produce a parsed root.
+            let mut s = String::from("<?xml version=\"1.0\"?>");
+            for _ in 0..ws_count {
+                s.push(' ');
+            }
+            for i in 0..comment_count {
+                s.push_str(&format!("<!--c{i}-->"));
+            }
+            s.push_str(MINIMAL_ROOT);
+            prop_assert!(read_xml(&s).is_ok());
+        }
+
+        #[test]
+        fn property_self_closing_root_with_attributes_parses(
+            attrs in proptest::collection::vec(("[a-z]{1,8}", "[a-z]{1,8}"), 0..5),
+        ) {
+            let mut s = String::from("<r");
+            for (k, v) in &attrs {
+                s.push_str(&format!(" {k}=\"{v}\""));
+            }
+            s.push_str("/>");
+            prop_assert!(read_xml(&s).is_ok());
+        }
+    }
+}

@@ -167,4 +167,90 @@ mod tests {
             }
         }
     }
+
+    // ── Property-based laws for the English rule set ───────────────
+    //
+    // The universal `MorphologicalRule::invert` round-trip law lives
+    // in morphology/mod.rs. These properties verify English-specific
+    // invariants that hold for every rule in english_rules().
+
+    use proptest::prelude::*;
+
+    fn arb_rule_index() -> impl Strategy<Value = usize> {
+        let count = english_rules().len();
+        0..count
+    }
+
+    fn arb_stem() -> impl Strategy<Value = String> {
+        // Avoid stems ending in 'e' or 'y' so the universal round-
+        // trip property doesn't trip over English allomorphy. The
+        // English-specific allomorphy lives in english/allomorphy.rs
+        // and is tested there.
+        proptest::collection::vec(prop::char::range('a', 'z'), 3..8)
+            .prop_filter("no-allomorphy-trap", |chars| {
+                if chars.is_empty() {
+                    return false;
+                }
+                let last = chars[chars.len() - 1];
+                !"eyiu".contains(last)
+                    && (chars.len() < 2 || chars[chars.len() - 1] != chars[chars.len() - 2])
+            })
+            .prop_map(|chars| chars.into_iter().collect())
+    }
+
+    proptest! {
+        #[test]
+        fn property_every_english_rule_apply_then_invert_recovers_stem(
+            i in arb_rule_index(),
+            stem in arb_stem(),
+        ) {
+            let rule = english_rules()[i].clone();
+            let derived = rule.apply(&stem);
+            if derived == stem {
+                return Ok(());
+            }
+            let candidates = rule.invert(&derived);
+            prop_assert!(
+                candidates.iter().any(|c| c == &stem),
+                "round-trip fail for rule {:?} on stem `{stem}`: derived={derived}, invert={candidates:?}",
+                rule.effect
+            );
+        }
+
+        #[test]
+        fn property_english_rules_have_unique_affixes(_ in 0..1) {
+            // Each affix text appears at most once in english_rules.
+            // Duplicate affixes would mean the lemmatizer does the
+            // same work twice.
+            let mut affixes: Vec<String> = Vec::new();
+            for rule in english_rules() {
+                let text = match &rule.affix {
+                    Affix::Prefix(p) => format!("pre:{}", p.text),
+                    Affix::Suffix(s) => format!("suf:{}", s.text),
+                };
+                prop_assert!(
+                    !affixes.contains(&text),
+                    "duplicate affix `{text}` in english_rules"
+                );
+                affixes.push(text);
+            }
+        }
+
+        #[test]
+        fn property_english_rule_affixes_are_lowercase_ascii(
+            i in arb_rule_index(),
+        ) {
+            let rule = english_rules()[i].clone();
+            let text = match rule.affix {
+                Affix::Prefix(p) => p.text,
+                Affix::Suffix(s) => s.text,
+            };
+            for c in text.chars() {
+                prop_assert!(
+                    c.is_ascii_lowercase(),
+                    "non-lowercase-ASCII char `{c}` in affix `{text}`"
+                );
+            }
+        }
+    }
 }

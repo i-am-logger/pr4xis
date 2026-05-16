@@ -190,4 +190,93 @@ mod tests {
             let _ = (rule.expand)("bak", "baked", "ed");
         }
     }
+
+    // ── Property-based laws for english_allomorphy_rules ──────────
+
+    use proptest::prelude::*;
+
+    fn arb_bare() -> impl Strategy<Value = String> {
+        proptest::collection::vec(prop::char::range('a', 'z'), 1..10)
+            .prop_map(|chars| chars.into_iter().collect())
+    }
+
+    fn arb_suffix() -> impl Strategy<Value = String> {
+        prop_oneof![
+            Just("s".to_string()),
+            Just("es".to_string()),
+            Just("ed".to_string()),
+            Just("ied".to_string()),
+            Just("ies".to_string()),
+            Just("ing".to_string()),
+            Just("er".to_string()),
+            Just("ly".to_string()),
+            Just("ness".to_string()),
+            Just("ability".to_string()),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn property_allomorphy_outputs_never_empty(
+            bare in arb_bare(),
+            suffix in arb_suffix(),
+        ) {
+            // No allomorphy rule may emit an empty string candidate.
+            let surface = format!("{bare}{suffix}");
+            for rule in english_allomorphy_rules() {
+                for cand in (rule.expand)(&bare, &surface, &suffix) {
+                    prop_assert!(
+                        !cand.is_empty(),
+                        "{} emitted empty candidate for bare={bare}, suffix={suffix}",
+                        rule.name
+                    );
+                }
+            }
+        }
+
+        #[test]
+        fn property_allomorphy_outputs_deterministic(
+            bare in arb_bare(),
+            suffix in arb_suffix(),
+        ) {
+            let surface = format!("{bare}{suffix}");
+            for rule in english_allomorphy_rules() {
+                let a = (rule.expand)(&bare, &surface, &suffix);
+                let b = (rule.expand)(&bare, &surface, &suffix);
+                prop_assert_eq!(a, b);
+            }
+        }
+
+        #[test]
+        fn property_silent_e_only_fires_for_vowel_initial(
+            bare in arb_bare(),
+            suffix in arb_suffix(),
+        ) {
+            // Spencer (1991) §5.2: silent-e restoration is gated on
+            // vowel-initial suffixes. For consonant-initial suffixes
+            // (-ly, -ness) the rule MUST return empty regardless of
+            // the bare stem's shape.
+            let out = silent_e_restoration(&bare, &format!("{bare}{suffix}"), &suffix);
+            let starts_with_vowel = suffix
+                .chars()
+                .next()
+                .map(|c| "aeiouy".contains(c.to_ascii_lowercase()))
+                .unwrap_or(false);
+            if !starts_with_vowel {
+                prop_assert!(
+                    out.is_empty(),
+                    "silent_e fired for consonant-initial suffix `{suffix}`: {out:?}"
+                );
+            }
+        }
+
+        #[test]
+        fn property_every_rule_has_non_empty_citation(_ in 0..1) {
+            for rule in english_allomorphy_rules() {
+                prop_assert!(!rule.name.is_empty());
+                prop_assert!(!rule.citation.is_empty(),
+                    "rule {} missing citation", rule.name);
+            }
+        }
+    }
 }

@@ -245,4 +245,72 @@ mod tests {
         assert_eq!(entries[0].lemma, "good");
         assert_eq!(entries[0].kind, IrregularKind::Comparative);
     }
+
+    // ── Property-based laws for english_irregulars() ──────────────
+
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn property_every_surface_resolves(_ in 0..1) {
+            // For every entry in the table, lookup(surface) must
+            // return at least that entry. Pure structural law.
+            for entry in english_irregulars() {
+                let hits = lookup_irregular(&entry.surface);
+                prop_assert!(
+                    hits.iter().any(|h| h.lemma == entry.lemma && h.kind == entry.kind),
+                    "entry {:?} not findable via its own surface",
+                    entry
+                );
+            }
+        }
+
+        #[test]
+        fn property_lookup_is_case_insensitive_for_all(_ in 0..1) {
+            for entry in english_irregulars() {
+                let upper = lookup_irregular(&entry.surface.to_uppercase());
+                let mixed = {
+                    let mut s = entry.surface.clone();
+                    if let Some(first) = s.get_mut(0..1) {
+                        first.make_ascii_uppercase();
+                    }
+                    lookup_irregular(&s)
+                };
+                prop_assert!(!upper.is_empty(), "uppercase fails for {}", entry.surface);
+                prop_assert!(!mixed.is_empty(), "mixed-case fails for {}", entry.surface);
+            }
+        }
+
+        #[test]
+        fn property_lookup_unknown_returns_empty(s in "[a-z]{8,16}") {
+            // Random 8-16 char lowercase strings are extremely
+            // unlikely to be English irregular surfaces.
+            let known: alloc::collections::BTreeSet<String> =
+                english_irregulars().into_iter().map(|f| f.surface).collect();
+            if !known.contains(&s) {
+                let hits = lookup_irregular(&s);
+                prop_assert!(hits.is_empty(), "random string {s} matched: {hits:?}");
+            }
+        }
+
+        #[test]
+        fn property_lemmas_never_have_whitespace_or_punctuation(_ in 0..1) {
+            for entry in english_irregulars() {
+                for c in entry.lemma.chars() {
+                    prop_assert!(
+                        c.is_ascii_alphabetic(),
+                        "lemma `{}` has non-alpha char `{c}`",
+                        entry.lemma
+                    );
+                }
+                for c in entry.surface.chars() {
+                    prop_assert!(
+                        c.is_ascii_alphabetic(),
+                        "surface `{}` has non-alpha char `{c}`",
+                        entry.surface
+                    );
+                }
+            }
+        }
+    }
 }

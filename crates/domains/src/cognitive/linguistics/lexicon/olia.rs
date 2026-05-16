@@ -306,4 +306,75 @@ mod tests {
             let _ = semantic_effect_to_olia_fragments(effect);
         }
     }
+
+    // ── Property-based laws for the OLiA cross-functor ─────────────
+
+    use proptest::prelude::*;
+
+    fn arb_semantic_effect() -> impl Strategy<Value = SemanticEffect> {
+        prop_oneof![
+            Just(SemanticEffect::Negation),
+            Just(SemanticEffect::Repetition),
+            Just(SemanticEffect::PosChange),
+            Just(SemanticEffect::NumberChange),
+            Just(SemanticEffect::TenseChange),
+            Just(SemanticEffect::Progressive),
+            Just(SemanticEffect::AgentNoun),
+            Just(SemanticEffect::QualityNoun),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn property_olia_fragments_are_valid_class_names(
+            effect in arb_semantic_effect(),
+        ) {
+            // Every emitted fragment must parse as a valid OLiA
+            // class fragment via `from_fragment` — either resolving
+            // to a PosTag (when the fragment is a POS class) or
+            // being a documented OLiA Morphosyntax class. Empty
+            // returns are valid for variants with no OLiA mapping.
+            //
+            // Documented OLiA Morphosyntax + structural fragments
+            // we emit (per Chiarcos & Sukhareva 2015):
+            const OLIA_MORPHOSYNTAX_CLASSES: &[&str] = &[
+                "Number", "Singular", "Plural", "Dual",
+                "Tense", "Past", "Present", "Future",
+                "Aspect", "ProgressiveAspect", "PerfectiveAspect", "ImperfectiveAspect",
+                "Mood", "Indicative", "Subjunctive", "Imperative",
+                "Case", "Nominative", "Accusative", "Genitive", "Dative",
+                "Person", "FirstPerson", "SecondPerson", "ThirdPerson",
+                "Gender", "Masculine", "Feminine", "Neuter",
+                "NegativeParticle", "AgentiveNoun", "StativeVerb",
+            ];
+
+            for fragment in semantic_effect_to_olia_fragments(effect) {
+                let is_pos = from_fragment(fragment).is_some();
+                let is_morphosyntax = OLIA_MORPHOSYNTAX_CLASSES.contains(&fragment);
+                prop_assert!(
+                    is_pos || is_morphosyntax,
+                    "fragment `{fragment}` from {effect:?} is neither a known PosTag class nor a documented OLiA Morphosyntax class"
+                );
+            }
+        }
+
+        #[test]
+        fn property_olia_fragments_deterministic(
+            effect in arb_semantic_effect(),
+        ) {
+            let a = semantic_effect_to_olia_fragments(effect);
+            let b = semantic_effect_to_olia_fragments(effect);
+            prop_assert_eq!(a, b);
+        }
+
+        #[test]
+        fn property_olia_fragments_are_unique(
+            effect in arb_semantic_effect(),
+        ) {
+            // No effect should emit duplicate fragments.
+            let frags = semantic_effect_to_olia_fragments(effect);
+            let unique: alloc::collections::BTreeSet<&&str> = frags.iter().collect();
+            prop_assert_eq!(unique.len(), frags.len());
+        }
+    }
 }
