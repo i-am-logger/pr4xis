@@ -70,10 +70,12 @@ pub mod bridge;
 pub mod invariants;
 pub mod parser;
 pub mod relation_extractor;
+pub mod statute_report;
 pub mod term_extractor;
 
 pub use parser::{ClauseNode, ClauseTree, LabelKind, ParseError, parse_statute_text};
 pub use relation_extractor::{RelationCandidate, RelationKind, extract_relations};
+pub use statute_report::{ReportContext, ReportGap, ReportParaphrase, generate_statute_report};
 pub use term_extractor::{ExtractedTerm, extract_terms};
 
 #[cfg(test)]
