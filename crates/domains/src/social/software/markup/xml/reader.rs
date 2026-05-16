@@ -28,17 +28,34 @@ pub fn read_xml(input: &str) -> Result<XmlDocument, XmlReadError> {
     };
 
     // Skip whitespace, comments, PIs, DOCTYPE before root element
-    let remaining = input[pos..].trim_start();
-    pos = input.len() - remaining.len();
+    // (W3C XML 1.0 §2.8 — prolog may contain Misc* which is
+    // Comment | PI | S). Loop until we land on the root element.
+    loop {
+        let remaining = input[pos..].trim_start();
+        pos = input.len() - remaining.len();
 
-    // Skip DOCTYPE if present
-    if input[pos..].starts_with("<!DOCTYPE") {
-        let end = find_doctype_end(&input[pos..]).ok_or(XmlReadError::new("unclosed DOCTYPE"))?;
-        pos += end;
+        if input[pos..].starts_with("<!DOCTYPE") {
+            let end =
+                find_doctype_end(&input[pos..]).ok_or(XmlReadError::new("unclosed DOCTYPE"))?;
+            pos += end;
+            continue;
+        }
+        if input[pos..].starts_with("<!--") {
+            let end = input[pos..]
+                .find("-->")
+                .ok_or(XmlReadError::new("unclosed comment in prolog"))?;
+            pos += end + 3;
+            continue;
+        }
+        if input[pos..].starts_with("<?") {
+            let end = input[pos..]
+                .find("?>")
+                .ok_or(XmlReadError::new("unclosed PI in prolog"))?;
+            pos += end + 2;
+            continue;
+        }
+        break;
     }
-
-    let remaining = input[pos..].trim_start();
-    pos = input.len() - remaining.len();
 
     // Read root element
     let (root, _) = read_element(&input[pos..])?;

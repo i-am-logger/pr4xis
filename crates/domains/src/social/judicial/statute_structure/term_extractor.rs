@@ -103,21 +103,7 @@ pub fn extract_terms(tree: &ClauseTree) -> Vec<ExtractedTerm> {
 /// Language (Huddleston & Pullum 2002) Ch. 1 — function-word vs
 /// content-word distinction.
 pub fn extract_lemmas(term_name: &str) -> Vec<Form> {
-    const STOPWORDS: &[&str] = &[
-        // Articles
-        "a", "an", "the", // Prepositions
-        "of", "in", "on", "at", "to", "for", "by", "with", "from", "into", "about", "as",
-        // Conjunctions
-        "and", "or", "but", "nor", "so", "yet", // Be-verbs
-        "is", "are", "was", "were", "be", "been", "being", "am", // Have-verbs
-        "has", "have", "had", "having", // Pronouns
-        "he", "she", "it", "they", "we", "i", "you", "his", "her", "its", "their", "this", "that",
-        "these", "those", // Modals
-        "shall", "may", "can", "will", "must", "should", "would", "could", "might",
-        // Misc
-        "not", "no", "yes", "if", "then", "than",
-    ];
-
+    let stopwords = english_stopwords();
     let mut seen: alloc::collections::BTreeSet<String> = Default::default();
     let mut out = Vec::new();
 
@@ -125,8 +111,13 @@ pub fn extract_lemmas(term_name: &str) -> Vec<Form> {
         if word.is_empty() {
             continue;
         }
+        // Numeric tokens are statute-section references, not lexemes
+        // (ISO 80000-2 — numerals carry quantity, not meaning).
+        if word.chars().all(|c| c.is_ascii_digit()) {
+            continue;
+        }
         let lowered = word.to_lowercase();
-        if STOPWORDS.contains(&lowered.as_str()) {
+        if stopwords.contains(&lowered) {
             continue;
         }
         if seen.insert(lowered.clone()) {
@@ -138,6 +129,31 @@ pub fn extract_lemmas(term_name: &str) -> Vec<Form> {
     }
 
     out
+}
+
+/// The English stopword set, loaded from
+/// `crates/domains/data/function-words/english.xml` (LMF format).
+///
+/// Source: OLiA POS taxonomy (Chiarcos & Sukhareva 2015) +
+/// Huddleston & Pullum (2002) *Cambridge Grammar of the English
+/// Language* Ch. 1 — function-word vs content-word distinction.
+/// The XML is embedded at compile time via [`include_str!`] and
+/// parsed once into a [`BTreeSet`] on first call.
+fn english_stopwords() -> &'static alloc::collections::BTreeSet<String> {
+    use std::sync::OnceLock;
+    static STOPWORDS: OnceLock<alloc::collections::BTreeSet<String>> = OnceLock::new();
+    STOPWORDS.get_or_init(|| {
+        const XML: &str = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/data/function-words/english.xml"
+        ));
+        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(XML)
+            .expect("bundled function-words/english.xml parses");
+        wn.entries
+            .iter()
+            .map(|e| e.lemma.written_form.to_lowercase())
+            .collect()
+    })
 }
 
 fn extract_from_node(node: &ClauseNode, is_root: bool, out: &mut Vec<ExtractedTerm>) {

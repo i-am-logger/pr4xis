@@ -34,6 +34,9 @@
     <LexicalEntry id="fw-am"><Lemma writtenForm="am" partOfSpeech="cop"/><Sense id="fw-am-1" synset="fw-copula"/></LexicalEntry>
     <LexicalEntry id="fw-was"><Lemma writtenForm="was" partOfSpeech="cop"/><Sense id="fw-was-1" synset="fw-copula"/></LexicalEntry>
     <LexicalEntry id="fw-were"><Lemma writtenForm="were" partOfSpeech="cop"/><Sense id="fw-were-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-be"><Lemma writtenForm="be" partOfSpeech="cop"/><Sense id="fw-be-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-been"><Lemma writtenForm="been" partOfSpeech="cop"/><Sense id="fw-been-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-being"><Lemma writtenForm="being" partOfSpeech="cop"/><Sense id="fw-being-1" synset="fw-copula"/></LexicalEntry>
 
     <!-- Auxiliaries (OLiA: AuxiliaryVerb) -->
     <LexicalEntry id="fw-has"><Lemma writtenForm="has" partOfSpeech="aux"/><Sense id="fw-has-1" synset="fw-auxiliary"/></LexicalEntry>
@@ -104,6 +107,14 @@
     <LexicalEntry id="fw-although"><Lemma writtenForm="although" partOfSpeech="conj"/><Sense id="fw-although-1" synset="fw-conjunction"/></LexicalEntry>
     <LexicalEntry id="fw-if"><Lemma writtenForm="if" partOfSpeech="conj"/><Sense id="fw-if-1" synset="fw-conjunction"/></LexicalEntry>
     <LexicalEntry id="fw-when"><Lemma writtenForm="when" partOfSpeech="conj"/><Sense id="fw-when-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-while"><Lemma writtenForm="while" partOfSpeech="conj"/><Sense id="fw-while-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-until"><Lemma writtenForm="until" partOfSpeech="conj"/><Sense id="fw-until-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-since"><Lemma writtenForm="since" partOfSpeech="conj"/><Sense id="fw-since-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-unless"><Lemma writtenForm="unless" partOfSpeech="conj"/><Sense id="fw-unless-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-than"><Lemma writtenForm="than" partOfSpeech="conj"/><Sense id="fw-than-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-then"><Lemma writtenForm="then" partOfSpeech="conj"/><Sense id="fw-then-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-as"><Lemma writtenForm="as" partOfSpeech="conj"/><Sense id="fw-as-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-whereas"><Lemma writtenForm="whereas" partOfSpeech="conj"/><Sense id="fw-whereas-1" synset="fw-conjunction"/></LexicalEntry>
 
     <!-- Particles -->
     <LexicalEntry id="fw-not"><Lemma writtenForm="not" partOfSpeech="part"/><Sense id="fw-not-1" synset="fw-particle"/></LexicalEntry>
