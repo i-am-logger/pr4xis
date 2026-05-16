@@ -118,15 +118,21 @@ pr4xis update --offline
 
 Flag precedence: `--check` (read-only) always wins over `--force`. `--offline` blocks network access; if a local file exists it is still verified, and verification failure is reported as `VerificationFailed` (not `MissingAndOffline`, which is reserved for actually-absent files).
 
+### Planned: `pr4xis source add / remove / list` (M6)
+
+A separate `source` subcommand for *mutating* the registry — adding a new entry, removing an existing one, or listing without going through `update` — is task **M6** in the milestone plan, not yet implemented. Today the registry is read-only from the CLI's perspective; `pr4xis update --list` prints it but cannot edit it, and new entries are added by hand-editing `praxis.toml`. When M6 lands, hand edits will remain valid (the file is the source of truth either way) and `pr4xis source add <name> --version <v> --type <leaf> --url <url>` will automate the common case.
+
 ## Adding a new source
 
-End-to-end:
+End-to-end. The current workflow is hand-edit-then-verify; mutating subcommands (`pr4xis source add` / `remove` / `list`) are planned as **M6 — registry CLI mutators** and not yet implemented. Manual edits are the canonical path until then.
 
 1. **Choose a leaf in `SourceTaxonomy`** under `crates/domains/src/formal/meta/source_taxonomy/ontology.rs`. If no existing leaf fits the jurisdictional or genre specificity of your source, **add a new leaf first** — the taxonomy is closed-world and unknown types fail registration at startup.
-2. **Append a `[sources.<name>]` block to `praxis.toml`** with the four required fields. Use the authoritative URL.
+2. **Append a `[sources.<name>]` block to `praxis.toml`** with the four required fields. Use the authoritative URL. (M6 will let `pr4xis source add <name> --version <v> --type <leaf> --url <url>` do this; today it's a hand edit.)
 3. **Compute the sha256** of the bytes you expect on disk and add the entry to `praxis.lock`'s `[hashes]` block.
 4. **Run `pr4xis update <name>`** to fetch and verify. The CLI writes the verified bytes to `local_path()`. Subsequent runs are no-ops unless you pass `--force`.
 5. **Verify with `cargo test`** — the data-provisioning ontology runs `LockManifestAgreement` (along with seven other axioms) over the registered set; any drift fails.
+
+Note that the runtime registry is `OnceLock`-cached per process, so a running process only sees entries present at first load. After hand-editing `praxis.toml` you need to restart any long-running praxis process to pick up the new entry.
 
 ## What's automated end-to-end today, and what isn't
 
