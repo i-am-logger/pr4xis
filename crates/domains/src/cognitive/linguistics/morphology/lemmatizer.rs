@@ -96,6 +96,44 @@ impl Language {
 /// The returned `Form`s carry `lang = language.bcp47_tag()`. The
 /// surface itself is always included as the first candidate (so
 /// downstream direct lookup runs first).
+///
+/// # Examples
+///
+/// Inflected plural via the -s rule:
+///
+/// ```
+/// use pr4xis_domains::cognitive::linguistics::morphology::lemmatizer::{
+///     lemmatize, Language,
+/// };
+/// let lemmas: Vec<String> = lemmatize("rights", Language::English)
+///     .into_iter()
+///     .map(|f| f.written_rep)
+///     .collect();
+/// assert!(lemmas.contains(&"rights".to_string())); // identity
+/// assert!(lemmas.contains(&"right".to_string()));  // -s strip
+/// ```
+///
+/// Irregular form via the dual-route lookup (Pinker 1991):
+///
+/// ```
+/// use pr4xis_domains::cognitive::linguistics::morphology::lemmatizer::{
+///     lemmatize, Language,
+/// };
+/// let lemmas: Vec<String> = lemmatize("children", Language::English)
+///     .into_iter()
+///     .map(|f| f.written_rep)
+///     .collect();
+/// assert!(lemmas.contains(&"child".to_string()));
+/// ```
+///
+/// Empty input is well-defined:
+///
+/// ```
+/// use pr4xis_domains::cognitive::linguistics::morphology::lemmatizer::{
+///     lemmatize, Language,
+/// };
+/// assert!(lemmatize("", Language::English).is_empty());
+/// ```
 pub fn lemmatize(surface: &str, language: Language) -> Vec<Form> {
     let canon = surface.to_ascii_lowercase();
     if canon.is_empty() {
@@ -321,6 +359,38 @@ mod tests {
     fn arb_lowercase_word() -> impl Strategy<Value = String> {
         proptest::collection::vec(prop::char::range('a', 'z'), 2..16)
             .prop_map(|chars| chars.into_iter().collect())
+    }
+
+    // ── Concurrency: lemmatize must be thread-safe ────────────────
+    //
+    // The English rule-set is constructed per-call (cheap), but the
+    // function still touches static-borrowed irregular-form data
+    // and may race with itself. Spawn N threads, each calling
+    // lemmatize concurrently; assert all observe identical output.
+
+    #[test]
+    fn concurrency_lemmatize_thread_safe() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        const N_THREADS: usize = 16;
+        let barrier = Arc::new(Barrier::new(N_THREADS));
+        let mut handles = Vec::with_capacity(N_THREADS);
+        for _ in 0..N_THREADS {
+            let b = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                b.wait();
+                lemmatize("rights", Language::English)
+                    .into_iter()
+                    .map(|f| f.written_rep)
+                    .collect::<Vec<_>>()
+            }));
+        }
+        let results: Vec<Vec<String>> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        let first = results[0].clone();
+        for r in &results {
+            assert_eq!(*r, first, "thread observed different lemmatize output");
+        }
     }
 
     proptest! {

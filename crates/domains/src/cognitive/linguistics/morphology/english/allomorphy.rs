@@ -173,15 +173,80 @@ mod tests {
     }
 
     #[test]
+    fn y_to_i_past_inert_for_non_ied_surface() {
+        // "tested" + "ed" should NOT trigger the y/i alternation —
+        // it doesn't end in "ied". Closes a mutation-testing gap
+        // where the function would over-generate "tesy" if the
+        // ied-check were inverted.
+        let out = y_to_i_alternation_past("test", "tested", "ed");
+        assert!(out.is_empty(), "got {out:?}");
+        let out = y_to_i_alternation_past("walk", "walked", "ed");
+        assert!(out.is_empty(), "got {out:?}");
+    }
+
+    #[test]
+    fn y_to_i_past_inert_for_wrong_suffix() {
+        // suffix == "s" should NOT trigger the past-tense rule
+        // even if the surface looks plausible. Closes mutation gap.
+        let out = y_to_i_alternation_past("citi", "cities", "s");
+        assert!(out.is_empty(), "got {out:?}");
+    }
+
+    #[test]
+    fn y_to_i_past_inert_for_short_surface() {
+        // 3-char surface "ied" — len <= 3 must bail. Closes
+        // boundary mutation.
+        let out = y_to_i_alternation_past("", "ied", "ed");
+        assert!(out.is_empty(), "got {out:?}");
+    }
+
+    #[test]
     fn y_to_i_plural_recovers_city() {
         let out = y_to_i_alternation_plural("citi", "cities", "s");
         assert_eq!(out, vec!["city".to_string()]);
     }
 
     #[test]
+    fn y_to_i_plural_inert_for_non_ies_surface() {
+        let out = y_to_i_alternation_plural("dog", "dogs", "s");
+        assert!(out.is_empty(), "got {out:?}");
+    }
+
+    #[test]
+    fn y_to_i_plural_inert_for_wrong_suffix() {
+        let out = y_to_i_alternation_plural("cri", "cried", "ed");
+        assert!(out.is_empty(), "got {out:?}");
+    }
+
+    #[test]
+    fn y_to_i_plural_inert_for_short_surface() {
+        let out = y_to_i_alternation_plural("", "ies", "s");
+        assert!(out.is_empty(), "got {out:?}");
+    }
+
+    #[test]
     fn es_restoration_recovers_box() {
         let out = es_to_e_restoration("box", "boxes", "s");
         assert_eq!(out, vec!["box".to_string()]);
+    }
+
+    #[test]
+    fn es_restoration_inert_for_non_es_surface() {
+        let out = es_to_e_restoration("dog", "dogs", "s");
+        assert!(out.is_empty(), "got {out:?}");
+    }
+
+    #[test]
+    fn es_restoration_inert_for_wrong_suffix() {
+        let out = es_to_e_restoration("test", "tested", "ed");
+        assert!(out.is_empty(), "got {out:?}");
+    }
+
+    #[test]
+    fn es_restoration_inert_for_short_surface() {
+        // len <= 2 surface: "es" alone must bail.
+        let out = es_to_e_restoration("", "es", "s");
+        assert!(out.is_empty(), "got {out:?}");
     }
 
     #[test]

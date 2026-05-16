@@ -26,6 +26,14 @@ in
     pkgs.mdbook
     pkgs.miniserve
     pkgs.cargo-edit
+    # Mutation testing — operational error-rate measurement
+    # (Daubert prong 3). Each mutant alters one expression; if the
+    # tests still pass, that's a blind spot in coverage.
+    pkgs.cargo-mutants
+    # Faster test runner — used as cargo-mutants' --test-tool to
+    # multiply mutation-testing speed (cargo-mutants per-mutant
+    # cycle is dominated by test runtime).
+    pkgs.cargo-nextest
   ];
 
   # Development scripts
@@ -91,6 +99,28 @@ in
   # the test suite to catch any breaking-API changes. The "always be on
   # latest" policy: contributors run this periodically; new majors land in
   # PRs labelled fix(deps): with the API-migration commit alongside.
+  # Mutation testing — run cargo-mutants on a focused module or
+  # path. Each mutant changes one expression (e.g. `==` to `!=`,
+  # `+` to `-`); a tested codebase kills the mutant by failing.
+  # Surviving mutants are blind spots in the test suite. Compliance
+  # win: this measures the actual operational error rate.
+  #
+  # Uses --in-place (no workspace copy — required since target/ is
+  # large and copying it N times exhausts /tmp) plus cargo-nextest
+  # which itself parallelizes tests across all available cores.
+  # Net effect: mutants run serially, but each mutant's test cycle
+  # uses every CPU thread on the machine.
+  #
+  # Usage:
+  #   dev-mutants                         — workspace-wide (slow)
+  #   dev-mutants -- --file <path>        — focus on one file
+  #   dev-mutants -- --package <name>     — focus on one crate
+  scripts.dev-mutants.exec = ''
+    echo "Running cargo-mutants --in-place + cargo-nextest..."
+    echo "Tip: pass --file <path> or --package <name> to scope."
+    cargo mutants --test-tool nextest --in-place "$@"
+  '';
+
   scripts.dev-upgrade.exec = ''
     echo "=== cargo upgrade (cross-semver, edits Cargo.toml) ==="
     cargo upgrade --incompatible
@@ -144,6 +174,7 @@ in
     echo "  dev-web       - Start dev server (/ = chatbot, /decks/technical = presentation)"
     echo "  dev-wasm      - Build WASM"
     echo "  dev-upgrade   - Bump all deps to latest (Cargo.toml + Cargo.lock) and run tests"
+    echo "  dev-mutants   - Mutation testing via cargo-mutants (compliance: operational error rate)"
     echo ""
   '';
 

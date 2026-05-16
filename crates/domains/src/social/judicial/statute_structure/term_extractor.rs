@@ -102,6 +102,45 @@ pub fn extract_terms(tree: &ClauseTree) -> Vec<ExtractedTerm> {
 /// can, will, must). Source: Cambridge Grammar of the English
 /// Language (Huddleston & Pullum 2002) Ch. 1 — function-word vs
 /// content-word distinction.
+///
+/// The stopword list is loaded from the bundled
+/// `crates/domains/data/function-words/english.xml` (Chiarcos &
+/// Sukhareva 2015 OLiA POS taxonomy) — not hand-coded.
+///
+/// # Examples
+///
+/// Two content words around an article:
+///
+/// ```
+/// use pr4xis_domains::social::judicial::statute_structure::term_extractor::extract_lemmas;
+/// let lemmas: Vec<String> = extract_lemmas("Covered Employer")
+///     .into_iter()
+///     .map(|f| f.written_rep)
+///     .collect();
+/// assert_eq!(lemmas, vec!["covered", "employer"]);
+/// ```
+///
+/// Stopwords stripped, numeric tokens filtered (ISO 80000-2):
+///
+/// ```
+/// use pr4xis_domains::social::judicial::statute_structure::term_extractor::extract_lemmas;
+/// let lemmas: Vec<String> = extract_lemmas("Section 42121 of the Statute")
+///     .into_iter()
+///     .map(|f| f.written_rep)
+///     .collect();
+/// // "section" and "statute" remain; "42121" is numeric (filtered),
+/// // "of" and "the" are function words (filtered).
+/// assert_eq!(lemmas, vec!["section", "statute"]);
+/// ```
+///
+/// Lower-cased output:
+///
+/// ```
+/// use pr4xis_domains::social::judicial::statute_structure::term_extractor::extract_lemmas;
+/// for form in extract_lemmas("PROHIBITION ON RETALIATION") {
+///     assert_eq!(form.written_rep, form.written_rep.to_lowercase());
+/// }
+/// ```
 pub fn extract_lemmas(term_name: &str) -> Vec<Form> {
     let stopwords = english_stopwords();
     let mut seen: alloc::collections::BTreeSet<String> = Default::default();
@@ -739,6 +778,80 @@ mod tests {
             let single = extract_lemmas(&name);
             let doubled = extract_lemmas(&format!("{name} {name}"));
             prop_assert_eq!(single, doubled);
+        }
+    }
+
+    // ── Concurrency tests for the OnceLock-cached stopword set ────
+    //
+    // The english_stopwords helper is a OnceLock — concurrent first
+    // calls from multiple threads MUST all see the same fully-built
+    // BTreeSet without panic, deadlock, or double-init. Daubert
+    // prong 3 (operational error rate): a thread-unsafe lazy cache
+    // would manifest as flaky test failures, which an auditor would
+    // flag as unreliable methodology.
+
+    #[test]
+    fn concurrency_stopwords_lazy_init_under_threads() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        const N_THREADS: usize = 16;
+        let barrier = Arc::new(Barrier::new(N_THREADS));
+        let mut handles = Vec::with_capacity(N_THREADS);
+        for _ in 0..N_THREADS {
+            let b = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                // All threads block until everyone is ready, then
+                // hammer english_stopwords() simultaneously.
+                b.wait();
+                let set = english_stopwords();
+                // Every thread must see the same content. Read a few
+                // known stopwords to verify the set is populated.
+                assert!(set.contains("the"));
+                assert!(set.contains("and"));
+                assert!(set.contains("because"));
+                set.len()
+            }));
+        }
+        let sizes: Vec<usize> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        // All threads must observe the same size — proves OnceLock
+        // initialization was atomic.
+        let first = sizes[0];
+        for s in &sizes {
+            assert_eq!(*s, first, "thread observed different stopword-set size");
+        }
+    }
+
+    #[test]
+    fn concurrency_extract_lemmas_thread_safe() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        const N_THREADS: usize = 16;
+        let barrier = Arc::new(Barrier::new(N_THREADS));
+        let mut handles = Vec::with_capacity(N_THREADS);
+        for i in 0..N_THREADS {
+            let b = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                b.wait();
+                let name = format!("Covered Employer {i}");
+                let lemmas = extract_lemmas(&name);
+                lemmas
+                    .into_iter()
+                    .map(|f| f.written_rep)
+                    .collect::<Vec<_>>()
+            }));
+        }
+        for (i, h) in handles.into_iter().enumerate() {
+            let lemmas = h.join().unwrap();
+            assert!(
+                lemmas.contains(&"covered".to_string()),
+                "thread {i} missing `covered`: {lemmas:?}"
+            );
+            assert!(
+                lemmas.contains(&"employer".to_string()),
+                "thread {i} missing `employer`: {lemmas:?}"
+            );
         }
     }
 }
