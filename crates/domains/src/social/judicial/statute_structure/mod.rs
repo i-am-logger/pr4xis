@@ -67,12 +67,17 @@
 //! clause-structure rules, but don't introduce new conceptual layers.
 
 pub mod bridge;
+pub mod english_adjunction;
 pub mod invariants;
 pub mod parser;
 pub mod relation_extractor;
 pub mod statute_report;
 pub mod term_extractor;
 
+pub use english_adjunction::{
+    LemmaSenseMapping, resolve_form_to_senses, resolve_lemmas_to_senses,
+    resolve_term_name_to_senses,
+};
 pub use parser::{ClauseNode, ClauseTree, LabelKind, ParseError, parse_statute_text};
 pub use relation_extractor::{RelationCandidate, RelationKind, extract_relations};
 pub use statute_report::{ReportContext, ReportGap, ReportParaphrase, generate_statute_report};
