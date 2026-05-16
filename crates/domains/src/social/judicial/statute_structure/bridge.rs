@@ -30,6 +30,7 @@ use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 use crate::applied::data_provisioning::registry::StructuralData;
 use crate::social::judicial::citation::PinpointCite;
 use crate::social::judicial::statute_structure::parser::{ClauseNode, ClauseTree};
+use crate::social::judicial::statute_structure::term_extractor::extract_terms;
 
 // ─────────────────────────────────────────────────────────────────────
 // Result types
@@ -51,6 +52,14 @@ pub enum TermMatchResult {
         lock_term_id: String,
         clause_cite: PinpointCite,
         text_match: TextMatch,
+        /// Canonical heading detected at the matched clause via the
+        /// term-extractor's `HEADING.--` recognition. `None` when no
+        /// canonical heading was extracted at this node (typically
+        /// inline list items at the deepest levels). When present,
+        /// downstream audits can compare it against the lock-term
+        /// name for tighter drift detection than the substring-based
+        /// `TextMatch`.
+        canonical_heading: Option<String>,
     },
     /// Lock term has no matching clause — flagged for review.
     Unmatched {
@@ -223,6 +232,15 @@ pub fn audit_lock_against_tree(
     // can build both per-term and per-clause views.
     let root_segment_count = tree.root.id.segments.len();
 
+    // Pre-compute extracted headings per clause cite (Bluebook form
+    // of the cite) for the new canonical_heading field on Matched
+    // results.
+    let extracted = extract_terms(tree);
+    let heading_by_cite: alloc::collections::BTreeMap<String, String> = extracted
+        .into_iter()
+        .filter_map(|t| t.heading.map(|h| (t.cite.to_bluebook(), h)))
+        .collect();
+
     let mut term_results: Vec<TermMatchResult> = Vec::with_capacity(structural.terms.len());
     // Map of clause-path → list of lock-term CURIEs that map there.
     let mut clause_to_terms: alloc::collections::BTreeMap<Vec<String>, Vec<String>> =
@@ -256,10 +274,12 @@ pub fn audit_lock_against_tree(
                 } else {
                     TextMatch::Paraphrase
                 };
+                let canonical_heading = heading_by_cite.get(&node.id.to_bluebook()).cloned();
                 term_results.push(TermMatchResult::Matched {
                     lock_term_id: term_id.clone(),
                     clause_cite: node.id.clone(),
                     text_match,
+                    canonical_heading,
                 });
                 clause_to_terms
                     .entry(path)
@@ -360,6 +380,47 @@ fn lock_name_in_body(lock_name: &str, body: &str) -> bool {
     let needle = lock_name.to_lowercase();
     let haystack = body.to_lowercase();
     haystack.contains(&needle)
+}
+
+/// Classification of how a lock-term name relates to its matched
+/// clause's canonical heading. Returned by
+/// [`classify_heading_vs_name`]; used by per-statute audits to
+/// detect drift more precisely than the substring-based [`TextMatch`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HeadingRelation {
+    /// Canonical heading and lock-name are equivalent
+    /// (case-insensitive equality OR one is a substring of the
+    /// other). Strongest match — the lock name is grounded in
+    /// enacted statutory text.
+    HeadingAgrees,
+    /// Canonical heading exists but doesn't agree with the lock
+    /// name (neither contains the other). Real divergence — lock
+    /// name is fully paraphrased relative to enacted text.
+    HeadingDiverges,
+    /// No canonical heading detected at the matched clause. The
+    /// audit falls back to body-substring matching for these.
+    NoHeading,
+}
+
+/// Compare a lock-term name to a canonical heading and classify
+/// their relationship. Case-insensitive; matches if either string
+/// contains the other.
+pub fn classify_heading_vs_name(
+    lock_name: &str,
+    canonical_heading: Option<&str>,
+) -> HeadingRelation {
+    let Some(heading) = canonical_heading else {
+        return HeadingRelation::NoHeading;
+    };
+    let h = heading.to_lowercase();
+    let n = lock_name.to_lowercase();
+    let h_t = h.trim();
+    let n_t = n.trim();
+    if h_t == n_t || h_t.contains(n_t) || n_t.contains(h_t) {
+        HeadingRelation::HeadingAgrees
+    } else {
+        HeadingRelation::HeadingDiverges
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -573,5 +634,88 @@ mod tests {
         assert_eq!(report.unmatched_term_count(), 1);
         // No subdivisions → no clause results.
         assert!(report.by_clause.is_empty());
+    }
+
+    // ── Canonical-heading population + classification ─────────────────
+
+    #[test]
+    fn canonical_heading_populated_when_heading_pattern_present() {
+        let tree = parse_statute_text(
+            "(a) MY HEADING.--body text follows.",
+            root_cite(),
+            "test://",
+        )
+        .unwrap();
+        let data = make_data(vec![make_term("test:a", "Term Name")]);
+        let report = audit_lock_against_tree(&data, &tree, sox_like_mapper);
+        let r = report.lock_term("test:a").expect("term in report");
+        if let TermMatchResult::Matched {
+            canonical_heading, ..
+        } = r
+        {
+            assert_eq!(canonical_heading.as_deref(), Some("MY HEADING"));
+        } else {
+            panic!("expected Matched, got {r:?}");
+        }
+    }
+
+    #[test]
+    fn canonical_heading_none_when_no_pattern() {
+        let tree =
+            parse_statute_text("(a) just prose without separator", root_cite(), "test://").unwrap();
+        let data = make_data(vec![make_term("test:a", "Whatever")]);
+        let report = audit_lock_against_tree(&data, &tree, sox_like_mapper);
+        let r = report.lock_term("test:a").expect("term in report");
+        if let TermMatchResult::Matched {
+            canonical_heading, ..
+        } = r
+        {
+            assert_eq!(*canonical_heading, None);
+        } else {
+            panic!("expected Matched, got {r:?}");
+        }
+    }
+
+    #[test]
+    fn classify_heading_agrees_on_equal_case_insensitive() {
+        assert_eq!(
+            classify_heading_vs_name("Foo", Some("foo")),
+            HeadingRelation::HeadingAgrees
+        );
+    }
+
+    #[test]
+    fn classify_heading_agrees_when_heading_contains_lock_name() {
+        assert_eq!(
+            classify_heading_vs_name("Burdens of Proof", Some("BURDENS OF PROOF")),
+            HeadingRelation::HeadingAgrees
+        );
+    }
+
+    #[test]
+    fn classify_heading_agrees_when_lock_name_contains_heading() {
+        assert_eq!(
+            classify_heading_vs_name(
+                "Burdens of Proof for District Court Actions",
+                Some("BURDENS OF PROOF"),
+            ),
+            HeadingRelation::HeadingAgrees
+        );
+    }
+
+    #[test]
+    fn classify_heading_diverges_when_disjoint() {
+        assert_eq!(
+            classify_heading_vs_name("Covered Employer", Some("WHISTLEBLOWER PROTECTION")),
+            HeadingRelation::HeadingDiverges
+        );
+    }
+
+    #[test]
+    fn classify_heading_no_heading_when_none() {
+        assert_eq!(
+            classify_heading_vs_name("Anything", None),
+            HeadingRelation::NoHeading
+        );
     }
 }

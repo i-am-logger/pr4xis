@@ -648,6 +648,64 @@ mod tests {
     }
 
     #[test]
+    fn bridge_heading_relations_classified() {
+        use crate::social::judicial::statute_structure::bridge::{
+            HeadingRelation, TermMatchResult, classify_heading_vs_name,
+        };
+
+        let report = bridge_audit();
+        let known_para_ids: alloc::collections::BTreeSet<&'static str> =
+            KNOWN_PARAPHRASES.iter().map(|p| p.term_id).collect();
+        let known_gap_ids: alloc::collections::BTreeSet<&'static str> =
+            KNOWN_GAPS.iter().map(|g| g.term_id).collect();
+        let lock_name_by_id: alloc::collections::BTreeMap<String, String> = statute()
+            .terms()
+            .iter()
+            .map(|t| (t.id.value.clone(), t.name.text.clone()))
+            .collect();
+
+        let mut undocumented_divergences: alloc::vec::Vec<(String, String, String)> =
+            alloc::vec::Vec::new();
+        for r in &report.by_lock_term {
+            if let TermMatchResult::Matched {
+                lock_term_id,
+                canonical_heading,
+                ..
+            } = r
+            {
+                let lock_name = lock_name_by_id.get(lock_term_id).expect("lock name");
+                let relation = classify_heading_vs_name(lock_name, canonical_heading.as_deref());
+                if relation == HeadingRelation::HeadingDiverges {
+                    let classified = known_para_ids.contains(lock_term_id.as_str())
+                        || known_gap_ids.contains(lock_term_id.as_str());
+                    if !classified {
+                        undocumented_divergences.push((
+                            lock_term_id.clone(),
+                            lock_name.clone(),
+                            canonical_heading.clone().unwrap_or_default(),
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(
+            undocumented_divergences.is_empty(),
+            "{} undocumented heading-vs-name divergence(s) — add to KNOWN_PARAPHRASES or KNOWN_GAPS:\n{}",
+            undocumented_divergences.len(),
+            undocumented_divergences
+                .iter()
+                .map(|(id, name, h)| alloc::format!(
+                    "  - {} lock-name=\"{}\" canonical-heading=\"{}\"",
+                    id,
+                    name,
+                    h
+                ))
+                .collect::<alloc::vec::Vec<_>>()
+                .join("\n")
+        );
+    }
+
+    #[test]
     fn print_bridge_report() {
         use crate::social::judicial::statute_structure::bridge::{TermMatchResult, TextMatch};
         let report = bridge_audit();
