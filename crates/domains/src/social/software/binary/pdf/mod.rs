@@ -53,6 +53,12 @@ pub mod ontology;
 #[cfg(feature = "pdf")]
 pub mod reader;
 
+/// Content-stream interpreter — operator sequence → typed events.
+/// Phase 3 of M4.γ; consumes the byte streams the reader exposes
+/// and produces text-show events + flagged-graphics events.
+#[cfg(feature = "pdf")]
+pub mod content_stream;
+
 #[cfg(test)]
 mod tests;
 
