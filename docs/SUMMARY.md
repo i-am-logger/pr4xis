@@ -12,6 +12,7 @@
 # Use
 
 - [Build an Ontology from a Paper](use/build-ontology-from-paper.md)
+- [Register a Source](use/register-a-source.md)
 - [Compose via Functor](use/compose-via-functor.md)
 - [Write Axioms](use/write-axioms.md)
 

@@ -44,24 +44,36 @@ url     = "https://github.com/globalwordnet/english-wordnet/releases/download/20
 
 # Sarbanes–Oxley Act § 806, codified at 18 U.S.C. § 1514A (2002).
 # Whistleblower protection for employees of publicly-traded companies.
-# Static-store source: the parsed structural data lives in praxis.lock's
-# [structural."sox_1514a@2002"] block and is baked into the binary at
-# build time. The URL is for human reference / future re-extraction.
+#
+# `url` points at the authoritative GPO-authenticated PDF on govinfo.gov
+# (Bluebook §18 — preferred authenticated digital edition). Praxis can't
+# fetch+extract this format yet — the PDF loader is task M4.γ — so for
+# now the on-disk canonical text is a hand-transcribed approximation
+# under data/canonical_text/, pinned via praxis.lock's [canonical_text.*]
+# block with `provenance = "training_reconstructed_<date>"`. When the
+# PDF loader lands, `pr4xis update sox_1514a` will fetch this PDF,
+# extract text, and replace the hand-transcribed file.
 [sources.sox_1514a]
 version     = "2002"
 type        = "UsFederalStatute"
-url         = "https://www.govinfo.gov/content/pkg/USCODE-2018-title18/html/USCODE-2018-title18-partI-chap73-sec1514A.htm"
+url         = "https://www.govinfo.gov/content/pkg/USCODE-2018-title18/pdf/USCODE-2018-title18-partI-chap73-sec1514A.pdf"
 description = "18 U.S.C. § 1514A — Civil action to protect against retaliation in fraud cases"
 
 # AIR21 — Wendell H. Ford Aviation Investment and Reform Act for the
 # 21st Century, codified at 49 U.S.C. § 42121 (added 2000; substantive
 # Dodd-Frank amendments 2010). § 42121(b)(2)(B) is the four-clause
 # burden-shifting framework that SOX § 1514A(b)(2)(C) imports by
-# reference. Same static-store pattern as sox_1514a.
+# reference. Same hand-transcribed-pending-PDF-loader shape as sox_1514a.
+#
+# NOTE: the granule path below is the best-known approximation of the
+# 49 USC § 42121 PDF URL — govinfo's section-level granule path for
+# title 49 chap 421 wasn't directly verifiable through their JS-rendered
+# frontend at authoring time. The URL should be verified and corrected
+# (if needed) as part of M4.γ when the PDF loader actually fetches it.
 [sources.air21_42121]
 version     = "2010"
 type        = "UsFederalStatute"
-url         = "https://www.govinfo.gov/content/pkg/USCODE-2018-title49/html/USCODE-2018-title49-subtitleVII-partA-subpartiii-chap421-sec42121.htm"
+url         = "https://www.govinfo.gov/content/pkg/USCODE-2018-title49/pdf/USCODE-2018-title49-subtitleVII-partA-subpartiii-chap421-sec42121.pdf"
 description = "49 U.S.C. § 42121 — Protection of employees providing air safety information; the four-clause burden-shifting framework SOX § 1514A imports by reference"
 
 # ---------------------------------------------------------------------------
