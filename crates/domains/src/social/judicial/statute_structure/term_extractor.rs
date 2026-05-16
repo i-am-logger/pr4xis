@@ -46,6 +46,7 @@
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 
+use crate::cognitive::linguistics::lemon::lexicon::Form;
 use crate::social::judicial::citation::PinpointCite;
 use crate::social::judicial::statute_structure::parser::{ClauseNode, ClauseTree};
 
@@ -74,6 +75,68 @@ impl ExtractedTerm {
 pub fn extract_terms(tree: &ClauseTree) -> Vec<ExtractedTerm> {
     let mut out = Vec::new();
     extract_from_node(&tree.root, /* is_root */ true, &mut out);
+    out
+}
+
+/// Extract content-word lemmas from a term name. Lowercases,
+/// strips punctuation, removes stopwords, deduplicates. Produces
+/// the candidate-lemma list that the (future) M5 statute-to-English
+/// adjunction will resolve against WordNet.
+///
+/// # Examples
+///
+/// - `"Covered Employer"` → `["covered", "employer"]`
+/// - `"Statute of Limitations for Filing"` →
+///   `["statute", "limitations", "filing"]` ("of" and "for" are
+///   stopwords)
+/// - `"Burdens of Proof for District Court Actions"` →
+///   `["burdens", "proof", "district", "court", "actions"]`
+///
+/// # Stopwords
+///
+/// Removes the closed-class English function words that don't carry
+/// lexical content: articles (a, an, the), prepositions (of, in, on,
+/// at, to, for, by, with, from), conjunctions (and, or, but, nor),
+/// auxiliaries (is, are, was, were, be, been, being, has, have, had),
+/// pronouns (he, she, it, they, this, that), and modals (shall, may,
+/// can, will, must). Source: Cambridge Grammar of the English
+/// Language (Huddleston & Pullum 2002) Ch. 1 — function-word vs
+/// content-word distinction.
+pub fn extract_lemmas(term_name: &str) -> Vec<Form> {
+    const STOPWORDS: &[&str] = &[
+        // Articles
+        "a", "an", "the", // Prepositions
+        "of", "in", "on", "at", "to", "for", "by", "with", "from", "into", "about", "as",
+        // Conjunctions
+        "and", "or", "but", "nor", "so", "yet", // Be-verbs
+        "is", "are", "was", "were", "be", "been", "being", "am", // Have-verbs
+        "has", "have", "had", "having", // Pronouns
+        "he", "she", "it", "they", "we", "i", "you", "his", "her", "its", "their", "this", "that",
+        "these", "those", // Modals
+        "shall", "may", "can", "will", "must", "should", "would", "could", "might",
+        // Misc
+        "not", "no", "yes", "if", "then", "than",
+    ];
+
+    let mut seen: alloc::collections::BTreeSet<String> = Default::default();
+    let mut out = Vec::new();
+
+    for word in term_name.split(|c: char| !c.is_alphanumeric()) {
+        if word.is_empty() {
+            continue;
+        }
+        let lowered = word.to_lowercase();
+        if STOPWORDS.contains(&lowered.as_str()) {
+            continue;
+        }
+        if seen.insert(lowered.clone()) {
+            out.push(Form {
+                written_rep: lowered,
+                lang: "en".to_string(),
+            });
+        }
+    }
+
     out
 }
 
@@ -415,6 +478,124 @@ mod tests {
                 t.cite.to_bluebook()
             );
         }
+    }
+
+    // ── extract_lemmas unit tests ────────────────────────────────────
+
+    /// Test helper: build the expected `Vec<Form>` for English words.
+    fn en_forms(words: &[&str]) -> Vec<Form> {
+        words
+            .iter()
+            .map(|w| Form {
+                written_rep: w.to_string(),
+                lang: "en".to_string(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn lemmas_simple_two_word() {
+        assert_eq!(
+            extract_lemmas("Covered Employer"),
+            en_forms(&["covered", "employer"])
+        );
+    }
+
+    #[test]
+    fn lemmas_carry_english_language_tag() {
+        for f in extract_lemmas("Covered Employer") {
+            assert_eq!(f.lang, "en");
+        }
+    }
+
+    #[test]
+    fn lemmas_strips_prepositions() {
+        assert_eq!(
+            extract_lemmas("Statute of Limitations for Filing"),
+            en_forms(&["statute", "limitations", "filing"])
+        );
+    }
+
+    #[test]
+    fn lemmas_strips_conjunctions_and_articles() {
+        assert_eq!(
+            extract_lemmas("The Right and the Remedy"),
+            en_forms(&["right", "remedy"])
+        );
+    }
+
+    #[test]
+    fn lemmas_strips_modals() {
+        assert_eq!(
+            extract_lemmas("Action May Not Be Waived"),
+            en_forms(&["action", "waived"])
+        );
+    }
+
+    #[test]
+    fn lemmas_deduplicates() {
+        assert_eq!(
+            extract_lemmas("Court Action Court Filing"),
+            en_forms(&["court", "action", "filing"])
+        );
+    }
+
+    #[test]
+    fn lemmas_handles_punctuation() {
+        assert_eq!(
+            extract_lemmas("Non-Waivability of Rights and Remedies"),
+            en_forms(&["non", "waivability", "rights", "remedies"])
+        );
+    }
+
+    #[test]
+    fn lemmas_empty_input() {
+        assert_eq!(extract_lemmas(""), Vec::<Form>::new());
+    }
+
+    #[test]
+    fn lemmas_all_stopwords_input() {
+        assert_eq!(extract_lemmas("the and of"), Vec::<Form>::new());
+    }
+
+    #[test]
+    fn lemmas_for_sox_term_names() {
+        assert_eq!(
+            extract_lemmas("Covered Employer"),
+            en_forms(&["covered", "employer"])
+        );
+        assert_eq!(
+            extract_lemmas("Prohibition on Retaliation"),
+            en_forms(&["prohibition", "retaliation"])
+        );
+        assert_eq!(
+            extract_lemmas("Compensatory Damages"),
+            en_forms(&["compensatory", "damages"])
+        );
+        assert_eq!(
+            extract_lemmas("Reporting to Federal Agency"),
+            en_forms(&["reporting", "federal", "agency"])
+        );
+        assert_eq!(
+            extract_lemmas("Invalidity of Predispute Arbitration Agreements"),
+            en_forms(&["invalidity", "predispute", "arbitration", "agreements"])
+        );
+    }
+
+    #[test]
+    fn lemmas_for_air21_term_names() {
+        assert_eq!(
+            extract_lemmas("Discrimination Prohibited"),
+            en_forms(&["discrimination", "prohibited"])
+        );
+        assert_eq!(
+            extract_lemmas("Prima Facie Investigation Gate"),
+            en_forms(&["prima", "facie", "investigation", "gate"])
+        );
+        assert_eq!(
+            extract_lemmas("Merits Contributing-Factor Demonstration"),
+            en_forms(&["merits", "contributing", "factor", "demonstration"])
+        );
     }
 
     #[test]

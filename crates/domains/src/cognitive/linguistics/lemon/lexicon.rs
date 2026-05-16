@@ -20,7 +20,7 @@ use alloc::collections::BTreeMap;
 
 /// A Form — one grammatical realization (ontolex:Form).
 /// Carries writtenRep (BCP 47 language-tagged).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Form {
     pub written_rep: String,
     pub lang: String,
