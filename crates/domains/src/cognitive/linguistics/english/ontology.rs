@@ -193,6 +193,38 @@ impl English {
             });
         }
 
+        // Phase 1.5: Index inflected forms (Form elements in LMF) into
+        // the same word_index slots as the entry's lemma. This makes
+        // surface inflections — `ran` for `run`, `was` for `be`,
+        // `children` for `child` — directly resolvable by the
+        // statute-to-WordNet adjunction without invoking the
+        // morphology lemmatizer. The data lives in the loaded WordNet
+        // XML's `<Form writtenForm="...">` children (~4,400 forms in
+        // English WordNet 2025); see
+        // crate::social::software::markup::xml::lmf::reader.
+        for entry in &wn.entries {
+            if entry.forms.is_empty() {
+                continue;
+            }
+            let lemma_concepts: Vec<ConceptId> = entry
+                .senses
+                .iter()
+                .filter_map(|s| synset_to_concept.get(&s.synset).copied())
+                .collect();
+            if lemma_concepts.is_empty() {
+                continue;
+            }
+            for form in &entry.forms {
+                let key = form.written_form.clone();
+                let existing = word_index.entry(key).or_default();
+                for cid in &lemma_concepts {
+                    if !existing.contains(cid) {
+                        existing.push(*cid);
+                    }
+                }
+            }
+        }
+
         // Phase 2: Assign SenseIds
         let mut sense_counter = 0u64;
         for entry in &wn.entries {
@@ -496,5 +528,82 @@ impl crate::cognitive::linguistics::language::Language for English {
 
     fn word_count(&self) -> usize {
         self.word_index.len() + self.function_word_list.len()
+    }
+}
+
+#[cfg(test)]
+mod inflection_index_tests {
+    use super::*;
+    use crate::social::software::markup::xml::lmf::reader::read_wordnet;
+
+    /// Sample LMF with inflected Form elements — verifies the
+    /// from_wordnet inflection index wires forms to lemma concepts.
+    const INFLECTED_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test" label="Test" language="en" version="1.0">
+    <LexicalEntry id="e-run-v">
+      <Lemma writtenForm="run" partOfSpeech="v"/>
+      <Form writtenForm="runs"/>
+      <Form writtenForm="ran"/>
+      <Form writtenForm="running"/>
+      <Sense id="run-v-01" synset="s-run"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-child-n">
+      <Lemma writtenForm="child" partOfSpeech="n"/>
+      <Form writtenForm="children"/>
+      <Sense id="child-n-01" synset="s-child"/>
+    </LexicalEntry>
+    <Synset id="s-run" ili="i1" partOfSpeech="v"><Definition>move fast on foot</Definition></Synset>
+    <Synset id="s-child" ili="i2" partOfSpeech="n"><Definition>young person</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+
+    #[test]
+    fn inflected_forms_index_to_lemma_concepts() {
+        let wn = read_wordnet(INFLECTED_LMF).unwrap();
+        let en = English::from_wordnet(&wn);
+
+        // `run` (the lemma) and `ran` / `runs` / `running` (its forms)
+        // all resolve to the same s-run concept.
+        let run_ids = en.lookup("run");
+        let ran_ids = en.lookup("ran");
+        let runs_ids = en.lookup("runs");
+        let running_ids = en.lookup("running");
+
+        assert!(!run_ids.is_empty(), "run should resolve");
+        assert_eq!(ran_ids, run_ids, "ran should map to same concepts as run");
+        assert_eq!(runs_ids, run_ids, "runs should map to same concepts");
+        assert_eq!(running_ids, run_ids, "running should map to same concepts");
+    }
+
+    #[test]
+    fn irregular_plural_forms_resolve() {
+        let wn = read_wordnet(INFLECTED_LMF).unwrap();
+        let en = English::from_wordnet(&wn);
+        let child_ids = en.lookup("child");
+        let children_ids = en.lookup("children");
+        assert!(!child_ids.is_empty(), "child should resolve");
+        assert_eq!(
+            children_ids, child_ids,
+            "children should map to child's concepts"
+        );
+    }
+
+    #[test]
+    fn entries_without_form_elements_still_resolve() {
+        const NO_FORMS_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test" label="Test" language="en" version="1.0">
+    <LexicalEntry id="e-dog-n">
+      <Lemma writtenForm="dog" partOfSpeech="n"/>
+      <Sense id="dog-n-01" synset="s-dog"/>
+    </LexicalEntry>
+    <Synset id="s-dog" ili="i1" partOfSpeech="n"><Definition>canine</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+        let wn = read_wordnet(NO_FORMS_LMF).unwrap();
+        let en = English::from_wordnet(&wn);
+        let dog_ids = en.lookup("dog");
+        assert!(!dog_ids.is_empty(), "lemma without forms still resolves");
     }
 }
