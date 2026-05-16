@@ -148,12 +148,52 @@ pub fn resolve_lemmas_to_senses(forms: &[Form], english: &English) -> Vec<LemmaS
 
 /// Resolve a statute term name end-to-end:
 /// 1. Extract content-word lemmas via [`super::term_extractor::extract_lemmas`].
-/// 2. Resolve each lemma against the English ontology.
+/// 2. For each adjacent pair of lemmas, try the bigram as a
+///    multi-word WordNet lemma (`compensatory damages`,
+///    `prima facie`). WordNet's multi-word entries are common for
+///    legal-domain terminology (Fellbaum 1998 ch. 8 — multi-word
+///    expressions in WordNet). Both component lemmas inherit the
+///    bigram's senses on success.
+/// 3. Fall through to per-lemma resolution for tokens not covered
+///    by a bigram match.
 ///
 /// Returns one `LemmaSenseMapping` per content lemma.
 pub fn resolve_term_name_to_senses(term_name: &str, english: &English) -> Vec<LemmaSenseMapping> {
     let lemmas = super::term_extractor::extract_lemmas(term_name);
-    resolve_lemmas_to_senses(&lemmas, english)
+    if lemmas.is_empty() {
+        return Vec::new();
+    }
+
+    // Try every adjacent bigram against WordNet's multi-word lemmas.
+    // covers[i] = Some(senses) iff lemmas[i] is covered by a bigram
+    // (joined either with the previous or the next lemma).
+    let mut covers: Vec<Option<Vec<Sense>>> = vec![None; lemmas.len()];
+    for i in 0..lemmas.len().saturating_sub(1) {
+        let bigram = format!("{} {}", lemmas[i].written_rep, lemmas[i + 1].written_rep);
+        let senses = senses_for_word(&bigram, english);
+        if !senses.is_empty() {
+            // Don't overwrite if an earlier bigram already covered i.
+            if covers[i].is_none() {
+                covers[i] = Some(senses.clone());
+            }
+            covers[i + 1] = Some(senses);
+        }
+    }
+
+    lemmas
+        .iter()
+        .enumerate()
+        .map(|(i, f)| {
+            let senses = match covers[i].take() {
+                Some(s) => s,
+                None => resolve_form_to_senses(f, english),
+            };
+            LemmaSenseMapping {
+                form: f.clone(),
+                senses,
+            }
+        })
+        .collect()
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -321,6 +361,53 @@ mod tests {
         // "courts" → "court" → 2 senses (legal + yard).
         let senses = resolve_form_to_senses(&en_form("courts"), &en);
         assert_eq!(senses.len(), 2, "got {senses:?}");
+    }
+
+    #[test]
+    fn bigram_lookup_resolves_multi_word_lemma() {
+        // Inline LMF with a multi-word entry — exactly the kind of
+        // WordNet entry the bigram-lookup path is for.
+        const BIGRAM_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<LexicalResource>
+  <Lexicon id="test" label="Test" language="en" version="1.0">
+    <LexicalEntry id="e-compensatory-damages-n">
+      <Lemma writtenForm="compensatory damages" partOfSpeech="n"/>
+      <Sense id="cd-1" synset="s-comp-damages"/>
+    </LexicalEntry>
+    <LexicalEntry id="e-damages-n">
+      <Lemma writtenForm="damages" partOfSpeech="n"/>
+      <Sense id="d-1" synset="s-damages"/>
+    </LexicalEntry>
+    <Synset id="s-comp-damages" ili="i1" partOfSpeech="n"><Definition>money for harm</Definition></Synset>
+    <Synset id="s-damages" ili="i2" partOfSpeech="n"><Definition>monetary loss</Definition></Synset>
+  </Lexicon>
+</LexicalResource>"#;
+        let wn = lmf::reader::read_wordnet(BIGRAM_LMF).expect("bigram LMF parses");
+        let en = English::from_wordnet(&wn);
+        // "compensatory" alone isn't in WordNet; "damages" is.
+        // The bigram "compensatory damages" IS in WordNet — so both
+        // tokens should resolve via the bigram path.
+        let mappings = resolve_term_name_to_senses("Compensatory Damages", &en);
+        assert_eq!(mappings.len(), 2);
+        assert!(
+            mappings[0].is_resolved(),
+            "compensatory should resolve via bigram, got {:?}",
+            mappings[0]
+        );
+        assert!(
+            mappings[1].is_resolved(),
+            "damages should resolve via bigram, got {:?}",
+            mappings[1]
+        );
+        // The bigram's senses propagate to BOTH component mappings.
+        assert!(
+            mappings[0]
+                .senses
+                .iter()
+                .any(|s| s.reference.concept == "s-comp-damages"),
+            "compensatory should inherit bigram sense; got {:?}",
+            mappings[0].senses
+        );
     }
 
     #[test]
