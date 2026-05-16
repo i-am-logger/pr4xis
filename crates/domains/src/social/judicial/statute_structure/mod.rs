@@ -66,6 +66,7 @@
 //! verify the parser's output conforms to Bluebook §3.3.4 + Wyner's
 //! clause-structure rules, but don't introduce new conceptual layers.
 
+pub mod bridge;
 pub mod invariants;
 pub mod parser;
 

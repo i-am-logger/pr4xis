@@ -157,6 +157,25 @@ pub const KNOWN_GAPS: &[KnownGap] = &[
         note: "Hand-coded \"De Novo Review in District Court\" references b2b for burden-of-proof governance. Canonical (b)(5) reads \"With respect to a complaint under paragraph (1)...\" and triggers on Secretary inaction within 210/90 days. The substance is correct but the hand-coded definition's burden-of-proof cross-reference is implicit in the canonical text via the general framework, not explicit in (b)(5) itself.",
         resolution_blocker: "PDF/HTML loader (M-future) — re-extract verbatim text and clarify which cross-references are explicit vs. doctrinally derived.",
     },
+    // Bridge-audit-surfaced orphans (canonical subsections present in
+    // the parsed text with no covering lock term anywhere in their
+    // subtree). These are real granularity gaps in the hand-coded
+    // structural data — present in the statute but not modeled in
+    // praxis.lock.
+    KnownGap {
+        term_id: "<canonical:b3a>",
+        kind: GapKind::UncoveredSubsection,
+        canonical_subsection: "(b)(3)(A)",
+        note: "Canonical (b)(3)(A) DEADLINE FOR ISSUANCE; SETTLEMENT AGREEMENTS is a sub-clause of (b)(3) but the lock data only has air21_42121:b3 umbrella — no b3a child capturing the 120-day-after-hearing deadline and the settlement-at-any-time-before-final-order rule.",
+        resolution_blocker: "Structural-data refinement — add air21_42121:b3a to praxis.lock with the canonical (b)(3)(A) content, OR explicitly fold it into b3's definition. Decision pending Praxis-validation review.",
+    },
+    KnownGap {
+        term_id: "<canonical:b4a>",
+        kind: GapKind::UncoveredSubsection,
+        canonical_subsection: "(b)(4)(A)",
+        note: "Canonical (b)(4)(A) APPEAL TO COURT OF APPEALS is the actual content of subsection (b)(4); the lock data has air21_42121:b4 umbrella with conflated language (per the b4 DefinitionDrift gap above) but no b4a child capturing the circuit-court appeal procedure.",
+        resolution_blocker: "Structural-data refinement coupled with b4 DefinitionDrift fix — add air21_42121:b4a (or rename b4 to match canonical heading) when PDF/HTML loader lands.",
+    },
 ];
 
 #[derive(Debug, Clone)]
@@ -279,6 +298,29 @@ pub fn canonical_contains_marker(marker: &str) -> bool {
         }
     }
     true
+}
+
+/// Parse the canonical text and produce a [`BridgeReport`] comparing
+/// every `praxis.lock` term to the parser's view of the canonical
+/// text. Same shape as SOX's `bridge_audit()`.
+pub fn bridge_audit() -> crate::social::judicial::statute_structure::bridge::BridgeReport {
+    use crate::social::judicial::citation::ontology::PinpointCitationConcept;
+    use crate::social::judicial::statute_structure::bridge::audit_lock_against_tree;
+    use crate::social::judicial::statute_structure::parse_statute_text;
+
+    let root = crate::social::judicial::citation::PinpointCite::new()
+        .push(PinpointCitationConcept::Title, "49")
+        .push(PinpointCitationConcept::Section, "42121");
+    let tree = parse_statute_text(CANONICAL_TEXT, root, "praxis-lock://air21_42121@2010")
+        .expect("AIR21 canonical text must parse");
+
+    let registry =
+        crate::applied::data_provisioning::registry::structural_for("air21_42121", "2010")
+            .expect("praxis.lock has air21_42121@2010 structural block");
+
+    audit_lock_against_tree(registry, &tree, |local| {
+        Some(parse_curie_subsection_path(local))
+    })
 }
 
 pub fn audit() -> Vec<Finding> {
@@ -440,6 +482,14 @@ mod tests {
     fn known_gaps_classified_as_gap() {
         let findings = audit();
         for gap in KNOWN_GAPS {
+            // UncoveredSubsection gaps don't correspond to a lock
+            // term — they describe a canonical subsection with no
+            // covering lock term. Skip those in this finding-level
+            // check; their integrity is covered by
+            // bridge_uncovered_clauses_are_acknowledged.
+            if gap.kind == GapKind::UncoveredSubsection {
+                continue;
+            }
             let f = findings
                 .iter()
                 .find(|f| f.term_id == gap.term_id)
@@ -479,6 +529,12 @@ mod tests {
             .map(|t| t.id.value.clone())
             .collect();
         for gap in KNOWN_GAPS {
+            // UncoveredSubsection gaps use the `<canonical:...>`
+            // sentinel for `term_id` because by definition no lock
+            // term exists for that subsection. Skip those.
+            if gap.kind == GapKind::UncoveredSubsection {
+                continue;
+            }
             assert!(
                 term_curies.contains(gap.term_id),
                 "KNOWN_GAPS references {} which doesn't exist",
@@ -509,6 +565,114 @@ mod tests {
             assert!(!gap.resolution_blocker.is_empty(), "{}", gap.term_id);
             assert!(!gap.note.is_empty(), "{}", gap.term_id);
         }
+    }
+
+    // ── Bridge audit ────────────────────────────────────────────────
+
+    #[test]
+    fn bridge_audit_parses_canonical_text() {
+        use crate::social::judicial::statute_structure::bridge::TermMatchResult;
+        let report = bridge_audit();
+        assert_eq!(report.by_lock_term.len(), 17);
+        for r in &report.by_lock_term {
+            assert!(
+                matches!(r, TermMatchResult::Matched { .. }),
+                "lock term unmatched: {r:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn bridge_paraphrases_align_with_known_paraphrases() {
+        use crate::social::judicial::statute_structure::bridge::{TermMatchResult, TextMatch};
+        let report = bridge_audit();
+        let known_para_ids: alloc::collections::BTreeSet<&'static str> =
+            KNOWN_PARAPHRASES.iter().map(|p| p.term_id).collect();
+        let known_gap_ids: alloc::collections::BTreeSet<&'static str> =
+            KNOWN_GAPS.iter().map(|g| g.term_id).collect();
+
+        let mut unclassified: alloc::vec::Vec<&str> = alloc::vec::Vec::new();
+        for r in &report.by_lock_term {
+            if let TermMatchResult::Matched {
+                lock_term_id,
+                text_match: TextMatch::Paraphrase,
+                ..
+            } = r
+            {
+                let is_classified = known_para_ids.contains(lock_term_id.as_str())
+                    || known_gap_ids.contains(lock_term_id.as_str());
+                if !is_classified {
+                    unclassified.push(lock_term_id.as_str());
+                }
+            }
+        }
+        assert!(
+            unclassified.is_empty(),
+            "{} unclassified paraphrase(s) — add to KNOWN_PARAPHRASES or KNOWN_GAPS: {:?}",
+            unclassified.len(),
+            unclassified
+        );
+    }
+
+    #[test]
+    fn bridge_uncovered_clauses_are_acknowledged() {
+        let report = bridge_audit();
+        let orphans: alloc::vec::Vec<String> = report
+            .uncovered_orphan_clauses()
+            .iter()
+            .map(|c| c.to_bluebook())
+            .collect();
+        // Acknowledged orphans live in KNOWN_GAPS with
+        // GapKind::UncoveredSubsection. Each orphan's bluebook
+        // representation must end with the gap's
+        // canonical_subsection string (e.g. "(49)(42121)(b)(3)(A)"
+        // ends with "(b)(3)(A)").
+        let acknowledged: alloc::collections::BTreeSet<&'static str> = KNOWN_GAPS
+            .iter()
+            .filter(|g| g.kind == GapKind::UncoveredSubsection)
+            .map(|g| g.canonical_subsection)
+            .collect();
+        let mut unacknowledged: alloc::vec::Vec<&str> = alloc::vec::Vec::new();
+        for o in &orphans {
+            let is_known = acknowledged.iter().any(|sub| o.ends_with(sub));
+            if !is_known {
+                unacknowledged.push(o.as_str());
+            }
+        }
+        assert!(
+            unacknowledged.is_empty(),
+            "found {} unacknowledged orphan canonical subsections: {:?}\nadd entries to KNOWN_GAPS with GapKind::UncoveredSubsection",
+            unacknowledged.len(),
+            unacknowledged
+        );
+    }
+
+    #[test]
+    fn print_bridge_report() {
+        use crate::social::judicial::statute_structure::bridge::{TermMatchResult, TextMatch};
+        let report = bridge_audit();
+        eprintln!("\n=== AIR21 § 42121 bridge audit report ===");
+        eprintln!("Lock terms: {}", report.by_lock_term.len());
+        eprintln!("  matched:   {}", report.matched_term_count());
+        eprintln!("  unmatched: {}", report.unmatched_term_count());
+        eprintln!("Parsed clauses: {}", report.by_clause.len());
+        eprintln!("  covered:   {}", report.covered_clause_count());
+        eprintln!("  uncovered: {}", report.uncovered_clause_count());
+
+        let mut name_in_body = 0;
+        let mut paraphrase = 0;
+        for r in &report.by_lock_term {
+            if let TermMatchResult::Matched { text_match, .. } = r {
+                match text_match {
+                    TextMatch::NameInBody => name_in_body += 1,
+                    TextMatch::Paraphrase => paraphrase += 1,
+                }
+            }
+        }
+        eprintln!(
+            "  text-match breakdown: {name_in_body} verbatim-in-body, {paraphrase} paraphrase"
+        );
+        eprintln!();
     }
 
     #[test]

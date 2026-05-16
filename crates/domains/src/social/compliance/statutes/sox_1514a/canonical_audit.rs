@@ -123,6 +123,60 @@ pub const KNOWN_PARAPHRASES: &[KnownParaphrase] = &[
         canonical_subsection: "(b)(1)(B)",
         rationale: "\"District Court Filing as Alternative Remedy\" labels § 1514A(b)(1)(B)'s 180-day de novo right.",
     },
+    // Bridge-audit-surfaced paraphrases (added after parser-driven check
+    // found these term names don't appear verbatim in canonical body
+    // text). Each labels a real canonical subsection but uses
+    // practitioner-shorthand naming.
+    KnownParaphrase {
+        term_id: "sox_1514a:1a",
+        canonical_subsection: "(a)(1)(A)",
+        rationale: "\"Reporting to Federal Agency\" is doctrinal shorthand for the (a)(1)(A) clause's \"Federal regulatory or law enforcement agency\" — the canonical text doesn't use the verb \"reporting\".",
+    },
+    KnownParaphrase {
+        term_id: "sox_1514a:1b",
+        canonical_subsection: "(a)(1)(B)",
+        rationale: "\"Reporting to Congress\" labels the (a)(1)(B) \"Member of Congress or any committee\" channel — canonical text uses the noun \"Member\" / \"committee\" rather than the verb \"reporting\".",
+    },
+    KnownParaphrase {
+        term_id: "sox_1514a:1c",
+        canonical_subsection: "(a)(1)(C)",
+        rationale: "\"Reporting to Supervisor or Internal Authority\" labels (a)(1)(C)'s \"person with supervisory authority\" channel — paraphrased for clarity.",
+    },
+    KnownParaphrase {
+        term_id: "sox_1514a:b2a",
+        canonical_subsection: "(b)(2)(A)",
+        rationale: "\"Governance by 49 U.S.C. § 42121(b)\" labels (b)(2)(A) IN GENERAL clause's \"shall be governed under the rules and procedures set forth in section 42121(b)\" — the term name uses the noun \"governance\" not the verb \"governed\".",
+    },
+    KnownParaphrase {
+        term_id: "sox_1514a:b2e",
+        canonical_subsection: "(b)(2)(E)",
+        rationale: "\"Right to Jury Trial\" labels (b)(2)(E) JURY TRIAL clause — canonical text reads \"shall be entitled to trial by jury\"; the term name uses the active-rights framing \"right to\" not in the body text.",
+    },
+    KnownParaphrase {
+        term_id: "sox_1514a:c1",
+        canonical_subsection: "(c)(1)",
+        rationale: "\"Remedies in General\" labels (c)(1) IN GENERAL clause's \"shall be entitled to all relief necessary to make the employee whole\" — uses umbrella label \"Remedies\" rather than canonical \"all relief\".",
+    },
+    KnownParaphrase {
+        term_id: "sox_1514a:e1",
+        canonical_subsection: "(e)(1)",
+        rationale: "\"Non-Waivability of Rights and Remedies\" labels (e)(1) WAIVER OF RIGHTS AND REMEDIES clause — the term name negates (\"Non-Waivability\") the canonical heading (\"WAIVER\") since the substantive rule is the prohibition.",
+    },
+    KnownParaphrase {
+        term_id: "sox_1514a:e2",
+        canonical_subsection: "(e)(2)",
+        rationale: "\"Invalidity of Predispute Arbitration Agreements\" labels (e)(2) PREDISPUTE ARBITRATION AGREEMENTS clause — the term name uses \"Invalidity\" while the canonical heading is just the noun phrase.",
+    },
+    KnownParaphrase {
+        term_id: "sox_1514a:b2c",
+        canonical_subsection: "(b)(2)(C)",
+        rationale: "\"Burdens of Proof for District Court Actions\" labels (b)(2)(C) BURDENS OF PROOF clause — the substring \"burdens of proof\" appears in the body, but the full phrase \"for District Court Actions\" is doctrinal annotation (the clause governs paragraph (1)(B) which is the district-court path) not present in canonical text.",
+    },
+    KnownParaphrase {
+        term_id: "sox_1514a:b2d",
+        canonical_subsection: "(b)(2)(D)",
+        rationale: "\"Statute of Limitations for Filing\" labels (b)(2)(D) STATUTE OF LIMITATIONS clause — the substring \"statute of limitations\" appears in the body, but \"for Filing\" is doctrinal annotation not present in canonical text.",
+    },
 ];
 
 /// A known *gap* — a discrepancy between the hand-coded structural
@@ -317,6 +371,35 @@ pub fn canonical_contains_marker(marker: &str) -> bool {
         }
     }
     true
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Bridge audit — uses the statute-structure parser for rigorous match
+// ─────────────────────────────────────────────────────────────────────
+
+/// Parse the canonical text into a `ClauseTree` and produce a
+/// [`BridgeReport`] comparing every `praxis.lock` term to the
+/// parser's view of the canonical text. Closes the audit loop: where
+/// `audit()` does a substring-match against marker strings, this
+/// navigates the actual parsed tree and reports per-term
+/// `Matched`/`Unmatched` and per-clause `Covered`/`Uncovered`.
+pub fn bridge_audit() -> crate::social::judicial::statute_structure::bridge::BridgeReport {
+    use crate::social::judicial::citation::ontology::PinpointCitationConcept;
+    use crate::social::judicial::statute_structure::bridge::audit_lock_against_tree;
+    use crate::social::judicial::statute_structure::parse_statute_text;
+
+    let root = crate::social::judicial::citation::PinpointCite::new()
+        .push(PinpointCitationConcept::Title, "18")
+        .push(PinpointCitationConcept::Section, "1514A");
+    let tree = parse_statute_text(CANONICAL_TEXT, root, "praxis-lock://sox_1514a@2002")
+        .expect("SOX canonical text must parse");
+
+    let registry = crate::applied::data_provisioning::registry::structural_for("sox_1514a", "2002")
+        .expect("praxis.lock has sox_1514a@2002 structural block");
+
+    audit_lock_against_tree(registry, &tree, |local| {
+        Some(parse_curie_subsection_path(local))
+    })
 }
 
 /// Run the canonical-text audit. Returns one [`Finding`] per
@@ -611,6 +694,109 @@ mod tests {
                 para.term_id
             );
         }
+    }
+
+    // ── Bridge audit (parser-driven, higher-fidelity) ──────────────────
+
+    #[test]
+    fn bridge_audit_parses_canonical_text() {
+        let report = bridge_audit();
+        // 28 lock terms expected.
+        assert_eq!(report.by_lock_term.len(), 28);
+        // Every term should map to *some* clause (no InvalidCurie/
+        // SubsectionNotFoundInTree) — SOX's structural data has been
+        // refined to match the parsed canonical tree.
+        for r in &report.by_lock_term {
+            assert!(
+                matches!(r, super::super::super::super::super::judicial::statute_structure::bridge::TermMatchResult::Matched { .. }),
+                "lock term unmatched: {r:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn bridge_paraphrases_align_with_known_paraphrases() {
+        use crate::social::judicial::statute_structure::bridge::{TermMatchResult, TextMatch};
+
+        let report = bridge_audit();
+        let known_para_ids: alloc::collections::BTreeSet<&'static str> =
+            KNOWN_PARAPHRASES.iter().map(|p| p.term_id).collect();
+        let known_gap_ids: alloc::collections::BTreeSet<&'static str> =
+            KNOWN_GAPS.iter().map(|g| g.term_id).collect();
+
+        let mut unclassified: alloc::vec::Vec<&str> = alloc::vec::Vec::new();
+        for r in &report.by_lock_term {
+            if let TermMatchResult::Matched {
+                lock_term_id,
+                text_match: TextMatch::Paraphrase,
+                ..
+            } = r
+            {
+                let is_classified = known_para_ids.contains(lock_term_id.as_str())
+                    || known_gap_ids.contains(lock_term_id.as_str());
+                if !is_classified {
+                    unclassified.push(lock_term_id.as_str());
+                }
+            }
+        }
+        assert!(
+            unclassified.is_empty(),
+            "{} unclassified paraphrase(s) — add to KNOWN_PARAPHRASES or KNOWN_GAPS: {:?}",
+            unclassified.len(),
+            unclassified
+        );
+    }
+
+    #[test]
+    fn bridge_uncovered_clauses_are_acknowledged() {
+        // If the parser finds canonical subsections that NO lock term
+        // covers, those must be documented gaps. Currently SOX's lock
+        // data may or may not cover every subsection — this test
+        // surfaces any newly-uncovered subsections so they get
+        // documented or modeled.
+        let report = bridge_audit();
+        // Only ORPHAN clauses (no covering term anywhere in subtree)
+        // are real gaps. Umbrella clauses whose children are covered
+        // are intentional structural-data omissions.
+        let orphans = report.uncovered_orphan_clauses();
+        assert!(
+            orphans.is_empty(),
+            "found {} orphan canonical subsections with no lock-term coverage anywhere in subtree: {:?}",
+            orphans.len(),
+            orphans
+                .iter()
+                .map(|c| c.to_bluebook())
+                .collect::<alloc::vec::Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn print_bridge_report() {
+        use crate::social::judicial::statute_structure::bridge::{TermMatchResult, TextMatch};
+
+        let report = bridge_audit();
+        eprintln!("\n=== SOX § 1514A bridge audit report ===");
+        eprintln!("Lock terms: {}", report.by_lock_term.len());
+        eprintln!("  matched:   {}", report.matched_term_count());
+        eprintln!("  unmatched: {}", report.unmatched_term_count());
+        eprintln!("Parsed clauses: {}", report.by_clause.len());
+        eprintln!("  covered:   {}", report.covered_clause_count());
+        eprintln!("  uncovered: {}", report.uncovered_clause_count());
+
+        let mut name_in_body = 0;
+        let mut paraphrase = 0;
+        for r in &report.by_lock_term {
+            if let TermMatchResult::Matched { text_match, .. } = r {
+                match text_match {
+                    TextMatch::NameInBody => name_in_body += 1,
+                    TextMatch::Paraphrase => paraphrase += 1,
+                }
+            }
+        }
+        eprintln!(
+            "  text-match breakdown: {name_in_body} verbatim-in-body, {paraphrase} paraphrase"
+        );
+        eprintln!();
     }
 
     /// Print the audit report to test output for visual review. Doesn't
