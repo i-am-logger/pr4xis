@@ -272,3 +272,17 @@ impl Functor for ChessToConcurrency {
     }
 }
 pr4xis::register_functor!(ChessToConcurrency);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::laws::assert_functor_laws;
+
+    /// Daubert prong 2 (testable methodology): the cross-ontology
+    /// mapping must preserve identity and composition — the
+    /// categorical functor laws.
+    #[test]
+    fn functor_laws() {
+        assert_functor_laws::<ChessToConcurrency>();
+    }
+}

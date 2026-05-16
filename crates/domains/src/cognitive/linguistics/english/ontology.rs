@@ -262,7 +262,13 @@ impl English {
     <Synset id="s-big" ili="i7" partOfSpeech="a"><Definition>of considerable size</Definition></Synset>
   </Lexicon>
 </LexicalResource>"#;
-        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(xml).unwrap();
+        // The sample XML is a compile-time const; parsing it is a
+        // structural invariant — if it fails, the test fixture is
+        // broken, not user input. expect() with a diagnostic message
+        // is appropriate here per the compliance "no silent failures"
+        // rule: this is a hard fail, not a swallowed error.
+        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(xml)
+            .expect("English::sample() inline LMF fixture must parse");
         Self::from_wordnet(&wn)
     }
 
@@ -291,6 +297,14 @@ impl English {
             let concept_id = ConceptId::new(idx as u64);
             synset_to_concept.insert(synset.id.clone(), concept_id);
 
+            // A synset with no LexicalEntries pointing to it (no
+            // word expresses this concept) is semantically valid in
+            // WordNet — e.g. abstract intermediate synsets in the
+            // taxonomy. unwrap_or_default() correctly models "no
+            // lemmas" as an empty vec, not a silent failure. This is
+            // NOT swallowing an error: synset_lemmas is exhaustively
+            // populated above from wn.entries; absence here is real
+            // information.
             let lemmas = synset_lemmas.remove(&synset.id).unwrap_or_default();
 
             for lemma in &lemmas {

@@ -186,8 +186,15 @@ fn english_stopwords() -> &'static alloc::collections::BTreeSet<String> {
             env!("CARGO_MANIFEST_DIR"),
             "/data/function-words/english.xml"
         ));
-        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(XML)
-            .expect("bundled function-words/english.xml parses");
+        // XML is include_str!'d at compile time — its parseability
+        // is a build-time invariant verified by the bundled test
+        // suite. Failure here means the bundled file shipped with
+        // praxis is malformed, which is a defect, not user input.
+        // Hard fail with diagnostic context, not silent fallback.
+        let wn = crate::social::software::markup::xml::lmf::reader::read_wordnet(XML).expect(
+            "bundled crates/domains/data/function-words/english.xml \
+                 failed to parse — build-time invariant violated",
+        );
         wn.entries
             .iter()
             .map(|e| e.lemma.written_form.to_lowercase())
