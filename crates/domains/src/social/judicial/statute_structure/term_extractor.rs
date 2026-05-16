@@ -649,4 +649,96 @@ mod tests {
         }
         eprintln!();
     }
+
+    // ── Property-based laws for extract_lemmas ─────────────────────
+    //
+    // The extract_lemmas pipeline filters stopwords (loaded from
+    // function-words/english.xml) and numerics, lower-cases, and
+    // deduplicates. These properties must hold for *every* input.
+
+    use proptest::prelude::*;
+
+    fn arb_term_name() -> impl Strategy<Value = String> {
+        // ASCII text with letters, digits, spaces, and a few legal-text
+        // punctuation marks. Bounded length to keep the search space
+        // tractable.
+        proptest::collection::vec(
+            prop_oneof![
+                prop::char::range('a', 'z'),
+                prop::char::range('A', 'Z'),
+                prop::char::range('0', '9'),
+                Just(' '),
+                Just('-'),
+                Just('.'),
+                Just(','),
+            ],
+            0..32,
+        )
+        .prop_map(|chars| chars.into_iter().collect())
+    }
+
+    proptest! {
+        #[test]
+        fn property_lemmas_never_include_stopwords(name in arb_term_name()) {
+            let stopwords = english_stopwords();
+            for f in extract_lemmas(&name) {
+                prop_assert!(
+                    !stopwords.contains(&f.written_rep),
+                    "stopword `{}` leaked through extract_lemmas",
+                    f.written_rep
+                );
+            }
+        }
+
+        #[test]
+        fn property_lemmas_never_purely_numeric(name in arb_term_name()) {
+            for f in extract_lemmas(&name) {
+                prop_assert!(
+                    !f.written_rep.chars().all(|c| c.is_ascii_digit()),
+                    "numeric token `{}` leaked through",
+                    f.written_rep
+                );
+            }
+        }
+
+        #[test]
+        fn property_lemmas_are_lowercase(name in arb_term_name()) {
+            for f in extract_lemmas(&name) {
+                prop_assert_eq!(&f.written_rep, &f.written_rep.to_lowercase());
+            }
+        }
+
+        #[test]
+        fn property_lemmas_are_unique(name in arb_term_name()) {
+            let out = extract_lemmas(&name);
+            let unique: alloc::collections::BTreeSet<&String> =
+                out.iter().map(|f| &f.written_rep).collect();
+            prop_assert_eq!(unique.len(), out.len());
+        }
+
+        #[test]
+        fn property_lemmas_all_tagged_en(name in arb_term_name()) {
+            for f in extract_lemmas(&name) {
+                prop_assert_eq!(f.lang, "en");
+            }
+        }
+
+        #[test]
+        fn property_lemmas_never_empty_string(name in arb_term_name()) {
+            for f in extract_lemmas(&name) {
+                prop_assert!(!f.written_rep.is_empty());
+            }
+        }
+
+        #[test]
+        fn property_lemmas_idempotent_under_repetition(
+            name in arb_term_name(),
+        ) {
+            // Joining a term name with itself by space shouldn't produce
+            // new lemmas — the dedup step folds repeats.
+            let single = extract_lemmas(&name);
+            let doubled = extract_lemmas(&format!("{name} {name}"));
+            prop_assert_eq!(single, doubled);
+        }
+    }
 }

@@ -488,4 +488,137 @@ mod tests {
         );
         assert_eq!(VerbTransitivity::from_frame_id("unknown"), None);
     }
+
+    // ── Property-based round-trip laws for LMF enum parsers ───────
+    //
+    // Every relType string documented in the Global WordNet
+    // Association schema must round-trip to a non-Other variant.
+    // Unknown strings must collapse to Other.
+
+    use proptest::prelude::*;
+
+    const KNOWN_SYNSET_REL_TYPES: &[&str] = &[
+        "hypernym",
+        "instance_hypernym",
+        "hyponym",
+        "instance_hyponym",
+        "holo_member",
+        "holo_part",
+        "holo_substance",
+        "mero_member",
+        "mero_part",
+        "mero_substance",
+        "causes",
+        "is_caused_by",
+        "entails",
+        "is_entailed_by",
+        "similar",
+        "also",
+        "attribute",
+        "domain_topic",
+        "has_domain_topic",
+        "domain_region",
+        "has_domain_region",
+        "exemplifies",
+        "is_exemplified_by",
+        "participle",
+    ];
+
+    const KNOWN_SENSE_REL_TYPES: &[&str] = &[
+        "antonym",
+        "similar",
+        "pertainym",
+        "derivation",
+        "also",
+        "exemplifies",
+        "is_exemplified_by",
+        "participle",
+    ];
+
+    #[test]
+    fn property_every_known_synset_reltype_parses_non_other() {
+        for s in KNOWN_SYNSET_REL_TYPES {
+            let parsed = SynsetRelationType::parse(s);
+            assert!(
+                !matches!(parsed, SynsetRelationType::Other(_)),
+                "documented relType `{s}` parsed to Other"
+            );
+        }
+    }
+
+    #[test]
+    fn property_every_known_sense_reltype_parses_non_other() {
+        for s in KNOWN_SENSE_REL_TYPES {
+            let parsed = SenseRelationType::parse(s);
+            assert!(
+                !matches!(parsed, SenseRelationType::Other(_)),
+                "documented sense relType `{s}` parsed to Other"
+            );
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn property_unknown_synset_reltype_collapses_to_other(
+            s in "[a-z_]{3,20}",
+        ) {
+            // Skip the known set to avoid false negatives.
+            if KNOWN_SYNSET_REL_TYPES.contains(&s.as_str()) {
+                return Ok(());
+            }
+            prop_assert!(matches!(
+                SynsetRelationType::parse(&s),
+                SynsetRelationType::Other(_)
+            ));
+        }
+
+        #[test]
+        fn property_unknown_sense_reltype_collapses_to_other(
+            s in "[a-z_]{3,20}",
+        ) {
+            if KNOWN_SENSE_REL_TYPES.contains(&s.as_str()) {
+                return Ok(());
+            }
+            prop_assert!(matches!(
+                SenseRelationType::parse(&s),
+                SenseRelationType::Other(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn property_taxonomy_predicate_covers_hypernym_family() {
+        // is_taxonomy() should return true exactly for the hypernym
+        // family and false for everything else.
+        for s in KNOWN_SYNSET_REL_TYPES {
+            let parsed = SynsetRelationType::parse(s);
+            let expected = matches!(s, &"hypernym" | &"instance_hypernym");
+            assert_eq!(
+                parsed.is_taxonomy(),
+                expected,
+                "is_taxonomy on `{s}` returned wrong value"
+            );
+        }
+    }
+
+    #[test]
+    fn property_mereology_predicate_covers_meronym_family() {
+        for s in KNOWN_SYNSET_REL_TYPES {
+            let parsed = SynsetRelationType::parse(s);
+            let expected = matches!(
+                s,
+                &"holo_member"
+                    | &"holo_part"
+                    | &"holo_substance"
+                    | &"mero_member"
+                    | &"mero_part"
+                    | &"mero_substance"
+            );
+            assert_eq!(
+                parsed.is_mereology(),
+                expected,
+                "is_mereology on `{s}` returned wrong value"
+            );
+        }
+    }
 }

@@ -539,4 +539,72 @@ mod tests {
         }
         eprintln!();
     }
+
+    // ── Property-based laws for resolve_term_name_to_senses ────────
+    //
+    // The bigram-lookup pipeline returns one LemmaSenseMapping per
+    // content-word lemma. The form of each mapping must equal the
+    // corresponding extracted lemma, and the senses list must come
+    // either from the lemma's direct lookup OR from a bigram match
+    // with an adjacent lemma. These invariants must hold for any
+    // input term name.
+
+    use proptest::prelude::*;
+
+    fn arb_term_name() -> impl Strategy<Value = String> {
+        proptest::collection::vec(
+            prop_oneof![
+                prop::char::range('a', 'z'),
+                prop::char::range('A', 'Z'),
+                Just(' '),
+            ],
+            0..32,
+        )
+        .prop_map(|chars| chars.into_iter().collect())
+    }
+
+    proptest! {
+        #[test]
+        fn property_mapping_count_equals_lemma_count(
+            name in arb_term_name(),
+        ) {
+            let en = sample_english();
+            let lemmas = crate::social::judicial::statute_structure::term_extractor::extract_lemmas(&name);
+            let mappings = resolve_term_name_to_senses(&name, &en);
+            prop_assert_eq!(mappings.len(), lemmas.len());
+        }
+
+        #[test]
+        fn property_mapping_form_matches_extracted_lemma(
+            name in arb_term_name(),
+        ) {
+            let en = sample_english();
+            let lemmas = crate::social::judicial::statute_structure::term_extractor::extract_lemmas(&name);
+            let mappings = resolve_term_name_to_senses(&name, &en);
+            for (l, m) in lemmas.iter().zip(mappings.iter()) {
+                prop_assert_eq!(&l.written_rep, &m.form.written_rep);
+                prop_assert_eq!(&l.lang, &m.form.lang);
+            }
+        }
+
+        #[test]
+        fn property_resolution_deterministic(
+            name in arb_term_name(),
+        ) {
+            let en = sample_english();
+            let a = resolve_term_name_to_senses(&name, &en);
+            let b = resolve_term_name_to_senses(&name, &en);
+            prop_assert_eq!(a, b);
+        }
+
+        #[test]
+        fn property_empty_term_yields_empty_mappings(
+            ws in "[ \\t]*",
+        ) {
+            // Pure whitespace inputs always yield no mappings.
+            let en = sample_english();
+            let mappings = resolve_term_name_to_senses(&ws, &en);
+            prop_assert!(mappings.is_empty());
+        }
+    }
 }
