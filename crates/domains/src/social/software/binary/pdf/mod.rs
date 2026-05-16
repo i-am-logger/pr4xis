@@ -47,6 +47,12 @@
 
 pub mod ontology;
 
+/// PDF byte-stream reader — opt-in behind the `pdf` feature. The
+/// ontology surface in [`ontology`] is available unconditionally;
+/// only the lopdf-backed parser lives here.
+#[cfg(feature = "pdf")]
+pub mod reader;
+
 #[cfg(test)]
 mod tests;
 

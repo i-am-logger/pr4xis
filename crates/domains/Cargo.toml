@@ -32,6 +32,14 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 rustls-rustcrypto = { version = "0.0.2-alpha", optional = true }
 flate2 = { version = "1", optional = true }
 
+# PDF parsing — pure-Rust PDF reader implementing ISO 32000-2:2020
+# file/object structure. Wraps the byte-level parsing so the praxis-way
+# layer (social/software/binary/pdf/) can emit typed PdfDocument values
+# and the extractor can walk content streams. Optional behind the `pdf`
+# feature because lopdf pulls in std I/O and a DEFLATE implementation
+# that doesn't fit the WASM default-feature build path.
+lopdf = { version = "0.40", optional = true }
+
 [features]
 default = ["std"]
 # `std` enables I/O-dependent modules (hmi/report generator, hmi/explorer
@@ -40,6 +48,11 @@ default = ["std"]
 # no_std + alloc; per issue #91, only these 4 I/O surfaces need std.
 std = ["pr4xis/std"]
 fetch = ["std", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto", "dep:flate2"]
+# `pdf` enables the runtime PDF reader (social/software/binary/pdf/reader)
+# that materializes typed PdfDocument values from byte streams. The
+# ontology surface (concepts, axioms, FlaggedContent) is available
+# unconditionally; only the lopdf-backed reader is feature-gated.
+pdf = ["std", "dep:lopdf"]
 
 [build-dependencies]
 # Statute codegen at build time. Reads workspace-root praxis.toml + praxis.lock,
