@@ -647,6 +647,61 @@ mod tests {
         );
     }
 
+    /// Per-statute M5 adjunction integration for AIR21 § 42121.
+    /// See sox_1514a's `bridge_adjunction_to_english` for the
+    /// rationale + assertion shape.
+    #[test]
+    fn bridge_adjunction_to_english() {
+        use crate::social::judicial::statute_structure::english_adjunction::test_helpers::cached_english;
+        use crate::social::judicial::statute_structure::resolve_term_name_to_senses;
+
+        let en = cached_english();
+        let mut total_lemmas = 0usize;
+        let mut resolved_lemmas = 0usize;
+        let mut unresolved: alloc::vec::Vec<(String, String)> = alloc::vec::Vec::new();
+
+        for term in statute().terms() {
+            let mappings = resolve_term_name_to_senses(&term.name.text, en);
+            for m in mappings {
+                total_lemmas += 1;
+                if m.is_resolved() {
+                    resolved_lemmas += 1;
+                } else {
+                    unresolved.push((term.id.value.clone(), m.form.written_rep.clone()));
+                }
+            }
+        }
+
+        eprintln!(
+            "\n=== AIR21 § 42121 M5 adjunction audit ===\n\
+             Total content lemmas: {}\n\
+             Resolved to ≥1 English sense: {} ({:.0}%)\n\
+             Unresolved: {}\n",
+            total_lemmas,
+            resolved_lemmas,
+            100.0 * resolved_lemmas as f64 / total_lemmas as f64,
+            unresolved.len()
+        );
+        if !unresolved.is_empty() {
+            eprintln!("Unresolved lemmas (statute-specific lexical gaps):");
+            for (term_id, lemma) in &unresolved {
+                eprintln!("  {} \"{}\"", term_id, lemma);
+            }
+            eprintln!();
+        }
+
+        assert!(
+            total_lemmas > 0,
+            "no lemmas extracted from AIR21 lock terms — pipeline broken"
+        );
+        assert!(
+            resolved_lemmas * 2 >= total_lemmas,
+            "< 50% lemma resolution rate ({} of {}) — WordNet load may be incomplete or extract_lemmas may be broken",
+            resolved_lemmas,
+            total_lemmas
+        );
+    }
+
     #[test]
     fn bridge_relation_audit_finds_lock_backed_extracts() {
         use crate::social::judicial::citation::ontology::PinpointCitationConcept;

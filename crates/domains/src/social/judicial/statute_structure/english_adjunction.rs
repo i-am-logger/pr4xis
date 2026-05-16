@@ -128,6 +128,41 @@ pub fn resolve_term_name_to_senses(term_name: &str, english: &English) -> Vec<Le
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Shared test-time helper for the full bundled WordNet
+// ─────────────────────────────────────────────────────────────────────
+
+/// Test-only helper module exposing the bundled English WordNet
+/// (data/wordnet/english-wordnet-2025.xml, 89 MB), cached behind a
+/// `OnceLock` so it loads once per test process. Used by per-statute
+/// audit modules to verify their lock terms' lemmas resolve against
+/// real English. Mirrors the pattern in
+/// `cognitive::linguistics::lambek::integration_tests`.
+#[cfg(test)]
+pub mod test_helpers {
+    use super::English;
+    use crate::social::software::markup::xml::lmf;
+    use std::sync::OnceLock;
+
+    static ENGLISH: OnceLock<English> = OnceLock::new();
+
+    /// Returns the lazily-loaded bundled English WordNet. Loads the
+    /// 2025 release from `crates/domains/data/wordnet/`; subsequent
+    /// calls return the same `&'static` reference.
+    pub fn cached_english() -> &'static English {
+        ENGLISH.get_or_init(|| {
+            let path = concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/data/wordnet/english-wordnet-2025.xml"
+            );
+            let xml = std::fs::read_to_string(path)
+                .expect("WordNet XML not found — ensure Git LFS is pulled");
+            let wn = lmf::reader::read_wordnet(&xml).expect("parse bundled WordNet");
+            English::from_wordnet(&wn)
+        })
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────────────────────────────
 
