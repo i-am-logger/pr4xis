@@ -44,7 +44,13 @@ pub fn english_allomorphy_rules() -> Vec<AllomorphyRule> {
 }
 
 fn silent_e_restoration(bare: &str, _surface: &str, suffix: &str) -> Vec<String> {
-    if !matches!(suffix, "ed" | "ing" | "er") {
+    // Spencer (1991) §5.2: silent-e elides before ANY vowel-initial
+    // suffix (not just -ed/-ing/-er). Examples that need the
+    // generalized version: bake + ability → bakability (stem "bak"),
+    // provide + ory → provisory (stem "provis"). Inversely, the
+    // bare stem from any vowel-initial suffix may have lost a silent
+    // -e and we should try restoring it.
+    if !suffix_is_vowel_initial(suffix) {
         return vec![];
     }
     if !ends_in_consonant(bare) {
@@ -54,13 +60,22 @@ fn silent_e_restoration(bare: &str, _surface: &str, suffix: &str) -> Vec<String>
 }
 
 fn doubled_consonant_undoubling(bare: &str, _surface: &str, suffix: &str) -> Vec<String> {
-    if !matches!(suffix, "ed" | "ing" | "er") {
+    // Spencer (1991) §5.2: consonant-doubling before vowel-initial
+    // suffixes generally (run + ing → running, big + er → bigger).
+    if !suffix_is_vowel_initial(suffix) {
         return vec![];
     }
     if !ends_in_doubled_consonant(bare) {
         return vec![];
     }
     vec![bare[..bare.len() - 1].to_string()]
+}
+
+fn suffix_is_vowel_initial(suffix: &str) -> bool {
+    match suffix.chars().next() {
+        Some(c) => "aeiouy".contains(c.to_ascii_lowercase()),
+        None => false,
+    }
 }
 
 fn y_to_i_alternation_past(_bare: &str, surface: &str, suffix: &str) -> Vec<String> {

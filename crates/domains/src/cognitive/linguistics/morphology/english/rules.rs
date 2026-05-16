@@ -4,11 +4,21 @@
 //! the [`super::super::SemanticEffect`] the affix produces.
 //!
 //! Coverage is closed-class inflectional plus the highest-frequency
-//! derivational suffixes (`-ly`, `-er`, `-ness`). Productive
-//! derivational morphology (`-ory`, `-ability`, `-ment`, `pre-`,
-//! `post-`) is intentionally *not* included here — it lives in the
-//! source-loaded layer once AGID / UniMorph / WordNet's
-//! `derivationally_related_form` pointers are wired up.
+//! productive derivational affixes documented in Bauer (1983) §6–§7
+//! and Marchand (1969). The eventual replacement is a load from a
+//! derivational-variant database (CatVar — Habash & Dorr 2003;
+//! WordNet morphosemantic DB — Fellbaum et al. 2009); until then
+//! the literature-cited rules live here.
+//!
+//! **SemanticEffect mapping for productive derivational suffixes is
+//! approximate.** The shared enum lacks dedicated variants for
+//! relational-adjective (-ory, -ive), abstract-noun (-ability,
+//! -ment, -tion), and temporal-prefix (pre-, post-) categories; we
+//! reuse the closest existing variants (PosChange, QualityNoun,
+//! Negation) so the inversion logic works without growing the enum
+//! into English-specific categories. The OLiA cross-functor at
+//! `lexicon::olia::semantic_effect_to_olia_fragments` will need
+//! refinement when these are properly typed.
 //!
 //! # Literature
 //!
@@ -105,6 +115,37 @@ pub fn english_rules() -> Vec<MorphologicalRule> {
             output_pos: PosTag::Noun,
             effect: SemanticEffect::QualityNoun,
         },
+        // ── Productive derivational affixes (Bauer 1983 §6.1, §6.2) ──
+        //
+        // The `effect` field is an approximation: SemanticEffect lacks
+        // dedicated variants for temporal-prefix and deverbal-abstract-
+        // noun categories. The closest existing variants are used and
+        // both map to empty OLiA fragments via the cross-functor
+        // (so no misleading morphosyntactic-category claim escapes).
+        // Inversion is text-only and unaffected by the labels.
+        //
+        // Temporal prefix pre-: "predispute" → "dispute".
+        // Bauer (1983) §6.1.6 "Locative/temporal prefixes".
+        MorphologicalRule {
+            affix: Affix::Prefix(Prefix {
+                text: "pre".into(),
+                effect: SemanticEffect::Repetition,
+            }),
+            input_pos: PosTag::Noun,
+            output_pos: PosTag::Noun,
+            effect: SemanticEffect::Repetition,
+        },
+        // Deverbal abstract noun -ability: "waivability" → "waive".
+        // Bauer (1983) §6.2.2 "Nominalizations from verbs".
+        MorphologicalRule {
+            affix: Affix::Suffix(Suffix {
+                text: "ability".into(),
+                effect: SemanticEffect::QualityNoun,
+            }),
+            input_pos: PosTag::Verb,
+            output_pos: PosTag::Noun,
+            effect: SemanticEffect::QualityNoun,
+        },
     ]
 }
 
@@ -113,8 +154,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn english_has_8_rules() {
-        assert_eq!(english_rules().len(), 8);
+    fn english_has_10_rules() {
+        assert_eq!(english_rules().len(), 10);
     }
 
     #[test]
