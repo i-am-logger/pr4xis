@@ -41,7 +41,7 @@ use crate::social::judicial::statute_structure::term_extractor::extract_terms;
 
 /// The diff between a praxis.lock structural block and a parsed
 /// canonical-text tree.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BridgeReport {
     pub by_lock_term: Vec<TermMatchResult>,
     pub by_clause: Vec<ClauseMatchResult>,

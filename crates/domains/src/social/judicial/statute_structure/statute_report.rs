@@ -343,7 +343,8 @@ mod tests {
         Some(path)
     }
 
-    const SOX_CANONICAL: &str = include_str!("../../../../data/canonical_text/sox_1514a_2002.txt");
+    const SOX_CANONICAL: &str =
+        include_str!("../../../../data/test_fixtures/statute_shape/sox_1514a_shape.txt");
 
     #[test]
     fn generates_report_for_sox_1514a() {
@@ -439,7 +440,7 @@ mod tests {
         // AIR21 has known orphan subsections (b)(3)(A) and (b)(4)(A)
         // — verify they show up in the report.
         const AIR21_CANONICAL: &str =
-            include_str!("../../../../data/canonical_text/air21_42121_2010.txt");
+            include_str!("../../../../data/test_fixtures/statute_shape/air21_42121_shape.txt");
 
         fn air21_root() -> PinpointCite {
             PinpointCite::new()

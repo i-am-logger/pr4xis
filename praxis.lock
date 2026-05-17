@@ -24,25 +24,15 @@
 "english_wordnet@2025" = "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2"
 "sox_1514a@2002"       = "39d4e382ce7c47c1c2da777a07e55ea094602c3f5beadf4b2769684dceeab832"
 
-# Canonical-text fixtures: hand-transcribed verbatim statutory text used
-# by per-source audit modules to verify structural extraction against
-# the actual statute. Each entry pins the SHA-256 of the canonical text
-# file so any drift between the file and the lock is detected at test
-# time. `provenance` flags whether the text has been verified against
-# the authoritative source (govinfo PDF/HTML) or is bootstrap-state
-# transcription from training data awaiting verification.
-
-[canonical_text."sox_1514a@2002"]
-sha256 = "a1a53fd9576443c176ac33dca7c88d8257a708c3c9c4b2680dff21ff76cf5d12"
-path = "crates/domains/data/canonical_text/sox_1514a_2002.txt"
-provenance = "training_reconstructed_2026-05-15"
-note = "Hand-transcribed from Claude training data; awaiting verification against canonical govinfo source via PDF/HTML loader (M-future)"
-
-[canonical_text."air21_42121@2010"]
-sha256 = "4fd31ae95d746b142fc72c22b04a1592578418f5780dd2caa99e75a9bc5582c1"
-path = "crates/domains/data/canonical_text/air21_42121_2010.txt"
-provenance = "training_reconstructed_2026-05-15"
-note = "Hand-transcribed from Claude training data covering subsections (a) and (b)(1)-(b)(6); awaiting verification against canonical govinfo source via PDF/HTML loader (M-future)"
+# Canonical-text fixtures: previously held hand-transcribed text for
+# statutes pending the PDF loader. Removed by M4.γ Phase 8 — see
+# `feedback_push_back_on_unsupported_file_types` (never approximate
+# from secondary sources). Statutes now consume the build-time
+# `PDF_EXTRACTION: PdfBuildExtraction` const (Phase 7), which is
+# `NotOnDisk` until `pr4xis update <statute>` lands the authoritative
+# PDF at the standard `local_path()` and the build script's
+# `extract_pdf_to_text` materializes it into `Extracted { text,
+# bytes_hash }`.
 
 # Sarbanes–Oxley § 806 (codified at 18 U.S.C. § 1514A). 28 terms /
 # 18 relations. Bootstrap extraction transformed from the canonical

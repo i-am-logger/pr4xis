@@ -487,8 +487,10 @@ proptest! {
 // Real-corpus tests against the canonical-text fixtures
 // ─────────────────────────────────────────────────────────────────────
 
-const SOX_CANONICAL: &str = include_str!("../../../../data/canonical_text/sox_1514a_2002.txt");
-const AIR21_CANONICAL: &str = include_str!("../../../../data/canonical_text/air21_42121_2010.txt");
+const SOX_CANONICAL: &str =
+    include_str!("../../../../data/test_fixtures/statute_shape/sox_1514a_shape.txt");
+const AIR21_CANONICAL: &str =
+    include_str!("../../../../data/test_fixtures/statute_shape/air21_42121_shape.txt");
 
 fn sox_root() -> PinpointCite {
     PinpointCite::new()

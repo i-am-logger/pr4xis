@@ -224,7 +224,8 @@ mod tests {
     use crate::social::judicial::statute_structure::{extract_relations, parse_statute_text};
 
     fn sox_extracts() -> Vec<RelationCandidate> {
-        let canonical = include_str!("../../../../data/canonical_text/sox_1514a_2002.txt");
+        let canonical =
+            include_str!("../../../../data/test_fixtures/statute_shape/sox_1514a_shape.txt");
         let root = PinpointCite::new()
             .push(PinpointCitationConcept::Title, "18")
             .push(PinpointCitationConcept::Section, "1514A");
@@ -233,7 +234,8 @@ mod tests {
     }
 
     fn air21_extracts() -> Vec<RelationCandidate> {
-        let canonical = include_str!("../../../../data/canonical_text/air21_42121_2010.txt");
+        let canonical =
+            include_str!("../../../../data/test_fixtures/statute_shape/air21_42121_shape.txt");
         let root = PinpointCite::new()
             .push(PinpointCitationConcept::Title, "49")
             .push(PinpointCitationConcept::Section, "42121");

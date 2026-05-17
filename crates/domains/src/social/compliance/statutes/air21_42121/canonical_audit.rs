@@ -26,15 +26,23 @@
 //! conventions, but for now each statute's audit module owns its
 //! own CURIE parser.
 
+#[cfg(test)]
+use crate::applied::data_provisioning::build_extraction::PdfBuildExtraction;
+use crate::social::compliance::statutes::air21_42121::PDF_EXTRACTION;
 use crate::social::compliance::statutes::air21_42121::statute;
 
-const CANONICAL_TEXT: &str =
-    include_str!("../../../../../data/canonical_text/air21_42121_2010.txt");
-
-/// SHA-256 of the canonical text fixture, pinned in praxis.lock's
-/// `[canonical_text."air21_42121@2010"]` section.
-pub const CANONICAL_SHA256: &str =
-    "4fd31ae95d746b142fc72c22b04a1592578418f5780dd2caa99e75a9bc5582c1";
+/// Return the canonical statutory text the audit operates on, or
+/// `""` if no PDF has been fetched yet. The typed state is
+/// always reachable via [`PDF_EXTRACTION`] for callers that
+/// need to distinguish NotOnDisk / Encrypted / ParseFailed.
+///
+/// The previous hand-transcribed `data/canonical_text/air21_42121_2010.txt`
+/// fixture (provenance: `training_reconstructed_2026-05-15`) was
+/// removed when M4.γ Phase 8 closed the rule violation
+/// `feedback_push_back_on_unsupported_file_types`.
+fn canonical_text() -> &'static str {
+    PDF_EXTRACTION.text().unwrap_or("")
+}
 
 /// A known paraphrase — practitioner shorthand not present verbatim
 /// in the statute but covering an enumerated subsection.
@@ -272,7 +280,7 @@ pub fn render_subsection_marker(path: &[String]) -> String {
 }
 
 pub fn canonical_contains_marker(marker: &str) -> bool {
-    if CANONICAL_TEXT.contains(marker) {
+    if canonical_text().contains(marker) {
         return true;
     }
 
@@ -291,7 +299,7 @@ pub fn canonical_contains_marker(marker: &str) -> bool {
                 chars.next();
             }
             let needle = alloc::format!("({})", inner);
-            match CANONICAL_TEXT[search_start..].find(&needle) {
+            match canonical_text()[search_start..].find(&needle) {
                 Some(pos) => search_start += pos + needle.len(),
                 None => return false,
             }
@@ -303,15 +311,23 @@ pub fn canonical_contains_marker(marker: &str) -> bool {
 /// Parse the canonical text and produce a [`BridgeReport`] comparing
 /// every `praxis.lock` term to the parser's view of the canonical
 /// text. Same shape as SOX's `bridge_audit()`.
+///
+/// Returns an empty report when the build-time PDF extractor
+/// hasn't materialized text yet.
 pub fn bridge_audit() -> crate::social::judicial::statute_structure::bridge::BridgeReport {
     use crate::social::judicial::citation::ontology::PinpointCitationConcept;
     use crate::social::judicial::statute_structure::bridge::audit_lock_against_tree;
     use crate::social::judicial::statute_structure::parse_statute_text;
 
+    let text = canonical_text();
+    if text.is_empty() {
+        return Default::default();
+    }
+
     let root = crate::social::judicial::citation::PinpointCite::new()
         .push(PinpointCitationConcept::Title, "49")
         .push(PinpointCitationConcept::Section, "42121");
-    let tree = parse_statute_text(CANONICAL_TEXT, root, "praxis-lock://air21_42121@2010")
+    let tree = parse_statute_text(text, root, "praxis-lock://air21_42121@2010")
         .expect("AIR21 canonical text must parse");
 
     let registry =
@@ -361,30 +377,46 @@ mod tests {
     use super::*;
 
     #[test]
-    fn canonical_text_hash_matches_lock_pin() {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(CANONICAL_TEXT.as_bytes());
-        let result = hasher.finalize();
-        let hex: String = result.iter().map(|b| alloc::format!("{:02x}", b)).collect();
-        assert_eq!(hex, CANONICAL_SHA256);
-    }
-
-    #[test]
-    fn canonical_text_starts_with_49_usc_42121() {
-        assert!(CANONICAL_TEXT.starts_with("49 U.S.C. § 42121"));
-    }
-
-    #[test]
-    fn canonical_text_has_top_level_subsections() {
-        for marker in &["(a)", "(b)"] {
-            assert!(canonical_contains_marker(marker));
+    fn pdf_extraction_is_in_a_known_typed_variant() {
+        match &PDF_EXTRACTION {
+            PdfBuildExtraction::Extracted { .. }
+            | PdfBuildExtraction::NotOnDisk
+            | PdfBuildExtraction::ParseFailed { .. }
+            | PdfBuildExtraction::Encrypted
+            | PdfBuildExtraction::UnsupportedContentType { .. } => {}
         }
     }
 
     #[test]
-    fn canonical_text_has_four_clause_framework_markers() {
+    fn canonical_text_matches_pdf_extraction_when_extracted() {
+        if let PdfBuildExtraction::Extracted { text, bytes_hash } = &PDF_EXTRACTION {
+            assert_eq!(*text, canonical_text());
+            assert_eq!(bytes_hash.len(), 64, "sha256 hex is 64 chars");
+        }
+    }
+
+    #[test]
+    fn canonical_text_starts_with_49_usc_42121_when_extracted() {
+        if PDF_EXTRACTION.is_extracted() {
+            assert!(canonical_text().contains("§ 42121"));
+        }
+    }
+
+    #[test]
+    fn canonical_text_has_top_level_subsections_when_extracted() {
+        if PDF_EXTRACTION.is_extracted() {
+            for marker in &["(a)", "(b)"] {
+                assert!(canonical_contains_marker(marker));
+            }
+        }
+    }
+
+    #[test]
+    fn canonical_text_has_four_clause_framework_markers_when_extracted() {
         // (b)(2)(B)(i) through (iv) — the heart of the burden-shifting framework
+        if !PDF_EXTRACTION.is_extracted() {
+            return;
+        }
         for marker in &[
             "(b)(2)(B)(i)",
             "(b)(2)(B)(ii)",
@@ -570,7 +602,10 @@ mod tests {
     // ── Bridge audit ────────────────────────────────────────────────
 
     #[test]
-    fn bridge_audit_parses_canonical_text() {
+    fn bridge_audit_parses_canonical_text_when_extracted() {
+        if !PDF_EXTRACTION.is_extracted() {
+            return;
+        }
         use crate::social::judicial::statute_structure::bridge::TermMatchResult;
         let report = bridge_audit();
         assert_eq!(report.by_lock_term.len(), 17);
@@ -746,6 +781,9 @@ mod tests {
 
     #[test]
     fn bridge_relation_audit_finds_lock_backed_extracts() {
+        if !PDF_EXTRACTION.is_extracted() {
+            return;
+        }
         use crate::social::judicial::citation::ontology::PinpointCitationConcept;
         use crate::social::judicial::statute_structure::bridge::audit_extracted_relations_against_lock;
         use crate::social::judicial::statute_structure::{extract_relations, parse_statute_text};
@@ -754,7 +792,7 @@ mod tests {
             .push(PinpointCitationConcept::Title, "49")
             .push(PinpointCitationConcept::Section, "42121");
         let tree =
-            parse_statute_text(CANONICAL_TEXT, root, "praxis-lock://air21_42121@2010").unwrap();
+            parse_statute_text(canonical_text(), root, "praxis-lock://air21_42121@2010").unwrap();
         let extracted = extract_relations(&tree);
         let registry =
             crate::applied::data_provisioning::registry::structural_for("air21_42121", "2010")
@@ -868,7 +906,7 @@ mod tests {
     fn print_gap_report() {
         let findings = audit();
         eprintln!("\n=== AIR21 § 42121 canonical-text audit report ===");
-        eprintln!("Canonical text: {} chars", CANONICAL_TEXT.len());
+        eprintln!("Canonical text: {} chars", canonical_text().len());
         eprintln!("Lock terms audited: {}", findings.len());
         eprintln!();
 
