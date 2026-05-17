@@ -66,6 +66,15 @@ pub mod content_stream;
 #[cfg(feature = "pdf")]
 pub mod font;
 
+/// Image / Form-XObject / inline-image flagging walker — emits
+/// `Vec<FlaggedContent>` for every non-text content piece per
+/// `feedback_pdf_text_only_until_image_understanding`. Phase 5
+/// of M4.γ; resolves the `Do <name>` events from
+/// `content_stream` against page resources to reclassify
+/// `FlaggedKind::FormXObject` → `ImageXObject` when warranted.
+#[cfg(feature = "pdf")]
+pub mod flagged;
+
 #[cfg(test)]
 mod tests;
 
