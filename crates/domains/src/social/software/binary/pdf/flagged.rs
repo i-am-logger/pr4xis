@@ -574,6 +574,102 @@ mod tests {
         assert!(flagged[0].note.contains("\"PS\""));
     }
 
+    // ── Adversarial fixtures ─────────────────────────────────────
+
+    /// `Do <name>` referencing an XObject name that doesn't exist
+    /// in `/Resources /XObject` must return the typed
+    /// `XObjectResolutionFailed` error, never silently emit an
+    /// empty flag or panic.
+    #[test]
+    fn do_with_missing_xobject_resource_returns_named_error() {
+        // Build a page whose content stream invokes /Missing but
+        // whose Resources/XObject dict doesn't carry that name.
+        use lopdf::{Document, Object, Stream, dictionary};
+        let mut doc = Document::with_version("1.4");
+        // The /XObject dict is present but only carries /Other,
+        // not /Missing.
+        let other_xobj = doc.add_object(Stream::new(
+            dictionary! { "Type" => "XObject", "Subtype" => "Image",
+            "Width" => 1, "Height" => 1,
+            "ColorSpace" => "DeviceGray", "BitsPerComponent" => 8, },
+            b"".to_vec(),
+        ));
+        let content_id = doc.add_object(Stream::new(dictionary! {}, b"/Missing Do\n".to_vec()));
+        let pages_id = doc.new_object_id();
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Contents" => content_id,
+            "Resources" => dictionary! {
+                "XObject" => dictionary! { "Other" => other_xobj },
+            },
+        });
+        let pages = dictionary! {
+            "Type" => "Pages",
+            "Kids" => vec![page_id.into()],
+            "Count" => 1,
+        };
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+        let catalog = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        doc.trailer.set("Root", catalog);
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("serialize");
+
+        let parsed = read_pdf_bytes(&bytes).expect("parse");
+        match flag_document(&parsed) {
+            Err(FlagError::XObjectResolutionFailed { name, .. }) => {
+                assert_eq!(name, "Missing");
+            }
+            other => panic!("expected XObjectResolutionFailed; got {other:?}"),
+        }
+    }
+
+    /// A page with `/Resources` but no `/XObject` dictionary, and
+    /// a content stream that doesn't reference any XObjects, must
+    /// flag without panicking — the missing dict is a normal
+    /// case for text-only pages.
+    #[test]
+    fn page_with_resources_but_no_xobject_dict_handles_gracefully() {
+        use lopdf::{Document, Object, Stream, dictionary};
+        let mut doc = Document::with_version("1.4");
+        let content_id = doc.add_object(Stream::new(
+            dictionary! {},
+            b"100 100 50 50 re\nf\n".to_vec(),
+        ));
+        let pages_id = doc.new_object_id();
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Contents" => content_id,
+            // /Resources present but no /XObject.
+            "Resources" => dictionary! { "Font" => dictionary! {} },
+        });
+        let pages = dictionary! {
+            "Type" => "Pages",
+            "Kids" => vec![page_id.into()],
+            "Count" => 1,
+        };
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+        let catalog = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        doc.trailer.set("Root", catalog);
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("serialize");
+
+        let parsed = read_pdf_bytes(&bytes).expect("parse");
+        // Vector path is flagged; no XObject lookup attempted.
+        let flagged = flag_document(&parsed).expect("flag");
+        assert_eq!(flagged.len(), 1);
+        assert_eq!(flagged[0].kind, FlaggedKind::VectorPath);
+    }
+
     // ── Property-based ────────────────────────────────────────────
 
     use proptest::prelude::*;

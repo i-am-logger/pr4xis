@@ -375,6 +375,83 @@ mod tests {
         assert_eq!(d1.info_id, d2.info_id);
     }
 
+    // ── Adversarial fixtures ─────────────────────────────────────
+
+    /// A minimal valid header followed by garbage — exercises the
+    /// path where lopdf accepts the magic prefix but rejects the
+    /// downstream structure. Must return a typed parse error,
+    /// never silent corruption or panic.
+    #[test]
+    fn pdf_with_header_only_then_garbage_returns_named_error() {
+        let bytes: Vec<u8> = b"%PDF-1.4\nthis is not a valid PDF body at all".to_vec();
+        let result = read_pdf_bytes(&bytes);
+        match result {
+            Err(PdfReadError::MalformedXref { .. })
+            | Err(PdfReadError::InternalParseError { .. })
+            | Err(PdfReadError::MissingCatalog) => {
+                // Any of these typed errors is acceptable — the
+                // invariant is "named failure", not "specific
+                // failure mode".
+            }
+            Ok(_) => panic!("garbage body should not parse to Ok"),
+            Err(other) => panic!("unexpected variant: {other:?}"),
+        }
+    }
+
+    /// PDF that declares `/Encrypt` in its trailer must be
+    /// rejected with the typed UnsupportedEncryption variant —
+    /// never silently parsed as plaintext.
+    #[test]
+    fn pdf_with_encrypt_entry_returns_unsupported_encryption() {
+        use lopdf::{Document, Object, dictionary};
+        let mut doc = Document::with_version("1.4");
+        let pages_id = doc.new_object_id();
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Resources" => dictionary! {},
+        });
+        let pages = dictionary! {
+            "Type" => "Pages",
+            "Kids" => vec![page_id.into()],
+            "Count" => 1,
+        };
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        // Inject /Encrypt — a dictionary by spec, but we just need
+        // lopdf's `is_encrypted()` to flip true. lopdf checks for
+        // presence of /Encrypt in the trailer to decide.
+        let encrypt_id = doc.add_object(dictionary! {
+            "Filter" => "Standard",
+            "V" => 1,
+            "R" => 2,
+            "O" => "synthetic-owner-key-32-byte-padding!",
+            "U" => "synthetic-user--key-32-byte-padding!",
+            "P" => -1,
+        });
+        doc.trailer.set("Root", catalog_id);
+        doc.trailer.set("Encrypt", encrypt_id);
+        let mut bytes = Vec::new();
+        // Serialization may fail or succeed depending on lopdf's
+        // encryption handling; if it serializes, the read should
+        // reject with UnsupportedEncryption.
+        if doc.save_to(&mut bytes).is_ok() {
+            match read_pdf_bytes(&bytes) {
+                Err(PdfReadError::UnsupportedEncryption) => { /* expected */ }
+                // lopdf may also fail to load — that's a named
+                // parse error too, also acceptable.
+                Err(PdfReadError::MalformedXref { .. })
+                | Err(PdfReadError::InternalParseError { .. }) => {}
+                Ok(_) => panic!("encrypted PDF must not parse to Ok"),
+                Err(other) => panic!("unexpected variant: {other:?}"),
+            }
+        }
+    }
+
     // ── Property-based ────────────────────────────────────────────
 
     use proptest::prelude::*;

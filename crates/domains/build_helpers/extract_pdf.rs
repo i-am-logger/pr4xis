@@ -374,5 +374,44 @@ mod tests {
                 }
             }
         }
+
+        /// Adversarial: arbitrary bytes through the build-time
+        /// extractor must never panic — either return a typed
+        /// outcome (Extracted, NotOnDisk, ParseFailed, Encrypted)
+        /// or fail gracefully. Build scripts are not allowed to
+        /// crash, so this is a hard invariant.
+        #[test]
+        fn prop_arbitrary_bytes_never_panic(
+            bytes in proptest::collection::vec(any::<u8>(), 0..512),
+        ) {
+            let outcome = extract_pdf_bytes(&bytes);
+            // The outcome must be one of the four typed variants;
+            // matching exhaustively is the proof of totality.
+            match outcome {
+                PdfExtractOutcome::Extracted(_)
+                | PdfExtractOutcome::NotOnDisk
+                | PdfExtractOutcome::ParseFailed(_)
+                | PdfExtractOutcome::Encrypted => {}
+            }
+        }
+
+        /// Adversarial: a truncated PDF (valid header, missing
+        /// body / xref) must produce ParseFailed (or Extracted
+        /// with empty text if lopdf is lenient), never panic.
+        #[test]
+        fn prop_truncated_pdf_never_panics(cutoff_pct in 0u8..90) {
+            let bytes = pdf_with_text("test content");
+            let cutoff = (bytes.len() * cutoff_pct as usize) / 100;
+            let truncated = &bytes[..cutoff];
+            match extract_pdf_bytes(truncated) {
+                PdfExtractOutcome::Extracted(_)
+                | PdfExtractOutcome::ParseFailed(_) => {}
+                other => {
+                    return Err(proptest::test_runner::TestCaseError::fail(format!(
+                        "unexpected variant on truncated input: {other:?}"
+                    )));
+                }
+            }
+        }
     }
 }
