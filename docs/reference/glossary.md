@@ -110,7 +110,11 @@ The declarative registry of external sources praxis knows about. Lives at the wo
 
 ## Lock (`praxis.lock`)
 
-The integrity layer next to [`praxis.toml`](#manifest-praxistoml). Pins the expected sha256 for every registered source's on-disk bytes under `[hashes]`. Optional per-source `[canonical_text."<name>@<version>"]` blocks pin hand-transcribed plain-text approximations for sources whose authoritative format praxis cannot yet read (e.g. PDFs awaiting M4.γ), with explicit `provenance` flags marking the gap. The `LockManifestAgreement` axiom verifies manifest, lock, and local file all agree.
+The integrity layer next to [`praxis.toml`](#manifest-praxistoml). Pins the expected sha256 for every registered source's on-disk bytes under `[hashes]`. The `LockManifestAgreement` axiom verifies manifest, lock, and local file all agree.
+
+## PdfBuildExtraction
+
+The typed const each statute's codegen module emits at build time (see `crates/domains/src/applied/data_provisioning/build_extraction.rs`). One of five variants — `Extracted { text, bytes_hash }` / `NotOnDisk` / `ParseFailed` / `Encrypted` / `UnsupportedContentType`. Downstream `canonical_audit.rs` modules pattern-match on the variant. Anchored against W3C PROV-O (Lebo et al. 2013) as a typed `prov:Activity` outcome; each variant cites either an ISO 32000-2 section or a Wilkinson FAIR principle. The `PdfBuildExtractionTotality` axiom enforces exhaustiveness.
 
 ## Registered source
 

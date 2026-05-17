@@ -134,21 +134,22 @@ End-to-end. The current workflow is hand-edit-then-verify; mutating subcommands 
 
 Note that the runtime registry is `OnceLock`-cached per process, so a running process only sees entries present at first load. After hand-editing `praxis.toml` you need to restart any long-running praxis process to pick up the new entry.
 
-## What's automated end-to-end today, and what isn't
+## What's automated end-to-end today
 
 The reference instance is **WordNet** (`sources.english_wordnet`): registered → manifest+lock pinned → `pr4xis update` fetches `.xml.gz` from GitHub Releases → decompresses → writes `.xml` → verifies → engine consumes via build-time codegen. Every step is machine-driven and reproducible.
 
-Sources whose authoritative format requires a loader praxis doesn't yet have are honestly marked as such. The two registered statutes (SOX § 1514A, AIR21 § 42121) point at GPO-authenticated PDFs on govinfo.gov, but praxis's PDF loader is task **M4.γ — pending**. Today the on-disk artifact for those sources is a hand-transcribed plain-text approximation under `data/canonical_text/`, pinned via `praxis.lock`'s `[canonical_text.*]` block with `provenance = "training_reconstructed_<date>"`. The `awaiting_loader` shape is explicit — there's no silent gap.
+The two registered statutes (SOX § 1514A, AIR21 § 42121) point at GPO-authenticated PDFs on govinfo.gov and consume the **M4.γ PDF loader** (shipped):
 
-When M4.γ lands, `pr4xis update sox_1514a` will:
+- The PDF byte-stream reader (`crates/domains/src/social/software/binary/pdf/reader.rs`) decodes `%PDF-N.M` files into a typed `PdfDocument` per ISO 32000-2:2020.
+- The content-stream interpreter (`content_stream.rs`) walks PostScript operator sequences and emits `TextShowEvent`s and `GraphicsEvent`s per §7.8.2 + §9.4.
+- The font + encoding pipeline (`font.rs`) maps glyph bytes to Unicode via `WinAnsiEncoding` / `Identity-H` / typed-`Unsupported` for everything else, per §9.10.2.
+- The image-flagging walker (`flagged.rs`) emits a `Vec<FlaggedContent>` for any non-text content per `feedback_pdf_text_only_until_image_understanding`.
+- The extraction pipeline (`extract.rs`) composes the above and supports Bluebook §3.3.4 section-boundary slicing.
+- The build-time codegen (`crates/domains/build.rs` + `build_helpers/extract_pdf.rs`) runs the extractor for every registered statute and emits a typed `PdfBuildExtraction` const into each statute's codegen module. Downstream code pattern-matches the variant — `Extracted { text, bytes_hash }`, `NotOnDisk`, `ParseFailed`, `Encrypted`, or `UnsupportedContentType`.
 
-1. Fetch the GPO-authenticated PDF from the manifest URL.
-2. Run PDF→text extraction.
-3. Replace the hand-transcribed file with the extracted text.
-4. Update the hash.
-5. The `[canonical_text.*]` block's `provenance` flips to `verified`.
+`pr4xis update sox_1514a` today: fetches the GPO PDF from the manifest URL, the build script's extractor materializes the text, and the codegen module emits `PDF_EXTRACTION = Extracted { text, bytes_hash }`. The audit modules (`sox_1514a/canonical_audit.rs`, `air21_42121/canonical_audit.rs`) consume the typed const directly.
 
-No manifest changes will be needed; the manifest already names the authoritative source.
+If a PDF hasn't been fetched yet, `PDF_EXTRACTION = NotOnDisk` — content-specific audit assertions gate on `PDF_EXTRACTION.is_extracted()` and the typed state is the report. No `Option<&str>`, no hand-transcribed approximations.
 
 ## Related
 
