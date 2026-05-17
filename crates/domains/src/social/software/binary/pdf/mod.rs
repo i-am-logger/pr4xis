@@ -75,6 +75,12 @@ pub mod font;
 #[cfg(feature = "pdf")]
 pub mod flagged;
 
+/// Extraction pipeline — composes Phases 2-5 into a typed
+/// `(Vec<PageText>, Vec<FlaggedContent>)` output plus Bluebook
+/// §3.3.4 statute-section slicing. Phase 6 of M4.γ.
+#[cfg(feature = "pdf")]
+pub mod extract;
+
 #[cfg(test)]
 mod tests;
 

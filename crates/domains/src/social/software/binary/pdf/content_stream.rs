@@ -432,4 +432,102 @@ mod tests {
         let w2 = walk_content_stream(&bytes).expect("parse 2");
         assert_eq!(w1, w2);
     }
+
+    // ── Property-based ────────────────────────────────────────────
+
+    use proptest::prelude::*;
+
+    /// Random-ish text inside a Tj string operand. We restrict to
+    /// printable ASCII excluding the PDF literal-string escape
+    /// characters `()` and `\` so the generated stream is always
+    /// well-formed without us having to do escape handling.
+    fn arb_printable_text() -> impl Strategy<Value = String> {
+        proptest::collection::vec(any::<char>(), 0..40).prop_map(|chars| {
+            chars
+                .into_iter()
+                .filter(|c| c.is_ascii() && !matches!(*c, '(' | ')' | '\\' | '\r' | '\n' | '\0'))
+                .collect()
+        })
+    }
+
+    proptest! {
+        /// walk_content_stream is deterministic: same input bytes
+        /// produce the same ContentStreamWalk every time.
+        #[test]
+        fn prop_walk_is_deterministic(text in arb_printable_text()) {
+            let bytes = stream(&format!("BT\n/F1 12 Tf\n({text}) Tj\nET\n"));
+            let w1 = walk_content_stream(&bytes).expect("parse 1");
+            let w2 = walk_content_stream(&bytes).expect("parse 2");
+            prop_assert_eq!(w1, w2);
+        }
+
+        /// A single Tj with arbitrary printable payload produces
+        /// exactly one TextShowEvent whose bytes equal the payload.
+        #[test]
+        fn prop_tj_round_trips_payload_bytes(text in arb_printable_text()) {
+            let bytes = stream(&format!("BT\n/F1 12 Tf\n({text}) Tj\nET\n"));
+            let w = walk_content_stream(&bytes).expect("parse");
+            prop_assert_eq!(w.text_events.len(), 1);
+            prop_assert_eq!(&w.text_events[0].bytes, &text.as_bytes());
+        }
+
+        /// N copies of `Tj` inside one BT/ET produce exactly N
+        /// text events — no events are silently merged or dropped.
+        #[test]
+        fn prop_n_tj_calls_yield_n_text_events(n in 0u32..16) {
+            let mut s = String::from("BT\n/F1 12 Tf\n");
+            for i in 0..n {
+                s.push_str(&format!("(chunk{i}) Tj\n"));
+            }
+            s.push_str("ET\n");
+            let w = walk_content_stream(s.as_bytes()).expect("parse");
+            prop_assert_eq!(w.text_events.len() as u32, n);
+        }
+
+        /// N painting operators (rectangle + fill, repeated)
+        /// produce exactly N graphics events with kind
+        /// VectorPath. Crosses Phase 3's own invariants for
+        /// content-vs-painting operator separation.
+        #[test]
+        fn prop_n_fills_yield_n_vector_path_events(n in 0u32..16) {
+            let mut s = String::new();
+            for i in 0..n {
+                s.push_str(&format!("{} 0 10 10 re\nf\n", i * 20));
+            }
+            let w = walk_content_stream(s.as_bytes()).expect("parse");
+            prop_assert_eq!(w.graphics_events.len() as u32, n);
+            for e in &w.graphics_events {
+                prop_assert_eq!(e.kind, FlaggedKind::VectorPath);
+            }
+        }
+
+        /// Random bytes never panic the walker — they either
+        /// parse to some (possibly empty) walk or return a named
+        /// `Malformed` error. No silent corruption, no crashes.
+        #[test]
+        fn prop_random_bytes_never_panic(
+            bytes in proptest::collection::vec(any::<u8>(), 0..256),
+        ) {
+            match walk_content_stream(&bytes) {
+                Ok(_) | Err(ContentStreamError::Malformed { .. }) => { /* OK */ }
+            }
+        }
+
+        /// `Tf <name> <size>` updates the current font in scope:
+        /// after a `Tf`, any following Tj reports the new font on
+        /// its TextShowEvent.
+        #[test]
+        fn prop_tf_changes_current_font_for_following_tj(
+            font_id in 0u32..32,
+            size in 1u32..72,
+        ) {
+            let s = format!(
+                "BT\n/F{font_id} {size} Tf\n(text) Tj\nET\n",
+            );
+            let w = walk_content_stream(s.as_bytes()).expect("parse");
+            prop_assert_eq!(w.text_events.len(), 1);
+            prop_assert_eq!(&w.text_events[0].font_name, &format!("F{font_id}"));
+            prop_assert_eq!(w.text_events[0].font_size, size as f32);
+        }
+    }
 }

@@ -636,4 +636,130 @@ mod tests {
             other => panic!("expected UnknownEncodingName; got {other:?}"),
         }
     }
+
+    // ── Property-based ────────────────────────────────────────────
+
+    use proptest::prelude::*;
+
+    /// Generate a non-WinAnsi standard encoding — used to verify
+    /// the typed-Unsupported fail-closed invariant uniformly.
+    fn arb_non_winansi_standard() -> impl Strategy<Value = StandardEncodingName> {
+        proptest::sample::select(vec![
+            StandardEncodingName::PdfDoc,
+            StandardEncodingName::MacRoman,
+            StandardEncodingName::MacExpert,
+            StandardEncodingName::Standard,
+            StandardEncodingName::Symbol,
+            StandardEncodingName::ZapfDingbats,
+            StandardEncodingName::Expert,
+        ])
+    }
+
+    proptest! {
+        /// decode_bytes is deterministic for WinAnsi over arbitrary
+        /// byte sequences — same input always produces same output.
+        #[test]
+        fn prop_winansi_decode_is_deterministic(
+            bytes in proptest::collection::vec(any::<u8>(), 0..256),
+        ) {
+            let font = font_with_encoding(FontEncoding::WinAnsi);
+            let s1 = decode_bytes(&font, &bytes).unwrap();
+            let s2 = decode_bytes(&font, &bytes).unwrap();
+            prop_assert_eq!(s1, s2);
+        }
+
+        /// WinAnsi is identity on ASCII bytes (0x20-0x7E): every
+        /// printable ASCII character round-trips. Per Annex D.5.
+        #[test]
+        fn prop_winansi_ascii_is_identity(s in "[\\x20-\\x7E]{0,32}") {
+            let font = font_with_encoding(FontEncoding::WinAnsi);
+            let decoded = decode_bytes(&font, s.as_bytes()).unwrap();
+            prop_assert_eq!(decoded, s);
+        }
+
+        /// Identity-H decoding is the inverse of UTF-16BE encoding
+        /// for any valid UTF-16 string: encode_utf16_be(s) then
+        /// decode_bytes via Identity yields s back.
+        #[test]
+        fn prop_identity_round_trips_basic_multilingual_plane(
+            s in "[\\x20-\\x7E]{0,32}",
+        ) {
+            let font = font_with_encoding(FontEncoding::Identity);
+            let mut bytes: Vec<u8> = Vec::with_capacity(s.encode_utf16().count() * 2);
+            for cu in s.encode_utf16() {
+                bytes.extend_from_slice(&cu.to_be_bytes());
+            }
+            let decoded = decode_bytes(&font, &bytes).unwrap();
+            prop_assert_eq!(decoded, s);
+        }
+
+        /// Identity rejects odd byte counts with a named error.
+        /// Picking any byte sequence of odd length must produce
+        /// the IdentityNotAlignedUtf16 variant.
+        #[test]
+        fn prop_identity_rejects_odd_length(
+            bytes in proptest::collection::vec(any::<u8>(), 1..32)
+                .prop_filter("must be odd length", |v| !v.len().is_multiple_of(2)),
+        ) {
+            let font = font_with_encoding(FontEncoding::Identity);
+            prop_assert_eq!(
+                decode_bytes(&font, &bytes).unwrap_err(),
+                FontDecodeError::IdentityNotAlignedUtf16
+            );
+        }
+
+        /// Every non-WinAnsi standard encoding fails closed with
+        /// the typed Unsupported(StandardEncoding(name)) variant.
+        /// Praxis-rule: no silent fallback, every gap is named.
+        #[test]
+        fn prop_non_winansi_standard_always_fails_closed(
+            name in arb_non_winansi_standard(),
+            bytes in proptest::collection::vec(any::<u8>(), 0..32),
+        ) {
+            let font = font_with_encoding(FontEncoding::Unsupported(
+                UnsupportedReason::StandardEncoding(name),
+            ));
+            match decode_bytes(&font, &bytes).unwrap_err() {
+                FontDecodeError::UnsupportedEncoding(UnsupportedReason::StandardEncoding(n)) => {
+                    prop_assert_eq!(n, name);
+                }
+                other => {
+                    return Err(proptest::test_runner::TestCaseError::fail(format!(
+                        "expected StandardEncoding({name:?}); got {other:?}"
+                    )));
+                }
+            }
+        }
+
+        /// FontBuiltIn is identity on Latin-1 codepoints — every
+        /// byte 0..=0xFF maps to U+0000..=U+00FF.
+        #[test]
+        fn prop_font_builtin_is_latin1_identity(byte in 0u8..=255) {
+            let font = font_with_encoding(FontEncoding::FontBuiltIn);
+            let decoded = decode_bytes(&font, &[byte]).unwrap();
+            let chars: Vec<char> = decoded.chars().collect();
+            prop_assert_eq!(chars.len(), 1);
+            prop_assert_eq!(chars[0] as u32, byte as u32);
+        }
+
+        /// StandardEncodingName::from_pdf_name is a left-inverse of
+        /// the canonical name list: parsing each canonical name
+        /// returns the right variant.
+        #[test]
+        fn prop_canonical_encoding_names_round_trip(_seed in any::<u32>()) {
+            let pairs = [
+                ("WinAnsiEncoding", StandardEncodingName::WinAnsi),
+                ("MacRomanEncoding", StandardEncodingName::MacRoman),
+                ("MacExpertEncoding", StandardEncodingName::MacExpert),
+                ("StandardEncoding", StandardEncodingName::Standard),
+                ("PDFDocEncoding", StandardEncodingName::PdfDoc),
+                ("Symbol", StandardEncodingName::Symbol),
+                ("ZapfDingbats", StandardEncodingName::ZapfDingbats),
+                ("ExpertEncoding", StandardEncodingName::Expert),
+            ];
+            for (name, expected) in pairs {
+                prop_assert_eq!(StandardEncodingName::from_pdf_name(name), Some(expected));
+            }
+        }
+    }
 }

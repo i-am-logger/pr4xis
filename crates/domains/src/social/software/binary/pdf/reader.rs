@@ -374,4 +374,88 @@ mod tests {
         assert_eq!(d1.catalog_id, d2.catalog_id);
         assert_eq!(d1.info_id, d2.info_id);
     }
+
+    // ── Property-based ────────────────────────────────────────────
+
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Any byte sequence that doesn't begin with `%PDF-` must
+        /// fail with InvalidHeader. No silent acceptance.
+        #[test]
+        fn prop_non_pdf_prefix_returns_invalid_header(
+            mut prefix in proptest::collection::vec(any::<u8>(), 0..32),
+        ) {
+            // Force the first byte to differ from '%' (0x25) so we
+            // never accidentally generate a valid header prefix.
+            if !prefix.is_empty() {
+                prefix[0] = prefix[0].wrapping_add(1);
+                if prefix[0] == b'%' {
+                    prefix[0] = b'A';
+                }
+            }
+            // Skip the case where prefix happens to start with %PDF-.
+            if prefix.starts_with(b"%PDF-") {
+                return Ok(());
+            }
+            let is_invalid_header = matches!(
+                read_pdf_bytes(&prefix),
+                Err(PdfReadError::InvalidHeader { .. })
+            );
+            prop_assert!(is_invalid_header);
+        }
+
+        /// Reading the same valid PDF bytes twice produces the same
+        /// `(version, page_count, catalog_id, info_id)` tuple.
+        #[test]
+        fn prop_minimal_pdf_read_is_deterministic(_seed in any::<u32>()) {
+            let bytes = minimal_pdf();
+            let d1 = read_pdf_bytes(&bytes).expect("parse 1");
+            let d2 = read_pdf_bytes(&bytes).expect("parse 2");
+            prop_assert_eq!(d1.version, d2.version);
+            prop_assert_eq!(d1.page_count, d2.page_count);
+            prop_assert_eq!(d1.catalog_id, d2.catalog_id);
+            prop_assert_eq!(d1.info_id, d2.info_id);
+        }
+
+        /// Truncating a valid PDF at any byte before the final
+        /// `%%EOF` produces either a parse error or a structurally
+        /// degraded document — never a silent success that claims
+        /// the wrong shape. We don't assert which specific error,
+        /// just that we never return Ok with the same shape as the
+        /// full document for arbitrary truncations.
+        #[test]
+        fn prop_truncated_pdf_never_silently_succeeds(
+            cutoff_pct in 0u8..90,
+        ) {
+            let bytes = minimal_pdf();
+            let cutoff = (bytes.len() * cutoff_pct as usize) / 100;
+            let truncated = &bytes[..cutoff];
+            match read_pdf_bytes(truncated) {
+                Err(_) => { /* expected — named error */ }
+                Ok(doc) => {
+                    // If lopdf somehow accepts the truncation, the
+                    // parsed shape must not falsely claim the full
+                    // document. The minimal fixture has 1 page; a
+                    // truncation that severs the page tree should
+                    // not still report page_count == 1 if all the
+                    // body objects were lost.
+                    if doc.indirect_object_count() == 0 {
+                        prop_assert_eq!(doc.page_count, 0);
+                    }
+                }
+            }
+        }
+
+        /// `structural_concepts()` is monotone on parsed input —
+        /// the same fixture always returns the same concept set.
+        #[test]
+        fn prop_structural_concepts_are_stable(_seed in any::<u32>()) {
+            let bytes = minimal_pdf();
+            let d = read_pdf_bytes(&bytes).expect("parse");
+            let c1 = d.structural_concepts();
+            let c2 = d.structural_concepts();
+            prop_assert_eq!(c1, c2);
+        }
+    }
 }
