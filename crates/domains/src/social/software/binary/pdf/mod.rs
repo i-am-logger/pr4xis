@@ -59,6 +59,13 @@ pub mod reader;
 #[cfg(feature = "pdf")]
 pub mod content_stream;
 
+/// Font + encoding pipeline — byte → Unicode resolution per
+/// ISO 32000-2:2020 §9.10.2 (ToUnicode CMap > /Encoding > built-in).
+/// Phase 4 of M4.γ; consumes the TextShowEvents emitted by
+/// `content_stream` and produces decoded `String`s.
+#[cfg(feature = "pdf")]
+pub mod font;
+
 #[cfg(test)]
 mod tests;
 
