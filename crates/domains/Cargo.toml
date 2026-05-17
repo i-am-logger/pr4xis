@@ -62,6 +62,17 @@ pdf = ["std", "dep:lopdf"]
 pr4xis = { version = "0.15.0", path = "../pr4xis", default-features = false, features = ["codegen"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
+# PDF extraction at build time. When a statute's PDF is on disk at its
+# canonical `local_path()`, the build script runs lopdf to extract the
+# text and emits it as a typed `PDF_EXTRACTION: PdfBuildExtraction`
+# const in the generated codegen module — the WordNet-parallel
+# embedding pattern. Phase 6's runtime extractor (under feature `pdf`)
+# covers the property-test surface; build.rs's path is a focused
+# text-only subset that runs unconditionally during builds.
+lopdf = "0.40"
+# SHA-256 for the bytes_hash field of PdfBuildExtraction::Extracted —
+# downstream tests assert this matches praxis.lock's pinned hash.
+sha2 = "0.11"
 
 [lints]
 workspace = true

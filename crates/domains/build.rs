@@ -22,6 +22,11 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
+#[path = "build_helpers/extract_pdf.rs"]
+mod extract_pdf;
+
+use extract_pdf::{PdfExtractOutcome, escape_for_raw_string, extract_pdf_to_text};
+
 // ---------------------------------------------------------------------------
 // praxis.toml parsing — minimal, build-time only
 // ---------------------------------------------------------------------------
@@ -146,16 +151,97 @@ fn main() {
             continue;
         };
 
-        let code = generate_statute_module(name, structural);
+        let mut code = generate_statute_module(name, structural);
+
+        // ─── Phase 7 — emit typed PdfBuildExtraction const ───
+        // Resolve the expected PDF path for this statute and run
+        // the build-time text extractor. The result is emitted as
+        // `pub const PDF_EXTRACTION: PdfBuildExtraction = ...` so
+        // downstream runtime code can pattern-match on a typed
+        // outcome instead of reading a generic Option.
+        let pdf_path = expected_pdf_path(&workspace_root, name, &src.version);
+        let outcome = extract_pdf_to_text(&pdf_path);
+        let extraction_const =
+            emit_pdf_build_extraction_const(&outcome, &pdf_bytes_hash(&pdf_path));
+        code.push_str("\n\n");
+        code.push_str(&extraction_const);
+
         let out_path = out_dir.join(format!("{}_codegen.rs", name));
         std::fs::write(&out_path, code).expect("write generated statute module");
 
         eprintln!(
-            "Generated statute `{name}`: {} terms, {} relations -> {}",
+            "Generated statute `{name}`: {} terms, {} relations, extraction={} -> {}",
             structural.terms.len(),
             structural.relations.len(),
+            match &outcome {
+                PdfExtractOutcome::Extracted(_) => "Extracted",
+                PdfExtractOutcome::NotOnDisk => "NotOnDisk",
+                PdfExtractOutcome::ParseFailed(_) => "ParseFailed",
+                PdfExtractOutcome::Encrypted => "Encrypted",
+            },
             out_path.display()
         );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 7 helpers — typed PdfBuildExtraction emission
+// ---------------------------------------------------------------------------
+
+/// Resolve the expected on-disk PDF path for a registered
+/// statute. Mirrors the runtime `RegistryEntry::local_path()` for
+/// the `UsFederalStatute` content-type family — but the build
+/// script reads the manifest as raw TOML, so the convention is
+/// duplicated here (and tested at runtime via the data_provisioning
+/// path-shape tests).
+fn expected_pdf_path(workspace_root: &std::path::Path, name: &str, version: &str) -> PathBuf {
+    workspace_root
+        .join("crates/domains/data/legal/statutes/us_federal")
+        .join(name)
+        .join(format!("{name}-{version}.pdf"))
+}
+
+/// SHA-256 of the on-disk PDF as a lowercase hex string. Returns
+/// `""` if the file isn't present.
+fn pdf_bytes_hash(path: &std::path::Path) -> String {
+    let Ok(bytes) = std::fs::read(path) else {
+        return String::new();
+    };
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// Emit the typed const for the codegen module. The output
+/// references `crate::applied::data_provisioning::build_extraction::PdfBuildExtraction`
+/// — the absolute path lets the emitted code compile regardless
+/// of which module-scope the `include!` lands in.
+fn emit_pdf_build_extraction_const(outcome: &PdfExtractOutcome, hash: &str) -> String {
+    let path = "crate::applied::data_provisioning::build_extraction::PdfBuildExtraction";
+    match outcome {
+        PdfExtractOutcome::Extracted(text) => format!(
+            "pub const PDF_EXTRACTION: {path} = {path}::Extracted {{\n    \
+             text: r#\"{}\"#,\n    \
+             bytes_hash: \"{}\",\n}};",
+            escape_for_raw_string(text),
+            hash,
+        ),
+        PdfExtractOutcome::NotOnDisk => {
+            format!("pub const PDF_EXTRACTION: {path} = {path}::NotOnDisk;")
+        }
+        PdfExtractOutcome::ParseFailed(detail) => format!(
+            "pub const PDF_EXTRACTION: {path} = {path}::ParseFailed {{\n    \
+             detail: r#\"{}\"#,\n}};",
+            escape_for_raw_string(detail),
+        ),
+        PdfExtractOutcome::Encrypted => {
+            format!("pub const PDF_EXTRACTION: {path} = {path}::Encrypted;")
+        }
     }
 }
 
