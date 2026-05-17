@@ -22,7 +22,7 @@
 
 [hashes]
 "english_wordnet@2025" = "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2"
-"sox_1514a@2002"       = "39d4e382ce7c47c1c2da777a07e55ea094602c3f5beadf4b2769684dceeab832"
+"sox_1514a@2002"       = "f2fbd5f78316b1f2821ca9750c577b6e8146ae5c75acd2e7d74750e93c9b946e"
 
 # Canonical-text fixtures: previously held hand-transcribed text for
 # statutes pending the PDF loader. Removed by M4.γ Phase 8 — see

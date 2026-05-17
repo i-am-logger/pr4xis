@@ -145,13 +145,13 @@ fn sox_1514a_local_path_under_legal_statutes_us_federal() {
         path.starts_with("crates/domains/data/legal/statutes/us_federal/"),
         "expected legal/statutes/us_federal/ family directory; got {path}"
     );
-    assert!(path.ends_with(".txt"), "got {path}");
+    assert!(path.ends_with(".pdf"), "got {path}");
 }
 
 #[test]
-fn sox_1514a_canonical_encoding_is_plaintext() {
+fn sox_1514a_canonical_encoding_is_pdf() {
     let entry = by_name("sox_1514a").unwrap();
-    assert_eq!(canonical_encoding(entry.kind), ContentType::Plaintext);
+    assert_eq!(canonical_encoding(entry.kind), ContentType::Pdf);
 }
 
 #[test]

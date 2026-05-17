@@ -31,17 +31,39 @@ use crate::applied::data_provisioning::build_extraction::PdfBuildExtraction;
 use crate::social::compliance::statutes::air21_42121::PDF_EXTRACTION;
 use crate::social::compliance::statutes::air21_42121::statute;
 
-/// Return the canonical statutory text the audit operates on, or
-/// `""` if no PDF has been fetched yet. The typed state is
-/// always reachable via [`PDF_EXTRACTION`] for callers that
-/// need to distinguish NotOnDisk / Encrypted / ParseFailed.
-///
-/// The previous hand-transcribed `data/canonical_text/air21_42121_2010.txt`
-/// fixture (provenance: `training_reconstructed_2026-05-15`) was
-/// removed when M4.γ Phase 8 closed the rule violation
-/// `feedback_push_back_on_unsupported_file_types`.
+/// Return the canonical statutory text the audit operates on —
+/// sliced to just § 42121's body. govinfo PDFs paginate multiple
+/// sections per page; this strips the chrome and adjacent
+/// sections so the bridge audit's parser sees only § 42121.
+/// Returns `""` if no PDF has been fetched yet.
 fn canonical_text() -> &'static str {
-    PDF_EXTRACTION.text().unwrap_or("")
+    let raw = PDF_EXTRACTION.text().unwrap_or("");
+    slice_section_42121(raw)
+}
+
+/// Slice raw extracted PDF text to just § 42121's body. Same
+/// algorithm as SOX 1514A's `slice_section_1514a`, scoped to
+/// AIR21's section number.
+fn slice_section_42121(text: &'static str) -> &'static str {
+    let start_marker = "§42121.";
+    let Some(start) = text.find(start_marker) else {
+        return "";
+    };
+    let body = &text[start..];
+    let mut search = start_marker.len();
+    while let Some(rel) = body[search..].find('§') {
+        let abs = search + rel + '§'.len_utf8();
+        let rest = body[abs..].trim_start_matches(' ');
+        let next: String = rest
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || c.is_ascii_alphabetic())
+            .collect();
+        if !next.is_empty() && next != "42121" {
+            return &body[..search + rel];
+        }
+        search = abs;
+    }
+    body
 }
 
 /// A known paraphrase — practitioner shorthand not present verbatim

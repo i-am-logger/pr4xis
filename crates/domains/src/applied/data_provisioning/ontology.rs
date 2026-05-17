@@ -120,12 +120,18 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
     use SourceTaxonomyConcept as C;
     match kind {
         C::Language => ContentType::XmlLmf,
-        C::Statute
-        | C::UsFederalStatute
-        | C::Regulation
-        | C::ConstitutionalArticle
-        | C::ProceduralRule
-        | C::CaseLaw => ContentType::Plaintext,
+        // US federal statutes are published by GPO as PDF on
+        // govinfo.gov (ISO 32000-2:2020 PDF 2.0; Bluebook §18
+        // preferred authenticated digital edition). M4.γ's
+        // PDF loader consumes the bytes and emits a typed
+        // `PdfBuildExtraction` const at build time.
+        C::Statute | C::UsFederalStatute => ContentType::Pdf,
+        // Other legal corpora (regulations, constitutional
+        // articles, procedural rules, case law) also commonly
+        // ship as PDF on the authoritative source; same rule.
+        C::Regulation | C::ConstitutionalArticle | C::ProceduralRule | C::CaseLaw => {
+            ContentType::Pdf
+        }
         C::LegalLexicon => ContentType::Json,
         // Non-leaf concepts have no decoder — they're abstract.
         C::Source | C::Lexicon | C::DomainLexicon | C::LegalCorpus => ContentType::Binary,
