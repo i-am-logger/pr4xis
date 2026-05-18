@@ -133,11 +133,11 @@ pub struct Ref<const BYTES: usize> {
 }
 
 impl<const BYTES: usize> Ref<BYTES> {
-    pub fn new(value: u64) -> Self {
+    pub const fn new(value: u64) -> Self {
         Self { value }
     }
 
-    pub fn value(&self) -> u64 {
+    pub const fn value(&self) -> u64 {
         self.value
     }
 

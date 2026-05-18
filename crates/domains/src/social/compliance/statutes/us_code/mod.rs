@@ -54,39 +54,190 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, vec::Vec};
 
-/// One statute embedded in a title — `&'static`-only fields so the
-/// whole table lives in `.rodata`.
+/// One statute embedded in a title — frozen const data per the
+/// `English::CodegenData` precedent: raw `&'static str` storage at
+/// the codegen layer, typed-value access via the public API.
+///
+/// Mirrors `pr4xis::codegen_data::CodegenData` (which uses
+/// `entity_ids: &'static [&'static str]` for the same reason): the
+/// storage IS the codegen output; consumers go through accessors
+/// that return typed values (Identifier with format
+/// IdentifierFormatConcept::UslmUrn for [`identifier_urn`], etc.).
+///
+/// [`identifier_urn`]: Self::identifier_urn
 #[derive(Debug, Clone, Copy)]
 pub struct StaticStatute {
-    /// USLM URN, e.g. `/us/usc/t18/s1514A`.
+    /// USLM URN raw string. Public only because the codegen output
+    /// constructs StaticStatute via struct-literal syntax inside
+    /// the `us_code::codegen` sub-module. Access via
+    /// [`identifier_urn`][Self::identifier_urn] (returns typed
+    /// `Identifier`) for type-safe consumers.
+    #[doc(hidden)]
     pub identifier: &'static str,
-    /// `<num>` text, e.g. `"1514A"`.
+    #[doc(hidden)]
     pub num: &'static str,
-    /// `<heading>` plain text.
+    #[doc(hidden)]
     pub heading: &'static str,
-    /// Term table (subsection-level + below).
+    #[doc(hidden)]
     pub terms: &'static [StaticTerm],
-    /// Composes-mereology edges between terms.
+    #[doc(hidden)]
     pub relations: &'static [StaticRelation],
 }
 
-/// One subdivision-term inside a statute. `id` is a CURIE
-/// (`"sox_1514a:a_1_A"`); `name` is the heading or a derived
-/// subdivision marker; `definition` is the chapeau or content text.
+impl StaticStatute {
+    /// USLM URN as a typed `Identifier` (format `UslmUrn`). Validates
+    /// against the LRC User Guide §V grammar via
+    /// [`crate::formal::meta::identifier_format::Identifier::uslm_urn`].
+    ///
+    /// LRC pl-119-90 USC titles include a small number of sections
+    /// whose `identifier` attribute is a space-separated multi-URN
+    /// (combined repealed-section ranges). For those, this method
+    /// returns the validation error; use [`identifier_raw`] for the
+    /// verbatim attribute value, or [`urns`] (typed Vec) for the
+    /// constituent URNs when modeling that LRC convention.
+    ///
+    /// [`identifier_raw`]: Self::identifier_raw
+    /// [`urns`]: Self::urns
+    pub fn identifier_urn(
+        &self,
+    ) -> Result<
+        crate::formal::meta::identifier_format::Identifier,
+        crate::formal::meta::identifier_format::IdentifierParseError,
+    > {
+        crate::formal::meta::identifier_format::Identifier::uslm_urn(self.identifier)
+    }
+
+    /// Verbatim USLM `identifier` attribute. For single-URN sections
+    /// this equals the result of [`identifier_urn`]'s `.value`; for
+    /// LRC's multi-URN combined-range sections it's the
+    /// space-separated string. The raw form exists because the LRC
+    /// publishes both shapes; downstream callers that don't care
+    /// about typing this discrimination use the raw form.
+    ///
+    /// [`identifier_urn`]: Self::identifier_urn
+    pub fn identifier_raw(&self) -> &'static str {
+        self.identifier
+    }
+
+    /// The `<num>` value verbatim (e.g. `"1514A"`). USLM does not
+    /// constrain this token to a specific grammar — sections use
+    /// arabic digits, letters, and digit-letter combinations.
+    /// LITERATURE_GAP("a published ontology for USC section-number
+    /// tokens with grammar"); for now exposed as a raw English text
+    /// token in the section-number lexical role.
+    pub fn num(&self) -> &'static str {
+        self.num
+    }
+
+    /// `<heading>` plain text, in English (BCP-47 `en` per the LRC's
+    /// `<uscDoc xml:lang="en">` declaration).
+    pub fn heading(&self) -> &'static str {
+        self.heading
+    }
+
+    /// Terms in this section (subsection-level + below).
+    pub fn terms(&self) -> &'static [StaticTerm] {
+        self.terms
+    }
+
+    /// Composes-mereology edges between this section's terms.
+    pub fn relations(&self) -> &'static [StaticRelation] {
+        self.relations
+    }
+}
+
+/// One subdivision-term inside a statute. Storage is raw
+/// `&'static str` per the [`StaticStatute`] precedent; typed-value
+/// access is via the accessor methods.
 #[derive(Debug, Clone, Copy)]
 pub struct StaticTerm {
+    #[doc(hidden)]
     pub id: &'static str,
+    #[doc(hidden)]
     pub name: &'static str,
+    #[doc(hidden)]
     pub definition: &'static str,
+}
+
+impl StaticTerm {
+    /// The term's CURIE as a typed `Identifier` (format `Curie`).
+    /// Validates the `prefix:local` shape per W3C CURIE Syntax 1.0 §2.
+    pub fn id_curie(
+        &self,
+    ) -> Result<
+        crate::formal::meta::identifier_format::Identifier,
+        crate::formal::meta::identifier_format::IdentifierParseError,
+    > {
+        crate::formal::meta::identifier_format::Identifier::curie(self.id)
+    }
+
+    /// Verbatim CURIE string. Used by codegen-side renames in
+    /// [`StaticStatute::to_statute`] that rewrite the URN-derived
+    /// static prefix to the runtime statute name.
+    pub fn id_raw(&self) -> &'static str {
+        self.id
+    }
+
+    /// Term name — the section's `<heading>` text or a URN-derived
+    /// subdivision marker. English text per LRC's `xml:lang="en"`.
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+
+    /// Term definition — `<chapeau>`/`<content>` text with heading
+    /// fallback. English text.
+    pub fn definition(&self) -> &'static str {
+        self.definition
+    }
 }
 
 /// One Composes edge between terms. Both endpoints are CURIEs into
 /// the same statute's term table.
 #[derive(Debug, Clone, Copy)]
 pub struct StaticRelation {
+    #[doc(hidden)]
     pub from: &'static str,
+    #[doc(hidden)]
     pub to: &'static str,
+    #[doc(hidden)]
     pub kind: StaticRelationKind,
+}
+
+impl StaticRelation {
+    /// The `from` endpoint as a typed CURIE `Identifier`.
+    pub fn from_curie(
+        &self,
+    ) -> Result<
+        crate::formal::meta::identifier_format::Identifier,
+        crate::formal::meta::identifier_format::IdentifierParseError,
+    > {
+        crate::formal::meta::identifier_format::Identifier::curie(self.from)
+    }
+
+    /// The `to` endpoint as a typed CURIE `Identifier`.
+    pub fn to_curie(
+        &self,
+    ) -> Result<
+        crate::formal::meta::identifier_format::Identifier,
+        crate::formal::meta::identifier_format::IdentifierParseError,
+    > {
+        crate::formal::meta::identifier_format::Identifier::curie(self.to)
+    }
+
+    /// Verbatim `from` CURIE.
+    pub fn from_raw(&self) -> &'static str {
+        self.from
+    }
+
+    /// Verbatim `to` CURIE.
+    pub fn to_raw(&self) -> &'static str {
+        self.to
+    }
+
+    /// Relation kind.
+    pub fn kind(&self) -> StaticRelationKind {
+        self.kind
+    }
 }
 
 /// The kinded relation. Currently only Composes (mereology); the
@@ -119,48 +270,60 @@ impl StaticStatute {
         use crate::applied::data_provisioning::registry::{
             StructuralData, StructuralRelation, StructuralTerm,
         };
+        use crate::formal::meta::identifier_format::Identifier;
 
-        // Find the static-side prefix — the longest term-id common
-        // prefix up to (but not including) the colon. This is the
-        // URN-derived name (e.g. `us_usc_t18_s1514a`) that the
-        // codegen emitter wrote.
-        let static_prefix = self
-            .terms
+        // CURIE-prefix rename: the codegen emits URN-derived prefixes
+        // (e.g. `us_usc_t18_s1514a:a_1`) that the downstream runtime
+        // module rebinds to its praxis-registry name (`sox_1514a`).
+        // The first term's typed CURIE supplies the static prefix;
+        // typed via Identifier::curie so the prefix is the URN-derived
+        // namespace, not an ad-hoc string parse.
+        let static_prefix: String = self
+            .terms()
             .iter()
-            .find(|t| t.id.contains(':'))
-            .and_then(|t| t.id.split(':').next())
-            .unwrap_or("");
+            .filter_map(|t| t.id_curie().ok())
+            .next()
+            .map(|id| id.value.split(':').next().unwrap_or("").to_string())
+            .unwrap_or_default();
 
-        let rename = |curie: &str| -> String {
-            if let Some(local) = curie.strip_prefix(static_prefix)
-                && let Some(rest) = local.strip_prefix(':')
-            {
-                return format!("{statute_name}:{rest}");
+        let rename_curie = |raw: &str| -> String {
+            match Identifier::curie(raw) {
+                Ok(id) => {
+                    if let Some(rest) = id.value.strip_prefix(&static_prefix)
+                        && let Some(local) = rest.strip_prefix(':')
+                    {
+                        format!("{statute_name}:{local}")
+                    } else {
+                        id.value
+                    }
+                }
+                // Non-CURIE rows (e.g. the section-root entry) pass
+                // through unchanged; downstream filtering drops them.
+                Err(_) => raw.to_string(),
             }
-            curie.to_string()
         };
 
         let data = StructuralData {
-            description: format!("USLM source: {}", self.identifier),
+            description: format!("USLM source: {}", self.identifier_raw()),
             terms: self
-                .terms
+                .terms()
                 .iter()
-                .filter(|t| t.id.contains(':'))
+                .filter(|t| t.id_curie().is_ok())
                 .map(|t| StructuralTerm {
-                    id: rename(t.id),
-                    name: t.name.to_string(),
-                    definition: t.definition.to_string(),
+                    id: rename_curie(t.id_raw()),
+                    name: t.name().to_string(),
+                    definition: t.definition().to_string(),
                     lemmas: Vec::new(),
                 })
                 .collect(),
             relations: self
-                .relations
+                .relations()
                 .iter()
-                .filter(|r| r.from.contains(':') && r.to.contains(':'))
+                .filter(|r| r.from_curie().is_ok() && r.to_curie().is_ok())
                 .map(|r| StructuralRelation {
-                    from: rename(r.from),
-                    to: rename(r.to),
-                    relation: match r.kind {
+                    from: rename_curie(r.from_raw()),
+                    to: rename_curie(r.to_raw()),
+                    relation: match r.kind() {
                         StaticRelationKind::Composes => "Composes",
                     }
                     .to_string(),
@@ -172,19 +335,44 @@ impl StaticStatute {
         // downstream consumers can trace each term back to the LRC
         // source, not the praxis-lock shim that wraps the legacy
         // hand-curated structural data.
-        super::Statute::from_structural_with_context(statute_name, version, &data, self.identifier)
-            .expect("StaticStatute data must be valid (codegen-checked)")
+        super::Statute::from_structural_with_context(
+            statute_name,
+            version,
+            &data,
+            self.identifier_raw(),
+        )
+        .expect("StaticStatute data must be valid (codegen-checked)")
     }
 }
 
 /// O(N) linear search for a section by USLM identifier. For ~1,400
 /// sections this is comfortably under microseconds; if profiling
 /// shows hotspot, swap for a phf::Map at codegen time.
+///
+/// Matches on the verbatim identifier attribute — for single-URN
+/// sections this is the URN; for LRC's combined-range sections it's
+/// the space-separated multi-URN string. Callers with a single
+/// typed `Identifier` use [`find_section_by_urn`].
 pub fn find_section<'a>(
     sections: &'a [StaticStatute],
     identifier: &str,
 ) -> Option<&'a StaticStatute> {
-    sections.iter().find(|s| s.identifier == identifier)
+    sections.iter().find(|s| s.identifier_raw() == identifier)
+}
+
+/// Find a section by typed USLM URN `Identifier`. Matches against
+/// the section's `identifier_urn()` for single-URN sections;
+/// combined-range sections (whose raw `identifier` is a
+/// whitespace-separated URN list) are not currently matched here —
+/// they live in [`find_section`]'s raw-string path until the
+/// multi-URN ontology lands.
+pub fn find_section_by_urn<'a>(
+    sections: &'a [StaticStatute],
+    urn: &crate::formal::meta::identifier_format::Identifier,
+) -> Option<&'a StaticStatute> {
+    sections
+        .iter()
+        .find(|s| s.identifier_urn().is_ok_and(|got| got == *urn))
 }
 
 pub mod title_18;
@@ -224,4 +412,79 @@ pub fn all_titles() -> &'static [(u32, &'static [StaticStatute])] {
     static TITLES: &[(u32, &[StaticStatute])] =
         &[(18, title_18::SECTIONS), (49, title_49::SECTIONS)];
     TITLES
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::formal::meta::identifier_format::Identifier;
+    use crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept;
+
+    #[test]
+    fn static_statute_identifier_urn_returns_typed_uslm_urn() {
+        let t18 = UsCodeTitleId::try_from_number(18).unwrap();
+        let s = section(&t18, "/us/usc/t18/s1514A").expect("SOX 1514A present");
+        let id = s.identifier_urn().expect("SOX 1514A is a valid USLM URN");
+        assert_eq!(id.format, IdentifierFormatConcept::UslmUrn);
+        assert_eq!(id.value, "/us/usc/t18/s1514A");
+    }
+
+    #[test]
+    fn static_term_id_curie_returns_typed_curie() {
+        let t18 = UsCodeTitleId::try_from_number(18).unwrap();
+        let s = section(&t18, "/us/usc/t18/s1514A").expect("SOX 1514A");
+        let term = s
+            .terms()
+            .iter()
+            .find(|t| t.id_curie().is_ok())
+            .expect("section has ≥1 CURIE-shaped term");
+        let id = term.id_curie().expect("term id parses as CURIE");
+        assert_eq!(id.format, IdentifierFormatConcept::Curie);
+    }
+
+    #[test]
+    fn static_relation_curie_endpoints_form_a_subset() {
+        // The codegen emits relations including some whose endpoints
+        // are not CURIEs (section-root entries with no local part).
+        // The invariant: at least one relation has both endpoints
+        // parsing as CURIE — the to_statute filter relies on that.
+        let t18 = UsCodeTitleId::try_from_number(18).unwrap();
+        let s = section(&t18, "/us/usc/t18/s1514A").expect("SOX 1514A");
+        let both_curie_count = s
+            .relations()
+            .iter()
+            .filter(|r| r.from_curie().is_ok() && r.to_curie().is_ok())
+            .count();
+        assert!(
+            both_curie_count > 0,
+            "§ 1514A must emit at least one relation with both endpoints in CURIE form"
+        );
+    }
+
+    #[test]
+    fn find_section_by_urn_matches_typed_identifier() {
+        let t18 = UsCodeTitleId::try_from_number(18).unwrap();
+        let sections = sections_for_title(&t18).expect("Title 18 registered");
+        let urn = Identifier::uslm_urn("/us/usc/t18/s1514A").unwrap();
+        let found = find_section_by_urn(sections, &urn).expect("SOX 1514A by URN");
+        assert_eq!(found.identifier_raw(), "/us/usc/t18/s1514A");
+    }
+
+    #[test]
+    fn static_statute_corpus_identifier_grammar_check_title_18() {
+        // Every single-URN section's identifier must parse as a
+        // typed USLM URN. Combined-range sections (whitespace-
+        // separated multi-URN) are skipped — same convention as the
+        // top-level tests.
+        for s in title_18::SECTIONS.iter() {
+            if s.identifier_raw().contains(' ') {
+                continue;
+            }
+            assert!(
+                s.identifier_urn().is_ok(),
+                "Title 18 single-URN section identifier `{}` must parse",
+                s.identifier_raw()
+            );
+        }
+    }
 }
