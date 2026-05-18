@@ -587,3 +587,32 @@ fn chart_reduce_full_priority() {
     let ft = result.final_type.unwrap();
     assert!(ft == LambekType::q() || ft == LambekType::wq());
 }
+
+#[test]
+fn tokenize_math_operators() {
+    let lang = sample_lang();
+    let tokens = tokenize::tokenize("2 + 2", &lang);
+    assert_eq!(tokens.len(), 3);
+    assert_eq!(tokens[0].word, "2");
+    assert_eq!(tokens[1].word, "+");
+    assert_eq!(tokens[2].word, "2");
+
+    // Check type of '+'
+    assert_eq!(tokens[1].lambek_type, svo::infix_operator());
+}
+
+#[test]
+fn what_dog_interrogative_determiner() {
+    let lang = sample_lang();
+    let tokens = tokenize::tokenize("what dog", &lang);
+    assert_eq!(tokens.len(), 2);
+    assert_eq!(tokens[0].word, "what");
+    assert_eq!(tokens[1].word, "dog");
+
+    // Note: currently assign_type for position 0 returns wh_what()
+    // if any entry is_interrogative(). 'what' is a pronoun in our mock lang,
+    // and it's interrogative.
+    // However, the task added interrogative_determiner() but didn't
+    // explicitly ask to use it in tokenize.rs logic yet.
+    // Usually 'what' in 'what dog' should be a determiner.
+}

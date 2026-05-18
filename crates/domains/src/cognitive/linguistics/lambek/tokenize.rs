@@ -21,7 +21,7 @@ use pr4xis::category::entity::Concept;
 pub fn tokenize(text: &str, language: &dyn Language) -> Vec<TypedToken> {
     let cleaned = text
         .trim()
-        .trim_end_matches(|c: char| c.is_ascii_punctuation());
+        .trim_end_matches(|c: char| c.is_ascii_punctuation() && !"+-*/=".contains(c));
 
     let words: Vec<&str> = cleaned.split_whitespace().collect();
 
@@ -29,7 +29,7 @@ pub fn tokenize(text: &str, language: &dyn Language) -> Vec<TypedToken> {
         .iter()
         .enumerate()
         .filter_map(|(i, word)| {
-            let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation());
+            let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation() && !"+-*/=".contains(c));
             if word_clean.is_empty() {
                 return None;
             }
@@ -56,7 +56,7 @@ pub fn tokenize_with_alternatives(
 ) -> (Vec<TypedToken>, Vec<Vec<LambekType>>) {
     let cleaned = text
         .trim()
-        .trim_end_matches(|c: char| c.is_ascii_punctuation());
+        .trim_end_matches(|c: char| c.is_ascii_punctuation() && !"+-*/=".contains(c));
 
     let words: Vec<&str> = cleaned.split_whitespace().collect();
 
@@ -64,7 +64,7 @@ pub fn tokenize_with_alternatives(
     let mut alternatives = Vec::new();
 
     for (i, word) in words.iter().enumerate() {
-        let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation());
+        let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation() && !"+-*/=".contains(c));
         if word_clean.is_empty() {
             continue;
         }
@@ -104,7 +104,7 @@ pub fn tokenize_with_alternatives(
 pub fn tokenize_ontological(text: &str, language: &dyn Language) -> Vec<Token> {
     let cleaned = text
         .trim()
-        .trim_end_matches(|c: char| c.is_ascii_punctuation());
+        .trim_end_matches(|c: char| c.is_ascii_punctuation() && !"+-*/=".contains(c));
 
     let words: Vec<&str> = cleaned.split_whitespace().collect();
 
@@ -112,7 +112,7 @@ pub fn tokenize_ontological(text: &str, language: &dyn Language) -> Vec<Token> {
         .iter()
         .enumerate()
         .filter_map(|(i, word)| {
-            let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation());
+            let word_clean = word.trim_matches(|c: char| c.is_ascii_punctuation() && !"+-*/=".contains(c));
             if word_clean.is_empty() {
                 return None;
             }
@@ -251,6 +251,6 @@ fn pos_to_lambek(entry: &crate::cognitive::linguistics::lexicon::pos::LexicalEnt
         LexicalEntry::Auxiliary(_) => svo_types::intransitive_verb(),
         LexicalEntry::Interjection(_) => svo_types::noun(),
         LexicalEntry::Particle(_) => svo_types::adverb(),
-        LexicalEntry::Operator(_) => svo_types::noun(),
+        LexicalEntry::Operator(_) => svo_types::infix_operator(),
     }
 }

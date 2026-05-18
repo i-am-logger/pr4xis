@@ -376,9 +376,15 @@ pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
                 PregroupElement::left_adj(BasicType::S),
             ])
         }
-        LexicalEntry::Operator(_) => pregroup::svo::noun(),
         LexicalEntry::Numeral(_) => pregroup::svo::determiner(),
-        LexicalEntry::Operator(_) => PregroupType::single(BasicType::S), // Placeholder
+        LexicalEntry::Operator(_) => {
+            // Operator as sentence-level modifier/connective: s · s^l · s^l
+            PregroupType::new(vec![
+                PregroupElement::basic(BasicType::S),
+                PregroupElement::left_adj(BasicType::S),
+                PregroupElement::left_adj(BasicType::S),
+            ])
+        }
     }
 }
 
@@ -672,6 +678,11 @@ fn build_english_function_words_embedded() -> HashMap<String, Vec<LexicalEntry>>
     }
 
     // ---- Interjections (OLiA: Interjection) — classified by function ----
+    // ---- Operators ----
+    for text in ["+", "-", "*", "/", "="] {
+        add(LexicalEntry::Operator(Operator { text: text.into() }));
+    }
+
     for (text, kind) in [
         ("hello", InterjectionKind::Greeting),
         ("hi", InterjectionKind::Greeting),

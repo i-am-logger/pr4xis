@@ -350,8 +350,6 @@ pub enum PosTag {
     Operator,
     /// OLiA: Numeral — number words ("one", "two", "first").
     Numeral,
-    /// OLiA: Operator — mathematical and logical operators ("+", "-", "=", ">").
-    Operator,
 }
 
 impl PosTag {
