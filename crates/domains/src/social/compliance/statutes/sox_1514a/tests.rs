@@ -142,11 +142,8 @@ mod statute_runtime {
         // Property: a well-formed statute never assigns the same
         // CURIE to two terms — duplicates would break term_by_id
         // lookups silently.
-        let mut ids: alloc::vec::Vec<&str> = statute()
-            .terms()
-            .iter()
-            .map(|t| t.id.value.as_str())
-            .collect();
+        let mut ids: alloc::vec::Vec<&str> =
+            statute().terms().iter().map(|t| t.id.value()).collect();
         ids.sort_unstable();
         let n = ids.len();
         ids.dedup();
@@ -160,18 +157,17 @@ mod statute_runtime {
         // enforces this at construction, but the test guards against
         // future drift in the validation logic.
         let s = statute();
-        let term_ids: hashbrown::HashSet<&str> =
-            s.terms().iter().map(|t| t.id.value.as_str()).collect();
+        let term_ids: hashbrown::HashSet<&str> = s.terms().iter().map(|t| t.id.value()).collect();
         for (i, r) in s.relations().iter().enumerate() {
             assert!(
-                term_ids.contains(r.from.value.as_str()),
+                term_ids.contains(r.from.value()),
                 "relation #{i}: from `{}` is not a term",
-                r.from.value
+                r.from.value()
             );
             assert!(
-                term_ids.contains(r.to.value.as_str()),
+                term_ids.contains(r.to.value()),
                 "relation #{i}: to `{}` is not a term",
-                r.to.value
+                r.to.value()
             );
         }
     }
@@ -184,9 +180,9 @@ mod statute_runtime {
         // doesn't introduce.
         for t in statute().terms() {
             assert!(
-                t.id.value.starts_with("sox_1514a:"),
+                t.id.value().starts_with("sox_1514a:"),
                 "term id `{}` is not in sox_1514a: namespace",
-                t.id.value
+                t.id.value()
             );
         }
     }
@@ -199,7 +195,7 @@ mod statute_runtime {
         // mirrors the statutory text.
         let s = statute();
         let t = &s.terms()[0];
-        assert_eq!(t.id.value, "sox_1514a:a");
+        assert_eq!(t.id.value(), "sox_1514a:a");
         assert_eq!(t.name.text, "Covered Employer");
     }
 
@@ -236,14 +232,14 @@ mod statute_runtime {
         let prohibition_curie = "sox_1514a:a_v3";
 
         let cat_1_composes_into_prohibition = s.relations_from(&category_1).any(|r| {
-            r.to.value == prohibition_curie
+            r.to.value() == prohibition_curie
                 && matches!(
                     r.relation,
                     crate::social::judicial::ontology::RelationType::Composes { .. }
                 )
         });
         let cat_2_composes_into_prohibition = s.relations_from(&category_2).any(|r| {
-            r.to.value == prohibition_curie
+            r.to.value() == prohibition_curie
                 && matches!(
                     r.relation,
                     crate::social::judicial::ontology::RelationType::Composes { .. }
@@ -270,7 +266,7 @@ mod statute_runtime {
         for sub in &["sox_1514a:1a", "sox_1514a:1b", "sox_1514a:1c"] {
             let sub_id = id(sub);
             let is_alt = s.relations_from(&sub_id).any(|r| {
-                r.to.value == parent_curie
+                r.to.value() == parent_curie
                     && matches!(
                         r.relation,
                         crate::social::judicial::ontology::RelationType::AlternativeTo
@@ -293,7 +289,7 @@ mod statute_runtime {
         let b1 = id("sox_1514a:b1");
         let prohibition_curie = "sox_1514a:a_v3";
         let is_exhaustion = s.relations_from(&b1).any(|r| {
-            r.to.value == prohibition_curie
+            r.to.value() == prohibition_curie
                 && matches!(
                     r.relation,
                     crate::social::judicial::ontology::RelationType::ExhaustionRequiredFor
@@ -316,7 +312,7 @@ mod statute_runtime {
         for sh in &["sox_1514a:e1", "sox_1514a:e2"] {
             let sh_id = id(sh);
             let is_safe_harbor = s.relations_from(&sh_id).any(|r| {
-                r.to.value == c1_curie
+                r.to.value() == c1_curie
                     && matches!(
                         r.relation,
                         crate::social::judicial::ontology::RelationType::SafeHarborFor
@@ -350,7 +346,7 @@ mod statute_runtime {
         let s = statute();
         for t in s.terms() {
             let by_id = s.term_by_id(&t.id);
-            let by_curie = s.term_by_curie(t.id.value.as_str());
+            let by_curie = s.term_by_curie(t.id.value());
             assert!(by_id.is_some());
             assert!(by_curie.is_some());
             assert_eq!(by_id.map(|x| &x.id), by_curie.map(|x| &x.id));
@@ -362,7 +358,7 @@ mod statute_runtime {
         let s = statute();
         let prohibition = id("sox_1514a:a_v3");
         for r in s.relations_from(&prohibition) {
-            assert_eq!(r.from.value, "sox_1514a:a_v3");
+            assert_eq!(r.from.value(), "sox_1514a:a_v3");
         }
     }
 
@@ -371,7 +367,7 @@ mod statute_runtime {
         let s = statute();
         let prohibition = id("sox_1514a:a_v3");
         for r in s.relations_to(&prohibition) {
-            assert_eq!(r.to.value, "sox_1514a:a_v3");
+            assert_eq!(r.to.value(), "sox_1514a:a_v3");
         }
     }
 
@@ -407,12 +403,12 @@ mod statute_runtime {
             assert!(
                 !t.name.text.is_empty(),
                 "term {} has empty name",
-                t.id.value
+                t.id.value()
             );
             assert!(
                 !t.definition.text.is_empty(),
                 "term {} has empty definition",
-                t.id.value
+                t.id.value()
             );
         }
     }
@@ -543,8 +539,7 @@ mod statute_from_uslm {
     #[test]
     fn all_term_ids_are_unique() {
         let s = statute_from_uslm();
-        let mut ids: alloc::vec::Vec<&str> =
-            s.terms().iter().map(|t| t.id.value.as_str()).collect();
+        let mut ids: alloc::vec::Vec<&str> = s.terms().iter().map(|t| t.id.value()).collect();
         ids.sort_unstable();
         let n = ids.len();
         ids.dedup();
@@ -558,18 +553,17 @@ mod statute_from_uslm {
     #[test]
     fn all_relation_endpoints_resolve_to_terms() {
         let s = statute_from_uslm();
-        let term_ids: hashbrown::HashSet<&str> =
-            s.terms().iter().map(|t| t.id.value.as_str()).collect();
+        let term_ids: hashbrown::HashSet<&str> = s.terms().iter().map(|t| t.id.value()).collect();
         for (i, r) in s.relations().iter().enumerate() {
             assert!(
-                term_ids.contains(r.from.value.as_str()),
+                term_ids.contains(r.from.value()),
                 "USLM relation #{i}: from `{}` is not a term",
-                r.from.value
+                r.from.value()
             );
             assert!(
-                term_ids.contains(r.to.value.as_str()),
+                term_ids.contains(r.to.value()),
                 "USLM relation #{i}: to `{}` is not a term",
-                r.to.value
+                r.to.value()
             );
         }
     }
@@ -578,9 +572,9 @@ mod statute_from_uslm {
     fn all_term_curies_use_sox_1514a_prefix() {
         for t in statute_from_uslm().terms() {
             assert!(
-                t.id.value.starts_with("sox_1514a:"),
+                t.id.value().starts_with("sox_1514a:"),
                 "USLM-derived term id `{}` is not in sox_1514a: namespace",
-                t.id.value
+                t.id.value()
             );
         }
     }
@@ -597,12 +591,12 @@ mod statute_from_uslm {
             assert!(
                 !t.name.text.is_empty(),
                 "USLM-derived term {} has empty name",
-                t.id.value
+                t.id.value()
             );
             assert!(
                 !t.definition.text.is_empty(),
                 "USLM-derived term {} has empty definition",
-                t.id.value
+                t.id.value()
             );
         }
     }
@@ -613,7 +607,7 @@ mod statute_from_uslm {
         // identity. An empty id would be a structural-validation
         // failure.
         for t in statute_from_uslm().terms() {
-            assert!(!t.id.value.is_empty(), "USLM-derived term has empty id");
+            assert!(!t.id.value().is_empty(), "USLM-derived term has empty id");
         }
     }
 
@@ -635,14 +629,16 @@ mod statute_from_uslm {
             let name_ctx = t.name.context_uri.as_deref().unwrap_or("");
             let def_ctx = t.definition.context_uri.as_deref().unwrap_or("");
             assert_eq!(
-                name_ctx, "/us/usc/t18/s1514A",
+                name_ctx,
+                "/us/usc/t18/s1514A",
                 "term {} name context_uri must be the section URN; got {name_ctx:?}",
-                t.id.value
+                t.id.value()
             );
             assert_eq!(
-                def_ctx, "/us/usc/t18/s1514A",
+                def_ctx,
+                "/us/usc/t18/s1514A",
                 "term {} definition context_uri must be the section URN; got {def_ctx:?}",
-                t.id.value
+                t.id.value()
             );
         }
     }
@@ -680,7 +676,7 @@ mod statute_from_uslm {
         let b = statute_from_uslm();
         assert_eq!(a.terms().len(), b.terms().len());
         for (ta, tb) in a.terms().iter().zip(b.terms().iter()) {
-            assert_eq!(ta.id.value, tb.id.value);
+            assert_eq!(ta.id.value(), tb.id.value());
         }
     }
 }

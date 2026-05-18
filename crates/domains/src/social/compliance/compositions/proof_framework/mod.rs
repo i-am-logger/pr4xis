@@ -212,7 +212,7 @@ impl ProofFramework {
                 return Err(ProofFrameworkBuildError::DanglingFromTerm {
                     cross_ref_index: i,
                     source_name: cr.from_source.clone(),
-                    term_curie: cr.from_term.value.clone(),
+                    term_curie: cr.from_term.value().to_string(),
                 });
             }
             let to_statute = statutes
@@ -223,7 +223,7 @@ impl ProofFramework {
                 return Err(ProofFrameworkBuildError::DanglingToTerm {
                     cross_ref_index: i,
                     source_name: cr.to_source.clone(),
-                    term_curie: cr.to_term.value.clone(),
+                    term_curie: cr.to_term.value().to_string(),
                 });
             }
         }

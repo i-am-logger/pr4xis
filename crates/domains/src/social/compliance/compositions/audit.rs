@@ -164,7 +164,7 @@ pub fn audit_composition_cross_refs(
                     // "sox_1514a:b2a"; extract the local part and
                     // compare against the candidate path's joined
                     // form (case-insensitive).
-                    let cr_local = cr.from_term.value.split_once(':').map(|(_, l)| l)?;
+                    let cr_local = cr.from_term.value().split_once(':').map(|(_, l)| l)?;
                     let cr_local_lower = cr_local.to_lowercase();
                     let path_concat = candidate_path.join("");
                     if cr_local_lower == path_concat {

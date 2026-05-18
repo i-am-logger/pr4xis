@@ -537,7 +537,7 @@ mod tests {
                     "{}@{}: term {} [{}] has unresolved lemmas {:?}",
                     s.name(),
                     s.version(),
-                    t.term_id.value,
+                    t.term_id.value(),
                     t.term_name,
                     bad
                 ));
@@ -606,7 +606,7 @@ mod tests {
                     "{}@{} term {} carries wrong provenance",
                     s.name(),
                     s.version(),
-                    t.term_id.value
+                    t.term_id.value()
                 );
             }
         }
@@ -666,9 +666,9 @@ mod tests {
                     any_resolved = true;
                     // Every resolved role is a Title 28 USLM URN.
                     assert!(
-                        role.value.starts_with("/us/usc/t28/"),
+                        role.value().starts_with("/us/usc/t28/"),
                         "resolved role must be a Title 28 USLM URN; got {:?}",
-                        role.value
+                        role.value()
                     );
                 }
             }

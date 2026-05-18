@@ -157,19 +157,19 @@ impl UsCodeTitleId {
         // cannot fail.
         let segments: Vec<&str> = self
             .identifier
-            .value
+            .value()
             .trim_start_matches('/')
             .split('/')
             .collect();
         segments[2]
             .strip_prefix('t')
-            .and_then(|s| s.parse().ok())
+            .and_then(|s| s.parse::<u32>().ok())
             .expect("UsCodeTitleId invariant: URN path is /us/usc/t<N>")
     }
 
     /// The USLM URN identifier (e.g. `"/us/usc/t18"`).
     pub fn urn(&self) -> &str {
-        &self.identifier.value
+        self.identifier.value()
     }
 
     /// The underlying typed [`Identifier`] — useful for callers

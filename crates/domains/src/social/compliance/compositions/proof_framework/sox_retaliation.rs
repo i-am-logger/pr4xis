@@ -169,10 +169,10 @@ mod tests {
         let cr = fw
             .cross_references()
             .iter()
-            .find(|c| c.from_term.value == "sox_1514a:b2c")
+            .find(|c| c.from_term.value() == "sox_1514a:b2c")
             .expect("b2c cross-reference exists");
         assert_eq!(cr.kind, CrossReferenceKind::Requires);
-        assert_eq!(cr.to_term.value, "air21_42121:b2b");
+        assert_eq!(cr.to_term.value(), "air21_42121:b2b");
         assert!(cr.rationale.text.contains("1514A(b)(2)(C)"));
     }
 
@@ -182,10 +182,10 @@ mod tests {
         let cr = fw
             .cross_references()
             .iter()
-            .find(|c| c.from_term.value == "sox_1514a:b2a")
+            .find(|c| c.from_term.value() == "sox_1514a:b2a")
             .expect("b2a cross-reference exists");
         assert_eq!(cr.kind, CrossReferenceKind::Requires);
-        assert_eq!(cr.to_term.value, "air21_42121:b2");
+        assert_eq!(cr.to_term.value(), "air21_42121:b2");
     }
 
     #[test]
@@ -194,10 +194,10 @@ mod tests {
         let cr = fw
             .cross_references()
             .iter()
-            .find(|c| c.from_term.value == "sox_1514a:a_v4")
+            .find(|c| c.from_term.value() == "sox_1514a:a_v4")
             .expect("a_v4 cross-reference exists");
         assert_eq!(cr.kind, CrossReferenceKind::Implies);
-        assert_eq!(cr.to_term.value, "air21_42121:b2b_iii");
+        assert_eq!(cr.to_term.value(), "air21_42121:b2b_iii");
     }
 
     #[test]
@@ -213,13 +213,13 @@ mod tests {
             assert!(
                 from_statute.term_by_id(&cr.from_term).is_some(),
                 "from-term {} not in {}",
-                cr.from_term.value,
+                cr.from_term.value(),
                 cr.from_source
             );
             assert!(
                 to_statute.term_by_id(&cr.to_term).is_some(),
                 "to-term {} not in {}",
-                cr.to_term.value,
+                cr.to_term.value(),
                 cr.to_source
             );
         }

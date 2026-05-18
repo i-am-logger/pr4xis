@@ -158,7 +158,7 @@ impl Statute {
         }
 
         let term_ids: alloc::collections::BTreeSet<&str> =
-            terms.iter().map(|t| t.id.value.as_str()).collect();
+            terms.iter().map(|t| t.id.value()).collect();
 
         let mut relations = Vec::with_capacity(data.relations.len());
         for (relation_index, raw) in data.relations.iter().enumerate() {
@@ -176,13 +176,13 @@ impl Statute {
                     id_string: raw.to.clone(),
                 }
             })?;
-            if !term_ids.contains(from.value.as_str()) {
+            if !term_ids.contains(from.value()) {
                 return Err(StatuteConstructError::DanglingRelation {
                     relation_index,
                     missing_id: raw.from.clone(),
                 });
             }
-            if !term_ids.contains(to.value.as_str()) {
+            if !term_ids.contains(to.value()) {
                 return Err(StatuteConstructError::DanglingRelation {
                     relation_index,
                     missing_id: raw.to.clone(),
@@ -240,7 +240,7 @@ impl Statute {
     /// convenience for callers that haven't yet built a typed
     /// `Identifier`.
     pub fn term_by_curie(&self, curie: &str) -> Option<&LegalTerm> {
-        self.terms.iter().find(|t| t.id.value == curie)
+        self.terms.iter().find(|t| t.id.value() == curie)
     }
 
     /// Iterate all relations whose `from` is the given term.

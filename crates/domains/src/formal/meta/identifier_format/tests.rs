@@ -53,7 +53,7 @@ fn five_leaves() {
 fn curie_accepts_sox_term_id() {
     let id = Identifier::curie("sox_1514a:a").unwrap();
     assert_eq!(id.format, IdentifierFormatConcept::Curie);
-    assert_eq!(id.value, "sox_1514a:a");
+    assert_eq!(id.value(), "sox_1514a:a");
 }
 
 #[test]
@@ -195,7 +195,7 @@ fn oid_rejects_empty_arc() {
 fn uslm_urn_accepts_title_identifier() {
     let id = Identifier::uslm_urn("/us/usc/t18").unwrap();
     assert_eq!(id.format, IdentifierFormatConcept::UslmUrn);
-    assert_eq!(id.value, "/us/usc/t18");
+    assert_eq!(id.value(), "/us/usc/t18");
 }
 
 #[test]

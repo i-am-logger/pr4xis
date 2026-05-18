@@ -283,18 +283,18 @@ impl StaticStatute {
             .iter()
             .filter_map(|t| t.id_curie().ok())
             .next()
-            .map(|id| id.value.split(':').next().unwrap_or("").to_string())
+            .map(|id| id.value().split(':').next().unwrap_or("").to_string())
             .unwrap_or_default();
 
         let rename_curie = |raw: &str| -> String {
             match Identifier::curie(raw) {
                 Ok(id) => {
-                    if let Some(rest) = id.value.strip_prefix(&static_prefix)
+                    if let Some(rest) = id.value().strip_prefix(&static_prefix)
                         && let Some(local) = rest.strip_prefix(':')
                     {
                         format!("{statute_name}:{local}")
                     } else {
-                        id.value
+                        id.value().to_string()
                     }
                 }
                 // Non-CURIE rows (e.g. the section-root entry) pass
@@ -431,7 +431,7 @@ mod tests {
         let s = section(&t18, "/us/usc/t18/s1514A").expect("SOX 1514A present");
         let id = s.identifier_urn().expect("SOX 1514A is a valid USLM URN");
         assert_eq!(id.format, IdentifierFormatConcept::UslmUrn);
-        assert_eq!(id.value, "/us/usc/t18/s1514A");
+        assert_eq!(id.value(), "/us/usc/t18/s1514A");
     }
 
     #[test]

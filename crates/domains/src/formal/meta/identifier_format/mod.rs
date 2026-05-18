@@ -55,18 +55,40 @@ pub mod ontology;
 mod tests;
 
 #[allow(unused_imports)]
-use alloc::{string::String, string::ToString, vec, vec::Vec};
+use alloc::{borrow::Cow, string::String, string::ToString, vec, vec::Vec};
 
 use self::ontology::IdentifierFormatConcept;
 
-/// A typed identifier value with its syntactic format. The contained
-/// `value` is the raw string form; the `format` declares which grammar
-/// it conforms to. Constructors validate the value against the format's
-/// grammar.
+/// A typed identifier value with its syntactic format. Reach the raw
+/// string via [`Identifier::value`]; the `format` declares which
+/// grammar the value conforms to. Runtime constructors validate the
+/// value against the format's grammar; the const constructor
+/// [`Identifier::from_codegen_static`] skips validation for values the
+/// codegen emitter has already validated at build time.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Identifier {
     pub format: IdentifierFormatConcept,
-    pub value: String,
+    value: Cow<'static, str>,
+}
+
+impl Identifier {
+    /// Raw string form of the identifier.
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+
+    /// Const constructor for codegen-emitted identifiers. The emitter
+    /// validates the value at build time against the format grammar;
+    /// the const form skips runtime re-validation. Never call this with
+    /// hand-written literals — use [`Identifier::curie`] /
+    /// [`Identifier::uslm_urn`] / etc. for runtime values so the
+    /// grammar checks run.
+    pub const fn from_codegen_static(format: IdentifierFormatConcept, value: &'static str) -> Self {
+        Self {
+            format,
+            value: Cow::Borrowed(value),
+        }
+    }
 }
 
 /// Errors when constructing a typed `Identifier` from a string.
@@ -107,7 +129,7 @@ impl Identifier {
         }
         Ok(Self {
             format: IdentifierFormatConcept::Curie,
-            value,
+            value: Cow::Owned(value),
         })
     }
 
@@ -143,7 +165,7 @@ impl Identifier {
         }
         Ok(Self {
             format: IdentifierFormatConcept::Uuid,
-            value,
+            value: Cow::Owned(value),
         })
     }
 
@@ -186,7 +208,7 @@ impl Identifier {
         }
         Ok(Self {
             format: IdentifierFormatConcept::Uri,
-            value,
+            value: Cow::Owned(value),
         })
     }
 
@@ -236,7 +258,7 @@ impl Identifier {
         }
         Ok(Self {
             format: IdentifierFormatConcept::UslmUrn,
-            value,
+            value: Cow::Owned(value),
         })
     }
 
@@ -264,7 +286,7 @@ impl Identifier {
         }
         Ok(Self {
             format: IdentifierFormatConcept::Oid,
-            value,
+            value: Cow::Owned(value),
         })
     }
 }

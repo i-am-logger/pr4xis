@@ -94,11 +94,8 @@ mod statute_runtime {
 
     #[test]
     fn all_term_ids_are_unique() {
-        let mut ids: alloc::vec::Vec<&str> = statute()
-            .terms()
-            .iter()
-            .map(|t| t.id.value.as_str())
-            .collect();
+        let mut ids: alloc::vec::Vec<&str> =
+            statute().terms().iter().map(|t| t.id.value()).collect();
         ids.sort_unstable();
         let n = ids.len();
         ids.dedup();
@@ -108,18 +105,17 @@ mod statute_runtime {
     #[test]
     fn all_relation_endpoints_resolve_to_terms() {
         let s = statute();
-        let term_ids: hashbrown::HashSet<&str> =
-            s.terms().iter().map(|t| t.id.value.as_str()).collect();
+        let term_ids: hashbrown::HashSet<&str> = s.terms().iter().map(|t| t.id.value()).collect();
         for (i, r) in s.relations().iter().enumerate() {
             assert!(
-                term_ids.contains(r.from.value.as_str()),
+                term_ids.contains(r.from.value()),
                 "relation #{i}: from `{}` is not a term",
-                r.from.value
+                r.from.value()
             );
             assert!(
-                term_ids.contains(r.to.value.as_str()),
+                term_ids.contains(r.to.value()),
                 "relation #{i}: to `{}` is not a term",
-                r.to.value
+                r.to.value()
             );
         }
     }
@@ -128,9 +124,9 @@ mod statute_runtime {
     fn all_term_curies_use_air21_prefix() {
         for t in statute().terms() {
             assert!(
-                t.id.value.starts_with("air21_42121:"),
+                t.id.value().starts_with("air21_42121:"),
                 "term id `{}` is not in air21_42121: namespace",
-                t.id.value
+                t.id.value()
             );
         }
     }
@@ -183,7 +179,7 @@ mod statute_runtime {
     fn investigation_gate_defense_is_affirmative_defense_to_prima_facie() {
         let b2b_ii = id("air21_42121:b2b_ii");
         let is_defense = statute().relations_from(&b2b_ii).any(|r| {
-            r.to.value == "air21_42121:b2b_i"
+            r.to.value() == "air21_42121:b2b_i"
                 && matches!(r.relation, RelationType::AffirmativeDefenseTo)
         });
         assert!(
@@ -196,7 +192,7 @@ mod statute_runtime {
     fn merits_defense_is_affirmative_defense_to_merits_showing() {
         let b2b_iv = id("air21_42121:b2b_iv");
         let is_defense = statute().relations_from(&b2b_iv).any(|r| {
-            r.to.value == "air21_42121:b2b_iii"
+            r.to.value() == "air21_42121:b2b_iii"
                 && matches!(r.relation, RelationType::AffirmativeDefenseTo)
         });
         assert!(
@@ -209,7 +205,7 @@ mod statute_runtime {
     fn investigation_gate_exhaustion_for_merits() {
         let b2b_i = id("air21_42121:b2b_i");
         let is_exhaustion = statute().relations_from(&b2b_i).any(|r| {
-            r.to.value == "air21_42121:b2b_iii"
+            r.to.value() == "air21_42121:b2b_iii"
                 && matches!(r.relation, RelationType::ExhaustionRequiredFor)
         });
         assert!(
@@ -227,10 +223,10 @@ mod statute_runtime {
         let b3 = id("air21_42121:b3");
 
         let b1_precedes_b2 = s.relations_from(&b1).any(|r| {
-            r.to.value == "air21_42121:b2" && matches!(r.relation, RelationType::Precedes { .. })
+            r.to.value() == "air21_42121:b2" && matches!(r.relation, RelationType::Precedes { .. })
         });
         let b2_precedes_b3 = s.relations_from(&b2).any(|r| {
-            r.to.value == "air21_42121:b3" && matches!(r.relation, RelationType::Precedes { .. })
+            r.to.value() == "air21_42121:b3" && matches!(r.relation, RelationType::Precedes { .. })
         });
         assert!(b1_precedes_b2, "complaint must Precede investigation");
         assert!(b2_precedes_b3, "investigation must Precede final order");
@@ -242,7 +238,7 @@ mod statute_runtime {
     fn de_novo_court_review_is_alternative_to_enforcement() {
         let b5 = id("air21_42121:b5");
         let is_alt = statute().relations_from(&b5).any(|r| {
-            r.to.value == "air21_42121:b4" && matches!(r.relation, RelationType::AlternativeTo)
+            r.to.value() == "air21_42121:b4" && matches!(r.relation, RelationType::AlternativeTo)
         });
         assert!(
             is_alt,
@@ -253,9 +249,9 @@ mod statute_runtime {
     #[test]
     fn complaint_filing_requires_substantive_prohibition() {
         let b1 = id("air21_42121:b1");
-        let requires_a = statute()
-            .relations_from(&b1)
-            .any(|r| r.to.value == "air21_42121:a" && matches!(r.relation, RelationType::Requires));
+        let requires_a = statute().relations_from(&b1).any(|r| {
+            r.to.value() == "air21_42121:a" && matches!(r.relation, RelationType::Requires)
+        });
         assert!(
             requires_a,
             "complaint filing must Require substantive prohibition"
@@ -275,12 +271,12 @@ mod statute_runtime {
             assert!(
                 !t.name.text.is_empty(),
                 "term {} has empty name",
-                t.id.value
+                t.id.value()
             );
             assert!(
                 !t.definition.text.is_empty(),
                 "term {} has empty definition",
-                t.id.value
+                t.id.value()
             );
         }
     }

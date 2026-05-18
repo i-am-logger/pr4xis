@@ -266,7 +266,7 @@ impl OntologyRegistry {
 
     pub fn get_term(&self, term_id: &str) -> Option<&LegalTerm> {
         for cat in self.categories.values() {
-            if let Some(term) = cat.terms.iter().find(|t| t.id.value == term_id) {
+            if let Some(term) = cat.terms.iter().find(|t| t.id.value() == term_id) {
                 return Some(term);
             }
         }

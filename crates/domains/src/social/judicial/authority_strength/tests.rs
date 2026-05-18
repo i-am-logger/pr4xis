@@ -171,7 +171,7 @@ fn universal_federal_scope_for_constitution_statute_scotus() {
         AuthorityStrengthConcept::FederalRegulation,
     ] {
         let scope = q.get(&c).expect("federal authorities carry scope");
-        assert_eq!(scope.value, "jurisdiction:us_federal");
+        assert_eq!(scope.value(), "jurisdiction:us_federal");
     }
 }
 
@@ -180,7 +180,7 @@ fn controlling_circuit_has_placeholder_scope() {
     let scope = JurisdictionScopeOf
         .get(&AuthorityStrengthConcept::ControllingCircuitPrecedent)
         .expect("controlling-circuit carries placeholder scope");
-    assert_eq!(scope.value, "jurisdiction:single_circuit");
+    assert_eq!(scope.value(), "jurisdiction:single_circuit");
 }
 
 #[test]

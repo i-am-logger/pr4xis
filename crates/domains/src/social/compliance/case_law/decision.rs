@@ -196,7 +196,7 @@ impl Decision {
         }
 
         let term_ids: alloc::collections::BTreeSet<&str> =
-            terms.iter().map(|t| t.id.value.as_str()).collect();
+            terms.iter().map(|t| t.id.value()).collect();
 
         let mut relations = Vec::with_capacity(data.relations.len());
         for (relation_index, raw) in data.relations.iter().enumerate() {
@@ -214,13 +214,13 @@ impl Decision {
                     id_string: raw.to.clone(),
                 }
             })?;
-            if !term_ids.contains(from.value.as_str()) {
+            if !term_ids.contains(from.value()) {
                 return Err(DecisionConstructError::DanglingRelation {
                     relation_index,
                     missing_id: raw.from.clone(),
                 });
             }
-            if !term_ids.contains(to.value.as_str()) {
+            if !term_ids.contains(to.value()) {
                 return Err(DecisionConstructError::DanglingRelation {
                     relation_index,
                     missing_id: raw.to.clone(),
@@ -297,7 +297,7 @@ impl Decision {
 
     /// Look up a term by raw CURIE string.
     pub fn term_by_curie(&self, curie: &str) -> Option<&LegalTerm> {
-        self.terms.iter().find(|t| t.id.value == curie)
+        self.terms.iter().find(|t| t.id.value() == curie)
     }
 
     /// Iterate relations whose `from` is the given term.
@@ -412,7 +412,7 @@ mod tests {
             d.authority_strength(),
             AuthorityStrengthConcept::SupremeCourtPrecedent
         );
-        assert_eq!(d.issuing_court().value, "court:scotus");
+        assert_eq!(d.issuing_court().value(), "court:scotus");
         assert_eq!(d.terms().len(), 2);
         assert_eq!(d.relations().len(), 1);
     }

@@ -276,9 +276,9 @@ mod tests {
         assert!(st.term_by_curie("sox_1514a").is_none());
         for t in st.terms() {
             assert!(
-                t.id.value.contains(':'),
+                t.id.value().contains(':'),
                 "term CURIE {} has no local part",
-                t.id.value
+                t.id.value()
             );
         }
     }
@@ -321,18 +321,14 @@ mod tests {
         let s = sample_section();
         let st = from_uslm_section("sox_1514a", "2002", &s).unwrap();
         let curies: std::collections::HashSet<&str> =
-            st.terms().iter().map(|t| t.id.value.as_str()).collect();
+            st.terms().iter().map(|t| t.id.value()).collect();
         for r in st.relations() {
             assert!(
-                curies.contains(r.from.value.as_str()),
+                curies.contains(r.from.value()),
                 "dangling from {:?}",
                 r.from
             );
-            assert!(
-                curies.contains(r.to.value.as_str()),
-                "dangling to {:?}",
-                r.to
-            );
+            assert!(curies.contains(r.to.value()), "dangling to {:?}", r.to);
         }
     }
 
@@ -344,9 +340,9 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for t in st.terms() {
             assert!(
-                seen.insert(t.id.value.as_str()),
+                seen.insert(t.id.value()),
                 "duplicate CURIE: {}",
-                t.id.value
+                t.id.value()
             );
         }
     }
@@ -361,7 +357,7 @@ mod tests {
         let mut parent_count: std::collections::HashMap<&str, usize> =
             std::collections::HashMap::new();
         for r in st.relations() {
-            *parent_count.entry(r.from.value.as_str()).or_default() += 1;
+            *parent_count.entry(r.from.value()).or_default() += 1;
         }
         for (curie, count) in &parent_count {
             assert!(
@@ -381,19 +377,19 @@ mod tests {
         let parent_of: std::collections::HashMap<&str, &str> = st
             .relations()
             .iter()
-            .map(|r| (r.from.value.as_str(), r.to.value.as_str()))
+            .map(|r| (r.from.value(), r.to.value()))
             .collect();
         let top_level: std::collections::HashSet<&str> = st
             .terms()
             .iter()
             .filter(|t| {
-                let local = t.id.value.split(':').nth(1).unwrap_or("");
+                let local = t.id.value().split(':').nth(1).unwrap_or("");
                 !local.contains('_')
             })
-            .map(|t| t.id.value.as_str())
+            .map(|t| t.id.value())
             .collect();
         for t in st.terms() {
-            let curie = t.id.value.as_str();
+            let curie = t.id.value();
             let mut cur = curie;
             let mut hops = 0;
             while let Some(p) = parent_of.get(cur).copied() {
@@ -418,8 +414,8 @@ mod tests {
         let s = sample_section();
         let st = from_uslm_section("sox_1514a", "2002", &s).unwrap();
         for r in st.relations() {
-            let from = r.from.value.as_str();
-            let to = r.to.value.as_str();
+            let from = r.from.value();
+            let to = r.to.value();
             let from_local = from.split(':').nth(1).unwrap_or("");
             let to_local = to.split(':').nth(1).unwrap_or("");
             assert!(!to_local.is_empty(), "{to} has no local part");
@@ -447,18 +443,18 @@ mod tests {
         let s = sample_section();
         let a = from_uslm_section("sox_1514a", "2002", &s).unwrap();
         let b = from_uslm_section("sox_1514a", "2002", &s).unwrap();
-        let a_ids: Vec<&str> = a.terms().iter().map(|t| t.id.value.as_str()).collect();
-        let b_ids: Vec<&str> = b.terms().iter().map(|t| t.id.value.as_str()).collect();
+        let a_ids: Vec<&str> = a.terms().iter().map(|t| t.id.value()).collect();
+        let b_ids: Vec<&str> = b.terms().iter().map(|t| t.id.value()).collect();
         assert_eq!(a_ids, b_ids);
         let a_rels: Vec<(&str, &str)> = a
             .relations()
             .iter()
-            .map(|r| (r.from.value.as_str(), r.to.value.as_str()))
+            .map(|r| (r.from.value(), r.to.value()))
             .collect();
         let b_rels: Vec<(&str, &str)> = b
             .relations()
             .iter()
-            .map(|r| (r.from.value.as_str(), r.to.value.as_str()))
+            .map(|r| (r.from.value(), r.to.value()))
             .collect();
         assert_eq!(a_rels, b_rels);
     }
@@ -509,8 +505,8 @@ mod tests {
             prop_assert_eq!(st1.relations().len(), st2.relations().len());
             // Each local-part (after the `:`) matches between the two.
             for (t1, t2) in st1.terms().iter().zip(st2.terms()) {
-                let l1 = t1.id.value.split(':').nth(1).unwrap_or("");
-                let l2 = t2.id.value.split(':').nth(1).unwrap_or("");
+                let l1 = t1.id.value().split(':').nth(1).unwrap_or("");
+                let l2 = t2.id.value().split(':').nth(1).unwrap_or("");
                 prop_assert_eq!(l1, l2);
             }
         }
@@ -524,10 +520,10 @@ mod tests {
             let s = sample_section();
             let st = from_uslm_section(&name, "2002", &s).unwrap();
             let curies: std::collections::HashSet<&str> =
-                st.terms().iter().map(|t| t.id.value.as_str()).collect();
+                st.terms().iter().map(|t| t.id.value()).collect();
             for r in st.relations() {
-                prop_assert!(curies.contains(r.from.value.as_str()));
-                prop_assert!(curies.contains(r.to.value.as_str()));
+                prop_assert!(curies.contains(r.from.value()));
+                prop_assert!(curies.contains(r.to.value()));
             }
         }
 
@@ -539,7 +535,7 @@ mod tests {
             let mut count: std::collections::HashMap<String, usize> =
                 std::collections::HashMap::new();
             for r in st.relations() {
-                *count.entry(r.from.value.clone()).or_default() += 1;
+                *count.entry(r.from.value().to_string()).or_default() += 1;
             }
             for (curie, n) in count {
                 prop_assert!(n <= 1, "term {curie} has {n} parents");
@@ -558,17 +554,17 @@ mod tests {
             let parent_of: std::collections::HashMap<String, String> = st
                 .relations()
                 .iter()
-                .map(|r| (r.from.value.clone(), r.to.value.clone()))
+                .map(|r| (r.from.value().to_string(), r.to.value().to_string()))
                 .collect();
             for t in st.terms() {
-                let mut cur = t.id.value.clone();
+                let mut cur = t.id.value().to_string();
                 let mut hops = 0;
                 while let Some(p) = parent_of.get(&cur).cloned() {
                     cur = p;
                     hops += 1;
                     if hops > 32 {
                         return Err(proptest::test_runner::TestCaseError::fail(
-                            format!("Composes chain from {} didn't terminate", t.id.value),
+                            format!("Composes chain from {} didn't terminate", t.id.value()),
                         ));
                     }
                 }
@@ -576,7 +572,7 @@ mod tests {
                 prop_assert!(
                     !local.contains('_'),
                     "chain from {} terminated at {} which is not top-level",
-                    t.id.value, cur
+                    t.id.value(), cur
                 );
             }
         }
@@ -624,7 +620,7 @@ mod tests {
             let outgoing = st
                 .relations()
                 .iter()
-                .filter(|r| r.from.value == curie)
+                .filter(|r| r.from.value() == curie)
                 .count();
             assert_eq!(outgoing, 0, "{curie} should have 0 outgoing Composes");
         }
@@ -632,8 +628,8 @@ mod tests {
         // A nested subdivision like (a)(1)(A) must compose into
         // its immediate parent (a)(1).
         let edge_a_1_a_to_a_1 = st.relations().iter().any(|r| {
-            r.from.value == "sox_1514a:a_1_A"
-                && r.to.value == "sox_1514a:a_1"
+            r.from.value() == "sox_1514a:a_1_A"
+                && r.to.value() == "sox_1514a:a_1"
                 && matches!(
                     r.relation,
                     crate::social::judicial::ontology::RelationType::Composes { .. }

@@ -366,7 +366,7 @@ pub fn audit() -> Vec<Finding> {
 
     let mut findings = Vec::new();
     for term in statute().terms() {
-        let curie = term.id.value.as_str();
+        let curie = term.id.value();
         let Some(local) = curie.strip_prefix("air21_42121:") else {
             continue;
         };
@@ -580,7 +580,7 @@ mod tests {
         let term_curies: alloc::collections::BTreeSet<String> = statute()
             .terms()
             .iter()
-            .map(|t| t.id.value.clone())
+            .map(|t| t.id.value().to_string())
             .collect();
         for gap in KNOWN_GAPS {
             // UncoveredSubsection gaps use the `<canonical:...>`
@@ -602,7 +602,7 @@ mod tests {
         let term_curies: alloc::collections::BTreeSet<String> = statute()
             .terms()
             .iter()
-            .map(|t| t.id.value.clone())
+            .map(|t| t.id.value().to_string())
             .collect();
         for para in KNOWN_PARAPHRASES {
             assert!(
@@ -724,7 +724,7 @@ mod tests {
                 if m.is_resolved() {
                     resolved_lemmas += 1;
                 } else {
-                    unresolved.push((term.id.value.clone(), m.form.written_rep.clone()));
+                    unresolved.push((term.id.value().to_string(), m.form.written_rep.clone()));
                 }
             }
         }
@@ -785,7 +785,7 @@ mod tests {
                         .collect();
                     concept_ids.sort();
                     out.push((
-                        term.id.value.clone(),
+                        term.id.value().to_string(),
                         m.form.written_rep.clone(),
                         concept_ids,
                     ));
@@ -852,7 +852,7 @@ mod tests {
         let lock_name_by_id: alloc::collections::BTreeMap<String, String> = statute()
             .terms()
             .iter()
-            .map(|t| (t.id.value.clone(), t.name.text.clone()))
+            .map(|t| (t.id.value().to_string(), t.name.text.clone()))
             .collect();
 
         let mut undocumented_divergences: alloc::vec::Vec<(String, String, String)> =

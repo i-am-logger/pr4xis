@@ -2326,7 +2326,7 @@ fn test_legal_term_full() {
             source_text: "unless the employer demonstrates...".into(),
         }],
     };
-    assert_eq!(term.id.value, "ret:protected_activity");
+    assert_eq!(term.id.value(), "ret:protected_activity");
     assert_eq!(term.required_evidence.len(), 1);
     assert_eq!(term.obligations.len(), 1);
     assert_eq!(term.deadlines.len(), 1);
