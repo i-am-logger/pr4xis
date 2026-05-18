@@ -15,6 +15,7 @@ use pr4xis_domains::formal::information::diagnostics::trace_functors::{
 };
 use pr4xis_domains::formal::information::diagnostics::trace_impls;
 use pr4xis_domains::formal::information::knowledge::{SelfModelInstance, describe_knowledge_base};
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
 
 /// The Diagnostics ontology governs the trace — every PipelineTraceEntry is
 /// a Diagnostic concept. `trace_meta()` is pulled from `ontology!`-generated
@@ -58,8 +59,13 @@ pub struct ProcessResult {
 
 /// Process input through the full linguistics pipeline.
 /// Returns (response_text, user_speech_act, system_speech_act).
-pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
-    let result = process_with_metadata(lang, input);
+///
+/// `usc` is the loaded U.S. Code corpus; the chat pipeline today only
+/// consumes English for tokenisation/parsing/Montague, but the
+/// self-description path (see `self_describe`) registers the USC corpus
+/// as a participating ontology — so callers must thread it through.
+pub fn process(lang: &English, usc: &UsCode, input: &str) -> (String, SpeechAct, SpeechAct) {
+    let result = process_with_metadata(lang, usc, input);
     (result.response, result.user_act, result.system_act)
 }
 
@@ -71,7 +77,13 @@ pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
 /// No mutation. No manual trace.record() calls.
 ///
 /// Reference: Moggi, "Notions of Computation and Monads" (1991).
-pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
+///
+/// `usc` is the loaded U.S. Code corpus, passed through to the
+/// self-description path which registers it as a participating ontology.
+/// The linguistic pipeline stages (tokenize/parse/interpret/respond) do
+/// not currently consume `usc` — only `self_describe` and
+/// `loaded_ontologies` do.
+pub fn process_with_metadata(lang: &English, usc: &UsCode, input: &str) -> ProcessResult {
     let start = WasmSafeTimer::now();
 
     // Stage 1: Tokenize through the Language ontology.
@@ -147,7 +159,7 @@ pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     // Stage 6: Generate the response through NLG.
     // Self-referential questions route through the SelfModel eigenform.
     let response_result = if is_self_referential(&ont_tokens) {
-        answer_self_referential(lang)
+        answer_self_referential(lang, usc)
     } else {
         match &meaning {
             montague::Sem::Question {
@@ -297,9 +309,9 @@ fn is_self_referential(tokens: &[pr4xis_domains::cognitive::linguistics::text::T
 /// The response IS the self-model eigenform presented through the
 /// Schema transport layer. No hardcoded text — the Presentation
 /// carries the data, the surface rendering derives from it.
-fn answer_self_referential(lang: &English) -> trace_impls::ResponseResult {
+fn answer_self_referential(lang: &English, usc: &UsCode) -> trace_impls::ResponseResult {
     use pr4xis_domains::formal::information::schema::transport::Present;
-    let eigenform = observe_self(lang);
+    let eigenform = observe_self(lang, usc);
     let presentation = eigenform.present();
 
     let response = presentation.to_json();
@@ -758,7 +770,15 @@ impl WasmSafeTimer {
 // =========================================================================
 
 /// All loaded ontologies including language-specific runtime data.
-pub fn loaded_ontologies(_lang: &English) -> Vec<Vocabulary> {
+///
+/// The `_lang` and `_usc` arguments record that the registration covers
+/// the runtime corpora those values carry. The vocabulary entries use
+/// type-level reflection (via `Vocabulary::from_ontology::<C, E>`) and
+/// don't read the corpus contents — but threading the runtime values
+/// keeps the call site consistent with `observe_self`'s eigenform
+/// contract (an instance observing itself observes everything it
+/// holds, including the U.S. Code corpus).
+pub fn loaded_ontologies(_lang: &English, _usc: &UsCode) -> Vec<Vocabulary> {
     let mut ontologies = describe_knowledge_base();
     ontologies.push(Vocabulary::from_ontology::<
         pr4xis_domains::cognitive::linguistics::lexicon::ontology::LexicalCategory,
@@ -767,6 +787,20 @@ pub fn loaded_ontologies(_lang: &English) -> Vec<Vocabulary> {
         "English (WordNet)",
         "pr4xis_domains::cognitive::linguistics::english",
         "Open English WordNet 2025; Princeton WordNet",
+    ));
+    // USLM-encoded U.S. Code corpus. USLM is an XML schema published by
+    // the LRC (USLM-1.0.15.xsd); the underlying typology of element
+    // kinds it operates over is the W3C XML node-kind ontology, which
+    // praxis already models as `XmlCategory` / `XmlNodeKind`. Citing the
+    // LRC schema (the source-of-truth for the corpus) plus the W3C XML
+    // spec (the substrate the typology belongs to).
+    ontologies.push(Vocabulary::from_ontology::<
+        pr4xis_domains::social::software::markup::xml::ontology::XmlCategory,
+        pr4xis_domains::social::software::markup::xml::ontology::XmlNodeKind,
+    >(
+        "U.S. Code (LRC USLM)",
+        "pr4xis_domains::social::software::markup::xml::uslm::corpus",
+        "U.S. Code (Library of Congress USLM XML, release point pl-119-90); LRC USLM-1.0.15.xsd; W3C XML 1.0 (2008) Fifth Edition",
     ));
     ontologies
 }
@@ -777,14 +811,14 @@ pub fn loaded_ontologies(_lang: &English) -> Vec<Vocabulary> {
 /// The result IS the fixed point X = F(X).
 /// The SelfModelInstance carries the complete self-description
 /// through the SelfModel ontology, not through hardcoded strings.
-pub fn observe_self(lang: &English) -> SelfModelInstance {
-    SelfModelInstance::observe(loaded_ontologies(lang))
+pub fn observe_self(lang: &English, usc: &UsCode) -> SelfModelInstance {
+    SelfModelInstance::observe(loaded_ontologies(lang, usc))
 }
 
 /// Describe the eigenform structurally. Callers that need JSON (WASM
 /// boundary) should call `.to_json()` on the result themselves.
-pub fn self_describe(lang: &English) -> SelfModelInstance {
-    observe_self(lang)
+pub fn self_describe(lang: &English, usc: &UsCode) -> SelfModelInstance {
+    observe_self(lang, usc)
 }
 
 #[cfg(test)]
@@ -796,6 +830,11 @@ mod tests {
     fn sample_english() -> English {
         // Use sample data for unit tests (fast, no WordNet needed)
         English::sample()
+    }
+
+    fn sample_usc() -> UsCode {
+        // Two-section USC fixture — fast, no LRC USLM XML needed.
+        UsCode::sample()
     }
 
     // --- Algebraic structure integration tests ---
@@ -865,7 +904,8 @@ mod tests {
         // After empty check, tokens form a NonEmpty — guaranteed at least one.
         // NonEmpty is a semigroup (can combine without needing identity).
         let en = sample_english();
-        let result = process_with_metadata(&en, "dog");
+        let usc = sample_usc();
+        let result = process_with_metadata(&en, &usc, "dog");
         assert!(result.token_count > 0);
         // The pipeline used NonEmpty internally after the empty check
     }
@@ -875,7 +915,8 @@ mod tests {
     #[test]
     fn process_taxonomy_question() {
         let en = sample_english();
-        let (response, user_act, _) = process(&en, "is a dog a mammal");
+        let usc = sample_usc();
+        let (response, user_act, _) = process(&en, &usc, "is a dog a mammal");
         assert_eq!(user_act, SpeechAct::Question);
         assert!(
             response.contains("Yes") || response.contains("No") || response.contains("dog"),
@@ -887,7 +928,8 @@ mod tests {
     #[test]
     fn process_simple_sentence() {
         let en = sample_english();
-        let (response, _, _) = process(&en, "the dog runs");
+        let usc = sample_usc();
+        let (response, _, _) = process(&en, &usc, "the dog runs");
         // Should either parse or give partial understanding — not crash
         assert!(!response.is_empty());
     }
@@ -895,7 +937,8 @@ mod tests {
     #[test]
     fn process_what_question() {
         let en = sample_english();
-        let (response, _, _) = process(&en, "what is a dog");
+        let usc = sample_usc();
+        let (response, _, _) = process(&en, &usc, "what is a dog");
         // With sample data "what" may not be in lexicon — just verify no crash
         assert!(!response.is_empty());
     }
@@ -903,7 +946,8 @@ mod tests {
     #[test]
     fn process_empty_input() {
         let en = sample_english();
-        let (response, _, _) = process(&en, "");
+        let usc = sample_usc();
+        let (response, _, _) = process(&en, &usc, "");
         assert!(!response.is_empty());
     }
 
@@ -920,7 +964,7 @@ mod tests {
 
         // Exercise the chat surface — confirms `self_describe` returns a
         // structural `SelfModelInstance` that can be observed downstream.
-        let _ = self_describe(&sample_english());
+        let _ = self_describe(&sample_english(), &sample_usc());
 
         for axiom in [
             &KnowledgeBaseIsNonEmpty as &dyn Axiom,
@@ -935,8 +979,9 @@ mod tests {
     fn self_describe_eigenform_is_stable() {
         // Self(Self) = Self — calling observe_self twice gives same result
         let en = sample_english();
-        let first = observe_self(&en);
-        let second = observe_self(&en);
+        let usc = sample_usc();
+        let first = observe_self(&en, &usc);
+        let second = observe_self(&en, &usc);
         assert_eq!(first.total_concepts, second.total_concepts);
         assert_eq!(first.total_morphisms, second.total_morphisms);
         assert_eq!(first.components.len(), second.components.len());
@@ -960,7 +1005,8 @@ mod tests {
         // `TracedPipeline<()>` composition — each `.tell()` call combines a
         // single PipelineTrace via the Vec monoid. No mutation.
         let en = sample_english();
-        let result = process_with_metadata(&en, "is a dog a mammal");
+        let usc = sample_usc();
+        let result = process_with_metadata(&en, &usc, "is a dog a mammal");
 
         // The full pipeline fires: tokenize → parse → interpret → speech act
         // → metacognition → response → realization. Seven entries minimum.
@@ -983,7 +1029,8 @@ mod tests {
         // Empty-branch early return: the trace carries the tokenize result
         // constructed via `PipelineTrace::from_traceable`, not a mutation.
         let en = sample_english();
-        let result = process_with_metadata(&en, "");
+        let usc = sample_usc();
+        let result = process_with_metadata(&en, &usc, "");
         assert_eq!(result.token_count, 0);
         assert_eq!(result.trace.entries.len(), 1);
         assert_eq!(result.trace.entries[0].step, PipelineStep::TOKENIZE);

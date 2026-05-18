@@ -4,6 +4,12 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use pr4xis_chat as chat;
+
+#[allow(dead_code)]
+#[allow(clippy::invisible_characters)]
+mod usc_codegen_output {
+    include!(concat!(env!("OUT_DIR"), "/usc_codegen.rs"));
+}
 use pr4xis_domains::applied::data_provisioning::fetch::{self, FetchOptions, FetchOutcome};
 use pr4xis_domains::applied::data_provisioning::registry::{by_name, data_sources};
 use pr4xis_domains::cognitive::linguistics::english::English;
@@ -11,6 +17,7 @@ use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 use pr4xis_domains::formal::information::dialogue::engine::{self, DialogueAction};
 use pr4xis_domains::social::software::markup::xml::lmf;
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
 
 /// pr4xis — axiomatic intelligence via ontology.
 #[derive(Parser, Debug)]
@@ -180,11 +187,17 @@ fn run_chat() {
         }
     };
 
+    // Materialise the U.S. Code corpus from the build-time codegen static.
+    // The CLI build.rs writes an empty stub when no USC XML is on disk, so
+    // this call never panics — `usc.section_count()` is just 0 in that case.
+    let usc = Arc::new(UsCode::from_codegen(&usc_codegen_output::CODEGEN_DATA));
+
     println!("pr4xis — axiomatic intelligence");
     println!(
-        "  {} concepts, {} words",
+        "  {} concepts, {} words, {} USC sections",
         language.concept_count(),
-        language.word_count()
+        language.word_count(),
+        usc.section_count(),
     );
     println!("  type 'quit' to exit");
     println!();
@@ -221,7 +234,7 @@ fn run_chat() {
         let resolved_input = resolve_pronouns(input, engine.situation(), language.as_ref());
 
         // Process through praxis-chat (shared logic — zero I/O)
-        let (response_text, user_act, _sys_act) = chat::process(&language, &resolved_input);
+        let (response_text, user_act, _sys_act) = chat::process(&language, &usc, &resolved_input);
 
         // Extract referents for discourse tracking
         let referents: Vec<String> = resolved_input

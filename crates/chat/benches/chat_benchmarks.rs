@@ -1,23 +1,31 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use pr4xis_domains::cognitive::linguistics::english::English;
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
 
 fn bench_chat(c: &mut Criterion) {
     let en = English::sample();
+    let usc = UsCode::sample();
 
     let mut group = c.benchmark_group("chat");
 
     group.bench_function("process_question", |b| {
-        b.iter(|| pr4xis_chat::process(black_box(&en), black_box("is a dog a mammal?")))
+        b.iter(|| {
+            pr4xis_chat::process(
+                black_box(&en),
+                black_box(&usc),
+                black_box("is a dog a mammal?"),
+            )
+        })
     });
     group.bench_function("process_statement", |b| {
-        b.iter(|| pr4xis_chat::process(black_box(&en), black_box("the dog runs")))
+        b.iter(|| pr4xis_chat::process(black_box(&en), black_box(&usc), black_box("the dog runs")))
     });
     group.bench_function("process_unknown", |b| {
-        b.iter(|| pr4xis_chat::process(black_box(&en), black_box("xyzzy")))
+        b.iter(|| pr4xis_chat::process(black_box(&en), black_box(&usc), black_box("xyzzy")))
     });
     group.bench_function("self_describe", |b| {
-        b.iter(|| pr4xis_chat::self_describe(black_box(&en)))
+        b.iter(|| pr4xis_chat::self_describe(black_box(&en), black_box(&usc)))
     });
 
     group.finish();

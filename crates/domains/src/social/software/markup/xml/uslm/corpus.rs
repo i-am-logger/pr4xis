@@ -127,6 +127,35 @@ impl UsCode {
     pub fn section_count(&self) -> usize {
         self.sections.len()
     }
+
+    /// Minimal sample U.S. Code corpus for testing — two synthetic
+    /// sections (Title 18 § 1514A and Title 49 § 42121). Mirrors the
+    /// fixture pattern used by [`crate::cognitive::linguistics::english::English::sample`]
+    /// for unit tests that exercise a downstream consumer without
+    /// requiring the full LRC USLM XML to be present on disk.
+    pub fn sample() -> Self {
+        static SAMPLE_DATA: CodegenData<UsCode> = CodegenData {
+            entity_count: 2,
+            entity_ids: &["/us/usc/t18/s1514A", "/us/usc/t49/s42121"],
+            entity_kind: &["section", "section"],
+            entity_labels: &[
+                "Civil action to protect against retaliation in fraud cases",
+                "Whistleblower protection program",
+            ],
+            entity_defs: &[
+                "No company may discriminate against an employee who provides information about fraud.",
+                "No air carrier may discriminate against an employee who provides information about an air-safety violation.",
+            ],
+            word_index: &[],
+            taxonomy: &[],
+            mereology: &[],
+            opposition: &[],
+            equivalence: &[],
+            causation: &[],
+            references: &[],
+        };
+        Self::from_codegen(&SAMPLE_DATA)
+    }
 }
 
 #[cfg(test)]
