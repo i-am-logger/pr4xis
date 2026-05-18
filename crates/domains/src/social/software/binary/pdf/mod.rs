@@ -66,6 +66,13 @@ pub mod content_stream;
 #[cfg(feature = "pdf")]
 pub mod font;
 
+/// Adobe Glyph List — glyph name → Unicode codepoint resolver
+/// for `/Differences` array overrides per ISO 32000-2:2020
+/// §9.6.5.4. Loaded from a verbatim copy of Adobe's published
+/// `glyphlist.txt`; sha256 pinned and verified at test time.
+#[cfg(feature = "pdf")]
+pub mod agl;
+
 /// Image / Form-XObject / inline-image flagging walker — emits
 /// `Vec<FlaggedContent>` for every non-text content piece per
 /// `feedback_pdf_text_only_until_image_understanding`. Phase 5

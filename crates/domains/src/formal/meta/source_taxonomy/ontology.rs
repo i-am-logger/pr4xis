@@ -27,10 +27,15 @@ pr4xis::ontology! {
         LegalCorpus,
         Statute,                // primary rule (legislative enactment) — generic, jurisdiction-agnostic
         UsFederalStatute,       // leaf: a Title-of-the-U.S.-Code section (e.g., 18 U.S.C. § 1514A)
+        UsCodeTitle,            // leaf: a whole Title of the U.S. Code as USLM XML (e.g., Title 18). Container for many UsFederalStatutes.
         Regulation,             // secondary rule (agency-promulgated, implements statute)
         ConstitutionalArticle,  // supreme primary rule (Marbury v. Madison 1803)
         ProceduralRule,         // primary rule of procedure (FRCP, OALJ rules)
         CaseLaw,                // secondary rule (judicial precedent)
+
+        // === TypographyResource family ===
+        TypographyResource,      // root of typographic mapping tables
+        TypographicGlyphSet,     // leaf: glyph-name → Unicode codepoint map (Adobe AGL, etc.)
     ],
 
     labels: {
@@ -50,6 +55,8 @@ pr4xis::ontology! {
             "Hart (1961) primary rule: a legislative enactment binding within its jurisdiction. Jurisdiction-agnostic parent; instances declare a specific leaf (UsFederalStatute, …)."),
         UsFederalStatute: ("en", "U.S. federal statute",
             "A Title-of-the-U.S.-Code section enacted by Congress, structured per House Legislative Counsel's Manual on Drafting Style (2017) and cited per Bluebook §3.3.4 (e.g., 18 U.S.C. § 1514A, 49 U.S.C. § 42121)."),
+        UsCodeTitle: ("en", "U.S. Code title",
+            "A whole Title of the United States Code (e.g., Title 18 — Crimes and Criminal Procedure) as published by the LRC in USLM XML per 1 U.S.C. § 204. Container for one or more UsFederalStatute sections; the LRC's per-title XML zip is its authoritative publication unit (uscode.house.gov/download/)."),
         Regulation: ("en", "Regulation",
             "Hart (1961) secondary rule: an agency-promulgated rule implementing a statute (e.g., 29 CFR Part 1980)."),
         ConstitutionalArticle: ("en", "Constitutional article",
@@ -58,6 +65,10 @@ pr4xis::ontology! {
             "Sartor (2005): a primary rule governing court procedure (FRCP, FRE, OALJ rules)."),
         CaseLaw: ("en", "Case law",
             "Sartor (2005): a secondary, interpretive rule emerging from judicial decisions; binds via stare decisis."),
+        TypographyResource: ("en", "Typography resource",
+            "ISO 32000-2:2020 §9.6.5: published typographic mapping table such as a glyph list or encoding vector — the substrate on which digital text-format decoders translate bytes/glyphs to Unicode."),
+        TypographicGlyphSet: ("en", "Typographic glyph set",
+            "ISO 32000-2:2020 §9.6.5.4 + Adobe Tech Note #5014: a published name→codepoint table (Adobe Glyph List, AGLFN) cited by PDF /Differences arrays to resolve glyph names to Unicode codepoints."),
     },
 
     is_a: [
@@ -71,10 +82,15 @@ pr4xis::ontology! {
         (LegalCorpus, Source),
         (Statute, LegalCorpus),
         (UsFederalStatute, Statute),
+        (UsCodeTitle, LegalCorpus),
         (Regulation, LegalCorpus),
         (ConstitutionalArticle, LegalCorpus),
         (ProceduralRule, LegalCorpus),
         (CaseLaw, LegalCorpus),
+
+        // TypographyResource family
+        (TypographyResource, Source),
+        (TypographicGlyphSet, TypographyResource),
     ],
 
     // Adjunction graph: pairs of concepts whose instances are connected by
@@ -85,6 +101,15 @@ pr4xis::ontology! {
     // adjoint-pair semantics; each edge below names a domain-specific
     // adjunction with its own literature pointer.
     edges: [
+        // 1 U.S.C. § 204: a U.S. Code title is the LRC's
+        // publication-unit grouping of primary rules (Hart 1961
+        // §V). A Title contains many Statutes; a Statute is
+        // contained in exactly one Title. The unit/counit
+        // surfaces "Title sections not yet ingested as statutes"
+        // and "statutes whose Title isn't registered" as
+        // defensible gaps.
+        (UsCodeTitle, Statute, Adjoins),
+
         // Hart (1961) §V: statute authorizes regulation; regulation
         // implements statute. The unit/counit pair surfaces "statute
         // provisions without implementing regs" and "regs without
@@ -147,10 +172,13 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "LegalCorpus" => C::LegalCorpus,
         "Statute" => C::Statute,
         "UsFederalStatute" => C::UsFederalStatute,
+        "UsCodeTitle" => C::UsCodeTitle,
         "Regulation" => C::Regulation,
         "ConstitutionalArticle" => C::ConstitutionalArticle,
         "ProceduralRule" => C::ProceduralRule,
         "CaseLaw" => C::CaseLaw,
+        "TypographyResource" => C::TypographyResource,
+        "TypographicGlyphSet" => C::TypographicGlyphSet,
         _ => return None,
     })
 }
@@ -168,10 +196,13 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::LegalCorpus => "LegalCorpus",
         C::Statute => "Statute",
         C::UsFederalStatute => "UsFederalStatute",
+        C::UsCodeTitle => "UsCodeTitle",
         C::Regulation => "Regulation",
         C::ConstitutionalArticle => "ConstitutionalArticle",
         C::ProceduralRule => "ProceduralRule",
         C::CaseLaw => "CaseLaw",
+        C::TypographyResource => "TypographyResource",
+        C::TypographicGlyphSet => "TypographicGlyphSet",
     }
 }
 
@@ -223,10 +254,12 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
         C::Language
             | C::LegalLexicon
             | C::UsFederalStatute
+            | C::UsCodeTitle
             | C::Regulation
             | C::ConstitutionalArticle
             | C::ProceduralRule
             | C::CaseLaw
+            | C::TypographicGlyphSet
     )
 }
 

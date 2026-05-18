@@ -1,6 +1,7 @@
 mod builder;
 mod generate;
 pub mod statute;
+pub mod uslm;
 pub mod wordnet;
 
 pub use builder::{EntityDef, GenerateConfig, OntologyBuilder};

@@ -29,13 +29,20 @@ fn ontology_validates() {
 }
 
 #[test]
-fn five_concepts() {
-    assert_eq!(IdentifierFormatConcept::variants().len(), 5);
+fn six_concepts() {
+    // Root + five leaves (CURIE, UUID, URI, OID, USLM URN).
+    assert_eq!(IdentifierFormatConcept::variants().len(), 6);
 }
 
 #[test]
-fn four_leaves() {
-    assert_eq!(leaves().len(), 4);
+fn five_leaves() {
+    assert_eq!(leaves().len(), 5);
+    let l = leaves();
+    assert!(l.contains(&IdentifierFormatConcept::Curie));
+    assert!(l.contains(&IdentifierFormatConcept::Uuid));
+    assert!(l.contains(&IdentifierFormatConcept::Uri));
+    assert!(l.contains(&IdentifierFormatConcept::Oid));
+    assert!(l.contains(&IdentifierFormatConcept::UslmUrn));
 }
 
 // =============================================================================
@@ -178,6 +185,86 @@ fn oid_rejects_empty_arc() {
         Identifier::oid("1..3"),
         Err(IdentifierParseError::InvalidGrammar { .. })
     ));
+}
+
+// =============================================================================
+// USLM URN parser (LRC USLM XML User Guide §V; 1 U.S.C. § 204)
+// =============================================================================
+
+#[test]
+fn uslm_urn_accepts_title_identifier() {
+    let id = Identifier::uslm_urn("/us/usc/t18").unwrap();
+    assert_eq!(id.format, IdentifierFormatConcept::UslmUrn);
+    assert_eq!(id.value, "/us/usc/t18");
+}
+
+#[test]
+fn uslm_urn_accepts_section_identifier() {
+    let id = Identifier::uslm_urn("/us/usc/t18/s1514A").unwrap();
+    assert_eq!(id.format, IdentifierFormatConcept::UslmUrn);
+}
+
+#[test]
+fn uslm_urn_accepts_subdivision_identifier() {
+    let id = Identifier::uslm_urn("/us/usc/t18/s1514A/a/1/A").unwrap();
+    assert_eq!(id.format, IdentifierFormatConcept::UslmUrn);
+}
+
+#[test]
+fn uslm_urn_accepts_hyphenated_section_number() {
+    // Title 49's pub-law-derived section numbers like § 78j-1.
+    assert!(Identifier::uslm_urn("/us/usc/t15/s78j-1").is_ok());
+}
+
+#[test]
+fn uslm_urn_rejects_empty() {
+    assert_eq!(Identifier::uslm_urn(""), Err(IdentifierParseError::Empty));
+}
+
+#[test]
+fn uslm_urn_rejects_missing_us_prefix() {
+    assert!(matches!(
+        Identifier::uslm_urn("/usc/t18"),
+        Err(IdentifierParseError::InvalidGrammar { .. })
+    ));
+}
+
+#[test]
+fn uslm_urn_rejects_non_absolute_path() {
+    assert!(matches!(
+        Identifier::uslm_urn("us/usc/t18"),
+        Err(IdentifierParseError::InvalidGrammar { .. })
+    ));
+}
+
+#[test]
+fn uslm_urn_rejects_double_slash() {
+    assert!(matches!(
+        Identifier::uslm_urn("/us//t18"),
+        Err(IdentifierParseError::InvalidGrammar { .. })
+    ));
+}
+
+#[test]
+fn uslm_urn_rejects_disallowed_characters() {
+    // Spaces are not permitted in path segments.
+    assert!(matches!(
+        Identifier::uslm_urn("/us/usc/t 18"),
+        Err(IdentifierParseError::InvalidGrammar { .. })
+    ));
+    // `?` (query) is not part of the USLM URN grammar.
+    assert!(matches!(
+        Identifier::uslm_urn("/us/usc/t18?q=1"),
+        Err(IdentifierParseError::InvalidGrammar { .. })
+    ));
+}
+
+#[test]
+fn uslm_urn_has_resolver() {
+    use crate::formal::meta::identifier_format::ontology::HasResolver;
+    use pr4xis::ontology::Quality;
+    let q = HasResolver;
+    assert_eq!(q.get(&IdentifierFormatConcept::UslmUrn), Some(true));
 }
 
 // =============================================================================

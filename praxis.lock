@@ -21,8 +21,23 @@
 # or mismatching hash all fail closed at startup.
 
 [hashes]
-"english_wordnet@2025" = "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2"
-"sox_1514a@2002"       = "f2fbd5f78316b1f2821ca9750c577b6e8146ae5c75acd2e7d74750e93c9b946e"
+"english_wordnet@2025"   = "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2"
+"sox_1514a@2002"         = "f5bf19858f360dc860f1de6c339e309cd4b17b75bd83167ad48ecef84cbf51a7"
+# U.S. Code Title 18 — Crimes and Criminal Procedure. SHA-256 of
+# the unzipped usc18.xml content (12 MB, 1,428 sections, ~28k cross-
+# references) from release point pl-119-90. The .zip wrapper sha256
+# is not stored — `pr4xis update` verifies the inner XML matches.
+"usc_title_18@pl-119-90" = "00bb3b87d056164095e174a4993151e5fbd2f5c114aaa6f86853b76e514d883f"
+# U.S. Code Title 49 — Transportation. SHA-256 of the unzipped
+# usc49.xml content (26 MB, 1,634 sections, ~33k cross-refs) from
+# release point pl-119-90. AIR21 § 42121 lives here.
+"usc_title_49@pl-119-90" = "9be46928d04bae7c821246f800780493fdfe900cbcfffd52fedf8142a42db650"
+# Adobe Glyph List 2019 — SHA-256 of crates/domains/data/adobe/glyphlist.txt,
+# a verbatim copy of
+# https://raw.githubusercontent.com/adobe-type-tools/agl-aglfn/master/glyphlist.txt.
+# Verified at test time by `pdf::agl::tests::embedded_sha256_matches_pinned_hash`
+# and at build time by the registry's LockManifestAgreement axiom.
+"adobe_glyph_list@2019"  = "a3b2f61ced9f3644cc0d4ecde5c59df34ca286c689d9484a43a710a81c466789"
 
 # Canonical-text fixtures: previously held hand-transcribed text for
 # statutes pending the PDF loader. Removed by M4.γ Phase 8 — see

@@ -98,8 +98,21 @@ pub enum ContentType {
     XmlLmf,
     /// PDF, ISO 32000-2. Decoder: not yet implemented.
     Pdf,
+    /// United States Legislative Markup XML, per the LRC's
+    /// published USLM-1.0.15.xsd schema. Decoder:
+    /// `xml::uslm::reader::read_uslm_title` (runtime) /
+    /// `pr4xis::codegen::uslm::parse_uslm_xml` (build-time).
+    /// Cited by 1 U.S.C. § 204 as the U.S. Code's authoritative
+    /// publication. URL: uscode.house.gov/uslm/.
+    UslmXml,
     /// Plain text, UTF-8. Decoder: direct.
     Plaintext,
+    /// Adobe Glyph List (`name;HEX[ HEX]*` lines) per Adobe's
+    /// 2002–2019 published table; cited by ISO 32000-2:2020
+    /// §9.6.5.4 + Adobe Tech Note #5014 as the canonical
+    /// resolver for PDF `/Differences` glyph names. Decoder:
+    /// `decoders::adobe_glyph_list`.
+    AdobeGlyphList,
     /// JSON document, RFC 8259. Decoder: serde_json parse.
     Json,
     /// Video file (mp4, webm). Decoder: not yet implemented.
@@ -126,6 +139,11 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // PDF loader consumes the bytes and emits a typed
         // `PdfBuildExtraction` const at build time.
         C::Statute | C::UsFederalStatute => ContentType::Pdf,
+        // Whole U.S. Code titles ship as USLM XML from
+        // uscode.house.gov per 1 U.S.C. § 204. Each title is
+        // an LRC publication unit containing many UsFederalStatute
+        // sections; the title-level XML is sliced at build time.
+        C::UsCodeTitle => ContentType::UslmXml,
         // Other legal corpora (regulations, constitutional
         // articles, procedural rules, case law) also commonly
         // ship as PDF on the authoritative source; same rule.
@@ -133,8 +151,15 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
             ContentType::Pdf
         }
         C::LegalLexicon => ContentType::Json,
+        // Adobe Glyph List has its own typed decoder; the
+        // `decoders::adobe_glyph_list` parser handles the
+        // `name;HEX[ HEX]*` line format per Adobe's published
+        // 2002–2019 table.
+        C::TypographicGlyphSet => ContentType::AdobeGlyphList,
         // Non-leaf concepts have no decoder — they're abstract.
-        C::Source | C::Lexicon | C::DomainLexicon | C::LegalCorpus => ContentType::Binary,
+        C::Source | C::Lexicon | C::DomainLexicon | C::LegalCorpus | C::TypographyResource => {
+            ContentType::Binary
+        }
     }
 }
 
@@ -199,14 +224,25 @@ impl RegistryEntry {
     pub fn local_path(&self) -> String {
         let family = family_dir(self.kind);
         let ext = match self.content_type() {
-            ContentType::XmlLmf => "xml",
-            ContentType::Plaintext => "txt",
+            ContentType::XmlLmf | ContentType::UslmXml => "xml",
+            ContentType::Plaintext | ContentType::AdobeGlyphList => "txt",
             ContentType::Json => "json",
             ContentType::Pdf => "pdf",
             ContentType::Video => "bin",
             ContentType::Audio => "bin",
             ContentType::Binary => "bin",
         };
+        // Adobe AGL has a fixed canonical filename in the public
+        // typography registry; downstream code references it
+        // directly via include_str! so the path is stable.
+        if matches!(self.kind, SourceTaxonomyConcept::TypographicGlyphSet) {
+            return format!(
+                "crates/domains/data/{family}/{name}/glyphlist.{ext}",
+                family = family,
+                name = "adobe",
+                ext = ext
+            );
+        }
         format!(
             "crates/domains/data/{family}/{name}/{name}-{version}.{ext}",
             family = family,
@@ -226,11 +262,17 @@ pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
         match kind {
             C::Statute => "legal/statutes",
             C::UsFederalStatute => "legal/statutes/us_federal",
+            C::UsCodeTitle => "legal/uscode",
             C::Regulation => "legal/regulations",
             C::ConstitutionalArticle => "legal/constitution",
             C::ProceduralRule => "legal/procedure",
             C::CaseLaw => "legal/case_law",
             _ => "legal",
+        }
+    } else if matches!(kind, C::TypographyResource | C::TypographicGlyphSet) {
+        match kind {
+            C::TypographicGlyphSet => "adobe",
+            _ => "typography",
         }
     } else {
         match kind {

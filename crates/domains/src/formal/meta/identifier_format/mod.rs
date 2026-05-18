@@ -190,6 +190,56 @@ impl Identifier {
         })
     }
 
+    /// Construct a USLM-URN-typed identifier per LRC USLM XML User
+    /// Guide §V "Identifier Conventions" (USLM-1.0.15.xsd).
+    ///
+    /// USLM URNs are hierarchical relative-reference paths beginning
+    /// with `/us/` that identify a U.S. Code component:
+    ///
+    /// ```text
+    /// /us/usc/t18                       — Title
+    /// /us/usc/t18/s1514A                — Section
+    /// /us/usc/t18/s1514A/a/1/A          — Subdivision (a)(1)(A)
+    /// ```
+    ///
+    /// Grammar (LRC User Guide §V): the path starts with `/us/`, is
+    /// composed of segments separated by `/`, each segment is a
+    /// non-empty ASCII run (alphanumeric plus `-`, `_`, `.`). The
+    /// USLM URN namespace is documented at uscode.house.gov and
+    /// resolves to the LRC's authoritative XML.
+    pub fn uslm_urn(value: impl Into<String>) -> Result<Self, IdentifierParseError> {
+        let value = value.into();
+        if value.is_empty() {
+            return Err(IdentifierParseError::Empty);
+        }
+        if !value.starts_with("/us/") {
+            return Err(IdentifierParseError::InvalidGrammar {
+                format: IdentifierFormatConcept::UslmUrn,
+                reason: "USLM URN must begin with `/us/` per LRC User Guide §V",
+            });
+        }
+        for segment in value.trim_start_matches('/').split('/') {
+            if segment.is_empty() {
+                return Err(IdentifierParseError::InvalidGrammar {
+                    format: IdentifierFormatConcept::UslmUrn,
+                    reason: "USLM URN segments must be non-empty",
+                });
+            }
+            for c in segment.chars() {
+                if !(c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.') {
+                    return Err(IdentifierParseError::InvalidGrammar {
+                        format: IdentifierFormatConcept::UslmUrn,
+                        reason: "USLM URN segments may only contain ASCII alphanumeric, `-`, `_`, `.`",
+                    });
+                }
+            }
+        }
+        Ok(Self {
+            format: IdentifierFormatConcept::UslmUrn,
+            value,
+        })
+    }
+
     /// Construct an OID-typed identifier. Validates per ISO 8824-1
     /// §32 — dot-separated non-negative integer arcs, at least two arcs.
     pub fn oid(value: impl Into<String>) -> Result<Self, IdentifierParseError> {

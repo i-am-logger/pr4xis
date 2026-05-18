@@ -13,10 +13,14 @@
 
 use super::ontology::ContentType;
 
+pub mod adobe_glyph_list;
 pub mod xml_lmf;
 
 /// Does a decoder exist for this content type? Used by the
 /// `DecoderTotalityPerContentType` axiom.
 pub fn has_decoder_for(content_type: ContentType) -> bool {
-    matches!(content_type, ContentType::XmlLmf)
+    matches!(
+        content_type,
+        ContentType::XmlLmf | ContentType::AdobeGlyphList | ContentType::UslmXml
+    )
 }

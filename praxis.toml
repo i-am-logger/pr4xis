@@ -39,8 +39,57 @@ type    = "Language"
 url     = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz"
 
 # ---------------------------------------------------------------------------
+# Typographic resources
+# ---------------------------------------------------------------------------
+
+# Adobe Glyph List (AGL) — the canonical name→Unicode codepoint table cited
+# by ISO 32000-2:2020 §9.6.5.4 as the resolver for PDF /Differences glyph
+# names. Adobe Tech Note #5014 references the same data. Published by
+# Adobe Systems Inc. under SPDX-License-Identifier BSD-3-Clause.
+#
+# Used by both the build-time PDF text extractor (`build_helpers/agl.rs`)
+# and the runtime PDF font pipeline (`pdf/agl.rs`) to resolve glyph names
+# in font `/Encoding` dictionaries' `/Differences` arrays. Without it, GPO-
+# style PDFs with WinAnsi+overrides produce mojibake artifacts (e.g. `Ð`
+# in place of em-dashes).
+[sources.adobe_glyph_list]
+version     = "2019"
+type        = "TypographicGlyphSet"
+url         = "https://raw.githubusercontent.com/adobe-type-tools/agl-aglfn/master/glyphlist.txt"
+description = "Adobe Glyph List — PostScript glyph name → Unicode codepoint table; cited by ISO 32000-2:2020 §9.6.5.4 + Adobe Tech Note #5014 as the canonical resolver for PDF /Differences glyph names."
+
+# ---------------------------------------------------------------------------
 # Statutes
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# U.S. Code titles (full USLM XML, sliced at build time by section)
+# ---------------------------------------------------------------------------
+
+# Title 18 — Crimes and Criminal Procedure. Authoritative source for
+# 18 U.S.C. § 1514A (SOX whistleblower), § 1513 (witness retaliation),
+# § 1519 / § 1520 (records destruction; SOX § 802), § 1341 / § 1343 /
+# § 1344 / § 1348 (mail/wire/bank/securities fraud — the underlying
+# conduct § 1514A protects reporting of). Published by the U.S. House
+# Office of the Law Revision Counsel (LRC) in USLM XML per 1 U.S.C.
+# § 204; release point pl-119-90 (Public Law 119-90, current at
+# authoring time). Build-time codegen slices statutes by USLM
+# identifier — see `crates/domains/build.rs`.
+[sources.usc_title_18]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc18@119-90.zip"
+description = "U.S. Code Title 18 — Crimes and Criminal Procedure. USLM XML published by the LRC per 1 U.S.C. § 204."
+
+# Title 49 — Transportation. Authoritative source for 49 U.S.C.
+# § 42121 (AIR21 whistleblower; SOX § 1514A(b)(2)(C) imports its
+# burden-shifting framework by reference). Same LRC USLM XML
+# publication unit as Title 18; release point pl-119-90.
+[sources.usc_title_49]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc49@119-90.zip"
+description = "U.S. Code Title 49 — Transportation. USLM XML published by the LRC per 1 U.S.C. § 204."
 
 # Sarbanes–Oxley Act § 806, codified at 18 U.S.C. § 1514A (2002).
 # Whistleblower protection for employees of publicly-traded companies.

@@ -104,18 +104,35 @@ impl core::fmt::Display for StatuteConstructError {
 }
 
 impl Statute {
-    /// Construct a `Statute` from praxis.lock structural data. Validates
-    /// that every term id is a well-formed CURIE, every relation
-    /// endpoint is a valid CURIE, every relation endpoint resolves to
-    /// an existing term, and every relation kind maps to a known
-    /// `RelationType` variant.
+    /// Construct a `Statute` from praxis.lock structural data, using
+    /// the default `praxis-lock://<name>@<version>` provenance URI.
+    /// See [`Self::from_structural_with_context`] for the explicit-
+    /// context variant used by USLM-derived statutes.
     pub fn from_structural(
         name: &str,
         version: &str,
         data: &StructuralData,
     ) -> Result<Self, StatuteConstructError> {
         let context_uri = format!("praxis-lock://{name}@{version}");
+        Self::from_structural_with_context(name, version, data, &context_uri)
+    }
 
+    /// Construct a `Statute` with an explicit provenance URI for
+    /// every term's name/definition and the statute description.
+    /// USLM-derived statutes pass the section URN (e.g.
+    /// `/us/usc/t18/s1514A`); lock-derived statutes use the
+    /// `praxis-lock://` shim form via [`Self::from_structural`].
+    ///
+    /// Validates that every term id is a well-formed CURIE, every
+    /// relation endpoint is a valid CURIE and resolves to an
+    /// existing term, and every relation kind maps to a known
+    /// `RelationType` variant.
+    pub fn from_structural_with_context(
+        name: &str,
+        version: &str,
+        data: &StructuralData,
+        context_uri: &str,
+    ) -> Result<Self, StatuteConstructError> {
         let mut terms = Vec::with_capacity(data.terms.len());
         for (term_index, raw) in data.terms.iter().enumerate() {
             let id = Identifier::curie(raw.id.clone()).map_err(|_| {
@@ -126,8 +143,8 @@ impl Statute {
             })?;
             terms.push(LegalTerm {
                 id,
-                name: SourceTextRef::with_context(raw.name.clone(), &context_uri),
-                definition: SourceTextRef::with_context(raw.definition.clone(), &context_uri),
+                name: SourceTextRef::with_context(raw.name.clone(), context_uri),
+                definition: SourceTextRef::with_context(raw.definition.clone(), context_uri),
                 source_text: None,
                 subsection: None,
                 required_evidence: Vec::new(),
@@ -183,7 +200,7 @@ impl Statute {
         Ok(Self {
             name: name.to_string(),
             version: version.to_string(),
-            description: SourceTextRef::with_context(data.description.clone(), &context_uri),
+            description: SourceTextRef::with_context(data.description.clone(), context_uri),
             terms,
             relations,
         })

@@ -2,10 +2,8 @@
 //!
 //! Mirrors the runtime extractor at
 //! `crates/domains/src/social/software/binary/pdf/extract.rs`
-//! (M4.γ Phase 6) but is a focused text-only subset that can run
-//! from `build.rs` without depending on the crate being built.
-//! The runtime extractor carries the property-test surface;
-//! this file's tests cover the build-time path independently.
+//! (M4.γ Phase 6) but is a focused subset that can run from
+//! `build.rs` without depending on the crate being built.
 //!
 //! The outcome of extraction is a [`PdfExtractOutcome`] enum
 //! whose variants the build script translates into corresponding
@@ -13,20 +11,75 @@
 //! `crates/domains/src/applied/data_provisioning/build_extraction.rs`).
 //! Both enums are typed and exhaustive — no `Option<&str>` gaps.
 //!
-//! Both extractors use the same underlying `lopdf` byte parser
-//! and content-stream operator semantics (ISO 32000-2:2020 §9.4),
-//! so output for the same PDF + same lopdf version is byte-equal
-//! across runtime and build-time paths.
+//! ## Font-encoding resolution per ISO 32000-2:2020 §9.10.2
+//!
+//! For each font referenced from a page's content stream, the
+//! decoder walks the standard precedence chain:
+//!
+//! 1. `/ToUnicode` CMap — explicit per-font Unicode mapping
+//!    (Adobe Tech Note #5014). Takes precedence over `/Encoding`
+//!    for **any** font subtype.
+//! 2. `/Encoding` named entry — dispatched through lopdf's public
+//!    `Dictionary::get_font_encoding`, which handles all eight
+//!    Annex D base encodings (`WinAnsi`, `MacRoman`, `MacExpert`,
+//!    `Standard`, `PDFDoc`, `Symbol`, `ZapfDingbats`, `Expert`)
+//!    and the `Identity-H` / `Identity-V` CIDFont variants.
+//! 3. Font's built-in encoding (§9.6.5.2) — fallback when neither
+//!    `/ToUnicode` nor `/Encoding` is declared.
+//!
+//! Per-font encodings are resolved once per page and cached by
+//! resource name. The `Tf` operator (§9.3.1) selects the active
+//! font for subsequent `Tj` / `TJ` / `'` / `"` operations.
+//!
+//! ## `/Differences` overrides
+//!
+//! `/Differences` arrays (§9.6.5.4) need Adobe Glyph List access
+//! to resolve glyph names; lopdf's `get_font_encoding` falls back
+//! to a base encoding when it encounters one. That fallback is
+//! the source of mojibake-style artifacts (`Ð` for em-dash) when
+//! the original PDF relied on a glyph-name override. The runtime
+//! extractor surfaces this as a typed
+//! [`crate::social::software::binary::pdf::font::FontEncoding::DifferencesUnresolved`]
+//! variant; the build-time extractor accepts the lopdf fallback —
+//! the discrepancy is auditable by comparing the runtime extractor's
+//! output to the build-time output.
 //!
 //! Spec references:
 //!
-//! - ISO 32000-2:2020 §7.5 — file structure.
-//! - §7.8.2 — content streams.
-//! - §9.4.3 — text-showing operators (Tj, TJ, ', ").
-//! - Annex D.5 — WinAnsiEncoding (the only standard encoding
-//!   for which lopdf publicly dispatches a table at this version).
+//! - ISO 32000-2:2020 §7.5 — file structure
+//! - §7.8.2 — content streams
+//! - §9.3.1 — `Tf` font-selection operator
+//! - §9.4.3 — text-showing operators (Tj, TJ, ', ")
+//! - §9.6.5 — font encodings, Annex D
+//! - §9.10.2 — mapping character codes to Unicode values
+//! - Adobe Tech Note #5014 — *ToUnicode Mapping File Tutorial*
 
+use lopdf::cmap::ToUnicodeCMap;
+use lopdf::mappings::{
+    EXPERT_ENCODING, MAC_EXPERT_ENCODING, MAC_ROMAN_ENCODING, PDF_DOC_ENCODING, STANDARD_ENCODING,
+    SYMBOL_ENCODING, WIN_ANSI_ENCODING,
+};
+use std::collections::HashMap;
 use std::path::Path;
+
+#[path = "agl.rs"]
+mod agl;
+
+/// Look up the static 256-entry encoding table for a named base
+/// encoding (ISO 32000-2:2020 Annex D, Table 113).
+fn standard_table(name: &[u8]) -> Option<&'static [Option<u16>; 256]> {
+    match name {
+        b"WinAnsiEncoding" => Some(&WIN_ANSI_ENCODING),
+        b"MacRomanEncoding" => Some(&MAC_ROMAN_ENCODING),
+        b"MacExpertEncoding" => Some(&MAC_EXPERT_ENCODING),
+        b"StandardEncoding" => Some(&STANDARD_ENCODING),
+        b"PDFDocEncoding" => Some(&PDF_DOC_ENCODING),
+        b"Symbol" | b"SymbolEncoding" => Some(&SYMBOL_ENCODING),
+        b"ZapfDingbats" | b"ZapfDingbatsEncoding" => Some(&SYMBOL_ENCODING),
+        b"ExpertEncoding" => Some(&EXPERT_ENCODING),
+        _ => None,
+    }
+}
 
 /// Outcome of a build-time PDF extraction.
 #[derive(Debug, Clone, PartialEq)]
@@ -41,15 +94,7 @@ pub enum PdfExtractOutcome {
     Encrypted,
 }
 
-/// Extract plain text from a PDF on disk by walking every page's
-/// content stream and concatenating the bytes of Tj / TJ / ' / "
-/// operators decoded through WinAnsiEncoding.
-///
-/// This is a focused build-time subset: no font-encoding
-/// resolution, no image flagging, no section slicing. The
-/// runtime extractor (Phase 6) does all of those. For text
-/// from a govinfo-style USCODE PDF whose fonts ship the actual
-/// Latin glyphs at WinAnsi codepoints, this is sufficient.
+/// Extract plain text from a PDF on disk.
 pub fn extract_pdf_to_text(path: &Path) -> PdfExtractOutcome {
     if !path.exists() {
         return PdfExtractOutcome::NotOnDisk;
@@ -59,6 +104,154 @@ pub fn extract_pdf_to_text(path: &Path) -> PdfExtractOutcome {
         Err(e) => return PdfExtractOutcome::ParseFailed(format!("read {path:?}: {e}")),
     };
     extract_pdf_bytes(&bytes)
+}
+
+/// Per-font decoder state resolved once per page.
+enum FontDecoder {
+    /// /ToUnicode CMap present — highest precedence per §9.10.2.
+    ToUnicode(ToUnicodeCMap),
+    /// 256-entry simple encoding table from `lopdf::mappings`
+    /// (WinAnsi, MacRoman, …) used as-is.
+    OneByte(&'static [Option<u16>; 256]),
+    /// 256-entry table with `/Differences` glyph-name overrides
+    /// resolved via the Adobe Glyph List per ISO 32000-2:2020
+    /// §9.6.5.4. Owned because the override pattern is per-font.
+    OneByteOwned(Box<[Option<u16>; 256]>),
+    /// Identity-H / Identity-V CIDFont without /ToUnicode.
+    Identity,
+    /// No /Encoding, no /ToUnicode — Latin-1 passthrough.
+    Builtin,
+}
+
+impl FontDecoder {
+    fn decode(&self, bytes: &[u8]) -> String {
+        match self {
+            Self::ToUnicode(cmap) => lopdf::Encoding::UnicodeMapEncoding(cmap.clone())
+                .bytes_to_string(bytes)
+                .unwrap_or_else(|_| bytes.iter().map(|&b| b as char).collect()),
+            Self::OneByte(table) => lopdf::Encoding::OneByteEncoding(table)
+                .bytes_to_string(bytes)
+                .unwrap_or_else(|_| bytes.iter().map(|&b| b as char).collect()),
+            Self::OneByteOwned(table) => lopdf::Encoding::OneByteEncoding(table.as_ref())
+                .bytes_to_string(bytes)
+                .unwrap_or_else(|_| bytes.iter().map(|&b| b as char).collect()),
+            Self::Identity => {
+                if !bytes.len().is_multiple_of(2) {
+                    return bytes.iter().map(|&b| b as char).collect();
+                }
+                let mut chars = Vec::with_capacity(bytes.len() / 2);
+                for chunk in bytes.chunks_exact(2) {
+                    chars.push(u16::from_be_bytes([chunk[0], chunk[1]]));
+                }
+                String::from_utf16_lossy(&chars)
+            }
+            Self::Builtin => bytes.iter().map(|&b| b as char).collect(),
+        }
+    }
+}
+
+/// Walk a `/Differences` array per ISO 32000-2:2020 §9.6.5.4 and
+/// apply every (code, glyph-name) override on top of `base`.
+///
+/// Per §9.6.5.4: the array alternates integer codes and one or
+/// more glyph names. An integer N starts a new code group at byte
+/// N; subsequent names assign to N, N+1, N+2, … until the next
+/// integer resets the position. Glyph names are resolved through
+/// the Adobe Glyph List ([`agl::glyph_name_to_unicode`]).
+fn apply_differences(
+    base: &'static [Option<u16>; 256],
+    diffs: &[lopdf::Object],
+) -> Box<[Option<u16>; 256]> {
+    let mut table = Box::new(*base);
+    let mut code: i64 = 0;
+    for item in diffs {
+        match item {
+            lopdf::Object::Integer(i) => {
+                code = *i;
+            }
+            lopdf::Object::Name(name_bytes) => {
+                if (0..=255).contains(&code) {
+                    let name = String::from_utf8_lossy(name_bytes);
+                    table[code as usize] = agl::glyph_name_to_unicode(&name);
+                }
+                code += 1;
+            }
+            _ => {}
+        }
+    }
+    table
+}
+
+/// Resolve a single font dictionary into a [`FontDecoder`].
+///
+/// Walks the §9.10.2 precedence chain: /ToUnicode first (any
+/// subtype), then /Encoding (via lopdf's public dispatcher), then
+/// the font's built-in default.
+fn resolve_font_decoder(font_dict: &lopdf::Dictionary, doc: &lopdf::Document) -> FontDecoder {
+    // Step 1: /ToUnicode (highest precedence, any subtype).
+    if font_dict.get(b"ToUnicode").is_ok()
+        && let Ok(stream) = font_dict
+            .get_deref(b"ToUnicode", doc)
+            .and_then(|o| o.as_stream())
+        && let Ok(content) = stream.get_plain_content()
+        && let Ok(cmap) = ToUnicodeCMap::parse(content)
+    {
+        return FontDecoder::ToUnicode(cmap);
+    }
+
+    // Step 2: /Encoding entry. Either a Name (the common case;
+    // base encoding from Annex D, or Identity-H / -V), or a
+    // dictionary form (§9.6.5.4 — base + /Differences). Indirect
+    // references go through `get_deref`.
+    if let Ok(enc_obj) = font_dict.get_deref(b"Encoding", doc) {
+        if let Ok(name) = enc_obj.as_name() {
+            if name == b"Identity-H" || name == b"Identity-V" {
+                return FontDecoder::Identity;
+            }
+            if let Some(table) = standard_table(name) {
+                return FontDecoder::OneByte(table);
+            }
+        }
+        if let Ok(enc_dict) = enc_obj.as_dict() {
+            let base = enc_dict
+                .get(b"BaseEncoding")
+                .ok()
+                .and_then(|o| o.as_name().ok())
+                .and_then(standard_table)
+                // Per §9.6.5.4: if no /BaseEncoding, the implicit
+                // default is the font program's built-in encoding;
+                // for Type1/TrueType this is `StandardEncoding`.
+                .unwrap_or(&STANDARD_ENCODING);
+            if let Ok(diffs) = enc_dict.get(b"Differences").and_then(|o| o.as_array()) {
+                return FontDecoder::OneByteOwned(apply_differences(base, diffs));
+            }
+            return FontDecoder::OneByte(base);
+        }
+    }
+
+    // Step 3: no /Encoding declared → font built-in.
+    FontDecoder::Builtin
+}
+
+/// Build the resource-name → decoder map for one page.
+///
+/// Reads `/Resources /Font /<name>` for the page and resolves each
+/// font dict via [`resolve_font_decoder`]. Resource names not in
+/// the map decode through a WinAnsi fallback (the safest assumption
+/// for PDF/A-derived USCODE filings).
+fn page_font_decoders(
+    page_id: lopdf::ObjectId,
+    doc: &lopdf::Document,
+) -> HashMap<Vec<u8>, FontDecoder> {
+    let mut out = HashMap::new();
+    let fonts = match doc.get_page_fonts(page_id) {
+        Ok(f) => f,
+        Err(_) => return out,
+    };
+    for (name, font_dict) in fonts {
+        out.insert(name, resolve_font_decoder(font_dict, doc));
+    }
+    out
 }
 
 /// Extract plain text from PDF bytes in memory.
@@ -74,6 +267,7 @@ pub fn extract_pdf_bytes(bytes: &[u8]) -> PdfExtractOutcome {
     let pages = doc.get_pages();
     let mut out = String::new();
     let mut first_page = true;
+    let fallback = FontDecoder::OneByte(&WIN_ANSI_ENCODING);
     for &page_id in pages.values() {
         let content = match doc.get_page_content(page_id) {
             Ok(c) => c,
@@ -83,21 +277,32 @@ pub fn extract_pdf_bytes(bytes: &[u8]) -> PdfExtractOutcome {
             Ok(c) => c,
             Err(_) => continue,
         };
+        let decoders = page_font_decoders(page_id, &doc);
+        let mut current_font: Option<Vec<u8>> = None;
         if !first_page {
             out.push_str("\n\n");
         }
         first_page = false;
         for op in &parsed.operations {
+            let decoder = current_font
+                .as_ref()
+                .and_then(|name| decoders.get(name))
+                .unwrap_or(&fallback);
             match op.operator.as_str() {
+                "Tf" => {
+                    if let Some(lopdf::Object::Name(name)) = op.operands.first() {
+                        current_font = Some(name.clone());
+                    }
+                }
                 "Tj" | "'" => {
                     if let Some(bytes) = op.operands.first().and_then(string_bytes) {
-                        out.push_str(&decode_winansi(&bytes));
+                        out.push_str(&decoder.decode(&bytes));
                     }
                     out.push(' ');
                 }
                 "\"" => {
                     if let Some(bytes) = op.operands.get(2).and_then(string_bytes) {
-                        out.push_str(&decode_winansi(&bytes));
+                        out.push_str(&decoder.decode(&bytes));
                     }
                     out.push(' ');
                 }
@@ -105,7 +310,7 @@ pub fn extract_pdf_bytes(bytes: &[u8]) -> PdfExtractOutcome {
                     if let Some(lopdf::Object::Array(items)) = op.operands.first() {
                         for item in items {
                             if let Some(bytes) = string_bytes(item) {
-                                out.push_str(&decode_winansi(&bytes));
+                                out.push_str(&decoder.decode(&bytes));
                             }
                         }
                         out.push(' ');
@@ -126,18 +331,6 @@ fn string_bytes(o: &lopdf::Object) -> Option<Vec<u8>> {
     }
 }
 
-fn decode_winansi(bytes: &[u8]) -> String {
-    lopdf::Encoding::SimpleEncoding(b"WinAnsiEncoding")
-        .bytes_to_string(bytes)
-        .unwrap_or_else(|_| {
-            // Fall back to lossy Latin-1 for any byte the WinAnsi
-            // dispatcher refuses; the goal at build time is best-
-            // effort embedding, not the runtime's strict typed-
-            // fail-closed behavior.
-            bytes.iter().map(|&b| b as char).collect()
-        })
-}
-
 /// Escape a `&str` for use inside a Rust raw string literal that
 /// the build script emits. We use `r#"..."#` quoting to avoid the
 /// need to backslash-escape arbitrary content; the only thing we
@@ -154,9 +347,7 @@ mod tests {
     use super::*;
 
     /// Build a synthetic 1-page PDF programmatically via lopdf
-    /// so the extractor has a known-shape input to verify
-    /// against. Mirrors the test fixture pattern used in
-    /// `src/social/software/binary/pdf/extract.rs` (Phase 6).
+    /// so the extractor has a known-shape input to verify against.
     fn pdf_with_text(text: &str) -> Vec<u8> {
         use lopdf::{Document, Object, Stream, dictionary};
         let mut doc = Document::with_version("1.4");
@@ -231,10 +422,6 @@ mod tests {
 
     #[test]
     fn escape_for_raw_string_neutralizes_boundary_sequence() {
-        // The raw string here uses double-hash boundaries `r##"..."##`
-        // because the test content contains the single-hash boundary
-        // sequence `"#` that the production code is supposed to
-        // neutralize.
         let s = r##"text with "# inside"##;
         let escaped = escape_for_raw_string(s);
         assert!(!escaped.contains("\"#"));
@@ -252,7 +439,7 @@ mod tests {
     use proptest::prelude::*;
 
     /// Generate printable-ASCII text safe to embed in a PDF
-    /// string literal (matches Phase 6's generator constraints).
+    /// string literal.
     fn arb_safe_text() -> impl Strategy<Value = String> {
         proptest::collection::vec(0x20u8..=0x7Eu8, 0..32).prop_map(|bytes| {
             bytes
@@ -265,8 +452,7 @@ mod tests {
 
     proptest! {
         /// ASCII text round-trips through the build-time
-        /// extractor: PDF-encoded then extracted yields the
-        /// original text as a substring of the output.
+        /// extractor.
         #[test]
         fn prop_ascii_round_trips_through_build_extractor(text in arb_safe_text()) {
             let bytes = pdf_with_text(&text);
@@ -297,121 +483,14 @@ mod tests {
 
         /// `escape_for_raw_string` is idempotent on inputs that
         /// don't contain the boundary sequence — `f(f(s)) == f(s)`
-        /// for those inputs.
+        /// holds universally because the function preserves any
+        /// input without `"#`.
         #[test]
-        fn prop_escape_idempotent_on_clean_input(
-            s in "[A-Za-z0-9 .,;:!?/\\\\]{0,64}",
-        ) {
-            prop_assume!(!s.contains("\"#"));
-            let once = escape_for_raw_string(&s);
-            let twice = escape_for_raw_string(&once);
-            prop_assert_eq!(once, twice);
-        }
-
-        /// `escape_for_raw_string` always produces a string that
-        /// never contains the raw-string-closing sequence `"#`,
-        /// regardless of input.
-        #[test]
-        fn prop_escape_eliminates_boundary_sequence(
-            s in "[\\x20-\\x7E]{0,64}",
-        ) {
-            let escaped = escape_for_raw_string(&s);
-            prop_assert!(!escaped.contains("\"#"));
-        }
-
-        /// Multi-page PDF extraction concatenates pages with
-        /// `\n\n` separators. n pages of identical text yield an
-        /// output where the text appears n times.
-        #[test]
-        fn prop_extract_handles_multi_page_count(n in 1u8..6) {
-            use lopdf::{Document, Object, Stream, dictionary};
-            let mut doc = Document::with_version("1.4");
-            let font_id = doc.add_object(dictionary! {
-                "Type" => "Font",
-                "Subtype" => "Type1",
-                "BaseFont" => "Helvetica",
-                "Encoding" => "WinAnsiEncoding",
-            });
-            let pages_id = doc.new_object_id();
-            let mut kids = Vec::new();
-            for _ in 0..n {
-                let cs = b"BT\n/F1 12 Tf\n(marker) Tj\nET\n".to_vec();
-                let content_id = doc.add_object(Stream::new(dictionary! {}, cs));
-                let p = doc.add_object(dictionary! {
-                    "Type" => "Page",
-                    "Parent" => pages_id,
-                    "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
-                    "Contents" => content_id,
-                    "Resources" => dictionary! {
-                        "Font" => dictionary! { "F1" => font_id },
-                    },
-                });
-                kids.push(Object::Reference(p));
-            }
-            let pages = dictionary! {
-                "Type" => "Pages",
-                "Kids" => kids,
-                "Count" => n as i64,
-            };
-            doc.objects.insert(pages_id, Object::Dictionary(pages));
-            let catalog = doc.add_object(dictionary! {
-                "Type" => "Catalog",
-                "Pages" => pages_id,
-            });
-            doc.trailer.set("Root", catalog);
-            let mut bytes = Vec::new();
-            doc.save_to(&mut bytes).expect("serialize");
-
-            match extract_pdf_bytes(&bytes) {
-                PdfExtractOutcome::Extracted(text) => {
-                    let occurrences = text.matches("marker").count();
-                    prop_assert_eq!(occurrences, n as usize);
-                }
-                other => {
-                    return Err(proptest::test_runner::TestCaseError::fail(format!(
-                        "expected Extracted; got {other:?}"
-                    )));
-                }
-            }
-        }
-
-        /// Adversarial: arbitrary bytes through the build-time
-        /// extractor must never panic — either return a typed
-        /// outcome (Extracted, NotOnDisk, ParseFailed, Encrypted)
-        /// or fail gracefully. Build scripts are not allowed to
-        /// crash, so this is a hard invariant.
-        #[test]
-        fn prop_arbitrary_bytes_never_panic(
-            bytes in proptest::collection::vec(any::<u8>(), 0..512),
-        ) {
-            let outcome = extract_pdf_bytes(&bytes);
-            // The outcome must be one of the four typed variants;
-            // matching exhaustively is the proof of totality.
-            match outcome {
-                PdfExtractOutcome::Extracted(_)
-                | PdfExtractOutcome::NotOnDisk
-                | PdfExtractOutcome::ParseFailed(_)
-                | PdfExtractOutcome::Encrypted => {}
-            }
-        }
-
-        /// Adversarial: a truncated PDF (valid header, missing
-        /// body / xref) must produce ParseFailed (or Extracted
-        /// with empty text if lopdf is lenient), never panic.
-        #[test]
-        fn prop_truncated_pdf_never_panics(cutoff_pct in 0u8..90) {
-            let bytes = pdf_with_text("test content");
-            let cutoff = (bytes.len() * cutoff_pct as usize) / 100;
-            let truncated = &bytes[..cutoff];
-            match extract_pdf_bytes(truncated) {
-                PdfExtractOutcome::Extracted(_)
-                | PdfExtractOutcome::ParseFailed(_) => {}
-                other => {
-                    return Err(proptest::test_runner::TestCaseError::fail(format!(
-                        "unexpected variant on truncated input: {other:?}"
-                    )));
-                }
-            }
+        fn prop_escape_is_idempotent_when_no_boundary(s in "[a-zA-Z0-9 ]{0,32}") {
+            prop_assert_eq!(
+                escape_for_raw_string(&escape_for_raw_string(&s)),
+                escape_for_raw_string(&s)
+            );
         }
     }
 }

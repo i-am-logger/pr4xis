@@ -1162,8 +1162,6 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 [[package]]
 name = "lopdf"
 version = "0.40.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73fdcbab5b237a03984f83b1394dc534e0b1960675c7f3ec4d04dccc9032b56d"
 dependencies = [
  "aes",
  "bitflags",
@@ -1538,6 +1536,7 @@ dependencies = [
  "rustls-rustcrypto",
  "serde",
  "sha2 0.11.0",
+ "tempfile",
  "toml",
  "ureq",
 ]

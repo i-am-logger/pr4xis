@@ -67,11 +67,16 @@ use crate::social::compliance::statutes::sox_1514a::PDF_EXTRACTION;
 use crate::social::compliance::statutes::sox_1514a::statute;
 
 /// Return the canonical statutory text the audit operates on —
-/// **sliced to just § 1514A's content**, so the bridge audit's
-/// parser doesn't see adjacent sections or page chrome.
+/// sliced to just § 1514A's content. No hand-coded text
+/// normalization: any character substitution must come from the
+/// PDF's own font `/ToUnicode` CMap (Adobe Tech Note #5014;
+/// ISO 32000-2 §9.10.2), which is the font's authoritative
+/// glyph-code → Unicode map. Phase 4 of M4.γ handles this once
+/// `lopdf::encodings::cmap::ToUnicodeCMap` is publicly exposed
+/// (vendored lopdf with that patch pending; see M4.γ.6).
+///
 /// Returns `""` if no PDF has been fetched yet. The typed state
-/// is always reachable via [`PDF_EXTRACTION`] for callers that
-/// need to distinguish NotOnDisk / Encrypted / ParseFailed.
+/// is always reachable via [`PDF_EXTRACTION`].
 fn canonical_text() -> &'static str {
     let raw = PDF_EXTRACTION.text().unwrap_or("");
     slice_section_1514a(raw)
@@ -531,6 +536,32 @@ mod tests {
             | PdfBuildExtraction::ParseFailed { .. }
             | PdfBuildExtraction::Encrypted
             | PdfBuildExtraction::UnsupportedContentType { .. } => {}
+        }
+    }
+
+    /// AGL-resolved /Differences arrays must produce em-dashes
+    /// (U+2014) where WinAnsi byte 0xD0 appears with /emdash
+    /// override. The GPO USCODE PDF for § 1514A declares fonts
+    /// with that exact /Differences pattern; before AGL wiring,
+    /// the extractor produced `Ð` (WinAnsi 0xD0 = U+00D0 LATIN
+    /// CAPITAL LETTER ETH). After AGL wiring, em-dashes appear.
+    ///
+    /// This is the canonical regression guard for the M4.γ.7
+    /// /Differences resolution path.
+    #[test]
+    fn canonical_text_has_em_dashes_not_eth_glyph_when_extracted() {
+        if PDF_EXTRACTION.is_extracted() {
+            let text = canonical_text();
+            assert!(
+                text.contains('—'),
+                "canonical text should contain em-dashes (U+2014) — \
+                 AGL /Differences resolution may have regressed"
+            );
+            assert!(
+                !text.contains('Ð'),
+                "canonical text contains Ð (U+00D0); the WinAnsi-fallback \
+                 mojibake artifact is back — check pdf::agl integration"
+            );
         }
     }
 

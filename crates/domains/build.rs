@@ -118,6 +118,8 @@ fn main() {
 
     println!("cargo:rerun-if-changed={}", manifest_path.display());
     println!("cargo:rerun-if-changed={}", lock_path.display());
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=build_helpers/extract_pdf.rs");
 
     let manifest_text = std::fs::read_to_string(&manifest_path).expect("read praxis.toml");
     let lock_text = std::fs::read_to_string(&lock_path).expect("read praxis.lock");
@@ -128,60 +130,160 @@ fn main() {
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR is always set during builds");
     let out_dir = PathBuf::from(out_dir);
 
-    let mut sorted_names: Vec<_> = manifest.sources.keys().collect();
+    let mut sorted_names: Vec<_> = manifest.sources.keys().cloned().collect();
     sorted_names.sort();
 
-    for name in sorted_names {
+    // Single ontological dispatch: every registered source is
+    // routed by its ContentType (derived from the SourceTaxonomy
+    // kind), not by a hand-edited string list of kinds. New
+    // statute leaves are picked up automatically; new ContentTypes
+    // need exactly one new arm in `dispatch_codegen`.
+    for name in &sorted_names {
         let src = &manifest.sources[name];
-        // Codegen runs for `Statute` (jurisdiction-agnostic parent) and
-        // every leaf concept that `is_a Statute` in SourceTaxonomy.
-        // Listed explicitly here because build.rs reads praxis.toml as
-        // raw TOML without the runtime taxonomy; new statute leaves
-        // need an entry in both source_taxonomy/ontology.rs `is_a`
-        // edges AND this list.
-        if !matches!(src.kind.as_str(), "Statute" | "UsFederalStatute") {
-            continue;
-        }
-        let key = format!("{}@{}", name, src.version);
-        let Some(structural) = lock.structural.get(&key) else {
-            println!(
-                "cargo:warning=Statute `{key}` has no [structural.*] block in \
-                 praxis.lock; skipping codegen for this entry."
-            );
-            continue;
-        };
-
-        let mut code = generate_statute_module(name, structural);
-
-        // ─── Phase 7 — emit typed PdfBuildExtraction const ───
-        // Resolve the expected PDF path for this statute and run
-        // the build-time text extractor. The result is emitted as
-        // `pub const PDF_EXTRACTION: PdfBuildExtraction = ...` so
-        // downstream runtime code can pattern-match on a typed
-        // outcome instead of reading a generic Option.
-        let pdf_path = expected_pdf_path(&workspace_root, name, &src.version);
-        let outcome = extract_pdf_to_text(&pdf_path);
-        let extraction_const =
-            emit_pdf_build_extraction_const(&outcome, &pdf_bytes_hash(&pdf_path));
-        code.push_str("\n\n");
-        code.push_str(&extraction_const);
-
-        let out_path = out_dir.join(format!("{}_codegen.rs", name));
-        std::fs::write(&out_path, code).expect("write generated statute module");
-
-        eprintln!(
-            "Generated statute `{name}`: {} terms, {} relations, extraction={} -> {}",
-            structural.terms.len(),
-            structural.relations.len(),
-            match &outcome {
-                PdfExtractOutcome::Extracted(_) => "Extracted",
-                PdfExtractOutcome::NotOnDisk => "NotOnDisk",
-                PdfExtractOutcome::ParseFailed(_) => "ParseFailed",
-                PdfExtractOutcome::Encrypted => "Encrypted",
-            },
-            out_path.display()
-        );
+        let ct = content_type_for_kind(&src.kind);
+        dispatch_codegen(name, src, ct, &workspace_root, &lock, &out_dir);
     }
+}
+
+/// Route a registered source to its codegen path based on its
+/// canonical content type. Mirrors
+/// `applied::data_provisioning::ontology::canonical_encoding` —
+/// duplicated here because build.rs cannot depend on the crate it
+/// is building.
+fn dispatch_codegen(
+    name: &str,
+    src: &RawSource,
+    ct: Option<&'static str>,
+    workspace_root: &std::path::Path,
+    lock: &RawLockFile,
+    out_dir: &std::path::Path,
+) {
+    match ct {
+        Some("Pdf") => emit_statute_via_pdf(name, src, workspace_root, lock, out_dir),
+        Some("UslmXml") => emit_statute_via_uslm(name, src, workspace_root, out_dir),
+        // XmlLmf is handled by the wasm crate's build.rs;
+        // AdobeGlyphList ships as include_str!. Plaintext / Json /
+        // Video / Audio / Binary have no codegen yet — they decode
+        // lazily at runtime.
+        _ => {}
+    }
+}
+
+/// Kind → ContentType mapping (duplicates `canonical_encoding`).
+/// Kept as a `&'static str` so build.rs doesn't drag in the
+/// pr4xis-domains ContentType enum.
+fn content_type_for_kind(kind: &str) -> Option<&'static str> {
+    Some(match kind {
+        "Language" => "XmlLmf",
+        "Statute" | "UsFederalStatute" => "Pdf",
+        "UsCodeTitle" => "UslmXml",
+        "Regulation" | "ConstitutionalArticle" | "ProceduralRule" | "CaseLaw" => "Pdf",
+        "LegalLexicon" => "Json",
+        "TypographicGlyphSet" => "AdobeGlyphList",
+        // Abstract / non-leaf concepts have no decoder.
+        _ => return None,
+    })
+}
+
+/// Codegen for sources whose canonical content type is PDF — the
+/// existing `[structural.*]`-driven path that builds an OntologyBuilder
+/// from the lock's hand-curated structural data and emits a
+/// per-statute Concept module. Also emits a typed
+/// `PdfBuildExtraction` const for the on-disk PDF.
+fn emit_statute_via_pdf(
+    name: &str,
+    src: &RawSource,
+    workspace_root: &std::path::Path,
+    lock: &RawLockFile,
+    out_dir: &std::path::Path,
+) {
+    let key = format!("{}@{}", name, src.version);
+    let Some(structural) = lock.structural.get(&key) else {
+        println!(
+            "cargo:warning=Statute `{key}` has no [structural.*] block in \
+             praxis.lock; skipping codegen for this entry."
+        );
+        return;
+    };
+
+    let mut code = generate_statute_module(name, structural);
+
+    let pdf_path = expected_pdf_path(workspace_root, name, &src.version);
+    if pdf_path.exists() {
+        println!("cargo:rerun-if-changed={}", pdf_path.display());
+    }
+    let outcome = extract_pdf_to_text(&pdf_path);
+    let extraction_const = emit_pdf_build_extraction_const(&outcome, &pdf_bytes_hash(&pdf_path));
+    code.push_str("\n\n");
+    code.push_str(&extraction_const);
+
+    let out_path = out_dir.join(format!("{}_codegen.rs", name));
+    std::fs::write(&out_path, code).expect("write generated statute module");
+
+    eprintln!(
+        "Generated statute `{name}`: {} terms, {} relations, extraction={} -> {}",
+        structural.terms.len(),
+        structural.relations.len(),
+        match &outcome {
+            PdfExtractOutcome::Extracted(_) => "Extracted",
+            PdfExtractOutcome::NotOnDisk => "NotOnDisk",
+            PdfExtractOutcome::ParseFailed(_) => "ParseFailed",
+            PdfExtractOutcome::Encrypted => "Encrypted",
+        },
+        out_path.display()
+    );
+}
+
+/// Codegen for sources whose canonical content type is USLM XML —
+/// the whole-title path. Parses the on-disk title XML, emits every
+/// `<section>` as a `StaticStatute` entry in a `pub static SECTIONS`
+/// array. The runtime module at
+/// `social::compliance::statutes::us_code::{name}` `include!`s the
+/// output to expose `section()` / `all_sections()` accessors.
+fn emit_statute_via_uslm(
+    name: &str,
+    src: &RawSource,
+    workspace_root: &std::path::Path,
+    out_dir: &std::path::Path,
+) {
+    let xml_path = expected_usc_title_path(workspace_root, name, &src.version);
+    if !xml_path.exists() {
+        println!(
+            "cargo:warning=USC title `{name}@{version}` XML not on disk at \
+             {path}; emitting empty codegen stub. Run `pr4xis update {name}` to \
+             fetch.",
+            version = src.version,
+            path = xml_path.display(),
+        );
+        let stub = format!(
+            "// Stub: USC title `{name}@{version}` XML not on disk.\n\
+             pub static SECTIONS: &[StaticStatute] = &[];\n",
+            version = src.version,
+        );
+        let out_path = out_dir.join(format!("{name}_codegen.rs"));
+        std::fs::write(&out_path, stub).expect("write title stub");
+        return;
+    }
+    println!("cargo:rerun-if-changed={}", xml_path.display());
+    let source = pr4xis::codegen::uslm::generate_title_module_source(&xml_path)
+        .expect("generate title module source");
+    let out_path = out_dir.join(format!("{name}_codegen.rs"));
+    let section_count = source.matches("StaticStatute {").count();
+    std::fs::write(&out_path, source).expect("write title codegen");
+    eprintln!(
+        "Generated USC title `{name}`: {section_count} sections -> {}",
+        out_path.display()
+    );
+}
+
+/// Resolve the expected on-disk USLM XML path for a registered
+/// USC title. Mirrors the runtime `RegistryEntry::local_path()`
+/// for the `UsCodeTitle` kind (`legal/uscode/<name>/<name>-<version>.xml`).
+fn expected_usc_title_path(workspace_root: &std::path::Path, name: &str, version: &str) -> PathBuf {
+    workspace_root
+        .join("crates/domains/data/legal/uscode")
+        .join(name)
+        .join(format!("{name}-{version}.xml"))
 }
 
 // ---------------------------------------------------------------------------

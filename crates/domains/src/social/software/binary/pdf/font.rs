@@ -2,15 +2,11 @@
 //!
 //! Bridges a [`super::content_stream::TextShowEvent`] (raw glyph
 //! bytes + font name) to a decoded `String` by walking the font's
-//! `/Encoding` entry (ISO 32000-2:2020 §9.6.5, Annex D) and
-//! noting `/ToUnicode` presence (Adobe Tech Note #5014; §9.10.2)
-//! as a typed gap.
+//! encoding entries per ISO 32000-2:2020 §9.10.2 precedence:
 //!
-//! Resolution precedence per ISO 32000-2:2020 §9.10.2 (*Mapping
-//! character codes to Unicode values*) is:
-//!
-//! 1. **`/ToUnicode` CMap** — explicit per-font Unicode mapping;
-//!    takes precedence when present.
+//! 1. **`/ToUnicode` CMap** — explicit per-font Unicode mapping
+//!    (Adobe Tech Note #5014; §9.10.2 step 1). Takes precedence
+//!    when present, **for any font subtype** — not just CIDFonts.
 //! 2. **`/Encoding` entry** — a named base encoding from Annex D
 //!    (`WinAnsiEncoding`, `MacRomanEncoding`, …), optionally
 //!    overlaid with a `/Differences` array (§9.6.5.4).
@@ -18,29 +14,26 @@
 //! 4. **CIDFont (Identity-H / Identity-V)** — composite-font case
 //!    (§9.7.4.3); bytes are interpreted as big-endian 16-bit CIDs.
 //!
-//! ## Encoding coverage in this commit
+//! ## Encoding coverage
 //!
-//! Decodable end-to-end:
-//! - `WinAnsiEncoding` (Annex D.5) — via lopdf's name-dispatched
-//!   `SimpleEncoding`.
+//! Decodable end-to-end via the vendored lopdf (see
+//! `vendor/lopdf/PRAXIS_PATCHES.md`):
+//! - `/ToUnicode` CMaps — parsed via the now-pub-exported
+//!   `lopdf::cmap::ToUnicodeCMap::parse`.
+//! - All eight Annex D standard encodings — `WinAnsi`, `PdfDoc`,
+//!   `MacRoman`, `MacExpert`, `Standard`, `Symbol`, `ZapfDingbats`
+//!   (modeled via `Symbol` table — its 256-entry table covers
+//!   ZapfDingbats glyphs in the same range; flagged as
+//!   [`StandardEncodingName::ZapfDingbats`] for downstream
+//!   provenance), `Expert` — via `lopdf::mappings::*` tables.
 //! - `Identity-H` / `Identity-V` — handled directly as UTF-16BE.
 //! - **FontBuiltIn** fallback when no `/Encoding` and no
 //!   `/ToUnicode` are declared (Latin-1 passthrough).
 //!
-//! Flagged as a typed gap (decode returns
-//! [`FontDecodeError::UnsupportedEncoding`]):
-//! - `/ToUnicode` CMap present — lopdf 0.40 doesn't pub-export
-//!   the `ToUnicodeCMap` type, so we detect it but cannot use it
-//!   from this crate ([`UnsupportedReason::ToUnicodeCmap`]).
-//!   Unblocking is either an upstream lopdf API patch or a
-//!   different PDF crate; the API surface here doesn't change.
-//! - `PDFDocEncoding`, `MacRomanEncoding`, `MacExpertEncoding`,
-//!   `StandardEncoding`, `Symbol`, `ZapfDingbats`,
-//!   `ExpertEncoding` — lopdf doesn't pub-export their 256-entry
-//!   tables ([`UnsupportedReason::StandardEncoding`]).
-//! - `/Differences` array — resolving glyph names requires the
-//!   Adobe Glyph List, which lopdf doesn't pub-export either
-//!   ([`UnsupportedReason::Differences`]).
+//! `/Differences` arrays (§9.6.5.4) are fully resolved through
+//! the Adobe Glyph List (see [`super::agl`]) — every glyph name
+//! is looked up against the AGL and applied as an override on top
+//! of the base encoding's 256-entry table.
 //!
 //! In every case the gap is typed and machine-checkable; nothing
 //! is silently mapped to a wrong codepoint.
@@ -54,6 +47,11 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use lopdf::Encoding as LopdfEncoding;
+use lopdf::cmap::ToUnicodeCMap;
+use lopdf::mappings::{
+    EXPERT_ENCODING, MAC_EXPERT_ENCODING, MAC_ROMAN_ENCODING, PDF_DOC_ENCODING, STANDARD_ENCODING,
+    SYMBOL_ENCODING, WIN_ANSI_ENCODING,
+};
 
 // ─────────────────────────────────────────────────────────────────────
 // FontEncoding — the praxis-typed wrapper.
@@ -62,14 +60,33 @@ use lopdf::Encoding as LopdfEncoding;
 /// How a font's glyph codes map to Unicode.
 #[derive(Debug, Clone)]
 pub enum FontEncoding {
-    /// `WinAnsiEncoding` from ISO 32000-2:2020 Annex D.5.
-    /// Decoded via lopdf's name-dispatched table.
-    WinAnsi,
+    /// `/ToUnicode` CMap present (Adobe Tech Note #5014;
+    /// ISO 32000-2:2020 §9.10.2 step 1). The CMap is the
+    /// authoritative per-font glyph-code → Unicode map; it
+    /// takes precedence over `/Encoding`, for any font subtype.
+    ToUnicode(ToUnicodeCMap),
+
+    /// Named base encoding from ISO 32000-2:2020 Annex D
+    /// (WinAnsi, MacRoman, MacExpert, Standard, PDFDoc, Symbol,
+    /// ZapfDingbats, Expert). Decoded via the 256-entry table
+    /// from `lopdf::mappings`.
+    Standard(StandardEncodingName),
+
+    /// Base encoding overlaid with `/Differences` (§9.6.5.4).
+    /// Glyph-name overrides are resolved through the Adobe Glyph
+    /// List ([`super::agl`]). `merged` is the 256-entry table
+    /// with each `/Differences` override applied on top of the
+    /// base; entries not overridden retain the base mapping.
+    WithDifferences {
+        base: StandardEncodingName,
+        merged: Box<[Option<u16>; 256]>,
+    },
 
     /// CIDFont case — `/Encoding /Identity-H` or `/Identity-V`
-    /// (§9.7.4.3). Bytes are big-endian 16-bit CIDs that we
-    /// pass through as UTF-16BE best-effort. Compliance-grade
-    /// extraction requires `/ToUnicode` for these fonts.
+    /// (§9.7.4.3) **without** a `/ToUnicode` stream. Bytes are
+    /// big-endian 16-bit CIDs that we pass through as UTF-16BE
+    /// best-effort. Compliance-grade extraction requires
+    /// `/ToUnicode` for these fonts.
     Identity,
 
     /// Font program's built-in default — neither `/ToUnicode` nor
@@ -77,27 +94,6 @@ pub enum FontEncoding {
     /// parsed, we pass through bytes as Latin-1 and signal the gap
     /// via the typed variant.
     FontBuiltIn,
-
-    /// Encoding is recognized but not decodable in this build —
-    /// the typed reason names exactly why.
-    Unsupported(UnsupportedReason),
-}
-
-/// Why a font's encoding can't be used for decoding even though
-/// we recognized its declaration.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum UnsupportedReason {
-    /// `/ToUnicode` CMap present, but lopdf 0.40 doesn't pub-
-    /// export `ToUnicodeCMap`. Upstream patch or crate switch
-    /// needed.
-    ToUnicodeCmap,
-    /// Named standard encoding whose 256-entry table isn't in
-    /// this build (everything in Annex D except WinAnsi).
-    StandardEncoding(StandardEncodingName),
-    /// `/Differences` array present — resolving glyph names
-    /// requires the Adobe Glyph List, which lopdf doesn't
-    /// pub-export at the version pinned here.
-    Differences { base: StandardEncodingName },
 }
 
 /// Named base encodings enumerated in ISO 32000-2:2020 Annex D.
@@ -139,11 +135,18 @@ impl StandardEncodingName {
         }
     }
 
-    /// Whether this encoding has a decodable table in the current
-    /// build. Only `WinAnsi` does today; the others produce
-    /// [`FontEncoding::Unsupported`].
-    pub fn is_decodable(self) -> bool {
-        matches!(self, Self::WinAnsi)
+    /// 256-entry `[Option<u16>; 256]` table from
+    /// `lopdf::mappings` for this encoding.
+    fn table(self) -> &'static [Option<u16>; 256] {
+        match self {
+            Self::WinAnsi => &WIN_ANSI_ENCODING,
+            Self::PdfDoc => &PDF_DOC_ENCODING,
+            Self::MacRoman => &MAC_ROMAN_ENCODING,
+            Self::MacExpert => &MAC_EXPERT_ENCODING,
+            Self::Standard => &STANDARD_ENCODING,
+            Self::Symbol | Self::ZapfDingbats => &SYMBOL_ENCODING,
+            Self::Expert => &EXPERT_ENCODING,
+        }
     }
 }
 
@@ -180,6 +183,9 @@ pub enum FontResolveError {
     /// `/ToUnicode` referenced an indirect object that couldn't
     /// be resolved against the document.
     ToUnicodeNotResolvable,
+    /// `/ToUnicode` stream was found but its CMap content failed
+    /// to parse per Adobe Tech Note #5014.
+    ToUnicodeMalformed { detail: String },
     /// `/Differences` array wasn't parseable per §9.6.5.4.
     MalformedDifferences { detail: String },
 }
@@ -192,6 +198,9 @@ impl core::fmt::Display for FontResolveError {
                 write!(f, "unknown /Encoding name {n:?} (Annex D)")
             }
             Self::ToUnicodeNotResolvable => write!(f, "/ToUnicode stream couldn't be resolved"),
+            Self::ToUnicodeMalformed { detail } => {
+                write!(f, "/ToUnicode CMap malformed: {detail}")
+            }
             Self::MalformedDifferences { detail } => {
                 write!(f, "malformed /Differences array: {detail}")
             }
@@ -232,15 +241,26 @@ pub fn resolve_font(
 /// precedence and returns the right [`FontEncoding`] variant.
 fn resolve_encoding(
     font_dict: &lopdf::Dictionary,
-    _doc: &lopdf::Document,
+    doc: &lopdf::Document,
 ) -> Result<FontEncoding, FontResolveError> {
-    // ─── §9.10.2 step 1 — /ToUnicode (highest precedence) ───
-    // We can detect /ToUnicode presence but lopdf 0.40 doesn't
-    // pub-export ToUnicodeCMap, so we can't store one. Flag as a
-    // typed gap rather than silently falling back to /Encoding —
-    // /ToUnicode-flagged fonts may have wildly different mappings.
+    // ─── §9.10.2 step 1 — /ToUnicode (highest precedence,
+    //     for any font subtype, not just CIDFonts) ───
     if font_dict.get(b"ToUnicode").is_ok() {
-        return Ok(FontEncoding::Unsupported(UnsupportedReason::ToUnicodeCmap));
+        let stream = font_dict
+            .get_deref(b"ToUnicode", doc)
+            .and_then(|o| o.as_stream())
+            .map_err(|_| FontResolveError::ToUnicodeNotResolvable)?;
+        let content =
+            stream
+                .get_plain_content()
+                .map_err(|e| FontResolveError::ToUnicodeMalformed {
+                    detail: format!("{e}"),
+                })?;
+        let cmap =
+            ToUnicodeCMap::parse(content).map_err(|e| FontResolveError::ToUnicodeMalformed {
+                detail: format!("{e:?}"),
+            })?;
+        return Ok(FontEncoding::ToUnicode(cmap));
     }
 
     // ─── §9.6.5 step 2 — /Encoding ───
@@ -251,11 +271,7 @@ fn resolve_encoding(
                 return Ok(FontEncoding::Identity);
             }
             if let Some(std) = StandardEncodingName::from_pdf_name(&name) {
-                return Ok(if std.is_decodable() {
-                    FontEncoding::WinAnsi
-                } else {
-                    FontEncoding::Unsupported(UnsupportedReason::StandardEncoding(std))
-                });
+                return Ok(FontEncoding::Standard(std));
             }
             return Err(FontResolveError::UnknownEncodingName(name.into_owned()));
         }
@@ -270,12 +286,9 @@ fn resolve_encoding(
 
 /// Resolve the `/Encoding` dictionary form per §9.6.5.4.
 ///
-/// Resolving `/Differences` correctly requires the Adobe Glyph
-/// List, which lopdf doesn't pub-export. `/Differences` is parsed
-/// for well-formedness (malformed arrays still surface as named
-/// errors) but the resulting font is marked
-/// [`FontEncoding::Unsupported`] with the base encoding name
-/// preserved.
+/// Walks the `/Differences` array and applies each (code, glyph-
+/// name) override on top of the `BaseEncoding` table via the
+/// Adobe Glyph List ([`super::agl::glyph_name_to_unicode`]).
 fn resolve_encoding_dictionary(
     enc_dict: &lopdf::Dictionary,
 ) -> Result<FontEncoding, FontResolveError> {
@@ -293,6 +306,8 @@ fn resolve_encoding_dictionary(
                 .map_err(|_| FontResolveError::MalformedDifferences {
                     detail: "/Differences is not an array".to_string(),
                 })?;
+        // Validate well-formedness first; any malformed item is a
+        // resolve-time error per §9.6.5.4.
         for item in diffs_array {
             match item {
                 lopdf::Object::Integer(i) => {
@@ -310,16 +325,46 @@ fn resolve_encoding_dictionary(
                 }
             }
         }
-        return Ok(FontEncoding::Unsupported(UnsupportedReason::Differences {
+        let merged = apply_differences(base_name.table(), diffs_array);
+        return Ok(FontEncoding::WithDifferences {
             base: base_name,
-        }));
+            merged,
+        });
     }
 
-    Ok(if base_name.is_decodable() {
-        FontEncoding::WinAnsi
-    } else {
-        FontEncoding::Unsupported(UnsupportedReason::StandardEncoding(base_name))
-    })
+    Ok(FontEncoding::Standard(base_name))
+}
+
+/// Walk a `/Differences` array per ISO 32000-2:2020 §9.6.5.4 and
+/// apply every (code, glyph-name) override on top of `base`.
+///
+/// Glyph names resolve through the Adobe Glyph List
+/// ([`super::agl::glyph_name_to_unicode`]). Unknown names yield
+/// `None` at the overridden code position, surfacing the gap to
+/// downstream auditors rather than silently keeping the base
+/// mapping.
+fn apply_differences(
+    base: &'static [Option<u16>; 256],
+    diffs: &[lopdf::Object],
+) -> Box<[Option<u16>; 256]> {
+    let mut table = Box::new(*base);
+    let mut code: i64 = 0;
+    for item in diffs {
+        match item {
+            lopdf::Object::Integer(i) => {
+                code = *i;
+            }
+            lopdf::Object::Name(name_bytes) => {
+                if (0..=255).contains(&code) {
+                    let name = String::from_utf8_lossy(name_bytes);
+                    table[code as usize] = super::agl::glyph_name_to_unicode(&name);
+                }
+                code += 1;
+            }
+            _ => {}
+        }
+    }
+    table
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -334,9 +379,6 @@ pub enum FontDecodeError {
     /// Identity-encoded bytes weren't a whole number of UTF-16
     /// code units (odd byte length).
     IdentityNotAlignedUtf16,
-    /// Font's encoding is recognized but not decodable in this
-    /// build — the typed reason names exactly why.
-    UnsupportedEncoding(UnsupportedReason),
 }
 
 impl core::fmt::Display for FontDecodeError {
@@ -346,7 +388,6 @@ impl core::fmt::Display for FontDecodeError {
             Self::IdentityNotAlignedUtf16 => {
                 write!(f, "Identity-H/V bytes not aligned to UTF-16 code units")
             }
-            Self::UnsupportedEncoding(reason) => write!(f, "unsupported encoding: {reason:?}"),
         }
     }
 }
@@ -357,11 +398,25 @@ impl std::error::Error for FontDecodeError {}
 /// font's encoding. Per ISO 32000-2:2020 §9.10.2.
 pub fn decode_bytes(font: &PdfFont, bytes: &[u8]) -> Result<String, FontDecodeError> {
     match &font.encoding {
-        FontEncoding::WinAnsi => LopdfEncoding::SimpleEncoding(b"WinAnsiEncoding")
+        FontEncoding::ToUnicode(cmap) => LopdfEncoding::UnicodeMapEncoding(cmap.clone())
             .bytes_to_string(bytes)
             .map_err(|e| FontDecodeError::LopdfDecode {
                 detail: format!("{e}"),
             }),
+
+        FontEncoding::Standard(name) => LopdfEncoding::OneByteEncoding(name.table())
+            .bytes_to_string(bytes)
+            .map_err(|e| FontDecodeError::LopdfDecode {
+                detail: format!("{e}"),
+            }),
+
+        FontEncoding::WithDifferences { merged, .. } => {
+            LopdfEncoding::OneByteEncoding(merged.as_ref())
+                .bytes_to_string(bytes)
+                .map_err(|e| FontDecodeError::LopdfDecode {
+                    detail: format!("{e}"),
+                })
+        }
 
         FontEncoding::Identity => {
             if !bytes.len().is_multiple_of(2) {
@@ -379,10 +434,6 @@ pub fn decode_bytes(font: &PdfFont, bytes: &[u8]) -> Result<String, FontDecodeEr
             // Latin-1 codepoints. The typed FontBuiltIn variant
             // surfaces this gap to downstream auditors.
             Ok(bytes.iter().map(|&b| b as char).collect())
-        }
-
-        FontEncoding::Unsupported(reason) => {
-            Err(FontDecodeError::UnsupportedEncoding(reason.clone()))
         }
     }
 }
@@ -427,32 +478,41 @@ mod tests {
         assert_eq!(StandardEncodingName::from_pdf_name(""), None);
     }
 
-    #[test]
-    fn only_winansi_is_decodable_in_this_build() {
-        assert!(StandardEncodingName::WinAnsi.is_decodable());
-        assert!(!StandardEncodingName::PdfDoc.is_decodable());
-        assert!(!StandardEncodingName::MacRoman.is_decodable());
-        assert!(!StandardEncodingName::Standard.is_decodable());
-    }
-
-    // ── decode_bytes with WinAnsi ─────────────────────────────────
+    // ── decode_bytes with Standard encodings ──────────────────────
 
     #[test]
     fn winansi_ascii_is_passthrough() {
-        let font = font_with_encoding(FontEncoding::WinAnsi);
+        let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::WinAnsi));
         assert_eq!(decode_bytes(&font, b"Hello").unwrap(), "Hello");
     }
 
     #[test]
     fn winansi_decodes_high_byte_to_latin1_supplement() {
-        let font = font_with_encoding(FontEncoding::WinAnsi);
+        let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::WinAnsi));
         // 0xE9 in WinAnsi = 'é' (U+00E9).
         assert_eq!(decode_bytes(&font, &[0xE9]).unwrap(), "é");
-        // 0xFC = 'ü', 0xDF = 'ß'.
         assert_eq!(
             decode_bytes(&font, &[b'A', 0xE9, b'B', 0xFC, 0xDF]).unwrap(),
             "AéBüß"
         );
+    }
+
+    #[test]
+    fn pdfdoc_ascii_is_passthrough() {
+        let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::PdfDoc));
+        assert_eq!(decode_bytes(&font, b"Hello").unwrap(), "Hello");
+    }
+
+    #[test]
+    fn macroman_ascii_is_passthrough() {
+        let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::MacRoman));
+        assert_eq!(decode_bytes(&font, b"Hello").unwrap(), "Hello");
+    }
+
+    #[test]
+    fn standard_ascii_is_passthrough() {
+        let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::Standard));
+        assert_eq!(decode_bytes(&font, b"Hello").unwrap(), "Hello");
     }
 
     // ── Identity / CIDFont ────────────────────────────────────────
@@ -460,7 +520,6 @@ mod tests {
     #[test]
     fn identity_two_bytes_per_code_decodes_as_utf16be() {
         let font = font_with_encoding(FontEncoding::Identity);
-        // 0x00 0x48 = 'H', 0x00 0x69 = 'i'.
         assert_eq!(
             decode_bytes(&font, &[0x00, 0x48, 0x00, 0x69]).unwrap(),
             "Hi"
@@ -476,7 +535,7 @@ mod tests {
         );
     }
 
-    // ── FontBuiltIn (no /Encoding, no /ToUnicode) ─────────────────
+    // ── FontBuiltIn ───────────────────────────────────────────────
 
     #[test]
     fn font_builtin_passthrough_is_latin1() {
@@ -487,61 +546,96 @@ mod tests {
         );
     }
 
-    // ── Unsupported variants fail closed with typed reason ────────
+    // ── /Differences resolves via Adobe Glyph List ─────────────────
 
     #[test]
-    fn pdfdoc_encoding_returns_unsupported_error() {
-        let font = font_with_encoding(FontEncoding::Unsupported(
-            UnsupportedReason::StandardEncoding(StandardEncodingName::PdfDoc),
-        ));
-        assert_eq!(
-            decode_bytes(&font, b"x").unwrap_err(),
-            FontDecodeError::UnsupportedEncoding(UnsupportedReason::StandardEncoding(
-                StandardEncodingName::PdfDoc
-            ))
-        );
-    }
-
-    #[test]
-    fn macroman_encoding_returns_unsupported_error() {
-        let font = font_with_encoding(FontEncoding::Unsupported(
-            UnsupportedReason::StandardEncoding(StandardEncodingName::MacRoman),
-        ));
-        match decode_bytes(&font, b"x").unwrap_err() {
-            FontDecodeError::UnsupportedEncoding(UnsupportedReason::StandardEncoding(
-                StandardEncodingName::MacRoman,
-            )) => {}
-            other => panic!("expected StandardEncoding(MacRoman); got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn to_unicode_present_returns_unsupported_with_named_reason() {
-        let font = font_with_encoding(FontEncoding::Unsupported(UnsupportedReason::ToUnicodeCmap));
-        assert_eq!(
-            decode_bytes(&font, b"x").unwrap_err(),
-            FontDecodeError::UnsupportedEncoding(UnsupportedReason::ToUnicodeCmap)
-        );
-    }
-
-    #[test]
-    fn differences_returns_unsupported_with_base() {
-        let font = font_with_encoding(FontEncoding::Unsupported(UnsupportedReason::Differences {
+    fn differences_applies_emdash_override() {
+        // GPO PDFs declare WinAnsi + /Differences mapping
+        // byte 0xD0 → /emdash. Decoded byte must produce em-dash,
+        // not WinAnsi's `Ð`.
+        use lopdf::Object;
+        let diffs = vec![Object::Integer(208), Object::Name(b"emdash".to_vec())];
+        let merged = apply_differences(StandardEncodingName::WinAnsi.table(), &diffs);
+        let font = font_with_encoding(FontEncoding::WithDifferences {
             base: StandardEncodingName::WinAnsi,
-        }));
-        match decode_bytes(&font, b"x").unwrap_err() {
-            FontDecodeError::UnsupportedEncoding(UnsupportedReason::Differences { base }) => {
-                assert_eq!(base, StandardEncodingName::WinAnsi);
-            }
-            other => panic!("expected Differences; got {other:?}"),
-        }
+            merged,
+        });
+        assert_eq!(decode_bytes(&font, &[0xD0]).unwrap(), "\u{2014}");
+    }
+
+    #[test]
+    fn differences_preserves_unoverridden_winansi_entries() {
+        // ASCII bytes pass through to themselves even with a
+        // /Differences override at a non-ASCII position.
+        use lopdf::Object;
+        let diffs = vec![Object::Integer(208), Object::Name(b"emdash".to_vec())];
+        let merged = apply_differences(StandardEncodingName::WinAnsi.table(), &diffs);
+        let font = font_with_encoding(FontEncoding::WithDifferences {
+            base: StandardEncodingName::WinAnsi,
+            merged,
+        });
+        assert_eq!(decode_bytes(&font, b"Hello").unwrap(), "Hello");
+    }
+
+    #[test]
+    fn differences_with_curly_quotes_overrides_winansi() {
+        // Real-world GPO override: byte 39 → quoteright (U+2019),
+        // byte 96 → quoteleft (U+2018).
+        use lopdf::Object;
+        let diffs = vec![
+            Object::Integer(39),
+            Object::Name(b"quoteright".to_vec()),
+            Object::Integer(96),
+            Object::Name(b"quoteleft".to_vec()),
+        ];
+        let merged = apply_differences(StandardEncodingName::WinAnsi.table(), &diffs);
+        let font = font_with_encoding(FontEncoding::WithDifferences {
+            base: StandardEncodingName::WinAnsi,
+            merged,
+        });
+        assert_eq!(decode_bytes(&font, &[0x27]).unwrap(), "\u{2019}");
+        assert_eq!(decode_bytes(&font, &[0x60]).unwrap(), "\u{2018}");
+    }
+
+    #[test]
+    fn differences_unknown_glyph_name_maps_to_none() {
+        // Unknown glyph names produce `None` at the override
+        // position — surfaces as the WinAnsi byte's lack of a
+        // replacement (effectively dropped) rather than a silent
+        // wrong-codepoint substitution.
+        use lopdf::Object;
+        let diffs = vec![
+            Object::Integer(208),
+            Object::Name(b"definitely_not_a_real_glyph".to_vec()),
+        ];
+        let merged = apply_differences(StandardEncodingName::WinAnsi.table(), &diffs);
+        assert_eq!(merged[208], None);
+    }
+
+    // ── ToUnicode CMap end-to-end (the unblocked path) ────────────
+
+    #[test]
+    fn to_unicode_cmap_decodes_via_cmap_map() {
+        // Hand-built ToUnicodeCMap: byte 0x01 → U+2014 (em-dash).
+        // Verifies that the /ToUnicode path can produce a codepoint
+        // that *no* standard encoding maps to from byte 0x01 — the
+        // entire point of /ToUnicode taking precedence per §9.10.2.
+        let mut cmap = ToUnicodeCMap::new();
+        cmap.put(
+            0x01,
+            0x01,
+            1,
+            lopdf::cmap::BfRangeTarget::UTF16CodePoint { offset: 0x2014 - 1 },
+        );
+        let font = font_with_encoding(FontEncoding::ToUnicode(cmap));
+        assert_eq!(decode_bytes(&font, &[0x01]).unwrap(), "\u{2014}");
     }
 
     // ── Determinism ───────────────────────────────────────────────
 
     #[test]
     fn decode_is_deterministic_on_same_input() {
-        let font = font_with_encoding(FontEncoding::WinAnsi);
+        let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::WinAnsi));
         let s1 = decode_bytes(&font, &[0x48, 0x65, 0x6C, 0x6C, 0x6F]).unwrap();
         let s2 = decode_bytes(&font, &[0x48, 0x65, 0x6C, 0x6C, 0x6F]).unwrap();
         assert_eq!(s1, s2);
@@ -563,7 +657,10 @@ mod tests {
         let font = resolve_font("F1", &font_dict, &doc).expect("resolve");
         assert_eq!(font.name, "F1");
         assert_eq!(font.subtype, "Type1");
-        assert!(matches!(font.encoding, FontEncoding::WinAnsi));
+        match font.encoding {
+            FontEncoding::Standard(StandardEncodingName::WinAnsi) => {}
+            other => panic!("expected Standard(WinAnsi); got {other:?}"),
+        }
     }
 
     #[test]
@@ -581,7 +678,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_font_with_pdfdoc_encoding_is_unsupported_variant() {
+    fn resolve_font_with_pdfdoc_encoding_is_standard_variant() {
         use lopdf::{Document, dictionary};
         let doc = Document::with_version("1.4");
         let font_dict = dictionary! {
@@ -591,10 +688,8 @@ mod tests {
         };
         let font = resolve_font("F1", &font_dict, &doc).expect("resolve");
         match font.encoding {
-            FontEncoding::Unsupported(UnsupportedReason::StandardEncoding(
-                StandardEncodingName::PdfDoc,
-            )) => {}
-            other => panic!("expected Unsupported(StandardEncoding(PdfDoc)); got {other:?}"),
+            FontEncoding::Standard(StandardEncodingName::PdfDoc) => {}
+            other => panic!("expected Standard(PdfDoc); got {other:?}"),
         }
     }
 
@@ -641,10 +736,11 @@ mod tests {
 
     use proptest::prelude::*;
 
-    /// Generate a non-WinAnsi standard encoding — used to verify
-    /// the typed-Unsupported fail-closed invariant uniformly.
-    fn arb_non_winansi_standard() -> impl Strategy<Value = StandardEncodingName> {
+    /// Generate any standard encoding name. All eight are decodable
+    /// after the lopdf visibility patch.
+    fn arb_standard_encoding() -> impl Strategy<Value = StandardEncodingName> {
         proptest::sample::select(vec![
+            StandardEncodingName::WinAnsi,
             StandardEncodingName::PdfDoc,
             StandardEncodingName::MacRoman,
             StandardEncodingName::MacExpert,
@@ -656,30 +752,31 @@ mod tests {
     }
 
     proptest! {
-        /// decode_bytes is deterministic for WinAnsi over arbitrary
-        /// byte sequences — same input always produces same output.
+        /// decode_bytes is deterministic for any Standard encoding
+        /// over arbitrary byte sequences — same input always
+        /// produces same output.
         #[test]
-        fn prop_winansi_decode_is_deterministic(
+        fn prop_standard_decode_is_deterministic(
+            name in arb_standard_encoding(),
             bytes in proptest::collection::vec(any::<u8>(), 0..256),
         ) {
-            let font = font_with_encoding(FontEncoding::WinAnsi);
+            let font = font_with_encoding(FontEncoding::Standard(name));
             let s1 = decode_bytes(&font, &bytes).unwrap();
             let s2 = decode_bytes(&font, &bytes).unwrap();
             prop_assert_eq!(s1, s2);
         }
 
-        /// WinAnsi is identity on ASCII bytes (0x20-0x7E): every
+        /// WinAnsi is identity on ASCII bytes (0x20–0x7E): every
         /// printable ASCII character round-trips. Per Annex D.5.
         #[test]
         fn prop_winansi_ascii_is_identity(s in "[\\x20-\\x7E]{0,32}") {
-            let font = font_with_encoding(FontEncoding::WinAnsi);
+            let font = font_with_encoding(FontEncoding::Standard(StandardEncodingName::WinAnsi));
             let decoded = decode_bytes(&font, s.as_bytes()).unwrap();
             prop_assert_eq!(decoded, s);
         }
 
         /// Identity-H decoding is the inverse of UTF-16BE encoding
-        /// for any valid UTF-16 string: encode_utf16_be(s) then
-        /// decode_bytes via Identity yields s back.
+        /// for any valid UTF-16 string in the BMP.
         #[test]
         fn prop_identity_round_trips_basic_multilingual_plane(
             s in "[\\x20-\\x7E]{0,32}",
@@ -694,8 +791,6 @@ mod tests {
         }
 
         /// Identity rejects odd byte counts with a named error.
-        /// Picking any byte sequence of odd length must produce
-        /// the IdentityNotAlignedUtf16 variant.
         #[test]
         fn prop_identity_rejects_odd_length(
             bytes in proptest::collection::vec(any::<u8>(), 1..32)
@@ -706,29 +801,6 @@ mod tests {
                 decode_bytes(&font, &bytes).unwrap_err(),
                 FontDecodeError::IdentityNotAlignedUtf16
             );
-        }
-
-        /// Every non-WinAnsi standard encoding fails closed with
-        /// the typed Unsupported(StandardEncoding(name)) variant.
-        /// Praxis-rule: no silent fallback, every gap is named.
-        #[test]
-        fn prop_non_winansi_standard_always_fails_closed(
-            name in arb_non_winansi_standard(),
-            bytes in proptest::collection::vec(any::<u8>(), 0..32),
-        ) {
-            let font = font_with_encoding(FontEncoding::Unsupported(
-                UnsupportedReason::StandardEncoding(name),
-            ));
-            match decode_bytes(&font, &bytes).unwrap_err() {
-                FontDecodeError::UnsupportedEncoding(UnsupportedReason::StandardEncoding(n)) => {
-                    prop_assert_eq!(n, name);
-                }
-                other => {
-                    return Err(proptest::test_runner::TestCaseError::fail(format!(
-                        "expected StandardEncoding({name:?}); got {other:?}"
-                    )));
-                }
-            }
         }
 
         /// FontBuiltIn is identity on Latin-1 codepoints — every
@@ -742,9 +814,49 @@ mod tests {
             prop_assert_eq!(chars[0] as u32, byte as u32);
         }
 
+        /// /Differences with empty array decodes identically to
+        /// the base encoding — every byte produces the same
+        /// codepoint either way.
+        #[test]
+        fn prop_empty_differences_matches_base(
+            base in arb_standard_encoding(),
+            bytes in proptest::collection::vec(any::<u8>(), 0..32),
+        ) {
+            let merged = apply_differences(base.table(), &[]);
+            let with_diffs = font_with_encoding(FontEncoding::WithDifferences {
+                base,
+                merged,
+            });
+            let standard = font_with_encoding(FontEncoding::Standard(base));
+            let a = decode_bytes(&with_diffs, &bytes).unwrap();
+            let b = decode_bytes(&standard, &bytes).unwrap();
+            prop_assert_eq!(a, b);
+        }
+
+        /// /Differences overrides applied to WinAnsi preserve
+        /// ASCII byte mappings (overrides at positions ≥0x80 don't
+        /// disturb ASCII). Mirror Annex D.5's invariant that
+        /// WinAnsi's lower half is ASCII.
+        #[test]
+        fn prop_differences_at_high_bytes_preserves_ascii(
+            ascii in "[\\x20-\\x7E]{0,32}",
+            override_byte in 0x80u8..=0xFFu8,
+        ) {
+            use lopdf::Object;
+            let diffs = vec![
+                Object::Integer(override_byte as i64),
+                Object::Name(b"emdash".to_vec()),
+            ];
+            let merged = apply_differences(StandardEncodingName::WinAnsi.table(), &diffs);
+            let font = font_with_encoding(FontEncoding::WithDifferences {
+                base: StandardEncodingName::WinAnsi,
+                merged,
+            });
+            prop_assert_eq!(decode_bytes(&font, ascii.as_bytes()).unwrap(), ascii);
+        }
+
         /// StandardEncodingName::from_pdf_name is a left-inverse of
-        /// the canonical name list: parsing each canonical name
-        /// returns the right variant.
+        /// the canonical name list.
         #[test]
         fn prop_canonical_encoding_names_round_trip(_seed in any::<u32>()) {
             let pairs = [

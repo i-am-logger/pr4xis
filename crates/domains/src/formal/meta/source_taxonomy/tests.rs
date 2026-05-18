@@ -34,11 +34,16 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn twelve_concepts() {
-    // Source, Lexicon, Language, DomainLexicon, LegalLexicon,
-    // LegalCorpus, Statute, UsFederalStatute, Regulation,
-    // ConstitutionalArticle, ProceduralRule, CaseLaw.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 12);
+fn fifteen_concepts() {
+    // Lexicon family (5): Source, Lexicon, Language, DomainLexicon,
+    //                     LegalLexicon.
+    // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
+    //                         UsCodeTitle, Regulation,
+    //                         ConstitutionalArticle, ProceduralRule,
+    //                         CaseLaw.
+    // TypographyResource family (2): TypographyResource,
+    //                                TypographicGlyphSet.
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 15);
 }
 
 #[test]
@@ -100,20 +105,24 @@ fn is_lexicon_recognizes_subtree() {
 }
 
 #[test]
-fn is_leaf_identifies_seven_leaves() {
+fn is_leaf_identifies_nine_leaves() {
     use SourceTaxonomyConcept as C;
     let leaves: Vec<_> = SourceTaxonomyConcept::variants()
         .into_iter()
         .filter(|c| is_leaf(*c))
         .collect();
-    // Language, LegalLexicon, UsFederalStatute, Regulation,
-    // ConstitutionalArticle, ProceduralRule, CaseLaw.
-    // Statute is the jurisdiction-agnostic parent of UsFederalStatute
-    // and therefore NOT a leaf.
-    assert_eq!(leaves.len(), 7);
+    // Language, LegalLexicon, UsFederalStatute, UsCodeTitle,
+    // Regulation, ConstitutionalArticle, ProceduralRule, CaseLaw,
+    // TypographicGlyphSet. Statute is the jurisdiction-agnostic
+    // parent of UsFederalStatute (not a leaf); TypographyResource
+    // is parent of TypographicGlyphSet.
+    assert_eq!(leaves.len(), 9);
     assert!(leaves.contains(&C::Language));
     assert!(leaves.contains(&C::UsFederalStatute));
+    assert!(leaves.contains(&C::UsCodeTitle));
+    assert!(leaves.contains(&C::TypographicGlyphSet));
     assert!(!leaves.contains(&C::Statute));
+    assert!(!leaves.contains(&C::TypographyResource));
     assert!(!leaves.contains(&C::Source));
     assert!(!leaves.contains(&C::LegalCorpus));
 }

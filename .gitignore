@@ -26,6 +26,11 @@ docs/chat/pkg/
 # Managed external data — fetched via `pr4xis update`, never committed
 crates/domains/data/wordnet/*.xml
 crates/domains/data/wordnet/*.xml.gz
+# U.S. Code USLM XML titles (uscode.house.gov, fetched as zip per
+# release point, extracted to per-title XML files).
+crates/domains/data/legal/uscode/**/*.xml
+crates/domains/data/legal/uscode/**/*.xml.gz
+crates/domains/data/legal/uscode/**/*.zip
 
 # Claude Code transient files
 .claude/scheduled_tasks.lock
