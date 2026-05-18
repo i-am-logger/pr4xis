@@ -96,6 +96,7 @@ pub struct Adjective {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Adverb {
     pub text: String,
+    pub interrogative: bool,
 }
 
 /// A preposition: "in", "on", "with".
@@ -271,11 +272,12 @@ impl LexicalEntry {
         }
     }
 
-    /// Is this an interrogative pronoun?
+    /// Is this an interrogative pronoun or adverb?
     /// Determined by the OLiA classification, not by the word itself.
     pub fn is_interrogative(&self) -> bool {
         match self {
             Self::Pronoun(p) => p.kind == PronounKind::Interrogative,
+            Self::Adverb(a) => a.interrogative,
             _ => false,
         }
     }

@@ -167,8 +167,8 @@ fn assign_type(word: &str, position: usize, language: &dyn Language) -> LambekTy
             return svo_types::question_copula();
         }
 
-        // Interrogative pronouns at sentence start → wh-question type
-        if first.is_some_and(|e| e.is_interrogative()) {
+        // Interrogative pronouns/adverbs at sentence start → wh-question type
+        if entries.iter().any(|e| e.is_interrogative()) {
             return svo_types::wh_what();
         }
     }

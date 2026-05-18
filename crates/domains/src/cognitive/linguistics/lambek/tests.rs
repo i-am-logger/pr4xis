@@ -283,6 +283,36 @@ fn what_is_a_dog() {
     assert_eq!(tokens[0].lambek_type, svo::wh_what()); // what
 }
 
+#[test]
+fn interrogative_adverbs_tokenize() {
+    let lang = sample_lang();
+    for word in ["how", "why", "where", "when"] {
+        let text = format!("{} are you", word);
+        let tokens = tokenize::tokenize(&text, &lang);
+        assert_eq!(
+            tokens[0].lambek_type,
+            svo::wh_what(),
+            "word '{}' should be tokenized as wh_what",
+            word
+        );
+    }
+}
+
+#[test]
+fn interrogative_pronouns_tokenize() {
+    let lang = sample_lang();
+    for word in ["whom", "whose"] {
+        let text = format!("{} is this", word);
+        let tokens = tokenize::tokenize(&text, &lang);
+        assert_eq!(
+            tokens[0].lambek_type,
+            svo::wh_what(),
+            "word '{}' should be tokenized as wh_what",
+            word
+        );
+    }
+}
+
 // =============================================================================
 // Type notation tests
 // =============================================================================
@@ -525,7 +555,11 @@ fn chart_reduce_prefers_question_over_declarative() {
     let type_sets = vec![vec![LambekType::s_dcl(), LambekType::q()]];
     let result = chart_reduce(&words, &type_sets);
     assert!(result.success);
-    assert_eq!(result.final_type, Some(LambekType::q()), "Should prefer S[q] over S[dcl]");
+    assert_eq!(
+        result.final_type,
+        Some(LambekType::q()),
+        "Should prefer S[q] over S[dcl]"
+    );
 }
 
 #[test]

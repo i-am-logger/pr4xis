@@ -248,7 +248,10 @@ pub fn lmf_pos_to_lexical_entries(
             }
         }
         lmf::LmfPos::Adjective => vec![LexicalEntry::Adjective(Adjective { text: word.into() })],
-        lmf::LmfPos::Adverb => vec![LexicalEntry::Adverb(Adverb { text: word.into() })],
+        lmf::LmfPos::Adverb => vec![LexicalEntry::Adverb(Adverb {
+            text: word.into(),
+            interrogative: false,
+        })],
         lmf::LmfPos::Determiner | lmf::LmfPos::Numeral => {
             vec![LexicalEntry::Determiner(Determiner {
                 text: word.into(),
@@ -617,12 +620,20 @@ fn build_english_function_words_embedded() -> HashMap<String, Vec<LexicalEntry>>
     }
 
     // ---- Interrogative Pronouns (OLiA: InterrogativePronoun) ----
-    for text in ["what", "who", "which"] {
+    for text in ["what", "who", "which", "whom", "whose"] {
         add(LexicalEntry::Pronoun(Pronoun {
             text: text.into(),
             number: Number::Singular,
             person: Person::Third,
             kind: PronounKind::Interrogative,
+        }));
+    }
+
+    // ---- Interrogative Adverbs ----
+    for text in ["how", "why", "where", "when"] {
+        add(LexicalEntry::Adverb(Adverb {
+            text: text.into(),
+            interrogative: true,
         }));
     }
 
@@ -636,7 +647,7 @@ fn build_english_function_words_embedded() -> HashMap<String, Vec<LexicalEntry>>
 
     // ---- Conjunctions (OLiA: Conjunction) ----
     for text in [
-        "and", "but", "or", "so", "yet", "nor", "because", "although", "if", "when",
+        "and", "but", "or", "so", "yet", "nor", "because", "although", "if",
     ] {
         add(LexicalEntry::Conjunction(Conjunction { text: text.into() }));
     }
