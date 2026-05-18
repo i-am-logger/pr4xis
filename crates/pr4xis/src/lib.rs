@@ -35,9 +35,11 @@ pub mod category;
 pub mod codegen;
 pub mod codegen_data;
 pub mod engine;
+pub mod entity_ref;
 pub mod logic;
 pub mod ontology;
 
+pub use entity_ref::EntityRef;
 pub use pr4xis_derive::ontology;
 
 // Re-export linkme/paste so downstream macros can refer to them

@@ -205,6 +205,21 @@ impl English {
         }
     }
 
+    /// Replace the SKOS-style cross-reference map (synset-level
+    /// `also_synset`) with the supplied edges. Used by `from_codegen`
+    /// to wire the static `RAW_REFERENCES` array into the runtime
+    /// `WordnetRelations::also_synset` slot.
+    pub fn set_also_synset_references(
+        &mut self,
+        edges: impl IntoIterator<Item = (ConceptId, ConceptId)>,
+    ) {
+        let mut map: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
+        for (from, to) in edges {
+            map.entry(from).or_default().push(to);
+        }
+        self.relations.also_synset = map;
+    }
+
     /// Access to the full bundle of non-taxonomy / non-opposition /
     /// non-mereology relations loaded from WordNet.
     pub fn relations(&self) -> &WordnetRelations {

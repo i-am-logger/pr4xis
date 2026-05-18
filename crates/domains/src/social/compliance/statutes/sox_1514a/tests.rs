@@ -51,8 +51,8 @@ fn empty_word_index_until_adjunction_codegen() {
 fn lookup_returns_empty_for_any_word_pre_m5() {
     use super::lookup;
     // Before adjunction codegen, all lookups miss.
-    assert_eq!(lookup("retaliation"), &[] as &[u32]);
-    assert_eq!(lookup("anything"), &[] as &[u32]);
+    assert!(lookup("retaliation").is_empty());
+    assert!(lookup("anything").is_empty());
 }
 
 // ─────────────────────────────────────────────────────────────────────
