@@ -376,6 +376,7 @@ pub fn find_section_by_urn<'a>(
 }
 
 pub mod title_18;
+pub mod title_28;
 pub mod title_49;
 
 use crate::social::software::markup::xml::uslm::ontology::UsCodeTitleId;
@@ -400,6 +401,7 @@ pub fn section(title: &UsCodeTitleId, identifier: &str) -> Option<&'static Stati
 fn sections_for_title(title: &UsCodeTitleId) -> Option<&'static [StaticStatute]> {
     match title.number() {
         18 => Some(title_18::SECTIONS),
+        28 => Some(title_28::SECTIONS),
         49 => Some(title_49::SECTIONS),
         _ => None,
     }
@@ -409,8 +411,11 @@ fn sections_for_title(title: &UsCodeTitleId) -> Option<&'static [StaticStatute]>
 /// global walks (e.g. "every published section across every loaded
 /// title").
 pub fn all_titles() -> &'static [(u32, &'static [StaticStatute])] {
-    static TITLES: &[(u32, &[StaticStatute])] =
-        &[(18, title_18::SECTIONS), (49, title_49::SECTIONS)];
+    static TITLES: &[(u32, &[StaticStatute])] = &[
+        (18, title_18::SECTIONS),
+        (28, title_28::SECTIONS),
+        (49, title_49::SECTIONS),
+    ];
     TITLES
 }
 

@@ -91,6 +91,23 @@ type        = "UsCodeTitle"
 url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc49@119-90.zip"
 description = "U.S. Code Title 49 — Transportation. USLM XML published by the LRC per 1 U.S.C. § 204."
 
+# Title 28 — Judiciary and Judicial Procedure. Includes 28 U.S.C.
+# App. (the Federal Rules Appendix), which is the authoritative
+# codification of the Federal Rules of Civil Procedure (FRCP), the
+# Federal Rules of Evidence (FRE), the Federal Rules of Appellate
+# Procedure (FRAP), and the Federal Rules of Bankruptcy Procedure
+# (FRBP). Loading Title 28's USLM XML — same machinery as Titles
+# 18 and 49 — populates Layer 3 of statute_understanding with the
+# typed legal-actor / evidence-rule vocabulary (FRE 702 Expert
+# Witness, FRCP Rule 17 Party Capacity, FRCP Rule 38 Jury, etc.)
+# WITHOUT hand-coding any rule as a praxis ontology macro. Per
+# "Bottom-up loaded, never encoded".
+[sources.usc_title_28]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc28@119-90.zip"
+description = "U.S. Code Title 28 — Judiciary and Judicial Procedure, including 28 U.S.C. App. (Federal Rules of Civil Procedure / Evidence / Appellate Procedure / Bankruptcy Procedure). USLM XML published by the LRC per 1 U.S.C. § 204; 28 U.S.C. § 2072 (Rules Enabling Act) authorizes the Supreme Court to promulgate the rules and the LRC to codify them in the Appendix."
+
 # Sarbanes–Oxley Act § 806, codified at 18 U.S.C. § 1514A (2002).
 # Whistleblower protection for employees of publicly-traded companies.
 #

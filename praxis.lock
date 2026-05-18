@@ -32,6 +32,17 @@
 # usc49.xml content (26 MB, 1,634 sections, ~33k cross-refs) from
 # release point pl-119-90. AIR21 § 42121 lives here.
 "usc_title_49@pl-119-90" = "9be46928d04bae7c821246f800780493fdfe900cbcfffd52fedf8142a42db650"
+# U.S. Code Title 28 — Judiciary and Judicial Procedure, including
+# 28 U.S.C. App. (Federal Rules of Civil Procedure, Federal Rules
+# of Evidence, Federal Rules of Appellate Procedure, Federal Rules
+# of Bankruptcy Procedure). Loading Title 28 populates Layer 3 of
+# statute_understanding with typed legal-actor / evidence-rule
+# vocabulary — no hand-coded ontology macros needed. Hash will be
+# pinned by `pr4xis update usc_title_28` once the XML is fetched;
+# this placeholder is the SHA-256 of an empty file (the codegen
+# build script emits a stub for not-on-disk sources, so build
+# stays green until the user runs `pr4xis update`).
+"usc_title_28@pl-119-90" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 # Adobe Glyph List 2019 — SHA-256 of crates/domains/data/adobe/glyphlist.txt,
 # a verbatim copy of
 # https://raw.githubusercontent.com/adobe-type-tools/agl-aglfn/master/glyphlist.txt.

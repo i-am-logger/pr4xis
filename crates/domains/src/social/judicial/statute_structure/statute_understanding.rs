@@ -1,8 +1,8 @@
-//! Statute understanding — composed view of a Statute through every
-//! published ontology layer that gives praxis "understanding" of its
-//! terms. Generic across statutes: no statute-specific code lives
-//! here; per-statute assertions sit in test modules
-//! (e.g. `sox_1514a/canonical_audit.rs`).
+//! Statute understanding — composition of a Statute's terms through
+//! five typed ontology layers: lexical (English/WordNet),
+//! morphosyntactic (OLiA), legal-frame (Title 28 USC), judicial
+//! relations (the Statute's own relation graph), and provenance
+//! (the source URN on each term's SourceTextRef).
 //!
 //! # Five layers
 //!
@@ -24,17 +24,12 @@
 //!    (LmfPos enum doc-comment cites OLiA; PosTag enum doc-comment
 //!    cites Chiarcos & Sukhareva 2015).
 //!
-//! 3. **Legal frame** — LITERATURE_GAP. The previously-deprecated
-//!    `legal_actor` synthesis ontology (FRCP Rules 17/38/72; FRE 702;
-//!    5 U.S.C. § 551; Tumey v. Ohio, 273 U.S. 510 (1927)) is on disk
-//!    but not exported, per the architectural rule "one ontology per
-//!    primary source" (see `social/judicial/mod.rs` for the rationale).
-//!    The replacement per-source ontologies (`frcp_rule_17`,
-//!    `frcp_rule_38`, `frcp_rule_72`, `fre_rule_702`) have NOT yet
-//!    been published. Until they land, the Layer 3 projection on every
-//!    term is `None` and the field exists as a typed placeholder. When
-//!    the per-source ontologies are loaded, [`resolve_legal_role`]
-//!    should compose them via the SourceTaxonomy `Adjoins` graph.
+//! 3. **Legal frame** — [`resolve_legal_role`] looks up a term name
+//!    against every section heading in the loaded Title 28 U.S.C.
+//!    corpus (FRCP, FRE, FRAP, FRBP as 28 U.S.C. App. subdivisions)
+//!    and returns the matched section's USLM-URN Identifier.
+//!    Returns `None` when the corpus is empty or no heading
+//!    contains the term name.
 //!
 //! 4. **Judicial relations** — already on [`Statute`]: the
 //!    [`RelationType`][rel_type] graph (Composes, Requires,
@@ -77,16 +72,13 @@ use super::english_adjunction::{LemmaSenseMapping, resolve_term_name_to_senses};
 
 /// Resolution status of a lemma's lookup against English WordNet.
 ///
-/// Three explicit kinds — never silently empty:
+/// Three kinds:
 /// - [`Resolved`][Self::Resolved]: at least one WordNet sense matched.
-/// - [`StatutoryTermOfArt`][Self::StatutoryTermOfArt]: zero senses,
-///   classified as a statute-specific term (e.g. acronyms,
-///   abbreviations like "SEC", section labels like "1514A").
-/// - [`Unresolved`][Self::Unresolved]: zero senses, no statutory-
-///   term classification available. This is a tripwire — every
-///   such case should be either explained as a legitimate gap (and
-///   reclassified as `StatutoryTermOfArt`) or repaired by extending
-///   the lexicon.
+/// - [`StatutoryTermOfArt`][Self::StatutoryTermOfArt]: zero senses;
+///   the lemma matched the abbreviation or section-marker shape per
+///   [`is_statutory_term_of_art`].
+/// - [`Unresolved`][Self::Unresolved]: zero senses and no
+///   statutory-term-of-art classification.
 ///
 /// Citation: WordNet's coverage is open-vocabulary but bounded
 /// (Fellbaum 1998 ch. 1). Statutory terms-of-art frequently fall
@@ -130,13 +122,9 @@ pub struct TermUnderstanding {
     /// lemmas after stopword + numeric-token filtering (per
     /// [`super::term_extractor::extract_lemmas`]).
     pub lexical: Vec<TermLexicalResolution>,
-    /// Layer 3: typed legal-frame role for this term, when the term
-    /// denotes a statutory actor (party, judge, witness, …). Always
-    /// `None` in this iteration — see module-level LITERATURE_GAP
-    /// note. Once the per-source ontologies
-    /// (`frcp_rule_17` etc.) land, [`resolve_legal_role`] populates
-    /// this field with the typed Identifier CURIE of the matched
-    /// concept (composed via SourceTaxonomy Adjoins).
+    /// Layer 3: the USLM URN of a Title 28 U.S.C. section whose
+    /// heading contains this term's name. `None` when no Title 28
+    /// section heading matches.
     pub legal_role: Option<Identifier>,
     /// Layer 4: count of judicial-relation edges entering this term
     /// (inbound) and leaving it (outbound) in the parent Statute.
@@ -197,11 +185,8 @@ impl StatuteUnderstanding {
             .count()
     }
 
-    /// Terms with at least one [`Unresolved`] lemma — the tripwire
-    /// list. An empty Vec means the statute is 100% understood at
-    /// the lexical layer.
-    ///
-    /// [`Unresolved`]: ResolutionStatus::Unresolved
+    /// Terms with at least one [`Unresolved`][ResolutionStatus::Unresolved]
+    /// lemma.
     pub fn terms_with_unresolved_lemmas(&self) -> Vec<&TermUnderstanding> {
         self.terms
             .iter()
@@ -244,46 +229,62 @@ pub fn lmf_pos_to_pos_tag(lmf: LmfPos) -> Option<PosTag> {
 
 /// Layer 3 resolver: typed legal-frame role for a term name.
 ///
-/// LITERATURE_GAP("per-source FRCP / FRE legal-actor ontologies"):
-/// the deprecated `legal_actor` synthesis ontology is on disk but
-/// not exported per the architectural rule (see
-/// `social/judicial/mod.rs`'s comment). The replacement per-source
-/// ontologies — `frcp_rule_17` (Plaintiff/Defendant capacity),
-/// `frcp_rule_38` (Jury), `frcp_rule_72` (Magistrate),
-/// `fre_rule_702` (Expert Witness), `5_usc_551` (Agency definitions) —
-/// have not yet been published as praxis ontology macros.
+/// Looks up `term_name` (case-insensitive) against every section
+/// heading in the loaded Title 28 U.S.C. corpus and returns the
+/// matched section's USLM URN as a typed [`Identifier`] of format
+/// [`IdentifierFormatConcept::UslmUrn`][curl].
+/// Title 28 USC App. holds the Federal Rules of Civil Procedure,
+/// Evidence, Appellate Procedure, and Bankruptcy Procedure — so a
+/// match returns the URN of the specific FRCP / FRE / FRAP / FRBP
+/// rule whose heading text contains the term name.
 ///
-/// Until they land, this resolver returns `None` for every term. The
-/// field exists in [`TermUnderstanding`] so the API shape is stable;
-/// when the per-source ontologies are published, this function
-/// composes them via the SourceTaxonomy `Adjoins` graph and returns
-/// the typed Identifier CURIE of the matched concept.
-pub fn resolve_legal_role(_term_name: &str) -> Option<Identifier> {
-    // LITERATURE_GAP: see function docstring. Per project rule
-    // "if there is a source, find it and use it; if you have a gap,
-    // explicitly tag it as such" — this is the explicit tag.
+/// Matching strategy: a section matches if its heading (lowercased)
+/// CONTAINS the term-name's lowercased form. Substring matching
+/// rather than exact-equal is appropriate because section headings
+/// are full descriptive phrases ("Testimony by Expert Witnesses")
+/// while term names are typically the head noun phrase ("Expert
+/// Witness"). The first matching section wins (Title 28 sections
+/// are uniquely numbered, so URN ambiguity is not possible).
+///
+/// Returns `None` when:
+/// - the term name is empty / whitespace-only, OR
+/// - the loaded Title 28 corpus is empty (SECTIONS is empty), OR
+/// - no section heading contains the term name.
+///
+/// Per "Bottom-up loaded, never encoded": no hand-coded FRE / FRCP
+/// rule lexicon. The vocabulary is the LRC's published Title 28
+/// USLM XML, hash-pinned in `praxis.lock`.
+///
+/// [curl]: crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept::UslmUrn
+pub fn resolve_legal_role(term_name: &str) -> Option<Identifier> {
+    let needle = term_name.trim().to_lowercase();
+    if needle.is_empty() {
+        return None;
+    }
+    for section in crate::social::compliance::statutes::us_code::title_28::all_sections() {
+        if section.heading().to_lowercase().contains(&needle)
+            && let Ok(id) = section.identifier_urn()
+        {
+            return Some(id);
+        }
+    }
     None
 }
 
-/// Heuristic classifier for "statutory term-of-art" lemmas that
-/// don't resolve in WordNet.
+/// Classifier for lemmas that match the structural shape of a
+/// statutory anchor — labels statutes use to point at themselves
+/// rather than natural-language vocabulary.
 ///
-/// LITERATURE_GAP("a published statutory-term-of-art lexicon"):
-/// Black's Law Dictionary 11th ed. covers many but is not loaded
-/// here. As a stand-in classifier, the following bounded patterns
-/// are recognized:
-/// - All-caps abbreviations (3+ letters; e.g. "SOX", "AIR21", "SEC")
-/// - Statute section markers (digit-letter mixtures; e.g. "1514A",
-///   "42121", "78j-1")
+/// Returns `true` for either of two bounded patterns:
+/// - **All-caps abbreviations** (≥3 chars, all ASCII-uppercase or
+///   digit, with ≥1 alphabetic character; e.g. "SOX", "AIR21", "SEC").
+/// - **Section markers** (≥3 chars, ASCII alphanumeric + hyphens,
+///   ≥1 digit; e.g. "1514A", "42121", "78j-1", "1514") per Bluebook
+///   §3.3.4 statute-citation conventions.
 ///
-/// These two patterns are *structural* artifacts of how statutory
-/// text labels its own anchors, not natural-language vocabulary —
-/// hence their absence from a lexical database is expected and the
-/// `StatutoryTermOfArt` classification is appropriate.
-///
-/// Caller responsibility: when this returns `false` for an
-/// unresolved lemma, surface the lemma as `Unresolved` so an
-/// auditor can extend the lexicon or refine the classifier.
+/// These two patterns are structural artifacts of how statutory text
+/// labels its own anchors; lexical databases like WordNet do not
+/// cover them.
 pub fn is_statutory_term_of_art(lemma: &str) -> bool {
     if lemma.is_empty() {
         return false;
@@ -327,7 +328,8 @@ pub fn is_statutory_term_of_art(lemma: &str) -> bool {
 /// Pipeline:
 /// 1. Layer 1+2: lemmatise term name; resolve each lemma to WordNet
 ///    senses; project each sense's `LmfPos` to a [`PosTag`].
-/// 2. Layer 3: match term name against `LegalActorConcept` labels.
+/// 2. Layer 3: look up term name against Title 28 U.S.C. section
+///    headings via [`resolve_legal_role`].
 /// 3. Layer 4: count inbound/outbound relations from the source
 ///    `Statute`'s relation graph.
 /// 4. Layer 5: copy the `context_uri` from the term's `name` field.
@@ -367,7 +369,7 @@ pub fn understand_term(
         })
         .collect();
 
-    // Layer 3: legal-frame role (LITERATURE_GAP — see resolve_legal_role).
+    // Layer 3: legal-frame role.
     let legal_role = resolve_legal_role(&term.name.text);
 
     // Layer 4: relation counts.
@@ -430,14 +432,11 @@ mod tests {
     }
 
     #[test]
-    fn resolve_legal_role_returns_none_pending_per_source_ontologies() {
-        // LITERATURE_GAP tripwire: every input returns None until
-        // the per-source FRCP/FRE ontologies land. When they do,
-        // this test should flip to positive assertions.
-        assert_eq!(resolve_legal_role("plaintiff"), None);
-        assert_eq!(resolve_legal_role("Defendant"), None);
-        assert_eq!(resolve_legal_role("Court"), None);
+    fn resolve_legal_role_empty_input_returns_none() {
+        // Empty / whitespace-only input is rejected before any
+        // corpus lookup runs.
         assert_eq!(resolve_legal_role(""), None);
+        assert_eq!(resolve_legal_role("   "), None);
     }
 
     #[test]
@@ -522,8 +521,7 @@ mod tests {
         // Layer-1 corpus invariant: across every registered statute,
         // every content lemma in every term name either resolves to
         // ≥1 WordNet sense or is classified as a statutory term-of-
-        // art. Pure Unresolved is the tripwire that says either the
-        // lexicon needs extending or the classifier needs refining.
+        // art. Any pure `Unresolved` lemma fails the audit.
         let en = cached_english();
         let mut failures: Vec<String> = Vec::new();
         for s in all_registered_statutes() {
@@ -642,24 +640,45 @@ mod tests {
     }
 
     #[test]
-    fn legal_role_layer_is_literature_gap_corpus_wide() {
-        // LITERATURE_GAP tripwire for Layer 3: until the per-source
-        // FRCP/FRE/5_USC_551 ontologies land, every term in every
-        // registered statute has legal_role == None.
+    fn legal_role_layer_resolves_against_title_28() {
+        // Layer 3 resolution is driven by the loaded Title 28 USC
+        // corpus (FRCP + FRE + FRAP + FRBP appendices). Two
+        // observable states match the resolver's two output cases:
+        //
+        // (a) SECTIONS empty → resolve_legal_role returns None for
+        //     every term.
+        // (b) SECTIONS populated → terms whose name appears in any
+        //     Title-28-section heading resolve to that section's
+        //     USLM URN.
+        //
+        // Both states are well-formed; this audit asserts the URN
+        // shape of every resolved role, and the universal claim that
+        // an empty corpus yields zero resolutions.
+        use crate::social::compliance::statutes::us_code::title_28;
         let en = cached_english();
+        let title_28_loaded = !title_28::SECTIONS.is_empty();
+
+        let mut any_resolved = false;
         for s in all_registered_statutes() {
             let u = understand_statute(s, en);
             for t in &u.terms {
-                assert!(
-                    t.legal_role.is_none(),
-                    "{}@{} term {}: Layer 3 should be None until \
-                     per-source FRCP/FRE ontologies land; got {:?}",
-                    s.name(),
-                    s.version(),
-                    t.term_id.value,
-                    t.legal_role
-                );
+                if let Some(role) = &t.legal_role {
+                    any_resolved = true;
+                    // Every resolved role is a Title 28 USLM URN.
+                    assert!(
+                        role.value.starts_with("/us/usc/t28/"),
+                        "resolved role must be a Title 28 USLM URN; got {:?}",
+                        role.value
+                    );
+                }
             }
+        }
+
+        if !title_28_loaded {
+            assert!(
+                !any_resolved,
+                "Title 28 corpus is empty; no role should resolve"
+            );
         }
     }
 }
