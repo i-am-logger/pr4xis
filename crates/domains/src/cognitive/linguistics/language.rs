@@ -272,6 +272,20 @@ pub fn lmf_pos_to_lexical_entries(
             vec![LexicalEntry::Conjunction(Conjunction { text: word.into() })]
         }
         lmf::LmfPos::Particle => vec![LexicalEntry::Particle(Particle { text: word.into() })],
+        lmf::LmfPos::Other => {
+            // Check for operator characters
+            if word.chars().all(|c| "+-*/=<>>".contains(c)) && !word.is_empty() {
+                vec![LexicalEntry::Operator(Operator { text: word.into() })]
+            } else {
+                vec![LexicalEntry::Noun(Noun {
+                    text: word.into(),
+                    number: Number::Singular,
+                    person: Person::Third,
+                    countability: Countability::Countable,
+                    kind: NounKind::Common,
+                })]
+            }
+        }
         lmf::LmfPos::Copula => vec![LexicalEntry::Copula(Copula {
             text: word.into(),
             number: Number::Singular,
@@ -288,13 +302,6 @@ pub fn lmf_pos_to_lexical_entries(
         lmf::LmfPos::Interjection => vec![LexicalEntry::Interjection(Interjection {
             text: word.into(),
             kind: InterjectionKind::Expressive,
-        })],
-        lmf::LmfPos::Other => vec![LexicalEntry::Noun(Noun {
-            text: word.into(),
-            number: Number::Singular,
-            person: Person::Third,
-            countability: Countability::Countable,
-            kind: NounKind::Common,
         })],
     }
 }
@@ -370,6 +377,7 @@ pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
             ])
         }
         LexicalEntry::Numeral(_) => pregroup::svo::determiner(),
+        LexicalEntry::Operator(_) => PregroupType::single(BasicType::S), // Placeholder
     }
 }
 

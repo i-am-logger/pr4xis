@@ -251,5 +251,6 @@ fn pos_to_lambek(entry: &crate::cognitive::linguistics::lexicon::pos::LexicalEnt
         LexicalEntry::Auxiliary(_) => svo_types::intransitive_verb(),
         LexicalEntry::Interjection(_) => svo_types::noun(),
         LexicalEntry::Particle(_) => svo_types::adverb(),
+        LexicalEntry::Operator(_) => LambekType::s(), // Placeholder for now
     }
 }
