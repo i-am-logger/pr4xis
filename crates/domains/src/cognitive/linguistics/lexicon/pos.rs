@@ -187,6 +187,13 @@ pub struct Particle {
     pub text: String,
 }
 
+/// An operator: "+", "-", "*", "/", "=", "<", ">", "%", "^".
+/// OLiA: Operator.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Operator {
+    pub text: String,
+}
+
 /// A numeral: "one", "two", "first".
 /// OLiA: Numeral.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -217,6 +224,7 @@ pub enum LexicalEntry {
     Auxiliary(Auxiliary),
     Interjection(Interjection),
     Particle(Particle),
+    Operator(Operator),
     Numeral(Numeral),
     Operator(Operator),
 }
@@ -236,6 +244,7 @@ impl LexicalEntry {
             Self::Auxiliary(a) => &a.text,
             Self::Interjection(i) => &i.text,
             Self::Particle(p) => &p.text,
+            Self::Operator(o) => &o.text,
             Self::Numeral(n) => &n.text,
             Self::Operator(o) => &o.text,
         }
@@ -305,6 +314,7 @@ impl LexicalEntry {
             Self::Auxiliary(_) => PosTag::Auxiliary,
             Self::Interjection(_) => PosTag::Interjection,
             Self::Particle(_) => PosTag::Particle,
+            Self::Operator(_) => PosTag::Operator,
             Self::Numeral(_) => PosTag::Numeral,
             Self::Operator(_) => PosTag::Operator,
         }
@@ -336,6 +346,8 @@ pub enum PosTag {
     Interjection,
     /// OLiA: Particle — function word with grammatical role ("not", "to").
     Particle,
+    /// OLiA: Operator — mathematical/logical operators ("+", "-", "=", etc.).
+    Operator,
     /// OLiA: Numeral — number words ("one", "two", "first").
     Numeral,
     /// OLiA: Operator — mathematical and logical operators ("+", "-", "=", ">").

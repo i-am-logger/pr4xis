@@ -376,6 +376,7 @@ pub fn lexical_entry_to_pregroup(entry: &LexicalEntry) -> PregroupType {
                 PregroupElement::left_adj(BasicType::S),
             ])
         }
+        LexicalEntry::Operator(_) => pregroup::svo::noun(),
         LexicalEntry::Numeral(_) => pregroup::svo::determiner(),
         LexicalEntry::Operator(_) => PregroupType::single(BasicType::S), // Placeholder
     }
@@ -663,6 +664,11 @@ fn build_english_function_words_embedded() -> HashMap<String, Vec<LexicalEntry>>
     // ---- Particles (OLiA: Particle) ----
     for text in ["not", "to"] {
         add(LexicalEntry::Particle(Particle { text: text.into() }));
+    }
+
+    // ---- Operators (OLiA: Operator) ----
+    for text in ["+", "-", "*", "/", "=", "<", ">", "%", "^"] {
+        add(LexicalEntry::Operator(Operator { text: text.into() }));
     }
 
     // ---- Interjections (OLiA: Interjection) — classified by function ----
