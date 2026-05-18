@@ -163,39 +163,59 @@ pub fn lemmatize(surface: &str, language: Language) -> Vec<Form> {
         push(lemma, &mut seen, &mut out);
     }
 
-    // (3) + (4) Rule inversion + allomorphy expansion.
+    // (3) + (4) Rule inversion + allomorphy expansion, iterated to
+    // fixed-point so chained derivations resolve. Words like
+    // "nonenforceability" need TWO rule passes: strip `non-` to
+    // "enforceability", then strip `-ability` to "enforce". Bauer
+    // (1983) §6.5 documents prefix-suffix interaction in productive
+    // English derivation (e.g. non-/un- + -ability/-ment chains).
+    //
+    // Iteration is bounded: each pass either grows the candidate
+    // set or stops. With ≤2 prefixes and ≤4 suffixes typically
+    // chained per legal-text derivation (Bauer §6.5), 4 passes is
+    // a hard cap that captures all real chains without unbounded
+    // growth.
     let allomorphy = language.allomorphy_rules();
-    for rule in language.rules() {
-        let bare_candidates = rule.invert(&canon);
-        // Push the bare-strip candidates first.
-        for bare in &bare_candidates {
-            push(bare.clone(), &mut seen, &mut out);
+    const MAX_PASSES: usize = 4;
+    let mut pass = 0;
+    let mut start_idx = 0;
+    while pass < MAX_PASSES {
+        let end_idx = out.len();
+        if start_idx >= end_idx {
+            break;
         }
-        // Then expand via allomorphy for suffix rules.
-        if let Affix::Suffix(suf) = &rule.affix {
-            for bare in &bare_candidates {
-                for allo in &allomorphy {
-                    let extras = (allo.expand)(bare, &canon, &suf.text);
-                    for extra in extras {
-                        push(extra, &mut seen, &mut out);
+        // Snapshot the surfaces to invert this pass — only the new
+        // candidates from the previous pass (or the seed on pass 0).
+        let surfaces: Vec<String> = out[start_idx..end_idx]
+            .iter()
+            .map(|f| f.written_rep.clone())
+            .collect();
+        for surface in &surfaces {
+            for rule in language.rules() {
+                let bare_candidates = rule.invert(surface);
+                for bare in &bare_candidates {
+                    push(bare.clone(), &mut seen, &mut out);
+                }
+                if let Affix::Suffix(suf) = &rule.affix {
+                    for bare in &bare_candidates {
+                        for allo in &allomorphy {
+                            let extras = (allo.expand)(bare, surface, &suf.text);
+                            for extra in extras {
+                                push(extra, &mut seen, &mut out);
+                            }
+                        }
+                    }
+                    for allo in &allomorphy {
+                        let extras = (allo.expand)("", surface, &suf.text);
+                        for extra in extras {
+                            push(extra, &mut seen, &mut out);
+                        }
                     }
                 }
             }
-            // Some allomorphy rules (y/i past, y/i plural, es→e) act
-            // directly on the surface, not on the bare-strip. They
-            // need to fire even when bare-strip is empty (e.g.
-            // surface "cried" + rule "ed" yields bare "cri" already,
-            // but the y/i rule transforms "cri" → "cry" using surface).
-            // The expand contract handles both reads from `surface`
-            // and `bare`, so a pass with bare="" is intentional for
-            // surface-driven rules.
-            for allo in &allomorphy {
-                let extras = (allo.expand)("", &canon, &suf.text);
-                for extra in extras {
-                    push(extra, &mut seen, &mut out);
-                }
-            }
         }
+        start_idx = end_idx;
+        pass += 1;
     }
 
     out

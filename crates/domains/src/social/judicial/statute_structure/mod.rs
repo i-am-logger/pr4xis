@@ -72,6 +72,7 @@ pub mod invariants;
 pub mod parser;
 pub mod relation_extractor;
 pub mod statute_report;
+pub mod statute_understanding;
 pub mod term_extractor;
 
 pub use english_adjunction::{

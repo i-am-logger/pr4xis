@@ -135,6 +135,23 @@ pub fn english_rules() -> Vec<MorphologicalRule> {
             output_pos: PosTag::Noun,
             effect: SemanticEffect::Repetition,
         },
+        // Negation prefix non-: "nonenforceability" → "enforceability".
+        // Quirk, Greenbaum, Leech & Svartvik (1985) *A Comprehensive
+        // Grammar of the English Language* §I.21 (negative prefixes);
+        // Bauer (1983) §6.1.2 "Negative prefixes". Productive on
+        // both nouns and adjectives in English; per the unique-affix
+        // convention in this rule set, declared once with Noun POS
+        // — the text-only inverter applies the same surgery
+        // regardless of POS.
+        MorphologicalRule {
+            affix: Affix::Prefix(Prefix {
+                text: "non".into(),
+                effect: SemanticEffect::Negation,
+            }),
+            input_pos: PosTag::Noun,
+            output_pos: PosTag::Noun,
+            effect: SemanticEffect::Negation,
+        },
         // Deverbal abstract noun -ability: "waivability" → "waive".
         // Bauer (1983) §6.2.2 "Nominalizations from verbs".
         MorphologicalRule {
@@ -154,8 +171,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn english_has_10_rules() {
-        assert_eq!(english_rules().len(), 10);
+    fn english_has_11_rules() {
+        // 10 base + 1 added in M5.D ("non-" negation prefix per
+        // Quirk et al. 1985 §I.21).
+        assert_eq!(english_rules().len(), 11);
     }
 
     #[test]
