@@ -9,6 +9,25 @@ mod codegen_output {
     include!(concat!(env!("OUT_DIR"), "/english_codegen.rs"));
 }
 
+/// Build-time USC corpus produced by `pr4xis::codegen::usc_corpus`.
+/// M4.ε.4 will wire this into the `Pr4xis` struct alongside `english`;
+/// for now the `include!` keeps the codegen output in the build graph
+/// and the test-only smoke check confirms the runtime functor accepts
+/// the static without runtime cost in release builds.
+#[allow(dead_code)]
+mod usc_codegen_output {
+    include!(concat!(env!("OUT_DIR"), "/usc_codegen.rs"));
+}
+
+#[cfg(test)]
+#[allow(dead_code)]
+fn usc_codegen_smoke_check() -> pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode
+{
+    pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode::from_codegen(
+        &usc_codegen_output::CODEGEN_DATA,
+    )
+}
+
 #[wasm_bindgen]
 pub struct Pr4xis {
     english: English,

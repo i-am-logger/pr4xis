@@ -1,6 +1,7 @@
 mod builder;
 mod generate;
 pub mod statute;
+pub mod usc_corpus;
 pub mod uslm;
 pub mod wordnet;
 
