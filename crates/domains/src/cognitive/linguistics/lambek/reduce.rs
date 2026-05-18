@@ -176,8 +176,10 @@ pub fn chart_reduce(words: &[String], type_sets: &[Vec<LambekType>]) -> Reductio
         .iter()
         .filter(|t| matches!(t, LambekType::Atom(super::types::AtomicType::S(_))))
         .max_by_key(|t| match t {
-            LambekType::Atom(super::types::AtomicType::S(Some(_))) => 1,
-            _ => 0,
+            LambekType::Atom(super::types::AtomicType::S(Some(super::types::SentenceFeature::Q))) => 3,
+            LambekType::Atom(super::types::AtomicType::S(Some(super::types::SentenceFeature::Wq))) => 3,
+            LambekType::Atom(super::types::AtomicType::S(Some(_))) => 2,
+            _ => 1,
         });
 
     let success = sentence_type.is_some();

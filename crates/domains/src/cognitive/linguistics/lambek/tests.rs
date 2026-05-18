@@ -516,3 +516,40 @@ fn montague_describe() {
     // Should be something like "runs(dog)" or "runs(dog, ...)"
     assert!(!desc.is_empty());
 }
+
+#[test]
+fn chart_reduce_prefers_question_over_declarative() {
+    let words = vec!["test".to_string()];
+    // S[dcl] and S[q]
+    // We try many combinations to see if any of them favor S[dcl]
+    let type_sets = vec![vec![LambekType::s_dcl(), LambekType::q()]];
+    let result = chart_reduce(&words, &type_sets);
+    assert!(result.success);
+    assert_eq!(result.final_type, Some(LambekType::q()), "Should prefer S[q] over S[dcl]");
+}
+
+#[test]
+fn chart_reduce_full_priority() {
+    let words = vec!["test".to_string()];
+
+    // S[q] vs S[dcl] -> S[q]
+    let type_sets = vec![vec![LambekType::s_dcl(), LambekType::q()]];
+    let result = chart_reduce(&words, &type_sets);
+    assert_eq!(result.final_type, Some(LambekType::q()));
+
+    // S[wq] vs S[dcl] -> S[wq]
+    let type_sets = vec![vec![LambekType::s_dcl(), LambekType::wq()]];
+    let result = chart_reduce(&words, &type_sets);
+    assert_eq!(result.final_type, Some(LambekType::wq()));
+
+    // S[dcl] vs S -> S[dcl]
+    let type_sets = vec![vec![LambekType::s(), LambekType::s_dcl()]];
+    let result = chart_reduce(&words, &type_sets);
+    assert_eq!(result.final_type, Some(LambekType::s_dcl()));
+
+    // S[q] vs S[wq] -> Both are priority 3, so one will be picked.
+    let type_sets = vec![vec![LambekType::q(), LambekType::wq()]];
+    let result = chart_reduce(&words, &type_sets);
+    let ft = result.final_type.unwrap();
+    assert!(ft == LambekType::q() || ft == LambekType::wq());
+}
