@@ -24,6 +24,12 @@
 //!   (W3C XSD 1.1 Part 1 / Part 2 cited section-by-section).
 //! - [`from_xsd_parser`] — the functor that turns xsd-parser's typed
 //!   AST into instances of the XSD ontology (Mac Lane §I.3).
+//! - [`english_projection`] — the functor `XsdOntology → English`
+//!   that projects every schema-component name's localName and every
+//!   `<xs:documentation>` prose block through the WordNet-backed
+//!   English pipeline (Mac Lane §I.3 functor + Fellbaum 1998 +
+//!   Bauer 1983 compound decomposition + Spivak 2014 §5 functorial
+//!   structure preservation).
 //!
 //! ## Citations
 //!
@@ -40,6 +46,7 @@
 //!   schema files*, v1.5.2, MIT-licensed.
 //!   <https://github.com/Bergmann89/xsd-parser>.
 
+pub mod english_projection;
 pub mod from_xsd_parser;
 pub mod ontology;
 
