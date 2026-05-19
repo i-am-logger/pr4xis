@@ -37,6 +37,7 @@
 //! [crate-codegen-statute]: ../../../../../../../../pr4xis/codegen/statute/index.html
 
 pub mod corpus;
+pub mod generated;
 pub mod ontology;
 pub mod reader;
 
