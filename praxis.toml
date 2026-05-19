@@ -91,6 +91,58 @@ type        = "XmlSchemaDefinition"
 url         = "https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd"
 description = "W3C XHTML 1.0 Strict XML Schema definition. The authoritative machine-readable form of HTML4/XHTML1.0 elements + attributes, used as the M4.η.1 grounding source for the HTML5 ontology. Cite: Pemberton et al. (2002) XHTML 1.0 Second Edition, W3C Recommendation 1 August 2002, §A.2 XHTML 1.0 Strict Schema."
 
+# W3C XML 1.0 Namespace XSD — the canonical machine-readable
+# definition of the four `xml:*`-namespace-reserved attributes
+# (`xml:lang`, `xml:space`, `xml:base`, `xml:id`). Published by the
+# W3C as the authoritative schema for the XML namespace.
+#
+# Per the M4.η.2 dispatch: this is the XSD half of the XML 1.0
+# ontology's grounding. It covers the four reserved attributes named
+# by Namespaces in XML 1.0 + XML Base + XML 1.0 itself. The
+# conceptual taxonomy (the 11 information items of an XML document)
+# is loaded from the W3C XML Information Set Recommendation (a
+# separate ConceptualSpec source).
+#
+# Bundled file: `crates/domains/data/markup-schemas/xml/xml.xsd`.
+# Citations: Bray, Hollander, Layman, Tobin & Thompson (2009)
+# Namespaces in XML 1.0 (Third Edition), W3C Recommendation 8
+# December 2009; Bray, Paoli, Sperberg-McQueen, Maler & Yergeau
+# (eds.) (2008) Extensible Markup Language (XML) 1.0 (Fifth Edition),
+# W3C Recommendation 26 November 2008, §2.10 (xml:space) + §2.12
+# (xml:lang); Marsh & Tobin (eds.) (2009) XML Base (Second Edition),
+# W3C Recommendation 28 January 2009.
+[sources.xml_1_0_namespace_xsd]
+version     = "1.0"
+type        = "XmlSchemaDefinition"
+url         = "https://www.w3.org/2001/xml.xsd"
+description = "W3C XML namespace XSD — the canonical machine-readable definition of xml:lang, xml:space, xml:base, xml:id attributes. Cite: Bray, Hollander, Layman, Tobin & Thompson (2009) Namespaces in XML 1.0 (Third Edition), W3C Recommendation; Bray et al. (2008) XML 1.0 Fifth Edition §2.10 + §2.12; Marsh & Tobin (2009) XML Base."
+
+# W3C XML Information Set (Second Edition) — the published
+# conceptual taxonomy of XML documents. Cowan & Tobin's
+# recommendation enumerates the 11 information items that constitute
+# an XML document's abstract representation: Document, Element,
+# Attribute, Processing Instruction, Unexpanded Entity Reference,
+# Character, Comment, Document Type Declaration, Unparsed Entity,
+# Notation, Namespace.
+#
+# Per the M4.η.2 dispatch: this is the conceptual-taxonomy half of
+# the XML 1.0 ontology's grounding. The W3C delivers the
+# recommendation as XHTML 1.0 Transitional with regular section-
+# heading markup (`<h3><a name="infoitem.<id>">N.N <Title></a></h3>`),
+# which the build-time loader walks to extract the 11 items + their
+# section anchors. The XSD half (`xml_1_0_namespace_xsd@1.0`) covers
+# the four `xml:*`-reserved attributes; this source covers the
+# conceptual structure.
+#
+# Bundled file: `crates/domains/data/markup-schemas/xml/xml-infoset.xhtml`.
+# Citation: Cowan, J. & Tobin, R. (eds.) (2004) XML Information Set
+# (Second Edition), W3C Recommendation 4 February 2004.
+[sources.xml_infoset]
+version     = "2004"
+type        = "ConceptualSpec"
+url         = "https://www.w3.org/TR/xml-infoset/"
+description = "W3C XML Information Set (Second Edition) — the 11 information items of an XML document. Cite: Cowan & Tobin (2004) W3C Recommendation 4 February 2004."
+
 # U.S. Federal Legal-Text Closed-Class Lexicon — bounded enumeration of
 # the citation abbreviations, month names, federal-agency acronyms,
 # U.S. state / place names, productive English compounds, and legal

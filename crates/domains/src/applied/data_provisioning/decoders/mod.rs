@@ -14,6 +14,7 @@
 use super::ontology::ContentType;
 
 pub mod adobe_glyph_list;
+pub mod xhtml;
 pub mod xml_lmf;
 pub mod xml_xsd;
 
@@ -26,5 +27,6 @@ pub fn has_decoder_for(content_type: ContentType) -> bool {
             | ContentType::AdobeGlyphList
             | ContentType::UslmXml
             | ContentType::XmlXsd
+            | ContentType::Xhtml
     )
 }

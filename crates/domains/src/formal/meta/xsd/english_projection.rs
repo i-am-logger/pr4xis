@@ -671,17 +671,26 @@ impl NamedComponentProjection {
 ///    from the W3C-published schema (Pemberton et al. 2002 §A.2).
 ///    Replaces the hand-curated HTML portion of the bundle for
 ///    every name the XSD covers.
-/// 2. **`schema_vocabulary@2026`** (hand-curated LMF bundle) — for
-///    XML 1.0 attribute-type names, USLM-specific names, and
-///    productive sub-* hierarchical forms. To be deleted in M4.η.4
-///    after M4.η.2 (XML 1.0 ontology) and M4.η.3
-///    (USLM-vocabulary semantics from annotations) land.
+/// 2. **M4.η.2 — W3C xml.xsd + XML Information Set rec**
+///    (`xml_1_0_namespace_xsd@1.0` + `xml_infoset@2004`) — for the
+///    four `xml:*`-namespace-reserved attribute names plus the 11
+///    information-item canonical phrases. Loaded by
+///    [`crate::social::software::markup::xml::english_projection_v1::is_xml_10_vocabulary`]
+///    from the W3C-published sources (Bray et al. 2009; Cowan &
+///    Tobin 2004). Replaces the hand-curated XML half of the
+///    bundle for every name these sources cover.
+/// 3. **`schema_vocabulary@2026`** (hand-curated LMF bundle) — now
+///    serves the USLM-vocabulary portion and the productive sub-*
+///    hierarchical forms. To be deleted in M4.η.4 after M4.η.3
+///    (USLM-vocabulary semantics from `<xs:annotation>` blocks)
+///    lands.
 ///
 /// Per `feedback_bottom_up_loaded_not_encoded`: every recognized
 /// name comes from a registered authoritative source — not from
 /// hard-coded Rust string matches.
 pub fn is_schema_vocabulary(lemma: &str) -> bool {
     crate::social::software::markup::html::english_projection::is_html_vocabulary(lemma)
+        || crate::social::software::markup::xml::english_projection_v1::is_xml_10_vocabulary(lemma)
         || is_in_schema_vocabulary(lemma)
 }
 

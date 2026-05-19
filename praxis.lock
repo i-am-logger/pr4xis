@@ -41,6 +41,26 @@
 # §A.2 XHTML 1.0 Strict Schema) rather than being hand-coded. The
 # M4.η.1 grounding source for `social/software/markup/html/`.
 "xhtml_1_0_xsd@1.0"       = "9f89777c95be6866317de83852f9fbddd6c48c381a36d8fd9b00e11b864a209f"
+# W3C XML namespace XSD. Pinned hash of the on-disk file
+# crates/domains/data/markup-schemas/xml/xml.xsd — the W3C-published
+# xml.xsd at https://www.w3.org/2001/xml.xsd. Loaded by the XML 1.0
+# ontology codegen (M4.η.2) so the four reserved attribute names
+# (xml:lang, xml:space, xml:base, xml:id) derive from the published
+# schema (Bray et al. 2009 Namespaces in XML 1.0 Third Edition;
+# Bray et al. 2008 XML 1.0 Fifth Edition §2.10 + §2.12; Marsh & Tobin
+# 2009 XML Base) rather than being hand-coded.
+"xml_1_0_namespace_xsd@1.0" = "61960fb3131e38022caad5360e2f33a3382578ab3c80cd58bd74320ede61b20c"
+# W3C XML Information Set (Second Edition). Pinned hash of the
+# on-disk file crates/domains/data/markup-schemas/xml/xml-infoset.xhtml
+# — the W3C-published XML Information Set rec at
+# https://www.w3.org/TR/xml-infoset/. Loaded by the XML 1.0 ontology
+# codegen (M4.η.2) so the 11 information items (Document / Element /
+# Attribute / ProcessingInstruction / UnexpandedEntityReference /
+# Character / Comment / DocumentTypeDeclaration / UnparsedEntity /
+# Notation / Namespace) derive from the published recommendation
+# (Cowan & Tobin 2004 W3C Recommendation 4 February 2004 §2) rather
+# than being hand-coded.
+"xml_infoset@2004"        = "316b1b0df49a40dd4cab7ea403dd4f9e5f0d073803b2a7663ebddc33fffebc3e"
 # U.S. Federal Legal-Text Closed-Class Lexicon (LMF XML). Pinned hash
 # of crates/domains/data/legal-text/us_legal_lexicon.xml — the
 # bounded, cited enumeration of citation abbreviations + month names +

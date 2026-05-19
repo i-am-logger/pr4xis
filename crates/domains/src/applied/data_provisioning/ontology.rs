@@ -113,6 +113,14 @@ pub enum ContentType {
     /// attributes, substitution groups. The XSD authoritatively grounds
     /// content-type ontologies that load from it (e.g., USLM).
     XmlXsd,
+    /// XHTML 1.0 text — the W3C publication format for text-form
+    /// conceptual specifications (e.g., the XML Information Set
+    /// recommendation per Cowan & Tobin 2004). The W3C-published
+    /// XHTML edition is XHTML 1.0 Transitional with regular section-
+    /// heading markup (`<h2>`, `<h3>` with class attributes); the
+    /// build-time loader extracts the conceptual taxonomy by walking
+    /// that markup.
+    Xhtml,
     /// Plain text, UTF-8. Decoder: direct.
     Plaintext,
     /// Adobe Glyph List (`name;HEX[ HEX]*` lines) per Adobe's
@@ -188,6 +196,12 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // 2012 Part 1; Peterson et al. 2012 Part 2). Decoder:
         // `pr4xis::codegen::xsd::parse_xsd`.
         C::XmlSchemaDefinition => ContentType::XmlXsd,
+        // ConceptualSpec sources ship as XHTML (the W3C-published
+        // recommendation format for text-form specifications such as
+        // the XML Information Set rec, Cowan & Tobin 2004). Decoder:
+        // build-time text-scan of the section-heading structure
+        // (`<h3>` markup with regular class attribution).
+        C::ConceptualSpec => ContentType::Xhtml,
         // Non-leaf concepts have no decoder — they're abstract.
         C::Source
         | C::Lexicon
@@ -260,6 +274,7 @@ impl RegistryEntry {
         let family = family_dir_for(self.kind, &self.name);
         let ext = match self.content_type() {
             ContentType::XmlLmf | ContentType::UslmXml | ContentType::XmlXsd => "xml",
+            ContentType::Xhtml => "xhtml",
             ContentType::Plaintext | ContentType::AdobeGlyphList => "txt",
             ContentType::Json => "json",
             ContentType::Pdf => "pdf",
@@ -322,16 +337,22 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
             C::TypographicGlyphSet => "adobe",
             _ => "typography",
         }
-    } else if matches!(kind, C::SchemaSpec | C::XmlSchemaDefinition) {
+    } else if matches!(
+        kind,
+        C::SchemaSpec | C::XmlSchemaDefinition | C::ConceptualSpec
+    ) {
         // XSDs live under the corpus they schema. The USLM XSD is
         // shipped at `data/legal/uscode/schema/` (the U.S. Code
         // corpus); the XHTML XSD is shipped at
         // `data/markup-schemas/xhtml/` (the M4.η.1 HTML5 ontology
-        // grounding source). Future schema kinds for non-legal
-        // corpora can extend this branch — the per-name dispatch
-        // is the seam where new families plug in.
+        // grounding source); the W3C `xml.xsd` and Information Set
+        // recommendation live under `data/markup-schemas/xml/` (the
+        // M4.η.2 XML 1.0 ontology grounding sources). Future schema
+        // kinds for non-legal corpora can extend this branch — the
+        // per-name dispatch is the seam where new families plug in.
         match name {
             "xhtml_1_0_xsd" => "markup-schemas/xhtml",
+            "xml_1_0_namespace_xsd" | "xml_infoset" => "markup-schemas/xml",
             _ => "legal/uscode/schema",
         }
     } else {

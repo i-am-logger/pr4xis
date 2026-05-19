@@ -41,6 +41,7 @@ pr4xis::ontology! {
         // === SchemaSpec family (W3C XSD 1.1 Part 1 §1.1) ===
         SchemaSpec,                 // root of structural schema specifications
         XmlSchemaDefinition,        // leaf: a W3C XSD 1.1 schema document (e.g., USLM XSD)
+        ConceptualSpec,             // leaf: a published text-form conceptual specification (e.g., W3C XML Information Set rec)
     ],
 
     labels: {
@@ -80,6 +81,8 @@ pr4xis::ontology! {
             "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §1.1: a published structural specification for documents of some content-type. The substrate ontology that downstream content-type ontologies (USLM, LMF, OOXML) load from."),
         XmlSchemaDefinition: ("en", "XML Schema Definition (XSD)",
             "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1, W3C Recommendation 5 April 2012: an XSD document declaring element/complexType/simpleType/attribute/group declarations for an XML vocabulary. Cited by content-type ontologies (USLM 1.0.18) that ground their type system in the schema rather than hand-coding."),
+        ConceptualSpec: ("en", "Conceptual specification",
+            "Cowan & Tobin (2004) W3C XML Information Set (Second Edition), W3C Recommendation 4 February 2004: a published text-form specification that defines a conceptual model (information items, abstract structures, taxonomies) rather than a concrete machine-readable schema. The conceptual taxonomy is loaded by parsing the section-heading structure of the W3C-published XHTML edition of the recommendation. Sibling to XmlSchemaDefinition under SchemaSpec."),
     },
 
     is_a: [
@@ -107,6 +110,7 @@ pr4xis::ontology! {
         // SchemaSpec family
         (SchemaSpec, Source),
         (XmlSchemaDefinition, SchemaSpec),
+        (ConceptualSpec, SchemaSpec),
     ],
 
     // Adjunction graph: pairs of concepts whose instances are connected by
@@ -228,6 +232,7 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "TypographicGlyphSet" => C::TypographicGlyphSet,
         "SchemaSpec" => C::SchemaSpec,
         "XmlSchemaDefinition" => C::XmlSchemaDefinition,
+        "ConceptualSpec" => C::ConceptualSpec,
         _ => return None,
     })
 }
@@ -255,6 +260,7 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::TypographicGlyphSet => "TypographicGlyphSet",
         C::SchemaSpec => "SchemaSpec",
         C::XmlSchemaDefinition => "XmlSchemaDefinition",
+        C::ConceptualSpec => "ConceptualSpec",
     }
 }
 
@@ -314,6 +320,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
             | C::CaseLaw
             | C::TypographicGlyphSet
             | C::XmlSchemaDefinition
+            | C::ConceptualSpec
     )
 }
 

@@ -172,6 +172,21 @@ fn main() {
     // names come from the W3C-published schema, not from hand-coded
     // Rust string lists.
     write_xhtml_schema_codegen(&workspace_root, &manifest, &out_dir);
+
+    // M4.η.2 — XML 1.0 ontology grounding sources. Two outputs:
+    //
+    // - `xml_namespace_schema_generated.rs`: the four `xml:*`
+    //   reserved attribute names loaded from the W3C xml.xsd at
+    //   `crates/domains/data/markup-schemas/xml/xml.xsd`.
+    // - `xml_infoset_generated.rs`: the 11 information items loaded
+    //   from the W3C XML Information Set rec at
+    //   `crates/domains/data/markup-schemas/xml/xml-infoset.xhtml`.
+    //
+    // Per "bottom-up loaded, never encoded", every name comes from
+    // a registered authoritative source — not from hand-coded Rust
+    // enum variants or string lists.
+    write_xml_namespace_schema_codegen(&workspace_root, &manifest, &out_dir);
+    write_xml_infoset_codegen(&workspace_root, &manifest, &out_dir);
 }
 
 /// Find the registered `uslm_xsd` source in the praxis manifest,
@@ -306,6 +321,151 @@ fn write_xhtml_schema_codegen(
             );
             std::fs::write(&out_path, stub).expect("write xhtml_schema stub");
             println!("cargo:warning=XHTML XSD codegen failed: {e}");
+        }
+    }
+}
+
+/// Find the registered `xml_1_0_namespace_xsd` source in the praxis
+/// manifest, resolve its bundled xml.xsd on disk, and invoke
+/// `pr4xis::codegen::xml_schemas::generate_xml_namespace_schema_source`
+/// to emit `$OUT_DIR/xml_namespace_schema_generated.rs`. On any
+/// failure (missing entry, missing file, scan error) write a
+/// commented stub so the runtime `include!` site always resolves.
+fn write_xml_namespace_schema_codegen(
+    workspace_root: &std::path::Path,
+    manifest: &RawManifest,
+    out_dir: &std::path::Path,
+) {
+    let out_path = out_dir.join("xml_namespace_schema_generated.rs");
+
+    let Some(src) = manifest.sources.get("xml_1_0_namespace_xsd") else {
+        let stub = "// Stub: `xml_1_0_namespace_xsd` source not registered in praxis.toml.\n\
+             pub const XML_NAMESPACE_ATTRIBUTES: &[&str] = &[];\n";
+        std::fs::write(&out_path, stub).expect("write xml_namespace_schema stub");
+        return;
+    };
+
+    if src.kind != "XmlSchemaDefinition" {
+        let stub = format!(
+            "// Stub: `xml_1_0_namespace_xsd` is registered as kind {:?}, not XmlSchemaDefinition; \
+             skipping XML namespace codegen.\n\
+             pub const XML_NAMESPACE_ATTRIBUTES: &[&str] = &[];\n",
+            src.kind,
+        );
+        std::fs::write(&out_path, stub).expect("write xml_namespace_schema stub");
+        return;
+    }
+
+    // xml.xsd is bundled at a fixed name (not `<name>-<version>.xsd`
+    // like the per-corpus XSDs) — the W3C-published file is just
+    // `xml.xsd` and that's the convention every consumer follows.
+    let xsd_path = workspace_root.join("crates/domains/data/markup-schemas/xml/xml.xsd");
+
+    if !xsd_path.exists() {
+        let stub = format!(
+            "// Stub: XML namespace XSD not on disk at {}; skipping codegen.\n\
+             pub const XML_NAMESPACE_ATTRIBUTES: &[&str] = &[];\n",
+            xsd_path.display(),
+        );
+        std::fs::write(&out_path, stub).expect("write xml_namespace_schema stub");
+        return;
+    }
+
+    println!("cargo:rerun-if-changed={}", xsd_path.display());
+
+    match pr4xis::codegen::xml_schemas::generate_xml_namespace_schema_source(&xsd_path) {
+        Ok(source) => {
+            let attr_count = source.matches("    \"").count();
+            std::fs::write(&out_path, source).expect("write xml_namespace_schema codegen");
+            eprintln!(
+                "Generated XML namespace XSD inventory: {attr_count} reserved attribute names -> {}",
+                out_path.display(),
+            );
+        }
+        Err(e) => {
+            let stub = format!(
+                "// XML namespace XSD codegen failed for {}: {}\n\
+                 pub const XML_NAMESPACE_ATTRIBUTES: &[&str] = &[];\n",
+                xsd_path.display(),
+                e,
+            );
+            std::fs::write(&out_path, stub).expect("write xml_namespace_schema stub");
+            println!("cargo:warning=XML namespace XSD codegen failed: {e}");
+        }
+    }
+}
+
+/// Find the registered `xml_infoset` source in the praxis manifest,
+/// resolve its bundled XHTML on disk, and invoke
+/// `pr4xis::codegen::xml_schemas::generate_xml_infoset_source` to
+/// emit `$OUT_DIR/xml_infoset_generated.rs`. On any failure (missing
+/// entry, missing file, scan error) write a commented stub.
+fn write_xml_infoset_codegen(
+    workspace_root: &std::path::Path,
+    manifest: &RawManifest,
+    out_dir: &std::path::Path,
+) {
+    let out_path = out_dir.join("xml_infoset_generated.rs");
+
+    let stub_decl = "/// Stub variant of `InformationItemEntry` for the case where the \
+                     bundled rec is missing.\n\
+                     #[derive(Debug, Clone, Copy, PartialEq, Eq)]\n\
+                     pub struct InformationItemEntry {\n    \
+                        pub section: &'static str,\n    \
+                        pub anchor: &'static str,\n    \
+                        pub english_name: &'static str,\n    \
+                        pub variant_ident: &'static str,\n\
+                     }\n\
+                     pub const XML_INFOSET_INFORMATION_ITEMS: &[InformationItemEntry] = &[];\n";
+
+    let Some(src) = manifest.sources.get("xml_infoset") else {
+        let stub =
+            format!("// Stub: `xml_infoset` source not registered in praxis.toml.\n{stub_decl}",);
+        std::fs::write(&out_path, stub).expect("write xml_infoset stub");
+        return;
+    };
+
+    if src.kind != "ConceptualSpec" {
+        let stub = format!(
+            "// Stub: `xml_infoset` is registered as kind {:?}, not ConceptualSpec; \
+             skipping infoset codegen.\n{stub_decl}",
+            src.kind,
+        );
+        std::fs::write(&out_path, stub).expect("write xml_infoset stub");
+        return;
+    }
+
+    let xhtml_path =
+        workspace_root.join("crates/domains/data/markup-schemas/xml/xml-infoset.xhtml");
+
+    if !xhtml_path.exists() {
+        let stub = format!(
+            "// Stub: XML Information Set rec not on disk at {}; skipping codegen.\n{stub_decl}",
+            xhtml_path.display(),
+        );
+        std::fs::write(&out_path, stub).expect("write xml_infoset stub");
+        return;
+    }
+
+    println!("cargo:rerun-if-changed={}", xhtml_path.display());
+
+    match pr4xis::codegen::xml_schemas::generate_xml_infoset_source(&xhtml_path) {
+        Ok(source) => {
+            let item_count = source.matches("InformationItemEntry {").count();
+            std::fs::write(&out_path, source).expect("write xml_infoset codegen");
+            eprintln!(
+                "Generated XML Information Set inventory: {item_count} information items -> {}",
+                out_path.display(),
+            );
+        }
+        Err(e) => {
+            let stub = format!(
+                "// XML Infoset codegen failed for {}: {}\n{stub_decl}",
+                xhtml_path.display(),
+                e,
+            );
+            std::fs::write(&out_path, stub).expect("write xml_infoset stub");
+            println!("cargo:warning=XML Infoset codegen failed: {e}");
         }
     }
 }

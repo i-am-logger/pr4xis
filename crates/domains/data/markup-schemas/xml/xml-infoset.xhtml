@@ -1,0 +1,1157 @@
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+ <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
+ <title>XML Information Set (Second Edition)</title>
+ <style type="text/css">
+  .xml-def {padding-left: 24pt}
+  .xml-syntax {padding-left: 24pt}
+  .deleted {background-color: #FF9999; text-decoration: line-through}
+ </style>
+ <link href="https://www.w3.org/StyleSheets/TR/W3C-REC" type="text/css" rel="stylesheet" />
+ <meta name="RCSId" content="$Id: Overview.html,v 1.4 2018/10/09 13:30:19 denis Exp $"/>
+</head>
+<body>
+
+<div class="head">
+<a href="https://www.w3.org/">
+<img height="48" width="72" alt="W3C" src="https://www.w3.org/Icons/w3c_home" />
+</a>
+
+<div align="center">
+<h1>XML Information Set<span class="added"> (Second Edition)</span></h1>
+<h2 class="nonum">W3C Recommendation 4 February 2004</h2>
+</div>
+
+<dl>
+
+<dt>This version:</dt>
+<dd>
+<a href="https://www.w3.org/TR/2004/REC-xml-infoset-20040204">
+http://www.w3.org/TR/2004/REC-xml-infoset-20040204</a>
+</dd>
+
+<dt>Latest version:</dt>
+<dd>
+<a href="https://www.w3.org/TR/xml-infoset">
+http://www.w3.org/TR/xml-infoset</a>
+</dd>
+
+<dt>Previous version:</dt>
+<dd>
+<a href="https://www.w3.org/TR/2003/PER-xml-infoset-20031210">
+http://www.w3.org/TR/2003/PER-xml-infoset-20031210</a>
+</dd>
+
+<dt>Editors:</dt>
+
+<dd>
+John Cowan, 
+<a href="mailto:jcowan@reutershealth.com">jcowan@reutershealth.com</a>
+</dd>
+
+<dd>
+Richard Tobin,
+<a href="mailto:richard@cogsci.ed.ac.uk">richard@cogsci.ed.ac.uk</a>
+</dd>
+
+</dl>
+
+<p>
+Please refer to the
+<a href="https://www.w3.org/2001/10/02/xml-infoset-errata.html">
+<strong>errata</strong></a>
+for this document, which may include some normative corrections.
+</p>
+
+<p>
+See also 
+<a href="https://www.w3.org/2003/03/Translations/byTechnology?technology=xml-infoset">
+<strong>translations</strong></a>.
+</p>
+
+<p class="copyright">
+<a href="https://www.w3.org/Consortium/Legal/ipr-notice#Copyright">
+Copyright</a>
+&#xa9;1999-2004
+<a href="https://www.w3.org/">
+<acronym title="World Wide Web Consortium">W3C</acronym></a><sup>&#xae;</sup>
+(<a href="http://www.csail.mit.edu/">
+<acronym title="Massachusetts Institute of Technology">MIT</acronym></a>,
+<a href="http://www.ercim.org/">
+<acronym title="European Research Consortium for Informatics and Mathematics">
+ERCIM</acronym></a>,
+<a href="http://www.keio.ac.jp/">Keio</a>),
+All Rights Reserved.
+W3C <a href="https://www.w3.org/Consortium/Legal/ipr-notice#Legal_Disclaimer">
+liability</a>,
+<a href="https://www.w3.org/Consortium/Legal/ipr-notice#W3C_Trademarks">
+trademark</a>,
+<a href="https://www.w3.org/Consortium/Legal/copyright-documents">
+document use</a> and
+<a href="https://www.w3.org/Consortium/Legal/copyright-software">
+software licensing</a> rules apply.
+</p>
+
+</div>
+
+<hr />
+
+<div>
+<h2 class="nonum"><a name="abstract">Abstract</a></h2>
+<p>This specification provides a set of definitions for use in other
+specifications that need to refer to the information in an XML document.
+</p>
+</div>
+
+<div>
+<h2 class="nonum"><a name="status" id="status"/>Status of this Document</h2>
+
+<p><em>This section describes the status of this document at the time of its 
+publication. Other documents may supersede this document. A list of current 
+W3C publications and the latest revision of this technical report can be 
+found in the <a href="https://www.w3.org/TR/">W3C 
+technical reports index</a> at http://www.w3.org/TR/.</em>
+</p>
+
+<p>This document is 
+a <a href="https://www.w3.org/2003/06/Process-20030618/tr.html#RecsW3C">Recommendation</a> of 
+the W3C.  It has been reviewed by W3C Members and other interested parties, 
+and has been endorsed by the Director as a W3C Recommendation. It is a stable 
+document and may be used as reference material or cited as a normative 
+reference from another document. W3C's role in making the Recommendation 
+is to draw attention to the specification and to promote its widespread 
+deployment.  This enhances the functionality and interoperability of the Web.
+</p>
+
+<p>This document updates the Infoset to cover 
+<a href="#XML11">XML 1.1</a> and <a href="#Namespaces11">Namespaces 1.1</a>,
+clarifies the consequences of certain kinds of invalidity,
+and corrects some typographical errors.  It is a 
+product of the <a href="https://www.w3.org/XML/Activity.html">W3C XML Activity</a>. 
+The English version of this specification is the only normative version. However, 
+for translations of this document, see <a href="https://www.w3.org/2003/03/Translations/byTechnology?technology=xml-infoset">http://www.w3.org/2003/03/Translations/byTechnology?technology=xml-infoset</a>.
+</p>
+
+<p>Documentation of intellectual property possibly relevant to this recommendation 
+may be found at the Working Group's public <a href="https://www.w3.org/2002/08/xmlcore-IPR-statements">IPR disclosure page</a>.
+</p>
+
+<p>Please report errors in this document to <a 
+href="mailto:www-xml-infoset-comments@w3.org">www-xml-infoset-comments@w3.org</a>
+(public <a href="http://lists.w3.org/Archives/Public/www-xml-infoset-comments/">
+archives</a>
+are available).  The errata list for this Recommendation is available at <a href="https://www.w3.org/2001/10/02/xml-infoset-errata.html">http://www.w3.org/2001/10/02/xml-infoset-errata.html</a>.
+</p>
+
+</div>
+
+<div>
+<h2 class="nonum"><a name="contents">Contents</a></h2>
+<ul style="list-style-type: none;">
+ <li><a href="#intro">1. Introduction</a></li>
+ <li>
+  <a href="#infoitem">2. Information Items</a>
+  <ul style="list-style-type: none;">
+   <li><a href="#infoitem.document">2.1 The Document Information Item</a></li>
+   <li><a href="#infoitem.element">2.2 Element Information Items</a></li>
+   <li><a href="#infoitem.attribute">2.3 Attribute Information Items</a></li>
+   <li><a href="#infoitem.pi">2.4 Processing Instruction Information Items</a></li>
+   <li><a href="#infoitem.rse">2.5 Unexpanded Entity Reference Information Items</a></li>
+   <li><a href="#infoitem.character">2.6 Character Information Items</a></li>
+   <li><a href="#infoitem.comment">2.7 Comment Information Items</a></li>
+   <li><a href="#infoitem.doctype">2.8 The Document Type Declaration Information Item</a></li>
+   <li><a href="#infoitem.entity.unparsed">2.9 Unparsed Entity Information Items</a></li>
+   <li><a href="#infoitem.notation">2.10 Notation Information Items</a></li>
+   <li><a href="#infoitem.namespace">2.11 Namespace Information Items</a></li>
+  </ul>
+ </li>
+ <li><a href="#conformance">3. Conformance</a></li>
+ <li><a href="#references">Appendix A: References</a></li>
+ <li><a href="#reporting">Appendix B: XML <!-- <span class="deleted">1.0</span> --> Reporting Requirements (informative)</a></li>
+ <li><a href="#example">Appendix C: Example (informative)</a></li>
+ <li><a href="#omitted">Appendix D: What is not in the Information Set</a></li>
+ <li><a href="#rdfschema">Appendix E: RDF Schema (informative)</a></li>
+</ul>
+</div>
+<hr />
+<div>
+<h2><a name="intro">1. Introduction </a></h2>
+<p>This specification defines an abstract data set called
+the <dfn><strong>XML Information Set</strong></dfn>
+(<dfn><strong>Infoset</strong></dfn>).
+Its purpose is to provide a consistent set of definitions for use
+in other specifications that need to refer to the information in a well-formed
+XML document <a href="#XML">[XML]</a>.
+</p>
+<p>
+It does not attempt to be exhaustive; the primary criterion for inclusion
+of an information item or property has been that of expected usefulness
+in future specifications.  Nor does it constitute a minimum set of
+information that must be returned by an XML processor.
+</p> 
+
+<p>
+An XML document has an information set if it is well-formed and
+satisfies the namespace constraints described 
+<a href="#intro.namespaces">below</a>.
+There is no requirement
+for an XML document to be valid in order to have an information set.
+</p> 
+
+<p>
+Information sets may be created by methods (not described in this
+specification) other than parsing an XML document.
+See <a href="#intro.synthetic">Synthetic Infosets</a> below.
+</p>
+
+<p>
+An XML document's information set consists of a number of
+<dfn><strong>information items</strong></dfn>;
+the information set for any well-formed XML document
+will contain at least a
+<a href="#infoitem.document">document</a> information item
+and several others.
+An information item is an abstract description of some part of an XML
+document: each information item has a set of associated named
+<dfn><strong>properties</strong></dfn>.  In this specification, the
+property names are shown in square brackets, <strong>[thus]</strong>.
+The types of information item are listed in 
+<a href="#infoitem">section 2</a>.
+</p> 
+
+<p>
+The XML
+Information Set does not require or favor a specific interface or class of
+interfaces.  This specification presents the information set as a modified
+tree for the sake of clarity and simplicity, but there is no requirement that
+the XML Information Set be made available through a tree structure; other
+types of interfaces, including (but not limited to) event-based and query-based
+interfaces, are also capable of providing information conforming to the XML
+Information Set.
+</p>
+<p>
+The terms "information set" and "information
+item" are similar in meaning to the generic terms "tree" and "node", as they
+are used in computing. However, the former terms are used in this specification
+to reduce possible confusion with other specific data models. Information
+items do <em>not</em> map one-to-one with the nodes of the DOM or the "tree"
+and "nodes" of the XPath data model.
+</p> 
+
+<p>
+In this specification, the words "must",
+"should", and "may" assume the meanings specified in
+<a href="#RFC2119">[RFC2119]</a>, except that the words do not appear in 
+uppercase.
+</p>
+
+<h3 class="added"><a name="intro.versions">XML Versions</a></h3>
+
+<p class="added">
+Different versions of the XML specification may specify different
+parsing rules.
+<span class="added">The information set of an XML document is defined to
+be the one obtained by parsing it according to the rules of the
+specification whose version corresponds
+to that of the document.</span>
+A document which does not specify a
+version number is considered to have version 1.0.  If an XML
+processor accepts a document with a version number that it does not
+understand, it will not necessarily be able to produce the correct
+information set.
+</p>
+
+<h3><a name="intro.namespaces">Namespaces</a></h3>
+
+<p>
+XML <!-- <span class="deleted">1.0</span> --> documents that do not conform to 
+<a href="#Namespaces">[Namespaces]</a>, 
+though technically well-formed,
+are not considered to have meaningful information sets.
+That is, this specification does not define an information
+set for documents that have element or attribute names containing colons that
+are used in other ways than as prescribed by 
+<a href="#Namespaces">[Namespaces]</a>.
+</p>
+
+<p>
+Furthermore, this specification does not define an information set for
+documents which use relative URI references in namespace declarations.
+This is in accordance with the decision of the W3C XML Plenary Interest
+Group described in <a href="#RelNS">[Relative Namespace URI References]</a>.
+</p>
+
+<p>
+The value of a [namespace name] property is the normalized value of
+the corresponding namespace attribute; no additional URI escaping is
+applied to it by the processor.
+</p>
+
+<h3><a name="intro.entities">Entities</a></h3>
+
+<p>
+An information set describes its XML document with entity
+references already expanded, that is, represented by the information
+items corresponding to their replacement text. However, there are
+various circumstances in which a processor may not perform this
+expansion.  An entity may not be declared, or may not be retrievable.
+A non-validating processor may choose not to read all declarations,
+and even if it does, may not expand all external entities.  In these
+cases an 
+<a href="#infoitem.rse">unexpanded entity reference</a>
+information item is used to represent the entity reference.
+</p>
+
+<h3><a name="intro.eol">End-of-Line Handling</a></h3>
+<p>
+The values of all properties in the Infoset 
+take account of the end-of-line normalization described in
+<a href="#XML">[XML]</a>, 2.11 "End-of-Line Handling".
+</p>
+
+<h3><a name="intro.baseURIs">Base URIs</a></h3>
+<p>
+Several information items have a [base URI] or [declaration base URI] property.
+These are computed according to
+<a href="#XMLBase">[XML Base]</a>.
+Note that retrieval of a resource may involve redirection
+at the parser level (for example, in an entity resolver) or below;
+in this case the base URI is the final URI used to retrieve the resource
+after all redirection.
+</p>
+<p>
+The value of these properties does not reflect any URI escaping that
+may be required for retrieval of the resource, but it may include
+escaped characters if these were specified in the document, or returned
+by a server in the case of redirection.
+</p>
+<p>
+In some cases (such as a document read from a string or a pipe) the
+rules in
+<a href="#XMLBase">[XML Base]</a>
+may result in a base URI being application
+dependent.  In these cases this specification does not define
+the value of the [base URI] or [declaration base URI] property.
+</p>
+<p>
+When resolving relative URIs the [base URI] property should be used in
+preference to the values of xml:base attributes; they may be inconsistent
+in the case of <a href="#intro.synthetic">Synthetic Infosets</a>.
+</p>
+
+<h3><a name="intro.null">``Unknown'' and ``No Value''</a></h3>
+<p>
+Some properties may sometimes have the value
+<dfn><strong>unknown</strong></dfn> or
+<dfn><strong>no value</strong></dfn>,
+and it is said that a property value is unknown or that a property
+has no value respectively.
+These values are distinct from each other and from all other values.
+In particular they are distinct from the empty string, the empty set,
+and the empty list, each of which simply has no members.
+This specification does not use the term <strong>null</strong> since in some
+communities it has particular connotations which may not match those
+intended here.
+</p>
+
+<h3 class="added"><a name="intro.invalidity">Inconsistencies Resulting from Invalidity</a></h3>
+<p class="added">
+As noted above, an XML document need not be valid to have an
+information set.  However, certain kinds of invalidity affect the
+values assigned to some properties.
+Entities, notations, elements and attributes may be undeclared.
+Notations and elements may be multiply declared (multiple declarations
+are valid for entities and attributes).
+An ID may be undefined or multiply defined.
+Such cases are noted where relevant in the Information Item definitions below.
+</p>
+
+<h3><a name="intro.synthetic">Synthetic Infosets</a></h3>
+<p>
+This specification describes the information set resulting from parsing
+an XML document.  Information sets may be constructed by other means,
+for example by use of an API such as the DOM or by transforming an
+existing information set.
+</p>
+<p>
+
+An information set corresponding to a real document will necessarily
+be consistent in various ways; for example the [in-scope namespaces]
+property of an element will be consistent with the [namespace
+attributes] properties of the element and its ancestors.  This may not
+be true of an information set constructed by other means; in such a case
+there will be no XML document corresponding to the information set,
+and to serialize it will require resolution of the inconsistencies
+(for example, by outputting namespace declarations that correspond to
+the namespaces in scope).
+
+</p>
+
+ </div>
+<div>
+<h2><a name="infoitem">2. Information Items</a></h2>
+<p>An
+information set can contain up to eleven different types of information item,
+as explained in the following sections.  Every information item has properties.
+For ease of reference, each property is given a name, indicated
+<strong>[thus]</strong>.
+Links to a definition and/or syntax in the XML 1.0
+Recommendation <a href="#XML">[XML]</a> are given for each information item.
+</p>
+<div>
+<h3><a name="infoitem.document">2.1. The Document Information Item</a></h3>
+<p class="xml-def"><em><strong>XML Definition:
+</strong> <a href="https://www.w3.org/TR/REC-xml#dt-xml-doc">document</a> (Section
+2, <cite>Documents</cite>)</em></p>  <p class="xml-syntax"><em><strong>
+XML Syntax:</strong>  [1] <a href="https://www.w3.org/TR/REC-xml#NT-document">
+Document</a> (Section 2.1, <cite>Well-Formed XML Documents</cite>)</em></p>
+  <p>There is exactly one <dfn><strong>document information item</strong></dfn>
+in the information set, and all other information items are accessible from
+the properties of the document information item, either directly or indirectly
+through the properties of other information items.</p>  <p>The document information
+item has the following properties:</p>  <ol>
+<li><strong>[children]</strong> An ordered list of child information items,
+in document order.  The list contains exactly one <a href="#infoitem.element">
+element</a> information item. The list also contains one <a href="#infoitem.pi">
+processing instruction</a> information item for each processing instruction
+outside the document element, and one <a href="#infoitem.comment">comment</a> information item for each comment outside
+the document element.  Processing instructions and comments within the DTD
+are excluded.  If there is a document type declaration, the list also
+contains a <a href="#infoitem.doctype">document type declaration</a>
+information item.</li>
+<li><strong>[document element]</strong>
+The <a href="#infoitem.element">element</a> information item corresponding to the document element.
+</li>
+<li><strong>[notations]</strong> An unordered set of <a href="#infoitem.notation">
+notation</a> information items, one for each notation declared in the DTD.
+<span class="added">If any notation is multiply declared, this property
+has no value.</span>
+</li>
+<li><strong>[unparsed entities]</strong> An unordered set of 
+<a href="#infoitem.entity.unparsed">unparsed entity</a>
+information items, one for each unparsed entity declared
+in the DTD.
+</li>
+<li><strong>[base URI]</strong> The base URI of the document entity.
+</li>
+<li><strong>[character encoding scheme]</strong>
+The name of the character encoding scheme in which the document entity
+is expressed.
+</li>
+<li><strong>[standalone]</strong> An indication of the standalone status of
+the document, either yes or no.  This property is derived
+from the optional standalone document declaration in
+the XML declaration at the beginning of the document
+entity, and has no value if there is no standalone document declaration.</li>
+<li><strong>[version]</strong> A string representing the XML version of the
+document.  This property is derived from the XML declaration optionally present
+at the beginning of the document entity, and has no value if there is no
+XML declaration.</li>
+<li>
+<strong>[all declarations processed]</strong> This property is not
+strictly speaking part of the infoset of the document.  Rather it is
+an indication of whether the processor has read the complete DTD.
+Its value is a boolean.  If it is false, then certain
+properties (indicated in their descriptions below) may be unknown.
+If it is true, those properties are never unknown.
+</li>
+</ol></div>
+<div>
+<h3><a name="infoitem.element">2.2. Element Information Items</a></h3>
+<p class="xml-def"><em><strong>XML Definition:</strong> <a href="https://www.w3.org/TR/REC-xml#dt-element">element</a> (Section 3, <cite>
+Logical Structures</cite>)</em></p>  <p class="xml-syntax"><em><strong>
+XML Syntax:</strong>  [39] <a href="https://www.w3.org/TR/REC-xml#NT-element">
+Element</a> (Section 3, <cite>Logical Structures</cite>)</em></p>
+ <p>There is an <dfn><strong>element information item</strong></dfn> for each
+element appearing in the XML document.  One of the element information items
+is the value of the [document element] property of the document information
+item, corresponding to the root of the element tree, and all
+other element information items are accessible by recursively following
+its [children] property.</p> 
+<p>An element information item has the following
+properties:</p>  <ol>
+<li><strong>[namespace name]</strong> The namespace name, if any, of the element
+type.  If the element does not belong to a namespace, this property
+has no value.
+</li>
+<li><strong>[local name]</strong> The local part of the element-type name.
+ This does not include any namespace prefix or following colon.</li>
+<li><strong>[prefix]</strong> The namespace prefix part of the element-type
+name. If the name is unprefixed, this property 
+has no value.  Note that namespace-aware applications should use
+the namespace name rather than the prefix to identify elements.
+</li>
+<li><strong>[children]</strong> An ordered list of child information items,
+in document order.  This list contains <a href="#infoitem.element">element</a>,
+<a href="#infoitem.pi">processing instruction</a>, <a href="#infoitem.rse">
+unexpanded entity reference</a>, <a href="#infoitem.character">character</a>,
+and <a href="#infoitem.comment">comment</a> information items, one for each
+element, processing instruction, reference to an unprocessed external entity,
+data character, and comment appearing immediately within the current element.
+If the element is empty, this list has no members.</li>
+<li><strong>[attributes]</strong> An unordered set of <a href="#infoitem.attribute">
+attribute</a> information items, one for each of the attributes (specified
+or defaulted from the DTD) of this element.  Namespace declarations
+do not appear in this set.
+If the element has no attributes, this
+set has no members.</li>
+<li><strong>[namespace attributes]</strong> An unordered set of <a href="#infoitem.attribute">
+attribute</a> information items, one for each of the namespace
+declarations (specified or defaulted from the DTD) of this element.
+<span class="changed">
+Declarations of the form xmlns="" and xmlns:name="", which undeclare
+the default namespace and prefixes respectively, count as namespace
+declarations.  Prefix undeclaration was added in
+<a href="#Namespaces11">Namespaces in XML 1.1</a>.
+</span>
+By definition, all namespace attributes (including
+those named <code>xmlns</code>, whose [prefix] property
+has no value) have a namespace
+URI of <code>http://www.w3.org/2000/xmlns/</code>.
+If the element has no namespace declarations, this set
+has no members.
+</li>
+<li><strong>[in-scope namespaces]</strong> An unordered set
+of <a href="#infoitem.namespace">
+namespace</a> information items, one for each of the namespaces
+in effect for this element.  This set always contains an item with
+the prefix <code>xml</code> which is implicitly bound to the
+namespace name <code>http://www.w3.org/XML/1998/namespace</code>.
+It does not contain an item with the prefix <code>xmlns</code> (used
+for declaring namespaces), since
+an application can never encounter an element or attribute with that
+prefix.
+The set will include namespace items corresponding to all of the
+members of [namespace attributes], 
+<span class="changed">
+except for any representing declarations of the form xmlns="" or
+xmlns:name="", which do not declare a namespace but rather undeclare
+the default namespace and prefixes.
+</span>
+When resolving the prefixes of qualified names this property should be
+used in preference to the [namespace attributes] property; they may be
+inconsistent in the case of <a href="#intro.synthetic">Synthetic
+Infosets</a>.
+</li>
+<li><strong>[base URI]</strong> The base URI of the element.
+</li>
+<li><strong>[parent]</strong> The document or element information item which
+contains this information item in its [children] property.</li>
+</ol></div>
+<div>
+<h3><a name="infoitem.attribute">2.3. Attribute Information Items</a></h3>
+<p class="xml-def"><em><strong>XML Definition:</strong> <a href="https://www.w3.org/TR/REC-xml#dt-attr">attribute</a> (Section 3.1, <cite>
+Start-Tags, End-Tags, and Empty-Element Tags</cite>)</em></p>
+  <p class="xml-syntax"><em><strong>XML Syntax:</strong> [41] <a href="https://www.w3.org/TR/REC-xml#NT-Attribute">Attribute</a> (Section 3.1, <cite>
+Start-Tags, End-Tags, and Empty-Element Tags</cite>)</em></p>
+ <p>There is an <dfn><strong>attribute information item</strong></dfn> for
+each attribute (specified or defaulted) of each element in the document,
+including those which are namespace declarations.  The latter however
+appear as members of an element's [namespace attributes] property rather
+than its [attributes] property.
+</p>  <p>Attributes declared in the DTD with no default value
+and not specified in the element's start tag are not represented by
+attribute information items.</p>
+
+<p>An attribute information item has the
+following properties:</p>  <ol>
+<li><strong>[namespace name]</strong> The namespace name, if any, of the attribute.
+Otherwise, this property has no value.
+</li>
+<li><strong>[local name]</strong> The local part of the attribute name.
+ This does not include any namespace prefix or following colon.</li>
+<li><strong>[prefix]</strong> The namespace prefix part of the attribute
+name. If the name is unprefixed, this property
+has no value.
+Note that namespace-aware applications should use
+the namespace name rather than the prefix to identify attributes.
+</li>
+<li><strong>[normalized value]</strong> The normalized attribute value (see <a href="https://www.w3.org/TR/REC-xml#AVNormalize">3.3.3 Attribute-Value Normalization
+</a> <a href="#XML">[XML]</a>).</li>
+<li><strong>[specified]</strong> A flag indicating whether this attribute
+was actually specified in the start-tag of its element, or was defaulted from
+the DTD.</li>
+<li><strong>[attribute type]</strong> An indication of the type declared for
+this attribute in the DTD.  Legitimate values are ID, IDREF, IDREFS, ENTITY,
+ENTITIES, NMTOKEN, NMTOKENS, NOTATION, CDATA, and ENUMERATION.
+If there is no declaration for the attribute, this property has no value.
+If no declaration has been read, but the [all declarations processed]
+property of the document information item is false (so there may be an
+unread declaration), then the value of this property is unknown.
+Applications should treat no value and unknown as equivalent to
+a value of CDATA.
+<span class="added">The value of this property is not affected by the
+validity of the attribute value.</span>
+</li>
+<li><strong>[references]</strong>
+If the attribute type is ID, NMTOKEN, NMTOKENS, CDATA, or ENUMERATION,
+this property has no value.  If the attribute type is unknown,
+the value of this property is unknown.  Otherwise (that is,
+if the attribute type is IDREF, IDREFS, ENTITY, ENTITIES, or NOTATION),
+the value of this property is an ordered list of the
+<a href="#infoitem.element">element</a>,
+<a href="#infoitem.entity.unparsed">unparsed entity</a>, or
+<a href="#infoitem.notation">notation</a>
+information items
+referred to in the attribute value, in the order that they appear there.
+In this case, if the attribute value is syntactically
+invalid, this property has no value.
+If the type is IDREF or IDREFS and any of the IDs does not appear as
+the value of an ID attribute in the document, or if the type is
+ENTITY, ENTITIES or NOTATION and no declaration has been read for any
+of the entities or the notation, then this property has no value
+or is unknown, depending on whether the [all declarations processed]
+property of the document information item is true or false.
+If the type is IDREF or IDREFS and any of the IDs appears as the
+value of more than one ID attribute in the document,
+<span class="added">or if the type is NOTATION and there are multiple
+declarations for the notation,</span>
+then this property
+has no value.
+</li>
+<li><strong>[owner element]</strong> The element information item which contains
+this information item in its [attributes] property.</li>
+</ol> </div>
+<div>
+<h3><a name="infoitem.pi">2.4. Processing Instruction Information Items</a></h3>
+<p class="xml-def"><em><strong>XML Definition:
+</strong> <a href="https://www.w3.org/TR/REC-xml#dt-pi">processing instruction
+</a> (Section 2.6, <cite>Processing Instructions</cite>)</em></p>
+  <p class="xml-syntax"><em><strong>XML Syntax:</strong> [16] <a href="https://www.w3.org/TR/REC-xml#NT-PI">PI</a> (Section 2.6, <cite>Processing
+Instructions</cite>)</em></p>  <p>There is a <dfn><strong>
+processing instruction information item</strong></dfn> for each processing
+instruction in the document. The XML declaration and text declarations for
+external parsed entities are not considered processing instructions. </p>
+ <p>A processing instruction information item has the following properties:
+</p>  <ol>
+<li><strong>[target]</strong> A string representing the target part  of the
+processing instruction (an XML name).</li>
+<li><strong>[content]</strong> A string representing the content of the processing
+instruction, excluding the target and any white space immediately following
+it.  If there is no such content, the value of this property will be an empty
+string.</li>
+<li><strong>[base URI]</strong> The base URI of the PI.
+Note that if an infoset is serialized as an XML document, it will not be
+possible to preserve the base URI of any PI that originally appeared at
+the top level of an external entity, since there is no syntax for PIs
+corresponding to the <code>xml:base</code> attribute on elements.
+</li>
+<li><strong>[notation]</strong>
+The <a href="#infoitem.notation">notation</a>
+information item named by the target.
+If there is no declaration for a notation with that name,
+<span class="added">or there are multiple declarations,</span>
+this
+property has no value.  If no declaration has been read, but the [all
+declarations processed] property of the document information item is
+false (so there may be an unread declaration), then the value of this
+property is unknown.
+</li>
+<li><strong>[parent]</strong> The document, element, or document type
+<span class="changed">declaration</span>
+information item which contains this information item in its [children] property.
+</li>
+</ol> </div>
+<div>
+<h3><a name="infoitem.rse">2.5. Unexpanded Entity Reference Information Items</a></h3>
+<p class="xml-def"><em><strong>
+XML Definition:</strong> Section 4.4.3, <cite><a href="https://www.w3.org/TR/REC-xml#include-if-valid">
+Included If Validating</a></cite></em></p>
+<p>A <dfn><strong>unexpanded entity reference information item</strong></dfn>
+serves as a placeholder by which an XML processor 
+can indicate that it has not expanded an external parsed entity.
+There is such an information item for each unexpanded
+reference to an external general entity within the content of an
+element.  A validating XML processor, or a non-validating processor that reads
+all external general entities, will never generate unexpanded entity reference
+information items for a valid document.</p>
+<p>An unexpanded entity reference
+information item has the following properties:</p>  <ol>
+<li><strong>[name]</strong> The name of the entity referenced.</li>
+
+<li><strong>[system identifier]</strong>
+The system identifier of the entity, as it appears in the declaration
+of the entity, without any additional URI escaping applied by the processor.
+If there is no declaration for the entity, this property has no
+value. If no declaration has been read, but the [all declarations
+processed] property of the document information item is false (so
+there may be an unread declaration), then the value of this property
+is unknown.
+</li>
+<li>
+<strong>[public identifier]</strong>
+The public identifier of the entity, normalized as described in
+<a href="https://www.w3.org/TR/REC-xml#dt-pubid">4.2.2 External Entities</a>
+<a href="#XML">[XML]</a>.
+If there is no declaration for the entity, or the declaration does not
+include a public identifier, this property has no value. If no
+declaration has been read, but the [all declarations processed]
+property of the document information item is false (so there may be an
+unread declaration), then the value of this property is unknown.
+</li>
+<li>
+<strong>[declaration base URI]</strong>
+The base URI relative to which the system identifier should be resolved
+(i.e. the base URI of the resource within which the entity declaration occurs).
+This is unknown or has no value in the same circumstances as the
+[system identifier] property.
+</li>
+<li><strong>[parent]</strong> The element information item which contains
+this information item in its [children] property.</li>
+</ol> </div>
+<div>
+<h3><a name="infoitem.character">2.6. Character Information Items</a></h3>
+<p class="xml-syntax"><em><strong>XML Syntax:</strong>
+ [2] <a href="https://www.w3.org/TR/REC-xml#NT-Char">Char</a> (Section 2.2, <cite>
+Characters</cite>)</em></p>  <p>There is a <dfn><strong>character
+information item</strong></dfn> for each data character that appears in the
+document, whether literally, as a character reference, or within a
+CDATA section.
+</p>
+
+ <p>Each character
+is a logically separate information item, but XML applications are free to
+chunk characters into larger groups as necessary or desirable.</p>  <p>A character
+information item has the following properties:</p>  <ol>
+<li><strong>[character code]</strong> The ISO 10646 character code (in the
+range 0 to #x10FFFF, though not every value in this range is a legal XML character
+code) of the character.</li>
+<li><strong>[element content whitespace]</strong> A boolean indicating whether
+the character is white space appearing within element content (see <a href="#XML">
+[XML]</a>, 2.10 "White Space Handling").  Note that validating XML processors
+are <em>required</em>
+<!-- <span class="deleted">by XML 1.0</span> -->
+to provide this information.
+If there is no declaration for the containing element,
+<span class="added">or there are multiple declarations,</span>
+this property has
+no value for white space characters.
+If no declaration has been read, but the [all declarations processed]
+property of the document information item is false (so there may be an
+unread declaration), then the value of this property is unknown for
+white space characters. 
+It is always false for characters that are not white space.
+</li>
+<li><strong>[parent]</strong> The element information
+item which contains this information item in its [children] property.</li>
+</ol> </div>
+<div>
+<h3><a name="infoitem.comment">2.7. Comment Information Items</a></h3>
+<p class="xml-def"><em><strong>XML Definition:</strong> <a href="https://www.w3.org/TR/REC-xml#dt-comment">comment</a> (Section 2.5, <cite>
+Comments</cite>)</em></p>  <p class="xml-syntax"><em><strong>
+XML Syntax:</strong> [15] <a href="https://www.w3.org/TR/REC-xml#NT-Comment">
+Comment</a> (Section 2.5, <cite>Comments</cite>)</em></p>  <p>
+There is a <dfn><strong>comment information item</strong></dfn> 
+for each XML comment in the original document, except for those appearing
+in the DTD (which are not represented).</p>
+<p>A comment information item has
+the following properties:</p>  <ol>
+<li><strong>[content]</strong> A string representing the content of the comment.
+</li>
+<li><strong>[parent]</strong> The document or element
+information item which contains this information item in its [children] property.
+</li>
+</ol> </div>
+<div>
+<h3><a name="infoitem.doctype">2.8. The Document Type Declaration Information Item</a></h3>
+<p class="xml-def"><em><strong>
+XML Definition:</strong> <a href="https://www.w3.org/TR/REC-xml#dt-doctype">
+document type declaration</a> (section 2.8, <cite>Prolog and Document Type
+Declaration</cite>)</em></p>  <p class="xml-syntax"><em><strong>
+XML Syntax:</strong> [28] <a href="https://www.w3.org/TR/REC-xml#NT-doctypedecl">
+doctypedecl</a> (section 2.8, <cite>Prolog and Document Type Declaration</cite>)
+</em></p>  <p>If the XML document has a document type declaration,
+then the information set contains a single <dfn><strong>document type declaration
+information item</strong></dfn>.  Note that entities and notations
+are provided as
+properties of the document information item, not the document type declaration
+information item.</p>  <p>A document type declaration information item has
+the following properties:</p>  <ol>
+<li>
+<strong>[system identifier]</strong>
+The system identifier of the external subset, as it appears in the DOCTYPE
+declaration, without any additional URI escaping applied by the processor.
+If there is no external subset this property has no value.
+</li>
+<li>
+<strong>[public identifier]</strong>
+The public identifier of the external subset, normalized as described in
+<a href="https://www.w3.org/TR/REC-xml#dt-pubid">4.2.2 External Entities</a>
+<a href="#XML">[XML]</a>.
+If there is no external subset or if it has no public identifier,
+this property has no value.
+</li>
+<li><strong>[children]</strong> An ordered list of 
+<a href="#infoitem.pi">processing instruction</a> information items
+representing processing instructions appearing
+in the DTD, in the original document order.  Items from the internal DTD subset
+appear before those in the external subset.</li>
+<li><strong>[parent]</strong> The document information item.</li>
+</ol> </div>   
+
+<div>
+<h3><a name="infoitem.entity.unparsed">2.9. Unparsed Entity Information Items</a></h3>
+<p class="xml-def"><em><strong>XML Definition:
+</strong> <a href="https://www.w3.org/TR/REC-xml#dt-entity">entity</a> (section
+4, <cite>Physical Structures</cite>)</em></p>  <p
+class="xml-syntax"><em><strong>XML Syntax:</strong>  [71] <a href="https://www.w3.org/TR/REC-xml#NT-GEDecl">
+GEDecl</a> (section 4.2, <cite>Entities</cite>)</em></p>
+<p>
+There is an <dfn><strong>unparsed entity information item</strong></dfn>
+for each unparsed general entity declared in the DTD.
+</p>
+<p>
+An unparsed entity information item has the following properties:
+</p>
+<ol>
+<li>
+<strong>[name]</strong>
+The name of the entity.
+</li>
+<li>
+<strong>[system identifier]</strong>
+The system identifier of the entity, as it appears in the declaration
+of the entity, without any additional URI escaping applied by the processor.
+</li>
+<li>
+<strong>[public identifier]</strong>
+The public identifier of the entity, normalized as described in
+<a href="https://www.w3.org/TR/REC-xml#dt-pubid">4.2.2 External Entities</a>
+<a href="#XML">[XML]</a>.
+If the entity has no public identifier, this property has no value.
+</li>
+<li>
+<strong>[declaration base URI]</strong>
+The base URI relative to which the system identifier should be resolved
+(i.e. the base URI of the resource within which the entity declaration occurs).
+</li>
+<li>
+<strong>[notation name]</strong>
+The notation name associated with the entity.
+</li>
+<li>
+<strong>[notation]</strong>
+The <a href="#infoitem.notation">notation</a>
+information item named by the notation name.
+If there is no declaration for a notation with that name,
+<span class="added">or there are multiple declarations,</span>
+this
+property has no value.  If no declaration has been read, but the [all
+declarations processed] property of the document information item is
+false (so there may be an unread declaration), then the value of this
+property is unknown.
+</li>
+</ol>
+</div>   
+
+<div>
+<h3><a name="infoitem.notation">2.10. Notation Information Items</a></h3>
+<p class="xml-def"><em><strong>XML Definition:</strong> <a href="https://www.w3.org/TR/REC-xml#dt-notation">notation</a> (section 4.7, <cite>
+Notations</cite>)</em></p>      <p class="xml-syntax"><em><strong>
+XML Syntax:</strong>  [82] <a href="https://www.w3.org/TR/REC-xml#NT-NotationDecl">
+NotationDecl</a> (section 4.7, <cite>Notations</cite>)</em></p>
+ <p>There is a <dfn><strong>notation information item</strong></dfn> for
+each notation declared in the DTD.</p>  <p>A notation information item has
+the following properties:</p>  <ol>
+<li><strong>[name]</strong> The name of the notation.</li>
+<li><strong>[system identifier]</strong> The system identifier of the notation,
+as it appears in the declaration of the notation,
+without any additional URI escaping applied by the processor.
+If no system identifier was specified, this property has no value.</li>
+<li><strong>[public identifier]</strong>
+The public identifier of the notation, normalized as described in
+<a href="https://www.w3.org/TR/REC-xml#dt-pubid">4.2.2 External Entities</a>
+<a href="#XML">[XML]</a>.
+If the notation has no public identifier,
+this property has no value.</li>
+<li>
+<strong>[declaration base URI]</strong>
+The base URI relative to which the system identifier should be resolved
+(i.e. the base URI of the resource within which the notation declaration
+occurs).
+</li>
+</ol>
+</div>
+
+<div>
+<h3><a name="infoitem.namespace">2.11. Namespace Information Items</a></h3>
+<p>
+Each element in the document has a <dfn><strong>namespace
+information item</strong></dfn> for each namespace that is in scope
+for that element.
+</p>  <p>A namespace information item has the following properties:
+</p>  <ol>
+<li><strong>[prefix]</strong> The prefix whose binding this item describes.
+Syntactically, this
+is the part of the attribute name following the <code>xmlns:</code> prefix.
+If the attribute name is simply <code>xmlns</code>, so that the
+declaration is of the default namespace, this property 
+has no value.
+</li>
+<li><strong>[namespace name]</strong> The namespace name to which the
+prefix is bound.</li>
+</ol> </div>
+
+</div>
+<div>
+<h2><a name="conformance">3. Conformance</a></h2>
+<p>
+Since the purpose of the Information Set is to provide a set of definitions,
+conformance is a property of specifications that use those
+definitions, rather than of implementations.
+</p>
+<p>
+Specifications referring to the Infoset must:
+</p>
+<ul>
+<li>
+Indicate the information items and properties that are needed to implement
+the specification.  (This indirectly imposes conformance requirements
+on processors used to implement the specification.)
+</li>
+<li>
+Specify how other information items and properties are treated (for
+example, they might be passed through unchanged).
+</li>
+<li>
+Note any information required from an XML document that is not defined
+by the Infoset.
+</li>
+<li>
+Note any difference in the use of terms defined by the Infoset (this
+should be avoided).
+</li>
+</ul>
+<p>
+If a specification allows the construction of an infoset that has
+inconsistencies as described above under 
+<a href="#intro.synthetic">Synthetic Infosets</a> 
+it may describe how
+those inconsistencies are to be resolved, and should do so if it
+provides for serialization of the infoset.
+</p>
+</div>
+<div>
+<h2><a name="references">Appendix A. References</a></h2>
+<div>
+<h3><a name="references.normative">Normative References</a></h3>
+<dl>
+
+<dt><strong><a name="ISO10646" id="ISO10646">ISO/IEC 10646</a></strong></dt>
+<dd>ISO (International Organization for Standardization).
+<cite>ISO/IEC 10646-1:2000. Information technology &#x2014;
+Universal Multiple-Octet Coded Character Set (UCS) &#x2014;
+Part 1: Architecture and Basic Multilingual Plane</cite> and 
+<cite>ISO/IEC 10646-2:2001.Information technology &#x2014; 
+Universal Multiple-Octet Coded Character Set (UCS) &#x2014;
+Part 2: Supplementary Planes</cite>,
+as, from time to time, amended, replaced by a new edition or
+expanded by the addition of new parts.
+[Geneva]: International Organization for Standardization.
+(See <a href="http://www.iso.ch">http://www.iso.ch</a> for the latest version.)
+</dd>
+
+<dt><strong><a name="Namespaces">Namespaces</a></strong></dt>
+<dd><cite>Namespaces in XML,</cite> W3C, eds. Tim Bray, Dave Hollander, Andrew
+Layman.  14 January 1999. Available at <code><a href="https://www.w3.org/TR/REC-xml-names">
+http://www.w3.org/TR/REC-xml-names</a></code>.</dd>
+
+<dt class="added"><strong><a name="Namespaces11">Namespaces 1.1</a></strong></dt>
+<dd class="added"><cite>Namespaces in XML 1.1,</cite> 
+W3C, eds. Tim Bray, Dave Hollander, Andrew Layman, Richard Tobin.
+4 February 2004.
+Available at
+<code><a href="https://www.w3.org/TR/xml-names11">
+http://www.w3.org/TR/xml-names11</a></code>.</dd>
+
+<dt><strong><a name="RFC2119">RFC2119</a></strong></dt>
+<dd><cite>Key words for use in RFCs to Indicate Requirement Levels,</cite>
+ed. S. Bradner.  March 1997. Available at <code><a href="http://www.ietf.org/rfc/rfc2119.txt">
+http://www.ietf.org/rfc/rfc2119.txt</a></code>.</dd>
+
+<dt><strong><a name="XML">XML</a></strong></dt>
+<dd><cite>Extensible Markup Language (XML) 1.0 (Third Edition),</cite>
+W3C, eds. Tim Bray, Jean Paoli, C.M. Sperberg-McQueen, Eve Maler, Fran&#xE7;ois Yergeau. 4 February 2004.
+Available at <code><a href="https://www.w3.org/TR/REC-xml">http://www.w3.org/TR/REC-xml</a></code>.
+</dd>
+
+<dt class="added"><strong><a name="XML11">XML 1.1</a></strong></dt>
+<dd class="added"><cite>Extensible Markup Language (XML) 1.1,</cite>
+W3C, eds. Tim Bray, Jean Paoli, C.M. Sperberg-McQueen, Eve Maler, John Cowan, Fran&#xE7;ois Yergeau.
+4 February 2004.
+Available at
+<code><a href="https://www.w3.org/TR/xml11">
+http://www.w3.org/TR/xml11</a></code>.
+</dd>
+
+<dt><strong><a name="XMLBase">XML Base</a></strong></dt>
+<dd><cite>XML Base,</cite> W3C, ed. Jonathan Marsh. February 2000. Available at <code><a href="https://www.w3.org/TR/xmlbase">http://www.w3.org/TR/xmlbase</a></code>.
+</dd>
+
+</dl>   
+</div>
+<div>
+<h3><a name="references.informative">Informative References</a></h3>
+<dl>
+<dt><strong><a name="DOM">DOM</a></strong></dt>
+<dd><cite>Document Object Model (DOM) Level 1 Specification,</cite> W3C, eds. Vidur
+Apparao, Steve Byrne, Mike Champion, et al.  1 October 1998.  Available
+at <code><a href="https://www.w3.org/TR/REC-DOM-Level-1">http://www.w3.org/TR/REC-DOM-Level-1</a></code>.</dd>
+<dt><strong><a name="XPointer-Liaison">XPointer-Liaison</a></strong></dt>
+<dd><cite>XPointer-Information Set Liaison Statement,</cite> W3C, ed. Steven J.
+DeRose.  24 February 1999. Available at <code><a href="https://www.w3.org/TR/NOTE-xptr-infoset-liaison">
+http://www.w3.org/TR/NOTE-xptr-infoset-liaison</a></code>.</dd>
+<dt><strong><a name="RelNS">Relative Namespace URI References</a></strong></dt>
+<dd>
+<cite>Results of W3C XML Plenary Ballot on relative URI References
+in namespace declarations, 3-17 July 2000,</cite> W3C, eds. Dave Hollander,
+C. M. Sperberg-McQueen. 6 September 2000.  Available at
+<code><a href="https://www.w3.org/2000/09/xppa">http://www.w3.org/2000/09/xppa</a></code>.
+</dd>
+<dt><strong><a name="RDFNote">RDF Schema for the XML Information Set</a></strong></dt>
+<dd>
+<cite>RDF Schema for the XML Information Set,</cite> W3C, ed. Richard Tobin. 6 April 2001.  Available at
+<code><a href="https://www.w3.org/TR/xml-infoset-rdfs">http://www.w3.org/TR/xml-infoset-rdfs</a></code>.
+</dd>
+</dl></div></div>
+<div>
+<h2><a name="reporting">Appendix B:  XML <!-- <span class="deleted">1.0</span> --> Reporting Requirements (informative)</a></h2>
+<p>Although the XML <!-- <span class="deleted">1.0</span> --> Recommendation <a href="#XML">[XML]</a> is primarily concerned with XML syntax, it also includes
+some specific reporting requirements for XML processors.</p>  <p>The reporting
+requirements include errors, which are outside the scope of this specification,
+and document information.  All of the XML <!-- <span class="deleted">1.0</span> --> requirements for document information
+reporting have been integrated into the XML Information Set; numbers in parentheses
+refer to sections of the XML Recommendation:</p>  <ol>
+<li>An XML processor must always provide all characters in a document that
+are not part of markup to the application (2.10).</li>
+<li>A validating XML processor must inform the application which of the character
+data in a document is white space appearing within element content (2.10).
+</li>
+<li>An XML processor must normalize line-ends to LF before passing
+them to the application (2.11).</li>
+<li>An XML processor must normalize the value of attributes according to the
+rules in clause 3.3.3 before passing them to the application.
+</li>
+<li>An XML processor must pass the names and external identifiers (system
+identifiers, public identifiers or both) of declared notations to the application
+(4.7).</li>
+<li>When the name of an unparsed entity appears as the explicit or default
+value of an ENTITY or ENTITIES attribute, an XML processor must provide the
+names, system identifiers, and (if present) public identifiers of both the
+entity and its notation to the application (4.6, 4.7).</li>
+<li>An XML processor must pass processing instructions to the application
+(2.6).</li>
+<li>An XML processor (necessarily a non-validating one) that does not include
+the replacement text of an external parsed entity in place of an entity reference
+must notify the application that it recognized but did not read the entity
+(4.4.3).</li>
+<li>A validating XML processor must include the replacement text of an entity
+in place of an entity reference (5.2).</li>
+<li>An XML processor must supply the default value of attributes
+declared in the DTD for a given element type but not appearing in the element's
+start tag (3.3.2).</li>
+</ol>
+<div>
+<h2><a name="example">Appendix C: Example (informative)</a></h2> 
+<p>
+Consider the following example XML document:
+</p>
+
+<pre>&lt;?xml version="1.0"?>
+
+&lt;msg:message doc:date="19990421"
+             	xmlns:doc="http://doc.example.org/namespaces/doc"
+             	xmlns:msg="http://message.example.org/"
+>Phone home!&lt;/msg:message></pre>
+
+<p>
+The information set for this XML document
+contains the following information items:
+</p>
+
+<ul>
+
+<li>A <a href="#infoitem.document">document</a> information item.</li>
+
+<li>
+An <a href="#infoitem.element">element</a> information item
+with namespace name "<code>http://message.example.org/</code>",
+local part "<code>message</code>",
+and prefix "<code>msg</code>".
+</li>
+
+<li>
+An <a href="#infoitem.attribute">attribute</a> information item with the
+namespace name "<code>http://doc.example.org/namespaces/doc</code>",
+local part "<code>date</code>",
+prefix "<code>doc</code>",
+and normalized value "<code>19990421</code>".
+</li>
+
+<li>
+Three <a href="#infoitem.namespace">namespace</a> information items
+for the
+<code>http://www.w3.org/XML/1998/namespace</code>,
+<code>http://doc.example.org/namespaces/doc</code>, and
+<code>http://message.example.org/</code> namespaces.
+</li>
+
+<li>
+Two <a href="#infoitem.attribute">attribute</a> information items
+for the namespace attributes.
+</li>
+
+<li>
+Eleven <a href="#infoitem.character">character</a> information items
+for the character data.
+</li>
+
+</ul>
+
+</div>
+
+<div>
+<h2><a name="omitted">Appendix D: What is not in the Information Set</a></h2>
+<p>The following information is not represented in the
+current version of the XML Information Set (this list is not intended to
+be exhaustive):</p> <ol>
+<li>The content models of elements, from ELEMENT declarations in the DTD.
+ </li>
+<li>The grouping and ordering of attribute declarations in ATTLIST declarations.
+</li>
+<li>The document type name.</li>
+<li>White space outside the document element.</li>
+<li>White space immediately following the target name of a PI.</li>
+<li>Whether characters are represented by character references.</li>
+<li>The difference between the two forms of an empty element: <code>&lt;foo/>
+</code> and <code>&lt;foo>&lt;/foo></code>.</li>
+<li>White space within start-tags (other than significant white space in attribute
+values) and end-tags.</li>
+<li>The difference between CR, CR-LF, and LF line termination.</li>
+<li>The order of attributes within a start-tag.</li>
+<li>The order of declarations within the DTD.</li>
+<li>The boundaries of conditional sections in the DTD.</li>
+<li>The boundaries of parameter entities in the DTD.</li>
+<li>Comments in the DTD.</li>
+<li>The location of declarations (whether in internal or external subset or
+parameter entities).</li>
+<li>Any ignored declarations, including those within an IGNORE conditional
+section, as well as entity and attribute declarations ignored because previous
+declarations override them. </li>
+<li>The kind of quotation marks (single or double) used to quote attribute 
+values.</li>
+<li>The boundaries of general parsed entities.</li>
+<li>The boundaries of CDATA marked sections.</li>
+<li>The default value of attributes declared in the DTD.</li>
+</ol> 
+<div>
+<h2><a name="rdfschema">Appendix E: RDF Schema (informative)</a></h2>
+<p>
+See <a href="#RDFNote">RDF Schema for the XML Information Set</a> for a formal 
+characterization of the Infoset.
+</p>
+</div> </div> </div><script type="application/javascript" src="https://www.w3.org/scripts/TR/fixup.js"></script></body>
+</html>

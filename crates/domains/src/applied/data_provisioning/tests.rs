@@ -406,13 +406,14 @@ fn every_content_type() -> Vec<ContentType> {
         ContentType::Audio,
         ContentType::Binary,
         ContentType::XmlXsd,
+        ContentType::Xhtml,
     ]
 }
 
 proptest! {
     /// `has_decoder_for` must be a pure function of the variant.
     #[test]
-    fn prop_has_decoder_for_is_pure(idx in 0usize..10) {
+    fn prop_has_decoder_for_is_pure(idx in 0usize..11) {
         let variant = every_content_type()[idx];
         let first = has_decoder_for(variant);
         for _ in 0..16 {
@@ -426,7 +427,13 @@ proptest! {
     fn prop_by_name_misses_random_strings(name in "[a-z_]{1,20}") {
         // Names that are known to be registered in praxis.toml. Keep this
         // set in sync with the [sources.*] entries in praxis.toml.
-        let registered = ["english_wordnet", "us_legal_lexicon", "schema_vocabulary"];
+        let registered = [
+            "english_wordnet",
+            "us_legal_lexicon",
+            "schema_vocabulary",
+            "xml_1_0_namespace_xsd",
+            "xml_infoset",
+        ];
         if !registered.contains(&name.as_str()) {
             prop_assert!(by_name(&name).is_none());
         } else {
