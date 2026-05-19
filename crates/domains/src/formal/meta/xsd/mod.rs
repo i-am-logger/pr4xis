@@ -40,6 +40,15 @@
 //!   [`english_projection::is_schema_vocabulary`] when projecting an
 //!   XSD-declared name fails to resolve through WordNet AND is not
 //!   classifiable as a statutory-term-of-art.
+//! - [`uslm_vocabulary`] — runtime loader that scans the bundled
+//!   `uslm-1.0.18.xsd` for every schema-component declaration whose
+//!   own `<xsd:annotation><xsd:documentation>` block is non-empty.
+//!   Per LRC USLM XML User Guide §V, every USLM element / attribute
+//!   carries inline documentation; this loader recognises those
+//!   names from the schema's own self-documentation rather than a
+//!   hand-curated list. Consulted by
+//!   [`english_projection::is_schema_vocabulary`] before falling
+//!   back to the [`schema_vocabulary`] bundle.
 //!
 //! ## Citations
 //!
@@ -60,6 +69,7 @@ pub mod english_projection;
 pub mod from_xsd_parser;
 pub mod ontology;
 pub mod schema_vocabulary;
+pub mod uslm_vocabulary;
 
 #[cfg(test)]
 mod tests;

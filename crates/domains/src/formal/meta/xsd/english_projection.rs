@@ -81,6 +81,7 @@ use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenan
 use super::ontology::XsdRelationKind;
 use super::ontology::{XsdCategory, XsdConcept, XsdRelation};
 use super::schema_vocabulary::is_in_schema_vocabulary;
+use super::uslm_vocabulary::is_uslm_vocabulary;
 use crate::cognitive::linguistics::english::ontology::English;
 use crate::social::judicial::statute_structure::english_adjunction::{
     LemmaSenseMapping, resolve_form_to_senses, resolve_term_name_to_senses,
@@ -679,11 +680,19 @@ impl NamedComponentProjection {
 ///    from the W3C-published sources (Bray et al. 2009; Cowan &
 ///    Tobin 2004). Replaces the hand-curated XML half of the
 ///    bundle for every name these sources cover.
-/// 3. **`schema_vocabulary@2026`** (hand-curated LMF bundle) — now
-///    serves the USLM-vocabulary portion and the productive sub-*
-///    hierarchical forms. To be deleted in M4.η.4 after M4.η.3
-///    (USLM-vocabulary semantics from `<xs:annotation>` blocks)
-///    lands.
+/// 3. **M4.η.3 — USLM-1.0.18 XSD self-annotations** (consulted via
+///    [`super::uslm_vocabulary::is_uslm_vocabulary`]) — for every
+///    USLM element / attribute / complexType / simpleType /
+///    attributeGroup / group whose declaration carries a non-empty
+///    `<xsd:annotation><xsd:documentation>` block. Per LRC USLM
+///    XML User Guide §V (every USLM element carries inline
+///    documentation), the schema documents itself; this loader
+///    surfaces the documented-name set.
+/// 4. **`schema_vocabulary@2026`** (hand-curated LMF bundle) — now
+///    serves only the residual USLM tokens that appear in
+///    documentation prose but lack their own XSD declaration (e.g.
+///    `enum`, `attrs`, `usc`) plus the productive sub-* forms not
+///    yet picked up by the loader. To be deleted in M4.η.4.
 ///
 /// Per `feedback_bottom_up_loaded_not_encoded`: every recognized
 /// name comes from a registered authoritative source — not from
@@ -691,6 +700,7 @@ impl NamedComponentProjection {
 pub fn is_schema_vocabulary(lemma: &str) -> bool {
     crate::social::software::markup::html::english_projection::is_html_vocabulary(lemma)
         || crate::social::software::markup::xml::english_projection_v1::is_xml_10_vocabulary(lemma)
+        || is_uslm_vocabulary(lemma)
         || is_in_schema_vocabulary(lemma)
 }
 
