@@ -266,9 +266,39 @@ pub struct XsdAst {
 
 /// Projected XSD ontology instance — the result of running an
 /// `XsdAst` through the [`FromXsdParser`] functor.
+///
+/// In addition to the projected `components` (the kind-only view used
+/// by the type-level functor), the instance optionally carries a list
+/// of `(XsdConcept, local_name)` pairs — the `named` field — populated
+/// when the loader saw a `name="…"` attribute on the originating
+/// declaration. This field is consulted by the runtime adjunction
+/// `XsdOntology ⊣ English`
+/// ([`super::english_adjunction::lift_english_term_to_schema_components`])
+/// when lifting English terms back into the schema component set
+/// (M4.ε.5.a.4, generalising the M4.ε.5 Layer-3 `resolve_legal_role`
+/// pattern from USC sections to any loaded XSD schema).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct XsdOntologyInstance {
     pub components: Vec<XsdConcept>,
+    /// Per-component name carrier — `(concept, local_name)` pairs for
+    /// every declaration the loader saw with a `name="…"` attribute.
+    /// May be empty when the loader didn't track names (e.g. the
+    /// kind-only projection used in the AST-functor smoke tests). The
+    /// instance-level adjunction Lift consults this list.
+    pub named: Vec<NamedSchemaComponentEntry>,
+}
+
+/// A `(XsdConcept, local_name)` pair carried by an
+/// [`XsdOntologyInstance`]. Held in its own type rather than a raw
+/// tuple so the adjunction Lift can construct a typed
+/// [`super::english_adjunction::NamedSchemaComponent`] from it without
+/// reaching into tuple fields.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedSchemaComponentEntry {
+    /// The XSD concept this component belongs to.
+    pub concept: XsdConcept,
+    /// The component's local name (case preserved).
+    pub local_name: String,
 }
 
 impl XsdOntologyInstance {
@@ -287,6 +317,13 @@ impl XsdOntologyInstance {
         }
         seen.len()
     }
+
+    /// Iterate the `(XsdConcept, local_name)` pairs the loader
+    /// carried into the instance. Empty when the projection was
+    /// built from a kind-only AST (e.g. via [`project`] below).
+    pub fn named_components(&self) -> impl Iterator<Item = &NamedSchemaComponentEntry> {
+        self.named.iter()
+    }
 }
 
 /// Project an xsd-parser AST through the functor into an XSD ontology
@@ -295,6 +332,7 @@ impl XsdOntologyInstance {
 pub fn project(ast: &XsdAst) -> XsdOntologyInstance {
     XsdOntologyInstance {
         components: ast.nodes.iter().copied().map(project_node_kind).collect(),
+        named: Vec::new(),
     }
 }
 
