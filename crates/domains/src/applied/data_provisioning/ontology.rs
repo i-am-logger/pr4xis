@@ -257,7 +257,7 @@ impl RegistryEntry {
     /// `.txt` for Plaintext, `.json` for Json, `.pdf` for Pdf, `.bin`
     /// otherwise.
     pub fn local_path(&self) -> String {
-        let family = family_dir(self.kind);
+        let family = family_dir_for(self.kind, &self.name);
         let ext = match self.content_type() {
             ContentType::XmlLmf | ContentType::UslmXml | ContentType::XmlXsd => "xml",
             ContentType::Plaintext | ContentType::AdobeGlyphList => "txt",
@@ -290,7 +290,20 @@ impl RegistryEntry {
 
 /// The on-disk family directory for a given kind. Mirrors the praxis-domains
 /// code-path convention so the data layout matches the ontology layout.
+///
+/// Kind-only; use [`family_dir_for`] when the source name is known
+/// (some kinds — e.g. `XmlSchemaDefinition` — host instances that
+/// belong to different corpora, and the corpus is keyed on the
+/// source `name`).
 pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
+    family_dir_for(kind, "")
+}
+
+/// The on-disk family directory for a `(kind, name)` pair. Most
+/// kinds have a single canonical family; the `name` parameter only
+/// matters for `XmlSchemaDefinition` (USLM XSD lives under the U.S.
+/// Code corpus, XHTML XSD lives under the markup-schemas corpus).
+pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
     use crate::formal::meta::source_taxonomy::ontology::is_legal_corpus;
     use SourceTaxonomyConcept as C;
     if is_legal_corpus(kind) {
@@ -311,12 +324,16 @@ pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
         }
     } else if matches!(kind, C::SchemaSpec | C::XmlSchemaDefinition) {
         // XSDs live under the corpus they schema. The USLM XSD is
-        // shipped at `data/legal/uscode/schema/`; the convention
-        // resolves to `legal/uscode/schema` here so the
-        // `local_path()` computation matches the on-disk bundle.
-        // Future schema kinds for non-legal corpora can extend this
-        // branch.
-        "legal/uscode/schema"
+        // shipped at `data/legal/uscode/schema/` (the U.S. Code
+        // corpus); the XHTML XSD is shipped at
+        // `data/markup-schemas/xhtml/` (the M4.η.1 HTML5 ontology
+        // grounding source). Future schema kinds for non-legal
+        // corpora can extend this branch — the per-name dispatch
+        // is the seam where new families plug in.
+        match name {
+            "xhtml_1_0_xsd" => "markup-schemas/xhtml",
+            _ => "legal/uscode/schema",
+        }
     } else {
         match kind {
             C::Language => "lexicons/languages",

@@ -5,6 +5,7 @@ pub mod usc_corpus;
 pub mod uslm;
 pub mod uslm_schema;
 pub mod wordnet;
+pub mod xhtml_schema;
 
 pub use builder::{EntityDef, GenerateConfig, OntologyBuilder};
 pub use generate::generate_rust;

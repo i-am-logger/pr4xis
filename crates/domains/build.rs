@@ -163,6 +163,15 @@ fn main() {
     // M4.δ.1–M4.δ.20 ontology — switch + delete come in follow-up
     // commits; the two trees coexist during M4.ε.5.a's add step.
     write_uslm_schema_codegen(&workspace_root, &manifest, &out_dir);
+
+    // M4.η.1 — XSD-grounded HTML5 ontology types. Drives the
+    // `social::software::markup::html::generated` runtime module
+    // from the registered `xhtml_1_0_xsd` source (XHTML 1.0 Strict,
+    // bundled under `crates/domains/data/markup-schemas/xhtml/`).
+    // Per "bottom-up loaded, never encoded", element / attribute
+    // names come from the W3C-published schema, not from hand-coded
+    // Rust string lists.
+    write_xhtml_schema_codegen(&workspace_root, &manifest, &out_dir);
 }
 
 /// Find the registered `uslm_xsd` source in the praxis manifest,
@@ -231,6 +240,72 @@ fn write_uslm_schema_codegen(
             );
             std::fs::write(&out_path, stub).expect("write uslm_schema stub");
             println!("cargo:warning=USLM XSD codegen failed: {e}");
+        }
+    }
+}
+
+/// Find the registered `xhtml_1_0_xsd` source in the praxis manifest,
+/// resolve its bundled XSD on disk, and invoke
+/// `pr4xis::codegen::xhtml_schema::generate_xhtml_schema_source` to
+/// emit `$OUT_DIR/xhtml_schema_generated.rs`. On any failure
+/// (missing entry, missing file, xsd-parser error) write a
+/// commented stub so the runtime `include!` site always resolves.
+fn write_xhtml_schema_codegen(
+    workspace_root: &std::path::Path,
+    manifest: &RawManifest,
+    out_dir: &std::path::Path,
+) {
+    let out_path = out_dir.join("xhtml_schema_generated.rs");
+
+    let Some(src) = manifest.sources.get("xhtml_1_0_xsd") else {
+        let stub = "// Stub: `xhtml_1_0_xsd` source not registered in praxis.toml.\n";
+        std::fs::write(&out_path, stub).expect("write xhtml_schema stub");
+        return;
+    };
+
+    if src.kind != "XmlSchemaDefinition" {
+        let stub = format!(
+            "// Stub: `xhtml_1_0_xsd` is registered as kind {:?}, not XmlSchemaDefinition; \
+             skipping XSD codegen.\n",
+            src.kind,
+        );
+        std::fs::write(&out_path, stub).expect("write xhtml_schema stub");
+        return;
+    }
+
+    let xsd_path = workspace_root
+        .join("crates/domains/data/markup-schemas/xhtml")
+        .join(format!("xhtml-{}-strict.xsd", src.version));
+
+    if !xsd_path.exists() {
+        let stub = format!(
+            "// Stub: XHTML XSD not on disk at {}; skipping XSD codegen.\n",
+            xsd_path.display(),
+        );
+        std::fs::write(&out_path, stub).expect("write xhtml_schema stub");
+        return;
+    }
+
+    println!("cargo:rerun-if-changed={}", xsd_path.display());
+
+    match pr4xis::codegen::xhtml_schema::generate_xhtml_schema_source(&xsd_path) {
+        Ok(source) => {
+            let type_count = count_top_level_types(&source);
+            std::fs::write(&out_path, source).expect("write xhtml_schema codegen");
+            eprintln!(
+                "Generated XHTML XSD ontology: {type_count} top-level types -> {}",
+                out_path.display(),
+            );
+        }
+        Err(e) => {
+            let stub = format!(
+                "// xsd-parser codegen failed for {}: {}\n\
+                 // The runtime module will compile but contain no XHTML types.\n",
+                xsd_path.display(),
+                e,
+            );
+            std::fs::write(&out_path, stub).expect("write xhtml_schema stub");
+            println!("cargo:warning=XHTML XSD codegen failed: {e}");
         }
     }
 }

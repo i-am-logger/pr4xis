@@ -1,3 +1,4 @@
+pub mod html;
 pub mod ontology;
 pub mod xml;
 

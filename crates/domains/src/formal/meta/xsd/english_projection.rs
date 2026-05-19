@@ -661,24 +661,28 @@ impl NamedComponentProjection {
     }
 }
 
-/// True iff `lemma` is a registered schema-vocabulary name per the
-/// bundled `schema_vocabulary@2026` source. Delegates to
-/// [`is_in_schema_vocabulary`]; the wrapper is the public entry
-/// point that the XSD → English smoke test and `is_fully_resolved`
-/// consult.
+/// True iff `lemma` is a registered schema-vocabulary name.
 ///
-/// Per the source-registration shape chosen for the M4.ε.5.a.3
-/// follow-up: schema names (HTML5 element / attribute names per
-/// WHATWG HTML Living Standard, W3C XML 1.0 attribute-type names
-/// per Bray et al. 2008 §3.3.1, LRC USLM element / attribute /
-/// type-suffix / group-reference names per USLM XML User Guide
-/// v1.0.18, productive sub-* hierarchical forms per Huddleston &
-/// Pullum 2002 Ch. 19 §1.2) live in a dedicated `SchemaVocabulary`
-/// source rather than being conflated with the legal-lexicon
-/// (option (a) in the task spec) — schema vocabulary is not
-/// legal vocabulary.
+/// The classifier chain consults, in order:
+///
+/// 1. **M4.η.1 — XHTML 1.0 Strict XSD** (`xhtml_1_0_xsd@1.0`) — for
+///    HTML element + attribute names. Loaded by
+///    [`crate::social::software::markup::html::english_projection::is_html_vocabulary`]
+///    from the W3C-published schema (Pemberton et al. 2002 §A.2).
+///    Replaces the hand-curated HTML portion of the bundle for
+///    every name the XSD covers.
+/// 2. **`schema_vocabulary@2026`** (hand-curated LMF bundle) — for
+///    XML 1.0 attribute-type names, USLM-specific names, and
+///    productive sub-* hierarchical forms. To be deleted in M4.η.4
+///    after M4.η.2 (XML 1.0 ontology) and M4.η.3
+///    (USLM-vocabulary semantics from annotations) land.
+///
+/// Per `feedback_bottom_up_loaded_not_encoded`: every recognized
+/// name comes from a registered authoritative source — not from
+/// hard-coded Rust string matches.
 pub fn is_schema_vocabulary(lemma: &str) -> bool {
-    is_in_schema_vocabulary(lemma)
+    crate::social::software::markup::html::english_projection::is_html_vocabulary(lemma)
+        || is_in_schema_vocabulary(lemma)
 }
 
 /// Project a `(XsdConcept, local_name)` pair through both the type-

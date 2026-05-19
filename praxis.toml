@@ -64,6 +64,33 @@ type        = "XmlSchemaDefinition"
 url         = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM.xsd"
 description = "Library of Congress USLM XML schema. The authoritative grammar for U.S. Code XML markup. Cited: 1 U.S.C. § 204; W3C XSD 1.1 Part 1 (Gao, Sperberg-McQueen & Thompson 2012)."
 
+# W3C XHTML 1.0 Strict XSD — the authoritative machine-readable
+# grammar for XHTML 1.0 Strict (= HTML4 reformulated in XML, the
+# polyglot subset still normatively shared with HTML5 for every
+# element it covers). Loaded so the HTML5 ontology in
+# `social/software/markup/html/` derives its element / attribute
+# inventory from the published schema, not from hand-coded Rust
+# enum variants (per `feedback_bottom_up_loaded_not_encoded`).
+#
+# Per the M4.η.1 dispatch: XHTML 1.0 Strict is the closest reusable
+# authoritative XSD to the existing xsd-parser pipeline. It covers
+# 77 elements + 179 attributes; HTML5-only elements added since
+# 2002 (canvas, video, audio, section, article, nav, aside, header,
+# footer, main, figure, figcaption, picture, dialog, details,
+# summary, template, slot, ...) need a follow-up source (M4.η.1.a,
+# queued; candidates: XHTML5 Polyglot XSD or WHATWG-published
+# element data).
+#
+# Bundled file: `crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd`.
+# Citation: Pemberton et al. (2002) XHTML 1.0: The Extensible HyperText
+# Markup Language (Second Edition), W3C Recommendation 26 January 2000
+# revised 1 August 2002, §A.2 XHTML 1.0 Strict Schema.
+[sources.xhtml_1_0_xsd]
+version     = "1.0"
+type        = "XmlSchemaDefinition"
+url         = "https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd"
+description = "W3C XHTML 1.0 Strict XML Schema definition. The authoritative machine-readable form of HTML4/XHTML1.0 elements + attributes, used as the M4.η.1 grounding source for the HTML5 ontology. Cite: Pemberton et al. (2002) XHTML 1.0 Second Edition, W3C Recommendation 1 August 2002, §A.2 XHTML 1.0 Strict Schema."
+
 # U.S. Federal Legal-Text Closed-Class Lexicon — bounded enumeration of
 # the citation abbreviations, month names, federal-agency acronyms,
 # U.S. state / place names, productive English compounds, and legal

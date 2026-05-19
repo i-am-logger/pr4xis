@@ -31,6 +31,16 @@
 # 2012 W3C XSD 1.1 Part 1 §1.1 Recommendation 5 April 2012) rather
 # than being hand-coded.
 "uslm_xsd@1.0.18"        = "dba603fcb1b466ef03fe28d4b10306b7b04cd36357e1d738156579da85413550"
+# W3C XHTML 1.0 Strict XSD. Pinned hash of the on-disk file
+# crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd —
+# the W3C-published xhtml1-strict.xsd (www.w3.org/2002/08/xhtml/
+# xhtml1-strict.xsd, version "1.0" on its <xs:schema> root attribute).
+# Loaded by the HTML5 ontology codegen so element / attribute
+# declarations derive from the published schema (Pemberton et al.
+# 2002 XHTML 1.0 Second Edition, W3C Recommendation 1 August 2002,
+# §A.2 XHTML 1.0 Strict Schema) rather than being hand-coded. The
+# M4.η.1 grounding source for `social/software/markup/html/`.
+"xhtml_1_0_xsd@1.0"       = "9f89777c95be6866317de83852f9fbddd6c48c381a36d8fd9b00e11b864a209f"
 # U.S. Federal Legal-Text Closed-Class Lexicon (LMF XML). Pinned hash
 # of crates/domains/data/legal-text/us_legal_lexicon.xml — the
 # bounded, cited enumeration of citation abbreviations + month names +
