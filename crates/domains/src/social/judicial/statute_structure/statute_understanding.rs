@@ -1,8 +1,8 @@
 //! Statute understanding — composition of a Statute's terms through
 //! five typed ontology layers: lexical (English/WordNet),
-//! morphosyntactic (OLiA), legal-frame (Title 28 USC), judicial
-//! relations (the Statute's own relation graph), and provenance
-//! (the source URN on each term's SourceTextRef).
+//! morphosyntactic (OLiA), legal-frame (the loaded [`UsCode`]
+//! corpus), judicial relations (the Statute's own relation graph),
+//! and provenance (the source URN on each term's SourceTextRef).
 //!
 //! # Five layers
 //!
@@ -25,11 +25,11 @@
 //!    cites Chiarcos & Sukhareva 2015).
 //!
 //! 3. **Legal frame** — [`resolve_legal_role`] looks up a term name
-//!    against every section heading in the loaded Title 28 U.S.C.
-//!    corpus (FRCP, FRE, FRAP, FRBP as 28 U.S.C. App. subdivisions)
-//!    and returns the matched section's USLM-URN Identifier.
-//!    Returns `None` when the corpus is empty or no heading
-//!    contains the term name.
+//!    against every section heading in the loaded [`UsCode`] corpus
+//!    (every registered USC title materialised by
+//!    `pr4xis::codegen::usc_corpus` at build time) and returns the
+//!    matched section's USLM-URN Identifier. Returns `None` when
+//!    the corpus is empty or no heading contains the term name.
 //!
 //! 4. **Judicial relations** — already on [`Statute`]: the
 //!    [`RelationType`][rel_type] graph (Composes, Requires,
@@ -63,6 +63,7 @@ use crate::cognitive::linguistics::lexicon::pos::PosTag;
 use crate::formal::meta::identifier_format::Identifier;
 use crate::social::compliance::statutes::Statute;
 use crate::social::software::markup::xml::lmf::ontology::LmfPos;
+use crate::social::software::markup::xml::uslm::corpus::UsCode;
 
 use super::english_adjunction::{LemmaSenseMapping, resolve_term_name_to_senses};
 
@@ -122,9 +123,9 @@ pub struct TermUnderstanding {
     /// lemmas after stopword + numeric-token filtering (per
     /// [`super::term_extractor::extract_lemmas`]).
     pub lexical: Vec<TermLexicalResolution>,
-    /// Layer 3: the USLM URN of a Title 28 U.S.C. section whose
-    /// heading contains this term's name. `None` when no Title 28
-    /// section heading matches.
+    /// Layer 3: the USLM URN of a U.S. Code section whose heading
+    /// contains this term's name. `None` when no section heading in
+    /// the loaded [`UsCode`] corpus matches.
     pub legal_role: Option<Identifier>,
     /// Layer 4: count of judicial-relation edges entering this term
     /// (inbound) and leaving it (outbound) in the parent Statute.
@@ -230,61 +231,73 @@ pub fn lmf_pos_to_pos_tag(lmf: LmfPos) -> Option<PosTag> {
 /// Layer 3 resolver: typed legal-frame role for a term name.
 ///
 /// Looks up `term_name` (case-insensitive) against every section
-/// heading in the loaded Title 28 U.S.C. corpus and returns the
-/// matched section's USLM URN as a typed [`Identifier`] of format
-/// [`IdentifierFormatConcept::UslmUrn`][curl].
-/// Title 28 USC App. holds the Federal Rules of Civil Procedure,
-/// Evidence, Appellate Procedure, and Bankruptcy Procedure — so a
-/// match returns the URN of the specific FRCP / FRE / FRAP / FRBP
-/// rule whose heading text contains the term name.
+/// heading in the loaded [`UsCode`] corpus and returns the matched
+/// section's USLM URN as a typed [`Identifier`] of format
+/// [`IdentifierFormatConcept::UslmUrn`][curl]. The corpus spans
+/// every registered USC title materialised at build time by
+/// `pr4xis::codegen::usc_corpus` (Title 18, Title 49, and any
+/// future title whose USLM XML lands in
+/// `crates/domains/data/legal/uscode/`).
 ///
 /// Matching strategy: a section matches if its heading (lowercased)
 /// CONTAINS the term-name's lowercased form. Substring matching
 /// rather than exact-equal is appropriate because section headings
 /// are full descriptive phrases ("Testimony by Expert Witnesses")
 /// while term names are typically the head noun phrase ("Expert
-/// Witness"). The first matching section wins (Title 28 sections
-/// are uniquely numbered, so URN ambiguity is not possible).
+/// Witness"). The first matching section wins (USC section URNs
+/// are unique across the whole code, so URN ambiguity is not
+/// possible).
 ///
 /// Returns `None` when:
 /// - the term name is empty / whitespace-only, OR
-/// - the loaded Title 28 corpus is empty (SECTIONS is empty), OR
+/// - the loaded `UsCode` corpus is empty, OR
 /// - no section heading contains the term name.
 ///
-/// Per "Bottom-up loaded, never encoded": no hand-coded FRE / FRCP
-/// rule lexicon. The vocabulary is the LRC's published Title 28
-/// USLM XML, hash-pinned in `praxis.lock`.
+/// Per "Bottom-up loaded, never encoded": no hand-coded statute
+/// lexicon. The vocabulary is the LRC's published USLM XML,
+/// hash-pinned in `praxis.lock`.
 ///
 /// [curl]: crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept::UslmUrn
-pub fn resolve_legal_role(term_name: &str) -> Option<Identifier> {
+pub fn resolve_legal_role(term_name: &str, usc: &UsCode) -> Option<Identifier> {
     let needle = term_name.trim().to_lowercase();
     if needle.is_empty() {
         return None;
     }
-    for section in crate::social::compliance::statutes::us_code::title_28::all_sections() {
-        if section.heading().to_lowercase().contains(&needle)
-            && let Ok(id) = section.identifier_urn()
-        {
-            return Some(id);
+    for section in usc.all_sections() {
+        if section.heading.to_lowercase().contains(&needle) {
+            return Some(section.urn.clone());
         }
     }
     None
 }
 
 /// Classifier for lemmas that match the structural shape of a
-/// statutory anchor — labels statutes use to point at themselves
-/// rather than natural-language vocabulary.
+/// statutory anchor or appear in the bounded U.S. Federal Legal-Text
+/// Closed-Class Lexicon — labels statutes use to point at themselves,
+/// abbreviations, agency names, place names, and productive English
+/// compounds that lie outside WordNet's general-language vocabulary.
 ///
-/// Returns `true` for either of two bounded patterns:
+/// Returns `true` for any of three bounded patterns:
 /// - **All-caps abbreviations** (≥3 chars, all ASCII-uppercase or
 ///   digit, with ≥1 alphabetic character; e.g. "SOX", "AIR21", "SEC").
 /// - **Section markers** (≥3 chars, ASCII alphanumeric + hyphens,
 ///   ≥1 digit; e.g. "1514A", "42121", "78j-1", "1514") per Bluebook
 ///   §3.3.4 statute-citation conventions.
+/// - **Loaded legal-lexicon entries** (citation abbreviations, month
+///   names, federal-agency acronyms, U.S. state / place names,
+///   English productive compounds, legal terms-of-art) — see
+///   [`super::us_legal_lexicon::is_in_legal_lexicon`] for the loader
+///   contract and per-category authoritative sources.
 ///
-/// These two patterns are structural artifacts of how statutory text
-/// labels its own anchors; lexical databases like WordNet do not
-/// cover them.
+/// These patterns are structural artifacts of how statutory text
+/// labels itself and the bounded closed-class vocabulary that
+/// appears in U.S. federal-statute heading text. Lexical databases
+/// like WordNet do not cover them — instead they are loaded from the
+/// registered `us_legal_lexicon@2026` source pinned in `praxis.lock`
+/// (citation: bundled XML header — GPO Style Manual 2016, Federal
+/// Register Document Drafting Handbook 2017, ISO 3166-2:US,
+/// Huddleston & Pullum 2002, Bauer 1983, Black's Law Dictionary 11th
+/// ed.).
 pub fn is_statutory_term_of_art(lemma: &str) -> bool {
     if lemma.is_empty() {
         return false;
@@ -320,7 +333,15 @@ pub fn is_statutory_term_of_art(lemma: &str) -> bool {
             all_allowed = false;
         }
     }
-    chars.len() >= 3 && has_digit && all_allowed
+    if chars.len() >= 3 && has_digit && all_allowed {
+        return true;
+    }
+
+    // Bottom-up loaded vocabulary: consult the U.S. Federal Legal-Text
+    // Closed-Class Lexicon for citation abbreviations, month names,
+    // federal-agency acronyms, U.S. state / place names, English
+    // productive compounds, and legal terms-of-art.
+    super::us_legal_lexicon::is_in_legal_lexicon(lemma)
 }
 
 /// Resolve a single statute term to its [`TermUnderstanding`].
@@ -328,8 +349,8 @@ pub fn is_statutory_term_of_art(lemma: &str) -> bool {
 /// Pipeline:
 /// 1. Layer 1+2: lemmatise term name; resolve each lemma to WordNet
 ///    senses; project each sense's `LmfPos` to a [`PosTag`].
-/// 2. Layer 3: look up term name against Title 28 U.S.C. section
-///    headings via [`resolve_legal_role`].
+/// 2. Layer 3: look up term name against every section heading in
+///    the loaded [`UsCode`] corpus via [`resolve_legal_role`].
 /// 3. Layer 4: count inbound/outbound relations from the source
 ///    `Statute`'s relation graph.
 /// 4. Layer 5: copy the `context_uri` from the term's `name` field.
@@ -340,6 +361,7 @@ pub fn understand_term(
     statute: &Statute,
     term: &crate::social::judicial::ontology::LegalTerm,
     english: &English,
+    usc: &UsCode,
 ) -> TermUnderstanding {
     // Layer 1+2: lexical resolution + OLiA POS projection.
     let lemma_mappings = resolve_term_name_to_senses(&term.name.text, english);
@@ -370,7 +392,7 @@ pub fn understand_term(
         .collect();
 
     // Layer 3: legal-frame role.
-    let legal_role = resolve_legal_role(&term.name.text);
+    let legal_role = resolve_legal_role(&term.name.text, usc);
 
     // Layer 4: relation counts.
     let inbound_relation_count = statute.relations_to(&term.id).count();
@@ -396,11 +418,15 @@ pub fn understand_term(
 /// term in `statute.terms()`. The output is a [`StatuteUnderstanding`]
 /// that an auditor can query for fully-understood vs unresolved
 /// counts.
-pub fn understand_statute(statute: &Statute, english: &English) -> StatuteUnderstanding {
+pub fn understand_statute(
+    statute: &Statute,
+    english: &English,
+    usc: &UsCode,
+) -> StatuteUnderstanding {
     let terms: Vec<TermUnderstanding> = statute
         .terms()
         .iter()
-        .map(|t| understand_term(statute, t, english))
+        .map(|t| understand_term(statute, t, english, usc))
         .collect();
     StatuteUnderstanding {
         statute_name: statute.name().to_string(),
@@ -435,8 +461,33 @@ mod tests {
     fn resolve_legal_role_empty_input_returns_none() {
         // Empty / whitespace-only input is rejected before any
         // corpus lookup runs.
-        assert_eq!(resolve_legal_role(""), None);
-        assert_eq!(resolve_legal_role("   "), None);
+        let usc = UsCode::sample();
+        assert_eq!(resolve_legal_role("", &usc), None);
+        assert_eq!(resolve_legal_role("   ", &usc), None);
+    }
+
+    #[test]
+    fn resolve_legal_role_substring_matches_section_heading() {
+        // Layer 3 substring matching against the loaded corpus.
+        // The two-section sample fixture includes
+        // "Civil action to protect against retaliation in fraud
+        // cases" — searching for "retaliation" returns the section's
+        // typed USLM URN.
+        let usc = UsCode::sample();
+        let id =
+            resolve_legal_role("retaliation", &usc).expect("retaliation matches sample heading");
+        assert_eq!(id.value(), "/us/usc/t18/s1514A");
+        assert_eq!(
+            id.format,
+            crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept::UslmUrn
+        );
+    }
+
+    #[test]
+    fn resolve_legal_role_returns_none_when_no_match() {
+        // No heading in the sample fixture contains "platypus".
+        let usc = UsCode::sample();
+        assert_eq!(resolve_legal_role("platypus", &usc), None);
     }
 
     #[test]
@@ -508,8 +559,9 @@ mod tests {
         // Smoke: understand_statute runs end-to-end on every loaded
         // statute, no panics, output non-empty.
         let en = cached_english();
+        let usc = UsCode::cached_full();
         for s in all_registered_statutes() {
-            let u = understand_statute(s, en);
+            let u = understand_statute(s, en, usc);
             assert_eq!(u.statute_name, s.name());
             assert_eq!(u.statute_version, s.version());
             assert_eq!(u.terms.len(), s.terms().len());
@@ -523,9 +575,10 @@ mod tests {
         // ≥1 WordNet sense or is classified as a statutory term-of-
         // art. Any pure `Unresolved` lemma fails the audit.
         let en = cached_english();
+        let usc = UsCode::cached_full();
         let mut failures: Vec<String> = Vec::new();
         for s in all_registered_statutes() {
-            let u = understand_statute(s, en);
+            let u = understand_statute(s, en, usc);
             for t in u.terms_with_unresolved_lemmas() {
                 let bad: Vec<&str> = t
                     .lexical
@@ -558,8 +611,9 @@ mod tests {
         // either the WordNet load is broken or the term-name set is
         // pure statutory-term-of-art (unlikely for real USC sections).
         let en = cached_english();
+        let usc = UsCode::cached_full();
         for s in all_registered_statutes() {
-            let u = understand_statute(s, en);
+            let u = understand_statute(s, en, usc);
             let resolved: usize = u
                 .terms
                 .iter()
@@ -586,12 +640,13 @@ mod tests {
         // USLM URN of its parent section (per M4.δ.21 push-down).
         // Each registered statute pins to its own section's URN.
         let en = cached_english();
+        let usc = UsCode::cached_full();
         let expected_urns = [
             ("sox_1514a", "/us/usc/t18/s1514A"),
             ("air21_42121", "/us/usc/t49/s42121"),
         ];
         for s in all_registered_statutes() {
-            let u = understand_statute(s, en);
+            let u = understand_statute(s, en, usc);
             let expected = expected_urns
                 .iter()
                 .find(|(n, _)| *n == s.name())
@@ -618,8 +673,9 @@ mod tests {
         // (every relation counted once from each side) = the
         // Statute's total relation count.
         let en = cached_english();
+        let usc = UsCode::cached_full();
         for s in all_registered_statutes() {
-            let u = understand_statute(s, en);
+            let u = understand_statute(s, en, usc);
             let inbound: usize = u.terms.iter().map(|t| t.inbound_relation_count).sum();
             let outbound: usize = u.terms.iter().map(|t| t.outbound_relation_count).sum();
             assert_eq!(
@@ -640,44 +696,144 @@ mod tests {
     }
 
     #[test]
-    fn legal_role_layer_resolves_against_title_28() {
-        // Layer 3 resolution is driven by the loaded Title 28 USC
-        // corpus (FRCP + FRE + FRAP + FRBP appendices). Two
-        // observable states match the resolver's two output cases:
+    fn legal_role_layer_resolves_against_loaded_us_code() {
+        // Layer 3 resolution is driven by the build-time loaded
+        // `UsCode` corpus (every registered USC title whose USLM XML
+        // is on disk). Two observable states match the resolver's
+        // two output cases:
         //
-        // (a) SECTIONS empty → resolve_legal_role returns None for
+        // (a) corpus empty → resolve_legal_role returns None for
         //     every term.
-        // (b) SECTIONS populated → terms whose name appears in any
-        //     Title-28-section heading resolve to that section's
+        // (b) corpus populated → terms whose name appears in any
+        //     loaded section heading resolve to that section's
         //     USLM URN.
         //
         // Both states are well-formed; this audit asserts the URN
         // shape of every resolved role, and the universal claim that
         // an empty corpus yields zero resolutions.
-        use crate::social::compliance::statutes::us_code::title_28;
         let en = cached_english();
-        let title_28_loaded = !title_28::SECTIONS.is_empty();
+        let usc = UsCode::cached_full();
+        let corpus_loaded = usc.section_count() > 0;
 
         let mut any_resolved = false;
         for s in all_registered_statutes() {
-            let u = understand_statute(s, en);
+            let u = understand_statute(s, en, usc);
             for t in &u.terms {
                 if let Some(role) = &t.legal_role {
                     any_resolved = true;
-                    // Every resolved role is a Title 28 USLM URN.
+                    // Every resolved role is a USLM URN under /us/usc/.
                     assert!(
-                        role.value().starts_with("/us/usc/t28/"),
-                        "resolved role must be a Title 28 USLM URN; got {:?}",
+                        role.value().starts_with("/us/usc/"),
+                        "resolved role must be a USC USLM URN; got {:?}",
                         role.value()
                     );
                 }
             }
         }
 
-        if !title_28_loaded {
+        if !corpus_loaded {
             assert!(
                 !any_resolved,
-                "Title 28 corpus is empty; no role should resolve"
+                "UsCode corpus is empty; no role should resolve"
+            );
+        }
+    }
+
+    // =========================================================================
+    // Corpus-wide gap audit — per the "corpus-wide audit on every source load"
+    // memory: every Tier 2+ ontology load must come with an audit that walks
+    // every record through the understanding pipeline. Spot-checks don't count.
+    // =========================================================================
+
+    use crate::social::judicial::statute_structure::english_adjunction::resolve_term_name_to_senses;
+
+    /// Walk every section in the loaded `UsCode`, run the lexical
+    /// pipeline on its heading text, and report every lemma whose
+    /// resolution lands in `Unresolved` (neither in WordNet nor a
+    /// statutory term-of-art).
+    ///
+    /// Runs against the full build-time codegen-loaded corpus when
+    /// USC title XML is on disk (~2770 sections across Titles 18 +
+    /// 49); falls back to a two-section `UsCode::sample()` when
+    /// the codegen-loaded corpus is empty (CI / fresh clone before
+    /// `pr4xis fetch`). The fallback is logged so the diminished
+    /// coverage is visible.
+    ///
+    /// On failure the panic message includes:
+    /// - source label + total sections scanned
+    /// - total unresolved-lemma instances + distinct-lemma count
+    /// - top-20 lemmas by frequency
+    /// - the full per-section list at the bottom
+    ///
+    /// Per the "corpus-wide audit on every source load" memory:
+    /// every Tier 2+ ontology load must come with a corpus-wide
+    /// audit that walks every record through the understanding
+    /// pipeline. Spot-checks don't count.
+    #[test]
+    fn corpus_wide_gap_audit_no_unresolved_lemmas() {
+        use std::collections::BTreeMap;
+
+        let en = cached_english();
+        let usc_full = UsCode::cached_full();
+        let (usc, source_label): (&UsCode, &str) = if usc_full.section_count() > 0 {
+            (usc_full, "build-time codegen-loaded corpus")
+        } else {
+            // Fallback: sample only carries two synthetic sections.
+            // Surface this in the panic message so the diminished
+            // audit scope is loud.
+            static SAMPLE_LOCK: std::sync::OnceLock<UsCode> = std::sync::OnceLock::new();
+            let sample = SAMPLE_LOCK.get_or_init(UsCode::sample);
+            (sample, "UsCode::sample() fallback — only 2 sections")
+        };
+
+        let mut failures: Vec<String> = Vec::new();
+        let mut frequency: BTreeMap<String, usize> = BTreeMap::new();
+        for section in usc.all_sections() {
+            let lemma_mappings = resolve_term_name_to_senses(&section.heading, en);
+            for lm in &lemma_mappings {
+                let status = if !lm.senses.is_empty() {
+                    ResolutionStatus::Resolved
+                } else if is_statutory_term_of_art(&lm.form.written_rep) {
+                    ResolutionStatus::StatutoryTermOfArt
+                } else {
+                    ResolutionStatus::Unresolved
+                };
+                if status == ResolutionStatus::Unresolved {
+                    failures.push(format!(
+                        "{}: heading={:?} unresolved lemma {:?}",
+                        section.urn.value(),
+                        section.heading,
+                        lm.form.written_rep
+                    ));
+                    *frequency.entry(lm.form.written_rep.clone()).or_insert(0) += 1;
+                }
+            }
+        }
+
+        if !failures.is_empty() {
+            let mut top: Vec<(String, usize)> =
+                frequency.iter().map(|(k, v)| (k.clone(), *v)).collect();
+            top.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+            let top20: Vec<String> = top
+                .iter()
+                .take(20)
+                .map(|(lemma, n)| format!("{n:>4}  {lemma:?}"))
+                .collect();
+            panic!(
+                "Corpus-wide gap audit FAILED.\n\
+                 Source: {}\n\
+                 Sections scanned: {}\n\
+                 Unresolved-lemma instances: {}\n\
+                 Distinct unresolved lemmas: {}\n\n\
+                 Top 20 by frequency:\n  {}\n\n\
+                 Full list ({} entries):\n  - {}",
+                source_label,
+                usc.section_count(),
+                failures.len(),
+                frequency.len(),
+                top20.join("\n  "),
+                failures.len(),
+                failures.join("\n  - "),
             );
         }
     }

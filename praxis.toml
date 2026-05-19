@@ -38,6 +38,49 @@ version = "2025"
 type    = "Language"
 url     = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz"
 
+# U.S. Federal Legal-Text Closed-Class Lexicon — bounded enumeration of
+# the citation abbreviations, month names, federal-agency acronyms,
+# U.S. state / place names, productive English compounds, and legal
+# terms-of-art that appear in U.S. Code section heading text but lie
+# outside English WordNet's general-language coverage.
+#
+# Bundled file: `crates/domains/data/legal-text/us_legal_lexicon.xml`,
+# LMF format (same shape as function-words/english.xml and English
+# WordNet). Loaded by the Layer 1+2 lemmatizer's
+# `is_statutory_term_of_art` classifier to recognize these tokens as
+# bounded statutory-text vocabulary rather than as unresolved lemmas.
+#
+# Each category in the bundled XML carries its own authoritative
+# citation in the file header:
+#   - Citation abbreviations (Stat., div., ch., Pub. L., etc.):
+#     GPO Style Manual 2016 Ch. 9 §9.4 / §9.6 (public-domain federal
+#     publication per 17 U.S.C. § 105).
+#   - Month abbreviations + names:
+#     GPO Style Manual 2016 §9.20 (public domain).
+#   - Federal-agency acronyms:
+#     Federal Register Document Drafting Handbook (2017) Ch. 4 §4.1 +
+#     U.S. Government Manual (Office of the Federal Register, annual;
+#     public domain).
+#   - U.S. state / territory names:
+#     ISO 3166-2:US (closed enumeration of 50 states + DC + 5
+#     inhabited territories) + GPO Style Manual §5.20 (adjective
+#     forms).
+#   - English productive compounds:
+#     Huddleston & Pullum (2002) Cambridge Grammar of the English
+#     Language Ch. 19 §1.2 (productive prefixation) + §1.4 (N+N
+#     compounding); Bauer (1983) English Word-Formation §6.
+#   - Legal terms-of-art (joinder, misprision, interpleader, etc.):
+#     Black's Law Dictionary 11th ed. (2019).
+#
+# The bundled XML is the canonical source-of-truth. The pinned hash
+# in praxis.lock anchors it; future updates require both file edit
+# and a lock-hash refresh through `pr4xis lock`.
+[sources.us_legal_lexicon]
+version     = "2026"
+type        = "LegalLexicon"
+url         = "https://www.govinfo.gov/app/details/GPO-STYLEMANUAL-2016"
+description = "U.S. Federal Legal-Text Closed-Class Lexicon — citation abbreviations (GPO Style Manual 2016 Ch. 9), month names + abbreviations (GPO §9.20), federal-agency acronyms (Federal Register Document Drafting Handbook 2017 §4.1), U.S. state / place names (ISO 3166-2:US + GPO §5.20), English productive compounds (Huddleston & Pullum 2002 Ch. 19 + Bauer 1983 §6), and legal terms-of-art (Black's Law Dictionary 11th ed. 2019). Bundled as crates/domains/data/legal-text/us_legal_lexicon.xml (LMF format)."
+
 # ---------------------------------------------------------------------------
 # Typographic resources
 # ---------------------------------------------------------------------------

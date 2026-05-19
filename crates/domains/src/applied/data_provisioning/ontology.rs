@@ -127,8 +127,16 @@ pub enum ContentType {
 ///
 /// Lexicons ship per ISO 24613 (LMF XML). Legal text corpora ship as
 /// UTF-8 plaintext (govinfo.gov, ecfr.gov, court opinion repositories all
-/// expose plaintext as their primary format). LegalLexicons ship as JSON
-/// (Black's, statutory definitions sections after extraction).
+/// expose plaintext as their primary format). LegalLexicons ship as
+/// LMF XML — same Global WordNet LMF 1.3 schema as the Language family
+/// — so they reuse the existing `decoders::xml_lmf` decoder.
+///
+/// The decision to use LMF for LegalLexicons (rather than JSON or a
+/// bespoke schema) follows the praxis "one substrate" principle: the
+/// loader/reader infrastructure for closed-class lexica already exists
+/// for WordNet and function-word taxonomies, and the same LMF schema
+/// natively supports the `<LexicalEntry>`/`<Lemma>`/`<Synset>` shape
+/// that closed-class bounded enumerations need.
 pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
     use SourceTaxonomyConcept as C;
     match kind {
@@ -150,7 +158,11 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         C::Regulation | C::ConstitutionalArticle | C::ProceduralRule | C::CaseLaw => {
             ContentType::Pdf
         }
-        C::LegalLexicon => ContentType::Json,
+        // LegalLexicons ship as LMF XML — same shape as Language
+        // (WordNet) and function-word lexica, reusing the same
+        // `decoders::xml_lmf` decoder. The bundled
+        // `us_legal_lexicon@2026` instance is the canonical example.
+        C::LegalLexicon => ContentType::XmlLmf,
         // Adobe Glyph List has its own typed decoder; the
         // `decoders::adobe_glyph_list` parser handles the
         // `name;HEX[ HEX]*` line format per Adobe's published

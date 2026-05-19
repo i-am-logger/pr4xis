@@ -74,6 +74,7 @@ pub mod relation_extractor;
 pub mod statute_report;
 pub mod statute_understanding;
 pub mod term_extractor;
+pub mod us_legal_lexicon;
 
 pub use english_adjunction::{
     LemmaSenseMapping, resolve_form_to_senses, resolve_lemmas_to_senses,

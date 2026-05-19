@@ -143,6 +143,79 @@ fn main() {
         let ct = content_type_for_kind(&src.kind);
         dispatch_codegen(name, src, ct, &workspace_root, &lock, &out_dir);
     }
+
+    // After per-title codegen, emit a single aggregate
+    // `CodegenData<UsCode>` static spanning every registered
+    // UsCodeTitle whose XML is on disk. Mirrors the cli/wasm
+    // build.rs `write_usc_corpus_codegen` block — duplicated here
+    // so pr4xis-domains tests can materialise a real ~2770-section
+    // corpus without depending on the cli's OUT_DIR. The runtime
+    // module at `social::software::markup::xml::uslm::corpus`
+    // exposes a cached `from_codegen_output()` test helper that
+    // `include!`s this file.
+    write_usc_corpus_codegen(&workspace_root, &manifest, &sorted_names, &out_dir);
+}
+
+/// Walk every registered USC title's expected XML path, collect
+/// the ones that exist on disk, and emit a `CodegenData<UsCode>`
+/// static at `$OUT_DIR/usc_corpus_codegen.rs`. If no titles are
+/// on disk, write an empty stub so the `include!` site always
+/// resolves.
+fn write_usc_corpus_codegen(
+    workspace_root: &std::path::Path,
+    manifest: &RawManifest,
+    sorted_names: &[String],
+    out_dir: &std::path::Path,
+) {
+    let mut present_paths: Vec<PathBuf> = Vec::new();
+    for name in sorted_names {
+        let src = &manifest.sources[name];
+        if src.kind != "UsCodeTitle" {
+            continue;
+        }
+        let xml_path = expected_usc_title_path(workspace_root, name, &src.version);
+        if xml_path.exists() {
+            present_paths.push(xml_path);
+        }
+    }
+
+    let out_path = out_dir.join("usc_corpus_codegen.rs");
+
+    if present_paths.is_empty() {
+        let stub = "// Stub: no USC title XML on disk.\n\
+                    pub static CODEGEN_DATA: pr4xis::codegen_data::CodegenData<\
+                    crate::social::software::markup::xml::uslm::corpus::UsCode> = \
+                    pr4xis::codegen_data::CodegenData { \
+                    entity_count: 0, entity_ids: &[], entity_kind: &[], \
+                    entity_labels: &[], entity_defs: &[], word_index: &[], \
+                    taxonomy: &[], mereology: &[], opposition: &[], \
+                    equivalence: &[], causation: &[], references: &[] };\n";
+        std::fs::write(&out_path, stub).expect("write usc corpus stub");
+        return;
+    }
+
+    for p in &present_paths {
+        println!("cargo:rerun-if-changed={}", p.display());
+    }
+
+    let paths: Vec<&std::path::Path> = present_paths.iter().map(|p| p.as_path()).collect();
+    let config = pr4xis::codegen::GenerateConfig::with_marker(
+        "usc_corpus_codegen",
+        "UscEntityId",
+        "crate::social::software::markup::xml::uslm::corpus::UsCode",
+    );
+    let source = pr4xis::codegen::usc_corpus::generate_usc_corpus_source(&paths, &config)
+        .expect("generate USC corpus codegen");
+    let section_count = source
+        .lines()
+        .find_map(|l| l.strip_prefix("// Entities: "))
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    std::fs::write(&out_path, source).expect("write usc corpus codegen");
+    eprintln!(
+        "Generated pr4xis-domains UsCode corpus: {section_count} sections -> {}",
+        out_path.display()
+    );
 }
 
 /// Route a registered source to its codegen path based on its

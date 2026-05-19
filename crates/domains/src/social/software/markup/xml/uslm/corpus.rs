@@ -37,6 +37,24 @@ use pr4xis::codegen_data::CodegenData;
 use crate::formal::meta::identifier_format::Identifier;
 use crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept;
 
+/// Build-time aggregate `CodegenData<UsCode>` emitted by
+/// `crates/domains/build.rs::write_usc_corpus_codegen`. Empty stub
+/// when no USC title XML is on disk. Test-only — accessed via
+/// [`UsCode::cached_full`].
+// The LRC's USLM source preserves zero-width and soft-hyphen Unicode
+// characters that appear verbatim in published statute text. They are
+// part of the authoritative bytes; stripping them would diverge from
+// the source. Suppress clippy's invisible-character lint at the module
+// boundary so the lint can still catch hand-written code elsewhere in
+// the crate. Mirrors the pattern in
+// `social::compliance::statutes::us_code::title_18` /
+// `title_49` / `title_28`.
+#[cfg(test)]
+#[allow(dead_code, clippy::invisible_characters)]
+mod full_corpus {
+    include!(concat!(env!("OUT_DIR"), "/usc_corpus_codegen.rs"));
+}
+
 /// One USC section.
 ///
 /// Granularity is intentionally the `<section>` element — every USC
@@ -126,6 +144,25 @@ impl UsCode {
     /// Number of loaded sections.
     pub fn section_count(&self) -> usize {
         self.sections.len()
+    }
+
+    /// Test-only accessor for the full corpus emitted by
+    /// `crates/domains/build.rs`'s `write_usc_corpus_codegen` step.
+    /// Cached behind a `OnceLock` so the ~2770-section corpus is
+    /// materialised once per test process. Used by Layer 3
+    /// corpus-wide gap audits that need every registered USC
+    /// title's section headings (not just the two synthetic
+    /// sections in [`UsCode::sample`]).
+    ///
+    /// Mirrors
+    /// [`crate::social::judicial::statute_structure::english_adjunction::test_helpers::cached_english`]
+    /// — same OnceLock pattern, build-time codegen instead of
+    /// runtime XML parsing.
+    #[cfg(test)]
+    pub fn cached_full() -> &'static Self {
+        use std::sync::OnceLock;
+        static FULL: OnceLock<UsCode> = OnceLock::new();
+        FULL.get_or_init(|| UsCode::from_codegen(&full_corpus::CODEGEN_DATA))
     }
 
     /// Minimal sample U.S. Code corpus for testing — two synthetic

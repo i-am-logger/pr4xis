@@ -22,6 +22,17 @@
 
 [hashes]
 "english_wordnet@2025"   = "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2"
+# U.S. Federal Legal-Text Closed-Class Lexicon (LMF XML). Pinned hash
+# of crates/domains/data/legal-text/us_legal_lexicon.xml — the
+# bounded, cited enumeration of citation abbreviations + month names +
+# federal-agency acronyms + U.S. state/place names + English
+# productive compounds + legal terms-of-art. Loaded by the Layer 1+2
+# `is_statutory_term_of_art` classifier. Citations per category live
+# in the XML header (GPO Style Manual 2016, Federal Register Document
+# Drafting Handbook 2017, ISO 3166-2:US, Huddleston & Pullum 2002,
+# Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
+# requires regenerating this hash.
+"us_legal_lexicon@2026"  = "fd87bf2db83ce9253e9549079fe9f3f08aa0c9f5f0199c4c82a2d2a2152ce8b6"
 "sox_1514a@2002"         = "f5bf19858f360dc860f1de6c339e309cd4b17b75bd83167ad48ecef84cbf51a7"
 # U.S. Code Title 18 — Crimes and Criminal Procedure. SHA-256 of
 # the unzipped usc18.xml content (12 MB, 1,428 sections, ~28k cross-
