@@ -15,6 +15,7 @@ pub mod ontology_diagnostics;
 pub mod source_taxonomy;
 pub mod staging;
 pub mod syntrometry;
+pub mod xsd;
 
 // category_theory moved to core: `pr4xis::category::category_theory`.
 // It grounds the `Arrow`, `Morphism`, `Functor`, `NaturalTransformation`,

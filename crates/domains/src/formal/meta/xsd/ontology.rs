@@ -1,0 +1,756 @@
+//! XSD ontology — W3C XML Schema 1.1 as a Praxis ontology.
+//!
+//! Defines the concept inventory of XML Schema 1.1
+//! ([`SchemaComponent`] and its leaves: [`ElementDeclaration`],
+//! [`AttributeDeclaration`], [`TypeDefinition`],
+//! [`ComplexTypeDefinition`], [`SimpleTypeDefinition`],
+//! [`ModelGroup`], [`Sequence`], [`Choice`], [`AllGroup`],
+//! [`AttributeGroup`], [`Particle`], [`Wildcard`],
+//! [`IdentityConstraint`], [`NotationDeclaration`],
+//! [`Annotation`] with sub-concepts [`AppInfo`], [`Documentation`])
+//! with the relationships and axioms that govern them.
+//!
+//! ## Why XSD as a Praxis ontology
+//!
+//! XSD is a meta-language for describing XML document structure. Any
+//! XML schema (USLM, LMF, OOXML, ...) is itself an XSD-described
+//! ontology. By declaring XSD as a Praxis ontology, every loaded
+//! schema becomes a Praxis ontology instance through a single
+//! `XsdAst → XsdOntology` functor — no per-schema hand-coding.
+//!
+//! ## Citation
+//!
+//! - **W3C XML Schema 1.1 Part 1: Structures**, Gao, Sperberg-McQueen
+//!   & Thompson 2012, W3C Recommendation 2012-04-05.
+//! - **W3C XML Schema 1.1 Part 2: Datatypes**, Peterson, Gao,
+//!   Akhmedov, Malhotra, Biron & Sperberg-McQueen 2012, W3C
+//!   Recommendation 2012-04-05.
+//!
+//! ## Related Praxis ontologies
+//!
+//! - `pr4xis_domains::cognitive::linguistics::english::English` — XSD
+//!   names project through English (Mac Lane §I.3, functor). See
+//!   `formal::meta::xsd::english_projection` (M4.ε.5.a.3, queued).
+
+#[allow(unused_imports)]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
+
+use pr4xis::category::Concept;
+use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
+use pr4xis::ontology::{Axiom, Ontology, Quality};
+
+// =============================================================================
+// Concept inventory — every leaf cites W3C XSD 1.1 Part 1 / Part 2 § that
+// defines it. The top concept `SchemaComponent` (§2.2) partitions cleanly
+// into typed leaves; sub-leaves (Sequence/Choice/AllGroup, AppInfo/Documentation,
+// ComplexTypeDefinition/SimpleTypeDefinition) sit one level below their parent.
+// =============================================================================
+
+pr4xis::ontology! {
+    name: "Xsd",
+    source: "Gao, Sperberg-McQueen & Thompson (eds.) (2012) W3C XML Schema 1.1 Part 1: Structures, W3C Recommendation 2012-04-05; Peterson, Gao, Akhmedov, Malhotra, Biron & Sperberg-McQueen (eds.) (2012) W3C XML Schema 1.1 Part 2: Datatypes, W3C Recommendation 2012-04-05",
+
+    concepts: [
+        SchemaComponent,
+        ElementDeclaration,
+        AttributeDeclaration,
+        TypeDefinition,
+        ComplexTypeDefinition,
+        SimpleTypeDefinition,
+        ModelGroup,
+        Sequence,
+        Choice,
+        AllGroup,
+        AttributeGroup,
+        Particle,
+        Wildcard,
+        IdentityConstraint,
+        NotationDeclaration,
+        Annotation,
+        AppInfo,
+        Documentation,
+    ],
+
+    labels: {
+        SchemaComponent: ("en", "Schema component",
+            "W3C XSD 1.1 Part 1 §2.2: the top of the schema-component partition. Every named or structural piece of an XSD schema is a schema component."),
+        ElementDeclaration: ("en", "Element declaration",
+            "W3C XSD 1.1 Part 1 §3.3: an `<xs:element>` declaring a named element with a type, occurrence range, substitution-group, and identity-constraint set."),
+        AttributeDeclaration: ("en", "Attribute declaration",
+            "W3C XSD 1.1 Part 1 §3.2: an `<xs:attribute>` declaring a named attribute with a simple-type and use cardinality."),
+        TypeDefinition: ("en", "Type definition",
+            "W3C XSD 1.1 Part 1 §2.2.1.2: a named or anonymous type, partitioning into complex and simple-type definitions; derivation by restriction or extension forms a strict partial order (§3.4.6.4)."),
+        ComplexTypeDefinition: ("en", "Complex type definition",
+            "W3C XSD 1.1 Part 1 §3.4: a `<xs:complexType>` defining a content model + attribute uses (with optional `mixed` content). Always derives from another type (final root is `xs:anyType`)."),
+        SimpleTypeDefinition: ("en", "Simple type definition",
+            "W3C XSD 1.1 Part 2 §2.2: a `<xs:simpleType>` defining an atomic, list, or union value space. Always derives from another simple type (final root is `xs:anySimpleType`)."),
+        ModelGroup: ("en", "Model group",
+            "W3C XSD 1.1 Part 1 §3.8: a sequence/choice/all compositor governing the order and cardinality of child particles in a complex type's content model."),
+        Sequence: ("en", "Sequence model group",
+            "W3C XSD 1.1 Part 1 §3.8.1: `<xs:sequence>` — children must appear in declared order."),
+        Choice: ("en", "Choice model group",
+            "W3C XSD 1.1 Part 1 §3.8.1: `<xs:choice>` — exactly one of the declared alternatives must appear."),
+        AllGroup: ("en", "All model group",
+            "W3C XSD 1.1 Part 1 §3.8.1: `<xs:all>` — each declared particle appears at most once, in any order. Named `AllGroup` to avoid collisions with the English word `All`."),
+        AttributeGroup: ("en", "Attribute group definition",
+            "W3C XSD 1.1 Part 1 §3.6: an `<xs:attributeGroup>` bundling a reusable set of attribute uses, included in complex types via `ref`."),
+        Particle: ("en", "Particle",
+            "W3C XSD 1.1 Part 1 §3.9: a term (element, group, or wildcard) appearing in a content model with occurrence range `[minOccurs, maxOccurs]`. The range is nonempty (§3.9.3.2)."),
+        Wildcard: ("en", "Wildcard",
+            "W3C XSD 1.1 Part 1 §3.10: `<xs:any>` / `<xs:anyAttribute>` — a permissive matcher constrained by a namespace constraint and process-contents directive."),
+        IdentityConstraint: ("en", "Identity-constraint definition",
+            "W3C XSD 1.1 Part 1 §3.11: `<xs:key>` / `<xs:unique>` / `<xs:keyref>` — XPath-based co-occurrence constraints over an element's descendants."),
+        NotationDeclaration: ("en", "Notation declaration",
+            "W3C XSD 1.1 Part 1 §3.12: `<xs:notation>` — names a non-XML notation (system / public identifier) referenced by attribute values of simple-type `NOTATION`."),
+        Annotation: ("en", "Annotation",
+            "W3C XSD 1.1 Part 1 §3.15: `<xs:annotation>` — a container for human-readable documentation (`<xs:documentation>`) and machine-readable application info (`<xs:appinfo>`)."),
+        AppInfo: ("en", "Application information",
+            "W3C XSD 1.1 Part 1 §3.15.1: `<xs:appinfo>` — machine-readable application-specific content carried inside an annotation."),
+        Documentation: ("en", "Documentation",
+            "W3C XSD 1.1 Part 1 §3.15.1: `<xs:documentation>` — human-readable prose describing the surrounding schema component."),
+    },
+
+    // is_a edges express the W3C-defined subsumption hierarchy.
+    // `ComplexTypeDefinition` and `SimpleTypeDefinition` are the two
+    // sub-kinds of `TypeDefinition` (Part 1 §2.2.1.2). Sequence /
+    // Choice / AllGroup are the three model-group compositors
+    // (§3.8.1). AppInfo / Documentation are the two annotation
+    // children (§3.15.1). Everything else hangs directly off
+    // `SchemaComponent` (§2.2).
+    is_a: [
+        (ElementDeclaration,   SchemaComponent),
+        (AttributeDeclaration, SchemaComponent),
+        (TypeDefinition,       SchemaComponent),
+        (ModelGroup,           SchemaComponent),
+        (AttributeGroup,       SchemaComponent),
+        (Particle,             SchemaComponent),
+        (Wildcard,             SchemaComponent),
+        (IdentityConstraint,   SchemaComponent),
+        (NotationDeclaration,  SchemaComponent),
+        (Annotation,           SchemaComponent),
+
+        (ComplexTypeDefinition, TypeDefinition),
+        (SimpleTypeDefinition,  TypeDefinition),
+
+        (Sequence, ModelGroup),
+        (Choice,   ModelGroup),
+        (AllGroup, ModelGroup),
+
+        (AppInfo,       Annotation),
+        (Documentation, Annotation),
+    ],
+}
+
+// =============================================================================
+// Leaf inventory — the concrete XSD constructs an XSD-loaded schema can
+// project to. The root `SchemaComponent` is abstract (§2.2 partitions into
+// concrete sub-kinds); the two intermediate concepts `TypeDefinition`,
+// `ModelGroup`, `Annotation` are concrete enough to instantiate (an `<xs:type>`
+// without further refinement is still a `TypeDefinition`) — but every
+// xsd-parser-loaded XSD construct lands on one of the concrete leaves below.
+// =============================================================================
+
+/// The 12 directly-instantiable XSD leaves. Excludes the abstract root
+/// `SchemaComponent` and the three intermediate group concepts
+/// `TypeDefinition`, `ModelGroup`, `Annotation` (which are projected to
+/// via their concrete sub-kinds).
+pub fn instantiable_leaves() -> [XsdConcept; 12] {
+    [
+        XsdConcept::ElementDeclaration,
+        XsdConcept::AttributeDeclaration,
+        XsdConcept::ComplexTypeDefinition,
+        XsdConcept::SimpleTypeDefinition,
+        XsdConcept::Sequence,
+        XsdConcept::Choice,
+        XsdConcept::AllGroup,
+        XsdConcept::AttributeGroup,
+        XsdConcept::Particle,
+        XsdConcept::Wildcard,
+        XsdConcept::IdentityConstraint,
+        XsdConcept::NotationDeclaration,
+    ]
+}
+
+/// True if `c` is the abstract root.
+pub fn is_root(c: XsdConcept) -> bool {
+    matches!(c, XsdConcept::SchemaComponent)
+}
+
+// =============================================================================
+// Quality: PartSpec — which W3C XSD 1.1 part (1 = Structures, 2 = Datatypes)
+// is the primary normative source for this concept. Total on every concept.
+// =============================================================================
+
+/// Quality: which W3C XSD 1.1 part is the primary normative source for
+/// a concept. Part 1 = *Structures* (Gao et al. 2012); Part 2 =
+/// *Datatypes* (Peterson et al. 2012). `SimpleTypeDefinition` is the
+/// only concept whose primary spec is Part 2; all other concepts'
+/// primary section is in Part 1.
+///
+/// Returns `None` for the abstract root `SchemaComponent`.
+#[derive(Debug, Clone)]
+pub struct PartSpec;
+
+/// Which W3C XSD 1.1 Part defines a concept's primary semantics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XsdPart {
+    /// W3C XSD 1.1 Part 1: Structures (Gao et al. 2012).
+    Structures,
+    /// W3C XSD 1.1 Part 2: Datatypes (Peterson et al. 2012).
+    Datatypes,
+}
+
+impl Quality for PartSpec {
+    type Individual = XsdConcept;
+    type Value = XsdPart;
+
+    fn get(&self, c: &XsdConcept) -> Option<XsdPart> {
+        use XsdConcept as X;
+        match c {
+            // SimpleTypeDefinition's primary spec is Part 2 §2.2.
+            X::SimpleTypeDefinition => Some(XsdPart::Datatypes),
+            // Every other concept's primary spec is in Part 1.
+            X::ElementDeclaration
+            | X::AttributeDeclaration
+            | X::TypeDefinition
+            | X::ComplexTypeDefinition
+            | X::ModelGroup
+            | X::Sequence
+            | X::Choice
+            | X::AllGroup
+            | X::AttributeGroup
+            | X::Particle
+            | X::Wildcard
+            | X::IdentityConstraint
+            | X::NotationDeclaration
+            | X::Annotation
+            | X::AppInfo
+            | X::Documentation => Some(XsdPart::Structures),
+            // Abstract root — no primary part assignment.
+            X::SchemaComponent => None,
+        }
+    }
+}
+
+// =============================================================================
+// Axioms
+// =============================================================================
+
+impl Ontology for XsdOntology {
+    type Cat = XsdCategory;
+    type Qual = PartSpec;
+
+    fn axioms() -> Vec<Box<dyn Axiom>> {
+        let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
+        axioms.push(Box::new(SchemaComponentPartitioned));
+        axioms.push(Box::new(TypeDefinitionBinaryPartition));
+        axioms.push(Box::new(ModelGroupTernaryPartition));
+        axioms.push(Box::new(AnnotationBinaryPartition));
+        axioms.push(Box::new(TypeDerivationStrictPartialOrder));
+        axioms.push(Box::new(SubstitutionGroupReflexiveTransitive));
+        axioms.push(Box::new(EveryElementHasExactlyOneTypeReference));
+        axioms.push(Box::new(ParticleOccurrenceRangeNonEmpty));
+        axioms.push(Box::new(QNameCategoryUniqueness));
+        axioms.push(Box::new(EveryConceptHasPartClassification));
+        axioms
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Partition axioms — confirm the schema-component hierarchy matches W3C §2.2.
+// -----------------------------------------------------------------------------
+
+/// Axiom: every non-root concept in the XSD ontology is `is_a`-reachable
+/// from `SchemaComponent`. W3C XSD 1.1 Part 1 §2.2 partitions every
+/// schema component into typed kinds; nothing is left dangling outside
+/// the partition.
+pub struct SchemaComponentPartitioned;
+
+impl Axiom for SchemaComponentPartitioned {
+    fn verify(&self) -> Verdict {
+        // Every variant other than the root must transitively reach the
+        // root through is_a (Subsumption) edges. We rely on the macro's
+        // emitted transitive-closure morphisms (per OBO-RO Smith 2005)
+        // for transitive subsumption.
+        use pr4xis::category::{Arrow, Category};
+        let all_morphs = XsdCategory::morphisms();
+        for v in XsdConcept::variants() {
+            if matches!(v, XsdConcept::SchemaComponent) {
+                continue;
+            }
+            // Reach the root via a Subsumption morphism (direct or transitive).
+            let reaches = all_morphs.iter().any(|m| {
+                m.source() == v
+                    && m.target() == XsdConcept::SchemaComponent
+                    && matches!(m.kind(), XsdRelationKind::Subsumption)
+            });
+            if !reaches {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "SchemaComponentPartitioned",
+        "every non-root XSD concept is is_a-reachable from SchemaComponent",
+        "W3C XSD 1.1 Part 1 §2.2 (Gao et al. 2012)"
+    );
+}
+
+pr4xis::register_axiom!(
+    SchemaComponentPartitioned,
+    "W3C XSD 1.1 Part 1 §2.2 (Gao et al. 2012)"
+);
+
+/// Axiom: `TypeDefinition` partitions into exactly two sub-kinds —
+/// `ComplexTypeDefinition` (Part 1 §3.4) and `SimpleTypeDefinition`
+/// (Part 2 §2.2). No third type-definition kind exists in XSD 1.1.
+pub struct TypeDefinitionBinaryPartition;
+
+impl Axiom for TypeDefinitionBinaryPartition {
+    fn verify(&self) -> Verdict {
+        use pr4xis::category::{Arrow, Category};
+        let count = XsdCategory::morphisms()
+            .iter()
+            .filter(|m| {
+                m.target() == XsdConcept::TypeDefinition
+                    && matches!(m.kind(), XsdRelationKind::Subsumption)
+                    && m.source() != m.target()
+            })
+            .count();
+        if count == 2 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "TypeDefinitionBinaryPartition",
+        "TypeDefinition has exactly two sub-kinds (Complex + Simple)",
+        "W3C XSD 1.1 Part 1 §2.2.1.2, §3.4; Part 2 §2.2"
+    );
+}
+
+pr4xis::register_axiom!(
+    TypeDefinitionBinaryPartition,
+    "W3C XSD 1.1 Part 1 §2.2.1.2, §3.4; Part 2 §2.2"
+);
+
+/// Axiom: `ModelGroup` partitions into exactly three compositors —
+/// `Sequence`, `Choice`, `AllGroup` (W3C XSD 1.1 Part 1 §3.8.1).
+pub struct ModelGroupTernaryPartition;
+
+impl Axiom for ModelGroupTernaryPartition {
+    fn verify(&self) -> Verdict {
+        use pr4xis::category::{Arrow, Category};
+        let count = XsdCategory::morphisms()
+            .iter()
+            .filter(|m| {
+                m.target() == XsdConcept::ModelGroup
+                    && matches!(m.kind(), XsdRelationKind::Subsumption)
+                    && m.source() != m.target()
+            })
+            .count();
+        if count == 3 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "ModelGroupTernaryPartition",
+        "ModelGroup has exactly three compositors (Sequence/Choice/AllGroup)",
+        "W3C XSD 1.1 Part 1 §3.8.1"
+    );
+}
+
+pr4xis::register_axiom!(ModelGroupTernaryPartition, "W3C XSD 1.1 Part 1 §3.8.1");
+
+/// Axiom: `Annotation` partitions into exactly two children —
+/// `AppInfo` and `Documentation` (W3C XSD 1.1 Part 1 §3.15.1).
+pub struct AnnotationBinaryPartition;
+
+impl Axiom for AnnotationBinaryPartition {
+    fn verify(&self) -> Verdict {
+        use pr4xis::category::{Arrow, Category};
+        let count = XsdCategory::morphisms()
+            .iter()
+            .filter(|m| {
+                m.target() == XsdConcept::Annotation
+                    && matches!(m.kind(), XsdRelationKind::Subsumption)
+                    && m.source() != m.target()
+            })
+            .count();
+        if count == 2 {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "AnnotationBinaryPartition",
+        "Annotation has exactly two children (AppInfo + Documentation)",
+        "W3C XSD 1.1 Part 1 §3.15.1"
+    );
+}
+
+pr4xis::register_axiom!(AnnotationBinaryPartition, "W3C XSD 1.1 Part 1 §3.15.1");
+
+// -----------------------------------------------------------------------------
+// Relationship axioms — properties of the XSD relationships *between*
+// concepts as published in W3C XSD 1.1. Each axiom takes a small
+// structured input via a per-axiom struct and checks the published rule.
+// -----------------------------------------------------------------------------
+
+/// A `restriction`/`extension` chain over type definitions (W3C XSD 1.1
+/// Part 1 §3.4.6.4). Encoded as a sequence of type names where each
+/// successor derives from its predecessor.
+#[derive(Debug, Clone)]
+pub struct DerivationChain {
+    /// Ordered chain `[A, B, C, …]` representing `A ← B ← C ← …`,
+    /// where the right-hand side `derivedFrom`s the left.
+    pub chain: Vec<&'static str>,
+}
+
+impl DerivationChain {
+    /// Strict partial order: chain is acyclic (no repeated element).
+    pub fn is_acyclic(&self) -> bool {
+        let mut seen = alloc::collections::BTreeSet::new();
+        for name in &self.chain {
+            if !seen.insert(*name) {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+/// Axiom: type-definition derivation (`restriction` or `extension`)
+/// forms a strict partial order — `restriction`/`extension` chains
+/// terminate; no cycles.
+///
+/// W3C XSD 1.1 Part 1 §3.4.6.4 — *Type Derivation OK (Complex)*:
+/// derivation chains must eventually root at `xs:anyType`. Cycles
+/// would make termination impossible.
+pub struct TypeDerivationStrictPartialOrder;
+
+impl Axiom for TypeDerivationStrictPartialOrder {
+    fn verify(&self) -> Verdict {
+        // Three canonical chains derived from W3C XSD 1.1 Part 1 §3.4.6.4.
+        let acyclic = DerivationChain {
+            chain: vec!["xs:anyType", "ComplexTypeA", "ComplexTypeB"],
+        };
+        let with_simple = DerivationChain {
+            chain: vec!["xs:anySimpleType", "xs:string", "xs:NCName", "xs:ID"],
+        };
+        let cyclic = DerivationChain {
+            chain: vec!["TypeA", "TypeB", "TypeA"],
+        };
+        if acyclic.is_acyclic() && with_simple.is_acyclic() && !cyclic.is_acyclic() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "TypeDerivationStrictPartialOrder",
+        "TypeDefinition derivation chains are acyclic (strict partial order)",
+        "W3C XSD 1.1 Part 1 §3.4.6.4 (Gao et al. 2012)"
+    );
+}
+
+pr4xis::register_axiom!(
+    TypeDerivationStrictPartialOrder,
+    "W3C XSD 1.1 Part 1 §3.4.6.4 (Gao et al. 2012)"
+);
+
+/// A substitution-group hierarchy (W3C XSD 1.1 Part 1 §3.3.6). Encoded
+/// as a list of (head, member) pairs.
+#[derive(Debug, Clone)]
+pub struct SubstitutionGroupHierarchy {
+    /// Pairs `(member, head)` — `member` is a direct member of
+    /// `head`'s substitution group.
+    pub pairs: Vec<(&'static str, &'static str)>,
+}
+
+impl SubstitutionGroupHierarchy {
+    /// Reflexive-transitive closure membership. Per W3C XSD 1.1 Part 1
+    /// §3.3.6, `member ∈ substitutionGroup*(head)` iff there is a
+    /// (possibly empty) chain `member = e_0 → e_1 → … → e_n = head`
+    /// of declared head-substitution edges. Reflexivity:
+    /// `head ∈ substitutionGroup*(head)` always.
+    pub fn member_of(&self, member: &str, head: &str) -> bool {
+        // Reflexive.
+        if member == head {
+            return true;
+        }
+        // Walk transitively.
+        let mut frontier = alloc::collections::BTreeSet::new();
+        frontier.insert(member.to_string());
+        let mut changed = true;
+        while changed {
+            changed = false;
+            let snapshot: Vec<String> = frontier.iter().cloned().collect();
+            for m in &snapshot {
+                for (k, v) in &self.pairs {
+                    if *k == m.as_str() && frontier.insert((*v).to_string()) {
+                        if *v == head {
+                            return true;
+                        }
+                        changed = true;
+                    }
+                }
+            }
+        }
+        frontier.iter().any(|x| x.as_str() == head)
+    }
+}
+
+/// Axiom: substitution-group membership is reflexive-transitive.
+///
+/// W3C XSD 1.1 Part 1 §3.3.6 — a member of a substitution group is
+/// itself (reflexivity), and chains compose transitively.
+pub struct SubstitutionGroupReflexiveTransitive;
+
+impl Axiom for SubstitutionGroupReflexiveTransitive {
+    fn verify(&self) -> Verdict {
+        // canonical chain: A → B → C (A substitutes for B; B substitutes for C).
+        let h = SubstitutionGroupHierarchy {
+            pairs: vec![("A", "B"), ("B", "C")],
+        };
+        let reflexive_ok = h.member_of("A", "A") && h.member_of("B", "B");
+        let direct_ok = h.member_of("A", "B") && h.member_of("B", "C");
+        let transitive_ok = h.member_of("A", "C");
+        let non_member_ok = !h.member_of("C", "A");
+        if reflexive_ok && direct_ok && transitive_ok && non_member_ok {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "SubstitutionGroupReflexiveTransitive",
+        "substitution-group membership is reflexive and transitive",
+        "W3C XSD 1.1 Part 1 §3.3.6 (Gao et al. 2012)"
+    );
+}
+
+pr4xis::register_axiom!(
+    SubstitutionGroupReflexiveTransitive,
+    "W3C XSD 1.1 Part 1 §3.3.6 (Gao et al. 2012)"
+);
+
+/// An element declaration's type reference. Per W3C XSD 1.1 Part 1
+/// §3.3.2.3, an element declaration carries *exactly one* type — via
+/// `type=` attribute, inline `<xs:complexType>` / `<xs:simpleType>`,
+/// or implicit `xs:anyType`.
+#[derive(Debug, Clone)]
+pub struct ElementTypeRef {
+    pub element: &'static str,
+    pub type_ref: Option<&'static str>,
+}
+
+/// Axiom: every `ElementDeclaration` has exactly one `TypeDefinition`
+/// reference.
+///
+/// W3C XSD 1.1 Part 1 §3.3.2.3 — *Schema Component: Element
+/// Declaration, type definition* — an element's `{type definition}`
+/// property is always defined, defaulting to `xs:anyType` when no
+/// type is declared.
+pub struct EveryElementHasExactlyOneTypeReference;
+
+impl Axiom for EveryElementHasExactlyOneTypeReference {
+    fn verify(&self) -> Verdict {
+        // The axiom: every well-formed element-declaration has at least
+        // one type reference (the default `xs:anyType` if no explicit
+        // type is given). We construct three samples and confirm they
+        // all carry a non-None type when resolved.
+        let with_explicit_type = ElementTypeRef {
+            element: "title",
+            type_ref: Some("TitleType"),
+        };
+        // Implicit `xs:anyType` is what the XSD parser materialises
+        // when no type= attribute appears — modelled here by an
+        // explicit fallback.
+        let default_to_anytype =
+            |e: &ElementTypeRef| -> &'static str { e.type_ref.unwrap_or("xs:anyType") };
+        let no_explicit_type = ElementTypeRef {
+            element: "section",
+            type_ref: None,
+        };
+        let resolved_a = default_to_anytype(&with_explicit_type);
+        let resolved_b = default_to_anytype(&no_explicit_type);
+        if !resolved_a.is_empty() && resolved_b == "xs:anyType" {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "EveryElementHasExactlyOneTypeReference",
+        "every ElementDeclaration carries exactly one TypeDefinition reference (default xs:anyType)",
+        "W3C XSD 1.1 Part 1 §3.3.2.3 (Gao et al. 2012)"
+    );
+}
+
+pr4xis::register_axiom!(
+    EveryElementHasExactlyOneTypeReference,
+    "W3C XSD 1.1 Part 1 §3.3.2.3 (Gao et al. 2012)"
+);
+
+/// A particle's occurrence range `[minOccurs, maxOccurs]`. Per W3C XSD
+/// 1.1 Part 1 §3.9.3.2, the range is nonempty: `minOccurs ≤ maxOccurs`
+/// and `maxOccurs ≥ 1` (`unbounded` represented as `usize::MAX`).
+#[derive(Debug, Clone, Copy)]
+pub struct OccurrenceRange {
+    pub min: usize,
+    /// `usize::MAX` represents XSD's `unbounded` (Part 1 §3.9.3.2).
+    pub max: usize,
+}
+
+impl OccurrenceRange {
+    /// Sentinel used to represent `maxOccurs="unbounded"` per Part 1
+    /// §3.9.3.2 — XSD's only non-finite cardinality.
+    pub const UNBOUNDED: usize = usize::MAX;
+
+    pub fn is_nonempty(&self) -> bool {
+        self.min <= self.max && self.max >= 1
+    }
+}
+
+/// Axiom: particle occurrence ranges `[minOccurs, maxOccurs]` are
+/// nonempty.
+///
+/// W3C XSD 1.1 Part 1 §3.9.3.2 — *Particle Validate (Range)*: a
+/// particle is valid only if its occurrence range admits at least one
+/// content count, i.e. `minOccurs ≤ maxOccurs` and `maxOccurs ≥ 1`.
+/// (`maxOccurs="0"` is forbidden — a zero-occurrence particle would
+/// have to be deleted, not declared.)
+pub struct ParticleOccurrenceRangeNonEmpty;
+
+impl Axiom for ParticleOccurrenceRangeNonEmpty {
+    fn verify(&self) -> Verdict {
+        // Three canonical ranges from W3C XSD 1.1 Part 1 §3.9.3.2.
+        let single = OccurrenceRange { min: 1, max: 1 };
+        let optional = OccurrenceRange { min: 0, max: 1 };
+        let unbounded = OccurrenceRange {
+            min: 0,
+            max: OccurrenceRange::UNBOUNDED,
+        };
+        let zero_max = OccurrenceRange { min: 0, max: 0 };
+        let inverted = OccurrenceRange { min: 5, max: 1 };
+        if single.is_nonempty()
+            && optional.is_nonempty()
+            && unbounded.is_nonempty()
+            && !zero_max.is_nonempty()
+            && !inverted.is_nonempty()
+        {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "ParticleOccurrenceRangeNonEmpty",
+        "every Particle's [minOccurs, maxOccurs] is nonempty (min<=max and max>=1)",
+        "W3C XSD 1.1 Part 1 §3.9.3.2 (Gao et al. 2012)"
+    );
+}
+
+pr4xis::register_axiom!(
+    ParticleOccurrenceRangeNonEmpty,
+    "W3C XSD 1.1 Part 1 §3.9.3.2 (Gao et al. 2012)"
+);
+
+/// A keyed schema-component identity — `(QName, category)`.
+///
+/// W3C XSD 1.1 Part 1 §3.2.7 — *Schema Component Identity* — two
+/// schema components with the same QName and the same category are the
+/// same component; XSD does not permit two distinct components to
+/// share both attributes.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ComponentKey {
+    pub qname: String,
+    pub category: XsdConcept,
+}
+
+/// Axiom: two `SchemaComponent`s with the same `QName` and the same
+/// category are the same component (W3C XSD 1.1 Part 1 §3.2.7).
+pub struct QNameCategoryUniqueness;
+
+impl Axiom for QNameCategoryUniqueness {
+    fn verify(&self) -> Verdict {
+        // Two declarations of the same QName + category must merge to
+        // the same key. Distinct categories with the same QName are
+        // permitted (e.g. an element and a type can share a name).
+        let a = ComponentKey {
+            qname: "uslm:section".to_string(),
+            category: XsdConcept::ElementDeclaration,
+        };
+        let b = ComponentKey {
+            qname: "uslm:section".to_string(),
+            category: XsdConcept::ElementDeclaration,
+        };
+        let c = ComponentKey {
+            qname: "uslm:section".to_string(),
+            category: XsdConcept::ComplexTypeDefinition,
+        };
+        if a == b && a != c {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "QNameCategoryUniqueness",
+        "two SchemaComponents with the same (QName, category) are the same component",
+        "W3C XSD 1.1 Part 1 §3.2.7 (Gao et al. 2012)"
+    );
+}
+
+pr4xis::register_axiom!(
+    QNameCategoryUniqueness,
+    "W3C XSD 1.1 Part 1 §3.2.7 (Gao et al. 2012)"
+);
+
+/// Axiom: every XSD concept (except the abstract root
+/// `SchemaComponent`) has a defined `PartSpec` classification — i.e.
+/// every concept is anchored in W3C XSD 1.1 Part 1 or Part 2.
+pub struct EveryConceptHasPartClassification;
+
+impl Axiom for EveryConceptHasPartClassification {
+    fn verify(&self) -> Verdict {
+        let q = PartSpec;
+        for c in XsdConcept::variants() {
+            let v = q.get(&c);
+            if matches!(c, XsdConcept::SchemaComponent) {
+                if v.is_some() {
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
+                }
+            } else if v.is_none() {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "EveryConceptHasPartClassification",
+        "every concept (except root) has a defined W3C Part 1 / Part 2 classification",
+        "W3C XSD 1.1 Part 1 (Gao et al. 2012); Part 2 (Peterson et al. 2012)"
+    );
+}
+
+pr4xis::register_axiom!(
+    EveryConceptHasPartClassification,
+    "W3C XSD 1.1 Part 1 (Gao et al. 2012); Part 2 (Peterson et al. 2012)"
+);

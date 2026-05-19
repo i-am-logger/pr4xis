@@ -1,0 +1,47 @@
+//! XSD — W3C XML Schema 1.1 as a Praxis ontology.
+//!
+//! XSD is a meta-language for describing XML document structure.
+//! Any XML schema (USLM, LMF, OOXML, ...) is itself an XSD-described
+//! ontology. By declaring XSD as a Praxis ontology, every loaded
+//! schema becomes a Praxis ontology instance through a single
+//! [xsd-parser AST] → [XsdOntology] functor — no per-schema hand-
+//! coding of the concept inventory.
+//!
+//! ## Why XSD lives in `formal/meta`
+//!
+//! `formal/meta` is the home for ontologies *about* ontologies and
+//! about the syntactic substrate over which ontologies are stated:
+//! [`identifier_format`](super::identifier_format),
+//! [`source_taxonomy`](super::source_taxonomy),
+//! [`gap_analysis`](super::gap_analysis). XSD is a meta-language for
+//! schemas, so it belongs here next to identifier-format — not in
+//! `social/software/markup`, where the *XML serialisation* and the
+//! *USLM schema instance* live.
+//!
+//! ## Module layout
+//!
+//! - [`ontology`] — the XSD concept inventory + relationship axioms
+//!   (W3C XSD 1.1 Part 1 / Part 2 cited section-by-section).
+//! - [`from_xsd_parser`] — the functor that turns xsd-parser's typed
+//!   AST into instances of the XSD ontology (Mac Lane §I.3).
+//!
+//! ## Citations
+//!
+//! - **W3C XML Schema 1.1 Part 1: Structures**, Gao, Sperberg-McQueen
+//!   & Thompson 2012, W3C Recommendation 2012-04-05.
+//!   <https://www.w3.org/TR/xmlschema11-1/>
+//! - **W3C XML Schema 1.1 Part 2: Datatypes**, Peterson, Gao,
+//!   Akhmedov, Malhotra, Biron & Sperberg-McQueen 2012, W3C
+//!   Recommendation 2012-04-05.
+//!   <https://www.w3.org/TR/xmlschema11-2/>
+//! - **Mac Lane** *Categories for the Working Mathematician* §I.3
+//!   (Functors), Springer GTM 5, 2nd ed. 1998.
+//! - **Bergmann, S.** *xsd-parser: Rust code generator for XML
+//!   schema files*, v1.5.2, MIT-licensed.
+//!   <https://github.com/Bergmann89/xsd-parser>.
+
+pub mod from_xsd_parser;
+pub mod ontology;
+
+#[cfg(test)]
+mod tests;
