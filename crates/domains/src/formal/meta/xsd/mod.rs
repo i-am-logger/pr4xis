@@ -29,17 +29,10 @@
 //!   `<xs:documentation>` prose block through the WordNet-backed
 //!   English pipeline (Mac Lane §I.3 functor + Fellbaum 1998 +
 //!   Bauer 1983 compound decomposition + Spivak 2014 §5 functorial
-//!   structure preservation).
-//! - [`schema_vocabulary`] — runtime loader for the
-//!   `schema_vocabulary@2026` source, the bundled LMF-encoded
-//!   closed-class enumeration of schema-vocabulary names (WHATWG HTML
-//!   element/attribute names, W3C XML 1.0 attribute-type names, LRC
-//!   USLM XML User Guide element/attribute/type/group/model names,
-//!   productive sub-* hierarchical forms per Huddleston & Pullum
-//!   2002 Ch. 19 §1.2). Consulted by
-//!   [`english_projection::is_schema_vocabulary`] when projecting an
-//!   XSD-declared name fails to resolve through WordNet AND is not
-//!   classifiable as a statutory-term-of-art.
+//!   structure preservation). Recognition is whole-name-first
+//!   (M4.η.4): a whole local name is checked against the loaded
+//!   HTML5 / XML 1.0 / USLM-1.0.18 XSD self-annotations *before*
+//!   the identifier is decomposed for WordNet enrichment.
 //! - [`uslm_vocabulary`] — runtime loader that scans the bundled
 //!   `uslm-1.0.18.xsd` for every schema-component declaration whose
 //!   own `<xsd:annotation><xsd:documentation>` block is non-empty.
@@ -47,8 +40,8 @@
 //!   carries inline documentation; this loader recognises those
 //!   names from the schema's own self-documentation rather than a
 //!   hand-curated list. Consulted by
-//!   [`english_projection::is_schema_vocabulary`] before falling
-//!   back to the [`schema_vocabulary`] bundle.
+//!   [`english_projection::is_schema_vocabulary`] alongside the
+//!   HTML5 and XML 1.0 loaders.
 //!
 //! ## Citations
 //!
@@ -68,7 +61,6 @@
 pub mod english_projection;
 pub mod from_xsd_parser;
 pub mod ontology;
-pub mod schema_vocabulary;
 pub mod uslm_vocabulary;
 
 #[cfg(test)]

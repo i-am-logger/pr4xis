@@ -10,7 +10,10 @@
 //! <xsd:documentation>` block. The schema documents itself; this
 //! module is the thin scanner that surfaces the set.
 //!
-//! Closes the USLM half of `schema_vocabulary@2026` (M4.η.3).
+//! Loads USLM vocabulary from the schema's own self-documentation
+//! (M4.η.3); M4.η.4 then deleted the `schema_vocabulary@2026`
+//! hand-curated bundle entirely, leaving this loader as the
+//! authoritative USLM-name recognition path.
 //!
 //! ## Citations
 //!
@@ -298,10 +301,9 @@ mod tests {
     //          recognised through the XSD's own documentation
     //          (LRC USLM XML User Guide §V) ────────────────────────────
 
-    /// Axiom: the USLM-specific terms still backed by the
-    /// `schema_vocabulary@2026` bundle on the USLM side
+    /// Axiom: the canonical USLM element-name set
     /// (`toc / num / pos / inline / def / misc / subarticle /
-    /// subparagraph / subclause / subitem / subsubitem`) are each
+    /// subparagraph / subclause / subitem / subsubitem`) is each
     /// declared in `uslm-1.0.18.xsd` with a non-empty
     /// `<xsd:annotation><xsd:documentation>` child.
     ///
@@ -309,9 +311,12 @@ mod tests {
     /// USLM element carries inline documentation.
     ///
     /// Note: `enum`, `attrs`, and `usc` appear only in documentation
-    /// prose (not as XSD `name="…"` declarations) — they remain on
-    /// the bundle until a future XSD revision adds explicit
-    /// declarations or until M4.η.4 deletes the bundle entirely.
+    /// prose (not as XSD `name="…"` declarations); the
+    /// whole-name-first recognition path (M4.η.4) handles their
+    /// resolution by recognising the *containing* declaration name
+    /// (e.g. `ChoiceEnum`, `XmlSpecialAttrs`, `uscDoc`) — none of
+    /// `enum / attrs / usc` ever appears as a standalone XSD local
+    /// name to begin with.
     #[test]
     fn axiom_uslm_documented_names_present() {
         for el in [
@@ -467,9 +472,9 @@ mod tests {
     //      lookup(x)` for all `x` — the case-fold normalisation
     //      factors through (Mac Lane §I.3 composition law).
     //
-    // Mirrors the parallel functor-law tests in
-    // `schema_vocabulary::tests::functor_law_*` (uniform test depth
-    // per `feedback_uniform_test_depth_across_ontologies`).
+    // Mirrors the parallel functor-law tests in the other XSD-grounded
+    // classifiers (HTML / XML 1.0) — uniform test depth per
+    // `feedback_uniform_test_depth_across_ontologies`.
 
     #[test]
     fn functor_law_identity_preservation() {

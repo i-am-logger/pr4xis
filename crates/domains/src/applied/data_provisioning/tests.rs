@@ -430,7 +430,6 @@ proptest! {
         let registered = [
             "english_wordnet",
             "us_legal_lexicon",
-            "schema_vocabulary",
             "xml_1_0_namespace_xsd",
             "xml_infoset",
         ];

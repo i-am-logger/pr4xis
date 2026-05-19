@@ -72,17 +72,6 @@
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
 "us_legal_lexicon@2026"  = "fd87bf2db83ce9253e9549079fe9f3f08aa0c9f5f0199c4c82a2d2a2152ce8b6"
-# Schema-Vocabulary Closed-Class Lexicon (LMF XML). Pinned hash of
-# crates/domains/data/schema-vocabulary/schema_vocabulary.xml — the
-# bounded, cited enumeration of HTML5 element/attribute names
-# (WHATWG HTML Living Standard), W3C XML 1.0 attribute-type names
-# (Bray et al. 2008 §3.3.1), LRC USLM XML User Guide v1.0.18
-# element/attribute/type-suffix/group names, and productive sub-*
-# hierarchical forms (Huddleston & Pullum 2002 Ch. 19 §1.2). Loaded
-# by the XSD → English projection's `is_schema_vocabulary` classifier
-# (`crates/domains/src/formal/meta/xsd/schema_vocabulary.rs`).
-# Updating the XML requires regenerating this hash.
-"schema_vocabulary@2026" = "87a613968086634abf4d8182f11675c9678a40686f2fb384b50e08e2099f214a"
 "sox_1514a@2002"         = "f5bf19858f360dc860f1de6c339e309cd4b17b75bd83167ad48ecef84cbf51a7"
 # U.S. Code Title 18 — Crimes and Criminal Procedure. SHA-256 of
 # the unzipped usc18.xml content (12 MB, 1,428 sections, ~28k cross-

@@ -56,7 +56,7 @@ pr4xis::ontology! {
         LegalLexicon: ("en", "Legal lexicon",
             "Solan (1993) The Language of Judges: a DomainLexicon for legal terms of art — statutory definitions, Black's Law Dictionary, judicial glossaries."),
         SchemaVocabulary: ("en", "Schema vocabulary",
-            "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §3 (Schema Component Names): a DomainLexicon enumerating the closed-class element / attribute / type / group / model names declared by published schema specifications (WHATWG HTML Living Standard, W3C XML 1.0, LRC USLM XML User Guide). Loaded by the XSD → English projection's is_schema_vocabulary classifier to recognize these names as bounded schema-vocabulary terms-of-art rather than as unresolved general-English lemmas."),
+            "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §3 (Schema Component Names): a DomainLexicon enumerating the closed-class element / attribute / type / group / model names declared by published schema specifications. The taxonomy slot is kept for future bundles in this family; the XSD → English projection's is_schema_vocabulary classifier now reads directly from each loaded XmlSchemaDefinition (HTML5 XSD, W3C xml.xsd, USLM-1.0.18 XSD self-annotations) rather than from a separate LMF bundle (M4.η.4)."),
         LegalCorpus: ("en", "Legal corpus",
             "Hart (1961) The Concept of Law: the root of legal text resources — primary rules (statutes, constitutional articles, procedural rules) and secondary rules (regulations, case law) about them."),
         Statute: ("en", "Statute",

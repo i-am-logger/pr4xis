@@ -80,7 +80,6 @@ use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenan
 #[cfg(test)]
 use super::ontology::XsdRelationKind;
 use super::ontology::{XsdCategory, XsdConcept, XsdRelation};
-use super::schema_vocabulary::is_in_schema_vocabulary;
 use super::uslm_vocabulary::is_uslm_vocabulary;
 use crate::cognitive::linguistics::english::ontology::English;
 use crate::social::judicial::statute_structure::english_adjunction::{
@@ -628,31 +627,67 @@ pub struct NamedComponentProjection {
     /// The component's local name (e.g. `"section"`,
     /// `"complexContent"`).
     pub local_name: String,
-    /// Per-token English-resolution mappings.
+    /// Per-token English-resolution mappings (decomposition-pass
+    /// enrichment via WordNet). Empty for purely-numeric or
+    /// purely-separator names; otherwise carries one mapping per
+    /// content-word token emitted by [`split_identifier`].
     pub mappings: Vec<LemmaSenseMapping>,
+    /// True iff [`is_schema_vocabulary`] recognised the *whole* local
+    /// name (case-folded) as a declared name in some loaded
+    /// authoritative source — HTML5 / XML 1.0 / USLM-1.0.18 XSD
+    /// self-annotations — or as a statutory-term-of-art. This is
+    /// the M4.η.4 whole-name-first recognition path: if the loaded
+    /// XSD declares `XmlSpecialAttrs` as an `<xsd:attributeGroup>`,
+    /// the projection records that fact at the whole-name level
+    /// before decomposition runs, and the subword tokens
+    /// (`xml + special + attrs`) are treated as WordNet-enrichment
+    /// only — their failure to resolve isn't a recognition failure.
+    pub whole_name_recognized: bool,
 }
 
 impl NamedComponentProjection {
-    /// True iff every content token in the name resolved through
-    /// WordNet OR is classifiable as a statutory-term-of-art per
-    /// [`is_statutory_term_of_art`] OR is registered in the
-    /// `schema_vocabulary@2026` source per
-    /// [`is_schema_vocabulary`]. The three-classifier disjunction
-    /// reflects the disjoint vocabulary families a loaded XSD name
-    /// may belong to: general English (WordNet), legal terms-of-art
-    /// (the LegalLexicon family), or schema-vocabulary names (the
-    /// SchemaVocabulary family).
+    /// True iff the local name resolves through the recognition
+    /// chain (Mac Lane §I.3 functor-image-totality on names).
+    ///
+    /// Recognition is whole-name-first (M4.η.4 ordering fix):
+    ///
+    /// 1. If [`is_schema_vocabulary`] recognises the *whole* local
+    ///    name (no decomposition), the projection is fully
+    ///    resolved — every documented USLM declaration like
+    ///    `XmlSpecialAttrs`, `ChoiceEnum`, `uscDoc` lands here
+    ///    via the loaded XSD's `<xsd:annotation>` blocks
+    ///    (`is_uslm_vocabulary`). HTML-vocabulary names land via
+    ///    the bundled XHTML 1.0 Strict XSD; XML 1.0 vocabulary
+    ///    via the bundled W3C xml.xsd + Infoset rec; statutory
+    ///    terms-of-art via the US legal-lexicon bundle.
+    /// 2. Otherwise, decomposition-pass: every content token in
+    ///    `mappings` must resolve through WordNet OR be
+    ///    classifiable as a statutory-term-of-art. Decomposition
+    ///    is the enrichment pass — only consulted when step 1
+    ///    didn't already recognise the whole name.
+    ///
+    /// Per `feedback_bottom_up_loaded_not_encoded` + M4.η.4: the
+    /// fix is the recognition order (whole-name precedes
+    /// decomposition), not adding subword tokens to any
+    /// hand-curated list. A name like `XmlSpecialAttrs` matches via
+    /// the loaded USLM XSD because USLM-1.0.18.xsd line 603
+    /// declares `<xsd:attributeGroup name="XmlSpecialAttrs">` with
+    /// a non-empty `<xsd:annotation>` block.
     pub fn is_fully_resolved(&self) -> bool {
+        // Step 1: whole-name match against loaded ontologies.
+        if self.whole_name_recognized {
+            return true;
+        }
+        // Step 2: decomposition-pass — every content lemma resolves
+        // through WordNet OR is a statutory-term-of-art.
         if self.mappings.is_empty() {
             // Pure-numeric or all-separator names produce no
             // mappings — vacuously resolved.
             return true;
         }
-        self.mappings.iter().all(|m| {
-            m.is_resolved()
-                || is_statutory_term_of_art(&m.form.written_rep)
-                || is_schema_vocabulary(&m.form.written_rep)
-        })
+        self.mappings
+            .iter()
+            .all(|m| m.is_resolved() || is_statutory_term_of_art(&m.form.written_rep))
     }
 
     /// True iff `mappings` carries at least one resolved sense.
@@ -662,7 +697,8 @@ impl NamedComponentProjection {
     }
 }
 
-/// True iff `lemma` is a registered schema-vocabulary name.
+/// True iff `name` is a recognised schema-vocabulary name in some
+/// loaded authoritative source.
 ///
 /// The classifier chain consults, in order:
 ///
@@ -670,16 +706,13 @@ impl NamedComponentProjection {
 ///    HTML element + attribute names. Loaded by
 ///    [`crate::social::software::markup::html::english_projection::is_html_vocabulary`]
 ///    from the W3C-published schema (Pemberton et al. 2002 §A.2).
-///    Replaces the hand-curated HTML portion of the bundle for
-///    every name the XSD covers.
 /// 2. **M4.η.2 — W3C xml.xsd + XML Information Set rec**
 ///    (`xml_1_0_namespace_xsd@1.0` + `xml_infoset@2004`) — for the
 ///    four `xml:*`-namespace-reserved attribute names plus the 11
 ///    information-item canonical phrases. Loaded by
 ///    [`crate::social::software::markup::xml::english_projection_v1::is_xml_10_vocabulary`]
 ///    from the W3C-published sources (Bray et al. 2009; Cowan &
-///    Tobin 2004). Replaces the hand-curated XML half of the
-///    bundle for every name these sources cover.
+///    Tobin 2004).
 /// 3. **M4.η.3 — USLM-1.0.18 XSD self-annotations** (consulted via
 ///    [`super::uslm_vocabulary::is_uslm_vocabulary`]) — for every
 ///    USLM element / attribute / complexType / simpleType /
@@ -688,34 +721,52 @@ impl NamedComponentProjection {
 ///    XML User Guide §V (every USLM element carries inline
 ///    documentation), the schema documents itself; this loader
 ///    surfaces the documented-name set.
-/// 4. **`schema_vocabulary@2026`** (hand-curated LMF bundle) — now
-///    serves only the residual USLM tokens that appear in
-///    documentation prose but lack their own XSD declaration (e.g.
-///    `enum`, `attrs`, `usc`) plus the productive sub-* forms not
-///    yet picked up by the loader. To be deleted in M4.η.4.
 ///
-/// Per `feedback_bottom_up_loaded_not_encoded`: every recognized
-/// name comes from a registered authoritative source — not from
-/// hard-coded Rust string matches.
-pub fn is_schema_vocabulary(lemma: &str) -> bool {
-    crate::social::software::markup::html::english_projection::is_html_vocabulary(lemma)
-        || crate::social::software::markup::xml::english_projection_v1::is_xml_10_vocabulary(lemma)
-        || is_uslm_vocabulary(lemma)
-        || is_in_schema_vocabulary(lemma)
+/// Per `feedback_bottom_up_loaded_not_encoded`: every recognised
+/// name comes from a registered authoritative source — never from
+/// a hand-coded Rust string match. M4.η.4 deleted the
+/// `schema_vocabulary@2026` hand-curated bundle entirely; the
+/// recognition path is now exclusively the three loaded XSDs above
+/// plus the statute-grounded `is_statutory_term_of_art` classifier
+/// invoked separately by
+/// [`NamedComponentProjection::is_fully_resolved`].
+pub fn is_schema_vocabulary(name: &str) -> bool {
+    crate::social::software::markup::html::english_projection::is_html_vocabulary(name)
+        || crate::social::software::markup::xml::english_projection_v1::is_xml_10_vocabulary(name)
+        || is_uslm_vocabulary(name)
 }
 
 /// Project a `(XsdConcept, local_name)` pair through both the type-
 /// level functor and the instance-level name pipeline.
+///
+/// Recognition is **whole-name-first** (M4.η.4): the whole local
+/// name is checked against the loaded ontologies (HTML 5 XSD, XML
+/// 1.0 W3C sources, USLM-1.0.18 XSD self-annotations,
+/// statutory-term-of-art) *before* the identifier is split into
+/// subword tokens. Decomposition still runs and produces
+/// `mappings` for WordNet enrichment, but a subword that fails to
+/// resolve isn't a recognition failure when the whole name already
+/// matched. See [`NamedComponentProjection::is_fully_resolved`] for
+/// the precise rule.
 pub fn project_named_component(
     concept: XsdConcept,
     local_name: &str,
     english: &English,
 ) -> NamedComponentProjection {
+    // Whole-name match against loaded ontologies + the statutory-
+    // term-of-art classifier (no decomposition). This is the
+    // M4.η.4 recognition-order fix: a documented USLM declaration
+    // like `XmlSpecialAttrs` (USLM-1.0.18.xsd line 603) is
+    // recognised here before the identifier is split into
+    // `[xml, special, attrs]` for WordNet lookup.
+    let whole_name_recognized =
+        is_schema_vocabulary(local_name) || is_statutory_term_of_art(local_name);
     NamedComponentProjection {
         concept,
         label: project_concept(concept),
         local_name: local_name.to_string(),
         mappings: project_name(local_name, english),
+        whole_name_recognized,
     }
 }
 
@@ -1046,6 +1097,124 @@ mod tests {
         assert!(proj.has_senses());
     }
 
+    // ── M4.η.4: whole-name-first recognition (the ordering fix) ──────
+
+    /// Axiom: every name on the prior-failing list (`XmlSpecialAttrs`,
+    /// `ChoiceEnum`, `PropertyTypeEnum`, `SetTypeEnum`, `StatusEnum`,
+    /// `ActionTypeEnum`, `PositionEnum`, `OrientationEnum`,
+    /// `NoteTypeEnum`, `uscDoc`) resolves through the *whole-name*
+    /// classifier. These are the 10 USLM-1.0.18.xsd declarations that
+    /// failed under the pre-M4.η.4 decompose-then-classify ordering
+    /// because their subword tokens (`xml`, `attrs`, `enum`, `usc`)
+    /// don't independently appear in any loaded ontology — but the
+    /// whole names DO, as documented `<xsd:attributeGroup>` /
+    /// `<xsd:simpleType>` / `<xsd:element>` declarations carrying
+    /// `<xsd:annotation>` blocks.
+    ///
+    /// Per `feedback_bottom_up_loaded_not_encoded`: every name on
+    /// this list is recognised by [`is_uslm_vocabulary`], which loads
+    /// from the bundled USLM XSD source-of-truth — not from a hand-
+    /// curated Rust list.
+    #[test]
+    fn axiom_prior_failing_uslm_names_resolve_via_whole_name() {
+        // USLM-1.0.18.xsd documented declarations (line numbers in
+        // comment).
+        let names = [
+            "XmlSpecialAttrs",  // attributeGroup, line 603
+            "ChoiceEnum",       // simpleType,     line 323
+            "PropertyTypeEnum", // simpleType,     line 340
+            "SetTypeEnum",      // simpleType,     line 361
+            "StatusEnum",       // simpleType,     line 417
+            "ActionTypeEnum",   // simpleType,     line 471
+            "PositionEnum",     // simpleType,     line 547
+            "OrientationEnum",  // simpleType,     line 566
+            "NoteTypeEnum",     // simpleType,     line 583
+            "uscDoc",           // element,        line 3586
+        ];
+        for n in names {
+            assert!(
+                is_uslm_vocabulary(n),
+                "USLM whole-name {n:?} not recognised — \
+                 the loaded USLM-1.0.18.xsd should surface it through \
+                 its own `<xsd:annotation><xsd:documentation>` block",
+            );
+            assert!(
+                is_schema_vocabulary(n),
+                "schema-vocabulary chain failed to recognise USLM \
+                 whole-name {n:?} (HTML/XML/USLM disjunction)",
+            );
+        }
+    }
+
+    /// Property test: for every documented USLM SchemaComponent
+    /// whose whole local name is recognised by [`is_schema_vocabulary`],
+    /// the [`project_named_component`] output has
+    /// `whole_name_recognized == true` AND
+    /// [`NamedComponentProjection::is_fully_resolved`] returns true
+    /// regardless of whether decomposition leaves any subword
+    /// unresolved. This is the M4.η.4 ordering invariant: whole-name
+    /// match short-circuits the recognition chain.
+    #[test]
+    fn property_whole_name_match_short_circuits_decomposition() {
+        let en = sample_english();
+        // USLM whole names — none of these have all subwords in the
+        // sample WordNet (which is the point: decomposition would
+        // fail, but whole-name match should succeed).
+        let usml_names = ["XmlSpecialAttrs", "ChoiceEnum", "uscDoc", "NoteTypeEnum"];
+        for n in usml_names {
+            let proj = project_named_component(XsdConcept::ElementDeclaration, n, &en);
+            assert!(
+                proj.whole_name_recognized,
+                "{n:?}: whole-name match should succeed via is_uslm_vocabulary"
+            );
+            assert!(
+                proj.is_fully_resolved(),
+                "{n:?}: whole-name recognised → is_fully_resolved must short-circuit \
+                 (decomposition pass would have left subwords unresolved)",
+            );
+        }
+    }
+
+    /// Functor law: monotonicity of the recognition order — a name
+    /// recognised by the whole-name pass alone is also recognised
+    /// when the decomposition pass runs after it. The recognition
+    /// relation `R(name) := is_fully_resolved(project_named_component(name))`
+    /// must be monotone under enrichment: adding the decomposition
+    /// step never *un*-recognises a whole-name match. (Mac Lane
+    /// §I.3 functor composition preserves the image; the
+    /// decomposition pass is composed *after* whole-name, never
+    /// before — so composition can only widen the recognised set.)
+    #[test]
+    fn functor_law_recognition_order_monotone() {
+        let en = sample_english();
+        let names = [
+            // Whole-name-only (decomposition would fail in sample WN).
+            "XmlSpecialAttrs",
+            "ChoiceEnum",
+            "uscDoc",
+            // Decomposition-only (whole name not in any loaded
+            // ontology; subwords resolve through sample WordNet).
+            "ComplexType",
+            "section",
+            // Both paths succeed (whole-name not loaded; subwords
+            // resolve).
+            "import_loc",
+        ];
+        for n in names {
+            let proj = project_named_component(XsdConcept::ElementDeclaration, n, &en);
+            // Whole-name recognised ⇒ is_fully_resolved (the
+            // monotonicity claim).
+            if proj.whole_name_recognized {
+                assert!(
+                    proj.is_fully_resolved(),
+                    "{n:?}: whole-name recognised but is_fully_resolved=false — \
+                     decomposition step un-recognised what whole-name accepted, \
+                     violating composition monotonicity (Mac Lane §I.3)"
+                );
+            }
+        }
+    }
+
     // ── ProjectionRespectsCategoryStructure axiom (Spivak 2014 §5) ───
 
     /// Axiom: if XSD concept X is-a Y in the source category, the
@@ -1249,9 +1418,17 @@ mod tests {
 
     /// Gap-audit on USLM-1.0.18.xsd: project every named schema
     /// declaration through the English functor and panic if any
-    /// component name fails to resolve through WordNet, the
-    /// statutory-term-of-art classifier, AND the schema-vocabulary
-    /// classifier.
+    /// component name fails to resolve through the
+    /// whole-name-first recognition chain (M4.η.4).
+    ///
+    /// Recognition order (post-M4.η.4):
+    /// 1. Whole-name match against loaded ontologies
+    ///    ([`is_schema_vocabulary`] = HTML5 XSD ∪ XML 1.0 W3C
+    ///    sources ∪ USLM-1.0.18 XSD self-annotations) OR the
+    ///    statutory-term-of-art classifier.
+    /// 2. Decomposition-pass: each content token resolves through
+    ///    WordNet (single-word) or its decomposed sub-lemmas
+    ///    (bigram resolver) OR is a statutory-term-of-art.
     ///
     /// Per the M4.ε.5.a.3 follow-up "no ignore" mandate: this test
     /// genuinely passes by closing the gaps in the registered
@@ -1264,9 +1441,8 @@ mod tests {
     /// 3. Zero unresolved names — every XSD `<xsd:element>` /
     ///    `<xsd:complexType>` / `<xsd:simpleType>` /
     ///    `<xsd:attributeGroup>` / `<xsd:group>` / `<xsd:attribute>`
-    ///    name resolves through `WordNet ∪ statutory-term-of-art ∪
-    ///    schema-vocabulary`. Per
-    ///    `feedback_push_back_on_unsupported_file_types` +
+    ///    name passes [`NamedComponentProjection::is_fully_resolved`].
+    ///    Per `feedback_push_back_on_unsupported_file_types` +
     ///    `feedback_bottom_up_loaded_not_encoded`: closing the gap
     ///    means extending the registered authoritative sources, not
     ///    allow-listing names in Rust code.
@@ -1285,32 +1461,31 @@ mod tests {
         for (concept, name) in &named {
             let proj = project_named_component(*concept, name, en);
             if !proj.is_fully_resolved() {
+                // Whole-name didn't match a loaded ontology AND
+                // the decomposition pass left at least one lemma
+                // unresolved.
                 let bad: Vec<String> = proj
                     .mappings
                     .iter()
-                    .filter(|m| {
-                        !m.is_resolved()
-                            && !is_statutory_term_of_art(&m.form.written_rep)
-                            && !is_schema_vocabulary(&m.form.written_rep)
-                    })
+                    .filter(|m| !m.is_resolved() && !is_statutory_term_of_art(&m.form.written_rep))
                     .map(|m| m.form.written_rep.clone())
                     .collect();
-                if !bad.is_empty() {
-                    failures.push(format!(
-                        "{:?} {}: unresolved lemmas {:?}",
-                        concept, name, bad
-                    ));
-                }
+                failures.push(format!(
+                    "{:?} {}: whole-name not in loaded ontologies, decomposition leaves \
+                     {:?} unresolved",
+                    concept, name, bad
+                ));
             }
         }
 
         if !failures.is_empty() {
             panic!(
-                "USLM XSD has {} schema components whose names don't resolve through WordNet, \
-                 statutory-term-of-art, or schema-vocabulary classifiers (expected zero):\n  - {}\n\n\
+                "USLM XSD has {} schema components whose names don't resolve through the \
+                 whole-name-first recognition chain (expected zero):\n  - {}\n\n\
                  Per `feedback_bottom_up_loaded_not_encoded`: extend the registered \
-                 `english_wordnet@2025`, `us_legal_lexicon@2026`, or `schema_vocabulary@2026` \
-                 source — do NOT allow-list names in Rust code.",
+                 `english_wordnet@2025` or `us_legal_lexicon@2026` source, or surface the name \
+                 through the loaded USLM XSD's `<xsd:annotation>` blocks — do NOT allow-list \
+                 names in Rust code.",
                 failures.len(),
                 failures.join("\n  - "),
             );

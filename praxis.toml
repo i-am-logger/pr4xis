@@ -186,50 +186,6 @@ type        = "LegalLexicon"
 url         = "https://www.govinfo.gov/app/details/GPO-STYLEMANUAL-2016"
 description = "U.S. Federal Legal-Text Closed-Class Lexicon — citation abbreviations (GPO Style Manual 2016 Ch. 9), month names + abbreviations (GPO §9.20), federal-agency acronyms (Federal Register Document Drafting Handbook 2017 §4.1), U.S. state / place names (ISO 3166-2:US + GPO §5.20), English productive compounds (Huddleston & Pullum 2002 Ch. 19 + Bauer 1983 §6), and legal terms-of-art (Black's Law Dictionary 11th ed. 2019). Bundled as crates/domains/data/legal-text/us_legal_lexicon.xml (LMF format)."
 
-# Schema-Vocabulary Closed-Class Lexicon — bounded enumeration of the
-# element / attribute / type / group / model-name vocabulary that
-# appears in published schema specifications (WHATWG HTML Living
-# Standard, W3C XML 1.0, LRC USLM XML User Guide) but lies outside
-# English WordNet's general-language coverage.
-#
-# Bundled file: `crates/domains/data/schema-vocabulary/schema_vocabulary.xml`,
-# LMF format (same shape as us_legal_lexicon.xml and English WordNet).
-# Loaded by the XSD → English projection's `is_schema_vocabulary`
-# classifier (`crates/domains/src/formal/meta/xsd/schema_vocabulary.rs`)
-# to recognize schema-name tokens (br, img, del, meta, href, src,
-# alt, colspan, rowspan, idref, toc, num, pos, inline, def, enum,
-# attrs, misc, usc, xml, subarticle, subparagraph, subclause,
-# subitem, subsubitem) as bounded schema-vocabulary terms-of-art
-# rather than as unresolved general-English lemmas when projecting a
-# loaded XSD schema's names through the English-projection functor.
-#
-# Each category in the bundled XML carries its own authoritative
-# citation:
-#   - HTML5 element + attribute names: WHATWG HTML Living Standard
-#     <https://html.spec.whatwg.org/> (CC-BY 4.0), with normative
-#     historical baseline in W3C HTML 4.01 (W3C Recommendation
-#     1999-12-24).
-#   - W3C XML 1.0 attribute-type names: Bray, Paoli, Sperberg-McQueen,
-#     Maler & Yergeau (eds.) (2008) Extensible Markup Language (XML)
-#     1.0 (Fifth Edition), W3C Recommendation 26 November 2008,
-#     §3.3.1 (Attribute Types) + §1.1 (Origin).
-#   - LRC USLM element / attribute / type-suffix / group names:
-#     Office of the Law Revision Counsel, U.S. House (2024) USLM XML
-#     User Guide v1.0.18 (1 U.S.C. § 204, public domain per 17 U.S.C.
-#     § 105).
-#   - Productive sub-* hierarchical forms: Huddleston & Pullum (2002)
-#     Cambridge Grammar of the English Language Ch. 19 §1.2
-#     (productive prefixation: sub-).
-#
-# The bundled XML is the canonical source-of-truth. The pinned hash
-# in praxis.lock anchors it; future updates require both file edit
-# and a lock-hash refresh through `pr4xis lock`.
-[sources.schema_vocabulary]
-version     = "2026"
-type        = "SchemaVocabulary"
-url         = "https://html.spec.whatwg.org/"
-description = "Schema-Vocabulary Closed-Class Lexicon — HTML5 element / attribute names (WHATWG HTML Living Standard), W3C XML 1.0 attribute-type names (Bray et al. 2008 §3.3.1), LRC USLM XML User Guide v1.0.18 element / attribute / type-suffix / group names, and productive sub-* hierarchical forms (Huddleston & Pullum 2002 Ch. 19 §1.2). Bundled as crates/domains/data/schema-vocabulary/schema_vocabulary.xml (LMF format)."
-
 # ---------------------------------------------------------------------------
 # Typographic resources
 # ---------------------------------------------------------------------------
