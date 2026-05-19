@@ -22,6 +22,15 @@
 
 [hashes]
 "english_wordnet@2025"   = "6f49adeec174ab3092169fb25cf4a925226b63975a5d29a691a5dff88f0673b2"
+# USLM XML schema (W3C XSD 1.1). Pinned hash of the on-disk file
+# crates/domains/data/legal/uscode/schema/uslm-1.0.18.xsd — the LRC's
+# published USLM.xsd (github.com/usgpo/uslm@main/USLM.xsd, version
+# "1.0.18" on its <xsd:schema> root attribute). Loaded by the USLM
+# ontology codegen so element/complexType/simpleType declarations
+# derive from the published schema (Gao, Sperberg-McQueen & Thompson
+# 2012 W3C XSD 1.1 Part 1 §1.1 Recommendation 5 April 2012) rather
+# than being hand-coded.
+"uslm_xsd@1.0.18"        = "dba603fcb1b466ef03fe28d4b10306b7b04cd36357e1d738156579da85413550"
 # U.S. Federal Legal-Text Closed-Class Lexicon (LMF XML). Pinned hash
 # of crates/domains/data/legal-text/us_legal_lexicon.xml — the
 # bounded, cited enumeration of citation abbreviations + month names +

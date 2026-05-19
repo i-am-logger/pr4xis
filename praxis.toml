@@ -38,6 +38,32 @@ version = "2025"
 type    = "Language"
 url     = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz"
 
+# ---------------------------------------------------------------------------
+# Schema specifications (W3C XSD 1.1)
+# ---------------------------------------------------------------------------
+#
+# The XSD that grounds the USLM ontology. Loaded so the ontology types in
+# `crates/domains/src/social/software/markup/xml/uslm/` derive from the
+# published schema rather than being hand-coded by eye against it. Cited:
+# W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures, W3C
+# Recommendation 5 April 2012 (Gao, Sperberg-McQueen & Thompson 2012);
+# Part 2: Datatypes (Peterson et al. 2012).
+#
+# The on-disk file is the canonical bytes; `praxis.lock` pins the
+# sha256. The URL is the LRC's published archive (github.com/usgpo/uslm).
+# The version string "1.0.18" matches the `version="..."` attribute on
+# `<xsd:schema>` in the file (which is the highest 1.x version published
+# by the LRC; their currently shipped Title 18 / Title 49 USLM XML
+# declares schemaLocation for 1.0.15, but 1.0.18 is the superset and
+# currently shipped 1.x).
+#
+# Bundled file: `crates/domains/data/legal/uscode/schema/uslm-1.0.18.xsd`.
+[sources.uslm_xsd]
+version     = "1.0.18"
+type        = "XmlSchemaDefinition"
+url         = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM.xsd"
+description = "Library of Congress USLM XML schema. The authoritative grammar for U.S. Code XML markup. Cited: 1 U.S.C. § 204; W3C XSD 1.1 Part 1 (Gao, Sperberg-McQueen & Thompson 2012)."
+
 # U.S. Federal Legal-Text Closed-Class Lexicon — bounded enumeration of
 # the citation abbreviations, month names, federal-agency acronyms,
 # U.S. state / place names, productive English compounds, and legal

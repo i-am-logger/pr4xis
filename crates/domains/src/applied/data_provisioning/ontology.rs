@@ -105,6 +105,14 @@ pub enum ContentType {
     /// Cited by 1 U.S.C. § 204 as the U.S. Code's authoritative
     /// publication. URL: uscode.house.gov/uslm/.
     UslmXml,
+    /// W3C XML Schema Definition (XSD) 1.1, per W3C Recommendation
+    /// 5 April 2012 (Gao, Sperberg-McQueen & Thompson 2012, Part 1:
+    /// Structures; Peterson et al. 2012, Part 2: Datatypes). Decoder:
+    /// `pr4xis::codegen::xsd::parse_xsd` — emits a typed AST of
+    /// `xs:element`, `xs:complexType`, `xs:simpleType`, content models,
+    /// attributes, substitution groups. The XSD authoritatively grounds
+    /// content-type ontologies that load from it (e.g., USLM).
+    XmlXsd,
     /// Plain text, UTF-8. Decoder: direct.
     Plaintext,
     /// Adobe Glyph List (`name;HEX[ HEX]*` lines) per Adobe's
@@ -168,10 +176,18 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // `name;HEX[ HEX]*` line format per Adobe's published
         // 2002–2019 table.
         C::TypographicGlyphSet => ContentType::AdobeGlyphList,
+        // XSD documents are XML themselves but with the structural
+        // semantics of W3C XSD 1.1 (Gao, Sperberg-McQueen & Thompson
+        // 2012 Part 1; Peterson et al. 2012 Part 2). Decoder:
+        // `pr4xis::codegen::xsd::parse_xsd`.
+        C::XmlSchemaDefinition => ContentType::XmlXsd,
         // Non-leaf concepts have no decoder — they're abstract.
-        C::Source | C::Lexicon | C::DomainLexicon | C::LegalCorpus | C::TypographyResource => {
-            ContentType::Binary
-        }
+        C::Source
+        | C::Lexicon
+        | C::DomainLexicon
+        | C::LegalCorpus
+        | C::TypographyResource
+        | C::SchemaSpec => ContentType::Binary,
     }
 }
 
@@ -236,7 +252,7 @@ impl RegistryEntry {
     pub fn local_path(&self) -> String {
         let family = family_dir(self.kind);
         let ext = match self.content_type() {
-            ContentType::XmlLmf | ContentType::UslmXml => "xml",
+            ContentType::XmlLmf | ContentType::UslmXml | ContentType::XmlXsd => "xml",
             ContentType::Plaintext | ContentType::AdobeGlyphList => "txt",
             ContentType::Json => "json",
             ContentType::Pdf => "pdf",
@@ -286,6 +302,14 @@ pub fn family_dir(kind: SourceTaxonomyConcept) -> &'static str {
             C::TypographicGlyphSet => "adobe",
             _ => "typography",
         }
+    } else if matches!(kind, C::SchemaSpec | C::XmlSchemaDefinition) {
+        // XSDs live under the corpus they schema. The USLM XSD is
+        // shipped at `data/legal/uscode/schema/`; the convention
+        // resolves to `legal/uscode/schema` here so the
+        // `local_path()` computation matches the on-disk bundle.
+        // Future schema kinds for non-legal corpora can extend this
+        // branch.
+        "legal/uscode/schema"
     } else {
         match kind {
             C::Language => "lexicons/languages",

@@ -34,7 +34,7 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn fifteen_concepts() {
+fn seventeen_concepts() {
     // Lexicon family (5): Source, Lexicon, Language, DomainLexicon,
     //                     LegalLexicon.
     // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
@@ -43,7 +43,8 @@ fn fifteen_concepts() {
     //                         CaseLaw.
     // TypographyResource family (2): TypographyResource,
     //                                TypographicGlyphSet.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 15);
+    // SchemaSpec family (2): SchemaSpec, XmlSchemaDefinition.
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 17);
 }
 
 #[test]
@@ -105,7 +106,7 @@ fn is_lexicon_recognizes_subtree() {
 }
 
 #[test]
-fn is_leaf_identifies_nine_leaves() {
+fn is_leaf_identifies_ten_leaves() {
     use SourceTaxonomyConcept as C;
     let leaves: Vec<_> = SourceTaxonomyConcept::variants()
         .into_iter()
@@ -113,16 +114,20 @@ fn is_leaf_identifies_nine_leaves() {
         .collect();
     // Language, LegalLexicon, UsFederalStatute, UsCodeTitle,
     // Regulation, ConstitutionalArticle, ProceduralRule, CaseLaw,
-    // TypographicGlyphSet. Statute is the jurisdiction-agnostic
-    // parent of UsFederalStatute (not a leaf); TypographyResource
-    // is parent of TypographicGlyphSet.
-    assert_eq!(leaves.len(), 9);
+    // TypographicGlyphSet, XmlSchemaDefinition.
+    //   Statute is the jurisdiction-agnostic parent of
+    //   UsFederalStatute (not a leaf); TypographyResource is parent
+    //   of TypographicGlyphSet; SchemaSpec is parent of
+    //   XmlSchemaDefinition.
+    assert_eq!(leaves.len(), 10);
     assert!(leaves.contains(&C::Language));
     assert!(leaves.contains(&C::UsFederalStatute));
     assert!(leaves.contains(&C::UsCodeTitle));
     assert!(leaves.contains(&C::TypographicGlyphSet));
+    assert!(leaves.contains(&C::XmlSchemaDefinition));
     assert!(!leaves.contains(&C::Statute));
     assert!(!leaves.contains(&C::TypographyResource));
+    assert!(!leaves.contains(&C::SchemaSpec));
     assert!(!leaves.contains(&C::Source));
     assert!(!leaves.contains(&C::LegalCorpus));
 }
@@ -158,6 +163,29 @@ fn constitutional_article_adjoins_to_statute_and_case_law() {
     let targets = adjoint_targets(SourceTaxonomyConcept::ConstitutionalArticle);
     assert!(targets.contains(&SourceTaxonomyConcept::Statute));
     assert!(targets.contains(&SourceTaxonomyConcept::CaseLaw));
+}
+
+#[test]
+fn xml_schema_definition_adjoins_to_uscodetitle() {
+    // The USLM XSD instance grounds the UsCodeTitle ontology — the
+    // adjunction edge surfaces (a) titles whose XML doesn't validate
+    // against the schema, and (b) schema constructs that no published
+    // title exercises. Cited: W3C XSD 1.1 Part 1 §1.1 (Gao,
+    // Sperberg-McQueen & Thompson 2012).
+    let targets = adjoint_targets(SourceTaxonomyConcept::XmlSchemaDefinition);
+    assert!(targets.contains(&SourceTaxonomyConcept::UsCodeTitle));
+}
+
+#[test]
+fn schema_spec_family_subsumption() {
+    // SchemaSpec descends from Source; XmlSchemaDefinition descends
+    // from SchemaSpec. Both invariants checked here so the family
+    // membership is testable independently of `is_leaf`.
+    let xsd_anc = ancestors_of(SourceTaxonomyConcept::XmlSchemaDefinition);
+    assert!(xsd_anc.contains(&SourceTaxonomyConcept::SchemaSpec));
+    assert!(xsd_anc.contains(&SourceTaxonomyConcept::Source));
+    let schema_anc = ancestors_of(SourceTaxonomyConcept::SchemaSpec);
+    assert!(schema_anc.contains(&SourceTaxonomyConcept::Source));
 }
 
 // =============================================================================

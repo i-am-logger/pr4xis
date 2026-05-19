@@ -4,6 +4,7 @@ pub mod owl;
 pub mod rdf;
 pub mod reader;
 pub mod uslm;
+pub mod xsd;
 
 pub use ontology::*;
 

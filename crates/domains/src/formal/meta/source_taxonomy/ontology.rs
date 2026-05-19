@@ -11,7 +11,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "SourceTaxonomy",
-    source: "Hart (1961) The Concept of Law, Oxford; MacLane (1971) Categories for the Working Mathematician §IV.1; Pustejovsky (1995) The Generative Lexicon, MIT Press; Vossen (1998) EuroWordNet, Springer; Sartor (2005) Legal Reasoning, Springer; Solan (1993) The Language of Judges, Univ. Chicago; Marbury v. Madison, 5 U.S. 137 (1803); Wilkinson et al. (2016) FAIR Guiding Principles, Scientific Data 3:160018; Dolstra (2006) The Purely Functional Software Deployment Model, PhD thesis Utrecht University",
+    source: "Hart (1961) The Concept of Law, Oxford; MacLane (1971) Categories for the Working Mathematician §IV.1; Pustejovsky (1995) The Generative Lexicon, MIT Press; Vossen (1998) EuroWordNet, Springer; Sartor (2005) Legal Reasoning, Springer; Solan (1993) The Language of Judges, Univ. Chicago; Marbury v. Madison, 5 U.S. 137 (1803); Wilkinson et al. (2016) FAIR Guiding Principles, Scientific Data 3:160018; Dolstra (2006) The Purely Functional Software Deployment Model, PhD thesis Utrecht University; Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures, W3C Recommendation",
 
     concepts: [
         // === Root ===
@@ -36,6 +36,10 @@ pr4xis::ontology! {
         // === TypographyResource family ===
         TypographyResource,      // root of typographic mapping tables
         TypographicGlyphSet,     // leaf: glyph-name → Unicode codepoint map (Adobe AGL, etc.)
+
+        // === SchemaSpec family (W3C XSD 1.1 Part 1 §1.1) ===
+        SchemaSpec,                 // root of structural schema specifications
+        XmlSchemaDefinition,        // leaf: a W3C XSD 1.1 schema document (e.g., USLM XSD)
     ],
 
     labels: {
@@ -69,6 +73,10 @@ pr4xis::ontology! {
             "ISO 32000-2:2020 §9.6.5: published typographic mapping table such as a glyph list or encoding vector — the substrate on which digital text-format decoders translate bytes/glyphs to Unicode."),
         TypographicGlyphSet: ("en", "Typographic glyph set",
             "ISO 32000-2:2020 §9.6.5.4 + Adobe Tech Note #5014: a published name→codepoint table (Adobe Glyph List, AGLFN) cited by PDF /Differences arrays to resolve glyph names to Unicode codepoints."),
+        SchemaSpec: ("en", "Schema specification",
+            "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §1.1: a published structural specification for documents of some content-type. The substrate ontology that downstream content-type ontologies (USLM, LMF, OOXML) load from."),
+        XmlSchemaDefinition: ("en", "XML Schema Definition (XSD)",
+            "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1, W3C Recommendation 5 April 2012: an XSD document declaring element/complexType/simpleType/attribute/group declarations for an XML vocabulary. Cited by content-type ontologies (USLM 1.0.18) that ground their type system in the schema rather than hand-coding."),
     },
 
     is_a: [
@@ -91,6 +99,10 @@ pr4xis::ontology! {
         // TypographyResource family
         (TypographyResource, Source),
         (TypographicGlyphSet, TypographyResource),
+
+        // SchemaSpec family
+        (SchemaSpec, Source),
+        (XmlSchemaDefinition, SchemaSpec),
     ],
 
     // Adjunction graph: pairs of concepts whose instances are connected by
@@ -146,6 +158,17 @@ pr4xis::ontology! {
         // every legal-corpus chain reaches Language transitively
         // through this edge.
         (LegalLexicon, Language, Adjoins),
+
+        // W3C XSD 1.1 Part 1 §1.1: a schema specification grounds
+        // the content-type ontology of every document it validates.
+        // The USLM XSD (XmlSchemaDefinition instance) grounds every
+        // UsCodeTitle XML document — the schema declares which
+        // element/attribute combinations are well-formed; titles
+        // are instances of that grammar. The unit/counit pair
+        // surfaces (a) titles whose XML doesn't validate against
+        // the schema, and (b) schema constructs that no published
+        // title exercises (potential ontology dead code).
+        (XmlSchemaDefinition, UsCodeTitle, Adjoins),
     ],
 }
 
@@ -179,6 +202,8 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "CaseLaw" => C::CaseLaw,
         "TypographyResource" => C::TypographyResource,
         "TypographicGlyphSet" => C::TypographicGlyphSet,
+        "SchemaSpec" => C::SchemaSpec,
+        "XmlSchemaDefinition" => C::XmlSchemaDefinition,
         _ => return None,
     })
 }
@@ -203,6 +228,8 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::CaseLaw => "CaseLaw",
         C::TypographyResource => "TypographyResource",
         C::TypographicGlyphSet => "TypographicGlyphSet",
+        C::SchemaSpec => "SchemaSpec",
+        C::XmlSchemaDefinition => "XmlSchemaDefinition",
     }
 }
 
@@ -260,6 +287,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
             | C::ProceduralRule
             | C::CaseLaw
             | C::TypographicGlyphSet
+            | C::XmlSchemaDefinition
     )
 }
 

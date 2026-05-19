@@ -288,6 +288,15 @@ fn has_decoder_for_xml_lmf() {
 }
 
 #[test]
+fn has_decoder_for_xml_xsd() {
+    // The `XmlXsd` decoder satisfies `DecoderTotalityPerKind` for the
+    // `uslm_xsd@1.0.18` registry entry — without it, the axiom would
+    // fail at startup because the XSD has a lock hash (so it's
+    // not Stub-only) and is treated as a runtime-loadable source.
+    assert!(has_decoder_for(ContentType::XmlXsd));
+}
+
+#[test]
 fn no_decoder_for_unimplemented_content_types() {
     assert!(!has_decoder_for(ContentType::Pdf));
     assert!(!has_decoder_for(ContentType::Video));
@@ -389,18 +398,21 @@ fn every_content_type() -> Vec<ContentType> {
     vec![
         ContentType::XmlLmf,
         ContentType::Pdf,
+        ContentType::UslmXml,
         ContentType::Plaintext,
+        ContentType::AdobeGlyphList,
         ContentType::Json,
         ContentType::Video,
         ContentType::Audio,
         ContentType::Binary,
+        ContentType::XmlXsd,
     ]
 }
 
 proptest! {
     /// `has_decoder_for` must be a pure function of the variant.
     #[test]
-    fn prop_has_decoder_for_is_pure(idx in 0usize..7) {
+    fn prop_has_decoder_for_is_pure(idx in 0usize..10) {
         let variant = every_content_type()[idx];
         let first = has_decoder_for(variant);
         for _ in 0..16 {
