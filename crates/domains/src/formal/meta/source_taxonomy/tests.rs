@@ -34,9 +34,9 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn seventeen_concepts() {
-    // Lexicon family (5): Source, Lexicon, Language, DomainLexicon,
-    //                     LegalLexicon.
+fn eighteen_concepts() {
+    // Lexicon family (6): Source, Lexicon, Language, DomainLexicon,
+    //                     LegalLexicon, SchemaVocabulary.
     // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
     //                         UsCodeTitle, Regulation,
     //                         ConstitutionalArticle, ProceduralRule,
@@ -44,7 +44,7 @@ fn seventeen_concepts() {
     // TypographyResource family (2): TypographyResource,
     //                                TypographicGlyphSet.
     // SchemaSpec family (2): SchemaSpec, XmlSchemaDefinition.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 17);
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 18);
 }
 
 #[test]
@@ -99,28 +99,35 @@ fn is_legal_corpus_recognizes_subtree() {
 #[test]
 fn is_lexicon_recognizes_subtree() {
     use SourceTaxonomyConcept as C;
-    for c in [C::Lexicon, C::Language, C::DomainLexicon, C::LegalLexicon] {
+    for c in [
+        C::Lexicon,
+        C::Language,
+        C::DomainLexicon,
+        C::LegalLexicon,
+        C::SchemaVocabulary,
+    ] {
         assert!(is_lexicon(c), "{:?} should be Lexicon", c);
     }
     assert!(!is_lexicon(C::Statute));
 }
 
 #[test]
-fn is_leaf_identifies_ten_leaves() {
+fn is_leaf_identifies_eleven_leaves() {
     use SourceTaxonomyConcept as C;
     let leaves: Vec<_> = SourceTaxonomyConcept::variants()
         .into_iter()
         .filter(|c| is_leaf(*c))
         .collect();
-    // Language, LegalLexicon, UsFederalStatute, UsCodeTitle,
-    // Regulation, ConstitutionalArticle, ProceduralRule, CaseLaw,
-    // TypographicGlyphSet, XmlSchemaDefinition.
+    // Language, LegalLexicon, SchemaVocabulary, UsFederalStatute,
+    // UsCodeTitle, Regulation, ConstitutionalArticle, ProceduralRule,
+    // CaseLaw, TypographicGlyphSet, XmlSchemaDefinition.
     //   Statute is the jurisdiction-agnostic parent of
     //   UsFederalStatute (not a leaf); TypographyResource is parent
     //   of TypographicGlyphSet; SchemaSpec is parent of
     //   XmlSchemaDefinition.
-    assert_eq!(leaves.len(), 10);
+    assert_eq!(leaves.len(), 11);
     assert!(leaves.contains(&C::Language));
+    assert!(leaves.contains(&C::SchemaVocabulary));
     assert!(leaves.contains(&C::UsFederalStatute));
     assert!(leaves.contains(&C::UsCodeTitle));
     assert!(leaves.contains(&C::TypographicGlyphSet));
@@ -163,6 +170,27 @@ fn constitutional_article_adjoins_to_statute_and_case_law() {
     let targets = adjoint_targets(SourceTaxonomyConcept::ConstitutionalArticle);
     assert!(targets.contains(&SourceTaxonomyConcept::Statute));
     assert!(targets.contains(&SourceTaxonomyConcept::CaseLaw));
+}
+
+#[test]
+fn schema_vocabulary_adjoins_to_language() {
+    // Schema-vocabulary names anchor in WordNet (via productive
+    // compounds / prefixation per Huddleston & Pullum 2002 Ch. 19)
+    // — the adjunction edge surfaces (a) registered names whose
+    // English base lemma isn't in WordNet, and (b) WordNet lemmas
+    // no schema reuses.
+    let targets = adjoint_targets(SourceTaxonomyConcept::SchemaVocabulary);
+    assert!(targets.contains(&SourceTaxonomyConcept::Language));
+}
+
+#[test]
+fn xml_schema_definition_adjoins_to_schema_vocabulary() {
+    // W3C XSD 1.1 Part 1 §3: an XSD schema declares its
+    // element/attribute/type/group/model names — i.e. the schema
+    // vocabulary. The adjunction surfaces XSD-declared names not
+    // registered in the vocabulary and vice versa.
+    let targets = adjoint_targets(SourceTaxonomyConcept::XmlSchemaDefinition);
+    assert!(targets.contains(&SourceTaxonomyConcept::SchemaVocabulary));
 }
 
 #[test]

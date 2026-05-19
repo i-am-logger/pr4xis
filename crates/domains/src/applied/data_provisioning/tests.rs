@@ -420,13 +420,13 @@ proptest! {
         }
     }
 
-    /// `by_name` returns the registered entry for "english_wordnet" /
-    /// "us_legal_lexicon" and `None` for everything else random.
+    /// `by_name` returns the registered entry for the known names
+    /// and `None` for everything else random.
     #[test]
     fn prop_by_name_misses_random_strings(name in "[a-z_]{1,20}") {
         // Names that are known to be registered in praxis.toml. Keep this
         // set in sync with the [sources.*] entries in praxis.toml.
-        let registered = ["english_wordnet", "us_legal_lexicon"];
+        let registered = ["english_wordnet", "us_legal_lexicon", "schema_vocabulary"];
         if !registered.contains(&name.as_str()) {
             prop_assert!(by_name(&name).is_none());
         } else {

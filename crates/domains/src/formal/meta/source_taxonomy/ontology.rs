@@ -22,6 +22,7 @@ pr4xis::ontology! {
         Language,            // Lexicon for a natural language (English WordNet, etc.)
         DomainLexicon,       // Lexicon restricted to a specialty
         LegalLexicon,        // DomainLexicon for legal terms of art (Black's, statutory defs)
+        SchemaVocabulary,    // DomainLexicon for schema-vocabulary names (XML/HTML element / attribute / type / group names from published schema specs)
 
         // === LegalCorpus family (Hart 1961 primary + secondary rules) ===
         LegalCorpus,
@@ -53,6 +54,8 @@ pr4xis::ontology! {
             "Pustejovsky (1995): a Lexicon scoped to a specialty domain, with domain-specific qualia (e.g., legal, medical, scientific)."),
         LegalLexicon: ("en", "Legal lexicon",
             "Solan (1993) The Language of Judges: a DomainLexicon for legal terms of art — statutory definitions, Black's Law Dictionary, judicial glossaries."),
+        SchemaVocabulary: ("en", "Schema vocabulary",
+            "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §3 (Schema Component Names): a DomainLexicon enumerating the closed-class element / attribute / type / group / model names declared by published schema specifications (WHATWG HTML Living Standard, W3C XML 1.0, LRC USLM XML User Guide). Loaded by the XSD → English projection's is_schema_vocabulary classifier to recognize these names as bounded schema-vocabulary terms-of-art rather than as unresolved general-English lemmas."),
         LegalCorpus: ("en", "Legal corpus",
             "Hart (1961) The Concept of Law: the root of legal text resources — primary rules (statutes, constitutional articles, procedural rules) and secondary rules (regulations, case law) about them."),
         Statute: ("en", "Statute",
@@ -85,6 +88,7 @@ pr4xis::ontology! {
         (Language, Lexicon),
         (DomainLexicon, Lexicon),
         (LegalLexicon, DomainLexicon),
+        (SchemaVocabulary, DomainLexicon),
 
         // LegalCorpus family
         (LegalCorpus, Source),
@@ -159,6 +163,25 @@ pr4xis::ontology! {
         // through this edge.
         (LegalLexicon, Language, Adjoins),
 
+        // Schema vocabulary bridges to common English the same way:
+        // every schema-vocabulary name is either a token whose base
+        // lemma resolves through WordNet (per Huddleston & Pullum
+        // 2002 Ch. 19 productive prefixation / compounding) or an
+        // abbreviation defined in its source schema specification.
+        // The unit/counit pair surfaces (a) schema names whose
+        // English base lemma isn't in WordNet, and (b) WordNet
+        // lemmas no schema reuses.
+        (SchemaVocabulary, Language, Adjoins),
+
+        // Gao, Sperberg-McQueen & Thompson (2012) W3C XSD 1.1 Part 1
+        // §3: an XSD schema definition declares a closed set of
+        // element / attribute / type / group / model names — i.e.
+        // the schema vocabulary. The unit/counit pair surfaces
+        // (a) XSD-declared names not registered in the schema
+        // vocabulary (gaps), and (b) registered vocabulary names
+        // no loaded XSD exercises.
+        (XmlSchemaDefinition, SchemaVocabulary, Adjoins),
+
         // W3C XSD 1.1 Part 1 §1.1: a schema specification grounds
         // the content-type ontology of every document it validates.
         // The USLM XSD (XmlSchemaDefinition instance) grounds every
@@ -192,6 +215,7 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "Language" => C::Language,
         "DomainLexicon" => C::DomainLexicon,
         "LegalLexicon" => C::LegalLexicon,
+        "SchemaVocabulary" => C::SchemaVocabulary,
         "LegalCorpus" => C::LegalCorpus,
         "Statute" => C::Statute,
         "UsFederalStatute" => C::UsFederalStatute,
@@ -218,6 +242,7 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::Language => "Language",
         C::DomainLexicon => "DomainLexicon",
         C::LegalLexicon => "LegalLexicon",
+        C::SchemaVocabulary => "SchemaVocabulary",
         C::LegalCorpus => "LegalCorpus",
         C::Statute => "Statute",
         C::UsFederalStatute => "UsFederalStatute",
@@ -280,6 +305,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
         concept,
         C::Language
             | C::LegalLexicon
+            | C::SchemaVocabulary
             | C::UsFederalStatute
             | C::UsCodeTitle
             | C::Regulation

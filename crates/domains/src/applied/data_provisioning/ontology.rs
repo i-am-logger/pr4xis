@@ -171,6 +171,13 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // `decoders::xml_lmf` decoder. The bundled
         // `us_legal_lexicon@2026` instance is the canonical example.
         C::LegalLexicon => ContentType::XmlLmf,
+        // SchemaVocabularies ship as LMF XML — same shape as
+        // LegalLexicons. The bundled `schema_vocabulary@2026`
+        // instance enumerates schema-name vocabulary (HTML / XML /
+        // USLM element + attribute names + productive sub-* forms)
+        // per its source citations (WHATWG HTML, W3C XML 1.0, LRC
+        // USLM User Guide, Huddleston & Pullum 2002).
+        C::SchemaVocabulary => ContentType::XmlLmf,
         // Adobe Glyph List has its own typed decoder; the
         // `decoders::adobe_glyph_list` parser handles the
         // `name;HEX[ HEX]*` line format per Adobe's published

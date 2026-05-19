@@ -30,6 +30,16 @@
 //!   English pipeline (Mac Lane §I.3 functor + Fellbaum 1998 +
 //!   Bauer 1983 compound decomposition + Spivak 2014 §5 functorial
 //!   structure preservation).
+//! - [`schema_vocabulary`] — runtime loader for the
+//!   `schema_vocabulary@2026` source, the bundled LMF-encoded
+//!   closed-class enumeration of schema-vocabulary names (WHATWG HTML
+//!   element/attribute names, W3C XML 1.0 attribute-type names, LRC
+//!   USLM XML User Guide element/attribute/type/group/model names,
+//!   productive sub-* hierarchical forms per Huddleston & Pullum
+//!   2002 Ch. 19 §1.2). Consulted by
+//!   [`english_projection::is_schema_vocabulary`] when projecting an
+//!   XSD-declared name fails to resolve through WordNet AND is not
+//!   classifiable as a statutory-term-of-art.
 //!
 //! ## Citations
 //!
@@ -49,6 +59,7 @@
 pub mod english_projection;
 pub mod from_xsd_parser;
 pub mod ontology;
+pub mod schema_vocabulary;
 
 #[cfg(test)]
 mod tests;

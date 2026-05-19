@@ -80,6 +80,7 @@ use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenan
 #[cfg(test)]
 use super::ontology::XsdRelationKind;
 use super::ontology::{XsdCategory, XsdConcept, XsdRelation};
+use super::schema_vocabulary::is_in_schema_vocabulary;
 use crate::cognitive::linguistics::english::ontology::English;
 use crate::social::judicial::statute_structure::english_adjunction::{
     LemmaSenseMapping, resolve_form_to_senses, resolve_term_name_to_senses,
@@ -633,16 +634,24 @@ pub struct NamedComponentProjection {
 impl NamedComponentProjection {
     /// True iff every content token in the name resolved through
     /// WordNet OR is classifiable as a statutory-term-of-art per
-    /// [`is_statutory_term_of_art`].
+    /// [`is_statutory_term_of_art`] OR is registered in the
+    /// `schema_vocabulary@2026` source per
+    /// [`is_schema_vocabulary`]. The three-classifier disjunction
+    /// reflects the disjoint vocabulary families a loaded XSD name
+    /// may belong to: general English (WordNet), legal terms-of-art
+    /// (the LegalLexicon family), or schema-vocabulary names (the
+    /// SchemaVocabulary family).
     pub fn is_fully_resolved(&self) -> bool {
         if self.mappings.is_empty() {
             // Pure-numeric or all-separator names produce no
             // mappings — vacuously resolved.
             return true;
         }
-        self.mappings
-            .iter()
-            .all(|m| m.is_resolved() || is_statutory_term_of_art(&m.form.written_rep))
+        self.mappings.iter().all(|m| {
+            m.is_resolved()
+                || is_statutory_term_of_art(&m.form.written_rep)
+                || is_schema_vocabulary(&m.form.written_rep)
+        })
     }
 
     /// True iff `mappings` carries at least one resolved sense.
@@ -650,6 +659,26 @@ impl NamedComponentProjection {
     pub fn has_senses(&self) -> bool {
         self.mappings.iter().any(|m| m.is_resolved())
     }
+}
+
+/// True iff `lemma` is a registered schema-vocabulary name per the
+/// bundled `schema_vocabulary@2026` source. Delegates to
+/// [`is_in_schema_vocabulary`]; the wrapper is the public entry
+/// point that the XSD → English smoke test and `is_fully_resolved`
+/// consult.
+///
+/// Per the source-registration shape chosen for the M4.ε.5.a.3
+/// follow-up: schema names (HTML5 element / attribute names per
+/// WHATWG HTML Living Standard, W3C XML 1.0 attribute-type names
+/// per Bray et al. 2008 §3.3.1, LRC USLM element / attribute /
+/// type-suffix / group-reference names per USLM XML User Guide
+/// v1.0.18, productive sub-* hierarchical forms per Huddleston &
+/// Pullum 2002 Ch. 19 §1.2) live in a dedicated `SchemaVocabulary`
+/// source rather than being conflated with the legal-lexicon
+/// (option (a) in the task spec) — schema vocabulary is not
+/// legal vocabulary.
+pub fn is_schema_vocabulary(lemma: &str) -> bool {
+    is_in_schema_vocabulary(lemma)
 }
 
 /// Project a `(XsdConcept, local_name)` pair through both the type-
@@ -1196,26 +1225,28 @@ mod tests {
     }
 
     /// Gap-audit on USLM-1.0.18.xsd: project every named schema
-    /// declaration through the English functor and tabulate which
-    /// component names fail to resolve through WordNet AND are not
-    /// classifiable as statutory-term-of-art.
+    /// declaration through the English functor and panic if any
+    /// component name fails to resolve through WordNet, the
+    /// statutory-term-of-art classifier, AND the schema-vocabulary
+    /// classifier.
     ///
-    /// This is the corpus-wide gap audit the M4.ε.5 milestone framed:
-    /// the test does NOT panic on unresolved names — those are
-    /// surfaced via `eprintln!` for source-registration follow-up.
-    /// The test enforces structural invariants only:
+    /// Per the M4.ε.5.a.3 follow-up "no ignore" mandate: this test
+    /// genuinely passes by closing the gaps in the registered
+    /// authoritative sources — not by silencing failures with
+    /// `eprintln!`. The audit invariants are:
     ///
     /// 1. The XSD scanner finds ≥1 named declaration.
     /// 2. Every named declaration produces a valid
     ///    [`NamedComponentProjection`] (no panic, no malformed data).
-    /// 3. The unresolved-lemma frequency is reported per the
-    ///    breakdown format the surrounding milestone audits use —
-    ///    same shape an external auditor would expect.
-    ///
-    /// Per `feedback_push_back_on_unsupported_file_types`, closing
-    /// the gap means extending the registered English / legal-
-    /// lexicon sources — never allow-listing here. The audit
-    /// output gives source-registration the lemma list to absorb.
+    /// 3. Zero unresolved names — every XSD `<xsd:element>` /
+    ///    `<xsd:complexType>` / `<xsd:simpleType>` /
+    ///    `<xsd:attributeGroup>` / `<xsd:group>` / `<xsd:attribute>`
+    ///    name resolves through `WordNet ∪ statutory-term-of-art ∪
+    ///    schema-vocabulary`. Per
+    ///    `feedback_push_back_on_unsupported_file_types` +
+    ///    `feedback_bottom_up_loaded_not_encoded`: closing the gap
+    ///    means extending the registered authoritative sources, not
+    ///    allow-listing names in Rust code.
     #[test]
     fn uslm_schema_names_resolve_through_english() {
         let xsd_src = std::fs::read_to_string(USLM_XSD_PATH)
@@ -1227,54 +1258,40 @@ mod tests {
         );
 
         let en = cached_english();
-        let mut unresolved: Vec<(XsdConcept, String, Vec<String>)> = Vec::new();
-        let mut lemma_freq: alloc::collections::BTreeMap<String, usize> =
-            alloc::collections::BTreeMap::new();
+        let mut failures: Vec<String> = Vec::new();
         for (concept, name) in &named {
             let proj = project_named_component(*concept, name, en);
             if !proj.is_fully_resolved() {
                 let bad: Vec<String> = proj
                     .mappings
                     .iter()
-                    .filter(|m| !m.is_resolved() && !is_statutory_term_of_art(&m.form.written_rep))
+                    .filter(|m| {
+                        !m.is_resolved()
+                            && !is_statutory_term_of_art(&m.form.written_rep)
+                            && !is_schema_vocabulary(&m.form.written_rep)
+                    })
                     .map(|m| m.form.written_rep.clone())
                     .collect();
                 if !bad.is_empty() {
-                    for lemma in &bad {
-                        *lemma_freq.entry(lemma.clone()).or_insert(0) += 1;
-                    }
-                    unresolved.push((*concept, name.clone(), bad));
+                    failures.push(format!(
+                        "{:?} {}: unresolved lemmas {:?}",
+                        concept, name, bad
+                    ));
                 }
             }
         }
 
-        // Surface the audit. Visible in test stdout via `cargo test --
-        // --nocapture` and routinely in CI logs.
-        eprintln!("\n=== USLM XSD → English gap audit ===");
-        eprintln!(
-            "  named declarations scanned: {} | unresolved: {}",
-            named.len(),
-            unresolved.len()
-        );
-        if !unresolved.is_empty() {
-            eprintln!("  unresolved lemma frequency (top to bottom by count):");
-            let mut by_freq: Vec<(&String, &usize)> = lemma_freq.iter().collect();
-            by_freq.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
-            for (lemma, count) in by_freq {
-                eprintln!("    {count:>3}  {lemma}");
-            }
-            eprintln!("  per-declaration breakdown:");
-            for (c, n, bad) in &unresolved {
-                eprintln!("    {c:?} {n}: {bad:?}");
-            }
-            eprintln!(
-                "  source-registration follow-up: extend the registered \
-                 `us_legal_lexicon@2026` or `english_wordnet@2025` sources \
-                 to absorb these XML/XSD-domain technical terms (per \
-                 `feedback_push_back_on_unsupported_file_types`)."
+        if !failures.is_empty() {
+            panic!(
+                "USLM XSD has {} schema components whose names don't resolve through WordNet, \
+                 statutory-term-of-art, or schema-vocabulary classifiers (expected zero):\n  - {}\n\n\
+                 Per `feedback_bottom_up_loaded_not_encoded`: extend the registered \
+                 `english_wordnet@2025`, `us_legal_lexicon@2026`, or `schema_vocabulary@2026` \
+                 source — do NOT allow-list names in Rust code.",
+                failures.len(),
+                failures.join("\n  - "),
             );
         }
-        eprintln!();
     }
 
     #[test]
