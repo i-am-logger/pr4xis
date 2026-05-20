@@ -228,6 +228,22 @@ verified_on  = ""
 verification_method = ""
 verification_notes  = ""
 
+[citations.boyer_marcy_2008_xml_c14n_1_1]
+authors      = "Boyer, John; Marcy, Glenn"
+year         = 2008
+title        = "Canonical XML Version 1.1"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3 (Canonical XML)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xml-c14n11/"
+content_summary = "W3C Recommendation defining the canonical form of an XML document: UTF-8 encoding, document-order, attribute-value normalization, lexically-sorted attributes, empty-elements expanded to start-tag/end-tag pairs, XML declarations and DOCTYPE stripped, comments stripped (canonical-without-comments form). The signature-of-understanding gate for every XML source in Praxis."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
 [citations.bray_2008_xml_1_0_5e_2_1]
 authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
 year         = 2008
@@ -868,6 +884,38 @@ verified_on  = ""
 verification_method = ""
 verification_notes  = ""
 
+[citations.rfc_8785_2020_json_canonicalization]
+authors      = "Rundgren, Anders; Jordan, Bret; Erdtman, Samuel"
+year         = 2020
+title        = "JSON Canonicalization Scheme (JCS)"
+publisher    = "IETF"
+edition      = ""
+section_or_page = "§3 (Generator Requirements)"
+isbn         = ""
+doi          = ""
+url          = "https://www.rfc-editor.org/rfc/rfc8785.html"
+content_summary = "IETF Informational RFC defining a canonical serialization for JSON values: ECMA-262 Number.prototype.toString for numbers, sorted object members by UTF-16 code-unit lexical key order, UTF-8 output, no insignificant whitespace. The signature-of-understanding gate for every JSON source in Praxis."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.rfc_9595_2024_rdf_canonicalization]
+authors      = "Longley, Dave; Sporny, Manu"
+year         = 2024
+title        = "RDF Dataset Canonicalization"
+publisher    = "IETF"
+edition      = ""
+section_or_page = "§4 (Canonicalization Algorithm)"
+isbn         = ""
+doi          = ""
+url          = "https://www.rfc-editor.org/rfc/rfc9595.html"
+content_summary = "IETF Standards Track RFC defining a deterministic canonicalization for RDF datasets: hash-based blank-node labeling, n-quads emission in canonical order. Registered for the FractalRoundTrip RDF source kind; implementation deferred — no maintained Rust crate at the time of registration."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
 [citations.smith_2005_relations_biomedical_ontologies]
 authors      = "Smith, Barry; Ceusters, Werner; Klagges, Bert; Köhler, Jacob; Kumar, Anand; Lomax, Jane; et al."
 year         = 2005
@@ -927,6 +975,22 @@ isbn         = ""
 doi          = ""
 url          = "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title28-section2072"
 content_summary = "The Rules Enabling Act — authorizes the Supreme Court to prescribe the Federal Rules of Civil Procedure / Evidence / Appellate Procedure / Bankruptcy Procedure; the LRC codifies these in 28 U.S.C. App."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.unicode_tr15_2024_normalization]
+authors      = "Davis, Mark; Whistler, Ken"
+year         = 2024
+title        = "Unicode Normalization Forms (Unicode Standard Annex #15)"
+publisher    = "Unicode Consortium"
+edition      = ""
+section_or_page = "§6 (Compatibility Composition — NFKC)"
+isbn         = ""
+doi          = ""
+url          = "https://www.unicode.org/reports/tr15/"
+content_summary = "Unicode Standard Annex #15 defining the four Unicode normalization forms; §6 defines NFKC (Normalization Form Compatibility Composition). Used as the canonical form for plain-text sources in Praxis, layered with BOM strip and LF line-ending normalization."
 verified_by  = ""
 verified_on  = ""
 verification_method = ""

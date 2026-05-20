@@ -26,6 +26,24 @@ hashbrown = "0.17"
 # resolve. Cited: Bergmann, S. *xsd-parser-types*, v0.2.1, MIT.
 xsd-parser-types = { version = "0.2.1", features = ["quick-xml"] }
 
+# Canonical-form library substrate. Used by the
+# `formal::meta::fractal_roundtrip` module to canonicalize loaded
+# sources prior to signature computation.
+#
+# - **quick-xml** (Tafryn et al., MIT, <https://github.com/tafia/quick-xml>)
+#   — streaming pull parser used by the W3C XML Canonicalization 1.1
+#   walker (Boyer & Marcy 2008).
+# - **serde_json** (Tolnay, MIT/Apache-2.0,
+#   <https://github.com/serde-rs/json>) — JSON value model used by
+#   the RFC 8785 JSON Canonicalization Scheme (Rundgren, Jordan &
+#   Erdtman 2020) emitter.
+# - **unicode-normalization** (unicode-rs, MIT/Apache-2.0,
+#   <https://github.com/unicode-rs/unicode-normalization>) —
+#   Unicode TR #15 NFKC implementation (Davis & Whistler 2024).
+quick-xml = { version = "0.40", features = ["serialize"] }
+serde_json = "1"
+unicode-normalization = "0.1"
+
 # Network + compression — optional, behind the `fetch` feature. TLS uses
 # rustls with the rustls-rustcrypto CryptoProvider; under the workspace's
 # active feature set no `ring` / `cc` code path is enabled (`cargo tree
