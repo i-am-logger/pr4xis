@@ -38,9 +38,11 @@
 
 pub mod corpus;
 pub mod generated;
+pub mod lens;
 pub mod ontology;
 pub mod reader;
 
+pub use lens::{UslmLensError, UslmTypedTree, UslmXmlLens};
 pub use ontology::*;
 pub use reader::{read_section, read_uslm_title};
 
