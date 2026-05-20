@@ -644,21 +644,21 @@ verified_on  = "2026-05-19"
 verification_method = "web-fetched"
 verification_notes  = "§3.11 'Identity-constraint Definitions' confirmed via xmlschema11-1/."
 
-[citations.gao_2012_xsd_1_1_part_1_3_12]
+[citations.gao_2012_xsd_1_1_part_1_3_14]
 authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
 year         = 2012
 title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
 publisher    = "W3C"
 edition      = ""
-section_or_page = "§3.12 (Notation Declarations)"
+section_or_page = "§3.14 (Notation Declarations)"
 isbn         = ""
 doi          = ""
 url          = "https://www.w3.org/TR/xmlschema11-1/"
 content_summary = "<xs:notation> — names a non-XML notation (system/public identifier) referenced by attribute values of simple-type NOTATION."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "MISMATCH: in W3C XSD 1.1 Part 1, §3.12 is 'Type Alternatives' (conditional type assignment), NOT 'Notation Declarations'. Notation Declarations is at §3.14 in xmlschema11-1/. The slug name (gao_2012_xsd_1_1_part_1_3_12) implies §3.12 — needs human review: either renumber to §3.14 + rename the slug to gao_2012_xsd_1_1_part_1_3_14, or repurpose this entry for §3.12 Type Alternatives (and change content_summary accordingly). Verification cannot proceed without that decision."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: prior slug gao_2012_xsd_1_1_part_1_3_12 was a section-mismatch — §3.12 of xmlschema11-1/ is 'Type Alternatives', not 'Notation Declarations'. Notation Declarations is at §3.14 per the xmlschema11-1/ table of contents (§3.10 Wildcards, §3.11 Identity-constraint Definitions, §3.12 Type Alternatives, §3.13 Assertions, §3.14 Notation Declarations, §3.15 Annotations, §3.16 Simple Type Definitions). Entry re-anchored to §3.14, slug renamed."
 
 [citations.gao_2012_xsd_1_1_part_1_3_15]
 authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
@@ -723,6 +723,22 @@ verified_by  = "claude-web-fetch"
 verified_on  = "2026-05-19"
 verification_method = "doi-resolved"
 verification_notes  = "DOI 10.1109/MC.2003.1160055 registered. IEEE Xplore returned HTTP 418 to WebFetch (anti-bot), but the metadata (IEEE Computer 36(1):41-50, January 2003, Kephart & Chess, 'The Vision of Autonomic Computing') is well-known in the autonomic-computing literature and matches the entry. MAPE-K control loop is the canonical contribution of this paper. Full article text needs human verification via IEEE Xplore subscription."
+
+[citations.longley_2024_rdf_canon_4]
+authors      = "Longley, Dave; Kellogg, Gregg; Yamamoto, Dan"
+year         = 2024
+title        = "RDF Dataset Canonicalization: A Standard RDF Dataset Canonicalization Algorithm"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§4 (Canonicalization)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/rdf-canon/"
+content_summary = "W3C Recommendation (REC-rdf-canon-20240521) defining the RDFC-1.0 algorithm — a deterministic canonicalization for RDF datasets via hash-based blank-node labeling and canonical-order n-quads emission. Registered for the WellBehavedLens RDF source kind; implementation deferred — no maintained Rust crate at the time of registration."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: replaces prior slug rfc_9595_2024_rdf_canonicalization which mis-cited 'RFC 9595' as the RDF canonicalization standard. RFC 9595 is actually 'YANG Schema Item iDentifier (YANG SID)' — entirely unrelated to RDF. The correct authority for RDF Dataset Canonicalization is the W3C Recommendation REC-rdf-canon-20240521 (21 May 2024), editors Dave Longley (Digital Bazaar), Gregg Kellogg, and Dan Yamamoto. §4 'Canonicalization' contains the RDFC-1.0 algorithm. Web-verified via https://www.w3.org/TR/rdf-canon/."
 
 [citations.lrc_uslm_user_guide_namespaces]
 authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
@@ -820,53 +836,37 @@ verified_on  = ""
 verification_method = ""
 verification_notes  = "Book; no DOI; no fetchable URL. Requires human verification with a hard-copy or library access (Springer-Verlag GTM 5)."
 
-[citations.pemberton_2002_xhtml_1_0_2e_a2]
+[citations.pemberton_2002_xhtml_1_0_2e_a1]
 authors      = "Pemberton, Steven; Altheim, Murray; Austin, Daniel; Boumphrey, Frank; Bray, Tim; Cooper, Andrew; et al."
 year         = 2002
 title        = "XHTML 1.0: The Extensible HyperText Markup Language (Second Edition)"
 publisher    = "W3C"
 edition      = "Second Edition"
-section_or_page = "§A.2 (XHTML 1.0 Strict Schema)"
+section_or_page = "§A.1 (Document Type Definitions)"
 isbn         = ""
 doi          = ""
 url          = "https://www.w3.org/TR/xhtml1/"
-content_summary = "XHTML 1.0 Strict XML Schema — the W3C-published XSD declaring 77 elements and 179 attributes for XHTML 1.0 Strict; normatively shared with HTML5 for every name it covers (per WHATWG HTML LS §1.9 Compatibility with HTML4)."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "MISMATCH: in W3C XHTML 1.0 Second Edition, Appendix A.2 is 'Entity Sets' (Latin-1 / Special / Symbols entity declarations), NOT 'XHTML 1.0 Strict Schema'. XHTML 1.0 publishes DTDs (in Appendix A.1: A.1.1 Strict, A.1.2 Transitional, A.1.3 Frameset), not an XSD schema. The cited claim ('XHTML 1.0 Strict XML Schema declaring 77 elements and 179 attributes') needs re-anchoring: either to Appendix A.1.1 (XHTML 1.0 Strict DTD) for the DTD form, or to a separate spec for the W3C-published XSD (XHTML Modularization 1.1 / XHTML 1.0 schemas were later published as a separate W3C Note)."
+content_summary = "XHTML 1.0 Strict DTD — the W3C-published normative element/attribute inventory of XHTML 1.0 Strict (77 elements, 179 attributes), structurally identical to the companion XML Schema rendering at https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd. Normatively shared with HTML5 for every name it covers (per WHATWG HTML LS §1.6 History — backwards-compatibility principle)."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: prior slug pemberton_2002_xhtml_1_0_2e_a2 was a wrong-appendix mismatch — XHTML 1.0 2E §A.2 is 'Entity Sets' (Latin-1 / Special / Symbols entity declarations); the normative element/attribute inventory is in §A.1 'Document Type Definitions' (A.1.1 Strict, A.1.2 Transitional, A.1.3 Frameset). XHTML 1.0 itself does NOT ship an XSD in its appendices — only DTDs. The XSD bundled at crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd is the W3C-published companion artifact at https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd, a faithful XML Schema rendering of the §A.1.1 Strict DTD. Citation re-anchored to §A.1 as the normative source-of-truth for the names."
 
-[citations.pemberton_2002_xhtml_1_0_2e_9_tables]
-authors      = "Pemberton, Steven; Altheim, Murray; Austin, Daniel; Boumphrey, Frank; Bray, Tim; Cooper, Andrew; et al."
-year         = 2002
-title        = "XHTML 1.0: The Extensible HyperText Markup Language (Second Edition)"
-publisher    = "W3C"
-edition      = "Second Edition"
-section_or_page = "§9 (Tables)"
-isbn         = ""
-doi          = ""
-url          = "https://www.w3.org/TR/xhtml1/"
-content_summary = "XHTML 1.0 table element family — <table>, <thead>, <tbody>, <tfoot>, <tr>, <td>, <th>, <caption>, <col>, <colgroup>. The HTML-derived table model USLM imports for tabular legislative content."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "MISMATCH: W3C XHTML 1.0 Second Edition has no §9 — the main body ends at §5 ('Compatibility Issues') and is followed by Appendices A–E. The table-element family (table/thead/tbody/tfoot/tr/td/th/caption/col/colgroup) is defined in the underlying HTML 4.01 Strict DTD (which XHTML 1.0 transcribes); the canonical anchor for the table model is HTML 4.01 §11 'Tables' (REC-html401-19991224/struct/tables.html). Needs human re-anchoring (likely change work to HTML 4.01 and section to §11)."
-
-[citations.peterson_2012_xsd_1_1_part_2_2_2]
+[citations.peterson_2012_xsd_1_1_part_2_4_1]
 authors      = "Peterson, David; Gao, Sandy; Akhmedov, Ashok Malhotra; Malhotra, Ashok; Biron, Paul V.; Sperberg-McQueen, C. M."
 year         = 2012
 title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes"
 publisher    = "W3C"
 edition      = ""
-section_or_page = "§2.2 (Type System)"
+section_or_page = "§4.1 (Simple Type Definition)"
 isbn         = ""
 doi          = ""
 url          = "https://www.w3.org/TR/xmlschema11-2/"
-content_summary = "<xs:simpleType> defines an atomic, list, or union value space. Always derives from another simple type — the final root is xs:anySimpleType."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "MISMATCH: in W3C XSD 1.1 Part 2 (xmlschema11-2/), §2.2 is titled 'Value space' and covers value spaces of datatypes (identity, equality, order relations), NOT 'Type System' / xs:simpleType. The xs:simpleType material described in content_summary is structurally defined in Part 1 §2.2.1.2 (Simple Type Definition) and elaborated in Part 2 §3 (Built-in Datatypes). Needs human review: pick correct (work, section) anchor — either Part 2 §3 (Built-in Datatypes) for the simple-type system, or Part 1 §2.2.1.2 for the simple-type-definition schema component."
+content_summary = "<xs:simpleType> Simple Type Definition schema component — defines an atomic, list, or union value space. Always derives from another simple type; the final root is xs:anySimpleType. §4 'Datatype components' contains §4.1 'Simple Type Definition' as the primary schema-component representation."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: prior slug peterson_2012_xsd_1_1_part_2_2_2 was a section-mismatch — Part 2 §2.2 is 'Value space' (datatype value-space identity / equality / order), not the xs:simpleType schema component. The Simple Type Definition schema component (the xs:simpleType claim made by the citing code) is at Part 2 §4.1 ('Datatype components' → 'Simple Type Definition'). Entry re-anchored to §4.1, slug renamed."
 
 [citations.phillips_2009_bcp47_rfc5646]
 authors      = "Phillips, Addison; Davis, Mark"
@@ -883,6 +883,22 @@ verified_by  = "claude-web-fetch"
 verified_on  = "2026-05-19"
 verification_method = "web-fetched"
 verification_notes  = "BCP 47 / RFC 5646 'Tags for Identifying Languages' confirmed via rfc-editor.org; language-tag syntax covered in §2 'The Language Tag'."
+
+[citations.raggett_1999_html_4_01_11]
+authors      = "Raggett, Dave; Le Hors, Arnaud; Jacobs, Ian"
+year         = 1999
+title        = "HTML 4.01 Specification"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§11 (Tables)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/html401/struct/tables.html"
+content_summary = "HTML table element family — <TABLE>, <CAPTION>, <THEAD>, <TFOOT>, <TBODY>, <COLGROUP>, <COL>, <TR>, <TH>, <TD>. The HTML-derived table model that XHTML 1.0 transcribes and USLM imports for tabular legislative content."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§11 'Tables' confirmed via REC-html401-19991224/struct/tables.html. §11.2 'Elements for constructing tables' documents the TABLE/CAPTION/THEAD/TFOOT/TBODY/COLGROUP/COL/TR/TH/TD inventory. This is the canonical anchor for the HTML/XHTML table model; XHTML 1.0 has no §9 (its main body ends at §5)."
 
 [citations.raggett_1999_html_4_01_3_2_2]
 authors      = "Raggett, Dave; Le Hors, Arnaud; Jacobs, Ian"
@@ -915,22 +931,6 @@ verified_by  = "claude-web-fetch"
 verified_on  = "2026-05-19"
 verification_method = "web-fetched"
 verification_notes  = "CORRECTED: actual §3 title is 'Detailed Operation' (not 'Generator Requirements'). §3.1 covers Input Data Creation; §3.2 covers Canonical JSON Generation (whitespace removal, primitive serialization, lexicographic property sort, UTF-8 encoding). content_summary accuracy confirmed."
-
-[citations.rfc_9595_2024_rdf_canonicalization]
-authors      = "Longley, Dave; Sporny, Manu"
-year         = 2024
-title        = "RDF Dataset Canonicalization"
-publisher    = "IETF"
-edition      = ""
-section_or_page = "§4 (Canonicalization Algorithm)"
-isbn         = ""
-doi          = ""
-url          = "https://www.rfc-editor.org/rfc/rfc9595.html"
-content_summary = "IETF Standards Track RFC defining a deterministic canonicalization for RDF datasets: hash-based blank-node labeling, n-quads emission in canonical order. Registered for the WellBehavedLens RDF source kind; implementation deferred — no maintained Rust crate at the time of registration."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "MISMATCH: RFC 9595 is NOT about RDF Dataset Canonicalization — it is 'YANG Schema Item iDentifier (YANG SID)' (.sid file format for YANG modules). RDF Dataset Canonicalization is W3C Recommendation REC-rdf-canon-20240521 (Longley, Kellogg, Yamamoto 2024), §4.4 Canonicalization Algorithm, https://www.w3.org/TR/rdf-canon/. The cite needs to be replaced with the correct W3C work; slug and entry should be re-keyed (e.g. longley_2024_rdf_canon_4_4)."
 
 [citations.smith_2005_relations_biomedical_ontologies]
 authors      = "Smith, Barry; Ceusters, Werner; Klagges, Bert; Köhler, Jacob; Kumar, Anand; Lomax, Jane; et al."
@@ -1012,21 +1012,21 @@ verified_on  = "2026-05-19"
 verification_method = "web-fetched"
 verification_notes  = "CORRECTED: NFKC is defined in §1.2 'Normalization Forms' (per Table 1 — NFKC = Compatibility Decomposition + Canonical Composition), NOT §6 ('Examples and Charts'). section_or_page corrected. Also: at fetch time on 2026-05-19 the live TR15 was Revision 57 (2025-07-30, Unicode 17.0.0); the 2024 year in the entry refers to a prior stable revision and is acceptable as a cite anchor."
 
-[citations.whatwg_html_ls_1_9]
+[citations.whatwg_html_ls_1_6]
 authors      = "WHATWG"
 year         = 2026
 title        = "HTML Living Standard"
 publisher    = "WHATWG"
 edition      = "current"
-section_or_page = "§1.9 (Compatibility with HTML4)"
+section_or_page = "§1.6 (History)"
 isbn         = ""
 doi          = ""
-url          = "https://html.spec.whatwg.org/multipage/introduction.html#html-vs-xhtml"
-content_summary = "HTML5 normatively shares the element + attribute name inventory of HTML4/XHTML1.0 for every name it covers; HTML5 additions (canvas, video, audio, semantic sectioning family, …) extend rather than replace the HTML4 core."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "MISMATCH: WHATWG HTML LS §1.9 is 'Structure of this specification' (a roadmap to the document's major sections), NOT 'Compatibility with HTML4'. The HTML4-compatibility material described in content_summary appears in the HTML LS introduction (§1.x family) but at a different anchor; needs human re-anchoring. Candidate sections to inspect: §1.10.x (History) and the multipage 'html-vs-xhtml' anchor."
+url          = "https://html.spec.whatwg.org/multipage/introduction.html#history-2"
+content_summary = "HTML's evolution from HTML4/XHTML1.0 and the WHATWG's backwards-compatibility principle — 'technologies need to be backwards compatible' — under which HTML5 normatively preserves the HTML4/XHTML1.0 element + attribute name inventory for every name it covers; HTML5 additions (canvas, video, audio, semantic sectioning family, …) extend rather than replace the HTML4 core."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: prior slug whatwg_html_ls_1_9 was a section-mismatch — WHATWG HTML LS §1.9 is 'Structure of this specification' (a roadmap to the document's major sections), not 'Compatibility with HTML4'. The backwards-compatibility narrative (HTML5 → HTML4/XHTML1.0 inventory preservation) is in §1.6 'History', which articulates the WHATWG principle that 'technologies need to be backwards compatible'. Entry re-anchored to §1.6, slug renamed."
 
 [citations.whatwg_html_ls_3_2_5]
 authors      = "WHATWG"

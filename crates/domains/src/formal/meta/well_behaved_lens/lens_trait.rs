@@ -46,7 +46,7 @@
 //! where `sig = SHA-256 ∘ canonical` and `canonical` is the
 //! source kind's published canonical form (W3C XML C14N 1.1 for
 //! XML, RFC 8785 JCS for JSON, Unicode TR #15 NFKC for plain text,
-//! RFC 9595 for RDF, etc.). A hash mismatch is concrete evidence
+//! W3C REC-rdf-canon-20240521 for RDF, etc.). A hash mismatch is concrete evidence
 //! that some structural detail of `b` is not yet reflected in `O`
 //! — an ontology gap.
 //!

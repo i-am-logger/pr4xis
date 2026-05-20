@@ -27,9 +27,10 @@
 //!   Forms (Davis & Whistler 2024, Unicode Consortium,
 //!   <https://www.unicode.org/reports/tr15/>), specifically NFKC
 //!   per §6, plus LF normalization (CRLF/CR → LF) and BOM strip.
-//! - [`rdf`] — Stub. IETF RFC 9595 (Longley & Sporny 2024,
-//!   <https://www.rfc-editor.org/rfc/rfc9595.html>) is registered
-//!   but not implemented. No maintained Rust crate yet; the M4.θ.0
+//! - [`rdf`] — Stub. W3C Recommendation REC-rdf-canon-20240521
+//!   "RDF Dataset Canonicalization" (Longley, Kellogg & Yamamoto
+//!   2024, <https://www.w3.org/TR/rdf-canon/>) is registered but
+//!   not implemented. No maintained Rust crate yet; the M4.θ.0
 //!   foundation lands the citation and trait surface, and the
 //!   implementation will land when a viable crate appears or we
 //!   write our own.

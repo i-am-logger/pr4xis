@@ -183,8 +183,8 @@ fn rdf_canonical_returns_unimplemented() {
     use super::canonical::rdf;
     let err = rdf::canonicalize(b"").expect_err("rdf is a stub");
     assert!(
-        err.message.contains("RFC 9595"),
-        "stub error must cite RFC 9595, got: {}",
+        err.message.contains("REC-rdf-canon-20240521"),
+        "stub error must cite W3C REC-rdf-canon-20240521, got: {}",
         err.message
     );
 }

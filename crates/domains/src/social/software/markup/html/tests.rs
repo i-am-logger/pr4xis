@@ -19,13 +19,13 @@ use proptest::prelude::*;
 // Axiom tests (cited)
 // =============================================================================
 
-/// Every XHTML 1.0 Strict element from Pemberton et al. 2002 §A.2
+/// Every XHTML 1.0 Strict element from Pemberton et al. 2002 §A.1
 /// appears in the loaded ontology's element set. Spot-check uses
 /// the elements named in the schema's `<xs:element name=...>`
 /// declarations.
 #[test]
 fn axiom_xhtml_1_0_strict_elements_in_loaded_inventory() {
-    // Per Pemberton et al. 2002 §A.2, XHTML 1.0 Strict defines 77
+    // Per Pemberton et al. 2002 §A.1, XHTML 1.0 Strict defines 77
     // top-level elements. The full list, verified from
     // www.w3.org/2002/08/xhtml/xhtml1-strict.xsd.
     let expected = [
@@ -110,7 +110,7 @@ fn axiom_xhtml_1_0_strict_elements_in_loaded_inventory() {
     for el in expected {
         assert!(
             is_html_element(el),
-            "Pemberton et al. 2002 §A.2 element {el:?} missing from loaded inventory"
+            "Pemberton et al. 2002 §A.1 element {el:?} missing from loaded inventory"
         );
     }
 }
@@ -125,7 +125,7 @@ fn axiom_xhtml_1_0_strict_attributes_in_loaded_inventory() {
     ] {
         assert!(
             is_html_attribute(at),
-            "Pemberton et al. 2002 §A.2 attribute {at:?} missing from loaded inventory"
+            "Pemberton et al. 2002 §A.1 attribute {at:?} missing from loaded inventory"
         );
     }
 }

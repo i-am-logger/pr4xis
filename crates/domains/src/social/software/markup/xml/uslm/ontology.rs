@@ -575,11 +575,13 @@ pub struct UsCodeProviso {
 /// the HTML tabular model rather than defining USLM-native rows.
 pub const XHTML_NAMESPACE_URI: &str = "http://www.w3.org/1999/xhtml";
 
-/// A `<table>` block per W3C XHTML 1.0 (Second Edition) §9 "Tables".
-/// USLM embeds XHTML tables when statutory text needs tabular layout
-/// (e.g. Table of Disposition entries, conversion tables). Tables
-/// live in the XHTML namespace, not USLM's — discrimination is on
-/// the namespace URI per W3C XML Namespaces 1.0 §6.
+/// A `<table>` block per W3C HTML 4.01 §11 "Tables" (the underlying
+/// table model that XHTML 1.0 transcribes — XHTML 1.0 itself has no
+/// §9). USLM embeds XHTML-namespaced tables when statutory text needs
+/// tabular layout (e.g. Table of Disposition entries, conversion
+/// tables). Tables live in the XHTML namespace, not USLM's —
+/// discrimination is on the namespace URI per W3C XML Namespaces 1.0
+/// §6.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UsCodeTable {
     /// `id` attribute.
@@ -600,7 +602,7 @@ pub struct UsCodeTableRow {
     /// `class` attribute, if any.
     pub class: Option<String>,
     /// Cells in left-to-right order — both `<th>` and `<td>` per
-    /// XHTML §9.2.4. Cell kind discriminated by [`UsCodeTableCellKind`].
+    /// HTML 4.01 §11.2.6. Cell kind discriminated by [`UsCodeTableCellKind`].
     pub cells: Vec<UsCodeTableCell>,
 }
 
@@ -611,13 +613,13 @@ pub struct UsCodeTableCell {
     pub kind: UsCodeTableCellKind,
     /// Visible flat-text content (whitespace collapsed).
     pub text: String,
-    /// `colspan` attribute, if any (default 1 per XHTML §9.2.4).
+    /// `colspan` attribute, if any (default 1 per HTML 4.01 §11.2.6).
     pub colspan: Option<u32>,
     /// `rowspan` attribute, if any (default 1).
     pub rowspan: Option<u32>,
 }
 
-/// XHTML §9.2.4 distinguishes header (`<th>`) from data (`<td>`)
+/// HTML 4.01 §11.2.6 distinguishes header (`<th>`) from data (`<td>`)
 /// cells; the visual rendering convention is different (bold vs
 /// regular) and the semantic role is different (label vs value).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

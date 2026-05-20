@@ -2447,10 +2447,11 @@ fn title_18_real_corpus_carries_doc_number_and_publication() {
 // =============================================================================
 // M4.δ.9 — Tier-6 Table tests
 //
-// USLM embeds XHTML tables (W3C XHTML 1.0 §9) when statutory text
-// needs tabular layout. LRC pl-119-90 ships ~17 tables in Title 18,
-// most carrying class="TableOfDisposition" — conversion tables for
-// repealed/renumbered statute sections.
+// USLM embeds XHTML-namespaced tables (the HTML 4.01 §11 table model
+// that XHTML 1.0 transcribes — XHTML 1.0 itself has no §9) when
+// statutory text needs tabular layout. LRC pl-119-90 ships ~17 tables
+// in Title 18, most carrying class="TableOfDisposition" — conversion
+// tables for repealed/renumbered statute sections.
 // =============================================================================
 
 const SAMPLE_WITH_TABLE: &str = r##"<title xmlns="http://xml.house.gov/schemas/uslm/1.0" identifier="/us/usc/t18"><num value="18">18</num><heading>x</heading><table id="tbl1" class="TableOfDisposition" xmlns="http://www.w3.org/1999/xhtml"><thead><tr class="header"><th>Old §</th><th>New §</th></tr></thead><tbody><tr><td>1</td><td>3</td></tr><tr><td>2</td><td>5</td></tr></tbody></table></title>"##;

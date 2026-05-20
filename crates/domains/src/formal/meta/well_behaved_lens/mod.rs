@@ -64,8 +64,9 @@
 //! - **Unicode TR #15 Normalization Forms** — Davis & Whistler
 //!   2024, Unicode Consortium,
 //!   <https://www.unicode.org/reports/tr15/>.
-//! - **RFC 9595 RDF Dataset Canonicalization** — Longley & Sporny
-//!   2024, IETF, <https://www.rfc-editor.org/rfc/rfc9595.html>
+//! - **W3C RDF Dataset Canonicalization (REC-rdf-canon-20240521)** —
+//!   Longley, Kellogg & Yamamoto 2024, W3C Recommendation,
+//!   <https://www.w3.org/TR/rdf-canon/>
 //!   (registered; implementation deferred).
 //! - **Mac Lane** *Categories for the Working Mathematician* §IV.1
 //!   (Adjunctions) and §IV.4 (Equivalence of categories), Springer

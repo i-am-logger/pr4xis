@@ -7,9 +7,10 @@
 //! XHTML 1.0 Strict is the closest reusable authoritative XSD to
 //! Praxis's existing xsd-parser pipeline (M4.ε.5.a). It declares 77
 //! elements + 179 attributes that are normatively shared with HTML5
-//! for every name it covers (WHATWG HTML Living Standard §1.9
-//! Compatibility with HTML4). HTML5-only additions (canvas, video,
-//! audio, the semantic-sectioning family) are queued for M4.η.1.a.
+//! for every name it covers (WHATWG HTML Living Standard §1.6
+//! "History" — backwards-compatibility principle). HTML5-only
+//! additions (canvas, video, audio, the semantic-sectioning family)
+//! are queued for M4.η.1.a.
 //!
 //! The **element / attribute inventory** is loaded via
 //! [`super::loader`] from the bundled XSD. The **content-category
@@ -26,9 +27,11 @@
 //!
 //! - **Pemberton et al. (eds.) (2002)** *XHTML 1.0: The Extensible
 //!   HyperText Markup Language (Second Edition)*, W3C Recommendation
-//!   1 August 2002. §A.2 XHTML 1.0 Strict Schema —
-//!   <https://www.w3.org/TR/xhtml1/#a_schema>. The XSD source for
-//!   element / attribute inventory.
+//!   1 August 2002. §A.1 Document Type Definitions —
+//!   <https://www.w3.org/TR/xhtml1/#dtds>. The normative element /
+//!   attribute inventory; the W3C-published companion XSD at
+//!   <https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd> is a
+//!   faithful XML Schema rendering of the §A.1.1 Strict DTD.
 //! - **WHATWG (current edition)** *HTML Living Standard*.
 //!   <https://html.spec.whatwg.org/>. §3.2.5 Content models;
 //!   §3.2.5.1 The "nothing" content model; §3.2.5.2 Transparent
@@ -54,7 +57,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "Html",
-    source: "Pemberton et al. (eds.) (2002) XHTML 1.0: The Extensible HyperText Markup Language (Second Edition), W3C Recommendation 1 August 2002, §A.2 XHTML 1.0 Strict Schema; WHATWG (current edition) HTML Living Standard, §3.2.5 Content models; Raggett, Le Hors & Jacobs (eds.) (1999) HTML 4.01 Specification, W3C Recommendation 24 December 1999, §3.2.2",
+    source: "Pemberton et al. (eds.) (2002) XHTML 1.0: The Extensible HyperText Markup Language (Second Edition), W3C Recommendation 1 August 2002, §A.1 Document Type Definitions; WHATWG (current edition) HTML Living Standard, §3.2.5 Content models; Raggett, Le Hors & Jacobs (eds.) (1999) HTML 4.01 Specification, W3C Recommendation 24 December 1999, §3.2.2",
 
     concepts: [
         HtmlComponent,
@@ -72,7 +75,7 @@ pr4xis::ontology! {
 
     labels: {
         HtmlComponent: ("en", "HTML component",
-            "Top of the HTML schema-component partition: every named or structural piece of an HTML document (element name, attribute name, content-category membership) is an HtmlComponent. Pemberton et al. 2002 §A.2 (Strict Schema)."),
+            "Top of the HTML schema-component partition: every named or structural piece of an HTML document (element name, attribute name, content-category membership) is an HtmlComponent. Pemberton et al. 2002 §A.1 (Strict DTD)."),
         HtmlElement: ("en", "HTML element",
             "A named element declared in the XHTML 1.0 Strict XSD (`<xs:element name=\"...\">`). Loaded from `xhtml_1_0_xsd@1.0` at runtime; case-insensitive per WHATWG HTML LS §13.1.2 / HTML 4.01 §3.2.2."),
         HtmlAttribute: ("en", "HTML attribute",
@@ -140,7 +143,7 @@ pub struct SpecSource;
 /// semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HtmlSpec {
-    /// Pemberton et al. (2002) XHTML 1.0 (Second Edition) §A.2.
+    /// Pemberton et al. (2002) XHTML 1.0 (Second Edition) §A.1.
     Xhtml10Strict,
     /// WHATWG HTML Living Standard §3.2.5.
     WhatwgHtmlLs,
@@ -315,13 +318,13 @@ impl Axiom for ElementInventoryNonEmpty {
     pr4xis::axiom_meta!(
         "ElementInventoryNonEmpty",
         "the XHTML 1.0 Strict XSD declares at least one element",
-        "Pemberton et al. 2002 XHTML 1.0 §A.2 (Strict Schema)"
+        "Pemberton et al. 2002 XHTML 1.0 §A.1 (Strict DTD)"
     );
 }
 
 pr4xis::register_axiom!(
     ElementInventoryNonEmpty,
-    "Pemberton et al. 2002 XHTML 1.0 §A.2 (Strict Schema)"
+    "Pemberton et al. 2002 XHTML 1.0 §A.1 (Strict DTD)"
 );
 
 /// Axiom: the loaded attribute inventory is non-empty.
@@ -339,13 +342,13 @@ impl Axiom for AttributeInventoryNonEmpty {
     pr4xis::axiom_meta!(
         "AttributeInventoryNonEmpty",
         "the XHTML 1.0 Strict XSD declares at least one attribute",
-        "Pemberton et al. 2002 XHTML 1.0 §A.2 (Strict Schema)"
+        "Pemberton et al. 2002 XHTML 1.0 §A.1 (Strict DTD)"
     );
 }
 
 pr4xis::register_axiom!(
     AttributeInventoryNonEmpty,
-    "Pemberton et al. 2002 XHTML 1.0 §A.2 (Strict Schema)"
+    "Pemberton et al. 2002 XHTML 1.0 §A.1 (Strict DTD)"
 );
 
 /// Axiom: every non-root concept has a primary spec source under

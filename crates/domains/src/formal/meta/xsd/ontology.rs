@@ -83,7 +83,7 @@ pr4xis::ontology! {
         ComplexTypeDefinition: ("en", "Complex type definition",
             "W3C XSD 1.1 Part 1 §3.4: a `<xs:complexType>` defining a content model + attribute uses (with optional `mixed` content). Always derives from another type (final root is `xs:anyType`)."),
         SimpleTypeDefinition: ("en", "Simple type definition",
-            "W3C XSD 1.1 Part 2 §2.2: a `<xs:simpleType>` defining an atomic, list, or union value space. Always derives from another simple type (final root is `xs:anySimpleType`)."),
+            "W3C XSD 1.1 Part 2 §4.1: a `<xs:simpleType>` defining an atomic, list, or union value space. Always derives from another simple type (final root is `xs:anySimpleType`)."),
         ModelGroup: ("en", "Model group",
             "W3C XSD 1.1 Part 1 §3.8: a sequence/choice/all compositor governing the order and cardinality of child particles in a complex type's content model."),
         Sequence: ("en", "Sequence model group",
@@ -101,7 +101,7 @@ pr4xis::ontology! {
         IdentityConstraint: ("en", "Identity-constraint definition",
             "W3C XSD 1.1 Part 1 §3.11: `<xs:key>` / `<xs:unique>` / `<xs:keyref>` — XPath-based co-occurrence constraints over an element's descendants."),
         NotationDeclaration: ("en", "Notation declaration",
-            "W3C XSD 1.1 Part 1 §3.12: `<xs:notation>` — names a non-XML notation (system / public identifier) referenced by attribute values of simple-type `NOTATION`."),
+            "W3C XSD 1.1 Part 1 §3.14: `<xs:notation>` — names a non-XML notation (system / public identifier) referenced by attribute values of simple-type `NOTATION`."),
         Annotation: ("en", "Annotation",
             "W3C XSD 1.1 Part 1 §3.15: `<xs:annotation>` — a container for human-readable documentation (`<xs:documentation>`) and machine-readable application info (`<xs:appinfo>`)."),
         AppInfo: ("en", "Application information",
@@ -207,7 +207,7 @@ impl Quality for PartSpec {
     fn get(&self, c: &XsdConcept) -> Option<XsdPart> {
         use XsdConcept as X;
         match c {
-            // SimpleTypeDefinition's primary spec is Part 2 §2.2.
+            // SimpleTypeDefinition's primary spec is Part 2 §4.1.
             X::SimpleTypeDefinition => Some(XsdPart::Datatypes),
             // Every other concept's primary spec is in Part 1.
             X::ElementDeclaration
@@ -305,7 +305,7 @@ pr4xis::register_axiom!(
 
 /// Axiom: `TypeDefinition` partitions into exactly two sub-kinds —
 /// `ComplexTypeDefinition` (Part 1 §3.4) and `SimpleTypeDefinition`
-/// (Part 2 §2.2). No third type-definition kind exists in XSD 1.1.
+/// (Part 2 §4.1). No third type-definition kind exists in XSD 1.1.
 pub struct TypeDefinitionBinaryPartition;
 
 impl Axiom for TypeDefinitionBinaryPartition {
@@ -329,13 +329,13 @@ impl Axiom for TypeDefinitionBinaryPartition {
     pr4xis::axiom_meta!(
         "TypeDefinitionBinaryPartition",
         "TypeDefinition has exactly two sub-kinds (Complex + Simple)",
-        "W3C XSD 1.1 Part 1 §2.2.1.2, §3.4; Part 2 §2.2"
+        "W3C XSD 1.1 Part 1 §2.2.1.2, §3.4; Part 2 §4.1"
     );
 }
 
 pr4xis::register_axiom!(
     TypeDefinitionBinaryPartition,
-    "W3C XSD 1.1 Part 1 §2.2.1.2, §3.4; Part 2 §2.2"
+    "W3C XSD 1.1 Part 1 §2.2.1.2, §3.4; Part 2 §4.1"
 );
 
 /// Axiom: `ModelGroup` partitions into exactly three compositors —

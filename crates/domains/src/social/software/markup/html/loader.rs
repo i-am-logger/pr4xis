@@ -11,11 +11,15 @@
 //!
 //! - **Pemberton et al. (eds.) (2002)** *XHTML 1.0: The Extensible
 //!   HyperText Markup Language (Second Edition)*, W3C Recommendation
-//!   1 August 2002. §A.2 XHTML 1.0 Strict Schema —
-//!   <https://www.w3.org/TR/xhtml1/#a_schema>. The reference
-//!   ontological inventory of HTML4 / XHTML1 elements + attributes,
-//!   normatively shared with HTML5 for every name it covers
-//!   (WHATWG HTML Living Standard §1.9 "Compatibility with HTML4").
+//!   1 August 2002. §A.1 Document Type Definitions —
+//!   <https://www.w3.org/TR/xhtml1/#dtds>. The reference ontological
+//!   inventory of HTML4 / XHTML1 elements + attributes (the
+//!   W3C-published companion XSD at
+//!   <https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd> is a
+//!   faithful XML Schema rendering of the §A.1.1 Strict DTD).
+//!   Normatively shared with HTML5 for every name it covers
+//!   (WHATWG HTML Living Standard §1.6 "History" — backwards-
+//!   compatibility principle).
 //!
 //! ## Scanning
 //!
@@ -142,13 +146,14 @@ mod tests {
 
     #[test]
     fn loader_yields_expected_element_count() {
-        // Pemberton et al. (2002) XHTML 1.0 Strict (§A.2 schema) has
-        // 77 distinct elements. Any drift here is a bundle change.
+        // Pemberton et al. (2002) XHTML 1.0 Strict §A.1 DTD (mirrored
+        // by the companion XSD bundled here) has 77 distinct elements.
+        // Any drift here is a bundle change.
         let names = element_names();
         assert_eq!(
             names.len(),
             77,
-            "XHTML 1.0 Strict declares 77 elements per Pemberton et al. 2002 §A.2; \
+            "XHTML 1.0 Strict declares 77 elements per Pemberton et al. 2002 §A.1; \
              loader found {}: {:?}",
             names.len(),
             names
@@ -157,8 +162,9 @@ mod tests {
 
     #[test]
     fn loader_yields_expected_attribute_count() {
-        // Pemberton et al. (2002) XHTML 1.0 Strict (§A.2 schema)
-        // declares 179 `<xs:attribute>` instances (some are repeated
+        // Pemberton et al. (2002) XHTML 1.0 Strict §A.1 DTD (mirrored
+        // by the companion XSD bundled here) declares 179
+        // `<xs:attribute>` instances (some are repeated
         // across complex types but distinct in the XSD). Drift here
         // also indicates a bundle change.
         let names = attribute_names();

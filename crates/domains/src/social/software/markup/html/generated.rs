@@ -13,8 +13,10 @@
 //!
 //! - Pemberton, S. et al. (eds.) (2002) *XHTML 1.0: The Extensible
 //!   HyperText Markup Language (Second Edition)*, W3C Recommendation
-//!   1 August 2002, §A.2 XHTML 1.0 Strict Schema.
-//!   <https://www.w3.org/TR/xhtml1/>.
+//!   1 August 2002, §A.1 Document Type Definitions
+//!   (<https://www.w3.org/TR/xhtml1/#dtds>); the companion XSD at
+//!   <https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd> is a
+//!   faithful XML Schema rendering of the §A.1.1 Strict DTD.
 //! - Gao, S., Sperberg-McQueen, C. M., and Thompson, H. S. (eds.)
 //!   *W3C XML Schema Definition Language (XSD) 1.1 Part 1:
 //!   Structures*, W3C Recommendation 5 April 2012.
