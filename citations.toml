@@ -1,0 +1,981 @@
+# citations.toml — Praxis literature-citation registry.
+#
+# Every literature citation in praxis code (module-level doc-comments,
+# `pr4xis::axiom!` declarations, `pr4xis::register_axiom!` source
+# strings, `[sources.X]` description fields in praxis.toml, and the
+# `description`/`citation: Citation::parse_static(...)` strings in
+# `pr4xis::ontology!` macro bodies) MUST appear here with a verified
+# section reference, year, author, publisher, and source URL/DOI.
+#
+# Each entry resolves to exactly one (work, section) pair. If two
+# axioms cite the same work at different sections, each section gets
+# its own entry — sections are the load-bearing granularity, since
+# "Mac Lane (1971) §IV.1" and "Mac Lane (1971) §V.2" cite different
+# claims even though they share an author and year.
+#
+# ---------------------------------------------------------------------
+# Schema (one `[citations.<slug>]` block per (work, section) pair)
+# ---------------------------------------------------------------------
+#
+#   authors             — full names, primary author first, "Last, First; …"
+#   year                — publication year, integer.
+#   title               — exact title as it appears on the title page.
+#   publisher           — publisher / SDO (Springer, W3C, IETF, ISO, …).
+#   edition             — "1st", "2nd", "Fifth Edition", "Second Edition",
+#                         … or "" if the work has no edition concept
+#                         (RFCs, W3C Recs, ISO standards).
+#   section_or_page     — the SECTION or PAGE within the work this entry
+#                         cites. Required. If the citation is to the
+#                         work as a whole (with no section), leave "" and
+#                         document in `verification_notes`.
+#   isbn                — ISBN-13 if known; else "".
+#   doi                 — DOI if applicable; else "".
+#   url                 — fetch URL (HTTPS) for web-published documents
+#                         (W3C, WHATWG, IETF RFC, NIST, …); else "".
+#   content_summary     — one-sentence summary of what the cited section
+#                         says. The verifier reads the work and confirms
+#                         the summary matches the cited section. This is
+#                         the heart of the audit — vague summaries get
+#                         flagged.
+#   verified_by         — set when human verifies — slug ID, GitHub
+#                         handle, name, or email. EMPTY = unverified.
+#   verified_on         — ISO 8601 date of verification (YYYY-MM-DD).
+#   verification_method — one of:
+#                           "book-in-hand"   — physical or scanned copy
+#                                              consulted directly
+#                           "web-fetched"    — published URL fetched
+#                                              and checked
+#                           "doi-resolved"   — DOI followed and content
+#                                              cross-checked
+#                           "library-loan"   — borrowed through library
+#                                              and consulted
+#   verification_notes  — any caveats; required when `section_or_page`
+#                         is downgraded (see "Downgrade path" below).
+#
+# ---------------------------------------------------------------------
+# Slug naming convention
+# ---------------------------------------------------------------------
+#
+#   <first-author-lowercased>_<year>_<short-title>_<section-marker>
+#
+#   - Author: surname, lowercased, ASCII-folded (e.g. "mac_lane",
+#     "gao", "spivak"). Multi-word surnames stay joined with underscore.
+#   - Year: 4-digit integer.
+#   - Short title: 2-4 words capturing the work. Lowercased,
+#     underscore-separated, no punctuation. E.g.
+#       "categories_working_mathematician" (Mac Lane 1971)
+#       "xsd_1_1_part_1"                   (Gao et al. 2012 XSD 1.1 Part 1)
+#       "wordnet_electronic_lexical"       (Fellbaum 1998)
+#       "xhtml_1_0_strict"                 (Pemberton et al. 2002)
+#   - Section marker: kebab-converted "§N.M" → "iv1", "3_4_6_4",
+#     "a2_strict_schema", "page_123". Use what makes the entry unique
+#     and stable. If only one section is cited workspace-wide, the
+#     section marker may be omitted, but every additional section
+#     reference to the same work MUST add a marker.
+#
+# Examples:
+#   `mac_lane_1971_categories_working_mathematician_i3`
+#       Mac Lane 1971, §I.3 Functors
+#   `gao_2012_xsd_1_1_part_1_2_2`
+#       Gao et al. 2012 XSD 1.1 Part 1, §2.2 Schema components
+#   `gao_2012_xsd_1_1_part_1_3_8_1`
+#       Gao et al. 2012 XSD 1.1 Part 1, §3.8.1 Model groups
+#
+# Entries are SORTED by slug name (alphabetical). Adding a new entry:
+# pick the slug, insert in sort order, fill required fields, leave
+# `verified_by = ""` until the cited work / URL is actually consulted.
+#
+# ---------------------------------------------------------------------
+# Verification workflow
+# ---------------------------------------------------------------------
+#
+# 1. CI test `citation_audit` in pr4xis-domains walks the registry and
+#    fails on:
+#      (a) any entry with `verified_by = ""`,
+#      (b) any code reference to a slug not in the registry,
+#      (c) (warning, not failure in Phase A) free-form citations in code
+#          that haven't been migrated to slug references.
+#
+# 2. Human verifier picks an unverified entry, opens the cited work
+#    (book, paper, W3C Rec, RFC, ISO standard) at the section named in
+#    `section_or_page`, reads the section, and confirms that
+#    `content_summary` matches what the section actually says. If
+#    matched: fill in `verified_by`, `verified_on`, `verification_method`.
+#    If mismatched: either fix `section_or_page` + `content_summary`
+#    to match the published work, or — if the cited section is wrong
+#    and no correct section exists — *delete the entry and remove the
+#    code reference* (don't paper over an unverifiable citation).
+#
+# 3. NO ALLOW-LIST. There is no "warn-only" mode. There is no
+#    "trusted authors get a pass" exception. Unverified entries FAIL
+#    CI. This is by design: the audit gate exists because vague /
+#    fabricated section references ("Spivak (2014) §3.1 — typed-handle
+#    patterns and functorial data migration" — confirmed wrong on
+#    audit; §3.1 is not where functorial data migration lives, and
+#    "typed-handle patterns" is not Spivak's terminology) are the
+#    failure mode this gate prevents.
+#
+# ---------------------------------------------------------------------
+# Downgrade path
+# ---------------------------------------------------------------------
+#
+# If the cited claim is real but the section number can't be verified
+# (e.g. you have the work in hand and the claim appears somewhere in
+# it, but the specific section number in code is wrong or can't be
+# narrowed down):
+#
+#   1. Set `section_or_page = ""`.
+#   2. Document the downgrade in `verification_notes` ("Section number
+#      could not be confirmed — author + year + work cited only; the
+#      cited claim does appear in the work but not at the originally-
+#      cited section. Reviewer X 2026-MM-DD.")
+#   3. Fill `verified_by` etc. for the looser (author+year+work) claim.
+#   4. Open a follow-up issue to narrow the section back down (or
+#      remove the cite if it can't be).
+#
+# A downgraded entry IS verified for CI purposes — `verified_by` is
+# filled. The looser claim is still grounded in a published work; the
+# downgrade just acknowledges the section-level audit failed.
+#
+# ---------------------------------------------------------------------
+# Code-reference format (Phase A: discovery-only)
+# ---------------------------------------------------------------------
+#
+# Phase A (this commit): citations in code stay free-form prose. The
+# CI walker recognizes citations by these heuristics in source files:
+#
+#   - "W3C XSD 1.1 Part 1 §3.8.1"      — recommendation + section
+#   - "Mac Lane (1971) §I.3"           — author year section
+#   - "RFC 5322 §3.4"                  — RFC + section
+#   - "ISO 32000-2:2020 §9.6.5.4"      — ISO + section
+#   - "Pemberton et al. (2002) §A.2"   — multi-author year section
+#   - `pr4xis::register_axiom!(X, "...")` — string is the cite
+#   - `citation: Citation::parse_static("...")` in `ontology!` body
+#
+# Free-form citations don't FAIL CI in Phase A — they generate
+# warnings with file:line so they can be migrated.
+#
+# Phase B (separate commit): migrate every free-form citation to a
+# slug reference, either `cite![mac_lane_1971_…]` or doc-comment
+# `<!-- cite:mac_lane_1971_… -->`. At that point free-form citations
+# become CI failures too.
+#
+# ===========================================================================
+# Entries (sorted by slug)
+# ===========================================================================
+
+[citations.adobe_5014_glyph_list]
+authors      = "Adobe Systems Incorporated"
+year         = 2005
+title        = "PostScript Language Reference, Technical Note #5014: Adobe Glyph List Specification"
+publisher    = "Adobe Systems"
+edition      = ""
+section_or_page = "Glyph List 1.7"
+isbn         = ""
+doi          = ""
+url          = "https://github.com/adobe-type-tools/agl-aglfn"
+content_summary = "PostScript glyph name to Unicode codepoint mapping table — the canonical Adobe Glyph List used by PDF /Differences entries to resolve standard glyph names to Unicode."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.bauer_1983_english_word_formation_ch6]
+authors      = "Bauer, Laurie"
+year         = 1983
+title        = "English Word-Formation"
+publisher    = "Cambridge University Press"
+edition      = "1st"
+section_or_page = "Chapter 6 (Compounding)"
+isbn         = "978-0-521-28492-7"
+doi          = ""
+url          = ""
+content_summary = "Productive English compound formation — how N+N, A+N, V+N, and other compound patterns combine to form lexicalized and nonce compounds; the decomposition rule used to split unrecognized compounds into head + modifier for WordNet lookup."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.bluebook_2020_rule_3_3_4]
+authors      = "Columbia Law Review Association; Harvard Law Review Association; University of Pennsylvania Law Review; Yale Law Journal"
+year         = 2020
+title        = "The Bluebook: A Uniform System of Citation"
+publisher    = "Harvard Law Review Association"
+edition      = "21st"
+section_or_page = "Rule 3.3.4 (Subdivision letters)"
+isbn         = "978-0-578-66615-1"
+doi          = ""
+url          = ""
+content_summary = "Bluebook subdivision letter and roman-numeral conventions — (a)(1)(A)(i) hierarchical citation form used in statutory subdivision references."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.bluebook_2020_rule_12_3]
+authors      = "Columbia Law Review Association; Harvard Law Review Association; University of Pennsylvania Law Review; Yale Law Journal"
+year         = 2020
+title        = "The Bluebook: A Uniform System of Citation"
+publisher    = "Harvard Law Review Association"
+edition      = "21st"
+section_or_page = "Rule 12.3 (Statutory citations)"
+isbn         = "978-0-578-66615-1"
+doi          = ""
+url          = ""
+content_summary = "Statutory citation form — short form (18 U.S.C.) and long form (title 18 of the United States Code); the canonical English noun-phrase realization of a U.S. Code title identifier."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.bray_2008_xml_1_0_5e_2_1]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§2.1 (Well-Formed XML Documents)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "Well-formed XML documents have exactly one root element. Defines the document-as-tree structural invariant."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.bray_2008_xml_1_0_5e_2_4]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§2.4 (Character Data and Markup)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "Element tags must be properly nested — every start-tag is matched by a matching end-tag at the same level."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.bray_2008_xml_1_0_5e_2_10]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§2.10 (White Space Handling)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "White-space normalization in attribute values and element content; the xml:space attribute as the application-level override."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.bray_2008_xml_1_0_5e_2_12]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§2.12 (Language Identification)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "xml:lang attribute — language identification per BCP 47 / RFC 5646."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.bray_2008_xml_1_0_5e_3]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§3 (Logical Structures)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "Element structure — element = EmptyElemTag | STag content ETag; the recursive definition of element content over child elements, character data, and references."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.bray_2009_xml_namespaces_1_0_3e_6]
+authors      = "Bray, Tim; Hollander, Dave; Layman, Andrew; Tobin, Richard; Thompson, Henry S."
+year         = 2009
+title        = "Namespaces in XML 1.0 (Third Edition)"
+publisher    = "W3C"
+edition      = "Third Edition"
+section_or_page = "§6 (Applying Namespaces to Elements and Attributes)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2009/REC-xml-names-20091208/"
+content_summary = "Namespace membership of an element is determined by its qualified-name's resolved namespace URI; the canonical XML namespace-binding rule for distinguishing USLM elements from Dublin Core elements with colliding local names."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.cowan_2004_xml_information_set_2e]
+authors      = "Cowan, John; Tobin, Richard"
+year         = 2004
+title        = "XML Information Set (Second Edition)"
+publisher    = "W3C"
+edition      = "Second Edition"
+section_or_page = "(whole document — 11 information items)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2004/REC-xml-infoset-20040204/"
+content_summary = "The 11 information items of an XML document (Document, Element, Attribute, ProcessingInstruction, UnexpandedEntityReference, Character, Comment, DocumentTypeDeclaration, UnparsedEntity, Notation, Namespace). Definitional substrate for the XML 1.0 ontology's concept inventory."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.dcmi_iso_15836_1_2017]
+authors      = "International Organization for Standardization"
+year         = 2017
+title        = "ISO 15836-1:2017 — Information and documentation — The Dublin Core metadata element set — Part 1: Core elements"
+publisher    = "International Organization for Standardization"
+edition      = ""
+section_or_page = "(whole document — 15 core elements)"
+isbn         = ""
+doi          = ""
+url          = "https://www.iso.org/standard/71339.html"
+content_summary = "The 15 Dublin Core core metadata elements (title, creator, subject, description, publisher, contributor, date, type, format, identifier, source, language, relation, coverage, rights). The element set USLM <meta> blocks use via the dc: prefix."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.fellbaum_1998_wordnet_electronic_lexical]
+authors      = "Fellbaum, Christiane (ed.)"
+year         = 1998
+title        = "WordNet: An Electronic Lexical Database"
+publisher    = "MIT Press"
+edition      = "1st"
+section_or_page = "(whole volume — WordNet design and use)"
+isbn         = "978-0-262-06197-1"
+doi          = ""
+url          = ""
+content_summary = "The foundational WordNet reference — Princeton WordNet design, synset structure, lexical/semantic relations, and use in NLP. Cited as the authority for the English semantic network grounding the XSD-name English projection."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_2_2]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§2.2 (Schema Components)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "The schema-component partition — every named or structural piece of an XSD schema is a schema component, partitioned into Element / Attribute / Type / Model Group / Particle / Wildcard / Identity Constraint / Notation / Annotation / Attribute Group / Group definitions."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_2_2_1_2]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§2.2.1.2 (Type Definition Components)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Type Definitions partition into Complex Type Definitions (§3.4) and Simple Type Definitions (Part 2 §2.2). A type definition is either named or anonymous."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_2]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.2 (Attribute Declarations)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:attribute> declares a named attribute with a simple-type and use cardinality (required/optional/prohibited)."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_3]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.3 (Element Declarations)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:element> declares a named element with a type, occurrence range, substitution-group, and identity-constraint set."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_3_2_3]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.3.2.3 (Schema Component: Element Declaration {type definition})"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Every element declaration has a type-definition property; the value is a (possibly anonymous) Type Definition."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_3_6]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.3.6 (Element Declaration Validation Rules — Substitution Group)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Substitution-group membership — the reflexive-transitive closure rooted at a head element declaration; members may substitute for the head in instance documents."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_4]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.4 (Complex Type Definitions)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:complexType> defines a content model plus attribute uses (with optional mixed content). Always derives from another type — the final root is xs:anyType."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_4_6_4]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.4.6.4 (Type Derivation OK (Complex))"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Derivation by restriction or extension forms a strict partial order over complex type definitions; the constraint rule that determines whether one complex type is OK-derived from another."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_6]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.6 (Attribute Group Definitions)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:attributeGroup> bundles a reusable set of attribute uses, included in complex types by ref."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_8]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.8 (Model Group Definitions)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Model group — a sequence/choice/all compositor governing the order and cardinality of child particles in a complex type's content model."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_8_1]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.8.1 (Compositors: sequence, choice, all)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "The three model-group compositors: <xs:sequence> (children appear in declared order), <xs:choice> (exactly one of the alternatives), <xs:all> (each particle appears at most once, any order)."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_9]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.9 (Particles)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Particle — a term (element, group, or wildcard) appearing in a content model with occurrence range [minOccurs, maxOccurs]."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_9_3_2]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.9.3.2 (Particle Schema Component Validation Rules)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Particle occurrence range — the constraint that [minOccurs, maxOccurs] is nonempty."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_10]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.10 (Wildcards)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:any> / <xs:anyAttribute> wildcards — permissive matchers constrained by a namespace-constraint and process-contents directive (strict/lax/skip)."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_11]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.11 (Identity-Constraint Definitions)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:key>, <xs:unique>, <xs:keyref> — XPath-based co-occurrence constraints over an element's descendants."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_12]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.12 (Notation Declarations)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:notation> — names a non-XML notation (system/public identifier) referenced by attribute values of simple-type NOTATION."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_15]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.15 (Annotations)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:annotation> — a container for human-readable documentation (<xs:documentation>) and machine-readable application info (<xs:appinfo>)."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gao_2012_xsd_1_1_part_1_3_15_1]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.15.1 (Annotation Content)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:appinfo> (machine-readable application-specific content) and <xs:documentation> (human-readable prose) — the two sub-element kinds carried inside an annotation."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.gpo_2016_style_manual_ch9]
+authors      = "U.S. Government Publishing Office"
+year         = 2016
+title        = "U.S. Government Publishing Office Style Manual"
+publisher    = "U.S. Government Publishing Office"
+edition      = "31st"
+section_or_page = "Chapter 9 (Abbreviations and Letter Symbols)"
+isbn         = ""
+doi          = ""
+url          = "https://www.govinfo.gov/content/pkg/GPO-STYLEMANUAL-2016/pdf/GPO-STYLEMANUAL-2016.pdf"
+content_summary = "Federal-publication abbreviation conventions — Statutes at Large (Stat.), division, chapter, page, month-name abbreviations, U.S. state and place name abbreviations."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.kephart_2003_autonomic_computing]
+authors      = "Kephart, Jeffrey O.; Chess, David M."
+year         = 2003
+title        = "The Vision of Autonomic Computing"
+publisher    = "IEEE Computer Society"
+edition      = ""
+section_or_page = "Vol. 36, No. 1 (pp. 41–50)"
+isbn         = ""
+doi          = "10.1109/MC.2003.1160055"
+url          = "https://ieeexplore.ieee.org/document/1160055"
+content_summary = "MAPE-K control loop (Monitor, Analyze, Plan, Execute over shared Knowledge). The autonomic-computing reference pattern."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.lrc_uslm_user_guide_namespaces]
+authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
+year         = 2025
+title        = "United States Legislative Markup (USLM) User Guide"
+publisher    = "Office of the Law Revision Counsel"
+edition      = "1.0.18"
+section_or_page = "§ Namespaces"
+isbn         = ""
+doi          = ""
+url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary = "USLM namespace URI is http://xml.house.gov/schemas/uslm/1.0; the canonical declaration on the <uscDoc> root element."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.lrc_uslm_user_guide_v]
+authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
+year         = 2025
+title        = "United States Legislative Markup (USLM) User Guide"
+publisher    = "Office of the Law Revision Counsel"
+edition      = "1.0.18"
+section_or_page = "§V (URN-based identifiers)"
+isbn         = ""
+doi          = ""
+url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary = "USLM URN scheme — /us/usc/t<N> canonical identifier form for a U.S. Code title. Every USLM element carries inline documentation via xsd:annotation/xsd:documentation."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.lrc_uslm_user_guide_6_2]
+authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
+year         = 2025
+title        = "United States Legislative Markup (USLM) User Guide"
+publisher    = "Office of the Law Revision Counsel"
+edition      = "1.0.18"
+section_or_page = "§6.2 (Section element)"
+isbn         = ""
+doi          = ""
+url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary = "<section> element — the basic block of a USC title; carries a sourceCredit citing the originating act and Stat. citation."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.lrc_uslm_user_guide_inline_elements]
+authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
+year         = 2025
+title        = "United States Legislative Markup (USLM) User Guide"
+publisher    = "Office of the Law Revision Counsel"
+edition      = "1.0.18"
+section_or_page = "§ Inline Elements"
+isbn         = ""
+doi          = ""
+url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary = "USLM inline markup: Inline, I, B, Sup, Sub, Span, A — semantic-presentation tags overlaying XHTML 1.0 (Second Edition) for legislative text."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.lrc_uslm_user_guide_lexical]
+authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
+year         = 2025
+title        = "United States Legislative Markup (USLM) User Guide"
+publisher    = "Office of the Law Revision Counsel"
+edition      = "1.0.18"
+section_or_page = "§ Lexical Elements"
+isbn         = ""
+doi          = ""
+url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary = "USLM definitional markup — <def>, <term>, <marker>; the structural elements that introduce defined terms within statutory text."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.mac_lane_1971_categories_working_mathematician_i3]
+authors      = "Mac Lane, Saunders"
+year         = 1971
+title        = "Categories for the Working Mathematician"
+publisher    = "Springer-Verlag"
+edition      = "1st (Graduate Texts in Mathematics 5)"
+section_or_page = "§I.3 (Functors)"
+isbn         = "978-0-387-90035-3"
+doi          = ""
+url          = ""
+content_summary = "Definition of a functor F: C → D — assignments on objects and morphisms preserving identities and composition. The categorical primitive for structure-preserving maps between categories."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.pemberton_2002_xhtml_1_0_2e_a2]
+authors      = "Pemberton, Steven; Altheim, Murray; Austin, Daniel; Boumphrey, Frank; Bray, Tim; Cooper, Andrew; et al."
+year         = 2002
+title        = "XHTML 1.0: The Extensible HyperText Markup Language (Second Edition)"
+publisher    = "W3C"
+edition      = "Second Edition"
+section_or_page = "§A.2 (XHTML 1.0 Strict Schema)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xhtml1/"
+content_summary = "XHTML 1.0 Strict XML Schema — the W3C-published XSD declaring 77 elements and 179 attributes for XHTML 1.0 Strict; normatively shared with HTML5 for every name it covers (per WHATWG HTML LS §1.9 Compatibility with HTML4)."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.pemberton_2002_xhtml_1_0_2e_9_tables]
+authors      = "Pemberton, Steven; Altheim, Murray; Austin, Daniel; Boumphrey, Frank; Bray, Tim; Cooper, Andrew; et al."
+year         = 2002
+title        = "XHTML 1.0: The Extensible HyperText Markup Language (Second Edition)"
+publisher    = "W3C"
+edition      = "Second Edition"
+section_or_page = "§9 (Tables)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xhtml1/"
+content_summary = "XHTML 1.0 table element family — <table>, <thead>, <tbody>, <tfoot>, <tr>, <td>, <th>, <caption>, <col>, <colgroup>. The HTML-derived table model USLM imports for tabular legislative content."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.peterson_2012_xsd_1_1_part_2_2_2]
+authors      = "Peterson, David; Gao, Sandy; Akhmedov, Ashok Malhotra; Malhotra, Ashok; Biron, Paul V.; Sperberg-McQueen, C. M."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§2.2 (Type System)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-2/"
+content_summary = "<xs:simpleType> defines an atomic, list, or union value space. Always derives from another simple type — the final root is xs:anySimpleType."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.phillips_2009_bcp47_rfc5646]
+authors      = "Phillips, Addison; Davis, Mark"
+year         = 2009
+title        = "Tags for Identifying Languages"
+publisher    = "IETF"
+edition      = ""
+section_or_page = "(BCP 47 / RFC 5646)"
+isbn         = ""
+doi          = ""
+url          = "https://www.rfc-editor.org/rfc/rfc5646"
+content_summary = "Language-tag syntax (e.g. \"en\", \"en-US\", \"zh-Hant\"). The format used by xml:lang and Dublin Core <dc:language>."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.raggett_1999_html_4_01_3_2_2]
+authors      = "Raggett, Dave; Le Hors, Arnaud; Jacobs, Ian"
+year         = 1999
+title        = "HTML 4.01 Specification"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.2.2 (Element and attribute name case-insensitivity)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/1999/REC-html401-19991224/"
+content_summary = "Element names and attribute names are case-insensitive — the historical baseline preserved by WHATWG HTML LS §13.1.2 for parser-level name comparison."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.smith_2005_relations_biomedical_ontologies]
+authors      = "Smith, Barry; Ceusters, Werner; Klagges, Bert; Köhler, Jacob; Kumar, Anand; Lomax, Jane; et al."
+year         = 2005
+title        = "Relations in biomedical ontologies"
+publisher    = "Genome Biology"
+edition      = ""
+section_or_page = "Vol. 6, R46"
+isbn         = ""
+doi          = "10.1186/gb-2005-6-5-r46"
+url          = "https://genomebiology.biomedcentral.com/articles/10.1186/gb-2005-6-5-r46"
+content_summary = "OBO Relations Ontology — the canonical inventory of ontology relation kinds (is_a, part_of, has_part, derives_from, …). The relation-kind tagging used across pr4xis::ontology! macro emissions."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.spivak_2014_category_theory_sciences_5]
+authors      = "Spivak, David I."
+year         = 2014
+title        = "Category Theory for the Sciences"
+publisher    = "MIT Press"
+edition      = "1st"
+section_or_page = "Chapter 5 (Basic category theory)"
+isbn         = "978-0-262-02813-4"
+doi          = ""
+url          = ""
+content_summary = "Functors as structure-preserving maps — the chapter introducing categorical functors and their action on objects and morphisms. Cited for functorial structure preservation; the original 'Spivak (2014) §3.1 — typed-handle patterns and functorial data migration' citation was wrong (§3.1 is not where functorial data migration lives; that material is in Ch. 3 on schemas and instances, and the 'typed-handle patterns' phrase is not Spivak's). Section pending verification on the corrected reference."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.usc_1_204]
+authors      = "United States Congress"
+year         = 1947
+title        = "1 U.S.C. § 204 — Codes and Supplements as evidence of the laws of United States and District of Columbia"
+publisher    = "Office of the Law Revision Counsel"
+edition      = ""
+section_or_page = "§ 204"
+isbn         = ""
+doi          = ""
+url          = "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title1-section204"
+content_summary = "Statutory authority by which the LRC publishes the U.S. Code (and its USLM XML projections). The legal anchor for treating LRC-published USLM XML as the authoritative form of U.S. Code text."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.usc_28_2072]
+authors      = "United States Congress"
+year         = 1988
+title        = "28 U.S.C. § 2072 — Rules Enabling Act"
+publisher    = "Office of the Law Revision Counsel"
+edition      = ""
+section_or_page = "§ 2072"
+isbn         = ""
+doi          = ""
+url          = "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title28-section2072"
+content_summary = "The Rules Enabling Act — authorizes the Supreme Court to prescribe the Federal Rules of Civil Procedure / Evidence / Appellate Procedure / Bankruptcy Procedure; the LRC codifies these in 28 U.S.C. App."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.whatwg_html_ls_1_9]
+authors      = "WHATWG"
+year         = 2026
+title        = "HTML Living Standard"
+publisher    = "WHATWG"
+edition      = "current"
+section_or_page = "§1.9 (Compatibility with HTML4)"
+isbn         = ""
+doi          = ""
+url          = "https://html.spec.whatwg.org/multipage/introduction.html#html-vs-xhtml"
+content_summary = "HTML5 normatively shares the element + attribute name inventory of HTML4/XHTML1.0 for every name it covers; HTML5 additions (canvas, video, audio, semantic sectioning family, …) extend rather than replace the HTML4 core."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.whatwg_html_ls_3_2_5]
+authors      = "WHATWG"
+year         = 2026
+title        = "HTML Living Standard"
+publisher    = "WHATWG"
+edition      = "current"
+section_or_page = "§3.2.5 (Content models)"
+isbn         = ""
+doi          = ""
+url          = "https://html.spec.whatwg.org/multipage/dom.html#content-models"
+content_summary = "HTML5 content-category taxonomy — Flow, Phrasing, Metadata, Interactive, Sectioning, Embedded, Heading content. The semantic overlay HTML5 invented as the successor to HTML4's <!ENTITY % inline> / % block DTD parameter-entity carve-outs."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
+[citations.whatwg_html_ls_13_1_2]
+authors      = "WHATWG"
+year         = 2026
+title        = "HTML Living Standard"
+publisher    = "WHATWG"
+edition      = "current"
+section_or_page = "§13.1.2 (Elements — Case-insensitivity)"
+isbn         = ""
+doi          = ""
+url          = "https://html.spec.whatwg.org/multipage/syntax.html#syntax-tag-name"
+content_summary = "HTML element and attribute names are matched case-insensitively at parse time — preserved from HTML 4.01 §3.2.2."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
