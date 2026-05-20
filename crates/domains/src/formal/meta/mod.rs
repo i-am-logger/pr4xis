@@ -8,6 +8,7 @@
 /// - Herre & Loebe, "A Meta-ontological Architecture" (FOIS 2005)
 pub mod algebra;
 pub mod artifact_identity;
+pub mod categorical_structure;
 pub mod gap_analysis;
 pub mod identifier_format;
 pub mod omv;

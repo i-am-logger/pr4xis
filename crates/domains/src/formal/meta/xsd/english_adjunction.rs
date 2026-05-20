@@ -1,104 +1,46 @@
-//! Adjunction `XsdOntology ⊣ English` — pairs the existing
-//! [`XsdToEnglish`](super::english_projection::XsdToEnglish) projection
-//! functor (commit b371aeb) with its left adjoint [`LiftEnglishToXsd`],
-//! turning the schema/lexicon pair into a categorical adjunction in the
-//! sense of Mac Lane (1971) *Categories for the Working Mathematician*
-//! §IV.1.
+//! XsdOntology ⊣ English adjunction.
 //!
-//! ## Categorical setting
+//! This is an *adjunction*, not a *lens*. The right adjoint
+//! (XsdOntology → English) projects element/attribute names +
+//! documentation through WordNet — a LOSSY projection: multiple
+//! distinct SchemaComponents can project to overlapping English
+//! sense sets, so the projection cannot bijectively invert back to
+//! the original schema component.
 //!
-//! Per Mac Lane §IV.1, an adjunction `F ⊣ G` between categories `C` and
-//! `D` is a pair of functors
+//! What makes the round-trip work is the **complement**: the
+//! structural XSD ontology data itself, which English does not
+//! carry. Bancilhon & Spyratos (1981) formalized this as the
+//! "constant complement" of a view; Foster et al. (2007) bundle
+//! the complement implicitly into the `put` function of a
+//! well-behaved lens. Hofmann, Pierce & Wagner (2011) make the
+//! complement explicit in their symmetric-lens framework.
 //!
-//! - left adjoint  `F: C → D`
-//! - right adjoint `G: D → C`
+//! For praxis: chat reasons through `&English` + `&UsCode` together
+//! — the English adjoint plus the structural complement. Together
+//! they're sufficient. English alone is not.
 //!
-//! together with natural transformations
+//! # Where this sits in the praxis categorical chain
 //!
-//! - **unit**   `η: id_C → G ∘ F`
-//! - **counit** `ε: F ∘ G → id_D`
+//! See [`formal::meta::categorical_structure`](super::super::categorical_structure)
+//! for the full architectural picture: lenses compose horizontally
+//! (bytes ↔ XML AST ↔ XSD ontology — lossless); adjunctions fan
+//! outward (XSD ontology ⊣ English / Statute / OWL — lossy
+//! projections).
 //!
-//! satisfying the two **triangle identities** (Mac Lane §IV.1 (1)):
+//! # Literature
 //!
-//! ```text
-//!   (ε F) ∘ (F η) = id_F            (R-triangle / "zig-zag" identity)
-//!   (G ε) ∘ (η G) = id_G            (L-triangle)
-//! ```
-//!
-//! Here the two categories are the two concept categories that
-//! `formal/meta/xsd` already declares:
-//!
-//! - `C =`
-//!   [`XsdEnglishLabelCategory`](super::english_projection::XsdEnglishLabelCategory)
-//!   — the 18-object English-projection target category from M4.ε.5.a.3.
-//! - `D =` [`XsdCategory`](super::ontology::XsdCategory) — the W3C XSD
-//!   1.1 concept inventory (M4.ε.5.a.0).
-//!
-//! [`project_concept`](super::english_projection::project_concept) is a
-//! **bijection** between the 18 XSD concepts and the 18 English labels
-//! (M4.ε.5.a.3 fixed the per-variant mapping by construction). That
-//! bijection makes this adjunction an **equivalence of categories** in
-//! the sense of Mac Lane §IV.4 (unit and counit are both natural
-//! isomorphisms). The [`KIND`](pr4xis::category::Adjunction::KIND)
-//! slot records that classification through
-//! [`AdjunctionKind::Equivalence`](pr4xis::category::kinds::AdjunctionKind::Equivalence),
-//! consistent with the unified `Provenance` shape used by every
-//! adjunction in `pr4xis-domains`.
-//!
-//! ## Why the left adjoint is the Layer-3 generaliser
-//!
-//! M4.ε.5 introduced
-//! [`resolve_legal_role`](crate::social::judicial::statute_structure::statute_understanding::resolve_legal_role)
-//! — a Layer-3 step that, given an English term name, finds the USC
-//! section whose heading contains it. That pattern is the *runtime*
-//! face of a left adjoint: it lifts an English lexical item into the
-//! schema-side object set that mentions it. Generalising the pattern
-//! from "USC sections" to "any loaded XSD-described schema's components"
-//! gives [`lift_english_term_to_schema_components`] — the runtime
-//! instance-level component of `F` on instances of an XSD ontology
-//! ([`XsdOntologyInstance`](super::from_xsd_parser::XsdOntologyInstance)).
-//! The type-level functor on objects, [`lift_label_to_concept`], is the
-//! inverse of `project_concept` (a true bijection on the discrete
-//! 18-object pair), which makes the categorical adjunction a clean
-//! equivalence; the runtime function carries the additional
-//! "name-substring" Lift the Layer-3 generaliser provides.
-//!
-//! ## What the triangle identities buy
-//!
-//! - **R-triangle, `(ε F) ∘ (F η) = id_F`.** For every English label
-//!   `l`, lifting via `F` then projecting back via `G` and projecting
-//!   via `F` again returns `F(l)`. In this adjunction `F` is the
-//!   bijection inverse of `G`, so the identity holds on the nose.
-//! - **L-triangle, `(G ε) ∘ (η G) = id_G`.** For every XSD concept
-//!   `c`, projecting through `G` then lifting via `F` and projecting
-//!   via `G` again returns `G(c)`. Bijectivity again gives the
-//!   identity on the nose.
-//!
-//! Both triangle identities are tested below (axiom-level + proptest +
-//! generic [`assert_functor_laws`](pr4xis::category::laws::assert_functor_laws)
-//! on each adjoint's functor laws — there is no
-//! `assert_adjunction_laws` yet in `pr4xis::category::laws`, so the
-//! triangle identities are verified directly per Mac Lane §IV.1).
-//!
-//! ## Literature
-//!
-//! - **Mac Lane, S.** (1998) *Categories for the Working Mathematician*,
-//!   2nd ed., Springer GTM 5, §IV.1 (adjunctions), §IV.4
-//!   (equivalence of categories).
-//! - **Awodey, S.** (2010) *Category Theory*, 2nd ed., Oxford Logic
-//!   Guides 52, §9 (adjoint functor theorem).
-//! - **Lambek, J. & Scott, P. J.** (1986) *Introduction to Higher
-//!   Order Categorical Logic*, Cambridge Studies in Advanced
-//!   Mathematics 7 — Galois adjunctions in syntax/semantics pairs.
-//! - **Spivak, D. I.** (2014) *Category Theory for the Sciences*, MIT
-//!   Press, §6 (adjunctions in data).
-//! - **Fellbaum, C.** (ed.) (1998) *WordNet: An Electronic Lexical
-//!   Database*, MIT Press — the English lexicon the runtime Lift
-//!   consults.
-//! - **Gao, S., Sperberg-McQueen, C. M., & Thompson, H. S.** (eds.)
-//!   (2012) *W3C XML Schema Definition Language (XSD) 1.1 Part 1:
-//!   Structures*, W3C Recommendation 2012-04-05 — the schema-side
-//!   inventory.
+//! - Bancilhon, F. & Spyratos, N. (1981). "Update Semantics of
+//!   Relational Views". *ACM Transactions on Database Systems*
+//!   6(4):557–575. [Constant-complement formulation of view-update.]
+//! - Foster, J. N.; Greenwald, M. B.; Moore, J. T.; Pierce, B. C.;
+//!   Schmitt, A. (2007). "Combinators for Bidirectional Tree
+//!   Transformations". *ACM TOPLAS* 29(3) Article 17. §3 lens
+//!   composition combinators.
+//! - Hofmann, M.; Pierce, B. C.; Wagner, D. (2011). "Symmetric
+//!   Lenses". *POPL '11* — explicit-complement symmetric lenses.
+//! - Mac Lane, S. (1971). *Categories for the Working
+//!   Mathematician*. §IV.1 (Adjunctions), §IV.4 (Equivalence of
+//!   Categories — the strictly-stronger form not applicable here).
 
 #[allow(unused_imports)]
 use alloc::{
@@ -121,14 +63,19 @@ use crate::cognitive::linguistics::english::ontology::English;
 
 /// Map an [`XsdEnglishLabel`] back to the [`XsdConcept`] it was projected
 /// from. This is the inverse of
-/// [`project_concept`](super::english_projection::project_concept); by
-/// construction (M4.ε.5.a.3) the two functions form a bijection between
-/// the 18 XSD concepts and the 18 English labels.
+/// [`project_concept`](super::english_projection::project_concept) on
+/// the discrete 18-object label set; by construction (M4.ε.5.a.3) the
+/// two functions form a bijection between the 18 XSD concepts and the
+/// 18 English labels.
 ///
-/// Per Mac Lane §IV.4, when both `F ∘ G = id` and `G ∘ F = id` hold on
-/// the nose, the adjunction is an equivalence of categories. The two
-/// triangle identities then reduce to the bijection laws —
-/// which are verified explicitly in this module's `tests` submodule.
+/// On this discrete pair the bijection makes the *type-level*
+/// triangle identities collapse to identity, but the broader
+/// `XsdOntology ⊣ English` projection is still an adjunction with
+/// complement (see module docs) — the instance-level English
+/// projection (`project_name` on WordNet senses) is lossy.
+/// Adjunction discipline (Mac Lane §IV.1) is the correct frame;
+/// equivalence (§IV.4) is the strictly stronger claim that does
+/// *not* hold once the projection ranges over WordNet senses.
 pub fn lift_label_to_concept(l: XsdEnglishLabel) -> XsdConcept {
     use XsdConcept as C;
     use XsdEnglishLabel as L;
@@ -194,14 +141,20 @@ pr4xis::functor! {
 // `pr4xis::adjunction!` (registered into the workspace ADJUNCTIONS
 // distributed slice) is the canonical declaration form; the slot
 // `unit` is the natural transformation η: id_C → G∘F, and `counit` is
-// ε: F∘G → id_D. Here both transformations are identities on each
-// object (the equivalence case, §IV.4) — the adjunction's content is
-// carried by the two adjoint functors plus the bijectivity laws
-// verified in `tests` below.
+// ε: F∘G → id_D. On the discrete 18-object label/concept pair both
+// transformations reduce to per-object identities; the broader
+// `XsdOntology ⊣ English` projection is still an adjunction whose
+// round-trip is recovered by the *constant complement* (Bancilhon &
+// Spyratos 1981) — the structural XSD ontology data the English
+// projection drops. See module docs and
+// `formal::meta::categorical_structure` for the architectural
+// picture.
 //
 // Citation:
-// - Mac Lane (1998) §IV.1 (definition), §IV.4 (equivalence).
-// - Awodey (2010) §9.5 (adjoint functor theorem).
+// - Mac Lane (1998) §IV.1 (adjunction definition).
+// - Bancilhon & Spyratos (1981) ACM TODS 6(4) — constant complement.
+// - Hofmann, Pierce & Wagner (2011) POPL — explicit-complement
+//   symmetric lenses.
 
 pr4xis::adjunction! {
     name: XsdEnglishAdjunction,
