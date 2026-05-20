@@ -1,9 +1,11 @@
 //! Canonical-form library — per-source-kind canonicalizers used by
-//! [`FractalRoundTrip::canonical`](super::roundtrip_trait::FractalRoundTrip::canonical).
+//! [`WellBehavedLens::canonical`](super::lens_trait::WellBehavedLens::canonical).
 //!
 //! Each submodule implements its source kind's *published* canonical
 //! form. Two byte streams of the same kind are taken to represent
 //! the same source iff their canonical forms are byte-identical.
+//! The canonical form is what makes the PutGet law (Foster et al.
+//! 2007 §2.2) checkable: `canonical(put(get(s))) == canonical(s)`.
 //!
 //! ## Spec coverage
 //!
@@ -11,10 +13,10 @@
 //!   W3C Recommendation, <https://www.w3.org/TR/xml-c14n11/>). No
 //!   maintained Rust crate at the time of writing; we walk the
 //!   document with `quick-xml` and emit per §3 of the spec.
-//!   Implements the core subset required for the round-trip gate;
+//!   Implements the core subset required for the lens-law gate;
 //!   does *not* yet implement the inclusive-namespace prefix list
 //!   from XML C14N 1.1 §2.3 (only relevant when canonicalizing
-//!   document subsets, which the round-trip gate does not).
+//!   document subsets, which the lens-law gate does not).
 //! - [`json`] — RFC 8785 JSON Canonicalization Scheme (Rundgren,
 //!   Jordan & Erdtman 2020, IETF,
 //!   <https://www.rfc-editor.org/rfc/rfc8785.html>). Implemented

@@ -1,4 +1,4 @@
-//! Tests for the FractalRoundTrip trait + canonical-form library.
+//! Tests for the WellBehavedLens trait + canonical-form library.
 //!
 //! Three layers:
 //!
@@ -7,17 +7,18 @@
 //!      unit test on small inputs + proptest on randomly-generated
 //!      inputs.)
 //!   2. **Signature determinism** — two evaluations of
-//!      [`FractalRoundTrip::signature`] on the same bytes yield the
+//!      [`WellBehavedLens::signature`] on the same bytes yield the
 //!      same digest.
-//!   3. **Round-trip on synthetic sources** — for each canonical form
-//!      we construct a deliberately-simple `FractalRoundTrip`
-//!      implementor whose `parse` and `reemit` walk through a
-//!      String / Value / Vec representation. Round-trip then asserts
-//!      `sig(x) == sig(roundtrip(x))`.
+//!   3. **PutGet law on synthetic sources** — for each canonical form
+//!      we construct a deliberately-simple `WellBehavedLens`
+//!      implementor whose `get` and `put` walk through a
+//!      String / Value / Vec representation. The lens-law assertion
+//!      then checks `sig(x) == sig(put(get(x)))` (Foster et al. 2007
+//!      §2.2 PutGet).
 //!
 //! This file does *not* exercise real loaded sources (USLM, WordNet,
-//! XSD, praxis.lock) — those land in the M4.θ.2 fractal round-trip
-//! test harness.
+//! XSD, praxis.lock) — those land in the M4.θ.2 lens-law test
+//! harness.
 
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec, vec::Vec};
@@ -25,7 +26,7 @@ use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 use proptest::prelude::*;
 
 use super::canonical::{json, plain_text, toml as toml_canon, xml};
-use super::roundtrip_trait::{FailureStage, FractalRoundTrip};
+use super::lens_trait::{FailureStage, WellBehavedLens};
 
 // ============================================================================
 // Layer 1 — canonical-form idempotence
@@ -189,18 +190,18 @@ fn rdf_canonical_returns_unimplemented() {
 }
 
 // ============================================================================
-// Layer 2 — signature determinism + the FractalRoundTrip trait
+// Layer 2 — signature determinism + the WellBehavedLens trait
 // ============================================================================
 
-/// A trivial `FractalRoundTrip` impl whose source kind is "raw
+/// A trivial `WellBehavedLens` impl whose source kind is "raw
 /// UTF-8 string". Used as a witness that the trait machinery works.
 struct StringSource;
 
-impl FractalRoundTrip for StringSource {
-    type Source = String;
+impl WellBehavedLens for StringSource {
+    type Target = String;
     type Error = super::canonical::CanonicalizationError;
 
-    fn parse(bytes: &[u8]) -> Result<Self::Source, Self::Error> {
+    fn get(bytes: &[u8]) -> Result<Self::Target, Self::Error> {
         core::str::from_utf8(bytes)
             .map(|s| s.to_string())
             .map_err(|e| {
@@ -211,8 +212,8 @@ impl FractalRoundTrip for StringSource {
             })
     }
 
-    fn reemit(source: &Self::Source) -> Result<Vec<u8>, Self::Error> {
-        Ok(source.as_bytes().to_vec())
+    fn put(target: &Self::Target) -> Result<Vec<u8>, Self::Error> {
+        Ok(target.as_bytes().to_vec())
     }
 
     fn canonical(bytes: &[u8]) -> Result<Vec<u8>, Self::Error> {
@@ -229,30 +230,30 @@ fn signature_is_deterministic() {
 }
 
 #[test]
-fn assert_round_trip_passes_for_identity_impl() {
+fn assert_put_get_law_passes_for_identity_impl() {
     let input = b"hello world";
-    StringSource::assert_round_trip(input).expect("identity round-trip");
+    StringSource::assert_put_get_law(input).expect("identity PutGet");
 }
 
 #[test]
-fn assert_round_trip_passes_for_crlf_input() {
-    // The CRLF gets normalized to LF in canonical form, but parse +
-    // reemit preserves it; the canonical-form sig still matches
+fn assert_put_get_law_passes_for_crlf_input() {
+    // The CRLF gets normalized to LF in canonical form, but get +
+    // put preserves it; the canonical-form sig still matches
     // because both sides canonicalize identically.
     let input = b"a\r\nb\r\nc";
-    StringSource::assert_round_trip(input).expect("crlf-eq");
+    StringSource::assert_put_get_law(input).expect("crlf-eq");
 }
 
-/// A deliberately-broken `FractalRoundTrip` impl that drops the
-/// final character on re-emit. Used to confirm that
-/// `assert_round_trip` actually detects ontology gaps.
+/// A deliberately-broken `WellBehavedLens` impl that drops the
+/// final character on `put`. Used to confirm that
+/// `assert_put_get_law` actually detects ontology gaps.
 struct DroppingStringSource;
 
-impl FractalRoundTrip for DroppingStringSource {
-    type Source = String;
+impl WellBehavedLens for DroppingStringSource {
+    type Target = String;
     type Error = super::canonical::CanonicalizationError;
 
-    fn parse(bytes: &[u8]) -> Result<Self::Source, Self::Error> {
+    fn get(bytes: &[u8]) -> Result<Self::Target, Self::Error> {
         core::str::from_utf8(bytes)
             .map(|s| s.to_string())
             .map_err(|e| {
@@ -263,9 +264,9 @@ impl FractalRoundTrip for DroppingStringSource {
             })
     }
 
-    fn reemit(source: &Self::Source) -> Result<Vec<u8>, Self::Error> {
+    fn put(target: &Self::Target) -> Result<Vec<u8>, Self::Error> {
         // Drop the last byte if any.
-        let bytes = source.as_bytes();
+        let bytes = target.as_bytes();
         if bytes.is_empty() {
             Ok(Vec::new())
         } else {
@@ -279,10 +280,10 @@ impl FractalRoundTrip for DroppingStringSource {
 }
 
 #[test]
-fn assert_round_trip_detects_dropped_byte() {
+fn assert_put_get_law_detects_dropped_byte() {
     let input = b"hello world";
-    let err = DroppingStringSource::assert_round_trip(input)
-        .expect_err("dropping impl must fail round-trip");
+    let err = DroppingStringSource::assert_put_get_law(input)
+        .expect_err("dropping impl must fail PutGet");
     assert_eq!(err.stage, FailureStage::DigestMismatch);
     assert!(err.input_digest.is_some());
     assert!(err.roundtrip_digest.is_some());
@@ -290,26 +291,26 @@ fn assert_round_trip_detects_dropped_byte() {
 }
 
 // ============================================================================
-// Layer 3 — round-trip on synthetic inputs through each canonical form
+// Layer 3 — PutGet law on synthetic inputs through each canonical form
 // ============================================================================
 
-/// `FractalRoundTrip` over JSON: parse-reemit through serde_json,
+/// `WellBehavedLens` over JSON: get/put through serde_json,
 /// canonicalize through RFC 8785.
 struct JsonSource;
 
-impl FractalRoundTrip for JsonSource {
-    type Source = serde_json::Value;
+impl WellBehavedLens for JsonSource {
+    type Target = serde_json::Value;
     type Error = super::canonical::CanonicalizationError;
 
-    fn parse(bytes: &[u8]) -> Result<Self::Source, Self::Error> {
+    fn get(bytes: &[u8]) -> Result<Self::Target, Self::Error> {
         serde_json::from_slice(bytes).map_err(|e| {
-            super::canonical::CanonicalizationError::new("json-source", format!("parse: {}", e))
+            super::canonical::CanonicalizationError::new("json-source", format!("get: {}", e))
         })
     }
 
-    fn reemit(source: &Self::Source) -> Result<Vec<u8>, Self::Error> {
-        serde_json::to_vec(source).map_err(|e| {
-            super::canonical::CanonicalizationError::new("json-source", format!("emit: {}", e))
+    fn put(target: &Self::Target) -> Result<Vec<u8>, Self::Error> {
+        serde_json::to_vec(target).map_err(|e| {
+            super::canonical::CanonicalizationError::new("json-source", format!("put: {}", e))
         })
     }
 
@@ -319,35 +320,35 @@ impl FractalRoundTrip for JsonSource {
 }
 
 #[test]
-fn json_round_trip_synthetic() {
+fn json_put_get_law_synthetic() {
     let input = br#"{"name":"praxis","year":2026,"tags":["ontology","categories"]}"#;
-    JsonSource::assert_round_trip(input).expect("synthetic JSON round-trip");
+    JsonSource::assert_put_get_law(input).expect("synthetic JSON PutGet");
 }
 
 #[test]
-fn json_round_trip_unordered_keys() {
-    // Same content, different key order. parse -> reemit may produce
+fn json_put_get_law_unordered_keys() {
+    // Same content, different key order. get -> put may produce
     // either order; canonical sorts both to the same form.
     let input = br#"{"z":1,"a":2,"m":3}"#;
-    JsonSource::assert_round_trip(input).expect("unordered keys");
+    JsonSource::assert_put_get_law(input).expect("unordered keys");
 }
 
-/// `FractalRoundTrip` over our subset of XML through quick-xml.
+/// `WellBehavedLens` over our subset of XML through quick-xml.
 struct XmlSource;
 
-impl FractalRoundTrip for XmlSource {
-    type Source = Vec<u8>;
+impl WellBehavedLens for XmlSource {
+    type Target = Vec<u8>;
     type Error = super::canonical::CanonicalizationError;
 
-    fn parse(bytes: &[u8]) -> Result<Self::Source, Self::Error> {
-        // For the synthetic round-trip the "ontology" is the byte
-        // sequence itself; parse is identity. Real source kinds
-        // would parse into an XSD-derived value.
+    fn get(bytes: &[u8]) -> Result<Self::Target, Self::Error> {
+        // For the synthetic PutGet check the "ontology" is the byte
+        // sequence itself; get is identity. Real source kinds
+        // would get into an XSD-derived value.
         Ok(bytes.to_vec())
     }
 
-    fn reemit(source: &Self::Source) -> Result<Vec<u8>, Self::Error> {
-        Ok(source.clone())
+    fn put(target: &Self::Target) -> Result<Vec<u8>, Self::Error> {
+        Ok(target.clone())
     }
 
     fn canonical(bytes: &[u8]) -> Result<Vec<u8>, Self::Error> {
@@ -356,32 +357,32 @@ impl FractalRoundTrip for XmlSource {
 }
 
 #[test]
-fn xml_round_trip_synthetic() {
+fn xml_put_get_law_synthetic() {
     let input = br#"<root><child id="1">hello</child><child id="2">world</child></root>"#;
-    XmlSource::assert_round_trip(input).expect("synthetic XML round-trip");
+    XmlSource::assert_put_get_law(input).expect("synthetic XML PutGet");
 }
 
-/// `FractalRoundTrip` over TOML.
+/// `WellBehavedLens` over TOML.
 struct TomlSource;
 
-impl FractalRoundTrip for TomlSource {
-    type Source = ::toml::Value;
+impl WellBehavedLens for TomlSource {
+    type Target = ::toml::Value;
     type Error = super::canonical::CanonicalizationError;
 
-    fn parse(bytes: &[u8]) -> Result<Self::Source, Self::Error> {
+    fn get(bytes: &[u8]) -> Result<Self::Target, Self::Error> {
         let s = core::str::from_utf8(bytes).map_err(|e| {
             super::canonical::CanonicalizationError::new("toml-source", format!("utf8: {}", e))
         })?;
         ::toml::from_str(s).map_err(|e| {
-            super::canonical::CanonicalizationError::new("toml-source", format!("parse: {}", e))
+            super::canonical::CanonicalizationError::new("toml-source", format!("get: {}", e))
         })
     }
 
-    fn reemit(source: &Self::Source) -> Result<Vec<u8>, Self::Error> {
-        ::toml::to_string(source)
+    fn put(target: &Self::Target) -> Result<Vec<u8>, Self::Error> {
+        ::toml::to_string(target)
             .map(|s| s.into_bytes())
             .map_err(|e| {
-                super::canonical::CanonicalizationError::new("toml-source", format!("emit: {}", e))
+                super::canonical::CanonicalizationError::new("toml-source", format!("put: {}", e))
             })
     }
 
@@ -391,10 +392,10 @@ impl FractalRoundTrip for TomlSource {
 }
 
 #[test]
-fn toml_round_trip_synthetic() {
+fn toml_put_get_law_synthetic() {
     let input =
         b"name = \"praxis\"\nyear = 2026\n[author]\nfirst = \"Ido\"\nlast = \"Samuelson\"\n";
-    TomlSource::assert_round_trip(input).expect("synthetic TOML round-trip");
+    TomlSource::assert_put_get_law(input).expect("synthetic TOML PutGet");
 }
 
 // ============================================================================
@@ -430,11 +431,11 @@ proptest! {
         prop_assert_eq!(s1, s2);
     }
 
-    /// Plain-text round-trip via the StringSource is always faithful.
+    /// Plain-text PutGet via the StringSource is always faithful.
     #[test]
-    fn proptest_string_source_round_trip(s in ".*") {
-        StringSource::assert_round_trip(s.as_bytes())
-            .unwrap_or_else(|e| panic!("round-trip failed on {:?}: {}", s, e));
+    fn proptest_string_source_put_get_law(s in ".*") {
+        StringSource::assert_put_get_law(s.as_bytes())
+            .unwrap_or_else(|e| panic!("PutGet failed on {:?}: {}", s, e));
     }
 }
 

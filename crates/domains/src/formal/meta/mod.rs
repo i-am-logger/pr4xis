@@ -8,7 +8,6 @@
 /// - Herre & Loebe, "A Meta-ontological Architecture" (FOIS 2005)
 pub mod algebra;
 pub mod artifact_identity;
-pub mod fractal_roundtrip;
 pub mod gap_analysis;
 pub mod identifier_format;
 pub mod omv;
@@ -16,6 +15,7 @@ pub mod ontology_diagnostics;
 pub mod source_taxonomy;
 pub mod staging;
 pub mod syntrometry;
+pub mod well_behaved_lens;
 pub mod xsd;
 
 // category_theory moved to core: `pr4xis::category::category_theory`.

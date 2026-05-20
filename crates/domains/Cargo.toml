@@ -27,7 +27,7 @@ hashbrown = "0.17"
 xsd-parser-types = { version = "0.2.1", features = ["quick-xml"] }
 
 # Canonical-form library substrate. Used by the
-# `formal::meta::fractal_roundtrip` module to canonicalize loaded
+# `formal::meta::well_behaved_lens` module to canonicalize loaded
 # sources prior to signature computation.
 #
 # - **quick-xml** (Tafryn et al., MIT, <https://github.com/tafia/quick-xml>)

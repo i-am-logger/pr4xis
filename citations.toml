@@ -388,6 +388,22 @@ verified_on  = ""
 verification_method = ""
 verification_notes  = ""
 
+[citations.foster_2007_well_behaved_lenses]
+authors      = "Foster, J. Nathan; Greenwald, Michael B.; Moore, Jonathan T.; Pierce, Benjamin C.; Schmitt, Alan"
+year         = 2007
+title        = "Combinators for Bidirectional Tree Transformations: A Linguistic Approach to the View Update Problem"
+publisher    = "ACM"
+edition      = "ACM Transactions on Programming Languages and Systems"
+section_or_page = "29(3) Article 17, §2.2 (well-behaved lens laws)"
+isbn         = ""
+doi          = "10.1145/1232420.1232424"
+url          = "https://doi.org/10.1145/1232420.1232424"
+content_summary = "Defines lenses as bidirectional transformations (get + put) with well-behaved laws: GetPut, PutGet, PutPut. The PutGet law is the round-trip-preservation invariant. Cited as the literature grounding for the WellBehavedLens trait — Praxis's runtime witness that parse/re-emit is faithful up to canonical form."
+verified_by  = ""
+verified_on  = ""
+verification_method = ""
+verification_notes  = ""
+
 [citations.gao_2012_xsd_1_1_part_1_2_2]
 authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
 year         = 2012
@@ -910,7 +926,7 @@ section_or_page = "§4 (Canonicalization Algorithm)"
 isbn         = ""
 doi          = ""
 url          = "https://www.rfc-editor.org/rfc/rfc9595.html"
-content_summary = "IETF Standards Track RFC defining a deterministic canonicalization for RDF datasets: hash-based blank-node labeling, n-quads emission in canonical order. Registered for the FractalRoundTrip RDF source kind; implementation deferred — no maintained Rust crate at the time of registration."
+content_summary = "IETF Standards Track RFC defining a deterministic canonicalization for RDF datasets: hash-based blank-node labeling, n-quads emission in canonical order. Registered for the WellBehavedLens RDF source kind; implementation deferred — no maintained Rust crate at the time of registration."
 verified_by  = ""
 verified_on  = ""
 verification_method = ""
