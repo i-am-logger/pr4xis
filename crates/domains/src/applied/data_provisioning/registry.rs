@@ -84,9 +84,31 @@ pub fn data_sources() -> &'static [RegistryEntry] {
 }
 
 /// The pinned hashes from `praxis.lock`. Keys are `"<name>@<version>"`
-/// strings; values are hex sha256.
+/// strings; values are hex sha256 of the raw source bytes.
 pub fn lock_hashes() -> &'static HashMap<String, String> {
     &lock_data().hashes
+}
+
+/// The pinned canonical-form signatures from `praxis.lock`. Keys are
+/// `"<name>@<version>"`; values are SHA-256 of the bytes a registered
+/// [`WellBehavedLens`] emits as canonical form (W3C XML
+/// Canonicalization 1.1, RFC 8785 JCS, Unicode NFKC, etc.).
+///
+/// Sources that haven't been signed yet (no entry under
+/// `[canonical_signatures]`) return `None` from
+/// [`lock_canonical_signature`].
+///
+/// [`WellBehavedLens`]: crate::formal::meta::well_behaved_lens
+pub fn lock_canonical_signatures() -> &'static HashMap<String, String> {
+    &lock_data().canonical_signatures
+}
+
+/// Look up the canonical-form signature for a specific source.
+/// Returns `None` if no signature is pinned — the source either
+/// hasn't been canonicalized yet or has no registered lens.
+pub fn lock_canonical_signature(name: &str, version: &str) -> Option<&'static str> {
+    let key = format!("{name}@{version}");
+    lock_canonical_signatures().get(&key).map(String::as_str)
 }
 
 fn lock_data() -> &'static LockData {
@@ -217,11 +239,35 @@ fn build_entry(
 // praxis.lock parsing
 // =============================================================================
 
-/// The parsed `praxis.lock` payload. Hashes are the universal
-/// drift-detection vehicle.
+/// The parsed `praxis.lock` payload.
+///
+/// Two parallel hash spaces — one over the *raw bytes* of each
+/// loaded source, one over the *canonical-form bytes* produced by
+/// running the source through its registered well-behaved lens:
+///
+/// - `hashes`: SHA-256 of the source bytes as delivered by the
+///   fetch pipeline (after transport-layer decompression, before
+///   any decoder runs). Verifies "we got the same source we
+///   expected." Per Dolstra (2006) — content-addressed storage.
+///
+/// - `canonical_signatures`: SHA-256 of the canonical-form bytes
+///   produced by the source's [`WellBehavedLens`] (Foster, Greenwald,
+///   Moore, Pierce & Schmitt 2007 *ACM TOPLAS* 29(3) "Combinators
+///   for Bidirectional Tree Transformations") applied to the raw
+///   source. Verifies "the source, *after* lens normalization, has
+///   the same structural shape" — drift in the lens implementation
+///   itself, or in the underlying canonical form (W3C XML
+///   Canonicalization 1.1 — Boyer & Marcy 2008 W3C Rec, RFC 8785
+///   JCS, Unicode NFKC, etc.), surfaces here while the raw-bytes
+///   hash remains stable.
+///
+/// Both hash spaces are keyed by `"<name>@<version>"`.
+///
+/// [`WellBehavedLens`]: crate::formal::meta::well_behaved_lens
 #[derive(Debug, Default)]
 pub struct LockData {
     pub hashes: HashMap<String, String>,
+    pub canonical_signatures: HashMap<String, String>,
 }
 
 /// In-memory representation of a statute's structural extraction —
@@ -260,11 +306,48 @@ pub struct StructuralRelation {
 struct RawLockFile {
     #[serde(default)]
     hashes: HashMap<String, String>,
+    #[serde(default)]
+    canonical_signatures: HashMap<String, String>,
 }
 
 fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
     let raw: RawLockFile = toml::from_str(text).map_err(|e| format!("toml parse: {e}"))?;
-    Ok(LockData { hashes: raw.hashes })
+    // Every canonical_signatures key must also exist in [hashes] —
+    // the signature is the lens-output of an already-pinned source.
+    // A free-standing signature without a pinned raw-bytes hash is
+    // a configuration error.
+    for key in raw.canonical_signatures.keys() {
+        if !raw.hashes.contains_key(key) {
+            return Err(format!(
+                "praxis.lock: `[canonical_signatures.\"{key}\"]` has no matching \
+                 entry in `[hashes]` — the signature pins the lens output of an \
+                 already-hashed source"
+            ));
+        }
+    }
+    // Every signature must be a 64-character lowercase hex SHA-256
+    // (W3C XML Canonicalization 1.1 §2.6; NIST FIPS 180-4 §6.2 SHA-256
+    // — output length 256 bits = 64 hex characters).
+    for (key, sig) in &raw.canonical_signatures {
+        if !is_lowercase_hex_sha256(sig) {
+            return Err(format!(
+                "praxis.lock: `[canonical_signatures.\"{key}\"]` is not a 64-char \
+                 lowercase hex SHA-256: {sig:?}"
+            ));
+        }
+    }
+    Ok(LockData {
+        hashes: raw.hashes,
+        canonical_signatures: raw.canonical_signatures,
+    })
+}
+
+/// Predicate: the input is exactly 64 ASCII characters, all of them
+/// `0-9` or `a-f`. NIST FIPS 180-4 §6.2 SHA-256 output length.
+fn is_lowercase_hex_sha256(s: &str) -> bool {
+    s.len() == 64
+        && s.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 #[cfg(test)]
@@ -311,6 +394,93 @@ url     = "https://example.com/wordnet.xml.gz"
     fn parses_empty_lock() {
         let lock = parse_praxis_lock("").unwrap();
         assert!(lock.hashes.is_empty());
+        assert!(lock.canonical_signatures.is_empty());
+    }
+
+    #[test]
+    fn parses_canonical_signatures_section() {
+        let text = r#"
+[hashes]
+"english_wordnet@2025" = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+"uslm_xsd@1.0.18"      = "cafef00dcafef00dcafef00dcafef00dcafef00dcafef00dcafef00dcafef00d"
+
+[canonical_signatures]
+"uslm_xsd@1.0.18" = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+"#;
+        let lock = parse_praxis_lock(text).unwrap();
+        assert_eq!(lock.hashes.len(), 2);
+        assert_eq!(lock.canonical_signatures.len(), 1);
+        assert_eq!(
+            lock.canonical_signatures.get("uslm_xsd@1.0.18").unwrap(),
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        );
+    }
+
+    #[test]
+    fn rejects_canonical_signature_without_matching_hash() {
+        // A canonical_signature pins the lens output of an
+        // already-hashed raw source. Free-standing signatures are
+        // a configuration error.
+        let text = r#"
+[hashes]
+
+[canonical_signatures]
+"uslm_xsd@1.0.18" = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+"#;
+        let err = parse_praxis_lock(text).unwrap_err();
+        assert!(
+            err.contains("has no matching entry in `[hashes]`"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_canonical_signature() {
+        // Not 64 chars.
+        let text = r#"
+[hashes]
+"x@1" = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+
+[canonical_signatures]
+"x@1" = "abc123"
+"#;
+        let err = parse_praxis_lock(text).unwrap_err();
+        assert!(
+            err.contains("not a 64-char lowercase hex SHA-256"),
+            "got: {err}"
+        );
+
+        // Uppercase hex.
+        let text = r#"
+[hashes]
+"x@1" = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+
+[canonical_signatures]
+"x@1" = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
+"#;
+        let err = parse_praxis_lock(text).unwrap_err();
+        assert!(
+            err.contains("not a 64-char lowercase hex SHA-256"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn is_lowercase_hex_sha256_works() {
+        // 64-char lowercase hex.
+        assert!(is_lowercase_hex_sha256(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        ));
+        // Wrong length.
+        assert!(!is_lowercase_hex_sha256("abc"));
+        assert!(!is_lowercase_hex_sha256(&"a".repeat(63)));
+        assert!(!is_lowercase_hex_sha256(&"a".repeat(65)));
+        // Uppercase.
+        assert!(!is_lowercase_hex_sha256(&"A".repeat(64)));
+        // Non-hex character.
+        let mut s = "a".repeat(63);
+        s.push('g');
+        assert!(!is_lowercase_hex_sha256(&s));
     }
 
     #[test]
