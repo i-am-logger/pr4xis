@@ -195,3 +195,121 @@ fn idempotent_across_construct_and_lookup() {
         assert_eq!(ta.id.value(), tb.id.value());
     }
 }
+
+// =============================================================================
+// Statute query-API invariants. These are statute-agnostic — every
+// USLM-derived statute should satisfy them — but tested here against
+// the SOX § 1514A data so we get coverage on a real corpus instance.
+// =============================================================================
+
+#[test]
+fn relations_from_returns_only_outgoing() {
+    let s = statute();
+    for r in s.relations() {
+        let outgoing: alloc::vec::Vec<_> = s.relations_from(&r.from).collect();
+        assert!(
+            outgoing.iter().any(|other| core::ptr::eq(*other, r)),
+            "relations_from({}) missing its own outgoing relation to {}",
+            r.from.value(),
+            r.to.value()
+        );
+        // Every outgoing relation must actually have `from == r.from`.
+        for o in &outgoing {
+            assert_eq!(
+                o.from.value(),
+                r.from.value(),
+                "relations_from({}) returned relation with from={}",
+                r.from.value(),
+                o.from.value()
+            );
+        }
+    }
+}
+
+#[test]
+fn relations_to_returns_only_incoming() {
+    let s = statute();
+    for r in s.relations() {
+        let incoming: alloc::vec::Vec<_> = s.relations_to(&r.to).collect();
+        assert!(
+            incoming.iter().any(|other| core::ptr::eq(*other, r)),
+            "relations_to({}) missing its own incoming relation from {}",
+            r.to.value(),
+            r.from.value()
+        );
+        for i in &incoming {
+            assert_eq!(
+                i.to.value(),
+                r.to.value(),
+                "relations_to({}) returned relation with to={}",
+                r.to.value(),
+                i.to.value()
+            );
+        }
+    }
+}
+
+#[test]
+fn relation_iteration_is_partition_consistent() {
+    // Summing |relations_from(t)| over every term must equal the
+    // total relation count. Same for relations_to. These are
+    // partition checks on the relation set.
+    let s = statute();
+    let total = s.relations().len();
+    let by_from: usize = s
+        .terms()
+        .iter()
+        .map(|t| s.relations_from(&t.id).count())
+        .sum();
+    let by_to: usize = s
+        .terms()
+        .iter()
+        .map(|t| s.relations_to(&t.id).count())
+        .sum();
+    assert_eq!(
+        by_from, total,
+        "sum of relations_from over terms ({by_from}) != total relations ({total})"
+    );
+    assert_eq!(
+        by_to, total,
+        "sum of relations_to over terms ({by_to}) != total relations ({total})"
+    );
+}
+
+#[test]
+fn term_by_curie_finds_existing_terms() {
+    // Pick a known existing CURIE and verify lookup succeeds.
+    let s = statute();
+    for sub in ["a", "b", "c", "d", "e"] {
+        let curie = format!("sox_1514a:{sub}");
+        let t = s
+            .term_by_curie(&curie)
+            .unwrap_or_else(|| panic!("term_by_curie({curie}) returned None"));
+        assert_eq!(t.id.value(), curie);
+    }
+}
+
+#[test]
+fn term_by_curie_returns_none_for_unknown() {
+    let s = statute();
+    assert!(s.term_by_curie("sox_1514a:zzz_not_real").is_none());
+    assert!(s.term_by_curie("other_statute:a").is_none());
+}
+
+#[test]
+fn term_by_id_and_term_by_curie_agree() {
+    // For every term, looking it up by Identifier and by raw CURIE
+    // string yields the same `&LegalTerm`.
+    let s = statute();
+    for t in s.terms() {
+        let by_id = s.term_by_id(&t.id).expect("term resolves by id");
+        let by_curie = s
+            .term_by_curie(t.id.value())
+            .expect("term resolves by curie");
+        assert!(
+            core::ptr::eq(by_id, by_curie),
+            "term_by_id and term_by_curie disagree for {}",
+            t.id.value()
+        );
+    }
+}

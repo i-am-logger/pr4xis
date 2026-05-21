@@ -128,3 +128,95 @@ fn term_count_meets_published_subsection_floor() {
         "USLM-derived Statute should expose >=5 terms (one per subsection); got {n}"
     );
 }
+
+// =============================================================================
+// Statute query-API invariants. Mirror sox_1514a/tests.rs — exercising
+// the Statute query API on the air21_42121 USLM-derived instance.
+// =============================================================================
+
+#[test]
+fn relations_from_returns_only_outgoing() {
+    let s = statute();
+    for r in s.relations() {
+        let outgoing: alloc::vec::Vec<_> = s.relations_from(&r.from).collect();
+        assert!(
+            outgoing.iter().any(|other| core::ptr::eq(*other, r)),
+            "relations_from({}) missing its own outgoing relation to {}",
+            r.from.value(),
+            r.to.value()
+        );
+        for o in &outgoing {
+            assert_eq!(o.from.value(), r.from.value());
+        }
+    }
+}
+
+#[test]
+fn relations_to_returns_only_incoming() {
+    let s = statute();
+    for r in s.relations() {
+        let incoming: alloc::vec::Vec<_> = s.relations_to(&r.to).collect();
+        assert!(
+            incoming.iter().any(|other| core::ptr::eq(*other, r)),
+            "relations_to({}) missing its own incoming relation from {}",
+            r.to.value(),
+            r.from.value()
+        );
+        for i in &incoming {
+            assert_eq!(i.to.value(), r.to.value());
+        }
+    }
+}
+
+#[test]
+fn relation_iteration_is_partition_consistent() {
+    let s = statute();
+    let total = s.relations().len();
+    let by_from: usize = s
+        .terms()
+        .iter()
+        .map(|t| s.relations_from(&t.id).count())
+        .sum();
+    let by_to: usize = s
+        .terms()
+        .iter()
+        .map(|t| s.relations_to(&t.id).count())
+        .sum();
+    assert_eq!(by_from, total);
+    assert_eq!(by_to, total);
+}
+
+#[test]
+fn term_by_curie_finds_existing_terms() {
+    let s = statute();
+    for sub in ["a", "b", "c", "d", "e"] {
+        let curie = format!("air21_42121:{sub}");
+        let t = s
+            .term_by_curie(&curie)
+            .unwrap_or_else(|| panic!("term_by_curie({curie}) returned None"));
+        assert_eq!(t.id.value(), curie);
+    }
+}
+
+#[test]
+fn term_by_curie_returns_none_for_unknown() {
+    let s = statute();
+    assert!(s.term_by_curie("air21_42121:zzz_not_real").is_none());
+    assert!(s.term_by_curie("other_statute:a").is_none());
+}
+
+#[test]
+fn term_by_id_and_term_by_curie_agree() {
+    let s = statute();
+    for t in s.terms() {
+        let by_id = s.term_by_id(&t.id).expect("term resolves by id");
+        let by_curie = s
+            .term_by_curie(t.id.value())
+            .expect("term resolves by curie");
+        assert!(
+            core::ptr::eq(by_id, by_curie),
+            "term_by_id and term_by_curie disagree for {}",
+            t.id.value()
+        );
+    }
+}
