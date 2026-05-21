@@ -6,6 +6,7 @@ pub mod causation;
 pub mod classification;
 pub mod derivation;
 pub mod doctrine_discovery;
+pub mod functor_synthesizer;
 pub mod information;
 pub mod logic;
 pub mod math;

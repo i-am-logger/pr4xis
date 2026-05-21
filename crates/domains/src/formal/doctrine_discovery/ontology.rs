@@ -7,25 +7,25 @@
 //! engine (DoctrineCluster, DoctrineHierarchy, AttributeClosureImplication)
 //! and the *pipeline stages* that produce them.
 //!
-//! # Position in praxis
+//! # Composition
 //!
-//! Doctrine Discovery is the **synthesis** layer of the M4.κ track:
+//! Doctrine Discovery composes:
 //!
 //! - [`crate::formal::causation::derivation_functor::CausationToDerivation`]
-//!   (M4.κ.1) lifts causal patterns to abductive hypothesis schemata
+//!   — lifts causal patterns to abductive hypothesis schemata
 //!   (Peirce 1903; Lewis 1973).
-//! - [`crate::formal::analytical_methods::fca`] (M4.κ.2) supplies the
+//! - [`crate::formal::analytical_methods::fca`] — supplies the
 //!   formal-context machinery and the NextClosure algorithm
 //!   (Wille 1982; Ganter 1984; Ganter & Wille 1999).
 //! - [`crate::formal::analytical_methods::classification_fibration`]
-//!   (M4.κ.2) projects each formal concept onto a Linnaean rank from
-//!   the Classification ontology (Grothendieck 1971; Jacobs 1999;
+//!   — projects each formal concept onto a Linnaean rank from the
+//!   Classification ontology (Grothendieck 1971; Jacobs 1999;
 //!   Linnaeus 1735).
-//! - [`crate::formal::rule_algebra`] (M4.κ.3) supplies subsumption,
+//! - [`crate::formal::rule_algebra`] — supplies subsumption,
 //!   normalization, and conflict detection over the implications
 //!   extracted by the engine.
 //!
-//! Doctrine Discovery composes those into a single pipeline:
+//! The pipeline:
 //!
 //! ```text
 //! Object corpus + Attribute extractor
@@ -36,11 +36,10 @@
 //!   ──CausationToDerivation──▶ Abductive hypothesis schemata
 //! ```
 //!
-//! Per `feedback_no_bounded_discovery_counts`: the number of doctrines
-//! the engine emits is NOT pre-listed. It's whatever the FCA lattice
-//! cardinality is — bounded by `2^min(|G|, |M|)` per Ganter & Wille
-//! (1999) §2.3, in practice exponentially smaller for sparse legal
-//! contexts.
+//! The number of doctrines the engine emits is not pre-listed — it
+//! is whatever the FCA lattice cardinality is, bounded by
+//! `2^min(|G|, |M|)` per Ganter & Wille (1999) §2.3 and in practice
+//! exponentially smaller for sparse legal contexts.
 //!
 //! # Literature
 //!
@@ -141,7 +140,7 @@ pr4xis::ontology! {
         LatticeBuild: ("en", "Lattice build",
             "Pipeline stage 4: run Ganter's NextClosure to compute the complete concept lattice (Ganter 1984; Ganter & Wille 1999 §2.1.3)."),
         FibrationLift: ("en", "Fibration lift",
-            "Pipeline stage 5: project the lattice onto Linnaean ranks via the Classification fibration (Grothendieck 1971; M4.κ.2)."),
+            "Pipeline stage 5: project the lattice onto Linnaean ranks via the Classification fibration (Grothendieck 1971)."),
         ClosureExtraction: ("en", "Closure extraction",
             "Pipeline stage 6: emit `{m} → closure({m})` for every attribute m whose closure is non-trivial (i.e. adds attributes)."),
         BasisNormalization: ("en", "Basis normalization",

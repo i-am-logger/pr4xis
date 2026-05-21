@@ -187,6 +187,60 @@ pub struct UslmTypedTree {
     pub complement: Vec<u8>,
 }
 
+/// Typed wrapper for the local name of an XML element declared by an
+/// `<xsd:element>` in the loaded USLM XSD. Carrying it as a named
+/// type rather than a bare `String` keeps "this is an XSD-grounded
+/// QName.localPart" explicit at every callsite — per W3C XML
+/// Namespaces 1.1 §3 Definition 3, and per W3C XSD 1.1 Part 1
+/// §3.3 (Element Declarations).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XsdLocalName(String);
+
+impl XsdLocalName {
+    /// Construct from a known-XSD-declared local name. The caller is
+    /// responsible for having looked the name up against the loaded
+    /// XSD — no validation is performed here.
+    #[must_use]
+    pub fn new(local: String) -> Self {
+        Self(local)
+    }
+
+    /// Borrow the wrapped local name.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Move the wrapped local name out.
+    #[must_use]
+    pub fn into_string(self) -> String {
+        self.0
+    }
+}
+
+impl core::fmt::Display for XsdLocalName {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// Outcome of validating an element subtree against the loaded USLM
+/// XSD's `<xsd:element>` declarations. Typed enum rather than
+/// `Option<String>` so the success case (`AllElementsKnown`) and the
+/// failure case (`UnknownElement` with the offending local name)
+/// carry distinct meanings at the type level — per the W3C XSD 1.1
+/// Part 1 §3.4.6.4 Schema-Validity Assessment procedure.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum XsdNamespaceCheck {
+    /// Every USLM-namespace element in the subtree resolves to a
+    /// declaration in the loaded XSD.
+    AllElementsKnown,
+    /// First-encountered element whose local name is in the USLM
+    /// namespace but does not correspond to any `<xsd:element>` in
+    /// the loaded XSD.
+    UnknownElement(XsdLocalName),
+}
+
 /// Lens error type.
 #[derive(Debug)]
 pub enum UslmLensError {
@@ -287,13 +341,13 @@ impl<'a> NsContext<'a> {
 /// `xsi:*` attributes, etc.) are not queried — those are governed by
 /// their own XSDs (M4.η.1 / M4.η.2 / M4.δ.10) and the USLM lens
 /// doesn't dispatch on them at this level.
-fn xsd_validate_usl_namespace<'a>(
-    elem: &'a XmlElement,
+fn xsd_validate_usl_namespace(
+    elem: &XmlElement,
     ctx: NsContext<'_>,
     xsd: &XsdOntologyInstance,
-) -> Option<String> {
+) -> XsdNamespaceCheck {
     if ctx.elem_in(elem, USLM_NAMESPACE_URI) && xsd.lookup_element(&elem.name.local).is_none() {
-        return Some(elem.name.local.clone());
+        return XsdNamespaceCheck::UnknownElement(XsdLocalName::new(elem.name.local.clone()));
     }
     // Section slices (no `<uscDoc>` wrapper) and synthetic per-element
     // test inputs may arrive without a declared `xmlns="…"`. In that
@@ -306,17 +360,18 @@ fn xsd_validate_usl_namespace<'a>(
         && elem.name.prefix.is_none()
         && xsd.lookup_element(&elem.name.local).is_none()
     {
-        return Some(elem.name.local.clone());
+        return XsdNamespaceCheck::UnknownElement(XsdLocalName::new(elem.name.local.clone()));
     }
     for child in &elem.children {
         if let XmlNode::Element(e) = child {
             let child_ctx = ctx.enter(e);
-            if let Some(bad) = xsd_validate_usl_namespace(e, child_ctx, xsd) {
-                return Some(bad);
+            match xsd_validate_usl_namespace(e, child_ctx, xsd) {
+                XsdNamespaceCheck::AllElementsKnown => {}
+                bad @ XsdNamespaceCheck::UnknownElement(_) => return bad,
             }
         }
     }
-    None
+    XsdNamespaceCheck::AllElementsKnown
 }
 
 /// XSD-grounded build of [`UsCodeTitle`] from a parsed XML document.
@@ -336,8 +391,10 @@ fn xsd_grounded_build(
     // XSD. Per the XSD-grounded-dispatch invariant, refuse unknown
     // names rather than fall back to a hand-coded recovery path.
     let root_ctx = NsContext::empty().enter(&xml.root);
-    if let Some(unknown) = xsd_validate_usl_namespace(&xml.root, root_ctx, xsd) {
-        return Err(UslmLensError::UnknownElement(unknown));
+    if let XsdNamespaceCheck::UnknownElement(unknown) =
+        xsd_validate_usl_namespace(&xml.root, root_ctx, xsd)
+    {
+        return Err(UslmLensError::UnknownElement(unknown.into_string()));
     }
 
     // Build the typed view. Every dispatch decision goes through XSD
@@ -394,8 +451,9 @@ fn build_uslm_title(
     // the load saw it.
     let title_name =
         find_title_level_name(xsd).ok_or(UslmLensError::Read(UslmReadError::NoUsCodeRoot))?;
-    let title_elem = find_first_in_usl_namespace(root, NsContext::empty().enter(root), &title_name)
-        .ok_or(UslmLensError::Read(UslmReadError::NoUsCodeRoot))?;
+    let title_elem =
+        find_first_in_usl_namespace(root, NsContext::empty().enter(root), title_name.as_str())
+            .ok_or(UslmLensError::Read(UslmReadError::NoUsCodeRoot))?;
 
     let identifier = attr(title_elem, "identifier").unwrap_or_default();
     let heading = first_child_text(title_elem, "heading").unwrap_or_default();
@@ -463,7 +521,7 @@ fn build_uslm_title(
 /// `"title"` (and a few other top-level kinds like `"act"`,
 /// `"bill"`) as document-root candidates. The walker is permissive:
 /// any name the XSD declares with this shape is accepted.
-fn find_title_level_name(xsd: &XsdOntologyInstance) -> Option<String> {
+fn find_title_level_name(xsd: &XsdOntologyInstance) -> Option<XsdLocalName> {
     // Iterate every loaded element declaration; collect the
     // candidate name whose XSD-declared `{type definition}` is the
     // canonical USLM `LevelType` and which is itself a member of
@@ -492,7 +550,7 @@ fn find_title_level_name(xsd: &XsdOntologyInstance) -> Option<String> {
         // expected match. The lookup is by-name from the loaded XSD
         // entry, not from a hardcoded list.
         if is_level_member && type_is_leveltype && decl.local_name == "title" {
-            return Some(decl.local_name.clone());
+            return Some(XsdLocalName::new(decl.local_name.clone()));
         }
     }
     None

@@ -184,12 +184,12 @@ fn declaration_has_documentation(body: &str) -> bool {
         "<xsd:list",
     ];
     for prefix in SIBLING_PREFIXES {
-        if let Some(sib_idx) = body.find(prefix) {
-            if sib_idx < ann_idx {
-                // A sibling construct appears before any annotation
-                // — this declaration has no annotation of its own.
-                return false;
-            }
+        if let Some(sib_idx) = body.find(prefix)
+            && sib_idx < ann_idx
+        {
+            // A sibling construct appears before any annotation
+            // — this declaration has no annotation of its own.
+            return false;
         }
     }
     // The annotation must close before we leave this declaration's

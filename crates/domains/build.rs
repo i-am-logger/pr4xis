@@ -442,7 +442,7 @@ fn write_xml_infoset_codegen(
 /// telemetry for the build log.
 fn count_top_level_types(source: &str) -> usize {
     source
-        .split_inclusive(|c: char| c == ';' || c == '}')
+        .split_inclusive([';', '}'])
         .filter(|chunk| {
             chunk.contains("pub struct ")
                 || chunk.contains("pub enum ")

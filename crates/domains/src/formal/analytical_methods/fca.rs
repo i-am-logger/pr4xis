@@ -507,14 +507,6 @@ impl<O, A> FormalConcept<O, A> {
         self.extent.iter().all(|g| other.extent.contains(g))
     }
 
-    /// The greatest-concept (top): all objects, common intent.
-    /// Identified by `intent.count() ≤ other.intent.count()` for all
-    /// other concepts. NOT computed here — the caller iterates the
-    /// lattice and picks the maximum-extent concept.
-
-    /// The least-concept (bottom): empty extent, full intent.
-    /// Similar — identified during lattice traversal.
-
     /// Resolve the extent's object identifiers from a context.
     pub fn extent_objects<'c>(&self, ctx: &'c FormalContext<O, A>) -> Vec<&'c O> {
         self.extent.iter().map(|&g| &ctx.objects()[g]).collect()

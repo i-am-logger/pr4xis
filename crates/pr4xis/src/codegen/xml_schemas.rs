@@ -276,9 +276,7 @@ fn split_section_number(s: &str) -> Option<(String, String)> {
             continue;
         }
         // First non-digit-non-dot character ends the number span.
-        if last_digit_or_dot.is_none() {
-            return None;
-        }
+        last_digit_or_dot?;
         // Number ends at `i`, trim trailing dot if any.
         let end = last_digit_or_dot.unwrap() + 1;
         let raw_num = s[..end].trim_end_matches('.');

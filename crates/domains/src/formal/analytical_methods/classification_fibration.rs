@@ -128,7 +128,7 @@ impl<O, A> ConceptLatticeFibration<O, A> {
     /// taxonomic levels did this corpus generate?".
     #[must_use]
     pub fn populated_ranks(&self) -> Vec<ClassificationConcept> {
-        let mut out: Vec<_> = self.ranks.iter().copied().collect();
+        let mut out: Vec<_> = self.ranks.to_vec();
         out.sort_by_key(|c| linnaean_order(*c));
         out.dedup();
         out

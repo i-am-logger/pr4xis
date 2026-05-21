@@ -419,14 +419,14 @@ impl XsdOntologyInstance {
             let snapshot: Vec<String> = frontier.iter().cloned().collect();
             for m in &snapshot {
                 for e in &self.elements {
-                    if e.local_name == *m {
-                        if let Some(h) = &e.substitution_group_head {
-                            if h == head {
-                                return true;
-                            }
-                            if frontier.insert(h.clone()) {
-                                changed = true;
-                            }
+                    if e.local_name == *m
+                        && let Some(h) = &e.substitution_group_head
+                    {
+                        if h == head {
+                            return true;
+                        }
+                        if frontier.insert(h.clone()) {
+                            changed = true;
                         }
                     }
                 }

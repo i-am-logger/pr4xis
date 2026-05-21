@@ -8,7 +8,7 @@
 //! - [`crate::social::judicial::rule`] supplies the operational fact-
 //!   driven legal rule (the evaluator).
 //! - [`crate::formal::analytical_methods::fca`] supplies the FCA
-//!   implication basis (M4.κ.2) that the algebra normalises against.
+//!   implication basis that the algebra normalises against.
 //! - Deontic operators via von Wright (1951) Mind 60:1-15 — codified
 //!   here in [`implication::DeonticOperator`].
 //!

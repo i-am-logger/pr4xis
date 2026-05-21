@@ -266,12 +266,10 @@ fn postprocess_uslm_collisions(src: &str) -> String {
     // (E0428/E0004). Rename every such fallback variant to
     // `TextFragment`. The replacement targets the specific token
     // shape xsd-parser produces.
-    let src = src.replace(
+    src.replace(
         "Text (:: xsd_parser_types :: xml :: Text)",
         "TextFragment (:: xsd_parser_types :: xml :: Text)",
-    );
-
-    src
+    )
 }
 
 #[cfg(test)]

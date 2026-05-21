@@ -239,13 +239,12 @@ fn extract_sections(
                 // subdivision (USLM nests `<num>` only once at the
                 // top of each level container; deeper `<num>` belongs
                 // to a child subdivision opened separately).
-                if name_bytes == b"num" {
-                    if let Some(frame) = sc.sub_stack.last_mut()
-                        && frame.num.is_empty()
-                        && let Some(v) = attr(e, b"value")
-                    {
-                        frame.num = v;
-                    }
+                if name_bytes == b"num"
+                    && let Some(frame) = sc.sub_stack.last_mut()
+                    && frame.num.is_empty()
+                    && let Some(v) = attr(e, b"value")
+                {
+                    frame.num = v;
                 }
 
                 match name_bytes.as_slice() {

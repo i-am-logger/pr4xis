@@ -20,12 +20,12 @@
 //! - [`crate::formal::causation::ontology`] — Lewis/Pearl/Reichenbach
 //!   causation.
 //! - [`crate::formal::analytical_methods::fca`] — FCA concept lattice
-//!   from M4.κ.2 (whose Duquenne-Guigues *implication basis*
-//!   (Duquenne & Guigues 1986) is the canonical-form output of the
-//!   normalization operation declared here).
+//!   whose Duquenne-Guigues *implication basis* (Duquenne & Guigues
+//!   1986) is the canonical-form output of the normalization
+//!   operation declared here.
 //! - Deontic operators in [`crate::social::judicial::ontology`] (via
-//!   `ObligationModalityOntology` from M3.5b — Obligation,
-//!   Permission, Prohibition per von Wright 1951).
+//!   `ObligationModalityOntology` — Obligation, Permission,
+//!   Prohibition per von Wright 1951).
 //!
 //! This module COMPOSES those into the pure algebraic vocabulary of
 //! rule subsumption/normalization/conflict — no new substrate, only

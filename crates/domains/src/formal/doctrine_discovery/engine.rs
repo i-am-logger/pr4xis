@@ -57,8 +57,8 @@ where
 /// — the lattice's concepts and the implications' antecedents/
 /// consequents share `A` indices.
 pub struct DoctrineDiscovery<O, A> {
-    /// The concept-lattice fibration over the Classification ontology
-    /// (M4.κ.2). Each concept is a [`DoctrineCluster`]; the lattice
+    /// The concept-lattice fibration over the Classification
+    /// ontology. Each concept is a [`DoctrineCluster`]; the lattice
     /// order encodes the [`DoctrineHierarchy`].
     pub fibration: ConceptLatticeFibration<O, A>,
     /// The canonical implication basis: a [`RuleSet`] of
