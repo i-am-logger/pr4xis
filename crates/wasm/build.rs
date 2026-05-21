@@ -59,7 +59,9 @@ fn write_usc_corpus_codegen(out_dir: &Path) {
                     entity_count: 0, entity_ids: &[], entity_kind: &[], \
                     entity_labels: &[], entity_defs: &[], word_index: &[], \
                     taxonomy: &[], mereology: &[], opposition: &[], \
-                    equivalence: &[], causation: &[], references: &[] };\n";
+                    equivalence: &[], causation: &[], references: &[] };\n\
+                    pub static USC_SECTION_AUX: \
+                    &[pr4xis_domains::social::software::markup::xml::uslm::corpus::UscSectionAux] = &[];\n";
         std::fs::write(&out_path, stub).expect("write usc stub");
         return;
     }
