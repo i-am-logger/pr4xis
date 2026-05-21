@@ -1710,6 +1710,7 @@ dependencies = [
  "flate2",
  "hashbrown 0.17.1",
  "hex",
+ "linkme",
  "lopdf",
  "pr4xis",
  "proptest",

@@ -73,8 +73,13 @@
 //!   GTM 5, 2nd ed. 1998.
 
 pub mod canonical;
+pub mod harness;
 pub mod lens_trait;
 
+pub use harness::{
+    HarnessOutcome, HarnessResult, LENS_REGISTRATIONS, LensRegistration,
+    RoundTripHarnessAllVerified, run_round_trip_harness,
+};
 pub use lens_trait::{FailureStage, LensLawFailure, WellBehavedLens};
 
 #[cfg(test)]

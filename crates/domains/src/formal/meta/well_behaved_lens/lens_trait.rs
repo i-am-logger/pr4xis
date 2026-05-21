@@ -58,10 +58,12 @@
 //! - The [`crate::formal::meta::well_behaved_lens::canonical`]
 //!   library of per-source canonical-form implementations.
 //!
-//! It does *not* run the PutGet check against any specific loaded
-//! source. That lands in the M4.θ.2 test harness, which iterates the
-//! sources manifest and asserts
-//! `WellBehavedLens::assert_put_get_law` for each.
+//! Running the PutGet check against every loaded source is the
+//! responsibility of [`super::harness`], which iterates the
+//! `linkme`-distributed slice of registered lenses, calls
+//! [`WellBehavedLens::assert_put_get_law`] on each, and verifies the
+//! resulting signature against `praxis.lock`'s
+//! `[canonical_signatures]` section.
 //!
 //! ## Citations
 //!

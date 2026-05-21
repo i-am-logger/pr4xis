@@ -26,6 +26,14 @@ hashbrown = "0.17"
 # resolve. Cited: Bergmann, S. *xsd-parser-types*, v0.2.1, MIT.
 xsd-parser-types = { version = "0.2.1", features = ["quick-xml"] }
 
+# Distributed-slice registration substrate. The well-behaved-lens
+# harness uses `#[linkme::distributed_slice]` to discover every
+# registered lens at link time without a central list. Same crate
+# already used inside pr4xis for axiom / functor / adjunction
+# registration (Mascarenhas et al., Apache-2.0 / MIT,
+# <https://github.com/dtolnay/linkme>).
+linkme = "0.3"
+
 # Canonical-form library substrate. Used by the
 # `formal::meta::well_behaved_lens` module to canonicalize loaded
 # sources prior to signature computation.
