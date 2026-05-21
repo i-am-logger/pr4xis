@@ -1,9 +1,36 @@
+//! Leaf-block readers and structural extractors for USLM XML.
+//!
+//! These functions walk subtrees whose parent element has already
+//! been classified by the XSD-grounded dispatch in [`super`]; each
+//! reader extracts attribute values, text content, and recursive
+//! structure into typed runtime values.
+//!
+//! ## Grounding
+//!
+//! Every dispatch decision in this module consults the loaded
+//! USLM-1.0.18 XSD ontology — `xsd.lookup_element`,
+//! `xsd.is_member_of_substitution_group`, and the XSD-derived
+//! `from_xsd_element` constructors on the runtime enums. There are
+//! no hand-coded element-name lists.
+//!
+//! - W3C XSD 1.1 Part 1 §3.3 — *Element Declarations*: a name with
+//!   no declaration has no `{type definition}` to dispatch on; every
+//!   reader that consumes an element first verifies `xsd_declares`.
+//! - W3C XSD 1.1 Part 1 §3.3.6 — *Substitution Groups*:
+//!   `is_section_leaf` and `SubdivisionKind::from_xsd_element` /
+//!   `ContainerKind::from_xsd_element` consult substitution-group
+//!   membership against the loaded XSD's `"level"` head.
+//! - W3C XSD 1.1 Part 1 §3.4 — *Type Definitions*: `LevelType` is the
+//!   XSD-loaded complex type that the section/level family shares.
+//! - W3C XSD 1.1 Part 1 §3.4.6.4 — *Schema-Validity Assessment*: once
+//!   the type is fixed, the walk is a structural unfolding.
+
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use std::sync::OnceLock;
 
-use super::ontology::*;
+use super::super::ontology::*;
 use crate::formal::meta::xsd::from_xsd_parser::{XsdOntologyInstance, project_from_xsd_text};
 use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
 use crate::social::software::markup::xml::ontology::{XmlElement, XmlNode};
@@ -11,12 +38,11 @@ use crate::social::software::markup::xml::reader as xml_reader;
 
 /// The XSD ontology instance projected from the bundled USLM-1.0.18
 /// XSD. Built once on first call and cached for the lifetime of the
-/// process — the same `OnceLock` pattern as
-/// [`super::lens::loaded_uslm_xsd`]. Per W3C XSD 1.1 Part 1 §3.3
-/// (Element Declarations) and §3.3.6 (Substitution Groups), every
-/// dispatch decision in this reader queries this instance rather than
-/// matching hand-coded element-name literals.
-fn loaded_uslm_xsd() -> &'static XsdOntologyInstance {
+/// process. Per W3C XSD 1.1 Part 1 §3.3 (Element Declarations) and
+/// §3.3.6 (Substitution Groups), every dispatch decision in this
+/// module queries this instance rather than matching hand-coded
+/// element-name literals.
+pub(super) fn loaded_uslm_xsd() -> &'static XsdOntologyInstance {
     static USLM_XSD_INSTANCE: OnceLock<XsdOntologyInstance> = OnceLock::new();
     USLM_XSD_INSTANCE.get_or_init(|| project_from_xsd_text(USLM_1_0_18_XSD))
 }
@@ -27,7 +53,7 @@ fn loaded_uslm_xsd() -> &'static XsdOntologyInstance {
 /// runtime enum variants — element names that aren't loaded fall
 /// through to the catch-all branches instead of being silently
 /// accepted.
-fn xsd_declares(local_name: &str) -> bool {
+pub(super) fn xsd_declares(local_name: &str) -> bool {
     loaded_uslm_xsd().lookup_element(local_name).is_some()
 }
 
@@ -40,7 +66,7 @@ fn xsd_declares(local_name: &str) -> bool {
 /// member of `substitutionGroup="level"` (W3C XSD 1.1 Part 1 §3.3.6),
 /// so a future XSD revision that moved `section` out of the level
 /// family would be detected.
-fn is_section_leaf(name: &str, xsd: &XsdOntologyInstance) -> bool {
+pub(super) fn is_section_leaf(name: &str, xsd: &XsdOntologyInstance) -> bool {
     let Some(decl) = xsd.lookup_element("section") else {
         return false;
     };
@@ -193,7 +219,7 @@ pub fn read_uslm_title(xml_text: &str) -> Result<UsCodeTitle, UslmReadError> {
 /// Walk a subtree gathering every XHTML `<table>` element. The
 /// table itself is in the XHTML namespace; the discriminator is the
 /// element's local name plus any preserved xmlns binding.
-fn collect_tables_in(elem: &XmlElement, out: &mut Vec<UsCodeTable>) {
+pub(super) fn collect_tables_in(elem: &XmlElement, out: &mut Vec<UsCodeTable>) {
     if elem.name.local == "table" {
         out.push(read_table(elem));
         return;
@@ -205,7 +231,7 @@ fn collect_tables_in(elem: &XmlElement, out: &mut Vec<UsCodeTable>) {
     }
 }
 
-fn read_table(elem: &XmlElement) -> UsCodeTable {
+pub(super) fn read_table(elem: &XmlElement) -> UsCodeTable {
     let identifier = attr(elem, "id");
     let class = attr(elem, "class");
     let mut header_rows = Vec::new();
@@ -266,7 +292,7 @@ fn read_table_row(elem: &XmlElement) -> UsCodeTableRow {
 /// `<xsd:element name="toc">` declaration in the loaded USLM XSD
 /// (W3C XSD 1.1 Part 1 §3.3); the guard below confirms the load saw
 /// it before dispatching to the typed reader.
-fn read_tocs(elem: &XmlElement) -> Vec<UsCodeToc> {
+pub(super) fn read_tocs(elem: &XmlElement) -> Vec<UsCodeToc> {
     let mut out = Vec::new();
     let xsd_has_toc = xsd_declares("toc");
     for child in &elem.children {
@@ -343,7 +369,7 @@ fn read_toc_item(elem: &XmlElement) -> UsCodeTocItem {
 /// against the Dublin Core Element Set (DCMI Metadata Terms § 4)
 /// routes each known element to its typed field; unknown DC elements
 /// are silently dropped (the spec is open-ended).
-fn read_meta(elem: &XmlElement) -> UsCodeMeta {
+pub(super) fn read_meta(elem: &XmlElement) -> UsCodeMeta {
     let mut meta = UsCodeMeta {
         title: None,
         doc_type: None,
@@ -434,7 +460,7 @@ fn read_meta(elem: &XmlElement) -> UsCodeMeta {
 /// USLM XSD (W3C XSD 1.1 Part 1 §3.3 Element Declarations); the
 /// guards below confirm the load saw it (and `<name>`) before
 /// dispatching to the typed reader.
-fn read_signatures(elem: &XmlElement) -> Vec<UsCodeSignature> {
+pub(super) fn read_signatures(elem: &XmlElement) -> Vec<UsCodeSignature> {
     let mut out = Vec::new();
     if !xsd_declares("signature") {
         return out;
@@ -543,7 +569,7 @@ fn collect_section_refs_in(elem: &XmlElement, out: &mut Vec<UsCodeSectionRef>) {
 /// `<xsd:element name="note">` declaration (W3C XSD 1.1 Part 1 §3.3);
 /// the early-exit guard below skips the walk entirely when the load
 /// didn't see it, so the dispatch reflects the loaded ontology.
-fn read_bare_notes(elem: &XmlElement) -> Vec<UsCodeNote> {
+pub(super) fn read_bare_notes(elem: &XmlElement) -> Vec<UsCodeNote> {
     let mut out = Vec::new();
     if !xsd_declares("note") {
         return out;
@@ -567,7 +593,7 @@ fn read_bare_notes(elem: &XmlElement) -> Vec<UsCodeNote> {
 /// `<xsd:element name="notes">` declaration (W3C XSD 1.1 Part 1 §3.3);
 /// the early-exit guard below skips the walk entirely when the load
 /// didn't see it.
-fn read_notes_blocks(elem: &XmlElement) -> Vec<UsCodeNotesBlock> {
+pub(super) fn read_notes_blocks(elem: &XmlElement) -> Vec<UsCodeNotesBlock> {
     let mut out = Vec::new();
     if !xsd_declares("notes") {
         return out;
@@ -690,7 +716,7 @@ fn read_continuation(elem: &XmlElement) -> UsCodeContinuation {
     }
 }
 
-fn read_headers(elem: &XmlElement) -> Vec<UsCodeHeader> {
+pub(super) fn read_headers(elem: &XmlElement) -> Vec<UsCodeHeader> {
     let mut out = Vec::new();
     // `"header"` is the XSD-loaded local-name of the
     // `<xsd:element name="header">` declaration (W3C XSD 1.1 Part 1
@@ -771,7 +797,7 @@ pub(super) fn read_hierarchy_children(
 
 /// DFS-walk a hierarchy, collecting every leaf `Section` into
 /// `out` in document order.
-fn flatten_sections(nodes: &[HierarchyNode], out: &mut Vec<UsCodeSection>) {
+pub(super) fn flatten_sections(nodes: &[HierarchyNode], out: &mut Vec<UsCodeSection>) {
     for node in nodes {
         match node {
             HierarchyNode::Section(s) => out.push((**s).clone()),
@@ -1132,26 +1158,21 @@ fn collect_refs_in(elem: &XmlElement, out: &mut Vec<UsCodeRef>) {
     }
 }
 
-// `collect_sections` was superseded by `read_hierarchy_children`
-// (M4.δ.4 — Tier-1 hierarchy). The new walker produces the typed
-// nested tree; the flat `sections` list is derived from it by
-// `flatten_sections`. The editorial / quoted-content filter that
-// used to live in `collect_sections` now lives in
-// `read_hierarchy_children` — those scopes belong to Tier-2
-// (M4.δ.5) ontology, not the navigational hierarchy.
-
 // ---------------------------------------------------------------------------
 // XmlElement helpers
 // ---------------------------------------------------------------------------
 
-fn attr(elem: &XmlElement, key: &str) -> Option<String> {
+pub(super) fn attr(elem: &XmlElement, key: &str) -> Option<String> {
     elem.attributes
         .iter()
         .find(|a| a.name.local == key)
         .map(|a| a.value.clone())
 }
 
-fn find_first_descendant<'a>(elem: &'a XmlElement, name: &str) -> Option<&'a XmlElement> {
+pub(super) fn find_first_descendant<'a>(
+    elem: &'a XmlElement,
+    name: &str,
+) -> Option<&'a XmlElement> {
     if elem.name.local == name {
         return Some(elem);
     }
@@ -1190,7 +1211,7 @@ fn find_first_in_namespace<'a>(
     None
 }
 
-fn first_child_text(elem: &XmlElement, name: &str) -> Option<String> {
+pub(super) fn first_child_text(elem: &XmlElement, name: &str) -> Option<String> {
     for child in &elem.children {
         if let XmlNode::Element(e) = child
             && e.name.local == name
@@ -1201,7 +1222,11 @@ fn first_child_text(elem: &XmlElement, name: &str) -> Option<String> {
     None
 }
 
-fn first_child_attr(elem: &XmlElement, child_name: &str, attr_key: &str) -> Option<String> {
+pub(super) fn first_child_attr(
+    elem: &XmlElement,
+    child_name: &str,
+    attr_key: &str,
+) -> Option<String> {
     for child in &elem.children {
         if let XmlNode::Element(e) = child
             && e.name.local == child_name
@@ -1253,7 +1278,7 @@ fn push_text(elem: &XmlElement, buf: &mut String) {
     }
 }
 
-fn derive_title_identifier(section_identifier: &str) -> Option<String> {
+pub(super) fn derive_title_identifier(section_identifier: &str) -> Option<String> {
     // `/us/usc/t18/s1514A` → `/us/usc/t18`. Strip the last
     // `/sXXX...` segment and anything below it.
     let mut parts: Vec<&str> = section_identifier.split('/').collect();

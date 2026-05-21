@@ -100,7 +100,7 @@ pub enum ContentType {
     Pdf,
     /// United States Legislative Markup XML, per the LRC's
     /// published USLM-1.0.15.xsd schema. Decoder:
-    /// `xml::uslm::reader::read_uslm_title` (runtime) /
+    /// `xml::uslm::lens::read_uslm_title` (runtime) /
     /// `pr4xis::codegen::uslm::parse_uslm_xml` (build-time).
     /// Cited by 1 U.S.C. § 204 as the U.S. Code's authoritative
     /// publication. URL: uscode.house.gov/uslm/.

@@ -44,7 +44,7 @@
 //! use pr4xis_domains::social::software::markup::xml::uslm::generated;
 //! // No constructor is exercised here — the types are XSD-shaped;
 //! // a future "switch" commit wires the existing
-//! // `uslm::reader::read_section` to populate them.
+//! // `uslm::lens::read_section` to populate them.
 //! let _ = std::any::type_name::<generated::ActionTypeItem>();
 //! ```
 //!

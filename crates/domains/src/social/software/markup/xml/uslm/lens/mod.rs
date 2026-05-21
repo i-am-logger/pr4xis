@@ -52,8 +52,8 @@
 //! XML element names. The walker consults
 //! [`crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance`]
 //! built once from the bundled USLM XSD via
-//! [`super::super::super::super::super::super::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD`]
-//! and [`project_from_xsd_text`].
+//! [`crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD`]
+//! and [`crate::formal::meta::xsd::from_xsd_parser::project_from_xsd_text`].
 //!
 //! The dispatch surface — every site where the walker chooses a
 //! branch — is keyed exclusively on the result of three ontology
@@ -78,6 +78,20 @@
 //! categorical vocabulary, not as hand-curated tag lists. Adding a
 //! new element to the loaded XSD that targets one of these heads
 //! makes the walker recognise it without code change.
+//!
+//! ## Module structure
+//!
+//! The lens lives in a directory module:
+//!
+//! - `lens/mod.rs` (this file) — the [`WellBehavedLens`] impl, the
+//!   XSD-grounded outer walker, the public [`UslmXmlLens`] type, and
+//!   the `UslmLensError` / `UslmTypedTree` types.
+//! - `lens/leaf_readers.rs` — leaf-block readers (`read_meta`,
+//!   `read_notes_blocks`, `read_table`, `read_toc`, `read_signatures`,
+//!   `read_headers`, etc.) and structural readers (`read_section`,
+//!   `read_hierarchy_children`, `read_uslm_title`). Each walks an
+//!   already-classified subtree; XSD-grounding is enforced via
+//!   `xsd_declares` / `is_section_leaf` / `from_xsd_element` queries.
 //!
 //! ## Why the typed view's `Target` is [`UsCodeTitle`]
 //!
@@ -130,21 +144,27 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use std::sync::OnceLock;
-
 use crate::formal::meta::well_behaved_lens::{
     WellBehavedLens,
     canonical::{CanonicalizationError, xml as xml_canonical},
 };
-use crate::formal::meta::xsd::from_xsd_parser::{XsdOntologyInstance, project_from_xsd_text};
-use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
+use crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance;
 use crate::social::software::markup::xml::ontology::{XmlElement, XmlNode};
 use crate::social::software::markup::xml::reader as xml_reader;
 
 use super::ontology::{
-    HierarchyNode, USLM_NAMESPACE_URI, UsCodeContainer, UsCodeSection, UsCodeTitle, UslmReadError,
+    HierarchyNode, USLM_NAMESPACE_URI, UsCodeSection, UsCodeTitle, UslmReadError,
 };
-use super::reader as uslm_reader;
+
+pub mod leaf_readers;
+
+use leaf_readers::{
+    attr, derive_title_identifier, find_first_descendant, first_child_text, is_section_leaf,
+    loaded_uslm_xsd, read_bare_notes, read_headers, read_hierarchy_children, read_meta,
+    read_notes_blocks, read_signatures, read_tocs,
+};
+
+pub use leaf_readers::{read_section, read_uslm_title};
 
 /// The lens's *target* — the typed-view value plus its complement
 /// (the source bytes), per Bancilhon & Spyratos 1981 constant-
@@ -219,24 +239,6 @@ impl From<CanonicalizationError> for UslmLensError {
     fn from(e: CanonicalizationError) -> Self {
         Self::Canonical(e)
     }
-}
-
-// =============================================================================
-// Loaded USLM XSD ontology
-// =============================================================================
-
-/// The XSD ontology instance projected from the bundled
-/// USLM-1.0.18.xsd. Built once on first call via the
-/// `xsd-parser-AST → XsdOntology` functor (M4.ε.5.a.2,
-/// [`crate::formal::meta::xsd::from_xsd_parser::project_from_xsd_text`])
-/// and cached for the lifetime of the process.
-///
-/// The walker queries this instance for every dispatch decision —
-/// element-name lookup (W3C XSD 1.1 Part 1 §3.3), type reference
-/// (§3.3.2.3), and substitution-group membership (§3.3.6).
-fn loaded_uslm_xsd() -> &'static XsdOntologyInstance {
-    static USLM_XSD_INSTANCE: OnceLock<XsdOntologyInstance> = OnceLock::new();
-    USLM_XSD_INSTANCE.get_or_init(|| project_from_xsd_text(USLM_1_0_18_XSD))
 }
 
 // =============================================================================
@@ -328,31 +330,6 @@ fn xsd_validate_usl_namespace<'a>(
 /// hand-coded element-name list lives in this function or its
 /// callees inside this module. (W3C XSD 1.1 Part 1 §3.3 + §3.3.6 +
 /// §3.4.)
-///
-/// The body follows the same shape as
-/// [`super::reader::read_uslm_title`] but the *dispatch logic*
-/// — where it differs from the hand-coded reader — is grounded:
-///
-/// - Finding the title element: still a namespace+local-name query
-///   (W3C XML Namespaces 1.0 §6); the local name `"title"` is what
-///   the loaded XSD declares as the `<xsd:element name="title">`
-///   `LevelType` instance under `substitutionGroup="level"`.
-/// - Recursing into hierarchy children: dispatched via
-///   `xsd.is_member_of_substitution_group(name, "level")` —
-///   exactly the W3C XSD 1.1 Part 1 §3.3.6 reflexive-transitive
-///   membership predicate. `"level"` is the head as declared by the
-///   loaded USLM XSD (`<xsd:element name="level" type="LevelType">`
-///   at line 3084 of USLM-1.0.18.xsd).
-/// - Choosing between [`HierarchyNode::Section`] and
-///   [`HierarchyNode::Container`]: dispatched via
-///   `xsd.type_definition_of(name)` — every level element shares
-///   `LevelType`, and the distinction between section-vs-container
-///   is which level kind the loaded XSD declares as the *terminal*
-///   one. The current USC LRC USLM-1.0.18 declares `"section"` as
-///   the leaf level (every level below `"section"` is a subdivision,
-///   not a level), so the walker recognises `decl.local_name ==
-///   "section"` via the loaded declaration's name field — the
-///   string is the loaded value, not a hand-coded constant.
 fn xsd_grounded_build(
     xml: &crate::social::software::markup::xml::ontology::XmlDocument,
     xsd: &XsdOntologyInstance,
@@ -365,17 +342,10 @@ fn xsd_grounded_build(
         return Err(UslmLensError::UnknownElement(unknown));
     }
 
-    // Build the typed view. The hand-coded reader's downstream
-    // helpers (leaf-level text extraction, attribute reads) are
-    // reused — they don't make dispatch decisions, they extract
-    // already-classified content. The dispatch decision *to call
-    // them* is what's XSD-grounded.
-    //
-    // Concretely: we re-implement the *outer* walk here so the
-    // hierarchy-recursion and section/container split are dispatched
-    // via XSD queries, then hand the section leaves to
-    // [`super::reader::read_section`] (which is itself a structural
-    // walk under an already-classified `<section>` element).
+    // Build the typed view. Every dispatch decision goes through XSD
+    // queries; leaf extractors in `leaf_readers` walk an
+    // already-classified subtree per W3C XSD 1.1 Part 1 §3.4.6.4
+    // (Schema-Validity Assessment).
     let view = build_uslm_title(&xml.root, xsd)?;
     Ok(view)
 }
@@ -399,7 +369,7 @@ fn build_uslm_title(
 
     if root_in_level && is_section_leaf(&root.name.local, xsd) {
         // Section slice — wrap into a synthetic UsCodeTitle.
-        let section = uslm_reader::read_section(root)?;
+        let section = read_section(root)?;
         let identifier = derive_title_identifier(&section.identifier)
             .unwrap_or_else(|| "/us/usc/t?".to_string());
         let hierarchy = vec![HierarchyNode::Section(Box::new(section.clone()))];
@@ -424,8 +394,8 @@ fn build_uslm_title(
     // name `"title"` is the XSD-declared name for the title-level
     // `<xsd:element>`; we query for it via lookup_element to confirm
     // the load saw it.
-    let title_name = find_title_level_name(xsd)
-        .ok_or_else(|| UslmLensError::Read(UslmReadError::NoUsCodeRoot))?;
+    let title_name =
+        find_title_level_name(xsd).ok_or(UslmLensError::Read(UslmReadError::NoUsCodeRoot))?;
     let title_elem = find_first_in_usl_namespace(root, NsContext::empty().enter(root), &title_name)
         .ok_or(UslmLensError::Read(UslmReadError::NoUsCodeRoot))?;
 
@@ -447,39 +417,38 @@ fn build_uslm_title(
     // recognises every USLM hierarchy element (subtitle / part /
     // subpart / chapter / subchapter / section / etc.) without
     // enumerating them by name.
-    let hierarchy = build_hierarchy_children(title_elem, xsd)?;
+    let hierarchy = read_hierarchy_children(title_elem)?;
     let mut sections = Vec::new();
     flatten_sections(&hierarchy, &mut sections);
 
-    // Editorial/meta blocks: delegate to the hand-coded reader's
-    // leaf helpers (each helper walks an already-classified subtree
-    // and extracts data; no dispatch happens at that level).
-    let view = uslm_reader::read_uslm_title(&serialize_root(root))?;
-    // Re-stitch the XSD-grounded hierarchy + sections onto the
-    // reader-extracted scaffolding. The reader's typed-leaf
-    // extraction is reused as-is; the dispatch-from-hierarchy is
-    // our XSD-grounded build.
+    // Editorial/meta blocks: delegate to the leaf-block readers in
+    // `leaf_readers`. Each one walks an already-classified subtree
+    // (W3C XSD 1.1 Part 1 §3.4.6.4 — Schema-Validity Assessment:
+    // once the type is fixed, the walk is a structural unfolding).
+    let notes_blocks = read_notes_blocks(title_elem);
+    let bare_notes = read_bare_notes(title_elem);
+    let headers = read_headers(title_elem);
+    let signatures = read_signatures(title_elem);
+    // `<meta>` is a sibling of `<main>` under the `<uscDoc>` root —
+    // not a descendant of `<title>`. Find it from the document root.
+    let meta = find_first_descendant(root, "meta").map(read_meta);
+    let tocs = read_tocs(title_elem);
+    let mut tables = Vec::new();
+    leaf_readers::collect_tables_in(title_elem, &mut tables);
+
     Ok(UsCodeTitle {
-        identifier: if identifier.is_empty() {
-            view.identifier
-        } else {
-            identifier
-        },
-        number: if number == 0 { view.number } else { number },
-        heading: if heading.is_empty() {
-            view.heading
-        } else {
-            heading
-        },
+        identifier,
+        number,
+        heading,
         sections,
         hierarchy,
-        notes_blocks: view.notes_blocks,
-        bare_notes: view.bare_notes,
-        headers: view.headers,
-        signatures: view.signatures,
-        meta: view.meta,
-        tocs: view.tocs,
-        tables: view.tables,
+        notes_blocks,
+        bare_notes,
+        headers,
+        signatures,
+        meta,
+        tocs,
+        tables,
     })
 }
 
@@ -531,100 +500,8 @@ fn find_title_level_name(xsd: &XsdOntologyInstance) -> Option<String> {
     None
 }
 
-/// True iff `name` is the leaf-level kind among the loaded USLM
-/// XSD's substitution-group-`"level"` members — i.e. the element
-/// that wraps subsection/paragraph subdivisions rather than nested
-/// containers. Per the loaded USLM-1.0.18.xsd this is `"section"`
-/// (the element at XSD line 3854: `<xsd:element name="section"
-/// type="LevelType" substitutionGroup="level">`); the walker reads
-/// that name off the XSD load (the comparison `name == decl.name`
-/// uses the *loaded* value, not a hand-coded literal).
-fn is_section_leaf(name: &str, xsd: &XsdOntologyInstance) -> bool {
-    // For grounding: query the XSD for an element whose loaded name
-    // is "section". If the load saw it, the predicate is `name`
-    // equals that loaded value; otherwise no element qualifies.
-    if let Some(decl) = xsd.lookup_element("section") {
-        name == decl.local_name
-    } else {
-        false
-    }
-}
-
-/// XSD-grounded recursive walk of a hierarchy node's immediate
-/// children. Every dispatch goes through `xsd.is_member_of_*`
-/// queries.
-fn build_hierarchy_children(
-    elem: &XmlElement,
-    xsd: &XsdOntologyInstance,
-) -> Result<Vec<HierarchyNode>, UslmLensError> {
-    let mut out = Vec::new();
-    for child in &elem.children {
-        let XmlNode::Element(e) = child else { continue };
-        // Query 1: is this child a USLM-XSD-declared element at all?
-        // (USLM namespace context inherited; non-USLM elements like
-        // `<dc:title>` skip via the prefix gate.)
-        if e.name.prefix.is_some() {
-            continue;
-        }
-        let Some(_decl) = xsd.lookup_element(&e.name.local) else {
-            // Already validated by `xsd_validate_usl_namespace` at
-            // the lens entry point, so this branch is unreachable
-            // for well-formed input. Defensively bail out as
-            // unknown.
-            return Err(UslmLensError::UnknownElement(e.name.local.clone()));
-        };
-        // Query 2: is this element a hierarchy-level member?
-        if !xsd.is_member_of_substitution_group(&e.name.local, "level") {
-            // Non-level children of a hierarchy node — editorial
-            // notes / TOC / meta — handled by the reader's leaf
-            // extractors elsewhere. The dispatch decision *here*
-            // (whether this is a level element to recurse on) is
-            // grounded.
-            continue;
-        }
-        // Query 3: is it the section leaf?
-        if is_section_leaf(&e.name.local, xsd) {
-            out.push(HierarchyNode::Section(Box::new(uslm_reader::read_section(
-                e,
-            )?)));
-        } else {
-            // Hierarchy container — use the XSD-grounded variant of
-            // `ContainerKind::parse` that consults the loaded USLM
-            // XSD for `substitutionGroup="level"` membership before
-            // projecting to the runtime enum variant. The is-level
-            // predicate was already verified above; this call
-            // *re-confirms* the W3C XSD 1.1 Part 1 §3.3.6 membership
-            // and §3.3 element-declaration via the
-            // `from_xsd_element` ontology-query path.
-            let Some(kind) = super::ontology::ContainerKind::from_xsd_element(&e.name.local, xsd)
-            else {
-                // The XSD declares more level elements than
-                // ContainerKind currently enumerates (e.g.
-                // `division`, `article`). Those are tracked under
-                // the M4.δ.15 Tier-1 follow-up — for now they fall
-                // through to a typed-leaf skip. The dispatch
-                // decision (is-level) was XSD-grounded; the runtime
-                // type's coverage gap is independent.
-                continue;
-            };
-            let container = UsCodeContainer {
-                kind,
-                identifier: attr(e, "identifier").unwrap_or_default(),
-                num: first_child_attr(e, "num", "value").unwrap_or_default(),
-                heading: first_child_text(e, "heading").unwrap_or_default(),
-                children: build_hierarchy_children(e, xsd)?,
-                notes_blocks: read_notes_blocks_via_reader(e),
-                bare_notes: read_bare_notes_via_reader(e),
-                tocs: read_tocs_via_reader(e),
-            };
-            out.push(HierarchyNode::Container(Box::new(container)));
-        }
-    }
-    Ok(out)
-}
-
 /// DFS-walk a hierarchy, collecting every leaf `Section` into `out`
-/// in document order. Mirrors the reader's `flatten_sections`.
+/// in document order.
 fn flatten_sections(nodes: &[HierarchyNode], out: &mut Vec<UsCodeSection>) {
     for node in nodes {
         match node {
@@ -632,152 +509,6 @@ fn flatten_sections(nodes: &[HierarchyNode], out: &mut Vec<UsCodeSection>) {
             HierarchyNode::Container(c) => flatten_sections(&c.children, out),
         }
     }
-}
-
-// =============================================================================
-// Leaf helpers — re-extract via the hand-coded reader. None of these
-// make dispatch decisions; they each walk an already-classified
-// subtree. (W3C XSD 1.1 Part 1 §3.4.6.4 — Schema-Validity Assessment:
-// once the type is fixed, the walk is a structural unfolding.)
-// =============================================================================
-
-fn read_notes_blocks_via_reader(elem: &XmlElement) -> Vec<super::ontology::UsCodeNotesBlock> {
-    // Delegate to the reader by serialising the element into its own
-    // ad-hoc fragment, then re-parsing? No — that would lose the
-    // XML namespace context. Instead, we re-create the reader's
-    // `read_notes_blocks` extraction inline using the same logic
-    // shape (direct-child walk for the XSD-declared `<notes>`
-    // element). The XSD-grounded part is *that we call it on
-    // `<notes>`-named children*; the loaded XSD declares
-    // `<xsd:element name="notes">`, so the name is XSD-sourced.
-    let notes_decl_name = xsd_declared_name("notes");
-    let out = Vec::new();
-    for child in &elem.children {
-        if let XmlNode::Element(e) = child
-            && e.name.local == notes_decl_name
-        {
-            // The reader's notes-block constructor is the one
-            // structural extractor we can't fully inline here. It
-            // requires a Vec of helpers; the simplest grounded
-            // approach is to call the reader's public read path for
-            // the *whole element* and pluck the notes_blocks out.
-            // (That re-walks the title; for now, since the dispatch
-            // is what we're grounding — not the leaf extraction —
-            // we synthesise an XML fragment, parse it, and use the
-            // reader's typed read.)
-            //
-            // Instead, keep it simple: defer to reader's
-            // read_uslm_title once at the top level, and reuse its
-            // already-extracted notes blocks. See build_uslm_title
-            // above — the reader's typed view is already stitched
-            // there. So this helper returns empty here; the
-            // top-level title's view supplies them.
-            let _ = e;
-            let _ = &out; // suppress unused-mut lint
-        }
-    }
-    out
-}
-
-fn read_bare_notes_via_reader(elem: &XmlElement) -> Vec<super::ontology::UsCodeNote> {
-    let _ = elem;
-    Vec::new()
-}
-
-fn read_tocs_via_reader(elem: &XmlElement) -> Vec<super::ontology::UsCodeToc> {
-    let _ = elem;
-    Vec::new()
-}
-
-/// XSD-declared local name of an element. Loaded once from the XSD;
-/// returns the input unchanged if no such element is declared (the
-/// fallback path is unreachable for elements the walker has already
-/// classified). This wrapper keeps the comparison sites in this
-/// module grounded: the *string* compared against an XML element's
-/// local name is the value the XSD load produced, not a literal in
-/// this file.
-fn xsd_declared_name(local_hint: &str) -> String {
-    loaded_uslm_xsd()
-        .lookup_element(local_hint)
-        .map(|d| d.local_name.clone())
-        .unwrap_or_else(|| local_hint.to_string())
-}
-
-// =============================================================================
-// XML helpers — no dispatch decisions, only attribute / text reads.
-// =============================================================================
-
-fn attr(elem: &XmlElement, key: &str) -> Option<String> {
-    elem.attributes
-        .iter()
-        .find(|a| a.name.local == key)
-        .map(|a| a.value.clone())
-}
-
-fn first_child_text(elem: &XmlElement, name: &str) -> Option<String> {
-    for child in &elem.children {
-        if let XmlNode::Element(e) = child
-            && e.name.local == name
-        {
-            return Some(collect_text(e));
-        }
-    }
-    None
-}
-
-fn first_child_attr(elem: &XmlElement, child_name: &str, attr_key: &str) -> Option<String> {
-    for child in &elem.children {
-        if let XmlNode::Element(e) = child
-            && e.name.local == child_name
-        {
-            return attr(e, attr_key);
-        }
-    }
-    None
-}
-
-fn collect_text(elem: &XmlElement) -> String {
-    let mut buf = String::new();
-    push_text(elem, &mut buf);
-    let trimmed = buf.trim();
-    let mut out = String::with_capacity(trimmed.len());
-    let mut prev_space = false;
-    for ch in trimmed.chars() {
-        if ch.is_whitespace() {
-            if !prev_space {
-                out.push(' ');
-            }
-            prev_space = true;
-        } else {
-            out.push(ch);
-            prev_space = false;
-        }
-    }
-    out
-}
-
-fn push_text(elem: &XmlElement, buf: &mut String) {
-    for child in &elem.children {
-        match child {
-            XmlNode::Text(s) | XmlNode::CData(s) => buf.push_str(s),
-            XmlNode::Element(e) => push_text(e, buf),
-            _ => {}
-        }
-    }
-}
-
-fn find_first_descendant<'a>(elem: &'a XmlElement, name: &str) -> Option<&'a XmlElement> {
-    if elem.name.local == name {
-        return Some(elem);
-    }
-    for child in &elem.children {
-        if let XmlNode::Element(e) = child
-            && let Some(found) = find_first_descendant(e, name)
-        {
-            return Some(found);
-        }
-    }
-    None
 }
 
 fn find_first_in_usl_namespace<'a>(
@@ -797,132 +528,6 @@ fn find_first_in_usl_namespace<'a>(
         }
     }
     None
-}
-
-/// Re-serialise the XML root to a string so the hand-coded reader's
-/// leaf-extraction helpers (notes / meta / tables / TOCs / etc.) can
-/// be reused as-is. The reader takes `&str`; this is a thin glue
-/// over the parsed XML tree we already have. (No dispatch decisions
-/// happen in the reader's helpers — they each walk an
-/// already-classified subtree per the XSD's complex-type definition.)
-///
-/// The serialisation is fragmentary by design: we walk the XML node
-/// tree we already parsed and emit a canonical form. The reader will
-/// re-parse it; the round-trip is structural-equality preserving for
-/// the fields we extract (notes / meta / tables / TOCs) because
-/// those readers consume only element structure + text content, not
-/// whitespace or comments.
-fn serialize_root(elem: &XmlElement) -> String {
-    // The simplest correct approach: emit a small XML document with
-    // the USLM default namespace declared on the root, then walk the
-    // tree emitting open-tag / children / close-tag. This is enough
-    // for the reader's structural extractors to do their job.
-    let mut out = String::new();
-    out.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
-    serialize_elem(elem, &mut out, true);
-    out
-}
-
-fn serialize_elem(elem: &XmlElement, out: &mut String, is_root: bool) {
-    out.push('<');
-    if let Some(p) = &elem.name.prefix {
-        out.push_str(p);
-        out.push(':');
-    }
-    out.push_str(&elem.name.local);
-    if is_root {
-        // Declare the USLM default namespace on the synthetic root
-        // even if the original input omitted it (section slices).
-        // The reader's namespace-aware walk requires the URI to be
-        // in scope so its USLM-namespace filter works.
-        let already = elem
-            .attributes
-            .iter()
-            .any(|a| a.name.local == "xmlns" && a.name.prefix.is_none())
-            || elem.namespace.as_ref().is_some_and(|n| n.prefix.is_none());
-        if !already {
-            out.push_str(" xmlns=\"");
-            out.push_str(USLM_NAMESPACE_URI);
-            out.push('"');
-        }
-        if let Some(ns) = &elem.namespace
-            && ns.prefix.is_none()
-        {
-            out.push_str(" xmlns=\"");
-            out.push_str(&ns.uri);
-            out.push('"');
-        }
-    } else if let Some(ns) = &elem.namespace
-        && ns.prefix.is_none()
-    {
-        out.push_str(" xmlns=\"");
-        out.push_str(&ns.uri);
-        out.push('"');
-    }
-    for a in &elem.attributes {
-        out.push(' ');
-        if let Some(p) = &a.name.prefix {
-            out.push_str(p);
-            out.push(':');
-        }
-        out.push_str(&a.name.local);
-        out.push_str("=\"");
-        for ch in a.value.chars() {
-            match ch {
-                '&' => out.push_str("&amp;"),
-                '<' => out.push_str("&lt;"),
-                '"' => out.push_str("&quot;"),
-                c => out.push(c),
-            }
-        }
-        out.push('"');
-    }
-    if elem.children.is_empty() {
-        out.push_str("/>");
-        return;
-    }
-    out.push('>');
-    for child in &elem.children {
-        match child {
-            XmlNode::Text(s) | XmlNode::CData(s) => {
-                for ch in s.chars() {
-                    match ch {
-                        '&' => out.push_str("&amp;"),
-                        '<' => out.push_str("&lt;"),
-                        c => out.push(c),
-                    }
-                }
-            }
-            XmlNode::Element(e) => serialize_elem(e, out, false),
-            _ => {}
-        }
-    }
-    out.push_str("</");
-    if let Some(p) = &elem.name.prefix {
-        out.push_str(p);
-        out.push(':');
-    }
-    out.push_str(&elem.name.local);
-    out.push('>');
-}
-
-fn derive_title_identifier(section_identifier: &str) -> Option<String> {
-    let mut parts: Vec<&str> = section_identifier.split('/').collect();
-    while let Some(last) = parts.last() {
-        if last.starts_with('s') || last.starts_with('t') {
-            if last.starts_with('t') {
-                break;
-            }
-            parts.pop();
-        } else {
-            parts.pop();
-        }
-    }
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts.join("/"))
-    }
 }
 
 // =============================================================================
