@@ -5,8 +5,10 @@
 //! The rich vocabulary that domain ontologies reach for when the bare
 //! `causes:` clause isn't enough.
 
+pub mod derivation_functor;
 pub mod ontology;
 
+pub use derivation_functor::CausationToDerivation;
 pub use ontology::{
     CausationCategory, CausationConcept, CausationOntology, CausationRelation,
     CausationRelationKind, CauseRole,
