@@ -83,3 +83,33 @@ fn ci_gate_axiom_metadata_cites_literature() {
         "axiom citation should reference Foster et al. 2007; got: {citation}"
     );
 }
+
+/// Human-driven helper: prints every harness outcome, including the
+/// computed canonical-form SHA-256 for any source still in the
+/// `LawHoldsSignatureUnpinned` state. Use this to discover the value
+/// to pin in `praxis.lock`'s `[canonical_signatures]` section:
+///
+/// ```sh
+/// direnv exec . cargo test -p pr4xis-domains --lib \
+///   dump_unpinned_signatures -- --ignored --nocapture
+/// ```
+///
+/// `#[ignore]` so the (potentially slow — large XML canonicalization)
+/// run only fires when a human asks for it.
+#[test]
+#[ignore = "human-driven signature-dump helper; run with --ignored --nocapture"]
+fn dump_unpinned_signatures() {
+    for r in run_round_trip_harness() {
+        match &r.outcome {
+            HarnessOutcome::LawHoldsSignatureUnpinned {
+                computed_sha256_hex,
+            } => {
+                eprintln!(
+                    "\"{}\" = \"{}\"  # pin in praxis.lock [canonical_signatures]",
+                    r.key, computed_sha256_hex
+                );
+            }
+            other => eprintln!("{}: {:?}", r.key, other),
+        }
+    }
+}

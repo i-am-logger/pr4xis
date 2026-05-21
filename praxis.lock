@@ -105,3 +105,21 @@
 # Verified at test time by `pdf::agl::tests::embedded_sha256_matches_pinned_hash`
 # and at build time by the registry's LockManifestAgreement axiom.
 "adobe_glyph_list@2019"  = "a3b2f61ced9f3644cc0d4ecde5c59df34ca286c689d9484a43a710a81c466789"
+
+# Canonical-form SHA-256s — SHA-256 of the bytes a registered
+# WellBehavedLens emits after applying its source's canonical
+# transformation (W3C XML Canonicalization 1.1 for XML sources, RFC
+# 8785 JCS for JSON, Unicode NFKC for plain text, etc.). Drift in the
+# lens implementation or in the canonical form surfaces here while
+# the raw-bytes hash above remains stable. The
+# `formal::meta::well_behaved_lens::harness::RoundTripHarnessAllVerified`
+# axiom verifies these match on every test run.
+[canonical_signatures]
+# USC Title 18 — Crimes and Criminal Procedure. UslmXmlLens get/put
+# is constant-complement (Bancilhon & Spyratos 1981); the canonical
+# form normalizes via xml-c14n-1.1 (Boyer & Marcy 2008) which expands
+# the five XML-predefined entity references (XML 1.0 §4.6) before
+# re-escaping per §3.5.
+"usc_title_18@pl-119-90" = "7e8f4cdf99cdca0ed611fef0f8b508f1179f3dbdae67cdfd751c4f8944736939"
+# USC Title 49 — Transportation. Same lens, same canonical form.
+"usc_title_49@pl-119-90" = "1902b2bb287fcfd2af1a59cec9619f05a177161bde1aec77c5683216aca0cccb"

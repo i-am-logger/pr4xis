@@ -175,12 +175,60 @@ pub fn canonicalize(bytes: &[u8]) -> Result<Vec<u8>, CanonicalizationError> {
                     })?;
             }
             Event::Eof => break,
-            Event::GeneralRef(_) => {
-                // Entity reference outside the supported subset.
-                return Err(CanonicalizationError::new(
-                    FORM,
-                    "general entity references are not supported in the C14N 1.1 subset",
-                ));
+            Event::GeneralRef(gref) => {
+                // XML 1.0 §4.6 mandates that five general entities
+                // are predefined and need no DTD declaration:
+                //   &amp;  → &
+                //   &lt;   → <
+                //   &gt;   → >
+                //   &apos; → '
+                //   &quot; → "
+                // Per W3C XML Canonicalization 1.1 §2.4 (Boyer & Marcy
+                // 2008 W3C Rec) entity references are expanded; the
+                // canonical output then re-escapes the special
+                // characters per the standard `<`, `>`, `&` rules
+                // (§3.5). Net effect: predefined-entity references
+                // round-trip idempotently through canonicalization.
+                //
+                // External / DTD-declared entities remain unsupported
+                // — those require a full DTD-resolution pass that
+                // the streaming canonicalizer is not designed for.
+                let name_bytes = gref.into_inner();
+                let name = core::str::from_utf8(&name_bytes).map_err(|e| {
+                    CanonicalizationError::new(
+                        FORM,
+                        format!("non-UTF-8 general-entity-reference name: {}", e),
+                    )
+                })?;
+                let expanded = match name {
+                    "amp" => "&",
+                    "lt" => "<",
+                    "gt" => ">",
+                    "apos" => "'",
+                    "quot" => "\"",
+                    other => {
+                        return Err(CanonicalizationError::new(
+                            FORM,
+                            format!(
+                                "general entity reference `&{other};` is not one of the five \
+                                 XML-predefined entities (amp / lt / gt / apos / quot); DTD-\
+                                 declared external entities are not in the C14N 1.1 subset"
+                            ),
+                        ));
+                    }
+                };
+                let normalized = normalize_character_data(expanded);
+                let escaped = escape_character_data(&normalized);
+                writer
+                    .write_event(Event::Text(quick_xml::events::BytesText::from_escaped(
+                        escaped,
+                    )))
+                    .map_err(|e| {
+                        CanonicalizationError::new(
+                            FORM,
+                            format!("emit expanded predefined entity `&{name};`: {}", e),
+                        )
+                    })?;
             }
         }
         buf.clear();

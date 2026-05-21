@@ -647,5 +647,23 @@ impl WellBehavedLens for UslmXmlLens {
     }
 }
 
+// =============================================================================
+// Round-trip harness registrations.
+//
+// Each registered source binds `UslmXmlLens` to a specific
+// `(name, version)` entry in `praxis.toml`. The
+// [`crate::formal::meta::well_behaved_lens::harness::RoundTripHarnessAllVerified`]
+// axiom iterates these, runs the PutGet law, and verifies the
+// canonical-form SHA-256 against the matching
+// `[canonical_signatures]` entry in `praxis.lock`.
+//
+// One invocation per registered USC title — the harness picks them
+// up at link time via the `linkme` distributed slice; no central
+// list to keep in sync.
+// =============================================================================
+
+crate::register_lens!(USC_TITLE_18_LENS, "usc_title_18", "pl-119-90", UslmXmlLens);
+crate::register_lens!(USC_TITLE_49_LENS, "usc_title_49", "pl-119-90", UslmXmlLens);
+
 #[cfg(test)]
 mod tests;
