@@ -426,10 +426,10 @@ mod tests {
                         .map(|p| abs + p)
                         .unwrap_or(src_lower.len());
                     let attr_slice = &USLM_1_0_18_XSD[abs..tag_close];
-                    if let Some(found_name) = extract_attr(attr_slice, "name") {
-                        if found_name.to_lowercase() == *name {
-                            return true;
-                        }
+                    if let Some(found_name) = extract_attr(attr_slice, "name")
+                        && found_name.to_lowercase() == *name
+                    {
+                        return true;
                     }
                     cursor = tag_close + 1;
                 }

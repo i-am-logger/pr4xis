@@ -1,7 +1,7 @@
-//! SOX/AIR21 contributing-factor causation standard — application-
-//! layer ontology adjoining into the reference proof-standard tier.
-//! Statute-only sourcing: case-law confirmations live at per-case
-//! homes (see `mod.rs`).
+//! AIR21 § 42121(b)(2)(B) contributing-factor causation standard —
+//! application-layer ontology adjoining into the reference proof-
+//! standard tier. Statute-only sourcing: case-law confirmations live
+//! at per-case homes (see `mod.rs`).
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
@@ -23,12 +23,12 @@ use crate::social::judicial::proof_standard::ontology::{
 const REFERENCE_MIN_TIER: u8 = 1;
 
 pr4xis::ontology! {
-    name: "SoxProofStandard",
-    source: "18 U.S.C. § 1514A(b)(2)(C); 49 U.S.C. § 42121(b)(2)(B)(i)-(iv); Stuckenschmidt, Parent, Spaccapietra (2009) Modular Ontologies, Springer LNCS 5445; Guarino & Welty (2002) Evaluating Ontological Decisions with OntoClean, CACM 45(2):61-65",
+    name: "Air21ProofStandard",
+    source: "49 U.S.C. § 42121(b)(2)(B)(i)-(iv); 18 U.S.C. § 1514A(b)(2)(C); Stuckenschmidt, Parent, Spaccapietra (2009) Modular Ontologies, Springer LNCS 5445; Guarino & Welty (2002) Evaluating Ontological Decisions with OntoClean, CACM 45(2):61-65",
 
     concepts: [
         // Root
-        SoxProofStandard,
+        Air21ProofStandard,
 
         // The single application-layer leaf — strictly below the
         // reference layer's minimum tier (Preponderance).
@@ -36,22 +36,22 @@ pr4xis::ontology! {
     ],
 
     labels: {
-        SoxProofStandard: ("en", "SOX proof standard",
-            "18 U.S.C. § 1514A(b)(2)(C): SOX whistleblower retaliation causation framework, incorporating AIR21 § 42121(b)(2)(B). Application-layer extension of the reference proof-standard partition."),
+        Air21ProofStandard: ("en", "AIR21 proof standard",
+            "49 U.S.C. § 42121(b)(2)(B): the four-clause burden-shifting framework for federal whistleblower retaliation, incorporated by reference into SOX § 1514A, FRSA § 20109, CFPA § 1057, NDAA § 4712, and other federal whistleblower regimes. Application-layer extension of the reference proof-standard partition."),
         ContributingFactor: ("en", "Contributing factor",
-            "49 U.S.C. § 42121(b)(2)(B)(i): the complainant's causation burden in a SOX/AIR21 whistleblower retaliation claim. Protected activity need only have been *a* contributing factor in the adverse action; the bar is statutorily lower than preponderance."),
+            "49 U.S.C. § 42121(b)(2)(B)(i): the complainant's causation burden in a federal whistleblower-retaliation claim. Protected activity need only have been *a* contributing factor in the adverse action; the bar is statutorily lower than preponderance."),
     },
 
     is_a: [
-        (ContributingFactor, SoxProofStandard),
+        (ContributingFactor, Air21ProofStandard),
     ],
 }
 
 // ---------------------------------------------------------------------------
-// Quality: SoxStringencyOf — extends the reference stringency ordering
+// Quality: Air21StringencyOf — extends the reference stringency ordering
 // ---------------------------------------------------------------------------
 
-/// Quality: integer stringency tier for SOX/AIR21 contributing-factor
+/// Quality: integer stringency tier for AIR21 contributing-factor
 /// causation. ContributingFactor's tier is **0** — strictly below the
 /// reference layer's minimum (Preponderance = 1). Returns `None` for
 /// the abstract root.
@@ -60,16 +60,16 @@ pr4xis::ontology! {
 /// frames the showing as "a contributing factor" rather than "more
 /// likely than not," establishing the lower bar.
 #[derive(Debug, Clone)]
-pub struct SoxStringencyOf;
+pub struct Air21StringencyOf;
 
-impl Quality for SoxStringencyOf {
-    type Individual = SoxProofStandardConcept;
+impl Quality for Air21StringencyOf {
+    type Individual = Air21ProofStandardConcept;
     type Value = u8;
 
-    fn get(&self, c: &SoxProofStandardConcept) -> Option<u8> {
+    fn get(&self, c: &Air21ProofStandardConcept) -> Option<u8> {
         match c {
-            SoxProofStandardConcept::ContributingFactor => Some(0),
-            SoxProofStandardConcept::SoxProofStandard => None,
+            Air21ProofStandardConcept::ContributingFactor => Some(0),
+            Air21ProofStandardConcept::Air21ProofStandard => None,
         }
     }
 }
@@ -79,22 +79,22 @@ impl Quality for SoxStringencyOf {
 // ---------------------------------------------------------------------------
 
 /// The single application-layer leaf.
-pub fn leaves() -> [SoxProofStandardConcept; 1] {
-    [SoxProofStandardConcept::ContributingFactor]
+pub fn leaves() -> [Air21ProofStandardConcept; 1] {
+    [Air21ProofStandardConcept::ContributingFactor]
 }
 
 /// True iff `c` is a leaf of this application-layer ontology.
-pub fn is_leaf(c: SoxProofStandardConcept) -> bool {
-    matches!(c, SoxProofStandardConcept::ContributingFactor)
+pub fn is_leaf(c: Air21ProofStandardConcept) -> bool {
+    matches!(c, Air21ProofStandardConcept::ContributingFactor)
 }
 
 // ---------------------------------------------------------------------------
 // Domain axioms
 // ---------------------------------------------------------------------------
 
-impl Ontology for SoxProofStandardOntology {
-    type Cat = SoxProofStandardCategory;
-    type Qual = SoxStringencyOf;
+impl Ontology for Air21ProofStandardOntology {
+    type Cat = Air21ProofStandardCategory;
+    type Qual = Air21StringencyOf;
 
     fn axioms() -> Vec<Box<dyn Axiom>> {
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
@@ -105,14 +105,14 @@ impl Ontology for SoxProofStandardOntology {
     }
 }
 
-/// Axiom: the SOX-specific partition has exactly one leaf
-/// (ContributingFactor). Additional SOX-specific tiers would require
+/// Axiom: the AIR21-specific partition has exactly one leaf
+/// (ContributingFactor). Additional AIR21-specific tiers would require
 /// fresh primary-source attestation.
 pub struct PartitionCompleteness;
 
 impl Axiom for PartitionCompleteness {
     fn verify(&self) -> Verdict {
-        let count = SoxProofStandardConcept::variants()
+        let count = Air21ProofStandardConcept::variants()
             .into_iter()
             .filter(|c| is_leaf(*c))
             .count();
@@ -125,30 +125,30 @@ impl Axiom for PartitionCompleteness {
 
     pr4xis::axiom_meta!(
         "PartitionCompleteness",
-        "the SOX application-layer partition has exactly one leaf (ContributingFactor)",
-        "18 U.S.C. § 1514A(b)(2)(C); 49 U.S.C. § 42121(b)(2)(B)"
+        "the AIR21 application-layer partition has exactly one leaf (ContributingFactor)",
+        "49 U.S.C. § 42121(b)(2)(B); 18 U.S.C. § 1514A(b)(2)(C)"
     );
 }
 
 pr4xis::register_axiom!(
     PartitionCompleteness,
-    "18 U.S.C. § 1514A(b)(2)(C); 49 U.S.C. § 42121(b)(2)(B)"
+    "49 U.S.C. § 42121(b)(2)(B); 18 U.S.C. § 1514A(b)(2)(C)"
 );
 
 /// Axiom: ContributingFactor sits strictly *below* the reference
-/// layer's minimum stringency tier — the SOX causation burden is
+/// layer's minimum stringency tier — the AIR21 causation burden is
 /// statutorily lower than the classical civil-default Preponderance
 /// standard. § 42121(b)(2)(B)(i) frames the requirement as "a
 /// contributing factor," a phrasing the Federal Circuit and ARB have
 /// consistently read to fall below preponderance.
 ///
-/// Verifies by comparing `SoxStringencyOf(ContributingFactor)` against
+/// Verifies by comparing `Air21StringencyOf(ContributingFactor)` against
 /// the internalized `REFERENCE_MIN_TIER` constant.
 pub struct ContributingFactorBelowReferencePartition;
 
 impl Axiom for ContributingFactorBelowReferencePartition {
     fn verify(&self) -> Verdict {
-        let cf_tier = SoxStringencyOf.get(&SoxProofStandardConcept::ContributingFactor);
+        let cf_tier = Air21StringencyOf.get(&Air21ProofStandardConcept::ContributingFactor);
         match cf_tier {
             Some(t) if t < REFERENCE_MIN_TIER => Ok(Box::new(SimpleProof::new(self.meta()))),
             _ => Err(Box::new(SimpleCounterexample::new(self.meta()))),
@@ -189,7 +189,7 @@ impl Axiom for ReferenceMinTierCoherence {
 
     pr4xis::axiom_meta!(
         "ReferenceMinTierCoherence",
-        "REFERENCE_MIN_TIER matches the reference layer's StringencyOf(Preponderance) — the seam between SOX application layer and the general proof-standard partition holds",
+        "REFERENCE_MIN_TIER matches the reference layer's StringencyOf(Preponderance) — the seam between AIR21 application layer and the general proof-standard partition holds",
         "social::judicial::proof_standard::ontology::StringencyOf"
     );
 }

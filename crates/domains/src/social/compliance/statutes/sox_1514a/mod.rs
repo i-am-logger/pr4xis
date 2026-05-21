@@ -8,8 +8,12 @@
 //! Citation: 18 U.S.C. § 1514A (2002, Sarbanes–Oxley Act § 806);
 //! 1 U.S.C. § 204 (Code authority); LRC, *USLM XML User Guide* §V
 //! (USC URN hierarchy).
-
-pub mod proof_standard;
+//!
+//! The contributing-factor proof-standard ontology that § 1514A
+//! incorporates by reference through § 1514A(b)(2)(C) lives at
+//! [`crate::social::compliance::proof_standards::air21_framework`] —
+//! the same AIR21 § 42121(b)(2)(B) framework that FRSA, CFPA, NDAA,
+//! and other federal whistleblower statutes also import.
 
 use std::sync::OnceLock;
 

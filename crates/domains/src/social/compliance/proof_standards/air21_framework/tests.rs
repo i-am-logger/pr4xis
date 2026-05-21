@@ -1,12 +1,12 @@
-//! Tests for the SoxProofStandardOntology.
+//! Tests for the Air21ProofStandardOntology.
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::{
-    ContributingFactorBelowReferencePartition, PartitionCompleteness, ReferenceMinTierCoherence,
-    SoxProofStandardCategory, SoxProofStandardConcept, SoxProofStandardOntology, SoxStringencyOf,
-    is_leaf, leaves,
+    Air21ProofStandardCategory, Air21ProofStandardConcept, Air21ProofStandardOntology,
+    Air21StringencyOf, ContributingFactorBelowReferencePartition, PartitionCompleteness,
+    ReferenceMinTierCoherence, is_leaf, leaves,
 };
 use crate::social::judicial::proof_standard::ontology::{
     ProofStandardConcept, StringencyOf as ReferenceStringency,
@@ -21,12 +21,12 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 #[test]
 fn category_laws() {
-    assert_category_laws::<SoxProofStandardCategory>();
+    assert_category_laws::<Air21ProofStandardCategory>();
 }
 
 #[test]
 fn ontology_validates() {
-    SoxProofStandardOntology::validate()
+    Air21ProofStandardOntology::validate()
         .unwrap_or_else(|c| panic!("validation failed: {}", c.meta().description.as_str()));
 }
 
@@ -36,24 +36,24 @@ fn ontology_validates() {
 
 #[test]
 fn two_concepts_one_leaf() {
-    assert_eq!(SoxProofStandardConcept::variants().len(), 2);
+    assert_eq!(Air21ProofStandardConcept::variants().len(), 2);
     assert_eq!(leaves().len(), 1);
 }
 
 #[test]
 fn contributing_factor_is_only_leaf() {
-    assert!(is_leaf(SoxProofStandardConcept::ContributingFactor));
-    assert!(!is_leaf(SoxProofStandardConcept::SoxProofStandard));
+    assert!(is_leaf(Air21ProofStandardConcept::ContributingFactor));
+    assert!(!is_leaf(Air21ProofStandardConcept::Air21ProofStandard));
 }
 
 // =============================================================================
-// SoxStringencyOf — tier 0 below reference partition
+// Air21StringencyOf — tier 0 below reference partition
 // =============================================================================
 
 #[test]
 fn contributing_factor_is_tier_zero() {
     assert_eq!(
-        SoxStringencyOf.get(&SoxProofStandardConcept::ContributingFactor),
+        Air21StringencyOf.get(&Air21ProofStandardConcept::ContributingFactor),
         Some(0)
     );
 }
@@ -61,29 +61,29 @@ fn contributing_factor_is_tier_zero() {
 #[test]
 fn root_has_no_tier() {
     assert_eq!(
-        SoxStringencyOf.get(&SoxProofStandardConcept::SoxProofStandard),
+        Air21StringencyOf.get(&Air21ProofStandardConcept::Air21ProofStandard),
         None
     );
 }
 
 #[test]
 fn contributing_factor_strictly_below_reference_preponderance() {
-    let sox = SoxStringencyOf
-        .get(&SoxProofStandardConcept::ContributingFactor)
+    let air21 = Air21StringencyOf
+        .get(&Air21ProofStandardConcept::ContributingFactor)
         .unwrap();
     let preponderance = ReferenceStringency
         .get(&ProofStandardConcept::Preponderance)
         .unwrap();
     assert!(
-        sox < preponderance,
-        "SOX contributing-factor tier {sox} must be strictly below reference preponderance tier {preponderance}"
+        air21 < preponderance,
+        "AIR21 contributing-factor tier {air21} must be strictly below reference preponderance tier {preponderance}"
     );
 }
 
 #[test]
 fn contributing_factor_below_all_reference_tiers() {
-    let sox = SoxStringencyOf
-        .get(&SoxProofStandardConcept::ContributingFactor)
+    let air21 = Air21StringencyOf
+        .get(&Air21ProofStandardConcept::ContributingFactor)
         .unwrap();
     for c in [
         ProofStandardConcept::Preponderance,
@@ -92,8 +92,8 @@ fn contributing_factor_below_all_reference_tiers() {
     ] {
         let ref_tier = ReferenceStringency.get(&c).unwrap();
         assert!(
-            sox < ref_tier,
-            "ContributingFactor tier {sox} must be below {c:?} tier {ref_tier}"
+            air21 < ref_tier,
+            "ContributingFactor tier {air21} must be below {c:?} tier {ref_tier}"
         );
     }
 }
@@ -119,7 +119,7 @@ fn axiom_reference_min_tier_coherence() {
 
 #[test]
 fn all_axioms_hold() {
-    for axiom in SoxProofStandardOntology::axioms() {
+    for axiom in Air21ProofStandardOntology::axioms() {
         if let Err(c) = axiom.verify() {
             panic!("axiom failed: {}", c.meta().name.as_str());
         }

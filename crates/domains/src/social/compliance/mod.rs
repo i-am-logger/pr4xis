@@ -7,6 +7,7 @@ pub mod compositions;
 pub mod escalation;
 pub mod law;
 pub mod ontology;
+pub mod proof_standards;
 pub mod statutes;
 
 #[cfg(test)]

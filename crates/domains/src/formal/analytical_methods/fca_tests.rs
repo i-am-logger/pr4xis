@@ -214,7 +214,7 @@ fn empty_context_produces_at_least_one_concept() {
     // a single concept (∅, ∅).
     let ctx: FormalContext<&str, &str> = FormalContext::from_matrix(vec![], vec![], vec![]);
     let lat = ctx.build_lattice();
-    assert!(lat.len() >= 1);
+    assert!(!lat.is_empty());
 }
 
 #[test]
@@ -223,7 +223,7 @@ fn single_object_single_attribute_context() {
     let lat = ctx.build_lattice();
     // Two concepts: (∅, {P}) and ({x}, {P}). Or in the degenerate
     // single-attribute case, just one if the attribute is full.
-    assert!(lat.len() >= 1);
+    assert!(!lat.is_empty());
     assert!(lat.top().is_some());
     assert!(lat.bottom().is_some());
 }
@@ -291,7 +291,7 @@ proptest! {
     fn property_concepts_distinct_by_intent(ctx in arb_context()) {
         let lat = ctx.build_lattice();
         let mut intents: Vec<_> = lat.concepts.iter().map(|c| c.intent.clone()).collect();
-        intents.sort_by(|a, b| a.to_vec().cmp(&b.to_vec()));
+        intents.sort_by_key(|a| a.to_vec());
         let len = intents.len();
         intents.dedup();
         prop_assert_eq!(intents.len(), len);
