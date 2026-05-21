@@ -301,7 +301,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::applied::data_provisioning::registry;
+    use crate::applied::data_provisioning::registry::{
+        StructuralData, StructuralRelation, StructuralTerm,
+    };
     use crate::social::judicial::citation::ontology::PinpointCitationConcept;
 
     fn sox_root() -> PinpointCite {
@@ -311,7 +313,6 @@ mod tests {
     }
 
     fn sox_curie_mapper(local: &str) -> Option<Vec<String>> {
-        // Mirror sox_1514a::canonical_audit::parse_curie_subsection_path.
         let stripped = local.find("_v").map(|i| &local[..i]).unwrap_or(local);
         let mut path = Vec::new();
         let chars: Vec<char> = stripped.chars().collect();
@@ -346,11 +347,45 @@ mod tests {
     const SOX_CANONICAL: &str =
         include_str!("../../../../data/test_fixtures/statute_shape/sox_1514a_shape.txt");
 
-    #[test]
-    fn generates_report_for_sox_1514a() {
-        let structural =
-            registry::structural_for("sox_1514a", "2002").expect("praxis.lock has sox_1514a@2002");
+    /// Minimal hand-built `StructuralData` for report-generator tests
+    /// — three terms, one Composes relation. The report generator is
+    /// statute-agnostic; this fixture exercises every section of the
+    /// rendered markdown without depending on any specific statute's
+    /// term count or wording.
+    fn fixture_structural() -> StructuralData {
+        StructuralData {
+            description: "report-generator test fixture".into(),
+            terms: vec![
+                StructuralTerm {
+                    id: "sox_1514a:a".into(),
+                    name: "Covered Employer".into(),
+                    definition: "Definition (a).".into(),
+                    lemmas: Vec::new(),
+                },
+                StructuralTerm {
+                    id: "sox_1514a:b2b".into(),
+                    name: "Procedure".into(),
+                    definition: "Definition (b)(2)(B).".into(),
+                    lemmas: Vec::new(),
+                },
+                StructuralTerm {
+                    id: "sox_1514a:b2b_iii".into(),
+                    name: "Merits clause".into(),
+                    definition: "Definition (b)(2)(B)(iii).".into(),
+                    lemmas: Vec::new(),
+                },
+            ],
+            relations: vec![StructuralRelation {
+                from: "sox_1514a:b2b_iii".into(),
+                to: "sox_1514a:b2b".into(),
+                relation: "Composes".into(),
+            }],
+        }
+    }
 
+    #[test]
+    fn report_renders_every_section() {
+        let structural = fixture_structural();
         let ctx = ReportContext {
             statute_name: "sox_1514a",
             statute_version: "2002",
@@ -358,7 +393,7 @@ mod tests {
             canonical_sha256: "a1a53fd9576443c176ac33dca7c88d8257a708c3c9c4b2680dff21ff76cf5d12",
             canonical_provenance: "training_reconstructed_2026-05-15",
             root_cite: sox_root(),
-            structural,
+            structural: &structural,
             curie_mapper: sox_curie_mapper,
             paraphrases: &[ReportParaphrase {
                 term_id: "sox_1514a:a",
@@ -376,7 +411,6 @@ mod tests {
 
         let report = generate_statute_report(&ctx);
 
-        // Spot checks: every section present.
         assert!(report.contains("# Praxis-understanding report: `sox_1514a@2002`"));
         assert!(report.contains("Canonical text SHA-256"));
         assert!(report.contains("## Term-side bridge audit"));
@@ -385,39 +419,16 @@ mod tests {
         assert!(report.contains("## Relation-side audit"));
         assert!(report.contains("## Documented paraphrases"));
         assert!(report.contains("## Documented gaps requiring resolution"));
-        // Includes lock-relation count.
-        assert!(report.contains("Lock terms: 28"));
-        assert!(report.contains("Lock relations: 18"));
-        // Includes a known paraphrase entry.
+        // Counts come from the fixture (3 terms, 1 relation).
+        assert!(report.contains("Lock terms: 3"));
+        assert!(report.contains("Lock relations: 1"));
         assert!(report.contains("Covered Employer shorthand"));
-        // Includes a known gap entry.
         assert!(report.contains("DefinitionDrift"));
     }
 
     #[test]
-    fn report_includes_extracted_relations() {
-        let structural = registry::structural_for("sox_1514a", "2002").unwrap();
-        let ctx = ReportContext {
-            statute_name: "sox_1514a",
-            statute_version: "2002",
-            canonical_text: SOX_CANONICAL,
-            canonical_sha256: "test",
-            canonical_provenance: "test",
-            root_cite: sox_root(),
-            structural,
-            curie_mapper: sox_curie_mapper,
-            paraphrases: &[],
-            gaps: &[],
-        };
-        let report = generate_statute_report(&ctx);
-        // SOX has 2 extracted "shall be governed by/under" candidates.
-        assert!(report.contains("shall be governed"));
-        assert!(report.contains("Requires"));
-    }
-
-    #[test]
     fn report_with_no_paraphrases_omits_section() {
-        let structural = registry::structural_for("sox_1514a", "2002").unwrap();
+        let structural = fixture_structural();
         let ctx = ReportContext {
             statute_name: "sox_1514a",
             statute_version: "2002",
@@ -425,7 +436,7 @@ mod tests {
             canonical_sha256: "test",
             canonical_provenance: "test",
             root_cite: sox_root(),
-            structural,
+            structural: &structural,
             curie_mapper: sox_curie_mapper,
             paraphrases: &[],
             gaps: &[],
@@ -433,100 +444,5 @@ mod tests {
         let report = generate_statute_report(&ctx);
         assert!(!report.contains("## Documented paraphrases"));
         assert!(!report.contains("## Documented gaps requiring resolution"));
-    }
-
-    #[test]
-    fn report_renders_orphan_clauses_section() {
-        // AIR21 has known orphan subsections (b)(3)(A) and (b)(4)(A)
-        // — verify they show up in the report.
-        const AIR21_CANONICAL: &str =
-            include_str!("../../../../data/test_fixtures/statute_shape/air21_42121_shape.txt");
-
-        fn air21_root() -> PinpointCite {
-            PinpointCite::new()
-                .push(PinpointCitationConcept::Title, "49")
-                .push(PinpointCitationConcept::Section, "42121")
-        }
-
-        fn air21_mapper(local: &str) -> Option<Vec<String>> {
-            // Mirror air21_42121::canonical_audit::parse_curie_subsection_path.
-            let mut path = Vec::new();
-            let parts: Vec<&str> = local.split('_').collect();
-            if let Some(first) = parts.first() {
-                let chars: Vec<char> = first.chars().collect();
-                let mut i = 0;
-                while i < chars.len() {
-                    let c = chars[i];
-                    if c.is_ascii_alphabetic() {
-                        path.push(c.to_string());
-                        i += 1;
-                    } else if c.is_ascii_digit() {
-                        let mut num = String::new();
-                        while i < chars.len() && chars[i].is_ascii_digit() {
-                            num.push(chars[i]);
-                            i += 1;
-                        }
-                        path.push(num);
-                    } else {
-                        i += 1;
-                    }
-                }
-            }
-            for part in parts.iter().skip(1) {
-                if !part.is_empty() {
-                    path.push(part.to_string());
-                }
-            }
-            // Uppercase trailing alphabetic if it follows a digit.
-            for i in 0..path.len() {
-                let elem = &path[i];
-                if elem.len() == 1
-                    && elem.chars().next().unwrap().is_ascii_alphabetic()
-                    && elem.chars().next().unwrap().is_lowercase()
-                    && i > 0
-                    && path[i - 1].chars().all(|c| c.is_ascii_digit())
-                {
-                    path[i] = elem.to_uppercase();
-                }
-            }
-            Some(path)
-        }
-
-        let structural = registry::structural_for("air21_42121", "2010").unwrap();
-        let ctx = ReportContext {
-            statute_name: "air21_42121",
-            statute_version: "2010",
-            canonical_text: AIR21_CANONICAL,
-            canonical_sha256: "test",
-            canonical_provenance: "test",
-            root_cite: air21_root(),
-            structural,
-            curie_mapper: air21_mapper,
-            paraphrases: &[],
-            gaps: &[],
-        };
-        let report = generate_statute_report(&ctx);
-        // Orphan clauses (b)(3)(A) and (b)(4)(A) appear.
-        assert!(report.contains("(b)(3)(A)") || report.contains("(b)(4)(A)"));
-    }
-
-    #[test]
-    fn print_sox_report() {
-        // Informational: visible with `cargo test -- --nocapture`.
-        let structural = registry::structural_for("sox_1514a", "2002").unwrap();
-        let ctx = ReportContext {
-            statute_name: "sox_1514a",
-            statute_version: "2002",
-            canonical_text: SOX_CANONICAL,
-            canonical_sha256: "a1a53fd9576443c176ac33dca7c88d8257a708c3c9c4b2680dff21ff76cf5d12",
-            canonical_provenance: "training_reconstructed_2026-05-15",
-            root_cite: sox_root(),
-            structural,
-            curie_mapper: sox_curie_mapper,
-            paraphrases: &[],
-            gaps: &[],
-        };
-        let report = generate_statute_report(&ctx);
-        eprintln!("\n{report}\n");
     }
 }

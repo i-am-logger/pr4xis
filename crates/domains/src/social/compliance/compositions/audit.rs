@@ -161,11 +161,11 @@ pub fn audit_composition_cross_refs(
                         .map(|s| s.label.to_lowercase())
                         .collect();
                     // The cross-reference's from_term is a CURIE like
-                    // "sox_1514a:b2a"; extract the local part and
-                    // compare against the candidate path's joined
-                    // form (case-insensitive).
+                    // "sox_1514a:b_2_A"; strip the underscores that
+                    // separate URN segments and compare against the
+                    // candidate path's joined form (case-insensitive).
                     let cr_local = cr.from_term.value().split_once(':').map(|(_, l)| l)?;
-                    let cr_local_lower = cr_local.to_lowercase();
+                    let cr_local_lower = cr_local.to_lowercase().replace('_', "");
                     let path_concat = candidate_path.join("");
                     if cr_local_lower == path_concat {
                         Some(c.phrase.clone())
@@ -353,11 +353,13 @@ mod tests {
     }
 
     // Sanity check: ensure the bundled statutes load (the audit's
-    // pre-conditions hold).
+    // pre-conditions hold). `statute()` is infallible — panics if
+    // the URN isn't in the loaded UsCode corpus — so we just touch
+    // each instance and assert the registered names round-trip.
     #[test]
     fn statutes_load() {
-        assert!(sox_1514a::try_statute().is_ok());
-        assert!(air21_42121::try_statute().is_ok());
+        assert_eq!(sox_1514a::statute().name(), "sox_1514a");
+        assert_eq!(air21_42121::statute().name(), "air21_42121");
     }
 
     #[test]

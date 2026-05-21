@@ -311,10 +311,10 @@ mod tests {
         );
         let cross_refs = vec![CrossReference {
             from_source: "sox_1514a".to_string(),
-            from_term: id("sox_1514a:b2c"),
+            from_term: id("sox_1514a:b_2_C"),
             kind: CrossReferenceKind::Requires,
             to_source: "air21_42121".to_string(),
-            to_term: id("air21_42121:b2b"),
+            to_term: id("air21_42121:b_2_B"),
             rationale: SourceTextRef::new(
                 "SOX § 1514A(b)(2)(C) governs district-court actions by the AIR21 § 42121(b) burden-shifting framework",
             ),
@@ -379,7 +379,7 @@ mod tests {
             from_term: id("sox_1514a:nonexistent"),
             kind: CrossReferenceKind::Requires,
             to_source: "air21_42121".to_string(),
-            to_term: id("air21_42121:b2b"),
+            to_term: id("air21_42121:b_2_B"),
             rationale: SourceTextRef::new("test"),
         }];
         let err = ProofFramework::new(

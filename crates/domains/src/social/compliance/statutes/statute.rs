@@ -31,8 +31,8 @@ use crate::social::judicial::ontology::{
 use crate::social::judicial::source_text::SourceTextRef;
 
 /// The runtime form of a loaded statute. Constructed via
-/// [`Self::from_structural`] from `praxis.lock`'s structural data;
-/// cached by each per-statute module behind a `OnceLock`.
+/// [`Self::from_structural_with_context`] from USLM-derived structural
+/// data; cached by each per-statute module behind a `OnceLock`.
 #[derive(Debug, Clone)]
 pub struct Statute {
     name: String,
@@ -104,24 +104,10 @@ impl core::fmt::Display for StatuteConstructError {
 }
 
 impl Statute {
-    /// Construct a `Statute` from praxis.lock structural data, using
-    /// the default `praxis-lock://<name>@<version>` provenance URI.
-    /// See [`Self::from_structural_with_context`] for the explicit-
-    /// context variant used by USLM-derived statutes.
-    pub fn from_structural(
-        name: &str,
-        version: &str,
-        data: &StructuralData,
-    ) -> Result<Self, StatuteConstructError> {
-        let context_uri = format!("praxis-lock://{name}@{version}");
-        Self::from_structural_with_context(name, version, data, &context_uri)
-    }
-
     /// Construct a `Statute` with an explicit provenance URI for
     /// every term's name/definition and the statute description.
     /// USLM-derived statutes pass the section URN (e.g.
-    /// `/us/usc/t18/s1514A`); lock-derived statutes use the
-    /// `praxis-lock://` shim form via [`Self::from_structural`].
+    /// `/us/usc/t18/s1514A`).
     ///
     /// Validates that every term id is a well-formed CURIE, every
     /// relation endpoint is a valid CURIE and resolves to an
@@ -331,7 +317,9 @@ mod tests {
 
     #[test]
     fn happy_path_constructs() {
-        let s = Statute::from_structural("test", "1", &minimal_data()).unwrap();
+        let s =
+            Statute::from_structural_with_context("test", "1", &minimal_data(), "test://context")
+                .unwrap();
         assert_eq!(s.name(), "test");
         assert_eq!(s.version(), "1");
         assert_eq!(s.terms().len(), 2);
@@ -342,7 +330,8 @@ mod tests {
     fn term_with_invalid_curie_id_rejected() {
         let mut data = minimal_data();
         data.terms[0].id = "no-colon-here".into();
-        let err = Statute::from_structural("test", "1", &data).unwrap_err();
+        let err = Statute::from_structural_with_context("test", "1", &data, "test://context")
+            .unwrap_err();
         assert!(matches!(
             err,
             StatuteConstructError::InvalidTermId { term_index: 0, .. }
@@ -353,7 +342,8 @@ mod tests {
     fn relation_with_invalid_from_curie_rejected() {
         let mut data = minimal_data();
         data.relations[0].from = "bare".into();
-        let err = Statute::from_structural("test", "1", &data).unwrap_err();
+        let err = Statute::from_structural_with_context("test", "1", &data, "test://context")
+            .unwrap_err();
         assert!(matches!(
             err,
             StatuteConstructError::InvalidRelationEndpoint {
@@ -368,7 +358,8 @@ mod tests {
     fn relation_with_invalid_to_curie_rejected() {
         let mut data = minimal_data();
         data.relations[0].to = "bare".into();
-        let err = Statute::from_structural("test", "1", &data).unwrap_err();
+        let err = Statute::from_structural_with_context("test", "1", &data, "test://context")
+            .unwrap_err();
         assert!(matches!(
             err,
             StatuteConstructError::InvalidRelationEndpoint {
@@ -383,7 +374,8 @@ mod tests {
     fn dangling_relation_rejected() {
         let mut data = minimal_data();
         data.relations[0].to = "test:nonexistent".into();
-        let err = Statute::from_structural("test", "1", &data).unwrap_err();
+        let err = Statute::from_structural_with_context("test", "1", &data, "test://context")
+            .unwrap_err();
         assert!(matches!(
             err,
             StatuteConstructError::DanglingRelation {
@@ -397,7 +389,8 @@ mod tests {
     fn unknown_relation_kind_rejected() {
         let mut data = minimal_data();
         data.relations[0].relation = "MadeUp".into();
-        let err = Statute::from_structural("test", "1", &data).unwrap_err();
+        let err = Statute::from_structural_with_context("test", "1", &data, "test://context")
+            .unwrap_err();
         assert!(matches!(
             err,
             StatuteConstructError::UnknownRelationKind {
@@ -439,17 +432,24 @@ mod tests {
     }
 
     #[test]
-    fn lock_context_uri_format() {
-        // The constructor must produce `praxis-lock://name@version` as
-        // the context URI on every SourceTextRef it builds — the
-        // canonical provenance string for lock-derived text.
-        let s = Statute::from_structural("test", "1", &minimal_data()).unwrap();
+    fn explicit_context_uri_propagates() {
+        // The constructor must propagate the supplied `context_uri` to
+        // every SourceTextRef it builds — the description and every
+        // term's name/definition. USLM-derived consumers rely on this
+        // to pin each statute back to its source URN.
+        let s = Statute::from_structural_with_context(
+            "test",
+            "1",
+            &minimal_data(),
+            "/us/usc/t99/s9999",
+        )
+        .unwrap();
         assert_eq!(
             s.description().context_uri.as_deref(),
-            Some("praxis-lock://test@1")
+            Some("/us/usc/t99/s9999")
         );
         for t in s.terms() {
-            assert_eq!(t.name.context_uri.as_deref(), Some("praxis-lock://test@1"));
+            assert_eq!(t.name.context_uri.as_deref(), Some("/us/usc/t99/s9999"));
         }
     }
 }

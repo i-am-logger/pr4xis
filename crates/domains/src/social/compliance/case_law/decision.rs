@@ -322,13 +322,16 @@ impl Decision {
     /// process statutes and cases uniformly through the proof-
     /// framework composition layer.
     ///
-    /// Reuses `Statute::from_structural` to share validation.
+    /// Reuses `Statute::from_structural_with_context` to share
+    /// validation. The provenance URI for the projected view is the
+    /// case's `praxis-lock://name@year` shim form.
     pub fn as_statute_view(
         &self,
         data: &StructuralData,
     ) -> Result<Statute, crate::social::compliance::statutes::StatuteConstructError> {
         let version = alloc::format!("{}", self.year);
-        Statute::from_structural(&self.name, &version, data)
+        let context_uri = alloc::format!("praxis-lock://{}@{}", self.name, version);
+        Statute::from_structural_with_context(&self.name, &version, data, &context_uri)
     }
 }
 

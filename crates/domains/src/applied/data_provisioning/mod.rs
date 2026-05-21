@@ -29,7 +29,6 @@
 //! - Global WordNet Association WN-LMF 1.3 — the upstream schema for
 //!   WordNet, the initial and only registered data source
 
-pub mod build_extraction;
 pub mod decoders;
 pub mod ontology;
 pub mod registry;

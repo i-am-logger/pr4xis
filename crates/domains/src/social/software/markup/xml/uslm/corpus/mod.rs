@@ -177,7 +177,7 @@ impl UscSection {
 
     /// Materialize a runtime [`crate::social::compliance::statutes::Statute`]
     /// from this section's subdivision tree. Downstream consumers
-    /// (e.g. `sox_1514a::statute_from_uslm`) call this directly via
+    /// (e.g. `sox_1514a::statute`) call this directly via
     /// [`crate::social::software::markup::xml::uslm::corpus::loaded`].
     ///
     /// CURIE prefixes for emitted terms are derived from

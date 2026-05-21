@@ -5,16 +5,17 @@
 //!
 //! Three statutory cross-references connect SOX's terms to AIR21's
 //! framework. Each is grounded in the express cross-reference
-//! language of § 1514A(b)(2)(A) or (C):
+//! language of § 1514A(b)(2)(A) or (C). CURIEs follow the USLM URN
+//! path convention (slashes → underscores):
 //!
-//! 1. `sox_1514a:b2a` Requires `air21_42121:b2` — § 1514A(b)(2)(A)
+//! 1. `sox_1514a:b_2_A` Requires `air21_42121:b_2` — § 1514A(b)(2)(A)
 //!    governs SOX actions by the AIR21 procedures.
-//! 2. `sox_1514a:b2c` Requires `air21_42121:b2b` — § 1514A(b)(2)(C)
+//! 2. `sox_1514a:b_2_C` Requires `air21_42121:b_2_B` — § 1514A(b)(2)(C)
 //!    governs the burdens of proof in SOX actions by the AIR21
 //!    four-clause framework.
-//! 3. `sox_1514a:a_v4` Implies `air21_42121:b2b_iii` — SOX's
-//!    "because of" causation element is substantively realized
-//!    through AIR21's merits contributing-factor demonstration.
+//! 3. `sox_1514a:a` Implies `air21_42121:b_2_B_iii` — SOX's
+//!    "because of" causation element in § 1514A(a) is substantively
+//!    realized through AIR21's merits contributing-factor demonstration.
 //!
 //! When the PDF loader lands and case-law decisions become loadable
 //! (Murray v. UBS, Lawson v. FMR, Sylvester v. Parexel, Marano v.
@@ -62,41 +63,41 @@ pub fn framework() -> &'static ProofFramework {
         let cross_references = vec![
             CrossReference {
                 from_source: "sox_1514a".to_string(),
-                from_term: Identifier::curie("sox_1514a:b2a")
+                from_term: Identifier::curie("sox_1514a:b_2_A")
                     .expect("valid CURIE"),
                 kind: CrossReferenceKind::Requires,
                 to_source: "air21_42121".to_string(),
-                to_term: Identifier::curie("air21_42121:b2")
+                to_term: Identifier::curie("air21_42121:b_2")
                     .expect("valid CURIE"),
                 rationale: SourceTextRef::with_context(
                     "18 U.S.C. § 1514A(b)(2)(A): SOX actions \"shall be governed by\" the rules and procedures set forth in 49 U.S.C. § 42121(b).",
-                    "praxis-lock://sox_1514a@2002+air21_42121@2010",
+                    "uslm-crossref://sox_1514a@2002+air21_42121@2010",
                 ),
             },
             CrossReference {
                 from_source: "sox_1514a".to_string(),
-                from_term: Identifier::curie("sox_1514a:b2c")
+                from_term: Identifier::curie("sox_1514a:b_2_C")
                     .expect("valid CURIE"),
                 kind: CrossReferenceKind::Requires,
                 to_source: "air21_42121".to_string(),
-                to_term: Identifier::curie("air21_42121:b2b")
+                to_term: Identifier::curie("air21_42121:b_2_B")
                     .expect("valid CURIE"),
                 rationale: SourceTextRef::with_context(
                     "18 U.S.C. § 1514A(b)(2)(C): SOX district-court actions \"shall be governed by the legal burdens of proof set forth in section 42121(b) of title 49\" — the four-clause framework.",
-                    "praxis-lock://sox_1514a@2002+air21_42121@2010",
+                    "uslm-crossref://sox_1514a@2002+air21_42121@2010",
                 ),
             },
             CrossReference {
                 from_source: "sox_1514a".to_string(),
-                from_term: Identifier::curie("sox_1514a:a_v4")
+                from_term: Identifier::curie("sox_1514a:a")
                     .expect("valid CURIE"),
                 kind: CrossReferenceKind::Implies,
                 to_source: "air21_42121".to_string(),
-                to_term: Identifier::curie("air21_42121:b2b_iii")
+                to_term: Identifier::curie("air21_42121:b_2_B_iii")
                     .expect("valid CURIE"),
                 rationale: SourceTextRef::with_context(
                     "SOX § 1514A(a)'s \"because of [protected activity]\" causation element is substantively realized by AIR21 § 42121(b)(2)(B)(iii)'s merits contributing-factor demonstration — the cross-reference at § 1514A(b)(2)(C) routes proof of causation through the contributing-factor standard.",
-                    "praxis-lock://sox_1514a@2002+air21_42121@2010",
+                    "uslm-crossref://sox_1514a@2002+air21_42121@2010",
                 ),
             },
         ];
@@ -105,7 +106,7 @@ pub fn framework() -> &'static ProofFramework {
             "sox_retaliation",
             SourceTextRef::with_context(
                 "The SOX whistleblower-retaliation proof framework: substantive prohibition and procedural posture from 18 U.S.C. § 1514A composed with the four-clause burden-shifting framework from 49 U.S.C. § 42121(b)(2)(B) imported by reference per § 1514A(b)(2)(A)-(C).",
-                "praxis-lock://sox_1514a@2002+air21_42121@2010",
+                "uslm-crossref://sox_1514a@2002+air21_42121@2010",
             ),
             statutes,
             cross_references,
@@ -169,10 +170,10 @@ mod tests {
         let cr = fw
             .cross_references()
             .iter()
-            .find(|c| c.from_term.value() == "sox_1514a:b2c")
-            .expect("b2c cross-reference exists");
+            .find(|c| c.from_term.value() == "sox_1514a:b_2_C")
+            .expect("(b)(2)(C) cross-reference exists");
         assert_eq!(cr.kind, CrossReferenceKind::Requires);
-        assert_eq!(cr.to_term.value(), "air21_42121:b2b");
+        assert_eq!(cr.to_term.value(), "air21_42121:b_2_B");
         assert!(cr.rationale.text.contains("1514A(b)(2)(C)"));
     }
 
@@ -182,10 +183,10 @@ mod tests {
         let cr = fw
             .cross_references()
             .iter()
-            .find(|c| c.from_term.value() == "sox_1514a:b2a")
-            .expect("b2a cross-reference exists");
+            .find(|c| c.from_term.value() == "sox_1514a:b_2_A")
+            .expect("(b)(2)(A) cross-reference exists");
         assert_eq!(cr.kind, CrossReferenceKind::Requires);
-        assert_eq!(cr.to_term.value(), "air21_42121:b2");
+        assert_eq!(cr.to_term.value(), "air21_42121:b_2");
     }
 
     #[test]
@@ -194,10 +195,10 @@ mod tests {
         let cr = fw
             .cross_references()
             .iter()
-            .find(|c| c.from_term.value() == "sox_1514a:a_v4")
-            .expect("a_v4 cross-reference exists");
+            .find(|c| c.from_term.value() == "sox_1514a:a")
+            .expect("(a) cross-reference exists");
         assert_eq!(cr.kind, CrossReferenceKind::Implies);
-        assert_eq!(cr.to_term.value(), "air21_42121:b2b_iii");
+        assert_eq!(cr.to_term.value(), "air21_42121:b_2_B_iii");
     }
 
     #[test]
@@ -245,7 +246,7 @@ mod tests {
             assert!(!cr.rationale.text.is_empty());
             assert_eq!(
                 cr.rationale.context_uri.as_deref(),
-                Some("praxis-lock://sox_1514a@2002+air21_42121@2010")
+                Some("uslm-crossref://sox_1514a@2002+air21_42121@2010")
             );
         }
     }

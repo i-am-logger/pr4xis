@@ -549,8 +549,8 @@ mod tests {
     /// instances that's allowed to name them.
     fn all_registered_statutes() -> Vec<&'static Statute> {
         vec![
-            crate::social::compliance::statutes::sox_1514a::statute_from_uslm(),
-            crate::social::compliance::statutes::air21_42121::statute_from_uslm(),
+            crate::social::compliance::statutes::sox_1514a::statute(),
+            crate::social::compliance::statutes::air21_42121::statute(),
         ]
     }
 

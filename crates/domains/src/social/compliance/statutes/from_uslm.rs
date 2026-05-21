@@ -7,10 +7,10 @@
 //! The functor is a thin adapter — it walks the section + every
 //! nested subdivision, builds a
 //! [`StructuralData`][structural_data] in-memory, then routes
-//! through the existing [`Statute::from_structural`] validation
-//! pipeline. This guarantees that XML-derived statutes pass the
-//! same CURIE-validity / dangling-relation / unknown-relation-kind
-//! checks as the `praxis.lock`-derived path.
+//! through the existing [`Statute::from_structural_with_context`]
+//! validation pipeline with the section URN as the provenance URI.
+//! This guarantees that XML-derived statutes pass the same CURIE-
+//! validity / dangling-relation / unknown-relation-kind checks.
 //!
 //! [english]: crate::cognitive::linguistics::english::English::from_wordnet
 //! [structural_data]: crate::applied::data_provisioning::registry::StructuralData
@@ -53,16 +53,19 @@ use crate::social::software::markup::xml::uslm::{UsCodeSection, UsCodeSubdivisio
 ///
 /// `name` is the praxis-registry statute name (`"sox_1514a"`) used
 /// as the CURIE prefix. `version` mirrors the praxis.toml version
-/// field. Errors propagate from [`Statute::from_structural`] —
-/// dangling Composes, malformed CURIEs, or unknown relation kinds
-/// fail closed.
+/// field. Errors propagate from
+/// [`Statute::from_structural_with_context`] — dangling Composes,
+/// malformed CURIEs, or unknown relation kinds fail closed. The
+/// section's URN is used as the provenance `context_uri` for every
+/// derived `SourceTextRef`.
 pub fn from_uslm_section(
     name: &str,
     version: &str,
     section: &UsCodeSection,
 ) -> Result<Statute, StatuteConstructError> {
     let data = derive_structural(name, section);
-    Statute::from_structural(name, version, &data)
+    let context_uri = section.identifier.as_str();
+    Statute::from_structural_with_context(name, version, &data, context_uri)
 }
 
 /// Derive a [`StructuralData`] from a UsCodeSection. Exposed for

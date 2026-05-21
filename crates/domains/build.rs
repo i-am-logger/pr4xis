@@ -1,31 +1,28 @@
-//! Build-time codegen for Static-store sources.
+//! Build-time codegen for the U.S. Code USLM XML corpus.
 //!
-//! For every `[sources.<name>]` entry in workspace-root `praxis.toml`
-//! with `type = "Statute"` (and a matching `[structural."<name>@<version>"]`
-//! block in `praxis.lock`), this build script runs the praxis statute
-//! codegen and writes `$OUT_DIR/<name>_codegen.rs`. The corresponding
-//! source module under `social::compliance::statutes::<name>::` includes
-//! it via `include!(concat!(env!("OUT_DIR"), "/<name>_codegen.rs"))`.
+//! Walks workspace-root `praxis.toml` for `[sources.<name>]` entries
+//! with `type = "UsCodeTitle"`. For each on-disk title XML, parses
+//! the USLM and emits the aggregated codegen output consumed at
+//! runtime by `social::software::markup::xml::uslm::corpus::loaded()`.
 //!
-//! Mirrors the wordnet codegen pattern in `crates/wasm/build.rs`. Skips
-//! gracefully if praxis.toml or praxis.lock is missing (downstream
-//! consumers of pr4xis-domains as a published crate hit that branch
-//! until the published-crate-bundles-its-own-praxis.toml story lands).
+//! Statutes (individual USC sections — e.g. 18 U.S.C. § 1514A,
+//! 49 U.S.C. § 42121) are slices of the loaded title corpus,
+//! addressable by USLM URN via `UsCode::section_by_urn`. They are
+//! never separate `[sources.*]` entries.
 //!
-//! The structural source of truth is `praxis.lock`; the manifest only
-//! enumerates which entries need codegen. Drift between the lock's
-//! structural data and the canonical sha256 in `[hashes]` is caught at
-//! runtime by `LockManifestAgreement`.
+//! Skips gracefully if praxis.toml or praxis.lock is missing
+//! (downstream consumers of pr4xis-domains as a published crate hit
+//! that branch until the published-crate-bundles-its-own-praxis.toml
+//! story lands).
+//!
+//! Citation: 1 U.S.C. § 204 (Code authority); LRC, *USLM XML User
+//! Guide* §V (USC URN hierarchy); W3C XML Schema 1.1 Part 1 (Gao,
+//! Sperberg-McQueen & Thompson 2012).
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 use serde::Deserialize;
-
-#[path = "build_helpers/extract_pdf.rs"]
-mod extract_pdf;
-
-use extract_pdf::{PdfExtractOutcome, escape_for_raw_string, extract_pdf_to_text};
 
 // ---------------------------------------------------------------------------
 // praxis.toml parsing — minimal, build-time only
@@ -59,35 +56,6 @@ struct RawLockFile {
     #[serde(default)]
     #[allow(dead_code)]
     hashes: HashMap<String, String>,
-    #[serde(default)]
-    structural: HashMap<String, RawStructural>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RawStructural {
-    #[serde(default)]
-    description: String,
-    #[serde(default)]
-    terms: Vec<RawTerm>,
-    #[serde(default)]
-    relations: Vec<RawRelation>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RawTerm {
-    id: String,
-    name: String,
-    #[serde(default)]
-    definition: String,
-    #[serde(default)]
-    lemmas: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RawRelation {
-    from: String,
-    to: String,
-    relation: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -119,13 +87,12 @@ fn main() {
     println!("cargo:rerun-if-changed={}", manifest_path.display());
     println!("cargo:rerun-if-changed={}", lock_path.display());
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=build_helpers/extract_pdf.rs");
 
     let manifest_text = std::fs::read_to_string(&manifest_path).expect("read praxis.toml");
     let lock_text = std::fs::read_to_string(&lock_path).expect("read praxis.lock");
 
     let manifest: RawManifest = toml::from_str(&manifest_text).expect("parse praxis.toml");
-    let lock: RawLockFile = toml::from_str(&lock_text).expect("parse praxis.lock");
+    let _lock: RawLockFile = toml::from_str(&lock_text).expect("parse praxis.lock");
 
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR is always set during builds");
     let out_dir = PathBuf::from(out_dir);
@@ -133,15 +100,15 @@ fn main() {
     let mut sorted_names: Vec<_> = manifest.sources.keys().cloned().collect();
     sorted_names.sort();
 
-    // Single ontological dispatch: every registered source is
-    // routed by its ContentType (derived from the SourceTaxonomy
-    // kind), not by a hand-edited string list of kinds. New
-    // statute leaves are picked up automatically; new ContentTypes
-    // need exactly one new arm in `dispatch_codegen`.
+    // Per-source dispatch (currently a no-op): UsCodeTitle sources are
+    // aggregated by `write_usc_corpus_codegen`; XSD sources have their
+    // own writers below; Language is handled by the wasm crate's
+    // build.rs. New ContentTypes that need per-source codegen add an
+    // arm in `dispatch_codegen` and a writer.
     for name in &sorted_names {
         let src = &manifest.sources[name];
         let ct = content_type_for_kind(&src.kind);
-        dispatch_codegen(name, src, ct, &workspace_root, &lock, &out_dir);
+        dispatch_codegen(name, src, ct, &workspace_root, &out_dir);
     }
 
     // After per-title codegen, emit a single aggregate
@@ -549,28 +516,18 @@ fn write_usc_corpus_codegen(
 }
 
 /// Route a registered source to its codegen path based on its
-/// canonical content type. Mirrors
-/// `applied::data_provisioning::ontology::canonical_encoding` —
-/// duplicated here because build.rs cannot depend on the crate it
-/// is building.
+/// canonical content type. Currently every active path is handled
+/// outside this function (UsCodeTitle by `write_usc_corpus_codegen`,
+/// XSD by the XSD writers, Language by the wasm crate's build.rs,
+/// AdobeGlyphList via `include_str!`), so this is effectively a
+/// no-op left as the dispatch hook for future per-source writers.
 fn dispatch_codegen(
-    name: &str,
-    src: &RawSource,
-    ct: Option<&'static str>,
-    workspace_root: &std::path::Path,
-    lock: &RawLockFile,
-    out_dir: &std::path::Path,
+    _name: &str,
+    _src: &RawSource,
+    _ct: Option<&'static str>,
+    _workspace_root: &std::path::Path,
+    _out_dir: &std::path::Path,
 ) {
-    // UslmXml titles are aggregated into the single
-    // `usc_corpus_codegen.rs` static by `write_usc_corpus_codegen`;
-    // no per-title module is emitted anymore (the legacy
-    // `us_code/title_N.rs` shims were deleted in M4.ε.6). XmlLmf is
-    // handled by the wasm crate's build.rs; AdobeGlyphList ships as
-    // include_str!. Plaintext / Json / Video / Audio / Binary have
-    // no codegen yet — they decode lazily at runtime.
-    if let Some("Pdf") = ct {
-        emit_statute_via_pdf(name, src, workspace_root, lock, out_dir);
-    }
 }
 
 /// Kind → ContentType mapping (duplicates `canonical_encoding`).
@@ -579,63 +536,16 @@ fn dispatch_codegen(
 fn content_type_for_kind(kind: &str) -> Option<&'static str> {
     Some(match kind {
         "Language" => "XmlLmf",
-        "Statute" | "UsFederalStatute" => "Pdf",
         "UsCodeTitle" => "UslmXml",
-        "Regulation" | "ConstitutionalArticle" | "ProceduralRule" | "CaseLaw" => "Pdf",
+        "ProceduralRule" | "CaseLaw" => "Pdf",
         "LegalLexicon" => "Json",
         "TypographicGlyphSet" => "AdobeGlyphList",
-        // Abstract / non-leaf concepts have no decoder.
+        // XmlSchemaDefinition / ConceptualSpec sources are routed by
+        // their per-source writers (`write_uslm_schema_codegen`,
+        // `write_xhtml_schema_codegen`, etc.), not by `dispatch_codegen`.
+        // Abstract / non-leaf concepts also fall through.
         _ => return None,
     })
-}
-
-/// Codegen for sources whose canonical content type is PDF — the
-/// existing `[structural.*]`-driven path that builds an OntologyBuilder
-/// from the lock's hand-curated structural data and emits a
-/// per-statute Concept module. Also emits a typed
-/// `PdfBuildExtraction` const for the on-disk PDF.
-fn emit_statute_via_pdf(
-    name: &str,
-    src: &RawSource,
-    workspace_root: &std::path::Path,
-    lock: &RawLockFile,
-    out_dir: &std::path::Path,
-) {
-    let key = format!("{}@{}", name, src.version);
-    let Some(structural) = lock.structural.get(&key) else {
-        println!(
-            "cargo:warning=Statute `{key}` has no [structural.*] block in \
-             praxis.lock; skipping codegen for this entry."
-        );
-        return;
-    };
-
-    let mut code = generate_statute_module(name, structural);
-
-    let pdf_path = expected_pdf_path(workspace_root, name, &src.version);
-    if pdf_path.exists() {
-        println!("cargo:rerun-if-changed={}", pdf_path.display());
-    }
-    let outcome = extract_pdf_to_text(&pdf_path);
-    let extraction_const = emit_pdf_build_extraction_const(&outcome, &pdf_bytes_hash(&pdf_path));
-    code.push_str("\n\n");
-    code.push_str(&extraction_const);
-
-    let out_path = out_dir.join(format!("{}_codegen.rs", name));
-    std::fs::write(&out_path, code).expect("write generated statute module");
-
-    eprintln!(
-        "Generated statute `{name}`: {} terms, {} relations, extraction={} -> {}",
-        structural.terms.len(),
-        structural.relations.len(),
-        match &outcome {
-            PdfExtractOutcome::Extracted(_) => "Extracted",
-            PdfExtractOutcome::NotOnDisk => "NotOnDisk",
-            PdfExtractOutcome::ParseFailed(_) => "ParseFailed",
-            PdfExtractOutcome::Encrypted => "Encrypted",
-        },
-        out_path.display()
-    );
 }
 
 /// Resolve the expected on-disk USLM XML path for a registered
@@ -646,149 +556,4 @@ fn expected_usc_title_path(workspace_root: &std::path::Path, name: &str, version
         .join("crates/domains/data/legal/uscode")
         .join(name)
         .join(format!("{name}-{version}.xml"))
-}
-
-// ---------------------------------------------------------------------------
-// Phase 7 helpers — typed PdfBuildExtraction emission
-// ---------------------------------------------------------------------------
-
-/// Resolve the expected on-disk PDF path for a registered
-/// statute. Mirrors the runtime `RegistryEntry::local_path()` for
-/// the `UsFederalStatute` content-type family — but the build
-/// script reads the manifest as raw TOML, so the convention is
-/// duplicated here (and tested at runtime via the data_provisioning
-/// path-shape tests).
-fn expected_pdf_path(workspace_root: &std::path::Path, name: &str, version: &str) -> PathBuf {
-    workspace_root
-        .join("crates/domains/data/legal/statutes/us_federal")
-        .join(name)
-        .join(format!("{name}-{version}.pdf"))
-}
-
-/// SHA-256 of the on-disk PDF as a lowercase hex string. Returns
-/// `""` if the file isn't present.
-fn pdf_bytes_hash(path: &std::path::Path) -> String {
-    let Ok(bytes) = std::fs::read(path) else {
-        return String::new();
-    };
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(&bytes);
-    hasher
-        .finalize()
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect()
-}
-
-/// Emit the typed const for the codegen module. The output
-/// references `crate::applied::data_provisioning::build_extraction::PdfBuildExtraction`
-/// — the absolute path lets the emitted code compile regardless
-/// of which module-scope the `include!` lands in.
-fn emit_pdf_build_extraction_const(outcome: &PdfExtractOutcome, hash: &str) -> String {
-    let path = "crate::applied::data_provisioning::build_extraction::PdfBuildExtraction";
-    match outcome {
-        PdfExtractOutcome::Extracted(text) => format!(
-            "pub const PDF_EXTRACTION: {path} = {path}::Extracted {{\n    \
-             text: r#\"{}\"#,\n    \
-             bytes_hash: \"{}\",\n}};",
-            escape_for_raw_string(text),
-            hash,
-        ),
-        PdfExtractOutcome::NotOnDisk => {
-            format!("pub const PDF_EXTRACTION: {path} = {path}::NotOnDisk;")
-        }
-        PdfExtractOutcome::ParseFailed(detail) => format!(
-            "pub const PDF_EXTRACTION: {path} = {path}::ParseFailed {{\n    \
-             detail: r#\"{}\"#,\n}};",
-            escape_for_raw_string(detail),
-        ),
-        PdfExtractOutcome::Encrypted => {
-            format!("pub const PDF_EXTRACTION: {path} = {path}::Encrypted;")
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Codegen — feed structural data into pr4xis::codegen::statute
-// ---------------------------------------------------------------------------
-
-fn generate_statute_module(name: &str, structural: &RawStructural) -> String {
-    use pr4xis::codegen::statute::{
-        RawRelation as PrRawRelation, RawStatuteDoc, RawTerm as PrRawTerm, build_from_doc,
-    };
-    use pr4xis::codegen::{GenerateConfig, generate_rust};
-
-    let terms: Vec<PrRawTerm> = structural
-        .terms
-        .iter()
-        .map(|t| PrRawTerm {
-            id: t.id.clone(),
-            name: t.name.clone(),
-            definition: t.definition.clone(),
-            lemmas: t.lemmas.clone(),
-        })
-        .collect();
-
-    let relations: Vec<PrRawRelation> = structural
-        .relations
-        .iter()
-        .filter_map(|r| {
-            parse_simple_relation(&r.relation).map(|rel| PrRawRelation {
-                from: r.from.clone(),
-                to: r.to.clone(),
-                relation: rel,
-            })
-        })
-        .collect();
-
-    let doc = RawStatuteDoc {
-        name: name.to_string(),
-        description: structural.description.clone(),
-        terms,
-        relations,
-    };
-
-    let builder = build_from_doc(&doc);
-    let pascal = to_pascal_case(name);
-    let config = GenerateConfig::new(&format!("{name}_codegen"), &format!("{pascal}Id"));
-    generate_rust(&builder, &config)
-}
-
-fn parse_simple_relation(s: &str) -> Option<pr4xis::codegen::statute::RawRel> {
-    use pr4xis::codegen::statute::RawRel;
-    Some(match s {
-        "Requires" => RawRel::Requires,
-        "SubtypeOf" => RawRel::SubtypeOf,
-        "Contradicts" => RawRel::Contradicts,
-        "Negates" => RawRel::Negates,
-        "AlternativeTo" => RawRel::AlternativeTo,
-        "AffirmativeDefenseTo" => RawRel::AffirmativeDefenseTo,
-        "SafeHarborFor" => RawRel::SafeHarborFor,
-        "ExhaustionRequiredFor" => RawRel::ExhaustionRequiredFor,
-        "Precedes" => RawRel::Precedes { max_days: None },
-        "Implies" => RawRel::Implies { consequence: None },
-        "Composes" => RawRel::Composes { into: None },
-        "Triggers" => RawRel::Triggers { obligation: None },
-        "Rebuts" => RawRel::Rebuts { burden: None },
-        _ => return None,
-    })
-}
-
-fn to_pascal_case(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut capitalize_next = true;
-    for ch in s.chars() {
-        if ch == '_' || ch == '-' {
-            capitalize_next = true;
-            continue;
-        }
-        if capitalize_next {
-            out.extend(ch.to_uppercase());
-            capitalize_next = false;
-        } else {
-            out.push(ch);
-        }
-    }
-    out
 }

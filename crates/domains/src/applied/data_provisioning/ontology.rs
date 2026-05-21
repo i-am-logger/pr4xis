@@ -157,11 +157,13 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
     use SourceTaxonomyConcept as C;
     match kind {
         C::Language => ContentType::XmlLmf,
-        // US federal statutes are published by GPO as PDF on
+        // US federal statutes published by GPO ship as PDF on
         // govinfo.gov (ISO 32000-2:2020 PDF 2.0; Bluebook §18
-        // preferred authenticated digital edition). M4.γ's
-        // PDF loader consumes the bytes and emits a typed
-        // `PdfBuildExtraction` const at build time.
+        // preferred authenticated digital edition). The Statute /
+        // UsFederalStatute leaves of the taxonomy retain this
+        // canonical encoding for completeness; the registered
+        // loadable form for US Code sections is the UsCodeTitle
+        // USLM XML below, not per-section PDFs.
         C::Statute | C::UsFederalStatute => ContentType::Pdf,
         // Whole U.S. Code titles ship as USLM XML from
         // uscode.house.gov per 1 U.S.C. § 204. Each title is
@@ -491,15 +493,9 @@ pr4xis::register_axiom!(
     "Dolstra (2006) The Purely Functional Software Deployment Model §5.1"
 );
 
-/// Axiom: every registered source is *realizable* — either through a
-/// runtime decoder (Heap-store path: bytes fetched from URL, decoded
-/// per `canonical_encoding`) or through lock-time structural data
-/// (Static-store path: the parsed ontology lives directly in
-/// `praxis.lock`'s `[structural.*]` block, ready for build-time
-/// codegen consumption).
-///
-/// An entry with neither path would be unreachable: no decoder, no
-/// pre-baked structure. The axiom catches that asymmetry at startup.
+/// Axiom: every registered source is *realizable* through a runtime
+/// decoder for its `canonical_encoding`. An entry without a decoder
+/// would be unreachable; the axiom catches that at startup.
 pub struct DecoderTotalityPerKind;
 
 impl Axiom for DecoderTotalityPerKind {
@@ -507,12 +503,11 @@ impl Axiom for DecoderTotalityPerKind {
         use crate::formal::meta::artifact_identity::ontology::ClaimData;
         for entry in crate::applied::data_provisioning::registry::data_sources() {
             // Sources whose RawHash identity claim is a Stub are
-            // registered in praxis.toml but not yet loadable (awaiting
-            // PDF/NLP infrastructure). They are not expected to be
-            // materializable through the runtime decoder or the lock-
-            // structural path until the loader exists; the
-            // decoder-totality check re-activates automatically when
-            // the loader fills in their hash + structural data.
+            // registered in praxis.toml but not yet loadable. They
+            // are not expected to be materializable through the
+            // runtime decoder until the loader fills in their hash;
+            // the decoder-totality check re-activates automatically
+            // when that happens.
             let is_stub_only = !entry.identity.0.is_empty()
                 && entry.identity.0.iter().all(|c| {
                     matches!(c.concept, IdentityConcept::RawHash)
@@ -523,12 +518,7 @@ impl Axiom for DecoderTotalityPerKind {
             }
             let ct = canonical_encoding(entry.kind);
             let runtime_decoder = crate::applied::data_provisioning::decoders::has_decoder_for(ct);
-            let lock_structural = crate::applied::data_provisioning::registry::structural_for(
-                &entry.name,
-                &entry.version,
-            )
-            .is_some();
-            if !runtime_decoder && !lock_structural {
+            if !runtime_decoder {
                 return Err(Box::new(SimpleCounterexample::new(self.meta())));
             }
         }
@@ -537,7 +527,7 @@ impl Axiom for DecoderTotalityPerKind {
 
     pr4xis::axiom_meta!(
         "DecoderTotalityPerKind",
-        "every registered source has a runtime decoder for its canonical_encoding OR a lock structural block",
+        "every registered source has a runtime decoder for its canonical_encoding",
         "Wilkinson et al. (2016) FAIR Guiding Principles, Scientific Data 3 — R1 reusable"
     );
 }

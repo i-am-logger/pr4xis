@@ -1,66 +1,31 @@
 //! 18 U.S.C. § 1514A — Sarbanes–Oxley § 806 whistleblower protection.
 //!
-//! Two data paths coexist:
+//! Loaded from the unified `UsCode::loaded()` corpus by typed USLM URN
+//! (`/us/usc/t18/s1514A`). Title 18 USLM XML must be on disk under
+//! `crates/domains/data/legal/uscode/usc_title_18/` for the lookup to
+//! succeed — `pr4xis update usc_title_18` materializes it.
 //!
-//! - [`statute`] returns the hand-curated Statute, built from the
-//!   `[structural."sox_1514a@2002"]` block in praxis.lock. 28 terms,
-//!   18 relations, practitioner-doctrinal naming (Covered Employer,
-//!   Prohibition on Retaliation, …).
-//! - [`statute_from_uslm`] returns the USLM-derived Statute, looked
-//!   up by typed USLM URN against the unified
-//!   [`crate::social::software::markup::xml::uslm::corpus::UsCode`]
-//!   corpus. Term naming follows USLM headings verbatim.
-//!
-//! Source: 18 U.S.C. § 1514A (2002, Sarbanes–Oxley Act § 806).
+//! Citation: 18 U.S.C. § 1514A (2002, Sarbanes–Oxley Act § 806);
+//! 1 U.S.C. § 204 (Code authority); LRC, *USLM XML User Guide* §V
+//! (USC URN hierarchy).
 
-include!(concat!(env!("OUT_DIR"), "/sox_1514a_codegen.rs"));
-
-pub mod canonical_audit;
 pub mod proof_standard;
 
 use std::sync::OnceLock;
 
-use super::{Statute, StatuteConstructError};
-use crate::applied::data_provisioning::registry;
+use super::Statute;
 
 /// USLM identifier for 18 U.S.C. § 1514A.
 pub const IDENTIFIER: &str = "/us/usc/t18/s1514A";
 
-/// The live `Statute` instance for 18 U.S.C. § 1514A, lazily
-/// constructed from `praxis.lock`'s `[structural."sox_1514a@2002"]`
-/// block. The instance is built once per process and cached.
+/// The live `Statute` instance for 18 U.S.C. § 1514A, looked up by
+/// typed USLM URN against the unified
+/// [`UsCode`](crate::social::software::markup::xml::uslm::corpus::UsCode)
+/// corpus. Lazily constructed, cached, panics if § 1514A is not in the
+/// loaded corpus (a build-time invariant when Title 18 USLM is registered).
+///
+/// Term naming follows USLM `<heading>` text verbatim.
 pub fn statute() -> &'static Statute {
-    static INSTANCE: OnceLock<Statute> = OnceLock::new();
-    INSTANCE.get_or_init(|| {
-        let data = registry::structural_for("sox_1514a", "2002").expect(
-            "praxis.lock must contain [structural.\"sox_1514a@2002\"] — \
-             see crates/domains/build.rs and praxis.lock root",
-        );
-        Statute::from_structural("sox_1514a", "2002", data)
-            .expect("sox_1514a@2002 structural data must validate against Statute::from_structural")
-    })
-}
-
-/// Construct-time errors are surfaced as `Result` for callers that
-/// want non-panicking access — useful in property-based tests that
-/// re-construct the statute and want to assert no error path is
-/// taken.
-pub fn try_statute() -> Result<Statute, StatuteConstructError> {
-    let data = registry::structural_for("sox_1514a", "2002")
-        .expect("praxis.lock must contain [structural.\"sox_1514a@2002\"]");
-    Statute::from_structural("sox_1514a", "2002", data)
-}
-
-/// USLM-derived Statute for 18 U.S.C. § 1514A, looked up by typed
-/// USLM URN against the unified [`UsCode`] corpus. Lazily
-/// constructed, cached, panics if § 1514A is not in the loaded
-/// corpus (a build-time invariant when Title 18 USLM is registered).
-///
-/// Term naming follows USLM `<heading>` text verbatim — differs
-/// from the practitioner-doctrinal naming in [`statute`].
-///
-/// [`UsCode`]: crate::social::software::markup::xml::uslm::corpus::UsCode
-pub fn statute_from_uslm() -> &'static Statute {
     use crate::formal::meta::identifier_format::Identifier;
     use crate::social::software::markup::xml::uslm::corpus::loaded as usc_loaded;
     static INSTANCE: OnceLock<Statute> = OnceLock::new();
