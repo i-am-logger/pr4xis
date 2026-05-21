@@ -152,9 +152,7 @@ use crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance;
 use crate::social::software::markup::xml::ontology::{XmlElement, XmlNode};
 use crate::social::software::markup::xml::reader as xml_reader;
 
-use super::ontology::{
-    HierarchyNode, USLM_NAMESPACE_URI, UsCodeSection, UsCodeTitle, UslmReadError,
-};
+use super::corpus::{HierarchyNode, USLM_NAMESPACE_URI, UsCodeSection, UsCodeTitle, UslmReadError};
 
 pub mod leaf_readers;
 

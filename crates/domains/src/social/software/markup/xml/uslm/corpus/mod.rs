@@ -1,14 +1,25 @@
-//! `UsCode` — the runtime corpus of every U.S. Code section loaded
-//! from USLM XML at build time. Parallel to
-//! [`crate::cognitive::linguistics::english::English`] for WordNet.
+//! USLM runtime corpus — the domain-projected typed aggregate of a
+//! loaded USLM XML title.
 //!
-//! Where [`super::ontology`] gives the **typology** of USLM XML
-//! elements (Section / Subsection / Paragraph / …), `UsCode` gives the
-//! **populated corpus** — every section in every registered USC title,
-//! materialised from the static `CodegenData<UsCode>` produced at build
-//! time by [`pr4xis::codegen::usc_corpus`].
+//! Not to be confused with "USLM ontology": the proper USLM
+//! ontology is the XSD ontology (formal::meta::xsd) projected
+//! through the loaded USLM-1.0.18.xsd. The types in this module are
+//! the RUNTIME AGGREGATES — domain-meaningful projections of the
+//! parsed XML, held as Rust structs until xsd-parser-types upstream
+//! gains serde derives (held PR) at which point this module
+//! transitions to holding only the corpus-level UsCode struct and
+//! delegating field-level types to xsd-parser-generated output.
+//!
+//! Citation: LRC USLM XML User Guide §V (USC structure); 1 U.S.C.
+//! § 204 (USC authority); W3C XSD 1.1 Part 1 §3.3.6 (substitution
+//! groups — the grounding for ContainerKind / SubdivisionKind /
+//! UsCodeAdditionalContainer dispatch via from_xsd_element).
 //!
 //! ## Layer position
+//!
+//! `UsCode` is the root corpus aggregate: every U.S. Code section
+//! loaded from USLM XML at build time. Parallel to
+//! [`crate::cognitive::linguistics::english::English`] for WordNet.
 //!
 //! ```text
 //! USLM XML  ─►  pr4xis::codegen::usc_corpus  ─►  CodegenData<UsCode>
@@ -25,7 +36,7 @@
 //! ## Literature
 //!
 //! - U.S. House Office of the Law Revision Counsel, *USLM XML User
-//!   Guide (USLM-1.0.15.xsd)*. <https://uscode.house.gov/uslm/>.
+//!   Guide (USLM-1.0.18.xsd)*. <https://uscode.house.gov/uslm/>.
 //! - 1 U.S.C. § 204 — *Codes and Supplements; positive law titles*.
 
 use alloc::string::{String, ToString};
@@ -36,6 +47,27 @@ use pr4xis::codegen_data::CodegenData;
 
 use crate::formal::meta::identifier_format::Identifier;
 use crate::formal::meta::identifier_format::ontology::IdentifierFormatConcept;
+
+pub mod identifiers;
+pub mod kinds;
+pub mod namespaces;
+pub mod runtime_types;
+
+pub use identifiers::{UsCodeTitleId, UsCodeTitleIdError};
+pub use kinds::{
+    ContainerKind, InlineKind, SubdivisionKind, UsCodeAdditionalContainer, UsCodeAmendmentKind,
+    UsCodeFormElement, UsCodeHeadingVariant, UsCodeLegislativeFormula, UsCodeNoteKind,
+    UsCodeQuotedVariant, UsCodeTableCellKind,
+};
+pub use namespaces::{DUBLIN_CORE_NAMESPACE_URI, USLM_NAMESPACE_URI, XHTML_NAMESPACE_URI};
+pub use runtime_types::{
+    HierarchyNode, UsCodeAmendmentMarkup, UsCodeContainer, UsCodeContinuation, UsCodeDate,
+    UsCodeDefBlock, UsCodeHeader, UsCodeInlineRun, UsCodeMarker, UsCodeMeta, UsCodeMetaProperty,
+    UsCodeName, UsCodeNote, UsCodeNotesBlock, UsCodeProviso, UsCodeQuotedContent, UsCodeRef,
+    UsCodeSection, UsCodeSectionRef, UsCodeSignature, UsCodeSourceCredit, UsCodeSubdivision,
+    UsCodeTable, UsCodeTableCell, UsCodeTableRow, UsCodeTerm, UsCodeTitle, UsCodeToc,
+    UsCodeTocItem, UslmReadError,
+};
 
 /// Build-time aggregate `CodegenData<UsCode>` emitted by
 /// `crates/domains/build.rs::write_usc_corpus_codegen`. Empty stub

@@ -30,7 +30,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use std::sync::OnceLock;
 
-use super::super::ontology::*;
+use super::super::corpus::*;
 use crate::formal::meta::xsd::from_xsd_parser::{XsdOntologyInstance, project_from_xsd_text};
 use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
 use crate::social::software::markup::xml::ontology::{XmlElement, XmlNode};

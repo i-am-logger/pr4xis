@@ -39,10 +39,9 @@
 pub mod corpus;
 pub mod generated;
 pub mod lens;
-pub mod ontology;
 
+pub use corpus::*;
 pub use lens::{UslmLensError, UslmTypedTree, UslmXmlLens, read_section, read_uslm_title};
-pub use ontology::*;
 
 #[cfg(test)]
 mod tests;

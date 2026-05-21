@@ -19,15 +19,13 @@
 //!   Structures*, W3C Recommendation 5 April 2012.
 //!   <https://www.w3.org/TR/xmlschema11-1/>.
 //!
-//! ## Coexistence with hand-coded `uslm::ontology`
+//! ## Coexistence with hand-coded `uslm::corpus`
 //!
-//! This module coexists with the hand-coded
-//! [`super::ontology`][] types during the M4.ε.5.a migration.
-//! Consumers will switch over to the generated types in a
-//! follow-up commit (the "switch" step); the hand-coded module
-//! gets deleted in the step after that ("delete"). Until then,
-//! both trees are present so the workspace never reaches a
-//! broken state.
+//! This module coexists with the runtime-aggregate types in
+//! [`super::corpus`][]. Field-level USLM types remain hand-coded
+//! pending the upstream xsd-parser-types serde-derives PR; once
+//! that lands the corpus aggregates will delegate to xsd-parser-
+//! generated output and the duplication collapses.
 //!
 //! ## Usage
 //!

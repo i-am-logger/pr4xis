@@ -379,7 +379,7 @@ pub mod title_18;
 pub mod title_28;
 pub mod title_49;
 
-use crate::social::software::markup::xml::uslm::ontology::UsCodeTitleId;
+use crate::social::software::markup::xml::uslm::corpus::UsCodeTitleId;
 
 /// Generic title-and-identifier dispatch. The caller passes a typed
 /// [`UsCodeTitleId`] (no stringly-typed title-name parameter); the

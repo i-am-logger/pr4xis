@@ -1,8 +1,8 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use super::corpus::*;
 use super::lens::read_uslm_title;
-use super::ontology::*;
 
 /// Inline fixture — a one-§ slice mirroring the structural shape
 /// of the real SOX § 1514A USLM.

@@ -68,7 +68,7 @@ pub fn try_statute() -> Result<Statute, StatuteConstructError> {
 /// Term naming follows USLM `<heading>` text verbatim — differs
 /// from the practitioner-doctrinal naming in [`statute`].
 pub fn statute_from_uslm() -> &'static Statute {
-    use crate::social::software::markup::xml::uslm::ontology::UsCodeTitleId;
+    use crate::social::software::markup::xml::uslm::corpus::UsCodeTitleId;
     static INSTANCE: OnceLock<Statute> = OnceLock::new();
     INSTANCE.get_or_init(|| {
         let title_18 =
