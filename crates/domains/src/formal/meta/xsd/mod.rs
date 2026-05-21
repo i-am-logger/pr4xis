@@ -64,5 +64,14 @@ pub mod from_xsd_parser;
 pub mod ontology;
 pub mod uslm_vocabulary;
 
+/// The W3C XSD 1.1 namespace URI.
+///
+/// W3C XSD 1.1 Part 1 §3.1.1 declares `http://www.w3.org/2001/XMLSchema`
+/// as the namespace for all schema-component elements (`xsd:schema`,
+/// `xsd:element`, `xsd:complexType`, …). Element membership in XSD is
+/// determined by W3C XML Namespaces 1.0 §6 — namespace-URI match, not
+/// prefix.
+pub const XSD_NAMESPACE_URI: &str = "http://www.w3.org/2001/XMLSchema";
+
 #[cfg(test)]
 mod tests;
