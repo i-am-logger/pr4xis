@@ -1,14 +1,12 @@
 //! Section-level subdivision tree and Composes-relation graph for
 //! [`super::UscSection`].
 //!
-//! The flat per-section `{ urn, heading, text }` that landed in M4.ε.3
-//! carries the section as a single leaf in the Layer-3 vocabulary. The
-//! aux types in this module add the SUBDIVISION DEPTH that the legacy
-//! `social::compliance::statutes::us_code::StaticStatute` shims hold:
-//! every subsection / paragraph / subparagraph / clause / subclause /
-//! item / subitem within a section is a typed [`UscSubdivision`] node
-//! with its own USLM URN, and each parent ↔ child containment is one
-//! [`UscComposesEdge`].
+//! The flat per-section `{ urn, heading, text }` carries the section as
+//! a single leaf in the Layer-3 vocabulary. The aux types in this
+//! module add the SUBDIVISION DEPTH: every subsection / paragraph /
+//! subparagraph / clause / subclause / item / subitem within a section
+//! is a typed [`UscSubdivision`] node with its own USLM URN, and each
+//! parent ↔ child containment is one [`UscComposesEdge`].
 //!
 //! ## Layer position
 //!

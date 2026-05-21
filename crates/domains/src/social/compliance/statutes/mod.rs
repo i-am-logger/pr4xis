@@ -25,8 +25,6 @@ pub mod air21_42121;
 pub mod from_uslm;
 pub mod sox_1514a;
 pub mod statute;
-pub mod us_code;
 
 pub use from_uslm::{derive_structural, from_uslm_section};
 pub use statute::{Statute, StatuteConstructError};
-pub use us_code::{StaticRelation, StaticRelationKind, StaticStatute, StaticTerm, find_section};

@@ -73,20 +73,38 @@ pub use section_aux::{UscComposesEdge, UscSectionAux, UscSubdivision};
 
 /// Build-time aggregate `CodegenData<UsCode>` emitted by
 /// `crates/domains/build.rs::write_usc_corpus_codegen`. Empty stub
-/// when no USC title XML is on disk. Test-only — accessed via
+/// when no USC title XML is on disk. Materialized at runtime via
+/// [`loaded`] (canonical singleton) and at test time via
 /// [`UsCode::cached_full`].
 // The LRC's USLM source preserves zero-width and soft-hyphen Unicode
 // characters that appear verbatim in published statute text. They are
 // part of the authoritative bytes; stripping them would diverge from
 // the source. Suppress clippy's invisible-character lint at the module
 // boundary so the lint can still catch hand-written code elsewhere in
-// the crate. Mirrors the pattern in
-// `social::compliance::statutes::us_code::title_18` /
-// `title_49` / `title_28`.
-#[cfg(test)]
+// the crate.
 #[allow(dead_code, clippy::invisible_characters)]
 mod full_corpus {
     include!(concat!(env!("OUT_DIR"), "/usc_corpus_codegen.rs"));
+}
+
+/// The canonical loaded U.S. Code corpus — every section + subdivision
+/// from every registered USC title whose USLM XML was on disk at build
+/// time. Backed by the codegen output emitted by
+/// `crates/domains/build.rs::write_usc_corpus_codegen`, materialised
+/// once per process behind a `OnceLock`.
+///
+/// Replaces the legacy per-title `us_code::title_N::section(...)`
+/// dispatch — downstream consumers query the unified corpus by typed
+/// USLM URN through [`UsCode::section_by_urn`].
+///
+/// Citation: 1 U.S.C. § 204 (Code authority); LRC, *USLM XML User
+/// Guide* §V (USC URN hierarchy).
+pub fn loaded() -> &'static UsCode {
+    use std::sync::OnceLock;
+    static INSTANCE: OnceLock<UsCode> = OnceLock::new();
+    INSTANCE.get_or_init(|| {
+        UsCode::from_codegen_with_aux(&full_corpus::CODEGEN_DATA, full_corpus::USC_SECTION_AUX)
+    })
 }
 
 /// One USC section.
@@ -101,10 +119,8 @@ mod full_corpus {
 /// as a [`UscSubdivision`] node with its own URN and a Composes-edge
 /// list joining it to its containing parent.
 ///
-/// This is the data the
-/// `social::compliance::statutes::us_code::StaticStatute` shims hold
-/// today; absorbing it here is what unblocks the M4.ε.6 deletion of
-/// that subtree.
+/// Every subdivision URN is a typed [`Identifier`] grounded in the
+/// LRC USLM XML User Guide §V hierarchy.
 #[derive(Debug, Clone)]
 pub struct UscSection {
     /// Typed USLM URN (e.g. `/us/usc/t18/s1514A`). Grammar-validated at
@@ -160,11 +176,9 @@ impl UscSection {
     }
 
     /// Materialize a runtime [`crate::social::compliance::statutes::Statute`]
-    /// from this section's subdivision tree. Drop-in replacement for
-    /// the legacy
-    /// `StaticStatute::to_statute(statute_name, version)` path —
-    /// after M4.ε.6 deletes the `us_code/` shims, downstream consumers
-    /// (e.g. `sox_1514a::statute_from_uslm`) call this directly.
+    /// from this section's subdivision tree. Downstream consumers
+    /// (e.g. `sox_1514a::statute_from_uslm`) call this directly via
+    /// [`crate::social::software::markup::xml::uslm::corpus::loaded`].
     ///
     /// CURIE prefixes for emitted terms are derived from
     /// `statute_name` so the praxis registry name (e.g. `sox_1514a`,
@@ -384,11 +398,8 @@ impl UsCode {
 
     /// Test-only accessor for the full corpus emitted by
     /// `crates/domains/build.rs`'s `write_usc_corpus_codegen` step.
-    /// Cached behind a `OnceLock` so the ~2770-section corpus is
-    /// materialised once per test process. Used by Layer 3
-    /// corpus-wide gap audits that need every registered USC
-    /// title's section headings (not just the two synthetic
-    /// sections in [`UsCode::sample`]).
+    /// Delegates to the canonical [`loaded`] singleton; kept for
+    /// existing test-suite call sites.
     ///
     /// Mirrors
     /// [`crate::social::judicial::statute_structure::english_adjunction::test_helpers::cached_english`]
@@ -396,11 +407,7 @@ impl UsCode {
     /// runtime XML parsing.
     #[cfg(test)]
     pub fn cached_full() -> &'static Self {
-        use std::sync::OnceLock;
-        static FULL: OnceLock<UsCode> = OnceLock::new();
-        FULL.get_or_init(|| {
-            UsCode::from_codegen_with_aux(&full_corpus::CODEGEN_DATA, full_corpus::USC_SECTION_AUX)
-        })
+        loaded()
     }
 
     /// Minimal sample U.S. Code corpus for testing — two synthetic
@@ -516,260 +523,6 @@ mod tests {
             );
             assert!(s.relations.is_empty(), "relations for {}", s.urn.value());
             assert_eq!(s.subdivision_count(), 0);
-        }
-    }
-
-    // ---------------------------------------------------------------
-    // Equivalence verification against the legacy
-    // `social::compliance::statutes::us_code::StaticStatute` shim.
-    // Each section's UscSection subdivision tree must contain the
-    // same set of CURIE local-part endpoints that the legacy
-    // StaticStatute's term list does (after converting URNs to
-    // CURIEs via the shared `to_statute` projection), and the
-    // Composes-edge count must match. M4.ε.6 deletion of `us_code/`
-    // is gated on this passing.
-    // ---------------------------------------------------------------
-
-    #[cfg(test)]
-    mod equivalence_with_us_code_shim {
-        use super::*;
-        use crate::social::compliance::statutes::us_code;
-
-        /// For `/us/usc/t18/s1514A`, compare the new UsCode corpus's
-        /// subdivision data against the legacy `StaticStatute`'s
-        /// term list under the `to_statute("sox_1514a", ...)`
-        /// projection. We compare:
-        ///
-        /// 1. The set of CURIE ids of subdivision-level terms
-        ///    (i.e. terms whose CURIE has a non-empty local part).
-        /// 2. The count of Composes-edges with both endpoints in
-        ///    the CURIE-id set.
-        ///
-        /// Both views project a common subset — every USLM
-        /// subdivision URN of the form
-        /// `/us/usc/t18/s1514A/<segments>` produces one term with
-        /// CURIE `sox_1514a:<segments_underscored>`. The legacy
-        /// view *additionally* emits a bare-prefix term
-        /// (`us_usc_t18_s1514a` with no local part) that
-        /// `to_statute`'s CURIE filter drops; the new view never
-        /// emits that bare entry, so the comparison is on the
-        /// CURIE-shaped subset alone.
-        #[test]
-        fn sox_1514a_subdivision_curies_match_legacy_shim() {
-            let usc = UsCode::cached_full();
-            let urn = Identifier::from_codegen_static(
-                IdentifierFormatConcept::UslmUrn,
-                "/us/usc/t18/s1514A",
-            );
-            let section = match usc.section_by_urn(&urn) {
-                Some(s) => s,
-                None => {
-                    // Title 18 XML not on disk in this build — skip.
-                    eprintln!("SKIP: § 1514A not in loaded corpus");
-                    return;
-                }
-            };
-
-            // Statute via the new corpus.
-            let statute_new = section.to_statute("sox_1514a", "2002");
-
-            // Statute via the legacy shim.
-            let t18 = UsCodeTitleId::try_from_number(18).expect("title 18");
-            let static_statute = us_code::section(&t18, "/us/usc/t18/s1514A")
-                .expect("§ 1514A in legacy us_code shim");
-            let statute_legacy = static_statute.to_statute("sox_1514a", "2002");
-
-            // Collect CURIEs of each statute's terms. Filter the
-            // legacy view's `:unknown_N` synthetic entries — those
-            // are the legacy shim's crutch for identifier-less
-            // level elements (e.g. `<paragraph>` nested inside
-            // `<note>` / `<quotedContent>` in repealed sections);
-            // the new URN-grounded view drops them deliberately
-            // per the "bottom-up loaded" rule.
-            let curies_new: alloc::collections::BTreeSet<String> = statute_new
-                .terms()
-                .iter()
-                .map(|t| t.id.value().to_string())
-                .collect();
-            let curies_legacy: alloc::collections::BTreeSet<String> = statute_legacy
-                .terms()
-                .iter()
-                .map(|t| t.id.value().to_string())
-                .filter(|c| !c.contains(":unknown_"))
-                .collect();
-
-            // The new view's CURIE set must equal the legacy view's
-            // CURIE set. If a divergence shows up, surface the
-            // symmetric difference for debugging.
-            let only_in_new: Vec<&String> = curies_new.difference(&curies_legacy).collect();
-            let only_in_legacy: Vec<&String> = curies_legacy.difference(&curies_new).collect();
-            assert!(
-                only_in_new.is_empty() && only_in_legacy.is_empty(),
-                "CURIE-set divergence on § 1514A.\n only_in_new: {only_in_new:?}\n only_in_legacy: {only_in_legacy:?}",
-            );
-
-            // Composes-edge count: new view's edges (which all
-            // sit between URN-grounded CURIEs) must be <= legacy
-            // (which may include edges anchored on synthetic
-            // `:unknown_N` rows). § 1514A has no such synthetic
-            // rows so the counts must match exactly.
-            assert_eq!(
-                statute_new.relations().len(),
-                statute_legacy.relations().len(),
-                "Composes-edge count mismatch on § 1514A",
-            );
-        }
-
-        /// Same equivalence check for AIR21 § 42121 in Title 49 —
-        /// the other case-study statute the legacy shim covers.
-        #[test]
-        fn air21_42121_subdivision_curies_match_legacy_shim() {
-            let usc = UsCode::cached_full();
-            let urn = Identifier::from_codegen_static(
-                IdentifierFormatConcept::UslmUrn,
-                "/us/usc/t49/s42121",
-            );
-            let section = match usc.section_by_urn(&urn) {
-                Some(s) => s,
-                None => {
-                    eprintln!("SKIP: § 42121 not in loaded corpus");
-                    return;
-                }
-            };
-
-            let statute_new = section.to_statute("air21_42121", "2007");
-
-            let t49 = UsCodeTitleId::try_from_number(49).expect("title 49");
-            let static_statute = us_code::section(&t49, "/us/usc/t49/s42121")
-                .expect("§ 42121 in legacy us_code shim");
-            let statute_legacy = static_statute.to_statute("air21_42121", "2007");
-
-            let curies_new: alloc::collections::BTreeSet<String> = statute_new
-                .terms()
-                .iter()
-                .map(|t| t.id.value().to_string())
-                .collect();
-            let curies_legacy: alloc::collections::BTreeSet<String> = statute_legacy
-                .terms()
-                .iter()
-                .map(|t| t.id.value().to_string())
-                .filter(|c| !c.contains(":unknown_"))
-                .collect();
-
-            let only_in_new: Vec<&String> = curies_new.difference(&curies_legacy).collect();
-            let only_in_legacy: Vec<&String> = curies_legacy.difference(&curies_new).collect();
-            assert!(
-                only_in_new.is_empty() && only_in_legacy.is_empty(),
-                "CURIE-set divergence on § 42121.\n only_in_new: {only_in_new:?}\n only_in_legacy: {only_in_legacy:?}",
-            );
-
-            assert_eq!(
-                statute_new.relations().len(),
-                statute_legacy.relations().len(),
-                "Composes-edge count mismatch on § 42121",
-            );
-        }
-
-        /// Cross-title sanity check: every loaded Title 18 section's
-        /// new-view CURIE set must be a SUBSET of the legacy shim's
-        /// CURIE set. (Equality cannot hold corpus-wide because the
-        /// legacy `parse_uslm_title_all_sections_str` synthesizes
-        /// artificial `:unknown_N` CURIEs for level-elements that
-        /// appear without an `identifier=` attribute — most
-        /// commonly `<paragraph>`/`<subparagraph>` nested inside
-        /// `<note>` or `<quotedContent>` blocks in repealed
-        /// sections like § 437. The new view drops those because
-        /// they have no URN to ground a typed Identifier. Per the
-        /// `feedback_push_back_on_unsupported_file_types` and
-        /// "bottom-up loaded" rules, the new view's URN-grounding
-        /// is the correct shape; the legacy `:unknown_N` rows are
-        /// a synthetic crutch that M4.ε.6 deletion drops.)
-        ///
-        /// The subset check confirms every URN-bearing subdivision
-        /// the legacy shim emits is also present in the new view.
-        #[test]
-        fn title_18_subdivision_curies_are_subset_of_legacy_shim() {
-            let usc = UsCode::cached_full();
-            let t18 = UsCodeTitleId::try_from_number(18).expect("title 18");
-            let Some(sections) = legacy_sections_for_title(&t18) else {
-                eprintln!("SKIP: title 18 not in legacy shim");
-                return;
-            };
-            let mut compared = 0usize;
-            let mut missing_from_new: Vec<String> = Vec::new();
-            for static_section in sections {
-                let raw = static_section.identifier_raw();
-                if raw.contains(' ') {
-                    // Combined-range URN — neither view models it
-                    // as a single section. Skip.
-                    continue;
-                }
-                let urn = Identifier::from_codegen_static(
-                    IdentifierFormatConcept::UslmUrn,
-                    leaked_str(raw),
-                );
-                let Some(section) = usc.section_by_urn(&urn) else {
-                    continue;
-                };
-                let statute_new = section.to_statute("sox_1514a", "2002");
-                let statute_legacy = static_section.to_statute("sox_1514a", "2002");
-
-                let curies_new: alloc::collections::BTreeSet<String> = statute_new
-                    .terms()
-                    .iter()
-                    .map(|t| t.id.value().to_string())
-                    .collect();
-                // Legacy CURIEs minus the synthetic `:unknown_N`
-                // shim entries that the new URN-grounded view
-                // intentionally drops.
-                let curies_legacy: alloc::collections::BTreeSet<String> = statute_legacy
-                    .terms()
-                    .iter()
-                    .map(|t| t.id.value().to_string())
-                    .filter(|c| !c.contains(":unknown_"))
-                    .collect();
-
-                // The new view must contain every legacy URN-bearing
-                // CURIE.
-                for c in curies_legacy.difference(&curies_new) {
-                    missing_from_new.push(alloc::format!("{}: missing CURIE {}", raw, c));
-                    if missing_from_new.len() > 5 {
-                        break;
-                    }
-                }
-                compared += 1;
-                if !missing_from_new.is_empty() {
-                    break;
-                }
-                if compared >= 200 {
-                    break;
-                }
-            }
-            assert!(
-                missing_from_new.is_empty(),
-                "Title 18 new view missing URN-bearing CURIEs the legacy shim emits (sampled {compared}): {missing_from_new:?}",
-            );
-            assert!(compared > 0, "no Title 18 sections cross-compared");
-        }
-
-        /// Helper: borrow the legacy SECTIONS slice for the given
-        /// title via the public accessor (us_code's
-        /// `find_section_by_urn` is keyed off the title's slice).
-        fn legacy_sections_for_title(
-            title: &UsCodeTitleId,
-        ) -> Option<&'static [us_code::StaticStatute]> {
-            // Lift the slice via all_titles() — the only public
-            // accessor that exposes the per-title SECTIONS.
-            us_code::all_titles()
-                .iter()
-                .find(|(n, _)| *n == title.number())
-                .map(|(_, slice)| *slice)
-        }
-
-        /// Leak a short URN string to gain a 'static borrow for
-        /// constructing the typed Identifier — only safe in tests.
-        fn leaked_str(s: &str) -> &'static str {
-            Box::leak(s.to_string().into_boxed_str())
         }
     }
 }

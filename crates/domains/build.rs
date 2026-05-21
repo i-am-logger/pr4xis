@@ -561,14 +561,15 @@ fn dispatch_codegen(
     lock: &RawLockFile,
     out_dir: &std::path::Path,
 ) {
-    match ct {
-        Some("Pdf") => emit_statute_via_pdf(name, src, workspace_root, lock, out_dir),
-        Some("UslmXml") => emit_statute_via_uslm(name, src, workspace_root, out_dir),
-        // XmlLmf is handled by the wasm crate's build.rs;
-        // AdobeGlyphList ships as include_str!. Plaintext / Json /
-        // Video / Audio / Binary have no codegen yet — they decode
-        // lazily at runtime.
-        _ => {}
+    // UslmXml titles are aggregated into the single
+    // `usc_corpus_codegen.rs` static by `write_usc_corpus_codegen`;
+    // no per-title module is emitted anymore (the legacy
+    // `us_code/title_N.rs` shims were deleted in M4.ε.6). XmlLmf is
+    // handled by the wasm crate's build.rs; AdobeGlyphList ships as
+    // include_str!. Plaintext / Json / Video / Audio / Binary have
+    // no codegen yet — they decode lazily at runtime.
+    if let Some("Pdf") = ct {
+        emit_statute_via_pdf(name, src, workspace_root, lock, out_dir);
     }
 }
 
@@ -633,48 +634,6 @@ fn emit_statute_via_pdf(
             PdfExtractOutcome::ParseFailed(_) => "ParseFailed",
             PdfExtractOutcome::Encrypted => "Encrypted",
         },
-        out_path.display()
-    );
-}
-
-/// Codegen for sources whose canonical content type is USLM XML —
-/// the whole-title path. Parses the on-disk title XML, emits every
-/// `<section>` as a `StaticStatute` entry in a `pub static SECTIONS`
-/// array. The runtime module at
-/// `social::compliance::statutes::us_code::{name}` `include!`s the
-/// output to expose `section()` / `all_sections()` accessors.
-fn emit_statute_via_uslm(
-    name: &str,
-    src: &RawSource,
-    workspace_root: &std::path::Path,
-    out_dir: &std::path::Path,
-) {
-    let xml_path = expected_usc_title_path(workspace_root, name, &src.version);
-    if !xml_path.exists() {
-        println!(
-            "cargo:warning=USC title `{name}@{version}` XML not on disk at \
-             {path}; emitting empty codegen stub. Run `pr4xis update {name}` to \
-             fetch.",
-            version = src.version,
-            path = xml_path.display(),
-        );
-        let stub = format!(
-            "// Stub: USC title `{name}@{version}` XML not on disk.\n\
-             pub static SECTIONS: &[StaticStatute] = &[];\n",
-            version = src.version,
-        );
-        let out_path = out_dir.join(format!("{name}_codegen.rs"));
-        std::fs::write(&out_path, stub).expect("write title stub");
-        return;
-    }
-    println!("cargo:rerun-if-changed={}", xml_path.display());
-    let source = pr4xis::codegen::uslm::generate_title_module_source(&xml_path)
-        .expect("generate title module source");
-    let out_path = out_dir.join(format!("{name}_codegen.rs"));
-    let section_count = source.matches("StaticStatute {").count();
-    std::fs::write(&out_path, source).expect("write title codegen");
-    eprintln!(
-        "Generated USC title `{name}`: {section_count} sections -> {}",
         out_path.display()
     );
 }

@@ -1,23 +1,15 @@
 //! 18 U.S.C. § 1514A — Sarbanes–Oxley § 806 whistleblower protection.
 //!
-//! Two data paths coexist during the migration to whole-title
-//! USLM:
+//! Two data paths coexist:
 //!
-//! - [`statute`] returns the legacy hand-curated Statute, built
-//!   from the `[structural."sox_1514a@2002"]` block in praxis.lock.
-//!   28 terms, 18 relations, practitioner-doctrinal naming (Covered
-//!   Employer, Prohibition on Retaliation, …). Consumed by the
-//!   existing test suite and downstream code.
-//! - [`statute_from_uslm`] returns the USLM-derived Statute,
-//!   sourced from the embedded Title 18 corpus at
-//!   [`super::us_code::title_18`]. Term naming follows USLM
-//!   headings verbatim. Used by future code that wants the
-//!   whole-title-default path.
-//!
-//! The migration sequence: build out test coverage for the USLM
-//! path, then incrementally point consumers from `statute()` to
-//! `statute_from_uslm()`. Once all consumers move, the hand-curated
-//! `[structural.*]` block can be deleted.
+//! - [`statute`] returns the hand-curated Statute, built from the
+//!   `[structural."sox_1514a@2002"]` block in praxis.lock. 28 terms,
+//!   18 relations, practitioner-doctrinal naming (Covered Employer,
+//!   Prohibition on Retaliation, …).
+//! - [`statute_from_uslm`] returns the USLM-derived Statute, looked
+//!   up by typed USLM URN against the unified
+//!   [`crate::social::software::markup::xml::uslm::corpus::UsCode`]
+//!   corpus. Term naming follows USLM headings verbatim.
 //!
 //! Source: 18 U.S.C. § 1514A (2002, Sarbanes–Oxley Act § 806).
 
@@ -59,26 +51,25 @@ pub fn try_statute() -> Result<Statute, StatuteConstructError> {
     Statute::from_structural("sox_1514a", "2002", data)
 }
 
-/// USLM-derived Statute for 18 U.S.C. § 1514A, looked up via the
-/// generic [`super::us_code::section`] dispatch using a typed
-/// [`UsCodeTitleId`] instead of a hard-coded module path. Lazily
-/// constructed, cached, panics if Title 18 doesn't carry § 1514A
-/// (a build-time invariant).
+/// USLM-derived Statute for 18 U.S.C. § 1514A, looked up by typed
+/// USLM URN against the unified [`UsCode`] corpus. Lazily
+/// constructed, cached, panics if § 1514A is not in the loaded
+/// corpus (a build-time invariant when Title 18 USLM is registered).
 ///
 /// Term naming follows USLM `<heading>` text verbatim — differs
 /// from the practitioner-doctrinal naming in [`statute`].
+///
+/// [`UsCode`]: crate::social::software::markup::xml::uslm::corpus::UsCode
 pub fn statute_from_uslm() -> &'static Statute {
-    use crate::social::software::markup::xml::uslm::corpus::UsCodeTitleId;
+    use crate::formal::meta::identifier_format::Identifier;
+    use crate::social::software::markup::xml::uslm::corpus::loaded as usc_loaded;
     static INSTANCE: OnceLock<Statute> = OnceLock::new();
     INSTANCE.get_or_init(|| {
-        let title_18 =
-            UsCodeTitleId::try_from_number(18).expect("Title 18 is a valid USC title number");
-        let section = super::us_code::section(&title_18, IDENTIFIER).unwrap_or_else(|| {
-            panic!(
-                "{} USLM is missing section {IDENTIFIER}",
-                title_18.short_citation()
-            )
-        });
+        let urn = Identifier::uslm_urn(IDENTIFIER)
+            .expect("SOX 1514A IDENTIFIER must be a valid USLM URN");
+        let section = usc_loaded()
+            .section_by_urn(&urn)
+            .unwrap_or_else(|| panic!("section {IDENTIFIER} not in loaded UsCode corpus"));
         section.to_statute("sox_1514a", "2002")
     })
 }

@@ -71,27 +71,25 @@ pub fn try_statute() -> Result<Statute, StatuteConstructError> {
 /// USLM identifier for 49 U.S.C. § 42121.
 pub const IDENTIFIER: &str = "/us/usc/t49/s42121";
 
-/// USLM-derived Statute for 49 U.S.C. § 42121, looked up from the
-/// embedded Title 49 corpus, looked up via the generic
-/// [`super::us_code::section`] dispatch using a typed
-/// [`UsCodeTitleId`] instead of a hard-coded module path. Lazily
-/// constructed, cached, panics if Title 49 doesn't carry § 42121
-/// (a build-time invariant).
+/// USLM-derived Statute for 49 U.S.C. § 42121, looked up by typed
+/// USLM URN against the unified [`UsCode`] corpus. Lazily
+/// constructed, cached, panics if § 42121 is not in the loaded
+/// corpus (a build-time invariant when Title 49 USLM is registered).
 ///
 /// Term naming follows USLM `<heading>` text verbatim — differs
 /// from the practitioner-doctrinal naming in [`statute`].
+///
+/// [`UsCode`]: crate::social::software::markup::xml::uslm::corpus::UsCode
 pub fn statute_from_uslm() -> &'static Statute {
-    use crate::social::software::markup::xml::uslm::corpus::UsCodeTitleId;
+    use crate::formal::meta::identifier_format::Identifier;
+    use crate::social::software::markup::xml::uslm::corpus::loaded as usc_loaded;
     static INSTANCE: OnceLock<Statute> = OnceLock::new();
     INSTANCE.get_or_init(|| {
-        let title_49 =
-            UsCodeTitleId::try_from_number(49).expect("Title 49 is a valid USC title number");
-        let section = super::us_code::section(&title_49, IDENTIFIER).unwrap_or_else(|| {
-            panic!(
-                "{} USLM is missing section {IDENTIFIER}",
-                title_49.short_citation()
-            )
-        });
+        let urn = Identifier::uslm_urn(IDENTIFIER)
+            .expect("AIR21 42121 IDENTIFIER must be a valid USLM URN");
+        let section = usc_loaded()
+            .section_by_urn(&urn)
+            .unwrap_or_else(|| panic!("section {IDENTIFIER} not in loaded UsCode corpus"));
         section.to_statute("air21_42121", "2010")
     })
 }

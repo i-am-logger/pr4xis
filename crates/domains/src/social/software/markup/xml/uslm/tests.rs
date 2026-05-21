@@ -3653,11 +3653,16 @@ fn every_section_lifts_to_statute_with_urn_provenance() {
     let title = read_uslm_title(&xml).expect("parse");
 
     // Spot-check 10 sections — too expensive to lift all ~1500.
+    use crate::formal::meta::identifier_format::Identifier;
+    use crate::social::software::markup::xml::uslm::corpus::loaded as usc_loaded;
+    let usc = usc_loaded();
     for s in title.sections.iter().take(10) {
-        let static_section =
-            crate::social::compliance::statutes::us_code::title_18::section(&s.identifier);
-        if let Some(stat) = static_section {
-            let statute = stat.to_statute("test_lift", "1");
+        let urn = match Identifier::uslm_urn(&s.identifier) {
+            Ok(u) => u,
+            Err(_) => continue,
+        };
+        if let Some(section) = usc.section_by_urn(&urn) {
+            let statute = section.to_statute("test_lift", "1");
             let ctx = statute.description().context_uri.as_deref().unwrap_or("");
             assert_eq!(
                 ctx, s.identifier,
