@@ -602,7 +602,9 @@ fn read_headers(elem: &XmlElement) -> Vec<UsCodeHeader> {
 /// container), returning typed [`HierarchyNode`]s. Skips
 /// editorial-scope subtrees (notes, quoted content) per the
 /// USLM Schema's structural distinction.
-fn read_hierarchy_children(elem: &XmlElement) -> Result<Vec<HierarchyNode>, UslmReadError> {
+pub(super) fn read_hierarchy_children(
+    elem: &XmlElement,
+) -> Result<Vec<HierarchyNode>, UslmReadError> {
     let mut out = Vec::new();
     for child in &elem.children {
         let XmlNode::Element(e) = child else { continue };

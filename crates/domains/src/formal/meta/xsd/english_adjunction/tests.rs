@@ -102,7 +102,11 @@ fn sample_uslm_instance() -> XsdOntologyInstance {
         },
     ];
     let components = named.iter().map(|n| n.concept).collect();
-    XsdOntologyInstance { components, named }
+    XsdOntologyInstance {
+        components,
+        named,
+        elements: Vec::new(),
+    }
 }
 
 // =============================================================================
