@@ -3704,3 +3704,160 @@ fn recurse_check_unique(d: &UsCodeSubdivision, seen: &mut std::collections::Hash
         recurse_check_unique(c, seen);
     }
 }
+
+// ── XSD-grounded dispatch axioms (M4.ε.5.a.5) ──────────────────
+//
+// The hand-coded ContainerKind / SubdivisionKind /
+// UsCodeAdditionalContainer parsers project XML element-name
+// strings into runtime enum variants. The XSD-grounded variants
+// (`from_xsd_element`) consult the loaded USLM-1.0.18 XSD ontology
+// before accepting a name — confirming both that the name is
+// `<xsd:element>`-declared (W3C XSD 1.1 Part 1 §3.3) and that it is
+// a member of `substitutionGroup="level"` (W3C XSD 1.1 Part 1
+// §3.3.6) for the level-family variants.
+//
+// The axioms below are the structural guarantee that the runtime
+// enum variants don't drift from the loaded XSD's level family:
+// every variant's tag is a verified level-group member in the
+// loaded XSD.
+//
+// Citation: W3C XSD 1.1 Part 1 §3.3 (Element Declarations), §3.3.6
+// (Substitution Groups); LRC USLM XML User Guide § V (level
+// hierarchy).
+
+fn axiom_loaded_uslm_xsd() -> crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance {
+    use crate::formal::meta::xsd::from_xsd_parser::project_from_xsd_text;
+    use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
+    project_from_xsd_text(USLM_1_0_18_XSD)
+}
+
+#[test]
+fn axiom_container_kind_members_are_level_group_members() {
+    // For every ContainerKind variant, the variant's USLM tag is a
+    // member of the loaded USLM XSD's `substitutionGroup="level"`
+    // family (W3C XSD 1.1 Part 1 §3.3.6).
+    let xsd = axiom_loaded_uslm_xsd();
+    for kind in ContainerKind::all() {
+        let tag = kind.tag();
+        assert!(
+            xsd.lookup_element(tag).is_some(),
+            "ContainerKind variant {kind:?} has tag {tag:?} which the loaded USLM XSD doesn't declare as an <xsd:element>"
+        );
+        assert!(
+            xsd.is_member_of_substitution_group(tag, "level"),
+            "ContainerKind variant {kind:?} has tag {tag:?} which the loaded USLM XSD doesn't carry under substitutionGroup=\"level\""
+        );
+    }
+}
+
+#[test]
+fn axiom_subdivision_kind_members_are_level_group_members() {
+    // For every SubdivisionKind variant, the variant's USLM tag is a
+    // member of the loaded USLM XSD's `substitutionGroup="level"`
+    // family.
+    let xsd = axiom_loaded_uslm_xsd();
+    for kind in SubdivisionKind::all() {
+        let tag = kind.tag();
+        assert!(
+            xsd.lookup_element(tag).is_some(),
+            "SubdivisionKind variant {kind:?} has tag {tag:?} which the loaded USLM XSD doesn't declare as an <xsd:element>"
+        );
+        assert!(
+            xsd.is_member_of_substitution_group(tag, "level"),
+            "SubdivisionKind variant {kind:?} has tag {tag:?} which the loaded USLM XSD doesn't carry under substitutionGroup=\"level\""
+        );
+    }
+}
+
+#[test]
+fn axiom_uscode_additional_container_members_are_xsd_declared() {
+    // For every UsCodeAdditionalContainer variant, the variant's
+    // USLM tag is declared by the loaded USLM XSD (W3C XSD 1.1
+    // Part 1 §3.3). Not every additional-container variant is a
+    // level-group member — `preamble` for instance sits in a
+    // separate part of the schema — but every one is a declared
+    // element.
+    let xsd = axiom_loaded_uslm_xsd();
+    for kind in UsCodeAdditionalContainer::all() {
+        let tag = kind.tag();
+        assert!(
+            xsd.lookup_element(tag).is_some(),
+            "UsCodeAdditionalContainer variant {kind:?} has tag {tag:?} which the loaded USLM XSD doesn't declare as an <xsd:element>"
+        );
+    }
+}
+
+#[test]
+fn axiom_container_kind_from_xsd_element_matches_parse() {
+    // For every ContainerKind variant's tag, the XSD-grounded
+    // `from_xsd_element` query and the hand-coded `parse` agree on
+    // the variant. This guarantees that callers can migrate from
+    // `parse` to `from_xsd_element` without changing the
+    // result of dispatch for any tag in the variant set.
+    let xsd = axiom_loaded_uslm_xsd();
+    for kind in ContainerKind::all() {
+        let tag = kind.tag();
+        assert_eq!(
+            ContainerKind::from_xsd_element(tag, &xsd),
+            ContainerKind::parse(tag),
+            "from_xsd_element and parse disagree for tag {tag:?}"
+        );
+    }
+}
+
+#[test]
+fn axiom_subdivision_kind_from_xsd_element_matches_parse() {
+    let xsd = axiom_loaded_uslm_xsd();
+    for kind in SubdivisionKind::all() {
+        let tag = kind.tag();
+        assert_eq!(
+            SubdivisionKind::from_xsd_element(tag, &xsd),
+            SubdivisionKind::parse(tag),
+            "from_xsd_element and parse disagree for tag {tag:?}"
+        );
+    }
+}
+
+#[test]
+fn axiom_from_xsd_element_rejects_non_level_member_names() {
+    // Names that are XSD-declared but NOT in the level family must
+    // be rejected by `ContainerKind::from_xsd_element` and
+    // `SubdivisionKind::from_xsd_element`. Per W3C XSD 1.1 Part 1
+    // §3.3.6, the predicate is reflexive-transitive substitution-
+    // group membership — `notes`, `meta`, `header` etc. share no
+    // level-group ancestry with the level family.
+    let xsd = axiom_loaded_uslm_xsd();
+    for non_level in ["notes", "note", "meta", "header", "toc", "signature"] {
+        if xsd.lookup_element(non_level).is_none() {
+            // The loaded XSD must declare these for the negative
+            // test to be meaningful.
+            continue;
+        }
+        assert_eq!(
+            ContainerKind::from_xsd_element(non_level, &xsd),
+            None,
+            "ContainerKind::from_xsd_element({non_level:?}) accepted a non-level-group element"
+        );
+        assert_eq!(
+            SubdivisionKind::from_xsd_element(non_level, &xsd),
+            None,
+            "SubdivisionKind::from_xsd_element({non_level:?}) accepted a non-level-group element"
+        );
+    }
+}
+
+#[test]
+fn axiom_from_xsd_element_rejects_undeclared_names() {
+    // Names that aren't declared by the loaded USLM XSD have no
+    // `{type definition}` to dispatch on (W3C XSD 1.1 Part 1 §3.3)
+    // — `from_xsd_element` must return `None`.
+    let xsd = axiom_loaded_uslm_xsd();
+    for fake in ["zzz_not_a_uslm_element", "xyzzy", ""] {
+        assert_eq!(ContainerKind::from_xsd_element(fake, &xsd), None);
+        assert_eq!(SubdivisionKind::from_xsd_element(fake, &xsd), None);
+        assert_eq!(
+            UsCodeAdditionalContainer::from_xsd_element(fake, &xsd),
+            None
+        );
+    }
+}

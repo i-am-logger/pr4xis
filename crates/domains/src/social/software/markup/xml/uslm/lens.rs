@@ -588,12 +588,16 @@ fn build_hierarchy_children(
                 e,
             )?)));
         } else {
-            // Hierarchy container — use the loaded XSD's name to
-            // look up the container-kind enum variant. The
-            // ContainerKind::parse function maps each XSD-declared
-            // level name to its enum variant; the *call* to
-            // `ContainerKind::parse` is keyed on the loaded name.
-            let Some(kind) = super::ontology::ContainerKind::parse(&e.name.local) else {
+            // Hierarchy container — use the XSD-grounded variant of
+            // `ContainerKind::parse` that consults the loaded USLM
+            // XSD for `substitutionGroup="level"` membership before
+            // projecting to the runtime enum variant. The is-level
+            // predicate was already verified above; this call
+            // *re-confirms* the W3C XSD 1.1 Part 1 §3.3.6 membership
+            // and §3.3 element-declaration via the
+            // `from_xsd_element` ontology-query path.
+            let Some(kind) = super::ontology::ContainerKind::from_xsd_element(&e.name.local, xsd)
+            else {
                 // The XSD declares more level elements than
                 // ContainerKind currently enumerates (e.g.
                 // `division`, `article`). Those are tracked under

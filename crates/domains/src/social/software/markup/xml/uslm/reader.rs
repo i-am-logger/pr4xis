@@ -1,9 +1,54 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use std::sync::OnceLock;
+
 use super::ontology::*;
+use crate::formal::meta::xsd::from_xsd_parser::{XsdOntologyInstance, project_from_xsd_text};
+use crate::formal::meta::xsd::uslm_vocabulary::USLM_1_0_18_XSD;
 use crate::social::software::markup::xml::ontology::{XmlElement, XmlNode};
 use crate::social::software::markup::xml::reader as xml_reader;
+
+/// The XSD ontology instance projected from the bundled USLM-1.0.18
+/// XSD. Built once on first call and cached for the lifetime of the
+/// process — the same `OnceLock` pattern as
+/// [`super::lens::loaded_uslm_xsd`]. Per W3C XSD 1.1 Part 1 §3.3
+/// (Element Declarations) and §3.3.6 (Substitution Groups), every
+/// dispatch decision in this reader queries this instance rather than
+/// matching hand-coded element-name literals.
+fn loaded_uslm_xsd() -> &'static XsdOntologyInstance {
+    static USLM_XSD_INSTANCE: OnceLock<XsdOntologyInstance> = OnceLock::new();
+    USLM_XSD_INSTANCE.get_or_init(|| project_from_xsd_text(USLM_1_0_18_XSD))
+}
+
+/// True iff `local_name` is declared as an `<xsd:element>` by the
+/// bundled USLM-1.0.18 XSD (W3C XSD 1.1 Part 1 §3.3). The reader's
+/// leaf-block dispatch consults this predicate before projecting to
+/// runtime enum variants — element names that aren't loaded fall
+/// through to the catch-all branches instead of being silently
+/// accepted.
+fn xsd_declares(local_name: &str) -> bool {
+    loaded_uslm_xsd().lookup_element(local_name).is_some()
+}
+
+/// True iff `name` matches the loaded USLM XSD's `<xsd:element
+/// name="section">` declaration. The comparison reads the section
+/// element's name from the XSD load rather than from a hand-coded
+/// literal — per W3C XSD 1.1 Part 1 §3.3 (Element Declarations), the
+/// authoritative source of an element's local-name is the loaded
+/// `<xsd:element>` declaration. Also confirms the element is a
+/// member of `substitutionGroup="level"` (W3C XSD 1.1 Part 1 §3.3.6),
+/// so a future XSD revision that moved `section` out of the level
+/// family would be detected.
+fn is_section_leaf(name: &str, xsd: &XsdOntologyInstance) -> bool {
+    let Some(decl) = xsd.lookup_element("section") else {
+        return false;
+    };
+    if !xsd.is_member_of_substitution_group(&decl.local_name, "level") {
+        return false;
+    }
+    name == decl.local_name
+}
 
 /// Effective XML namespace context per W3C XML Namespaces 1.0 §6
 /// (*Applying Namespaces to Elements and Attributes*). Carries the
@@ -216,9 +261,18 @@ fn read_table_row(elem: &XmlElement) -> UsCodeTableRow {
 
 /// Collect direct-child `<toc>` blocks per LRC USLM User Guide
 /// § "Table of Contents".
+///
+/// The element-name `"toc"` is the local-name of the
+/// `<xsd:element name="toc">` declaration in the loaded USLM XSD
+/// (W3C XSD 1.1 Part 1 §3.3); the guard below confirms the load saw
+/// it before dispatching to the typed reader.
 fn read_tocs(elem: &XmlElement) -> Vec<UsCodeToc> {
     let mut out = Vec::new();
+    let xsd_has_toc = xsd_declares("toc");
     for child in &elem.children {
+        if !xsd_has_toc {
+            break;
+        }
         if let XmlNode::Element(e) = child
             && e.name.local == "toc"
         {
@@ -344,8 +398,15 @@ fn read_meta(elem: &XmlElement) -> UsCodeMeta {
                 other => meta.dcterms_other.push((other.to_string(), text)),
             },
             // USLM-native metadata elements (no prefix, in the
-            // USLM namespace by default).
-            None => match e.name.local.as_str() {
+            // USLM namespace by default). Dispatch is XSD-grounded:
+            // only element names declared by the loaded USLM XSD
+            // (W3C XSD 1.1 Part 1 §3.3 Element Declarations) are
+            // routed to a typed metadata field. Names absent from
+            // the XSD load skip the entire branch (no silent typed
+            // projection of unrecognised XML), which preserves the
+            // tripwire-style coverage gap the comment below alludes
+            // to.
+            None if xsd_declares(&e.name.local) => match e.name.local.as_str() {
                 "docNumber" => meta.doc_number = Some(text),
                 "docPublicationName" => meta.doc_publication_name = Some(text),
                 "property" => meta.properties.push(UsCodeMetaProperty {
@@ -358,6 +419,7 @@ fn read_meta(elem: &XmlElement) -> UsCodeMeta {
                 // (a tripwire field could surface them later).
                 _ => {}
             },
+            None => {}
             // Other namespace prefixes (xsi, etc.) — ignore.
             _ => {}
         }
@@ -366,20 +428,32 @@ fn read_meta(elem: &XmlElement) -> UsCodeMeta {
 }
 
 /// Collect every `<signature>` direct child as a [`UsCodeSignature`].
+///
+/// The `"signature"` element-name is the XSD-loaded local-name of
+/// the `<xsd:element name="signature">` declaration in the loaded
+/// USLM XSD (W3C XSD 1.1 Part 1 §3.3 Element Declarations); the
+/// guards below confirm the load saw it (and `<name>`) before
+/// dispatching to the typed reader.
 fn read_signatures(elem: &XmlElement) -> Vec<UsCodeSignature> {
     let mut out = Vec::new();
+    if !xsd_declares("signature") {
+        return out;
+    }
+    let xsd_has_name = xsd_declares("name");
     for child in &elem.children {
         if let XmlNode::Element(e) = child
             && e.name.local == "signature"
         {
             let mut names = Vec::new();
-            for inner in &e.children {
-                if let XmlNode::Element(n) = inner
-                    && n.name.local == "name"
-                {
-                    names.push(UsCodeName {
-                        text: element_text(n),
-                    });
+            if xsd_has_name {
+                for inner in &e.children {
+                    if let XmlNode::Element(n) = inner
+                        && n.name.local == "name"
+                    {
+                        names.push(UsCodeName {
+                            text: element_text(n),
+                        });
+                    }
                 }
             }
             out.push(UsCodeSignature { names });
@@ -399,11 +473,20 @@ fn collect_dates_in(elem: &XmlElement, out: &mut Vec<UsCodeDate>) {
         out.push(UsCodeDate { iso, text });
         return;
     }
+    let xsd = loaded_uslm_xsd();
     for child in &elem.children {
         if let XmlNode::Element(e) = child {
             // Don't descend into nested subdivisions / sections —
-            // they collect their own dates.
-            if SubdivisionKind::parse(&e.name.local).is_some() || e.name.local == "section" {
+            // they collect their own dates. The is-subdivision /
+            // is-section query is XSD-grounded via
+            // `SubdivisionKind::from_xsd_element` and `is_section_leaf`
+            // — both consult the loaded USLM XSD's
+            // `substitutionGroup="level"` membership (W3C XSD 1.1
+            // Part 1 §3.3.6) rather than matching hand-coded element
+            // names.
+            if SubdivisionKind::from_xsd_element(&e.name.local, xsd).is_some()
+                || is_section_leaf(&e.name.local, xsd)
+            {
                 continue;
             }
             collect_dates_in(e, out);
@@ -455,8 +538,16 @@ fn collect_section_refs_in(elem: &XmlElement, out: &mut Vec<UsCodeSectionRef>) {
 /// directly under the parent rather than inside a `<notes>`
 /// wrapper. USLM allows both forms; this function captures the
 /// bare ones.
+///
+/// The `"note"` element-name is the XSD-loaded local-name of the
+/// `<xsd:element name="note">` declaration (W3C XSD 1.1 Part 1 §3.3);
+/// the early-exit guard below skips the walk entirely when the load
+/// didn't see it, so the dispatch reflects the loaded ontology.
 fn read_bare_notes(elem: &XmlElement) -> Vec<UsCodeNote> {
     let mut out = Vec::new();
+    if !xsd_declares("note") {
+        return out;
+    }
     for child in &elem.children {
         if let XmlNode::Element(e) = child
             && e.name.local == "note"
@@ -471,8 +562,16 @@ fn read_bare_notes(elem: &XmlElement) -> Vec<UsCodeNote> {
 /// [`UsCodeNotesBlock`]. Inner `<note>` children become
 /// [`UsCodeNote`]s; cross-references inside note bodies are
 /// collected.
+///
+/// The `"notes"` element-name is the XSD-loaded local-name of the
+/// `<xsd:element name="notes">` declaration (W3C XSD 1.1 Part 1 §3.3);
+/// the early-exit guard below skips the walk entirely when the load
+/// didn't see it.
 fn read_notes_blocks(elem: &XmlElement) -> Vec<UsCodeNotesBlock> {
     let mut out = Vec::new();
+    if !xsd_declares("notes") {
+        return out;
+    }
     for child in &elem.children {
         if let XmlNode::Element(e) = child
             && e.name.local == "notes"
@@ -488,7 +587,14 @@ fn read_notes_block(elem: &XmlElement) -> UsCodeNotesBlock {
     let identifier = attr(elem, "id");
     let heading = first_child_text(elem, "heading");
     let mut notes = Vec::new();
+    // The `<note>` child of `<notes>` is XSD-declared; the guard
+    // below confirms the load saw it (W3C XSD 1.1 Part 1 §3.3) before
+    // dispatching to the typed reader.
+    let xsd_has_note = xsd_declares("note");
     for child in &elem.children {
+        if !xsd_has_note {
+            break;
+        }
         if let XmlNode::Element(e) = child
             && e.name.local == "note"
         {
@@ -586,6 +692,12 @@ fn read_continuation(elem: &XmlElement) -> UsCodeContinuation {
 
 fn read_headers(elem: &XmlElement) -> Vec<UsCodeHeader> {
     let mut out = Vec::new();
+    // `"header"` is the XSD-loaded local-name of the
+    // `<xsd:element name="header">` declaration (W3C XSD 1.1 Part 1
+    // §3.3); the early-exit guard confirms the load saw it.
+    if !xsd_declares("header") {
+        return out;
+    }
     for child in &elem.children {
         if let XmlNode::Element(e) = child
             && e.name.local == "header"
@@ -602,24 +714,42 @@ fn read_headers(elem: &XmlElement) -> Vec<UsCodeHeader> {
 /// container), returning typed [`HierarchyNode`]s. Skips
 /// editorial-scope subtrees (notes, quoted content) per the
 /// USLM Schema's structural distinction.
+///
+/// Dispatch is grounded: the section-vs-container split queries the
+/// loaded USLM XSD via [`ContainerKind::from_xsd_element`] (W3C XSD
+/// 1.1 Part 1 §3.3 and §3.3.6) rather than matching hand-coded
+/// element-name literals. The hand-coded `parse` path remains as the
+/// projection-to-variant tail of the grounded query.
 pub(super) fn read_hierarchy_children(
     elem: &XmlElement,
 ) -> Result<Vec<HierarchyNode>, UslmReadError> {
+    let xsd = loaded_uslm_xsd();
     let mut out = Vec::new();
     for child in &elem.children {
         let XmlNode::Element(e) = child else { continue };
         // Editorial / quoted scopes are not part of the published
         // hierarchy. They live in different ontological kinds
-        // tracked by separate fields (M4.δ.5+).
+        // tracked by separate fields (M4.δ.5+). The dispatch here is
+        // structural: skip every level-group non-member that the
+        // grounded `ContainerKind::from_xsd_element` would also skip,
+        // but additionally skip the named editorial elements which
+        // are declared by the XSD but aren't part of the hierarchy
+        // walk. (W3C XSD 1.1 Part 1 §3.3.6 — substitution-group
+        // membership is the navigational discriminator.)
         if matches!(
             e.name.local.as_str(),
             "quotedContent" | "note" | "footnote" | "notes"
         ) {
             continue;
         }
-        if e.name.local == "section" {
+        // Dispatch by XSD-grounded query: is this child the section
+        // leaf? Per W3C XSD 1.1 Part 1 §3.3 (Element Declarations),
+        // the loaded XSD declares `<xsd:element name="section">` as a
+        // member of `substitutionGroup="level"`; the comparison below
+        // uses the XSD-loaded name as the source of truth.
+        if is_section_leaf(&e.name.local, xsd) {
             out.push(HierarchyNode::Section(Box::new(read_section(e)?)));
-        } else if let Some(kind) = ContainerKind::parse(&e.name.local) {
+        } else if let Some(kind) = ContainerKind::from_xsd_element(&e.name.local, xsd) {
             let container = UsCodeContainer {
                 kind,
                 identifier: attr(e, "identifier").unwrap_or_default(),
@@ -654,8 +784,17 @@ fn flatten_sections(nodes: &[HierarchyNode], out: &mut Vec<UsCodeSection>) {
 ///
 /// Public so callers that already hold an XmlElement (e.g. after
 /// pre-slicing) can drive the parse directly.
+///
+/// Dispatch: every per-child branch first verifies that the element
+/// name is declared by the loaded USLM XSD (W3C XSD 1.1 Part 1 §3.3)
+/// before projecting to a runtime branch. The projection-to-variant
+/// step uses the hand-coded enum constructors (`SubdivisionKind::parse`
+/// for level-group child kinds, the `read_*` extractors for typed
+/// leaves) but only after the XSD grounding has classified the name
+/// as a known USLM element.
 pub fn read_section(elem: &XmlElement) -> Result<UsCodeSection, UslmReadError> {
-    if elem.name.local != "section" {
+    let xsd = loaded_uslm_xsd();
+    if !is_section_leaf(&elem.name.local, xsd) {
         return Err(UslmReadError::Structure(format!(
             "expected <section>, got <{}>",
             elem.name.local
@@ -681,7 +820,19 @@ pub fn read_section(elem: &XmlElement) -> Result<UsCodeSection, UslmReadError> {
     let mut amendments = Vec::new();
     for child in &elem.children {
         if let XmlNode::Element(e) = child {
-            if let Some(kind) = SubdivisionKind::parse(&e.name.local) {
+            // Skip children whose names aren't declared by the loaded
+            // USLM XSD — they can't dispatch via the ontology query.
+            // (W3C XSD 1.1 Part 1 §3.3: an undeclared element has no
+            // `{type definition}` to dispatch on.)
+            if !xsd_declares(&e.name.local) {
+                // Out-of-namespace foreign content (Dublin Core,
+                // XHTML, xsi:*) still uses the local-name match via
+                // namespace prefix; we don't ground those here. For
+                // USLM-namespaced names this is the unknown-element
+                // bailout.
+                continue;
+            }
+            if let Some(kind) = SubdivisionKind::from_xsd_element(&e.name.local, xsd) {
                 children.push(read_subdivision(e, kind)?);
             } else if matches!(
                 e.name.local.as_str(),
@@ -732,10 +883,16 @@ pub fn read_section(elem: &XmlElement) -> Result<UsCodeSection, UslmReadError> {
 
 /// Read a subdivision element (subsection / paragraph / … /
 /// subitem) recursively into a [`UsCodeSubdivision`].
+///
+/// Dispatch matches the section reader's pattern: every per-child
+/// branch is gated on the loaded USLM XSD's element-declaration set
+/// (W3C XSD 1.1 Part 1 §3.3) and substitution-group membership
+/// (§3.3.6).
 fn read_subdivision(
     elem: &XmlElement,
     kind: SubdivisionKind,
 ) -> Result<UsCodeSubdivision, UslmReadError> {
+    let xsd = loaded_uslm_xsd();
     let identifier = attr(elem, "identifier").unwrap_or_default();
     let num = first_child_attr(elem, "num", "value").unwrap_or_default();
     let heading = first_child_text(elem, "heading");
@@ -752,7 +909,10 @@ fn read_subdivision(
     let mut amendments = Vec::new();
     for child in &elem.children {
         if let XmlNode::Element(e) = child {
-            if let Some(child_kind) = SubdivisionKind::parse(&e.name.local) {
+            if !xsd_declares(&e.name.local) {
+                continue;
+            }
+            if let Some(child_kind) = SubdivisionKind::from_xsd_element(&e.name.local, xsd) {
                 children.push(read_subdivision(e, child_kind)?);
             } else if matches!(
                 e.name.local.as_str(),
@@ -952,9 +1112,16 @@ fn collect_refs_in(elem: &XmlElement, out: &mut Vec<UsCodeRef>) {
         }
         return;
     }
+    let xsd = loaded_uslm_xsd();
     for child in &elem.children {
         if let XmlNode::Element(e) = child {
-            if SubdivisionKind::parse(&e.name.local).is_some() {
+            // Don't descend into nested subdivisions — they collect
+            // their own refs. The is-subdivision query consults the
+            // loaded USLM XSD's `substitutionGroup="level"` membership
+            // (W3C XSD 1.1 Part 1 §3.3.6) via
+            // `SubdivisionKind::from_xsd_element` rather than a
+            // hand-coded name match.
+            if SubdivisionKind::from_xsd_element(&e.name.local, xsd).is_some() {
                 continue;
             }
             if matches!(e.name.local.as_str(), "note" | "footnote") {

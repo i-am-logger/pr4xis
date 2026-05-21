@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::formal::meta::identifier_format::{Identifier, IdentifierParseError};
+use crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance;
 
 // USLM ontology — the typed values that USLM XML encodes.
 //
@@ -364,6 +365,14 @@ pub enum ContainerKind {
 impl ContainerKind {
     /// Parse a USLM container element tag name. Returns `None`
     /// for non-container tags.
+    ///
+    /// **Prefer [`ContainerKind::from_xsd_element`]** — the
+    /// XSD-grounded path that confirms the element is a
+    /// substitutionGroup="level" member in the loaded USLM XSD
+    /// ontology before accepting the name. This unguarded parse
+    /// remains for backwards compatibility while the M4.ε.5.a.5
+    /// consumer migration proceeds; downstream code should thread the
+    /// XSD instance and call `from_xsd_element` instead.
     pub fn parse(tag: &str) -> Option<Self> {
         Some(match tag {
             "subtitle" => Self::Subtitle,
@@ -373,6 +382,57 @@ impl ContainerKind {
             "subchapter" => Self::Subchapter,
             _ => return None,
         })
+    }
+
+    /// XSD-grounded variant of [`ContainerKind::parse`]. Confirms that
+    /// `tag` is declared by the loaded USLM XSD ontology AND is a
+    /// member of the `substitutionGroup="level"` family before
+    /// projecting to the runtime enum variant.
+    ///
+    /// Per W3C XSD 1.1 Part 1 §3.3.6 (Substitution Groups), the
+    /// `substitutionGroup` head `level` collects every USLM
+    /// hierarchical level element (subtitle, part, subpart, chapter,
+    /// subchapter, section, subsection, paragraph, …) into one
+    /// reflexive-transitive membership predicate. ContainerKind
+    /// variants are exactly the proper-container subset — level
+    /// members that wrap nested levels rather than carrying
+    /// subdivision content (the `section` leaf is split off into the
+    /// section-leaf branch by the lens walker).
+    ///
+    /// Per W3C XSD 1.1 Part 1 §3.3 (Element Declarations), an element
+    /// name with no matching `<xsd:element>` declaration in the loaded
+    /// XSD has no `{type definition}` to dispatch on; this function
+    /// returns `None` for such names rather than guessing.
+    ///
+    /// Citation: LRC USLM XML User Guide § V (level hierarchy).
+    pub fn from_xsd_element(tag: &str, xsd: &XsdOntologyInstance) -> Option<Self> {
+        // Query 1 — W3C XSD 1.1 Part 1 §3.3 Element Declarations: is
+        // `tag` declared by the loaded XSD?
+        xsd.lookup_element(tag)?;
+        // Query 2 — W3C XSD 1.1 Part 1 §3.3.6 Substitution Groups: is
+        // `tag` a (reflexive-transitive) member of the `"level"` head?
+        if !xsd.is_member_of_substitution_group(tag, "level") {
+            return None;
+        }
+        // Projection from the XSD-grounded name set to the runtime
+        // enum variant. The set of accepted names is the intersection
+        // of ContainerKind::all() with the loaded XSD's level-group
+        // members — i.e. the proper-container subset, excluding the
+        // section leaf and below.
+        Self::parse(tag)
+    }
+
+    /// Every ContainerKind variant. Useful for axiom tests asserting
+    /// that each variant's tag is a member of the XSD's
+    /// `substitutionGroup="level"` family.
+    pub fn all() -> &'static [Self] {
+        &[
+            Self::Subtitle,
+            Self::Part,
+            Self::Subpart,
+            Self::Chapter,
+            Self::Subchapter,
+        ]
     }
 
     /// Canonical USLM tag name.
@@ -991,6 +1051,63 @@ impl UsCodeAdditionalContainer {
             _ => return None,
         })
     }
+
+    /// XSD-grounded variant of [`UsCodeAdditionalContainer::parse`].
+    ///
+    /// Most of these variants are members of the loaded USLM XSD's
+    /// `substitutionGroup="level"` family (per W3C XSD 1.1 Part 1
+    /// §3.3.6). The exception is `preamble`, which the loaded XSD
+    /// declares at a different position in the level taxonomy
+    /// alongside `<longTitle>` / `<docTitle>` rather than as a level
+    /// member. For names not in the level group we still attempt the
+    /// `<xs:element>` lookup so the dispatch reflects the loaded
+    /// ontology rather than a hand-coded set.
+    ///
+    /// Per W3C XSD 1.1 Part 1 §3.3 (Element Declarations), names that
+    /// don't have a matching `<xsd:element>` in the loaded XSD return
+    /// `None`.
+    ///
+    /// Citation: LRC USLM XML User Guide § V (level hierarchy) and
+    /// § "Hierarchical Containers".
+    pub fn from_xsd_element(tag: &str, xsd: &XsdOntologyInstance) -> Option<Self> {
+        // Element-declaration grounding (W3C XSD 1.1 Part 1 §3.3).
+        xsd.lookup_element(tag)?;
+        // Most additional-container variants are level-group members;
+        // `appendix` and `preamble` may sit outside the level family
+        // in some USLM revisions but are still XSD-declared, so the
+        // grounding above is the load-bearing check. The projection
+        // below applies once the name is confirmed to be in the loaded
+        // schema.
+        Self::parse(tag)
+    }
+
+    /// Every UsCodeAdditionalContainer variant. Useful for axiom
+    /// tests asserting that each variant's tag is declared by the
+    /// loaded USLM XSD.
+    pub fn all() -> &'static [Self] {
+        &[
+            Self::Division,
+            Self::Article,
+            Self::Subarticle,
+            Self::Preamble,
+            Self::Preliminary,
+            Self::Appendix,
+            Self::Subsubitem,
+        ]
+    }
+
+    /// Canonical USLM tag name.
+    pub fn tag(self) -> &'static str {
+        match self {
+            Self::Division => "division",
+            Self::Article => "article",
+            Self::Subarticle => "subarticle",
+            Self::Preamble => "preamble",
+            Self::Preliminary => "preliminary",
+            Self::Appendix => "appendix",
+            Self::Subsubitem => "subsubitem",
+        }
+    }
 }
 
 /// Quoted-content variants per LRC USLM User Guide § "Quoted
@@ -1361,6 +1478,10 @@ impl SubdivisionKind {
     /// variant. Returns `None` for unknown element names — callers
     /// should treat that as a structural anomaly to flag, not
     /// silently absorb.
+    ///
+    /// **Prefer [`SubdivisionKind::from_xsd_element`]** — the
+    /// XSD-grounded path that confirms membership in the loaded USLM
+    /// XSD's `substitutionGroup="level"` family before projecting.
     pub fn parse(tag: &str) -> Option<Self> {
         Some(match tag {
             "subsection" => Self::Subsection,
@@ -1372,6 +1493,57 @@ impl SubdivisionKind {
             "subitem" => Self::Subitem,
             _ => return None,
         })
+    }
+
+    /// XSD-grounded variant of [`SubdivisionKind::parse`]. Confirms
+    /// that `tag` is declared by the loaded USLM XSD ontology AND is
+    /// a member of the `substitutionGroup="level"` family before
+    /// projecting to the runtime variant.
+    ///
+    /// Per W3C XSD 1.1 Part 1 §3.3.6 (Substitution Groups), every
+    /// USLM hierarchical level element shares the `"level"` head;
+    /// subdivision kinds (subsection / paragraph / subparagraph /
+    /// clause / subclause / item / subitem) are the level-group
+    /// members below the section leaf. The dispatch consults the
+    /// XSD's loaded knowledge first; the projection to the runtime
+    /// enum variant is the second step (W3C XSD 1.1 Part 1 §3.3
+    /// Element Declarations).
+    ///
+    /// Citation: LRC USLM XML User Guide § V (level hierarchy).
+    pub fn from_xsd_element(tag: &str, xsd: &XsdOntologyInstance) -> Option<Self> {
+        xsd.lookup_element(tag)?;
+        if !xsd.is_member_of_substitution_group(tag, "level") {
+            return None;
+        }
+        Self::parse(tag)
+    }
+
+    /// Every SubdivisionKind variant. Useful for axiom tests
+    /// asserting that each variant's tag is a member of the XSD's
+    /// `substitutionGroup="level"` family.
+    pub fn all() -> &'static [Self] {
+        &[
+            Self::Subsection,
+            Self::Paragraph,
+            Self::Subparagraph,
+            Self::Clause,
+            Self::Subclause,
+            Self::Item,
+            Self::Subitem,
+        ]
+    }
+
+    /// Canonical USLM tag name.
+    pub fn tag(self) -> &'static str {
+        match self {
+            Self::Subsection => "subsection",
+            Self::Paragraph => "paragraph",
+            Self::Subparagraph => "subparagraph",
+            Self::Clause => "clause",
+            Self::Subclause => "subclause",
+            Self::Item => "item",
+            Self::Subitem => "subitem",
+        }
     }
 
     /// The depth of this kind in USLM's nesting order, 0-indexed
