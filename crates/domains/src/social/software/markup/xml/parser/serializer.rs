@@ -28,7 +28,8 @@
 use alloc::{format, string::String, vec::Vec};
 
 use super::super::ontology::{
-    XmlAttribute, XmlDocument, XmlElement, XmlName, XmlNamespace, XmlNode,
+    XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlExternalId, XmlName, XmlNamespace,
+    XmlNode,
 };
 
 /// Top-level entry point: emit a [`XmlDocument`] as W3C XML 1.0
@@ -36,8 +37,64 @@ use super::super::ontology::{
 pub fn serialize_document(doc: &XmlDocument) -> Vec<u8> {
     let mut out = String::new();
     write_xml_decl(&mut out, &doc.version, doc.encoding.as_deref());
+    if let Some(doctype) = &doc.doctype {
+        write_doctype(&mut out, doctype);
+    }
     write_element(&mut out, &doc.root);
     out.into_bytes()
+}
+
+/// W3C XML 1.0 §2.8 production [28] `doctypedecl` — inverse of
+/// [`grammar::parse_doctype`](super::grammar). Re-emits the root
+/// element name, optional `ExternalID`, and inline general entity
+/// declarations (`<!ENTITY name "value">`) the parser projected.
+fn write_doctype(out: &mut String, doctype: &XmlDoctype) {
+    out.push_str("<!DOCTYPE ");
+    out.push_str(&doctype.root_name);
+    if let Some(id) = &doctype.external_id {
+        match id {
+            XmlExternalId::System { system_literal } => {
+                out.push_str(" SYSTEM \"");
+                out.push_str(system_literal);
+                out.push('"');
+            }
+            XmlExternalId::Public {
+                public_id,
+                system_literal,
+            } => {
+                out.push_str(" PUBLIC \"");
+                out.push_str(public_id);
+                out.push_str("\" \"");
+                out.push_str(system_literal);
+                out.push('"');
+            }
+        }
+    }
+    if !doctype.general_entities.is_empty() {
+        out.push_str(" [");
+        for (name, value) in &doctype.general_entities {
+            out.push_str("<!ENTITY ");
+            out.push_str(name);
+            out.push_str(" \"");
+            write_escaped_entity_value(out, value);
+            out.push_str("\">");
+        }
+        out.push(']');
+    }
+    out.push('>');
+}
+
+/// W3C XML 1.0 §4.3.2 production [9] `EntityValue` — escape the
+/// minimum required for the value to be re-readable inside a
+/// double-quoted entity declaration: `&` → `&amp;`, `"` → `&quot;`.
+fn write_escaped_entity_value(out: &mut String, s: &str) {
+    for ch in s.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '"' => out.push_str("&quot;"),
+            _ => out.push(ch),
+        }
+    }
 }
 
 /// W3C XML 1.0 §2.8 production [23] `XMLDecl`. Re-emitted with the

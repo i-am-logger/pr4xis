@@ -33,6 +33,7 @@ impl Axiom for XmlLensGetPutLaw {
         let doc = XmlDocument {
             version: "1.0".into(),
             encoding: None,
+            doctype: None,
             root: XmlElement {
                 name: XmlName::new("axiom_witness"),
                 namespace: None,
@@ -293,6 +294,81 @@ pr4xis::register_axiom!(
     "W3C XML 1.0 Fifth Edition (2008) §3.3.3 Attribute-Value Normalization"
 );
 
+/// **Axiom GeneralEntityResolution.** Per W3C XML 1.0 Fifth Edition
+/// §4.4.3 (Included), a general entity reference in content MUST
+/// be replaced by the entity's declared replacement text. Asserts
+/// that a `<!DOCTYPE>` with an inline `<!ENTITY name "value">`
+/// declaration causes `&name;` in the body to expand to `value`.
+pub struct XmlGeneralEntityResolutionEnforced;
+
+impl Axiom for XmlGeneralEntityResolutionEnforced {
+    fn verify(&self) -> Verdict {
+        let xml = b"<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY e \"hello\">]><r>&e;</r>";
+        let doc = match parse_document(xml) {
+            Ok(d) => d,
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let resolved = matches!(
+            doc.root.children.first(),
+            Some(XmlNode::Text(t)) if t == "hello"
+        );
+        if resolved {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "XmlGeneralEntityResolutionEnforced",
+        "the parser resolves DOCTYPE-declared general entity references per W3C XML 1.0 §4.4.3",
+        "Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) W3C XML 1.0 Fifth Edition §4.4.3"
+    );
+}
+
+pr4xis::register_axiom!(
+    XmlGeneralEntityResolutionEnforced,
+    "W3C XML 1.0 Fifth Edition (2008) §4.4.3 General Entity Resolution"
+);
+
+/// **Axiom FirstEntityDeclarationWins.** Per W3C XML 1.0 Fifth
+/// Edition §4.5 (Construction of Internal Entity Replacement
+/// Text), "if the same entity is declared more than once, the
+/// first declaration encountered is binding". Asserts that a
+/// duplicate `<!ENTITY>` declaration in the internal subset
+/// preserves the first-declared value.
+pub struct XmlFirstEntityDeclarationBinds;
+
+impl Axiom for XmlFirstEntityDeclarationBinds {
+    fn verify(&self) -> Verdict {
+        let xml = b"<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY x \"first\"><!ENTITY x \"second\">]><r>&x;</r>";
+        let doc = match parse_document(xml) {
+            Ok(d) => d,
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let bound = matches!(
+            doc.root.children.first(),
+            Some(XmlNode::Text(t)) if t == "first"
+        );
+        if bound {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "XmlFirstEntityDeclarationBinds",
+        "duplicate <!ENTITY> declarations keep the first-declared value per W3C XML 1.0 §4.5",
+        "Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) W3C XML 1.0 Fifth Edition §4.5"
+    );
+}
+
+pr4xis::register_axiom!(
+    XmlFirstEntityDeclarationBinds,
+    "W3C XML 1.0 Fifth Edition (2008) §4.5 Construction of Internal Entity Replacement Text"
+);
+
 #[cfg(test)]
 mod axiom_tests {
     use super::*;
@@ -330,5 +406,15 @@ mod axiom_tests {
     #[test]
     fn attribute_value_normalization_axiom_holds() {
         assert!(XmlAttributeValueNormalizationEnforced.verify().is_ok());
+    }
+
+    #[test]
+    fn general_entity_resolution_axiom_holds() {
+        assert!(XmlGeneralEntityResolutionEnforced.verify().is_ok());
+    }
+
+    #[test]
+    fn first_entity_declaration_wins_axiom_holds() {
+        assert!(XmlFirstEntityDeclarationBinds.verify().is_ok());
     }
 }

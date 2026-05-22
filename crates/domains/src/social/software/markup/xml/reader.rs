@@ -63,6 +63,7 @@ pub fn read_xml(input: &str) -> Result<XmlDocument, XmlReadError> {
     Ok(XmlDocument {
         version,
         encoding,
+        doctype: None,
         root,
     })
 }

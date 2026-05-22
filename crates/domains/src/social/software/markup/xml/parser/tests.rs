@@ -5,7 +5,7 @@
 use alloc::{string::String, string::ToString, vec, vec::Vec};
 
 use super::super::ontology::{
-    XmlAttribute, XmlDocument, XmlElement, XmlName, XmlNamespace, XmlNode,
+    XmlAttribute, XmlDocument, XmlElement, XmlExternalId, XmlName, XmlNamespace, XmlNode,
 };
 use super::grammar::{XmlParseError, parse_document};
 use super::lens::XmlLens;
@@ -180,6 +180,138 @@ fn skips_doctype_with_internal_subset() {
 }
 
 // =============================================================================
+// W3C XML 1.0 §4 Physical Structures — productions 45-69 + §4.2.2 ExternalID.
+// =============================================================================
+
+#[test]
+fn parses_doctype_name_only() {
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo><foo/>"#;
+    let doc = parse_document(xml).unwrap();
+    let dt = doc.doctype.as_ref().expect("doctype expected");
+    assert_eq!(dt.root_name, "foo");
+    assert!(dt.external_id.is_none());
+    assert!(dt.general_entities.is_empty());
+}
+
+#[test]
+fn parses_doctype_system_external_id() {
+    // W3C XML 1.0 §4.2.2 [75] ExternalID — SYSTEM form.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo SYSTEM "foo.dtd"><foo/>"#;
+    let doc = parse_document(xml).unwrap();
+    let dt = doc.doctype.as_ref().unwrap();
+    assert_eq!(
+        dt.external_id,
+        Some(XmlExternalId::System {
+            system_literal: "foo.dtd".into()
+        })
+    );
+}
+
+#[test]
+fn parses_doctype_public_external_id() {
+    // W3C XML 1.0 §4.2.2 [75] ExternalID — PUBLIC form.
+    let xml =
+        br#"<?xml version="1.0"?><!DOCTYPE foo PUBLIC "-//Example//DTD//EN" "foo.dtd"><foo/>"#;
+    let doc = parse_document(xml).unwrap();
+    let dt = doc.doctype.as_ref().unwrap();
+    assert_eq!(
+        dt.external_id,
+        Some(XmlExternalId::Public {
+            public_id: "-//Example//DTD//EN".into(),
+            system_literal: "foo.dtd".into(),
+        })
+    );
+}
+
+#[test]
+fn parses_internal_subset_general_entity_declaration() {
+    // W3C XML 1.0 §4.2 [70/71] GEDecl: `<!ENTITY name "value">`.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY hello "world">]><foo>&hello;</foo>"#;
+    let doc = parse_document(xml).unwrap();
+    let dt = doc.doctype.as_ref().unwrap();
+    assert_eq!(dt.general_entities, vec![("hello".into(), "world".into())]);
+    // The reference in content was resolved.
+    assert_eq!(doc.root.children[0], XmlNode::Text("world".into()));
+}
+
+#[test]
+fn resolves_declared_general_entity_in_attribute_value() {
+    // §4.4.3 general-entity replacement applies inside attribute
+    // values too (§3.3.3 says character + entity references
+    // contribute unchanged).
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY tag "abc">]><foo bar="&tag;"/>"#;
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.attributes[0].value, "abc");
+}
+
+#[test]
+fn duplicate_entity_declaration_first_wins() {
+    // §4.5 — "If the same entity is declared more than once, the
+    // first declaration encountered is binding".
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY x "first"><!ENTITY x "second">]><foo>&x;</foo>"#;
+    let doc = parse_document(xml).unwrap();
+    let dt = doc.doctype.as_ref().unwrap();
+    assert_eq!(dt.general_entities, vec![("x".into(), "first".into())]);
+    assert_eq!(doc.root.children[0], XmlNode::Text("first".into()));
+}
+
+#[test]
+fn external_entity_declaration_accepted_but_not_projected() {
+    // §4.2 [73] ExternalID variant — we accept the declaration but
+    // don't fetch / expand the external entity in this slice.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY ext SYSTEM "ext.dtd">]><foo/>"#;
+    let doc = parse_document(xml).unwrap();
+    let dt = doc.doctype.as_ref().unwrap();
+    assert!(
+        dt.general_entities.is_empty(),
+        "external entities are not projected"
+    );
+}
+
+#[test]
+fn parameter_entity_declaration_skipped() {
+    // §4.2 [72] PEDecl — recognized syntactically, not projected.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY % p "value">]><foo/>"#;
+    let doc = parse_document(xml).unwrap();
+    let dt = doc.doctype.as_ref().unwrap();
+    assert!(dt.general_entities.is_empty());
+}
+
+#[test]
+fn element_type_declaration_in_subset_skipped() {
+    // §3.2 [45] elementdecl — affects validity, not well-formedness.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ELEMENT foo EMPTY>]><foo/>"#;
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.name, XmlName::new("foo"));
+}
+
+#[test]
+fn attribute_list_declaration_in_subset_skipped() {
+    // §3.3 [52] AttlistDecl — same: validity, not well-formedness.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ATTLIST foo a CDATA #IMPLIED>]><foo/>"#;
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.name, XmlName::new("foo"));
+}
+
+#[test]
+fn notation_declaration_in_subset_skipped() {
+    // §4.7 [82] NotationDecl — same: validity, not well-formedness.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!NOTATION gif SYSTEM "image/gif">]><foo/>"#;
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.name, XmlName::new("foo"));
+}
+
+#[test]
+fn doctype_round_trips_through_lens() {
+    // Foster et al. 2007 §2.2 GetPut on a document with DOCTYPE.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY x "y">]><foo>&x;</foo>"#;
+    let parsed = XmlLens::get(xml).unwrap();
+    let serialized = XmlLens::put(&parsed).unwrap();
+    let reparsed = XmlLens::get(&serialized).unwrap();
+    assert_eq!(parsed, reparsed);
+}
+
+// =============================================================================
 // W3C XML 1.0 §2.11 End-of-Line Handling (production-quality conformance).
 // =============================================================================
 
@@ -332,6 +464,7 @@ fn lens_serializes_synthesised_typed_value() {
     let doc = XmlDocument {
         version: "1.0".into(),
         encoding: None,
+        doctype: None,
         root: XmlElement {
             name: XmlName::new("synth"),
             namespace: None,
@@ -440,6 +573,7 @@ mod property {
                 XmlDocument {
                     version: "1.0".into(),
                     encoding: None,
+                    doctype: None,
                     root: XmlElement {
                         name: XmlName::new(&root_name),
                         namespace: None,
@@ -509,6 +643,7 @@ mod property {
             let doc = XmlDocument {
                 version: "1.0".into(),
                 encoding: None,
+                doctype: None,
                 root: XmlElement {
                     name: XmlName::new("r"),
                     namespace: None,
@@ -537,6 +672,7 @@ mod property {
             let doc = XmlDocument {
                 version: "1.0".into(),
                 encoding: None,
+                doctype: None,
                 root: XmlElement {
                     name: XmlName::new("r"),
                     namespace: None,
@@ -602,6 +738,29 @@ mod property {
             let result = parse_document(xml.as_bytes());
             let is_dup = matches!(result, Err(XmlParseError::DuplicateAttribute { .. }));
             prop_assert!(is_dup, "expected DuplicateAttribute, got {result:?}");
+        }
+
+        /// W3C XML 1.0 §4.4.3 property: every legal entity name +
+        /// value pair declared in the internal subset resolves
+        /// correctly when referenced from content.
+        #[test]
+        fn property_declared_general_entity_resolves(
+            name in arb_ascii_name(),
+            value in arb_char_data(),
+        ) {
+            // Skip predefined entity names — they take precedence.
+            prop_assume!(!matches!(name.as_str(), "amp" | "lt" | "gt" | "apos" | "quot"));
+            // Stay clear of quote chars in the value (would break the entity declaration).
+            prop_assume!(!value.contains('"') && !value.contains('&'));
+            let xml = format!(
+                "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY {name} \"{value}\">]><r>&{name};</r>"
+            );
+            let doc = parse_document(xml.as_bytes()).unwrap();
+            if value.is_empty() {
+                prop_assert!(doc.root.children.is_empty());
+            } else {
+                prop_assert_eq!(doc.root.children[0].clone(), XmlNode::Text(value));
+            }
         }
     }
 }

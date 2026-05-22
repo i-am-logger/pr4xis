@@ -364,7 +364,48 @@ impl XmlElement {
 pub struct XmlDocument {
     pub version: String,
     pub encoding: Option<String>,
+    /// `<!DOCTYPE …>` document type declaration if present (W3C XML
+    /// 1.0 Fifth Edition §2.8 production [28] doctypedecl).
+    pub doctype: Option<XmlDoctype>,
     pub root: XmlElement,
+}
+
+/// A `<!DOCTYPE>` document type declaration. Carries the root
+/// element name, an optional `ExternalID` (W3C XML 1.0 §4.2.2
+/// production [75]), and the inline general entity declarations
+/// parsed from the internal subset (§4.2 production [70] GEDecl).
+///
+/// Element-type and attribute-list declarations from the internal
+/// subset are accepted by the parser but not yet projected to
+/// typed values — they affect validity, not well-formedness, and
+/// can be added incrementally without breaking the document model.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct XmlDoctype {
+    /// The root element name declared by `<!DOCTYPE name …>`.
+    pub root_name: String,
+    /// `ExternalID` declaration if present. `SYSTEM` form carries
+    /// just the system literal; `PUBLIC` form carries both pub-id
+    /// and system literal per §4.2.2 [75].
+    pub external_id: Option<XmlExternalId>,
+    /// General entity declarations from the internal subset
+    /// (`<!ENTITY name "value">`). Parameter entities and external
+    /// entities are deferred. Map preserves declaration order via
+    /// `Vec<(name, value)>` rather than a `HashMap` (XML 1.0 §4.5
+    /// says first-declaration wins on duplicate names).
+    pub general_entities: Vec<(String, String)>,
+}
+
+/// W3C XML 1.0 §4.2.2 production [75] `ExternalID`. Two shapes:
+/// `SYSTEM 'uri'` and `PUBLIC 'pubid' 'uri'`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum XmlExternalId {
+    System {
+        system_literal: String,
+    },
+    Public {
+        public_id: String,
+        system_literal: String,
+    },
 }
 
 impl XmlDocument {
