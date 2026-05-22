@@ -60,6 +60,7 @@
 
 pub mod english_adjunction;
 pub mod english_projection;
+pub mod from_xml;
 pub mod from_xsd_parser;
 pub mod ontology;
 pub mod uslm_vocabulary;

@@ -111,7 +111,13 @@ impl std::error::Error for XmlParseError {}
 ///
 /// Implements **production [1]** `document ::= prolog element Misc*`
 /// from W3C XML 1.0 Fifth Edition §2.1.
+///
+/// Strips an optional UTF-8 byte-order mark (BOM, U+FEFF encoded as
+/// `EF BB BF`) at the start of the input per W3C XML 1.0 §F (Autodetection
+/// of Character Encodings) — the BOM is allowed on UTF-8 streams and
+/// is not part of the document content.
 pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
+    let input = input.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(input);
     let s = core::str::from_utf8(input).map_err(|e| XmlParseError::NotUtf8 {
         position: e.valid_up_to(),
     })?;
