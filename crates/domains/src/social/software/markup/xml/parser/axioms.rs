@@ -369,6 +369,47 @@ pr4xis::register_axiom!(
     "W3C XML 1.0 Fifth Edition (2008) §4.5 Construction of Internal Entity Replacement Text"
 );
 
+/// **Axiom W3CConformance.** The parser passes every case in the
+/// hand-authored W3C XML 1.0 conformance canon
+/// (`super::conformance::canon_corpus`). The canon mirrors the
+/// W3C XML Conformance Test Suite (XMLConf, W3C XML Test Suite
+/// Working Group) categories — `valid`, `invalid`, `not-wf`,
+/// `error` — with one representative case per major
+/// well-formedness or syntactic rule the parser claims to enforce.
+///
+/// Per `feedback_corpus_wide_audit_on_load`, this axiom walks
+/// every case through the parser at test time. Future work
+/// (M4.λ.1.d.b) registers the full ~2000-case XMLConf archive as
+/// a praxis source.
+pub struct XmlParserPassesConformanceCanon;
+
+impl Axiom for XmlParserPassesConformanceCanon {
+    fn verify(&self) -> Verdict {
+        let outcomes = super::conformance::run_canon_corpus();
+        let failures: Vec<String> = outcomes
+            .iter()
+            .filter(|o| !o.passed)
+            .map(|o| format!("{} ({:?}): {}", o.case_id, o.expected, o.detail))
+            .collect();
+        if failures.is_empty() {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "XmlParserPassesConformanceCanon",
+        "the parser handles every hand-authored conformance case correctly (valid/invalid/not-wf/error categories per W3C XMLConf)",
+        "W3C XML Test Suite Working Group, XML Test Suite; Bray et al. (2008) W3C XML 1.0 Fifth Edition"
+    );
+}
+
+pr4xis::register_axiom!(
+    XmlParserPassesConformanceCanon,
+    "W3C XML Test Suite Working Group, XML Test Suite (XMLConf)"
+);
+
 #[cfg(test)]
 mod axiom_tests {
     use super::*;
@@ -416,5 +457,19 @@ mod axiom_tests {
     #[test]
     fn first_entity_declaration_wins_axiom_holds() {
         assert!(XmlFirstEntityDeclarationBinds.verify().is_ok());
+    }
+
+    #[test]
+    fn parser_passes_conformance_canon_axiom_holds() {
+        let outcomes = super::super::conformance::run_canon_corpus();
+        for o in &outcomes {
+            assert!(
+                o.passed,
+                "conformance case {} (expected {:?}) failed: {}",
+                o.case_id, o.expected, o.detail
+            );
+        }
+        // Also exercise the axiom wrapper.
+        assert!(XmlParserPassesConformanceCanon.verify().is_ok());
     }
 }

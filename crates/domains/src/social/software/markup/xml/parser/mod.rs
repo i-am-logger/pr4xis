@@ -68,6 +68,7 @@
 //!   binding `get`/`put`/`canonical` together.
 
 pub mod axioms;
+pub mod conformance;
 pub mod grammar;
 pub mod lens;
 pub mod serializer;
