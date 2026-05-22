@@ -67,6 +67,7 @@
 //!   crate::formal::meta::well_behaved_lens::WellBehavedLens) impl
 //!   binding `get`/`put`/`canonical` together.
 
+pub mod axioms;
 pub mod grammar;
 pub mod lens;
 pub mod serializer;

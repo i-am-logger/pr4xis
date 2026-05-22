@@ -254,3 +254,200 @@ fn lens_serializes_synthesised_typed_value() {
     let parsed = XmlLens::get(&bytes).unwrap();
     assert_eq!(parsed, doc);
 }
+
+// =============================================================================
+// Property-based tests (proptest) — Layer 3 of the three-layer test depth
+// per `feedback_high_test_coverage`.
+// =============================================================================
+//
+// Each property names a Foster et al. 2007 §2.2 lens law and a W3C XML 1.0
+// §-reference. proptest cases generate synthetic XmlDocument values built
+// from the grammar's productions and check the law holds.
+
+mod property {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// W3C XML 1.0 §2.3 production [4] / [4a] NameStartChar / NameChar —
+    /// ASCII subset (the part of the grammar most likely to round-trip
+    /// without ambient Unicode mapping concerns).
+    fn arb_ascii_name() -> impl Strategy<Value = String> {
+        proptest::collection::vec(any::<u8>().prop_map(|b| b as char), 1..16)
+            .prop_filter("starts with NameStartChar, rest are NameChar", |chars| {
+                if chars.is_empty() {
+                    return false;
+                }
+                let first = chars[0];
+                let starts_ok = first.is_ascii_alphabetic() || first == '_';
+                let rest_ok = chars[1..]
+                    .iter()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_'));
+                starts_ok && rest_ok
+            })
+            .prop_map(|chars| chars.into_iter().collect())
+    }
+
+    /// W3C XML 1.0 §3.1 production [10] AttValue — characters allowed in
+    /// an attribute value (excluding `<` and `&`, both must be escaped).
+    fn arb_att_value() -> impl Strategy<Value = String> {
+        proptest::collection::vec(
+            any::<char>().prop_filter("XML 1.0 §2.2 Char minus '<' '&'", |c| {
+                let cp = *c as u32;
+                let in_char = matches!(cp, 0x9 | 0xA | 0xD | 0x20..=0xD7FF | 0xE000..=0xFFFD | 0x10000..=0x10FFFF);
+                in_char && *c != '<' && *c != '&'
+            }),
+            0..32,
+        )
+        .prop_map(|chars| chars.into_iter().collect())
+    }
+
+    /// W3C XML 1.0 §2.4 production [14] CharData — element content
+    /// text minus the markup delimiters `<` and `&`.
+    fn arb_char_data() -> impl Strategy<Value = String> {
+        proptest::collection::vec(
+            any::<char>().prop_filter("XML 1.0 §2.4 CharData chars", |c| {
+                let cp = *c as u32;
+                let in_char = matches!(cp, 0x9 | 0xA | 0xD | 0x20..=0xD7FF | 0xE000..=0xFFFD | 0x10000..=0x10FFFF);
+                in_char && *c != '<' && *c != '&'
+            }),
+            0..32,
+        )
+        .prop_map(|chars| {
+            let s: String = chars.into_iter().collect();
+            // CharData §2.4 forbids the literal sequence `]]>`. Strip it to
+            // keep generation in-grammar.
+            s.replace("]]>", "")
+        })
+    }
+
+    /// Build a simple [`XmlDocument`] with one element + one attribute +
+    /// optional text content. Sufficient for exercising the lens laws
+    /// without recursive complexity.
+    fn arb_simple_document() -> impl Strategy<Value = XmlDocument> {
+        (
+            arb_ascii_name(),
+            arb_ascii_name(),
+            arb_att_value(),
+            arb_char_data(),
+        )
+            .prop_map(|(root_name, attr_name, attr_value, text)| {
+                let mut children: Vec<XmlNode> = Vec::new();
+                if !text.is_empty() {
+                    children.push(XmlNode::Text(text));
+                }
+                XmlDocument {
+                    version: "1.0".into(),
+                    encoding: None,
+                    root: XmlElement {
+                        name: XmlName::new(&root_name),
+                        namespace: None,
+                        attributes: vec![XmlAttribute {
+                            name: XmlName::new(&attr_name),
+                            value: attr_value,
+                        }],
+                        children,
+                    },
+                }
+            })
+    }
+
+    proptest! {
+        /// Foster et al. 2007 §2.2 GetPut law:
+        /// for any well-formed typed value `t`, `get(put(t)) = t`.
+        ///
+        /// We generate `XmlDocument` values via [`arb_simple_document`],
+        /// serialize, re-parse, and assert structural equality.
+        #[test]
+        fn property_get_put_law(doc in arb_simple_document()) {
+            let bytes = XmlLens::put(&doc).unwrap();
+            let parsed = XmlLens::get(&bytes).unwrap();
+            prop_assert_eq!(parsed, doc);
+        }
+
+        /// W3C XML 1.0 §3.1 well-formedness constraint: Element Type Match.
+        /// Random open/close pairs that mismatch must be rejected by
+        /// [`parse_document`].
+        #[test]
+        fn property_mismatched_tags_rejected(
+            a in arb_ascii_name(),
+            b in arb_ascii_name(),
+        ) {
+            prop_assume!(a != b);
+            let xml = format!("<?xml version=\"1.0\"?><{a}></{b}>");
+            let result = parse_document(xml.as_bytes());
+            let is_mismatch = matches!(result, Err(XmlParseError::MismatchedTags { .. }));
+            prop_assert!(is_mismatch, "expected MismatchedTags, got {result:?}");
+        }
+
+        /// W3C XML 1.0 §4.6 — for every one of the 5 predefined entity
+        /// references, the parser MUST recognise and expand it to the
+        /// corresponding character. We assert this on each entity in
+        /// isolation; tested as a property to make the universally-
+        /// quantified claim explicit.
+        #[test]
+        fn property_predefined_entities_always_expand(idx in 0usize..5) {
+            let (entity, expected) = match idx {
+                0 => ("amp", '&'),
+                1 => ("lt", '<'),
+                2 => ("gt", '>'),
+                3 => ("apos", '\''),
+                _ => ("quot", '"'),
+            };
+            let xml = format!("<?xml version=\"1.0\"?><r>&{entity};</r>");
+            let doc = parse_document(xml.as_bytes()).unwrap();
+            prop_assert_eq!(doc.root.children[0].clone(), XmlNode::Text(expected.to_string()));
+        }
+
+        /// Property: every legal CharData payload survives a put+get
+        /// round-trip in element content (escape forms are normalised
+        /// to the original code points). This covers the inverse of
+        /// `write_escaped_char_data` (W3C XML 1.0 §4.6 + C14N 1.1 §3.5).
+        #[test]
+        fn property_char_data_round_trip(text in arb_char_data()) {
+            let doc = XmlDocument {
+                version: "1.0".into(),
+                encoding: None,
+                root: XmlElement {
+                    name: XmlName::new("r"),
+                    namespace: None,
+                    attributes: Vec::new(),
+                    children: if text.is_empty() {
+                        Vec::new()
+                    } else {
+                        vec![XmlNode::Text(text.clone())]
+                    },
+                },
+            };
+            let bytes = XmlLens::put(&doc).unwrap();
+            let parsed = XmlLens::get(&bytes).unwrap();
+            if text.is_empty() {
+                prop_assert!(parsed.root.children.is_empty());
+            } else {
+                prop_assert_eq!(parsed.root.children[0].clone(), XmlNode::Text(text));
+            }
+        }
+
+        /// Property: every legal AttValue payload survives a put+get
+        /// round-trip on an attribute. Covers `write_escaped_attr_value`
+        /// (W3C XML 1.0 §3.3.3 attribute-value normalization).
+        #[test]
+        fn property_attr_value_round_trip(value in arb_att_value()) {
+            let doc = XmlDocument {
+                version: "1.0".into(),
+                encoding: None,
+                root: XmlElement {
+                    name: XmlName::new("r"),
+                    namespace: None,
+                    attributes: vec![XmlAttribute {
+                        name: XmlName::new("a"),
+                        value: value.clone(),
+                    }],
+                    children: Vec::new(),
+                },
+            };
+            let bytes = XmlLens::put(&doc).unwrap();
+            let parsed = XmlLens::get(&bytes).unwrap();
+            prop_assert_eq!(parsed.root.attributes[0].value.clone(), value);
+        }
+    }
+}
