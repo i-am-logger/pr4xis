@@ -62,6 +62,11 @@ pub enum XmlParseError {
     /// A numeric character reference that names a code point
     /// outside the W3C XML 1.0 §2.2 Char production.
     InvalidCharRef { position: usize, code_point: u32 },
+    /// Two attributes in the same start-tag share a name. W3C XML
+    /// 1.0 Fifth Edition §3.1 well-formedness constraint: *Unique
+    /// Att Spec* — "no attribute name MUST appear more than once
+    /// in the same start-tag or empty-element tag".
+    DuplicateAttribute { position: usize, name: String },
 }
 
 impl core::fmt::Display for XmlParseError {
@@ -101,6 +106,11 @@ impl core::fmt::Display for XmlParseError {
                 "invalid character reference U+{code_point:04X} at byte {position} \
                  (outside the W3C XML 1.0 §2.2 Char production)"
             ),
+            Self::DuplicateAttribute { position, name } => write!(
+                f,
+                "duplicate attribute {name:?} at byte {position} \
+                 (W3C XML 1.0 §3.1 well-formedness constraint Unique Att Spec)"
+            ),
         }
     }
 }
@@ -116,12 +126,19 @@ impl std::error::Error for XmlParseError {}
 /// `EF BB BF`) at the start of the input per W3C XML 1.0 §F (Autodetection
 /// of Character Encodings) — the BOM is allowed on UTF-8 streams and
 /// is not part of the document content.
+///
+/// Performs **§2.11 End-of-Line Handling** on the resulting string
+/// before parsing: every literal `#xD#xA` (CRLF) and every lone `#xD`
+/// (CR) is replaced with a single `#xA` (LF). The W3C spec requires
+/// this normalization on input so that downstream productions never
+/// see CR.
 pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
     let input = input.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(input);
-    let s = core::str::from_utf8(input).map_err(|e| XmlParseError::NotUtf8 {
+    let raw = core::str::from_utf8(input).map_err(|e| XmlParseError::NotUtf8 {
         position: e.valid_up_to(),
     })?;
-    let mut cursor = Cursor::new(s);
+    let normalized = normalize_line_endings(raw);
+    let mut cursor = Cursor::new(&normalized);
 
     let (version, encoding) = parse_prolog(&mut cursor)?;
     let root = parse_element(&mut cursor)?;
@@ -136,6 +153,48 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
         encoding,
         root,
     })
+}
+
+/// **W3C XML 1.0 §2.11 End-of-Line Handling.** Every literal `#xD#xA`
+/// (CRLF) becomes `#xA` (LF). Every lone `#xD` (CR not followed by LF)
+/// also becomes `#xA`. This MUST run before parsing so production
+/// rules never see CR — the spec is explicit: "the XML processor MUST
+/// behave as if it normalized all line breaks in external parsed
+/// entities (including the document entity) on input … to the single
+/// character #xA".
+fn normalize_line_endings(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let bytes = raw.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'\r' {
+            out.push('\n');
+            if i + 1 < bytes.len() && bytes[i + 1] == b'\n' {
+                i += 2;
+            } else {
+                i += 1;
+            }
+        } else {
+            // UTF-8 safe push — multi-byte sequences pass through.
+            let ch_start = i;
+            let first = bytes[i];
+            let width = if first < 0x80 {
+                1
+            } else if first < 0xC0 {
+                1
+            } else if first < 0xE0 {
+                2
+            } else if first < 0xF0 {
+                3
+            } else {
+                4
+            };
+            let ch_end = (ch_start + width).min(bytes.len());
+            out.push_str(&raw[ch_start..ch_end]);
+            i = ch_end;
+        }
+    }
+    out
 }
 
 /// Byte cursor with one-rune lookahead. Tracks position for error
@@ -428,6 +487,15 @@ fn parse_element(c: &mut Cursor<'_>) -> Result<XmlElement, XmlParseError> {
             };
             namespace = Some(XmlNamespace { prefix, uri: value });
         } else {
+            // W3C XML 1.0 §3.1 well-formedness constraint Unique Att
+            // Spec — the same attribute name (qualified) MUST NOT
+            // appear more than once in the same start-tag.
+            if attributes.iter().any(|a| a.name == attr_name) {
+                return Err(XmlParseError::DuplicateAttribute {
+                    position: c.pos,
+                    name: attr_name.qualified(),
+                });
+            }
             attributes.push(XmlAttribute {
                 name: attr_name,
                 value,
@@ -525,6 +593,14 @@ fn is_name_char(ch: char) -> bool {
 /// Expands the five §4.6 predefined entity references and numeric
 /// character references; rejects other entity refs (DTD entities
 /// are out of scope for this slice).
+///
+/// Applies **§3.3.3 Attribute-Value Normalization** on the fly:
+/// every literal whitespace character `#x9` / `#xA` / `#xD` in the
+/// raw value contributes a single `#x20` (space) to the normalized
+/// result. Character + entity references contribute their referenced
+/// character unchanged (§3.3.3 step 3.1.1 vs 3.1.4). Without a DTD
+/// declaring non-CDATA attribute types we apply only the CDATA case
+/// of §3.3.3.
 fn parse_att_value(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
     let quote = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
         context: "AttValue".into(),
@@ -547,7 +623,13 @@ fn parse_att_value(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
             return Err(c.syntax_error("AttValue content (no '<')", "<"));
         }
         if ch == '&' {
+            // Character + entity references contribute their referenced
+            // character unchanged (§3.3.3 step 3.1.1).
             out.push(parse_reference(c)?);
+        } else if matches!(ch, '\t' | '\n' | '\r') {
+            // §3.3.3 step 3.1.4: literal whitespace becomes #x20.
+            out.push(' ');
+            c.pos += ch.len_utf8();
         } else {
             out.push(ch);
             c.pos += ch.len_utf8();

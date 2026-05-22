@@ -180,6 +180,98 @@ fn skips_doctype_with_internal_subset() {
 }
 
 // =============================================================================
+// W3C XML 1.0 §2.11 End-of-Line Handling (production-quality conformance).
+// =============================================================================
+
+#[test]
+fn normalizes_crlf_line_endings_in_content() {
+    // §2.11: "the XML processor MUST behave as if it normalized all
+    // line breaks … on input … to the single character #xA".
+    let xml = b"<?xml version=\"1.0\"?><r>line1\r\nline2</r>";
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.children[0], XmlNode::Text("line1\nline2".into()));
+}
+
+#[test]
+fn normalizes_lone_cr_line_endings_in_content() {
+    let xml = b"<?xml version=\"1.0\"?><r>line1\rline2</r>";
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.children[0], XmlNode::Text("line1\nline2".into()));
+}
+
+// =============================================================================
+// W3C XML 1.0 §3.3.3 Attribute-Value Normalization.
+// =============================================================================
+
+#[test]
+fn normalizes_literal_whitespace_in_attribute_values() {
+    // §3.3.3 step 3.1.4: literal whitespace chars in attribute
+    // values become a single #x20 (space) each. CRLF was already
+    // normalized to LF by §2.11; the LF then becomes a space.
+    let xml = b"<?xml version=\"1.0\"?><r a=\"x\ty\nz\"/>";
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.attributes[0].value, "x y z");
+}
+
+#[test]
+fn preserves_character_references_in_attribute_values() {
+    // §3.3.3 step 3.1.1: characters from references contribute
+    // unchanged — so &#xA; resolves to LF inside the attribute,
+    // distinct from a literal LF which would normalize to space.
+    let xml = b"<?xml version=\"1.0\"?><r a=\"x&#xA;y\"/>";
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.attributes[0].value, "x\ny");
+}
+
+// =============================================================================
+// W3C XML 1.0 §3.1 well-formedness constraint: Unique Att Spec.
+// =============================================================================
+
+#[test]
+fn rejects_duplicate_attribute_names_in_start_tag() {
+    let xml = b"<?xml version=\"1.0\"?><r a=\"1\" a=\"2\"/>";
+    match parse_document(xml) {
+        Err(XmlParseError::DuplicateAttribute { name, .. }) => {
+            assert_eq!(name, "a");
+        }
+        other => panic!("expected DuplicateAttribute, got {other:?}"),
+    }
+}
+
+#[test]
+fn rejects_duplicate_attribute_with_namespace_prefix() {
+    let xml = b"<?xml version=\"1.0\"?><r xmlns:p=\"http://x\" p:a=\"1\" p:a=\"2\"/>";
+    match parse_document(xml) {
+        Err(XmlParseError::DuplicateAttribute { name, .. }) => {
+            assert_eq!(name, "p:a");
+        }
+        other => panic!("expected DuplicateAttribute, got {other:?}"),
+    }
+}
+
+#[test]
+fn accepts_same_local_name_with_different_prefix() {
+    // Per the wf constraint, "name" means the qualified-name string.
+    // `p:a` and `q:a` are distinct names.
+    let xml = b"<?xml version=\"1.0\"?><r xmlns:p=\"http://x\" xmlns:q=\"http://y\" p:a=\"1\" q:a=\"2\"/>";
+    let doc = parse_document(xml).unwrap();
+    let has_p_a = doc
+        .root
+        .attributes
+        .iter()
+        .any(|a| a.name.qualified() == "p:a");
+    let has_q_a = doc
+        .root
+        .attributes
+        .iter()
+        .any(|a| a.name.qualified() == "q:a");
+    assert!(
+        has_p_a && has_q_a,
+        "both p:a and q:a accepted as distinct names"
+    );
+}
+
+// =============================================================================
 // Round-trip / lens-law tests (Foster et al. 2007 §2.2).
 // =============================================================================
 
@@ -289,11 +381,16 @@ mod property {
 
     /// W3C XML 1.0 §3.1 production [10] AttValue — characters allowed in
     /// an attribute value (excluding `<` and `&`, both must be escaped).
+    /// Also excludes literal whitespace (`#x9`, `#xA`, `#xD`); those
+    /// trigger §3.3.3 attribute-value normalization (whitespace → space)
+    /// which breaks naive byte-for-byte round-trip. The dedicated
+    /// `property_attr_literal_whitespace_normalized` test exercises
+    /// the normalization path separately.
     fn arb_att_value() -> impl Strategy<Value = String> {
         proptest::collection::vec(
-            any::<char>().prop_filter("XML 1.0 §2.2 Char minus '<' '&'", |c| {
+            any::<char>().prop_filter("XML 1.0 §2.2 Char minus '<' '&' and whitespace", |c| {
                 let cp = *c as u32;
-                let in_char = matches!(cp, 0x9 | 0xA | 0xD | 0x20..=0xD7FF | 0xE000..=0xFFFD | 0x10000..=0x10FFFF);
+                let in_char = matches!(cp, 0x20..=0xD7FF | 0xE000..=0xFFFD | 0x10000..=0x10FFFF);
                 in_char && *c != '<' && *c != '&'
             }),
             0..32,
@@ -302,12 +399,17 @@ mod property {
     }
 
     /// W3C XML 1.0 §2.4 production [14] CharData — element content
-    /// text minus the markup delimiters `<` and `&`.
+    /// text minus the markup delimiters `<` and `&`. Also excludes
+    /// lone `#xD` (CR) since §2.11 End-of-Line Handling normalizes
+    /// any CR sequence to LF on input, breaking byte-for-byte
+    /// round-trip; the dedicated `property_crlf_normalized_to_lf`
+    /// test covers that path.
     fn arb_char_data() -> impl Strategy<Value = String> {
         proptest::collection::vec(
-            any::<char>().prop_filter("XML 1.0 §2.4 CharData chars", |c| {
+            any::<char>().prop_filter("XML 1.0 §2.4 CharData chars (no CR)", |c| {
                 let cp = *c as u32;
-                let in_char = matches!(cp, 0x9 | 0xA | 0xD | 0x20..=0xD7FF | 0xE000..=0xFFFD | 0x10000..=0x10FFFF);
+                let in_char =
+                    matches!(cp, 0x9 | 0xA | 0x20..=0xD7FF | 0xE000..=0xFFFD | 0x10000..=0x10FFFF);
                 in_char && *c != '<' && *c != '&'
             }),
             0..32,
@@ -448,6 +550,58 @@ mod property {
             let bytes = XmlLens::put(&doc).unwrap();
             let parsed = XmlLens::get(&bytes).unwrap();
             prop_assert_eq!(parsed.root.attributes[0].value.clone(), value);
+        }
+
+        /// W3C XML 1.0 §2.11 End-of-Line Handling property: every
+        /// CRLF or lone CR in the document body is normalized to LF
+        /// on parse. We synthesize a CRLF-containing payload, parse,
+        /// and assert no CR remains in the resulting text content.
+        #[test]
+        fn property_crlf_normalized_to_lf(parts in proptest::collection::vec(
+            "[a-zA-Z]{0,5}", 1..6
+        )) {
+            let crlf_text: String = parts.join("\r\n");
+            let xml = format!(
+                "<?xml version=\"1.0\"?><r>{}</r>",
+                crlf_text.replace('<', "").replace('&', "")
+            );
+            let doc = parse_document(xml.as_bytes()).unwrap();
+            if let Some(XmlNode::Text(t)) = doc.root.children.first() {
+                prop_assert!(!t.contains('\r'), "text contained CR after §2.11 normalization: {t:?}");
+            }
+        }
+
+        /// W3C XML 1.0 §3.3.3 Attribute-Value Normalization property:
+        /// every literal tab / newline in an attribute value is
+        /// normalized to a single space on parse. Carriage returns
+        /// are handled by §2.11 before the §3.3.3 path runs.
+        #[test]
+        fn property_attr_literal_whitespace_normalized(
+            prefix in "[a-z]{0,3}",
+            suffix in "[a-z]{0,3}",
+            ws_idx in 0usize..2,
+        ) {
+            let ws = match ws_idx {
+                0 => '\t',
+                _ => '\n',
+            };
+            let value = format!("{prefix}{ws}{suffix}");
+            let xml = format!("<?xml version=\"1.0\"?><r a=\"{value}\"/>");
+            let doc = parse_document(xml.as_bytes()).unwrap();
+            let normalized = &doc.root.attributes[0].value;
+            let expected = format!("{prefix} {suffix}");
+            prop_assert_eq!(normalized.clone(), expected);
+        }
+
+        /// W3C XML 1.0 §3.1 Unique Att Spec property: any two
+        /// attributes sharing a qualified name in the same start-tag
+        /// MUST be rejected as ill-formed.
+        #[test]
+        fn property_duplicate_attribute_rejected(name in arb_ascii_name()) {
+            let xml = format!("<?xml version=\"1.0\"?><r {name}=\"1\" {name}=\"2\"/>");
+            let result = parse_document(xml.as_bytes());
+            let is_dup = matches!(result, Err(XmlParseError::DuplicateAttribute { .. }));
+            prop_assert!(is_dup, "expected DuplicateAttribute, got {result:?}");
         }
     }
 }

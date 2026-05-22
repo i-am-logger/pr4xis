@@ -178,6 +178,121 @@ pr4xis::register_axiom!(
     "W3C XML 1.0 Fifth Edition (2008) §3 Element Type Match"
 );
 
+/// **Axiom UniqueAttSpec.** Per W3C XML 1.0 Fifth Edition §3.1
+/// well-formedness constraint *Unique Att Spec*: no attribute name
+/// may appear more than once in the same start-tag. Asserts that
+/// the parser rejects such inputs with the typed
+/// [`XmlParseError::DuplicateAttribute`] error.
+pub struct XmlUniqueAttSpecEnforced;
+
+impl Axiom for XmlUniqueAttSpecEnforced {
+    fn verify(&self) -> Verdict {
+        let xml = b"<?xml version=\"1.0\"?><r a=\"1\" a=\"2\"/>";
+        match parse_document(xml) {
+            Err(XmlParseError::DuplicateAttribute { .. }) => {
+                Ok(Box::new(SimpleProof::new(self.meta())))
+            }
+            _ => Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "XmlUniqueAttSpecEnforced",
+        "the parser rejects inputs that violate the W3C XML 1.0 §3.1 Unique Att Spec well-formedness constraint",
+        "Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) W3C XML 1.0 Fifth Edition §3.1"
+    );
+}
+
+pr4xis::register_axiom!(
+    XmlUniqueAttSpecEnforced,
+    "W3C XML 1.0 Fifth Edition (2008) §3.1 Unique Att Spec"
+);
+
+/// **Axiom EndOfLineNormalization.** Per W3C XML 1.0 Fifth Edition
+/// §2.11 End-of-Line Handling, the XML processor MUST normalize
+/// every CRLF and lone CR sequence to a single LF before the
+/// productions consume the input. Asserts the parser does so by
+/// reading a CRLF-bearing document and observing LF in the typed
+/// content.
+pub struct XmlEndOfLineNormalizationEnforced;
+
+impl Axiom for XmlEndOfLineNormalizationEnforced {
+    fn verify(&self) -> Verdict {
+        let xml = b"<?xml version=\"1.0\"?><r>a\r\nb\rc</r>";
+        let doc = match parse_document(xml) {
+            Ok(d) => d,
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let text = match doc.root.children.first() {
+            Some(XmlNode::Text(t)) => t.clone(),
+            _ => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        if text == "a\nb\nc" {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "XmlEndOfLineNormalizationEnforced",
+        "the parser normalizes CRLF and lone CR to LF per W3C XML 1.0 §2.11 before productions consume the input",
+        "Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) W3C XML 1.0 Fifth Edition §2.11"
+    );
+}
+
+pr4xis::register_axiom!(
+    XmlEndOfLineNormalizationEnforced,
+    "W3C XML 1.0 Fifth Edition (2008) §2.11 End-of-Line Handling"
+);
+
+/// **Axiom AttributeValueNormalization.** Per W3C XML 1.0 Fifth
+/// Edition §3.3.3 step 3.1.4, literal whitespace characters (`#x9`,
+/// `#xA`, `#xD`) inside an attribute value MUST be replaced by a
+/// single `#x20` (space) in the value passed to the application.
+/// Character references (§3.3.3 step 3.1.1) pass through unchanged.
+pub struct XmlAttributeValueNormalizationEnforced;
+
+impl Axiom for XmlAttributeValueNormalizationEnforced {
+    fn verify(&self) -> Verdict {
+        // Literal tab in the value normalizes to space; `&#xA;`
+        // reference passes through as LF (distinct case).
+        let xml = b"<?xml version=\"1.0\"?><r a=\"x\ty\" b=\"x&#xA;y\"/>";
+        let doc = match parse_document(xml) {
+            Ok(d) => d,
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let a = doc
+            .root
+            .attributes
+            .iter()
+            .find(|a| a.name.local == "a")
+            .map(|a| a.value.as_str());
+        let b = doc
+            .root
+            .attributes
+            .iter()
+            .find(|a| a.name.local == "b")
+            .map(|a| a.value.as_str());
+        if a == Some("x y") && b == Some("x\ny") {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "XmlAttributeValueNormalizationEnforced",
+        "the parser normalizes attribute values per W3C XML 1.0 §3.3.3 step 3.1.4 (whitespace → space; character references pass through)",
+        "Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) W3C XML 1.0 Fifth Edition §3.3.3"
+    );
+}
+
+pr4xis::register_axiom!(
+    XmlAttributeValueNormalizationEnforced,
+    "W3C XML 1.0 Fifth Edition (2008) §3.3.3 Attribute-Value Normalization"
+);
+
 #[cfg(test)]
 mod axiom_tests {
     use super::*;
@@ -200,5 +315,20 @@ mod axiom_tests {
     #[test]
     fn element_type_match_axiom_holds() {
         assert!(XmlElementTypeMatchEnforced.verify().is_ok());
+    }
+
+    #[test]
+    fn unique_att_spec_axiom_holds() {
+        assert!(XmlUniqueAttSpecEnforced.verify().is_ok());
+    }
+
+    #[test]
+    fn end_of_line_normalization_axiom_holds() {
+        assert!(XmlEndOfLineNormalizationEnforced.verify().is_ok());
+    }
+
+    #[test]
+    fn attribute_value_normalization_axiom_holds() {
+        assert!(XmlAttributeValueNormalizationEnforced.verify().is_ok());
     }
 }
