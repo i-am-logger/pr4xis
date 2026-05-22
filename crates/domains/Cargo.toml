@@ -24,7 +24,7 @@ hashbrown = "0.17"
 # `social::software::markup::xml::uslm::generated` module
 # `include!`s the build-script output, so these symbols must
 # resolve. Cited: Bergmann, S. *xsd-parser-types*, v0.2.1, MIT.
-xsd-parser-types = { version = "0.2.1", features = ["quick-xml"] }
+xsd-parser-types = { version = "0.2.1", features = ["quick-xml", "serde"] }
 
 # Distributed-slice registration substrate. The well-behaved-lens
 # harness uses `#[linkme::distributed_slice]` to discover every

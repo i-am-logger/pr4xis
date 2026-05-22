@@ -195,6 +195,12 @@ pub fn generate_uslm_schema_source(xsd_path: &Path) -> Result<String, UslmSchema
     // type wrapping a `<num>` + content model).
     config.generator.type_postfix.type_ = "Item".to_string();
 
+    // Emit `#[derive(Serialize, Deserialize)]` and the quick-xml
+    // serde render steps on every generated type, so the USLM lens
+    // can populate `generated::UscDoc` from on-disk XML via
+    // `quick_xml::de::from_str`.
+    let config = config.with_serde_quick_xml();
+
     let tokens = generate(config).map_err(|e| UslmSchemaCodegenError::Generate(e.to_string()))?;
     let raw_source = tokens.to_string();
 
@@ -266,9 +272,23 @@ fn postprocess_uslm_collisions(src: &str) -> String {
     // (E0428/E0004). Rename every such fallback variant to
     // `TextFragment`. The replacement targets the specific token
     // shape xsd-parser produces.
-    src.replace(
+    let src = src.replace(
         "Text (:: xsd_parser_types :: xml :: Text)",
         "TextFragment (:: xsd_parser_types :: xml :: Text)",
+    );
+
+    // ---- Collision 3 -------------------------------------------------
+    // For the XSD-builtin `OccurrenceSimpleType` (a `xsd:union` of
+    // `xsd:nonNegativeInteger` and the enumeration {"all", "none",
+    // "first", "last"}), xsd-parser's serde codegen emits
+    // `#[serde(other)] Usize(usize)` — a `#[serde(other)]` attribute
+    // on a tuple variant, which serde rejects (it requires a unit
+    // variant). The enum represents XSD `minOccurs`/`maxOccurs` and
+    // is unreachable from USLM document content; stripping the
+    // attribute makes the enum compile.
+    src.replace(
+        "# [serde (other)] Usize (:: core :: primitive :: usize)",
+        "Usize (:: core :: primitive :: usize)",
     )
 }
 

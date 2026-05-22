@@ -23,7 +23,15 @@ exclude = ["crates/wasm"]
 # diff to submit upstream. When the upstream PRs land in a
 # released version, drop this `[patch.crates-io]` and bump the
 # `lopdf = "..."` constraint.
+#
+# xsd-parser-types: builds from an `i-am-logger/xsd-parser` fork
+# branch that carries an opt-in `serde` cargo feature gating
+# `Serialize` / `Deserialize` derives on the runtime helper types
+# (`xml::Text`, `xml::Mixed<T>`, `xml::AnyElement`,
+# `xml::AnyAttributes`) that xsd-parser's
+# `Config::with_serde_quick_xml()` codegen references.
 [patch.crates-io]
+xsd-parser-types = { git = "https://github.com/i-am-logger/xsd-parser.git", branch = "feat-serde-derives-on-helper-types" }
 lopdf = { path = "vendor/lopdf" }
 
 [workspace.lints.rust]
