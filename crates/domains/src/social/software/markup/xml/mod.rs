@@ -4,6 +4,7 @@ pub mod loader_v1;
 pub mod ontology;
 pub mod ontology_v1;
 pub mod owl;
+pub mod parser;
 pub mod rdf;
 pub mod reader;
 pub mod uslm;
