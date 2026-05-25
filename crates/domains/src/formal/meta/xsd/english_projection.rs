@@ -157,6 +157,9 @@ pub enum XsdEnglishLabel {
     Unique,
     Selector,
     Field,
+    Assert,
+    OpenContent,
+    DefaultOpenContent,
 }
 
 /// The canonical English head-noun phrase for each [`XsdConcept`].
@@ -225,6 +228,9 @@ pub fn canonical_english_phrase(c: XsdConcept) -> &'static str {
         C::Unique => "unique",
         C::Selector => "selector",
         C::Field => "field",
+        C::Assert => "complex type assertion",
+        C::OpenContent => "open content",
+        C::DefaultOpenContent => "default open content",
     }
 }
 
@@ -474,6 +480,9 @@ pub fn project_concept(c: XsdConcept) -> XsdEnglishLabel {
         C::Unique => L::Unique,
         C::Selector => L::Selector,
         C::Field => L::Field,
+        C::Assert => L::Assert,
+        C::OpenContent => L::OpenContent,
+        C::DefaultOpenContent => L::DefaultOpenContent,
     }
 }
 
@@ -949,6 +958,8 @@ mod tests {
     <LexicalEntry id="e-unique-a"><Lemma writtenForm="unique" partOfSpeech="a"/><Sense id="s-unique-1" synset="s-unique"/></LexicalEntry>
     <LexicalEntry id="e-selector-n"><Lemma writtenForm="selector" partOfSpeech="n"/><Sense id="s-selector-1" synset="s-selector"/></LexicalEntry>
     <LexicalEntry id="e-field-n"><Lemma writtenForm="field" partOfSpeech="n"/><Sense id="s-field-1" synset="s-field"/></LexicalEntry>
+    <LexicalEntry id="e-open-a"><Lemma writtenForm="open" partOfSpeech="a"/><Sense id="s-open-1" synset="s-open"/></LexicalEntry>
+    <LexicalEntry id="e-default-n"><Lemma writtenForm="default" partOfSpeech="n"/><Sense id="s-default-1" synset="s-default"/></LexicalEntry>
     <Synset id="s-schema" ili="i1" partOfSpeech="n"><Definition>structured form</Definition></Synset>
     <Synset id="s-component" ili="i2" partOfSpeech="n"><Definition>a part</Definition></Synset>
     <Synset id="s-element" ili="i3" partOfSpeech="n"><Definition>a constituent</Definition></Synset>
@@ -1010,6 +1021,8 @@ mod tests {
     <Synset id="s-unique" ili="i59" partOfSpeech="a"><Definition>one of a kind</Definition></Synset>
     <Synset id="s-selector" ili="i60" partOfSpeech="n"><Definition>something that selects</Definition></Synset>
     <Synset id="s-field" ili="i61" partOfSpeech="n"><Definition>a named data slot</Definition></Synset>
+    <Synset id="s-open" ili="i62" partOfSpeech="a"><Definition>not closed</Definition></Synset>
+    <Synset id="s-default" ili="i63" partOfSpeech="n"><Definition>a preset value</Definition></Synset>
   </Lexicon>
 </LexicalResource>"#;
 
@@ -1060,7 +1073,7 @@ mod tests {
 
     #[test]
     fn project_concept_is_total() {
-        // Bijection: 50 concepts → 50 labels, all distinct.
+        // Bijection: 53 concepts → 53 labels, all distinct.
         let mut seen = alloc::collections::BTreeSet::new();
         for c in XsdConcept::variants() {
             let label = project_concept(c);
@@ -1068,7 +1081,7 @@ mod tests {
             // per-variant by construction.
             assert!(seen.insert(format!("{label:?}")));
         }
-        assert_eq!(seen.len(), 50);
+        assert_eq!(seen.len(), 53);
     }
 
     #[test]

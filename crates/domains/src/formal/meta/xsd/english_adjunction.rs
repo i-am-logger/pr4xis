@@ -130,6 +130,9 @@ pub fn lift_label_to_concept(l: XsdEnglishLabel) -> XsdConcept {
         L::Unique => C::Unique,
         L::Selector => C::Selector,
         L::Field => C::Field,
+        L::Assert => C::Assert,
+        L::OpenContent => C::OpenContent,
+        L::DefaultOpenContent => C::DefaultOpenContent,
     }
 }
 

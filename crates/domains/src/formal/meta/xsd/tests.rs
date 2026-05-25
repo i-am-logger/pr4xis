@@ -50,17 +50,21 @@ fn concept_count() {
     //   ListType, UnionType) = 7
     // Plus Part 2 §4.3: 1 ConstrainingFacet root + 14 facet leaves = 15.
     // Plus §3.11: IdentityConstraint becomes intermediate + 5 sub-kinds
-    // (Key, KeyRef, Unique, Selector, Field). Total: 45 + 5 = 50.
-    assert_eq!(XsdConcept::variants().len(), 50);
+    // (Key, KeyRef, Unique, Selector, Field) = 50.
+    // Plus XSD 1.1 §3.13 / §3.4.2.2 / §3.16.2 content additions
+    // (Assert, OpenContent, DefaultOpenContent) under the
+    // type-construction root. Total: 50 + 3 = 53.
+    assert_eq!(XsdConcept::variants().len(), 53);
 }
 
 #[test]
 fn instantiable_leaves_count() {
-    // 40 concrete kinds: 11 §2.2 schema-component leaves (IdentityConstraint
+    // 43 concrete kinds: 11 §2.2 schema-component leaves (IdentityConstraint
     // is now intermediate) + 4 §4.2 composition directives + 6 §3.4.2 /
     // Part 2 §4.1.2 type-construction constructs + 14 Part 2 §4.3 facets +
-    // 5 §3.11 identity-constraint sub-kinds.
-    assert_eq!(instantiable_leaves().len(), 40);
+    // 5 §3.11 identity-constraint sub-kinds + 3 XSD 1.1 content additions
+    // (Assert, OpenContent, DefaultOpenContent).
+    assert_eq!(instantiable_leaves().len(), 43);
 }
 
 #[test]

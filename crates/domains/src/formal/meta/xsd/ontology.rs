@@ -101,6 +101,9 @@ pr4xis::ontology! {
         Unique,
         Selector,
         Field,
+        Assert,
+        OpenContent,
+        DefaultOpenContent,
     ],
 
     labels: {
@@ -204,6 +207,12 @@ pr4xis::ontology! {
             "W3C XSD 1.1 Part 1 §3.11.2: `<xs:selector>` — an XPath expression selecting the node-set over which an identity constraint's uniqueness / reference scope is evaluated."),
         Field: ("en", "Identity-constraint field",
             "W3C XSD 1.1 Part 1 §3.11.2: `<xs:field>` — an XPath expression selecting, relative to each selected node, the value(s) that together form the identity-constraint tuple."),
+        Assert: ("en", "Complex-type assertion",
+            "W3C XSD 1.1 Part 1 §3.13: `<xs:assert>` — an XPath 2.0 boolean test on a complex type's element information item, evaluated against each instance. New in XSD 1.1."),
+        OpenContent: ("en", "Open content",
+            "W3C XSD 1.1 Part 1 §3.4.2.2: `<xs:openContent>` — allows interleaved or suffixed wildcard content in a complex type beyond its declared particles. New in XSD 1.1."),
+        DefaultOpenContent: ("en", "Default open content",
+            "W3C XSD 1.1 Part 1 §3.16.2: `<xs:defaultOpenContent>` — a schema-level default applying open content to all complex types in the schema document. New in XSD 1.1."),
     },
 
     // is_a edges express the W3C-defined subsumption hierarchy.
@@ -282,6 +291,12 @@ pr4xis::ontology! {
         (Unique,   IdentityConstraint),
         (Selector, IdentityConstraint),
         (Field,    IdentityConstraint),
+
+        // XSD 1.1 complex-type content additions (§3.13 / §3.4.2.2 /
+        // §3.16.2) are type-construction constructs.
+        (Assert,             TypeConstructionConstruct),
+        (OpenContent,        TypeConstructionConstruct),
+        (DefaultOpenContent, TypeConstructionConstruct),
     ],
 }
 
@@ -294,13 +309,13 @@ pr4xis::ontology! {
 // xsd-parser-loaded XSD construct lands on one of the concrete leaves below.
 // =============================================================================
 
-/// The 40 directly-instantiable XSD leaves. Excludes the four
+/// The 43 directly-instantiable XSD leaves. Excludes the four
 /// abstract roots `SchemaComponent` / `SchemaCompositionDirective` /
 /// `TypeConstructionConstruct` / `ConstrainingFacet` and the
 /// intermediate group concepts `TypeDefinition`, `ModelGroup`,
 /// `Annotation`, `IdentityConstraint` (which are projected to via
 /// their concrete sub-kinds).
-pub fn instantiable_leaves() -> [XsdConcept; 40] {
+pub fn instantiable_leaves() -> [XsdConcept; 43] {
     [
         XsdConcept::ElementDeclaration,
         XsdConcept::AttributeDeclaration,
@@ -346,6 +361,10 @@ pub fn instantiable_leaves() -> [XsdConcept; 40] {
         XsdConcept::Unique,
         XsdConcept::Selector,
         XsdConcept::Field,
+        // XSD 1.1 complex-type content additions.
+        XsdConcept::Assert,
+        XsdConcept::OpenContent,
+        XsdConcept::DefaultOpenContent,
     ]
 }
 
@@ -427,7 +446,11 @@ impl Quality for PartSpec {
             | X::KeyRef
             | X::Unique
             | X::Selector
-            | X::Field => Some(XsdPart::Structures),
+            | X::Field
+            // XSD 1.1 §3.13 / §3.4.2.2 / §3.16.2 content additions — Part 1.
+            | X::Assert
+            | X::OpenContent
+            | X::DefaultOpenContent => Some(XsdPart::Structures),
             // Part 2 §4.1.2 simple-type varieties + §4.3 constraining
             // facets are all defined in Part 2: Datatypes.
             X::ListType

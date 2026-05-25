@@ -596,6 +596,39 @@ fn projects_keyref_and_unique() {
 }
 
 #[test]
+fn projects_complex_type_assertion() {
+    // §3.13 — `<xs:assert>` is an XSD 1.1 complex-type assertion.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="t">
+    <xs:sequence><xs:element name="a" type="xs:int"/></xs:sequence>
+    <xs:assert test="a &gt; 0"/>
+  </xs:complexType>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let c = &project_from_xml_document(&doc).components;
+    assert!(c.contains(&XsdConcept::Assert));
+}
+
+#[test]
+fn projects_open_content_and_default_open_content() {
+    // §3.4.2.2 openContent on a complex type + §3.16.2 schema-level
+    // defaultOpenContent — both new in XSD 1.1.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:defaultOpenContent mode="interleave"><xs:any/></xs:defaultOpenContent>
+  <xs:complexType name="t">
+    <xs:openContent mode="suffix"><xs:any/></xs:openContent>
+    <xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>
+  </xs:complexType>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let c = &project_from_xml_document(&doc).components;
+    assert!(c.contains(&XsdConcept::OpenContent));
+    assert!(c.contains(&XsdConcept::DefaultOpenContent));
+}
+
+#[test]
 fn matches_text_scanner_on_simple_schema() {
     // The praxis-native projection and the legacy text-scanner
     // projection should agree on schemas they both handle.

@@ -317,6 +317,56 @@ pr4xis::register_axiom!(
     "W3C XSD 1.1 Part 1 (2012) §3.11 Identity-constraint Definitions"
 );
 
+/// **Axiom Xsd11ContentAdditionsProjected.** XSD 1.1 introduced three
+/// complex-type content constructs absent from XSD 1.0: `<xs:assert>`
+/// (Part 1 §3.13 — an XPath 2.0 boolean test on each instance),
+/// `<xs:openContent>` (§3.4.2.2 — wildcard content beyond the declared
+/// particles) and the schema-level `<xs:defaultOpenContent>`
+/// (§3.16.2). The projection captures all three.
+pub struct Xsd11ContentAdditionsProjected;
+
+impl Axiom for Xsd11ContentAdditionsProjected {
+    fn verify(&self) -> Verdict {
+        let xsd = br#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:defaultOpenContent mode="interleave"><xs:any/></xs:defaultOpenContent>
+  <xs:complexType name="t">
+    <xs:openContent mode="suffix"><xs:any/></xs:openContent>
+    <xs:sequence><xs:element name="a" type="xs:string"/></xs:sequence>
+    <xs:assert test="@x &gt; 0"/>
+  </xs:complexType>
+</xs:schema>"#;
+        let doc = match parse_document(xsd) {
+            Ok(d) => d,
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let c = &project_from_xml_document(&doc).components;
+        let all = [
+            XsdConcept::Assert,
+            XsdConcept::OpenContent,
+            XsdConcept::DefaultOpenContent,
+        ]
+        .iter()
+        .all(|k| c.contains(k));
+        if all {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "Xsd11ContentAdditionsProjected",
+        "the projection captures the XSD 1.1 complex-type content additions: assert (Part 1 §3.13), openContent (§3.4.2.2) and defaultOpenContent (§3.16.2)",
+        "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §§3.13, 3.4.2.2, 3.16.2"
+    );
+}
+
+pr4xis::register_axiom!(
+    Xsd11ContentAdditionsProjected,
+    "W3C XSD 1.1 Part 1 (2012) §§3.13, 3.4.2.2, 3.16.2 — XSD 1.1 content additions"
+);
+
 #[cfg(test)]
 mod axiom_tests {
     use super::*;
@@ -349,5 +399,10 @@ mod axiom_tests {
     #[test]
     fn constraining_facets_axiom_holds() {
         assert!(XsdConstrainingFacetsProjected.verify().is_ok());
+    }
+
+    #[test]
+    fn xsd11_content_additions_axiom_holds() {
+        assert!(Xsd11ContentAdditionsProjected.verify().is_ok());
     }
 }

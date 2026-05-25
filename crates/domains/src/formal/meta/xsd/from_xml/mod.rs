@@ -365,6 +365,22 @@ fn project_xsd_declaration(element: &XmlElement, state: &mut ProjectState) {
             state.components.push(XsdConcept::Field);
             return;
         }
+        // -------- XSD 1.1 complex-type content additions --------
+        // §3.13 complex-type assertion.
+        "assert" => {
+            state.components.push(XsdConcept::Assert);
+            return;
+        }
+        // §3.4.2.2 open content on a complex type.
+        "openContent" => {
+            state.components.push(XsdConcept::OpenContent);
+            return;
+        }
+        // §3.16.2 schema-level default open content.
+        "defaultOpenContent" => {
+            state.components.push(XsdConcept::DefaultOpenContent);
+            return;
+        }
         _ => {}
     }
 
