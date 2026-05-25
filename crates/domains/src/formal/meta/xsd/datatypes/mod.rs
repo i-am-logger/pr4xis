@@ -27,6 +27,7 @@
 //!   Akhmedov, Malhotra, Biron & Sperberg-McQueen 2012, W3C
 //!   Recommendation 2012-04-05. <https://www.w3.org/TR/xmlschema11-2/>
 
+pub mod numeric;
 pub mod ontology;
 
 #[cfg(test)]
