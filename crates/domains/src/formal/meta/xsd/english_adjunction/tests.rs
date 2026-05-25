@@ -539,7 +539,7 @@ mod properties {
 // against USLM's section heading vocabulary through the runtime Lift.
 //
 // The bundled USLM-1.0.18 XSD declares `<xsd:element name="section">`
-// (LRC USLM XML User Guide §V.5); the runtime Lift's substring-
+// (LRC USLM User Guide §6.5 Levels — the <section> element); the runtime Lift's substring-
 // contains check therefore matches every English term that contains
 // "section" against that declaration. This anchors the adjunction's
 // USLM-side soundness without coupling to the still-evolving sox_1514a
@@ -552,7 +552,7 @@ fn axiom_uslm_section_term_lifts_to_section_declaration() {
     let inst = sample_uslm_instance();
     let lifted = lift_english_term_to_schema_components("section", &inst, &en);
     // The bundled USLM declares `<xsd:element name="section">` per
-    // LRC §V.5; the Lift must surface it.
+    // the USLM Levels model (User Guide §6.5); the Lift must surface it.
     assert!(
         lifted
             .iter()

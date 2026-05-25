@@ -11,7 +11,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "IdentifierFormat",
-    source: "W3C CURIE Syntax 1.0 (Birbeck & McCarron 2010) Working Group Note; RFC 4122 (Leach, Mealling, Salz 2005) UUID URN Namespace; RFC 3986 (Berners-Lee, Fielding, Masinter 2005) URI Generic Syntax; ISO/IEC 8824-1:2021 ASN.1 Basic Notation; ITU-T X.660 (2011) OID Registration Authorities; LRC, USLM XML User Guide (USLM-1.0.15.xsd) §V Identifier Conventions; 1 U.S.C. § 204",
+    source: "W3C CURIE Syntax 1.0 (Birbeck & McCarron 2010) Working Group Note; RFC 4122 (Leach, Mealling, Salz 2005) UUID URN Namespace; RFC 3986 (Berners-Lee, Fielding, Masinter 2005) URI Generic Syntax; ISO/IEC 8824-1:2021 ASN.1 Basic Notation; ITU-T X.660 (2011) OID Registration Authorities; LRC USLM User Guide §11.5 Identifiers (path per §13 Referencing Model); 1 U.S.C. § 204",
 
     concepts: [
         IdentifierFormat,
@@ -34,7 +34,7 @@ pr4xis::ontology! {
         Oid: ("en", "OID",
             "ISO 8824-1 / ITU-T X.660: dot-separated decimal arcs forming a hierarchical object identifier (e.g., 1.3.6.1.4.1)."),
         UslmUrn: ("en", "USLM URN",
-            "LRC USLM XML User Guide §V: hierarchical relative-reference path identifying a U.S. Code component, e.g., `/us/usc/t18`, `/us/usc/t18/s1514A`, `/us/usc/t18/s1514A/a/1/A`. Begins with `/us/`; jurisdiction-then-corpus-then-component-path. Used as the `identifier` attribute on every USLM structural element."),
+            "LRC USLM User Guide §11.5 Identifiers (path per §13 Referencing Model): hierarchical relative-reference path identifying a U.S. Code component, e.g., `/us/usc/t18`, `/us/usc/t18/s1514A`, `/us/usc/t18/s1514A/a/1/A`. Begins with `/us/`; jurisdiction-then-corpus-then-component-path. Used as the `identifier` attribute on every USLM structural element."),
     },
 
     is_a: [
@@ -134,13 +134,13 @@ impl Axiom for PartitionCompleteness {
     pr4xis::axiom_meta!(
         "PartitionCompleteness",
         "IdentifierFormat has five leaves: CURIE, UUID, URI, OID, USLM URN",
-        "W3C CURIE 1.0; RFC 4122; RFC 3986; ISO 8824-1; LRC USLM User Guide §V"
+        "W3C CURIE 1.0; RFC 4122; RFC 3986; ISO 8824-1; LRC USLM User Guide §11.5 Identifiers"
     );
 }
 
 pr4xis::register_axiom!(
     PartitionCompleteness,
-    "W3C CURIE 1.0; RFC 4122; RFC 3986; ISO 8824-1; LRC USLM User Guide §V"
+    "W3C CURIE 1.0; RFC 4122; RFC 3986; ISO 8824-1; LRC USLM User Guide §11.5 Identifiers"
 );
 
 /// Axiom: every leaf has a defined HasResolver classification (true or

@@ -18,7 +18,7 @@
 //! - W3C XSD 1.1 Part 1 (Gao, Sperberg-McQueen & Thompson 2012)
 //!   §3.3.1 *Element Declarations*.
 //! - W3C XSD 1.1 Part 1 §3.4.1 *Complex Type Definitions*.
-//! - LRC USLM XML User Guide §V *Section Structure*.
+//! - LRC USLM User Guide §6.5 *Levels* (the section element).
 
 use super::*;
 
@@ -42,7 +42,7 @@ fn axiom_level_type_present_for_sections() {
     // USLM declares `<xsd:element name="section" type="LevelType">`
     // (USLM-1.0.18.xsd line 3854). Sections are an instance of
     // the broader "level" abstraction shared by title / chapter /
-    // section / paragraph / clause per USLM User Guide §V. The
+    // section / paragraph / clause per USLM User Guide §6.5 Levels. The
     // xsd-parser postfix `Item` gives `LevelTypeItem`.
     let _: Option<LevelTypeItem> = None;
 }
@@ -75,7 +75,7 @@ fn axiom_meta_type_present() {
 #[test]
 fn axiom_substitution_group_dispatchers_emitted() {
     // The XSD's USLM-1.0.18 schema defines the `content`
-    // substitution-group head per USLM User Guide §V. xsd-parser
+    // substitution-group head per USLM User Guide §6.5 Levels. xsd-parser
     // emits a substitution-group dispatcher type for it
     // (`ContentTypeItem` for the type plus type aliases for the
     // group members per `dynamic_element = "Dyn"`).

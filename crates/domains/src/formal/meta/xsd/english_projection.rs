@@ -822,9 +822,9 @@ impl NamedComponentProjection {
 ///    [`super::uslm_vocabulary::is_uslm_vocabulary`]) — for every
 ///    USLM element / attribute / complexType / simpleType /
 ///    attributeGroup / group whose declaration carries a non-empty
-///    `<xsd:annotation><xsd:documentation>` block. Per LRC USLM
-///    XML User Guide §V (every USLM element carries inline
-///    documentation), the schema documents itself; this loader
+///    `<xsd:annotation><xsd:documentation>` block. Every USLM
+///    declaration carries inline documentation in the bundled XSD
+///    (W3C XSD 1.1 Part 1 §3.15 annotations); the schema documents itself; this loader
 ///    surfaces the documented-name set.
 ///
 /// Per `feedback_bottom_up_loaded_not_encoded`: every recognised

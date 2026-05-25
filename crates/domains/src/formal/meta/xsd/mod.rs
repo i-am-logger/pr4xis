@@ -36,8 +36,8 @@
 //! - [`uslm_vocabulary`] — runtime loader that scans the bundled
 //!   `uslm-1.0.18.xsd` for every schema-component declaration whose
 //!   own `<xsd:annotation><xsd:documentation>` block is non-empty.
-//!   Per LRC USLM XML User Guide §V, every USLM element / attribute
-//!   carries inline documentation; this loader recognises those
+//!   Every USLM element / attribute declaration in the bundled XSD
+//!   carries inline documentation (W3C XSD 1.1 Part 1 §3.15); this loader recognises those
 //!   names from the schema's own self-documentation rather than a
 //!   hand-curated list. Consulted by
 //!   [`english_projection::is_schema_vocabulary`] alongside the

@@ -188,7 +188,7 @@ fn oid_rejects_empty_arc() {
 }
 
 // =============================================================================
-// USLM URN parser (LRC USLM XML User Guide §V; 1 U.S.C. § 204)
+// USLM URN parser (LRC USLM User Guide §11.5 Identifiers; 1 U.S.C. § 204)
 // =============================================================================
 
 #[test]

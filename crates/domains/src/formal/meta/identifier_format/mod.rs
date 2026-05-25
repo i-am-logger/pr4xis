@@ -213,7 +213,7 @@ impl Identifier {
     }
 
     /// Construct a USLM-URN-typed identifier per LRC USLM XML User
-    /// Guide §V "Identifier Conventions" (USLM-1.0.15.xsd).
+    /// Guide §11.5 "Identifiers" (path per §13 Referencing Model).
     ///
     /// USLM URNs are hierarchical relative-reference paths beginning
     /// with `/us/` that identify a U.S. Code component:
@@ -224,7 +224,7 @@ impl Identifier {
     /// /us/usc/t18/s1514A/a/1/A          — Subdivision (a)(1)(A)
     /// ```
     ///
-    /// Grammar (LRC User Guide §V): the path starts with `/us/`, is
+    /// Grammar (LRC USLM User Guide §11.5 Identifiers): the path starts with `/us/`, is
     /// composed of segments separated by `/`, each segment is a
     /// non-empty ASCII run (alphanumeric plus `-`, `_`, `.`). The
     /// USLM URN namespace is documented at uscode.house.gov and
@@ -237,7 +237,7 @@ impl Identifier {
         if !value.starts_with("/us/") {
             return Err(IdentifierParseError::InvalidGrammar {
                 format: IdentifierFormatConcept::UslmUrn,
-                reason: "USLM URN must begin with `/us/` per LRC User Guide §V",
+                reason: "USLM URN must begin with `/us/` per LRC USLM User Guide §11.5 Identifiers",
             });
         }
         for segment in value.trim_start_matches('/').split('/') {

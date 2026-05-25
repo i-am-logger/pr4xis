@@ -19,8 +19,9 @@
 //!
 //! - **Office of the Law Revision Counsel, U.S. House of
 //!   Representatives.** *USLM (United States Legislative Markup) XML
-//!   User Guide* Version 1.0.18, §V (element conventions — every
-//!   element in the schema carries inline `<xsd:documentation>`).
+//!   User Guide* (github.com/usgpo/uslm). The bundled `uslm-1.0.18.xsd`
+//!   gives every declaration an inline `<xsd:documentation>` child
+//!   (W3C XSD 1.1 Part 1 §3.15, cited below).
 //!   Published by the LRC under 1 U.S.C. § 204; public-domain
 //!   federal work per 17 U.S.C. § 105.
 //!   <https://github.com/usgpo/uslm>.
@@ -150,8 +151,9 @@ fn scan_documented_names(xsd_src: &str) -> BTreeSet<String> {
 ///
 /// The check is deliberately minimal: USLM places annotation as the
 /// first child of every documented declaration, immediately followed
-/// by a documentation block (`§V` of the LRC USLM XML User Guide:
-/// "every element in the schema carries inline documentation").
+/// by a documentation block — a USLM XSD authoring convention: every
+/// declaration in `uslm-1.0.18.xsd` carries an inline
+/// `<xsd:documentation>` (W3C XSD 1.1 Part 1 §3.15).
 /// Non-USLM XSDs may not follow this convention; this scanner is
 /// dedicated to USLM, not a general XSD parser (general parsing is
 /// `xsd-parser`'s responsibility, run at codegen time).
@@ -275,7 +277,7 @@ mod tests {
     #[test]
     fn documented_names_set_is_nonempty() {
         // USLM-1.0.18 declares hundreds of named, documented schema
-        // components per §V. The scan must surface ≥100 of them.
+        // components, each XSD-documented. The scan must surface ≥100 of them.
         let names = documented_names();
         assert!(
             names.len() >= 100,
@@ -299,7 +301,7 @@ mod tests {
 
     // ── Axiom: every name on the M4.η.3 USLM-target list is
     //          recognised through the XSD's own documentation
-    //          (LRC USLM XML User Guide §V) ────────────────────────────
+    //          (via the XSD's own <xsd:documentation>; XSD 1.1 Part 1 §3.15) ───────────────
 
     /// Axiom: the canonical USLM element-name set
     /// (`toc / num / pos / inline / def / misc / subarticle /
@@ -307,8 +309,8 @@ mod tests {
     /// declared in `uslm-1.0.18.xsd` with a non-empty
     /// `<xsd:annotation><xsd:documentation>` child.
     ///
-    /// Per LRC USLM XML User Guide §V (element conventions): every
-    /// USLM element carries inline documentation.
+    /// Every USLM declaration in `uslm-1.0.18.xsd` carries an inline
+    /// `<xsd:annotation><xsd:documentation>` (W3C XSD 1.1 Part 1 §3.15).
     ///
     /// Note: `enum`, `attrs`, and `usc` appear only in documentation
     /// prose (not as XSD `name="…"` declarations); the
@@ -340,8 +342,7 @@ mod tests {
     }
 
     /// Axiom: hierarchy-level names that every USLM element carries
-    /// inline documentation for (USLM User Guide §V.10 hierarchical
-    /// structure). Spot-checks the breadth of the loaded set.
+    /// inline documentation (the USLM Levels model — User Guide §6.5). Spot-checks the breadth of the loaded set.
     #[test]
     fn axiom_uslm_hierarchy_names_present() {
         for el in [
