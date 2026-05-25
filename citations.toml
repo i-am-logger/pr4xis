@@ -53,6 +53,49 @@
 #                         is downgraded (see "Downgrade path" below).
 #
 # ---------------------------------------------------------------------
+# Multi-version entries (the version-polymorphic citation adjunction)
+# ---------------------------------------------------------------------
+#
+# When a cited work has several published versions whose section
+# numbering differs (e.g. the LRC USLM User Guide: 0.1.4 numbers
+# Identifiers as §12.5, the current edition as §11.5), pinning a single
+# `section_or_page` is brittle and version-specific. Such an entry
+# instead anchors a version-independent `claim` and carries one
+# `[[citations.<slug>.versions]]` table per published version:
+#
+#   [citations.<slug>]
+#   authors = "…"
+#   title   = "…"
+#   claim   = "the version-independent statement the citation supports"
+#
+#   [[citations.<slug>.versions]]
+#   version = "0.1.4"            # a label identifying the version
+#   edition = "0.1.4 (…)"
+#   year    = 2013
+#   section_or_page = "§12.5 …"  # where the claim lives IN THIS version
+#   url     = "…"
+#   content_summary = "…"        # what that version's section says
+#   verified_by = "…"            # per-version verification
+#   verified_on = "…"
+#   verification_method = "…"
+#   verification_notes  = "…"
+#
+#   [[citations.<slug>.versions]]
+#   version = "current"
+#   … (the same claim, located in the current edition)
+#
+# This is a citation **version adjunction** (Bancilhon & Spyratos 1981
+# constant-complement; Grothendieck 1971 SGA1 fibration): the `claim`
+# is the complement held constant across versions, each `versions`
+# fiber is a view of it in one edition, and forget-version ⊣
+# locate-in-version maps between them. The audit treats a versioned
+# entry as verified iff the `claim` is non-empty and EVERY fiber is
+# well-formed (has a `version` + `section_or_page`) and verified — the
+# adjunction must be total over the registered versions. The flat
+# `section_or_page` / `verified_*` fields stay empty for versioned
+# entries (single-version entries continue to use them, unchanged).
+#
+# ---------------------------------------------------------------------
 # Slug naming convention
 # ---------------------------------------------------------------------
 #
@@ -740,86 +783,6 @@ verified_on  = "2026-05-19"
 verification_method = "web-fetched"
 verification_notes  = "CORRECTED 2026-05-19: replaces prior slug rfc_9595_2024_rdf_canonicalization which mis-cited 'RFC 9595' as the RDF canonicalization standard. RFC 9595 is actually 'YANG Schema Item iDentifier (YANG SID)' — entirely unrelated to RDF. The correct authority for RDF Dataset Canonicalization is the W3C Recommendation REC-rdf-canon-20240521 (21 May 2024), editors Dave Longley (Digital Bazaar), Gregg Kellogg, and Dan Yamamoto. §4 'Canonicalization' contains the RDFC-1.0 algorithm. Web-verified via https://www.w3.org/TR/rdf-canon/."
 
-[citations.lrc_uslm_user_guide_namespaces]
-authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
-year         = 2025
-title        = "United States Legislative Markup (USLM) User Guide"
-publisher    = "Office of the Law Revision Counsel"
-edition      = "1.0.18"
-section_or_page = "§ Namespaces"
-isbn         = ""
-doi          = ""
-url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
-content_summary = "USLM namespace URI is http://xml.house.gov/schemas/uslm/1.0; the canonical declaration on the <uscDoc> root element."
-verified_by  = "claude-web-fetch"
-verified_on  = "2026-05-25"
-verification_method = "web-fetched"
-verification_notes  = "USLM-User-Guide.pdf fetched from uscode.house.gov and read via pdftotext: section 2.5.2.1 Namespaces and 2.5.2.2 Namespace URI document the namespace mechanism; the literal namespace URI http://xml.house.gov/schemas/uslm/1.0 appears, declared as xmlns on the uscDoc root, matching the content summary."
-
-[citations.lrc_uslm_user_guide_v]
-authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
-year         = 2025
-title        = "United States Legislative Markup (USLM) User Guide"
-publisher    = "Office of the Law Revision Counsel"
-edition      = "1.0.18"
-section_or_page = "§V (URN-based identifiers)"
-isbn         = ""
-doi          = ""
-url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
-content_summary = "USLM URN scheme — /us/usc/t<N> canonical identifier form for a U.S. Code title. Every USLM element carries inline documentation via xsd:annotation/xsd:documentation."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "PDF unreadable via WebFetch (compressed content streams). Needs human verification with a PDF reader for §V (URN-based identifiers)."
-
-[citations.lrc_uslm_user_guide_6_2]
-authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
-year         = 2025
-title        = "United States Legislative Markup (USLM) User Guide"
-publisher    = "Office of the Law Revision Counsel"
-edition      = "1.0.18"
-section_or_page = "§6.2 (Section element)"
-isbn         = ""
-doi          = ""
-url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
-content_summary = "<section> element — the basic block of a USC title; carries a sourceCredit citing the originating act and Stat. citation."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "PDF unreadable via WebFetch (compressed content streams). Needs human verification with a PDF reader for §6.2 (Section element)."
-
-[citations.lrc_uslm_user_guide_inline_elements]
-authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
-year         = 2025
-title        = "United States Legislative Markup (USLM) User Guide"
-publisher    = "Office of the Law Revision Counsel"
-edition      = "1.0.18"
-section_or_page = "§ Inline Elements"
-isbn         = ""
-doi          = ""
-url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
-content_summary = "USLM inline markup: Inline, I, B, Sup, Sub, Span, A — semantic-presentation tags overlaying XHTML 1.0 (Second Edition) for legislative text."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "PDF unreadable via WebFetch (compressed content streams). Needs human verification with a PDF reader for § Inline Elements."
-
-[citations.lrc_uslm_user_guide_lexical]
-authors      = "Office of the Law Revision Counsel, U.S. House of Representatives"
-year         = 2025
-title        = "United States Legislative Markup (USLM) User Guide"
-publisher    = "Office of the Law Revision Counsel"
-edition      = "1.0.18"
-section_or_page = "§ Lexical Elements"
-isbn         = ""
-doi          = ""
-url          = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
-content_summary = "USLM definitional markup — <def>, <term>, <marker>; the structural elements that introduce defined terms within statutory text."
-verified_by  = ""
-verified_on  = ""
-verification_method = ""
-verification_notes  = "PDF unreadable via WebFetch (compressed content streams). Needs human verification with a PDF reader for § Lexical Elements."
-
 [citations.mac_lane_1971_categories_working_mathematician_i3]
 authors      = "Mac Lane, Saunders"
 year         = 1971
@@ -1187,3 +1150,153 @@ verified_by  = ""
 verified_on  = ""
 verification_method = ""
 verification_notes  = "Book; no DOI; Elsevier paywalled. Requires human verification with a hard-copy or library access."
+
+[citations.lrc_uslm_user_guide_namespaces]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "The USLM namespace URI is http://xml.house.gov/schemas/uslm/1.0, declared as the default xmlns on the root document element."
+
+[[citations.lrc_uslm_user_guide_namespaces.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 2.5.2.1 Namespaces; SS 2.5.2.2 Namespace URI"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Namespaces section: the USLM namespace URI http://xml.house.gov/schemas/uslm/1.0 declared on the uscDoc root."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_namespaces.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 1.5.2.1 Namespaces; SS 1.5.2.2 Namespace URI"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Conventions/Namespaces: a namespace URI is a URN or URL naming convention; USLM uses the URL form http://xml.house.gov/schemas/uslm/1.0."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[citations.lrc_uslm_user_guide_identifiers]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "USLM @identifier convention: an absolute path reference (e.g. /us/usc/t5, /us/usc/t18/s1514A) on structural elements, per the Reference Model."
+
+[[citations.lrc_uslm_user_guide_identifiers.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 12 Identification Model (SS 12.5 Identifiers); SS 13 Referencing Model"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Identification Model: @identifier is the absolute /us/usc/... path; the naming convention is defined under Identifiers and the Reference Model."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_identifiers.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 11 Identification Model (SS 11.5 Identifiers); SS 13 Referencing Model"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Identification Model: @identifier is the URL-based absolute path per the Reference Model (SS 13); example identifier=/us/usc/t5."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[citations.lrc_uslm_user_guide_section_element]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "The section element is the principal hierarchical level of a USC title; a provision's originating act and Statutes-at-Large citation are carried in a sourceCredit note."
+
+[[citations.lrc_uslm_user_guide_section_element.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 5.3 Core Set; SS 7.5 Levels; SS 7.7 Notes (sourceCredit)"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Core Set / Levels: section is a core level element; sourceCredit (a note) records the source act and Stat. citation."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_section_element.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 4.3 Core Set; SS 6.5 Levels; SS 6.7 Notes (sourceCredit)"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Levels: the principal level is section; the levels table lists section/subsection/paragraph; sourceCredit is a note carrying the source provision."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[citations.lrc_uslm_user_guide_inline_elements]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "The USLM generic set overlays XHTML inline elements (b, i, sub, sup, del, ins, ...) within the USLM namespace, plus inline (analogous to XHTML span)."
+
+[[citations.lrc_uslm_user_guide_inline_elements.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 5.4 Generic Set; SS 2.6 Relationship to XHTML"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Generic Set / XHTML relationship: USLM borrows XHTML element names into its namespace; inline is span-like and can contain inline elements, markers, or text."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_inline_elements.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 4.4 Generic Set; SS 1.6 Relationship to XHTML"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Generic Set / XHTML relationship: borrowed XHTML elements are p, br, img, center, b, i, sub, sup, del, ins; inline is similar to XHTML span."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[citations.lrc_uslm_user_guide_definitional]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "USLM definitional markup: def wraps a definition, term marks the defined term, and marker is an empty element denoting a position in the document."
+
+[[citations.lrc_uslm_user_guide_definitional.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 7.6 Other Structures (def/term); SS 5.2 Primitive Set (marker)"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Other Structures defines def containing one or more term elements with their definitions; marker is a primitive empty element."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_definitional.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 6.6 Other Structures (def/term); SS 4.2 Primitive Set (marker)"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Other Structures: def contains term elements and definitions; term is the defined term; marker (Primitive Set) is an empty positional element."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."

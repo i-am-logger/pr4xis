@@ -67,6 +67,49 @@ struct Citation {
     verification_method: String,
     #[serde(default)]
     verification_notes: String,
+
+    // Multi-version support (the version-polymorphic citation
+    // adjunction). When a cited work has several published versions
+    // whose section numbering differs (e.g. the LRC USLM User Guide),
+    // the entry anchors a version-independent `claim` (the constant
+    // complement, Bancilhon & Spyratos 1981) and carries one
+    // `[[citations.<slug>.versions]]` fiber per version (Grothendieck
+    // fibration). The flat `section_or_page` / `verified_*` fields stay
+    // empty in that case; verification is per fiber.
+    #[serde(default)]
+    claim: String,
+    #[serde(default)]
+    versions: Vec<CitationVersion>,
+}
+
+/// One version-fiber of a multi-version citation: where the entry's
+/// `claim` is located, and the verification, *in a single published
+/// version* of the cited work. The cross-version mapping of these
+/// fibers is the citation's version adjunction (forget-version ⊣
+/// locate-in-version).
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)] // mirrors the per-version registry schema
+struct CitationVersion {
+    #[serde(default)]
+    version: String,
+    #[serde(default)]
+    edition: String,
+    #[serde(default)]
+    year: Option<toml::Value>,
+    #[serde(default)]
+    section_or_page: String,
+    #[serde(default)]
+    url: String,
+    #[serde(default)]
+    content_summary: String,
+    #[serde(default)]
+    verified_by: String,
+    #[serde(default)]
+    verified_on: String,
+    #[serde(default)]
+    verification_method: String,
+    #[serde(default)]
+    verification_notes: String,
 }
 
 // ---------------------------------------------------------------------
@@ -312,10 +355,29 @@ fn citation_audit() {
     let registry = load_registry();
     let mut report = AuditReport::default();
 
-    // (1) Unverified entries.
+    // (1) Unverified entries. A single-version entry is verified by its
+    //     flat `verified_by`; a multi-version entry is verified iff it
+    //     carries a version-independent `claim` and *every* version
+    //     fiber is verified (the version adjunction is total — the
+    //     claim must be located + confirmed in each registered version).
     for (slug, entry) in &registry.citations {
-        if entry.verified_by.trim().is_empty() {
-            report.unverified.push(slug.clone());
+        if entry.versions.is_empty() {
+            if entry.verified_by.trim().is_empty() {
+                report.unverified.push(slug.clone());
+            }
+        } else {
+            let well_formed = !entry.claim.trim().is_empty()
+                && entry
+                    .versions
+                    .iter()
+                    .all(|v| !v.version.trim().is_empty() && !v.section_or_page.trim().is_empty());
+            let all_verified = entry
+                .versions
+                .iter()
+                .all(|v| !v.verified_by.trim().is_empty());
+            if !well_formed || !all_verified {
+                report.unverified.push(slug.clone());
+            }
         }
     }
 
