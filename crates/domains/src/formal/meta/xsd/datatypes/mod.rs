@@ -30,6 +30,7 @@
 pub mod floating;
 pub mod numeric;
 pub mod ontology;
+pub mod temporal;
 
 #[cfg(test)]
 mod tests;
