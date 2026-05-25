@@ -42,30 +42,37 @@ fn xsd_ontology_validates() {
 
 #[test]
 fn concept_count() {
-    // §2.2 schema-component partition: 1 root (SchemaComponent) + 17
-    // sub-concepts (TypeDefinition, ModelGroup, Annotation grouping
-    // concepts + 14 leaves). §4.2 schema-composition group: 1 root
-    // (SchemaCompositionDirective) + 4 leaves (Import, Include,
-    // Redefine, Override). Total: 18 + 5 = 23 concepts.
-    assert_eq!(XsdConcept::variants().len(), 23);
+    // Three groups, each with a root:
+    // - §2.2 schema-component partition: 1 root + 17 sub-concepts = 18
+    // - §4.2 schema-composition group: 1 root + 4 leaves = 5
+    // - §3.4.2 / Part 2 §4.1.2 type-construction group: 1 root + 6
+    //   leaves (ComplexContent, SimpleContent, Restriction, Extension,
+    //   ListType, UnionType) = 7
+    // Total: 18 + 5 + 7 = 30 concepts.
+    assert_eq!(XsdConcept::variants().len(), 30);
 }
 
 #[test]
 fn instantiable_leaves_count() {
-    // Sixteen concrete kinds: 12 §2.2 schema-component leaves + 4 §4.2
-    // schema-composition directive leaves.
-    assert_eq!(instantiable_leaves().len(), 16);
+    // 22 concrete kinds: 12 §2.2 schema-component leaves + 4 §4.2
+    // schema-composition directive leaves + 6 §3.4.2 / Part 2 §4.1.2
+    // type-construction construct leaves.
+    assert_eq!(instantiable_leaves().len(), 22);
 }
 
 #[test]
 fn root_classification() {
-    // Two roots: §2.2 SchemaComponent and §4.2 SchemaCompositionDirective.
+    // Three roots: §2.2 SchemaComponent, §4.2 SchemaCompositionDirective,
+    // §3.4.2 / Part 2 §4.1.2 TypeConstructionConstruct.
     assert!(is_root(XsdConcept::SchemaComponent));
     assert!(is_root(XsdConcept::SchemaCompositionDirective));
+    assert!(is_root(XsdConcept::TypeConstructionConstruct));
     for c in XsdConcept::variants() {
         if matches!(
             c,
-            XsdConcept::SchemaComponent | XsdConcept::SchemaCompositionDirective
+            XsdConcept::SchemaComponent
+                | XsdConcept::SchemaCompositionDirective
+                | XsdConcept::TypeConstructionConstruct
         ) {
             continue;
         }
@@ -101,8 +108,9 @@ fn part_spec_root_is_none() {
 #[test]
 fn part_spec_total_on_non_root() {
     for c in XsdConcept::variants() {
-        // Both abstract roots (§2.2 SchemaComponent, §4.2
-        // SchemaCompositionDirective) carry no part classification.
+        // The three abstract roots (§2.2 SchemaComponent, §4.2
+        // SchemaCompositionDirective, §3.4.2 TypeConstructionConstruct)
+        // carry no part classification.
         if is_root(c) {
             continue;
         }

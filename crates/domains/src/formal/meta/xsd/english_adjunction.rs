@@ -103,6 +103,13 @@ pub fn lift_label_to_concept(l: XsdEnglishLabel) -> XsdConcept {
         L::SchemaInclude => C::SchemaInclude,
         L::SchemaRedefine => C::SchemaRedefine,
         L::SchemaOverride => C::SchemaOverride,
+        L::TypeConstructionConstruct => C::TypeConstructionConstruct,
+        L::ComplexContent => C::ComplexContent,
+        L::SimpleContent => C::SimpleContent,
+        L::Restriction => C::Restriction,
+        L::Extension => C::Extension,
+        L::ListType => C::ListType,
+        L::UnionType => C::UnionType,
     }
 }
 

@@ -5,7 +5,7 @@
 use alloc::{string::String, string::ToString, vec, vec::Vec};
 
 use super::super::from_xsd_parser::{
-    SchemaImportInfo, SchemaIncludeInfo, SchemaOverrideInfo, SchemaRedefineInfo,
+    DerivationMethod, SchemaImportInfo, SchemaIncludeInfo, SchemaOverrideInfo, SchemaRedefineInfo,
     project_from_xsd_text,
 };
 use super::super::ontology::XsdConcept;
@@ -356,6 +356,115 @@ fn projects_real_uslm_xsd_annotations_and_imports() {
     assert!(
         documentation_count >= 10,
         "expected substantial documentation coverage; got {documentation_count}"
+    );
+}
+
+// =============================================================================
+// W3C XSD 1.1 Part 1 §3.4 type derivation + §3.8 model groups + §3.16 varieties.
+// =============================================================================
+
+#[test]
+fn projects_model_groups() {
+    // §3.8 sequence / choice / all + §3.10 any wildcard.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="t">
+    <xs:sequence>
+      <xs:choice>
+        <xs:element name="a" type="xs:string"/>
+      </xs:choice>
+      <xs:any/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="u">
+    <xs:all/>
+  </xs:complexType>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert!(instance.components.contains(&XsdConcept::Sequence));
+    assert!(instance.components.contains(&XsdConcept::Choice));
+    assert!(instance.components.contains(&XsdConcept::AllGroup));
+    assert!(instance.components.contains(&XsdConcept::Wildcard));
+}
+
+#[test]
+fn projects_complex_content_extension_with_base() {
+    // §3.4.2 complexContent + §3.4.6 extension(base=...).
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="derived">
+    <xs:complexContent>
+      <xs:extension base="BaseType">
+        <xs:attribute name="extra" type="xs:string"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert!(instance.components.contains(&XsdConcept::ComplexContent));
+    assert!(instance.components.contains(&XsdConcept::Extension));
+    assert_eq!(instance.derivations.len(), 1);
+    assert_eq!(instance.derivations[0].method, DerivationMethod::Extension);
+    assert_eq!(instance.derivations[0].base.as_deref(), Some("BaseType"));
+}
+
+#[test]
+fn projects_simple_content_restriction_with_base() {
+    // §3.4.2 simpleContent + §3.4.6 restriction(base=...).
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="r">
+    <xs:simpleContent>
+      <xs:restriction base="xs:string"/>
+    </xs:simpleContent>
+  </xs:complexType>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert!(instance.components.contains(&XsdConcept::SimpleContent));
+    assert!(instance.components.contains(&XsdConcept::Restriction));
+    assert_eq!(
+        instance.derivations[0].method,
+        DerivationMethod::Restriction
+    );
+    assert_eq!(instance.derivations[0].base.as_deref(), Some("xs:string"));
+}
+
+#[test]
+fn projects_simple_type_list_and_union() {
+    // §3.16 / Part 2 §4.1.2 — list + union varieties.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="intlist">
+    <xs:list itemType="xs:int"/>
+  </xs:simpleType>
+  <xs:simpleType name="strOrInt">
+    <xs:union memberTypes="xs:string xs:int"/>
+  </xs:simpleType>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert!(instance.components.contains(&XsdConcept::ListType));
+    assert!(instance.components.contains(&XsdConcept::UnionType));
+}
+
+#[test]
+fn projects_real_uslm_xsd_derivations() {
+    // The bundled USLM XSD uses complexContent/simpleContent +
+    // extension/restriction extensively for its type hierarchy.
+    let xsd_bytes = include_bytes!("../../../../../data/legal/uscode/schema/uslm-1.0.18.xsd");
+    let doc = parse_document(xsd_bytes).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert!(
+        instance.derivations.len() > 20,
+        "USLM XSD derives many types; got {} derivations",
+        instance.derivations.len()
+    );
+    assert!(
+        instance.components.contains(&XsdConcept::Sequence),
+        "USLM content models use xs:sequence"
     );
 }
 

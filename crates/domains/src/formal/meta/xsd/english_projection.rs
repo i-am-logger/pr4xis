@@ -130,6 +130,13 @@ pub enum XsdEnglishLabel {
     SchemaInclude,
     SchemaRedefine,
     SchemaOverride,
+    TypeConstructionConstruct,
+    ComplexContent,
+    SimpleContent,
+    Restriction,
+    Extension,
+    ListType,
+    UnionType,
 }
 
 /// The canonical English head-noun phrase for each [`XsdConcept`].
@@ -171,6 +178,13 @@ pub fn canonical_english_phrase(c: XsdConcept) -> &'static str {
         C::SchemaInclude => "include",
         C::SchemaRedefine => "redefine",
         C::SchemaOverride => "override",
+        C::TypeConstructionConstruct => "type construction construct",
+        C::ComplexContent => "complex content",
+        C::SimpleContent => "simple content",
+        C::Restriction => "restriction",
+        C::Extension => "extension",
+        C::ListType => "list",
+        C::UnionType => "union",
     }
 }
 
@@ -393,6 +407,13 @@ pub fn project_concept(c: XsdConcept) -> XsdEnglishLabel {
         C::SchemaInclude => L::SchemaInclude,
         C::SchemaRedefine => L::SchemaRedefine,
         C::SchemaOverride => L::SchemaOverride,
+        C::TypeConstructionConstruct => L::TypeConstructionConstruct,
+        C::ComplexContent => L::ComplexContent,
+        C::SimpleContent => L::SimpleContent,
+        C::Restriction => L::Restriction,
+        C::Extension => L::Extension,
+        C::ListType => L::ListType,
+        C::UnionType => L::UnionType,
     }
 }
 
@@ -845,6 +866,11 @@ mod tests {
     <LexicalEntry id="e-include-v"><Lemma writtenForm="include" partOfSpeech="v"/><Sense id="s-include-1" synset="s-include"/></LexicalEntry>
     <LexicalEntry id="e-redefine-v"><Lemma writtenForm="redefine" partOfSpeech="v"/><Sense id="s-redefine-1" synset="s-redefine"/></LexicalEntry>
     <LexicalEntry id="e-override-v"><Lemma writtenForm="override" partOfSpeech="v"/><Sense id="s-override-1" synset="s-override"/></LexicalEntry>
+    <LexicalEntry id="e-content-n"><Lemma writtenForm="content" partOfSpeech="n"/><Sense id="s-content-1" synset="s-content"/></LexicalEntry>
+    <LexicalEntry id="e-restriction-n"><Lemma writtenForm="restriction" partOfSpeech="n"/><Sense id="s-restriction-1" synset="s-restriction"/></LexicalEntry>
+    <LexicalEntry id="e-extension-n"><Lemma writtenForm="extension" partOfSpeech="n"/><Sense id="s-extension-1" synset="s-extension"/></LexicalEntry>
+    <LexicalEntry id="e-list-n"><Lemma writtenForm="list" partOfSpeech="n"/><Sense id="s-list-1" synset="s-list"/></LexicalEntry>
+    <LexicalEntry id="e-union-n"><Lemma writtenForm="union" partOfSpeech="n"/><Sense id="s-union-1" synset="s-union"/></LexicalEntry>
     <Synset id="s-schema" ili="i1" partOfSpeech="n"><Definition>structured form</Definition></Synset>
     <Synset id="s-component" ili="i2" partOfSpeech="n"><Definition>a part</Definition></Synset>
     <Synset id="s-element" ili="i3" partOfSpeech="n"><Definition>a constituent</Definition></Synset>
@@ -883,6 +909,11 @@ mod tests {
     <Synset id="s-include" ili="i36" partOfSpeech="v"><Definition>to incorporate</Definition></Synset>
     <Synset id="s-redefine" ili="i37" partOfSpeech="v"><Definition>to define again</Definition></Synset>
     <Synset id="s-override" ili="i38" partOfSpeech="v"><Definition>to supersede</Definition></Synset>
+    <Synset id="s-content" ili="i39" partOfSpeech="n"><Definition>what is contained</Definition></Synset>
+    <Synset id="s-restriction" ili="i40" partOfSpeech="n"><Definition>a limitation</Definition></Synset>
+    <Synset id="s-extension" ili="i41" partOfSpeech="n"><Definition>an enlargement</Definition></Synset>
+    <Synset id="s-list" ili="i42" partOfSpeech="n"><Definition>an enumeration of items</Definition></Synset>
+    <Synset id="s-union" ili="i43" partOfSpeech="n"><Definition>a combination</Definition></Synset>
   </Lexicon>
 </LexicalResource>"#;
 
@@ -933,7 +964,7 @@ mod tests {
 
     #[test]
     fn project_concept_is_total() {
-        // Bijection: 23 concepts → 23 labels, all distinct.
+        // Bijection: 30 concepts → 30 labels, all distinct.
         let mut seen = alloc::collections::BTreeSet::new();
         for c in XsdConcept::variants() {
             let label = project_concept(c);
@@ -941,7 +972,7 @@ mod tests {
             // per-variant by construction.
             assert!(seen.insert(format!("{label:?}")));
         }
-        assert_eq!(seen.len(), 23);
+        assert_eq!(seen.len(), 30);
     }
 
     #[test]

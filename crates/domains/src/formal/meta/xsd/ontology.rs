@@ -74,6 +74,13 @@ pr4xis::ontology! {
         SchemaInclude,
         SchemaRedefine,
         SchemaOverride,
+        TypeConstructionConstruct,
+        ComplexContent,
+        SimpleContent,
+        Restriction,
+        Extension,
+        ListType,
+        UnionType,
     ],
 
     labels: {
@@ -123,6 +130,20 @@ pr4xis::ontology! {
             "W3C XSD 1.1 Part 1 §4.2.4: `<xs:redefine>` — includes another schema document and redefines some of its type / group definitions. Deprecated in XSD 1.1; superseded by `<xs:override>`."),
         SchemaOverride: ("en", "Override directive",
             "W3C XSD 1.1 Part 1 §4.2.5: `<xs:override>` — includes another schema document and *replaces* selected components. New in XSD 1.1, replacing `<xs:redefine>`."),
+        TypeConstructionConstruct: ("en", "Type-construction construct",
+            "W3C XSD 1.1 Part 1 §3.4.2 / Part 2 §4.1.2: an XML-representation construct that determines a type definition's {content type}, {derivation method}, or {variety} (`<xs:complexContent>` / `<xs:simpleContent>` / `<xs:restriction>` / `<xs:extension>` / `<xs:list>` / `<xs:union>`). Unlike schema components (§2.2), these carry no own infoset contribution; they are absorbed into the enclosing type definition's properties."),
+        ComplexContent: ("en", "Complex content",
+            "W3C XSD 1.1 Part 1 §3.4.2: `<xs:complexContent>` — declares that a complex type's content model derives (by restriction or extension) from another complex type, optionally toggling `mixed`."),
+        SimpleContent: ("en", "Simple content",
+            "W3C XSD 1.1 Part 1 §3.4.2: `<xs:simpleContent>` — declares that a complex type has character-data content (plus attributes) derived from a simple base type."),
+        Restriction: ("en", "Restriction derivation",
+            "W3C XSD 1.1 Part 1 §3.4.6 / Part 2 §4.1.2.1: `<xs:restriction>` — derives a type by *restricting* the value space / content model of a base type (the derived type's instances are a subset of the base's)."),
+        Extension: ("en", "Extension derivation",
+            "W3C XSD 1.1 Part 1 §3.4.6: `<xs:extension>` — derives a complex type by *extending* a base type with additional attributes and/or appended content particles."),
+        ListType: ("en", "List simple type",
+            "W3C XSD 1.1 Part 2 §4.1.2 / §3.16: `<xs:list>` — a simple type whose value space is whitespace-separated lists of an atomic `itemType`."),
+        UnionType: ("en", "Union simple type",
+            "W3C XSD 1.1 Part 2 §4.1.2 / §3.16: `<xs:union>` — a simple type whose value space is the union of one or more `memberTypes`' value spaces."),
     },
 
     // is_a edges express the W3C-defined subsumption hierarchy.
@@ -162,6 +183,18 @@ pr4xis::ontology! {
         (SchemaInclude,  SchemaCompositionDirective),
         (SchemaRedefine, SchemaCompositionDirective),
         (SchemaOverride, SchemaCompositionDirective),
+
+        // §3.4.2 / Part 2 §4.1.2 type-construction constructs form a
+        // third group, parallel to the §2.2 component partition and
+        // the §4.2 composition group: these are XML-representation
+        // constructs absorbed into a type definition's properties,
+        // not components in their own right.
+        (ComplexContent, TypeConstructionConstruct),
+        (SimpleContent,  TypeConstructionConstruct),
+        (Restriction,    TypeConstructionConstruct),
+        (Extension,      TypeConstructionConstruct),
+        (ListType,       TypeConstructionConstruct),
+        (UnionType,      TypeConstructionConstruct),
     ],
 }
 
@@ -174,11 +207,12 @@ pr4xis::ontology! {
 // xsd-parser-loaded XSD construct lands on one of the concrete leaves below.
 // =============================================================================
 
-/// The 16 directly-instantiable XSD leaves. Excludes the two abstract
-/// roots `SchemaComponent` / `SchemaCompositionDirective` and the
-/// intermediate group concepts `TypeDefinition`, `ModelGroup`,
-/// `Annotation` (which are projected to via their concrete sub-kinds).
-pub fn instantiable_leaves() -> [XsdConcept; 16] {
+/// The 22 directly-instantiable XSD leaves. Excludes the three
+/// abstract roots `SchemaComponent` / `SchemaCompositionDirective` /
+/// `TypeConstructionConstruct` and the intermediate group concepts
+/// `TypeDefinition`, `ModelGroup`, `Annotation` (which are projected
+/// to via their concrete sub-kinds).
+pub fn instantiable_leaves() -> [XsdConcept; 22] {
     [
         XsdConcept::ElementDeclaration,
         XsdConcept::AttributeDeclaration,
@@ -197,15 +231,25 @@ pub fn instantiable_leaves() -> [XsdConcept; 16] {
         XsdConcept::SchemaInclude,
         XsdConcept::SchemaRedefine,
         XsdConcept::SchemaOverride,
+        // §3.4.2 / Part 2 §4.1.2 type-construction construct leaves.
+        XsdConcept::ComplexContent,
+        XsdConcept::SimpleContent,
+        XsdConcept::Restriction,
+        XsdConcept::Extension,
+        XsdConcept::ListType,
+        XsdConcept::UnionType,
     ]
 }
 
-/// True if `c` is an abstract ontology root (§2.2 `SchemaComponent`
-/// or §4.2 `SchemaCompositionDirective`).
+/// True if `c` is an abstract ontology root (§2.2 `SchemaComponent`,
+/// §4.2 `SchemaCompositionDirective`, or §3.4.2 / Part 2 §4.1.2
+/// `TypeConstructionConstruct`).
 pub fn is_root(c: XsdConcept) -> bool {
     matches!(
         c,
-        XsdConcept::SchemaComponent | XsdConcept::SchemaCompositionDirective
+        XsdConcept::SchemaComponent
+            | XsdConcept::SchemaCompositionDirective
+            | XsdConcept::TypeConstructionConstruct
     )
 }
 
@@ -263,11 +307,20 @@ impl Quality for PartSpec {
             | X::SchemaImport
             | X::SchemaInclude
             | X::SchemaRedefine
-            | X::SchemaOverride => Some(XsdPart::Structures),
-            // Abstract roots — no primary part assignment. (Both are
-            // partition tops, not concrete constructs: §2.2 and §4.2
-            // respectively.)
-            X::SchemaComponent | X::SchemaCompositionDirective => None,
+            | X::SchemaOverride
+            // §3.4.2 type-construction constructs — Part 1.
+            | X::ComplexContent
+            | X::SimpleContent
+            | X::Restriction
+            | X::Extension => Some(XsdPart::Structures),
+            // Part 2 §4.1.2 simple-type varieties.
+            X::ListType | X::UnionType => Some(XsdPart::Datatypes),
+            // Abstract roots — no primary part assignment. (Partition
+            // tops, not concrete constructs: §2.2, §4.2, and §3.4.2 /
+            // Part 2 §4.1.2 respectively.)
+            X::SchemaComponent
+            | X::SchemaCompositionDirective
+            | X::TypeConstructionConstruct => None,
         }
     }
 }
@@ -321,6 +374,7 @@ impl Axiom for SchemaComponentPartitioned {
         let roots = [
             XsdConcept::SchemaComponent,
             XsdConcept::SchemaCompositionDirective,
+            XsdConcept::TypeConstructionConstruct,
         ];
         let all_morphs = XsdCategory::morphisms();
         for v in XsdConcept::variants() {
@@ -342,8 +396,8 @@ impl Axiom for SchemaComponentPartitioned {
 
     pr4xis::axiom_meta!(
         "SchemaComponentPartitioned",
-        "every non-root XSD concept is is_a-reachable from SchemaComponent (§2.2) or SchemaCompositionDirective (§4.2)",
-        "W3C XSD 1.1 Part 1 §2.2, §4.2 (Gao et al. 2012)"
+        "every non-root XSD concept is is_a-reachable from one of the three ontology roots: SchemaComponent (§2.2), SchemaCompositionDirective (§4.2), or TypeConstructionConstruct (§3.4.2 / Part 2 §4.1.2)",
+        "W3C XSD 1.1 Part 1 §2.2, §3.4.2, §4.2 (Gao et al. 2012); Part 2 §4.1.2 (Peterson et al. 2012)"
     );
 }
 

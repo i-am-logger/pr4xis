@@ -316,6 +316,38 @@ pub struct XsdOntologyInstance {
     /// [`XsdConcept::Annotation`] concept (W3C XSD 1.1 Part 1 §3.15),
     /// collected from anywhere in the schema tree.
     pub annotations: Vec<AnnotationInfo>,
+    /// Per-`<xs:restriction>` / `<xs:extension>` records for the
+    /// [`XsdConcept::Restriction`] / [`XsdConcept::Extension`]
+    /// concepts — the type-derivation edges (method + base type)
+    /// from W3C XSD 1.1 Part 1 §3.4.6.
+    pub derivations: Vec<TypeDerivationInfo>,
+}
+
+/// Per-instance data for the [`XsdConcept::Restriction`] /
+/// [`XsdConcept::Extension`] concepts. W3C XSD 1.1 Part 1 §3.4.6 —
+/// a type derives from a base type by one of two methods. Captures
+/// the `{derivation method}` and the `base="…"` reference.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeDerivationInfo {
+    /// The derivation method — exactly one of
+    /// [`XsdConcept::Restriction`] or [`XsdConcept::Extension`].
+    pub method: DerivationMethod,
+    /// The `base="…"` reference — the type this construct derives
+    /// from. `None` when absent (e.g. a `<xs:restriction>` with an
+    /// inline anonymous `<xs:simpleType>` base per §3.16.6).
+    pub base: Option<String>,
+}
+
+/// W3C XSD 1.1 Part 1 §3.4.6.4 `{derivation method}` — the two ways
+/// one type definition derives from another.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DerivationMethod {
+    /// `<xs:restriction>` — the derived type's value space / content
+    /// model is a subset of the base's.
+    Restriction,
+    /// `<xs:extension>` — the derived complex type appends content
+    /// and/or attributes to the base.
+    Extension,
 }
 
 /// Per-instance data for the [`XsdConcept::SchemaImport`] concept.
@@ -532,6 +564,7 @@ pub fn project(ast: &XsdAst) -> XsdOntologyInstance {
         redefines: Vec::new(),
         overrides: Vec::new(),
         annotations: Vec::new(),
+        derivations: Vec::new(),
     }
 }
 
@@ -613,6 +646,7 @@ pub fn project_from_xsd_text(xsd_src: &str) -> XsdOntologyInstance {
         redefines: Vec::new(),
         overrides: Vec::new(),
         annotations: Vec::new(),
+        derivations: Vec::new(),
     }
 }
 

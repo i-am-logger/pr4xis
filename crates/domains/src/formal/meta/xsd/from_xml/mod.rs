@@ -40,8 +40,9 @@ use alloc::{string::String, string::ToString, vec::Vec};
 
 use super::XSD_NAMESPACE_URI;
 use super::from_xsd_parser::{
-    AnnotationInfo, ElementDeclarationInfo, NamedSchemaComponentEntry, SchemaImportInfo,
-    SchemaIncludeInfo, SchemaOverrideInfo, SchemaRedefineInfo, XsdOntologyInstance,
+    AnnotationInfo, DerivationMethod, ElementDeclarationInfo, NamedSchemaComponentEntry,
+    SchemaImportInfo, SchemaIncludeInfo, SchemaOverrideInfo, SchemaRedefineInfo,
+    TypeDerivationInfo, XsdOntologyInstance,
 };
 use super::ontology::XsdConcept;
 use crate::social::software::markup::xml::ontology::{
@@ -75,6 +76,7 @@ pub fn project_from_xml_document(doc: &XmlDocument) -> XsdOntologyInstance {
         redefines: state.redefines,
         overrides: state.overrides,
         annotations: state.annotations,
+        derivations: state.derivations,
     }
 }
 
@@ -88,6 +90,7 @@ struct ProjectState {
     redefines: Vec<SchemaRedefineInfo>,
     overrides: Vec<SchemaOverrideInfo>,
     annotations: Vec<AnnotationInfo>,
+    derivations: Vec<TypeDerivationInfo>,
 }
 
 /// Namespace bindings in scope at an element. Built up by ancestor
@@ -226,6 +229,59 @@ fn project_xsd_declaration(element: &XmlElement, state: &mut ProjectState) {
                 namespace: attr_value(element, "namespace"),
                 schema_location: attr_value(element, "schemaLocation"),
             });
+            return;
+        }
+        // -------- §3.8 Model groups (anonymous; no name=) --------
+        "sequence" => {
+            state.components.push(XsdConcept::Sequence);
+            return;
+        }
+        "choice" => {
+            state.components.push(XsdConcept::Choice);
+            return;
+        }
+        "all" => {
+            state.components.push(XsdConcept::AllGroup);
+            return;
+        }
+        // §3.10 Wildcards — `<xs:any>` / `<xs:anyAttribute>`.
+        "any" | "anyAttribute" => {
+            state.components.push(XsdConcept::Wildcard);
+            return;
+        }
+        // -------- §3.4.2 Type-construction content wrappers --------
+        "complexContent" => {
+            state.components.push(XsdConcept::ComplexContent);
+            return;
+        }
+        "simpleContent" => {
+            state.components.push(XsdConcept::SimpleContent);
+            return;
+        }
+        // §3.4.6 Type-derivation methods — capture the `base=` edge.
+        "restriction" => {
+            state.components.push(XsdConcept::Restriction);
+            state.derivations.push(TypeDerivationInfo {
+                method: DerivationMethod::Restriction,
+                base: attr_value(element, "base"),
+            });
+            return;
+        }
+        "extension" => {
+            state.components.push(XsdConcept::Extension);
+            state.derivations.push(TypeDerivationInfo {
+                method: DerivationMethod::Extension,
+                base: attr_value(element, "base"),
+            });
+            return;
+        }
+        // §3.16 / Part 2 §4.1.2 simple-type varieties.
+        "list" => {
+            state.components.push(XsdConcept::ListType);
+            return;
+        }
+        "union" => {
+            state.components.push(XsdConcept::UnionType);
             return;
         }
         _ => {}

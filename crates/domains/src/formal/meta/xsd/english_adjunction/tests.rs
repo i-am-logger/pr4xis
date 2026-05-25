@@ -111,6 +111,7 @@ fn sample_uslm_instance() -> XsdOntologyInstance {
         redefines: Vec::new(),
         overrides: Vec::new(),
         annotations: Vec::new(),
+        derivations: Vec::new(),
     }
 }
 
