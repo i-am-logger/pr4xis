@@ -550,6 +550,51 @@ fn projects_xsd11_facets() {
     assert!(c.contains(&XsdConcept::AssertionFacet));
 }
 
+// =============================================================================
+// W3C XSD 1.1 Part 1 §3.11 identity constraints.
+// =============================================================================
+
+#[test]
+fn projects_key_with_selector_and_field() {
+    // §3.11.1 key + §3.11.2 selector/field.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:key name="pk">
+      <xs:selector xpath="row"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+  </xs:element>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let c = &project_from_xml_document(&doc).components;
+    assert!(c.contains(&XsdConcept::Key));
+    assert!(c.contains(&XsdConcept::Selector));
+    assert!(c.contains(&XsdConcept::Field));
+}
+
+#[test]
+fn projects_keyref_and_unique() {
+    // §3.11.1 keyref + unique.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="root">
+    <xs:unique name="u">
+      <xs:selector xpath="a"/>
+      <xs:field xpath="@x"/>
+    </xs:unique>
+    <xs:keyref name="fk" refer="pk">
+      <xs:selector xpath="b"/>
+      <xs:field xpath="@ref"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let c = &project_from_xml_document(&doc).components;
+    assert!(c.contains(&XsdConcept::Unique));
+    assert!(c.contains(&XsdConcept::KeyRef));
+}
+
 #[test]
 fn matches_text_scanner_on_simple_schema() {
     // The praxis-native projection and the legacy text-scanner

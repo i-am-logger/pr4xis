@@ -268,6 +268,55 @@ pr4xis::register_axiom!(
     "W3C XSD 1.1 Part 2 (2012) §4.3 Constraining Facets"
 );
 
+/// **Axiom IdentityConstraintsProjected.** Per W3C XSD 1.1 Part 1
+/// §3.11, the identity-constraint categories (`<xs:key>` /
+/// `<xs:keyref>` / `<xs:unique>`) and their XPath sub-parts
+/// (`<xs:selector>` / `<xs:field>`) project to their concepts.
+pub struct XsdIdentityConstraintsProjected;
+
+impl Axiom for XsdIdentityConstraintsProjected {
+    fn verify(&self) -> Verdict {
+        let xsd = br#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="r">
+    <xs:key name="k"><xs:selector xpath="a"/><xs:field xpath="@id"/></xs:key>
+    <xs:unique name="u"><xs:selector xpath="b"/><xs:field xpath="@x"/></xs:unique>
+    <xs:keyref name="f" refer="k"><xs:selector xpath="c"/><xs:field xpath="@r"/></xs:keyref>
+  </xs:element>
+</xs:schema>"#;
+        let doc = match parse_document(xsd) {
+            Ok(d) => d,
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let c = &project_from_xml_document(&doc).components;
+        let all = [
+            XsdConcept::Key,
+            XsdConcept::Unique,
+            XsdConcept::KeyRef,
+            XsdConcept::Selector,
+            XsdConcept::Field,
+        ]
+        .iter()
+        .all(|k| c.contains(k));
+        if all {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "XsdIdentityConstraintsProjected",
+        "the projection captures the W3C XSD 1.1 Part 1 §3.11 identity-constraint categories (key/keyref/unique) and XPath sub-parts (selector/field)",
+        "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §3.11 Identity-constraint Definitions"
+    );
+}
+
+pr4xis::register_axiom!(
+    XsdIdentityConstraintsProjected,
+    "W3C XSD 1.1 Part 1 (2012) §3.11 Identity-constraint Definitions"
+);
+
 #[cfg(test)]
 mod axiom_tests {
     use super::*;
@@ -275,6 +324,11 @@ mod axiom_tests {
     #[test]
     fn schema_composition_axiom_holds() {
         assert!(XsdSchemaCompositionProjected.verify().is_ok());
+    }
+
+    #[test]
+    fn identity_constraints_axiom_holds() {
+        assert!(XsdIdentityConstraintsProjected.verify().is_ok());
     }
 
     #[test]

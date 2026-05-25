@@ -96,6 +96,11 @@ pr4xis::ontology! {
         FractionDigitsFacet,
         ExplicitTimezoneFacet,
         AssertionFacet,
+        Key,
+        KeyRef,
+        Unique,
+        Selector,
+        Field,
     ],
 
     labels: {
@@ -189,6 +194,16 @@ pr4xis::ontology! {
             "W3C XSD 1.1 Part 2 §4.3.14: `<xs:explicitTimezone>` — controls whether a date/time value's timezone is required, prohibited, or optional. New in XSD 1.1."),
         AssertionFacet: ("en", "Assertion facet",
             "W3C XSD 1.1 Part 2 §4.3.13: `<xs:assertion>` — an XPath 2.0 boolean test every value of the simple type must satisfy. New in XSD 1.1."),
+        Key: ("en", "Key identity constraint",
+            "W3C XSD 1.1 Part 1 §3.11.1: `<xs:key>` — declares that a set of selected fields uniquely identifies elements and that all selected nodes have those fields (a non-nullable uniqueness constraint)."),
+        KeyRef: ("en", "Key-reference identity constraint",
+            "W3C XSD 1.1 Part 1 §3.11.1: `<xs:keyref>` — declares that selected fields' values must correspond to values of a referenced `<xs:key>` or `<xs:unique>` (a referential-integrity constraint)."),
+        Unique: ("en", "Uniqueness identity constraint",
+            "W3C XSD 1.1 Part 1 §3.11.1: `<xs:unique>` — declares that a set of selected fields is unique among the selected nodes (uniqueness without the totality requirement of `<xs:key>`)."),
+        Selector: ("en", "Identity-constraint selector",
+            "W3C XSD 1.1 Part 1 §3.11.2: `<xs:selector>` — an XPath expression selecting the node-set over which an identity constraint's uniqueness / reference scope is evaluated."),
+        Field: ("en", "Identity-constraint field",
+            "W3C XSD 1.1 Part 1 §3.11.2: `<xs:field>` — an XPath expression selecting, relative to each selected node, the value(s) that together form the identity-constraint tuple."),
     },
 
     // is_a edges express the W3C-defined subsumption hierarchy.
@@ -258,6 +273,15 @@ pr4xis::ontology! {
         (FractionDigitsFacet,   ConstrainingFacet),
         (ExplicitTimezoneFacet, ConstrainingFacet),
         (AssertionFacet,        ConstrainingFacet),
+
+        // §3.11 identity-constraint categories + XPath sub-parts.
+        // IdentityConstraint (already is_a SchemaComponent) becomes
+        // an intermediate concept with these five sub-kinds.
+        (Key,      IdentityConstraint),
+        (KeyRef,   IdentityConstraint),
+        (Unique,   IdentityConstraint),
+        (Selector, IdentityConstraint),
+        (Field,    IdentityConstraint),
     ],
 }
 
@@ -270,13 +294,13 @@ pr4xis::ontology! {
 // xsd-parser-loaded XSD construct lands on one of the concrete leaves below.
 // =============================================================================
 
-/// The 36 directly-instantiable XSD leaves. Excludes the four
+/// The 40 directly-instantiable XSD leaves. Excludes the four
 /// abstract roots `SchemaComponent` / `SchemaCompositionDirective` /
 /// `TypeConstructionConstruct` / `ConstrainingFacet` and the
 /// intermediate group concepts `TypeDefinition`, `ModelGroup`,
-/// `Annotation` (which are projected to via their concrete
-/// sub-kinds).
-pub fn instantiable_leaves() -> [XsdConcept; 36] {
+/// `Annotation`, `IdentityConstraint` (which are projected to via
+/// their concrete sub-kinds).
+pub fn instantiable_leaves() -> [XsdConcept; 40] {
     [
         XsdConcept::ElementDeclaration,
         XsdConcept::AttributeDeclaration,
@@ -288,7 +312,6 @@ pub fn instantiable_leaves() -> [XsdConcept; 36] {
         XsdConcept::AttributeGroup,
         XsdConcept::Particle,
         XsdConcept::Wildcard,
-        XsdConcept::IdentityConstraint,
         XsdConcept::NotationDeclaration,
         // §4.2 schema-composition directive leaves.
         XsdConcept::SchemaImport,
@@ -317,6 +340,12 @@ pub fn instantiable_leaves() -> [XsdConcept; 36] {
         XsdConcept::FractionDigitsFacet,
         XsdConcept::ExplicitTimezoneFacet,
         XsdConcept::AssertionFacet,
+        // §3.11 identity-constraint categories + XPath sub-parts.
+        XsdConcept::Key,
+        XsdConcept::KeyRef,
+        XsdConcept::Unique,
+        XsdConcept::Selector,
+        XsdConcept::Field,
     ]
 }
 
@@ -392,7 +421,13 @@ impl Quality for PartSpec {
             | X::ComplexContent
             | X::SimpleContent
             | X::Restriction
-            | X::Extension => Some(XsdPart::Structures),
+            | X::Extension
+            // §3.11 identity-constraint categories + sub-parts — Part 1.
+            | X::Key
+            | X::KeyRef
+            | X::Unique
+            | X::Selector
+            | X::Field => Some(XsdPart::Structures),
             // Part 2 §4.1.2 simple-type varieties + §4.3 constraining
             // facets are all defined in Part 2: Datatypes.
             X::ListType

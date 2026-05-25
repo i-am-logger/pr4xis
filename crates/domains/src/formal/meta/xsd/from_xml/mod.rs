@@ -344,6 +344,27 @@ fn project_xsd_declaration(element: &XmlElement, state: &mut ProjectState) {
             state.components.push(XsdConcept::AssertionFacet);
             return;
         }
+        // -------- §3.11 identity constraints (anonymous) --------
+        "key" => {
+            state.components.push(XsdConcept::Key);
+            return;
+        }
+        "keyref" => {
+            state.components.push(XsdConcept::KeyRef);
+            return;
+        }
+        "unique" => {
+            state.components.push(XsdConcept::Unique);
+            return;
+        }
+        "selector" => {
+            state.components.push(XsdConcept::Selector);
+            return;
+        }
+        "field" => {
+            state.components.push(XsdConcept::Field);
+            return;
+        }
         _ => {}
     }
 

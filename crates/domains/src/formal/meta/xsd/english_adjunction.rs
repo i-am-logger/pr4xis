@@ -125,6 +125,11 @@ pub fn lift_label_to_concept(l: XsdEnglishLabel) -> XsdConcept {
         L::FractionDigitsFacet => C::FractionDigitsFacet,
         L::ExplicitTimezoneFacet => C::ExplicitTimezoneFacet,
         L::AssertionFacet => C::AssertionFacet,
+        L::Key => C::Key,
+        L::KeyRef => C::KeyRef,
+        L::Unique => C::Unique,
+        L::Selector => C::Selector,
+        L::Field => C::Field,
     }
 }
 

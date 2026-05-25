@@ -152,6 +152,11 @@ pub enum XsdEnglishLabel {
     FractionDigitsFacet,
     ExplicitTimezoneFacet,
     AssertionFacet,
+    Key,
+    KeyRef,
+    Unique,
+    Selector,
+    Field,
 }
 
 /// The canonical English head-noun phrase for each [`XsdConcept`].
@@ -215,6 +220,11 @@ pub fn canonical_english_phrase(c: XsdConcept) -> &'static str {
         C::FractionDigitsFacet => "fraction digits",
         C::ExplicitTimezoneFacet => "explicit time zone",
         C::AssertionFacet => "assertion",
+        C::Key => "key",
+        C::KeyRef => "key reference",
+        C::Unique => "unique",
+        C::Selector => "selector",
+        C::Field => "field",
     }
 }
 
@@ -459,6 +469,11 @@ pub fn project_concept(c: XsdConcept) -> XsdEnglishLabel {
         C::FractionDigitsFacet => L::FractionDigitsFacet,
         C::ExplicitTimezoneFacet => L::ExplicitTimezoneFacet,
         C::AssertionFacet => L::AssertionFacet,
+        C::Key => L::Key,
+        C::KeyRef => L::KeyRef,
+        C::Unique => L::Unique,
+        C::Selector => L::Selector,
+        C::Field => L::Field,
     }
 }
 
@@ -929,6 +944,11 @@ mod tests {
     <LexicalEntry id="e-total-a"><Lemma writtenForm="total" partOfSpeech="a"/><Sense id="s-total-1" synset="s-total"/></LexicalEntry>
     <LexicalEntry id="e-timezone-n"><Lemma writtenForm="timezone" partOfSpeech="n"/><Sense id="s-timezone-1" synset="s-timezone"/></LexicalEntry>
     <LexicalEntry id="e-explicit-a"><Lemma writtenForm="explicit" partOfSpeech="a"/><Sense id="s-explicit-1" synset="s-explicit"/></LexicalEntry>
+    <LexicalEntry id="e-key-n"><Lemma writtenForm="key" partOfSpeech="n"/><Sense id="s-key-1" synset="s-key"/></LexicalEntry>
+    <LexicalEntry id="e-reference-n"><Lemma writtenForm="reference" partOfSpeech="n"/><Sense id="s-reference-1" synset="s-reference"/></LexicalEntry>
+    <LexicalEntry id="e-unique-a"><Lemma writtenForm="unique" partOfSpeech="a"/><Sense id="s-unique-1" synset="s-unique"/></LexicalEntry>
+    <LexicalEntry id="e-selector-n"><Lemma writtenForm="selector" partOfSpeech="n"/><Sense id="s-selector-1" synset="s-selector"/></LexicalEntry>
+    <LexicalEntry id="e-field-n"><Lemma writtenForm="field" partOfSpeech="n"/><Sense id="s-field-1" synset="s-field"/></LexicalEntry>
     <Synset id="s-schema" ili="i1" partOfSpeech="n"><Definition>structured form</Definition></Synset>
     <Synset id="s-component" ili="i2" partOfSpeech="n"><Definition>a part</Definition></Synset>
     <Synset id="s-element" ili="i3" partOfSpeech="n"><Definition>a constituent</Definition></Synset>
@@ -985,6 +1005,11 @@ mod tests {
     <Synset id="s-total" ili="i54" partOfSpeech="a"><Definition>complete</Definition></Synset>
     <Synset id="s-timezone" ili="i55" partOfSpeech="n"><Definition>a region's clock offset</Definition></Synset>
     <Synset id="s-explicit" ili="i56" partOfSpeech="a"><Definition>stated clearly</Definition></Synset>
+    <Synset id="s-key" ili="i57" partOfSpeech="n"><Definition>an identifying value</Definition></Synset>
+    <Synset id="s-reference" ili="i58" partOfSpeech="n"><Definition>a pointer to something</Definition></Synset>
+    <Synset id="s-unique" ili="i59" partOfSpeech="a"><Definition>one of a kind</Definition></Synset>
+    <Synset id="s-selector" ili="i60" partOfSpeech="n"><Definition>something that selects</Definition></Synset>
+    <Synset id="s-field" ili="i61" partOfSpeech="n"><Definition>a named data slot</Definition></Synset>
   </Lexicon>
 </LexicalResource>"#;
 
@@ -1035,7 +1060,7 @@ mod tests {
 
     #[test]
     fn project_concept_is_total() {
-        // Bijection: 45 concepts → 45 labels, all distinct.
+        // Bijection: 50 concepts → 50 labels, all distinct.
         let mut seen = alloc::collections::BTreeSet::new();
         for c in XsdConcept::variants() {
             let label = project_concept(c);
@@ -1043,7 +1068,7 @@ mod tests {
             // per-variant by construction.
             assert!(seen.insert(format!("{label:?}")));
         }
-        assert_eq!(seen.len(), 45);
+        assert_eq!(seen.len(), 50);
     }
 
     #[test]
