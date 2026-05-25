@@ -830,10 +830,12 @@ fn parse_name(c: &mut Cursor<'_>) -> Result<XmlName, XmlParseError> {
     }
 }
 
-/// W3C XML 1.0 §2.3 production [4] `NameStartChar`. Subset used
-/// here covers the characters that USC titles + USLM schema
-/// content actually use.
-fn is_name_start_char(ch: char) -> bool {
+/// W3C XML 1.0 §2.3 production [4] `NameStartChar` — the full
+/// character class. Exposed for reuse by the XSD datatype lexical
+/// mappings (`xs:Name` / `xs:NCName` / `xs:NMTOKEN` are defined by
+/// reference to the XML 1.0 `Name` / `Nmtoken` productions, W3C XSD
+/// 1.1 Part 2 §3.4.4-§3.4.7).
+pub fn is_name_start_char(ch: char) -> bool {
     matches!(ch, 'A'..='Z' | 'a'..='z' | '_' | ':')
         || matches!(ch as u32, 0xC0..=0xD6 | 0xD8..=0xF6 | 0xF8..=0x2FF
             | 0x370..=0x37D | 0x37F..=0x1FFF | 0x200C..=0x200D
@@ -843,8 +845,9 @@ fn is_name_start_char(ch: char) -> bool {
 
 /// W3C XML 1.0 §2.3 production [4a] `NameChar`. Extends
 /// [`is_name_start_char`] with digits, `.`, `-`, `·`, and the
-/// combining-mark ranges.
-fn is_name_char(ch: char) -> bool {
+/// combining-mark ranges. Exposed for reuse by the XSD datatype
+/// lexical mappings (see [`is_name_start_char`]).
+pub fn is_name_char(ch: char) -> bool {
     is_name_start_char(ch)
         || matches!(ch, '-' | '.' | '0'..='9')
         || ch as u32 == 0xB7
