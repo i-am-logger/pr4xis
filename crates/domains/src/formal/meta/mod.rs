@@ -16,6 +16,7 @@ pub mod ontology_diagnostics;
 pub mod source_taxonomy;
 pub mod staging;
 pub mod syntrometry;
+pub mod versioning;
 pub mod well_behaved_lens;
 pub mod xsd;
 
