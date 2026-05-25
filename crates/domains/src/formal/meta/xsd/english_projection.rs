@@ -137,6 +137,21 @@ pub enum XsdEnglishLabel {
     Extension,
     ListType,
     UnionType,
+    ConstrainingFacet,
+    LengthFacet,
+    MinLengthFacet,
+    MaxLengthFacet,
+    PatternFacet,
+    EnumerationFacet,
+    WhiteSpaceFacet,
+    MaxInclusiveFacet,
+    MaxExclusiveFacet,
+    MinExclusiveFacet,
+    MinInclusiveFacet,
+    TotalDigitsFacet,
+    FractionDigitsFacet,
+    ExplicitTimezoneFacet,
+    AssertionFacet,
 }
 
 /// The canonical English head-noun phrase for each [`XsdConcept`].
@@ -185,6 +200,21 @@ pub fn canonical_english_phrase(c: XsdConcept) -> &'static str {
         C::Extension => "extension",
         C::ListType => "list",
         C::UnionType => "union",
+        C::ConstrainingFacet => "constraining facet",
+        C::LengthFacet => "length",
+        C::MinLengthFacet => "minimum length",
+        C::MaxLengthFacet => "maximum length",
+        C::PatternFacet => "pattern",
+        C::EnumerationFacet => "enumeration",
+        C::WhiteSpaceFacet => "white space",
+        C::MaxInclusiveFacet => "maximum inclusive",
+        C::MaxExclusiveFacet => "maximum exclusive",
+        C::MinExclusiveFacet => "minimum exclusive",
+        C::MinInclusiveFacet => "minimum inclusive",
+        C::TotalDigitsFacet => "total digits",
+        C::FractionDigitsFacet => "fraction digits",
+        C::ExplicitTimezoneFacet => "explicit time zone",
+        C::AssertionFacet => "assertion",
     }
 }
 
@@ -414,6 +444,21 @@ pub fn project_concept(c: XsdConcept) -> XsdEnglishLabel {
         C::Extension => L::Extension,
         C::ListType => L::ListType,
         C::UnionType => L::UnionType,
+        C::ConstrainingFacet => L::ConstrainingFacet,
+        C::LengthFacet => L::LengthFacet,
+        C::MinLengthFacet => L::MinLengthFacet,
+        C::MaxLengthFacet => L::MaxLengthFacet,
+        C::PatternFacet => L::PatternFacet,
+        C::EnumerationFacet => L::EnumerationFacet,
+        C::WhiteSpaceFacet => L::WhiteSpaceFacet,
+        C::MaxInclusiveFacet => L::MaxInclusiveFacet,
+        C::MaxExclusiveFacet => L::MaxExclusiveFacet,
+        C::MinExclusiveFacet => L::MinExclusiveFacet,
+        C::MinInclusiveFacet => L::MinInclusiveFacet,
+        C::TotalDigitsFacet => L::TotalDigitsFacet,
+        C::FractionDigitsFacet => L::FractionDigitsFacet,
+        C::ExplicitTimezoneFacet => L::ExplicitTimezoneFacet,
+        C::AssertionFacet => L::AssertionFacet,
     }
 }
 
@@ -871,6 +916,19 @@ mod tests {
     <LexicalEntry id="e-extension-n"><Lemma writtenForm="extension" partOfSpeech="n"/><Sense id="s-extension-1" synset="s-extension"/></LexicalEntry>
     <LexicalEntry id="e-list-n"><Lemma writtenForm="list" partOfSpeech="n"/><Sense id="s-list-1" synset="s-list"/></LexicalEntry>
     <LexicalEntry id="e-union-n"><Lemma writtenForm="union" partOfSpeech="n"/><Sense id="s-union-1" synset="s-union"/></LexicalEntry>
+    <LexicalEntry id="e-facet-n"><Lemma writtenForm="facet" partOfSpeech="n"/><Sense id="s-facet-1" synset="s-facet"/></LexicalEntry>
+    <LexicalEntry id="e-length-n"><Lemma writtenForm="length" partOfSpeech="n"/><Sense id="s-length-1" synset="s-length"/></LexicalEntry>
+    <LexicalEntry id="e-pattern-n"><Lemma writtenForm="pattern" partOfSpeech="n"/><Sense id="s-pattern-1" synset="s-pattern"/></LexicalEntry>
+    <LexicalEntry id="e-enumeration-n"><Lemma writtenForm="enumeration" partOfSpeech="n"/><Sense id="s-enumeration-1" synset="s-enumeration"/></LexicalEntry>
+    <LexicalEntry id="e-assertion-n"><Lemma writtenForm="assertion" partOfSpeech="n"/><Sense id="s-assertion-1" synset="s-assertion"/></LexicalEntry>
+    <LexicalEntry id="e-space-n"><Lemma writtenForm="space" partOfSpeech="n"/><Sense id="s-space-1" synset="s-space"/></LexicalEntry>
+    <LexicalEntry id="e-maximum-n"><Lemma writtenForm="maximum" partOfSpeech="n"/><Sense id="s-maximum-1" synset="s-maximum"/></LexicalEntry>
+    <LexicalEntry id="e-minimum-n"><Lemma writtenForm="minimum" partOfSpeech="n"/><Sense id="s-minimum-1" synset="s-minimum"/></LexicalEntry>
+    <LexicalEntry id="e-digit-n"><Lemma writtenForm="digit" partOfSpeech="n"/><Sense id="s-digit-1" synset="s-digit"/></LexicalEntry>
+    <LexicalEntry id="e-fraction-n"><Lemma writtenForm="fraction" partOfSpeech="n"/><Sense id="s-fraction-1" synset="s-fraction"/></LexicalEntry>
+    <LexicalEntry id="e-total-a"><Lemma writtenForm="total" partOfSpeech="a"/><Sense id="s-total-1" synset="s-total"/></LexicalEntry>
+    <LexicalEntry id="e-timezone-n"><Lemma writtenForm="timezone" partOfSpeech="n"/><Sense id="s-timezone-1" synset="s-timezone"/></LexicalEntry>
+    <LexicalEntry id="e-explicit-a"><Lemma writtenForm="explicit" partOfSpeech="a"/><Sense id="s-explicit-1" synset="s-explicit"/></LexicalEntry>
     <Synset id="s-schema" ili="i1" partOfSpeech="n"><Definition>structured form</Definition></Synset>
     <Synset id="s-component" ili="i2" partOfSpeech="n"><Definition>a part</Definition></Synset>
     <Synset id="s-element" ili="i3" partOfSpeech="n"><Definition>a constituent</Definition></Synset>
@@ -914,6 +972,19 @@ mod tests {
     <Synset id="s-extension" ili="i41" partOfSpeech="n"><Definition>an enlargement</Definition></Synset>
     <Synset id="s-list" ili="i42" partOfSpeech="n"><Definition>an enumeration of items</Definition></Synset>
     <Synset id="s-union" ili="i43" partOfSpeech="n"><Definition>a combination</Definition></Synset>
+    <Synset id="s-facet" ili="i44" partOfSpeech="n"><Definition>an aspect</Definition></Synset>
+    <Synset id="s-length" ili="i45" partOfSpeech="n"><Definition>a measure of extent</Definition></Synset>
+    <Synset id="s-pattern" ili="i46" partOfSpeech="n"><Definition>a regular form</Definition></Synset>
+    <Synset id="s-enumeration" ili="i47" partOfSpeech="n"><Definition>a listing</Definition></Synset>
+    <Synset id="s-assertion" ili="i48" partOfSpeech="n"><Definition>a declaration</Definition></Synset>
+    <Synset id="s-space" ili="i49" partOfSpeech="n"><Definition>blank area</Definition></Synset>
+    <Synset id="s-maximum" ili="i50" partOfSpeech="n"><Definition>the greatest value</Definition></Synset>
+    <Synset id="s-minimum" ili="i51" partOfSpeech="n"><Definition>the least value</Definition></Synset>
+    <Synset id="s-digit" ili="i52" partOfSpeech="n"><Definition>a numeral</Definition></Synset>
+    <Synset id="s-fraction" ili="i53" partOfSpeech="n"><Definition>a part of a whole</Definition></Synset>
+    <Synset id="s-total" ili="i54" partOfSpeech="a"><Definition>complete</Definition></Synset>
+    <Synset id="s-timezone" ili="i55" partOfSpeech="n"><Definition>a region's clock offset</Definition></Synset>
+    <Synset id="s-explicit" ili="i56" partOfSpeech="a"><Definition>stated clearly</Definition></Synset>
   </Lexicon>
 </LexicalResource>"#;
 
@@ -964,7 +1035,7 @@ mod tests {
 
     #[test]
     fn project_concept_is_total() {
-        // Bijection: 30 concepts → 30 labels, all distinct.
+        // Bijection: 45 concepts → 45 labels, all distinct.
         let mut seen = alloc::collections::BTreeSet::new();
         for c in XsdConcept::variants() {
             let label = project_concept(c);
@@ -972,7 +1043,7 @@ mod tests {
             // per-variant by construction.
             assert!(seen.insert(format!("{label:?}")));
         }
-        assert_eq!(seen.len(), 30);
+        assert_eq!(seen.len(), 45);
     }
 
     #[test]

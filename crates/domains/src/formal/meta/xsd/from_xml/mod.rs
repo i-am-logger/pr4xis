@@ -284,6 +284,66 @@ fn project_xsd_declaration(element: &XmlElement, state: &mut ProjectState) {
             state.components.push(XsdConcept::UnionType);
             return;
         }
+        // -------- Part 2 §4.3 constraining facets --------
+        "length" => {
+            state.components.push(XsdConcept::LengthFacet);
+            return;
+        }
+        "minLength" => {
+            state.components.push(XsdConcept::MinLengthFacet);
+            return;
+        }
+        "maxLength" => {
+            state.components.push(XsdConcept::MaxLengthFacet);
+            return;
+        }
+        "pattern" => {
+            state.components.push(XsdConcept::PatternFacet);
+            return;
+        }
+        "enumeration" => {
+            state.components.push(XsdConcept::EnumerationFacet);
+            return;
+        }
+        "whiteSpace" => {
+            state.components.push(XsdConcept::WhiteSpaceFacet);
+            return;
+        }
+        "maxInclusive" => {
+            state.components.push(XsdConcept::MaxInclusiveFacet);
+            return;
+        }
+        "maxExclusive" => {
+            state.components.push(XsdConcept::MaxExclusiveFacet);
+            return;
+        }
+        "minExclusive" => {
+            state.components.push(XsdConcept::MinExclusiveFacet);
+            return;
+        }
+        "minInclusive" => {
+            state.components.push(XsdConcept::MinInclusiveFacet);
+            return;
+        }
+        "totalDigits" => {
+            state.components.push(XsdConcept::TotalDigitsFacet);
+            return;
+        }
+        "fractionDigits" => {
+            state.components.push(XsdConcept::FractionDigitsFacet);
+            return;
+        }
+        "explicitTimezone" => {
+            state.components.push(XsdConcept::ExplicitTimezoneFacet);
+            return;
+        }
+        // §4.3.13 assertion facet (simple types). The complex-type
+        // `<xs:assert>` (§3.13) is a distinct construct handled in
+        // M4.λ.2.c.3; the facet `<xs:assertion>` is projected here.
+        "assertion" => {
+            state.components.push(XsdConcept::AssertionFacet);
+            return;
+        }
         _ => {}
     }
 

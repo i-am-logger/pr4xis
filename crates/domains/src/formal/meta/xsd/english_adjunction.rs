@@ -110,6 +110,21 @@ pub fn lift_label_to_concept(l: XsdEnglishLabel) -> XsdConcept {
         L::Extension => C::Extension,
         L::ListType => C::ListType,
         L::UnionType => C::UnionType,
+        L::ConstrainingFacet => C::ConstrainingFacet,
+        L::LengthFacet => C::LengthFacet,
+        L::MinLengthFacet => C::MinLengthFacet,
+        L::MaxLengthFacet => C::MaxLengthFacet,
+        L::PatternFacet => C::PatternFacet,
+        L::EnumerationFacet => C::EnumerationFacet,
+        L::WhiteSpaceFacet => C::WhiteSpaceFacet,
+        L::MaxInclusiveFacet => C::MaxInclusiveFacet,
+        L::MaxExclusiveFacet => C::MaxExclusiveFacet,
+        L::MinExclusiveFacet => C::MinExclusiveFacet,
+        L::MinInclusiveFacet => C::MinInclusiveFacet,
+        L::TotalDigitsFacet => C::TotalDigitsFacet,
+        L::FractionDigitsFacet => C::FractionDigitsFacet,
+        L::ExplicitTimezoneFacet => C::ExplicitTimezoneFacet,
+        L::AssertionFacet => C::AssertionFacet,
     }
 }
 

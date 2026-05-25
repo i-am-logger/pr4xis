@@ -48,8 +48,9 @@ fn concept_count() {
     // - §3.4.2 / Part 2 §4.1.2 type-construction group: 1 root + 6
     //   leaves (ComplexContent, SimpleContent, Restriction, Extension,
     //   ListType, UnionType) = 7
-    // Total: 18 + 5 + 7 = 30 concepts.
-    assert_eq!(XsdConcept::variants().len(), 30);
+    // Plus Part 2 §4.3: 1 ConstrainingFacet root + 14 facet leaves = 15.
+    // Total: 18 + 5 + 7 + 15 = 45 concepts.
+    assert_eq!(XsdConcept::variants().len(), 45);
 }
 
 #[test]
@@ -57,22 +58,25 @@ fn instantiable_leaves_count() {
     // 22 concrete kinds: 12 §2.2 schema-component leaves + 4 §4.2
     // schema-composition directive leaves + 6 §3.4.2 / Part 2 §4.1.2
     // type-construction construct leaves.
-    assert_eq!(instantiable_leaves().len(), 22);
+    assert_eq!(instantiable_leaves().len(), 36);
 }
 
 #[test]
 fn root_classification() {
-    // Three roots: §2.2 SchemaComponent, §4.2 SchemaCompositionDirective,
-    // §3.4.2 / Part 2 §4.1.2 TypeConstructionConstruct.
+    // Four roots: §2.2 SchemaComponent, §4.2 SchemaCompositionDirective,
+    // §3.4.2 / Part 2 §4.1.2 TypeConstructionConstruct, Part 2 §4.3
+    // ConstrainingFacet.
     assert!(is_root(XsdConcept::SchemaComponent));
     assert!(is_root(XsdConcept::SchemaCompositionDirective));
     assert!(is_root(XsdConcept::TypeConstructionConstruct));
+    assert!(is_root(XsdConcept::ConstrainingFacet));
     for c in XsdConcept::variants() {
         if matches!(
             c,
             XsdConcept::SchemaComponent
                 | XsdConcept::SchemaCompositionDirective
                 | XsdConcept::TypeConstructionConstruct
+                | XsdConcept::ConstrainingFacet
         ) {
             continue;
         }

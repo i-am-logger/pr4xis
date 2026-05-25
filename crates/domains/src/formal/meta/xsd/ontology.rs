@@ -81,6 +81,21 @@ pr4xis::ontology! {
         Extension,
         ListType,
         UnionType,
+        ConstrainingFacet,
+        LengthFacet,
+        MinLengthFacet,
+        MaxLengthFacet,
+        PatternFacet,
+        EnumerationFacet,
+        WhiteSpaceFacet,
+        MaxInclusiveFacet,
+        MaxExclusiveFacet,
+        MinExclusiveFacet,
+        MinInclusiveFacet,
+        TotalDigitsFacet,
+        FractionDigitsFacet,
+        ExplicitTimezoneFacet,
+        AssertionFacet,
     ],
 
     labels: {
@@ -144,6 +159,36 @@ pr4xis::ontology! {
             "W3C XSD 1.1 Part 2 §4.1.2 / §3.16: `<xs:list>` — a simple type whose value space is whitespace-separated lists of an atomic `itemType`."),
         UnionType: ("en", "Union simple type",
             "W3C XSD 1.1 Part 2 §4.1.2 / §3.16: `<xs:union>` — a simple type whose value space is the union of one or more `memberTypes`' value spaces."),
+        ConstrainingFacet: ("en", "Constraining facet",
+            "W3C XSD 1.1 Part 2 §4.3: an optional aspect of a simple type's value space that the type restricts (length, range, pattern, …). Constraining facets cut down the base type's value space; they are not schema components (§2.2) but properties of simple-type definitions."),
+        LengthFacet: ("en", "Length facet",
+            "W3C XSD 1.1 Part 2 §4.3.1: `<xs:length>` — constrains the value space to values of a specified number of units of length."),
+        MinLengthFacet: ("en", "Minimum-length facet",
+            "W3C XSD 1.1 Part 2 §4.3.2: `<xs:minLength>` — lower bound on the number of units of length."),
+        MaxLengthFacet: ("en", "Maximum-length facet",
+            "W3C XSD 1.1 Part 2 §4.3.3: `<xs:maxLength>` — upper bound on the number of units of length."),
+        PatternFacet: ("en", "Pattern facet",
+            "W3C XSD 1.1 Part 2 §4.3.4: `<xs:pattern>` — constrains the lexical space to literals matching a regular expression (Part 2 Appendix G)."),
+        EnumerationFacet: ("en", "Enumeration facet",
+            "W3C XSD 1.1 Part 2 §4.3.5: `<xs:enumeration>` — constrains the value space to a specified set of values."),
+        WhiteSpaceFacet: ("en", "Whitespace facet",
+            "W3C XSD 1.1 Part 2 §4.3.6: `<xs:whiteSpace>` — controls normalization of whitespace (`preserve` / `replace` / `collapse`) applied to the lexical-to-value mapping."),
+        MaxInclusiveFacet: ("en", "Maximum-inclusive facet",
+            "W3C XSD 1.1 Part 2 §4.3.7: `<xs:maxInclusive>` — inclusive upper bound on an ordered value space."),
+        MaxExclusiveFacet: ("en", "Maximum-exclusive facet",
+            "W3C XSD 1.1 Part 2 §4.3.8: `<xs:maxExclusive>` — exclusive upper bound on an ordered value space."),
+        MinExclusiveFacet: ("en", "Minimum-exclusive facet",
+            "W3C XSD 1.1 Part 2 §4.3.9: `<xs:minExclusive>` — exclusive lower bound on an ordered value space."),
+        MinInclusiveFacet: ("en", "Minimum-inclusive facet",
+            "W3C XSD 1.1 Part 2 §4.3.10: `<xs:minInclusive>` — inclusive lower bound on an ordered value space."),
+        TotalDigitsFacet: ("en", "Total-digits facet",
+            "W3C XSD 1.1 Part 2 §4.3.11: `<xs:totalDigits>` — maximum number of decimal digits in a numeric value."),
+        FractionDigitsFacet: ("en", "Fraction-digits facet",
+            "W3C XSD 1.1 Part 2 §4.3.12: `<xs:fractionDigits>` — maximum number of digits in the fractional part of a numeric value."),
+        ExplicitTimezoneFacet: ("en", "Explicit-timezone facet",
+            "W3C XSD 1.1 Part 2 §4.3.14: `<xs:explicitTimezone>` — controls whether a date/time value's timezone is required, prohibited, or optional. New in XSD 1.1."),
+        AssertionFacet: ("en", "Assertion facet",
+            "W3C XSD 1.1 Part 2 §4.3.13: `<xs:assertion>` — an XPath 2.0 boolean test every value of the simple type must satisfy. New in XSD 1.1."),
     },
 
     // is_a edges express the W3C-defined subsumption hierarchy.
@@ -195,6 +240,24 @@ pr4xis::ontology! {
         (Extension,      TypeConstructionConstruct),
         (ListType,       TypeConstructionConstruct),
         (UnionType,      TypeConstructionConstruct),
+
+        // Part 2 §4.3 constraining facets form a fourth group: they
+        // restrict a simple type's value space but are properties of
+        // a type definition, not components (§2.2).
+        (LengthFacet,           ConstrainingFacet),
+        (MinLengthFacet,        ConstrainingFacet),
+        (MaxLengthFacet,        ConstrainingFacet),
+        (PatternFacet,          ConstrainingFacet),
+        (EnumerationFacet,      ConstrainingFacet),
+        (WhiteSpaceFacet,       ConstrainingFacet),
+        (MaxInclusiveFacet,     ConstrainingFacet),
+        (MaxExclusiveFacet,     ConstrainingFacet),
+        (MinExclusiveFacet,     ConstrainingFacet),
+        (MinInclusiveFacet,     ConstrainingFacet),
+        (TotalDigitsFacet,      ConstrainingFacet),
+        (FractionDigitsFacet,   ConstrainingFacet),
+        (ExplicitTimezoneFacet, ConstrainingFacet),
+        (AssertionFacet,        ConstrainingFacet),
     ],
 }
 
@@ -207,12 +270,13 @@ pr4xis::ontology! {
 // xsd-parser-loaded XSD construct lands on one of the concrete leaves below.
 // =============================================================================
 
-/// The 22 directly-instantiable XSD leaves. Excludes the three
+/// The 36 directly-instantiable XSD leaves. Excludes the four
 /// abstract roots `SchemaComponent` / `SchemaCompositionDirective` /
-/// `TypeConstructionConstruct` and the intermediate group concepts
-/// `TypeDefinition`, `ModelGroup`, `Annotation` (which are projected
-/// to via their concrete sub-kinds).
-pub fn instantiable_leaves() -> [XsdConcept; 22] {
+/// `TypeConstructionConstruct` / `ConstrainingFacet` and the
+/// intermediate group concepts `TypeDefinition`, `ModelGroup`,
+/// `Annotation` (which are projected to via their concrete
+/// sub-kinds).
+pub fn instantiable_leaves() -> [XsdConcept; 36] {
     [
         XsdConcept::ElementDeclaration,
         XsdConcept::AttributeDeclaration,
@@ -238,18 +302,34 @@ pub fn instantiable_leaves() -> [XsdConcept; 22] {
         XsdConcept::Extension,
         XsdConcept::ListType,
         XsdConcept::UnionType,
+        // Part 2 §4.3 constraining facet leaves.
+        XsdConcept::LengthFacet,
+        XsdConcept::MinLengthFacet,
+        XsdConcept::MaxLengthFacet,
+        XsdConcept::PatternFacet,
+        XsdConcept::EnumerationFacet,
+        XsdConcept::WhiteSpaceFacet,
+        XsdConcept::MaxInclusiveFacet,
+        XsdConcept::MaxExclusiveFacet,
+        XsdConcept::MinExclusiveFacet,
+        XsdConcept::MinInclusiveFacet,
+        XsdConcept::TotalDigitsFacet,
+        XsdConcept::FractionDigitsFacet,
+        XsdConcept::ExplicitTimezoneFacet,
+        XsdConcept::AssertionFacet,
     ]
 }
 
 /// True if `c` is an abstract ontology root (§2.2 `SchemaComponent`,
-/// §4.2 `SchemaCompositionDirective`, or §3.4.2 / Part 2 §4.1.2
-/// `TypeConstructionConstruct`).
+/// §4.2 `SchemaCompositionDirective`, §3.4.2 / Part 2 §4.1.2
+/// `TypeConstructionConstruct`, or Part 2 §4.3 `ConstrainingFacet`).
 pub fn is_root(c: XsdConcept) -> bool {
     matches!(
         c,
         XsdConcept::SchemaComponent
             | XsdConcept::SchemaCompositionDirective
             | XsdConcept::TypeConstructionConstruct
+            | XsdConcept::ConstrainingFacet
     )
 }
 
@@ -313,14 +393,31 @@ impl Quality for PartSpec {
             | X::SimpleContent
             | X::Restriction
             | X::Extension => Some(XsdPart::Structures),
-            // Part 2 §4.1.2 simple-type varieties.
-            X::ListType | X::UnionType => Some(XsdPart::Datatypes),
+            // Part 2 §4.1.2 simple-type varieties + §4.3 constraining
+            // facets are all defined in Part 2: Datatypes.
+            X::ListType
+            | X::UnionType
+            | X::LengthFacet
+            | X::MinLengthFacet
+            | X::MaxLengthFacet
+            | X::PatternFacet
+            | X::EnumerationFacet
+            | X::WhiteSpaceFacet
+            | X::MaxInclusiveFacet
+            | X::MaxExclusiveFacet
+            | X::MinExclusiveFacet
+            | X::MinInclusiveFacet
+            | X::TotalDigitsFacet
+            | X::FractionDigitsFacet
+            | X::ExplicitTimezoneFacet
+            | X::AssertionFacet => Some(XsdPart::Datatypes),
             // Abstract roots — no primary part assignment. (Partition
-            // tops, not concrete constructs: §2.2, §4.2, and §3.4.2 /
-            // Part 2 §4.1.2 respectively.)
+            // tops, not concrete constructs: §2.2, §4.2, §3.4.2 /
+            // Part 2 §4.1.2, and Part 2 §4.3 respectively.)
             X::SchemaComponent
             | X::SchemaCompositionDirective
-            | X::TypeConstructionConstruct => None,
+            | X::TypeConstructionConstruct
+            | X::ConstrainingFacet => None,
         }
     }
 }
@@ -375,6 +472,7 @@ impl Axiom for SchemaComponentPartitioned {
             XsdConcept::SchemaComponent,
             XsdConcept::SchemaCompositionDirective,
             XsdConcept::TypeConstructionConstruct,
+            XsdConcept::ConstrainingFacet,
         ];
         let all_morphs = XsdCategory::morphisms();
         for v in XsdConcept::variants() {
@@ -396,8 +494,8 @@ impl Axiom for SchemaComponentPartitioned {
 
     pr4xis::axiom_meta!(
         "SchemaComponentPartitioned",
-        "every non-root XSD concept is is_a-reachable from one of the three ontology roots: SchemaComponent (§2.2), SchemaCompositionDirective (§4.2), or TypeConstructionConstruct (§3.4.2 / Part 2 §4.1.2)",
-        "W3C XSD 1.1 Part 1 §2.2, §3.4.2, §4.2 (Gao et al. 2012); Part 2 §4.1.2 (Peterson et al. 2012)"
+        "every non-root XSD concept is is_a-reachable from one of the four ontology roots: SchemaComponent (§2.2), SchemaCompositionDirective (§4.2), TypeConstructionConstruct (§3.4.2 / Part 2 §4.1.2), or ConstrainingFacet (Part 2 §4.3)",
+        "W3C XSD 1.1 Part 1 §2.2, §3.4.2, §4.2 (Gao et al. 2012); Part 2 §4.1.2, §4.3 (Peterson et al. 2012)"
     );
 }
 

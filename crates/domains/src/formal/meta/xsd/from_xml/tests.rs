@@ -468,6 +468,88 @@ fn projects_real_uslm_xsd_derivations() {
     );
 }
 
+// =============================================================================
+// W3C XSD 1.1 Part 2 §4.3 constraining facets.
+// =============================================================================
+
+#[test]
+fn projects_string_facets() {
+    // §4.3.1–.6 — length/min/max/pattern/enumeration/whiteSpace.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="t">
+    <xs:restriction base="xs:string">
+      <xs:length value="5"/>
+      <xs:minLength value="1"/>
+      <xs:maxLength value="9"/>
+      <xs:pattern value="[a-z]+"/>
+      <xs:enumeration value="x"/>
+      <xs:whiteSpace value="collapse"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let c = &project_from_xml_document(&doc).components;
+    for facet in [
+        XsdConcept::LengthFacet,
+        XsdConcept::MinLengthFacet,
+        XsdConcept::MaxLengthFacet,
+        XsdConcept::PatternFacet,
+        XsdConcept::EnumerationFacet,
+        XsdConcept::WhiteSpaceFacet,
+    ] {
+        assert!(c.contains(&facet), "missing facet {facet:?}");
+    }
+}
+
+#[test]
+fn projects_numeric_range_and_digit_facets() {
+    // §4.3.7–.12 — min/max inclusive/exclusive, total/fraction digits.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="t">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="0"/>
+      <xs:maxInclusive value="100"/>
+      <xs:minExclusive value="-1"/>
+      <xs:maxExclusive value="101"/>
+      <xs:totalDigits value="5"/>
+      <xs:fractionDigits value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let c = &project_from_xml_document(&doc).components;
+    for facet in [
+        XsdConcept::MinInclusiveFacet,
+        XsdConcept::MaxInclusiveFacet,
+        XsdConcept::MinExclusiveFacet,
+        XsdConcept::MaxExclusiveFacet,
+        XsdConcept::TotalDigitsFacet,
+        XsdConcept::FractionDigitsFacet,
+    ] {
+        assert!(c.contains(&facet), "missing facet {facet:?}");
+    }
+}
+
+#[test]
+fn projects_xsd11_facets() {
+    // XSD 1.1 additions: §4.3.14 explicitTimezone, §4.3.13 assertion.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="t">
+    <xs:restriction base="xs:dateTime">
+      <xs:explicitTimezone value="required"/>
+      <xs:assertion test="true()"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let c = &project_from_xml_document(&doc).components;
+    assert!(c.contains(&XsdConcept::ExplicitTimezoneFacet));
+    assert!(c.contains(&XsdConcept::AssertionFacet));
+}
+
 #[test]
 fn matches_text_scanner_on_simple_schema() {
     // The praxis-native projection and the legacy text-scanner

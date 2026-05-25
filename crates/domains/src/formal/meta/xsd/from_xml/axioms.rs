@@ -212,6 +212,62 @@ pr4xis::register_axiom!(
     "W3C XSD 1.1 Part 1 (2012) §3.8, §3.10"
 );
 
+/// **Axiom ConstrainingFacetsProjected.** Per W3C XSD 1.1 Part 2
+/// §4.3, the constraining facets restrict a simple type's value
+/// space. Asserts a representative sample (length §4.3.1, pattern
+/// §4.3.4, enumeration §4.3.5, maxInclusive §4.3.7, explicitTimezone
+/// §4.3.14, assertion §4.3.13) projects to its facet concept.
+pub struct XsdConstrainingFacetsProjected;
+
+impl Axiom for XsdConstrainingFacetsProjected {
+    fn verify(&self) -> Verdict {
+        let xsd = br#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="t">
+    <xs:restriction base="xs:string">
+      <xs:length value="5"/>
+      <xs:pattern value="x"/>
+      <xs:enumeration value="x"/>
+      <xs:maxInclusive value="9"/>
+      <xs:explicitTimezone value="required"/>
+      <xs:assertion test="true()"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>"#;
+        let doc = match parse_document(xsd) {
+            Ok(d) => d,
+            Err(_) => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
+        };
+        let c = &project_from_xml_document(&doc).components;
+        let all = [
+            XsdConcept::LengthFacet,
+            XsdConcept::PatternFacet,
+            XsdConcept::EnumerationFacet,
+            XsdConcept::MaxInclusiveFacet,
+            XsdConcept::ExplicitTimezoneFacet,
+            XsdConcept::AssertionFacet,
+        ]
+        .iter()
+        .all(|f| c.contains(f));
+        if all {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    pr4xis::axiom_meta!(
+        "XsdConstrainingFacetsProjected",
+        "the projection captures the W3C XSD 1.1 Part 2 §4.3 constraining facets (length / pattern / enumeration / range / explicitTimezone / assertion)",
+        "Peterson, Gao, Akhmedov, Malhotra, Biron & Sperberg-McQueen (2012) W3C XML Schema 1.1 Part 2: Datatypes §4.3"
+    );
+}
+
+pr4xis::register_axiom!(
+    XsdConstrainingFacetsProjected,
+    "W3C XSD 1.1 Part 2 (2012) §4.3 Constraining Facets"
+);
+
 #[cfg(test)]
 mod axiom_tests {
     use super::*;
@@ -234,5 +290,10 @@ mod axiom_tests {
     #[test]
     fn model_groups_axiom_holds() {
         assert!(XsdModelGroupsProjected.verify().is_ok());
+    }
+
+    #[test]
+    fn constraining_facets_axiom_holds() {
+        assert!(XsdConstrainingFacetsProjected.verify().is_ok());
     }
 }
