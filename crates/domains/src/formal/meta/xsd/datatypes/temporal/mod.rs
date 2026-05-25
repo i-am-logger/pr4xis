@@ -15,4 +15,5 @@
 
 pub mod common;
 pub mod dates;
+pub mod duration;
 pub mod times;
