@@ -4,7 +4,10 @@
 #[allow(unused_imports)]
 use alloc::{string::String, string::ToString, vec, vec::Vec};
 
-use super::super::from_xsd_parser::project_from_xsd_text;
+use super::super::from_xsd_parser::{
+    SchemaImportInfo, SchemaIncludeInfo, SchemaOverrideInfo, SchemaRedefineInfo,
+    project_from_xsd_text,
+};
 use super::super::ontology::XsdConcept;
 use super::project_from_xml_document;
 use crate::social::software::markup::xml::parser::grammar::parse_document;
@@ -179,6 +182,181 @@ fn projects_real_uslm_xsd_via_praxis_xml() {
             "missing USLM element declaration {expected:?}"
         );
     }
+}
+
+// =============================================================================
+// W3C XSD 1.1 Part 1 §4.2 Schema composition + §3.15 Annotations.
+// =============================================================================
+
+#[test]
+fn projects_xsd_import_directive() {
+    // W3C XSD 1.1 Part 1 §4.2.6 — <xs:import namespace=... schemaLocation=...>.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="http://purl.org/dc/" schemaLocation="dc.xsd"/>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert_eq!(
+        instance.imports,
+        vec![SchemaImportInfo {
+            namespace: Some("http://purl.org/dc/".into()),
+            schema_location: Some("dc.xsd".into()),
+        }]
+    );
+}
+
+#[test]
+fn projects_xsd_import_without_schema_location() {
+    // §4.2.6.1: schemaLocation is a hint, not required.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:import namespace="http://example.org/"/>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert_eq!(
+        instance.imports,
+        vec![SchemaImportInfo {
+            namespace: Some("http://example.org/".into()),
+            schema_location: None,
+        }]
+    );
+}
+
+#[test]
+fn projects_xsd_include_directive() {
+    // W3C XSD 1.1 Part 1 §4.2.3 — <xs:include schemaLocation=...>.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="common.xsd"/>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert_eq!(
+        instance.includes,
+        vec![SchemaIncludeInfo {
+            schema_location: "common.xsd".into(),
+        }]
+    );
+}
+
+#[test]
+fn projects_xsd_redefine_directive() {
+    // W3C XSD 1.1 Part 1 §4.2.4 — <xs:redefine schemaLocation=...>.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:redefine schemaLocation="base.xsd"/>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert_eq!(
+        instance.redefines,
+        vec![SchemaRedefineInfo {
+            schema_location: "base.xsd".into(),
+        }]
+    );
+}
+
+#[test]
+fn projects_xsd_override_directive() {
+    // W3C XSD 1.1 Part 1 §4.2.5 — <xs:override schemaLocation=...>.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:override schemaLocation="base.xsd"/>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert_eq!(
+        instance.overrides,
+        vec![SchemaOverrideInfo {
+            schema_location: "base.xsd".into(),
+        }]
+    );
+}
+
+#[test]
+fn projects_top_level_annotation_with_documentation() {
+    // W3C XSD 1.1 Part 1 §3.15 — <xs:annotation>/<xs:documentation>.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation>
+    <xs:documentation>Top-level schema docs.</xs:documentation>
+  </xs:annotation>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert_eq!(instance.annotations.len(), 1);
+    assert_eq!(
+        instance.annotations[0].documentation,
+        vec!["Top-level schema docs.".to_string()]
+    );
+    assert!(instance.annotations[0].appinfo.is_empty());
+}
+
+#[test]
+fn projects_annotation_with_appinfo() {
+    // §3.15.1 — <xs:appinfo> machine-readable application info.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:annotation>
+    <xs:appinfo>app-data</xs:appinfo>
+    <xs:documentation>human prose</xs:documentation>
+  </xs:annotation>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    let ann = &instance.annotations[0];
+    assert_eq!(ann.appinfo, vec!["app-data".to_string()]);
+    assert_eq!(ann.documentation, vec!["human prose".to_string()]);
+}
+
+#[test]
+fn projects_nested_annotation_on_element_declaration() {
+    // §3.15 — annotations attach to any schema component. Here an
+    // <xs:element> declaration carries its own <xs:annotation>.
+    let xsd = r#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="foo">
+    <xs:annotation>
+      <xs:documentation>foo means bar</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+</xs:schema>"#;
+    let doc = parse_document(xsd.as_bytes()).unwrap();
+    let instance = project_from_xml_document(&doc);
+    // Element still projected.
+    assert_eq!(instance.elements.len(), 1);
+    assert_eq!(instance.elements[0].local_name, "foo");
+    // Annotation captured.
+    assert_eq!(instance.annotations.len(), 1);
+    assert_eq!(
+        instance.annotations[0].documentation,
+        vec!["foo means bar".to_string()]
+    );
+}
+
+#[test]
+fn projects_real_uslm_xsd_annotations_and_imports() {
+    // The bundled USLM 1.0.18 XSD has multiple <xs:annotation>
+    // blocks and three <xs:import> directives (xml, dcterms, xhtml).
+    let xsd_bytes = include_bytes!("../../../../../data/legal/uscode/schema/uslm-1.0.18.xsd");
+    let doc = parse_document(xsd_bytes).unwrap();
+    let instance = project_from_xml_document(&doc);
+    assert!(
+        instance.annotations.len() >= 10,
+        "USLM XSD has many annotations; got {}",
+        instance.annotations.len()
+    );
+    let documentation_count: usize = instance
+        .annotations
+        .iter()
+        .map(|a| a.documentation.len())
+        .sum();
+    assert!(
+        documentation_count >= 10,
+        "expected substantial documentation coverage; got {documentation_count}"
+    );
 }
 
 #[test]

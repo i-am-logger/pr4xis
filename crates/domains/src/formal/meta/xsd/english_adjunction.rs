@@ -98,6 +98,11 @@ pub fn lift_label_to_concept(l: XsdEnglishLabel) -> XsdConcept {
         L::Annotation => C::Annotation,
         L::AppInfo => C::AppInfo,
         L::Documentation => C::Documentation,
+        L::SchemaCompositionDirective => C::SchemaCompositionDirective,
+        L::SchemaImport => C::SchemaImport,
+        L::SchemaInclude => C::SchemaInclude,
+        L::SchemaRedefine => C::SchemaRedefine,
+        L::SchemaOverride => C::SchemaOverride,
     }
 }
 

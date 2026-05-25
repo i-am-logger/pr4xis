@@ -40,12 +40,15 @@ use alloc::{string::String, string::ToString, vec::Vec};
 
 use super::XSD_NAMESPACE_URI;
 use super::from_xsd_parser::{
-    ElementDeclarationInfo, NamedSchemaComponentEntry, XsdOntologyInstance,
+    AnnotationInfo, ElementDeclarationInfo, NamedSchemaComponentEntry, SchemaImportInfo,
+    SchemaIncludeInfo, SchemaOverrideInfo, SchemaRedefineInfo, XsdOntologyInstance,
 };
 use super::ontology::XsdConcept;
 use crate::social::software::markup::xml::ontology::{
     XmlAttribute, XmlDocument, XmlElement, XmlNode,
 };
+
+pub mod axioms;
 
 #[cfg(test)]
 mod tests;
@@ -67,6 +70,11 @@ pub fn project_from_xml_document(doc: &XmlDocument) -> XsdOntologyInstance {
         components: state.components,
         named: state.named,
         elements: state.elements,
+        imports: state.imports,
+        includes: state.includes,
+        redefines: state.redefines,
+        overrides: state.overrides,
+        annotations: state.annotations,
     }
 }
 
@@ -75,6 +83,11 @@ struct ProjectState {
     components: Vec<XsdConcept>,
     named: Vec<NamedSchemaComponentEntry>,
     elements: Vec<ElementDeclarationInfo>,
+    imports: Vec<SchemaImportInfo>,
+    includes: Vec<SchemaIncludeInfo>,
+    redefines: Vec<SchemaRedefineInfo>,
+    overrides: Vec<SchemaOverrideInfo>,
+    annotations: Vec<AnnotationInfo>,
 }
 
 /// Namespace bindings in scope at an element. Built up by ancestor
@@ -155,9 +168,69 @@ fn walk_element(element: &XmlElement, parent_scope: &NamespaceScope, state: &mut
     }
 }
 
-/// Project a single XSD-namespace element whose local name matches
-/// one of the six schema-declaration kinds we recognise.
+/// Project a single XSD-namespace element. Dispatch covers:
+///
+/// - The six schema-component declaration kinds (Part 1 §3.2 / §3.3 /
+///   §3.4 / §3.6 / §3.8 / §3.16) — named declarations with a
+///   `name="…"` attribute.
+/// - The four schema-composition directives (Part 1 §4.2.3 /
+///   §4.2.4 / §4.2.5 / §4.2.6) — `<xs:include>`, `<xs:redefine>`,
+///   `<xs:override>`, `<xs:import>`.
+/// - The three annotation kinds (Part 1 §3.15) — `<xs:annotation>`
+///   handled at the top of the walker so its body
+///   (`<xs:appinfo>` / `<xs:documentation>`) is consumed without
+///   spurious recursion.
+///
+/// Elements outside this set are ignored at the projection level
+/// but their descendants are still walked (the caller controls
+/// recursion).
 fn project_xsd_declaration(element: &XmlElement, state: &mut ProjectState) {
+    match element.name.local.as_str() {
+        // -------- §3.15 Annotations --------
+        "annotation" => {
+            state.components.push(XsdConcept::Annotation);
+            state.annotations.push(project_annotation(element));
+            return;
+        }
+        // -------- §4.2 Schema composition directives --------
+        "include" => {
+            if let Some(loc) = attr_value(element, "schemaLocation") {
+                state.components.push(XsdConcept::SchemaInclude);
+                state.includes.push(SchemaIncludeInfo {
+                    schema_location: loc,
+                });
+            }
+            return;
+        }
+        "redefine" => {
+            if let Some(loc) = attr_value(element, "schemaLocation") {
+                state.components.push(XsdConcept::SchemaRedefine);
+                state.redefines.push(SchemaRedefineInfo {
+                    schema_location: loc,
+                });
+            }
+            return;
+        }
+        "override" => {
+            if let Some(loc) = attr_value(element, "schemaLocation") {
+                state.components.push(XsdConcept::SchemaOverride);
+                state.overrides.push(SchemaOverrideInfo {
+                    schema_location: loc,
+                });
+            }
+            return;
+        }
+        "import" => {
+            state.components.push(XsdConcept::SchemaImport);
+            state.imports.push(SchemaImportInfo {
+                namespace: attr_value(element, "namespace"),
+                schema_location: attr_value(element, "schemaLocation"),
+            });
+            return;
+        }
+        _ => {}
+    }
+
     let concept = match element.name.local.as_str() {
         // W3C XSD 1.1 Part 1 §3.3 Element Declarations.
         "element" => XsdConcept::ElementDeclaration,
@@ -195,6 +268,41 @@ fn project_xsd_declaration(element: &XmlElement, state: &mut ProjectState) {
             substitution_group_head: attr_value(element, "substitutionGroup"),
         });
     }
+}
+
+/// Project a `<xs:annotation>` element into a typed [`Annotation`].
+/// Per W3C XSD 1.1 Part 1 §3.15, an annotation's body is zero or
+/// more `<xs:appinfo>` and `<xs:documentation>` elements; we capture
+/// the concatenated text content of each.
+fn project_annotation(element: &XmlElement) -> AnnotationInfo {
+    let mut annotation = AnnotationInfo::default();
+    for child in &element.children {
+        if let XmlNode::Element(el) = child {
+            match el.name.local.as_str() {
+                "appinfo" => annotation.appinfo.push(text_content(el)),
+                "documentation" => annotation.documentation.push(text_content(el)),
+                _ => {}
+            }
+        }
+    }
+    annotation
+}
+
+/// Concatenate all `XmlNode::Text` / `XmlNode::CData` children's
+/// values into a single string. The W3C XSD 1.1 annotation
+/// productions (§3.15) say annotation children are "any well-formed
+/// XML content"; consumers typically want the text payload, so we
+/// surface that and leave nested-element extraction to callers if
+/// they need it.
+fn text_content(element: &XmlElement) -> String {
+    let mut out = String::new();
+    for child in &element.children {
+        match child {
+            XmlNode::Text(t) | XmlNode::CData(t) => out.push_str(t),
+            _ => {}
+        }
+    }
+    out
 }
 
 /// Look up an unqualified attribute by local name. XSD declarations

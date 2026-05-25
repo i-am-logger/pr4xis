@@ -114,7 +114,7 @@ pub fn run_canon_corpus() -> Vec<CaseOutcome> {
 /// well-formedness or syntactic rule the parser claims to enforce.
 /// Each case cites the W3C XML 1.0 Fifth Edition section it tests.
 pub fn canon_corpus() -> &'static [ConformanceCase] {
-    &CANON
+    CANON
 }
 
 const CANON: &[ConformanceCase] = &[

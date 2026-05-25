@@ -69,6 +69,11 @@ pr4xis::ontology! {
         Annotation,
         AppInfo,
         Documentation,
+        SchemaCompositionDirective,
+        SchemaImport,
+        SchemaInclude,
+        SchemaRedefine,
+        SchemaOverride,
     ],
 
     labels: {
@@ -108,6 +113,16 @@ pr4xis::ontology! {
             "W3C XSD 1.1 Part 1 §3.15.1: `<xs:appinfo>` — machine-readable application-specific content carried inside an annotation."),
         Documentation: ("en", "Documentation",
             "W3C XSD 1.1 Part 1 §3.15.1: `<xs:documentation>` — human-readable prose describing the surrounding schema component."),
+        SchemaCompositionDirective: ("en", "Schema-composition directive",
+            "W3C XSD 1.1 Part 1 §4.2: a schema-document-level directive (`<xs:import>` / `<xs:include>` / `<xs:redefine>` / `<xs:override>`) that assembles a schema from multiple documents. Unlike schema components (§2.2), directives carry no own contribution to the post-schema-validation infoset; they govern how component sets from other documents merge."),
+        SchemaImport: ("en", "Import directive",
+            "W3C XSD 1.1 Part 1 §4.2.6: `<xs:import>` — makes the components of a schema in a *different* target namespace available for namespace-qualified reference."),
+        SchemaInclude: ("en", "Include directive",
+            "W3C XSD 1.1 Part 1 §4.2.3: `<xs:include>` — merges the components of another schema document with the same (or absent) target namespace into the including schema."),
+        SchemaRedefine: ("en", "Redefine directive",
+            "W3C XSD 1.1 Part 1 §4.2.4: `<xs:redefine>` — includes another schema document and redefines some of its type / group definitions. Deprecated in XSD 1.1; superseded by `<xs:override>`."),
+        SchemaOverride: ("en", "Override directive",
+            "W3C XSD 1.1 Part 1 §4.2.5: `<xs:override>` — includes another schema document and *replaces* selected components. New in XSD 1.1, replacing `<xs:redefine>`."),
     },
 
     // is_a edges express the W3C-defined subsumption hierarchy.
@@ -138,6 +153,15 @@ pr4xis::ontology! {
 
         (AppInfo,       Annotation),
         (Documentation, Annotation),
+
+        // §4.2 schema-composition directives form their own group,
+        // parallel to (not under) `SchemaComponent`: directives are
+        // schema-document constructs that govern component merging,
+        // not components themselves (§2.2 vs §4.2).
+        (SchemaImport,   SchemaCompositionDirective),
+        (SchemaInclude,  SchemaCompositionDirective),
+        (SchemaRedefine, SchemaCompositionDirective),
+        (SchemaOverride, SchemaCompositionDirective),
     ],
 }
 
@@ -150,11 +174,11 @@ pr4xis::ontology! {
 // xsd-parser-loaded XSD construct lands on one of the concrete leaves below.
 // =============================================================================
 
-/// The 12 directly-instantiable XSD leaves. Excludes the abstract root
-/// `SchemaComponent` and the three intermediate group concepts
-/// `TypeDefinition`, `ModelGroup`, `Annotation` (which are projected to
-/// via their concrete sub-kinds).
-pub fn instantiable_leaves() -> [XsdConcept; 12] {
+/// The 16 directly-instantiable XSD leaves. Excludes the two abstract
+/// roots `SchemaComponent` / `SchemaCompositionDirective` and the
+/// intermediate group concepts `TypeDefinition`, `ModelGroup`,
+/// `Annotation` (which are projected to via their concrete sub-kinds).
+pub fn instantiable_leaves() -> [XsdConcept; 16] {
     [
         XsdConcept::ElementDeclaration,
         XsdConcept::AttributeDeclaration,
@@ -168,12 +192,21 @@ pub fn instantiable_leaves() -> [XsdConcept; 12] {
         XsdConcept::Wildcard,
         XsdConcept::IdentityConstraint,
         XsdConcept::NotationDeclaration,
+        // §4.2 schema-composition directive leaves.
+        XsdConcept::SchemaImport,
+        XsdConcept::SchemaInclude,
+        XsdConcept::SchemaRedefine,
+        XsdConcept::SchemaOverride,
     ]
 }
 
-/// True if `c` is the abstract root.
+/// True if `c` is an abstract ontology root (§2.2 `SchemaComponent`
+/// or §4.2 `SchemaCompositionDirective`).
 pub fn is_root(c: XsdConcept) -> bool {
-    matches!(c, XsdConcept::SchemaComponent)
+    matches!(
+        c,
+        XsdConcept::SchemaComponent | XsdConcept::SchemaCompositionDirective
+    )
 }
 
 // =============================================================================
@@ -225,9 +258,16 @@ impl Quality for PartSpec {
             | X::NotationDeclaration
             | X::Annotation
             | X::AppInfo
-            | X::Documentation => Some(XsdPart::Structures),
-            // Abstract root — no primary part assignment.
-            X::SchemaComponent => None,
+            | X::Documentation
+            // §4.2 schema-composition directive leaves are all Part 1.
+            | X::SchemaImport
+            | X::SchemaInclude
+            | X::SchemaRedefine
+            | X::SchemaOverride => Some(XsdPart::Structures),
+            // Abstract roots — no primary part assignment. (Both are
+            // partition tops, not concrete constructs: §2.2 and §4.2
+            // respectively.)
+            X::SchemaComponent | X::SchemaCompositionDirective => None,
         }
     }
 }
@@ -260,28 +300,37 @@ impl Ontology for XsdOntology {
 // Partition axioms — confirm the schema-component hierarchy matches W3C §2.2.
 // -----------------------------------------------------------------------------
 
-/// Axiom: every non-root concept in the XSD ontology is `is_a`-reachable
-/// from `SchemaComponent`. W3C XSD 1.1 Part 1 §2.2 partitions every
-/// schema component into typed kinds; nothing is left dangling outside
-/// the partition.
+/// Axiom: every concept in the XSD ontology is `is_a`-reachable from
+/// one of the two ontology roots — `SchemaComponent` (W3C XSD 1.1
+/// Part 1 §2.2, the schema-component partition) or
+/// `SchemaCompositionDirective` (§4.2, the schema-document
+/// composition directives). The two roots are disjoint by design:
+/// §2.2 components contribute to the post-schema-validation infoset;
+/// §4.2 directives govern how component sets from other documents
+/// merge but are not themselves components. Nothing is left dangling
+/// outside the two partitions.
 pub struct SchemaComponentPartitioned;
 
 impl Axiom for SchemaComponentPartitioned {
     fn verify(&self) -> Verdict {
-        // Every variant other than the root must transitively reach the
+        // Every variant other than a root must transitively reach a
         // root through is_a (Subsumption) edges. We rely on the macro's
         // emitted transitive-closure morphisms (per OBO-RO Smith 2005)
         // for transitive subsumption.
         use pr4xis::category::{Arrow, Category};
+        let roots = [
+            XsdConcept::SchemaComponent,
+            XsdConcept::SchemaCompositionDirective,
+        ];
         let all_morphs = XsdCategory::morphisms();
         for v in XsdConcept::variants() {
-            if matches!(v, XsdConcept::SchemaComponent) {
+            if roots.contains(&v) {
                 continue;
             }
-            // Reach the root via a Subsumption morphism (direct or transitive).
+            // Reach some root via a Subsumption morphism (direct or transitive).
             let reaches = all_morphs.iter().any(|m| {
                 m.source() == v
-                    && m.target() == XsdConcept::SchemaComponent
+                    && roots.contains(&m.target())
                     && matches!(m.kind(), XsdRelationKind::Subsumption)
             });
             if !reaches {
@@ -293,8 +342,8 @@ impl Axiom for SchemaComponentPartitioned {
 
     pr4xis::axiom_meta!(
         "SchemaComponentPartitioned",
-        "every non-root XSD concept is is_a-reachable from SchemaComponent",
-        "W3C XSD 1.1 Part 1 §2.2 (Gao et al. 2012)"
+        "every non-root XSD concept is is_a-reachable from SchemaComponent (§2.2) or SchemaCompositionDirective (§4.2)",
+        "W3C XSD 1.1 Part 1 §2.2, §4.2 (Gao et al. 2012)"
     );
 }
 
@@ -722,9 +771,12 @@ pr4xis::register_axiom!(
     "W3C XSD 1.1 Part 1 §3.2.7 (Gao et al. 2012)"
 );
 
-/// Axiom: every XSD concept (except the abstract root
-/// `SchemaComponent`) has a defined `PartSpec` classification — i.e.
-/// every concept is anchored in W3C XSD 1.1 Part 1 or Part 2.
+/// Axiom: every XSD concept except the two abstract roots
+/// (`SchemaComponent` §2.2 and `SchemaCompositionDirective` §4.2)
+/// has a defined `PartSpec` classification — i.e. every concrete
+/// concept is anchored in W3C XSD 1.1 Part 1 or Part 2. The roots
+/// are partition tops, not concrete constructs, so they carry no
+/// part classification.
 pub struct EveryConceptHasPartClassification;
 
 impl Axiom for EveryConceptHasPartClassification {
@@ -732,7 +784,7 @@ impl Axiom for EveryConceptHasPartClassification {
         let q = PartSpec;
         for c in XsdConcept::variants() {
             let v = q.get(&c);
-            if matches!(c, XsdConcept::SchemaComponent) {
+            if is_root(c) {
                 if v.is_some() {
                     return Err(Box::new(SimpleCounterexample::new(self.meta())));
                 }

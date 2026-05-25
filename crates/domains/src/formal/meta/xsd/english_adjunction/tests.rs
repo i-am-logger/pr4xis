@@ -106,6 +106,11 @@ fn sample_uslm_instance() -> XsdOntologyInstance {
         components,
         named,
         elements: Vec::new(),
+        imports: Vec::new(),
+        includes: Vec::new(),
+        redefines: Vec::new(),
+        overrides: Vec::new(),
+        annotations: Vec::new(),
     }
 }
 

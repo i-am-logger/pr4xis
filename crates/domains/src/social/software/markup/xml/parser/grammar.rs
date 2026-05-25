@@ -169,35 +169,21 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
 /// entities (including the document entity) on input … to the single
 /// character #xA".
 fn normalize_line_endings(raw: &str) -> String {
+    if !raw.contains('\r') {
+        // Fast path — no CR present, nothing to normalize.
+        return raw.to_string();
+    }
     let mut out = String::with_capacity(raw.len());
-    let bytes = raw.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'\r' {
-            out.push('\n');
-            if i + 1 < bytes.len() && bytes[i + 1] == b'\n' {
-                i += 2;
-            } else {
-                i += 1;
+    let mut chars = raw.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\r' {
+            // CRLF → LF (consume the following LF); lone CR → LF.
+            if chars.peek() == Some(&'\n') {
+                chars.next();
             }
+            out.push('\n');
         } else {
-            // UTF-8 safe push — multi-byte sequences pass through.
-            let ch_start = i;
-            let first = bytes[i];
-            let width = if first < 0x80 {
-                1
-            } else if first < 0xC0 {
-                1
-            } else if first < 0xE0 {
-                2
-            } else if first < 0xF0 {
-                3
-            } else {
-                4
-            };
-            let ch_end = (ch_start + width).min(bytes.len());
-            out.push_str(&raw[ch_start..ch_end]);
-            i = ch_end;
+            out.push(ch);
         }
     }
     out

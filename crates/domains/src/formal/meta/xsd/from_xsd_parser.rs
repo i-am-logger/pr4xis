@@ -297,6 +297,89 @@ pub struct XsdOntologyInstance {
     /// dispatch on the loaded schema rather than on hand-coded
     /// element-name lists.
     pub elements: Vec<ElementDeclarationInfo>,
+    /// Per-`<xs:import>` directive records — the schema-composition
+    /// instances projected for the [`XsdConcept::SchemaImport`] concept
+    /// (W3C XSD 1.1 Part 1 §4.2.6). Parallels [`elements`] for the
+    /// [`XsdConcept::ElementDeclaration`] concept: the *concept* lives
+    /// in the XSD ontology, this carries per-instance data.
+    pub imports: Vec<SchemaImportInfo>,
+    /// Per-`<xs:include>` directive records for the
+    /// [`XsdConcept::SchemaInclude`] concept. W3C XSD 1.1 Part 1 §4.2.3.
+    pub includes: Vec<SchemaIncludeInfo>,
+    /// Per-`<xs:redefine>` directive records for the
+    /// [`XsdConcept::SchemaRedefine`] concept. W3C XSD 1.1 Part 1 §4.2.4.
+    pub redefines: Vec<SchemaRedefineInfo>,
+    /// Per-`<xs:override>` directive records for the
+    /// [`XsdConcept::SchemaOverride`] concept. W3C XSD 1.1 Part 1 §4.2.5.
+    pub overrides: Vec<SchemaOverrideInfo>,
+    /// Per-`<xs:annotation>` records for the
+    /// [`XsdConcept::Annotation`] concept (W3C XSD 1.1 Part 1 §3.15),
+    /// collected from anywhere in the schema tree.
+    pub annotations: Vec<AnnotationInfo>,
+}
+
+/// Per-instance data for the [`XsdConcept::SchemaImport`] concept.
+/// W3C XSD 1.1 Part 1 §4.2.6 `<xs:import>` — references a schema in
+/// a *different* target namespace whose components this schema may
+/// reference through namespace-qualified names. Parallels
+/// [`ElementDeclarationInfo`]: the concept lives in the XSD
+/// ontology, this struct carries the per-instance attributes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SchemaImportInfo {
+    /// `namespace="…"` — the imported schema's `targetNamespace`,
+    /// or `None` when the import references a chameleon (no-
+    /// target-namespace) schema.
+    pub namespace: Option<String>,
+    /// `schemaLocation="…"` — hint at where the imported schema
+    /// document lives (not binding per §4.2.6.1).
+    pub schema_location: Option<String>,
+}
+
+/// Per-instance data for the [`XsdConcept::SchemaInclude`] concept.
+/// W3C XSD 1.1 Part 1 §4.2.3 `<xs:include>` — references another
+/// schema document with the same `targetNamespace` whose components
+/// are merged into the including schema.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SchemaIncludeInfo {
+    /// `schemaLocation="…"` — required attribute.
+    pub schema_location: String,
+}
+
+/// Per-instance data for the [`XsdConcept::SchemaRedefine`] concept.
+/// W3C XSD 1.1 Part 1 §4.2.4 `<xs:redefine>` — same-namespace
+/// composition with derivation overrides. Deprecated in XSD 1.1.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SchemaRedefineInfo {
+    /// `schemaLocation="…"` — required attribute.
+    pub schema_location: String,
+}
+
+/// Per-instance data for the [`XsdConcept::SchemaOverride`] concept.
+/// W3C XSD 1.1 Part 1 §4.2.5 `<xs:override>` — same-namespace
+/// composition that *replaces* declarations from the referenced
+/// schema. New in XSD 1.1, supersedes `<xs:redefine>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SchemaOverrideInfo {
+    /// `schemaLocation="…"` — required attribute.
+    pub schema_location: String,
+}
+
+/// Per-instance data for the [`XsdConcept::Annotation`] concept.
+/// W3C XSD 1.1 Part 1 §3.15 `<xs:annotation>` — a container for
+/// human- and machine-readable annotations on a schema component.
+/// Annotations are introspectable but contribute nothing to schema
+/// validity; the loader captures them so downstream tooling can
+/// surface documentation.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AnnotationInfo {
+    /// `<xs:appinfo>` blocks — machine-readable, application-specific
+    /// content (§3.15.1). Each entry is the concatenated text body
+    /// of one `<xs:appinfo>` element.
+    pub appinfo: Vec<String>,
+    /// `<xs:documentation>` blocks — human-readable prose (§3.15.2).
+    /// Each entry is the concatenated text body of one
+    /// `<xs:documentation>` element.
+    pub documentation: Vec<String>,
 }
 
 /// A `(XsdConcept, local_name)` pair carried by an
@@ -444,6 +527,11 @@ pub fn project(ast: &XsdAst) -> XsdOntologyInstance {
         components: ast.nodes.iter().copied().map(project_node_kind).collect(),
         named: Vec::new(),
         elements: Vec::new(),
+        imports: Vec::new(),
+        includes: Vec::new(),
+        redefines: Vec::new(),
+        overrides: Vec::new(),
+        annotations: Vec::new(),
     }
 }
 
@@ -520,6 +608,11 @@ pub fn project_from_xsd_text(xsd_src: &str) -> XsdOntologyInstance {
         components,
         named,
         elements,
+        imports: Vec::new(),
+        includes: Vec::new(),
+        redefines: Vec::new(),
+        overrides: Vec::new(),
+        annotations: Vec::new(),
     }
 }
 

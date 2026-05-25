@@ -699,7 +699,7 @@ mod property {
             let crlf_text: String = parts.join("\r\n");
             let xml = format!(
                 "<?xml version=\"1.0\"?><r>{}</r>",
-                crlf_text.replace('<', "").replace('&', "")
+                crlf_text.replace(['<', '&'], "")
             );
             let doc = parse_document(xml.as_bytes()).unwrap();
             if let Some(XmlNode::Text(t)) = doc.root.children.first() {

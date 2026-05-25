@@ -125,6 +125,11 @@ pub enum XsdEnglishLabel {
     Annotation,
     AppInfo,
     Documentation,
+    SchemaCompositionDirective,
+    SchemaImport,
+    SchemaInclude,
+    SchemaRedefine,
+    SchemaOverride,
 }
 
 /// The canonical English head-noun phrase for each [`XsdConcept`].
@@ -161,6 +166,11 @@ pub fn canonical_english_phrase(c: XsdConcept) -> &'static str {
         C::Annotation => "annotation",
         C::AppInfo => "application information",
         C::Documentation => "documentation",
+        C::SchemaCompositionDirective => "schema composition directive",
+        C::SchemaImport => "import",
+        C::SchemaInclude => "include",
+        C::SchemaRedefine => "redefine",
+        C::SchemaOverride => "override",
     }
 }
 
@@ -378,6 +388,11 @@ pub fn project_concept(c: XsdConcept) -> XsdEnglishLabel {
         C::Annotation => L::Annotation,
         C::AppInfo => L::AppInfo,
         C::Documentation => L::Documentation,
+        C::SchemaCompositionDirective => L::SchemaCompositionDirective,
+        C::SchemaImport => L::SchemaImport,
+        C::SchemaInclude => L::SchemaInclude,
+        C::SchemaRedefine => L::SchemaRedefine,
+        C::SchemaOverride => L::SchemaOverride,
     }
 }
 
@@ -825,6 +840,11 @@ mod tests {
     <LexicalEntry id="e-used-v"><Lemma writtenForm="used" partOfSpeech="v"/><Sense id="s-used-1" synset="s-used"/></LexicalEntry>
     <LexicalEntry id="e-single-a"><Lemma writtenForm="single" partOfSpeech="a"/><Sense id="s-single-1" synset="s-single"/></LexicalEntry>
     <LexicalEntry id="e-all-d"><Lemma writtenForm="all" partOfSpeech="r"/><Sense id="s-all-1" synset="s-all"/></LexicalEntry>
+    <LexicalEntry id="e-composition-n"><Lemma writtenForm="composition" partOfSpeech="n"/><Sense id="s-composition-1" synset="s-composition"/></LexicalEntry>
+    <LexicalEntry id="e-directive-n"><Lemma writtenForm="directive" partOfSpeech="n"/><Sense id="s-directive-1" synset="s-directive"/></LexicalEntry>
+    <LexicalEntry id="e-include-v"><Lemma writtenForm="include" partOfSpeech="v"/><Sense id="s-include-1" synset="s-include"/></LexicalEntry>
+    <LexicalEntry id="e-redefine-v"><Lemma writtenForm="redefine" partOfSpeech="v"/><Sense id="s-redefine-1" synset="s-redefine"/></LexicalEntry>
+    <LexicalEntry id="e-override-v"><Lemma writtenForm="override" partOfSpeech="v"/><Sense id="s-override-1" synset="s-override"/></LexicalEntry>
     <Synset id="s-schema" ili="i1" partOfSpeech="n"><Definition>structured form</Definition></Synset>
     <Synset id="s-component" ili="i2" partOfSpeech="n"><Definition>a part</Definition></Synset>
     <Synset id="s-element" ili="i3" partOfSpeech="n"><Definition>a constituent</Definition></Synset>
@@ -858,6 +878,11 @@ mod tests {
     <Synset id="s-used" ili="i29" partOfSpeech="v"><Definition>employed</Definition></Synset>
     <Synset id="s-single" ili="i30" partOfSpeech="a"><Definition>one</Definition></Synset>
     <Synset id="s-all" ili="i31" partOfSpeech="r"><Definition>every</Definition></Synset>
+    <Synset id="s-composition" ili="i34" partOfSpeech="n"><Definition>an assembling of parts</Definition></Synset>
+    <Synset id="s-directive" ili="i35" partOfSpeech="n"><Definition>an instruction</Definition></Synset>
+    <Synset id="s-include" ili="i36" partOfSpeech="v"><Definition>to incorporate</Definition></Synset>
+    <Synset id="s-redefine" ili="i37" partOfSpeech="v"><Definition>to define again</Definition></Synset>
+    <Synset id="s-override" ili="i38" partOfSpeech="v"><Definition>to supersede</Definition></Synset>
   </Lexicon>
 </LexicalResource>"#;
 
@@ -908,7 +933,7 @@ mod tests {
 
     #[test]
     fn project_concept_is_total() {
-        // Bijection: 18 concepts → 18 labels, all distinct.
+        // Bijection: 23 concepts → 23 labels, all distinct.
         let mut seen = alloc::collections::BTreeSet::new();
         for c in XsdConcept::variants() {
             let label = project_concept(c);
@@ -916,7 +941,7 @@ mod tests {
             // per-variant by construction.
             assert!(seen.insert(format!("{label:?}")));
         }
-        assert_eq!(seen.len(), 18);
+        assert_eq!(seen.len(), 23);
     }
 
     #[test]

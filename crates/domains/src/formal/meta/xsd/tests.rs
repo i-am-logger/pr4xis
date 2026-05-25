@@ -42,25 +42,31 @@ fn xsd_ontology_validates() {
 
 #[test]
 fn concept_count() {
-    // Root + 4 grouping concepts (TypeDefinition, ModelGroup, Annotation,
-    // and the 14 directly-on-SchemaComponent leaves: Element, Attribute,
-    // AttributeGroup, Particle, Wildcard, IdentityConstraint, Notation,
-    // ComplexType, SimpleType, Sequence, Choice, AllGroup, AppInfo,
-    // Documentation). Total: 1 root + 17 leaves = 18 concepts.
-    assert_eq!(XsdConcept::variants().len(), 18);
+    // §2.2 schema-component partition: 1 root (SchemaComponent) + 17
+    // sub-concepts (TypeDefinition, ModelGroup, Annotation grouping
+    // concepts + 14 leaves). §4.2 schema-composition group: 1 root
+    // (SchemaCompositionDirective) + 4 leaves (Import, Include,
+    // Redefine, Override). Total: 18 + 5 = 23 concepts.
+    assert_eq!(XsdConcept::variants().len(), 23);
 }
 
 #[test]
 fn instantiable_leaves_count() {
-    // Twelve concrete kinds an xsd-parser AST node can land on.
-    assert_eq!(instantiable_leaves().len(), 12);
+    // Sixteen concrete kinds: 12 §2.2 schema-component leaves + 4 §4.2
+    // schema-composition directive leaves.
+    assert_eq!(instantiable_leaves().len(), 16);
 }
 
 #[test]
 fn root_classification() {
+    // Two roots: §2.2 SchemaComponent and §4.2 SchemaCompositionDirective.
     assert!(is_root(XsdConcept::SchemaComponent));
+    assert!(is_root(XsdConcept::SchemaCompositionDirective));
     for c in XsdConcept::variants() {
-        if c == XsdConcept::SchemaComponent {
+        if matches!(
+            c,
+            XsdConcept::SchemaComponent | XsdConcept::SchemaCompositionDirective
+        ) {
             continue;
         }
         assert!(!is_root(c), "{c:?} should not be root");
@@ -95,7 +101,9 @@ fn part_spec_root_is_none() {
 #[test]
 fn part_spec_total_on_non_root() {
     for c in XsdConcept::variants() {
-        if c == XsdConcept::SchemaComponent {
+        // Both abstract roots (§2.2 SchemaComponent, §4.2
+        // SchemaCompositionDirective) carry no part classification.
+        if is_root(c) {
             continue;
         }
         assert!(
