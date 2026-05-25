@@ -107,7 +107,7 @@ pr4xis::ontology! {
         AnySimpleType: ("en", "any simple type",
             "W3C XSD 1.1 Part 2 §3.2.1: `xs:anySimpleType` — the root of the simple-type sub-lattice; {base type definition} is `xs:anyType`. Its variety is ·absent·."),
         AnyAtomicType: ("en", "any atomic type",
-            "W3C XSD 1.1 Part 2 §3.2.2: `xs:anyAtomicType` — the root of the atomic datatypes; {base type definition} is `xs:anySimpleType`. Every primitive datatype derives from it."),
+            "W3C XSD 1.1 Part 2 §3.2.2: `xs:anyAtomicType` — the root of the atomic datatypes; {base type definition} is `xs:anySimpleType`. Every primitive datatype derives from it. New in XSD 1.1 (in 1.0 the primitives derived directly from `xs:anySimpleType`)."),
         StringType: ("en", "string",
             "W3C XSD 1.1 Part 2 §3.3.1: `xs:string` — a primitive datatype whose value space is the set of finite-length sequences of XML characters."),
         Boolean: ("en", "boolean",

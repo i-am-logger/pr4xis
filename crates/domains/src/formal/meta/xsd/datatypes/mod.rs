@@ -33,6 +33,7 @@ pub mod numeric;
 pub mod ontology;
 pub mod strings;
 pub mod temporal;
+pub mod versioned;
 
 #[cfg(test)]
 mod tests;
