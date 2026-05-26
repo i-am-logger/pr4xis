@@ -154,6 +154,15 @@ fn main() {
     // enum variants or string lists.
     write_xml_namespace_schema_codegen(&workspace_root, &manifest, &out_dir);
     write_xml_infoset_codegen(&workspace_root, &manifest, &out_dir);
+
+    // M5.ε.2 — XML 1.0 grammar productions from the loaded spec
+    // (`xml_1_0_fifth_edition@2008`, Bray et al. 2008). Parses the
+    // 86 `<prod>` blocks and emits range tables + predicates for
+    // §2.2 Char, §2.3 NameStartChar, §2.3 NameChar. The parser
+    // (`parser::grammar`) includes the generated module instead of
+    // hand-coding the code-point ranges as primitive `matches!`
+    // arms, per `feedback_bottom_up_loaded_not_encoded`.
+    write_xml_grammar_codegen(&workspace_root, &manifest, &out_dir);
 }
 
 /// Find the registered `uslm_xsd` source in the praxis manifest,
@@ -433,6 +442,90 @@ fn write_xml_infoset_codegen(
             );
             std::fs::write(&out_path, stub).expect("write xml_infoset stub");
             println!("cargo:warning=XML Infoset codegen failed: {e}");
+        }
+    }
+}
+
+/// Find the registered `xml_1_0_fifth_edition` source in the praxis
+/// manifest, resolve its bundled XML on disk, and invoke
+/// `pr4xis::codegen::xml_grammar::generate_xml_grammar_source` to
+/// emit `$OUT_DIR/xml_grammar_generated.rs`. On any failure (missing
+/// entry, missing file, RHS parse error) write a commented stub
+/// that satisfies the runtime `include!` site with zero-range
+/// tables (`is_char` etc. return `false` for everything) — that
+/// makes any consumer of the predicate report failure clearly
+/// rather than silently using a fallback.
+fn write_xml_grammar_codegen(
+    workspace_root: &std::path::Path,
+    manifest: &RawManifest,
+    out_dir: &std::path::Path,
+) {
+    let out_path = out_dir.join("xml_grammar_generated.rs");
+
+    // Stub declarations so consumers compile when the spec is absent.
+    let stub_decl = "#[allow(dead_code)]\n\
+                     pub const CHAR_RANGES: &[(u32, u32)] = &[];\n\
+                     #[allow(dead_code)]\n\
+                     pub const NAME_START_CHAR_RANGES: &[(u32, u32)] = &[];\n\
+                     #[allow(dead_code)]\n\
+                     pub const NAME_CHAR_RANGES: &[(u32, u32)] = &[];\n\
+                     #[must_use]\n#[allow(dead_code)]\n\
+                     pub fn is_char(_c: u32) -> bool { false }\n\
+                     #[must_use]\n#[allow(dead_code)]\n\
+                     pub fn is_name_start_char(_c: u32) -> bool { false }\n\
+                     #[must_use]\n#[allow(dead_code)]\n\
+                     pub fn is_name_char(_c: u32) -> bool { false }\n";
+
+    let Some(src) = manifest.sources.get("xml_1_0_fifth_edition") else {
+        let stub = format!(
+            "// Stub: `xml_1_0_fifth_edition` source not registered in praxis.toml.\n{stub_decl}",
+        );
+        std::fs::write(&out_path, stub).expect("write xml_grammar stub");
+        return;
+    };
+
+    if src.kind != "ConceptualSpec" {
+        let stub = format!(
+            "// Stub: `xml_1_0_fifth_edition` is registered as kind {:?}, not ConceptualSpec; \
+             skipping grammar codegen.\n{stub_decl}",
+            src.kind,
+        );
+        std::fs::write(&out_path, stub).expect("write xml_grammar stub");
+        return;
+    }
+
+    let spec_path = workspace_root
+        .join("crates/domains/data/markup-schemas/xml")
+        .join(format!("xml_1_0_fifth_edition-{}.xml", src.version));
+
+    if !spec_path.exists() {
+        let stub = format!(
+            "// Stub: XML 1.0 Fifth Edition spec not on disk at {}; skipping codegen.\n{stub_decl}",
+            spec_path.display(),
+        );
+        std::fs::write(&out_path, stub).expect("write xml_grammar stub");
+        return;
+    }
+
+    println!("cargo:rerun-if-changed={}", spec_path.display());
+
+    match pr4xis::codegen::xml_grammar::generate_xml_grammar_source(&spec_path) {
+        Ok(source) => {
+            let range_count = source.matches("(0x").count();
+            std::fs::write(&out_path, source).expect("write xml_grammar codegen");
+            eprintln!(
+                "Generated XML 1.0 grammar predicates: {range_count} code-point ranges -> {}",
+                out_path.display(),
+            );
+        }
+        Err(e) => {
+            let stub = format!(
+                "// XML grammar codegen failed for {}: {}\n{stub_decl}",
+                spec_path.display(),
+                e,
+            );
+            std::fs::write(&out_path, stub).expect("write xml_grammar stub");
+            println!("cargo:warning=XML grammar codegen failed: {e}");
         }
     }
 }

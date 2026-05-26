@@ -22,3 +22,22 @@
 pub use spec::{XML_1_0_FIFTH_EDITION, loaded_xml_1_0_fifth_edition};
 
 mod spec;
+
+/// Generated grammar predicates — emitted at build time by
+/// `pr4xis::codegen::xml_grammar` from the loaded spec bytes. Provides:
+///
+/// - `is_char(c: u32) -> bool` — W3C XML 1.0 §2.2 [2] `Char`
+/// - `is_name_start_char(c: u32) -> bool` — §2.3 [4] `NameStartChar`
+/// - `is_name_char(c: u32) -> bool` — §2.3 [4a] `NameChar`
+///
+/// Plus the underlying `CHAR_RANGES` / `NAME_START_CHAR_RANGES` /
+/// `NAME_CHAR_RANGES` tables. Consumed by `parser::grammar` in
+/// place of hand-coded `matches!` arms over hardcoded code points.
+///
+/// When the spec source is missing (e.g. a published-crate consumer
+/// without the bundled bytes), the include resolves to a stub where
+/// every predicate returns `false`. That makes the absence visible
+/// (parser rejects every name) rather than silently using a fallback.
+pub mod grammar {
+    include!(concat!(env!("OUT_DIR"), "/xml_grammar_generated.rs"));
+}
