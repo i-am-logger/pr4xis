@@ -37,6 +37,8 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use std::sync::OnceLock;
+
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
@@ -65,6 +67,92 @@ pub enum XstsExpected {
     /// `<expected validity="invalid"/>` — well-formed XML but
     /// XSD-invalid.
     Invalid,
+}
+
+/// The full loaded W3C XML Schema Test Suite — every schemaTest case
+/// the archive declares, materialised in memory as praxis-queryable
+/// data. The proper "load like English" counterpart to the
+/// byte-level [`crate::applied::data_provisioning::registry`] entry:
+/// downstream code obtains it via [`loaded_xsts`] and queries
+/// directly, without re-walking the metadata files.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct XstsCorpus {
+    /// Every `<schemaTest>` case the archive declares, in document
+    /// order across the four contributor sets (Boeing, Microsoft,
+    /// NIST, Sun).
+    pub cases: Vec<XstsCase>,
+}
+
+impl XstsCorpus {
+    /// All cases, in load order.
+    #[must_use]
+    pub fn cases(&self) -> &[XstsCase] {
+        &self.cases
+    }
+
+    /// Cases whose `<expected validity="valid"/>`.
+    pub fn valid_cases(&self) -> impl Iterator<Item = &XstsCase> {
+        self.cases
+            .iter()
+            .filter(|c| c.expected == XstsExpected::Valid)
+    }
+
+    /// Cases whose `<expected validity="invalid"/>`.
+    pub fn invalid_cases(&self) -> impl Iterator<Item = &XstsCase> {
+        self.cases
+            .iter()
+            .filter(|c| c.expected == XstsExpected::Invalid)
+    }
+
+    /// Total case count (every contributor + both validities).
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.cases.len()
+    }
+
+    /// True iff the loaded corpus contains zero cases. (The loader
+    /// returns `Some(corpus)` only when ≥1 metadata file was found,
+    /// so in practice this is always false on a present extracted
+    /// tree — the API surface exists for completeness.)
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.cases.is_empty()
+    }
+}
+
+/// The cached loaded xsts corpus, or `None` when the extracted tree
+/// isn't on disk yet (mirroring the soft-skip semantics of
+/// [`XstsAuditOutcome::ExtractedTreeAbsent`]). First call walks every
+/// metadata file under
+/// `crates/domains/data/markup-schemas/xsts/xmlschema2006-11-06/` and
+/// returns a `&'static XstsCorpus` containing every case. Subsequent
+/// calls reuse the same cached instance.
+///
+/// This is the "load like English" accessor — downstream code calls
+/// `loaded_xsts()` once and queries the returned `XstsCorpus` the
+/// same way `English::from_wordnet()` consumers query the loaded
+/// WordNet. The byte-level registration in `praxis.toml` /
+/// `praxis.lock` (with hash-pinning + audit-on-load) lives on; this
+/// accessor is the typed-layer surface above it.
+pub fn loaded_xsts() -> Option<&'static XstsCorpus> {
+    // Outer Option distinguishes "tree absent" from "tree present
+    // but empty"; inner OnceLock is the cache. None-results from
+    // earlier calls aren't cached (so a later `pr4xis update` that
+    // lands the bytes is picked up on the next call); Some-results
+    // are.
+    static CACHE: OnceLock<XstsCorpus> = OnceLock::new();
+    if let Some(c) = CACHE.get() {
+        return Some(c);
+    }
+    let extracted = resolve_extracted_tree_path().ok().flatten()?;
+    let cases = collect_cases(&extracted);
+    if cases.is_empty() {
+        // The tree exists but no metadata files were found — treat
+        // it as not-loaded so the next call retries (the directory
+        // might be mid-extraction).
+        return None;
+    }
+    Some(CACHE.get_or_init(|| XstsCorpus { cases }))
 }
 
 /// Aggregate audit numbers + the outcome enum that says whether the
@@ -243,21 +331,22 @@ fn scan_attr<'a>(
     Some(&line[val_start..val_start + end])
 }
 
-/// Run the corpus-wide audit. Returns one [`XstsAuditOutcome`].
+/// Run the corpus-wide audit by consuming the cached [`loaded_xsts`]
+/// corpus. Returns one [`XstsAuditOutcome`].
 #[must_use]
 pub fn run_audit() -> XstsAuditOutcome {
-    let extracted = match resolve_extracted_tree_path() {
-        Err(()) => return XstsAuditOutcome::SourceNotRegistered,
-        Ok(None) => {
-            return XstsAuditOutcome::ExtractedTreeAbsent {
-                path: "crates/domains/data/markup-schemas/xsts/xmlschema2006-11-06".to_string(),
-            };
-        }
-        Ok(Some(p)) => p,
+    // Source-registry presence is the hard precondition; missing
+    // bytes are the soft "tree absent" case.
+    if by_name_version("xsts_xml_schema_test_suite", "2007-06-20").is_none() {
+        return XstsAuditOutcome::SourceNotRegistered;
+    }
+    let Some(corpus) = loaded_xsts() else {
+        return XstsAuditOutcome::ExtractedTreeAbsent {
+            path: "crates/domains/data/markup-schemas/xsts/xmlschema2006-11-06".to_string(),
+        };
     };
-    let cases = collect_cases(&extracted);
     let mut report = XstsAuditReport::default();
-    for case in &cases {
+    for case in corpus.cases() {
         let Ok(bytes) = std::fs::read(&case.schema_path) else {
             continue;
         };
@@ -382,5 +471,24 @@ mod tests {
             scan_attr(line, "<expected", "validity=\"", '"'),
             Some("valid")
         );
+    }
+
+    #[test]
+    fn loaded_xsts_is_either_cached_or_absent() {
+        // The accessor returns Some when the extracted tree is on
+        // disk (with non-empty case list) and None otherwise. Either
+        // way, two calls return the same pointer if Some.
+        match loaded_xsts() {
+            Some(c1) => {
+                assert!(c1.len() >= 10_000);
+                assert!(c1.valid_cases().count() >= 10_000);
+                assert!(c1.invalid_cases().count() >= 2_000);
+                let c2 = loaded_xsts().expect("once-cached, always Some");
+                assert!(core::ptr::eq(c1 as *const _, c2 as *const _));
+            }
+            None => {
+                // Tree absent on this machine; soft-pass.
+            }
+        }
     }
 }
