@@ -41,6 +41,7 @@ pr4xis::ontology! {
         // === SchemaSpec family (W3C XSD 1.1 Part 1 §1.1) ===
         SchemaSpec,                 // root of structural schema specifications
         XmlSchemaDefinition,        // leaf: a W3C XSD 1.1 schema document (e.g., USLM XSD)
+        XmlDocumentTypeDefinition,  // leaf: a W3C XML 1.0 §4 DTD (e.g., WN-LMF 1.3 DTD)
         ConceptualSpec,             // leaf: a published text-form conceptual specification (e.g., W3C XML Information Set rec)
 
         // === TestSuite family (W3C QA Framework: Test Methodology Guidelines, 2008) ===
@@ -84,6 +85,8 @@ pr4xis::ontology! {
             "ISO 32000-2:2020 §9.6.5.4 + Adobe Tech Note #5014: a published name→codepoint table (Adobe Glyph List, AGLFN) cited by PDF /Differences arrays to resolve glyph names to Unicode codepoints."),
         SchemaSpec: ("en", "Schema specification",
             "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §1.1: a published structural specification for documents of some content-type. The substrate ontology that downstream content-type ontologies (USLM, LMF, OOXML) load from."),
+        XmlDocumentTypeDefinition: ("en", "XML Document Type Definition (DTD)",
+            "Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) Extensible Markup Language (XML) 1.0 Fifth Edition, §2.8 + §4: a Document Type Declaration's markup-declarations (ELEMENT / ATTLIST / ENTITY / NOTATION). The pre-XSD machine-readable grammar form for XML applications; still the canonical schema form for some published vocabularies (e.g., the Global WordNet WN-LMF DTD that WordNet 2025 ships against)."),
         XmlSchemaDefinition: ("en", "XML Schema Definition (XSD)",
             "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1, W3C Recommendation 5 April 2012: an XSD document declaring element/complexType/simpleType/attribute/group declarations for an XML vocabulary. Cited by content-type ontologies (USLM 1.0.18) that ground their type system in the schema rather than hand-coding."),
         ConceptualSpec: ("en", "Conceptual specification",
@@ -121,6 +124,7 @@ pr4xis::ontology! {
         // SchemaSpec family
         (SchemaSpec, Source),
         (XmlSchemaDefinition, SchemaSpec),
+        (XmlDocumentTypeDefinition, SchemaSpec),
         (ConceptualSpec, SchemaSpec),
 
         // TestSuite family
@@ -248,6 +252,7 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "TypographicGlyphSet" => C::TypographicGlyphSet,
         "SchemaSpec" => C::SchemaSpec,
         "XmlSchemaDefinition" => C::XmlSchemaDefinition,
+        "XmlDocumentTypeDefinition" => C::XmlDocumentTypeDefinition,
         "ConceptualSpec" => C::ConceptualSpec,
         "TestSuite" => C::TestSuite,
         "XmlSchemaTestSuite" => C::XmlSchemaTestSuite,
@@ -279,6 +284,7 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::TypographicGlyphSet => "TypographicGlyphSet",
         C::SchemaSpec => "SchemaSpec",
         C::XmlSchemaDefinition => "XmlSchemaDefinition",
+        C::XmlDocumentTypeDefinition => "XmlDocumentTypeDefinition",
         C::ConceptualSpec => "ConceptualSpec",
         C::TestSuite => "TestSuite",
         C::XmlSchemaTestSuite => "XmlSchemaTestSuite",
@@ -342,6 +348,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
             | C::CaseLaw
             | C::TypographicGlyphSet
             | C::XmlSchemaDefinition
+            | C::XmlDocumentTypeDefinition
             | C::ConceptualSpec
             | C::XmlSchemaTestSuite
             | C::XmlConformanceTestSuite

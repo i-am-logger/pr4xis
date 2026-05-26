@@ -75,6 +75,13 @@
 # ComplexTypeDefinition / etc.) derives from the published
 # meta-schema rather than being hand-coded against the prose spec.
 "xsd_meta_schema@1.1"     = "047e652e9863065d297651c103e366daa24fb2c0933cebcf1982272cb80600f5"
+# Global WordNet WN-LMF 1.3 DTD. Pinned hash of the bundled
+# crates/domains/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd —
+# the Global WordNet-published schema that the bundled WordNet
+# 2025 bytes declare DOCTYPE against. Loaded by the LMF ontology
+# (M4.ζ.1) so the runtime LexicalEntry / Synset / Sense types
+# derive from the published DTD rather than being hand-coded.
+"wn_lmf_dtd@1.3"          = "dba306298d63e33f243903edce15d180c018db1a6e2c7e836d52480eb5659796"
 # W3C XML Schema Test Suite (xsts). Pinned hash of the bundled
 # archive crates/domains/data/markup-schemas/xsts/xsts_xml_schema_test_suite-2007-06-20.tar.gz
 # — the canonical conformance corpus for XSD 1.1 readers,

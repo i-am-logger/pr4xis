@@ -34,7 +34,7 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn twenty_two_concepts() {
+fn twenty_three_concepts() {
     // Lexicon family (6): Source, Lexicon, Language, DomainLexicon,
     //                     LegalLexicon, SchemaVocabulary.
     // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
@@ -43,11 +43,11 @@ fn twenty_two_concepts() {
     //                         CaseLaw.
     // TypographyResource family (2): TypographyResource,
     //                                TypographicGlyphSet.
-    // SchemaSpec family (3): SchemaSpec, XmlSchemaDefinition,
-    //                        ConceptualSpec.
+    // SchemaSpec family (4): SchemaSpec, XmlSchemaDefinition,
+    //                        XmlDocumentTypeDefinition, ConceptualSpec.
     // TestSuite family (3): TestSuite, XmlSchemaTestSuite,
     //                       XmlConformanceTestSuite.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 22);
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 23);
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn is_lexicon_recognizes_subtree() {
 }
 
 #[test]
-fn is_leaf_identifies_fourteen_leaves() {
+fn is_leaf_identifies_fifteen_leaves() {
     use SourceTaxonomyConcept as C;
     let leaves: Vec<_> = SourceTaxonomyConcept::variants()
         .into_iter()
@@ -124,13 +124,15 @@ fn is_leaf_identifies_fourteen_leaves() {
     // Language, LegalLexicon, SchemaVocabulary, UsFederalStatute,
     // UsCodeTitle, Regulation, ConstitutionalArticle, ProceduralRule,
     // CaseLaw, TypographicGlyphSet, XmlSchemaDefinition,
-    // ConceptualSpec, XmlSchemaTestSuite, XmlConformanceTestSuite.
+    // XmlDocumentTypeDefinition, ConceptualSpec, XmlSchemaTestSuite,
+    // XmlConformanceTestSuite.
     //   Statute is the jurisdiction-agnostic parent of
     //   UsFederalStatute (not a leaf); TypographyResource is parent
     //   of TypographicGlyphSet; SchemaSpec is parent of
-    //   XmlSchemaDefinition and ConceptualSpec; TestSuite is parent
-    //   of XmlSchemaTestSuite + XmlConformanceTestSuite.
-    assert_eq!(leaves.len(), 14);
+    //   XmlSchemaDefinition + XmlDocumentTypeDefinition + ConceptualSpec;
+    //   TestSuite is parent of XmlSchemaTestSuite +
+    //   XmlConformanceTestSuite.
+    assert_eq!(leaves.len(), 15);
     assert!(leaves.contains(&C::Language));
     assert!(leaves.contains(&C::SchemaVocabulary));
     assert!(leaves.contains(&C::UsFederalStatute));

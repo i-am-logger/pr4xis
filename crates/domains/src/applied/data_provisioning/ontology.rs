@@ -142,6 +142,14 @@ pub enum ContentType {
     /// is the bundled instance. Decoder: tar/gzip extraction +
     /// per-case `xml::parser::parse_document`.
     TarGzArchive,
+    /// XML 1.0 Document Type Definition (DTD), per W3C XML 1.0 Fifth
+    /// Edition §2.8 + §4 (Bray, Paoli, Sperberg-McQueen, Maler &
+    /// Yergeau 2008). The pre-XSD machine-readable grammar form for
+    /// XML applications. Global WordNet ships its WN-LMF schema as a
+    /// DTD; this content type recognises it as a schema source.
+    /// Decoder: magic-prefix identification (`<!ELEMENT` /
+    /// `<!ATTLIST` markup declarations per §3.2 + §3.3).
+    XmlDtd,
     /// Raw bytes with no further decoding.
     Binary,
 }
@@ -207,6 +215,11 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // 2012 Part 1; Peterson et al. 2012 Part 2). Decoder:
         // `pr4xis::codegen::xsd::parse_xsd`.
         C::XmlSchemaDefinition => ContentType::XmlXsd,
+        // XML 1.0 DTDs ship as plain-text markup-declarations per
+        // W3C XML 1.0 §2.8 + §4 (Bray et al. 2008). Used as the
+        // canonical schema form for vocabularies that predate XSD
+        // or chose DTD over XSD (e.g. Global WordNet's WN-LMF).
+        C::XmlDocumentTypeDefinition => ContentType::XmlDtd,
         // ConceptualSpec sources ship as XHTML (the W3C-published
         // recommendation format for text-form specifications such as
         // the XML Information Set rec, Cowan & Tobin 2004). Decoder:
@@ -305,6 +318,7 @@ impl RegistryEntry {
             ContentType::Video => "bin",
             ContentType::Audio => "bin",
             ContentType::TarGzArchive => "tar.gz",
+            ContentType::XmlDtd => "dtd",
             ContentType::Binary => "bin",
         };
         // Adobe AGL has a fixed canonical filename in the public
@@ -375,7 +389,7 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
         }
     } else if matches!(
         kind,
-        C::SchemaSpec | C::XmlSchemaDefinition | C::ConceptualSpec
+        C::SchemaSpec | C::XmlSchemaDefinition | C::XmlDocumentTypeDefinition | C::ConceptualSpec
     ) {
         // XSDs live under the corpus they schema. The USLM XSD is
         // shipped at `data/legal/uscode/schema/` (the U.S. Code
@@ -390,6 +404,7 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
             "xhtml_1_0_xsd" => "markup-schemas/xhtml",
             "xml_1_0_namespace_xsd" | "xml_infoset" => "markup-schemas/xml",
             "xsd_meta_schema" => "markup-schemas/xsd",
+            "wn_lmf_dtd" => "markup-schemas/lmf",
             _ => "legal/uscode/schema",
         }
     } else {
