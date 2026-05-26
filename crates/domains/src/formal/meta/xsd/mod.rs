@@ -58,6 +58,7 @@
 //!   schema files*, v1.5.2, MIT-licensed.
 //!   <https://github.com/Bergmann89/xsd-parser>.
 
+pub mod conformance;
 pub mod datatypes;
 pub mod english_adjunction;
 pub mod english_projection;
