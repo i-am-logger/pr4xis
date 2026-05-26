@@ -109,15 +109,17 @@ pub struct XstsAuditReport {
 
 impl XstsAuditReport {
     /// 100% spec-conformance check: every valid schema parses
-    /// successfully, every invalid schema is well-formed XML (the
-    /// projector/validator boundary), and the remaining
-    /// `valid_total - valid_projected_nonzero` cases are spec-correct
-    /// empty `<xs:schema/>` documents.
+    /// successfully AND projects ≥1 concept (every well-formed
+    /// `<xs:schema>` is at minimum a SchemaDocument per XSD 1.1
+    /// Part 1 §2.5 + §3.16), every invalid schema is well-formed
+    /// XML (the projector/validator boundary), and the corpus walk
+    /// covers both sets.
     #[must_use]
     pub fn is_spec_conformant(&self) -> bool {
         self.valid_total > 0
             && self.invalid_total > 0
             && self.valid_parse_ok == self.valid_total
+            && self.valid_projected_nonzero == self.valid_total
             && self.invalid_parse_ok == self.invalid_total
     }
 }

@@ -42,7 +42,9 @@ fn xsd_ontology_validates() {
 
 #[test]
 fn concept_count() {
-    // Three groups, each with a root:
+    // Five top-level groups + their sub-concepts:
+    // - §2.5 SchemaDocument leaf: 1 (no children — it's both root
+    //   and instantiable leaf, parallel to the abstract roots).
     // - §2.2 schema-component partition: 1 root + 17 sub-concepts = 18
     // - §4.2 schema-composition group: 1 root + 4 leaves = 5
     // - §3.4.2 / Part 2 §4.1.2 type-construction group: 1 root + 6
@@ -50,28 +52,30 @@ fn concept_count() {
     //   ListType, UnionType) = 7
     // Plus Part 2 §4.3: 1 ConstrainingFacet root + 14 facet leaves = 15.
     // Plus §3.11: IdentityConstraint becomes intermediate + 5 sub-kinds
-    // (Key, KeyRef, Unique, Selector, Field) = 50.
+    // (Key, KeyRef, Unique, Selector, Field).
     // Plus XSD 1.1 §3.13 / §3.4.2.2 / §3.16.2 content additions
     // (Assert, OpenContent, DefaultOpenContent) under the
-    // type-construction root. Total: 50 + 3 = 53.
-    assert_eq!(XsdConcept::variants().len(), 53);
+    // type-construction root. Total: 1 + 18 + 5 + 7 + 14 + 5 + 3 = 53,
+    // plus SchemaDocument = 54.
+    assert_eq!(XsdConcept::variants().len(), 54);
 }
 
 #[test]
 fn instantiable_leaves_count() {
-    // 43 concrete kinds: 11 §2.2 schema-component leaves (IdentityConstraint
-    // is now intermediate) + 4 §4.2 composition directives + 6 §3.4.2 /
-    // Part 2 §4.1.2 type-construction constructs + 14 Part 2 §4.3 facets +
-    // 5 §3.11 identity-constraint sub-kinds + 3 XSD 1.1 content additions
-    // (Assert, OpenContent, DefaultOpenContent).
-    assert_eq!(instantiable_leaves().len(), 43);
+    // 44 concrete kinds: 1 §2.5 SchemaDocument + 11 §2.2 schema-component
+    // leaves (IdentityConstraint is now intermediate) + 4 §4.2 composition
+    // directives + 6 §3.4.2 / Part 2 §4.1.2 type-construction constructs +
+    // 14 Part 2 §4.3 facets + 5 §3.11 identity-constraint sub-kinds +
+    // 3 XSD 1.1 content additions (Assert, OpenContent, DefaultOpenContent).
+    assert_eq!(instantiable_leaves().len(), 44);
 }
 
 #[test]
 fn root_classification() {
-    // Four roots: §2.2 SchemaComponent, §4.2 SchemaCompositionDirective,
-    // §3.4.2 / Part 2 §4.1.2 TypeConstructionConstruct, Part 2 §4.3
-    // ConstrainingFacet.
+    // Five roots: §2.5 SchemaDocument, §2.2 SchemaComponent, §4.2
+    // SchemaCompositionDirective, §3.4.2 / Part 2 §4.1.2
+    // TypeConstructionConstruct, Part 2 §4.3 ConstrainingFacet.
+    assert!(is_root(XsdConcept::SchemaDocument));
     assert!(is_root(XsdConcept::SchemaComponent));
     assert!(is_root(XsdConcept::SchemaCompositionDirective));
     assert!(is_root(XsdConcept::TypeConstructionConstruct));
@@ -79,7 +83,8 @@ fn root_classification() {
     for c in XsdConcept::variants() {
         if matches!(
             c,
-            XsdConcept::SchemaComponent
+            XsdConcept::SchemaDocument
+                | XsdConcept::SchemaComponent
                 | XsdConcept::SchemaCompositionDirective
                 | XsdConcept::TypeConstructionConstruct
                 | XsdConcept::ConstrainingFacet

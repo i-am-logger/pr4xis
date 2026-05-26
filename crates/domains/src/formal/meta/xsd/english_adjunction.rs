@@ -80,6 +80,7 @@ pub fn lift_label_to_concept(l: XsdEnglishLabel) -> XsdConcept {
     use XsdConcept as C;
     use XsdEnglishLabel as L;
     match l {
+        L::SchemaDocument => C::SchemaDocument,
         L::SchemaComponent => C::SchemaComponent,
         L::ElementDeclaration => C::ElementDeclaration,
         L::AttributeDeclaration => C::AttributeDeclaration,

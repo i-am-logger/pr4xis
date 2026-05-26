@@ -51,6 +51,15 @@ pr4xis::ontology! {
     source: "Gao, Sperberg-McQueen & Thompson (eds.) (2012) W3C XML Schema 1.1 Part 1: Structures, W3C Recommendation 2012-04-05; Peterson, Gao, Akhmedov, Malhotra, Biron & Sperberg-McQueen (eds.) (2012) W3C XML Schema 1.1 Part 2: Datatypes, W3C Recommendation 2012-04-05",
 
     concepts: [
+        // The schema-document level — the `<xs:schema>` root element
+        // itself. A top-level concept parallel to SchemaComponent /
+        // SchemaCompositionDirective / TypeConstructionConstruct /
+        // ConstrainingFacet (W3C XSD 1.1 Part 1 §2.5 "Schema Document"
+        // + §3.16 "Schemas as Wholes"). Every `<xs:schema>` element
+        // projects to a SchemaDocument; the components / directives /
+        // constructs / facets it contains project to their own leaves
+        // independently.
+        SchemaDocument,
         SchemaComponent,
         ElementDeclaration,
         AttributeDeclaration,
@@ -107,6 +116,8 @@ pr4xis::ontology! {
     ],
 
     labels: {
+        SchemaDocument: ("en", "Schema document",
+            "W3C XSD 1.1 Part 1 §2.5 + §3.16: an XML document whose root element is `<xs:schema>` — the schema-document container of zero or more schema components, composition directives, type-construction constructs, and constraining facets. A schema document with no children is still a valid Schema (§3.16 Schemas as Wholes) — it just declares no components."),
         SchemaComponent: ("en", "Schema component",
             "W3C XSD 1.1 Part 1 §2.2: the top of the schema-component partition. Every named or structural piece of an XSD schema is a schema component."),
         ElementDeclaration: ("en", "Element declaration",
@@ -309,14 +320,16 @@ pr4xis::ontology! {
 // xsd-parser-loaded XSD construct lands on one of the concrete leaves below.
 // =============================================================================
 
-/// The 43 directly-instantiable XSD leaves. Excludes the four
-/// abstract roots `SchemaComponent` / `SchemaCompositionDirective` /
+/// The 44 directly-instantiable XSD leaves. Excludes the four
+/// *abstract* roots `SchemaComponent` / `SchemaCompositionDirective` /
 /// `TypeConstructionConstruct` / `ConstrainingFacet` and the
 /// intermediate group concepts `TypeDefinition`, `ModelGroup`,
 /// `Annotation`, `IdentityConstraint` (which are projected to via
-/// their concrete sub-kinds).
-pub fn instantiable_leaves() -> [XsdConcept; 43] {
+/// their concrete sub-kinds). `SchemaDocument` IS instantiable — every
+/// `<xs:schema>` projects to one (§2.5 + §3.16).
+pub fn instantiable_leaves() -> [XsdConcept; 44] {
     [
+        XsdConcept::SchemaDocument,
         XsdConcept::ElementDeclaration,
         XsdConcept::AttributeDeclaration,
         XsdConcept::ComplexTypeDefinition,
@@ -368,13 +381,16 @@ pub fn instantiable_leaves() -> [XsdConcept; 43] {
     ]
 }
 
-/// True if `c` is an abstract ontology root (§2.2 `SchemaComponent`,
-/// §4.2 `SchemaCompositionDirective`, §3.4.2 / Part 2 §4.1.2
-/// `TypeConstructionConstruct`, or Part 2 §4.3 `ConstrainingFacet`).
+/// True if `c` is an ontology root — a concept that isn't subsumed
+/// under any other. §2.5 `SchemaDocument` (the `<xs:schema>` container),
+/// §2.2 `SchemaComponent`, §4.2 `SchemaCompositionDirective`, §3.4.2 /
+/// Part 2 §4.1.2 `TypeConstructionConstruct`, and Part 2 §4.3
+/// `ConstrainingFacet` form five parallel top-level concepts.
 pub fn is_root(c: XsdConcept) -> bool {
     matches!(
         c,
-        XsdConcept::SchemaComponent
+        XsdConcept::SchemaDocument
+            | XsdConcept::SchemaComponent
             | XsdConcept::SchemaCompositionDirective
             | XsdConcept::TypeConstructionConstruct
             | XsdConcept::ConstrainingFacet
@@ -469,10 +485,14 @@ impl Quality for PartSpec {
             | X::FractionDigitsFacet
             | X::ExplicitTimezoneFacet
             | X::AssertionFacet => Some(XsdPart::Datatypes),
-            // Abstract roots — no primary part assignment. (Partition
-            // tops, not concrete constructs: §2.2, §4.2, §3.4.2 /
-            // Part 2 §4.1.2, and Part 2 §4.3 respectively.)
-            X::SchemaComponent
+            // Roots — no specific part assignment. The four abstract
+            // roots (§2.2, §4.2, §3.4.2 / Part 2 §4.1.2, Part 2 §4.3)
+            // are partition tops, not concrete constructs. The §2.5
+            // SchemaDocument leaf is also root-classified here — the
+            // schema document spans the whole spec (Part 1 §2.5 +
+            // §3.16) rather than a single component-level Part.
+            X::SchemaDocument
+            | X::SchemaComponent
             | X::SchemaCompositionDirective
             | X::TypeConstructionConstruct
             | X::ConstrainingFacet => None,
@@ -527,6 +547,7 @@ impl Axiom for SchemaComponentPartitioned {
         // for transitive subsumption.
         use pr4xis::category::{Arrow, Category};
         let roots = [
+            XsdConcept::SchemaDocument,
             XsdConcept::SchemaComponent,
             XsdConcept::SchemaCompositionDirective,
             XsdConcept::TypeConstructionConstruct,

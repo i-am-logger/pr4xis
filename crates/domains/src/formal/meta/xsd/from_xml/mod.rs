@@ -189,6 +189,19 @@ fn walk_element(element: &XmlElement, parent_scope: &NamespaceScope, state: &mut
 /// recursion).
 fn project_xsd_declaration(element: &XmlElement, state: &mut ProjectState) {
     match element.name.local.as_str() {
+        // -------- §2.5 / §3.16 the schema document itself --------
+        // The `<xs:schema>` root element. Every well-formed XSD
+        // schema document projects to one SchemaDocument; the
+        // components / directives / constructs / facets it contains
+        // project to their own leaves via the rest of this dispatch
+        // when the walker recurses (W3C XSD 1.1 Part 1 §2.5 "Schema
+        // Document" + §3.16 "Schemas as Wholes"). An empty
+        // `<xs:schema/>` is a valid Schema Document with zero
+        // components — it still projects to SchemaDocument.
+        "schema" => {
+            state.components.push(XsdConcept::SchemaDocument);
+            return;
+        }
         // -------- §3.15 Annotations --------
         "annotation" => {
             state.components.push(XsdConcept::Annotation);

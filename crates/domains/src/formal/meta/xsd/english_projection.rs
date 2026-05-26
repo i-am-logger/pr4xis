@@ -107,6 +107,7 @@ use crate::social::judicial::statute_structure::statute_understanding::is_statut
 /// [`XsdToEnglish::KIND`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, pr4xis::category::Concept)]
 pub enum XsdEnglishLabel {
+    SchemaDocument,
     SchemaComponent,
     ElementDeclaration,
     AttributeDeclaration,
@@ -174,6 +175,7 @@ pub enum XsdEnglishLabel {
 pub fn canonical_english_phrase(c: XsdConcept) -> &'static str {
     use XsdConcept as C;
     match c {
+        C::SchemaDocument => "schema document",
         C::SchemaComponent => "schema component",
         C::ElementDeclaration => "element declaration",
         C::AttributeDeclaration => "attribute declaration",
@@ -430,6 +432,7 @@ pub fn project_concept(c: XsdConcept) -> XsdEnglishLabel {
     use XsdConcept as C;
     use XsdEnglishLabel as L;
     match c {
+        C::SchemaDocument => L::SchemaDocument,
         C::SchemaComponent => L::SchemaComponent,
         C::ElementDeclaration => L::ElementDeclaration,
         C::AttributeDeclaration => L::AttributeDeclaration,
@@ -1073,7 +1076,7 @@ mod tests {
 
     #[test]
     fn project_concept_is_total() {
-        // Bijection: 53 concepts → 53 labels, all distinct.
+        // Bijection: 54 concepts → 54 labels, all distinct.
         let mut seen = alloc::collections::BTreeSet::new();
         for c in XsdConcept::variants() {
             let label = project_concept(c);
@@ -1081,7 +1084,7 @@ mod tests {
             // per-variant by construction.
             assert!(seen.insert(format!("{label:?}")));
         }
-        assert_eq!(seen.len(), 53);
+        assert_eq!(seen.len(), 54);
     }
 
     #[test]
