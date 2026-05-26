@@ -8,6 +8,7 @@ pub mod owl;
 pub mod parser;
 pub mod rdf;
 pub mod reader;
+pub mod spec_1_0;
 pub mod uslm;
 
 pub use ontology::*;

@@ -312,42 +312,64 @@ impl RegistryEntry {
         canonical_encoding(self.kind)
     }
 
-    /// Workspace-relative local path where this entry materializes. Derived
-    /// by convention from the kind's family and the source's `(name, version)`.
+    /// Workspace-relative local path where this entry materializes.
     ///
-    /// Layout:
-    ///   `crates/domains/data/<family>/<name>/<name>-<version>.<ext>`
+    /// Resolution proceeds in three layers:
     ///
-    /// where `<family>` is `lexicons` (for Lexicon-family kinds) or `legal`
-    /// (for LegalCorpus-family kinds), and `<ext>` is `.xml` for XmlLmf,
-    /// `.txt` for Plaintext, `.json` for Json, `.pdf` for Pdf, `.bin`
-    /// otherwise.
+    /// 1. **Per-source override** ([`local_path_override`]) — for sources
+    ///    whose disk filename is the publisher's canonical name rather
+    ///    than the `{name}-{version}` convention (e.g. W3C's
+    ///    `xhtml-1.0-strict.xsd`, LC's `uslm-1.0.18.xsd`).
+    /// 2. **Schema-spec formula** — `<family>/<name>-<version>.<ext>`
+    ///    (no intermediate `<name>/` subdir; ext is the published
+    ///    extension `.xsd` / `.dtd` / `.zip` / `.xhtml`). Applies to
+    ///    [`SourceTaxonomyConcept::XmlSchemaDefinition`],
+    ///    [`XmlDocumentTypeDefinition`](SourceTaxonomyConcept::XmlDocumentTypeDefinition),
+    ///    [`OoxmlSchemaArchive`](SourceTaxonomyConcept::OoxmlSchemaArchive),
+    ///    [`ConceptualSpec`](SourceTaxonomyConcept::ConceptualSpec).
+    /// 3. **Default formula** — `<family>/<name>/<name>-<version>.<ext>`
+    ///    (intermediate `<name>/` subdir). Applies to legal corpora
+    ///    (USC titles, procedural rules, case-law packages) where the
+    ///    per-source subdir keeps multi-file granules grouped.
+    ///
+    /// The [`registry_local_paths_exist`] axiom verifies the result
+    /// always points to a file that actually exists in `crates/domains/data/`.
     pub fn local_path(&self) -> String {
+        // Layer 1 — explicit per-source override.
+        if let Some(rel) = local_path_override(&self.name) {
+            return format!("crates/domains/data/{rel}");
+        }
+
         let family = family_dir_for(self.kind, &self.name);
-        let ext = match self.content_type() {
-            ContentType::XmlLmf | ContentType::UslmXml | ContentType::XmlXsd => "xml",
-            ContentType::Xhtml => "xhtml",
-            ContentType::Plaintext | ContentType::AdobeGlyphList => "txt",
-            ContentType::Json => "json",
-            ContentType::Pdf => "pdf",
-            ContentType::Video => "bin",
-            ContentType::Audio => "bin",
-            ContentType::TarGzArchive => "tar.gz",
-            ContentType::XmlDtd => "dtd",
-            ContentType::ZipArchive => "zip",
-            ContentType::Binary => "bin",
-        };
-        // Adobe AGL has a fixed canonical filename in the public
-        // typography registry; downstream code references it
-        // directly via include_str! so the path is stable.
-        if matches!(self.kind, SourceTaxonomyConcept::TypographicGlyphSet) {
+        let ext = path_extension(self.content_type());
+
+        // Layer 2 — schema-spec / test-suite formula (no intermediate
+        // subdir, published ext). These all live as a single archive
+        // or document under their family dir, with the per-name subdir
+        // only emerging when the archive is extracted at test time.
+        use SourceTaxonomyConcept as C;
+        let is_schema_spec = matches!(
+            self.kind,
+            C::SchemaSpec
+                | C::XmlSchemaDefinition
+                | C::XmlDocumentTypeDefinition
+                | C::OoxmlSchemaArchive
+                | C::ConceptualSpec
+                | C::TestSuite
+                | C::XmlSchemaTestSuite
+                | C::XmlConformanceTestSuite
+        );
+        if is_schema_spec {
             return format!(
-                "crates/domains/data/{family}/{name}/glyphlist.{ext}",
+                "crates/domains/data/{family}/{name}-{version}.{ext}",
                 family = family,
-                name = "adobe",
+                name = self.name,
+                version = self.version,
                 ext = ext
             );
         }
+
+        // Layer 3 — default formula with intermediate {name}/ subdir.
         format!(
             "crates/domains/data/{family}/{name}/{name}-{version}.{ext}",
             family = family,
@@ -356,6 +378,63 @@ impl RegistryEntry {
             ext = ext
         )
     }
+}
+
+/// Filename extension for a given decoded content type.
+///
+/// XmlXsd / XmlLmf / UslmXml all *encode as* XML 1.0 but use distinct
+/// published file extensions: `.xsd` for W3C XML Schema Definition
+/// documents, `.xml` for LMF lexica and USLM statute markup. Keeping
+/// them separated lets `local_path()` round-trip to disk reality
+/// without per-source overrides for the common case.
+fn path_extension(ct: ContentType) -> &'static str {
+    match ct {
+        ContentType::XmlLmf | ContentType::UslmXml => "xml",
+        ContentType::XmlXsd => "xsd",
+        ContentType::Xhtml => "xhtml",
+        ContentType::Plaintext | ContentType::AdobeGlyphList => "txt",
+        ContentType::Json => "json",
+        ContentType::Pdf => "pdf",
+        ContentType::Video | ContentType::Audio | ContentType::Binary => "bin",
+        ContentType::TarGzArchive => "tar.gz",
+        ContentType::XmlDtd => "dtd",
+        ContentType::ZipArchive => "zip",
+    }
+}
+
+/// Workspace-relative path (without the `crates/domains/data/` prefix)
+/// for sources whose disk layout differs from the [`RegistryEntry::local_path`]
+/// formula. Most overrides reflect the publisher's canonical filename
+/// (W3C `xhtml-1.0-strict.xsd`, LC `uslm-1.0.18.xsd`) rather than the
+/// `{name}-{version}` convention; a few legacy non-schema sources
+/// (WordNet, us_legal_lexicon, Adobe AGL) predate the family taxonomy
+/// and live at historical locations downstream code references via
+/// `include_str!`.
+///
+/// New sources should follow the default formula and not need an
+/// override. The [`registry_local_paths_exist`] axiom is the regression
+/// test — if a new override is needed, that axiom fails first.
+fn local_path_override(name: &str) -> Option<&'static str> {
+    Some(match name {
+        // Legacy non-schema layouts — predate the family taxonomy.
+        "english_wordnet" => "wordnet/english-wordnet-2025.xml",
+        "us_legal_lexicon" => "legal-text/us_legal_lexicon.xml",
+        "adobe_glyph_list" => "adobe/glyphlist.txt",
+        // W3C-published schema documents — kept as the W3C canonical
+        // filename (Pemberton et al. 2002; Bray et al. 2008).
+        "xhtml_1_0_xsd" => "markup-schemas/xhtml/xhtml-1.0-strict.xsd",
+        "xml_1_0_namespace_xsd" => "markup-schemas/xml/xml.xsd",
+        "xml_infoset" => "markup-schemas/xml/xml-infoset.xhtml",
+        // W3C XML 1.0 Fifth Edition (Bray et al. 2008) — published
+        // as XML (xmlspec.dtd), not XHTML. The bytes ship under the
+        // {name}-{version} convention but with `.xml` extension
+        // rather than the ConceptualSpec default `.xhtml`.
+        "xml_1_0_fifth_edition" => "markup-schemas/xml/xml_1_0_fifth_edition-2008.xml",
+        // LC-published USLM schema — kept as the GovInfo canonical
+        // filename per 1 U.S.C. § 204.
+        "uslm_xsd" => "legal/uscode/schema/uslm-1.0.18.xsd",
+        _ => return None,
+    })
 }
 
 /// The on-disk family directory for a given kind. Mirrors the praxis-domains
@@ -503,6 +582,7 @@ impl Ontology for DataProvisioningOntology {
         axioms.push(Box::new(IdentityClaimsUseLeaves));
         axioms.push(Box::new(KindIsTaxonomyLeaf));
         axioms.push(Box::new(LockManifestAgreement));
+        axioms.push(Box::new(RegistryLocalPathsExist));
         axioms
     }
 }
@@ -756,6 +836,103 @@ pr4xis::register_axiom!(
     LockManifestAgreement,
     "Dolstra (2006) The Purely Functional Software Deployment Model §5.1"
 );
+
+/// Axiom: every registered source whose identity is materialized (a real
+/// `RawHash` claim, not a `Stub`) resolves to a `local_path()` that points
+/// to a file actually present in `crates/domains/data/`.
+///
+/// FAIR F2 — "data are described with rich metadata" — requires that the
+/// declared local path be a true address into the data store, not a
+/// formula-generated string. Without this axiom, `pr4xis update --check`
+/// reports paths the runtime cannot read, and the manifest+lock invariants
+/// say nothing about whether the bytes are reachable.
+///
+/// Stub-identity entries (declared in `praxis.toml` but not yet fetched)
+/// are skipped — they have no bytes to verify and no lock entry either;
+/// the [`LockManifestAgreement`] axiom owns their drift detection.
+///
+/// Citation: Wilkinson et al. (2016) The FAIR Guiding Principles for
+/// Scientific Data Management and Stewardship, *Scientific Data* 3:160018,
+/// §F2 (richly-described metadata) and §A1 (data retrievable by identifier).
+pub struct RegistryLocalPathsExist;
+
+impl Axiom for RegistryLocalPathsExist {
+    fn verify(&self) -> Verdict {
+        use crate::formal::meta::artifact_identity::ontology::ClaimData;
+        let entries = crate::applied::data_provisioning::registry::data_sources();
+        let workspace_root = workspace_root_for_test();
+        for entry in entries {
+            let raw_hash = entry
+                .identity
+                .0
+                .iter()
+                .find(|c| matches!(c.concept, IdentityConcept::RawHash));
+            let is_stub = raw_hash
+                .map(|c| matches!(c.data, ClaimData::Stub { .. }))
+                .unwrap_or(true);
+            // Empty-content sha256 (sha256 of zero bytes) is the
+            // conventional placeholder in praxis.lock for sources
+            // registered with deferred fetch — semantically a Stub
+            // even though the lock has a hash slot filled. Recognised
+            // by RFC 6234 (Eastlake & Hansen, 2011); the constant is
+            // stable across implementations.
+            let is_placeholder_hash = raw_hash
+                .and_then(|c| match &c.data {
+                    ClaimData::Sha256(hex) => Some(hex.as_str()),
+                    _ => None,
+                })
+                .is_some_and(|hex| hex.eq_ignore_ascii_case(EMPTY_CONTENT_SHA256));
+            if is_stub || is_placeholder_hash {
+                continue;
+            }
+            let rel = entry.local_path();
+            let abs = workspace_root.join(&rel);
+            if !abs.is_file() {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "RegistryLocalPathsExist",
+        "every materialized source's local_path() points to a file on disk",
+        "Wilkinson et al. (2016) FAIR Guiding Principles §F2 + §A1"
+    );
+}
+
+pr4xis::register_axiom!(
+    RegistryLocalPathsExist,
+    "Wilkinson et al. (2016) FAIR Guiding Principles §F2 + §A1"
+);
+
+/// SHA-256 of the empty byte string, per RFC 6234 (Eastlake & Hansen,
+/// 2011) §6.1. Used in `praxis.lock` as a placeholder for sources
+/// registered with deferred fetch (a slot reserved by name + version
+/// but no bytes yet pulled). The [`RegistryLocalPathsExist`] axiom
+/// treats it as semantically Stub.
+const EMPTY_CONTENT_SHA256: &str =
+    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+/// Locate the workspace root from the praxis-domains crate manifest
+/// directory. The data tree lives at `<workspace-root>/crates/domains/data/`
+/// — and `RegistryEntry::local_path()` returns paths workspace-relative,
+/// so resolving them needs the workspace root.
+///
+/// Following the same convention as `pr4xis-cli`'s
+/// [`workspace_root`](https://docs.rs/...) function, falls back to the
+/// current directory when invoked outside Cargo (e.g. release-time
+/// inclusion via `include_bytes!`).
+fn workspace_root_for_test() -> std::path::PathBuf {
+    // CARGO_MANIFEST_DIR points at crates/domains; workspace root is two
+    // parents up. This is the same resolution pr4xis-cli uses.
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    manifest_dir
+        .parent()
+        .and_then(|p| p.parent())
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_default())
+}
 
 // Silence unused-import warnings; `IdentityConcept` and `concept_name` are
 // part of the public re-export surface this module advertises.

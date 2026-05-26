@@ -68,6 +68,15 @@
 # (Cowan & Tobin 2004 W3C Recommendation 4 February 2004 §2) rather
 # than being hand-coded.
 "xml_infoset@2004"        = "316b1b0df49a40dd4cab7ea403dd4f9e5f0d073803b2a7663ebddc33fffebc3e"
+# W3C XML 1.0 Fifth Edition (Bray et al. 2008) — the normative spec
+# with 86 EBNF productions in machine-readable `<prod>` form. Pinned
+# hash of the bundled crates/domains/data/markup-schemas/xml/
+# xml_1_0_fifth_edition-2008.xml — the published xmlspec.dtd-format
+# source. Codegen at build time parses `<prod>` blocks to generate
+# parser predicates (Char, NameStartChar, NameChar, etc.), replacing
+# the hand-coded code-point matches that violate
+# `feedback_bottom_up_loaded_not_encoded`.
+"xml_1_0_fifth_edition@2008" = "9f54011039f9a0e5f5629f4312c1e106ebe897707759a1d9ddee9dacf2fcc17a"
 # W3C XSD 1.1 meta-schema (XSD-for-XSD). Pinned hash of the bundled
 # crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd —
 # the W3C-published XMLSchema.xsd. Loaded by the XSD ontology

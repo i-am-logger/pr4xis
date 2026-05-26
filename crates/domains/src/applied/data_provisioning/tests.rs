@@ -94,14 +94,18 @@ fn by_name_version_matches_pair() {
 }
 
 #[test]
-fn english_wordnet_local_path_under_lexicons_languages() {
+fn english_wordnet_local_path_matches_disk() {
+    // WordNet predates the Lexicon-family taxonomy and lives at the
+    // historical `data/wordnet/english-wordnet-2025.xml` path that the
+    // LMF reader's `include_str!` site references. `local_path_override`
+    // returns this canonical disk location so `pr4xis update --check`
+    // and the `RegistryLocalPathsExist` axiom both see the real bytes.
     let entry = by_name("english_wordnet").unwrap();
     let path = entry.local_path();
-    assert!(
-        path.starts_with("crates/domains/data/lexicons/languages/"),
-        "expected lexicons/languages/ family directory; got {path}"
+    assert_eq!(
+        path, "crates/domains/data/wordnet/english-wordnet-2025.xml",
+        "WordNet local_path must point at the actual on-disk bytes"
     );
-    assert!(path.ends_with(".xml"), "got {path}");
 }
 
 #[test]
