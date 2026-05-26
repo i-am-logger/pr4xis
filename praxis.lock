@@ -91,6 +91,15 @@
 # XSD-grounding work; per-XSD parsing is done by XsdSchemaLens on
 # the extracted contents.
 "ooxml_schema_strict@2016" = "73fab4b04ddd93da020ed07583f755466dcaf69f115b2ff6649af7ae16a816f7"
+# Library of Congress MODS 3.8 — Metadata Object Description Schema.
+# Pinned hash of the bundled crates/domains/data/markup-schemas/mods/
+# mods-3-8.xsd — the LC-published XSD describing GovInfo USREP /
+# SCOTUS-slip / USCOURTS package metadata. Loaded by the M4.ζ.3
+# case-law metadata grounding work; parsed by XsdSchemaLens to drive
+# MODS XML → Decision metadata projection for case-law structural
+# extraction (Lawson v. FMR LLC, Murray v. UBS, Tumey v. Ohio,
+# In re Winship, et al.).
+"mods_3_8@2018"           = "ded45d61d3378d4bed750d8f80633bb0b37e1883afd3a106eef6225c54737a18"
 # W3C XML Schema Test Suite (xsts). Pinned hash of the bundled
 # archive crates/domains/data/markup-schemas/xsts/xsts_xml_schema_test_suite-2007-06-20.tar.gz
 # — the canonical conformance corpus for XSD 1.1 readers,

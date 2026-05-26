@@ -209,6 +209,25 @@ type        = "OoxmlSchemaArchive"
 url         = "https://ecma-international.org/wp-content/uploads/ECMA-376-1_5th_edition_december_2016.zip"
 description = "ECMA-376 5th edition (December 2016) Office Open XML schemas — the OfficeOpenXML-XMLSchema-Strict.zip bundle of 21 XSDs defining WordprocessingML (DOCX), SpreadsheetML (XLSX), PresentationML (PPTX) and DrawingML. Cite: ECMA International / ISO/IEC JTC 1/SC 34 (2016) Office Open XML File Formats Part 1, ECMA-376 5th edition / ISO/IEC 29500-1:2016."
 
+# Library of Congress MODS 3.8 — Metadata Object Description Schema. The
+# canonical XSD-defined XML metadata vocabulary used by GovInfo USREP /
+# SCOTUS-slip / USCOURTS packages to describe each case (party names,
+# citation, decision date, justices, syllabus, headnotes, granule
+# structure). Registered as XmlSchemaDefinition (same taxonomy slot as
+# uslm_xsd / xhtml_1_0_xsd) so case-law metadata XML can be parsed via
+# the existing XsdSchemaLens pipeline rather than hand-coded extractors.
+#
+# Bundled file: `crates/domains/data/markup-schemas/mods/mods-3-8.xsd`.
+# Citation: Library of Congress, Network Development and MARC Standards
+# Office (2018) *MODS XML Schema Version 3.8*,
+# <https://www.loc.gov/standards/mods/v3/mods-3-8.xsd>; MODS User
+# Guidelines Version 3 (2018), <https://www.loc.gov/standards/mods/userguide/>.
+[sources.mods_3_8]
+version     = "2018"
+type        = "XmlSchemaDefinition"
+url         = "https://www.loc.gov/standards/mods/v3/mods-3-8.xsd"
+description = "Library of Congress MODS 3.8 — Metadata Object Description Schema. The canonical XML metadata vocabulary GovInfo packages (USREP, SCOTUS-slip, USCOURTS) use to describe each case at granule level. Cite: Library of Congress, Network Development and MARC Standards Office (2018) MODS XML Schema Version 3.8, <https://www.loc.gov/standards/mods/v3/mods-3-8.xsd>."
+
 # W3C XML Schema Test Suite (xsts) — the canonical conformance corpus
 # for XSD 1.1 readers. ~14,328 schemaTest cases (~11,598 valid,
 # ~2,730 invalid) drawn from Boeing, Microsoft, NIST and Sun
