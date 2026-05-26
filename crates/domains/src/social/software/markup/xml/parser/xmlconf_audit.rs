@@ -150,53 +150,80 @@ fn resolve_extracted_tree_path() -> Result<Option<std::path::PathBuf>, ()> {
     })
 }
 
-/// Walk every `.xml` sub-manifest under `base` for `<TEST ... TYPE="X"
-/// URI="Y" ...>` entries. The sub-manifests are themselves XML files;
-/// the cases they describe live at relative paths next to them.
+/// Walk every `.xml` sub-manifest under `base` by **parsing the
+/// manifest XML through the praxis XML 1.0 parser** and walking the
+/// typed [`XmlDocument`] tree (no substring or attribute
+/// hand-scanning). Each `<TEST>` element contributes one
+/// [`XmlConfCase`] iff it has `URI` and `TYPE` attributes per the
+/// XMLConf testcases.dtd shipped with the suite.
 fn collect_cases(base: &std::path::Path) -> Vec<XmlConfCase> {
     let mut cases = Vec::new();
     for meta in list_meta_files(base) {
-        let Ok(text) = std::fs::read_to_string(&meta) else {
+        let Ok(bytes) = std::fs::read(&meta) else {
+            continue;
+        };
+        let Ok(doc) = parse_document(&bytes) else {
             continue;
         };
         let meta_dir = meta.parent().unwrap_or(std::path::Path::new("."));
-        // Each `<TEST ... />` may span multiple lines but the URI +
-        // TYPE attributes are always present. Iterate over `<TEST `
-        // openings and scan the attribute block until the next `>`.
-        let bytes = text.as_bytes();
-        let mut cursor = 0;
-        while let Some(pos) = find_subslice(&bytes[cursor..], b"<TEST ") {
-            let abs = cursor + pos;
-            let end = find_subslice(&bytes[abs..], b">")
-                .map(|p| abs + p)
-                .unwrap_or(bytes.len());
-            let attrs = &text[abs..end];
-            let Some(uri) = scan_value(attrs, "URI=\"", '"') else {
-                cursor = end;
-                continue;
-            };
-            let Some(ty) = scan_value(attrs, "TYPE=\"", '"') else {
-                cursor = end;
-                continue;
-            };
-            let case_type = match ty {
-                "valid" => XmlConfType::Valid,
-                "invalid" => XmlConfType::Invalid,
-                "not-wf" => XmlConfType::NotWf,
-                "error" => XmlConfType::Error,
-                _ => {
-                    cursor = end;
-                    continue;
-                }
-            };
-            cases.push(XmlConfCase {
-                doc_path: meta_dir.join(uri),
-                case_type,
-            });
-            cursor = end;
-        }
+        walk_test_elements(&doc.root, meta_dir, &mut cases);
     }
     cases
+}
+
+/// Recursive walker over the typed [`XmlDocument`] tree. Every
+/// `<TEST>` element contributes one [`XmlConfCase`] iff it has a
+/// recognised `TYPE` and a `URI` (per the XMLConf testcases.dtd
+/// shipped with the suite).
+fn walk_test_elements(
+    element: &crate::social::software::markup::xml::ontology::XmlElement,
+    meta_dir: &std::path::Path,
+    out: &mut Vec<XmlConfCase>,
+) {
+    if element.name.local == "TEST"
+        && let Some(case) = case_from_test(element, meta_dir)
+    {
+        out.push(case);
+    }
+    for child in &element.children {
+        if let crate::social::software::markup::xml::ontology::XmlNode::Element(el) = child {
+            walk_test_elements(el, meta_dir, out);
+        }
+    }
+}
+
+/// Project one `<TEST>` element to an [`XmlConfCase`], or `None`
+/// if the required attributes are missing or carry unrecognised
+/// values.
+fn case_from_test(
+    test: &crate::social::software::markup::xml::ontology::XmlElement,
+    meta_dir: &std::path::Path,
+) -> Option<XmlConfCase> {
+    let uri = attr_value(test, "URI")?;
+    let case_type = match attr_value(test, "TYPE")?.as_str() {
+        "valid" => XmlConfType::Valid,
+        "invalid" => XmlConfType::Invalid,
+        "not-wf" => XmlConfType::NotWf,
+        "error" => XmlConfType::Error,
+        _ => return None,
+    };
+    Some(XmlConfCase {
+        doc_path: meta_dir.join(&uri),
+        case_type,
+    })
+}
+
+/// Look up an unprefixed attribute by local name (XMLConf TEST
+/// attributes are all in the no-namespace per the testcases.dtd).
+fn attr_value(
+    element: &crate::social::software::markup::xml::ontology::XmlElement,
+    local: &str,
+) -> Option<String> {
+    element
+        .attributes
+        .iter()
+        .find(|a| a.name.prefix.is_none() && a.name.local == local)
+        .map(|a| a.value.clone())
 }
 
 /// Recursively list every `.xml` file under `base` that is itself a
@@ -252,23 +279,6 @@ fn list_meta_files(base: &std::path::Path) -> Vec<std::path::PathBuf> {
         }
     }
     out
-}
-
-/// One-attribute scanner: substring after `attr_prefix` up to the
-/// next `terminator`. Sufficient for the rigidly formatted XMLConf
-/// metadata; not a general XML parser.
-fn scan_value<'a>(haystack: &'a str, attr_prefix: &str, terminator: char) -> Option<&'a str> {
-    let start = haystack.find(attr_prefix)? + attr_prefix.len();
-    let rest = &haystack[start..];
-    let end = rest.find(terminator)?;
-    Some(&haystack[start..start + end])
-}
-
-fn find_subslice(hay: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() || hay.len() < needle.len() {
-        return None;
-    }
-    (0..=hay.len() - needle.len()).find(|&i| &hay[i..i + needle.len()] == needle)
 }
 
 /// What [`run_audit`] reports.
@@ -405,15 +415,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn scan_value_extracts_uri() {
-        let attrs = r#"URI="valid/pe01.xml" ID="pe01" TYPE="valid""#;
-        assert_eq!(scan_value(attrs, "URI=\"", '"'), Some("valid/pe01.xml"));
-    }
-
-    #[test]
-    fn scan_value_extracts_type() {
-        let attrs = r#"URI="x.xml" TYPE="not-wf""#;
-        assert_eq!(scan_value(attrs, "TYPE=\"", '"'), Some("not-wf"));
+    fn case_from_test_walks_typed_xml() {
+        // Verify the ontological walker recognises a synthesised
+        // manifest. The fixture is parsed via parse_document (the
+        // same XML 1.0 parser the audit uses); each TEST element's
+        // URI + TYPE attributes are read through the typed
+        // XmlAttribute API, not substring-scanned.
+        let manifest = br#"<?xml version="1.0"?>
+<TESTCASES>
+  <TEST URI="valid/pe01.xml" ID="pe01" TYPE="valid"/>
+  <TEST URI="not-wf/p01.xml" ID="p01" TYPE="not-wf"/>
+  <TEST URI="ok/inv.xml" ID="inv" TYPE="invalid"/>
+  <TEST URI="opt/err.xml" ID="err" TYPE="error"/>
+</TESTCASES>"#;
+        let doc = parse_document(manifest).expect("manifest must parse");
+        let dir = std::path::Path::new("/tmp/synthetic");
+        let mut out = Vec::new();
+        walk_test_elements(&doc.root, dir, &mut out);
+        assert_eq!(out.len(), 4);
+        assert_eq!(out[0].case_type, XmlConfType::Valid);
+        assert!(out[0].doc_path.ends_with("valid/pe01.xml"));
+        assert_eq!(out[1].case_type, XmlConfType::NotWf);
+        assert_eq!(out[2].case_type, XmlConfType::Invalid);
+        assert_eq!(out[3].case_type, XmlConfType::Error);
     }
 
     #[test]

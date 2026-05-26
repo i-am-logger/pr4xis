@@ -196,6 +196,7 @@ fn consume_prefix(s: &str, prefix: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn parses_minimal_element_decl() {
@@ -250,6 +251,73 @@ mod tests {
         assert_eq!(decls.len(), 1);
         assert_eq!(decls[0].kind, DtdConcept::ElementDecl);
         assert_eq!(decls[0].name, "root");
+    }
+
+    proptest! {
+        /// For every well-formed `<!{KIND} {name} {body}>` declaration
+        /// with a W3C XML 1.0 §2.3 [4] Name-shaped identifier and a
+        /// safe-character body, parse_dtd recognises exactly one
+        /// declaration with the expected kind and name. Covers the
+        /// four §2.8 [29] markupdecl kinds uniformly.
+        #[test]
+        fn prop_recognises_any_well_formed_decl(
+            kind_idx in 0usize..4,
+            // Name production [4]: NameStartChar (NameChar)* — we
+            // restrict to the ASCII subset for proptest tractability.
+            name in "[A-Za-z_][A-Za-z0-9_.-]{0,15}",
+            // Body has no '>' (would terminate the declaration early)
+            // and balanced quotes; we allow ASCII alphanumerics +
+            // safe punctuation.
+            body in r#"[A-Za-z0-9 _.,;:()/+#-]{0,60}"#,
+        ) {
+            let (kind_kw, expected_kind) = match kind_idx {
+                0 => ("ELEMENT", DtdConcept::ElementDecl),
+                1 => ("ATTLIST", DtdConcept::AttListDecl),
+                2 => ("ENTITY",  DtdConcept::GeneralEntity),
+                _ => ("NOTATION", DtdConcept::NotationDecl),
+            };
+            let src = alloc::format!("<!{kind_kw} {name} {body}>");
+            let decls = parse_dtd(src.as_bytes());
+            prop_assert_eq!(decls.len(), 1);
+            prop_assert_eq!(decls[0].kind, expected_kind);
+            prop_assert_eq!(&decls[0].name, &name);
+        }
+
+        /// Parameter-entity declarations (`<!ENTITY % name "value">`)
+        /// always project to `ParameterEntity`, with the bare name
+        /// (`%` stripped). The §4.2 [72] PEDecl invariant.
+        #[test]
+        fn prop_parameter_entity_strips_percent(
+            name in "[A-Za-z_][A-Za-z0-9_.-]{0,15}",
+            value in r#"[A-Za-z0-9 _.-]{0,40}"#,
+        ) {
+            let src = alloc::format!("<!ENTITY % {name} \"{value}\">");
+            let decls = parse_dtd(src.as_bytes());
+            prop_assert_eq!(decls.len(), 1);
+            prop_assert_eq!(decls[0].kind, DtdConcept::ParameterEntity);
+            prop_assert_eq!(&decls[0].name, &name);
+            prop_assert!(
+                !decls[0].name.starts_with('%'),
+                "parameter-entity name must be the bare token, not `%name`",
+            );
+        }
+
+        /// Multiple declarations in sequence parse to the same
+        /// number of [`DtdDecl`]s in document order. Composition of
+        /// the §2.8 [29] recogniser is monoidal on the input string.
+        #[test]
+        fn prop_sequence_count_preserved(count in 0usize..8) {
+            let mut src = String::new();
+            for i in 0..count {
+                src.push_str(&alloc::format!("<!ELEMENT e{i} EMPTY>\n"));
+            }
+            let decls = parse_dtd(src.as_bytes());
+            prop_assert_eq!(decls.len(), count);
+            for (i, d) in decls.iter().enumerate() {
+                prop_assert_eq!(d.kind, DtdConcept::ElementDecl);
+                prop_assert_eq!(&d.name, &alloc::format!("e{i}"));
+            }
+        }
     }
 
     #[test]

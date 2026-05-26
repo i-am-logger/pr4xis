@@ -240,44 +240,96 @@ fn resolve_extracted_tree_path() -> Result<Option<std::path::PathBuf>, ()> {
 }
 
 /// Walk all `*.testSet` and `*_w3c.xml` files under `base` and
-/// extract `(schemaDocument, expected)` pairs. The pairing logic
-/// mirrors the W3C testSet schema's structural invariant: within
-/// each `<schemaTest>` block, a `<schemaDocument xlink:href=...>`
-/// element precedes its `<expected validity=...>` sibling.
+/// extract `(schemaDocument, expected)` pairs by **parsing the
+/// manifest XML through the praxis XML 1.0 parser** and walking
+/// the typed [`XmlDocument`] tree (no substring or attribute
+/// hand-scanning). Within each `<schemaTest>` element, find the
+/// child `<schemaDocument xlink:href="…"/>` and `<expected
+/// validity="…"/>` per the W3C QA testSet schema (Curran, Quin &
+/// Walsh 2008).
 fn collect_cases(base: &std::path::Path) -> Vec<XstsCase> {
     let mut cases = Vec::new();
     for meta in list_meta_files(base) {
-        let Ok(text) = std::fs::read_to_string(&meta) else {
+        let Ok(bytes) = std::fs::read(&meta) else {
+            continue;
+        };
+        let Ok(doc) = parse_document(&bytes) else {
             continue;
         };
         let meta_dir = meta.parent().unwrap_or(std::path::Path::new("."));
-        let mut pending_href: Option<String> = None;
-        for line in text.lines() {
-            if let Some(href) = scan_attr(line, "<schemaDocument", "xlink:href=\"", '"') {
-                pending_href = Some(href.to_string());
-                continue;
-            }
-            if pending_href.is_some()
-                && let Some(val) = scan_attr(line, "<expected", "validity=\"", '"')
-            {
-                let expected = match val {
-                    "valid" => XstsExpected::Valid,
-                    "invalid" => XstsExpected::Invalid,
-                    _ => {
-                        pending_href = None;
-                        continue;
-                    }
-                };
-                let href = pending_href.take().expect("just checked");
-                let resolved = meta_dir.join(&href);
-                cases.push(XstsCase {
-                    schema_path: resolved,
-                    expected,
-                });
-            }
-        }
+        walk_schema_tests(&doc.root, meta_dir, &mut cases);
     }
     cases
+}
+
+/// Recursive walker over the typed [`XmlDocument`] tree. Every
+/// `<schemaTest>` element contributes one [`XstsCase`] iff it has
+/// both a `<schemaDocument xlink:href="…"/>` and `<expected
+/// validity="…"/>` child (per the W3C QA testSet schema).
+fn walk_schema_tests(
+    element: &crate::social::software::markup::xml::ontology::XmlElement,
+    meta_dir: &std::path::Path,
+    out: &mut Vec<XstsCase>,
+) {
+    if element.name.local == "schemaTest"
+        && let Some(case) = case_from_schema_test(element, meta_dir)
+    {
+        out.push(case);
+    }
+    for child in &element.children {
+        if let crate::social::software::markup::xml::ontology::XmlNode::Element(el) = child {
+            walk_schema_tests(el, meta_dir, out);
+        }
+    }
+}
+
+/// Project one `<schemaTest>` element to an [`XstsCase`], or `None`
+/// if its required children are missing or carry unrecognised values.
+fn case_from_schema_test(
+    schema_test: &crate::social::software::markup::xml::ontology::XmlElement,
+    meta_dir: &std::path::Path,
+) -> Option<XstsCase> {
+    use crate::social::software::markup::xml::ontology::XmlNode;
+    let mut href: Option<String> = None;
+    let mut validity: Option<String> = None;
+    for child in &schema_test.children {
+        let XmlNode::Element(el) = child else {
+            continue;
+        };
+        match el.name.local.as_str() {
+            "schemaDocument" => {
+                href = attr_with_prefix(el, Some("xlink"), "href");
+            }
+            "expected" => {
+                validity = attr_with_prefix(el, None, "validity");
+            }
+            _ => {}
+        }
+    }
+    let expected = match validity.as_deref()? {
+        "valid" => XstsExpected::Valid,
+        "invalid" => XstsExpected::Invalid,
+        _ => return None,
+    };
+    Some(XstsCase {
+        schema_path: meta_dir.join(href?),
+        expected,
+    })
+}
+
+/// Look up an attribute on an XmlElement by (prefix, local). The
+/// xlink namespace's `xlink:href` attribute uses prefix=`xlink`;
+/// `validity` is unprefixed.
+fn attr_with_prefix(
+    element: &crate::social::software::markup::xml::ontology::XmlElement,
+    prefix: Option<&str>,
+    local: &str,
+) -> Option<String> {
+    element
+        .attributes
+        .iter()
+        .find(|a| a.name.prefix.as_deref() == prefix && a.name.local == local)
+        .map(|a| a.value.clone())
 }
 
 /// Recursively list every `*.testSet` / `*_w3c.xml` metadata file
@@ -309,26 +361,6 @@ fn list_meta_files(base: &std::path::Path) -> Vec<std::path::PathBuf> {
         }
     }
     out
-}
-
-/// Lightweight one-attribute scanner: if `line` contains
-/// `element_prefix` followed somewhere after by `attr_prefix`, return
-/// the substring between `attr_prefix` and the next occurrence of
-/// `terminator`. Returns `None` otherwise. Sufficient for the rigidly
-/// formatted xsts metadata files; not a general XML parser.
-fn scan_attr<'a>(
-    line: &'a str,
-    element_prefix: &str,
-    attr_prefix: &str,
-    terminator: char,
-) -> Option<&'a str> {
-    let el_idx = line.find(element_prefix)?;
-    let after_el = &line[el_idx..];
-    let attr_idx = after_el.find(attr_prefix)?;
-    let val_start = el_idx + attr_idx + attr_prefix.len();
-    let rest = &line[val_start..];
-    let end = rest.find(terminator)?;
-    Some(&line[val_start..val_start + end])
 }
 
 /// Run the corpus-wide audit by consuming the cached [`loaded_xsts`]
@@ -456,21 +488,34 @@ mod tests {
     }
 
     #[test]
-    fn scan_attr_extracts_xlink_href() {
-        let line = r#"  <schemaDocument xlink:href="../msData/element/elemA002.xsd"/>"#;
-        assert_eq!(
-            scan_attr(line, "<schemaDocument", "xlink:href=\"", '"'),
-            Some("../msData/element/elemA002.xsd")
-        );
-    }
-
-    #[test]
-    fn scan_attr_extracts_validity() {
-        let line = r#"      <expected validity="valid"/>"#;
-        assert_eq!(
-            scan_attr(line, "<expected", "validity=\"", '"'),
-            Some("valid")
-        );
+    fn case_from_schema_test_walks_typed_xml() {
+        // Verify the ontological walker recognises a synthesised
+        // <schemaTest> element with the W3C QA testSet attribute
+        // shape. The fixture is parsed via parse_document (the same
+        // XML 1.0 parser the audit uses), not synthesised in
+        // memory — proves the projector ↔ parser composition.
+        let manifest = br#"<?xml version="1.0"?>
+<testSet xmlns:xlink="http://www.w3.org/1999/xlink">
+  <testGroup>
+    <schemaTest>
+      <schemaDocument xlink:href="elemA002.xsd"/>
+      <expected validity="valid"/>
+    </schemaTest>
+    <schemaTest>
+      <schemaDocument xlink:href="bad.xsd"/>
+      <expected validity="invalid"/>
+    </schemaTest>
+  </testGroup>
+</testSet>"#;
+        let doc = parse_document(manifest).expect("manifest must parse");
+        let dir = std::path::Path::new("/tmp/synthetic");
+        let mut out = Vec::new();
+        walk_schema_tests(&doc.root, dir, &mut out);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].expected, XstsExpected::Valid);
+        assert!(out[0].schema_path.ends_with("elemA002.xsd"));
+        assert_eq!(out[1].expected, XstsExpected::Invalid);
+        assert!(out[1].schema_path.ends_with("bad.xsd"));
     }
 
     #[test]

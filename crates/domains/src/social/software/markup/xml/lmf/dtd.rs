@@ -41,18 +41,31 @@ pub fn loaded_wn_lmf_dtd() -> &'static str {
     WN_LMF_1_3_DTD
 }
 
-/// True iff `name` is an element type declared in the bundled
-/// WN-LMF 1.3 DTD (case-sensitive — XML element names are
-/// case-sensitive per W3C XML 1.0 §3). The lookup is a simple
-/// substring scan against `<!ELEMENT <name>` openings, which
-/// matches the rigid DTD format.
+/// True iff `name` is the local-name of an element type declared
+/// in the bundled WN-LMF 1.3 DTD, looked up ontologically against
+/// the [`DtdLens`](crate::formal::meta::dtd::DtdLens)-parsed
+/// declaration set (W3C XML 1.0 §3.2 production [45] `elementdecl`).
+/// Case-sensitive — XML element names are case-sensitive per W3C
+/// XML 1.0 §3.
+///
+/// The lookup goes through the typed [`DtdSchema`](crate::formal::meta::dtd::DtdSchema):
+/// the bundled DTD bytes are parsed once on first call (cached via
+/// [`OnceLock`](std::sync::OnceLock)) into the praxis DTD ontology,
+/// then names are matched against the parsed [`DtdConcept::ElementDecl`]
+/// names — never a substring scan over the source bytes.
 #[must_use]
 pub fn is_wn_lmf_element(name: &str) -> bool {
-    // DTDs declare elements as `<!ELEMENT <Name> ...>`. We require
-    // the trailing space so `LexicalEntry` doesn't match
-    // `LexicalEntryRelation` etc.
-    let needle = alloc::format!("<!ELEMENT {name} ");
-    WN_LMF_1_3_DTD.contains(&needle)
+    use crate::formal::meta::dtd::ontology::DtdConcept;
+    use crate::formal::meta::well_behaved_lens::WellBehavedLens;
+    static SCHEMA: std::sync::OnceLock<crate::formal::meta::dtd::DtdSchema> =
+        std::sync::OnceLock::new();
+    let schema = SCHEMA.get_or_init(|| {
+        <crate::formal::meta::dtd::DtdLens as WellBehavedLens>::get(WN_LMF_1_3_DTD.as_bytes())
+            .expect("bundled WN-LMF 1.3 DTD must parse cleanly")
+    });
+    schema
+        .of_kind(DtdConcept::ElementDecl)
+        .any(|d| d.name == name)
 }
 
 #[cfg(test)]
