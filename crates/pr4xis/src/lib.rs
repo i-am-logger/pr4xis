@@ -38,6 +38,7 @@ pub mod engine;
 pub mod entity_ref;
 pub mod logic;
 pub mod ontology;
+pub mod xml_grammar;
 
 pub use entity_ref::EntityRef;
 pub use pr4xis_derive::ontology;
