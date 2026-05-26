@@ -163,10 +163,11 @@ impl std::error::Error for XmlParseError {}
 /// Implements **production [1]** `document ::= prolog element Misc*`
 /// from W3C XML 1.0 Fifth Edition §2.1.
 ///
-/// Strips an optional UTF-8 byte-order mark (BOM, U+FEFF encoded as
-/// `EF BB BF`) at the start of the input per W3C XML 1.0 §F (Autodetection
-/// of Character Encodings) — the BOM is allowed on UTF-8 streams and
-/// is not part of the document content.
+/// **W3C XML 1.0 §F (Autodetection of Character Encodings)** is
+/// applied via [`decode_input`]: byte-order marks select between
+/// UTF-8, UTF-16 big-endian, and UTF-16 little-endian; bytes are
+/// transcoded to UTF-8 before the grammar descent. The UTF-8 BOM
+/// (rare but allowed) is stripped as part of decoding.
 ///
 /// Performs **§2.11 End-of-Line Handling** on the resulting string
 /// before parsing: every literal `#xD#xA` (CRLF) and every lone `#xD`
@@ -174,11 +175,8 @@ impl std::error::Error for XmlParseError {}
 /// this normalization on input so that downstream productions never
 /// see CR.
 pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
-    let input = input.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(input);
-    let raw = core::str::from_utf8(input).map_err(|e| XmlParseError::NotUtf8 {
-        position: e.valid_up_to(),
-    })?;
-    let normalized = normalize_line_endings(raw);
+    let raw = decode_input(input)?;
+    let normalized = normalize_line_endings(&raw);
     let mut cursor = Cursor::new(&normalized);
 
     let (version, encoding, doctype) = parse_prolog(&mut cursor)?;
@@ -199,6 +197,75 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
         doctype,
         root,
     })
+}
+
+/// W3C XML 1.0 Fifth Edition §F (Autodetection of Character
+/// Encodings) — transcode raw bytes to UTF-8 by examining the
+/// initial byte sequence:
+///
+/// - `FE FF …`         → UTF-16 big-endian, BOM stripped
+/// - `FF FE …`         → UTF-16 little-endian, BOM stripped
+/// - `EF BB BF …`      → UTF-8 with BOM, BOM stripped
+/// - anything else     → UTF-8 (no BOM)
+///
+/// Unpaired surrogates and odd-length UTF-16 inputs are reported as
+/// [`XmlParseError::NotUtf8`] — that variant covers any
+/// encoding-layer failure regardless of declared encoding.
+///
+/// Other encodings the spec recognises (UTF-32, EBCDIC, encoding
+/// declared via `<?xml encoding="…"?>` for a non-Unicode label) are
+/// out of scope: the praxis legal-evidence corpus is uniformly
+/// UTF-8 / UTF-16, and the W3C XMLConf test cases the praxis
+/// parser must pass declare only those.
+fn decode_input(input: &[u8]) -> Result<String, XmlParseError> {
+    if let Some(body) = input.strip_prefix(&[0xFE, 0xFF]) {
+        return decode_utf16(body, /* big_endian = */ true);
+    }
+    if let Some(body) = input.strip_prefix(&[0xFF, 0xFE]) {
+        return decode_utf16(body, /* big_endian = */ false);
+    }
+    let body = input.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(input);
+    core::str::from_utf8(body)
+        .map(|s| s.to_string())
+        .map_err(|e| XmlParseError::NotUtf8 {
+            position: e.valid_up_to(),
+        })
+}
+
+/// Decode UTF-16 bytes (already-stripped of the BOM) to a UTF-8
+/// `String`. Endianness is selected by the caller from the BOM.
+/// Reports `NotUtf8` on odd byte length or unpaired surrogates per
+/// the Unicode 15 §3.9 D89/D91 invariants.
+fn decode_utf16(bytes: &[u8], big_endian: bool) -> Result<String, XmlParseError> {
+    if bytes.len() % 2 != 0 {
+        return Err(XmlParseError::NotUtf8 {
+            position: bytes.len() & !1,
+        });
+    }
+    let units: Vec<u16> = bytes
+        .chunks_exact(2)
+        .map(|pair| {
+            if big_endian {
+                u16::from_be_bytes([pair[0], pair[1]])
+            } else {
+                u16::from_le_bytes([pair[0], pair[1]])
+            }
+        })
+        .collect();
+    let mut out = String::with_capacity(units.len());
+    let mut unit_index = 0usize;
+    for result in core::char::decode_utf16(units.iter().copied()) {
+        match result {
+            Ok(ch) => out.push(ch),
+            Err(_) => {
+                return Err(XmlParseError::NotUtf8 {
+                    position: 2 * unit_index,
+                });
+            }
+        }
+        unit_index += 1;
+    }
+    Ok(out)
 }
 
 /// **W3C XML 1.0 §2.11 End-of-Line Handling.** Every literal `#xD#xA`
