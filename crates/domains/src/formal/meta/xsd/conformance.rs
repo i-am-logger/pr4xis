@@ -272,6 +272,19 @@ pub fn canon() -> Vec<XsdConformanceCase> {
             expect_concepts: &[C::Assert, C::OpenContent, C::DefaultOpenContent],
         },
         XsdConformanceCase {
+            id: "notation-declaration",
+            case_type: T::SchemaValid,
+            section: "Part 1 §3.14 (notation declarations)",
+            description: "A schema declaring a single <xsd:notation> binding a name to a \
+                          public / system identifier pair (the XSD analogue of an XML 1.0 \
+                          NOTATION declaration, Bray et al. 2008 §4.7).",
+            source: br#"<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:notation name="jpeg" public="image/jpeg" system="viewer.exe"/>
+</xs:schema>"#,
+            expect_concepts: &[C::NotationDeclaration],
+        },
+        XsdConformanceCase {
             id: "annotation",
             case_type: T::SchemaValid,
             section: "Part 1 §3.15 (annotation / documentation / appinfo)",

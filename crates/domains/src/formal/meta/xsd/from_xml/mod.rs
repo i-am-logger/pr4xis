@@ -249,6 +249,15 @@ fn project_xsd_declaration(element: &XmlElement, state: &mut ProjectState) {
             state.components.push(XsdConcept::Wildcard);
             return;
         }
+        // §3.14 Notation Declarations — `<xs:notation>` binds a name to
+        // a public / system identifier pair (the XSD analogue of an XML
+        // 1.0 NOTATION declaration, Bray et al. 2008 §4.7). Anonymous at
+        // the projection level (the name + public/system attributes
+        // live downstream in xsd-parser's AST).
+        "notation" => {
+            state.components.push(XsdConcept::NotationDeclaration);
+            return;
+        }
         // -------- §3.4.2 Type-construction content wrappers --------
         "complexContent" => {
             state.components.push(XsdConcept::ComplexContent);
