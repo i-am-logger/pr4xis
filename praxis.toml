@@ -143,6 +143,30 @@ type        = "ConceptualSpec"
 url         = "https://www.w3.org/TR/xml-infoset/"
 description = "W3C XML Information Set (Second Edition) — the 11 information items of an XML document. Cite: Cowan & Tobin (2004) W3C Recommendation 4 February 2004."
 
+# W3C XML Schema Test Suite (xsts) — the canonical conformance corpus
+# for XSD 1.1 readers. ~14,328 schemaTest cases (~11,598 valid,
+# ~2,730 invalid) drawn from Boeing, Microsoft, NIST and Sun
+# contributions. Each test case pairs a <schemaDocument> with an
+# <expected validity=...> classification per W3C XSD 1.1 Parts 1 + 2
+# (Gao, Sperberg-McQueen & Thompson 2012; Peterson et al. 2012).
+#
+# Per the M4.λ.2.e.b dispatch: this is the source-form half of the
+# xsts integration. The in-repo §-cited canon (`formal::meta::xsd::
+# conformance`) is always run; this archive is the full corpus,
+# walked by the XstsCorpusAuditPasses axiom when the bytes are on
+# disk.
+#
+# Bundled file: `crates/domains/data/markup-schemas/xsts/xsts_xml_schema_test_suite-2007-06-20.tar.gz`.
+# Citation: W3C XML Schema Working Group, XML Schema Test Suite,
+# <https://www.w3.org/XML/2004/xml-schema-test-suite/>; Curran et al.
+# (eds.) (2008) W3C QA Framework: Test Methodology Guidelines, W3C
+# Note 22 February 2008.
+[sources.xsts_xml_schema_test_suite]
+version     = "2007-06-20"
+type        = "XmlSchemaTestSuite"
+url         = "https://www.w3.org/XML/2004/xml-schema-test-suite/xmlschema2006-11-06/xsts-2007-06-20.tar.gz"
+description = "W3C XML Schema Test Suite (xsts) — ~14,328 schemaTest cases certifying XSD 1.1 reader conformance. Cite: W3C XML Schema Working Group, XML Schema Test Suite (2007-06-20 archive); Curran et al. (2008) W3C QA Framework: Test Methodology Guidelines, W3C Note 22 Feb 2008."
+
 # U.S. Federal Legal-Text Closed-Class Lexicon — bounded enumeration of
 # the citation abbreviations, month names, federal-agency acronyms,
 # U.S. state / place names, productive English compounds, and legal

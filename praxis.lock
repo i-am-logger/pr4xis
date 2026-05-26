@@ -68,6 +68,15 @@
 # (Cowan & Tobin 2004 W3C Recommendation 4 February 2004 §2) rather
 # than being hand-coded.
 "xml_infoset@2004"        = "316b1b0df49a40dd4cab7ea403dd4f9e5f0d073803b2a7663ebddc33fffebc3e"
+# W3C XML Schema Test Suite (xsts). Pinned hash of the bundled
+# archive crates/domains/data/markup-schemas/xsts/xsts_xml_schema_test_suite-2007-06-20.tar.gz
+# — the canonical conformance corpus for XSD 1.1 readers,
+# ~14,328 schemaTest cases drawn from Boeing / Microsoft / NIST /
+# Sun contributions and certified per W3C XSD 1.1 Parts 1 + 2.
+# Loaded by the XstsCorpusAuditPasses axiom (M4.λ.2.e.b) at test
+# time to walk every case through the praxis XSD reader and confirm
+# 100% spec-conformance.
+"xsts_xml_schema_test_suite@2007-06-20" = "902176b25e4111cf96b08663107521a4992e8ea67aad6b815592a6a5b4b9ea06"
 # U.S. Federal Legal-Text Closed-Class Lexicon (LMF XML). Pinned hash
 # of crates/domains/data/legal-text/us_legal_lexicon.xml — the
 # bounded, cited enumeration of citation abbreviations + month names +

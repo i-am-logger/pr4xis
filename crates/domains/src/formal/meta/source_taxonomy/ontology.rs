@@ -42,6 +42,10 @@ pr4xis::ontology! {
         SchemaSpec,                 // root of structural schema specifications
         XmlSchemaDefinition,        // leaf: a W3C XSD 1.1 schema document (e.g., USLM XSD)
         ConceptualSpec,             // leaf: a published text-form conceptual specification (e.g., W3C XML Information Set rec)
+
+        // === TestSuite family (W3C QA Framework: Test Methodology Guidelines, 2008) ===
+        TestSuite,                  // root of published conformance test corpora
+        XmlSchemaTestSuite,         // leaf: the W3C XML Schema Test Suite (xsts) — a corpus of validity-labeled XSD documents
     ],
 
     labels: {
@@ -83,6 +87,10 @@ pr4xis::ontology! {
             "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1, W3C Recommendation 5 April 2012: an XSD document declaring element/complexType/simpleType/attribute/group declarations for an XML vocabulary. Cited by content-type ontologies (USLM 1.0.18) that ground their type system in the schema rather than hand-coding."),
         ConceptualSpec: ("en", "Conceptual specification",
             "Cowan & Tobin (2004) W3C XML Information Set (Second Edition), W3C Recommendation 4 February 2004: a published text-form specification that defines a conceptual model (information items, abstract structures, taxonomies) rather than a concrete machine-readable schema. The conceptual taxonomy is loaded by parsing the section-heading structure of the W3C-published XHTML edition of the recommendation. Sibling to XmlSchemaDefinition under SchemaSpec."),
+        TestSuite: ("en", "Conformance test suite",
+            "W3C QA Framework: Test Methodology Guidelines (Curran et al. eds., W3C Note 22 February 2008): a published conformance test corpus paired with a normative specification — each test case carries an expected outcome and the union of cases across categories certifies a reader's conformance to the spec."),
+        XmlSchemaTestSuite: ("en", "W3C XML Schema Test Suite (xsts)",
+            "W3C XML Schema Working Group, XML Schema Test Suite, archive xsts-2007-06-20 at <https://www.w3.org/XML/2004/xml-schema-test-suite/xmlschema2006-11-06/xsts-2007-06-20.tar.gz>: ~14,328 schemaTest cases (~11,598 valid + ~2,730 invalid) drawn from Boeing, Microsoft, NIST and Sun contributions, each pairing a <schemaDocument> with an <expected validity=...> classification per the W3C XSD 1.1 Parts 1 + 2 (Gao et al. 2012; Peterson et al. 2012)."),
     },
 
     is_a: [
@@ -111,6 +119,10 @@ pr4xis::ontology! {
         (SchemaSpec, Source),
         (XmlSchemaDefinition, SchemaSpec),
         (ConceptualSpec, SchemaSpec),
+
+        // TestSuite family
+        (TestSuite, Source),
+        (XmlSchemaTestSuite, TestSuite),
     ],
 
     // Adjunction graph: pairs of concepts whose instances are connected by
@@ -233,6 +245,8 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "SchemaSpec" => C::SchemaSpec,
         "XmlSchemaDefinition" => C::XmlSchemaDefinition,
         "ConceptualSpec" => C::ConceptualSpec,
+        "TestSuite" => C::TestSuite,
+        "XmlSchemaTestSuite" => C::XmlSchemaTestSuite,
         _ => return None,
     })
 }
@@ -261,6 +275,8 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::SchemaSpec => "SchemaSpec",
         C::XmlSchemaDefinition => "XmlSchemaDefinition",
         C::ConceptualSpec => "ConceptualSpec",
+        C::TestSuite => "TestSuite",
+        C::XmlSchemaTestSuite => "XmlSchemaTestSuite",
     }
 }
 
@@ -321,6 +337,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
             | C::TypographicGlyphSet
             | C::XmlSchemaDefinition
             | C::ConceptualSpec
+            | C::XmlSchemaTestSuite
     )
 }
 

@@ -34,7 +34,7 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn nineteen_concepts() {
+fn twenty_one_concepts() {
     // Lexicon family (6): Source, Lexicon, Language, DomainLexicon,
     //                     LegalLexicon, SchemaVocabulary.
     // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
@@ -45,7 +45,8 @@ fn nineteen_concepts() {
     //                                TypographicGlyphSet.
     // SchemaSpec family (3): SchemaSpec, XmlSchemaDefinition,
     //                        ConceptualSpec.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 19);
+    // TestSuite family (2): TestSuite, XmlSchemaTestSuite.
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 21);
 }
 
 #[test]
@@ -113,7 +114,7 @@ fn is_lexicon_recognizes_subtree() {
 }
 
 #[test]
-fn is_leaf_identifies_twelve_leaves() {
+fn is_leaf_identifies_thirteen_leaves() {
     use SourceTaxonomyConcept as C;
     let leaves: Vec<_> = SourceTaxonomyConcept::variants()
         .into_iter()
@@ -122,12 +123,13 @@ fn is_leaf_identifies_twelve_leaves() {
     // Language, LegalLexicon, SchemaVocabulary, UsFederalStatute,
     // UsCodeTitle, Regulation, ConstitutionalArticle, ProceduralRule,
     // CaseLaw, TypographicGlyphSet, XmlSchemaDefinition,
-    // ConceptualSpec.
+    // ConceptualSpec, XmlSchemaTestSuite.
     //   Statute is the jurisdiction-agnostic parent of
     //   UsFederalStatute (not a leaf); TypographyResource is parent
     //   of TypographicGlyphSet; SchemaSpec is parent of
-    //   XmlSchemaDefinition and ConceptualSpec.
-    assert_eq!(leaves.len(), 12);
+    //   XmlSchemaDefinition and ConceptualSpec; TestSuite is parent
+    //   of XmlSchemaTestSuite.
+    assert_eq!(leaves.len(), 13);
     assert!(leaves.contains(&C::Language));
     assert!(leaves.contains(&C::SchemaVocabulary));
     assert!(leaves.contains(&C::UsFederalStatute));
@@ -135,6 +137,7 @@ fn is_leaf_identifies_twelve_leaves() {
     assert!(leaves.contains(&C::TypographicGlyphSet));
     assert!(leaves.contains(&C::XmlSchemaDefinition));
     assert!(leaves.contains(&C::ConceptualSpec));
+    assert!(leaves.contains(&C::XmlSchemaTestSuite));
     assert!(!leaves.contains(&C::Statute));
     assert!(!leaves.contains(&C::TypographyResource));
     assert!(!leaves.contains(&C::SchemaSpec));

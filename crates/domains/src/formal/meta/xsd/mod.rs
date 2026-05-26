@@ -67,6 +67,7 @@ pub mod from_xsd_parser;
 pub mod ontology;
 pub mod uslm_vocabulary;
 pub mod versioned;
+pub mod xsts_audit;
 
 /// The W3C XSD 1.1 namespace URI.
 ///

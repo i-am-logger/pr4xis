@@ -135,6 +135,13 @@ pub enum ContentType {
     Video,
     /// Audio file (wav, flac, ogg). Decoder: not yet implemented.
     Audio,
+    /// gzip-compressed tar archive — the canonical bundle format for
+    /// conformance test suites that ship as a single downloadable file
+    /// (W3C QA Framework: Test Methodology Guidelines, Curran et al.
+    /// 2008). The W3C XML Schema Test Suite (xsts-2007-06-20.tar.gz)
+    /// is the bundled instance. Decoder: tar/gzip extraction +
+    /// per-case `xml::parser::parse_document`.
+    TarGzArchive,
     /// Raw bytes with no further decoding.
     Binary,
 }
@@ -206,13 +213,20 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // build-time text-scan of the section-heading structure
         // (`<h3>` markup with regular class attribution).
         C::ConceptualSpec => ContentType::Xhtml,
+        // XmlSchemaTestSuite ships as a gzip-compressed tar archive of
+        // ~14k schema files plus testSet metadata XML, per the W3C QA
+        // Framework: Test Methodology Guidelines (Curran et al. 2008).
+        // Decoder: tar/gzip extract + per-case parse_document +
+        // project_from_xml_document.
+        C::XmlSchemaTestSuite => ContentType::TarGzArchive,
         // Non-leaf concepts have no decoder — they're abstract.
         C::Source
         | C::Lexicon
         | C::DomainLexicon
         | C::LegalCorpus
         | C::TypographyResource
-        | C::SchemaSpec => ContentType::Binary,
+        | C::SchemaSpec
+        | C::TestSuite => ContentType::Binary,
     }
 }
 
@@ -284,6 +298,7 @@ impl RegistryEntry {
             ContentType::Pdf => "pdf",
             ContentType::Video => "bin",
             ContentType::Audio => "bin",
+            ContentType::TarGzArchive => "tar.gz",
             ContentType::Binary => "bin",
         };
         // Adobe AGL has a fixed canonical filename in the public
@@ -340,6 +355,13 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
         match kind {
             C::TypographicGlyphSet => "adobe",
             _ => "typography",
+        }
+    } else if matches!(kind, C::TestSuite | C::XmlSchemaTestSuite) {
+        // Conformance test suites live under data/markup-schemas/<name>/
+        // — siblings to the schema specs they certify against.
+        match name {
+            "xsts_xml_schema_test_suite" => "markup-schemas/xsts",
+            _ => "markup-schemas",
         }
     } else if matches!(
         kind,

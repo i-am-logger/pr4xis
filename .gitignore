@@ -31,6 +31,10 @@ crates/domains/data/wordnet/*.xml.gz
 crates/domains/data/legal/uscode/**/*.xml
 crates/domains/data/legal/uscode/**/*.xml.gz
 crates/domains/data/legal/uscode/**/*.zip
+# W3C XML Schema Test Suite — 4.2 MB tar.gz, ~14k schema files,
+# fetched via `pr4xis update`. SHA-256 pinned in praxis.lock.
+crates/domains/data/markup-schemas/xsts/*.tar.gz
+crates/domains/data/markup-schemas/xsts/xmlschema2006-11-06/
 
 # Claude Code transient files
 .claude/scheduled_tasks.lock
