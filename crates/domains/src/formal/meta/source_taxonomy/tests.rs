@@ -34,7 +34,7 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn twenty_three_concepts() {
+fn twenty_four_concepts() {
     // Lexicon family (6): Source, Lexicon, Language, DomainLexicon,
     //                     LegalLexicon, SchemaVocabulary.
     // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
@@ -43,11 +43,12 @@ fn twenty_three_concepts() {
     //                         CaseLaw.
     // TypographyResource family (2): TypographyResource,
     //                                TypographicGlyphSet.
-    // SchemaSpec family (4): SchemaSpec, XmlSchemaDefinition,
-    //                        XmlDocumentTypeDefinition, ConceptualSpec.
+    // SchemaSpec family (5): SchemaSpec, XmlSchemaDefinition,
+    //                        XmlDocumentTypeDefinition, OoxmlSchemaArchive,
+    //                        ConceptualSpec.
     // TestSuite family (3): TestSuite, XmlSchemaTestSuite,
     //                       XmlConformanceTestSuite.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 23);
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 24);
 }
 
 #[test]
@@ -115,7 +116,7 @@ fn is_lexicon_recognizes_subtree() {
 }
 
 #[test]
-fn is_leaf_identifies_fifteen_leaves() {
+fn is_leaf_identifies_sixteen_leaves() {
     use SourceTaxonomyConcept as C;
     let leaves: Vec<_> = SourceTaxonomyConcept::variants()
         .into_iter()
@@ -124,15 +125,15 @@ fn is_leaf_identifies_fifteen_leaves() {
     // Language, LegalLexicon, SchemaVocabulary, UsFederalStatute,
     // UsCodeTitle, Regulation, ConstitutionalArticle, ProceduralRule,
     // CaseLaw, TypographicGlyphSet, XmlSchemaDefinition,
-    // XmlDocumentTypeDefinition, ConceptualSpec, XmlSchemaTestSuite,
-    // XmlConformanceTestSuite.
+    // XmlDocumentTypeDefinition, OoxmlSchemaArchive, ConceptualSpec,
+    // XmlSchemaTestSuite, XmlConformanceTestSuite.
     //   Statute is the jurisdiction-agnostic parent of
     //   UsFederalStatute (not a leaf); TypographyResource is parent
     //   of TypographicGlyphSet; SchemaSpec is parent of
-    //   XmlSchemaDefinition + XmlDocumentTypeDefinition + ConceptualSpec;
-    //   TestSuite is parent of XmlSchemaTestSuite +
-    //   XmlConformanceTestSuite.
-    assert_eq!(leaves.len(), 15);
+    //   XmlSchemaDefinition + XmlDocumentTypeDefinition +
+    //   OoxmlSchemaArchive + ConceptualSpec; TestSuite is parent of
+    //   XmlSchemaTestSuite + XmlConformanceTestSuite.
+    assert_eq!(leaves.len(), 16);
     assert!(leaves.contains(&C::Language));
     assert!(leaves.contains(&C::SchemaVocabulary));
     assert!(leaves.contains(&C::UsFederalStatute));

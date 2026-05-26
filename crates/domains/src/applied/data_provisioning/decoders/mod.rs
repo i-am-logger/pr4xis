@@ -19,6 +19,7 @@ pub mod xhtml;
 pub mod xml_dtd;
 pub mod xml_lmf;
 pub mod xml_xsd;
+pub mod zip_archive;
 
 /// Does a decoder exist for this content type? Used by the
 /// `DecoderTotalityPerContentType` axiom.
@@ -32,5 +33,6 @@ pub fn has_decoder_for(content_type: ContentType) -> bool {
             | ContentType::Xhtml
             | ContentType::TarGzArchive
             | ContentType::XmlDtd
+            | ContentType::ZipArchive
     )
 }

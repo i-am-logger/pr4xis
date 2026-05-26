@@ -150,6 +150,15 @@ pub enum ContentType {
     /// Decoder: magic-prefix identification (`<!ELEMENT` /
     /// `<!ATTLIST` markup declarations per §3.2 + §3.3).
     XmlDtd,
+    /// PKZIP archive (.zip), per APPNOTE.TXT 6.3.10 (PKWARE Inc.,
+    /// 2022) + ISO/IEC 21320-1:2015 (the OOXML / EPUB / OPC
+    /// subset). The canonical container format for OOXML schemas
+    /// (ECMA-376 5th edition ships its 21 XSDs as an
+    /// `OfficeOpenXML-XMLSchema-Strict.zip` bundle) and for OOXML
+    /// documents themselves (XLSX / DOCX / PPTX = ZIP-of-XML).
+    /// Decoder: magic-prefix identification (PKZIP local-file-header
+    /// signature `0x04034b50` = bytes `50 4B 03 04`).
+    ZipArchive,
     /// Raw bytes with no further decoding.
     Binary,
 }
@@ -220,6 +229,12 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // canonical schema form for vocabularies that predate XSD
         // or chose DTD over XSD (e.g. Global WordNet's WN-LMF).
         C::XmlDocumentTypeDefinition => ContentType::XmlDtd,
+        // OOXML schema bundles ship as PKZIP archives per ECMA-376
+        // 5th edition (December 2016) — the `OfficeOpenXML-XMLSchema-
+        // Strict.zip` bundle inside the ECMA standard's outer ZIP.
+        // Decoder: zip-archive magic-prefix identification +
+        // per-XSD consumer extraction.
+        C::OoxmlSchemaArchive => ContentType::ZipArchive,
         // ConceptualSpec sources ship as XHTML (the W3C-published
         // recommendation format for text-form specifications such as
         // the XML Information Set rec, Cowan & Tobin 2004). Decoder:
@@ -319,6 +334,7 @@ impl RegistryEntry {
             ContentType::Audio => "bin",
             ContentType::TarGzArchive => "tar.gz",
             ContentType::XmlDtd => "dtd",
+            ContentType::ZipArchive => "zip",
             ContentType::Binary => "bin",
         };
         // Adobe AGL has a fixed canonical filename in the public
@@ -385,6 +401,14 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
         match name {
             "xsts_xml_schema_test_suite" => "markup-schemas/xsts",
             "xmlconf_xml_test_suite" => "markup-schemas/xmlconf",
+            _ => "markup-schemas",
+        }
+    } else if matches!(kind, C::OoxmlSchemaArchive) {
+        // OOXML schema archive bundles live under their own per-name
+        // subdir; the canonical instance is the ECMA-376 5th-edition
+        // strict-schema bundle.
+        match name {
+            "ooxml_schema_strict" => "markup-schemas/ooxml",
             _ => "markup-schemas",
         }
     } else if matches!(

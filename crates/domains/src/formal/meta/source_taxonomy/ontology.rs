@@ -42,6 +42,7 @@ pr4xis::ontology! {
         SchemaSpec,                 // root of structural schema specifications
         XmlSchemaDefinition,        // leaf: a W3C XSD 1.1 schema document (e.g., USLM XSD)
         XmlDocumentTypeDefinition,  // leaf: a W3C XML 1.0 §4 DTD (e.g., WN-LMF 1.3 DTD)
+        OoxmlSchemaArchive,         // leaf: a ZIP bundle of XSDs published as a single ECMA-376 / ISO/IEC 29500 unit
         ConceptualSpec,             // leaf: a published text-form conceptual specification (e.g., W3C XML Information Set rec)
 
         // === TestSuite family (W3C QA Framework: Test Methodology Guidelines, 2008) ===
@@ -85,6 +86,8 @@ pr4xis::ontology! {
             "ISO 32000-2:2020 §9.6.5.4 + Adobe Tech Note #5014: a published name→codepoint table (Adobe Glyph List, AGLFN) cited by PDF /Differences arrays to resolve glyph names to Unicode codepoints."),
         SchemaSpec: ("en", "Schema specification",
             "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1 §1.1: a published structural specification for documents of some content-type. The substrate ontology that downstream content-type ontologies (USLM, LMF, OOXML) load from."),
+        OoxmlSchemaArchive: ("en", "OOXML schema archive",
+            "ECMA International / ISO/IEC JTC 1/SC 34, ECMA-376 / ISO/IEC 29500 — Office Open XML, 5th edition (December 2016). A ZIP bundle of the 21 XSDs that define the Office Open XML vocabularies — WordprocessingML (`wml.xsd`), SpreadsheetML (`sml.xsd`), PresentationML (`pml.xsd`), DrawingML (`dml-*.xsd`), and the shared common types. The published canonical unit for the schemas; downstream OOXML readers (DOCX / XLSX / PPTX) validate against the XSDs inside."),
         XmlDocumentTypeDefinition: ("en", "XML Document Type Definition (DTD)",
             "Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) Extensible Markup Language (XML) 1.0 Fifth Edition, §2.8 + §4: a Document Type Declaration's markup-declarations (ELEMENT / ATTLIST / ENTITY / NOTATION). The pre-XSD machine-readable grammar form for XML applications; still the canonical schema form for some published vocabularies (e.g., the Global WordNet WN-LMF DTD that WordNet 2025 ships against)."),
         XmlSchemaDefinition: ("en", "XML Schema Definition (XSD)",
@@ -125,6 +128,7 @@ pr4xis::ontology! {
         (SchemaSpec, Source),
         (XmlSchemaDefinition, SchemaSpec),
         (XmlDocumentTypeDefinition, SchemaSpec),
+        (OoxmlSchemaArchive, SchemaSpec),
         (ConceptualSpec, SchemaSpec),
 
         // TestSuite family
@@ -253,6 +257,7 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "SchemaSpec" => C::SchemaSpec,
         "XmlSchemaDefinition" => C::XmlSchemaDefinition,
         "XmlDocumentTypeDefinition" => C::XmlDocumentTypeDefinition,
+        "OoxmlSchemaArchive" => C::OoxmlSchemaArchive,
         "ConceptualSpec" => C::ConceptualSpec,
         "TestSuite" => C::TestSuite,
         "XmlSchemaTestSuite" => C::XmlSchemaTestSuite,
@@ -285,6 +290,7 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::SchemaSpec => "SchemaSpec",
         C::XmlSchemaDefinition => "XmlSchemaDefinition",
         C::XmlDocumentTypeDefinition => "XmlDocumentTypeDefinition",
+        C::OoxmlSchemaArchive => "OoxmlSchemaArchive",
         C::ConceptualSpec => "ConceptualSpec",
         C::TestSuite => "TestSuite",
         C::XmlSchemaTestSuite => "XmlSchemaTestSuite",
@@ -349,6 +355,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
             | C::TypographicGlyphSet
             | C::XmlSchemaDefinition
             | C::XmlDocumentTypeDefinition
+            | C::OoxmlSchemaArchive
             | C::ConceptualSpec
             | C::XmlSchemaTestSuite
             | C::XmlConformanceTestSuite
