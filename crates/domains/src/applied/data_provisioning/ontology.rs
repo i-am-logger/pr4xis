@@ -219,6 +219,12 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // Decoder: tar/gzip extract + per-case parse_document +
         // project_from_xml_document.
         C::XmlSchemaTestSuite => ContentType::TarGzArchive,
+        // XmlConformanceTestSuite (XMLConf) ships as a gzip-compressed
+        // tar archive of ~3k XML test files plus per-contributor
+        // manifest XMLs (xmlconf.xml + sun/ / ibm/ / xmltest/ /
+        // japanese/ / oasis/ / eduni/ sub-manifests). Decoder:
+        // tar/gzip extract + per-case parse_document.
+        C::XmlConformanceTestSuite => ContentType::TarGzArchive,
         // Non-leaf concepts have no decoder — they're abstract.
         C::Source
         | C::Lexicon
@@ -356,11 +362,15 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
             C::TypographicGlyphSet => "adobe",
             _ => "typography",
         }
-    } else if matches!(kind, C::TestSuite | C::XmlSchemaTestSuite) {
+    } else if matches!(
+        kind,
+        C::TestSuite | C::XmlSchemaTestSuite | C::XmlConformanceTestSuite
+    ) {
         // Conformance test suites live under data/markup-schemas/<name>/
         // — siblings to the schema specs they certify against.
         match name {
             "xsts_xml_schema_test_suite" => "markup-schemas/xsts",
+            "xmlconf_xml_test_suite" => "markup-schemas/xmlconf",
             _ => "markup-schemas",
         }
     } else if matches!(

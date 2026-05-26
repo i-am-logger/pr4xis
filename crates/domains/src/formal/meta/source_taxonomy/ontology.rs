@@ -46,6 +46,7 @@ pr4xis::ontology! {
         // === TestSuite family (W3C QA Framework: Test Methodology Guidelines, 2008) ===
         TestSuite,                  // root of published conformance test corpora
         XmlSchemaTestSuite,         // leaf: the W3C XML Schema Test Suite (xsts) — a corpus of validity-labeled XSD documents
+        XmlConformanceTestSuite,    // leaf: the W3C XML 1.0 Conformance Test Suite (XMLConf) — a corpus of {valid, invalid, not-wf, error}-labelled XML documents
     ],
 
     labels: {
@@ -91,6 +92,8 @@ pr4xis::ontology! {
             "W3C QA Framework: Test Methodology Guidelines (Curran et al. eds., W3C Note 22 February 2008): a published conformance test corpus paired with a normative specification — each test case carries an expected outcome and the union of cases across categories certifies a reader's conformance to the spec."),
         XmlSchemaTestSuite: ("en", "W3C XML Schema Test Suite (xsts)",
             "W3C XML Schema Working Group, XML Schema Test Suite, archive xsts-2007-06-20 at <https://www.w3.org/XML/2004/xml-schema-test-suite/xmlschema2006-11-06/xsts-2007-06-20.tar.gz>: ~14,328 schemaTest cases (~11,598 valid + ~2,730 invalid) drawn from Boeing, Microsoft, NIST and Sun contributions, each pairing a <schemaDocument> with an <expected validity=...> classification per the W3C XSD 1.1 Parts 1 + 2 (Gao et al. 2012; Peterson et al. 2012)."),
+        XmlConformanceTestSuite: ("en", "W3C XML Conformance Test Suite (XMLConf)",
+            "W3C XML Test Suite Working Group, XML Conformance Test Suite (XMLConf), archive xmlts20080827.tar.gz at <https://www.w3.org/XML/Test/xmlts20080827.tar.gz>: ~3,000 test cases drawn from Sun, James Clark, IBM, NIST/OASIS, Fuji Xerox and University of Edinburgh contributions; each TEST entry pairs a URI with a TYPE ∈ {valid, invalid, not-wf, error} per W3C XML 1.0 Fifth Edition (Bray et al. 2008) §2.1 well-formedness + §2.8 validity."),
     },
 
     is_a: [
@@ -123,6 +126,7 @@ pr4xis::ontology! {
         // TestSuite family
         (TestSuite, Source),
         (XmlSchemaTestSuite, TestSuite),
+        (XmlConformanceTestSuite, TestSuite),
     ],
 
     // Adjunction graph: pairs of concepts whose instances are connected by
@@ -247,6 +251,7 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "ConceptualSpec" => C::ConceptualSpec,
         "TestSuite" => C::TestSuite,
         "XmlSchemaTestSuite" => C::XmlSchemaTestSuite,
+        "XmlConformanceTestSuite" => C::XmlConformanceTestSuite,
         _ => return None,
     })
 }
@@ -277,6 +282,7 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::ConceptualSpec => "ConceptualSpec",
         C::TestSuite => "TestSuite",
         C::XmlSchemaTestSuite => "XmlSchemaTestSuite",
+        C::XmlConformanceTestSuite => "XmlConformanceTestSuite",
     }
 }
 
@@ -338,6 +344,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
             | C::XmlSchemaDefinition
             | C::ConceptualSpec
             | C::XmlSchemaTestSuite
+            | C::XmlConformanceTestSuite
     )
 }
 

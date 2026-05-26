@@ -167,6 +167,23 @@ type        = "XmlSchemaTestSuite"
 url         = "https://www.w3.org/XML/2004/xml-schema-test-suite/xmlschema2006-11-06/xsts-2007-06-20.tar.gz"
 description = "W3C XML Schema Test Suite (xsts) — ~14,328 schemaTest cases certifying XSD 1.1 reader conformance. Cite: W3C XML Schema Working Group, XML Schema Test Suite (2007-06-20 archive); Curran et al. (2008) W3C QA Framework: Test Methodology Guidelines, W3C Note 22 Feb 2008."
 
+# W3C XML Conformance Test Suite (XMLConf) — the canonical conformance
+# corpus for XML 1.0 readers. ~3,000 TEST entries from Sun, James
+# Clark, IBM, NIST/OASIS, Fuji Xerox and University of Edinburgh
+# contributions, each declaring TYPE ∈ {valid, invalid, not-wf, error}
+# per W3C XML 1.0 §2.1 well-formedness + §2.8 validity.
+#
+# The 2008-08-27 archive is the canonical published .tar.gz; a later
+# 2013-09-23 release ships as a .zip with the same TEST format plus
+# minor additions.
+#
+# Bundled file: `crates/domains/data/markup-schemas/xmlconf/xmlconf_xml_test_suite-2008-08-27.tar.gz`.
+[sources.xmlconf_xml_test_suite]
+version     = "2008-08-27"
+type        = "XmlConformanceTestSuite"
+url         = "https://www.w3.org/XML/Test/xmlts20080827.tar.gz"
+description = "W3C XML Conformance Test Suite (XMLConf) — ~3,000 TEST entries certifying XML 1.0 parser conformance, drawn from Sun, James Clark, IBM, NIST/OASIS, Fuji Xerox and University of Edinburgh contributions. Cite: W3C XML Test Suite Working Group, XML Conformance Test Suite (2008-08-27 archive); Bray et al. (2008) XML 1.0 Fifth Edition §2.1 well-formedness + §2.8 validity."
+
 # U.S. Federal Legal-Text Closed-Class Lexicon — bounded enumeration of
 # the citation abbreviations, month names, federal-agency acronyms,
 # U.S. state / place names, productive English compounds, and legal

@@ -35,6 +35,10 @@ crates/domains/data/legal/uscode/**/*.zip
 # fetched via `pr4xis update`. SHA-256 pinned in praxis.lock.
 crates/domains/data/markup-schemas/xsts/*.tar.gz
 crates/domains/data/markup-schemas/xsts/xmlschema2006-11-06/
+# W3C XML 1.0 Conformance Test Suite (XMLConf) — 624 KB tar.gz,
+# ~3,000 XML test files. SHA-256 pinned in praxis.lock.
+crates/domains/data/markup-schemas/xmlconf/*.tar.gz
+crates/domains/data/markup-schemas/xmlconf/xmlconf/
 
 # Claude Code transient files
 .claude/scheduled_tasks.lock

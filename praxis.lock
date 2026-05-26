@@ -77,6 +77,14 @@
 # time to walk every case through the praxis XSD reader and confirm
 # 100% spec-conformance.
 "xsts_xml_schema_test_suite@2007-06-20" = "902176b25e4111cf96b08663107521a4992e8ea67aad6b815592a6a5b4b9ea06"
+# W3C XML Conformance Test Suite (XMLConf). Pinned hash of the
+# bundled archive
+# crates/domains/data/markup-schemas/xmlconf/xmlconf_xml_test_suite-2008-08-27.tar.gz
+# — ~3,000 TEST entries across six contributors (Sun, Clark, IBM,
+# NIST/OASIS, Xerox, Edinburgh) per W3C XML 1.0 Fifth Edition (Bray
+# et al. 2008). Loaded by the XmlConformanceCorpusAuditPasses axiom
+# at test time to walk every case through the praxis XML 1.0 parser.
+"xmlconf_xml_test_suite@2008-08-27" = "96151685cec997e1f9f3387e3626d61e6284d4d6e66e0e440c209286c03e9cc7"
 # U.S. Federal Legal-Text Closed-Class Lexicon (LMF XML). Pinned hash
 # of crates/domains/data/legal-text/us_legal_lexicon.xml — the
 # bounded, cited enumeration of citation abbreviations + month names +
