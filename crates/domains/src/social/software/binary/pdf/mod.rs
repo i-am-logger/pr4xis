@@ -88,6 +88,16 @@ pub mod flagged;
 #[cfg(feature = "pdf")]
 pub mod extract;
 
+/// `PdfLens : WellBehavedLens` — the byte-anchored lens binding
+/// `bytes ⇆ PdfExtraction` via [`read_pdf_bytes`](reader::read_pdf_bytes)
+/// + [`extract_document`](extract::extract_document). Closes
+/// M4.γ.completion: the praxis-native PDF text-only path is now a
+/// first-class registered lens, parallel to
+/// [`crate::formal::meta::xsd::lens::XsdSchemaLens`] (XSD) and
+/// [`crate::formal::meta::dtd::lens::DtdLens`] (DTD).
+#[cfg(feature = "pdf")]
+pub mod lens;
+
 #[cfg(test)]
 mod tests;
 
