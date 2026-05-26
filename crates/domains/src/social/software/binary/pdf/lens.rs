@@ -197,4 +197,18 @@ mod tests {
             Err(PdfLensError::Read(_))
         ));
     }
+
+    proptest::proptest! {
+        /// Robustness: for arbitrary byte streams, `get` either
+        /// returns a `PdfExtraction` (ISO 32000-2 §7.5 parse +
+        /// §7.8 + §9 extract succeed) or a typed [`PdfLensError`].
+        /// Never panics on malformed input — the byte-format parser
+        /// fails closed via the typed error surface.
+        #[test]
+        fn prop_get_never_panics_on_arbitrary_bytes(
+            bytes in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..256)
+        ) {
+            let _ = <PdfLens as WellBehavedLens>::get(&bytes);
+        }
+    }
 }

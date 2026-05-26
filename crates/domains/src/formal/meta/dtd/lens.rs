@@ -170,4 +170,33 @@ mod tests {
         assert!(elements.contains(&"Sense".to_string()));
         assert!(target.of_kind(DtdConcept::AttListDecl).count() >= 5);
     }
+
+    proptest::proptest! {
+        /// Robustness: for arbitrary byte streams, `get` either
+        /// returns a `DtdSchema` (UTF-8 valid + the parser scans
+        /// recognised declarations) or a typed [`DtdLensError`].
+        /// Never panics.
+        #[test]
+        fn prop_get_never_panics_on_arbitrary_bytes(
+            bytes in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..512)
+        ) {
+            let _ = <DtdLens as WellBehavedLens>::get(&bytes);
+        }
+
+        /// When `get` succeeds, `put` returns the source bytes
+        /// byte-canonically (constant-complement). The invariant
+        /// holds for every UTF-8 input — the DTD parser is a
+        /// projector that drops unrecognised content silently;
+        /// the complement preserves the source verbatim.
+        #[test]
+        fn prop_get_put_canonical_on_success(
+            bytes in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..512)
+        ) {
+            if let Ok(target) = <DtdLens as WellBehavedLens>::get(&bytes) {
+                let back = <DtdLens as WellBehavedLens>::put(&target)
+                    .expect("put always succeeds on a successful get");
+                proptest::prop_assert_eq!(back, bytes);
+            }
+        }
+    }
 }

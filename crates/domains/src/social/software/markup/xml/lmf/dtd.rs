@@ -113,4 +113,36 @@ mod tests {
             "WN-LMF DTD bytes drifted from praxis.lock pinned hash"
         );
     }
+
+    proptest::proptest! {
+        /// `is_wn_lmf_element` is a total function: every input
+        /// (arbitrary string) maps to a deterministic bool, never
+        /// panics. The classifier is a closed-world membership
+        /// query against the parsed [`DtdSchema`]'s ElementDecl set.
+        #[test]
+        fn prop_is_wn_lmf_element_total(name in "[A-Za-z0-9_:-]{0,32}") {
+            let _ = is_wn_lmf_element(&name);
+        }
+
+        /// Membership is consistent with the parsed schema: a name
+        /// returns true iff it appears in the DtdLens-projected
+        /// ElementDecl set. Closes the loop between the ontological
+        /// lookup and the underlying parsed evidence.
+        #[test]
+        fn prop_is_wn_lmf_element_agrees_with_parsed_schema(
+            name in "[A-Za-z0-9_:-]{0,32}",
+        ) {
+            use crate::formal::meta::dtd::ontology::DtdConcept;
+            use crate::formal::meta::well_behaved_lens::WellBehavedLens;
+            let schema =
+                <crate::formal::meta::dtd::DtdLens as WellBehavedLens>::get(
+                    WN_LMF_1_3_DTD.as_bytes(),
+                )
+                .expect("bundled WN-LMF DTD parses");
+            let expected = schema
+                .of_kind(DtdConcept::ElementDecl)
+                .any(|d| d.name == name);
+            proptest::prop_assert_eq!(is_wn_lmf_element(&name), expected);
+        }
+    }
 }

@@ -226,9 +226,17 @@ fn attr_value(
         .map(|a| a.value.clone())
 }
 
-/// Recursively list every `.xml` file under `base` that is itself a
-/// manifest of TEST entries. Practically: every `.xml` file under
-/// the archive's six contributor directories.
+/// Recursively list every `.xml` file under `base`. Every file is a
+/// *candidate* manifest; the structural filter ("does the parsed
+/// document contain any `<TEST>` element?") happens downstream in
+/// [`walk_test_elements`]. Non-manifest `.xml` files (the actual
+/// test documents) parse cleanly but emit zero cases via the walker;
+/// `TYPE="not-wf"` test documents fail [`parse_document`] and are
+/// silently skipped. This replaces the previous hand-coded
+/// per-contributor filename whitelist with a structural recogniser
+/// grounded in the XMLConf testcases.dtd `<!ELEMENT TESTCASES (TEST*)>`
+/// shape (Bray et al. 2008 §3.2 — the testcases.dtd shipped with
+/// the suite).
 fn list_meta_files(base: &std::path::Path) -> Vec<std::path::PathBuf> {
     let mut out = Vec::new();
     let mut stack = vec![base.to_path_buf()];
@@ -244,36 +252,7 @@ fn list_meta_files(base: &std::path::Path) -> Vec<std::path::PathBuf> {
                 stack.push(path);
                 continue;
             }
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            // Heuristic: the manifests are top-level `<TESTCASES>` /
-            // `<TESTSUITE>` XMLs in the contributor directories.
-            // Their filenames don't follow a single regex but the
-            // test docs themselves are also `.xml`. We restrict to
-            // contributor-named manifests by checking for a
-            // recognisable contributor prefix; everything else is
-            // a test document.
-            let is_manifest = matches!(
-                name,
-                "xmlconf.xml"
-                    | "sun-valid.xml"
-                    | "sun-invalid.xml"
-                    | "sun-not-wf.xml"
-                    | "sun-error.xml"
-                    | "xmltest.xml"
-                    | "japanese.xml"
-                    | "oasis.xml"
-                    | "ibm_oasis_invalid.xml"
-                    | "ibm_oasis_not-wf.xml"
-                    | "ibm_oasis_valid.xml"
-                    | "errata2e.xml"
-                    | "errata3e.xml"
-                    | "errata4e.xml"
-                    | "namespaces10.xml"
-                    | "namespaces11.xml"
-            );
-            if is_manifest {
+            if path.extension().and_then(|e| e.to_str()) == Some("xml") {
                 out.push(path);
             }
         }

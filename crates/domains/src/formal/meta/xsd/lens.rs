@@ -213,4 +213,33 @@ mod tests {
             Err(XsdSchemaLensError::XmlParse(_))
         ));
     }
+
+    proptest::proptest! {
+        /// Robustness: for arbitrary byte streams, `get` either
+        /// returns a `XsdSchema` (the XML 1.0 parser accepts and the
+        /// XSD projector projects) or a typed [`XsdSchemaLensError`].
+        /// It never panics, never silently swallows malformed input.
+        #[test]
+        fn prop_get_never_panics_on_arbitrary_bytes(
+            bytes in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..512)
+        ) {
+            let _ = <XsdSchemaLens as WellBehavedLens>::get(&bytes);
+        }
+
+        /// When `get` succeeds on bytes, `put` of the resulting
+        /// target returns the original bytes byte-canonically
+        /// (Bancilhon & Spyratos 1981 constant-complement). The
+        /// invariant holds for every successfully-parsed XSD
+        /// schema document — not just the canon fixtures.
+        #[test]
+        fn prop_get_put_canonical_on_success(
+            bytes in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..512)
+        ) {
+            if let Ok(target) = <XsdSchemaLens as WellBehavedLens>::get(&bytes) {
+                let back = <XsdSchemaLens as WellBehavedLens>::put(&target)
+                    .expect("put always succeeds on a successful get");
+                proptest::prop_assert_eq!(back, bytes);
+            }
+        }
+    }
 }
