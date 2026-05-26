@@ -59,6 +59,45 @@ mod tests {
     }
 
     #[test]
+    fn full_grammar_loads_with_all_live_productions() {
+        // M5.ζ.2 acceptance test — every live <prod> block in the
+        // bundled W3C XML 1.0 Fifth Edition spec parses to a typed
+        // Term tree via pr4xis::xml_grammar::load_grammar. Per
+        // feedback_corpus_wide_audit_on_load, this is the corpus-wide
+        // audit that surfaces any unresolved spec production at test
+        // time — never silently.
+        //
+        // The spec source contains 86 `<prod>` open-tags total but
+        // one (line 2465's `<prod id='NT-ExternalDef'>`) is inside
+        // an XML comment — a deleted production from an earlier
+        // revision. After load_grammar strips W3C XML 1.0 §2.5
+        // comments, the live grammar has exactly 85 productions.
+        use pr4xis::xml_grammar::load_grammar;
+        let grammar = load_grammar(loaded_xml_1_0_fifth_edition()).expect("load spec grammar");
+        assert_eq!(
+            grammar.len(),
+            85,
+            "W3C XML 1.0 Fifth Edition has 85 live EBNF productions \
+             (the 86th `<prod id='NT-ExternalDef'>` is commented out at line 2465); \
+             every live one must parse via load_grammar"
+        );
+        // Spot-check the productions M5.ε.2/.3 hand-codegen'd as
+        // character-class predicates — they should now also resolve
+        // via the full-grammar loader.
+        for name in ["document", "Char", "S", "NameStartChar", "NameChar", "Name"] {
+            assert!(
+                grammar.lookup(name).is_some(),
+                "production {name} must be loaded"
+            );
+        }
+        // The deleted production must NOT be present.
+        assert!(
+            grammar.lookup("ExternalDef").is_none(),
+            "ExternalDef is in an XML comment and must be skipped"
+        );
+    }
+
+    #[test]
     fn spec_bytes_match_lock_hash() {
         use sha2::{Digest, Sha256};
         let bytes = loaded_xml_1_0_fifth_edition();

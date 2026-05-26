@@ -52,7 +52,9 @@
 //! - **ISO/IEC 14977:1996** *Extended BNF*.
 
 pub use ast::{CodePointRange, Grammar, Production, Term};
+pub use loader::{LoadGrammarError, load_grammar};
 pub use rhs_parser::{ParseRhsError, parse_rhs};
 
 mod ast;
+mod loader;
 mod rhs_parser;

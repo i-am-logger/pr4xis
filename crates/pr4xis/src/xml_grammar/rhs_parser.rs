@@ -110,7 +110,15 @@ impl std::error::Error for ParseRhsError {}
 /// references (`&lt;` / `&gt;` / `&amp;` / `&quot;` / `&apos;`) are
 /// recognised within literals.
 pub fn parse_rhs(rhs_content: &str) -> Result<Term, ParseRhsError> {
-    let tokens = tokenize(rhs_content)?;
+    // Pre-decode XML entity references on the RHS source. The
+    // xmlspec.dtd rendering of the W3C XML 1.0 spec uses entity
+    // references in normal markup (notably `&nbsp;` for layout-only
+    // non-breaking space between alternation branches and `&lt;` /
+    // `&gt;` inside the actual literal tokens of e.g. §3.2 [45]
+    // elementdecl). Decoding once up front means tokenisation works
+    // uniformly on the decoded character stream.
+    let decoded = decode_entities(rhs_content);
+    let tokens = tokenize(&decoded)?;
     if tokens.is_empty() {
         return Err(ParseRhsError::EmptyRhs);
     }
@@ -132,17 +140,18 @@ pub fn parse_rhs(rhs_content: &str) -> Result<Term, ParseRhsError> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Tok {
-    Nt(String),      // <nt def="NT-X">X</nt>
-    Literal(String), // '…' or "…"
-    Hex(u32),        // #xN
-    Range(u32, u32), // [#xN-#xM] or [c-c]
-    OpenParen,       // (
-    CloseParen,      // )
-    Pipe,            // |
-    Minus,           // -
-    Question,        // ?
-    Star,            // *
-    Plus,            // +
+    Nt(String),                        // <nt def="NT-X">X</nt>
+    Literal(String),                   // '…' or "…"
+    Hex(u32),                          // #xN
+    CharClass(Vec<CodePointRange>),    // [#xN-#xM] | [c-c] | [abc] (one or more atoms)
+    NegatedChars(Vec<CodePointRange>), // [^abc] / [^#xN-#xM] — complement w.r.t. §2.2 Char
+    OpenParen,                         // (
+    CloseParen,                        // )
+    Pipe,                              // |
+    Minus,                             // -
+    Question,                          // ?
+    Star,                              // *
+    Plus,                              // +
 }
 
 #[derive(Debug, Clone)]
@@ -194,13 +203,15 @@ fn tokenize(s: &str) -> Result<Vec<Token>, ParseRhsError> {
             i += 2 + consumed;
             continue;
         }
-        // Range: [#xN-#xM] or [c-c]
+        // Character class: [#xN-#xM] | [c-c] | [abc...] | [^...]
         if bytes[i] == b'[' {
-            let (consumed, lo, hi) = read_range(s, i)?;
-            out.push(Token {
-                tok: Tok::Range(lo, hi),
-                pos: i,
-            });
+            let (consumed, ranges, negated) = read_char_class(s, i)?;
+            let tok = if negated {
+                Tok::NegatedChars(ranges)
+            } else {
+                Tok::CharClass(ranges)
+            };
+            out.push(Token { tok, pos: i });
             i += consumed;
             continue;
         }
@@ -264,9 +275,22 @@ fn read_literal(s: &str, i: usize, quote: char) -> Result<(usize, String), Parse
     Ok((1 + end + 1, decode_entities(raw)))
 }
 
-/// Decode the five W3C XML 1.0 §4.6 predefined entities:
-/// `&lt;` `&gt;` `&amp;` `&apos;` `&quot;`. Anything else passes
-/// through unchanged — the spec's RHS literals only ever use these.
+/// Decode the W3C XML 1.0 §4.6 predefined entities plus the
+/// `&nbsp;` HTML/XHTML reference used by the xmlspec.dtd rendering
+/// of the spec for layout-only non-breaking spaces.
+///
+/// Decoded:
+/// - `&lt;`   → `<`
+/// - `&gt;`   → `>`
+/// - `&amp;`  → `&`
+/// - `&apos;` → `'`
+/// - `&quot;` → `"`
+/// - `&nbsp;` → ` ` (collapsed to plain space — the entity carries
+///                  no semantic content in spec EBNF)
+///
+/// Other entity references pass through unchanged (the `&`
+/// character is preserved literally) — the spec doesn't use any
+/// outside those listed.
 fn decode_entities(raw: &str) -> String {
     let mut out = String::with_capacity(raw.len());
     let mut rest = raw;
@@ -283,6 +307,8 @@ fn decode_entities(raw: &str) -> String {
             ("\"", "&quot;".len())
         } else if rest.starts_with("&apos;") {
             ("'", "&apos;".len())
+        } else if rest.starts_with("&nbsp;") {
+            (" ", "&nbsp;".len())
         } else {
             // Unknown entity — emit `&` and continue.
             ("&", 1)
@@ -315,47 +341,88 @@ fn read_hex(s: &str, i: usize) -> Result<(usize, u32), ParseRhsError> {
     Ok((j - i, code))
 }
 
-/// Read a `[lo-hi]` range starting at the `[`. Supports both
-/// `[#xN-#xM]` (hex) and `[a-z]` (ASCII). Returns `(consumed, lo, hi)`.
-fn read_range(s: &str, i: usize) -> Result<(usize, u32, u32), ParseRhsError> {
+/// Read a W3C XML 1.0 Appendix B character-class bracket starting at
+/// the `[`. Recognises the full Appendix B form:
+///
+/// - `[c-c]`               — ASCII range
+/// - `[#xN-#xM]`           — hex range
+/// - `[#xN]`               — single hex code point
+/// - `[abc]`               — multi-char ASCII enumeration
+/// - `[a-zA-Z0-9]`         — multiple atoms in one class
+/// - `[^…]`                — complement (negated) w.r.t. §2.2 `Char`
+///
+/// Returns `(consumed_bytes, atoms, negated)`. The interpreter
+/// resolves a negated class against the loaded §2.2 `Char` production
+/// (i.e. as `Char - CharClass(atoms)`) — the spec uses `[^X]` to mean
+/// "any §2.2 Char that's not in X".
+fn read_char_class(s: &str, i: usize) -> Result<(usize, Vec<CodePointRange>, bool), ParseRhsError> {
     let rest = &s[i..];
     let close = rest.find(']').ok_or_else(|| ParseRhsError::Tokenize {
         position: i,
-        what: "unterminated [range]".to_string(),
+        what: "unterminated [char-class]".to_string(),
     })?;
-    let inner = &rest[1..close];
-    // Two cases: `#xN-#xM` (hex on both sides) or `c-c` (ASCII).
-    if let Some(stripped) = inner.strip_prefix("#x") {
-        // `#xN-#xM`
-        let (lo, rest_after_lo) = split_off_hex(stripped, i)?;
-        let rest_after_lo =
-            rest_after_lo
-                .strip_prefix("-#x")
-                .ok_or_else(|| ParseRhsError::Tokenize {
-                    position: i,
-                    what: "expected `-#x` separator in hex range".to_string(),
-                })?;
-        let (hi, tail) = split_off_hex(rest_after_lo, i)?;
-        if !tail.is_empty() {
-            return Err(ParseRhsError::Tokenize {
-                position: i,
-                what: format!("trailing bytes in hex range: {tail:?}"),
-            });
-        }
-        Ok((close + 1, lo, hi))
+    let mut inner = &rest[1..close];
+    let consumed = close + 1;
+
+    let negated = if let Some(stripped) = inner.strip_prefix('^') {
+        inner = stripped;
+        true
     } else {
-        // ASCII range: exactly 3 chars `c-c`.
-        let chars: Vec<char> = inner.chars().collect();
-        if chars.len() != 3 || chars[1] != '-' {
-            return Err(ParseRhsError::Tokenize {
-                position: i,
-                what: format!("not an ASCII range: [{inner}]"),
-            });
-        }
-        let lo = chars[0] as u32;
-        let hi = chars[2] as u32;
-        Ok((close + 1, lo, hi))
+        false
+    };
+
+    let mut atoms = Vec::new();
+    while !inner.is_empty() {
+        let (atom, rest_inner) = parse_class_atom(inner, i)?;
+        atoms.push(atom);
+        inner = rest_inner;
     }
+    if atoms.is_empty() {
+        return Err(ParseRhsError::Tokenize {
+            position: i,
+            what: "empty character class".to_string(),
+        });
+    }
+    Ok((consumed, atoms, negated))
+}
+
+/// Parse one Appendix B character-class atom off the front of `inner`.
+/// Atoms are one of: `#xN-#xM`, `#xN`, `c-c`, `c`.
+fn parse_class_atom<'a>(
+    inner: &'a str,
+    byte_pos: usize,
+) -> Result<(CodePointRange, &'a str), ParseRhsError> {
+    // Hex single or hex range.
+    if let Some(after_hash) = inner.strip_prefix("#x") {
+        let (lo, after_lo) = split_off_hex(after_hash, byte_pos)?;
+        if let Some(after_dash_hash) = after_lo.strip_prefix("-#x") {
+            let (hi, tail) = split_off_hex(after_dash_hash, byte_pos)?;
+            return Ok((CodePointRange { lo, hi }, tail));
+        }
+        return Ok((CodePointRange { lo, hi: lo }, after_lo));
+    }
+    // ASCII single or ASCII range.
+    let first = inner
+        .chars()
+        .next()
+        .ok_or_else(|| ParseRhsError::Tokenize {
+            position: byte_pos,
+            what: "expected a character-class atom".to_string(),
+        })?;
+    let after_first = &inner[first.len_utf8()..];
+    // Peek for `-` followed by another char to form a range, but
+    // only when the `-` is not the start of a trailing literal `-`.
+    if let Some(rest_after_dash) = after_first.strip_prefix('-') {
+        if let Some(second) = rest_after_dash.chars().next() {
+            let lo = first as u32;
+            let hi = second as u32;
+            let consumed = first.len_utf8() + 1 + second.len_utf8();
+            return Ok((CodePointRange { lo, hi }, &inner[consumed..]));
+        }
+    }
+    // Single ASCII char.
+    let cp = first as u32;
+    Ok((CodePointRange { lo: cp, hi: cp }, after_first))
 }
 
 /// Pull leading hex digits off `s` returning `(value, remainder)`.
@@ -521,7 +588,14 @@ impl<'a> TokenParser<'a> {
             Tok::Nt(name) => Ok(Term::NonTerminal(name)),
             Tok::Literal(s) => Ok(Term::Literal(s)),
             Tok::Hex(code) => Ok(Term::CharClass(vec![CodePointRange { lo: code, hi: code }])),
-            Tok::Range(lo, hi) => Ok(Term::CharClass(vec![CodePointRange { lo, hi }])),
+            Tok::CharClass(ranges) => Ok(Term::CharClass(ranges)),
+            // Negated class `[^X]` = §2.2 `Char` minus the atoms.
+            // Encoded via Term::Subtraction with a NonTerminal ref to
+            // the loaded `Char` production (Bray et al. 2008 §2.2 [2]).
+            Tok::NegatedChars(ranges) => Ok(Term::Subtraction(
+                Box::new(Term::NonTerminal("Char".to_string())),
+                Box::new(Term::CharClass(ranges)),
+            )),
             Tok::OpenParen => {
                 let inner = self.parse_alternation()?;
                 let close = self.bump();
