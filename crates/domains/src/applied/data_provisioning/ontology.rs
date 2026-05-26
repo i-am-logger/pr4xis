@@ -429,6 +429,10 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
             "xml_1_0_namespace_xsd" | "xml_infoset" => "markup-schemas/xml",
             "xsd_meta_schema" => "markup-schemas/xsd",
             "wn_lmf_dtd" => "markup-schemas/lmf",
+            // Library of Congress MODS 3.8 — case-law metadata schema.
+            // Used by the case-law structural-extraction pipeline to
+            // parse GovInfo USREP/SCOTUS-slip mods.xml granules.
+            "mods_3_8" => "markup-schemas/mods",
             _ => "legal/uscode/schema",
         }
     } else {

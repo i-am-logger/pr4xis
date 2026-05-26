@@ -1,0 +1,76 @@
+//! Bundled MODS 3.8 XSD bytes + cached accessor.
+//!
+//! Mirrors `social::software::markup::xml::lmf::dtd` — the bundled
+//! schema bytes for the `mods_3_8@2018` source registered in
+//! `praxis.toml`; the pinned sha256 in `praxis.lock` certifies these
+//! bytes. Downstream code (case-law structural-extraction) reads the
+//! XSD via [`loaded_mods_3_8`] and parses it via the existing
+//! [`XsdSchemaLens`](crate::formal::meta::xsd::lens::XsdSchemaLens)
+//! to project GovInfo MODS metadata XML into typed
+//! [`XsdOntologyInstance`](crate::formal::meta::xsd::XsdOntologyInstance)
+//! values.
+//!
+//! ## Citation
+//!
+//! - **Library of Congress, Network Development and MARC Standards
+//!   Office** (2018) *MODS XML Schema Version 3.8*, the published XSD
+//!   at <https://www.loc.gov/standards/mods/v3/mods-3-8.xsd>. The
+//!   bundled file is a byte-for-byte copy; the `mods_3_8@2018` hash
+//!   in `praxis.lock` is sha256 of those bytes.
+
+/// The bundled MODS 3.8 XSD bytes — the LC-published schema document
+/// the praxis runtime parses to anchor MODS concept identity (per
+/// `feedback_bottom_up_loaded_not_encoded`).
+pub const MODS_3_8_XSD: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/data/markup-schemas/mods/mods_3_8-2018.xsd"
+));
+
+/// The loaded MODS 3.8 XSD — the schema GovInfo packages
+/// (USREP / SCOTUS-slip / USCOURTS) declare against in their
+/// per-package `mods.xml`. Downstream code queries this to anchor
+/// MODS concept identity in the published XSD rather than in
+/// hand-coded runtime types (`feedback_bottom_up_loaded_not_encoded`).
+#[must_use]
+pub fn loaded_mods_3_8() -> &'static str {
+    MODS_3_8_XSD
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn loaded_mods_returns_published_xsd_root() {
+        let bytes = loaded_mods_3_8();
+        // The LC-published XSD opens with the XML declaration followed
+        // by the LC editor comment block; assert the schema root is
+        // present rather than parsing the whole document (parsing is
+        // exercised by the case-law pipeline tests downstream).
+        assert!(
+            bytes.starts_with("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"),
+            "MODS 3.8 XSD must begin with the W3C XML 1.0 §2.8 declaration"
+        );
+        assert!(
+            bytes.contains("targetNamespace=\"http://www.loc.gov/mods/v3\""),
+            "MODS 3.8 XSD must declare the LC v3 target namespace"
+        );
+        assert!(
+            bytes.contains("<xs:schema"),
+            "MODS 3.8 XSD must have an <xs:schema> root element"
+        );
+    }
+
+    #[test]
+    fn mods_bytes_match_lock_hash() {
+        use sha2::{Digest, Sha256};
+        let bytes = loaded_mods_3_8();
+        let hash = Sha256::digest(bytes.as_bytes());
+        let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
+        // `mods_3_8@2018` pinned hash from praxis.lock.
+        assert_eq!(
+            hex, "ded45d61d3378d4bed750d8f80633bb0b37e1883afd3a106eef6225c54737a18",
+            "loaded MODS 3.8 XSD bytes must match the praxis.lock pinned sha256"
+        );
+    }
+}
