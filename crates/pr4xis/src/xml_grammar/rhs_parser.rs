@@ -110,15 +110,18 @@ impl std::error::Error for ParseRhsError {}
 /// references (`&lt;` / `&gt;` / `&amp;` / `&quot;` / `&apos;`) are
 /// recognised within literals.
 pub fn parse_rhs(rhs_content: &str) -> Result<Term, ParseRhsError> {
-    // Pre-decode XML entity references on the RHS source. The
-    // xmlspec.dtd rendering of the W3C XML 1.0 spec uses entity
-    // references in normal markup (notably `&nbsp;` for layout-only
-    // non-breaking space between alternation branches and `&lt;` /
-    // `&gt;` inside the actual literal tokens of e.g. §3.2 [45]
-    // elementdecl). Decoding once up front means tokenisation works
-    // uniformly on the decoded character stream.
-    let decoded = decode_entities(rhs_content);
-    let tokens = tokenize(&decoded)?;
+    // Pre-pass: collapse XML `&nbsp;` to plain space. The
+    // xmlspec.dtd rendering of the spec uses `&nbsp;` for
+    // layout-only non-breaking space between alternation branches
+    // (it never appears inside a literal). The other §4.6
+    // predefined entities (`&lt;` / `&gt;` / `&amp;` / `&quot;` /
+    // `&apos;`) ONLY appear inside `'…'` or `"…"` literal tokens
+    // (e.g. `'&lt;!ELEMENT'`) — those are decoded in
+    // `read_literal` via [`decode_entities`], NOT here, because
+    // pre-decoding `&apos;` to `'` would terminate the enclosing
+    // single-quoted literal prematurely.
+    let preprocessed = collapse_nbsp(rhs_content);
+    let tokens = tokenize(&preprocessed)?;
     if tokens.is_empty() {
         return Err(ParseRhsError::EmptyRhs);
     }
@@ -130,6 +133,13 @@ pub fn parse_rhs(rhs_content: &str) -> Result<Term, ParseRhsError> {
         });
     }
     Ok(term)
+}
+
+/// Collapse every `&nbsp;` to a single ASCII space. The spec uses
+/// `&nbsp;` purely for typographic layout — semantically it's a
+/// sequence separator, identical to a space in the EBNF.
+fn collapse_nbsp(raw: &str) -> String {
+    raw.replace("&nbsp;", " ")
 }
 
 // ---------------------------------------------------------------------------
