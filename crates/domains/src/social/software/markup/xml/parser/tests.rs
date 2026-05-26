@@ -256,16 +256,23 @@ fn duplicate_entity_declaration_first_wins() {
 }
 
 #[test]
-fn external_entity_declaration_accepted_but_not_projected() {
-    // §4.2 [73] ExternalID variant — we accept the declaration but
-    // don't fetch / expand the external entity in this slice.
+fn external_entity_declaration_registers_name_with_empty_replacement_text() {
+    // §4.2 [73] ExternalID variant — we accept the declaration AND
+    // register the name in `general_entities` with empty replacement
+    // text. Per W3C XML 1.0 §4.4 Table-4 row "Reference in Content /
+    // External Parsed General", a non-validating parser "Bypasses"
+    // the reference — the praxis parser approximates this by
+    // registering the name so subsequent `&ext;` references parse
+    // as well-formed (no UnsupportedEntity error); the empty
+    // replacement text reflects that we have not read the external
+    // body. This is the well-formedness slice; reading external
+    // entity bodies is deferred.
     let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY ext SYSTEM "ext.dtd">]><foo/>"#;
     let doc = parse_document(xml).unwrap();
     let dt = doc.doctype.as_ref().unwrap();
-    assert!(
-        dt.general_entities.is_empty(),
-        "external entities are not projected"
-    );
+    assert_eq!(dt.general_entities.len(), 1);
+    assert_eq!(dt.general_entities[0].0, "ext");
+    assert_eq!(dt.general_entities[0].1, "");
 }
 
 #[test]

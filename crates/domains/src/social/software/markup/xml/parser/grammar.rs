@@ -562,16 +562,30 @@ fn parse_internal_subset(
 }
 
 /// W3C XML 1.0 §4.2 production [70/71] `GEDecl`:
-/// `<!ENTITY S Name S EntityValue S? >`. Returns `Some((name,
-/// value))` for a general entity declaration; returns `None` for a
-/// parameter entity declaration (§4.2 [72]) and for external general
-/// entities (§4.2 [73] ExternalID variant), both of which we
-/// consume structurally without projection in this slice.
+/// `<!ENTITY S Name S EntityValue S? >`.
+///
+/// Returns:
+/// - `Some((name, value))` for an internal general entity (§4.2 [73]
+///   `EntityValue` variant) — replacement text projected into the
+///   doc's entity map.
+/// - `Some((name, ""))` for an external general entity (§4.2 [73]
+///   `ExternalID NDataDecl?` variant). Per §4.4 Table-4 row "Reference
+///   in Content / External Parsed General", a non-validating parser
+///   "Bypasses" the reference (replaces the reference with itself).
+///   The praxis parser approximates this by registering the entity
+///   with empty replacement text — well-formedness is preserved
+///   (no UnsupportedEntity error on subsequent `&name;`); the text
+///   output simply lacks the unread external content. Reading the
+///   external entity body is M5.ε.5.b territory; this fix unblocks
+///   the W3C XMLConf ext-sa cases that test well-formedness only.
+/// - `None` for a parameter entity declaration (§4.2 [72] `PEDecl`).
+///   PEs are skipped because they expand inside the DTD, not in
+///   the document content (M5.ε.5.c — proper PE expansion).
 fn parse_entity_decl(c: &mut Cursor<'_>) -> Result<Option<(String, String)>, XmlParseError> {
     c.consume("<!ENTITY")?;
     c.require_whitespace("ENTITY name")?;
 
-    // §4.2 [72] PEDecl path begins with `%`. We skip it.
+    // §4.2 [72] PEDecl path begins with `%`.
     if c.starts_with("%") {
         skip_until_close_angle(c)?;
         return Ok(None);
@@ -581,16 +595,56 @@ fn parse_entity_decl(c: &mut Cursor<'_>) -> Result<Option<(String, String)>, Xml
     c.require_whitespace("ENTITY value")?;
 
     // §4.2 [73] EntityDef ::= EntityValue | (ExternalID NDataDecl?).
-    if c.starts_with("SYSTEM") || c.starts_with("PUBLIC") {
-        // External entity — consume up to `>` without projection.
-        skip_until_close_angle(c)?;
-        return Ok(None);
+    // §4.2.2 [75] ExternalID ::= 'SYSTEM' S SystemLiteral
+    //                          | 'PUBLIC' S PubidLiteral S SystemLiteral.
+    // §4.7 [76] NDataDecl ::= S 'NDATA' S Name.
+    if c.starts_with("SYSTEM") {
+        c.consume("SYSTEM")?;
+        c.require_whitespace("ExternalID SystemLiteral")?;
+        let _system_literal = parse_quoted(c)?;
+        parse_optional_ndata_decl(c)?;
+        c.skip_whitespace();
+        c.consume(">")?;
+        return Ok(Some((name.qualified(), String::new())));
+    }
+    if c.starts_with("PUBLIC") {
+        c.consume("PUBLIC")?;
+        c.require_whitespace("ExternalID PubidLiteral")?;
+        let _pub_id = parse_quoted(c)?;
+        // PUBLIC requires both PubidLiteral AND SystemLiteral separated
+        // by whitespace; this is the gate that rejects malformed
+        // declarations like `<!ENTITY foo PUBLIC "id">` (no SystemLiteral)
+        // or `<!ENTITY e PUBLIC "a""b">` (no whitespace between literals).
+        c.require_whitespace("ExternalID SystemLiteral")?;
+        let _system_literal = parse_quoted(c)?;
+        parse_optional_ndata_decl(c)?;
+        c.skip_whitespace();
+        c.consume(">")?;
+        return Ok(Some((name.qualified(), String::new())));
     }
 
     let value = parse_entity_value(c)?;
     c.skip_whitespace();
     c.consume(">")?;
     Ok(Some((name.qualified(), value)))
+}
+
+/// §4.7 [76] `NDataDecl ::= S 'NDATA' S Name` — optional in
+/// general-entity declarations marking an unparsed entity.
+fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
+    let save = c.pos;
+    c.skip_whitespace();
+    if c.starts_with("NDATA") {
+        c.consume("NDATA")?;
+        c.require_whitespace("NDataDecl Name")?;
+        let _ = parse_name(c)?;
+        Ok(())
+    } else {
+        // Not an NDataDecl — restore the cursor so the caller's
+        // own skip_whitespace + `>` consume can run.
+        c.pos = save;
+        Ok(())
+    }
 }
 
 /// W3C XML 1.0 §4.3.2 production [9] `EntityValue`:
@@ -657,10 +711,33 @@ fn skip_markup_decl(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     skip_until_close_angle(c)
 }
 
+/// Skip tokens up to and including the next top-level `>` while
+/// respecting:
+/// - paired `[`/`]` brackets (nested intSubset markers — §2.8 [28]),
+/// - quoted string literals `"…"` and `'…'` (W3C XML 1.0 §4.2.2
+///   [11] SystemLiteral / [12] PubidLiteral / §4.3.2 [9] EntityValue
+///   — a `>` inside quotes is content, not the close-marker).
+///
+/// This is the correct skip semantics for markup declarations whose
+/// values may embed `>` (e.g. `<!ENTITY % e "<!ELEMENT doc (#PCDATA)>">`).
 fn skip_until_close_angle(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     let mut depth = 0u32;
+    let mut quote: Option<char> = None;
     while let Some(ch) = c.peek_char() {
+        if let Some(q) = quote {
+            // Inside a string literal — only the matching close-quote
+            // exits; every other byte (including `>`) is literal.
+            if ch == q {
+                quote = None;
+            }
+            c.pos += ch.len_utf8();
+            continue;
+        }
         match ch {
+            '"' | '\'' => {
+                quote = Some(ch);
+                c.pos += ch.len_utf8();
+            }
             '[' => {
                 depth += 1;
                 c.pos += 1;
