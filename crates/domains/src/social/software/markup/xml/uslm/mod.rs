@@ -41,7 +41,9 @@ pub mod generated;
 pub mod lens;
 
 pub use corpus::*;
-pub use lens::{UslmLensError, UslmTypedTree, UslmXmlLens, read_section, read_uslm_title};
+pub use lens::{
+    UslmLensError, UslmTreeViewLens, UslmTypedTree, UslmXmlLens, read_section, read_uslm_title,
+};
 
 #[cfg(test)]
 mod tests;

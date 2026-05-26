@@ -24,5 +24,6 @@ pub mod lens;
 
 #[doc(inline)]
 pub use lens::{
-    Compose, ComposeError, IdentityLens, Lens, get_put_holds, put_get_holds, put_put_holds,
+    Compose, ComposeError, IdentityLens, Lens, WellBehavedLensAdapter, get_put_holds,
+    put_get_holds, put_put_holds,
 };

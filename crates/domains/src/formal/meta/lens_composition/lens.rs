@@ -39,8 +39,12 @@
 //! - **Bancilhon, F. & Spyratos, N.** "Update Semantics of Relational
 //!   Views", *ACM TODS* 6(4), 1981 (constant complement).
 
+#[allow(unused_imports)]
+use alloc::vec::Vec;
 use core::fmt;
 use core::marker::PhantomData;
+
+use crate::formal::meta::well_behaved_lens::WellBehavedLens;
 
 /// An asymmetric well-behaved lens `Source ⇆ View` (Foster et al.
 /// 2007 §2.2). Implementors should satisfy GetPut, PutGet, and PutPut
@@ -134,6 +138,57 @@ impl<S: Clone> Lens for IdentityLens<S> {
 
     fn put(&self, view: &S, _source: &S) -> Result<S, Self::Error> {
         Ok(view.clone())
+    }
+}
+
+// =============================================================================
+// WellBehavedLens adapter — bridge the byte-anchored well-behaved lens
+// (file ⇄ ontology) to the general `Lens` so the byte hop composes with
+// the typed-layer chain above it.
+// =============================================================================
+
+/// Adapt a [`WellBehavedLens`] `L : bytes ⇄ Target` (Foster et al. 2007
+/// §2.2, byte-anchored) into the general [`Lens`] `Vec<u8> ⇄ L::Target`,
+/// so it composes with the typed-layer lenses above the byte boundary.
+///
+/// The well-behaved-lens contract guarantees that
+/// [`WellBehavedLens::put`] reconstructs the source bytes from the
+/// target value alone (the target carries the constant complement per
+/// Bancilhon & Spyratos 1981 — for the praxis byte lenses this is
+/// literally the original `Vec<u8>` source carried as the target's
+/// `complement` field). So the general-lens [`Lens::put`] can ignore
+/// its `source` argument and delegate to `L::put(target)`; GetPut /
+/// PutGet then follow from the well-behaved-lens laws of `L`.
+#[derive(Debug, Clone, Copy)]
+pub struct WellBehavedLensAdapter<L>(PhantomData<L>);
+
+impl<L> WellBehavedLensAdapter<L> {
+    /// Construct the adapter for `L`.
+    pub fn new() -> Self {
+        WellBehavedLensAdapter(PhantomData)
+    }
+}
+
+impl<L> Default for WellBehavedLensAdapter<L> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<L> Lens for WellBehavedLensAdapter<L>
+where
+    L: WellBehavedLens,
+{
+    type Source = Vec<u8>;
+    type View = L::Target;
+    type Error = L::Error;
+
+    fn get(&self, bytes: &Vec<u8>) -> Result<L::Target, L::Error> {
+        L::get(bytes)
+    }
+
+    fn put(&self, target: &L::Target, _bytes: &Vec<u8>) -> Result<Vec<u8>, L::Error> {
+        L::put(target)
     }
 }
 

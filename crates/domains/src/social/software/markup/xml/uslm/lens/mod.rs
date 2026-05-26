@@ -665,5 +665,46 @@ impl WellBehavedLens for UslmXmlLens {
 crate::register_lens!(USC_TITLE_18_LENS, "usc_title_18", "pl-119-90", UslmXmlLens);
 crate::register_lens!(USC_TITLE_49_LENS, "usc_title_49", "pl-119-90", UslmXmlLens);
 
+// =============================================================================
+// UslmTreeViewLens — the field-focus general [`Lens`] from
+// [`UslmTypedTree`] to its `view : UsCodeTitle`. Bridges the
+// byte-anchored [`UslmXmlLens`] (which targets `UslmTypedTree`, the
+// view + complement pair) to the typed-layer lenses above
+// (`SectionByIndexLens`, `UslmStatuteLens`) which consume `UsCodeTitle`
+// directly.
+// =============================================================================
+
+/// Focuses the `view` field of a [`UslmTypedTree`] — the constant-
+/// complement structure lens (Bancilhon & Spyratos 1981; Foster et al.
+/// 2007 §2.2 record-field lens). `get` returns the typed
+/// [`UsCodeTitle`]; `put` replaces the view, holding the complement
+/// (the original source bytes) fixed.
+///
+/// The complement-held-constant discipline is what makes the
+/// composite `UslmXmlLens ; UslmTreeViewLens : Vec<u8> ⇆ UsCodeTitle`
+/// satisfy PutGet up to canonical form: the byte hop's
+/// [`WellBehavedLens::put`] returns the complement (the original
+/// bytes), so a put-back through the chain restores the source
+/// verbatim.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct UslmTreeViewLens;
+
+impl crate::formal::meta::lens_composition::Lens for UslmTreeViewLens {
+    type Source = UslmTypedTree;
+    type View = UsCodeTitle;
+    type Error = core::convert::Infallible;
+
+    fn get(&self, tree: &UslmTypedTree) -> Result<UsCodeTitle, Self::Error> {
+        Ok(tree.view.clone())
+    }
+
+    fn put(&self, view: &UsCodeTitle, tree: &UslmTypedTree) -> Result<UslmTypedTree, Self::Error> {
+        Ok(UslmTypedTree {
+            view: view.clone(),
+            complement: tree.complement.clone(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests;
