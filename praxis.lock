@@ -68,6 +68,13 @@
 # (Cowan & Tobin 2004 W3C Recommendation 4 February 2004 §2) rather
 # than being hand-coded.
 "xml_infoset@2004"        = "316b1b0df49a40dd4cab7ea403dd4f9e5f0d073803b2a7663ebddc33fffebc3e"
+# W3C XSD 1.1 meta-schema (XSD-for-XSD). Pinned hash of the bundled
+# crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd —
+# the W3C-published XMLSchema.xsd. Loaded by the XSD ontology
+# (M4.ζ.0) so its concept inventory (ElementDeclaration /
+# ComplexTypeDefinition / etc.) derives from the published
+# meta-schema rather than being hand-coded against the prose spec.
+"xsd_meta_schema@1.1"     = "047e652e9863065d297651c103e366daa24fb2c0933cebcf1982272cb80600f5"
 # W3C XML Schema Test Suite (xsts). Pinned hash of the bundled
 # archive crates/domains/data/markup-schemas/xsts/xsts_xml_schema_test_suite-2007-06-20.tar.gz
 # — the canonical conformance corpus for XSD 1.1 readers,

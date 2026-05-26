@@ -143,6 +143,28 @@ type        = "ConceptualSpec"
 url         = "https://www.w3.org/TR/xml-infoset/"
 description = "W3C XML Information Set (Second Edition) — the 11 information items of an XML document. Cite: Cowan & Tobin (2004) W3C Recommendation 4 February 2004."
 
+# W3C XSD 1.1 meta-schema — XSD-for-XSD. The schema that defines the
+# XML Schema Definition Language itself, published by the W3C XML
+# Schema Working Group. Loaded so the praxis XSD ontology can ground
+# its own concept inventory in the published schema's
+# `<xsd:element>` / `<xsd:complexType>` / `<xsd:simpleType>`
+# declarations, rather than being hand-coded against the prose spec.
+#
+# Per M4.ζ.0: this is the meta-level grounding for the XSD reader
+# the same way the USLM XSD grounds USLM, the XHTML 1.0 XSD grounds
+# HTML5, and the XML namespace XSD grounds XML 1.0 — closing the
+# self-reference (XSD-for-XSD).
+#
+# Bundled file: `crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd`.
+# Citation: W3C XML Schema 1.1 Part 1: Structures, Appendix A
+# (Gao, Sperberg-McQueen & Thompson 2012). The XSD source itself
+# is the canonical machine-readable form of Appendix A.
+[sources.xsd_meta_schema]
+version     = "1.1"
+type        = "XmlSchemaDefinition"
+url         = "https://www.w3.org/2009/XMLSchema/XMLSchema.xsd"
+description = "W3C XSD 1.1 meta-schema (XSD-for-XSD) — the schema definition for XML Schema Definition Language 1.1 itself. Cite: Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1: Structures, Appendix A."
+
 # W3C XML Schema Test Suite (xsts) — the canonical conformance corpus
 # for XSD 1.1 readers. ~14,328 schemaTest cases (~11,598 valid,
 # ~2,730 invalid) drawn from Boeing, Microsoft, NIST and Sun

@@ -389,6 +389,7 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
         match name {
             "xhtml_1_0_xsd" => "markup-schemas/xhtml",
             "xml_1_0_namespace_xsd" | "xml_infoset" => "markup-schemas/xml",
+            "xsd_meta_schema" => "markup-schemas/xsd",
             _ => "legal/uscode/schema",
         }
     } else {
