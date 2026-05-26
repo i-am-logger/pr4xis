@@ -68,6 +68,27 @@ pub enum XmlParseError {
     /// Att Spec* — "no attribute name MUST appear more than once
     /// in the same start-tag or empty-element tag".
     DuplicateAttribute { position: usize, name: String },
+    /// The string `--` (double-hyphen) appeared inside a comment.
+    /// W3C XML 1.0 Fifth Edition §2.5 production [15] `Comment`:
+    /// `Comment ::= '<!--' ((Char - '-') | ('-' (Char - '-')))* '-->'`
+    /// — equivalent to "the string `--` MUST NOT occur within comments".
+    MalformedComment { position: usize },
+    /// A `]]>` sequence appeared in `CharData` outside a CDATA section.
+    /// W3C XML 1.0 Fifth Edition §2.4 production [14] `CharData`:
+    /// `CharData ::= [^<&]* - ([^<&]* ']]>' [^<&]*)` — the `]]>`
+    /// sequence MUST be escaped in `CharData`.
+    DisallowedCdataEnd { position: usize },
+    /// A code point outside the W3C XML 1.0 §2.2 production [2]
+    /// `Char` repertoire appeared in `CharData` / `Comment` / `PI` /
+    /// `CDATA`. The membership test goes through
+    /// [`is_xml_char`] — which itself consults the
+    /// build-time-generated table parsed from the registered
+    /// `xml_1_0_fifth_edition@2008` source.
+    InvalidChar {
+        position: usize,
+        code_point: u32,
+        context: &'static str,
+    },
 }
 
 impl core::fmt::Display for XmlParseError {
@@ -111,6 +132,25 @@ impl core::fmt::Display for XmlParseError {
                 f,
                 "duplicate attribute {name:?} at byte {position} \
                  (W3C XML 1.0 §3.1 well-formedness constraint Unique Att Spec)"
+            ),
+            Self::MalformedComment { position } => write!(
+                f,
+                "comment contains the forbidden substring '--' at byte {position} \
+                 (W3C XML 1.0 §2.5 production [15] Comment)"
+            ),
+            Self::DisallowedCdataEnd { position } => write!(
+                f,
+                "CharData contains the forbidden sequence ']]>' at byte {position} \
+                 (W3C XML 1.0 §2.4 production [14] CharData — must be escaped)"
+            ),
+            Self::InvalidChar {
+                position,
+                code_point,
+                context,
+            } => write!(
+                f,
+                "invalid character U+{code_point:04X} at byte {position} inside {context} \
+                 (outside W3C XML 1.0 §2.2 [2] Char repertoire)"
             ),
         }
     }
@@ -831,27 +871,47 @@ fn parse_name(c: &mut Cursor<'_>) -> Result<XmlName, XmlParseError> {
 }
 
 /// W3C XML 1.0 §2.3 production [4] `NameStartChar` — the full
-/// character class. Exposed for reuse by the XSD datatype lexical
-/// mappings (`xs:Name` / `xs:NCName` / `xs:NMTOKEN` are defined by
-/// reference to the XML 1.0 `Name` / `Nmtoken` productions, W3C XSD
-/// 1.1 Part 2 §3.4.4-§3.4.7).
+/// character class.
+///
+/// Delegates to the build-time-generated
+/// [`crate::social::software::markup::xml::spec_1_0::grammar::is_name_start_char`]
+/// predicate, whose range table is parsed from the registered
+/// `xml_1_0_fifth_edition@2008` source (Bray et al. 2008) — per
+/// `feedback_bottom_up_loaded_not_encoded`, the character class
+/// comes from the loaded spec, not from this file.
+///
+/// Exposed for reuse by the XSD datatype lexical mappings (`xs:Name` /
+/// `xs:NCName` / `xs:NMTOKEN` are defined by reference to the XML 1.0
+/// `Name` / `Nmtoken` productions, W3C XSD 1.1 Part 2 §3.4.4-§3.4.7).
 pub fn is_name_start_char(ch: char) -> bool {
-    matches!(ch, 'A'..='Z' | 'a'..='z' | '_' | ':')
-        || matches!(ch as u32, 0xC0..=0xD6 | 0xD8..=0xF6 | 0xF8..=0x2FF
-            | 0x370..=0x37D | 0x37F..=0x1FFF | 0x200C..=0x200D
-            | 0x2070..=0x218F | 0x2C00..=0x2FEF | 0x3001..=0xD7FF
-            | 0xF900..=0xFDCF | 0xFDF0..=0xFFFD | 0x10000..=0xEFFFF)
+    crate::social::software::markup::xml::spec_1_0::grammar::is_name_start_char(ch as u32)
 }
 
 /// W3C XML 1.0 §2.3 production [4a] `NameChar`. Extends
 /// [`is_name_start_char`] with digits, `.`, `-`, `·`, and the
-/// combining-mark ranges. Exposed for reuse by the XSD datatype
-/// lexical mappings (see [`is_name_start_char`]).
+/// combining-mark ranges.
+///
+/// Delegates to the build-time-generated
+/// [`crate::social::software::markup::xml::spec_1_0::grammar::is_name_char`]
+/// predicate — same loaded-source grounding as
+/// [`is_name_start_char`]. Exposed for reuse by the XSD datatype
+/// lexical mappings.
 pub fn is_name_char(ch: char) -> bool {
-    is_name_start_char(ch)
-        || matches!(ch, '-' | '.' | '0'..='9')
-        || ch as u32 == 0xB7
-        || matches!(ch as u32, 0x0300..=0x036F | 0x203F..=0x2040)
+    crate::social::software::markup::xml::spec_1_0::grammar::is_name_char(ch as u32)
+}
+
+/// W3C XML 1.0 §2.2 production [2] `Char` — the legal character
+/// repertoire. Delegates to the build-time-generated
+/// [`crate::social::software::markup::xml::spec_1_0::grammar::is_char`]
+/// predicate, whose range table comes from the loaded spec source.
+///
+/// Used by `parse_content` / `parse_comment_node` / `parse_pi_node` /
+/// `parse_cdata_node` to enforce §2.2 — every character in
+/// `CharData`, `Comment`, `PI`, and `CDATA` content MUST be in this
+/// class. Form feed (`#x0C`), NUL (`#x00`), and most ASCII control
+/// characters are excluded.
+pub fn is_xml_char(ch: char) -> bool {
+    crate::social::software::markup::xml::spec_1_0::grammar::is_char(ch as u32)
 }
 
 /// W3C XML 1.0 §3.1 production [10] `AttValue`:
@@ -942,12 +1002,29 @@ fn parse_content(
             nodes.push(XmlNode::Element(child));
             continue;
         }
+        let ch_pos = c.pos;
         let ch = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
             context: "element content".into(),
         })?;
         if ch == '&' {
             text_buf.push_str(&parse_reference(c, entities)?);
         } else {
+            // §2.4 [14] CharData well-formedness: every char must be
+            // in the §2.2 Char repertoire.
+            if !is_xml_char(ch) {
+                return Err(XmlParseError::InvalidChar {
+                    position: ch_pos,
+                    code_point: ch as u32,
+                    context: "CharData",
+                });
+            }
+            // §2.4 [14] CharData also forbids the `]]>` sequence
+            // outside a CDATA section. The lookahead is on the input
+            // (not on text_buf) so previously-buffered chars don't
+            // confuse the check.
+            if ch == ']' && c.rest().starts_with("]]>") {
+                return Err(XmlParseError::DisallowedCdataEnd { position: ch_pos });
+            }
             text_buf.push(ch);
             c.pos += ch.len_utf8();
         }
@@ -963,7 +1040,14 @@ fn flush_text(nodes: &mut Vec<XmlNode>, buf: &mut String) {
 /// W3C XML 1.0 §2.5 production [15] `Comment`, emitting a typed
 /// `XmlNode::Comment` for inside-element occurrences (Cowan &
 /// Tobin 2004 §2.5 keeps comments in the Infoset).
+///
+/// Enforces two §2.5 well-formedness constraints:
+/// - The body MUST NOT contain the string `--` (the EBNF subtraction
+///   `(Char - '-')` is the spec form).
+/// - Every character MUST be in the §2.2 [2] Char repertoire — the
+///   `is_xml_char` predicate consults the loaded spec table.
 fn parse_comment_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
+    let comment_start = c.pos;
     c.consume("<!--")?;
     let rest = c.rest();
     let end = rest
@@ -971,14 +1055,29 @@ fn parse_comment_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
         .ok_or_else(|| XmlParseError::UnexpectedEof {
             context: "comment".into(),
         })?;
-    let body = rest[..end].to_string();
+    let body = &rest[..end];
+    // §2.5: "--" must not occur within comments.
+    if body.contains("--") {
+        return Err(XmlParseError::MalformedComment {
+            position: comment_start,
+        });
+    }
+    check_chars_in_range(body, comment_start + 4, "Comment")?;
+    let body = body.to_string();
     c.pos += end + 3;
     Ok(XmlNode::Comment(body))
 }
 
 /// W3C XML 1.0 §2.7 production [18] `CDSect`:
 /// `CDSect ::= CDStart CData CDEnd`.
+///
+/// §2.7 [20] `CData ::= (Char* - (Char* ']]>' Char*))` — every char
+/// in the body must be in the §2.2 Char repertoire; the `]]>` tail
+/// is consumed by the close-marker so a body containing a literal
+/// `]]>` simply ends early (legal XML — content can be split across
+/// CDATA sections).
 fn parse_cdata_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
+    let cdata_start = c.pos;
     c.consume("<![CDATA[")?;
     let rest = c.rest();
     let end = rest
@@ -986,14 +1085,21 @@ fn parse_cdata_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
         .ok_or_else(|| XmlParseError::UnexpectedEof {
             context: "CDATA section".into(),
         })?;
-    let body = rest[..end].to_string();
+    let body = &rest[..end];
+    check_chars_in_range(body, cdata_start + 9, "CDATA section")?;
+    let body = body.to_string();
     c.pos += end + 3;
     Ok(XmlNode::CData(body))
 }
 
 /// W3C XML 1.0 §2.6 production [16] `PI` emitting a typed
 /// `XmlNode::ProcessingInstruction`.
+///
+/// §2.6 [16] `PI ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'`
+/// — every char in the data segment must be in the §2.2 Char
+/// repertoire; the `?>` tail is consumed by the close-marker.
 fn parse_pi_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
+    let pi_start = c.pos;
     c.consume("<?")?;
     let target_name = parse_name(c)?;
     let mut data: Option<String> = None;
@@ -1001,6 +1107,7 @@ fn parse_pi_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
         .is_some_and(|ch| matches!(ch, ' ' | '\t' | '\r' | '\n'))
     {
         c.skip_whitespace();
+        let data_start_pos = c.pos;
         let rest = c.rest();
         let end = rest
             .find("?>")
@@ -1008,15 +1115,41 @@ fn parse_pi_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
                 context: "processing instruction".into(),
             })?;
         if end > 0 {
-            data = Some(rest[..end].to_string());
+            let body = &rest[..end];
+            check_chars_in_range(body, data_start_pos, "PI")?;
+            data = Some(body.to_string());
         }
         c.pos += end;
     }
     c.consume("?>")?;
+    let _ = pi_start; // surfaced for symmetry; not yet used in errors
     Ok(XmlNode::ProcessingInstruction {
         target: target_name.qualified(),
         data,
     })
+}
+
+/// Walk `body` and reject the first character outside §2.2 [2] `Char`.
+/// `position_of_body_start` is the byte offset of `body[0]` in the
+/// original input; `context` names the production (Comment / CDATA /
+/// PI / CharData) for the error message.
+fn check_chars_in_range(
+    body: &str,
+    position_of_body_start: usize,
+    context: &'static str,
+) -> Result<(), XmlParseError> {
+    let mut offset_within_body = 0;
+    for ch in body.chars() {
+        if !is_xml_char(ch) {
+            return Err(XmlParseError::InvalidChar {
+                position: position_of_body_start + offset_within_body,
+                code_point: ch as u32,
+                context,
+            });
+        }
+        offset_within_body += ch.len_utf8();
+    }
+    Ok(())
 }
 
 /// W3C XML 1.0 §4.1 production [67] `Reference`:
