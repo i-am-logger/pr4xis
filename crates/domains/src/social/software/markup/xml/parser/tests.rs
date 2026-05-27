@@ -285,6 +285,27 @@ fn parameter_entity_declaration_skipped() {
 }
 
 #[test]
+fn misc_position_comment_with_out_of_range_char_is_rejected() {
+    // W3C XML 1.0 §2.5 [15] + §2.2 [2] Char — comment bodies must
+    // be in the Char repertoire even at Misc positions (after the
+    // doctype, after the root). xmlconf ibm/not-wf/P02 cases
+    // (NULL inside comments) regress here.
+    let xml = b"<?xml version=\"1.0\"?>\n<doc/>\n<!-- bad \x00 -->\n";
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn misc_position_pi_with_xml_target_is_rejected() {
+    // W3C XML 1.0 §2.6 [17] PITarget — `PITarget ::= Name -
+    // (('X'|'x') ('M'|'m') ('L'|'l'))`. A PI whose target is
+    // case-insensitively `xml` is malformed (the only reserved
+    // `<?xml ... ?>` form is the §2.8 XMLDecl, syntactically
+    // distinct and consumed by `parse_xml_decl`).
+    assert!(parse_document(b"<doc/>\n<?XmL nope?>").is_err());
+    assert!(parse_document(b"<doc/>\n<?xml-stylesheet href=\"x\"?>").is_ok());
+}
+
+#[test]
 fn comment_ending_with_trailing_dash_is_rejected() {
     // W3C XML 1.0 §2.5 production [15] Comment —
     // `Comment ::= '<!--' ((Char - '-') | ('-' (Char - '-')))* '-->'`

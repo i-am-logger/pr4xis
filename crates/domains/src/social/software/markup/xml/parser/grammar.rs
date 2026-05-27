@@ -487,11 +487,18 @@ fn parse_misc_star(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
 /// W3C XML 1.0 §2.5 production [15] `Comment`:
 /// `Comment ::= '<!--' ((Char - '-') | ('-' (Char - '-')))* '-->'`.
 ///
-/// The body alternation forbids any `--` substring AND any trailing
-/// `-` (the would-be last char of the body must be matched by
-/// `(Char - '-')`). xmlconf xmltest/not-wf/sa/070.xml — a comment
-/// closing with `--->`, i.e. body ending in `-` immediately before
-/// `-->` — is the spec's regression test for the trailing-dash case.
+/// Enforces all three §2.5 well-formedness constraints:
+/// - The body MUST NOT contain `--` (forbidden by the inner
+///   `(Char - '-')` after a `-`).
+/// - The body MUST NOT end with `-` (the spec form
+///   `((Char - '-') | ('-' (Char - '-')))*` requires the last
+///   char to be matched by `(Char - '-')`; xmlconf
+///   xmltest/not-wf/sa/070 is the trailing-dash regression).
+/// - Every character MUST be in the §2.2 [2] Char repertoire —
+///   the `is_xml_char` predicate consults the loaded spec
+///   table. xmlconf ibm/not-wf/P02 cases (NULL or other
+///   out-of-range characters in a Misc-position comment) are
+///   the regression set.
 fn skip_comment(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     let start = c.pos;
     c.consume("<!--")?;
@@ -505,20 +512,46 @@ fn skip_comment(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     if body.contains("--") || body.ends_with('-') {
         return Err(XmlParseError::MalformedComment { position: start });
     }
+    check_chars_in_range(body, start + 4, "Comment")?;
     c.pos += end + 3;
     Ok(())
 }
 
-/// W3C XML 1.0 §2.6 production [16] `PI`:
-/// `PI ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'`.
+/// W3C XML 1.0 §2.6 productions [16] `PI` + [17] `PITarget`:
+///
+///   PI       ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'
+///   PITarget ::= Name - (('X'|'x') ('M'|'m') ('L'|'l'))
+///
+/// Enforces three §2.6 well-formedness constraints:
+/// - The body MUST be a valid PITarget (a Name) optionally followed
+///   by S + Char* data.
+/// - PITarget MUST NOT be case-insensitively `xml`.
+/// - Every character in the data MUST be in §2.2 [2] Char.
 fn skip_pi(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
+    let start = c.pos;
     c.consume("<?")?;
+    let target = parse_name(c)?;
+    if target.qualified().eq_ignore_ascii_case("xml") {
+        return Err(XmlParseError::Syntax {
+            position: start,
+            expected: "PITarget that is not `xml` (case-insensitive)".into(),
+            found: target.qualified(),
+        });
+    }
+    if c.starts_with("?>") {
+        c.pos += 2;
+        return Ok(());
+    }
+    c.require_whitespace("PI data")?;
+    let data_start = c.pos;
     let rest = c.rest();
     let end = rest
         .find("?>")
         .ok_or_else(|| XmlParseError::UnexpectedEof {
             context: "processing instruction".into(),
         })?;
+    let body = &rest[..end];
+    check_chars_in_range(body, data_start, "PI")?;
     c.pos += end + 2;
     Ok(())
 }
