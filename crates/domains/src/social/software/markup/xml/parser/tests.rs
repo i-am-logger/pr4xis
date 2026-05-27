@@ -285,6 +285,39 @@ fn parameter_entity_declaration_skipped() {
 }
 
 #[test]
+fn parameter_entity_at_decl_sep_includes_a_general_entity_decl() {
+    // §2.8 [28b] intSubset / [28a] DeclSep — when a `%name;` appears
+    // between markup declarations, the PE is *included*: its
+    // replacement text is parsed at the reference point per §4.4.8
+    // "Included as PE", bracketed with leading/trailing #x20. A PE
+    // whose value is a complete `<!ENTITY ...>` general-entity decl
+    // therefore contributes that decl to the intsubset.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [
+        <!ENTITY % chunk '<!ENTITY g "hello">'>
+        %chunk;
+    ]><foo>&g;</foo>"#;
+    let doc = parse_document(xml).unwrap();
+    let dt = doc.doctype.as_ref().unwrap();
+    assert_eq!(dt.general_entities.len(), 1);
+    assert_eq!(dt.general_entities[0].0, "g");
+    assert_eq!(dt.general_entities[0].1, "hello");
+}
+
+#[test]
+fn parameter_entity_inside_markup_decl_in_internal_subset_is_rejected() {
+    // W3C XML 1.0 §4.4.8 WFC: PEs in Internal Subset — *"in the
+    // internal DTD subset, parameter-entity references MUST NOT
+    // occur within markup declarations; they may occur where markup
+    // declarations can occur"*. xmlconf ibm/not-wf/P29/ibm29n02.xml
+    // is the spec's regression test for this constraint.
+    let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [
+        <!ENTITY % parameterE "leopard EMPTY>">
+        <!ELEMENT %parameterE;
+    ]><foo/>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
 fn element_type_declaration_in_subset_skipped() {
     // §3.2 [45] elementdecl — affects validity, not well-formedness.
     let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ELEMENT foo EMPTY>]><foo/>"#;

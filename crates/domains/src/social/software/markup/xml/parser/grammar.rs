@@ -581,22 +581,57 @@ fn parse_external_id(c: &mut Cursor<'_>) -> Result<XmlExternalId, XmlParseError>
 /// `markupdecl ::= elementdecl | AttlistDecl | EntityDecl | NotationDecl | PI | Comment`
 /// (§2.8 [29]) and `DeclSep ::= PEReference | S` (§2.8 [28a]).
 ///
-/// We project `<!ENTITY name "value">` general entity declarations
-/// (§4.2 [70]/[71]) into the entity map. Other markup declarations
-/// are consumed structurally but not projected — they don't affect
-/// well-formedness.
+/// Each iteration recognises one of the [28b] alternatives by
+/// the literal prefix the grammar itself names for that production
+/// (`'<!ELEMENT'` from [45], `'<!ENTITY'` from [70], `'<!--'` from
+/// [15], `'%'` from [69], etc.). Markup declarations are validated
+/// in full by the EBNF interpreter against the loaded W3C grammar;
+/// general-entity declarations are projected into `general_entities`.
+///
+/// PE references at the DeclSep position (§2.8 [28a]: `DeclSep ::=
+/// PEReference | S`) are **included** per §4.4.8: the replacement
+/// text — bracketed with leading and trailing #x20 — is parsed
+/// back through this same procedure (mutual recursion via
+/// [`parse_intsubset_items`]), so a PE whose value is one or more
+/// complete markup declarations is processed exactly as if those
+/// decls had been written inline at the reference point.
+///
+/// The **WFC: PEs in Internal Subset** (§4.4.8) — *"in the internal
+/// DTD subset, parameter-entity references MUST NOT occur within
+/// markup declarations; they may occur where markup declarations
+/// can occur"* — is satisfied structurally: PE references are only
+/// recognised at the [28a] DeclSep position. Inside a markup decl
+/// the cursor is held by the validating interpreter call, never
+/// passes through the `%` branch.
 fn parse_internal_subset(
     c: &mut Cursor<'_>,
     general_entities: &mut Vec<(String, String)>,
 ) -> Result<(), XmlParseError> {
-    // §4.4 Table-4: parameter entities are recognised in the DTD
-    // ("Included as PE"). We capture their replacement text from
-    // PEDecls and substitute `%name;` references in subsequent
-    // markup-decls before grammar validation (M5.ζ.4.b).
     let mut parameter_entities: Vec<(String, String)> = Vec::new();
+    parse_intsubset_items(c, general_entities, &mut parameter_entities, true)
+}
+
+/// Walk a sequence of [28b] `(markupdecl | DeclSep)*` items.
+///
+/// `terminate_on_close_bracket` is `true` when called from
+/// [`parse_internal_subset`] (the cursor is over the original
+/// DOCTYPE intSubset and must stop at the closing `]`), `false`
+/// when called recursively over a PE's replacement text (the
+/// virtual cursor must run to end-of-input — the §4.4.8 PE
+/// "include" boundary is the end of the replacement, not a `]`).
+fn parse_intsubset_items(
+    c: &mut Cursor<'_>,
+    general_entities: &mut Vec<(String, String)>,
+    parameter_entities: &mut Vec<(String, String)>,
+    terminate_on_close_bracket: bool,
+) -> Result<(), XmlParseError> {
     loop {
         c.skip_whitespace();
-        if c.starts_with("]") {
+        if terminate_on_close_bracket {
+            if c.starts_with("]") {
+                return Ok(());
+            }
+        } else if c.is_eof() {
             return Ok(());
         }
         if c.starts_with("<!--") {
@@ -608,7 +643,7 @@ fn parse_internal_subset(
             continue;
         }
         if c.starts_with("<!ENTITY") {
-            if let Some((name, value)) = parse_entity_decl(c, &mut parameter_entities)? {
+            if let Some((name, value)) = parse_entity_decl(c, parameter_entities)? {
                 // §4.5 — duplicate entity declarations: the first wins.
                 if !general_entities.iter().any(|(n, _)| n == &name) {
                     general_entities.push((name, value));
@@ -644,7 +679,7 @@ fn parse_internal_subset(
             let decl_text = &c.input[decl_start..decl_end];
             let expanded_owned;
             let to_match: &str = if decl_text.contains('%') && !parameter_entities.is_empty() {
-                expanded_owned = expand_pe_references(decl_text, &parameter_entities);
+                expanded_owned = expand_pe_references(decl_text, parameter_entities);
                 &expanded_owned
             } else {
                 decl_text
@@ -664,11 +699,36 @@ fn parse_internal_subset(
             }
         }
         if c.starts_with("%") {
-            // §4.1 [69] PEReference — `%name;`. Top-level PE refs in
-            // intSubset are consumed; their replacement effect on
-            // surrounding markup-decls is handled by the per-decl
-            // expansion above.
-            skip_pe_reference(c)?;
+            // §2.8 [28a] `DeclSep ::= PEReference | S`; the cursor
+            // is at the only intsubset position the W3C grammar names
+            // for PE references (the WFC: PEs in Internal Subset
+            // forbids them anywhere else). §4.4.8 "Included as PE":
+            // the PE's replacement text is included at the reference
+            // point, enlarged with one leading and one trailing #x20.
+            c.consume("%")?;
+            let name = parse_name(c)?.qualified();
+            c.consume(";")?;
+            let resolved = parameter_entities
+                .iter()
+                .find(|(n, _)| n == &name)
+                .map(|(_, v)| v.clone());
+            if let Some(value) = resolved {
+                let mut included = String::with_capacity(value.len() + 2);
+                included.push(' ');
+                included.push_str(&value);
+                included.push(' ');
+                let mut sub = Cursor::new(&included);
+                parse_intsubset_items(
+                    &mut sub,
+                    general_entities,
+                    parameter_entities,
+                    /*terminate_on_close_bracket*/ false,
+                )?;
+            }
+            // Undefined PE in a well-formedness-only parser: the
+            // reference itself is well-formed (§4.1 [69]
+            // `PEReference ::= '%' Name ';'`); without a validating
+            // pass the spec does not require resolution. Continue.
             continue;
         }
         return Err(c.syntax_error("intSubset entry or `]`", &c.preview()));
@@ -929,13 +989,6 @@ fn skip_until_close_angle(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     Err(XmlParseError::UnexpectedEof {
         context: "markup declaration".into(),
     })
-}
-
-fn skip_pe_reference(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
-    c.consume("%")?;
-    let _name = parse_name(c)?;
-    c.consume(";")?;
-    Ok(())
 }
 
 /// Helper: parse just a character reference (`&#digits;` or
