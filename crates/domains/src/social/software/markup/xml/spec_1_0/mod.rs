@@ -23,6 +23,30 @@ pub use spec::{XML_1_0_FIFTH_EDITION, loaded_xml_1_0_fifth_edition};
 
 mod spec;
 
+/// The W3C XML 1.0 EBNF grammar — all 85 live productions parsed
+/// from the bundled spec bytes into a typed
+/// [`pr4xis::xml_grammar::Grammar`].
+///
+/// Cached via `OnceLock`: the first call parses the spec; every
+/// subsequent call returns the same `&'static Grammar`. The parser
+/// implementation in `parser::grammar` uses this to validate
+/// DOCTYPE markup declarations (§3.2 `elementdecl`, §3.3
+/// `AttlistDecl`, §4.7 `NotationDecl`) against the spec grammar
+/// instead of skip-to-next-`>` heuristics, closing the well-
+/// formedness gaps M5.ε.4 exposed.
+///
+/// Panics on a malformed grammar — a load failure here is a
+/// regression in `xml_1_0_fifth_edition@2008` source bytes or in
+/// the EBNF parser, both of which are covered by tests.
+#[must_use]
+pub fn loaded_xml_1_0_grammar() -> &'static pr4xis::xml_grammar::Grammar {
+    static GRAMMAR: std::sync::OnceLock<pr4xis::xml_grammar::Grammar> = std::sync::OnceLock::new();
+    GRAMMAR.get_or_init(|| {
+        pr4xis::xml_grammar::load_grammar(loaded_xml_1_0_fifth_edition())
+            .expect("W3C XML 1.0 Fifth Edition spec bytes must parse to a valid Grammar")
+    })
+}
+
 /// Generated grammar predicates — emitted at build time by
 /// `pr4xis::codegen::xml_grammar` from the loaded spec bytes. Provides:
 ///

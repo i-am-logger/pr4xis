@@ -173,9 +173,16 @@ fn extract_attr(open_attrs: &str, key: &str) -> Option<String> {
     Some(rest[..end].to_string())
 }
 
-/// Locate the `<lhs ...>name</lhs>` and `<rhs ...>...</rhs>` slices
-/// inside a production body (the content between `<prod ...>` and
-/// `</prod>`). Tolerates attributes on `<lhs>` / `<rhs>`.
+/// Locate the `<lhs ...>name</lhs>` and concatenated `<rhs ...>...</rhs>`
+/// content inside a production body (the content between
+/// `<prod ...>` and `</prod>`). Tolerates attributes on `<lhs>` /
+/// `<rhs>`.
+///
+/// Multiple `<rhs>` blocks per production are concatenated into a
+/// single RHS string separated by spaces. The W3C spec uses this
+/// pattern (e.g. §3.2 [51] `Mixed`, §3.3.1 [54] `AttType`) to wrap
+/// long alternations across lines; the second and subsequent
+/// `<rhs>` blocks begin with `|` to continue the alternation.
 fn split_lhs_rhs(body: &str, prod_pos: usize) -> Result<(String, String), LoadGrammarError> {
     let lhs_open = body
         .find("<lhs")
@@ -205,35 +212,41 @@ fn split_lhs_rhs(body: &str, prod_pos: usize) -> Result<(String, String), LoadGr
         .trim()
         .to_string();
 
-    let rhs_search_from = lhs_content_start + lhs_content_end + "</lhs>".len();
-    let rhs_open =
-        body[rhs_search_from..]
-            .find("<rhs")
-            .ok_or_else(|| LoadGrammarError::Malformed {
-                production: Some(lhs_name.clone()),
-                position: prod_pos,
-                what: "missing <rhs>".to_string(),
-            })?;
-    let rhs_open_abs = rhs_search_from + rhs_open;
-    let after_rhs_open_tag =
-        body[rhs_open_abs + 4..]
-            .find('>')
-            .ok_or_else(|| LoadGrammarError::Malformed {
-                production: Some(lhs_name.clone()),
-                position: prod_pos,
-                what: "unterminated <rhs> open tag".to_string(),
-            })?;
-    let rhs_content_start = rhs_open_abs + 4 + after_rhs_open_tag + 1;
-    let rhs_content_end =
-        body[rhs_content_start..]
-            .find("</rhs>")
-            .ok_or_else(|| LoadGrammarError::Malformed {
+    // Walk every `<rhs>...</rhs>` block in document order, concatenating
+    // their contents separated by a single space. Productions like
+    // §3.2 [51] `Mixed` use this pattern to split a long alternation
+    // across two `<rhs>` blocks, the second beginning with `|`.
+    let mut rhs_parts: Vec<String> = Vec::new();
+    let mut cursor = lhs_content_start + lhs_content_end + "</lhs>".len();
+    while let Some(rel) = body[cursor..].find("<rhs") {
+        let rhs_open_abs = cursor + rel;
+        let after_rhs_open_tag =
+            body[rhs_open_abs + 4..]
+                .find('>')
+                .ok_or_else(|| LoadGrammarError::Malformed {
+                    production: Some(lhs_name.clone()),
+                    position: prod_pos,
+                    what: "unterminated <rhs> open tag".to_string(),
+                })?;
+        let rhs_content_start = rhs_open_abs + 4 + after_rhs_open_tag + 1;
+        let rhs_content_end = body[rhs_content_start..].find("</rhs>").ok_or_else(|| {
+            LoadGrammarError::Malformed {
                 production: Some(lhs_name.clone()),
                 position: prod_pos,
                 what: "missing </rhs>".to_string(),
-            })?;
-    let rhs_content = body[rhs_content_start..rhs_content_start + rhs_content_end].to_string();
-    Ok((lhs_name, rhs_content))
+            }
+        })?;
+        rhs_parts.push(body[rhs_content_start..rhs_content_start + rhs_content_end].to_string());
+        cursor = rhs_content_start + rhs_content_end + "</rhs>".len();
+    }
+    if rhs_parts.is_empty() {
+        return Err(LoadGrammarError::Malformed {
+            production: Some(lhs_name),
+            position: prod_pos,
+            what: "no <rhs> blocks".to_string(),
+        });
+    }
+    Ok((lhs_name, rhs_parts.join(" ")))
 }
 
 #[cfg(test)]

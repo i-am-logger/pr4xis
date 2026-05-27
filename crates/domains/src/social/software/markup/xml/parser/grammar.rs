@@ -612,11 +612,35 @@ fn parse_internal_subset(
             continue;
         }
         if c.starts_with("<!ELEMENT") || c.starts_with("<!ATTLIST") || c.starts_with("<!NOTATION") {
-            // Consume the declaration up to its closing `>`; we do not
-            // currently project these to typed values (validity, not
-            // well-formedness).
-            skip_markup_decl(c)?;
-            continue;
+            // Validate the markup declaration against the loaded W3C
+            // XML 1.0 EBNF (M5.ζ.4): match the appropriate production
+            // — §3.2 [45] elementdecl, §3.3 [52] AttlistDecl, or
+            // §4.7 [82] NotationDecl — via
+            // `pr4xis::xml_grammar::Interpreter`. A well-formed
+            // declaration advances the cursor past its `>`; a
+            // malformed declaration (e.g. `<!ENTITY foo PUBLIC "id">`
+            // missing SystemLiteral, `<!ATTLIST e a CDATA"foo">`
+            // missing whitespace between AttType and DefaultDecl)
+            // produces a Syntax error per W3C XML 1.0 §3 / §4
+            // well-formedness constraints.
+            let production_name = if c.starts_with("<!ELEMENT") {
+                "elementdecl"
+            } else if c.starts_with("<!ATTLIST") {
+                "AttlistDecl"
+            } else {
+                "NotationDecl"
+            };
+            let grammar = crate::social::software::markup::xml::spec_1_0::loaded_xml_1_0_grammar();
+            let mut interp = pr4xis::xml_grammar::Interpreter::new(grammar, c.input);
+            match interp.match_production(production_name, c.pos) {
+                pr4xis::xml_grammar::MatchResult::Match { end_pos } => {
+                    c.pos = end_pos;
+                    continue;
+                }
+                pr4xis::xml_grammar::MatchResult::NoMatch => {
+                    return Err(c.syntax_error(production_name, &c.preview()));
+                }
+            }
         }
         if c.starts_with("%") {
             // §4.1 [69] PEReference — `%name;`. We don't resolve
@@ -767,15 +791,6 @@ fn parse_entity_value(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
             c.pos += ch.len_utf8();
         }
     }
-}
-
-/// Consume tokens up to and including the next `>` at top level
-/// (paired square brackets nested within are ignored). Used to
-/// skip element-type, attribute-list, and notation declarations
-/// inside the internal subset whose typed projections we do not
-/// yet emit.
-fn skip_markup_decl(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
-    skip_until_close_angle(c)
 }
 
 /// Skip tokens up to and including the next top-level `>` while
