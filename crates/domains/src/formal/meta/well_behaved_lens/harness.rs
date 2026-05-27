@@ -203,6 +203,32 @@ pub fn run_round_trip_harness() -> Vec<HarnessResult> {
     out
 }
 
+/// Print one line per registration to stderr — TOML-formatted for the
+/// [`canonical_signatures`] section of `praxis.lock` when the source's
+/// PutGet law holds but its signature hasn't been pinned yet, and a
+/// `key: Outcome` line otherwise. Surface for the human workflow of
+/// pinning new lens signatures: capture stderr, paste matching lines
+/// into `praxis.lock`.
+///
+/// This is procedural tooling, not a `#[test]` — pairs with
+/// [[feedback-never-use-ignore]]: helpers belong in callable
+/// functions and CLI subcommands, never as `#[ignore]`d tests.
+pub fn dump_unpinned_signatures() {
+    for r in run_round_trip_harness() {
+        match &r.outcome {
+            HarnessOutcome::LawHoldsSignatureUnpinned {
+                computed_sha256_hex,
+            } => {
+                eprintln!(
+                    "\"{}\" = \"{}\"  # pin in praxis.lock [canonical_signatures]",
+                    r.key, computed_sha256_hex
+                );
+            }
+            other => eprintln!("{}: {:?}", r.key, other),
+        }
+    }
+}
+
 fn check_one(reg: &LensRegistration) -> HarnessResult {
     let outcome = match resolve_source_bytes(reg) {
         Ok(SourceBytes::Loaded { bytes, .. }) => verify_loaded_bytes(reg, &bytes),
