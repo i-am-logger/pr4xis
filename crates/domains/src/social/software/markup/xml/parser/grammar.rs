@@ -589,6 +589,11 @@ fn parse_internal_subset(
     c: &mut Cursor<'_>,
     general_entities: &mut Vec<(String, String)>,
 ) -> Result<(), XmlParseError> {
+    // §4.4 Table-4: parameter entities are recognised in the DTD
+    // ("Included as PE"). We capture their replacement text from
+    // PEDecls and substitute `%name;` references in subsequent
+    // markup-decls before grammar validation (M5.ζ.4.b).
+    let mut parameter_entities: Vec<(String, String)> = Vec::new();
     loop {
         c.skip_whitespace();
         if c.starts_with("]") {
@@ -603,7 +608,7 @@ fn parse_internal_subset(
             continue;
         }
         if c.starts_with("<!ENTITY") {
-            if let Some((name, value)) = parse_entity_decl(c)? {
+            if let Some((name, value)) = parse_entity_decl(c, &mut parameter_entities)? {
                 // §4.5 — duplicate entity declarations: the first wins.
                 if !general_entities.iter().any(|(n, _)| n == &name) {
                     general_entities.push((name, value));
@@ -613,16 +618,12 @@ fn parse_internal_subset(
         }
         if c.starts_with("<!ELEMENT") || c.starts_with("<!ATTLIST") || c.starts_with("<!NOTATION") {
             // Validate the markup declaration against the loaded W3C
-            // XML 1.0 EBNF (M5.ζ.4): match the appropriate production
-            // — §3.2 [45] elementdecl, §3.3 [52] AttlistDecl, or
-            // §4.7 [82] NotationDecl — via
-            // `pr4xis::xml_grammar::Interpreter`. A well-formed
-            // declaration advances the cursor past its `>`; a
-            // malformed declaration (e.g. `<!ENTITY foo PUBLIC "id">`
-            // missing SystemLiteral, `<!ATTLIST e a CDATA"foo">`
-            // missing whitespace between AttType and DefaultDecl)
-            // produces a Syntax error per W3C XML 1.0 §3 / §4
-            // well-formedness constraints.
+            // XML 1.0 EBNF (M5.ζ.4). For PE-bearing declarations
+            // (M5.ζ.4.b), expand `%name;` references via §4.4.8
+            // "Included as PE" semantics before matching: the
+            // replacement text is wrapped in leading + trailing
+            // #x20 so it forms a complete grammatical token in the
+            // expanded DTD.
             let production_name = if c.starts_with("<!ELEMENT") {
                 "elementdecl"
             } else if c.starts_with("<!ATTLIST") {
@@ -630,26 +631,89 @@ fn parse_internal_subset(
             } else {
                 "NotationDecl"
             };
+            // Find the declaration's extent in original input — skip
+            // to top-level `>` respecting quoted SystemLiteral /
+            // PubidLiteral / EntityValue contents.
+            let decl_start = c.pos;
+            let mut probe = Cursor {
+                input: c.input,
+                pos: c.pos,
+            };
+            skip_until_close_angle(&mut probe)?;
+            let decl_end = probe.pos;
+            let decl_text = &c.input[decl_start..decl_end];
+            let expanded_owned;
+            let to_match: &str = if decl_text.contains('%') && !parameter_entities.is_empty() {
+                expanded_owned = expand_pe_references(decl_text, &parameter_entities);
+                &expanded_owned
+            } else {
+                decl_text
+            };
             let grammar = crate::social::software::markup::xml::spec_1_0::loaded_xml_1_0_grammar();
-            let mut interp = pr4xis::xml_grammar::Interpreter::new(grammar, c.input);
-            match interp.match_production(production_name, c.pos) {
-                pr4xis::xml_grammar::MatchResult::Match { end_pos } => {
-                    c.pos = end_pos;
+            let mut interp = pr4xis::xml_grammar::Interpreter::new(grammar, to_match);
+            match interp.match_production(production_name, 0) {
+                pr4xis::xml_grammar::MatchResult::Match { end_pos }
+                    if end_pos == to_match.len() =>
+                {
+                    c.pos = decl_end;
                     continue;
                 }
-                pr4xis::xml_grammar::MatchResult::NoMatch => {
+                _ => {
                     return Err(c.syntax_error(production_name, &c.preview()));
                 }
             }
         }
         if c.starts_with("%") {
-            // §4.1 [69] PEReference — `%name;`. We don't resolve
-            // parameter entities; consume the reference and continue.
+            // §4.1 [69] PEReference — `%name;`. Top-level PE refs in
+            // intSubset are consumed; their replacement effect on
+            // surrounding markup-decls is handled by the per-decl
+            // expansion above.
             skip_pe_reference(c)?;
             continue;
         }
         return Err(c.syntax_error("intSubset entry or `]`", &c.preview()));
     }
+}
+
+/// W3C XML 1.0 §4.4.8 "Included as PE": substitute every `%name;`
+/// reference in `text` with the corresponding PE's replacement
+/// text, surrounded by a leading and trailing space (#x20) so the
+/// replacement forms a complete grammatical token in the expanded
+/// DTD.
+///
+/// References to undefined names are left in place — the spec calls
+/// this a validity-error situation, not a well-formedness violation;
+/// the subsequent markup-decl match will reject the expanded text
+/// if the unresolved `%name;` makes it ungrammatical.
+fn expand_pe_references(text: &str, pes: &[(String, String)]) -> String {
+    let mut out = String::with_capacity(text.len());
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            let after_percent = &text[i + 1..];
+            if let Some(semi_rel) = after_percent.find(';') {
+                let candidate = &after_percent[..semi_rel];
+                let looks_like_name = !candidate.is_empty()
+                    && candidate
+                        .chars()
+                        .all(|ch| !ch.is_whitespace() && ch != '%' && ch != ';');
+                if looks_like_name {
+                    if let Some((_, value)) = pes.iter().find(|(n, _)| n == candidate) {
+                        out.push(' ');
+                        out.push_str(value);
+                        out.push(' ');
+                        i += 1 + semi_rel + 1;
+                        continue;
+                    }
+                }
+            }
+        }
+        let ch = text[i..].chars().next().expect("non-empty by loop guard");
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+    out
 }
 
 /// W3C XML 1.0 §4.2 production [70/71] `GEDecl`:
@@ -672,13 +736,40 @@ fn parse_internal_subset(
 /// - `None` for a parameter entity declaration (§4.2 [72] `PEDecl`).
 ///   PEs are skipped because they expand inside the DTD, not in
 ///   the document content (M5.ε.5.c — proper PE expansion).
-fn parse_entity_decl(c: &mut Cursor<'_>) -> Result<Option<(String, String)>, XmlParseError> {
+fn parse_entity_decl(
+    c: &mut Cursor<'_>,
+    parameter_entities: &mut Vec<(String, String)>,
+) -> Result<Option<(String, String)>, XmlParseError> {
     c.consume("<!ENTITY")?;
     c.require_whitespace("ENTITY name")?;
 
-    // §4.2 [72] PEDecl path begins with `%`.
+    // §4.2 [72] PEDecl path begins with `%`. The PEDecl grammar is:
+    //   PEDecl ::= '<!ENTITY' S '%' S Name S PEDef S? '>'
+    //   PEDef  ::= EntityValue | ExternalID
+    // Internal PEs (EntityValue variant) get their replacement text
+    // captured for §4.4.8 "Included as PE" expansion inside
+    // markup-decl validation; external PEs are recognised but their
+    // bodies are not fetched (out-of-scope for the well-formedness
+    // slice).
     if c.starts_with("%") {
-        skip_until_close_angle(c)?;
+        c.consume("%")?;
+        c.require_whitespace("PEDecl name")?;
+        let name = parse_name(c)?;
+        c.require_whitespace("PEDecl value")?;
+        if c.starts_with("SYSTEM") || c.starts_with("PUBLIC") {
+            // External PE — skip past `>` (respecting quoted literals).
+            skip_until_close_angle(c)?;
+        } else {
+            // Internal PE — capture the replacement text.
+            let value = parse_entity_value(c)?;
+            c.skip_whitespace();
+            c.consume(">")?;
+            // §4.5: first declaration wins for an entity name.
+            let qname = name.qualified();
+            if !parameter_entities.iter().any(|(n, _)| n == &qname) {
+                parameter_entities.push((qname, value));
+            }
+        }
         return Ok(None);
     }
 
