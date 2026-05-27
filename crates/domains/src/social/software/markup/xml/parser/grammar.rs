@@ -1165,15 +1165,21 @@ fn parse_entity_decl(
         c.require_whitespace("PEDecl name")?;
         let name = parse_name(c)?;
         c.require_whitespace("PEDecl value")?;
+        // §4.2 [74] `PEDef ::= EntityValue | ExternalID` — no
+        // NDataDecl. The grammar-grounded audit
+        // `loaded_pedef_rejects_ndata_decl()` confirms at module init
+        // that the loaded spec source agrees. After parsing the
+        // ExternalID branch, §4.2 [72] `PEDecl ::= ... PEDef S? '>'`
+        // mandates a literal `>` (with optional preceding whitespace)
+        // as the only legal continuation; the `c.consume(">")` calls
+        // below are the grammar's natural NDATA rejection — a stray
+        // `NDATA` token fails the `>` consume with a syntax error.
+        // xmlconf xmltest/not-wf/sa/089, /091 are the regression set.
+        let _ = loaded_pedef_rejects_ndata_decl();
         if c.starts_with("SYSTEM") {
             c.consume("SYSTEM")?;
             c.require_whitespace("ExternalID SystemLiteral")?;
             let _system_literal = parse_quoted(c)?;
-            // §4.2 [74] PEDef ::= EntityValue | ExternalID
-            // (no NDataDecl).  An NDATA token here is a syntax
-            // error — parameter entities can never be unparsed.
-            // xmlconf xmltest/not-wf/sa/089, /091 regress on this.
-            reject_ndata_decl_on_pe(c)?;
             c.skip_whitespace();
             c.consume(">")?;
         } else if c.starts_with("PUBLIC") {
@@ -1192,7 +1198,6 @@ fn parse_entity_decl(
             }
             c.require_whitespace("ExternalID SystemLiteral")?;
             let _system_literal = parse_quoted(c)?;
-            reject_ndata_decl_on_pe(c)?;
             c.skip_whitespace();
             c.consume(">")?;
         } else {
@@ -1313,30 +1318,105 @@ fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<bool, XmlParseError> 
     }
 }
 
-/// W3C XML 1.0 §4.2 [74] `PEDef ::= EntityValue | ExternalID` —
-/// note the absence of `NDataDecl`. Parameter entities (§4.2 [72]
-/// `PEDecl`) are *parsed* by definition; the NDATA marker is
-/// only ever legal on a general entity (§4.2 [73] `EntityDef`,
-/// where NDataDecl is a valid suffix). This helper enforces
-/// that asymmetry: when the cursor is sitting at the position
-/// where an NDataDecl *would* go for a general entity, but we
-/// are inside a PE declaration, surface a syntax error.
+/// Grammar-grounded audit: confirms the loaded W3C XML 1.0 spec's
+/// [74] `PEDef ::= EntityValue | ExternalID` production does NOT
+/// reference `NDataDecl` (transitively, through `NonTerminal`
+/// indirection). This is the structural fact that makes the
+/// PE-declaration parser's `c.consume(">")` after the ExternalID
+/// branch a sufficient rejection of stray NDATA tokens — no
+/// hand-coded `c.starts_with("NDATA")` check is needed.
+///
+/// Called once via `OnceLock` at module first-use of the entity-
+/// decl path; panics with `pedef_audit_failed_panic_message()` if
+/// the spec source has drifted such that PEDef gained an
+/// NDataDecl reference. Per `feedback_corpus_wide_audit_on_load`:
+/// spec-source drift fails closed.
+///
+/// The W3C source for [74] PEDef as of the 2008 Fifth Edition:
+///
+/// ```text
+/// <prod id="NT-PEDef" num="74">
+///   <lhs>PEDef</lhs>
+///   <rhs>EntityValue | ExternalID</rhs>
+/// </prod>
+/// ```
 ///
 /// xmlconf xmltest/not-wf/sa/089 (`<!ENTITY % foo SYSTEM "foo"
 /// NDATA bar>`) and /091 (variant with NOTATION declared) are
-/// the spec regressions.
-fn reject_ndata_decl_on_pe(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
-    let save = c.pos;
-    c.skip_whitespace();
-    if c.starts_with("NDATA") {
-        return Err(XmlParseError::Syntax {
-            position: c.pos,
-            expected: "PEDef end (PE definitions cannot have NDataDecl — §4.2 [74])".into(),
-            found: "NDATA".into(),
-        });
+/// the regression set the natural grammar-tail rejection covers:
+/// after `parse_quoted` consumes `"foo"`, `c.skip_whitespace()`
+/// passes over ` `, then `c.consume(">")` faces `N` and emits a
+/// syntax error — exactly the §4.2 [72] PEDecl tail mismatch
+/// the W3C spec mandates.
+fn loaded_pedef_rejects_ndata_decl() -> bool {
+    use std::sync::OnceLock;
+    static AUDIT: OnceLock<bool> = OnceLock::new();
+    *AUDIT.get_or_init(|| {
+        use crate::social::software::markup::xml::spec_1_0::loaded_xml_1_0_grammar;
+        let grammar = loaded_xml_1_0_grammar();
+        let pedef = grammar
+            .lookup("PEDef")
+            .expect("[74] PEDef must be present in the loaded W3C XML 1.0 grammar");
+        if term_references_production(&pedef.rhs, "NDataDecl", grammar) {
+            panic!(
+                "W3C XML 1.0 [74] PEDef in the loaded spec source unexpectedly \
+                 references NDataDecl — spec source has drifted. The PE-declaration \
+                 parser's `c.consume(\">\")` is no longer sufficient as the grammar-tail \
+                 rejection; restore the explicit NDATA check at the call sites."
+            );
+        }
+        true
+    })
+}
+
+/// Recursively check whether `term`'s transitive expansion in
+/// `grammar` references the production named `target` via any
+/// `NonTerminal(name)` reference. Used by
+/// [`loaded_pedef_rejects_ndata_decl`] to confirm PEDef has no
+/// NDataDecl reference.
+fn term_references_production(
+    term: &pr4xis::xml_grammar::Term,
+    target: &str,
+    grammar: &pr4xis::xml_grammar::Grammar,
+) -> bool {
+    use pr4xis::xml_grammar::Term;
+    // Visited set to break cycles in case the grammar has self-
+    // recursive productions (the W3C XML 1.0 grammar does not, but
+    // the safety belt is cheap).
+    fn walk(
+        term: &Term,
+        target: &str,
+        grammar: &pr4xis::xml_grammar::Grammar,
+        visited: &mut Vec<String>,
+    ) -> bool {
+        match term {
+            Term::NonTerminal(n) => {
+                if n == target {
+                    return true;
+                }
+                if visited.iter().any(|v| v == n) {
+                    return false;
+                }
+                visited.push(n.clone());
+                let Some(p) = grammar.lookup(n) else {
+                    return false;
+                };
+                walk(&p.rhs, target, grammar, visited)
+            }
+            Term::Sequence(items) | Term::Alternation(items) => {
+                items.iter().any(|t| walk(t, target, grammar, visited))
+            }
+            Term::Optional(inner) | Term::ZeroOrMore(inner) | Term::OneOrMore(inner) => {
+                walk(inner, target, grammar, visited)
+            }
+            Term::Subtraction(a, b) => {
+                walk(a, target, grammar, visited) || walk(b, target, grammar, visited)
+            }
+            Term::Literal(_) | Term::CharClass(_) => false,
+        }
     }
-    c.pos = save;
-    Ok(())
+    let mut visited = Vec::new();
+    walk(term, target, grammar, &mut visited)
 }
 
 /// W3C XML 1.0 §4.3.2 production [9] `EntityValue`:
