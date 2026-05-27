@@ -1089,19 +1089,31 @@ fn parse_entity_value(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
                 out.push(parse_char_ref(c)?);
             } else {
                 // General entity reference inside another entity value:
-                // pass through as literal. §4.5 calls this the
-                // "literal entity value" before bypassing.
-                let start = c.pos;
-                let semi = c
-                    .rest()
-                    .find(';')
-                    .ok_or_else(|| XmlParseError::UnexpectedEof {
-                        context: "EntityValue Reference".into(),
-                    })?;
-                let literal = &c.input[start..start + semi + 1];
+                // pass through as literal per §4.5. The Reference
+                // syntax is still validated — §4.1 [68] `EntityRef ::=
+                // '&' Name ';'` requires a §2.3 [5] Name, so `&49;`
+                // (starts with a digit) is malformed. xmlconf
+                // ibm/not-wf/P66/ibm66n03 regresses without this.
+                let ref_start = c.pos;
+                c.consume("&")?;
+                let _name = parse_name(c)?;
+                c.consume(";")?;
+                let literal = &c.input[ref_start..c.pos];
                 out.push_str(literal);
-                c.pos += semi + 1;
             }
+        } else if ch == '%' {
+            // §4.3.2 [9] EntityValue body alternation `[^%&"]`
+            // excludes a literal `%`; the spec requires it escaped
+            // via numeric char ref or PEReference. PEReferences only
+            // resolve in the external subset (WFC: PEs in Internal
+            // Subset). For the internal-subset slice this parser
+            // covers, a literal `%` is always malformed. xmlconf
+            // ibm/not-wf/P09/ibm09n01 regresses here.
+            return Err(XmlParseError::Syntax {
+                position: ch_pos,
+                expected: "EntityValue body (literal `%` forbidden)".into(),
+                found: "%".to_string(),
+            });
         } else {
             // §4.3.2 [9] `EntityValue ::= '"' ([^%&"] | PEReference |
             // Reference)* '"' | ...`. The `[^%&"]` notation in W3C
@@ -1462,8 +1474,41 @@ fn parse_att_value(
         }
         if ch == '&' {
             // Character + entity references contribute their referenced
-            // character(s) unchanged (§3.3.3 step 3.1.1).
-            out.push_str(&parse_reference(c, entities)?);
+            // character(s) unchanged (§3.3.3 step 3.1.1). §4.4 WFC:
+            // "No < in Attribute Values" — applies *only* to user-
+            // declared general-entity expansions whose replacement
+            // text contains a `<`. Numeric character references and
+            // the five §4.6 predefined entities (`&lt;` is the
+            // sanctioned way to bring a literal `<` into an attribute
+            // value) are explicitly exempt: per §4.6 "the entity `lt`
+            // is declared via `<!ENTITY lt "&#60;">`" — the resolved
+            // `<` comes through a character reference, which is
+            // allowed.
+            //
+            // Detect the case by peeking ahead before the reference
+            // is consumed: `&#…;` is a CharRef; the five names
+            // `amp/lt/gt/apos/quot` are predefined; everything else
+            // is a user-declared general entity whose expansion is
+            // checked for `<` after resolution. xmlconf
+            // ibm/not-wf/P60/ibm60n07 — `<!ENTITY x "<Intro">` then
+            // `attr="&x;"` — regresses without this.
+            let ref_pos = c.pos;
+            let is_general_user_entity = !c.rest().starts_with("&#") && {
+                let after = &c.rest()[1..];
+                let semi = after.find(';').unwrap_or(after.len());
+                let name = &after[..semi];
+                !matches!(name, "amp" | "lt" | "gt" | "apos" | "quot")
+            };
+            let expanded = parse_reference(c, entities)?;
+            if is_general_user_entity && expanded.contains('<') {
+                return Err(XmlParseError::Syntax {
+                    position: ref_pos,
+                    expected: "AttValue (general-entity expansion must not contain `<` — §4.4 WFC)"
+                        .into(),
+                    found: "<".to_string(),
+                });
+            }
+            out.push_str(&expanded);
         } else if matches!(ch, '\t' | '\n' | '\r') {
             // §3.3.3 step 3.1.4: literal whitespace becomes #x20.
             out.push(' ');

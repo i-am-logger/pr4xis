@@ -313,6 +313,62 @@ fn attlist_with_default_attvalue_only_parses() {
 }
 
 #[test]
+fn entity_value_with_literal_percent_is_rejected() {
+    // W3C XML 1.0 §4.3.2 [9] EntityValue body alternation
+    // `[^%&"]` excludes literal `%` — the spec says "the `%`
+    // character must be escaped using a numeric character
+    // reference or a parameter entity reference". xmlconf
+    // ibm/not-wf/P09/ibm09n01 — `<!ENTITY x "Snow%Man">` — is
+    // the spec regression.
+    let xml = br#"<!DOCTYPE d [<!ENTITY x "Snow%Man">]><d/>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn entity_value_with_invalid_name_in_reference_is_rejected() {
+    // §4.1 [68] EntityRef ::= '&' Name ';' — Name starts with
+    // NameStartChar (digits excluded). `&49;` is malformed even
+    // inside an EntityValue where references are bypassed: the
+    // *syntax* still has to match. xmlconf ibm/not-wf/P66/ibm66n03.
+    let xml = br#"<!DOCTYPE d [<!ENTITY x "ref: &49;">]><d/>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn user_entity_expansion_with_lt_in_attribute_is_rejected() {
+    // §4.4 Table 4 WFC: No `<` in Attribute Values — when a
+    // user-declared general entity is referenced from an
+    // attribute value, the replacement text MUST NOT contain
+    // `<`. xmlconf ibm/not-wf/P60/ibm60n07: `<!ENTITY x
+    // "<Introduction">` then `attr="&x;"`.
+    let xml = br#"<!DOCTYPE r [<!ELEMENT r EMPTY>
+<!ATTLIST r a CDATA #REQUIRED>
+<!ENTITY x "<bad">
+]><r a="&x;"/>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn predefined_lt_entity_in_attribute_is_allowed() {
+    // §4.6 — `&lt;` is the sanctioned way to bring `<` into an
+    // attribute value (its replacement text is the character
+    // reference `&#60;`, not a literal `<`). The §4.4 WFC must
+    // not over-fire and reject this.
+    let xml = br#"<r a="&lt;"/>"#;
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.attributes[0].value, "<");
+}
+
+#[test]
+fn numeric_charref_to_lt_in_attribute_is_allowed() {
+    // Same: `&#60;` resolves to `<` and is allowed in attribute
+    // values (the WFC scopes to general-entity expansions only).
+    let xml = br#"<r a="&#60;"/>"#;
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.attributes[0].value, "<");
+}
+
+#[test]
 fn entity_value_with_out_of_range_char_is_rejected() {
     // §4.3.2 [9] EntityValue body alternation `([^%&"] | …)` is
     // §2.2 [2] Char minus the literal-delimiters. A literal NUL
@@ -918,8 +974,16 @@ mod property {
         ) {
             // Skip predefined entity names — they take precedence.
             prop_assume!(!matches!(name.as_str(), "amp" | "lt" | "gt" | "apos" | "quot"));
-            // Stay clear of quote chars in the value (would break the entity declaration).
-            prop_assume!(!value.contains('"') && !value.contains('&'));
+            // Stay clear of quote chars in the value (would break the
+            // entity declaration), `&` (would be parsed as a Reference
+            // start, not literal data), and `%` (§4.3.2 `[^%&"]`
+            // excludes literal `%` from EntityValue — the spec
+            // requires it escaped via numeric char ref or PE ref).
+            prop_assume!(
+                !value.contains('"')
+                    && !value.contains('&')
+                    && !value.contains('%')
+            );
             let xml = format!(
                 "<?xml version=\"1.0\"?><!DOCTYPE r [<!ENTITY {name} \"{value}\">]><r>&{name};</r>"
             );
