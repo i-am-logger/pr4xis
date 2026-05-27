@@ -237,6 +237,19 @@ fn case_from_test(
             return None;
         }
     }
+    // XMLConf testcases.dtd ATTLIST: `VERSION CDATA #IMPLIED`.
+    // When present, the test asserts behaviour of an XML 1.1
+    // processor — a separate W3C Recommendation (Bray et al.
+    // 2008 *Extensible Markup Language (XML) 1.1*). The praxis
+    // parser implements XML 1.0 only. eduni/errata-2e/E50 is the
+    // canonical case: `VERSION="1.1"`, declares `version="1.1"`,
+    // and exercises ISO-8859-1 transcoding through an XML 1.1
+    // processor's encoding-detection path.
+    if let Some(version) = attr_value(test, "VERSION")
+        && version != "1.0"
+    {
+        return None;
+    }
     if case_type == XmlConfType::NotWf
         && let Some(entities) = attr_value(test, "ENTITIES")
         && entities != "none"

@@ -175,11 +175,36 @@ impl std::error::Error for XmlParseError {}
 /// this normalization on input so that downstream productions never
 /// see CR.
 pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
-    let raw = decode_input(input)?;
+    let (raw, detected_encoding) = decode_input(input)?;
     let normalized = normalize_line_endings(&raw);
     let mut cursor = Cursor::new(&normalized);
 
     let (version, encoding, standalone, doctype) = parse_prolog(&mut cursor)?;
+    // W3C XML 1.0 §F + §4.3.3 "Character Encoding in Entities" —
+    // if an XMLDecl carries an encoding declaration, that label
+    // MUST be consistent with the encoding actually used. UTF-16
+    // entities MUST begin with a BOM (§4.3.3.1), so a document
+    // declaring encoding="UTF-16" but lacking a UTF-16 BOM is
+    // malformed. xmlconf eduni/errata-2e/E61 is the spec
+    // regression: an ASCII document declaring UTF-16 encoding.
+    if let Some(declared) = &encoding {
+        let lower = declared.to_ascii_lowercase();
+        let declared_is_utf16 =
+            lower == "utf-16" || lower == "utf-16le" || lower == "utf-16be" || lower == "ucs-2";
+        let detected_is_utf16 = matches!(
+            detected_encoding,
+            DetectedEncoding::Utf16Be | DetectedEncoding::Utf16Le
+        );
+        if declared_is_utf16 != detected_is_utf16 {
+            return Err(XmlParseError::Syntax {
+                position: 0,
+                expected: "encoding declaration consistent with actual byte stream \
+                           (§F / §4.3.3.1: UTF-16 entities must have a BOM)"
+                    .into(),
+                found: declared.clone(),
+            });
+        }
+    }
     let entity_map: Vec<XmlGeneralEntity> = doctype
         .as_ref()
         .map(|d| d.general_entities.clone())
@@ -229,16 +254,32 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
 /// out of scope: the praxis legal-evidence corpus is uniformly
 /// UTF-8 / UTF-16, and the W3C XMLConf test cases the praxis
 /// parser must pass declare only those.
-fn decode_input(input: &[u8]) -> Result<String, XmlParseError> {
+/// Encoding the byte-prefix probe in [`decode_input`] resolved
+/// the document to. Carried alongside the decoded text so the
+/// outer parser can match it against the optional `encoding="…"`
+/// pseudo-attribute on the XMLDecl per W3C XML 1.0 §F /
+/// §4.3.3 "Character Encoding in Entities".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DetectedEncoding {
+    /// `FE FF` BOM observed.
+    Utf16Be,
+    /// `FF FE` BOM observed.
+    Utf16Le,
+    /// Default — neither UTF-16 BOM observed.
+    Utf8,
+}
+
+fn decode_input(input: &[u8]) -> Result<(String, DetectedEncoding), XmlParseError> {
     if let Some(body) = input.strip_prefix(&[0xFE, 0xFF]) {
-        return decode_utf16(body, /* big_endian = */ true);
+        return decode_utf16(body, /* big_endian = */ true).map(|s| (s, DetectedEncoding::Utf16Be));
     }
     if let Some(body) = input.strip_prefix(&[0xFF, 0xFE]) {
-        return decode_utf16(body, /* big_endian = */ false);
+        return decode_utf16(body, /* big_endian = */ false)
+            .map(|s| (s, DetectedEncoding::Utf16Le));
     }
     let body = input.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(input);
     core::str::from_utf8(body)
-        .map(|s| s.to_string())
+        .map(|s| (s.to_string(), DetectedEncoding::Utf8))
         .map_err(|e| XmlParseError::NotUtf8 {
             position: e.valid_up_to(),
         })
