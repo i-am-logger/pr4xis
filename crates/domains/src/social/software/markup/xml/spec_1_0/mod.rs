@@ -19,11 +19,16 @@
 //!   <https://www.w3.org/TR/2008/REC-xml-20081126/REC-xml-20081126.xml>
 //!   is what these bytes are byte-for-byte copies of.
 
+pub use content_dispatch::{
+    ContentDispatchTable, ContentItemKind, DispatchExtractionError, MiscDispatchTable,
+    MiscItemKind, loaded_content_dispatch_table, loaded_misc_dispatch_table,
+};
 pub use encoding_labels::{
     EncodingLabelExtractionError, XmlEncodingFamilies, loaded_xml_encoding_families,
 };
 pub use spec::{XML_1_0_FIFTH_EDITION, loaded_xml_1_0_fifth_edition};
 
+mod content_dispatch;
 mod encoding_labels;
 mod spec;
 

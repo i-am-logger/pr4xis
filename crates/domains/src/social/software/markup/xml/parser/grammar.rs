@@ -623,14 +623,26 @@ fn parse_quoted(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
 /// & Tobin 2004 §2.1 only requires document-level *children* for
 /// the root element).
 fn parse_misc_star(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
+    // §2.1 [27] Misc-item dispatch is grammar-grounded: the
+    // (literal-prefix, MiscItemKind) entries come from the loaded
+    // W3C XML 1.0 grammar's `Misc` production via
+    // `spec_1_0::loaded_misc_dispatch_table()`, not from
+    // hand-coded `starts_with` strings. `S` (whitespace) is
+    // handled by `skip_whitespace` since it has no literal prefix.
+    use crate::social::software::markup::xml::spec_1_0::{
+        MiscItemKind, loaded_misc_dispatch_table,
+    };
+    let dispatch = loaded_misc_dispatch_table();
     loop {
         c.skip_whitespace();
-        if c.starts_with("<!--") {
-            skip_comment(c)?;
-        } else if c.starts_with("<?") {
-            skip_pi(c)?;
-        } else {
-            break;
+        match dispatch.classify(c.rest()) {
+            Some(MiscItemKind::Comment) => skip_comment(c)?,
+            Some(MiscItemKind::ProcessingInstruction) => skip_pi(c)?,
+            // §2.3 [3] S has no literal prefix; `skip_whitespace`
+            // above consumed any S that started this iteration. A
+            // dispatch result of None means we're past every Misc
+            // item — exit the loop.
+            Some(MiscItemKind::WhiteSpace) | None => break,
         }
     }
     Ok(())
@@ -2019,6 +2031,10 @@ fn parse_content_into_buffers(
     nodes: &mut Vec<XmlNode>,
     text_buf: &mut String,
 ) -> Result<(), XmlParseError> {
+    use crate::social::software::markup::xml::spec_1_0::{
+        ContentItemKind, loaded_content_dispatch_table,
+    };
+    let dispatch = loaded_content_dispatch_table();
     loop {
         match term {
             ContentTerminator::Etag => {
@@ -2044,26 +2060,40 @@ fn parse_content_into_buffers(
                 }
             }
         }
-        if c.starts_with("<!--") {
-            flush_text(nodes, text_buf);
-            nodes.push(parse_comment_node(c)?);
-            continue;
-        }
-        if c.starts_with("<![CDATA[") {
-            flush_text(nodes, text_buf);
-            nodes.push(parse_cdata_node(c)?);
-            continue;
-        }
-        if c.starts_with("<?") {
-            flush_text(nodes, text_buf);
-            nodes.push(parse_pi_node(c)?);
-            continue;
-        }
-        if c.starts_with("<") {
-            flush_text(nodes, text_buf);
-            let child = parse_element(c, entities, strict_entity_declared)?;
-            nodes.push(XmlNode::Element(child));
-            continue;
+        // §3.1 [43] content-item dispatch is grammar-grounded: the
+        // (literal-prefix, ContentItemKind) entries come from the
+        // loaded W3C XML 1.0 grammar's `content` production via
+        // `spec_1_0::loaded_content_dispatch_table()`, not from
+        // hand-coded `starts_with` strings. The reference branch
+        // (`&` vs `&#`) is dispatched a level deeper since the
+        // grammar-extracted common prefix is "&".
+        match dispatch.classify(c.rest()) {
+            ContentItemKind::Comment => {
+                flush_text(nodes, text_buf);
+                nodes.push(parse_comment_node(c)?);
+                continue;
+            }
+            ContentItemKind::CDataSection => {
+                flush_text(nodes, text_buf);
+                nodes.push(parse_cdata_node(c)?);
+                continue;
+            }
+            ContentItemKind::ProcessingInstruction => {
+                flush_text(nodes, text_buf);
+                nodes.push(parse_pi_node(c)?);
+                continue;
+            }
+            ContentItemKind::Element => {
+                flush_text(nodes, text_buf);
+                let child = parse_element(c, entities, strict_entity_declared)?;
+                nodes.push(XmlNode::Element(child));
+                continue;
+            }
+            // Reference and CharData fall through to the existing
+            // per-character handler below (which already disambiguates
+            // `&#` from `&Name;` and routes CharData through the
+            // §2.4 well-formedness checks).
+            ContentItemKind::Reference | ContentItemKind::CharData => {}
         }
         let ch_pos = c.pos;
         let ch = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
