@@ -67,34 +67,103 @@ mod tests {
         // audit that surfaces any unresolved spec production at test
         // time — never silently.
         //
-        // The spec source contains 86 `<prod>` open-tags total but
-        // one (line 2465's `<prod id='NT-ExternalDef'>`) is inside
-        // an XML comment — a deleted production from an earlier
-        // revision. After load_grammar strips W3C XML 1.0 §2.5
-        // comments, the live grammar has exactly 85 productions.
+        // Structural assertion (not exact count): every <prod> tag
+        // in the bundled spec source must yield a loaded production
+        // EXCEPT for any whose `<prod>` open-tag falls inside a
+        // §2.5 comment. The spec source carries 86 <prod> open-tags
+        // total, with at least one inside an XML comment (a deleted
+        // production from an earlier revision). Asserting the exact
+        // count `85` against `grammar.len()` would be a brittle
+        // bounded-discovery claim per
+        // `feedback_no_bounded_discovery_counts`; instead we assert
+        // the invariant that survives every spec revision:
+        // `grammar.len() == count_uncommented(<prod>)`.
         use pr4xis::xml_grammar::load_grammar;
-        let grammar = load_grammar(loaded_xml_1_0_fifth_edition()).expect("load spec grammar");
+        let bytes = loaded_xml_1_0_fifth_edition();
+        let grammar = load_grammar(bytes).expect("load spec grammar");
+        let live_prod_count = count_uncommented_prod_opens(bytes);
         assert_eq!(
             grammar.len(),
-            85,
-            "W3C XML 1.0 Fifth Edition has 85 live EBNF productions \
-             (the 86th `<prod id='NT-ExternalDef'>` is commented out at line 2465); \
-             every live one must parse via load_grammar"
+            live_prod_count,
+            "load_grammar yielded {} productions; the spec source has {} live <prod> tags \
+             (after stripping §2.5 comments). The loader must classify every live <prod> \
+             — drift indicates a parsing regression.",
+            grammar.len(),
+            live_prod_count,
+        );
+        // Sanity floor: a sane XML 1.0 grammar carries dozens of
+        // productions, not 3 or 200. The exact published count is
+        // an artifact of the source revision, not an ontology
+        // invariant.
+        assert!(
+            grammar.len() >= 50,
+            "grammar.len() = {} is implausibly small — load_grammar must be regressed",
+            grammar.len()
         );
         // Spot-check the productions M5.ε.2/.3 hand-codegen'd as
         // character-class predicates — they should now also resolve
-        // via the full-grammar loader.
+        // via the full-grammar loader. These are the load-bearing
+        // production names downstream code references by string;
+        // any one missing is a hard break.
         for name in ["document", "Char", "S", "NameStartChar", "NameChar", "Name"] {
             assert!(
                 grammar.lookup(name).is_some(),
                 "production {name} must be loaded"
             );
         }
-        // The deleted production must NOT be present.
+        // The known-deleted production must NOT be present in the
+        // loaded grammar — its `<prod>` open-tag sits inside an
+        // XML comment and the parser must strip it.
         assert!(
             grammar.lookup("ExternalDef").is_none(),
             "ExternalDef is in an XML comment and must be skipped"
         );
+    }
+
+    /// Count `<prod` open-tag occurrences in `bytes` after eliding
+    /// every `<!--…-->` comment span. The W3C XML 1.0 §2.5 spec
+    /// describes comments as `(Char* - (Char* '--' Char*))` — we
+    /// take the simpler "first `-->` after `<!--`" reading which
+    /// suffices for the bundled spec source (which doesn't embed
+    /// `<!--` inside other comments).
+    ///
+    /// Returns the number of `<prod` occurrences that are NOT inside
+    /// any comment span — the live-production count load_grammar
+    /// should report.
+    fn count_uncommented_prod_opens(bytes: &str) -> usize {
+        let mut total = 0usize;
+        let mut cursor = 0usize;
+        let raw_bytes = bytes.as_bytes();
+        while cursor < raw_bytes.len() {
+            // Find the next `<` at cursor.
+            let Some(lt_rel) = bytes[cursor..].find('<') else {
+                break;
+            };
+            let lt = cursor + lt_rel;
+            let after_lt = &bytes[lt..];
+            if after_lt.starts_with("<!--") {
+                // Skip the comment span.
+                let Some(close_rel) = after_lt.find("-->") else {
+                    break;
+                };
+                cursor = lt + close_rel + 3;
+            } else if after_lt.starts_with("<prod")
+                && after_lt.as_bytes().get(5).is_some_and(|&b| {
+                    b == b' ' || b == b'\t' || b == b'\r' || b == b'\n' || b == b'>'
+                })
+            {
+                // Match `<prod` as an open-tag *only* when followed
+                // by whitespace or `>` — the xmlspec.dtd format
+                // also defines `<prodgroup>` and `<prodrecap>`
+                // which share the `<prod` prefix; they are not
+                // production declarations.
+                total += 1;
+                cursor = lt + 5;
+            } else {
+                cursor = lt + 1;
+            }
+        }
+        total
     }
 
     #[test]

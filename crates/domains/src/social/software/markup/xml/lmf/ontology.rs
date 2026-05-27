@@ -429,7 +429,26 @@ mod tests {
     #[test]
     fn lmf_pos_entity_variants() {
         let variants = LmfPos::variants();
-        assert_eq!(variants.len(), 14);
+        // Structural floor — the typed enum carries at least the
+        // 4 WordNet open-class tags + the satellite-adjective +
+        // a non-zero Other sentinel, so 6 is the lower bound.
+        // Exact count is an artifact of which Universal-Dependencies
+        // / OLiA tags the praxis ontology has classified; asserting
+        // the exact number here is a bounded-discovery claim per
+        // `feedback_no_bounded_discovery_counts`. Use
+        // [`axiom_lmf_pos_parse_covers_wn_lmf_dtd_enumeration`] for
+        // the load-bearing coverage check.
+        assert!(
+            variants.len() >= 6,
+            "LmfPos must carry at least the 4 WordNet open-class tags + satellite + Other; \
+             got only {} variants",
+            variants.len()
+        );
+        // Every variant must round-trip through `to_tag()` and
+        // `parse()` — exhaustive bijection check, not a count.
+        for pos in variants {
+            assert_eq!(LmfPos::parse(pos.to_tag()), pos);
+        }
     }
 
     /// Every WN-LMF 1.3 DTD-declared `partOfSpeech` enumeration
