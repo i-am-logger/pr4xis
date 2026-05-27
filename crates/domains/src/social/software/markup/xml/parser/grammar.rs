@@ -864,6 +864,23 @@ fn parse_intsubset_items(
                 pr4xis::xml_grammar::MatchResult::Match { end_pos }
                     if end_pos == decl_text.len() =>
                 {
+                    // §3.3.2 [60] DefaultDecl — the optional
+                    // (('#FIXED' S)? AttValue) variant carries an
+                    // AttValue literal. The grammar match above
+                    // accepts the declaration syntactically; the
+                    // AttValue's WFCs (§4.1 WFC: Entity Declared,
+                    // §4.4 row "Reference in Attribute Value" /
+                    // No External Entity References / No Recursion,
+                    // §4.4.4 WFC: Parsed Entity) must additionally
+                    // hold. Only `<!ATTLIST>` carries AttValue
+                    // literals inside markupdecl; `<!ELEMENT>` and
+                    // `<!NOTATION>` do not (their grammars don't
+                    // admit string literals). xmlconf
+                    // xmltest/not-wf/sa/{078, 079, 080, 084, 180}
+                    // are the spec regressions.
+                    if production_name == "AttlistDecl" {
+                        validate_attlist_default_values(decl_text, decl_start, general_entities)?;
+                    }
                     c.pos = decl_end;
                     continue;
                 }
@@ -907,6 +924,91 @@ fn parse_intsubset_items(
         }
         return Err(c.syntax_error("intSubset entry or `]`", &c.preview()));
     }
+}
+
+/// W3C XML 1.0 §3.3.2 production [60] `DefaultDecl`: validate the
+/// AttValue literals embedded inside an `<!ATTLIST>` declaration.
+///
+/// The grammar-match pass already accepted the declaration
+/// syntactically (every quoted run is a `DefaultDecl` AttValue;
+/// neither `<!ELEMENT>` nor `<!NOTATION>` nor the AttType
+/// productions admit string literals). This walks the declaration
+/// text, locates each AttValue literal at its quote boundary, and
+/// runs the §3.1 [10] AttValue body through
+/// [`parse_att_value_body_into`] — the same well-formedness gate
+/// the parser applies to attribute literals on live elements:
+///
+/// - §4.1 WFC: Entity Declared (unknown entity rejected).
+/// - §4.4 WFC: No External Entity References.
+/// - §4.4 WFC: No `<` in Attribute Values (post-expansion).
+/// - §4.4.4 WFC: Parsed Entity (NDATA entity rejected).
+/// - §4.1 WFC: No Recursion (cyclic chain rejected).
+///
+/// `decl_offset` is the start byte of the declaration in the
+/// containing source so reported error positions remain
+/// document-relative.
+fn validate_attlist_default_values(
+    decl_text: &str,
+    decl_offset: usize,
+    entities: &[XmlGeneralEntity],
+) -> Result<(), XmlParseError> {
+    let bytes = decl_text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b == b'"' || b == b'\'' {
+            let q = b as char;
+            let quote_start = i;
+            // Find the closing quote.
+            let close_rel = decl_text[i + 1..]
+                .find(q)
+                .ok_or_else(|| XmlParseError::Syntax {
+                    position: decl_offset + quote_start,
+                    expected: "matching AttValue close quote".into(),
+                    found: "unterminated".into(),
+                })?;
+            let close_abs = i + 1 + close_rel;
+            // Build a single-quoted AttValue literal that
+            // parse_att_value will consume cleanly. Easier: invoke
+            // parse_att_value_body_into directly on the body.
+            let body = &decl_text[i + 1..close_abs];
+            // Offset each error message into the source coordinate
+            // space by running the validation on a fragment whose
+            // own cursor starts at body[0]; the surfacing error
+            // position references the body, which is OK because
+            // the validation only fires on malformed defaults
+            // (sa/078 etc.) — diagnostic precision in the
+            // declaration is sufficient.
+            let mut sub = Cursor::new(body);
+            let mut out = String::new();
+            let mut visited = Vec::new();
+            parse_att_value_body_into(
+                &mut sub,
+                entities,
+                &mut visited,
+                AttValueTerminator::Eof,
+                &mut out,
+            )
+            .map_err(|e| match e {
+                XmlParseError::Syntax {
+                    expected, found, ..
+                } => XmlParseError::Syntax {
+                    position: decl_offset + quote_start,
+                    expected: format!("valid §3.3.2 DefaultDecl AttValue ({expected})"),
+                    found,
+                },
+                XmlParseError::UnsupportedEntity { name, .. } => XmlParseError::UnsupportedEntity {
+                    position: decl_offset + quote_start,
+                    name,
+                },
+                other => other,
+            })?;
+            i = close_abs + 1;
+        } else {
+            i += 1;
+        }
+    }
+    Ok(())
 }
 
 /// W3C XML 1.0 §4.2 production [70/71] `GEDecl`:
