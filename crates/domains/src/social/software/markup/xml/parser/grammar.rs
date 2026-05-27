@@ -674,7 +674,21 @@ fn parse_external_id(c: &mut Cursor<'_>) -> Result<XmlExternalId, XmlParseError>
     } else {
         c.consume("PUBLIC")?;
         c.require_whitespace("ExternalID PubidLiteral")?;
+        let lit_pos = c.pos;
         let public_id = parse_quoted(c)?;
+        // §4.2.2 [12] PubidLiteral / [13] PubidChar — the body is
+        // restricted to `#x20 | #xD | #xA | [a-zA-Z0-9] |
+        // [-'()+,./:=?;!*#@$_%]`. xmlconf ibm/not-wf/P13 cases
+        // embed `{`, `~`, and Latin-1 letters which fail this set.
+        for ch in public_id.chars() {
+            if !is_pubid_char(ch) {
+                return Err(XmlParseError::Syntax {
+                    position: lit_pos,
+                    expected: "PubidChar (§4.2.2 [13])".into(),
+                    found: ch.to_string(),
+                });
+            }
+        }
         c.require_whitespace("ExternalID SystemLiteral")?;
         let system_literal = parse_quoted(c)?;
         Ok(XmlExternalId::Public {
@@ -682,6 +696,34 @@ fn parse_external_id(c: &mut Cursor<'_>) -> Result<XmlExternalId, XmlParseError>
             system_literal,
         })
     }
+}
+
+/// W3C XML 1.0 §4.2.2 [13] `PubidChar ::= #x20 | #xD | #xA |
+/// [a-zA-Z0-9] | [-'()+,./:=?;!*#@$_%]`.
+fn is_pubid_char(c: char) -> bool {
+    matches!(c, ' ' | '\r' | '\n')
+        || c.is_ascii_alphanumeric()
+        || matches!(
+            c,
+            '-' | '\''
+                | '('
+                | ')'
+                | '+'
+                | ','
+                | '.'
+                | '/'
+                | ':'
+                | '='
+                | '?'
+                | ';'
+                | '!'
+                | '*'
+                | '#'
+                | '@'
+                | '$'
+                | '_'
+                | '%'
+        )
 }
 
 /// W3C XML 1.0 §2.8 production [28b] `intSubset`:
@@ -960,7 +1002,21 @@ fn parse_entity_decl(
     if c.starts_with("PUBLIC") {
         c.consume("PUBLIC")?;
         c.require_whitespace("ExternalID PubidLiteral")?;
-        let _pub_id = parse_quoted(c)?;
+        let lit_pos = c.pos;
+        let pub_id = parse_quoted(c)?;
+        // §4.2.2 [12] PubidLiteral / [13] PubidChar — the body is
+        // restricted to a narrow alphabet (see `is_pubid_char`).
+        // xmlconf ibm/not-wf/P13 cases embed `{`, `~`, Latin-1
+        // letters — all reject here.
+        for ch in pub_id.chars() {
+            if !is_pubid_char(ch) {
+                return Err(XmlParseError::Syntax {
+                    position: lit_pos,
+                    expected: "PubidChar (§4.2.2 [13])".into(),
+                    found: ch.to_string(),
+                });
+            }
+        }
         // PUBLIC requires both PubidLiteral AND SystemLiteral separated
         // by whitespace; this is the gate that rejects malformed
         // declarations like `<!ENTITY foo PUBLIC "id">` (no SystemLiteral)
