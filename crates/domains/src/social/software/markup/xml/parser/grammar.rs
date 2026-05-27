@@ -1601,37 +1601,115 @@ fn parse_att_value(
     }
 }
 
+/// Terminator for the content-loop shared between top-level
+/// element bodies and entity-replacement-text re-parse.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ContentTerminator {
+    /// Stop on `</` (element end-tag) — the §3 [43] `content`
+    /// production wrapped in `STag content ETag` (§3 [39]).
+    Etag,
+    /// Stop on EOF — entity replacement text is its own
+    /// self-contained `content` fragment (§4.4.3 "Included" with
+    /// entity boundaries atomic per §4.3.2 "Well-Formed Parsed
+    /// Entity"). A stray `</` is malformed.
+    Eof,
+}
+
 /// W3C XML 1.0 §3 production [43] `content`:
 /// `content ::= CharData? ((element | Reference | CDSect | PI | Comment) CharData?)*`.
 fn parse_content(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
 ) -> Result<Vec<XmlNode>, XmlParseError> {
+    let mut visited = Vec::new();
+    parse_content_with_terminator(c, entities, &mut visited, ContentTerminator::Etag)
+}
+
+/// Shared content-loop body for the top-level element body and
+/// for entity-replacement-text re-parse (§4.4.3 "Included" with
+/// §4.3.2 atomic entity boundaries).
+///
+/// `visited` is the W3C XML 1.0 §4.1 WFC: No Recursion stack —
+/// the qualified names of user-declared general entities the
+/// parser is currently inside. The top-level call starts empty;
+/// each entity-inclusion call pushes the entity's name before
+/// recursing into its replacement text, popping on return. A
+/// reference to an entity already in `visited` is the cycle.
+fn parse_content_with_terminator(
+    c: &mut Cursor<'_>,
+    entities: &[XmlGeneralEntity],
+    visited: &mut Vec<String>,
+    term: ContentTerminator,
+) -> Result<Vec<XmlNode>, XmlParseError> {
     let mut nodes: Vec<XmlNode> = Vec::new();
     let mut text_buf = String::new();
+    parse_content_into_buffers(c, entities, visited, term, &mut nodes, &mut text_buf)?;
+    flush_text(&mut nodes, &mut text_buf);
+    Ok(nodes)
+}
 
+/// Inner content-loop sharing the parent's `nodes` and
+/// `text_buf` accumulators. The §4.4.3 "Included" path for a
+/// user-declared internal general entity calls this directly with
+/// a sub-cursor over the entity's replacement text — that way
+/// CharData on either side of the entity-inclusion boundary
+/// joins into one [`XmlNode::Text`] node (matching the W3C
+/// Infoset model: entity references are not Infoset items, so
+/// adjacent character data they straddle is a single
+/// character-information-item sequence).
+///
+/// Returns on terminator without flushing `text_buf`; the
+/// outermost caller is responsible for flushing.
+fn parse_content_into_buffers(
+    c: &mut Cursor<'_>,
+    entities: &[XmlGeneralEntity],
+    visited: &mut Vec<String>,
+    term: ContentTerminator,
+    nodes: &mut Vec<XmlNode>,
+    text_buf: &mut String,
+) -> Result<(), XmlParseError> {
     loop {
-        if c.starts_with("</") {
-            flush_text(&mut nodes, &mut text_buf);
-            return Ok(nodes);
+        match term {
+            ContentTerminator::Etag => {
+                if c.starts_with("</") {
+                    return Ok(());
+                }
+            }
+            ContentTerminator::Eof => {
+                if c.is_eof() {
+                    return Ok(());
+                }
+                if c.starts_with("</") {
+                    // §4.3.2 — a parsed entity referenced from
+                    // content must itself match `content`; a stray
+                    // ETag is malformed. xmlconf xmltest/not-wf/sa/074
+                    // — entity expands to `</foo><foo>` — is the
+                    // spec regression.
+                    return Err(XmlParseError::Syntax {
+                        position: c.pos,
+                        expected: "well-formed entity replacement text (§4.3.2)".into(),
+                        found: "</".into(),
+                    });
+                }
+            }
         }
         if c.starts_with("<!--") {
-            flush_text(&mut nodes, &mut text_buf);
+            flush_text(nodes, text_buf);
             nodes.push(parse_comment_node(c)?);
             continue;
         }
         if c.starts_with("<![CDATA[") {
-            flush_text(&mut nodes, &mut text_buf);
+            flush_text(nodes, text_buf);
             nodes.push(parse_cdata_node(c)?);
             continue;
         }
         if c.starts_with("<?") {
-            flush_text(&mut nodes, &mut text_buf);
+            flush_text(nodes, text_buf);
             nodes.push(parse_pi_node(c)?);
             continue;
         }
         if c.starts_with("<") {
-            flush_text(&mut nodes, &mut text_buf);
+            flush_text(nodes, text_buf);
             let child = parse_element(c, entities)?;
             nodes.push(XmlNode::Element(child));
             continue;
@@ -1641,7 +1719,45 @@ fn parse_content(
             context: "element content".into(),
         })?;
         if ch == '&' {
-            text_buf.push_str(&parse_reference(c, entities)?);
+            // §4.4 Table 4 dispatch.
+            //
+            //   1. `&#…;` (§4.1 [66] CharRef) — Included as the
+            //      resolved character.
+            //   2. `&amp;` / `&lt;` / `&gt;` / `&apos;` / `&quot;`
+            //      (§4.6 predefined) — Included as the
+            //      corresponding character.
+            //   3. `&Name;` (§4.1 [68] EntityRef, user general
+            //      entity) — Included per §4.4.3: the entity's
+            //      *literal* replacement text (§4.5 construction
+            //      preserves general entity references) is
+            //      re-parsed as a `content` fragment at the
+            //      reference position; the resulting nodes are
+            //      spliced. xmlconf xmltest/not-wf/sa/{074, 090,
+            //      092, 103, 116, 117, 119, 120, 153, 182} —
+            //      entity expansion that does NOT form a valid
+            //      content fragment — are rejected here.
+            if c.rest().starts_with("&#") {
+                let ch_val = parse_char_ref(c)?;
+                text_buf.push(ch_val);
+            } else {
+                let ref_pos = c.pos;
+                c.consume("&")?;
+                let name = parse_name(c)?;
+                c.consume(";")?;
+                let qualified = name.qualified();
+                match qualified.as_str() {
+                    "amp" => text_buf.push('&'),
+                    "lt" => text_buf.push('<'),
+                    "gt" => text_buf.push('>'),
+                    "apos" => text_buf.push('\''),
+                    "quot" => text_buf.push('"'),
+                    _ => {
+                        include_user_general_entity_in_content(
+                            &qualified, ref_pos, entities, visited, nodes, text_buf,
+                        )?;
+                    }
+                }
+            }
         } else {
             // §2.4 [14] CharData well-formedness: every char must be
             // in the §2.2 Char repertoire.
@@ -1661,6 +1777,74 @@ fn parse_content(
             }
             text_buf.push(ch);
             c.pos += ch.len_utf8();
+        }
+    }
+}
+
+/// §4.4.3 "Included" for a user-declared general entity reference
+/// appearing in element content. Looks up the entity, enforces
+/// the entity-kind WFCs (§4.4.4 Parsed Entity), pushes the entity
+/// name onto `visited` to detect §4.1 WFC: No Recursion, and
+/// re-parses the entity's *literal* replacement text (§4.5
+/// construction preserves general-entity references inside an
+/// EntityValue) as a `content` fragment at the reference
+/// position. The resulting nodes are spliced into the parent's
+/// node list.
+fn include_user_general_entity_in_content(
+    name: &str,
+    ref_pos: usize,
+    entities: &[XmlGeneralEntity],
+    visited: &mut Vec<String>,
+    nodes: &mut Vec<XmlNode>,
+    text_buf: &mut String,
+) -> Result<(), XmlParseError> {
+    if visited.iter().any(|n| n == name) {
+        return Err(XmlParseError::Syntax {
+            position: ref_pos,
+            expected: "non-recursive entity reference (§4.1 WFC: No Recursion)".into(),
+            found: format!("&{name};"),
+        });
+    }
+    let entity = entities.iter().find(|e| e.name == name).ok_or_else(|| {
+        XmlParseError::UnsupportedEntity {
+            position: ref_pos,
+            name: name.to_string(),
+        }
+    })?;
+    match entity.kind {
+        XmlEntityKind::ExternalUnparsed => Err(XmlParseError::Syntax {
+            position: ref_pos,
+            expected: "reference to a parsed entity (§4.4.4 WFC: Parsed Entity)".into(),
+            found: format!("&{name};"),
+        }),
+        XmlEntityKind::ExternalParsed => {
+            // §5.1 non-validating processor: a reference to an
+            // external parsed entity whose body we did not retrieve
+            // is bypassed without text contribution.
+            Ok(())
+        }
+        XmlEntityKind::Internal => {
+            // §4.4.3 "Included" re-parse over the entity's literal
+            // replacement text, on the SAME `nodes`/`text_buf`
+            // accumulators as the surrounding content — so
+            // CharData on either side of the entity-inclusion
+            // boundary joins into a single XmlNode::Text per the
+            // W3C Infoset model (the entity reference itself is
+            // not an Infoset item; character data it straddles is
+            // one character-information-item sequence).
+            let value = entity.value.clone();
+            let mut sub = Cursor::new(&value);
+            visited.push(name.to_string());
+            let result = parse_content_into_buffers(
+                &mut sub,
+                entities,
+                visited,
+                ContentTerminator::Eof,
+                nodes,
+                text_buf,
+            );
+            visited.pop();
+            result
         }
     }
 }
