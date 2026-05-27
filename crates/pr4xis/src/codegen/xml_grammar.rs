@@ -104,6 +104,7 @@ pub fn generate_xml_grammar_source(spec_path: &Path) -> Result<String, XmlGramma
     let char_ranges = extract_production(&spec_bytes, "Char")?;
     let name_start_char_ranges = extract_production(&spec_bytes, "NameStartChar")?;
     let name_char_ranges = extract_production(&spec_bytes, "NameChar")?;
+    let predefined_entities = extract_predefined_entities(&spec_bytes)?;
 
     let mut out = String::new();
     out.push_str(
@@ -112,7 +113,8 @@ pub fn generate_xml_grammar_source(spec_path: &Path) -> Result<String, XmlGramma
          // upstream spec source `xml_1_0_fifth_edition@2008` and re-run cargo build.\n\
          //\n\
          // Each table corresponds to one EBNF production from §2.2 or §2.3 of the\n\
-         // spec. Inclusive ranges; lo ≤ hi; sorted lo-ascending in source order.\n\n",
+         // spec, or to the §4.6 predefined-entities declarations. Inclusive\n\
+         // ranges; lo ≤ hi; sorted lo-ascending in source order.\n\n",
     );
 
     emit_range_table(&mut out, "CHAR_RANGES", "§2.2 [2] Char", &char_ranges);
@@ -133,6 +135,8 @@ pub fn generate_xml_grammar_source(spec_path: &Path) -> Result<String, XmlGramma
         &name_char_ranges,
     );
     emit_predicate(&mut out, "is_name_char", "NAME_CHAR_RANGES");
+
+    emit_predefined_entities(&mut out, &predefined_entities);
 
     Ok(out)
 }
@@ -310,6 +314,237 @@ fn emit_range_table(out: &mut String, name: &str, citation: &str, ranges: &[Code
     out.push_str("];\n\n");
 }
 
+/// One §4.6 predefined-entity declaration projected from the loaded
+/// W3C XML 1.0 Fifth Edition spec source. `name` is the entity
+/// reference name (e.g. `lt`); `replacement` is the single Unicode
+/// scalar the §4.6 declaration resolves to after the spec's required
+/// double-escape (e.g. `<` for `lt`). The replacement-source string
+/// is the canonical text the spec writes (e.g. `&#38;#60;`) — kept
+/// alongside the resolved char so the emitted table preserves the
+/// audit trail.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PredefinedEntityDecl {
+    /// Entity reference name (the EntityName from `<!ENTITY name "...">`)
+    pub name: String,
+    /// Resolved replacement character per §4.6 — the single Unicode
+    /// scalar produced when the spec's declaration is parsed.
+    pub replacement: char,
+    /// The literal replacement-text bytes the spec source carries
+    /// inside the `<!ENTITY name "...">` declaration. Retained for
+    /// the generated table's audit-trail comment so a reviewer can
+    /// trace the resolution back to the exact spec bytes.
+    pub replacement_literal: String,
+}
+
+/// Locate and parse the five §4.6 predefined-entity declarations
+/// the W3C XML 1.0 Fifth Edition spec writes inside the
+/// `<div2 id="sec-predefined-ent">` section's `<eg>` example block.
+/// Per the spec's prose, those five declarations are the normative
+/// list every conforming processor recognises — loading them from
+/// the spec source rather than hand-coding the map satisfies
+/// `feedback_bottom_up_loaded_not_encoded`.
+///
+/// The spec writes:
+///
+/// ```text
+/// <div2 id="sec-predefined-ent">
+///   …
+///   <eg><![CDATA[<!ENTITY lt     "&#38;#60;">
+/// <!ENTITY gt     "&#62;">
+/// <!ENTITY amp    "&#38;#38;">
+/// <!ENTITY apos   "&#39;">
+/// <!ENTITY quot   "&#34;">]]></eg>
+/// </div2>
+/// ```
+///
+/// We extract the CDATA payload, parse the five `<!ENTITY …>` lines,
+/// and resolve each replacement text per §4.5 (character references
+/// inside an EntityValue are decoded at construction time — the
+/// `&#38;` in `lt`'s declaration decodes to `&`, leaving the
+/// replacement-text `&#60;`; that's then the value the runtime
+/// returns when the entity is referenced).
+fn extract_predefined_entities(
+    spec_bytes: &str,
+) -> Result<Vec<PredefinedEntityDecl>, XmlGrammarCodegenError> {
+    // 1. Find the §4.6 section anchor.
+    let section_anchor = spec_bytes.find(r#"id="sec-predefined-ent""#).ok_or(
+        XmlGrammarCodegenError::ProductionNotFound("sec-predefined-ent"),
+    )?;
+    let after_anchor = &spec_bytes[section_anchor..];
+
+    // 2. Find the first `<eg>...</eg>` block inside.
+    let eg_open = after_anchor
+        .find("<eg>")
+        .ok_or(XmlGrammarCodegenError::ProductionNotFound(
+            "sec-predefined-ent/eg",
+        ))?;
+    let after_eg_open = &after_anchor[eg_open + "<eg>".len()..];
+    let eg_close =
+        after_eg_open
+            .find("</eg>")
+            .ok_or(XmlGrammarCodegenError::ProductionNotFound(
+                "sec-predefined-ent/eg-close",
+            ))?;
+    let eg_body = &after_eg_open[..eg_close];
+
+    // 3. Strip the `<![CDATA[ … ]]>` wrapper.
+    let cdata = eg_body
+        .trim()
+        .strip_prefix("<![CDATA[")
+        .and_then(|s| s.strip_suffix("]]>"))
+        .ok_or(XmlGrammarCodegenError::ProductionNotFound(
+            "sec-predefined-ent/cdata",
+        ))?;
+
+    // 4. Parse each `<!ENTITY name "value">` line.
+    let mut out = Vec::new();
+    for raw_line in cdata.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let decl = parse_predefined_entity_line(line).ok_or_else(|| {
+            XmlGrammarCodegenError::UnknownRhsToken {
+                production: "PredefinedEntity",
+                token: line.to_string(),
+            }
+        })?;
+        out.push(decl);
+    }
+    Ok(out)
+}
+
+/// Parse one `<!ENTITY name "value">` declaration as it appears in
+/// the §4.6 spec example, applying §4.5 character-reference
+/// expansion to the replacement text. Returns `None` on any
+/// structural mismatch — the caller treats that as
+/// `UnknownRhsToken` since the input came from the published spec
+/// and any deviation is a regression at the source.
+fn parse_predefined_entity_line(line: &str) -> Option<PredefinedEntityDecl> {
+    let rest = line.strip_prefix("<!ENTITY")?.trim_start();
+    let space = rest.find(char::is_whitespace)?;
+    let name = rest[..space].trim().to_string();
+    let after_name = rest[space..].trim_start();
+    let quote_char = after_name.chars().next()?;
+    if quote_char != '"' && quote_char != '\'' {
+        return None;
+    }
+    let after_quote = &after_name[quote_char.len_utf8()..];
+    let close_quote = after_quote.find(quote_char)?;
+    let literal = &after_quote[..close_quote];
+    let after_value = after_quote[close_quote + quote_char.len_utf8()..].trim_start();
+    if !after_value.starts_with('>') {
+        return None;
+    }
+    let replacement = resolve_predefined_entity_value(literal)?;
+    Some(PredefinedEntityDecl {
+        name,
+        replacement,
+        replacement_literal: literal.to_string(),
+    })
+}
+
+/// Decode the literal replacement text inside a §4.6 entity
+/// declaration. Per §4.5 "Construction of Internal Entity
+/// Replacement Text", character references inside the EntityValue
+/// resolve at declaration time. The §4.6 declarations use the
+/// double-escape pattern `&#38;#NN;` for `amp`/`lt` so that
+/// expansion at reference-time yields a working `&#NN;` character
+/// reference; we resolve one layer of `&#NN;` here, which produces
+/// either the final character (for `gt`/`apos`/`quot`) or a
+/// character-reference text the runtime resolves a second time
+/// (for `amp`/`lt`).
+fn resolve_predefined_entity_value(literal: &str) -> Option<char> {
+    // W3C XML 1.0 §4.5 + §4.6: the §4.6 declarations use one of two
+    // forms inside the EntityValue:
+    //
+    //   (a) a single character reference `&#NN;` / `&#xHH;`, e.g.
+    //       `gt`, `apos`, `quot` each declare `"&#NN;"`. §4.5 expands
+    //       the character reference at decl time, so the runtime
+    //       replacement text is the single character itself.
+    //
+    //   (b) a double-escaped pair `&#38;#NN;` (or `&#38;#xHH;`), used
+    //       for `amp` and `lt`. §4.5 expands `&#38;` to `&` at decl
+    //       time, leaving `&#NN;` as the literal replacement text;
+    //       when the entity is later referenced in content, the
+    //       parser re-resolves that `&#NN;` to the target character.
+    //
+    // Either way the *final* resolved character is the one keyed by
+    // the inner `#NN;`. We pick that out directly: locate the last
+    // `#NN;` (or `#xHH;`) substring and decode it. The intermediate
+    // `&#38;` prefix, when present, is the spec's required
+    // double-escape and doesn't affect the final replacement.
+    let trimmed = literal.trim();
+    // Find the LAST `#` that starts a numeric character reference.
+    // For form (a), that's right after the leading `&`. For form
+    // (b), it's the second `#` (the one inside the inner ref).
+    let last_hash = trimmed.rfind('#')?;
+    let after_hash = &trimmed[last_hash + 1..];
+    let digits = after_hash.strip_suffix(';')?;
+    let cp = if let Some(hex) = digits.strip_prefix('x') {
+        u32::from_str_radix(hex, 16).ok()?
+    } else {
+        digits.parse::<u32>().ok()?
+    };
+    char::from_u32(cp)
+}
+
+/// Emit the §4.6 predefined-entities table — a const slice the
+/// runtime parser consults instead of a hand-coded `match` over
+/// `"amp" | "lt" | ...` literals. The table is sorted by name so
+/// the generated bytes are stable across rebuilds.
+fn emit_predefined_entities(out: &mut String, entities: &[PredefinedEntityDecl]) {
+    let mut sorted: Vec<&PredefinedEntityDecl> = entities.iter().collect();
+    sorted.sort_by(|a, b| a.name.cmp(&b.name));
+
+    out.push_str(
+        "/// W3C XML 1.0 Fifth Edition §4.6 predefined-entities table.\n\
+         /// `(name, replacement_char)` projected from the §4.6 `<!ENTITY …>`\n\
+         /// declarations in the loaded spec source. The parser uses this\n\
+         /// table to resolve `&name;` references for the five spec-mandated\n\
+         /// entities (per `feedback_bottom_up_loaded_not_encoded`).\n\
+         #[allow(dead_code)]\n\
+         pub const PREDEFINED_ENTITIES: &[(&str, char)] = &[\n",
+    );
+    for d in &sorted {
+        out.push_str(&format!(
+            "    // <!ENTITY {name:<4} {literal:?}> → U+{cp:04X}\n    (\"{name}\", '{esc}'),\n",
+            name = d.name,
+            literal = d.replacement_literal,
+            cp = d.replacement as u32,
+            esc = escape_char_literal(d.replacement),
+        ));
+    }
+    out.push_str("];\n\n");
+
+    out.push_str(
+        "/// True iff `name` is one of the five §4.6 predefined-entity\n\
+         /// names. Returns the resolved replacement character.\n\
+         #[must_use]\n\
+         #[allow(dead_code)]\n\
+         pub fn resolve_predefined_entity(name: &str) -> Option<char> {\n\
+         \x20   PREDEFINED_ENTITIES\n\
+         \x20       .iter()\n\
+         \x20       .find(|(n, _)| *n == name)\n\
+         \x20       .map(|(_, c)| *c)\n\
+         }\n\n",
+    );
+}
+
+/// Escape a `char` for emission inside a Rust `char` literal.
+fn escape_char_literal(ch: char) -> String {
+    match ch {
+        '\\' => "\\\\".into(),
+        '\'' => "\\'".into(),
+        '"' => "\\\"".into(),
+        '\t' => "\\t".into(),
+        '\n' => "\\n".into(),
+        '\r' => "\\r".into(),
+        c if c.is_ascii_graphic() || c == ' ' => c.to_string(),
+        c => format!("\\u{{{:X}}}", c as u32),
+    }
+}
+
 /// Emit `pub fn <fname>(c: u32) -> bool { TABLE.iter().any(|&(l,h)| ...) }`.
 fn emit_predicate(out: &mut String, fname: &str, table: &str) {
     out.push_str(&format!(
@@ -408,6 +643,56 @@ mod tests {
                     <rhs diff=\"chg\">\":\" | [A-Z]</rhs>";
         let rhs = locate_rhs(spec, "NameStartChar").unwrap();
         assert!(rhs.contains("[A-Z]"));
+    }
+
+    #[test]
+    fn resolves_predefined_entity_double_escape() {
+        // §4.6's `lt` and `amp` use the double-escape pattern
+        // `&#38;#NN;` so reference-time re-resolution produces a
+        // working `&#NN;` character reference. The codegen resolver
+        // must pick out the *final* target character.
+        assert_eq!(resolve_predefined_entity_value("&#38;#60;"), Some('<'));
+        assert_eq!(resolve_predefined_entity_value("&#38;#38;"), Some('&'));
+    }
+
+    #[test]
+    fn resolves_predefined_entity_single_escape() {
+        // §4.6's `gt`, `apos`, `quot` use a single character ref.
+        assert_eq!(resolve_predefined_entity_value("&#62;"), Some('>'));
+        assert_eq!(resolve_predefined_entity_value("&#39;"), Some('\''));
+        assert_eq!(resolve_predefined_entity_value("&#34;"), Some('"'));
+    }
+
+    #[test]
+    fn parses_predefined_entity_line_with_extra_whitespace() {
+        let decl = parse_predefined_entity_line(r#"<!ENTITY lt     "&#38;#60;">"#).unwrap();
+        assert_eq!(decl.name, "lt");
+        assert_eq!(decl.replacement, '<');
+        assert_eq!(decl.replacement_literal, "&#38;#60;");
+    }
+
+    #[test]
+    fn extracts_all_five_predefined_entities_from_spec() {
+        // Mini spec slice mirroring the §4.6 markup. Verify all five
+        // declarations are extracted and resolve to the right chars.
+        let spec = r#"<div2 id="sec-predefined-ent">
+<eg><![CDATA[<!ENTITY lt     "&#38;#60;">
+<!ENTITY gt     "&#62;">
+<!ENTITY amp    "&#38;#38;">
+<!ENTITY apos   "&#39;">
+<!ENTITY quot   "&#34;">]]></eg>
+</div2>"#;
+        let entities = extract_predefined_entities(spec).unwrap();
+        assert_eq!(entities.len(), 5);
+        let by_name: std::collections::HashMap<&str, char> = entities
+            .iter()
+            .map(|e| (e.name.as_str(), e.replacement))
+            .collect();
+        assert_eq!(by_name.get("lt"), Some(&'<'));
+        assert_eq!(by_name.get("gt"), Some(&'>'));
+        assert_eq!(by_name.get("amp"), Some(&'&'));
+        assert_eq!(by_name.get("apos"), Some(&'\''));
+        assert_eq!(by_name.get("quot"), Some(&'"'));
     }
 
     #[test]

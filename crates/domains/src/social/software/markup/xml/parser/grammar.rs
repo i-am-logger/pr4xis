@@ -1823,22 +1823,21 @@ fn parse_att_value_body_into(
                 let name = parse_name(c)?;
                 c.consume(";")?;
                 let qualified = name.qualified();
-                match qualified.as_str() {
-                    "amp" => out.push('&'),
-                    "lt" => out.push('<'),
-                    "gt" => out.push('>'),
-                    "apos" => out.push('\''),
-                    "quot" => out.push('"'),
-                    _ => {
-                        include_user_general_entity_in_att_value(
-                            &qualified,
-                            ref_pos,
-                            entities,
-                            visited,
-                            strict_entity_declared,
-                            out,
-                        )?;
-                    }
+                // §4.6 predefined-entity resolution via the table
+                // generated at build time from the loaded W3C XML 1.0
+                // spec source's `<div2 id="sec-predefined-ent">` block
+                // (see `pr4xis::codegen::xml_grammar::extract_predefined_entities`).
+                if let Some(ch) = crate::social::software::markup::xml::spec_1_0::grammar::resolve_predefined_entity(&qualified) {
+                    out.push(ch);
+                } else {
+                    include_user_general_entity_in_att_value(
+                        &qualified,
+                        ref_pos,
+                        entities,
+                        visited,
+                        strict_entity_declared,
+                        out,
+                    )?;
                 }
             }
         } else if matches!(ch, '\t' | '\n' | '\r') {
@@ -2092,23 +2091,22 @@ fn parse_content_into_buffers(
                 let name = parse_name(c)?;
                 c.consume(";")?;
                 let qualified = name.qualified();
-                match qualified.as_str() {
-                    "amp" => text_buf.push('&'),
-                    "lt" => text_buf.push('<'),
-                    "gt" => text_buf.push('>'),
-                    "apos" => text_buf.push('\''),
-                    "quot" => text_buf.push('"'),
-                    _ => {
-                        include_user_general_entity_in_content(
-                            &qualified,
-                            ref_pos,
-                            entities,
-                            visited,
-                            strict_entity_declared,
-                            nodes,
-                            text_buf,
-                        )?;
-                    }
+                // §4.6 predefined-entity resolution via the table
+                // generated at build time from the loaded W3C XML 1.0
+                // spec source's `<div2 id="sec-predefined-ent">` block
+                // (see `pr4xis::codegen::xml_grammar::extract_predefined_entities`).
+                if let Some(ch) = crate::social::software::markup::xml::spec_1_0::grammar::resolve_predefined_entity(&qualified) {
+                    text_buf.push(ch);
+                } else {
+                    include_user_general_entity_in_content(
+                        &qualified,
+                        ref_pos,
+                        entities,
+                        visited,
+                        strict_entity_declared,
+                        nodes,
+                        text_buf,
+                    )?;
                 }
             }
         } else {
