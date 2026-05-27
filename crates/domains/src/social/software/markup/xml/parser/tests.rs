@@ -5,7 +5,8 @@
 use alloc::{string::String, string::ToString, vec, vec::Vec};
 
 use super::super::ontology::{
-    XmlAttribute, XmlDocument, XmlElement, XmlExternalId, XmlName, XmlNamespace, XmlNode,
+    XmlAttribute, XmlDocument, XmlElement, XmlEntityKind, XmlExternalId, XmlName, XmlNamespace,
+    XmlNode,
 };
 use super::grammar::{XmlParseError, parse_document};
 use super::lens::XmlLens;
@@ -229,7 +230,10 @@ fn parses_internal_subset_general_entity_declaration() {
     let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY hello "world">]><foo>&hello;</foo>"#;
     let doc = parse_document(xml).unwrap();
     let dt = doc.doctype.as_ref().unwrap();
-    assert_eq!(dt.general_entities, vec![("hello".into(), "world".into())]);
+    assert_eq!(dt.general_entities.len(), 1);
+    assert_eq!(dt.general_entities[0].name, "hello");
+    assert_eq!(dt.general_entities[0].value, "world");
+    assert_eq!(dt.general_entities[0].kind, XmlEntityKind::Internal);
     // The reference in content was resolved.
     assert_eq!(doc.root.children[0], XmlNode::Text("world".into()));
 }
@@ -251,7 +255,9 @@ fn duplicate_entity_declaration_first_wins() {
     let xml = br#"<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY x "first"><!ENTITY x "second">]><foo>&x;</foo>"#;
     let doc = parse_document(xml).unwrap();
     let dt = doc.doctype.as_ref().unwrap();
-    assert_eq!(dt.general_entities, vec![("x".into(), "first".into())]);
+    assert_eq!(dt.general_entities.len(), 1);
+    assert_eq!(dt.general_entities[0].name, "x");
+    assert_eq!(dt.general_entities[0].value, "first");
     assert_eq!(doc.root.children[0], XmlNode::Text("first".into()));
 }
 
@@ -271,8 +277,9 @@ fn external_entity_declaration_registers_name_with_empty_replacement_text() {
     let doc = parse_document(xml).unwrap();
     let dt = doc.doctype.as_ref().unwrap();
     assert_eq!(dt.general_entities.len(), 1);
-    assert_eq!(dt.general_entities[0].0, "ext");
-    assert_eq!(dt.general_entities[0].1, "");
+    assert_eq!(dt.general_entities[0].name, "ext");
+    assert_eq!(dt.general_entities[0].value, "");
+    assert_eq!(dt.general_entities[0].kind, XmlEntityKind::ExternalParsed);
 }
 
 #[test]
@@ -310,6 +317,67 @@ fn attlist_with_default_attvalue_only_parses() {
 <!ATTLIST doc chapter CDATA 'default'>
 ]><doc/>"#;
     assert!(parse_document(xml).is_ok());
+}
+
+#[test]
+fn external_unparsed_entity_reference_in_content_is_rejected() {
+    // §4.4.4 WFC: Parsed Entity — "an entity reference MUST NOT
+    // contain the name of an unparsed entity. Unparsed entities
+    // may be referred to only in attribute values declared to be
+    // of type ENTITY or ENTITIES" (which require validation, out
+    // of scope). xmlconf xmltest/not-wf/sa/083 is the spec
+    // regression.
+    let xml = br#"<!DOCTYPE r [
+<!NOTATION jpg SYSTEM "image/jpeg">
+<!ENTITY pic SYSTEM "p.jpg" NDATA jpg>
+]><r>&pic;</r>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn external_unparsed_entity_kind_is_classified() {
+    // Locked-in: an `<!ENTITY name SYSTEM "uri" NDATA n>` decl
+    // registers as `XmlEntityKind::ExternalUnparsed`.
+    let xml = br#"<!DOCTYPE r [
+<!NOTATION jpg SYSTEM "image/jpeg">
+<!ENTITY pic SYSTEM "p.jpg" NDATA jpg>
+]><r/>"#;
+    let doc = parse_document(xml).unwrap();
+    let dt = doc.doctype.as_ref().unwrap();
+    let pic = dt
+        .general_entities
+        .iter()
+        .find(|e| e.name == "pic")
+        .unwrap();
+    assert_eq!(pic.kind, XmlEntityKind::ExternalUnparsed);
+}
+
+#[test]
+fn external_parsed_entity_reference_in_attribute_value_is_rejected() {
+    // §3.1 + §4.4 row "Reference in Attribute Value" / WFC: No
+    // External Entity References — references to external parsed
+    // entities are forbidden in attribute values. xmlconf
+    // ibm/not-wf/P41/ibm41n10 + xmltest/sa/081 regress.
+    let xml = br#"<!DOCTYPE r [
+<!ELEMENT r EMPTY>
+<!ATTLIST r a CDATA #IMPLIED>
+<!ENTITY ext SYSTEM "ext.txt">
+]><r a="&ext;"/>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn internal_entity_reference_in_attribute_value_resolves() {
+    // Sanity: the §3.1 + §4.4 attribute-value reference WFCs are
+    // *only* about external entities — internal entities still
+    // resolve normally.
+    let xml = br#"<!DOCTYPE r [
+<!ELEMENT r EMPTY>
+<!ATTLIST r a CDATA #IMPLIED>
+<!ENTITY x "hello">
+]><r a="&x;"/>"#;
+    let doc = parse_document(xml).unwrap();
+    assert_eq!(doc.root.attributes[0].value, "hello");
 }
 
 #[test]
@@ -483,8 +551,8 @@ fn parameter_entity_at_decl_sep_includes_a_general_entity_decl() {
     let doc = parse_document(xml).unwrap();
     let dt = doc.doctype.as_ref().unwrap();
     assert_eq!(dt.general_entities.len(), 1);
-    assert_eq!(dt.general_entities[0].0, "g");
-    assert_eq!(dt.general_entities[0].1, "hello");
+    assert_eq!(dt.general_entities[0].name, "g");
+    assert_eq!(dt.general_entities[0].value, "hello");
 }
 
 #[test]

@@ -72,11 +72,11 @@ fn write_doctype(out: &mut String, doctype: &XmlDoctype) {
     }
     if !doctype.general_entities.is_empty() {
         out.push_str(" [");
-        for (name, value) in &doctype.general_entities {
+        for entity in &doctype.general_entities {
             out.push_str("<!ENTITY ");
-            out.push_str(name);
+            out.push_str(&entity.name);
             out.push_str(" \"");
-            write_escaped_entity_value(out, value);
+            write_escaped_entity_value(out, &entity.value);
             out.push_str("\">");
         }
         out.push(']');

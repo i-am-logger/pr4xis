@@ -26,8 +26,8 @@ use alloc::{
 };
 
 use super::super::ontology::{
-    XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlExternalId, XmlName, XmlNamespace,
-    XmlNode,
+    XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlEntityKind, XmlExternalId,
+    XmlGeneralEntity, XmlName, XmlNamespace, XmlNode,
 };
 
 /// Failure modes when parsing XML 1.0 bytes.
@@ -180,7 +180,7 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
     let mut cursor = Cursor::new(&normalized);
 
     let (version, encoding, doctype) = parse_prolog(&mut cursor)?;
-    let entity_map: Vec<(String, String)> = doctype
+    let entity_map: Vec<XmlGeneralEntity> = doctype
         .as_ref()
         .map(|d| d.general_entities.clone())
         .unwrap_or_default();
@@ -647,7 +647,7 @@ fn parse_doctype(c: &mut Cursor<'_>) -> Result<XmlDoctype, XmlParseError> {
         None
     };
 
-    let mut general_entities: Vec<(String, String)> = Vec::new();
+    let mut general_entities: Vec<XmlGeneralEntity> = Vec::new();
     if c.starts_with("[") {
         c.consume("[")?;
         parse_internal_subset(c, &mut general_entities)?;
@@ -755,7 +755,7 @@ fn is_pubid_char(c: char) -> bool {
 /// passes through the `%` branch.
 fn parse_internal_subset(
     c: &mut Cursor<'_>,
-    general_entities: &mut Vec<(String, String)>,
+    general_entities: &mut Vec<XmlGeneralEntity>,
 ) -> Result<(), XmlParseError> {
     let mut parameter_entities: Vec<(String, String)> = Vec::new();
     parse_intsubset_items(c, general_entities, &mut parameter_entities, true)
@@ -771,7 +771,7 @@ fn parse_internal_subset(
 /// "include" boundary is the end of the replacement, not a `]`).
 fn parse_intsubset_items(
     c: &mut Cursor<'_>,
-    general_entities: &mut Vec<(String, String)>,
+    general_entities: &mut Vec<XmlGeneralEntity>,
     parameter_entities: &mut Vec<(String, String)>,
     terminate_on_close_bracket: bool,
 ) -> Result<(), XmlParseError> {
@@ -793,10 +793,10 @@ fn parse_intsubset_items(
             continue;
         }
         if c.starts_with("<!ENTITY") {
-            if let Some((name, value)) = parse_entity_decl(c, parameter_entities)? {
+            if let Some(entity) = parse_entity_decl(c, parameter_entities)? {
                 // §4.5 — duplicate entity declarations: the first wins.
-                if !general_entities.iter().any(|(n, _)| n == &name) {
-                    general_entities.push((name, value));
+                if !general_entities.iter().any(|e| e.name == entity.name) {
+                    general_entities.push(entity);
                 }
             }
             continue;
@@ -913,7 +913,7 @@ fn parse_intsubset_items(
 fn parse_entity_decl(
     c: &mut Cursor<'_>,
     parameter_entities: &mut Vec<(String, String)>,
-) -> Result<Option<(String, String)>, XmlParseError> {
+) -> Result<Option<XmlGeneralEntity>, XmlParseError> {
     c.consume("<!ENTITY")?;
     c.require_whitespace("ENTITY name")?;
 
@@ -958,10 +958,18 @@ fn parse_entity_decl(
         c.consume("SYSTEM")?;
         c.require_whitespace("ExternalID SystemLiteral")?;
         let _system_literal = parse_quoted(c)?;
-        parse_optional_ndata_decl(c)?;
+        let unparsed = parse_optional_ndata_decl(c)?;
         c.skip_whitespace();
         c.consume(">")?;
-        return Ok(Some((name.qualified(), String::new())));
+        return Ok(Some(XmlGeneralEntity {
+            name: name.qualified(),
+            value: String::new(),
+            kind: if unparsed {
+                XmlEntityKind::ExternalUnparsed
+            } else {
+                XmlEntityKind::ExternalParsed
+            },
+        }));
     }
     if c.starts_with("PUBLIC") {
         c.consume("PUBLIC")?;
@@ -987,27 +995,40 @@ fn parse_entity_decl(
         // or `<!ENTITY e PUBLIC "a""b">` (no whitespace between literals).
         c.require_whitespace("ExternalID SystemLiteral")?;
         let _system_literal = parse_quoted(c)?;
-        parse_optional_ndata_decl(c)?;
+        let unparsed = parse_optional_ndata_decl(c)?;
         c.skip_whitespace();
         c.consume(">")?;
-        return Ok(Some((name.qualified(), String::new())));
+        return Ok(Some(XmlGeneralEntity {
+            name: name.qualified(),
+            value: String::new(),
+            kind: if unparsed {
+                XmlEntityKind::ExternalUnparsed
+            } else {
+                XmlEntityKind::ExternalParsed
+            },
+        }));
     }
 
     let value = parse_entity_value(c)?;
     c.skip_whitespace();
     c.consume(">")?;
-    Ok(Some((name.qualified(), value)))
+    Ok(Some(XmlGeneralEntity {
+        name: name.qualified(),
+        value,
+        kind: XmlEntityKind::Internal,
+    }))
 }
 
 /// §4.7 [76] `NDataDecl ::= S 'NDATA' S Name` — optional in
 /// general-entity declarations marking an unparsed entity.
+/// Returns `true` iff an NDataDecl was consumed.
 ///
 /// The leading S is required by [76] when an NDataDecl is present:
 /// `<!ENTITY foo SYSTEM "x"NDATA eps>` (no space between `"x"` and
 /// `NDATA`) is malformed. xmlconf xmltest/not-wf/sa/069.xml is the
 /// spec regression — the comment in that file even names the
 /// constraint ("missing space before NDATA").
-fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
+fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<bool, XmlParseError> {
     let save = c.pos;
     let consumed_any_s = {
         let before = c.pos;
@@ -1021,12 +1042,12 @@ fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
         c.consume("NDATA")?;
         c.require_whitespace("NDataDecl Name")?;
         let _ = parse_name(c)?;
-        Ok(())
+        Ok(true)
     } else {
         // Not an NDataDecl — restore the cursor so the caller's
         // own skip_whitespace + `>` consume can run.
         c.pos = save;
-        Ok(())
+        Ok(false)
     }
 }
 
@@ -1239,7 +1260,7 @@ fn parse_char_ref(c: &mut Cursor<'_>) -> Result<char, XmlParseError> {
 /// predefined entities.
 fn parse_element(
     c: &mut Cursor<'_>,
-    entities: &[(String, String)],
+    entities: &[XmlGeneralEntity],
 ) -> Result<XmlElement, XmlParseError> {
     c.consume("<")?;
     let name = parse_name(c)?;
@@ -1426,7 +1447,7 @@ pub fn is_xml_char(ch: char) -> bool {
 /// of §3.3.3.
 fn parse_att_value(
     c: &mut Cursor<'_>,
-    entities: &[(String, String)],
+    entities: &[XmlGeneralEntity],
 ) -> Result<String, XmlParseError> {
     let quote = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
         context: "AttValue".into(),
@@ -1451,31 +1472,50 @@ fn parse_att_value(
         }
         if ch == '&' {
             // Character + entity references contribute their referenced
-            // character(s) unchanged (§3.3.3 step 3.1.1). §4.4 WFC:
-            // "No < in Attribute Values" — applies *only* to user-
-            // declared general-entity expansions whose replacement
-            // text contains a `<`. Numeric character references and
-            // the five §4.6 predefined entities (`&lt;` is the
-            // sanctioned way to bring a literal `<` into an attribute
-            // value) are explicitly exempt: per §4.6 "the entity `lt`
-            // is declared via `<!ENTITY lt "&#60;">`" — the resolved
-            // `<` comes through a character reference, which is
-            // allowed.
+            // character(s) unchanged (§3.3.3 step 3.1.1). The §4.4
+            // entity-reference table places two additional WFCs on
+            // references that appear in an attribute value:
             //
-            // Detect the case by peeking ahead before the reference
-            // is consumed: `&#…;` is a CharRef; the five names
-            // `amp/lt/gt/apos/quot` are predefined; everything else
-            // is a user-declared general entity whose expansion is
-            // checked for `<` after resolution. xmlconf
-            // ibm/not-wf/P60/ibm60n07 — `<!ENTITY x "<Intro">` then
-            // `attr="&x;"` — regresses without this.
+            //   - "No External Entity References" (§3.1, §4.4 row
+            //     "Reference in Attribute Value") — references to
+            //     external entities are forbidden. xmlconf
+            //     ibm/not-wf/P41/ibm41n10..12 + xmltest/sa/081 regress.
+            //   - "No `<` in Attribute Values" — applies *only* to
+            //     user-declared general-entity expansions whose
+            //     replacement text contains a `<`. Numeric character
+            //     references and the five §4.6 predefined entities
+            //     (`&lt;` is the sanctioned way to bring `<` in) are
+            //     explicitly exempt. xmlconf ibm/not-wf/P60/ibm60n07.
             let ref_pos = c.pos;
-            let is_general_user_entity = !c.rest().starts_with("&#") && {
+            // Peek the reference shape before consuming.
+            let (is_general_user_entity, referenced_external) = if c.rest().starts_with("&#") {
+                (false, false)
+            } else {
                 let after = &c.rest()[1..];
                 let semi = after.find(';').unwrap_or(after.len());
                 let name = &after[..semi];
-                !matches!(name, "amp" | "lt" | "gt" | "apos" | "quot")
+                let predefined = matches!(name, "amp" | "lt" | "gt" | "apos" | "quot");
+                let external = !predefined
+                    && entities.iter().find(|e| e.name == name).is_some_and(|e| {
+                        matches!(
+                            e.kind,
+                            XmlEntityKind::ExternalParsed | XmlEntityKind::ExternalUnparsed
+                        )
+                    });
+                (!predefined, external)
             };
+            if referenced_external {
+                return Err(XmlParseError::Syntax {
+                    position: ref_pos,
+                    expected: "AttValue (no external-entity references — §3.1 / §4.4 WFC)".into(),
+                    found: c
+                        .rest()
+                        .split(';')
+                        .next()
+                        .map(|s| format!("{s};"))
+                        .unwrap_or_else(|| "&".into()),
+                });
+            }
             let expanded = parse_reference(c, entities)?;
             if is_general_user_entity && expanded.contains('<') {
                 return Err(XmlParseError::Syntax {
@@ -1512,7 +1552,7 @@ fn parse_att_value(
 /// `content ::= CharData? ((element | Reference | CDSect | PI | Comment) CharData?)*`.
 fn parse_content(
     c: &mut Cursor<'_>,
-    entities: &[(String, String)],
+    entities: &[XmlGeneralEntity],
 ) -> Result<Vec<XmlNode>, XmlParseError> {
     let mut nodes: Vec<XmlNode> = Vec::new();
     let mut text_buf = String::new();
@@ -1722,7 +1762,7 @@ fn check_chars_in_range(
 /// Entities and References".
 fn parse_reference(
     c: &mut Cursor<'_>,
-    entities: &[(String, String)],
+    entities: &[XmlGeneralEntity],
 ) -> Result<String, XmlParseError> {
     let start_pos = c.pos;
     if c.rest().starts_with("&#") {
@@ -1742,17 +1782,37 @@ fn parse_reference(
         (None, "apos") => Ok("'".into()),
         (None, "quot") => Ok("\"".into()),
         _ => {
-            // §4.4.3 — general entity references in content resolve to
-            // their declared replacement text. We look up by qualified
-            // name; declared entities are always unqualified per
-            // §4.2 GEDecl.
-            if let Some((_, value)) = entities.iter().find(|(n, _)| n == &qualified) {
-                Ok(value.clone())
-            } else {
-                Err(XmlParseError::UnsupportedEntity {
+            // §4.4 Table 4 row "Reference in Content" — the action
+            // depends on the referenced entity's kind:
+            //
+            //   - Internal general entity → "Included" — its
+            //     replacement text replaces the reference.
+            //   - External parsed entity → "Included if validating",
+            //     "Bypassed" otherwise. As a non-validating parser
+            //     we accept the reference but treat its expansion
+            //     as empty (the §4.4.4 "may, but need not" rule).
+            //   - External unparsed entity → **Forbidden**.
+            //     §4.4.4 WFC: Parsed Entity — "an entity reference
+            //     MUST NOT contain the name of an unparsed entity".
+            //     xmlconf xmltest/not-wf/sa/083 is the spec
+            //     regression: `<!ENTITY e SYSTEM "nul" NDATA n>`
+            //     declared, then `&e;` referenced in content.
+            //   - Undeclared → §4.1 WFC: Entity Declared. Reject.
+            match entities.iter().find(|e| e.name == qualified) {
+                Some(entity) => match entity.kind {
+                    XmlEntityKind::ExternalUnparsed => Err(XmlParseError::Syntax {
+                        position: start_pos,
+                        expected: "reference to a parsed entity (§4.4.4 WFC: Parsed Entity)".into(),
+                        found: format!("&{qualified};"),
+                    }),
+                    XmlEntityKind::Internal | XmlEntityKind::ExternalParsed => {
+                        Ok(entity.value.clone())
+                    }
+                },
+                None => Err(XmlParseError::UnsupportedEntity {
                     position: start_pos,
                     name: qualified,
-                })
+                }),
             }
         }
     }

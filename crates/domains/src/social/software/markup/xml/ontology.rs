@@ -387,12 +387,52 @@ pub struct XmlDoctype {
     /// just the system literal; `PUBLIC` form carries both pub-id
     /// and system literal per §4.2.2 [75].
     pub external_id: Option<XmlExternalId>,
-    /// General entity declarations from the internal subset
-    /// (`<!ENTITY name "value">`). Parameter entities and external
-    /// entities are deferred. Map preserves declaration order via
-    /// `Vec<(name, value)>` rather than a `HashMap` (XML 1.0 §4.5
-    /// says first-declaration wins on duplicate names).
-    pub general_entities: Vec<(String, String)>,
+    /// General entity declarations from the internal subset (§4.2
+    /// [70] EntityDecl → [71] GEDecl). Preserves declaration order
+    /// via `Vec` rather than a `HashMap` because XML 1.0 §4.5 says
+    /// the first declaration wins on duplicate names.
+    pub general_entities: Vec<XmlGeneralEntity>,
+}
+
+/// One general-entity declaration from §4.2 [71] GEDecl. The
+/// `kind` distinguishes the three §4.2 [73] EntityDef shapes —
+/// the distinction matters because the W3C XML 1.0 §4.4 entity-
+/// reference table gives the same syntactic `&name;` reference
+/// different well-formedness constraints depending on which kind
+/// of entity it points at (WFC: Parsed Entity, WFC: No External
+/// Entity References, …).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct XmlGeneralEntity {
+    /// The entity name (§4.2 [71] Name).
+    pub name: String,
+    /// Internal entities (§4.2 [73] EntityDef → EntityValue) carry
+    /// their replacement text here. External entities carry the
+    /// empty string — their replacement text is fetched at parse
+    /// time, which praxis defers (the parser is non-validating
+    /// and does not load external resources).
+    pub value: String,
+    /// Which of the three §4.2 [73] EntityDef shapes declared this.
+    pub kind: XmlEntityKind,
+}
+
+/// §4.2 [73] `EntityDef ::= EntityValue | (ExternalID NDataDecl?)`
+/// distinguishes three concrete shapes once `NDataDecl?` is split.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum XmlEntityKind {
+    /// `<!ENTITY name "value">` — replacement text is the literal
+    /// EntityValue. Internal parsed general entity.
+    Internal,
+    /// `<!ENTITY name SYSTEM "uri">` (or PUBLIC). External parsed
+    /// general entity — its replacement text is the entity body,
+    /// to be re-parsed in the referring context.
+    ExternalParsed,
+    /// `<!ENTITY name SYSTEM "uri" NDATA notation>`. External
+    /// unparsed general entity per §4.2.2 [76] NDataDecl. The
+    /// referenced data is not XML; it can only be named (via an
+    /// ENTITY-typed attribute value), never expanded into content.
+    /// §4.4 row "Reference in Content" + WFC: Parsed Entity
+    /// rejects such references in `&name;` positions.
+    ExternalUnparsed,
 }
 
 /// W3C XML 1.0 §4.2.2 production [75] `ExternalID`. Two shapes:
