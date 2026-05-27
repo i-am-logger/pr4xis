@@ -243,8 +243,34 @@ fn case_from_test(
     {
         return None;
     }
+    let doc_path = meta_dir.join(&uri);
+    let path_str = doc_path.to_string_lossy();
+    // The IBM `xml-1.1/` subtree and the W3C edu-ni `xml-1.1/`
+    // subtree are XML 1.1 cases — a separate W3C Recommendation
+    // (Bray et al. 2006/2008 *XML 1.1 (Second Edition)*). Our
+    // parser implements XML 1.0 Fifth Edition; per §2.8 spec note
+    // a 1.0 processor "will accept 1.x documents provided they do
+    // not use any non-1.0 features" — the entire point of these
+    // tests is to exercise 1.1-only features (NEL/LSEP line
+    // endings, expanded NameStartChar, C1 controls as Char) that
+    // 1.0 forbids. Including them in the audit would score the
+    // 1.0 parser against the wrong spec.
+    if path_str.contains("/xml-1.1/") {
+        return None;
+    }
+    // The W3C edu-ni `namespaces/` subtree tests *Namespaces in
+    // XML* (Bray, Hollander, Layman, Tobin & Thompson 2009 eds.,
+    // W3C Recommendation) — a layered spec on top of XML 1.0/1.1
+    // adding xmlns / prefix-binding and undeclared-prefix WFCs.
+    // The praxis XML 1.0 parser is the *base* level (Name as
+    // §2.3 [4], not §3 NCName) and intentionally treats `:` as
+    // a name character without binding semantics. Namespace-
+    // specific WFCs are scope of a separate ontology layer.
+    if path_str.contains("/namespaces/") {
+        return None;
+    }
     Some(XmlConfCase {
-        doc_path: meta_dir.join(&uri),
+        doc_path,
         case_type,
     })
 }
@@ -327,6 +353,12 @@ pub struct XmlConfAuditReport {
     pub error_total: usize,
     /// Of `error_total`, how many our parser accepted (informational).
     pub error_parse_ok: usize,
+    /// Divergences bucketed by submanifest path (e.g.
+    /// `ibm/not-wf/P85`). Counts are `[valid-rejected,
+    /// invalid-rejected, not-wf-accepted]`. Empty buckets are
+    /// omitted. Sorted by descending total divergence so the
+    /// audit's failure message names the largest cluster first.
+    pub divergence_buckets: alloc::collections::BTreeMap<String, [usize; 3]>,
 }
 
 impl XmlConfAuditReport {
@@ -340,6 +372,29 @@ impl XmlConfAuditReport {
             && self.valid_parse_ok == self.valid_total
             && self.invalid_parse_ok == self.invalid_total
             && self.not_wf_rejected == self.not_wf_total
+    }
+
+    /// Format the largest divergence buckets, descending. The audit
+    /// failure-message uses this to surface where the gap is
+    /// concentrated. Pass `top` to limit the row count.
+    #[must_use]
+    pub fn divergence_summary(&self, top: usize) -> String {
+        use core::fmt::Write;
+        let mut rows: Vec<(&String, &[usize; 3])> = self.divergence_buckets.iter().collect();
+        rows.sort_by(|a, b| {
+            let ta: usize = a.1.iter().sum();
+            let tb: usize = b.1.iter().sum();
+            tb.cmp(&ta).then_with(|| a.0.cmp(b.0))
+        });
+        let mut out = String::new();
+        out.push_str("submanifest, valid-rejected, invalid-rejected, not-wf-accepted\n");
+        for (k, v) in rows.iter().take(top) {
+            if v.iter().sum::<usize>() == 0 {
+                continue;
+            }
+            let _ = writeln!(out, "  {} {} {} {}", k, v[0], v[1], v[2]);
+        }
+        out
     }
 }
 
@@ -361,23 +416,32 @@ pub fn run_audit() -> XmlConfAuditOutcome {
             continue;
         };
         let parsed = parse_document(&bytes);
-        match case.case_type {
+        let (valid_rejected, invalid_rejected, not_wf_accepted) = match case.case_type {
             XmlConfType::Valid => {
                 report.valid_total += 1;
                 if parsed.is_ok() {
                     report.valid_parse_ok += 1;
+                    (false, false, false)
+                } else {
+                    (true, false, false)
                 }
             }
             XmlConfType::Invalid => {
                 report.invalid_total += 1;
                 if parsed.is_ok() {
                     report.invalid_parse_ok += 1;
+                    (false, false, false)
+                } else {
+                    (false, true, false)
                 }
             }
             XmlConfType::NotWf => {
                 report.not_wf_total += 1;
                 if parsed.is_err() {
                     report.not_wf_rejected += 1;
+                    (false, false, false)
+                } else {
+                    (false, false, true)
                 }
             }
             XmlConfType::Error => {
@@ -385,10 +449,41 @@ pub fn run_audit() -> XmlConfAuditOutcome {
                 if parsed.is_ok() {
                     report.error_parse_ok += 1;
                 }
+                (false, false, false)
+            }
+        };
+        if valid_rejected || invalid_rejected || not_wf_accepted {
+            let bucket = submanifest_bucket(&case.doc_path);
+            let counts = report.divergence_buckets.entry(bucket).or_insert([0, 0, 0]);
+            if valid_rejected {
+                counts[0] += 1;
+            }
+            if invalid_rejected {
+                counts[1] += 1;
+            }
+            if not_wf_accepted {
+                counts[2] += 1;
             }
         }
     }
     XmlConfAuditOutcome::Walked(report)
+}
+
+/// Map a test-case path to a stable per-submanifest bucket key
+/// like `ibm/not-wf/P85` — three path components below the
+/// extracted `xmlconf/` root.
+fn submanifest_bucket(p: &std::path::Path) -> String {
+    let s = p.display().to_string();
+    s.rsplit("/xmlconf/")
+        .next()
+        .and_then(|s| {
+            let mut parts = s.splitn(4, '/');
+            let a = parts.next()?;
+            let b = parts.next()?;
+            let c = parts.next().unwrap_or("");
+            Some(format!("{a}/{b}/{c}"))
+        })
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 /// Axiom: the praxis XML 1.0 parser is well-formedness-conformant on
@@ -480,7 +575,16 @@ mod tests {
                 assert!(report.not_wf_total >= 300);
                 assert!(
                     report.is_spec_conformant(),
-                    "non-conformance in audit: {report:?}"
+                    "non-conformance in audit:\n  totals: \
+                     valid {}/{}, invalid {}/{}, not-wf {}/{}\n\
+                     top divergence clusters:\n{}",
+                    report.valid_parse_ok,
+                    report.valid_total,
+                    report.invalid_parse_ok,
+                    report.invalid_total,
+                    report.not_wf_rejected,
+                    report.not_wf_total,
+                    report.divergence_summary(15)
                 );
             }
             XmlConfAuditOutcome::ExtractedTreeAbsent { .. } => {}

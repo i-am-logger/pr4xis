@@ -1121,26 +1121,38 @@ fn skip_until_close_angle(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
 /// `&#xhex;`). Factored out of [`parse_reference`] so
 /// [`parse_entity_value`] can use it without going through the
 /// general-entity-name branch.
+///
+/// Enforces W3C XML 1.0 §4.1 **WFC: Legal Character** — the
+/// referenced code point must be in §2.2 [2] `Char`. This catches:
+///
+/// - NUL and other C0 controls (`&#x0;` … `&#x1F;` excluding the
+///   three `Char`-permitted `#x9` / `#xA` / `#xD`).
+/// - The two §2.2-excluded noncharacters at the BMP top
+///   (`&#xFFFE;`, `&#xFFFF;`).
+/// - C1 controls and other code points outside §2.2 Char even
+///   though they're valid Unicode scalars (which `char::from_u32`
+///   accepts on its own).
+///
+/// xmlconf ibm/not-wf/P66 cases ibm66n12..15 are the regression
+/// set; they reference NUL, `#x1F`, `#xFFFE`, `#xFFFF` and are
+/// rejected by this check.
 fn parse_char_ref(c: &mut Cursor<'_>) -> Result<char, XmlParseError> {
     let start_pos = c.pos;
     c.consume("&")?;
-    if c.starts_with("#x") {
+    let code_point = if c.starts_with("#x") {
         c.consume("#x")?;
         let rest = c.rest();
         let end = rest.find(';').ok_or_else(|| XmlParseError::UnexpectedEof {
             context: "character reference".into(),
         })?;
         let digits = &rest[..end];
-        let code_point = u32::from_str_radix(digits, 16).map_err(|_| XmlParseError::Syntax {
+        let cp = u32::from_str_radix(digits, 16).map_err(|_| XmlParseError::Syntax {
             position: c.pos,
             expected: "hex digits".into(),
             found: digits.to_string(),
         })?;
         c.pos += end + 1;
-        char::from_u32(code_point).ok_or(XmlParseError::InvalidCharRef {
-            position: start_pos,
-            code_point,
-        })
+        cp
     } else if c.starts_with("#") {
         c.consume("#")?;
         let rest = c.rest();
@@ -1148,19 +1160,29 @@ fn parse_char_ref(c: &mut Cursor<'_>) -> Result<char, XmlParseError> {
             context: "character reference".into(),
         })?;
         let digits = &rest[..end];
-        let code_point = digits.parse::<u32>().map_err(|_| XmlParseError::Syntax {
+        let cp = digits.parse::<u32>().map_err(|_| XmlParseError::Syntax {
             position: c.pos,
             expected: "decimal digits".into(),
             found: digits.to_string(),
         })?;
         c.pos += end + 1;
-        char::from_u32(code_point).ok_or(XmlParseError::InvalidCharRef {
+        cp
+    } else {
+        return Err(c.syntax_error("character reference", &c.preview()));
+    };
+    let ch = char::from_u32(code_point).ok_or(XmlParseError::InvalidCharRef {
+        position: start_pos,
+        code_point,
+    })?;
+    // §4.1 WFC: Legal Character — the resolved char MUST be in
+    // §2.2 [2] Char. is_xml_char consults the loaded predicate.
+    if !is_xml_char(ch) {
+        return Err(XmlParseError::InvalidCharRef {
             position: start_pos,
             code_point,
-        })
-    } else {
-        Err(c.syntax_error("character reference", &c.preview()))
+        });
     }
+    Ok(ch)
 }
 
 /// W3C XML 1.0 §3 production [39] `element`:
