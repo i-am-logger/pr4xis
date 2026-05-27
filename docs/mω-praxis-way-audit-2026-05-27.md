@@ -103,9 +103,9 @@ Batches A-D move the parser into full compliance with the published productions.
 | **D.2** | `from_xsd_element` companions for 6 USLM legacy `parse()` methods (UsCodeHeadingVariant, UsCodeQuotedVariant, UsCodeLegislativeFormula, UsCodeFormElement, UsCodeAmendmentKind, InlineKind). | `d8c6d3c7` | ✅ done (6 low-tier) |
 | **F** | LMF `SynsetRelation::relType` / `SenseRelation::relType` / `LmfPos` parse() grounded in loaded WN-LMF 1.3 DTD enumeration via `wn_lmf_attlist_enum_values()` + three new parse-coverage axioms. | `f2ade90e` | ✅ done (1 Tier-2 + 1 Tier-3 + 1 Tier-4) |
 | **I.1** | Brittle-count test assertions (`grammar.len() == 85`, `variants.len() == 14`) replaced with structural invariants (uncommented-`<prod>` counter for the grammar, `variants()↔to_tag()↔parse()` bijection for LmfPos). | `df2e35da` | ✅ done (2 Tier-4) |
+| **E** | USLM codegen `CONTAINER_TAGS` + duplicated STag/ETag dispatch unified via `UslmTokenizerConfig { container/heading/body/ornament/suppressed_tags }` + `classify(name) -> UslmElementClass`; `from_level_substitution_group(level_members)` builds the XSD-grounded variant; all parse functions gain `*_with_config` siblings. | `a320664f` | ✅ done (3 Tier-1 worst) |
 | **B** | parser content-loop + Misc grammar-driven alternation via loaded grammar. | — | deferred (needs EBNF interpreter subproduction-positions extension) |
 | **C** | PEDef-through-EBNF-interpreter (kills `reject_ndata_decl_on_pe`); requires `parse_entity_decl` refactor. | — | deferred (parser-side refactor) |
-| **E** | USLM codegen `CONTAINER_TAGS` from loaded XSD; STag/ETag handler unification. | — | deferred (cross-crate: parse code is in pr4xis; XSD bytes only in pr4xis-domains — needs codegen reorganization) |
 | **G** | IANA Character Sets registry for UTF-16 encoding aliases. | — | deferred (needs IANA registry registered as a new praxis source) |
 | **H** | codegen string-template → typed AST projection. | — | deferred (stylistic; large refactor) |
 | **I.2** | test-fixture-value derivation (uslm/tests.rs:77-79, 91-97, 123-131) + `is_statutory_term_of_art` lexicon-grounding. | — | deferred (low-priority cleanup) |
