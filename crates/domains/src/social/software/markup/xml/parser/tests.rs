@@ -422,6 +422,32 @@ fn nested_internal_entity_reference_expands_recursively() {
 }
 
 #[test]
+fn parameter_entity_with_ndata_is_rejected_external_system() {
+    // §4.2 [74] PEDef ::= EntityValue | ExternalID — note the
+    // absence of NDataDecl. Parameter entities (§4.2 [72] PEDecl)
+    // are parsed by definition; NDATA is general-entity-only
+    // (§4.2 [73] EntityDef). xmlconf xmltest/not-wf/sa/089 is
+    // the spec regression.
+    let xml = br#"<!DOCTYPE doc [
+<!ENTITY % foo SYSTEM "foo.xml" NDATA bar>
+]>
+<doc></doc>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn parameter_entity_with_ndata_is_rejected_external_public() {
+    // §4.2 [74] PEDef + §4.2.2 [75] ExternalID PUBLIC variant +
+    // forbidden NDataDecl. xmlconf xmltest/not-wf/sa/091.
+    let xml = br#"<!DOCTYPE doc [
+<!NOTATION n SYSTEM "n">
+<!ENTITY % foo PUBLIC "pid" "foo.xml" NDATA n>
+]>
+<doc></doc>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
 fn entity_value_with_literal_percent_is_rejected() {
     // W3C XML 1.0 §4.3.2 [9] EntityValue body alternation
     // `[^%&"]` excludes literal `%` — the spec says "the `%`

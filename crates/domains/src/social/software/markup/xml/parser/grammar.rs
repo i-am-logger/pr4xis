@@ -930,9 +930,36 @@ fn parse_entity_decl(
         c.require_whitespace("PEDecl name")?;
         let name = parse_name(c)?;
         c.require_whitespace("PEDecl value")?;
-        if c.starts_with("SYSTEM") || c.starts_with("PUBLIC") {
-            // External PE — skip past `>` (respecting quoted literals).
-            skip_until_close_angle(c)?;
+        if c.starts_with("SYSTEM") {
+            c.consume("SYSTEM")?;
+            c.require_whitespace("ExternalID SystemLiteral")?;
+            let _system_literal = parse_quoted(c)?;
+            // §4.2 [74] PEDef ::= EntityValue | ExternalID
+            // (no NDataDecl).  An NDATA token here is a syntax
+            // error — parameter entities can never be unparsed.
+            // xmlconf xmltest/not-wf/sa/089, /091 regress on this.
+            reject_ndata_decl_on_pe(c)?;
+            c.skip_whitespace();
+            c.consume(">")?;
+        } else if c.starts_with("PUBLIC") {
+            c.consume("PUBLIC")?;
+            c.require_whitespace("ExternalID PubidLiteral")?;
+            let lit_pos = c.pos;
+            let pub_id = parse_quoted(c)?;
+            for ch in pub_id.chars() {
+                if !is_pubid_char(ch) {
+                    return Err(XmlParseError::Syntax {
+                        position: lit_pos,
+                        expected: "PubidChar (§4.2.2 [13])".into(),
+                        found: ch.to_string(),
+                    });
+                }
+            }
+            c.require_whitespace("ExternalID SystemLiteral")?;
+            let _system_literal = parse_quoted(c)?;
+            reject_ndata_decl_on_pe(c)?;
+            c.skip_whitespace();
+            c.consume(">")?;
         } else {
             // Internal PE — capture the replacement text.
             let value = parse_entity_value(c)?;
@@ -1049,6 +1076,32 @@ fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<bool, XmlParseError> 
         c.pos = save;
         Ok(false)
     }
+}
+
+/// W3C XML 1.0 §4.2 [74] `PEDef ::= EntityValue | ExternalID` —
+/// note the absence of `NDataDecl`. Parameter entities (§4.2 [72]
+/// `PEDecl`) are *parsed* by definition; the NDATA marker is
+/// only ever legal on a general entity (§4.2 [73] `EntityDef`,
+/// where NDataDecl is a valid suffix). This helper enforces
+/// that asymmetry: when the cursor is sitting at the position
+/// where an NDataDecl *would* go for a general entity, but we
+/// are inside a PE declaration, surface a syntax error.
+///
+/// xmlconf xmltest/not-wf/sa/089 (`<!ENTITY % foo SYSTEM "foo"
+/// NDATA bar>`) and /091 (variant with NOTATION declared) are
+/// the spec regressions.
+fn reject_ndata_decl_on_pe(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
+    let save = c.pos;
+    c.skip_whitespace();
+    if c.starts_with("NDATA") {
+        return Err(XmlParseError::Syntax {
+            position: c.pos,
+            expected: "PEDef end (PE definitions cannot have NDataDecl — §4.2 [74])".into(),
+            found: "NDATA".into(),
+        });
+    }
+    c.pos = save;
+    Ok(())
 }
 
 /// W3C XML 1.0 §4.3.2 production [9] `EntityValue`:
