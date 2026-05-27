@@ -25,7 +25,7 @@ description = "<one-line human description>"
 - **`name`** is a snake-case identifier. Convention: `<short>_<section>` for statutes (`sox_1514a`, `air21_42121`), `<short>_<rule>` for procedural rules (`frcp_rule_17`), `<plaintiff>_v_<defendant>_<year>` for case law.
 - **`version`** is free-form — calendar year, amendment cycle, edition. Not semver; legal corpora are publication-date identified.
 - **`type`** must be a leaf concept name from the `SourceTaxonomy` ontology (`Language`, `UsFederalStatute`, `Regulation`, `ProceduralRule`, `CaseLaw`, …). Unknown types fail closed at startup.
-- **`url`** is the authoritative source URL. For US federal statutes that means GPO-authenticated PDFs on `govinfo.gov` per Bluebook §18; for other sources, the standard cites the canonical edition. Secondary republications (Cornell LII for statutes, justia.com for cases) are not authoritative — encode the canonical source.
+- **`url`** is the authoritative source URL. For US federal statutes that means **LRC USLM XML** on `uscode.house.gov/download/releasepoints/...` per 1 U.S.C. § 204 (the Office of the Law Revision Counsel is the statutory codifier; USLM is its published XML form). For case law it means the issuing court's published opinion (typically PDF). For other sources, the standard cites the canonical edition. Secondary republications (Cornell LII for statutes, justia.com for cases) are not authoritative — encode the canonical source.
 
 The reference example is the WordNet entry:
 
@@ -41,9 +41,9 @@ url     = "https://github.com/globalwordnet/english-wordnet/releases/download/20
 Two layers of pinning:
 
 - **`[hashes]`** — `<name>@<version> = "<sha256>"`. The hash of the bytes praxis expects on disk at `local_path()`. `LockManifestAgreement` verifies every manifest entry has a matching hash and that the local file (when present) matches.
-- **`[canonical_text."<name>@<version>"]`** *(optional, source-specific)* — for sources whose authoritative format praxis cannot yet read end-to-end (PDFs awaiting M4.γ), a hand-transcribed plain-text approximation lives under `data/canonical_text/`, with `sha256` + `provenance` flags. `provenance = "training_reconstructed_<date>"` marks the file as a transcription pending verification against the authoritative source; `provenance = "verified"` marks it as a fetched-and-confirmed copy. This is an explicit, machine-readable record of the gap — not a workaround.
+- **`[canonical_text."<name>@<version>"]`** *(optional, source-specific)* — for sources whose authoritative format praxis cannot yet read end-to-end (e.g. case-law PDFs whose figures or non-text content require future image-understanding work), a hand-transcribed plain-text approximation lives under `data/canonical_text/`, with `sha256` + `provenance` flags. `provenance = "training_reconstructed_<date>"` marks the file as a transcription pending verification against the authoritative source; `provenance = "verified"` marks it as a fetched-and-confirmed copy. This is an explicit, machine-readable record of the gap — not a workaround. **Statutes don't need this**: USLM XML reads end-to-end through the loaded W3C XML 1.0 parser + USLM lens.
 
-The `[structural."<name>@<version>"]` block is the codegen input — see [Build an Ontology from a Paper](build-ontology-from-paper.md) for the declarative path; the source-driven path that consumes it directly is forward work blocked on the PDF loader.
+The `[structural."<name>@<version>"]` block is a legacy codegen input retained for sources whose loader hasn't yet been wired into the build-time codegen path. For statutes, M4.δ.2.b wired the USLM XML loader into `build.rs`, so the source-driven path consumes USLM XML directly — `[structural.*]` is being deleted for statutes per task M4.δ.2.e. See [Build an Ontology from a Paper](build-ontology-from-paper.md) for the declarative authoring path that's parallel to source-driven ingestion.
 
 ## The CLI — `pr4xis update`
 
@@ -101,12 +101,14 @@ Registered datasets:
     remote: https://github.com/globalwordnet/english-wordnet/releases/...
     local:  crates/domains/data/lexicons/languages/english_wordnet/...
     content-type: XmlLmf
-  sox_1514a@2002 [UsFederalStatute] 18 U.S.C. § 1514A — ...
-    remote: https://www.govinfo.gov/.../sec1514A.pdf
-    local:  crates/domains/data/legal/statutes/us_federal/sox_1514a/...
-    content-type: Plaintext
+  usc_title_18@pl-119-90 [UsCodeTitle] Crimes and Criminal Procedure.
+    remote: https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc18@119-90.zip
+    local:  crates/domains/data/legal/uscode/...
+    content-type: UslmXml
   …
 ```
+
+Individual sections (18 U.S.C. § 1514A SOX, 49 U.S.C. § 42121 AIR21, etc.) are **not separate datasets** — they are URN-addressable slices of the registered title. To resolve one at runtime: `UsCode::loaded().section_by_urn("/us/usc/t18/s1514A")`.
 
 ### `pr4xis update --offline`
 
@@ -138,18 +140,19 @@ Note that the runtime registry is `OnceLock`-cached per process, so a running pr
 
 The reference instance is **WordNet** (`sources.english_wordnet`): registered → manifest+lock pinned → `pr4xis update` fetches `.xml.gz` from GitHub Releases → decompresses → writes `.xml` → verifies → engine consumes via build-time codegen. Every step is machine-driven and reproducible.
 
-The two registered statutes (SOX § 1514A, AIR21 § 42121) point at GPO-authenticated PDFs on govinfo.gov and consume the **M4.γ PDF loader** (shipped):
+The registered US statutes are **whole U.S. Code titles in USLM XML** published by the LRC (Office of the Law Revision Counsel) per 1 U.S.C. § 204 at `uscode.house.gov/download/releasepoints/...`. `usc_title_18` (Crimes), `usc_title_49` (Transportation), and `usc_title_28` (Judiciary, including the Federal Rules of Civil Procedure / Evidence / Appellate Procedure / Bankruptcy Procedure as appendices) are registered at release point `pl-119-90`. Individual sections like 18 U.S.C. § 1514A (Sarbanes–Oxley § 806) and 49 U.S.C. § 42121 (AIR21) are **URN slices of the registered title**, not separate sources — `UsCode::loaded().section_by_urn("/us/usc/t18/s1514A")` returns the typed `Statute` via the bytes ⇄ Statute composed lens (M4.λ.3.b, shipped).
 
-- The PDF byte-stream reader (`crates/domains/src/social/software/binary/pdf/reader.rs`) decodes `%PDF-N.M` files into a typed `PdfDocument` per ISO 32000-2:2020.
-- The content-stream interpreter (`content_stream.rs`) walks PostScript operator sequences and emits `TextShowEvent`s and `GraphicsEvent`s per §7.8.2 + §9.4.
-- The font + encoding pipeline (`font.rs`) maps glyph bytes to Unicode via `WinAnsiEncoding` / `Identity-H` / typed-`Unsupported` for everything else, per §9.10.2.
-- The image-flagging walker (`flagged.rs`) emits a `Vec<FlaggedContent>` for any non-text content per `feedback_pdf_text_only_until_image_understanding`.
-- The extraction pipeline (`extract.rs`) composes the above and supports Bluebook §3.3.4 section-boundary slicing.
-- The build-time codegen (`crates/domains/build.rs` + `build_helpers/extract_pdf.rs`) runs the extractor for every registered statute and emits a typed `PdfBuildExtraction` const into each statute's codegen module. Downstream code pattern-matches the variant — `Extracted { text, bytes_hash }`, `NotOnDisk`, `ParseFailed`, `Encrypted`, or `UnsupportedContentType`.
+The end-to-end pipeline for a registered USLM XML title:
 
-`pr4xis update sox_1514a` today: fetches the GPO PDF from the manifest URL, the build script's extractor materializes the text, and the codegen module emits `PDF_EXTRACTION = Extracted { text, bytes_hash }`. The audit modules (`sox_1514a/canonical_audit.rs`, `air21_42121/canonical_audit.rs`) consume the typed const directly.
+- The bytes are fetched as a `.zip` from `uscode.house.gov`, verified against `praxis.lock`, unzipped, and the `usc<N>@<release>.xml` file lands at `local_path()`.
+- The bundled W3C XML 1.0 parser (`crates/domains/src/social/software/markup/xml/parser/`) reads it into a typed `XmlDocument` — the same parser the M5.ω audit confirmed is 100% xmlconf-conformant.
+- The USLM ontology (`uslm/`) types the document tree, with every concept's identity grounded in the loaded LRC USLM XSD (M4.ε.5.a — XSD-grounded USLM ontology). Container kinds, subdivision kinds, additional containers, and the codegen tokenizer config all derive from the XSD's `substitutionGroup="level"` membership (Batches D + E of M5.ω).
+- The `UslmStatuteLens` (M4.λ.3.b) projects each `<section>` to a typed `Statute` value with citations, valence, obligations, evidence requirements, and proof standards — all loaded, not hand-coded.
+- The build-time codegen (`crates/domains/build.rs`) materializes per-title runtime modules at `us_code::title_N::*`; downstream code looks up sections by URN via the `UsCode` corpus loader (M4.ε.3).
 
-If a PDF hasn't been fetched yet, `PDF_EXTRACTION = NotOnDisk` — content-specific audit assertions gate on `PDF_EXTRACTION.is_extracted()` and the typed state is the report. No `Option<&str>`, no hand-transcribed approximations.
+`pr4xis update usc_title_18` today: fetches the LRC USLM XML zip, unzips, verifies, and the build script's USLM lens projects every section in the title to a typed `Statute`. The audit modules consume the typed values directly — no `Option<&str>`, no PDF text extraction, no hand-transcribed approximations.
+
+**PDF is for case law, not statutes.** The M4.γ PDF loader (shipped) is the path for court opinions (e.g. CourtListener / PACER bulk PDFs). The legal-evidence pipeline reads statutes from USLM XML and case law from PDFs — two distinct loaders, two distinct authoritative formats.
 
 ## Related
 

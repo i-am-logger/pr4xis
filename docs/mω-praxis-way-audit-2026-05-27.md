@@ -151,3 +151,26 @@ Every batch from A through C keeps:
 | xmlconf conformance | 100% preserved across every batch |
 | XML unit test count change | 499 → 529 (+30) |
 | Commits landed (chronological) | `ea128675`, `86a136a9`, `d8c6d3c7`, `f2ade90e`, `df2e35da`, `a320664f`, `cb56b9a6`, `e3543965`, `4e01532b` |
+
+## Legal-data pipeline reality (preserve against future PDF/statute conflation)
+
+The praxis legal-data pipeline reads statutes and case law from **two different authoritative formats**. They must not be conflated:
+
+| legal data category | authoritative format | praxis source | path through engine |
+|---|---|---|---|
+| **U.S. Code statutes** | LRC USLM XML per 1 U.S.C. § 204 | `usc_title_18`, `usc_title_49`, `usc_title_28` registered as `UsCodeTitle` (release point `pl-119-90`) at `uscode.house.gov/download/releasepoints/...` | bytes → W3C XML 1.0 parser → USLM ontology (XSD-grounded, M4.ε.5.a) → `UslmStatuteLens` (M4.λ.3.b) → typed `Statute`. Individual sections (e.g. 18 U.S.C. § 1514A SOX) are URN slices via `UsCode::loaded().section_by_urn(...)`, not separate sources. **Shipped via M4.δ.** |
+| **Procedural rules (FRCP, FRE, FRAP, FRBP)** | LRC USLM XML (28 U.S.C. App.) | Same `usc_title_28` registration — the Federal Rules are appendices of Title 28 in the LRC's USLM publication | Same USLM → Statute path. **Shipped via M5.D.1.** |
+| **Case law (court opinions)** | Court-published PDF | Not yet bulk-registered; one entry per opinion when needed | bytes → M4.γ PDF loader (text-only, image-flagged) → `PdfBuildExtraction` const → `case_law` runtime types (M4.A.2). **Loader shipped; bulk case-law registrations deferred (M4.B').** |
+| **Whistleblowing-repo evidence (court filings, exhibits)** | PDF | Not registered as praxis sources — they're consumer-side data in the whistleblowing repo's `evidence/`, `cases/`, `harassment-timeline/` trees | Same M4.γ PDF loader. Phase 5 of the joyful-jumping-mountain plan covers the consumer-side ontology layer. |
+
+**Phase 7 (legal-layer functors) does NOT depend on PDF.** Phase 7 connects already-existing wb-* INPUT ontologies (Correspondence/Financial/Narrative — EML/XLSX/MD/DOCX-derived) to the already-existing Statute TARGET ontology (USLM-XML-derived). PDF would only enter Phase 7 if case-law citation tracing required reading the cited opinion's text — at which point M4.B' provides the case-law side.
+
+**Roadmap dependencies, correctly framed:**
+
+| pending work | what it actually needs | what it does NOT need |
+|---|---|---|
+| M4.δ.4-10 (USC Titles 15, 28-already, 29, 42, 5, 50, 1) | praxis.toml + praxis.lock entries; same USLM XML mechanism as Titles 18 + 49 (shipped) | PDF anything |
+| M4.B' (case-law extractions) | M4.γ PDF loader (shipped) + case-by-case opinion registrations | USLM XML changes |
+| Phase 0.5 (Lumen vs Praxis judicial drift analysis) | owner-level synthesis decision over the existing comparison doc (commit `c287795`) | new data sources |
+| Phase 7 (legal-layer functors) | Phase 0.5 decision + composed lens from wb-* input ontologies to the existing Statute target | PDF; the target ontology already loads from USLM XML |
+| Phase 5 (PDF ontology for whistleblowing evidence) | independent of statute work; just consumer-side wb-format-pdf crate | statute pipeline involvement |

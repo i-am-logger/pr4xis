@@ -114,7 +114,9 @@ The integrity layer next to [`praxis.toml`](#manifest-praxistoml). Pins the expe
 
 ## PdfBuildExtraction
 
-The typed const each statute's codegen module emits at build time (see `crates/domains/src/applied/data_provisioning/build_extraction.rs`). One of five variants — `Extracted { text, bytes_hash }` / `NotOnDisk` / `ParseFailed` / `Encrypted` / `UnsupportedContentType`. Downstream `canonical_audit.rs` modules pattern-match on the variant. Anchored against W3C PROV-O (Lebo et al. 2013) as a typed `prov:Activity` outcome; each variant cites either an ISO 32000-2 section or a Wilkinson FAIR principle. The `PdfBuildExtractionTotality` axiom enforces exhaustiveness.
+The typed const a codegen module emits at build time for sources whose authoritative format is PDF (see `crates/domains/src/applied/data_provisioning/build_extraction.rs`). One of five variants — `Extracted { text, bytes_hash }` / `NotOnDisk` / `ParseFailed` / `Encrypted` / `UnsupportedContentType`. Downstream `canonical_audit.rs` modules pattern-match on the variant. Anchored against W3C PROV-O (Lebo et al. 2013) as a typed `prov:Activity` outcome; each variant cites either an ISO 32000-2 section or a Wilkinson FAIR principle. The `PdfBuildExtractionTotality` axiom enforces exhaustiveness.
+
+**Scope:** PDF-format sources are case law (court opinions), administrative orders, and similar court-system publications. **Statutes are NOT in this set** — US statutes load via USLM XML from `uscode.house.gov` per 1 U.S.C. § 204, through the bytes ⇄ Statute composed lens (M4.λ.3.b), not through `PdfBuildExtraction`. See the [`Registered source`](#registered-source) entry's content-type matrix for the canonical format per source category.
 
 ## Registered source
 
