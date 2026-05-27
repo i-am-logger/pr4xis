@@ -371,8 +371,19 @@ fn read_char_class(s: &str, i: usize) -> Result<(usize, Vec<CodePointRange>, boo
         position: i,
         what: "unterminated [char-class]".to_string(),
     })?;
-    let mut inner = &rest[1..close];
+    let raw_inner = &rest[1..close];
     let consumed = close + 1;
+
+    // The character-class body is XML text in the spec source:
+    // `[^&lt;&amp;"]` (in the AttValue / EntityValue productions)
+    // means three excluded chars `<`, `&`, `"`. Decode the §4.6
+    // predefined entity references before parsing atoms — without
+    // this, the tokenizer would read the 5 chars of `&lt;` as five
+    // separate excluded atoms (`&`, `l`, `t`, `;`, …), and any
+    // attribute value containing the letter `l`, `t`, `a`, `m`, or
+    // `p` would silently fail.
+    let decoded = decode_entities(raw_inner);
+    let mut inner: &str = &decoded;
 
     let negated = if let Some(stripped) = inner.strip_prefix('^') {
         inner = stripped;
@@ -680,6 +691,28 @@ mod tests {
 
     fn range(lo: u32, hi: u32) -> CodePointRange {
         CodePointRange { lo, hi }
+    }
+
+    #[test]
+    fn parses_default_decl_rhs_with_nested_optional_group() {
+        // §3.3 [60] DefaultDecl as it appears in the spec — two
+        // `<rhs>` blocks the loader concatenates with a space.
+        // The third branch contains an outer paren that groups a
+        // sequence `('#FIXED' S)? AttValue` — a nested Optional
+        // wrapping an inner-paren Sequence of literal + NT.
+        let rhs = r#"'#REQUIRED' | '#IMPLIED'  | (('#FIXED' <nt def="NT-S">S</nt>)? <nt def="NT-AttValue">AttValue</nt>)"#;
+        let t = parse_rhs(rhs).unwrap();
+        assert_eq!(
+            t,
+            Term::Alternation(vec![
+                lit("#REQUIRED"),
+                lit("#IMPLIED"),
+                Term::Sequence(vec![
+                    Term::Optional(Box::new(Term::Sequence(vec![lit("#FIXED"), nt("S")]))),
+                    nt("AttValue"),
+                ]),
+            ])
+        );
     }
 
     #[test]

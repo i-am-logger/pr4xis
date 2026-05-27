@@ -47,6 +47,73 @@ pub fn loaded_xml_1_0_grammar() -> &'static pr4xis::xml_grammar::Grammar {
     })
 }
 
+#[cfg(test)]
+mod loaded_grammar_tests {
+    use super::loaded_xml_1_0_grammar;
+    use pr4xis::xml_grammar::{Interpreter, MatchResult};
+
+    fn matches_all(text: &str, prod: &str) -> bool {
+        let mut interp = Interpreter::new(loaded_xml_1_0_grammar(), text);
+        matches!(
+            interp.match_production(prod, 0),
+            MatchResult::Match { end_pos } if end_pos == text.len()
+        )
+    }
+
+    #[test]
+    fn att_value_negated_class_excludes_only_three_chars() {
+        // Regression for the rhs_parser bug where the negated
+        // character class `[^&lt;&amp;"]` in §3.1 [10] AttValue
+        // (and the symmetric `[^&lt;&amp;']`) was tokenised as 10
+        // excluded chars (`&`, `l`, `t`, `;`, `&`, `a`, `m`, `p`,
+        // `;`, `"`) instead of three (`<`, `&`, `"`). With the
+        // pre-fix tokenisation, any attribute value containing
+        // `l`, `t`, `a`, `m`, or `p` parsed as NoMatch — for
+        // example `"default"` or `'JavaBeans'`. With the fix in
+        // `rhs_parser::read_char_class`, both match.
+        assert!(matches_all("\"default\"", "AttValue"));
+        assert!(matches_all("'JavaBeans'", "AttValue"));
+    }
+
+    #[test]
+    fn default_decl_required_matches() {
+        assert!(matches_all("#REQUIRED", "DefaultDecl"));
+    }
+
+    #[test]
+    fn default_decl_implied_matches() {
+        assert!(matches_all("#IMPLIED", "DefaultDecl"));
+    }
+
+    #[test]
+    fn default_decl_fixed_value_matches() {
+        // §3.3 [60] DefaultDecl ::= ... | (('#FIXED' S)? AttValue)
+        // — the `#FIXED " "` prefix + AttValue.
+        assert!(matches_all("#FIXED \"JavaBeans\"", "DefaultDecl"));
+    }
+
+    #[test]
+    fn default_decl_bare_attvalue_double_quoted() {
+        // §3.3 [60] DefaultDecl — bare AttValue (optional #FIXED omitted).
+        assert!(matches_all("\"default\"", "DefaultDecl"));
+    }
+
+    #[test]
+    fn default_decl_bare_attvalue_single_quoted() {
+        assert!(matches_all("'default'", "DefaultDecl"));
+    }
+
+    #[test]
+    fn att_value_with_double_quotes() {
+        assert!(matches_all("\"foo\"", "AttValue"));
+    }
+
+    #[test]
+    fn att_value_with_single_quotes() {
+        assert!(matches_all("'foo'", "AttValue"));
+    }
+}
+
 /// Generated grammar predicates — emitted at build time by
 /// `pr4xis::codegen::xml_grammar` from the loaded spec bytes. Provides:
 ///

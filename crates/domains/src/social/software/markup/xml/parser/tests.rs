@@ -285,6 +285,34 @@ fn parameter_entity_declaration_skipped() {
 }
 
 #[test]
+fn attlist_with_fixed_default_decl_parses() {
+    // §3.3 [60] DefaultDecl ::= '#REQUIRED' | '#IMPLIED'
+    //                         | (('#FIXED' S)? AttValue)
+    // xmlconf ibm/valid/P60/ibm60v01.xml — `<!ATTLIST three chapter
+    // CDATA #FIXED "JavaBeans">` is the spec's regression for the
+    // optional `('#FIXED' S)?` branch followed by an `AttValue`.
+    let xml = br#"<?xml version="1.0"?>
+<!DOCTYPE doc [
+<!ELEMENT doc EMPTY>
+<!ATTLIST doc chapter CDATA #FIXED "JavaBeans">
+]><doc/>"#;
+    assert!(parse_document(xml).is_ok());
+}
+
+#[test]
+fn attlist_with_default_attvalue_only_parses() {
+    // §3.3 [60] DefaultDecl — the bare `AttValue` form (no #FIXED).
+    // xmlconf ibm/valid/P60/ibm60v01.xml — `<!ATTLIST four chapter
+    // CDATA 'defualt'>`.
+    let xml = br#"<?xml version="1.0"?>
+<!DOCTYPE doc [
+<!ELEMENT doc EMPTY>
+<!ATTLIST doc chapter CDATA 'default'>
+]><doc/>"#;
+    assert!(parse_document(xml).is_ok());
+}
+
+#[test]
 fn entity_value_with_out_of_range_char_is_rejected() {
     // §4.3.2 [9] EntityValue body alternation `([^%&"] | …)` is
     // §2.2 [2] Char minus the literal-delimiters. A literal NUL

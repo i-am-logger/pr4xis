@@ -359,6 +359,11 @@ pub struct XmlConfAuditReport {
     /// omitted. Sorted by descending total divergence so the
     /// audit's failure message names the largest cluster first.
     pub divergence_buckets: alloc::collections::BTreeMap<String, [usize; 3]>,
+    /// First divergent case in each bucket, with the parse error
+    /// (for `valid`/`invalid` rejections) or empty (for `not-wf`
+    /// accepts that contain no error). One sample per bucket
+    /// keeps the failure message representative without flooding.
+    pub divergence_samples: alloc::collections::BTreeMap<String, (String, String)>,
 }
 
 impl XmlConfAuditReport {
@@ -376,7 +381,10 @@ impl XmlConfAuditReport {
 
     /// Format the largest divergence buckets, descending. The audit
     /// failure-message uses this to surface where the gap is
-    /// concentrated. Pass `top` to limit the row count.
+    /// concentrated. Pass `top` to limit the row count. Each row
+    /// is followed by the bucket's first divergent sample
+    /// (path + parse-error) so the message is immediately
+    /// actionable.
     #[must_use]
     pub fn divergence_summary(&self, top: usize) -> String {
         use core::fmt::Write;
@@ -393,6 +401,14 @@ impl XmlConfAuditReport {
                 continue;
             }
             let _ = writeln!(out, "  {} {} {} {}", k, v[0], v[1], v[2]);
+            if let Some((path, err)) = self.divergence_samples.get(*k) {
+                let leaf = path.rsplit('/').next().unwrap_or(path.as_str());
+                if err.is_empty() {
+                    let _ = writeln!(out, "    sample: {leaf}");
+                } else {
+                    let _ = writeln!(out, "    sample: {leaf}  ::  {err}");
+                }
+            }
         }
         out
     }
@@ -454,7 +470,10 @@ pub fn run_audit() -> XmlConfAuditOutcome {
         };
         if valid_rejected || invalid_rejected || not_wf_accepted {
             let bucket = submanifest_bucket(&case.doc_path);
-            let counts = report.divergence_buckets.entry(bucket).or_insert([0, 0, 0]);
+            let counts = report
+                .divergence_buckets
+                .entry(bucket.clone())
+                .or_insert([0, 0, 0]);
             if valid_rejected {
                 counts[0] += 1;
             }
@@ -463,6 +482,14 @@ pub fn run_audit() -> XmlConfAuditOutcome {
             }
             if not_wf_accepted {
                 counts[2] += 1;
+            }
+            if !report.divergence_samples.contains_key(&bucket) {
+                let path = case.doc_path.display().to_string();
+                let err = match &parsed {
+                    Err(e) => format!("{e}"),
+                    Ok(_) => String::new(),
+                };
+                report.divergence_samples.insert(bucket, (path, err));
             }
         }
     }
