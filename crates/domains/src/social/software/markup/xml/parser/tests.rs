@@ -381,6 +381,47 @@ fn internal_entity_reference_in_attribute_value_resolves() {
 }
 
 #[test]
+fn directly_recursive_entity_reference_is_rejected() {
+    // §4.1 WFC: No Recursion — "A parsed entity MUST NOT contain
+    // a recursive reference to itself, either directly or
+    // indirectly." Direct self-reference: `&e;` resolves to text
+    // that contains `&e;`. xmlconf xmltest/not-wf/sa/071 — single
+    // self-referential internal entity — is the spec regression.
+    let xml = br#"<!DOCTYPE r [<!ENTITY e "&e;">]><r>&e;</r>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn indirectly_recursive_entity_reference_is_rejected() {
+    // §4.1 WFC: No Recursion (indirect cycle). xmlconf
+    // xmltest/not-wf/sa/075 and sa/079 are three- and four-step
+    // cycles; we test the minimal two-step indirect cycle.
+    let xml = br#"<!DOCTYPE r [
+<!ENTITY a "&b;">
+<!ENTITY b "&a;">
+]><r>&a;</r>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn nested_internal_entity_reference_expands_recursively() {
+    // §4.4.3 "Included" — a referenced internal parsed entity's
+    // replacement text is itself processed for entity references.
+    // Sanity test that paired with the WFC: No Recursion check we
+    // still expand legitimate nested entities.
+    let xml = br#"<!DOCTYPE r [
+<!ENTITY inner "world">
+<!ENTITY outer "hello &inner;">
+]><r>&outer;</r>"#;
+    let doc = parse_document(xml).unwrap();
+    let text = match &doc.root.children[0] {
+        crate::social::software::markup::xml::ontology::XmlNode::Text(t) => t,
+        other => panic!("expected text node, got {other:?}"),
+    };
+    assert_eq!(text, "hello world");
+}
+
+#[test]
 fn entity_value_with_literal_percent_is_rejected() {
     // W3C XML 1.0 §4.3.2 [9] EntityValue body alternation
     // `[^%&"]` excludes literal `%` — the spec says "the `%`

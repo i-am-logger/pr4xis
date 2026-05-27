@@ -1805,9 +1805,24 @@ fn parse_reference(
                         expected: "reference to a parsed entity (§4.4.4 WFC: Parsed Entity)".into(),
                         found: format!("&{qualified};"),
                     }),
-                    XmlEntityKind::Internal | XmlEntityKind::ExternalParsed => {
-                        Ok(entity.value.clone())
+                    XmlEntityKind::Internal => {
+                        // §4.4.3 — internal general entity references
+                        // are "Included" in content. The replacement
+                        // text may itself contain entity references
+                        // (§4.5 "literal entity value" is stored
+                        // un-expanded); recursively expand them now,
+                        // tracking the in-progress entity name to
+                        // enforce §4.1 WFC: No Recursion.
+                        let mut visited = Vec::new();
+                        expand_entity_text(
+                            &entity.value,
+                            entities,
+                            &mut visited,
+                            &qualified,
+                            start_pos,
+                        )
                     }
+                    XmlEntityKind::ExternalParsed => Ok(entity.value.clone()),
                 },
                 None => Err(XmlParseError::UnsupportedEntity {
                     position: start_pos,
@@ -1816,4 +1831,139 @@ fn parse_reference(
             }
         }
     }
+}
+
+/// Recursive expansion of an internal entity's replacement text,
+/// implementing W3C XML 1.0 §4.1 **WFC: No Recursion**:
+///
+/// > A parsed entity MUST NOT contain a recursive reference to
+/// > itself, either directly or indirectly.
+///
+/// `visited` is the in-progress entity-name stack from the
+/// outermost reference inward. When the walker encounters
+/// `&name;` whose `name` is already in `visited`, it returns the
+/// recursion error. xmlconf xmltest/not-wf/sa/071, 075, 079 are
+/// the spec regressions (cyclic chains of internal entities).
+///
+/// Character references (`&#…;`) and the §4.6 predefined entities
+/// resolve to single Unicode scalars and do not recurse.
+fn expand_entity_text(
+    text: &str,
+    entities: &[XmlGeneralEntity],
+    visited: &mut Vec<String>,
+    current: &str,
+    error_pos: usize,
+) -> Result<String, XmlParseError> {
+    visited.push(current.to_string());
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0;
+    let bytes = text.as_bytes();
+    while i < bytes.len() {
+        if bytes[i] == b'&' {
+            // Locate the `;` that terminates this reference.
+            let Some(semi_rel) = text[i + 1..].find(';') else {
+                // No semicolon — pass the `&` through; the parent
+                // parse_*_value will surface the surrounding error.
+                out.push('&');
+                i += 1;
+                continue;
+            };
+            let inner = &text[i + 1..i + 1 + semi_rel];
+            let full = i + 1 + semi_rel + 1;
+            if let Some(rest) = inner.strip_prefix('#') {
+                // Character reference — single char.
+                let code_point = if let Some(hex) = rest.strip_prefix('x') {
+                    u32::from_str_radix(hex, 16).ok()
+                } else {
+                    rest.parse::<u32>().ok()
+                };
+                if let Some(cp) = code_point
+                    && let Some(ch) = char::from_u32(cp)
+                {
+                    out.push(ch);
+                    i = full;
+                    continue;
+                }
+                // Malformed CharRef — pass through (the outer
+                // parse pass already gated this).
+                out.push_str(&text[i..full]);
+                i = full;
+                continue;
+            }
+            // EntityRef.
+            match inner {
+                "amp" => out.push('&'),
+                "lt" => out.push('<'),
+                "gt" => out.push('>'),
+                "apos" => out.push('\''),
+                "quot" => out.push('"'),
+                name => {
+                    if visited.iter().any(|n| n == name) {
+                        return Err(XmlParseError::Syntax {
+                            position: error_pos,
+                            expected: "non-recursive entity reference (§4.1 WFC: No Recursion)"
+                                .into(),
+                            found: format!("&{name};"),
+                        });
+                    }
+                    match entities.iter().find(|e| e.name == name) {
+                        Some(entity) => match entity.kind {
+                            XmlEntityKind::ExternalUnparsed => {
+                                return Err(XmlParseError::Syntax {
+                                    position: error_pos,
+                                    expected: "parsed entity (§4.4.4 WFC: Parsed Entity)".into(),
+                                    found: format!("&{name};"),
+                                });
+                            }
+                            XmlEntityKind::Internal => {
+                                let nested = expand_entity_text(
+                                    &entity.value,
+                                    entities,
+                                    visited,
+                                    name,
+                                    error_pos,
+                                )?;
+                                out.push_str(&nested);
+                            }
+                            XmlEntityKind::ExternalParsed => {
+                                // Non-validating parser: bypass — no
+                                // expansion text contributed.
+                            }
+                        },
+                        None => {
+                            // §4.1 WFC: Entity Declared is enforced
+                            // at the outer parse_reference site, on
+                            // the user-visible reference position
+                            // (content or attribute value). Inside a
+                            // nested recursive expansion the outer
+                            // gate has already fired for whatever
+                            // entity is being expanded here, so this
+                            // arm only handles the case where a
+                            // declared entity's literal value text
+                            // (§4.5) syntactically contains another
+                            // entity reference that may be declared
+                            // only in an external subset our non-
+                            // validating processor doesn't read.
+                            // Per §5.1 such references "may" be left
+                            // unexpanded — emit the literal `&name;`
+                            // bytes so the outer parse never has to
+                            // distinguish "undeclared" from
+                            // "recursive": that distinction is the
+                            // visited-set check above, not this arm.
+                            out.push('&');
+                            out.push_str(name);
+                            out.push(';');
+                        }
+                    }
+                }
+            }
+            i = full;
+        } else {
+            let ch = text[i..].chars().next().expect("non-empty by loop guard");
+            out.push(ch);
+            i += ch.len_utf8();
+        }
+    }
+    visited.pop();
+    Ok(out)
 }
