@@ -486,7 +486,14 @@ fn parse_misc_star(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
 
 /// W3C XML 1.0 §2.5 production [15] `Comment`:
 /// `Comment ::= '<!--' ((Char - '-') | ('-' (Char - '-')))* '-->'`.
+///
+/// The body alternation forbids any `--` substring AND any trailing
+/// `-` (the would-be last char of the body must be matched by
+/// `(Char - '-')`). xmlconf xmltest/not-wf/sa/070.xml — a comment
+/// closing with `--->`, i.e. body ending in `-` immediately before
+/// `-->` — is the spec's regression test for the trailing-dash case.
 fn skip_comment(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
+    let start = c.pos;
     c.consume("<!--")?;
     let rest = c.rest();
     let end = rest
@@ -494,6 +501,10 @@ fn skip_comment(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
         .ok_or_else(|| XmlParseError::UnexpectedEof {
             context: "comment".into(),
         })?;
+    let body = &rest[..end];
+    if body.contains("--") || body.ends_with('-') {
+        return Err(XmlParseError::MalformedComment { position: start });
+    }
     c.pos += end + 3;
     Ok(())
 }
@@ -1359,8 +1370,12 @@ fn parse_comment_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
             context: "comment".into(),
         })?;
     let body = &rest[..end];
-    // §2.5: "--" must not occur within comments.
-    if body.contains("--") {
+    // §2.5 [15] Comment body alternation —
+    // `((Char - '-') | ('-' (Char - '-')))*` — forbids both any
+    // `--` substring AND a trailing `-` (the last body char must
+    // be matched by `(Char - '-')`). xmlconf xmltest/not-wf/sa/070
+    // is the trailing-dash regression.
+    if body.contains("--") || body.ends_with('-') {
         return Err(XmlParseError::MalformedComment {
             position: comment_start,
         });

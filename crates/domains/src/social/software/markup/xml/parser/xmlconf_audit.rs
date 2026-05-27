@@ -477,6 +477,35 @@ mod tests {
         assert!(XmlConfCorpusAuditPasses.verify().is_ok());
     }
 
+    /// Diagnostic: print the parse outcome (ACCEPT or REJECT) for
+    /// every accepted not-wf case in a chosen submanifest path.
+    /// Ignored by default — run with
+    /// `cargo test probe_accepted_notwf -- --ignored --nocapture`.
+    /// Edit the path filter below for the cluster being investigated.
+    #[test]
+    #[ignore]
+    fn probe_accepted_notwf() {
+        let Some(corpus) = loaded_xmlconf() else {
+            return;
+        };
+        let filter = std::env::var("PROBE_PATH").unwrap_or_default();
+        for case in corpus.cases() {
+            if case.case_type != XmlConfType::NotWf {
+                continue;
+            }
+            let p = case.doc_path.display().to_string();
+            if !filter.is_empty() && !p.contains(&filter) {
+                continue;
+            }
+            let Ok(bytes) = std::fs::read(&case.doc_path) else {
+                continue;
+            };
+            if parse_document(&bytes).is_ok() {
+                println!("ACCEPTED: {}", p);
+            }
+        }
+    }
+
     /// Diagnostic: bucket the divergences (valid+invalid rejected,
     /// not-wf accepted) by the xmlconf submanifest containing each
     /// case, so the M5.ζ.5 conformance push can patch the largest

@@ -285,6 +285,19 @@ fn parameter_entity_declaration_skipped() {
 }
 
 #[test]
+fn comment_ending_with_trailing_dash_is_rejected() {
+    // W3C XML 1.0 §2.5 production [15] Comment —
+    // `Comment ::= '<!--' ((Char - '-') | ('-' (Char - '-')))* '-->'`
+    // The body alternation forbids a trailing `-` (the would-be
+    // last char of body must be matched by `(Char - '-')`).
+    // xmlconf xmltest/not-wf/sa/070.xml — `<!-- ... --->` (three
+    // dashes before `>`) — is the spec's regression test.
+    assert!(parse_document(b"<!-- foo --->\n<doc></doc>").is_err());
+    // Inside content — the in-element comment parser must also catch it.
+    assert!(parse_document(b"<doc><!-- bar ---></doc>").is_err());
+}
+
+#[test]
 fn parameter_entity_at_decl_sep_includes_a_general_entity_decl() {
     // §2.8 [28b] intSubset / [28a] DeclSep — when a `%name;` appears
     // between markup declarations, the PE is *included*: its
