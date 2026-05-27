@@ -1015,6 +1015,7 @@ fn parse_entity_value(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
 
     let mut out = String::new();
     loop {
+        let ch_pos = c.pos;
         let ch = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
             context: "EntityValue".into(),
         })?;
@@ -1046,6 +1047,23 @@ fn parse_entity_value(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
                 c.pos += semi + 1;
             }
         } else {
+            // §4.3.2 [9] `EntityValue ::= '"' ([^%&"] | PEReference |
+            // Reference)* '"' | ...`. The `[^%&"]` notation in W3C
+            // EBNF means "§2.2 [2] Char minus {%, &, "}" — every
+            // body char must lie in the Char repertoire. xmlconf
+            // ibm/xml-1.1/not-wf/P02 cases embed 1.1-only control
+            // chars in entity values; rejecting them here is the
+            // standard way an XML 1.0 parser refuses 1.1-only
+            // features (§2.8 spec note: a 1.0 processor accepts
+            // 1.x documents provided they don't use non-1.0
+            // features).
+            if !is_xml_char(ch) {
+                return Err(XmlParseError::InvalidChar {
+                    position: ch_pos,
+                    code_point: ch as u32,
+                    context: "EntityValue",
+                });
+            }
             out.push(ch);
             c.pos += ch.len_utf8();
         }
@@ -1353,6 +1371,7 @@ fn parse_att_value(
 
     let mut out = String::new();
     loop {
+        let ch_pos = c.pos;
         let ch = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
             context: "AttValue".into(),
         })?;
@@ -1372,6 +1391,17 @@ fn parse_att_value(
             out.push(' ');
             c.pos += ch.len_utf8();
         } else {
+            // §3.1 [10] `AttValue` body alternation `([^<&"] | …)`
+            // restricts to §2.2 [2] Char minus the literal-delimiters.
+            // A character outside §2.2 Char is malformed even though
+            // it's not `<`, `&`, or the closing quote.
+            if !is_xml_char(ch) {
+                return Err(XmlParseError::InvalidChar {
+                    position: ch_pos,
+                    code_point: ch as u32,
+                    context: "AttValue",
+                });
+            }
             out.push(ch);
             c.pos += ch.len_utf8();
         }
@@ -1517,6 +1547,18 @@ fn parse_pi_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
     let pi_start = c.pos;
     c.consume("<?")?;
     let target_name = parse_name(c)?;
+    // §2.6 [17] PITarget excludes the case-insensitive name `xml`
+    // — the only `<?xml ... ?>` form allowed is the XMLDecl
+    // (production [23]) at the document head, which `parse_xml_decl`
+    // handles before reaching content. xmlconf cases that
+    // smuggle `<?XML ... ?>` into element content regress here.
+    if target_name.qualified().eq_ignore_ascii_case("xml") {
+        return Err(XmlParseError::Syntax {
+            position: pi_start,
+            expected: "PITarget that is not `xml` (case-insensitive)".into(),
+            found: target_name.qualified(),
+        });
+    }
     let mut data: Option<String> = None;
     if c.peek_char()
         .is_some_and(|ch| matches!(ch, ' ' | '\t' | '\r' | '\n'))

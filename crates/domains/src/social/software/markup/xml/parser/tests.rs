@@ -285,6 +285,35 @@ fn parameter_entity_declaration_skipped() {
 }
 
 #[test]
+fn entity_value_with_out_of_range_char_is_rejected() {
+    // §4.3.2 [9] EntityValue body alternation `([^%&"] | …)` is
+    // §2.2 [2] Char minus the literal-delimiters. A literal NUL
+    // (#x0) or other XML 1.0 control-byte embedded in the value
+    // is malformed even though it's not %, &, or the closing
+    // quote. xmlconf ibm/xml-1.1/not-wf/P02 cases (1.1-only
+    // control chars in EntityValue) regress here.
+    let xml = b"<!DOCTYPE doc [<!ENTITY e \"bad\x01char\">]><doc/>";
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn att_value_with_out_of_range_char_is_rejected() {
+    // §3.1 [10] AttValue body alternation `([^<&"] | …)` — same
+    // shape, same Char restriction.
+    let xml = b"<doc a=\"bad\x01char\"/>";
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn pi_in_content_with_xml_target_is_rejected() {
+    // §2.6 [17] PITarget excludes `xml` case-insensitive. The
+    // content-level PI parser (parse_pi_node) needs the same
+    // gate as the Misc-level skip_pi.
+    let xml = b"<doc><?xMl bad?></doc>";
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
 fn xml_decl_rejects_missing_space_before_standalone() {
     // §2.8 [32] SDDecl ::= S 'standalone' Eq ...
     // — the leading S is required, not optional whitespace.
