@@ -1511,74 +1511,109 @@ fn parse_att_value(
     c.pos += quote.len_utf8();
 
     let mut out = String::new();
+    let mut visited = Vec::new();
+    parse_att_value_body_into(
+        c,
+        entities,
+        &mut visited,
+        AttValueTerminator::Quote(quote),
+        &mut out,
+    )?;
+    c.pos += quote.len_utf8();
+    Ok(out)
+}
+
+/// Terminator for the AttValue-body loop shared between top-level
+/// attribute literals (`'…'` / `"…"`, terminated by their opening
+/// quote) and entity-replacement-text re-parse (terminated by
+/// EOF). Entity boundaries are atomic per §4.3.2 — re-parsed
+/// replacement text must not contain markup chars that would
+/// violate the AttValue body production.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AttValueTerminator {
+    /// Match the opening literal quote.
+    Quote(char),
+    /// Inside an entity-replacement re-parse, the body ends at
+    /// EOF. A literal `"` or `'` from the entity expansion is
+    /// just text per §4.4.5 footnote ("a single or double quote
+    /// character in the replacement text is always treated as a
+    /// normal data character").
+    Eof,
+}
+
+/// Inner AttValue-body loop sharing the parent's `out`
+/// accumulator. The §4.4.3 "Included" path for a user-declared
+/// internal general entity called from an attribute value
+/// recurses here with a sub-cursor over the entity's replacement
+/// text, so the §3.3.3 normalization rules apply uniformly
+/// across the entity-inclusion boundary.
+///
+/// Enforces three §3.1 / §4.4 well-formedness constraints on the
+/// resulting attribute value:
+///
+/// - **No `<` in Attribute Values** (§4.4 row "Reference in
+///   Attribute Value") — literal `<` is rejected; `&lt;`
+///   resolves to the character which is then deposited as data,
+///   so the explicit-reference path is sanctioned.
+/// - **No External Entity References** (§3.1, §4.4) — references
+///   to external (parsed *or* unparsed) entities are rejected.
+/// - **No Recursion** (§4.1) — `visited` carries the
+///   in-progress entity stack.
+fn parse_att_value_body_into(
+    c: &mut Cursor<'_>,
+    entities: &[XmlGeneralEntity],
+    visited: &mut Vec<String>,
+    term: AttValueTerminator,
+    out: &mut String,
+) -> Result<(), XmlParseError> {
     loop {
+        match term {
+            AttValueTerminator::Quote(q) => {
+                if c.peek_char() == Some(q) {
+                    return Ok(());
+                }
+            }
+            AttValueTerminator::Eof => {
+                if c.is_eof() {
+                    return Ok(());
+                }
+            }
+        }
         let ch_pos = c.pos;
         let ch = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
             context: "AttValue".into(),
         })?;
-        if ch == quote {
-            c.pos += quote.len_utf8();
-            return Ok(out);
-        }
         if ch == '<' {
+            // §3.1 [10] AttValue body excludes literal `<`. After
+            // entity inclusion the re-parse re-fires this check —
+            // catching xmlconf xmltest/not-wf/sa/090 (entity
+            // expansion `<foo a='&#60;'></foo>` puts a literal
+            // `<` inside an attribute value).
             return Err(c.syntax_error("AttValue content (no '<')", "<"));
         }
         if ch == '&' {
-            // Character + entity references contribute their referenced
-            // character(s) unchanged (§3.3.3 step 3.1.1). The §4.4
-            // entity-reference table places two additional WFCs on
-            // references that appear in an attribute value:
-            //
-            //   - "No External Entity References" (§3.1, §4.4 row
-            //     "Reference in Attribute Value") — references to
-            //     external entities are forbidden. xmlconf
-            //     ibm/not-wf/P41/ibm41n10..12 + xmltest/sa/081 regress.
-            //   - "No `<` in Attribute Values" — applies *only* to
-            //     user-declared general-entity expansions whose
-            //     replacement text contains a `<`. Numeric character
-            //     references and the five §4.6 predefined entities
-            //     (`&lt;` is the sanctioned way to bring `<` in) are
-            //     explicitly exempt. xmlconf ibm/not-wf/P60/ibm60n07.
-            let ref_pos = c.pos;
-            // Peek the reference shape before consuming.
-            let (is_general_user_entity, referenced_external) = if c.rest().starts_with("&#") {
-                (false, false)
+            if c.rest().starts_with("&#") {
+                let ch_val = parse_char_ref(c)?;
+                out.push(ch_val);
             } else {
-                let after = &c.rest()[1..];
-                let semi = after.find(';').unwrap_or(after.len());
-                let name = &after[..semi];
-                let predefined = matches!(name, "amp" | "lt" | "gt" | "apos" | "quot");
-                let external = !predefined
-                    && entities.iter().find(|e| e.name == name).is_some_and(|e| {
-                        matches!(
-                            e.kind,
-                            XmlEntityKind::ExternalParsed | XmlEntityKind::ExternalUnparsed
-                        )
-                    });
-                (!predefined, external)
-            };
-            if referenced_external {
-                return Err(XmlParseError::Syntax {
-                    position: ref_pos,
-                    expected: "AttValue (no external-entity references — §3.1 / §4.4 WFC)".into(),
-                    found: c
-                        .rest()
-                        .split(';')
-                        .next()
-                        .map(|s| format!("{s};"))
-                        .unwrap_or_else(|| "&".into()),
-                });
+                let ref_pos = c.pos;
+                c.consume("&")?;
+                let name = parse_name(c)?;
+                c.consume(";")?;
+                let qualified = name.qualified();
+                match qualified.as_str() {
+                    "amp" => out.push('&'),
+                    "lt" => out.push('<'),
+                    "gt" => out.push('>'),
+                    "apos" => out.push('\''),
+                    "quot" => out.push('"'),
+                    _ => {
+                        include_user_general_entity_in_att_value(
+                            &qualified, ref_pos, entities, visited, out,
+                        )?;
+                    }
+                }
             }
-            let expanded = parse_reference(c, entities)?;
-            if is_general_user_entity && expanded.contains('<') {
-                return Err(XmlParseError::Syntax {
-                    position: ref_pos,
-                    expected: "AttValue (general-entity expansion must not contain `<` — §4.4 WFC)"
-                        .into(),
-                    found: "<".to_string(),
-                });
-            }
-            out.push_str(&expanded);
         } else if matches!(ch, '\t' | '\n' | '\r') {
             // §3.3.3 step 3.1.4: literal whitespace becomes #x20.
             out.push(' ');
@@ -1597,6 +1632,61 @@ fn parse_att_value(
             }
             out.push(ch);
             c.pos += ch.len_utf8();
+        }
+    }
+}
+
+/// §4.4.3 "Included" for a user-declared general entity reference
+/// appearing in an attribute value literal. Looks up the entity,
+/// rejects external references per §3.1 / §4.4 "No External
+/// Entity References" and §4.4.4 "Parsed Entity", enforces §4.1
+/// WFC: No Recursion via `visited`, and re-parses the entity's
+/// literal replacement text as an AttValue body into the parent's
+/// `out` accumulator.
+fn include_user_general_entity_in_att_value(
+    name: &str,
+    ref_pos: usize,
+    entities: &[XmlGeneralEntity],
+    visited: &mut Vec<String>,
+    out: &mut String,
+) -> Result<(), XmlParseError> {
+    if visited.iter().any(|n| n == name) {
+        return Err(XmlParseError::Syntax {
+            position: ref_pos,
+            expected: "non-recursive entity reference (§4.1 WFC: No Recursion)".into(),
+            found: format!("&{name};"),
+        });
+    }
+    let entity = entities.iter().find(|e| e.name == name).ok_or_else(|| {
+        XmlParseError::UnsupportedEntity {
+            position: ref_pos,
+            name: name.to_string(),
+        }
+    })?;
+    match entity.kind {
+        XmlEntityKind::ExternalUnparsed => Err(XmlParseError::Syntax {
+            position: ref_pos,
+            expected: "reference to a parsed entity (§4.4.4 WFC: Parsed Entity)".into(),
+            found: format!("&{name};"),
+        }),
+        XmlEntityKind::ExternalParsed => Err(XmlParseError::Syntax {
+            position: ref_pos,
+            expected: "AttValue (no external-entity references — §3.1 / §4.4 WFC)".into(),
+            found: format!("&{name};"),
+        }),
+        XmlEntityKind::Internal => {
+            let value = entity.value.clone();
+            let mut sub = Cursor::new(&value);
+            visited.push(name.to_string());
+            let result = parse_att_value_body_into(
+                &mut sub,
+                entities,
+                visited,
+                AttValueTerminator::Eof,
+                out,
+            );
+            visited.pop();
+            result
         }
     }
 }
@@ -1984,223 +2074,4 @@ fn check_chars_in_range(
         offset_within_body += ch.len_utf8();
     }
     Ok(())
-}
-
-/// W3C XML 1.0 §4.1 production [67] `Reference`:
-/// `Reference ::= EntityRef | CharRef`. §4.6 defines the five
-/// predefined entities (`amp`, `lt`, `gt`, `apos`, `quot`) every
-/// XML processor must recognize. §4.1 productions [66] `CharRef`
-/// covers numeric character references in decimal or hex.
-///
-/// `entities` is the list of `<!ENTITY name "value">` declarations
-/// the DOCTYPE projected (W3C XML 1.0 §4.2 [70] GEDecl). When an
-/// entity reference's name doesn't match a §4.6 predefined entity,
-/// we consult this map per §4.4 "XML Processor Treatment of
-/// Entities and References".
-fn parse_reference(
-    c: &mut Cursor<'_>,
-    entities: &[XmlGeneralEntity],
-) -> Result<String, XmlParseError> {
-    let start_pos = c.pos;
-    if c.rest().starts_with("&#") {
-        let ch = parse_char_ref(c)?;
-        let mut s = String::new();
-        s.push(ch);
-        return Ok(s);
-    }
-    c.consume("&")?;
-    let name = parse_name(c)?;
-    c.consume(";")?;
-    let qualified = name.qualified();
-    match (name.prefix.as_deref(), name.local.as_str()) {
-        (None, "amp") => Ok("&".into()),
-        (None, "lt") => Ok("<".into()),
-        (None, "gt") => Ok(">".into()),
-        (None, "apos") => Ok("'".into()),
-        (None, "quot") => Ok("\"".into()),
-        _ => {
-            // §4.4 Table 4 row "Reference in Content" — the action
-            // depends on the referenced entity's kind:
-            //
-            //   - Internal general entity → "Included" — its
-            //     replacement text replaces the reference.
-            //   - External parsed entity → "Included if validating",
-            //     "Bypassed" otherwise. As a non-validating parser
-            //     we accept the reference but treat its expansion
-            //     as empty (the §4.4.4 "may, but need not" rule).
-            //   - External unparsed entity → **Forbidden**.
-            //     §4.4.4 WFC: Parsed Entity — "an entity reference
-            //     MUST NOT contain the name of an unparsed entity".
-            //     xmlconf xmltest/not-wf/sa/083 is the spec
-            //     regression: `<!ENTITY e SYSTEM "nul" NDATA n>`
-            //     declared, then `&e;` referenced in content.
-            //   - Undeclared → §4.1 WFC: Entity Declared. Reject.
-            match entities.iter().find(|e| e.name == qualified) {
-                Some(entity) => match entity.kind {
-                    XmlEntityKind::ExternalUnparsed => Err(XmlParseError::Syntax {
-                        position: start_pos,
-                        expected: "reference to a parsed entity (§4.4.4 WFC: Parsed Entity)".into(),
-                        found: format!("&{qualified};"),
-                    }),
-                    XmlEntityKind::Internal => {
-                        // §4.4.3 — internal general entity references
-                        // are "Included" in content. The replacement
-                        // text may itself contain entity references
-                        // (§4.5 "literal entity value" is stored
-                        // un-expanded); recursively expand them now,
-                        // tracking the in-progress entity name to
-                        // enforce §4.1 WFC: No Recursion.
-                        let mut visited = Vec::new();
-                        expand_entity_text(
-                            &entity.value,
-                            entities,
-                            &mut visited,
-                            &qualified,
-                            start_pos,
-                        )
-                    }
-                    XmlEntityKind::ExternalParsed => Ok(entity.value.clone()),
-                },
-                None => Err(XmlParseError::UnsupportedEntity {
-                    position: start_pos,
-                    name: qualified,
-                }),
-            }
-        }
-    }
-}
-
-/// Recursive expansion of an internal entity's replacement text,
-/// implementing W3C XML 1.0 §4.1 **WFC: No Recursion**:
-///
-/// > A parsed entity MUST NOT contain a recursive reference to
-/// > itself, either directly or indirectly.
-///
-/// `visited` is the in-progress entity-name stack from the
-/// outermost reference inward. When the walker encounters
-/// `&name;` whose `name` is already in `visited`, it returns the
-/// recursion error. xmlconf xmltest/not-wf/sa/071, 075, 079 are
-/// the spec regressions (cyclic chains of internal entities).
-///
-/// Character references (`&#…;`) and the §4.6 predefined entities
-/// resolve to single Unicode scalars and do not recurse.
-fn expand_entity_text(
-    text: &str,
-    entities: &[XmlGeneralEntity],
-    visited: &mut Vec<String>,
-    current: &str,
-    error_pos: usize,
-) -> Result<String, XmlParseError> {
-    visited.push(current.to_string());
-    let mut out = String::with_capacity(text.len());
-    let mut i = 0;
-    let bytes = text.as_bytes();
-    while i < bytes.len() {
-        if bytes[i] == b'&' {
-            // Locate the `;` that terminates this reference.
-            let Some(semi_rel) = text[i + 1..].find(';') else {
-                // No semicolon — pass the `&` through; the parent
-                // parse_*_value will surface the surrounding error.
-                out.push('&');
-                i += 1;
-                continue;
-            };
-            let inner = &text[i + 1..i + 1 + semi_rel];
-            let full = i + 1 + semi_rel + 1;
-            if let Some(rest) = inner.strip_prefix('#') {
-                // Character reference — single char.
-                let code_point = if let Some(hex) = rest.strip_prefix('x') {
-                    u32::from_str_radix(hex, 16).ok()
-                } else {
-                    rest.parse::<u32>().ok()
-                };
-                if let Some(cp) = code_point
-                    && let Some(ch) = char::from_u32(cp)
-                {
-                    out.push(ch);
-                    i = full;
-                    continue;
-                }
-                // Malformed CharRef — pass through (the outer
-                // parse pass already gated this).
-                out.push_str(&text[i..full]);
-                i = full;
-                continue;
-            }
-            // EntityRef.
-            match inner {
-                "amp" => out.push('&'),
-                "lt" => out.push('<'),
-                "gt" => out.push('>'),
-                "apos" => out.push('\''),
-                "quot" => out.push('"'),
-                name => {
-                    if visited.iter().any(|n| n == name) {
-                        return Err(XmlParseError::Syntax {
-                            position: error_pos,
-                            expected: "non-recursive entity reference (§4.1 WFC: No Recursion)"
-                                .into(),
-                            found: format!("&{name};"),
-                        });
-                    }
-                    match entities.iter().find(|e| e.name == name) {
-                        Some(entity) => match entity.kind {
-                            XmlEntityKind::ExternalUnparsed => {
-                                return Err(XmlParseError::Syntax {
-                                    position: error_pos,
-                                    expected: "parsed entity (§4.4.4 WFC: Parsed Entity)".into(),
-                                    found: format!("&{name};"),
-                                });
-                            }
-                            XmlEntityKind::Internal => {
-                                let nested = expand_entity_text(
-                                    &entity.value,
-                                    entities,
-                                    visited,
-                                    name,
-                                    error_pos,
-                                )?;
-                                out.push_str(&nested);
-                            }
-                            XmlEntityKind::ExternalParsed => {
-                                // Non-validating parser: bypass — no
-                                // expansion text contributed.
-                            }
-                        },
-                        None => {
-                            // §4.1 WFC: Entity Declared is enforced
-                            // at the outer parse_reference site, on
-                            // the user-visible reference position
-                            // (content or attribute value). Inside a
-                            // nested recursive expansion the outer
-                            // gate has already fired for whatever
-                            // entity is being expanded here, so this
-                            // arm only handles the case where a
-                            // declared entity's literal value text
-                            // (§4.5) syntactically contains another
-                            // entity reference that may be declared
-                            // only in an external subset our non-
-                            // validating processor doesn't read.
-                            // Per §5.1 such references "may" be left
-                            // unexpanded — emit the literal `&name;`
-                            // bytes so the outer parse never has to
-                            // distinguish "undeclared" from
-                            // "recursive": that distinction is the
-                            // visited-set check above, not this arm.
-                            out.push('&');
-                            out.push_str(name);
-                            out.push(';');
-                        }
-                    }
-                }
-            }
-            i = full;
-        } else {
-            let ch = text[i..].chars().next().expect("non-empty by loop guard");
-            out.push(ch);
-            i += ch.len_utf8();
-        }
-    }
-    visited.pop();
-    Ok(out)
 }
