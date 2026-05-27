@@ -273,6 +273,12 @@ pub enum UsCodeHeadingVariant {
 }
 
 impl UsCodeHeadingVariant {
+    /// Canonical name → variant projection — the ontology semantic
+    /// of the enum. The set of names this function accepts is the
+    /// USLM 1.0 heading vocabulary (LRC USLM User Guide §
+    /// "Heading Variants"). Use [`Self::from_xsd_element`] to
+    /// additionally verify that the name is declared by the loaded
+    /// USLM XSD before projection.
     pub fn parse(tag: &str) -> Option<Self> {
         Some(match tag {
             "heading" => Self::Heading,
@@ -283,6 +289,14 @@ impl UsCodeHeadingVariant {
             "shortTitle" => Self::ShortTitle,
             _ => return None,
         })
+    }
+
+    /// XSD-grounded projection: confirms the name is declared as an
+    /// `<xs:element>` in the loaded USLM XSD (W3C XSD 1.1 Part 1
+    /// §3.3) before delegating to [`Self::parse`].
+    pub fn from_xsd_element(tag: &str, xsd: &XsdOntologyInstance) -> Option<Self> {
+        xsd.lookup_element(tag)?;
+        Self::parse(tag)
     }
 }
 
@@ -401,6 +415,10 @@ pub enum UsCodeQuotedVariant {
 }
 
 impl UsCodeQuotedVariant {
+    /// Canonical name → variant projection — the USLM 1.0
+    /// quoted-content vocabulary per LRC USLM User Guide §
+    /// "Quoted Content Variants". Use [`Self::from_xsd_element`]
+    /// to additionally verify XSD declaration.
     pub fn parse(tag: &str) -> Option<Self> {
         Some(match tag {
             "quotedText" => Self::QuotedText,
@@ -408,6 +426,14 @@ impl UsCodeQuotedVariant {
             "statement" => Self::Statement,
             _ => return None,
         })
+    }
+
+    /// XSD-grounded projection — confirms the name is declared as
+    /// an `<xs:element>` by the loaded USLM XSD (W3C XSD 1.1 Part 1
+    /// §3.3) before delegating to [`Self::parse`].
+    pub fn from_xsd_element(tag: &str, xsd: &XsdOntologyInstance) -> Option<Self> {
+        xsd.lookup_element(tag)?;
+        Self::parse(tag)
     }
 }
 
@@ -433,6 +459,10 @@ pub enum UsCodeLegislativeFormula {
 }
 
 impl UsCodeLegislativeFormula {
+    /// Canonical name → variant projection — the USLM 1.0
+    /// legislative-formula vocabulary per LRC USLM User Guide §
+    /// "Legislative Formulae". Use [`Self::from_xsd_element`] for
+    /// XSD-grounded dispatch.
     pub fn parse(tag: &str) -> Option<Self> {
         Some(match tag {
             "enactingFormula" => Self::EnactingFormula,
@@ -443,6 +473,13 @@ impl UsCodeLegislativeFormula {
             "instruction" => Self::Instruction,
             _ => return None,
         })
+    }
+
+    /// XSD-grounded projection — confirms `<xs:element>` declaration
+    /// in the loaded USLM XSD (W3C XSD 1.1 Part 1 §3.3).
+    pub fn from_xsd_element(tag: &str, xsd: &XsdOntologyInstance) -> Option<Self> {
+        xsd.lookup_element(tag)?;
+        Self::parse(tag)
     }
 }
 
@@ -464,6 +501,9 @@ pub enum UsCodeFormElement {
 }
 
 impl UsCodeFormElement {
+    /// Canonical name → variant projection — the USLM 1.0 form
+    /// vocabulary per LRC USLM User Guide § "Form Elements". Use
+    /// [`Self::from_xsd_element`] for XSD-grounded dispatch.
     pub fn parse(tag: &str) -> Option<Self> {
         Some(match tag {
             "checkBox" => Self::CheckBox,
@@ -473,6 +513,13 @@ impl UsCodeFormElement {
             "set" => Self::Set,
             _ => return None,
         })
+    }
+
+    /// XSD-grounded projection — confirms `<xs:element>` declaration
+    /// in the loaded USLM XSD (W3C XSD 1.1 Part 1 §3.3).
+    pub fn from_xsd_element(tag: &str, xsd: &XsdOntologyInstance) -> Option<Self> {
+        xsd.lookup_element(tag)?;
+        Self::parse(tag)
     }
 }
 
@@ -489,12 +536,23 @@ pub enum UsCodeAmendmentKind {
 }
 
 impl UsCodeAmendmentKind {
+    /// Canonical name → variant projection — `ins`/`del` per HTML
+    /// 4.01 §9.4 *Marking Document Changes*, adopted by USLM 1.0
+    /// for legislative-amendment markup. Use
+    /// [`Self::from_xsd_element`] for XSD-grounded dispatch.
     pub fn parse(tag: &str) -> Option<Self> {
         Some(match tag {
             "ins" => Self::Insertion,
             "del" => Self::Deletion,
             _ => return None,
         })
+    }
+
+    /// XSD-grounded projection — confirms `<xs:element>` declaration
+    /// in the loaded USLM XSD (W3C XSD 1.1 Part 1 §3.3).
+    pub fn from_xsd_element(tag: &str, xsd: &XsdOntologyInstance) -> Option<Self> {
+        xsd.lookup_element(tag)?;
+        Self::parse(tag)
     }
 }
 
@@ -525,8 +583,10 @@ pub enum InlineKind {
 }
 
 impl InlineKind {
-    /// Parse a USLM inline-element tag name into the typed
-    /// variant. Returns `None` for non-inline tags.
+    /// Canonical name → variant projection — the USLM 1.0 inline
+    /// markup vocabulary (LRC USLM User Guide § "Inline Markup").
+    /// Returns `None` for non-inline tags. Use
+    /// [`Self::from_xsd_element`] for XSD-grounded dispatch.
     pub fn parse(tag: &str) -> Option<Self> {
         Some(match tag {
             "inline" => Self::Inline,
@@ -538,6 +598,13 @@ impl InlineKind {
             "a" => Self::Anchor,
             _ => return None,
         })
+    }
+
+    /// XSD-grounded projection — confirms `<xs:element>` declaration
+    /// in the loaded USLM XSD (W3C XSD 1.1 Part 1 §3.3).
+    pub fn from_xsd_element(tag: &str, xsd: &XsdOntologyInstance) -> Option<Self> {
+        xsd.lookup_element(tag)?;
+        Self::parse(tag)
     }
 }
 
