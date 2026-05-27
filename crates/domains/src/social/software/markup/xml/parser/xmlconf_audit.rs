@@ -364,9 +364,23 @@ pub struct XmlConfAuditReport {
     /// accepts that contain no error). One sample per bucket
     /// keeps the failure message representative without flooding.
     pub divergence_samples: alloc::collections::BTreeMap<String, (String, String)>,
+    /// Every divergent case per bucket, in walk order, up to
+    /// [`Self::PER_BUCKET_LIMIT`] entries. The audit uses this to
+    /// drive cluster-level triage: when one submanifest accounts
+    /// for 20+ rejections we want every file name, not only the
+    /// first. Each tuple is `(path, parse_error)`; the error is
+    /// empty when the divergence is a `not-wf-accepted` (the
+    /// parser produced an `Ok`).
+    pub divergence_file_list: alloc::collections::BTreeMap<String, Vec<(String, String)>>,
 }
 
 impl XmlConfAuditReport {
+    /// Maximum entries kept per bucket in
+    /// [`Self::divergence_file_list`]. Caps the worst-case audit
+    /// report size at this × bucket-count even on a wildly
+    /// non-conformant build.
+    pub const PER_BUCKET_LIMIT: usize = 50;
+
     /// 100% well-formedness conformance: every `valid` and `invalid`
     /// document (both well-formed by spec) parses, every `not-wf`
     /// document is rejected. `error` cases are informational.
@@ -401,7 +415,16 @@ impl XmlConfAuditReport {
                 continue;
             }
             let _ = writeln!(out, "  {} {} {} {}", k, v[0], v[1], v[2]);
-            if let Some((path, err)) = self.divergence_samples.get(*k) {
+            if let Some(samples) = self.divergence_file_list.get(*k) {
+                for (path, err) in samples {
+                    let leaf = path.rsplit('/').next().unwrap_or(path.as_str());
+                    if err.is_empty() {
+                        let _ = writeln!(out, "    - {leaf}");
+                    } else {
+                        let _ = writeln!(out, "    - {leaf}  ::  {err}");
+                    }
+                }
+            } else if let Some((path, err)) = self.divergence_samples.get(*k) {
                 let leaf = path.rsplit('/').next().unwrap_or(path.as_str());
                 if err.is_empty() {
                     let _ = writeln!(out, "    sample: {leaf}");
@@ -483,13 +506,19 @@ pub fn run_audit() -> XmlConfAuditOutcome {
             if not_wf_accepted {
                 counts[2] += 1;
             }
+            let path = case.doc_path.display().to_string();
+            let err = match &parsed {
+                Err(e) => format!("{e}"),
+                Ok(_) => String::new(),
+            };
             if !report.divergence_samples.contains_key(&bucket) {
-                let path = case.doc_path.display().to_string();
-                let err = match &parsed {
-                    Err(e) => format!("{e}"),
-                    Ok(_) => String::new(),
-                };
-                report.divergence_samples.insert(bucket, (path, err));
+                report
+                    .divergence_samples
+                    .insert(bucket.clone(), (path.clone(), err.clone()));
+            }
+            let list = report.divergence_file_list.entry(bucket).or_default();
+            if list.len() < XmlConfAuditReport::PER_BUCKET_LIMIT {
+                list.push((path, err));
             }
         }
     }
