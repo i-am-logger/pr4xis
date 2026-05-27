@@ -285,6 +285,43 @@ fn parameter_entity_declaration_skipped() {
 }
 
 #[test]
+fn xml_decl_rejects_missing_space_before_standalone() {
+    // §2.8 [32] SDDecl ::= S 'standalone' Eq ...
+    // — the leading S is required, not optional whitespace.
+    // xmlconf ibm/not-wf/P32/ibm32n01 regresses here
+    // (`version="1.0"standalone="yes"`).
+    let xml = br#"<?xml version="1.0"standalone="yes"?><doc/>"#;
+    assert!(parse_document(xml).is_err());
+}
+
+#[test]
+fn xml_decl_rejects_non_lowercase_standalone_keyword_and_value() {
+    // §2.8 [32] SDDecl — the keyword `standalone` is lowercase
+    // and the value is exactly `yes` or `no` (lowercase).
+    // xmlconf ibm/not-wf/P32/ibm32n03..07 regress.
+    assert!(parse_document(br#"<?xml version="1.0" Standalone="yes"?><doc/>"#).is_err());
+    assert!(parse_document(br#"<?xml version="1.0" standalone="Yes"?><doc/>"#).is_err());
+    assert!(parse_document(br#"<?xml version="1.0" standalone="YES"?><doc/>"#).is_err());
+    assert!(parse_document(br#"<?xml version="1.0" standalone="No"?><doc/>"#).is_err());
+    // Sanity: the lowercase forms parse.
+    assert!(parse_document(br#"<?xml version="1.0" standalone="yes"?><doc/>"#).is_ok());
+    assert!(parse_document(br#"<?xml version="1.0" standalone="no"?><doc/>"#).is_ok());
+}
+
+#[test]
+fn xml_decl_rejects_malformed_version_num() {
+    // §2.8 [26] VersionNum ::= '1.' [0-9]+
+    // xmlconf cases that put non-numeric junk after `1.` — or omit
+    // the major-version `1.` prefix entirely — must reject.
+    assert!(parse_document(br#"<?xml version="1.a"?><doc/>"#).is_err());
+    assert!(parse_document(br#"<?xml version="2.0"?><doc/>"#).is_err());
+    assert!(parse_document(br#"<?xml version="1."?><doc/>"#).is_err());
+    // Sanity: `1.0` and `1.1` (5e accepts any `1.x`) both parse.
+    assert!(parse_document(br#"<?xml version="1.0"?><doc/>"#).is_ok());
+    assert!(parse_document(br#"<?xml version="1.1"?><doc/>"#).is_ok());
+}
+
+#[test]
 fn misc_position_comment_with_out_of_range_char_is_rejected() {
     // W3C XML 1.0 §2.5 [15] + §2.2 [2] Char — comment bodies must
     // be in the Char repertoire even at Misc positions (after the

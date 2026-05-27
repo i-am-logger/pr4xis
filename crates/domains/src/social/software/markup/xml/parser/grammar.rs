@@ -399,8 +399,27 @@ fn parse_prolog(
     Ok((version, encoding, doctype))
 }
 
-/// W3C XML 1.0 §2.8 production [23] `XMLDecl`:
-/// `XMLDecl ::= '<?xml' VersionInfo EncodingDecl? SDDecl? S? '?>'`.
+/// W3C XML 1.0 §2.8 production [23] `XMLDecl` and the productions
+/// it composes:
+///
+///   XMLDecl       ::= '<?xml' VersionInfo EncodingDecl? SDDecl? S? '?>'
+///   VersionInfo   ::= S 'version' Eq ("'" VersionNum "'" | '"' VersionNum '"')
+///   VersionNum    ::= '1.' [0-9]+
+///   EncodingDecl  ::= S 'encoding' Eq ('"' EncName '"' | "'" EncName "'")
+///   EncName       ::= [A-Za-z] ([A-Za-z0-9._] | '-')*
+///   SDDecl        ::= S 'standalone' Eq (("'" ('yes' | 'no') "'") | ('"' ('yes' | 'no') '"'))
+///
+/// Enforces:
+/// - S before each subsequent attribute (`encoding`, `standalone`)
+///   — not just optional whitespace. xmlconf ibm/not-wf/P32/ibm32n01
+///   (no space between version literal and standalone keyword) is
+///   the regression for missing S.
+/// - VersionNum matches `1.[0-9]+`.
+/// - EncName matches its production.
+/// - Standalone literal is exactly `yes` or `no` (lowercase). Case
+///   variants (`Yes`, `YES`, `Standalone`) are explicitly malformed
+///   per the spec's lowercase-keyword convention — xmlconf
+///   ibm/not-wf/P32/ibm32n03..07 are the regression set.
 fn parse_xml_decl(c: &mut Cursor<'_>) -> Result<(String, Option<String>), XmlParseError> {
     c.consume("<?xml")?;
     c.require_whitespace("XMLDecl VersionInfo")?;
@@ -409,31 +428,76 @@ fn parse_xml_decl(c: &mut Cursor<'_>) -> Result<(String, Option<String>), XmlPar
     c.consume("=")?;
     c.skip_whitespace();
     let version = parse_quoted(c)?;
+    if !is_version_num(&version) {
+        return Err(c.syntax_error("VersionNum `1.[0-9]+`", &version));
+    }
+
+    let after_version_pos = c.pos;
+    let had_ws_before_next = matches!(c.peek_char(), Some(' ' | '\t' | '\r' | '\n'));
     c.skip_whitespace();
 
     let encoding = if c.starts_with("encoding") {
+        if !had_ws_before_next {
+            return Err(c.syntax_error("S (whitespace) before `encoding`", &c.preview()));
+        }
         c.consume("encoding")?;
         c.skip_whitespace();
         c.consume("=")?;
         c.skip_whitespace();
         let enc = parse_quoted(c)?;
-        c.skip_whitespace();
+        if !is_enc_name(&enc) {
+            return Err(c.syntax_error("EncName `[A-Za-z]([A-Za-z0-9._]|'-')*`", &enc));
+        }
         Some(enc)
     } else {
         None
     };
 
+    let had_ws_before_sa = if encoding.is_some() {
+        matches!(c.peek_char(), Some(' ' | '\t' | '\r' | '\n'))
+    } else {
+        had_ws_before_next
+    };
+    c.skip_whitespace();
+
     if c.starts_with("standalone") {
+        if !had_ws_before_sa {
+            return Err(c.syntax_error("S (whitespace) before `standalone`", &c.preview()));
+        }
         c.consume("standalone")?;
         c.skip_whitespace();
         c.consume("=")?;
         c.skip_whitespace();
-        let _sa = parse_quoted(c)?;
+        let sa = parse_quoted(c)?;
+        if sa != "yes" && sa != "no" {
+            return Err(c.syntax_error("`yes` or `no` (lowercase)", &sa));
+        }
         c.skip_whitespace();
     }
 
+    let _ = after_version_pos;
     c.consume("?>")?;
     Ok((version, encoding))
+}
+
+/// W3C XML 1.0 §2.8 [26] `VersionNum ::= '1.' [0-9]+`.
+fn is_version_num(s: &str) -> bool {
+    let Some(rest) = s.strip_prefix("1.") else {
+        return false;
+    };
+    !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// W3C XML 1.0 §4.3.3 [81] `EncName ::= [A-Za-z] ([A-Za-z0-9._] | '-')*`.
+fn is_enc_name(s: &str) -> bool {
+    let mut chars = s.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !first.is_ascii_alphabetic() {
+        return false;
+    }
+    chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
 /// W3C XML 1.0 §3.1 production [10] `AttValue`'s quoted form,
