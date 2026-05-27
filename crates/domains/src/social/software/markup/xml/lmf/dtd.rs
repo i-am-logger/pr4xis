@@ -56,16 +56,90 @@ pub fn loaded_wn_lmf_dtd() -> &'static str {
 #[must_use]
 pub fn is_wn_lmf_element(name: &str) -> bool {
     use crate::formal::meta::dtd::ontology::DtdConcept;
-    use crate::formal::meta::well_behaved_lens::WellBehavedLens;
-    static SCHEMA: std::sync::OnceLock<crate::formal::meta::dtd::DtdSchema> =
-        std::sync::OnceLock::new();
-    let schema = SCHEMA.get_or_init(|| {
-        <crate::formal::meta::dtd::DtdLens as WellBehavedLens>::get(WN_LMF_1_3_DTD.as_bytes())
-            .expect("bundled WN-LMF 1.3 DTD must parse cleanly")
-    });
+    let schema = loaded_wn_lmf_dtd_schema();
     schema
         .of_kind(DtdConcept::ElementDecl)
         .any(|d| d.name == name)
+}
+
+/// Cached typed DtdSchema view of the bundled WN-LMF 1.3 DTD.
+/// Single parse on first call; thereafter every accessor in this
+/// module shares the same `&'static DtdSchema`.
+fn loaded_wn_lmf_dtd_schema() -> &'static crate::formal::meta::dtd::DtdSchema {
+    use crate::formal::meta::well_behaved_lens::WellBehavedLens;
+    static SCHEMA: std::sync::OnceLock<crate::formal::meta::dtd::DtdSchema> =
+        std::sync::OnceLock::new();
+    SCHEMA.get_or_init(|| {
+        <crate::formal::meta::dtd::DtdLens as WellBehavedLens>::get(WN_LMF_1_3_DTD.as_bytes())
+            .expect("bundled WN-LMF 1.3 DTD must parse cleanly")
+    })
+}
+
+/// W3C XML 1.0 §3.3.1 production [57] `EnumeratedType` — the
+/// `(v1|v2|...|vN)` enumeration declared on the named attribute of
+/// the named element. Walks the loaded WN-LMF 1.3 DTD's
+/// `<!ATTLIST element …>` declarations, locates `attr_name`'s body,
+/// and returns the enumeration values in source order.
+///
+/// Returns `None` when the element or attribute is undeclared, or
+/// when the attribute carries a non-enumerated type (`CDATA`, `ID`,
+/// `IDREF`, `NMTOKEN`, …). Returns `Some(empty)` only when the
+/// enumeration parses to zero values — never the empty enumeration
+/// per §3.3.1 grammar.
+///
+/// Per `feedback_bottom_up_loaded_not_encoded`: callers that need
+/// the canonical `SynsetRelation::relType`, `SenseRelation::relType`,
+/// or `LexicalEntry::partOfSpeech` value sets MUST query this
+/// function rather than hand-curating a Rust enum's `parse()` arms.
+#[must_use]
+pub fn wn_lmf_attlist_enum_values(element_name: &str, attr_name: &str) -> Option<Vec<String>> {
+    use crate::formal::meta::dtd::ontology::DtdConcept;
+    let schema = loaded_wn_lmf_dtd_schema();
+    let attlist = schema
+        .of_kind(DtdConcept::AttListDecl)
+        .find(|d| d.name == element_name)?;
+    extract_attlist_enum(&attlist.body, attr_name)
+}
+
+/// Scan an `<!ATTLIST>` body for the `attr_name` declaration and
+/// return its `(v1|...|vN)` enumeration if any.
+///
+/// Body shape (W3C XML 1.0 §3.3 [52] `AttlistDecl`): one or more
+/// `Name S AttType S DefaultDecl` groups. We locate `attr_name`'s
+/// group, skip whitespace to the type-introducing `(`, then split
+/// the parenthesized run on `|`.
+fn extract_attlist_enum(body: &str, attr_name: &str) -> Option<Vec<String>> {
+    // Find every occurrence of attr_name as a whole token (preceded
+    // by whitespace or body start, followed by whitespace).
+    let mut search_from = 0usize;
+    while let Some(rel) = body[search_from..].find(attr_name) {
+        let abs = search_from + rel;
+        let preceded_by_boundary = abs == 0
+            || body[..abs]
+                .chars()
+                .last()
+                .is_some_and(|c| c.is_whitespace());
+        let after = &body[abs + attr_name.len()..];
+        let followed_by_boundary = after.chars().next().is_some_and(char::is_whitespace);
+        if preceded_by_boundary && followed_by_boundary {
+            // Skip whitespace and look for `(`.
+            let rest = after.trim_start();
+            if let Some(inner) = rest.strip_prefix('(') {
+                // Read up to the matching `)`.
+                let close = inner.find(')')?;
+                let enum_body = &inner[..close];
+                return Some(
+                    enum_body
+                        .split('|')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect(),
+                );
+            }
+        }
+        search_from = abs + attr_name.len();
+    }
+    None
 }
 
 #[cfg(test)]
@@ -88,6 +162,61 @@ mod tests {
         assert!(is_wn_lmf_element("LexicalEntry"));
         assert!(is_wn_lmf_element("Synset"));
         assert!(is_wn_lmf_element("Sense"));
+    }
+
+    #[test]
+    fn extracts_partofspeech_enum_from_loaded_dtd() {
+        // The WN-LMF 1.3 DTD's <!ATTLIST Lemma> and <!ATTLIST Synset>
+        // both declare the same partOfSpeech enumeration:
+        //   partOfSpeech (n|v|a|r|s|t|c|p|x|u) #(REQUIRED|IMPLIED)
+        // The extractor must return the 10 values verbatim from
+        // either declaration site.
+        let pos_lemma = wn_lmf_attlist_enum_values("Lemma", "partOfSpeech").unwrap();
+        assert_eq!(
+            pos_lemma,
+            vec!["n", "v", "a", "r", "s", "t", "c", "p", "x", "u"]
+        );
+        let pos_synset = wn_lmf_attlist_enum_values("Synset", "partOfSpeech").unwrap();
+        assert_eq!(pos_synset, pos_lemma);
+    }
+
+    #[test]
+    fn extracts_synset_relation_reltype_enum() {
+        // WN-LMF 1.3 SynsetRelation declares ~70 relType values;
+        // we don't pin the exact count (forward compat with WN-LMF
+        // revisions) but we DO assert known canonical names are
+        // present.
+        let rel = wn_lmf_attlist_enum_values("SynsetRelation", "relType").unwrap();
+        for must_have in [
+            "hypernym",
+            "hyponym",
+            "holo_part",
+            "mero_part",
+            "causes",
+            "entails",
+        ] {
+            assert!(
+                rel.iter().any(|v| v == must_have),
+                "WN-LMF 1.3 SynsetRelation/relType must declare {must_have:?}; got {rel:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn extracts_sense_relation_reltype_enum() {
+        let rel = wn_lmf_attlist_enum_values("SenseRelation", "relType").unwrap();
+        for must_have in ["antonym", "derivation", "pertainym", "participle"] {
+            assert!(
+                rel.iter().any(|v| v == must_have),
+                "WN-LMF 1.3 SenseRelation/relType must declare {must_have:?}; got {rel:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn returns_none_for_unknown_element_or_attribute() {
+        assert!(wn_lmf_attlist_enum_values("Nonexistent", "relType").is_none());
+        assert!(wn_lmf_attlist_enum_values("Synset", "nonexistent_attr").is_none());
     }
 
     #[test]

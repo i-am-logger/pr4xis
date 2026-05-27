@@ -432,6 +432,92 @@ mod tests {
         assert_eq!(variants.len(), 14);
     }
 
+    /// Every WN-LMF 1.3 DTD-declared `partOfSpeech` enumeration
+    /// value (per `<!ATTLIST Lemma partOfSpeech (n|v|a|r|s|t|c|p|x|u)
+    /// #REQUIRED>` at DTD line 57 + the same enumeration on
+    /// `Synset` at line 102) parses to a deterministic
+    /// [`LmfPos`] variant — totality across the DTD enumeration.
+    ///
+    /// The four WordNet open-class tags (`n`/`v`/`a`/`r`) plus the
+    /// `s` satellite-adjective tag project to named variants
+    /// (Noun/Verb/Adjective/Adverb); the WN-LMF-specific tags
+    /// `t`/`c`/`p`/`x`/`u` (terminology / closed-class compounds /
+    /// preposition / other / unknown — narrow WN-LMF semantics)
+    /// project to [`LmfPos::Other`]. Both projections are
+    /// deterministic and grounded in the loaded DTD enumeration
+    /// rather than scattered through unrelated source files
+    /// (`feedback_bottom_up_loaded_not_encoded`).
+    #[test]
+    fn axiom_lmf_pos_parse_covers_wn_lmf_dtd_enumeration() {
+        let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("Lemma", "partOfSpeech")
+            .expect("WN-LMF 1.3 declares <!ATTLIST Lemma partOfSpeech …>");
+        assert_eq!(
+            dtd_values.len(),
+            10,
+            "WN-LMF 1.3 partOfSpeech declares 10 values; got {} — DTD or extractor drifted",
+            dtd_values.len()
+        );
+        // Totality: parse() returns a deterministic LmfPos variant
+        // for every DTD-declared input; the call never panics and
+        // the result is reproducible across calls (LmfPos is Copy).
+        for value in &dtd_values {
+            let first = LmfPos::parse(value);
+            let second = LmfPos::parse(value);
+            assert_eq!(
+                first, second,
+                "LmfPos::parse({value:?}) returned different results on consecutive calls — \
+                 non-determinism"
+            );
+        }
+        // The four WordNet open-class tags + the satellite-adjective
+        // `s` MUST project to named variants. This is the load-
+        // bearing chunk of the dispatch.
+        assert_eq!(LmfPos::parse("n"), LmfPos::Noun);
+        assert_eq!(LmfPos::parse("v"), LmfPos::Verb);
+        assert_eq!(LmfPos::parse("a"), LmfPos::Adjective);
+        assert_eq!(LmfPos::parse("s"), LmfPos::Adjective);
+        assert_eq!(LmfPos::parse("r"), LmfPos::Adverb);
+    }
+
+    /// Every WN-LMF 1.3 DTD-declared `SynsetRelation/relType`
+    /// enumeration value must parse to a known `SynsetRelationType`
+    /// variant OR to the explicit `Other(0)` fallback (the spec
+    /// declares ~70 values; the typed enum captures the canonical
+    /// taxonomy/mereology/causal subset and routes the long tail
+    /// to `Other(0)`). The axiom asserts parse() is total on the
+    /// DTD enumeration — every declared value gets a deterministic
+    /// answer, none panics.
+    #[test]
+    fn axiom_synset_relation_type_parse_covers_wn_lmf_dtd_enumeration() {
+        let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("SynsetRelation", "relType")
+            .expect("WN-LMF 1.3 declares <!ATTLIST SynsetRelation relType …>");
+        assert!(
+            dtd_values.len() >= 30,
+            "WN-LMF 1.3 SynsetRelation/relType declares many values; got only {} — \
+             extractor or DTD parse may be regressed",
+            dtd_values.len()
+        );
+        for value in &dtd_values {
+            let _ = SynsetRelationType::parse(value);
+        }
+    }
+
+    /// Symmetric coverage axiom for `SenseRelation/relType` — every
+    /// DTD-declared value must parse deterministically (named
+    /// variant or `Other(0)`).
+    #[test]
+    fn axiom_sense_relation_type_parse_covers_wn_lmf_dtd_enumeration() {
+        let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("SenseRelation", "relType")
+            .expect("WN-LMF 1.3 declares <!ATTLIST SenseRelation relType …>");
+        assert!(
+            !dtd_values.is_empty(),
+            "DTD's SenseRelation/relType enumeration must be non-empty"
+        );
+        for value in &dtd_values {
+            let _ = SenseRelationType::parse(value);
+        }
+    }
+
     #[test]
     fn pos_parse_roundtrip() {
         for pos in LmfPos::variants() {
