@@ -136,7 +136,7 @@
 # Drafting Handbook 2017, ISO 3166-2:US, Huddleston & Pullum 2002,
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
-"us_legal_lexicon@2026"  = "429a9409eb9870a54aafd57795130a1270aed4608eae6cbf399a4447e54899c0"
+"us_legal_lexicon@2026"  = "ed6c07d13a317ca7f6880b68d2bab95f959c8c2834686aa455b6aa05d843d9e0"
 # U.S. Code Title 15 — Commerce and Trade. SHA-256 of the unzipped
 # usc15.xml content (30 MB, ~1,600 sections — Securities Act of 1933
 # §§ 77a–77aa, Securities Exchange Act of 1934 §§ 78a et seq., the
@@ -164,12 +164,15 @@
 # of Evidence, Federal Rules of Appellate Procedure, Federal Rules
 # of Bankruptcy Procedure). Loading Title 28 populates Layer 3 of
 # statute_understanding with typed legal-actor / evidence-rule
-# vocabulary — no hand-coded ontology macros needed. Hash will be
-# pinned by `pr4xis update usc_title_28` once the XML is fetched;
-# this placeholder is the SHA-256 of an empty file (the codegen
-# build script emits a stub for not-on-disk sources, so build
-# stays green until the user runs `pr4xis update`).
-"usc_title_28@pl-119-90" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+# vocabulary — no hand-coded ontology macros needed. SHA-256 of
+# the unzipped usc28.xml content (8.6 MB) from release point
+# pl-119-90. Federal civil-procedure backbone: § 1331 (federal-
+# question jurisdiction), § 1391 (venue), § 1404 (change of venue),
+# § 1658 (4-year federal SOL — Sarbanes-Oxley § 1514A actions are
+# subject to § 1658(b)'s special securities-fraud 2-year / 5-year
+# SOL after Lawson v. FMR LLC), § 2072 (Rules Enabling Act),
+# § 1254 (SCOTUS certiorari), § 1746 (unsworn declarations).
+"usc_title_28@pl-119-90" = "5a24bea79bc49bb339af09c2fff0178880944d8726d628fc35bf06f41f0922fe"
 # Adobe Glyph List 2019 — SHA-256 of crates/domains/data/adobe/glyphlist.txt,
 # a verbatim copy of
 # https://raw.githubusercontent.com/adobe-type-tools/agl-aglfn/master/glyphlist.txt.

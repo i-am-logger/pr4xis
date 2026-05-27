@@ -146,7 +146,18 @@ pub fn extract_lemmas(term_name: &str) -> Vec<Form> {
     let mut seen: alloc::collections::BTreeSet<String> = Default::default();
     let mut out = Vec::new();
 
-    for word in term_name.split(|c: char| !c.is_alphanumeric()) {
+    // Strip Unicode format characters that don't participate in word
+    // identity — per Unicode 15.0 §5.3, U+00AD SOFT HYPHEN is a
+    // typographic line-break hint inserted by typesetters; it is NOT
+    // a word boundary or letter. The USC USLM XML carries these inside
+    // long words like "trans\u{00AD}feree" (28 U.S.C. § 3307) to allow
+    // graceful line breaking in PDF / print renderings. Stripping
+    // before tokenization keeps the word identity intact for WordNet
+    // lookup. Cited: Unicode 15.0 §5.3 "Soft Hyphens"; Bringhurst,
+    // *The Elements of Typographic Style* §1.3 (soft-hyphen typography).
+    let normalized: String = term_name.chars().filter(|&c| c != '\u{00ad}').collect();
+
+    for word in normalized.split(|c: char| !c.is_alphanumeric()) {
         if word.is_empty() {
             continue;
         }

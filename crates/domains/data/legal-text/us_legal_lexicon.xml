@@ -269,6 +269,49 @@
     <LexicalEntry id="lt-york"><Lemma writtenForm="york" partOfSpeech="propn"/><Sense id="lt-york-1" synset="lt-us-state"/></LexicalEntry>
     <LexicalEntry id="lt-washington"><Lemma writtenForm="washington" partOfSpeech="propn"/><Sense id="lt-washington-1" synset="lt-us-state"/></LexicalEntry>
     <LexicalEntry id="lt-columbia"><Lemma writtenForm="columbia" partOfSpeech="propn"/><Sense id="lt-columbia-1" synset="lt-us-state"/></LexicalEntry>
+
+    <!-- Title 28 — Judiciary additions (M4.δ.5). 28 U.S.C. §§ 81-131
+         designate the district-court boundaries of each U.S. state
+         and territory; each section's heading is just the state name
+         (e.g. § 81 "Alabama"). These appear as standalone unresolved
+         lemmas when the audit walks the section headings, even
+         though WordNet carries the state-name nouns elsewhere — the
+         lemmatizer's POS handling for proper nouns vs WordNet's
+         entries doesn't bridge. Loaded here as bottom-up state
+         coverage per ISO 3166-2:US. -->
+    <LexicalEntry id="lt-alabama"><Lemma writtenForm="alabama" partOfSpeech="propn"/><Sense id="lt-alabama-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-arizona"><Lemma writtenForm="arizona" partOfSpeech="propn"/><Sense id="lt-arizona-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-arkansas"><Lemma writtenForm="arkansas" partOfSpeech="propn"/><Sense id="lt-arkansas-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-california"><Lemma writtenForm="california" partOfSpeech="propn"/><Sense id="lt-california-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-carolina"><Lemma writtenForm="carolina" partOfSpeech="propn"/><Sense id="lt-carolina-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-colorado"><Lemma writtenForm="colorado" partOfSpeech="propn"/><Sense id="lt-colorado-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-connecticut"><Lemma writtenForm="connecticut" partOfSpeech="propn"/><Sense id="lt-connecticut-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-dakota"><Lemma writtenForm="dakota" partOfSpeech="propn"/><Sense id="lt-dakota-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-florida"><Lemma writtenForm="florida" partOfSpeech="propn"/><Sense id="lt-florida-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-georgia"><Lemma writtenForm="georgia" partOfSpeech="propn"/><Sense id="lt-georgia-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-hampshire"><Lemma writtenForm="hampshire" partOfSpeech="propn"/><Sense id="lt-hampshire-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-illinois"><Lemma writtenForm="illinois" partOfSpeech="propn"/><Sense id="lt-illinois-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-indiana"><Lemma writtenForm="indiana" partOfSpeech="propn"/><Sense id="lt-indiana-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-kentucky"><Lemma writtenForm="kentucky" partOfSpeech="propn"/><Sense id="lt-kentucky-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-louisiana"><Lemma writtenForm="louisiana" partOfSpeech="propn"/><Sense id="lt-louisiana-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-maine"><Lemma writtenForm="maine" partOfSpeech="propn"/><Sense id="lt-maine-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-maryland"><Lemma writtenForm="maryland" partOfSpeech="propn"/><Sense id="lt-maryland-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-massachusetts"><Lemma writtenForm="massachusetts" partOfSpeech="propn"/><Sense id="lt-massachusetts-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-michigan"><Lemma writtenForm="michigan" partOfSpeech="propn"/><Sense id="lt-michigan-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-minnesota"><Lemma writtenForm="minnesota" partOfSpeech="propn"/><Sense id="lt-minnesota-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-mississippi"><Lemma writtenForm="mississippi" partOfSpeech="propn"/><Sense id="lt-mississippi-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-missouri"><Lemma writtenForm="missouri" partOfSpeech="propn"/><Sense id="lt-missouri-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-montana"><Lemma writtenForm="montana" partOfSpeech="propn"/><Sense id="lt-montana-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-nevada"><Lemma writtenForm="nevada" partOfSpeech="propn"/><Sense id="lt-nevada-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-oklahoma"><Lemma writtenForm="oklahoma" partOfSpeech="propn"/><Sense id="lt-oklahoma-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-pennsylvania"><Lemma writtenForm="pennsylvania" partOfSpeech="propn"/><Sense id="lt-pennsylvania-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-rhode"><Lemma writtenForm="rhode" partOfSpeech="propn"/><Sense id="lt-rhode-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-texas"><Lemma writtenForm="texas" partOfSpeech="propn"/><Sense id="lt-texas-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-utah"><Lemma writtenForm="utah" partOfSpeech="propn"/><Sense id="lt-utah-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-vermont"><Lemma writtenForm="vermont" partOfSpeech="propn"/><Sense id="lt-vermont-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-virginia"><Lemma writtenForm="virginia" partOfSpeech="propn"/><Sense id="lt-virginia-1" synset="lt-us-state"/></LexicalEntry>
+    <LexicalEntry id="lt-wisconsin"><Lemma writtenForm="wisconsin" partOfSpeech="propn"/><Sense id="lt-wisconsin-1" synset="lt-us-state"/></LexicalEntry>
+
     <LexicalEntry id="lt-puerto"><Lemma writtenForm="puerto" partOfSpeech="propn"/><Sense id="lt-puerto-1" synset="lt-us-territory"/></LexicalEntry>
     <LexicalEntry id="lt-guam"><Lemma writtenForm="guam" partOfSpeech="propn"/><Sense id="lt-guam-1" synset="lt-us-territory"/></LexicalEntry>
     <LexicalEntry id="lt-mariana"><Lemma writtenForm="mariana" partOfSpeech="propn"/><Sense id="lt-mariana-1" synset="lt-us-territory"/></LexicalEntry>
@@ -507,6 +550,29 @@
     <LexicalEntry id="lt-subgrants"><Lemma writtenForm="subgrants" partOfSpeech="n"/><Sense id="lt-subgrants-1" synset="lt-legal-term"/></LexicalEntry>
     <LexicalEntry id="lt-unregistrable"><Lemma writtenForm="unregistrable" partOfSpeech="adj"/><Sense id="lt-unregistrable-1" synset="lt-legal-term"/></LexicalEntry>
     <LexicalEntry id="lt-xylazine"><Lemma writtenForm="xylazine" partOfSpeech="n"/><Sense id="lt-xylazine-1" synset="lt-legal-term"/></LexicalEntry>
+
+    <!-- Title 28 — Judiciary legal/procedural term additions (M4.δ.5).
+         Civil-procedure terminology and Latin legal forms appearing
+         in Title 28 USC section headings beyond WordNet's coverage.
+         Sources: Black's Law Dictionary 11th ed. (2019) for Anglo-
+         American legal terms; Bluebook §B for Latin forms (in forma
+         pauperis, letters rogatory, teste). Multi-X compounds
+         (multidistrict, multiforum, multiparty) are CGEL-productive
+         per Huddleston & Pullum 2002 Ch. 19 and FRCP/USC editorial
+         practice. -->
+    <LexicalEntry id="lt-affirmance"><Lemma writtenForm="affirmance" partOfSpeech="n"/><Sense id="lt-affirmance-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-disallowance"><Lemma writtenForm="disallowance" partOfSpeech="n"/><Sense id="lt-disallowance-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-disentitlement"><Lemma writtenForm="disentitlement" partOfSpeech="n"/><Sense id="lt-disentitlement-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-forma"><Lemma writtenForm="forma" partOfSpeech="n"/><Sense id="lt-forma-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-multidistrict"><Lemma writtenForm="multidistrict" partOfSpeech="adj"/><Sense id="lt-multidistrict-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-multiforum"><Lemma writtenForm="multiforum" partOfSpeech="adj"/><Sense id="lt-multiforum-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-multiparty"><Lemma writtenForm="multiparty" partOfSpeech="adj"/><Sense id="lt-multiparty-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-pauperis"><Lemma writtenForm="pauperis" partOfSpeech="n"/><Sense id="lt-pauperis-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-repleviable"><Lemma writtenForm="repleviable" partOfSpeech="adj"/><Sense id="lt-repleviable-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-rogatory"><Lemma writtenForm="rogatory" partOfSpeech="adj"/><Sense id="lt-rogatory-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-suable"><Lemma writtenForm="suable" partOfSpeech="adj"/><Sense id="lt-suable-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-sued"><Lemma writtenForm="sued" partOfSpeech="v"/><Sense id="lt-sued-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-teste"><Lemma writtenForm="teste" partOfSpeech="n"/><Sense id="lt-teste-1" synset="lt-legal-term"/></LexicalEntry>
 
     <!-- ==================================================================
          Garbage-text fragments that the tokenizer produces from USC
