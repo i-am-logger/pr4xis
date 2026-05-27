@@ -404,13 +404,34 @@ type        = "UsCodeTitle"
 url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc28@119-90.zip"
 description = "U.S. Code Title 28 — Judiciary and Judicial Procedure, including 28 U.S.C. App. (Federal Rules of Civil Procedure / Evidence / Appellate Procedure / Bankruptcy Procedure). USLM XML published by the LRC per 1 U.S.C. § 204; 28 U.S.C. § 2072 (Rules Enabling Act) authorizes the Supreme Court to promulgate the rules and the LRC to codify them in the Appendix."
 
+# Title 15 — Commerce and Trade. Authoritative source for the
+# Securities Act of 1933 (15 U.S.C. §§ 77a–77aa) and the Securities
+# Exchange Act of 1934 (15 U.S.C. §§ 78a et seq.). The SOX
+# whistleblower scheme references this title throughout: § 78j(b)
+# / Rule 10b-5 (securities fraud — the underlying conduct § 1514A
+# protects reporting of); § 78m (Section 13, periodic reporting —
+# SOX § 302's "principal executive officer" certification and
+# SOX § 404's "internal control" assessment are codified here);
+# § 78u-6 (Dodd-Frank SEC whistleblower program — alternative
+# remedy to SOX § 806); § 78ff (Section 32, criminal penalties).
+# 15 U.S.C. § 78f-1(c)(2)(B) carries the SOX-amended audit-
+# committee independence requirement (§ 301 of SOX). Same LRC
+# USLM XML publication unit; release point pl-119-90.
+[sources.usc_title_15]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc15@119-90.zip"
+description = "U.S. Code Title 15 — Commerce and Trade, including the Securities Act of 1933 (§§ 77a et seq.) and the Securities Exchange Act of 1934 (§§ 78a et seq.). USLM XML published by the LRC per 1 U.S.C. § 204."
+
 # Individual US Code sections (e.g. 18 U.S.C. § 1514A — Sarbanes–Oxley
-# § 806; 49 U.S.C. § 42121 — AIR21) are NOT separate sources. They are
-# slices of an already-registered UsCodeTitle source (usc_title_18,
-# usc_title_49) addressable by USLM URN. Downstream consumers obtain
-# them via the runtime `UsCode::loaded().section_by_urn(...)` lookup,
-# not via a separate `[sources.*]` entry. Cited: 1 U.S.C. § 204 (Code
-# authority); LRC, *USLM XML User Guide* §V (USC URN hierarchy).
+# § 806; 49 U.S.C. § 42121 — AIR21; 15 U.S.C. § 78j(b) — Rule 10b-5;
+# 15 U.S.C. § 78u-6 — Dodd-Frank SEC whistleblower) are NOT separate
+# sources. They are slices of an already-registered UsCodeTitle source
+# (usc_title_15, usc_title_18, usc_title_28, usc_title_49) addressable
+# by USLM URN. Downstream consumers obtain them via the runtime
+# `UsCode::loaded().section_by_urn(...)` lookup, not via a separate
+# `[sources.*]` entry. Cited: 1 U.S.C. § 204 (Code authority); LRC,
+# *USLM XML User Guide* §V (USC URN hierarchy).
 
 # ---------------------------------------------------------------------------
 # Procedural rules (federal)

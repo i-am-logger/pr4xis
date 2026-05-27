@@ -136,7 +136,20 @@
 # Drafting Handbook 2017, ISO 3166-2:US, Huddleston & Pullum 2002,
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
-"us_legal_lexicon@2026"  = "fd87bf2db83ce9253e9549079fe9f3f08aa0c9f5f0199c4c82a2d2a2152ce8b6"
+"us_legal_lexicon@2026"  = "429a9409eb9870a54aafd57795130a1270aed4608eae6cbf399a4447e54899c0"
+# U.S. Code Title 15 — Commerce and Trade. SHA-256 of the unzipped
+# usc15.xml content (30 MB, ~1,600 sections — Securities Act of 1933
+# §§ 77a–77aa, Securities Exchange Act of 1934 §§ 78a et seq., the
+# antitrust statutes (Sherman Act §§ 1–7 are at 15 U.S.C. §§ 1–7),
+# the FTC Act, and consumer-protection chapters) from release point
+# pl-119-90. SOX-relevant slices live here: § 78j(b) Rule 10b-5
+# (securities fraud, the underlying conduct § 1514A protects
+# reporting of); § 78m Section 13 (SOX § 302/§ 404 codifications);
+# § 78u-6 (Dodd-Frank SEC whistleblower); § 78ff Section 32
+# (criminal penalties); § 78f-1(c)(2)(B) (SOX § 301 audit-committee
+# independence). The .zip wrapper sha256 is not stored — `pr4xis
+# update` verifies the inner XML matches.
+"usc_title_15@pl-119-90" = "9b851f3d85cb72c4ba744a4d859b24885ad30ab378592544f7054fe4a97fdc77"
 # U.S. Code Title 18 — Crimes and Criminal Procedure. SHA-256 of
 # the unzipped usc18.xml content (12 MB, 1,428 sections, ~28k cross-
 # references) from release point pl-119-90. The .zip wrapper sha256
