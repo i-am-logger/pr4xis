@@ -827,18 +827,23 @@ fn parse_intsubset_items(
             skip_until_close_angle(&mut probe)?;
             let decl_end = probe.pos;
             let decl_text = &c.input[decl_start..decl_end];
-            let expanded_owned;
-            let to_match: &str = if decl_text.contains('%') && !parameter_entities.is_empty() {
-                expanded_owned = expand_pe_references(decl_text, parameter_entities);
-                &expanded_owned
-            } else {
-                decl_text
-            };
+            // §4.4.8 WFC: PEs in Internal Subset — "in the internal
+            // DTD subset, parameter-entity references MUST NOT occur
+            // within markup declarations". The grammar match below
+            // structurally enforces this: the loaded W3C productions
+            // for elementdecl / AttlistDecl / NotationDecl never name
+            // `%Name;` as a permitted token inside the body, so any
+            // `%` here surfaces as a NoMatch and rejects the
+            // surrounding declaration. PE expansion inside markup
+            // decls is allowed only in the external subset, which the
+            // praxis parser does not load (the WFC explicitly carves
+            // that out). xmlconf ibm/not-wf/P29/ibm29n03 regresses
+            // without this strict reading.
             let grammar = crate::social::software::markup::xml::spec_1_0::loaded_xml_1_0_grammar();
-            let mut interp = pr4xis::xml_grammar::Interpreter::new(grammar, to_match);
+            let mut interp = pr4xis::xml_grammar::Interpreter::new(grammar, decl_text);
             match interp.match_production(production_name, 0) {
                 pr4xis::xml_grammar::MatchResult::Match { end_pos }
-                    if end_pos == to_match.len() =>
+                    if end_pos == decl_text.len() =>
                 {
                     c.pos = decl_end;
                     continue;
@@ -883,47 +888,6 @@ fn parse_intsubset_items(
         }
         return Err(c.syntax_error("intSubset entry or `]`", &c.preview()));
     }
-}
-
-/// W3C XML 1.0 §4.4.8 "Included as PE": substitute every `%name;`
-/// reference in `text` with the corresponding PE's replacement
-/// text, surrounded by a leading and trailing space (#x20) so the
-/// replacement forms a complete grammatical token in the expanded
-/// DTD.
-///
-/// References to undefined names are left in place — the spec calls
-/// this a validity-error situation, not a well-formedness violation;
-/// the subsequent markup-decl match will reject the expanded text
-/// if the unresolved `%name;` makes it ungrammatical.
-fn expand_pe_references(text: &str, pes: &[(String, String)]) -> String {
-    let mut out = String::with_capacity(text.len());
-    let bytes = text.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' {
-            let after_percent = &text[i + 1..];
-            if let Some(semi_rel) = after_percent.find(';') {
-                let candidate = &after_percent[..semi_rel];
-                let looks_like_name = !candidate.is_empty()
-                    && candidate
-                        .chars()
-                        .all(|ch| !ch.is_whitespace() && ch != '%' && ch != ';');
-                if looks_like_name {
-                    if let Some((_, value)) = pes.iter().find(|(n, _)| n == candidate) {
-                        out.push(' ');
-                        out.push_str(value);
-                        out.push(' ');
-                        i += 1 + semi_rel + 1;
-                        continue;
-                    }
-                }
-            }
-        }
-        let ch = text[i..].chars().next().expect("non-empty by loop guard");
-        out.push(ch);
-        i += ch.len_utf8();
-    }
-    out
 }
 
 /// W3C XML 1.0 §4.2 production [70/71] `GEDecl`:
@@ -1037,10 +1001,23 @@ fn parse_entity_decl(
 
 /// §4.7 [76] `NDataDecl ::= S 'NDATA' S Name` — optional in
 /// general-entity declarations marking an unparsed entity.
+///
+/// The leading S is required by [76] when an NDataDecl is present:
+/// `<!ENTITY foo SYSTEM "x"NDATA eps>` (no space between `"x"` and
+/// `NDATA`) is malformed. xmlconf xmltest/not-wf/sa/069.xml is the
+/// spec regression — the comment in that file even names the
+/// constraint ("missing space before NDATA").
 fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     let save = c.pos;
-    c.skip_whitespace();
+    let consumed_any_s = {
+        let before = c.pos;
+        c.skip_whitespace();
+        c.pos > before
+    };
     if c.starts_with("NDATA") {
+        if !consumed_any_s {
+            return Err(c.syntax_error("S (whitespace) before `NDATA`", "NDATA"));
+        }
         c.consume("NDATA")?;
         c.require_whitespace("NDataDecl Name")?;
         let _ = parse_name(c)?;
