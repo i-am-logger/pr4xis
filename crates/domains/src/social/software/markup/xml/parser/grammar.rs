@@ -382,10 +382,29 @@ impl<'a> Cursor<'a> {
 fn parse_prolog(
     c: &mut Cursor<'_>,
 ) -> Result<(String, Option<String>, Option<XmlDoctype>), XmlParseError> {
-    c.skip_whitespace();
+    // §2.8 — "The XML declaration MUST be the first thing in the
+    // document." Whitespace, comments, or PIs before `<?xml ...?>`
+    // are well-formedness errors. xmlconf xmltest/not-wf/sa/147
+    // (blank line before XMLDecl) is the spec regression.
+    let prolog_start = c.pos;
     let (version, encoding) = if c.starts_with("<?xml") {
         parse_xml_decl(c)?
     } else {
+        // Skip any leading whitespace before scanning further —
+        // documents without XMLDecl may legitimately begin with
+        // whitespace before Misc or the doctype.
+        c.skip_whitespace();
+        // …but if an XMLDecl shows up *after* whitespace, that's
+        // not-wf per §2.8. The check is: if any character was
+        // consumed by skip_whitespace AND the next token is
+        // `<?xml`, reject.
+        if c.pos > prolog_start && c.starts_with("<?xml") {
+            return Err(XmlParseError::Syntax {
+                position: prolog_start,
+                expected: "XMLDecl at document start (§2.8: must be first thing)".into(),
+                found: "whitespace".into(),
+            });
+        }
         ("1.0".into(), None)
     };
     parse_misc_star(c)?;

@@ -88,14 +88,21 @@ pub struct CaseOutcome {
 pub fn run_case(case: &ConformanceCase) -> CaseOutcome {
     let parse_result = parse_document(case.source);
     let (passed, detail) = match (case.case_type, &parse_result) {
-        (CaseType::Valid, Ok(_)) | (CaseType::Invalid, Ok(_)) | (CaseType::Error, Ok(_)) => {
+        (CaseType::Valid, Ok(_)) | (CaseType::Invalid, Ok(_)) => {
             (true, "accepted as expected".into())
         }
-        (CaseType::Valid, Err(e)) | (CaseType::Invalid, Err(e)) | (CaseType::Error, Err(e)) => {
+        (CaseType::Valid, Err(e)) | (CaseType::Invalid, Err(e)) => {
             (false, format!("must accept but rejected: {e}"))
         }
         (CaseType::NotWellFormed, Err(_)) => (true, "rejected as expected".into()),
         (CaseType::NotWellFormed, Ok(_)) => (false, "must reject but accepted".into()),
+        // W3C XML Conformance Test Suite, testcases.dtd:
+        //   TYPE="error" — "Optional error: the parser MAY accept
+        //   or reject; the specification is neutral on the outcome."
+        // Either outcome counts as a pass; the detail records the
+        // observed behavior for the diagnostic record.
+        (CaseType::Error, Ok(_)) => (true, "accepted (optional-error case)".into()),
+        (CaseType::Error, Err(e)) => (true, format!("rejected (optional-error case): {e}")),
     };
     CaseOutcome {
         case_id: case.id,
