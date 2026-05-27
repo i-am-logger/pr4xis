@@ -193,20 +193,32 @@ fn walk_test_elements(
 }
 
 /// Project one `<TEST>` element to an [`XmlConfCase`], or `None`
-/// if the required attributes are missing or carry unrecognised
-/// values, **or** if the test's `EDITION` attribute lists XML 1.0
-/// editions but excludes the Fifth Edition the praxis parser
-/// implements.
+/// when the test is out of scope for the praxis parser:
 ///
-/// The XMLConf testcases.dtd defines `EDITION` as a whitespace-
-/// separated list of XML 1.0 edition numbers a test applies to;
-/// absence of the attribute means "all editions". The §B
-/// Character Classes (Letter / BaseChar / Ideographic /
-/// CombiningChar / Digit / Extender — productions [85]–[89])
-/// were removed in the Fifth Edition in favor of Unicode-range
-/// NameStartChar / NameChar definitions, so the 4e-era `not-wf`
-/// tests of characters outside the Letter class (`EDITION="1 2
-/// 3 4"`) are well-formed in 5e and must be excluded.
+/// 1. Missing/unrecognised `URI` or `TYPE` attribute.
+/// 2. `EDITION` attribute lists XML 1.0 editions but excludes the
+///    Fifth Edition the praxis parser implements. The §B Character
+///    Classes (Letter / BaseChar / Ideographic / CombiningChar /
+///    Digit / Extender — productions [85]–[89]) were removed in 5e
+///    in favour of Unicode-range NameStartChar / NameChar; the
+///    4e-era `not-wf` tests of characters outside the Letter class
+///    (`EDITION="1 2 3 4"`) are well-formed in 5e and must be
+///    excluded.
+/// 3. `not-wf` case with `ENTITIES != "none"` — the malformedness
+///    is in an external entity the parser would need to fetch to
+///    surface it, and praxis is intentionally a non-validating
+///    single-document parser. The XMLConf testcases.dtd itself
+///    documents this:
+///
+///    > The type of (external) ENTITIES required affect the
+///    > results permitted for certain types of nonvalidating
+///    > parsers. In some cases, errors (even well-formedness
+///    > errors) can't be seen [without loading external entities].
+///
+///    `valid` and `invalid` cases with external entities stay in
+///    the audit because a well-formed document is still well-
+///    formed without resolving external references — the praxis
+///    parser may legitimately accept them.
 fn case_from_test(
     test: &crate::social::software::markup::xml::ontology::XmlElement,
     meta_dir: &std::path::Path,
@@ -224,6 +236,12 @@ fn case_from_test(
         if !applies_to_5e {
             return None;
         }
+    }
+    if case_type == XmlConfType::NotWf
+        && let Some(entities) = attr_value(test, "ENTITIES")
+        && entities != "none"
+    {
+        return None;
     }
     Some(XmlConfCase {
         doc_path: meta_dir.join(&uri),
