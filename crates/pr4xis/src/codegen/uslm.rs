@@ -54,20 +54,155 @@ use quick_xml::reader::Reader;
 
 use super::statute::{RawRel, RawRelation, RawStatuteDoc, RawTerm};
 
-/// USLM container element names — the hierarchy inside a §.
+/// Tokenizer dispatch result for a USLM element name encountered
+/// during stream parse. Both STag (open-tag) and ETag (close-tag)
+/// handlers branch on this classification, so the legacy
+/// duplicated byte-string match arms reduce to one
+/// `config.classify(name) -> UslmElementClass` call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UslmElementClass {
+    /// One of the hierarchical containers (`section`, `subsection`,
+    /// …); opens a new mereological child frame.
+    Container,
+    /// `<heading>` — capture-target for the surrounding container's
+    /// display name.
+    Heading,
+    /// `<chapeau>` / `<content>` — capture-target for the
+    /// surrounding container's body text.
+    Body,
+    /// `<num>` / `<ref>` / `<inline>` / `<i>` / `<b>` — text inside
+    /// continues accumulating into whichever capture target is
+    /// open (an inline ornament inside a heading is part of the
+    /// heading).
+    InlineOrnament,
+    /// `<note>` / `<footnote>` — text inside is suppressed from
+    /// the capture (footnotes don't contribute to the body or
+    /// heading of the surrounding container).
+    Suppressed,
+    /// Any other USLM element — the tokenizer ignores it.
+    Other,
+}
+
+/// USLM tokenizer configuration: the element-name classification
+/// the stream-parse dispatches on.
 ///
-/// Strictly nested per the USLM schema; encountering one of these
-/// elements while parsing always opens a new mereological child.
-const CONTAINER_TAGS: &[&[u8]] = &[
-    b"section",
-    b"subsection",
-    b"paragraph",
-    b"subparagraph",
-    b"clause",
-    b"subclause",
-    b"item",
-    b"subitem",
-];
+/// The `container_tags` set is the W3C XSD 1.1 Part 1 §3.3.6
+/// substitution-group `"level"` members in the LRC USLM XSD
+/// (LRC USLM XML User Guide § "Hierarchical Levels"). Callers
+/// with access to the loaded USLM XSD ontology SHOULD construct
+/// the config via the level-substitution-group accessor (see
+/// pr4xis-domains' `uslm_corpus_tokenizer_config_from_loaded_xsd`)
+/// rather than relying on [`Self::default_uslm_1_0`], so the
+/// container set tracks the loaded XSD per
+/// `feedback_bottom_up_loaded_not_encoded`.
+///
+/// The other four sets (`heading_tags`, `body_tags`,
+/// `ornament_tags`, `suppressed_tags`) are USLM semantic
+/// groupings the schema does NOT formalize as XSD substitution
+/// groups — they are documented USLM 1.0 conventions (LRC USLM
+/// XML User Guide §§ "Headings", "Body Text Containers",
+/// "Inline Ornaments", "Notes and Footnotes"). They stay as
+/// cited defaults until those conventions land as an XSD
+/// group structure.
+#[derive(Debug, Clone)]
+pub struct UslmTokenizerConfig {
+    /// Substitution-group "level" members per LRC USLM XSD.
+    pub container_tags: Vec<Vec<u8>>,
+    /// Heading elements per LRC USLM User Guide § "Headings".
+    pub heading_tags: Vec<Vec<u8>>,
+    /// Body-text containers per LRC USLM User Guide
+    /// § "Body Text Containers".
+    pub body_tags: Vec<Vec<u8>>,
+    /// Inline ornaments per LRC USLM User Guide § "Inline Markup".
+    pub ornament_tags: Vec<Vec<u8>>,
+    /// Suppressed-capture elements (notes, footnotes).
+    pub suppressed_tags: Vec<Vec<u8>>,
+}
+
+impl UslmTokenizerConfig {
+    /// USLM 1.0 default — the element classification used by the
+    /// LRC's USLM corpus through release pl-119-90 (2026-Q1).
+    /// Container set: `section` plus the 7 substitution-group
+    /// "level" subdivisions. Caller WITH access to the loaded
+    /// USLM XSD should prefer the XSD-grounded constructor; this
+    /// default exists for callers that have no XSD instance handy
+    /// (e.g. build.rs paths in crates that don't depend on
+    /// pr4xis-domains).
+    #[must_use]
+    pub fn default_uslm_1_0() -> Self {
+        Self {
+            container_tags: vec![
+                b"section".to_vec(),
+                b"subsection".to_vec(),
+                b"paragraph".to_vec(),
+                b"subparagraph".to_vec(),
+                b"clause".to_vec(),
+                b"subclause".to_vec(),
+                b"item".to_vec(),
+                b"subitem".to_vec(),
+            ],
+            heading_tags: vec![b"heading".to_vec()],
+            body_tags: vec![b"chapeau".to_vec(), b"content".to_vec()],
+            ornament_tags: vec![
+                b"num".to_vec(),
+                b"ref".to_vec(),
+                b"inline".to_vec(),
+                b"i".to_vec(),
+                b"b".to_vec(),
+            ],
+            suppressed_tags: vec![b"note".to_vec(), b"footnote".to_vec()],
+        }
+    }
+
+    /// Construct a config with `container_tags` derived from the
+    /// supplied substitution-group-"level" members. Other sets stay
+    /// at the [`Self::default_uslm_1_0`] values. Used by pr4xis-
+    /// domains build.rs / runtime paths that have the loaded USLM
+    /// XSD ontology and want the container set to follow the loaded
+    /// schema per `feedback_bottom_up_loaded_not_encoded`.
+    ///
+    /// `level_members` is the output of
+    /// `XsdOntologyInstance::substitution_group_members("level")` —
+    /// the reflexive-transitive set of XSD `<xs:element>` declarations
+    /// participating in the level substitution group.
+    #[must_use]
+    pub fn from_level_substitution_group(level_members: &[&str]) -> Self {
+        let mut config = Self::default_uslm_1_0();
+        config.container_tags = level_members
+            .iter()
+            .map(|s| s.as_bytes().to_vec())
+            .collect();
+        // The XSD doesn't include `section` as a level member in
+        // every revision, but the streaming tokenizer must treat
+        // `<section>` as a container (it's the top-level
+        // mereological frame). Add it if absent.
+        if !config.container_tags.iter().any(|t| t == b"section") {
+            config.container_tags.push(b"section".to_vec());
+        }
+        config
+    }
+
+    /// Classify a USLM element name into one of the five tokenizer
+    /// dispatch classes. The classifier walks the configured tag
+    /// sets in priority order (container → heading → body →
+    /// ornament → suppressed); the first match wins.
+    #[must_use]
+    pub fn classify(&self, name: &[u8]) -> UslmElementClass {
+        if self.container_tags.iter().any(|t| t.as_slice() == name) {
+            UslmElementClass::Container
+        } else if self.heading_tags.iter().any(|t| t.as_slice() == name) {
+            UslmElementClass::Heading
+        } else if self.body_tags.iter().any(|t| t.as_slice() == name) {
+            UslmElementClass::Body
+        } else if self.ornament_tags.iter().any(|t| t.as_slice() == name) {
+            UslmElementClass::InlineOrnament
+        } else if self.suppressed_tags.iter().any(|t| t.as_slice() == name) {
+            UslmElementClass::Suppressed
+        } else {
+            UslmElementClass::Other
+        }
+    }
+}
 
 /// Errors that can arise while parsing a USLM XML file.
 #[derive(Debug)]
@@ -111,9 +246,28 @@ pub fn parse_uslm_xml(
     section_identifier: &str,
     statute_name: &str,
 ) -> Result<RawStatuteDoc, ParseError> {
+    parse_uslm_xml_with_config(
+        path,
+        section_identifier,
+        statute_name,
+        &UslmTokenizerConfig::default_uslm_1_0(),
+    )
+}
+
+/// XSD-grounded variant of [`parse_uslm_xml`] — accepts a
+/// [`UslmTokenizerConfig`] whose `container_tags` set can be derived
+/// from the loaded USLM XSD via
+/// [`UslmTokenizerConfig::from_level_substitution_group`] for
+/// `feedback_bottom_up_loaded_not_encoded`-compliant operation.
+pub fn parse_uslm_xml_with_config(
+    path: &Path,
+    section_identifier: &str,
+    statute_name: &str,
+    config: &UslmTokenizerConfig,
+) -> Result<RawStatuteDoc, ParseError> {
     let xml = std::fs::read_to_string(path)
         .map_err(|e| ParseError::Read(path.display().to_string(), e))?;
-    parse_uslm_str(&xml, section_identifier, statute_name)
+    parse_uslm_str_with_config(&xml, section_identifier, statute_name, config)
 }
 
 /// Walk every `<section>` in a USLM title XML and produce a
@@ -126,12 +280,33 @@ pub fn parse_uslm_title_all_sections(path: &Path) -> Result<Vec<RawStatuteDoc>, 
     parse_uslm_title_all_sections_str(&xml)
 }
 
-/// In-memory variant of [`parse_uslm_title_all_sections`].
+/// XSD-grounded variant of [`parse_uslm_title_all_sections`].
+pub fn parse_uslm_title_all_sections_with_config(
+    path: &Path,
+    config: &UslmTokenizerConfig,
+) -> Result<Vec<RawStatuteDoc>, ParseError> {
+    let xml = std::fs::read_to_string(path)
+        .map_err(|e| ParseError::Read(path.display().to_string(), e))?;
+    parse_uslm_title_all_sections_str_with_config(&xml, config)
+}
+
+/// In-memory variant of [`parse_uslm_title_all_sections`] — uses
+/// the [`UslmTokenizerConfig::default_uslm_1_0`] tag classification.
+pub fn parse_uslm_title_all_sections_str(xml: &str) -> Result<Vec<RawStatuteDoc>, ParseError> {
+    parse_uslm_title_all_sections_str_with_config(xml, &UslmTokenizerConfig::default_uslm_1_0())
+}
+
+/// XSD-grounded variant of [`parse_uslm_title_all_sections_str`].
 ///
 /// Single-pass stream parse — walks the XML once, emitting a
 /// `RawStatuteDoc` each time a `<section>` element closes. Total
-/// work is O(XML_size), independent of section count.
-pub fn parse_uslm_title_all_sections_str(xml: &str) -> Result<Vec<RawStatuteDoc>, ParseError> {
+/// work is O(XML_size), independent of section count. Dispatch on
+/// each element is driven by `config.classify(name)` — no
+/// hand-coded byte-string match arms remain.
+pub fn parse_uslm_title_all_sections_str_with_config(
+    xml: &str,
+    config: &UslmTokenizerConfig,
+) -> Result<Vec<RawStatuteDoc>, ParseError> {
     let mut reader = Reader::from_str(xml);
     let mut buf = Vec::new();
     let mut docs: Vec<RawStatuteDoc> = Vec::new();
@@ -180,41 +355,39 @@ pub fn parse_uslm_title_all_sections_str(xml: &str) -> Result<Vec<RawStatuteDoc>
                     continue;
                 };
 
-                if CONTAINER_TAGS.contains(&name_bytes.as_slice()) {
-                    let identifier = attr(e, b"identifier");
-                    let id = identifier
-                        .as_deref()
-                        .map(|s| identifier_to_curie(s, &sc.identifier, &sc.statute_name))
-                        .unwrap_or_else(|| {
-                            format!("{}:unknown_{}", sc.statute_name, sc.stack.len())
+                match config.classify(&name_bytes) {
+                    UslmElementClass::Container => {
+                        let identifier = attr(e, b"identifier");
+                        let id = identifier
+                            .as_deref()
+                            .map(|s| identifier_to_curie(s, &sc.identifier, &sc.statute_name))
+                            .unwrap_or_else(|| {
+                                format!("{}:unknown_{}", sc.statute_name, sc.stack.len())
+                            });
+                        sc.stack.push(ContainerFrame {
+                            tag: name_bytes.clone(),
+                            id,
+                            heading: String::new(),
+                            body: String::new(),
                         });
-                    sc.stack.push(ContainerFrame {
-                        tag: name_bytes.clone(),
-                        id,
-                        heading: String::new(),
-                        body: String::new(),
-                    });
-                } else {
-                    match name_bytes.as_slice() {
-                        b"heading" => {
-                            sc.text_target = Some(TextTarget::Heading);
-                            sc.text_buf.clear();
-                        }
-                        b"chapeau" | b"content" => {
-                            sc.text_target = Some(TextTarget::Body);
-                            sc.text_buf.clear();
-                        }
-                        b"num" | b"ref" | b"inline" | b"i" | b"b" => {
-                            // Inline ornaments — text continues
-                            // accumulating into whichever target is
-                            // open.
-                        }
-                        b"note" | b"footnote" => {
-                            sc.text_target = Some(TextTarget::Suppressed);
-                            sc.text_buf.clear();
-                        }
-                        _ => {}
                     }
+                    UslmElementClass::Heading => {
+                        sc.text_target = Some(TextTarget::Heading);
+                        sc.text_buf.clear();
+                    }
+                    UslmElementClass::Body => {
+                        sc.text_target = Some(TextTarget::Body);
+                        sc.text_buf.clear();
+                    }
+                    UslmElementClass::InlineOrnament => {
+                        // Text continues accumulating into whichever
+                        // capture target is open.
+                    }
+                    UslmElementClass::Suppressed => {
+                        sc.text_target = Some(TextTarget::Suppressed);
+                        sc.text_buf.clear();
+                    }
+                    UslmElementClass::Other => {}
                 }
             }
             Ok(Event::Text(ref e)) => {
@@ -236,75 +409,79 @@ pub fn parse_uslm_title_all_sections_str(xml: &str) -> Result<Vec<RawStatuteDoc>
                     continue;
                 };
 
-                if CONTAINER_TAGS.contains(&name_bytes.as_slice()) {
-                    if let Some(frame) = sc.stack.pop() {
-                        let name = if frame.heading.trim().is_empty() {
-                            derive_name_from_id(&frame.id)
-                        } else {
-                            clean_text(&frame.heading)
-                        };
-                        // Definition falls back to the term's name
-                        // when no chapeau/content text is present
-                        // (subsections that only carry nested
-                        // children). Anchoring on the heading keeps
-                        // the term meaningful and the downstream
-                        // structural-data validation non-empty.
-                        let raw_def = clean_text(&frame.body);
-                        let definition = if raw_def.is_empty() {
-                            name.clone()
-                        } else {
-                            raw_def
-                        };
-                        sc.terms.push(RawTerm {
-                            id: frame.id.clone(),
-                            name,
-                            definition,
-                            lemmas: Vec::new(),
-                        });
-                        if let Some(parent) = sc.stack.last() {
-                            sc.relations.push(RawRelation {
-                                from: frame.id,
-                                to: parent.id.clone(),
-                                relation: RawRel::Composes { into: None },
+                match config.classify(&name_bytes) {
+                    UslmElementClass::Container => {
+                        if let Some(frame) = sc.stack.pop() {
+                            let name = if frame.heading.trim().is_empty() {
+                                derive_name_from_id(&frame.id)
+                            } else {
+                                clean_text(&frame.heading)
+                            };
+                            // Definition falls back to the term's name
+                            // when no chapeau/content text is present
+                            // (subsections that only carry nested
+                            // children). Anchoring on the heading keeps
+                            // the term meaningful and the downstream
+                            // structural-data validation non-empty.
+                            let raw_def = clean_text(&frame.body);
+                            let definition = if raw_def.is_empty() {
+                                name.clone()
+                            } else {
+                                raw_def
+                            };
+                            sc.terms.push(RawTerm {
+                                id: frame.id.clone(),
+                                name,
+                                definition,
+                                lemmas: Vec::new(),
+                            });
+                            if let Some(parent) = sc.stack.last() {
+                                sc.relations.push(RawRelation {
+                                    from: frame.id,
+                                    to: parent.id.clone(),
+                                    relation: RawRel::Composes { into: None },
+                                });
+                            }
+                        }
+                        // Leaving the outermost <section> finalizes the
+                        // doc and clears the capture state.
+                        if sc.stack.is_empty() {
+                            let captured = state.take().unwrap();
+                            docs.push(RawStatuteDoc {
+                                name: captured.statute_name,
+                                description: format!("USLM source: {}", captured.identifier),
+                                terms: captured.terms,
+                                relations: captured.relations,
                             });
                         }
                     }
-                    // Leaving the outermost <section> finalizes the
-                    // doc and clears the capture state.
-                    if sc.stack.is_empty() {
-                        let captured = state.take().unwrap();
-                        docs.push(RawStatuteDoc {
-                            name: captured.statute_name,
-                            description: format!("USLM source: {}", captured.identifier),
-                            terms: captured.terms,
-                            relations: captured.relations,
-                        });
+                    UslmElementClass::Heading => {
+                        if let Some(frame) = sc.stack.last_mut() {
+                            frame.heading.push_str(&sc.text_buf);
+                        }
+                        sc.text_target = None;
+                        sc.text_buf.clear();
                     }
-                } else {
-                    match name_bytes.as_slice() {
-                        b"heading" => {
-                            if let Some(frame) = sc.stack.last_mut() {
-                                frame.heading.push_str(&sc.text_buf);
+                    UslmElementClass::Body => {
+                        if let Some(frame) = sc.stack.last_mut() {
+                            if !frame.body.is_empty() {
+                                frame.body.push(' ');
                             }
-                            sc.text_target = None;
-                            sc.text_buf.clear();
+                            frame.body.push_str(&sc.text_buf);
                         }
-                        b"chapeau" | b"content" => {
-                            if let Some(frame) = sc.stack.last_mut() {
-                                if !frame.body.is_empty() {
-                                    frame.body.push(' ');
-                                }
-                                frame.body.push_str(&sc.text_buf);
-                            }
-                            sc.text_target = None;
-                            sc.text_buf.clear();
-                        }
-                        b"note" | b"footnote" => {
-                            sc.text_target = None;
-                            sc.text_buf.clear();
-                        }
-                        _ => {}
+                        sc.text_target = None;
+                        sc.text_buf.clear();
                     }
+                    UslmElementClass::InlineOrnament => {
+                        // Inline ornaments contribute nothing on close
+                        // — text already accumulated into the parent
+                        // target via Event::Text handling.
+                    }
+                    UslmElementClass::Suppressed => {
+                        sc.text_target = None;
+                        sc.text_buf.clear();
+                    }
+                    UslmElementClass::Other => {}
                 }
             }
             Ok(Event::Eof) => break,
@@ -457,6 +634,23 @@ pub fn parse_uslm_str(
     section_identifier: &str,
     statute_name: &str,
 ) -> Result<RawStatuteDoc, ParseError> {
+    parse_uslm_str_with_config(
+        xml,
+        section_identifier,
+        statute_name,
+        &UslmTokenizerConfig::default_uslm_1_0(),
+    )
+}
+
+/// XSD-grounded variant of [`parse_uslm_str`] — accepts a
+/// [`UslmTokenizerConfig`] whose `container_tags` set tracks the
+/// loaded USLM XSD's `substitutionGroup="level"` membership.
+pub fn parse_uslm_str_with_config(
+    xml: &str,
+    section_identifier: &str,
+    statute_name: &str,
+    config: &UslmTokenizerConfig,
+) -> Result<RawStatuteDoc, ParseError> {
     let mut reader = Reader::from_str(xml);
     let mut buf = Vec::new();
 
@@ -473,47 +667,48 @@ pub fn parse_uslm_str(
             Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
                 let name_bytes = e.name().as_ref().to_vec();
 
-                if CONTAINER_TAGS.contains(&name_bytes.as_slice()) {
-                    let identifier = attr(e, b"identifier");
-                    if !in_target_section && identifier.as_deref() == Some(section_identifier) {
-                        in_target_section = true;
-                        target_seen = true;
+                match config.classify(&name_bytes) {
+                    UslmElementClass::Container => {
+                        let identifier = attr(e, b"identifier");
+                        if !in_target_section && identifier.as_deref() == Some(section_identifier) {
+                            in_target_section = true;
+                            target_seen = true;
+                        }
+                        if in_target_section {
+                            let id = identifier
+                                .as_deref()
+                                .map(|s| identifier_to_curie(s, section_identifier, statute_name))
+                                .unwrap_or_else(|| {
+                                    format!("{statute_name}:unknown_{}", stack.len())
+                                });
+                            stack.push(ContainerFrame {
+                                tag: name_bytes.clone(),
+                                id,
+                                heading: String::new(),
+                                body: String::new(),
+                            });
+                        }
                     }
-                    if in_target_section {
-                        let id = identifier
-                            .as_deref()
-                            .map(|s| identifier_to_curie(s, section_identifier, statute_name))
-                            .unwrap_or_else(|| format!("{statute_name}:unknown_{}", stack.len()));
-                        stack.push(ContainerFrame {
-                            tag: name_bytes.clone(),
-                            id,
-                            heading: String::new(),
-                            body: String::new(),
-                        });
+                    UslmElementClass::Heading if in_target_section => {
+                        text_target = Some(TextTarget::Heading);
+                        text_buf.clear();
                     }
-                } else if in_target_section {
-                    match name_bytes.as_slice() {
-                        b"heading" => {
-                            text_target = Some(TextTarget::Heading);
-                            text_buf.clear();
-                        }
-                        b"chapeau" | b"content" => {
-                            text_target = Some(TextTarget::Body);
-                            text_buf.clear();
-                        }
-                        b"num" | b"ref" | b"inline" | b"i" | b"b" => {
-                            // Inline ornaments — keep collecting text
-                            // into whichever target is open.
-                        }
-                        b"note" | b"footnote" => {
-                            // Suppress note/footnote content from
-                            // definitions per the layer's "structural
-                            // shape only" scope.
-                            text_target = Some(TextTarget::Suppressed);
-                            text_buf.clear();
-                        }
-                        _ => {}
+                    UslmElementClass::Body if in_target_section => {
+                        text_target = Some(TextTarget::Body);
+                        text_buf.clear();
                     }
+                    UslmElementClass::Suppressed if in_target_section => {
+                        // Suppress note/footnote content from
+                        // definitions per the layer's "structural
+                        // shape only" scope.
+                        text_target = Some(TextTarget::Suppressed);
+                        text_buf.clear();
+                    }
+                    UslmElementClass::InlineOrnament => {
+                        // Text accumulates into whichever target
+                        // is open.
+                    }
+                    _ => {}
                 }
             }
 
@@ -530,69 +725,69 @@ pub fn parse_uslm_str(
 
             Ok(Event::End(ref e)) => {
                 let name_bytes = e.name().as_ref().to_vec();
-                if CONTAINER_TAGS.contains(&name_bytes.as_slice()) {
-                    if in_target_section {
-                        if let Some(frame) = stack.pop() {
-                            let name = if frame.heading.trim().is_empty() {
-                                derive_name_from_id(&frame.id)
-                            } else {
-                                clean_text(&frame.heading)
-                            };
-                            // Fall back to the name when no
-                            // chapeau/content text — keeps every
-                            // term's definition non-empty.
-                            let raw_def = clean_text(&frame.body);
-                            let definition = if raw_def.is_empty() {
-                                name.clone()
-                            } else {
-                                raw_def
-                            };
-                            terms.push(RawTerm {
-                                id: frame.id.clone(),
-                                name,
-                                definition,
-                                lemmas: Vec::new(),
-                            });
-                            // Mereological edge: child Composes into
-                            // parent. The top-level § has no parent
-                            // within this scope and gets no edge.
-                            if let Some(parent) = stack.last() {
-                                relations.push(RawRelation {
-                                    from: frame.id,
-                                    to: parent.id.clone(),
-                                    relation: RawRel::Composes { into: None },
+                match config.classify(&name_bytes) {
+                    UslmElementClass::Container => {
+                        if in_target_section {
+                            if let Some(frame) = stack.pop() {
+                                let name = if frame.heading.trim().is_empty() {
+                                    derive_name_from_id(&frame.id)
+                                } else {
+                                    clean_text(&frame.heading)
+                                };
+                                // Fall back to the name when no
+                                // chapeau/content text — keeps every
+                                // term's definition non-empty.
+                                let raw_def = clean_text(&frame.body);
+                                let definition = if raw_def.is_empty() {
+                                    name.clone()
+                                } else {
+                                    raw_def
+                                };
+                                terms.push(RawTerm {
+                                    id: frame.id.clone(),
+                                    name,
+                                    definition,
+                                    lemmas: Vec::new(),
                                 });
-                            }
-                        }
-                        if stack.is_empty() {
-                            in_target_section = false;
-                        }
-                    }
-                } else if in_target_section {
-                    match name_bytes.as_slice() {
-                        b"heading" => {
-                            if let Some(frame) = stack.last_mut() {
-                                frame.heading.push_str(&text_buf);
-                            }
-                            text_target = None;
-                            text_buf.clear();
-                        }
-                        b"chapeau" | b"content" => {
-                            if let Some(frame) = stack.last_mut() {
-                                if !frame.body.is_empty() {
-                                    frame.body.push(' ');
+                                // Mereological edge: child Composes
+                                // into parent. The top-level § has
+                                // no parent within this scope and
+                                // gets no edge.
+                                if let Some(parent) = stack.last() {
+                                    relations.push(RawRelation {
+                                        from: frame.id,
+                                        to: parent.id.clone(),
+                                        relation: RawRel::Composes { into: None },
+                                    });
                                 }
-                                frame.body.push_str(&text_buf);
                             }
-                            text_target = None;
-                            text_buf.clear();
+                            if stack.is_empty() {
+                                in_target_section = false;
+                            }
                         }
-                        b"note" | b"footnote" => {
-                            text_target = None;
-                            text_buf.clear();
-                        }
-                        _ => {}
                     }
+                    UslmElementClass::Heading if in_target_section => {
+                        if let Some(frame) = stack.last_mut() {
+                            frame.heading.push_str(&text_buf);
+                        }
+                        text_target = None;
+                        text_buf.clear();
+                    }
+                    UslmElementClass::Body if in_target_section => {
+                        if let Some(frame) = stack.last_mut() {
+                            if !frame.body.is_empty() {
+                                frame.body.push(' ');
+                            }
+                            frame.body.push_str(&text_buf);
+                        }
+                        text_target = None;
+                        text_buf.clear();
+                    }
+                    UslmElementClass::Suppressed if in_target_section => {
+                        text_target = None;
+                        text_buf.clear();
+                    }
+                    _ => {}
                 }
             }
 
@@ -714,6 +909,96 @@ mod tests {
     /// first with two paragraphs, the first paragraph with two
     /// subparagraphs.
     const SAMPLE_USLM: &str = r##"<section identifier="/us/usc/t18/s1514A"><num value="1514A">§ 1514A.</num><heading> Civil action to protect against retaliation in fraud cases</heading><subsection identifier="/us/usc/t18/s1514A/a"><num value="a">(a)</num><heading> <inline class="small-caps">Whistleblower Protection</inline></heading><chapeau>No company may discriminate against an employee—</chapeau><paragraph identifier="/us/usc/t18/s1514A/a/1"><num value="1">(1)</num><chapeau>to provide information—</chapeau><subparagraph identifier="/us/usc/t18/s1514A/a/1/A"><num value="A">(A)</num><content>a Federal regulatory or law enforcement agency;</content></subparagraph><subparagraph identifier="/us/usc/t18/s1514A/a/1/B"><num value="B">(B)</num><content>any Member of Congress;</content></subparagraph></paragraph><paragraph identifier="/us/usc/t18/s1514A/a/2"><num value="2">(2)</num><content>to file a proceeding.</content></paragraph></subsection><subsection identifier="/us/usc/t18/s1514A/b"><num value="b">(b)</num><heading> <inline class="small-caps">Enforcement Action</inline></heading><content>A person who alleges discharge may seek relief.</content></subsection></section>"##;
+
+    #[test]
+    fn default_tokenizer_config_classifies_usml_1_0_elements() {
+        let c = UslmTokenizerConfig::default_uslm_1_0();
+        // The 8 USLM 1.0 container tags all classify as Container.
+        for tag in [
+            b"section".as_ref(),
+            b"subsection".as_ref(),
+            b"paragraph".as_ref(),
+            b"subparagraph".as_ref(),
+            b"clause".as_ref(),
+            b"subclause".as_ref(),
+            b"item".as_ref(),
+            b"subitem".as_ref(),
+        ] {
+            assert_eq!(c.classify(tag), UslmElementClass::Container, "{tag:?}");
+        }
+        assert_eq!(c.classify(b"heading"), UslmElementClass::Heading);
+        assert_eq!(c.classify(b"chapeau"), UslmElementClass::Body);
+        assert_eq!(c.classify(b"content"), UslmElementClass::Body);
+        assert_eq!(c.classify(b"num"), UslmElementClass::InlineOrnament);
+        assert_eq!(c.classify(b"ref"), UslmElementClass::InlineOrnament);
+        assert_eq!(c.classify(b"inline"), UslmElementClass::InlineOrnament);
+        assert_eq!(c.classify(b"i"), UslmElementClass::InlineOrnament);
+        assert_eq!(c.classify(b"b"), UslmElementClass::InlineOrnament);
+        assert_eq!(c.classify(b"note"), UslmElementClass::Suppressed);
+        assert_eq!(c.classify(b"footnote"), UslmElementClass::Suppressed);
+        // Unknown elements project to Other.
+        assert_eq!(c.classify(b"someUnknownTag"), UslmElementClass::Other);
+        assert_eq!(c.classify(b""), UslmElementClass::Other);
+    }
+
+    #[test]
+    fn from_level_substitution_group_preserves_section_as_container() {
+        // Simulate the XSD's level-group membership for a subset
+        // that doesn't include `section` (some USLM revisions
+        // declare the section element separately from the level
+        // substitution group). The constructor must still treat
+        // `<section>` as a container — it's the top-level
+        // mereological frame the stream tokenizer hinges on.
+        let level_members = [
+            "subsection",
+            "paragraph",
+            "subparagraph",
+            "clause",
+            "subclause",
+            "item",
+            "subitem",
+        ];
+        let config = UslmTokenizerConfig::from_level_substitution_group(&level_members);
+        assert_eq!(
+            config.classify(b"section"),
+            UslmElementClass::Container,
+            "section must always classify as Container"
+        );
+        for tag in level_members.iter() {
+            assert_eq!(
+                config.classify(tag.as_bytes()),
+                UslmElementClass::Container,
+                "{tag} should classify as Container"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_uslm_str_with_xsd_grounded_config_matches_default() {
+        // The XSD-grounded config built from a level-group set
+        // equivalent to the USLM 1.0 default must produce
+        // byte-identical RawStatuteDoc output for the same input.
+        let default_doc =
+            parse_uslm_str(SAMPLE_USLM, "/us/usc/t18/s1514A", "sox_1514a").expect("parse");
+        let xsd_config = UslmTokenizerConfig::from_level_substitution_group(&[
+            "subsection",
+            "paragraph",
+            "subparagraph",
+            "clause",
+            "subclause",
+            "item",
+            "subitem",
+        ]);
+        let xsd_doc =
+            parse_uslm_str_with_config(SAMPLE_USLM, "/us/usc/t18/s1514A", "sox_1514a", &xsd_config)
+                .expect("parse");
+        assert_eq!(default_doc.terms.len(), xsd_doc.terms.len());
+        assert_eq!(default_doc.relations.len(), xsd_doc.relations.len());
+        for (lhs, rhs) in default_doc.terms.iter().zip(xsd_doc.terms.iter()) {
+            assert_eq!(lhs.id, rhs.id);
+            assert_eq!(lhs.name, rhs.name);
+        }
+    }
 
     #[test]
     fn parses_section_into_term_per_container() {
