@@ -194,7 +194,19 @@ fn walk_test_elements(
 
 /// Project one `<TEST>` element to an [`XmlConfCase`], or `None`
 /// if the required attributes are missing or carry unrecognised
-/// values.
+/// values, **or** if the test's `EDITION` attribute lists XML 1.0
+/// editions but excludes the Fifth Edition the praxis parser
+/// implements.
+///
+/// The XMLConf testcases.dtd defines `EDITION` as a whitespace-
+/// separated list of XML 1.0 edition numbers a test applies to;
+/// absence of the attribute means "all editions". The §B
+/// Character Classes (Letter / BaseChar / Ideographic /
+/// CombiningChar / Digit / Extender — productions [85]–[89])
+/// were removed in the Fifth Edition in favor of Unicode-range
+/// NameStartChar / NameChar definitions, so the 4e-era `not-wf`
+/// tests of characters outside the Letter class (`EDITION="1 2
+/// 3 4"`) are well-formed in 5e and must be excluded.
 fn case_from_test(
     test: &crate::social::software::markup::xml::ontology::XmlElement,
     meta_dir: &std::path::Path,
@@ -207,6 +219,12 @@ fn case_from_test(
         "error" => XmlConfType::Error,
         _ => return None,
     };
+    if let Some(edition) = attr_value(test, "EDITION") {
+        let applies_to_5e = edition.split_whitespace().any(|e| e == "5");
+        if !applies_to_5e {
+            return None;
+        }
+    }
     Some(XmlConfCase {
         doc_path: meta_dir.join(&uri),
         case_type,
@@ -457,5 +475,52 @@ mod tests {
     #[test]
     fn axiom_holds() {
         assert!(XmlConfCorpusAuditPasses.verify().is_ok());
+    }
+
+    /// Diagnostic: bucket the divergences (valid+invalid rejected,
+    /// not-wf accepted) by the xmlconf submanifest containing each
+    /// case, so the M5.ζ.5 conformance push can patch the largest
+    /// clusters first. Ignored by default — run with
+    /// `cargo test bucket_divergences -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn bucket_divergences() {
+        use std::collections::BTreeMap;
+        let Some(corpus) = loaded_xmlconf() else {
+            return;
+        };
+        let mut buckets: BTreeMap<String, [usize; 3]> = BTreeMap::new();
+        // [valid-rejected, invalid-rejected, not-wf-accepted]
+        for case in corpus.cases() {
+            let Ok(bytes) = std::fs::read(&case.doc_path) else {
+                continue;
+            };
+            let ok = parse_document(&bytes).is_ok();
+            let path_str = case.doc_path.display().to_string();
+            let bucket = path_str
+                .rsplit("/xmlconf/")
+                .next()
+                .and_then(|s| {
+                    let mut parts = s.splitn(4, '/');
+                    let a = parts.next()?;
+                    let b = parts.next()?;
+                    let c = parts.next().unwrap_or("");
+                    Some(format!("{a}/{b}/{c}"))
+                })
+                .unwrap_or_else(|| "unknown".to_string());
+            let counts = buckets.entry(bucket).or_insert([0, 0, 0]);
+            match (case.case_type, ok) {
+                (XmlConfType::Valid, false) => counts[0] += 1,
+                (XmlConfType::Invalid, false) => counts[1] += 1,
+                (XmlConfType::NotWf, true) => counts[2] += 1,
+                _ => {}
+            }
+        }
+        println!("submanifest, valid-rejected, invalid-rejected, not-wf-accepted");
+        for (k, v) in &buckets {
+            if v[0] + v[1] + v[2] > 0 {
+                println!("{},{},{},{}", k, v[0], v[1], v[2]);
+            }
+        }
     }
 }
