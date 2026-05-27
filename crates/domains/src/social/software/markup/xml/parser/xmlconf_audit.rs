@@ -477,6 +477,32 @@ mod tests {
         assert!(XmlConfCorpusAuditPasses.verify().is_ok());
     }
 
+    /// Diagnostic: list the valid (or invalid) cases the parser
+    /// rejects. Use `PROBE_PATH` to narrow to a submanifest.
+    #[test]
+    #[ignore]
+    fn probe_rejected_valid() {
+        let Some(corpus) = loaded_xmlconf() else {
+            return;
+        };
+        let filter = std::env::var("PROBE_PATH").unwrap_or_default();
+        for case in corpus.cases() {
+            if !matches!(case.case_type, XmlConfType::Valid | XmlConfType::Invalid) {
+                continue;
+            }
+            let p = case.doc_path.display().to_string();
+            if !filter.is_empty() && !p.contains(&filter) {
+                continue;
+            }
+            let Ok(bytes) = std::fs::read(&case.doc_path) else {
+                continue;
+            };
+            if let Err(e) = parse_document(&bytes) {
+                println!("REJECTED ({:?}): {} :: {}", case.case_type, p, e);
+            }
+        }
+    }
+
     /// Diagnostic: print the parse outcome (ACCEPT or REJECT) for
     /// every accepted not-wf case in a chosen submanifest path.
     /// Ignored by default — run with

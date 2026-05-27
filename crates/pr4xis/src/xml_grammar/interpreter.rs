@@ -14,15 +14,39 @@
 //! | [`NonTerminal(n)`]      | recursively matches the named production                  |
 //! | [`CharClass(rs)`]       | succeeds on one Unicode code point inside one of `rs`     |
 //! | [`Sequence(items)`]     | each item matches in order; cursor advances between       |
-//! | [`Alternation(brs)`]    | tries branches left-to-right; first match wins            |
+//! | [`Alternation(brs)`]    | tries every branch; longest match wins (leftmost on tie)  |
 //! | [`Optional(t)`]         | always succeeds; advances iff `t` matched                 |
 //! | [`ZeroOrMore(t)`]       | greedy Kleene closure; always succeeds                    |
 //! | [`OneOrMore(t)`]        | greedy positive closure; `t` must match at least once     |
 //! | [`Subtraction(a, b)`]   | `a` matches AND that same text doesn't also match `b`     |
 //!
-//! Per Ford 2004 §2.2, alternation is **ordered choice** — there is
-//! no ambiguity, no longer-match preference; the first branch that
-//! matches is the result.
+//! ## Alternation semantics — longest-match, not PEG ordered choice
+//!
+//! Ford's PEG (2004 §2.2) makes alternation ordered: the first
+//! branch that matches wins. That semantics is wrong for the W3C
+//! XML 1.0 grammar, which is **context-free** and assumes the
+//! conventional CFG resolution: when several branches match,
+//! prefer the longest. Concretely, §3.3.1 [56]
+//! `TokenizedType ::= 'ID' | 'IDREF' | 'IDREFS' | 'ENTITY' |
+//! 'ENTITIES' | 'NMTOKEN' | 'NMTOKENS'` lists shorter prefixes
+//! first; on input `IDREFS`, PEG ordered choice would commit to
+//! the 2-char `ID` match, the outer rule would then expect S, and
+//! the whole declaration would be (wrongly) rejected — the spec's
+//! intent is clearly to match `IDREFS` greedily. Birman & Ullman's
+//! *Top-Down Parsing with Selectable Outputs* (TDPL/GTDPL, 1973)
+//! formalises an alternative recursive-descent semantics that
+//! commits to the longest matching alternative; the praxis
+//! interpreter implements that.
+//!
+//! Concretely, [`match_term`]'s `Alternation` arm tries every
+//! branch from the same start position and keeps the largest
+//! `end_pos`. On a tie, the leftmost (smaller-index) branch wins
+//! — same convention as POSIX regex BRE/ERE and as `lex`/`flex`
+//! (Lesk 1975).
+//!
+//! See Mascarenhas, Medeiros & Ierusalimschy (2014) *Science of
+//! Computer Programming* 96.2 on the gap between CFG and PEG and
+//! the role of choice-semantics in bridging them.
 //!
 //! ## Linear-time guarantee — Packrat memoisation
 //!
@@ -173,12 +197,24 @@ impl<'g, 'i> Interpreter<'g, 'i> {
                 MatchResult::Match { end_pos: current }
             }
             Term::Alternation(branches) => {
+                // Longest-match alternation (see module-doc:
+                // "Alternation semantics") — try every branch from
+                // `pos` and keep the largest `end_pos`. Birman &
+                // Ullman 1973 (GTDPL). On a tie the leftmost
+                // (earlier-declared) branch wins, matching the
+                // POSIX regex / lex(1) convention.
+                let mut best: Option<usize> = None;
                 for branch in branches {
-                    if let MatchResult::Match { end_pos } = self.match_term(branch, pos) {
-                        return MatchResult::Match { end_pos };
+                    if let MatchResult::Match { end_pos } = self.match_term(branch, pos)
+                        && best.is_none_or(|b| end_pos > b)
+                    {
+                        best = Some(end_pos);
                     }
                 }
-                MatchResult::NoMatch
+                match best {
+                    Some(end_pos) => MatchResult::Match { end_pos },
+                    None => MatchResult::NoMatch,
+                }
             }
             Term::Optional(inner) => match self.match_term(inner, pos) {
                 MatchResult::Match { end_pos } => MatchResult::Match { end_pos },
@@ -330,8 +366,14 @@ mod tests {
     }
 
     #[test]
-    fn matches_alternation_first_branch_wins_ordered_choice() {
-        // Per Ford 2004 §2.2 — ordered choice; first match wins.
+    fn matches_alternation_longest_branch_wins() {
+        // The W3C XML 1.0 grammar is CFG-style, so alternation here
+        // is longest-match (Birman & Ullman 1973 GTDPL "longest"
+        // selection), not Ford-PEG ordered choice. This is the
+        // module-doc-cited deviation; without it, productions like
+        // §3.3.1 [56] `TokenizedType ::= 'ID' | 'IDREF' | 'IDREFS' |
+        // ...` would commit to a 2-char prefix and the surrounding
+        // declaration would fail.
         let spec = "
             <prod id=\"NT-X\" num=\"99\">
                 <lhs>X</lhs>
@@ -340,9 +382,23 @@ mod tests {
         ";
         let grammar = load_grammar(spec).unwrap();
         let mut interp = Interpreter::new(&grammar, "abcdef");
-        // PEG: the first branch "abc" matches greedily up to 3 chars;
-        // we don't backtrack to try the longer one.
-        assert!(matches_completely(interp.match_production("X", 0), 3));
+        // The longer alternative wins even though it appears second.
+        assert!(matches_completely(interp.match_production("X", 0), 6));
+    }
+
+    #[test]
+    fn matches_alternation_leftmost_wins_on_tie() {
+        // Tie-breaking convention (POSIX regex / lex(1)): equal-length
+        // matches go to the leftmost (earlier-declared) branch.
+        let spec = "
+            <prod id=\"NT-X\" num=\"99\">
+                <lhs>X</lhs>
+                <rhs>\"ab\" | \"ab\"</rhs>
+            </prod>
+        ";
+        let grammar = load_grammar(spec).unwrap();
+        let mut interp = Interpreter::new(&grammar, "ab");
+        assert!(matches_completely(interp.match_production("X", 0), 2));
     }
 
     #[test]
