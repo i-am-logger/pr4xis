@@ -3742,7 +3742,12 @@ fn axiom_container_kind_members_are_level_group_members() {
     // member of the loaded USLM XSD's `substitutionGroup="level"`
     // family (W3C XSD 1.1 Part 1 §3.3.6).
     let xsd = axiom_loaded_uslm_xsd();
-    for kind in ContainerKind::all() {
+    let kinds = ContainerKind::load_from_xsd(&xsd);
+    assert!(
+        !kinds.is_empty(),
+        "load_from_xsd must project at least one variant from the loaded USLM XSD's level group"
+    );
+    for kind in kinds {
         let tag = kind.tag();
         assert!(
             xsd.lookup_element(tag).is_some(),
@@ -3761,7 +3766,12 @@ fn axiom_subdivision_kind_members_are_level_group_members() {
     // member of the loaded USLM XSD's `substitutionGroup="level"`
     // family.
     let xsd = axiom_loaded_uslm_xsd();
-    for kind in SubdivisionKind::all() {
+    let kinds = SubdivisionKind::load_from_xsd(&xsd);
+    assert!(
+        !kinds.is_empty(),
+        "load_from_xsd must project at least one variant from the loaded USLM XSD's level group"
+    );
+    for kind in kinds {
         let tag = kind.tag();
         assert!(
             xsd.lookup_element(tag).is_some(),
@@ -3783,7 +3793,12 @@ fn axiom_uscode_additional_container_members_are_xsd_declared() {
     // separate part of the schema — but every one is a declared
     // element.
     let xsd = axiom_loaded_uslm_xsd();
-    for kind in UsCodeAdditionalContainer::all() {
+    let kinds = UsCodeAdditionalContainer::load_from_xsd(&xsd);
+    assert!(
+        !kinds.is_empty(),
+        "load_from_xsd must project at least one variant from the loaded USLM XSD's element declarations"
+    );
+    for kind in kinds {
         let tag = kind.tag();
         assert!(
             xsd.lookup_element(tag).is_some(),
@@ -3800,7 +3815,7 @@ fn axiom_container_kind_from_xsd_element_matches_parse() {
     // `parse` to `from_xsd_element` without changing the
     // result of dispatch for any tag in the variant set.
     let xsd = axiom_loaded_uslm_xsd();
-    for kind in ContainerKind::all() {
+    for kind in ContainerKind::load_from_xsd(&xsd) {
         let tag = kind.tag();
         assert_eq!(
             ContainerKind::from_xsd_element(tag, &xsd),
@@ -3813,7 +3828,7 @@ fn axiom_container_kind_from_xsd_element_matches_parse() {
 #[test]
 fn axiom_subdivision_kind_from_xsd_element_matches_parse() {
     let xsd = axiom_loaded_uslm_xsd();
-    for kind in SubdivisionKind::all() {
+    for kind in SubdivisionKind::load_from_xsd(&xsd) {
         let tag = kind.tag();
         assert_eq!(
             SubdivisionKind::from_xsd_element(tag, &xsd),

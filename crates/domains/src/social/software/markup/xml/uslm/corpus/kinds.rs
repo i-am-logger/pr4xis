@@ -95,17 +95,24 @@ impl ContainerKind {
         Self::parse(tag)
     }
 
-    /// Every ContainerKind variant. Useful for axiom tests asserting
-    /// that each variant's tag is a member of the XSD's
-    /// `substitutionGroup="level"` family.
-    pub fn all() -> &'static [Self] {
-        &[
-            Self::Subtitle,
-            Self::Part,
-            Self::Subpart,
-            Self::Chapter,
-            Self::Subchapter,
-        ]
+    /// Enumerate every ContainerKind variant the loaded USLM XSD
+    /// admits — projected from the
+    /// `substitutionGroup="level"` family (W3C XSD 1.1 Part 1
+    /// §3.3.6) via [`Self::from_xsd_element`]. The returned set is
+    /// derived from the loaded schema, not a hand-curated Rust
+    /// slice, per `feedback_bottom_up_loaded_not_encoded`.
+    ///
+    /// Order matches the XSD's declaration order with `level`
+    /// itself elided (the head is the group, not a container
+    /// instance). Non-container level-group members (the section
+    /// leaf and the [`SubdivisionKind`] / heading siblings) are
+    /// filtered out by [`Self::from_xsd_element`]'s name-to-variant
+    /// projection.
+    pub fn load_from_xsd(xsd: &XsdOntologyInstance) -> Vec<Self> {
+        xsd.substitution_group_members("level")
+            .into_iter()
+            .filter_map(|name| Self::from_xsd_element(name, xsd))
+            .collect()
     }
 
     /// Canonical USLM tag name.
@@ -195,19 +202,17 @@ impl SubdivisionKind {
         Self::parse(tag)
     }
 
-    /// Every SubdivisionKind variant. Useful for axiom tests
-    /// asserting that each variant's tag is a member of the XSD's
-    /// `substitutionGroup="level"` family.
-    pub fn all() -> &'static [Self] {
-        &[
-            Self::Subsection,
-            Self::Paragraph,
-            Self::Subparagraph,
-            Self::Clause,
-            Self::Subclause,
-            Self::Item,
-            Self::Subitem,
-        ]
+    /// Enumerate every SubdivisionKind variant the loaded USLM XSD
+    /// admits — projected from the `substitutionGroup="level"`
+    /// family (W3C XSD 1.1 Part 1 §3.3.6) via
+    /// [`Self::from_xsd_element`]. Mirror of
+    /// [`ContainerKind::load_from_xsd`] for the level-group members
+    /// below `section`.
+    pub fn load_from_xsd(xsd: &XsdOntologyInstance) -> Vec<Self> {
+        xsd.substitution_group_members("level")
+            .into_iter()
+            .filter_map(|name| Self::from_xsd_element(name, xsd))
+            .collect()
     }
 
     /// Canonical USLM tag name.
@@ -351,19 +356,18 @@ impl UsCodeAdditionalContainer {
         Self::parse(tag)
     }
 
-    /// Every UsCodeAdditionalContainer variant. Useful for axiom
-    /// tests asserting that each variant's tag is declared by the
-    /// loaded USLM XSD.
-    pub fn all() -> &'static [Self] {
-        &[
-            Self::Division,
-            Self::Article,
-            Self::Subarticle,
-            Self::Preamble,
-            Self::Preliminary,
-            Self::Appendix,
-            Self::Subsubitem,
-        ]
+    /// Enumerate every UsCodeAdditionalContainer variant the loaded
+    /// USLM XSD admits. Unlike [`ContainerKind`] and
+    /// [`SubdivisionKind`], the additional-container family is NOT
+    /// substitution-group-defined as a single block — `preamble`
+    /// and `appendix` sit outside the `level` head — so we walk
+    /// every loaded `<xs:element>` declaration and project the ones
+    /// our enum recognises.
+    pub fn load_from_xsd(xsd: &XsdOntologyInstance) -> Vec<Self> {
+        xsd.declared_element_names()
+            .into_iter()
+            .filter_map(|name| Self::from_xsd_element(name, xsd))
+            .collect()
     }
 
     /// Canonical USLM tag name.

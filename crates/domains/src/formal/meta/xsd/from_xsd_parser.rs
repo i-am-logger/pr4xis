@@ -508,6 +508,54 @@ impl XsdOntologyInstance {
             .and_then(|e| e.substitution_group_head.as_deref())
     }
 
+    /// Enumerate every `<xs:element>` local name declared by the
+    /// loaded XSD. Order matches the source's declaration order;
+    /// duplicates are not de-duplicated (an XSD that re-declares
+    /// the same name violates §3.3 *unique particle attribution*
+    /// and is itself malformed — the loader surfaces that).
+    pub fn declared_element_names<'a>(&'a self) -> Vec<&'a str> {
+        self.elements
+            .iter()
+            .map(|e| e.local_name.as_str())
+            .collect()
+    }
+
+    /// Enumerate every `<xs:element>` local name that is a
+    /// (reflexive-transitive) member of `head`'s substitution group
+    /// per W3C XSD 1.1 Part 1 §3.3.6. Reflexive: `head` is always
+    /// in the result. The output is the **full known set** the
+    /// loaded XSD declares — callers MUST NOT hand-curate this list
+    /// in Rust source (`feedback_bottom_up_loaded_not_encoded`).
+    ///
+    /// Result order is the declaration order in the loaded XSD,
+    /// with `head` placed first by convention. Duplicates are
+    /// suppressed.
+    ///
+    /// Citation: W3C XML Schema Definition Language (XSD) 1.1 Part 1
+    /// §3.3.6 *Substitution Group OK (Transitive)*.
+    pub fn substitution_group_members<'a>(&'a self, head: &'a str) -> Vec<&'a str> {
+        let mut out: Vec<&'a str> = vec![head];
+        // BFS over the loaded element declarations, marking every
+        // element whose head chain terminates at `head`.
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for e in &self.elements {
+                if out.iter().any(|s| *s == e.local_name.as_str()) {
+                    continue;
+                }
+                let Some(parent) = &e.substitution_group_head else {
+                    continue;
+                };
+                if out.iter().any(|s| *s == parent.as_str()) {
+                    out.push(e.local_name.as_str());
+                    changed = true;
+                }
+            }
+        }
+        out
+    }
+
     /// True iff `member` is a (reflexive-transitive) member of `head`'s
     /// substitution group per W3C XSD 1.1 Part 1 §3.3.6. Reflexive:
     /// `is_member_of_substitution_group(h, h)` is always `true`.
