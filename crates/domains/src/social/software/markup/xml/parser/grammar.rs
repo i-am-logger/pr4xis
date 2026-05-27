@@ -179,12 +179,24 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
     let normalized = normalize_line_endings(&raw);
     let mut cursor = Cursor::new(&normalized);
 
-    let (version, encoding, doctype) = parse_prolog(&mut cursor)?;
+    let (version, encoding, standalone, doctype) = parse_prolog(&mut cursor)?;
     let entity_map: Vec<XmlGeneralEntity> = doctype
         .as_ref()
         .map(|d| d.general_entities.clone())
         .unwrap_or_default();
-    let root = parse_element(&mut cursor, &entity_map)?;
+    // §4.1 WFC: Entity Declared — applies when:
+    //   1. document has no DTD, OR
+    //   2. internal-only DTD subset with no PE references, OR
+    //   3. standalone='yes'.
+    // Otherwise undeclared entity references are validity errors
+    // (not well-formedness errors), and a non-validating processor
+    // may treat them as bypassed without contribution.
+    let strict_entity_declared = match (&doctype, standalone) {
+        (_, Some(true)) => true,
+        (None, _) => true,
+        (Some(dt), _) => dt.external_id.is_none() && !dt.internal_subset_had_pe_references,
+    };
+    let root = parse_element(&mut cursor, &entity_map, strict_entity_declared)?;
     parse_misc_star(&mut cursor)?;
     cursor.skip_whitespace();
     if !cursor.is_eof() {
@@ -381,13 +393,13 @@ impl<'a> Cursor<'a> {
 /// declarations parsed from the internal subset (§4.2 GEDecl).
 fn parse_prolog(
     c: &mut Cursor<'_>,
-) -> Result<(String, Option<String>, Option<XmlDoctype>), XmlParseError> {
+) -> Result<(String, Option<String>, Option<bool>, Option<XmlDoctype>), XmlParseError> {
     // §2.8 — "The XML declaration MUST be the first thing in the
     // document." Whitespace, comments, or PIs before `<?xml ...?>`
     // are well-formedness errors. xmlconf xmltest/not-wf/sa/147
     // (blank line before XMLDecl) is the spec regression.
     let prolog_start = c.pos;
-    let (version, encoding) = if c.starts_with("<?xml") {
+    let (version, encoding, standalone) = if c.starts_with("<?xml") {
         parse_xml_decl(c)?
     } else {
         // Skip any leading whitespace before scanning further —
@@ -405,7 +417,7 @@ fn parse_prolog(
                 found: "whitespace".into(),
             });
         }
-        ("1.0".into(), None)
+        ("1.0".into(), None, None)
     };
     parse_misc_star(c)?;
     let doctype = if c.starts_with("<!DOCTYPE") {
@@ -415,7 +427,7 @@ fn parse_prolog(
     } else {
         None
     };
-    Ok((version, encoding, doctype))
+    Ok((version, encoding, standalone, doctype))
 }
 
 /// W3C XML 1.0 §2.8 production [23] `XMLDecl` and the productions
@@ -439,7 +451,9 @@ fn parse_prolog(
 ///   variants (`Yes`, `YES`, `Standalone`) are explicitly malformed
 ///   per the spec's lowercase-keyword convention — xmlconf
 ///   ibm/not-wf/P32/ibm32n03..07 are the regression set.
-fn parse_xml_decl(c: &mut Cursor<'_>) -> Result<(String, Option<String>), XmlParseError> {
+fn parse_xml_decl(
+    c: &mut Cursor<'_>,
+) -> Result<(String, Option<String>, Option<bool>), XmlParseError> {
     c.consume("<?xml")?;
     c.require_whitespace("XMLDecl VersionInfo")?;
     c.consume("version")?;
@@ -479,7 +493,7 @@ fn parse_xml_decl(c: &mut Cursor<'_>) -> Result<(String, Option<String>), XmlPar
     };
     c.skip_whitespace();
 
-    if c.starts_with("standalone") {
+    let standalone = if c.starts_with("standalone") {
         if !had_ws_before_sa {
             return Err(c.syntax_error("S (whitespace) before `standalone`", &c.preview()));
         }
@@ -488,15 +502,24 @@ fn parse_xml_decl(c: &mut Cursor<'_>) -> Result<(String, Option<String>), XmlPar
         c.consume("=")?;
         c.skip_whitespace();
         let sa = parse_quoted(c)?;
-        if sa != "yes" && sa != "no" {
-            return Err(c.syntax_error("`yes` or `no` (lowercase)", &sa));
+        match sa.as_str() {
+            "yes" => {
+                c.skip_whitespace();
+                Some(true)
+            }
+            "no" => {
+                c.skip_whitespace();
+                Some(false)
+            }
+            _ => return Err(c.syntax_error("`yes` or `no` (lowercase)", &sa)),
         }
-        c.skip_whitespace();
-    }
+    } else {
+        None
+    };
 
     let _ = after_version_pos;
     c.consume("?>")?;
-    Ok((version, encoding))
+    Ok((version, encoding, standalone))
 }
 
 /// W3C XML 1.0 §2.8 [26] `VersionNum ::= '1.' [0-9]+`.
@@ -667,9 +690,14 @@ fn parse_doctype(c: &mut Cursor<'_>) -> Result<XmlDoctype, XmlParseError> {
     };
 
     let mut general_entities: Vec<XmlGeneralEntity> = Vec::new();
+    let mut internal_subset_had_pe_references = false;
     if c.starts_with("[") {
         c.consume("[")?;
-        parse_internal_subset(c, &mut general_entities)?;
+        parse_internal_subset(
+            c,
+            &mut general_entities,
+            &mut internal_subset_had_pe_references,
+        )?;
         c.consume("]")?;
         c.skip_whitespace();
     }
@@ -679,6 +707,7 @@ fn parse_doctype(c: &mut Cursor<'_>) -> Result<XmlDoctype, XmlParseError> {
         root_name: name.qualified(),
         external_id,
         general_entities,
+        internal_subset_had_pe_references,
     })
 }
 
@@ -775,9 +804,16 @@ fn is_pubid_char(c: char) -> bool {
 fn parse_internal_subset(
     c: &mut Cursor<'_>,
     general_entities: &mut Vec<XmlGeneralEntity>,
+    pe_refs_seen: &mut bool,
 ) -> Result<(), XmlParseError> {
     let mut parameter_entities: Vec<(String, String)> = Vec::new();
-    parse_intsubset_items(c, general_entities, &mut parameter_entities, true)
+    parse_intsubset_items(
+        c,
+        general_entities,
+        &mut parameter_entities,
+        pe_refs_seen,
+        true,
+    )
 }
 
 /// Walk a sequence of [28b] `(markupdecl | DeclSep)*` items.
@@ -792,6 +828,7 @@ fn parse_intsubset_items(
     c: &mut Cursor<'_>,
     general_entities: &mut Vec<XmlGeneralEntity>,
     parameter_entities: &mut Vec<(String, String)>,
+    pe_refs_seen: &mut bool,
     terminate_on_close_bracket: bool,
 ) -> Result<(), XmlParseError> {
     loop {
@@ -896,6 +933,14 @@ fn parse_intsubset_items(
             // forbids them anywhere else). §4.4.8 "Included as PE":
             // the PE's replacement text is included at the reference
             // point, enlarged with one leading and one trailing #x20.
+            //
+            // Flag the §4.1 WFC: Entity Declared carve-out — once
+            // the internal subset has named even one PE reference,
+            // undeclared general-entity references in content are
+            // validity errors rather than well-formedness errors
+            // (the unread external subset / unread PE expansion
+            // may declare them).
+            *pe_refs_seen = true;
             c.consume("%")?;
             let name = parse_name(c)?.qualified();
             c.consume(";")?;
@@ -913,6 +958,7 @@ fn parse_intsubset_items(
                     &mut sub,
                     general_entities,
                     parameter_entities,
+                    pe_refs_seen,
                     /*terminate_on_close_bracket*/ false,
                 )?;
             }
@@ -986,6 +1032,16 @@ fn validate_attlist_default_values(
                 &mut sub,
                 entities,
                 &mut visited,
+                // ATTLIST default-value validation runs at DTD parse
+                // time — before standalone is known and possibly
+                // before all entity declarations have been processed
+                // (forward references). Treat as strict (require
+                // declared) so sa/078, 079, 080, 084, 180 surface
+                // here; tests with external-DTD-only entity decls
+                // referenced in ATTLIST defaults are not in the
+                // XMLConf cases for production [60].
+                /*strict_entity_declared*/
+                true,
                 AttValueTerminator::Eof,
                 &mut out,
             )
@@ -1435,6 +1491,7 @@ fn parse_char_ref(c: &mut Cursor<'_>) -> Result<char, XmlParseError> {
 fn parse_element(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
+    strict_entity_declared: bool,
 ) -> Result<XmlElement, XmlParseError> {
     c.consume("<")?;
     let name = parse_name(c)?;
@@ -1470,7 +1527,7 @@ fn parse_element(
         c.skip_whitespace();
         c.consume("=")?;
         c.skip_whitespace();
-        let value = parse_att_value(c, entities)?;
+        let value = parse_att_value(c, entities, strict_entity_declared)?;
 
         let is_ns_decl = attr_name.prefix.as_deref() == Some("xmlns")
             || (attr_name.prefix.is_none() && attr_name.local == "xmlns");
@@ -1499,7 +1556,7 @@ fn parse_element(
     }
 
     // content + ETag
-    let children = parse_content(c, entities)?;
+    let children = parse_content(c, entities, strict_entity_declared)?;
     c.consume("</")?;
     let close_name = parse_name(c)?;
     c.skip_whitespace();
@@ -1622,6 +1679,7 @@ pub fn is_xml_char(ch: char) -> bool {
 fn parse_att_value(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
+    strict_entity_declared: bool,
 ) -> Result<String, XmlParseError> {
     let quote = c.peek_char().ok_or_else(|| XmlParseError::UnexpectedEof {
         context: "AttValue".into(),
@@ -1637,6 +1695,7 @@ fn parse_att_value(
         c,
         entities,
         &mut visited,
+        strict_entity_declared,
         AttValueTerminator::Quote(quote),
         &mut out,
     )?;
@@ -1684,6 +1743,7 @@ fn parse_att_value_body_into(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     visited: &mut Vec<String>,
+    strict_entity_declared: bool,
     term: AttValueTerminator,
     out: &mut String,
 ) -> Result<(), XmlParseError> {
@@ -1730,7 +1790,12 @@ fn parse_att_value_body_into(
                     "quot" => out.push('"'),
                     _ => {
                         include_user_general_entity_in_att_value(
-                            &qualified, ref_pos, entities, visited, out,
+                            &qualified,
+                            ref_pos,
+                            entities,
+                            visited,
+                            strict_entity_declared,
+                            out,
                         )?;
                     }
                 }
@@ -1769,6 +1834,7 @@ fn include_user_general_entity_in_att_value(
     ref_pos: usize,
     entities: &[XmlGeneralEntity],
     visited: &mut Vec<String>,
+    strict_entity_declared: bool,
     out: &mut String,
 ) -> Result<(), XmlParseError> {
     if visited.iter().any(|n| n == name) {
@@ -1778,12 +1844,23 @@ fn include_user_general_entity_in_att_value(
             found: format!("&{name};"),
         });
     }
-    let entity = entities.iter().find(|e| e.name == name).ok_or_else(|| {
-        XmlParseError::UnsupportedEntity {
-            position: ref_pos,
-            name: name.to_string(),
+    let entity = match entities.iter().find(|e| e.name == name) {
+        Some(e) => e,
+        None => {
+            // §4.1 WFC: Entity Declared carve-out — same logic as
+            // the content-position path. When the carve-out applies,
+            // undeclared references in attribute values are validity
+            // (not well-formedness) errors; the non-validating
+            // processor bypasses them silently.
+            if strict_entity_declared {
+                return Err(XmlParseError::UnsupportedEntity {
+                    position: ref_pos,
+                    name: name.to_string(),
+                });
+            }
+            return Ok(());
         }
-    })?;
+    };
     match entity.kind {
         XmlEntityKind::ExternalUnparsed => Err(XmlParseError::Syntax {
             position: ref_pos,
@@ -1803,6 +1880,7 @@ fn include_user_general_entity_in_att_value(
                 &mut sub,
                 entities,
                 visited,
+                strict_entity_declared,
                 AttValueTerminator::Eof,
                 out,
             );
@@ -1831,9 +1909,16 @@ enum ContentTerminator {
 fn parse_content(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
+    strict_entity_declared: bool,
 ) -> Result<Vec<XmlNode>, XmlParseError> {
     let mut visited = Vec::new();
-    parse_content_with_terminator(c, entities, &mut visited, ContentTerminator::Etag)
+    parse_content_with_terminator(
+        c,
+        entities,
+        &mut visited,
+        strict_entity_declared,
+        ContentTerminator::Etag,
+    )
 }
 
 /// Shared content-loop body for the top-level element body and
@@ -1850,11 +1935,20 @@ fn parse_content_with_terminator(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     visited: &mut Vec<String>,
+    strict_entity_declared: bool,
     term: ContentTerminator,
 ) -> Result<Vec<XmlNode>, XmlParseError> {
     let mut nodes: Vec<XmlNode> = Vec::new();
     let mut text_buf = String::new();
-    parse_content_into_buffers(c, entities, visited, term, &mut nodes, &mut text_buf)?;
+    parse_content_into_buffers(
+        c,
+        entities,
+        visited,
+        strict_entity_declared,
+        term,
+        &mut nodes,
+        &mut text_buf,
+    )?;
     flush_text(&mut nodes, &mut text_buf);
     Ok(nodes)
 }
@@ -1875,6 +1969,7 @@ fn parse_content_into_buffers(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     visited: &mut Vec<String>,
+    strict_entity_declared: bool,
     term: ContentTerminator,
     nodes: &mut Vec<XmlNode>,
     text_buf: &mut String,
@@ -1921,7 +2016,7 @@ fn parse_content_into_buffers(
         }
         if c.starts_with("<") {
             flush_text(nodes, text_buf);
-            let child = parse_element(c, entities)?;
+            let child = parse_element(c, entities, strict_entity_declared)?;
             nodes.push(XmlNode::Element(child));
             continue;
         }
@@ -1964,7 +2059,13 @@ fn parse_content_into_buffers(
                     "quot" => text_buf.push('"'),
                     _ => {
                         include_user_general_entity_in_content(
-                            &qualified, ref_pos, entities, visited, nodes, text_buf,
+                            &qualified,
+                            ref_pos,
+                            entities,
+                            visited,
+                            strict_entity_declared,
+                            nodes,
+                            text_buf,
                         )?;
                     }
                 }
@@ -2006,6 +2107,7 @@ fn include_user_general_entity_in_content(
     ref_pos: usize,
     entities: &[XmlGeneralEntity],
     visited: &mut Vec<String>,
+    strict_entity_declared: bool,
     nodes: &mut Vec<XmlNode>,
     text_buf: &mut String,
 ) -> Result<(), XmlParseError> {
@@ -2016,12 +2118,29 @@ fn include_user_general_entity_in_content(
             found: format!("&{name};"),
         });
     }
-    let entity = entities.iter().find(|e| e.name == name).ok_or_else(|| {
-        XmlParseError::UnsupportedEntity {
-            position: ref_pos,
-            name: name.to_string(),
+    let entity = match entities.iter().find(|e| e.name == name) {
+        Some(e) => e,
+        None => {
+            // §4.1 WFC: Entity Declared — when the carve-out applies
+            // (external subset present, or internal subset has PE
+            // references, or standalone='no'/unspecified), an
+            // unknown general entity is a *validity* error, not a
+            // well-formedness error. The non-validating processor
+            // bypasses the reference per §5.1 ("processors that
+            // ignore external entities ... need not report errors
+            // in those entities"). When the carve-out does NOT
+            // apply (no DTD, internal-only with no PE refs, or
+            // standalone='yes'), the WFC fires and the reference
+            // is well-formedness-malformed.
+            if strict_entity_declared {
+                return Err(XmlParseError::UnsupportedEntity {
+                    position: ref_pos,
+                    name: name.to_string(),
+                });
+            }
+            return Ok(());
         }
-    })?;
+    };
     match entity.kind {
         XmlEntityKind::ExternalUnparsed => Err(XmlParseError::Syntax {
             position: ref_pos,
@@ -2050,6 +2169,7 @@ fn include_user_general_entity_in_content(
                 &mut sub,
                 entities,
                 visited,
+                strict_entity_declared,
                 ContentTerminator::Eof,
                 nodes,
                 text_buf,

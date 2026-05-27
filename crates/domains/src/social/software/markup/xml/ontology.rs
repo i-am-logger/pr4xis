@@ -392,6 +392,13 @@ pub struct XmlDoctype {
     /// via `Vec` rather than a `HashMap` because XML 1.0 §4.5 says
     /// the first declaration wins on duplicate names.
     pub general_entities: Vec<XmlGeneralEntity>,
+    /// True iff the internal subset (or any included PE within it)
+    /// contained at least one §2.8 [28a] `PEReference` at
+    /// `DeclSep` position. The §4.1 WFC: Entity Declared carve-out
+    /// — "internal DTD subset which contains no parameter-entity
+    /// references" — keys off this flag together with the external
+    /// subset's presence and the `standalone` attribute.
+    pub internal_subset_had_pe_references: bool,
 }
 
 /// One general-entity declaration from §4.2 [71] GEDecl. The
