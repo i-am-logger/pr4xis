@@ -188,9 +188,14 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
     // malformed. xmlconf eduni/errata-2e/E61 is the spec
     // regression: an ASCII document declaring UTF-16 encoding.
     if let Some(declared) = &encoding {
-        let lower = declared.to_ascii_lowercase();
-        let declared_is_utf16 =
-            lower == "utf-16" || lower == "utf-16le" || lower == "utf-16be" || lower == "ucs-2";
+        // Per W3C XML 1.0 §4.3.3 + §F + erratum E05: query the
+        // bundled spec's encoding-label families for the canonical
+        // 16-bit Unicode label set ({UTF-16, UTF-16BE, UTF-16LE,
+        // ISO-10646-UCS-2}). Hand-coded alias lists violate
+        // `feedback_bottom_up_loaded_not_encoded`.
+        let families =
+            crate::social::software::markup::xml::spec_1_0::loaded_xml_encoding_families();
+        let declared_is_utf16 = families.is_utf16_family(declared);
         let detected_is_utf16 = matches!(
             detected_encoding,
             DetectedEncoding::Utf16Be | DetectedEncoding::Utf16Le
