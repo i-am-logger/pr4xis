@@ -101,13 +101,14 @@ Batches A-D move the parser into full compliance with the published productions.
 | **A** | §4.6 predefined entities — codegen extracts the 5-entity table from spec's `<div2 id="sec-predefined-ent">`; parser dispatch sites consult `resolve_predefined_entity`. | `ea128675` | ✅ done |
 | **D** | USLM `*::all()` from XSD substitution group — `XsdOntologyInstance::substitution_group_members` + `*::load_from_xsd` for ContainerKind, SubdivisionKind, UsCodeAdditionalContainer. | `86a136a9` | ✅ done (3 worst-tier) |
 | **D.2** | `from_xsd_element` companions for 6 USLM legacy `parse()` methods (UsCodeHeadingVariant, UsCodeQuotedVariant, UsCodeLegislativeFormula, UsCodeFormElement, UsCodeAmendmentKind, InlineKind). | `d8c6d3c7` | ✅ done (6 low-tier) |
+| **F** | LMF `SynsetRelation::relType` / `SenseRelation::relType` / `LmfPos` parse() grounded in loaded WN-LMF 1.3 DTD enumeration via `wn_lmf_attlist_enum_values()` + three new parse-coverage axioms. | `f2ade90e` | ✅ done (1 Tier-2 + 1 Tier-3 + 1 Tier-4) |
+| **I.1** | Brittle-count test assertions (`grammar.len() == 85`, `variants.len() == 14`) replaced with structural invariants (uncommented-`<prod>` counter for the grammar, `variants()↔to_tag()↔parse()` bijection for LmfPos). | `df2e35da` | ✅ done (2 Tier-4) |
 | **B** | parser content-loop + Misc grammar-driven alternation via loaded grammar. | — | deferred (needs EBNF interpreter subproduction-positions extension) |
 | **C** | PEDef-through-EBNF-interpreter (kills `reject_ndata_decl_on_pe`); requires `parse_entity_decl` refactor. | — | deferred (parser-side refactor) |
 | **E** | USLM codegen `CONTAINER_TAGS` from loaded XSD; STag/ETag handler unification. | — | deferred (cross-crate: parse code is in pr4xis; XSD bytes only in pr4xis-domains — needs codegen reorganization) |
-| **F** | LMF relation types from WN-LMF DTD. | — | deferred (needs WN-LMF schema's relation-type registration as a praxis source) |
 | **G** | IANA Character Sets registry for UTF-16 encoding aliases. | — | deferred (needs IANA registry registered as a new praxis source) |
 | **H** | codegen string-template → typed AST projection. | — | deferred (stylistic; large refactor) |
-| **I** | test-assertion derivation + interpreter-semantics spec. | — | deferred (cleanup tier) |
+| **I.2** | test-fixture-value derivation (uslm/tests.rs:77-79, 91-97, 123-131) + `is_statutory_term_of_art` lexicon-grounding. | — | deferred (low-priority cleanup) |
 
 ## Verification gate
 
