@@ -136,7 +136,7 @@
 # Drafting Handbook 2017, ISO 3166-2:US, Huddleston & Pullum 2002,
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
-"us_legal_lexicon@2026"  = "c984ce85ed81b5142cab115332283d726420a3791de1e2fb71338fa9bf7b82c1"
+"us_legal_lexicon@2026"  = "800e808b087e3f49b2b9941f658c69e65fe4b55e13cf6d96edff5aeb79b0c751"
 # Title 42 hash is recorded here for future reference once
 # M4.δ.7.a (large-title codegen refactor) lands. The current
 # `write_usc_corpus_codegen` build.rs path OOM-kills rustc on

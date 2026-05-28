@@ -590,6 +590,14 @@
     <LexicalEntry id="lt-sued"><Lemma writtenForm="sued" partOfSpeech="v"/><Sense id="lt-sued-1" synset="lt-legal-term"/></LexicalEntry>
     <LexicalEntry id="lt-teste"><Lemma writtenForm="teste" partOfSpeech="n"/><Sense id="lt-teste-1" synset="lt-legal-term"/></LexicalEntry>
 
+    <!-- M4.δ.7.a — runtime-XML-loading additions. The runtime
+         constructor `UsCode::from_uslm_titles_owned` surfaces
+         lemmas the prior codegen path's heading extractor didn't
+         see (the codegen filtered LRC footnote markers + their
+         numerals more aggressively). These are legitimate legal/
+         medical terms appearing in section headings. -->
+    <LexicalEntry id="lt-postrelease"><Lemma writtenForm="postrelease" partOfSpeech="adj"/><Sense id="lt-postrelease-1" synset="lt-legal-term"/></LexicalEntry>
+
     <!-- Title 29 — Labor legal/domain term additions (M4.δ.6).
          Labor-law and employment-policy vocabulary appearing in
          Title 29 USC section headings beyond WordNet's coverage.

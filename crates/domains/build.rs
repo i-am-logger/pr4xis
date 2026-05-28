@@ -555,7 +555,26 @@ fn write_usc_corpus_codegen(
     sorted_names: &[String],
     out_dir: &std::path::Path,
 ) {
-    let mut present_paths: Vec<PathBuf> = Vec::new();
+    // M4.δ.7.a: build-time USC corpus codegen has been retired. The
+    // runtime constructor `UsCode::from_uslm_titles_owned` in
+    // `social/software/markup/xml/uslm/corpus/mod.rs` reads + parses
+    // the registered title XMLs at first call to `loaded()`, mirroring
+    // the WordNet pattern (`English::cached`). This eliminates the
+    // ~85 MB aggregate Rust source that was hitting rustc's compile-
+    // time memory ceiling, and unblocks arbitrary-sized titles
+    // (Title 42 at 113 MB, etc.).
+    //
+    // We still emit a stub `usc_corpus_codegen.rs` because the runtime
+    // `corpus/mod.rs` module includes it (the include is kept as a
+    // soft compatibility boundary so `UsCode::sample()` and the
+    // codegen-data-shape tests still see an empty `CODEGEN_DATA` /
+    // `USC_SECTION_AUX`). A follow-up commit can delete the include
+    // and the stub once those tests migrate to runtime sample fixtures.
+    //
+    // The `cargo:rerun-if-changed=` directives are still emitted so a
+    // future rebuild picks up XML changes — even though the runtime
+    // path doesn't use them, downstream tooling (incremental cargo,
+    // rust-analyzer) benefits from accurate dependency tracking.
     for name in sorted_names {
         let src = &manifest.sources[name];
         if src.kind != "UsCodeTitle" {
@@ -563,48 +582,26 @@ fn write_usc_corpus_codegen(
         }
         let xml_path = expected_usc_title_path(workspace_root, name, &src.version);
         if xml_path.exists() {
-            present_paths.push(xml_path);
+            println!("cargo:rerun-if-changed={}", xml_path.display());
         }
     }
 
     let out_path = out_dir.join("usc_corpus_codegen.rs");
-
-    if present_paths.is_empty() {
-        let stub = "// Stub: no USC title XML on disk.\n\
-                    pub static CODEGEN_DATA: pr4xis::codegen_data::CodegenData<\
-                    crate::social::software::markup::xml::uslm::corpus::UsCode> = \
-                    pr4xis::codegen_data::CodegenData { \
-                    entity_count: 0, entity_ids: &[], entity_kind: &[], \
-                    entity_labels: &[], entity_defs: &[], word_index: &[], \
-                    taxonomy: &[], mereology: &[], opposition: &[], \
-                    equivalence: &[], causation: &[], references: &[] };\n\
-                    pub static USC_SECTION_AUX: \
-                    &[crate::social::software::markup::xml::uslm::corpus::UscSectionAux] = &[];\n";
-        std::fs::write(&out_path, stub).expect("write usc corpus stub");
-        return;
-    }
-
-    for p in &present_paths {
-        println!("cargo:rerun-if-changed={}", p.display());
-    }
-
-    let paths: Vec<&std::path::Path> = present_paths.iter().map(|p| p.as_path()).collect();
-    let config = pr4xis::codegen::GenerateConfig::with_marker(
-        "usc_corpus_codegen",
-        "UscEntityId",
-        "crate::social::software::markup::xml::uslm::corpus::UsCode",
-    );
-    let source = pr4xis::codegen::usc_corpus::generate_usc_corpus_source(&paths, &config)
-        .expect("generate USC corpus codegen");
-    let section_count = source
-        .lines()
-        .find_map(|l| l.strip_prefix("// Entities: "))
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(0);
-    std::fs::write(&out_path, source).expect("write usc corpus codegen");
+    let stub = "// Empty stub — M4.δ.7.a retired build-time USC corpus codegen \
+                in favor of runtime XML loading via `UsCode::loaded()`. \
+                See docs/m4-delta-7-a-design.md.\n\
+                pub static CODEGEN_DATA: pr4xis::codegen_data::CodegenData<\
+                crate::social::software::markup::xml::uslm::corpus::UsCode> = \
+                pr4xis::codegen_data::CodegenData { \
+                entity_count: 0, entity_ids: &[], entity_kind: &[], \
+                entity_labels: &[], entity_defs: &[], word_index: &[], \
+                taxonomy: &[], mereology: &[], opposition: &[], \
+                equivalence: &[], causation: &[], references: &[] };\n\
+                pub static USC_SECTION_AUX: \
+                &[crate::social::software::markup::xml::uslm::corpus::UscSectionAux] = &[];\n";
+    std::fs::write(&out_path, stub).expect("write usc corpus stub");
     eprintln!(
-        "Generated pr4xis-domains UsCode corpus: {section_count} sections -> {}",
-        out_path.display()
+        "pr4xis-domains USC corpus codegen: retired (M4.δ.7.a) — runtime loader in corpus/mod.rs handles all titles"
     );
 }
 

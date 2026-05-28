@@ -103,7 +103,45 @@ pub fn loaded() -> &'static UsCode {
     use std::sync::OnceLock;
     static INSTANCE: OnceLock<UsCode> = OnceLock::new();
     INSTANCE.get_or_init(|| {
-        UsCode::from_codegen_with_aux(&full_corpus::CODEGEN_DATA, full_corpus::USC_SECTION_AUX)
+        // M4.δ.7.a: runtime XML loading replaces the build-time
+        // aggregate static that hit rustc's compile-time memory
+        // ceiling (~85 MB of XML across registered titles). Walks
+        // every UsCodeTitle source registered in `praxis.toml`, reads
+        // its `local_path()` from disk, parses via `read_uslm_title`,
+        // and assembles the unified corpus via
+        // `UsCode::from_uslm_titles_owned`. Mirrors the WordNet
+        // pattern (`English::cached`): first call pays the parse
+        // cost; OnceLock amortizes over process lifetime.
+        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+        use crate::social::software::markup::xml::uslm::lens::read_uslm_title;
+        let workspace_root: std::path::PathBuf =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .and_then(|p| p.parent())
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| std::path::PathBuf::from("."));
+        let mut titles: Vec<UsCodeTitle> = Vec::new();
+        for entry in data_sources() {
+            if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+                continue;
+            }
+            let path = workspace_root.join(entry.local_path());
+            let Ok(xml) = std::fs::read_to_string(&path) else {
+                // Title XML not on disk — skip gracefully (the same
+                // behavior the prior codegen path had: build script
+                // emitted a stub when no XML was present).
+                continue;
+            };
+            match read_uslm_title(&xml) {
+                Ok(title) => titles.push(title),
+                Err(e) => panic!(
+                    "loaded() failed parsing registered title {}: {e}",
+                    entry.name
+                ),
+            }
+        }
+        UsCode::from_uslm_titles_owned(titles)
     })
 }
 
@@ -410,6 +448,59 @@ impl UsCode {
         loaded()
     }
 
+    /// Runtime constructor: assemble a [`UsCode`] from parsed
+    /// [`UsCodeTitle`] instances obtained via [`read_uslm_title`].
+    /// Per M4.δ.7.a (`docs/m4-delta-7-a-design.md`), this is the
+    /// canonical path [`loaded()`] uses to materialize the corpus
+    /// from on-disk USLM XML — the WordNet pattern, mirroring
+    /// [`crate::cognitive::linguistics::english::English::from_wordnet`].
+    ///
+    /// Replaces the build-time codegen aggregate static that hit
+    /// rustc's compile-time memory ceiling at ~85 MB of input XML.
+    ///
+    /// [`Box::leak`] converts owned strings + slices into the
+    /// `&'static` lifetimes the existing [`UscSection`] /
+    /// [`UscSubdivision`] API requires. The leaks persist for
+    /// process lifetime, same as the [`OnceLock`]-cached singleton
+    /// — equivalent to build-time-emitted statics.
+    ///
+    /// Section text accumulates chapeau + content at every depth
+    /// (matching `pr4xis::codegen::usc_corpus`'s
+    /// `section_bodies_concatenate_chapeau_and_content_text` test
+    /// invariant) so that downstream Layer-3 lemma resolution sees
+    /// the same body text it saw under the codegen path.
+    ///
+    /// [`OnceLock`]: std::sync::OnceLock
+    /// [`read_uslm_title`]: super::super::read_uslm_title
+    pub fn from_uslm_titles_owned(titles: alloc::vec::Vec<UsCodeTitle>) -> Self {
+        let mut sections: Vec<UscSection> = Vec::new();
+        let mut by_urn: HashMap<String, usize> = HashMap::new();
+        for title in titles {
+            for section in title.sections {
+                let urn_str: &'static str =
+                    alloc::boxed::Box::leak(section.identifier.clone().into_boxed_str());
+                let urn =
+                    Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, urn_str);
+                let heading = section.heading.clone();
+                let text = section_body_text(&section);
+                let (sub_vec, rel_vec) = subdivisions_to_static(&section.children, urn_str);
+                let subdivisions: &'static [UscSubdivision] =
+                    alloc::boxed::Box::leak(sub_vec.into_boxed_slice());
+                let relations: &'static [UscComposesEdge] =
+                    alloc::boxed::Box::leak(rel_vec.into_boxed_slice());
+                by_urn.insert(section.identifier.clone(), sections.len());
+                sections.push(UscSection {
+                    urn,
+                    heading,
+                    text,
+                    subdivisions,
+                    relations,
+                });
+            }
+        }
+        Self { sections, by_urn }
+    }
+
     /// Minimal sample U.S. Code corpus for testing — two synthetic
     /// sections (Title 18 § 1514A and Title 49 § 42121). Mirrors the
     /// fixture pattern used by [`crate::cognitive::linguistics::english::English::sample`]
@@ -438,6 +529,102 @@ impl UsCode {
         };
         Self::from_codegen(&SAMPLE_DATA)
     }
+}
+
+/// Flatten a section's body text the way `pr4xis::codegen::usc_corpus`
+/// does at build time: every chapeau + content node at any depth,
+/// space-joined. The `section_bodies_concatenate_chapeau_and_content_text`
+/// test in the codegen pins this behavior; the runtime path must
+/// produce the same body so downstream Layer-3 lemma resolution
+/// sees identical input.
+fn section_body_text(s: &UsCodeSection) -> String {
+    let mut out = String::new();
+    if let Some(c) = &s.chapeau {
+        push_with_space(&mut out, c);
+    }
+    if let Some(c) = &s.content {
+        push_with_space(&mut out, c);
+    }
+    for child in &s.children {
+        push_subdivision_text(&mut out, child);
+    }
+    out
+}
+
+/// Recursively append a subdivision's body text to `out`.
+fn push_subdivision_text(out: &mut String, s: &UsCodeSubdivision) {
+    if let Some(c) = &s.chapeau {
+        push_with_space(out, c);
+    }
+    if let Some(c) = &s.content {
+        push_with_space(out, c);
+    }
+    for child in &s.children {
+        push_subdivision_text(out, child);
+    }
+}
+
+/// Append `s` to `out`, separating with a single space if `out` is
+/// non-empty. Matches the codegen's space-join convention.
+fn push_with_space(out: &mut String, s: &str) {
+    if !out.is_empty() {
+        out.push(' ');
+    }
+    out.push_str(s);
+}
+
+/// Convert a `Vec<UsCodeSubdivision>` tree (owned, runtime) into
+/// the static-lifetime [`UscSubdivision`] tree the corpus API
+/// requires, plus the parallel [`UscComposesEdge`] list. Uses
+/// [`Box::leak`] to convert owned strings + slices to `&'static`;
+/// the leaks live for process lifetime (same as the OnceLock-cached
+/// singleton).
+///
+/// `parent_urn` is the URN of the immediate parent (the section or
+/// containing subdivision); each child emits one
+/// `UscComposesEdge { from_urn: child, to_urn: parent }` edge.
+fn subdivisions_to_static(
+    subs: &[UsCodeSubdivision],
+    parent_urn: &'static str,
+) -> (Vec<UscSubdivision>, Vec<UscComposesEdge>) {
+    let mut result_subs = Vec::with_capacity(subs.len());
+    let mut all_edges = Vec::new();
+    for sub in subs {
+        let sub_urn: &'static str =
+            alloc::boxed::Box::leak(sub.identifier.clone().into_boxed_str());
+        all_edges.push(UscComposesEdge {
+            from_urn: sub_urn,
+            to_urn: parent_urn,
+        });
+        let (child_subs, child_edges) = subdivisions_to_static(&sub.children, sub_urn);
+        all_edges.extend(child_edges);
+        let num_leaked: &'static str = alloc::boxed::Box::leak(sub.num.clone().into_boxed_str());
+        let heading_leaked: Option<&'static str> = sub
+            .heading
+            .as_ref()
+            .map(|h| -> &'static str { alloc::boxed::Box::leak(h.clone().into_boxed_str()) });
+        let chapeau_leaked: Option<&'static str> = sub
+            .chapeau
+            .as_ref()
+            .map(|c| -> &'static str { alloc::boxed::Box::leak(c.clone().into_boxed_str()) });
+        let content_leaked: Option<&'static str> = sub
+            .content
+            .as_ref()
+            .map(|c| -> &'static str { alloc::boxed::Box::leak(c.clone().into_boxed_str()) });
+        let children_leaked: &'static [UscSubdivision] =
+            alloc::boxed::Box::leak(child_subs.into_boxed_slice());
+        let urn = Identifier::from_codegen_static(IdentifierFormatConcept::UslmUrn, sub_urn);
+        result_subs.push(UscSubdivision {
+            urn,
+            kind: sub.kind,
+            num: num_leaked,
+            heading: heading_leaked,
+            chapeau: chapeau_leaked,
+            content: content_leaked,
+            children: children_leaked,
+        });
+    }
+    (result_subs, all_edges)
 }
 
 #[cfg(test)]
