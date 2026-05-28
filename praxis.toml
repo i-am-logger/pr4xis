@@ -404,6 +404,26 @@ type        = "UsCodeTitle"
 url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc28@119-90.zip"
 description = "U.S. Code Title 28 — Judiciary and Judicial Procedure, including 28 U.S.C. App. (Federal Rules of Civil Procedure / Evidence / Appellate Procedure / Bankruptcy Procedure). USLM XML published by the LRC per 1 U.S.C. § 204; 28 U.S.C. § 2072 (Rules Enabling Act) authorizes the Supreme Court to promulgate the rules and the LRC to codify them in the Appendix."
 
+# Title 29 — Labor. Authoritative source for the Occupational
+# Safety and Health Act of 1970 (OSHA, 29 U.S.C. §§ 651-678).
+# OSHA § 11(c) at 29 U.S.C. § 660(c) is the original employee
+# anti-retaliation procedural framework — SOX § 1514A
+# (b)(2)(A) explicitly imports OSHA's procedures by reference
+# ("an action under paragraph (1) shall be governed under the
+# rules and procedures set forth in section 42121(b) of title
+# 49"), making this title's procedural infrastructure load-
+# bearing for every SOX § 806 administrative claim filed with
+# DOL/OSHA. Title 29 also carries the Fair Labor Standards Act
+# (FLSA, §§ 201 et seq.), the Family and Medical Leave Act
+# (FMLA, §§ 2601 et seq.), the National Labor Relations Act
+# (NLRA, §§ 151 et seq.), and ERISA's labor-side provisions.
+# Same LRC USLM XML publication unit; release point pl-119-90.
+[sources.usc_title_29]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc29@119-90.zip"
+description = "U.S. Code Title 29 — Labor, including OSHA (§§ 651-678; § 660(c) anti-retaliation), FLSA (§§ 201 et seq.), FMLA (§§ 2601 et seq.), and NLRA (§§ 151 et seq.). USLM XML published by the LRC per 1 U.S.C. § 204."
+
 # Title 15 — Commerce and Trade. Authoritative source for the
 # Securities Act of 1933 (15 U.S.C. §§ 77a–77aa) and the Securities
 # Exchange Act of 1934 (15 U.S.C. §§ 78a et seq.). The SOX

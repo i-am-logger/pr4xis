@@ -397,6 +397,22 @@
     <LexicalEntry id="lt-paul"><Lemma writtenForm="paul" partOfSpeech="propn"/><Sense id="lt-paul-1" synset="lt-named-entity"/></LexicalEntry>
     <LexicalEntry id="lt-sherman"><Lemma writtenForm="sherman" partOfSpeech="propn"/><Sense id="lt-sherman-1" synset="lt-named-entity"/></LexicalEntry>
 
+    <!-- Title 29 — Labor named-entity additions (M4.δ.6). Persons
+         whose surnames appear in statutorily-named Title 29
+         programs and acts: Senator James J. Davis + Representative
+         Robert L. Bacon (Davis-Bacon Act, 40 U.S.C. § 3141 et seq.
+         + § 276a cross-references in Title 29); Walsh-Healey Public
+         Contracts Act (41 U.S.C. § 6502; Senator David I. Walsh +
+         Representative Arthur D. Healey); Helen Keller National
+         Center for Deaf-Blind Youths and Adults (29 U.S.C. § 1901
+         et seq.). Source: U.S. Government Manual (annual) + USC
+         heading text. -->
+    <LexicalEntry id="lt-davis"><Lemma writtenForm="davis" partOfSpeech="propn"/><Sense id="lt-davis-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-healey"><Lemma writtenForm="healey" partOfSpeech="propn"/><Sense id="lt-healey-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-helen"><Lemma writtenForm="helen" partOfSpeech="propn"/><Sense id="lt-helen-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-keller"><Lemma writtenForm="keller" partOfSpeech="propn"/><Sense id="lt-keller-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-walsh"><Lemma writtenForm="walsh" partOfSpeech="propn"/><Sense id="lt-walsh-1" synset="lt-named-entity"/></LexicalEntry>
+
     <!-- ==================================================================
          English productive compounds (CGEL Ch. 19, Bauer 1983 §6)
          ==================================================================
@@ -573,6 +589,27 @@
     <LexicalEntry id="lt-suable"><Lemma writtenForm="suable" partOfSpeech="adj"/><Sense id="lt-suable-1" synset="lt-legal-term"/></LexicalEntry>
     <LexicalEntry id="lt-sued"><Lemma writtenForm="sued" partOfSpeech="v"/><Sense id="lt-sued-1" synset="lt-legal-term"/></LexicalEntry>
     <LexicalEntry id="lt-teste"><Lemma writtenForm="teste" partOfSpeech="n"/><Sense id="lt-teste-1" synset="lt-legal-term"/></LexicalEntry>
+
+    <!-- Title 29 — Labor legal/domain term additions (M4.δ.6).
+         Labor-law and employment-policy vocabulary appearing in
+         Title 29 USC section headings beyond WordNet's coverage.
+         Sources: Black's Law Dictionary 11th ed. (2019) for legal
+         terms; U.S. Department of Labor Bureau of Labor Statistics
+         Occupational Outlook Handbook for occupation terminology;
+         ERISA (29 U.S.C. § 1002) for multi-employer plan terms;
+         FLSA + state-wage-law conventions for subminimum/workmen
+         wage classifications. Productive prefix/suffix compounds
+         per Bauer 1983 §6 / Huddleston & Pullum 2002 Ch. 19. -->
+    <LexicalEntry id="lt-apprenticeable"><Lemma writtenForm="apprenticeable" partOfSpeech="adj"/><Sense id="lt-apprenticeable-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-farmworker"><Lemma writtenForm="farmworker" partOfSpeech="n"/><Sense id="lt-farmworker-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-industrywide"><Lemma writtenForm="industrywide" partOfSpeech="adj"/><Sense id="lt-industrywide-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-multiemployer"><Lemma writtenForm="multiemployer" partOfSpeech="adj"/><Sense id="lt-multiemployer-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-opioid"><Lemma writtenForm="opioid" partOfSpeech="n"/><Sense id="lt-opioid-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-postsecondary"><Lemma writtenForm="postsecondary" partOfSpeech="adj"/><Sense id="lt-postsecondary-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-subminimum"><Lemma writtenForm="subminimum" partOfSpeech="adj"/><Sense id="lt-subminimum-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-terroristic"><Lemma writtenForm="terroristic" partOfSpeech="adj"/><Sense id="lt-terroristic-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-workmen"><Lemma writtenForm="workmen" partOfSpeech="n"/><Sense id="lt-workmen-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-youthbuild"><Lemma writtenForm="youthbuild" partOfSpeech="n"/><Sense id="lt-youthbuild-1" synset="lt-legal-term"/></LexicalEntry>
 
     <!-- ==================================================================
          Garbage-text fragments that the tokenizer produces from USC

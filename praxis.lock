@@ -136,7 +136,15 @@
 # Drafting Handbook 2017, ISO 3166-2:US, Huddleston & Pullum 2002,
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
-"us_legal_lexicon@2026"  = "ed6c07d13a317ca7f6880b68d2bab95f959c8c2834686aa455b6aa05d843d9e0"
+"us_legal_lexicon@2026"  = "c984ce85ed81b5142cab115332283d726420a3791de1e2fb71338fa9bf7b82c1"
+# U.S. Code Title 29 — Labor. SHA-256 of the unzipped usc29.xml
+# content from release point pl-119-90. Contains OSHA (§§ 651-678
+# — § 660(c) is the anti-retaliation procedural framework SOX
+# § 1514A imports by reference via 49 U.S.C. § 42121(b)), the
+# Fair Labor Standards Act (FLSA, §§ 201 et seq.), the Family
+# and Medical Leave Act (FMLA, §§ 2601 et seq.), and the National
+# Labor Relations Act (NLRA, §§ 151 et seq.).
+"usc_title_29@pl-119-90" = "bd3f0e9fc634cdbd887adde480cf08a52d49cced457385cb0fdef1447feab413"
 # U.S. Code Title 15 — Commerce and Trade. SHA-256 of the unzipped
 # usc15.xml content (30 MB, ~1,600 sections — Securities Act of 1933
 # §§ 77a–77aa, Securities Exchange Act of 1934 §§ 78a et seq., the
