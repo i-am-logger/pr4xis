@@ -343,6 +343,7 @@ pub fn parse_uslm_title_all_sections_str_with_config(
                             id: id_curie,
                             heading: String::new(),
                             body: String::new(),
+                            emit: true,
                         }],
                         text_target: None,
                         text_buf: String::new(),
@@ -358,17 +359,17 @@ pub fn parse_uslm_title_all_sections_str_with_config(
                 match config.classify(&name_bytes) {
                     UslmElementClass::Container => {
                         let identifier = attr(e, b"identifier");
+                        let emit = identifier.is_some();
                         let id = identifier
                             .as_deref()
                             .map(|s| identifier_to_curie(s, &sc.identifier, &sc.statute_name))
-                            .unwrap_or_else(|| {
-                                format!("{}:unknown_{}", sc.statute_name, sc.stack.len())
-                            });
+                            .unwrap_or_default();
                         sc.stack.push(ContainerFrame {
                             tag: name_bytes.clone(),
                             id,
                             heading: String::new(),
                             body: String::new(),
+                            emit,
                         });
                     }
                     UslmElementClass::Heading => {
@@ -412,35 +413,44 @@ pub fn parse_uslm_title_all_sections_str_with_config(
                 match config.classify(&name_bytes) {
                     UslmElementClass::Container => {
                         if let Some(frame) = sc.stack.pop() {
-                            let name = if frame.heading.trim().is_empty() {
-                                derive_name_from_id(&frame.id)
-                            } else {
-                                clean_text(&frame.heading)
-                            };
-                            // Definition falls back to the term's name
-                            // when no chapeau/content text is present
-                            // (subsections that only carry nested
-                            // children). Anchoring on the heading keeps
-                            // the term meaningful and the downstream
-                            // structural-data validation non-empty.
-                            let raw_def = clean_text(&frame.body);
-                            let definition = if raw_def.is_empty() {
-                                name.clone()
-                            } else {
-                                raw_def
-                            };
-                            sc.terms.push(RawTerm {
-                                id: frame.id.clone(),
-                                name,
-                                definition,
-                                lemmas: Vec::new(),
-                            });
-                            if let Some(parent) = sc.stack.last() {
-                                sc.relations.push(RawRelation {
-                                    from: frame.id,
-                                    to: parent.id.clone(),
-                                    relation: RawRel::Composes { into: None },
+                            // Identifier-less containers are structural
+                            // scaffolding, not citable subdivisions —
+                            // pop to keep nesting balanced but emit no
+                            // term (matching the runtime subdivision walk).
+                            if frame.emit {
+                                let name = if frame.heading.trim().is_empty() {
+                                    derive_name_from_id(&frame.id)
+                                } else {
+                                    clean_text(&frame.heading)
+                                };
+                                // Definition falls back to the term's name
+                                // when no chapeau/content text is present
+                                // (subsections that only carry nested
+                                // children). Anchoring on the heading keeps
+                                // the term meaningful and the downstream
+                                // structural-data validation non-empty.
+                                let raw_def = clean_text(&frame.body);
+                                let definition = if raw_def.is_empty() {
+                                    name.clone()
+                                } else {
+                                    raw_def
+                                };
+                                sc.terms.push(RawTerm {
+                                    id: frame.id.clone(),
+                                    name,
+                                    definition,
+                                    lemmas: Vec::new(),
                                 });
+                                // Compose into the nearest emitting
+                                // ancestor, skipping identifier-less
+                                // scaffolding frames.
+                                if let Some(parent) = sc.stack.iter().rev().find(|f| f.emit) {
+                                    sc.relations.push(RawRelation {
+                                        from: frame.id,
+                                        to: parent.id.clone(),
+                                        relation: RawRel::Composes { into: None },
+                                    });
+                                }
                             }
                         }
                         // Leaving the outermost <section> finalizes the
@@ -675,17 +685,17 @@ pub fn parse_uslm_str_with_config(
                             target_seen = true;
                         }
                         if in_target_section {
+                            let emit = identifier.is_some();
                             let id = identifier
                                 .as_deref()
                                 .map(|s| identifier_to_curie(s, section_identifier, statute_name))
-                                .unwrap_or_else(|| {
-                                    format!("{statute_name}:unknown_{}", stack.len())
-                                });
+                                .unwrap_or_default();
                             stack.push(ContainerFrame {
                                 tag: name_bytes.clone(),
                                 id,
                                 heading: String::new(),
                                 body: String::new(),
+                                emit,
                             });
                         }
                     }
@@ -729,36 +739,44 @@ pub fn parse_uslm_str_with_config(
                     UslmElementClass::Container => {
                         if in_target_section {
                             if let Some(frame) = stack.pop() {
-                                let name = if frame.heading.trim().is_empty() {
-                                    derive_name_from_id(&frame.id)
-                                } else {
-                                    clean_text(&frame.heading)
-                                };
-                                // Fall back to the name when no
-                                // chapeau/content text — keeps every
-                                // term's definition non-empty.
-                                let raw_def = clean_text(&frame.body);
-                                let definition = if raw_def.is_empty() {
-                                    name.clone()
-                                } else {
-                                    raw_def
-                                };
-                                terms.push(RawTerm {
-                                    id: frame.id.clone(),
-                                    name,
-                                    definition,
-                                    lemmas: Vec::new(),
-                                });
-                                // Mereological edge: child Composes
-                                // into parent. The top-level § has
-                                // no parent within this scope and
-                                // gets no edge.
-                                if let Some(parent) = stack.last() {
-                                    relations.push(RawRelation {
-                                        from: frame.id,
-                                        to: parent.id.clone(),
-                                        relation: RawRel::Composes { into: None },
+                                // Identifier-less containers are
+                                // structural scaffolding, not citable
+                                // subdivisions — pop to keep nesting
+                                // balanced but emit no term (matching the
+                                // runtime subdivision walk).
+                                if frame.emit {
+                                    let name = if frame.heading.trim().is_empty() {
+                                        derive_name_from_id(&frame.id)
+                                    } else {
+                                        clean_text(&frame.heading)
+                                    };
+                                    // Fall back to the name when no
+                                    // chapeau/content text — keeps every
+                                    // term's definition non-empty.
+                                    let raw_def = clean_text(&frame.body);
+                                    let definition = if raw_def.is_empty() {
+                                        name.clone()
+                                    } else {
+                                        raw_def
+                                    };
+                                    terms.push(RawTerm {
+                                        id: frame.id.clone(),
+                                        name,
+                                        definition,
+                                        lemmas: Vec::new(),
                                     });
+                                    // Mereological edge: child Composes
+                                    // into the nearest emitting ancestor
+                                    // (skipping identifier-less scaffolding).
+                                    // The top-level § has no emitting
+                                    // ancestor in scope and gets no edge.
+                                    if let Some(parent) = stack.iter().rev().find(|f| f.emit) {
+                                        relations.push(RawRelation {
+                                            from: frame.id,
+                                            to: parent.id.clone(),
+                                            relation: RawRel::Composes { into: None },
+                                        });
+                                    }
                                 }
                             }
                             if stack.is_empty() {
@@ -819,6 +837,18 @@ struct ContainerFrame {
     id: String,
     heading: String,
     body: String,
+    /// Whether this frame becomes a `RawTerm` when popped. A USLM
+    /// container is a citable subdivision only when it carries an
+    /// `identifier` attribute; identifier-less containers (e.g.
+    /// `<level>` grouping wrappers) are structural scaffolding the
+    /// LRC does not assign a URN, so they are NOT terms. We still
+    /// push a frame for them to keep start/end nesting balanced, but
+    /// emit no term and route a child's `Composes` edge to the
+    /// nearest emitting ancestor. This mirrors the runtime
+    /// `read_subdivision` walk, which only constructs a
+    /// `UsCodeSubdivision` for XSD-substitution-group subdivision
+    /// elements (every one of which carries an identifier).
+    emit: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

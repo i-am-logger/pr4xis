@@ -665,6 +665,23 @@ pub struct UsCodeSection {
     pub identifier: String,
     /// The `<num>` value, e.g. `"1514A"`.
     pub num: String,
+    /// Cross-reference footnote the LRC embeds inside `<num>` to
+    /// disambiguate a duplicated section number — e.g. "Another
+    /// section 3598 is set out after this section." `None` for the
+    /// overwhelming majority of sections (a unique section number
+    /// carries no such footnote).
+    ///
+    /// This is the LRC's actual disambiguation mechanism when two
+    /// distinct sections share one URN: the section number repeats
+    /// (and the heading may even repeat verbatim, as at 5 U.S.C.
+    /// § 3598), so the only structural discriminator the LRC publishes
+    /// is this `<note type="footnote">` inside each `<num>`. Per the
+    /// Office of the Law Revision Counsel, *Detailed Guide to the
+    /// United States Code Content and Features* ("Editorial
+    /// Reclassification" / duplicate-numbering notes). Retaining it
+    /// lets the uniqueness axiom recognize a legitimate LRC duplicate
+    /// from a genuine parse error without a hand-coded exceptions list.
+    pub num_footnote: Option<String>,
     /// `<heading>` plain text, e.g. "Civil action to protect…".
     /// Flat-text projection of [`heading_runs`].
     pub heading: String,

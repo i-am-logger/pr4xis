@@ -136,7 +136,7 @@
 # Drafting Handbook 2017, ISO 3166-2:US, Huddleston & Pullum 2002,
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
-"us_legal_lexicon@2026"  = "46115bfeb4a4f485f64983a0f70b352e71e0c8a09c4e14a5e0e02ee8e7d1b80c"
+"us_legal_lexicon@2026"  = "60f5fab183bd7b71aaff6269803b808adac37ef3cf4cb6f760e20a82d11f5e5e"
 # U.S. Code Title 42 — The Public Health and Welfare. SHA-256 of
 # the unzipped usc42.xml content (113 MB, ~3,500 sections — the
 # LRC's largest title). Carries the harassment-timeline tree's
@@ -171,6 +171,20 @@
 # independence). The .zip wrapper sha256 is not stored — `pr4xis
 # update` verifies the inner XML matches.
 "usc_title_15@pl-119-90" = "9b851f3d85cb72c4ba744a4d859b24885ad30ab378592544f7054fe4a97fdc77"
+# U.S. Code Title 5 — Government Organization and Employees. SHA-256
+# of the unzipped usc05.xml content (19 MB) from release point
+# pl-119-90. Carries the harassment-timeline tree's federal
+# transparency / personnel-law backbone: the Freedom of Information
+# Act (§ 552 — the MuckRock FOIA requests' legal basis), the Privacy
+# Act of 1974 (§ 552a), the Administrative Procedure Act (§§ 551 et
+# seq.), and the federal whistleblower scheme — § 2302(b)(8)
+# (prohibited personnel practice: reprisal for protected
+# disclosures), § 1213 (Office of Special Counsel disclosures), and
+# § 1221 (individual right of action before the MSPB). Post-
+# Pub. L. 117-286 (2022) Title 5 folds in the former Appendix
+# (Inspector General Act, Ethics in Government Act). Loaded at
+# runtime via M4.δ.7.a USLM XML parsing.
+"usc_title_5@pl-119-90"  = "8f568f9c5750e8ba9ecc32b5449965763f7e82f3405148618a9f36e122e6a9ae"
 # U.S. Code Title 18 — Crimes and Criminal Procedure. SHA-256 of
 # the unzipped usc18.xml content (12 MB, 1,428 sections, ~28k cross-
 # references) from release point pl-119-90. The .zip wrapper sha256

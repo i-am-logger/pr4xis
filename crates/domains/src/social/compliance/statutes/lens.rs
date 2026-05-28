@@ -336,6 +336,7 @@ pub fn sample_uslm_section() -> UsCodeSection {
     UsCodeSection {
         identifier: "/us/usc/t18/s1514A".to_string(),
         num: "1514A".to_string(),
+        num_footnote: None,
         heading: "Civil action to protect against retaliation".to_string(),
         heading_runs: Vec::new(),
         chapeau: None,

@@ -466,6 +466,25 @@ type        = "UsCodeTitle"
 url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc15@119-90.zip"
 description = "U.S. Code Title 15 — Commerce and Trade, including the Securities Act of 1933 (§§ 77a et seq.) and the Securities Exchange Act of 1934 (§§ 78a et seq.). USLM XML published by the LRC per 1 U.S.C. § 204."
 
+# Title 5 — Government Organization and Employees. Authoritative
+# source for the federal transparency / personnel-law backbone the
+# harassment-timeline tree runs on: the Freedom of Information Act
+# (5 U.S.C. § 552 — the 18 MuckRock FOIA requests' legal basis), the
+# Privacy Act of 1974 (§ 552a — agency records on individuals), the
+# Administrative Procedure Act (§§ 551 et seq.), and the federal
+# whistleblower scheme — § 2302(b)(8) (prohibited personnel practice:
+# reprisal for protected disclosures), § 1213 (disclosures to the
+# Office of Special Counsel), and § 1221 (individual right of action
+# before the MSPB). Title 5 is positive law and, since the
+# Pub. L. 117-286 (Dec. 2022) reorganization, folds in the former
+# Title 5 Appendix (Inspector General Act, Ethics in Government Act).
+# Same LRC USLM XML publication unit; release point pl-119-90.
+[sources.usc_title_5]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc05@119-90.zip"
+description = "U.S. Code Title 5 — Government Organization and Employees, including the Freedom of Information Act (§ 552), the Privacy Act (§ 552a), the Administrative Procedure Act (§§ 551 et seq.), and the federal whistleblower scheme (§ 2302(b)(8), § 1213 OSC disclosures, § 1221 MSPB right of action). USLM XML published by the LRC per 1 U.S.C. § 204."
+
 # Individual US Code sections (e.g. 18 U.S.C. § 1514A — Sarbanes–Oxley
 # § 806; 49 U.S.C. § 42121 — AIR21; 15 U.S.C. § 78j(b) — Rule 10b-5;
 # 15 U.S.C. § 78u-6 — Dodd-Frank SEC whistleblower) are NOT separate

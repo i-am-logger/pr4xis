@@ -457,57 +457,115 @@ fn axiom_hierarchy_strictly_nested_on_real_slice() {
     axiom_hierarchy_strictly_nested(&t).expect("axiom must hold on real SOX § 1514A");
 }
 
-/// Axiom — every `(section identifier, section heading)` pair within
-/// a title is unique.
+/// Axiom — a section URN repeats within a title ONLY when every
+/// occurrence carries the LRC's duplicate-numbering cross-reference
+/// footnote inside its `<num>`.
 ///
 /// USLM URN paths are intended as citation keys, but the LRC's
 /// editorial convention permits URN duplicates when Congress enacts
 /// two unrelated sections that received the same section number
-/// under different Public Laws. The canonical example is
-/// **28 U.S.C. § 1932**: the LRC publishes BOTH "Judicial Panel on
-/// Multidistrict Litigation" AND "Revocation of earned release
-/// credit" under the URN `/us/usc/t28/s1932`, with cross-reference
-/// footnotes ("Another section 1932 is set out…") on each
-/// occurrence per the LRC editorial reference guide.
+/// under different Public Laws. Three shapes appear in the corpus:
 ///
-/// The disambiguating semantic on the citation side is the
-/// section heading — every brief that cites such a section
-/// names BOTH the URN and the heading (e.g. "28 U.S.C. § 1932
-/// (Judicial Panel on Multidistrict Litigation)") so the
-/// reader knows which of the two § 1932s is meant. The LRC
-/// guarantees these headings differ; that's what makes the
-/// citation system work at all.
+/// - **28 U.S.C. § 1932** — same URN, *different* headings
+///   ("Judicial Panel on Multidistrict Litigation" vs "Revocation of
+///   earned release credit").
+/// - **5 U.S.C. § 5757** — same URN, different headings ("Payment of
+///   expenses to obtain professional credentials" vs "Extended
+///   assignment incentive").
+/// - **5 U.S.C. § 3598** — same URN *and identical heading*
+///   ("Federal Bureau of Investigation Reserve Service" on both).
 ///
-/// The axiom captures this LRC invariant directly: each
-/// `(URN, heading)` pair must be unique. URN-only collisions
-/// are allowed iff their headings differ — exactly the LRC's
-/// editorial-convention shape. The axiom needs no hand-coded
-/// known-duplicates list; the invariant is structural.
+/// The § 3598 case disproves the tempting "the headings always
+/// differ" invariant: the only structural discriminator the LRC
+/// publishes for *every* duplicate is a `<note type="footnote">`
+/// inside each `<num>` reading "Another section N is set out [after|
+/// preceding] this section." That footnote — not the heading — is
+/// the LRC's own disambiguation mechanism (Office of the Law Revision
+/// Counsel duplicate-numbering editorial convention). The XML `id`
+/// (xs:ID) is the only globally-unique handle, but the citation-level
+/// discriminator is this footnote.
 ///
-/// Per `feedback_bottom_up_loaded_not_encoded`: this grounds in
-/// the loaded LRC USLM XML's own publication structure rather
-/// than in a hand-curated list of known duplicates.
+/// So the axiom groups sections by URN and, for any URN appearing
+/// more than once, requires that *every* occurrence carry the
+/// duplicate-numbering footnote. A repeated URN without that footnote
+/// on every occurrence is a genuine parse error / corpus corruption
+/// (e.g. the same section captured twice), which the axiom must
+/// still catch.
+///
+/// Per `feedback_bottom_up_loaded_not_encoded`: this grounds in the
+/// loaded LRC USLM XML's own publication structure (the `<num>`
+/// footnote) rather than in a hand-curated list of known duplicates
+/// or in the heading-distinctness heuristic that § 3598 violates.
 fn axiom_section_identifiers_unique(title: &UsCodeTitle) -> Result<(), String> {
-    let mut seen: std::collections::HashSet<(&str, &str)> = std::collections::HashSet::new();
+    let mut by_urn: std::collections::HashMap<&str, Vec<&UsCodeSection>> =
+        std::collections::HashMap::new();
     for s in &title.sections {
-        if !seen.insert((s.identifier.as_str(), s.heading.as_str())) {
-            return Err(format!(
-                "duplicate (identifier, heading) pair: {:?} / {:?} — \
-                 either the LRC source has a real corpus error or two sections \
-                 with identical URN AND identical heading exist (LRC editorial \
-                 convention forbids this — different sections sharing a URN must \
-                 carry different headings so citations can disambiguate)",
-                s.identifier, s.heading
-            ));
+        by_urn.entry(s.identifier.as_str()).or_default().push(s);
+    }
+    for (urn, group) in &by_urn {
+        if group.len() == 1 {
+            continue;
+        }
+        for s in group {
+            let is_lrc_dup = s
+                .num_footnote
+                .as_deref()
+                .map(is_lrc_duplicate_numbering_footnote)
+                .unwrap_or(false);
+            if !is_lrc_dup {
+                return Err(format!(
+                    "URN {urn:?} appears {} times, but the occurrence headed \
+                     {:?} carries no LRC duplicate-numbering footnote \
+                     (\"Another section N is set out…\") in its <num>. A \
+                     repeated URN is legitimate only when every occurrence \
+                     bears that footnote; absent it, this is a parse error or \
+                     corpus corruption.",
+                    group.len(),
+                    s.heading
+                ));
+            }
         }
     }
     Ok(())
+}
+
+/// True iff `footnote` is the LRC's duplicate-numbering cross-
+/// reference idiom — "Another section N is set out [after|preceding]
+/// this section." Recognized by the distinctive "Another section"
+/// lead phrase together with "set out"; this is the only footnote
+/// shape the LRC uses on a `<num>` to mark a re-used section number.
+fn is_lrc_duplicate_numbering_footnote(footnote: &str) -> bool {
+    footnote.contains("Another section") && footnote.contains("set out")
 }
 
 #[test]
 fn axiom_section_identifiers_unique_on_sample_title() {
     let t = read_uslm_title(SAMPLE_TITLE).unwrap();
     axiom_section_identifiers_unique(&t).expect("axiom must hold");
+}
+
+#[test]
+fn lrc_duplicate_numbering_footnote_recognizes_the_idiom() {
+    // The two real footnote phrasings the LRC uses on a re-used
+    // section number.
+    assert!(is_lrc_duplicate_numbering_footnote(
+        "1 Another section 3598 is set out after this section."
+    ));
+    assert!(is_lrc_duplicate_numbering_footnote(
+        "1 Another section 5757 is set out preceding this section."
+    ));
+    // An ordinary editorial footnote is NOT a duplicate-numbering
+    // marker, even when it mentions a section.
+    assert!(!is_lrc_duplicate_numbering_footnote(
+        "So in original. Probably should be section 552."
+    ));
+    assert!(!is_lrc_duplicate_numbering_footnote(""));
+    // "set out as a note" is the unrelated note-placement idiom, not
+    // the duplicate-numbering one — it lacks the "Another section"
+    // lead phrase.
+    assert!(!is_lrc_duplicate_numbering_footnote(
+        "Section was formerly set out as a note under section 5301."
+    ));
 }
 
 /// Axiom — all `<ref href="...">` URNs follow the USLM identifier
@@ -2565,6 +2623,303 @@ fn full_title_42_codegen_and_runtime_agree_on_section_1983() {
     assert_eq!(
         runtime_ids, codegen_ids,
         "codegen and runtime diverge on Title 42 § 1983"
+    );
+}
+
+// =============================================================================
+// Full Title 5 coverage (M4.δ.8) — Government Organization and
+// Employees. The harassment-timeline tree's federal transparency /
+// personnel-law backbone: the Freedom of Information Act (§ 552 — the
+// MuckRock FOIA requests' legal basis), the Privacy Act of 1974
+// (§ 552a), the Administrative Procedure Act (§§ 551 et seq.), and
+// the federal whistleblower scheme — § 2302(b)(8) (prohibited
+// personnel practice: reprisal for protected disclosures), § 1213
+// (disclosures to the Office of Special Counsel), § 1221 (individual
+// right of action before the MSPB). Post-Pub. L. 117-286 (2022),
+// Title 5 folds in the former Appendix (Inspector General Act,
+// Ethics in Government Act).
+// =============================================================================
+
+fn title_5_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("data/legal/uscode/usc_title_5/usc_title_5-pl-119-90.xml")
+}
+
+#[test]
+fn full_title_5_parses_with_expected_section_count() {
+    let p = title_5_path();
+    if !p.exists() {
+        eprintln!("SKIP: Title 5 USLM not on disk at {p:?}");
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let t0 = std::time::Instant::now();
+    let title = read_uslm_title(&xml).expect("Title 5 must parse");
+    eprintln!(
+        "Title 5 parse: {} sections in {:?}",
+        title.sections.len(),
+        t0.elapsed()
+    );
+    assert_eq!(title.identifier, "/us/usc/t5");
+    assert_eq!(title.number, 5);
+    assert!(
+        title
+            .heading
+            .to_ascii_uppercase()
+            .contains("GOVERNMENT ORGANIZATION AND EMPLOYEES"),
+        "got heading: {:?}",
+        title.heading
+    );
+    // Title 5 carries the APA, FOIA/Privacy Act, the entire federal
+    // civil-service personnel system, and (post-2022 reorganization)
+    // the former Appendix. Lower bound is conservative.
+    assert!(
+        title.sections.len() >= 800,
+        "expected ≥800 sections, got {}",
+        title.sections.len()
+    );
+}
+
+#[test]
+fn full_title_5_every_section_has_unique_identifier() {
+    let p = title_5_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+    axiom_section_identifiers_unique(&title)
+        .expect("SectionIdentifiersUnique-or-LRC-documented-duplicates must hold for full Title 5");
+}
+
+#[test]
+fn full_title_5_section_3598_is_identical_heading_lrc_duplicate() {
+    // 5 U.S.C. § 3598 is the corpus's proof that the LRC publishes
+    // duplicate section numbers with IDENTICAL headings — both
+    // occurrences are headed "Federal Bureau of Investigation Reserve
+    // Service". The only structural discriminator is the "Another
+    // section 3598 is set out [after|preceding] this section" footnote
+    // inside each <num>. This is why `axiom_section_identifiers_unique`
+    // grounds on that footnote rather than on heading-distinctness
+    // (which 28 U.S.C. § 1932 and 5 U.S.C. § 5757 satisfy but § 3598
+    // does not). Regression guard for the M4.δ.8 finding.
+    let p = title_5_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+    let occ: Vec<&UsCodeSection> = title
+        .sections
+        .iter()
+        .filter(|s| s.identifier == "/us/usc/t5/s3598")
+        .collect();
+    assert_eq!(
+        occ.len(),
+        2,
+        "expected exactly two § 3598 occurrences, got {}",
+        occ.len()
+    );
+    // The heading does NOT disambiguate them — both are identical.
+    assert_eq!(
+        occ[0].heading, occ[1].heading,
+        "the two § 3598 sections are expected to carry the identical heading"
+    );
+    assert!(
+        occ[0]
+            .heading
+            .contains("Federal Bureau of Investigation Reserve Service"),
+        "got heading {:?}",
+        occ[0].heading
+    );
+    // The <num> footnote IS the disambiguator — present on both, with
+    // one "after" and one "preceding".
+    for s in &occ {
+        let fnote = s.num_footnote.as_deref().unwrap_or("");
+        assert!(
+            is_lrc_duplicate_numbering_footnote(fnote),
+            "§ 3598 occurrence missing LRC duplicate-numbering footnote; got {:?}",
+            s.num_footnote
+        );
+    }
+    let after = occ
+        .iter()
+        .any(|s| s.num_footnote.as_deref().unwrap_or("").contains("after"));
+    let preceding = occ.iter().any(|s| {
+        s.num_footnote
+            .as_deref()
+            .unwrap_or("")
+            .contains("preceding")
+    });
+    assert!(
+        after && preceding,
+        "expected one 'after' and one 'preceding' duplicate-numbering footnote"
+    );
+
+    // A non-duplicated section carries NO num footnote — confirms the
+    // footnote is specific to the duplicate-numbering convention and
+    // not a generic artifact.
+    let foia = title
+        .section("/us/usc/t5/s552")
+        .expect("§ 552 must be present");
+    assert_eq!(
+        foia.num_footnote, None,
+        "ordinary (non-duplicated) § 552 should carry no <num> footnote"
+    );
+}
+
+#[test]
+fn full_title_5_every_section_satisfies_every_axiom() {
+    let p = title_5_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+
+    axiom_every_section_has_num(&title).expect("EverySectionHasNum must hold for full Title 5");
+    axiom_every_container_has_identifier(&title)
+        .expect("EveryContainerHasIdentifier must hold for full Title 5");
+    axiom_child_identifier_extends_parent(&title)
+        .expect("ChildIdentifierExtendsParent must hold for full Title 5");
+    axiom_hierarchy_strictly_nested(&title)
+        .expect("HierarchyStrictlyNested must hold for full Title 5");
+    axiom_section_identifiers_unique(&title)
+        .expect("SectionIdentifiersUnique must hold for full Title 5");
+    axiom_ref_hrefs_well_formed(&title).expect("RefHrefsWellFormed must hold for full Title 5");
+}
+
+#[test]
+fn full_title_5_every_section_lifts_to_statute() {
+    use crate::social::compliance::statutes::from_uslm::from_uslm_section;
+    let p = title_5_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+
+    let mut failed = 0usize;
+    let mut first_failure: Option<(String, String)> = None;
+    for s in &title.sections {
+        let name = section_identifier_to_statute_name(&s.identifier);
+        if let Err(e) = from_uslm_section(&name, "pl-119-90", s) {
+            failed += 1;
+            if first_failure.is_none() {
+                first_failure = Some((name, format!("{e}")));
+            }
+        }
+    }
+    if let Some((n, msg)) = first_failure {
+        panic!(
+            "{failed}/{} sections failed to lift to Statute; first: {n}: {msg}",
+            title.sections.len()
+        );
+    }
+    assert_eq!(failed, 0);
+}
+
+#[test]
+fn full_title_5_known_sections_present() {
+    // Sentinel sections forming the harassment-timeline tree's
+    // transparency + federal-whistleblower backbone.
+    let p = title_5_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+    let ids: std::collections::HashSet<&str> = title
+        .sections
+        .iter()
+        .map(|s| s.identifier.as_str())
+        .collect();
+
+    // § 552 — Public information; agency rules, opinions, orders,
+    // records, and proceedings (the Freedom of Information Act). The
+    // statutory basis for the harassment-timeline tree's 18 MuckRock
+    // FOIA requests.
+    assert!(ids.contains("/us/usc/t5/s552"), "§ 552 (FOIA) missing");
+
+    // § 552a — Records maintained on individuals (the Privacy Act of
+    // 1974). Governs agency records — directly relevant to the
+    // surveillance / records-disclosure claims.
+    assert!(
+        ids.contains("/us/usc/t5/s552a"),
+        "§ 552a (Privacy Act) missing"
+    );
+
+    // § 551 — Definitions (the Administrative Procedure Act). Anchors
+    // the APA's judicial-review framework.
+    assert!(
+        ids.contains("/us/usc/t5/s551"),
+        "§ 551 (APA definitions) missing"
+    );
+
+    // § 2301 — Merit system principles. The values the federal
+    // personnel system must uphold; § 2302 enumerates the prohibited
+    // practices that violate them.
+    assert!(
+        ids.contains("/us/usc/t5/s2301"),
+        "§ 2301 (merit system principles) missing"
+    );
+
+    // § 2302 — Prohibited personnel practices. § 2302(b)(8) is the
+    // core federal whistleblower-reprisal prohibition (protected
+    // disclosures of violations of law, gross mismanagement, abuse of
+    // authority, or substantial danger to public health/safety).
+    assert!(
+        ids.contains("/us/usc/t5/s2302"),
+        "§ 2302 (prohibited personnel practices; (b)(8) whistleblower) missing"
+    );
+
+    // § 1213 — Provisions relating to disclosures of violations of
+    // law, mismanagement, and danger to public health or safety. The
+    // Office of Special Counsel disclosure channel.
+    assert!(
+        ids.contains("/us/usc/t5/s1213"),
+        "§ 1213 (OSC disclosures) missing"
+    );
+
+    // § 1221 — Individual right of action in certain reprisal cases.
+    // The whistleblower's IRA before the Merit Systems Protection
+    // Board.
+    assert!(
+        ids.contains("/us/usc/t5/s1221"),
+        "§ 1221 (MSPB individual right of action) missing"
+    );
+}
+
+#[test]
+fn full_title_5_codegen_and_runtime_agree_on_foia() {
+    // § 552 (the Freedom of Information Act) is THE load-bearing §
+    // for the harassment-timeline tree's FOIA work. Runtime XML
+    // loading (M4.δ.7.a) must produce the same term set the build-
+    // time codegen path would have.
+    use crate::social::compliance::statutes::from_uslm::derive_structural;
+    let p = title_5_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+    let section = title
+        .section("/us/usc/t5/s552")
+        .expect("§ 552 must be present");
+    let runtime_data = derive_structural("usc5_552", section);
+    let codegen_doc = pr4xis::codegen::uslm::parse_uslm_str(&xml, "/us/usc/t5/s552", "usc5_552")
+        .expect("codegen parse");
+    let runtime_ids: std::collections::HashSet<&str> =
+        runtime_data.terms.iter().map(|t| t.id.as_str()).collect();
+    let codegen_ids: std::collections::HashSet<&str> = codegen_doc
+        .terms
+        .iter()
+        .filter(|t| t.id != "usc5_552")
+        .map(|t| t.id.as_str())
+        .collect();
+    assert_eq!(
+        runtime_ids, codegen_ids,
+        "codegen and runtime diverge on Title 5 § 552"
     );
 }
 

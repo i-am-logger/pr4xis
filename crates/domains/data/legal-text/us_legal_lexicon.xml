@@ -863,6 +863,53 @@
     <LexicalEntry id="lt-iot"><Lemma writtenForm="iot" partOfSpeech="n"/><Sense id="lt-iot-1" synset="lt-legal-term"/></LexicalEntry>
 
     <!-- ==================================================================
+         Title 5 — Government Organization and Employees additions
+         (M4.δ.8).
+         ==================================================================
+         Title 5's civil-service / FOIA / Privacy-Act / APA headings
+         surface a small closed-class residue. Same category model +
+         citations as Titles 15/28/29/42.
+
+         Federal agencies (Federal Register Document Drafting Handbook
+         2017 §4.1 + U.S. Government Manual): USAID (Agency for
+         International Development), DoD (Department of Defense), ASCS
+         (Agricultural Stabilization and Conservation Service). -->
+    <LexicalEntry id="lt-usaid"><Lemma writtenForm="usaid" partOfSpeech="propn"/><Sense id="lt-usaid-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-dod"><Lemma writtenForm="dod" partOfSpeech="propn"/><Sense id="lt-dod-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-ascs"><Lemma writtenForm="ascs" partOfSpeech="propn"/><Sense id="lt-ascs-1" synset="lt-fed-agency"/></LexicalEntry>
+
+    <!-- Persons named in Title 5 programs (U.S. Government Manual +
+         USC heading text): Senator William V. Roth Jr. (Roth IRA /
+         thrift-savings provisions); Senator J. Bennett Johnston. -->
+    <LexicalEntry id="lt-roth"><Lemma writtenForm="roth" partOfSpeech="propn"/><Sense id="lt-roth-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-johnston"><Lemma writtenForm="johnston" partOfSpeech="propn"/><Sense id="lt-johnston-1" synset="lt-named-entity"/></LexicalEntry>
+
+    <!-- Day-of-week name (5 U.S.C. § 5546 "Pay for Sunday and holiday
+         work"). Calendar day names parallel the month names already
+         loaded above. -->
+    <LexicalEntry id="lt-sunday"><Lemma writtenForm="sunday" partOfSpeech="propn"/><Sense id="lt-sunday-1" synset="lt-day-name"/></LexicalEntry>
+
+    <!-- English neo-classical compound (tele- combining form) — Bauer
+         1983 §6 + CGEL Ch. 19 §3. -->
+    <LexicalEntry id="lt-telework"><Lemma writtenForm="telework" partOfSpeech="n"/><Sense id="lt-telework-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+
+    <!-- English N+N compounds + prefixed forms (CGEL Ch. 19 §1.2/§1.4
+         + Bauer 1983 §6): wildland (wild+land), worksites (the
+         worksite plural), antidiscrimination (anti-). -->
+    <LexicalEntry id="lt-wildland"><Lemma writtenForm="wildland" partOfSpeech="n"/><Sense id="lt-wildland-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-worksites"><Lemma writtenForm="worksites" partOfSpeech="n"/><Sense id="lt-worksites-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-antidiscrimination"><Lemma writtenForm="antidiscrimination" partOfSpeech="adj"/><Sense id="lt-antidiscrimination-1" synset="lt-eng-prefixed"/></LexicalEntry>
+
+    <!-- Legal / personnel terms (Black's Law Dictionary 11th ed.): the
+         "-men" personnel-class plurals (guardsmen, firemen) join the
+         existing seamen/airmen/servicemen/warehousemen set; "accruing"
+         is the accrual term-of-art (parallels the existing "construing"
+         participle entry). -->
+    <LexicalEntry id="lt-guardsmen"><Lemma writtenForm="guardsmen" partOfSpeech="n"/><Sense id="lt-guardsmen-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-firemen"><Lemma writtenForm="firemen" partOfSpeech="n"/><Sense id="lt-firemen-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-accruing"><Lemma writtenForm="accruing" partOfSpeech="v"/><Sense id="lt-accruing-1" synset="lt-legal-term"/></LexicalEntry>
+
+    <!-- ==================================================================
          Garbage-text fragments that the tokenizer produces from USC
          heading text (artefacts of "ADS-B", "fed-erally" hyphenation,
          word-boundary artifacts).
@@ -882,6 +929,7 @@
          ================================================================== -->
     <Synset id="lt-month-abbr" partOfSpeech="abbr"><Definition>Month abbreviation per GPO Style Manual 2016 §9.20</Definition></Synset>
     <Synset id="lt-month-name" partOfSpeech="propn"><Definition>Calendar month name (proper noun) per ISO 8601:2019 § 4.2.2 and GPO Style Manual 2016 §9.20</Definition></Synset>
+    <Synset id="lt-day-name" partOfSpeech="propn"><Definition>Calendar day-of-week name (proper noun) per ISO 8601:2019 § 3.1.1.2 and GPO Style Manual 2016 §9.20 (Months and days)</Definition></Synset>
     <Synset id="lt-citation-abbr" partOfSpeech="abbr"><Definition>Citation abbreviation per GPO Style Manual 2016 Ch. 9 §9.4 / §9.6</Definition></Synset>
     <Synset id="lt-latin-abbr" partOfSpeech="abbr"><Definition>Latin legal-text abbreviation preserved in U.S. legal English per Black's Law Dictionary 11th ed. (2019) and Bluebook 21st ed. §6.1</Definition></Synset>
     <Synset id="lt-latin-taxon" partOfSpeech="propn"><Definition>Latin biological-taxonomy class name (zoological) per International Code of Zoological Nomenclature 4th ed. (1999) and GPO Style Manual 2016 §11.20</Definition></Synset>

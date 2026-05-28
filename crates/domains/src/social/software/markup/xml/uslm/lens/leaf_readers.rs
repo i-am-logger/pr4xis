@@ -828,6 +828,7 @@ pub fn read_section(elem: &XmlElement) -> Result<UsCodeSection, UslmReadError> {
     }
     let identifier = attr(elem, "identifier").unwrap_or_default();
     let num = first_child_attr(elem, "num", "value").unwrap_or_default();
+    let num_footnote = first_child_num_footnote(elem);
     let heading = first_child_text(elem, "heading").unwrap_or_default();
     let heading_runs = first_child_inline_runs(elem, "heading");
     let chapeau = first_child_text(elem, "chapeau");
@@ -889,6 +890,7 @@ pub fn read_section(elem: &XmlElement) -> Result<UsCodeSection, UslmReadError> {
     Ok(UsCodeSection {
         identifier,
         num,
+        num_footnote,
         heading,
         heading_runs,
         chapeau,
@@ -905,6 +907,72 @@ pub fn read_section(elem: &XmlElement) -> Result<UsCodeSection, UslmReadError> {
         markers,
         amendments,
     })
+}
+
+/// The cross-reference footnote the LRC embeds inside a section's
+/// `<num>` to disambiguate a duplicated section number — e.g.
+/// "Another section 3598 is set out after this section." Returns the
+/// note's plain text, or `None` when `<num>` carries no `<note>` /
+/// `<footnote>` (the common case).
+///
+/// `element_text` deliberately suppresses `<note>` / `<footnote>`
+/// descendants of body elements, so the disambiguation footnote is
+/// invisible to the ordinary `num` value extraction; this reader
+/// reaches into the `<num>` element specifically to recover it. Per
+/// the Office of the Law Revision Counsel duplicate-numbering
+/// editorial convention.
+pub(super) fn first_child_num_footnote(elem: &XmlElement) -> Option<String> {
+    for child in &elem.children {
+        if let XmlNode::Element(num) = child
+            && num.name.local == "num"
+        {
+            for node in &num.children {
+                if let XmlNode::Element(note) = node
+                    && matches!(note.name.local.as_str(), "note" | "footnote")
+                {
+                    let text = note_text(note);
+                    if !text.is_empty() {
+                        return Some(text);
+                    }
+                }
+            }
+            return None;
+        }
+    }
+    None
+}
+
+/// Plain text of a `<note>` / `<footnote>` element, normalized like
+/// [`element_text`] but WITHOUT suppressing the note itself (the
+/// suppression in `element_text` only applies to note/footnote
+/// *descendants* of body elements). Used to recover the LRC's
+/// duplicate-numbering disambiguation footnote from inside `<num>`.
+fn note_text(elem: &XmlElement) -> String {
+    let mut buf = String::new();
+    for child in &elem.children {
+        match child {
+            XmlNode::Text(s) | XmlNode::CData(s) => buf.push_str(s),
+            XmlNode::Element(e) => push_text(e, &mut buf),
+            // Comments and processing instructions carry no normative
+            // text (W3C XML 1.0 §2.5/§2.6) — skip.
+            XmlNode::Comment(_) | XmlNode::ProcessingInstruction { .. } => {}
+        }
+    }
+    let trimmed = buf.trim();
+    let mut out = String::with_capacity(trimmed.len());
+    let mut prev_space = false;
+    for ch in trimmed.chars() {
+        if ch.is_whitespace() {
+            if !prev_space {
+                out.push(' ');
+            }
+            prev_space = true;
+        } else {
+            out.push(ch);
+            prev_space = false;
+        }
+    }
+    out
 }
 
 /// Read a subdivision element (subsection / paragraph / … /
