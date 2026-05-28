@@ -30,6 +30,8 @@
 
 extern crate alloc;
 
+#[cfg(feature = "archive")]
+pub mod archive;
 pub mod category;
 #[cfg(feature = "codegen")]
 pub mod codegen;
