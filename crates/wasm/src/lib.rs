@@ -1,46 +1,49 @@
 use wasm_bindgen::prelude::*;
 
-use pr4xis::archive::{OwnedCodegenData, from_archive_bytes};
 use pr4xis::ontology::compose::Staging;
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::language;
 use pr4xis_domains::formal::information::knowledge::{LoadedRef, source_catalog};
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
+use pr4xis_domains::social::software::markup::xml::uslm::lens::read_uslm_title;
 
 #[allow(dead_code)]
 mod codegen_output {
     include!(concat!(env!("OUT_DIR"), "/english_codegen.rs"));
 }
 
-/// Build-time catalog of on-demand-loadable rkyv archives — emitted by
-/// build.rs from the USC titles on disk. `(registry name, version,
-/// archive filename served at /archives/<file>)`.
-mod archives_manifest {
-    include!(concat!(env!("OUT_DIR"), "/archives_manifest.rs"));
+/// Build-time catalog of the authoritative source documents available to
+/// download at runtime — emitted by build.rs from the registered USC
+/// title XML on disk. `(registry name, version, served URL, byte size)`.
+mod sources_manifest {
+    include!(concat!(env!("OUT_DIR"), "/sources_manifest.rs"));
 }
 
 /// Registry primary key of the embedded English base
 /// (praxis.toml `[sources.english_wordnet]`). English is the one source
-/// baked into the binary (`Embedded` staging); every other registered
-/// source is loaded on demand from its rkyv archive (`Async` staging).
+/// processed at build time and baked in (`Embedded` staging); every other
+/// registered source is downloaded from its authoritative document at
+/// runtime and parsed into a live ontology (`Async` staging).
 const ENGLISH_SOURCE: &str = "english_wordnet";
 
 /// The runtime. Source-agnostic: it holds the embedded English language
-/// model plus a generic set of on-demand-loaded ontologies. It has no
-/// notion of "statute" — a loaded U.S. Code title is just one
-/// [`LoadedSource`] among whatever the registry offers.
+/// model plus a set of on-demand-loaded ontologies. It has no notion of
+/// "statute" — a loaded U.S. Code title is just one [`LoadedSource`]
+/// among whatever the registry offers.
 #[wasm_bindgen]
 pub struct Pr4xis {
     english: English,
     loaded: Vec<LoadedSource>,
 }
 
-/// A registered source materialized at runtime from its rkyv archive —
-/// the object-level the self-model's meta-level monitors as `Loaded`.
+/// A registered source downloaded and parsed into a LIVE in-memory
+/// ontology at runtime — exactly the end state English reaches, only via
+/// runtime download + parse instead of build-time codegen. Not a blob:
+/// `usc` is a materialized [`UsCode`] the system can query.
 struct LoadedSource {
     name: String,
-    staging: Staging,
-    owned: OwnedCodegenData,
+    usc: UsCode,
 }
 
 impl Default for Pr4xis {
@@ -86,52 +89,47 @@ impl Pr4xis {
         self.english.word_count()
     }
 
-    /// Total entities across the on-demand-loaded sources (0 until the
-    /// host loads an archive). Source-agnostic — it does not single out
-    /// any source kind.
-    pub fn loaded_entity_count(&self) -> usize {
-        self.loaded
-            .iter()
-            .map(|s| s.owned.entity_count as usize)
-            .sum()
+    /// Total sections across the on-demand-loaded sources (0 until one is
+    /// loaded). Source-agnostic.
+    pub fn loaded_section_count(&self) -> usize {
+        self.loaded.iter().map(|s| s.usc.section_count()).sum()
     }
 
-    /// Load a registered source from its rkyv archive bytes (fetched by
-    /// the host from the source's `.rkyv` blob). This IS the Nelson-Narens
-    /// *control* operation — the meta-level moving a source from
-    /// `Available` to `Loaded`. Validation is by `bytecheck` inside
-    /// [`from_archive_bytes`]; a corrupted blob fails closed. Idempotent:
+    /// Load a registered source from its authoritative USLM XML
+    /// (downloaded by the host from the source's served document). Parses
+    /// in-browser into a LIVE [`UsCode`] — the same materialization path
+    /// English takes, only at runtime — and holds it in memory, queryable.
+    /// This IS the Nelson-Narens *control* operation: Available → Loaded.
+    /// A malformed document fails closed via the USLM reader. Idempotent:
     /// loading a name already present replaces it.
-    pub fn load_source(&mut self, name: String, bytes: &[u8]) -> Result<(), JsValue> {
-        let owned = from_archive_bytes(bytes)
-            .map_err(|e| JsValue::from_str(&format!("archive decode failed: {e}")))?;
+    pub fn load_source(&mut self, name: String, xml: &str) -> Result<(), JsValue> {
+        let title = read_uslm_title(xml)
+            .map_err(|e| JsValue::from_str(&format!("USLM parse failed: {e:?}")))?;
+        let usc = UsCode::from_uslm_titles_owned(vec![title]);
         self.loaded.retain(|s| s.name != name);
-        self.loaded.push(LoadedSource {
-            name,
-            staging: Staging::Async,
-            owned,
-        });
+        self.loaded.push(LoadedSource { name, usc });
         Ok(())
     }
 
-    /// The on-demand-loadable archives: `{ archives: [{ name, version,
-    /// url }] }`. The host fetches `url`, then calls [`Self::load_source`]
-    /// with the bytes. The meta page offers a Load action only for catalog
-    /// sources that appear here (others are registered but have no archive
-    /// to fetch yet).
-    pub fn available_archives(&self) -> String {
-        let list: Vec<SchemaValue> = archives_manifest::AVAILABLE_ARCHIVES
+    /// The authoritative source documents available to download:
+    /// `{ sources: [{ name, version, url, bytes }] }`. The host streams
+    /// `url` (showing download progress), then calls [`Self::load_source`]
+    /// with the text. The meta page offers a Load action only for catalog
+    /// sources that appear here.
+    pub fn available_sources(&self) -> String {
+        let list: Vec<SchemaValue> = sources_manifest::AVAILABLE_SOURCES
             .iter()
-            .map(|(name, version, file)| {
+            .map(|(name, version, url, bytes)| {
                 let mut r = Presentation::new();
                 r.set("name", SchemaValue::Text((*name).into()));
                 r.set("version", SchemaValue::Text((*version).into()));
-                r.set("url", SchemaValue::Text(format!("./archives/{file}")));
+                r.set("url", SchemaValue::Text((*url).into()));
+                r.set("bytes", SchemaValue::Unsigned(*bytes));
                 SchemaValue::Record(r)
             })
             .collect();
         let mut p = Presentation::new();
-        p.set("archives", SchemaValue::List(list));
+        p.set("sources", SchemaValue::List(list));
         p.to_json()
     }
 
@@ -147,9 +145,9 @@ impl Pr4xis {
 }
 
 impl Pr4xis {
-    /// The *monitoring* input: which registered sources are loaded, with
-    /// their staging + counts. English is the embedded base; everything
-    /// else arrived through an archive.
+    /// The *monitoring* input: which registered sources are live in memory,
+    /// with their staging + counts. English is the embedded base; every
+    /// loaded statute was downloaded + parsed into a live `UsCode`.
     fn loaded_refs(&self) -> Vec<LoadedRef> {
         let mut refs = Vec::with_capacity(self.loaded.len() + 1);
         refs.push(LoadedRef::new(
@@ -161,20 +159,11 @@ impl Pr4xis {
         for s in &self.loaded {
             refs.push(LoadedRef::new(
                 s.name.clone(),
-                s.staging,
-                s.owned.entity_count as usize,
-                edge_count(&s.owned),
+                Staging::Async,
+                s.usc.section_count(),
+                0,
             ));
         }
         refs
     }
-}
-
-fn edge_count(o: &OwnedCodegenData) -> usize {
-    o.taxonomy.len()
-        + o.mereology.len()
-        + o.opposition.len()
-        + o.equivalence.len()
-        + o.causation.len()
-        + o.references.len()
 }

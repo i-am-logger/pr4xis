@@ -69,9 +69,10 @@ fn handle_request(root: &Path, request: tiny_http::Request) {
     } else if let Some(rest) = rel.strip_prefix("pkg/") {
         // /pkg/* → WASM build output
         workspace.join("crates/wasm/pkg").join(rest)
-    } else if let Some(rest) = rel.strip_prefix("archives/") {
-        // /archives/* → on-demand source rkyv archives (build.rs output)
-        workspace.join("crates/wasm/archives").join(rest)
+    } else if let Some(rest) = rel.strip_prefix("sources/") {
+        // /sources/* → authoritative source documents staged by build.rs
+        // (USLM XML), downloaded + parsed into a live ontology at runtime
+        workspace.join("crates/wasm/sources").join(rest)
     } else if rel == "decks/technical"
         || rel == "decks/technical/"
         || rel == "decks/technical/index.html"

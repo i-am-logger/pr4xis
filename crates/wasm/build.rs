@@ -19,8 +19,8 @@ fn main() {
             "pr4xis_domains::cognitive::linguistics::english::English",
         );
         let code = builder.generate(&config);
-        let out_path = out_dir.join("english_codegen.rs");
-        std::fs::write(&out_path, code).expect("failed to write generated English module");
+        std::fs::write(out_dir.join("english_codegen.rs"), code)
+            .expect("failed to write generated English module");
         eprintln!(
             "Generated English: {} entities, {} relations",
             builder.entity_count(),
@@ -30,26 +30,26 @@ fn main() {
         println!("cargo:warning=WordNet XML not found at build time. English will be empty.");
     }
 
-    // ---------- On-demand sources (Async staging — rkyv archives) ----------
-    // Every registered USC title XML on disk is projected into a
-    // content-addressed `.rkyv` archive served at `/archives/<file>`. The
-    // runtime fetches one on demand (`Pr4xis::load_source`) — no title is
-    // baked into the binary, so the struct-literal codegen that hit
-    // rustc's memory ceiling on the large titles is gone. The set is
-    // derived from disk, not hardcoded.
-    emit_usc_archives(&out_dir, &manifest_dir);
+    // ---------- On-demand sources (Async staging — downloaded XML) ------
+    // Stage each registered USC title's authoritative USLM XML for serving
+    // at `/sources/<file>`, and emit the manifest the runtime exposes so
+    // the host can download it (with progress) and parse it into a live
+    // `UsCode` — the same materialization English gets, only at runtime.
+    // No build-time parse / no derived blob: the served document IS the
+    // authoritative §204 source. The set is derived from disk, not
+    // hardcoded.
+    stage_source_documents(&out_dir, &manifest_dir);
 }
 
-/// Project each on-disk USC title into an rkyv archive under
-/// `<crate>/archives/`, and emit `archives_manifest.rs` (the catalog of
-/// what's fetchable) into `OUT_DIR` for the runtime to expose.
-fn emit_usc_archives(out_dir: &Path, manifest_dir: &Path) {
+/// Copy each on-disk USC title XML to `<crate>/sources/<name>-<version>.xml`
+/// (served at `/sources/<file>`) and emit `sources_manifest.rs` into
+/// `OUT_DIR`: `(name, version, url, byte size)`.
+fn stage_source_documents(out_dir: &Path, manifest_dir: &Path) {
     let uscode_dir = manifest_dir.join("../../crates/domains/data/legal/uscode");
-    let archives_dir = manifest_dir.join("archives");
-    std::fs::create_dir_all(&archives_dir).expect("create archives dir");
+    let sources_dir = manifest_dir.join("sources");
+    std::fs::create_dir_all(&sources_dir).expect("create sources dir");
 
-    // Discover `usc_title_*/usc_title_*-<version>.xml` on disk.
-    let mut manifest: Vec<(String, String, String)> = Vec::new();
+    let mut manifest: Vec<(String, String, String, u64)> = Vec::new();
     if let Ok(entries) = std::fs::read_dir(&uscode_dir) {
         for entry in entries.flatten() {
             let dir = entry.path();
@@ -64,35 +64,25 @@ fn emit_usc_archives(out_dir: &Path, manifest_dir: &Path) {
                 continue;
             };
             println!("cargo:rerun-if-changed={}", xml.display());
-            // version = filename stem with the `<name>-` prefix stripped.
             let stem = xml.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
             let version = stem
                 .strip_prefix(&format!("{name}-"))
                 .unwrap_or(stem)
                 .to_string();
 
-            let builder = pr4xis::codegen::usc_corpus::build_usc_corpus(&[xml.as_path()])
-                .unwrap_or_else(|e| panic!("build USC corpus for {name}: {e:?}"));
-            let owned = builder.to_owned_codegen_data();
-            let bytes = pr4xis::archive::to_archive_bytes(&owned)
-                .unwrap_or_else(|e| panic!("rkyv-serialize {name}: {e}"));
-
-            let file = format!("{name}-{version}.rkyv");
-            std::fs::write(archives_dir.join(&file), &bytes)
-                .unwrap_or_else(|e| panic!("write archive {file}: {e}"));
-            eprintln!(
-                "Archived {name}@{version}: {} sections, {} bytes -> archives/{file}",
-                owned.entity_count,
-                bytes.len()
-            );
-            manifest.push((name, version, file));
+            let file = format!("{name}-{version}.xml");
+            let dst = sources_dir.join(&file);
+            std::fs::copy(&xml, &dst).unwrap_or_else(|e| panic!("stage {file}: {e}"));
+            let bytes = std::fs::metadata(&dst).map(|m| m.len()).unwrap_or(0);
+            eprintln!("Staged {name}@{version}: {bytes} bytes -> sources/{file}");
+            manifest.push((name, version, format!("./sources/{file}"), bytes));
         }
     } else {
-        println!("cargo:warning=USC corpus dir not found; no archives emitted.");
+        println!("cargo:warning=USC corpus dir not found; no sources staged.");
     }
 
     manifest.sort();
-    write_archives_manifest(out_dir, &manifest);
+    write_sources_manifest(out_dir, &manifest);
 }
 
 /// The `<name>-<version>.xml` inside a `usc_title_*` directory, if present.
@@ -104,17 +94,18 @@ fn find_title_xml(dir: &Path, name: &str) -> Option<PathBuf> {
     })
 }
 
-/// Emit `AVAILABLE_ARCHIVES: &[(name, version, file)]` — the runtime's
-/// view of which registered sources are fetchable as rkyv archives, so
-/// the meta page can offer a Load action only where one exists.
-fn write_archives_manifest(out_dir: &Path, manifest: &[(String, String, String)]) {
+/// Emit `AVAILABLE_SOURCES: &[(name, version, url, bytes)]` — the runtime's
+/// view of which registered sources are downloadable, so the meta page can
+/// offer a Load action (with a real download progress bar) only where the
+/// authoritative document is served.
+fn write_sources_manifest(out_dir: &Path, manifest: &[(String, String, String, u64)]) {
     let mut src = String::from(
-        "/// (registry name, version, archive filename served at /archives/<file>).\n\
-         pub static AVAILABLE_ARCHIVES: &[(&str, &str, &str)] = &[\n",
+        "/// (registry name, version, served URL, byte size of the source document).\n\
+         pub static AVAILABLE_SOURCES: &[(&str, &str, &str, u64)] = &[\n",
     );
-    for (name, version, file) in manifest {
-        src.push_str(&format!("    ({name:?}, {version:?}, {file:?}),\n"));
+    for (name, version, url, bytes) in manifest {
+        src.push_str(&format!("    ({name:?}, {version:?}, {url:?}, {bytes}),\n"));
     }
     src.push_str("];\n");
-    std::fs::write(out_dir.join("archives_manifest.rs"), src).expect("write archives manifest");
+    std::fs::write(out_dir.join("sources_manifest.rs"), src).expect("write sources manifest");
 }

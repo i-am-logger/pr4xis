@@ -138,9 +138,40 @@
     .load-btn {
       margin-left: auto; padding: 0.3rem 0.9rem; background: #1f6feb; color: #fff; border: none;
       border-radius: 8px; font-size: 0.75em; font-weight: 600; cursor: pointer;
+      transition: background 0.15s;
     }
     .load-btn:hover { background: #388bfd; }
     .load-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+    /* Two-phase load progress (download → materialize) */
+    .progress { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    .progress-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 0.68em; color: #8b949e;
+    }
+    .progress-phase { font-weight: 600; color: #58a6ff; }
+    .progress-track {
+      height: 6px; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; overflow: hidden;
+    }
+    /* Determinate (download): smooth gradient fill that grows by % */
+    .progress-fill {
+      height: 100%; width: 0%; border-radius: 6px;
+      background: linear-gradient(90deg, #1f6feb, #58a6ff);
+      transition: width 0.18s ease-out;
+    }
+    /* Indeterminate (parsing): a sweep that slides while the parser runs */
+    .progress-fill.indeterminate {
+      width: 40%; background: linear-gradient(90deg, transparent, #58a6ff, transparent);
+      animation: sweep 1.1s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      0% { margin-left: -40%; } 100% { margin-left: 100%; }
+    }
+    .progress.done .progress-fill {
+      background: linear-gradient(90deg, #238636, #3fb950); width: 100% !important;
+      animation: none; margin-left: 0;
+    }
+    .progress-err { color: #f85149; }
 
     /* Substrate ontologies — flat filterable list, no DOLCE/domain tree */
     .ont-card {
@@ -316,22 +347,81 @@
       });
     });
 
-    // Fetch a source's rkyv archive and hand it to the runtime
-    // (Nelson-Narens control: Available → Loaded).
-    async function loadSource(name, url, btn) {
-      btn.disabled = true;
-      btn.textContent = 'Loading…';
+    const fmtMB = b => (b / (1024 * 1024)).toFixed(b < 1024 * 1024 ? 2 : 1) + ' MB';
+    const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    // Download a source's authoritative USLM XML (streaming, with a real
+    // progress bar), then parse it into a live UsCode (Nelson-Narens
+    // control: Available → Loaded). Two visible phases: Downloading →
+    // Materializing.
+    async function loadSource(name, url, totalHint, card, topRow) {
+      const btn = topRow.querySelector('.load-btn');
+      if (btn) btn.remove();
+
+      const prog = document.createElement('div');
+      prog.className = 'progress';
+      prog.innerHTML =
+        '<div class="progress-head"><span class="progress-phase">Downloading…</span>' +
+        '<span class="progress-detail"></span></div>' +
+        '<div class="progress-track"><div class="progress-fill"></div></div>';
+      card.appendChild(prog);
+      const phase = prog.querySelector('.progress-phase');
+      const detail = prog.querySelector('.progress-detail');
+      const fill = prog.querySelector('.progress-fill');
+
       try {
         const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`fetch ${url}: ${resp.status}`);
-        const bytes = new Uint8Array(await resp.arrayBuffer());
-        pr4xis.load_source(name, bytes);   // throws on a bad archive (bytecheck)
-        await renderDashboard();           // re-observe: the source is now Loaded
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const total = parseInt(resp.headers.get('content-length') || totalHint || '0', 10);
+
+        // Stream the body so we can show real byte-level progress.
+        const reader = resp.body.getReader();
+        const chunks = [];
+        let received = 0;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          if (total) {
+            const pct = Math.min(100, Math.round((received / total) * 100));
+            fill.style.width = pct + '%';
+            detail.textContent = `${fmtMB(received)} / ${fmtMB(total)} · ${pct}%`;
+          } else {
+            detail.textContent = fmtMB(received);
+          }
+        }
+        const buf = new Uint8Array(received);
+        let off = 0;
+        for (const c of chunks) { buf.set(c, off); off += c.length; }
+        const xml = new TextDecoder('utf-8').decode(buf);
+
+        // Materialize phase — yield first so the sweep animation paints
+        // before the (synchronous, main-thread) USLM parse runs.
+        phase.textContent = 'Materializing…';
+        detail.textContent = `${fmtMB(received)} · parsing into a live ontology`;
+        fill.classList.add('indeterminate');
+        fill.style.width = '';
+        await nextFrame();
+
+        pr4xis.load_source(name, xml);   // → live UsCode (throws on bad XML)
+
+        prog.classList.add('done');
+        phase.textContent = 'Loaded';
+        detail.textContent = '';
+        await new Promise(r => setTimeout(r, 280));
+        await renderDashboard();          // re-observe: the source is now Loaded
       } catch (e) {
-        btn.disabled = false;
-        btn.textContent = 'Retry';
+        prog.classList.add('progress-err');
+        phase.textContent = 'Failed';
+        detail.classList.add('progress-err');
+        detail.textContent = String(e).slice(0, 90);
         console.error('load_source failed:', e);
-        status.title = String(e);
+        const retry = document.createElement('button');
+        retry.className = 'load-btn';
+        retry.textContent = 'Retry';
+        retry.addEventListener('click', () => { prog.remove(); loadSource(name, url, totalHint, card, topRow); });
+        topRow.appendChild(retry);
       }
     }
 
@@ -340,15 +430,15 @@
     // from what the runtime reports — no source-specific knowledge here.
     async function renderDashboard() {
       const dash = document.getElementById('about');
-      let data, archives;
+      let data, sources_avail;
       try {
         data = JSON.parse(pr4xis.self_describe());
-        archives = JSON.parse(pr4xis.available_archives()).archives || [];
+        sources_avail = JSON.parse(pr4xis.available_sources()).sources || [];
       } catch (e) {
         dash.innerHTML = `<div class="message info" style="color:#f85149;">self_describe parse error: ${e}</div>`;
         return;
       }
-      const archiveUrl = new Map(archives.map(a => [a.name, a.url]));
+      const sourceByName = new Map(sources_avail.map(a => [a.name, a]));
       const sources = data.sources || [];
       const ontologies = data.ontologies || [];
 
@@ -430,12 +520,13 @@
           sb.textContent = s.staging;
           top.appendChild(sb);
         }
-        // Load action only where an archive actually exists to fetch.
-        if (!loaded && archiveUrl.has(s.name)) {
+        // Load action only where the authoritative document is served.
+        if (!loaded && sourceByName.has(s.name)) {
+          const meta = sourceByName.get(s.name);
           const btn = document.createElement('button');
           btn.className = 'load-btn';
           btn.textContent = 'Load';
-          btn.addEventListener('click', () => loadSource(s.name, archiveUrl.get(s.name), btn));
+          btn.addEventListener('click', () => loadSource(s.name, meta.url, meta.bytes, card, top));
           top.appendChild(btn);
         }
         card.appendChild(top);
