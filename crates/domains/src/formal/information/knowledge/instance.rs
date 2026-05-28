@@ -2,6 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use crate::cognitive::cognition::self_model::AwarenessLevel;
+use crate::formal::information::knowledge::catalog::{SourceStatus, staging_label};
 use crate::formal::information::schema::transport::{Present, Presentation, SchemaValue};
 use pr4xis::ontology::{Axiom, Vocabulary, describe_knowledge_base};
 
@@ -12,12 +13,21 @@ use pr4xis::ontology::{Axiom, Vocabulary, describe_knowledge_base};
 // operator F from von Foerster. The result IS X = F(X).
 
 /// Runtime instance of the self-model — the eigenform.
+///
+/// `components` is the object-level the meta-level *monitors* (the loaded
+/// ontologies). `catalog` is the meta-level's model of the **knowledge
+/// boundary**: every registered source tagged Loaded / Available
+/// (Nelson & Narens 1990; see
+/// [`crate::formal::information::knowledge::catalog`]). An empty `catalog`
+/// means the boundary was not supplied (e.g. a caller that only reports
+/// the loaded components).
 #[derive(Debug, Clone)]
 pub struct SelfModelInstance {
     pub name: &'static str,
     pub version: &'static str,
     pub awareness: AwarenessLevel,
     pub components: Vec<Vocabulary>,
+    pub catalog: Vec<SourceStatus>,
     pub total_concepts: usize,
     pub total_morphisms: usize,
 }
@@ -32,9 +42,17 @@ impl SelfModelInstance {
             version: env!("CARGO_PKG_VERSION"),
             awareness: AwarenessLevel::MetaSelf,
             components,
+            catalog: Vec::new(),
             total_concepts,
             total_morphisms,
         }
+    }
+
+    /// Attach the source catalog — the meta-level's model of the
+    /// knowledge boundary (loaded vs available registered sources).
+    pub fn with_catalog(mut self, catalog: Vec<SourceStatus>) -> Self {
+        self.catalog = catalog;
+        self
     }
 
     /// Transport via Schema Presentation → JSON surface.
@@ -87,6 +105,48 @@ impl Present for SelfModelInstance {
             .collect();
 
         p.set("ontologies", SchemaValue::List(ontologies));
+
+        // The knowledge boundary — every registered source tagged
+        // Loaded / Available (Nelson & Narens 1990 meta-level model).
+        // Source-agnostic: each entry is rendered from registry data, so
+        // a UI can list the full catalog and offer to load what isn't yet
+        // materialized without knowing what any source *is*.
+        let sources: Vec<SchemaValue> = self
+            .catalog
+            .iter()
+            .map(|s| {
+                let mut src = Presentation::new();
+                src.set("name", SchemaValue::Text(s.name.clone()));
+                src.set("version", SchemaValue::Text(s.version.clone()));
+                src.set("kind", SchemaValue::Text(s.kind.clone()));
+                src.set("source", SchemaValue::Text(s.citation.clone()));
+                src.set("status", SchemaValue::Text(s.availability.label().into()));
+                src.set(
+                    "staging",
+                    match s.staging {
+                        Some(st) => SchemaValue::Text(staging_label(st).into()),
+                        None => SchemaValue::Absent,
+                    },
+                );
+                src.set("concepts", SchemaValue::Unsigned(s.concepts as u64));
+                src.set("morphisms", SchemaValue::Unsigned(s.morphisms as u64));
+                SchemaValue::Record(src)
+            })
+            .collect();
+        let loaded_sources = self
+            .catalog
+            .iter()
+            .filter(|s| s.availability.is_loaded())
+            .count();
+        p.set(
+            "source_count",
+            SchemaValue::Unsigned(self.catalog.len() as u64),
+        );
+        p.set(
+            "loaded_source_count",
+            SchemaValue::Unsigned(loaded_sources as u64),
+        );
+        p.set("sources", SchemaValue::List(sources));
         p
     }
 }
