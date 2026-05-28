@@ -12,6 +12,13 @@ mod codegen_output {
     include!(concat!(env!("OUT_DIR"), "/english_codegen.rs"));
 }
 
+/// Build-time catalog of on-demand-loadable rkyv archives — emitted by
+/// build.rs from the USC titles on disk. `(registry name, version,
+/// archive filename served at /archives/<file>)`.
+mod archives_manifest {
+    include!(concat!(env!("OUT_DIR"), "/archives_manifest.rs"));
+}
+
 /// Registry primary key of the embedded English base
 /// (praxis.toml `[sources.english_wordnet]`). English is the one source
 /// baked into the binary (`Embedded` staging); every other registered
@@ -105,6 +112,27 @@ impl Pr4xis {
             owned,
         });
         Ok(())
+    }
+
+    /// The on-demand-loadable archives: `{ archives: [{ name, version,
+    /// url }] }`. The host fetches `url`, then calls [`Self::load_source`]
+    /// with the bytes. The meta page offers a Load action only for catalog
+    /// sources that appear here (others are registered but have no archive
+    /// to fetch yet).
+    pub fn available_archives(&self) -> String {
+        let list: Vec<SchemaValue> = archives_manifest::AVAILABLE_ARCHIVES
+            .iter()
+            .map(|(name, version, file)| {
+                let mut r = Presentation::new();
+                r.set("name", SchemaValue::Text((*name).into()));
+                r.set("version", SchemaValue::Text((*version).into()));
+                r.set("url", SchemaValue::Text(format!("./archives/{file}")));
+                SchemaValue::Record(r)
+            })
+            .collect();
+        let mut p = Presentation::new();
+        p.set("archives", SchemaValue::List(list));
+        p.to_json()
     }
 
     /// The self-model JSON — the eigenform plus the knowledge-boundary
