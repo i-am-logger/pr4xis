@@ -620,6 +620,249 @@
     <LexicalEntry id="lt-youthbuild"><Lemma writtenForm="youthbuild" partOfSpeech="n"/><Sense id="lt-youthbuild-1" synset="lt-legal-term"/></LexicalEntry>
 
     <!-- ==================================================================
+         Title 42 — The Public Health and Welfare additions (M4.δ.7).
+         ==================================================================
+         Title 42 is the LRC's largest title; beyond the civil-rights
+         backbone (§§ 1981-2000e, 12101-12203, all WordNet-resolvable)
+         it carries Medicare/Medicaid, the Public Health Service Act,
+         Social Security, housing (HUD), energy R&D (DOE), and the
+         NASA/NSF science-policy chapters. The corpus-wide gap audit
+         over its ~2,500 sections surfaced the closed-class vocabulary
+         below. Each entry is grouped by the same category model and
+         authoritative-source citation used for Titles 15/28/29.
+
+         Federal agencies + named federal programs (Federal Register
+         Document Drafting Handbook 2017 §4.1 + U.S. Government Manual
+         annual). Medicare/Medicaid are CMS-administered federal
+         programs; HHS/NIH/CDC/HUD/FHA/FmHA are agencies; the rest are
+         program / regulatory acronyms (SSI, UDAG, CDBG, WAP, SPR, OCS,
+         CHP, PDP, RACM/BACM Clean-Air-Act control-measure tiers).
+         HIPAA / ACA are named acts (same bucket as CERCLA/NEPA/RFRA). -->
+    <LexicalEntry id="lt-medicare"><Lemma writtenForm="medicare" partOfSpeech="propn"/><Sense id="lt-medicare-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-medicaid"><Lemma writtenForm="medicaid" partOfSpeech="propn"/><Sense id="lt-medicaid-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-hhs"><Lemma writtenForm="hhs" partOfSpeech="propn"/><Sense id="lt-hhs-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-nih"><Lemma writtenForm="nih" partOfSpeech="propn"/><Sense id="lt-nih-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-cdc"><Lemma writtenForm="cdc" partOfSpeech="propn"/><Sense id="lt-cdc-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-hud"><Lemma writtenForm="hud" partOfSpeech="propn"/><Sense id="lt-hud-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-fha"><Lemma writtenForm="fha" partOfSpeech="propn"/><Sense id="lt-fha-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-fmha"><Lemma writtenForm="fmha" partOfSpeech="propn"/><Sense id="lt-fmha-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-omb"><Lemma writtenForm="omb" partOfSpeech="propn"/><Sense id="lt-omb-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-ostp"><Lemma writtenForm="ostp" partOfSpeech="propn"/><Sense id="lt-ostp-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-esmd"><Lemma writtenForm="esmd" partOfSpeech="propn"/><Sense id="lt-esmd-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-somd"><Lemma writtenForm="somd" partOfSpeech="propn"/><Sense id="lt-somd-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-ssi"><Lemma writtenForm="ssi" partOfSpeech="propn"/><Sense id="lt-ssi-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-pdp"><Lemma writtenForm="pdp" partOfSpeech="propn"/><Sense id="lt-pdp-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-pd"><Lemma writtenForm="pd" partOfSpeech="propn"/><Sense id="lt-pd-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-pac"><Lemma writtenForm="pac" partOfSpeech="propn"/><Sense id="lt-pac-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-udag"><Lemma writtenForm="udag" partOfSpeech="propn"/><Sense id="lt-udag-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-cdbg"><Lemma writtenForm="cdbg" partOfSpeech="propn"/><Sense id="lt-cdbg-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-wap"><Lemma writtenForm="wap" partOfSpeech="propn"/><Sense id="lt-wap-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-spr"><Lemma writtenForm="spr" partOfSpeech="propn"/><Sense id="lt-spr-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-ocs"><Lemma writtenForm="ocs" partOfSpeech="propn"/><Sense id="lt-ocs-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-chp"><Lemma writtenForm="chp" partOfSpeech="propn"/><Sense id="lt-chp-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-racm"><Lemma writtenForm="racm" partOfSpeech="propn"/><Sense id="lt-racm-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-bacm"><Lemma writtenForm="bacm" partOfSpeech="propn"/><Sense id="lt-bacm-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-werc"><Lemma writtenForm="werc" partOfSpeech="propn"/><Sense id="lt-werc-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-watersense"><Lemma writtenForm="watersense" partOfSpeech="propn"/><Sense id="lt-watersense-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-hipaa"><Lemma writtenForm="hipaa" partOfSpeech="propn"/><Sense id="lt-hipaa-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-aca"><Lemma writtenForm="aca" partOfSpeech="propn"/><Sense id="lt-aca-1" synset="lt-fed-agency"/></LexicalEntry>
+
+    <!-- Citation / title abbreviations (GPO Style Manual 2016 Ch. 9):
+         "ff." (and the following), "Dr." (Doctor, title). -->
+    <LexicalEntry id="lt-ff"><Lemma writtenForm="ff" partOfSpeech="abbr"/><Sense id="lt-ff-1" synset="lt-citation-abbr"/></LexicalEntry>
+    <LexicalEntry id="lt-dr"><Lemma writtenForm="dr" partOfSpeech="abbr"/><Sense id="lt-dr-1" synset="lt-citation-abbr"/></LexicalEntry>
+
+    <!-- Geographic names (U.S. Government Manual + USGS GNIS for
+         rivers / aquifers / reservoirs / sites): regions, countries,
+         and physical features named in Title 42 headings. American
+         Samoa is a U.S. territory (ISO 3166-2:US). -->
+    <LexicalEntry id="lt-samoa"><Lemma writtenForm="samoa" partOfSpeech="propn"/><Sense id="lt-samoa-1" synset="lt-us-territory"/></LexicalEntry>
+    <LexicalEntry id="lt-delmarva"><Lemma writtenForm="delmarva" partOfSpeech="propn"/><Sense id="lt-delmarva-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-vietnam"><Lemma writtenForm="vietnam" partOfSpeech="propn"/><Sense id="lt-vietnam-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-israel"><Lemma writtenForm="israel" partOfSpeech="propn"/><Sense id="lt-israel-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-india"><Lemma writtenForm="india" partOfSpeech="propn"/><Sense id="lt-india-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-latin"><Lemma writtenForm="latin" partOfSpeech="propn"/><Sense id="lt-latin-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-montreal"><Lemma writtenForm="montreal" partOfSpeech="propn"/><Sense id="lt-montreal-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-potomac"><Lemma writtenForm="potomac" partOfSpeech="propn"/><Sense id="lt-potomac-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-ogallala"><Lemma writtenForm="ogallala" partOfSpeech="propn"/><Sense id="lt-ogallala-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-denali"><Lemma writtenForm="denali" partOfSpeech="propn"/><Sense id="lt-denali-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-dalecarlia"><Lemma writtenForm="dalecarlia" partOfSpeech="propn"/><Sense id="lt-dalecarlia-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-hanford"><Lemma writtenForm="hanford" partOfSpeech="propn"/><Sense id="lt-hanford-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-shanksville"><Lemma writtenForm="shanksville" partOfSpeech="propn"/><Sense id="lt-shanksville-1" synset="lt-place-name"/></LexicalEntry>
+
+    <!-- Demonyms (GPO Style Manual 2016 §5.20). -->
+    <LexicalEntry id="lt-hispanic"><Lemma writtenForm="hispanic" partOfSpeech="adj"/><Sense id="lt-hispanic-1" synset="lt-demonym"/></LexicalEntry>
+    <LexicalEntry id="lt-hawaiians"><Lemma writtenForm="hawaiians" partOfSpeech="n"/><Sense id="lt-hawaiians-1" synset="lt-demonym"/></LexicalEntry>
+
+    <!-- Persons + named entities named in Title 42 programs/acts
+         (U.S. Government Manual + USC heading text). Given names and
+         surnames of legislators / honorees whose names form program
+         titles: Robert Noyce + Eddie Bernice Johnson (NSF); David
+         Satcher (cybersecurity grant); Claude Pepper; John Chafee
+         (foster-care independence); Ruth Kirschstein (NRSA); Spark
+         Matsunaga; John Heinz; John Glenn; Silvio Conte; Bill Emerson
+         (Good Samaritan Food Donation Act); Quentin Burdick; Alan
+         Cranston; Henry B. Gonzalez; Stephanie Tubbs Jones; Johanna
+         (Johanna's Law); Judy Biggert. Disease eponyms (Alzheimer,
+         Parkinson, Tourette, Paget) are the physicians' surnames as
+         proper nouns. "WTC" = World Trade Center (Health Program);
+         "Lokahi" = the Native Hawaiian Health Care program designation
+         (Hawaiian for unity); "Amistad"; "Eureka"; "Samaritan". -->
+    <LexicalEntry id="lt-alzheimer"><Lemma writtenForm="alzheimer" partOfSpeech="propn"/><Sense id="lt-alzheimer-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-parkinson"><Lemma writtenForm="parkinson" partOfSpeech="propn"/><Sense id="lt-parkinson-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-tourette"><Lemma writtenForm="tourette" partOfSpeech="propn"/><Sense id="lt-tourette-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-paget"><Lemma writtenForm="paget" partOfSpeech="propn"/><Sense id="lt-paget-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-robert"><Lemma writtenForm="robert" partOfSpeech="propn"/><Sense id="lt-robert-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-noyce"><Lemma writtenForm="noyce" partOfSpeech="propn"/><Sense id="lt-noyce-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-eddie"><Lemma writtenForm="eddie" partOfSpeech="propn"/><Sense id="lt-eddie-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-bernice"><Lemma writtenForm="bernice" partOfSpeech="propn"/><Sense id="lt-bernice-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-johnson"><Lemma writtenForm="johnson" partOfSpeech="propn"/><Sense id="lt-johnson-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-david"><Lemma writtenForm="david" partOfSpeech="propn"/><Sense id="lt-david-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-satcher"><Lemma writtenForm="satcher" partOfSpeech="propn"/><Sense id="lt-satcher-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-claude"><Lemma writtenForm="claude" partOfSpeech="propn"/><Sense id="lt-claude-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-chafee"><Lemma writtenForm="chafee" partOfSpeech="propn"/><Sense id="lt-chafee-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-kirschstein"><Lemma writtenForm="kirschstein" partOfSpeech="propn"/><Sense id="lt-kirschstein-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-matsunaga"><Lemma writtenForm="matsunaga" partOfSpeech="propn"/><Sense id="lt-matsunaga-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-heinz"><Lemma writtenForm="heinz" partOfSpeech="propn"/><Sense id="lt-heinz-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-glenn"><Lemma writtenForm="glenn" partOfSpeech="propn"/><Sense id="lt-glenn-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-silvio"><Lemma writtenForm="silvio" partOfSpeech="propn"/><Sense id="lt-silvio-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-conte"><Lemma writtenForm="conte" partOfSpeech="propn"/><Sense id="lt-conte-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-emerson"><Lemma writtenForm="emerson" partOfSpeech="propn"/><Sense id="lt-emerson-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-quentin"><Lemma writtenForm="quentin" partOfSpeech="propn"/><Sense id="lt-quentin-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-burdick"><Lemma writtenForm="burdick" partOfSpeech="propn"/><Sense id="lt-burdick-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-alan"><Lemma writtenForm="alan" partOfSpeech="propn"/><Sense id="lt-alan-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-cranston"><Lemma writtenForm="cranston" partOfSpeech="propn"/><Sense id="lt-cranston-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-gonzalez"><Lemma writtenForm="gonzalez" partOfSpeech="propn"/><Sense id="lt-gonzalez-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-stephanie"><Lemma writtenForm="stephanie" partOfSpeech="propn"/><Sense id="lt-stephanie-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-tubbs"><Lemma writtenForm="tubbs" partOfSpeech="propn"/><Sense id="lt-tubbs-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-jones"><Lemma writtenForm="jones" partOfSpeech="propn"/><Sense id="lt-jones-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-johanna"><Lemma writtenForm="johanna" partOfSpeech="propn"/><Sense id="lt-johanna-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-biggert"><Lemma writtenForm="biggert" partOfSpeech="propn"/><Sense id="lt-biggert-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-kelly"><Lemma writtenForm="kelly" partOfSpeech="propn"/><Sense id="lt-kelly-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-hansen"><Lemma writtenForm="hansen" partOfSpeech="propn"/><Sense id="lt-hansen-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-confucius"><Lemma writtenForm="confucius" partOfSpeech="propn"/><Sense id="lt-confucius-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-beirn"><Lemma writtenForm="beirn" partOfSpeech="propn"/><Sense id="lt-beirn-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-wtc"><Lemma writtenForm="wtc" partOfSpeech="propn"/><Sense id="lt-wtc-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-lokahi"><Lemma writtenForm="lokahi" partOfSpeech="propn"/><Sense id="lt-lokahi-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-amistad"><Lemma writtenForm="amistad" partOfSpeech="propn"/><Sense id="lt-amistad-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-eureka"><Lemma writtenForm="eureka" partOfSpeech="propn"/><Sense id="lt-eureka-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-samaritan"><Lemma writtenForm="samaritan" partOfSpeech="propn"/><Sense id="lt-samaritan-1" synset="lt-named-entity"/></LexicalEntry>
+
+    <!-- English neo-classical compounds (combining forms bio-, geo-,
+         hydro-, micro-, tele-, neuro-, cyber-, co-, cranio-) per
+         Bauer 1983 *English Word-Formation* §6 (neo-classical
+         compounds) + Huddleston &amp; Pullum 2002 *CGEL* Ch. 19 §3
+         (combining forms). Title 42's energy-R&D (DOE) and science-
+         policy (NSF/NASA/NIH) chapters generate these productively. -->
+    <LexicalEntry id="lt-biofuel"><Lemma writtenForm="biofuel" partOfSpeech="n"/><Sense id="lt-biofuel-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-biofuels"><Lemma writtenForm="biofuels" partOfSpeech="n"/><Sense id="lt-biofuels-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-biodiesel"><Lemma writtenForm="biodiesel" partOfSpeech="n"/><Sense id="lt-biodiesel-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-bioenergy"><Lemma writtenForm="bioenergy" partOfSpeech="n"/><Sense id="lt-bioenergy-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-bioproduct"><Lemma writtenForm="bioproduct" partOfSpeech="n"/><Sense id="lt-bioproduct-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-bioeconomy"><Lemma writtenForm="bioeconomy" partOfSpeech="n"/><Sense id="lt-bioeconomy-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-biorefinery"><Lemma writtenForm="biorefinery" partOfSpeech="n"/><Sense id="lt-biorefinery-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-biometrology"><Lemma writtenForm="biometrology" partOfSpeech="n"/><Sense id="lt-biometrology-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-biosecurity"><Lemma writtenForm="biosecurity" partOfSpeech="n"/><Sense id="lt-biosecurity-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-bioterrorist"><Lemma writtenForm="bioterrorist" partOfSpeech="adj"/><Sense id="lt-bioterrorist-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-hydropower"><Lemma writtenForm="hydropower" partOfSpeech="n"/><Sense id="lt-hydropower-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-hydrothermal"><Lemma writtenForm="hydrothermal" partOfSpeech="adj"/><Sense id="lt-hydrothermal-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-geopressured"><Lemma writtenForm="geopressured" partOfSpeech="adj"/><Sense id="lt-geopressured-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-cogeneration"><Lemma writtenForm="cogeneration" partOfSpeech="n"/><Sense id="lt-cogeneration-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-microgrid"><Lemma writtenForm="microgrid" partOfSpeech="n"/><Sense id="lt-microgrid-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-microgravity"><Lemma writtenForm="microgravity" partOfSpeech="n"/><Sense id="lt-microgravity-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-telehealth"><Lemma writtenForm="telehealth" partOfSpeech="n"/><Sense id="lt-telehealth-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-telemedicine"><Lemma writtenForm="telemedicine" partOfSpeech="n"/><Sense id="lt-telemedicine-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-neurodegenerative"><Lemma writtenForm="neurodegenerative" partOfSpeech="adj"/><Sense id="lt-neurodegenerative-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-neurotechnologies"><Lemma writtenForm="neurotechnologies" partOfSpeech="n"/><Sense id="lt-neurotechnologies-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-cyberinfrastructure"><Lemma writtenForm="cyberinfrastructure" partOfSpeech="n"/><Sense id="lt-cyberinfrastructure-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+    <LexicalEntry id="lt-craniofacial"><Lemma writtenForm="craniofacial" partOfSpeech="adj"/><Sense id="lt-craniofacial-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+
+    <!-- English N+N compounds (Huddleston &amp; Pullum 2002 Ch. 19 §1.4
+         + Bauer 1983 §6.2). Single-token compounds in Title 42 housing
+         / energy / health headings; plurals given explicitly where the
+         lemmatizer's WordNet-backed -s stripping can't reach a legal-
+         lexicon singular. -->
+    <LexicalEntry id="lt-homeownership"><Lemma writtenForm="homeownership" partOfSpeech="n"/><Sense id="lt-homeownership-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-homebuyer"><Lemma writtenForm="homebuyer" partOfSpeech="n"/><Sense id="lt-homebuyer-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-homebuyers"><Lemma writtenForm="homebuyers" partOfSpeech="n"/><Sense id="lt-homebuyers-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-worksite"><Lemma writtenForm="worksite" partOfSpeech="n"/><Sense id="lt-worksite-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-timeframe"><Lemma writtenForm="timeframe" partOfSpeech="n"/><Sense id="lt-timeframe-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-testbed"><Lemma writtenForm="testbed" partOfSpeech="n"/><Sense id="lt-testbed-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-powerplant"><Lemma writtenForm="powerplant" partOfSpeech="n"/><Sense id="lt-powerplant-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-powerplants"><Lemma writtenForm="powerplants" partOfSpeech="n"/><Sense id="lt-powerplants-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-plantships"><Lemma writtenForm="plantships" partOfSpeech="n"/><Sense id="lt-plantships-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-coalbed"><Lemma writtenForm="coalbed" partOfSpeech="n"/><Sense id="lt-coalbed-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-brownfields"><Lemma writtenForm="brownfields" partOfSpeech="n"/><Sense id="lt-brownfields-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-floodway"><Lemma writtenForm="floodway" partOfSpeech="n"/><Sense id="lt-floodway-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-grandfamilies"><Lemma writtenForm="grandfamilies" partOfSpeech="n"/><Sense id="lt-grandfamilies-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-afterschool"><Lemma writtenForm="afterschool" partOfSpeech="adj"/><Sense id="lt-afterschool-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-longshore"><Lemma writtenForm="longshore" partOfSpeech="adj"/><Sense id="lt-longshore-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-blockchain"><Lemma writtenForm="blockchain" partOfSpeech="n"/><Sense id="lt-blockchain-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-birthweight"><Lemma writtenForm="birthweight" partOfSpeech="n"/><Sense id="lt-birthweight-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-drawdown"><Lemma writtenForm="drawdown" partOfSpeech="n"/><Sense id="lt-drawdown-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-clearinghouses"><Lemma writtenForm="clearinghouses" partOfSpeech="n"/><Sense id="lt-clearinghouses-1" synset="lt-eng-compound"/></LexicalEntry>
+
+    <!-- English prefixed forms (productive prefixation per Huddleston &amp;
+         Pullum 2002 Ch. 19 §1.2 + Bauer 1983 §6.1): under-, anti-,
+         inter-, intra-, multi-, mid-, sub-, in-, de-, para-, and the
+         -ee deverbal suffix. -->
+    <LexicalEntry id="lt-underutilized"><Lemma writtenForm="underutilized" partOfSpeech="adj"/><Sense id="lt-underutilized-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-underrepresented"><Lemma writtenForm="underrepresented" partOfSpeech="adj"/><Sense id="lt-underrepresented-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-underinsured"><Lemma writtenForm="underinsured" partOfSpeech="adj"/><Sense id="lt-underinsured-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-antipoverty"><Lemma writtenForm="antipoverty" partOfSpeech="adj"/><Sense id="lt-antipoverty-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-interregional"><Lemma writtenForm="interregional" partOfSpeech="adj"/><Sense id="lt-interregional-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-intercountry"><Lemma writtenForm="intercountry" partOfSpeech="adj"/><Sense id="lt-intercountry-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-interethnic"><Lemma writtenForm="interethnic" partOfSpeech="adj"/><Sense id="lt-interethnic-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-intermountain"><Lemma writtenForm="intermountain" partOfSpeech="adj"/><Sense id="lt-intermountain-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-intragovernmental"><Lemma writtenForm="intragovernmental" partOfSpeech="adj"/><Sense id="lt-intragovernmental-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-multigenerational"><Lemma writtenForm="multigenerational" partOfSpeech="adj"/><Sense id="lt-multigenerational-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-multigrant"><Lemma writtenForm="multigrant" partOfSpeech="adj"/><Sense id="lt-multigrant-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-midsize"><Lemma writtenForm="midsize" partOfSpeech="adj"/><Sense id="lt-midsize-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-midscale"><Lemma writtenForm="midscale" partOfSpeech="adj"/><Sense id="lt-midscale-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-midcontinent"><Lemma writtenForm="midcontinent" partOfSpeech="adj"/><Sense id="lt-midcontinent-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-subseabed"><Lemma writtenForm="subseabed" partOfSpeech="adj"/><Sense id="lt-subseabed-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-subchapters"><Lemma writtenForm="subchapters" partOfSpeech="n"/><Sense id="lt-subchapters-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-inservice"><Lemma writtenForm="inservice" partOfSpeech="adj"/><Sense id="lt-inservice-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-demountable"><Lemma writtenForm="demountable" partOfSpeech="adj"/><Sense id="lt-demountable-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-degradable"><Lemma writtenForm="degradable" partOfSpeech="adj"/><Sense id="lt-degradable-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-paratransit"><Lemma writtenForm="paratransit" partOfSpeech="n"/><Sense id="lt-paratransit-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-designee"><Lemma writtenForm="designee" partOfSpeech="n"/><Sense id="lt-designee-1" synset="lt-eng-prefixed"/></LexicalEntry>
+
+    <!-- Legal / medical / scientific terms-of-art (Black's Law
+         Dictionary 11th ed. 2019 for legal; AMA Manual of Style 11th
+         ed. for medical / scientific / chemistry vocabulary). Title 42
+         Public-Health-Service-Act, Medicare/Medicaid, and Clean-Air-
+         Act headings. -->
+    <LexicalEntry id="lt-microbicide"><Lemma writtenForm="microbicide" partOfSpeech="n"/><Sense id="lt-microbicide-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-opioids"><Lemma writtenForm="opioids" partOfSpeech="n"/><Sense id="lt-opioids-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-fentanyl"><Lemma writtenForm="fentanyl" partOfSpeech="n"/><Sense id="lt-fentanyl-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-papillomavirus"><Lemma writtenForm="papillomavirus" partOfSpeech="n"/><Sense id="lt-papillomavirus-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-urologic"><Lemma writtenForm="urologic" partOfSpeech="adj"/><Sense id="lt-urologic-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-genomic"><Lemma writtenForm="genomic" partOfSpeech="adj"/><Sense id="lt-genomic-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-radiogenic"><Lemma writtenForm="radiogenic" partOfSpeech="adj"/><Sense id="lt-radiogenic-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-amyotrophic"><Lemma writtenForm="amyotrophic" partOfSpeech="adj"/><Sense id="lt-amyotrophic-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-medigap"><Lemma writtenForm="medigap" partOfSpeech="n"/><Sense id="lt-medigap-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-ehr"><Lemma writtenForm="ehr" partOfSpeech="n"/><Sense id="lt-ehr-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-survivorship"><Lemma writtenForm="survivorship" partOfSpeech="n"/><Sense id="lt-survivorship-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-recoupment"><Lemma writtenForm="recoupment" partOfSpeech="n"/><Sense id="lt-recoupment-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-monies"><Lemma writtenForm="monies" partOfSpeech="n"/><Sense id="lt-monies-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-chairmen"><Lemma writtenForm="chairmen" partOfSpeech="n"/><Sense id="lt-chairmen-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-submittal"><Lemma writtenForm="submittal" partOfSpeech="n"/><Sense id="lt-submittal-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-economization"><Lemma writtenForm="economization" partOfSpeech="n"/><Sense id="lt-economization-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-volunteerism"><Lemma writtenForm="volunteerism" partOfSpeech="n"/><Sense id="lt-volunteerism-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-colonias"><Lemma writtenForm="colonias" partOfSpeech="n"/><Sense id="lt-colonias-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-farmworkers"><Lemma writtenForm="farmworkers" partOfSpeech="n"/><Sense id="lt-farmworkers-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-weatherization"><Lemma writtenForm="weatherization" partOfSpeech="n"/><Sense id="lt-weatherization-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-combustors"><Lemma writtenForm="combustors" partOfSpeech="n"/><Sense id="lt-combustors-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-voc"><Lemma writtenForm="voc" partOfSpeech="n"/><Sense id="lt-voc-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-nox"><Lemma writtenForm="nox" partOfSpeech="n"/><Sense id="lt-nox-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-mmbtu"><Lemma writtenForm="mmbtu" partOfSpeech="n"/><Sense id="lt-mmbtu-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-gvwr"><Lemma writtenForm="gvwr" partOfSpeech="n"/><Sense id="lt-gvwr-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-decadal"><Lemma writtenForm="decadal" partOfSpeech="adj"/><Sense id="lt-decadal-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-replicability"><Lemma writtenForm="replicability" partOfSpeech="n"/><Sense id="lt-replicability-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-iot"><Lemma writtenForm="iot" partOfSpeech="n"/><Sense id="lt-iot-1" synset="lt-legal-term"/></LexicalEntry>
+
+    <!-- ==================================================================
          Garbage-text fragments that the tokenizer produces from USC
          heading text (artefacts of "ADS-B", "fed-erally" hyphenation,
          word-boundary artifacts).
@@ -651,7 +894,8 @@
     <Synset id="lt-demonym" partOfSpeech="adj"><Definition>Demonym or indigenous-people designation per GPO Style Manual 2016 §5.20</Definition></Synset>
     <Synset id="lt-named-entity" partOfSpeech="propn"><Definition>Statutorily-named corporation or named entity per U.S. Government Manual (annual)</Definition></Synset>
     <Synset id="lt-eng-compound" partOfSpeech="n"><Definition>English N+N compound per Huddleston &amp; Pullum 2002 Ch. 19 §1.4 + Bauer 1983 §6.2</Definition></Synset>
-    <Synset id="lt-eng-prefixed" partOfSpeech="adj"><Definition>English prefixed compound (anti-/inter-/intra-/multi-/non-/post-/pre-/sub-/...) per Huddleston &amp; Pullum 2002 Ch. 19 §1.2 + Bauer 1983 §6.1</Definition></Synset>
+    <Synset id="lt-eng-prefixed" partOfSpeech="adj"><Definition>English prefixed compound (anti-/inter-/intra-/multi-/non-/post-/pre-/sub-/under-/in-/de-/para-/...) per Huddleston &amp; Pullum 2002 Ch. 19 §1.2 + Bauer 1983 §6.1</Definition></Synset>
+    <Synset id="lt-eng-neoclassical" partOfSpeech="n"><Definition>English neo-classical compound built on a combining form (bio-/geo-/hydro-/micro-/tele-/neuro-/cyber-/co-/cranio-) per Bauer 1983 §6 (neo-classical compounds) + Huddleston &amp; Pullum 2002 Ch. 19 §3 (combining forms)</Definition></Synset>
     <Synset id="lt-legal-term" partOfSpeech="n"><Definition>U.S. legal term-of-art per Black's Law Dictionary 11th ed. (2019)</Definition></Synset>
     <Synset id="lt-tokenizer-artifact" partOfSpeech="n"><Definition>Tokenizer artefact from hyphenation / capitalization at word boundaries per GPO Style Manual 2016 Ch. 15</Definition></Synset>
 

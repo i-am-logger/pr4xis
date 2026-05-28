@@ -136,15 +136,20 @@
 # Drafting Handbook 2017, ISO 3166-2:US, Huddleston & Pullum 2002,
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
-"us_legal_lexicon@2026"  = "800e808b087e3f49b2b9941f658c69e65fe4b55e13cf6d96edff5aeb79b0c751"
-# Title 42 hash is recorded here for future reference once
-# M4.δ.7.a (large-title codegen refactor) lands. The current
-# `write_usc_corpus_codegen` build.rs path OOM-kills rustc on
-# Title 42's 113 MB / ~3,500-section aggregate. Verified-correct
-# SHA-256 of usc42.xml at release point pl-119-90:
-#     8d142346d2239b1e13242b236c3549cbcce7e10cf2289e4a600bd0d247705db8
-# (not yet active; praxis.toml's [sources.usc_title_42] entry is
-# commented out until the codegen refactor lands).
+"us_legal_lexicon@2026"  = "46115bfeb4a4f485f64983a0f70b352e71e0c8a09c4e14a5e0e02ee8e7d1b80c"
+# U.S. Code Title 42 — The Public Health and Welfare. SHA-256 of
+# the unzipped usc42.xml content (113 MB, ~3,500 sections — the
+# LRC's largest title). Carries the harassment-timeline tree's
+# federal civil-rights backbone: § 1981 (equal rights / Civil
+# Rights Act of 1866), § 1981a (CRA-1991 damages), § 1983 (Ku Klux
+# Klan Act of 1871 — deprivation of rights under color of state
+# law), § 1985(3) (conspiracy to interfere with civil rights),
+# § 1988 (attorney's fees), § 2000e et seq. (Title VII; § 2000e-3
+# anti-retaliation), and § 12101 et seq. (ADA; § 12203 ADA
+# anti-retaliation). Loaded at runtime via M4.δ.7.a's USLM XML
+# parsing (no build-time codegen aggregate). Release point
+# pl-119-90.
+"usc_title_42@pl-119-90" = "8d142346d2239b1e13242b236c3549cbcce7e10cf2289e4a600bd0d247705db8"
 # U.S. Code Title 29 — Labor. SHA-256 of the unzipped usc29.xml
 # content from release point pl-119-90. Contains OSHA (§§ 651-678
 # — § 660(c) is the anti-retaliation procedural framework SOX

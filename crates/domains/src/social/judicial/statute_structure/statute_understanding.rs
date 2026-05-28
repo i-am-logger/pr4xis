@@ -776,7 +776,7 @@ mod tests {
         let en = cached_english();
         let usc_full = UsCode::cached_full();
         let (usc, source_label): (&UsCode, &str) = if usc_full.section_count() > 0 {
-            (usc_full, "build-time codegen-loaded corpus")
+            (usc_full, "runtime USLM-XML-loaded corpus")
         } else {
             // Fallback: sample only carries two synthetic sections.
             // Surface this in the panic message so the diminished
