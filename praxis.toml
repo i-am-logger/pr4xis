@@ -485,6 +485,26 @@ type        = "UsCodeTitle"
 url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc05@119-90.zip"
 description = "U.S. Code Title 5 — Government Organization and Employees, including the Freedom of Information Act (§ 552), the Privacy Act (§ 552a), the Administrative Procedure Act (§§ 551 et seq.), and the federal whistleblower scheme (§ 2302(b)(8), § 1213 OSC disclosures, § 1221 MSPB right of action). USLM XML published by the LRC per 1 U.S.C. § 204."
 
+# Title 50 — War and National Defense. Authoritative source for the
+# Foreign Intelligence Surveillance Act (FISA): § 1801 (definitions),
+# § 1805 (electronic-surveillance orders), § 1809 (criminal sanctions
+# for surveillance not authorized by statute — the provision a victim
+# of unlawful surveillance invokes), § 1810 (civil liability), § 1861
+# (the "Section 215" business-records / tangible-things authority),
+# and § 1881a (the "Section 702" warrantless-surveillance program).
+# Also carries the National Security Act of 1947 (§§ 3001 et seq.,
+# establishing the CIA, NSC, DNI) and the War Powers Resolution
+# (§§ 1541 et seq.). The harassment-timeline tree's surveillance /
+# FBI-referral claims reach this title wherever the alleged conduct
+# implicates foreign-intelligence-surveillance authorities or their
+# § 1809/§ 1810 unlawful-surveillance remedies. Same LRC USLM XML
+# publication unit; release point pl-119-90.
+[sources.usc_title_50]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc50@119-90.zip"
+description = "U.S. Code Title 50 — War and National Defense, including the Foreign Intelligence Surveillance Act (FISA, §§ 1801 et seq.; § 1809 criminal sanctions, § 1810 civil liability, § 1861 the \"Section 215\" authority, § 1881a the \"Section 702\" program), the National Security Act of 1947 (§§ 3001 et seq.), and the War Powers Resolution (§§ 1541 et seq.). USLM XML published by the LRC per 1 U.S.C. § 204."
+
 # Individual US Code sections (e.g. 18 U.S.C. § 1514A — Sarbanes–Oxley
 # § 806; 49 U.S.C. § 42121 — AIR21; 15 U.S.C. § 78j(b) — Rule 10b-5;
 # 15 U.S.C. § 78u-6 — Dodd-Frank SEC whistleblower) are NOT separate

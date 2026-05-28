@@ -910,6 +910,96 @@
     <LexicalEntry id="lt-accruing"><Lemma writtenForm="accruing" partOfSpeech="v"/><Sense id="lt-accruing-1" synset="lt-legal-term"/></LexicalEntry>
 
     <!-- ==================================================================
+         Title 50 — War and National Defense additions (M4.δ.9).
+         ==================================================================
+         FISA / National-Security-Act / Trading-with-the-Enemy headings
+         surface intelligence-community acronyms, foreign-nation place
+         names + demonyms, eponymous program names, and a small set of
+         military / Latin / archaic legal terms. Same category model +
+         citations as Titles 15/28/29/42/5.
+
+         Intelligence-community agency acronyms (Federal Register
+         Document Drafting Handbook 2017 §4.1 + U.S. Government Manual):
+         CIA (Central Intelligence Agency), CIARDS (CIA Retirement and
+         Disability System). -->
+    <LexicalEntry id="lt-cia"><Lemma writtenForm="cia" partOfSpeech="propn"/><Sense id="lt-cia-1" synset="lt-fed-agency"/></LexicalEntry>
+    <LexicalEntry id="lt-ciards"><Lemma writtenForm="ciards" partOfSpeech="propn"/><Sense id="lt-ciards-1" synset="lt-fed-agency"/></LexicalEntry>
+
+    <!-- Geographic names (U.S. Government Manual + USGS GNIS): foreign
+         nations, islands, and military installations named in Title 50
+         headings. -->
+    <LexicalEntry id="lt-russia"><Lemma writtenForm="russia" partOfSpeech="propn"/><Sense id="lt-russia-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-cuba"><Lemma writtenForm="cuba" partOfSpeech="propn"/><Sense id="lt-cuba-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-iran"><Lemma writtenForm="iran" partOfSpeech="propn"/><Sense id="lt-iran-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-korea"><Lemma writtenForm="korea" partOfSpeech="propn"/><Sense id="lt-korea-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-germany"><Lemma writtenForm="germany" partOfSpeech="propn"/><Sense id="lt-germany-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-switzerland"><Lemma writtenForm="switzerland" partOfSpeech="propn"/><Sense id="lt-switzerland-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-philippines"><Lemma writtenForm="philippines" partOfSpeech="propn"/><Sense id="lt-philippines-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-guantanamo"><Lemma writtenForm="guantanamo" partOfSpeech="propn"/><Sense id="lt-guantanamo-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-carderock"><Lemma writtenForm="carderock" partOfSpeech="propn"/><Sense id="lt-carderock-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-aleutian"><Lemma writtenForm="aleutian" partOfSpeech="propn"/><Sense id="lt-aleutian-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-pribilof"><Lemma writtenForm="pribilof" partOfSpeech="propn"/><Sense id="lt-pribilof-1" synset="lt-place-name"/></LexicalEntry>
+    <LexicalEntry id="lt-attu"><Lemma writtenForm="attu" partOfSpeech="propn"/><Sense id="lt-attu-1" synset="lt-place-name"/></LexicalEntry>
+
+    <!-- Demonyms (GPO Style Manual 2016 §5.20). -->
+    <LexicalEntry id="lt-russian"><Lemma writtenForm="russian" partOfSpeech="adj"/><Sense id="lt-russian-1" synset="lt-demonym"/></LexicalEntry>
+    <LexicalEntry id="lt-chinese"><Lemma writtenForm="chinese" partOfSpeech="adj"/><Sense id="lt-chinese-1" synset="lt-demonym"/></LexicalEntry>
+    <LexicalEntry id="lt-islamic"><Lemma writtenForm="islamic" partOfSpeech="adj"/><Sense id="lt-islamic-1" synset="lt-demonym"/></LexicalEntry>
+    <LexicalEntry id="lt-german"><Lemma writtenForm="german" partOfSpeech="adj"/><Sense id="lt-german-1" synset="lt-demonym"/></LexicalEntry>
+    <LexicalEntry id="lt-austrian"><Lemma writtenForm="austrian" partOfSpeech="adj"/><Sense id="lt-austrian-1" synset="lt-demonym"/></LexicalEntry>
+    <LexicalEntry id="lt-hungarian"><Lemma writtenForm="hungarian" partOfSpeech="adj"/><Sense id="lt-hungarian-1" synset="lt-demonym"/></LexicalEntry>
+    <LexicalEntry id="lt-aleuts"><Lemma writtenForm="aleuts" partOfSpeech="n"/><Sense id="lt-aleuts-1" synset="lt-demonym"/></LexicalEntry>
+
+    <!-- Persons named in Title 50 programs/awards (U.S. Government
+         Manual + USC heading text): Benjamin Tallmadge (CIA
+         counterintelligence institute); Louis Stokes (scholarship);
+         Senior Chief Petty Officer Shannon Kent (award). -->
+    <LexicalEntry id="lt-tallmadge"><Lemma writtenForm="tallmadge" partOfSpeech="propn"/><Sense id="lt-tallmadge-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-louis"><Lemma writtenForm="louis" partOfSpeech="propn"/><Sense id="lt-louis-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-shannon"><Lemma writtenForm="shannon" partOfSpeech="propn"/><Sense id="lt-shannon-1" synset="lt-named-entity"/></LexicalEntry>
+    <LexicalEntry id="lt-kent"><Lemma writtenForm="kent" partOfSpeech="propn"/><Sense id="lt-kent-1" synset="lt-named-entity"/></LexicalEntry>
+
+    <!-- Citation component — Roman-numeral division/title designator in
+         Pub. L. citations ("div. F, title LXIX") per GPO Style Manual
+         2016 Ch. 9. -->
+    <LexicalEntry id="lt-lxix"><Lemma writtenForm="lxix" partOfSpeech="abbr"/><Sense id="lt-lxix-1" synset="lt-citation-abbr"/></LexicalEntry>
+
+    <!-- English neo-classical compound (geo- combining form) — Bauer
+         1983 §6 + CGEL Ch. 19 §3. -->
+    <LexicalEntry id="lt-geospatial"><Lemma writtenForm="geospatial" partOfSpeech="adj"/><Sense id="lt-geospatial-1" synset="lt-eng-neoclassical"/></LexicalEntry>
+
+    <!-- English N+N compounds + prefixed forms (CGEL Ch. 19 §1.2/§1.4 +
+         Bauer 1983 §6): deepfake(s) (deep+fake); counter-/inter-
+         prefixed forms; the -ization deverbal noun. -->
+    <LexicalEntry id="lt-deepfake"><Lemma writtenForm="deepfake" partOfSpeech="n"/><Sense id="lt-deepfake-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-deepfakes"><Lemma writtenForm="deepfakes" partOfSpeech="n"/><Sense id="lt-deepfakes-1" synset="lt-eng-compound"/></LexicalEntry>
+    <LexicalEntry id="lt-counterproliferation"><Lemma writtenForm="counterproliferation" partOfSpeech="n"/><Sense id="lt-counterproliferation-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-counternarcotics"><Lemma writtenForm="counternarcotics" partOfSpeech="n"/><Sense id="lt-counternarcotics-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-intercustodial"><Lemma writtenForm="intercustodial" partOfSpeech="adj"/><Sense id="lt-intercustodial-1" synset="lt-eng-prefixed"/></LexicalEntry>
+    <LexicalEntry id="lt-weaponization"><Lemma writtenForm="weaponization" partOfSpeech="n"/><Sense id="lt-weaponization-1" synset="lt-eng-prefixed"/></LexicalEntry>
+
+    <!-- Legal / military / scientific / Latin / archaic terms (Black's
+         Law Dictionary 11th ed. for legal + Latin; AMA Manual of Style
+         for scientific; DoD Dictionary of Military and Associated Terms
+         for military acronyms): "servicemember(s)" (the Servicemembers
+         Civil Relief Act defined class); POW/MIA; the synthetic-nucleic-
+         acid term RNA; the units Btu and 5G; "divestment"; the archaic
+         legal adverbs "thereat"/"thereunder"; the Latin "persona non
+         grata"; and "foundational". -->
+    <LexicalEntry id="lt-servicemembers"><Lemma writtenForm="servicemembers" partOfSpeech="n"/><Sense id="lt-servicemembers-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-servicemember"><Lemma writtenForm="servicemember" partOfSpeech="n"/><Sense id="lt-servicemember-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-pow"><Lemma writtenForm="pow" partOfSpeech="n"/><Sense id="lt-pow-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-mia"><Lemma writtenForm="mia" partOfSpeech="n"/><Sense id="lt-mia-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-rna"><Lemma writtenForm="rna" partOfSpeech="n"/><Sense id="lt-rna-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-btu"><Lemma writtenForm="btu" partOfSpeech="n"/><Sense id="lt-btu-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-5g"><Lemma writtenForm="5g" partOfSpeech="n"/><Sense id="lt-5g-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-divestment"><Lemma writtenForm="divestment" partOfSpeech="n"/><Sense id="lt-divestment-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-grata"><Lemma writtenForm="grata" partOfSpeech="n"/><Sense id="lt-grata-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-thereat"><Lemma writtenForm="thereat" partOfSpeech="adv"/><Sense id="lt-thereat-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-thereunder"><Lemma writtenForm="thereunder" partOfSpeech="adv"/><Sense id="lt-thereunder-1" synset="lt-legal-term"/></LexicalEntry>
+    <LexicalEntry id="lt-foundational"><Lemma writtenForm="foundational" partOfSpeech="adj"/><Sense id="lt-foundational-1" synset="lt-legal-term"/></LexicalEntry>
+
+    <!-- ==================================================================
          Garbage-text fragments that the tokenizer produces from USC
          heading text (artefacts of "ADS-B", "fed-erally" hyphenation,
          word-boundary artifacts).
