@@ -137,6 +137,14 @@
 # Bauer 1983, Black's Law Dictionary 11th ed. 2019). Updating the XML
 # requires regenerating this hash.
 "us_legal_lexicon@2026"  = "c984ce85ed81b5142cab115332283d726420a3791de1e2fb71338fa9bf7b82c1"
+# Title 42 hash is recorded here for future reference once
+# M4.δ.7.a (large-title codegen refactor) lands. The current
+# `write_usc_corpus_codegen` build.rs path OOM-kills rustc on
+# Title 42's 113 MB / ~3,500-section aggregate. Verified-correct
+# SHA-256 of usc42.xml at release point pl-119-90:
+#     8d142346d2239b1e13242b236c3549cbcce7e10cf2289e4a600bd0d247705db8
+# (not yet active; praxis.toml's [sources.usc_title_42] entry is
+# commented out until the codegen refactor lands).
 # U.S. Code Title 29 — Labor. SHA-256 of the unzipped usc29.xml
 # content from release point pl-119-90. Contains OSHA (§§ 651-678
 # — § 660(c) is the anti-retaliation procedural framework SOX

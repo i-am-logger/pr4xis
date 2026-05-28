@@ -404,6 +404,22 @@ type        = "UsCodeTitle"
 url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc28@119-90.zip"
 description = "U.S. Code Title 28 — Judiciary and Judicial Procedure, including 28 U.S.C. App. (Federal Rules of Civil Procedure / Evidence / Appellate Procedure / Bankruptcy Procedure). USLM XML published by the LRC per 1 U.S.C. § 204; 28 U.S.C. § 2072 (Rules Enabling Act) authorizes the Supreme Court to promulgate the rules and the LRC to codify them in the Appendix."
 
+# Title 42 — The Public Health and Welfare. Pending registration
+# blocked on **M4.δ.7.a — large-title codegen refactor**. The
+# 113 MB / ~3,500-section USLM XML for Title 42 generates a
+# `usc_corpus_codegen.rs` aggregate static that OOM-kills rustc
+# during the pr4xis-domains test-binary compile (linker SIGKILL).
+# The current `write_usc_corpus_codegen` build.rs path emits the
+# entire corpus as a single `static CODEGEN_DATA` — fine for
+# Titles 15/18/28/29/49 (sub-1,000 sections each), too large for
+# Title 42 (over 3,000 sections of HHS / Medicare / Medicaid /
+# Title VII / ADA / § 1983 etc.). Title 42 carries the harassment-
+# timeline tree's federal-civil-rights backbone (§ 1981, § 1983,
+# § 1985(3), § 1988, § 2000e, § 12203). Once the codegen is
+# refactored — likely via per-title binary serialization with
+# runtime deserialization, or per-title incremental codegen — the
+# Title 42 registration block goes here.
+
 # Title 29 — Labor. Authoritative source for the Occupational
 # Safety and Health Act of 1970 (OSHA, 29 U.S.C. §§ 651-678).
 # OSHA § 11(c) at 29 U.S.C. § 660(c) is the original employee
