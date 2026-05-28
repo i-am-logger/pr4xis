@@ -93,11 +93,30 @@ pub struct LensRegistration {
     pub signature: fn(&[u8]) -> Result<[u8; 32], String>,
 }
 
-/// Distributed slice of every [`LensRegistration`] in the workspace.
-/// Each [`crate::register_lens`] invocation appends one entry; the
-/// harness iterates the slice at runtime.
+/// Distributed slice of every [`LensRegistration`] in the workspace
+/// (native targets). Each [`crate::register_lens`] invocation appends one
+/// entry; the harness iterates the slice at runtime.
+///
+/// On wasm32, linkme is unsupported (same constraint as
+/// `pr4xis::ontology::registry`'s `VOCABULARIES` etc.), so the slice is
+/// absent and [`lens_registrations`] returns empty. The round-trip
+/// harness is a native build-time / CI audit tool; the wasm runtime never
+/// runs it.
+#[cfg(not(target_arch = "wasm32"))]
 #[::linkme::distributed_slice]
 pub static LENS_REGISTRATIONS: [LensRegistration] = [..];
+
+/// The registered lenses — auto-collected on native, empty on wasm32.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn lens_registrations() -> &'static [LensRegistration] {
+    &LENS_REGISTRATIONS
+}
+
+/// The registered lenses (wasm32 stub) — empty; linkme is unsupported.
+#[cfg(target_arch = "wasm32")]
+pub fn lens_registrations() -> &'static [LensRegistration] {
+    &[]
+}
 
 /// Register a [`WellBehavedLens`] implementation for a specific
 /// praxis-toml source.
@@ -111,6 +130,10 @@ pub static LENS_REGISTRATIONS: [LensRegistration] = [..];
 #[macro_export]
 macro_rules! register_lens {
     ($static_ident:ident, $name:literal, $version:literal, $lens_ty:ty $(,)?) => {
+        // Native only — linkme's distributed_slice is unsupported on
+        // wasm32 (mirrors `pr4xis::ontology::registry`). The round-trip
+        // harness these feed is a native CI/audit tool.
+        #[cfg(not(target_arch = "wasm32"))]
         #[::linkme::distributed_slice(
             $crate::formal::meta::well_behaved_lens::harness::LENS_REGISTRATIONS
         )]
@@ -198,7 +221,7 @@ impl HarnessOutcome {
 /// Returns one [`HarnessResult`] per registration, ordered by `key`.
 #[must_use]
 pub fn run_round_trip_harness() -> Vec<HarnessResult> {
-    let mut out: Vec<HarnessResult> = LENS_REGISTRATIONS.iter().map(check_one).collect();
+    let mut out: Vec<HarnessResult> = lens_registrations().iter().map(check_one).collect();
     out.sort_by(|a, b| a.key.cmp(&b.key));
     out
 }

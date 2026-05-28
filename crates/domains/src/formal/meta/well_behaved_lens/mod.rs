@@ -77,9 +77,13 @@ pub mod harness;
 pub mod lens_trait;
 
 pub use harness::{
-    HarnessOutcome, HarnessResult, LENS_REGISTRATIONS, LensRegistration,
-    RoundTripHarnessAllVerified, run_round_trip_harness,
+    HarnessOutcome, HarnessResult, LensRegistration, RoundTripHarnessAllVerified,
+    lens_registrations, run_round_trip_harness,
 };
+// linkme's distributed_slice is native-only; the raw slice is absent on
+// wasm32. Use `lens_registrations()` for a target-portable accessor.
+#[cfg(not(target_arch = "wasm32"))]
+pub use harness::LENS_REGISTRATIONS;
 pub use lens_trait::{FailureStage, LensLawFailure, WellBehavedLens};
 
 #[cfg(test)]

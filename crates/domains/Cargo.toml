@@ -9,7 +9,14 @@ repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
 
 [dependencies]
-pr4xis = { version = "0.15.0", path = "../pr4xis", default-features = false, features = ["codegen"] }
+# Runtime dep needs `std` only. The `codegen` feature (and its
+# `xsd-parser` transitive, which can't build for wasm32 — `url`'s
+# `from_file_path` is gated out there) is build-time + test-only: it's on
+# the [build-dependencies] entry below and the [dev-dependencies] entry.
+# Keeping it off the normal dep keeps `xsd-parser` out of the WASM graph
+# (this crate is a WASM default-feature dependency — see the fetch/pdf
+# gating notes below).
+pr4xis = { version = "0.15.0", path = "../pr4xis", default-features = false, features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
@@ -112,6 +119,11 @@ sha2 = "0.11"
 workspace = true
 
 [dev-dependencies]
+# Tests under cognitive/linguistics + markup/xml/lmf exercise
+# `pr4xis::codegen::wordnet::parse_wordnet_xml` directly. `codegen` is
+# off the normal dep (it leaks `xsd-parser` into WASM), so unify it back
+# in for test builds here.
+pr4xis = { version = "0.15.0", path = "../pr4xis", features = ["codegen"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.6"
 tempfile = "3"

@@ -234,7 +234,7 @@ fn run_chat() {
         let resolved_input = resolve_pronouns(input, engine.situation(), language.as_ref());
 
         // Process through praxis-chat (shared logic — zero I/O)
-        let (response_text, user_act, _sys_act) = chat::process(&language, &usc, &resolved_input);
+        let (response_text, user_act, _sys_act) = chat::process(&language, &resolved_input);
 
         // Extract referents for discourse tracking
         let referents: Vec<String> = resolved_input

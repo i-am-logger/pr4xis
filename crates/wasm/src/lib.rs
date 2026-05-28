@@ -1,29 +1,39 @@
 use wasm_bindgen::prelude::*;
 
+use pr4xis::archive::{OwnedCodegenData, from_archive_bytes};
+use pr4xis::ontology::compose::Staging;
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::language;
+use pr4xis_domains::formal::information::knowledge::{LoadedRef, source_catalog};
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
-use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
 
 #[allow(dead_code)]
 mod codegen_output {
     include!(concat!(env!("OUT_DIR"), "/english_codegen.rs"));
 }
 
-/// Build-time USC corpus produced by `pr4xis::codegen::usc_corpus`. M4.ε.4
-/// wires the static through `UsCode::from_codegen` into the `Pr4xis`
-/// struct alongside `english` — making the loaded U.S. Code visible to
-/// `loaded_ontologies` and queryable from JS via `usc_section_count`.
-#[allow(dead_code)]
-#[allow(clippy::invisible_characters)]
-mod usc_codegen_output {
-    include!(concat!(env!("OUT_DIR"), "/usc_codegen.rs"));
-}
+/// Registry primary key of the embedded English base
+/// (praxis.toml `[sources.english_wordnet]`). English is the one source
+/// baked into the binary (`Embedded` staging); every other registered
+/// source is loaded on demand from its rkyv archive (`Async` staging).
+const ENGLISH_SOURCE: &str = "english_wordnet";
 
+/// The runtime. Source-agnostic: it holds the embedded English language
+/// model plus a generic set of on-demand-loaded ontologies. It has no
+/// notion of "statute" — a loaded U.S. Code title is just one
+/// [`LoadedSource`] among whatever the registry offers.
 #[wasm_bindgen]
 pub struct Pr4xis {
     english: English,
-    usc: UsCode,
+    loaded: Vec<LoadedSource>,
+}
+
+/// A registered source materialized at runtime from its rkyv archive —
+/// the object-level the self-model's meta-level monitors as `Loaded`.
+struct LoadedSource {
+    name: String,
+    staging: Staging,
+    owned: OwnedCodegenData,
 }
 
 impl Default for Pr4xis {
@@ -39,12 +49,12 @@ impl Pr4xis {
         console_error_panic_hook::set_once();
         Self {
             english: language::from_codegen(&codegen_output::CODEGEN_DATA),
-            usc: UsCode::from_codegen(&usc_codegen_output::CODEGEN_DATA),
+            loaded: Vec::new(),
         }
     }
 
     pub fn chat(&self, input: &str) -> String {
-        let result = pr4xis_chat::process_with_metadata(&self.english, &self.usc, input);
+        let result = pr4xis_chat::process_with_metadata(&self.english, input);
         let ontologies = result.trace.all_participating_ontologies();
         let trace = result.trace.serialize_with_functors();
 
@@ -69,14 +79,74 @@ impl Pr4xis {
         self.english.word_count()
     }
 
-    pub fn usc_section_count(&self) -> usize {
-        self.usc.section_count()
+    /// Total entities across the on-demand-loaded sources (0 until the
+    /// host loads an archive). Source-agnostic — it does not single out
+    /// any source kind.
+    pub fn loaded_entity_count(&self) -> usize {
+        self.loaded
+            .iter()
+            .map(|s| s.owned.entity_count as usize)
+            .sum()
     }
 
-    pub fn self_describe(&self) -> String {
-        // WASM boundary: serialize the structural SelfModelInstance to JSON
-        // for JS interop. Native callers should use pr4xis_chat::self_describe
-        // directly to avoid the JSON detour.
-        pr4xis_chat::self_describe(&self.english, &self.usc).to_json()
+    /// Load a registered source from its rkyv archive bytes (fetched by
+    /// the host from the source's `.rkyv` blob). This IS the Nelson-Narens
+    /// *control* operation — the meta-level moving a source from
+    /// `Available` to `Loaded`. Validation is by `bytecheck` inside
+    /// [`from_archive_bytes`]; a corrupted blob fails closed. Idempotent:
+    /// loading a name already present replaces it.
+    pub fn load_source(&mut self, name: String, bytes: &[u8]) -> Result<(), JsValue> {
+        let owned = from_archive_bytes(bytes)
+            .map_err(|e| JsValue::from_str(&format!("archive decode failed: {e}")))?;
+        self.loaded.retain(|s| s.name != name);
+        self.loaded.push(LoadedSource {
+            name,
+            staging: Staging::Async,
+            owned,
+        });
+        Ok(())
     }
+
+    /// The self-model JSON — the eigenform plus the knowledge-boundary
+    /// catalog (every registered source tagged Loaded / Available). The
+    /// UI renders this directly; it carries no source-specific knowledge.
+    pub fn self_describe(&self) -> String {
+        let catalog = source_catalog(&self.loaded_refs());
+        pr4xis_chat::self_describe(&self.english)
+            .with_catalog(catalog)
+            .to_json()
+    }
+}
+
+impl Pr4xis {
+    /// The *monitoring* input: which registered sources are loaded, with
+    /// their staging + counts. English is the embedded base; everything
+    /// else arrived through an archive.
+    fn loaded_refs(&self) -> Vec<LoadedRef> {
+        let mut refs = Vec::with_capacity(self.loaded.len() + 1);
+        refs.push(LoadedRef::new(
+            ENGLISH_SOURCE,
+            Staging::Embedded,
+            self.english.concept_count(),
+            0,
+        ));
+        for s in &self.loaded {
+            refs.push(LoadedRef::new(
+                s.name.clone(),
+                s.staging,
+                s.owned.entity_count as usize,
+                edge_count(&s.owned),
+            ));
+        }
+        refs
+    }
+}
+
+fn edge_count(o: &OwnedCodegenData) -> usize {
+    o.taxonomy.len()
+        + o.mereology.len()
+        + o.opposition.len()
+        + o.equivalence.len()
+        + o.causation.len()
+        + o.references.len()
 }
