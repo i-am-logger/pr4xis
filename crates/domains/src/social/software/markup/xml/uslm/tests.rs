@@ -3151,6 +3151,200 @@ fn full_title_50_codegen_and_runtime_agree_on_section_1809() {
 }
 
 // =============================================================================
+// Full Title 1 coverage (M4.δ.10) — General Provisions. The authority
+// anchor for the whole corpus: 1 U.S.C. § 204 (positive law /
+// Code-as-evidence) is the statute that makes the LRC's USLM XML the
+// legal text of the U.S. Code. Also the Dictionary Act (§§ 1-8
+// statutory-construction defaults), the enacting clauses (§§ 101-105),
+// and the Statutes-at-Large / treaty publication framework (§§ 112,
+// 112a). Tier 4: smallest title, but foundational — it closes the
+// self-referential loop by which the corpus cites the statute that
+// authorizes its own form.
+// =============================================================================
+
+fn title_1_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("data/legal/uscode/usc_title_1/usc_title_1-pl-119-90.xml")
+}
+
+#[test]
+fn full_title_1_parses_with_expected_section_count() {
+    let p = title_1_path();
+    if !p.exists() {
+        eprintln!("SKIP: Title 1 USLM not on disk at {p:?}");
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).expect("Title 1 must parse");
+    eprintln!("Title 1 parse: {} sections", title.sections.len());
+    assert_eq!(title.identifier, "/us/usc/t1");
+    assert_eq!(title.number, 1);
+    assert!(
+        title
+            .heading
+            .to_ascii_uppercase()
+            .contains("GENERAL PROVISIONS"),
+        "got heading: {:?}",
+        title.heading
+    );
+    // Title 1 is the smallest title — the Dictionary Act, enacting
+    // clauses, the Code-authority section, and the publication
+    // framework. Lower bound is conservative.
+    assert!(
+        title.sections.len() >= 30,
+        "expected ≥30 sections, got {}",
+        title.sections.len()
+    );
+}
+
+#[test]
+fn full_title_1_every_section_has_unique_identifier() {
+    let p = title_1_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+    axiom_section_identifiers_unique(&title)
+        .expect("SectionIdentifiersUnique-or-LRC-documented-duplicates must hold for full Title 1");
+}
+
+#[test]
+fn full_title_1_every_section_satisfies_every_axiom() {
+    let p = title_1_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+
+    axiom_every_section_has_num(&title).expect("EverySectionHasNum must hold for full Title 1");
+    axiom_every_container_has_identifier(&title)
+        .expect("EveryContainerHasIdentifier must hold for full Title 1");
+    axiom_child_identifier_extends_parent(&title)
+        .expect("ChildIdentifierExtendsParent must hold for full Title 1");
+    axiom_hierarchy_strictly_nested(&title)
+        .expect("HierarchyStrictlyNested must hold for full Title 1");
+    axiom_section_identifiers_unique(&title)
+        .expect("SectionIdentifiersUnique must hold for full Title 1");
+    axiom_ref_hrefs_well_formed(&title).expect("RefHrefsWellFormed must hold for full Title 1");
+}
+
+#[test]
+fn full_title_1_every_section_lifts_to_statute() {
+    use crate::social::compliance::statutes::from_uslm::from_uslm_section;
+    let p = title_1_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+
+    let mut failed = 0usize;
+    let mut first_failure: Option<(String, String)> = None;
+    for s in &title.sections {
+        let name = section_identifier_to_statute_name(&s.identifier);
+        if let Err(e) = from_uslm_section(&name, "pl-119-90", s) {
+            failed += 1;
+            if first_failure.is_none() {
+                first_failure = Some((name, format!("{e}")));
+            }
+        }
+    }
+    if let Some((n, msg)) = first_failure {
+        panic!(
+            "{failed}/{} sections failed to lift to Statute; first: {n}: {msg}",
+            title.sections.len()
+        );
+    }
+    assert_eq!(failed, 0);
+}
+
+#[test]
+fn full_title_1_known_sections_present() {
+    // Sentinel sections — the corpus-authority anchor + the
+    // statutory-construction defaults every other title inherits.
+    let p = title_1_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+    let ids: std::collections::HashSet<&str> = title
+        .sections
+        .iter()
+        .map(|s| s.identifier.as_str())
+        .collect();
+
+    // § 1 — Words denoting number, gender, and so forth (the
+    // Dictionary Act's lead section: "words importing the singular
+    // include and apply to several persons…"). The default rules of
+    // statutory construction every other title is read against.
+    assert!(
+        ids.contains("/us/usc/t1/s1"),
+        "§ 1 (Dictionary Act) missing"
+    );
+
+    // § 101 — Enacting clause ("Be it enacted by the Senate and
+    // House of Representatives…").
+    assert!(
+        ids.contains("/us/usc/t1/s101"),
+        "§ 101 (enacting clause) missing"
+    );
+
+    // § 112 — Statutes at Large; contents; admissibility in
+    // evidence. The companion publication authority to § 204.
+    assert!(
+        ids.contains("/us/usc/t1/s112"),
+        "§ 112 (Statutes at Large) missing"
+    );
+
+    // § 204 — Codes and Supplements as evidence of the laws of
+    // United States and District of Columbia; citation of Codes and
+    // Supplements. THE authority that makes the LRC's USLM XML the
+    // legal text of the U.S. Code — the statute every other
+    // registered title's provenance line cites.
+    assert!(
+        ids.contains("/us/usc/t1/s204"),
+        "§ 204 (Code-as-evidence / positive-law authority) missing"
+    );
+}
+
+#[test]
+fn full_title_1_codegen_and_runtime_agree_on_section_204() {
+    // § 204 (Codes and Supplements as evidence; positive-law
+    // authority) is THE self-referential anchor — the statute that
+    // authorizes the corpus's own USLM form. Runtime XML loading
+    // (M4.δ.7.a) must produce the same term set the build-time codegen
+    // path would have.
+    use crate::social::compliance::statutes::from_uslm::derive_structural;
+    let p = title_1_path();
+    if !p.exists() {
+        return;
+    }
+    let xml = std::fs::read_to_string(&p).unwrap();
+    let title = read_uslm_title(&xml).unwrap();
+    let section = title
+        .section("/us/usc/t1/s204")
+        .expect("§ 204 must be present");
+    let runtime_data = derive_structural("usc1_204", section);
+    let codegen_doc = pr4xis::codegen::uslm::parse_uslm_str(&xml, "/us/usc/t1/s204", "usc1_204")
+        .expect("codegen parse");
+    let runtime_ids: std::collections::HashSet<&str> =
+        runtime_data.terms.iter().map(|t| t.id.as_str()).collect();
+    let codegen_ids: std::collections::HashSet<&str> = codegen_doc
+        .terms
+        .iter()
+        .filter(|t| t.id != "usc1_204")
+        .map(|t| t.id.as_str())
+        .collect();
+    assert_eq!(
+        runtime_ids, codegen_ids,
+        "codegen and runtime diverge on Title 1 § 204"
+    );
+}
+
+// =============================================================================
 // Tier-1 hierarchy coverage (M4.δ.4)
 // =============================================================================
 

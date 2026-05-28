@@ -198,6 +198,17 @@
 # § 1809/§ 1810 unlawful-surveillance remedies. Loaded at runtime
 # via M4.δ.7.a USLM XML parsing.
 "usc_title_50@pl-119-90" = "623ecd3f0f7c00331f7f98151ef75bf5262328435865fc3a2aff7b1fb16f3713"
+# U.S. Code Title 1 — General Provisions. SHA-256 of the unzipped
+# usc01.xml content (284 KB, ~60 sections — the smallest title) from
+# release point pl-119-90. The authority anchor: 1 U.S.C. § 204
+# (positive law / Code-as-evidence) is the statute that makes the
+# LRC's USLM XML the legal text of the U.S. Code — every other
+# registered title's "per 1 U.S.C. § 204" provenance points here.
+# Also the Dictionary Act (§§ 1-8 statutory-construction defaults),
+# the enacting clauses (§§ 101-105), and the Statutes at Large /
+# treaty publication framework (§§ 112, 112a). Loaded at runtime via
+# M4.δ.7.a USLM XML parsing.
+"usc_title_1@pl-119-90"  = "a334616a6e0956556bf9de99906caf8ae709535b3d47bbc1150acca673dad727"
 # U.S. Code Title 18 — Crimes and Criminal Procedure. SHA-256 of
 # the unzipped usc18.xml content (12 MB, 1,428 sections, ~28k cross-
 # references) from release point pl-119-90. The .zip wrapper sha256

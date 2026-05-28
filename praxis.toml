@@ -505,6 +505,27 @@ type        = "UsCodeTitle"
 url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc50@119-90.zip"
 description = "U.S. Code Title 50 — War and National Defense, including the Foreign Intelligence Surveillance Act (FISA, §§ 1801 et seq.; § 1809 criminal sanctions, § 1810 civil liability, § 1861 the \"Section 215\" authority, § 1881a the \"Section 702\" program), the National Security Act of 1947 (§§ 3001 et seq.), and the War Powers Resolution (§§ 1541 et seq.). USLM XML published by the LRC per 1 U.S.C. § 204."
 
+# Title 1 — General Provisions. The authority anchor for the entire
+# USC corpus: 1 U.S.C. § 204 ("Codes and Supplements as evidence of
+# the laws…; positive law titles") is the statute that makes the
+# Office of the Law Revision Counsel's USLM XML the *legal* text of
+# the United States Code — every other registered title's "USLM XML
+# published by the LRC per 1 U.S.C. § 204" provenance line points
+# here. Title 1 also carries the Dictionary Act (§§ 1-8 — the
+# default rules of statutory construction: "words importing the
+# singular include the plural", the § 1 "person"/"whoever"
+# definitions every other title inherits), the enacting/resolving
+# clauses (§§ 101-105), and the publication framework for the
+# Statutes at Large (§ 112) and treaties (§ 112a). Tier 4: small
+# (~60 sections) but foundational — it closes the self-referential
+# loop by which the corpus cites the statute that authorizes its own
+# form. Same LRC USLM XML publication unit; release point pl-119-90.
+[sources.usc_title_1]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc01@119-90.zip"
+description = "U.S. Code Title 1 — General Provisions, including 1 U.S.C. § 204 (the positive-law / Code-as-evidence authority that grounds every registered title's USLM XML provenance), the Dictionary Act (§§ 1-8 statutory-construction defaults), the enacting clauses (§§ 101-105), and the Statutes at Large / treaty publication framework (§§ 112, 112a). USLM XML published by the LRC per 1 U.S.C. § 204."
+
 # Individual US Code sections (e.g. 18 U.S.C. § 1514A — Sarbanes–Oxley
 # § 806; 49 U.S.C. § 42121 — AIR21; 15 U.S.C. § 78j(b) — Rule 10b-5;
 # 15 U.S.C. § 78u-6 — Dodd-Frank SEC whistleblower) are NOT separate
