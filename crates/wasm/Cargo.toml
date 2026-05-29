@@ -18,6 +18,12 @@ pr4xis-chat = { path = "../chat" }
 pr4xis-domains = { path = "../domains" }
 wasm-bindgen = "0.2"
 
+[dev-dependencies]
+# Browser/Node test harness for the wasm runtime. Run with
+# `wasm-pack test --node` (logic) or `wasm-pack test --headless --firefox`
+# (full browser: DOM, fetch, Web Worker). Hauser et al., MIT/Apache-2.0.
+wasm-bindgen-test = "0.3"
+
 [lints.rust]
 dead_code = "deny"
 unused_imports = "deny"
