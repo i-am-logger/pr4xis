@@ -514,6 +514,7 @@
         const loaded = s.status === 'loaded';
         const card = document.createElement('div');
         card.className = `source-card ${loaded ? 'loaded' : 'available'}`;
+        card.dataset.source = s.name; // stable hook for the Rust E2E
 
         const top = document.createElement('div');
         top.className = 'row';
@@ -536,6 +537,7 @@
           const meta = sourceByName.get(s.name);
           const btn = document.createElement('button');
           btn.className = 'load-btn';
+          btn.dataset.load = s.name; // stable hook for the Rust E2E
           btn.textContent = 'Load';
           btn.addEventListener('click', () => loadSource(s.name, meta.url, meta.bytes, card, top));
           top.appendChild(btn);

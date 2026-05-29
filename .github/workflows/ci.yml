@@ -138,6 +138,48 @@ jobs:
           cd crates/wasm
           wasm-pack test --headless --firefox
 
+  e2e:
+    name: E2E (Rust WebDriver)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Cache WordNet XML
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Fetch external data
+        run: cargo run -p pr4xis-cli --release -- update
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Build WASM (also stages /sources documents)
+        run: |
+          cd crates/wasm
+          wasm-pack build --target web --release
+      # Firefox + geckodriver are preinstalled on ubuntu-latest. Server,
+      # driver and the fantoccini test all run in ONE step — a process
+      # backgrounded in one Actions step is killed when that step ends.
+      - name: Run Rust WebDriver E2E
+        run: |
+          cargo run -p pr4xis-web 3000 &
+          WEB=$!
+          geckodriver --port 4444 &
+          GECKO=$!
+          for _ in $(seq 1 90); do curl -sf http://localhost:3000/ >/dev/null && break; sleep 1; done
+          for _ in $(seq 1 30); do curl -sf http://localhost:4444/status >/dev/null && break; sleep 1; done
+          set +e
+          ( cd crates/e2e && cargo run )
+          code=$?
+          kill "$WEB" "$GECKO" 2>/dev/null || true
+          exit "$code"
+
   pages:
     name: Deploy Pages
     runs-on: ubuntu-latest

@@ -9,8 +9,11 @@ members = [
     "crates/chat",
     "crates/web",
 ]
-# pr4xis-wasm excluded from default workspace (needs wasm target)
-exclude = ["crates/wasm"]
+# pr4xis-wasm excluded from default workspace (needs wasm target).
+# pr4xis-e2e excluded too — it drives a real browser via WebDriver and
+# needs a running web server + geckodriver, so it must not run under
+# `cargo test --workspace`. CI invokes it explicitly (see ci.yml `e2e`).
+exclude = ["crates/wasm", "crates/e2e"]
 
 # Vendored lopdf with visibility patches that pub-export
 # `cmap::ToUnicodeCMap` and the `glyphnames` + `mappings` modules.
