@@ -73,6 +73,20 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 rustls-rustcrypto = { version = "0.0.2-alpha", optional = true }
 flate2 = { version = "1", optional = true }
 
+# Zero-copy binary archival of the codegen interchange shape. rkyv
+# serializes the owned mirror of `CodegenData<P>` to a content-addressed
+# blob the runtime materializes without re-parsing the source format.
+# Chosen over FlatBuffers / Cap'n Proto because it derives the schema
+# from the Rust type (no IDL) and validates on access via `bytecheck`,
+# so a corrupted/truncated blob fails closed. `alloc` feature only
+# (this crate links `alloc`). Used by the OWL `.prx.gz` distribution
+# envelope (`social::software::markup::xml::owl::prx`); optional and
+# pulled in by the `fetch` feature alongside flate2 (the gzip layer),
+# so it stays out of the WASM default-feature graph.
+# Cite: Hill, D. *rkyv: zero-copy deserialization framework for Rust*,
+# v0.8, MIT, <https://github.com/rkyv/rkyv>.
+rkyv = { version = "0.8", default-features = false, features = ["alloc", "bytecheck"], optional = true }
+
 # PDF parsing — pure-Rust PDF reader implementing ISO 32000-2:2020
 # file/object structure. Wraps the byte-level parsing so the praxis-way
 # layer (social/software/binary/pdf/) can emit typed PdfDocument values
@@ -96,7 +110,7 @@ std = ["pr4xis/std"]
 # which can't build for wasm32; build.rs and tests get it via the
 # `[build-dependencies]` / `[dev-dependencies]` `codegen` entries.
 codegen = ["std", "pr4xis/codegen"]
-fetch = ["std", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto", "dep:flate2"]
+fetch = ["std", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto", "dep:flate2", "dep:rkyv"]
 # `pdf` enables the runtime PDF reader (social/software/binary/pdf/reader)
 # that materializes typed PdfDocument values from byte streams. The
 # ontology surface (concepts, axioms, FlaggedContent) is available
