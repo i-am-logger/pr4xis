@@ -25,6 +25,11 @@ docs/chat/pkg/
 # On-demand source documents staged by crates/wasm/build.rs (copies of the
 # registered USC title USLM XML; served at /sources/<file>)
 crates/wasm/sources/
+# .prx.gz distribution artifacts emitted by the `emit_prx` example (#256).
+# Build outputs published to the GitHub release + Pages /ontologies/, never
+# committed (rkyv wire layout is toolchain-dependent; the canonical source
+# of truth stays the bundled .owl + its praxis.lock pin).
+dist/
 
 # Managed external data — fetched via `pr4xis update`, never committed
 crates/domains/data/wordnet/*.xml

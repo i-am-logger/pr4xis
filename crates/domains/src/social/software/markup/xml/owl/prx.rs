@@ -535,6 +535,31 @@ pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxEr
 }
 
 // =============================================================================
+// EmittedArtifact — one published `.prx.gz` file, round-trip-validated.
+// =============================================================================
+
+/// A `.prx.gz` artifact [`emit_all_prx_gz`] wrote to disk and then
+/// round-trip-validated by loading it back through the fail-closed gate.
+///
+/// The presence of this value is itself a proof obligation discharged: the
+/// emitter returns it only after [`load_prx_gz_from_lock`] re-loaded the
+/// written file and the embedded `source_sha256` matched the `praxis.lock`
+/// pin. A published artifact therefore is guaranteed loadable AND
+/// content-anchored (NIST FIPS 180-4 §6.2; Dolstra 2006 content-addressing)
+/// before it is handed to the distribution layer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EmittedArtifact {
+    /// `omv:name` (Hartmann 2005) — the registry source name, e.g. `"cito"`.
+    pub name: String,
+    /// `omv:version` (Hartmann 2005) — the source version, e.g. `"2.8.1"`.
+    pub version: String,
+    /// Absolute path of the written `<name>-<version>.prx.gz` file.
+    pub path: std::path::PathBuf,
+    /// Size of the written `.prx.gz` in bytes.
+    pub byte_len: u64,
+}
+
+// =============================================================================
 // Emit — read_owl → builder → CodegenData → envelope → rkyv → gzip.
 // =============================================================================
 //
@@ -657,10 +682,100 @@ mod emit {
         let rkyv_bytes = envelope_to_bytes(&envelope)?;
         gzip(&rkyv_bytes)
     }
+
+    /// Workspace root — the grandparent of `CARGO_MANIFEST_DIR`
+    /// (`crates/domains/`). `RegistryEntry::local_path()` is
+    /// workspace-relative (`crates/domains/data/...`), so the bundled `.owl`
+    /// resolves against this root. Mirrors
+    /// `owl::loaded_vocabularies::workspace_root` and the USC corpus loader.
+    fn workspace_root() -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+    }
+
+    /// Emit a `.prx.gz` artifact for **every** registered
+    /// [`OntologyVocabulary`][ov] source into `out_dir`, round-trip-validating
+    /// each before returning it.
+    ///
+    /// The distribution-layer entry point for #256. It is registry-driven
+    /// (never a hardcoded source set): it walks every entry
+    /// [`data_sources`][ds] reports whose `kind` is
+    /// [`SourceTaxonomyConcept::OntologyVocabulary`][ov], reads the bundled
+    /// RDF/XML from `workspace_root.join(entry.local_path())`, and for each:
+    ///
+    /// 1. `emit_prx_gz(source, name, version, url)` → the gzip-wrapped rkyv
+    ///    envelope;
+    /// 2. writes it to `<out_dir>/<name>-<version>.prx.gz`;
+    /// 3. **round-trip-validates** by reading the file back and feeding it to
+    ///    [`load_prx_gz_from_lock`] — which gunzips, bytecheck-validates the
+    ///    rkyv layer, and asserts the embedded `source_sha256` equals the
+    ///    `praxis.lock` pin (fail-closed). A success proves the published
+    ///    artifact is both *loadable* and *content-anchored* to the lock.
+    ///
+    /// A registered source whose `.owl` is **not on disk** is skipped
+    /// gracefully — the same graceful skip `loaded_vocabularies` and the USC
+    /// corpus loader make. A source that **emits but fails to round-trip-load**
+    /// is a defect, not a skip: it returns `Err` (the published artifact would
+    /// be un-loadable or hash-mismatched), so a broken artifact never reaches
+    /// the release or Pages.
+    ///
+    /// `out_dir` is created if absent. Returns one [`EmittedArtifact`] per
+    /// written-and-validated file, in `data_sources` order.
+    ///
+    /// [ov]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::OntologyVocabulary
+    /// [ds]: crate::applied::data_provisioning::registry::data_sources
+    pub fn emit_all_prx_gz(out_dir: &std::path::Path) -> Result<Vec<EmittedArtifact>, PrxError> {
+        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+        std::fs::create_dir_all(out_dir)
+            .map_err(|e| PrxError::Gzip(format!("create out_dir {}: {e}", out_dir.display())))?;
+
+        let root = workspace_root();
+        let mut emitted = Vec::new();
+        for entry in data_sources() {
+            if entry.kind != SourceTaxonomyConcept::OntologyVocabulary {
+                continue;
+            }
+            let src_path = root.join(entry.local_path());
+            let Ok(source) = std::fs::read(&src_path) else {
+                // Registered but not on disk — skip gracefully, exactly as
+                // `loaded_vocabularies` and the USC corpus loader skip a
+                // granule that isn't bundled.
+                continue;
+            };
+
+            let prx_gz = emit_prx_gz(&source, &entry.name, &entry.version, &entry.url)?;
+            let path = out_dir.join(format!("{}-{}.prx.gz", entry.name, entry.version));
+            std::fs::write(&path, &prx_gz)
+                .map_err(|e| PrxError::Gzip(format!("write {}: {e}", path.display())))?;
+
+            // Round-trip-validate the *written file*: read it back from disk
+            // and run it through the fail-closed load gate. Success proves the
+            // published artifact is loadable and its embedded source hash
+            // matches the praxis.lock pin (the GetPut leg of the bytes ⇄
+            // vocabulary lens, Foster et al. 2007 §2.2). An emit-but-fail-to-
+            // load source is a defect — propagate the Err.
+            let read_back = std::fs::read(&path)
+                .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
+            load_prx_gz_from_lock(&read_back)?;
+
+            emitted.push(EmittedArtifact {
+                name: entry.name.clone(),
+                version: entry.version.clone(),
+                path,
+                byte_len: prx_gz.len() as u64,
+            });
+        }
+        Ok(emitted)
+    }
 }
 
 #[cfg(any(test, feature = "codegen"))]
-pub use emit::{build_envelope, emit_prx_gz};
+pub use emit::{build_envelope, emit_all_prx_gz, emit_prx_gz};
 
 #[cfg(test)]
 mod tests {
@@ -859,6 +974,87 @@ mod tests {
         let garbage = gzip(b"not a valid rkyv envelope at all").expect("gzip");
         let err = load_prx_gz(&garbage, &pin).expect_err("garbage rkyv must fail");
         assert!(matches!(err, PrxError::Rkyv(_)), "got {err:?}");
+    }
+
+    // ── distribution emitter: emit_all_prx_gz over the live registry ─
+
+    /// [`emit_all_prx_gz`] walks the live registry, emits a `.prx.gz` for
+    /// every on-disk `OntologyVocabulary`, and round-trip-validates each.
+    /// At least one artifact is emitted (the bundled SPAR/OLiA vocabularies
+    /// are on disk), each file exists and is non-empty, names follow the
+    /// `<name>-<version>.prx.gz` convention, and — the load-bearing claim —
+    /// each re-loads through the fail-closed lock gate. The emitter already
+    /// validates internally; re-loading here makes the published-artifact
+    /// guarantee explicit in the test.
+    #[test]
+    fn emit_all_prx_gz_writes_and_round_trips_every_vocabulary() {
+        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+        let out = std::env::temp_dir().join(format!(
+            "prx-emit-test-{}-{}",
+            std::process::id(),
+            // A per-invocation suffix so parallel test processes don't collide.
+            CITO_2_8_1_OWL.len()
+        ));
+        // Start from a clean dir so the count assertions are exact.
+        let _ = std::fs::remove_dir_all(&out);
+
+        let emitted = emit_all_prx_gz(&out).expect("emit_all_prx_gz must succeed");
+
+        // Every registered, on-disk OntologyVocabulary is emitted — the same
+        // discovery set `loaded_vocabularies` materializes.
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .map(std::path::PathBuf::from)
+            .expect("workspace root");
+        let expected: usize = data_sources()
+            .iter()
+            .filter(|e| e.kind == SourceTaxonomyConcept::OntologyVocabulary)
+            .filter(|e| root.join(e.local_path()).exists())
+            .count();
+        assert!(expected >= 1, "at least one OntologyVocabulary on disk");
+        assert_eq!(
+            emitted.len(),
+            expected,
+            "emit_all_prx_gz emits one artifact per on-disk OntologyVocabulary"
+        );
+
+        for art in &emitted {
+            // The file exists on disk with the recorded byte length, named by
+            // the `<name>-<version>.prx.gz` convention.
+            let meta = std::fs::metadata(&art.path).expect("artifact must be on disk");
+            assert_eq!(meta.len(), art.byte_len, "recorded byte_len matches disk");
+            assert!(art.byte_len > 0, "artifact is non-empty");
+            assert_eq!(
+                art.path.file_name().and_then(|f| f.to_str()),
+                Some(format!("{}-{}.prx.gz", art.name, art.version).as_str()),
+                "filename follows <name>-<version>.prx.gz"
+            );
+
+            // Explicit round-trip: read the published file and load it through
+            // the fail-closed lock gate.
+            let bytes = std::fs::read(&art.path).expect("read artifact");
+            let loaded = load_prx_gz_from_lock(&bytes)
+                .unwrap_or_else(|e| panic!("artifact {} must re-load: {e}", art.path.display()));
+            assert!(
+                loaded.entity_count() > 0,
+                "loaded vocabulary {} is non-empty",
+                art.name
+            );
+        }
+
+        // The bundled CiTO source is on disk, so it appears among the emitted
+        // artifacts with its registry version.
+        assert!(
+            emitted
+                .iter()
+                .any(|a| a.name == CITO_NAME && a.version == CITO_VERSION),
+            "cito-{CITO_VERSION}.prx.gz must be emitted"
+        );
+
+        let _ = std::fs::remove_dir_all(&out);
     }
 
     // ── proptest over synthesised vocabularies ───────────────────────

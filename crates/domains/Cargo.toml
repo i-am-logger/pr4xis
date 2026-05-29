@@ -153,3 +153,12 @@ tempfile = "3"
 [[bench]]
 name = "ontology_benchmarks"
 harness = false
+
+# Distribution-artifact emitter (#256). Writes a `.prx.gz` per registered
+# OWL vocabulary, round-trip-validating each through the fail-closed load
+# gate. The release-gated CI `pages` job runs it into `pages/ontologies/`,
+# publishing to both the GitHub release and Pages `/ontologies/`. Needs
+# `fetch` (rkyv + gzip + load gate) and `codegen` (the read_owl emit path).
+[[example]]
+name = "emit_prx"
+required-features = ["fetch", "codegen"]

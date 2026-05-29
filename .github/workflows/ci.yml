@@ -204,6 +204,19 @@ jobs:
           key: wordnet-english-2025-v1
       - name: Fetch WordNet (needed by wasm build.rs codegen step)
         run: cargo run -p pr4xis-cli --release --quiet -- update
+      # Emit a `.prx.gz` per registered OWL vocabulary directly into the
+      # pages tree. The emitter walks the registry, reads each bundled
+      # in-repo `.owl`, and round-trip-validates every artifact through the
+      # fail-closed load gate (embedded source hash must match praxis.lock).
+      # Native host build — the wasm32 target installed above does not block
+      # this; it reuses the WordNet/codegen data fetched in the step above.
+      # The same files are published to BOTH the GitHub release (canonical
+      # immutable archive) and Pages /ontologies (same-origin for the wasm
+      # loader); emit once here, upload to the release further down.
+      - name: Emit .prx.gz ontology artifacts
+        run: |
+          mkdir -p pages/ontologies
+          cargo run -p pr4xis-domains --features "fetch codegen" --example emit_prx -- pages/ontologies
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Build WASM
@@ -214,7 +227,7 @@ jobs:
         run: npx @marp-team/marp-cli docs/presentations/overview.md --html -o docs/presentations/index.html
       - name: Assemble pages
         run: |
-          mkdir -p pages/pkg pages/decks/technical pages/sources
+          mkdir -p pages/pkg pages/decks/technical pages/sources pages/ontologies
           cp docs/chat/index.html pages/index.html
           cp docs/worker.js pages/worker.js
           cp -r crates/wasm/pkg/* pages/pkg/
@@ -235,6 +248,16 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      # Publish the SAME .prx.gz files to the release as immutable archive
+      # assets. They were emitted once into pages/ontologies above; here they
+      # are attached to the release-please-created release. The release is the
+      # canonical, version-pinned distribution; Pages /ontologies serves the
+      # same bytes same-origin for the wasm loader (#257).
+      - name: Upload .prx.gz to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: gh release upload "$TAG" pages/ontologies/*.prx.gz --clobber
 
   release-please:
     name: Release
@@ -247,6 +270,10 @@ jobs:
       needs.check.result == 'success'
     outputs:
       release_created: ${{ steps.release.outputs.release_created || steps.release.outputs.releases_created }}
+      # The created release's git tag (e.g. `v0.19.0`). release-please-action@v4
+      # emits `tag_name` when a release is created; the `pages` job uses it to
+      # upload the .prx.gz artifacts to that release.
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
