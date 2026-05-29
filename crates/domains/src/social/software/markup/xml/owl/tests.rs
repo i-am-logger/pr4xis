@@ -211,6 +211,249 @@ fn load_bundled_cito() {
 }
 
 // =============================================================================
+// DoCO bundle audit — load the registered Document Components Ontology
+// =============================================================================
+
+/// Walk the bundled, hash-pinned DoCO OWL vocabulary
+/// (`crates/domains/data/ontologies/doco-1.3.owl`, registered in
+/// praxis.toml as `[sources.doco]` and pinned in praxis.lock) through
+/// `read_owl` and assert it loads the way the registry expects.
+///
+/// DoCO (Constantin, Peroni, Pettifer, Shotton & Vitali 2016, Semantic
+/// Web 7(2):167-181) is a vocabulary of document-component classes:
+/// `doco:Paragraph`, `doco:Sentence`, `doco:Section`, `doco:Footnote`,
+/// `doco:Title`, `doco:Figure`, `doco:Table`, … — the structural units a
+/// document is decomposed into. The classes serialise in the RDF/XML
+/// typed-node form (`<rdf:Description>` + `<rdf:type
+/// rdf:resource=".../owl#Class"/>`). The bundled file MUST exist (it is
+/// committed under `data/ontologies/`), so this test reads it directly
+/// rather than skipping when absent.
+#[test]
+fn load_bundled_doco() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/ontologies/doco-1.3.owl");
+    let xml = std::fs::read_to_string(path)
+        .expect("bundled DoCO OWL must exist at data/ontologies/doco-1.3.owl");
+
+    let ont = reader::read_owl(&xml).expect("bundled DoCO must parse through read_owl");
+
+    // DoCO declares well over 50 named document-component classes (the
+    // 2016 publication carries ~80). Assert a generous lower bound so
+    // the test is robust to point-release churn.
+    assert!(
+        ont.class_count() > 50,
+        "expected DoCO to declare >50 classes, got {}",
+        ont.class_count()
+    );
+
+    // Load-bearing document-component classes resolve by IRI suffix.
+    // These are the structural units downstream document-decomposition
+    // grounds in (Constantin et al. 2016 §3).
+    for suffix in [
+        "doco/Paragraph",
+        "doco/Sentence",
+        "doco/Section",
+        "doco/Footnote",
+    ] {
+        let found = ont
+            .classes
+            .iter()
+            .find(|c| c.iri.ends_with(suffix))
+            .unwrap_or_else(|| panic!("DoCO must declare {suffix}"));
+        // Every DoCO component class carries a human label (rdfs:label).
+        assert!(
+            found.label.is_some(),
+            "DoCO {suffix} should carry an rdfs:label"
+        );
+    }
+
+    // The DoCO class hierarchy is non-empty: its component classes roll
+    // up via rdfs:subClassOf edges, which `read_owl` records in
+    // `taxonomy`.
+    assert!(
+        !ont.taxonomy.is_empty(),
+        "DoCO must record rdfs:subClassOf edges in taxonomy"
+    );
+}
+
+// =============================================================================
+// C4O bundle audit — Citation Counting and Context Characterisation Ontology
+// =============================================================================
+
+/// Walk the bundled, hash-pinned C4O OWL vocabulary
+/// (`crates/domains/data/ontologies/c4o-1.2.owl`, registered in
+/// praxis.toml as `[sources.c4o]` and pinned in praxis.lock) through
+/// `read_owl` and assert it loads the way the registry expects.
+///
+/// C4O (Di Iorio, Nuzzolese, Peroni, Shotton & Vitali 2014, SePublica;
+/// part of the SPAR suite, Peroni & Shotton 2018) describes the number
+/// and context of citations: object properties `c4o:denotes` /
+/// `c4o:isDenotedBy`, `c4o:hasContent`, `c4o:hasContext`, … plus classes
+/// such as `c4o:InTextReferencePointer` and `c4o:GlobalCitationCount`.
+/// Serialised in the typed-node RDF/XML form. The bundled file MUST
+/// exist, so this test reads it directly rather than skipping.
+#[test]
+fn load_bundled_c4o() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/data/ontologies/c4o-1.2.owl");
+    let xml = std::fs::read_to_string(path)
+        .expect("bundled C4O OWL must exist at data/ontologies/c4o-1.2.owl");
+
+    let ont = reader::read_owl(&xml).expect("bundled C4O must parse through read_owl");
+
+    // C4O declares its citation-context object properties (denotes,
+    // isDenotedBy, hasContent, hasContext, isRelevantTo, pertainsTo).
+    // Assert a generous lower bound on the property count.
+    assert!(
+        ont.property_count() >= 4,
+        "expected C4O to declare >=4 object properties, got {}",
+        ont.property_count()
+    );
+
+    // Load-bearing C4O citation-context relations resolve by IRI suffix
+    // (Di Iorio et al. 2014).
+    for suffix in ["c4o/denotes", "c4o/isDenotedBy", "c4o/hasContext"] {
+        let found = ont
+            .properties
+            .iter()
+            .find(|p| p.iri.ends_with(suffix))
+            .unwrap_or_else(|| panic!("C4O must declare {suffix}"));
+        assert!(
+            found.label.is_some(),
+            "C4O {suffix} should carry an rdfs:label"
+        );
+    }
+
+    // C4O's `InTextReferencePointer` class — the in-text pointer that a
+    // `c4o:denotes` edge originates from — resolves as a class.
+    assert!(
+        ont.classes
+            .iter()
+            .any(|c| c.iri.ends_with("c4o/InTextReferencePointer")),
+        "C4O must declare c4o:InTextReferencePointer"
+    );
+}
+
+// =============================================================================
+// BiRO bundle audit — load the Bibliographic Reference Ontology
+// =============================================================================
+
+/// Walk the bundled, hash-pinned BiRO OWL vocabulary
+/// (`crates/domains/data/ontologies/biro-1.1.1.owl`, registered in
+/// praxis.toml as `[sources.biro]` and pinned in praxis.lock) through
+/// `read_owl` and assert it loads the way the registry expects.
+///
+/// BiRO (Di Iorio, Nuzzolese, Peroni, Shotton & Vitali 2014, SePublica;
+/// part of the SPAR suite, Peroni & Shotton 2018) models bibliographic
+/// records and references: classes `biro:BibliographicRecord`,
+/// `biro:BibliographicReference`, `biro:ReferenceList`,
+/// `biro:BibliographicCollection`, … plus `biro:references` /
+/// `biro:isReferencedBy` object properties. Serialised in the typed-node
+/// RDF/XML form. The bundled file MUST exist, so this test reads it
+/// directly rather than skipping.
+#[test]
+fn load_bundled_biro() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/ontologies/biro-1.1.1.owl"
+    );
+    let xml = std::fs::read_to_string(path)
+        .expect("bundled BiRO OWL must exist at data/ontologies/biro-1.1.1.owl");
+
+    let ont = reader::read_owl(&xml).expect("bundled BiRO must parse through read_owl");
+
+    // BiRO declares its bibliographic-record / reference classes. Assert
+    // a generous lower bound on the class count.
+    assert!(
+        ont.class_count() >= 4,
+        "expected BiRO to declare >=4 classes, got {}",
+        ont.class_count()
+    );
+
+    // Load-bearing BiRO bibliographic classes resolve by IRI suffix
+    // (Di Iorio et al. 2014).
+    for suffix in [
+        "biro/BibliographicRecord",
+        "biro/BibliographicReference",
+        "biro/ReferenceList",
+    ] {
+        let found = ont
+            .classes
+            .iter()
+            .find(|c| c.iri.ends_with(suffix))
+            .unwrap_or_else(|| panic!("BiRO must declare {suffix}"));
+        assert!(
+            found.comment.is_some() || found.label.is_some(),
+            "BiRO {suffix} should carry an rdfs:label or rdfs:comment"
+        );
+    }
+}
+
+// =============================================================================
+// PROV-O bundle audit — load the W3C PROV Ontology
+// =============================================================================
+
+/// Walk the bundled, hash-pinned PROV-O OWL vocabulary
+/// (`crates/domains/data/ontologies/prov_o-2013-04-30.owl`, registered
+/// in praxis.toml as `[sources.prov_o]` and pinned in praxis.lock)
+/// through `read_owl` and assert it loads the way the registry expects.
+///
+/// PROV-O (Lebo, Sahoo & McGuinness eds. 2013, W3C Recommendation 30
+/// April 2013) is the provenance interchange vocabulary: the core
+/// classes `prov:Entity` / `prov:Activity` / `prov:Agent` and the
+/// provenance object properties `prov:used`, `prov:wasGeneratedBy`,
+/// `prov:wasAttributedTo`, `prov:wasDerivedFrom`, … . Unlike the SPAR
+/// vocabularies, PROV-O serialises in the *striped* RDF/XML form
+/// (`<owl:Class>` / `<owl:ObjectProperty>` typed-node elements). The
+/// bundled file MUST exist, so this test reads it directly rather than
+/// skipping.
+#[test]
+fn load_bundled_prov_o() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/ontologies/prov_o-2013-04-30.owl"
+    );
+    let xml = std::fs::read_to_string(path)
+        .expect("bundled PROV-O OWL must exist at data/ontologies/prov_o-2013-04-30.owl");
+
+    let ont = reader::read_owl(&xml).expect("bundled PROV-O must parse through read_owl");
+
+    // PROV-O declares ~30 classes and ~40 object properties. Assert
+    // generous lower bounds on both axes (striped-form serialisation).
+    assert!(
+        ont.class_count() > 20,
+        "expected PROV-O to declare >20 classes, got {}",
+        ont.class_count()
+    );
+    assert!(
+        ont.property_count() > 30,
+        "expected PROV-O to declare >30 object properties, got {}",
+        ont.property_count()
+    );
+
+    // The three core PROV-O classes (Lebo et al. 2013 §3, the starting
+    // point of any provenance description) resolve by IRI suffix.
+    for suffix in ["prov#Entity", "prov#Activity", "prov#Agent"] {
+        assert!(
+            ont.classes.iter().any(|c| c.iri.ends_with(suffix)),
+            "PROV-O must declare {suffix}"
+        );
+    }
+
+    // The load-bearing PROV-O provenance relations (Lebo et al. 2013
+    // §2 "Starting Point" terms) resolve as object properties.
+    for suffix in [
+        "prov#used",
+        "prov#wasGeneratedBy",
+        "prov#wasAttributedTo",
+        "prov#wasDerivedFrom",
+    ] {
+        assert!(
+            ont.properties.iter().any(|p| p.iri.ends_with(suffix)),
+            "PROV-O must declare {suffix}"
+        );
+    }
+}
+
+// =============================================================================
 // OLiA test — load the real linguistic ontology
 // =============================================================================
 

@@ -364,6 +364,60 @@ type        = "OntologyVocabulary"
 url         = "https://sparontologies.github.io/cito/current/cito.xml"
 description = "CiTO, the Citation Typing Ontology — a W3C OWL 2 vocabulary characterising the nature and type of citations (cito:cites and its ~40 sub-properties + their cito:isCitedBy inverses). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Peroni, S. & Shotton, D. (2012) FaBiO and CiTO: ontologies for describing bibliographic resources and citations, Journal of Web Semantics 17:33-43, <https://doi.org/10.1016/j.websem.2012.08.001>; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
 
+# DoCO, the Document Components Ontology — a SPAR OWL 2 vocabulary of
+# document-component classes (doco:Paragraph, doco:Sentence, doco:Section,
+# doco:Footnote, doco:Title, doco:Figure, doco:Table, …): the structural
+# units a document decomposes into. Serialised in the typed-node RDF/XML
+# form. owl:versionInfo "1.3" (versionIRI .../doco/2015-07-03). dc:title
+# "DoCO, the Document Components Ontology"; dc:creator David Shotton,
+# Silvio Peroni. Bundled: crates/domains/data/ontologies/doco-1.3.owl.
+[sources.doco]
+version     = "1.3"
+type        = "OntologyVocabulary"
+url         = "https://sparontologies.github.io/doco/current/doco.xml"
+description = "DoCO, the Document Components Ontology — a W3C OWL 2 vocabulary of document-component classes (doco:Paragraph, doco:Sentence, doco:Section, doco:Footnote, doco:Title, doco:Figure, doco:Table, …) describing how a document is structurally decomposed. Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Constantin, A., Peroni, S., Pettifer, S., Shotton, D. & Vitali, F. (2016) The Document Components Ontology (DoCO), Semantic Web 7(2):167-181, <https://doi.org/10.3233/SW-150177>; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
+
+# C4O, the Citation Counting and Context Characterisation Ontology — a
+# SPAR OWL 2 vocabulary describing how many times and in what context a
+# work is cited: object properties c4o:denotes / c4o:isDenotedBy,
+# c4o:hasContent, c4o:hasContext, … plus classes c4o:InTextReferencePointer
+# and c4o:GlobalCitationCount. Typed-node RDF/XML. owl:versionInfo "1.2"
+# (versionIRI .../c4o/2018-06-22). dc:title "C4O, the Citation Counting and
+# Context Characterization Ontology". Bundled:
+# crates/domains/data/ontologies/c4o-1.2.owl.
+[sources.c4o]
+version     = "1.2"
+type        = "OntologyVocabulary"
+url         = "https://sparontologies.github.io/c4o/current/c4o.xml"
+description = "C4O, the Citation Counting and Context Characterisation Ontology — a W3C OWL 2 vocabulary recording the number and context of citations (c4o:denotes / c4o:isDenotedBy, c4o:hasContent, c4o:hasContext; classes c4o:InTextReferencePointer, c4o:GlobalCitationCount). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Di Iorio, A., Nuzzolese, A. G., Peroni, S., Shotton, D. & Vitali, F. (2014) Describing bibliographic references in RDF, in Proceedings of the 4th Workshop on Semantic Publishing (SePublica 2014), CEUR-WS Vol-1155; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
+
+# BiRO, the Bibliographic Reference Ontology — a SPAR OWL 2 vocabulary
+# modelling bibliographic records and references: classes
+# biro:BibliographicRecord, biro:BibliographicReference, biro:ReferenceList,
+# biro:BibliographicCollection, … plus biro:references / biro:isReferencedBy.
+# Typed-node RDF/XML. owl:versionInfo "1.1.1" (versionIRI
+# .../biro/2013-05-11). dc:title "BiRO, the Bibliographic Reference
+# Ontology". Bundled: crates/domains/data/ontologies/biro-1.1.1.owl.
+[sources.biro]
+version     = "1.1.1"
+type        = "OntologyVocabulary"
+url         = "https://sparontologies.github.io/biro/current/biro.xml"
+description = "BiRO, the Bibliographic Reference Ontology — a W3C OWL 2 vocabulary for bibliographic records and references (classes biro:BibliographicRecord, biro:BibliographicReference, biro:ReferenceList, biro:BibliographicCollection; object properties biro:references / biro:isReferencedBy). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Di Iorio, A., Nuzzolese, A. G., Peroni, S., Shotton, D. & Vitali, F. (2014) Describing bibliographic references in RDF, in Proceedings of the 4th Workshop on Semantic Publishing (SePublica 2014), CEUR-WS Vol-1155; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
+
+# PROV-O, the PROV Ontology — the W3C provenance interchange vocabulary.
+# Core classes prov:Entity / prov:Activity / prov:Agent and the provenance
+# object properties prov:used, prov:wasGeneratedBy, prov:wasAttributedTo,
+# prov:wasDerivedFrom, … . Unlike the SPAR vocabularies, PROV-O serialises
+# in the *striped* RDF/XML form (<owl:Class> / <owl:ObjectProperty>
+# typed-node elements). owl:versionInfo "Recommendation version 2013-04-30"
+# (rdfs:label "W3C PROVenance Interchange Ontology (PROV-O)"). Bundled:
+# crates/domains/data/ontologies/prov_o-2013-04-30.owl.
+[sources.prov_o]
+version     = "2013-04-30"
+type        = "OntologyVocabulary"
+url         = "https://www.w3.org/ns/prov-o.owl"
+description = "PROV-O, the PROV Ontology — the W3C OWL 2 provenance interchange vocabulary: core classes prov:Entity / prov:Activity / prov:Agent and provenance object properties prov:used, prov:wasGeneratedBy, prov:wasAttributedTo, prov:wasDerivedFrom, prov:wasAssociatedWith, prov:wasInformedBy, … (the PROV Data Model expressed in OWL 2). Cite: Lebo, T., Sahoo, S. & McGuinness, D. (eds.) (2013) PROV-O: The PROV Ontology, W3C Recommendation 30 April 2013, <https://www.w3.org/TR/2013/REC-prov-o-20130430/>. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation; RDF/XML per Gandon & Schreiber (2014) RDF 1.1 XML Syntax."
+
 # ---------------------------------------------------------------------------
 # Typographic resources
 # ---------------------------------------------------------------------------

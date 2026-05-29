@@ -148,6 +148,54 @@
 # RegistryLocalPathsExist axioms. Cite: Peroni & Shotton (2012) FaBiO
 # and CiTO, J. Web Semantics 17:33-43.
 "cito@2.8.1"             = "48b31bbb36f2a81efb9a65bd8334be6b41b7c00dd54dc4f8a061e69607d66a84"
+# DoCO, the Document Components Ontology (SPAR family) — W3C OWL 2 /
+# RDF-XML vocabulary. SHA-256 of the bundled on-disk file
+# crates/domains/data/ontologies/doco-1.3.owl, a verbatim copy of the
+# SPAR canonical publication (sparontologies.github.io/doco/current/
+# doco.xml; purl.org/spar/doco), owl:versionInfo "1.3". The URL serves
+# plain RDF/XML (no transport-layer gzip), so this hash is of the raw
+# on-disk bytes. Read at test time by the owl::tests DoCO bundle audit
+# and at startup by the registry's LockManifestAgreement +
+# RegistryLocalPathsExist axioms. Cite: Constantin, Peroni, Pettifer,
+# Shotton & Vitali (2016) The Document Components Ontology (DoCO),
+# Semantic Web 7(2):167-181.
+"doco@1.3"               = "7e56cfd96cab75d49c53446128b1ba927085a2e258a8b580f3de822c0cbb29ed"
+# C4O, the Citation Counting and Context Characterisation Ontology (SPAR
+# family) — W3C OWL 2 / RDF-XML vocabulary. SHA-256 of the bundled
+# on-disk file crates/domains/data/ontologies/c4o-1.2.owl, a verbatim
+# copy of the SPAR canonical publication (sparontologies.github.io/c4o/
+# current/c4o.xml; purl.org/spar/c4o), owl:versionInfo "1.2". The URL
+# serves plain RDF/XML (no transport-layer gzip), so this hash is of the
+# raw on-disk bytes. Read at test time by the owl::tests C4O bundle audit
+# and at startup by the registry's LockManifestAgreement +
+# RegistryLocalPathsExist axioms. Cite: Di Iorio, Nuzzolese, Peroni,
+# Shotton & Vitali (2014) Describing bibliographic references in RDF,
+# SePublica 2014, CEUR-WS Vol-1155.
+"c4o@1.2"                = "82eda358b640810ad5aab9dbfaee9f29f77abc49ed2f1aec6064bf0c21ed1ea8"
+# BiRO, the Bibliographic Reference Ontology (SPAR family) — W3C OWL 2 /
+# RDF-XML vocabulary. SHA-256 of the bundled on-disk file
+# crates/domains/data/ontologies/biro-1.1.1.owl, a verbatim copy of the
+# SPAR canonical publication (sparontologies.github.io/biro/current/
+# biro.xml; purl.org/spar/biro), owl:versionInfo "1.1.1". The URL serves
+# plain RDF/XML (no transport-layer gzip), so this hash is of the raw
+# on-disk bytes. Read at test time by the owl::tests BiRO bundle audit
+# and at startup by the registry's LockManifestAgreement +
+# RegistryLocalPathsExist axioms. Cite: Di Iorio, Nuzzolese, Peroni,
+# Shotton & Vitali (2014) Describing bibliographic references in RDF,
+# SePublica 2014, CEUR-WS Vol-1155.
+"biro@1.1.1"             = "2985f8da53083178a5ac53bc5abf211345864dbdd29ca6ae64faf74d9c87e0ba"
+# PROV-O, the PROV Ontology — W3C OWL 2 / RDF-XML provenance vocabulary
+# (striped <owl:Class> / <owl:ObjectProperty> serialisation). SHA-256 of
+# the bundled on-disk file crates/domains/data/ontologies/
+# prov_o-2013-04-30.owl, a verbatim copy of the W3C canonical
+# publication (www.w3.org/ns/prov-o.owl), owl:versionInfo
+# "Recommendation version 2013-04-30". The URL serves plain RDF/XML (no
+# transport-layer gzip), so this hash is of the raw on-disk bytes. Read
+# at test time by the owl::tests PROV-O bundle audit and at startup by
+# the registry's LockManifestAgreement + RegistryLocalPathsExist axioms.
+# Cite: Lebo, Sahoo & McGuinness (eds.) (2013) PROV-O: The PROV
+# Ontology, W3C Recommendation 30 April 2013.
+"prov_o@2013-04-30"      = "02a4d7409ee3e1f697a04e4980d8d208a847cc7fa5180ca0d187540abb66919f"
 # U.S. Code Title 42 — The Public Health and Welfare. SHA-256 of
 # the unzipped usc42.xml content (113 MB, ~3,500 sections — the
 # LRC's largest title). Carries the harassment-timeline tree's
