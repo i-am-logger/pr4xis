@@ -9,6 +9,7 @@
 pub mod algebra;
 pub mod artifact_identity;
 pub mod categorical_structure;
+pub mod citation_quality;
 pub mod dtd;
 pub mod gap_analysis;
 pub mod identifier_format;
