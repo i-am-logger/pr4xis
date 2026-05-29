@@ -804,24 +804,25 @@ mod tests {
     /// load-bearing equivalence for #257 — a source-loaded vocabulary is
     /// indistinguishable from a build-emitted one.
     ///
-    /// Both paths consume the **same** parsed [`OwlOntology`] value.
-    /// `read_owl`'s entity ordering is per-invocation (the deduplication
-    /// step rebuilds `classes` / `properties` from a `hashbrown::HashMap`,
-    /// whose iteration order is randomly seeded), so two separate parses
-    /// of the same bytes can list entities in different orders. Sharing
-    /// one parse isolates the functor equivalence from that parser
-    /// ordering — the same isolation the `prx` round-trip tests make by
-    /// building their reference from a single owned value.
+    /// The two paths consume **independent** parses of the same bytes.
+    /// `read_owl`'s `deduplicate_classes` / `deduplicate_properties`
+    /// preserve first-occurrence document order, so two separate parses of
+    /// the same source list entities in the same order (#264). Feeding the
+    /// two paths from two distinct parses therefore proves both the functor
+    /// equivalence *and* that `read_owl` is order-stable across parses — a
+    /// stronger guarantee than sharing one parse would give.
     #[test]
     fn from_owl_ontology_equals_from_codegen_on_cito() {
-        let ont = read_owl(CITO_2_8_1_OWL).expect("bundled CiTO must parse");
-
-        // from_codegen path, sourced from the *same* parsed ontology.
-        let builder = owl_to_builder(&ont);
+        // from_codegen path, sourced from its own parse.
+        let ont_codegen = read_owl(CITO_2_8_1_OWL).expect("bundled CiTO must parse");
+        let builder = owl_to_builder(&ont_codegen);
         let data = codegen_data_from_builder(&builder);
         let via_codegen = LoadedOwlVocabulary::from_codegen(&data);
 
-        let via_owl = LoadedOwlVocabulary::from_owl_ontology(&ont);
+        // from_owl_ontology path, sourced from a *separate* parse of the
+        // same bytes — deterministic ordering makes the two agree.
+        let ont_owl = read_owl(CITO_2_8_1_OWL).expect("bundled CiTO must parse");
+        let via_owl = LoadedOwlVocabulary::from_owl_ontology(&ont_owl);
 
         assert_eq!(
             via_owl.entity_count(),

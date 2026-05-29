@@ -313,14 +313,23 @@ impl core::fmt::Display for OwlReadError {
 impl std::error::Error for OwlReadError {}
 
 /// Merge duplicate class IRIs — OWL files reopen classes to add properties.
+///
+/// First occurrence of an IRI wins for the entity and fixes its position;
+/// later duplicates contribute any missing label/comment and union their
+/// superclasses. Output preserves first-occurrence document order so the
+/// `classes` Vec — and therefore the emitted `.prx.gz` bytes — are
+/// deterministic across parses (#264). Hash-map iteration order (ahash,
+/// per-process seed) would otherwise vary.
 fn deduplicate_classes(ont: &mut OwlOntology) {
     use hashbrown::HashMap;
+    use hashbrown::hash_map::Entry;
+    let mut order: Vec<String> = Vec::new();
     let mut by_iri: HashMap<String, OwlClass> = HashMap::new();
 
     for class in ont.classes.drain(..) {
-        by_iri
-            .entry(class.iri.clone())
-            .and_modify(|existing| {
+        match by_iri.entry(class.iri.clone()) {
+            Entry::Occupied(mut e) => {
+                let existing = e.get_mut();
                 if existing.label.is_none() {
                     existing.label.clone_from(&class.label);
                 }
@@ -332,23 +341,41 @@ fn deduplicate_classes(ont: &mut OwlOntology) {
                         existing.superclasses.push(sc.clone());
                     }
                 }
-            })
-            .or_insert(class);
+            }
+            Entry::Vacant(e) => {
+                order.push(class.iri.clone());
+                e.insert(class);
+            }
+        }
     }
 
-    ont.classes = by_iri.into_values().collect();
+    ont.classes = order
+        .into_iter()
+        .map(|iri| {
+            by_iri
+                .remove(&iri)
+                .expect("iri recorded in order is present")
+        })
+        .collect();
 }
 
 /// Merge duplicate object-property IRIs — OWL files reopen properties
 /// to add annotations, mirroring `deduplicate_classes`.
+///
+/// First occurrence wins and fixes position; later duplicates fill missing
+/// label/comment/domain/range and union their superproperties. Output
+/// preserves first-occurrence document order so the `properties` Vec — and
+/// the emitted `.prx.gz` bytes — are deterministic across parses (#264).
 fn deduplicate_properties(ont: &mut OwlOntology) {
     use hashbrown::HashMap;
+    use hashbrown::hash_map::Entry;
+    let mut order: Vec<String> = Vec::new();
     let mut by_iri: HashMap<String, OwlObjectProperty> = HashMap::new();
 
     for prop in ont.properties.drain(..) {
-        by_iri
-            .entry(prop.iri.clone())
-            .and_modify(|existing| {
+        match by_iri.entry(prop.iri.clone()) {
+            Entry::Occupied(mut e) => {
+                let existing = e.get_mut();
                 if existing.label.is_none() {
                     existing.label.clone_from(&prop.label);
                 }
@@ -366,11 +393,22 @@ fn deduplicate_properties(ont: &mut OwlOntology) {
                         existing.superproperties.push(sp.clone());
                     }
                 }
-            })
-            .or_insert(prop);
+            }
+            Entry::Vacant(e) => {
+                order.push(prop.iri.clone());
+                e.insert(prop);
+            }
+        }
     }
 
-    ont.properties = by_iri.into_values().collect();
+    ont.properties = order
+        .into_iter()
+        .map(|iri| {
+            by_iri
+                .remove(&iri)
+                .expect("iri recorded in order is present")
+        })
+        .collect();
 }
 
 /// Remove duplicate taxonomy pairs (both class and property hierarchies).

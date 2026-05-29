@@ -211,6 +211,58 @@ fn load_bundled_cito() {
 }
 
 // =============================================================================
+// Entity-order determinism — reproducible parses (#264)
+// =============================================================================
+
+/// Two independent `read_owl` parses of the same bundled OWL file MUST
+/// yield identical class and property IRI sequences.
+///
+/// `deduplicate_classes` / `deduplicate_properties` merge duplicate IRIs
+/// (OWL reopens entities). They preserve first-occurrence document order
+/// so the resulting `classes` / `properties` Vecs are deterministic across
+/// processes — a hash-map iteration order (ahash, per-process seed) would
+/// vary. Determinism here is the precondition for byte-reproducible
+/// `.prx.gz` artifacts (the `prx` reproducibility test), since rkyv
+/// serialises the Vecs in their stored order.
+#[test]
+fn read_owl_entity_order_is_deterministic() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/ontologies/cito-2.8.1.owl"
+    );
+    let xml = std::fs::read_to_string(path)
+        .expect("bundled CiTO OWL must exist at data/ontologies/cito-2.8.1.owl");
+
+    let first = reader::read_owl(&xml).expect("first parse");
+    let second = reader::read_owl(&xml).expect("second parse");
+
+    let first_classes: Vec<&str> = first.classes.iter().map(|c| c.iri.as_str()).collect();
+    let second_classes: Vec<&str> = second.classes.iter().map(|c| c.iri.as_str()).collect();
+    assert_eq!(
+        first_classes, second_classes,
+        "class IRI order must be identical across independent parses"
+    );
+
+    let first_props: Vec<&str> = first.properties.iter().map(|p| p.iri.as_str()).collect();
+    let second_props: Vec<&str> = second.properties.iter().map(|p| p.iri.as_str()).collect();
+    assert_eq!(
+        first_props, second_props,
+        "property IRI order must be identical across independent parses"
+    );
+
+    // The merged-edge collections are sorted+deduped, so they are
+    // order-stable too — verify alongside the entity Vecs.
+    assert_eq!(
+        first.taxonomy, second.taxonomy,
+        "taxonomy order must be identical across independent parses"
+    );
+    assert_eq!(
+        first.property_taxonomy, second.property_taxonomy,
+        "property_taxonomy order must be identical across independent parses"
+    );
+}
+
+// =============================================================================
 // DoCO bundle audit — load the registered Document Components Ontology
 // =============================================================================
 

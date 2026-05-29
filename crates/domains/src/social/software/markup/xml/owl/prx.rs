@@ -847,6 +847,31 @@ mod tests {
         assert_eq!(envelope, back, "rkyv round-trip must be lossless");
     }
 
+    // ── byte-reproducibility: emit twice → identical bytes (#264) ────
+
+    /// Two independent `emit_prx_gz` runs over the *same* source MUST
+    /// produce byte-identical `.prx.gz` output.
+    ///
+    /// This is the guarantee #264 delivers: the published artifact is
+    /// reproducible. Each `emit_prx_gz` re-parses the source through
+    /// `read_owl` from scratch, so the two runs share no intermediate
+    /// state. `read_owl`'s `deduplicate_classes` / `deduplicate_properties`
+    /// preserve first-occurrence document order (not hash-map iteration
+    /// order, which is ahash-seeded per process), so the entity Vecs — and
+    /// therefore the rkyv layout (deterministic put) and the gzip wrapper
+    /// (RFC 1952) — are bit-for-bit stable across processes.
+    #[test]
+    fn emit_prx_gz_is_byte_reproducible() {
+        let first = emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("emit first");
+        let second = emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("emit second");
+        assert_eq!(
+            first, second,
+            "two independent emit_prx_gz runs must yield byte-identical .prx.gz"
+        );
+    }
+
     // ── round-trip fidelity: emit(.prx.gz) → load == direct ──────────
 
     #[test]
