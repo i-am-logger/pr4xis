@@ -415,13 +415,17 @@ pub struct OwlClass {
     pub superclasses: Vec<String>,
 }
 
-/// An OWL object property — a relationship between classes.
+/// An OWL object property — a relationship between classes. Carries its
+/// `rdfs:subPropertyOf` superproperties (the property hierarchy, W3C OWL
+/// 2 §9.2.1 / RDF Schema §5.1.7), the parallel of a class's superclasses.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OwlObjectProperty {
     pub iri: String,
     pub label: Option<String>,
+    pub comment: Option<String>,
     pub domain: Option<String>,
     pub range: Option<String>,
+    pub superproperties: Vec<String>,
 }
 
 /// An OWL individual — an instance of a class.
@@ -439,7 +443,11 @@ pub struct OwlOntology {
     pub classes: Vec<OwlClass>,
     pub properties: Vec<OwlObjectProperty>,
     pub individuals: Vec<OwlIndividual>,
+    /// `(child, parent)` class `rdfs:subClassOf` edges.
     pub taxonomy: Vec<(String, String)>,
+    /// `(child, parent)` property `rdfs:subPropertyOf` edges — the
+    /// property hierarchy, parallel to `taxonomy` for classes.
+    pub property_taxonomy: Vec<(String, String)>,
 }
 
 impl OwlOntology {
@@ -469,6 +477,35 @@ impl OwlOntology {
             .iter()
             .find(|c| c.iri == child_iri)
             .map(|c| c.superclasses.iter().map(|s| s.as_str()).collect())
+            .unwrap_or_default()
+    }
+
+    pub fn property_count(&self) -> usize {
+        self.properties.len()
+    }
+
+    pub fn find_property(&self, iri: &str) -> Option<&OwlObjectProperty> {
+        self.properties.iter().find(|p| p.iri == iri)
+    }
+
+    pub fn find_property_by_label(&self, label: &str) -> Option<&OwlObjectProperty> {
+        self.properties
+            .iter()
+            .find(|p| p.label.as_deref() == Some(label))
+    }
+
+    pub fn subproperties_of(&self, parent_iri: &str) -> Vec<&OwlObjectProperty> {
+        self.properties
+            .iter()
+            .filter(|p| p.superproperties.iter().any(|s| s == parent_iri))
+            .collect()
+    }
+
+    pub fn superproperties_of(&self, child_iri: &str) -> Vec<&str> {
+        self.properties
+            .iter()
+            .find(|p| p.iri == child_iri)
+            .map(|p| p.superproperties.iter().map(|s| s.as_str()).collect())
             .unwrap_or_default()
     }
 }

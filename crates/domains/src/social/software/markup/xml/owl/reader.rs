@@ -16,6 +16,9 @@ fn is_rdfs_comment(name: &str) -> bool {
 fn is_rdfs_subclass_of(name: &str) -> bool {
     name == "subClassOf"
 }
+fn is_rdfs_subproperty_of(name: &str) -> bool {
+    name == "subPropertyOf"
+}
 fn is_rdfs_domain(name: &str) -> bool {
     name == "domain"
 }
@@ -44,6 +47,7 @@ pub fn read_owl(xml_text: &str) -> Result<OwlOntology, OwlReadError> {
         properties: Vec::new(),
         individuals: Vec::new(),
         taxonomy: Vec::new(),
+        property_taxonomy: Vec::new(),
     };
 
     // The root is rdf:RDF
@@ -53,9 +57,10 @@ pub fn read_owl(xml_text: &str) -> Result<OwlOntology, OwlReadError> {
         ontology.iri.clone_from(&base_ns);
     }
 
-    // OWL allows reopening a class to add annotations.
-    // Merge duplicate IRIs into a single OwlClass.
+    // OWL allows reopening a class/property to add annotations.
+    // Merge duplicate IRIs into a single OwlClass / OwlObjectProperty.
     deduplicate_classes(&mut ontology);
+    deduplicate_properties(&mut ontology);
     deduplicate_taxonomy(&mut ontology);
 
     Ok(ontology)
@@ -199,18 +204,27 @@ fn read_property(elem: &XmlElement, ont: &mut OwlOntology, base_ns: &str) {
     }
 
     let mut label = None;
+    let mut comment = None;
     let mut domain = None;
     let mut range = None;
+    let mut superproperties = Vec::new();
 
     for child in &elem.children {
         if let XmlNode::Element(child_elem) = child {
             let local = &child_elem.name.local;
             if is_rdfs_label(local) {
                 label = Some(child_elem.text_content());
+            } else if is_rdfs_comment(local) {
+                comment = Some(child_elem.text_content());
             } else if is_rdfs_domain(local) {
                 domain = get_resource(child_elem, base_ns);
             } else if is_rdfs_range(local) {
                 range = get_resource(child_elem, base_ns);
+            } else if is_rdfs_subproperty_of(local)
+                && let Some(resource) = get_resource(child_elem, base_ns)
+            {
+                superproperties.push(resource.clone());
+                ont.property_taxonomy.push((iri.clone(), resource));
             }
         }
     }
@@ -218,8 +232,10 @@ fn read_property(elem: &XmlElement, ont: &mut OwlOntology, base_ns: &str) {
     ont.properties.push(OwlObjectProperty {
         iri,
         label,
+        comment,
         domain,
         range,
+        superproperties,
     });
 }
 
@@ -288,8 +304,44 @@ fn deduplicate_classes(ont: &mut OwlOntology) {
     ont.classes = by_iri.into_values().collect();
 }
 
-/// Remove duplicate taxonomy pairs.
+/// Merge duplicate object-property IRIs — OWL files reopen properties
+/// to add annotations, mirroring `deduplicate_classes`.
+fn deduplicate_properties(ont: &mut OwlOntology) {
+    use hashbrown::HashMap;
+    let mut by_iri: HashMap<String, OwlObjectProperty> = HashMap::new();
+
+    for prop in ont.properties.drain(..) {
+        by_iri
+            .entry(prop.iri.clone())
+            .and_modify(|existing| {
+                if existing.label.is_none() {
+                    existing.label.clone_from(&prop.label);
+                }
+                if existing.comment.is_none() {
+                    existing.comment.clone_from(&prop.comment);
+                }
+                if existing.domain.is_none() {
+                    existing.domain.clone_from(&prop.domain);
+                }
+                if existing.range.is_none() {
+                    existing.range.clone_from(&prop.range);
+                }
+                for sp in &prop.superproperties {
+                    if !existing.superproperties.contains(sp) {
+                        existing.superproperties.push(sp.clone());
+                    }
+                }
+            })
+            .or_insert(prop);
+    }
+
+    ont.properties = by_iri.into_values().collect();
+}
+
+/// Remove duplicate taxonomy pairs (both class and property hierarchies).
 fn deduplicate_taxonomy(ont: &mut OwlOntology) {
     ont.taxonomy.sort();
     ont.taxonomy.dedup();
+    ont.property_taxonomy.sort();
+    ont.property_taxonomy.dedup();
 }

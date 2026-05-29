@@ -73,6 +73,63 @@ fn owl_property() {
     assert_eq!(ont.properties[0].label.as_deref(), Some("has part"));
 }
 
+// A CiTO-shaped fragment: object properties arranged in an
+// `rdfs:subPropertyOf` hierarchy (the structure CiTO uses throughout —
+// e.g. citesAsEvidence ⊑ cites). Exercises the property-hierarchy
+// extraction added for loading the SPAR vocabularies.
+const SAMPLE_PROPERTY_HIERARCHY_OWL: &str = r#"<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns="http://example.org/cito#">
+  <owl:Ontology rdf:about="http://example.org/cito"/>
+  <owl:ObjectProperty rdf:about="http://example.org/cito#cites">
+    <rdfs:label>cites</rdfs:label>
+    <rdfs:comment>the citing entity cites the cited entity</rdfs:comment>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="http://example.org/cito#citesAsEvidence">
+    <rdfs:label>cites as evidence</rdfs:label>
+    <rdfs:subPropertyOf rdf:resource="http://example.org/cito#cites"/>
+  </owl:ObjectProperty>
+  <owl:ObjectProperty rdf:about="http://example.org/cito#includesQuotationFrom">
+    <rdfs:label>includes quotation from</rdfs:label>
+    <rdfs:subPropertyOf rdf:resource="http://example.org/cito#cites"/>
+  </owl:ObjectProperty>
+</rdf:RDF>"#;
+
+#[test]
+fn owl_property_comment_read() {
+    let ont = reader::read_owl(SAMPLE_PROPERTY_HIERARCHY_OWL).unwrap();
+    let cites = ont.find_property("http://example.org/cito#cites").unwrap();
+    assert_eq!(
+        cites.comment.as_deref(),
+        Some("the citing entity cites the cited entity")
+    );
+}
+
+#[test]
+fn owl_subproperty_taxonomy() {
+    let ont = reader::read_owl(SAMPLE_PROPERTY_HIERARCHY_OWL).unwrap();
+    assert_eq!(ont.property_count(), 3);
+    // citesAsEvidence→cites, includesQuotationFrom→cites
+    assert_eq!(ont.property_taxonomy.len(), 2);
+}
+
+#[test]
+fn owl_subproperties_of() {
+    let ont = reader::read_owl(SAMPLE_PROPERTY_HIERARCHY_OWL).unwrap();
+    let subs = ont.subproperties_of("http://example.org/cito#cites");
+    assert_eq!(subs.len(), 2);
+}
+
+#[test]
+fn owl_superproperties_of() {
+    let ont = reader::read_owl(SAMPLE_PROPERTY_HIERARCHY_OWL).unwrap();
+    let supers = ont.superproperties_of("http://example.org/cito#citesAsEvidence");
+    assert_eq!(supers.len(), 1);
+    assert!(supers[0].contains("cites"));
+}
+
 // =============================================================================
 // OLiA test — load the real linguistic ontology
 // =============================================================================
