@@ -137,29 +137,6 @@ pub fn generate_usc_corpus_source(
     Ok(out)
 }
 
-/// Build the [`OntologyBuilder`] for a set of USC title XML files — the
-/// in-memory corpus behind [`generate_usc_corpus_source`], before Rust
-/// source emission. Lets build.rs project the corpus into an rkyv archive
-/// via [`OntologyBuilder::to_owned_codegen_data`] instead of a struct-
-/// literal `static` (the delivery format for on-demand-loaded sources;
-/// see [`crate::archive`]).
-///
-/// The subdivision-tree / Composes-graph aux table that
-/// [`generate_usc_corpus_source`] also emits is *not* returned here — the
-/// archival [`crate::archive::OwnedCodegenData`] carries the flat section
-/// data (ids, headings, body text, edges), which is what the on-demand
-/// load path materializes.
-pub fn build_usc_corpus(title_xml_paths: &[&Path]) -> Result<OntologyBuilder, ParseError> {
-    let mut builder = OntologyBuilder::new();
-    let mut all_aux: Vec<SectionAux> = Vec::new();
-    for path in title_xml_paths {
-        let xml = std::fs::read_to_string(path)
-            .map_err(|e| ParseError::Read(path.display().to_string(), e))?;
-        extract_sections(&xml, &mut builder, &mut all_aux)?;
-    }
-    Ok(builder)
-}
-
 /// In-memory variant of [`generate_usc_corpus_source`] for tests.
 pub fn generate_usc_corpus_source_from_strs(
     xmls: &[&str],
