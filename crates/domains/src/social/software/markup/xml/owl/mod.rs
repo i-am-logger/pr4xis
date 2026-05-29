@@ -29,6 +29,18 @@ pub mod owl_vocabulary;
 #[cfg(feature = "fetch")]
 pub mod prx;
 
+// Registry-driven loaded OWL vocabularies (the SPAR family + PROV-O) and
+// the corpus-wide audit. Walks every `OntologyVocabulary` source in the
+// registry, hydrates each through `build_envelope` →
+// `to_codegen_data_leaked` → `from_codegen`, and walks every record + edge
+// of every vocabulary in the audit. Gated on both `fetch` (for `prx`'s
+// `build_envelope` / `OwnedCodegenData`) and `any(test, feature =
+// "codegen")` (because `build_envelope` itself, and the `owl_to_builder` it
+// calls, are codegen-gated) — the WASM default-runtime `.prx.gz`/source
+// load path is a separate milestone.
+#[cfg(all(feature = "fetch", any(test, feature = "codegen")))]
+pub mod loaded_vocabularies;
+
 pub use ontology::*;
 
 #[cfg(test)]
