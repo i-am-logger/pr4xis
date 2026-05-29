@@ -49,6 +49,12 @@
 //! the set of vocabularies is discovered by walking the registry, never
 //! enumerated.
 //!
+//! Alongside those asserted invariants the audit *reports* per-source
+//! annotation coverage — how many entities the source actually annotates
+//! with `rdfs:label` / `rdfs:comment`, counted from the source's real
+//! `Option`s. Coverage is never asserted: a source may label every entity
+//! or only a fraction (OLiA is legitimately sparse), and either is valid.
+//!
 //! ## Citations
 //!
 //! - **W3C OWL 2 Web Ontology Language: Structural Specification and
@@ -172,6 +178,19 @@ pub struct VocabularyAuditMetrics {
     pub property_count: usize,
     /// Loaded subsumption edges (`rdfs:subClassOf` ∪ `rdfs:subPropertyOf`).
     pub subsumption_edge_count: usize,
+    /// Entities the source actually annotates with an `rdfs:label` (RDF
+    /// Schema §2.4). Counted from the source `Option`s, where an absent
+    /// `rdfs:label` is `None` — *not* from the runtime accessor, which
+    /// substitutes the IRI local name when a label is absent and so can
+    /// never report a missing one. A coverage metric reported per source,
+    /// never asserted: real ontologies (e.g. OLiA) are legitimately
+    /// sparsely labelled.
+    pub labeled_entities: usize,
+    /// Entities the source actually annotates with an `rdfs:comment` (RDF
+    /// Schema §2.5). Counted from the source `Option`s (absent comment is
+    /// `None`), not the runtime `definition_of`, which yields an empty
+    /// string for an absent comment. Reported, never asserted.
+    pub commented_entities: usize,
 }
 
 /// One unresolved-item finding from the corpus-wide audit. Names the
@@ -256,6 +275,12 @@ impl VocabularyAuditReport {
 /// 3. cross-checks the loaded class / property counts against what
 ///    [`read_owl`] saw on the same bytes, and against the envelope's
 ///    `omv:numberOf*` metrics — proving nothing was silently dropped.
+///
+/// It also derives per-source annotation coverage (`labeled_entities` /
+/// `commented_entities`) from the source's real `rdfs:label` /
+/// `rdfs:comment` `Option`s. Coverage is *reported*, never asserted: a
+/// source may annotate every entity (the SPAR + PROV-O vocabularies) or
+/// only a fraction (OLiA), and both are valid.
 ///
 /// Counts are derived from the data and checked for internal consistency;
 /// nothing is asserted against a magic number.
@@ -372,12 +397,33 @@ pub fn audit_loaded_vocabularies() -> VocabularyAuditReport {
             });
         }
 
+        // Annotation coverage, counted from the source's real `Option`s:
+        // `read_owl` already deduplicated `ont.classes` / `ont.properties`
+        // by IRI, and an absent `rdfs:label` / `rdfs:comment` is `None`
+        // (RDF Schema §2.4 / §2.5). This is the honest count the runtime
+        // accessors cannot give — `label_of` falls back to the IRI local
+        // name and `definition_of` to an empty string, so both always
+        // report present. Reported, never asserted: coverage is a per-
+        // source property, not a universal invariant.
+        let has_text =
+            |o: &Option<String>| o.as_deref().map(str::trim).is_some_and(|s| !s.is_empty());
+        let labeled_entities = ont.classes.iter().filter(|c| has_text(&c.label)).count()
+            + ont.properties.iter().filter(|p| has_text(&p.label)).count();
+        let commented_entities = ont.classes.iter().filter(|c| has_text(&c.comment)).count()
+            + ont
+                .properties
+                .iter()
+                .filter(|p| has_text(&p.comment))
+                .count();
+
         metrics.push(VocabularyAuditMetrics {
             name: entry.name.clone(),
             entity_count,
             class_count: loaded_classes,
             property_count: loaded_properties,
             subsumption_edge_count: vocab.subsumption_edges().len(),
+            labeled_entities,
+            commented_entities,
         });
     }
 
@@ -476,10 +522,20 @@ mod tests {
 
         // Print the derived per-vocabulary counts so the audit's coverage
         // is visible (proves it actually walked the corpus, not a sample).
+        // Annotation coverage (labeled / commented) is printed too — a
+        // per-source metric, never asserted against a threshold.
         for m in &report.metrics {
             println!(
-                "owl-vocabulary-audit: {} — entities={} classes={} properties={} subsumption_edges={}",
-                m.name, m.entity_count, m.class_count, m.property_count, m.subsumption_edge_count
+                "owl-vocabulary-audit: {} — entities={} classes={} properties={} subsumption_edges={} labeled={}/{} commented={}/{}",
+                m.name,
+                m.entity_count,
+                m.class_count,
+                m.property_count,
+                m.subsumption_edge_count,
+                m.labeled_entities,
+                m.entity_count,
+                m.commented_entities,
+                m.entity_count
             );
             // Internal consistency: classes + properties partition the
             // entity set (every OWL entity is one or the other, W3C OWL 2
@@ -493,6 +549,14 @@ mod tests {
             assert!(
                 m.entity_count > 0,
                 "{}: a loaded vocabulary is non-empty",
+                m.name
+            );
+            // Coverage counts are bounded by the entity count — never more
+            // entities are annotated than exist. (A structural sanity check
+            // on the derived metric, not a coverage threshold.)
+            assert!(
+                m.labeled_entities <= m.entity_count && m.commented_entities <= m.entity_count,
+                "{}: annotation coverage cannot exceed the entity count",
                 m.name
             );
         }
@@ -515,17 +579,6 @@ mod tests {
                 assert_eq!(
                     back.iri, record.iri,
                     "{name}: find→entity round-trip must return the same IRI"
-                );
-                // label_of / definition_of resolve for every record too.
-                assert!(
-                    vocab.label_of(&record.iri).is_some(),
-                    "{name}: every record has a resolvable label ({})",
-                    record.iri
-                );
-                assert!(
-                    vocab.definition_of(&record.iri).is_some(),
-                    "{name}: definition_of resolves for every record ({})",
-                    record.iri
                 );
             }
         }

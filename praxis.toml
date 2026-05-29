@@ -418,6 +418,27 @@ type        = "OntologyVocabulary"
 url         = "https://www.w3.org/ns/prov-o.owl"
 description = "PROV-O, the PROV Ontology — the W3C OWL 2 provenance interchange vocabulary: core classes prov:Entity / prov:Activity / prov:Agent and provenance object properties prov:used, prov:wasGeneratedBy, prov:wasAttributedTo, prov:wasDerivedFrom, prov:wasAssociatedWith, prov:wasInformedBy, … (the PROV Data Model expressed in OWL 2). Cite: Lebo, T., Sahoo, S. & McGuinness, D. (eds.) (2013) PROV-O: The PROV Ontology, W3C Recommendation 30 April 2013, <https://www.w3.org/TR/2013/REC-prov-o-20130430/>. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation; RDF/XML per Gandon & Schreiber (2014) RDF 1.1 XML Syntax."
 
+# OLiA, the Ontologies of Linguistic Annotation — Reference Model. An OWL 2
+# / RDF-XML vocabulary of morphological, morphosyntactic and syntactic
+# annotation categories (olia:Noun, olia:Verb, olia:Determiner,
+# olia:AuxiliaryVerb, olia:InterrogativePronoun, … under
+# olia-top:MorphosyntacticCategory), grounded in the EAGLES recommendations,
+# ISOcat/DCR, GOLD, TDS and MULTEXT-East. Unlike the SPAR + PROV-O
+# vocabularies, OLiA serialises with an internal-subset DTD declaring
+# general entities (&owl; &rdfs; &rdf; &xsd;), expanded by the praxis XML
+# reader. dct:title "Ontology of Linguistic Annotation (OLiA)", rdfs:label
+# "OLiA", dct:license CC-BY-3.0. The owl:Ontology node carries no clean
+# owl:versionInfo / owl:versionIRI (its versionInfo holds free-text editor
+# notes), so the version is the provenance snapshot date the byte-content
+# entered this repo (2026-04-09). Published by acoli-repo/olia
+# (github.com/acoli-repo/olia). Bundled:
+# crates/domains/data/ontologies/olia-2026-04-09.owl.
+[sources.olia]
+version     = "2026-04-09"
+type        = "OntologyVocabulary"
+url         = "http://purl.org/olia/olia.owl"
+description = "OLiA, the Ontologies of Linguistic Annotation (Reference Model) — an OWL 2 vocabulary of morphological, morphosyntactic and syntactic annotation categories (olia:Noun, olia:Verb, olia:Determiner, olia:AuxiliaryVerb, olia:InterrogativePronoun, … subsumed under olia-top:MorphosyntacticCategory) harmonising the EAGLES recommendations, ISOcat/DCR, GOLD, the TDS ontology, the SFB 632 guidelines and MULTEXT-East into a single reference terminology for cross-scheme interoperability of linguistic annotations. Cite: Chiarcos, C. & Sukhareva, M. (2015) OLiA — Ontologies of Linguistic Annotation, Semantic Web 6(4):379-386, <https://doi.org/10.3233/SW-140167>. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation; RDF/XML per Gandon & Schreiber (2014) RDF 1.1 XML Syntax; DTD general entities per Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) XML 1.0 (5th ed.) §4.2."
+
 # ---------------------------------------------------------------------------
 # Typographic resources
 # ---------------------------------------------------------------------------
