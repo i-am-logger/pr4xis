@@ -21,12 +21,13 @@ pub mod owl_vocabulary;
 // a loaded OWL vocabulary (the OWL leaf of the M4.ι archival path): rkyv
 // archive of the `CodegenData` interchange + OMV/PROV-O-grounded metadata,
 // gzip-wrapped, validated against the `praxis.lock` source-hash pin on
-// load. Gated on `feature = "fetch"`, which brings the rkyv (archival) and
-// flate2 (gzip, RFC 1952) deps — kept off the WASM default-feature build,
-// matching where the network/compression substrate already lives. The
-// emit-from-OWL helper inside additionally needs `codegen` (it calls
-// `owl_to_builder`); the load + validate path needs only `fetch`.
-#[cfg(feature = "fetch")]
+// load. Gated on `feature = "prx"`, which brings the rkyv (archival) and
+// flate2 (gzip, RFC 1952) deps — both pure-Rust and wasm32-buildable, so
+// the WASM runtime gets the load path. `fetch` implies `prx` (adding the
+// network substrate on top), keeping the CLI's `fetch`-driven emit path
+// unchanged. The emit-from-OWL helper inside additionally needs `codegen`
+// (it calls `owl_to_builder`); the load + validate path needs only `prx`.
+#[cfg(feature = "prx")]
 pub mod prx;
 
 // Registry-driven loaded OWL vocabularies (the SPAR family + PROV-O) and

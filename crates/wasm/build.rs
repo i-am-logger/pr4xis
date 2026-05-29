@@ -39,6 +39,102 @@ fn main() {
     // authoritative §204 source. The set is derived from disk, not
     // hardcoded.
     stage_source_documents(&out_dir, &manifest_dir);
+
+    // ---------- OWL ontology vocabularies (dual-load: .prx.gz OR source) -
+    // Emit the ontology manifest the runtime exposes so the host can load a
+    // registered OWL vocabulary two ways: its `.prx.gz` (served from
+    // `/ontologies/`, produced by the release CI emitter, #256) or its
+    // authoritative `.owl` source (staged here to `/sources/`). The lock
+    // pin is baked in — the wasm runtime has no filesystem to read
+    // praxis.lock from, so the `.prx.gz` source-hash gate validates against
+    // this embedded pin. Registry-driven, never hardcoded.
+    stage_ontology_vocabularies(&out_dir, &manifest_dir);
+}
+
+/// Stage each registered OWL `OntologyVocabulary`'s bundled `.owl` to
+/// `<crate>/sources/<name>-<version>.owl` (served at `/sources/<file>`) and
+/// emit `ontologies_manifest.rs` into `OUT_DIR`:
+/// `(name, version, prx_url, source_url, lock_pin_sha256)`.
+///
+/// The set + pins come from the live registry (`data_sources()` filtered to
+/// `SourceTaxonomyConcept::OntologyVocabulary`, paired with
+/// `lock_hashes()["{name}@{version}"]`). build.rs runs natively, so it can
+/// reach both. The `.prx.gz` artifacts themselves are produced by the
+/// release CI (`emit_prx_gz`, #256) into Pages `/ontologies/`; the manifest
+/// points the host there. A vocabulary whose `.owl` is not on disk, or whose
+/// `name@version` carries no lock pin, is skipped — it cannot be served or
+/// hash-validated.
+fn stage_ontology_vocabularies(out_dir: &Path, manifest_dir: &Path) {
+    use pr4xis_domains::applied::data_provisioning::registry::{data_sources, lock_hashes};
+    use pr4xis_domains::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+    let workspace_root = manifest_dir.join("../..");
+    let sources_dir = manifest_dir.join("sources");
+    std::fs::create_dir_all(&sources_dir).expect("create sources dir");
+
+    let pins = lock_hashes();
+    let mut manifest: Vec<(String, String, String, String, String)> = Vec::new();
+
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::OntologyVocabulary {
+            continue;
+        }
+        let key = format!("{}@{}", entry.name, entry.version);
+        let Some(pin) = pins.get(&key) else {
+            // Unpinned — the .prx.gz source-hash gate could not validate it.
+            println!("cargo:warning=ontology {key} has no praxis.lock pin; skipping.");
+            continue;
+        };
+
+        let owl_path = workspace_root.join(entry.local_path());
+        if !owl_path.exists() {
+            // Registered but not bundled — nothing to serve.
+            continue;
+        }
+        println!("cargo:rerun-if-changed={}", owl_path.display());
+
+        let owl_file = format!("{}-{}.owl", entry.name, entry.version);
+        let dst = sources_dir.join(&owl_file);
+        std::fs::copy(&owl_path, &dst).unwrap_or_else(|e| panic!("stage {owl_file}: {e}"));
+
+        // The .prx.gz lives under /ontologies/ (release CI emitter, #256);
+        // the .owl source under /sources/ (staged just above).
+        let prx_url = format!("./ontologies/{}-{}.prx.gz", entry.name, entry.version);
+        let source_url = format!("./sources/{owl_file}");
+        eprintln!("Registered OWL vocabulary {key}: source -> {source_url}, prx -> {prx_url}");
+        manifest.push((
+            entry.name.clone(),
+            entry.version.clone(),
+            prx_url,
+            source_url,
+            pin.clone(),
+        ));
+    }
+
+    manifest.sort();
+    write_ontologies_manifest(out_dir, &manifest);
+}
+
+/// Emit `AVAILABLE_ONTOLOGIES: &[(name, version, prx_url, source_url, lock_pin)]`
+/// — the runtime's view of which registered OWL vocabularies are loadable,
+/// each with the praxis.lock source-hash pin the `.prx.gz` gate validates
+/// against (the wasm runtime has no filesystem to read the lock from).
+fn write_ontologies_manifest(
+    out_dir: &Path,
+    manifest: &[(String, String, String, String, String)],
+) {
+    let mut src = String::from(
+        "/// (registry name, version, served .prx.gz URL, served .owl source URL,\n\
+         /// praxis.lock source-hash pin for `name@version`).\n\
+         pub static AVAILABLE_ONTOLOGIES: &[(&str, &str, &str, &str, &str)] = &[\n",
+    );
+    for (name, version, prx_url, source_url, pin) in manifest {
+        src.push_str(&format!(
+            "    ({name:?}, {version:?}, {prx_url:?}, {source_url:?}, {pin:?}),\n"
+        ));
+    }
+    src.push_str("];\n");
+    std::fs::write(out_dir.join("ontologies_manifest.rs"), src).expect("write ontologies manifest");
 }
 
 /// Copy each on-disk USC title XML to `<crate>/sources/<name>-<version>.xml`

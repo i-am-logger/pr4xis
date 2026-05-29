@@ -110,7 +110,15 @@ std = ["pr4xis/std"]
 # which can't build for wasm32; build.rs and tests get it via the
 # `[build-dependencies]` / `[dev-dependencies]` `codegen` entries.
 codegen = ["std", "pr4xis/codegen"]
-fetch = ["std", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto", "dep:flate2", "dep:rkyv"]
+# `prx` enables the OWL `.prx.gz` *load* path (rkyv archival + RFC 1952
+# gzip) without the network substrate. Both deps are pure-Rust and build
+# for wasm32: rkyv with `alloc`+`bytecheck` only (no std-only features),
+# and flate2's default backend is `miniz_oxide` (pure Rust) — no `libz-sys`
+# / `zlib-ng` C backend in the resolved graph. Splitting it out of `fetch`
+# lets the WASM runtime load a validated `.prx.gz` while keeping `ureq` /
+# `rustls` (which do not compile to wasm32) off that build.
+prx = ["std", "dep:rkyv", "dep:flate2"]
+fetch = ["prx", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto"]
 # `pdf` enables the runtime PDF reader (social/software/binary/pdf/reader)
 # that materializes typed PdfDocument values from byte streams. The
 # ontology surface (concepts, axioms, FlaggedContent) is available

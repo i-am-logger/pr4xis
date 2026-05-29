@@ -88,6 +88,26 @@ const KIND_CLASS: &str = "Class";
 /// OWL 2 metaclass name (`owl:ObjectProperty`, §5.4).
 const KIND_OBJECT_PROPERTY: &str = "ObjectProperty";
 
+/// Local name of an IRI: the substring after the last `#` or `/`.
+///
+/// W3C OWL 2 §5.5 (IRIs) and RDF 1.1 Concepts §3.2 identify a term by its
+/// full IRI; the local name is the human-facing label fallback used when
+/// no `rdfs:label` is supplied (RDF Schema §2.4). Mirrors the identical
+/// helper `owl_to_builder` applies, so the codegen path and the direct
+/// [`LoadedOwlVocabulary::from_owl_ontology`] path assign the same label.
+/// SPAR terms are slash-delimited
+/// (`http://purl.org/spar/cito/citesAsEvidence`); the OWL/RDFS vocabulary
+/// is hash-delimited (`http://www.w3.org/2002/07/owl#Class`) — handle both.
+fn local_name(iri: &str) -> &str {
+    match iri.rsplit_once('#') {
+        Some((_, local)) if !local.is_empty() => local,
+        _ => match iri.rsplit_once('/') {
+            Some((_, local)) if !local.is_empty() => local,
+            _ => iri,
+        },
+    }
+}
+
 /// The metaclass of a loaded OWL entity (W3C OWL 2 §5): either a named
 /// class or a named object property. These are the only two kinds
 /// [`super::owl_vocabulary::owl_to_builder`] emits.
@@ -197,6 +217,96 @@ impl LoadedOwlVocabulary {
             let parent_ir = parent_ref.value() as usize;
             if let (Some(&c), Some(&p)) = (ir_to_owned.get(&child_ir), ir_to_owned.get(&parent_ir))
             {
+                subsumption.push((c, p));
+            }
+        }
+
+        Self {
+            entities,
+            by_iri,
+            subsumption,
+        }
+    }
+
+    /// Functor: [`OwlOntology`] → [`LoadedOwlVocabulary`], **without**
+    /// the `codegen` build path.
+    ///
+    /// [`from_codegen`][Self::from_codegen] hydrates from the frozen
+    /// [`CodegenData<P>`] a build step emits; that path requires
+    /// `owl_to_builder` + `pr4xis::codegen` (the `codegen` feature, off
+    /// the WASM build). This is the parallel runtime path: it walks a
+    /// [`read_owl`]-parsed [`OwlOntology`] straight into the same owned
+    /// indices, so a WASM host that fetched the authoritative RDF/XML
+    /// can materialise the corpus with only [`read_owl`] (pure-Rust,
+    /// wasm-OK) and the runtime types here — no codegen, no
+    /// [`CodegenData`].
+    ///
+    /// It reproduces exactly the entity set and surviving edges of the
+    /// `read_owl → owl_to_builder → CodegenData → from_codegen` chain:
+    ///
+    /// - **Entities.** Classes first, then object properties (the order
+    ///   `owl_to_builder` declares them), deduplicated by IRI across both
+    ///   kinds with a single seen-set, empty IRIs skipped. `label` is
+    ///   `rdfs:label` falling back to the IRI local name (the substring
+    ///   after the last `#` or `/`); `definition` is `rdfs:comment`,
+    ///   empty when absent (W3C OWL 2 §5; RDF Schema §2.4 / §2.5).
+    /// - **Subsumption.** The union of [`OwlOntology::taxonomy`]
+    ///   (`rdfs:subClassOf`) and [`OwlOntology::property_taxonomy`]
+    ///   (`rdfs:subPropertyOf`), re-keyed to entity indices; an edge whose
+    ///   endpoint is not a declared entity (e.g. a subclass of the
+    ///   external `owl:Thing`) is dropped — the same drop
+    ///   `pr4xis::codegen::generate`'s id-resolution makes, so the edge
+    ///   count matches the `from_codegen` path's.
+    ///
+    /// [`OwlOntology`]: super::ontology::OwlOntology
+    /// [`read_owl`]: super::reader::read_owl
+    pub fn from_owl_ontology(ont: &super::ontology::OwlOntology) -> Self {
+        let mut entities: Vec<OwlEntityRecord> = Vec::new();
+        let mut by_iri: HashMap<String, usize> = HashMap::new();
+
+        // Classes first, then object properties — the order
+        // `owl_to_builder` declares entities. A single seen-set
+        // deduplicates across both kinds, exactly as the builder does.
+        for class in &ont.classes {
+            if class.iri.is_empty() || by_iri.contains_key(&class.iri) {
+                continue;
+            }
+            let label = class
+                .label
+                .clone()
+                .unwrap_or_else(|| local_name(&class.iri).to_string());
+            by_iri.insert(class.iri.clone(), entities.len());
+            entities.push(OwlEntityRecord {
+                iri: class.iri.clone(),
+                kind: OwlEntityKind::Class,
+                label,
+                definition: class.comment.clone().unwrap_or_default(),
+            });
+        }
+        for prop in &ont.properties {
+            if prop.iri.is_empty() || by_iri.contains_key(&prop.iri) {
+                continue;
+            }
+            let label = prop
+                .label
+                .clone()
+                .unwrap_or_else(|| local_name(&prop.iri).to_string());
+            by_iri.insert(prop.iri.clone(), entities.len());
+            entities.push(OwlEntityRecord {
+                iri: prop.iri.clone(),
+                kind: OwlEntityKind::ObjectProperty,
+                label,
+                definition: prop.comment.clone().unwrap_or_default(),
+            });
+        }
+
+        // Subsumption = subClassOf ∪ subPropertyOf, re-keyed to indices.
+        // Drop an edge whose endpoint is not a declared entity — the same
+        // dangling-edge drop the codegen id-resolution performs, so the
+        // edge count equals the `from_codegen` path's.
+        let mut subsumption: Vec<(usize, usize)> = Vec::new();
+        for (child, parent) in ont.taxonomy.iter().chain(ont.property_taxonomy.iter()) {
+            if let (Some(&c), Some(&p)) = (by_iri.get(child), by_iri.get(parent)) {
                 subsumption.push((c, p));
             }
         }
@@ -684,6 +794,59 @@ mod tests {
         assert!(!vocab.subsumes(CITES_IRI, CITES_IRI));
     }
 
+    // ── from_owl_ontology parity with from_codegen on bundled CiTO ───
+
+    /// The non-codegen [`LoadedOwlVocabulary::from_owl_ontology`] path
+    /// (the one wasm uses — `read_owl` straight into the owned indices)
+    /// yields the *same* corpus as the codegen
+    /// `owl_to_builder → CodegenData → from_codegen` path: the two
+    /// functors agree object-for-object and edge-for-edge. This is the
+    /// load-bearing equivalence for #257 — a source-loaded vocabulary is
+    /// indistinguishable from a build-emitted one.
+    ///
+    /// Both paths consume the **same** parsed [`OwlOntology`] value.
+    /// `read_owl`'s entity ordering is per-invocation (the deduplication
+    /// step rebuilds `classes` / `properties` from a `hashbrown::HashMap`,
+    /// whose iteration order is randomly seeded), so two separate parses
+    /// of the same bytes can list entities in different orders. Sharing
+    /// one parse isolates the functor equivalence from that parser
+    /// ordering — the same isolation the `prx` round-trip tests make by
+    /// building their reference from a single owned value.
+    #[test]
+    fn from_owl_ontology_equals_from_codegen_on_cito() {
+        let ont = read_owl(CITO_2_8_1_OWL).expect("bundled CiTO must parse");
+
+        // from_codegen path, sourced from the *same* parsed ontology.
+        let builder = owl_to_builder(&ont);
+        let data = codegen_data_from_builder(&builder);
+        let via_codegen = LoadedOwlVocabulary::from_codegen(&data);
+
+        let via_owl = LoadedOwlVocabulary::from_owl_ontology(&ont);
+
+        assert_eq!(
+            via_owl.entity_count(),
+            via_codegen.entity_count(),
+            "entity counts must match across the two load paths"
+        );
+        assert_eq!(
+            via_owl.subsumption_edge_count(),
+            via_codegen.subsumption_edge_count(),
+            "subsumption-edge counts must match across the two load paths"
+        );
+        // Same entity set (IRI + kind + label + definition), in the same
+        // load order: the two paths produce identical owned values.
+        assert_eq!(
+            via_owl, via_codegen,
+            "from_owl_ontology must reproduce the from_codegen corpus exactly"
+        );
+        // And the citation-typing taxonomy survives the direct path.
+        assert!(via_owl.entity_count() > 30, "real CiTO is rich");
+        assert!(
+            via_owl.is_a(CITES_AS_EVIDENCE_IRI, CITES_IRI),
+            "citesAsEvidence is_a cites must hold on the direct path"
+        );
+    }
+
     #[test]
     fn classes_and_properties_partition_entities() {
         let vocab = cito_vocabulary();
@@ -842,6 +1005,56 @@ mod tests {
         b
     }
 
+    /// Build the parallel [`OwlOntology`] for the same synthesised
+    /// vocabulary — the input the non-codegen
+    /// [`LoadedOwlVocabulary::from_owl_ontology`] path consumes. No
+    /// labels / comments (the IRI-local-name fallback applies), within-
+    /// kind subsumption edges split between `taxonomy` (classes) and
+    /// `property_taxonomy` (properties), mirroring what `read_owl` returns.
+    fn synth_owl_ontology(
+        s: &SynthVocab,
+    ) -> crate::social::software::markup::xml::owl::ontology::OwlOntology {
+        use crate::social::software::markup::xml::owl::ontology::{
+            OwlClass, OwlObjectProperty, OwlOntology,
+        };
+        OwlOntology {
+            iri: "http://ex.org/v#".to_string(),
+            classes: s
+                .classes
+                .iter()
+                .map(|iri| OwlClass {
+                    iri: iri.clone(),
+                    label: None,
+                    comment: None,
+                    superclasses: Vec::new(),
+                })
+                .collect(),
+            properties: s
+                .properties
+                .iter()
+                .map(|iri| OwlObjectProperty {
+                    iri: iri.clone(),
+                    label: None,
+                    comment: None,
+                    domain: None,
+                    range: None,
+                    superproperties: Vec::new(),
+                })
+                .collect(),
+            individuals: Vec::new(),
+            taxonomy: s
+                .class_edges
+                .iter()
+                .map(|(c, p)| (s.classes[*c].clone(), s.classes[*p].clone()))
+                .collect(),
+            property_taxonomy: s
+                .prop_edges
+                .iter()
+                .map(|(c, p)| (s.properties[*c].clone(), s.properties[*p].clone()))
+                .collect(),
+        }
+    }
+
     proptest! {
         /// from_codegen preserves the entity count and every direct edge.
         #[test]
@@ -889,6 +1102,29 @@ mod tests {
                     }
                 }
             }
+        }
+
+        /// The two load paths agree on every synthesised vocabulary: the
+        /// non-codegen `from_owl_ontology` (wasm's path) materialises the
+        /// exact same corpus as `from_codegen` (the build path). This is
+        /// the #257 equivalence at full structural generality.
+        ///
+        /// Both paths start from the same synthesised [`OwlOntology`]: the
+        /// `from_codegen` reference routes through the production
+        /// `owl_to_builder` (so labels take the same `rdfs:label`-then-
+        /// local-name fallback `from_owl_ontology` applies), not the
+        /// bespoke `synth_builder` helper (which labels each entity with
+        /// its full IRI for the structural from_codegen proptests above).
+        #[test]
+        fn prop_from_owl_ontology_equals_from_codegen(s in arb_synth()) {
+            let ont = synth_owl_ontology(&s);
+            let via_codegen = {
+                let builder = owl_to_builder(&ont);
+                let data = codegen_data_from_builder(&builder);
+                LoadedOwlVocabulary::from_codegen(&data)
+            };
+            let via_owl = LoadedOwlVocabulary::from_owl_ontology(&ont);
+            prop_assert_eq!(via_owl, via_codegen);
         }
     }
 }
