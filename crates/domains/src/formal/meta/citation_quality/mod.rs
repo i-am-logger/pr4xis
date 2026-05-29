@@ -40,6 +40,7 @@
 pub mod assessment;
 pub mod english_projection;
 pub mod ontology;
+pub mod record_lens;
 
 pub use assessment::{
     CitationVerdict, DimensionStatus, VerdictMeetIsBoundedSemilattice, VerificationMethod, assess,
