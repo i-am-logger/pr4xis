@@ -220,14 +220,36 @@
   </div>
 
   <script type="module">
-    import init, { Pr4xis } from './pkg/pr4xis_wasm.js';
+    // pr4xis runs entirely in a Web Worker, so downloading + parsing a
+    // large statute never freezes the UI. The main thread is pure
+    // presentation; every engine call is an async message.
+    const worker = new Worker('./worker.js', { type: 'module' });
+    let nextRpcId = 1;
+    const pending = new Map();
+    worker.onmessage = (e) => {
+      const m = e.data;
+      const p = pending.get(m.id);
+      if (!p) return;
+      if (m.status === 'progress') { if (p.onProgress) p.onProgress(m); return; }
+      pending.delete(m.id);
+      if (m.status === 'ok') p.resolve(m.payload);
+      else p.reject(new Error(m.payload));
+    };
+    worker.onerror = (e) => console.error('worker error:', e.message || e);
+    function call(type, args, onProgress) {
+      const id = nextRpcId++;
+      return new Promise((resolve, reject) => {
+        pending.set(id, { resolve, reject, onProgress });
+        worker.postMessage({ id, type, args: args || {} });
+      });
+    }
 
     const chat = document.getElementById('chat');
     const input = document.getElementById('input');
     const send = document.getElementById('send');
     const status = document.getElementById('status');
 
-    let pr4xis = null;
+    let pr4xisMeta = { concept_count: 0, word_count: 0 };
 
     function addMessage(text, cls) {
       const div = document.createElement('div');
@@ -281,14 +303,13 @@
 
     async function initialize() {
       try {
-        await init();
-        pr4xis = new Pr4xis();
-        status.textContent = `${pr4xis.concept_count().toLocaleString()} concepts`;
+        pr4xisMeta = await call('init');
+        status.textContent = `${pr4xisMeta.concept_count.toLocaleString()} concepts`;
         status.className = 'ready';
         addMessage(
           `pr4xis — axiomatic intelligence\n` +
-          `  ${pr4xis.concept_count().toLocaleString()} concepts, ${pr4xis.word_count().toLocaleString()} words\n` +
-          `  running entirely in your browser — no server`,
+          `  ${pr4xisMeta.concept_count.toLocaleString()} concepts, ${pr4xisMeta.word_count.toLocaleString()} words\n` +
+          `  running in a Web Worker — no server, UI stays responsive`,
           'info'
         );
         await renderDashboard();
@@ -307,13 +328,19 @@
       }
     }
 
-    function handleSend() {
+    async function handleSend() {
       const text = input.value.trim();
-      if (!text || !pr4xis) return;
+      if (!text) return;
       addMessage(text, 'user');
       input.value = '';
       const t0 = performance.now();
-      const raw = pr4xis.chat(text);
+      let raw;
+      try {
+        raw = await call('chat', { input: text });
+      } catch (e) {
+        addMessage(`error: ${e}`, 'info');
+        return;
+      }
       const elapsed = performance.now() - t0;
       try {
         const result = JSON.parse(raw);
@@ -348,7 +375,6 @@
     });
 
     const fmtMB = b => (b / (1024 * 1024)).toFixed(b < 1024 * 1024 ? 2 : 1) + ' MB';
-    const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     // Download a source's authoritative USLM XML (streaming, with a real
     // progress bar), then parse it into a live UsCode (Nelson-Narens
@@ -370,41 +396,26 @@
       const fill = prog.querySelector('.progress-fill');
 
       try {
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const total = parseInt(resp.headers.get('content-length') || totalHint || '0', 10);
-
-        // Stream the body so we can show real byte-level progress.
-        const reader = resp.body.getReader();
-        const chunks = [];
-        let received = 0;
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          received += value.length;
-          if (total) {
-            const pct = Math.min(100, Math.round((received / total) * 100));
-            fill.style.width = pct + '%';
-            detail.textContent = `${fmtMB(received)} / ${fmtMB(total)} · ${pct}%`;
-          } else {
-            detail.textContent = fmtMB(received);
+        // The worker downloads + parses; we just render the progress it
+        // posts. The parse runs off the main thread, so the bar keeps
+        // animating and the page stays responsive even for a big title.
+        await call('load', { name, url, totalHint }, (m) => {
+          if (m.phase === 'download') {
+            const total = m.total || totalHint || 0;
+            if (total) {
+              const pct = Math.min(100, Math.round((m.received / total) * 100));
+              fill.style.width = pct + '%';
+              detail.textContent = `${fmtMB(m.received)} / ${fmtMB(total)} · ${pct}%`;
+            } else {
+              detail.textContent = fmtMB(m.received);
+            }
+          } else if (m.phase === 'parse') {
+            phase.textContent = 'Materializing…';
+            detail.textContent = `${fmtMB(m.received)} · parsing into a live ontology`;
+            fill.classList.add('indeterminate');
+            fill.style.width = '';
           }
-        }
-        const buf = new Uint8Array(received);
-        let off = 0;
-        for (const c of chunks) { buf.set(c, off); off += c.length; }
-        const xml = new TextDecoder('utf-8').decode(buf);
-
-        // Materialize phase — yield first so the sweep animation paints
-        // before the (synchronous, main-thread) USLM parse runs.
-        phase.textContent = 'Materializing…';
-        detail.textContent = `${fmtMB(received)} · parsing into a live ontology`;
-        fill.classList.add('indeterminate');
-        fill.style.width = '';
-        await nextFrame();
-
-        pr4xis.load_source(name, xml);   // → live UsCode (throws on bad XML)
+        });
 
         prog.classList.add('done');
         phase.textContent = 'Loaded';
@@ -432,8 +443,8 @@
       const dash = document.getElementById('about');
       let data, sources_avail;
       try {
-        data = JSON.parse(pr4xis.self_describe());
-        sources_avail = JSON.parse(pr4xis.available_sources()).sources || [];
+        data = JSON.parse(await call('self_describe'));
+        sources_avail = JSON.parse(await call('available_sources')).sources || [];
       } catch (e) {
         dash.innerHTML = `<div class="message info" style="color:#f85149;">self_describe parse error: ${e}</div>`;
         return;
