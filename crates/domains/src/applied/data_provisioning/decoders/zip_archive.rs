@@ -3,15 +3,17 @@
 //! Identifies a byte stream as a PKZIP archive by checking the
 //! local-file-header signature `0x04034b50` (PKWARE APPNOTE.TXT
 //! 6.3.10 §4.3.7, 2022). Same role as the gzip / DTD identifiers
-//! in this `decoders/` tree — magic-prefix recognition only;
-//! decompression + per-entry walks are the consumer's job (e.g.
-//! `zip` crate or external `unzip`).
+//! in this `decoders/` tree — magic-prefix recognition.
 //!
-//! Praxis intentionally does not pull a ZIP decompressor into
-//! `pr4xis-domains`'s runtime dependency surface. OOXML schema
-//! archives ship as ZIP per ECMA-376 5th edition §11.3; the
-//! `ooxml_schema_strict@2016` source's per-XSD extraction is
-//! deferred to consumers.
+//! Single-member extraction lives in the `fetch` feature's
+//! downloader (`fetch::unzip_single_xml`): it reads the central
+//! directory (§4.3.12) for authoritative sizes and inflates DEFLATE
+//! members (RFC 1951) with `flate2` — the same compression crate the
+//! gzip path uses, so no dedicated ZIP-decompressor crate enters the
+//! dependency surface. That covers single-document archives such as
+//! the USC release-point title `.zip`s. OOXML schema archives
+//! (ECMA-376 5th ed. §11.3) ship as ZIP too; their multi-file
+//! per-XSD extraction remains a consumer concern.
 //!
 //! ## Citation
 //!

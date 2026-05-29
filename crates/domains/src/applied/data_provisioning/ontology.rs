@@ -307,6 +307,14 @@ impl RegistryEntry {
         self.url.ends_with(".gz")
     }
 
+    /// `true` if the URL serves a PKZIP archive (i.e. ends with `.zip`).
+    /// Implied from the URL; not a separate manifest field. The fetch
+    /// path extracts the single inner document (e.g. the `usc<NN>.xml`
+    /// inside a USC release-point title archive) before verification.
+    pub fn zipped(&self) -> bool {
+        self.url.ends_with(".zip")
+    }
+
     /// The encoding praxis decodes this source as, derived from `kind`.
     pub fn content_type(&self) -> ContentType {
         canonical_encoding(self.kind)

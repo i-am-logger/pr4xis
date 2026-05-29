@@ -187,6 +187,16 @@ fn do_fetch(entry: &RegistryEntry, path: &Path) -> FetchOutcome {
                 };
             }
         }
+    } else if entry.zipped() {
+        match unzip_single_xml(&bytes) {
+            Ok(b) => b,
+            Err(e) => {
+                return FetchOutcome::FetchError {
+                    name: entry.name.clone(),
+                    reason: format!("unzip failed: {e}"),
+                };
+            }
+        }
     } else {
         bytes
     };
@@ -291,6 +301,135 @@ fn gunzip(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
         );
     }
     Ok(out)
+}
+
+/// Extract the single `.xml` member from a PKZIP archive.
+///
+/// USC release-point title archives (`xml_usc<NN>@<rp>.zip`) hold
+/// exactly one `usc<NN>.xml`. This reads the **central directory**
+/// (PKWARE APPNOTE.TXT 6.3.10 §4.3.12) for authoritative member sizes
+/// and offsets — robust against streaming "data descriptors"
+/// (§4.3.9), where the *local* header sizes are zeroed. Members that
+/// are stored (method 0) or DEFLATE-compressed (method 8, RFC 1951)
+/// are supported; any other method, ZIP64, or an archive without
+/// exactly one `.xml` member is a hard error. The choice must be
+/// deterministic because the extracted bytes feed sha256 verification,
+/// so "more than one `.xml`" fails closed rather than guessing.
+fn unzip_single_xml(zip: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let eocd = find_eocd(zip)?;
+    let total_entries = read_u16(zip, eocd + 10)? as usize;
+    let cd_offset = read_u32(zip, eocd + 16)? as usize;
+
+    // Walk the central directory; select the sole `.xml` member.
+    let mut p = cd_offset;
+    let mut chosen: Option<(usize, u16, usize, usize)> = None; // (local_off, method, comp, uncomp)
+    for _ in 0..total_entries {
+        if read_u32(zip, p)? != 0x0201_4b50 {
+            anyhow::bail!("malformed central-directory header at offset {p}");
+        }
+        let method = read_u16(zip, p + 10)?;
+        let comp_size = read_u32(zip, p + 20)? as usize;
+        let uncomp_size = read_u32(zip, p + 24)? as usize;
+        let name_len = read_u16(zip, p + 28)? as usize;
+        let extra_len = read_u16(zip, p + 30)? as usize;
+        let comment_len = read_u16(zip, p + 32)? as usize;
+        let local_off = read_u32(zip, p + 42)? as usize;
+        let name_start = p + 46;
+        let name_end = name_start
+            .checked_add(name_len)
+            .filter(|e| *e <= zip.len())
+            .ok_or_else(|| anyhow::anyhow!("central-directory name out of bounds"))?;
+        if zip[name_start..name_end].ends_with(b".xml") {
+            if chosen.is_some() {
+                anyhow::bail!(
+                    "archive has more than one .xml member; refusing to choose non-deterministically"
+                );
+            }
+            chosen = Some((local_off, method, comp_size, uncomp_size));
+        }
+        p = name_end + extra_len + comment_len;
+    }
+
+    let (local_off, method, comp_size, uncomp_size) =
+        chosen.ok_or_else(|| anyhow::anyhow!("archive contains no .xml member"))?;
+
+    if read_u32(zip, local_off)? != 0x0403_4b50 {
+        anyhow::bail!("malformed local-file header at offset {local_off}");
+    }
+    let l_name_len = read_u16(zip, local_off + 26)? as usize;
+    let l_extra_len = read_u16(zip, local_off + 28)? as usize;
+    let data_start = local_off + 30 + l_name_len + l_extra_len;
+    let data_end = data_start
+        .checked_add(comp_size)
+        .filter(|e| *e <= zip.len())
+        .ok_or_else(|| anyhow::anyhow!("compressed data out of bounds"))?;
+    let comp = &zip[data_start..data_end];
+
+    match method {
+        0 => Ok(comp.to_vec()),          // stored
+        8 => inflate(comp, uncomp_size), // DEFLATE (RFC 1951)
+        m => anyhow::bail!("unsupported zip compression method {m} (only stored/deflate)"),
+    }
+}
+
+/// Locate the End Of Central Directory record (APPNOTE §4.3.16) by
+/// scanning backward for its signature `0x06054b50`, allowing for the
+/// variable-length trailing comment (max 65535 bytes).
+fn find_eocd(zip: &[u8]) -> anyhow::Result<usize> {
+    if zip.len() < 22 {
+        anyhow::bail!("not a zip archive (shorter than the 22-byte EOCD record)");
+    }
+    let scan_floor = zip.len().saturating_sub(22 + 0xFFFF);
+    let mut i = zip.len() - 22;
+    loop {
+        if zip[i..].starts_with(&[0x50, 0x4B, 0x05, 0x06]) {
+            return Ok(i);
+        }
+        if i == scan_floor {
+            anyhow::bail!("no End Of Central Directory record found (not a zip, or ZIP64)");
+        }
+        i -= 1;
+    }
+}
+
+/// DEFLATE-decompress (RFC 1951) under the same size cap as `gunzip`,
+/// asserting the result matches the archive's declared uncompressed
+/// size (the central-directory value).
+fn inflate(comp: &[u8], expected: usize) -> anyhow::Result<Vec<u8>> {
+    use flate2::read::DeflateDecoder;
+    let limited = std::io::Read::take(DeflateDecoder::new(comp), MAX_DECOMPRESSED_BYTES + 1);
+    let mut out = Vec::new();
+    let mut decoder = limited;
+    decoder.read_to_end(&mut out)?;
+    if out.len() as u64 > MAX_DECOMPRESSED_BYTES {
+        anyhow::bail!("decompressed payload exceeds {MAX_DECOMPRESSED_BYTES} bytes");
+    }
+    if out.len() != expected {
+        anyhow::bail!(
+            "decompressed size {} != central-directory declared {expected}",
+            out.len()
+        );
+    }
+    Ok(out)
+}
+
+/// Little-endian u16 read with bounds checking (no panic on malformed input).
+fn read_u16(b: &[u8], at: usize) -> anyhow::Result<u16> {
+    let end = at
+        .checked_add(2)
+        .filter(|e| *e <= b.len())
+        .ok_or_else(|| anyhow::anyhow!("u16 read out of bounds at {at}"))?;
+    Ok(u16::from_le_bytes([b[at], b[end - 1]]))
+}
+
+/// Little-endian u32 read with bounds checking (no panic on malformed input).
+fn read_u32(b: &[u8], at: usize) -> anyhow::Result<u32> {
+    let end = at
+        .checked_add(4)
+        .filter(|e| *e <= b.len())
+        .ok_or_else(|| anyhow::anyhow!("u32 read out of bounds at {at}"))?;
+    let s = &b[at..end];
+    Ok(u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
 }
 
 fn verify_local(entry: &RegistryEntry, path: &Path) -> Result<(), String> {
@@ -606,5 +745,92 @@ mod tests {
             let is_mismatch = matches!(result, VerificationResult::Mismatch { .. });
             prop_assert!(is_mismatch);
         }
+    }
+
+    // --- ZIP extraction (PKWARE APPNOTE.TXT 6.3.10; DEFLATE RFC 1951) ---
+
+    /// Assemble a minimal single-member PKZIP archive (local header +
+    /// data + one central-directory record + EOCD). CRC is left zero —
+    /// the reader keys off the central directory, not the CRC.
+    fn build_single_entry_zip(name: &[u8], method: u16, data: &[u8], uncomp: u32) -> Vec<u8> {
+        let comp = data.len() as u32;
+        let nlen = name.len() as u16;
+        let mut z = Vec::new();
+        // Local file header (offset 0).
+        z.extend_from_slice(&[0x50, 0x4B, 0x03, 0x04]);
+        z.extend_from_slice(&20u16.to_le_bytes()); // version needed
+        z.extend_from_slice(&0u16.to_le_bytes()); // flags
+        z.extend_from_slice(&method.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // mod time
+        z.extend_from_slice(&0u16.to_le_bytes()); // mod date
+        z.extend_from_slice(&0u32.to_le_bytes()); // crc32
+        z.extend_from_slice(&comp.to_le_bytes());
+        z.extend_from_slice(&uncomp.to_le_bytes());
+        z.extend_from_slice(&nlen.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // extra len
+        z.extend_from_slice(name);
+        z.extend_from_slice(data);
+        let cd_offset = z.len() as u32;
+        // Central-directory header.
+        z.extend_from_slice(&[0x50, 0x4B, 0x01, 0x02]);
+        z.extend_from_slice(&20u16.to_le_bytes()); // version made by
+        z.extend_from_slice(&20u16.to_le_bytes()); // version needed
+        z.extend_from_slice(&0u16.to_le_bytes()); // flags
+        z.extend_from_slice(&method.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // mod time
+        z.extend_from_slice(&0u16.to_le_bytes()); // mod date
+        z.extend_from_slice(&0u32.to_le_bytes()); // crc32
+        z.extend_from_slice(&comp.to_le_bytes());
+        z.extend_from_slice(&uncomp.to_le_bytes());
+        z.extend_from_slice(&nlen.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // extra len
+        z.extend_from_slice(&0u16.to_le_bytes()); // comment len
+        z.extend_from_slice(&0u16.to_le_bytes()); // disk number
+        z.extend_from_slice(&0u16.to_le_bytes()); // internal attrs
+        z.extend_from_slice(&0u32.to_le_bytes()); // external attrs
+        z.extend_from_slice(&0u32.to_le_bytes()); // local header offset
+        z.extend_from_slice(name);
+        let cd_size = z.len() as u32 - cd_offset;
+        // End Of Central Directory.
+        z.extend_from_slice(&[0x50, 0x4B, 0x05, 0x06]);
+        z.extend_from_slice(&0u16.to_le_bytes()); // disk number
+        z.extend_from_slice(&0u16.to_le_bytes()); // cd start disk
+        z.extend_from_slice(&1u16.to_le_bytes()); // entries on this disk
+        z.extend_from_slice(&1u16.to_le_bytes()); // total entries
+        z.extend_from_slice(&cd_size.to_le_bytes());
+        z.extend_from_slice(&cd_offset.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // comment len
+        z
+    }
+
+    #[test]
+    fn unzip_extracts_sole_stored_xml() {
+        let payload = b"<uscDoc/>";
+        let zip = build_single_entry_zip(b"usc99.xml", 0, payload, payload.len() as u32);
+        assert_eq!(unzip_single_xml(&zip).unwrap(), payload);
+    }
+
+    #[test]
+    fn unzip_extracts_deflated_xml() {
+        use flate2::Compression;
+        use flate2::write::DeflateEncoder;
+        use std::io::Write;
+        let payload = b"<uscDoc><section>SOX 1514A</section></uscDoc>";
+        let mut enc = DeflateEncoder::new(Vec::new(), Compression::default());
+        enc.write_all(payload).unwrap();
+        let deflated = enc.finish().unwrap();
+        let zip = build_single_entry_zip(b"usc18.xml", 8, &deflated, payload.len() as u32);
+        assert_eq!(unzip_single_xml(&zip).unwrap(), payload);
+    }
+
+    #[test]
+    fn unzip_errors_when_no_xml_member() {
+        let zip = build_single_entry_zip(b"readme.txt", 0, b"hi", 2);
+        assert!(unzip_single_xml(&zip).is_err());
+    }
+
+    #[test]
+    fn unzip_errors_on_non_zip_bytes() {
+        assert!(unzip_single_xml(b"<not a zip>").is_err());
     }
 }
