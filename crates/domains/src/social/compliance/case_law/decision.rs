@@ -32,7 +32,7 @@ use crate::social::judicial::source_text::SourceTextRef;
 /// judgment below.
 ///
 /// Source: Garner et al. (2016) *The Law of Judicial Precedent*
-/// §6.1-6.4; Bluebook (21st ed.) Rule 10.7 (subsequent history).
+/// §6.1-6.4; Bluebook (21st ed.) Rule 10.7 (prior and subsequent history).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Disposition {
     /// Court below correct; judgment stands.

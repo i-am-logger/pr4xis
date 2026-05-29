@@ -42,11 +42,12 @@
 //!
 //! # Literature
 //!
+//! - **USLM schema (Office of the Law Revision Counsel)** — the
+//!   subdivision `<level>` element hierarchy; the machine-loaded praxis
+//!   source for the structure (machine-verified).
 //! - **The Bluebook: A Uniform System of Citation, 21st ed. (2020)**
 //!   §3.2 (pinpoint citations) and §3.3 (multiple subdivisions) —
-//!   canonical subdivision-label grammar.
-//! - **GPO Style Manual, 31st ed. (2016)** §15.6 (citing U.S.
-//!   statutes) — federal-publishing parallel.
+//!   the parenthesized citation-rendering convention. LLM-checked (web).
 //! - **Wyner, Adam & Bench-Capon, Trevor (2007)** "Argument schemes
 //!   for legal case-based reasoning" *Proc. JURIX 2007*; and
 //!   **Wyner, Adam (2008)** "Towards Annotating and Extracting

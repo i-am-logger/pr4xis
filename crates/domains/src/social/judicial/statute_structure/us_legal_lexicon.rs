@@ -32,7 +32,7 @@
 //! - **Huddleston, Rodney & Geoffrey K. Pullum (2002)** *The
 //!   Cambridge Grammar of the English Language* Cambridge University
 //!   Press, Ch. 7 (adpositions), Ch. 19 §1.2 (productive prefixation)
-//!   and §1.4 (N+N compounding).
+//!   and §4 (N+N compounding).
 //! - **Bauer, Laurie (1983)** *English Word-Formation* Cambridge
 //!   University Press, Ch. 6 (productive prefixation and
 //!   compounding).
@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn axiom_productive_compounds_present() {
-        // Huddleston & Pullum 2002 Ch. 19 §1.4 — N+N compounds and
+        // Huddleston & Pullum 2002 Ch. 19 §4 — N+N compounds and
         // §1.2 — productive prefixed forms; appearing in U.S. Code
         // heading text.
         for comp in [

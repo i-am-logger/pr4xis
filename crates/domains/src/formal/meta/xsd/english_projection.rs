@@ -40,7 +40,7 @@
 //!    word identifiers (`ComplexType`, `import_loc`, `xs:any`) are
 //!    decomposed into content words via
 //!    [`split_identifier`] (Bauer 1983 ch.7 productive compounding +
-//!    Huddleston & Pullum 2002 Ch. 19 §1.4 N+N compounding) before
+//!    Huddleston & Pullum 2002 Ch. 19 §4 N+N compounding) before
 //!    resolution. The free-function shape lets the projection apply
 //!    to any name a loaded schema instance carries, while keeping the
 //!    type-level functor pure.
@@ -59,7 +59,7 @@
 //! - Bauer, L. (1983) *English Word-Formation*, Cambridge University
 //!   Press, Ch. 6 (productive prefixation and compounding).
 //! - Huddleston, R. & Pullum, G. K. (2002) *The Cambridge Grammar of
-//!   the English Language*, Cambridge University Press, Ch. 19 §1.4
+//!   the English Language*, Cambridge University Press, Ch. 19 §4
 //!   (N+N compounding).
 //! - Quirk, R., Greenbaum, S., Leech, G. & Svartvik, J. (1985) *A
 //!   Comprehensive Grammar of the English Language*, Longman.
@@ -552,7 +552,7 @@ pr4xis::functor! {
 ///
 /// Per Bauer (1983) ch.7 productive English derivation chains
 /// (prefixation + compounding) plus Huddleston & Pullum (2002)
-/// Ch. 19 §1.4 N+N compounding — multi-word identifiers in
+/// Ch. 19 §4 N+N compounding — multi-word identifiers in
 /// programming-language schemata are formed by exactly these
 /// productive patterns.
 pub fn split_identifier(name: &str) -> Vec<String> {

@@ -5,8 +5,9 @@
 //! U.S. statutory citation follows a stable hierarchy: a typical
 //! whistleblower cite reads "18 U.S.C. § 1514A(b)(2)(D)" — Title 18,
 //! Section 1514A, subsection (b), paragraph (2), subparagraph (D). The
-//! Bluebook §3 (the academic-publishing standard) and the GPO Style
-//! Manual §15.6 codify the level names.
+//! The subdivision level hierarchy is defined by the loaded USLM schema
+//! (the `<level>` element family); the Bluebook §3.3 codifies the
+//! parenthesized citation-rendering convention.
 //!
 //! # Concept partition
 //!
@@ -26,16 +27,18 @@
 //!
 //! # Literature
 //!
+//! - **USLM schema (Office of the Law Revision Counsel)** — the
+//!   subdivision `<level>` element hierarchy (subsection / paragraph /
+//!   subparagraph / clause / subclause / item). The machine-loaded
+//!   praxis source for the structure (machine-verified).
 //! - **The Bluebook: A Uniform System of Citation, 21st ed. (2020)**
 //!   §3.2 (pinpoint citations), §3.3 (multiple subdivisions) — the
-//!   academic-legal canonical standard.
-//! - **GPO Style Manual, 31st ed. (2016)** §15.6 (citing U.S. statutes)
-//!   — federal-publishing standard parallel to Bluebook.
-//! - **House Office of the Legislative Counsel (2017)** *House Legislative
-//!   Counsel's Manual on Drafting Style* §322 — Congressional standard
-//!   for nesting subsections / paragraphs / subparagraphs / clauses.
+//!   parenthesized citation-rendering convention. LLM-checked (web).
+//! - **House Office of the Legislative Counsel** *Manual on Drafting
+//!   Style* §312(a) — Congressional drafting convention for nesting
+//!   subsections / paragraphs / subparagraphs / clauses. LLM-checked (web).
 //! - **ALWD Guide to Legal Citation, 7th ed. (2021)** ch. 14 — alternate
-//!   practitioner citation standard.
+//!   practitioner citation standard. LLM-checked (web).
 
 pub mod ontology;
 

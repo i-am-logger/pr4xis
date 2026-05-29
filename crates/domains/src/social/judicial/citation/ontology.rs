@@ -10,7 +10,7 @@ use pr4xis::ontology::{Axiom, Ontology, Quality};
 
 pr4xis::ontology! {
     name: "PinpointCitation",
-    source: "The Bluebook: A Uniform System of Citation, 21st ed. (2020) §3.2 and §3.3; GPO Style Manual, 31st ed. (2016) §15.6; House Office of the Legislative Counsel (2017) Manual on Drafting Style §322; ALWD Guide to Legal Citation, 7th ed. (2021) ch. 14",
+    source: "United States Legislative Markup (USLM) schema, Office of the Law Revision Counsel — the subdivision <level> element hierarchy (subsection/paragraph/subparagraph/clause/subclause/item), the machine-loaded praxis source for the structure; The Bluebook: A Uniform System of Citation, 21st ed. (2020) §3.2 and §3.3 — the parenthesized citation-rendering convention (LLM-checked, web, print); House Office of the Legislative Counsel Manual on Drafting Style §312(a) — Congressional drafting convention (LLM-checked, web); ALWD Guide to Legal Citation, 7th ed. (2021) ch. 14 — practitioner standard (LLM-checked, web)",
 
     concepts: [
         // Root
@@ -142,7 +142,7 @@ impl Axiom for NestingDepthIsStrictTotalOrder {
     pr4xis::axiom_meta!(
         "NestingDepthIsStrictTotalOrder",
         "NestingDepth gives a strict order Title < Section < Subsection < Paragraph < Subparagraph < Clause",
-        "Bluebook §3.3 (21st ed., 2020); GPO Style Manual §15.6"
+        "USLM schema subdivision hierarchy (loaded praxis source); Bluebook §3.3 (21st ed., 2020) — citation-rendering convention"
     );
 }
 

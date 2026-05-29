@@ -28,9 +28,10 @@
 //! # Heading grammar (literature-grounded)
 //!
 //! - **House Legislative Counsel's Manual on Drafting Style (2017)**
-//!   §322 — federal-bill drafting convention for subsection headings.
-//! - **GPO Style Manual (2016)** §15.6 — official typography rules
-//!   for U.S. Code publication, including the `.--` separator.
+//!   §312(a) — federal-bill drafting convention for subsection headings.
+//!   LLM-checked (web).
+//! - The `.--` heading separator is observable directly in the loaded
+//!   USLM/USC heading text (machine-verified), not a style-guide claim.
 //! - **Wyner, Adam & Bench-Capon, Trevor (2007)** — structural
 //!   extraction from legal text grounded in heading detection.
 //!
