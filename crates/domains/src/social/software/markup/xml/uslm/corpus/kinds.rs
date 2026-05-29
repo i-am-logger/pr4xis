@@ -145,7 +145,7 @@ impl ContainerKind {
 /// USLM defines a strict nesting order: Subsection ⊐ Paragraph ⊐
 /// Subparagraph ⊐ Clause ⊐ Subclause ⊐ Item ⊐ Subitem. Each level
 /// uses a different numbering convention (a/b/c, 1/2/3, A/B/C,
-/// i/ii/iii, …) that Bluebook §3.3.4 formalizes for citation.
+/// i/ii/iii, …) that Bluebook §3.3 formalizes for citation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SubdivisionKind {
     Subsection,

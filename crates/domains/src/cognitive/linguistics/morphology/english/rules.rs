@@ -4,7 +4,7 @@
 //! the [`super::super::SemanticEffect`] the affix produces.
 //!
 //! Coverage is closed-class inflectional plus the highest-frequency
-//! productive derivational affixes documented in Bauer (1983) §6–§7
+//! productive derivational affixes documented in Bauer (1983) ch.7
 //! and Marchand (1969). The eventual replacement is a load from a
 //! derivational-variant database (CatVar — Habash & Dorr 2003;
 //! WordNet morphosemantic DB — Fellbaum et al. 2009); until then
@@ -115,7 +115,7 @@ pub fn english_rules() -> Vec<MorphologicalRule> {
             output_pos: PosTag::Noun,
             effect: SemanticEffect::QualityNoun,
         },
-        // ── Productive derivational affixes (Bauer 1983 §6.1, §6.2) ──
+        // ── Productive derivational affixes (Bauer 1983 ch.7) ──
         //
         // The `effect` field is an approximation: SemanticEffect lacks
         // dedicated variants for temporal-prefix and deverbal-abstract-
@@ -125,7 +125,7 @@ pub fn english_rules() -> Vec<MorphologicalRule> {
         // Inversion is text-only and unaffected by the labels.
         //
         // Temporal prefix pre-: "predispute" → "dispute".
-        // Bauer (1983) §6.1.6 "Locative/temporal prefixes".
+        // Bauer (1983) ch.7 (locative/temporal prefixes).
         MorphologicalRule {
             affix: Affix::Prefix(Prefix {
                 text: "pre".into(),
@@ -138,7 +138,7 @@ pub fn english_rules() -> Vec<MorphologicalRule> {
         // Negation prefix non-: "nonenforceability" → "enforceability".
         // Quirk, Greenbaum, Leech & Svartvik (1985) *A Comprehensive
         // Grammar of the English Language* §I.21 (negative prefixes);
-        // Bauer (1983) §6.1.2 "Negative prefixes". Productive on
+        // Bauer (1983) ch.7 (negative prefixes). Productive on
         // both nouns and adjectives in English; per the unique-affix
         // convention in this rule set, declared once with Noun POS
         // — the text-only inverter applies the same surgery
@@ -153,7 +153,7 @@ pub fn english_rules() -> Vec<MorphologicalRule> {
             effect: SemanticEffect::Negation,
         },
         // Deverbal abstract noun -ability: "waivability" → "waive".
-        // Bauer (1983) §6.2.2 "Nominalizations from verbs".
+        // Bauer (1983) ch.7 (nominalizations from verbs).
         MorphologicalRule {
             affix: Affix::Suffix(Suffix {
                 text: "ability".into(),

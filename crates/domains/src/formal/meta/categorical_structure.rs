@@ -92,12 +92,9 @@
 //!   + composition.
 //! - **Hofmann, M.; Pierce, B. C.; Wagner, D. (2011).** "Symmetric
 //!   Lenses". *POPL '11*. Explicit-complement symmetric lenses.
-//! - **Pacheco, H.; Cunha, A.; Hu, Z. (2014).** "Composable
-//!   Bidirectional Transformations". (Bidirectional transformation
-//!   composition.)
 //! - **Mac Lane, S. (1971).** *Categories for the Working
 //!   Mathematician*. Springer. §IV.1 adjunctions, §IV.4 equivalence.
 //! - **Grothendieck, A. (1971).** "Catégories fibrées et descente".
 //!   *SGA 1, Exposé VI*. Fibered categories.
 //! - **Jacobs, B. (1999).** *Categorical Logic and Type Theory*.
-//!   Elsevier. Ch. 1 fibrations; Ch. 5 indexed categories.
+//!   Elsevier. Ch. 1 fibred category theory; Ch. 9 advanced fibred categories.

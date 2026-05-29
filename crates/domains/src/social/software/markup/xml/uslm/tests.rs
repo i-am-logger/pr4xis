@@ -266,7 +266,7 @@ fn collect_ids_sub(d: &UsCodeSubdivision, out: &mut Vec<String>) {
 /// Axiom — every `<section>` has a non-empty `num` (the §-number).
 ///
 /// USLM Schema requires `<section>` to contain a `<num>` element.
-/// Per Bluebook §3.3.4 statutory subdivision marker convention, the §
+/// Per Bluebook §3.3 statutory subdivision marker convention, the §
 /// can't be cited without its number.
 fn axiom_every_section_has_num(title: &UsCodeTitle) -> Result<(), String> {
     for s in &title.sections {
@@ -299,7 +299,7 @@ fn axiom_every_section_has_num_on_real_slice() {
 /// Axiom — every container (Section + every nested Subdivision) has a
 /// non-empty USLM identifier URN.
 ///
-/// USLM Schema requires identifiers per ISO 32000-2 §3.3.4 + the LRC's
+/// USLM Schema requires identifiers per ISO 32000-2 §3.3 + the LRC's
 /// `/us/usc/...` URN convention. Without identifiers, cross-references
 /// can't resolve and the citation hierarchy collapses.
 fn axiom_every_container_has_identifier(title: &UsCodeTitle) -> Result<(), String> {
@@ -355,7 +355,7 @@ fn axiom_every_container_has_identifier_on_real_slice() {
 /// USLM uses hierarchical URN paths: `/us/usc/t18/s1514A/a/1/A` is a
 /// strict extension of `/us/usc/t18/s1514A/a/1`. The schema doesn't
 /// enforce this textually but the citation convention requires it
-/// (Bluebook §3.3.4).
+/// (Bluebook §3.3).
 fn axiom_child_identifier_extends_parent(title: &UsCodeTitle) -> Result<(), String> {
     for s in &title.sections {
         for child in &s.children {
@@ -5044,7 +5044,7 @@ fn uscodetitle_id_identifier_format_is_uslm_urn() {
 
 #[test]
 fn uscodetitle_id_short_citation_is_bluebook_form() {
-    // Bluebook 21st ed. Rule 12.3 — "18 U.S.C." (no trailing space).
+    // Bluebook 21st ed. Rule 12.1 — "18 U.S.C." (no trailing space).
     let id = UsCodeTitleId::try_from_number(18).unwrap();
     assert_eq!(id.short_citation(), "18 U.S.C.");
 }

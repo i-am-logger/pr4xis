@@ -5,7 +5,7 @@
 //! extends the [generic XML ontology](super) with **legislative**
 //! meaning — `<title>`, `<section>`, `<subsection>`,
 //! `<paragraph>`, `<subparagraph>`, `<clause>`, `<ref>`, etc.
-//! denote the structural units of a legal text per Bluebook §3.3.4
+//! denote the structural units of a legal text per Bluebook §3.3
 //! statutory subdivision conventions.
 //!
 //! ## Authoritative source

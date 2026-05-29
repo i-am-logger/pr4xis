@@ -1,6 +1,6 @@
 //! Structural invariants checked over a `ClauseTree`. Each function
 //! is a property of the tree the parser must produce, grounded in
-//! Bluebook §3.3.4 + Wyner & Bench-Capon (2007/2008) clause-structure
+//! Bluebook §3.3 + Wyner & Bench-Capon (2007/2008) clause-structure
 //! literature. Violations are returned as a flat `Vec<Violation>` so
 //! callers can present all issues at once rather than failing on the
 //! first.
@@ -161,7 +161,7 @@ pub fn roman_to_u32(s: &str) -> Option<u32> {
 // Invariant 2: PinpointCitesValidPerBluebook
 // ─────────────────────────────────────────────────────────────────────
 
-/// Every node's `PinpointCite` segments use Bluebook §3.3.4-valid
+/// Every node's `PinpointCite` segments use Bluebook §3.3-valid
 /// labels (alphanumeric only, non-empty) and the level-name
 /// progression respects depth (subsection < paragraph <
 /// subparagraph < clause).

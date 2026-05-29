@@ -27,7 +27,7 @@
 //! # Literature
 //!
 //! - **The Bluebook: A Uniform System of Citation, 21st ed. (2020)**
-//!   §3.2 (pinpoint citations), §3.3.4 (multiple subdivisions) — the
+//!   §3.2 (pinpoint citations), §3.3 (multiple subdivisions) — the
 //!   academic-legal canonical standard.
 //! - **GPO Style Manual, 31st ed. (2016)** §15.6 (citing U.S. statutes)
 //!   — federal-publishing standard parallel to Bluebook.
@@ -77,7 +77,7 @@ impl PinpointCite {
         self
     }
 
-    /// Parse a Bluebook-§3.3.4 subdivision string like "(b)(2)(D)" or
+    /// Parse a Bluebook-§3.3 subdivision string like "(b)(2)(D)" or
     /// "(a)(1)(A)(ii)" into a citation. Returns segments tagged
     /// `Subsection` / `Paragraph` / `Subparagraph` / `Clause` according
     /// to position (outermost = Subsection).

@@ -155,7 +155,7 @@ impl UsCodeTitleId {
     /// Bluebook short citation form ("18 U.S.C.").
     ///
     /// Citation: The Bluebook: A Uniform System of Citation, 21st
-    /// ed., Rule 12.3 (Statutory Citations). This is the English
+    /// ed., Rule 12.1 (Basic Citation Forms) + Table T1.1. This is the English
     /// noun-phrase projection — the output is English text that
     /// downstream NLP can lemmatize / tokenize.
     pub fn short_citation(&self) -> String {

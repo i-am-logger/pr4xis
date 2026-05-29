@@ -39,7 +39,7 @@
 //!    (which already lemmatises and looks up against WordNet). Multi-
 //!    word identifiers (`ComplexType`, `import_loc`, `xs:any`) are
 //!    decomposed into content words via
-//!    [`split_identifier`] (Bauer 1983 §6.5 productive compounding +
+//!    [`split_identifier`] (Bauer 1983 ch.7 productive compounding +
 //!    Huddleston & Pullum 2002 Ch. 19 §1.4 N+N compounding) before
 //!    resolution. The free-function shape lets the projection apply
 //!    to any name a loaded schema instance carries, while keeping the
@@ -550,7 +550,7 @@ pr4xis::functor! {
 ///
 /// All output tokens are lower-cased. Empty tokens are dropped.
 ///
-/// Per Bauer (1983) §6.5 productive English derivation chains
+/// Per Bauer (1983) ch.7 productive English derivation chains
 /// (prefixation + compounding) plus Huddleston & Pullum (2002)
 /// Ch. 19 §1.4 N+N compounding — multi-word identifiers in
 /// programming-language schemata are formed by exactly these

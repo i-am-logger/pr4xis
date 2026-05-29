@@ -27,7 +27,7 @@
 //!
 //! # What's parsed
 //!
-//! The parser recognises **Bluebook §3.3.4 subdivision markers**:
+//! The parser recognises **Bluebook §3.3 subdivision markers**:
 //! `(a)`, `(1)`, `(A)`, `(i)`, `(I)`. Depths follow the canonical
 //! convention — lowercase letter → arabic numeral → uppercase letter
 //! → lowercase roman → uppercase roman. Disambiguation between
@@ -43,7 +43,7 @@
 //! # Literature
 //!
 //! - **The Bluebook: A Uniform System of Citation, 21st ed. (2020)**
-//!   §3.2 (pinpoint citations) and §3.3.4 (multiple subdivisions) —
+//!   §3.2 (pinpoint citations) and §3.3 (multiple subdivisions) —
 //!   canonical subdivision-label grammar.
 //! - **GPO Style Manual, 31st ed. (2016)** §15.6 (citing U.S.
 //!   statutes) — federal-publishing parallel.
@@ -63,7 +63,7 @@
 //! from `judicial::source_text`). The clause-tree shape itself is
 //! data, not a new ontology. The seven structural invariants checked
 //! in [`invariants`] are property-style checks over instances — they
-//! verify the parser's output conforms to Bluebook §3.3.4 + Wyner's
+//! verify the parser's output conforms to Bluebook §3.3 + Wyner's
 //! clause-structure rules, but don't introduce new conceptual layers.
 
 pub mod bridge;

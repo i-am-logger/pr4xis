@@ -2,7 +2,7 @@
 //!
 //! See `mod.rs` for the literature and pipeline position. The parser
 //! is a single-pass stack-based algorithm: scan the input for
-//! Bluebook §3.3.4 subdivision markers, infer each marker's kind +
+//! Bluebook §3.3 subdivision markers, infer each marker's kind +
 //! depth, and assemble a tree where each marker becomes a clause
 //! node and text between markers becomes the body of the most
 //! recently opened node.
@@ -42,7 +42,7 @@ pub struct ClauseTree {
     pub root: ClauseNode,
 }
 
-/// Bluebook §3.3.4 label kinds, in canonical order of depth.
+/// Bluebook §3.3 label kinds, in canonical order of depth.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LabelKind {
     /// `(a)`, `(b)`, ... — depth 1 — `Subsection`.

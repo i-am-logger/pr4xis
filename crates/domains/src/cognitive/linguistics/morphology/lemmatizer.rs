@@ -172,7 +172,7 @@ pub fn lemmatize(surface: &str, language: Language) -> Vec<Form> {
     //
     // Iteration is bounded: each pass either grows the candidate
     // set or stops. With ≤2 prefixes and ≤4 suffixes typically
-    // chained per legal-text derivation (Bauer §6.5), 4 passes is
+    // chained per legal-text derivation (Bauer ch.7), 4 passes is
     // a hard cap that captures all real chains without unbounded
     // growth.
     let allomorphy = language.allomorphy_rules();

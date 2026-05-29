@@ -609,7 +609,7 @@ pub struct UsCodeAmendmentMarkup {
 // without further code change.
 //
 // Citation: LRC, *USLM XML User Guide* (USLM-1.0.15.xsd), § "Lexical
-// Elements"; Bluebook § 3.3 ("Statutes") for the standard
+// Elements"; Bluebook § 3.3 ("Sections and Paragraphs") for the standard
 // convention that defined terms in statutes are introduced with the
 // formula "the term … means …".
 // ---------------------------------------------------------------------------

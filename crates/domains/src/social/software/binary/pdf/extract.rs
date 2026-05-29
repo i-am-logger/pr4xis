@@ -11,7 +11,7 @@
 //! 3. Collect graphics events through Phase 5
 //!    ([`super::flagged::flag_page`]) so non-text content is
 //!    surfaced, never silently dropped.
-//! 4. (Optional) Apply Bluebook §3.3.4 statute-section slicing
+//! 4. (Optional) Apply Bluebook §3.3 statute-section slicing
 //!    via [`slice_to_section`] — given a page's full text and a
 //!    Bluebook citation prefix (e.g. `"§ 1514A"`), return only
 //!    the bytes between this section's header and the next
@@ -27,7 +27,7 @@
 //! Spec references:
 //!
 //! - ISO 32000-2:2020 §9 — text rendering pipeline.
-//! - Bluebook §3.3.4 — statute subdivision marker grammar (used
+//! - Bluebook §3.3 — statute subdivision marker grammar (used
 //!   by [`slice_to_section`]).
 
 #[allow(unused_imports)]
@@ -272,7 +272,7 @@ fn decode_event(
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Bluebook §3.3.4 — section-boundary slicing
+// Bluebook §3.3 — section-boundary slicing
 // ─────────────────────────────────────────────────────────────────────
 
 /// Slice the input text down to a single statutory section.
@@ -285,7 +285,7 @@ fn decode_event(
 /// (but not including) the *next* `§ ` marker that isn't a
 /// subsection-internal pinpoint of the same section.
 ///
-/// Per Bluebook §3.3.4, statute sections are marked by `§ N`
+/// Per Bluebook §3.3, statute sections are marked by `§ N`
 /// followed by a period or whitespace, with subsection pinpoints
 /// like `§ N(a)(1)` continuing within the same section. We
 /// detect the next section by looking for `§ ` followed by a
@@ -477,7 +477,7 @@ mod tests {
         }
     }
 
-    // ── Section-boundary slicing (Bluebook §3.3.4) ───────────────
+    // ── Section-boundary slicing (Bluebook §3.3) ───────────────
 
     #[test]
     fn slice_to_section_returns_section_body() {

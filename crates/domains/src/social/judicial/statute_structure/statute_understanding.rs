@@ -282,7 +282,7 @@ pub fn resolve_legal_role(term_name: &str, usc: &UsCode) -> Option<Identifier> {
 ///   digit, with ≥1 alphabetic character; e.g. "SOX", "AIR21", "SEC").
 /// - **Section markers** (≥3 chars, ASCII alphanumeric + hyphens,
 ///   ≥1 digit; e.g. "1514A", "42121", "78j-1", "1514") per Bluebook
-///   §3.3.4 statute-citation conventions.
+///   §3.3 statute-citation conventions.
 /// - **Loaded legal-lexicon entries** (citation abbreviations, month
 ///   names, federal-agency acronyms, U.S. state / place names,
 ///   English productive compounds, legal terms-of-art) — see
@@ -321,7 +321,7 @@ pub fn is_statutory_term_of_art(lemma: &str) -> bool {
     // Section-marker (e.g. "1514A", "78j-1", "42121", "1514"):
     // ASCII alphanumeric + hyphens, ≥1 digit, ≥3 chars total.
     // Pure-digit tokens of length ≥3 qualify as section numbers
-    // (per Bluebook §3.3.4 statute-citation conventions, USC
+    // (per Bluebook §3.3 statute-citation conventions, USC
     // sections are referenced by their numeric identifier whether
     // or not they carry a letter suffix).
     let mut has_digit = false;
@@ -506,7 +506,7 @@ mod tests {
         assert!(is_statutory_term_of_art("1514A"));
         assert!(is_statutory_term_of_art("42121"));
         assert!(is_statutory_term_of_art("78j-1"));
-        // Pure-digit section numbers also qualify (Bluebook §3.3.4
+        // Pure-digit section numbers also qualify (Bluebook §3.3
         // citation conventions).
         assert!(is_statutory_term_of_art("1514"));
         // Pure-alpha lowercase doesn't qualify — that's normal text.

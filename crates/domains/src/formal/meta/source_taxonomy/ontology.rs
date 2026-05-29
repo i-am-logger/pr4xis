@@ -69,7 +69,7 @@ pr4xis::ontology! {
         Statute: ("en", "Statute",
             "Hart (1961) primary rule: a legislative enactment binding within its jurisdiction. Jurisdiction-agnostic parent; instances declare a specific leaf (UsFederalStatute, …)."),
         UsFederalStatute: ("en", "U.S. federal statute",
-            "A Title-of-the-U.S.-Code section enacted by Congress, structured per House Legislative Counsel's Manual on Drafting Style (2017) and cited per Bluebook §3.3.4 (e.g., 18 U.S.C. § 1514A, 49 U.S.C. § 42121)."),
+            "A Title-of-the-U.S.-Code section enacted by Congress, structured per House Legislative Counsel's Manual on Drafting Style (2017) and cited per Bluebook §3.3 (e.g., 18 U.S.C. § 1514A, 49 U.S.C. § 42121)."),
         UsCodeTitle: ("en", "U.S. Code title",
             "A whole Title of the United States Code (e.g., Title 18 — Crimes and Criminal Procedure) as published by the LRC in USLM XML per 1 U.S.C. § 204. Container for one or more UsFederalStatute sections; the LRC's per-title XML zip is its authoritative publication unit (uscode.house.gov/download/)."),
         Regulation: ("en", "Regulation",
