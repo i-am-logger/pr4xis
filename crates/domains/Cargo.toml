@@ -88,6 +88,14 @@ default = ["std"]
 # loader). The categorical stack (ontologies + functors + axioms) runs
 # no_std + alloc; per issue #91, only these 4 I/O surfaces need std.
 std = ["pr4xis/std"]
+# Build-time / test-only code-generation surface. Turns on `pr4xis`'s
+# `codegen` feature so modules like
+# `social::software::markup::xml::owl::owl_vocabulary` (OWL vocabulary →
+# `pr4xis::codegen::CodegenData`) can reach `pr4xis::codegen`. Off the
+# normal (WASM-facing) build because `pr4xis/codegen` pulls `xsd-parser`,
+# which can't build for wasm32; build.rs and tests get it via the
+# `[build-dependencies]` / `[dev-dependencies]` `codegen` entries.
+codegen = ["std", "pr4xis/codegen"]
 fetch = ["std", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto", "dep:flate2"]
 # `pdf` enables the runtime PDF reader (social/software/binary/pdf/reader)
 # that materializes typed PdfDocument values from byte streams. The
