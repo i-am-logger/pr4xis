@@ -71,8 +71,16 @@ fn handle_request(root: &Path, request: tiny_http::Request) {
         workspace.join("crates/wasm/pkg").join(rest)
     } else if let Some(rest) = rel.strip_prefix("sources/") {
         // /sources/* → authoritative source documents staged by build.rs
-        // (USLM XML), downloaded + parsed into a live ontology at runtime
+        // (USLM XML, OWL vocabulary sources), downloaded + parsed into a
+        // live ontology at runtime
         workspace.join("crates/wasm/sources").join(rest)
+    } else if let Some(rest) = rel.strip_prefix("ontologies/") {
+        // /ontologies/* → `.prx.gz` distribution envelopes emitted by the
+        // `emit_prx` example (CI's `pages` job invokes the same emitter
+        // into `pages/ontologies/`). Locally, stage them into
+        // `crates/wasm/ontologies/` to exercise the dual-load click-to-load
+        // path against a real wasm-validated `.prx.gz`.
+        workspace.join("crates/wasm/ontologies").join(rest)
     } else if rel == "decks/technical"
         || rel == "decks/technical/"
         || rel == "decks/technical/index.html"
@@ -309,6 +317,10 @@ fn mime_for_path(path: &Path) -> &'static str {
         Some("mp4") => "video/mp4",
         Some("ico") => "image/x-icon",
         Some("txt" | "md") => "text/plain",
+        // `.prx.gz`: gzipped rkyv envelope. Served as opaque binary; the
+        // wasm gate handles gunzip + bytecheck + hash-validate.
+        Some("gz") => "application/gzip",
+        Some("owl") => "application/rdf+xml",
         _ => "application/octet-stream",
     }
 }

@@ -436,21 +436,94 @@
       }
     }
 
+    // Load a registered OWL vocabulary via one of its two routes — the
+    // hash-validated `.prx.gz` distribution envelope or the authoritative
+    // `.owl` source. The two paths share UI; only the worker RPC differs.
+    // `kind` is 'prx' or 'source' — drives the RPC and the response decoder
+    // (binary ArrayBuffer for .prx.gz; text for .owl).
+    async function loadOntology(kind, meta, card, topRow) {
+      const rpc = kind === 'prx' ? 'load_prx' : 'load_owl_source';
+      const url = kind === 'prx' ? meta.prx_url : meta.source_url;
+      const phaseLabel = kind === 'prx' ? 'Loading .prx' : 'Loading source';
+      // Take both ontology buttons offline for the duration of the load —
+      // the worker holds one ontology by name, so a second concurrent
+      // load on the same row would race the install.
+      for (const b of topRow.querySelectorAll('.load-btn')) b.remove();
+
+      const prog = document.createElement('div');
+      prog.className = 'progress';
+      prog.innerHTML =
+        `<div class="progress-head"><span class="progress-phase">${phaseLabel}…</span>` +
+        '<span class="progress-detail"></span></div>' +
+        '<div class="progress-track"><div class="progress-fill"></div></div>';
+      card.appendChild(prog);
+      const phase = prog.querySelector('.progress-phase');
+      const detail = prog.querySelector('.progress-detail');
+      const fill = prog.querySelector('.progress-fill');
+
+      try {
+        await call(rpc, { name: meta.name, version: meta.version, url }, (m) => {
+          if (m.phase === 'download') {
+            const total = m.total || 0;
+            if (total) {
+              const pct = Math.min(100, Math.round((m.received / total) * 100));
+              fill.style.width = pct + '%';
+              detail.textContent = `${fmtMB(m.received)} / ${fmtMB(total)} · ${pct}%`;
+            } else {
+              detail.textContent = fmtMB(m.received);
+            }
+          } else if (m.phase === 'parse') {
+            phase.textContent = 'Materializing…';
+            detail.textContent = `${fmtMB(m.received)} · parsing into a live ontology`;
+            fill.classList.add('indeterminate');
+            fill.style.width = '';
+          }
+        });
+
+        prog.classList.add('done');
+        phase.textContent = 'Loaded';
+        detail.textContent = '';
+        await new Promise(r => setTimeout(r, 280));
+        await renderDashboard();
+      } catch (e) {
+        // Surface the wasm error verbatim (fail-closed: a tampered .prx.gz
+        // is rejected by `load_prx`'s embedded source-hash gate; this is
+        // where the gate's verdict reaches the operator).
+        prog.classList.add('progress-err');
+        phase.textContent = 'Failed';
+        detail.classList.add('progress-err');
+        detail.textContent = String(e).slice(0, 140);
+        console.error(`${rpc} failed:`, e);
+        const retry = document.createElement('button');
+        retry.className = 'load-btn';
+        retry.textContent = 'Retry';
+        retry.addEventListener('click', () => { prog.remove(); loadOntology(kind, meta, card, topRow); });
+        topRow.appendChild(retry);
+      }
+    }
+
     // The self-model page: a flat catalog of every registered source
     // (Loaded vs Available) + the substrate ontologies. Rendered purely
     // from what the runtime reports — no source-specific knowledge here.
     async function renderDashboard() {
       const dash = document.getElementById('about');
-      let data, sources_avail;
+      let data, sources_avail, ontologies_avail;
       try {
         data = JSON.parse(await call('self_describe'));
         sources_avail = JSON.parse(await call('available_sources')).sources || [];
+        ontologies_avail = JSON.parse(await call('available_ontologies')).ontologies || [];
       } catch (e) {
         dash.innerHTML = `<div class="message info" style="color:#f85149;">self_describe parse error: ${e}</div>`;
         return;
       }
       const sourceByName = new Map(sources_avail.map(a => [a.name, a]));
-      const sources = data.sources || [];
+      const ontologyByName = new Map(ontologies_avail.map(o => [o.name, o]));
+      // Sources catalog: USC titles etc. OWL vocabularies appear in the
+      // catalog too (registered SourceTaxonomy=OntologyVocabulary) — they
+      // get their own dual-load section below, so suppress them here to
+      // avoid duplicating the row.
+      const sources = (data.sources || []).filter(s => s.kind !== 'OntologyVocabulary');
+      const ontologyCatalog = (data.sources || []).filter(s => s.kind === 'OntologyVocabulary');
       const ontologies = data.ontologies || [];
 
       dash.innerHTML = '';
@@ -570,6 +643,94 @@
         grid.querySelectorAll('.source-card').forEach(c =>
           c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none');
       });
+
+      // ---- OWL vocabularies (dual-load: .prx.gz OR .owl source) ----
+      // Two routes for the same target: the hash-validated `.prx.gz`
+      // distribution envelope (re-checked against the embedded lock pin) or
+      // the authoritative `.owl` source. Same UX as Sources; two buttons
+      // per row instead of one. Driven entirely by what
+      // `available_ontologies` reports — no per-vocabulary knowledge here.
+      if (ontologyCatalog.length) {
+        const ontTitle = document.createElement('div');
+        ontTitle.className = 'section-title';
+        ontTitle.textContent = 'Ontologies — load .prx (hash-validated) or .owl source';
+        dash.appendChild(ontTitle);
+
+        const ontGrid = document.createElement('div');
+        ontGrid.className = 'source-grid';
+        dash.appendChild(ontGrid);
+
+        const orderedOnt = [...ontologyCatalog].sort((a, b) =>
+          (a.availability === b.availability ? a.name.localeCompare(b.name) : (a.availability === 'loaded' ? -1 : 1)));
+
+        for (const s of orderedOnt) {
+          const loaded = s.availability === 'loaded';
+          const card = document.createElement('div');
+          card.className = `source-card ${loaded ? 'loaded' : 'available'}`;
+          card.dataset.ontology = s.name;
+
+          const top = document.createElement('div');
+          top.className = 'row';
+          const nm = document.createElement('span');
+          nm.className = 'name';
+          nm.textContent = s.name;
+          top.appendChild(nm);
+          const badge = document.createElement('span');
+          badge.className = `badge ${loaded ? 'badge-loaded' : 'badge-available'}`;
+          badge.textContent = s.availability;
+          top.appendChild(badge);
+          if (loaded && s.staging) {
+            const sb = document.createElement('span');
+            sb.className = 'badge badge-staging';
+            sb.textContent = s.staging;
+            top.appendChild(sb);
+          }
+          // Dual-load action: only where a `.prx.gz` is published AND a
+          // .owl source is staged (i.e. the vocab appears in
+          // available_ontologies). Otherwise no Load — the catalog row
+          // is still rendered.
+          if (!loaded && ontologyByName.has(s.name)) {
+            const meta = ontologyByName.get(s.name);
+            const prxBtn = document.createElement('button');
+            prxBtn.className = 'load-btn';
+            prxBtn.dataset.loadPrx = s.name;
+            prxBtn.textContent = 'Load .prx';
+            prxBtn.title = meta.prx_url;
+            prxBtn.addEventListener('click', () => loadOntology('prx', meta, card, top));
+            top.appendChild(prxBtn);
+
+            const srcBtn = document.createElement('button');
+            srcBtn.className = 'load-btn';
+            srcBtn.style.background = '#6e7681';
+            srcBtn.dataset.loadSource = s.name;
+            srcBtn.textContent = 'Load source';
+            srcBtn.title = meta.source_url;
+            srcBtn.addEventListener('click', () => loadOntology('source', meta, card, top));
+            top.appendChild(srcBtn);
+          }
+          card.appendChild(top);
+
+          const kind = document.createElement('div');
+          kind.className = 'kind';
+          kind.textContent = `${s.kind || ''}${s.version ? ' · ' + s.version : ''}`;
+          card.appendChild(kind);
+
+          if (loaded && (s.concepts || s.morphisms)) {
+            const counts = document.createElement('div');
+            counts.className = 'counts';
+            counts.textContent = `${(s.concepts || 0).toLocaleString()} entities · ${(s.morphisms || 0).toLocaleString()} morphisms`;
+            card.appendChild(counts);
+          }
+
+          if (s.source || s.citation) {
+            const cite = document.createElement('div');
+            cite.className = 'cite';
+            cite.textContent = s.source || s.citation;
+            card.appendChild(cite);
+          }
+          ontGrid.appendChild(card);
+        }
+      }
 
       // ---- Substrate ontologies (flat, filterable) ----
       if (ontologies.length) {

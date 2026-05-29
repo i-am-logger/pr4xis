@@ -163,6 +163,16 @@ jobs:
         run: |
           cd crates/wasm
           wasm-pack build --target web --release
+      # Emit `.prx.gz` artifacts the wasm dual-load click-to-load path
+      # needs. pr4xis-web serves `crates/wasm/ontologies/` at
+      # `/ontologies/`, mirroring the Pages tree the release job assembles
+      # (`pages/ontologies/`). The same emitter runs in both — it walks the
+      # registry, reads each bundled `.owl`, and round-trip-validates every
+      # artifact through the fail-closed load gate.
+      - name: Emit .prx.gz ontology artifacts (for /ontologies/ click-to-load)
+        run: |
+          mkdir -p crates/wasm/ontologies
+          cargo run -p pr4xis-domains --features "fetch codegen" --example emit_prx -- crates/wasm/ontologies
       # Firefox + geckodriver are preinstalled on ubuntu-latest. Server,
       # driver and the fantoccini test all run in ONE step — a process
       # backgrounded in one Actions step is killed when that step ends.

@@ -30,6 +30,9 @@ crates/wasm/sources/
 # committed (rkyv wire layout is toolchain-dependent; the canonical source
 # of truth stays the bundled .owl + its praxis.lock pin).
 dist/
+# E2E click-to-load staging: same `.prx.gz` artifacts, emitted into the
+# pr4xis-web tree so the local/CI dual-load test has them at /ontologies/.
+crates/wasm/ontologies/
 
 # Managed external data — fetched via `pr4xis update`, never committed
 crates/domains/data/wordnet/*.xml

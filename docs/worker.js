@@ -42,6 +42,14 @@ self.onmessage = async (e) => {
         await loadSource(id, args.name, args.url, args.totalHint);
         reply(id, null);
         break;
+      case 'load_prx':
+        await loadPrx(id, args.name, args.version, args.url);
+        reply(id, null);
+        break;
+      case 'load_owl_source':
+        await loadOwlSource(id, args.name, args.url);
+        reply(id, null);
+        break;
       default:
         fail(id, `unknown message type: ${type}`);
     }
@@ -87,4 +95,53 @@ async function loadSource(id, name, url, totalHint) {
   // Parse phase runs here, in the worker — no main-thread freeze.
   self.postMessage({ id, status: 'progress', phase: 'parse', received, total });
   pr4xis.load_source(name, xml); // → live UsCode (throws on malformed XML)
+}
+
+// Stream the `.prx.gz` distribution envelope (binary), then hand the raw
+// bytes to `load_prx`. The wasm gate gunzips, bytecheck-validates the rkyv
+// envelope, and asserts the embedded source-hash matches the praxis.lock
+// pin baked into the build — fail-closed (throws JsValue on any mismatch).
+async function loadPrx(id, name, version, url) {
+  const buf = await streamBinary(id, url);
+  // Switch to the materialisation phase BEFORE the gate runs (gunzip +
+  // bytecheck + rkyv access are the visible work).
+  self.postMessage({ id, status: 'progress', phase: 'parse', received: buf.length, total: buf.length });
+  pr4xis.load_prx(name, version, buf); // throws JsValue on validate fail
+}
+
+// Stream the authoritative `.owl` source (text) and parse via the pure-Rust
+// OWL reader. No embedded hash on this leg — trust rests on the host having
+// fetched from the pinned source URL.
+async function loadOwlSource(id, name, url) {
+  const buf = await streamBinary(id, url);
+  self.postMessage({ id, status: 'progress', phase: 'parse', received: buf.length, total: buf.length });
+  const xml = new TextDecoder('utf-8').decode(buf);
+  pr4xis.load_owl_source(name, xml); // throws JsValue on malformed OWL
+}
+
+// Shared streaming download — reports `download` progress every chunk and
+// returns the concatenated bytes. Identical to the body of `loadSource`'s
+// download leg, factored out so the two ontology loaders post the same
+// progress messages the meta page already knows how to render.
+async function streamBinary(id, url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status} fetching ${url}`);
+  const total = parseInt(resp.headers.get('content-length') || '0', 10);
+  const reader = resp.body.getReader();
+  const chunks = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    self.postMessage({ id, status: 'progress', phase: 'download', received, total });
+  }
+  const buf = new Uint8Array(received);
+  let off = 0;
+  for (const c of chunks) {
+    buf.set(c, off);
+    off += c.length;
+  }
+  return buf;
 }
