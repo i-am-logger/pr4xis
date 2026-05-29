@@ -34,6 +34,14 @@ in
     # multiply mutation-testing speed (cargo-mutants per-mutant
     # cycle is dominated by test runtime).
     pkgs.cargo-nextest
+    # Browser + WebDriver for the Rust-native wasm/web test layers (no
+    # Node): `dev-test-wasm` (wasm-pack test --headless --firefox) and
+    # `dev-e2e` (the crates/e2e fantoccini test) both drive a headless
+    # Firefox via geckodriver. curl polls the web server + driver in
+    # `dev-e2e` before the test runs.
+    pkgs.firefox
+    pkgs.geckodriver
+    pkgs.curl
   ];
 
   # Development scripts
@@ -79,6 +87,10 @@ in
     RUSTFLAGS="-D warnings" cargo test --workspace --quiet || { echo "FAILED: test"; exit 1; }
     echo "=== wasm check ==="
     RUSTFLAGS="-D warnings" cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet || { echo "FAILED: wasm check"; exit 1; }
+    echo "=== wasm browser tests ==="
+    dev-test-wasm || { echo "FAILED: wasm browser tests"; exit 1; }
+    echo "=== e2e (Rust WebDriver) ==="
+    dev-e2e || { echo "FAILED: e2e"; exit 1; }
     echo "=== ALL PASSED ==="
   '';
 
@@ -92,6 +104,34 @@ in
     cd crates/wasm
     wasm-pack build --target web --release
     echo "WASM ready at crates/wasm/pkg/"
+  '';
+
+  # Rust-native wasm browser tests (no Node): wasm-bindgen-test driven by
+  # geckodriver + headless Firefox. Covers crates/wasm/tests/web.rs.
+  scripts.dev-test-wasm.exec = ''
+    echo "Running wasm-bindgen browser tests (headless Firefox)..."
+    cd crates/wasm
+    wasm-pack test --headless --firefox
+  '';
+
+  # Rust-native end-to-end click-through (no Node): build the wasm + stage
+  # /sources, start pr4xis-web + geckodriver, then run the crates/e2e
+  # fantoccini test which opens the page, clicks Load, and asserts the
+  # source flips to Loaded. Server + driver are torn down on exit.
+  scripts.dev-e2e.exec = ''
+    echo "Building WASM (stages /sources)..."
+    dev-wasm
+    echo "Starting pr4xis-web + geckodriver..."
+    cargo run -p pr4xis-web 3000 &
+    WEB=$!
+    geckodriver --port 4444 &
+    GECKO=$!
+    cleanup() { kill "$WEB" "$GECKO" 2>/dev/null || true; }
+    trap cleanup EXIT
+    for _ in $(seq 1 90); do curl -sf http://localhost:3000/ >/dev/null 2>&1 && break; sleep 1; done
+    for _ in $(seq 1 30); do curl -sf http://localhost:4444/status >/dev/null 2>&1 && break; sleep 1; done
+    echo "Running Rust WebDriver E2E..."
+    ( cd crates/e2e && cargo run )
   '';
 
   # Bump every direct dep in every Cargo.toml to its latest published version
