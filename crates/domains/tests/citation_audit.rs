@@ -24,6 +24,15 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
+use pr4xis_domains::formal::meta::citation_quality::assessment::{
+    CitationVerdict, DimensionStatus,
+};
+use pr4xis_domains::formal::meta::citation_quality::ontology::CitationQualityConcept;
+use pr4xis_domains::formal::meta::citation_quality::record_lens::CitationAssessment;
+use pr4xis_domains::formal::meta::citation_quality::registry_projection::{
+    EntryFields, VersionFiber, project_entry,
+};
+
 // ---------------------------------------------------------------------
 // Registry schema (deserialised from citations.toml)
 // ---------------------------------------------------------------------
@@ -134,6 +143,83 @@ fn load_registry() -> Registry {
     let text =
         fs::read_to_string(citations_toml_path()).expect("citations.toml exists at workspace root");
     toml::from_str(&text).expect("citations.toml parses as TOML with the registry schema")
+}
+
+// ---------------------------------------------------------------------
+// Projection: a deserialised registry `Citation` → the citation_quality
+// module's typed `EntryFields` view. Computes field-presence here so the
+// projection logic in the module stays independent of this test's
+// deserialisation schema. Each presence rule mirrors the dimension
+// mapping documented in `registry_projection`.
+// ---------------------------------------------------------------------
+
+fn nonempty(s: &str) -> bool {
+    !s.trim().is_empty()
+}
+
+fn entry_fields(entry: &Citation) -> EntryFields {
+    let has_year = entry.year.is_some();
+    EntryFields {
+        has_authors: nonempty(&entry.authors),
+        has_title: nonempty(&entry.title),
+        has_publisher: nonempty(&entry.publisher),
+        has_year,
+        // Existence identifier: a year, DOI, URL, or ISBN locates the work.
+        has_identifier: has_year
+            || nonempty(&entry.doi)
+            || nonempty(&entry.url)
+            || nonempty(&entry.isbn),
+        has_section_or_page: nonempty(&entry.section_or_page),
+        has_content_summary: nonempty(&entry.content_summary),
+        has_verified_by: nonempty(&entry.verified_by),
+        has_claim: nonempty(&entry.claim),
+        verification_method: entry.verification_method.clone(),
+        versions: entry
+            .versions
+            .iter()
+            .map(|v| VersionFiber {
+                has_locator: nonempty(&v.section_or_page),
+                is_verified: nonempty(&v.verified_by),
+                // A fiber's identifier is its own year or url (the work's
+                // version-located identity).
+                has_identifier: v.year.is_some() || nonempty(&v.url),
+            })
+            .collect(),
+    }
+}
+
+fn project(entry: &Citation) -> CitationAssessment {
+    project_entry(&entry_fields(entry))
+}
+
+/// The names of the dimensions a projected assessment leaves
+/// `Unverified`, paired with whether each is a sound-gate (blocking)
+/// dimension — for the report. Ordered by severity (sound-gate first)
+/// so the most important gaps print first. The concept column ties each
+/// name to its `CitationQualityConcept` grounding.
+fn unverified_dimensions(a: &CitationAssessment) -> Vec<(&'static str, bool)> {
+    use CitationQualityConcept as C;
+    use pr4xis_domains::formal::meta::citation_quality::ontology::is_sound_gate;
+    let pairs = [
+        (C::Existence, a.existence, "Existence"),
+        (C::ClaimSupport, a.claim_support, "ClaimSupport"),
+        (C::LocatorAccuracy, a.locator_accuracy, "LocatorAccuracy"),
+        (
+            C::BibliographicAccuracy,
+            a.bibliographic_accuracy,
+            "BibliographicAccuracy",
+        ),
+        (
+            C::FormatConformance,
+            a.format_conformance,
+            "FormatConformance",
+        ),
+    ];
+    pairs
+        .iter()
+        .filter(|(_, status, _)| *status == DimensionStatus::Unverified)
+        .map(|(concept, _, name)| (*name, is_sound_gate(*concept)))
+        .collect()
 }
 
 // ---------------------------------------------------------------------
@@ -267,7 +353,13 @@ fn walk_rust_files(root: &Path, out: &mut Vec<PathBuf>) {
 
 #[derive(Default, Debug)]
 struct AuditReport {
-    unverified: Vec<String>,               // slug
+    // Typed dimensional verdicts. `invalid` is a hard failure (a
+    // blocking dimension — Existence or ClaimSupport — is Unverified);
+    // `with_issues` is informational (a non-blocking dimension is
+    // Unverified). Each carries the offending dimension names.
+    invalid: Vec<(String, Vec<&'static str>)>, // slug, blocking dimensions
+    with_issues: Vec<(String, Vec<&'static str>)>, // slug, non-blocking dimensions
+    valid_count: usize,
     missing_slugs: Vec<(String, PathBuf)>, // slug, file
     freeform_count: usize,
     freeform_examples: Vec<(PathBuf, usize, String)>, // first ~5
@@ -275,7 +367,7 @@ struct AuditReport {
 
 impl AuditReport {
     fn has_failures(&self) -> bool {
-        !self.unverified.is_empty() || !self.missing_slugs.is_empty()
+        !self.invalid.is_empty() || !self.missing_slugs.is_empty()
     }
 }
 
@@ -283,21 +375,47 @@ fn render_report(report: &AuditReport) -> String {
     let mut s = String::new();
     s.push_str("\n=== Praxis citation audit ===\n\n");
 
-    if !report.unverified.is_empty() {
+    // Per-verdict distribution over the registry (the typed gate).
+    s.push_str(&format!(
+        "Verdict distribution over {} registry entries:\n\
+         \x20 Valid           : {}\n\
+         \x20 ValidWithIssues : {}\n\
+         \x20 Invalid         : {}\n\n",
+        report.valid_count + report.with_issues.len() + report.invalid.len(),
+        report.valid_count,
+        report.with_issues.len(),
+        report.invalid.len(),
+    ));
+
+    if !report.invalid.is_empty() {
         s.push_str(&format!(
-            "FAIL: {} citation entries are unverified (verified_by = \"\"):\n",
-            report.unverified.len()
+            "FAIL: {} citation entr(y/ies) are Invalid — a blocking\n\
+             dimension (Existence or ClaimSupport) is Unverified:\n",
+            report.invalid.len()
         ));
-        for slug in &report.unverified {
-            s.push_str(&format!("  - {slug}\n"));
+        for (slug, dims) in &report.invalid {
+            s.push_str(&format!("  - {slug}  [blocking: {}]\n", dims.join(", ")));
         }
         s.push_str(
             "\nAction: open the cited work at the section recorded in\n\
              citations.toml, confirm content_summary matches, and fill in\n\
-             verified_by + verified_on + verification_method. If the section\n\
-             can't be confirmed, use the downgrade path documented in the\n\
-             citations.toml header.\n\n",
+             verified_by + verified_on + verification_method (ClaimSupport),\n\
+             or supply authors/title/an identifier (Existence). If the\n\
+             section can't be confirmed, use the downgrade path documented\n\
+             in the citations.toml header.\n\n",
         );
+    }
+
+    if !report.with_issues.is_empty() {
+        s.push_str(&format!(
+            "INFO: {} citation entr(y/ies) are ValidWithIssues — a\n\
+             non-blocking dimension is Unverified (no CI failure):\n",
+            report.with_issues.len()
+        ));
+        for (slug, dims) in &report.with_issues {
+            s.push_str(&format!("  - {slug}  [issues: {}]\n", dims.join(", ")));
+        }
+        s.push('\n');
     }
 
     if !report.missing_slugs.is_empty() {
@@ -355,28 +473,35 @@ fn citation_audit() {
     let registry = load_registry();
     let mut report = AuditReport::default();
 
-    // (1) Unverified entries. A single-version entry is verified by its
-    //     flat `verified_by`; a multi-version entry is verified iff it
-    //     carries a version-independent `claim` and *every* version
-    //     fiber is verified (the version adjunction is total — the
-    //     claim must be located + confirmed in each registered version).
+    // (1) Typed dimensional verdict per entry. Each registry entry is
+    //     projected into a `CitationAssessment` (the citation_quality
+    //     module's grounded field→dimension mapping) and folded to a
+    //     `CitationVerdict`. This replaces the old flat `verified_by`
+    //     check: the blocking ClaimSupport dimension *is* the old gate
+    //     (content_summary + verified_by, or claim + all fibers for a
+    //     multi-version entry), and Existence is an additional blocking
+    //     dimension. An `Invalid` verdict (a blocking dimension is
+    //     Unverified) is a hard CI failure; `ValidWithIssues` (only a
+    //     non-blocking dimension is Unverified) is informational.
     for (slug, entry) in &registry.citations {
-        if entry.versions.is_empty() {
-            if entry.verified_by.trim().is_empty() {
-                report.unverified.push(slug.clone());
+        let assessment = project(entry);
+        match assessment.verdict() {
+            CitationVerdict::Valid => report.valid_count += 1,
+            CitationVerdict::ValidWithIssues => {
+                let dims: Vec<&'static str> = unverified_dimensions(&assessment)
+                    .into_iter()
+                    .map(|(name, _)| name)
+                    .collect();
+                report.with_issues.push((slug.clone(), dims));
             }
-        } else {
-            let well_formed = !entry.claim.trim().is_empty()
-                && entry
-                    .versions
-                    .iter()
-                    .all(|v| !v.version.trim().is_empty() && !v.section_or_page.trim().is_empty());
-            let all_verified = entry
-                .versions
-                .iter()
-                .all(|v| !v.verified_by.trim().is_empty());
-            if !well_formed || !all_verified {
-                report.unverified.push(slug.clone());
+            CitationVerdict::Invalid => {
+                // Report only the blocking dimensions that drove Invalid.
+                let blocking: Vec<&'static str> = unverified_dimensions(&assessment)
+                    .into_iter()
+                    .filter(|(_, is_blocking)| *is_blocking)
+                    .map(|(name, _)| name)
+                    .collect();
+                report.invalid.push((slug.clone(), blocking));
             }
         }
     }
@@ -420,8 +545,10 @@ fn citation_audit() {
         }
     }
 
-    // Sort for stable output.
-    report.unverified.sort();
+    // Sort for stable output (registry iteration is already sorted by
+    // slug, but the slug-reference scan is file-order).
+    report.invalid.sort();
+    report.with_issues.sort();
     report.missing_slugs.sort();
 
     let rendered = render_report(&report);

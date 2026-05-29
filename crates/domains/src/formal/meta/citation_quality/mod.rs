@@ -42,6 +42,7 @@ pub mod cito_functors;
 pub mod english_projection;
 pub mod ontology;
 pub mod record_lens;
+pub mod registry_projection;
 
 pub use assessment::{
     CitationVerdict, DimensionStatus, VerdictMeetIsBoundedSemilattice, VerificationMethod, assess,
@@ -51,4 +52,8 @@ pub use ontology::{
     CitationQualityConcept, CitationQualityOntology, SEVERITY_BLOCKING, SEVERITY_INFO,
     SEVERITY_WARNING, Severity, SeverityPartitionsDimensions,
     SoundGateIsExactlyExistenceAndClaimSupport, dimensions, is_dimension, is_sound_gate,
+};
+pub use record_lens::CitationAssessment;
+pub use registry_projection::{
+    EntryFields, VersionFiber, parse_verification_method, project_entry,
 };
