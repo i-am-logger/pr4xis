@@ -126,6 +126,23 @@ impl Language {
 /// assert!(lemmas.contains(&"child".to_string()));
 /// ```
 ///
+/// Derivational chains via the fixed-point loop — the `inter-`
+/// locative prefix and the `-ize` verb-forming suffix (added for the
+/// USC Title-2 gap audit) recover the base lexeme:
+///
+/// ```
+/// use pr4xis_domains::cognitive::linguistics::morphology::lemmatizer::{
+///     lemmatize, Language,
+/// };
+/// let inter: Vec<String> = lemmatize("interparliamentary", Language::English)
+///     .into_iter().map(|f| f.written_rep).collect();
+/// assert!(inter.contains(&"parliamentary".to_string())); // strip inter-
+///
+/// let annual: Vec<String> = lemmatize("annualized", Language::English)
+///     .into_iter().map(|f| f.written_rep).collect();
+/// assert!(annual.contains(&"annual".to_string())); // -ed → -ize → annual
+/// ```
+///
 /// Empty input is well-defined:
 ///
 /// ```

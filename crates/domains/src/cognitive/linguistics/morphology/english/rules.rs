@@ -163,6 +163,38 @@ pub fn english_rules() -> Vec<MorphologicalRule> {
             output_pos: PosTag::Noun,
             effect: SemanticEffect::QualityNoun,
         },
+        // Relational/locative prefix inter-: "interparliamentary" →
+        // "parliamentary"; "interstate" → "state". "Between / among /
+        // mutually." POS-preserving; reuses the locative-prefix effect
+        // approximation documented for pre- above (text-only inversion;
+        // maps to empty OLiA fragments, so no false morphosyntactic
+        // claim escapes). Bauer (1983) ch.7; Quirk, Greenbaum, Leech &
+        // Svartvik (1985) §I.21 (locative prefixes).
+        MorphologicalRule {
+            affix: Affix::Prefix(Prefix {
+                text: "inter".into(),
+                effect: SemanticEffect::Repetition,
+            }),
+            input_pos: PosTag::Adjective,
+            output_pos: PosTag::Adjective,
+            effect: SemanticEffect::Repetition,
+        },
+        // Verb-forming suffix -ize: "annualize" → "annual". A genuine
+        // denominal / de-adjectival verbalizer (Noun/Adj → Verb), so
+        // the effect is an honest PosChange. Combined with the -ed
+        // inflection + e-restoration allomorphy, the fixed-point
+        // lemmatizer recovers "annualized" → "annualize" → "annual".
+        // Bauer (1983) ch.7 (verb-forming suffixes); Quirk et al.
+        // (1985) §I.43.
+        MorphologicalRule {
+            affix: Affix::Suffix(Suffix {
+                text: "ize".into(),
+                effect: SemanticEffect::PosChange,
+            }),
+            input_pos: PosTag::Adjective,
+            output_pos: PosTag::Verb,
+            effect: SemanticEffect::PosChange,
+        },
     ]
 }
 
@@ -171,10 +203,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn english_has_11_rules() {
-        // 10 base + 1 added in M5.D ("non-" negation prefix per
-        // Quirk et al. 1985 §I.21).
-        assert_eq!(english_rules().len(), 11);
+    fn english_has_13_rules() {
+        // 10 base + "non-" (M5.D) + the inter- locative prefix and the
+        // -ize verb-forming suffix added for the Title-2 gap audit
+        // ("interparliamentary" → "parliamentary"; "annualized" →
+        // "annualize" → "annual").
+        assert_eq!(english_rules().len(), 13);
     }
 
     #[test]
