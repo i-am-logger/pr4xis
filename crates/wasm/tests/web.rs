@@ -1,15 +1,16 @@
 //! wasm-bindgen-test coverage for the in-browser runtime.
 //!
-//! Run on a machine with the tooling (this is wasm — `cargo test` won't
-//! build it; the crate is excluded from the workspace):
-//!   wasm-pack test --node                  # logic (no DOM/fetch/Worker)
-//!   wasm-pack test --headless --firefox    # full browser
+//! Rust-native wasm tests — a real headless browser driven by webdriver
+//! (no Node). `cargo test` won't build these (the crate is excluded from
+//! the workspace + needs the wasm target). Run:
+//!   wasm-pack test --headless --firefox
 //!
 //! `Pr4xis::load_source` takes the USLM XML as a *string*, so the core
 //! load path — authoritative USLM XML → live `UsCode` → self-model
-//! catalog — is exercisable here without `fetch`/DOM. The download +
-//! Web-Worker + progress-bar path is covered by the Playwright E2E
-//! (`e2e/`), which drives a real browser.
+//! catalog — is exercisable here without `fetch`/DOM. The full
+//! download + Web-Worker + progress-UI click-through would be a
+//! Rust-native browser-automation test (fantoccini/thirtyfour over
+//! webdriver) — never a JS tool.
 
 use pr4xis_wasm::Pr4xis;
 use wasm_bindgen_test::*;
