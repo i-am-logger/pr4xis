@@ -513,7 +513,7 @@ impl XsdOntologyInstance {
     /// duplicates are not de-duplicated (an XSD that re-declares
     /// the same name violates §3.3 *unique particle attribution*
     /// and is itself malformed — the loader surfaces that).
-    pub fn declared_element_names<'a>(&'a self) -> Vec<&'a str> {
+    pub fn declared_element_names(&self) -> Vec<&str> {
         self.elements
             .iter()
             .map(|e| e.local_name.as_str())
@@ -541,13 +541,13 @@ impl XsdOntologyInstance {
         while changed {
             changed = false;
             for e in &self.elements {
-                if out.iter().any(|s| *s == e.local_name.as_str()) {
+                if out.contains(&e.local_name.as_str()) {
                     continue;
                 }
                 let Some(parent) = &e.substitution_group_head else {
                     continue;
                 };
-                if out.iter().any(|s| *s == parent.as_str()) {
+                if out.contains(&parent.as_str()) {
                     out.push(e.local_name.as_str());
                     changed = true;
                 }

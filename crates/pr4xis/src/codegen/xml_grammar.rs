@@ -262,9 +262,7 @@ fn extract_nt_reference(tok: &str) -> Option<&str> {
 fn parse_token(tok: &str) -> Option<CodePointRange> {
     // [#xN-#xM] — hex range
     if let Some(inner) = tok.strip_prefix("[#x").and_then(|s| s.strip_suffix(']')) {
-        let mut parts = inner.splitn(2, "-#x");
-        let lo_hex = parts.next()?;
-        let hi_hex = parts.next()?;
+        let (lo_hex, hi_hex) = inner.split_once("-#x")?;
         let lo = u32::from_str_radix(lo_hex.trim(), 16).ok()?;
         let hi = u32::from_str_radix(hi_hex.trim(), 16).ok()?;
         return Some(CodePointRange { lo, hi });

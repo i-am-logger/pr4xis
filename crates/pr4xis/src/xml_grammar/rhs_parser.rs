@@ -296,7 +296,7 @@ fn read_literal(s: &str, i: usize, quote: char) -> Result<(usize, String), Parse
 /// - `&apos;` → `'`
 /// - `&quot;` → `"`
 /// - `&nbsp;` → ` ` (collapsed to plain space — the entity carries
-///                  no semantic content in spec EBNF)
+///   no semantic content in spec EBNF)
 ///
 /// Other entity references pass through unchanged (the `&`
 /// character is preserved literally) — the spec doesn't use any
@@ -409,10 +409,7 @@ fn read_char_class(s: &str, i: usize) -> Result<(usize, Vec<CodePointRange>, boo
 
 /// Parse one Appendix B character-class atom off the front of `inner`.
 /// Atoms are one of: `#xN-#xM`, `#xN`, `c-c`, `c`.
-fn parse_class_atom<'a>(
-    inner: &'a str,
-    byte_pos: usize,
-) -> Result<(CodePointRange, &'a str), ParseRhsError> {
+fn parse_class_atom(inner: &str, byte_pos: usize) -> Result<(CodePointRange, &str), ParseRhsError> {
     // Hex single or hex range.
     if let Some(after_hash) = inner.strip_prefix("#x") {
         let (lo, after_lo) = split_off_hex(after_hash, byte_pos)?;
@@ -433,13 +430,13 @@ fn parse_class_atom<'a>(
     let after_first = &inner[first.len_utf8()..];
     // Peek for `-` followed by another char to form a range, but
     // only when the `-` is not the start of a trailing literal `-`.
-    if let Some(rest_after_dash) = after_first.strip_prefix('-') {
-        if let Some(second) = rest_after_dash.chars().next() {
-            let lo = first as u32;
-            let hi = second as u32;
-            let consumed = first.len_utf8() + 1 + second.len_utf8();
-            return Ok((CodePointRange { lo, hi }, &inner[consumed..]));
-        }
+    if let Some(rest_after_dash) = after_first.strip_prefix('-')
+        && let Some(second) = rest_after_dash.chars().next()
+    {
+        let lo = first as u32;
+        let hi = second as u32;
+        let consumed = first.len_utf8() + 1 + second.len_utf8();
+        return Ok((CodePointRange { lo, hi }, &inner[consumed..]));
     }
     // Single ASCII char.
     let cp = first as u32;
@@ -447,7 +444,7 @@ fn parse_class_atom<'a>(
 }
 
 /// Pull leading hex digits off `s` returning `(value, remainder)`.
-fn split_off_hex<'a>(s: &'a str, byte_pos: usize) -> Result<(u32, &'a str), ParseRhsError> {
+fn split_off_hex(s: &str, byte_pos: usize) -> Result<(u32, &str), ParseRhsError> {
     let end = s
         .bytes()
         .position(|b| !b.is_ascii_hexdigit())

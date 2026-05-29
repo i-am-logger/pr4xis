@@ -254,10 +254,10 @@ impl<'g, 'i> Interpreter<'g, 'i> {
                 // canonical use is §2.5 Comment's `Char - '-'`.
                 let a_result = self.match_term(a, pos);
                 if let MatchResult::Match { end_pos: a_end } = a_result {
-                    if let MatchResult::Match { end_pos: b_end } = self.match_term(b, pos) {
-                        if b_end == a_end {
-                            return MatchResult::NoMatch;
-                        }
+                    if let MatchResult::Match { end_pos: b_end } = self.match_term(b, pos)
+                        && b_end == a_end
+                    {
+                        return MatchResult::NoMatch;
                     }
                     MatchResult::Match { end_pos: a_end }
                 } else {

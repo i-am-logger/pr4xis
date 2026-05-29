@@ -295,7 +295,7 @@ fn decode_input(input: &[u8]) -> Result<(String, DetectedEncoding), XmlParseErro
 /// Reports `NotUtf8` on odd byte length or unpaired surrogates per
 /// the Unicode 15 §3.9 D89/D91 invariants.
 fn decode_utf16(bytes: &[u8], big_endian: bool) -> Result<String, XmlParseError> {
-    if bytes.len() % 2 != 0 {
+    if !bytes.len().is_multiple_of(2) {
         return Err(XmlParseError::NotUtf8 {
             position: bytes.len() & !1,
         });
@@ -311,8 +311,7 @@ fn decode_utf16(bytes: &[u8], big_endian: bool) -> Result<String, XmlParseError>
         })
         .collect();
     let mut out = String::with_capacity(units.len());
-    let mut unit_index = 0usize;
-    for result in core::char::decode_utf16(units.iter().copied()) {
+    for (unit_index, result) in core::char::decode_utf16(units.iter().copied()).enumerate() {
         match result {
             Ok(ch) => out.push(ch),
             Err(_) => {
@@ -321,7 +320,6 @@ fn decode_utf16(bytes: &[u8], big_endian: bool) -> Result<String, XmlParseError>
                 });
             }
         }
-        unit_index += 1;
     }
     Ok(out)
 }
@@ -430,16 +428,19 @@ impl<'a> Cursor<'a> {
     }
 }
 
+/// `(version, encoding, standalone, doctype)` parsed from the §2.8
+/// prolog. `version` is required; the rest are optional per the
+/// `XMLDecl?` / `doctypedecl?` productions.
+type PrologParts = (String, Option<String>, Option<bool>, Option<XmlDoctype>);
+
 /// W3C XML 1.0 §2.8 production [22] `prolog`:
 /// `prolog ::= XMLDecl? Misc* (doctypedecl Misc*)?`.
 ///
-/// Returns `(version, encoding, doctype)`. The doctype, if present,
-/// is projected to a typed [`XmlDoctype`] carrying the root-element
-/// name, any `ExternalID`, and the inline general entity
+/// Returns `(version, encoding, standalone, doctype)`. The doctype, if
+/// present, is projected to a typed [`XmlDoctype`] carrying the
+/// root-element name, any `ExternalID`, and the inline general entity
 /// declarations parsed from the internal subset (§4.2 GEDecl).
-fn parse_prolog(
-    c: &mut Cursor<'_>,
-) -> Result<(String, Option<String>, Option<bool>, Option<XmlDoctype>), XmlParseError> {
+fn parse_prolog(c: &mut Cursor<'_>) -> Result<PrologParts, XmlParseError> {
     // §2.8 — "The XML declaration MUST be the first thing in the
     // document." Whitespace, comments, or PIs before `<?xml ...?>`
     // are well-formedness errors. xmlconf xmltest/not-wf/sa/147

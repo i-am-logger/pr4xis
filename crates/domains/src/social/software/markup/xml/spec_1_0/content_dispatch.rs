@@ -354,7 +354,7 @@ fn common_prefix(strings: &[String]) -> Option<String> {
 /// Descend through `Sequence`, `ZeroOrMore`, `OneOrMore`, and
 /// `Optional` wrappers to find the first `Alternation` term.
 /// Returns the alternation's branches.
-fn find_first_alternation<'a>(term: &'a Term) -> Option<&'a [Term]> {
+fn find_first_alternation(term: &Term) -> Option<&[Term]> {
     match term {
         Term::Alternation(branches) => Some(branches.as_slice()),
         Term::Sequence(items) => items.iter().find_map(find_first_alternation),
