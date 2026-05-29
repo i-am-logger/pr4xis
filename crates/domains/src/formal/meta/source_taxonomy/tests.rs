@@ -34,7 +34,7 @@ fn ontology_validates() {
 // =============================================================================
 
 #[test]
-fn twenty_four_concepts() {
+fn twenty_five_concepts() {
     // Lexicon family (6): Source, Lexicon, Language, DomainLexicon,
     //                     LegalLexicon, SchemaVocabulary.
     // LegalCorpus family (8): LegalCorpus, Statute, UsFederalStatute,
@@ -43,12 +43,12 @@ fn twenty_four_concepts() {
     //                         CaseLaw.
     // TypographyResource family (2): TypographyResource,
     //                                TypographicGlyphSet.
-    // SchemaSpec family (5): SchemaSpec, XmlSchemaDefinition,
+    // SchemaSpec family (6): SchemaSpec, XmlSchemaDefinition,
     //                        XmlDocumentTypeDefinition, OoxmlSchemaArchive,
-    //                        ConceptualSpec.
+    //                        ConceptualSpec, OntologyVocabulary.
     // TestSuite family (3): TestSuite, XmlSchemaTestSuite,
     //                       XmlConformanceTestSuite.
-    assert_eq!(SourceTaxonomyConcept::variants().len(), 24);
+    assert_eq!(SourceTaxonomyConcept::variants().len(), 25);
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn is_lexicon_recognizes_subtree() {
 }
 
 #[test]
-fn is_leaf_identifies_sixteen_leaves() {
+fn is_leaf_identifies_seventeen_leaves() {
     use SourceTaxonomyConcept as C;
     let leaves: Vec<_> = SourceTaxonomyConcept::variants()
         .into_iter()
@@ -126,14 +126,15 @@ fn is_leaf_identifies_sixteen_leaves() {
     // UsCodeTitle, Regulation, ConstitutionalArticle, ProceduralRule,
     // CaseLaw, TypographicGlyphSet, XmlSchemaDefinition,
     // XmlDocumentTypeDefinition, OoxmlSchemaArchive, ConceptualSpec,
-    // XmlSchemaTestSuite, XmlConformanceTestSuite.
+    // OntologyVocabulary, XmlSchemaTestSuite, XmlConformanceTestSuite.
     //   Statute is the jurisdiction-agnostic parent of
     //   UsFederalStatute (not a leaf); TypographyResource is parent
     //   of TypographicGlyphSet; SchemaSpec is parent of
     //   XmlSchemaDefinition + XmlDocumentTypeDefinition +
-    //   OoxmlSchemaArchive + ConceptualSpec; TestSuite is parent of
-    //   XmlSchemaTestSuite + XmlConformanceTestSuite.
-    assert_eq!(leaves.len(), 16);
+    //   OoxmlSchemaArchive + ConceptualSpec + OntologyVocabulary;
+    //   TestSuite is parent of XmlSchemaTestSuite +
+    //   XmlConformanceTestSuite.
+    assert_eq!(leaves.len(), 17);
     assert!(leaves.contains(&C::Language));
     assert!(leaves.contains(&C::SchemaVocabulary));
     assert!(leaves.contains(&C::UsFederalStatute));
@@ -141,6 +142,7 @@ fn is_leaf_identifies_sixteen_leaves() {
     assert!(leaves.contains(&C::TypographicGlyphSet));
     assert!(leaves.contains(&C::XmlSchemaDefinition));
     assert!(leaves.contains(&C::ConceptualSpec));
+    assert!(leaves.contains(&C::OntologyVocabulary));
     assert!(leaves.contains(&C::XmlSchemaTestSuite));
     assert!(leaves.contains(&C::XmlConformanceTestSuite));
     assert!(!leaves.contains(&C::Statute));

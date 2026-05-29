@@ -116,8 +116,22 @@ fn get_resource(elem: &XmlElement, base_ns: &str) -> Option<String> {
 
 fn process_element(elem: &XmlElement, ont: &mut OwlOntology, base_ns: &str) {
     // Use the OWL vocabulary to identify what this element IS,
-    // rather than matching on raw strings.
-    let concept = OwlVocabulary::from_local_name(&elem.name.local);
+    // rather than matching on raw strings. RDF/XML offers two ways to
+    // assert an entity's type (RDF 1.1 XML Syntax, Gandon & Schreiber
+    // 2014):
+    //
+    //  - §2.13 *Typed Node Elements* — a striped element whose name IS
+    //    the type, e.g. `<owl:ObjectProperty rdf:about="…">`. Resolved
+    //    here by the element's local name.
+    //  - §2.4 *Empty Property Elements* / general node form — a generic
+    //    `<rdf:Description rdf:about="…">` carrying a child
+    //    `<rdf:type rdf:resource="…#ObjectProperty"/>` property. The
+    //    CiTO and other SPAR vocabularies serialise in this form.
+    //
+    // Try the element-name route first; fall back to the `rdf:type`
+    // child, mapping the referenced OWL IRI to its concept.
+    let concept = OwlVocabulary::from_local_name(&elem.name.local)
+        .or_else(|| concept_from_rdf_type_child(elem, base_ns));
 
     match concept {
         Some(OwlConcept::Ontology) => {
@@ -144,6 +158,27 @@ fn process_element(elem: &XmlElement, ont: &mut OwlOntology, base_ns: &str) {
             process_element(child_elem, ont, base_ns);
         }
     }
+}
+
+/// Resolve an element's OWL concept from a child `rdf:type` property
+/// whose `rdf:resource` names an OWL 2 IRI (RDF 1.1 XML Syntax §2.4 +
+/// §2.13; the type relation is RDF Schema §2.1 `rdf:type`). Returns the
+/// first recognised OWL concept among the element's `rdf:type`
+/// children, or `None` when the element declares no OWL type. This is
+/// what lets the reader interpret the abbreviated
+/// `<rdf:Description><rdf:type rdf:resource="…#ObjectProperty"/></…>`
+/// form the SPAR vocabularies (CiTO, DoCO, …) use.
+fn concept_from_rdf_type_child(elem: &XmlElement, base_ns: &str) -> Option<OwlConcept> {
+    for child in &elem.children {
+        if let XmlNode::Element(child_elem) = child
+            && is_rdf_type(&child_elem.name.local)
+            && let Some(resource) = get_resource(child_elem, base_ns)
+            && let Some(concept) = OwlVocabulary::from_iri(&resource)
+        {
+            return Some(concept);
+        }
+    }
+    None
 }
 
 fn read_class(elem: &XmlElement, ont: &mut OwlOntology, base_ns: &str) {

@@ -44,6 +44,7 @@ pr4xis::ontology! {
         XmlDocumentTypeDefinition,  // leaf: a W3C XML 1.0 §4 DTD (e.g., WN-LMF 1.3 DTD)
         OoxmlSchemaArchive,         // leaf: a ZIP bundle of XSDs published as a single ECMA-376 / ISO/IEC 29500 unit
         ConceptualSpec,             // leaf: a published text-form conceptual specification (e.g., W3C XML Information Set rec)
+        OntologyVocabulary,         // leaf: a published W3C OWL 2 / RDF-XML vocabulary (e.g., the SPAR CiTO Citation Typing Ontology)
 
         // === TestSuite family (W3C QA Framework: Test Methodology Guidelines, 2008) ===
         TestSuite,                  // root of published conformance test corpora
@@ -94,6 +95,8 @@ pr4xis::ontology! {
             "Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1, W3C Recommendation 5 April 2012: an XSD document declaring element/complexType/simpleType/attribute/group declarations for an XML vocabulary. Cited by content-type ontologies (USLM 1.0.18) that ground their type system in the schema rather than hand-coding."),
         ConceptualSpec: ("en", "Conceptual specification",
             "Cowan & Tobin (2004) W3C XML Information Set (Second Edition), W3C Recommendation 4 February 2004: a published text-form specification that defines a conceptual model (information items, abstract structures, taxonomies) rather than a concrete machine-readable schema. The conceptual taxonomy is loaded by parsing the section-heading structure of the W3C-published XHTML edition of the recommendation. Sibling to XmlSchemaDefinition under SchemaSpec."),
+        OntologyVocabulary: ("en", "Ontology vocabulary (OWL)",
+            "W3C OWL 2 Web Ontology Language Structural Specification (Motik, Patel-Schneider & Parsia eds., W3C Recommendation 11 December 2012): a published OWL 2 / RDF-XML vocabulary declaring named classes, object properties, and their rdfs:subClassOf / rdfs:subPropertyOf hierarchies. The canonical SPAR (Semantic Publishing and Referencing) example is CiTO, the Citation Typing Ontology (Peroni & Shotton 2012, J. Web Semantics 17:33-43). Sibling to XmlSchemaDefinition and ConceptualSpec under SchemaSpec: like an XSD it grounds a content-type's concept inventory, but in OWL/RDF rather than XSD form, read by social::software::markup::xml::owl::reader::read_owl."),
         TestSuite: ("en", "Conformance test suite",
             "W3C QA Framework: Test Methodology Guidelines (Curran et al. eds., W3C Note 22 February 2008): a published conformance test corpus paired with a normative specification — each test case carries an expected outcome and the union of cases across categories certifies a reader's conformance to the spec."),
         XmlSchemaTestSuite: ("en", "W3C XML Schema Test Suite (xsts)",
@@ -130,6 +133,7 @@ pr4xis::ontology! {
         (XmlDocumentTypeDefinition, SchemaSpec),
         (OoxmlSchemaArchive, SchemaSpec),
         (ConceptualSpec, SchemaSpec),
+        (OntologyVocabulary, SchemaSpec),
 
         // TestSuite family
         (TestSuite, Source),
@@ -201,6 +205,16 @@ pr4xis::ontology! {
         // lemmas no schema reuses.
         (SchemaVocabulary, Language, Adjoins),
 
+        // W3C OWL 2 §5 + RDF Schema §2.1: an OWL vocabulary's classes
+        // and object properties each carry an rdfs:label whose tokens
+        // anchor in common English the same way schema-vocabulary names
+        // do (CiTO's "cites as evidence", "agrees with", "disputes",
+        // etc. are productive English phrases per Huddleston & Pullum
+        // 2002 Ch. 19). The unit/counit pair surfaces (a) OWL labels
+        // whose English base lemma isn't in WordNet, and (b) WordNet
+        // lemmas the vocabulary doesn't reuse.
+        (OntologyVocabulary, Language, Adjoins),
+
         // Gao, Sperberg-McQueen & Thompson (2012) W3C XSD 1.1 Part 1
         // §3: an XSD schema definition declares a closed set of
         // element / attribute / type / group / model names — i.e.
@@ -259,6 +273,7 @@ pub fn parse_concept(s: &str) -> Option<SourceTaxonomyConcept> {
         "XmlDocumentTypeDefinition" => C::XmlDocumentTypeDefinition,
         "OoxmlSchemaArchive" => C::OoxmlSchemaArchive,
         "ConceptualSpec" => C::ConceptualSpec,
+        "OntologyVocabulary" => C::OntologyVocabulary,
         "TestSuite" => C::TestSuite,
         "XmlSchemaTestSuite" => C::XmlSchemaTestSuite,
         "XmlConformanceTestSuite" => C::XmlConformanceTestSuite,
@@ -292,6 +307,7 @@ pub fn concept_name(c: SourceTaxonomyConcept) -> &'static str {
         C::XmlDocumentTypeDefinition => "XmlDocumentTypeDefinition",
         C::OoxmlSchemaArchive => "OoxmlSchemaArchive",
         C::ConceptualSpec => "ConceptualSpec",
+        C::OntologyVocabulary => "OntologyVocabulary",
         C::TestSuite => "TestSuite",
         C::XmlSchemaTestSuite => "XmlSchemaTestSuite",
         C::XmlConformanceTestSuite => "XmlConformanceTestSuite",
@@ -357,6 +373,7 @@ pub fn is_leaf(concept: SourceTaxonomyConcept) -> bool {
             | C::XmlDocumentTypeDefinition
             | C::OoxmlSchemaArchive
             | C::ConceptualSpec
+            | C::OntologyVocabulary
             | C::XmlSchemaTestSuite
             | C::XmlConformanceTestSuite
     )

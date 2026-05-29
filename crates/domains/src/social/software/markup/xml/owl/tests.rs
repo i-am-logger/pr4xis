@@ -131,6 +131,86 @@ fn owl_superproperties_of() {
 }
 
 // =============================================================================
+// CiTO bundle audit — load the registered SPAR Citation Typing Ontology
+// =============================================================================
+
+/// Walk the bundled, hash-pinned CiTO OWL vocabulary
+/// (`crates/domains/data/ontologies/cito-2.8.1.owl`, registered in
+/// praxis.toml as `[sources.cito]` and pinned in praxis.lock) through
+/// `read_owl` and assert it loads the way the registry expects.
+///
+/// CiTO (Peroni & Shotton 2012, J. Web Semantics 17:33-43) is a
+/// vocabulary of object properties: `cito:cites` and its ~40
+/// sub-properties (e.g. `citesAsEvidence`, `includesQuotationFrom`,
+/// `agreesWith`, `disputes`) plus their `cito:isCitedBy` inverses, all
+/// arranged in an `rdfs:subPropertyOf` hierarchy. The bundled file MUST
+/// exist (it is committed under `data/ontologies/`), so this test reads
+/// it directly rather than skipping when absent.
+#[test]
+fn load_bundled_cito() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/ontologies/cito-2.8.1.owl"
+    );
+    let xml = std::fs::read_to_string(path)
+        .expect("bundled CiTO OWL must exist at data/ontologies/cito-2.8.1.owl");
+
+    let ont = reader::read_owl(&xml).expect("bundled CiTO must parse through read_owl");
+
+    // CiTO declares well over 30 object properties (the cito:cites /
+    // cito:isCitedBy families together run to ~90). Assert a generous
+    // lower bound so the test is robust to point-release churn.
+    assert!(
+        ont.property_count() > 30,
+        "expected CiTO to declare >30 object properties, got {}",
+        ont.property_count()
+    );
+
+    // Key CiTO citation-type properties resolve by IRI suffix. These
+    // are the load-bearing relations downstream CitationQuality work
+    // grounds in (Peroni & Shotton 2012 Table 1).
+    for suffix in [
+        "citesAsEvidence",
+        "includesQuotationFrom",
+        "agreesWith",
+        "disputes",
+    ] {
+        let found = ont
+            .properties
+            .iter()
+            .find(|p| p.iri.ends_with(suffix))
+            .unwrap_or_else(|| panic!("CiTO must declare cito:{suffix}"));
+        // Every CiTO sub-property carries a human label (rdfs:label).
+        assert!(
+            found.label.is_some(),
+            "cito:{suffix} should carry an rdfs:label"
+        );
+    }
+
+    // The CiTO property hierarchy is non-empty: its sub-properties roll
+    // up to `cito:cites` / `cito:isCitedBy` via rdfs:subPropertyOf
+    // edges, which `read_owl` records in `property_taxonomy`.
+    assert!(
+        !ont.property_taxonomy.is_empty(),
+        "CiTO must record rdfs:subPropertyOf edges in property_taxonomy"
+    );
+
+    // citesAsEvidence ⊑ cites: the canonical CiTO sub-property edge.
+    let cites_evidence = ont
+        .properties
+        .iter()
+        .find(|p| p.iri.ends_with("citesAsEvidence"))
+        .expect("cito:citesAsEvidence");
+    assert!(
+        cites_evidence
+            .superproperties
+            .iter()
+            .any(|s| s.ends_with("cites")),
+        "cito:citesAsEvidence must be a sub-property of cito:cites"
+    );
+}
+
+// =============================================================================
 // OLiA test — load the real linguistic ontology
 // =============================================================================
 

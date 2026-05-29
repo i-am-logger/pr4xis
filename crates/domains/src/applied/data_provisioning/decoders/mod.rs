@@ -14,6 +14,7 @@
 use super::ontology::ContentType;
 
 pub mod adobe_glyph_list;
+pub mod owl;
 pub mod tar_gz_archive;
 pub mod xhtml;
 pub mod xml_dtd;
@@ -34,5 +35,6 @@ pub fn has_decoder_for(content_type: ContentType) -> bool {
             | ContentType::TarGzArchive
             | ContentType::XmlDtd
             | ContentType::ZipArchive
+            | ContentType::Owl
     )
 }

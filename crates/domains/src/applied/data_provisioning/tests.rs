@@ -325,13 +325,14 @@ fn every_content_type() -> Vec<ContentType> {
         ContentType::Binary,
         ContentType::XmlXsd,
         ContentType::Xhtml,
+        ContentType::Owl,
     ]
 }
 
 proptest! {
     /// `has_decoder_for` must be a pure function of the variant.
     #[test]
-    fn prop_has_decoder_for_is_pure(idx in 0usize..11) {
+    fn prop_has_decoder_for_is_pure(idx in 0usize..12) {
         let variant = every_content_type()[idx];
         let first = has_decoder_for(variant);
         for _ in 0..16 {

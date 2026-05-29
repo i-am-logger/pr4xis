@@ -159,6 +159,14 @@ pub enum ContentType {
     /// Decoder: magic-prefix identification (PKZIP local-file-header
     /// signature `0x04034b50` = bytes `50 4B 03 04`).
     ZipArchive,
+    /// W3C OWL 2 / RDF-XML vocabulary, per the OWL 2 Web Ontology
+    /// Language Structural Specification (Motik, Patel-Schneider &
+    /// Parsia eds., W3C Recommendation 11 December 2012) serialised as
+    /// RDF/XML (Gandon & Schreiber eds., RDF 1.1 XML Syntax, W3C
+    /// Recommendation 25 February 2014). The bundled SPAR CiTO
+    /// vocabulary ships in this form. Decoder:
+    /// `xml owl::reader::read_owl`.
+    Owl,
     /// Raw bytes with no further decoding.
     Binary,
 }
@@ -253,6 +261,12 @@ pub fn canonical_encoding(kind: SourceTaxonomyConcept) -> ContentType {
         // japanese/ / oasis/ / eduni/ sub-manifests). Decoder:
         // tar/gzip extract + per-case parse_document.
         C::XmlConformanceTestSuite => ContentType::TarGzArchive,
+        // OntologyVocabulary sources ship as W3C OWL 2 / RDF-XML
+        // (Motik, Patel-Schneider & Parsia 2012; Gandon & Schreiber
+        // 2014). The bundled SPAR CiTO vocabulary is the canonical
+        // instance. Decoder: `social::software::markup::xml::owl::
+        // reader::read_owl`.
+        C::OntologyVocabulary => ContentType::Owl,
         // Non-leaf concepts have no decoder — they're abstract.
         C::Source
         | C::Lexicon
@@ -363,6 +377,7 @@ impl RegistryEntry {
                 | C::XmlDocumentTypeDefinition
                 | C::OoxmlSchemaArchive
                 | C::ConceptualSpec
+                | C::OntologyVocabulary
                 | C::TestSuite
                 | C::XmlSchemaTestSuite
                 | C::XmlConformanceTestSuite
@@ -407,6 +422,7 @@ fn path_extension(ct: ContentType) -> &'static str {
         ContentType::TarGzArchive => "tar.gz",
         ContentType::XmlDtd => "dtd",
         ContentType::ZipArchive => "zip",
+        ContentType::Owl => "owl",
     }
 }
 
@@ -498,6 +514,13 @@ pub fn family_dir_for(kind: SourceTaxonomyConcept, name: &str) -> &'static str {
             "ooxml_schema_strict" => "markup-schemas/ooxml",
             _ => "markup-schemas",
         }
+    } else if matches!(kind, C::OntologyVocabulary) {
+        // OWL vocabularies (the SPAR family — CiTO, DoCO, C4O, BiRO,
+        // PROV-O — plus OLiA) live under their own `ontologies/` family
+        // dir, flat per the schema-spec formula
+        // (`ontologies/<name>-<version>.owl`). Read by
+        // `social::software::markup::xml::owl::reader::read_owl`.
+        "ontologies"
     } else if matches!(
         kind,
         C::SchemaSpec | C::XmlSchemaDefinition | C::XmlDocumentTypeDefinition | C::ConceptualSpec

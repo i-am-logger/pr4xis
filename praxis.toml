@@ -335,6 +335,36 @@ url         = "https://www.govinfo.gov/app/details/GPO-STYLEMANUAL-2016"
 description = "U.S. Federal Legal-Text Closed-Class Lexicon — citation abbreviations (GPO Style Manual 2016 Ch. 9), month names + abbreviations (GPO §9.20), federal-agency acronyms (Federal Register Document Drafting Handbook 2017 §4.1), U.S. state / place names (ISO 3166-2:US + GPO §5.20), English productive compounds (Huddleston & Pullum 2002 Ch. 19 + Bauer 1983 §6), and legal terms-of-art (Black's Law Dictionary 11th ed. 2019). Bundled as crates/domains/data/legal-text/us_legal_lexicon.xml (LMF format)."
 
 # ---------------------------------------------------------------------------
+# Ontology vocabularies (SPAR / OWL)
+# ---------------------------------------------------------------------------
+#
+# The Semantic Publishing and Referencing (SPAR) ontologies are a suite of
+# OWL 2 vocabularies for describing bibliographic resources and the act of
+# citation (Peroni & Shotton 2018, "The SPAR Ontologies", ISWC). CiTO —
+# the Citation Typing Ontology — is the first registered: a vocabulary of
+# ~40+ object properties (cito:cites and its sub-properties:
+# cito:citesAsEvidence, cito:includesQuotationFrom, cito:agreesWith,
+# cito:disputes, …) plus the inverse cito:isCitedBy family, used to
+# characterise the nature or type of a citation both factually and
+# rhetorically. Loaded so the downstream CitationQuality ontology grounds
+# its citation-type taxonomy in the published OWL vocabulary rather than
+# hand-coding the relations — per "Bottom-up loaded, never encoded".
+#
+# The on-disk file is the canonical RDF/XML bytes (OWL 2 serialised per
+# Gandon & Schreiber 2014, RDF 1.1 XML Syntax); praxis.lock pins the
+# sha256. The URL is the SPAR canonical publication (purl.org/spar/cito).
+# The version "2.8.1" matches the owl:versionInfo on the owl:Ontology node.
+# This task registers + bundles + hash-pins + reads the bytes; the
+# OWL → Rust codegen pipeline is a separate later milestone.
+#
+# Bundled file: crates/domains/data/ontologies/cito-2.8.1.owl.
+[sources.cito]
+version     = "2.8.1"
+type        = "OntologyVocabulary"
+url         = "https://sparontologies.github.io/cito/current/cito.xml"
+description = "CiTO, the Citation Typing Ontology — a W3C OWL 2 vocabulary characterising the nature and type of citations (cito:cites and its ~40 sub-properties + their cito:isCitedBy inverses). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Peroni, S. & Shotton, D. (2012) FaBiO and CiTO: ontologies for describing bibliographic resources and citations, Journal of Web Semantics 17:33-43, <https://doi.org/10.1016/j.websem.2012.08.001>; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
+
+# ---------------------------------------------------------------------------
 # Typographic resources
 # ---------------------------------------------------------------------------
 
