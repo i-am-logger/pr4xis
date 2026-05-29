@@ -38,6 +38,7 @@
 //! Wang & Strong 1996; Sarol et al. 2024; Guyatt et al. 2008 GRADE).
 
 pub mod assessment;
+pub mod english_projection;
 pub mod ontology;
 
 pub use assessment::{

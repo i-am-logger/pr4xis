@@ -344,4 +344,92 @@ mod tests {
             CitationVerdict::Invalid
         );
     }
+
+    // ── Property-based laws ────────────────────────────────────────
+    use super::super::ontology::dimensions;
+    use proptest::prelude::*;
+
+    fn arb_verdict() -> impl Strategy<Value = CitationVerdict> {
+        prop_oneof![
+            Just(CitationVerdict::Valid),
+            Just(CitationVerdict::ValidWithIssues),
+            Just(CitationVerdict::Invalid),
+        ]
+    }
+
+    fn arb_method() -> impl Strategy<Value = VerificationMethod> {
+        prop_oneof![
+            Just(VerificationMethod::Unverified),
+            Just(VerificationMethod::HumanAttested),
+            Just(VerificationMethod::MachineChecked),
+        ]
+    }
+
+    fn arb_status() -> impl Strategy<Value = DimensionStatus> {
+        prop_oneof![
+            Just(DimensionStatus::Verified),
+            Just(DimensionStatus::Unverified),
+        ]
+    }
+
+    fn arb_dim_status() -> impl Strategy<Value = (CitationQualityConcept, DimensionStatus)> {
+        (
+            proptest::sample::select(dimensions().to_vec()),
+            arb_status(),
+        )
+    }
+
+    proptest! {
+        /// Meet is commutative (bounded meet-semilattice; Davey &
+        /// Priestley 2002 §2).
+        #[test]
+        fn prop_meet_commutative(a in arb_verdict(), b in arb_verdict()) {
+            prop_assert_eq!(a.meet(b), b.meet(a));
+        }
+
+        /// Meet is associative.
+        #[test]
+        fn prop_meet_associative(a in arb_verdict(), b in arb_verdict(), c in arb_verdict()) {
+            prop_assert_eq!(a.meet(b).meet(c), a.meet(b.meet(c)));
+        }
+
+        /// Idempotence + the monoid identity law (Valid is the top).
+        #[test]
+        fn prop_meet_idempotent_and_identity(a in arb_verdict()) {
+            prop_assert_eq!(a.meet(a), a);
+            prop_assert_eq!(CitationVerdict::empty().combine(&a), a);
+            prop_assert_eq!(a.combine(&CitationVerdict::empty()), a);
+        }
+
+        /// The defining gate characterization: a verdict is Invalid iff
+        /// some blocking (sound-gate) dimension is unconfirmed; else
+        /// ValidWithIssues iff some non-blocking dimension is unconfirmed;
+        /// else Valid.
+        #[test]
+        fn prop_assess_characterization(
+            statuses in proptest::collection::vec(arb_dim_status(), 0..12)
+        ) {
+            let blocking_gap = statuses
+                .iter()
+                .any(|(d, s)| is_sound_gate(*d) && *s == DimensionStatus::Unverified);
+            let nonblocking_gap = statuses
+                .iter()
+                .any(|(d, s)| !is_sound_gate(*d) && *s == DimensionStatus::Unverified);
+            let expected = if blocking_gap {
+                CitationVerdict::Invalid
+            } else if nonblocking_gap {
+                CitationVerdict::ValidWithIssues
+            } else {
+                CitationVerdict::Valid
+            };
+            prop_assert_eq!(assess(&statuses), expected);
+        }
+
+        /// The verification-method strength order agrees with the derived
+        /// `Ord` (Daubert reliability ordering).
+        #[test]
+        fn prop_method_strength_matches_ord(a in arb_method(), b in arb_method()) {
+            prop_assert_eq!(a.strength().cmp(&b.strength()), a.cmp(&b));
+        }
+    }
 }

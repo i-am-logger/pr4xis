@@ -278,4 +278,37 @@ mod tests {
         assert!(blocking > warning, "sound-gate must outrank locator");
         assert!(warning > info, "locator must outrank format");
     }
+
+    // ── Property-based ─────────────────────────────────────────────
+    use pr4xis::category::Concept;
+    use proptest::prelude::*;
+
+    fn arb_concept() -> impl Strategy<Value = CitationQualityConcept> {
+        proptest::sample::select(CitationQualityConcept::variants())
+    }
+
+    proptest! {
+        /// Grading is total on dimensions and undefined on the root,
+        /// and every defined severity is one of the three tiers
+        /// (ISO/IEC 25012; GRADE).
+        #[test]
+        fn prop_grading_total_on_dimensions(c in arb_concept()) {
+            match Severity.get(&c) {
+                Some(v) => {
+                    prop_assert!(matches!(
+                        v,
+                        SEVERITY_INFO | SEVERITY_WARNING | SEVERITY_BLOCKING
+                    ));
+                    prop_assert!(is_dimension(c));
+                }
+                None => prop_assert_eq!(c, CitationQualityConcept::CitationQuality),
+            }
+        }
+
+        /// A dimension is a sound-gate iff it is graded Blocking.
+        #[test]
+        fn prop_sound_gate_iff_blocking(c in arb_concept()) {
+            prop_assert_eq!(is_sound_gate(c), Severity.get(&c) == Some(SEVERITY_BLOCKING));
+        }
+    }
 }
