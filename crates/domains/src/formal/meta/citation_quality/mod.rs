@@ -37,8 +37,13 @@
 //! See [`ontology`] for the full citation list (ISO/IEC 25012:2008;
 //! Wang & Strong 1996; Sarol et al. 2024; Guyatt et al. 2008 GRADE).
 
+pub mod assessment;
 pub mod ontology;
 
+pub use assessment::{
+    CitationVerdict, DimensionStatus, VerdictMeetIsBoundedSemilattice, VerificationMethod, assess,
+    dimension_verdict,
+};
 pub use ontology::{
     CitationQualityConcept, CitationQualityOntology, SEVERITY_BLOCKING, SEVERITY_INFO,
     SEVERITY_WARNING, Severity, SeverityPartitionsDimensions,
