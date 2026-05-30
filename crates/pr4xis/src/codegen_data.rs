@@ -24,7 +24,7 @@ use crate::EntityRef;
 pub struct CodegenData<P: 'static> {
     pub entity_count: usize,
     pub entity_ids: &'static [&'static str],
-    /// What kind each entity is — for [`pr4xis_domains::cognitive::linguistics::english::English`]
+    /// What kind each entity is — for `pr4xis_domains::cognitive::linguistics::english::English`
     /// this is the WordNet POS tag (`"n"`, `"v"`, `"a"`, `"r"`); for
     /// statute ontologies it is `"statute_term"`; for USC titles
     /// (forthcoming `UsCode`) it is the USLM element name.

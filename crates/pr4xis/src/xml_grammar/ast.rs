@@ -39,12 +39,12 @@ impl CodePointRange {
 /// Operator precedence in the source notation (from highest to lowest):
 /// `?` `*` `+` (postfix quantifiers), juxtaposition (sequence),
 /// `-` (subtraction), `|` (alternation). Grouping `( … )` makes this
-/// explicit. The parser in [`super::rhs_parser`] reads source text
+/// explicit. The parser in `super::rhs_parser` (private) reads source text
 /// into this tree with that precedence.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Term {
     /// A literal string token. Appendix B: `'…'` or `"…"`. Example:
-    /// `'<!ELEMENT'` in §3.2 [45] `elementdecl`.
+    /// `'<!ELEMENT'` in §3.2 \[45\] `elementdecl`.
     Literal(String),
     /// A nonterminal reference — the LHS name of another production.
     /// Appendix B: italicised name in the printed spec; `<nt def="NT-X">X</nt>`

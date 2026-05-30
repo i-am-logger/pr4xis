@@ -4,7 +4,7 @@
 //! This is the OWL leaf of praxis's M4.ι archival path: a registered OWL
 //! source is parsed from its authoritative RDF/XML exactly once (the
 //! [`read_owl`] reader), projected through the established codegen
-//! interchange ([`owl_to_builder`] → [`CodegenData`]), and frozen into a
+//! interchange (`owl_to_builder` → [`CodegenData`]), and frozen into a
 //! content-addressed binary blob the runtime materializes back into a
 //! [`LoadedOwlVocabulary`] without re-parsing the XML. Same shape the
 //! WordNet → English and USLM → UsCode sources use; no new reader, no new
@@ -100,7 +100,6 @@
 //!   v0.8, <https://github.com/rkyv/rkyv>.
 //!
 //! [`read_owl`]: super::reader::read_owl
-//! [`owl_to_builder`]: super::owl_vocabulary::owl_to_builder
 //! [`CodegenData`]: pr4xis::codegen_data::CodegenData
 //! [`CodegenData<P>`]: pr4xis::codegen_data::CodegenData
 //! [`LoadedOwlVocabulary`]: super::vocabulary::LoadedOwlVocabulary
@@ -538,7 +537,7 @@ pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxEr
 // EmittedArtifact — one published `.prx.gz` file, round-trip-validated.
 // =============================================================================
 
-/// A `.prx.gz` artifact [`emit_all_prx_gz`] wrote to disk and then
+/// A `.prx.gz` artifact `emit_all_prx_gz` wrote to disk and then
 /// round-trip-validated by loading it back through the fail-closed gate.
 ///
 /// The presence of this value is itself a proof obligation discharged: the
@@ -1003,7 +1002,7 @@ mod tests {
 
     // ── distribution emitter: emit_all_prx_gz over the live registry ─
 
-    /// [`emit_all_prx_gz`] walks the live registry, emits a `.prx.gz` for
+    /// `emit_all_prx_gz` walks the live registry, emits a `.prx.gz` for
     /// every on-disk `OntologyVocabulary`, and round-trip-validates each.
     /// At least one artifact is emitted (the bundled SPAR/OLiA vocabularies
     /// are on disk), each file exists and is non-empty, names follow the
