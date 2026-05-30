@@ -117,8 +117,19 @@ fn write_xml_decl(out: &mut String, version: &str, encoding: Option<&str>) {
 fn write_element(out: &mut String, el: &XmlElement) {
     out.push('<');
     write_name(out, &el.name);
-    if let Some(ns) = &el.namespace {
-        write_namespace_decl(out, ns);
+    // Namespaces in XML 1.0 (Bray, Hollander, Layman & Tobin 2009) §3
+    // allows any number of `xmlns` / `xmlns:prefix` declarations on a
+    // single element. Emit every declaration the element carries; when
+    // `namespaces` is empty fall back to the single-slot `namespace`
+    // for parity with elements built via legacy constructors.
+    if el.namespaces.is_empty() {
+        if let Some(ns) = &el.namespace {
+            write_namespace_decl(out, ns);
+        }
+    } else {
+        for ns in &el.namespaces {
+            write_namespace_decl(out, ns);
+        }
     }
     for attr in &el.attributes {
         write_attribute(out, attr);

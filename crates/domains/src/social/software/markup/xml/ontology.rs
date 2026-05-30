@@ -225,10 +225,24 @@ impl XmlSymbols {
 }
 
 /// An XML element — the rich type (not just a string).
+///
+/// `namespace` retains the first `xmlns` / `xmlns:prefix` declaration on
+/// the element (for backward compatibility); `namespaces` carries *every*
+/// such declaration in document order, as required by Namespaces in XML
+/// 1.0 (Bray, Hollander, Layman & Tobin 2009 §3 — Declaring Namespaces).
+/// Consumers that need the full prefix→URI map (e.g. RDF/XML, which must
+/// expand a predicate element's `(prefix, local)` against the in-scope
+/// namespaces per RDF 1.1 XML Syntax §2.4) read `namespaces`; consumers
+/// that only need a single representative declaration continue to read
+/// `namespace`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct XmlElement {
     pub name: XmlName,
     pub namespace: Option<XmlNamespace>,
+    /// Every `xmlns` / `xmlns:prefix` declaration on this element, in
+    /// document order (Bray, Hollander, Layman & Tobin 2009 §3). An
+    /// element with no declarations has an empty `Vec`.
+    pub namespaces: Vec<XmlNamespace>,
     pub attributes: Vec<XmlAttribute>,
     pub children: Vec<XmlNode>,
 }

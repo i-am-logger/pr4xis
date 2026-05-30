@@ -827,6 +827,7 @@ fn lens_serializes_synthesised_typed_value() {
         root: XmlElement {
             name: XmlName::new("synth"),
             namespace: None,
+            namespaces: Vec::new(),
             attributes: vec![XmlAttribute {
                 name: XmlName::new("kind"),
                 value: "test".into(),
@@ -936,6 +937,7 @@ mod property {
                     root: XmlElement {
                         name: XmlName::new(&root_name),
                         namespace: None,
+                        namespaces: Vec::new(),
                         attributes: vec![XmlAttribute {
                             name: XmlName::new(&attr_name),
                             value: attr_value,
@@ -1006,6 +1008,7 @@ mod property {
                 root: XmlElement {
                     name: XmlName::new("r"),
                     namespace: None,
+                    namespaces: Vec::new(),
                     attributes: Vec::new(),
                     children: if text.is_empty() {
                         Vec::new()
@@ -1035,6 +1038,7 @@ mod property {
                 root: XmlElement {
                     name: XmlName::new("r"),
                     namespace: None,
+                    namespaces: Vec::new(),
                     attributes: vec![XmlAttribute {
                         name: XmlName::new("a"),
                         value: value.clone(),

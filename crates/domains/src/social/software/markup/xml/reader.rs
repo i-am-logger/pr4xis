@@ -91,7 +91,12 @@ fn read_element(input: &str) -> Result<(XmlElement, usize), XmlReadError> {
     // Parse tag name and attributes
     let (name, attrs) = parse_tag_content(tag_content)?;
     let xml_name = parse_xml_name(&name);
-    let namespace = extract_namespace(&attrs);
+    // Namespaces in XML 1.0 (Bray, Hollander, Layman & Tobin 2009) §3 —
+    // every `xmlns` / `xmlns:prefix` attribute is a namespace declaration,
+    // not a regular attribute. Collect them all (in document order) into
+    // `namespaces`; the legacy single `namespace` slot mirrors the first.
+    let all_namespaces = extract_all_namespaces(&attrs);
+    let namespace = all_namespaces.first().cloned();
     let xml_attrs: Vec<XmlAttribute> = attrs
         .into_iter()
         .filter(|(k, _)| !k.starts_with("xmlns"))
@@ -106,6 +111,7 @@ fn read_element(input: &str) -> Result<(XmlElement, usize), XmlReadError> {
             XmlElement {
                 name: xml_name,
                 namespace,
+                namespaces: all_namespaces,
                 attributes: xml_attrs,
                 children: Vec::new(),
             },
@@ -182,6 +188,7 @@ fn read_element(input: &str) -> Result<(XmlElement, usize), XmlReadError> {
         XmlElement {
             name: xml_name,
             namespace,
+            namespaces: all_namespaces,
             attributes: xml_attrs,
             children,
         },
@@ -247,22 +254,27 @@ fn parse_xml_name(name: &str) -> XmlName {
     }
 }
 
-fn extract_namespace(attrs: &[(String, String)]) -> Option<XmlNamespace> {
+/// Collect every `xmlns` / `xmlns:prefix` declaration on an element in
+/// document order. Namespaces in XML 1.0 (Bray, Hollander, Layman & Tobin
+/// 2009 §3) treats these as namespace declarations rather than regular
+/// attributes; consumers that need the full prefix→URI map (RDF/XML in
+/// particular, RDF 1.1 XML Syntax §2.4) read this collection.
+fn extract_all_namespaces(attrs: &[(String, String)]) -> Vec<XmlNamespace> {
+    let mut ns = Vec::new();
     for (k, v) in attrs {
         if k == "xmlns" {
-            return Some(XmlNamespace {
+            ns.push(XmlNamespace {
                 prefix: None,
                 uri: v.clone(),
             });
-        }
-        if let Some(prefix) = k.strip_prefix("xmlns:") {
-            return Some(XmlNamespace {
+        } else if let Some(prefix) = k.strip_prefix("xmlns:") {
+            ns.push(XmlNamespace {
                 prefix: Some(prefix.into()),
                 uri: v.clone(),
             });
         }
     }
-    None
+    ns
 }
 
 fn extract_attr_value(content: &str, name: &str) -> Option<String> {

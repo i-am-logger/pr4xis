@@ -108,25 +108,20 @@ impl NamespaceScope {
     /// found on the current element. The parent stays immutable;
     /// the returned scope is the parent's bindings overridden by
     /// this element's `xmlns` / `xmlns:prefix` declarations.
+    ///
+    /// Per Namespaces in XML 1.0 (Bray, Hollander, Layman & Tobin
+    /// 2009) §3, every `xmlns` / `xmlns:prefix` attribute on an
+    /// element is a namespace declaration, not a regular attribute.
+    /// The praxis XML reader surfaces them all on
+    /// [`XmlElement::namespaces`] in document order; iterate that
+    /// collection so a later declaration shadows an earlier one on
+    /// the same prefix (§6.1 — innermost wins).
     fn extend(parent: &Self, element: &XmlElement) -> Self {
         let mut scope = parent.clone();
-        // The first xmlns/xmlns:prefix declaration on each element
-        // is captured by praxis-xml in `element.namespace`; the rest
-        // land in `element.attributes` with the `xmlns` or
-        // `xmlns:prefix` naming form.
-        if let Some(ns) = &element.namespace {
+        for ns in &element.namespaces {
             match &ns.prefix {
                 None => scope.default_uri = Some(ns.uri.clone()),
                 Some(p) => scope.set_prefix(p, &ns.uri),
-            }
-        }
-        for attr in &element.attributes {
-            if let Some(p) = attr.name.prefix.as_deref() {
-                if p == "xmlns" {
-                    scope.set_prefix(&attr.name.local, &attr.value);
-                }
-            } else if attr.name.local == "xmlns" {
-                scope.default_uri = Some(attr.value.clone());
             }
         }
         scope

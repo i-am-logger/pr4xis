@@ -1635,7 +1635,12 @@ fn parse_element(
     c.consume("<")?;
     let name = parse_name(c)?;
     let mut attributes: Vec<XmlAttribute> = Vec::new();
-    let mut namespace: Option<XmlNamespace> = None;
+    // Namespaces in XML 1.0 (Bray, Hollander, Layman & Tobin 2009) §3
+    // permits any number of `xmlns` / `xmlns:prefix` declarations on a
+    // single element. We collect every one in document order; the legacy
+    // single `namespace` slot mirrors the first declaration for backward
+    // compatibility with consumers that only need a representative.
+    let mut namespaces: Vec<XmlNamespace> = Vec::new();
 
     loop {
         let had_ws = {
@@ -1645,9 +1650,11 @@ fn parse_element(
         };
         if c.starts_with("/>") {
             c.consume("/>")?;
+            let namespace = namespaces.first().cloned();
             return Ok(XmlElement {
                 name,
                 namespace,
+                namespaces,
                 attributes,
                 children: Vec::new(),
             });
@@ -1670,13 +1677,13 @@ fn parse_element(
 
         let is_ns_decl = attr_name.prefix.as_deref() == Some("xmlns")
             || (attr_name.prefix.is_none() && attr_name.local == "xmlns");
-        if is_ns_decl && namespace.is_none() {
+        if is_ns_decl {
             let prefix = if attr_name.prefix.is_some() {
                 Some(attr_name.local.clone())
             } else {
                 None
             };
-            namespace = Some(XmlNamespace { prefix, uri: value });
+            namespaces.push(XmlNamespace { prefix, uri: value });
         } else {
             // W3C XML 1.0 §3.1 well-formedness constraint Unique Att
             // Spec — the same attribute name (qualified) MUST NOT
@@ -1708,9 +1715,11 @@ fn parse_element(
         });
     }
 
+    let namespace = namespaces.first().cloned();
     Ok(XmlElement {
         name,
         namespace,
+        namespaces,
         attributes,
         children,
     })

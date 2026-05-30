@@ -37,6 +37,7 @@ impl Axiom for XmlLensGetPutLaw {
             root: XmlElement {
                 name: XmlName::new("axiom_witness"),
                 namespace: None,
+                namespaces: Vec::new(),
                 attributes: vec![XmlAttribute {
                     name: XmlName::new("k"),
                     value: "v".into(),
