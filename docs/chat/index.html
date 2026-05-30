@@ -581,10 +581,10 @@
 
       // Loaded first, then available; stable by name within each.
       const ordered = [...sources].sort((a, b) =>
-        (a.status === b.status ? a.name.localeCompare(b.name) : (a.status === 'loaded' ? -1 : 1)));
+        (a.availability === b.availability ? a.name.localeCompare(b.name) : (a.availability === 'loaded' ? -1 : 1)));
 
       for (const s of ordered) {
-        const loaded = s.status === 'loaded';
+        const loaded = s.availability === 'loaded';
         const card = document.createElement('div');
         card.className = `source-card ${loaded ? 'loaded' : 'available'}`;
         card.dataset.source = s.name; // stable hook for the Rust E2E
@@ -597,7 +597,7 @@
         top.appendChild(nm);
         const badge = document.createElement('span');
         badge.className = `badge ${loaded ? 'badge-loaded' : 'badge-available'}`;
-        badge.textContent = s.status;
+        badge.textContent = s.availability;
         top.appendChild(badge);
         if (loaded && s.staging) {
           const sb = document.createElement('span');
