@@ -8,10 +8,11 @@
 //! are categories themselves and whose morphisms admit *cartesian
 //! lifts* along the base. The construction here treats:
 //!
-//! - **Base category** `B` = the [`super::super::classification::ontology::ClassificationCategory`]
-//!   — Taxa, Ranks, Differentiae from Linnaeus (1735), Aristotle,
-//!   Porphyry, Guarino (2009).
-//! - **Total category** `E` = the [`super::fca::ConceptLattice`] of a
+//! - **Base category** `B` = the `ClassificationCategory` (Taxa, Ranks,
+//!   Differentiae from Linnaeus (1735), Aristotle, Porphyry, Guarino
+//!   (2009)).
+//! - **Total category** `E` = the `ConceptLattice` (from the sibling
+//!   `fca` module) of a
 //!   formal context, viewed as a thin category whose objects are
 //!   formal concepts and whose only morphisms are the extent-
 //!   inclusion order.

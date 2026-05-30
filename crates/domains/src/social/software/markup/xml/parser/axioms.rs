@@ -25,7 +25,7 @@ use crate::formal::meta::well_behaved_lens::WellBehavedLens;
 /// Verified by serializing a representative fixture and asserting
 /// that the re-parsed value equals the original. Property-based
 /// coverage of this law over random `XmlDocument`s lives in
-/// [`super::tests::property::property_get_put_law`].
+/// the test-only `super::tests::property::property_get_put_law` proptest.
 pub struct XmlLensGetPutLaw;
 
 impl Axiom for XmlLensGetPutLaw {

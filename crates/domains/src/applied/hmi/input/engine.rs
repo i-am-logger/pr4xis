@@ -1,9 +1,9 @@
 //! Modal input engine — drives the mode statechart from user input.
 //!
-//! The mode graph ([`super::modes::ModeGraph`]) defines *which* modes exist and
+//! The mode graph (`super::modes::ModeGraph`) defines *which* modes exist and
 //! which transitions are legal. This engine defines the *dynamics*: given the
-//! current [`InputState`] and a [`ModeTransition`], it produces the next state,
-//! gated by the [`ValidTransition`] precondition. It is the runtime an input
+//! current `InputState` and a `ModeTransition`, it produces the next state,
+//! gated by the `ValidTransition` precondition. It is the runtime an input
 //! daemon feeds raw key events into.
 //!
 //! # Why this exists (the failure it designs out)
@@ -13,7 +13,7 @@
 //! cure, per Raskin, is the **quasimode**: a mode held only by a sustained
 //! physical action that *reverts automatically when released*, so the user
 //! cannot be stranded in it. This engine makes that structural:
-//! [`ModeTransition::ReleaseHold`] and [`ModeTransition::ExitToRoot`] are
+//! `ModeTransition::ReleaseHold` and `ModeTransition::ExitToRoot` are
 //! *always* legal and the root (default) state is *always* reachable — a
 //! property of well-formed statecharts (Harel 1987). The result: there is no
 //! reachable state from which the user cannot return to root. The bug is not

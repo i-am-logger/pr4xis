@@ -3,7 +3,7 @@
 //! This decoder is the `ContentType::Owl` entry in the decoder dispatch
 //! table. It takes raw bytes (the fetched OWL / RDF-XML vocabulary
 //! contents) and returns the typed
-//! [`OwlOntology`](crate::social::software::markup::xml::owl::ontology::OwlOntology)
+//! [`OwlOntology`]
 //! — the praxis OWL ontology applied to the source text.
 //!
 //! **This decoder does not reimplement any XML or OWL parsing.** It

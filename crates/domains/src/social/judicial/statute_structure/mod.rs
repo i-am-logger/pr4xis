@@ -4,7 +4,7 @@
 //! The first source-understanding deliverable. Takes verbatim statute
 //! text (the same kind in `crates/domains/data/canonical_text/`) and
 //! emits a recursive tree of [`ClauseNode`]s, each carrying its
-//! [`PinpointCite`] subdivision path plus the body text that lives
+//! `PinpointCite` subdivision path plus the body text that lives
 //! at that subdivision. Downstream extractors (term-extractor,
 //! relation-extractor — future commits) consume the tree.
 //!
@@ -33,8 +33,8 @@
 //! → lowercase roman → uppercase roman. Disambiguation between
 //! letter "i" and roman numeral "i" is **context-based**: a single
 //! "i" parses as a roman clause when the current stack has an open
-//! [`Subparagraph`] (depth 3) parent, otherwise as a top-level
-//! lowercase letter [`Subsection`].
+//! `Subparagraph` (depth 3) parent, otherwise as a top-level
+//! lowercase letter `Subsection`.
 //!
 //! Text between markers is attached to the most recent open clause.
 //! Free-form leading text (before any marker) is attached to the

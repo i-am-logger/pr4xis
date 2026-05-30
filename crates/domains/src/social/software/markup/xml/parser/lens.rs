@@ -42,9 +42,9 @@ use crate::formal::meta::well_behaved_lens::{
 #[derive(Debug)]
 pub struct XmlLens;
 
-/// Wrapper for [`grammar::XmlParseError`] /
-/// [`canonical::xml::CanonicalizationError`] that the lens trait's
-/// `Error` associated type can carry.
+/// Wrapper for [`super::grammar::XmlParseError`] /
+/// [`crate::formal::meta::well_behaved_lens::canonical::CanonicalizationError`]
+/// that the lens trait's `Error` associated type can carry.
 #[derive(Debug)]
 pub enum XmlLensError {
     Parse(XmlParseError),

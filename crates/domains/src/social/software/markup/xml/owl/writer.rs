@@ -28,8 +28,8 @@
 //!
 //! - **Patel-Schneider, P. F. & Motik, B. (eds.) (2012)** *OWL 2 Web
 //!   Ontology Language: Mapping to RDF Graphs (2nd ed.)*, W3C
-//!   Recommendation 11 December 2012 — the inverse of [`read_owl`]'s
-//!   mapping.
+//!   Recommendation 11 December 2012 — the inverse of `read_owl`'s
+//!   mapping (see [`super::reader`]).
 //! - **Longley, D. & Sporny, M. (eds.) (2024)** *RDF Dataset
 //!   Canonicalization 1.0 (URDNA2015)*, W3C Recommendation 21 May 2024
 //!   — §4.5 blank-node-labelling; the algorithm we simplify by

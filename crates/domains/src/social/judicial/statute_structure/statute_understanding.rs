@@ -45,8 +45,7 @@
 //! [`Statute`]: crate::social::compliance::statutes::Statute
 //! [`PosTag`]: crate::cognitive::linguistics::lexicon::pos::PosTag
 //! [`LmfPos`]: crate::social::software::markup::xml::lmf::ontology::LmfPos
-//! [`LegalActorConcept`]: crate::social::judicial::legal_actor::ontology::LegalActorConcept
-//! [`SourceTextRef`]: crate::formal::information::ontology::SourceTextRef
+//! [`SourceTextRef`]: crate::social::judicial::source_text::SourceTextRef
 //! [rel_type]: crate::social::judicial::ontology::RelationType
 //!
 //! # Generic over statutes

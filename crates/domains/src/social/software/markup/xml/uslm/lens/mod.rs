@@ -10,7 +10,7 @@
 //!
 //! - **`get : &[u8] → UslmTypedTree`** — schema-aware parse. Walks
 //!   the XML tree with the XSD-grounded walker
-//!   [`xsd_grounded_build`], producing a [`UsCodeTitle`] (the typed
+//!   `xsd_grounded_build` (private), producing a [`UsCodeTitle`] (the typed
 //!   view) and retaining the original bytes as the *complement*
 //!   (Bancilhon & Spyratos 1981 ACM TODS 6(4) "Update Semantics of
 //!   Relational Views" §3; Hofmann, Pierce & Wagner 2011 POPL
@@ -607,7 +607,7 @@ impl WellBehavedLens for UslmXmlLens {
     /// Parse USLM XML bytes into the typed view, retaining the
     /// original bytes as the complement.
     ///
-    /// The view is built by [`xsd_grounded_build`] — the
+    /// The view is built by `xsd_grounded_build` (private) — the
     /// XSD-grounded walker whose every dispatch decision queries the
     /// loaded USLM-1.0.18 XSD ontology (W3C XSD 1.1 Part 1 §3.3
     /// element declarations, §3.3.6 substitution-group membership,

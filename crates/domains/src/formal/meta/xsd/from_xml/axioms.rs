@@ -1,5 +1,5 @@
 //! Registered axioms for the praxis-native XSD-document →
-//! [`XsdOntologyInstance`] projection.
+//! [`super::super::from_xsd_parser::XsdOntologyInstance`] projection.
 //!
 //! Each axiom asserts a property the projection MUST satisfy per
 //! the W3C XSD 1.1 Part 1 specification. Per
@@ -21,7 +21,7 @@ use crate::social::software::markup::xml::parser::grammar::parse_document;
 /// **Axiom SchemaCompositionProjected.** Per W3C XSD 1.1 Part 1
 /// §4.2, the `<xs:import>`, `<xs:include>`, `<xs:redefine>`, and
 /// `<xs:override>` schema-composition directives MUST appear on
-/// the projected [`XsdOntologyInstance`] when present in the
+/// the projected [`super::super::from_xsd_parser::XsdOntologyInstance`] when present in the
 /// source XSD. Asserts the projection captures all four kinds.
 pub struct XsdSchemaCompositionProjected;
 

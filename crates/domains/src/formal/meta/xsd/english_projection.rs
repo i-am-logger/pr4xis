@@ -104,7 +104,7 @@ use crate::social::judicial::statute_structure::statute_understanding::is_statut
 /// carried by the source category; the functor preserves identities
 /// (Mac Lane §I.3) and collapses non-identity morphisms to identities
 /// on the projected object (a *forgetful* functor — see
-/// [`XsdToEnglish::KIND`]).
+/// `XsdToEnglish::KIND`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, pr4xis::category::Concept)]
 pub enum XsdEnglishLabel {
     SchemaDocument,
@@ -317,7 +317,7 @@ impl Arrow for XsdEnglishLabelMorphism {
 
 /// Category of English-projection labels for XSD concepts. Carries
 /// every Subsumption edge from the XSD source plus the identities,
-/// computed via [`subsumption_pairs`] from the canonical XSD `is_a`
+/// computed via `subsumption_pairs` (private) from the canonical XSD `is_a`
 /// hierarchy (W3C XSD 1.1 Part 1 §2.2).
 pub struct XsdEnglishLabelCategory;
 
@@ -354,7 +354,7 @@ fn subsumption_pairs() -> [(XsdEnglishLabel, XsdEnglishLabel); 17] {
     ]
 }
 
-/// Transitive closure of [`subsumption_pairs`] — every (child,
+/// Transitive closure of `subsumption_pairs` (private) — every (child,
 /// ancestor) pair reachable by chasing subsumption edges. Mirrors
 /// the same closure the source `XsdCategory` macro emits (per
 /// OBO-RO Smith 2005 `transitive_over` on subsumption).

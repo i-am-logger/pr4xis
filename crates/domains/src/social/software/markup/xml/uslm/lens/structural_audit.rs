@@ -4,12 +4,12 @@
 //!
 //! 1. **Raw histogram** — every element in the parsed `XmlDocument`,
 //!    counted by `(namespace_uri, local_name)`. Built by the
-//!    praxis-native [`xml::reader::read_xml`] (W3C XML 1.0 §3
+//!    praxis-native `xml::reader::read_xml` (W3C XML 1.0 §3
 //!    *Logical Structures*).
 //! 2. **Typed histogram** — every node materialised in the lens's
 //!    typed view ([`UsCodeTitle`] + its transitive children), counted
 //!    by the same `(namespace_uri, local_name)` key. The typed view is
-//!    produced by [`read_uslm_title`] in `leaf_readers`.
+//!    produced by `read_uslm_title` in `leaf_readers`.
 //!
 //! The *gap* = raw minus typed, per element name. A non-zero gap is
 //! the audit signal: it identifies what the typed view fails to

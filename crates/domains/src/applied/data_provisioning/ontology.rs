@@ -359,7 +359,7 @@ impl RegistryEntry {
     ///
     /// Resolution proceeds in three layers:
     ///
-    /// 1. **Per-source override** ([`local_path_override`]) — for sources
+    /// 1. **Per-source override** (`local_path_override`, private) — for sources
     ///    whose disk filename is the publisher's canonical name rather
     ///    than the `{name}-{version}` convention (e.g. W3C's
     ///    `xhtml-1.0-strict.xsd`, LC's `uslm-1.0.18.xsd`).
@@ -375,7 +375,7 @@ impl RegistryEntry {
     ///    (USC titles, procedural rules, case-law packages) where the
     ///    per-source subdir keeps multi-file granules grouped.
     ///
-    /// The [`registry_local_paths_exist`] axiom verifies the result
+    /// The `RegistryLocalPathsExist` axiom verifies the result
     /// always points to a file that actually exists in `crates/domains/data/`.
     pub fn local_path(&self) -> String {
         // Layer 1 — explicit per-source override.

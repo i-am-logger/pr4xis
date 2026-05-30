@@ -17,7 +17,7 @@
 //! `ObligationLanguage` / etc.) and a `Vec<LegalRelation>` (each relation
 //! is `(Identifier, Identifier, RelationType)` typed). The
 //! `from_structural` constructor reads
-//! [`super::super::super::applied::data_provisioning::registry::StructuralData`]
+//! `super::super::super::applied::data_provisioning::registry::StructuralData`
 //! and synthesizes the typed values.
 
 #[allow(unused_imports)]

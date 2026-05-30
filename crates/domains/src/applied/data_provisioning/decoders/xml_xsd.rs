@@ -3,7 +3,7 @@
 //! This decoder is the `ContentType::XmlXsd` entry in the decoder
 //! dispatch table. It takes raw bytes (the fetched XSD file contents)
 //! and returns a typed
-//! [`XsdOntologyInstance`](crate::formal::meta::xsd::from_xsd_parser::XsdOntologyInstance)
+//! `XsdOntologyInstance`
 //! — the praxis XSD ontology applied to the source text.
 //!
 //! **This decoder does not reimplement any XML or XSD parsing.** It

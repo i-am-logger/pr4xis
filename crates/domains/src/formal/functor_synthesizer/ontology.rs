@@ -46,7 +46,7 @@
 //! ```
 //!
 //! The number of cycles is data-determined; convergence is detected
-//! by comparing successive [`SynthesizedFunctor`]s for equality
+//! by comparing successive `SynthesizedFunctor`s for equality
 //! modulo identity.
 //!
 //! # Composition

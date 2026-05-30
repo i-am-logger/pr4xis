@@ -51,7 +51,8 @@ pub fn loaded_wn_lmf_dtd() -> &'static str {
 /// The lookup goes through the typed [`DtdSchema`](crate::formal::meta::dtd::DtdSchema):
 /// the bundled DTD bytes are parsed once on first call (cached via
 /// [`OnceLock`](std::sync::OnceLock)) into the praxis DTD ontology,
-/// then names are matched against the parsed [`DtdConcept::ElementDecl`]
+/// then names are matched against the parsed
+/// [`DtdConcept`](crate::formal::meta::dtd::ontology::DtdConcept)`::ElementDecl`
 /// names — never a substring scan over the source bytes.
 #[must_use]
 pub fn is_wn_lmf_element(name: &str) -> bool {

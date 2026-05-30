@@ -4,7 +4,7 @@
 //! Any XML schema (USLM, LMF, OOXML, ...) is itself an XSD-described
 //! ontology. By declaring XSD as a Praxis ontology, every loaded
 //! schema becomes a Praxis ontology instance through a single
-//! [xsd-parser AST] → [XsdOntology] functor — no per-schema hand-
+//! xsd-parser AST → `XsdOntology` functor — no per-schema hand-
 //! coding of the concept inventory.
 //!
 //! ## Why XSD lives in `formal/meta`

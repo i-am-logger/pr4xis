@@ -689,11 +689,11 @@ pub struct UsCodeSection {
     /// small-caps, italic, and other ornaments.
     pub heading_runs: Vec<UsCodeInlineRun>,
     /// `<chapeau>` if the § opens with introductory text before
-    /// nested subdivisions. Flat-text projection of [`chapeau_runs`].
+    /// nested subdivisions. Flat-text projection of `chapeau_runs`.
     pub chapeau: Option<String>,
     pub chapeau_runs: Vec<UsCodeInlineRun>,
     /// `<content>` if the § is a flat (no-subdivision) section.
-    /// Flat-text projection of [`content_runs`].
+    /// Flat-text projection of `content_runs`.
     pub content: Option<String>,
     pub content_runs: Vec<UsCodeInlineRun>,
     /// Nested subdivisions — (a)/(b)/(c)… subsections, each of
@@ -746,7 +746,7 @@ pub struct UsCodeSubdivision {
     pub num: String,
     /// Which USLM hierarchy level this subdivision sits at.
     pub kind: SubdivisionKind,
-    /// `<heading>` text if any. Flat-text projection of [`heading_runs`].
+    /// `<heading>` text if any. Flat-text projection of `heading_runs`.
     pub heading: Option<String>,
     pub heading_runs: Vec<UsCodeInlineRun>,
     /// `<chapeau>` if this subdivision introduces children.

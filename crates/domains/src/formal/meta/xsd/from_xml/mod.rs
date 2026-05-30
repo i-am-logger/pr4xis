@@ -1,12 +1,13 @@
-//! Praxis-native XSD-document → [`XsdOntologyInstance`] projection
-//! that takes its input from praxis-xml's [`XmlDocument`] rather
+//! Praxis-native XSD-document →
+//! [`XsdOntologyInstance`]
+//! projection that takes its input from praxis-xml's [`XmlDocument`] rather
 //! than xsd-parser's AST.
 //!
 //! This is the second lens in the
 //! `file ↔ XML ↔ XSD ↔ statute-ontology` chain (see
 //! `feedback_praxis_way_fix_at_root`): given the XmlDocument that
-//! [`crate::social::software::markup::xml::parser::XmlLens`]
-//! produced from the on-disk XSD bytes, walk the tree and project
+//! `crate::social::software::markup::xml::parser::XmlLens` produced from
+//! the on-disk XSD bytes, walk the tree and project
 //! every `<xsd:element>` / `<xsd:complexType>` / `<xsd:simpleType>` /
 //! `<xsd:attributeGroup>` / `<xsd:group>` / `<xsd:attribute>`
 //! declaration in the W3C XSD 1.1 namespace

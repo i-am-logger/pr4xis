@@ -4,7 +4,7 @@
 //! Per W3C XSD 1.1 Part 1 §2.5 + §3.16 (Gao, Sperberg-McQueen &
 //! Thompson 2012), an XSD schema document is an XML document whose
 //! root is `<xs:schema>`. This lens composes
-//! [`crate::social::software::markup::xml::parser::parse_document`]
+//! `crate::social::software::markup::xml::parser::grammar::parse_document`
 //! (the XML 1.0 parser, Bray et al. 2008) with
 //! [`super::from_xml::project_from_xml_document`] (the XSD projector)
 //! to read raw schema bytes into an [`XsdSchema`] = `(instance,

@@ -1,6 +1,6 @@
 //! Concrete RDF term and triple instances.
 //!
-//! The sibling [`ontology`] module models the *kinds* of node that can
+//! The sibling [`super::ontology`] module models the *kinds* of node that can
 //! occupy a triple (W3C RDF 1.1 Concepts §1.2). This module carries the
 //! *runtime instances* — the concrete IRIs, blank-node labels, and
 //! literal lexical forms a reader actually produces.

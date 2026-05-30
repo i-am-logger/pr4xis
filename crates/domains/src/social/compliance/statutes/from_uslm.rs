@@ -6,7 +6,7 @@
 //!
 //! The functor is a thin adapter — it walks the section + every
 //! nested subdivision, builds a
-//! [`StructuralData`][structural_data] in-memory, then routes
+//! [`StructuralData`] in-memory, then routes
 //! through the existing [`Statute::from_structural_with_context`]
 //! validation pipeline with the section URN as the provenance URI.
 //! This guarantees that XML-derived statutes pass the same CURIE-

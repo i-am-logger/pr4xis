@@ -148,7 +148,7 @@ impl<C: Ord> Implication<C> {
     /// implication. With the [`Implication::new`] invariants this is
     /// the identity (antecedent and consequent are already sorted +
     /// deduped); the function is provided so the operation is
-    /// callable as named in the [`super::ontology::Normalization`]
+    /// callable as named in the `super::ontology::Normalization`
     /// concept. Idempotent.
     #[must_use]
     pub fn normalize(self) -> Self {

@@ -118,7 +118,7 @@ pub fn lens_registrations() -> &'static [LensRegistration] {
     &[]
 }
 
-/// Register a [`WellBehavedLens`] implementation for a specific
+/// Register a [`super::WellBehavedLens`] implementation for a specific
 /// praxis-toml source.
 ///
 /// # Example

@@ -471,7 +471,7 @@ impl UsCode {
     /// the same body text it saw under the codegen path.
     ///
     /// [`OnceLock`]: std::sync::OnceLock
-    /// [`read_uslm_title`]: super::super::read_uslm_title
+    /// [`read_uslm_title`]: super::lens::leaf_readers::read_uslm_title
     pub fn from_uslm_titles_owned(titles: alloc::vec::Vec<UsCodeTitle>) -> Self {
         let mut sections: Vec<UscSection> = Vec::new();
         let mut by_urn: HashMap<String, usize> = HashMap::new();

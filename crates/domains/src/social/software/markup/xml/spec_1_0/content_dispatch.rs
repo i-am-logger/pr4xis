@@ -122,16 +122,15 @@ pub enum ContentItemKind {
 /// (whitespace).
 ///
 /// The [`WhiteSpace`] variant is structurally distinct: whitespace
-/// is recognised by a [`CharClass`](pr4xis::xml_grammar::ast::Term::CharClass)
+/// is recognised by a CharClass term (`pr4xis::xml_grammar::ast::Term::CharClass`)
 /// at the start of `Misc`, not by a literal prefix, so it is
-/// handled by the parser's [`Cursor::skip_whitespace`] before the
+/// handled by the parser's `Cursor::skip_whitespace` before the
 /// dispatch table is consulted. The dispatch table itself carries
 /// only the two literal-prefixed alternatives.
 ///
 /// [`Comment`]: MiscItemKind::Comment
 /// [`PI`]: MiscItemKind::ProcessingInstruction
 /// [`WhiteSpace`]: MiscItemKind::WhiteSpace
-/// [`Cursor::skip_whitespace`]: super::super::parser::grammar::Cursor::skip_whitespace
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MiscItemKind {
     /// §2.5 \[15\] Comment — `<!-- ... -->`.
@@ -169,12 +168,10 @@ impl ContentDispatchTable {
     /// the parser then enters the §2.4 CharData branch.
     ///
     /// The caller must have already checked the
-    /// [`ContentTerminator`] (i.e., the ETag start `</` for inside
+    /// `ContentTerminator` (i.e., the ETag start `</` for inside
     /// an element, or EOF for the document level); the dispatch
     /// table assumes the position is genuinely inside `content` and
     /// not at content-end.
-    ///
-    /// [`ContentTerminator`]: super::super::parser::grammar::ContentTerminator
     #[must_use]
     pub fn classify(&self, rest: &str) -> ContentItemKind {
         for (prefix, kind) in &self.entries {

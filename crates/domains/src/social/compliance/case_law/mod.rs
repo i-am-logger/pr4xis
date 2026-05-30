@@ -26,8 +26,9 @@
 //!
 //! # Authority strength
 //!
-//! Every `Decision` carries an [`AuthorityStrengthConcept`]
-//! ([`crate::social::judicial::authority_strength`]) — typically
+//! Every `Decision` carries an
+//! [`AuthorityStrengthConcept`](crate::social::judicial::authority_strength::ontology::AuthorityStrengthConcept)
+//! — typically
 //! `SupremeCourtPrecedent`, `ControllingCircuitPrecedent`,
 //! `AdministrativeReviewBoardDecision`, or `DistrictCourtPrecedent`.
 //! That tag participates in the binding-force ordering when the

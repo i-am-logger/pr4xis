@@ -3,7 +3,7 @@
 //! [`Lens`]es (Foster et al. 2007).
 //!
 //! The byte hop `file ⇄ UsCodeTitle` is the XSD-grounded
-//! [`UslmXmlLens`](crate::social::software::markup::xml::uslm::UslmXmlLens)
+//! [`UslmXmlLens`]
 //! (a [`WellBehavedLens`](crate::formal::meta::well_behaved_lens)).
 //! This module adds the two *typed* hops above the byte boundary:
 //!

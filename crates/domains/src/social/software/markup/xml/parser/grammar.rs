@@ -4,7 +4,7 @@
 //! Each `parse_<production>` function transcribes one of the W3C
 //! EBNF productions (cited in the function's doc-comment), advances
 //! the byte cursor, and emits the corresponding piece of the typed
-//! [`XmlDocument`](super::super::ontology::XmlDocument) Infoset
+//! [`XmlDocument`] Infoset
 //! tree.
 //!
 //! Strategy: recursive descent with one-byte lookahead, no
@@ -164,7 +164,7 @@ impl std::error::Error for XmlParseError {}
 /// from W3C XML 1.0 Fifth Edition §2.1.
 ///
 /// **W3C XML 1.0 §F (Autodetection of Character Encodings)** is
-/// applied via [`decode_input`]: byte-order marks select between
+/// applied via `decode_input` (private): byte-order marks select between
 /// UTF-8, UTF-16 big-endian, and UTF-16 little-endian; bytes are
 /// transcoded to UTF-8 before the grammar descent. The UTF-8 BOM
 /// (rare but allowed) is stripped as part of decoding.
@@ -259,7 +259,7 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
 /// out of scope: the praxis legal-evidence corpus is uniformly
 /// UTF-8 / UTF-16, and the W3C XMLConf test cases the praxis
 /// parser must pass declare only those.
-/// Encoding the byte-prefix probe in [`decode_input`] resolved
+/// Encoding the byte-prefix probe in `decode_input` (private) resolved
 /// the document to. Carried alongside the decoded text so the
 /// outer parser can match it against the optional `encoding="…"`
 /// pseudo-attribute on the XMLDecl per W3C XML 1.0 §F /

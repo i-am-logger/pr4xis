@@ -299,7 +299,7 @@ pub struct XsdOntologyInstance {
     pub elements: Vec<ElementDeclarationInfo>,
     /// Per-`<xs:import>` directive records — the schema-composition
     /// instances projected for the [`XsdConcept::SchemaImport`] concept
-    /// (W3C XSD 1.1 Part 1 §4.2.6). Parallels [`elements`] for the
+    /// (W3C XSD 1.1 Part 1 §4.2.6). Parallels the `elements` field for the
     /// [`XsdConcept::ElementDeclaration`] concept: the *concept* lives
     /// in the XSD ontology, this carries per-instance data.
     pub imports: Vec<SchemaImportInfo>,
@@ -417,7 +417,7 @@ pub struct AnnotationInfo {
 /// A `(XsdConcept, local_name)` pair carried by an
 /// [`XsdOntologyInstance`]. Held in its own type rather than a raw
 /// tuple so the adjunction Lift can construct a typed
-/// [`super::english_adjunction::NamedSchemaComponent`] from it without
+/// `super::english_adjunction::NamedSchemaComponent` from it without
 /// reaching into tuple fields.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NamedSchemaComponentEntry {

@@ -434,7 +434,7 @@ pub enum OwlAnnotationValue {
 /// and the vocabulary's own metadata predicates also flow through
 /// here. Distinct annotations may share a predicate (multi-language
 /// `rdfs:label`, multiple `dc:creator`s, …); the order is
-/// document-order preserved by [`read_owl`].
+/// document-order preserved by `read_owl` (see [`super::reader`]).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OwlAnnotation {
     pub predicate: String,
