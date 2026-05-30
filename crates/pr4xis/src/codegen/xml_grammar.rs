@@ -117,13 +117,13 @@ pub fn generate_xml_grammar_source(spec_path: &Path) -> Result<String, XmlGramma
          // ranges; lo ≤ hi; sorted lo-ascending in source order.\n\n",
     );
 
-    emit_range_table(&mut out, "CHAR_RANGES", "§2.2 [2] Char", &char_ranges);
+    emit_range_table(&mut out, "CHAR_RANGES", "§2.2 \\[2\\] Char", &char_ranges);
     emit_predicate(&mut out, "is_char", "CHAR_RANGES");
 
     emit_range_table(
         &mut out,
         "NAME_START_CHAR_RANGES",
-        "§2.3 [4] NameStartChar",
+        "§2.3 \\[4\\] NameStartChar",
         &name_start_char_ranges,
     );
     emit_predicate(&mut out, "is_name_start_char", "NAME_START_CHAR_RANGES");
@@ -131,7 +131,7 @@ pub fn generate_xml_grammar_source(spec_path: &Path) -> Result<String, XmlGramma
     emit_range_table(
         &mut out,
         "NAME_CHAR_RANGES",
-        "§2.3 [4a] NameChar",
+        "§2.3 \\[4a\\] NameChar",
         &name_char_ranges,
     );
     emit_predicate(&mut out, "is_name_char", "NAME_CHAR_RANGES");

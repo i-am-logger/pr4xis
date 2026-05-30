@@ -1,4 +1,4 @@
-//! Runtime engine for [`super::ontology::DoctrineDiscovery`]:
+//! Runtime engine for [`DoctrineDiscovery`]:
 //! `discover` takes a `FormalContext<O, A>` and returns the canonical
 //! discovery output — concept-lattice fibration + canonical
 //! implication basis + an abductive-schema reading per Peirce (1903).
@@ -58,13 +58,13 @@ where
 /// consequents share `A` indices.
 pub struct DoctrineDiscovery<O, A> {
     /// The concept-lattice fibration over the Classification
-    /// ontology. Each concept is a [`DoctrineCluster`]; the lattice
-    /// order encodes the [`DoctrineHierarchy`].
+    /// ontology. Each concept is a doctrine cluster; the lattice
+    /// order encodes the hierarchy returned by `hierarchy()`.
     pub fibration: ConceptLatticeFibration<O, A>,
     /// The canonical implication basis: a [`RuleSet`] of
     /// `Implication::assertoric({m}, closure({m}))` for every
     /// attribute `m` whose closure is non-trivial, normalized and
-    /// subsumption-reduced via [`RuleSet::canonical_basis`].
+    /// subsumption-reduced via `RuleSet::canonical_basis`.
     pub basis: RuleSet<A>,
     /// The Plotkin (1970) θ-subsumption order over `basis.rules()`.
     /// `subsumption_order[k] = (i, j)` means `basis.rules()[i]`

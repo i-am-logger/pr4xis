@@ -150,8 +150,8 @@ pub fn is_olia_iri(iri: &str) -> bool {
 /// variant names.
 ///
 /// Returns an empty `Vec` for effects with no direct OLiA mapping
-/// (e.g. [`SemanticEffect::PosChange`] — POS changes are structural
-/// edges, not OLiA feature classes; [`SemanticEffect::Repetition`]
+/// (e.g. `SemanticEffect::PosChange` — POS changes are structural
+/// edges, not OLiA feature classes; `SemanticEffect::Repetition`
 /// — re-prefixing is derivational without a Morphosyntax slot).
 ///
 /// Reference: Chiarcos & Sukhareva (2015), OLiA Morphosyntax model

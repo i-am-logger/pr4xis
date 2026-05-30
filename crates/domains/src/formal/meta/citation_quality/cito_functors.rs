@@ -1,23 +1,26 @@
 //! CiTO functor web — the interpretation layer over the loaded CiTO
 //! (Citation Typing Ontology) vocabulary.
 //!
-//! [`crate::social::software::markup::xml::owl::loaded_vocabularies`]
-//! exposes CiTO as a runtime corpus (`loaded_vocabulary("cito")`), a
-//! ~97-object [`OwlVocabularyCategory`] whose objects are CiTO entities.
-//! That category is *loaded*, so a `pr4xis::functor!` cannot source from
-//! it without its laws verifying vacuously before `install()` (the law
-//! axioms iterate `Source::morphisms()`, which reads the `ACTIVE`
-//! singleton). Following the XSD precedent
+//! The `crate::social::software::markup::xml::owl::loaded_vocabularies`
+//! module exposes CiTO as a runtime corpus (`loaded_vocabulary("cito")`), a
+//! ~97-object
+//! [`OwlVocabularyCategory`](crate::social::software::markup::xml::owl::vocabulary::OwlVocabularyCategory)
+//! whose objects are CiTO entities. That category is *loaded*, so a
+//! `pr4xis::functor!` cannot source from it without its laws verifying
+//! vacuously before `install()` (the law axioms iterate
+//! `Source::morphisms()`, which reads the `ACTIVE` singleton). Following
+//! the XSD precedent
 //! ([`crate::formal::meta::xsd::english_projection`]), the functor web
 //! sources from a *finite interpretation enum* —
 //! [`CitoCitationType`] — and a separate runtime resolver
-//! ([`classify_cito_iri`]) bridges loaded CiTO IRIs to the enum.
+//! (`classify_cito_iri`, gated by the `fetch` feature) bridges loaded
+//! CiTO IRIs to the enum.
 //!
 //! [`CitoCitationType`] is **our interpretation layer, not a re-encoding
 //! of CiTO**: one variant per CiTO citing-direction `cites`-subproperty
 //! that bears on citation *validity* (those mapped in the design tables
 //! below). Each variant carries its canonical CiTO IRI, and the
-//! corpus-wide audit ([`tests::audit_enum_against_loaded_cito`]) binds
+//! corpus-wide audit (`tests::audit_enum_against_loaded_cito`) binds
 //! the enum to loaded CiTO: every variant must resolve to a loaded
 //! property, and every loaded `cites`-subproperty must be either mapped
 //! or on the documented [`OMIT_IRIS`] allow-list — no silent drift.
@@ -345,7 +348,8 @@ pub fn witness_of(dim: CitationQualityConcept) -> Option<CitoCitationType> {
 /// (objects + identities only; Mac Lane §I.1). Discrete because the
 /// citation types carry no inter-type structure *in our interpretation
 /// layer* (CiTO's own `subPropertyOf` taxonomy lives in loaded CiTO, the
-/// [`OwlVocabularyCategory`], not here). Being discrete makes the three
+/// [`OwlVocabularyCategory`](crate::social::software::markup::xml::owl::vocabulary::OwlVocabularyCategory),
+/// not here). Being discrete makes the three
 /// projection functors out of it structure-preserving by construction —
 /// only identities compose. The free-forgetful reflection lives between
 /// the witness retract [`CitoWitnessCategory`] and [`ImageDimensionCategory`].

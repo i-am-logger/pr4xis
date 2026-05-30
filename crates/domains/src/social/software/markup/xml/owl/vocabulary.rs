@@ -28,7 +28,7 @@
 //! (W3C OWL 2 §5). Plus the union subsumption graph: `rdfs:subClassOf`
 //! (RDF Schema §2.1) on classes ∪ `rdfs:subPropertyOf` (RDF Schema
 //! §5.1.7) on object properties, as `(child, parent)` index edges. This
-//! is exactly the taxonomy [`super::owl_vocabulary::owl_to_builder`]
+//! is exactly the taxonomy `super::owl_vocabulary::owl_to_builder` (codegen feature)
 //! produces; `from_codegen` walks the static IR back into owned indices.
 //!
 //! ## The Category
@@ -110,7 +110,7 @@ fn local_name(iri: &str) -> &str {
 
 /// The metaclass of a loaded OWL entity (W3C OWL 2 §5): either a named
 /// class or a named object property. These are the only two kinds
-/// [`super::owl_vocabulary::owl_to_builder`] emits.
+/// `super::owl_vocabulary::owl_to_builder` (codegen feature) emits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OwlEntityKind {
     /// `owl:Class` (W3C OWL 2 §5.1).
@@ -250,9 +250,9 @@ impl LoadedOwlVocabulary {
     ///   `rdfs:label` falling back to the IRI local name (the substring
     ///   after the last `#` or `/`); `definition` is `rdfs:comment`,
     ///   empty when absent (W3C OWL 2 §5; RDF Schema §2.4 / §2.5).
-    /// - **Subsumption.** The union of [`OwlOntology::taxonomy`]
-    ///   (`rdfs:subClassOf`) and [`OwlOntology::property_taxonomy`]
-    ///   (`rdfs:subPropertyOf`), re-keyed to entity indices; an edge whose
+    /// - **Subsumption.** The union of [`OwlOntology`]'s `taxonomy`
+    ///   (`rdfs:subClassOf`) and `property_taxonomy`
+    ///   (`rdfs:subPropertyOf`) fields, re-keyed to entity indices; an edge whose
     ///   endpoint is not a declared entity (e.g. a subclass of the
     ///   external `owl:Thing`) is dropped — the same drop
     ///   `pr4xis::codegen::generate`'s id-resolution makes, so the edge

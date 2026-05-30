@@ -172,7 +172,7 @@ pub struct UsCodeContainer {
 ///
 /// The `block_type` attribute distinguishes USLM-defined kinds:
 /// `"uscNote"` (the dominant in-corpus value), `"statutoryNote"`,
-/// etc. See [`UsCodeNote.topic`] for finer-grained semantic kinds.
+/// etc. See [`UsCodeNote`]'s `topic` field for finer-grained semantic kinds.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UsCodeNotesBlock {
     pub block_type: Option<String>,
@@ -683,7 +683,7 @@ pub struct UsCodeSection {
     /// from a genuine parse error without a hand-coded exceptions list.
     pub num_footnote: Option<String>,
     /// `<heading>` plain text, e.g. "Civil action to protect…".
-    /// Flat-text projection of [`heading_runs`].
+    /// Flat-text projection of `heading_runs`.
     pub heading: String,
     /// Typed inline-markup runs from `<heading>` — preserves
     /// small-caps, italic, and other ornaments.
@@ -750,11 +750,11 @@ pub struct UsCodeSubdivision {
     pub heading: Option<String>,
     pub heading_runs: Vec<UsCodeInlineRun>,
     /// `<chapeau>` if this subdivision introduces children.
-    /// Flat-text projection of [`chapeau_runs`].
+    /// Flat-text projection of `chapeau_runs`.
     pub chapeau: Option<String>,
     pub chapeau_runs: Vec<UsCodeInlineRun>,
     /// `<content>` if this subdivision is a leaf. Flat-text
-    /// projection of [`content_runs`].
+    /// projection of `content_runs`.
     pub content: Option<String>,
     pub content_runs: Vec<UsCodeInlineRun>,
     /// Nested children — for a subsection these are paragraphs;
