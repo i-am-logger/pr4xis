@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.8.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.7.5...pr4xis-chat-v0.8.0) (2026-05-30)
+
+
+### Features
+
+* praxis + praxis-cli gain the registered-source mechanism (SOX 1514A, AIR21 42121) ([#179](https://github.com/i-am-logger/pr4xis/issues/179)) ([917981a](https://github.com/i-am-logger/pr4xis/commit/917981a0bc3051d87c06661ec973ef6cfec79e3a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis bumped from 0.15.0 to 0.16.0
+    * pr4xis-domains bumped from 0.19.0 to 0.20.0
+
 ## [0.7.5](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.7.4...pr4xis-chat-v0.7.5) (2026-05-15)
 
 
