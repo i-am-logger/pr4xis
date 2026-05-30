@@ -34,8 +34,17 @@ jobs:
             command: cargo fmt --check
           - name: Clippy
             command: cargo clippy --workspace --all-targets -- -D warnings
+          # Tests run --release so the USC corpus loader
+          # (`usc_loaded()` parses ~85 MB of USLM XML at first call)
+          # finishes in ~1s instead of ~20s. The CLI release build
+          # earlier in the job already pays the linker cost; nextest
+          # reuses the compiled deps. Net: ~10-15 min off the
+          # critical path in exchange for stricter slow-test
+          # thresholds (see `.config/nextest.toml`'s `[profile.ci]`).
+          # Praxis-way follow-up: rkyv-archive the UsCode corpus so
+          # debug-mode tests also drop to ~1s init (task #271).
           - name: Test
-            command: cargo nextest run --workspace --profile ci
+            command: cargo nextest run --workspace --profile ci --release
             rustflags: "-D warnings"
             needs-wordnet: true
             needs-nextest: true
