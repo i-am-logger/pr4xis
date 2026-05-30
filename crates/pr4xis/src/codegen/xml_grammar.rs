@@ -16,7 +16,7 @@
 //!
 //! Each `<rhs>` of a character-class production is a `|`-separated
 //! list of items. The W3C "Notation" appendix (XML 1.0 Fifth Edition
-//! Appendix [B]) defines the relevant alternatives:
+//! Appendix \[B\]) defines the relevant alternatives:
 //!
 //! - `#xN`             — a single Unicode code point (hex).
 //! - `[#xN-#xM]`       — an inclusive range of code points (hex).
@@ -34,7 +34,7 @@
 //!   Yergeau, F.** (eds.) (2008) *Extensible Markup Language (XML)
 //!   1.0 (Fifth Edition)*, W3C Recommendation 26 November 2008,
 //!   §2.2 production [2] `Char`, §2.3 productions [4]/[4a]
-//!   `NameStartChar` / `NameChar`, Appendix [B] *Notation*.
+//!   `NameStartChar` / `NameChar`, Appendix \[B\] *Notation*.
 
 use std::path::Path;
 

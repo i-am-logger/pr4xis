@@ -192,8 +192,8 @@ pub fn generate_xml_infoset_source(xhtml_path: &Path) -> Result<String, XmlSchem
 
 /// One information item extracted from the published rec's section
 /// hierarchy. Internal to this module; the emitted const carries
-/// the same fields via [`XML_INFOSET_INFORMATION_ITEMS`] (which the
-/// consumer crate gets at build time).
+/// the same fields via `XML_INFOSET_INFORMATION_ITEMS` (generated into
+/// the consumer crate at build time — not a symbol in this crate).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScannedItem {
     pub section: String,

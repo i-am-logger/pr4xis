@@ -24,11 +24,12 @@
 //! Every call is a clean `HTTP GET → verify → write`. Re-running after a
 //! successful fetch short-circuits via a local re-verification unless
 //! `force` is set, so invocations are idempotent. The downloader wraps
-//! each GET in [`with_retry`] (RFC 9110 §9.2.2: GET is idempotent and
-//! a client SHOULD retry on connection-class failure) with an
-//! exponential backoff schedule (Jacobson 1988, "Congestion Avoidance
-//! and Control", SIGCOMM 1988 §3) so transient TCP RSTs mid-download
-//! recover instead of aborting the whole `pr4xis update` run.
+//! each GET in an idempotent retry harness (RFC 9110 §9.2.2: GET is
+//! idempotent and a client SHOULD retry on connection-class failure)
+//! with an exponential backoff schedule (Jacobson 1988, "Congestion
+//! Avoidance and Control", SIGCOMM 1988 §3) so transient TCP RSTs
+//! mid-download recover instead of aborting the whole `pr4xis update`
+//! run.
 //!
 //! **Flag precedence.** `--check` is a read-only mode and always wins:
 //! `--check --force` ignores `force` and only verifies the current file.
