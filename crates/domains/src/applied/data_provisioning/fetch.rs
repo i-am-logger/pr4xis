@@ -82,6 +82,15 @@ pub enum FetchOutcome {
     MissingAndOffline { name: String, path: PathBuf },
     /// Network or disk error during fetch.
     FetchError { name: String, reason: String },
+    /// Source has only `ClaimData::Stub` identity claims — registered
+    /// in `praxis.toml` but no lock hash pinned yet (the loader for
+    /// its content type isn't wired). The fetcher skips it because
+    /// there's no way to verify what comes back; `DecoderTotalityPerKind`
+    /// and `LockManifestAgreement` already treat the same set as
+    /// "registered but not yet loadable" pending the materialization
+    /// machinery. Reported as success so CI doesn't block on the
+    /// existence of a documented-but-deferred entry.
+    Skipped { name: String, reason: String },
 }
 
 impl FetchOutcome {
@@ -89,7 +98,9 @@ impl FetchOutcome {
     pub fn is_ok(&self) -> bool {
         matches!(
             self,
-            FetchOutcome::AlreadyVerified { .. } | FetchOutcome::Fetched { .. }
+            FetchOutcome::AlreadyVerified { .. }
+                | FetchOutcome::Fetched { .. }
+                | FetchOutcome::Skipped { .. }
         )
     }
 }
@@ -112,6 +123,18 @@ pub fn fetch_entry(
     opts: FetchOptions,
     workspace_root: &Path,
 ) -> FetchOutcome {
+    // Stub-only identity: registered but not yet loadable. The fetcher
+    // has nothing to verify and the upstream URL is documentation, not
+    // a verified artifact. Skip without touching the network — same
+    // treatment the `DecoderTotalityPerKind` and `LockManifestAgreement`
+    // axioms apply to these entries.
+    if entry.identity.is_stub_only() {
+        return FetchOutcome::Skipped {
+            name: entry.name.clone(),
+            reason: "stub identity — registered in praxis.toml, no lock hash yet".into(),
+        };
+    }
+
     let path = workspace_root.join(entry.local_path());
 
     // `--check` is read-only and always wins over `--force`.
@@ -177,7 +200,7 @@ fn do_fetch(entry: &RegistryEntry, path: &Path) -> FetchOutcome {
         }
     };
 
-    let bytes = if entry.gzipped() {
+    let bytes = if entry.transport_gzip() {
         match gunzip(&bytes) {
             Ok(b) => b,
             Err(e) => {

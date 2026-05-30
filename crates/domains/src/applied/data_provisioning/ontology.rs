@@ -316,9 +316,30 @@ pub struct RegistryEntry {
 
 impl RegistryEntry {
     /// `true` if the URL serves gzip-compressed bytes (i.e. ends with `.gz`).
-    /// Implied from the URL; not a separate manifest field.
+    /// Implied from the URL; not a separate manifest field. A pure URL-shape
+    /// predicate — does NOT imply the fetcher will decompress the body. The
+    /// "decompress on fetch" decision is [`Self::transport_gzip`].
     pub fn gzipped(&self) -> bool {
         self.url.ends_with(".gz")
+    }
+
+    /// `true` when the gzip wrapper on the wire is purely a transport
+    /// concern and the on-disk canonical form is the decompressed bytes.
+    /// Computed as: URL ends with `.gz` AND the local path does NOT end
+    /// with `.gz`. The fetcher decompresses iff this returns true.
+    ///
+    /// - `english-wordnet-2025.xml.gz` → `english-wordnet-2025.xml` ⇒
+    ///   transport gzip, fetcher decompresses.
+    /// - `xmlconf_xml_test_suite-2008-08-27.tar.gz` →
+    ///   `xmlconf_xml_test_suite-2008-08-27.tar.gz` ⇒ wrapper preserved
+    ///   on disk (the consumer is a tar.gz reader), fetcher writes raw.
+    ///
+    /// This distinction is the praxis-way fix for the previous bug where
+    /// the fetcher gunzipped every `.gz` URL — yielding tar bytes for
+    /// `.tar.gz` sources, which then mismatched the lock (the lock had
+    /// the raw response SHA, not the gunzipped SHA).
+    pub fn transport_gzip(&self) -> bool {
+        self.url.ends_with(".gz") && !self.local_path().ends_with(".gz")
     }
 
     /// `true` if the URL serves a PKZIP archive (i.e. ends with `.zip`).
@@ -687,7 +708,6 @@ pub struct DecoderTotalityPerKind;
 
 impl Axiom for DecoderTotalityPerKind {
     fn verify(&self) -> Verdict {
-        use crate::formal::meta::artifact_identity::ontology::ClaimData;
         for entry in crate::applied::data_provisioning::registry::data_sources() {
             // Sources whose RawHash identity claim is a Stub are
             // registered in praxis.toml but not yet loadable. They
@@ -695,12 +715,7 @@ impl Axiom for DecoderTotalityPerKind {
             // runtime decoder until the loader fills in their hash;
             // the decoder-totality check re-activates automatically
             // when that happens.
-            let is_stub_only = !entry.identity.0.is_empty()
-                && entry.identity.0.iter().all(|c| {
-                    matches!(c.concept, IdentityConcept::RawHash)
-                        && matches!(c.data, ClaimData::Stub { .. })
-                });
-            if is_stub_only {
+            if entry.identity.is_stub_only() {
                 continue;
             }
             let ct = canonical_encoding(entry.kind);

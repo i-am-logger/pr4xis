@@ -152,6 +152,9 @@ fn print_outcome(outcome: &FetchOutcome) {
         FetchOutcome::FetchError { name, reason } => {
             eprintln!("  [error]   {name}: {reason}");
         }
+        FetchOutcome::Skipped { name, reason } => {
+            println!("  [skipped] {name}: {reason}");
+        }
     }
 }
 

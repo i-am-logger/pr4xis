@@ -115,6 +115,57 @@ fn english_wordnet_url_is_gzipped() {
 }
 
 #[test]
+fn english_wordnet_transport_gzip_yes() {
+    // URL ends `.xml.gz`, local path ends `.xml` — fetcher must
+    // decompress to reach the on-disk canonical form.
+    let entry = by_name("english_wordnet").unwrap();
+    assert!(entry.gzipped());
+    assert!(
+        !entry.local_path().ends_with(".gz"),
+        "WordNet local path drops .gz extension"
+    );
+    assert!(
+        entry.transport_gzip(),
+        "WordNet must be transport_gzip — fetcher decompresses"
+    );
+}
+
+#[test]
+fn xmlconf_transport_gzip_no() {
+    // URL ends `.tar.gz`, local path also ends `.tar.gz` — the gzip
+    // wrapper is part of the on-disk form, fetcher must NOT decompress
+    // (the lock pins the raw response bytes). Regression-pins the
+    // bug that produced the CI "RawHash claim mismatch" by
+    // gunzipping every `.gz` URL.
+    let entry = by_name("xmlconf_xml_test_suite").unwrap();
+    assert!(entry.gzipped(), "URL ends with .gz");
+    assert!(
+        entry.local_path().ends_with(".gz"),
+        "xmlconf local path preserves the .tar.gz wrapper"
+    );
+    assert!(
+        !entry.transport_gzip(),
+        "xmlconf must NOT be transport_gzip — fetcher writes raw"
+    );
+}
+
+#[test]
+fn xsts_transport_gzip_no() {
+    // Same situation as xmlconf — `.tar.gz` URL, `.tar.gz` local path,
+    // raw bytes pinned in the lock.
+    let entry = by_name("xsts_xml_schema_test_suite").unwrap();
+    assert!(entry.gzipped(), "URL ends with .gz");
+    assert!(
+        entry.local_path().ends_with(".gz"),
+        "xsts local path preserves the .tar.gz wrapper"
+    );
+    assert!(
+        !entry.transport_gzip(),
+        "xsts must NOT be transport_gzip — fetcher writes raw"
+    );
+}
+
+#[test]
 fn lock_hashes_contains_wordnet() {
     let key = "english_wordnet@2025";
     assert!(lock_hashes().contains_key(key), "missing {key}");

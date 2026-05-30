@@ -191,6 +191,28 @@ pub enum HashAlgorithm {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompositeIdentity(pub Vec<IdentityClaim>);
 
+impl CompositeIdentity {
+    /// `true` when every claim is a [`ClaimData::Stub`] against
+    /// [`IdentityConcept::RawHash`] — i.e. the source is registered but
+    /// has no verifiable identity yet (no lock hash, no concrete
+    /// extractor wired). Downstream loaders treat these as
+    /// "registered-but-not-yet-loadable": the fetcher skips them and
+    /// the [`crate::applied::data_provisioning::ontology::DecoderTotalityPerKind`]
+    /// axiom skips them, in both cases because the materialization
+    /// machinery has no way to verify what bytes come back.
+    ///
+    /// An empty claim vector is NOT stub-only — that's a defect the
+    /// [`crate::applied::data_provisioning::ontology::EveryDataSourceHasIdentity`]
+    /// axiom catches separately.
+    pub fn is_stub_only(&self) -> bool {
+        !self.0.is_empty()
+            && self.0.iter().all(|c| {
+                matches!(c.concept, IdentityConcept::RawHash)
+                    && matches!(c.data, ClaimData::Stub { .. })
+            })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VerificationResult {
     Verified(IdentityClaim),
