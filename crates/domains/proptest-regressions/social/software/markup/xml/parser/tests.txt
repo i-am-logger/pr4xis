@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 8f86020256a030eba40581eab6348e71715d27d1d7a9bac1da2df3d14576e5d2 # shrinks to text = "\r"
+cc 4d634a0f4a6fa2800b8ccf4e3d219f9a79012ec054629d950ceb4c15e6f96f78 # shrinks to doc = XmlDocument { version: "1.0", encoding: None, root: XmlElement { name: XmlName { prefix: None, local: "A" }, namespace: None, attributes: [XmlAttribute { name: XmlName { prefix: None, local: "A" }, value: "" }], children: [Text("\r")] } }
+cc 43ff743805c12781b7f7525cf4542b702a0794ecc793fdf5b07f9b4399d02249 # shrinks to name = "A", value = "%"

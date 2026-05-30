@@ -20,7 +20,7 @@ use alloc::collections::BTreeMap;
 
 /// A Form — one grammatical realization (ontolex:Form).
 /// Carries writtenRep (BCP 47 language-tagged).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Form {
     pub written_rep: String,
     pub lang: String,
@@ -28,14 +28,14 @@ pub struct Form {
 
 /// A LexicalSense — bridges entry to ontology concept (ontolex:LexicalSense).
 /// The reference identifies the ontology entity this sense points to.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Sense {
     pub reference: ConceptRef,
 }
 
 /// Reference to an ontology concept — the target of ontolex:reference.
 /// Identified by ontology name + concept name.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ConceptRef {
     pub ontology: String,
     pub concept: String,

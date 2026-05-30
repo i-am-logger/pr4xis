@@ -231,7 +231,9 @@ fn raw_hash_rejects_wrong_sha256() {
 fn raw_hash_rejects_non_sha256_claim_data() {
     let claim = IdentityClaim {
         concept: IdentityConcept::RawHash,
-        data: ClaimData::Stub { reason: "..." },
+        data: ClaimData::Stub {
+            reason: "...".into(),
+        },
     };
     assert!(matches!(
         raw_hash::verify(&claim, b"hello pr4xis"),
@@ -255,8 +257,8 @@ fn xml_attribute_verifies_wordnet_version() {
     let claim = IdentityClaim {
         concept: IdentityConcept::XmlElementAttribute,
         data: ClaimData::XmlAttribute {
-            element: "Lexicon",
-            attribute: "version",
+            element: "Lexicon".into(),
+            attribute: "version".into(),
             expected: "2025".into(),
         },
     };
@@ -271,8 +273,8 @@ fn xml_attribute_rejects_wrong_version() {
     let claim = IdentityClaim {
         concept: IdentityConcept::XmlElementAttribute,
         data: ClaimData::XmlAttribute {
-            element: "Lexicon",
-            attribute: "version",
+            element: "Lexicon".into(),
+            attribute: "version".into(),
             expected: "2024".into(),
         },
     };
@@ -287,8 +289,8 @@ fn xml_attribute_unverifiable_when_element_missing() {
     let claim = IdentityClaim {
         concept: IdentityConcept::XmlElementAttribute,
         data: ClaimData::XmlAttribute {
-            element: "Nonexistent",
-            attribute: "version",
+            element: "Nonexistent".into(),
+            attribute: "version".into(),
             expected: "2025".into(),
         },
     };
@@ -349,7 +351,7 @@ proptest! {
     fn prop_stub_claims_are_unverifiable(bytes in prop::collection::vec(any::<u8>(), 0..128)) {
         let claim = IdentityClaim {
             concept: IdentityConcept::OpenPgp,
-            data: ClaimData::Stub { reason: "stub" },
+            data: ClaimData::Stub { reason: "stub".into() },
         };
         let ok = matches!(
             super::schemes::openpgp::verify(&claim, &bytes),

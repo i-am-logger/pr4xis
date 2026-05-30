@@ -3,95 +3,144 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use hashbrown::HashMap;
 
 use super::authority::Authority;
+use super::citation::PinpointCite;
 use super::lifecycle::PhaseTag;
+use super::source_text::SourceTextRef;
+use crate::formal::meta::identifier_format::Identifier;
 use pr4xis::category::{Arrow, Category, Concept};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
-/// Valence of a legal term.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Valence {
-    Supportive, // pro-claimant
-    Defensive,  // pro-respondent
-    Procedural, // scope, jurisdiction
-}
+// Faithful praxis-typed concepts (hand-coded prototypes of what codegen
+// will produce when the PDF loader + NLP extraction infrastructure are
+// ready — each one is verbatim with a single primary source so the
+// future-loaded version is semantically identical):
 
-/// Proof standard.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ProofStandard {
-    Preponderance,
-    ClearAndConvincing,
-    BeyondReasonableDoubt,
-}
+// `ProofStandard` ← McCauliff (1982) "Burdens of Proof", U. Pittsburgh
+// L. Rev. 35:1293 + In re Winship, 397 U.S. 358 (1970): exactly three
+// classical tiers (Preponderance / ClearAndConvincing / BeyondReasonableDoubt).
+pub use super::proof_standard::ontology::ProofStandardConcept as ProofStandard;
 
-/// Obligation language.
-#[derive(Debug, Clone, PartialEq)]
-pub enum ObligationLanguage {
-    Mandatory { word: String },     // "shall", "must"
-    Discretionary { word: String }, // "may", "can"
-    Prohibitive { word: String },   // "shall not"
+// `RequirementLevel` ← RFC 2119 / BCP 14 (Bradner 1997): exactly three
+// requirement levels (Required / Recommended / Optional).
+pub use super::evidence_requirement::ontology::RequirementLevelConcept as RequirementLevel;
+
+// `ObligationLanguage` ← von Wright (1951) "Deontic Logic", Mind 60:
+// exactly three deontic primitives (Mandatory / Discretionary /
+// Prohibitive — O / P / F operators). The surface modal word is a
+// separate typed `SourceTextRef` field on `Obligation`.
+pub use super::modality::ontology::ObligationModalityConcept as ObligationLanguage;
+
+// Removed:
+//
+// - `Valence` (Supportive/Defensive/Procedural): synthesized trichotomy
+//   with no single primary source attesting the partition. The
+//   `valence` field on `LegalTerm` is removed entirely; a primary
+//   source attesting the trichotomy (if found later) would restore it.
+//
+// - `LegalActor` (typed enum with Plaintiff/Defendant/Court/etc. in a
+//   four-family hierarchy): the four-family Party/Adjudicator/Witness/
+//   Counsel grouping is synthesis across multiple primary sources
+//   (FRCP Rule 17 + FRCP 38 + FRCP 72 + FRE 702 + ABA Rule 3.7 + …).
+//   Container fields previously typed as `LegalActor` are now typed
+//   as `Identifier` (CURIE references) — they resolve into the union
+//   of loaded per-source actor concepts via the `SourceTaxonomy`
+//   `Adjoins` graph.
+//
+// - `DeadlineDuration` typed enum (Day / BusinessDay / Week / Month /
+//   Year / Immediate unified into one ontology): synthesis across
+//   ISO 8601 + TimeML + FRCP Rule 6(a)(6). Replaced by the `Duration`
+//   value type below, which holds an `Identifier`-typed unit (CURIE
+//   reference into a per-source granularity ontology) and a numeric
+//   count.
+
+/// A typed duration value. `unit` is an [`Identifier`] CURIE pointing
+/// at a granularity concept in a primary-source ontology (e.g.,
+/// `iso8601_calendar:day`, `frcp_rule_6:business_day`, or
+/// `timeml:immediate`). `count` is the numeric count of `unit`s;
+/// ignored when the unit is an instantaneous concept (TimeML PT0S).
+///
+/// This is the praxis-bottom-up replacement for the previously-
+/// synthesized `TemporalConstraint`-typed `Duration`: rather than
+/// unifying ISO 8601 + TimeML + FRCP concepts into one fabricated
+/// ontology, we type the unit as a CURIE and let the resolver walk the
+/// `SourceTaxonomy` `Adjoins` graph to the right primary-source
+/// ontology.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Duration {
+    pub unit: Identifier,
+    pub count: u32,
 }
 
 /// A deadline triggered by an event.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// Every field is a typed praxis concept — no bare `String`. The
+/// `duration` is a typed [`Duration`] (unit-as-CURIE + count); the
+/// trigger phrase, optional consequence, and verbatim source citation
+/// are typed [`SourceTextRef`] values.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Deadline {
-    pub duration: DeadlineDuration,
-    pub trigger: String,
-    pub consequence: Option<String>,
-    pub source_text: String,
+    pub duration: Duration,
+    pub trigger: SourceTextRef,
+    pub consequence: Option<SourceTextRef>,
+    pub source_text: SourceTextRef,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum DeadlineDuration {
-    Days(u32),
-    Months(u32),
-    Immediate,
-}
-
-/// Burden of proof.
-#[derive(Debug, Clone, PartialEq)]
+/// Burden of proof — typed standard + actor (CURIE) + verbatim citation.
+///
+/// `standard` is the typed [`ProofStandard`] concept (McCauliff 1982 /
+/// Winship 1970 grounded). `borne_by` is an [`Identifier`] CURIE
+/// pointing at the actor concept (e.g., `frcp_rule_17:plaintiff`) in
+/// the per-source actor union resolved via the SourceTaxonomy `Adjoins`
+/// graph.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BurdenOfProof {
     pub standard: ProofStandard,
-    pub borne_by: String,
-    pub source_text: String,
+    pub borne_by: Identifier,
+    pub source_text: SourceTextRef,
 }
 
-/// A remedy available under a legal term.
-#[derive(Debug, Clone, PartialEq)]
+/// A remedy available under a legal term. Name / description / citing
+/// are typed [`SourceTextRef`] values.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Remedy {
-    pub name: String,
-    pub description: String,
-    pub source_text: String,
+    pub name: SourceTextRef,
+    pub description: SourceTextRef,
+    pub source_text: SourceTextRef,
 }
 
 /// An obligation imposed by a legal term.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// `actor` is an [`Identifier`] CURIE pointing at the actor concept
+/// (e.g., `frcp_rule_17:plaintiff`, `sox_1514a:a` for SOX 1514A's
+/// "Covered Employer", etc.) — resolves into the union of loaded
+/// per-source actor concepts via the SourceTaxonomy `Adjoins` graph.
+/// `modality` is the typed deontic mode (Mandatory / Prohibitive /
+/// Discretionary, von Wright 1951); the surface modal word is a
+/// separate `modal_word` field carrying the verbatim "shall" / "may
+/// not" / etc. as a [`SourceTextRef`] for citation purposes.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Obligation {
-    pub actor: String,
-    pub action: String,
-    pub language: ObligationLanguage,
-    pub source_text: String,
+    pub actor: Identifier,
+    pub action: SourceTextRef,
+    pub modality: ObligationLanguage,
+    pub modal_word: SourceTextRef,
+    pub source_text: SourceTextRef,
 }
 
-/// An exception to a rule.
-#[derive(Debug, Clone, PartialEq)]
+/// An exception to a rule. `to_rule` is a typed [`Identifier`] (CURIE
+/// reference to the rule being excepted); the exception text and
+/// verbatim citation are typed [`SourceTextRef`] values.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Exception {
-    pub to_rule: String,
-    pub exception: String,
-    pub source_text: String,
-}
-
-/// Evidence requirement level.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RequirementLevel {
-    Required,
-    Recommended,
-    Optional,
+    pub to_rule: Identifier,
+    pub exception: SourceTextRef,
+    pub source_text: SourceTextRef,
 }
 
 /// Evidence type expected.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EvidenceType {
     Date,
     Concept,
@@ -103,75 +152,95 @@ pub enum EvidenceType {
     Text,
 }
 
-/// An evidence requirement for a legal term.
-#[derive(Debug, Clone, PartialEq)]
+/// An evidence requirement for a legal term. Field name / description
+/// are typed [`SourceTextRef`]; the requirement level is the typed
+/// RFC 2119 concept.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EvidenceRequirement {
-    pub field: String,
+    pub field: SourceTextRef,
     pub field_type: EvidenceType,
     pub required: RequirementLevel,
-    pub description: Option<String>,
+    pub description: Option<SourceTextRef>,
 }
 
-/// A legal term — an object in the legal category.
-#[derive(Debug, Clone, PartialEq)]
+/// A legal term — the typed value form of a statutory/regulatory
+/// provision. Every field is a praxis concept or a typed value
+/// (composed of praxis concepts) — no bare `String` anywhere.
+///
+/// The Lumen-shaped `valence` field is intentionally absent: the
+/// Supportive/Defensive/Procedural trichotomy is a synthesis with no
+/// single primary-source attestation. When a primary source attesting
+/// the partition surfaces, the field gets restored typed against that
+/// source's ontology.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LegalTerm {
-    pub id: String,
-    pub name: String,
-    pub definition: String,
-    pub source_text: Option<String>,
-    pub valence: Valence,
-    pub subsection: Option<String>,
+    pub id: Identifier,
+    pub name: SourceTextRef,
+    pub definition: SourceTextRef,
+    pub source_text: Option<SourceTextRef>,
+    pub subsection: Option<PinpointCite>,
     pub required_evidence: Vec<EvidenceRequirement>,
     pub obligations: Vec<Obligation>,
     pub deadlines: Vec<Deadline>,
-    pub rights: Vec<String>,
+    pub rights: Vec<SourceTextRef>,
     pub remedies: Vec<Remedy>,
     pub burdens: Vec<BurdenOfProof>,
     pub exceptions: Vec<Exception>,
 }
 
-/// Relation types between legal terms — morphisms in the category.
-#[derive(Debug, Clone, PartialEq)]
+/// Relation types between legal terms — morphisms in the legal
+/// category. Parametric variants carry typed praxis values:
+/// `Precedes.max_days` is an `Option<Duration>` (TimeML-typed);
+/// `Implies.consequence` is a `SourceTextRef`; `Composes.into` /
+/// `Triggers.obligation` are typed `Identifier`s pointing at other
+/// terms; `Rebuts.burden` is a `SourceTextRef` describing the burden.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum RelationType {
     Requires,
-    Precedes { max_days: Option<i64> },
-    Implies { consequence: String },
+    Precedes { max_days: Option<Duration> },
+    Implies { consequence: SourceTextRef },
     Contradicts,
-    Composes { into: String },
+    Composes { into: Identifier },
     SubtypeOf,
-    Triggers { obligation: String },
+    Triggers { obligation: Identifier },
     Negates,
     AlternativeTo,
-    Rebuts { burden: String },
+    Rebuts { burden: SourceTextRef },
     AffirmativeDefenseTo,
     SafeHarborFor,
     ExhaustionRequiredFor,
 }
 
-/// A relation between two legal terms.
-#[derive(Debug, Clone, PartialEq)]
+/// A relation between two legal terms. `from` and `to` are typed
+/// [`Identifier`]s (CURIE-validated).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct LegalRelation {
-    pub from: String,
-    pub to: String,
+    pub from: Identifier,
+    pub to: Identifier,
     pub relation: RelationType,
 }
 
-/// A legal category: a body of law with terms and their relations.
+/// A legal category: a body of law with typed terms and relations.
+/// Not `Eq`/`Hash` because `Authority` doesn't implement them yet.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LegalCategory {
-    pub name: String,
-    pub description: String,
+    pub name: SourceTextRef,
+    pub description: SourceTextRef,
     pub authority: Authority,
     pub terms: Vec<LegalTerm>,
     pub relations: Vec<LegalRelation>,
 }
 
-/// Validation result for a typed fact against a term.
-#[derive(Debug, Clone, PartialEq)]
+/// Validation result for a typed fact against a term. `missing_required`
+/// is a list of typed [`SourceTextRef`] field names that the fact failed
+/// to satisfy.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ValidationCompleteness {
     Complete,
     Sufficient,
-    Insufficient { missing_required: Vec<String> },
+    Insufficient {
+        missing_required: Vec<SourceTextRef>,
+    },
 }
 
 /// Registry of legal categories.
@@ -188,7 +257,7 @@ impl OntologyRegistry {
     }
 
     pub fn register(&mut self, category: LegalCategory) {
-        self.categories.insert(category.name.clone(), category);
+        self.categories.insert(category.name.text.clone(), category);
     }
 
     pub fn get_category(&self, name: &str) -> Option<&LegalCategory> {
@@ -197,7 +266,7 @@ impl OntologyRegistry {
 
     pub fn get_term(&self, term_id: &str) -> Option<&LegalTerm> {
         for cat in self.categories.values() {
-            if let Some(term) = cat.terms.iter().find(|t| t.id == term_id) {
+            if let Some(term) = cat.terms.iter().find(|t| t.id.value() == term_id) {
                 return Some(term);
             }
         }

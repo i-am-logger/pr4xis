@@ -406,40 +406,211 @@ impl OwlVocabulary {
 // Loaded ontology types — the output of reading an OWL file
 // =============================================================================
 
-/// An OWL class — a concept in the loaded ontology.
-#[derive(Debug, Clone, PartialEq)]
-pub struct OwlClass {
-    pub iri: String,
-    pub label: Option<String>,
-    pub comment: Option<String>,
-    pub superclasses: Vec<String>,
+/// An RDF 1.1 literal (W3C RDF 1.1 Concepts §3.3) carried verbatim
+/// from a triple: a lexical form, an optional `xml:lang` BCP-47 tag
+/// (RDF 1.1 §3.3 — only present on `rdf:langString` literals), and an
+/// optional datatype IRI (typed literals). The two tags are mutually
+/// exclusive per RDF 1.1 §3.3; a literal with neither implicitly types
+/// as `xsd:string` (RDF 1.1 §3.5 simple-literal sugar).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OwlLiteral {
+    pub lexical: String,
+    pub lang: Option<String>,
+    pub datatype: Option<String>,
 }
 
-/// An OWL object property — a relationship between classes.
-#[derive(Debug, Clone, PartialEq)]
+/// One side of an OWL 2 annotation: either an IRI reference (a named
+/// entity) or a literal value (W3C OWL 2 §10.1).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OwlAnnotationValue {
+    Iri(String),
+    Literal(OwlLiteral),
+}
+
+/// An OWL 2 *Annotation* (W3C OWL 2 §10): a non-logical (predicate,
+/// value) pair attached to an entity, the ontology header, or an
+/// axiom. `rdfs:label` and `rdfs:comment` are the most common
+/// annotation predicates; `dc:creator`, `dc:title`, `owl:versionInfo`,
+/// and the vocabulary's own metadata predicates also flow through
+/// here. Distinct annotations may share a predicate (multi-language
+/// `rdfs:label`, multiple `dc:creator`s, …); the order is
+/// document-order preserved by `read_owl` (see [`super::reader`]).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OwlAnnotation {
+    pub predicate: String,
+    pub value: OwlAnnotationValue,
+}
+
+/// An OWL 2 class expression (W3C OWL 2 §8). Named classes are leaf
+/// nodes; the remaining variants are the constructors `ObjectUnionOf`
+/// / `ObjectIntersectionOf` / `ObjectComplementOf` (§8.1) and the
+/// property restrictions (§8.2). Anonymous restrictions are
+/// canonically represented by their structural content, never by
+/// blank-node ID — the lens's content-addressed blank-node labelling
+/// is computed from this shape.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OwlClassExpression {
+    /// A named class (W3C OWL 2 §8 — a class IRI denotes a class).
+    Named(String),
+    /// A property restriction (W3C OWL 2 §8.2).
+    Restriction(OwlRestriction),
+    /// `owl:unionOf` — C₁ ∪ C₂ ∪ … (W3C OWL 2 §8.1.3).
+    Union(Vec<OwlClassExpression>),
+    /// `owl:intersectionOf` — C₁ ∩ C₂ ∩ … (W3C OWL 2 §8.1.2).
+    Intersection(Vec<OwlClassExpression>),
+    /// `owl:complementOf` — ¬C (W3C OWL 2 §8.1.4).
+    Complement(Box<OwlClassExpression>),
+}
+
+/// A property restriction (W3C OWL 2 §8.2) — an anonymous class
+/// defined by a constraint on a property's values.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OwlRestriction {
+    /// `owl:onProperty` IRI (W3C OWL 2 §8.2 — every restriction names
+    /// exactly one property; [`RestrictionNeedsProperty`] enforces it).
+    pub on_property: String,
+    /// The restriction kind + its filler.
+    pub kind: OwlRestrictionKind,
+}
+
+/// W3C OWL 2 §8.2 property restriction variants — the existential /
+/// universal / value / cardinality fillers.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OwlRestrictionKind {
+    /// `owl:someValuesFrom` — ∃p.C (W3C OWL 2 §8.2.1).
+    SomeValuesFrom(Box<OwlClassExpression>),
+    /// `owl:allValuesFrom` — ∀p.C (W3C OWL 2 §8.2.2).
+    AllValuesFrom(Box<OwlClassExpression>),
+    /// `owl:hasValue` — ∃p.{a} (W3C OWL 2 §8.2.3); value is an IRI or
+    /// literal target.
+    HasValue(OwlAnnotationValue),
+    /// `owl:minCardinality` n / `owl:minQualifiedCardinality` n on C
+    /// (W3C OWL 2 §8.3.1).
+    MinCardinality {
+        n: u32,
+        on_class: Option<Box<OwlClassExpression>>,
+    },
+    /// `owl:maxCardinality` n / `owl:maxQualifiedCardinality` n on C
+    /// (W3C OWL 2 §8.3.2).
+    MaxCardinality {
+        n: u32,
+        on_class: Option<Box<OwlClassExpression>>,
+    },
+    /// `owl:cardinality` n / `owl:qualifiedCardinality` n on C (W3C
+    /// OWL 2 §8.3.3 — exact cardinality).
+    ExactCardinality {
+        n: u32,
+        on_class: Option<Box<OwlClassExpression>>,
+    },
+}
+
+/// An OWL class — a concept in the loaded ontology.
+///
+/// Carries the W3C OWL 2 RDF Mapping (Patel-Schneider & Motik 2012)
+/// shape: named-class IRI, multi-language `rdfs:label`s and
+/// `rdfs:comment`s, free-form annotations (§10), the union of named
+/// superclasses with the parsed superclass expressions (§9 SubClassOf
+/// axiom), equivalent classes (§9 EquivalentClasses), and disjoint
+/// classes (§9 DisjointClasses). The simple `label` / `comment`
+/// projections (the first entry of `labels` / `comments`) and the
+/// `superclasses` IRI list are retained for backward-compatibility
+/// with the historical reader API.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct OwlClass {
+    pub iri: String,
+    /// First-label projection (W3C OWL 2 RDF Mapping §3.2 `rdfs:label`)
+    /// — convenience accessor for the historical API.
+    pub label: Option<String>,
+    /// First-comment projection (W3C OWL 2 RDF Mapping §3.2
+    /// `rdfs:comment`).
+    pub comment: Option<String>,
+    /// Named superclass IRIs, in document order — the simple
+    /// `rdfs:subClassOf` projection (W3C RDFS §2.1) historical
+    /// consumers depend on.
+    pub superclasses: Vec<String>,
+    /// All `rdfs:label` literals (RDF 1.1 §3.3 multi-language;
+    /// preserved in document order).
+    pub labels: Vec<OwlLiteral>,
+    /// All `rdfs:comment` literals.
+    pub comments: Vec<OwlLiteral>,
+    /// Free-form OWL 2 §10 annotations attached to the class entity.
+    pub annotations: Vec<OwlAnnotation>,
+    /// Full superclass expressions (W3C OWL 2 §9 SubClassOf — both
+    /// named superclasses and anonymous class expressions).
+    pub superclass_expressions: Vec<OwlClassExpression>,
+    /// `owl:equivalentClass` targets (W3C OWL 2 §9.1.1).
+    pub equivalent_classes: Vec<OwlClassExpression>,
+    /// `owl:disjointWith` targets (W3C OWL 2 §9.1.3).
+    pub disjoint_classes: Vec<OwlClassExpression>,
+}
+
+/// An OWL object property — a relationship between classes. Carries its
+/// `rdfs:subPropertyOf` superproperties (the property hierarchy, W3C OWL
+/// 2 §9.2.1 / RDF Schema §5.1.7), the parallel of a class's superclasses.
+///
+/// As with [`OwlClass`], the multi-language `labels` / `comments` and
+/// the free-form `annotations` give the full W3C OWL 2 §10 shape;
+/// the single-value `label` / `comment` / `domain` / `range` fields
+/// remain as first-entry projections for backward compatibility.
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct OwlObjectProperty {
     pub iri: String,
+    /// First-label projection.
     pub label: Option<String>,
+    /// First-comment projection.
+    pub comment: Option<String>,
+    /// First `rdfs:domain` IRI (W3C OWL 2 §9.2.5).
     pub domain: Option<String>,
+    /// First `rdfs:range` IRI (W3C OWL 2 §9.2.6).
     pub range: Option<String>,
+    /// Named superproperty IRIs from `rdfs:subPropertyOf` (RDFS §5.1.7).
+    pub superproperties: Vec<String>,
+    /// All `rdfs:label` literals.
+    pub labels: Vec<OwlLiteral>,
+    /// All `rdfs:comment` literals.
+    pub comments: Vec<OwlLiteral>,
+    /// Free-form OWL 2 §10 annotations.
+    pub annotations: Vec<OwlAnnotation>,
+    /// `owl:inverseOf` target IRI (W3C OWL 2 §9.2.7 InverseObjectProperties).
+    pub inverse_of: Option<String>,
+    /// `owl:equivalentProperty` target IRIs (W3C OWL 2 §9.2.1
+    /// EquivalentObjectProperties).
+    pub equivalent_properties: Vec<String>,
+    /// `owl:propertyDisjointWith` target IRIs (W3C OWL 2 §9.2.2
+    /// DisjointObjectProperties).
+    pub disjoint_properties: Vec<String>,
 }
 
 /// An OWL individual — an instance of a class.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct OwlIndividual {
     pub iri: String,
     pub types: Vec<String>,
+    /// First-label projection.
     pub label: Option<String>,
+    /// All `rdfs:label` literals (RDF 1.1 §3.3 multi-language).
+    pub labels: Vec<OwlLiteral>,
+    /// All `rdfs:comment` literals.
+    pub comments: Vec<OwlLiteral>,
+    /// Free-form OWL 2 §10 annotations.
+    pub annotations: Vec<OwlAnnotation>,
 }
 
 /// A complete OWL ontology loaded from an OWL/XML file.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct OwlOntology {
     pub iri: String,
     pub classes: Vec<OwlClass>,
     pub properties: Vec<OwlObjectProperty>,
     pub individuals: Vec<OwlIndividual>,
+    /// `(child, parent)` class `rdfs:subClassOf` edges.
     pub taxonomy: Vec<(String, String)>,
+    /// `(child, parent)` property `rdfs:subPropertyOf` edges — the
+    /// property hierarchy, parallel to `taxonomy` for classes.
+    pub property_taxonomy: Vec<(String, String)>,
+    /// Free-form annotations on the ontology header itself (W3C OWL 2
+    /// §3.5 — `owl:versionInfo`, `dc:title`, `dc:creator`, …).
+    pub ontology_annotations: Vec<OwlAnnotation>,
 }
 
 impl OwlOntology {
@@ -469,6 +640,35 @@ impl OwlOntology {
             .iter()
             .find(|c| c.iri == child_iri)
             .map(|c| c.superclasses.iter().map(|s| s.as_str()).collect())
+            .unwrap_or_default()
+    }
+
+    pub fn property_count(&self) -> usize {
+        self.properties.len()
+    }
+
+    pub fn find_property(&self, iri: &str) -> Option<&OwlObjectProperty> {
+        self.properties.iter().find(|p| p.iri == iri)
+    }
+
+    pub fn find_property_by_label(&self, label: &str) -> Option<&OwlObjectProperty> {
+        self.properties
+            .iter()
+            .find(|p| p.label.as_deref() == Some(label))
+    }
+
+    pub fn subproperties_of(&self, parent_iri: &str) -> Vec<&OwlObjectProperty> {
+        self.properties
+            .iter()
+            .filter(|p| p.superproperties.iter().any(|s| s == parent_iri))
+            .collect()
+    }
+
+    pub fn superproperties_of(&self, child_iri: &str) -> Vec<&str> {
+        self.properties
+            .iter()
+            .find(|p| p.iri == child_iri)
+            .map(|p| p.superproperties.iter().map(|s| s.as_str()).collect())
             .unwrap_or_default()
     }
 }

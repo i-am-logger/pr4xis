@@ -69,6 +69,18 @@ fn handle_request(root: &Path, request: tiny_http::Request) {
     } else if let Some(rest) = rel.strip_prefix("pkg/") {
         // /pkg/* → WASM build output
         workspace.join("crates/wasm/pkg").join(rest)
+    } else if let Some(rest) = rel.strip_prefix("sources/") {
+        // /sources/* → authoritative source documents staged by build.rs
+        // (USLM XML, OWL vocabulary sources), downloaded + parsed into a
+        // live ontology at runtime
+        workspace.join("crates/wasm/sources").join(rest)
+    } else if let Some(rest) = rel.strip_prefix("ontologies/") {
+        // /ontologies/* → `.prx.gz` distribution envelopes emitted by the
+        // `emit_prx` example (CI's `pages` job invokes the same emitter
+        // into `pages/ontologies/`). Locally, stage them into
+        // `crates/wasm/ontologies/` to exercise the dual-load click-to-load
+        // path against a real wasm-validated `.prx.gz`.
+        workspace.join("crates/wasm/ontologies").join(rest)
     } else if rel == "decks/technical"
         || rel == "decks/technical/"
         || rel == "decks/technical/index.html"
@@ -305,6 +317,10 @@ fn mime_for_path(path: &Path) -> &'static str {
         Some("mp4") => "video/mp4",
         Some("ico") => "image/x-icon",
         Some("txt" | "md") => "text/plain",
+        // `.prx.gz`: gzipped rkyv envelope. Served as opaque binary; the
+        // wasm gate handles gunzip + bytecheck + hash-validate.
+        Some("gz") => "application/gzip",
+        Some("owl") => "application/rdf+xml",
         _ => "application/octet-stream",
     }
 }
@@ -329,8 +345,15 @@ fn cross_origin_embedder() -> Header {
 }
 
 fn cache_header(mime: &str) -> Header {
-    // Cache WASM and assets, not HTML.
-    if mime == "application/wasm" || mime.starts_with("image/") {
+    // `pr4xis-web` is a hot-reload dev server: the watcher rebuilds the
+    // WASM on every `crates/` edit and the browser must re-fetch to see
+    // the new exports. Caching `application/wasm` (or the wasm-bindgen
+    // glue JS) breaks that loop — the previous run's `max-age=3600`
+    // pinned a stale `pr4xis_available_ontologies`-less binary in disk
+    // cache and showed up as `is not a function` after a backend rebuild.
+    // Images are still safe to cache — they don't participate in the
+    // wasm-bindgen export surface.
+    if mime.starts_with("image/") {
         Header::from_bytes("Cache-Control", "public, max-age=3600").expect("valid header")
     } else {
         no_cache()

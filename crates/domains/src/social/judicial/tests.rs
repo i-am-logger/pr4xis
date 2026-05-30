@@ -1,13 +1,25 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
+use super::citation::PinpointCite;
 use super::*;
+use crate::formal::meta::identifier_format::Identifier;
 use chrono::{NaiveDate, Utc};
 use pr4xis::category::{Category, Concept as CategoryEntity};
 use pr4xis::engine::{EngineError, Precondition};
 use pr4xis::logic::Axiom;
 use pr4xis::ontology::Quality;
 use proptest::prelude::*;
+
+/// Helper for constructing a CURIE Identifier in test fixtures.
+fn id(s: &str) -> Identifier {
+    Identifier::curie(s).expect("test CURIE")
+}
+
+/// Helper for a pinpoint citation from a parenthesized subsection string.
+fn pin(s: &str) -> PinpointCite {
+    PinpointCite::parse_subdivisions(s).expect("test pinpoint citation")
+}
 
 fn date(y: i32, m: u32, d: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, d).unwrap()
@@ -419,11 +431,10 @@ fn test_ontology_registry() {
             provision: "test".into(),
         },
         terms: vec![LegalTerm {
-            id: "test:term1".into(),
+            id: id("test:term1"),
             name: "Term".into(),
             definition: "A term".into(),
             source_text: None,
-            valence: Valence::Supportive,
             subsection: None,
             required_evidence: vec![],
             obligations: vec![],
@@ -2226,11 +2237,10 @@ fn test_ontology_registry_multiple_categories() {
         description: "Employment law".into(),
         authority: test_authority(),
         terms: vec![LegalTerm {
-            id: "emp:retaliation".into(),
+            id: id("emp:retaliation"),
             name: "Retaliation".into(),
             definition: "Adverse action for protected activity".into(),
             source_text: None,
-            valence: Valence::Supportive,
             subsection: None,
             required_evidence: vec![],
             obligations: vec![],
@@ -2247,11 +2257,10 @@ fn test_ontology_registry_multiple_categories() {
         description: "Securities law".into(),
         authority: test_authority(),
         terms: vec![LegalTerm {
-            id: "sec:insider_trading".into(),
+            id: id("sec:insider_trading"),
             name: "Insider Trading".into(),
             definition: "Trading on material nonpublic information".into(),
             source_text: None,
-            valence: Valence::Supportive,
             subsection: None,
             required_evidence: vec![],
             obligations: vec![],
@@ -2273,12 +2282,11 @@ fn test_ontology_registry_multiple_categories() {
 #[test]
 fn test_legal_term_full() {
     let term = LegalTerm {
-        id: "ret:protected_activity".into(),
+        id: id("ret:protected_activity"),
         name: "Protected Activity".into(),
         definition: "Activity protected by anti-retaliation statutes".into(),
         source_text: Some("See 42 U.S.C. 2000e-3(a)".into()),
-        valence: Valence::Supportive,
-        subsection: Some("(a)".into()),
+        subsection: Some(pin("(a)")),
         required_evidence: vec![EvidenceRequirement {
             field: "complaint_date".into(),
             field_type: EvidenceType::Date,
@@ -2286,15 +2294,17 @@ fn test_legal_term_full() {
             description: Some("date complaint was filed".into()),
         }],
         obligations: vec![Obligation {
-            actor: "employer".into(),
+            actor: id("frcp_rule_17:employer"),
             action: "preserve records".into(),
-            language: ObligationLanguage::Mandatory {
-                word: "shall".into(),
-            },
+            modality: ObligationLanguage::Mandatory,
+            modal_word: "shall".into(),
             source_text: "Employer shall preserve...".into(),
         }],
         deadlines: vec![Deadline {
-            duration: DeadlineDuration::Days(180),
+            duration: Duration {
+                unit: id("iso8601_calendar:day"),
+                count: 180,
+            },
             trigger: "discriminatory act".into(),
             consequence: Some("claim barred".into()),
             source_text: "within 180 days of the alleged discriminatory act".into(),
@@ -2307,17 +2317,16 @@ fn test_legal_term_full() {
         }],
         burdens: vec![BurdenOfProof {
             standard: ProofStandard::Preponderance,
-            borne_by: "plaintiff".into(),
+            borne_by: id("frcp_rule_17:plaintiff"),
             source_text: "Plaintiff bears the burden...".into(),
         }],
         exceptions: vec![Exception {
-            to_rule: "anti-retaliation".into(),
+            to_rule: id("ret:anti_retaliation"),
             exception: "legitimate business reason".into(),
             source_text: "unless the employer demonstrates...".into(),
         }],
     };
-    assert_eq!(term.id, "ret:protected_activity");
-    assert_eq!(term.valence, Valence::Supportive);
+    assert_eq!(term.id.value(), "ret:protected_activity");
     assert_eq!(term.required_evidence.len(), 1);
     assert_eq!(term.obligations.len(), 1);
     assert_eq!(term.deadlines.len(), 1);
@@ -2327,12 +2336,9 @@ fn test_legal_term_full() {
     assert_eq!(term.exceptions.len(), 1);
 }
 
-#[test]
-fn test_valence_variants() {
-    assert_ne!(Valence::Supportive, Valence::Defensive);
-    assert_ne!(Valence::Defensive, Valence::Procedural);
-    assert_ne!(Valence::Supportive, Valence::Procedural);
-}
+// `test_valence_variants` removed — Valence ontology was a synthesis
+// trichotomy with no single-primary-source attestation; deleted per the
+// bottom-up-loaded principle.
 
 #[test]
 fn test_proof_standard_variants() {
@@ -2346,27 +2352,16 @@ fn test_proof_standard_variants() {
     );
 }
 
-#[test]
-fn test_obligation_language_variants() {
-    let mandatory = ObligationLanguage::Mandatory {
-        word: "shall".into(),
-    };
-    let discretionary = ObligationLanguage::Discretionary { word: "may".into() };
-    let prohibitive = ObligationLanguage::Prohibitive {
-        word: "shall not".into(),
-    };
-    assert_ne!(mandatory, discretionary);
-    assert_ne!(discretionary, prohibitive);
-}
+// `test_obligation_language_variants` was testing payload-bearing variants
+// (`Mandatory { word: "shall" }`); the modality is now a typed concept
+// `ObligationLanguage::Mandatory` (no payload) with the surface word as
+// a separate typed `SourceTextRef` field on `Obligation`. The variants'
+// pairwise distinctness is exercised in the `modality` ontology tests.
 
-#[test]
-fn test_deadline_duration_variants() {
-    let days = DeadlineDuration::Days(30);
-    let months = DeadlineDuration::Months(6);
-    let immediate = DeadlineDuration::Immediate;
-    assert_ne!(days, months);
-    assert_ne!(months, immediate);
-}
+// `test_deadline_duration_variants` removed — `DeadlineDuration` was a
+// synthesis enum across ISO 8601 + TimeML + FRCP Rule 6. The replacement
+// `Duration { unit: Identifier, count: u32 }` is exercised through
+// `Deadline` integration tests below.
 
 #[test]
 fn test_evidence_type_variants() {
@@ -2410,14 +2405,18 @@ fn test_validation_completeness_variants() {
 #[test]
 fn test_legal_relation() {
     let rel = LegalRelation {
-        from: "retaliation:protected_activity".into(),
-        to: "retaliation:adverse_action".into(),
+        from: id("retaliation:protected_activity"),
+        to: id("retaliation:adverse_action"),
         relation: RelationType::Precedes {
-            max_days: Some(180),
+            max_days: Some(Duration {
+                unit: id("iso8601_calendar:day"),
+                count: 180,
+            }),
         },
     };
     if let RelationType::Precedes { max_days } = &rel.relation {
-        assert_eq!(*max_days, Some(180));
+        let d = max_days.as_ref().expect("180-day duration present");
+        assert_eq!(d.count, 180);
     }
 }
 
@@ -2430,11 +2429,11 @@ fn test_relation_type_variants() {
     };
     let _ = RelationType::Contradicts;
     let _ = RelationType::Composes {
-        into: "claim".into(),
+        into: id("retaliation:claim"),
     };
     let _ = RelationType::SubtypeOf;
     let _ = RelationType::Triggers {
-        obligation: "disclosure".into(),
+        obligation: id("retaliation:disclosure"),
     };
     let _ = RelationType::Negates;
     let _ = RelationType::AlternativeTo;
@@ -2454,11 +2453,10 @@ fn test_legal_category_with_relations() {
         authority: test_authority(),
         terms: vec![
             LegalTerm {
-                id: "ret:pa".into(),
+                id: id("ret:pa"),
                 name: "Protected Activity".into(),
                 definition: "".into(),
                 source_text: None,
-                valence: Valence::Supportive,
                 subsection: None,
                 required_evidence: vec![],
                 obligations: vec![],
@@ -2469,11 +2467,10 @@ fn test_legal_category_with_relations() {
                 exceptions: vec![],
             },
             LegalTerm {
-                id: "ret:aa".into(),
+                id: id("ret:aa"),
                 name: "Adverse Action".into(),
                 definition: "".into(),
                 source_text: None,
-                valence: Valence::Supportive,
                 subsection: None,
                 required_evidence: vec![],
                 obligations: vec![],
@@ -2485,8 +2482,8 @@ fn test_legal_category_with_relations() {
             },
         ],
         relations: vec![LegalRelation {
-            from: "ret:pa".into(),
-            to: "ret:aa".into(),
+            from: id("ret:pa"),
+            to: id("ret:aa"),
             relation: RelationType::Precedes { max_days: None },
         }],
     };

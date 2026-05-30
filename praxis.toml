@@ -1,0 +1,740 @@
+# praxis.toml — Praxis external-data registry manifest.
+#
+# Cargo-precedent naming: this file is the manifest; `praxis.lock` (M2)
+# pins the expected content hashes per (name, version). Lives at the
+# workspace root next to `Cargo.toml`. Downstream applications using
+# praxis place their own `praxis.toml` at *their* project root for
+# project-specific corpora; praxis itself bundles only universal
+# baselines (e.g. English WordNet).
+#
+# Schema (one `[sources.<name>]` entry per registered corpus):
+#
+#   version  — free-form publication identifier (calendar year, amendment
+#              cycle, etc.). Not semver; legal corpora are publication-date
+#              identified.
+#   type     — a leaf concept name from the `SourceTaxonomy` ontology
+#              (`crates/domains/src/formal/meta/source_taxonomy/`). The
+#              parser maps the string to the typed variant; unknown
+#              names fail closed at startup.
+#   url      — fetch URL (HTTPS). The actual bytes are verified against
+#              `praxis.lock`'s pinned sha256 for this (name, version).
+#
+# Everything else (decoder family, code-path convention, adjunctions to
+# other loaded sources) derives from `type` via the taxonomy:
+#   - `is_a` chain → decoder family (Lexicon → XML-LMF reader,
+#                                    LegalCorpus → text parser)
+#   - `is_a` chain → code-path convention
+#     (Language → cognitive::linguistics::<name>,
+#      Statute  → social::compliance::law::<name>, etc.)
+#   - `Adjoins` edges → auto-wired adjunction functors between every
+#     pair of loaded instances whose types are adjacent
+#
+# `pr4xis source add` / `remove` / `list` (M6) mutate this file. Manual
+# edits are fine; the runtime registry is `OnceLock`-cached per process,
+# so a running process only sees entries present at first load.
+
+[sources.english_wordnet]
+version = "2025"
+type    = "Language"
+url     = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz"
+
+# ---------------------------------------------------------------------------
+# Schema specifications (W3C XSD 1.1)
+# ---------------------------------------------------------------------------
+#
+# The XSD that grounds the USLM ontology. Loaded so the ontology types in
+# `crates/domains/src/social/software/markup/xml/uslm/` derive from the
+# published schema rather than being hand-coded by eye against it. Cited:
+# W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures, W3C
+# Recommendation 5 April 2012 (Gao, Sperberg-McQueen & Thompson 2012);
+# Part 2: Datatypes (Peterson et al. 2012).
+#
+# The on-disk file is the canonical bytes; `praxis.lock` pins the
+# sha256. The URL is the LRC's published archive (github.com/usgpo/uslm).
+# The version string "1.0.18" matches the `version="..."` attribute on
+# `<xsd:schema>` in the file (which is the highest 1.x version published
+# by the LRC; their currently shipped Title 18 / Title 49 USLM XML
+# declares schemaLocation for 1.0.15, but 1.0.18 is the superset and
+# currently shipped 1.x).
+#
+# Bundled file: `crates/domains/data/legal/uscode/schema/uslm-1.0.18.xsd`.
+[sources.uslm_xsd]
+version     = "1.0.18"
+type        = "XmlSchemaDefinition"
+url         = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM.xsd"
+description = "Library of Congress USLM XML schema. The authoritative grammar for U.S. Code XML markup. Cited: 1 U.S.C. § 204; W3C XSD 1.1 Part 1 (Gao, Sperberg-McQueen & Thompson 2012)."
+
+# W3C XHTML 1.0 Strict XSD — the authoritative machine-readable
+# grammar for XHTML 1.0 Strict (= HTML4 reformulated in XML, the
+# polyglot subset still normatively shared with HTML5 for every
+# element it covers). Loaded so the HTML5 ontology in
+# `social/software/markup/html/` derives its element / attribute
+# inventory from the published schema, not from hand-coded Rust
+# enum variants (per `feedback_bottom_up_loaded_not_encoded`).
+#
+# Per the M4.η.1 dispatch: XHTML 1.0 Strict is the closest reusable
+# authoritative XSD to the existing xsd-parser pipeline. It covers
+# 77 elements + 179 attributes; HTML5-only elements added since
+# 2002 (canvas, video, audio, section, article, nav, aside, header,
+# footer, main, figure, figcaption, picture, dialog, details,
+# summary, template, slot, ...) need a follow-up source (M4.η.1.a,
+# queued; candidates: XHTML5 Polyglot XSD or WHATWG-published
+# element data).
+#
+# Bundled file: `crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd`.
+# Citation: Pemberton et al. (2002) XHTML 1.0: The Extensible HyperText
+# Markup Language (Second Edition), W3C Recommendation 26 January 2000
+# revised 1 August 2002, §A.2 XHTML 1.0 Strict Schema.
+[sources.xhtml_1_0_xsd]
+version     = "1.0"
+type        = "XmlSchemaDefinition"
+url         = "https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd"
+description = "W3C XHTML 1.0 Strict XML Schema definition. The authoritative machine-readable form of HTML4/XHTML1.0 elements + attributes, used as the M4.η.1 grounding source for the HTML5 ontology. Cite: Pemberton et al. (2002) XHTML 1.0 Second Edition, W3C Recommendation 1 August 2002, §A.2 XHTML 1.0 Strict Schema."
+
+# W3C XML 1.0 Namespace XSD — the canonical machine-readable
+# definition of the four `xml:*`-namespace-reserved attributes
+# (`xml:lang`, `xml:space`, `xml:base`, `xml:id`). Published by the
+# W3C as the authoritative schema for the XML namespace.
+#
+# Per the M4.η.2 dispatch: this is the XSD half of the XML 1.0
+# ontology's grounding. It covers the four reserved attributes named
+# by Namespaces in XML 1.0 + XML Base + XML 1.0 itself. The
+# conceptual taxonomy (the 11 information items of an XML document)
+# is loaded from the W3C XML Information Set Recommendation (a
+# separate ConceptualSpec source).
+#
+# Bundled file: `crates/domains/data/markup-schemas/xml/xml.xsd`.
+# Citations: Bray, Hollander, Layman, Tobin & Thompson (2009)
+# Namespaces in XML 1.0 (Third Edition), W3C Recommendation 8
+# December 2009; Bray, Paoli, Sperberg-McQueen, Maler & Yergeau
+# (eds.) (2008) Extensible Markup Language (XML) 1.0 (Fifth Edition),
+# W3C Recommendation 26 November 2008, §2.10 (xml:space) + §2.12
+# (xml:lang); Marsh & Tobin (eds.) (2009) XML Base (Second Edition),
+# W3C Recommendation 28 January 2009.
+[sources.xml_1_0_namespace_xsd]
+version     = "1.0"
+type        = "XmlSchemaDefinition"
+url         = "https://www.w3.org/2001/xml.xsd"
+description = "W3C XML namespace XSD — the canonical machine-readable definition of xml:lang, xml:space, xml:base, xml:id attributes. Cite: Bray, Hollander, Layman, Tobin & Thompson (2009) Namespaces in XML 1.0 (Third Edition), W3C Recommendation; Bray et al. (2008) XML 1.0 Fifth Edition §2.10 + §2.12; Marsh & Tobin (2009) XML Base."
+
+# W3C Extensible Markup Language (XML) 1.0 Fifth Edition (Bray, Paoli,
+# Sperberg-McQueen, Maler & Yergeau 2008) — the canonical normative
+# spec for XML 1.0. Published with embedded EBNF productions in
+# `<prod>` blocks (the xmlspec.dtd format). Loaded so the praxis XML
+# 1.0 parser can derive its grammar predicates (Char, NameStartChar,
+# NameChar, Comment, CharData, PI, etc.) from the published spec
+# rather than from hand-coded code-point ranges — per
+# `feedback_bottom_up_loaded_not_encoded`.
+#
+# Bundled file: `crates/domains/data/markup-schemas/xml/xml_1_0_fifth_edition-2008.xml`.
+# Citation: Bray, T., Paoli, J., Sperberg-McQueen, C. M., Maler, E. &
+# Yergeau, F. (eds.) (2008) *Extensible Markup Language (XML) 1.0
+# (Fifth Edition)*, W3C Recommendation 26 November 2008,
+# <https://www.w3.org/TR/2008/REC-xml-20081126/>; the XML-format
+# source at <https://www.w3.org/TR/2008/REC-xml-20081126/REC-xml-20081126.xml>
+# is the machine-readable rendering used here.
+[sources.xml_1_0_fifth_edition]
+version     = "2008"
+type        = "ConceptualSpec"
+url         = "https://www.w3.org/TR/2008/REC-xml-20081126/REC-xml-20081126.xml"
+description = "W3C XML 1.0 Fifth Edition normative spec — the source of the 86 EBNF productions the praxis XML parser implements. Cite: Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) W3C Recommendation 26 November 2008."
+
+# W3C XML Information Set (Second Edition) — the published
+# conceptual taxonomy of XML documents. Cowan & Tobin's
+# recommendation enumerates the 11 information items that constitute
+# an XML document's abstract representation: Document, Element,
+# Attribute, Processing Instruction, Unexpanded Entity Reference,
+# Character, Comment, Document Type Declaration, Unparsed Entity,
+# Notation, Namespace.
+#
+# Per the M4.η.2 dispatch: this is the conceptual-taxonomy half of
+# the XML 1.0 ontology's grounding. The W3C delivers the
+# recommendation as XHTML 1.0 Transitional with regular section-
+# heading markup (`<h3><a name="infoitem.<id>">N.N <Title></a></h3>`),
+# which the build-time loader walks to extract the 11 items + their
+# section anchors. The XSD half (`xml_1_0_namespace_xsd@1.0`) covers
+# the four `xml:*`-reserved attributes; this source covers the
+# conceptual structure.
+#
+# Bundled file: `crates/domains/data/markup-schemas/xml/xml-infoset.xhtml`.
+# Citation: Cowan, J. & Tobin, R. (eds.) (2004) XML Information Set
+# (Second Edition), W3C Recommendation 4 February 2004.
+[sources.xml_infoset]
+version     = "2004"
+type        = "ConceptualSpec"
+url         = "https://www.w3.org/TR/xml-infoset/"
+description = "W3C XML Information Set (Second Edition) — the 11 information items of an XML document. Cite: Cowan & Tobin (2004) W3C Recommendation 4 February 2004."
+
+# W3C XSD 1.1 meta-schema — XSD-for-XSD. The schema that defines the
+# XML Schema Definition Language itself, published by the W3C XML
+# Schema Working Group. Loaded so the praxis XSD ontology can ground
+# its own concept inventory in the published schema's
+# `<xsd:element>` / `<xsd:complexType>` / `<xsd:simpleType>`
+# declarations, rather than being hand-coded against the prose spec.
+#
+# Per M4.ζ.0: this is the meta-level grounding for the XSD reader
+# the same way the USLM XSD grounds USLM, the XHTML 1.0 XSD grounds
+# HTML5, and the XML namespace XSD grounds XML 1.0 — closing the
+# self-reference (XSD-for-XSD).
+#
+# Bundled file: `crates/domains/data/markup-schemas/xsd/xsd_meta_schema-1.1.xsd`.
+# Citation: W3C XML Schema 1.1 Part 1: Structures, Appendix A
+# (Gao, Sperberg-McQueen & Thompson 2012). The XSD source itself
+# is the canonical machine-readable form of Appendix A.
+[sources.xsd_meta_schema]
+version     = "1.1"
+type        = "XmlSchemaDefinition"
+url         = "https://www.w3.org/2009/XMLSchema/XMLSchema.xsd"
+description = "W3C XSD 1.1 meta-schema (XSD-for-XSD) — the schema definition for XML Schema Definition Language 1.1 itself. Cite: Gao, Sperberg-McQueen & Thompson (2012) W3C XML Schema 1.1 Part 1: Structures, Appendix A."
+
+# Global WordNet WN-LMF DTD — the schema that defines WordNet's XML
+# format (the LMF-based encoding the bundled WordNet 2025 ships in).
+# Registered as an XmlDocumentTypeDefinition since WN-LMF is
+# published as an XML 1.0 DTD (W3C XML 1.0 Fifth Edition §2.8 + §4)
+# rather than an XSD; the bundled WordNet bytes declare DOCTYPE
+# pointing at this DTD.
+#
+# Loaded so the LMF runtime types in
+# `social/software/markup/xml/lmf/` are grounded in the published
+# schema rather than hand-coded against the prose spec — closes the
+# WordNet/LMF side of the "every Tier 2+ ontology is loaded from
+# an authoritative source" principle (M4.ζ.1; see
+# `feedback_bottom_up_loaded_not_encoded`).
+#
+# Bundled file: `crates/domains/data/markup-schemas/lmf/wn_lmf_dtd-1.3.dtd`.
+[sources.wn_lmf_dtd]
+version     = "1.3"
+type        = "XmlDocumentTypeDefinition"
+url         = "http://globalwordnet.github.io/schemas/WN-LMF-1.3.dtd"
+description = "Global WordNet WN-LMF 1.3 DTD — the schema definition for the WordNet LMF XML format. Cite: Global WordNet Association, WN-LMF specification; Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) Extensible Markup Language (XML) 1.0 Fifth Edition §2.8 + §4 (the DTD substrate); ISO 24613 Lexical Markup Framework."
+
+# ECMA-376 5th edition (December 2016) Office Open XML schemas —
+# `OfficeOpenXML-XMLSchema-Strict.zip` extracted from the outer
+# standard ZIP. 21 XSDs (~840 KB total uncompressed, 94 KB zipped)
+# defining the four OOXML vocabularies — WordprocessingML (`wml.xsd`),
+# SpreadsheetML (`sml.xsd`), PresentationML (`pml.xsd`), DrawingML
+# (`dml-*.xsd`) — plus the shared common types.
+#
+# Per the M4.ζ.2 dispatch: this is the schema-grounding source for
+# the OOXML readers downstream code will build to read .docx /
+# .xlsx / .pptx (the case's working-answer spreadsheets, Aptiv RFP
+# DOCXs, etc.). The XsdSchemaLens established at M4.λ.2 reads each
+# individual XSD inside the archive.
+#
+# Bundled file: `crates/domains/data/markup-schemas/ooxml/ooxml_schema_strict-2016.zip`.
+# Citation: ECMA International / ISO/IEC JTC 1/SC 34 (2016) *Office
+# Open XML File Formats — Fundamentals and Markup Language Reference*,
+# ECMA-376 5th edition / ISO/IEC 29500-1:2016, December 2016.
+[sources.ooxml_schema_strict]
+version     = "2016"
+type        = "OoxmlSchemaArchive"
+url         = "https://ecma-international.org/wp-content/uploads/ECMA-376-1_5th_edition_december_2016.zip"
+description = "ECMA-376 5th edition (December 2016) Office Open XML schemas — the OfficeOpenXML-XMLSchema-Strict.zip bundle of 21 XSDs defining WordprocessingML (DOCX), SpreadsheetML (XLSX), PresentationML (PPTX) and DrawingML. Cite: ECMA International / ISO/IEC JTC 1/SC 34 (2016) Office Open XML File Formats Part 1, ECMA-376 5th edition / ISO/IEC 29500-1:2016."
+
+# Library of Congress MODS 3.8 — Metadata Object Description Schema. The
+# canonical XSD-defined XML metadata vocabulary used by GovInfo USREP /
+# SCOTUS-slip / USCOURTS packages to describe each case (party names,
+# citation, decision date, justices, syllabus, headnotes, granule
+# structure). Registered as XmlSchemaDefinition (same taxonomy slot as
+# uslm_xsd / xhtml_1_0_xsd) so case-law metadata XML can be parsed via
+# the existing XsdSchemaLens pipeline rather than hand-coded extractors.
+#
+# Bundled file: `crates/domains/data/markup-schemas/mods/mods-3-8.xsd`.
+# Citation: Library of Congress, Network Development and MARC Standards
+# Office (2018) *MODS XML Schema Version 3.8*,
+# <https://www.loc.gov/standards/mods/v3/mods-3-8.xsd>; MODS User
+# Guidelines Version 3 (2018), <https://www.loc.gov/standards/mods/userguide/>.
+[sources.mods_3_8]
+version     = "2018"
+type        = "XmlSchemaDefinition"
+url         = "https://www.loc.gov/standards/mods/v3/mods-3-8.xsd"
+description = "Library of Congress MODS 3.8 — Metadata Object Description Schema. The canonical XML metadata vocabulary GovInfo packages (USREP, SCOTUS-slip, USCOURTS) use to describe each case at granule level. Cite: Library of Congress, Network Development and MARC Standards Office (2018) MODS XML Schema Version 3.8, <https://www.loc.gov/standards/mods/v3/mods-3-8.xsd>."
+
+# W3C XML Schema Test Suite (xsts) — the canonical conformance corpus
+# for XSD 1.1 readers. ~14,328 schemaTest cases (~11,598 valid,
+# ~2,730 invalid) drawn from Boeing, Microsoft, NIST and Sun
+# contributions. Each test case pairs a <schemaDocument> with an
+# <expected validity=...> classification per W3C XSD 1.1 Parts 1 + 2
+# (Gao, Sperberg-McQueen & Thompson 2012; Peterson et al. 2012).
+#
+# Per the M4.λ.2.e.b dispatch: this is the source-form half of the
+# xsts integration. The in-repo §-cited canon (`formal::meta::xsd::
+# conformance`) is always run; this archive is the full corpus,
+# walked by the XstsCorpusAuditPasses axiom when the bytes are on
+# disk.
+#
+# Bundled file: `crates/domains/data/markup-schemas/xsts/xsts_xml_schema_test_suite-2007-06-20.tar.gz`.
+# Citation: W3C XML Schema Working Group, XML Schema Test Suite,
+# <https://www.w3.org/XML/2004/xml-schema-test-suite/>; Curran et al.
+# (eds.) (2008) W3C QA Framework: Test Methodology Guidelines, W3C
+# Note 22 February 2008.
+[sources.xsts_xml_schema_test_suite]
+version     = "2007-06-20"
+type        = "XmlSchemaTestSuite"
+url         = "https://www.w3.org/XML/2004/xml-schema-test-suite/xmlschema2006-11-06/xsts-2007-06-20.tar.gz"
+description = "W3C XML Schema Test Suite (xsts) — ~14,328 schemaTest cases certifying XSD 1.1 reader conformance. Cite: W3C XML Schema Working Group, XML Schema Test Suite (2007-06-20 archive); Curran et al. (2008) W3C QA Framework: Test Methodology Guidelines, W3C Note 22 Feb 2008."
+
+# W3C XML Conformance Test Suite (XMLConf) — the canonical conformance
+# corpus for XML 1.0 readers. ~3,000 TEST entries from Sun, James
+# Clark, IBM, NIST/OASIS, Fuji Xerox and University of Edinburgh
+# contributions, each declaring TYPE ∈ {valid, invalid, not-wf, error}
+# per W3C XML 1.0 §2.1 well-formedness + §2.8 validity.
+#
+# The 2008-08-27 archive is the canonical published .tar.gz; a later
+# 2013-09-23 release ships as a .zip with the same TEST format plus
+# minor additions.
+#
+# Bundled file: `crates/domains/data/markup-schemas/xmlconf/xmlconf_xml_test_suite-2008-08-27.tar.gz`.
+[sources.xmlconf_xml_test_suite]
+version     = "2008-08-27"
+type        = "XmlConformanceTestSuite"
+url         = "https://www.w3.org/XML/Test/xmlts20080827.tar.gz"
+description = "W3C XML Conformance Test Suite (XMLConf) — ~3,000 TEST entries certifying XML 1.0 parser conformance, drawn from Sun, James Clark, IBM, NIST/OASIS, Fuji Xerox and University of Edinburgh contributions. Cite: W3C XML Test Suite Working Group, XML Conformance Test Suite (2008-08-27 archive); Bray et al. (2008) XML 1.0 Fifth Edition §2.1 well-formedness + §2.8 validity."
+
+# U.S. Federal Legal-Text Closed-Class Lexicon — bounded enumeration of
+# the citation abbreviations, month names, federal-agency acronyms,
+# U.S. state / place names, productive English compounds, and legal
+# terms-of-art that appear in U.S. Code section heading text but lie
+# outside English WordNet's general-language coverage.
+#
+# Bundled file: `crates/domains/data/legal-text/us_legal_lexicon.xml`,
+# LMF format (same shape as function-words/english.xml and English
+# WordNet). Loaded by the Layer 1+2 lemmatizer's
+# `is_statutory_term_of_art` classifier to recognize these tokens as
+# bounded statutory-text vocabulary rather than as unresolved lemmas.
+#
+# Each category in the bundled XML carries its own authoritative
+# citation in the file header:
+#   - Citation abbreviations (Stat., div., ch., Pub. L., etc.):
+#     GPO Style Manual 2016 Ch. 9 §9.4 / §9.6 (public-domain federal
+#     publication per 17 U.S.C. § 105).
+#   - Month abbreviations + names:
+#     GPO Style Manual 2016 §9.20 (public domain).
+#   - Federal-agency acronyms:
+#     Federal Register Document Drafting Handbook (2017) Ch. 4 §4.1 +
+#     U.S. Government Manual (Office of the Federal Register, annual;
+#     public domain).
+#   - U.S. state / territory names:
+#     ISO 3166-2:US (closed enumeration of 50 states + DC + 5
+#     inhabited territories) + GPO Style Manual §5.20 (adjective
+#     forms).
+#   - English productive compounds:
+#     Huddleston & Pullum (2002) Cambridge Grammar of the English
+#     Language Ch. 19 §1.2 (productive prefixation) + §1.4 (N+N
+#     compounding); Bauer (1983) English Word-Formation §6.
+#   - Legal terms-of-art (joinder, misprision, interpleader, etc.):
+#     Black's Law Dictionary 11th ed. (2019).
+#
+# The bundled XML is the canonical source-of-truth. The pinned hash
+# in praxis.lock anchors it; future updates require both file edit
+# and a lock-hash refresh through `pr4xis lock`.
+[sources.us_legal_lexicon]
+version     = "2026"
+type        = "LegalLexicon"
+url         = "https://www.govinfo.gov/app/details/GPO-STYLEMANUAL-2016"
+description = "U.S. Federal Legal-Text Closed-Class Lexicon — citation abbreviations (GPO Style Manual 2016 Ch. 9), month names + abbreviations (GPO §9.20), federal-agency acronyms (Federal Register Document Drafting Handbook 2017 §4.1), U.S. state / place names (ISO 3166-2:US + GPO §5.20), English productive compounds (Huddleston & Pullum 2002 Ch. 19 + Bauer 1983 §6), and legal terms-of-art (Black's Law Dictionary 11th ed. 2019). Bundled as crates/domains/data/legal-text/us_legal_lexicon.xml (LMF format)."
+
+# ---------------------------------------------------------------------------
+# Ontology vocabularies (SPAR / OWL)
+# ---------------------------------------------------------------------------
+#
+# The Semantic Publishing and Referencing (SPAR) ontologies are a suite of
+# OWL 2 vocabularies for describing bibliographic resources and the act of
+# citation (Peroni & Shotton 2018, "The SPAR Ontologies", ISWC). CiTO —
+# the Citation Typing Ontology — is the first registered: a vocabulary of
+# ~40+ object properties (cito:cites and its sub-properties:
+# cito:citesAsEvidence, cito:includesQuotationFrom, cito:agreesWith,
+# cito:disputes, …) plus the inverse cito:isCitedBy family, used to
+# characterise the nature or type of a citation both factually and
+# rhetorically. Loaded so the downstream CitationQuality ontology grounds
+# its citation-type taxonomy in the published OWL vocabulary rather than
+# hand-coding the relations — per "Bottom-up loaded, never encoded".
+#
+# The on-disk file is the canonical RDF/XML bytes (OWL 2 serialised per
+# Gandon & Schreiber 2014, RDF 1.1 XML Syntax); praxis.lock pins the
+# sha256. The URL is the SPAR canonical publication (purl.org/spar/cito).
+# The version "2.8.1" matches the owl:versionInfo on the owl:Ontology node.
+# This task registers + bundles + hash-pins + reads the bytes; the
+# OWL → Rust codegen pipeline is a separate later milestone.
+#
+# Bundled file: crates/domains/data/ontologies/cito-2.8.1.owl.
+[sources.cito]
+version     = "2.8.1"
+type        = "OntologyVocabulary"
+url         = "https://sparontologies.github.io/cito/current/cito.xml"
+description = "CiTO, the Citation Typing Ontology — a W3C OWL 2 vocabulary characterising the nature and type of citations (cito:cites and its ~40 sub-properties + their cito:isCitedBy inverses). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Peroni, S. & Shotton, D. (2012) FaBiO and CiTO: ontologies for describing bibliographic resources and citations, Journal of Web Semantics 17:33-43, <https://doi.org/10.1016/j.websem.2012.08.001>; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
+
+# DoCO, the Document Components Ontology — a SPAR OWL 2 vocabulary of
+# document-component classes (doco:Paragraph, doco:Sentence, doco:Section,
+# doco:Footnote, doco:Title, doco:Figure, doco:Table, …): the structural
+# units a document decomposes into. Serialised in the typed-node RDF/XML
+# form. owl:versionInfo "1.3" (versionIRI .../doco/2015-07-03). dc:title
+# "DoCO, the Document Components Ontology"; dc:creator David Shotton,
+# Silvio Peroni. Bundled: crates/domains/data/ontologies/doco-1.3.owl.
+[sources.doco]
+version     = "1.3"
+type        = "OntologyVocabulary"
+url         = "https://sparontologies.github.io/doco/current/doco.xml"
+description = "DoCO, the Document Components Ontology — a W3C OWL 2 vocabulary of document-component classes (doco:Paragraph, doco:Sentence, doco:Section, doco:Footnote, doco:Title, doco:Figure, doco:Table, …) describing how a document is structurally decomposed. Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Constantin, A., Peroni, S., Pettifer, S., Shotton, D. & Vitali, F. (2016) The Document Components Ontology (DoCO), Semantic Web 7(2):167-181, <https://doi.org/10.3233/SW-150177>; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
+
+# C4O, the Citation Counting and Context Characterisation Ontology — a
+# SPAR OWL 2 vocabulary describing how many times and in what context a
+# work is cited: object properties c4o:denotes / c4o:isDenotedBy,
+# c4o:hasContent, c4o:hasContext, … plus classes c4o:InTextReferencePointer
+# and c4o:GlobalCitationCount. Typed-node RDF/XML. owl:versionInfo "1.2"
+# (versionIRI .../c4o/2018-06-22). dc:title "C4O, the Citation Counting and
+# Context Characterization Ontology". Bundled:
+# crates/domains/data/ontologies/c4o-1.2.owl.
+[sources.c4o]
+version     = "1.2"
+type        = "OntologyVocabulary"
+url         = "https://sparontologies.github.io/c4o/current/c4o.xml"
+description = "C4O, the Citation Counting and Context Characterisation Ontology — a W3C OWL 2 vocabulary recording the number and context of citations (c4o:denotes / c4o:isDenotedBy, c4o:hasContent, c4o:hasContext; classes c4o:InTextReferencePointer, c4o:GlobalCitationCount). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Di Iorio, A., Nuzzolese, A. G., Peroni, S., Shotton, D. & Vitali, F. (2014) Describing bibliographic references in RDF, in Proceedings of the 4th Workshop on Semantic Publishing (SePublica 2014), CEUR-WS Vol-1155; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
+
+# BiRO, the Bibliographic Reference Ontology — a SPAR OWL 2 vocabulary
+# modelling bibliographic records and references: classes
+# biro:BibliographicRecord, biro:BibliographicReference, biro:ReferenceList,
+# biro:BibliographicCollection, … plus biro:references / biro:isReferencedBy.
+# Typed-node RDF/XML. owl:versionInfo "1.1.1" (versionIRI
+# .../biro/2013-05-11). dc:title "BiRO, the Bibliographic Reference
+# Ontology". Bundled: crates/domains/data/ontologies/biro-1.1.1.owl.
+[sources.biro]
+version     = "1.1.1"
+type        = "OntologyVocabulary"
+url         = "https://sparontologies.github.io/biro/current/biro.xml"
+description = "BiRO, the Bibliographic Reference Ontology — a W3C OWL 2 vocabulary for bibliographic records and references (classes biro:BibliographicRecord, biro:BibliographicReference, biro:ReferenceList, biro:BibliographicCollection; object properties biro:references / biro:isReferencedBy). Part of the SPAR (Semantic Publishing and Referencing) ontology suite. Cite: Di Iorio, A., Nuzzolese, A. G., Peroni, S., Shotton, D. & Vitali, F. (2014) Describing bibliographic references in RDF, in Proceedings of the 4th Workshop on Semantic Publishing (SePublica 2014), CEUR-WS Vol-1155; Peroni, S. & Shotton, D. (2018) The SPAR Ontologies, in ISWC 2018, LNCS 11137:119-136. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation."
+
+# PROV-O, the PROV Ontology — the W3C provenance interchange vocabulary.
+# Core classes prov:Entity / prov:Activity / prov:Agent and the provenance
+# object properties prov:used, prov:wasGeneratedBy, prov:wasAttributedTo,
+# prov:wasDerivedFrom, … . Unlike the SPAR vocabularies, PROV-O serialises
+# in the *striped* RDF/XML form (<owl:Class> / <owl:ObjectProperty>
+# typed-node elements). owl:versionInfo "Recommendation version 2013-04-30"
+# (rdfs:label "W3C PROVenance Interchange Ontology (PROV-O)"). Bundled:
+# crates/domains/data/ontologies/prov_o-2013-04-30.owl.
+[sources.prov_o]
+version     = "2013-04-30"
+type        = "OntologyVocabulary"
+url         = "https://www.w3.org/ns/prov-o.owl"
+description = "PROV-O, the PROV Ontology — the W3C OWL 2 provenance interchange vocabulary: core classes prov:Entity / prov:Activity / prov:Agent and provenance object properties prov:used, prov:wasGeneratedBy, prov:wasAttributedTo, prov:wasDerivedFrom, prov:wasAssociatedWith, prov:wasInformedBy, … (the PROV Data Model expressed in OWL 2). Cite: Lebo, T., Sahoo, S. & McGuinness, D. (eds.) (2013) PROV-O: The PROV Ontology, W3C Recommendation 30 April 2013, <https://www.w3.org/TR/2013/REC-prov-o-20130430/>. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation; RDF/XML per Gandon & Schreiber (2014) RDF 1.1 XML Syntax."
+
+# OLiA, the Ontologies of Linguistic Annotation — Reference Model. An OWL 2
+# / RDF-XML vocabulary of morphological, morphosyntactic and syntactic
+# annotation categories (olia:Noun, olia:Verb, olia:Determiner,
+# olia:AuxiliaryVerb, olia:InterrogativePronoun, … under
+# olia-top:MorphosyntacticCategory), grounded in the EAGLES recommendations,
+# ISOcat/DCR, GOLD, TDS and MULTEXT-East. Unlike the SPAR + PROV-O
+# vocabularies, OLiA serialises with an internal-subset DTD declaring
+# general entities (&owl; &rdfs; &rdf; &xsd;), expanded by the praxis XML
+# reader. dct:title "Ontology of Linguistic Annotation (OLiA)", rdfs:label
+# "OLiA", dct:license CC-BY-3.0. The owl:Ontology node carries no clean
+# owl:versionInfo / owl:versionIRI (its versionInfo holds free-text editor
+# notes), so the version is the provenance snapshot date the byte-content
+# entered this repo (2026-04-09). Published by acoli-repo/olia
+# (github.com/acoli-repo/olia). Bundled:
+# crates/domains/data/ontologies/olia-2026-04-09.owl.
+[sources.olia]
+version     = "2026-04-09"
+type        = "OntologyVocabulary"
+url         = "http://purl.org/olia/olia.owl"
+description = "OLiA, the Ontologies of Linguistic Annotation (Reference Model) — an OWL 2 vocabulary of morphological, morphosyntactic and syntactic annotation categories (olia:Noun, olia:Verb, olia:Determiner, olia:AuxiliaryVerb, olia:InterrogativePronoun, … subsumed under olia-top:MorphosyntacticCategory) harmonising the EAGLES recommendations, ISOcat/DCR, GOLD, the TDS ontology, the SFB 632 guidelines and MULTEXT-East into a single reference terminology for cross-scheme interoperability of linguistic annotations. Cite: Chiarcos, C. & Sukhareva, M. (2015) OLiA — Ontologies of Linguistic Annotation, Semantic Web 6(4):379-386, <https://doi.org/10.3233/SW-140167>. OWL 2 per Motik, Patel-Schneider & Parsia (2012) W3C Recommendation; RDF/XML per Gandon & Schreiber (2014) RDF 1.1 XML Syntax; DTD general entities per Bray, Paoli, Sperberg-McQueen, Maler & Yergeau (2008) XML 1.0 (5th ed.) §4.2."
+
+# ---------------------------------------------------------------------------
+# Typographic resources
+# ---------------------------------------------------------------------------
+
+# Adobe Glyph List (AGL) — the canonical name→Unicode codepoint table cited
+# by ISO 32000-2:2020 §9.6.5.4 as the resolver for PDF /Differences glyph
+# names. Adobe Tech Note #5014 references the same data. Published by
+# Adobe Systems Inc. under SPDX-License-Identifier BSD-3-Clause.
+#
+# Used by both the build-time PDF text extractor (`build_helpers/agl.rs`)
+# and the runtime PDF font pipeline (`pdf/agl.rs`) to resolve glyph names
+# in font `/Encoding` dictionaries' `/Differences` arrays. Without it, GPO-
+# style PDFs with WinAnsi+overrides produce mojibake artifacts (e.g. `Ð`
+# in place of em-dashes).
+[sources.adobe_glyph_list]
+version     = "2019"
+type        = "TypographicGlyphSet"
+url         = "https://raw.githubusercontent.com/adobe-type-tools/agl-aglfn/master/glyphlist.txt"
+description = "Adobe Glyph List — PostScript glyph name → Unicode codepoint table; cited by ISO 32000-2:2020 §9.6.5.4 + Adobe Tech Note #5014 as the canonical resolver for PDF /Differences glyph names."
+
+# ---------------------------------------------------------------------------
+# Statutes
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# U.S. Code titles (full USLM XML, sliced at build time by section)
+# ---------------------------------------------------------------------------
+
+# Title 18 — Crimes and Criminal Procedure. Authoritative source for
+# 18 U.S.C. § 1514A (SOX whistleblower), § 1513 (witness retaliation),
+# § 1519 / § 1520 (records destruction; SOX § 802), § 1341 / § 1343 /
+# § 1344 / § 1348 (mail/wire/bank/securities fraud — the underlying
+# conduct § 1514A protects reporting of). Published by the U.S. House
+# Office of the Law Revision Counsel (LRC) in USLM XML per 1 U.S.C.
+# § 204; release point pl-119-90 (Public Law 119-90, current at
+# authoring time). Build-time codegen slices statutes by USLM
+# identifier — see `crates/domains/build.rs`.
+[sources.usc_title_18]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc18@119-90.zip"
+description = "U.S. Code Title 18 — Crimes and Criminal Procedure. USLM XML published by the LRC per 1 U.S.C. § 204."
+
+# Title 49 — Transportation. Authoritative source for 49 U.S.C.
+# § 42121 (AIR21 whistleblower; SOX § 1514A(b)(2)(C) imports its
+# burden-shifting framework by reference). Same LRC USLM XML
+# publication unit as Title 18; release point pl-119-90.
+[sources.usc_title_49]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc49@119-90.zip"
+description = "U.S. Code Title 49 — Transportation. USLM XML published by the LRC per 1 U.S.C. § 204."
+
+# Title 28 — Judiciary and Judicial Procedure. Includes 28 U.S.C.
+# App. (the Federal Rules Appendix), which is the authoritative
+# codification of the Federal Rules of Civil Procedure (FRCP), the
+# Federal Rules of Evidence (FRE), the Federal Rules of Appellate
+# Procedure (FRAP), and the Federal Rules of Bankruptcy Procedure
+# (FRBP). Loading Title 28's USLM XML — same machinery as Titles
+# 18 and 49 — populates Layer 3 of statute_understanding with the
+# typed legal-actor / evidence-rule vocabulary (FRE 702 Expert
+# Witness, FRCP Rule 17 Party Capacity, FRCP Rule 38 Jury, etc.)
+# WITHOUT hand-coding any rule as a praxis ontology macro. Per
+# "Bottom-up loaded, never encoded".
+[sources.usc_title_28]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc28@119-90.zip"
+description = "U.S. Code Title 28 — Judiciary and Judicial Procedure, including 28 U.S.C. App. (Federal Rules of Civil Procedure / Evidence / Appellate Procedure / Bankruptcy Procedure). USLM XML published by the LRC per 1 U.S.C. § 204; 28 U.S.C. § 2072 (Rules Enabling Act) authorizes the Supreme Court to promulgate the rules and the LRC to codify them in the Appendix."
+
+# Title 42 — The Public Health and Welfare. Authoritative source
+# for the post-Civil-War civil-rights statutes (§§ 1981, 1983,
+# 1985, 1988 — the Ku Klux Klan Act of 1871 and Civil Rights Act
+# of 1866 codifications), Title VII of the Civil Rights Act of
+# 1964 (§§ 2000e et seq.; § 2000e-3 anti-retaliation), the
+# Americans with Disabilities Act (§§ 12101 et seq.; § 12203 ADA
+# anti-retaliation), the Civil Rights Act of 1991 (§ 1981a
+# damages), Medicare (§§ 1395 et seq.), Medicaid (§§ 1396 et
+# seq.), Social Security, public health (CDC, NIH, HHS), and
+# housing. The harassment-timeline tree's federal civil-rights
+# backbone: § 1983 against state actors; § 1985(3) for private
+# conspiracies with racial animus or under-color-of-law. At
+# 113 MB / ~3,500 sections this is the LRC's largest title;
+# registrable only after M4.δ.7.a moved USC corpus loading from
+# build-time codegen (which OOM-killed rustc on the aggregate
+# static) to runtime XML parsing. Same LRC USLM XML publication
+# unit; release point pl-119-90.
+[sources.usc_title_42]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc42@119-90.zip"
+description = "U.S. Code Title 42 — The Public Health and Welfare, including the post-Civil-War civil-rights statutes (§§ 1981, 1983, 1985, 1988), Title VII (§§ 2000e et seq.), ADA (§§ 12101 et seq.), Medicare, Medicaid, and Social Security. USLM XML published by the LRC per 1 U.S.C. § 204."
+
+# Title 29 — Labor. Authoritative source for the Occupational
+# Safety and Health Act of 1970 (OSHA, 29 U.S.C. §§ 651-678).
+# OSHA § 11(c) at 29 U.S.C. § 660(c) is the original employee
+# anti-retaliation procedural framework — SOX § 1514A
+# (b)(2)(A) explicitly imports OSHA's procedures by reference
+# ("an action under paragraph (1) shall be governed under the
+# rules and procedures set forth in section 42121(b) of title
+# 49"), making this title's procedural infrastructure load-
+# bearing for every SOX § 806 administrative claim filed with
+# DOL/OSHA. Title 29 also carries the Fair Labor Standards Act
+# (FLSA, §§ 201 et seq.), the Family and Medical Leave Act
+# (FMLA, §§ 2601 et seq.), the National Labor Relations Act
+# (NLRA, §§ 151 et seq.), and ERISA's labor-side provisions.
+# Same LRC USLM XML publication unit; release point pl-119-90.
+[sources.usc_title_29]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc29@119-90.zip"
+description = "U.S. Code Title 29 — Labor, including OSHA (§§ 651-678; § 660(c) anti-retaliation), FLSA (§§ 201 et seq.), FMLA (§§ 2601 et seq.), and NLRA (§§ 151 et seq.). USLM XML published by the LRC per 1 U.S.C. § 204."
+
+# Title 15 — Commerce and Trade. Authoritative source for the
+# Securities Act of 1933 (15 U.S.C. §§ 77a–77aa) and the Securities
+# Exchange Act of 1934 (15 U.S.C. §§ 78a et seq.). The SOX
+# whistleblower scheme references this title throughout: § 78j(b)
+# / Rule 10b-5 (securities fraud — the underlying conduct § 1514A
+# protects reporting of); § 78m (Section 13, periodic reporting —
+# SOX § 302's "principal executive officer" certification and
+# SOX § 404's "internal control" assessment are codified here);
+# § 78u-6 (Dodd-Frank SEC whistleblower program — alternative
+# remedy to SOX § 806); § 78ff (Section 32, criminal penalties).
+# 15 U.S.C. § 78f-1(c)(2)(B) carries the SOX-amended audit-
+# committee independence requirement (§ 301 of SOX). Same LRC
+# USLM XML publication unit; release point pl-119-90.
+[sources.usc_title_15]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc15@119-90.zip"
+description = "U.S. Code Title 15 — Commerce and Trade, including the Securities Act of 1933 (§§ 77a et seq.) and the Securities Exchange Act of 1934 (§§ 78a et seq.). USLM XML published by the LRC per 1 U.S.C. § 204."
+
+# Title 5 — Government Organization and Employees. Authoritative
+# source for the federal transparency / personnel-law backbone the
+# harassment-timeline tree runs on: the Freedom of Information Act
+# (5 U.S.C. § 552 — the 18 MuckRock FOIA requests' legal basis), the
+# Privacy Act of 1974 (§ 552a — agency records on individuals), the
+# Administrative Procedure Act (§§ 551 et seq.), and the federal
+# whistleblower scheme — § 2302(b)(8) (prohibited personnel practice:
+# reprisal for protected disclosures), § 1213 (disclosures to the
+# Office of Special Counsel), and § 1221 (individual right of action
+# before the MSPB). Title 5 is positive law and, since the
+# Pub. L. 117-286 (Dec. 2022) reorganization, folds in the former
+# Title 5 Appendix (Inspector General Act, Ethics in Government Act).
+# Same LRC USLM XML publication unit; release point pl-119-90.
+[sources.usc_title_5]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc05@119-90.zip"
+description = "U.S. Code Title 5 — Government Organization and Employees, including the Freedom of Information Act (§ 552), the Privacy Act (§ 552a), the Administrative Procedure Act (§§ 551 et seq.), and the federal whistleblower scheme (§ 2302(b)(8), § 1213 OSC disclosures, § 1221 MSPB right of action). USLM XML published by the LRC per 1 U.S.C. § 204."
+
+# Title 50 — War and National Defense. Authoritative source for the
+# Foreign Intelligence Surveillance Act (FISA): § 1801 (definitions),
+# § 1805 (electronic-surveillance orders), § 1809 (criminal sanctions
+# for surveillance not authorized by statute — the provision a victim
+# of unlawful surveillance invokes), § 1810 (civil liability), § 1861
+# (the "Section 215" business-records / tangible-things authority),
+# and § 1881a (the "Section 702" warrantless-surveillance program).
+# Also carries the National Security Act of 1947 (§§ 3001 et seq.,
+# establishing the CIA, NSC, DNI) and the War Powers Resolution
+# (§§ 1541 et seq.). The harassment-timeline tree's surveillance /
+# FBI-referral claims reach this title wherever the alleged conduct
+# implicates foreign-intelligence-surveillance authorities or their
+# § 1809/§ 1810 unlawful-surveillance remedies. Same LRC USLM XML
+# publication unit; release point pl-119-90.
+[sources.usc_title_50]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc50@119-90.zip"
+description = "U.S. Code Title 50 — War and National Defense, including the Foreign Intelligence Surveillance Act (FISA, §§ 1801 et seq.; § 1809 criminal sanctions, § 1810 civil liability, § 1861 the \"Section 215\" authority, § 1881a the \"Section 702\" program), the National Security Act of 1947 (§§ 3001 et seq.), and the War Powers Resolution (§§ 1541 et seq.). USLM XML published by the LRC per 1 U.S.C. § 204."
+
+# Title 1 — General Provisions. The authority anchor for the entire
+# USC corpus: 1 U.S.C. § 204 ("Codes and Supplements as evidence of
+# the laws…; positive law titles") is the statute that makes the
+# Office of the Law Revision Counsel's USLM XML the *legal* text of
+# the United States Code — every other registered title's "USLM XML
+# published by the LRC per 1 U.S.C. § 204" provenance line points
+# here. Title 1 also carries the Dictionary Act (§§ 1-8 — the
+# default rules of statutory construction: "words importing the
+# singular include the plural", the § 1 "person"/"whoever"
+# definitions every other title inherits), the enacting/resolving
+# clauses (§§ 101-105), and the publication framework for the
+# Statutes at Large (§ 112) and treaties (§ 112a). Tier 4: small
+# (~60 sections) but foundational — it closes the self-referential
+# loop by which the corpus cites the statute that authorizes its own
+# form. Same LRC USLM XML publication unit; release point pl-119-90.
+[sources.usc_title_1]
+version     = "pl-119-90"
+type        = "UsCodeTitle"
+url         = "https://uscode.house.gov/download/releasepoints/us/pl/119/90/xml_usc01@119-90.zip"
+description = "U.S. Code Title 1 — General Provisions, including 1 U.S.C. § 204 (the positive-law / Code-as-evidence authority that grounds every registered title's USLM XML provenance), the Dictionary Act (§§ 1-8 statutory-construction defaults), the enacting clauses (§§ 101-105), and the Statutes at Large / treaty publication framework (§§ 112, 112a). USLM XML published by the LRC per 1 U.S.C. § 204."
+
+# Individual US Code sections (e.g. 18 U.S.C. § 1514A — Sarbanes–Oxley
+# § 806; 49 U.S.C. § 42121 — AIR21; 15 U.S.C. § 78j(b) — Rule 10b-5;
+# 15 U.S.C. § 78u-6 — Dodd-Frank SEC whistleblower) are NOT separate
+# sources. They are slices of an already-registered UsCodeTitle source
+# (usc_title_15, usc_title_18, usc_title_28, usc_title_49) addressable
+# by USLM URN. Downstream consumers obtain them via the runtime
+# `UsCode::loaded().section_by_urn(...)` lookup, not via a separate
+# `[sources.*]` entry. Cited: 1 U.S.C. § 204 (Code authority); LRC,
+# *USLM XML User Guide* §V (USC URN hierarchy).
+
+# ---------------------------------------------------------------------------
+# Procedural rules (federal)
+# ---------------------------------------------------------------------------
+#
+# Each rule is registered with its primary source URL. praxis.lock entries
+# are pending until the PDF loader + NLP extraction infrastructure are
+# built (see ROADMAP). Registered-but-not-yet-loadable sources carry a
+# Stub identity claim; LockManifestAgreement skips them.
+
+# FRCP Rule 17 — Plaintiff and Defendant; Capacity; Public Officers.
+# Primary source for the Plaintiff / Defendant litigation roles.
+[sources.frcp_rule_17]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/cv_rules_eff._dec._1_2024_0.pdf"
+description = "Federal Rules of Civil Procedure, Rule 17 — Plaintiff and Defendant; Capacity"
+
+# FRCP Rule 38 — Right to a Jury Trial; Demand. Primary source for Jury
+# as adjudicator concept.
+[sources.frcp_rule_38]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/cv_rules_eff._dec._1_2024_0.pdf"
+description = "Federal Rules of Civil Procedure, Rule 38 — Right to a Jury Trial"
+
+# FRCP Rule 72 — Magistrate Judges. Primary source for Magistrate as
+# adjudicator concept.
+[sources.frcp_rule_72]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/cv_rules_eff._dec._1_2024_0.pdf"
+description = "Federal Rules of Civil Procedure, Rule 72 — Magistrate Judges: Pretrial Order"
+
+# FRCP Rule 6 — Computing and Extending Time. Primary source for
+# BusinessDay temporal concept (Rule 6(a)(6) excludes federal holidays).
+[sources.frcp_rule_6]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/cv_rules_eff._dec._1_2024_0.pdf"
+description = "Federal Rules of Civil Procedure, Rule 6 — Computing and Extending Time"
+
+# FRE Rule 702 — Testimony by Expert Witnesses. Primary source for
+# ExpertWitness concept (qualification by knowledge / skill / experience /
+# training / education).
+[sources.fre_rule_702]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/federal_rules_of_evidence_dec_1_2024_0.pdf"
+description = "Federal Rules of Evidence, Rule 702 — Testimony by Expert Witnesses"
+
+# FRE Rule 104 — Preliminary Questions. Primary source for the federal
+# evidentiary-admissibility framework.
+[sources.fre_rule_104]
+version     = "2024"
+type        = "ProceduralRule"
+url         = "https://www.uscourts.gov/sites/default/files/federal_rules_of_evidence_dec_1_2024_0.pdf"
+description = "Federal Rules of Evidence, Rule 104 — Preliminary Questions"
+
+# ---------------------------------------------------------------------------
+# Case law
+# ---------------------------------------------------------------------------
+
+# In re Winship, 397 U.S. 358 (1970). Establishes BeyondReasonableDoubt as
+# the constitutional standard for every element of a criminal offense.
+# Primary source for the ProofStandard::BeyondReasonableDoubt concept's
+# constitutional grounding.
+[sources.in_re_winship_1970]
+version     = "1970"
+type        = "CaseLaw"
+url         = "https://supreme.justia.com/cases/federal/us/397/358/"
+description = "In re Winship, 397 U.S. 358 (1970) — BeyondReasonableDoubt as constitutional standard"
+
+# Tumey v. Ohio, 273 U.S. 510 (1927). Establishes the judge-impartiality
+# doctrine prohibiting overlapping Party / Adjudicator roles.
+[sources.tumey_v_ohio_1927]
+version     = "1927"
+type        = "CaseLaw"
+url         = "https://supreme.justia.com/cases/federal/us/273/510/"
+description = "Tumey v. Ohio, 273 U.S. 510 (1927) — judge-impartiality doctrine"
+
+# Lawson v. FMR LLC, 571 U.S. 429 (2014). Supreme Court extension of SOX
+# 1514A whistleblower protection to private-contractor employees. Primary
+# source for SOX-specific application contexts.
+[sources.lawson_v_fmr_llc_2014]
+version     = "2014"
+type        = "CaseLaw"
+url         = "https://supreme.justia.com/cases/federal/us/571/429/"
+description = "Lawson v. FMR LLC, 571 U.S. 429 (2014) — SOX 1514A applies to private contractors"
+
+# Murray v. UBS Securities, LLC, 601 U.S. 23 (2024). Clarifies the
+# contributing-factor pleading standard under SOX 1514A / AIR21
+# § 42121(b)(2)(B).
+[sources.murray_v_ubs_2024]
+version     = "2024"
+type        = "CaseLaw"
+url         = "https://supreme.justia.com/cases/federal/us/601/23/"
+description = "Murray v. UBS Securities, LLC, 601 U.S. 23 (2024) — contributing-factor standard"

@@ -9,13 +9,55 @@ repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
 
 [dependencies]
-pr4xis = { version = "0.15.0", path = "../pr4xis", default-features = false }
+# Runtime dep needs `std` only. The `codegen` feature (and its
+# `xsd-parser` transitive, which can't build for wasm32 — `url`'s
+# `from_file_path` is gated out there) is build-time + test-only: it's on
+# the [build-dependencies] entry below and the [dev-dependencies] entry.
+# Keeping it off the normal dep keeps `xsd-parser` out of the WASM graph
+# (this crate is a WASM default-feature dependency — see the fetch/pdf
+# gating notes below).
+pr4xis = { version = "0.15.0", path = "../pr4xis", default-features = false, features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
+toml = "1"
 sha2 = "0.11"
 hex = "0.4"
 anyhow = "1"
 hashbrown = "0.17"
+# Runtime types referenced by the XSD-codegen output. xsd-parser
+# 1.5.2 emits code that references `::xsd_parser_types::xml::Text`,
+# `Mixed`, `AnyElement`, `AnyAttributes` for mixed-content and
+# wildcard handling. The downstream
+# `social::software::markup::xml::uslm::generated` module
+# `include!`s the build-script output, so these symbols must
+# resolve. Cited: Bergmann, S. *xsd-parser-types*, v0.2.1, MIT.
+xsd-parser-types = { version = "0.2.1", features = ["quick-xml", "serde"] }
+
+# Distributed-slice registration substrate. The well-behaved-lens
+# harness uses `#[linkme::distributed_slice]` to discover every
+# registered lens at link time without a central list. Same crate
+# already used inside pr4xis for axiom / functor / adjunction
+# registration (Mascarenhas et al., Apache-2.0 / MIT,
+# <https://github.com/dtolnay/linkme>).
+linkme = "0.3"
+
+# Canonical-form library substrate. Used by the
+# `formal::meta::well_behaved_lens` module to canonicalize loaded
+# sources prior to signature computation.
+#
+# - **quick-xml** (Tafryn et al., MIT, <https://github.com/tafia/quick-xml>)
+#   — streaming pull parser used by the W3C XML Canonicalization 1.1
+#   walker (Boyer & Marcy 2008).
+# - **serde_json** (Tolnay, MIT/Apache-2.0,
+#   <https://github.com/serde-rs/json>) — JSON value model used by
+#   the RFC 8785 JSON Canonicalization Scheme (Rundgren, Jordan &
+#   Erdtman 2020) emitter.
+# - **unicode-normalization** (unicode-rs, MIT/Apache-2.0,
+#   <https://github.com/unicode-rs/unicode-normalization>) —
+#   Unicode TR #15 NFKC implementation (Davis & Whistler 2024).
+quick-xml = { version = "0.40", features = ["serialize"] }
+serde_json = "1"
+unicode-normalization = "0.1"
 
 # Network + compression — optional, behind the `fetch` feature. TLS uses
 # rustls with the rustls-rustcrypto CryptoProvider; under the workspace's
@@ -31,6 +73,28 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 rustls-rustcrypto = { version = "0.0.2-alpha", optional = true }
 flate2 = { version = "1", optional = true }
 
+# Zero-copy binary archival of the codegen interchange shape. rkyv
+# serializes the owned mirror of `CodegenData<P>` to a content-addressed
+# blob the runtime materializes without re-parsing the source format.
+# Chosen over FlatBuffers / Cap'n Proto because it derives the schema
+# from the Rust type (no IDL) and validates on access via `bytecheck`,
+# so a corrupted/truncated blob fails closed. `alloc` feature only
+# (this crate links `alloc`). Used by the OWL `.prx.gz` distribution
+# envelope (`social::software::markup::xml::owl::prx`); optional and
+# pulled in by the `fetch` feature alongside flate2 (the gzip layer),
+# so it stays out of the WASM default-feature graph.
+# Cite: Hill, D. *rkyv: zero-copy deserialization framework for Rust*,
+# v0.8, MIT, <https://github.com/rkyv/rkyv>.
+rkyv = { version = "0.8", default-features = false, features = ["alloc", "bytecheck"], optional = true }
+
+# PDF parsing — pure-Rust PDF reader implementing ISO 32000-2:2020
+# file/object structure. Wraps the byte-level parsing so the praxis-way
+# layer (social/software/binary/pdf/) can emit typed PdfDocument values
+# and the extractor can walk content streams. Optional behind the `pdf`
+# feature because lopdf pulls in std I/O and a DEFLATE implementation
+# that doesn't fit the WASM default-feature build path.
+lopdf = { version = "0.40", optional = true }
+
 [features]
 default = ["std"]
 # `std` enables I/O-dependent modules (hmi/report generator, hmi/explorer
@@ -38,15 +102,71 @@ default = ["std"]
 # loader). The categorical stack (ontologies + functors + axioms) runs
 # no_std + alloc; per issue #91, only these 4 I/O surfaces need std.
 std = ["pr4xis/std"]
-fetch = ["std", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto", "dep:flate2"]
+# Build-time / test-only code-generation surface. Turns on `pr4xis`'s
+# `codegen` feature so modules like
+# `social::software::markup::xml::owl::owl_vocabulary` (OWL vocabulary →
+# `pr4xis::codegen::CodegenData`) can reach `pr4xis::codegen`. Off the
+# normal (WASM-facing) build because `pr4xis/codegen` pulls `xsd-parser`,
+# which can't build for wasm32; build.rs and tests get it via the
+# `[build-dependencies]` / `[dev-dependencies]` `codegen` entries.
+codegen = ["std", "pr4xis/codegen"]
+# `prx` enables the OWL `.prx.gz` *load* path (rkyv archival + RFC 1952
+# gzip) without the network substrate. Both deps are pure-Rust and build
+# for wasm32: rkyv with `alloc`+`bytecheck` only (no std-only features),
+# and flate2's default backend is `miniz_oxide` (pure Rust) — no `libz-sys`
+# / `zlib-ng` C backend in the resolved graph. Splitting it out of `fetch`
+# lets the WASM runtime load a validated `.prx.gz` while keeping `ureq` /
+# `rustls` (which do not compile to wasm32) off that build.
+prx = ["std", "dep:rkyv", "dep:flate2"]
+fetch = ["prx", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto"]
+# `pdf` enables the runtime PDF reader (social/software/binary/pdf/reader)
+# that materializes typed PdfDocument values from byte streams. The
+# ontology surface (concepts, axioms, FlaggedContent) is available
+# unconditionally; only the lopdf-backed reader is feature-gated.
+pdf = ["std", "dep:lopdf"]
+
+[build-dependencies]
+# Statute codegen at build time. Reads workspace-root praxis.toml + praxis.lock,
+# emits Rust modules under $OUT_DIR/<name>_codegen.rs for every Statute-kind
+# source whose lock carries structural data. The crate's runtime tree then
+# `include!`s those modules under `social::compliance::law::<name>::`.
+pr4xis = { version = "0.15.0", path = "../pr4xis", default-features = false, features = ["codegen"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "1"
+# PDF extraction at build time. When a statute's PDF is on disk at its
+# canonical `local_path()`, the build script runs lopdf to extract the
+# text and emits it as a typed `PDF_EXTRACTION: PdfBuildExtraction`
+# const in the generated codegen module — the WordNet-parallel
+# embedding pattern. Phase 6's runtime extractor (under feature `pdf`)
+# covers the property-test surface; build.rs's path is a focused
+# text-only subset that runs unconditionally during builds.
+lopdf = "0.40"
+# SHA-256 for the bytes_hash field of PdfBuildExtraction::Extracted —
+# downstream tests assert this matches praxis.lock's pinned hash.
+sha2 = "0.11"
 
 [lints]
 workspace = true
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-proptest = "1.6"
+# Tests under cognitive/linguistics + markup/xml/lmf exercise
+# `pr4xis::codegen::wordnet::parse_wordnet_xml` directly. `codegen` is
+# off the normal dep (it leaks `xsd-parser` into WASM), so unify it back
+# in for test builds here.
+pr4xis = { version = "0.15.0", path = "../pr4xis", features = ["codegen"] }
+criterion = { version = "0.8", features = ["html_reports"] }
+proptest = "1.11"
+tempfile = "3"
 
 [[bench]]
 name = "ontology_benchmarks"
 harness = false
+
+# Distribution-artifact emitter (#256). Writes a `.prx.gz` per registered
+# OWL vocabulary, round-trip-validating each through the fail-closed load
+# gate. The release-gated CI `pages` job runs it into `pages/ontologies/`,
+# publishing to both the GitHub release and Pages `/ontologies/`. Needs
+# `fetch` (rkyv + gzip + load gate) and `codegen` (the read_owl emit path).
+[[example]]
+name = "emit_prx"
+required-features = ["fetch", "codegen"]

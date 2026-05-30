@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7b6190d1c2d3724f2cc307d091086d172c78046d0949b96d6ab16af8e28cf9bd # shrinks to s = SynthVocab { classes: ["http://ex.org/v#C0"], properties: ["http://ex.org/v#p0"], class_edges: [], prop_edges: [] }

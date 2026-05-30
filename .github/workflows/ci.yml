@@ -27,7 +27,7 @@ jobs:
           - name: Format
             command: cargo fmt --check
           - name: Clippy
-            command: cargo clippy -- -D warnings
+            command: cargo clippy --workspace --all-targets -- -D warnings
           - name: Test
             command: cargo test --workspace
             rustflags: "-D warnings"
@@ -108,6 +108,88 @@ jobs:
           files: target/nextest/ci/junit.xml
           report_type: test_results
 
+  wasm-test:
+    name: WASM browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Cache WordNet XML
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Fetch external data (wasm build.rs needs WordNet + USC XML)
+        run: cargo run -p pr4xis-cli --release -- update
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      # Headless Firefox is preinstalled on ubuntu-latest runners and
+      # wasm-pack manages geckodriver. Runs crates/wasm/tests/web.rs:
+      # load_source(USLM xml) → live UsCode, available_sources,
+      # self_describe, chat — in a real wasm/browser context.
+      - name: wasm-bindgen tests (headless Firefox)
+        run: |
+          cd crates/wasm
+          wasm-pack test --headless --firefox
+
+  e2e:
+    name: E2E (Rust WebDriver)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Cache WordNet XML
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Fetch external data
+        run: cargo run -p pr4xis-cli --release -- update
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Build WASM (also stages /sources documents)
+        run: |
+          cd crates/wasm
+          wasm-pack build --target web --release
+      # Emit `.prx.gz` artifacts the wasm dual-load click-to-load path
+      # needs. pr4xis-web serves `crates/wasm/ontologies/` at
+      # `/ontologies/`, mirroring the Pages tree the release job assembles
+      # (`pages/ontologies/`). The same emitter runs in both — it walks the
+      # registry, reads each bundled `.owl`, and round-trip-validates every
+      # artifact through the fail-closed load gate.
+      - name: Emit .prx.gz ontology artifacts (for /ontologies/ click-to-load)
+        run: |
+          mkdir -p crates/wasm/ontologies
+          cargo run -p pr4xis-domains --features "fetch codegen" --example emit_prx -- crates/wasm/ontologies
+      # Firefox + geckodriver are preinstalled on ubuntu-latest. Server,
+      # driver and the fantoccini test all run in ONE step — a process
+      # backgrounded in one Actions step is killed when that step ends.
+      - name: Run Rust WebDriver E2E
+        run: |
+          cargo run -p pr4xis-web 3000 &
+          WEB=$!
+          geckodriver --port 4444 &
+          GECKO=$!
+          for _ in $(seq 1 90); do curl -sf http://localhost:3000/ >/dev/null && break; sleep 1; done
+          for _ in $(seq 1 30); do curl -sf http://localhost:4444/status >/dev/null && break; sleep 1; done
+          set +e
+          ( cd crates/e2e && cargo run )
+          code=$?
+          kill "$WEB" "$GECKO" 2>/dev/null || true
+          exit "$code"
+
   pages:
     name: Deploy Pages
     runs-on: ubuntu-latest
@@ -132,6 +214,19 @@ jobs:
           key: wordnet-english-2025-v1
       - name: Fetch WordNet (needed by wasm build.rs codegen step)
         run: cargo run -p pr4xis-cli --release --quiet -- update
+      # Emit a `.prx.gz` per registered OWL vocabulary directly into the
+      # pages tree. The emitter walks the registry, reads each bundled
+      # in-repo `.owl`, and round-trip-validates every artifact through the
+      # fail-closed load gate (embedded source hash must match praxis.lock).
+      # Native host build — the wasm32 target installed above does not block
+      # this; it reuses the WordNet/codegen data fetched in the step above.
+      # The same files are published to BOTH the GitHub release (canonical
+      # immutable archive) and Pages /ontologies (same-origin for the wasm
+      # loader); emit once here, upload to the release further down.
+      - name: Emit .prx.gz ontology artifacts
+        run: |
+          mkdir -p pages/ontologies
+          cargo run -p pr4xis-domains --features "fetch codegen" --example emit_prx -- pages/ontologies
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Build WASM
@@ -142,9 +237,16 @@ jobs:
         run: npx @marp-team/marp-cli docs/presentations/overview.md --html -o docs/presentations/index.html
       - name: Assemble pages
         run: |
-          mkdir -p pages/pkg pages/decks/technical
+          mkdir -p pages/pkg pages/decks/technical pages/sources pages/ontologies
           cp docs/chat/index.html pages/index.html
+          cp docs/worker.js pages/worker.js
           cp -r crates/wasm/pkg/* pages/pkg/
+          # On-demand source documents (USLM XML), staged by the wasm
+          # build. GitHub Pages rejects files >100 MB, so skip oversized
+          # titles (e.g. Title 42 ≈ 113 MB) — they 404 gracefully on the
+          # hosted demo (Retry shows the failure); all of it works under
+          # `dev-web` locally.
+          find crates/wasm/sources -name '*.xml' -size -95M -exec cp {} pages/sources/ \;
           cp docs/presentations/index.html pages/decks/technical/index.html
           cp docs/praxis-logo-dark.jpg pages/praxis-logo-dark.jpg
           cp docs/praxis-logo-light.jpg pages/praxis-logo-light.jpg
@@ -156,6 +258,16 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      # Publish the SAME .prx.gz files to the release as immutable archive
+      # assets. They were emitted once into pages/ontologies above; here they
+      # are attached to the release-please-created release. The release is the
+      # canonical, version-pinned distribution; Pages /ontologies serves the
+      # same bytes same-origin for the wasm loader (#257).
+      - name: Upload .prx.gz to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: gh release upload "$TAG" pages/ontologies/*.prx.gz --clobber
 
   release-please:
     name: Release
@@ -168,6 +280,10 @@ jobs:
       needs.check.result == 'success'
     outputs:
       release_created: ${{ steps.release.outputs.release_created || steps.release.outputs.releases_created }}
+      # The created release's git tag (e.g. `v0.19.0`). release-please-action@v4
+      # emits `tag_name` when a release is created; the `pages` job uses it to
+      # upload the .prx.gz artifacts to that release.
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release

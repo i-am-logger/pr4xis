@@ -290,3 +290,16 @@ impl Functor for ChessToEvents {
     }
 }
 pr4xis::register_functor!(ChessToEvents);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pr4xis::category::laws::assert_functor_laws;
+
+    /// Daubert prong 2 (testable methodology): the cross-ontology
+    /// mapping must preserve identity and composition.
+    #[test]
+    fn functor_laws() {
+        assert_functor_laws::<ChessToEvents>();
+    }
+}

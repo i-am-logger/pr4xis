@@ -13,10 +13,28 @@
 
 use super::ontology::ContentType;
 
+pub mod adobe_glyph_list;
+pub mod owl;
+pub mod tar_gz_archive;
+pub mod xhtml;
+pub mod xml_dtd;
 pub mod xml_lmf;
+pub mod xml_xsd;
+pub mod zip_archive;
 
 /// Does a decoder exist for this content type? Used by the
 /// `DecoderTotalityPerContentType` axiom.
 pub fn has_decoder_for(content_type: ContentType) -> bool {
-    matches!(content_type, ContentType::XmlLmf)
+    matches!(
+        content_type,
+        ContentType::XmlLmf
+            | ContentType::AdobeGlyphList
+            | ContentType::UslmXml
+            | ContentType::XmlXsd
+            | ContentType::Xhtml
+            | ContentType::TarGzArchive
+            | ContentType::XmlDtd
+            | ContentType::ZipArchive
+            | ContentType::Owl
+    )
 }

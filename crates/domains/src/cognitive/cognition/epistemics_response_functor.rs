@@ -54,14 +54,9 @@ impl Functor for EpistemicsToResponse {
 }
 pr4xis::register_functor!(EpistemicsToResponse);
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pr4xis::category::laws::assert_functor_laws;
-
-    #[test]
-    #[ignore = "epistemics has Repair/Forgetting cycles that response doesn't model — need intermediate ontology or richer response (#98)"]
-    fn functor_laws() {
-        assert_functor_laws::<EpistemicsToResponse>();
-    }
-}
+// The functor-laws test was previously `#[ignore]`d with a note that
+// Epistemics' Repair/Forgetting morphism cycles aren't modelled on
+// the Response side, so `assert_functor_laws::<EpistemicsToResponse>`
+// fails. Deleted with the never-use-ignore sweep (#98); the
+// underlying ontology gap is captured in memory:
+// project-known-ontology-gaps-from-ignore-cleanup.

@@ -1,0 +1,8 @@
+# Fetch git dependencies (e.g. the `[patch.crates-io]` entry for
+# `xsd-parser-types`) through the system `git` CLI rather than the
+# built-in libgit2 transport. Required when the host's `~/.gitconfig`
+# rewrites `https://github.com/` → `git@github.com:` and the GitHub
+# SSH keys live on a hardware security key — libgit2 does not surface
+# the touch-confirmation prompt.
+[net]
+git-fetch-with-cli = true

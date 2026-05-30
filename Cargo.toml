@@ -9,8 +9,33 @@ members = [
     "crates/chat",
     "crates/web",
 ]
-# pr4xis-wasm excluded from default workspace (needs wasm target)
-exclude = ["crates/wasm"]
+# pr4xis-wasm excluded from default workspace (needs wasm target).
+# pr4xis-e2e excluded too — it drives a real browser via WebDriver and
+# needs a running web server + geckodriver, so it must not run under
+# `cargo test --workspace`. CI invokes it explicitly (see ci.yml `e2e`).
+exclude = ["crates/wasm", "crates/e2e"]
+
+# Vendored lopdf with visibility patches that pub-export
+# `cmap::ToUnicodeCMap` and the `glyphnames` + `mappings` modules.
+# Per ISO 32000-2:2020 §9.10.2 + Adobe Tech Note #5014, downstream
+# crates implementing PDF text extraction must be able to name the
+# ToUnicodeCMap type to construct `Encoding::UnicodeMapEncoding`.
+# The functionality already exists in lopdf (merged PRs #314,
+# #328); only the public API surface was missing. Patches are in
+# `vendor/lopdf/` — see `vendor/lopdf/PRAXIS_PATCHES.md` for the
+# diff to submit upstream. When the upstream PRs land in a
+# released version, drop this `[patch.crates-io]` and bump the
+# `lopdf = "..."` constraint.
+#
+# xsd-parser-types: builds from an `i-am-logger/xsd-parser` fork
+# branch that carries an opt-in `serde` cargo feature gating
+# `Serialize` / `Deserialize` derives on the runtime helper types
+# (`xml::Text`, `xml::Mixed<T>`, `xml::AnyElement`,
+# `xml::AnyAttributes`) that xsd-parser's
+# `Config::with_serde_quick_xml()` codegen references.
+[patch.crates-io]
+xsd-parser-types = { git = "https://github.com/i-am-logger/xsd-parser.git", branch = "feat-serde-derives-on-helper-types" }
+lopdf = { path = "vendor/lopdf" }
 
 [workspace.lints.rust]
 dead_code = "deny"

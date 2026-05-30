@@ -104,6 +104,32 @@ A formal semantics for modal logic in which truth depends on which "possible wor
 
 A testing technique in which invariants are expressed as properties that must hold for ALL inputs, and a library generates random inputs to look for counterexamples. pr4xis uses [proptest](https://github.com/proptest-rs/proptest) for property-based testing of category laws, axiom satisfaction, and domain invariants. See the [Wikipedia article on property testing](https://en.wikipedia.org/wiki/Software_testing#Property_testing) for the broader context.
 
+## Manifest (`praxis.toml`)
+
+The declarative registry of external sources praxis knows about. Lives at the workspace root, one `[sources.<name>]` block per source, naming the version, the [`SourceTaxonomy`](#sourcetaxonomy) type, and the authoritative URL. Read at startup; unknown types fail closed. See [Register a Source](../use/register-a-source.md).
+
+## Lock (`praxis.lock`)
+
+The integrity layer next to [`praxis.toml`](#manifest-praxistoml). Pins the expected sha256 for every registered source's on-disk bytes under `[hashes]`. The `LockManifestAgreement` axiom verifies manifest, lock, and local file all agree.
+
+## PdfBuildExtraction
+
+The typed const a codegen module emits at build time for sources whose authoritative format is PDF (see `crates/domains/src/applied/data_provisioning/build_extraction.rs`). One of five variants — `Extracted { text, bytes_hash }` / `NotOnDisk` / `ParseFailed` / `Encrypted` / `UnsupportedContentType`. Downstream `canonical_audit.rs` modules pattern-match on the variant. Anchored against W3C PROV-O (Lebo et al. 2013) as a typed `prov:Activity` outcome; each variant cites either an ISO 32000-2 section or a Wilkinson FAIR principle. The `PdfBuildExtractionTotality` axiom enforces exhaustiveness.
+
+**Scope:** PDF-format sources are case law (court opinions), administrative orders, and similar court-system publications. **Statutes are NOT in this set** — US statutes load via USLM XML from `uscode.house.gov` per 1 U.S.C. § 204, through the bytes ⇄ Statute composed lens (M4.λ.3.b), not through `PdfBuildExtraction`. See the [`Registered source`](#registered-source) entry's content-type matrix for the canonical format per source category.
+
+## Registered source
+
+A `[sources.<name>]` entry in [`praxis.toml`](#manifest-praxistoml) plus its matching [`praxis.lock`](#lock-praxislock) entry plus the on-disk artifact at the path derived from the source's [`SourceTaxonomy`](#sourcetaxonomy) type. The unit the engine reasons about; the unit the [`pr4xis update`](../use/register-a-source.md#the-cli--pr4xis-update) CLI fetches and verifies.
+
+## SourceTaxonomy
+
+The ontology behind a registered source's `type` field. Roots at `Source`, branches into `Lexicon` (with `Language`, `DomainLexicon`, `LegalLexicon` leaves) and `LegalCorpus` (with `Statute` / `UsFederalStatute`, `Regulation`, `ConstitutionalArticle`, `ProceduralRule`, `CaseLaw` leaves). The `is_a` chain drives the decoder family and the on-disk path convention; `Adjoins` edges connect families that interoperate at runtime. Hart 1961's primary/secondary rule distinction attaches as a quality. Defined at `crates/domains/src/formal/meta/source_taxonomy/`.
+
+## Data provisioning
+
+The engine subsystem at `pr4xis_domains::applied::data_provisioning` that reads [`praxis.toml`](#manifest-praxistoml) and [`praxis.lock`](#lock-praxislock), exposes typed `RegistryEntry` values to the rest of the runtime, and enforces eight axioms over the registered set (`LockManifestAgreement`, `RegistryUniquenessByNameVersion`, `IdentityClaimsUseLeaves`, `DecoderTotalityPerKind`, …). Loaded once per process via `OnceLock`; new manifest entries are visible only after process restart. The [`pr4xis update`](../use/register-a-source.md#the-cli--pr4xis-update) CLI is the operator-side surface of the same subsystem.
+
 ## Codegen / async loading / mmap
 
 Three different mechanisms pr4xis supports for delivering ontology data into the runtime, all proven equivalent as functors from the same `OntologyBuilder` source:

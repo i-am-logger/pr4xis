@@ -1,0 +1,14 @@
+[package]
+name = "pr4xis-e2e"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Rust WebDriver (fantoccini) end-to-end test for the pr4xis web app: open the page, click Load on a USC title, and verify it downloads from the authoritative source and materializes into a live ontology (the card flips to Loaded). Drives a real headless browser via geckodriver — no Node."
+
+[dependencies]
+# Rust WebDriver client. Drives a real browser through a webdriver
+# (geckodriver/chromedriver) from Rust — the Rust-native alternative to
+# JS E2E frameworks. Tolnay/Gjengset et al., MIT/Apache-2.0.
+fantoccini = { version = "0.21", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+serde_json = "1"

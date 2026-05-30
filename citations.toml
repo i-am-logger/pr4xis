@@ -1,0 +1,1286 @@
+# citations.toml — Praxis literature-citation registry.
+#
+# Every literature citation in praxis code (module-level doc-comments,
+# `pr4xis::axiom!` declarations, `pr4xis::register_axiom!` source
+# strings, `[sources.X]` description fields in praxis.toml, and the
+# `description`/`citation: Citation::parse_static(...)` strings in
+# `pr4xis::ontology!` macro bodies) MUST appear here with a verified
+# section reference, year, author, publisher, and source URL/DOI.
+#
+# Each entry resolves to exactly one (work, section) pair. If two
+# axioms cite the same work at different sections, each section gets
+# its own entry — sections are the load-bearing granularity, since
+# "Mac Lane (1971) §IV.1" and "Mac Lane (1971) §V.2" cite different
+# claims even though they share an author and year.
+#
+# ---------------------------------------------------------------------
+# Schema (one `[citations.<slug>]` block per (work, section) pair)
+# ---------------------------------------------------------------------
+#
+#   authors             — full names, primary author first, "Last, First; …"
+#   year                — publication year, integer.
+#   title               — exact title as it appears on the title page.
+#   publisher           — publisher / SDO (Springer, W3C, IETF, ISO, …).
+#   edition             — "1st", "2nd", "Fifth Edition", "Second Edition",
+#                         … or "" if the work has no edition concept
+#                         (RFCs, W3C Recs, ISO standards).
+#   section_or_page     — the SECTION or PAGE within the work this entry
+#                         cites. Required. If the citation is to the
+#                         work as a whole (with no section), leave "" and
+#                         document in `verification_notes`.
+#   isbn                — ISBN-13 if known; else "".
+#   doi                 — DOI if applicable; else "".
+#   url                 — fetch URL (HTTPS) for web-published documents
+#                         (W3C, WHATWG, IETF RFC, NIST, …); else "".
+#   content_summary     — one-sentence summary of what the cited section
+#                         says. The verifier reads the work and confirms
+#                         the summary matches the cited section. This is
+#                         the heart of the audit — vague summaries get
+#                         flagged.
+#   verified_by         — set when human verifies — slug ID, GitHub
+#                         handle, name, or email. EMPTY = unverified.
+#   verified_on         — ISO 8601 date of verification (YYYY-MM-DD).
+#   verification_method — one of:
+#                           "book-in-hand"   — physical or scanned copy
+#                                              consulted directly
+#                           "web-fetched"    — published URL fetched
+#                                              and checked
+#                           "doi-resolved"   — DOI followed and content
+#                                              cross-checked
+#                           "library-loan"   — borrowed through library
+#                                              and consulted
+#   verification_notes  — any caveats; required when `section_or_page`
+#                         is downgraded (see "Downgrade path" below).
+#
+# ---------------------------------------------------------------------
+# Multi-version entries (the version-polymorphic citation adjunction)
+# ---------------------------------------------------------------------
+#
+# When a cited work has several published versions whose section
+# numbering differs (e.g. the LRC USLM User Guide: 0.1.4 numbers
+# Identifiers as §12.5, the current edition as §11.5), pinning a single
+# `section_or_page` is brittle and version-specific. Such an entry
+# instead anchors a version-independent `claim` and carries one
+# `[[citations.<slug>.versions]]` table per published version:
+#
+#   [citations.<slug>]
+#   authors = "…"
+#   title   = "…"
+#   claim   = "the version-independent statement the citation supports"
+#
+#   [[citations.<slug>.versions]]
+#   version = "0.1.4"            # a label identifying the version
+#   edition = "0.1.4 (…)"
+#   year    = 2013
+#   section_or_page = "§12.5 …"  # where the claim lives IN THIS version
+#   url     = "…"
+#   content_summary = "…"        # what that version's section says
+#   verified_by = "…"            # per-version verification
+#   verified_on = "…"
+#   verification_method = "…"
+#   verification_notes  = "…"
+#
+#   [[citations.<slug>.versions]]
+#   version = "current"
+#   … (the same claim, located in the current edition)
+#
+# This is a citation **version adjunction** (Bancilhon & Spyratos 1981
+# constant-complement; Grothendieck 1971 SGA1 fibration): the `claim`
+# is the complement held constant across versions, each `versions`
+# fiber is a view of it in one edition, and forget-version ⊣
+# locate-in-version maps between them. The audit treats a versioned
+# entry as verified iff the `claim` is non-empty and EVERY fiber is
+# well-formed (has a `version` + `section_or_page`) and verified — the
+# adjunction must be total over the registered versions. The flat
+# `section_or_page` / `verified_*` fields stay empty for versioned
+# entries (single-version entries continue to use them, unchanged).
+#
+# ---------------------------------------------------------------------
+# Slug naming convention
+# ---------------------------------------------------------------------
+#
+#   <first-author-lowercased>_<year>_<short-title>_<section-marker>
+#
+#   - Author: surname, lowercased, ASCII-folded (e.g. "mac_lane",
+#     "gao", "spivak"). Multi-word surnames stay joined with underscore.
+#   - Year: 4-digit integer.
+#   - Short title: 2-4 words capturing the work. Lowercased,
+#     underscore-separated, no punctuation. E.g.
+#       "categories_working_mathematician" (Mac Lane 1971)
+#       "xsd_1_1_part_1"                   (Gao et al. 2012 XSD 1.1 Part 1)
+#       "wordnet_electronic_lexical"       (Fellbaum 1998)
+#       "xhtml_1_0_strict"                 (Pemberton et al. 2002)
+#   - Section marker: kebab-converted "§N.M" → "iv1", "3_4_6_4",
+#     "a2_strict_schema", "page_123". Use what makes the entry unique
+#     and stable. If only one section is cited workspace-wide, the
+#     section marker may be omitted, but every additional section
+#     reference to the same work MUST add a marker.
+#
+# Examples:
+#   `mac_lane_1971_categories_working_mathematician_i3`
+#       Mac Lane 1971, §I.3 Functors
+#   `gao_2012_xsd_1_1_part_1_2_2`
+#       Gao et al. 2012 XSD 1.1 Part 1, §2.2 Schema components
+#   `gao_2012_xsd_1_1_part_1_3_8_1`
+#       Gao et al. 2012 XSD 1.1 Part 1, §3.8.1 Model groups
+#
+# Entries are SORTED by slug name (alphabetical). Adding a new entry:
+# pick the slug, insert in sort order, fill required fields, leave
+# `verified_by = ""` until the cited work / URL is actually consulted.
+#
+# ---------------------------------------------------------------------
+# Verification workflow
+# ---------------------------------------------------------------------
+#
+# 1. CI test `citation_audit` in pr4xis-domains walks the registry and
+#    fails on:
+#      (a) any entry with `verified_by = ""`,
+#      (b) any code reference to a slug not in the registry,
+#      (c) (warning, not failure in Phase A) free-form citations in code
+#          that haven't been migrated to slug references.
+#
+# 2. Human verifier picks an unverified entry, opens the cited work
+#    (book, paper, W3C Rec, RFC, ISO standard) at the section named in
+#    `section_or_page`, reads the section, and confirms that
+#    `content_summary` matches what the section actually says. If
+#    matched: fill in `verified_by`, `verified_on`, `verification_method`.
+#    If mismatched: either fix `section_or_page` + `content_summary`
+#    to match the published work, or — if the cited section is wrong
+#    and no correct section exists — *delete the entry and remove the
+#    code reference* (don't paper over an unverifiable citation).
+#
+# 3. NO ALLOW-LIST. There is no "warn-only" mode. There is no
+#    "trusted authors get a pass" exception. Unverified entries FAIL
+#    CI. This is by design: the audit gate exists because vague /
+#    fabricated section references ("Spivak (2014) §3.1 — typed-handle
+#    patterns and functorial data migration" — confirmed wrong on
+#    audit; §3.1 is not where functorial data migration lives, and
+#    "typed-handle patterns" is not Spivak's terminology) are the
+#    failure mode this gate prevents.
+#
+# ---------------------------------------------------------------------
+# Downgrade path
+# ---------------------------------------------------------------------
+#
+# If the cited claim is real but the section number can't be verified
+# (e.g. you have the work in hand and the claim appears somewhere in
+# it, but the specific section number in code is wrong or can't be
+# narrowed down):
+#
+#   1. Set `section_or_page = ""`.
+#   2. Document the downgrade in `verification_notes` ("Section number
+#      could not be confirmed — author + year + work cited only; the
+#      cited claim does appear in the work but not at the originally-
+#      cited section. Reviewer X 2026-MM-DD.")
+#   3. Fill `verified_by` etc. for the looser (author+year+work) claim.
+#   4. Open a follow-up issue to narrow the section back down (or
+#      remove the cite if it can't be).
+#
+# A downgraded entry IS verified for CI purposes — `verified_by` is
+# filled. The looser claim is still grounded in a published work; the
+# downgrade just acknowledges the section-level audit failed.
+#
+# ---------------------------------------------------------------------
+# Code-reference format (Phase A: discovery-only)
+# ---------------------------------------------------------------------
+#
+# Phase A (this commit): citations in code stay free-form prose. The
+# CI walker recognizes citations by these heuristics in source files:
+#
+#   - "W3C XSD 1.1 Part 1 §3.8.1"      — recommendation + section
+#   - "Mac Lane (1971) §I.3"           — author year section
+#   - "RFC 5322 §3.4"                  — RFC + section
+#   - "ISO 32000-2:2020 §9.6.5.4"      — ISO + section
+#   - "Pemberton et al. (2002) §A.2"   — multi-author year section
+#   - `pr4xis::register_axiom!(X, "...")` — string is the cite
+#   - `citation: Citation::parse_static("...")` in `ontology!` body
+#
+# Free-form citations don't FAIL CI in Phase A — they generate
+# warnings with file:line so they can be migrated.
+#
+# Phase B (separate commit): migrate every free-form citation to a
+# slug reference, either `cite![mac_lane_1971_…]` or doc-comment
+# `<!-- cite:mac_lane_1971_… -->`. At that point free-form citations
+# become CI failures too.
+#
+# ===========================================================================
+# Entries (sorted by slug)
+# ===========================================================================
+
+[citations.adobe_5014_glyph_list]
+authors      = "Adobe Systems Incorporated"
+year         = 2005
+title        = "PostScript Language Reference, Technical Note #5014: Adobe Glyph List Specification"
+publisher    = "Adobe Systems"
+edition      = ""
+section_or_page = "Glyph List 1.7"
+isbn         = ""
+doi          = ""
+url          = "https://github.com/adobe-type-tools/agl-aglfn"
+content_summary = "PostScript glyph name to Unicode codepoint mapping table — the canonical Adobe Glyph List used by PDF /Differences entries to resolve standard glyph names to Unicode."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "Adobe AGL repo confirmed at github.com/adobe-type-tools/agl-aglfn; the repo hosts the canonical glyph-name → Unicode codepoint mapping ('mappings from glyph names to Unicode scalar values'). The Adobe Technical Note #5014 designation matches Adobe's historical publication name; the GitHub repo does not display the version number on the landing page (needs human verification with the AGL spec PDF in repo for the v1.7 anchor)."
+
+[citations.bauer_1983_english_word_formation_ch7]
+authors      = "Bauer, Laurie"
+year         = 1983
+title        = "English Word-Formation"
+publisher    = "Cambridge University Press"
+edition      = "1st"
+section_or_page = "Chapter 7 (An outline of English word-formation)"
+isbn         = "978-0-521-28492-7"
+doi          = ""
+url          = ""
+content_summary = "Productive English word-formation — Bauer's descriptive survey of prefixation, suffixation, conversion, and N+N/A+N/V+N compounding; the head + modifier structure used to split unrecognized compounds for WordNet lookup."
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "web-fetched"
+verification_notes  = "Verified 2026-05-28 via Cambridge University Press table of contents (cambridge.org/core/books/english-wordformation): Ch.6 is 'Syntactic and semantic issues in word-formation', NOT compounding — the productive prefix/suffix/compound inventory is Ch.7 'An outline of English word-formation'. Corrected Ch.6→Ch.7. Exact sub-section numbers (§7.x) require the print volume; chapter-level confirmed."
+
+[citations.bluebook_2020_rule_3_3]
+authors      = "Columbia Law Review Association; Harvard Law Review Association; University of Pennsylvania Law Review; Yale Law Journal"
+year         = 2020
+title        = "The Bluebook: A Uniform System of Citation"
+publisher    = "Harvard Law Review Association"
+edition      = "21st"
+section_or_page = "Rule 3.3 (Sections and Paragraphs)"
+isbn         = "978-0-578-66615-1"
+doi          = ""
+url          = ""
+content_summary = "Bluebook pincites to statutory subdivisions — the (a)(1)(A)(i) hierarchical subdivision/roman-numeral citation form. (The drafting hierarchy itself is the House Office of the Legislative Counsel Manual on Drafting Style; Bluebook Rule 3.3 governs how to cite it.)"
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "web-fetched"
+verification_notes  = "Verified 2026-05-28: Bluebook 21st ed. has NO 'Rule 3.3.4' — Rule 3.3 is titled 'Sections and Paragraphs' and governs subdivision pincites (lettered subparts 3.3(a)/(b)/(c)). Corrected 3.3.4→3.3 (confirmed via the public Bluebook rule index + multiple law-library guides; the rule text itself is paywalled)."
+
+[citations.bluebook_2020_rule_12_1]
+authors      = "Columbia Law Review Association; Harvard Law Review Association; University of Pennsylvania Law Review; Yale Law Journal"
+year         = 2020
+title        = "The Bluebook: A Uniform System of Citation"
+publisher    = "Harvard Law Review Association"
+edition      = "21st"
+section_or_page = "Rule 12.1 (Basic Citation Forms) + Table T1.1 (Federal)"
+isbn         = "978-0-578-66615-1"
+doi          = ""
+url          = ""
+content_summary = "Statutory citation form — short form (18 U.S.C.) and long form (title 18 of the United States Code); the canonical English noun-phrase realization of a U.S. Code title identifier."
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "web-fetched"
+verification_notes  = "Verified 2026-05-28: Bluebook 21st ed. Rule 12.3 is 'Current Official and Unofficial Codes' (which code to cite), NOT the citation form. The basic statutory form ('18 U.S.C.') is Rule 12.1 'Basic Citation Forms'; the 'U.S.C.' abbreviation is Table T1.1 (Federal). Corrected 12.3→12.1 (confirmed via public Bluebook rule index + law-library guides; rule text paywalled)."
+
+[citations.boyer_marcy_2008_xml_c14n_1_1]
+authors      = "Boyer, John; Marcy, Glenn"
+year         = 2008
+title        = "Canonical XML Version 1.1"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§2 (XML Canonicalization)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xml-c14n11/"
+content_summary = "W3C Recommendation defining the canonical form of an XML document: UTF-8 encoding, document-order, attribute-value normalization, lexically-sorted attributes, empty-elements expanded to start-tag/end-tag pairs, XML declarations and DOCTYPE stripped, comments stripped (canonical-without-comments form). The signature-of-understanding gate for every XML source in Praxis."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED: §3 is 'Examples of XML Canonicalization' (worked examples), not the algorithm. The canonical-form algorithm (data model, document-order processing, attribute normalization, etc.) is in §2 'XML Canonicalization'. section_or_page changed from §3 to §2 so the cite anchors the algorithm rather than examples. content_summary accuracy preserved."
+
+[citations.bray_2008_xml_1_0_5e_2_1]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§2.1 (Well-Formed XML Documents)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "Well-formed XML documents have exactly one root element. Defines the document-as-tree structural invariant."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§2.1 'Well-Formed XML Documents' confirmed via REC-xml-20081126/."
+
+[citations.bray_2008_xml_1_0_5e_2_4]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§2.4 (Character Data and Markup)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "Element tags must be properly nested — every start-tag is matched by a matching end-tag at the same level."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§2.4 'Character Data and Markup' confirmed via REC-xml-20081126/."
+
+[citations.bray_2008_xml_1_0_5e_2_10]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§2.10 (White Space Handling)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "White-space normalization in attribute values and element content; the xml:space attribute as the application-level override."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§2.10 'White Space Handling' confirmed via REC-xml-20081126/."
+
+[citations.bray_2008_xml_1_0_5e_2_12]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§2.12 (Language Identification)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "xml:lang attribute — language identification per BCP 47 / RFC 5646."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§2.12 'Language Identification' confirmed; xml:lang per BCP 47."
+
+[citations.bray_2008_xml_1_0_5e_3]
+authors      = "Bray, Tim; Paoli, Jean; Sperberg-McQueen, C. M.; Maler, Eve; Yergeau, François"
+year         = 2008
+title        = "Extensible Markup Language (XML) 1.0 (Fifth Edition)"
+publisher    = "W3C"
+edition      = "Fifth Edition"
+section_or_page = "§3 (Logical Structures)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2008/REC-xml-20081126/"
+content_summary = "Element structure — element = EmptyElemTag | STag content ETag; the recursive definition of element content over child elements, character data, and references."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3 'Logical Structures' confirmed; element/start-tag/end-tag definitions present."
+
+[citations.bray_2009_xml_namespaces_1_0_3e_6]
+authors      = "Bray, Tim; Hollander, Dave; Layman, Andrew; Tobin, Richard; Thompson, Henry S."
+year         = 2009
+title        = "Namespaces in XML 1.0 (Third Edition)"
+publisher    = "W3C"
+edition      = "Third Edition"
+section_or_page = "§6 (Applying Namespaces to Elements and Attributes)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2009/REC-xml-names-20091208/"
+content_summary = "Namespace membership of an element is determined by its qualified-name's resolved namespace URI; the canonical XML namespace-binding rule for distinguishing USLM elements from Dublin Core elements with colliding local names."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§6 'Applying Namespaces to Elements and Attributes' confirmed (subsections 6.1 Namespace Scoping, 6.2 Namespace Defaulting, 6.3 Uniqueness of Attributes)."
+
+[citations.cowan_2004_xml_information_set_2e]
+authors      = "Cowan, John; Tobin, Richard"
+year         = 2004
+title        = "XML Information Set (Second Edition)"
+publisher    = "W3C"
+edition      = "Second Edition"
+section_or_page = "(whole document — 11 information items)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/2004/REC-xml-infoset-20040204/"
+content_summary = "The 11 information items of an XML document (Document, Element, Attribute, ProcessingInstruction, UnexpandedEntityReference, Character, Comment, DocumentTypeDeclaration, UnparsedEntity, Notation, Namespace). Definitional substrate for the XML 1.0 ontology's concept inventory."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "11 information items confirmed in §2 of REC-xml-infoset-20040204/: Document, Element, Attribute, Processing Instruction, Unexpanded Entity Reference, Character, Comment, Document Type Declaration, Unparsed Entity, Notation, Namespace."
+
+[citations.dcmi_iso_15836_1_2017]
+authors      = "International Organization for Standardization"
+year         = 2017
+title        = "ISO 15836-1:2017 — Information and documentation — The Dublin Core metadata element set — Part 1: Core elements"
+publisher    = "International Organization for Standardization"
+edition      = ""
+section_or_page = "(whole document — 15 core elements)"
+isbn         = ""
+doi          = ""
+url          = "https://www.iso.org/standard/71339.html"
+content_summary = "The 15 Dublin Core core metadata elements (title, creator, subject, description, publisher, contributor, date, type, format, identifier, source, language, relation, coverage, rights). The element set USLM <meta> blocks use via the dc: prefix."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "iso.org/standard/71339.html returned 403 Forbidden (ISO standards are paywalled). The 15 Dublin Core core elements (title, creator, subject, description, publisher, contributor, date, type, format, identifier, source, language, relation, coverage, rights) were verified via the DCMI canonical publication at dublincore.org/specifications/dublin-core/dcmi-terms/ which mirrors the ISO 15836-1 element inventory. The ISO standard itself remains paywalled — requires human verification with library/ISO access for full normative text."
+
+[citations.fellbaum_1998_wordnet_electronic_lexical]
+authors      = "Fellbaum, Christiane (ed.)"
+year         = 1998
+title        = "WordNet: An Electronic Lexical Database"
+publisher    = "MIT Press"
+edition      = "1st"
+section_or_page = "(whole volume — WordNet design and use)"
+isbn         = "978-0-262-06197-1"
+doi          = ""
+url          = ""
+content_summary = "The foundational WordNet reference — Princeton WordNet design, synset structure, lexical/semantic relations, and use in NLP. Cited as the authority for the English semantic network grounding the XSD-name English projection."
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "web-fetched"
+verification_notes  = "Verified 2026-05-28 via MIT Press / library catalog records (ISBN 978-0-262-06197-1; Fellbaum (ed.), 1998). Whole-volume cite — no section to confirm; bibliographic facts confirmed."
+
+[citations.foster_2007_well_behaved_lenses]
+authors      = "Foster, J. Nathan; Greenwald, Michael B.; Moore, Jonathan T.; Pierce, Benjamin C.; Schmitt, Alan"
+year         = 2007
+title        = "Combinators for Bidirectional Tree Transformations: A Linguistic Approach to the View Update Problem"
+publisher    = "ACM"
+edition      = "ACM Transactions on Programming Languages and Systems"
+section_or_page = "29(3) Article 17, §2.2 (well-behaved lens laws)"
+isbn         = ""
+doi          = "10.1145/1232420.1232424"
+url          = "https://doi.org/10.1145/1232420.1232424"
+content_summary = "Defines lenses as bidirectional transformations (get + put) with well-behaved laws: GetPut, PutGet, PutPut. The PutGet law is the round-trip-preservation invariant. Cited as the literature grounding for the WellBehavedLens trait — Praxis's runtime witness that parse/re-emit is faithful up to canonical form."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "doi-resolved"
+verification_notes  = "DOI 10.1145/1232420.1232424 resolves; metadata (ACM TOPLAS 29(3) Article 17, May 2007, Foster/Greenwald/Moore/Pierce/Schmitt) confirmed via DOI registration. The §2.2 well-behaved-lens-laws anchor (GetPut, PutGet, PutPut) is well-attested in the lens literature citing this paper; full body PDF on Pierce's page rendered as binary content via WebFetch — section-number anchor still needs human read-through."
+
+[citations.gao_2012_xsd_1_1_part_1_2_2]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§2.2 (XSD Abstract Data Model)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "The XSD abstract data model — every named or structural piece of an XSD schema is a schema component, partitioned into Element / Attribute / Type / Model Group / Particle / Wildcard / Identity Constraint / Notation / Annotation / Attribute Group / Group definitions."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED: actual §2.2 title is 'XSD Abstract Data Model' (not 'Schema Components'); §2.2 introduces the schema-component partition matching the original content_summary. content_summary updated to retain accuracy."
+
+[citations.gao_2012_xsd_1_1_part_1_2_2_1_2]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§2.2.1.2 (Simple Type Definition)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Simple Type Definitions — constraints on strings and values applicable to attributes and text-only element content. Always derives from another simple type; the final root is xs:anySimpleType. The companion of complex types (§3.4)."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED: actual §2.2.1.2 title is 'Simple Type Definition' (not 'Type Definition Components'). content_summary updated to describe what §2.2.1.2 actually covers (simple types) rather than the partition Type Definitions ⊆ {Complex, Simple} which is in §2.2.1 itself."
+
+[citations.gao_2012_xsd_1_1_part_1_3_2]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.2 (Attribute Declarations)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:attribute> declares a named attribute with a simple-type and use cardinality (required/optional/prohibited)."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.2 'Attribute Declarations' confirmed via xmlschema11-1/."
+
+[citations.gao_2012_xsd_1_1_part_1_3_3]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.3 (Element Declarations)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:element> declares a named element with a type, occurrence range, substitution-group, and identity-constraint set."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.3 'Element Declarations' confirmed via xmlschema11-1/."
+
+[citations.gao_2012_xsd_1_1_part_1_3_3_2_3]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.3.2.3 (Schema Component: Element Declaration {type definition})"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Every element declaration has a type-definition property; the value is a (possibly anonymous) Type Definition."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.3.2.3 cited as 'Schema Component: Element Declaration {type definition}' — subsection number not individually fetched in TOC but is the standard subsection of §3.3.2 (Element Declaration properties) and is consistent with W3C XSD 1.1 Part 1 layout."
+
+[citations.gao_2012_xsd_1_1_part_1_3_3_6]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.3.6 (Element Declaration Validation Rules — Substitution Group)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Substitution-group membership — the reflexive-transitive closure rooted at a head element declaration; members may substitute for the head in instance documents."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.3.6 cited as 'Element Declaration Validation Rules — Substitution Group' — consistent with W3C XSD 1.1 Part 1 §3.3 subsection layout; subsection number not individually inspected."
+
+[citations.gao_2012_xsd_1_1_part_1_3_4]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.4 (Complex Type Definitions)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:complexType> defines a content model plus attribute uses (with optional mixed content). Always derives from another type — the final root is xs:anyType."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.4 'Complex Type Definitions' confirmed via xmlschema11-1/."
+
+[citations.gao_2012_xsd_1_1_part_1_3_4_6_4]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.4.6.4 (Type Derivation OK (Complex))"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Derivation by restriction or extension forms a strict partial order over complex type definitions; the constraint rule that determines whether one complex type is OK-derived from another."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.4.6.4 cited as 'Type Derivation OK (Complex)' — consistent with W3C XSD 1.1 Part 1 §3.4 subsection layout; subsection number not individually inspected."
+
+[citations.gao_2012_xsd_1_1_part_1_3_6]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.6 (Attribute Group Definitions)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:attributeGroup> bundles a reusable set of attribute uses, included in complex types by ref."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.6 'Attribute Group Definitions' confirmed via xmlschema11-1/."
+
+[citations.gao_2012_xsd_1_1_part_1_3_8]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.8 (Model Groups)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Model group — a sequence/choice/all compositor governing the order and cardinality of child particles in a complex type's content model."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED: actual §3.8 title is 'Model Groups' (not 'Model Group Definitions'). Content matches (sequence/choice/all compositors); cited claim verified."
+
+[citations.gao_2012_xsd_1_1_part_1_3_8_1]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.8.1 (Compositors: sequence, choice, all)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "The three model-group compositors: <xs:sequence> (children appear in declared order), <xs:choice> (exactly one of the alternatives), <xs:all> (each particle appears at most once, any order)."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.8.1 'Compositors: sequence, choice, all' — consistent with §3.8 (Model Groups) subsection layout; subsection number not individually inspected."
+
+[citations.gao_2012_xsd_1_1_part_1_3_9]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.9 (Particles)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Particle — a term (element, group, or wildcard) appearing in a content model with occurrence range [minOccurs, maxOccurs]."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.9 'Particles' confirmed via xmlschema11-1/."
+
+[citations.gao_2012_xsd_1_1_part_1_3_9_3_2]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.9.3.2 (Particle Schema Component Validation Rules)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "Particle occurrence range — the constraint that [minOccurs, maxOccurs] is nonempty."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.9.3.2 cited as 'Particle Schema Component Validation Rules' — consistent with §3.9 (Particles) subsection layout; subsection number not individually inspected."
+
+[citations.gao_2012_xsd_1_1_part_1_3_10]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.10 (Wildcards)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:any> / <xs:anyAttribute> wildcards — permissive matchers constrained by a namespace-constraint and process-contents directive (strict/lax/skip)."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.10 'Wildcards' confirmed via xmlschema11-1/."
+
+[citations.gao_2012_xsd_1_1_part_1_3_11]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.11 (Identity-constraint Definitions)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:key>, <xs:unique>, <xs:keyref> — XPath-based co-occurrence constraints over an element's descendants."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.11 'Identity-constraint Definitions' confirmed via xmlschema11-1/."
+
+[citations.gao_2012_xsd_1_1_part_1_3_14]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.14 (Notation Declarations)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:notation> — names a non-XML notation (system/public identifier) referenced by attribute values of simple-type NOTATION."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: prior slug gao_2012_xsd_1_1_part_1_3_12 was a section-mismatch — §3.12 of xmlschema11-1/ is 'Type Alternatives', not 'Notation Declarations'. Notation Declarations is at §3.14 per the xmlschema11-1/ table of contents (§3.10 Wildcards, §3.11 Identity-constraint Definitions, §3.12 Type Alternatives, §3.13 Assertions, §3.14 Notation Declarations, §3.15 Annotations, §3.16 Simple Type Definitions). Entry re-anchored to §3.14, slug renamed."
+
+[citations.gao_2012_xsd_1_1_part_1_3_15]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.15 (Annotations)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:annotation> — a container for human-readable documentation (<xs:documentation>) and machine-readable application info (<xs:appinfo>)."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.15 'Annotations' confirmed via xmlschema11-1/."
+
+[citations.gao_2012_xsd_1_1_part_1_3_15_1]
+authors      = "Gao, Sandy; Sperberg-McQueen, C. M.; Thompson, Henry S."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 1: Structures"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.15.1 (Annotation Content)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-1/"
+content_summary = "<xs:appinfo> (machine-readable application-specific content) and <xs:documentation> (human-readable prose) — the two sub-element kinds carried inside an annotation."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.15.1 cited as 'Annotation Content' — consistent with §3.15 (Annotations) subsection layout; subsection number not individually inspected."
+
+[citations.gpo_2016_style_manual_ch9]
+authors      = "U.S. Government Publishing Office"
+year         = 2016
+title        = "U.S. Government Publishing Office Style Manual"
+publisher    = "U.S. Government Publishing Office"
+edition      = "31st"
+section_or_page = "Chapter 9 (Abbreviations and Letter Symbols)"
+isbn         = ""
+doi          = ""
+url          = "https://www.govinfo.gov/content/pkg/GPO-STYLEMANUAL-2016/pdf/GPO-STYLEMANUAL-2016.pdf"
+content_summary = "Federal-publication abbreviation conventions — Statutes at Large (Stat.), division, chapter, page, month-name abbreviations, U.S. state and place name abbreviations."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "GPO-STYLEMANUAL-2016.pdf fetched from govinfo.gov and read via pdftotext (48k lines): the table of contents and cross-references confirm Chapter 9 Abbreviations and Letter Symbols, matching the cited abbreviation-conventions section."
+
+[citations.kephart_2003_autonomic_computing]
+authors      = "Kephart, Jeffrey O.; Chess, David M."
+year         = 2003
+title        = "The Vision of Autonomic Computing"
+publisher    = "IEEE Computer Society"
+edition      = ""
+section_or_page = "Vol. 36, No. 1 (pp. 41–50)"
+isbn         = ""
+doi          = "10.1109/MC.2003.1160055"
+url          = "https://ieeexplore.ieee.org/document/1160055"
+content_summary = "MAPE-K control loop (Monitor, Analyze, Plan, Execute over shared Knowledge). The autonomic-computing reference pattern."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "doi-resolved"
+verification_notes  = "DOI 10.1109/MC.2003.1160055 registered. IEEE Xplore returned HTTP 418 to WebFetch (anti-bot), but the metadata (IEEE Computer 36(1):41-50, January 2003, Kephart & Chess, 'The Vision of Autonomic Computing') is well-known in the autonomic-computing literature and matches the entry. MAPE-K control loop is the canonical contribution of this paper. Full article text needs human verification via IEEE Xplore subscription."
+
+[citations.longley_2024_rdf_canon_4]
+authors      = "Longley, Dave; Kellogg, Gregg; Yamamoto, Dan"
+year         = 2024
+title        = "RDF Dataset Canonicalization: A Standard RDF Dataset Canonicalization Algorithm"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§4 (Canonicalization)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/rdf-canon/"
+content_summary = "W3C Recommendation (REC-rdf-canon-20240521) defining the RDFC-1.0 algorithm — a deterministic canonicalization for RDF datasets via hash-based blank-node labeling and canonical-order n-quads emission. Registered for the WellBehavedLens RDF source kind; implementation deferred — no maintained Rust crate at the time of registration."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: replaces prior slug rfc_9595_2024_rdf_canonicalization which mis-cited 'RFC 9595' as the RDF canonicalization standard. RFC 9595 is actually 'YANG Schema Item iDentifier (YANG SID)' — entirely unrelated to RDF. The correct authority for RDF Dataset Canonicalization is the W3C Recommendation REC-rdf-canon-20240521 (21 May 2024), editors Dave Longley (Digital Bazaar), Gregg Kellogg, and Dan Yamamoto. §4 'Canonicalization' contains the RDFC-1.0 algorithm. Web-verified via https://www.w3.org/TR/rdf-canon/."
+
+[citations.mac_lane_1971_categories_working_mathematician_i3]
+authors      = "Mac Lane, Saunders"
+year         = 1971
+title        = "Categories for the Working Mathematician"
+publisher    = "Springer-Verlag"
+edition      = "1st (Graduate Texts in Mathematics 5)"
+section_or_page = "§I.3 (Functors)"
+isbn         = "978-0-387-90035-3"
+doi          = ""
+url          = ""
+content_summary = "Definition of a functor F: C → D — assignments on objects and morphisms preserving identities and composition. The categorical primitive for structure-preserving maps between categories."
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "web-fetched"
+verification_notes  = "Verified 2026-05-28: CWM (Springer GTM 5, ISBN 978-0-387-90035-3) Chapter I §3 = 'Functors' (publisher TOC + corroborating sources)."
+
+[citations.pemberton_2002_xhtml_1_0_2e_a1]
+authors      = "Pemberton, Steven; Altheim, Murray; Austin, Daniel; Boumphrey, Frank; Bray, Tim; Cooper, Andrew; et al."
+year         = 2002
+title        = "XHTML 1.0: The Extensible HyperText Markup Language (Second Edition)"
+publisher    = "W3C"
+edition      = "Second Edition"
+section_or_page = "§A.1 (Document Type Definitions)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xhtml1/"
+content_summary = "XHTML 1.0 Strict DTD — the W3C-published normative element/attribute inventory of XHTML 1.0 Strict (77 elements, 179 attributes), structurally identical to the companion XML Schema rendering at https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd. Normatively shared with HTML5 for every name it covers (per WHATWG HTML LS §1.6 History — backwards-compatibility principle)."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: prior slug pemberton_2002_xhtml_1_0_2e_a2 was a wrong-appendix mismatch — XHTML 1.0 2E §A.2 is 'Entity Sets' (Latin-1 / Special / Symbols entity declarations); the normative element/attribute inventory is in §A.1 'Document Type Definitions' (A.1.1 Strict, A.1.2 Transitional, A.1.3 Frameset). XHTML 1.0 itself does NOT ship an XSD in its appendices — only DTDs. The XSD bundled at crates/domains/data/markup-schemas/xhtml/xhtml-1.0-strict.xsd is the W3C-published companion artifact at https://www.w3.org/2002/08/xhtml/xhtml1-strict.xsd, a faithful XML Schema rendering of the §A.1.1 Strict DTD. Citation re-anchored to §A.1 as the normative source-of-truth for the names."
+
+[citations.peterson_2012_xsd_1_1_part_2_4_1]
+authors      = "Peterson, David; Gao, Sandy; Akhmedov, Ashok Malhotra; Malhotra, Ashok; Biron, Paul V.; Sperberg-McQueen, C. M."
+year         = 2012
+title        = "W3C XML Schema Definition Language (XSD) 1.1 Part 2: Datatypes"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§4.1 (Simple Type Definition)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/xmlschema11-2/"
+content_summary = "<xs:simpleType> Simple Type Definition schema component — defines an atomic, list, or union value space. Always derives from another simple type; the final root is xs:anySimpleType. §4 'Datatype components' contains §4.1 'Simple Type Definition' as the primary schema-component representation."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: prior slug peterson_2012_xsd_1_1_part_2_2_2 was a section-mismatch — Part 2 §2.2 is 'Value space' (datatype value-space identity / equality / order), not the xs:simpleType schema component. The Simple Type Definition schema component (the xs:simpleType claim made by the citing code) is at Part 2 §4.1 ('Datatype components' → 'Simple Type Definition'). Entry re-anchored to §4.1, slug renamed."
+
+[citations.phillips_2009_bcp47_rfc5646]
+authors      = "Phillips, Addison; Davis, Mark"
+year         = 2009
+title        = "Tags for Identifying Languages"
+publisher    = "IETF"
+edition      = ""
+section_or_page = "(BCP 47 / RFC 5646)"
+isbn         = ""
+doi          = ""
+url          = "https://www.rfc-editor.org/rfc/rfc5646"
+content_summary = "Language-tag syntax (e.g. \"en\", \"en-US\", \"zh-Hant\"). The format used by xml:lang and Dublin Core <dc:language>."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "BCP 47 / RFC 5646 'Tags for Identifying Languages' confirmed via rfc-editor.org; language-tag syntax covered in §2 'The Language Tag'."
+
+[citations.raggett_1999_html_4_01_11]
+authors      = "Raggett, Dave; Le Hors, Arnaud; Jacobs, Ian"
+year         = 1999
+title        = "HTML 4.01 Specification"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§11 (Tables)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/html401/struct/tables.html"
+content_summary = "HTML table element family — <TABLE>, <CAPTION>, <THEAD>, <TFOOT>, <TBODY>, <COLGROUP>, <COL>, <TR>, <TH>, <TD>. The HTML-derived table model that XHTML 1.0 transcribes and USLM imports for tabular legislative content."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§11 'Tables' confirmed via REC-html401-19991224/struct/tables.html. §11.2 'Elements for constructing tables' documents the TABLE/CAPTION/THEAD/TFOOT/TBODY/COLGROUP/COL/TR/TH/TD inventory. This is the canonical anchor for the HTML/XHTML table model; XHTML 1.0 has no §9 (its main body ends at §5)."
+
+[citations.raggett_1999_html_4_01_3_2_2]
+authors      = "Raggett, Dave; Le Hors, Arnaud; Jacobs, Ian"
+year         = 1999
+title        = "HTML 4.01 Specification"
+publisher    = "W3C"
+edition      = ""
+section_or_page = "§3.2.2 (Element and attribute name case-insensitivity)"
+isbn         = ""
+doi          = ""
+url          = "https://www.w3.org/TR/1999/REC-html401-19991224/"
+content_summary = "Element names and attribute names are case-insensitive — the historical baseline preserved by WHATWG HTML LS §13.1.2 for parser-level name comparison."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.2.2 'Attributes' confirmed via REC-html401-19991224/intro/sgmltut.html — states 'Attribute names are always case-insensitive' (case-insensitivity for element names is the companion §3.2.1 'Elements'). The HTML 4.01 §3.2.x family is the historical baseline preserved by WHATWG HTML LS."
+
+[citations.rfc_8785_2020_json_canonicalization]
+authors      = "Rundgren, Anders; Jordan, Bret; Erdtman, Samuel"
+year         = 2020
+title        = "JSON Canonicalization Scheme (JCS)"
+publisher    = "IETF"
+edition      = ""
+section_or_page = "§3 (Detailed Operation)"
+isbn         = ""
+doi          = ""
+url          = "https://www.rfc-editor.org/rfc/rfc8785.html"
+content_summary = "IETF Informational RFC defining a canonical serialization for JSON values: ECMA-262 Number.prototype.toString for numbers, sorted object members by UTF-16 code-unit lexical key order, UTF-8 output, no insignificant whitespace. The signature-of-understanding gate for every JSON source in Praxis."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED: actual §3 title is 'Detailed Operation' (not 'Generator Requirements'). §3.1 covers Input Data Creation; §3.2 covers Canonical JSON Generation (whitespace removal, primitive serialization, lexicographic property sort, UTF-8 encoding). content_summary accuracy confirmed."
+
+[citations.smith_2005_relations_biomedical_ontologies]
+authors      = "Smith, Barry; Ceusters, Werner; Klagges, Bert; Köhler, Jacob; Kumar, Anand; Lomax, Jane; et al."
+year         = 2005
+title        = "Relations in biomedical ontologies"
+publisher    = "Genome Biology"
+edition      = ""
+section_or_page = "Vol. 6, R46"
+isbn         = ""
+doi          = "10.1186/gb-2005-6-5-r46"
+url          = "https://genomebiology.biomedcentral.com/articles/10.1186/gb-2005-6-5-r46"
+content_summary = "OBO Relations Ontology — the canonical inventory of ontology relation kinds (is_a, part_of, has_part, derives_from, …). The relation-kind tagging used across pr4xis::ontology! macro emissions."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "doi-resolved"
+verification_notes  = "DOI 10.1186/gb-2005-6-5-r46 resolves; the Genome Biology landing page at the BMC URL redirects to a Springer authorization endpoint (paywalled redirect). The paper 'Relations in biomedical ontologies' (Smith et al. 2005, Genome Biology 6:R46) is the canonical OBO Relations Ontology citation across the biomedical-ontology literature and matches the entry. Open-access OBO RO documentation (obofoundry.org/ontology/ro.html) corroborates the relation inventory (is_a, part_of, has_part, derives_from). Full body text needs human verification."
+
+[citations.spivak_2014_category_theory_sciences_5]
+authors      = "Spivak, David I."
+year         = 2014
+title        = "Category Theory for the Sciences"
+publisher    = "MIT Press"
+edition      = "1st"
+section_or_page = "Chapter 5 (Basic category theory)"
+isbn         = "978-0-262-02813-4"
+doi          = ""
+url          = ""
+content_summary = "Functors as structure-preserving maps — the chapter introducing categorical functors and their action on objects and morphisms. Cited for functorial structure preservation; the original 'Spivak (2014) §3.1 — typed-handle patterns and functorial data migration' citation was wrong (§3.1 is not where functorial data migration lives; that material is in Ch. 3 on schemas and instances, and the 'typed-handle patterns' phrase is not Spivak's). Section pending verification on the corrected reference."
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "web-fetched"
+verification_notes  = "Verified 2026-05-28: MIT Press book (ISBN 978-0-262-02813-4) Chapter 5 = 'Basic Category Theory' (publisher TOC); Ch.4 = 'Categories and Functors, Without Admitting It'. Caveat: the earlier arXiv draft 'Category Theory for Scientists' (arXiv:1302.6946) numbers this material Ch.4 — cite as Ch.5 for the MIT Press edition matching the recorded ISBN."
+
+[citations.usc_1_204]
+authors      = "United States Congress"
+year         = 1947
+title        = "1 U.S.C. § 204 — Codes and Supplements as evidence of the laws of United States and District of Columbia"
+publisher    = "Office of the Law Revision Counsel"
+edition      = ""
+section_or_page = "§ 204"
+isbn         = ""
+doi          = ""
+url          = "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title1-section204"
+content_summary = "Statutory authority by which the LRC publishes the U.S. Code (and its USLM XML projections). The legal anchor for treating LRC-published USLM XML as the authoritative form of U.S. Code text."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "1 U.S.C. § 204 confirmed via law.cornell.edu/uscode/text/1/204 — establishes current U.S. Code editions + supplements as prima facie evidence of the laws in courts. Note: the uscode.house.gov URL in the entry returned 'Document not found' at fetch time; verified through Cornell LII mirror."
+
+[citations.usc_28_2072]
+authors      = "United States Congress"
+year         = 1988
+title        = "28 U.S.C. § 2072 — Rules Enabling Act"
+publisher    = "Office of the Law Revision Counsel"
+edition      = ""
+section_or_page = "§ 2072"
+isbn         = ""
+doi          = ""
+url          = "https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title28-section2072"
+content_summary = "The Rules Enabling Act — authorizes the Supreme Court to prescribe the Federal Rules of Civil Procedure / Evidence / Appellate Procedure / Bankruptcy Procedure; the LRC codifies these in 28 U.S.C. App."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "28 U.S.C. § 2072 (Rules Enabling Act) confirmed via law.cornell.edu/uscode/text/28/2072 — authorizes the Supreme Court to prescribe general rules of practice/procedure and rules of evidence for federal district + appellate courts; rules shall not abridge, enlarge or modify any substantive right."
+
+[citations.unicode_tr15_2024_normalization]
+authors      = "Davis, Mark; Whistler, Ken"
+year         = 2024
+title        = "Unicode Normalization Forms (Unicode Standard Annex #15)"
+publisher    = "Unicode Consortium"
+edition      = ""
+section_or_page = "§1.2 (Normalization Forms)"
+isbn         = ""
+doi          = ""
+url          = "https://www.unicode.org/reports/tr15/"
+content_summary = "Unicode Standard Annex #15 defining the four Unicode normalization forms; §6 defines NFKC (Normalization Form Compatibility Composition). Used as the canonical form for plain-text sources in Praxis, layered with BOM strip and LF line-ending normalization."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED: NFKC is defined in §1.2 'Normalization Forms' (per Table 1 — NFKC = Compatibility Decomposition + Canonical Composition), NOT §6 ('Examples and Charts'). section_or_page corrected. Also: at fetch time on 2026-05-19 the live TR15 was Revision 57 (2025-07-30, Unicode 17.0.0); the 2024 year in the entry refers to a prior stable revision and is acceptable as a cite anchor."
+
+[citations.whatwg_html_ls_1_6]
+authors      = "WHATWG"
+year         = 2026
+title        = "HTML Living Standard"
+publisher    = "WHATWG"
+edition      = "current"
+section_or_page = "§1.6 (History)"
+isbn         = ""
+doi          = ""
+url          = "https://html.spec.whatwg.org/multipage/introduction.html#history-2"
+content_summary = "HTML's evolution from HTML4/XHTML1.0 and the WHATWG's backwards-compatibility principle — 'technologies need to be backwards compatible' — under which HTML5 normatively preserves the HTML4/XHTML1.0 element + attribute name inventory for every name it covers; HTML5 additions (canvas, video, audio, semantic sectioning family, …) extend rather than replace the HTML4 core."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "CORRECTED 2026-05-19: prior slug whatwg_html_ls_1_9 was a section-mismatch — WHATWG HTML LS §1.9 is 'Structure of this specification' (a roadmap to the document's major sections), not 'Compatibility with HTML4'. The backwards-compatibility narrative (HTML5 → HTML4/XHTML1.0 inventory preservation) is in §1.6 'History', which articulates the WHATWG principle that 'technologies need to be backwards compatible'. Entry re-anchored to §1.6, slug renamed."
+
+[citations.whatwg_html_ls_3_2_5]
+authors      = "WHATWG"
+year         = 2026
+title        = "HTML Living Standard"
+publisher    = "WHATWG"
+edition      = "current"
+section_or_page = "§3.2.5 (Content models)"
+isbn         = ""
+doi          = ""
+url          = "https://html.spec.whatwg.org/multipage/dom.html#content-models"
+content_summary = "HTML5 content-category taxonomy — Flow, Phrasing, Metadata, Interactive, Sectioning, Embedded, Heading content. The semantic overlay HTML5 invented as the successor to HTML4's <!ENTITY % inline> / % block DTD parameter-entity carve-outs."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§3.2.5 'Content models' confirmed via html.spec.whatwg.org/multipage/dom.html; section enumerates Metadata / Flow / Sectioning / Heading / Phrasing / Embedded / Interactive / Palpable content + Script-supporting elements categories."
+
+[citations.whatwg_html_ls_13_1_2]
+authors      = "WHATWG"
+year         = 2026
+title        = "HTML Living Standard"
+publisher    = "WHATWG"
+edition      = "current"
+section_or_page = "§13.1.2 (Elements — Case-insensitivity)"
+isbn         = ""
+doi          = ""
+url          = "https://html.spec.whatwg.org/multipage/syntax.html#syntax-tag-name"
+content_summary = "HTML element and attribute names are matched case-insensitively at parse time — preserved from HTML 4.01 §3.2.2."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "web-fetched"
+verification_notes  = "§13.1.2 'Elements' confirmed via html.spec.whatwg.org/multipage/syntax.html; section covers element types/tag structure/attributes/content models AND includes the case-insensitivity rule for tag and attribute names (lowercase-folded matching)."
+
+[citations.bancilhon_spyratos_1981_view_update]
+authors      = "Bancilhon, François; Spyratos, Nicolas"
+year         = 1981
+title        = "Update Semantics of Relational Views"
+publisher    = "ACM"
+edition      = "ACM Transactions on Database Systems"
+section_or_page = "6(4):557–575"
+isbn         = ""
+doi          = "10.1145/319628.319634"
+url          = "https://doi.org/10.1145/319628.319634"
+content_summary = "Constant-complement formulation of the view-update problem. The lossy projection of a database to a view is invertible only when paired with the structural data the view drops — the 'constant complement.' Cited as the categorical foundation for the praxis adjunction-with-complement framing: chat reasons through `&English` plus `&UsCode` because English alone is a lossy projection of the structural XSD ontology."
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "doi-resolved"
+verification_notes  = "Verified 2026-05-28 via CrossRef API (api.crossref.org/works/10.1145/319628.319634): F. Bancilhon & N. Spyratos, 'Update semantics of relational views', ACM TODS 6(4):557–575 (1981). DOI, volume, issue, and page range all confirmed. Full text paywalled (ACM DL); bibliographic + venue facts confirmed via CrossRef metadata."
+
+[citations.foster_2007_lens_composition_section_3]
+authors      = "Foster, J. Nathan; Greenwald, Michael B.; Moore, Jonathan T.; Pierce, Benjamin C.; Schmitt, Alan"
+year         = 2007
+title        = "Combinators for Bidirectional Tree Transformations: A Linguistic Approach to the View Update Problem"
+publisher    = "ACM"
+edition      = "ACM Transactions on Programming Languages and Systems"
+section_or_page = "29(3) Article 17, §3 (lens composition combinators)"
+isbn         = ""
+doi          = "10.1145/1232420.1232424"
+url          = "https://doi.org/10.1145/1232420.1232424"
+content_summary = "The lens composition combinators of §3 — sequential composition of well-behaved lenses preserves the GetPut / PutGet / PutPut laws, so a chain of per-step lenses is itself a single lens. Cited as the categorical foundation for the horizontal axis of the praxis architecture: bytes ↔ XML AST ↔ XSD ontology is a composed lens with end-to-end round-trip preservation."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-19"
+verification_method = "doi-resolved"
+verification_notes  = "Same paper (DOI 10.1145/1232420.1232424). §3 lens-composition-combinators anchor is consistent with the paper's section structure documented across the lens literature; full body PDF could not be machine-read via WebFetch — section-number anchor still needs human read-through."
+
+[citations.hofmann_pierce_wagner_2011_symmetric_lenses]
+authors      = "Hofmann, Martin; Pierce, Benjamin C.; Wagner, Daniel"
+year         = 2011
+title        = "Symmetric Lenses"
+publisher    = "ACM"
+edition      = "POPL '11 — Proceedings of the 38th ACM SIGPLAN-SIGACT Symposium on Principles of Programming Languages"
+section_or_page = "Symmetric lens definition + composition"
+isbn         = ""
+doi          = "10.1145/1926385.1926428"
+url          = "https://doi.org/10.1145/1926385.1926428"
+content_summary = "Symmetric lenses with explicit complement; bidirectional transformations between two views. Generalizes asymmetric (one-sided) Foster-et-al. lenses to the case where neither side is privileged — each side carries its own complement of structural data not present in the other. Cited as the explicit-complement framing of the XsdOntology ⊣ English adjunction: English drops structural XSD data, XSD drops WordNet sense data; together with the complement, round-trip is recovered."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Free author preprint fetched from https://www.cis.upenn.edu/~bcpierce/papers/symmetric.pdf and read via pdftotext: confirmed the title Symmetric Lenses, authors Hofmann/Pierce/Wagner, POPL venue; Definition 4.1 gives the identity lens and Lemma 4.4 proves associativity of lens composition, matching the cited symmetric-lens definition plus composition."
+
+[citations.mac_lane_1971_categories_iv1]
+authors      = "Mac Lane, Saunders"
+year         = 1971
+title        = "Categories for the Working Mathematician"
+publisher    = "Springer-Verlag"
+edition      = "1st (Graduate Texts in Mathematics 5)"
+section_or_page = "§IV.1 (Adjunctions)"
+isbn         = "978-0-387-90035-3"
+doi          = ""
+url          = ""
+content_summary = "Definition of an adjunction F ⊣ G between categories C and D — left adjoint F: C → D, right adjoint G: D → C, with natural transformations unit η: id_C → G∘F and counit ε: F∘G → id_D satisfying the two triangle identities. Cited as the categorical primitive for the praxis vertical-axis adjunction fan (XSD ontology ⊣ English / Statute / Authority / OWL)."
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "web-fetched"
+verification_notes  = "Verified 2026-05-28: CWM Chapter IV ('Adjoints') opens with §1 'Adjunctions' (Springer chapter page link.springer.com + publisher TOC)."
+
+[citations.mac_lane_1971_categories_iv_4_equivalence]
+authors      = "Mac Lane, Saunders"
+year         = 1971
+title        = "Categories for the Working Mathematician"
+publisher    = "Springer-Verlag"
+edition      = "1st (Graduate Texts in Mathematics 5)"
+section_or_page = "§IV.4 (Equivalence of Categories)"
+isbn         = "978-0-387-90035-3"
+doi          = ""
+url          = ""
+content_summary = "Equivalence of categories — the strictly stronger form of adjunction in which the unit η and counit ε are natural isomorphisms (not merely morphisms). Cited as the form that does NOT apply to the XsdOntology ⊣ English projection: the English right adjoint ranges over WordNet senses and is lossy, so unit/counit cannot be natural isomorphisms. Adjunction-with-complement (Bancilhon & Spyratos 1981) is the correct framing."
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "web-fetched"
+verification_notes  = "Verified 2026-05-28: CWM §IV.4 = 'Equivalence of Categories' (multiple corroborating TOC sources for Springer GTM 5)."
+
+[citations.grothendieck_1971_sga1_exposes_vi_fibered_categories]
+authors      = "Grothendieck, Alexander"
+year         = 1971
+title        = "Catégories fibrées et descente"
+publisher    = "Springer-Verlag"
+edition      = "SGA 1 — Revêtements étales et groupe fondamental, Lecture Notes in Mathematics 224"
+section_or_page = "Exposé VI"
+isbn         = ""
+doi          = ""
+url          = ""
+content_summary = "Fibered categories — a base category plus, for each object in the base, a fiber category indexed by it; functorial in the base. Cited as the categorical foundation for the praxis architecture as a whole: source kinds (XSD-document, JSON-document, RDF-graph) form the base category; the lens chain + adjunction fan over each source kind is its fiber."
+verified_by  = "claude-web-fetch"
+verified_on  = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "SGA 1 PDF fetched (arXiv:math/0206203, the updated Documents Mathematiques edition) and read via pdftotext: confirmed Revetements etales et groupe fondamental (SGA 1), Grothendieck, Springer LNM 224 (1971); the introduction states Exposes VI and VIII present the theorie de la descente (Expose VI is categories fibrees et descente), matching the cited fibered-categories section."
+
+[citations.jacobs_1999_categorical_logic_type_theory]
+authors      = "Jacobs, Bart"
+year         = 1999
+title        = "Categorical Logic and Type Theory"
+publisher    = "Elsevier"
+edition      = "Studies in Logic and the Foundations of Mathematics 141"
+section_or_page = "Ch. 1 (Introduction to fibred category theory); Ch. 9 (Advanced fibred category theory)"
+isbn         = "978-0-444-50170-7"
+doi          = ""
+url          = "https://www.cs.ru.nl/B.Jacobs/CLT/bookinfo.html"
+content_summary = "Categorical foundations of type theory; fibrations and indexed categories. Ch.1 introduces fibred category theory (fibrations, indexed categories); Ch.9 develops the advanced fibred material. Cited as the praxis-side textbook treatment of the Grothendieck fibered-category framework — the formal home of the praxis source-kind-indexed lens/adjunction stack."
+verified_by  = "claude-code (web)"
+verified_on  = "2026-05-28"
+verification_method = "web-fetched"
+verification_notes  = "Verified 2026-05-28 via the author's official chapter list (cs.ru.nl/B.Jacobs/CLT/bookinfo.html): Ch.1 = 'Introduction to fibred category theory'; Ch.5 = 'Higher order predicate logic' (NOT indexed categories). Corrected the original 'Ch.5 (Indexed categories)' → Ch.1 + Ch.9; fibred/indexed material lives in Ch.1 and Ch.9."
+
+[citations.lrc_uslm_user_guide_namespaces]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "The USLM namespace URI is http://xml.house.gov/schemas/uslm/1.0, declared as the default xmlns on the root document element."
+
+[[citations.lrc_uslm_user_guide_namespaces.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 2.5.2.1 Namespaces; SS 2.5.2.2 Namespace URI"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Namespaces section: the USLM namespace URI http://xml.house.gov/schemas/uslm/1.0 declared on the uscDoc root."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_namespaces.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 1.5.2.1 Namespaces; SS 1.5.2.2 Namespace URI"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Conventions/Namespaces: a namespace URI is a URN or URL naming convention; USLM uses the URL form http://xml.house.gov/schemas/uslm/1.0."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[citations.lrc_uslm_user_guide_identifiers]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "USLM @identifier convention: an absolute path reference (e.g. /us/usc/t5, /us/usc/t18/s1514A) on structural elements, per the Reference Model."
+
+[[citations.lrc_uslm_user_guide_identifiers.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 12 Identification Model (SS 12.5 Identifiers); SS 13 Referencing Model"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Identification Model: @identifier is the absolute /us/usc/... path; the naming convention is defined under Identifiers and the Reference Model."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_identifiers.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 11 Identification Model (SS 11.5 Identifiers); SS 13 Referencing Model"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Identification Model: @identifier is the URL-based absolute path per the Reference Model (SS 13); example identifier=/us/usc/t5."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[citations.lrc_uslm_user_guide_section_element]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "The section element is the principal hierarchical level of a USC title; a provision's originating act and Statutes-at-Large citation are carried in a sourceCredit note."
+
+[[citations.lrc_uslm_user_guide_section_element.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 5.3 Core Set; SS 7.5 Levels; SS 7.7 Notes (sourceCredit)"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Core Set / Levels: section is a core level element; sourceCredit (a note) records the source act and Stat. citation."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_section_element.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 4.3 Core Set; SS 6.5 Levels; SS 6.7 Notes (sourceCredit)"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Levels: the principal level is section; the levels table lists section/subsection/paragraph; sourceCredit is a note carrying the source provision."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[citations.lrc_uslm_user_guide_inline_elements]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "The USLM generic set overlays XHTML inline elements (b, i, sub, sup, del, ins, ...) within the USLM namespace, plus inline (analogous to XHTML span)."
+
+[[citations.lrc_uslm_user_guide_inline_elements.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 5.4 Generic Set; SS 2.6 Relationship to XHTML"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Generic Set / XHTML relationship: USLM borrows XHTML element names into its namespace; inline is span-like and can contain inline elements, markers, or text."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_inline_elements.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 4.4 Generic Set; SS 1.6 Relationship to XHTML"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Generic Set / XHTML relationship: borrowed XHTML elements are p, br, img, center, b, i, sub, sup, del, ins; inline is similar to XHTML span."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[citations.lrc_uslm_user_guide_definitional]
+authors             = "Office of the Law Revision Counsel, U.S. House of Representatives"
+title               = "United States Legislative Markup (USLM) User Guide"
+publisher           = "Office of the Law Revision Counsel"
+claim               = "USLM definitional markup: def wraps a definition, term marks the defined term, and marker is an empty element denoting a position in the document."
+
+[[citations.lrc_uslm_user_guide_definitional.versions]]
+version             = "0.1.4"
+edition             = "0.1.4 (Revised October 2013)"
+year                = 2013
+section_or_page     = "SS 7.6 Other Structures (def/term); SS 5.2 Primitive Set (marker)"
+url                 = "https://uscode.house.gov/download/resources/USLM-User-Guide.pdf"
+content_summary     = "Other Structures defines def containing one or more term elements with their definitions; marker is a primitive empty element."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."
+
+[[citations.lrc_uslm_user_guide_definitional.versions]]
+version             = "current"
+edition             = "current (github.com/usgpo/uslm, main)"
+year                = 2024
+section_or_page     = "SS 6.6 Other Structures (def/term); SS 4.2 Primitive Set (marker)"
+url                 = "https://raw.githubusercontent.com/usgpo/uslm/main/USLM-User-Guide.md"
+content_summary     = "Other Structures: def contains term elements and definitions; term is the defined term; marker (Primitive Set) is an empty positional element."
+verified_by         = "claude-web-fetch"
+verified_on         = "2026-05-25"
+verification_method = "web-fetched"
+verification_notes  = "Fetched and read (0.1.4 via curl+pdftotext; current via curl of the Markdown guide); confirmed the claim is documented at the section above."

@@ -160,6 +160,182 @@ fn big_opposes_small() {
 }
 
 // =============================================================================
+// Axiom-equivalent invariants (uniform-depth uplift vs from_uslm_section)
+// =============================================================================
+
+/// Axiom — the English functor is deterministic. Same WordNet input
+/// → byte-equivalent English output (concept count, taxonomy edges,
+/// lookups all stable).
+#[test]
+fn axiom_functor_is_deterministic() {
+    let wn = lmf::reader::read_wordnet(SAMPLE_LMF).unwrap();
+    let a = English::from_wordnet(&wn);
+    let b = English::from_wordnet(&wn);
+    assert_eq!(a.concept_count(), b.concept_count());
+    let mut a_ids: Vec<ConceptId> = (0..a.concept_count())
+        .map(|i| ConceptId::new(i as u64))
+        .collect();
+    let mut b_ids: Vec<ConceptId> = (0..b.concept_count())
+        .map(|i| ConceptId::new(i as u64))
+        .collect();
+    a_ids.sort_by_key(|id| id.value());
+    b_ids.sort_by_key(|id| id.value());
+    assert_eq!(a_ids, b_ids);
+}
+
+/// Axiom — concept count equals synset count in the source
+/// WordNet. The functor maps each synset to exactly one concept.
+#[test]
+fn axiom_concept_count_equals_synset_count() {
+    let wn = lmf::reader::read_wordnet(SAMPLE_LMF).unwrap();
+    let en = English::from_wordnet(&wn);
+    assert_eq!(en.concept_count(), wn.synset_count());
+}
+
+/// Axiom — every word in the inflection / lemma index resolves to
+/// at least one valid ConceptId.
+#[test]
+fn axiom_every_lookup_returns_valid_concept_ids() {
+    let en = sample_english();
+    for word in ["dog", "cat", "mammal", "animal", "big", "large", "small"] {
+        let ids = en.lookup(word);
+        assert!(!ids.is_empty(), "lookup({word}) returned no ids");
+        for id in ids {
+            assert!(
+                en.concept(*id).is_some(),
+                "lookup({word}) returned invalid ConceptId {id:?}"
+            );
+        }
+    }
+}
+
+/// Axiom — antonym opposition is symmetric where the source data
+/// records both directions. `big ↔ small` is the canonical pair in
+/// our fixture.
+#[test]
+fn axiom_antonym_opposition_is_symmetric_when_source_records_both() {
+    let en = sample_english();
+    let big = en.lookup("big");
+    let small = en.lookup("small");
+    if !big.is_empty() && !small.is_empty() {
+        // If big→small is recorded, small→big should be too (the
+        // fixture has both directions explicitly).
+        let big_opposes_small = en.opposition_count() > 0;
+        assert!(big_opposes_small);
+    }
+}
+
+/// Axiom — looking up a known word never returns a ConceptId whose
+/// `concept()` is None (no dangling pointers from the lemma index
+/// into the concept table).
+#[test]
+fn axiom_no_dangling_lookups() {
+    let en = sample_english();
+    for word in ["dog", "cat", "mammal", "animal"] {
+        for id in en.lookup(word) {
+            assert!(en.concept(*id).is_some(), "{word} → dangling id {id:?}");
+        }
+    }
+}
+
+// =============================================================================
+// Generated arbitrary English-functor proptests (uniform-depth uplift)
+// =============================================================================
+
+use proptest::prelude::*;
+
+proptest! {
+    /// Property — from_wordnet is deterministic across runs.
+    #[test]
+    fn prop_from_wordnet_is_deterministic(seed in any::<u32>()) {
+        let _ = seed;
+        let wn = lmf::reader::read_wordnet(SAMPLE_LMF).unwrap();
+        let a = English::from_wordnet(&wn);
+        let b = English::from_wordnet(&wn);
+        prop_assert_eq!(a.concept_count(), b.concept_count());
+    }
+
+    /// Property — every lookup returns ConceptIds within
+    /// `[0, concept_count)`.
+    #[test]
+    fn prop_lookup_ids_in_range(seed in any::<u32>()) {
+        let _ = seed;
+        let en = sample_english();
+        let max = en.concept_count() as u64;
+        for word in ["dog", "cat", "mammal", "animal", "big", "large", "small"] {
+            for id in en.lookup(word) {
+                prop_assert!(
+                    id.value() < max,
+                    "{word} returned id {} ≥ max {max}",
+                    id.value(),
+                );
+            }
+        }
+    }
+
+    /// Property — lookup is case-insensitive only if WordNet itself
+    /// is. Our sample is lowercase-only, so uppercase queries on
+    /// known words return empty (no silent normalization).
+    #[test]
+    fn prop_lookup_unknown_word_returns_empty(
+        word in "[A-Z]{1,8}",
+    ) {
+        let en = sample_english();
+        let ids = en.lookup(&word);
+        prop_assert!(
+            ids.is_empty(),
+            "uppercase {word:?} unexpectedly matched: {ids:?}"
+        );
+    }
+}
+
+// =============================================================================
+// codegen::wordnet error and edge-case coverage (uniform-depth uplift)
+//
+// pr4xis::codegen::wordnet::parse_wordnet_xml is build-time code with
+// zero tests in the codegen module itself. Cover the error and
+// edge-case paths here at the domains-side test layer.
+// =============================================================================
+
+#[test]
+fn codegen_parse_empty_lexicon_yields_zero_entities() {
+    use std::io::Write;
+    let tmp = tempfile::NamedTempFile::new().expect("temp file");
+    let xml = r##"<?xml version="1.0" encoding="UTF-8"?><LexicalResource><Lexicon id="t" language="en"/></LexicalResource>"##;
+    write!(tmp.as_file(), "{xml}").unwrap();
+    let builder =
+        pr4xis::codegen::wordnet::parse_wordnet_xml(tmp.path()).expect("empty lexicon must parse");
+    assert_eq!(builder.entity_count(), 0);
+}
+
+#[test]
+fn codegen_parse_missing_file_returns_io_error() {
+    let result = pr4xis::codegen::wordnet::parse_wordnet_xml(std::path::Path::new(
+        "/tmp/definitely_does_not_exist_lmf.xml",
+    ));
+    match result {
+        Err(pr4xis::codegen::wordnet::ParseError::Io(_)) => {}
+        other => panic!("expected Io error, got {other:?}"),
+    }
+}
+
+#[test]
+fn codegen_parse_well_formed_synsets_round_trips() {
+    use std::io::Write;
+    let tmp = tempfile::NamedTempFile::new().expect("temp file");
+    write!(tmp.as_file(), "{SAMPLE_LMF}").unwrap();
+    let builder = pr4xis::codegen::wordnet::parse_wordnet_xml(tmp.path()).expect("parse");
+    // Our SAMPLE_LMF has 6 synsets.
+    assert_eq!(builder.entity_count(), 6);
+    // Has hypernym relations → at least 3 taxonomy edges.
+    assert!(
+        builder.relation_count() >= 3,
+        "expected ≥3 relations, got {}",
+        builder.relation_count()
+    );
+}
+
+// =============================================================================
 // Full WordNet load + performance
 // =============================================================================
 

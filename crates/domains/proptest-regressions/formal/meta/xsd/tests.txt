@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 216cbfc7a29abe824d0461aa3d3fb7688acdfcf1e41d9227ad645b5ce4fe2c40 # shrinks to c = SchemaCompositionDirective
+cc 6d447fd63a4cb215bf8b607f32d32064f26b0c0dfc5b35583d9fdc915de8aee9 # shrinks to c = SchemaDocument

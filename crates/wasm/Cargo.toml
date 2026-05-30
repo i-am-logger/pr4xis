@@ -15,8 +15,18 @@ crate-type = ["cdylib", "rlib"]
 console_error_panic_hook = "0.1"
 pr4xis = { path = "../pr4xis" }
 pr4xis-chat = { path = "../chat" }
-pr4xis-domains = { path = "../domains" }
+# `prx` brings the OWL `.prx.gz` load path (rkyv + RFC 1952 gzip, both
+# pure-Rust / wasm32-buildable) without the network substrate (`ureq` /
+# `rustls`, which don't compile to wasm32). It lets the browser runtime
+# load a validated `.prx.gz` OR a source `.owl` into a LoadedOwlVocabulary.
+pr4xis-domains = { path = "../domains", features = ["prx"] }
 wasm-bindgen = "0.2"
+
+[dev-dependencies]
+# Browser/Node test harness for the wasm runtime. Run with
+# `wasm-pack test --node` (logic) or `wasm-pack test --headless --firefox`
+# (full browser: DOM, fetch, Web Worker). Hauser et al., MIT/Apache-2.0.
+wasm-bindgen-test = "0.3"
 
 [lints.rust]
 dead_code = "deny"
@@ -31,3 +41,10 @@ unreachable = "deny"
 
 [build-dependencies]
 pr4xis = { path = "../pr4xis", features = ["codegen"] }
+# build.rs runs natively (not wasm32), so it can read the live registry
+# (`data_sources()` / `lock_hashes()`) to emit the ontology manifest —
+# `(name, version, prx_url, source_url, lock_pin_sha256)` per registered
+# OntologyVocabulary — and stage each bundled `.owl` for serving. The pin
+# is baked in here because the wasm runtime has no filesystem to read
+# praxis.lock from.
+pr4xis-domains = { path = "../domains" }

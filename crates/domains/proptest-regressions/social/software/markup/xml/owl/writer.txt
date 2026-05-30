@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc b5eb400c29d30ae61db5932f21026cb1e1a6f831cd9fe83dfc54bbdd61452f3a # shrinks to ont = OwlOntology { iri: "http://ex.org/ont", classes: [OwlClass { iri: "http://ex.org/A", label: None, comment: Some("a"), superclasses: [], labels: [], comments: [OwlLiteral { lexical: "a", lang: None, datatype: None }, OwlLiteral { lexical: "a", lang: None, datatype: None }], annotations: [], superclass_expressions: [], equivalent_classes: [], disjoint_classes: [] }], properties: [], individuals: [], taxonomy: [], property_taxonomy: [], ontology_annotations: [] }

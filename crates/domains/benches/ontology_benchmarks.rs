@@ -1,4 +1,5 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::category::{Category, Concept};

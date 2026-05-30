@@ -26,6 +26,28 @@ in
     pkgs.mdbook
     pkgs.miniserve
     pkgs.cargo-edit
+    # Mutation testing — operational error-rate measurement
+    # (Daubert prong 3). Each mutant alters one expression; if the
+    # tests still pass, that's a blind spot in coverage.
+    pkgs.cargo-mutants
+    # Faster test runner — used as cargo-mutants' --test-tool to
+    # multiply mutation-testing speed (cargo-mutants per-mutant
+    # cycle is dominated by test runtime).
+    pkgs.cargo-nextest
+    # Browser + WebDriver for the Rust-native wasm/web test layers (no
+    # Node): `dev-test-wasm` (wasm-pack test --headless --firefox) and
+    # `dev-e2e` (the crates/e2e fantoccini test) both drive a headless
+    # Firefox via geckodriver. curl polls the web server + driver in
+    # `dev-e2e` before the test runs.
+    #
+    # `firefox-bin` is the Mozilla-released prebuilt binary, not the
+    # from-source nixpkgs build — the source build is unreliable in
+    # current devenv-nixpkgs/rolling, but the prebuilt binary always
+    # works. `allowUnfree` is required because Mozilla's binary
+    # distribution has a non-free EULA (the source build is free).
+    pkgs.firefox-bin
+    pkgs.geckodriver
+    pkgs.curl
   ];
 
   # Development scripts
@@ -46,7 +68,7 @@ in
 
   scripts.dev-lint.exec = ''
     echo "Running clippy..."
-    cargo clippy --quiet -- -D warnings
+    cargo clippy --workspace --all-targets --quiet -- -D warnings
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings
   '';
 
@@ -60,7 +82,7 @@ in
     echo "=== fmt ==="
     treefmt --fail-on-change || { echo "FAILED: fmt"; exit 1; }
     echo "=== clippy ==="
-    cargo clippy --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
+    cargo clippy --workspace --all-targets --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
     echo "=== clippy (wasm) ==="
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
     echo "=== check ==="
@@ -71,6 +93,21 @@ in
     RUSTFLAGS="-D warnings" cargo test --workspace --quiet || { echo "FAILED: test"; exit 1; }
     echo "=== wasm check ==="
     RUSTFLAGS="-D warnings" cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet || { echo "FAILED: wasm check"; exit 1; }
+    echo "=== wasm browser tests ==="
+    dev-test-wasm || { echo "FAILED: wasm browser tests"; exit 1; }
+    # Mirrors the `Docs` and `Doc Tests` jobs in
+    # `.github/workflows/ci.yml`: same command, same RUSTDOCFLAGS.
+    # Without these steps `dev-ci` could ship rustdoc-broken docs to
+    # CI (the rustdoc-fatal `[with_retry]` link to a `pub(crate)`
+    # item on commit 3d7bd4b5 would have failed locally if this had
+    # been wired then).
+    echo "=== docs (rustdoc, same flags as CI's Docs job) ==="
+    RUSTDOCFLAGS="-D warnings -D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags" \
+      cargo doc --workspace --no-deps --quiet || { echo "FAILED: docs"; exit 1; }
+    echo "=== doc tests ==="
+    cargo test --doc --workspace --quiet || { echo "FAILED: doc tests"; exit 1; }
+    echo "=== e2e (Rust WebDriver) ==="
+    dev-e2e || { echo "FAILED: e2e"; exit 1; }
     echo "=== ALL PASSED ==="
   '';
 
@@ -86,11 +123,74 @@ in
     echo "WASM ready at crates/wasm/pkg/"
   '';
 
+  # Rust-native wasm browser tests (no Node): wasm-bindgen-test driven by
+  # geckodriver + headless Firefox. Covers crates/wasm/tests/web.rs.
+  scripts.dev-test-wasm.exec = ''
+    echo "Running wasm-bindgen browser tests (headless Firefox)..."
+    cd crates/wasm
+    wasm-pack test --headless --firefox
+  '';
+
+  # Rust-native end-to-end click-through (no Node): build the wasm + stage
+  # /sources, start pr4xis-web + geckodriver, then run the crates/e2e
+  # fantoccini test which opens the page, clicks Load, and asserts the
+  # source flips to Loaded. Server + driver are torn down on exit.
+  scripts.dev-e2e.exec = ''
+    echo "Building WASM (stages /sources)..."
+    dev-wasm
+    # Emit `.prx.gz` artifacts the wasm dual-load click-to-load path needs.
+    # pr4xis-web serves `crates/wasm/ontologies/` at `/ontologies/`,
+    # mirroring the Pages tree the release job assembles. Mirrors the
+    # `.github/workflows/ci.yml` E2E step exactly so local == CI.
+    echo "Emitting .prx.gz ontology artifacts (stages /ontologies)..."
+    mkdir -p crates/wasm/ontologies
+    cargo run -p pr4xis-domains --features "fetch codegen" --example emit_prx -- crates/wasm/ontologies
+    echo "Starting pr4xis-web + geckodriver..."
+    cargo run -p pr4xis-web 3000 &
+    WEB=$!
+    geckodriver --port 4444 &
+    GECKO=$!
+    cleanup() { kill "$WEB" "$GECKO" 2>/dev/null || true; }
+    trap cleanup EXIT
+    for _ in $(seq 1 90); do curl -sf http://localhost:3000/ >/dev/null 2>&1 && break; sleep 1; done
+    for _ in $(seq 1 30); do curl -sf http://localhost:4444/status >/dev/null 2>&1 && break; sleep 1; done
+    echo "Running Rust WebDriver E2E..."
+    ( cd crates/e2e && cargo run )
+  '';
+
   # Bump every direct dep in every Cargo.toml to its latest published version
   # (across-semver), then update Cargo.lock to the new resolution, then run
   # the test suite to catch any breaking-API changes. The "always be on
   # latest" policy: contributors run this periodically; new majors land in
   # PRs labelled fix(deps): with the API-migration commit alongside.
+  # Mutation testing — run cargo-mutants on a focused module or
+  # path. Each mutant changes one expression (e.g. `==` to `!=`,
+  # `+` to `-`); a tested codebase kills the mutant by failing.
+  # Surviving mutants are blind spots in the test suite. Compliance
+  # win: this measures the actual operational error rate.
+  #
+  # Uses --in-place (no workspace copy — required since target/ is
+  # large and copying it N times exhausts /tmp) plus cargo-nextest
+  # which itself parallelizes tests across all available cores.
+  # Net effect: mutants run serially, but each mutant's test cycle
+  # uses every CPU thread on the machine.
+  #
+  # NOT IN CI by deliberate choice: workspace-wide is 4–8 hours per
+  # run; even a focused subtree is too slow to block PR or master
+  # CI cycles. Run locally on a regular cadence (per `feedback_local_
+  # ci_parity`); add a scheduled cron job to ci.yml later if/when
+  # the team commits to an operational-error-rate dashboard.
+  #
+  # Usage:
+  #   dev-mutants                         — workspace-wide (slow)
+  #   dev-mutants -- --file <path>        — focus on one file
+  #   dev-mutants -- --package <name>     — focus on one crate
+  scripts.dev-mutants.exec = ''
+    echo "Running cargo-mutants --in-place + cargo-nextest..."
+    echo "Tip: pass --file <path> or --package <name> to scope."
+    cargo mutants --test-tool nextest --in-place "$@"
+  '';
+
   scripts.dev-upgrade.exec = ''
     echo "=== cargo upgrade (cross-semver, edits Cargo.toml) ==="
     cargo upgrade --incompatible
@@ -114,7 +214,7 @@ in
     echo "  /decks/technical — presentation"
     echo "Watching crates/ for changes — WASM rebuilds automatically."
     echo ""
-    cargo run -p pr4xis-web --release
+    cargo run -p pr4xis-web --release -- 4096
   '';
 
   # Environment variables
@@ -144,6 +244,7 @@ in
     echo "  dev-web       - Start dev server (/ = chatbot, /decks/technical = presentation)"
     echo "  dev-wasm      - Build WASM"
     echo "  dev-upgrade   - Bump all deps to latest (Cargo.toml + Cargo.lock) and run tests"
+    echo "  dev-mutants   - Mutation testing via cargo-mutants (compliance: operational error rate)"
     echo ""
   '';
 
@@ -209,7 +310,7 @@ in
     };
 
     "test:clippy" = {
-      exec = "cargo clippy --quiet -- -D warnings && cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings";
+      exec = "cargo clippy --workspace --all-targets --quiet -- -D warnings && cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings";
     };
 
     "test:check" = {

@@ -4,13 +4,20 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use pr4xis_chat as chat;
+
+#[allow(dead_code)]
+#[allow(clippy::invisible_characters)]
+mod usc_codegen_output {
+    include!(concat!(env!("OUT_DIR"), "/usc_codegen.rs"));
+}
 use pr4xis_domains::applied::data_provisioning::fetch::{self, FetchOptions, FetchOutcome};
-use pr4xis_domains::applied::data_provisioning::registry::{DATA_SOURCES, by_name};
+use pr4xis_domains::applied::data_provisioning::registry::{by_name, data_sources};
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 use pr4xis_domains::formal::information::dialogue::engine::{self, DialogueAction};
 use pr4xis_domains::social::software::markup::xml::lmf;
+use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
 
 /// pr4xis — axiomatic intelligence via ontology.
 #[derive(Parser, Debug)]
@@ -110,11 +117,15 @@ fn run_update(
 
 fn print_list() {
     println!("Registered datasets:");
-    for entry in DATA_SOURCES {
-        println!("  {} — {}", entry.name, entry.description);
-        println!("    remote: {}", entry.remote_location);
-        println!("    local:  {}", entry.local_path);
-        println!("    content-type: {:?}", entry.content_type);
+    for entry in data_sources() {
+        let desc = entry.description.as_deref().unwrap_or("");
+        println!(
+            "  {}@{} [{:?}] {}",
+            entry.name, entry.version, entry.kind, desc
+        );
+        println!("    remote: {}", entry.url);
+        println!("    local:  {}", entry.local_path());
+        println!("    content-type: {:?}", entry.content_type());
     }
 }
 
@@ -140,6 +151,9 @@ fn print_outcome(outcome: &FetchOutcome) {
         }
         FetchOutcome::FetchError { name, reason } => {
             eprintln!("  [error]   {name}: {reason}");
+        }
+        FetchOutcome::Skipped { name, reason } => {
+            println!("  [skipped] {name}: {reason}");
         }
     }
 }
@@ -176,11 +190,17 @@ fn run_chat() {
         }
     };
 
+    // Materialise the U.S. Code corpus from the build-time codegen static.
+    // The CLI build.rs writes an empty stub when no USC XML is on disk, so
+    // this call never panics — `usc.section_count()` is just 0 in that case.
+    let usc = Arc::new(UsCode::from_codegen(&usc_codegen_output::CODEGEN_DATA));
+
     println!("pr4xis — axiomatic intelligence");
     println!(
-        "  {} concepts, {} words",
+        "  {} concepts, {} words, {} USC sections",
         language.concept_count(),
-        language.word_count()
+        language.word_count(),
+        usc.section_count(),
     );
     println!("  type 'quit' to exit");
     println!();

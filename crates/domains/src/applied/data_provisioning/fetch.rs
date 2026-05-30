@@ -21,10 +21,15 @@
 //! - `fetch_entry(entry, opts, workspace_root)` — the per-entry work
 //! - `fetch_all(opts, workspace_root)` — every entry in `DATA_SOURCES`
 //!
-//! The implementation is intentionally linear and does not retry or cache.
 //! Every call is a clean `HTTP GET → verify → write`. Re-running after a
 //! successful fetch short-circuits via a local re-verification unless
-//! `force` is set, so invocations are idempotent.
+//! `force` is set, so invocations are idempotent. The downloader wraps
+//! each GET in an idempotent retry harness (RFC 9110 §9.2.2: GET is
+//! idempotent and a client SHOULD retry on connection-class failure)
+//! with an exponential backoff schedule (Jacobson 1988, "Congestion
+//! Avoidance and Control", SIGCOMM 1988 §3) so transient TCP RSTs
+//! mid-download recover instead of aborting the whole `pr4xis update`
+//! run.
 //!
 //! **Flag precedence.** `--check` is a read-only mode and always wins:
 //! `--check --force` ignores `force` and only verifies the current file.
@@ -36,7 +41,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::RegistryEntry;
-use super::registry::{DATA_SOURCES, resolve_identity};
+use super::registry::data_sources;
 use crate::formal::meta::artifact_identity::ontology::{
     ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
 };
@@ -62,26 +67,35 @@ pub struct FetchOptions {
 #[derive(Debug)]
 pub enum FetchOutcome {
     /// Local copy exists and every identity claim verifies.
-    AlreadyVerified { name: &'static str },
+    AlreadyVerified { name: String },
     /// Fetched fresh bytes and wrote them to disk; every claim verified.
     Fetched {
-        name: &'static str,
+        name: String,
         path: PathBuf,
         bytes: usize,
     },
     /// Local file exists but at least one identity claim failed. The file
     /// is kept on disk; callers decide whether to retry or give up.
     VerificationFailed {
-        name: &'static str,
+        name: String,
         path: PathBuf,
         reason: String,
     },
     /// File is absent and `check` was set, so nothing was fetched.
-    MissingAndCheckOnly { name: &'static str, path: PathBuf },
+    MissingAndCheckOnly { name: String, path: PathBuf },
     /// File is absent and `offline` was set, so we couldn't fetch.
-    MissingAndOffline { name: &'static str, path: PathBuf },
+    MissingAndOffline { name: String, path: PathBuf },
     /// Network or disk error during fetch.
-    FetchError { name: &'static str, reason: String },
+    FetchError { name: String, reason: String },
+    /// Source has only `ClaimData::Stub` identity claims — registered
+    /// in `praxis.toml` but no lock hash pinned yet (the loader for
+    /// its content type isn't wired). The fetcher skips it because
+    /// there's no way to verify what comes back; `DecoderTotalityPerKind`
+    /// and `LockManifestAgreement` already treat the same set as
+    /// "registered but not yet loadable" pending the materialization
+    /// machinery. Reported as success so CI doesn't block on the
+    /// existence of a documented-but-deferred entry.
+    Skipped { name: String, reason: String },
 }
 
 impl FetchOutcome {
@@ -89,7 +103,9 @@ impl FetchOutcome {
     pub fn is_ok(&self) -> bool {
         matches!(
             self,
-            FetchOutcome::AlreadyVerified { .. } | FetchOutcome::Fetched { .. }
+            FetchOutcome::AlreadyVerified { .. }
+                | FetchOutcome::Fetched { .. }
+                | FetchOutcome::Skipped { .. }
         )
     }
 }
@@ -98,7 +114,7 @@ impl FetchOutcome {
 /// per-entry failures so the caller gets a full report — one outcome per
 /// registered dataset, in registry order.
 pub fn fetch_all(opts: FetchOptions, workspace_root: &Path) -> Vec<FetchOutcome> {
-    DATA_SOURCES
+    data_sources()
         .iter()
         .map(|entry| fetch_entry(entry, opts, workspace_root))
         .collect()
@@ -108,26 +124,40 @@ pub fn fetch_all(opts: FetchOptions, workspace_root: &Path) -> Vec<FetchOutcome>
 /// precedence (`check` dominates `force`; `offline` never changes to
 /// `MissingAndOffline` when a local file is present).
 pub fn fetch_entry(
-    entry: &'static RegistryEntry,
+    entry: &RegistryEntry,
     opts: FetchOptions,
     workspace_root: &Path,
 ) -> FetchOutcome {
-    let path = workspace_root.join(entry.local_path);
+    // Stub-only identity: registered but not yet loadable. The fetcher
+    // has nothing to verify and the upstream URL is documentation, not
+    // a verified artifact. Skip without touching the network — same
+    // treatment the `DecoderTotalityPerKind` and `LockManifestAgreement`
+    // axioms apply to these entries.
+    if entry.identity.is_stub_only() {
+        return FetchOutcome::Skipped {
+            name: entry.name.clone(),
+            reason: "stub identity — registered in praxis.toml, no lock hash yet".into(),
+        };
+    }
+
+    let path = workspace_root.join(entry.local_path());
 
     // `--check` is read-only and always wins over `--force`.
     if opts.check {
         return if path.exists() {
             match verify_local(entry, &path) {
-                Ok(()) => FetchOutcome::AlreadyVerified { name: entry.name },
+                Ok(()) => FetchOutcome::AlreadyVerified {
+                    name: entry.name.clone(),
+                },
                 Err(reason) => FetchOutcome::VerificationFailed {
-                    name: entry.name,
+                    name: entry.name.clone(),
                     path,
                     reason,
                 },
             }
         } else {
             FetchOutcome::MissingAndCheckOnly {
-                name: entry.name,
+                name: entry.name.clone(),
                 path,
             }
         };
@@ -135,12 +165,14 @@ pub fn fetch_entry(
 
     if path.exists() && !opts.force {
         return match verify_local(entry, &path) {
-            Ok(()) => FetchOutcome::AlreadyVerified { name: entry.name },
+            Ok(()) => FetchOutcome::AlreadyVerified {
+                name: entry.name.clone(),
+            },
             // Local file exists but verification failed: report the
             // failure reason. `offline` does NOT mask it — the file is
             // not missing, it's unverified.
             Err(reason) if opts.offline => FetchOutcome::VerificationFailed {
-                name: entry.name,
+                name: entry.name.clone(),
                 path,
                 reason,
             },
@@ -150,7 +182,7 @@ pub fn fetch_entry(
 
     if opts.offline {
         return FetchOutcome::MissingAndOffline {
-            name: entry.name,
+            name: entry.name.clone(),
             path,
         };
     }
@@ -162,24 +194,34 @@ pub fn fetch_entry(
 // Internal: download + verify + write
 // --------------------------------------------------------------------------
 
-fn do_fetch(entry: &'static RegistryEntry, path: &Path) -> FetchOutcome {
-    let bytes = match download(entry.remote_location) {
+fn do_fetch(entry: &RegistryEntry, path: &Path) -> FetchOutcome {
+    let bytes = match download(&entry.url) {
         Ok(b) => b,
         Err(e) => {
             return FetchOutcome::FetchError {
-                name: entry.name,
+                name: entry.name.clone(),
                 reason: format!("download failed: {e}"),
             };
         }
     };
 
-    let bytes = if entry.gzipped {
+    let bytes = if entry.transport_gzip() {
         match gunzip(&bytes) {
             Ok(b) => b,
             Err(e) => {
                 return FetchOutcome::FetchError {
-                    name: entry.name,
+                    name: entry.name.clone(),
                     reason: format!("gunzip failed: {e}"),
+                };
+            }
+        }
+    } else if entry.zipped() {
+        match unzip_single_xml(&bytes) {
+            Ok(b) => b,
+            Err(e) => {
+                return FetchOutcome::FetchError {
+                    name: entry.name.clone(),
+                    reason: format!("unzip failed: {e}"),
                 };
             }
         }
@@ -189,7 +231,7 @@ fn do_fetch(entry: &'static RegistryEntry, path: &Path) -> FetchOutcome {
 
     if let Err(reason) = verify_bytes(entry, &bytes) {
         return FetchOutcome::VerificationFailed {
-            name: entry.name,
+            name: entry.name.clone(),
             path: path.to_path_buf(),
             reason,
         };
@@ -199,19 +241,19 @@ fn do_fetch(entry: &'static RegistryEntry, path: &Path) -> FetchOutcome {
         && let Err(e) = fs::create_dir_all(parent)
     {
         return FetchOutcome::FetchError {
-            name: entry.name,
+            name: entry.name.clone(),
             reason: format!("mkdir {}: {e}", parent.display()),
         };
     }
     if let Err(e) = fs::write(path, &bytes) {
         return FetchOutcome::FetchError {
-            name: entry.name,
+            name: entry.name.clone(),
             reason: format!("write {}: {e}", path.display()),
         };
     }
 
     FetchOutcome::Fetched {
-        name: entry.name,
+        name: entry.name.clone(),
         path: path.to_path_buf(),
         bytes: bytes.len(),
     }
@@ -258,6 +300,12 @@ const MAX_DECOMPRESSED_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
 fn download(url: &str) -> anyhow::Result<Vec<u8>> {
     install_crypto_provider();
+    with_retry(|| download_once(url))
+}
+
+/// Single attempt at downloading `url`. The retry harness in
+/// [`with_retry`] wraps this for transient-error resilience.
+fn download_once(url: &str) -> anyhow::Result<Vec<u8>> {
     let buf = ureq::get(url)
         .call()
         .map_err(|e| anyhow::anyhow!("{e}"))?
@@ -267,6 +315,67 @@ fn download(url: &str) -> anyhow::Result<Vec<u8>> {
         .read_to_vec()
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     Ok(buf)
+}
+
+/// Total number of attempts (one initial + N retries) for an
+/// idempotent download. Three is a small constant: caps worst-case
+/// wall-clock at the [`backoff_for_attempt`] sum (≈ 3 s of sleep
+/// across the three attempts plus three request RTTs), large enough
+/// to recover from the transient TCP RST class we observed in CI
+/// (e.g. `Peer disconnected` mid-download).
+pub(crate) const RETRY_ATTEMPTS: u32 = 3;
+
+/// Backoff before retry `attempt` (1-indexed against the next attempt
+/// — `backoff_for_attempt(2)` is the sleep before attempt 2). Doubles
+/// per attempt starting at one second, the canonical
+/// exponential-backoff schedule. Single client → no thundering-herd
+/// concern → no jitter.
+pub(crate) fn backoff_for_attempt(attempt: u32) -> core::time::Duration {
+    core::time::Duration::from_secs(1u64 << (attempt - 2))
+}
+
+/// Run an idempotent fetch closure with [`RETRY_ATTEMPTS`] tries and
+/// exponential backoff between failures.
+///
+/// HTTP GET is idempotent (RFC 9110 §9.2.2: "GET, HEAD, OPTIONS, PUT,
+/// DELETE, and TRACE are defined as idempotent... A client SHOULD
+/// retry an idempotent request if the request is determined to be
+/// unsuccessful due to a connection issue"), so retrying a failed
+/// download is safe by HTTP semantics. Exponential backoff between
+/// attempts follows the canonical schedule (Jacobson 1988,
+/// "Congestion Avoidance and Control", SIGCOMM 1988 §3, repurposed
+/// here for application-layer retry as documented in
+/// AWS Architecture Blog, Brooker 2015, "Exponential Backoff And
+/// Jitter").
+///
+/// The harness retries on *any* error — discriminating
+/// transient-vs-permanent at the `ureq::Error` variant level would
+/// be more precise but at the cost of coupling this file to ureq's
+/// internal taxonomy. A permanent 4xx still terminates in at most
+/// [`RETRY_ATTEMPTS`] iterations; the worst-case extra wall-clock is
+/// the sum of [`backoff_for_attempt`] over the retries.
+pub(crate) fn with_retry<F, T>(mut f: F) -> anyhow::Result<T>
+where
+    F: FnMut() -> anyhow::Result<T>,
+{
+    let mut last_err: Option<anyhow::Error> = None;
+    for attempt in 1..=RETRY_ATTEMPTS {
+        match f() {
+            Ok(v) => return Ok(v),
+            Err(e) => {
+                if attempt < RETRY_ATTEMPTS {
+                    let delay = backoff_for_attempt(attempt + 1);
+                    eprintln!(
+                        "  [retry] attempt {attempt}/{RETRY_ATTEMPTS} failed: {e} \
+                         (sleeping {delay:?} before retry)"
+                    );
+                    std::thread::sleep(delay);
+                }
+                last_err = Some(e);
+            }
+        }
+    }
+    Err(last_err.expect("at least one attempt was made"))
 }
 
 fn gunzip(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
@@ -289,7 +398,136 @@ fn gunzip(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
     Ok(out)
 }
 
-fn verify_local(entry: &'static RegistryEntry, path: &Path) -> Result<(), String> {
+/// Extract the single `.xml` member from a PKZIP archive.
+///
+/// USC release-point title archives (`xml_usc<NN>@<rp>.zip`) hold
+/// exactly one `usc<NN>.xml`. This reads the **central directory**
+/// (PKWARE APPNOTE.TXT 6.3.10 §4.3.12) for authoritative member sizes
+/// and offsets — robust against streaming "data descriptors"
+/// (§4.3.9), where the *local* header sizes are zeroed. Members that
+/// are stored (method 0) or DEFLATE-compressed (method 8, RFC 1951)
+/// are supported; any other method, ZIP64, or an archive without
+/// exactly one `.xml` member is a hard error. The choice must be
+/// deterministic because the extracted bytes feed sha256 verification,
+/// so "more than one `.xml`" fails closed rather than guessing.
+fn unzip_single_xml(zip: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let eocd = find_eocd(zip)?;
+    let total_entries = read_u16(zip, eocd + 10)? as usize;
+    let cd_offset = read_u32(zip, eocd + 16)? as usize;
+
+    // Walk the central directory; select the sole `.xml` member.
+    let mut p = cd_offset;
+    let mut chosen: Option<(usize, u16, usize, usize)> = None; // (local_off, method, comp, uncomp)
+    for _ in 0..total_entries {
+        if read_u32(zip, p)? != 0x0201_4b50 {
+            anyhow::bail!("malformed central-directory header at offset {p}");
+        }
+        let method = read_u16(zip, p + 10)?;
+        let comp_size = read_u32(zip, p + 20)? as usize;
+        let uncomp_size = read_u32(zip, p + 24)? as usize;
+        let name_len = read_u16(zip, p + 28)? as usize;
+        let extra_len = read_u16(zip, p + 30)? as usize;
+        let comment_len = read_u16(zip, p + 32)? as usize;
+        let local_off = read_u32(zip, p + 42)? as usize;
+        let name_start = p + 46;
+        let name_end = name_start
+            .checked_add(name_len)
+            .filter(|e| *e <= zip.len())
+            .ok_or_else(|| anyhow::anyhow!("central-directory name out of bounds"))?;
+        if zip[name_start..name_end].ends_with(b".xml") {
+            if chosen.is_some() {
+                anyhow::bail!(
+                    "archive has more than one .xml member; refusing to choose non-deterministically"
+                );
+            }
+            chosen = Some((local_off, method, comp_size, uncomp_size));
+        }
+        p = name_end + extra_len + comment_len;
+    }
+
+    let (local_off, method, comp_size, uncomp_size) =
+        chosen.ok_or_else(|| anyhow::anyhow!("archive contains no .xml member"))?;
+
+    if read_u32(zip, local_off)? != 0x0403_4b50 {
+        anyhow::bail!("malformed local-file header at offset {local_off}");
+    }
+    let l_name_len = read_u16(zip, local_off + 26)? as usize;
+    let l_extra_len = read_u16(zip, local_off + 28)? as usize;
+    let data_start = local_off + 30 + l_name_len + l_extra_len;
+    let data_end = data_start
+        .checked_add(comp_size)
+        .filter(|e| *e <= zip.len())
+        .ok_or_else(|| anyhow::anyhow!("compressed data out of bounds"))?;
+    let comp = &zip[data_start..data_end];
+
+    match method {
+        0 => Ok(comp.to_vec()),          // stored
+        8 => inflate(comp, uncomp_size), // DEFLATE (RFC 1951)
+        m => anyhow::bail!("unsupported zip compression method {m} (only stored/deflate)"),
+    }
+}
+
+/// Locate the End Of Central Directory record (APPNOTE §4.3.16) by
+/// scanning backward for its signature `0x06054b50`, allowing for the
+/// variable-length trailing comment (max 65535 bytes).
+fn find_eocd(zip: &[u8]) -> anyhow::Result<usize> {
+    if zip.len() < 22 {
+        anyhow::bail!("not a zip archive (shorter than the 22-byte EOCD record)");
+    }
+    let scan_floor = zip.len().saturating_sub(22 + 0xFFFF);
+    let mut i = zip.len() - 22;
+    loop {
+        if zip[i..].starts_with(&[0x50, 0x4B, 0x05, 0x06]) {
+            return Ok(i);
+        }
+        if i == scan_floor {
+            anyhow::bail!("no End Of Central Directory record found (not a zip, or ZIP64)");
+        }
+        i -= 1;
+    }
+}
+
+/// DEFLATE-decompress (RFC 1951) under the same size cap as `gunzip`,
+/// asserting the result matches the archive's declared uncompressed
+/// size (the central-directory value).
+fn inflate(comp: &[u8], expected: usize) -> anyhow::Result<Vec<u8>> {
+    use flate2::read::DeflateDecoder;
+    let limited = std::io::Read::take(DeflateDecoder::new(comp), MAX_DECOMPRESSED_BYTES + 1);
+    let mut out = Vec::new();
+    let mut decoder = limited;
+    decoder.read_to_end(&mut out)?;
+    if out.len() as u64 > MAX_DECOMPRESSED_BYTES {
+        anyhow::bail!("decompressed payload exceeds {MAX_DECOMPRESSED_BYTES} bytes");
+    }
+    if out.len() != expected {
+        anyhow::bail!(
+            "decompressed size {} != central-directory declared {expected}",
+            out.len()
+        );
+    }
+    Ok(out)
+}
+
+/// Little-endian u16 read with bounds checking (no panic on malformed input).
+fn read_u16(b: &[u8], at: usize) -> anyhow::Result<u16> {
+    let end = at
+        .checked_add(2)
+        .filter(|e| *e <= b.len())
+        .ok_or_else(|| anyhow::anyhow!("u16 read out of bounds at {at}"))?;
+    Ok(u16::from_le_bytes([b[at], b[end - 1]]))
+}
+
+/// Little-endian u32 read with bounds checking (no panic on malformed input).
+fn read_u32(b: &[u8], at: usize) -> anyhow::Result<u32> {
+    let end = at
+        .checked_add(4)
+        .filter(|e| *e <= b.len())
+        .ok_or_else(|| anyhow::anyhow!("u32 read out of bounds at {at}"))?;
+    let s = &b[at..end];
+    Ok(u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
+}
+
+fn verify_local(entry: &RegistryEntry, path: &Path) -> Result<(), String> {
     let bytes = fs::read(path).map_err(|e| format!("read {}: {e}", path.display()))?;
     verify_bytes(entry, &bytes)
 }
@@ -300,12 +538,9 @@ fn verify_local(entry: &'static RegistryEntry, path: &Path) -> Result<(), String
 /// rejection here — the pipeline is fail-closed, so a claim we cannot
 /// evaluate is treated as a failure, not a skip. This keeps
 /// `VerificationFailClosed` honest.
-fn verify_bytes(entry: &'static RegistryEntry, bytes: &[u8]) -> Result<(), String> {
-    let identity = resolve_identity(entry.name)
-        .ok_or_else(|| format!("no resolved identity for {}", entry.name))?;
-
+fn verify_bytes(entry: &RegistryEntry, bytes: &[u8]) -> Result<(), String> {
     let mut verified = 0usize;
-    for claim in &identity.0 {
+    for claim in &entry.identity.0 {
         match run_extractor(claim, bytes) {
             VerificationResult::Verified(_) => verified += 1,
             VerificationResult::Mismatch { expected, actual } => {
@@ -402,8 +637,8 @@ mod tests {
         let claim = IdentityClaim {
             concept: IdentityConcept::XmlElementAttribute,
             data: ClaimData::XmlAttribute {
-                element: "Lexicon",
-                attribute: "version",
+                element: "Lexicon".into(),
+                attribute: "version".into(),
                 expected: "2025".into(),
             },
         };
@@ -416,8 +651,8 @@ mod tests {
         let claim = IdentityClaim {
             concept: IdentityConcept::XmlElementAttribute,
             data: ClaimData::XmlAttribute {
-                element: "Lexicon",
-                attribute: "version",
+                element: "Lexicon".into(),
+                attribute: "version".into(),
                 expected: "2099".into(),
             },
         };
@@ -429,7 +664,9 @@ mod tests {
     fn run_extractor_stub_concept_is_unverifiable() {
         let claim = IdentityClaim {
             concept: IdentityConcept::Doi,
-            data: ClaimData::Stub { reason: "test" },
+            data: ClaimData::Stub {
+                reason: "test".into(),
+            },
         };
         let result = run_extractor(&claim, b"anything");
         assert!(matches!(result, VerificationResult::Unverifiable { .. }));
@@ -440,7 +677,7 @@ mod tests {
         let claim = IdentityClaim {
             concept: IdentityConcept::RawHash,
             data: ClaimData::Stub {
-                reason: "wrong shape",
+                reason: "wrong shape".into(),
             },
         };
         let result = run_extractor(&claim, b"bytes");
@@ -448,32 +685,32 @@ mod tests {
     }
 
     #[test]
-    fn verify_bytes_fails_on_unknown_entry() {
+    fn verify_bytes_fails_on_empty_identity() {
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
         let bogus = RegistryEntry {
-            name: "not-in-registry",
-            description: "test",
-            remote_location: "",
-            local_path: "",
-            content_type: super::super::ontology::ContentType::Binary,
+            name: "not-in-registry".into(),
+            version: "0".into(),
+            kind: SourceTaxonomyConcept::Statute,
+            url: String::new(),
+            description: None,
             identity: crate::formal::meta::artifact_identity::ontology::CompositeIdentity(
                 Vec::new(),
             ),
-            gzipped: false,
         };
-        let bogus_static: &'static RegistryEntry = Box::leak(Box::new(bogus));
-        let result = verify_bytes(bogus_static, b"bytes");
+        let result = verify_bytes(&bogus, b"bytes");
         assert!(result.is_err());
     }
 
     #[test]
     fn verify_bytes_passes_on_real_wordnet_entry() {
-        let wordnet = super::super::registry::by_name("wordnet").expect("wordnet registered");
+        let wordnet =
+            super::super::registry::by_name("english_wordnet").expect("english_wordnet registered");
         let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .unwrap()
             .parent()
             .unwrap();
-        let path = workspace_root.join(wordnet.local_path);
+        let path = workspace_root.join(wordnet.local_path());
         if !path.exists() {
             eprintln!("skipping: wordnet file not on disk at {}", path.display());
             return;
@@ -490,7 +727,7 @@ mod tests {
     #[test]
     fn fetch_entry_check_only_missing_returns_missing() {
         let tmp = tempdir_path();
-        let wordnet = super::super::registry::by_name("wordnet").unwrap();
+        let wordnet = super::super::registry::by_name("english_wordnet").unwrap();
         let opts = FetchOptions {
             check: true,
             force: false,
@@ -503,7 +740,7 @@ mod tests {
     #[test]
     fn fetch_entry_offline_missing_returns_offline() {
         let tmp = tempdir_path();
-        let wordnet = super::super::registry::by_name("wordnet").unwrap();
+        let wordnet = super::super::registry::by_name("english_wordnet").unwrap();
         let opts = FetchOptions {
             check: false,
             force: false,
@@ -515,10 +752,10 @@ mod tests {
 
     #[test]
     fn fetch_outcome_is_ok_only_for_success_variants() {
-        assert!(FetchOutcome::AlreadyVerified { name: "x" }.is_ok());
+        assert!(FetchOutcome::AlreadyVerified { name: "x".into() }.is_ok());
         assert!(
             FetchOutcome::Fetched {
-                name: "x",
+                name: "x".into(),
                 path: PathBuf::new(),
                 bytes: 0,
             }
@@ -526,21 +763,21 @@ mod tests {
         );
         assert!(
             !FetchOutcome::MissingAndCheckOnly {
-                name: "x",
+                name: "x".into(),
                 path: PathBuf::new(),
             }
             .is_ok()
         );
         assert!(
             !FetchOutcome::MissingAndOffline {
-                name: "x",
+                name: "x".into(),
                 path: PathBuf::new(),
             }
             .is_ok()
         );
         assert!(
             !FetchOutcome::VerificationFailed {
-                name: "x",
+                name: "x".into(),
                 path: PathBuf::new(),
                 reason: String::new(),
             }
@@ -548,7 +785,7 @@ mod tests {
         );
         assert!(
             !FetchOutcome::FetchError {
-                name: "x",
+                name: "x".into(),
                 reason: String::new(),
             }
             .is_ok()
@@ -603,5 +840,165 @@ mod tests {
             let is_mismatch = matches!(result, VerificationResult::Mismatch { .. });
             prop_assert!(is_mismatch);
         }
+    }
+
+    // --- ZIP extraction (PKWARE APPNOTE.TXT 6.3.10; DEFLATE RFC 1951) ---
+
+    /// Assemble a minimal single-member PKZIP archive (local header +
+    /// data + one central-directory record + EOCD). CRC is left zero —
+    /// the reader keys off the central directory, not the CRC.
+    fn build_single_entry_zip(name: &[u8], method: u16, data: &[u8], uncomp: u32) -> Vec<u8> {
+        let comp = data.len() as u32;
+        let nlen = name.len() as u16;
+        let mut z = Vec::new();
+        // Local file header (offset 0).
+        z.extend_from_slice(&[0x50, 0x4B, 0x03, 0x04]);
+        z.extend_from_slice(&20u16.to_le_bytes()); // version needed
+        z.extend_from_slice(&0u16.to_le_bytes()); // flags
+        z.extend_from_slice(&method.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // mod time
+        z.extend_from_slice(&0u16.to_le_bytes()); // mod date
+        z.extend_from_slice(&0u32.to_le_bytes()); // crc32
+        z.extend_from_slice(&comp.to_le_bytes());
+        z.extend_from_slice(&uncomp.to_le_bytes());
+        z.extend_from_slice(&nlen.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // extra len
+        z.extend_from_slice(name);
+        z.extend_from_slice(data);
+        let cd_offset = z.len() as u32;
+        // Central-directory header.
+        z.extend_from_slice(&[0x50, 0x4B, 0x01, 0x02]);
+        z.extend_from_slice(&20u16.to_le_bytes()); // version made by
+        z.extend_from_slice(&20u16.to_le_bytes()); // version needed
+        z.extend_from_slice(&0u16.to_le_bytes()); // flags
+        z.extend_from_slice(&method.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // mod time
+        z.extend_from_slice(&0u16.to_le_bytes()); // mod date
+        z.extend_from_slice(&0u32.to_le_bytes()); // crc32
+        z.extend_from_slice(&comp.to_le_bytes());
+        z.extend_from_slice(&uncomp.to_le_bytes());
+        z.extend_from_slice(&nlen.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // extra len
+        z.extend_from_slice(&0u16.to_le_bytes()); // comment len
+        z.extend_from_slice(&0u16.to_le_bytes()); // disk number
+        z.extend_from_slice(&0u16.to_le_bytes()); // internal attrs
+        z.extend_from_slice(&0u32.to_le_bytes()); // external attrs
+        z.extend_from_slice(&0u32.to_le_bytes()); // local header offset
+        z.extend_from_slice(name);
+        let cd_size = z.len() as u32 - cd_offset;
+        // End Of Central Directory.
+        z.extend_from_slice(&[0x50, 0x4B, 0x05, 0x06]);
+        z.extend_from_slice(&0u16.to_le_bytes()); // disk number
+        z.extend_from_slice(&0u16.to_le_bytes()); // cd start disk
+        z.extend_from_slice(&1u16.to_le_bytes()); // entries on this disk
+        z.extend_from_slice(&1u16.to_le_bytes()); // total entries
+        z.extend_from_slice(&cd_size.to_le_bytes());
+        z.extend_from_slice(&cd_offset.to_le_bytes());
+        z.extend_from_slice(&0u16.to_le_bytes()); // comment len
+        z
+    }
+
+    #[test]
+    fn unzip_extracts_sole_stored_xml() {
+        let payload = b"<uscDoc/>";
+        let zip = build_single_entry_zip(b"usc99.xml", 0, payload, payload.len() as u32);
+        assert_eq!(unzip_single_xml(&zip).unwrap(), payload);
+    }
+
+    #[test]
+    fn unzip_extracts_deflated_xml() {
+        use flate2::Compression;
+        use flate2::write::DeflateEncoder;
+        use std::io::Write;
+        let payload = b"<uscDoc><section>SOX 1514A</section></uscDoc>";
+        let mut enc = DeflateEncoder::new(Vec::new(), Compression::default());
+        enc.write_all(payload).unwrap();
+        let deflated = enc.finish().unwrap();
+        let zip = build_single_entry_zip(b"usc18.xml", 8, &deflated, payload.len() as u32);
+        assert_eq!(unzip_single_xml(&zip).unwrap(), payload);
+    }
+
+    #[test]
+    fn unzip_errors_when_no_xml_member() {
+        let zip = build_single_entry_zip(b"readme.txt", 0, b"hi", 2);
+        assert!(unzip_single_xml(&zip).is_err());
+    }
+
+    #[test]
+    fn unzip_errors_on_non_zip_bytes() {
+        assert!(unzip_single_xml(b"<not a zip>").is_err());
+    }
+
+    // ------------------------------------------------------------------
+    // `with_retry` — RFC 9110 §9.2.2 idempotent-retry harness for the
+    // GET-based downloader. Tests exercise the retry semantics with a
+    // counter closure so no network is touched. The retry attempts use
+    // a real `std::thread::sleep`, so the tests pay the
+    // [`backoff_for_attempt`] backoff (≤ 3 s worst case).
+    // ------------------------------------------------------------------
+
+    use std::cell::Cell;
+
+    #[test]
+    fn with_retry_returns_on_first_success() {
+        let calls = Cell::new(0u32);
+        let result: anyhow::Result<u32> = with_retry(|| {
+            calls.set(calls.get() + 1);
+            Ok(42)
+        });
+        assert_eq!(result.expect("first attempt succeeds"), 42);
+        assert_eq!(calls.get(), 1, "no retries needed on initial success");
+    }
+
+    #[test]
+    fn with_retry_recovers_from_transient_failure() {
+        // Simulate a transient TCP RST: first attempt fails, second
+        // attempt succeeds. The harness must propagate the success
+        // and report the value from the surviving attempt.
+        let calls = Cell::new(0u32);
+        let result: anyhow::Result<&'static str> = with_retry(|| {
+            calls.set(calls.get() + 1);
+            if calls.get() < 2 {
+                Err(anyhow::anyhow!("io: Peer disconnected"))
+            } else {
+                Ok("recovered")
+            }
+        });
+        assert_eq!(result.expect("retry recovers"), "recovered");
+        assert_eq!(calls.get(), 2);
+    }
+
+    #[test]
+    fn with_retry_propagates_last_error_after_attempts_exhausted() {
+        // A permanent failure (e.g. 404) doesn't recover. The harness
+        // must report the last error after [`RETRY_ATTEMPTS`] tries.
+        let calls = Cell::new(0u32);
+        let result: anyhow::Result<()> = with_retry(|| {
+            calls.set(calls.get() + 1);
+            Err(anyhow::anyhow!("attempt {} failed", calls.get()))
+        });
+        let err = result.expect_err("permanent failure must propagate");
+        assert_eq!(
+            calls.get(),
+            RETRY_ATTEMPTS,
+            "harness must exhaust exactly RETRY_ATTEMPTS attempts"
+        );
+        assert!(
+            err.to_string()
+                .contains(&format!("attempt {} failed", RETRY_ATTEMPTS)),
+            "last attempt's error must be the one returned; got: {err}"
+        );
+    }
+
+    #[test]
+    fn backoff_schedule_is_exponential() {
+        // Jacobson 1988 exponential schedule — doubles per attempt.
+        // The harness sleeps `backoff_for_attempt(attempt+1)` BEFORE
+        // attempt (attempt+1); concrete schedule for the three-attempt
+        // run: no sleep before attempt 1, 1 s before attempt 2, 2 s
+        // before attempt 3. Total ≤ 3 s.
+        assert_eq!(backoff_for_attempt(2), core::time::Duration::from_secs(1));
+        assert_eq!(backoff_for_attempt(3), core::time::Duration::from_secs(2));
+        assert_eq!(backoff_for_attempt(4), core::time::Duration::from_secs(4));
     }
 }

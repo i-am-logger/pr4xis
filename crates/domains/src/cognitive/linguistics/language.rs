@@ -87,7 +87,7 @@ impl EnglishLanguage {
         Self {
             ontology: super::english::English::from_wordnet(wn),
             writing: super::orthography::english_writing_system(),
-            morphology: super::morphology::english_rules(),
+            morphology: super::morphology::english::english_rules(),
             function_words,
             function_word_list,
             verb_transitivity,
@@ -687,7 +687,9 @@ fn build_english_function_words_embedded() -> HashMap<String, Vec<LexicalEntry>>
 ///
 /// Maps language-agnostic static arrays (produced at build time)
 /// to a live Language instance. Zero XML parsing.
-pub fn from_codegen(data: &pr4xis::codegen_data::CodegenData) -> super::english::English {
+pub fn from_codegen(
+    data: &pr4xis::codegen_data::CodegenData<super::english::English>,
+) -> super::english::English {
     use super::english::{Concept, ConceptId, SenseId};
 
     let pos_from_str = |s: &str| match s {
@@ -709,7 +711,7 @@ pub fn from_codegen(data: &pr4xis::codegen_data::CodegenData) -> super::english:
         concepts.push(Concept {
             id: concept_id,
             original_id,
-            pos: pos_from_str(data.entity_pos[idx]),
+            pos: pos_from_str(data.entity_kind[idx]),
             lemmas: Vec::new(),
             definitions: if def.is_empty() {
                 vec![]
@@ -723,9 +725,9 @@ pub fn from_codegen(data: &pr4xis::codegen_data::CodegenData) -> super::english:
     // Phase 2: Word index + fill concept lemmas
     let mut word_index: HashMap<String, Vec<ConceptId>> = HashMap::new();
     for &(word, ids) in data.word_index {
-        let cids: Vec<ConceptId> = ids.iter().map(|&i| ConceptId::new(u64::from(i))).collect();
-        for &i in ids {
-            if let Some(c) = concepts.get_mut(i as usize) {
+        let cids: Vec<ConceptId> = ids.iter().map(|h| ConceptId::new(h.value())).collect();
+        for h in ids {
+            if let Some(c) = concepts.get_mut(h.value() as usize) {
                 c.lemmas.push(word.to_string());
             }
         }
@@ -736,8 +738,8 @@ pub fn from_codegen(data: &pr4xis::codegen_data::CodegenData) -> super::english:
     let mut taxonomy_parents: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
     let mut taxonomy_children: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
     for &(child, parent) in data.taxonomy {
-        let c = ConceptId::new(u64::from(child));
-        let p = ConceptId::new(u64::from(parent));
+        let c = ConceptId::new(child.value());
+        let p = ConceptId::new(parent.value());
         taxonomy_parents.entry(c).or_default().push(p);
         taxonomy_children.entry(p).or_default().push(c);
     }
@@ -745,8 +747,8 @@ pub fn from_codegen(data: &pr4xis::codegen_data::CodegenData) -> super::english:
     // Phase 4: Mereology
     let mut mereology_parts: HashMap<ConceptId, Vec<ConceptId>> = HashMap::new();
     for &(whole, part) in data.mereology {
-        let w = ConceptId::new(u64::from(whole));
-        let p = ConceptId::new(u64::from(part));
+        let w = ConceptId::new(whole.value());
+        let p = ConceptId::new(part.value());
         mereology_parts.entry(w).or_default().push(p);
     }
 
@@ -754,9 +756,9 @@ pub fn from_codegen(data: &pr4xis::codegen_data::CodegenData) -> super::english:
     let function_words = build_english_function_words();
     let function_word_list: Vec<String> = function_words.keys().cloned().collect();
     let writing = super::orthography::english_writing_system();
-    let morphology = super::morphology::english_rules();
+    let morphology = super::morphology::english::english_rules();
 
-    super::english::English::new(
+    let mut english = super::english::English::new(
         concepts,
         word_index,
         taxonomy_children,
@@ -770,7 +772,18 @@ pub fn from_codegen(data: &pr4xis::codegen_data::CodegenData) -> super::english:
         HashMap::new(), // verb_transitivity (chart parser resolves in context)
         writing,
         morphology,
-    )
+    );
+
+    // SKOS seeAlso (WordNet `also`) wired into the existing
+    // `also_synset` slot in WordnetRelations. Miles & Bechhofer (2009)
+    // W3C SKOS §8.
+    english.set_also_synset_references(
+        data.references
+            .iter()
+            .map(|&(from, to)| (ConceptId::new(from.value()), ConceptId::new(to.value()))),
+    );
+
+    english
 }
 
 #[cfg(test)]

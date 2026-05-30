@@ -78,6 +78,10 @@ pub struct SenseRelation {
 }
 
 /// Types of synset-level relations in WordNet.
+///
+/// Covers the Global WordNet Association LMF schema (Vossen et al.)
+/// — synset relations in WordNet 2025 fall into these categories.
+/// See <https://globalwordnet.github.io/schemas/>.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SynsetRelationType {
     Hypernym,
@@ -91,13 +95,19 @@ pub enum SynsetRelationType {
     MeroPart,
     MeroSubstance,
     Causes,
+    IsCausedBy,
     Entails,
+    IsEntailedBy,
     Similar,
     Also,
     Attribute,
     DomainTopic,
+    HasDomainTopic,
     DomainRegion,
+    HasDomainRegion,
     Exemplifies,
+    IsExemplifiedBy,
+    Participle,
     Other(u8),
 }
 
@@ -115,13 +125,19 @@ impl SynsetRelationType {
             "mero_part" => Self::MeroPart,
             "mero_substance" => Self::MeroSubstance,
             "causes" => Self::Causes,
+            "is_caused_by" => Self::IsCausedBy,
             "entails" => Self::Entails,
+            "is_entailed_by" => Self::IsEntailedBy,
             "similar" => Self::Similar,
             "also" => Self::Also,
             "attribute" => Self::Attribute,
             "domain_topic" => Self::DomainTopic,
+            "has_domain_topic" => Self::HasDomainTopic,
             "domain_region" => Self::DomainRegion,
+            "has_domain_region" => Self::HasDomainRegion,
             "exemplifies" => Self::Exemplifies,
+            "is_exemplified_by" => Self::IsExemplifiedBy,
+            "participle" => Self::Participle,
             _ => Self::Other(0),
         }
     }
@@ -151,13 +167,20 @@ impl SynsetRelationType {
 }
 
 /// Types of sense-level relations.
+///
+/// Per Global WordNet Association LMF schema; documented in
+/// Fellbaum (1998) Ch. 1 + Ch. 5, Fellbaum-Osherson-Clark (2009)
+/// for `derivation` morphosemantic links.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SenseRelationType {
     Antonym,
     Similar,
     Pertainym,
     Derivation,
+    Also,
     Exemplifies,
+    IsExemplifiedBy,
+    Participle,
     Other(u8),
 }
 
@@ -168,7 +191,10 @@ impl SenseRelationType {
             "similar" => Self::Similar,
             "pertainym" => Self::Pertainym,
             "derivation" => Self::Derivation,
+            "also" => Self::Also,
             "exemplifies" => Self::Exemplifies,
+            "is_exemplified_by" => Self::IsExemplifiedBy,
+            "participle" => Self::Participle,
             _ => Self::Other(0),
         }
     }
@@ -403,7 +429,112 @@ mod tests {
     #[test]
     fn lmf_pos_entity_variants() {
         let variants = LmfPos::variants();
-        assert_eq!(variants.len(), 14);
+        // Structural floor — the typed enum carries at least the
+        // 4 WordNet open-class tags + the satellite-adjective +
+        // a non-zero Other sentinel, so 6 is the lower bound.
+        // Exact count is an artifact of which Universal-Dependencies
+        // / OLiA tags the praxis ontology has classified; asserting
+        // the exact number here is a bounded-discovery claim per
+        // `feedback_no_bounded_discovery_counts`. Use
+        // [`axiom_lmf_pos_parse_covers_wn_lmf_dtd_enumeration`] for
+        // the load-bearing coverage check.
+        assert!(
+            variants.len() >= 6,
+            "LmfPos must carry at least the 4 WordNet open-class tags + satellite + Other; \
+             got only {} variants",
+            variants.len()
+        );
+        // Every variant must round-trip through `to_tag()` and
+        // `parse()` — exhaustive bijection check, not a count.
+        for pos in variants {
+            assert_eq!(LmfPos::parse(pos.to_tag()), pos);
+        }
+    }
+
+    /// Every WN-LMF 1.3 DTD-declared `partOfSpeech` enumeration
+    /// value (per `<!ATTLIST Lemma partOfSpeech (n|v|a|r|s|t|c|p|x|u)
+    /// #REQUIRED>` at DTD line 57 + the same enumeration on
+    /// `Synset` at line 102) parses to a deterministic
+    /// [`LmfPos`] variant — totality across the DTD enumeration.
+    ///
+    /// The four WordNet open-class tags (`n`/`v`/`a`/`r`) plus the
+    /// `s` satellite-adjective tag project to named variants
+    /// (Noun/Verb/Adjective/Adverb); the WN-LMF-specific tags
+    /// `t`/`c`/`p`/`x`/`u` (terminology / closed-class compounds /
+    /// preposition / other / unknown — narrow WN-LMF semantics)
+    /// project to [`LmfPos::Other`]. Both projections are
+    /// deterministic and grounded in the loaded DTD enumeration
+    /// rather than scattered through unrelated source files
+    /// (`feedback_bottom_up_loaded_not_encoded`).
+    #[test]
+    fn axiom_lmf_pos_parse_covers_wn_lmf_dtd_enumeration() {
+        let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("Lemma", "partOfSpeech")
+            .expect("WN-LMF 1.3 declares <!ATTLIST Lemma partOfSpeech …>");
+        assert_eq!(
+            dtd_values.len(),
+            10,
+            "WN-LMF 1.3 partOfSpeech declares 10 values; got {} — DTD or extractor drifted",
+            dtd_values.len()
+        );
+        // Totality: parse() returns a deterministic LmfPos variant
+        // for every DTD-declared input; the call never panics and
+        // the result is reproducible across calls (LmfPos is Copy).
+        for value in &dtd_values {
+            let first = LmfPos::parse(value);
+            let second = LmfPos::parse(value);
+            assert_eq!(
+                first, second,
+                "LmfPos::parse({value:?}) returned different results on consecutive calls — \
+                 non-determinism"
+            );
+        }
+        // The four WordNet open-class tags + the satellite-adjective
+        // `s` MUST project to named variants. This is the load-
+        // bearing chunk of the dispatch.
+        assert_eq!(LmfPos::parse("n"), LmfPos::Noun);
+        assert_eq!(LmfPos::parse("v"), LmfPos::Verb);
+        assert_eq!(LmfPos::parse("a"), LmfPos::Adjective);
+        assert_eq!(LmfPos::parse("s"), LmfPos::Adjective);
+        assert_eq!(LmfPos::parse("r"), LmfPos::Adverb);
+    }
+
+    /// Every WN-LMF 1.3 DTD-declared `SynsetRelation/relType`
+    /// enumeration value must parse to a known `SynsetRelationType`
+    /// variant OR to the explicit `Other(0)` fallback (the spec
+    /// declares ~70 values; the typed enum captures the canonical
+    /// taxonomy/mereology/causal subset and routes the long tail
+    /// to `Other(0)`). The axiom asserts parse() is total on the
+    /// DTD enumeration — every declared value gets a deterministic
+    /// answer, none panics.
+    #[test]
+    fn axiom_synset_relation_type_parse_covers_wn_lmf_dtd_enumeration() {
+        let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("SynsetRelation", "relType")
+            .expect("WN-LMF 1.3 declares <!ATTLIST SynsetRelation relType …>");
+        assert!(
+            dtd_values.len() >= 30,
+            "WN-LMF 1.3 SynsetRelation/relType declares many values; got only {} — \
+             extractor or DTD parse may be regressed",
+            dtd_values.len()
+        );
+        for value in &dtd_values {
+            let _ = SynsetRelationType::parse(value);
+        }
+    }
+
+    /// Symmetric coverage axiom for `SenseRelation/relType` — every
+    /// DTD-declared value must parse deterministically (named
+    /// variant or `Other(0)`).
+    #[test]
+    fn axiom_sense_relation_type_parse_covers_wn_lmf_dtd_enumeration() {
+        let dtd_values = super::super::dtd::wn_lmf_attlist_enum_values("SenseRelation", "relType")
+            .expect("WN-LMF 1.3 declares <!ATTLIST SenseRelation relType …>");
+        assert!(
+            !dtd_values.is_empty(),
+            "DTD's SenseRelation/relType enumeration must be non-empty"
+        );
+        for value in &dtd_values {
+            let _ = SenseRelationType::parse(value);
+        }
     }
 
     #[test]
@@ -461,5 +592,138 @@ mod tests {
             Some(VerbTransitivity::Ditransitive)
         );
         assert_eq!(VerbTransitivity::from_frame_id("unknown"), None);
+    }
+
+    // ── Property-based round-trip laws for LMF enum parsers ───────
+    //
+    // Every relType string documented in the Global WordNet
+    // Association schema must round-trip to a non-Other variant.
+    // Unknown strings must collapse to Other.
+
+    use proptest::prelude::*;
+
+    const KNOWN_SYNSET_REL_TYPES: &[&str] = &[
+        "hypernym",
+        "instance_hypernym",
+        "hyponym",
+        "instance_hyponym",
+        "holo_member",
+        "holo_part",
+        "holo_substance",
+        "mero_member",
+        "mero_part",
+        "mero_substance",
+        "causes",
+        "is_caused_by",
+        "entails",
+        "is_entailed_by",
+        "similar",
+        "also",
+        "attribute",
+        "domain_topic",
+        "has_domain_topic",
+        "domain_region",
+        "has_domain_region",
+        "exemplifies",
+        "is_exemplified_by",
+        "participle",
+    ];
+
+    const KNOWN_SENSE_REL_TYPES: &[&str] = &[
+        "antonym",
+        "similar",
+        "pertainym",
+        "derivation",
+        "also",
+        "exemplifies",
+        "is_exemplified_by",
+        "participle",
+    ];
+
+    #[test]
+    fn property_every_known_synset_reltype_parses_non_other() {
+        for s in KNOWN_SYNSET_REL_TYPES {
+            let parsed = SynsetRelationType::parse(s);
+            assert!(
+                !matches!(parsed, SynsetRelationType::Other(_)),
+                "documented relType `{s}` parsed to Other"
+            );
+        }
+    }
+
+    #[test]
+    fn property_every_known_sense_reltype_parses_non_other() {
+        for s in KNOWN_SENSE_REL_TYPES {
+            let parsed = SenseRelationType::parse(s);
+            assert!(
+                !matches!(parsed, SenseRelationType::Other(_)),
+                "documented sense relType `{s}` parsed to Other"
+            );
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn property_unknown_synset_reltype_collapses_to_other(
+            s in "[a-z_]{3,20}",
+        ) {
+            // Skip the known set to avoid false negatives.
+            if KNOWN_SYNSET_REL_TYPES.contains(&s.as_str()) {
+                return Ok(());
+            }
+            prop_assert!(matches!(
+                SynsetRelationType::parse(&s),
+                SynsetRelationType::Other(_)
+            ));
+        }
+
+        #[test]
+        fn property_unknown_sense_reltype_collapses_to_other(
+            s in "[a-z_]{3,20}",
+        ) {
+            if KNOWN_SENSE_REL_TYPES.contains(&s.as_str()) {
+                return Ok(());
+            }
+            prop_assert!(matches!(
+                SenseRelationType::parse(&s),
+                SenseRelationType::Other(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn property_taxonomy_predicate_covers_hypernym_family() {
+        // is_taxonomy() should return true exactly for the hypernym
+        // family and false for everything else.
+        for s in KNOWN_SYNSET_REL_TYPES {
+            let parsed = SynsetRelationType::parse(s);
+            let expected = matches!(s, &"hypernym" | &"instance_hypernym");
+            assert_eq!(
+                parsed.is_taxonomy(),
+                expected,
+                "is_taxonomy on `{s}` returned wrong value"
+            );
+        }
+    }
+
+    #[test]
+    fn property_mereology_predicate_covers_meronym_family() {
+        for s in KNOWN_SYNSET_REL_TYPES {
+            let parsed = SynsetRelationType::parse(s);
+            let expected = matches!(
+                s,
+                &"holo_member"
+                    | &"holo_part"
+                    | &"holo_substance"
+                    | &"mero_member"
+                    | &"mero_part"
+                    | &"mero_substance"
+            );
+            assert_eq!(
+                parsed.is_mereology(),
+                expected,
+                "is_mereology on `{s}` returned wrong value"
+            );
+        }
     }
 }

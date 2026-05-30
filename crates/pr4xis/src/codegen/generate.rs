@@ -8,7 +8,8 @@ use super::builder::{GenerateConfig, OntologyBuilder};
 /// Produces a module containing:
 /// - Entity type (newtype over u32) implementing `pr4xis::category::Concept`
 /// - Static `ENTITY_LABELS` + raw relation arrays (`RAW_TAXONOMY`,
-///   `RAW_EQUIVALENCE`, `RAW_OPPOSITION`, `RAW_MEREOLOGY`, `RAW_CAUSATION`)
+///   `RAW_EQUIVALENCE`, `RAW_OPPOSITION`, `RAW_MEREOLOGY`, `RAW_CAUSATION`,
+///   `RAW_REFERENCES`) as `&[(EntityRef<Marker>, EntityRef<Marker>)]`
 /// - Word-lookup functions with cached adjacency maps
 ///
 /// Per-def trait impls (`TaxonomyDef`, `EquivalenceDef`, `OppositionDef`,
@@ -28,11 +29,30 @@ pub fn generate_rust(builder: &OntologyBuilder, config: &GenerateConfig) -> Stri
     write_header(&mut out, config, builder);
     write_entity_type(&mut out, config, builder, &id_map);
     write_entity_data(&mut out, config, builder, &id_map);
-    write_word_index(&mut out, builder, &id_map);
+    write_word_index(&mut out, config, builder, &id_map);
     write_stats(&mut out, builder);
     write_codegen_data(&mut out, config, builder, &id_map);
 
     out
+}
+
+/// Leaf type name to use inside the generated arrays. For an external
+/// marker like `"pr4xis_domains::cognitive::linguistics::english::English"`,
+/// this is `"English"`. For a bare-ident marker (statute case, marker
+/// defined inline) it's the path itself.
+fn marker_leaf(config: &GenerateConfig) -> &str {
+    let path = config.entity_marker_path.as_str();
+    match path.rsplit_once("::") {
+        Some((_, leaf)) => leaf,
+        None => path,
+    }
+}
+
+/// Whether to emit a `use <path>;` for the marker. Single-ident markers
+/// resolve through the generated module's own scope (the statute case);
+/// fully-qualified paths need an explicit import.
+fn marker_needs_use(config: &GenerateConfig) -> bool {
+    config.entity_marker_path.contains("::")
 }
 
 fn write_header(out: &mut String, config: &GenerateConfig, builder: &OntologyBuilder) {
@@ -42,7 +62,11 @@ fn write_header(out: &mut String, config: &GenerateConfig, builder: &OntologyBui
     writeln!(out, "// Relations: {}", builder.relation_count()).unwrap();
     writeln!(out, "// DO NOT EDIT — regenerate from source data").unwrap();
     writeln!(out).unwrap();
+    writeln!(out, "use pr4xis::EntityRef;").unwrap();
     writeln!(out, "use pr4xis::category::Concept;").unwrap();
+    if marker_needs_use(config) {
+        writeln!(out, "use {};", config.entity_marker_path).unwrap();
+    }
     writeln!(out).unwrap();
 }
 
@@ -92,11 +116,13 @@ fn write_entity_data(
     writeln!(out, "];").unwrap();
     writeln!(out).unwrap();
 
-    // POS tags (if available)
-    writeln!(out, "static ENTITY_POS: &[&str] = &[").unwrap();
+    // Entity-kind tags. POS for lexical entities (`"n"`, `"v"`, …),
+    // synthetic kinds for statute terms (`"statute_term"`), USLM
+    // element names for the forthcoming UsCode codegen.
+    writeln!(out, "static ENTITY_KIND: &[&str] = &[").unwrap();
     for entity in &builder.entities {
-        let pos = entity.pos.as_deref().unwrap_or("");
-        writeln!(out, "    \"{pos}\",").unwrap();
+        let kind = entity.pos.as_deref().unwrap_or("");
+        writeln!(out, "    \"{kind}\",").unwrap();
     }
     writeln!(out, "];").unwrap();
     writeln!(out).unwrap();
@@ -132,10 +158,10 @@ fn write_entity_data(
     .unwrap();
     writeln!(out, "    }}").unwrap();
     writeln!(out).unwrap();
-    writeln!(out, "    pub fn pos(&self) -> &'static str {{").unwrap();
+    writeln!(out, "    pub fn kind(&self) -> &'static str {{").unwrap();
     writeln!(
         out,
-        "        ENTITY_POS.get(self.0 as usize).copied().unwrap_or(\"\")"
+        "        ENTITY_KIND.get(self.0 as usize).copied().unwrap_or(\"\")"
     )
     .unwrap();
     writeln!(out, "    }}").unwrap();
@@ -151,12 +177,20 @@ fn write_entity_data(
     writeln!(out).unwrap();
 }
 
-fn write_word_index(out: &mut String, builder: &OntologyBuilder, id_map: &HashMap<&str, u32>) {
-    if builder.word_index.is_empty() {
-        return;
-    }
+fn write_word_index(
+    out: &mut String,
+    config: &GenerateConfig,
+    builder: &OntologyBuilder,
+    id_map: &HashMap<&str, u32>,
+) {
+    // Always emit WORD_INDEX (possibly empty) — `CODEGEN_DATA` references
+    // it unconditionally. A source whose terms carry no lemmas (e.g.,
+    // statute structural extractions before adjunction-to-English
+    // codegen runs) still needs the symbol to resolve.
 
-    // Group words by text for multi-sense lookup
+    let marker = marker_leaf(config);
+
+    // Group words by text for multi-sense lookup.
     let mut by_word: HashMap<&str, Vec<u32>> = HashMap::new();
     for (word, entity_id) in &builder.word_index {
         if let Some(&idx) = id_map.get(entity_id.as_str()) {
@@ -164,21 +198,54 @@ fn write_word_index(out: &mut String, builder: &OntologyBuilder, id_map: &HashMa
         }
     }
 
-    // Sort for binary search
+    // Sort for binary search.
     let mut sorted_words: Vec<(&str, &Vec<u32>)> = by_word.iter().map(|(&k, v)| (k, v)).collect();
     sorted_words.sort_by_key(|(w, _)| *w);
 
-    writeln!(out, "static WORD_INDEX: &[(&str, &[u32])] = &[").unwrap();
-    for (word, ids) in &sorted_words {
+    // Per-row id slice statics so each WORD_INDEX entry references a
+    // `&'static [EntityRef<Marker>]` (the same type the runtime
+    // `CodegenData<P>` expects). Inline array literals can't be coerced
+    // to a slice inside a `&'static [...]` tuple element.
+    for (i, (_, ids)) in sorted_words.iter().enumerate() {
+        write!(
+            out,
+            "static WORD_INDEX_IDS_{i}: &[EntityRef<{marker}>] = &["
+        )
+        .unwrap();
+        for (j, id) in ids.iter().enumerate() {
+            if j > 0 {
+                write!(out, ", ").unwrap();
+            }
+            write!(out, "EntityRef::<{marker}>::new({id}u64)").unwrap();
+        }
+        writeln!(out, "];").unwrap();
+    }
+    if !sorted_words.is_empty() {
+        writeln!(out).unwrap();
+    }
+
+    writeln!(
+        out,
+        "static WORD_INDEX: &[(&str, &[EntityRef<{marker}>])] = &["
+    )
+    .unwrap();
+    for (i, (word, _)) in sorted_words.iter().enumerate() {
         let word_escaped = word.replace('\\', "\\\\").replace('"', "\\\"");
-        let id_list: Vec<String> = ids.iter().map(|id| id.to_string()).collect();
-        writeln!(out, "    (\"{word_escaped}\", &[{}]),", id_list.join(", ")).unwrap();
+        writeln!(out, "    (\"{word_escaped}\", WORD_INDEX_IDS_{i}),").unwrap();
     }
     writeln!(out, "];").unwrap();
     writeln!(out).unwrap();
 
-    writeln!(out, "/// Look up synsets by word text (binary search).").unwrap();
-    writeln!(out, "pub fn lookup(word: &str) -> &'static [u32] {{").unwrap();
+    writeln!(
+        out,
+        "/// Look up entity handles by word text (binary search)."
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "pub fn lookup(word: &str) -> &'static [EntityRef<{marker}>] {{"
+    )
+    .unwrap();
     writeln!(
         out,
         "    match WORD_INDEX.binary_search_by_key(&word, |(w, _)| w) {{"
@@ -197,15 +264,26 @@ fn write_codegen_data(
     builder: &OntologyBuilder,
     id_map: &HashMap<&str, u32>,
 ) {
-    // Write raw (u32, u32) relation arrays for CodegenData
+    let marker = marker_leaf(config);
+
+    // Write typed `(EntityRef<Marker>, EntityRef<Marker>)` relation
+    // arrays for CodegenData<Marker>.
     let write_raw_relations = |out: &mut String,
                                name: &str,
                                relations: &[(String, String)],
                                id_map: &HashMap<&str, u32>| {
-        writeln!(out, "static {name}: &[(u32, u32)] = &[").unwrap();
+        writeln!(
+            out,
+            "static {name}: &[(EntityRef<{marker}>, EntityRef<{marker}>)] = &["
+        )
+        .unwrap();
         for (a, b) in relations {
             if let (Some(&a_idx), Some(&b_idx)) = (id_map.get(a.as_str()), id_map.get(b.as_str())) {
-                writeln!(out, "    ({a_idx}, {b_idx}),").unwrap();
+                writeln!(
+                    out,
+                    "    (EntityRef::<{marker}>::new({a_idx}u64), EntityRef::<{marker}>::new({b_idx}u64)),"
+                )
+                .unwrap();
             }
         }
         writeln!(out, "];").unwrap();
@@ -217,21 +295,22 @@ fn write_codegen_data(
     write_raw_relations(out, "RAW_OPPOSITION", &builder.opposition, id_map);
     write_raw_relations(out, "RAW_EQUIVALENCE", &builder.equivalence, id_map);
     write_raw_relations(out, "RAW_CAUSATION", &builder.causation, id_map);
+    write_raw_relations(out, "RAW_REFERENCES", &builder.references, id_map);
 
     writeln!(out).unwrap();
     writeln!(
         out,
-        "/// Language-agnostic codegen data — consumed by Language functor."
+        "/// Ontology-agnostic codegen data — consumed by the matching `from_codegen` functor."
     )
     .unwrap();
     writeln!(
         out,
-        "pub static CODEGEN_DATA: pr4xis::codegen_data::CodegenData = pr4xis::codegen_data::CodegenData {{"
+        "pub static CODEGEN_DATA: pr4xis::codegen_data::CodegenData<{marker}> = pr4xis::codegen_data::CodegenData {{"
     )
     .unwrap();
     writeln!(out, "    entity_count: {},", builder.entities.len()).unwrap();
     writeln!(out, "    entity_ids: ENTITY_IDS,").unwrap();
-    writeln!(out, "    entity_pos: ENTITY_POS,").unwrap();
+    writeln!(out, "    entity_kind: ENTITY_KIND,").unwrap();
     writeln!(out, "    entity_labels: ENTITY_LABELS,").unwrap();
     writeln!(out, "    entity_defs: ENTITY_DEFS,").unwrap();
     writeln!(out, "    word_index: WORD_INDEX,").unwrap();
@@ -240,6 +319,7 @@ fn write_codegen_data(
     writeln!(out, "    opposition: RAW_OPPOSITION,").unwrap();
     writeln!(out, "    equivalence: RAW_EQUIVALENCE,").unwrap();
     writeln!(out, "    causation: RAW_CAUSATION,").unwrap();
+    writeln!(out, "    references: RAW_REFERENCES,").unwrap();
     writeln!(out, "}};").unwrap();
     writeln!(out).unwrap();
 
@@ -284,6 +364,12 @@ fn write_stats(out: &mut String, builder: &OntologyBuilder) {
         out,
         "    pub const CAUSATION_COUNT: usize = {};",
         builder.causation.len()
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "    pub const REFERENCES_COUNT: usize = {};",
+        builder.references.len()
     )
     .unwrap();
     writeln!(

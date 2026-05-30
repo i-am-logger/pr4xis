@@ -67,6 +67,8 @@ Depends on ontology. The mechanism for getting authoritative ontology data into 
 
 All three produce the same ontology because each is a verified functor from the same source. The choice depends on deployment: build-time codegen for static binaries, async loading for hot reloading or for ontologies too large to embed, mmap for very large ontologies that need to share memory across processes.
 
+The runtime side of delivery — *which* external sources praxis knows about and how their on-disk bytes get verified — lives under `pr4xis_domains::applied::data_provisioning`. A workspace-root **manifest** (`praxis.toml`) declares each registered source by name, version, taxonomy type, and authoritative URL; a workspace-root **lock** (`praxis.lock`) pins the sha256 each source's bytes must match. The `LockManifestAgreement` axiom fails closed on any drift between manifest, lock, and the file on disk. The `pr4xis update` CLI is the operator's interface to the same subsystem — see [Register a Source](../use/register-a-source.md) for the contributor workflow.
+
 ## The Ontology trait
 
 Every ontology in pr4xis is a category whose morphisms carry `Kind` tags. The `ontology!` macro emits the category, the kinded morphisms, the inherited structural axioms, and the type-level `Provenance` metadata used for trace attribution — all in a single declarative block.

@@ -3,8 +3,25 @@
   English function words (closed class) in LMF format.
   Same format as WordNet — processed by the same codegen functor.
 
-  Source: OLiA (Ontologies of Linguistic Annotation) POS taxonomy.
-  Reference: Chiarcos et al., "OLiA — Ontologies of Linguistic Annotation" (2015)
+  Sources (per category — closed-class enumerations are bounded
+  references, not heuristic guesses):
+    • POS taxonomy:
+        Chiarcos & Sukhareva (2015) "OLiA — Ontologies of Linguistic
+        Annotation" *Semantic Web Journal* 6(4):379-386.
+    • Adposition enumeration:
+        Quirk, Greenbaum, Leech & Svartvik (1985) *A Comprehensive
+        Grammar of the English Language* §9.1-9.7.
+        Huddleston & Pullum (2002) *Cambridge Grammar of the English
+        Language* Ch. 7.
+    • Interrogative + possessive pronouns:
+        Huddleston & Pullum (2002) Ch. 5 §5, §10.
+    • Conjunction enumeration:
+        Quirk et al. (1985) §13, Huddleston & Pullum (2002) Ch. 8.
+    • Determiner / copula / aux:
+        Huddleston & Pullum (2002) Ch. 5 (determinatives) + Ch. 3
+        (verbal categories).
+    • Interjections / response particles:
+        Huddleston & Pullum (2002) Ch. 16 §5.
 
   POS tags follow Universal Dependencies:
     det = determiner, pron = pronoun, adp = preposition,
@@ -34,6 +51,9 @@
     <LexicalEntry id="fw-am"><Lemma writtenForm="am" partOfSpeech="cop"/><Sense id="fw-am-1" synset="fw-copula"/></LexicalEntry>
     <LexicalEntry id="fw-was"><Lemma writtenForm="was" partOfSpeech="cop"/><Sense id="fw-was-1" synset="fw-copula"/></LexicalEntry>
     <LexicalEntry id="fw-were"><Lemma writtenForm="were" partOfSpeech="cop"/><Sense id="fw-were-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-be"><Lemma writtenForm="be" partOfSpeech="cop"/><Sense id="fw-be-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-been"><Lemma writtenForm="been" partOfSpeech="cop"/><Sense id="fw-been-1" synset="fw-copula"/></LexicalEntry>
+    <LexicalEntry id="fw-being"><Lemma writtenForm="being" partOfSpeech="cop"/><Sense id="fw-being-1" synset="fw-copula"/></LexicalEntry>
 
     <!-- Auxiliaries (OLiA: AuxiliaryVerb) -->
     <LexicalEntry id="fw-has"><Lemma writtenForm="has" partOfSpeech="aux"/><Sense id="fw-has-1" synset="fw-auxiliary"/></LexicalEntry>
@@ -66,12 +86,44 @@
     <LexicalEntry id="fw-us"><Lemma writtenForm="us" partOfSpeech="pron"/><Sense id="fw-us-1" synset="fw-personal-pron"/></LexicalEntry>
     <LexicalEntry id="fw-them"><Lemma writtenForm="them" partOfSpeech="pron"/><Sense id="fw-them-1" synset="fw-personal-pron"/></LexicalEntry>
 
-    <!-- Interrogative Pronouns (OLiA: InterrogativePronoun) -->
+    <!-- Interrogative Pronouns (OLiA: InterrogativePronoun)
+         Per Huddleston & Pullum (2002) *Cambridge Grammar of the English
+         Language* §5.5 — the closed set of wh-interrogative pronouns
+         in English. -->
     <LexicalEntry id="fw-what"><Lemma writtenForm="what" partOfSpeech="pron"/><Sense id="fw-what-1" synset="fw-interrogative-pron"/></LexicalEntry>
     <LexicalEntry id="fw-who"><Lemma writtenForm="who" partOfSpeech="pron"/><Sense id="fw-who-1" synset="fw-interrogative-pron"/></LexicalEntry>
     <LexicalEntry id="fw-which"><Lemma writtenForm="which" partOfSpeech="pron"/><Sense id="fw-which-1" synset="fw-interrogative-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-whom"><Lemma writtenForm="whom" partOfSpeech="pron"/><Sense id="fw-whom-1" synset="fw-interrogative-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-whose"><Lemma writtenForm="whose" partOfSpeech="pron"/><Sense id="fw-whose-1" synset="fw-interrogative-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-where"><Lemma writtenForm="where" partOfSpeech="pron"/><Sense id="fw-where-1" synset="fw-interrogative-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-whether"><Lemma writtenForm="whether" partOfSpeech="conj"/><Sense id="fw-whether-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-how"><Lemma writtenForm="how" partOfSpeech="pron"/><Sense id="fw-how-1" synset="fw-interrogative-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-why"><Lemma writtenForm="why" partOfSpeech="pron"/><Sense id="fw-why-1" synset="fw-interrogative-pron"/></LexicalEntry>
 
-    <!-- Prepositions (OLiA: Adposition) -->
+    <!-- Possessive Pronouns (OLiA: PossessivePronoun)
+         Per Huddleston & Pullum (2002) Ch. 5 §10 — closed set of English
+         possessive pronouns (genitive determiners + nominal forms). -->
+    <LexicalEntry id="fw-its"><Lemma writtenForm="its" partOfSpeech="pron"/><Sense id="fw-its-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-his"><Lemma writtenForm="his" partOfSpeech="pron"/><Sense id="fw-his-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-hers"><Lemma writtenForm="hers" partOfSpeech="pron"/><Sense id="fw-hers-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-ours"><Lemma writtenForm="ours" partOfSpeech="pron"/><Sense id="fw-ours-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-yours"><Lemma writtenForm="yours" partOfSpeech="pron"/><Sense id="fw-yours-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-theirs"><Lemma writtenForm="theirs" partOfSpeech="pron"/><Sense id="fw-theirs-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-mine"><Lemma writtenForm="mine" partOfSpeech="pron"/><Sense id="fw-mine-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-my"><Lemma writtenForm="my" partOfSpeech="pron"/><Sense id="fw-my-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-your"><Lemma writtenForm="your" partOfSpeech="pron"/><Sense id="fw-your-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-our"><Lemma writtenForm="our" partOfSpeech="pron"/><Sense id="fw-our-1" synset="fw-possessive-pron"/></LexicalEntry>
+    <LexicalEntry id="fw-their"><Lemma writtenForm="their" partOfSpeech="pron"/><Sense id="fw-their-1" synset="fw-possessive-pron"/></LexicalEntry>
+
+    <!-- Prepositions (OLiA: Adposition).
+         Enumeration follows Quirk, Greenbaum, Leech & Svartvik (1985)
+         *A Comprehensive Grammar of the English English Language* §9.1-9.7
+         and Huddleston & Pullum (2002) *Cambridge Grammar of the English
+         Language* Ch. 7 — closed-class adposition set. Both reference
+         grammars are converged on this list as the complete enumeration
+         of one-word English prepositions; multi-word complex prepositions
+         (e.g. "in spite of") are not included since they are not single
+         tokens after split_at_non_alphanumeric. -->
     <LexicalEntry id="fw-in"><Lemma writtenForm="in" partOfSpeech="adp"/><Sense id="fw-in-1" synset="fw-preposition"/></LexicalEntry>
     <LexicalEntry id="fw-on"><Lemma writtenForm="on" partOfSpeech="adp"/><Sense id="fw-on-1" synset="fw-preposition"/></LexicalEntry>
     <LexicalEntry id="fw-at"><Lemma writtenForm="at" partOfSpeech="adp"/><Sense id="fw-at-1" synset="fw-preposition"/></LexicalEntry>
@@ -92,6 +144,42 @@
     <LexicalEntry id="fw-between"><Lemma writtenForm="between" partOfSpeech="adp"/><Sense id="fw-between-1" synset="fw-preposition"/></LexicalEntry>
     <LexicalEntry id="fw-under"><Lemma writtenForm="under" partOfSpeech="adp"/><Sense id="fw-under-1" synset="fw-preposition"/></LexicalEntry>
     <LexicalEntry id="fw-over"><Lemma writtenForm="over" partOfSpeech="adp"/><Sense id="fw-over-1" synset="fw-preposition"/></LexicalEntry>
+    <!-- Added per Quirk et al. (1985) §9.1-9.7 closed-class enumeration. -->
+    <LexicalEntry id="fw-against"><Lemma writtenForm="against" partOfSpeech="adp"/><Sense id="fw-against-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-without"><Lemma writtenForm="without" partOfSpeech="adp"/><Sense id="fw-without-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-within"><Lemma writtenForm="within" partOfSpeech="adp"/><Sense id="fw-within-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-upon"><Lemma writtenForm="upon" partOfSpeech="adp"/><Sense id="fw-upon-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-among"><Lemma writtenForm="among" partOfSpeech="adp"/><Sense id="fw-among-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-amongst"><Lemma writtenForm="amongst" partOfSpeech="adp"/><Sense id="fw-amongst-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-toward"><Lemma writtenForm="toward" partOfSpeech="adp"/><Sense id="fw-toward-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-towards"><Lemma writtenForm="towards" partOfSpeech="adp"/><Sense id="fw-towards-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-across"><Lemma writtenForm="across" partOfSpeech="adp"/><Sense id="fw-across-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-along"><Lemma writtenForm="along" partOfSpeech="adp"/><Sense id="fw-along-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-around"><Lemma writtenForm="around" partOfSpeech="adp"/><Sense id="fw-around-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-behind"><Lemma writtenForm="behind" partOfSpeech="adp"/><Sense id="fw-behind-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-beside"><Lemma writtenForm="beside" partOfSpeech="adp"/><Sense id="fw-beside-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-besides"><Lemma writtenForm="besides" partOfSpeech="adp"/><Sense id="fw-besides-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-beyond"><Lemma writtenForm="beyond" partOfSpeech="adp"/><Sense id="fw-beyond-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-near"><Lemma writtenForm="near" partOfSpeech="adp"/><Sense id="fw-near-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-off"><Lemma writtenForm="off" partOfSpeech="adp"/><Sense id="fw-off-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-onto"><Lemma writtenForm="onto" partOfSpeech="adp"/><Sense id="fw-onto-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-out"><Lemma writtenForm="out" partOfSpeech="adp"/><Sense id="fw-out-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-outside"><Lemma writtenForm="outside" partOfSpeech="adp"/><Sense id="fw-outside-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-inside"><Lemma writtenForm="inside" partOfSpeech="adp"/><Sense id="fw-inside-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-past"><Lemma writtenForm="past" partOfSpeech="adp"/><Sense id="fw-past-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-per"><Lemma writtenForm="per" partOfSpeech="adp"/><Sense id="fw-per-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-throughout"><Lemma writtenForm="throughout" partOfSpeech="adp"/><Sense id="fw-throughout-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-underneath"><Lemma writtenForm="underneath" partOfSpeech="adp"/><Sense id="fw-underneath-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-via"><Lemma writtenForm="via" partOfSpeech="adp"/><Sense id="fw-via-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-versus"><Lemma writtenForm="versus" partOfSpeech="adp"/><Sense id="fw-versus-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-amid"><Lemma writtenForm="amid" partOfSpeech="adp"/><Sense id="fw-amid-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-amidst"><Lemma writtenForm="amidst" partOfSpeech="adp"/><Sense id="fw-amidst-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-despite"><Lemma writtenForm="despite" partOfSpeech="adp"/><Sense id="fw-despite-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-except"><Lemma writtenForm="except" partOfSpeech="adp"/><Sense id="fw-except-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-regarding"><Lemma writtenForm="regarding" partOfSpeech="adp"/><Sense id="fw-regarding-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-concerning"><Lemma writtenForm="concerning" partOfSpeech="adp"/><Sense id="fw-concerning-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-pursuant"><Lemma writtenForm="pursuant" partOfSpeech="adp"/><Sense id="fw-pursuant-1" synset="fw-preposition"/></LexicalEntry>
+    <LexicalEntry id="fw-notwithstanding"><Lemma writtenForm="notwithstanding" partOfSpeech="adp"/><Sense id="fw-notwithstanding-1" synset="fw-preposition"/></LexicalEntry>
 
     <!-- Conjunctions (OLiA: CoordinatingConjunction / SubordinatingConjunction) -->
     <LexicalEntry id="fw-and"><Lemma writtenForm="and" partOfSpeech="conj"/><Sense id="fw-and-1" synset="fw-conjunction"/></LexicalEntry>
@@ -104,6 +192,14 @@
     <LexicalEntry id="fw-although"><Lemma writtenForm="although" partOfSpeech="conj"/><Sense id="fw-although-1" synset="fw-conjunction"/></LexicalEntry>
     <LexicalEntry id="fw-if"><Lemma writtenForm="if" partOfSpeech="conj"/><Sense id="fw-if-1" synset="fw-conjunction"/></LexicalEntry>
     <LexicalEntry id="fw-when"><Lemma writtenForm="when" partOfSpeech="conj"/><Sense id="fw-when-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-while"><Lemma writtenForm="while" partOfSpeech="conj"/><Sense id="fw-while-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-until"><Lemma writtenForm="until" partOfSpeech="conj"/><Sense id="fw-until-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-since"><Lemma writtenForm="since" partOfSpeech="conj"/><Sense id="fw-since-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-unless"><Lemma writtenForm="unless" partOfSpeech="conj"/><Sense id="fw-unless-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-than"><Lemma writtenForm="than" partOfSpeech="conj"/><Sense id="fw-than-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-then"><Lemma writtenForm="then" partOfSpeech="conj"/><Sense id="fw-then-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-as"><Lemma writtenForm="as" partOfSpeech="conj"/><Sense id="fw-as-1" synset="fw-conjunction"/></LexicalEntry>
+    <LexicalEntry id="fw-whereas"><Lemma writtenForm="whereas" partOfSpeech="conj"/><Sense id="fw-whereas-1" synset="fw-conjunction"/></LexicalEntry>
 
     <!-- Particles -->
     <LexicalEntry id="fw-not"><Lemma writtenForm="not" partOfSpeech="part"/><Sense id="fw-not-1" synset="fw-particle"/></LexicalEntry>
@@ -134,6 +230,7 @@
     <Synset id="fw-auxiliary" partOfSpeech="aux"><Definition>auxiliary verb</Definition></Synset>
     <Synset id="fw-personal-pron" partOfSpeech="pron"><Definition>personal pronoun</Definition></Synset>
     <Synset id="fw-interrogative-pron" partOfSpeech="pron"><Definition>interrogative pronoun</Definition></Synset>
+    <Synset id="fw-possessive-pron" partOfSpeech="pron"><Definition>possessive pronoun / genitive determiner (Huddleston &amp; Pullum 2002 Ch. 5 §10)</Definition></Synset>
     <Synset id="fw-preposition" partOfSpeech="adp"><Definition>preposition</Definition></Synset>
     <Synset id="fw-conjunction" partOfSpeech="conj"><Definition>conjunction</Definition></Synset>
     <Synset id="fw-particle" partOfSpeech="part"><Definition>particle</Definition></Synset>

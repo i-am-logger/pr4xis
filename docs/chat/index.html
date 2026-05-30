@@ -51,87 +51,34 @@
       white-space: pre-wrap;
       font-size: 0.95em;
     }
-    .user {
-      align-self: flex-end;
-      background: #1f6feb;
-      color: #fff;
-      margin-top: 0.5rem;
-    }
-    .user::before {
-      content: '→ ';
-      opacity: 0.6;
-    }
-    .system {
-      align-self: flex-start;
-      background: #0d1f0d;
-      border: 1px solid #238636;
-      color: #e6edf3;
-    }
-    .system::before {
-      content: '← ';
-      opacity: 0.6;
-    }
-    .system.fallback {
-      background: #161b22;
-      border-color: #58a6ff;
-      color: #79c0ff;
-      font-style: italic;
-    }
-    .info {
-      align-self: center;
-      color: #8b949e;
-      font-size: 0.8em;
-      font-style: italic;
-    }
+    .user { align-self: flex-end; background: #1f6feb; color: #fff; margin-top: 0.5rem; }
+    .user::before { content: '→ '; opacity: 0.6; }
+    .system { align-self: flex-start; background: #0d1f0d; border: 1px solid #238636; color: #e6edf3; }
+    .system::before { content: '← '; opacity: 0.6; }
+    .system.fallback { background: #161b22; border-color: #58a6ff; color: #79c0ff; font-style: italic; }
+    .info { align-self: center; color: #8b949e; font-size: 0.8em; font-style: italic; }
 
     /* Trace: attached below each response, pulls down like accordion */
     .trace-toggle {
-      align-self: flex-start;
-      background: none;
-      border: none;
-      color: #484f58;
-      font-size: 0.7em;
-      cursor: pointer;
-      padding: 0.2rem 0;
-      margin-left: 0.5rem;
+      align-self: flex-start; background: none; border: none; color: #484f58;
+      font-size: 0.7em; cursor: pointer; padding: 0.2rem 0; margin-left: 0.5rem;
     }
     .trace-toggle:hover { color: #7ee787; }
     .trace-toggle.open { color: #7ee787; }
     .trace-panel {
-      max-width: 100%;
-      display: none;
-      border-top: 1px solid #21262d;
-      margin-top: 0.5em;
-      font-family: monospace;
-      font-size: 0.72em;
-      color: #8b949e;
-      white-space: pre-wrap;
-      word-break: break-all;
-      padding: 0.5rem 0;
+      max-width: 100%; display: none; border-top: 1px solid #21262d; margin-top: 0.5em;
+      font-family: monospace; font-size: 0.72em; color: #8b949e;
+      white-space: pre-wrap; word-break: break-all; padding: 0.5rem 0;
     }
-    .trace-panel.open {
-      display: block;
-    }
+    .trace-panel.open { display: block; }
     .trace-panel .step { color: #8b949e; margin-left: 0.5em; }
     .trace-panel .step::before { content: '├─ '; color: #30363d; }
     .trace-panel .step:last-child::before { content: '└─ '; color: #30363d; }
 
-    #input-area {
-      padding: 1rem 2rem;
-      border-top: 1px solid #21262d;
-      display: flex;
-      gap: 0.8rem;
-    }
+    #input-area { padding: 1rem 2rem; border-top: 1px solid #21262d; display: flex; gap: 0.8rem; }
     #input {
-      flex: 1;
-      padding: 0.7rem 1rem;
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      color: #c9d1d9;
-      font-size: 1em;
-      font-family: inherit;
-      outline: none;
+      flex: 1; padding: 0.7rem 1rem; background: #161b22; border: 1px solid #30363d;
+      border-radius: 8px; color: #c9d1d9; font-size: 1em; font-family: inherit; outline: none;
     }
     #input:focus { border-color: #58a6ff; }
     #input::placeholder { color: #484f58; }
@@ -147,86 +94,98 @@
     .tab-content { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
     .tab-content.active { display: flex; }
 
-    /* pr4xis page */
+    /* pr4xis self-model page */
     #about { padding: 2rem 3rem; gap: 1rem; overflow-y: auto; }
     @media (max-width: 768px) { #about { padding: 1rem; } }
     .dash-summary {
-      display: flex; gap: 1.5rem; flex-wrap: wrap; padding-bottom: 1rem;
-      border-bottom: 1px solid #21262d;
+      display: flex; gap: 1.5rem; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid #21262d;
     }
-    .dash-stat {
-      text-align: center; min-width: 100px;
-    }
+    .dash-stat { text-align: center; min-width: 90px; }
     .dash-stat .value { font-size: 2em; font-weight: 700; color: #58a6ff; }
-    .dash-stat .label { font-size: 0.75em; color: #8b949e; text-transform: uppercase; }
-    .dash-group { margin-top: 0.8rem; }
-    .dash-group-title {
-      font-size: 0.85em; font-weight: 600; color: #7ee787; text-transform: uppercase;
-      letter-spacing: 0.05em; margin-bottom: 0.5rem;
+    .dash-stat .label { font-size: 0.7em; color: #8b949e; text-transform: uppercase; }
+    .section-title {
+      font-size: 0.8em; font-weight: 700; color: #7ee787; text-transform: uppercase;
+      letter-spacing: 0.06em; margin: 1.2rem 0 0.6rem;
     }
-    /* Being group boxes */
-    .being-box {
+    .filter-box {
+      width: 100%; padding: 0.5rem 1rem; background: #161b22; border: 1px solid #30363d;
+      border-radius: 8px; color: #c9d1d9; font-size: 0.9em; outline: none; margin-bottom: 0.6rem;
+    }
+    .filter-box:focus { border-color: #58a6ff; }
+
+    /* Flat source catalog — a responsive grid of cards, no nesting */
+    .source-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.6rem;
+    }
+    .source-card {
       background: #161b22; border: 1px solid #21262d; border-radius: 10px;
-      margin-bottom: 0.6rem; overflow: hidden;
+      padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.35rem;
     }
-    .being-header {
-      display: flex; align-items: center; gap: 0.6rem;
-      padding: 0.7rem 1rem; cursor: pointer; user-select: none;
+    .source-card.loaded { border-color: #238636; }
+    .source-card.available { opacity: 0.62; }
+    .source-card .row { display: flex; align-items: center; gap: 0.5rem; }
+    .source-card .name { font-weight: 600; color: #c9d1d9; font-size: 0.92em; }
+    .source-card .kind { color: #8b949e; font-size: 0.72em; font-family: monospace; }
+    .source-card .cite { color: #6e7681; font-size: 0.7em; font-style: italic; line-height: 1.35; }
+    .source-card .counts { color: #8b949e; font-size: 0.72em; }
+    .badge {
+      display: inline-block; padding: 0.12rem 0.5rem; border-radius: 10px;
+      font-size: 0.62em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .badge-loaded { background: #23863633; color: #3fb950; border: 1px solid #238636; }
+    .badge-available { background: #6e768122; color: #8b949e; border: 1px solid #30363d; }
+    .badge-staging { background: #1f6feb22; color: #58a6ff; border: 1px solid #1f6feb33; }
+    .load-btn {
+      margin-left: auto; padding: 0.3rem 0.9rem; background: #1f6feb; color: #fff; border: none;
+      border-radius: 8px; font-size: 0.75em; font-weight: 600; cursor: pointer;
       transition: background 0.15s;
     }
-    .being-header:hover { background: #1c2128; }
-    .being-arrow {
-      color: #484f58; font-size: 0.7em; width: 1em;
-      transition: transform 0.15s; display: inline-block;
+    .load-btn:hover { background: #388bfd; }
+    .load-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+    /* Two-phase load progress (download → materialize) */
+    .progress { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    .progress-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 0.68em; color: #8b949e;
     }
-    .being-label { color: #7ee787; font-weight: 600; font-size: 0.9em; }
-    .being-count { color: #484f58; font-size: 0.8em; }
-    .being-content { padding: 0 1rem 0.5rem; }
-    /* Tree branch boxes — same visual treatment as Being boxes */
-    .tree-branch {
-      background: #161b22; border: 1px solid #21262d; border-radius: 10px;
-      margin: 0.4rem 0; overflow: hidden;
+    .progress-phase { font-weight: 600; color: #58a6ff; }
+    .progress-track {
+      height: 6px; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; overflow: hidden;
     }
-    .tree-header {
-      display: flex; align-items: center; gap: 0.6rem;
-      padding: 0.6rem 1rem; cursor: pointer; user-select: none;
-      transition: background 0.15s;
+    /* Determinate (download): smooth gradient fill that grows by % */
+    .progress-fill {
+      height: 100%; width: 0%; border-radius: 6px;
+      background: linear-gradient(90deg, #1f6feb, #58a6ff);
+      transition: width 0.18s ease-out;
     }
-    .tree-header:hover { background: #1c2128; }
-    .tree-arrow {
-      color: #484f58; font-size: 0.7em; width: 1em;
-      transition: transform 0.15s; display: inline-block;
+    /* Indeterminate (parsing): a sweep that slides while the parser runs */
+    .progress-fill.indeterminate {
+      width: 40%; background: linear-gradient(90deg, transparent, #58a6ff, transparent);
+      animation: sweep 1.1s ease-in-out infinite;
     }
-    .tree-label { color: #58a6ff; font-weight: 600; font-size: 0.85em; }
-    .tree-count { color: #484f58; font-size: 0.75em; }
-    .tree-content { padding: 0.3rem 0.8rem 0.5rem; }
-    /* Ontology cards */
+    @keyframes sweep {
+      0% { margin-left: -40%; } 100% { margin-left: 100%; }
+    }
+    .progress.done .progress-fill {
+      background: linear-gradient(90deg, #238636, #3fb950); width: 100% !important;
+      animation: none; margin-left: 0;
+    }
+    .progress-err { color: #f85149; }
+
+    /* Substrate ontologies — flat filterable list, no DOLCE/domain tree */
     .ont-card {
       background: #161b22; border: 1px solid #21262d; border-radius: 8px;
-      padding: 0.7rem 1rem; margin: 0.3rem 0; cursor: default;
-      transition: border-color 0.15s;
+      padding: 0.55rem 0.9rem; display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
     }
-    .ont-card:hover { border-color: #58a6ff; }
-    .ont-card .name { font-weight: 600; color: #c9d1d9; font-size: 0.9em; }
-    .ont-card .domain { color: #484f58; font-size: 0.7em; font-family: monospace; }
-    .ont-card .counts { color: #8b949e; font-size: 0.75em; margin-top: 0.3rem; }
-    .ont-card .source { color: #484f58; font-size: 0.65em; font-style: italic; margin-top: 0.2rem; }
-    .badge {
-      display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px;
-      font-size: 0.65em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
-    }
-    .badge-embedded { background: #1f6feb33; color: #58a6ff; border: 1px solid #1f6feb; }
-    .badge-codegen { background: #23863633; color: #3fb950; border: 1px solid #238636; }
+    .ont-card .name { font-weight: 600; color: #c9d1d9; font-size: 0.85em; }
+    .ont-card .domain { color: #484f58; font-size: 0.68em; font-family: monospace; }
+    .ont-card .counts { color: #8b949e; font-size: 0.7em; margin-left: auto; }
+    .ont-list { display: flex; flex-direction: column; gap: 0.3rem; }
 
     #send {
-      padding: 0.7rem 1.5rem;
-      background: #238636;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 1em;
-      cursor: pointer;
-      font-weight: 600;
+      padding: 0.7rem 1.5rem; background: #238636; color: #fff; border: none; border-radius: 8px;
+      font-size: 1em; cursor: pointer; font-weight: 600;
     }
     #send:hover { background: #2ea043; }
     #send:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
@@ -246,13 +205,13 @@
   </div>
 
   <div id="chat-tab" class="tab-content">
-    <div id="chat" style="flex:1;overflow-y:auto;padding:1.5rem 2rem 3rem;display:flex;flex-direction:column;gap:0.5rem;">
-      <div class="message info">Loading English ontology (107,000 concepts)...</div>
+    <div id="chat">
+      <div class="message info">Loading…</div>
     </div>
   </div>
 
   <div id="about" class="tab-content active">
-    <div class="message info">Loading ontology inventory...</div>
+    <div class="message info">Loading self-model…</div>
   </div>
 
   <div id="input-area" style="display:none">
@@ -261,14 +220,36 @@
   </div>
 
   <script type="module">
-    import init, { Pr4xis } from './pkg/pr4xis_wasm.js';
+    // pr4xis runs entirely in a Web Worker, so downloading + parsing a
+    // large statute never freezes the UI. The main thread is pure
+    // presentation; every engine call is an async message.
+    const worker = new Worker('./worker.js', { type: 'module' });
+    let nextRpcId = 1;
+    const pending = new Map();
+    worker.onmessage = (e) => {
+      const m = e.data;
+      const p = pending.get(m.id);
+      if (!p) return;
+      if (m.status === 'progress') { if (p.onProgress) p.onProgress(m); return; }
+      pending.delete(m.id);
+      if (m.status === 'ok') p.resolve(m.payload);
+      else p.reject(new Error(m.payload));
+    };
+    worker.onerror = (e) => console.error('worker error:', e.message || e);
+    function call(type, args, onProgress) {
+      const id = nextRpcId++;
+      return new Promise((resolve, reject) => {
+        pending.set(id, { resolve, reject, onProgress });
+        worker.postMessage({ id, type, args: args || {} });
+      });
+    }
 
     const chat = document.getElementById('chat');
     const input = document.getElementById('input');
     const send = document.getElementById('send');
     const status = document.getElementById('status');
 
-    let pr4xis = null;
+    let pr4xisMeta = { concept_count: 0, word_count: 0 };
 
     function addMessage(text, cls) {
       const div = document.createElement('div');
@@ -279,6 +260,9 @@
       return div;
     }
 
+    // Generic pipeline trace: render each step in order, colored by its
+    // status field. No hardcoded ontology names — the trace is whatever
+    // the engine reports.
     function addTraceAccordion(trace) {
       const btn = document.createElement('button');
       btn.className = 'trace-toggle';
@@ -287,64 +271,20 @@
       const panel = document.createElement('div');
       panel.className = 'trace-panel';
 
-      // Parse "status:ontology:action:detail | ..." into colored rows
-      // Response ontologies (NLG, Content Determination, Realization) use ←
-      const responseSteps = new Set(['Metacognition', 'Pragmatics (Searle)', 'Pragmatics', 'NLG (Reiter-Dale)', 'Document Planning (RST)', 'SVO Grammar', 'Content Determination']);
-
-      const parts = trace.split(' | ');
-      // Add request header at start
-      const reqHeader = document.createElement('div');
-      reqHeader.style.cssText = 'border-top:1px dashed #30363d; margin:0.3em 0; padding-top:0.2em; color:#484f58; font-size:0.9em;';
-      reqHeader.textContent = '── request ──';
-      panel.appendChild(reqHeader);
-
-      let lastDirection = '→';
-      for (const part of parts) {
+      for (const part of trace.split(' | ')) {
         const fields = part.split(':');
         const row = document.createElement('div');
         row.className = 'step';
         if (fields.length >= 4) {
-          const status = fields[0].trim();
+          const st = fields[0].trim();
           const ontology = fields[1].trim();
           const action = fields[2].trim();
           const detail = fields.slice(3).join(':').trim();
-
-          // Direction: input pipeline → , response pipeline ←
-          const isResponse = responseSteps.has(ontology);
-          const direction = isResponse ? '←' : '→';
-
-          // Add separator when direction changes
-          if (direction !== lastDirection) {
-            const sep = document.createElement('div');
-            sep.style.cssText = 'border-top:1px dashed #30363d; margin:0.3em 0; padding-top:0.2em; color:#484f58; font-size:0.9em;';
-            sep.textContent = isResponse ? '── response ──' : '── input ──';
-            panel.appendChild(sep);
-            lastDirection = direction;
-          }
-
-          const dirEl = document.createElement('span');
-          dirEl.style.color = '#484f58';
-          dirEl.textContent = direction + ' ';
-
-          const lineColor = status === 'warn' ? '#d29922' : status === 'err' ? '#f85149' : '#8b949e';
-
-          const ontEl = document.createElement('span');
-          ontEl.style.fontWeight = '600';
-          ontEl.style.color = lineColor;
-          ontEl.textContent = ontology;
-
-          const actEl = document.createElement('span');
-          actEl.style.color = lineColor;
-          actEl.textContent = ` → ${action}: `;
-
-          const detEl = document.createElement('span');
-          detEl.style.color = lineColor;
-          detEl.textContent = detail;
-
-          row.appendChild(dirEl);
-          row.appendChild(ontEl);
-          row.appendChild(actEl);
-          row.appendChild(detEl);
+          const color = st === 'warn' ? '#d29922' : st === 'err' ? '#f85149' : '#8b949e';
+          const mk = (t, weight) => { const s = document.createElement('span'); s.style.color = color; if (weight) s.style.fontWeight = weight; s.textContent = t; return s; };
+          row.appendChild(mk(ontology, '600'));
+          row.appendChild(mk(` → ${action}: `));
+          row.appendChild(mk(detail));
         } else {
           row.textContent = part;
         }
@@ -355,29 +295,24 @@
         const isOpen = panel.classList.toggle('open');
         btn.classList.toggle('open', isOpen);
         btn.textContent = isOpen ? '▼ pipeline' : '▶ pipeline';
-        if (isOpen) {
-          // Scroll the panel into view after it appears
-          requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
-        }
+        if (isOpen) requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
       });
 
-      // Return the elements for embedding inside the response bubble
       return { btn, panel };
     }
 
     async function initialize() {
       try {
-        await init();
-        pr4xis = new Pr4xis();
-        status.textContent = `${pr4xis.concept_count().toLocaleString()} concepts`;
+        pr4xisMeta = await call('init');
+        status.textContent = `${pr4xisMeta.concept_count.toLocaleString()} concepts`;
         status.className = 'ready';
         addMessage(
           `pr4xis — axiomatic intelligence\n` +
-          `  ${pr4xis.concept_count().toLocaleString()} concepts, ${pr4xis.word_count().toLocaleString()} words\n` +
-          `  running entirely in your browser — no server`,
+          `  ${pr4xisMeta.concept_count.toLocaleString()} concepts, ${pr4xisMeta.word_count.toLocaleString()} words\n` +
+          `  running in a Web Worker — no server, UI stays responsive`,
           'info'
         );
-        await renderDashboard(pr4xis);
+        await renderDashboard();
         input.disabled = false;
         send.disabled = false;
         input.focus();
@@ -393,21 +328,24 @@
       }
     }
 
-    function handleSend() {
+    async function handleSend() {
       const text = input.value.trim();
-      if (!text || !pr4xis) return;
-
+      if (!text) return;
       addMessage(text, 'user');
       input.value = '';
-
       const t0 = performance.now();
-      const raw = pr4xis.chat(text);
+      let raw;
+      try {
+        raw = await call('chat', { input: text });
+      } catch (e) {
+        addMessage(`error: ${e}`, 'info');
+        return;
+      }
       const elapsed = performance.now() - t0;
       try {
         const result = JSON.parse(raw);
         const dur = elapsed < 1 ? `${(elapsed * 1000).toFixed(0)}µs` : `${elapsed.toFixed(1)}ms`;
         const msgDiv = addMessage(result.response, result.from_ontology === false ? 'system fallback' : 'system');
-        // Embed trace + stats INSIDE the response bubble
         if (result.trace) {
           const { btn, panel } = addTraceAccordion(result.trace);
           msgDiv.appendChild(btn);
@@ -436,255 +374,400 @@
       });
     });
 
-    async function renderDashboard(pr4xis) {
-      const raw = pr4xis.self_describe();
-      let data;
-      try { data = JSON.parse(raw); } catch (e) {
-        console.error('self_describe parse error:', e, 'raw:', raw);
-        const dash = document.getElementById('about');
-        dash.innerHTML = `<div class="message info">Failed to parse self_describe: ${e}</div>`;
+    const fmtMB = b => (b / (1024 * 1024)).toFixed(b < 1024 * 1024 ? 2 : 1) + ' MB';
+
+    // Download a source's authoritative USLM XML (streaming, with a real
+    // progress bar), then parse it into a live UsCode (Nelson-Narens
+    // control: Available → Loaded). Two visible phases: Downloading →
+    // Materializing.
+    async function loadSource(name, url, totalHint, card, topRow) {
+      const btn = topRow.querySelector('.load-btn');
+      if (btn) btn.remove();
+
+      const prog = document.createElement('div');
+      prog.className = 'progress';
+      prog.innerHTML =
+        '<div class="progress-head"><span class="progress-phase">Downloading…</span>' +
+        '<span class="progress-detail"></span></div>' +
+        '<div class="progress-track"><div class="progress-fill"></div></div>';
+      card.appendChild(prog);
+      const phase = prog.querySelector('.progress-phase');
+      const detail = prog.querySelector('.progress-detail');
+      const fill = prog.querySelector('.progress-fill');
+
+      try {
+        // The worker downloads + parses; we just render the progress it
+        // posts. The parse runs off the main thread, so the bar keeps
+        // animating and the page stays responsive even for a big title.
+        await call('load', { name, url, totalHint }, (m) => {
+          if (m.phase === 'download') {
+            const total = m.total || totalHint || 0;
+            if (total) {
+              const pct = Math.min(100, Math.round((m.received / total) * 100));
+              fill.style.width = pct + '%';
+              detail.textContent = `${fmtMB(m.received)} / ${fmtMB(total)} · ${pct}%`;
+            } else {
+              detail.textContent = fmtMB(m.received);
+            }
+          } else if (m.phase === 'parse') {
+            phase.textContent = 'Materializing…';
+            detail.textContent = `${fmtMB(m.received)} · parsing into a live ontology`;
+            fill.classList.add('indeterminate');
+            fill.style.width = '';
+          }
+        });
+
+        prog.classList.add('done');
+        phase.textContent = 'Loaded';
+        detail.textContent = '';
+        await new Promise(r => setTimeout(r, 280));
+        await renderDashboard();          // re-observe: the source is now Loaded
+      } catch (e) {
+        prog.classList.add('progress-err');
+        phase.textContent = 'Failed';
+        detail.classList.add('progress-err');
+        detail.textContent = String(e).slice(0, 90);
+        console.error('load_source failed:', e);
+        const retry = document.createElement('button');
+        retry.className = 'load-btn';
+        retry.textContent = 'Retry';
+        retry.addEventListener('click', () => { prog.remove(); loadSource(name, url, totalHint, card, topRow); });
+        topRow.appendChild(retry);
+      }
+    }
+
+    // Load a registered OWL vocabulary via one of its two routes — the
+    // hash-validated `.prx.gz` distribution envelope or the authoritative
+    // `.owl` source. The two paths share UI; only the worker RPC differs.
+    // `kind` is 'prx' or 'source' — drives the RPC and the response decoder
+    // (binary ArrayBuffer for .prx.gz; text for .owl).
+    async function loadOntology(kind, meta, card, topRow) {
+      const rpc = kind === 'prx' ? 'load_prx' : 'load_owl_source';
+      const url = kind === 'prx' ? meta.prx_url : meta.source_url;
+      const phaseLabel = kind === 'prx' ? 'Loading .prx' : 'Loading source';
+      // Take both ontology buttons offline for the duration of the load —
+      // the worker holds one ontology by name, so a second concurrent
+      // load on the same row would race the install.
+      for (const b of topRow.querySelectorAll('.load-btn')) b.remove();
+
+      const prog = document.createElement('div');
+      prog.className = 'progress';
+      prog.innerHTML =
+        `<div class="progress-head"><span class="progress-phase">${phaseLabel}…</span>` +
+        '<span class="progress-detail"></span></div>' +
+        '<div class="progress-track"><div class="progress-fill"></div></div>';
+      card.appendChild(prog);
+      const phase = prog.querySelector('.progress-phase');
+      const detail = prog.querySelector('.progress-detail');
+      const fill = prog.querySelector('.progress-fill');
+
+      try {
+        await call(rpc, { name: meta.name, version: meta.version, url }, (m) => {
+          if (m.phase === 'download') {
+            const total = m.total || 0;
+            if (total) {
+              const pct = Math.min(100, Math.round((m.received / total) * 100));
+              fill.style.width = pct + '%';
+              detail.textContent = `${fmtMB(m.received)} / ${fmtMB(total)} · ${pct}%`;
+            } else {
+              detail.textContent = fmtMB(m.received);
+            }
+          } else if (m.phase === 'parse') {
+            phase.textContent = 'Materializing…';
+            detail.textContent = `${fmtMB(m.received)} · parsing into a live ontology`;
+            fill.classList.add('indeterminate');
+            fill.style.width = '';
+          }
+        });
+
+        prog.classList.add('done');
+        phase.textContent = 'Loaded';
+        detail.textContent = '';
+        await new Promise(r => setTimeout(r, 280));
+        await renderDashboard();
+      } catch (e) {
+        // Surface the wasm error verbatim (fail-closed: a tampered .prx.gz
+        // is rejected by `load_prx`'s embedded source-hash gate; this is
+        // where the gate's verdict reaches the operator).
+        prog.classList.add('progress-err');
+        phase.textContent = 'Failed';
+        detail.classList.add('progress-err');
+        detail.textContent = String(e).slice(0, 140);
+        console.error(`${rpc} failed:`, e);
+        const retry = document.createElement('button');
+        retry.className = 'load-btn';
+        retry.textContent = 'Retry';
+        retry.addEventListener('click', () => { prog.remove(); loadOntology(kind, meta, card, topRow); });
+        topRow.appendChild(retry);
+      }
+    }
+
+    // The self-model page: a flat catalog of every registered source
+    // (Loaded vs Available) + the substrate ontologies. Rendered purely
+    // from what the runtime reports — no source-specific knowledge here.
+    async function renderDashboard() {
+      const dash = document.getElementById('about');
+      let data, sources_avail, ontologies_avail;
+      try {
+        data = JSON.parse(await call('self_describe'));
+        sources_avail = JSON.parse(await call('available_sources')).sources || [];
+        ontologies_avail = JSON.parse(await call('available_ontologies')).ontologies || [];
+      } catch (e) {
+        dash.innerHTML = `<div class="message info" style="color:#f85149;">self_describe parse error: ${e}</div>`;
         return;
       }
+      const sourceByName = new Map(sources_avail.map(a => [a.name, a]));
+      const ontologyByName = new Map(ontologies_avail.map(o => [o.name, o]));
+      // Sources catalog: USC titles etc. OWL vocabularies appear in the
+      // catalog too (registered SourceTaxonomy=OntologyVocabulary) — they
+      // get their own dual-load section below, so suppress them here to
+      // avoid duplicating the row.
+      const sources = (data.sources || []).filter(s => s.kind !== 'OntologyVocabulary');
+      const ontologyCatalog = (data.sources || []).filter(s => s.kind === 'OntologyVocabulary');
+      const ontologies = data.ontologies || [];
 
-      const dash = document.getElementById('about');
       dash.innerHTML = '';
 
-      // Compute totals from the ontology list
-      const totalConcepts = data.ontologies.reduce((s, o) => s + (Array.isArray(o.concepts) ? o.concepts.length : 0), 0);
-      const totalMorphisms = data.ontologies.reduce((s, o) => s + (o.morphism_count || 0), 0);
-
-      // Header: logo + name + GitHub link
+      // Hero
       const hero = document.createElement('div');
       hero.style.cssText = 'display:flex; align-items:center; gap:1rem; padding-bottom:1rem;';
       hero.innerHTML =
         '<img src="./praxis-logo-dark.jpg" alt="pr4xis" style="height:64px; border-radius:8px;" onerror="this.style.display=\'none\'">' +
         '<div>' +
           '<div style="font-size:1.8em; font-weight:700; color:#58a6ff;">pr4xis</div>' +
-          '<div style="color:#8b949e; font-size:0.9em;">Axiomatic intelligence — ' + data.ontologies.length + ' ontologies, ' +
-            totalConcepts.toLocaleString() + ' entities · ' + totalMorphisms.toLocaleString() + ' morphisms — running entirely in your browser</div>' +
-          '<a href="https://github.com/i-am-logger/pr4xis" target="_blank" rel="noopener" ' +
-            'style="color:#58a6ff; font-size:0.8em; text-decoration:none;">github.com/i-am-logger/pr4xis</a>' +
+          `<div style="color:#8b949e; font-size:0.9em;">Axiomatic intelligence — self-model · ${data.awareness || ''} — running entirely in your browser</div>` +
+          '<a href="https://github.com/i-am-logger/pr4xis" target="_blank" rel="noopener" style="color:#58a6ff; font-size:0.8em; text-decoration:none;">github.com/i-am-logger/pr4xis</a>' +
         '</div>';
       dash.appendChild(hero);
 
-      // Search/filter
-      const searchBox = document.createElement('input');
-      searchBox.type = 'text';
-      searchBox.placeholder = 'Filter ontologies...';
-      searchBox.style.cssText = 'width:100%;padding:0.5rem 1rem;background:#161b22;border:1px solid #30363d;border-radius:8px;color:#c9d1d9;font-size:0.9em;outline:none;margin-bottom:0.5rem;';
-      searchBox.addEventListener('input', () => {
-        const q = searchBox.value.toLowerCase();
-        dash.querySelectorAll('.ont-card').forEach(card => {
-          const text = card.textContent.toLowerCase();
-          card.style.display = text.includes(q) ? '' : 'none';
-        });
-        dash.querySelectorAll('.dash-group').forEach(group => {
-          const visible = group.querySelectorAll('.ont-card[style=""],.ont-card:not([style])').length;
-          group.style.display = visible > 0 ? '' : 'none';
-        });
-      });
-      dash.appendChild(searchBox);
-
-      // Fetch WASM binary size
+      // Summary stats — all derived from the self-model
       let wasmSize = '?';
       try {
         const resp = await fetch('./pkg/pr4xis_wasm_bg.wasm', { method: 'HEAD' });
-        const bytes = parseInt(resp.headers.get('content-length') || '0', 10);
-        if (bytes > 0) wasmSize = (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-      } catch { /* offline or CORS — leave as ? */ }
-
-      // Summary bar
+        const b = parseInt(resp.headers.get('content-length') || '0', 10);
+        if (b > 0) wasmSize = (b / (1024 * 1024)).toFixed(1) + ' MB';
+      } catch { /* offline */ }
       const summary = document.createElement('div');
       summary.className = 'dash-summary';
       [
-        { value: data.ontologies.length, label: 'ontologies' },
-        { value: totalConcepts.toLocaleString(), label: 'entities' },
-        { value: totalMorphisms.toLocaleString(), label: 'morphisms' },
+        { value: `${data.loaded_source_count ?? 0}/${data.source_count ?? sources.length}`, label: 'sources loaded' },
+        { value: (data.total_concepts ?? 0).toLocaleString(), label: 'entities' },
+        { value: (data.total_morphisms ?? 0).toLocaleString(), label: 'morphisms' },
+        { value: ontologies.length, label: 'ontologies' },
         { value: wasmSize, label: 'wasm binary' },
-        { value: data.version, label: 'version' },
-        { value: data.awareness, label: 'awareness' },
+        { value: data.version || '', label: 'version' },
       ].forEach(({ value, label }) => {
         const stat = document.createElement('div');
         stat.className = 'dash-stat';
         stat.innerHTML = `<div class="value">${value}</div><div class="label">${label}</div>`;
         summary.appendChild(stat);
       });
-
-      // Deployment badges + note
-      const badges = document.createElement('div');
-      badges.style.cssText = 'display:flex; gap:0.5rem; flex-wrap:wrap; padding-top:0.8rem; align-items:center;';
-      badges.innerHTML =
-        '<span class="badge badge-embedded">embedded in binary</span>' +
-        '<span class="badge badge-codegen">build-time codegen</span>' +
-        '<span class="badge badge-embedded">no server — runs in your browser</span>';
-      summary.appendChild(badges);
-
-      const note = document.createElement('div');
-      note.style.cssText = 'color:#484f58; font-size:0.75em; padding-top:0.5rem;';
-      note.textContent = 'Structural definitions compiled into the WASM binary. ' +
-        'Concept/morphism counts reflect the category structure. ' +
-        'English WordNet (107k synsets) loaded via build-time codegen from the upstream Global WordNet Association release.';
-      summary.appendChild(note);
-
       dash.appendChild(summary);
 
-      // Build hierarchical tree from domain paths
-      function buildTree(ontologies) {
-        const root = { _children: {}, _items: [] };
-        for (const o of ontologies) {
-          const parts = o.domain.split('.');
-          let node = root;
-          for (const part of parts) {
-            if (!node._children[part]) node._children[part] = { _children: {}, _items: [] };
-            node = node._children[part];
+      // ---- Sources catalog (the knowledge boundary) ----
+      const srcTitle = document.createElement('div');
+      srcTitle.className = 'section-title';
+      srcTitle.textContent = 'Sources — loaded · available to load';
+      dash.appendChild(srcTitle);
+
+      const srcFilter = document.createElement('input');
+      srcFilter.className = 'filter-box';
+      srcFilter.placeholder = 'Filter sources…';
+      dash.appendChild(srcFilter);
+
+      const grid = document.createElement('div');
+      grid.className = 'source-grid';
+      dash.appendChild(grid);
+
+      // Loaded first, then available; stable by name within each.
+      const ordered = [...sources].sort((a, b) =>
+        (a.availability === b.availability ? a.name.localeCompare(b.name) : (a.availability === 'loaded' ? -1 : 1)));
+
+      for (const s of ordered) {
+        const loaded = s.availability === 'loaded';
+        const card = document.createElement('div');
+        card.className = `source-card ${loaded ? 'loaded' : 'available'}`;
+        card.dataset.source = s.name; // stable hook for the Rust E2E
+
+        const top = document.createElement('div');
+        top.className = 'row';
+        const nm = document.createElement('span');
+        nm.className = 'name';
+        nm.textContent = s.name;
+        top.appendChild(nm);
+        const badge = document.createElement('span');
+        badge.className = `badge ${loaded ? 'badge-loaded' : 'badge-available'}`;
+        badge.textContent = s.availability;
+        top.appendChild(badge);
+        if (loaded && s.staging) {
+          const sb = document.createElement('span');
+          sb.className = 'badge badge-staging';
+          sb.textContent = s.staging;
+          top.appendChild(sb);
+        }
+        // Load action only where the authoritative document is served.
+        if (!loaded && sourceByName.has(s.name)) {
+          const meta = sourceByName.get(s.name);
+          const btn = document.createElement('button');
+          btn.className = 'load-btn';
+          btn.dataset.load = s.name; // stable hook for the Rust E2E
+          btn.textContent = 'Load';
+          btn.addEventListener('click', () => loadSource(s.name, meta.url, meta.bytes, card, top));
+          top.appendChild(btn);
+        }
+        card.appendChild(top);
+
+        const kind = document.createElement('div');
+        kind.className = 'kind';
+        kind.textContent = `${s.kind || ''}${s.version ? ' · ' + s.version : ''}`;
+        card.appendChild(kind);
+
+        if (loaded && (s.concepts || s.morphisms)) {
+          const counts = document.createElement('div');
+          counts.className = 'counts';
+          counts.textContent = `${(s.concepts || 0).toLocaleString()} entities · ${(s.morphisms || 0).toLocaleString()} morphisms`;
+          card.appendChild(counts);
+        }
+
+        if (s.source) {
+          const cite = document.createElement('div');
+          cite.className = 'cite';
+          cite.textContent = s.source;
+          card.appendChild(cite);
+        }
+        grid.appendChild(card);
+      }
+
+      srcFilter.addEventListener('input', () => {
+        const q = srcFilter.value.toLowerCase();
+        grid.querySelectorAll('.source-card').forEach(c =>
+          c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none');
+      });
+
+      // ---- OWL vocabularies (dual-load: .prx.gz OR .owl source) ----
+      // Two routes for the same target: the hash-validated `.prx.gz`
+      // distribution envelope (re-checked against the embedded lock pin) or
+      // the authoritative `.owl` source. Same UX as Sources; two buttons
+      // per row instead of one. Driven entirely by what
+      // `available_ontologies` reports — no per-vocabulary knowledge here.
+      if (ontologyCatalog.length) {
+        const ontTitle = document.createElement('div');
+        ontTitle.className = 'section-title';
+        ontTitle.textContent = 'Ontologies — load .prx (hash-validated) or .owl source';
+        dash.appendChild(ontTitle);
+
+        const ontGrid = document.createElement('div');
+        ontGrid.className = 'source-grid';
+        dash.appendChild(ontGrid);
+
+        const orderedOnt = [...ontologyCatalog].sort((a, b) =>
+          (a.availability === b.availability ? a.name.localeCompare(b.name) : (a.availability === 'loaded' ? -1 : 1)));
+
+        for (const s of orderedOnt) {
+          const loaded = s.availability === 'loaded';
+          const card = document.createElement('div');
+          card.className = `source-card ${loaded ? 'loaded' : 'available'}`;
+          card.dataset.ontology = s.name;
+
+          const top = document.createElement('div');
+          top.className = 'row';
+          const nm = document.createElement('span');
+          nm.className = 'name';
+          nm.textContent = s.name;
+          top.appendChild(nm);
+          const badge = document.createElement('span');
+          badge.className = `badge ${loaded ? 'badge-loaded' : 'badge-available'}`;
+          badge.textContent = s.availability;
+          top.appendChild(badge);
+          if (loaded && s.staging) {
+            const sb = document.createElement('span');
+            sb.className = 'badge badge-staging';
+            sb.textContent = s.staging;
+            top.appendChild(sb);
           }
-          node._items.push(o);
+          // Dual-load action: only where a `.prx.gz` is published AND a
+          // .owl source is staged (i.e. the vocab appears in
+          // available_ontologies). Otherwise no Load — the catalog row
+          // is still rendered.
+          if (!loaded && ontologyByName.has(s.name)) {
+            const meta = ontologyByName.get(s.name);
+            const prxBtn = document.createElement('button');
+            prxBtn.className = 'load-btn';
+            prxBtn.dataset.loadPrx = s.name;
+            prxBtn.textContent = 'Load .prx';
+            prxBtn.title = meta.prx_url;
+            prxBtn.addEventListener('click', () => loadOntology('prx', meta, card, top));
+            top.appendChild(prxBtn);
+
+            const srcBtn = document.createElement('button');
+            srcBtn.className = 'load-btn';
+            srcBtn.style.background = '#6e7681';
+            srcBtn.dataset.loadSource = s.name;
+            srcBtn.textContent = 'Load source';
+            srcBtn.title = meta.source_url;
+            srcBtn.addEventListener('click', () => loadOntology('source', meta, card, top));
+            top.appendChild(srcBtn);
+          }
+          card.appendChild(top);
+
+          const kind = document.createElement('div');
+          kind.className = 'kind';
+          kind.textContent = `${s.kind || ''}${s.version ? ' · ' + s.version : ''}`;
+          card.appendChild(kind);
+
+          if (loaded && (s.concepts || s.morphisms)) {
+            const counts = document.createElement('div');
+            counts.className = 'counts';
+            counts.textContent = `${(s.concepts || 0).toLocaleString()} entities · ${(s.morphisms || 0).toLocaleString()} morphisms`;
+            card.appendChild(counts);
+          }
+
+          if (s.source || s.citation) {
+            const cite = document.createElement('div');
+            cite.className = 'cite';
+            cite.textContent = s.source || s.citation;
+            card.appendChild(cite);
+          }
+          ontGrid.appendChild(card);
         }
-        return root._children;
       }
 
-      function aggregateNode(node) {
-        let ontologies = (node._items || []).length;
-        let concepts = (node._items || []).reduce((s, o) => s + (Array.isArray(o.concepts) ? o.concepts.length : 0), 0);
-        let morphisms = (node._items || []).reduce((s, o) => s + (o.morphism_count || 0), 0);
-        for (const v of Object.values(node._children || {})) {
-          const child = aggregateNode(v);
-          ontologies += child.ontologies;
-          concepts += child.concepts;
-          morphisms += child.morphism_count;
-        }
-        return { ontologies, concepts, morphisms };
-      }
+      // ---- Substrate ontologies (flat, filterable) ----
+      if (ontologies.length) {
+        const ontTitle = document.createElement('div');
+        ontTitle.className = 'section-title';
+        ontTitle.textContent = `Reasoning substrate — ${ontologies.length} ontologies`;
+        dash.appendChild(ontTitle);
 
-      function renderTreeNode(name, node) {
-        const items = node._items || [];
-        const children = node._children || {};
-        const childKeys = Object.keys(children).sort();
-        const agg = aggregateNode(node);
+        const ontFilter = document.createElement('input');
+        ontFilter.className = 'filter-box';
+        ontFilter.placeholder = 'Filter ontologies…';
+        dash.appendChild(ontFilter);
 
-        // If this is a leaf with just one item and no children, render card directly
-        if (childKeys.length === 0 && items.length === 1) {
-          const o = items[0];
+        const list = document.createElement('div');
+        list.className = 'ont-list';
+        dash.appendChild(list);
+
+        for (const o of [...ontologies].sort((a, b) => a.name.localeCompare(b.name))) {
           const card = document.createElement('div');
           card.className = 'ont-card';
+          const concepts = Array.isArray(o.concepts) ? o.concepts.length : (o.concepts || 0);
           card.innerHTML =
-            `<div class="name">${o.name}</div>` +
-            `<div class="domain">${o.domain}</div>` +
-            `<div class="counts">${Array.isArray(o.concepts) ? o.concepts.length : 0} entities · ${o.morphism_count || 0} morphisms</div>` +
-            `<div class="source">${o.source}</div>`;
-          return card;
+            `<span class="name">${o.name}</span>` +
+            `<span class="domain">${o.domain || ''}</span>` +
+            `<span class="counts">${concepts.toLocaleString()} entities · ${(o.morphisms || 0).toLocaleString()} morphisms</span>`;
+          list.appendChild(card);
         }
-
-        const box = document.createElement('div');
-        box.className = 'tree-branch';
-
-        const header = document.createElement('div');
-        header.className = 'tree-header';
-        const arrow = document.createElement('span');
-        arrow.className = 'tree-arrow';
-        arrow.textContent = '▶';
-        header.appendChild(arrow);
-        const label = document.createElement('span');
-        label.className = 'tree-label';
-        label.textContent = name;
-        header.appendChild(label);
-        const stats = document.createElement('span');
-        stats.className = 'tree-count';
-        stats.textContent = ` ${agg.ontologies} ontologies · ${agg.concepts.toLocaleString()} entities · ${agg.morphisms.toLocaleString()} morphisms`;
-        header.appendChild(stats);
-        box.appendChild(header);
-
-        const content = document.createElement('div');
-        content.className = 'tree-content';
-        content.style.display = 'none';
-
-        for (const o of items) {
-          const card = document.createElement('div');
-          card.className = 'ont-card';
-          card.innerHTML =
-            `<div class="name">${o.name}</div>` +
-            `<div class="domain">${o.domain}</div>` +
-            `<div class="counts">${Array.isArray(o.concepts) ? o.concepts.length : 0} entities · ${o.morphism_count || 0} morphisms</div>` +
-            `<div class="source">${o.source}</div>`;
-          content.appendChild(card);
-        }
-
-        for (const key of childKeys) {
-          content.appendChild(renderTreeNode(key, children[key]));
-        }
-
-        box.appendChild(content);
-
-        header.addEventListener('click', () => {
-          const open = content.style.display !== 'none';
-          content.style.display = open ? 'none' : '';
-          arrow.style.transform = open ? '' : 'rotate(90deg)';
+        ontFilter.addEventListener('input', () => {
+          const q = ontFilter.value.toLowerCase();
+          list.querySelectorAll('.ont-card').forEach(c =>
+            c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none');
         });
-
-        return box;
-      }
-
-      // Group by DOLCE Being at top level, tree within each
-      const beingOrder = ['Abstract', 'Social', 'Mental', 'Physical', 'Process', 'Event', 'Quality', 'unclassified'];
-      const beingGroups = {};
-      for (const o of data.ontologies) {
-        const key = o.being || 'unclassified';
-        if (!beingGroups[key]) beingGroups[key] = [];
-        beingGroups[key].push(o);
-      }
-
-      for (const being of beingOrder) {
-        const onts = beingGroups[being];
-        if (!onts || onts.length === 0) continue;
-
-        const tree = buildTree(onts);
-        const topKeys = Object.keys(tree).sort();
-
-        const box = document.createElement('div');
-        box.className = 'being-box';
-
-        const header = document.createElement('div');
-        header.className = 'being-header';
-        const arrow = document.createElement('span');
-        arrow.className = 'being-arrow';
-        arrow.textContent = '▶';
-        header.appendChild(arrow);
-        const label = document.createElement('span');
-        label.className = 'being-label';
-        label.textContent = being;
-        header.appendChild(label);
-        const beingConcepts = onts.reduce((s, o) => s + (Array.isArray(o.concepts) ? o.concepts.length : 0), 0);
-        const beingMorphisms = onts.reduce((s, o) => s + (o.morphism_count || 0), 0);
-        const stats = document.createElement('span');
-        stats.className = 'being-count';
-        stats.textContent = `${onts.length} ontologies · ${beingConcepts.toLocaleString()} entities · ${beingMorphisms.toLocaleString()} morphisms`;
-        header.appendChild(stats);
-        box.appendChild(header);
-
-        const content = document.createElement('div');
-        content.className = 'being-content';
-        content.style.display = 'none';
-
-        for (const key of topKeys) {
-          content.appendChild(renderTreeNode(key, tree[key]));
-        }
-
-        box.appendChild(content);
-
-        header.addEventListener('click', () => {
-          const open = content.style.display !== 'none';
-          content.style.display = open ? 'none' : '';
-          arrow.style.transform = open ? '' : 'rotate(90deg)';
-        });
-
-        dash.appendChild(box);
       }
     }
 
     send.addEventListener('click', handleSend);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleSend();
-    });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSend(); });
 
     initialize();
   </script>

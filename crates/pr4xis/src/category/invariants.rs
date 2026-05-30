@@ -1,6 +1,7 @@
 use super::arrow::Arrow;
 use super::category::Category;
 use super::entity::Concept;
+use super::terminal::TerminalTarget;
 use crate::logic::Axiom;
 use crate::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 
@@ -96,5 +97,66 @@ impl<C: Category> Axiom for FullyConnected<C> {
         "FullyConnected",
         "every object is reachable from every other object",
         "Graph connectivity invariant on a category"
+    );
+}
+
+/// A designated object `T` is **terminal**: every object has exactly one
+/// morphism to `T`.
+///
+/// In a thin category this is "everything reaches a single sink." For an
+/// interaction statechart whose objects are modes, `T` = the root mode and this
+/// axiom is the **no-stuck guarantee**: from every mode there is exactly one way
+/// back to root, so no input can strand the user (a terminal object is the limit
+/// of the empty diagram — its defining universal property is the right adjoint to
+/// the unique functor `! : C → 1`).
+///
+/// Literature:
+/// - Awodey (2010) *Category Theory* Ch. 2 — initial and terminal objects.
+/// - Mac Lane (1971) CWM III.4 — terminal object as the limit of the empty
+///   diagram; right adjoint to `!`.
+pub struct TerminalObject<C, T> {
+    _marker: core::marker::PhantomData<(C, T)>,
+}
+
+impl<C, T> TerminalObject<C, T> {
+    pub fn new() -> Self {
+        Self {
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
+impl<C, T> Default for TerminalObject<C, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<C, T> Axiom for TerminalObject<C, T>
+where
+    C: Category,
+    T: TerminalTarget<Category = C>,
+    <C as Category>::Morphism: PartialEq,
+{
+    fn verify(&self) -> Verdict {
+        let t = T::target();
+        let terminal = <C::Object as Concept>::variants().iter().all(|a| {
+            C::morphisms_from(a)
+                .into_iter()
+                .filter(|m| m.target() == t)
+                .count()
+                == 1
+        });
+        if terminal {
+            Ok(Box::new(SimpleProof::new(self.meta())))
+        } else {
+            Err(Box::new(SimpleCounterexample::new(self.meta())))
+        }
+    }
+
+    crate::axiom_meta!(
+        "TerminalObject",
+        "every object has exactly one morphism to the terminal object (no-stuck root)",
+        "Awodey (2010) Category Theory Ch. 2; Mac Lane (1971) CWM III.4 — terminal object as limit of the empty diagram"
     );
 }

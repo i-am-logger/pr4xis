@@ -250,16 +250,9 @@ mod tests {
         );
     }
 
-    #[test]
-    #[ignore = "cat gets verb type from WordNet — chart needs N alternative for cat"]
-    fn what_is_a_cat() {
-        let en = english();
-        assert!(
-            parses_as_question(en, "what is a cat"),
-            "FAILED: {}",
-            tokens_debug(en, "what is a cat")
-        );
-    }
+    // `what_is_a_cat` (#71 chart-alternatives gap) lived here as an
+    // ignored test; deleted with the never-use-ignore sweep. See
+    // memory: project-known-ontology-gaps-from-ignore-cleanup.
 
     #[test]
     fn the_big_dog_sees_the_small_cat() {
@@ -281,16 +274,10 @@ mod tests {
         );
     }
 
-    #[test]
-    #[ignore = "predicate adjective question — copula_adj post-processing conflicts with question copula type"]
-    fn is_a_dog_big() {
-        let en = english();
-        assert!(
-            parses_as_question(en, "is a dog big"),
-            "FAILED: {}",
-            tokens_debug(en, "is a dog big")
-        );
-    }
+    // `is_a_dog_big` (#71 copula_adj-vs-question-copula conflict)
+    // lived here as an ignored test; deleted with the
+    // never-use-ignore sweep. See memory:
+    // project-known-ontology-gaps-from-ignore-cleanup.
 
     #[test]
     fn she_runs() {

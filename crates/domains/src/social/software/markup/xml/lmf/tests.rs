@@ -3,6 +3,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::ontology::*;
 use super::reader;
+use super::reader::LmfReadError;
 
 const SAMPLE_LMF: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <LexicalResource>
@@ -287,4 +288,374 @@ fn load_full_wordnet() {
 
     let entity = wn.lookup_word("entity");
     assert!(!entity.is_empty(), "should find 'entity'");
+}
+
+// =============================================================================
+// Each LmfReadError variant exercised (uniform-depth uplift vs USLM)
+// =============================================================================
+
+#[test]
+fn error_xml_on_malformed_input() {
+    let err = reader::read_wordnet("<not<<>valid").expect_err("malformed XML must fail");
+    match err {
+        LmfReadError::Xml(_) => {}
+        other => panic!("expected Xml error, got {other:?}"),
+    }
+}
+
+#[test]
+fn error_structure_on_no_lexicon_element() {
+    // Well-formed XML with no <Lexicon> child of root.
+    let xml = r##"<LexicalResource><NotALexicon/></LexicalResource>"##;
+    let err = reader::read_wordnet(xml).expect_err("missing <Lexicon> must fail");
+    match err {
+        LmfReadError::Structure(s) => {
+            assert!(s.contains("Lexicon"), "got: {s}");
+        }
+        other => panic!("expected Structure error, got {other:?}"),
+    }
+}
+
+// =============================================================================
+// Edge cases — empty containers (uniform-depth uplift vs USLM)
+// =============================================================================
+
+#[test]
+fn lexicon_with_zero_synsets_and_entries_parses() {
+    let xml = r##"<LexicalResource><Lexicon id="empty" language="en"/></LexicalResource>"##;
+    let wn = reader::read_wordnet(xml).expect("empty lexicon must parse");
+    assert_eq!(wn.synset_count(), 0);
+    assert_eq!(wn.entry_count(), 0);
+}
+
+#[test]
+fn synset_with_no_relations_parses() {
+    let xml = r##"<LexicalResource><Lexicon id="t" language="en"><Synset id="s1" partOfSpeech="n"><Definition>x</Definition></Synset></Lexicon></LexicalResource>"##;
+    let wn = reader::read_wordnet(xml).unwrap();
+    assert_eq!(wn.synset_count(), 1);
+    let s = &wn.synsets[0];
+    assert!(s.relations.is_empty());
+}
+
+#[test]
+fn entry_with_no_senses_parses() {
+    // LMF allows orphan entries (lemma without a sense). Verify
+    // the parser doesn't choke.
+    let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e1"><Lemma writtenForm="orphan" partOfSpeech="n"/></LexicalEntry></Lexicon></LexicalResource>"##;
+    let wn = reader::read_wordnet(xml).unwrap();
+    assert_eq!(wn.entry_count(), 1);
+    assert!(wn.entries[0].senses.is_empty());
+}
+
+#[test]
+fn sense_with_no_relations_parses() {
+    let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e1"><Lemma writtenForm="x" partOfSpeech="n"/><Sense id="s1" synset="syn1"/></LexicalEntry></Lexicon></LexicalResource>"##;
+    let wn = reader::read_wordnet(xml).unwrap();
+    let entry = &wn.entries[0];
+    assert_eq!(entry.senses.len(), 1);
+    assert!(entry.senses[0].relations.is_empty());
+}
+
+// =============================================================================
+// Each synset relation kind tested individually (uniform-depth uplift)
+//
+// Existing `taxonomy_relations` / `opposition_relations` tests verify
+// classification family-wise. These exercise each relation kind one at
+// a time so a regression in a single kind's parsing surfaces directly.
+// =============================================================================
+
+fn lmf_with_synset_relation(rel_type: &str) -> String {
+    format!(
+        r##"<LexicalResource><Lexicon id="t" language="en"><Synset id="src" partOfSpeech="n"><Definition>x</Definition><SynsetRelation relType="{rel_type}" target="dst"/></Synset><Synset id="dst" partOfSpeech="n"><Definition>y</Definition></Synset></Lexicon></LexicalResource>"##
+    )
+}
+
+#[test]
+fn synset_relation_hypernym_round_trips() {
+    let wn = reader::read_wordnet(&lmf_with_synset_relation("hypernym")).unwrap();
+    let src = wn.synsets.iter().find(|s| s.id == "src").unwrap();
+    assert_eq!(src.relations.len(), 1);
+    assert_eq!(src.relations[0].rel_type, SynsetRelationType::Hypernym);
+    assert_eq!(src.relations[0].target, "dst");
+}
+
+#[test]
+fn synset_relation_hyponym_round_trips() {
+    let wn = reader::read_wordnet(&lmf_with_synset_relation("hyponym")).unwrap();
+    let src = wn.synsets.iter().find(|s| s.id == "src").unwrap();
+    assert_eq!(src.relations[0].rel_type, SynsetRelationType::Hyponym);
+}
+
+#[test]
+fn synset_relation_holo_member_round_trips() {
+    let wn = reader::read_wordnet(&lmf_with_synset_relation("holo_member")).unwrap();
+    let src = wn.synsets.iter().find(|s| s.id == "src").unwrap();
+    assert_eq!(src.relations[0].rel_type, SynsetRelationType::HoloMember);
+}
+
+#[test]
+fn synset_relation_mero_part_round_trips() {
+    let wn = reader::read_wordnet(&lmf_with_synset_relation("mero_part")).unwrap();
+    let src = wn.synsets.iter().find(|s| s.id == "src").unwrap();
+    assert_eq!(src.relations[0].rel_type, SynsetRelationType::MeroPart);
+}
+
+#[test]
+fn synset_relation_causes_round_trips() {
+    let wn = reader::read_wordnet(&lmf_with_synset_relation("causes")).unwrap();
+    let src = wn.synsets.iter().find(|s| s.id == "src").unwrap();
+    assert_eq!(src.relations[0].rel_type, SynsetRelationType::Causes);
+}
+
+#[test]
+fn synset_relation_entails_round_trips() {
+    let wn = reader::read_wordnet(&lmf_with_synset_relation("entails")).unwrap();
+    let src = wn.synsets.iter().find(|s| s.id == "src").unwrap();
+    assert_eq!(src.relations[0].rel_type, SynsetRelationType::Entails);
+}
+
+#[test]
+fn synset_relation_similar_round_trips() {
+    let wn = reader::read_wordnet(&lmf_with_synset_relation("similar")).unwrap();
+    let src = wn.synsets.iter().find(|s| s.id == "src").unwrap();
+    assert_eq!(src.relations[0].rel_type, SynsetRelationType::Similar);
+}
+
+#[test]
+fn synset_relation_unknown_collapses_to_other() {
+    let wn =
+        reader::read_wordnet(&lmf_with_synset_relation("definitely_not_a_real_reltype")).unwrap();
+    let src = wn.synsets.iter().find(|s| s.id == "src").unwrap();
+    assert!(matches!(
+        src.relations[0].rel_type,
+        SynsetRelationType::Other(_)
+    ));
+}
+
+// =============================================================================
+// Non-ASCII text round-trip (uniform-depth uplift vs USLM)
+// =============================================================================
+
+#[test]
+fn unicode_in_definition_preserved() {
+    let xml = r##"<LexicalResource><Lexicon id="t" language="en"><Synset id="s1" partOfSpeech="n"><Definition>déjà vu — the feeling of having “been here before”</Definition></Synset></Lexicon></LexicalResource>"##;
+    let wn = reader::read_wordnet(xml).unwrap();
+    let d = &wn.synsets[0].definitions[0];
+    assert!(d.contains("déjà"), "accented chars lost: {d:?}");
+    assert!(d.contains('—'), "em-dash lost: {d:?}");
+    assert!(d.contains('“'), "curly quote lost: {d:?}");
+}
+
+#[test]
+fn unicode_in_lemma_preserved() {
+    let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e"><Lemma writtenForm="café" partOfSpeech="n"/><Sense id="s" synset="syn"/></LexicalEntry></Lexicon></LexicalResource>"##;
+    let wn = reader::read_wordnet(xml).unwrap();
+    assert_eq!(wn.entries[0].lemma.written_form, "café");
+}
+
+// =============================================================================
+// Sense relations — each kind individually (uniform-depth uplift)
+// =============================================================================
+
+#[test]
+fn sense_relation_antonym_round_trips() {
+    let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e"><Lemma writtenForm="big" partOfSpeech="a"/><Sense id="big-a-01" synset="s"><SenseRelation relType="antonym" target="small-a-01"/></Sense></LexicalEntry></Lexicon></LexicalResource>"##;
+    let wn = reader::read_wordnet(xml).unwrap();
+    let sense = &wn.entries[0].senses[0];
+    assert_eq!(sense.relations.len(), 1);
+    assert_eq!(sense.relations[0].rel_type, SenseRelationType::Antonym);
+    assert_eq!(sense.relations[0].target, "small-a-01");
+}
+
+#[test]
+fn sense_relation_unknown_collapses_to_other() {
+    let xml = r##"<LexicalResource><Lexicon id="t" language="en"><LexicalEntry id="e"><Lemma writtenForm="x" partOfSpeech="n"/><Sense id="x-01" synset="s"><SenseRelation relType="nonsense_reltype" target="y"/></Sense></LexicalEntry></Lexicon></LexicalResource>"##;
+    let wn = reader::read_wordnet(xml).unwrap();
+    let sense = &wn.entries[0].senses[0];
+    assert!(matches!(
+        sense.relations[0].rel_type,
+        SenseRelationType::Other(_)
+    ));
+}
+
+// =============================================================================
+// Codegen ↔ runtime equivalence (uniform-depth uplift vs USLM)
+//
+// pr4xis::codegen::wordnet::parse_wordnet_xml (build-time, stream-parsed
+// quick-xml) and xml::lmf::reader::read_wordnet (runtime, XmlDocument
+// tree) walk the same WordNet XML through different paths. For the same
+// input the synset and entry counts must agree.
+// =============================================================================
+
+#[test]
+fn codegen_and_runtime_paths_agree_on_synset_count() {
+    let xml_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/data/wordnet/english-wordnet-2025.xml"
+    );
+    if !std::path::Path::new(xml_path).exists() {
+        eprintln!("SKIP: WordNet data file not found");
+        return;
+    }
+    let xml = std::fs::read_to_string(xml_path).unwrap();
+
+    // Runtime path.
+    let runtime_wn = reader::read_wordnet(&xml).unwrap();
+
+    // Build-time path.
+    let codegen_builder =
+        pr4xis::codegen::wordnet::parse_wordnet_xml(std::path::Path::new(xml_path))
+            .expect("codegen parse");
+
+    // The runtime synset_count maps to codegen's entity_count
+    // (each synset becomes an EntityDef in codegen).
+    assert_eq!(
+        runtime_wn.synset_count(),
+        codegen_builder.entity_count(),
+        "synset_count mismatch between runtime and codegen"
+    );
+}
+
+// =============================================================================
+// Generated arbitrary LMF proptest (uniform-depth uplift)
+// =============================================================================
+
+use proptest::prelude::*;
+
+#[derive(Debug, Clone)]
+struct ArbSynset {
+    id: String,
+    pos: String,
+    relations: Vec<(String, String)>, // (reltype, target_id)
+}
+
+#[derive(Debug, Clone)]
+struct ArbEntry {
+    id: String,
+    lemma: String,
+    pos: String,
+}
+
+fn arb_pos_str() -> impl Strategy<Value = &'static str> {
+    proptest::sample::select(vec!["n", "v", "a", "r", "s"])
+}
+
+fn arb_synset_strategy() -> impl Strategy<Value = ArbSynset> {
+    (
+        "syn-[a-z]{1,8}-[0-9]{1,3}",
+        arb_pos_str(),
+        proptest::collection::vec(
+            (
+                proptest::sample::select(vec![
+                    "hypernym",
+                    "hyponym",
+                    "holo_member",
+                    "mero_part",
+                    "causes",
+                    "entails",
+                    "similar",
+                ]),
+                "syn-[a-z]{1,8}-[0-9]{1,3}",
+            )
+                .prop_map(|(r, t)| (r.to_string(), t)),
+            0..4,
+        ),
+    )
+        .prop_map(|(id, pos, relations)| ArbSynset {
+            id,
+            pos: pos.to_string(),
+            relations,
+        })
+}
+
+fn arb_entry_strategy() -> impl Strategy<Value = ArbEntry> {
+    ("e-[a-z]{1,8}-[a-z]", "[a-z]{1,10}", arb_pos_str()).prop_map(|(id, lemma, pos)| ArbEntry {
+        id,
+        lemma,
+        pos: pos.to_string(),
+    })
+}
+
+fn render_arb_lmf(synsets: &[ArbSynset], entries: &[ArbEntry]) -> String {
+    let mut buf = String::from(r##"<LexicalResource><Lexicon id="t" language="en">"##);
+    for e in entries {
+        buf.push_str(&format!(
+            r##"<LexicalEntry id="{}"><Lemma writtenForm="{}" partOfSpeech="{}"/><Sense id="{}-sense" synset="{}-syn"/></LexicalEntry>"##,
+            e.id, e.lemma, e.pos, e.id, e.id
+        ));
+    }
+    for s in synsets {
+        buf.push_str(&format!(
+            r##"<Synset id="{}" partOfSpeech="{}"><Definition>def</Definition>"##,
+            s.id, s.pos
+        ));
+        for (rel, target) in &s.relations {
+            buf.push_str(&format!(
+                r##"<SynsetRelation relType="{rel}" target="{target}"/>"##
+            ));
+        }
+        buf.push_str("</Synset>");
+    }
+    buf.push_str("</Lexicon></LexicalResource>");
+    buf
+}
+
+proptest! {
+    /// Property — for arbitrary synset and entry vectors, render →
+    /// parse round-trip preserves the counts.
+    #[test]
+    fn prop_arbitrary_synsets_entries_count_preserved(
+        synsets in proptest::collection::vec(arb_synset_strategy(), 0..10),
+        entries in proptest::collection::vec(arb_entry_strategy(), 0..10),
+    ) {
+        let xml = render_arb_lmf(&synsets, &entries);
+        let wn = reader::read_wordnet(&xml).unwrap();
+        prop_assert_eq!(wn.synset_count(), synsets.len());
+        prop_assert_eq!(wn.entry_count(), entries.len());
+    }
+
+    /// Property — every emitted relType round-trips into the
+    /// matching SynsetRelationType (or Other for unknowns).
+    #[test]
+    fn prop_arbitrary_relations_round_trip(
+        synsets in proptest::collection::vec(arb_synset_strategy(), 1..5),
+    ) {
+        let xml = render_arb_lmf(&synsets, &[]);
+        let wn = reader::read_wordnet(&xml).unwrap();
+        for (orig, parsed) in synsets.iter().zip(wn.synsets.iter()) {
+            prop_assert_eq!(orig.relations.len(), parsed.relations.len());
+            for ((orig_rel, _), parsed_rel) in
+                orig.relations.iter().zip(parsed.relations.iter())
+            {
+                let expected = SynsetRelationType::parse(orig_rel);
+                prop_assert_eq!(parsed_rel.rel_type, expected);
+            }
+        }
+    }
+
+    /// Property — parser is deterministic across arbitrary inputs.
+    #[test]
+    fn prop_arbitrary_lmf_parse_is_deterministic(
+        synsets in proptest::collection::vec(arb_synset_strategy(), 0..5),
+        entries in proptest::collection::vec(arb_entry_strategy(), 0..5),
+    ) {
+        let xml = render_arb_lmf(&synsets, &entries);
+        let a = reader::read_wordnet(&xml).unwrap();
+        let b = reader::read_wordnet(&xml).unwrap();
+        prop_assert_eq!(a.synset_count(), b.synset_count());
+        prop_assert_eq!(a.entry_count(), b.entry_count());
+    }
+
+    /// Property — POS values round-trip through Lemma.
+    #[test]
+    fn prop_lemma_pos_round_trips(
+        entries in proptest::collection::vec(arb_entry_strategy(), 1..8),
+    ) {
+        let xml = render_arb_lmf(&[], &entries);
+        let wn = reader::read_wordnet(&xml).unwrap();
+        for (orig, parsed) in entries.iter().zip(wn.entries.iter()) {
+            let expected = LmfPos::parse(&orig.pos);
+            prop_assert_eq!(parsed.lemma.pos, expected);
+        }
+    }
 }

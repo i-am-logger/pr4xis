@@ -28,17 +28,34 @@ pub fn read_xml(input: &str) -> Result<XmlDocument, XmlReadError> {
     };
 
     // Skip whitespace, comments, PIs, DOCTYPE before root element
-    let remaining = input[pos..].trim_start();
-    pos = input.len() - remaining.len();
+    // (W3C XML 1.0 §2.8 — prolog may contain Misc* which is
+    // Comment | PI | S). Loop until we land on the root element.
+    loop {
+        let remaining = input[pos..].trim_start();
+        pos = input.len() - remaining.len();
 
-    // Skip DOCTYPE if present
-    if input[pos..].starts_with("<!DOCTYPE") {
-        let end = find_doctype_end(&input[pos..]).ok_or(XmlReadError::new("unclosed DOCTYPE"))?;
-        pos += end;
+        if input[pos..].starts_with("<!DOCTYPE") {
+            let end =
+                find_doctype_end(&input[pos..]).ok_or(XmlReadError::new("unclosed DOCTYPE"))?;
+            pos += end;
+            continue;
+        }
+        if input[pos..].starts_with("<!--") {
+            let end = input[pos..]
+                .find("-->")
+                .ok_or(XmlReadError::new("unclosed comment in prolog"))?;
+            pos += end + 3;
+            continue;
+        }
+        if input[pos..].starts_with("<?") {
+            let end = input[pos..]
+                .find("?>")
+                .ok_or(XmlReadError::new("unclosed PI in prolog"))?;
+            pos += end + 2;
+            continue;
+        }
+        break;
     }
-
-    let remaining = input[pos..].trim_start();
-    pos = input.len() - remaining.len();
 
     // Read root element
     let (root, _) = read_element(&input[pos..])?;
@@ -46,6 +63,7 @@ pub fn read_xml(input: &str) -> Result<XmlDocument, XmlReadError> {
     Ok(XmlDocument {
         version,
         encoding,
+        doctype: None,
         root,
     })
 }
@@ -73,7 +91,12 @@ fn read_element(input: &str) -> Result<(XmlElement, usize), XmlReadError> {
     // Parse tag name and attributes
     let (name, attrs) = parse_tag_content(tag_content)?;
     let xml_name = parse_xml_name(&name);
-    let namespace = extract_namespace(&attrs);
+    // Namespaces in XML 1.0 (Bray, Hollander, Layman & Tobin 2009) §3 —
+    // every `xmlns` / `xmlns:prefix` attribute is a namespace declaration,
+    // not a regular attribute. Collect them all (in document order) into
+    // `namespaces`; the legacy single `namespace` slot mirrors the first.
+    let all_namespaces = extract_all_namespaces(&attrs);
+    let namespace = all_namespaces.first().cloned();
     let xml_attrs: Vec<XmlAttribute> = attrs
         .into_iter()
         .filter(|(k, _)| !k.starts_with("xmlns"))
@@ -88,6 +111,7 @@ fn read_element(input: &str) -> Result<(XmlElement, usize), XmlReadError> {
             XmlElement {
                 name: xml_name,
                 namespace,
+                namespaces: all_namespaces,
                 attributes: xml_attrs,
                 children: Vec::new(),
             },
@@ -164,6 +188,7 @@ fn read_element(input: &str) -> Result<(XmlElement, usize), XmlReadError> {
         XmlElement {
             name: xml_name,
             namespace,
+            namespaces: all_namespaces,
             attributes: xml_attrs,
             children,
         },
@@ -229,22 +254,27 @@ fn parse_xml_name(name: &str) -> XmlName {
     }
 }
 
-fn extract_namespace(attrs: &[(String, String)]) -> Option<XmlNamespace> {
+/// Collect every `xmlns` / `xmlns:prefix` declaration on an element in
+/// document order. Namespaces in XML 1.0 (Bray, Hollander, Layman & Tobin
+/// 2009 §3) treats these as namespace declarations rather than regular
+/// attributes; consumers that need the full prefix→URI map (RDF/XML in
+/// particular, RDF 1.1 XML Syntax §2.4) read this collection.
+fn extract_all_namespaces(attrs: &[(String, String)]) -> Vec<XmlNamespace> {
+    let mut ns = Vec::new();
     for (k, v) in attrs {
         if k == "xmlns" {
-            return Some(XmlNamespace {
+            ns.push(XmlNamespace {
                 prefix: None,
                 uri: v.clone(),
             });
-        }
-        if let Some(prefix) = k.strip_prefix("xmlns:") {
-            return Some(XmlNamespace {
+        } else if let Some(prefix) = k.strip_prefix("xmlns:") {
+            ns.push(XmlNamespace {
                 prefix: Some(prefix.into()),
                 uri: v.clone(),
             });
         }
     }
-    None
+    ns
 }
 
 fn extract_attr_value(content: &str, name: &str) -> Option<String> {
@@ -307,3 +337,194 @@ impl core::fmt::Display for XmlReadError {
 
 #[cfg(feature = "std")]
 impl std::error::Error for XmlReadError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    // ── Prolog-handling property tests ─────────────────────────────
+    //
+    // W3C XML 1.0 §2.8: the prolog allows arbitrary intermixing of
+    // comments, processing instructions, and whitespace before the
+    // root element (with at most one DOCTYPE). These properties
+    // verify the read_xml prolog loop respects that ordering
+    // freedom.
+
+    const MINIMAL_ROOT: &str = "<r/>";
+
+    #[test]
+    fn prolog_with_no_extras_parses() {
+        assert!(read_xml(MINIMAL_ROOT).is_ok());
+    }
+
+    #[test]
+    fn prolog_with_xml_decl_parses() {
+        let s = format!("<?xml version=\"1.0\"?>{MINIMAL_ROOT}");
+        assert!(read_xml(&s).is_ok());
+    }
+
+    #[test]
+    fn prolog_with_comment_parses() {
+        let s = format!("<!-- hi --> {MINIMAL_ROOT}");
+        assert!(read_xml(&s).is_ok());
+    }
+
+    #[test]
+    fn prolog_with_xml_decl_and_comment_parses() {
+        let s = format!("<?xml version=\"1.0\"?>\n<!-- doc -->\n{MINIMAL_ROOT}");
+        assert!(read_xml(&s).is_ok());
+    }
+
+    #[test]
+    fn prolog_with_multiple_comments_parses() {
+        let s = format!("<!--a--><!--b--><!--c-->{MINIMAL_ROOT}");
+        assert!(read_xml(&s).is_ok());
+    }
+
+    #[test]
+    fn unclosed_prolog_comment_errors_cleanly() {
+        let s = format!("<!-- never-closed {MINIMAL_ROOT}");
+        let err = read_xml(&s).unwrap_err();
+        assert!(err.message.contains("unclosed comment"));
+    }
+
+    // ── Adversarial-input properties (compliance: no panic on
+    // ── malformed input) ──────────────────────────────────────────
+
+    #[test]
+    fn adversarial_random_bytes_never_panic() {
+        // FRE 901 + Daubert prong 3: when input is malformed,
+        // produce a typed Err — never panic, never silently succeed.
+        let cases: &[&str] = &[
+            "",
+            "<",
+            ">",
+            "<<<",
+            ">>>",
+            "<r",
+            "<r>",
+            "<r>>",
+            "<r><r></r>",
+            "<r></s>",
+            "<r/>extra",
+            "<r attr=\"unclosed",
+            "<r attr='unclosed",
+            "<?xml",
+            "<?xml version=\"1.0\"",
+            "<!--",
+            "<!-- unclosed root",
+            "<!DOCTYPE",
+            "<!DOCTYPE r",
+            "<![CDATA[unclosed",
+            "&amp;",
+            "<r>&amp;</r>",
+            // Mixed content with unbalanced tags
+            "<a><b><c></a></b></c>",
+            // Self-close with content
+            "<r><nested/></nested>",
+        ];
+        for input in cases {
+            let result = read_xml(input);
+            // Caller gets either Ok or Err. The function MUST NOT
+            // panic — that would crash the auditor pipeline.
+            let _ = result;
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn property_random_input_never_panics(s in "[\\x00-\\x7F]{0,200}") {
+            // Random ASCII byte streams (incl. nul and control chars)
+            // must never cause the parser to panic. Daubert prong 3.
+            let _ = read_xml(&s);
+        }
+
+        #[test]
+        fn property_random_tags_never_panic(
+            tag in "[a-z]{1,8}",
+            content in "[a-z0-9 ]{0,32}",
+            attrs in proptest::collection::vec(("[a-z]{1,4}", "[a-z]{1,8}"), 0..3),
+        ) {
+            // Build syntactically-valid but semantically-arbitrary
+            // XML and verify the parser doesn't panic.
+            let mut s = format!("<{tag}");
+            for (k, v) in &attrs {
+                s.push_str(&format!(" {k}=\"{v}\""));
+            }
+            s.push('>');
+            s.push_str(&content);
+            s.push_str(&format!("</{tag}>"));
+            let _ = read_xml(&s);
+        }
+
+        #[test]
+        fn property_truncated_input_never_panics(
+            full in "<r[a-z ]{0,20}>[a-z ]{0,20}</r>",
+            cut_at in 0usize..50,
+        ) {
+            // Truncate input at an arbitrary position; parser must
+            // return Ok or Err, never panic.
+            let len = full.len().min(cut_at);
+            // Truncate at char boundary to avoid str slicing panic
+            // (that's an input-validation concern, not parser-bug).
+            let boundary = full.char_indices().take_while(|(i, _)| *i <= len).last()
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            let truncated = &full[..boundary];
+            let _ = read_xml(truncated);
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn property_prolog_with_arbitrary_comments_parses(
+            comments in proptest::collection::vec("[a-z ]{0,20}", 0..6),
+        ) {
+            // Any sequence of comments (with safe ASCII content) in
+            // the prolog should not break the parser.
+            let mut s = String::new();
+            for c in &comments {
+                s.push_str("<!--");
+                s.push_str(c);
+                s.push_str("-->");
+            }
+            s.push_str(MINIMAL_ROOT);
+            prop_assert!(
+                read_xml(&s).is_ok(),
+                "failed to parse prolog with {} comments: {s:?}",
+                comments.len()
+            );
+        }
+
+        #[test]
+        fn property_xml_decl_position_invariant(
+            ws_count in 0usize..5,
+            comment_count in 0usize..3,
+        ) {
+            // <?xml ?> followed by whitespace and comments must still
+            // produce a parsed root.
+            let mut s = String::from("<?xml version=\"1.0\"?>");
+            for _ in 0..ws_count {
+                s.push(' ');
+            }
+            for i in 0..comment_count {
+                s.push_str(&format!("<!--c{i}-->"));
+            }
+            s.push_str(MINIMAL_ROOT);
+            prop_assert!(read_xml(&s).is_ok());
+        }
+
+        #[test]
+        fn property_self_closing_root_with_attributes_parses(
+            attrs in proptest::collection::vec(("[a-z]{1,8}", "[a-z]{1,8}"), 0..5),
+        ) {
+            let mut s = String::from("<r");
+            for (k, v) in &attrs {
+                s.push_str(&format!(" {k}=\"{v}\""));
+            }
+            s.push_str("/>");
+            prop_assert!(read_xml(&s).is_ok());
+        }
+    }
+}

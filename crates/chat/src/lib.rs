@@ -58,6 +58,11 @@ pub struct ProcessResult {
 
 /// Process input through the full linguistics pipeline.
 /// Returns (response_text, user_speech_act, system_speech_act).
+///
+/// Source-agnostic: the pipeline reasons over the embedded English
+/// language model. Loaded corpora (statutes, …) are surfaced through the
+/// self-model catalog (see `self_describe`), not threaded into the
+/// linguistic pipeline.
 pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
     let result = process_with_metadata(lang, input);
     (result.response, result.user_act, result.system_act)
@@ -71,6 +76,10 @@ pub fn process(lang: &English, input: &str) -> (String, SpeechAct, SpeechAct) {
 /// No mutation. No manual trace.record() calls.
 ///
 /// Reference: Moggi, "Notions of Computation and Monads" (1991).
+///
+/// The linguistic pipeline stages (tokenize/parse/interpret/respond)
+/// reason over `lang` only. Self-referential queries route through the
+/// self-model (see `self_describe`); loaded corpora live in its catalog.
 pub fn process_with_metadata(lang: &English, input: &str) -> ProcessResult {
     let start = WasmSafeTimer::now();
 
@@ -757,7 +766,14 @@ impl WasmSafeTimer {
 // Self-description — through the SelfModel ontology
 // =========================================================================
 
-/// All loaded ontologies including language-specific runtime data.
+/// The always-present substrate ontologies: the auto-registered
+/// knowledge base plus the embedded English language model.
+///
+/// Source-agnostic — it knows nothing of statutes or any loaded corpus.
+/// Loaded corpora are reported separately through the self-model catalog
+/// (`SelfModelInstance::with_catalog`); a caller that has loaded sources
+/// attaches them there. English is the one embedded base, so it is the
+/// only runtime corpus reflected here directly.
 pub fn loaded_ontologies(_lang: &English) -> Vec<Vocabulary> {
     let mut ontologies = describe_knowledge_base();
     ontologies.push(Vocabulary::from_ontology::<
@@ -774,15 +790,18 @@ pub fn loaded_ontologies(_lang: &English) -> Vec<Vocabulary> {
 /// The eigenform — the system observes itself.
 ///
 /// This IS the self-observation operator F from von Foerster.
-/// The result IS the fixed point X = F(X).
-/// The SelfModelInstance carries the complete self-description
-/// through the SelfModel ontology, not through hardcoded strings.
+/// The result IS the fixed point X = F(X). The returned
+/// [`SelfModelInstance`] carries the substrate ontologies; callers
+/// attach the loaded-source catalog (the knowledge boundary) via
+/// [`SelfModelInstance::with_catalog`].
 pub fn observe_self(lang: &English) -> SelfModelInstance {
     SelfModelInstance::observe(loaded_ontologies(lang))
 }
 
 /// Describe the eigenform structurally. Callers that need JSON (WASM
-/// boundary) should call `.to_json()` on the result themselves.
+/// boundary) should call `.to_json()` on the result themselves, and may
+/// first attach the source catalog via
+/// [`SelfModelInstance::with_catalog`].
 pub fn self_describe(lang: &English) -> SelfModelInstance {
     observe_self(lang)
 }
