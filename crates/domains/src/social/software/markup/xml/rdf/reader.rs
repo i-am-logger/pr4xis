@@ -1357,4 +1357,200 @@ mod tests {
         }
         println!("rdf-xml-corpus-audit: total triples across 6 vocabularies = {total}");
     }
+
+    // ── Property-based coverage on a tractable RDF/XML subset ──────────
+    //
+    // The hand-written `rdf!(…)` cases pin specific spec sections; the
+    // proptests below exercise the reader on a small, well-behaved
+    // generated subset (typed-node and `rdf:Description`, one or two
+    // predicate elements per node, optional `xml:lang` / `rdf:datatype` /
+    // `rdf:resource`). Properties asserted:
+    //
+    //   (a) `read_rdf_xml` succeeds on every generated doc.
+    //   (b) The W3C axiom
+    //       [`crate::social::software::markup::xml::rdf::ontology::LiteralsCannotBeSubjects`]
+    //       holds on the returned triples — application of
+    //       `Triple::subject_is_admissible`, the structural projection
+    //       of that axiom.
+    //   (c) Determinism: two independent `read_rdf_xml` calls on the
+    //       same bytes produce identical triple streams (blank-node
+    //       labels and document order included), mirroring the
+    //       `read_owl` determinism guarantee (praxis commit
+    //       `a4afae37`).
+    //
+    // The generator restricts to the structural shapes that exercise
+    // the reader's main control-flow forks; full grammar coverage
+    // belongs to the W3C-suite path, not this proptest.
+
+    use proptest::prelude::*;
+
+    /// A small generated RDF/XML node-element specification.
+    #[derive(Debug, Clone)]
+    struct GenNode {
+        /// `true` = typed-node form (`<ex:Cls rdf:about=…>`); `false` =
+        /// `rdf:Description` form.
+        typed: bool,
+        /// Local subject identifier — used to form `http://example.org/<id>`.
+        id: u8,
+        /// Predicate elements attached to this node.
+        preds: Vec<GenPred>,
+    }
+
+    /// A generated predicate element — either a literal-valued (plain,
+    /// `xml:lang`-tagged, or `rdf:datatype`-tagged) or `rdf:resource`
+    /// reference.
+    #[derive(Debug, Clone)]
+    enum GenPred {
+        PlainLit { local: u8, value: u8 },
+        LangLit { local: u8, value: u8, lang_idx: u8 },
+        TypedLit { local: u8, value: u8, dt_idx: u8 },
+        Resource { local: u8, target: u8 },
+    }
+
+    fn arb_pred() -> impl Strategy<Value = GenPred> {
+        let local = 0u8..4;
+        let value = 0u8..4;
+        prop_oneof![
+            (local.clone(), value.clone())
+                .prop_map(|(local, value)| GenPred::PlainLit { local, value }),
+            (local.clone(), value.clone(), 0u8..3).prop_map(|(local, value, lang_idx)| {
+                GenPred::LangLit {
+                    local,
+                    value,
+                    lang_idx,
+                }
+            }),
+            (local.clone(), value.clone(), 0u8..3).prop_map(|(local, value, dt_idx)| {
+                GenPred::TypedLit {
+                    local,
+                    value,
+                    dt_idx,
+                }
+            }),
+            (local, 0u8..4).prop_map(|(local, target)| GenPred::Resource { local, target }),
+        ]
+    }
+
+    fn arb_node() -> impl Strategy<Value = GenNode> {
+        (
+            any::<bool>(),
+            0u8..4,
+            prop::collection::vec(arb_pred(), 1..=2),
+        )
+            .prop_map(|(typed, id, preds)| GenNode { typed, id, preds })
+    }
+
+    fn arb_doc() -> impl Strategy<Value = Vec<GenNode>> {
+        prop::collection::vec(arb_node(), 1..=3)
+    }
+
+    /// Render a generated document to a concrete RDF/XML source string.
+    /// All quoting is conservative (numeric ids, ASCII locals) so the
+    /// XML 1.0 parser accepts every output.
+    fn render(doc: &[GenNode]) -> String {
+        const LANGS: &[&str] = &["en", "fr", "de"];
+        const DTS: &[&str] = &[
+            "http://www.w3.org/2001/XMLSchema#string",
+            "http://www.w3.org/2001/XMLSchema#integer",
+            "http://www.w3.org/2001/XMLSchema#boolean",
+        ];
+        let mut out = String::from(
+            "<?xml version=\"1.0\"?>\n\
+             <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n\
+                      xmlns:ex=\"http://example.org/\">\n",
+        );
+        for n in doc {
+            let about = format!("http://example.org/s{}", n.id);
+            if n.typed {
+                out.push_str(&format!("  <ex:Cls rdf:about=\"{about}\">\n"));
+            } else {
+                out.push_str(&format!("  <rdf:Description rdf:about=\"{about}\">\n"));
+            }
+            for p in &n.preds {
+                match p {
+                    GenPred::PlainLit { local, value } => {
+                        out.push_str(&format!("    <ex:p{local}>v{value}</ex:p{local}>\n"));
+                    }
+                    GenPred::LangLit {
+                        local,
+                        value,
+                        lang_idx,
+                    } => {
+                        let lang = LANGS[*lang_idx as usize % LANGS.len()];
+                        out.push_str(&format!(
+                            "    <ex:p{local} xml:lang=\"{lang}\">v{value}</ex:p{local}>\n"
+                        ));
+                    }
+                    GenPred::TypedLit {
+                        local,
+                        value,
+                        dt_idx,
+                    } => {
+                        let dt = DTS[*dt_idx as usize % DTS.len()];
+                        out.push_str(&format!(
+                            "    <ex:p{local} rdf:datatype=\"{dt}\">v{value}</ex:p{local}>\n"
+                        ));
+                    }
+                    GenPred::Resource { local, target } => {
+                        out.push_str(&format!(
+                            "    <ex:p{local} rdf:resource=\"http://example.org/r{target}\"/>\n"
+                        ));
+                    }
+                }
+            }
+            if n.typed {
+                out.push_str("  </ex:Cls>\n");
+            } else {
+                out.push_str("  </rdf:Description>\n");
+            }
+        }
+        out.push_str("</rdf:RDF>\n");
+        out
+    }
+
+    proptest! {
+        /// (a) The reader succeeds on every generated doc — no
+        /// structural shape in the subset is undefined behaviour.
+        #[test]
+        fn prop_reader_accepts_generated_docs(doc in arb_doc()) {
+            let src = render(&doc);
+            let parsed = read_xml(&src).expect("XML must parse");
+            let res = read_rdf_xml(&parsed.root, "http://example.org/base/");
+            prop_assert!(res.is_ok(), "read_rdf_xml rejected generated doc: {:?}", res.err());
+        }
+
+        /// (b) The
+        /// [`crate::social::software::markup::xml::rdf::ontology::LiteralsCannotBeSubjects`]
+        /// axiom (W3C RDF 1.1 Concepts §3) — no triple the reader
+        /// emits ever carries a literal in subject position.
+        #[test]
+        fn prop_literals_never_subjects(doc in arb_doc()) {
+            let src = render(&doc);
+            let parsed = read_xml(&src).expect("XML must parse");
+            let triples = read_rdf_xml(&parsed.root, "http://example.org/base/")
+                .expect("read_rdf_xml must succeed");
+            for t in &triples {
+                prop_assert!(
+                    t.subject_is_admissible(),
+                    "literal subject in {t:?} violates W3C RDF 1.1 §3"
+                );
+            }
+        }
+
+        /// (c) Determinism — two independent `read_rdf_xml` calls on
+        /// the same bytes produce byte-identical `Vec<Triple>`, blank
+        /// labels and order included (cf. the `read_owl` determinism
+        /// fix, praxis commit `a4afae37`).
+        #[test]
+        fn prop_read_rdf_xml_is_deterministic(doc in arb_doc()) {
+            let src = render(&doc);
+            let parsed1 = read_xml(&src).expect("XML must parse");
+            let parsed2 = read_xml(&src).expect("XML must parse");
+            let t1 = read_rdf_xml(&parsed1.root, "http://example.org/base/")
+                .expect("read 1");
+            let t2 = read_rdf_xml(&parsed2.root, "http://example.org/base/")
+                .expect("read 2");
+            prop_assert_eq!(t1, t2, "two reads on identical bytes diverged");
+        }
+    }
 }

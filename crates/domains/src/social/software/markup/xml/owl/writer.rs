@@ -777,4 +777,101 @@ mod tests {
             "round-trip equivalence on a simple class fixture"
         );
     }
+
+    // ── Property-based coverage on synthetic ontologies ─────────────
+    //
+    // The bundled-vocabulary tests pin specific real-world inputs; the
+    // proptests below sweep the writer's canonical-form invariants
+    // over the structural subset the `test_arb::arb_ontology` strategy
+    // emits. Properties:
+    //
+    //   (a) `write_owl` is deterministic — two calls on the same
+    //       `OwlOntology` produce byte-identical `Vec<u8>`.
+    //   (b) Within each entity block (classes, properties), the entity
+    //       IRIs appear in strict lexicographic order — the writer's
+    //       sort-and-canonicalize discipline.
+    //   (c) `read_owl(write_owl(&ont))` produces an `OwlOntology`
+    //       `owl_equivalent` to `ont` — the structural-equivalence
+    //       round-trip, mirroring the categorical idempotence the
+    //       Phase 2 corpus-wide harness pins for the six bundled vocabs.
+
+    use proptest::prelude::*;
+
+    use super::super::test_arb::arb_ontology;
+
+    /// Scan the emitted bytes for every `<owl:Class rdf:about="…">` (or
+    /// `<owl:ObjectProperty …>`) opener and return the IRIs in document
+    /// order. Helper for the lexicographic-ordering property.
+    fn extract_iris(text: &str, opener: &str) -> Vec<String> {
+        let mut out = Vec::new();
+        let needle = format!("{opener} rdf:about=\"");
+        let mut rest = text;
+        while let Some(idx) = rest.find(&needle) {
+            let after = &rest[idx + needle.len()..];
+            if let Some(end) = after.find('"') {
+                out.push(after[..end].to_string());
+                rest = &after[end..];
+            } else {
+                break;
+            }
+        }
+        out
+    }
+
+    proptest! {
+        /// (a) `write_owl` is deterministic — two calls on the same
+        /// `OwlOntology` produce byte-identical bytes. Pins the lens's
+        /// deterministic-canonical claim.
+        #[test]
+        fn prop_write_owl_is_deterministic(ont in arb_ontology()) {
+            let a = write_owl(&ont);
+            let b = write_owl(&ont);
+            prop_assert_eq!(a, b);
+        }
+
+        /// (b) Within each entity block (classes / properties), the
+        /// entity IRIs appear in strict lexicographic order. Pins the
+        /// canonical-form §1 rule from the writer's module-level
+        /// canonical-form spec.
+        #[test]
+        fn prop_entity_blocks_are_lexicographically_sorted(ont in arb_ontology()) {
+            let bytes = write_owl(&ont);
+            let text = std::str::from_utf8(&bytes).expect("utf8");
+
+            let class_iris = extract_iris(text, "<owl:Class");
+            for w in class_iris.windows(2) {
+                prop_assert!(
+                    w[0] < w[1],
+                    "class block not strictly lex-sorted: {:?} !< {:?}",
+                    w[0],
+                    w[1]
+                );
+            }
+            let prop_iris = extract_iris(text, "<owl:ObjectProperty");
+            for w in prop_iris.windows(2) {
+                prop_assert!(
+                    w[0] < w[1],
+                    "property block not strictly lex-sorted: {:?} !< {:?}",
+                    w[0],
+                    w[1]
+                );
+            }
+        }
+
+        /// (c) Round-trip on synthetic ontologies — `read_owl(write_owl(&ont))`
+        /// is `owl_equivalent` to `ont`. Pins the lens's PutGet leg
+        /// at the structural level for any within-subset instance,
+        /// mirroring the categorical round-trip the Phase 2 harness
+        /// runs on the six bundled OWL vocabs.
+        #[test]
+        fn prop_round_trip_owl_equivalent(ont in arb_ontology()) {
+            let bytes = write_owl(&ont);
+            let text = std::str::from_utf8(&bytes).expect("utf8");
+            let ont2 = read_owl(text).expect("read_owl on write_owl output");
+            prop_assert!(
+                owl_equivalent(&ont, &ont2),
+                "round-trip drift: write_owl ∘ read_owl not owl_equivalent"
+            );
+        }
+    }
 }

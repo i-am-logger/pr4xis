@@ -35,6 +35,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Smallest registered OWL vocabulary: biro (~15 entities) — the .prx.gz
     // envelope is a few KB, so the validated-load round-trip stays fast.
     let ontology = env_or("PRAXIS_E2E_ONTOLOGY", "biro");
+    // Second OWL vocabulary loaded unconditionally — cito (~83 KB source,
+    // well-annotated; exercises the rdf:nodeID + xml:lang + rdf:datatype
+    // paths the smaller vocabs don't hit). Override via
+    // `PRAXIS_E2E_ONTOLOGY_2` for hygiene.
+    let ontology_2 = env_or("PRAXIS_E2E_ONTOLOGY_2", "cito");
 
     // Headless Firefox via geckodriver.
     let mut caps = serde_json::map::Map::new();
@@ -48,14 +53,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .connect(&webdriver)
         .await?;
 
-    let outcome = run_all(&client, &base, &title, &ontology).await;
+    let outcome = run_all(&client, &base, &title, &ontology, &ontology_2).await;
     // Always release the browser session, then surface the result.
     let _ = client.close().await;
     outcome?;
 
     println!(
-        "E2E OK: {title} (USLM source) + {ontology} (OWL .prx.gz, hash-validated) \
-         materialised into live ontologies."
+        "E2E OK: {title} (USLM source) + {ontology} + {ontology_2} \
+         (OWL .prx.gz, hash-validated) materialised into live ontologies."
     );
     Ok(())
 }
@@ -65,6 +70,7 @@ async fn run_all(
     base: &str,
     title: &str,
     ontology: &str,
+    ontology_2: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     client.goto(base).await?;
     run_source(client, title).await?;
@@ -72,6 +78,10 @@ async fn run_all(
     // second source compounds on the first. After this the catalog reports
     // two loaded entries.
     run_ontology_prx(client, ontology).await?;
+    // Load a second OWL vocabulary alongside the first to exercise the
+    // dual-load path on more than one source kind. Both ontology cards
+    // end up `.loaded` in the same worker session.
+    run_ontology_prx(client, ontology_2).await?;
     Ok(())
 }
 

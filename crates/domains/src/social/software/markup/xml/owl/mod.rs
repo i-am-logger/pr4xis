@@ -46,5 +46,10 @@ pub mod loaded_vocabularies;
 
 pub use ontology::*;
 
+// Test-only `Arbitrary OwlOntology` strategy shared by the
+// `writer.rs` and `lens.rs` proptest modules. No public surface.
+#[cfg(test)]
+pub(crate) mod test_arb;
+
 #[cfg(test)]
 mod tests;

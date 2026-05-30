@@ -209,4 +209,71 @@ mod tests {
         OwlLens::assert_put_get_law(&bytes)
             .unwrap_or_else(|e| panic!("PutGet law violated on OLiA: {e}"));
     }
+
+    // ── Property-based GetPut + PutGet coverage ─────────────────────
+    //
+    // The published lens laws are (Foster, Greenwald, Moore, Pierce &
+    // Schmitt 2007 "Combinators for Bidirectional Tree Transformations"
+    // *ACM TOPLAS* 29(3) Article 17, §2.2):
+    //
+    //   PutGet: `get ∘ put = id_T`   — `put(t)` then `get` recovers `t`.
+    //   GetPut: `put ∘ get = id_S`   — `put(get(s))` is `s`, up to the
+    //                                  source's canonical equivalence.
+    //
+    // The corpus harness above pins both laws on the six bundled
+    // vocabs; the proptests below witness BOTH laws directly across
+    // the structural subset the `arb_ontology` strategy emits.
+
+    use proptest::prelude::*;
+
+    use super::super::reader::read_owl;
+    use super::super::test_arb::arb_ontology;
+    use super::super::writer::write_owl;
+    use crate::social::software::markup::xml::owl::reader::owl_equivalent;
+
+    proptest! {
+        /// PutGet (Foster et al. 2007 §2.2): `get ∘ put = id_T`.
+        ///
+        /// For the OWL lens, `id_T` means `owl_equivalent` (the
+        /// graph-equality the OWL 2 RDF Mapping promises — set-theoretic
+        /// over the triple set, not Vec position). Re-stated for the
+        /// `WellBehavedLens` trait surface using the generated subset.
+        #[test]
+        fn prop_put_get_law(ont in arb_ontology()) {
+            let bytes = write_owl(&ont);
+            let text = std::str::from_utf8(&bytes).expect("utf8");
+            let recovered = read_owl(text).expect("read_owl on canonical bytes");
+            prop_assert!(
+                owl_equivalent(&ont, &recovered),
+                "PutGet violated: get(put(ont)) not owl_equivalent to ont"
+            );
+        }
+
+        /// GetPut (Foster et al. 2007 §2.2): `put ∘ get = id_S`,
+        /// witnessed at the canonical-byte / SHA-256 boundary —
+        /// `Sha256(canonical(put(get(b)))) == Sha256(canonical(b))`
+        /// where `b = write_owl(arbitrary_ont)` (canonical OWL bytes
+        /// the lens itself produces). This is the byte-level form of
+        /// the PutGet law on the lens's canonical-byte surface and
+        /// pins the lens's canonical-form idempotence over the
+        /// generated subset.
+        #[test]
+        fn prop_get_put_law(ont in arb_ontology()) {
+            // Canonical bytes the lens emits for `ont`.
+            let canonical_bytes = write_owl(&ont);
+            // SHA-256 of the canonical input.
+            let input_sig = OwlLens::signature(&canonical_bytes)
+                .expect("signature of canonical bytes");
+            // get → put on those bytes, then SHA-256 of its canonical form.
+            let round_tripped = OwlLens::apply_put_after_get(&canonical_bytes)
+                .expect("apply_put_after_get on canonical bytes");
+            let rt_sig = OwlLens::signature(&round_tripped)
+                .expect("signature of round-tripped bytes");
+            prop_assert_eq!(
+                input_sig,
+                rt_sig,
+                "GetPut violated: canonical-form SHA-256 drift on lens-emitted bytes"
+            );
+        }
+    }
 }
