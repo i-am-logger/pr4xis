@@ -29,8 +29,8 @@ pub struct StateEstimate {
 
 impl StateEstimate {
     pub fn new(state: Vector, covariance: Matrix, epoch: f64) -> Self {
-        debug_assert_eq!(state.dim(), covariance.rows);
-        debug_assert_eq!(covariance.rows, covariance.cols);
+        assert_eq!(state.dim(), covariance.rows);
+        assert_eq!(covariance.rows, covariance.cols);
         Self {
             state,
             covariance,

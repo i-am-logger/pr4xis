@@ -161,7 +161,7 @@ impl BitSet {
     /// in `other`. Widths must match.
     #[must_use]
     pub fn is_subset(&self, other: &Self) -> bool {
-        debug_assert_eq!(self.width, other.width);
+        assert_eq!(self.width, other.width);
         self.words
             .iter()
             .zip(&other.words)
@@ -182,7 +182,7 @@ impl BitSet {
     /// Bitwise AND. Widths must match.
     #[must_use]
     pub fn intersect(&self, other: &Self) -> Self {
-        debug_assert_eq!(self.width, other.width);
+        assert_eq!(self.width, other.width);
         let words = self
             .words
             .iter()
@@ -198,7 +198,7 @@ impl BitSet {
     /// Bitwise OR. Widths must match.
     #[must_use]
     pub fn union(&self, other: &Self) -> Self {
-        debug_assert_eq!(self.width, other.width);
+        assert_eq!(self.width, other.width);
         let words = self
             .words
             .iter()
