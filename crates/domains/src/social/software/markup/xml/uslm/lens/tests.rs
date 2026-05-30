@@ -382,3 +382,136 @@ fn axiom_undeclared_names_produce_unknown_element() {
         "expected UnknownElement(\"not_a_usl_element\"), got {err:?}",
     );
 }
+
+// =========================================================
+// Phase-1 structural-content audit (Milestone #266)
+//
+// The OWL graph-faithful refactor at praxis e74fa2c5 was preceded by
+// an analogous audit quantifying what the typed view drops vs the
+// source bytes. The audit motivates removing the
+// `complement: Vec<u8>` side-channel: anything the typed view
+// captures structurally needn't be remembered byte-verbatim.
+//
+// This test walks every USLM-namespace element by `(namespace URI,
+// local name)` per W3C XML Infoset §1 and emits a deterministic diff
+// report. The audit is informational at this phase — it does NOT fail
+// on a non-zero gap. The Phase-1 result is the report; the decision
+// of which elements to lift into the typed view (vs accept as
+// out-of-scope) is the next user-driven step.
+//
+// Citation: U.S. House Office of the Law Revision Counsel, USLM XML
+// User Guide and Schema. The element vocabulary the audit walks is
+// the loaded USLM-1.0.18.xsd.
+// =========================================================
+
+/// The synthetic title sample has a known structural shape — exercise
+/// the audit machinery on it first to verify the histogram math is
+/// correct before running over multi-megabyte USC titles.
+#[test]
+fn axiom_structural_audit_on_synthetic_title() {
+    use super::structural_audit::audit_structural_content;
+
+    let audit = audit_structural_content(SAMPLE_TITLE.as_bytes()).expect("audit synthetic title");
+    // The synthetic title has 11 raw elements: uscDoc, meta, dc:title,
+    // dc:type, dc:publisher, main, title, num, heading, section, num,
+    // heading, content → distinct element names ~10 (num/heading
+    // repeat). Verify a few invariants.
+    assert!(audit.raw.total() >= 11, "synthetic raw count");
+    // The typed view materialises uscDoc/main/title/num/heading at
+    // least once; verify the structural-audit didn't silently zero
+    // out the title-level emission.
+    assert!(
+        audit
+            .typed
+            .get(Some(super::structural_audit::USLM_NS_FOR_TEST), "section")
+            >= 1
+    );
+    // Render the report for human inspection.
+    eprintln!(
+        "{}",
+        super::structural_audit::render_audit("synthetic_title", &audit)
+    );
+}
+
+/// Phase-1 audit over every registered USC title XML on disk.
+///
+/// Skips titles that aren't on disk so CI works without the LRC USLM
+/// bundle. Emits a per-title gap report to stderr. The test passes
+/// regardless of gap size — the audit is informational. The user
+/// reviews the per-title output to decide which dropped element
+/// kinds warrant lifting into the typed view in Phase 2.
+///
+/// The set of titles is derived from
+/// [`crate::applied::data_provisioning::registry::data_sources()`]
+/// filtered to `SourceTaxonomyConcept::UsCodeTitle`, so additions
+/// to `praxis.toml` flow through automatically.
+#[test]
+fn phase1_structural_audit_across_registered_usc_titles() {
+    use super::structural_audit::{audit_structural_content, render_audit};
+    use crate::applied::data_provisioning::registry::data_sources;
+    use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+
+    let workspace_root: std::path::PathBuf = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    let mut audited = 0usize;
+    let mut total_dropped = 0i64;
+    let mut report_lines: Vec<String> = Vec::new();
+    for entry in data_sources() {
+        if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+            continue;
+        }
+        let path = workspace_root.join(entry.local_path());
+        let Ok(bytes) = std::fs::read(&path) else {
+            eprintln!(
+                "SKIP {}@{}: {} not on disk",
+                entry.name,
+                entry.version,
+                path.display()
+            );
+            continue;
+        };
+        let label = format!("{}@{}", entry.name, entry.version);
+        let audit = audit_structural_content(&bytes)
+            .unwrap_or_else(|e| panic!("audit failed for {label}: {e}"));
+        total_dropped += audit.total_dropped();
+        audited += 1;
+
+        // Compact per-title summary line.
+        report_lines.push(format!(
+            "  {label}: raw_total={}  typed_total={}  total_dropped={}  raw_distinct={}  typed_distinct={}",
+            audit.raw.total(),
+            audit.typed.total(),
+            audit.total_dropped(),
+            audit.raw.distinct(),
+            audit.typed.distinct(),
+        ));
+
+        // Per-element dropped-only diff (raw > typed).
+        let mut drops: Vec<&super::structural_audit::GapRow> = audit.dropped_elements().collect();
+        drops.sort_by_key(|g| std::cmp::Reverse(g.gap));
+        for d in drops.iter().take(20) {
+            let ns = d.namespace.as_deref().unwrap_or("(none)");
+            report_lines.push(format!(
+                "      drop {{{ns}}}{}  raw={}  typed={}  gap={:+}",
+                d.local, d.raw, d.typed, d.gap,
+            ));
+        }
+        // Emit the full per-title report to stderr — useful when run
+        // with --nocapture.
+        eprintln!("{}", render_audit(&label, &audit));
+    }
+    if audited == 0 {
+        eprintln!("phase1_structural_audit: no registered USC title XML on disk; skip");
+        return;
+    }
+    eprintln!("=== Phase-1 USLM structural audit ===");
+    eprintln!("titles audited: {audited}");
+    eprintln!("aggregate total_dropped: {total_dropped}");
+    for line in report_lines {
+        eprintln!("{line}");
+    }
+}

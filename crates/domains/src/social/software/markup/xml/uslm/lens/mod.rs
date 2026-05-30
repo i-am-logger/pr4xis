@@ -155,6 +155,7 @@ use crate::social::software::markup::xml::reader as xml_reader;
 use super::corpus::{HierarchyNode, USLM_NAMESPACE_URI, UsCodeSection, UsCodeTitle, UslmReadError};
 
 pub mod leaf_readers;
+pub mod structural_audit;
 
 use leaf_readers::{
     attr, derive_title_identifier, find_first_descendant, first_child_text, is_section_leaf,
