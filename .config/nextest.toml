@@ -29,7 +29,7 @@
 # References: nextest-rs/nextest book §"Slow tests and timeouts"
 # (<https://nexte.st/book/slow-tests.html>).
 [profile.default.slow-timeout]
-period = "60s"
+period = "15s"
 terminate-after = 2
 
 [profile.ci]

@@ -49,12 +49,17 @@ unimplemented = "deny"
 unreachable = "deny"
 
 # Speed up `cargo test` and `cargo run` in the default debug profile by
-# building every *external* dependency with `opt-level = 1`. Workspace
-# crates stay at the default `opt-level = 0`, so incremental compile
-# stays fast and debug-info / overflow checks remain on. Cuts the
-# debug runtime of compute-heavy deps (quick-xml parser, serde,
-# proptest, hashbrown) by a meaningful margin without paying the full
-# release-build cost. Standard Rust convention; see
-# <https://doc.rust-lang.org/cargo/reference/profiles.html#overrides>.
-[profile.dev.package."*"]
+# building both workspace crates AND external deps with `opt-level = 1`.
+# The USC corpus loader (`usc_loaded()`) parses ~85 MB of USLM XML
+# through workspace code on first touch; at `opt-level = 0` that takes
+# ~20s in debug, which propagates as a parallel-init wait across the
+# ~30 statute tests that share the `OnceLock`. opt-level = 1 brings the
+# parse to a few seconds while keeping `debug_assertions` and overflow
+# checks on. Standard Rust convention; see
+# <https://doc.rust-lang.org/cargo/reference/profiles.html>.
+#
+# Workspace crates explicitly because USLM read code lives in
+# `crates/domains`, not in any dep; the deps-only variant
+# (`[profile.dev.package."*"]`) doesn't reach it.
+[profile.dev]
 opt-level = 1
