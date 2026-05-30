@@ -1,5 +1,5 @@
 //! Round-trip verification harness for every registered
-//! [`WellBehavedLens`].
+//! [`super::WellBehavedLens`].
 //!
 //! # What the harness does
 //!
@@ -9,7 +9,7 @@
 //! 1. Resolves the source's expected on-disk path via the registry.
 //! 2. Reads the bytes (if present — sources awaiting `pr4xis update`
 //!    are reported as `SourceNotOnDisk`, not as a hard failure).
-//! 3. Calls [`WellBehavedLens::assert_put_get_law`] on the bytes
+//! 3. Calls [`super::WellBehavedLens::assert_put_get_law`] on the bytes
 //!    (Foster, Greenwald, Moore, Pierce & Schmitt 2007 *ACM TOPLAS*
 //!    29(3) §2.2 well-behaved lens laws).
 //! 4. Computes the canonical-form SHA-256.
@@ -76,7 +76,7 @@ use crate::applied::data_provisioning::registry::{by_name_version, lock_canonica
 // Registration: one entry per (lens type, source key) pair.
 // =============================================================================
 
-/// Type-erased registration of a [`WellBehavedLens`] applied to a
+/// Type-erased registration of a [`super::WellBehavedLens`] applied to a
 /// specific praxis-toml source. Populated via the
 /// [`crate::register_lens`] macro and discovered by the harness at
 /// link time through the `linkme` distributed slice.
@@ -87,7 +87,7 @@ pub struct LensRegistration {
     pub source_name: &'static str,
     /// The source's `version` field from `praxis.toml`.
     pub source_version: &'static str,
-    /// Run [`WellBehavedLens::assert_put_get_law`] on `bytes`.
+    /// Run [`super::WellBehavedLens::assert_put_get_law`] on `bytes`.
     pub assert_law: fn(&[u8]) -> Result<(), LensLawFailure>,
     /// Compute the canonical-form SHA-256 of `bytes`.
     pub signature: fn(&[u8]) -> Result<[u8; 32], String>,
@@ -227,7 +227,7 @@ pub fn run_round_trip_harness() -> Vec<HarnessResult> {
 }
 
 /// Print one line per registration to stderr — TOML-formatted for the
-/// [`canonical_signatures`] section of `praxis.lock` when the source's
+/// `[canonical_signatures]` section of `praxis.lock` when the source's
 /// PutGet law holds but its signature hasn't been pinned yet, and a
 /// `key: Outcome` line otherwise. Surface for the human workflow of
 /// pinning new lens signatures: capture stderr, paste matching lines

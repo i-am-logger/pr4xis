@@ -1,14 +1,14 @@
 //! XSD ontology — W3C XML Schema 1.1 as a Praxis ontology.
 //!
-//! Defines the concept inventory of XML Schema 1.1
-//! ([`SchemaComponent`] and its leaves: [`ElementDeclaration`],
-//! [`AttributeDeclaration`], [`TypeDefinition`],
-//! [`ComplexTypeDefinition`], [`SimpleTypeDefinition`],
-//! [`ModelGroup`], [`Sequence`], [`Choice`], [`AllGroup`],
-//! [`AttributeGroup`], [`Particle`], [`Wildcard`],
-//! [`IdentityConstraint`], [`NotationDeclaration`],
-//! [`Annotation`] with sub-concepts [`AppInfo`], [`Documentation`])
-//! with the relationships and axioms that govern them.
+//! Defines the concept inventory of XML Schema 1.1 — `SchemaComponent`
+//! and its leaves (`ElementDeclaration`, `AttributeDeclaration`,
+//! `TypeDefinition`, `ComplexTypeDefinition`, `SimpleTypeDefinition`,
+//! `ModelGroup`, `Sequence`, `Choice`, `AllGroup`, `AttributeGroup`,
+//! `Particle`, `Wildcard`, `IdentityConstraint`, `NotationDeclaration`,
+//! `Annotation` with sub-concepts `AppInfo`, `Documentation`) — with
+//! the relationships and axioms that govern them. The Rust carrier is
+//! the [`XsdPart`] enum (a partition over schema-component variants);
+//! the spec terms above are W3C XSD 1.1 nomenclature, not Rust items.
 //!
 //! ## Why XSD as a Praxis ontology
 //!

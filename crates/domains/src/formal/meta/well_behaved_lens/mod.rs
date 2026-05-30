@@ -47,8 +47,8 @@
 //! - [`canonical`] — per-source-kind canonical forms (XML, JSON,
 //!   plain text, TOML; RDF stubbed).
 //!
-//! Tests for the trait laws + the canonical-form library live in
-//! [`tests`].
+//! Tests for the trait laws + the canonical-form library live in the
+//! `tests` submodule (test-only, not part of the public API).
 //!
 //! ## Citations
 //!
