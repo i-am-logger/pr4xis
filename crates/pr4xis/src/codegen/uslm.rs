@@ -532,7 +532,7 @@ pub fn section_identifier_to_statute_name(identifier: &str) -> String {
 ///
 /// Output shape: a single Rust source string defining
 ///
-/// ```ignore
+/// ```text
 /// pub static SECTIONS: &[StaticStatute] = &[ ... ];
 /// ```
 ///

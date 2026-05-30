@@ -38,7 +38,7 @@
 //! Each lens implementation registers itself with the harness via
 //! the [`crate::register_lens`] macro:
 //!
-//! ```ignore
+//! ```text
 //! crate::register_lens!(USC_TITLE_18, "usc_title_18", "pl-119-90", UslmXmlLens);
 //! ```
 //!
@@ -123,7 +123,7 @@ pub fn lens_registrations() -> &'static [LensRegistration] {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// // In `crates/domains/src/social/software/markup/xml/uslm/lens/mod.rs`:
 /// crate::register_lens!(USC_TITLE_18, "usc_title_18", "pl-119-90", UslmXmlLens);
 /// ```
