@@ -322,20 +322,14 @@ mod tests {
                 OwlClass {
                     iri: String::new(),
                     label: Some("ghost".to_string()),
-                    comment: None,
-                    superclasses: Vec::new(),
+                    ..Default::default()
                 },
                 OwlClass {
                     iri: "http://example.org/x#A".to_string(),
-                    label: None,
-                    comment: None,
-                    superclasses: Vec::new(),
+                    ..Default::default()
                 },
             ],
-            properties: Vec::new(),
-            individuals: Vec::new(),
-            taxonomy: Vec::new(),
-            property_taxonomy: Vec::new(),
+            ..Default::default()
         };
         let builder = owl_to_builder(&ont);
         assert_eq!(builder.entity_count(), 1, "empty-IRI class must be skipped");
@@ -410,9 +404,7 @@ mod tests {
             .iter()
             .map(|iri| OwlClass {
                 iri: iri.clone(),
-                label: None,
-                comment: None,
-                superclasses: Vec::new(),
+                ..Default::default()
             })
             .collect();
         let properties = s
@@ -420,11 +412,7 @@ mod tests {
             .iter()
             .map(|iri| OwlObjectProperty {
                 iri: iri.clone(),
-                label: None,
-                comment: None,
-                domain: None,
-                range: None,
-                superproperties: Vec::new(),
+                ..Default::default()
             })
             .collect();
         let taxonomy = s
@@ -441,9 +429,9 @@ mod tests {
             iri: "http://ex.org/o".to_string(),
             classes,
             properties,
-            individuals: Vec::new(),
             taxonomy,
             property_taxonomy,
+            ..Default::default()
         }
     }
 

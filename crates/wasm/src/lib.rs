@@ -199,8 +199,8 @@ impl Pr4xis {
     /// pin and this path does not. A malformed document fails closed via
     /// the OWL reader.
     pub fn load_owl_source(&mut self, name: String, owl_xml: &str) -> Result<(), JsValue> {
-        let ont = read_owl(owl_xml)
-            .map_err(|e| JsValue::from_str(&format!("OWL parse failed: {}", e.0)))?;
+        let ont =
+            read_owl(owl_xml).map_err(|e| JsValue::from_str(&format!("OWL parse failed: {e}")))?;
         let vocab = LoadedOwlVocabulary::from_owl_ontology(&ont);
         self.install(name, LoadedPayload::Owl(vocab));
         Ok(())

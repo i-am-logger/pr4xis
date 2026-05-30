@@ -330,3 +330,15 @@
 "usc_title_18@pl-119-90" = "7e8f4cdf99cdca0ed611fef0f8b508f1179f3dbdae67cdfd751c4f8944736939"
 # USC Title 49 — Transportation. Same lens, same canonical form.
 "usc_title_49@pl-119-90" = "1902b2bb287fcfd2af1a59cec9619f05a177161bde1aec77c5683216aca0cccb"
+# OWL vocabularies — OwlLens canonical form is the deterministic
+# RDF/XML emission of `read_owl(bytes)` per the W3C OWL 2 RDF
+# Mapping (Patel-Schneider & Motik 2012). The lens has no byte
+# complement; PutGet holds because `read_owl ∘ write_owl ∘ read_owl ≡
+# read_owl` (Phase 2 categorical round-trip verified) and `write_owl`
+# is deterministic over the typed view.
+"cito@2.8.1"             = "a75621363223ea1939cedfd9fefadc1cc9b171655c4c5a409348846887b096cd"
+"doco@1.3"               = "e531613f42f29a6202402f6c455ad717ec9203bd755dd000385069953273191a"
+"c4o@1.2"                = "7e3dc07dc0ee3bbada544a9f66b6ec70d852e02ea24ee180e60951b0493f03e0"
+"biro@1.1.1"             = "3b5f6b00c5a721c4913d1f6398fc01b66d57b4a0dc11c679770af5ff1cec5f6f"
+"prov_o@2013-04-30"      = "1d75fac49d06fac3be48ab2edba4dbe47b0e535ada1186126d3f0fbb734017ae"
+"olia@2026-04-09"        = "934547422365700fa23c7562822c91dbd38df824c9b8490af79aa1247c6b2576"

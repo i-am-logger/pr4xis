@@ -1,5 +1,7 @@
+pub mod lens;
 pub mod ontology;
 pub mod reader;
+pub mod writer;
 
 // Runtime corpus + praxis `Category` over a loaded OWL vocabulary —
 // the hydration target a later rkyv `.prx` archive loads into, and the

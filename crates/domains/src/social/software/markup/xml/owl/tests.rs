@@ -617,6 +617,273 @@ fn load_olia() {
 }
 
 // =============================================================================
+// Phase 1 derisk-gate audit — RDF-triple-based reader structural content
+// =============================================================================
+
+/// Walk every bundled OWL vocabulary through the new triple-based
+/// `read_owl` and report the structural-content counts. Asserts that
+/// each vocabulary produces a non-empty typed view — the per-vocab
+/// counts are printed to stderr per `feedback_no_bounded_discovery_
+/// counts` (the data determines the numbers, not the test). The new
+/// fields (`labels`/`comments`/`annotations`/class expressions) get
+/// audited alongside the classic counts.
+#[test]
+fn rdf_triple_reader_structural_content_audit() {
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let data_dir = root.join("data/ontologies");
+
+    let vocabs = [
+        "cito-2.8.1.owl",
+        "doco-1.3.owl",
+        "c4o-1.2.owl",
+        "biro-1.1.1.owl",
+        "prov_o-2013-04-30.owl",
+        "olia-2026-04-09.owl",
+    ];
+
+    for name in &vocabs {
+        let path = data_dir.join(name);
+        let xml = std::fs::read_to_string(&path)
+            .unwrap_or_else(|_| panic!("bundled vocab must exist: {}", path.display()));
+        let ont = reader::read_owl(&xml)
+            .unwrap_or_else(|e| panic!("{name} must parse through new read_owl: {e}"));
+
+        let total_labels: usize = ont
+            .classes
+            .iter()
+            .map(|c| c.labels.len())
+            .chain(ont.properties.iter().map(|p| p.labels.len()))
+            .sum();
+        let total_comments: usize = ont
+            .classes
+            .iter()
+            .map(|c| c.comments.len())
+            .chain(ont.properties.iter().map(|p| p.comments.len()))
+            .sum();
+        let total_annotations: usize = ont
+            .classes
+            .iter()
+            .map(|c| c.annotations.len())
+            .chain(ont.properties.iter().map(|p| p.annotations.len()))
+            .sum();
+        let total_class_exprs: usize = ont
+            .classes
+            .iter()
+            .map(|c| {
+                c.superclass_expressions.len()
+                    + c.equivalent_classes.len()
+                    + c.disjoint_classes.len()
+            })
+            .sum();
+        let inverses = ont
+            .properties
+            .iter()
+            .filter(|p| p.inverse_of.is_some())
+            .count();
+
+        eprintln!(
+            "phase-1-audit: {name} \
+             classes={} \
+             props={} \
+             individuals={} \
+             taxonomy={} \
+             prop_taxonomy={} \
+             labels={total_labels} \
+             comments={total_comments} \
+             annotations={total_annotations} \
+             class_exprs={total_class_exprs} \
+             inverses={inverses} \
+             header_annotations={}",
+            ont.classes.len(),
+            ont.properties.len(),
+            ont.individuals.len(),
+            ont.taxonomy.len(),
+            ont.property_taxonomy.len(),
+            ont.ontology_annotations.len(),
+        );
+
+        // A vocabulary that ships in this repo MUST surface at least
+        // one structural fact through the new reader — either a class,
+        // a property, or a header annotation. A bundle that produced
+        // zero would mean the triple → OWL projection silently
+        // dropped everything.
+        assert!(
+            !ont.classes.is_empty()
+                || !ont.properties.is_empty()
+                || !ont.ontology_annotations.is_empty(),
+            "{name} produced an empty OwlOntology through the triple-based reader"
+        );
+    }
+}
+
+// =============================================================================
+// Phase 2 derisk-gate audit — categorical round-trip on all 6 vocabs
+// =============================================================================
+
+/// W3C OWL 2 RDF Mapping (Patel-Schneider & Motik 2012) is a
+/// set-theoretic projection. The praxis `read_owl` / `write_owl`
+/// pair is well-behaved iff:
+///
+/// `read_owl(write_owl(read_owl(b))) ≡_graph read_owl(b)`
+///
+/// — the `read_owl` of the lens output is graph-equivalent to the
+/// `read_owl` of the input bytes. (Byte-identical round-trip is the
+/// stronger PutGet law verified at Phase 3, against `canonical`-
+/// normalised bytes.)
+///
+/// This test walks every bundled OWL vocabulary through the
+/// categorical round-trip and reports per-vocab equivalence.
+#[test]
+fn categorical_round_trip_six_owl_vocabularies() {
+    use crate::social::software::markup::xml::owl::reader::owl_equivalent;
+    use crate::social::software::markup::xml::owl::writer::write_owl;
+
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let data_dir = root.join("data/ontologies");
+
+    let vocabs = [
+        "cito-2.8.1.owl",
+        "doco-1.3.owl",
+        "c4o-1.2.owl",
+        "biro-1.1.1.owl",
+        "prov_o-2013-04-30.owl",
+        "olia-2026-04-09.owl",
+    ];
+
+    let mut failures: Vec<String> = Vec::new();
+
+    for name in &vocabs {
+        let path = data_dir.join(name);
+        let xml = std::fs::read_to_string(&path)
+            .unwrap_or_else(|_| panic!("bundled vocab must exist: {}", path.display()));
+
+        let ont1 = match reader::read_owl(&xml) {
+            Ok(o) => o,
+            Err(e) => {
+                failures.push(format!("{name}: initial read_owl failed: {e}"));
+                continue;
+            }
+        };
+        let bytes = write_owl(&ont1);
+        let text = match core::str::from_utf8(&bytes) {
+            Ok(t) => t,
+            Err(e) => {
+                failures.push(format!("{name}: write_owl emitted non-UTF-8: {e}"));
+                continue;
+            }
+        };
+        let ont2 = match reader::read_owl(text) {
+            Ok(o) => o,
+            Err(e) => {
+                failures.push(format!("{name}: round-trip read_owl failed: {e}"));
+                continue;
+            }
+        };
+
+        if owl_equivalent(&ont1, &ont2) {
+            eprintln!("phase-2-audit: {name} round-trip OK");
+        } else {
+            // Detailed diagnostic: which dimension drifted?
+            let cls1: std::collections::HashSet<&str> =
+                ont1.classes.iter().map(|c| c.iri.as_str()).collect();
+            let cls2: std::collections::HashSet<&str> =
+                ont2.classes.iter().map(|c| c.iri.as_str()).collect();
+            let cls_diff_lr: Vec<&str> = cls1.difference(&cls2).copied().collect();
+            let cls_diff_rl: Vec<&str> = cls2.difference(&cls1).copied().collect();
+
+            let prp1: std::collections::HashSet<&str> =
+                ont1.properties.iter().map(|p| p.iri.as_str()).collect();
+            let prp2: std::collections::HashSet<&str> =
+                ont2.properties.iter().map(|p| p.iri.as_str()).collect();
+            let prp_diff_lr: Vec<&str> = prp1.difference(&prp2).copied().collect();
+            let prp_diff_rl: Vec<&str> = prp2.difference(&prp1).copied().collect();
+
+            eprintln!(
+                "phase-2-audit: {name} round-trip NOT equivalent — \
+                 c1={} c2={} p1={} p2={} i1={} i2={} tax1={} tax2={} ptax1={} ptax2={}\n  \
+                 classes-only-in-input: {:?}\n  classes-only-in-output: {:?}\n  \
+                 props-only-in-input: {:?}\n  props-only-in-output: {:?}",
+                ont1.classes.len(),
+                ont2.classes.len(),
+                ont1.properties.len(),
+                ont2.properties.len(),
+                ont1.individuals.len(),
+                ont2.individuals.len(),
+                ont1.taxonomy.len(),
+                ont2.taxonomy.len(),
+                ont1.property_taxonomy.len(),
+                ont2.property_taxonomy.len(),
+                cls_diff_lr,
+                cls_diff_rl,
+                prp_diff_lr,
+                prp_diff_rl,
+            );
+
+            // Detail per-class drift: find first class whose
+            // literal/expression sets differ.
+            for c1 in &ont1.classes {
+                if let Some(c2) = ont2.classes.iter().find(|c| c.iri == c1.iri) {
+                    if c1.labels.len() != c2.labels.len() {
+                        eprintln!(
+                            "  class {} labels drift: {} → {}",
+                            c1.iri,
+                            c1.labels.len(),
+                            c2.labels.len()
+                        );
+                    }
+                    if c1.comments.len() != c2.comments.len() {
+                        eprintln!(
+                            "  class {} comments drift: {} → {}",
+                            c1.iri,
+                            c1.comments.len(),
+                            c2.comments.len()
+                        );
+                    }
+                    if c1.superclass_expressions.len() != c2.superclass_expressions.len() {
+                        eprintln!(
+                            "  class {} superclass_exprs drift: {} → {}",
+                            c1.iri,
+                            c1.superclass_expressions.len(),
+                            c2.superclass_expressions.len()
+                        );
+                    }
+                }
+            }
+            for p1 in &ont1.properties {
+                if let Some(p2) = ont2.properties.iter().find(|p| p.iri == p1.iri)
+                    && (p1.labels.len() != p2.labels.len()
+                        || p1.comments.len() != p2.comments.len()
+                        || p1.inverse_of != p2.inverse_of
+                        || p1.superproperties.len() != p2.superproperties.len())
+                {
+                    eprintln!(
+                        "  prop {} drift: labels {}/{} comments {}/{} inv {:?}/{:?} sup {}/{}",
+                        p1.iri,
+                        p1.labels.len(),
+                        p2.labels.len(),
+                        p1.comments.len(),
+                        p2.comments.len(),
+                        p1.inverse_of,
+                        p2.inverse_of,
+                        p1.superproperties.len(),
+                        p2.superproperties.len(),
+                    );
+                }
+            }
+
+            failures.push(format!("{name}: categorical round-trip not equivalent"));
+        }
+    }
+
+    if !failures.is_empty() {
+        panic!(
+            "phase-2 round-trip failures:\n  - {}",
+            failures.join("\n  - ")
+        );
+    }
+}
+
+// =============================================================================
 // OWL category law tests
 // =============================================================================
 

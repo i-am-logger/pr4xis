@@ -640,7 +640,7 @@ mod emit {
     ) -> Result<PrxEnvelope, PrxError> {
         let text = core::str::from_utf8(source)
             .map_err(|e| PrxError::Read(format!("source is not UTF-8: {e}")))?;
-        let ont = read_owl(text).map_err(|e| PrxError::Read(e.0))?;
+        let ont = read_owl(text).map_err(|e| PrxError::Read(format!("{e}")))?;
         let ontology_uri = ont.iri.clone();
         let builder = owl_to_builder(&ont);
 

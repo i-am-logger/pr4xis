@@ -362,7 +362,7 @@ pub fn audit_loaded_vocabularies() -> VocabularyAuditReport {
         let source_text = core::str::from_utf8(&bytes)
             .unwrap_or_else(|e| panic!("audit: `{}` source bytes are not UTF-8: {e}", entry.name));
         let ont = read_owl(source_text)
-            .unwrap_or_else(|e| panic!("audit: re-read_owl of `{}` failed: {}", entry.name, e.0));
+            .unwrap_or_else(|e| panic!("audit: re-read_owl of `{}` failed: {e}", entry.name));
         let source_classes = distinct_nonempty(ont.classes.iter().map(|c| c.iri.as_str()));
         let source_properties = distinct_nonempty(ont.properties.iter().map(|p| p.iri.as_str()));
 

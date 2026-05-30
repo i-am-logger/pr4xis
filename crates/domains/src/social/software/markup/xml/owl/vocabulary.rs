@@ -1025,9 +1025,7 @@ mod tests {
                 .iter()
                 .map(|iri| OwlClass {
                     iri: iri.clone(),
-                    label: None,
-                    comment: None,
-                    superclasses: Vec::new(),
+                    ..Default::default()
                 })
                 .collect(),
             properties: s
@@ -1035,14 +1033,9 @@ mod tests {
                 .iter()
                 .map(|iri| OwlObjectProperty {
                     iri: iri.clone(),
-                    label: None,
-                    comment: None,
-                    domain: None,
-                    range: None,
-                    superproperties: Vec::new(),
+                    ..Default::default()
                 })
                 .collect(),
-            individuals: Vec::new(),
             taxonomy: s
                 .class_edges
                 .iter()
@@ -1053,6 +1046,7 @@ mod tests {
                 .iter()
                 .map(|(c, p)| (s.properties[*c].clone(), s.properties[*p].clone()))
                 .collect(),
+            ..Default::default()
         }
     }
 
