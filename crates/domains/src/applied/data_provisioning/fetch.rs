@@ -21,10 +21,14 @@
 //! - `fetch_entry(entry, opts, workspace_root)` — the per-entry work
 //! - `fetch_all(opts, workspace_root)` — every entry in `DATA_SOURCES`
 //!
-//! The implementation is intentionally linear and does not retry or cache.
 //! Every call is a clean `HTTP GET → verify → write`. Re-running after a
 //! successful fetch short-circuits via a local re-verification unless
-//! `force` is set, so invocations are idempotent.
+//! `force` is set, so invocations are idempotent. The downloader wraps
+//! each GET in [`with_retry`] (RFC 9110 §9.2.2: GET is idempotent and
+//! a client SHOULD retry on connection-class failure) with an
+//! exponential backoff schedule (Jacobson 1988, "Congestion Avoidance
+//! and Control", SIGCOMM 1988 §3) so transient TCP RSTs mid-download
+//! recover instead of aborting the whole `pr4xis update` run.
 //!
 //! **Flag precedence.** `--check` is a read-only mode and always wins:
 //! `--check --force` ignores `force` and only verifies the current file.
@@ -295,6 +299,12 @@ const MAX_DECOMPRESSED_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
 fn download(url: &str) -> anyhow::Result<Vec<u8>> {
     install_crypto_provider();
+    with_retry(|| download_once(url))
+}
+
+/// Single attempt at downloading `url`. The retry harness in
+/// [`with_retry`] wraps this for transient-error resilience.
+fn download_once(url: &str) -> anyhow::Result<Vec<u8>> {
     let buf = ureq::get(url)
         .call()
         .map_err(|e| anyhow::anyhow!("{e}"))?
@@ -304,6 +314,67 @@ fn download(url: &str) -> anyhow::Result<Vec<u8>> {
         .read_to_vec()
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     Ok(buf)
+}
+
+/// Total number of attempts (one initial + N retries) for an
+/// idempotent download. Three is a small constant: caps worst-case
+/// wall-clock at the [`backoff_for_attempt`] sum (≈ 3 s of sleep
+/// across the three attempts plus three request RTTs), large enough
+/// to recover from the transient TCP RST class we observed in CI
+/// (e.g. `Peer disconnected` mid-download).
+pub(crate) const RETRY_ATTEMPTS: u32 = 3;
+
+/// Backoff before retry `attempt` (1-indexed against the next attempt
+/// — `backoff_for_attempt(2)` is the sleep before attempt 2). Doubles
+/// per attempt starting at one second, the canonical
+/// exponential-backoff schedule. Single client → no thundering-herd
+/// concern → no jitter.
+pub(crate) fn backoff_for_attempt(attempt: u32) -> core::time::Duration {
+    core::time::Duration::from_secs(1u64 << (attempt - 2))
+}
+
+/// Run an idempotent fetch closure with [`RETRY_ATTEMPTS`] tries and
+/// exponential backoff between failures.
+///
+/// HTTP GET is idempotent (RFC 9110 §9.2.2: "GET, HEAD, OPTIONS, PUT,
+/// DELETE, and TRACE are defined as idempotent... A client SHOULD
+/// retry an idempotent request if the request is determined to be
+/// unsuccessful due to a connection issue"), so retrying a failed
+/// download is safe by HTTP semantics. Exponential backoff between
+/// attempts follows the canonical schedule (Jacobson 1988,
+/// "Congestion Avoidance and Control", SIGCOMM 1988 §3, repurposed
+/// here for application-layer retry as documented in
+/// AWS Architecture Blog, Brooker 2015, "Exponential Backoff And
+/// Jitter").
+///
+/// The harness retries on *any* error — discriminating
+/// transient-vs-permanent at the `ureq::Error` variant level would
+/// be more precise but at the cost of coupling this file to ureq's
+/// internal taxonomy. A permanent 4xx still terminates in at most
+/// [`RETRY_ATTEMPTS`] iterations; the worst-case extra wall-clock is
+/// the sum of [`backoff_for_attempt`] over the retries.
+pub(crate) fn with_retry<F, T>(mut f: F) -> anyhow::Result<T>
+where
+    F: FnMut() -> anyhow::Result<T>,
+{
+    let mut last_err: Option<anyhow::Error> = None;
+    for attempt in 1..=RETRY_ATTEMPTS {
+        match f() {
+            Ok(v) => return Ok(v),
+            Err(e) => {
+                if attempt < RETRY_ATTEMPTS {
+                    let delay = backoff_for_attempt(attempt + 1);
+                    eprintln!(
+                        "  [retry] attempt {attempt}/{RETRY_ATTEMPTS} failed: {e} \
+                         (sleeping {delay:?} before retry)"
+                    );
+                    std::thread::sleep(delay);
+                }
+                last_err = Some(e);
+            }
+        }
+    }
+    Err(last_err.expect("at least one attempt was made"))
 }
 
 fn gunzip(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {
@@ -855,5 +926,78 @@ mod tests {
     #[test]
     fn unzip_errors_on_non_zip_bytes() {
         assert!(unzip_single_xml(b"<not a zip>").is_err());
+    }
+
+    // ------------------------------------------------------------------
+    // `with_retry` — RFC 9110 §9.2.2 idempotent-retry harness for the
+    // GET-based downloader. Tests exercise the retry semantics with a
+    // counter closure so no network is touched. The retry attempts use
+    // a real `std::thread::sleep`, so the tests pay the
+    // [`backoff_for_attempt`] backoff (≤ 3 s worst case).
+    // ------------------------------------------------------------------
+
+    use std::cell::Cell;
+
+    #[test]
+    fn with_retry_returns_on_first_success() {
+        let calls = Cell::new(0u32);
+        let result: anyhow::Result<u32> = with_retry(|| {
+            calls.set(calls.get() + 1);
+            Ok(42)
+        });
+        assert_eq!(result.expect("first attempt succeeds"), 42);
+        assert_eq!(calls.get(), 1, "no retries needed on initial success");
+    }
+
+    #[test]
+    fn with_retry_recovers_from_transient_failure() {
+        // Simulate a transient TCP RST: first attempt fails, second
+        // attempt succeeds. The harness must propagate the success
+        // and report the value from the surviving attempt.
+        let calls = Cell::new(0u32);
+        let result: anyhow::Result<&'static str> = with_retry(|| {
+            calls.set(calls.get() + 1);
+            if calls.get() < 2 {
+                Err(anyhow::anyhow!("io: Peer disconnected"))
+            } else {
+                Ok("recovered")
+            }
+        });
+        assert_eq!(result.expect("retry recovers"), "recovered");
+        assert_eq!(calls.get(), 2);
+    }
+
+    #[test]
+    fn with_retry_propagates_last_error_after_attempts_exhausted() {
+        // A permanent failure (e.g. 404) doesn't recover. The harness
+        // must report the last error after [`RETRY_ATTEMPTS`] tries.
+        let calls = Cell::new(0u32);
+        let result: anyhow::Result<()> = with_retry(|| {
+            calls.set(calls.get() + 1);
+            Err(anyhow::anyhow!("attempt {} failed", calls.get()))
+        });
+        let err = result.expect_err("permanent failure must propagate");
+        assert_eq!(
+            calls.get(),
+            RETRY_ATTEMPTS,
+            "harness must exhaust exactly RETRY_ATTEMPTS attempts"
+        );
+        assert!(
+            err.to_string()
+                .contains(&format!("attempt {} failed", RETRY_ATTEMPTS)),
+            "last attempt's error must be the one returned; got: {err}"
+        );
+    }
+
+    #[test]
+    fn backoff_schedule_is_exponential() {
+        // Jacobson 1988 exponential schedule — doubles per attempt.
+        // The harness sleeps `backoff_for_attempt(attempt+1)` BEFORE
+        // attempt (attempt+1); concrete schedule for the three-attempt
+        // run: no sleep before attempt 1, 1 s before attempt 2, 2 s
+        // before attempt 3. Total ≤ 3 s.
+        assert_eq!(backoff_for_attempt(2), core::time::Duration::from_secs(1));
+        assert_eq!(backoff_for_attempt(3), core::time::Duration::from_secs(2));
+        assert_eq!(backoff_for_attempt(4), core::time::Duration::from_secs(4));
     }
 }
