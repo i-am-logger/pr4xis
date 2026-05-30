@@ -78,11 +78,11 @@ jobs:
           RUSTFLAGS: "-D warnings"
         run: cargo build -p pr4xis-cli --release
       - name: Fetch external data
-        run: ./target/release/pr4xis-cli update
+        run: ./target/release/pr4xis update
       - uses: actions/upload-artifact@v4
         with:
           name: pr4xis-cli
-          path: target/release/pr4xis-cli
+          path: target/release/pr4xis
           retention-days: 1
 
   # All host-target lint + doc + doctest passes against the same warm
@@ -125,9 +125,9 @@ jobs:
           name: pr4xis-cli
           path: target/release
       - name: Make pr4xis-cli executable
-        run: chmod +x target/release/pr4xis-cli
+        run: chmod +x target/release/pr4xis
       - name: Materialise external data (no-op on data-cache hit)
-        run: ./target/release/pr4xis-cli update
+        run: ./target/release/pr4xis update
       - name: Clippy (release)
         env:
           RUSTFLAGS: "-D warnings"
@@ -175,9 +175,9 @@ jobs:
           name: pr4xis-cli
           path: target/release
       - name: Make pr4xis-cli executable
-        run: chmod +x target/release/pr4xis-cli
+        run: chmod +x target/release/pr4xis
       - name: Materialise external data (no-op on data-cache hit)
-        run: ./target/release/pr4xis-cli update
+        run: ./target/release/pr4xis update
       - name: Run nextest (release)
         env:
           RUSTFLAGS: "-D warnings"
@@ -228,9 +228,9 @@ jobs:
           name: pr4xis-cli
           path: target/release
       - name: Make pr4xis-cli executable
-        run: chmod +x target/release/pr4xis-cli
+        run: chmod +x target/release/pr4xis
       - name: Verify fetched data is materialised (re-runs only if cache cold)
-        run: ./target/release/pr4xis-cli update
+        run: ./target/release/pr4xis update
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: wasm-pack build (release, for E2E)
