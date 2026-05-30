@@ -95,6 +95,17 @@ in
     RUSTFLAGS="-D warnings" cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet || { echo "FAILED: wasm check"; exit 1; }
     echo "=== wasm browser tests ==="
     dev-test-wasm || { echo "FAILED: wasm browser tests"; exit 1; }
+    # Mirrors the `Docs` and `Doc Tests` jobs in
+    # `.github/workflows/ci.yml`: same command, same RUSTDOCFLAGS.
+    # Without these steps `dev-ci` could ship rustdoc-broken docs to
+    # CI (the rustdoc-fatal `[with_retry]` link to a `pub(crate)`
+    # item on commit 3d7bd4b5 would have failed locally if this had
+    # been wired then).
+    echo "=== docs (rustdoc, same flags as CI's Docs job) ==="
+    RUSTDOCFLAGS="-D warnings -D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags" \
+      cargo doc --workspace --no-deps --quiet || { echo "FAILED: docs"; exit 1; }
+    echo "=== doc tests ==="
+    cargo test --doc --workspace --quiet || { echo "FAILED: doc tests"; exit 1; }
     echo "=== e2e (Rust WebDriver) ==="
     dev-e2e || { echo "FAILED: e2e"; exit 1; }
     echo "=== ALL PASSED ==="
