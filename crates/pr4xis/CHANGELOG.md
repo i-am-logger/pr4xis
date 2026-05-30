@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.15.0...pr4xis-v0.16.0) (2026-05-30)
+
+
+### Features
+
+* praxis + praxis-cli gain the registered-source mechanism (SOX 1514A, AIR21 42121) ([#179](https://github.com/i-am-logger/pr4xis/issues/179)) ([917981a](https://github.com/i-am-logger/pr4xis/commit/917981a0bc3051d87c06661ec973ef6cfec79e3a))
+
 ## [0.15.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.14.1...pr4xis-v0.15.0) (2026-05-15)
 
 
