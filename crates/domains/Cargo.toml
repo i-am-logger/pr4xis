@@ -154,8 +154,8 @@ workspace = true
 # off the normal dep (it leaks `xsd-parser` into WASM), so unify it back
 # in for test builds here.
 pr4xis = { version = "0.15.0", path = "../pr4xis", features = ["codegen"] }
-criterion = { version = "0.5", features = ["html_reports"] }
-proptest = "1.6"
+criterion = { version = "0.8", features = ["html_reports"] }
+proptest = "1.11"
 tempfile = "3"
 
 [[bench]]

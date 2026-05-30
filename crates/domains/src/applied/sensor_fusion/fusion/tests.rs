@@ -54,7 +54,7 @@ fn axiom_covariance_invariant() {
 ///
 /// State: [position]. One sensor measures position with noise.
 /// Predict: F=I (static), Q=small.
-/// Update: H=[1], z=measurement, R=sensor_noise.
+/// Update: H=\[1\], z=measurement, R=sensor_noise.
 fn simple_1d_filter() -> (StateEstimate, Matrix, Matrix, Matrix, Matrix) {
     let x0 = Vector::new(vec![0.0]);
     let p0 = Matrix::new(1, 1, vec![100.0]); // large initial uncertainty

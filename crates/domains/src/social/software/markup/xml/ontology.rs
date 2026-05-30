@@ -379,15 +379,15 @@ pub struct XmlDocument {
     pub version: String,
     pub encoding: Option<String>,
     /// `<!DOCTYPE …>` document type declaration if present (W3C XML
-    /// 1.0 Fifth Edition §2.8 production [28] doctypedecl).
+    /// 1.0 Fifth Edition §2.8 production \[28\] doctypedecl).
     pub doctype: Option<XmlDoctype>,
     pub root: XmlElement,
 }
 
 /// A `<!DOCTYPE>` document type declaration. Carries the root
 /// element name, an optional `ExternalID` (W3C XML 1.0 §4.2.2
-/// production [75]), and the inline general entity declarations
-/// parsed from the internal subset (§4.2 production [70] GEDecl).
+/// production \[75\]), and the inline general entity declarations
+/// parsed from the internal subset (§4.2 production \[70\] GEDecl).
 ///
 /// Element-type and attribute-list declarations from the internal
 /// subset are accepted by the parser but not yet projected to
@@ -399,15 +399,15 @@ pub struct XmlDoctype {
     pub root_name: String,
     /// `ExternalID` declaration if present. `SYSTEM` form carries
     /// just the system literal; `PUBLIC` form carries both pub-id
-    /// and system literal per §4.2.2 [75].
+    /// and system literal per §4.2.2 \[75\].
     pub external_id: Option<XmlExternalId>,
     /// General entity declarations from the internal subset (§4.2
-    /// [70] EntityDecl → [71] GEDecl). Preserves declaration order
+    /// \[70\] EntityDecl → \[71\] GEDecl). Preserves declaration order
     /// via `Vec` rather than a `HashMap` because XML 1.0 §4.5 says
     /// the first declaration wins on duplicate names.
     pub general_entities: Vec<XmlGeneralEntity>,
     /// True iff the internal subset (or any included PE within it)
-    /// contained at least one §2.8 [28a] `PEReference` at
+    /// contained at least one §2.8 \[28a\] `PEReference` at
     /// `DeclSep` position. The §4.1 WFC: Entity Declared carve-out
     /// — "internal DTD subset which contains no parameter-entity
     /// references" — keys off this flag together with the external
@@ -415,8 +415,8 @@ pub struct XmlDoctype {
     pub internal_subset_had_pe_references: bool,
 }
 
-/// One general-entity declaration from §4.2 [71] GEDecl. The
-/// `kind` distinguishes the three §4.2 [73] EntityDef shapes —
+/// One general-entity declaration from §4.2 \[71\] GEDecl. The
+/// `kind` distinguishes the three §4.2 \[73\] EntityDef shapes —
 /// the distinction matters because the W3C XML 1.0 §4.4 entity-
 /// reference table gives the same syntactic `&name;` reference
 /// different well-formedness constraints depending on which kind
@@ -424,19 +424,19 @@ pub struct XmlDoctype {
 /// Entity References, …).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct XmlGeneralEntity {
-    /// The entity name (§4.2 [71] Name).
+    /// The entity name (§4.2 \[71\] Name).
     pub name: String,
-    /// Internal entities (§4.2 [73] EntityDef → EntityValue) carry
+    /// Internal entities (§4.2 \[73\] EntityDef → EntityValue) carry
     /// their replacement text here. External entities carry the
     /// empty string — their replacement text is fetched at parse
     /// time, which praxis defers (the parser is non-validating
     /// and does not load external resources).
     pub value: String,
-    /// Which of the three §4.2 [73] EntityDef shapes declared this.
+    /// Which of the three §4.2 \[73\] EntityDef shapes declared this.
     pub kind: XmlEntityKind,
 }
 
-/// §4.2 [73] `EntityDef ::= EntityValue | (ExternalID NDataDecl?)`
+/// §4.2 \[73\] `EntityDef ::= EntityValue | (ExternalID NDataDecl?)`
 /// distinguishes three concrete shapes once `NDataDecl?` is split.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum XmlEntityKind {
@@ -448,7 +448,7 @@ pub enum XmlEntityKind {
     /// to be re-parsed in the referring context.
     ExternalParsed,
     /// `<!ENTITY name SYSTEM "uri" NDATA notation>`. External
-    /// unparsed general entity per §4.2.2 [76] NDataDecl. The
+    /// unparsed general entity per §4.2.2 \[76\] NDataDecl. The
     /// referenced data is not XML; it can only be named (via an
     /// ENTITY-typed attribute value), never expanded into content.
     /// §4.4 row "Reference in Content" + WFC: Parsed Entity
@@ -456,7 +456,7 @@ pub enum XmlEntityKind {
     ExternalUnparsed,
 }
 
-/// W3C XML 1.0 §4.2.2 production [75] `ExternalID`. Two shapes:
+/// W3C XML 1.0 §4.2.2 production \[75\] `ExternalID`. Two shapes:
 /// `SYSTEM 'uri'` and `PUBLIC 'pubid' 'uri'`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum XmlExternalId {

@@ -1,5 +1,5 @@
-//! Grammar-grounded dispatch tables for the W3C XML 1.0 §3.1 [43]
-//! `content` and §2.1 [27] `Misc` productions.
+//! Grammar-grounded dispatch tables for the W3C XML 1.0 §3.1 \[43\]
+//! `content` and §2.1 \[27\] `Misc` productions.
 //!
 //! ## The audit item this closes
 //!
@@ -21,7 +21,7 @@
 //! 1. Looks up the `content` production in the loaded grammar.
 //! 2. Walks the RHS AST to find the inner `Alternation` that lists
 //!    the content-item sub-productions (the W3C XML 1.0 spec writes
-//!    [43] as `CharData? ((element | Reference | CDSect | PI |
+//!    \[43\] as `CharData? ((element | Reference | CDSect | PI |
 //!    Comment) CharData?)*`).
 //! 3. For each branch's `NonTerminal(name)`, looks up that
 //!    production and computes its leading literal — the leftmost
@@ -74,16 +74,16 @@
 //! - **Bray, T., Paoli, J., Sperberg-McQueen, C. M., Maler, E. &
 //!   Yergeau, F.** (eds.) (2008) *Extensible Markup Language (XML)
 //!   1.0 (Fifth Edition)*, W3C Recommendation 26 November 2008.
-//!   - **§2.1 [27] Misc** — `Misc ::= Comment | PI | S`.
-//!   - **§3.1 [43] content** — `content ::= CharData? ((element |
+//!   - **§2.1 \[27\] Misc** — `Misc ::= Comment | PI | S`.
+//!   - **§3.1 \[43\] content** — `content ::= CharData? ((element |
 //!     Reference | CDSect | PI | Comment) CharData?)*`.
-//!   - **§2.5 [15] Comment** — leading literal `<!--`.
-//!   - **§2.7 [18] CDSect** — leading literal `<![CDATA[` via
-//!     `[19] CDStart`.
-//!   - **§2.6 [16] PI** — leading literal `<?`.
-//!   - **§3.1 [39] element** — common leading literal `<` (from
+//!   - **§2.5 \[15\] Comment** — leading literal `<!--`.
+//!   - **§2.7 \[18\] CDSect** — leading literal `<![CDATA[` via
+//!     `\[19\] CDStart`.
+//!   - **§2.6 \[16\] PI** — leading literal `<?`.
+//!   - **§3.1 \[39\] element** — common leading literal `<` (from
 //!     EmptyElemTag and STag).
-//!   - **§4.1 [67] Reference** — common leading literal `&` (from
+//!   - **§4.1 \[67\] Reference** — common leading literal `&` (from
 //!     EntityRef and CharRef).
 
 use std::sync::OnceLock;
@@ -92,33 +92,33 @@ use pr4xis::xml_grammar::{Grammar, Term};
 
 use super::loaded_xml_1_0_grammar;
 
-/// The six [43] content-item kinds, plus the CharData fallback.
+/// The six \[43\] content-item kinds, plus the CharData fallback.
 ///
 /// The five named variants correspond one-to-one with the inner
-/// alternation branches of [43] `content`. The sixth, [`CharData`],
+/// alternation branches of \[43\] `content`. The sixth, [`CharData`],
 /// is the fallback when no prefix matches — the position is then
-/// inside the optional `CharData?` of [43] (text up to the next
+/// inside the optional `CharData?` of \[43\] (text up to the next
 /// markup-introducing character).
 ///
 /// [`CharData`]: ContentItemKind::CharData
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ContentItemKind {
-    /// §2.5 [15] Comment — `<!-- ... -->`.
+    /// §2.5 \[15\] Comment — `<!-- ... -->`.
     Comment,
-    /// §2.7 [18] CDSect — `<![CDATA[ ... ]]>`.
+    /// §2.7 \[18\] CDSect — `<![CDATA[ ... ]]>`.
     CDataSection,
-    /// §2.6 [16] PI — processing instruction `<? ... ?>`.
+    /// §2.6 \[16\] PI — processing instruction `<? ... ?>`.
     ProcessingInstruction,
-    /// §3.1 [39] element — STag or EmptyElemTag.
+    /// §3.1 \[39\] element — STag or EmptyElemTag.
     Element,
-    /// §4.1 [67] Reference — EntityRef or CharRef.
+    /// §4.1 \[67\] Reference — EntityRef or CharRef.
     Reference,
-    /// §2.4 [14] CharData — the run of character data between
+    /// §2.4 \[14\] CharData — the run of character data between
     /// markup items. The fallback when no prefix matches.
     CharData,
 }
 
-/// The three [27] Misc-item kinds — [`Comment`], [`PI`], and `S`
+/// The three \[27\] Misc-item kinds — [`Comment`], [`PI`], and `S`
 /// (whitespace).
 ///
 /// The [`WhiteSpace`] variant is structurally distinct: whitespace
@@ -134,22 +134,22 @@ pub enum ContentItemKind {
 /// [`Cursor::skip_whitespace`]: super::super::parser::grammar::Cursor::skip_whitespace
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MiscItemKind {
-    /// §2.5 [15] Comment — `<!-- ... -->`.
+    /// §2.5 \[15\] Comment — `<!-- ... -->`.
     Comment,
-    /// §2.6 [16] PI — `<? ... ?>`.
+    /// §2.6 \[16\] PI — `<? ... ?>`.
     ProcessingInstruction,
-    /// §2.3 [3] S — whitespace run. Recognised by character class,
+    /// §2.3 \[3\] S — whitespace run. Recognised by character class,
     /// not by a literal prefix.
     WhiteSpace,
 }
 
-/// The [43] content-item dispatch table — `(literal-prefix,
+/// The \[43\] content-item dispatch table — `(literal-prefix,
 /// kind)` entries sorted by prefix length descending so the
 /// classifier matches longer prefixes first.
 ///
 /// Constructed once at module init by walking the loaded W3C XML
 /// 1.0 grammar; thereafter read-only. The classifier is O(N) in
-/// the number of entries (5 for [43]'s inner alternation).
+/// the number of entries (5 for \[43\]'s inner alternation).
 #[derive(Debug, Clone)]
 pub struct ContentDispatchTable {
     entries: Vec<(String, ContentItemKind)>,
@@ -186,7 +186,7 @@ impl ContentDispatchTable {
     }
 }
 
-/// The [27] Misc dispatch table — `(literal-prefix, kind)` entries
+/// The \[27\] Misc dispatch table — `(literal-prefix, kind)` entries
 /// for the two literal-prefixed Misc alternatives (Comment, PI).
 ///
 /// Whitespace (S) is not represented as a literal prefix; the
@@ -365,7 +365,7 @@ fn find_first_alternation(term: &Term) -> Option<&[Term]> {
     }
 }
 
-/// Build the [`ContentDispatchTable`] for [43] `content`.
+/// Build the [`ContentDispatchTable`] for \[43\] `content`.
 ///
 /// Walks `content`'s RHS to find its inner alternation, extracts
 /// each `NonTerminal(name)` branch's referenced production's
@@ -412,7 +412,7 @@ pub(crate) fn extract_content_dispatch_table(
     Ok(ContentDispatchTable { entries })
 }
 
-/// Build the [`MiscDispatchTable`] for [27] `Misc`.
+/// Build the [`MiscDispatchTable`] for \[27\] `Misc`.
 ///
 /// `Misc`'s RHS is itself an `Alternation([Comment, PI, S])`.
 /// `S` is recognised by a character class — it has no literal
@@ -461,14 +461,14 @@ pub(crate) fn extract_misc_dispatch_table(
     Ok(MiscDispatchTable { entries })
 }
 
-/// The loaded [43] content-item dispatch table — extracted from
+/// The loaded \[43\] content-item dispatch table — extracted from
 /// the W3C XML 1.0 grammar on first call, cached thereafter.
 ///
 /// Per `feedback_bottom_up_loaded_not_encoded`: every parser site
 /// that needs to classify a position inside `content` MUST query
 /// this table rather than hand-coding `starts_with("<!--")` chains.
 ///
-/// Panics if the loaded grammar has drifted such that [43]
+/// Panics if the loaded grammar has drifted such that \[43\]
 /// content's inner alternation no longer extracts cleanly — a
 /// regression in the bundled `xml_1_0_fifth_edition@2008` source
 /// or in the EBNF parser. The corpus-wide audit
@@ -484,7 +484,7 @@ pub fn loaded_content_dispatch_table() -> &'static ContentDispatchTable {
     })
 }
 
-/// The loaded [27] Misc-item dispatch table — extracted from the
+/// The loaded \[27\] Misc-item dispatch table — extracted from the
 /// W3C XML 1.0 grammar on first call, cached thereafter.
 #[must_use]
 pub fn loaded_misc_dispatch_table() -> &'static MiscDispatchTable {

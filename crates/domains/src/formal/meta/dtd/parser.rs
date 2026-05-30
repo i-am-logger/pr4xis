@@ -127,7 +127,7 @@ fn try_parse_decl(rest: &str) -> Option<(DtdDecl, usize)> {
     None
 }
 
-/// The four §2.8 [29] markup-declaration opening prefixes plus the
+/// The four §2.8 \[29\] markup-declaration opening prefixes plus the
 /// concept each one declares.
 const DECL_PREFIXES: &[(&str, DtdConcept)] = &[
     // §3.2 [45] elementdecl
@@ -147,7 +147,7 @@ const DECL_PREFIXES: &[(&str, DtdConcept)] = &[
 /// model, attribute list, entity value, etc.).
 ///
 /// For `<!ENTITY % name ...>` the leading `% ` is the parameter-
-/// entity marker (W3C XML 1.0 §4.2 production [72]): a lone `%`
+/// entity marker (W3C XML 1.0 §4.2 production \[72\]): a lone `%`
 /// token followed by whitespace and then the actual name. We
 /// detect that prefix and stitch it back onto the name as `%name`
 /// so callers can discriminate parameter vs. general entities by
@@ -255,10 +255,10 @@ mod tests {
 
     proptest! {
         /// For every well-formed `<!{KIND} {name} {body}>` declaration
-        /// with a W3C XML 1.0 §2.3 [4] Name-shaped identifier and a
+        /// with a W3C XML 1.0 §2.3 \[4\] Name-shaped identifier and a
         /// safe-character body, parse_dtd recognises exactly one
         /// declaration with the expected kind and name. Covers the
-        /// four §2.8 [29] markupdecl kinds uniformly.
+        /// four §2.8 \[29\] markupdecl kinds uniformly.
         #[test]
         fn prop_recognises_any_well_formed_decl(
             kind_idx in 0usize..4,
@@ -285,7 +285,7 @@ mod tests {
 
         /// Parameter-entity declarations (`<!ENTITY % name "value">`)
         /// always project to `ParameterEntity`, with the bare name
-        /// (`%` stripped). The §4.2 [72] PEDecl invariant.
+        /// (`%` stripped). The §4.2 \[72\] PEDecl invariant.
         #[test]
         fn prop_parameter_entity_strips_percent(
             name in "[A-Za-z_][A-Za-z0-9_.-]{0,15}",
@@ -304,7 +304,7 @@ mod tests {
 
         /// Multiple declarations in sequence parse to the same
         /// number of [`DtdDecl`]s in document order. Composition of
-        /// the §2.8 [29] recogniser is monoidal on the input string.
+        /// the §2.8 \[29\] recogniser is monoidal on the input string.
         #[test]
         fn prop_sequence_count_preserved(count in 0usize..8) {
             let mut src = String::new();

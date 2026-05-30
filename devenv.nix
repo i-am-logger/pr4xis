@@ -39,9 +39,9 @@ in
     # `dev-e2e` (the crates/e2e fantoccini test) both drive a headless
     # Firefox via geckodriver. curl polls the web server + driver in
     # `dev-e2e` before the test runs.
-    pkgs.firefox
-    pkgs.geckodriver
-    pkgs.curl
+    # pkgs.firefox      # stripped for sandboxed devenv shell
+    # pkgs.geckodriver  # stripped for sandboxed devenv shell
+    # pkgs.curl         # stripped for sandboxed devenv shell
   ];
 
   # Development scripts

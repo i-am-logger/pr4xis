@@ -69,16 +69,16 @@ pub enum XmlParseError {
     /// in the same start-tag or empty-element tag".
     DuplicateAttribute { position: usize, name: String },
     /// The string `--` (double-hyphen) appeared inside a comment.
-    /// W3C XML 1.0 Fifth Edition §2.5 production [15] `Comment`:
+    /// W3C XML 1.0 Fifth Edition §2.5 production \[15\] `Comment`:
     /// `Comment ::= '<!--' ((Char - '-') | ('-' (Char - '-')))* '-->'`
     /// — equivalent to "the string `--` MUST NOT occur within comments".
     MalformedComment { position: usize },
     /// A `]]>` sequence appeared in `CharData` outside a CDATA section.
-    /// W3C XML 1.0 Fifth Edition §2.4 production [14] `CharData`:
+    /// W3C XML 1.0 Fifth Edition §2.4 production \[14\] `CharData`:
     /// `CharData ::= [^<&]* - ([^<&]* ']]>' [^<&]*)` — the `]]>`
     /// sequence MUST be escaped in `CharData`.
     DisallowedCdataEnd { position: usize },
-    /// A code point outside the W3C XML 1.0 §2.2 production [2]
+    /// A code point outside the W3C XML 1.0 §2.2 production \[2\]
     /// `Char` repertoire appeared in `CharData` / `Comment` / `PI` /
     /// `CDATA`. The membership test goes through
     /// [`is_xml_char`] — which itself consults the
@@ -160,7 +160,7 @@ impl std::error::Error for XmlParseError {}
 
 /// Top-level entry point.
 ///
-/// Implements **production [1]** `document ::= prolog element Misc*`
+/// Implements **production \[1\]** `document ::= prolog element Misc*`
 /// from W3C XML 1.0 Fifth Edition §2.1.
 ///
 /// **W3C XML 1.0 §F (Autodetection of Character Encodings)** is
@@ -389,7 +389,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    /// W3C XML 1.0 §2.3 production [3] S — whitespace.
+    /// W3C XML 1.0 §2.3 production \[3\] S — whitespace.
     fn skip_whitespace(&mut self) {
         let rest = self.rest();
         let n = rest
@@ -433,7 +433,7 @@ impl<'a> Cursor<'a> {
 /// `XMLDecl?` / `doctypedecl?` productions.
 type PrologParts = (String, Option<String>, Option<bool>, Option<XmlDoctype>);
 
-/// W3C XML 1.0 §2.8 production [22] `prolog`:
+/// W3C XML 1.0 §2.8 production \[22\] `prolog`:
 /// `prolog ::= XMLDecl? Misc* (doctypedecl Misc*)?`.
 ///
 /// Returns `(version, encoding, standalone, doctype)`. The doctype, if
@@ -477,7 +477,7 @@ fn parse_prolog(c: &mut Cursor<'_>) -> Result<PrologParts, XmlParseError> {
     Ok((version, encoding, standalone, doctype))
 }
 
-/// W3C XML 1.0 §2.8 production [23] `XMLDecl` and the productions
+/// W3C XML 1.0 §2.8 production \[23\] `XMLDecl` and the productions
 /// it composes:
 ///
 ///   XMLDecl       ::= '<?xml' VersionInfo EncodingDecl? SDDecl? S? '?>'
@@ -569,7 +569,7 @@ fn parse_xml_decl(
     Ok((version, encoding, standalone))
 }
 
-/// W3C XML 1.0 §2.8 [26] `VersionNum ::= '1.' [0-9]+`.
+/// W3C XML 1.0 §2.8 \[26\] `VersionNum ::= '1.' [0-9]+`.
 fn is_version_num(s: &str) -> bool {
     let Some(rest) = s.strip_prefix("1.") else {
         return false;
@@ -577,7 +577,7 @@ fn is_version_num(s: &str) -> bool {
     !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit())
 }
 
-/// W3C XML 1.0 §4.3.3 [81] `EncName ::= [A-Za-z] ([A-Za-z0-9._] | '-')*`.
+/// W3C XML 1.0 §4.3.3 \[81\] `EncName ::= [A-Za-z] ([A-Za-z0-9._] | '-')*`.
 fn is_enc_name(s: &str) -> bool {
     let mut chars = s.chars();
     let Some(first) = chars.next() else {
@@ -589,10 +589,10 @@ fn is_enc_name(s: &str) -> bool {
     chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
-/// W3C XML 1.0 §3.1 production [10] `AttValue`'s quoted form,
+/// W3C XML 1.0 §3.1 production \[10\] `AttValue`'s quoted form,
 /// reused for XMLDecl attributes by §2.8 (since their grammar
 /// admits the same `' ... '` or `" ... "` form). At this point in
-/// XMLDecl, references aren't permitted (§2.8 production [24]
+/// XMLDecl, references aren't permitted (§2.8 production \[24\]
 /// `VersionInfo` matches a literal `VersionNum`), so we don't
 /// expand entities here.
 fn parse_quoted(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
@@ -614,7 +614,7 @@ fn parse_quoted(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
     Ok(value)
 }
 
-/// W3C XML 1.0 §2.8 production [27] `Misc`:
+/// W3C XML 1.0 §2.8 production \[27\] `Misc`:
 /// `Misc ::= Comment | PI | S`.
 ///
 /// Consumes zero or more `Misc` items before/between/after the
@@ -649,7 +649,7 @@ fn parse_misc_star(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     Ok(())
 }
 
-/// W3C XML 1.0 §2.5 production [15] `Comment`:
+/// W3C XML 1.0 §2.5 production \[15\] `Comment`:
 /// `Comment ::= '<!--' ((Char - '-') | ('-' (Char - '-')))* '-->'`.
 ///
 /// Enforces all three §2.5 well-formedness constraints:
@@ -659,7 +659,7 @@ fn parse_misc_star(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
 ///   `((Char - '-') | ('-' (Char - '-')))*` requires the last
 ///   char to be matched by `(Char - '-')`; xmlconf
 ///   xmltest/not-wf/sa/070 is the trailing-dash regression).
-/// - Every character MUST be in the §2.2 [2] Char repertoire —
+/// - Every character MUST be in the §2.2 \[2\] Char repertoire —
 ///   the `is_xml_char` predicate consults the loaded spec
 ///   table. xmlconf ibm/not-wf/P02 cases (NULL or other
 ///   out-of-range characters in a Misc-position comment) are
@@ -682,7 +682,7 @@ fn skip_comment(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     Ok(())
 }
 
-/// W3C XML 1.0 §2.6 productions [16] `PI` + [17] `PITarget`:
+/// W3C XML 1.0 §2.6 productions \[16\] `PI` + \[17\] `PITarget`:
 ///
 ///   PI       ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'
 ///   PITarget ::= Name - (('X'|'x') ('M'|'m') ('L'|'l'))
@@ -691,7 +691,7 @@ fn skip_comment(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
 /// - The body MUST be a valid PITarget (a Name) optionally followed
 ///   by S + Char* data.
 /// - PITarget MUST NOT be case-insensitively `xml`.
-/// - Every character in the data MUST be in §2.2 [2] Char.
+/// - Every character in the data MUST be in §2.2 \[2\] Char.
 fn skip_pi(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     let start = c.pos;
     c.consume("<?")?;
@@ -721,16 +721,16 @@ fn skip_pi(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
     Ok(())
 }
 
-/// W3C XML 1.0 §2.8 production [28] `doctypedecl`:
+/// W3C XML 1.0 §2.8 production \[28\] `doctypedecl`:
 /// `doctypedecl ::= '<!DOCTYPE' S Name (S ExternalID)? S? ('[' intSubset ']' S?)? '>'`.
 ///
 /// Projects the declaration to a typed [`XmlDoctype`] carrying the
-/// root-element name, any `ExternalID` (§4.2.2 [75]), and inline
-/// general entity declarations (§4.2 [70] GEDecl) parsed from the
-/// internal subset. Element-type declarations (§3.2 [45]),
-/// attribute-list declarations (§3.3 [52]), notation declarations
-/// (§4.7 [82]), parameter entity declarations (§4.2 [72]), and
-/// parameter entity references (§4.1 [69]) within the internal
+/// root-element name, any `ExternalID` (§4.2.2 \[75\]), and inline
+/// general entity declarations (§4.2 \[70\] GEDecl) parsed from the
+/// internal subset. Element-type declarations (§3.2 \[45\]),
+/// attribute-list declarations (§3.3 \[52\]), notation declarations
+/// (§4.7 \[82\]), parameter entity declarations (§4.2 \[72\]), and
+/// parameter entity references (§4.1 \[69\]) within the internal
 /// subset are consumed but not projected to typed values — they
 /// affect validity, not well-formedness, so the document still
 /// parses well-formedly without their typed representation.
@@ -770,7 +770,7 @@ fn parse_doctype(c: &mut Cursor<'_>) -> Result<XmlDoctype, XmlParseError> {
     })
 }
 
-/// W3C XML 1.0 §4.2.2 production [75] `ExternalID`:
+/// W3C XML 1.0 §4.2.2 production \[75\] `ExternalID`:
 /// `'SYSTEM' S SystemLiteral | 'PUBLIC' S PubidLiteral S SystemLiteral`.
 fn parse_external_id(c: &mut Cursor<'_>) -> Result<XmlExternalId, XmlParseError> {
     if c.starts_with("SYSTEM") {
@@ -805,7 +805,7 @@ fn parse_external_id(c: &mut Cursor<'_>) -> Result<XmlExternalId, XmlParseError>
     }
 }
 
-/// W3C XML 1.0 §4.2.2 [13] `PubidChar ::= #x20 | #xD | #xA |
+/// W3C XML 1.0 §4.2.2 \[13\] `PubidChar ::= #x20 | #xD | #xA |
 /// [a-zA-Z0-9] | [-'()+,./:=?;!*#@$_%]`.
 fn is_pubid_char(c: char) -> bool {
     matches!(c, ' ' | '\r' | '\n')
@@ -833,19 +833,19 @@ fn is_pubid_char(c: char) -> bool {
         )
 }
 
-/// W3C XML 1.0 §2.8 production [28b] `intSubset`:
+/// W3C XML 1.0 §2.8 production \[28b\] `intSubset`:
 /// `intSubset ::= (markupdecl | DeclSep)*` where
 /// `markupdecl ::= elementdecl | AttlistDecl | EntityDecl | NotationDecl | PI | Comment`
-/// (§2.8 [29]) and `DeclSep ::= PEReference | S` (§2.8 [28a]).
+/// (§2.8 \[29\]) and `DeclSep ::= PEReference | S` (§2.8 \[28a\]).
 ///
-/// Each iteration recognises one of the [28b] alternatives by
+/// Each iteration recognises one of the \[28b\] alternatives by
 /// the literal prefix the grammar itself names for that production
-/// (`'<!ELEMENT'` from [45], `'<!ENTITY'` from [70], `'<!--'` from
-/// [15], `'%'` from [69], etc.). Markup declarations are validated
+/// (`'<!ELEMENT'` from \[45\], `'<!ENTITY'` from \[70\], `'<!--'` from
+/// \[15\], `'%'` from \[69\], etc.). Markup declarations are validated
 /// in full by the EBNF interpreter against the loaded W3C grammar;
 /// general-entity declarations are projected into `general_entities`.
 ///
-/// PE references at the DeclSep position (§2.8 [28a]: `DeclSep ::=
+/// PE references at the DeclSep position (§2.8 \[28a\]: `DeclSep ::=
 /// PEReference | S`) are **included** per §4.4.8: the replacement
 /// text — bracketed with leading and trailing #x20 — is parsed
 /// back through this same procedure (mutual recursion via
@@ -857,7 +857,7 @@ fn is_pubid_char(c: char) -> bool {
 /// DTD subset, parameter-entity references MUST NOT occur within
 /// markup declarations; they may occur where markup declarations
 /// can occur"* — is satisfied structurally: PE references are only
-/// recognised at the [28a] DeclSep position. Inside a markup decl
+/// recognised at the \[28a\] DeclSep position. Inside a markup decl
 /// the cursor is held by the validating interpreter call, never
 /// passes through the `%` branch.
 fn parse_internal_subset(
@@ -875,7 +875,7 @@ fn parse_internal_subset(
     )
 }
 
-/// Walk a sequence of [28b] `(markupdecl | DeclSep)*` items.
+/// Walk a sequence of \[28b\] `(markupdecl | DeclSep)*` items.
 ///
 /// `terminate_on_close_bracket` is `true` when called from
 /// [`parse_internal_subset`] (the cursor is over the original
@@ -1031,7 +1031,7 @@ fn parse_intsubset_items(
     }
 }
 
-/// W3C XML 1.0 §3.3.2 production [60] `DefaultDecl`: validate the
+/// W3C XML 1.0 §3.3.2 production \[60\] `DefaultDecl`: validate the
 /// AttValue literals embedded inside an `<!ATTLIST>` declaration.
 ///
 /// The grammar-match pass already accepted the declaration
@@ -1039,7 +1039,7 @@ fn parse_intsubset_items(
 /// neither `<!ELEMENT>` nor `<!NOTATION>` nor the AttType
 /// productions admit string literals). This walks the declaration
 /// text, locates each AttValue literal at its quote boundary, and
-/// runs the §3.1 [10] AttValue body through
+/// runs the §3.1 \[10\] AttValue body through
 /// [`parse_att_value_body_into`] — the same well-formedness gate
 /// the parser applies to attribute literals on live elements:
 ///
@@ -1130,10 +1130,10 @@ fn validate_attlist_default_values(
 /// `<!ENTITY S Name S EntityValue S? >`.
 ///
 /// Returns:
-/// - `Some((name, value))` for an internal general entity (§4.2 [73]
+/// - `Some((name, value))` for an internal general entity (§4.2 \[73\]
 ///   `EntityValue` variant) — replacement text projected into the
 ///   doc's entity map.
-/// - `Some((name, ""))` for an external general entity (§4.2 [73]
+/// - `Some((name, ""))` for an external general entity (§4.2 \[73\]
 ///   `ExternalID NDataDecl?` variant). Per §4.4 Table-4 row "Reference
 ///   in Content / External Parsed General", a non-validating parser
 ///   "Bypasses" the reference (replaces the reference with itself).
@@ -1143,7 +1143,7 @@ fn validate_attlist_default_values(
 ///   output simply lacks the unread external content. Reading the
 ///   external entity body is M5.ε.5.b territory; this fix unblocks
 ///   the W3C XMLConf ext-sa cases that test well-formedness only.
-/// - `None` for a parameter entity declaration (§4.2 [72] `PEDecl`).
+/// - `None` for a parameter entity declaration (§4.2 \[72\] `PEDecl`).
 ///   PEs are skipped because they expand inside the DTD, not in
 ///   the document content (M5.ε.5.c — proper PE expansion).
 fn parse_entity_decl(
@@ -1287,11 +1287,11 @@ fn parse_entity_decl(
     }))
 }
 
-/// §4.7 [76] `NDataDecl ::= S 'NDATA' S Name` — optional in
+/// §4.7 \[76\] `NDataDecl ::= S 'NDATA' S Name` — optional in
 /// general-entity declarations marking an unparsed entity.
 /// Returns `true` iff an NDataDecl was consumed.
 ///
-/// The leading S is required by [76] when an NDataDecl is present:
+/// The leading S is required by \[76\] when an NDataDecl is present:
 /// `<!ENTITY foo SYSTEM "x"NDATA eps>` (no space between `"x"` and
 /// `NDATA`) is malformed. xmlconf xmltest/not-wf/sa/069.xml is the
 /// spec regression — the comment in that file even names the
@@ -1320,7 +1320,7 @@ fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<bool, XmlParseError> 
 }
 
 /// Grammar-grounded audit: confirms the loaded W3C XML 1.0 spec's
-/// [74] `PEDef ::= EntityValue | ExternalID` production does NOT
+/// \[74\] `PEDef ::= EntityValue | ExternalID` production does NOT
 /// reference `NDataDecl` (transitively, through `NonTerminal`
 /// indirection). This is the structural fact that makes the
 /// PE-declaration parser's `c.consume(">")` after the ExternalID
@@ -1333,7 +1333,7 @@ fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<bool, XmlParseError> 
 /// NDataDecl reference. Per `feedback_corpus_wide_audit_on_load`:
 /// spec-source drift fails closed.
 ///
-/// The W3C source for [74] PEDef as of the 2008 Fifth Edition:
+/// The W3C source for \[74\] PEDef as of the 2008 Fifth Edition:
 ///
 /// ```text
 /// <prod id="NT-PEDef" num="74">
@@ -1347,7 +1347,7 @@ fn parse_optional_ndata_decl(c: &mut Cursor<'_>) -> Result<bool, XmlParseError> 
 /// the regression set the natural grammar-tail rejection covers:
 /// after `parse_quoted` consumes `"foo"`, `c.skip_whitespace()`
 /// passes over ` `, then `c.consume(">")` faces `N` and emits a
-/// syntax error — exactly the §4.2 [72] PEDecl tail mismatch
+/// syntax error — exactly the §4.2 \[72\] PEDecl tail mismatch
 /// the W3C spec mandates.
 fn loaded_pedef_rejects_ndata_decl() -> bool {
     use std::sync::OnceLock;
@@ -1420,7 +1420,7 @@ fn term_references_production(
     walk(term, target, grammar, &mut visited)
 }
 
-/// W3C XML 1.0 §4.3.2 production [9] `EntityValue`:
+/// W3C XML 1.0 §4.3.2 production \[9\] `EntityValue`:
 /// `'"' ([^%&"] | PEReference | Reference)* '"' | "'" ([^%&'] | PEReference | Reference)* "'"`.
 ///
 /// Resolves `Reference` (numeric character refs and the five §4.6
@@ -1507,9 +1507,9 @@ fn parse_entity_value(c: &mut Cursor<'_>) -> Result<String, XmlParseError> {
 
 /// Skip tokens up to and including the next top-level `>` while
 /// respecting:
-/// - paired `[`/`]` brackets (nested intSubset markers — §2.8 [28]),
+/// - paired `[`/`]` brackets (nested intSubset markers — §2.8 \[28\]),
 /// - quoted string literals `"…"` and `'…'` (W3C XML 1.0 §4.2.2
-///   [11] SystemLiteral / [12] PubidLiteral / §4.3.2 [9] EntityValue
+///   \[11\] SystemLiteral / \[12\] PubidLiteral / §4.3.2 \[9\] EntityValue
 ///   — a `>` inside quotes is content, not the close-marker).
 ///
 /// This is the correct skip semantics for markup declarations whose
@@ -1558,7 +1558,7 @@ fn skip_until_close_angle(c: &mut Cursor<'_>) -> Result<(), XmlParseError> {
 /// general-entity-name branch.
 ///
 /// Enforces W3C XML 1.0 §4.1 **WFC: Legal Character** — the
-/// referenced code point must be in §2.2 [2] `Char`. This catches:
+/// referenced code point must be in §2.2 \[2\] `Char`. This catches:
 ///
 /// - NUL and other C0 controls (`&#x0;` … `&#x1F;` excluding the
 ///   three `Char`-permitted `#x9` / `#xA` / `#xD`).
@@ -1620,7 +1620,7 @@ fn parse_char_ref(c: &mut Cursor<'_>) -> Result<char, XmlParseError> {
     Ok(ch)
 }
 
-/// W3C XML 1.0 §3 production [39] `element`:
+/// W3C XML 1.0 §3 production \[39\] `element`:
 /// `element ::= EmptyElemTag | STag content ETag`.
 ///
 /// `entities` is the list of `<!ENTITY name "value">` declarations
@@ -1725,10 +1725,10 @@ fn parse_element(
     })
 }
 
-/// W3C XML 1.0 §2.3 production [5] `Name`:
+/// W3C XML 1.0 §2.3 production \[5\] `Name`:
 /// `Name ::= NameStartChar (NameChar)*`.
 ///
-/// Production [4] `NameStartChar` covers ASCII letters, `_`, `:`,
+/// Production \[4\] `NameStartChar` covers ASCII letters, `_`, `:`,
 /// and a large Unicode range (Bray et al. 2008 §2.3). We accept
 /// the ASCII subset here, plus the `:` separator used by
 /// Namespaces in XML (Bray, Hollander, Layman & Tobin 2009 §3)
@@ -1766,7 +1766,7 @@ fn parse_name(c: &mut Cursor<'_>) -> Result<XmlName, XmlParseError> {
     }
 }
 
-/// W3C XML 1.0 §2.3 production [4] `NameStartChar` — the full
+/// W3C XML 1.0 §2.3 production \[4\] `NameStartChar` — the full
 /// character class.
 ///
 /// Delegates to the build-time-generated
@@ -1783,7 +1783,7 @@ pub fn is_name_start_char(ch: char) -> bool {
     crate::social::software::markup::xml::spec_1_0::grammar::is_name_start_char(ch as u32)
 }
 
-/// W3C XML 1.0 §2.3 production [4a] `NameChar`. Extends
+/// W3C XML 1.0 §2.3 production \[4a\] `NameChar`. Extends
 /// [`is_name_start_char`] with digits, `.`, `-`, `·`, and the
 /// combining-mark ranges.
 ///
@@ -1796,7 +1796,7 @@ pub fn is_name_char(ch: char) -> bool {
     crate::social::software::markup::xml::spec_1_0::grammar::is_name_char(ch as u32)
 }
 
-/// W3C XML 1.0 §2.2 production [2] `Char` — the legal character
+/// W3C XML 1.0 §2.2 production \[2\] `Char` — the legal character
 /// repertoire. Delegates to the build-time-generated
 /// [`crate::social::software::markup::xml::spec_1_0::grammar::is_char`]
 /// predicate, whose range table comes from the loaded spec source.
@@ -1810,7 +1810,7 @@ pub fn is_xml_char(ch: char) -> bool {
     crate::social::software::markup::xml::spec_1_0::grammar::is_char(ch as u32)
 }
 
-/// W3C XML 1.0 §3.1 production [10] `AttValue`:
+/// W3C XML 1.0 §3.1 production \[10\] `AttValue`:
 /// `AttValue ::= '"' ([^<&"] | Reference)* '"' | "'" ([^<&'] | Reference)* "'"`.
 ///
 /// Expands the five §4.6 predefined entity references and numeric
@@ -2041,8 +2041,8 @@ fn include_user_general_entity_in_att_value(
 /// element bodies and entity-replacement-text re-parse.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ContentTerminator {
-    /// Stop on `</` (element end-tag) — the §3 [43] `content`
-    /// production wrapped in `STag content ETag` (§3 [39]).
+    /// Stop on `</` (element end-tag) — the §3 \[43\] `content`
+    /// production wrapped in `STag content ETag` (§3 \[39\]).
     Etag,
     /// Stop on EOF — entity replacement text is its own
     /// self-contained `content` fragment (§4.4.3 "Included" with
@@ -2051,7 +2051,7 @@ enum ContentTerminator {
     Eof,
 }
 
-/// W3C XML 1.0 §3 production [43] `content`:
+/// W3C XML 1.0 §3 production \[43\] `content`:
 /// `content ::= CharData? ((element | Reference | CDSect | PI | Comment) CharData?)*`.
 fn parse_content(
     c: &mut Cursor<'_>,
@@ -2350,14 +2350,14 @@ fn flush_text(nodes: &mut Vec<XmlNode>, buf: &mut String) {
     }
 }
 
-/// W3C XML 1.0 §2.5 production [15] `Comment`, emitting a typed
+/// W3C XML 1.0 §2.5 production \[15\] `Comment`, emitting a typed
 /// `XmlNode::Comment` for inside-element occurrences (Cowan &
 /// Tobin 2004 §2.5 keeps comments in the Infoset).
 ///
 /// Enforces two §2.5 well-formedness constraints:
 /// - The body MUST NOT contain the string `--` (the EBNF subtraction
 ///   `(Char - '-')` is the spec form).
-/// - Every character MUST be in the §2.2 [2] Char repertoire — the
+/// - Every character MUST be in the §2.2 \[2\] Char repertoire — the
 ///   `is_xml_char` predicate consults the loaded spec table.
 fn parse_comment_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
     let comment_start = c.pos;
@@ -2385,10 +2385,10 @@ fn parse_comment_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
     Ok(XmlNode::Comment(body))
 }
 
-/// W3C XML 1.0 §2.7 production [18] `CDSect`:
+/// W3C XML 1.0 §2.7 production \[18\] `CDSect`:
 /// `CDSect ::= CDStart CData CDEnd`.
 ///
-/// §2.7 [20] `CData ::= (Char* - (Char* ']]>' Char*))` — every char
+/// §2.7 \[20\] `CData ::= (Char* - (Char* ']]>' Char*))` — every char
 /// in the body must be in the §2.2 Char repertoire; the `]]>` tail
 /// is consumed by the close-marker so a body containing a literal
 /// `]]>` simply ends early (legal XML — content can be split across
@@ -2409,10 +2409,10 @@ fn parse_cdata_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
     Ok(XmlNode::CData(body))
 }
 
-/// W3C XML 1.0 §2.6 production [16] `PI` emitting a typed
+/// W3C XML 1.0 §2.6 production \[16\] `PI` emitting a typed
 /// `XmlNode::ProcessingInstruction`.
 ///
-/// §2.6 [16] `PI ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'`
+/// §2.6 \[16\] `PI ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'`
 /// — every char in the data segment must be in the §2.2 Char
 /// repertoire; the `?>` tail is consumed by the close-marker.
 fn parse_pi_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
@@ -2458,8 +2458,8 @@ fn parse_pi_node(c: &mut Cursor<'_>) -> Result<XmlNode, XmlParseError> {
     })
 }
 
-/// Walk `body` and reject the first character outside §2.2 [2] `Char`.
-/// `position_of_body_start` is the byte offset of `body[0]` in the
+/// Walk `body` and reject the first character outside §2.2 \[2\] `Char`.
+/// `position_of_body_start` is the byte offset of `body\[0\]` in the
 /// original input; `context` names the production (Comment / CDATA /
 /// PI / CharData) for the error message.
 fn check_chars_in_range(

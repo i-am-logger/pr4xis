@@ -199,7 +199,7 @@ fn walk_test_elements(
 /// 2. `EDITION` attribute lists XML 1.0 editions but excludes the
 ///    Fifth Edition the praxis parser implements. The §B Character
 ///    Classes (Letter / BaseChar / Ideographic / CombiningChar /
-///    Digit / Extender — productions [85]–[89]) were removed in 5e
+///    Digit / Extender — productions \[85\]–\[89\]) were removed in 5e
 ///    in favour of Unicode-range NameStartChar / NameChar; the
 ///    4e-era `not-wf` tests of characters outside the Letter class
 ///    (`EDITION="1 2 3 4"`) are well-formed in 5e and must be

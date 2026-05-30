@@ -44,7 +44,7 @@ pub fn loaded_wn_lmf_dtd() -> &'static str {
 /// True iff `name` is the local-name of an element type declared
 /// in the bundled WN-LMF 1.3 DTD, looked up ontologically against
 /// the [`DtdLens`](crate::formal::meta::dtd::DtdLens)-parsed
-/// declaration set (W3C XML 1.0 §3.2 production [45] `elementdecl`).
+/// declaration set (W3C XML 1.0 §3.2 production \[45\] `elementdecl`).
 /// Case-sensitive — XML element names are case-sensitive per W3C
 /// XML 1.0 §3.
 ///
@@ -75,7 +75,7 @@ fn loaded_wn_lmf_dtd_schema() -> &'static crate::formal::meta::dtd::DtdSchema {
     })
 }
 
-/// W3C XML 1.0 §3.3.1 production [57] `EnumeratedType` — the
+/// W3C XML 1.0 §3.3.1 production \[57\] `EnumeratedType` — the
 /// `(v1|v2|...|vN)` enumeration declared on the named attribute of
 /// the named element. Walks the loaded WN-LMF 1.3 DTD's
 /// `<!ATTLIST element …>` declarations, locates `attr_name`'s body,
@@ -104,7 +104,7 @@ pub fn wn_lmf_attlist_enum_values(element_name: &str, attr_name: &str) -> Option
 /// Scan an `<!ATTLIST>` body for the `attr_name` declaration and
 /// return its `(v1|...|vN)` enumeration if any.
 ///
-/// Body shape (W3C XML 1.0 §3.3 [52] `AttlistDecl`): one or more
+/// Body shape (W3C XML 1.0 §3.3 \[52\] `AttlistDecl`): one or more
 /// `Name S AttType S DefaultDecl` groups. We locate `attr_name`'s
 /// group, skip whitespace to the type-introducing `(`, then split
 /// the parenthesized run on `|`.

@@ -30,7 +30,7 @@
 //!   Akhmedov, Malhotra, Biron & Sperberg-McQueen 2012, W3C
 //!   Recommendation 2012-04-05. §3.3.1 string, §3.4.1-§3.4.12.
 //! - **W3C XML 1.0 (Fifth Edition)**, Bray et al. 2008, §2.3
-//!   (productions [4]/[4a]/[5] Name / NameChar / Nmtoken).
+//!   (productions \[4\]/\[4a\]/\[5\] Name / NameChar / Nmtoken).
 //! - **IETF BCP 47 / RFC 5646**, Tags for Identifying Languages.
 
 #[allow(unused_imports)]
@@ -99,13 +99,13 @@ pub fn apply_white_space(s: &str, ws: WhiteSpace) -> String {
 // Pattern predicates — XML 1.0 §2.3 productions + BCP 47.
 // =============================================================================
 
-/// XML 1.0 §2.3 [5] `Nmtoken ::= (NameChar)+` — `xs:NMTOKEN`'s value
+/// XML 1.0 §2.3 \[5\] `Nmtoken ::= (NameChar)+` — `xs:NMTOKEN`'s value
 /// space (W3C XSD 1.1 Part 2 §3.4.4).
 pub fn is_nmtoken(s: &str) -> bool {
     !s.is_empty() && s.chars().all(is_name_char)
 }
 
-/// XML 1.0 §2.3 [4] `Name ::= NameStartChar (NameChar)*` — `xs:Name`'s
+/// XML 1.0 §2.3 \[4\] `Name ::= NameStartChar (NameChar)*` — `xs:Name`'s
 /// value space (W3C XSD 1.1 Part 2 §3.4.6).
 pub fn is_name(s: &str) -> bool {
     let mut chars = s.chars();

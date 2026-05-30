@@ -37,4 +37,4 @@ xsd-parser = { version = "1.5.2", optional = true }
 workspace = true
 
 [dev-dependencies]
-proptest = "1.6"
+proptest = "1.11"

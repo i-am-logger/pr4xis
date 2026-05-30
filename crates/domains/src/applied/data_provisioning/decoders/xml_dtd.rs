@@ -3,7 +3,7 @@
 //! Identifies a byte stream as an XML 1.0 DTD by checking for an
 //! `<!ELEMENT` or `<!ATTLIST` markup declaration (W3C XML 1.0 Fifth
 //! Edition §3.2 + §3.3, Bray et al. 2008). Full DTD parsing (the
-//! production [29] `markupdecl` family) is intentionally not
+//! production \[29\] `markupdecl` family) is intentionally not
 //! implemented here — DTD-grounded vocabularies (currently
 //! Global WordNet's WN-LMF 1.3) use the registered bytes for
 //! schema-identity + hash-pinning, not for runtime validation.

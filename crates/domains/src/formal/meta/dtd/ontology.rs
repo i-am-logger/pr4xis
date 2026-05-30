@@ -152,7 +152,7 @@ impl Ontology for DtdOntology {
 
 /// Axiom: the four concrete markup-declaration kinds (`ElementDecl`,
 /// `AttListDecl`, `EntityDecl`, `NotationDecl`) are exactly the
-/// children of `MarkupDecl` per W3C XML 1.0 §2.8 production [29].
+/// children of `MarkupDecl` per W3C XML 1.0 §2.8 production \[29\].
 pub struct MarkupDeclFourPartition;
 
 impl Axiom for MarkupDeclFourPartition {

@@ -853,7 +853,7 @@ mod property {
     use super::*;
     use proptest::prelude::*;
 
-    /// W3C XML 1.0 §2.3 production [4] / [4a] NameStartChar / NameChar —
+    /// W3C XML 1.0 §2.3 production \[4\] / \[4a\] NameStartChar / NameChar —
     /// ASCII subset (the part of the grammar most likely to round-trip
     /// without ambient Unicode mapping concerns).
     fn arb_ascii_name() -> impl Strategy<Value = String> {
@@ -872,7 +872,7 @@ mod property {
             .prop_map(|chars| chars.into_iter().collect())
     }
 
-    /// W3C XML 1.0 §3.1 production [10] AttValue — characters allowed in
+    /// W3C XML 1.0 §3.1 production \[10\] AttValue — characters allowed in
     /// an attribute value (excluding `<` and `&`, both must be escaped).
     /// Also excludes literal whitespace (`#x9`, `#xA`, `#xD`); those
     /// trigger §3.3.3 attribute-value normalization (whitespace → space)
@@ -891,7 +891,7 @@ mod property {
         .prop_map(|chars| chars.into_iter().collect())
     }
 
-    /// W3C XML 1.0 §2.4 production [14] CharData — element content
+    /// W3C XML 1.0 §2.4 production \[14\] CharData — element content
     /// text minus the markup delimiters `<` and `&`. Also excludes
     /// lone `#xD` (CR) since §2.11 End-of-Line Handling normalizes
     /// any CR sequence to LF on input, breaking byte-for-byte

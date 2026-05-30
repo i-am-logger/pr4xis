@@ -179,7 +179,7 @@ impl std::error::Error for EncodingLabelExtractionError {}
 ///
 /// Walks §F's `<inform-div1 id="sec-guessing">` table cells and
 /// §4.3.3's `<div3 id="charencoding">` `<code>` blocks. Tokenises
-/// each cell into EncName candidates per W3C XML 1.0 §4.3.4 [81]
+/// each cell into EncName candidates per W3C XML 1.0 §4.3.4 \[81\]
 /// `EncName ::= [A-Za-z] ([A-Za-z0-9._] | '-')*`, then filters and
 /// classifies by W3C-defined name shape.
 ///
@@ -293,7 +293,7 @@ fn collect_labels_from_tags(text: &str, open_tag: &str, close_tag: &str, out: &m
 
 /// Tokenise `text` for EncName candidates and append them to `out`.
 ///
-/// Per W3C XML 1.0 §4.3.4 [81] `EncName ::= [A-Za-z]
+/// Per W3C XML 1.0 §4.3.4 \[81\] `EncName ::= [A-Za-z]
 /// ([A-Za-z0-9._] | '-')*`. We further filter to:
 /// - **starts with an uppercase letter** — encoding labels in §F
 ///   and §4.3.3 are conventionally capitalised; prose words like

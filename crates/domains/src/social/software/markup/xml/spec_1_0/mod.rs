@@ -126,9 +126,9 @@ mod loaded_grammar_tests {
 /// Generated grammar predicates — emitted at build time by
 /// `pr4xis::codegen::xml_grammar` from the loaded spec bytes. Provides:
 ///
-/// - `is_char(c: u32) -> bool` — W3C XML 1.0 §2.2 [2] `Char`
-/// - `is_name_start_char(c: u32) -> bool` — §2.3 [4] `NameStartChar`
-/// - `is_name_char(c: u32) -> bool` — §2.3 [4a] `NameChar`
+/// - `is_char(c: u32) -> bool` — W3C XML 1.0 §2.2 \[2\] `Char`
+/// - `is_name_start_char(c: u32) -> bool` — §2.3 \[4\] `NameStartChar`
+/// - `is_name_char(c: u32) -> bool` — §2.3 \[4a\] `NameChar`
 ///
 /// Plus the underlying `CHAR_RANGES` / `NAME_START_CHAR_RANGES` /
 /// `NAME_CHAR_RANGES` tables. Consumed by `parser::grammar` in

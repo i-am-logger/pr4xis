@@ -44,7 +44,7 @@ pub fn serialize_document(doc: &XmlDocument) -> Vec<u8> {
     out.into_bytes()
 }
 
-/// W3C XML 1.0 §2.8 production [28] `doctypedecl` — inverse of
+/// W3C XML 1.0 §2.8 production \[28\] `doctypedecl` — inverse of
 /// [`grammar::parse_doctype`](super::grammar). Re-emits the root
 /// element name, optional `ExternalID`, and inline general entity
 /// declarations (`<!ENTITY name "value">`) the parser projected.
@@ -84,7 +84,7 @@ fn write_doctype(out: &mut String, doctype: &XmlDoctype) {
     out.push('>');
 }
 
-/// W3C XML 1.0 §4.3.2 production [9] `EntityValue` — escape the
+/// W3C XML 1.0 §4.3.2 production \[9\] `EntityValue` — escape the
 /// minimum required for the value to be re-readable inside a
 /// double-quoted entity declaration: `&` → `&amp;`, `"` → `&quot;`.
 fn write_escaped_entity_value(out: &mut String, s: &str) {
@@ -97,7 +97,7 @@ fn write_escaped_entity_value(out: &mut String, s: &str) {
     }
 }
 
-/// W3C XML 1.0 §2.8 production [23] `XMLDecl`. Re-emitted with the
+/// W3C XML 1.0 §2.8 production \[23\] `XMLDecl`. Re-emitted with the
 /// exact version + encoding the [`XmlDocument`] carries.
 fn write_xml_decl(out: &mut String, version: &str, encoding: Option<&str>) {
     out.push_str("<?xml version=\"");
@@ -111,7 +111,7 @@ fn write_xml_decl(out: &mut String, version: &str, encoding: Option<&str>) {
     out.push_str("?>");
 }
 
-/// W3C XML 1.0 §3 production [39] `element`. Emits the
+/// W3C XML 1.0 §3 production \[39\] `element`. Emits the
 /// `EmptyElemTag` short form when the element has no children, the
 /// `STag content ETag` long form otherwise.
 fn write_element(out: &mut String, el: &XmlElement) {
@@ -207,7 +207,7 @@ fn write_node(out: &mut String, node: &XmlNode) {
 }
 
 /// W3C XML 1.0 §4.6 — escape the three characters that
-/// `CharData` (§2.4 production [14]) cannot contain literally:
+/// `CharData` (§2.4 production \[14\]) cannot contain literally:
 /// `&` → `&amp;`, `<` → `&lt;`. `>` is conditionally required
 /// only after `]]` (the CDATA terminator); we always escape it
 /// for safety. The escape forms here are exactly the ones C14N
