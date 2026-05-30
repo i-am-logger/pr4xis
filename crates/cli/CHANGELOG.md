@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.6.0...pr4xis-cli-v0.7.0) (2026-05-30)
+
+
+### Features
+
+* **cli:** one-command corpus updates via `pr4xis update --lock` ([#183](https://github.com/i-am-logger/pr4xis/issues/183)) ([f13a5b5](https://github.com/i-am-logger/pr4xis/commit/f13a5b5f767d6611357d56e953bd385eca9fff28))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * pr4xis-chat bumped from 0.8.0 to 0.8.1
+    * pr4xis-domains bumped from 0.20.0 to 0.21.0
+
 ## [0.6.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.5.11...pr4xis-cli-v0.6.0) (2026-05-30)
 
 
