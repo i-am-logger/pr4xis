@@ -34,11 +34,11 @@ jobs:
             command: cargo fmt --check
           - name: Clippy
             command: cargo clippy --workspace --all-targets -- -D warnings
-          # Tests are NOT in this matrix — they ride a two-stage
-          # `build-tests` → `test (×3)` pipeline below. Building the
-          # workspace once and sharding only the test-execution stage
-          # avoids the 3×-recompile cost that pure matrix sharding
-          # paid.
+          - name: Test
+            command: cargo nextest run --workspace --profile ci
+            rustflags: "-D warnings"
+            needs-wordnet: true
+            needs-nextest: true
           - name: Coverage
             # `cargo-llvm-cov` rebuilds the workspace with profiling
             # instrumentation, doubling compile time. Run nightly on
@@ -47,10 +47,12 @@ jobs:
             # trend-line; per-push numbers were noisy and expensive.
             command: cargo llvm-cov --workspace --lcov --output-path lcov.info
             cron-only: true
-          - name: WASM
-            command: cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown
-            wasm-target: true
-            needs-wordnet: true
+          # WASM check (`cargo check --target wasm32`) was redundant —
+          # the `wasm-test` job runs `wasm-pack test`, which builds for
+          # the same target and would catch any compile error this
+          # check catches. The e2e job additionally runs `wasm-pack
+          # build --release`. Two real wasm-build paths gate the
+          # workflow already.
           - name: Docs
             command: cargo doc --workspace --no-deps
             rustdocflags: "-D warnings -D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags"
@@ -78,11 +80,12 @@ jobs:
         if: "(!matrix.master-only && !matrix.cron-only) || (matrix.master-only && github.event_name == 'push' && github.ref == 'refs/heads/master') || (matrix.cron-only && github.event_name == 'schedule')"
         with:
           components: clippy, rustfmt, llvm-tools-preview
-          targets: ${{ matrix.wasm-target && 'wasm32-unknown-unknown' || '' }}
       - uses: Swatinem/rust-cache@v2
         if: "(!matrix.master-only && !matrix.cron-only) || (matrix.master-only && github.event_name == 'push' && github.ref == 'refs/heads/master') || (matrix.cron-only && github.event_name == 'schedule')"
       - uses: taiki-e/install-action@cargo-llvm-cov
         if: matrix.name == 'Coverage' && github.event_name == 'schedule'
+      - uses: taiki-e/install-action@cargo-nextest
+        if: matrix.needs-nextest
       # Prebuilt mdBook binary — `cargo install --locked` would compile
       # from source (~3 min on a cold runner); the released binary
       # installs in seconds.
@@ -128,85 +131,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: false
-
-  # ── Compile workspace + build the nextest archive once. Three
-  # downstream `test` shards consume the same archive, so compilation
-  # cost is paid once instead of N times. Sharding now actually pays
-  # off (test execution is the only thing that parallelises across
-  # shards). See nextest book §"Archiving and reusing test binaries".
-  build-tests:
-    name: Build test archive
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: false
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: tests
-      - uses: taiki-e/install-action@cargo-nextest
-      - name: Cache WordNet XML
-        uses: actions/cache@v4
-        with:
-          path: crates/domains/data/wordnet/english-wordnet-2025.xml
-          key: wordnet-english-2025-v1
-      - name: Cache fetched external data (USC titles + conformance suites)
-        uses: actions/cache@v4
-        with:
-          path: |
-            crates/domains/data/legal/uscode
-            crates/domains/data/markup-schemas/xsts
-            crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
-      - name: Fetch external data via pr4xis update
-        run: cargo run -p pr4xis-cli --release -- update
-      - name: Build nextest archive
-        env:
-          RUSTFLAGS: "-D warnings"
-        run: cargo nextest archive --workspace --archive-file nextest-archive.tar.zst
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nextest-archive
-          path: nextest-archive.tar.zst
-          retention-days: 1
-
-  test:
-    name: Test (${{ matrix.shard }}/3)
-    runs-on: ubuntu-latest
-    needs: [build-tests]
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: false
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@cargo-nextest
-      - name: Cache WordNet XML
-        uses: actions/cache@v4
-        with:
-          path: crates/domains/data/wordnet/english-wordnet-2025.xml
-          key: wordnet-english-2025-v1
-      - name: Restore fetched external data (USC titles + conformance suites)
-        uses: actions/cache@v4
-        with:
-          path: |
-            crates/domains/data/legal/uscode
-            crates/domains/data/markup-schemas/xsts
-            crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
-      - uses: actions/download-artifact@v4
-        with:
-          name: nextest-archive
-      - name: Run test partition ${{ matrix.shard }}/3
-        run: cargo nextest run --archive-file nextest-archive.tar.zst --workspace-remap . --profile ci --partition hash:${{ matrix.shard }}/3
       - name: Upload test results to Codecov
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !cancelled()
+        if: matrix.name == 'Test' && github.event_name == 'push' && github.ref == 'refs/heads/master' && !cancelled()
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -377,13 +303,12 @@ jobs:
   release-please:
     name: Release
     runs-on: ubuntu-latest
-    needs: [check, test, wasm-test, e2e]
+    needs: [check, wasm-test, e2e]
     if: |
       always() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&
       needs.check.result == 'success' &&
-      needs.test.result == 'success' &&
       needs.wasm-test.result == 'success' &&
       needs.e2e.result == 'success'
     outputs:
