@@ -91,8 +91,12 @@ in
     cargo check --quiet || { echo "FAILED: check"; exit 1; }
     echo "=== fetch external data (mirrors CI) ==="
     cargo run -p pr4xis-cli --release --quiet -- update || { echo "FAILED: pr4xis update"; exit 1; }
-    echo "=== test (nextest, mirrors CI) ==="
-    RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci || { echo "FAILED: test"; exit 1; }
+    echo "=== test (nextest --release, mirrors CI) ==="
+    # `--release` so the strict [profile.ci] slow-timeout (10s SLOW /
+    # 30s fail in .config/nextest.toml) lands on optimised tests — the
+    # same thing CI does. In debug mode the `usc_loaded()` OnceLock
+    # init runs ~6-10s and would trip the 30s cap on slower hardware.
+    RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release || { echo "FAILED: test"; exit 1; }
     echo "=== wasm check ==="
     RUSTFLAGS="-D warnings" cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet || { echo "FAILED: wasm check"; exit 1; }
     echo "=== wasm browser tests ==="
