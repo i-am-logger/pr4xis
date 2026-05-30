@@ -38,6 +38,9 @@ self.onmessage = async (e) => {
       case 'available_sources':
         reply(id, pr4xis.available_sources());
         break;
+      case 'available_ontologies':
+        reply(id, pr4xis.available_ontologies());
+        break;
       case 'load':
         await loadSource(id, args.name, args.url, args.totalHint);
         reply(id, null);
