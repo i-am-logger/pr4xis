@@ -24,7 +24,126 @@
 
 use std::time::Duration;
 
-use fantoccini::{ClientBuilder, Locator};
+use fantoccini::{Client, ClientBuilder, Locator};
+
+/// Wait for a CSS selector with a deadline, labeling the wait in stderr
+/// so a `WaitTimeout` failure says exactly which step missed its budget.
+/// On timeout, also dump the rendered DOM + console state so the next
+/// debug iteration has the actual failure context, not a bare error.
+async fn wait_for(
+    client: &Client,
+    label: &str,
+    selector: &str,
+    deadline: Duration,
+) -> Result<fantoccini::elements::Element, Box<dyn std::error::Error>> {
+    eprintln!(
+        "[e2e] waiting up to {}s for {label}: {selector}",
+        deadline.as_secs()
+    );
+    match client
+        .wait()
+        .at_most(deadline)
+        .for_element(Locator::Css(selector))
+        .await
+    {
+        Ok(el) => {
+            eprintln!("[e2e]   found {label}");
+            Ok(el)
+        }
+        Err(e) => {
+            eprintln!("[e2e] TIMEOUT on {label}: {selector}");
+            dump_page_state(client, label).await;
+            Err(e.into())
+        }
+    }
+}
+
+/// On a wait-timeout, capture as much page-state as the WebDriver
+/// protocol exposes: current URL, document title, every present
+/// `data-source` / `data-ontology` attribute (so we see what the
+/// catalog actually rendered), and any JS errors the page chose to
+/// stash on `window.__praxis_e2e_errors__`. Best-effort — never
+/// throws, since this runs from inside an error path.
+async fn dump_page_state(client: &Client, label: &str) {
+    eprintln!("[e2e] ---- page state at {label} timeout ----");
+    if let Ok(url) = client.current_url().await {
+        eprintln!("[e2e]   url:   {url}");
+    }
+    if let Ok(title) = client.title().await {
+        eprintln!("[e2e]   title: {title}");
+    }
+    // Extract the bracketed key from the label (e.g. "ontology loaded
+    // marker [biro]" → "biro") so the per-element probe can scope to
+    // the actual failing item without us having to thread it separately.
+    let key = label
+        .rsplit_once('[')
+        .and_then(|(_, rest)| rest.split_once(']'))
+        .map(|(k, _)| k.to_string())
+        .unwrap_or_default();
+    // Enumerate every data-source / data-ontology / data-load* element
+    // present in the DOM right now. If the list is empty the catalog
+    // never rendered; if it's populated with different titles the
+    // selector is wrong; if our title is there but the card lacks
+    // .loaded the load itself stalled.
+    let probes: &[(&str, &str)] = &[
+        (
+            "data-source elements",
+            "return Array.from(document.querySelectorAll('[data-source]')).map(e => e.getAttribute('data-source'));",
+        ),
+        (
+            "data-ontology elements",
+            "return Array.from(document.querySelectorAll('[data-ontology]')).map(e => e.getAttribute('data-ontology'));",
+        ),
+        (
+            "data-load elements",
+            "return Array.from(document.querySelectorAll('[data-load]')).map(e => e.getAttribute('data-load'));",
+        ),
+        (
+            "data-load-prx elements",
+            "return Array.from(document.querySelectorAll('[data-load-prx]')).map(e => e.getAttribute('data-load-prx'));",
+        ),
+        (
+            "body text first 500 chars",
+            "return (document.body && document.body.innerText || '').slice(0, 500);",
+        ),
+        (
+            "praxis e2e errors (window.__praxis_e2e_errors__)",
+            "return (window.__praxis_e2e_errors__ || []);",
+        ),
+        // The selector that just timed out is the only one we have to
+        // explain — dump everything about every element that even
+        // mentions the failing key in a data-* attribute. Shows the
+        // card's actual class list, the bytes of its visible text, and
+        // the immediate descendant kinds (badge, progress, retry).
+        (
+            "elements matching the timeout's data-* key (outerHTML, classes, text)",
+            "var key = arguments[0] || ''; \
+             var hits = []; \
+             document.querySelectorAll('[data-source],[data-ontology],[data-load],[data-load-prx]').forEach(e => { \
+               var v = e.getAttribute('data-source') || e.getAttribute('data-ontology') || e.getAttribute('data-load') || e.getAttribute('data-load-prx'); \
+               if (v && v === key) { \
+                 hits.push({ tag: e.tagName, classes: e.className, dataset: Object.assign({}, e.dataset), text: (e.innerText || '').slice(0, 240), html: (e.outerHTML || '').slice(0, 600) }); \
+               } \
+             }); \
+             return hits;",
+        ),
+    ];
+    for (name, script) in probes {
+        // The per-element probe (last entry, recognised by mention of
+        // arguments[0]) needs the failing key passed in. Cheap match
+        // on substring keeps the probe table flat.
+        let args = if script.contains("arguments[0]") {
+            vec![serde_json::Value::String(key.clone())]
+        } else {
+            vec![]
+        };
+        match client.execute(script, args).await {
+            Ok(v) => eprintln!("[e2e]   {name}: {v}"),
+            Err(e) => eprintln!("[e2e]   {name}: <execute failed: {e}>"),
+        }
+    }
+    eprintln!("[e2e] ----");
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -94,19 +213,23 @@ async fn run_source(
     //    catalog to render — this only happens after the Web Worker has
     //    initialised the wasm and the first self_describe round-trips.
     let card = format!("[data-source=\"{title}\"]");
-    client
-        .wait()
-        .at_most(Duration::from_secs(60))
-        .for_element(Locator::Css(&card))
-        .await?;
+    wait_for(
+        client,
+        &format!("source card [{title}]"),
+        &card,
+        Duration::from_secs(60),
+    )
+    .await?;
 
     // 2. The title starts Available, with a Load button.
     let load = format!("[data-load=\"{title}\"]");
-    let load_btn = client
-        .wait()
-        .at_most(Duration::from_secs(30))
-        .for_element(Locator::Css(&load))
-        .await?;
+    let load_btn = wait_for(
+        client,
+        &format!("source load button [{title}]"),
+        &load,
+        Duration::from_secs(30),
+    )
+    .await?;
 
     // 3. Click Load — the worker downloads the authoritative USLM XML and
     //    parses it into a live UsCode off the main thread.
@@ -114,11 +237,13 @@ async fn run_source(
 
     // 4. On success the catalog re-renders and the card carries `.loaded`.
     let loaded = format!(".source-card.loaded[data-source=\"{title}\"]");
-    client
-        .wait()
-        .at_most(Duration::from_secs(120))
-        .for_element(Locator::Css(&loaded))
-        .await?;
+    wait_for(
+        client,
+        &format!("source loaded marker [{title}]"),
+        &loaded,
+        Duration::from_secs(120),
+    )
+    .await?;
 
     Ok(())
 }
@@ -133,19 +258,23 @@ async fn run_ontology_prx(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // 1. Wait for the OWL vocabulary's row in the Ontologies catalog.
     let card = format!("[data-ontology=\"{ontology}\"]");
-    client
-        .wait()
-        .at_most(Duration::from_secs(60))
-        .for_element(Locator::Css(&card))
-        .await?;
+    wait_for(
+        client,
+        &format!("ontology card [{ontology}]"),
+        &card,
+        Duration::from_secs(60),
+    )
+    .await?;
 
     // 2. The "Load .prx" button — the hash-validated leg.
     let load = format!("[data-load-prx=\"{ontology}\"]");
-    let load_btn = client
-        .wait()
-        .at_most(Duration::from_secs(30))
-        .for_element(Locator::Css(&load))
-        .await?;
+    let load_btn = wait_for(
+        client,
+        &format!("ontology load-prx button [{ontology}]"),
+        &load,
+        Duration::from_secs(30),
+    )
+    .await?;
 
     // 3. Click Load .prx — the worker streams the `.prx.gz`, the wasm gate
     //    gunzips, bytecheck-validates the rkyv envelope, and asserts the
@@ -155,11 +284,13 @@ async fn run_ontology_prx(
 
     // 4. On success the catalog re-renders and the card carries `.loaded`.
     let loaded = format!(".source-card.loaded[data-ontology=\"{ontology}\"]");
-    client
-        .wait()
-        .at_most(Duration::from_secs(60))
-        .for_element(Locator::Css(&loaded))
-        .await?;
+    wait_for(
+        client,
+        &format!("ontology loaded marker [{ontology}]"),
+        &loaded,
+        Duration::from_secs(60),
+    )
+    .await?;
 
     Ok(())
 }

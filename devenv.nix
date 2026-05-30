@@ -39,7 +39,13 @@ in
     # `dev-e2e` (the crates/e2e fantoccini test) both drive a headless
     # Firefox via geckodriver. curl polls the web server + driver in
     # `dev-e2e` before the test runs.
-    pkgs.firefox
+    #
+    # `firefox-bin` is the Mozilla-released prebuilt binary, not the
+    # from-source nixpkgs build — the source build is unreliable in
+    # current devenv-nixpkgs/rolling, but the prebuilt binary always
+    # works. `allowUnfree` is required because Mozilla's binary
+    # distribution has a non-free EULA (the source build is free).
+    pkgs.firefox-bin
     pkgs.geckodriver
     pkgs.curl
   ];
@@ -121,6 +127,13 @@ in
   scripts.dev-e2e.exec = ''
     echo "Building WASM (stages /sources)..."
     dev-wasm
+    # Emit `.prx.gz` artifacts the wasm dual-load click-to-load path needs.
+    # pr4xis-web serves `crates/wasm/ontologies/` at `/ontologies/`,
+    # mirroring the Pages tree the release job assembles. Mirrors the
+    # `.github/workflows/ci.yml` E2E step exactly so local == CI.
+    echo "Emitting .prx.gz ontology artifacts (stages /ontologies)..."
+    mkdir -p crates/wasm/ontologies
+    cargo run -p pr4xis-domains --features "fetch codegen" --example emit_prx -- crates/wasm/ontologies
     echo "Starting pr4xis-web + geckodriver..."
     cargo run -p pr4xis-web 3000 &
     WEB=$!
@@ -190,7 +203,7 @@ in
     echo "  /decks/technical — presentation"
     echo "Watching crates/ for changes — WASM rebuilds automatically."
     echo ""
-    cargo run -p pr4xis-web --release
+    cargo run -p pr4xis-web --release -- 4096
   '';
 
   # Environment variables
