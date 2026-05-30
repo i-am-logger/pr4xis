@@ -107,7 +107,7 @@ fn confidence_interval_widens_with_higher_level() {
 }
 
 // ---------------------------------------------------------------------------
-// H6: StateEstimate::new uses debug_assert — does not panic in release
+// H6: StateEstimate::new rejects dimension-mismatched inputs in every profile
 // ---------------------------------------------------------------------------
 
 #[test]

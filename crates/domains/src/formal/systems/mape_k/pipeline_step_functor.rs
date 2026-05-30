@@ -177,7 +177,7 @@ pr4xis::functor! {
         // Source is a discrete category; every morphism is an identity,
         // enforced at construction by `PipelineStepMorphism::identity(..)`.
         use pr4xis::category::Arrow;
-        debug_assert_eq!(
+        assert_eq!(
             m.source(),
             m.target(),
             "PipelineStepCategory is discrete — non-identity morphisms should be unreachable"

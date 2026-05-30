@@ -1,5 +1,43 @@
+# Slow-test guard. Two profiles with different thresholds, because
+# `[profile.default]` (local `dev-test`) compiles in DEBUG and pays the
+# ~20s OnceLock init of `usc_loaded()` (parses ~85 MB of USC USLM
+# XML), whereas `[profile.ci]` runs `cargo nextest run --release` and
+# the same init finishes in ~1s. The strict thresholds need release
+# semantics underneath them.
+#
+# `[profile.default]` — local debug mode (relaxed):
+#   period = 60s          — `SLOW [> 60s]` marker; visible in
+#                           `dev-test` output so a regression that
+#                           pushes a test past 60s surfaces in the
+#                           same log developers already read.
+#   terminate-after = 2   — 120s hard cap. Headroom for the OnceLock-
+#                           init parallel-blocking cluster (~38s on
+#                           this hardware) on slower runners.
+#
+# `[profile.ci]` — release mode (strict):
+#   period = 10s          — `SLOW [> 10s]` warning. Release-built
+#                           tests at this scale should finish well
+#                           under 10s; anything longer is worth a
+#                           second look.
+#   terminate-after = 3   — 30s hard fail. Catches genuine algorithmic
+#                           regressions immediately.
+#
+# When task #271 (M4.ι.6 — rkyv-archive USC corpus) lands, the debug
+# init drops to ~50ms and `[profile.default]` can match `[profile.ci]`'s
+# strict thresholds.
+#
+# References: nextest-rs/nextest book §"Slow tests and timeouts"
+# (<https://nexte.st/book/slow-tests.html>).
+[profile.default.slow-timeout]
+period = "15s"
+terminate-after = 2
+
 [profile.ci]
 fail-fast = false
+
+[profile.ci.slow-timeout]
+period = "10s"
+terminate-after = 3
 
 [profile.ci.junit]
 path = "junit.xml"

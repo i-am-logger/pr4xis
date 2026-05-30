@@ -5,10 +5,9 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
-  # Coverage is too expensive (~19 min per run with cargo-llvm-cov's
-  # instrumentation rebuild) to run on every push; daily on master is
-  # sufficient for trendlines. See the Coverage matrix entry's
-  # `cron-only: true` flag.
+  # Coverage runs nightly on master, not per-push (cargo-llvm-cov
+  # rebuilds the workspace with profiling instrumentation, doubling
+  # compile time; daily granularity is plenty for trend lines).
   schedule:
     - cron: '0 6 * * *'
 
@@ -22,92 +21,46 @@ permissions:
   pages: write
   id-token: write
 
+# ── CI architecture ────────────────────────────────────────────────
+# All Rust jobs build in `--release`. `[profile.dev]` does not appear
+# in CI; `target/release/` is the only profile that exists. Every
+# host-target job uses the same `Swatinem/rust-cache@v2` shared-key
+# ("release") so the dep graph compile happens once across the
+# workflow and all downstream jobs restore the same cache slice.
+# Wasm-target jobs use a separate "wasm-release" pool.
+#
+# Job graph:
+#   warmup ──► lint-docs ─┐
+#          ├─► test ──────┼─► release-please ──► pages, publish
+#          └─► wasm ──────┘
+#   format, no-ignored-doctests       (independent, no compile)
+#   coverage                          (cron only)
+# ───────────────────────────────────────────────────────────────────
+
 jobs:
-  check:
-    name: ${{ matrix.name }}
+  # Build pr4xis-cli once + fetch external data. Uploads the binary
+  # as an artifact every downstream Rust job reuses; populates the
+  # `release` Swatinem cache slice they all restore from.
+  warmup:
+    name: Warmup (CLI + data)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Format
-            command: cargo fmt --check
-          - name: Clippy
-            command: cargo clippy --workspace --all-targets -- -D warnings
-          - name: Test
-            command: cargo nextest run --workspace --profile ci
-            rustflags: "-D warnings"
-            needs-wordnet: true
-            needs-nextest: true
-          - name: Coverage
-            # `cargo-llvm-cov` rebuilds the workspace with profiling
-            # instrumentation, doubling compile time. Run nightly on
-            # schedule rather than every push — see the workflow's
-            # `schedule:` trigger. Daily granularity is plenty for the
-            # trend-line; per-push numbers were noisy and expensive.
-            command: cargo llvm-cov --workspace --lcov --output-path lcov.info
-            cron-only: true
-          # WASM check (`cargo check --target wasm32`) was redundant —
-          # the `wasm-test` job runs `wasm-pack test`, which builds for
-          # the same target and would catch any compile error this
-          # check catches. The e2e job additionally runs `wasm-pack
-          # build --release`. Two real wasm-build paths gate the
-          # workflow already.
-          - name: Docs
-            command: cargo doc --workspace --no-deps
-            rustdocflags: "-D warnings -D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags"
-            needs-wordnet: true
-          - name: Doc Tests
-            command: cargo test --doc --workspace
-            needs-wordnet: true
-          - name: No ignored doctests
-            command: |
-              if command grep -rn '```ignore' crates/ docs/ --include='*.rs' --include='*.md' ; then
-                echo "::error::\`\`\`ignore is forbidden — every doctest must be machine-verified. Use \`\`\`text for pseudo-syntax illustrations, \`\`\`no_run / \`\`\`compile_fail when appropriate. See memory:feedback_no_unvalidated_doc_code."
-                exit 1
-              fi
-          - name: mdBook Test
-            command: mdbook test docs/
-            needs-wordnet: true
-            needs-mdbook: true
     steps:
       - uses: actions/checkout@v4
-        if: "(!matrix.master-only && !matrix.cron-only) || (matrix.master-only && github.event_name == 'push' && github.ref == 'refs/heads/master') || (matrix.cron-only && github.event_name == 'schedule')"
         with:
           lfs: false
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
-        if: "(!matrix.master-only && !matrix.cron-only) || (matrix.master-only && github.event_name == 'push' && github.ref == 'refs/heads/master') || (matrix.cron-only && github.event_name == 'schedule')"
         with:
-          components: clippy, rustfmt, llvm-tools-preview
+          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-        if: "(!matrix.master-only && !matrix.cron-only) || (matrix.master-only && github.event_name == 'push' && github.ref == 'refs/heads/master') || (matrix.cron-only && github.event_name == 'schedule')"
-      - uses: taiki-e/install-action@cargo-llvm-cov
-        if: matrix.name == 'Coverage' && github.event_name == 'schedule'
-      - uses: taiki-e/install-action@cargo-nextest
-        if: matrix.needs-nextest
-      # Prebuilt mdBook binary — `cargo install --locked` would compile
-      # from source (~3 min on a cold runner); the released binary
-      # installs in seconds.
-      - name: Install mdBook
-        if: matrix.needs-mdbook
-        uses: peaceiris/actions-mdbook@v2
         with:
-          mdbook-version: latest
+          shared-key: release
       - name: Cache WordNet XML
-        if: "(matrix.name == 'Coverage' || matrix.needs-wordnet) && ((!matrix.master-only && !matrix.cron-only) || (matrix.master-only && github.event_name == 'push' && github.ref == 'refs/heads/master') || (matrix.cron-only && github.event_name == 'schedule'))"
         uses: actions/cache@v4
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
-      # Cache the fetched-not-bundled trees keyed on `praxis.lock` —
-      # whenever a USC title or W3C conformance suite gets a new pin
-      # the key invalidates and we re-fetch. Otherwise the giant USC
-      # titles (~150 MB total) and the XSTS / XMLConf tarballs survive
-      # across job runs. Wordnet keeps its own version-pinned key
-      # above (predates praxis.lock).
       - name: Cache fetched external data (USC titles + conformance suites)
-        if: "(matrix.name == 'Coverage' || matrix.needs-wordnet) && ((!matrix.master-only && !matrix.cron-only) || (matrix.master-only && github.event_name == 'push' && github.ref == 'refs/heads/master') || (matrix.cron-only && github.event_name == 'schedule'))"
         uses: actions/cache@v4
         with:
           path: |
@@ -115,33 +68,137 @@ jobs:
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
           key: praxis-data-${{ hashFiles('praxis.lock') }}
-      - name: Fetch external data via pr4xis update
-        if: "(matrix.name == 'Coverage' || matrix.needs-wordnet) && ((!matrix.master-only && !matrix.cron-only) || (matrix.master-only && github.event_name == 'push' && github.ref == 'refs/heads/master') || (matrix.cron-only && github.event_name == 'schedule'))"
-        run: cargo run -p pr4xis-cli --release -- update
-      - name: Run ${{ matrix.name }}
-        if: "(!matrix.master-only && !matrix.cron-only) || (matrix.master-only && github.event_name == 'push' && github.ref == 'refs/heads/master') || (matrix.cron-only && github.event_name == 'schedule')"
-        run: ${{ matrix.command }}
+      - name: Build pr4xis-cli (release, with the same RUSTFLAGS downstream jobs use)
+        # Matching `-D warnings` is essential — without it, the
+        # cache slice this job writes has different rustc fingerprints
+        # than the slice `lint-docs` / `test` / `wasm` expect, and
+        # they would recompile from scratch on restore. Same flags
+        # everywhere keeps `shared-key: release` actually shared.
         env:
-          RUSTFLAGS: ${{ matrix.rustflags || '' }}
-          RUSTDOCFLAGS: ${{ matrix.rustdocflags || '' }}
-      - name: Upload coverage to Codecov
-        if: matrix.name == 'Coverage' && github.event_name == 'schedule'
-        uses: codecov/codecov-action@v5
+          RUSTFLAGS: "-D warnings"
+        run: cargo build -p pr4xis-cli --release
+      - name: Fetch external data
+        run: ./target/release/pr4xis update
+      - uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: lcov.info
-          fail_ci_if_error: false
+          name: pr4xis-cli
+          path: target/release/pr4xis
+          retention-days: 1
+
+  # All host-target lint + doc + doctest passes against the same warm
+  # `target/release/` tree. One workspace compile, four cheap incremental
+  # passes on top.
+  lint-docs:
+    name: Lint & Docs
+    runs-on: ubuntu-latest
+    needs: [warmup]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release
+      - name: Cache WordNet XML
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Cache fetched external data
+        uses: actions/cache@v4
+        with:
+          path: |
+            crates/domains/data/legal/uscode
+            crates/domains/data/markup-schemas/xsts
+            crates/domains/data/markup-schemas/xmlconf
+          key: praxis-data-${{ hashFiles('praxis.lock') }}
+      - name: Install mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: latest
+      - uses: actions/download-artifact@v4
+        with:
+          name: pr4xis-cli
+          path: target/release
+      - name: Make pr4xis-cli executable
+        run: chmod +x target/release/pr4xis
+      - name: Materialise external data (no-op on data-cache hit)
+        run: ./target/release/pr4xis update
+      - name: Clippy (release)
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo clippy --workspace --all-targets --release -- -D warnings
+      - name: Docs (release)
+        env:
+          RUSTDOCFLAGS: "-D warnings -D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags"
+        run: cargo doc --workspace --no-deps --release
+      - name: Doc Tests (release)
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --doc --workspace --release
+      - name: mdBook Test
+        run: mdbook test docs/
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [warmup]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release
+      - uses: taiki-e/install-action@cargo-nextest
+      - name: Cache WordNet XML
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Cache fetched external data
+        uses: actions/cache@v4
+        with:
+          path: |
+            crates/domains/data/legal/uscode
+            crates/domains/data/markup-schemas/xsts
+            crates/domains/data/markup-schemas/xmlconf
+          key: praxis-data-${{ hashFiles('praxis.lock') }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: pr4xis-cli
+          path: target/release
+      - name: Make pr4xis-cli executable
+        run: chmod +x target/release/pr4xis
+      - name: Materialise external data (no-op on data-cache hit)
+        run: ./target/release/pr4xis update
+      - name: Run nextest (release)
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo nextest run --workspace --profile ci --release
       - name: Upload test results to Codecov
-        if: matrix.name == 'Test' && github.event_name == 'push' && github.ref == 'refs/heads/master' && !cancelled()
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !cancelled()
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/nextest/ci/junit.xml
           report_type: test_results
 
-  wasm-test:
-    name: WASM browser tests
+  # Browser-side wasm coverage. Both `wasm-pack build --release` (for
+  # production wasm) and `wasm-pack test --release` (for in-wasm tests)
+  # run here in one job — they share the wasm32 toolchain install,
+  # the wasm32 Swatinem cache, the fetched data, and the prebuilt
+  # CLI artifact. Fantoccini E2E follows the build.
+  wasm:
+    name: WASM tests + E2E
     runs-on: ubuntu-latest
+    needs: [warmup]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -151,75 +208,119 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: wasm-release
       - name: Cache WordNet XML
         uses: actions/cache@v4
         with:
           path: crates/domains/data/wordnet/english-wordnet-2025.xml
           key: wordnet-english-2025-v1
-      - name: Fetch external data (wasm build.rs needs WordNet + USC XML)
-        run: cargo run -p pr4xis-cli --release -- update
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      # Headless Firefox is preinstalled on ubuntu-latest runners and
-      # wasm-pack manages geckodriver. Runs crates/wasm/tests/web.rs:
-      # load_source(USLM xml) → live UsCode, available_sources,
-      # self_describe, chat — in a real wasm/browser context.
-      - name: wasm-bindgen tests (headless Firefox)
-        run: |
-          cd crates/wasm
-          wasm-pack test --headless --firefox
-
-  e2e:
-    name: E2E (Rust WebDriver)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: false
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-      - name: Cache WordNet XML
+      - name: Cache fetched external data
         uses: actions/cache@v4
         with:
-          path: crates/domains/data/wordnet/english-wordnet-2025.xml
-          key: wordnet-english-2025-v1
-      - name: Fetch external data
-        run: cargo run -p pr4xis-cli --release -- update
+          path: |
+            crates/domains/data/legal/uscode
+            crates/domains/data/markup-schemas/xsts
+            crates/domains/data/markup-schemas/xmlconf
+          key: praxis-data-${{ hashFiles('praxis.lock') }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: pr4xis-cli
+          path: target/release
+      - name: Make pr4xis-cli executable
+        run: chmod +x target/release/pr4xis
+      - name: Verify fetched data is materialised (re-runs only if cache cold)
+        run: ./target/release/pr4xis update
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - name: Build WASM (also stages /sources documents)
+      - name: wasm-pack build (release, for E2E)
         run: |
           cd crates/wasm
           wasm-pack build --target web --release
-      # Emit `.prx.gz` artifacts the wasm dual-load click-to-load path
-      # needs. pr4xis-web serves `crates/wasm/ontologies/` at
-      # `/ontologies/`, mirroring the Pages tree the release job assembles
-      # (`pages/ontologies/`). The same emitter runs in both — it walks the
-      # registry, reads each bundled `.owl`, and round-trip-validates every
-      # artifact through the fail-closed load gate.
+      - name: wasm-bindgen tests (headless Firefox, release)
+        run: |
+          cd crates/wasm
+          wasm-pack test --release --headless --firefox
       - name: Emit .prx.gz ontology artifacts (for /ontologies/ click-to-load)
         run: |
           mkdir -p crates/wasm/ontologies
-          cargo run -p pr4xis-domains --features "fetch codegen" --example emit_prx -- crates/wasm/ontologies
-      # Firefox + geckodriver are preinstalled on ubuntu-latest. Server,
-      # driver and the fantoccini test all run in ONE step — a process
-      # backgrounded in one Actions step is killed when that step ends.
+          cargo run -p pr4xis-domains --features "fetch codegen" --release --example emit_prx -- crates/wasm/ontologies
       - name: Run Rust WebDriver E2E
         run: |
-          cargo run -p pr4xis-web 3000 &
+          cargo run -p pr4xis-web --release 3000 &
           WEB=$!
           geckodriver --port 4444 &
           GECKO=$!
           for _ in $(seq 1 90); do curl -sf http://localhost:3000/ >/dev/null && break; sleep 1; done
           for _ in $(seq 1 30); do curl -sf http://localhost:4444/status >/dev/null && break; sleep 1; done
           set +e
-          ( cd crates/e2e && cargo run )
+          ( cd crates/e2e && cargo run --release )
           code=$?
           kill "$WEB" "$GECKO" 2>/dev/null || true
           exit "$code"
+
+  # Cheap parallel checks that don't need a Rust compile.
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  no-ignored-doctests:
+    name: No ignored doctests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Forbid ```ignore in code/docs
+        run: |
+          if command grep -rn '```ignore' crates/ docs/ --include='*.rs' --include='*.md' ; then
+            echo "::error::\`\`\`ignore is forbidden — every doctest must be machine-verified. Use \`\`\`text for pseudo-syntax illustrations, \`\`\`no_run / \`\`\`compile_fail when appropriate. See memory:feedback_no_unvalidated_doc_code."
+            exit 1
+          fi
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: coverage
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Cache WordNet XML
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Cache fetched external data
+        uses: actions/cache@v4
+        with:
+          path: |
+            crates/domains/data/legal/uscode
+            crates/domains/data/markup-schemas/xsts
+            crates/domains/data/markup-schemas/xmlconf
+          key: praxis-data-${{ hashFiles('praxis.lock') }}
+      - name: Fetch external data
+        run: cargo run -p pr4xis-cli --release -- update
+      - name: Run coverage
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: false
 
   pages:
     name: Deploy Pages
@@ -238,6 +339,8 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: wasm-release
       - name: Cache WordNet XML
         uses: actions/cache@v4
         with:
@@ -249,15 +352,10 @@ jobs:
       # pages tree. The emitter walks the registry, reads each bundled
       # in-repo `.owl`, and round-trip-validates every artifact through the
       # fail-closed load gate (embedded source hash must match praxis.lock).
-      # Native host build — the wasm32 target installed above does not block
-      # this; it reuses the WordNet/codegen data fetched in the step above.
-      # The same files are published to BOTH the GitHub release (canonical
-      # immutable archive) and Pages /ontologies (same-origin for the wasm
-      # loader); emit once here, upload to the release further down.
       - name: Emit .prx.gz ontology artifacts
         run: |
           mkdir -p pages/ontologies
-          cargo run -p pr4xis-domains --features "fetch codegen" --example emit_prx -- pages/ontologies
+          cargo run -p pr4xis-domains --features "fetch codegen" --release --example emit_prx -- pages/ontologies
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Build WASM
@@ -290,10 +388,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
       # Publish the SAME .prx.gz files to the release as immutable archive
-      # assets. They were emitted once into pages/ontologies above; here they
-      # are attached to the release-please-created release. The release is the
-      # canonical, version-pinned distribution; Pages /ontologies serves the
-      # same bytes same-origin for the wasm loader (#257).
+      # assets.
       - name: Upload .prx.gz to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -303,23 +398,22 @@ jobs:
   release-please:
     name: Release
     runs-on: ubuntu-latest
-    needs: [check, wasm-test, e2e]
+    needs: [lint-docs, test, wasm, format, no-ignored-doctests]
     if: |
       always() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&
-      needs.check.result == 'success' &&
-      needs.wasm-test.result == 'success' &&
-      needs.e2e.result == 'success'
+      needs.lint-docs.result == 'success' &&
+      needs.test.result == 'success' &&
+      needs.wasm.result == 'success' &&
+      needs.format.result == 'success' &&
+      needs.no-ignored-doctests.result == 'success'
     outputs:
       release_created: ${{ steps.release.outputs.release_created || steps.release.outputs.releases_created }}
       # The pr4xis-domains component's git tag (e.g. `pr4xis-domains-v0.20.0`).
       # The workspace is a multi-package monorepo so release-please-action@v4
       # does NOT emit a top-level `tag_name`; instead it emits per-package
-      # outputs as `<path>--tag_name` for every released path. The `pages`
-      # job uses this tag to upload the .prx.gz artifacts to the
-      # pr4xis-domains release because the bundled OWL data the artifacts
-      # encode lives under `crates/domains/data/ontologies/`.
+      # outputs as `<path>--tag_name` for every released path.
       tag_name: ${{ steps.release.outputs['crates/domains--tag_name'] }}
     steps:
       - uses: googleapis/release-please-action@v4

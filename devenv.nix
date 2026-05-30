@@ -50,17 +50,24 @@ in
     pkgs.curl
   ];
 
-  # Development scripts
+  # Development scripts.
+  #
+  # All cargo invocations use --release. The CI workflow does the
+  # same; running anything in debug locally would diverge from CI
+  # semantics (different opt-level, different debug_assertions,
+  # different `target/` subtree → cache miss). See
+  # `.github/workflows/ci.yml`'s architecture comment and the
+  # `feedback_no_debug_assert` rule.
   scripts.dev-test.exec = ''
     echo "Fetching external data (mirrors CI)..."
     cargo run -p pr4xis-cli --release --quiet -- update || {
       echo "pr4xis update failed — aborting dev-test to match CI behavior."
       exit 1
     }
-    echo "Running tests via nextest (mirrors CI)..."
-    RUSTFLAGS="-D warnings" cargo nextest run --workspace
-    echo "Running doc tests (nextest excludes them)..."
-    cargo test --doc --workspace
+    echo "Running tests via nextest --release (mirrors CI)..."
+    RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release
+    echo "Running doc tests --release (nextest excludes them)..."
+    RUSTFLAGS="-D warnings" cargo test --doc --workspace --release
   '';
 
   scripts.dev-fmt.exec = ''
@@ -69,45 +76,37 @@ in
   '';
 
   scripts.dev-lint.exec = ''
-    echo "Running clippy..."
-    cargo clippy --workspace --all-targets --quiet -- -D warnings
-    cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings
+    echo "Running clippy --release..."
+    cargo clippy --workspace --all-targets --release --quiet -- -D warnings
+    cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --release --quiet -- -D warnings
   '';
 
   scripts.dev-check.exec = ''
     echo "Checking compilation..."
-    cargo check --quiet
+    cargo check --release --quiet
   '';
 
   scripts.dev-ci.exec = ''
-    echo "Running full CI pipeline locally..."
+    echo "Running full CI pipeline locally (everything --release, matches CI)..."
     echo "=== fmt ==="
     treefmt --fail-on-change || { echo "FAILED: fmt"; exit 1; }
-    echo "=== clippy ==="
-    cargo clippy --workspace --all-targets --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
-    echo "=== clippy (wasm) ==="
-    cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
-    echo "=== check ==="
-    cargo check --quiet || { echo "FAILED: check"; exit 1; }
-    echo "=== fetch external data (mirrors CI) ==="
+    echo "=== fetch external data ==="
     cargo run -p pr4xis-cli --release --quiet -- update || { echo "FAILED: pr4xis update"; exit 1; }
-    echo "=== test (nextest, mirrors CI) ==="
-    RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci || { echo "FAILED: test"; exit 1; }
-    echo "=== wasm check ==="
-    RUSTFLAGS="-D warnings" cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet || { echo "FAILED: wasm check"; exit 1; }
+    echo "=== clippy (release) ==="
+    cargo clippy --workspace --all-targets --release --quiet -- -D warnings || { echo "FAILED: clippy"; exit 1; }
+    echo "=== docs (rustdoc, same flags as CI) ==="
+    RUSTDOCFLAGS="-D warnings -D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags" \
+      cargo doc --workspace --no-deps --release --quiet || { echo "FAILED: docs"; exit 1; }
+    echo "=== doc tests (release) ==="
+    RUSTFLAGS="-D warnings" cargo test --doc --workspace --release --quiet || { echo "FAILED: doc tests"; exit 1; }
+    echo "=== mdbook test ==="
+    mdbook test docs/ || { echo "FAILED: mdbook test"; exit 1; }
+    echo "=== test (nextest --release, strict [profile.ci]) ==="
+    RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release || { echo "FAILED: test"; exit 1; }
+    echo "=== clippy (wasm, release) ==="
+    cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --release --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
     echo "=== wasm browser tests ==="
     dev-test-wasm || { echo "FAILED: wasm browser tests"; exit 1; }
-    # Mirrors the `Docs` and `Doc Tests` jobs in
-    # `.github/workflows/ci.yml`: same command, same RUSTDOCFLAGS.
-    # Without these steps `dev-ci` could ship rustdoc-broken docs to
-    # CI (the rustdoc-fatal `[with_retry]` link to a `pub(crate)`
-    # item on commit 3d7bd4b5 would have failed locally if this had
-    # been wired then).
-    echo "=== docs (rustdoc, same flags as CI's Docs job) ==="
-    RUSTDOCFLAGS="-D warnings -D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags" \
-      cargo doc --workspace --no-deps --quiet || { echo "FAILED: docs"; exit 1; }
-    echo "=== doc tests ==="
-    cargo test --doc --workspace --quiet || { echo "FAILED: doc tests"; exit 1; }
     echo "=== e2e (Rust WebDriver) ==="
     dev-e2e || { echo "FAILED: e2e"; exit 1; }
     echo "=== ALL PASSED ==="
