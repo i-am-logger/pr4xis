@@ -345,8 +345,15 @@ fn cross_origin_embedder() -> Header {
 }
 
 fn cache_header(mime: &str) -> Header {
-    // Cache WASM and assets, not HTML.
-    if mime == "application/wasm" || mime.starts_with("image/") {
+    // `pr4xis-web` is a hot-reload dev server: the watcher rebuilds the
+    // WASM on every `crates/` edit and the browser must re-fetch to see
+    // the new exports. Caching `application/wasm` (or the wasm-bindgen
+    // glue JS) breaks that loop — the previous run's `max-age=3600`
+    // pinned a stale `pr4xis_available_ontologies`-less binary in disk
+    // cache and showed up as `is not a function` after a backend rebuild.
+    // Images are still safe to cache — they don't participate in the
+    // wasm-bindgen export surface.
+    if mime.starts_with("image/") {
         Header::from_bytes("Cache-Control", "public, max-age=3600").expect("valid header")
     } else {
         no_cache()
