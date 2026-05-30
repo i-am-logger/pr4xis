@@ -61,6 +61,14 @@ pub struct FetchOptions {
     /// Refuse to touch the network. Combined with `check=false`, this errors
     /// out on anything that would otherwise fetch.
     pub offline: bool,
+    /// Lockfile-writing mode. Bypasses identity verification and the
+    /// stub-only skip; downloads the entry, writes bytes to disk, and
+    /// reports the freshly computed SHA-256 via
+    /// [`FetchOutcome::Locked`] so the caller can rewrite the
+    /// corresponding `[hashes]` entry in `praxis.lock`. Mutually
+    /// exclusive with `check` and `offline` at the CLI surface — both
+    /// are read-only, this is write-only.
+    pub lock: bool,
 }
 
 /// Outcome of a single entry's fetch attempt.
@@ -96,6 +104,18 @@ pub enum FetchOutcome {
     /// machinery. Reported as success so CI doesn't block on the
     /// existence of a documented-but-deferred entry.
     Skipped { name: String, reason: String },
+    /// Lockfile-writing outcome: bytes were fetched, written to disk,
+    /// and hashed; the SHA-256 hex is suitable for writing into
+    /// `praxis.lock`'s `[hashes]` section via
+    /// [`crate::applied::data_provisioning::lockfile::set_hash`]. No
+    /// identity verification was performed — the operator is
+    /// regenerating the pin from authoritative bytes.
+    Locked {
+        name: String,
+        path: PathBuf,
+        bytes: usize,
+        sha256: String,
+    },
 }
 
 impl FetchOutcome {
@@ -106,6 +126,7 @@ impl FetchOutcome {
             FetchOutcome::AlreadyVerified { .. }
                 | FetchOutcome::Fetched { .. }
                 | FetchOutcome::Skipped { .. }
+                | FetchOutcome::Locked { .. }
         )
     }
 }
@@ -128,6 +149,15 @@ pub fn fetch_entry(
     opts: FetchOptions,
     workspace_root: &Path,
 ) -> FetchOutcome {
+    // `--lock` mode bypasses every short-circuit: it is the *primary*
+    // path for both new sources (no lock entry yet → Stub identity)
+    // and refreshing the pin on existing sources. Always download,
+    // never verify identity, emit a `Locked` outcome carrying the
+    // freshly computed SHA-256.
+    if opts.lock {
+        return do_fetch(entry, &workspace_root.join(entry.local_path()), true);
+    }
+
     // Stub-only identity: registered but not yet loadable. The fetcher
     // has nothing to verify and the upstream URL is documentation, not
     // a verified artifact. Skip without touching the network — same
@@ -176,7 +206,7 @@ pub fn fetch_entry(
                 path,
                 reason,
             },
-            Err(_) => do_fetch(entry, &path),
+            Err(_) => do_fetch(entry, &path, false),
         };
     }
 
@@ -187,14 +217,14 @@ pub fn fetch_entry(
         };
     }
 
-    do_fetch(entry, &path)
+    do_fetch(entry, &path, false)
 }
 
 // --------------------------------------------------------------------------
 // Internal: download + verify + write
 // --------------------------------------------------------------------------
 
-fn do_fetch(entry: &RegistryEntry, path: &Path) -> FetchOutcome {
+fn do_fetch(entry: &RegistryEntry, path: &Path, lock: bool) -> FetchOutcome {
     let bytes = match download(&entry.url) {
         Ok(b) => b,
         Err(e) => {
@@ -229,7 +259,7 @@ fn do_fetch(entry: &RegistryEntry, path: &Path) -> FetchOutcome {
         bytes
     };
 
-    if let Err(reason) = verify_bytes(entry, &bytes) {
+    if !lock && let Err(reason) = verify_bytes(entry, &bytes) {
         return FetchOutcome::VerificationFailed {
             name: entry.name.clone(),
             path: path.to_path_buf(),
@@ -249,6 +279,19 @@ fn do_fetch(entry: &RegistryEntry, path: &Path) -> FetchOutcome {
         return FetchOutcome::FetchError {
             name: entry.name.clone(),
             reason: format!("write {}: {e}", path.display()),
+        };
+    }
+
+    if lock {
+        use sha2::{Digest, Sha256};
+        let mut h = Sha256::new();
+        h.update(&bytes);
+        let sha256 = hex::encode(h.finalize());
+        return FetchOutcome::Locked {
+            name: entry.name.clone(),
+            path: path.to_path_buf(),
+            bytes: bytes.len(),
+            sha256,
         };
     }
 
@@ -732,6 +775,7 @@ mod tests {
             check: true,
             force: false,
             offline: false,
+            lock: false,
         };
         let outcome = fetch_entry(wordnet, opts, &tmp);
         assert!(matches!(outcome, FetchOutcome::MissingAndCheckOnly { .. }));
@@ -745,6 +789,7 @@ mod tests {
             check: false,
             force: false,
             offline: true,
+            lock: false,
         };
         let outcome = fetch_entry(wordnet, opts, &tmp);
         assert!(matches!(outcome, FetchOutcome::MissingAndOffline { .. }));

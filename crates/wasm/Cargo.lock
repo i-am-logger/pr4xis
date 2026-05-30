@@ -1018,7 +1018,7 @@ checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "pr4xis"
-version = "0.15.0"
+version = "0.16.0"
 dependencies = [
  "hashbrown 0.17.0",
  "linkme",
@@ -1032,7 +1032,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-chat"
-version = "0.7.5"
+version = "0.8.0"
 dependencies = [
  "pr4xis",
  "pr4xis-domains",
@@ -1050,7 +1050,7 @@ dependencies = [
 
 [[package]]
 name = "pr4xis-domains"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "chrono",

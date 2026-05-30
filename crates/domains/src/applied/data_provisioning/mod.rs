@@ -30,6 +30,7 @@
 //!   WordNet, the initial and only registered data source
 
 pub mod decoders;
+pub mod lockfile;
 pub mod ontology;
 pub mod registry;
 

@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use pr4xis::category::{Arrow, Category, Concept};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -95,7 +97,7 @@ impl Category for ComplianceCategory {
         // (ClosureLaw, Mac Lane CWM Ch. I §1). The morphism builder
         // computes the full reachability closure, so any composable pair
         // lands inside it.
-        if Self::morphisms().contains(&candidate) {
+        if morphism_set().contains(&candidate) {
             Some(candidate)
         } else {
             None
@@ -103,69 +105,87 @@ impl Category for ComplianceCategory {
     }
 
     fn morphisms() -> Vec<EscalationTransition> {
-        use EscalationLevel::*;
-        use std::collections::HashSet;
+        morphism_set().iter().cloned().collect()
+    }
+}
 
-        let ladder = [
-            Observe,
-            Identify,
-            Classify,
-            Alert,
-            Warn,
-            ShowForce,
-            NonLethal,
-            WarningAction,
-            Engage,
-        ];
+/// The full morphism set, cached. Building it is O(|levels|³) (Warshall
+/// 1962 transitive closure); `assert_category_laws` performs O(|m|³)
+/// associativity checks each of which calls `compose` which queries the
+/// morphism set, so rebuilding inside `compose` is O(|m|⁶). Caching with
+/// `OnceLock` (idiomatic since Rust 1.70) drops the overall cost back to
+/// O(|m|³). Returning `&HashSet` lets `compose` skip a linear `Vec::contains`
+/// in favour of an O(1) hash lookup.
+fn morphism_set() -> &'static std::collections::HashSet<EscalationTransition> {
+    static CACHE: OnceLock<std::collections::HashSet<EscalationTransition>> = OnceLock::new();
+    CACHE.get_or_init(build_morphism_set)
+}
 
-        // Direct edges (the LOAC rules-of-engagement primitive transitions).
-        let mut direct: HashSet<(EscalationLevel, EscalationLevel)> = HashSet::new();
-        // Sequential escalation (forward one step)
-        for w in ladder.windows(2) {
-            direct.insert((w[0], w[1]));
-        }
-        // De-escalation and abort are always available from ladder rungs
-        for &level in &ladder {
-            direct.insert((level, Deescalate));
-            direct.insert((level, Abort));
-        }
-        // De-escalate and abort return to Observe
-        direct.insert((Deescalate, Observe));
-        direct.insert((Abort, Observe));
+fn build_morphism_set() -> std::collections::HashSet<EscalationTransition> {
+    use EscalationLevel::*;
+    use std::collections::HashSet;
 
-        // Transitive closure (Warshall 1962). Required by ClosureLaw +
-        // AssociativityLaw — every composable pair (f.to == g.from) must
-        // produce a composite that is itself a declared morphism, so the
-        // morphism set must be closed under reachability.
-        let mut closure = direct.clone();
-        loop {
-            let mut added = false;
-            let snapshot: Vec<_> = closure.iter().cloned().collect();
-            for &(a, b) in &snapshot {
-                for &(b2, c) in &snapshot {
-                    if b == b2 && !closure.contains(&(a, c)) {
-                        closure.insert((a, c));
-                        added = true;
-                    }
+    let ladder = [
+        Observe,
+        Identify,
+        Classify,
+        Alert,
+        Warn,
+        ShowForce,
+        NonLethal,
+        WarningAction,
+        Engage,
+    ];
+
+    // Direct edges (the LOAC rules-of-engagement primitive transitions).
+    let mut direct: HashSet<(EscalationLevel, EscalationLevel)> = HashSet::new();
+    // Sequential escalation (forward one step)
+    for w in ladder.windows(2) {
+        direct.insert((w[0], w[1]));
+    }
+    // De-escalation and abort are always available from ladder rungs
+    for &level in &ladder {
+        direct.insert((level, Deescalate));
+        direct.insert((level, Abort));
+    }
+    // De-escalate and abort return to Observe
+    direct.insert((Deescalate, Observe));
+    direct.insert((Abort, Observe));
+
+    // Transitive closure (Warshall 1962). Required by ClosureLaw +
+    // AssociativityLaw — every composable pair (f.to == g.from) must
+    // produce a composite that is itself a declared morphism, so the
+    // morphism set must be closed under reachability.
+    let mut closure = direct.clone();
+    loop {
+        let mut added = false;
+        let snapshot: Vec<_> = closure.iter().cloned().collect();
+        for &(a, b) in &snapshot {
+            for &(b2, c) in &snapshot {
+                if b == b2 && !closure.contains(&(a, c)) {
+                    closure.insert((a, c));
+                    added = true;
                 }
             }
-            if !added {
-                break;
-            }
         }
-
-        let mut m: Vec<EscalationTransition> = Vec::new();
-        // Identity for all
-        for level in EscalationLevel::variants() {
-            m.push(Self::identity(&level));
+        if !added {
+            break;
         }
-        for (a, b) in closure {
-            if a != b {
-                m.push(EscalationTransition { from: a, to: b });
-            }
-        }
-        m
     }
+
+    let mut m: HashSet<EscalationTransition> = HashSet::new();
+    for level in EscalationLevel::variants() {
+        m.insert(EscalationTransition {
+            from: level,
+            to: level,
+        });
+    }
+    for (a, b) in closure {
+        if a != b {
+            m.insert(EscalationTransition { from: a, to: b });
+        }
+    }
+    m
 }
 
 // ---------------------------------------------------------------------------

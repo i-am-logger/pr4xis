@@ -57,8 +57,10 @@ in
       echo "pr4xis update failed — aborting dev-test to match CI behavior."
       exit 1
     }
-    echo "Running tests..."
-    RUSTFLAGS="-D warnings" cargo test --workspace
+    echo "Running tests via nextest (mirrors CI)..."
+    RUSTFLAGS="-D warnings" cargo nextest run --workspace
+    echo "Running doc tests (nextest excludes them)..."
+    cargo test --doc --workspace
   '';
 
   scripts.dev-fmt.exec = ''
@@ -89,8 +91,8 @@ in
     cargo check --quiet || { echo "FAILED: check"; exit 1; }
     echo "=== fetch external data (mirrors CI) ==="
     cargo run -p pr4xis-cli --release --quiet -- update || { echo "FAILED: pr4xis update"; exit 1; }
-    echo "=== test ==="
-    RUSTFLAGS="-D warnings" cargo test --workspace --quiet || { echo "FAILED: test"; exit 1; }
+    echo "=== test (nextest, mirrors CI) ==="
+    RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci || { echo "FAILED: test"; exit 1; }
     echo "=== wasm check ==="
     RUSTFLAGS="-D warnings" cargo check --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --quiet || { echo "FAILED: wasm check"; exit 1; }
     echo "=== wasm browser tests ==="

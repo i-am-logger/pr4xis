@@ -37,7 +37,7 @@ enum Command {
         /// Name of a specific dataset. Omit to operate on every registered entry.
         name: Option<String>,
         /// Verify current local state against declared identities without fetching.
-        #[arg(long)]
+        #[arg(long, conflicts_with_all = ["force", "lock"])]
         check: bool,
         /// Re-fetch even when a valid local copy already exists.
         #[arg(long)]
@@ -46,8 +46,17 @@ enum Command {
         #[arg(long)]
         list: bool,
         /// Refuse to touch the network; useful for air-gapped builds.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "lock")]
         offline: bool,
+        /// Regenerate `praxis.lock` from the authoritative sources.
+        /// Downloads every (or one) registered entry, bypasses identity
+        /// verification, writes bytes to disk, computes the SHA-256, and
+        /// rewrites the corresponding `[hashes]` line in `praxis.lock`
+        /// while preserving comments and key ordering. Mutually
+        /// exclusive with `--check` (read-only) and `--offline` (no
+        /// network) — `--lock` is the only write-only mode.
+        #[arg(long)]
+        lock: bool,
     },
 }
 
@@ -61,8 +70,9 @@ fn main() {
             force,
             list,
             offline,
+            lock,
         } => {
-            if let Err(e) = run_update(name.as_deref(), check, force, list, offline) {
+            if let Err(e) = run_update(name.as_deref(), check, force, list, offline, lock) {
                 eprintln!("pr4xis update: {e}");
                 std::process::exit(1);
             }
@@ -80,6 +90,7 @@ fn run_update(
     force: bool,
     list: bool,
     offline: bool,
+    lock: bool,
 ) -> anyhow::Result<()> {
     if list {
         print_list();
@@ -91,6 +102,7 @@ fn run_update(
         check,
         force,
         offline,
+        lock,
     };
 
     let outcomes = match name {
@@ -109,8 +121,47 @@ fn run_update(
         }
     }
 
+    if lock {
+        apply_lock_outcomes(&outcomes, &workspace_root)?;
+    }
+
     if any_failed {
         anyhow::bail!("one or more datasets failed to update");
+    }
+    Ok(())
+}
+
+/// Walk the outcomes from a `--lock` run and rewrite `praxis.lock` so
+/// every `Locked { sha256, .. }` becomes the new pin for that source's
+/// `"name@version"` key. The lockfile is read once, mutated in-memory
+/// across all outcomes, then written once to keep the operation
+/// atomic-ish for the common case.
+fn apply_lock_outcomes(outcomes: &[FetchOutcome], workspace_root: &Path) -> anyhow::Result<()> {
+    let lock_path = workspace_root.join("praxis.lock");
+    let original = std::fs::read_to_string(&lock_path)
+        .map_err(|e| anyhow::anyhow!("read {}: {e}", lock_path.display()))?;
+    let mut text = original.clone();
+    for outcome in outcomes {
+        if let FetchOutcome::Locked { name, sha256, .. } = outcome {
+            // Resolve `name → version` by looking up the registry entry.
+            // (The outcome carries `name` only; the version lives in
+            // praxis.toml via the parsed `RegistryEntry`.)
+            let Some(entry) = by_name(name) else {
+                eprintln!("  [warn]    {name}: not found in registry, skipping lock write");
+                continue;
+            };
+            let key = format!("{}@{}", entry.name, entry.version);
+            text =
+                pr4xis_domains::applied::data_provisioning::lockfile::set_hash(&text, &key, sha256)
+                    .map_err(|e| anyhow::anyhow!("praxis.lock rewrite for {key}: {e}"))?;
+        }
+    }
+    if text != original {
+        std::fs::write(&lock_path, text)
+            .map_err(|e| anyhow::anyhow!("write {}: {e}", lock_path.display()))?;
+        println!("praxis.lock updated.");
+    } else {
+        println!("praxis.lock unchanged.");
     }
     Ok(())
 }
@@ -154,6 +205,19 @@ fn print_outcome(outcome: &FetchOutcome) {
         }
         FetchOutcome::Skipped { name, reason } => {
             println!("  [skipped] {name}: {reason}");
+        }
+        FetchOutcome::Locked {
+            name,
+            path,
+            bytes,
+            sha256,
+        } => {
+            println!(
+                "  [locked]  {name}: {} ({} bytes) sha256={}",
+                path.display(),
+                bytes,
+                sha256
+            );
         }
     }
 }
