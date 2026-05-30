@@ -280,10 +280,14 @@ jobs:
       needs.check.result == 'success'
     outputs:
       release_created: ${{ steps.release.outputs.release_created || steps.release.outputs.releases_created }}
-      # The created release's git tag (e.g. `v0.19.0`). release-please-action@v4
-      # emits `tag_name` when a release is created; the `pages` job uses it to
-      # upload the .prx.gz artifacts to that release.
-      tag_name: ${{ steps.release.outputs.tag_name }}
+      # The pr4xis-domains component's git tag (e.g. `pr4xis-domains-v0.20.0`).
+      # The workspace is a multi-package monorepo so release-please-action@v4
+      # does NOT emit a top-level `tag_name`; instead it emits per-package
+      # outputs as `<path>--tag_name` for every released path. The `pages`
+      # job uses this tag to upload the .prx.gz artifacts to the
+      # pr4xis-domains release because the bundled OWL data the artifacts
+      # encode lives under `crates/domains/data/ontologies/`.
+      tag_name: ${{ steps.release.outputs['crates/domains--tag_name'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
