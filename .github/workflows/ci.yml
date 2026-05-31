@@ -451,7 +451,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
-      - uses: release-plz/[email protected]
+      - uses: release-plz/action@v0.5.129
         id: release-plz
         with:
           command: release
@@ -485,7 +485,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
-      - uses: release-plz/[email protected]
+      - uses: release-plz/action@v0.5.129
         with:
           command: release-pr
         env:
