@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.21.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.20.0...pr4xis-domains-v0.21.0) (2026-05-30)
+
+
+### Features
+
+* **cli:** one-command corpus updates via `pr4xis update --lock` ([#183](https://github.com/i-am-logger/pr4xis/issues/183)) ([f13a5b5](https://github.com/i-am-logger/pr4xis/commit/f13a5b5f767d6611357d56e953bd385eca9fff28))
+
+
+### Performance Improvements
+
+* praxis tests give faster feedback and catch slowdowns earlier ([#185](https://github.com/i-am-logger/pr4xis/issues/185)) ([f66529b](https://github.com/i-am-logger/pr4xis/commit/f66529b9d205d55390a814741e59987b27ac57ca))
+
 ## [0.20.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.19.0...pr4xis-domains-v0.20.0) (2026-05-30)
 
 
