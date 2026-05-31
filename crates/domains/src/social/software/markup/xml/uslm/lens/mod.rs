@@ -95,18 +95,17 @@
 //!
 //! ## Why the typed view's `Target` is [`UsCodeTitle`]
 //!
-//! The XSD-codegen substrate at [`super::generated`] (xsd-parser
-//! 1.5.2 emitting ~283 Rust types from the LRC's USLM-1.0.18.xsd —
-//! M4.ε.5.a.1) is the *ground truth* schema-derived type set. The
-//! lens's target SHOULD ultimately be `super::generated::UscDoc`.
-//! Today the runtime walker that goes from XML to a typed value
-//! produces the hand-coded [`UsCodeTitle`]; the lens uses that
-//! target so the round-trip law can be exercised immediately.
-//! Migrating the target type to `generated::UscDoc` is the
-//! M4.ε.5.a.5 follow-up tracked in roadmap.md — at that point the
-//! only change here is swapping the `Target` type and the
-//! `get`/`put` body to walk the generated types instead of the
-//! hand-coded ones; the lens framing, laws, and XSD-grounded
+//! The runtime walker that goes from XML to a typed value produces
+//! the hand-coded [`UsCodeTitle`]; the lens uses that target so the
+//! round-trip law can be exercised on real USLM documents. A
+//! previous design contemplated swapping the `Target` to an
+//! XSD-codegen'd `UscDoc` produced by an xsd-parser-driven build
+//! step, but that codegen path was removed alongside the
+//! xsd-parser dependency — every dispatch decision in this lens
+//! already goes through the praxis-native `XsdOntologyInstance`
+//! (built at startup from `uslm-1.0.18.xsd`), so the hand-coded
+//! aggregate types are the single source of truth. The lens
+//! framing, laws, and XSD-grounded
 //! dispatch are unchanged.
 //!
 //! ## Citations

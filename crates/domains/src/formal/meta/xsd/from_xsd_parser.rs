@@ -8,7 +8,7 @@
 //! the *output* of two projection paths:
 //!
 //! - [`super::from_xml::project_from_xml_document`] — the canonical
-//!   path: praxis-native XML parser → [`XmlDocument`] →
+//!   path: praxis-native XML parser → `XmlDocument` →
 //!   [`XsdOntologyInstance`]. W3C XML 1.0 + W3C XSD 1.1 throughout.
 //! - [`project_from_xsd_text`] — a deliberately minimal text scan that
 //!   recovers element-declaration metadata directly from XSD source.
