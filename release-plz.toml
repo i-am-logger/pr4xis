@@ -1,0 +1,45 @@
+# release-plz configuration for the praxis workspace.
+#
+# Replaces release-please + katyo/publish-crates. The previous tool
+# trusted a local manifest file (`.release-please-manifest.json`),
+# which silently drifted from crates.io when the publish step failed —
+# pr4xis was tagged 0.16.0 locally while crates.io still held 0.6.0.
+# release-plz reads from crates.io directly, so drift is impossible.
+#
+# Per-package settings inherit workspace defaults unless overridden in a
+# `[[package]]` block.
+
+[workspace]
+# Use cargo-semver-checks before each release to verify that the
+# proposed version bump matches the actual API change. A "patch" bump
+# on a breaking change is rejected; release-plz auto-escalates the
+# version to satisfy semver.
+semver_check = true
+
+# Match the existing per-package tag format that release-please used
+# (`pr4xis-v0.16.0`, `pr4xis-domains-v0.21.0`, …). Keeps historical
+# tags consistent with the new ones.
+git_tag_name = "{{ package }}-v{{ version }}"
+
+# Create a GitHub release for every tag — preserves the
+# release-as-changelog pattern.
+git_release_enable = true
+
+# Honor `publish = false` in per-crate Cargo.toml. Workspace-excluded
+# crates (`crates/wasm`, `crates/e2e`) are invisible to release-plz —
+# it only walks `[workspace].members`.
+
+[changelog]
+header = """# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+"""
+
+# Per-package overrides — pr4xis-examples is not a library to publish;
+# it carries runnable demos that consumers don't pull in transitively.
+[[package]]
+name = "pr4xis-examples"
+publish = false
