@@ -25,9 +25,23 @@ git_tag_name = "{{ package }}-v{{ version }}"
 # release-as-changelog pattern.
 git_release_enable = true
 
+# Only publish to crates.io when a release-plz-generated Release PR
+# is merged to master, never when a plain feature/fix commit lands
+# (default release-plz behaviour is the opposite — publish on every
+# version-ahead commit). The two-step gate keeps publishing under
+# explicit human review: release-plz-pr opens a PR that bumps
+# Cargo.toml versions + writes CHANGELOG entries; merging that PR is
+# the act that authorises the publish.
+release_always = false
+
 # Honor `publish = false` in per-crate Cargo.toml. Workspace-excluded
 # crates (`crates/wasm`, `crates/e2e`) are invisible to release-plz —
 # it only walks `[workspace].members`.
+
+# Apply labels to every release PR so they're filterable in the GitHub
+# UI (`is:pr label:release`) and so blanket "needs human review"
+# queries can exclude them via `-label:automated`.
+pr_labels = ["release", "automated"]
 
 [changelog]
 header = """# Changelog
@@ -43,3 +57,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [[package]]
 name = "pr4xis-examples"
 publish = false
+
+# Couple `pr4xis` and `pr4xis-derive` so they always release at the
+# same version — the derive crate is meaningless apart from its host
+# (a `pr4xis-derive 0.X` only ever pairs with a single `pr4xis 0.X`),
+# so the standard `*-derive` convention from the wider Rust ecosystem
+# (serde+serde_derive, thiserror+thiserror-impl, rkyv+rkyv_derive) is
+# to version-lock the pair. Application crates (`pr4xis-domains`,
+# `pr4xis-cli`, `pr4xis-chat`, `pr4xis-web`) version independently.
+[[package]]
+name = "pr4xis"
+version_group = "pr4xis-core"
+
+[[package]]
+name = "pr4xis-derive"
+version_group = "pr4xis-core"
