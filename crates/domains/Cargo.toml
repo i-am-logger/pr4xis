@@ -24,15 +24,6 @@ sha2 = "0.11"
 hex = "0.4"
 anyhow = "1"
 hashbrown = "0.17"
-# Runtime types referenced by the XSD-codegen output. xsd-parser
-# 1.5.2 emits code that references `::xsd_parser_types::xml::Text`,
-# `Mixed`, `AnyElement`, `AnyAttributes` for mixed-content and
-# wildcard handling. The downstream
-# `social::software::markup::xml::uslm::generated` module
-# `include!`s the build-script output, so these symbols must
-# resolve. Cited: Bergmann, S. *xsd-parser-types*, v0.2.1, MIT.
-xsd-parser-types = { version = "0.2.1", features = ["quick-xml", "serde"] }
-
 # Distributed-slice registration substrate. The well-behaved-lens
 # harness uses `#[linkme::distributed_slice]` to discover every
 # registered lens at link time without a central list. Same crate

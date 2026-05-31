@@ -12,7 +12,7 @@ keywords = ["ontology", "category-theory", "enforcement", "state-machine", "form
 [features]
 default = ["std"]
 std = []
-codegen = ["std", "dep:quick-xml", "dep:serde", "dep:serde_json", "dep:xsd-parser"]
+codegen = ["std", "dep:quick-xml", "dep:serde", "dep:serde_json"]
 
 [dependencies]
 hashbrown = { version = "0.17", default-features = false, features = ["default-hasher"] }
@@ -22,16 +22,6 @@ pr4xis-derive = { version = "0.1.0", path = "../pr4xis-derive" }
 quick-xml = { version = "0.40", features = ["serialize"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
-# XSD code-generation substrate. Cited: Bergmann, S. *xsd-parser:
-# Rust code generator for XML schema files*, v1.5.2, MIT-licensed,
-# <https://github.com/Bergmann89/xsd-parser>. Lifts the
-# W3C-recommended XSD 1.1 grammar (Gao, Sperberg-McQueen &
-# Thompson 2012) into typed Rust at build time. Used by the
-# `codegen::uslm_schema` module to derive USLM ontology types
-# from the LRC's USLM-1.0.18.xsd. Optional because the runtime
-# never reaches it — only build.rs paths under the `codegen`
-# feature do.
-xsd-parser = { version = "1.5.2", optional = true }
 
 [lints]
 workspace = true
