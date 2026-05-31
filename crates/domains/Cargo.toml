@@ -14,7 +14,7 @@ homepage = "https://github.com/i-am-logger/pr4xis"
 # `from_file_path` is gated out there) is build-time + test-only: it's on
 # the [build-dependencies] entry below and the [dev-dependencies] entry.
 # Keeping it off the normal dep keeps `xsd-parser` out of the WASM graph
-# (this crate is a WASM default-feature dependency — see the fetch/pdf
+# (this crate is a WASM default-feature dependency — see the fetch
 # gating notes below).
 pr4xis = { version = "0.16.0", path = "../pr4xis", default-features = false, features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
@@ -24,15 +24,6 @@ sha2 = "0.11"
 hex = "0.4"
 anyhow = "1"
 hashbrown = "0.17"
-# Runtime types referenced by the XSD-codegen output. xsd-parser
-# 1.5.2 emits code that references `::xsd_parser_types::xml::Text`,
-# `Mixed`, `AnyElement`, `AnyAttributes` for mixed-content and
-# wildcard handling. The downstream
-# `social::software::markup::xml::uslm::generated` module
-# `include!`s the build-script output, so these symbols must
-# resolve. Cited: Bergmann, S. *xsd-parser-types*, v0.2.1, MIT.
-xsd-parser-types = { version = "0.2.1", features = ["quick-xml", "serde"] }
-
 # Distributed-slice registration substrate. The well-behaved-lens
 # harness uses `#[linkme::distributed_slice]` to discover every
 # registered lens at link time without a central list. Same crate
@@ -87,14 +78,6 @@ flate2 = { version = "1", optional = true }
 # v0.8, MIT, <https://github.com/rkyv/rkyv>.
 rkyv = { version = "0.8", default-features = false, features = ["alloc", "bytecheck"], optional = true }
 
-# PDF parsing — pure-Rust PDF reader implementing ISO 32000-2:2020
-# file/object structure. Wraps the byte-level parsing so the praxis-way
-# layer (social/software/binary/pdf/) can emit typed PdfDocument values
-# and the extractor can walk content streams. Optional behind the `pdf`
-# feature because lopdf pulls in std I/O and a DEFLATE implementation
-# that doesn't fit the WASM default-feature build path.
-lopdf = { version = "0.40", optional = true }
-
 [features]
 default = ["std"]
 # `std` enables I/O-dependent modules (hmi/report generator, hmi/explorer
@@ -119,11 +102,6 @@ codegen = ["std", "pr4xis/codegen"]
 # `rustls` (which do not compile to wasm32) off that build.
 prx = ["std", "dep:rkyv", "dep:flate2"]
 fetch = ["prx", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto"]
-# `pdf` enables the runtime PDF reader (social/software/binary/pdf/reader)
-# that materializes typed PdfDocument values from byte streams. The
-# ontology surface (concepts, axioms, FlaggedContent) is available
-# unconditionally; only the lopdf-backed reader is feature-gated.
-pdf = ["std", "dep:lopdf"]
 
 [build-dependencies]
 # Statute codegen at build time. Reads workspace-root praxis.toml + praxis.lock,
@@ -133,16 +111,7 @@ pdf = ["std", "dep:lopdf"]
 pr4xis = { version = "0.16.0", path = "../pr4xis", default-features = false, features = ["codegen"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
-# PDF extraction at build time. When a statute's PDF is on disk at its
-# canonical `local_path()`, the build script runs lopdf to extract the
-# text and emits it as a typed `PDF_EXTRACTION: PdfBuildExtraction`
-# const in the generated codegen module — the WordNet-parallel
-# embedding pattern. Phase 6's runtime extractor (under feature `pdf`)
-# covers the property-test surface; build.rs's path is a focused
-# text-only subset that runs unconditionally during builds.
-lopdf = "0.40"
-# SHA-256 for the bytes_hash field of PdfBuildExtraction::Extracted —
-# downstream tests assert this matches praxis.lock's pinned hash.
+# SHA-256 for build-time source hashing.
 sha2 = "0.11"
 
 [lints]

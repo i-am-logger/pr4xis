@@ -122,23 +122,12 @@ fn main() {
     // `include!`s this file.
     write_usc_corpus_codegen(&workspace_root, &manifest, &sorted_names, &out_dir);
 
-    // M4.ε.5.a — XSD-grounded USLM ontology types. Drives the
-    // `uslm::generated` runtime module from the registered
-    // `uslm_xsd` source (USLM-1.0.18.xsd, bundled under
-    // `crates/domains/data/legal/uscode/schema/`). Per "bottom-up
-    // loaded, never encoded", these types replace the hand-coded
-    // M4.δ.1–M4.δ.20 ontology — switch + delete come in follow-up
-    // commits; the two trees coexist during M4.ε.5.a's add step.
-    write_uslm_schema_codegen(&workspace_root, &manifest, &out_dir);
-
-    // M4.η.1 — XSD-grounded HTML5 ontology types. Drives the
-    // `social::software::markup::html::generated` runtime module
-    // from the registered `xhtml_1_0_xsd` source (XHTML 1.0 Strict,
-    // bundled under `crates/domains/data/markup-schemas/xhtml/`).
-    // Per "bottom-up loaded, never encoded", element / attribute
-    // names come from the W3C-published schema, not from hand-coded
-    // Rust string lists.
-    write_xhtml_schema_codegen(&workspace_root, &manifest, &out_dir);
+    // (Removed: write_uslm_schema_codegen + write_xhtml_schema_codegen.
+    // Both depended on Sebastian Bergmann's xsd-parser crate to emit
+    // XSD-faithful Rust types. The runtime path uses the praxis-native
+    // XSD projector (`formal::meta::xsd::from_xml::project_from_xml_document`)
+    // for dispatch instead; the emitted Rust types were never wired up
+    // at runtime. See chore/drop-lopdf-xsd-parser.)
 
     // M4.η.2 — XML 1.0 ontology grounding sources. Two outputs:
     //
@@ -163,142 +152,6 @@ fn main() {
     // hand-coding the code-point ranges as primitive `matches!`
     // arms, per `feedback_bottom_up_loaded_not_encoded`.
     write_xml_grammar_codegen(&workspace_root, &manifest, &out_dir);
-}
-
-/// Find the registered `uslm_xsd` source in the praxis manifest,
-/// resolve its bundled XSD on disk, and invoke
-/// `pr4xis::codegen::uslm_schema::generate_uslm_schema_source` to
-/// emit `$OUT_DIR/uslm_schema_generated.rs`. On any failure
-/// (missing entry, missing file, xsd-parser error) write a
-/// commented stub so the runtime `include!` site always resolves.
-fn write_uslm_schema_codegen(
-    workspace_root: &std::path::Path,
-    manifest: &RawManifest,
-    out_dir: &std::path::Path,
-) {
-    let out_path = out_dir.join("uslm_schema_generated.rs");
-
-    let Some(src) = manifest.sources.get("uslm_xsd") else {
-        let stub = "// Stub: `uslm_xsd` source not registered in praxis.toml.\n";
-        std::fs::write(&out_path, stub).expect("write uslm_schema stub");
-        return;
-    };
-
-    if src.kind != "XmlSchemaDefinition" {
-        let stub = format!(
-            "// Stub: `uslm_xsd` is registered as kind {:?}, not XmlSchemaDefinition; \
-             skipping XSD codegen.\n",
-            src.kind,
-        );
-        std::fs::write(&out_path, stub).expect("write uslm_schema stub");
-        return;
-    }
-
-    let xsd_path = workspace_root
-        .join("crates/domains/data/legal/uscode/schema")
-        .join(format!("uslm-{}.xsd", src.version));
-
-    if !xsd_path.exists() {
-        let stub = format!(
-            "// Stub: USLM XSD not on disk at {}; skipping XSD codegen.\n",
-            xsd_path.display(),
-        );
-        std::fs::write(&out_path, stub).expect("write uslm_schema stub");
-        return;
-    }
-
-    println!("cargo:rerun-if-changed={}", xsd_path.display());
-
-    match pr4xis::codegen::uslm_schema::generate_uslm_schema_source(&xsd_path) {
-        Ok(source) => {
-            let type_count = count_top_level_types(&source);
-            std::fs::write(&out_path, source).expect("write uslm_schema codegen");
-            eprintln!(
-                "Generated USLM XSD ontology: {type_count} top-level types -> {}",
-                out_path.display(),
-            );
-        }
-        Err(e) => {
-            // xsd-parser failure → emit a commented stub. The
-            // runtime tree still compiles; downstream tests that
-            // exercise the generated types will fail with clear
-            // messages.
-            let stub = format!(
-                "// xsd-parser codegen failed for {}: {}\n\
-                 // The runtime module will compile but contain no USLM types.\n",
-                xsd_path.display(),
-                e,
-            );
-            std::fs::write(&out_path, stub).expect("write uslm_schema stub");
-            println!("cargo:warning=USLM XSD codegen failed: {e}");
-        }
-    }
-}
-
-/// Find the registered `xhtml_1_0_xsd` source in the praxis manifest,
-/// resolve its bundled XSD on disk, and invoke
-/// `pr4xis::codegen::xhtml_schema::generate_xhtml_schema_source` to
-/// emit `$OUT_DIR/xhtml_schema_generated.rs`. On any failure
-/// (missing entry, missing file, xsd-parser error) write a
-/// commented stub so the runtime `include!` site always resolves.
-fn write_xhtml_schema_codegen(
-    workspace_root: &std::path::Path,
-    manifest: &RawManifest,
-    out_dir: &std::path::Path,
-) {
-    let out_path = out_dir.join("xhtml_schema_generated.rs");
-
-    let Some(src) = manifest.sources.get("xhtml_1_0_xsd") else {
-        let stub = "// Stub: `xhtml_1_0_xsd` source not registered in praxis.toml.\n";
-        std::fs::write(&out_path, stub).expect("write xhtml_schema stub");
-        return;
-    };
-
-    if src.kind != "XmlSchemaDefinition" {
-        let stub = format!(
-            "// Stub: `xhtml_1_0_xsd` is registered as kind {:?}, not XmlSchemaDefinition; \
-             skipping XSD codegen.\n",
-            src.kind,
-        );
-        std::fs::write(&out_path, stub).expect("write xhtml_schema stub");
-        return;
-    }
-
-    let xsd_path = workspace_root
-        .join("crates/domains/data/markup-schemas/xhtml")
-        .join(format!("xhtml-{}-strict.xsd", src.version));
-
-    if !xsd_path.exists() {
-        let stub = format!(
-            "// Stub: XHTML XSD not on disk at {}; skipping XSD codegen.\n",
-            xsd_path.display(),
-        );
-        std::fs::write(&out_path, stub).expect("write xhtml_schema stub");
-        return;
-    }
-
-    println!("cargo:rerun-if-changed={}", xsd_path.display());
-
-    match pr4xis::codegen::xhtml_schema::generate_xhtml_schema_source(&xsd_path) {
-        Ok(source) => {
-            let type_count = count_top_level_types(&source);
-            std::fs::write(&out_path, source).expect("write xhtml_schema codegen");
-            eprintln!(
-                "Generated XHTML XSD ontology: {type_count} top-level types -> {}",
-                out_path.display(),
-            );
-        }
-        Err(e) => {
-            let stub = format!(
-                "// xsd-parser codegen failed for {}: {}\n\
-                 // The runtime module will compile but contain no XHTML types.\n",
-                xsd_path.display(),
-                e,
-            );
-            std::fs::write(&out_path, stub).expect("write xhtml_schema stub");
-            println!("cargo:warning=XHTML XSD codegen failed: {e}");
-        }
-    }
 }
 
 /// Find the registered `xml_1_0_namespace_xsd` source in the praxis
@@ -530,20 +383,6 @@ fn write_xml_grammar_codegen(
     }
 }
 
-/// Count `pub struct` / `pub enum` / `pub type` declarations at
-/// the top level of a generated Rust module — best-effort
-/// telemetry for the build log.
-fn count_top_level_types(source: &str) -> usize {
-    source
-        .split_inclusive([';', '}'])
-        .filter(|chunk| {
-            chunk.contains("pub struct ")
-                || chunk.contains("pub enum ")
-                || chunk.contains("pub type ")
-        })
-        .count()
-}
-
 /// Walk every registered USC title's expected XML path, collect
 /// the ones that exist on disk, and emit a `CodegenData<UsCode>`
 /// static at `$OUT_DIR/usc_corpus_codegen.rs`. If no titles are
@@ -631,8 +470,8 @@ fn content_type_for_kind(kind: &str) -> Option<&'static str> {
         "LegalLexicon" => "Json",
         "TypographicGlyphSet" => "AdobeGlyphList",
         // XmlSchemaDefinition / ConceptualSpec sources are routed by
-        // their per-source writers (`write_uslm_schema_codegen`,
-        // `write_xhtml_schema_codegen`, etc.), not by `dispatch_codegen`.
+        // their per-source writers (`write_xml_namespace_schema_codegen`,
+        // `write_xml_infoset_codegen`, etc.), not by `dispatch_codegen`.
         // Abstract / non-leaf concepts also fall through.
         _ => return None,
     })

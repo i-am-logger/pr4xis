@@ -44,33 +44,43 @@
 //!   (Adobe Systems, 2003), the authoritative ToUnicode CMap spec.
 //! - IETF RFC 1950 / RFC 1951 — zlib container and DEFLATE algorithm
 //!   used by `FlateDecode`.
+//!
+//! ## Status: lopdf-backed pipeline disabled
+//!
+//! The `reader` / `content_stream` / `font` / `agl` / `flagged` /
+//! `extract` / `lens` modules below are kept as reference but compiled
+//! out (`#[cfg(any())]`) because the upstream `lopdf` dependency was
+//! removed from praxis. They will be re-enabled when a native pure-Rust
+//! PDF parser ships under praxis ownership (no external `[patch.crates-io]`
+//! requirement). The `ontology` surface — concepts, edges, axioms,
+//! `FlaggedContent` — remains available unconditionally.
 
 pub mod ontology;
 
 /// PDF byte-stream reader — opt-in behind the `pdf` feature. The
 /// ontology surface in [`ontology`] is available unconditionally;
 /// only the lopdf-backed parser lives here.
-#[cfg(feature = "pdf")]
+#[cfg(any())]
 pub mod reader;
 
 /// Content-stream interpreter — operator sequence → typed events.
 /// Phase 3 of M4.γ; consumes the byte streams the reader exposes
 /// and produces text-show events + flagged-graphics events.
-#[cfg(feature = "pdf")]
+#[cfg(any())]
 pub mod content_stream;
 
 /// Font + encoding pipeline — byte → Unicode resolution per
 /// ISO 32000-2:2020 §9.10.2 (ToUnicode CMap > /Encoding > built-in).
 /// Phase 4 of M4.γ; consumes the TextShowEvents emitted by
 /// `content_stream` and produces decoded `String`s.
-#[cfg(feature = "pdf")]
+#[cfg(any())]
 pub mod font;
 
 /// Adobe Glyph List — glyph name → Unicode codepoint resolver
 /// for `/Differences` array overrides per ISO 32000-2:2020
 /// §9.6.5.4. Loaded from a verbatim copy of Adobe's published
 /// `glyphlist.txt`; sha256 pinned and verified at test time.
-#[cfg(feature = "pdf")]
+#[cfg(any())]
 pub mod agl;
 
 /// Image / Form-XObject / inline-image flagging walker — emits
@@ -79,13 +89,13 @@ pub mod agl;
 /// of M4.γ; resolves the `Do <name>` events from
 /// `content_stream` against page resources to reclassify
 /// `FlaggedKind::FormXObject` → `ImageXObject` when warranted.
-#[cfg(feature = "pdf")]
+#[cfg(any())]
 pub mod flagged;
 
 /// Extraction pipeline — composes Phases 2-5 into a typed
 /// `(Vec<PageText>, Vec<FlaggedContent>)` output plus Bluebook
 /// §3.3 statute-section slicing. Phase 6 of M4.γ.
-#[cfg(feature = "pdf")]
+#[cfg(any())]
 pub mod extract;
 
 /// `PdfLens : WellBehavedLens` — the byte-anchored lens binding
@@ -95,7 +105,7 @@ pub mod extract;
 /// first-class registered lens, parallel to
 /// [`crate::formal::meta::xsd::lens::XsdSchemaLens`] (XSD) and
 /// [`crate::formal::meta::dtd::lens::DtdLens`] (DTD).
-#[cfg(feature = "pdf")]
+#[cfg(any())]
 pub mod lens;
 
 #[cfg(test)]

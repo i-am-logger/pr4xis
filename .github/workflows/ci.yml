@@ -31,10 +31,22 @@ permissions:
 #
 # Job graph:
 #   warmup ──► lint-docs ─┐
-#          ├─► test ──────┼─► release-please ──► pages, publish
-#          └─► wasm ──────┘
+#          ├─► test ──────┼─► release-plz-release ──► pages
+#          └─► wasm ──────┤
+#                         └─► release-plz-pr        (opens Release PR)
 #   format, no-ignored-doctests       (independent, no compile)
 #   coverage                          (cron only)
+#
+# Release pipeline (replaces the old release-please + katyo pair):
+#   release-plz-pr      — opens / updates a Release PR with version
+#                          bumps + per-crate CHANGELOG entries derived
+#                          from conventional commits. Runs every push
+#                          to master.
+#   release-plz-release — on master, detects merged Release PRs (or
+#                          any commit whose Cargo.toml version is ahead
+#                          of crates.io) and publishes + tags + makes
+#                          GitHub releases. cargo-semver-checks gates
+#                          version-vs-API consistency per crate.
 # ───────────────────────────────────────────────────────────────────
 
 jobs:
@@ -325,8 +337,8 @@ jobs:
   pages:
     name: Deploy Pages
     runs-on: ubuntu-latest
-    needs: [release-please]
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: [release-plz-release]
+    if: needs.release-plz-release.outputs.releases_created == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -387,15 +399,33 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-      # Publish the SAME .prx.gz files to the release as immutable archive
-      # assets.
-      - name: Upload .prx.gz to release
+      # Publish the SAME .prx.gz files to the pr4xis-domains release as
+      # immutable archive assets. The release-plz `releases` output is a
+      # JSON array — we pull the pr4xis-domains tag out of it. If
+      # pr4xis-domains wasn't released this run (e.g. only pr4xis-cli
+      # was bumped), skip upload cleanly.
+      - name: Upload .prx.gz to pr4xis-domains release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.release-please.outputs.tag_name }}
-        run: gh release upload "$TAG" pages/ontologies/*.prx.gz --clobber
+          RELEASES: ${{ needs.release-plz-release.outputs.releases }}
+        run: |
+          TAG=$(echo "$RELEASES" | jq -r '.[] | select(.package_name == "pr4xis-domains") | .tag')
+          if [ -n "$TAG" ] && [ "$TAG" != "null" ]; then
+            gh release upload "$TAG" pages/ontologies/*.prx.gz --clobber
+          else
+            echo "pr4xis-domains not released in this run; skipping .prx.gz upload"
+          fi
 
-  release-please:
+  # release-plz replaces the old release-please + katyo/publish-crates
+  # pair. Reads the current repo state, queries crates.io for each
+  # published-crate's last released version, and either opens a Release
+  # PR (via the `release-pr` command) or publishes + tags + creates a
+  # GitHub release (via the `release` command).
+  #
+  # cargo-semver-checks runs per-package via `semver_check = true` in
+  # release-plz.toml, so a misbumped version on a breaking change is
+  # rejected at PR-create time.
+  release-plz-release:
     name: Release
     runs-on: ubuntu-latest
     needs: [lint-docs, test, wasm, format, no-ignored-doctests]
@@ -408,31 +438,56 @@ jobs:
       needs.wasm.result == 'success' &&
       needs.format.result == 'success' &&
       needs.no-ignored-doctests.result == 'success'
+    permissions:
+      contents: write
+      pull-requests: read
     outputs:
-      release_created: ${{ steps.release.outputs.release_created || steps.release.outputs.releases_created }}
-      # The pr4xis-domains component's git tag (e.g. `pr4xis-domains-v0.20.0`).
-      # The workspace is a multi-package monorepo so release-please-action@v4
-      # does NOT emit a top-level `tag_name`; instead it emits per-package
-      # outputs as `<path>--tag_name` for every released path.
-      tag_name: ${{ steps.release.outputs['crates/domains--tag_name'] }}
-    steps:
-      - uses: googleapis/release-please-action@v4
-        id: release
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          config-file: .release-please-config.json
-          manifest-file: .release-please-manifest.json
-
-  publish:
-    name: Publish to crates.io
-    runs-on: ubuntu-latest
-    needs: [release-please]
-    if: needs.release-please.outputs.release_created == 'true'
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
+      releases: ${{ steps.release-plz.outputs.releases }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: katyo/publish-crates@v2
         with:
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          ignore-unpublished-changes: true
-          publish-delay: 10000
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: release-plz/action@v0.5.129
+        id: release-plz
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  release-plz-pr:
+    name: Release-PR
+    runs-on: ubuntu-latest
+    needs: [lint-docs, test, wasm, format, no-ignored-doctests]
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      needs.lint-docs.result == 'success' &&
+      needs.test.result == 'success' &&
+      needs.wasm.result == 'success' &&
+      needs.format.result == 'success' &&
+      needs.no-ignored-doctests.result == 'success'
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: release-plz-pr-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: release-plz/action@v0.5.129
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

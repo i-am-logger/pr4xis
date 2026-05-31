@@ -1,12 +1,8 @@
-//! Tests for the XSD ontology + xsd-parser AST functor.
+//! Tests for the XSD ontology.
 
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use super::from_xsd_parser::{
-    FromXsdParser, XsdAst, XsdAstCategory, XsdAstNodeKind, XsdAstRelationKind,
-    classify_codegen_name, project, project_node_kind,
-};
 use super::ontology::{
     AnnotationBinaryPartition, DerivationChain, ElementTypeRef, EveryConceptHasPartClassification,
     EveryElementHasExactlyOneTypeReference, ModelGroupTernaryPartition, OccurrenceRange, PartSpec,
@@ -15,8 +11,8 @@ use super::ontology::{
     TypeDefinitionBinaryPartition, TypeDerivationStrictPartialOrder, XsdCategory, XsdConcept,
     XsdOntology, XsdPart, instantiable_leaves, is_root,
 };
-use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
-use pr4xis::category::{Category, Concept};
+use pr4xis::category::Concept;
+use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
 
@@ -27,11 +23,6 @@ use proptest::prelude::*;
 #[test]
 fn xsd_category_laws() {
     assert_category_laws::<XsdCategory>();
-}
-
-#[test]
-fn xsd_ast_category_laws() {
-    assert_category_laws::<XsdAstCategory>();
 }
 
 #[test]
@@ -334,322 +325,14 @@ fn element_type_ref_can_be_implicit() {
 }
 
 // =============================================================================
-// Functor laws — Mac Lane §I.3
-// =============================================================================
-
-#[test]
-fn from_xsd_parser_functor_laws_pass() {
-    assert_functor_laws::<FromXsdParser>();
-}
-
-#[test]
-fn functor_meta_carries_citation() {
-    use pr4xis::category::Functor;
-    let meta = FromXsdParser::meta();
-    assert_eq!(meta.name.as_str(), "FromXsdParser");
-    assert!(meta.citation.as_str().contains("Mac Lane"));
-    assert!(meta.module_path.as_str().contains("xsd"));
-}
-
-// =============================================================================
-// Functor object map — every AST node kind has an image, and the image is
-// a concrete (instantiable) XSD concept (not the abstract root).
-// =============================================================================
-
-#[test]
-fn project_node_kind_total_on_ast_variants() {
-    for kind in XsdAstNodeKind::variants() {
-        let concept = project_node_kind(kind);
-        assert!(
-            !is_root(concept),
-            "AST node kind {kind:?} projected to the abstract root"
-        );
-    }
-}
-
-#[test]
-fn project_element_to_element_declaration() {
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::Element),
-        XsdConcept::ElementDeclaration
-    );
-}
-
-#[test]
-fn project_complex_type_to_complex_type_definition() {
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::ComplexType),
-        XsdConcept::ComplexTypeDefinition
-    );
-}
-
-#[test]
-fn project_simple_type_to_simple_type_definition() {
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::SimpleType),
-        XsdConcept::SimpleTypeDefinition
-    );
-}
-
-#[test]
-fn project_sequence_choice_all_to_model_group_kinds() {
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::Sequence),
-        XsdConcept::Sequence
-    );
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::Choice),
-        XsdConcept::Choice
-    );
-    assert_eq!(project_node_kind(XsdAstNodeKind::All), XsdConcept::AllGroup);
-}
-
-#[test]
-fn project_group_to_model_group() {
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::Group),
-        XsdConcept::ModelGroup
-    );
-}
-
-#[test]
-fn project_wildcards_to_wildcard() {
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::AnyElement),
-        XsdConcept::Wildcard
-    );
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::AnyAttribute),
-        XsdConcept::Wildcard
-    );
-}
-
-#[test]
-fn project_identity_constraints() {
-    for k in [
-        XsdAstNodeKind::Key,
-        XsdAstNodeKind::Unique,
-        XsdAstNodeKind::Keyref,
-    ] {
-        assert_eq!(project_node_kind(k), XsdConcept::IdentityConstraint);
-    }
-}
-
-#[test]
-fn project_annotation_children() {
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::AppInfo),
-        XsdConcept::AppInfo
-    );
-    assert_eq!(
-        project_node_kind(XsdAstNodeKind::Documentation),
-        XsdConcept::Documentation
-    );
-}
-
-// =============================================================================
-// Identity / composition — Mac Lane §I.3 functor laws spelled out manually
-// for the relevant constructions, in addition to the generic
-// `assert_functor_laws::<FromXsdParser>()` check above.
-// =============================================================================
-
-#[test]
-fn functor_preserves_identity() {
-    use pr4xis::category::Functor;
-    for kind in XsdAstNodeKind::variants() {
-        let id_src = XsdAstCategory::identity(&kind);
-        let mapped = FromXsdParser::map_morphism(&id_src);
-        assert_eq!(
-            mapped.from,
-            project_node_kind(kind),
-            "identity should map to identity on the projected object"
-        );
-        assert_eq!(mapped.from, mapped.to);
-    }
-}
-
-#[test]
-fn functor_preserves_composition_on_identities() {
-    use pr4xis::category::{Category, Functor};
-    // Source category is discrete, so the only composable pairs are
-    // (id_x, id_x). For each such pair, F(g∘f) = F(g)∘F(f).
-    for kind in XsdAstNodeKind::variants() {
-        let id = XsdAstCategory::identity(&kind);
-        let composed_src = XsdAstCategory::compose(&id, &id);
-        assert!(composed_src.is_some());
-        let mapped_composed = FromXsdParser::map_morphism(&composed_src.unwrap());
-        let f_id = FromXsdParser::map_morphism(&id);
-        let composed_tgt = XsdCategory::compose(&f_id, &f_id);
-        assert_eq!(composed_tgt, Some(mapped_composed));
-    }
-}
-
-// =============================================================================
-// AST projection — `XsdAst` → `XsdOntologyInstance`
-// =============================================================================
-
-#[test]
-fn empty_ast_projects_to_empty_instance() {
-    let ast = XsdAst::default();
-    let instance = project(&ast);
-    assert_eq!(instance.schema_components().count(), 0);
-}
-
-#[test]
-fn single_node_ast_projects_to_single_component() {
-    let ast = XsdAst {
-        nodes: vec![XsdAstNodeKind::Element],
-    };
-    let instance = project(&ast);
-    assert_eq!(instance.schema_components().count(), 1);
-    assert_eq!(
-        *instance.schema_components().next().unwrap(),
-        XsdConcept::ElementDeclaration
-    );
-}
-
-#[test]
-fn nontrivial_ast_projects_to_expected_components() {
-    // A simulated USLM-shape mini-AST: a couple of elements, a couple of
-    // complex types, an annotation block.
-    let ast = XsdAst {
-        nodes: vec![
-            XsdAstNodeKind::Element,
-            XsdAstNodeKind::Element,
-            XsdAstNodeKind::ComplexType,
-            XsdAstNodeKind::ComplexType,
-            XsdAstNodeKind::SimpleType,
-            XsdAstNodeKind::Annotation,
-            XsdAstNodeKind::Documentation,
-        ],
-    };
-    let instance = project(&ast);
-    assert_eq!(instance.schema_components().count(), 7);
-    // Five distinct kinds: Element / Complex / Simple / Annotation /
-    // Documentation.
-    assert_eq!(instance.distinct_concept_count(), 5);
-}
-
-// =============================================================================
-// Smoke: project the loaded USLM AST through the functor.
-//
-// The dispatch says: demonstrate the functor by projecting the
-// codegen-emitted USLM types. The codegen output lives in
-// `crate::social::software::markup::xml::uslm::generated`; every
-// `pub struct ... TypeItem` corresponds to one xsd-parser AST node of
-// kind `ComplexType`. We classify a representative set of the
-// generated type *names* (via `classify_codegen_name`) and confirm the
-// functor projects them into the XSD ontology.
-//
-// We don't compile-time iterate over every generated type (Rust has
-// no reflection over module contents); instead we exercise a curated
-// list of names known to appear in the USLM-1.0.18 codegen output
-// (per commit 58a6836).
-// =============================================================================
-
-#[test]
-fn classify_uslm_complex_type_names() {
-    // Names known to be emitted by xsd-parser for USLM-1.0.18.xsd.
-    let known_complex_names = [
-        "ActionTypeItem",
-        "AppendixTypeItem",
-        "BlockTypeItem",
-        "HeadingTypeItem",
-        "InlineTypeItem",
-        "NoteTypeItem",
-        "PTypeItem",
-        "RefTypeItem",
-        "TocTypeItem",
-    ];
-    for n in &known_complex_names {
-        let k = classify_codegen_name(n).expect("classified");
-        assert_eq!(k, XsdAstNodeKind::ComplexType, "{n} → ComplexType");
-    }
-}
-
-#[test]
-fn classify_uslm_enum_name() {
-    // xsd-parser emits enumeration-typed simple types as `<X>EnumItem`.
-    let k = classify_codegen_name("StatusEnumItem").expect("classified");
-    assert_eq!(k, XsdAstNodeKind::SimpleType);
-}
-
-#[test]
-fn classify_unknown_name_returns_none() {
-    assert_eq!(classify_codegen_name("Vec"), None);
-    assert_eq!(classify_codegen_name(""), None);
-}
-
-#[test]
-fn uslm_projected_ast_has_schema_components() {
-    // Build a minimal AST projected from a few representative USLM
-    // type names; confirm the projection produces ontology instances.
-    let names = ["ActionTypeItem", "StatusEnumItem", "NoteTypeItem"];
-    let nodes: Vec<XsdAstNodeKind> = names
-        .iter()
-        .filter_map(|n| classify_codegen_name(n))
-        .collect();
-    assert_eq!(nodes.len(), 3);
-    let ast = XsdAst { nodes };
-    let instance = project(&ast);
-    assert_eq!(instance.schema_components().count(), 3);
-    // Two complex types + one simple type.
-    let kinds: Vec<XsdConcept> = instance.schema_components().copied().collect();
-    assert_eq!(
-        kinds
-            .iter()
-            .filter(|c| **c == XsdConcept::ComplexTypeDefinition)
-            .count(),
-        2
-    );
-    assert_eq!(
-        kinds
-            .iter()
-            .filter(|c| **c == XsdConcept::SimpleTypeDefinition)
-            .count(),
-        1
-    );
-}
-
-// =============================================================================
 // Property-based tests
 // =============================================================================
-
-fn arb_ast_node_kind() -> impl Strategy<Value = XsdAstNodeKind> {
-    proptest::sample::select(XsdAstNodeKind::variants())
-}
 
 fn arb_concept() -> impl Strategy<Value = XsdConcept> {
     proptest::sample::select(XsdConcept::variants())
 }
 
 proptest! {
-    /// For any AST node kind, the projected concept is never the
-    /// abstract root, and is never the abstract `TypeDefinition`
-    /// (always Complex or Simple). `ModelGroup` and `Annotation` are
-    /// concrete enough to project to directly — xsd-parser's `Group`
-    /// AST kind lands on `ModelGroup`, and `Annotation` AST kind on
-    /// `Annotation` (Part 1 §3.15, an `<xs:annotation>` block without
-    /// AppInfo/Documentation children still exists as the wrapper).
-    #[test]
-    fn prop_projection_avoids_abstract_root_and_typedef(k in arb_ast_node_kind()) {
-        let c = project_node_kind(k);
-        prop_assert!(!matches!(c, XsdConcept::SchemaComponent));
-        prop_assert!(!matches!(c, XsdConcept::TypeDefinition));
-        // ModelGroup is allowed via the `Group` AST kind; other
-        // model-group AST kinds (Sequence/Choice/All) land in a
-        // strict compositor leaf.
-        if k != XsdAstNodeKind::Group {
-            prop_assert!(!matches!(c, XsdConcept::ModelGroup));
-        }
-        // Annotation is allowed via the `Annotation` AST kind; the
-        // two child AST kinds (AppInfo/Documentation) land in
-        // strict leaves below it.
-        if !matches!(k, XsdAstNodeKind::Annotation) {
-            prop_assert!(!matches!(c, XsdConcept::Annotation));
-        }
-    }
-
     /// `PartSpec` is total on non-root concepts (Reiter 1978 closed-
     /// world quality assumption restricted to the partition leaves).
     #[test]
@@ -706,22 +389,4 @@ proptest! {
             prop_assert!(h_big.member_of("e0", &target));
         }
     }
-
-    /// Functor object map composed twice yields the same concept
-    /// (every kind maps to a single concept).
-    #[test]
-    fn prop_functor_object_map_deterministic(k in arb_ast_node_kind()) {
-        prop_assert_eq!(project_node_kind(k), project_node_kind(k));
-    }
-}
-
-// =============================================================================
-// AST relation kind smoke — the source category's only kind is Identity.
-// =============================================================================
-
-#[test]
-fn xsd_ast_relation_kind_is_identity_only() {
-    use pr4xis::category::Arrow;
-    let m = XsdAstCategory::identity(&XsdAstNodeKind::Element);
-    assert!(matches!(m.kind(), XsdAstRelationKind::Identity));
 }
