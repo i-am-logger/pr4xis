@@ -30,23 +30,26 @@ permissions:
 # Wasm-target jobs use a separate "wasm-release" pool.
 #
 # Job graph:
-#   warmup ──► lint-docs ───┐
-#          └─► test ────────┼─► release-plz-release ──► pages
-#                           │
-#   wasm  ──────────────────┤   (independent of warmup; runs in parallel)
-#                           │
-#                           └─► release-plz-pr        (opens Release PR)
+#   build ──► lint-docs ──┐
+#         ├─► test ───────┤
+#         └─► wasm ───────┼─► release-plz-release ──► pages
+#                         └─► release-plz-pr        (opens Release PR)
 #   format, no-ignored-doctests       (independent, no compile)
 #   coverage                          (cron only)
 #
-# Warmup builds:
-#   - pr4xis-cli (release)               — used by lint-docs / test / pages
-#   - workspace + test binaries via      — consumed directly by `test`
-#     `cargo nextest archive` (release)    so it skips the compile entirely
+# Build job builds (all host target, all `RUSTFLAGS=-D warnings`):
+#   - pr4xis-cli                       — uploaded as artifact for downstream
+#   - workspace libs + bins (release)  — populates the `release` cache slice
+#   - test binaries via `cargo         — uploaded as artifact, `test` runs
+#     nextest archive`                   directly from it (no recompile)
 #
-# Wasm is decoupled from warmup so the two longest pre-release jobs
-# run in parallel; wasm builds its own pr4xis-cli for the `pr4xis
-# update` data-fetch step.
+# Downstream jobs share `shared-key: release`, so they restore every
+# compiled host crate from build's slice. The only Rust compilation
+# in `test`/`lint-docs`/`wasm` is incremental over already-compiled
+# state: `test` is a no-compile archive run, `lint-docs` just runs
+# clippy+rustdoc over cached artefacts, and `wasm` compiles only the
+# wasm32 target (host crates `pr4xis-cli`/`pr4xis-domains`/`pr4xis-
+# web`/`pr4xis-e2e` are already in `target/release/`).
 #
 # Release pipeline (replaces the old release-please + katyo pair):
 #   release-plz-pr      — opens / updates a Release PR with version
@@ -64,8 +67,8 @@ jobs:
   # Build pr4xis-cli once + fetch external data. Uploads the binary
   # as an artifact every downstream Rust job reuses; populates the
   # `release` Swatinem cache slice they all restore from.
-  warmup:
-    name: Warmup (CLI + data)
+  build:
+    name: Build (host + test archive + data)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -134,7 +137,7 @@ jobs:
   lint-docs:
     name: Lint & Docs
     runs-on: ubuntu-latest
-    needs: [warmup]
+    needs: [build]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -187,13 +190,13 @@ jobs:
         run: mdbook test docs/
 
   # Runs the workspace test suite from the prebuilt nextest archive
-  # that `warmup` uploads — no Rust compilation happens here. The
+  # that `build` uploads — no Rust compilation happens here. The
   # archive contains every test binary; this job just extracts and
   # executes. Saves ~10 minutes of compile time per CI run.
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: [warmup]
+    needs: [build]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -236,16 +239,18 @@ jobs:
           files: target/nextest/ci/junit.xml
           report_type: test_results
 
-  # Browser-side wasm coverage. Both `wasm-pack build --release` (for
-  # production wasm) and `wasm-pack test --release` (for in-wasm tests)
-  # run here in one job. Runs in parallel with `warmup` — wasm builds
-  # its own host-target `pr4xis-cli` to materialise external data
-  # (the duplicate ~2 min of cli compilation is paid by wasm rather
-  # than serialised behind warmup; net wall-clock win since wasm was
-  # the second-longest job on the critical path).
+  # Browser-side wasm coverage + Firefox WebDriver E2E. Sequenced
+  # after `build` and uses the same `release` cache slice — every
+  # host-target binary this job needs (`pr4xis-cli` for the data
+  # update, `pr4xis-domains` for `emit_prx`, `pr4xis-web` for the E2E
+  # server, `pr4xis-e2e` for the WebDriver client) is already
+  # compiled in `target/release/` from `build`. wasm-only work
+  # (wasm-pack build + wasm-pack test for the wasm32 target) is the
+  # only Rust compilation that actually happens here.
   wasm:
     name: WASM tests + E2E
     runs-on: ubuntu-latest
+    needs: [build]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -256,7 +261,7 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: wasm-release
+          shared-key: release
       - name: Cache WordNet XML
         uses: actions/cache@v4
         with:
@@ -270,10 +275,12 @@ jobs:
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
           key: praxis-data-${{ hashFiles('praxis.lock') }}
-      - name: Build pr4xis-cli (release)
-        env:
-          RUSTFLAGS: "-D warnings"
-        run: cargo build -p pr4xis-cli --release
+      - uses: actions/download-artifact@v4
+        with:
+          name: pr4xis-cli
+          path: target/release
+      - name: Make pr4xis-cli executable
+        run: chmod +x target/release/pr4xis
       - name: Materialise external data (no-op on data-cache hit)
         run: ./target/release/pr4xis update
       - name: Install wasm-pack
