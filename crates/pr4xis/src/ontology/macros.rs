@@ -319,6 +319,25 @@ macro_rules! register_axiom {
                 || <$name as $crate::logic::axiom::Axiom>::meta(&$instance);
         }
     };
+    // Constructor arm — registers the metadata (from the axiom's `meta()`)
+    // AND a re-bind constructor into AXIOM_CONSTRUCTORS, so a persisted
+    // `AxiomNode` can re-bind to a freshly-built predicate by its stable
+    // name on load. `$name` must be a unit-struct axiom (constructible from
+    // its identifier). The metadata name and the reconstructed axiom's
+    // `name()` are the same value, so `axiom_by_name` round-trips.
+    ($name:ident, constructor) => {
+        #[cfg(not(target_arch = "wasm32"))]
+        $crate::paste::paste! {
+            #[$crate::linkme::distributed_slice($crate::ontology::AXIOMS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_AXIOM_ $name:snake:upper>]: fn() -> $crate::ontology::meta::Provenance =
+                || <$name as $crate::logic::axiom::Axiom>::meta(&$name);
+            #[$crate::linkme::distributed_slice($crate::ontology::AXIOM_CONSTRUCTORS)]
+            #[linkme(crate = $crate::linkme)]
+            static [<_REGISTER_AXIOM_CTOR_ $name:snake:upper>]: fn() -> $crate::ontology::BoxedAxiom =
+                || $crate::ontology::boxed_axiom($name);
+        }
+    };
 }
 
 /// Register a hand-written `impl Functor for X` into the FUNCTORS slice.

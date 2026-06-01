@@ -42,6 +42,7 @@
 
 use std::marker::PhantomData;
 
+use super::adjunction::Adjunction;
 use super::arrow::Arrow;
 use super::category::Category;
 use super::entity::Concept;
@@ -400,6 +401,253 @@ where
     for law in functor_law_axioms::<F>() {
         if let Err(c) = law.verify() {
             panic!("functor law failed: {}", c.meta().name.as_str());
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Full + faithful functor laws (Mac Lane 1971 CWM Ch. I §4)
+// ---------------------------------------------------------------------------
+
+/// Mac Lane (1971) CWM Ch. I §4: a functor is *faithful* when
+/// `map_morphism` is injective on each hom-set — distinct source
+/// morphisms `f, g : A → B` keep distinct images `F(f) ≠ F(g)`.
+pub struct FunctorFaithfulLaw<F: Functor> {
+    _marker: PhantomData<F>,
+}
+
+impl<F: Functor> FunctorFaithfulLaw<F> {
+    pub fn new() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<F: Functor> Default for FunctorFaithfulLaw<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<F> Axiom for FunctorFaithfulLaw<F>
+where
+    F: Functor + 'static,
+    <F::Source as Category>::Morphism: PartialEq + 'static,
+    <F::Target as Category>::Morphism: PartialEq + 'static,
+{
+    fn verify(&self) -> Verdict {
+        let ms = F::Source::morphisms();
+        for (i, f) in ms.iter().enumerate() {
+            for g in ms.iter().skip(i + 1) {
+                // distinct morphisms in the same hom-set …
+                if f.source() == g.source()
+                    && f.target() == g.target()
+                    && f != g
+                    // … must not collapse to one image under F.
+                    && F::map_morphism(f) == F::map_morphism(g)
+                {
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
+                }
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    fn name(&self) -> OntologyName {
+        OntologyName::new_static("FunctorFaithfulLaw")
+    }
+
+    fn description(&self) -> Label {
+        Label::new_static("map_morphism is injective on each hom-set (faithful)")
+    }
+
+    fn citation(&self) -> Citation {
+        Citation::parse_static("Mac Lane (1971) Categories for the Working Mathematician Ch. I §4")
+    }
+}
+
+/// Mac Lane (1971) CWM Ch. I §4: a functor is *full onto its image* when
+/// every target morphism between image objects `F(A) → F(B)` is the image
+/// of some source morphism in `Hom(A, B)`. Enumerated over the full
+/// `Target::morphisms()` (including macro-emitted transitive-closure
+/// edges), so a later edge introduced between two image objects cannot
+/// silently break fullness. With [`FunctorFaithfulLaw`] this witnesses a
+/// full-and-faithful embedding — an isomorphism onto the full subcategory
+/// on the image.
+pub struct FunctorFullOnImageLaw<F: Functor> {
+    _marker: PhantomData<F>,
+}
+
+impl<F: Functor> FunctorFullOnImageLaw<F> {
+    pub fn new() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<F: Functor> Default for FunctorFullOnImageLaw<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<F> Axiom for FunctorFullOnImageLaw<F>
+where
+    F: Functor + 'static,
+    <F::Source as Category>::Morphism: PartialEq + 'static,
+    <F::Target as Category>::Morphism: PartialEq + 'static,
+{
+    fn verify(&self) -> Verdict {
+        let src_objs = <<F::Source as Category>::Object as Concept>::variants();
+        let src_ms = F::Source::morphisms();
+        let tgt_ms = F::Target::morphisms();
+        for a in &src_objs {
+            let fa = F::map_object(a);
+            for b in &src_objs {
+                let fb = F::map_object(b);
+                for t in &tgt_ms {
+                    if t.source() != fa || t.target() != fb {
+                        continue;
+                    }
+                    // some source morphism in Hom(a, b) must map onto t.
+                    let hit = src_ms
+                        .iter()
+                        .any(|f| f.source() == *a && f.target() == *b && F::map_morphism(f) == *t);
+                    if !hit {
+                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
+                    }
+                }
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    fn name(&self) -> OntologyName {
+        OntologyName::new_static("FunctorFullOnImageLaw")
+    }
+
+    fn description(&self) -> Label {
+        Label::new_static(
+            "every target morphism between image objects is the image of a source morphism (full onto image)",
+        )
+    }
+
+    fn citation(&self) -> Citation {
+        Citation::parse_static("Mac Lane (1971) Categories for the Working Mathematician Ch. I §4")
+    }
+}
+
+/// The full-and-faithful embedding laws as `Box<dyn Axiom>` — combine with
+/// [`functor_law_axioms`] to machine-prove `FunctorKind::FullyFaithful`
+/// (identity + composition + faithful + full-onto-image).
+pub fn fully_faithful_law_axioms<F>() -> Vec<Box<dyn Axiom>>
+where
+    F: Functor + 'static,
+    <F::Source as Category>::Morphism: PartialEq + 'static,
+    <F::Target as Category>::Morphism: PartialEq + 'static,
+{
+    vec![
+        Box::new(FunctorFaithfulLaw::<F>::new()),
+        Box::new(FunctorFullOnImageLaw::<F>::new()),
+    ]
+}
+
+// ---------------------------------------------------------------------------
+// Adjunction triangle identities (Mac Lane 1971 CWM Ch. IV §1)
+// ---------------------------------------------------------------------------
+
+/// Mac Lane (1971) CWM Ch. IV §1: the *triangle identities* an adjunction
+/// `F ⊣ G` (unit η, counit ε) must satisfy —
+/// `ε_{F(A)} ∘ F(η_A) = id_{F(A)}` and `G(ε_B) ∘ η_{G(B)} = id_{G(B)}` —
+/// checked by enumeration over the finite object sets of both categories.
+pub struct AdjunctionTriangleLaw<A: Adjunction> {
+    _marker: PhantomData<A>,
+}
+
+impl<A: Adjunction> AdjunctionTriangleLaw<A> {
+    pub fn new() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<A: Adjunction> Default for AdjunctionTriangleLaw<A> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<A> Axiom for AdjunctionTriangleLaw<A>
+where
+    A: Adjunction + 'static,
+    <<A::Left as Functor>::Source as Category>::Morphism: PartialEq + 'static,
+    <<A::Left as Functor>::Target as Category>::Morphism: PartialEq + 'static,
+{
+    fn verify(&self) -> Verdict {
+        // Left triangle: ε_{F(A)} ∘ F(η_A) = id_{F(A)}, for every A in C.
+        for a in <<<A::Left as Functor>::Source as Category>::Object as Concept>::variants() {
+            let eta_a = A::unit(&a); // C-morphism A → G(F(A))
+            let f_eta = <A::Left as Functor>::map_morphism(&eta_a); // D: F(A) → F(G(F(A)))
+            let fa = <A::Left as Functor>::map_object(&a); // D-object F(A)
+            let eps_fa = A::counit(&fa); // D: F(G(F(A))) → F(A)
+            let composed = <<A::Left as Functor>::Target as Category>::compose(&f_eta, &eps_fa);
+            let id_fa = <<A::Left as Functor>::Target as Category>::identity(&fa);
+            if composed.as_ref() != Some(&id_fa) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        // Right triangle: G(ε_B) ∘ η_{G(B)} = id_{G(B)}, for every B in D.
+        for b in <<<A::Left as Functor>::Target as Category>::Object as Concept>::variants() {
+            let gb = <A::Right as Functor>::map_object(&b); // C-object G(B)
+            let eta_gb = A::unit(&gb); // C: G(B) → G(F(G(B)))
+            let eps_b = A::counit(&b); // D: F(G(B)) → B
+            let g_eps_b = <A::Right as Functor>::map_morphism(&eps_b); // C: G(F(G(B))) → G(B)
+            let composed = <<A::Left as Functor>::Source as Category>::compose(&eta_gb, &g_eps_b);
+            let id_gb = <<A::Left as Functor>::Source as Category>::identity(&gb);
+            if composed.as_ref() != Some(&id_gb) {
+                return Err(Box::new(SimpleCounterexample::new(self.meta())));
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    fn name(&self) -> OntologyName {
+        OntologyName::new_static("AdjunctionTriangleLaw")
+    }
+
+    fn description(&self) -> Label {
+        Label::new_static("ε_{F(A)} ∘ F(η_A) = id_{F(A)} and G(ε_B) ∘ η_{G(B)} = id_{G(B)}")
+    }
+
+    fn citation(&self) -> Citation {
+        Citation::parse_static("Mac Lane (1971) Categories for the Working Mathematician Ch. IV §1")
+    }
+}
+
+/// The adjunction triangle identities as `Box<dyn Axiom>` instances.
+pub fn adjunction_law_axioms<A>() -> Vec<Box<dyn Axiom>>
+where
+    A: Adjunction + 'static,
+    <<A::Left as Functor>::Source as Category>::Morphism: PartialEq + 'static,
+    <<A::Left as Functor>::Target as Category>::Morphism: PartialEq + 'static,
+{
+    vec![Box::new(AdjunctionTriangleLaw::<A>::new())]
+}
+
+/// Test convenience: verify the triangle identities for `A`, panicking
+/// with the counterexample's meta name on failure.
+pub fn assert_adjunction_laws<A>()
+where
+    A: Adjunction + 'static,
+    <<A::Left as Functor>::Source as Category>::Morphism: PartialEq + 'static,
+    <<A::Left as Functor>::Target as Category>::Morphism: PartialEq + 'static,
+{
+    for law in adjunction_law_axioms::<A>() {
+        if let Err(c) = law.verify() {
+            panic!("adjunction law failed: {}", c.meta().name.as_str());
         }
     }
 }
