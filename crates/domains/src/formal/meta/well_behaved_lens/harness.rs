@@ -9,12 +9,18 @@
 //! 1. Resolves the source's expected on-disk path via the registry.
 //! 2. Reads the bytes (if present — sources awaiting `pr4xis update`
 //!    are reported as `SourceNotOnDisk`, not as a hard failure).
-//! 3. Calls [`super::WellBehavedLens::assert_put_get_law`] on the bytes
-//!    (Foster, Greenwald, Moore, Pierce & Schmitt 2007 *ACM TOPLAS*
-//!    29(3) §2.2 well-behaved lens laws).
-//! 4. Computes the canonical-form SHA-256.
+//! 3. Dispatches on the lens's [`RoundTripFidelity`]:
+//!    `RawBytesComplementFloor` runs the canonical-form
+//!    [`super::WellBehavedLens::assert_put_get_law`];
+//!    `ByteExactGraphFaithful` runs the strict
+//!    [`super::WellBehavedLens::assert_byte_exact_law`] (Foster,
+//!    Greenwald, Moore, Pierce & Schmitt 2007 *ACM TOPLAS* 29(3) §2.2
+//!    well-behaved lens laws).
+//! 4. Computes the SHA-256 — canonical-form for the FLOOR path, raw
+//!    bytes for the byte-exact path.
 //! 5. Compares against the pinned signature from
-//!    [`crate::applied::data_provisioning::registry::lock_canonical_signature`].
+//!    [`crate::applied::data_provisioning::registry`] —
+//!    `[canonical_signatures]` or `[byte_exact_signatures]` respectively.
 //!
 //! Every outcome is reported via [`HarnessOutcome`]:
 //!
@@ -68,9 +74,12 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use pr4xis::ontology::Axiom;
+use sha2::{Digest, Sha256};
 
-use super::lens_trait::LensLawFailure;
-use crate::applied::data_provisioning::registry::{by_name_version, lock_canonical_signature};
+use super::lens_trait::{LensLawFailure, RoundTripFidelity};
+use crate::applied::data_provisioning::registry::{
+    by_name_version, lock_byte_exact_signature, lock_canonical_signature,
+};
 
 // =============================================================================
 // Registration: one entry per (lens type, source key) pair.
@@ -87,10 +96,20 @@ pub struct LensRegistration {
     pub source_name: &'static str,
     /// The source's `version` field from `praxis.toml`.
     pub source_version: &'static str,
-    /// Run [`super::WellBehavedLens::assert_put_get_law`] on `bytes`.
+    /// Run [`super::WellBehavedLens::assert_put_get_law`] on `bytes`
+    /// (the canonical-form PutGet law — used for
+    /// [`RoundTripFidelity::RawBytesComplementFloor`] sources).
     pub assert_law: fn(&[u8]) -> Result<(), LensLawFailure>,
+    /// Run [`super::WellBehavedLens::assert_byte_exact_law`] on `bytes`
+    /// (the strict byte-exact PutGet law — used for
+    /// [`RoundTripFidelity::ByteExactGraphFaithful`] sources).
+    pub assert_byte_exact: fn(&[u8]) -> Result<(), LensLawFailure>,
     /// Compute the canonical-form SHA-256 of `bytes`.
     pub signature: fn(&[u8]) -> Result<[u8; 32], String>,
+    /// The round-trip fidelity this lens guarantees — selects which
+    /// PutGet law and which `praxis.lock` signature section the
+    /// harness checks.
+    pub fidelity: RoundTripFidelity,
 }
 
 /// Distributed slice of every [`LensRegistration`] in the workspace
@@ -144,10 +163,14 @@ macro_rules! register_lens {
                 source_version: $version,
                 assert_law:
                     <$lens_ty as $crate::formal::meta::well_behaved_lens::WellBehavedLens>::assert_put_get_law,
+                assert_byte_exact:
+                    <$lens_ty as $crate::formal::meta::well_behaved_lens::WellBehavedLens>::assert_byte_exact_law,
                 signature: |b| {
                     <$lens_ty as $crate::formal::meta::well_behaved_lens::WellBehavedLens>::signature(b)
                         .map_err(|e| alloc::format!("{}", e))
                 },
+                fidelity:
+                    <$lens_ty as $crate::formal::meta::well_behaved_lens::WellBehavedLens>::FIDELITY,
             };
     };
 }
@@ -194,6 +217,12 @@ pub enum HarnessOutcome {
     /// `bytes` — the ontology does not yet capture the full
     /// structure of the source (PutGet law violated).
     LawViolated(LensLawFailure),
+    /// `put(get(bytes)) != bytes` byte-for-byte — a byte-affecting
+    /// concrete-syntax decision is not yet a first-class node in the
+    /// ontology (byte-exact PutGet law violated, M4.ι / #186). Only
+    /// produced for [`RoundTripFidelity::ByteExactGraphFaithful`]
+    /// sources.
+    ByteLawViolated(LensLawFailure),
     /// Reading the source file failed for some reason other than
     /// "file not on disk" (permission error, malformed UTF-8 in
     /// path, etc.).
@@ -211,6 +240,7 @@ impl HarnessOutcome {
             self,
             HarnessOutcome::SignatureMismatch { .. }
                 | HarnessOutcome::LawViolated(_)
+                | HarnessOutcome::ByteLawViolated(_)
                 | HarnessOutcome::LoadError { .. }
                 | HarnessOutcome::SourceNotRegistered
         )
@@ -266,11 +296,21 @@ fn check_one(reg: &LensRegistration) -> HarnessResult {
 }
 
 fn verify_loaded_bytes(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
-    // Step 1: PutGet law.
+    match reg.fidelity {
+        RoundTripFidelity::RawBytesComplementFloor => verify_canonical(reg, bytes),
+        RoundTripFidelity::ByteExactGraphFaithful => verify_byte_exact(reg, bytes),
+    }
+}
+
+/// Canonical-form PutGet law + `[canonical_signatures]` pin — the FLOOR
+/// path for sources with no published canonical form (PDF) and every
+/// lens not yet migrated to graph-faithful byte-exactness.
+fn verify_canonical(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
+    // Step 1: PutGet law (canonical-form equality).
     if let Err(failure) = (reg.assert_law)(bytes) {
         return HarnessOutcome::LawViolated(failure);
     }
-    // Step 2: signature.
+    // Step 2: canonical signature.
     let computed = match (reg.signature)(bytes) {
         Ok(sig) => sig,
         Err(message) => {
@@ -282,7 +322,7 @@ fn verify_loaded_bytes(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
     };
     let computed_hex = hex_of(&computed);
 
-    // Step 3: compare against praxis.lock.
+    // Step 3: compare against praxis.lock [canonical_signatures].
     match lock_canonical_signature(reg.source_name, reg.source_version) {
         None => HarnessOutcome::LawHoldsSignatureUnpinned {
             computed_sha256_hex: computed_hex,
@@ -293,6 +333,41 @@ fn verify_loaded_bytes(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
             computed_sha256_hex: computed_hex,
         },
     }
+}
+
+/// Strict byte-exact PutGet law + `[byte_exact_signatures]` pin — the
+/// graph-faithful path (no constant-complement). The pinned value is
+/// the SHA-256 of the *raw* source bytes; `put(get(b)) == b` makes the
+/// round-tripped output hash equal to it.
+fn verify_byte_exact(reg: &LensRegistration, bytes: &[u8]) -> HarnessOutcome {
+    // Step 1: byte-exact PutGet law (raw byte equality, no complement).
+    if let Err(failure) = (reg.assert_byte_exact)(bytes) {
+        return HarnessOutcome::ByteLawViolated(failure);
+    }
+    // Step 2: raw-bytes signature. The law just proved the round-tripped
+    // output equals the input, so the raw-input hash IS the round-trip
+    // output hash — the byte-exact witness.
+    let computed_hex = raw_signature_hex(bytes);
+
+    // Step 3: compare against praxis.lock [byte_exact_signatures].
+    match lock_byte_exact_signature(reg.source_name, reg.source_version) {
+        None => HarnessOutcome::LawHoldsSignatureUnpinned {
+            computed_sha256_hex: computed_hex,
+        },
+        Some(expected) if expected == computed_hex => HarnessOutcome::Verified,
+        Some(expected) => HarnessOutcome::SignatureMismatch {
+            expected: expected.to_string(),
+            computed_sha256_hex: computed_hex,
+        },
+    }
+}
+
+/// SHA-256 of raw bytes as lowercase hex — the byte-exact signature
+/// (NIST FIPS 180-4 §6.2 SHA-256).
+fn raw_signature_hex(bytes: &[u8]) -> String {
+    let mut h = Sha256::new();
+    h.update(bytes);
+    hex_of(&h.finalize())
 }
 
 enum SourceBytes {

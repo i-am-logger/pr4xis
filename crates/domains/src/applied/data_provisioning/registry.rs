@@ -120,6 +120,25 @@ pub fn lock_canonical_signature(name: &str, version: &str) -> Option<&'static st
     lock_canonical_signatures().get(&key).map(String::as_str)
 }
 
+/// The pinned byte-exact signatures from `praxis.lock`. Keys are
+/// `"<name>@<version>"`; each value is the SHA-256 of the raw source
+/// bytes a `RoundTripFidelity::ByteExactGraphFaithful` lens
+/// reconstructs exactly (equal to the `[hashes]` pin). Membership
+/// marks a source as held to the strict byte-exact PutGet law
+/// (M4.ι / #186).
+pub fn lock_byte_exact_signatures() -> &'static HashMap<String, String> {
+    &lock_data().byte_exact_signatures
+}
+
+/// Look up the byte-exact signature for a specific source. Returns
+/// `None` if the source isn't byte-exact-pinned — it is either held
+/// only to the canonical-form FLOOR or hasn't been migrated to
+/// graph-faithful byte-exactness yet.
+pub fn lock_byte_exact_signature(name: &str, version: &str) -> Option<&'static str> {
+    let key = format!("{name}@{version}");
+    lock_byte_exact_signatures().get(&key).map(String::as_str)
+}
+
 fn lock_data() -> &'static LockData {
     LOCK.get_or_init(|| {
         parse_praxis_lock(PRAXIS_LOCK).unwrap_or_else(|e| panic!("invalid praxis.lock: {e}"))
@@ -270,13 +289,23 @@ fn build_entry(
 ///   JCS, Unicode NFKC, etc.), surfaces here while the raw-bytes
 ///   hash remains stable.
 ///
-/// Both hash spaces are keyed by `"<name>@<version>"`.
+/// - `byte_exact_signatures`: SHA-256 of the bytes a byte-exact
+///   graph-faithful lens (`RoundTripFidelity::ByteExactGraphFaithful`)
+///   reconstructs via `put(get(b))`. Because that lens proves
+///   byte-identity (`put(get(b)) == b`, M4.ι / #186), this value
+///   equals the raw `[hashes]` pin — membership in this section is the
+///   auditable signal that a source is held to the strict byte-exact
+///   PutGet law rather than only canonical-form equality (Foster et
+///   al. 2007 §2.2 PutGet at the byte-identity counit, Mac Lane §IV.4).
+///
+/// All three hash spaces are keyed by `"<name>@<version>"`.
 ///
 /// [`WellBehavedLens`]: crate::formal::meta::well_behaved_lens
 #[derive(Debug, Default)]
 pub struct LockData {
     pub hashes: HashMap<String, String>,
     pub canonical_signatures: HashMap<String, String>,
+    pub byte_exact_signatures: HashMap<String, String>,
 }
 
 /// In-memory representation of a statute's structural extraction —
@@ -317,6 +346,8 @@ struct RawLockFile {
     hashes: HashMap<String, String>,
     #[serde(default)]
     canonical_signatures: HashMap<String, String>,
+    #[serde(default)]
+    byte_exact_signatures: HashMap<String, String>,
 }
 
 fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
@@ -345,9 +376,38 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
             ));
         }
     }
+    // A byte_exact_signature pins a source held to the strict byte-exact
+    // PutGet law (M4.ι / #186): `put(get(b)) == b`, so the lens output
+    // hash equals the raw-bytes hash. Each entry must therefore (a) name
+    // an already-hashed source, (b) be a 64-char lowercase hex SHA-256,
+    // and (c) EQUAL that source's `[hashes]` pin — a byte-exact signature
+    // that differs from the raw hash is a contradiction in terms.
+    for (key, sig) in &raw.byte_exact_signatures {
+        let Some(raw_hash) = raw.hashes.get(key) else {
+            return Err(format!(
+                "praxis.lock: `[byte_exact_signatures.\"{key}\"]` has no matching \
+                 entry in `[hashes]` — the signature pins the byte-exact round-trip \
+                 of an already-hashed source"
+            ));
+        };
+        if !is_lowercase_hex_sha256(sig) {
+            return Err(format!(
+                "praxis.lock: `[byte_exact_signatures.\"{key}\"]` is not a 64-char \
+                 lowercase hex SHA-256: {sig:?}"
+            ));
+        }
+        if sig != raw_hash {
+            return Err(format!(
+                "praxis.lock: `[byte_exact_signatures.\"{key}\"]` = {sig:?} must equal \
+                 the raw `[hashes]` pin {raw_hash:?} — byte-exactness means \
+                 put(get(b)) == b, so the round-trip hash is the raw-bytes hash"
+            ));
+        }
+    }
     Ok(LockData {
         hashes: raw.hashes,
         canonical_signatures: raw.canonical_signatures,
+        byte_exact_signatures: raw.byte_exact_signatures,
     })
 }
 
@@ -422,6 +482,59 @@ url     = "https://example.com/wordnet.xml.gz"
         assert_eq!(
             lock.canonical_signatures.get("uslm_xsd@1.0.18").unwrap(),
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        );
+    }
+
+    #[test]
+    fn parses_byte_exact_signatures_section() {
+        let text = r#"
+[hashes]
+"license_notice@1" = "1111111111111111111111111111111111111111111111111111111111111111"
+
+[byte_exact_signatures]
+"license_notice@1" = "1111111111111111111111111111111111111111111111111111111111111111"
+"#;
+        let lock = parse_praxis_lock(text).unwrap();
+        assert_eq!(lock.byte_exact_signatures.len(), 1);
+        assert_eq!(
+            lock.byte_exact_signatures.get("license_notice@1").unwrap(),
+            "1111111111111111111111111111111111111111111111111111111111111111"
+        );
+    }
+
+    #[test]
+    fn rejects_byte_exact_signature_without_matching_hash() {
+        // A byte_exact_signature pins the byte-exact round-trip of an
+        // already-hashed raw source; free-standing entries are an error.
+        let text = r#"
+[hashes]
+
+[byte_exact_signatures]
+"license_notice@1" = "1111111111111111111111111111111111111111111111111111111111111111"
+"#;
+        let err = parse_praxis_lock(text).unwrap_err();
+        assert!(
+            err.contains("has no matching entry in `[hashes]`"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_byte_exact_signature_not_equal_to_raw_hash() {
+        // Byte-exactness means put(get(b)) == b, so the round-trip hash
+        // IS the raw-bytes hash. A byte_exact_signature that differs from
+        // the [hashes] pin is a contradiction in terms.
+        let text = r#"
+[hashes]
+"license_notice@1" = "1111111111111111111111111111111111111111111111111111111111111111"
+
+[byte_exact_signatures]
+"license_notice@1" = "2222222222222222222222222222222222222222222222222222222222222222"
+"#;
+        let err = parse_praxis_lock(text).unwrap_err();
+        assert!(
+            err.contains("must equal the raw `[hashes]` pin"),
+            "got: {err}"
         );
     }
 

@@ -42,8 +42,9 @@
 //!
 //! ## Module layout
 //!
-//! - [`lens_trait`] — the [`WellBehavedLens`] trait + the
-//!   [`LensLawFailure`] error.
+//! - [`lens_trait`] — the [`WellBehavedLens`] trait, the
+//!   [`RoundTripFidelity`] level (canonical FLOOR vs byte-exact
+//!   graph-faithful, M4.ι / #186), and the [`LensLawFailure`] error.
 //! - [`canonical`] — per-source-kind canonical forms (XML, JSON,
 //!   plain text, TOML; RDF stubbed).
 //!
@@ -84,7 +85,7 @@ pub use harness::{
 // wasm32. Use `lens_registrations()` for a target-portable accessor.
 #[cfg(not(target_arch = "wasm32"))]
 pub use harness::LENS_REGISTRATIONS;
-pub use lens_trait::{FailureStage, LensLawFailure, WellBehavedLens};
+pub use lens_trait::{FailureStage, LensLawFailure, RoundTripFidelity, WellBehavedLens};
 
 #[cfg(test)]
 mod tests;

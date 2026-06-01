@@ -80,6 +80,28 @@ use core::fmt;
 
 use sha2::{Digest, Sha256};
 
+/// The round-trip fidelity a [`WellBehavedLens`] guarantees — which
+/// PutGet law the harness holds it to (M4.ι / #186).
+///
+/// A *rich* type, not a bool: byte-exactness and the raw-bytes floor
+/// are genuinely different guarantees with different witnesses, and
+/// further fidelity levels extend this enum rather than adding flags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RoundTripFidelity {
+    /// `put(get(b)) == b` byte-for-byte, reconstructed from the typed
+    /// ontology graph alone with NO constant-complement side-channel.
+    /// The target for every source with a graph-faithful concrete
+    /// syntax (plain text, XML/USLM/XSD/DTD, OWL). Held to
+    /// [`WellBehavedLens::assert_byte_exact_law`].
+    ByteExactGraphFaithful,
+    /// Byte-identity recovered via a stored raw-bytes complement
+    /// (Bancilhon & Spyratos 1981, constant-complement view update),
+    /// the universal FLOOR for sources with no published canonical
+    /// form (PDF/binary — ISO 32000-2 publishes none). Held to the
+    /// canonical [`WellBehavedLens::assert_put_get_law`].
+    RawBytesComplementFloor,
+}
+
 /// The signature-of-understanding trait — Foster et al. 2007
 /// well-behaved lens specialized to byte-stream sources.
 ///
@@ -96,6 +118,13 @@ pub trait WellBehavedLens {
     type Target;
     /// Error type for `get` / `put` / `canonical`.
     type Error: fmt::Display;
+
+    /// The round-trip fidelity this lens guarantees. Defaults to
+    /// [`RoundTripFidelity::RawBytesComplementFloor`] so existing
+    /// lenses are unaffected until migrated to graph-faithful
+    /// byte-exactness (M4.ι / #186); the byte-exact migration sets
+    /// this to [`RoundTripFidelity::ByteExactGraphFaithful`].
+    const FIDELITY: RoundTripFidelity = RoundTripFidelity::RawBytesComplementFloor;
 
     /// Parse a byte stream into the ontology instance (Foster et al.
     /// 2007 §2.2, `get : S → T`).
@@ -165,6 +194,46 @@ pub trait WellBehavedLens {
             })
         }
     }
+
+    /// Run the strict **byte-exact** PutGet law: `put(get(b)) == b` as
+    /// raw byte vectors. This is the equivalence-of-categories counit
+    /// at *byte identity* (Mac Lane §IV.4 Theorem 1), strictly
+    /// stronger than [`assert_put_get_law`](Self::assert_put_get_law),
+    /// whose counit is only canonical-form identity.
+    ///
+    /// It requires the ontology graph to reconstruct the original
+    /// bytes exactly — no canonicalization, no constant-complement
+    /// side-channel. A mismatch is concrete evidence that a
+    /// byte-affecting *concrete-syntax* decision is not yet a
+    /// first-class node in the ontology (M4.ι / #186).
+    ///
+    /// Only lenses declaring
+    /// [`RoundTripFidelity::ByteExactGraphFaithful`] are held to this
+    /// law; the harness routes
+    /// [`RoundTripFidelity::RawBytesComplementFloor`] sources to
+    /// [`assert_put_get_law`](Self::assert_put_get_law) instead.
+    fn assert_byte_exact_law(bytes: &[u8]) -> Result<(), LensLawFailure> {
+        let round_tripped = Self::apply_put_after_get(bytes).map_err(|e| LensLawFailure {
+            stage: FailureStage::PutAfterGet,
+            message: alloc::format!("{}", e),
+            input_digest: Some(raw_digest(bytes)),
+            roundtrip_digest: None,
+        })?;
+        if round_tripped.as_slice() == bytes {
+            Ok(())
+        } else {
+            Err(LensLawFailure {
+                stage: FailureStage::ByteMismatch,
+                message: String::from(
+                    "put(get(input)) != input byte-for-byte; the ontology graph does not \
+                     reconstruct the original bytes (byte-exact PutGet law violated — a \
+                     concrete-syntax decision is not captured)",
+                ),
+                input_digest: Some(raw_digest(bytes)),
+                roundtrip_digest: Some(raw_digest(&round_tripped)),
+            })
+        }
+    }
 }
 
 /// Structured failure from [`WellBehavedLens::assert_put_get_law`].
@@ -174,11 +243,13 @@ pub struct LensLawFailure {
     pub stage: FailureStage,
     /// Human-readable description of the failure.
     pub message: String,
-    /// SHA-256 of the canonical form of the input bytes (when
-    /// canonicalization of the input succeeded).
+    /// SHA-256 of the input bytes — the *canonical form* under the
+    /// PutGet law ([`FailureStage::DigestMismatch`]), or the *raw
+    /// bytes* under the byte-exact law ([`FailureStage::ByteMismatch`]).
     pub input_digest: Option<[u8; 32]>,
-    /// SHA-256 of the canonical form of the round-tripped bytes
-    /// (only set on `DigestMismatch`).
+    /// SHA-256 of the round-tripped bytes — canonical form
+    /// (`DigestMismatch`) or raw bytes (`ByteMismatch`). Set only when
+    /// the round-trip produced output to compare.
     pub roundtrip_digest: Option<[u8; 32]>,
 }
 
@@ -218,4 +289,19 @@ pub enum FailureStage {
     /// the ontology does not yet capture the full structure of the
     /// source (PutGet law violated).
     DigestMismatch,
+    /// Byte-exact round-trip completed but `put(get(b)) != b`
+    /// byte-for-byte — a concrete-syntax decision is not yet a
+    /// first-class node in the ontology (byte-exact PutGet law
+    /// violated, M4.ι / #186).
+    ByteMismatch,
+}
+
+/// SHA-256 of raw bytes (no canonicalization). Fingerprints inputs and
+/// outputs in [`WellBehavedLens::assert_byte_exact_law`] failures,
+/// where the comparison is on the original byte stream rather than a
+/// canonical form.
+fn raw_digest(bytes: &[u8]) -> [u8; 32] {
+    let mut h = Sha256::new();
+    h.update(bytes);
+    h.finalize().into()
 }

@@ -26,7 +26,7 @@ use alloc::{format, string::String, string::ToString, vec, vec::Vec};
 use proptest::prelude::*;
 
 use super::canonical::{json, plain_text, toml as toml_canon, xml};
-use super::lens_trait::{FailureStage, WellBehavedLens};
+use super::lens_trait::{FailureStage, RoundTripFidelity, WellBehavedLens};
 
 // ============================================================================
 // Layer 1 — canonical-form idempotence
@@ -290,6 +290,81 @@ fn assert_put_get_law_detects_dropped_byte() {
     assert_ne!(err.input_digest, err.roundtrip_digest);
 }
 
+// ----------------------------------------------------------------------------
+// Byte-exact law (M4.ι / #186) — strictly stronger than canonical PutGet.
+// ----------------------------------------------------------------------------
+
+/// An identity [`WellBehavedLens`] declaring byte-exact graph-faithful
+/// fidelity. `get`/`put` round-trip valid UTF-8 verbatim, so the
+/// byte-exact law `put(get(b)) == b` holds with no complement.
+struct ByteExactStringSource;
+
+impl WellBehavedLens for ByteExactStringSource {
+    type Target = String;
+    type Error = super::canonical::CanonicalizationError;
+
+    const FIDELITY: RoundTripFidelity = RoundTripFidelity::ByteExactGraphFaithful;
+
+    fn get(bytes: &[u8]) -> Result<Self::Target, Self::Error> {
+        core::str::from_utf8(bytes)
+            .map(|s| s.to_string())
+            .map_err(|e| {
+                super::canonical::CanonicalizationError::new(
+                    "byte-exact-string-source",
+                    format!("non-UTF-8: {}", e),
+                )
+            })
+    }
+
+    fn put(target: &Self::Target) -> Result<Vec<u8>, Self::Error> {
+        Ok(target.as_bytes().to_vec())
+    }
+
+    fn canonical(bytes: &[u8]) -> Result<Vec<u8>, Self::Error> {
+        plain_text::canonicalize(bytes)
+    }
+}
+
+#[test]
+fn fidelity_defaults_to_floor_and_can_be_overridden() {
+    // Existing lenses inherit the conservative default so nothing flips
+    // until they are migrated to graph-faithful byte-exactness.
+    assert_eq!(
+        StringSource::FIDELITY,
+        RoundTripFidelity::RawBytesComplementFloor
+    );
+    assert_eq!(
+        ByteExactStringSource::FIDELITY,
+        RoundTripFidelity::ByteExactGraphFaithful
+    );
+}
+
+#[test]
+fn assert_byte_exact_law_passes_for_identity_impl() {
+    let input = b"hello world";
+    ByteExactStringSource::assert_byte_exact_law(input).expect("identity byte-exact PutGet");
+}
+
+#[test]
+fn assert_byte_exact_law_preserves_crlf_unlike_canonical() {
+    // The byte-exact law is strictly stronger: CRLF must survive
+    // verbatim, where the canonical form would fold it to LF. The
+    // identity lens reproduces the exact input bytes.
+    let input = b"a\r\nb\r\nc";
+    ByteExactStringSource::assert_byte_exact_law(input).expect("crlf byte-exact");
+}
+
+#[test]
+fn assert_byte_exact_law_detects_dropped_byte() {
+    let input = b"hello world";
+    let err = DroppingStringSource::assert_byte_exact_law(input)
+        .expect_err("dropping impl must fail byte-exact PutGet");
+    assert_eq!(err.stage, FailureStage::ByteMismatch);
+    assert!(err.input_digest.is_some());
+    assert!(err.roundtrip_digest.is_some());
+    assert_ne!(err.input_digest, err.roundtrip_digest);
+}
+
 // ============================================================================
 // Layer 3 — PutGet law on synthetic inputs through each canonical form
 // ============================================================================
@@ -436,6 +511,14 @@ proptest! {
     fn proptest_string_source_put_get_law(s in ".*") {
         StringSource::assert_put_get_law(s.as_bytes())
             .unwrap_or_else(|e| panic!("PutGet failed on {:?}: {}", s, e));
+    }
+
+    /// The identity lens satisfies the strictly-stronger byte-exact
+    /// law on arbitrary UTF-8 — `put(get(b)) == b` with no complement.
+    #[test]
+    fn proptest_byte_exact_string_source_law(s in ".*") {
+        ByteExactStringSource::assert_byte_exact_law(s.as_bytes())
+            .unwrap_or_else(|e| panic!("byte-exact law failed on {:?}: {}", s, e));
     }
 }
 
