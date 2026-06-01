@@ -349,6 +349,42 @@ pub fn source_content_hash(source_bytes: &[u8]) -> String {
 // PrxEnvelope — owned data + metadata, the thing that gets rkyv'd + gzip'd.
 // =============================================================================
 
+/// The byte-exact reconstruction shape a `.prx` envelope offers for its
+/// source (M4.ι / #186; recovered design). A rich type, not a flag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub enum PrxMode {
+    /// The source is regenerated from the ontology graph alone, no stored
+    /// bytes — earned per-artifact only when the lens is byte-exact
+    /// graph-faithful (`put(get(bytes)) == bytes`). For OWL this awaits a
+    /// byte-exact `write_owl` + RDF Dataset Canonicalization (#258) and is
+    /// not reachable today.
+    GraphFaithful,
+    /// The exact source bytes are carried in the envelope, content-
+    /// addressed — the universal FLOOR (Bancilhon & Spyratos 1981
+    /// constant-complement). Reconstruction returns the stored bytes after
+    /// re-verifying their hash. The honest mode for any artifact whose
+    /// graph is not yet byte-faithful (OWL today; PDF/binary permanently,
+    /// as a theorem).
+    BytesPlusView,
+}
+
+/// The content-addressed source bytes a [`PrxMode::BytesPlusView`] envelope
+/// carries so `.prx` regenerates the exact source without re-fetching it.
+///
+/// Honesty doctrine (recovered design): the complement lives IN the
+/// envelope, never external; `content_address` MUST equal both
+/// `sha256(blob)` and the envelope's [`PrxMetadata::source_sha256`] — the
+/// byte hash is simultaneously the content address and the round-trip gate
+/// (NIST FIPS 180-4 §6.2; Dolstra 2006 content-addressing).
+#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct RawSource {
+    /// SHA-256 of `blob` as 64-char lowercase hex; equals
+    /// [`PrxMetadata::source_sha256`].
+    pub content_address: String,
+    /// The exact source bytes [`read_owl`](super::reader::read_owl) consumed.
+    pub blob: Vec<u8>,
+}
+
 /// The rkyv-serializable `.prx` envelope: the archived corpus plus its
 /// OMV/PROV-O-grounded metadata. Serialized to rkyv bytes and gzip-wrapped
 /// to form the `.prx.gz` artifact.
@@ -360,6 +396,13 @@ pub struct PrxEnvelope {
     /// The archived corpus — the owned mirror of the
     /// `CodegenData<LoadedOwlVocabulary>` interchange.
     pub data: OwnedCodegenData,
+    /// Which byte-exact reconstruction shape this envelope offers
+    /// (M4.ι / #186). OWL is [`PrxMode::BytesPlusView`] today.
+    pub mode: PrxMode,
+    /// The content-addressed source bytes — `Some` iff
+    /// `mode == BytesPlusView`, `None` for a `GraphFaithful` envelope
+    /// (whose source is regenerable from `data`).
+    pub raw: Option<RawSource>,
 }
 
 /// Error from emitting or loading a `.prx.gz` envelope.
@@ -386,6 +429,11 @@ pub enum PrxError {
     /// — an unregistered or unpinned source cannot be validated, so the
     /// gate rejects it (fail-closed).
     NoLockPin { key: String },
+    /// The envelope's source bytes could not be reconstructed: a
+    /// `BytesPlusView` envelope is missing its raw leaf, or a
+    /// `GraphFaithful` envelope's byte-exact graph→source regeneration
+    /// (write_owl + RDFC, #258) is not yet implemented.
+    SourceNotReconstructible { reason: String },
 }
 
 impl core::fmt::Display for PrxError {
@@ -407,6 +455,9 @@ impl core::fmt::Display for PrxError {
                 f,
                 "no praxis.lock pin for `{key}` — cannot validate, refusing to install"
             ),
+            PrxError::SourceNotReconstructible { reason } => {
+                write!(f, "cannot reconstruct source bytes: {reason}")
+            }
         }
     }
 }
@@ -534,6 +585,58 @@ pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxEr
 }
 
 // =============================================================================
+// Source reconstruction — the `.prx → source` leg of the byte-hash invariant.
+// =============================================================================
+
+/// Reconstruct the exact source bytes from an envelope — the `.prx → xml`
+/// leg of the operator's invariant "…→ ontology → .prx → xml (same byte
+/// hash)" (M4.ι / #186).
+///
+/// - [`PrxMode::BytesPlusView`]: return the stored `raw.blob` after
+///   re-verifying `sha256(blob) == raw.content_address ==
+///   metadata.source_sha256` — fail-closed; a tampered blob is rejected.
+/// - [`PrxMode::GraphFaithful`]: regenerate from `data`. For OWL this is
+///   the deferred byte-exact `write_owl` + RDFC leg (#258); no envelope is
+///   emitted in this mode today, so reaching it is a logic error.
+pub fn reconstruct_source(envelope: &PrxEnvelope) -> Result<Vec<u8>, PrxError> {
+    match envelope.mode {
+        PrxMode::BytesPlusView => {
+            let raw = envelope
+                .raw
+                .as_ref()
+                .ok_or_else(|| PrxError::SourceNotReconstructible {
+                    reason: "BytesPlusView envelope is missing its raw source leaf".to_string(),
+                })?;
+            let computed = source_content_hash(&raw.blob);
+            let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
+            // The stored blob must hash to its own content address …
+            if computed != raw.content_address {
+                return Err(PrxError::HashMismatch {
+                    key: format!("{key} (raw content address)"),
+                    expected: raw.content_address.clone(),
+                    found: computed,
+                });
+            }
+            // … and that address must equal the envelope's source pin, so
+            // the raw leaf cannot disagree with the load gate's anchor.
+            if computed != envelope.metadata.source_sha256 {
+                return Err(PrxError::HashMismatch {
+                    key: format!("{key} (raw vs metadata)"),
+                    expected: envelope.metadata.source_sha256.clone(),
+                    found: computed,
+                });
+            }
+            Ok(raw.blob.clone())
+        }
+        PrxMode::GraphFaithful => Err(PrxError::SourceNotReconstructible {
+            reason: "byte-exact graph→source regeneration (write_owl + RDFC, #258) \
+                     is not yet implemented"
+                .to_string(),
+        }),
+    }
+}
+
+// =============================================================================
 // EmittedArtifact — one published `.prx.gz` file, round-trip-validated.
 // =============================================================================
 
@@ -657,16 +760,33 @@ mod emit {
             .count() as u64;
 
         let data = builder_to_owned(&builder);
+        let source_sha256 = source_content_hash(source);
         let metadata = PrxMetadata {
             name: name.to_string(),
             version: version.to_string(),
             ontology_uri,
             source_url: url.to_string(),
-            source_sha256: source_content_hash(source),
+            source_sha256: source_sha256.clone(),
             number_of_classes,
             number_of_properties,
         };
-        Ok(PrxEnvelope { metadata, data })
+        // OWL is the BytesPlusView FLOOR today: write_owl emits canonical
+        // RDF/XML (sorted entities, synthetic prefixes) — not byte-exact
+        // source — and RDF Dataset Canonicalization is unimplemented (#258),
+        // so the graph is not yet byte-faithful for OWL. Carry the exact
+        // source bytes content-addressed so `.prx` self-reconstructs the
+        // source NOW (the operator's "…→ ontology → .prx → xml, same byte
+        // hash" invariant). GraphFaithful (raw omitted) is earned
+        // per-artifact once a byte-exact write_owl + RDFC lands.
+        Ok(PrxEnvelope {
+            metadata,
+            data,
+            mode: PrxMode::BytesPlusView,
+            raw: Some(RawSource {
+                content_address: source_sha256,
+                blob: source.to_vec(),
+            }),
+        })
     }
 
     /// Emit a `.prx.gz` artifact from OWL source bytes:
@@ -898,6 +1018,60 @@ mod tests {
         // The full corpus value is equal (entities + index + edges) — the
         // round-trip is lossless.
         assert_eq!(loaded, direct, "loaded corpus must equal the direct corpus");
+    }
+
+    // ── raw leaf: .prx → source byte-exact (BytesPlusView floor, #186) ─
+
+    #[test]
+    fn raw_leaf_reconstructs_source_byte_exact() {
+        let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("build envelope");
+        // OWL is the BytesPlusView floor today (write_owl not byte-exact; RDFC #258).
+        assert_eq!(envelope.mode, PrxMode::BytesPlusView);
+        let raw = envelope
+            .raw
+            .as_ref()
+            .expect("a BytesPlusView envelope carries a raw leaf");
+        assert_eq!(raw.content_address, envelope.metadata.source_sha256);
+
+        // The .prx → source leg returns the EXACT original bytes …
+        let reconstructed = reconstruct_source(&envelope).expect("reconstruct");
+        assert_eq!(
+            reconstructed,
+            CITO_2_8_1_OWL.as_bytes(),
+            "reconstruct_source must return the exact source bytes"
+        );
+        // … so the operator's invariant holds: round-trip hash == source hash.
+        assert_eq!(
+            source_content_hash(&reconstructed),
+            envelope.metadata.source_sha256,
+            "reconstructed bytes must hash to the pinned source content address"
+        );
+    }
+
+    #[test]
+    fn raw_leaf_survives_prx_gz_round_trip() {
+        // The raw leaf must survive the full rkyv + gzip envelope round-trip
+        // so a distributed .prx.gz is self-reconstructing.
+        let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+            .expect("build envelope");
+        let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
+        let back = envelope_from_bytes(&gunzip(&prx_gz).expect("gunzip")).expect("deserialize");
+        assert_eq!(back.mode, PrxMode::BytesPlusView);
+        let reconstructed = reconstruct_source(&back).expect("reconstruct after round-trip");
+        assert_eq!(reconstructed, CITO_2_8_1_OWL.as_bytes());
+    }
+
+    #[test]
+    fn raw_leaf_rejects_tampered_blob() {
+        // Fail-closed: if the carried bytes no longer hash to the content
+        // address, reconstruction refuses rather than returning wrong bytes.
+        let mut envelope =
+            build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+                .expect("build envelope");
+        envelope.raw.as_mut().expect("raw leaf").blob.push(b'!');
+        let err = reconstruct_source(&envelope).expect_err("tampered blob must fail closed");
+        assert!(matches!(err, PrxError::HashMismatch { .. }), "got {err:?}");
     }
 
     // ── metadata grounding: OMV/PROV-O fields are populated correctly ─
@@ -1192,17 +1366,23 @@ mod tests {
         let n_prop = s.properties.len() as u64;
         // A deterministic synthetic "source" whose hash we control.
         let source = format!("{name}@{version}::{}", data.entity_count);
+        let source_sha256 = source_content_hash(source.as_bytes());
         PrxEnvelope {
             metadata: PrxMetadata {
                 name: name.to_string(),
                 version: version.to_string(),
                 ontology_uri: "http://ex.org/v#".to_string(),
                 source_url: "http://ex.org/v".to_string(),
-                source_sha256: source_content_hash(source.as_bytes()),
+                source_sha256: source_sha256.clone(),
                 number_of_classes: n_cls,
                 number_of_properties: n_prop,
             },
             data,
+            mode: PrxMode::BytesPlusView,
+            raw: Some(RawSource {
+                content_address: source_sha256,
+                blob: source.into_bytes(),
+            }),
         }
     }
 
