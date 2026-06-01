@@ -1,6 +1,6 @@
 [package]
 name = "pr4xis-domains"
-version = "0.21.0"
+version = "0.22.0"
 edition = "2024"
 authors = ["i-am-logger"]
 description = "Applied domains — chess, calculator, elevator, legal, traffic, HTTP, games, math, physics, music, colors"
@@ -16,7 +16,7 @@ homepage = "https://github.com/i-am-logger/pr4xis"
 # Keeping it off the normal dep keeps `xsd-parser` out of the WASM graph
 # (this crate is a WASM default-feature dependency — see the fetch
 # gating notes below).
-pr4xis = { version = "0.16.0", path = "../pr4xis", default-features = false, features = ["std"] }
+pr4xis = { version = "0.22.0", path = "../pr4xis", default-features = false, features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
@@ -108,7 +108,7 @@ fetch = ["prx", "dep:ureq", "dep:rustls", "dep:rustls-rustcrypto"]
 # emits Rust modules under $OUT_DIR/<name>_codegen.rs for every Statute-kind
 # source whose lock carries structural data. The crate's runtime tree then
 # `include!`s those modules under `social::compliance::law::<name>::`.
-pr4xis = { version = "0.16.0", path = "../pr4xis", default-features = false, features = ["codegen"] }
+pr4xis = { version = "0.22.0", path = "../pr4xis", default-features = false, features = ["codegen"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
 # SHA-256 for build-time source hashing.
@@ -122,7 +122,7 @@ workspace = true
 # `pr4xis::codegen::wordnet::parse_wordnet_xml` directly. `codegen` is
 # off the normal dep (it leaks `xsd-parser` into WASM), so unify it back
 # in for test builds here.
-pr4xis = { version = "0.16.0", path = "../pr4xis", features = ["codegen"] }
+pr4xis = { version = "0.22.0", path = "../pr4xis", features = ["codegen"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 proptest = "1.11"
 tempfile = "3"
