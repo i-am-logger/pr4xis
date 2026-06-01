@@ -80,6 +80,21 @@
 //!   (the full [`WellBehavedLens`] PutGet leg) — #258.
 //! - wasm dual-load UI/fetch — #257.
 //!
+//! ## Realised axioms (M4.ι.0)
+//!
+//! This module is a *realisation* of the
+//! [`OntologyArchiveStorage`](crate::formal::meta::ontology_archive::ontology)
+//! ontology — its functions witness that ontology's runnable axioms (in
+//! `crate::formal::meta::ontology_archive::axioms`), and the test
+//! `realisation_witnesses_the_archive_axioms` runs them against this code:
+//!
+//! - [`source_content_hash`] — `MerkleHashDeterministic`, `MerkleDedupCorrect`.
+//! - [`gzip`] / [`gunzip`] — `CompressionRoundTrip`.
+//! - [`envelope_to_bytes`] — `RkyvDeterminism`.
+//! - [`envelope_to_bytes`] / [`envelope_from_bytes`] — `EmitLoadWellBehaved`.
+//! - [`reconstruct_source`] — `SourceHashFaithfulness`.
+//! - [`load_prx_gz`] / `validate_envelope_against_pin` — `LoadGateFailsClosed`.
+//!
 //! ## Citations
 //!
 //! - **Hartmann, Palma & Sure (2005)** "OMV — Ontology Metadata
@@ -1072,6 +1087,28 @@ mod tests {
         envelope.raw.as_mut().expect("raw leaf").blob.push(b'!');
         let err = reconstruct_source(&envelope).expect_err("tampered blob must fail closed");
         assert!(matches!(err, PrxError::HashMismatch { .. }), "got {err:?}");
+    }
+
+    // ── witnesses: this realisation upholds the OntologyArchiveStorage axioms ─
+
+    /// `xml::owl::prx` realises the
+    /// [`OntologyArchiveStorage`](crate::formal::meta::ontology_archive)
+    /// ontology — its runnable axioms must hold against the real machinery
+    /// here (M4.ι.0 / #175). This binds the spec to the code.
+    #[test]
+    fn realisation_witnesses_the_archive_axioms() {
+        use crate::formal::meta::ontology_archive::axioms::{
+            CompressionRoundTrip, EmitLoadWellBehaved, LoadGateFailsClosed, MerkleDedupCorrect,
+            MerkleHashDeterministic, RkyvDeterminism, SourceHashFaithfulness,
+        };
+        use pr4xis::ontology::Axiom;
+        assert!(MerkleHashDeterministic.verify().is_ok());
+        assert!(MerkleDedupCorrect.verify().is_ok());
+        assert!(CompressionRoundTrip.verify().is_ok());
+        assert!(RkyvDeterminism.verify().is_ok());
+        assert!(EmitLoadWellBehaved.verify().is_ok());
+        assert!(SourceHashFaithfulness.verify().is_ok());
+        assert!(LoadGateFailsClosed.verify().is_ok());
     }
 
     // ── metadata grounding: OMV/PROV-O fields are populated correctly ─
