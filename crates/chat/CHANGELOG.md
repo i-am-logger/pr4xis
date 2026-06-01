@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.22.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.3.0...pr4xis-chat-v0.22.0) - 2026-06-01
+
+### Added
+
+- [**breaking**] sync all praxis crates to one version (0.22.0) ([#190](https://github.com/i-am-logger/pr4xis/pull/190))
+- praxis + praxis-cli gain the registered-source mechanism (SOX 1514A, AIR21 42121) ([#179](https://github.com/i-am-logger/pr4xis/pull/179))
+- *(#117)* MAPE-K ontology — chat pipeline's literature-grounded home (#146)
+- Ontolex-Lemon, consciousness C1×C2, complete functor chain, Vocabulary API ([#88](https://github.com/i-am-logger/pr4xis/pull/88)) ([#104](https://github.com/i-am-logger/pr4xis/pull/104))
+- define_ontology! being: clause + register all 108 ontologies ([#76](https://github.com/i-am-logger/pr4xis/pull/76)) ([#84](https://github.com/i-am-logger/pr4xis/pull/84))
+- enforce ontology patterns — define_ontology! everywhere, 4851 tests
+
+### Other
+
+- release master ([#184](https://github.com/i-am-logger/pr4xis/pull/184))
+- release master ([#181](https://github.com/i-am-logger/pr4xis/pull/181))
+- release master ([#178](https://github.com/i-am-logger/pr4xis/pull/178))
+- complete validation overhaul — per-def trait sweep + rustdoc rot + mdBook ([#176](https://github.com/i-am-logger/pr4xis/pull/176))
+- release master ([#175](https://github.com/i-am-logger/pr4xis/pull/175))
+- release master ([#173](https://github.com/i-am-logger/pr4xis/pull/173))
+- migrate pr4xis-domains to feat/logic-ontologies API ([#170](https://github.com/i-am-logger/pr4xis/pull/170))
+- release master ([#158](https://github.com/i-am-logger/pr4xis/pull/158))
+- Literature alignment: kinded morphisms, Arrow unification, Concept rename, macro cleanup ([#156](https://github.com/i-am-logger/pr4xis/pull/156))
+- release master ([#151](https://github.com/i-am-logger/pr4xis/pull/151))
+- release master ([#147](https://github.com/i-am-logger/pr4xis/pull/147))
+- release master ([#145](https://github.com/i-am-logger/pr4xis/pull/145))
+- release master ([#126](https://github.com/i-am-logger/pr4xis/pull/126))
+- release master ([#115](https://github.com/i-am-logger/pr4xis/pull/115))
+- *(#113)* batch 3 — final cognitive ontologies (lemon, consciousness, self_model) (#120)
+- *(#113)* batch 2 — dialogue/pragmatics cluster (7 ontologies) (#119)
+- release master ([#105](https://github.com/i-am-logger/pr4xis/pull/105))
+- release master ([#85](https://github.com/i-am-logger/pr4xis/pull/85))
+- release master ([#73](https://github.com/i-am-logger/pr4xis/pull/73))
+- release master ([#68](https://github.com/i-am-logger/pr4xis/pull/68))
+- rewrite + per-ontology rollout (#57, #55, #52, #46, #44) ([#63](https://github.com/i-am-logger/pr4xis/pull/63))
+- release master ([#43](https://github.com/i-am-logger/pr4xis/pull/43))
+
 ## [0.8.1](https://github.com/i-am-logger/pr4xis/compare/pr4xis-chat-v0.8.0...pr4xis-chat-v0.8.1) (2026-05-30)
 
 

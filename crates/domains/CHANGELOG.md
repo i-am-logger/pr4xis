@@ -1,5 +1,66 @@
 # Changelog
 
+## [0.22.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.7.0...pr4xis-domains-v0.22.0) - 2026-06-01
+
+### Added
+
+- [**breaking**] sync all praxis crates to one version (0.22.0) ([#190](https://github.com/i-am-logger/pr4xis/pull/190))
+- [**breaking**] restore praxis publishing to crates.io ([#188](https://github.com/i-am-logger/pr4xis/pull/188))
+- *(cli)* one-command corpus updates via `pr4xis update --lock` ([#183](https://github.com/i-am-logger/pr4xis/pull/183))
+- praxis + praxis-cli gain the registered-source mechanism (SOX 1514A, AIR21 42121) ([#179](https://github.com/i-am-logger/pr4xis/pull/179))
+- *(deps,ci)* [**breaking**] pure-Rust crypto + always-latest devenv + PR-title gate ([#177](https://github.com/i-am-logger/pr4xis/pull/177))
+- *(#91)* pr4xis core + domains run no_std + alloc (#157)
+- *(#148)* Lemon meta on every structural entity — uniform registry for ontologies, axioms, functors, adjunctions, nat-trans (#150)
+- *(#117)* MAPE-K ontology — chat pipeline's literature-grounded home (#146)
+- *(#62)* Heim syntrometric lineage — consolidated stack (#143)
+- *(#62)* Heim syntrometry Phase 1 — lineage verified by functor laws (#135)
+- *(#131)* TerminalFunctor helper — reusable one-object collapse (#134)
+- *(#130)* Category::Op<C> + empirical 4th failure mode discovery (#133)
+- *(#123)* Resilience ontology — Nygard/Brooker/Armstrong/Patterson (#128)
+- *(#124)* Endofunctor trait — first-class C → C functor (#127)
+- *(#122)* Dependability ontology — Avizienis-Laprie-Randell-Landwehr (2004) (#125)
+- typed Vocabulary — OntologyName, ModulePath, structured Citation ([#111](https://github.com/i-am-logger/pr4xis/pull/111))
+- compose API — runtime ontology composition via Korporator ([#103](https://github.com/i-am-logger/pr4xis/pull/103)) ([#108](https://github.com/i-am-logger/pr4xis/pull/108))
+- Ontolex-Lemon, consciousness C1×C2, complete functor chain, Vocabulary API ([#88](https://github.com/i-am-logger/pr4xis/pull/88)) ([#104](https://github.com/i-am-logger/pr4xis/pull/104))
+- define_ontology! being: clause + register all 108 ontologies ([#76](https://github.com/i-am-logger/pr4xis/pull/76)) ([#84](https://github.com/i-am-logger/pr4xis/pull/84))
+- artifact_identity + data_provisioning — ontological external-data subsystem, no more LFS ([#71](https://github.com/i-am-logger/pr4xis/pull/71))
+- staging ontology — Futamura's partial-evaluation framework as a meta-ontology ([#67](https://github.com/i-am-logger/pr4xis/pull/67))
+- enforce ontology patterns — define_ontology! everywhere, 4851 tests
+
+### Fixed
+
+- *(#62)* address 11 copilot comments on consolidated Heim PR #143 (#144)
+
+### Other
+
+- release master ([#184](https://github.com/i-am-logger/pr4xis/pull/184))
+- praxis tests give faster feedback and catch slowdowns earlier ([#185](https://github.com/i-am-logger/pr4xis/pull/185))
+- release master ([#181](https://github.com/i-am-logger/pr4xis/pull/181))
+- release master ([#178](https://github.com/i-am-logger/pr4xis/pull/178))
+- complete validation overhaul — per-def trait sweep + rustdoc rot + mdBook ([#176](https://github.com/i-am-logger/pr4xis/pull/176))
+- release master ([#175](https://github.com/i-am-logger/pr4xis/pull/175))
+- release master ([#173](https://github.com/i-am-logger/pr4xis/pull/173))
+- migrate pr4xis-domains to feat/logic-ontologies API ([#170](https://github.com/i-am-logger/pr4xis/pull/170))
+- release master ([#158](https://github.com/i-am-logger/pr4xis/pull/158))
+- Literature alignment: kinded morphisms, Arrow unification, Concept rename, macro cleanup ([#156](https://github.com/i-am-logger/pr4xis/pull/156))
+- release master ([#151](https://github.com/i-am-logger/pr4xis/pull/151))
+- release master ([#147](https://github.com/i-am-logger/pr4xis/pull/147))
+- release master ([#145](https://github.com/i-am-logger/pr4xis/pull/145))
+- release master ([#126](https://github.com/i-am-logger/pr4xis/pull/126))
+- *(#98)* kinded-functor failures diagnosed — three distinct problems, none lax (#129)
+- release master ([#115](https://github.com/i-am-logger/pr4xis/pull/115))
+- *(#113)* batch 3 — final cognitive ontologies (lemon, consciousness, self_model) (#120)
+- *(#113)* batch 2 — dialogue/pragmatics cluster (7 ontologies) (#119)
+- *(#113)* migrate 18 ontologies to ontology! proc macro (#116)
+- release master ([#105](https://github.com/i-am-logger/pr4xis/pull/105))
+- release master ([#85](https://github.com/i-am-logger/pr4xis/pull/85))
+- release master ([#73](https://github.com/i-am-logger/pr4xis/pull/73))
+- *(#173)* per-ontology rollout for the 5 new HMI sub-ontologies (#69)
+- release master ([#68](https://github.com/i-am-logger/pr4xis/pull/68))
+- applied/theming/ → applied/hmi/{theming,surfaces,visualization,input,report,explorer}/ ([#66](https://github.com/i-am-logger/pr4xis/pull/66))
+- rewrite + per-ontology rollout (#57, #55, #52, #46, #44) ([#63](https://github.com/i-am-logger/pr4xis/pull/63))
+- release master ([#43](https://github.com/i-am-logger/pr4xis/pull/43))
+
 ## [0.21.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-domains-v0.20.0...pr4xis-domains-v0.21.0) (2026-05-30)
 
 
