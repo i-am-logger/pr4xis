@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.22.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.3.0...pr4xis-cli-v0.22.0) - 2026-06-01
+
+### Added
+
+- [**breaking**] sync all praxis crates to one version (0.22.0) ([#190](https://github.com/i-am-logger/pr4xis/pull/190))
+- *(cli)* one-command corpus updates via `pr4xis update --lock` ([#183](https://github.com/i-am-logger/pr4xis/pull/183))
+- praxis + praxis-cli gain the registered-source mechanism (SOX 1514A, AIR21 42121) ([#179](https://github.com/i-am-logger/pr4xis/pull/179))
+- artifact_identity + data_provisioning — ontological external-data subsystem, no more LFS ([#71](https://github.com/i-am-logger/pr4xis/pull/71))
+- enforce ontology patterns — define_ontology! everywhere, 4851 tests
+
+### Fixed
+
+- *(codegen)* WASM build no longer emits deleted per-def traits + CI catches it ([#174](https://github.com/i-am-logger/pr4xis/pull/174))
+
+### Other
+
+- release master ([#184](https://github.com/i-am-logger/pr4xis/pull/184))
+- release master ([#181](https://github.com/i-am-logger/pr4xis/pull/181))
+- release master ([#178](https://github.com/i-am-logger/pr4xis/pull/178))
+- complete validation overhaul — per-def trait sweep + rustdoc rot + mdBook ([#176](https://github.com/i-am-logger/pr4xis/pull/176))
+- release master ([#175](https://github.com/i-am-logger/pr4xis/pull/175))
+- release master ([#173](https://github.com/i-am-logger/pr4xis/pull/173))
+- release master ([#158](https://github.com/i-am-logger/pr4xis/pull/158))
+- release master ([#151](https://github.com/i-am-logger/pr4xis/pull/151))
+- release master ([#147](https://github.com/i-am-logger/pr4xis/pull/147))
+- release master ([#145](https://github.com/i-am-logger/pr4xis/pull/145))
+- release master ([#126](https://github.com/i-am-logger/pr4xis/pull/126))
+- release master ([#115](https://github.com/i-am-logger/pr4xis/pull/115))
+- release master ([#105](https://github.com/i-am-logger/pr4xis/pull/105))
+- release master ([#85](https://github.com/i-am-logger/pr4xis/pull/85))
+- release master ([#73](https://github.com/i-am-logger/pr4xis/pull/73))
+- release master ([#68](https://github.com/i-am-logger/pr4xis/pull/68))
+- release master ([#43](https://github.com/i-am-logger/pr4xis/pull/43))
+
 ## [0.7.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-cli-v0.6.0...pr4xis-cli-v0.7.0) (2026-05-30)
 
 
