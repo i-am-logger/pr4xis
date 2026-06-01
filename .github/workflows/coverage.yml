@@ -1,0 +1,74 @@
+name: Coverage
+
+# Coverage runs on its own workflow because it has different triggers
+# from CI (nightly cron + release-PR + manual), uses a separate cache
+# slice (cargo-llvm-cov compiles with profiling instrumentation, which
+# changes every rustc fingerprint vs the release CI slice), and should
+# be non-blocking — a coverage drop is signal, not a merge gate.
+
+on:
+  # Trend line across master. Aligned with the previous cron in ci.yml.
+  schedule:
+    - cron: '0 6 * * *'
+
+  # Run on Release PRs as they're opened/updated. release-plz tags
+  # those PRs with the `release` label (see release-plz.toml), so the
+  # label filter pulls only Release PRs into the coverage run.
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+  # On-demand run for any branch via the Actions UI.
+  workflow_dispatch:
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    # Run on cron + dispatch unconditionally; on PRs only if the
+    # `release` label is present.
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'release'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: coverage
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Cache WordNet XML
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Cache fetched external data
+        uses: actions/cache@v4
+        with:
+          path: |
+            crates/domains/data/legal/uscode
+            crates/domains/data/markup-schemas/xsts
+            crates/domains/data/markup-schemas/xmlconf
+          key: praxis-data-${{ hashFiles('praxis.lock') }}
+      - name: Fetch external data
+        run: cargo run -p pr4xis-cli --release -- update
+      - name: Run coverage
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: false
