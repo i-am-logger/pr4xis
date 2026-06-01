@@ -52,23 +52,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 """
 
-# Per-package overrides — pr4xis-examples is not a library to publish;
-# it carries runnable demos that consumers don't pull in transitively.
-[[package]]
-name = "pr4xis-examples"
-publish = false
-
-# Couple `pr4xis` and `pr4xis-derive` so they always release at the
-# same version — the derive crate is meaningless apart from its host
-# (a `pr4xis-derive 0.X` only ever pairs with a single `pr4xis 0.X`),
-# so the standard `*-derive` convention from the wider Rust ecosystem
-# (serde+serde_derive, thiserror+thiserror-impl, rkyv+rkyv_derive) is
-# to version-lock the pair. Application crates (`pr4xis-domains`,
-# `pr4xis-cli`, `pr4xis-chat`, `pr4xis-web`) version independently.
-[[package]]
-name = "pr4xis"
-version_group = "pr4xis-core"
-
+# Full workspace version sync — every workspace member shares a single
+# version number. Modelled on the Bevy / Tauri / SeaORM convention:
+# users install one praxis version and every supporting crate moves in
+# lockstep. Removes the per-crate version drift that previously let
+# pr4xis-derive sit at 0.1.0 while pr4xis evolved through 0.16.0 (the
+# bug that broke catch-up publish; see chore/sync-all-versions-0.22.0).
+#
+# `pr4xis-examples` is in the version group so its number stays aligned
+# with the rest, but `publish = false` keeps it off crates.io — examples
+# aren't a library consumers pull in transitively.
 [[package]]
 name = "pr4xis-derive"
-version_group = "pr4xis-core"
+version_group = "praxis"
+
+[[package]]
+name = "pr4xis"
+version_group = "praxis"
+
+[[package]]
+name = "pr4xis-domains"
+version_group = "praxis"
+
+[[package]]
+name = "pr4xis-cli"
+version_group = "praxis"
+
+[[package]]
+name = "pr4xis-chat"
+version_group = "praxis"
+
+[[package]]
+name = "pr4xis-web"
+version_group = "praxis"
+
+[[package]]
+name = "pr4xis-examples"
+version_group = "praxis"
+publish = false
