@@ -342,3 +342,21 @@
 "biro@1.1.1"             = "3b5f6b00c5a721c4913d1f6398fc01b66d57b4a0dc11c679770af5ff1cec5f6f"
 "prov_o@2013-04-30"      = "1d75fac49d06fac3be48ab2edba4dbe47b0e535ada1186126d3f0fbb734017ae"
 "olia@2026-04-09"        = "934547422365700fa23c7562822c91dbd38df824c9b8490af79aa1247c6b2576"
+
+# Archive content addresses — SHA-256 of the rkyv `.prx` envelope bytes
+# (the `BinaryEnvelope` MerkleRoot) for each source's compiled archive.
+# Distinct from `[hashes]` (the raw source) and `[canonical_signatures]`
+# (the lens output): this pins the *compiled archive itself*, and is the
+# integrity claim the `.prx` load gate re-derives from the envelope bytes
+# and verifies before installing anything (W3C Subresource Integrity 2016;
+# Dolstra 2006 content-addressing; Merkle 1987). A build-output pin: it
+# changes when the rkyv layout or the projected data changes, and is
+# re-pinned from the value `emit_all_prx_gz` reports (the
+# `archive_anchor_cito_matches_lock` test guards it).
+[archive_signatures]
+"biro@1.1.1"             = "fa52ae534e3e8681d2142d6b7e096bd6f8ed7268470469b9c6e1264436f4a09e"
+"c4o@1.2"                = "f8f17c223f8c0ebae9302f6ffd9bf522e2bb271848c6e229943f183e895ee163"
+"cito@2.8.1"             = "0a87de693dbfb7d8c76f03fcf268974e1d582e60ae2c7ce7cee2e420b5905fac"
+"doco@1.3"               = "c8b2ceb1b2d7b8bc4078c03644e04333dad5570360b79d3e9705b6f36cf98859"
+"olia@2026-04-09"        = "711f6a0fc6c93c03dca67a5b5cd2e1a4d4f5333ae5ae06bee3fb1e2df1e61283"
+"prov_o@2013-04-30"      = "f858921e3aaaa9ee478765c0f60132a5f4a13e1b1e5251ab0454d4b1d749f1bf"

@@ -35,17 +35,20 @@
 //! (Ontology Metadata Vocabulary) or PROV-O (PROV Ontology) term it
 //! realizes — not ad-hoc strings. See [`PrxMetadata`].
 //!
-//! ## The load-validation gate
+//! ## The load gate
 //!
-//! [`load_prx_gz`] is fail-closed. It gunzips, rkyv-validates the
-//! envelope (bytecheck rejects a corrupted/truncated blob), then asserts
-//! the envelope's embedded `source_sha256` equals the pin recorded in
-//! `praxis.lock` for `"{name}@{version}"` (read through the registry's
-//! [`lock_hashes`] accessor — the same hash space the
-//! `LockManifestAgreement` / `RegistryLocalPathsExist` axioms verify). On
-//! any mismatch it returns `Err` and installs nothing. Only on a match
-//! does it rebuild the `CodegenData` view and hand back a validated
-//! [`LoadedOwlVocabulary`].
+//! [`load_prx_gz`] is fail-closed and content-addressed. It gunzips,
+//! rkyv-validates the envelope (bytecheck rejects a corrupted/truncated
+//! blob), then discharges two content-hash `IntegrityClaim`s through the
+//! same `artifact_identity` verifier the fetch path uses
+//! (`raw_hash::verify`): (1) the `MerkleRoot` — the content address
+//! *re-derived from the rkyv bytes* must equal the `praxis.lock`
+//! `[archive_signatures]` pin, binding the whole installed node so a
+//! poisoned `data` column is rejected even under a genuine source label;
+//! and (2) the `SourcePin` — the carried source re-hashes to the `[hashes]`
+//! pin. Neither check trusts an embedded self-asserted field. Only on both
+//! `Verified` does it rebuild the `CodegenData` view and hand back a
+//! validated [`LoadedOwlVocabulary`]; otherwise it installs nothing.
 //!
 //! ## Bidirectional-transformation law
 //!
@@ -93,7 +96,8 @@
 //! - [`envelope_to_bytes`] — `RkyvDeterminism`.
 //! - [`envelope_to_bytes`] / [`envelope_from_bytes`] — `EmitLoadWellBehaved`.
 //! - [`reconstruct_source`] — `SourceHashFaithfulness`.
-//! - [`load_prx_gz`] / `validate_envelope_against_pin` — `LoadGateFailsClosed`.
+//! - [`load_prx_gz`] / `verify_content_address` — `LoadGateFailsClosed`,
+//!   `IntegrityClaimVerifiable`.
 //!
 //! ## Citations
 //!
@@ -137,6 +141,12 @@ use pr4xis::EntityRef;
 use pr4xis::codegen_data::CodegenData;
 
 use super::vocabulary::LoadedOwlVocabulary;
+
+use crate::formal::meta::artifact_identity::ontology::{
+    ClaimData, IdentityClaim, IdentityConcept, VerificationResult,
+};
+use crate::formal::meta::artifact_identity::schemes::raw_hash;
+use crate::formal::meta::well_behaved_lens::RoundTripFidelity;
 
 // =============================================================================
 // OMV / PROV-O term IRIs — the vocabulary the metadata block is typed by.
@@ -364,24 +374,19 @@ pub fn source_content_hash(source_bytes: &[u8]) -> String {
 // PrxEnvelope — owned data + metadata, the thing that gets rkyv'd + gzip'd.
 // =============================================================================
 
-/// The byte-exact reconstruction shape a `.prx` envelope offers for its
-/// source (M4.ι / #186; recovered design). A rich type, not a flag.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
-pub enum PrxMode {
-    /// The source is regenerated from the ontology graph alone, no stored
-    /// bytes — earned per-artifact only when the lens is byte-exact
-    /// graph-faithful (`put(get(bytes)) == bytes`). For OWL this awaits a
-    /// byte-exact `write_owl` + RDF Dataset Canonicalization (#258) and is
-    /// not reachable today.
-    GraphFaithful,
-    /// The exact source bytes are carried in the envelope, content-
-    /// addressed — the universal FLOOR (Bancilhon & Spyratos 1981
-    /// constant-complement). Reconstruction returns the stored bytes after
-    /// re-verifying their hash. The honest mode for any artifact whose
-    /// graph is not yet byte-faithful (OWL today; PDF/binary permanently,
-    /// as a theorem).
-    BytesPlusView,
-}
+// The `.prx` envelope's reconstruction mode is NOT a parallel enum: it IS
+// the source lens's [`RoundTripFidelity`] (well_behaved_lens) — the same
+// Bancilhon & Spyratos (1981) constant-complement grading, realised-through
+// rather than re-declared (review #6: no parallel value-isomorphic enums):
+//
+//   RoundTripFidelity::RawBytesComplementFloor — the source bytes are
+//     carried in the envelope, content-addressed (the constant-complement);
+//     reconstruction returns the stored bytes after re-verifying their hash.
+//     OWL today; PDF/binary permanently (a theorem).
+//   RoundTripFidelity::ByteExactGraphFaithful — the source is regenerated
+//     from the ontology graph alone, no stored bytes; earned per-artifact
+//     once a byte-exact `write_owl` + RDF Dataset Canonicalization (#258)
+//     lands. Not reachable for OWL today.
 
 /// The content-addressed source bytes a [`PrxMode::BytesPlusView`] envelope
 /// carries so `.prx` regenerates the exact source without re-fetching it.
@@ -411,12 +416,14 @@ pub struct PrxEnvelope {
     /// The archived corpus — the owned mirror of the
     /// `CodegenData<LoadedOwlVocabulary>` interchange.
     pub data: OwnedCodegenData,
-    /// Which byte-exact reconstruction shape this envelope offers
-    /// (M4.ι / #186). OWL is [`PrxMode::BytesPlusView`] today.
-    pub mode: PrxMode,
-    /// The content-addressed source bytes — `Some` iff
-    /// `mode == BytesPlusView`, `None` for a `GraphFaithful` envelope
-    /// (whose source is regenerable from `data`).
+    /// The source lens's [`RoundTripFidelity`] — which PutGet law the
+    /// source round-trips under, and therefore how `.prx` reconstructs it.
+    /// OWL is [`RoundTripFidelity::RawBytesComplementFloor`] today.
+    pub mode: RoundTripFidelity,
+    /// The content-addressed source bytes (the constant-complement) —
+    /// `Some` iff `mode == RawBytesComplementFloor`, `None` for a
+    /// `ByteExactGraphFaithful` envelope (whose source is regenerable from
+    /// `data`).
     pub raw: Option<RawSource>,
 }
 
@@ -444,6 +451,15 @@ pub enum PrxError {
     /// — an unregistered or unpinned source cannot be validated, so the
     /// gate rejects it (fail-closed).
     NoLockPin { key: String },
+    /// `praxis.lock` carries no `[archive_signatures]` pin for the
+    /// envelope's `"{name}@{version}"` — without the trusted `MerkleRoot`
+    /// content address there is nothing to verify the installed envelope
+    /// against, so the gate rejects it (fail-closed).
+    NoArchivePin { key: String },
+    /// A content-hash `IntegrityClaim` could not be evaluated — the
+    /// `raw_hash` verifier returned `Unverifiable` (e.g. a malformed pin).
+    /// Fail-closed: nothing is installed.
+    IntegrityUnverifiable { key: String, reason: String },
     /// The envelope's source bytes could not be reconstructed: a
     /// `BytesPlusView` envelope is missing its raw leaf, or a
     /// `GraphFaithful` envelope's byte-exact graph→source regeneration
@@ -469,6 +485,15 @@ impl core::fmt::Display for PrxError {
             PrxError::NoLockPin { key } => write!(
                 f,
                 "no praxis.lock pin for `{key}` — cannot validate, refusing to install"
+            ),
+            PrxError::NoArchivePin { key } => write!(
+                f,
+                "no praxis.lock [archive_signatures] pin for `{key}` — cannot verify the \
+                 installed archive, refusing to install"
+            ),
+            PrxError::IntegrityUnverifiable { key, reason } => write!(
+                f,
+                "integrity claim for `{key}` is unverifiable: {reason} — refusing to install"
             ),
             PrxError::SourceNotReconstructible { reason } => {
                 write!(f, "cannot reconstruct source bytes: {reason}")
@@ -504,6 +529,16 @@ pub fn gunzip(bytes: &[u8]) -> Result<Vec<u8>, PrxError> {
     Ok(out)
 }
 
+/// The content address (`MerkleRoot`) of a `.prx.gz` archive — the SHA-256
+/// of its rkyv envelope bytes (the `BinaryEnvelope`), as 64-char lowercase
+/// hex. This is the value pinned in `praxis.lock` `[archive_signatures]`
+/// and the one [`load_prx_gz`] re-derives and verifies. Computed by
+/// gunzipping to the canonical rkyv form (gzip-level-independent) and
+/// hashing it (Merkle 1987; Dolstra 2006 content-addressing).
+pub fn prx_archive_address(prx_gz: &[u8]) -> Result<String, PrxError> {
+    Ok(source_content_hash(&gunzip(prx_gz)?))
+}
+
 // =============================================================================
 // rkyv layer — envelope ⇄ bytes (the bidirectional lens, bytecheck-validated).
 // =============================================================================
@@ -530,73 +565,134 @@ pub fn envelope_from_bytes(bytes: &[u8]) -> Result<PrxEnvelope, PrxError> {
 }
 
 // =============================================================================
-// The load-validation gate.
+// The load gate — a content-address IntegrityClaim over the installed node.
 // =============================================================================
 
-/// Validate an envelope's source content hash against a pin, fail-closed.
+/// Discharge a content-hash `IntegrityClaim` over `bytes` against a trusted
+/// pin — the realise-through that subordinates this archive's integrity to
+/// [`ArtifactIdentity`](crate::formal::meta::artifact_identity).
 ///
-/// Returns `Ok(())` only when the envelope's
-/// [`PrxMetadata::source_sha256`] equals `lock_pin`. This is the
-/// load-bearing gate: the caller installs the materialized vocabulary
-/// only on `Ok`.
-fn validate_envelope_against_pin(envelope: &PrxEnvelope, lock_pin: &str) -> Result<(), PrxError> {
-    let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
-    if envelope.metadata.source_sha256 == lock_pin {
-        Ok(())
-    } else {
-        Err(PrxError::HashMismatch {
-            key,
-            expected: lock_pin.to_string(),
-            found: envelope.metadata.source_sha256.clone(),
-        })
+/// Builds the `RawHash` / `ClaimData::Sha256(pin)` claim and discharges it
+/// through the SAME [`raw_hash::verify`] the fetch path uses
+/// (`registry::build_entry` → `fetch`), so one content-hash primitive
+/// serves both trust boundaries (Dolstra 2006 content-addressing; W3C SRI
+/// 2016). `raw_hash::verify` re-hashes `bytes` — the pin is checked against
+/// bytes that are actually present, never against a self-asserted label.
+fn verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Result<(), PrxError> {
+    let claim = IdentityClaim {
+        concept: IdentityConcept::RawHash,
+        data: ClaimData::Sha256(trusted_pin.to_string()),
+    };
+    match raw_hash::verify(&claim, bytes) {
+        VerificationResult::Verified(_) => Ok(()),
+        VerificationResult::Mismatch { expected, actual } => Err(PrxError::HashMismatch {
+            key: key.to_string(),
+            expected,
+            found: actual,
+        }),
+        VerificationResult::Unverifiable { reason } => Err(PrxError::IntegrityUnverifiable {
+            key: key.to_string(),
+            reason,
+        }),
     }
 }
 
-/// Load a `.prx.gz` blob into a validated [`LoadedOwlVocabulary`].
+/// Verify the source-identity leg, folding [`reconstruct_source`] onto the
+/// load path so `raw` is no longer Optional-skippable.
 ///
-/// The full load path and validation gate:
-/// 1. gunzip (RFC 1952);
-/// 2. rkyv-validate the envelope (bytecheck — corrupted/truncated blobs
-///    fail closed);
-/// 3. assert `envelope.metadata.source_sha256 == lock_pin` (the
-///    `praxis.lock` value for `"{name}@{version}"`) — on mismatch return
-///    `Err`, install nothing;
-/// 4. rebuild the `CodegenData` view and apply
-///    [`LoadedOwlVocabulary::from_codegen`].
+/// For [`RoundTripFidelity::RawBytesComplementFloor`] (OWL today),
+/// [`reconstruct_source`] returns the exact source bytes after enforcing
+/// the in-envelope honesty doctrine (`sha256(blob) == raw.content_address ==
+/// metadata.source_sha256`); we then discharge a content-hash
+/// `IntegrityClaim` binding those bytes to the trusted `SourcePin`
+/// (`praxis.lock` `[hashes]`). A floor envelope with no raw leaf is rejected
+/// here. [`RoundTripFidelity::ByteExactGraphFaithful`] carries no source
+/// blob (the source regenerates from `data`, #258) and is not emitted
+/// today; the `MerkleRoot` archive pin already binds its `data`.
+fn verify_source_leg(envelope: &PrxEnvelope, source_pin: &str, key: &str) -> Result<(), PrxError> {
+    match envelope.mode {
+        RoundTripFidelity::RawBytesComplementFloor => {
+            let source_bytes = reconstruct_source(envelope)?;
+            verify_content_address(&source_bytes, source_pin, key)
+        }
+        RoundTripFidelity::ByteExactGraphFaithful => Ok(()),
+    }
+}
+
+/// Admit a decoded envelope only after both legs of the load gate verify,
+/// then materialize it — the fail-closed realisation of the `LoadGate`
+/// concept ([`crate::formal::meta::ontology_archive`]).
 ///
-/// `lock_pin` is the pinned hash; callers reach it through the registry's
-/// [`lock_hashes`] accessor — see [`load_prx_gz_from_lock`], which does
-/// the lookup. Splitting the pin out keeps this function pure and unit-
-/// testable without a `praxis.lock` round-trip.
-///
-/// [`lock_hashes`]: crate::applied::data_provisioning::registry::lock_hashes
-pub fn load_prx_gz(prx_gz: &[u8], lock_pin: &str) -> Result<LoadedOwlVocabulary, PrxError> {
-    let rkyv_bytes = gunzip(prx_gz)?;
-    let envelope = envelope_from_bytes(&rkyv_bytes)?;
-    validate_envelope_against_pin(&envelope, lock_pin)?;
+/// 1. **Installed-node integrity** — the `BinaryEnvelope`'s `MerkleRoot`
+///    content address, *re-derived* from `rkyv_bytes`, must equal the
+///    trusted `archive_pin`. This binds the whole envelope (`data`, `raw`,
+///    `metadata`), so an archive carrying a genuine source label but a
+///    poisoned `data` column is rejected before anything is installed
+///    (Merkle 1987; Benet 2014; W3C SRI 2016).
+/// 2. **Source identity** — the carried source re-hashes to the trusted
+///    `SourcePin` ([`verify_source_leg`]), preserving the `.prx → source`
+///    byte-hash invariant on the load path.
+/// 3. Only on both `Verified` rebuild the `CodegenData` view and materialize.
+fn admit_validated(
+    rkyv_bytes: &[u8],
+    envelope: PrxEnvelope,
+    archive_pin: &str,
+    source_pin: &str,
+) -> Result<LoadedOwlVocabulary, PrxError> {
+    let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
+    verify_content_address(rkyv_bytes, archive_pin, &key)?;
+    verify_source_leg(&envelope, source_pin, &key)?;
     let data: CodegenData<LoadedOwlVocabulary> = envelope.data.to_codegen_data_leaked();
     Ok(LoadedOwlVocabulary::from_codegen(&data))
 }
 
-/// Load a `.prx.gz` blob, reaching the pin through the live registry
-/// (`praxis.lock`'s `[hashes]` for `"{name}@{version}"`).
+/// Load a `.prx.gz` blob into a materialized [`LoadedOwlVocabulary`], gated
+/// on two externally trusted pins.
 ///
-/// First peeks the envelope to read `name`/`version`, looks up the pin via
-/// [`lock_hashes`], then validates and materializes. Fail-closed if no pin
-/// is registered for the source.
+/// 1. gunzip (RFC 1952);
+/// 2. rkyv-validate the envelope (bytecheck — corrupted/truncated blobs
+///    fail closed);
+/// 3. discharge the `MerkleRoot` `IntegrityClaim`: the content address
+///    re-derived from the rkyv bytes must equal `archive_pin`
+///    (`praxis.lock` `[archive_signatures]`);
+/// 4. discharge the `SourcePin` leg: the carried source re-hashes to
+///    `source_pin` (`praxis.lock` `[hashes]`);
+/// 5. on both `Verified`, materialize — otherwise install nothing.
 ///
-/// [`lock_hashes`]: crate::applied::data_provisioning::registry::lock_hashes
+/// Both pins are externally trusted (held in `praxis.lock`), never read
+/// from the envelope. Splitting them out keeps this function pure and
+/// unit-testable; [`load_prx_gz_from_lock`] does the lookups.
+pub fn load_prx_gz(
+    prx_gz: &[u8],
+    archive_pin: &str,
+    source_pin: &str,
+) -> Result<LoadedOwlVocabulary, PrxError> {
+    let rkyv_bytes = gunzip(prx_gz)?;
+    let envelope = envelope_from_bytes(&rkyv_bytes)?;
+    admit_validated(&rkyv_bytes, envelope, archive_pin, source_pin)
+}
+
+/// Load a `.prx.gz` blob, reaching both pins through the live registry: the
+/// `MerkleRoot` from `praxis.lock` `[archive_signatures]` and the
+/// `SourcePin` from `[hashes]`, keyed by `"{name}@{version}"`.
+///
+/// Peeks the (bytecheck-valid) envelope to read `name`/`version` — a lookup
+/// key, not a trust input: an envelope claiming a name it lacks the content
+/// for fails the content-address checks. Fail-closed if either pin is
+/// unregistered.
 pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxError> {
-    use crate::applied::data_provisioning::registry::lock_hashes;
+    use crate::applied::data_provisioning::registry::{lock_archive_signature, lock_hashes};
     let rkyv_bytes = gunzip(prx_gz)?;
     let envelope = envelope_from_bytes(&rkyv_bytes)?;
     let key = format!("{}@{}", envelope.metadata.name, envelope.metadata.version);
-    let pin = lock_hashes()
+    let archive_pin = lock_archive_signature(&envelope.metadata.name, &envelope.metadata.version)
+        .ok_or_else(|| PrxError::NoArchivePin { key: key.clone() })?
+        .to_string();
+    let source_pin = lock_hashes()
         .get(&key)
-        .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?;
-    validate_envelope_against_pin(&envelope, pin)?;
-    let data: CodegenData<LoadedOwlVocabulary> = envelope.data.to_codegen_data_leaked();
-    Ok(LoadedOwlVocabulary::from_codegen(&data))
+        .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?
+        .clone();
+    admit_validated(&rkyv_bytes, envelope, &archive_pin, &source_pin)
 }
 
 // =============================================================================
@@ -607,15 +703,16 @@ pub fn load_prx_gz_from_lock(prx_gz: &[u8]) -> Result<LoadedOwlVocabulary, PrxEr
 /// leg of the operator's invariant "…→ ontology → .prx → xml (same byte
 /// hash)" (M4.ι / #186).
 ///
-/// - [`PrxMode::BytesPlusView`]: return the stored `raw.blob` after
-///   re-verifying `sha256(blob) == raw.content_address ==
+/// - [`RoundTripFidelity::RawBytesComplementFloor`]: return the stored
+///   `raw.blob` after re-verifying `sha256(blob) == raw.content_address ==
 ///   metadata.source_sha256` — fail-closed; a tampered blob is rejected.
-/// - [`PrxMode::GraphFaithful`]: regenerate from `data`. For OWL this is
-///   the deferred byte-exact `write_owl` + RDFC leg (#258); no envelope is
-///   emitted in this mode today, so reaching it is a logic error.
+/// - [`RoundTripFidelity::ByteExactGraphFaithful`]: regenerate from `data`.
+///   For OWL this is the deferred byte-exact `write_owl` + RDFC leg (#258);
+///   no envelope is emitted in this mode today, so reaching it is a logic
+///   error.
 pub fn reconstruct_source(envelope: &PrxEnvelope) -> Result<Vec<u8>, PrxError> {
     match envelope.mode {
-        PrxMode::BytesPlusView => {
+        RoundTripFidelity::RawBytesComplementFloor => {
             let raw = envelope
                 .raw
                 .as_ref()
@@ -643,7 +740,7 @@ pub fn reconstruct_source(envelope: &PrxEnvelope) -> Result<Vec<u8>, PrxError> {
             }
             Ok(raw.blob.clone())
         }
-        PrxMode::GraphFaithful => Err(PrxError::SourceNotReconstructible {
+        RoundTripFidelity::ByteExactGraphFaithful => Err(PrxError::SourceNotReconstructible {
             reason: "byte-exact graph→source regeneration (write_owl + RDFC, #258) \
                      is not yet implemented"
                 .to_string(),
@@ -674,6 +771,10 @@ pub struct EmittedArtifact {
     pub path: std::path::PathBuf,
     /// Size of the written `.prx.gz` in bytes.
     pub byte_len: u64,
+    /// The `MerkleRoot` content address of the written archive (SHA-256 of
+    /// the rkyv envelope bytes) — the value to pin in `praxis.lock`
+    /// `[archive_signatures]` so the runtime load gate can verify it.
+    pub archive_address: String,
 }
 
 // =============================================================================
@@ -785,18 +886,20 @@ mod emit {
             number_of_classes,
             number_of_properties,
         };
-        // OWL is the BytesPlusView FLOOR today: write_owl emits canonical
-        // RDF/XML (sorted entities, synthetic prefixes) — not byte-exact
-        // source — and RDF Dataset Canonicalization is unimplemented (#258),
-        // so the graph is not yet byte-faithful for OWL. Carry the exact
-        // source bytes content-addressed so `.prx` self-reconstructs the
-        // source NOW (the operator's "…→ ontology → .prx → xml, same byte
-        // hash" invariant). GraphFaithful (raw omitted) is earned
-        // per-artifact once a byte-exact write_owl + RDFC lands.
+        // OWL is the RawBytesComplementFloor today: write_owl emits
+        // canonical RDF/XML (sorted entities, synthetic prefixes) — not
+        // byte-exact source — and RDF Dataset Canonicalization is
+        // unimplemented (#258), so the graph is not yet byte-faithful for
+        // OWL. Carry the exact source bytes content-addressed (the
+        // Bancilhon & Spyratos 1981 constant-complement) so `.prx`
+        // self-reconstructs the source NOW (the operator's "…→ ontology →
+        // .prx → xml, same byte hash" invariant). ByteExactGraphFaithful
+        // (raw omitted) is earned per-artifact once a byte-exact write_owl
+        // + RDFC lands.
         Ok(PrxEnvelope {
             metadata,
             data,
-            mode: PrxMode::BytesPlusView,
+            mode: RoundTripFidelity::RawBytesComplementFloor,
             raw: Some(RawSource {
                 content_address: source_sha256,
                 blob: source.to_vec(),
@@ -862,7 +965,7 @@ mod emit {
     /// [ov]: crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept::OntologyVocabulary
     /// [ds]: crate::applied::data_provisioning::registry::data_sources
     pub fn emit_all_prx_gz(out_dir: &std::path::Path) -> Result<Vec<EmittedArtifact>, PrxError> {
-        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::applied::data_provisioning::registry::{data_sources, lock_hashes};
         use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
 
         std::fs::create_dir_all(out_dir)
@@ -883,25 +986,35 @@ mod emit {
             };
 
             let prx_gz = emit_prx_gz(&source, &entry.name, &entry.version, &entry.url)?;
+            let archive_address = prx_archive_address(&prx_gz)?;
             let path = out_dir.join(format!("{}-{}.prx.gz", entry.name, entry.version));
             std::fs::write(&path, &prx_gz)
                 .map_err(|e| PrxError::Gzip(format!("write {}: {e}", path.display())))?;
 
-            // Round-trip-validate the *written file*: read it back from disk
-            // and run it through the fail-closed load gate. Success proves the
-            // published artifact is loadable and its embedded source hash
-            // matches the praxis.lock pin (the GetPut leg of the bytes ⇄
-            // vocabulary lens, Foster et al. 2007 §2.2). An emit-but-fail-to-
-            // load source is a defect — propagate the Err.
+            // Round-trip-validate the *written file* through the fail-closed
+            // load gate, against the MerkleRoot this emit just produced and
+            // the source's praxis.lock pin. Success proves the published
+            // artifact is loadable, content-anchored, and source-faithful
+            // (the GetPut leg of the bytes ⇄ vocabulary lens, Foster et al.
+            // 2007 §2.2). The emitter is the *producer* of the archive
+            // address, so it verifies against the address it computed (the
+            // operator pins `archive_address` into `[archive_signatures]`);
+            // the source pin must already exist. An emit-but-fail-to-load
+            // source is a defect — propagate the Err.
+            let key = format!("{}@{}", entry.name, entry.version);
+            let source_pin = lock_hashes()
+                .get(&key)
+                .ok_or_else(|| PrxError::NoLockPin { key: key.clone() })?;
             let read_back = std::fs::read(&path)
                 .map_err(|e| PrxError::Gzip(format!("read-back {}: {e}", path.display())))?;
-            load_prx_gz_from_lock(&read_back)?;
+            load_prx_gz(&read_back, &archive_address, source_pin)?;
 
             emitted.push(EmittedArtifact {
                 name: entry.name.clone(),
                 version: entry.version.clone(),
                 path,
                 byte_len: prx_gz.len() as u64,
+                archive_address,
             });
         }
         Ok(emitted)
@@ -914,7 +1027,7 @@ pub use emit::{build_envelope, emit_all_prx_gz, emit_prx_gz};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::applied::data_provisioning::registry::lock_hashes;
+    use crate::applied::data_provisioning::registry::{lock_archive_signature, lock_hashes};
     use proptest::prelude::*;
 
     /// The bundled CiTO 2.8.1 OWL vocabulary (SPAR), embedded at build
@@ -1019,8 +1132,9 @@ mod tests {
         // Now the full gzip ∘ rkyv ∘ leak ∘ from_codegen round-trip of the
         // *same* envelope. GetPut law: it must reproduce `direct` exactly.
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
-        let pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
-        let loaded = load_prx_gz(&prx_gz, &pin).expect("load + validate");
+        let source_pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
+        let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
+        let loaded = load_prx_gz(&prx_gz, &archive_pin, &source_pin).expect("load + validate");
 
         // It came from a real CiTO parse, so it is rich and carries the
         // citesAsEvidence is_a cites edge.
@@ -1041,8 +1155,8 @@ mod tests {
     fn raw_leaf_reconstructs_source_byte_exact() {
         let envelope = build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("build envelope");
-        // OWL is the BytesPlusView floor today (write_owl not byte-exact; RDFC #258).
-        assert_eq!(envelope.mode, PrxMode::BytesPlusView);
+        // OWL is the RawBytesComplementFloor today (write_owl not byte-exact; RDFC #258).
+        assert_eq!(envelope.mode, RoundTripFidelity::RawBytesComplementFloor);
         let raw = envelope
             .raw
             .as_ref()
@@ -1072,7 +1186,7 @@ mod tests {
             .expect("build envelope");
         let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
         let back = envelope_from_bytes(&gunzip(&prx_gz).expect("gunzip")).expect("deserialize");
-        assert_eq!(back.mode, PrxMode::BytesPlusView);
+        assert_eq!(back.mode, RoundTripFidelity::RawBytesComplementFloor);
         let reconstructed = reconstruct_source(&back).expect("reconstruct after round-trip");
         assert_eq!(reconstructed, CITO_2_8_1_OWL.as_bytes());
     }
@@ -1159,25 +1273,22 @@ mod tests {
 
     #[test]
     fn load_validation_rejects_tampered_source_hash() {
-        // Build an envelope, then corrupt the embedded source hash so it
-        // no longer matches the source bytes (and the lock pin).
+        // Tamper the embedded source label. The MerkleRoot is re-derived
+        // from the whole envelope, so tampering any field changes the
+        // content address; the lock-driven gate refuses it against cito's
+        // [archive_signatures] pin before anything is installed.
         let mut envelope =
             build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
                 .expect("build envelope");
         envelope.metadata.source_sha256 =
             "0000000000000000000000000000000000000000000000000000000000000000".to_string();
-        let rkyv_bytes = envelope_to_bytes(&envelope).expect("serialize");
-        let prx_gz = gzip(&rkyv_bytes).expect("gzip");
+        let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
 
-        // Both the explicit-pin and lock-driven loaders must fail closed.
-        let pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
-        let err = load_prx_gz(&prx_gz, &pin).expect_err("must reject tampered hash");
+        let err = load_prx_gz_from_lock(&prx_gz).expect_err("tampered envelope must be rejected");
         assert!(
             matches!(err, PrxError::HashMismatch { .. }),
             "expected HashMismatch, got {err:?}"
         );
-        let err2 = load_prx_gz_from_lock(&prx_gz).expect_err("lock loader must reject too");
-        assert!(matches!(err2, PrxError::HashMismatch { .. }));
     }
 
     /// A correct envelope under an unregistered name has no lock pin →
@@ -1192,7 +1303,9 @@ mod tests {
         )
         .expect("emit");
         let err = load_prx_gz_from_lock(&prx_gz).expect_err("unpinned source must be rejected");
-        assert!(matches!(err, PrxError::NoLockPin { .. }), "got {err:?}");
+        // The MerkleRoot pin is looked up first; an unregistered source has
+        // no [archive_signatures] entry, so the gate fails closed there.
+        assert!(matches!(err, PrxError::NoArchivePin { .. }), "got {err:?}");
     }
 
     /// A truncated/corrupted gzip or rkyv blob fails closed (bytecheck),
@@ -1201,14 +1314,85 @@ mod tests {
     fn load_rejects_corrupted_blob() {
         let prx_gz = emit_prx_gz(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
             .expect("emit");
-        let pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
+        // gunzip / rkyv-bytecheck fail before the pin checks, so the pin
+        // values are immaterial here.
+        let any_pin = "0".repeat(64);
         // Truncate the gzip stream.
         let truncated = &prx_gz[..prx_gz.len() / 2];
-        assert!(load_prx_gz(truncated, &pin).is_err(), "truncated must fail");
+        assert!(
+            load_prx_gz(truncated, &any_pin, &any_pin).is_err(),
+            "truncated must fail"
+        );
         // Corrupt the rkyv layer: valid gzip wrapping garbage rkyv bytes.
         let garbage = gzip(b"not a valid rkyv envelope at all").expect("gzip");
-        let err = load_prx_gz(&garbage, &pin).expect_err("garbage rkyv must fail");
+        let err = load_prx_gz(&garbage, &any_pin, &any_pin).expect_err("garbage rkyv must fail");
         assert!(matches!(err, PrxError::Rkyv(_)), "got {err:?}");
+    }
+
+    /// The MerkleRoot pin's reason to exist: a `.prx.gz` carrying cito's
+    /// genuine source label and an honest raw leaf, but a POISONED `data`
+    /// column, is rejected. The source leg alone would pass (raw is honest);
+    /// the MerkleRoot leg binds the installed node, so poisoned data changes
+    /// the content address and the lock-driven gate refuses it.
+    #[test]
+    fn load_rejects_poisoned_data_under_honest_label() {
+        let mut envelope =
+            build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+                .expect("build envelope");
+        // Source identity stays genuine …
+        assert_eq!(
+            &envelope.metadata.source_sha256,
+            lock_hashes().get("cito@2.8.1").expect("pin")
+        );
+        // … only the installed data column is poisoned.
+        envelope.data.entity_count += 1;
+        let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
+
+        let err = load_prx_gz_from_lock(&prx_gz).expect_err("poisoned data must be rejected");
+        assert!(
+            matches!(err, PrxError::HashMismatch { .. }),
+            "expected HashMismatch from the MerkleRoot leg, got {err:?}"
+        );
+    }
+
+    /// Every emitted OWL `.prx` archive's MerkleRoot content address equals
+    /// its `praxis.lock` `[archive_signatures]` pin — the invariant the
+    /// lock-driven load gate (and the wasm dual-load) enforces for every
+    /// loadable vocabulary. If this breaks because the rkyv layout changed,
+    /// re-pin the computed values (see `dump_archive_addresses`).
+    #[test]
+    fn archive_anchors_match_lock() {
+        let dir = std::env::temp_dir().join("prx_archive_anchor");
+        let arts = emit_all_prx_gz(&dir).expect("emit all OWL archives");
+        assert!(!arts.is_empty(), "at least one OWL vocabulary is on disk");
+        for a in &arts {
+            let pinned = lock_archive_signature(&a.name, &a.version).unwrap_or_else(|| {
+                panic!(
+                    "praxis.lock [archive_signatures] must pin {}@{}",
+                    a.name, a.version
+                )
+            });
+            assert_eq!(
+                a.archive_address, pinned,
+                "{}@{} .prx MerkleRoot must equal the [archive_signatures] pin",
+                a.name, a.version
+            );
+        }
+    }
+
+    /// One-shot helper: print the MerkleRoot of every emitted OWL archive so
+    /// `[archive_signatures]` can be (re-)pinned. `cargo test … \
+    /// dump_archive_addresses -- --nocapture --ignored`.
+    #[test]
+    #[ignore = "prints archive addresses for pinning; not an assertion"]
+    fn dump_archive_addresses() {
+        let dir = std::env::temp_dir().join("prx_archive_dump");
+        for a in emit_all_prx_gz(&dir).expect("emit all") {
+            println!(
+                "ARCHIVE \"{}@{}\" = \"{}\"",
+                a.name, a.version, a.archive_address
+            );
+        }
     }
 
     // ── distribution emitter: emit_all_prx_gz over the live registry ─
@@ -1415,7 +1599,7 @@ mod tests {
                 number_of_properties: n_prop,
             },
             data,
-            mode: PrxMode::BytesPlusView,
+            mode: RoundTripFidelity::RawBytesComplementFloor,
             raw: Some(RawSource {
                 content_address: source_sha256,
                 blob: source.into_bytes(),
@@ -1430,10 +1614,12 @@ mod tests {
         #[test]
         fn prop_emit_load_preserves_entities_and_edges(s in arb_synth()) {
             let envelope = synth_envelope(&s, "synth", "1.0");
-            let pin = envelope.metadata.source_sha256.clone();
+            let source_pin = envelope.metadata.source_sha256.clone();
             let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
+            let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
 
-            let loaded = load_prx_gz(&prx_gz, &pin).expect("matching pin must load");
+            let loaded = load_prx_gz(&prx_gz, &archive_pin, &source_pin)
+                .expect("matching pins must load");
             prop_assert_eq!(loaded.entity_count(), s.classes.len() + s.properties.len());
             prop_assert_eq!(
                 loaded.subsumption_edge_count(),
@@ -1463,7 +1649,11 @@ mod tests {
             prop_assume!(wrong_pin != real_pin);
 
             let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
-            let err = load_prx_gz(&prx_gz, &wrong_pin).expect_err("wrong pin must reject");
+            let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
+            // Genuine MerkleRoot, but a tampered SOURCE pin → the source leg
+            // rejects fail-closed.
+            let err = load_prx_gz(&prx_gz, &archive_pin, &wrong_pin)
+                .expect_err("wrong source pin must reject");
             let is_mismatch = matches!(err, PrxError::HashMismatch { .. });
             prop_assert!(is_mismatch, "expected HashMismatch, got {:?}", err);
         }

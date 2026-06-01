@@ -66,7 +66,7 @@ pr4xis::ontology! {
         SourcePin: ("en", "Source pin",
             "NIST (2015) FIPS 180-4 §6.2; Dolstra (2006): the recorded SHA-256 content address of the authoritative source bytes an archive is derived from."),
         LoadGate: ("en", "Load gate",
-            "the fail-closed admission check: an archive is materialized only when its embedded source pin equals the trusted recorded pin; on mismatch nothing is installed."),
+            "Dolstra (2006); W3C (2016) SRI; Samuel et al. (2010) TUF: the fail-closed admission check that discharges an IntegrityClaim over the node it installs — it RE-DERIVES the content address from the node's own bytes and materializes only when that re-derived address equals the externally trusted recorded pin. It never trusts an embedded self-asserted label. On mismatch, an unverifiable claim, or an absent pin, nothing is installed."),
         Attestation: ("en", "Attestation",
             "Samuel et al. (2010) TUF; Torres-Arias et al. (2019) in-toto: a signed statement about how an archive was produced (future supply-chain work)."),
         IntegrityClaim: ("en", "Integrity claim",
@@ -123,7 +123,9 @@ impl Quality for ConceptDescription {
             C::BinaryEnvelope => "deterministic rkyv container for archived data + metadata",
             C::CompressedForm => "gzip wrapper, gunzip(gzip(x)) == x (RFC 1952)",
             C::SourcePin => "recorded SHA-256 of the authoritative source bytes",
-            C::LoadGate => "fail-closed admission: install only on pin match",
+            C::LoadGate => {
+                "fail-closed admission: re-derive the node's content address and admit iff it equals the trusted pin"
+            }
             C::Attestation => "signed statement about how an archive was produced (future)",
             C::IntegrityClaim => "claim binding a resource to its expected hash (W3C SRI)",
             C::AttestationChain => "ordered attestations over each supply-chain step (future)",

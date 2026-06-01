@@ -5,7 +5,7 @@ use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::language;
 use pr4xis_domains::formal::information::knowledge::{LoadedRef, source_catalog};
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
-use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz;
+use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz_from_lock;
 use pr4xis_domains::social::software::markup::xml::owl::reader::read_owl;
 use pr4xis_domains::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
@@ -156,30 +156,30 @@ impl Pr4xis {
 
     /// Load a registered OWL vocabulary from its `.prx.gz` distribution
     /// envelope (downloaded by the host from the vocabulary's served
-    /// `prx_url`). **Hash-validated, fail-closed**: the gate gunzips,
-    /// bytecheck-validates the rkyv envelope, and asserts the envelope's
-    /// embedded `source_sha256` equals the praxis.lock pin baked into the
-    /// build-time manifest for `(name, version)`. On any mismatch nothing
-    /// is installed and an `Err` is returned. Idempotent: loading a name
-    /// already present replaces it.
+    /// `prx_url`). **Content-addressed, fail-closed**: the gate gunzips,
+    /// bytecheck-validates the rkyv envelope, then verifies two content-hash
+    /// integrity claims against the embedded `praxis.lock` — the archive's
+    /// `MerkleRoot` (re-derived from the envelope's own bytes, so a tampered
+    /// or poisoned archive is rejected even under a genuine source label)
+    /// and the source pin. On any mismatch nothing is installed and an
+    /// `Err` is returned. Idempotent: loading a name already present
+    /// replaces it.
     ///
     /// This differs from [`Self::load_owl_source`] in *where* trust is
-    /// anchored: `load_prx` re-checks the embedded source hash against the
-    /// lock pin here in the runtime, so a tampered or stale `.prx.gz` is
-    /// rejected even if the transport was honest.
+    /// anchored: `load_prx` re-derives the content address from the bytes it
+    /// is about to install and checks it against the lock, so a tampered or
+    /// stale `.prx.gz` is rejected even if the transport was honest.
     pub fn load_prx(
         &mut self,
         name: String,
         version: String,
         prx_gz: &[u8],
     ) -> Result<(), JsValue> {
-        let pin = self.lock_pin(&name, &version).ok_or_else(|| {
+        let vocab = load_prx_gz_from_lock(prx_gz).map_err(|e| {
             JsValue::from_str(&format!(
-                "no embedded praxis.lock pin for {name}@{version}; cannot validate .prx.gz"
+                ".prx.gz load/validate failed for {name}@{version}: {e}"
             ))
         })?;
-        let vocab = load_prx_gz(prx_gz, pin)
-            .map_err(|e| JsValue::from_str(&format!(".prx.gz load/validate failed: {e}")))?;
         self.install(name, LoadedPayload::Owl(vocab));
         Ok(())
     }

@@ -86,7 +86,11 @@ use sha2::{Digest, Sha256};
 /// A *rich* type, not a bool: byte-exactness and the raw-bytes floor
 /// are genuinely different guarantees with different witnesses, and
 /// further fidelity levels extend this enum rather than adding flags.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// rkyv-serializable so a content-addressed archive (`.prx`) can record
+/// the source lens's fidelity directly — the archive's reconstruction
+/// mode IS this grade, not a parallel enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub enum RoundTripFidelity {
     /// `put(get(b)) == b` byte-for-byte, reconstructed from the typed
     /// ontology graph alone with NO constant-complement side-channel.

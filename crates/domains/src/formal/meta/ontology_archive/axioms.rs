@@ -19,9 +19,10 @@ use alloc::vec::Vec;
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
+use crate::formal::meta::well_behaved_lens::RoundTripFidelity;
 use crate::social::software::markup::xml::owl::prx::{
-    OwnedCodegenData, PrxEnvelope, PrxMetadata, PrxMode, RawSource, envelope_from_bytes,
-    envelope_to_bytes, gunzip, gzip, load_prx_gz, reconstruct_source, source_content_hash,
+    OwnedCodegenData, PrxEnvelope, PrxMetadata, RawSource, envelope_from_bytes, envelope_to_bytes,
+    gunzip, gzip, load_prx_gz, reconstruct_source, source_content_hash,
 };
 
 /// Distinct witness byte-strings the byte-level axioms run over —
@@ -64,7 +65,7 @@ fn witness_envelope(name: &str, source: &[u8]) -> PrxEnvelope {
             causation: Vec::new(),
             references: Vec::new(),
         },
-        mode: PrxMode::BytesPlusView,
+        mode: RoundTripFidelity::RawBytesComplementFloor,
         raw: Some(RawSource {
             content_address: hash,
             blob: source.to_vec(),
@@ -330,8 +331,13 @@ pr4xis::register_axiom!(
     "NIST (2015) FIPS 180-4 §6.2; Dolstra (2006) The Purely Functional Software Deployment Model"
 );
 
-/// The load gate fails closed: an envelope whose source pin does not
-/// match the trusted pin is rejected and nothing is installed.
+/// The load gate is a fail-closed content-address verification: it admits
+/// an archive only when the `MerkleRoot` re-derived from the node's own
+/// bytes equals the trusted pin. It refuses (a) a wrong pin and (b) a
+/// poisoned `data` column carried under a genuine source label — the latter
+/// only fails because the gate binds the *installed node*, not a label. The
+/// accept-on-match leg is proven too, so a degenerate reject-everything gate
+/// is also falsified. Samuel et al. (2010) TUF; W3C (2016) SRI.
 pub struct LoadGateFailsClosed;
 
 impl Axiom for LoadGateFailsClosed {
@@ -347,20 +353,54 @@ impl Axiom for LoadGateFailsClosed {
                 self.meta(),
             )));
         };
-        // A pin that is NOT the envelope's source hash must be rejected.
-        let wrong_pin = "0".repeat(64);
-        match load_prx_gz(&prx_gz, &wrong_pin) {
-            Err(_) => Ok(alloc::boxed::Box::new(SimpleProof::new(self.meta()))),
-            Ok(_) => Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+        // The genuine MerkleRoot (re-derived from the node's own bytes) and
+        // the genuine SourcePin.
+        let archive_pin = source_content_hash(&rkyv_bytes);
+        let source_pin = envelope.metadata.source_sha256.clone();
+
+        // Accept-on-match: genuine pins admit the archive. Without this leg a
+        // degenerate gate that rejects EVERYTHING would satisfy the axiom.
+        if load_prx_gz(&prx_gz, &archive_pin, &source_pin).is_err() {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                 self.meta(),
-            ))),
+            )));
         }
+        // Reject a wrong MerkleRoot pin: a label that does not match the
+        // content address re-derived from the bytes is refused.
+        let wrong_pin = "0".repeat(64);
+        if load_prx_gz(&prx_gz, &wrong_pin, &source_pin).is_ok() {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        }
+        // Teeth — poisoned `data` under an honest source label and raw leaf:
+        // the MerkleRoot binds the installed node, so a poisoned column
+        // changes the content address and is refused even with the genuine
+        // source pin (the attack a label-only gate would admit).
+        let mut poisoned = witness_envelope("load-gate", b"gated source bytes");
+        poisoned.data.entity_count += 1;
+        let Ok(poisoned_bytes) = envelope_to_bytes(&poisoned) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let Ok(poisoned_gz) = gzip(&poisoned_bytes) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        if load_prx_gz(&poisoned_gz, &archive_pin, &source_pin).is_ok() {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        }
+        Ok(alloc::boxed::Box::new(SimpleProof::new(self.meta())))
     }
 
     pr4xis::axiom_meta!(
         "LoadGateFailsClosed",
-        "an archive whose source pin mismatches the trusted pin is rejected (nothing installed)",
-        "Samuel et al. (2010) Survivable Key Compromise in Software Update Systems (TUF), CCS '10"
+        "the load gate admits an archive iff the MerkleRoot re-derived from its bytes matches the trusted pin; a wrong pin and a poisoned-data/honest-label archive are both refused",
+        "Samuel et al. (2010) Survivable Key Compromise in Software Update Systems (TUF), CCS '10; W3C (2016) Subresource Integrity"
     );
 }
 

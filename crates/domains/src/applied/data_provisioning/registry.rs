@@ -139,6 +139,25 @@ pub fn lock_byte_exact_signature(name: &str, version: &str) -> Option<&'static s
     lock_byte_exact_signatures().get(&key).map(String::as_str)
 }
 
+/// The pinned `.prx` archive content addresses from `praxis.lock`. Keys
+/// are `"<name>@<version>"`; each value is the SHA-256 of the rkyv bytes
+/// of the compiled `.prx` envelope (its `BinaryEnvelope` content address /
+/// Merkle root). This is the integrity claim the `.prx` load gate checks
+/// against the bytes it installs — see
+/// [`load_prx_gz`](crate::social::software::markup::xml::owl::prx::load_prx_gz).
+pub fn lock_archive_signatures() -> &'static HashMap<String, String> {
+    &lock_data().archive_signatures
+}
+
+/// Look up the `.prx` archive content address for a specific source.
+/// Returns `None` if the source has no published, pinned `.prx` archive —
+/// in which case the load gate has nothing to validate the compiled
+/// envelope against and fails closed.
+pub fn lock_archive_signature(name: &str, version: &str) -> Option<&'static str> {
+    let key = format!("{name}@{version}");
+    lock_archive_signatures().get(&key).map(String::as_str)
+}
+
 fn lock_data() -> &'static LockData {
     LOCK.get_or_init(|| {
         parse_praxis_lock(PRAXIS_LOCK).unwrap_or_else(|e| panic!("invalid praxis.lock: {e}"))
@@ -298,7 +317,22 @@ fn build_entry(
 ///   PutGet law rather than only canonical-form equality (Foster et
 ///   al. 2007 §2.2 PutGet at the byte-identity counit, Mac Lane §IV.4).
 ///
-/// All three hash spaces are keyed by `"<name>@<version>"`.
+/// - `archive_signatures`: SHA-256 of the rkyv bytes of the compiled
+///   `.prx` envelope (`BinaryEnvelope`) for the source — its content
+///   address, the Merkle root of the archived node (Merkle 1987; IPFS/
+///   IPLD — Benet 2014; Git's content-addressed DAG; Dolstra 2006).
+///   Unlike the three spaces above, this pins the *compiled archive*,
+///   not the source bytes or a lens output: it is the integrity claim
+///   the `.prx` load gate verifies against the envelope it is about to
+///   install (W3C Subresource Integrity 2016 — the fetched resource must
+///   match the pinned digest). A `.prx.gz` whose envelope does not hash
+///   to this pin is rejected fail-closed *before* any data is installed,
+///   so a tampered archive carrying a genuine `source_sha256` label
+///   cannot poison the runtime. It need NOT equal the `[hashes]` pin —
+///   it addresses a different artifact (the compiled rkyv envelope, not
+///   the raw source).
+///
+/// All four hash spaces are keyed by `"<name>@<version>"`.
 ///
 /// [`WellBehavedLens`]: crate::formal::meta::well_behaved_lens
 #[derive(Debug, Default)]
@@ -306,6 +340,7 @@ pub struct LockData {
     pub hashes: HashMap<String, String>,
     pub canonical_signatures: HashMap<String, String>,
     pub byte_exact_signatures: HashMap<String, String>,
+    pub archive_signatures: HashMap<String, String>,
 }
 
 /// In-memory representation of a statute's structural extraction —
@@ -348,6 +383,8 @@ struct RawLockFile {
     canonical_signatures: HashMap<String, String>,
     #[serde(default)]
     byte_exact_signatures: HashMap<String, String>,
+    #[serde(default)]
+    archive_signatures: HashMap<String, String>,
 }
 
 fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
@@ -404,10 +441,33 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
             ));
         }
     }
+    // An archive_signature pins the content address of the compiled `.prx`
+    // envelope for an already-hashed source (the `BinaryEnvelope` Merkle
+    // root). Each entry must (a) name a source that also has a raw
+    // `[hashes]` pin (the archive is the compiled form of that source) and
+    // (b) be a 64-char lowercase hex SHA-256. Unlike a byte_exact_signature
+    // it must NOT equal the `[hashes]` pin — it addresses the compiled rkyv
+    // envelope, a different artifact than the raw source bytes.
+    for (key, sig) in &raw.archive_signatures {
+        if !raw.hashes.contains_key(key) {
+            return Err(format!(
+                "praxis.lock: `[archive_signatures.\"{key}\"]` has no matching \
+                 entry in `[hashes]` — the signature pins the compiled `.prx` \
+                 archive of an already-hashed source"
+            ));
+        }
+        if !is_lowercase_hex_sha256(sig) {
+            return Err(format!(
+                "praxis.lock: `[archive_signatures.\"{key}\"]` is not a 64-char \
+                 lowercase hex SHA-256: {sig:?}"
+            ));
+        }
+    }
     Ok(LockData {
         hashes: raw.hashes,
         canonical_signatures: raw.canonical_signatures,
         byte_exact_signatures: raw.byte_exact_signatures,
+        archive_signatures: raw.archive_signatures,
     })
 }
 
@@ -534,6 +594,61 @@ url     = "https://example.com/wordnet.xml.gz"
         let err = parse_praxis_lock(text).unwrap_err();
         assert!(
             err.contains("must equal the raw `[hashes]` pin"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn parses_archive_signatures_section() {
+        // The archive signature pins the compiled `.prx` envelope's content
+        // address — a DIFFERENT artifact than the raw source, so its value
+        // legitimately differs from the `[hashes]` pin (here `1111…` source,
+        // `2222…` archive). This is the case `[byte_exact_signatures]`
+        // forbids and `[archive_signatures]` must allow.
+        let text = r#"
+[hashes]
+"cito@2.8.1" = "1111111111111111111111111111111111111111111111111111111111111111"
+
+[archive_signatures]
+"cito@2.8.1" = "2222222222222222222222222222222222222222222222222222222222222222"
+"#;
+        let lock = parse_praxis_lock(text).unwrap();
+        assert_eq!(lock.archive_signatures.len(), 1);
+        assert_eq!(
+            lock.archive_signatures.get("cito@2.8.1").unwrap(),
+            "2222222222222222222222222222222222222222222222222222222222222222"
+        );
+    }
+
+    #[test]
+    fn rejects_archive_signature_without_matching_hash() {
+        // An archive signature pins the compiled `.prx` of an already-hashed
+        // source; a free-standing entry has no source to be the archive of.
+        let text = r#"
+[hashes]
+
+[archive_signatures]
+"cito@2.8.1" = "2222222222222222222222222222222222222222222222222222222222222222"
+"#;
+        let err = parse_praxis_lock(text).unwrap_err();
+        assert!(
+            err.contains("has no matching entry in `[hashes]`"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_archive_signature() {
+        let text = r#"
+[hashes]
+"x@1" = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+
+[archive_signatures]
+"x@1" = "abc123"
+"#;
+        let err = parse_praxis_lock(text).unwrap_err();
+        assert!(
+            err.contains("not a 64-char lowercase hex SHA-256"),
             "got: {err}"
         );
     }
