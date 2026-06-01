@@ -76,15 +76,31 @@ fn witness_envelope(name: &str, source: &[u8]) -> PrxEnvelope {
 // Merkle layer.
 // ---------------------------------------------------------------------------
 
-/// The content address of a node is a deterministic function of its bytes
-/// — hashing the same bytes twice yields the same address. Merkle (1987);
-/// NIST FIPS 180-4 §6.2.
+/// The content address of a node is the SHA-256 of its bytes — a
+/// deterministic, spec-defined function. Checked by known-answer test
+/// against the NIST FIPS 180-4 SHA-256 example vectors: a degenerate,
+/// truncating, or drifted hash is falsified here. Merkle (1987); NIST
+/// FIPS 180-4 §6.2.
 pub struct MerkleHashDeterministic;
 
 impl Axiom for MerkleHashDeterministic {
     fn verify(&self) -> Verdict {
-        for source in &witness_sources() {
-            if source_content_hash(source) != source_content_hash(source) {
+        // Known-answer test (NIST FIPS 180-4 SHA-256 example vectors): the
+        // content address must equal the exact, spec-defined SHA-256 hex of
+        // the bytes. A constant/degenerate digest, a hex-formatting bug, or
+        // a non-SHA-256 hash is falsified here (this is not `h(x) == h(x)`).
+        let vectors: &[(&[u8], &str)] = &[
+            (
+                b"",
+                "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            ),
+            (
+                b"abc",
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            ),
+        ];
+        for (input, expected) in vectors {
+            if source_content_hash(input) != *expected {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
                 )));
@@ -95,7 +111,7 @@ impl Axiom for MerkleHashDeterministic {
 
     pr4xis::axiom_meta!(
         "MerkleHashDeterministic",
-        "the content address is a deterministic function of the node bytes",
+        "the content address is the spec-defined SHA-256 of the node bytes (known-answer)",
         "Merkle (1987) A Digital Signature Based on a Conventional Encryption Function, CRYPTO '87; NIST (2015) FIPS 180-4 §6.2"
     );
 }
@@ -180,20 +196,32 @@ pr4xis::register_axiom!(
     "Deutsch (1996) GZIP file format specification version 4.3, RFC 1952"
 );
 
-/// The rkyv serialization is deterministic — equal envelopes serialize to
-/// equal bytes, so the blob's hash is a stable content address. Hill rkyv
-/// v0.8.
+/// The rkyv serialization is value-deterministic: two independently built
+/// EQUAL envelopes serialize to equal bytes (so the blob hash is a stable
+/// content address), and two DIFFERENT envelopes serialize to different
+/// bytes (so the serialization distinguishes content). A serializer that
+/// leaked allocation order/addresses, or collapsed distinct values, is
+/// falsified here. Hill rkyv v0.8.
 pub struct RkyvDeterminism;
 
 impl Axiom for RkyvDeterminism {
     fn verify(&self) -> Verdict {
-        let envelope = witness_envelope("rkyv-determinism", b"praxis archive bytes");
-        let (Ok(a), Ok(b)) = (envelope_to_bytes(&envelope), envelope_to_bytes(&envelope)) else {
+        // Two INDEPENDENTLY constructed equal envelopes must serialize to
+        // equal bytes (not the same object serialized twice), and a
+        // DIFFERENT envelope must serialize to different bytes.
+        let one = witness_envelope("rkyv-determinism", b"praxis archive bytes");
+        let one_again = witness_envelope("rkyv-determinism", b"praxis archive bytes");
+        let other = witness_envelope("rkyv-determinism", b"a different source");
+        let (Ok(a), Ok(b), Ok(c)) = (
+            envelope_to_bytes(&one),
+            envelope_to_bytes(&one_again),
+            envelope_to_bytes(&other),
+        ) else {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                 self.meta(),
             )));
         };
-        if a == b {
+        if a == b && a != c {
             Ok(alloc::boxed::Box::new(SimpleProof::new(self.meta())))
         } else {
             Err(alloc::boxed::Box::new(SimpleCounterexample::new(
@@ -204,7 +232,7 @@ impl Axiom for RkyvDeterminism {
 
     pr4xis::axiom_meta!(
         "RkyvDeterminism",
-        "equal envelopes serialize to equal rkyv bytes (stable content address)",
+        "equal envelopes serialize to equal bytes and distinct envelopes to distinct bytes",
         "Hill, D. — rkyv: zero-copy deserialization framework for Rust, v0.8"
     );
 }
