@@ -1,23 +1,26 @@
 name: Coverage
 
-# Coverage runs on its own workflow because it has different triggers
-# from CI (nightly cron + release-PR + manual), uses a separate cache
-# slice (cargo-llvm-cov compiles with profiling instrumentation, which
-# changes every rustc fingerprint vs the release CI slice), and should
-# be non-blocking — a coverage drop is signal, not a merge gate.
+# Coverage runs when a new praxis version ships. release-plz creates
+# a GitHub release per crate after each successful publish; we
+# trigger on those release events, filtered to a single canonical
+# tag (`pr4xis-v*`) so a workspace-wide release fires exactly one
+# coverage run rather than one per published crate.
+#
+# Why no nightly cron and no per-PR runs:
+# - Per-PR coverage adds a "Coverage (skipped)" check on every push
+#   to every PR — visual noise for the >99% of PRs that aren't
+#   release PRs.
+# - Nightly coverage re-measures unchanged code most nights; the
+#   trend line gains nothing meaningful and burns runner minutes.
+#
+# Triggering on releases gives one coverage snapshot per shipped
+# version — the moment a maintainer or user actually cares what
+# coverage looks like. workflow_dispatch is the escape hatch for
+# any other time.
 
 on:
-  # Trend line across master. Aligned with the previous cron in ci.yml.
-  schedule:
-    - cron: '0 6 * * *'
-
-  # Run on Release PRs as they're opened/updated. release-plz tags
-  # those PRs with the `release` label (see release-plz.toml), so the
-  # label filter pulls only Release PRs into the coverage run.
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
-
-  # On-demand run for any branch via the Actions UI.
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
@@ -31,12 +34,14 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    # Run on cron + dispatch unconditionally; on PRs only if the
-    # `release` label is present.
+    # All workspace crates share the same version (Pattern B in
+    # release-plz.toml), so a workspace release publishes ~7 crates
+    # and fires ~7 `release: published` events. Filter to one
+    # canonical tag prefix so we run coverage exactly once per
+    # workspace release rather than once per crate.
     if: |
-      github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'release'))
+      startsWith(github.event.release.tag_name, 'pr4xis-v')
     steps:
       - uses: actions/checkout@v4
         with:
