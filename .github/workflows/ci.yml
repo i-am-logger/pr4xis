@@ -5,11 +5,6 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
-  # Coverage runs nightly on master, not per-push (cargo-llvm-cov
-  # rebuilds the workspace with profiling instrumentation, doubling
-  # compile time; daily granularity is plenty for trend lines).
-  schedule:
-    - cron: '0 6 * * *'
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -30,12 +25,30 @@ permissions:
 # Wasm-target jobs use a separate "wasm-release" pool.
 #
 # Job graph:
-#   warmup ──► lint-docs ─┐
-#          ├─► test ──────┼─► release-plz-release ──► pages
-#          └─► wasm ──────┤
+#   build ──► lint-docs ──┐
+#         ├─► test ───────┤
+#         └─► wasm ───────┼─► release-plz-release ──► pages
 #                         └─► release-plz-pr        (opens Release PR)
 #   format, no-ignored-doctests       (independent, no compile)
-#   coverage                          (cron only)
+#
+# Coverage runs in its own workflow (.github/workflows/coverage.yml)
+# — nightly cron + on Release PRs (label-filtered) — because it uses
+# a different cache slice (LLVM coverage instrumentation = different
+# rustc fingerprints) and shouldn't block PR merges.
+#
+# Build job builds (all host target, all `RUSTFLAGS=-D warnings`):
+#   - pr4xis-cli                       — uploaded as artifact for downstream
+#   - workspace libs + bins (release)  — populates the `release` cache slice
+#   - test binaries via `cargo         — uploaded as artifact, `test` runs
+#     nextest archive`                   directly from it (no recompile)
+#
+# Downstream jobs share `shared-key: release`, so they restore every
+# compiled host crate from build's slice. The only Rust compilation
+# in `test`/`lint-docs`/`wasm` is incremental over already-compiled
+# state: `test` is a no-compile archive run, `lint-docs` just runs
+# clippy+rustdoc over cached artefacts, and `wasm` compiles only the
+# wasm32 target (host crates `pr4xis-cli`/`pr4xis-domains`/`pr4xis-
+# web`/`pr4xis-e2e` are already in `target/release/`).
 #
 # Release pipeline (replaces the old release-please + katyo pair):
 #   release-plz-pr      — opens / updates a Release PR with version
@@ -53,8 +66,8 @@ jobs:
   # Build pr4xis-cli once + fetch external data. Uploads the binary
   # as an artifact every downstream Rust job reuses; populates the
   # `release` Swatinem cache slice they all restore from.
-  warmup:
-    name: Warmup (CLI + data)
+  build:
+    name: Build (host + test archive + data)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +80,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: release
+      - uses: taiki-e/install-action@cargo-nextest
       - name: Cache WordNet XML
         uses: actions/cache@v4
         with:
@@ -80,21 +94,40 @@ jobs:
             crates/domains/data/markup-schemas/xsts
             crates/domains/data/markup-schemas/xmlconf
           key: praxis-data-${{ hashFiles('praxis.lock') }}
-      - name: Build pr4xis-cli (release, with the same RUSTFLAGS downstream jobs use)
-        # Matching `-D warnings` is essential — without it, the
-        # cache slice this job writes has different rustc fingerprints
-        # than the slice `lint-docs` / `test` / `wasm` expect, and
-        # they would recompile from scratch on restore. Same flags
-        # everywhere keeps `shared-key: release` actually shared.
+      # Build pr4xis-cli + the full workspace + all test binaries in
+      # one pass. Downstream `lint-docs` and `test` then run against the
+      # populated `release` cache slice with no further compilation —
+      # see `nextest archive` step below.
+      #
+      # Matching `-D warnings` is essential — without it, the cache
+      # slice this job writes has different rustc fingerprints than the
+      # slice `lint-docs` / `test` / `wasm` expect, and they would
+      # recompile from scratch on restore. Same flags everywhere keeps
+      # `shared-key: release` actually shared.
+      - name: Build pr4xis-cli (release)
         env:
           RUSTFLAGS: "-D warnings"
         run: cargo build -p pr4xis-cli --release
       - name: Fetch external data
         run: ./target/release/pr4xis update
+      # `cargo nextest archive` compiles every workspace test binary
+      # (and the workspace libs they depend on) into a single
+      # self-contained tarball. The `test` job downloads this archive
+      # and runs the tests directly without recompiling — eliminates
+      # the largest single source of CI wall time.
+      - name: Build nextest archive
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo nextest archive --workspace --profile ci --release --archive-file target/nextest-archive.tar.zst
       - uses: actions/upload-artifact@v4
         with:
           name: pr4xis-cli
           path: target/release/pr4xis
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nextest-archive
+          path: target/nextest-archive.tar.zst
           retention-days: 1
 
   # All host-target lint + doc + doctest passes against the same warm
@@ -103,7 +136,7 @@ jobs:
   lint-docs:
     name: Lint & Docs
     runs-on: ubuntu-latest
-    needs: [warmup]
+    needs: [build]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -155,19 +188,20 @@ jobs:
       - name: mdBook Test
         run: mdbook test docs/
 
+  # Runs the workspace test suite from the prebuilt nextest archive
+  # that `build` uploads — no Rust compilation happens here. The
+  # archive contains every test binary; this job just extracts and
+  # executes. Saves ~10 minutes of compile time per CI run.
   test:
     name: Test
     runs-on: ubuntu-latest
-    needs: [warmup]
+    needs: [build]
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: false
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: release
       - uses: taiki-e/install-action@cargo-nextest
       - name: Cache WordNet XML
         uses: actions/cache@v4
@@ -190,10 +224,12 @@ jobs:
         run: chmod +x target/release/pr4xis
       - name: Materialise external data (no-op on data-cache hit)
         run: ./target/release/pr4xis update
-      - name: Run nextest (release)
-        env:
-          RUSTFLAGS: "-D warnings"
-        run: cargo nextest run --workspace --profile ci --release
+      - uses: actions/download-artifact@v4
+        with:
+          name: nextest-archive
+          path: target/
+      - name: Run nextest from archive
+        run: cargo nextest run --archive-file target/nextest-archive.tar.zst --workspace-remap . --profile ci
       - name: Upload test results to Codecov
         if: github.event_name == 'push' && github.ref == 'refs/heads/master' && !cancelled()
         uses: codecov/codecov-action@v5
@@ -202,15 +238,18 @@ jobs:
           files: target/nextest/ci/junit.xml
           report_type: test_results
 
-  # Browser-side wasm coverage. Both `wasm-pack build --release` (for
-  # production wasm) and `wasm-pack test --release` (for in-wasm tests)
-  # run here in one job — they share the wasm32 toolchain install,
-  # the wasm32 Swatinem cache, the fetched data, and the prebuilt
-  # CLI artifact. Fantoccini E2E follows the build.
+  # Browser-side wasm coverage + Firefox WebDriver E2E. Sequenced
+  # after `build` and uses the same `release` cache slice — every
+  # host-target binary this job needs (`pr4xis-cli` for the data
+  # update, `pr4xis-domains` for `emit_prx`, `pr4xis-web` for the E2E
+  # server, `pr4xis-e2e` for the WebDriver client) is already
+  # compiled in `target/release/` from `build`. wasm-only work
+  # (wasm-pack build + wasm-pack test for the wasm32 target) is the
+  # only Rust compilation that actually happens here.
   wasm:
     name: WASM tests + E2E
     runs-on: ubuntu-latest
-    needs: [warmup]
+    needs: [build]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -221,7 +260,7 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: wasm-release
+          shared-key: release
       - name: Cache WordNet XML
         uses: actions/cache@v4
         with:
@@ -241,7 +280,7 @@ jobs:
           path: target/release
       - name: Make pr4xis-cli executable
         run: chmod +x target/release/pr4xis
-      - name: Verify fetched data is materialised (re-runs only if cache cold)
+      - name: Materialise external data (no-op on data-cache hit)
         run: ./target/release/pr4xis update
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -294,45 +333,6 @@ jobs:
             exit 1
           fi
 
-  coverage:
-    name: Coverage
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: false
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: coverage
-      - uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Cache WordNet XML
-        uses: actions/cache@v4
-        with:
-          path: crates/domains/data/wordnet/english-wordnet-2025.xml
-          key: wordnet-english-2025-v1
-      - name: Cache fetched external data
-        uses: actions/cache@v4
-        with:
-          path: |
-            crates/domains/data/legal/uscode
-            crates/domains/data/markup-schemas/xsts
-            crates/domains/data/markup-schemas/xmlconf
-          key: praxis-data-${{ hashFiles('praxis.lock') }}
-      - name: Fetch external data
-        run: cargo run -p pr4xis-cli --release -- update
-      - name: Run coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: lcov.info
-          fail_ci_if_error: false
 
   pages:
     name: Deploy Pages

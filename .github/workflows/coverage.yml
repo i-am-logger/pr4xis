@@ -1,0 +1,79 @@
+name: Coverage
+
+# Coverage runs when a new praxis version ships. release-plz creates
+# a GitHub release per crate after each successful publish; we
+# trigger on those release events, filtered to a single canonical
+# tag (`pr4xis-v*`) so a workspace-wide release fires exactly one
+# coverage run rather than one per published crate.
+#
+# Why no nightly cron and no per-PR runs:
+# - Per-PR coverage adds a "Coverage (skipped)" check on every push
+#   to every PR — visual noise for the >99% of PRs that aren't
+#   release PRs.
+# - Nightly coverage re-measures unchanged code most nights; the
+#   trend line gains nothing meaningful and burns runner minutes.
+#
+# Triggering on releases gives one coverage snapshot per shipped
+# version — the moment a maintainer or user actually cares what
+# coverage looks like. workflow_dispatch is the escape hatch for
+# any other time.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    # All workspace crates share the same version (Pattern B in
+    # release-plz.toml), so a workspace release publishes ~7 crates
+    # and fires ~7 `release: published` events. Filter to one
+    # canonical tag prefix so we run coverage exactly once per
+    # workspace release rather than once per crate.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'pr4xis-v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: coverage
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Cache WordNet XML
+        uses: actions/cache@v4
+        with:
+          path: crates/domains/data/wordnet/english-wordnet-2025.xml
+          key: wordnet-english-2025-v1
+      - name: Cache fetched external data
+        uses: actions/cache@v4
+        with:
+          path: |
+            crates/domains/data/legal/uscode
+            crates/domains/data/markup-schemas/xsts
+            crates/domains/data/markup-schemas/xmlconf
+          key: praxis-data-${{ hashFiles('praxis.lock') }}
+      - name: Fetch external data
+        run: cargo run -p pr4xis-cli --release -- update
+      - name: Run coverage
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: false
