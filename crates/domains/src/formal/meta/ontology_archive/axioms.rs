@@ -21,8 +21,8 @@ use pr4xis::ontology::Axiom;
 
 use crate::formal::meta::well_behaved_lens::RoundTripFidelity;
 use crate::social::software::markup::xml::owl::prx::{
-    OwnedCodegenData, PrxEnvelope, PrxMetadata, RawSource, envelope_from_bytes, envelope_to_bytes,
-    gunzip, gzip, load_prx_gz, reconstruct_source, source_content_hash,
+    OwnedCodegenData, PrxEnvelope, PrxError, PrxMetadata, RawSource, envelope_from_bytes,
+    envelope_to_bytes, gunzip, gzip, load_prx_gz, reconstruct_source, source_content_hash,
 };
 
 /// Distinct witness byte-strings the byte-level axioms run over —
@@ -366,9 +366,13 @@ impl Axiom for LoadGateFailsClosed {
             )));
         }
         // Reject a wrong MerkleRoot pin: a label that does not match the
-        // content address re-derived from the bytes is refused.
+        // content address re-derived from the bytes is refused (specifically
+        // by the MerkleRoot leg — a HashMismatch, not just any error).
         let wrong_pin = "0".repeat(64);
-        if load_prx_gz(&prx_gz, &wrong_pin, &source_pin).is_ok() {
+        if !matches!(
+            load_prx_gz(&prx_gz, &wrong_pin, &source_pin),
+            Err(PrxError::HashMismatch { .. })
+        ) {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                 self.meta(),
             )));
@@ -389,7 +393,10 @@ impl Axiom for LoadGateFailsClosed {
                 self.meta(),
             )));
         };
-        if load_prx_gz(&poisoned_gz, &archive_pin, &source_pin).is_ok() {
+        if !matches!(
+            load_prx_gz(&poisoned_gz, &archive_pin, &source_pin),
+            Err(PrxError::HashMismatch { .. })
+        ) {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                 self.meta(),
             )));

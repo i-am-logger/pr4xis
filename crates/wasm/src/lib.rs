@@ -1,11 +1,12 @@
 use wasm_bindgen::prelude::*;
 
 use pr4xis::ontology::compose::Staging;
+use pr4xis_domains::applied::data_provisioning::registry::{lock_archive_signature, lock_hashes};
 use pr4xis_domains::cognitive::linguistics::english::English;
 use pr4xis_domains::cognitive::linguistics::language;
 use pr4xis_domains::formal::information::knowledge::{LoadedRef, source_catalog};
 use pr4xis_domains::formal::information::schema::transport::{Presentation, SchemaValue};
-use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz_from_lock;
+use pr4xis_domains::social::software::markup::xml::owl::prx::load_prx_gz;
 use pr4xis_domains::social::software::markup::xml::owl::reader::read_owl;
 use pr4xis_domains::social::software::markup::xml::owl::vocabulary::LoadedOwlVocabulary;
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
@@ -156,14 +157,15 @@ impl Pr4xis {
 
     /// Load a registered OWL vocabulary from its `.prx.gz` distribution
     /// envelope (downloaded by the host from the vocabulary's served
-    /// `prx_url`). **Content-addressed, fail-closed**: the gate gunzips,
-    /// bytecheck-validates the rkyv envelope, then verifies two content-hash
-    /// integrity claims against the embedded `praxis.lock` — the archive's
-    /// `MerkleRoot` (re-derived from the envelope's own bytes, so a tampered
-    /// or poisoned archive is rejected even under a genuine source label)
-    /// and the source pin. On any mismatch nothing is installed and an
-    /// `Err` is returned. Idempotent: loading a name already present
-    /// replaces it.
+    /// `prx_url`). **Content-addressed, fail-closed, identity-bound**: both
+    /// pins are looked up by the caller's `(name, version)` from the embedded
+    /// `praxis.lock`, then the gate gunzips, bytecheck-validates the rkyv
+    /// envelope, and verifies two content-hash integrity claims — the
+    /// archive's `MerkleRoot` (re-derived from the envelope's own bytes) and
+    /// the source pin. Because the pins are the *caller-named* vocabulary's,
+    /// a genuine archive for a DIFFERENT vocabulary fails (its `MerkleRoot`
+    /// won't match the named pin), so the install key cannot disagree with
+    /// the loaded content. On any mismatch nothing is installed. Idempotent.
     ///
     /// This differs from [`Self::load_owl_source`] in *where* trust is
     /// anchored: `load_prx` re-derives the content address from the bytes it
@@ -175,10 +177,19 @@ impl Pr4xis {
         version: String,
         prx_gz: &[u8],
     ) -> Result<(), JsValue> {
-        let vocab = load_prx_gz_from_lock(prx_gz).map_err(|e| {
+        let key = format!("{name}@{version}");
+        let archive_pin = lock_archive_signature(&name, &version).ok_or_else(|| {
             JsValue::from_str(&format!(
-                ".prx.gz load/validate failed for {name}@{version}: {e}"
+                "no embedded praxis.lock [archive_signatures] pin for {key}; cannot validate .prx.gz"
             ))
+        })?;
+        let source_pin = lock_hashes().get(&key).ok_or_else(|| {
+            JsValue::from_str(&format!(
+                "no embedded praxis.lock pin for {key}; cannot validate .prx.gz"
+            ))
+        })?;
+        let vocab = load_prx_gz(prx_gz, archive_pin, source_pin).map_err(|e| {
+            JsValue::from_str(&format!(".prx.gz load/validate failed for {key}: {e}"))
         })?;
         self.install(name, LoadedPayload::Owl(vocab));
         Ok(())
@@ -293,16 +304,5 @@ impl Pr4xis {
     fn install(&mut self, name: String, payload: LoadedPayload) {
         self.loaded.retain(|s| s.name != name);
         self.loaded.push(LoadedSource { name, payload });
-    }
-
-    /// The praxis.lock source-hash pin for `name@version`, from the
-    /// build-time ontology manifest. `None` for an unregistered or unpinned
-    /// vocabulary — in which case [`Self::load_prx`] refuses to install
-    /// (it has nothing to validate the envelope's embedded hash against).
-    fn lock_pin(&self, name: &str, version: &str) -> Option<&'static str> {
-        ontologies_manifest::AVAILABLE_ONTOLOGIES
-            .iter()
-            .find(|(n, v, _, _, _)| *n == name && *v == version)
-            .map(|(_, _, _, _, pin)| *pin)
     }
 }

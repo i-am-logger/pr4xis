@@ -446,8 +446,9 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
     // root). Each entry must (a) name a source that also has a raw
     // `[hashes]` pin (the archive is the compiled form of that source) and
     // (b) be a 64-char lowercase hex SHA-256. Unlike a byte_exact_signature
-    // it must NOT equal the `[hashes]` pin — it addresses the compiled rkyv
-    // envelope, a different artifact than the raw source bytes.
+    // it will generally NOT equal the `[hashes]` pin (not enforced) — it
+    // addresses the compiled rkyv envelope, a different artifact than the
+    // raw source bytes.
     for (key, sig) in &raw.archive_signatures {
         if !raw.hashes.contains_key(key) {
             return Err(format!(

@@ -96,8 +96,10 @@
 //! - [`envelope_to_bytes`] — `RkyvDeterminism`.
 //! - [`envelope_to_bytes`] / [`envelope_from_bytes`] — `EmitLoadWellBehaved`.
 //! - [`reconstruct_source`] — `SourceHashFaithfulness`.
-//! - [`load_prx_gz`] / `verify_content_address` — `LoadGateFailsClosed`,
-//!   `IntegrityClaimVerifiable`.
+//! - [`load_prx_gz`] / `verify_content_address` — `LoadGateFailsClosed`.
+//!   (The load gate also discharges the W3C-SRI `IntegrityClaim` *concept*
+//!   on the install path; the `IntegrityClaimVerifiable` *axiom* itself
+//!   stays deferred, per `ontology_archive::axioms`.)
 //!
 //! ## Citations
 //!
@@ -590,6 +592,10 @@ fn verify_content_address(bytes: &[u8], trusted_pin: &str, key: &str) -> Result<
             expected,
             found: actual,
         }),
+        // Unreachable on this path: the claim just above is always
+        // ClaimData::Sha256, which raw_hash::verify never reports as
+        // Unverifiable. Mapped explicitly so a future non-Sha256 claim still
+        // fails closed rather than silently passing.
         VerificationResult::Unverifiable { reason } => Err(PrxError::IntegrityUnverifiable {
             key: key.to_string(),
             reason,
@@ -1027,7 +1033,9 @@ pub use emit::{build_envelope, emit_all_prx_gz, emit_prx_gz};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::applied::data_provisioning::registry::{lock_archive_signature, lock_hashes};
+    use crate::applied::data_provisioning::registry::{
+        lock_archive_signature, lock_archive_signatures, lock_hashes,
+    };
     use proptest::prelude::*;
 
     /// The bundled CiTO 2.8.1 OWL vocabulary (SPAR), embedded at build
@@ -1378,6 +1386,42 @@ mod tests {
                 a.name, a.version
             );
         }
+        // Load-bearing in both directions: every emitted archive is pinned
+        // (above) AND every pinned vocabulary was emitted — so a pin for a
+        // vanished/renamed source, or a missing pin, is caught.
+        let emitted: std::collections::BTreeSet<String> = arts
+            .iter()
+            .map(|a| format!("{}@{}", a.name, a.version))
+            .collect();
+        let pinned: std::collections::BTreeSet<String> =
+            lock_archive_signatures().keys().cloned().collect();
+        assert_eq!(
+            emitted, pinned,
+            "emitted OWL archives must match [archive_signatures] exactly"
+        );
+    }
+
+    /// The source leg — not the archive leg — rejects a floor envelope with
+    /// no raw complement: with a genuine MerkleRoot pin the archive check
+    /// passes, then `verify_source_leg` -> `reconstruct_source` refuses
+    /// `raw = None`.
+    #[test]
+    fn load_rejects_floor_envelope_missing_raw_leaf() {
+        let mut envelope =
+            build_envelope(CITO_2_8_1_OWL.as_bytes(), CITO_NAME, CITO_VERSION, CITO_URL)
+                .expect("build envelope");
+        envelope.raw = None;
+        let prx_gz = gzip(&envelope_to_bytes(&envelope).expect("serialize")).expect("gzip");
+        // Genuine MerkleRoot for THIS (raw-less) envelope, so the archive
+        // leg passes and the source leg is what rejects.
+        let archive_pin = prx_archive_address(&prx_gz).expect("archive address");
+        let source_pin = lock_hashes().get("cito@2.8.1").expect("pin").clone();
+        let err = load_prx_gz(&prx_gz, &archive_pin, &source_pin)
+            .expect_err("missing raw leaf must reject");
+        assert!(
+            matches!(err, PrxError::SourceNotReconstructible { .. }),
+            "expected SourceNotReconstructible from the source leg, got {err:?}"
+        );
     }
 
     /// One-shot helper: print the MerkleRoot of every emitted OWL archive so

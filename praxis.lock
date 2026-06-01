@@ -351,8 +351,8 @@
 # and verifies before installing anything (W3C Subresource Integrity 2016;
 # Dolstra 2006 content-addressing; Merkle 1987). A build-output pin: it
 # changes when the rkyv layout or the projected data changes, and is
-# re-pinned from the value `emit_all_prx_gz` reports (the
-# `archive_anchor_cito_matches_lock` test guards it).
+# re-pinned from the value `dump_archive_addresses` reports (the
+# `archive_anchors_match_lock` test guards every pinned vocabulary).
 [archive_signatures]
 "biro@1.1.1"             = "fa52ae534e3e8681d2142d6b7e096bd6f8ed7268470469b9c6e1264436f4a09e"
 "c4o@1.2"                = "f8f17c223f8c0ebae9302f6ffd9bf522e2bb271848c6e229943f183e895ee163"

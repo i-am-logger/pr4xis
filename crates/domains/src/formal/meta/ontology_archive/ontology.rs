@@ -139,6 +139,9 @@ impl Ontology for OntologyArchiveStorageOntology {
     type Qual = ConceptDescription;
 
     fn axioms() -> alloc::vec::Vec<alloc::boxed::Box<dyn Axiom>> {
+        // `mut` is used only under `feature = "prx"` (the realisation pushes
+        // below); without it the vector is returned unchanged.
+        #[cfg_attr(not(feature = "prx"), allow(unused_mut))]
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
         // The domain axioms are runnable only where a realisation exists.
         // The `.prx` realisation lives behind `feature = "prx"`; under it,

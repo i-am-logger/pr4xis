@@ -224,7 +224,8 @@ fn load_owl_source_rejects_malformed_xml() {
 #[wasm_bindgen_test]
 fn load_prx_rejects_unregistered_vocabulary() {
     let mut p = Pr4xis::new();
-    // No embedded lock pin for an unknown name → cannot validate, refuses.
+    // No embedded [archive_signatures]/[hashes] pin for an unknown name →
+    // the gate has nothing to validate against and refuses.
     assert!(
         p.load_prx(
             "not_a_registered_vocab".to_string(),
