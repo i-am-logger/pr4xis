@@ -19,7 +19,7 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
-pr4xis = { version = "0.22.0", path = "../pr4xis" }
+pr4xis = { version = "0.22.1", path = "../pr4xis" }
 pr4xis-chat = { version = "0.22.0", path = "../chat" }
 pr4xis-domains = { version = "0.22.0", path = "../domains", features = ["fetch"] }
 clap = { version = "4", features = ["derive"] }
@@ -29,4 +29,4 @@ anyhow = "1"
 workspace = true
 
 [build-dependencies]
-pr4xis = { version = "0.22.0", path = "../pr4xis", features = ["codegen"] }
+pr4xis = { version = "0.22.1", path = "../pr4xis", features = ["codegen"] }

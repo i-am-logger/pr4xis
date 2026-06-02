@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.22.1](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.22.0...pr4xis-v0.22.1) - 2026-06-02
+
+### Other
+
+- Fix/pr4xis domains publishable ([#193](https://github.com/i-am-logger/pr4xis/pull/193))
+
 ## [0.16.0](https://github.com/i-am-logger/pr4xis/compare/pr4xis-v0.15.0...pr4xis-v0.16.0) (2026-05-30)
 
 
