@@ -220,12 +220,12 @@ impl Ontology for PraxisKnowledgeGraphOntology {
     type Qual = ConceptDescription;
 
     fn axioms() -> alloc::vec::Vec<alloc::boxed::Box<dyn Axiom>> {
-        // Structural axioms always run. The domain axioms (the 10 runnable
+        // Structural axioms always run. The domain axioms (the 13 runnable
         // ones — the fully-faithful ArchiveIntoGraph functor laws, the seven
-        // re-exported archive axioms, and the two re-bind axioms) live behind
-        // `feature = "prx"`, where the `.prx` realisation they exercise
-        // exists; see [`super::axioms`] (lens / selection / snapshot axioms
-        // are deferred there, not stubbed).
+        // re-exported archive axioms, the two re-bind axioms, and the lens /
+        // selection / pair-round-trip axioms) live behind `feature = "prx"`,
+        // where the `.prx` realisation they exercise exists; see
+        // [`super::axioms`] (snapshot / attestation axioms deferred there).
         #[cfg_attr(not(feature = "prx"), allow(unused_mut))]
         let mut axioms = pr4xis::ontology::reasoning::structural_axioms_for::<Self::Cat>();
         #[cfg(feature = "prx")]
