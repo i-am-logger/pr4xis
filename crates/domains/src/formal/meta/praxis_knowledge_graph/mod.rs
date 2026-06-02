@@ -1,5 +1,9 @@
-//! Praxis knowledge-graph ontology (#272 / PR 1) — praxis as a whole-graph
-//! wire protocol.
+//! Praxis knowledge-graph ontology (#272) — a content-addressed graph-SLICE
+//! primitive: select a subgraph, emit it as a deterministic content-addressed
+//! binary, load it through a fail-closed gate, re-bind behavioural nodes by
+//! name. (The *whole* graph is just the default selection; the
+//! request-for-missing negotiation that would let a peer LEARN what it lacks is
+//! a separate, deferred layer — not this primitive.)
 //!
 //! - [`ontology`] declares the 32 concepts (structural-knowledge nodes,
 //!   their pair-ontology bindings, selection/slicing, and the
@@ -8,7 +12,7 @@
 //!   [`OntologyArchiveStorage`](super::ontology_archive) — created
 //!   alongside, never a rewrite (`feedback_evolution_via_functor`).
 //! - [`axioms`] are the runnable axioms (the functor's full-and-faithful
-//!   laws, the seven re-exported archive axioms, the two re-bind axioms, and
+//!   laws, the eight re-exported archive axioms, the two re-bind axioms, and
 //!   the lens / selection / pair-round-trip axioms; the snapshot / attestation
 //!   axioms are deferred there, not stubbed).
 //!

@@ -718,6 +718,34 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 #(#unique_kinds,)*
             }
 
+            impl #kind_name {
+                /// Every relation-kind variant — the closed-world enumeration
+                /// of this ontology's morphism kinds (the kind-level parallel
+                /// of [`Concept::variants`](#pr4xis::category::Concept::variants)).
+                pub fn variants() -> Vec<Self> {
+                    vec![#kind_name::Identity, #(#kind_name::#unique_kinds,)*]
+                }
+
+                /// The variant's canonical name — the morphism kind's lexical
+                /// grounding (the kind-level parallel of
+                /// [`Concept::name`](#pr4xis::category::Concept::name)), so a
+                /// kind is carried/compared by stable name, never a positional
+                /// discriminant.
+                pub fn name(&self) -> &'static str {
+                    match self {
+                        #kind_name::Identity => "Identity",
+                        #(#kind_name::#unique_kinds => stringify!(#unique_kinds),)*
+                    }
+                }
+
+                /// Re-resolve a kind from its canonical [`name`](Self::name) —
+                /// the typed inverse, over `variants()`; fail-closed `None` for
+                /// an unknown name.
+                pub fn from_name(name: &str) -> Option<Self> {
+                    #kind_name::variants().into_iter().find(|k| k.name() == name)
+                }
+            }
+
             #[derive(Debug, Clone, PartialEq, Eq, Hash)]
             pub struct #relation_name {
                 pub from: #entity_name,

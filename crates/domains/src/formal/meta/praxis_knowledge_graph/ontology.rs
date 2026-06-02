@@ -1,11 +1,14 @@
-//! Praxis knowledge-graph ontology (#272 / PR 1) — praxis as a
-//! knowledge-graph **wire protocol**.
+//! Praxis knowledge-graph ontology (#272) — the concepts behind a
+//! content-addressed graph-**SLICE** primitive.
 //!
-//! The unit of persistence is the *whole* knowledge graph at a version:
-//! every concept, axiom, rule, functor, adjunction, lens, and edge —
-//! content-addressed, Merkle-dedup'd, rkyv-serialized as a binary that
-//! rehydrates into a live graph whose behavioural nodes **re-bind** to the
-//! running binary's registered handler tables.
+//! The unit of persistence is a SELECTED subgraph (a `RootSet` under an
+//! `EdgeKindFilter` — the whole graph by default, but typically a minimal
+//! slice): its concepts, axioms, lenses, and edges — content-addressed,
+//! Merkle-dedup'd, rkyv-serialized as a binary that rehydrates into a live
+//! graph whose behavioural nodes **re-bind** to the running binary's registered
+//! handler tables. A reference LEAVING the slice is an explicit
+//! `UnboundReference` (fail-closed) — the missing-piece manifest a higher,
+//! deferred request/response layer would use to fetch what a peer lacks.
 //!
 //! Every persisted node ships in the *pair-ontology* shape
 //! `(structural data, binding identity)`: the structural part is portable,
@@ -220,8 +223,8 @@ impl Ontology for PraxisKnowledgeGraphOntology {
     type Qual = ConceptDescription;
 
     fn axioms() -> alloc::vec::Vec<alloc::boxed::Box<dyn Axiom>> {
-        // Structural axioms always run. The domain axioms (the 13 runnable
-        // ones — the fully-faithful ArchiveIntoGraph functor laws, the seven
+        // Structural axioms always run. The domain axioms (the runnable
+        // ones — the fully-faithful ArchiveIntoGraph functor laws, the eight
         // re-exported archive axioms, the two re-bind axioms, and the lens /
         // selection / pair-round-trip axioms) live behind `feature = "prx"`,
         // where the `.prx` realisation they exercise exists; see

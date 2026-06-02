@@ -26,6 +26,13 @@ chrono = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "1"
 sha2 = "0.11"
+# BLAKE3 (Aumasson et al. 2020) — the third strong digest the
+# `artifact_identity::HashAlgorithm` enum declares, alongside SHA-256/512
+# from `sha2`. `default-features = false` drops std + rayon; `pure` forces
+# the portable pure-Rust implementation (no `cc`/assembly build script), so
+# it builds in restricted environments (pre-commit hooks, wasm32) without a
+# C toolchain and stays crates.io-publishable.
+blake3 = { version = "1", default-features = false, features = ["pure"] }
 hex = "0.4"
 anyhow = "1"
 hashbrown = "0.17"

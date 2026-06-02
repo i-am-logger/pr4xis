@@ -399,7 +399,7 @@ pub fn source_content_hash(source_bytes: &[u8]) -> String {
 //     once a byte-exact `write_owl` + RDF Dataset Canonicalization (#258)
 //     lands. Not reachable for OWL today.
 
-/// The content-addressed source bytes a [`PrxMode::BytesPlusView`] envelope
+/// The content-addressed source bytes a `RawBytesComplementFloor` envelope
 /// carries so `.prx` regenerates the exact source without re-fetching it.
 ///
 /// Honesty doctrine (recovered design): the complement lives IN the

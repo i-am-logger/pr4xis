@@ -9,7 +9,7 @@
 //!
 //! ## What ships in #272
 //!
-//! - The **seven storage axioms** of [`OntologyArchiveStorage`](crate::formal::meta::ontology_archive),
+//! - The **eight storage axioms** of [`OntologyArchiveStorage`](crate::formal::meta::ontology_archive),
 //!   re-exported as graph axioms. The [`ArchiveIntoGraph`](super::functor)
 //!   functor is the formal statement that they ARE graph axioms; its
 //!   full-and-faithful law (`FunctorLawPreservation`) proves the carry-over
@@ -39,9 +39,10 @@
 //!
 //! `AdjunctionTrianglePreservation` waits on an adjunction in the graph's
 //! binding set (the `AdjunctionTriangleLaw` machinery already exists in
-//! `pr4xis::category::laws`); `AttestationChainVerifiable` +
-//! `IntegrityClaimVerifiable` wait on TUF/in-toto/SLSA. A passing `verify()`
-//! for either today would be a stub.
+//! `pr4xis::category::laws`); `AttestationChainVerifiable` waits on
+//! TUF/in-toto/SLSA + an authenticated signed pin. A passing `verify()` for
+//! either today would be a stub. (`IntegrityClaimVerifiable`, W3C SRI, is
+//! now realised in [`archive`] and carried over in `domain_axioms`.)
 
 use alloc::boxed::Box;
 use alloc::vec;
@@ -67,7 +68,7 @@ use alloc::string::ToString;
 /// fully faithful — identity + composition + faithful (injective on each
 /// hom-set) + full onto its image. This is the machine proof that the
 /// archive's persisted nodes and edges round-trip into the graph without
-/// loss or collision, the carry-over witness for the seven re-exported
+/// loss or collision, the carry-over witness for the eight re-exported
 /// storage axioms. Mac Lane (1971) CWM Ch. I §3-4.
 pub struct FunctorLawPreservation;
 
@@ -170,7 +171,7 @@ pr4xis::register_axiom!(LensLawPreservation, constructor);
 /// reachable from the roots through the chosen kinds, and no filtered edge
 /// leaves it (a leaving reference would be an `UnboundReference`). Driven
 /// through the ontological relational-image selection
-/// ([`compute_reachable`](super::snapshot::compute_reachable)) over the
+/// ([`compute_reachable`]) over the
 /// transitive closure the macro materializes — a direct categorical query,
 /// not a re-derived traversal.
 pub struct SelectionClosedUnderEdgeKinds;
@@ -441,7 +442,7 @@ pr4xis::register_axiom!(LensBindingComplete, constructor);
 
 /// The runnable domain axioms of the knowledge-graph ontology — spliced
 /// into [`PraxisKnowledgeGraphOntology::axioms`](super::ontology) under
-/// `feature = "prx"`. The seven archive axioms are re-exported (the functor
+/// `feature = "prx"`. The eight archive axioms are re-exported (the functor
 /// is the formal carry-over); the three whole-graph axioms exercise the
 /// embedding and the re-bind handler table.
 pub fn domain_axioms() -> Vec<Box<dyn Axiom>> {
@@ -455,6 +456,7 @@ pub fn domain_axioms() -> Vec<Box<dyn Axiom>> {
         Box::new(archive::EmitLoadWellBehaved),
         Box::new(archive::SourceHashFaithfulness),
         Box::new(archive::LoadGateFailsClosed),
+        Box::new(archive::IntegrityClaimVerifiable),
         // Whole-graph axioms.
         Box::new(FunctorLawPreservation),
         Box::new(AxiomBindingComplete),

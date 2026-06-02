@@ -24,8 +24,8 @@
 //! - **Unicode BOM FAQ** — the UTF-8 encoding of U+FEFF is the byte
 //!   sequence EF BB BF (<https://www.unicode.org/faq/utf_bom.html>).
 //! - **IEEE Std 1003.1-2017 (POSIX.1-2017)** Base Definitions §3.206
-//!   "Line" (a sequence of non-<newline> characters plus a terminating
-//!   <newline>) and §3.195 "Incomplete Line" (non-<newline> characters
+//!   "Line" (a sequence of non-`<newline>` characters plus a terminating
+//!   `<newline>`) and §3.195 "Incomplete Line" (non-`<newline>` characters
 //!   at end of file)
 //!   (<https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html>).
 

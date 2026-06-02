@@ -150,8 +150,9 @@ impl Ontology for OntologyArchiveStorageOntology {
         #[cfg(feature = "prx")]
         {
             use super::axioms::{
-                CompressionRoundTrip, EmitLoadWellBehaved, LoadGateFailsClosed, MerkleDedupCorrect,
-                MerkleHashDeterministic, RkyvDeterminism, SourceHashFaithfulness,
+                CompressionRoundTrip, EmitLoadWellBehaved, IntegrityClaimVerifiable,
+                LoadGateFailsClosed, MerkleDedupCorrect, MerkleHashDeterministic, RkyvDeterminism,
+                SourceHashFaithfulness,
             };
             axioms.push(alloc::boxed::Box::new(MerkleHashDeterministic));
             axioms.push(alloc::boxed::Box::new(MerkleDedupCorrect));
@@ -160,6 +161,7 @@ impl Ontology for OntologyArchiveStorageOntology {
             axioms.push(alloc::boxed::Box::new(EmitLoadWellBehaved));
             axioms.push(alloc::boxed::Box::new(SourceHashFaithfulness));
             axioms.push(alloc::boxed::Box::new(LoadGateFailsClosed));
+            axioms.push(alloc::boxed::Box::new(IntegrityClaimVerifiable));
         }
         axioms
     }
@@ -178,7 +180,7 @@ mod tests {
 
     #[test]
     fn ontology_validates() {
-        // Under `feature = "prx"` this runs the seven realisation axioms
+        // Under `feature = "prx"` this runs the eight realisation axioms
         // (each exercising the real `.prx` machinery); without it, the
         // structural axioms only. Both must hold.
         OntologyArchiveStorageOntology::validate()

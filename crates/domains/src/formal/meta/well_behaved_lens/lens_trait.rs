@@ -89,8 +89,14 @@ use sha2::{Digest, Sha256};
 ///
 /// rkyv-serializable so a content-addressed archive (`.prx`) can record
 /// the source lens's fidelity directly — the archive's reconstruction
-/// mode IS this grade, not a parallel enum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+/// mode IS this grade, not a parallel enum. The rkyv derives are gated on
+/// `feature = "prx"` (where `rkyv` is linked and the archive that consumes
+/// them exists); without `prx` the grade is still a first-class value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "prx",
+    derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
+)]
 pub enum RoundTripFidelity {
     /// `put(get(b)) == b` byte-for-byte, reconstructed from the typed
     /// ontology graph alone with NO constant-complement side-channel.

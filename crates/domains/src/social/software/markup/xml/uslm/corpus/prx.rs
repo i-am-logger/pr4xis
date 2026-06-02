@@ -9,10 +9,10 @@
 //! load gate, same OMV/PROV-O-grounded metadata schema) over the U.S. Code
 //! rather than over an OWL vocabulary — a parallel *realisation*, never a
 //! parallel envelope module. Every shared primitive
-//! ([`source_content_hash`](crate::social::software::markup::xml::owl::prx::source_content_hash),
-//! [`gzip`](crate::social::software::markup::xml::owl::prx::gzip) /
-//! [`gunzip`](crate::social::software::markup::xml::owl::prx::gunzip),
-//! `raw_hash::verify`, [`RoundTripFidelity`], [`PrxMetadata`],
+//! ([`source_content_hash`],
+//! [`gzip`] /
+//! [`gunzip`],
+//! `raw_hash::verify`, [`RoundTripFidelity`], `PrxMetadata`,
 //! [`RawSource`]) is reused as-is; only the two private monomorphic gate
 //! *legs* are mirrored, and exactly ONE structural field is added
 //! ([`UsCodePrxEnvelope::aux`]) because the U.S. Code carries subdivision
@@ -26,7 +26,7 @@
 //! `<paragraph>` / `<subparagraph>` / `<clause>` / `<subclause>` / `<item>`
 //! / `<subitem>`), each node with its own USLM URN and a parent↔child
 //! `Composes` edge. That tree is the corpus
-//! [`UscSectionAux`](super::section_aux::UscSectionAux) side-channel
+//! [`UscSectionAux`] side-channel
 //! [`UsCode::from_codegen_with_aux`](super::UsCode::from_codegen_with_aux)
 //! attaches. The archive mirrors it with an owned, rkyv-serializable
 //! [`OwnedUscSectionAux`] / [`OwnedUscSubdivision`] tree.
@@ -34,9 +34,9 @@
 //! ## Corpus-faithful, not parse-faithful (the round-trip target)
 //!
 //! [`OwnedUscSubdivision`] mirrors the **corpus**
-//! [`UscSubdivision`](super::section_aux::UscSubdivision) (the 7-field
+//! [`UscSubdivision`] (the 7-field
 //! node the corpus API exposes), NOT the richer parse
-//! [`UsCodeSubdivision`](super::runtime_types::UsCodeSubdivision) (whose
+//! [`UsCodeSubdivision`] (whose
 //! `heading_runs` / `chapeau_runs` / `content_runs` / `refs` / `def_blocks`
 //! / `markers` / `amendments` are inline-run detail). Those parse-only
 //! fields are deliberately NOT archived: the corpus projection
@@ -100,7 +100,7 @@ use crate::social::software::markup::xml::owl::prx::{
 // =============================================================================
 
 /// Owned, rkyv-serializable mirror of the corpus
-/// [`UscSubdivision`](super::section_aux::UscSubdivision).
+/// [`UscSubdivision`].
 ///
 /// Field-for-field identical except that every `&'static str` becomes an
 /// owned [`String`], the typed [`SubdivisionKind`] becomes its canonical
@@ -148,7 +148,7 @@ pub struct OwnedUscSubdivision {
 }
 
 /// Owned, rkyv-serializable mirror of the corpus
-/// [`UscSectionAux`](super::section_aux::UscSectionAux): one section's
+/// [`UscSectionAux`]: one section's
 /// subdivision tree plus its `Composes`-edge list.
 ///
 /// `relations` are stored as `(child_urn, parent_urn)` pairs — redundant

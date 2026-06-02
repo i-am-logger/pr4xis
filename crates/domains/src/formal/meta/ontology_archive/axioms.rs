@@ -7,11 +7,13 @@
 //! verify lives there. When USC (#271) becomes a second consumer the
 //! same axioms verify against it too.
 //!
-//! Deferred, deliberately NOT declared here (no machinery yet — a
-//! passing `verify()` would be a stub / over-claim): `AttestationChainVerifiable`
-//! (TUF / in-toto / SLSA) and `IntegrityClaimVerifiable` (W3C SRI). They
-//! are concepts in the ontology; their axioms land with the supply-chain
-//! attestation work.
+//! `IntegrityClaimVerifiable` (W3C SRI) IS realised below, over the
+//! multi-algorithm `HashAlgorithm` claim (SHA-256/512, BLAKE3). Still
+//! deferred, deliberately NOT declared here (no machinery yet — a passing
+//! `verify()` would be a stub / over-claim): `AttestationChainVerifiable`
+//! (TUF / in-toto / SLSA). It is a concept in the ontology; its axiom lands
+//! with the supply-chain attestation work (which also needs an
+//! authenticated, signed pin in place of the current unsigned `praxis.lock`).
 
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -618,6 +620,97 @@ pr4xis::register_axiom!(
     "Samuel et al. (2010) Survivable Key Compromise in Software Update Systems (TUF), CCS '10"
 );
 
+/// W3C Subresource Integrity: an `IntegrityClaim` binds a resource to its
+/// expected content digest under a *named* hash algorithm, and a verifier
+/// admits the resource only when the recomputed digest matches. Realised
+/// over praxis's multi-algorithm `HashAlgorithm` claim — SHA-256 / SHA-512
+/// (FIPS 180-4) and BLAKE3 (Aumasson et al. 2020). (SRI itself registers
+/// only SHA-256/384/512; BLAKE3 extends the same expectation-bound-integrity
+/// *pattern* to a stronger function — it is not an SRI-registered digest.)
+/// Weak functions (MD5 / SHA-1) are *unrepresentable* in the enum, so
+/// "refuse weak algorithms" is a type invariant rather than a runtime branch. Falsifiable + non-vacuous:
+/// for every algorithm and every witness source the TRUE digest verifies,
+/// while tampered content AND a corrupted expected-digest are both rejected
+/// (never silently `Verified`).
+pub struct IntegrityClaimVerifiable;
+
+impl Axiom for IntegrityClaimVerifiable {
+    fn verify(&self) -> Verdict {
+        use crate::formal::meta::artifact_identity::ontology::{
+            ClaimData, HashAlgorithm, IdentityClaim, IdentityConcept, VerificationResult,
+        };
+        use crate::formal::meta::artifact_identity::schemes::raw_hash;
+
+        for source in &witness_sources() {
+            for algorithm in [
+                HashAlgorithm::Sha256,
+                HashAlgorithm::Sha512,
+                HashAlgorithm::Blake3,
+            ] {
+                let expected = raw_hash::hash_hex(algorithm, source);
+                let claim = IdentityClaim {
+                    concept: IdentityConcept::RawHash,
+                    data: ClaimData::HashAlgorithm {
+                        algorithm,
+                        digest_hex: expected.clone(),
+                    },
+                };
+                // POSITIVE — the true digest of the very bytes verifies.
+                if !matches!(
+                    raw_hash::verify(&claim, source),
+                    VerificationResult::Verified(_)
+                ) {
+                    return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                        self.meta(),
+                    )));
+                }
+                // NON-VACUITY #1 — appending a byte changes the content, so the
+                // claim must NOT verify against the tampered bytes.
+                let mut tampered = source.clone();
+                tampered.push(0xAB);
+                if matches!(
+                    raw_hash::verify(&claim, &tampered),
+                    VerificationResult::Verified(_)
+                ) {
+                    return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                        self.meta(),
+                    )));
+                }
+                // NON-VACUITY #2 — a corrupted expected digest must not verify
+                // against the genuine bytes (flip the first hex nibble).
+                let mut corrupted: Vec<char> = expected.chars().collect();
+                if let Some(c) = corrupted.first_mut() {
+                    *c = if *c == '0' { '1' } else { '0' };
+                }
+                let wrong_claim = IdentityClaim {
+                    concept: IdentityConcept::RawHash,
+                    data: ClaimData::HashAlgorithm {
+                        algorithm,
+                        digest_hex: corrupted.into_iter().collect(),
+                    },
+                };
+                if matches!(
+                    raw_hash::verify(&wrong_claim, source),
+                    VerificationResult::Verified(_)
+                ) {
+                    return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                        self.meta(),
+                    )));
+                }
+            }
+        }
+        Ok(alloc::boxed::Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "IntegrityClaimVerifiable",
+        "a named-algorithm integrity claim (SHA-256/512, BLAKE3; weak functions unrepresentable) verifies the true digest and rejects tampered content or a corrupted digest",
+        "W3C (2016) Subresource Integrity; NIST (2015) FIPS 180-4 §6.2; Aumasson, Neves, Wilcox-O'Hearn, Winnerlein (2020) BLAKE3"
+    );
+}
+
+pr4xis::register_axiom!(IntegrityClaimVerifiable, "W3C (2016) Subresource Integrity");
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -631,6 +724,7 @@ mod tests {
         assert!(EmitLoadWellBehaved.verify().is_ok());
         assert!(SourceHashFaithfulness.verify().is_ok());
         assert!(LoadGateFailsClosed.verify().is_ok());
+        assert!(IntegrityClaimVerifiable.verify().is_ok());
     }
 
     #[test]
