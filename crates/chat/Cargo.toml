@@ -7,6 +7,9 @@ description = "Praxis chat engine — shared logic for CLI and WASM"
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
+# Cascades from `pr4xis-domains` being `publish = false` (cargo refuses
+# to publish a crate whose dep tree contains an unpublished member).
+publish = false
 
 [dependencies]
 pr4xis = { version = "0.22.0", path = "../pr4xis" }

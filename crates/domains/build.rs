@@ -28,7 +28,7 @@ use serde::Deserialize;
 // praxis.toml parsing — minimal, build-time only
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 struct RawManifest {
     #[serde(default)]
     sources: HashMap<String, RawSource>,
@@ -75,27 +75,61 @@ fn main() {
     let manifest_path = workspace_root.join("praxis.toml");
     let lock_path = workspace_root.join("praxis.lock");
 
-    if !manifest_path.exists() || !lock_path.exists() {
-        println!(
-            "cargo:warning=praxis.toml or praxis.lock not found at workspace root \
-             ({}); skipping statute codegen.",
-            workspace_root.display()
-        );
-        return;
-    }
-
-    println!("cargo:rerun-if-changed={}", manifest_path.display());
-    println!("cargo:rerun-if-changed={}", lock_path.display());
-    println!("cargo:rerun-if-changed=build.rs");
-
-    let manifest_text = std::fs::read_to_string(&manifest_path).expect("read praxis.toml");
-    let lock_text = std::fs::read_to_string(&lock_path).expect("read praxis.lock");
-
-    let manifest: RawManifest = toml::from_str(&manifest_text).expect("parse praxis.toml");
-    let _lock: RawLockFile = toml::from_str(&lock_text).expect("parse praxis.lock");
-
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR is always set during builds");
     let out_dir = PathBuf::from(out_dir);
+
+    println!("cargo:rerun-if-changed=build.rs");
+
+    // Read `praxis.toml` / `praxis.lock` from the workspace root if
+    // they exist. Empty fallback covers the published-crate case:
+    // when consumers compile `pr4xis-domains` from crates.io their
+    // workspace doesn't have these files, and the relative
+    // `../../../../../praxis.toml` path from `registry.rs` no longer
+    // reaches the workspace root (the crate is unpacked under
+    // `target/package/`).
+    let manifest_text = std::fs::read_to_string(&manifest_path).unwrap_or_default();
+    let lock_text = std::fs::read_to_string(&lock_path).unwrap_or_default();
+
+    if manifest_path.exists() {
+        println!("cargo:rerun-if-changed={}", manifest_path.display());
+    }
+    if lock_path.exists() {
+        println!("cargo:rerun-if-changed={}", lock_path.display());
+    }
+
+    // Embed the workspace files as runtime constants. `registry.rs`
+    // `include!`s the file this writes. When the files weren't found,
+    // the constants are empty strings — `parse_praxis_toml("")`
+    // returns an empty manifest and the `data_sources()` /
+    // `lock_hashes()` queries surface empty slices. Consumers who
+    // never invoke the registered-source machinery are unaffected;
+    // those who do can ship their own `praxis.toml` and rebuild.
+    let praxis_embed = format!(
+        "pub const PRAXIS_TOML: &str = {:?};\n\
+         pub const PRAXIS_LOCK: &str = {:?};\n",
+        manifest_text, lock_text,
+    );
+    std::fs::write(out_dir.join("praxis_embed.rs"), praxis_embed).expect("write praxis_embed.rs");
+
+    // Parse with empty defaults if files weren't present. The
+    // downstream writers handle "source not in manifest" by writing
+    // commented stubs to their respective $OUT_DIR/*_generated.rs
+    // files, so the runtime `include!`s still resolve.
+    let manifest: RawManifest = if manifest_text.is_empty() {
+        RawManifest::default()
+    } else {
+        toml::from_str(&manifest_text).expect("parse praxis.toml")
+    };
+    if !lock_text.is_empty() {
+        let _: RawLockFile = toml::from_str(&lock_text).expect("parse praxis.lock");
+    }
+
+    // The early-return that used to bail when praxis.toml/lock were
+    // missing emitted no $OUT_DIR files, which broke the runtime
+    // `include!`s for xml_namespace_schema_generated.rs, xml_infoset_
+    // generated.rs, xml_grammar_generated.rs, and usc_corpus_codegen.rs.
+    // The writers below run unconditionally; each writes a stub when
+    // its source isn't registered in the manifest.
 
     let mut sorted_names: Vec<_> = manifest.sources.keys().cloned().collect();
     sorted_names.sort();
@@ -316,6 +350,9 @@ fn write_xml_grammar_codegen(
     let out_path = out_dir.join("xml_grammar_generated.rs");
 
     // Stub declarations so consumers compile when the spec is absent.
+    // Must cover every symbol the runtime callers reference from
+    // `spec_1_0::grammar::*` — `parser::grammar` invokes
+    // `resolve_predefined_entity` in addition to the range predicates.
     let stub_decl = "#[allow(dead_code)]\n\
                      pub const CHAR_RANGES: &[(u32, u32)] = &[];\n\
                      #[allow(dead_code)]\n\
@@ -327,7 +364,9 @@ fn write_xml_grammar_codegen(
                      #[must_use]\n#[allow(dead_code)]\n\
                      pub fn is_name_start_char(_c: u32) -> bool { false }\n\
                      #[must_use]\n#[allow(dead_code)]\n\
-                     pub fn is_name_char(_c: u32) -> bool { false }\n";
+                     pub fn is_name_char(_c: u32) -> bool { false }\n\
+                     #[must_use]\n#[allow(dead_code)]\n\
+                     pub fn resolve_predefined_entity(_name: &str) -> Option<char> { None }\n";
 
     let Some(src) = manifest.sources.get("xml_1_0_fifth_edition") else {
         let stub = format!(

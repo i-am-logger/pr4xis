@@ -60,8 +60,17 @@ use crate::formal::meta::source_taxonomy::ontology::{
 #[allow(dead_code)]
 const _SOURCE_TAXONOMY_CONCEPT_WITNESS: Option<SourceTaxonomyConcept> = None;
 
-const PRAXIS_TOML: &str = include_str!("../../../../../praxis.toml");
-const PRAXIS_LOCK: &str = include_str!("../../../../../praxis.lock");
+// Embedded at build time by `build.rs` from the workspace-root
+// `praxis.toml` / `praxis.lock`. The embedding lives in $OUT_DIR
+// rather than being read via `include_str!` directly so the crate
+// remains buildable when packaged for crates.io (cargo unpacks the
+// tarball below `target/package/` where the relative
+// `../../../../../praxis.toml` path no longer reaches the workspace
+// root). When the workspace files aren't present at build time
+// (consumers compiling from crates.io), `build.rs` emits empty
+// stubs and the `data_sources()` / `lock_hashes()` queries return
+// empty slices.
+include!(concat!(env!("OUT_DIR"), "/praxis_embed.rs"));
 
 static REGISTRY: OnceLock<Vec<RegistryEntry>> = OnceLock::new();
 static LOCK: OnceLock<LockData> = OnceLock::new();

@@ -7,6 +7,11 @@ description = "Applied domains — chess, calculator, elevator, legal, traffic, 
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
+# Held back from crates.io until the registered-source layer
+# (`praxis.toml` + `pr4xis update`) is reworked as a Rust ontology
+# instead of a build-time include of workspace files. Path/git deps
+# still work; only the publish step is gated. See release-plz.toml.
+publish = false
 
 [dependencies]
 # Runtime dep needs `std` only. The `codegen` feature (and its
@@ -114,8 +119,20 @@ toml = "1"
 # SHA-256 for build-time source hashing.
 sha2 = "0.11"
 
-[lints]
-workspace = true
+# Lints are inlined here (not inherited from `[workspace.lints]`) so the
+# crate parses cleanly when unpacked standalone — e.g. crate2nix vendors
+# each member into its own /nix/store path without the workspace root,
+# and `cargo publish --verify` does the same in `target/package/`.
+[lints.rust]
+dead_code = "deny"
+unused_imports = "deny"
+unused_variables = "deny"
+unused_must_use = "deny"
+
+[lints.clippy]
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
 
 [dev-dependencies]
 # Tests under cognitive/linguistics + markup/xml/lmf exercise

@@ -23,8 +23,20 @@ quick-xml = { version = "0.40", features = ["serialize"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 
-[lints]
-workspace = true
+# Lints are inlined here (not inherited from `[workspace.lints]`) so the
+# crate parses cleanly when unpacked standalone — e.g. crate2nix vendors
+# each member into its own /nix/store path without the workspace root,
+# and `cargo publish --verify` does the same in `target/package/`.
+[lints.rust]
+dead_code = "deny"
+unused_imports = "deny"
+unused_variables = "deny"
+unused_must_use = "deny"
+
+[lints.clippy]
+todo = "deny"
+unimplemented = "deny"
+unreachable = "deny"
 
 [dev-dependencies]
 proptest = "1.11"

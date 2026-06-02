@@ -70,17 +70,26 @@ version_group = "praxis"
 name = "pr4xis"
 version_group = "praxis"
 
+# `pr4xis-domains` is held back from crates.io until the registered-source
+# story (`praxis.toml` + `pr4xis update`) lands as a Rust ontology rather
+# than a build-time `include_str!` of workspace files. Path deps still
+# work locally; only the publish step is gated. Crates that depend on
+# domains (`pr4xis-chat`, `pr4xis-cli`) cascade — cargo refuses to publish
+# a crate whose dep tree contains a `publish = false` member.
 [[package]]
 name = "pr4xis-domains"
 version_group = "praxis"
+publish = false
 
 [[package]]
 name = "pr4xis-cli"
 version_group = "praxis"
+publish = false
 
 [[package]]
 name = "pr4xis-chat"
 version_group = "praxis"
+publish = false
 
 [[package]]
 name = "pr4xis-web"

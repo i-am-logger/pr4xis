@@ -7,6 +7,9 @@ description = "Praxis chatbot CLI — axiomatic intelligence via ontology"
 license = "CC-BY-NC-SA-4.0"
 repository = "https://github.com/i-am-logger/pr4xis"
 homepage = "https://github.com/i-am-logger/pr4xis"
+# Cascades from `pr4xis-domains` being `publish = false` (cargo refuses
+# to publish a crate whose dep tree contains an unpublished member).
+publish = false
 
 [[bin]]
 name = "pr4xis"
