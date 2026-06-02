@@ -8,8 +8,8 @@
 //!   [`OntologyArchiveStorage`](super::ontology_archive) — created
 //!   alongside, never a rewrite (`feedback_evolution_via_functor`).
 //! - [`axioms`] are the runnable axioms (the functor's full-and-faithful
-//!   laws, the re-exported archive axioms, and the lens/selection/rebind
-//!   axioms).
+//!   laws, the seven re-exported archive axioms, and the two re-bind axioms;
+//!   the lens / selection / snapshot axioms are deferred there, not stubbed).
 //!
 //! The behavioural axioms exercise the `.prx` realisation and the
 //! registries, so [`axioms`] and [`functor`] are gated on `feature = "prx"`;

@@ -155,6 +155,13 @@ mod tests {
     /// realisation, the ArchiveIntoGraph functor, and the registries).
     #[test]
     fn all_domain_axioms_hold() {
+        // Guard against a future vacuous AxiomBindingComplete: the re-bind
+        // handler table must actually carry registrations to round-trip
+        // (the three #272 axioms register via the constructor arm).
+        assert!(
+            !axiom_constructors().is_empty(),
+            "AXIOM_CONSTRUCTORS must be populated for the re-bind axioms to have teeth"
+        );
         for ax in domain_axioms() {
             ax.verify()
                 .unwrap_or_else(|c| panic!("axiom failed: {}", c.meta().name.as_str()));
