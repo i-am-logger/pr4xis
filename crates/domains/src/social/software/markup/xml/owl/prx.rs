@@ -89,7 +89,16 @@
 //! [`OntologyArchiveStorage`](crate::formal::meta::ontology_archive::ontology)
 //! ontology — its functions witness that ontology's runnable axioms (in
 //! `crate::formal::meta::ontology_archive::axioms`), and the test
-//! `realisation_witnesses_the_archive_axioms` runs them against this code:
+//! `realisation_witnesses_the_archive_axioms` runs them against this code.
+//! Through the fully-faithful
+//! [`ArchiveIntoGraph`](crate::formal::meta::praxis_knowledge_graph::functor)
+//! functor (#272), that archive ontology is the **storage substratum** of
+//! the whole-graph
+//! [`PraxisKnowledgeGraph`](crate::formal::meta::praxis_knowledge_graph), so
+//! this same realisation is the graph's storage layer and the seven axioms
+//! below carry over verbatim (the functor is the proof). The test
+//! `realisation_witnesses_the_graph_storage_substratum` binds it. The
+//! fn → axiom map (zero byte-output change):
 //!
 //! - [`source_content_hash`] — `MerkleHashDeterministic`, `MerkleDedupCorrect`.
 //! - [`gzip`] / [`gunzip`] — `CompressionRoundTrip`.
@@ -1231,6 +1240,27 @@ mod tests {
         assert!(EmitLoadWellBehaved.verify().is_ok());
         assert!(SourceHashFaithfulness.verify().is_ok());
         assert!(LoadGateFailsClosed.verify().is_ok());
+    }
+
+    /// Through the fully-faithful `ArchiveIntoGraph` functor, this same
+    /// realisation is the storage substratum of the whole-graph
+    /// `PraxisKnowledgeGraph` (#272). Binding the realisation to the graph
+    /// spec: the graph ontology validates (its storage-subset axioms run
+    /// against THIS code), and the functor that carries the archive into the
+    /// graph is genuinely full-and-faithful.
+    #[test]
+    fn realisation_witnesses_the_graph_storage_substratum() {
+        use crate::formal::meta::praxis_knowledge_graph::functor::ArchiveIntoGraph;
+        use crate::formal::meta::praxis_knowledge_graph::ontology::PraxisKnowledgeGraphOntology;
+        use pr4xis::category::laws::{assert_functor_laws, fully_faithful_law_axioms};
+        use pr4xis::ontology::Ontology;
+
+        PraxisKnowledgeGraphOntology::validate()
+            .unwrap_or_else(|c| panic!("graph validation failed: {}", c.meta().name.as_str()));
+        assert_functor_laws::<ArchiveIntoGraph>();
+        for law in fully_faithful_law_axioms::<ArchiveIntoGraph>() {
+            assert!(law.verify().is_ok());
+        }
     }
 
     // ── metadata grounding: OMV/PROV-O fields are populated correctly ─
