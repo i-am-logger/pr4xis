@@ -24,6 +24,13 @@ use crate::social::software::markup::xml::owl::prx::{
     OwnedCodegenData, PrxEnvelope, PrxError, PrxMetadata, RawSource, envelope_from_bytes,
     envelope_to_bytes, gunzip, gzip, load_prx_gz, reconstruct_source, source_content_hash,
 };
+// The USC second consumer (#271): the SAME archive axioms verify against its
+// aux-carrying envelope too. Imported up-layer here exactly as the OWL `prx`
+// types are above — these are realisation witnesses, not a parallel axiom set.
+use crate::social::software::markup::xml::uslm::corpus::prx::{
+    OwnedUscSectionAux, OwnedUscSubdivision, UsCodePrxEnvelope, UscPrxMetadata, load_usc_prx_gz,
+    usc_envelope_from_bytes, usc_envelope_to_bytes, usc_reconstruct_source,
+};
 
 /// Distinct witness byte-strings the byte-level axioms run over —
 /// empty, ASCII, binary (incl. 0x00 / 0xFF), and a longer repeated run.
@@ -65,6 +72,99 @@ fn witness_envelope(name: &str, source: &[u8]) -> PrxEnvelope {
             causation: Vec::new(),
             references: Vec::new(),
         },
+        mode: RoundTripFidelity::RawBytesComplementFloor,
+        raw: Some(RawSource {
+            content_address: hash,
+            blob: source.to_vec(),
+        }),
+    }
+}
+
+/// A minimal USC `RawBytesComplementFloor` envelope carrying `source`
+/// content-addressed, with a NON-TRIVIAL nested subdivision tree (`/a → /a/1 →
+/// /a/1/A`) so the widened axioms genuinely exercise the aux-carrying path: a
+/// dropped, reordered, or poisoned [`OwnedUscSubdivision`] is falsified.
+///
+/// Built directly — no `read_uslm_title` — so the axioms run under
+/// `feature = "prx"` alone, exactly like [`witness_envelope`]. The USC second
+/// consumer realises the SAME `OntologyArchiveStorage` axioms; this fixture is
+/// the witness they run against.
+fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
+    let hash = source_content_hash(source);
+    let sub_a1a = OwnedUscSubdivision {
+        urn: "/us/usc/t18/s1514A/a/1/A".to_string(),
+        kind: "subparagraph".to_string(),
+        num: "A".to_string(),
+        heading: None,
+        chapeau: None,
+        content: Some("by reason of lawful acts".to_string()),
+        children: Vec::new(),
+    };
+    let sub_a1 = OwnedUscSubdivision {
+        urn: "/us/usc/t18/s1514A/a/1".to_string(),
+        kind: "paragraph".to_string(),
+        num: "1".to_string(),
+        heading: None,
+        chapeau: None,
+        content: Some("No company may discriminate.".to_string()),
+        children: alloc::vec![sub_a1a],
+    };
+    let sub_a = OwnedUscSubdivision {
+        urn: "/us/usc/t18/s1514A/a".to_string(),
+        kind: "subsection".to_string(),
+        num: "a".to_string(),
+        heading: None,
+        chapeau: Some("In general—".to_string()),
+        content: None,
+        children: alloc::vec![sub_a1],
+    };
+    let aux = alloc::vec![OwnedUscSectionAux {
+        urn: "/us/usc/t18/s1514A".to_string(),
+        subdivisions: alloc::vec![sub_a],
+        relations: alloc::vec![
+            (
+                "/us/usc/t18/s1514A/a".to_string(),
+                "/us/usc/t18/s1514A".to_string()
+            ),
+            (
+                "/us/usc/t18/s1514A/a/1".to_string(),
+                "/us/usc/t18/s1514A/a".to_string()
+            ),
+            (
+                "/us/usc/t18/s1514A/a/1/A".to_string(),
+                "/us/usc/t18/s1514A/a/1".to_string()
+            ),
+        ],
+    }];
+    UsCodePrxEnvelope {
+        metadata: UscPrxMetadata {
+            name: name.to_string(),
+            version: "1".to_string(),
+            corpus_uri: String::new(),
+            source_url: String::new(),
+            source_sha256: hash.clone(),
+            number_of_sections: 1,
+            number_of_subdivisions: 3,
+        },
+        data: OwnedCodegenData {
+            entity_count: 1,
+            entity_ids: alloc::vec!["/us/usc/t18/s1514A".to_string()],
+            entity_kind: alloc::vec!["section".to_string()],
+            entity_labels: alloc::vec![
+                "Civil action to protect against retaliation in fraud cases".to_string()
+            ],
+            entity_defs: alloc::vec![
+                "In general— No company may discriminate. by reason of lawful acts".to_string()
+            ],
+            word_index: Vec::new(),
+            taxonomy: Vec::new(),
+            mereology: Vec::new(),
+            opposition: Vec::new(),
+            equivalence: Vec::new(),
+            causation: Vec::new(),
+            references: Vec::new(),
+        },
+        aux,
         mode: RoundTripFidelity::RawBytesComplementFloor,
         raw: Some(RawSource {
             content_address: hash,
@@ -272,9 +372,38 @@ impl Axiom for EmitLoadWellBehaved {
             }
         }
         match envelope_from_bytes(&bytes) {
-            Ok(back) if back == envelope => {
-                Ok(alloc::boxed::Box::new(SimpleProof::new(self.meta())))
+            Ok(back) if back == envelope => {}
+            _ => {
+                return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                    self.meta(),
+                )));
             }
+        }
+        // USC second consumer (#271): the same GetPut lens law over the
+        // aux-carrying envelope. The round-tripped envelope must equal the
+        // original INCLUDING the full recursive aux tree — so a dropped or
+        // reordered `OwnedUscSubdivision` is falsified here.
+        let usc = witness_usc_envelope("emit-load-usc", b"usc well-behaved lens witness");
+        let Ok(usc_bytes) = usc_envelope_to_bytes(&usc) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let Ok(usc_gz) = gzip(&usc_bytes) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        match gunzip(&usc_gz) {
+            Ok(b) if b == usc_bytes => {}
+            _ => {
+                return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                    self.meta(),
+                )));
+            }
+        }
+        match usc_envelope_from_bytes(&usc_bytes) {
+            Ok(back) if back == usc => Ok(alloc::boxed::Box::new(SimpleProof::new(self.meta()))),
             _ => Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                 self.meta(),
             ))),
@@ -304,6 +433,24 @@ impl Axiom for SourceHashFaithfulness {
         for source in &witness_sources() {
             let envelope = witness_envelope("source-hash", source);
             let Ok(reconstructed) = reconstruct_source(&envelope) else {
+                return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                    self.meta(),
+                )));
+            };
+            if &reconstructed != source
+                || source_content_hash(&reconstructed) != envelope.metadata.source_sha256
+            {
+                return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                    self.meta(),
+                )));
+            }
+        }
+        // USC second consumer (#271): the same source-faithfulness over the
+        // aux-carrying envelope — `usc_reconstruct_source` returns the exact
+        // bytes whose hash equals the recorded pin.
+        for source in &witness_sources() {
+            let envelope = witness_usc_envelope("source-hash-usc", source);
+            let Ok(reconstructed) = usc_reconstruct_source(&envelope) else {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
                 )));
@@ -401,6 +548,61 @@ impl Axiom for LoadGateFailsClosed {
                 self.meta(),
             )));
         }
+        // USC second consumer (#271): the same fail-closed gate over the
+        // aux-carrying envelope, with the teeth on the RECURSIVE aux tree —
+        // poisoning one `OwnedUscSubdivision.num` under a genuine source label
+        // changes the MerkleRoot and is refused.
+        let usc = witness_usc_envelope("load-gate-usc", b"usc gated source bytes");
+        let Ok(usc_bytes) = usc_envelope_to_bytes(&usc) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let Ok(usc_gz) = gzip(&usc_bytes) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let usc_archive_pin = source_content_hash(&usc_bytes);
+        let usc_source_pin = usc.metadata.source_sha256.clone();
+        // Accept-on-match.
+        if load_usc_prx_gz(&usc_gz, &usc_archive_pin, &usc_source_pin).is_err() {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        }
+        // Wrong MerkleRoot pin → HashMismatch.
+        if !matches!(
+            load_usc_prx_gz(&usc_gz, &wrong_pin, &usc_source_pin),
+            Err(PrxError::HashMismatch { .. })
+        ) {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        }
+        // Teeth: poison one subdivision `num` under the honest source label +
+        // raw leaf — the MerkleRoot binds the recursive aux tree, so it is
+        // refused even with the genuine source pin.
+        let mut usc_poisoned = witness_usc_envelope("load-gate-usc", b"usc gated source bytes");
+        usc_poisoned.aux[0].subdivisions[0].num = "POISON".to_string();
+        let Ok(usc_poisoned_bytes) = usc_envelope_to_bytes(&usc_poisoned) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let Ok(usc_poisoned_gz) = gzip(&usc_poisoned_bytes) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        if !matches!(
+            load_usc_prx_gz(&usc_poisoned_gz, &usc_archive_pin, &usc_source_pin),
+            Err(PrxError::HashMismatch { .. })
+        ) {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        }
         Ok(alloc::boxed::Box::new(SimpleProof::new(self.meta())))
     }
 
@@ -442,6 +644,22 @@ mod tests {
         assert!(
             reconstruct_source(&envelope).is_err(),
             "a tampered raw blob must be rejected (fail-closed)"
+        );
+    }
+
+    /// The USC leg of `SourceHashFaithfulness` has teeth too: a USC envelope
+    /// whose raw blob disagrees with its pin is rejected by
+    /// `usc_reconstruct_source` (so the widened axiom can FAIL on a USC defect,
+    /// not just pass).
+    #[test]
+    fn usc_reconstruct_source_rejects_a_lying_envelope() {
+        let mut envelope = witness_usc_envelope("usc-liar", b"honest usc source");
+        if let Some(raw) = envelope.raw.as_mut() {
+            raw.blob.push(b'!'); // blob no longer hashes to content_address
+        }
+        assert!(
+            usc_reconstruct_source(&envelope).is_err(),
+            "a tampered USC raw blob must be rejected (fail-closed)"
         );
     }
 }

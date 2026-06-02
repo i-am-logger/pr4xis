@@ -54,6 +54,16 @@ pub mod namespaces;
 pub mod runtime_types;
 pub mod section_aux;
 
+// The self-describing, load-validated `.prx.gz` distribution envelope for
+// the loaded U.S. Code corpus — the USC second consumer of the
+// `OntologyArchiveStorage` ontology, the legislative twin of `owl::prx`.
+// Gated on `feature = "prx"` (rkyv archival + RFC 1952 gzip), prx-gated and
+// NOT codegen-gated: USC emit parses via `read_uslm_title` (quick-xml only,
+// the path `loaded()` already uses), so it needs no `pr4xis/codegen`
+// `xsd-parser` substrate, unlike `owl::prx`'s `owl_to_builder`.
+#[cfg(feature = "prx")]
+pub mod prx;
+
 pub use identifiers::{UsCodeTitleId, UsCodeTitleIdError};
 pub use kinds::{
     ContainerKind, InlineKind, SubdivisionKind, UsCodeAdditionalContainer, UsCodeAmendmentKind,
