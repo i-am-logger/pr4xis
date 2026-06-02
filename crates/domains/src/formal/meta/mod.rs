@@ -17,6 +17,7 @@ pub mod lens_composition;
 pub mod omv;
 pub mod ontology_archive;
 pub mod ontology_diagnostics;
+pub mod praxis_knowledge_graph;
 pub mod source_taxonomy;
 pub mod staging;
 pub mod syntrometry;
