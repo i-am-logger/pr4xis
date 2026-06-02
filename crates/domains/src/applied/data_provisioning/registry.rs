@@ -158,6 +158,22 @@ pub fn lock_archive_signature(name: &str, version: &str) -> Option<&'static str>
     lock_archive_signatures().get(&key).map(String::as_str)
 }
 
+/// The pinned whole-graph `GraphSnapshot` content addresses from
+/// `praxis.lock`. Keys are `GraphVersion` labels; each value is the SHA-256
+/// `MerkleRoot` of the snapshot's rkyv blob. The integrity claim the snapshot
+/// load gate checks (`crate::formal::meta::praxis_knowledge_graph::snapshot`).
+/// Empty in-repo (#271 pins none; the operator pins published snapshots).
+pub fn lock_snapshot_signatures() -> &'static HashMap<String, String> {
+    &lock_data().snapshot_signatures
+}
+
+/// Look up the snapshot `MerkleRoot` for a specific `GraphVersion`. Returns
+/// `None` if that version has no pinned snapshot — the load gate then has
+/// nothing to validate against and fails closed.
+pub fn lock_snapshot_signature(version: &str) -> Option<&'static str> {
+    lock_snapshot_signatures().get(version).map(String::as_str)
+}
+
 fn lock_data() -> &'static LockData {
     LOCK.get_or_init(|| {
         parse_praxis_lock(PRAXIS_LOCK).unwrap_or_else(|e| panic!("invalid praxis.lock: {e}"))
@@ -341,6 +357,15 @@ pub struct LockData {
     pub canonical_signatures: HashMap<String, String>,
     pub byte_exact_signatures: HashMap<String, String>,
     pub archive_signatures: HashMap<String, String>,
+    /// SHA-256 `MerkleRoot` of a whole-graph `GraphSnapshot` rkyv blob
+    /// (`crate::formal::meta::praxis_knowledge_graph::snapshot`), keyed by
+    /// its `GraphVersion`. Unlike `[archive_signatures]`, a snapshot is keyed
+    /// by the synthetic GraphVersion (the slice's own content address) and has
+    /// NO upstream fetched source, so — by deliberate asymmetry — an entry
+    /// here does NOT require a matching `[hashes]` pin. Empty until the
+    /// operator pins a published snapshot (rkyv wire layout is
+    /// toolchain-dependent, so nothing is committed in-repo; #271 pins none).
+    pub snapshot_signatures: HashMap<String, String>,
 }
 
 /// In-memory representation of a statute's structural extraction —
@@ -385,6 +410,8 @@ struct RawLockFile {
     byte_exact_signatures: HashMap<String, String>,
     #[serde(default)]
     archive_signatures: HashMap<String, String>,
+    #[serde(default)]
+    snapshot_signatures: HashMap<String, String>,
 }
 
 fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
@@ -464,11 +491,26 @@ fn parse_praxis_lock(text: &str) -> Result<LockData, String> {
             ));
         }
     }
+    // A snapshot_signature pins the MerkleRoot of a whole-graph GraphSnapshot
+    // rkyv blob, keyed by its GraphVersion. DELIBERATE ASYMMETRY vs
+    // [archive_signatures]: a snapshot is keyed by the synthetic GraphVersion
+    // (the slice's own content address) and has NO upstream fetched source, so
+    // it must NOT require a matching [hashes] entry. Each value must still be a
+    // 64-char lowercase hex SHA-256.
+    for (key, sig) in &raw.snapshot_signatures {
+        if !is_lowercase_hex_sha256(sig) {
+            return Err(format!(
+                "praxis.lock: `[snapshot_signatures.\"{key}\"]` is not a 64-char \
+                 lowercase hex SHA-256: {sig:?}"
+            ));
+        }
+    }
     Ok(LockData {
         hashes: raw.hashes,
         canonical_signatures: raw.canonical_signatures,
         byte_exact_signatures: raw.byte_exact_signatures,
         archive_signatures: raw.archive_signatures,
+        snapshot_signatures: raw.snapshot_signatures,
     })
 }
 
@@ -646,6 +688,38 @@ url     = "https://example.com/wordnet.xml.gz"
 
 [archive_signatures]
 "x@1" = "abc123"
+"#;
+        let err = parse_praxis_lock(text).unwrap_err();
+        assert!(
+            err.contains("not a 64-char lowercase hex SHA-256"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn accepts_snapshot_signature_without_hashes_entry() {
+        // DELIBERATE ASYMMETRY vs [archive_signatures]: a snapshot is keyed by
+        // its synthetic GraphVersion (its own content address) and has NO
+        // upstream fetched source, so it parses with an EMPTY [hashes] section.
+        let text = r#"
+[hashes]
+
+[snapshot_signatures]
+"graph-v1" = "3333333333333333333333333333333333333333333333333333333333333333"
+"#;
+        let lock = parse_praxis_lock(text).unwrap();
+        assert_eq!(lock.snapshot_signatures.len(), 1);
+        assert_eq!(
+            lock.snapshot_signatures.get("graph-v1").unwrap(),
+            "3333333333333333333333333333333333333333333333333333333333333333"
+        );
+    }
+
+    #[test]
+    fn rejects_snapshot_signature_bad_hex() {
+        let text = r#"
+[snapshot_signatures]
+"graph-v1" = "not-a-hash"
 "#;
         let err = parse_praxis_lock(text).unwrap_err();
         assert!(

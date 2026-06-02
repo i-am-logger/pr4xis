@@ -137,6 +137,21 @@ pub fn lens_registrations() -> &'static [LensRegistration] {
     &[]
 }
 
+/// Resolve a registered lens by its `"name@version"` [`LensRegistration::key`]
+/// — the lens analogue of [`pr4xis::ontology::axiom_by_name`].
+///
+/// Used by the whole-graph [`snapshot`](crate::formal::meta::praxis_knowledge_graph::snapshot)
+/// loader to re-bind a rehydrated `LensNode`'s wire-name to its registration
+/// HANDLE in the running binary (an asymmetric re-bind: a `LensNode` resolves
+/// to its `&'static LensRegistration`, not to a runnable lens value, because
+/// [`super::WellBehavedLens`] is not dyn-compatible). Fail-closed: `None` for
+/// an unregistered key. On wasm32 [`lens_registrations`] is empty, so this is
+/// always `None` there — the loader rejects any lens-bound node, the correct
+/// fail-closed behaviour.
+pub fn lens_by_name(key: &str) -> Option<&'static LensRegistration> {
+    lens_registrations().iter().find(|r| r.key == key)
+}
+
 /// Register a [`super::WellBehavedLens`] implementation for a specific
 /// praxis-toml source.
 ///

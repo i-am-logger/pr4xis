@@ -24,3 +24,11 @@ pub mod axioms;
 
 #[cfg(feature = "prx")]
 pub mod functor;
+
+// The whole-graph GraphSnapshot machinery (#271 effort B): select a slice,
+// content-address it as a Merkle DAG, rehydrate it through the fail-closed
+// admit gate, re-binding behavioural nodes. Generalises the selection BFS +
+// reuses the `.prx` primitives; adds NO new ontology edges (the functor stays
+// fully faithful). Gated on `feature = "prx"` like the axioms it unlocks.
+#[cfg(feature = "prx")]
+pub mod snapshot;

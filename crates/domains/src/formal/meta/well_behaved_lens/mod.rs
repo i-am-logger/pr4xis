@@ -78,7 +78,7 @@ pub mod harness;
 pub mod lens_trait;
 
 pub use harness::{
-    HarnessOutcome, HarnessResult, LensRegistration, RoundTripHarnessAllVerified,
+    HarnessOutcome, HarnessResult, LensRegistration, RoundTripHarnessAllVerified, lens_by_name,
     lens_registrations, run_round_trip_harness,
 };
 // linkme's distributed_slice is native-only; the raw slice is absent on
