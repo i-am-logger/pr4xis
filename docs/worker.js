@@ -41,6 +41,15 @@ self.onmessage = async (e) => {
       case 'available_ontologies':
         reply(id, pr4xis.available_ontologies());
         break;
+      case 'embedded_demo_prx':
+        reply(id, pr4xis.embedded_demo_prx());
+        break;
+      case 'load_embedded_demo_prx':
+        // Load the new-format `.prx` embedded in the wasm — no network. The
+        // wasm gate re-derives the archive's Merkle root and refuses on
+        // mismatch (fail-closed); the chat then answers from the loaded gloss.
+        reply(id, pr4xis.load_embedded_demo_prx());
+        break;
       case 'load':
         await loadSource(id, args.name, args.url, args.totalHint);
         reply(id, null);

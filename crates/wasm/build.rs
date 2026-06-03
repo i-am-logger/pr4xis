@@ -49,6 +49,78 @@ fn main() {
     // praxis.lock from, so the `.prx.gz` source-hash gate validates against
     // this embedded pin. Registry-driven, never hardcoded.
     stage_ontology_vocabularies(&out_dir, &manifest_dir);
+
+    // ---------- The embedded new-format `.prx` demo ontology -------------
+    // Project a REAL compiled domain ontology — the Avizienis et al. (2004)
+    // Dependability taxonomy (`DependabilityCategory`, fully glossed) — into
+    // a content-addressed `.prx` Archive, emit its canonical bytes, and bake
+    // both the bytes and the archive's Merkle ROOT into the wasm. The browser
+    // loads these bytes fail-closed against the baked root (re-deriving the
+    // root and refusing on mismatch). This is the new content-addressed
+    // Archive format, NOT the legacy `.prx.gz` envelope. A network-fetched or
+    // user-uploaded `.prx` would flow through the SAME `load_ontology_prx`
+    // path; embedding just removes the network from the demo.
+    emit_embedded_demo_prx(&out_dir);
+}
+
+/// The compiled domain ontology projected into the embedded demo `.prx`.
+/// Its name is the runtime [`OntologyName`] the materialized ontology carries,
+/// and the const baked into `lib.rs` so the load method and the test agree on
+/// it without restating the string.
+const DEMO_ONTOLOGY_NAME: &str = "Dependability";
+
+/// Emit the embedded demo `.prx` (the Dependability ontology) and a generated
+/// `embedded_prx.rs` module carrying the bytes path + the trusted Merkle root
+/// hex + the ontology name. The runtime loads the bytes fail-closed against the
+/// root.
+///
+/// build.rs runs natively, so it can use the `emit` feature (which deps the
+/// compile-time `pr4xis` category model) to project the live `Category` —
+/// exactly the projection a `pr4xis compile` would perform, done here at build
+/// time and frozen into the binary.
+fn emit_embedded_demo_prx(out_dir: &Path) {
+    use pr4xis_domains::applied::dependability::ontology::DependabilityCategory;
+    use pr4xis_runtime::{emit::emit, load};
+
+    // Project the compiled ontology → Archive (content-addressed). emit()
+    // carries each concept's ONTOLEX-Lemon gloss INTO the `.prx` via
+    // `Concept::lexical`, so the browser — which has no compile-time labels
+    // table — still gets every concept's meaning.
+    let archive = emit::<DependabilityCategory>();
+    let root = archive
+        .root()
+        .expect("the emitted Dependability archive has a derivable Merkle root");
+    let bytes = load::emit(&archive).expect("the Dependability archive encodes to canonical .prx");
+
+    // Stage the bytes in OUT_DIR; `include_bytes!` bakes them into the wasm.
+    let prx_path = out_dir.join("dependability.prx");
+    std::fs::write(&prx_path, &bytes).expect("write embedded demo .prx");
+    eprintln!(
+        "Emitted embedded demo .prx: {} ({} nodes, {} bytes), root {}",
+        DEMO_ONTOLOGY_NAME,
+        archive.nodes.len(),
+        bytes.len(),
+        root.to_hex()
+    );
+
+    // Generate the module the wasm includes: the bytes (by path), the trusted
+    // root hex (the fail-closed pin), and the ontology name.
+    let module = format!(
+        "/// The embedded demo `.prx` — the Avizienis et al. (2004) Dependability\n\
+         /// taxonomy projected to a content-addressed Archive at build time.\n\
+         pub static EMBEDDED_DEMO_PRX: &[u8] = include_bytes!({prx_path:?});\n\
+         /// The trusted Merkle root of [`EMBEDDED_DEMO_PRX`] (lowercase hex). The\n\
+         /// runtime re-derives the root from the bytes and refuses to load on a\n\
+         /// mismatch — the fail-closed pin, derived from the SAME archive whose\n\
+         /// bytes are embedded above.\n\
+         pub const EMBEDDED_DEMO_PRX_ROOT_HEX: &str = {root_hex:?};\n\
+         /// The runtime ontology name the embedded `.prx` materializes under.\n\
+         pub const EMBEDDED_DEMO_ONTOLOGY_NAME: &str = {name:?};\n",
+        prx_path = prx_path,
+        root_hex = root.to_hex(),
+        name = DEMO_ONTOLOGY_NAME,
+    );
+    std::fs::write(out_dir.join("embedded_prx.rs"), module).expect("write embedded_prx module");
 }
 
 /// Stage each registered OWL `OntologyVocabulary`'s bundled `.owl` to
