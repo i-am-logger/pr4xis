@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 
-use pr4xis::ontology::compose::Staging;
+use pr4xis::ontology::Staging;
 use pr4xis::ontology::meta::OntologyName;
 use pr4xis_domains::applied::data_provisioning::registry::{lock_archive_signature, lock_hashes};
 use pr4xis_domains::cognitive::linguistics::composed::ComposedReasoner;

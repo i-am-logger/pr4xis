@@ -84,8 +84,8 @@ use alloc::{
 /// taken (OBO-RO `transitive_over`, Smith et al. 2005): subsumption (OWL
 /// subClassOf), parthood (Casati & Varzi 1999), causation (Lewis 1973
 /// counterfactual chains). These are exactly the kinds the `ontology!` macro
-/// (`pr4xis-derive/ontology.rs`) and `compose.rs` fold over — the same
-/// authoritative reading, so the runtime closure matches the compile-time one.
+/// (`pr4xis-derive/ontology.rs`) folds over — the same authoritative
+/// reading, so the runtime closure matches the compile-time one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RelationKind {
     /// `is-a` — OWL `subClassOf`; Guarino (2009). Transitive.
