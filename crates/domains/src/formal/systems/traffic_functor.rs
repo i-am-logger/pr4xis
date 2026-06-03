@@ -240,6 +240,12 @@ impl Category for TrafficSystemCategory {
     }
 }
 
+impl pr4xis::category::NamedCategory for TrafficSystemCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("TrafficSystem")
+    }
+}
+
 /// Functor from Traffic system to Systems Thinking.
 ///
 /// This is THE PROOF that traffic is a system.

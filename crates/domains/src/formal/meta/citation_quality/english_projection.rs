@@ -203,6 +203,12 @@ impl Category for CitationQualityEnglishLabelCategory {
     }
 }
 
+impl pr4xis::category::NamedCategory for CitationQualityEnglishLabelCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("CitationQualityEnglishLabel")
+    }
+}
+
 // =============================================================================
 // Object map + the functor.
 // =============================================================================

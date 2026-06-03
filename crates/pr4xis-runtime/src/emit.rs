@@ -13,25 +13,82 @@
 //! `(relation-kind, target)`, and its lexical grounding the concept's
 //! ONTOLEX-Lemon gloss via [`Concept::lexical`] — so a `.prx` loaded with no
 //! access to the compile-time `labels()` table (e.g. in the browser) still
-//! carries each concept's meaning. (The connection nodes — functors/adjunctions
-//! — are the next refinement; they need the registry's per-ontology
-//! axiom/constructor slices.)
+//! carries each concept's meaning.
+//!
+//! ## Connections — the morphisms BETWEEN ontologies
+//!
+//! The projection also serializes every **connection** (functor / adjunction /
+//! natural transformation) that touches `Cat`: from the registry's
+//! [`connection_constructors`](pr4xis::ontology::connection_constructors) it
+//! selects the entries whose source or target ontology name is `Cat`'s own
+//! ([`NamedCategory::ontology_name`]), extracts each one's finite
+//! action-on-generators (the finite-presentation theorem — a structure-
+//! preserving map is determined by its action on generators), and content-
+//! addresses it as a [`Connection`]. The connection's `source`/`target` name
+//! the OTHER ontology, so the arrow is cross-ontology and p2p-ready: a peer
+//! rebinds it by content-address agreement.
 
-use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
+use pr4xis::category::connection::{ConnectionFamily, ConnectionGenerators};
+use pr4xis::category::{Arrow, Concept, FinitelyGenerated, NamedCategory};
+use pr4xis::ontology::connection_constructors;
 
 use crate::archive::Archive;
+use crate::connection::{Connection, GeneratorAction};
 use crate::definition::Definition;
+
+/// Translate a registry [`ConnectionGenerators`] (the `pr4xis`-native finite
+/// presentation) into the wire [`Connection`] the runtime serializes. The two
+/// types carry the same finite tables; this is the cross-crate bridge (the
+/// registry cannot name the runtime type without a dependency cycle).
+fn to_connection(g: ConnectionGenerators) -> Connection {
+    let action = match g.family {
+        ConnectionFamily::Functor {
+            map_object,
+            map_morphism,
+        } => GeneratorAction::Functor {
+            map_object,
+            map_morphism,
+        },
+        ConnectionFamily::NaturalTransformation { components } => {
+            GeneratorAction::NaturalTransformation { components }
+        }
+        ConnectionFamily::Adjunction {
+            left_map_object,
+            right_map_object,
+            unit,
+            counit,
+        } => GeneratorAction::Adjunction {
+            left_map_object,
+            right_map_object,
+            unit,
+            counit,
+        },
+    };
+    Connection {
+        kind: g.kind,
+        source: g.source.as_str().to_string(),
+        target: g.target.as_str().to_string(),
+        action,
+        laws: g.laws,
+    }
+}
 
 /// Project the compiled ontology `Cat` into a `.prx` [`Archive`]: one node per
 /// `Concept` variant, edges from `morphisms_from` as `(relation-kind, target)`,
-/// identity self-loops dropped, edges sorted for a canonical address.
-pub fn emit<Cat: Category>() -> Archive
+/// identity self-loops dropped, edges sorted for a canonical address; plus every
+/// registered connection (functor / adjunction / natural transformation) whose
+/// source or target is `Cat`'s ontology, content-addressed.
+pub fn emit<Cat>() -> Archive
 where
     // Emits one node per concept variant — enumerates the objects, so the
     // compiled ontology being projected must be finitely generated (closed-world).
+    Cat: NamedCategory + 'static,
     Cat::Object: FinitelyGenerated,
+    // Structural axioms are derived from the category's typed relation-kinds
+    // (`structural_axioms_for::<Cat>()`), so the kind enum must be inspectable.
+    <Cat::Morphism as Arrow>::Kind: core::fmt::Debug + PartialEq + Clone + 'static,
 {
-    let nodes = <Cat::Object as FinitelyGenerated>::variants()
+    let mut nodes: Vec<Definition> = <Cat::Object as FinitelyGenerated>::variants()
         .iter()
         .map(|obj| {
             let mut edges: Vec<(String, String)> = Cat::morphisms_from(obj)
@@ -53,55 +110,68 @@ where
                 kind: "Concept".to_string(),
                 name: obj.name().to_string(),
                 edges,
-                // ## Honestly deferred — per-concept axiom derivation.
+                // ## Axioms are per-ONTOLOGY, not per-concept (the model).
                 //
-                // The meta-`.prx` declares an `Axiom` concept that
-                // `Constrains` a `Concept` (`meta::ontology`), and
-                // `Definition::address` canonically folds the `axioms` field
-                // into a node's content-address. The field is therefore REAL,
-                // not vestigial — a definition carrying a non-empty `axioms`
-                // Vec round-trips byte-exact through the codec and changes the
-                // address (proven in this module's
-                // `axioms_field_is_wired_through_the_codec_round_trip` test).
-                //
-                // What `emit` does NOT yet do is DERIVE the axioms that govern
-                // each concept FROM the compiled ontology. The closed-world
-                // axiom constructors live in `pr4xis::ontology::reasoning`,
-                // keyed by typed `Category`/`Kind`, not exposed as a
-                // per-concept slice this projection can enumerate generically
-                // (the same registry gap that defers
-                // `Connection::laws`-resolution in `ontology::materialize`).
-                // Mirroring that honest deferral: this emit does not claim to
-                // have projected per-concept axioms — it leaves the field
-                // empty rather than silently contradicting the meta's `Axiom`
-                // concept with a fabricated one. Deferred to a tracked
-                // follow-up (the registry's per-ontology axiom slice).
+                // Praxis declares axioms at the ontology level: the structural
+                // axioms are keyed by `Category`/relation-kind
+                // (`structural_axioms_for::<Cat>()` — e.g. `NoCycles[Subsumption]`
+                // constrains the WHOLE subsumption relation, not one concept),
+                // and domain axioms are declared in the `ontology!` `axioms:`
+                // clause. There is no mechanism for a single concept to declare
+                // its OWN axiom, so this per-NODE `axioms` field stays empty:
+                // populating it would FABRICATE a per-concept attachment praxis
+                // does not have. The meta's "Axiom Constrains Concept" claim is
+                // instead backed by emitting the ontology's structural axioms as
+                // first-class Axiom NODES (below), each content-addressed by its
+                // stable name — the same name `axiom_by_name` rebinds on load.
                 axioms: Vec::new(),
                 lexical,
             }
         })
         .collect();
-    Archive {
-        nodes,
-        // ## Honestly deferred — connection-node derivation.
-        //
-        // The meta-`.prx` declares `Connection` (and its `Functor` /
-        // `Adjunction` / `Lens` / `NaturalTransformation` families) and the
-        // `Archive` `Contains` both `Concept`s and `Connection`s; an
-        // `Archive`'s Merkle root folds in every connection's address, so the
-        // field is REAL (proven by `archive::tests::a_connection_contributes_
-        // to_the_root` and this module's connections-wiring round-trip test).
-        //
-        // What `emit` does NOT yet do is DERIVE connection nodes
-        // (functors / adjunctions between ontologies) from the compiled
-        // world: that needs the registry's per-ontology
-        // functor/adjunction/constructor slices, which are not exposed as a
-        // generic projection surface here (noted in the module header). Rather
-        // than emit a fabricated or always-trivial connection, this leaves the
-        // set empty — honest absence, not a stub. Deferred to the same tracked
-        // follow-up as per-concept axiom derivation.
-        connections: Vec::new(),
+
+    // Structural axiom NODES — the per-ontology axioms the category's typed
+    // relation-kinds license (Smith 2005 OBO-RO: every kind carries canonical
+    // axioms; Guarino 2009). Each becomes an `Axiom`-kinded node named by its
+    // stable `Axiom::name` (e.g. `NoCycles[Subsumption]`) and lexically grounded
+    // by its description — content-addressable, and rebindable by name through
+    // `axiom_by_name`. This backs the meta's `Axiom` concept WITHOUT fabricating
+    // a per-concept attachment; the axiom's identity is its name, the same wire
+    // identity the load gate matches.
+    for axiom in pr4xis::ontology::reasoning::structural_axioms_for::<Cat>() {
+        nodes.push(Definition {
+            kind: "Axiom".to_string(),
+            name: axiom.name().as_str().to_string(),
+            edges: Vec::new(),
+            axioms: Vec::new(),
+            lexical: Some(axiom.description().as_str().to_string()),
+        });
     }
+    // Connections: every registered functor / adjunction / natural
+    // transformation whose source OR target is THIS ontology. Selecting on
+    // both directions makes the slice the full set of arrows incident to
+    // `Cat` — incoming AND outgoing — so a peer holding this `.prx` sees every
+    // structure-preserving map that relates `Cat` to its neighbours.
+    //
+    // `connection_constructors()` runs each registered arrow's extractor (the
+    // finite action-on-generators); we keep the ones touching `Cat`, translate
+    // them to the wire `Connection`, and content-address them via the archive
+    // root. On wasm32 the registry is empty (linkme unsupported) — the same
+    // fail-closed "no connections extractable" the node path has; the `.prx` is
+    // produced natively at build time, where the registry is populated.
+    let own = Cat::ontology_name();
+    let mut connections: Vec<Connection> = connection_constructors()
+        .into_iter()
+        .filter(|g| g.source == own || g.target == own)
+        .map(to_connection)
+        .collect();
+    // Order-independent identity: sort + dedup by content-address so the
+    // archive root does not depend on registry/link order (the same canonical
+    // discipline the nodes follow). Two connections with equal action collapse.
+    connections.sort_by_key(|c| c.address().map(|a| *a.as_bytes()).unwrap_or([0u8; 32]));
+    connections.dedup();
+
+    Archive { nodes, connections }
 }
 
 #[cfg(test)]
@@ -130,6 +200,66 @@ mod tests {
             (Employee, Person),
             (Person, Agent),
         ],
+    }
+
+    // A SECOND real ontology — the codomain of a cross-ontology functor. Its
+    // concepts are the same-named "workforce" view of the Org concepts (a full
+    // subcategory embedding), so the functor below is fully-faithful by name.
+    pr4xis::ontology! {
+        name: "Workforce",
+        source: "pr4xis-runtime emit test fixture",
+        concepts: [Employer, Employee, Person, Agent, Contractor],
+        labels: {
+            Employer: ("en", "Employer", "One who employs (workforce view)."),
+            Employee: ("en", "Employee", "One who is employed (workforce view)."),
+            Person: ("en", "Person", "A human being (workforce view)."),
+            Agent: ("en", "Agent", "One who acts (workforce view)."),
+            Contractor: ("en", "Contractor", "An external agent under contract."),
+        },
+        is_a: [
+            (Employer, Person),
+            (Employee, Person),
+            (Contractor, Agent),
+            (Person, Agent),
+        ],
+    }
+
+    // A REAL registered functor `Org → Workforce` — a fully-faithful by-name
+    // embedding (the Org subsumption lattice IS a full subcategory of the
+    // Workforce one). Registering it via `pr4xis::functor!` populates the
+    // FUNCTOR_CONSTRUCTORS slice, so `emit` discovers it the same way a domain
+    // ontology's functors are discovered.
+    pr4xis::functor! {
+        name: OrgIntoWorkforce,
+        source: OrgCategory,
+        target: WorkforceCategory,
+        citation: "Mac Lane (1971) Categories for the Working Mathematician Ch. I §4",
+        map_object: |obj: &OrgConcept| -> WorkforceConcept {
+            match obj {
+                OrgConcept::Employer => WorkforceConcept::Employer,
+                OrgConcept::Employee => WorkforceConcept::Employee,
+                OrgConcept::Person => WorkforceConcept::Person,
+                OrgConcept::Agent => WorkforceConcept::Agent,
+            }
+        },
+        map_morphism: |m: &OrgRelation| -> WorkforceRelation {
+            let map = |o: &OrgConcept| match o {
+                OrgConcept::Employer => WorkforceConcept::Employer,
+                OrgConcept::Employee => WorkforceConcept::Employee,
+                OrgConcept::Person => WorkforceConcept::Person,
+                OrgConcept::Agent => WorkforceConcept::Agent,
+            };
+            // By-name kind translation — each Org kind to its same-named
+            // Workforce kind (the macro emits the full canonical kind enum).
+            let kind = match m.kind {
+                OrgRelationKind::Identity => WorkforceRelationKind::Identity,
+                OrgRelationKind::Subsumption => WorkforceRelationKind::Subsumption,
+                OrgRelationKind::Parthood => WorkforceRelationKind::Parthood,
+                OrgRelationKind::Causation => WorkforceRelationKind::Causation,
+                OrgRelationKind::Opposition => WorkforceRelationKind::Opposition,
+            };
+            WorkforceRelation { from: map(&m.from), to: map(&m.to), kind }
+        },
     }
 
     #[test]
@@ -165,10 +295,17 @@ mod tests {
             .collect();
 
         let archive = emit::<OrgCategory>();
-        // Every emitted node carries its concept's gloss — non-None and equal
-        // to the macro's labels table (proving the gloss travels IN the `.prx`,
-        // not only in the compile-time `labels()` side table).
-        for node in &archive.nodes {
+        // Every emitted CONCEPT node carries its concept's gloss — non-None and
+        // equal to the macro's labels table (proving the gloss travels IN the
+        // `.prx`, not only in the compile-time `labels()` side table). Axiom
+        // nodes (the per-ontology structural axioms) carry their OWN gloss — the
+        // axiom description — so the gloss check is scoped to the Concept nodes.
+        let concept_nodes: Vec<_> = archive
+            .nodes
+            .iter()
+            .filter(|n| n.kind == "Concept")
+            .collect();
+        for node in &concept_nodes {
             let expected = glosses.get(node.name.as_str()).copied();
             assert_eq!(
                 node.lexical.as_deref(),
@@ -183,7 +320,7 @@ mod tests {
             );
         }
         assert_eq!(
-            archive.nodes.iter().filter(|n| n.lexical.is_some()).count(),
+            concept_nodes.iter().filter(|n| n.lexical.is_some()).count(),
             glosses.len(),
             "every labelled concept must contribute a gloss"
         );
@@ -272,14 +409,11 @@ mod tests {
 
     #[test]
     fn connections_are_wired_through_the_codec_round_trip() {
-        use crate::connection::{Connection, GeneratorAction};
-
-        // Companion to the axioms-wiring proof, for the `Archive.connections`
-        // field `emit` also leaves empty (see the honest-deferral note at the
-        // `connections: Vec::new()` site). A manually constructed connection
-        // survives the `emit -> load` round-trip byte-exact AND is load-bearing
-        // on the archive root (an archive with a connection differs from the
-        // same archive without it).
+        // The field-wiring proof for `Archive.connections` (complementing the
+        // emit-from-a-registered-functor proof above): a manually constructed
+        // connection survives the `emit -> load` round-trip byte-exact AND is
+        // load-bearing on the archive root (an archive with a connection differs
+        // from the same archive without it).
         let connection = Connection {
             kind: "FullyFaithful".to_string(),
             source: "Employer".to_string(),
@@ -342,6 +476,159 @@ mod tests {
         assert!(
             rebound.iter().all(|r| r.is_bound()),
             "a freshly-emitted ontology must rebind to itself"
+        );
+    }
+
+    // The connection identifying the registered Org → Workforce functor.
+    fn org_workforce_conn(archive: &Archive) -> &Connection {
+        archive
+            .connections
+            .iter()
+            .find(|c| c.source == "OrgOntology" && c.target == "WorkforceOntology")
+            .expect("the registered Org→Workforce functor must be emitted as a connection")
+    }
+
+    #[test]
+    fn emits_a_registered_functor_as_a_connection() {
+        // An ontology that participates in a registered functor emits a NON-EMPTY
+        // connection set — the real work: the morphism between ontologies is
+        // serialized, not dropped.
+        let archive = emit::<OrgCategory>();
+        assert!(
+            !archive.connections.is_empty(),
+            "Org participates in the OrgIntoWorkforce functor — connections must be non-empty"
+        );
+        let conn = org_workforce_conn(&archive);
+
+        // The functor's finite action-on-generators is extracted faithfully:
+        // every Org concept maps to its same-named Workforce image, and the
+        // Subsumption kind maps to Subsumption.
+        match &conn.action {
+            GeneratorAction::Functor {
+                map_object,
+                map_morphism,
+            } => {
+                for (s, t) in [
+                    ("Employer", "Employer"),
+                    ("Employee", "Employee"),
+                    ("Person", "Person"),
+                    ("Agent", "Agent"),
+                ] {
+                    assert!(
+                        map_object.contains(&(s.to_string(), t.to_string())),
+                        "object map must carry {s} → {t}"
+                    );
+                }
+                assert!(
+                    map_morphism.contains(&("Subsumption".to_string(), "Subsumption".to_string())),
+                    "morphism map must carry Subsumption → Subsumption"
+                );
+            }
+            other => panic!("expected a Functor action, got {other:?}"),
+        }
+        // The functor laws travel with it.
+        assert!(conn.laws.contains(&"FunctorIdentityLaw".to_string()));
+        assert!(conn.laws.contains(&"FunctorCompositionLaw".to_string()));
+    }
+
+    #[test]
+    fn the_same_functor_is_emitted_from_both_endpoints() {
+        // The connection is incident to BOTH ontologies: emitting either Org or
+        // Workforce surfaces the same functor (source-or-target selection), and
+        // — because it's the same finite action — at the SAME content-address.
+        let from_org = emit::<OrgCategory>();
+        let from_workforce = emit::<WorkforceCategory>();
+        let org_conn = org_workforce_conn(&from_org);
+        let wf_conn = org_workforce_conn(&from_workforce);
+        assert_eq!(
+            org_conn.address().unwrap(),
+            wf_conn.address().unwrap(),
+            "the same functor must content-address equally from both endpoints"
+        );
+    }
+
+    #[test]
+    fn the_connection_is_content_addressed_and_action_sensitive() {
+        // Non-vacuity: the connection's address depends on its ACTION — mutate
+        // one row of the object map and the address changes. This proves the
+        // serialized action is load-bearing on identity, not decorative.
+        let archive = emit::<OrgCategory>();
+        let conn = org_workforce_conn(&archive).clone();
+        let baseline = conn.address().unwrap();
+
+        let mut mutated = conn.clone();
+        if let GeneratorAction::Functor { map_object, .. } = &mut mutated.action {
+            // Redirect Employer's image — a different finite action.
+            map_object.retain(|(s, _)| s != "Employer");
+            map_object.push(("Employer".to_string(), "Agent".to_string()));
+        }
+        assert_ne!(
+            baseline,
+            mutated.address().unwrap(),
+            "changing the functor's action must change the connection's content-address"
+        );
+    }
+
+    #[test]
+    fn emitted_connections_survive_the_round_trip_byte_exact() {
+        // The connections survive emit → load byte-exact, fail-closed against the
+        // archive's own root (the same law the nodes obey).
+        let archive = emit::<OrgCategory>();
+        assert!(!archive.connections.is_empty());
+        let bytes = load::emit(&archive).unwrap();
+        let loaded = load::load(&bytes, archive.root().unwrap()).unwrap();
+        assert_eq!(
+            loaded, archive,
+            "the archive (incl. connections) must round-trip faithfully"
+        );
+        // The functor connection is present after the round-trip, unchanged.
+        let before = org_workforce_conn(&archive);
+        let after = org_workforce_conn(&loaded);
+        assert_eq!(before, after, "the connection must survive byte-exact");
+        assert_eq!(before.address().unwrap(), after.address().unwrap());
+    }
+
+    #[test]
+    fn connections_rebind_by_content_address_agreement() {
+        // A connection is admitted into a peer's world only when its source AND
+        // target ontologies rebind by content-address agreement — the
+        // cross-ontology p2p law. We model a peer that knows both ontologies by
+        // the addresses THIS emit produced for them: every connection's
+        // endpoints bind. A peer that knows them at a DIFFERENT address (a
+        // different definition) does not — the G5 fix at the connection layer.
+        struct Peer(HashMap<String, ContentAddress>);
+        impl RebindTarget for Peer {
+            fn address_of(&self, name: &str) -> Option<ContentAddress> {
+                self.0.get(name).copied()
+            }
+        }
+
+        let org = emit::<OrgCategory>();
+        let workforce = emit::<WorkforceCategory>();
+        let conn = org_workforce_conn(&org).clone();
+
+        // A peer holding both ontologies' nodes at the addresses emit produced:
+        // the connection's endpoints (the ontologies, by name) are known, and
+        // each ontology's own Merkle root agrees.
+        let mut known: HashMap<String, ContentAddress> = HashMap::new();
+        known.insert(conn.source.clone(), org.root().unwrap());
+        known.insert(conn.target.clone(), workforce.root().unwrap());
+        let peer = Peer(known);
+        assert!(
+            peer.address_of(&conn.source).is_some() && peer.address_of(&conn.target).is_some(),
+            "both endpoint ontologies must be known to the agreeing peer"
+        );
+
+        // A peer that knows the target ontology at a DIFFERENT address (a
+        // different definition) does not agree — the connection cannot bind.
+        let mut disagreeing: HashMap<String, ContentAddress> = HashMap::new();
+        disagreeing.insert(conn.source.clone(), org.root().unwrap());
+        disagreeing.insert(conn.target.clone(), org.root().unwrap()); // wrong root
+        let bad = Peer(disagreeing);
+        assert_ne!(
+            bad.address_of(&conn.target),
+            Some(workforce.root().unwrap()),
+            "a peer at a different address must NOT agree on the target ontology"
         );
     }
 }

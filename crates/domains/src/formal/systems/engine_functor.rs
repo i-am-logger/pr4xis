@@ -236,6 +236,12 @@ impl Category for EngineCategory {
     }
 }
 
+impl pr4xis::category::NamedCategory for EngineCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("Engine")
+    }
+}
+
 /// Functor: Control Systems → Engine Pattern.
 ///
 /// THE PROOF that the Engine is a control system.

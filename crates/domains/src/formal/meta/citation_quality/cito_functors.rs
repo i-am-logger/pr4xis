@@ -380,6 +380,12 @@ impl Category for CitoCitationTypeCategory {
     }
 }
 
+impl pr4xis::category::NamedCategory for CitoCitationTypeCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("CitoCitationType")
+    }
+}
+
 // =============================================================================
 // Object maps (the design tables, as code).
 // =============================================================================
@@ -737,6 +743,12 @@ impl Category for CitoEnglishLabelCategory {
     }
 }
 
+impl pr4xis::category::NamedCategory for CitoEnglishLabelCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("CitoEnglishLabel")
+    }
+}
+
 /// The English phrase carried by a projected label.
 pub fn label_phrase(l: CitoEnglishLabel) -> &'static str {
     canonical_english_phrase(l.0)
@@ -900,6 +912,12 @@ impl Category for CitoWitnessCategory {
     }
 }
 
+impl pr4xis::category::NamedCategory for CitoWitnessCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("CitoWitness")
+    }
+}
+
 /// Discrete category over [`ImageDimension`] (objects + identities).
 pub struct ImageDimensionCategory;
 
@@ -957,6 +975,12 @@ impl Category for ImageDimensionCategory {
                 kind: DiscreteKind::Identity,
             })
             .collect()
+    }
+}
+
+impl pr4xis::category::NamedCategory for ImageDimensionCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("ImageDimension")
     }
 }
 

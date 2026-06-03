@@ -153,6 +153,12 @@ impl Category for PipelineStepCategory {
     }
 }
 
+impl pr4xis::category::NamedCategory for PipelineStepCategory {
+    fn ontology_name() -> pr4xis::ontology::meta::OntologyName {
+        pr4xis::ontology::meta::OntologyName::new_static("PipelineStep")
+    }
+}
+
 fn map_step(step: &PipelineStep) -> MapeKConcept {
     // `PipelineStep` now directly carries its MAPE-K phase — the mapping
     // is definitional rather than pattern-matched. The functor simply

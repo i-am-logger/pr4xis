@@ -987,6 +987,16 @@ pub fn generate(def: OntologyDef) -> TokenStream {
 
         #category_impl
 
+        // The category knows its declared ontology name — the same `name_lit`
+        // its `Vocabulary` registers under. This is what lets a functor
+        // between two `ontology!` categories serialize each endpoint's
+        // ontology name into a cross-ontology, content-addressed `Connection`.
+        impl #pr4xis::category::NamedCategory for #cat_name {
+            fn ontology_name() -> #pr4xis::ontology::meta::OntologyName {
+                #pr4xis::ontology::meta::OntologyName::new_static(#name_lit)
+            }
+        }
+
         #taxonomy_impl
         #mereology_impl
         #causation_impl

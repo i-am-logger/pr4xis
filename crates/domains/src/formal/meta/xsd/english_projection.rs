@@ -422,6 +422,12 @@ impl Category for XsdEnglishLabelCategory {
     }
 }
 
+impl pr4xis::category::NamedCategory for XsdEnglishLabelCategory {
+    fn ontology_name() -> OntologyName {
+        OntologyName::new_static("XsdEnglishLabel")
+    }
+}
+
 // =============================================================================
 // Object + morphism map
 // =============================================================================
