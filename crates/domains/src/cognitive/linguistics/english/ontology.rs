@@ -180,6 +180,63 @@ pub trait LexicalReasoner {
     fn parents(&self, id: ConceptId) -> &[ConceptId];
     fn children(&self, id: ConceptId) -> &[ConceptId];
     fn is_a(&self, child: ConceptId, ancestor: ConceptId) -> bool;
+    /// The reflexive-transitive is-a image of `id` — every ancestor (hypernym)
+    /// reachable up the taxonomy, including `id` itself. This is the typed
+    /// reachability operation a consumer asks the reasoner for, rather than
+    /// re-walking `parents()` by hand: the walk stays owned by the reasoner.
+    ///
+    /// Default: a per-query breadth-first ascent over `parents()`. WordNet's
+    /// taxonomy is large (~10^5 synsets), so this is computed lazily for the
+    /// queried concept only — the full closure is never materialized.
+    fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
+        let mut seen = hashbrown::HashSet::new();
+        let mut order = Vec::new();
+        let mut queue = alloc::collections::VecDeque::new();
+        seen.insert(id);
+        order.push(id);
+        for &parent in self.parents(id) {
+            if seen.insert(parent) {
+                queue.push_back(parent);
+            }
+        }
+        while let Some(current) = queue.pop_front() {
+            order.push(current);
+            for &parent in self.parents(current) {
+                if seen.insert(parent) {
+                    queue.push_back(parent);
+                }
+            }
+        }
+        order
+    }
+    /// The lowest common ancestor of `a` and `b` in the taxonomy — the nearest
+    /// concept in `ancestors(a) ∩ ancestors(b)`, or `None` if they share no
+    /// hypernym. The taxonomy-reachability question, answered by the reasoner.
+    ///
+    /// Default: a breadth-first ascent from `b` (nearest-first) tested against
+    /// the precomputed ancestor set of `a`, so the first hit is the lowest
+    /// shared hypernym.
+    fn common_ancestor(&self, a: ConceptId, b: ConceptId) -> Option<ConceptId> {
+        let ancestors_a: hashbrown::HashSet<ConceptId> = self.ancestors(a).into_iter().collect();
+        let mut visited = hashbrown::HashSet::new();
+        let mut queue = alloc::collections::VecDeque::new();
+        for &parent in self.parents(b) {
+            if visited.insert(parent) {
+                queue.push_back(parent);
+            }
+        }
+        while let Some(current) = queue.pop_front() {
+            if ancestors_a.contains(&current) {
+                return Some(current);
+            }
+            for &parent in self.parents(current) {
+                if visited.insert(parent) {
+                    queue.push_back(parent);
+                }
+            }
+        }
+        None
+    }
     fn concept_count(&self) -> usize;
 }
 
@@ -202,6 +259,8 @@ impl LexicalReasoner for English {
     fn is_a(&self, c: ConceptId, a: ConceptId) -> bool {
         English::is_a(self, c, a)
     }
+    // `ancestors` / `common_ancestor` use the trait's default per-query ascent
+    // over `parents()` — no inherent override needed.
     fn concept_count(&self) -> usize {
         English::concept_count(self)
     }

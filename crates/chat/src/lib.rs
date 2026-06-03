@@ -14,7 +14,9 @@ use pr4xis_domains::formal::information::diagnostics::trace_functors::{
     PipelineTrace, TracedPipeline,
 };
 use pr4xis_domains::formal::information::diagnostics::trace_impls;
-use pr4xis_domains::formal::information::knowledge::{SelfModelInstance, describe_knowledge_base};
+use pr4xis_domains::formal::information::knowledge::{
+    SelfModelInstance, describe_knowledge_base, is_self_referent,
+};
 
 /// The Diagnostics ontology governs the trace — every PipelineTraceEntry is
 /// a Diagnostic concept. `trace_meta()` is pulled from `ontology!`-generated
@@ -320,13 +322,20 @@ fn attempt_partial_understanding(
 }
 
 /// Check if the tokens reference the system itself.
-/// Routes through the self-model ontology via token senses:
-/// if any token's sense references a self-model concept, the
-/// question is self-referential.
+///
+/// The self-reference decision is owned by the self-model layer: a token is
+/// self-referential iff its surface form is one of the self-model's typed
+/// self-referents ([`is_self_referent`] — the system's identity name and the
+/// indexicals English resolves to the addressee). The routing body asks the
+/// self-model rather than enumerating word literals here.
+///
+/// SMALLEST TYPED STEP (#186): the membership test is against the self-model's
+/// self-referent *surface* set. The fully typed form — resolve each token to a
+/// SelfModel `ConceptId`/`SenseId` and test membership in the SelfModel
+/// reflexive closure — needs an indexical→SelfModel sense bridge that the
+/// pipeline does not yet have; tracked as a follow-up.
 fn is_self_referential(tokens: &[pr4xis_domains::cognitive::linguistics::text::Token]) -> bool {
-    tokens.iter().any(|t| {
-        t.word == "you" || t.word == "yourself" || t.word == "praxis" || t.word == "pr4xis"
-    })
+    tokens.iter().any(|t| is_self_referent(&t.word))
 }
 
 /// Answer a self-referential question through the eigenform.
@@ -668,7 +677,7 @@ fn explore_concepts(en: &dyn LexicalReasoner, words: &[&str]) -> String {
                         lines.push(realize::sentence_copula(w1, w2));
                     } else if en.is_a(id2, id1) {
                         lines.push(realize::sentence_copula(w2, w1));
-                    } else if let Some(lca) = find_common_ancestor(en, id1, id2)
+                    } else if let Some(lca) = en.common_ancestor(id1, id2)
                         && let Some(c) = en.concept(lca)
                     {
                         let label = c
@@ -692,49 +701,6 @@ fn explore_concepts(en: &dyn LexicalReasoner, words: &[&str]) -> String {
     } else {
         lines.join("\n")
     }
-}
-
-/// Find the lowest common ancestor of two concepts in the taxonomy.
-fn find_common_ancestor(
-    en: &dyn LexicalReasoner,
-    a: pr4xis_domains::cognitive::linguistics::english::ConceptId,
-    b: pr4xis_domains::cognitive::linguistics::english::ConceptId,
-) -> Option<pr4xis_domains::cognitive::linguistics::english::ConceptId> {
-    use std::collections::HashSet;
-
-    // Collect all ancestors of A
-    let mut ancestors_a = HashSet::new();
-    let mut queue = std::collections::VecDeque::new();
-    ancestors_a.insert(a);
-    for &p in en.parents(a) {
-        queue.push_back(p);
-    }
-    while let Some(current) = queue.pop_front() {
-        if ancestors_a.insert(current) {
-            for &p in en.parents(current) {
-                queue.push_back(p);
-            }
-        }
-    }
-
-    // BFS up from B, first hit in ancestors_a is the LCA
-    let mut visited = HashSet::new();
-    let mut queue = std::collections::VecDeque::new();
-    for &p in en.parents(b) {
-        queue.push_back(p);
-    }
-    while let Some(current) = queue.pop_front() {
-        if ancestors_a.contains(&current) {
-            return Some(current);
-        }
-        if visited.insert(current) {
-            for &p in en.parents(current) {
-                queue.push_back(p);
-            }
-        }
-    }
-
-    None
 }
 
 pub fn extract_entity_name(sem: &montague::Sem) -> String {

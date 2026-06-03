@@ -389,6 +389,23 @@ impl AsRef<str> for OntologyName {
     }
 }
 
+/// Identity against a raw wire name without first unwrapping the typed name
+/// to `&str`. The comparison stays on the typed side — `a.name() == name` —
+/// so the rebind gate (`axiom_by_name`) decides axiom identity through this
+/// typed `eq`, never a bare `String == String`. `str` and `&str` cover both
+/// borrowed-slice and through-reference call sites.
+impl PartialEq<str> for OntologyName {
+    fn eq(&self, other: &str) -> bool {
+        self.0.as_ref() == other
+    }
+}
+
+impl PartialEq<&str> for OntologyName {
+    fn eq(&self, other: &&str) -> bool {
+        self.0.as_ref() == *other
+    }
+}
+
 impl fmt::Display for OntologyName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)

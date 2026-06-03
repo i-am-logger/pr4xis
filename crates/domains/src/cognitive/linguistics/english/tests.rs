@@ -149,6 +149,36 @@ fn children_of_mammal() {
     assert_eq!(children.len(), 2); // dog and cat
 }
 
+#[test]
+fn ancestors_are_the_reflexive_is_a_image() {
+    // The reasoner's typed reachability operation — dog ⊑* {dog, mammal,
+    // animal} — read off the same `parents` adjacency, not a chat-side walk.
+    let en = sample_english();
+    let dog = en.lookup("dog")[0];
+    let mammal = en.lookup("mammal")[0];
+    let animal = en.lookup("animal")[0];
+    let cat = en.lookup("cat")[0];
+    let anc = LexicalReasoner::ancestors(&en, dog);
+    assert!(anc.contains(&dog)); // reflexive
+    assert!(anc.contains(&mammal));
+    assert!(anc.contains(&animal));
+    assert!(!anc.contains(&cat)); // a sibling is not an ancestor
+}
+
+#[test]
+fn common_ancestor_is_the_nearest_shared_hypernym() {
+    // dog and cat share `mammal` (nearest) and `animal`; the LCA is `mammal`.
+    // The chat asks the reasoner for this — it no longer hand-BFSes parents.
+    let en = sample_english();
+    let dog = en.lookup("dog")[0];
+    let cat = en.lookup("cat")[0];
+    let mammal = en.lookup("mammal")[0];
+    assert_eq!(
+        LexicalReasoner::common_ancestor(&en, dog, cat),
+        Some(mammal)
+    );
+}
+
 // =============================================================================
 // Opposition (antonym) tests
 // =============================================================================

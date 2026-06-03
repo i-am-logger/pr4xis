@@ -116,10 +116,13 @@ pub fn axiom_constructors() -> Vec<BoxedAxiom> {
 /// gate. Native only; always `None` on wasm32.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn axiom_by_name(name: &str) -> Option<BoxedAxiom> {
+    // Identity flows through the typed name: `OntologyName: PartialEq<str>`
+    // decides the match, so the rebind gate compares typed axiom names — it
+    // never unwraps to `&str` for a bare `String ==`.
     AXIOM_CONSTRUCTORS
         .iter()
         .map(|f| f())
-        .find(|a| a.name().as_str() == name)
+        .find(|a| a.name() == *name)
 }
 
 #[cfg(target_arch = "wasm32")]

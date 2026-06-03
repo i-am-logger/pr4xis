@@ -104,8 +104,10 @@ impl Axiom for AxiomBindingComplete {
     fn verify(&self) -> Verdict {
         for a in axiom_constructors() {
             let name = a.name();
+            // The resolved axiom's identity is checked through the typed
+            // `OntologyName` equality, not a raw `&str ==`.
             match axiom_by_name(name.as_str()) {
-                Some(b) if b.name().as_str() == name.as_str() => {}
+                Some(b) if b.name() == name => {}
                 _ => return Err(Box::new(SimpleCounterexample::new(self.meta()))),
             }
         }
