@@ -43,7 +43,7 @@ use alloc::{boxed::Box, string::String, string::ToString, vec::Vec};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
-use crate::cognitive::linguistics::lemon::lexicon::ConceptRef;
+use crate::cognitive::linguistics::lemon::lexicon::{ConceptRef, Lexicon};
 use crate::social::judicial::citation::PinpointCite;
 
 /// The applicability scope of a statutory definition — the lex-specialis ladder.
@@ -125,6 +125,72 @@ where
         .iter()
         .filter(|d| d.scope.governs(use_cite) && !contextual_defeater(d))
         .max_by_key(|d| d.scope.specificity())
+}
+
+/// The definitional layer a statute contributes — the terms it defines, each
+/// with its applicability scope and the concept it binds. Title 1 (the
+/// Dictionary Act) is the canonical inhabitant: it defines "person", "whoever",
+/// "vessel", … for the whole U.S. Code, and every other title resolves a use of
+/// those terms through it, a more specific title definition displacing it (lex
+/// specialis). This is the `LegalLexicon` a `Statute` `Adjoins` in the source
+/// taxonomy, made queryable.
+#[derive(Debug, Clone, Default)]
+pub struct DefinitionLexicon {
+    definitions: Vec<LegalDefinition>,
+}
+
+impl DefinitionLexicon {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record a definition this layer contributes.
+    pub fn define(&mut self, definition: LegalDefinition) {
+        self.definitions.push(definition);
+    }
+
+    /// The concept a use of `term` at `use_cite` resolves to — the most specific
+    /// governing definition (lex specialis), skipping any the `defeater` rejects
+    /// ("unless the context indicates otherwise"). `None` for ordinary meaning
+    /// (no governing statutory definition).
+    pub fn resolve<F>(
+        &self,
+        term: &str,
+        use_cite: &PinpointCite,
+        defeater: F,
+    ) -> Option<&ConceptRef>
+    where
+        F: Fn(&LegalDefinition) -> bool,
+    {
+        self.definitions
+            .iter()
+            .filter(|d| d.term == term && d.scope.governs(use_cite) && !defeater(d))
+            .max_by_key(|d| d.scope.specificity())
+            .map(|d| &d.defines)
+    }
+
+    /// Mint this layer's terms into `lexicon` as legal-domain senses — each
+    /// defined term gains a `"legal"`-register `Sense` on its ONE shared entry,
+    /// alongside whatever general sense it already carries, so a use in the legal
+    /// register elevates to the statutory meaning (the sense-elevation order)
+    /// while the general meaning stays reachable.
+    pub fn mint_into(&self, lexicon: &mut Lexicon) {
+        for d in &self.definitions {
+            lexicon.add_sense(
+                d.term.clone(),
+                d.defines.ontology.clone(),
+                d.defines.concept.clone(),
+                Some("legal".to_string()),
+            );
+        }
+    }
+
+    /// The definitions this layer holds.
+    #[must_use]
+    pub fn definitions(&self) -> &[LegalDefinition] {
+        &self.definitions
+    }
 }
 
 /// The lex-specialis definition-precedence order is a STRICT PARTIAL ORDER.
@@ -279,6 +345,58 @@ mod tests {
         assert!(
             matches!(chosen.scope, DefinitionScope::DictionaryAct),
             "the defeated title definition falls through to the Dictionary Act"
+        );
+    }
+
+    #[test]
+    fn definition_lexicon_resolves_lex_specialis_and_mints_legal_sense() {
+        use crate::cognitive::linguistics::lemon::lexicon::Lexicon;
+
+        // Title 1 (the Dictionary Act) defines "person" code-wide; Title 26
+        // §7701 redefines it for its own title.
+        let mut layer = DefinitionLexicon::new();
+        layer.define(LegalDefinition {
+            term: "person".to_string(),
+            scope: DefinitionScope::DictionaryAct,
+            defines: ConceptRef {
+                ontology: "us_legal_lexicon".to_string(),
+                concept: "dictionary_act_person".to_string(),
+            },
+        });
+        layer.define(LegalDefinition {
+            term: "person".to_string(),
+            scope: DefinitionScope::Enacted(cite(&[(L::Title, "26"), (L::Section, "7701")])),
+            defines: ConceptRef {
+                ontology: "us_legal_lexicon".to_string(),
+                concept: "title26_person".to_string(),
+            },
+        });
+
+        // A use within Title 26 §7701 resolves to the title-specific definition…
+        let in_t26 = cite(&[(L::Title, "26"), (L::Section, "7701"), (L::Subsection, "a")]);
+        assert_eq!(
+            layer.resolve("person", &in_t26, |_| false).unwrap().concept,
+            "title26_person"
+        );
+        // …a use elsewhere falls through to the Dictionary Act.
+        let in_t18 = cite(&[(L::Title, "18"), (L::Section, "1")]);
+        assert_eq!(
+            layer.resolve("person", &in_t18, |_| false).unwrap().concept,
+            "dictionary_act_person"
+        );
+
+        // Minting puts the legal senses onto the shared lexicon atom, alongside
+        // the general sense, and the legal register elevates to a legal sense.
+        let mut lex = Lexicon::new("en");
+        lex.add_sense("person", "english_wordnet", "person.n.01", None);
+        layer.mint_into(&mut lex);
+        assert!(lex.lookup("person").unwrap().senses.len() >= 2);
+        let legal = lex.resolve("person", Some("legal")).expect("a sense");
+        assert_eq!(legal.reference.ontology, "us_legal_lexicon");
+        // The general sense is still reachable by default.
+        assert_eq!(
+            lex.resolve("person", None).unwrap().reference.ontology,
+            "english_wordnet"
         );
     }
 }
