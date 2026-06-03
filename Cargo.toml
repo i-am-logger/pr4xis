@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/pr4xis-derive",
     "crates/pr4xis",
+    "crates/pr4xis-runtime",
     "crates/domains",
     "crates/examples",
     "crates/cli",

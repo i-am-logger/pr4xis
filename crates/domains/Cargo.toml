@@ -147,6 +147,9 @@ unreachable = "deny"
 # off the normal dep (it leaks `xsd-parser` into WASM), so unify it back
 # in for test builds here.
 pr4xis = { version = "0.22.0", path = "../pr4xis", features = ["codegen"] }
+# The runtime, with `emit`, so an integration test can project a real domain
+# ontology into a `.prx` Archive and round-trip it through the runtime.
+pr4xis-runtime = { path = "../pr4xis-runtime", features = ["emit"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 proptest = "1.11"
 tempfile = "3"
