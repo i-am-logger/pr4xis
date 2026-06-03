@@ -58,7 +58,7 @@
 //! order would (a) break lookups and (b) make the rkyv `MerkleRoot`
 //! non-reproducible, breaking the archive pin. The codegen-side emitter
 //! (`pr4xis::codegen::generate::write_word_index`) sorts for exactly the
-//! same reasons; [`wn_builder_to_owned`] mirrors that sort so an
+//! same reasons; `wn_builder_to_owned` mirrors that sort so an
 //! archive-materialized [`English`] is identity-identical to the
 //! codegen-materialized one.
 //!
@@ -172,7 +172,7 @@ pub struct WnPrxMetadata {
     pub source_url: String,
     /// `prov:wasDerivedFrom` / `prov:Entity` (Lebo 2013) content address —
     /// the SHA-256 (NIST FIPS 180-4 §6.2; Dolstra 2006) of the exact source
-    /// WN-LMF bytes [`read_wordnet`](super::reader::read_wordnet) consumed.
+    /// WN-LMF bytes [`read_wordnet`] consumed.
     /// The load gate validates this against the `praxis.lock` `[hashes]`
     /// pin; a mismatch fails closed.
     pub source_sha256: String,
@@ -209,7 +209,7 @@ pub const WN_LMF_NAMESPACE_URI: &str = "https://globalwordnet.github.io/schemas/
 /// — the FLAT shape, with NO `aux` field (a WN-LMF lexicon has no
 /// subdivision tree, unlike the USC `UsCodePrxEnvelope`). The one
 /// substantive difference from the OWL emitter is that [`Self::data`]'s
-/// `word_index` is populated and sorted (see [`wn_builder_to_owned`]).
+/// `word_index` is populated and sorted (see `wn_builder_to_owned`).
 #[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct WordNetPrxEnvelope {
     /// OMV/PROV-O-grounded self-description, incl. the source content hash
@@ -574,8 +574,8 @@ fn wn_builder_to_owned(wn: &super::ontology::WordNet) -> OwnedCodegenData {
 }
 
 /// Build a [`WordNetPrxEnvelope`] from WN-LMF source bytes plus its registry
-/// `(name, version, url)`. Parses via [`read_wordnet`](super::reader::read_wordnet),
-/// projects with [`wn_builder_to_owned`], attaches the OMV/PROV-O metadata,
+/// `(name, version, url)`. Parses via [`read_wordnet`],
+/// projects with `wn_builder_to_owned`, attaches the OMV/PROV-O metadata,
 /// and carries the exact source bytes as the `RawBytesComplementFloor` raw
 /// leaf (content-addressed to the UNZIPPED bytes the reader consumed —
 /// matching OWL and USC).

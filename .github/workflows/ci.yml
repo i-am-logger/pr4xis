@@ -306,6 +306,16 @@ jobs:
         run: |
           cd crates/wasm
           wasm-pack test --release --headless --firefox
+      # pr4xis-wasm is workspace-excluded (wasm32 lib), so its NATIVE
+      # `mod acceptance` #[test]s (browser-loads-a-prx with/without the
+      # corpus + fail-closed against a wrong/tampered root) never run
+      # under `cargo test --workspace`. Run them explicitly on the host
+      # target — mirrors the dev-ci `wasm native acceptance tests` step
+      # exactly (local == CI).
+      - name: wasm native acceptance tests (release)
+        env:
+          RUSTFLAGS: "-D warnings"
+        run: cargo test --manifest-path crates/wasm/Cargo.toml --release
       - name: Emit .prx.gz ontology artifacts (for /ontologies/ click-to-load)
         run: |
           mkdir -p crates/wasm/ontologies

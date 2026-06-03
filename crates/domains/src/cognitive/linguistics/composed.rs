@@ -27,7 +27,7 @@
 //! `ConceptRef` is assigned a `ConceptId` in a range DISJOINT from English's
 //! (offset above `english.concept_count()`). That `ConceptId` is an opaque
 //! handle; its MEANING is recovered by decoding it back into a
-//! [`GroundedConcept`] through a typed table ([`Self::decode`]), never by
+//! [`GroundedConcept`] through a typed table ([`ComposedReasoner::decode`]), never by
 //! comparing names as strings. Taxonomy over loaded concepts is answered from
 //! the loaded ontology's MATERIALIZED closure
 //! ([`RuntimeOntology::reachable_from`] / [`RuntimeOntology::is_a`]) — never a

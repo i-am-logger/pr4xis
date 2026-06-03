@@ -10,7 +10,12 @@ members = [
     "crates/chat",
     "crates/web",
 ]
-# pr4xis-wasm excluded from default workspace (needs wasm target).
+# pr4xis-wasm excluded from default workspace (its lib builds for the
+# wasm32 target). Its NATIVE `mod acceptance` tests (host-target
+# #[test]s gated to non-wasm32) therefore do NOT run under
+# `cargo test --workspace`; CI + dev-ci run them explicitly via
+# `cargo test --manifest-path crates/wasm/Cargo.toml`. The wasm32
+# browser tests run separately via `wasm-pack test` (dev-test-wasm).
 # pr4xis-e2e excluded too — it drives a real browser via WebDriver and
 # needs a running web server + geckodriver, so it must not run under
 # `cargo test --workspace`. CI invokes it explicitly (see ci.yml `e2e`).

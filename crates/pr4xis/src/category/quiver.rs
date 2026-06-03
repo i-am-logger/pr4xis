@@ -14,7 +14,7 @@
 //! Under a cycle (e.g. `a → b → a`) the set of paths is infinite, which praxis's
 //! closed-world [`Category::morphisms`] (a finite enumeration) cannot list. So,
 //! consistent with praxis's finitely-generated stance (see
-//! [`FinitelyGenerated`](super::entity::FinitelyGenerated)), [`FreeCategory`]
+//! [`FinitelyGenerated`]), [`FreeCategory`]
 //! represents itself by its finite **generating set** — identities plus the
 //! single edges — returned from [`Category::morphisms`]. This is sound for the
 //! one thing we verify on a free category: a functor out of it is determined by,

@@ -112,6 +112,8 @@ in
     RUSTFLAGS="-D warnings" cargo nextest run --workspace --profile ci --release || { echo "FAILED: test"; exit 1; }
     echo "=== clippy (wasm, release) ==="
     cargo clippy --manifest-path crates/wasm/Cargo.toml --target wasm32-unknown-unknown --release --quiet -- -D warnings || { echo "FAILED: clippy (wasm)"; exit 1; }
+    echo "=== wasm native acceptance tests ==="
+    RUSTFLAGS="-D warnings" cargo test --manifest-path crates/wasm/Cargo.toml --release || { echo "FAILED: wasm native acceptance tests"; exit 1; }
     echo "=== wasm browser tests ==="
     dev-test-wasm || { echo "FAILED: wasm browser tests"; exit 1; }
     echo "=== e2e (Rust WebDriver) ==="

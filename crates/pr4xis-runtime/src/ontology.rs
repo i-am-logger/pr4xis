@@ -11,7 +11,8 @@
 //!
 //! Each archive node becomes a [`ConceptRef`] — the typed `(ontology, name)`
 //! pair that IS the vertex identity. `ConceptRef` impls [`Concept`] (it has a
-//! [`name()`](Concept::name)) but deliberately NOT [`FinitelyGenerated`]: a
+//! [`name()`](Concept::name)) but deliberately NOT
+//! [`FinitelyGenerated`](pr4xis::category::FinitelyGenerated): a
 //! runtime vertex materialized from a loaded `.prx` cannot be enumerated at the
 //! type level — that is precisely the open-world case the Concept /
 //! FinitelyGenerated relaxation exists for (Reiter 1978; `entity.rs`). Identity
@@ -645,8 +646,10 @@ mod tests {
 
     #[test]
     fn lexical_lookup_returns_a_nodes_gloss() {
-        // emit() carries no per-concept lexical yet, so build an archive whose
-        // node declares its Lemon gloss, materialize it, and read it back.
+        // This test isolates the `lexical()` reader: build a minimal archive
+        // whose single node declares its Lemon gloss directly, materialize it,
+        // and read the gloss back. (The emit path's own gloss projection is
+        // covered by `emit::tests::emits_each_concepts_gloss_as_its_lexical_and_round_trips`.)
         let archive = Archive {
             nodes: alloc::vec![Definition {
                 kind: "Concept".into(),
