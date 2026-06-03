@@ -927,8 +927,16 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         })
         .collect();
 
-    // Per-axiom auto-registration into the global AXIOMS distributed slice
-    // so the Lemon lexicon includes every declared axiom.
+    // Per-axiom auto-registration. Each declared domain axiom is a unit struct
+    // (constructible from its identifier), so we register it the same way
+    // `register_axiom!(Name, constructor)` does — into BOTH slices:
+    //
+    //  * AXIOMS (metadata) — so the Lemon lexicon includes every declared axiom.
+    //  * AXIOM_CONSTRUCTORS (the re-bind table) — so a serialized domain-axiom
+    //    node (emitted by `pr4xis-runtime::emit` keyed by `Axiom::name`)
+    //    re-binds to a freshly-built predicate by that same stable name through
+    //    `axiom_by_name` on load. The metadata `name` and the reconstructed
+    //    axiom's `name()` are the SAME value, so the round-trip closes.
     let axiom_registrations: Vec<TokenStream> = def
         .axioms
         .iter()
@@ -941,6 +949,10 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                     #[linkme(crate = #pr4xis::linkme)]
                     static [<_REGISTER_AXIOM_ #name_ident:snake:upper>]: fn() -> #pr4xis::ontology::meta::Provenance =
                         || <#name_ident as #pr4xis::logic::axiom::Axiom>::meta(&#name_ident);
+                    #[#pr4xis::linkme::distributed_slice(#pr4xis::ontology::AXIOM_CONSTRUCTORS)]
+                    #[linkme(crate = #pr4xis::linkme)]
+                    static [<_REGISTER_AXIOM_CTOR_ #name_ident:snake:upper>]: fn() -> #pr4xis::ontology::BoxedAxiom =
+                        || #pr4xis::ontology::boxed_axiom(#name_ident);
                 }
             }
         })
@@ -994,6 +1006,20 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         impl #pr4xis::category::NamedCategory for #cat_name {
             fn ontology_name() -> #pr4xis::ontology::meta::OntologyName {
                 #pr4xis::ontology::meta::OntologyName::new_static(#name_lit)
+            }
+        }
+
+        // The category can reach its ontology's DOMAIN axioms — the typed
+        // bridge from `Cat` to the per-`axioms:`-clause claims declared above,
+        // mirroring how `NamedCategory` bridges `Cat` to its declared name.
+        // Delegates to the generated `domain_axioms()` accessor, so a
+        // projection (`pr4xis-runtime::emit`) serializes them as
+        // content-addressed `Axiom` nodes WITHOUT reaching into the
+        // `<Name>Ontology` struct. An ontology with no `axioms:` clause yields
+        // an empty Vec (honest absence — never a fabricated axiom).
+        impl #pr4xis::category::DomainAxiomatized for #cat_name {
+            fn domain_axioms() -> Vec<Box<dyn #pr4xis::ontology::Axiom>> {
+                #ont_name::generated_domain_axioms()
             }
         }
 

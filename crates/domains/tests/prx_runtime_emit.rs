@@ -100,7 +100,7 @@ fn real_dependability_ontology_rebinds_against_itself() {
 /// well-behaved (`load ∘ emit == id`), deterministic (byte-identical re-emit),
 /// content-addressed (stable root). Returns the node count so the driver can
 /// confirm it exercised a non-trivial ontology.
-fn assert_format_round_trip_law<Cat: Category + pr4xis::category::NamedCategory + 'static>(
+fn assert_format_round_trip_law<Cat: Category + pr4xis::category::DomainAxiomatized + 'static>(
     name: &str,
 ) -> usize
 where

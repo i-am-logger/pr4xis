@@ -21,7 +21,8 @@
 //! natural transformation) that touches `Cat`: from the registry's
 //! [`connection_constructors`](pr4xis::ontology::connection_constructors) it
 //! selects the entries whose source or target ontology name is `Cat`'s own
-//! ([`NamedCategory::ontology_name`]), extracts each one's finite
+//! ([`NamedCategory::ontology_name`](pr4xis::category::NamedCategory::ontology_name)),
+//! extracts each one's finite
 //! action-on-generators (the finite-presentation theorem — a structure-
 //! preserving map is determined by its action on generators), and content-
 //! addresses it as a [`Connection`]. The connection's `source`/`target` name
@@ -29,7 +30,7 @@
 //! rebinds it by content-address agreement.
 
 use pr4xis::category::connection::{ConnectionFamily, ConnectionGenerators};
-use pr4xis::category::{Arrow, Concept, FinitelyGenerated, NamedCategory};
+use pr4xis::category::{Arrow, Concept, DomainAxiomatized, FinitelyGenerated};
 use pr4xis::ontology::connection_constructors;
 
 use crate::archive::Archive;
@@ -82,7 +83,8 @@ pub fn emit<Cat>() -> Archive
 where
     // Emits one node per concept variant — enumerates the objects, so the
     // compiled ontology being projected must be finitely generated (closed-world).
-    Cat: NamedCategory + 'static,
+    // `DomainAxiomatized: NamedCategory`, so this also gives the declared name.
+    Cat: DomainAxiomatized + 'static,
     Cat::Object: FinitelyGenerated,
     // Structural axioms are derived from the category's typed relation-kinds
     // (`structural_axioms_for::<Cat>()`), so the kind enum must be inspectable.
@@ -147,6 +149,34 @@ where
             lexical: Some(axiom.description().as_str().to_string()),
         });
     }
+
+    // Domain axiom NODES — the per-`axioms:`-clause claims the ontology
+    // DECLARED (Guarino 2009: the axiomatisation layer, distinct from the
+    // structural commitment above). Where structural axioms are derivable from
+    // the morphism graph alone, these are subject-matter claims reachable only
+    // through the typed `Cat::domain_axioms()` accessor the `ontology!` macro
+    // wired (the `DomainAxiomatized` bridge — mirroring `NamedCategory`). Each
+    // becomes an `Axiom`-kinded node keyed by its stable `Axiom::name` — the
+    // SAME wire identity `axiom_by_name` rebinds on load — and lexically
+    // grounded by its description. We emit ONLY axioms the ontology actually
+    // declares: an empty `axioms:` clause yields an empty Vec, so nothing is
+    // fabricated.
+    //
+    // Order/duplicate-independent identity comes for free at the envelope:
+    // [`Archive::root`] sorts and dedups node ADDRESSES before rooting, so a
+    // domain axiom that happens to share a wire name (hence node) with a
+    // structural one collapses there — no explicit re-sort of `nodes` needed
+    // (which would also reorder the concept nodes).
+    for axiom in <Cat as DomainAxiomatized>::domain_axioms() {
+        nodes.push(Definition {
+            kind: "Axiom".to_string(),
+            name: axiom.name().as_str().to_string(),
+            edges: Vec::new(),
+            axioms: Vec::new(),
+            lexical: Some(axiom.description().as_str().to_string()),
+        });
+    }
+
     // Connections: every registered functor / adjunction / natural
     // transformation whose source OR target is THIS ontology. Selecting on
     // both directions makes the slice the full set of arrows incident to
@@ -200,6 +230,65 @@ mod tests {
             (Employee, Person),
             (Person, Agent),
         ],
+    }
+
+    // A REAL ontology that DECLARES domain axioms via the `ontology!` `axioms:`
+    // clause — the per-subject-matter claims (Guarino 2009) distinct from the
+    // structural axioms the relation-kinds license. These live on the generated
+    // `<Name>Ontology` struct and are reached only through the typed
+    // `DomainAxiomatized::domain_axioms()` bridge the macro wires; the test
+    // below proves `emit` surfaces them as content-addressed `Axiom` nodes that
+    // round-trip byte-exact and re-bind by name. The `holds` expressions read
+    // the ontology's OWN materialized structure (its morphisms / closure), so
+    // each axiom is a genuine claim about this ontology — not a tautology.
+    pr4xis::ontology! {
+        name: "Guild",
+        source: "pr4xis-runtime emit domain-axiom test fixture",
+        concepts: [Master, Apprentice, Member],
+        labels: {
+            Master: ("en", "Master", "A guild member who has completed an apprenticeship."),
+            Apprentice: ("en", "Apprentice", "A guild member learning the trade."),
+            Member: ("en", "Member", "One enrolled in the guild."),
+        },
+        is_a: [
+            (Master, Member),
+            (Apprentice, Member),
+        ],
+        axioms: {
+            // Every direct role (Master, Apprentice) subsumes to Member — a
+            // claim about THIS ontology's taxonomy, checked against the
+            // materialized Subsumption closure (not a constant `true`).
+            EveryRoleIsAMember: {
+                source: "Guarino (2009) The Ontological Level — domain axiomatisation layer",
+                description: "Every guild role (Master, Apprentice) is-a Member via the Subsumption closure.",
+                holds: {
+                    use pr4xis::category::Category;
+                    let to_member = |from: GuildConcept| {
+                        GuildCategory::morphisms().iter().any(|m| {
+                            m.from == from
+                                && m.to == GuildConcept::Member
+                                && m.kind == GuildRelationKind::Subsumption
+                        })
+                    };
+                    to_member(GuildConcept::Master) && to_member(GuildConcept::Apprentice)
+                },
+            },
+            // A second declared axiom, so the test sees MORE than one domain
+            // axiom node: the Member role does not subsume any role (it is the
+            // taxonomy root) — checked against the same closure.
+            MemberIsTheRoot: {
+                source: "Smith et al. (2005) OBO Relation Ontology — Subsumption is antisymmetric",
+                description: "Member is the taxonomy root: it subsumes no other guild role.",
+                holds: {
+                    use pr4xis::category::Category;
+                    !GuildCategory::morphisms().iter().any(|m| {
+                        m.from == GuildConcept::Member
+                            && m.to != GuildConcept::Member
+                            && m.kind == GuildRelationKind::Subsumption
+                    })
+                },
+            },
+        },
     }
 
     // A SECOND real ontology — the codomain of a cross-ontology functor. Its
@@ -405,6 +494,102 @@ mod tests {
             ],
             "the non-empty axioms Vec must survive the round-trip byte-exact"
         );
+    }
+
+    #[test]
+    fn emits_declared_domain_axioms_as_nodes_that_round_trip_and_rebind() {
+        // The Guild ontology DECLARES two domain axioms in its `axioms:` clause.
+        // They are reached only through the typed `DomainAxiomatized` bridge the
+        // macro wired — NOT from the `Cat` morphism graph alone — and `emit`
+        // must surface each as a content-addressed `Axiom`-kinded node.
+
+        // The names the ontology actually declared (the source of truth — read
+        // from the typed accessor, never hand-typed into the assertion).
+        let declared: Vec<(String, String)> = <GuildCategory as DomainAxiomatized>::domain_axioms()
+            .iter()
+            .map(|a| {
+                (
+                    a.name().as_str().to_string(),
+                    a.description().as_str().to_string(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            declared.len(),
+            2,
+            "the Guild fixture declares exactly two domain axioms"
+        );
+
+        let archive = emit::<GuildCategory>();
+
+        // Each declared domain axiom is emitted as an Axiom node, keyed by its
+        // stable name, lexically grounded by its description. We assert against
+        // the names READ FROM the ontology, so the test cannot pass on a
+        // fabricated axiom (only those the ontology actually declares appear).
+        let axiom_nodes: HashMap<&str, &Definition> = archive
+            .nodes
+            .iter()
+            .filter(|n| n.kind == "Axiom")
+            .map(|n| (n.name.as_str(), n))
+            .collect();
+        for (name, description) in &declared {
+            let node = axiom_nodes.get(name.as_str()).unwrap_or_else(|| {
+                panic!("declared domain axiom {name:?} must be emitted as an Axiom node")
+            });
+            assert_eq!(
+                node.lexical.as_deref(),
+                Some(description.as_str()),
+                "the domain-axiom node must carry its description as its lexical gloss"
+            );
+        }
+        // Non-vacuity: dropping the `axioms:` clause would drop these nodes.
+        // The Org fixture (no `axioms:` clause) emits NO node named for them.
+        let org = emit::<OrgCategory>();
+        for (name, _) in &declared {
+            assert!(
+                !org.nodes.iter().any(|n| &n.name == name),
+                "an ontology with no axioms: clause must not emit {name:?}"
+            );
+        }
+
+        // Byte-exact round-trip through the runtime, fail-closed against root.
+        let bytes = load::emit(&archive).unwrap();
+        let loaded = load::load(&bytes, archive.root().unwrap()).unwrap();
+        assert_eq!(
+            loaded, archive,
+            "the archive (incl. domain axioms) round-trips"
+        );
+        for (name, _) in &declared {
+            assert!(
+                loaded
+                    .nodes
+                    .iter()
+                    .any(|n| n.kind == "Axiom" && &n.name == name),
+                "the domain-axiom node {name:?} must survive the round-trip byte-exact"
+            );
+        }
+
+        // The emitted name is the SAME wire identity `axiom_by_name` rebinds on
+        // load: each declared domain axiom resolves to a freshly-built runnable
+        // predicate by that name (the macro registered it into
+        // AXIOM_CONSTRUCTORS), and the rebound axiom verifies — proving the node
+        // names a REAL claim, not a label.
+        for (name, _) in &declared {
+            let rebound = pr4xis::ontology::axiom_by_name(name).unwrap_or_else(|| {
+                panic!("emitted domain axiom {name:?} must rebind via axiom_by_name on load")
+            });
+            assert_eq!(
+                rebound.name().as_str(),
+                name.as_str(),
+                "the rebound axiom must carry the same stable name the node was keyed by"
+            );
+            rebound.verify().unwrap_or_else(|c| {
+                panic!(
+                    "the rebound domain axiom {name:?} must verify against the ontology; got {:?}",
+                    c.meta().name
+                )
+            });
+        }
     }
 
     #[test]

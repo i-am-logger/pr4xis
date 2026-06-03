@@ -729,41 +729,95 @@ mod browser_acceptance {
 
     wasm_bindgen_test_configure!(run_in_browser);
 
-    /// The gloss for `CorrectService` — the first glossed embedded concept whose
-    /// lowercased surface ("correctservice") full WordNet does not know, so the
-    /// contrast is genuine in the browser too.
-    const DEMO_SURFACE: &str = "correctservice";
-    const DEMO_GLOSS: &str = "Service that implements the system function correctly.";
-
     fn response_of(json: &str) -> String {
         let v: serde_json::Value = serde_json::from_str(json).unwrap();
         v["response"].as_str().unwrap().to_string()
     }
 
+    /// Materialize the embedded demo `.prx` straight from its bytes (the same
+    /// bytes `Pr4xis` loads) so the test can read its glosses and DISCOVER a demo
+    /// concept at test time — the wasm32 mirror of the native acceptance
+    /// harness. Nothing about the gloss is hardcoded.
+    fn embedded_ontology() -> RuntimeOntology {
+        let root = ContentAddress::from_hex(embedded_prx::EMBEDDED_DEMO_PRX_ROOT_HEX).unwrap();
+        let archive = pr4xis_runtime::load::load(embedded_prx::EMBEDDED_DEMO_PRX, root)
+            .expect("embedded demo .prx loads fail-closed against its baked root");
+        materialize(
+            archive,
+            OntologyName::new(embedded_prx::EMBEDDED_DEMO_ONTOLOGY_NAME),
+        )
+        .expect("embedded demo .prx materializes")
+    }
+
+    /// A demo concept the embedded ontology DEFINES (carries a gloss for) whose
+    /// lowercased surface full WordNet does NOT know — so "what is a <concept>"
+    /// genuinely abstains without the corpus and answers from the loaded gloss
+    /// with it. Returns `(surface, gloss)`, both READ FROM the loaded ontology at
+    /// test time via [`RuntimeOntology::lexical`] — never a constant. This is the
+    /// same discovery the native `acceptance::demo_concept` does, so a faked
+    /// embedded ontology carrying a different gloss cannot pass: the asserted
+    /// gloss is whatever the loaded `.prx` actually declares.
+    fn demo_concept(english: &English) -> (String, String) {
+        let onto = embedded_ontology();
+        for node in &onto.archive().nodes {
+            let surface = node.name.to_lowercase();
+            let cref = onto.concept(node.name.clone());
+            if let Some(gloss) = onto.lexical(&cref) {
+                if english.lookup(&surface).is_empty() {
+                    return (surface, gloss.to_string());
+                }
+            }
+        }
+        panic!("expected at least one glossed embedded concept unknown to WordNet");
+    }
+
     #[wasm_bindgen_test]
     fn browser_loads_the_embedded_prx_and_the_chat_answers_from_its_gloss() {
-        let question = format!("what is a {DEMO_SURFACE}");
+        // A fresh English to choose a discriminating concept + assert the WITHOUT
+        // precondition — the same model `Pr4xis::new()` builds in the browser.
+        let english = language::from_codegen(&codegen_output::CODEGEN_DATA);
+        let (surface, gloss) = demo_concept(&english);
+        let question = format!("what is a {surface}");
+
+        // Precondition: full WordNet does not know this surface — so the
+        // abstention below is about the LOADED concept, not a staged unknown.
+        assert!(
+            english.lookup(&surface).is_empty(),
+            "precondition: WordNet must not know {surface:?} in the browser too"
+        );
 
         // WITHOUT the corpus: a fresh Pr4xis abstains and never surfaces the
-        // loaded gloss.
+        // dynamically-read gloss.
         let without = Pr4xis::new();
         assert_eq!(without.loaded_ontology_count(), 0);
         let without_resp = response_of(&without.chat(&question));
         assert!(
-            !without_resp.contains(DEMO_GLOSS),
+            !without_resp.contains(gloss.as_str()),
             "english-only must not surface the loaded gloss; got: {without_resp:?}"
+        );
+        let lc = without_resp.to_lowercase();
+        assert!(
+            lc.contains("do not") || lc.contains("don't") || lc.contains("not know"),
+            "english-only must abstain on the unloaded concept {surface:?}; got: {without_resp:?}"
         );
 
         // WITH the corpus: load the embedded `.prx` through the WASM method (the
-        // fail-closed gate runs in the browser), then chat the same question.
+        // fail-closed gate runs in the browser), then chat the same question. The
+        // asserted gloss is the one DISCOVERED from the loaded ontology, so the
+        // evidence chain is real — a hardcoded gloss could not satisfy it.
         let mut with = Pr4xis::new();
         with.load_embedded_demo_prx()
             .expect("the embedded demo .prx loads in the browser (fail-closed)");
         assert_eq!(with.loaded_ontology_count(), 1);
         let with_resp = response_of(&with.chat(&question));
         assert!(
-            with_resp.contains(DEMO_GLOSS),
-            "with the .prx loaded, the chat must answer from the loaded gloss; got: {with_resp:?}"
+            with_resp.contains(gloss.as_str()),
+            "with the .prx loaded, the chat must answer from the loaded gloss \
+             ({gloss:?}); got: {with_resp:?}"
+        );
+        assert!(
+            with_resp.to_lowercase().contains(&surface),
+            "the answer must name the queried concept {surface:?}; got: {with_resp:?}"
         );
         assert_ne!(without_resp, with_resp);
     }
