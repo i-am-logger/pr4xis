@@ -197,18 +197,38 @@ pub struct LegalTerm {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum RelationType {
     Requires,
-    Precedes { max_days: Option<Duration> },
-    Implies { consequence: SourceTextRef },
+    Precedes {
+        max_days: Option<Duration>,
+    },
+    Implies {
+        consequence: SourceTextRef,
+    },
     Contradicts,
-    Composes { into: Identifier },
+    Composes {
+        into: Identifier,
+    },
     SubtypeOf,
-    Triggers { obligation: Identifier },
+    Triggers {
+        obligation: Identifier,
+    },
     Negates,
     AlternativeTo,
-    Rebuts { burden: SourceTextRef },
+    Rebuts {
+        burden: SourceTextRef,
+    },
     AffirmativeDefenseTo,
     SafeHarborFor,
     ExhaustionRequiredFor,
+    /// A definitional provision establishes the meaning of a term within its
+    /// scope — source is the defining provision, target is the defined term.
+    /// The statutory-definition morphism; resolution among competing
+    /// definitions is lex specialis (see
+    /// `statute_structure::definition_scope`). Scalia & Garner (2012) §28;
+    /// 1 U.S.C. §1.
+    Defines,
+    /// The inverse of [`RelationType::Defines`]: a use of a term is governed by
+    /// the definition that establishes its meaning in the use's scope.
+    DefinedIn,
 }
 
 /// A relation between two legal terms. `from` and `to` are typed

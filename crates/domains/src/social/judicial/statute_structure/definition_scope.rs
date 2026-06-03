@@ -44,7 +44,9 @@ use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 
 use crate::cognitive::linguistics::lemon::lexicon::{ConceptRef, Lexicon};
+use crate::formal::meta::identifier_format::Identifier;
 use crate::social::judicial::citation::PinpointCite;
+use crate::social::judicial::ontology::{LegalRelation, RelationType};
 
 /// The applicability scope of a statutory definition — the lex-specialis ladder.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -105,6 +107,34 @@ pub struct LegalDefinition {
     pub term: String,
     pub scope: DefinitionScope,
     pub defines: ConceptRef,
+}
+
+impl LegalDefinition {
+    /// The `Defines` morphism this definition contributes to the legal relation
+    /// graph: the defining provision (source) establishes the meaning of the
+    /// `term` (target). `None` for `OrdinaryMeaning` — no statutory definition,
+    /// hence no morphism. Source and target are CURIE-typed [`Identifier`]s
+    /// (W3C CURIE Syntax 1.0): the provision as `usc:<labels>` (the Dictionary
+    /// Act is `usc:1-1`, i.e. 1 U.S.C. §1) and the term as `term:<term>`.
+    pub fn as_defines_relation(&self) -> Option<LegalRelation> {
+        let from_local = match &self.scope {
+            DefinitionScope::Enacted(cite) => cite
+                .segments
+                .iter()
+                .map(|s| s.label.as_str())
+                .collect::<Vec<_>>()
+                .join("-"),
+            DefinitionScope::DictionaryAct => "1-1".to_string(),
+            DefinitionScope::OrdinaryMeaning => return None,
+        };
+        let from = Identifier::curie(alloc::format!("usc:{from_local}")).ok()?;
+        let to = Identifier::curie(alloc::format!("term:{}", self.term.replace(' ', "_"))).ok()?;
+        Some(LegalRelation {
+            from,
+            to,
+            relation: RelationType::Defines,
+        })
+    }
 }
 
 /// Resolve which definition of a term governs a use at `use_cite`: the MOST
@@ -397,6 +427,29 @@ mod tests {
         assert_eq!(
             lex.resolve("person", None).unwrap().reference.ontology,
             "english_wordnet"
+        );
+    }
+
+    #[test]
+    fn dictionary_act_definition_yields_a_defines_morphism() {
+        let def = person(DefinitionScope::DictionaryAct);
+        let rel = def.as_defines_relation().expect("a Defines morphism");
+        assert_eq!(rel.relation, RelationType::Defines);
+        assert_eq!(rel.from.value(), "usc:1-1"); // 1 U.S.C. §1, the Dictionary Act
+        assert_eq!(rel.to.value(), "term:person");
+        // An Enacted definition names its provision; ordinary meaning yields none.
+        let enacted = person(DefinitionScope::Enacted(cite(&[
+            (L::Title, "26"),
+            (L::Section, "7701"),
+        ])));
+        assert_eq!(
+            enacted.as_defines_relation().unwrap().from.value(),
+            "usc:26-7701"
+        );
+        assert!(
+            person(DefinitionScope::OrdinaryMeaning)
+                .as_defines_relation()
+                .is_none()
         );
     }
 }
