@@ -74,6 +74,16 @@
 //!   GTM 5, 2nd ed. 1998.
 
 pub mod canonical;
+// The completeness meter reuses the harness verdict + `RoundTripFidelity` and
+// the decompile leaf's `DecompileKind`, so it is gated with `decompile` (which
+// links the `prx` load path).
+#[cfg(feature = "prx")]
+pub mod completeness;
+// The uniform `.prx → source` decompile op routes to the per-leaf reconstruct
+// in the `prx`-gated markup modules (rkyv + gzip), so it is `prx`-only — the
+// same gate the OWL/USC/WordNet `.prx` load paths carry.
+#[cfg(feature = "prx")]
+pub mod decompile;
 pub mod harness;
 pub mod lens_trait;
 
@@ -86,6 +96,14 @@ pub use harness::{
 #[cfg(not(target_arch = "wasm32"))]
 pub use harness::LENS_REGISTRATIONS;
 pub use lens_trait::{FailureStage, LensLawFailure, RoundTripFidelity, WellBehavedLens};
+
+#[cfg(feature = "prx")]
+pub use completeness::{
+    CompletenessReport, completeness_meter, declared_matches_achieved, floor_source_count,
+    print_completeness_meter,
+};
+#[cfg(feature = "prx")]
+pub use decompile::{DecompileError, DecompileKind, decompile};
 
 #[cfg(test)]
 mod tests;

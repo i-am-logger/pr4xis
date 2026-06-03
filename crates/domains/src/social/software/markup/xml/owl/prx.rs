@@ -550,6 +550,17 @@ pub fn prx_archive_address(prx_gz: &[u8]) -> Result<String, PrxError> {
     Ok(source_content_hash(&gunzip(prx_gz)?))
 }
 
+/// The compiled-OWL-archive cache directory:
+/// `<workspace_root>/.prx-cache/ontologies`. `pr4xis compile` writes one
+/// `{name}-{version}.prx.gz` here per registered OntologyVocabulary source, and
+/// `pr4xis decompile` reads them back. The OWL analogue of
+/// [`usc_prx_cache_dir`](crate::social::software::markup::xml::uslm::corpus::prx::usc_prx_cache_dir);
+/// gitignored build output — never committed.
+#[cfg(feature = "std")]
+pub fn owl_prx_cache_dir(workspace_root: &std::path::Path) -> std::path::PathBuf {
+    workspace_root.join(".prx-cache").join("ontologies")
+}
+
 // =============================================================================
 // rkyv layer — envelope ⇄ bytes (the bidirectional lens, bytecheck-validated).
 // =============================================================================

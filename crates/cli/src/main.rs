@@ -75,6 +75,33 @@ enum Command {
         #[arg(long)]
         lock: bool,
     },
+    /// Decompile a compiled `.prx` archive back to its exact source bytes —
+    /// the inverse of `compile`, the `.prx → source` leg of the universal
+    /// compiler.
+    ///
+    /// Resolves the registered source by name, loads the `.prx.gz` that
+    /// `compile` wrote into `.prx-cache/`, regenerates the source bytes through
+    /// the uniform decompile op (routing to the OWL / USC / WordNet reconstruct
+    /// leaf), writes them to `--out` (or a default path), and prints the
+    /// achieved round-trip fidelity tier. Today every source reconstructs at
+    /// the `RawBytesComplementFloor` tier — byte-exact via the `.prx`'s stored,
+    /// sha256-gated source complement, not yet from the ontology graph alone.
+    Decompile {
+        /// The registered source name to decompile (e.g. `cito`,
+        /// `usc_title_18`, `english_wordnet`). Run `pr4xis update --list` to
+        /// see registered names. Not required with `--meter`.
+        #[arg(required_unless_present = "meter")]
+        name: Option<String>,
+        /// Where to write the reconstructed source bytes. Defaults to
+        /// `<name>-<version>.<ext>` in the current directory.
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Print the per-source completeness meter (every registered source's
+        /// achieved tier + the named gap to graph-faithfulness) and exit,
+        /// instead of decompiling. A non-failing report.
+        #[arg(long, conflicts_with_all = ["out"])]
+        meter: bool,
+    },
 }
 
 fn main() {
@@ -97,6 +124,12 @@ fn main() {
         Command::Compile { lock } => {
             if let Err(e) = run_compile(lock) {
                 eprintln!("pr4xis compile: {e}");
+                std::process::exit(1);
+            }
+        }
+        Command::Decompile { name, out, meter } => {
+            if let Err(e) = run_decompile(name.as_deref(), out.as_deref(), meter) {
+                eprintln!("pr4xis decompile: {e}");
                 std::process::exit(1);
             }
         }
@@ -195,12 +228,20 @@ fn apply_lock_outcomes(outcomes: &[FetchOutcome], workspace_root: &Path) -> anyh
 
 fn run_compile(lock: bool) -> anyhow::Result<()> {
     use pr4xis_domains::social::software::markup::xml::lmf::prx::emit_all_wordnet_prx_gz;
+    use pr4xis_domains::social::software::markup::xml::owl::prx::{
+        emit_all_prx_gz as emit_all_owl_prx_gz, owl_prx_cache_dir,
+    };
     use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
         emit_all_usc_prx_gz, usc_prx_cache_dir,
     };
     let workspace_root = workspace_root()?;
     let mut artifacts: Vec<EmittedArtifact> = Vec::new();
 
+    // OWL vocabularies → `.prx-cache/ontologies/` (the `pr4xis decompile`
+    // source for OWL; bundled `.owl` files make these compile on a plain
+    // checkout, unlike the externally-provisioned USC/WordNet corpora).
+    let owl_dir = owl_prx_cache_dir(&workspace_root);
+    artifacts.extend(emit_all_owl_prx_gz(&owl_dir).map_err(|e| anyhow::anyhow!("emit OWL: {e}"))?);
     // U.S. Code titles → `.prx-cache/usc/` (the corpus loader's fast path).
     let usc_dir = usc_prx_cache_dir(&workspace_root);
     artifacts.extend(emit_all_usc_prx_gz(&usc_dir).map_err(|e| anyhow::anyhow!("emit USC: {e}"))?);
@@ -267,6 +308,125 @@ fn apply_archive_signature_lock(
         println!("praxis.lock [archive_signatures] unchanged.");
     }
     Ok(())
+}
+
+// --------------------------------------------------------------------------
+// `pr4xis decompile` — reconstruct source bytes from a compiled `.prx`
+// --------------------------------------------------------------------------
+
+fn run_decompile(name: Option<&str>, out: Option<&Path>, meter: bool) -> anyhow::Result<()> {
+    use pr4xis_domains::formal::meta::well_behaved_lens::{
+        DecompileKind, decompile, print_completeness_meter,
+    };
+
+    // `--meter` is a whole-system report, not tied to one source.
+    if meter {
+        print_completeness_meter();
+        return Ok(());
+    }
+
+    // Required unless `--meter` (enforced by clap `required_unless_present`).
+    let name = name.ok_or_else(|| anyhow::anyhow!("a source name is required (or use --meter)"))?;
+
+    let workspace_root = workspace_root()?;
+
+    // Resolve the registered source → its decompile leaf (OWL / USC / WordNet),
+    // derived from the registry's ContentType (the single ContentType→kind map).
+    let entry = by_name(name).ok_or_else(|| anyhow::anyhow!("unknown source: {name}"))?;
+    let kind = DecompileKind::from_content_type(entry.content_type()).ok_or_else(|| {
+        anyhow::anyhow!(
+            "source `{name}` (content type {:?}) has no `.prx` consumer — only OWL, USC, and \
+             WordNet sources can be decompiled today",
+            entry.content_type()
+        )
+    })?;
+
+    // Locate the `.prx.gz` exactly where `pr4xis compile` writes it.
+    let prx_path = prx_cache_path(&workspace_root, kind, &entry.name, &entry.version);
+    let prx_gz = std::fs::read(&prx_path).map_err(|e| {
+        anyhow::anyhow!(
+            "no compiled archive at {} ({e}) — run `pr4xis compile` first",
+            prx_path.display()
+        )
+    })?;
+
+    // The uniform decompile op: regenerate the source bytes AND the achieved
+    // round-trip fidelity tier.
+    let (source_bytes, fidelity) =
+        decompile(&prx_gz, kind).map_err(|e| anyhow::anyhow!("decompile {name}: {e}"))?;
+
+    // Write the reconstructed source to --out (or a sensible default).
+    let out_path = match out {
+        Some(p) => p.to_path_buf(),
+        None => PathBuf::from(format!(
+            "{}-{}.{}",
+            entry.name,
+            entry.version,
+            source_extension(kind)
+        )),
+    };
+    std::fs::write(&out_path, &source_bytes)
+        .map_err(|e| anyhow::anyhow!("write {}: {e}", out_path.display()))?;
+
+    println!(
+        "decompiled {}@{} → {} ({} bytes)",
+        entry.name,
+        entry.version,
+        out_path.display(),
+        source_bytes.len()
+    );
+    // Print the achieved fidelity tier honestly — floor vs graph-faithful.
+    println!("  round-trip fidelity: {}", fidelity_label(fidelity));
+    Ok(())
+}
+
+/// The `.prx.gz` path `pr4xis compile` writes for a source of each
+/// [`DecompileKind`], under `<workspace_root>/.prx-cache/`. The CLI-side mirror
+/// of the emitters' `out_dir` choices, so decompile reads exactly what compile
+/// wrote.
+fn prx_cache_path(
+    workspace_root: &Path,
+    kind: pr4xis_domains::formal::meta::well_behaved_lens::DecompileKind,
+    name: &str,
+    version: &str,
+) -> PathBuf {
+    use pr4xis_domains::formal::meta::well_behaved_lens::DecompileKind;
+    use pr4xis_domains::social::software::markup::xml::owl::prx::owl_prx_cache_dir;
+    use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::usc_prx_cache_dir;
+    let dir = match kind {
+        DecompileKind::Owl => owl_prx_cache_dir(workspace_root),
+        DecompileKind::UsCode => usc_prx_cache_dir(workspace_root),
+        DecompileKind::WordNet => workspace_root.join(".prx-cache").join("wordnet"),
+    };
+    dir.join(format!("{name}-{version}.prx.gz"))
+}
+
+/// The published source extension for a decompiled artifact's default filename.
+fn source_extension(
+    kind: pr4xis_domains::formal::meta::well_behaved_lens::DecompileKind,
+) -> &'static str {
+    use pr4xis_domains::formal::meta::well_behaved_lens::DecompileKind;
+    match kind {
+        DecompileKind::Owl => "owl",
+        DecompileKind::UsCode | DecompileKind::WordNet => "xml",
+    }
+}
+
+/// Human label for the achieved round-trip fidelity tier — the honest STAGE-1
+/// statement that today's reconstruction is floor-via-stored-complement.
+fn fidelity_label(
+    fidelity: pr4xis_domains::formal::meta::well_behaved_lens::RoundTripFidelity,
+) -> &'static str {
+    use pr4xis_domains::formal::meta::well_behaved_lens::RoundTripFidelity;
+    match fidelity {
+        RoundTripFidelity::RawBytesComplementFloor => {
+            "RawBytesComplementFloor (byte-exact via the .prx's stored, sha256-gated source \
+             complement — not yet from the ontology graph alone)"
+        }
+        RoundTripFidelity::ByteExactGraphFaithful => {
+            "ByteExactGraphFaithful (regenerated from the ontology graph alone)"
+        }
+    }
 }
 
 fn print_list() {
