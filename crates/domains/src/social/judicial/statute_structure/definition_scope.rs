@@ -223,6 +223,55 @@ impl DefinitionLexicon {
     }
 }
 
+/// The Dictionary Act (1 U.S.C. ch. 1, "Rules of Construction") definitional
+/// layer — the terms it fixes for the whole U.S. Code "unless the context
+/// indicates otherwise" (§1). Each term binds to a Title-1-native concept
+/// (`usc_title_1:<term>`) at `DictionaryAct` (code-wide) scope, so a use of it
+/// in any title resolves here unless a more specific title or section definition
+/// displaces it (lex specialis).
+///
+/// This is a hand-coded PROTOTYPE — each term verbatim from its enacting section
+/// — of what the corpus loader + term extraction will produce once `usc_title_1`
+/// is provisioned, following the same prototype discipline the judicial
+/// ontology's other primary-source concepts use. Per-term enacting-section
+/// provenance (§1 vs §3/§4/§5) on the `Defines` morphism is a later refinement;
+/// the resolution scope (code-wide) is already correct.
+///
+/// # Source
+///
+/// - **1 U.S.C. §1** — "person" / "whoever", "officer", "signature" /
+///   "subscription", "oath" / "sworn", "writing".
+/// - **1 U.S.C. §3** — "vessel"; **§4** — "vehicle"; **§5** — "company" /
+///   "association".
+#[must_use]
+pub fn dictionary_act_definitions() -> DefinitionLexicon {
+    let mut lexicon = DefinitionLexicon::new();
+    for term in [
+        "person",
+        "whoever",
+        "officer",
+        "signature",
+        "subscription",
+        "oath",
+        "sworn",
+        "writing",
+        "vessel",
+        "vehicle",
+        "company",
+        "association",
+    ] {
+        lexicon.define(LegalDefinition {
+            term: term.to_string(),
+            scope: DefinitionScope::DictionaryAct,
+            defines: ConceptRef {
+                ontology: "usc_title_1".to_string(),
+                concept: term.to_string(),
+            },
+        });
+    }
+    lexicon
+}
+
 /// The lex-specialis definition-precedence order is a STRICT PARTIAL ORDER.
 ///
 /// For a term defined at several scopes to have a well-defined governing
@@ -451,5 +500,39 @@ mod tests {
                 .as_defines_relation()
                 .is_none()
         );
+    }
+
+    #[test]
+    fn dictionary_act_makes_title_1_definitions_resolvable() {
+        let title1 = dictionary_act_definitions();
+        assert_eq!(title1.definitions().len(), 12);
+
+        // A use of "person" anywhere in the Code resolves to the Dictionary Act
+        // definition (no more-specific title definition in play).
+        let use_in_t18 = cite(&[(L::Title, "18"), (L::Section, "1")]);
+        let person_def = title1
+            .resolve("person", &use_in_t18, |_| false)
+            .expect("a definition");
+        assert_eq!(person_def.ontology, "usc_title_1");
+        assert_eq!(person_def.concept, "person");
+
+        // Minting Title 1 onto a lexicon: "person" gains its legal sense beside
+        // its general WordNet sense; the legal register elevates to Title 1's,
+        // the default stays WordNet's — and "vessel" is now a Title-1 term too.
+        let mut lex = Lexicon::new("en");
+        lex.add_sense("person", "english_wordnet", "person.n.01", None);
+        title1.mint_into(&mut lex);
+        assert_eq!(
+            lex.resolve("person", Some("legal"))
+                .unwrap()
+                .reference
+                .ontology,
+            "usc_title_1"
+        );
+        assert_eq!(
+            lex.resolve("person", None).unwrap().reference.ontology,
+            "english_wordnet"
+        );
+        assert!(lex.lookup("vessel").is_some());
     }
 }
