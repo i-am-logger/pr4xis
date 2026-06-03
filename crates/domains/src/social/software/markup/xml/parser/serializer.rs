@@ -25,7 +25,7 @@
 //!   that the canonicalizer can normalize without ambiguity).
 
 #[allow(unused_imports)]
-use alloc::{format, string::String, vec::Vec};
+use alloc::{collections::BTreeMap, format, string::String, vec, vec::Vec};
 
 use super::super::ontology::{
     XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlExternalId, XmlName, XmlNamespace,
@@ -42,6 +42,147 @@ pub fn serialize_document(doc: &XmlDocument) -> Vec<u8> {
     }
     write_element(&mut out, &doc.root);
     out.into_bytes()
+}
+
+// ── Byte-exact serialization — the graph-faithful `put` ──────────────────────
+//
+// `serialize_document` above is the CANONICAL serializer (the floor's PutGet
+// witness): it normalizes away byte-affecting choices C14N 1.1 erases — a
+// childless element always self-closes, entity escaping is the canonical set.
+// `serialize_document_exact` is its byte-exact sibling: it reproduces the ORIGINAL
+// bytes from the Information Set DOM PLUS the recorded concrete-syntax decisions,
+// with no stored raw source. This is the L0 byte kernel of the serialized reverse
+// lens — the one place that is irreducibly imperative (a byte stream is not a
+// category to fold through; Foster et al. 2007's `put` bottoms out in byte
+// emission), and it is XML-family-wide, written once rather than per format.
+
+/// The empty-element form decision (W3C XML 1.0 §3.1): `<a/>` (empty-element
+/// tag) versus `<a></a>` (start- plus end-tag) — the same Information Set,
+/// distinct bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EmptyForm {
+    /// `<a/>`.
+    SelfClosing,
+    /// `<a></a>`.
+    Explicit,
+}
+
+/// The concrete-syntax decisions for ONE node — the SourceSyntax residue the
+/// Information Set DOM does not carry, needed to reproduce its exact bytes.
+/// Today only the empty-element form; further decisions (entity-reference form,
+/// attribute-value escaping, white-space) extend this struct.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NodeDecisions {
+    /// The empty-element form — only meaningful for a childless element.
+    pub empty_form: Option<EmptyForm>,
+}
+
+/// A document's concrete-syntax decisions, keyed by document-order PATH (the
+/// child-index sequence from the root; the root element is `[]`). The byte-exact
+/// serializer looks up each node's decisions as it walks.
+///
+/// This is the SourceSyntax COMPLEMENT, kept SEPARATE from the Infoset DOM: the
+/// decisions live in the per-source `.prx` envelope, never in the ontology or
+/// its content-address (so the same ontology serialized two ways keeps one
+/// root). It is the byte-exact `put`'s second input, beside the DOM.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SyntaxDecisions {
+    by_path: BTreeMap<Vec<usize>, NodeDecisions>,
+}
+
+impl SyntaxDecisions {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record the concrete-syntax decisions for the node at `path`.
+    pub fn set(&mut self, path: Vec<usize>, decisions: NodeDecisions) {
+        self.by_path.insert(path, decisions);
+    }
+
+    fn get(&self, path: &[usize]) -> Option<&NodeDecisions> {
+        self.by_path.get(path)
+    }
+}
+
+/// Byte-exact serialization — exact source bytes from the Information Set DOM
+/// PLUS the recorded [`SyntaxDecisions`], with no stored raw source. Like
+/// [`serialize_document`] but honours the decisions; today the empty-element
+/// form, so a childless element recorded `Explicit` round-trips as `<a></a>`
+/// rather than the canonical `<a/>`. Where no decision is recorded it falls back
+/// to the canonical serializer's choice.
+pub fn serialize_document_exact(doc: &XmlDocument, decisions: &SyntaxDecisions) -> Vec<u8> {
+    let mut out = String::new();
+    write_xml_decl(&mut out, &doc.version, doc.encoding.as_deref());
+    if let Some(doctype) = &doc.doctype {
+        write_doctype(&mut out, doctype);
+    }
+    let mut path = Vec::new();
+    write_element_exact(&mut out, &doc.root, &mut path, decisions);
+    out.into_bytes()
+}
+
+fn write_element_exact(
+    out: &mut String,
+    el: &XmlElement,
+    path: &mut Vec<usize>,
+    decisions: &SyntaxDecisions,
+) {
+    out.push('<');
+    write_name(out, &el.name);
+    if el.namespaces.is_empty() {
+        if let Some(ns) = &el.namespace {
+            write_namespace_decl(out, ns);
+        }
+    } else {
+        for ns in &el.namespaces {
+            write_namespace_decl(out, ns);
+        }
+    }
+    for attr in &el.attributes {
+        write_attribute(out, attr);
+    }
+    if el.children.is_empty() {
+        // The empty-element form is a recorded decision; default to the
+        // canonical self-closing form when none is recorded.
+        let explicit = matches!(
+            decisions.get(path).and_then(|d| d.empty_form),
+            Some(EmptyForm::Explicit)
+        );
+        if explicit {
+            out.push_str("></");
+            write_name(out, &el.name);
+            out.push('>');
+        } else {
+            out.push_str("/>");
+        }
+    } else {
+        out.push('>');
+        for (i, child) in el.children.iter().enumerate() {
+            path.push(i);
+            write_node_exact(out, child, path, decisions);
+            path.pop();
+        }
+        out.push_str("</");
+        write_name(out, &el.name);
+        out.push('>');
+    }
+}
+
+fn write_node_exact(
+    out: &mut String,
+    node: &XmlNode,
+    path: &mut Vec<usize>,
+    decisions: &SyntaxDecisions,
+) {
+    match node {
+        XmlNode::Element(el) => write_element_exact(out, el, path, decisions),
+        // Non-element nodes render as in the canonical serializer; their own
+        // byte-exact residue (comment white-space, entity style) lands in
+        // follow-up decisions.
+        other => write_node(out, other),
+    }
 }
 
 /// W3C XML 1.0 §2.8 production \[28\] `doctypedecl` — inverse of
@@ -239,5 +380,73 @@ fn write_escaped_attr_value(out: &mut String, s: &str) {
             '\t' => out.push_str("&#x9;"),
             _ => out.push(ch),
         }
+    }
+}
+
+#[cfg(test)]
+mod exact_tests {
+    use super::*;
+
+    fn doc(root: XmlElement) -> XmlDocument {
+        XmlDocument {
+            version: "1.0".into(),
+            encoding: Some("UTF-8".into()),
+            doctype: None,
+            root,
+        }
+    }
+
+    fn el(local: &str, children: Vec<XmlNode>) -> XmlElement {
+        XmlElement {
+            name: XmlName::new(local),
+            namespace: None,
+            namespaces: vec![],
+            attributes: vec![],
+            children,
+        }
+    }
+
+    #[test]
+    fn empty_element_form_is_honoured() {
+        let d = doc(el("a", vec![]));
+        // Canonical serialization always self-closes a childless element…
+        assert_eq!(
+            serialize_document(&d),
+            br#"<?xml version="1.0" encoding="UTF-8"?><a/>"#.to_vec()
+        );
+        // …the byte-exact serializer honours an `Explicit` decision on it…
+        let mut decisions = SyntaxDecisions::new();
+        decisions.set(
+            vec![],
+            NodeDecisions {
+                empty_form: Some(EmptyForm::Explicit),
+            },
+        );
+        assert_eq!(
+            serialize_document_exact(&d, &decisions),
+            br#"<?xml version="1.0" encoding="UTF-8"?><a></a>"#.to_vec()
+        );
+        // …and with no decision recorded it matches the canonical form.
+        assert_eq!(
+            serialize_document_exact(&d, &SyntaxDecisions::new()),
+            serialize_document(&d)
+        );
+    }
+
+    #[test]
+    fn nested_explicit_empty_child_keyed_by_path() {
+        // `<root><a/></root>` with the child (path `[0]`) recorded `Explicit`.
+        let d = doc(el("root", vec![XmlNode::Element(el("a", vec![]))]));
+        let mut decisions = SyntaxDecisions::new();
+        decisions.set(
+            vec![0],
+            NodeDecisions {
+                empty_form: Some(EmptyForm::Explicit),
+            },
+        );
+        assert_eq!(
+            serialize_document_exact(&d, &decisions),
+            br#"<?xml version="1.0" encoding="UTF-8"?><root><a></a></root>"#.to_vec()
+        );
     }
 }
