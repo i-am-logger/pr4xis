@@ -68,6 +68,7 @@
 //! clause-structure rules, but don't introduce new conceptual layers.
 
 pub mod bridge;
+pub mod definition_scope;
 pub mod english_adjunction;
 pub mod invariants;
 pub mod parser;
