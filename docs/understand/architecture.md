@@ -81,7 +81,7 @@ Three pieces hold the property together:
 
 The first realisation is the OWL leaf (`crates/domains/src/social/software/markup/xml/owl/prx.rs`): a registered OWL vocabulary, parsed once and frozen into a content-addressed `.prx` envelope the runtime materialises back without re-parsing the XML. **U.S. Code (USLM) text is a second, non-OWL consumer of the same archive machinery** — it is verified against the same archive axioms (the same lens round-trip, source-faithfulness, and fail-closed-gate laws), demonstrating that the storage ontology is not tied to OWL.
 
-The same primitive extends to a **content-addressed graph slice** (`crates/domains/src/formal/meta/praxis_knowledge_graph/`): select a subgraph, emit it as a deterministic content-addressed binary, reload it through the fail-closed gate, and re-bind the behavioural nodes by name, with the slice's outgoing references surfaced. The whole graph is just the default selection. This is the slicing primitive only — the negotiation that would let one node learn what another holds is a separate, deferred layer, not part of this machinery.
+The same primitive extends to a **content-addressed graph slice** (`crates/domains/src/formal/meta/praxis_knowledge_graph/`): select a subgraph, emit it as a deterministic content-addressed binary, reload it through the fail-closed gate, and re-bind the behavioural nodes by name, with the slice's outgoing references surfaced as explicit unbound references. Selecting the whole graph is the degenerate case of the same slice. This is the slicing primitive only — the negotiation that would let one node learn what another holds, and any wire transfer between nodes, is a separate, deferred layer, not part of this machinery.
 
 ## The Ontology trait
 

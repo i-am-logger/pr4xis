@@ -115,7 +115,7 @@ pr4xis::ontology! {
         AttestationChain: ("en", "Attestation chain", "OpenSSF SLSA; in-toto: the ordered attestations covering each supply-chain step (deferred)."),
         SupplyChainStep: ("en", "Supply-chain step", "OpenSSF SLSA: one producer step whose inputs and outputs an attestation records (deferred)."),
         GraphVersion: ("en", "Graph version", "A version label of the whole knowledge graph — the content address of a GraphSnapshot identifies it."),
-        GraphSnapshot: ("en", "Graph snapshot", "The whole knowledge graph at a version, content-addressed as a Merkle DAG — the emit/load unit of the wire protocol (realisation #271)."),
+        GraphSnapshot: ("en", "Graph snapshot", "The whole knowledge graph at a version, content-addressed as a Merkle DAG — the emit/load slice unit a future wire transfer would carry (negotiation deferred; realisation #271)."),
     },
 
     is_a: [

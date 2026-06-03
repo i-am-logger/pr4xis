@@ -579,7 +579,7 @@ mod tests {
         }
     }
 
-    // ── emit / load (the GraphSnapshot wire protocol) ───────────────────
+    // ── emit / load (the GraphSnapshot slice round-trip) ────────────────
 
     /// A fixed, closed slice — the `MerkleRoot` Subsumption image.
     fn fixed_slice() -> ReachableSubgraph {

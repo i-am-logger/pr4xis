@@ -216,8 +216,9 @@ pr4xis::register_axiom!(SelectionClosedUnderEdgeKinds, constructor);
 /// the archive subset: the structural data survives the emit/load lens
 /// ([`archive::EmitLoadWellBehaved`], Foster 2007 §2.2) and a behavioural
 /// node's binding re-binds by name on the receiving side ([`axiom_by_name`])
-/// — the composition the wire protocol's slice → emit → receive → re-bind
-/// reduces to (the whole-graph leg awaits the #271 snapshot machinery).
+/// — the composition a future wire transfer's slice → emit → receive → re-bind
+/// would reduce to (the whole-graph leg awaits the #271 snapshot machinery; the
+/// inter-node negotiation itself is deferred).
 pub struct PairOntologyRoundTrip;
 
 impl Axiom for PairOntologyRoundTrip {
