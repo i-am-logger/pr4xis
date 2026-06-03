@@ -16,7 +16,7 @@ use super::ontology::{
 };
 use super::substrate::{Pr4xisSubstrateCategory, Pr4xisSubstrateConcept, Pr4xisSubstrateOntology};
 use super::substrate_functor::map_substrate;
-use pr4xis::category::{Category, Concept, Functor};
+use pr4xis::category::{Category, FinitelyGenerated, Functor};
 use pr4xis::ontology::{Axiom, Ontology};
 
 // ---------------------------------------------------------------------------
@@ -255,7 +255,7 @@ proptest! {
         use crate::cognitive::cognition::distinction::{
             DistinctionCategory, DistinctionConcept,
         };
-        use pr4xis::category::Concept;
+        use pr4xis::category::{FinitelyGenerated};
         for c in DistinctionConcept::variants() {
             let id_c = DistinctionCategory::identity(&c);
             let f_id = DistinctionToSyntrometry::map_morphism(&id_c);

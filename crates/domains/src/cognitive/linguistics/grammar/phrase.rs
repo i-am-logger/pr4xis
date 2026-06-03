@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 use super::super::lexicon::pos::LexicalEntry;
 
@@ -16,7 +16,8 @@ pub enum PhraseType {
     AdvPhrase,
 }
 
-impl Concept for PhraseType {
+impl Concept for PhraseType {}
+impl FinitelyGenerated for PhraseType {
     fn variants() -> Vec<Self> {
         vec![
             Self::Sentence,

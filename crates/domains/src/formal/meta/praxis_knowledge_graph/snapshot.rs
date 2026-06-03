@@ -27,7 +27,7 @@
 #[allow(unused_imports)]
 use alloc::{format, string::String, string::ToString, vec::Vec};
 
-use pr4xis::category::{Category, Concept};
+use pr4xis::category::{Category, Concept, FinitelyGenerated};
 use pr4xis::ontology::axiom_by_name;
 
 use super::ontology::{

@@ -42,4 +42,6 @@ pub mod definition;
 pub mod emit;
 pub mod load;
 pub mod meta;
+#[cfg(feature = "emit")]
+pub mod ontology;
 pub mod rebind;

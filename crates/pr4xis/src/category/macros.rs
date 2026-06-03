@@ -105,7 +105,7 @@ macro_rules! define_category {
             }
 
             fn morphisms() -> Vec<$relation> {
-                use $crate::category::Concept;
+                use $crate::category::FinitelyGenerated;
 
                 let mut m = Vec::new();
 

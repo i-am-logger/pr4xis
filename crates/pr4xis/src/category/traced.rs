@@ -172,7 +172,7 @@ pub fn fold_trace<F: 'static>(
 mod tests {
     use super::*;
     use crate::category::arrow::Arrow;
-    use crate::category::entity::Concept;
+    use crate::category::entity::{Concept, FinitelyGenerated};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum TestObj {
@@ -181,7 +181,8 @@ mod tests {
         C,
     }
 
-    impl Concept for TestObj {
+    impl Concept for TestObj {}
+    impl FinitelyGenerated for TestObj {
         fn variants() -> Vec<Self> {
             vec![Self::A, Self::B, Self::C]
         }

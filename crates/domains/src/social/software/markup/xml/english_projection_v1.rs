@@ -86,7 +86,7 @@ pub fn canonical_phrase(c: Xml10Concept) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
 
     #[test]
     fn vocabulary_recognizes_loaded_reserved_attributes() {

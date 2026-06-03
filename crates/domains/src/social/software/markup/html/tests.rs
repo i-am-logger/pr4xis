@@ -10,7 +10,7 @@ use super::loader::{
     XHTML_1_0_STRICT_XSD, attribute_names, element_names, is_html_attribute, is_html_element,
 };
 use super::ontology::{HtmlCategory, HtmlConcept};
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::Ontology;
 use proptest::prelude::*;

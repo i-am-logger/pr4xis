@@ -16,7 +16,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::{Concept, Functor};
+use pr4xis::category::{Concept, FinitelyGenerated, Functor};
 
 use crate::natural::biomedical::bioelectricity::biology_functor::BioelectricToBiology;
 use crate::natural::biomedical::bioelectricity::molecular_functor::BioelectricToMolecular;
@@ -655,7 +655,7 @@ mod tests {
         use crate::natural::biomedical::biophysics::ontology::BiophysicsEntity;
         use crate::natural::biomedical::mechanobiology::molecular_functor::MechanobiologyToMolecular;
         use crate::natural::biomedical::mechanobiology::ontology::MechanobiologyEntity;
-        use pr4xis::category::Concept;
+        use pr4xis::category::FinitelyGenerated;
 
         // Measure collapse at each hop by counting unique targets
 
@@ -788,7 +788,7 @@ mod tests {
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
         use crate::formal::meta::syntrometry::staging_functor::SyntrometryToStaging;
         use hashbrown::HashSet;
-        use pr4xis::category::{Concept, Functor};
+        use pr4xis::category::{FinitelyGenerated, Functor};
 
         let mapped: HashSet<StageConcept> = SyntrometryConcept::variants()
             .into_iter()
@@ -818,7 +818,7 @@ mod tests {
         use crate::formal::meta::syntrometry::algebra_functor::SyntrometryToAlgebra;
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
         use hashbrown::HashSet;
-        use pr4xis::category::{Concept, Functor};
+        use pr4xis::category::{FinitelyGenerated, Functor};
 
         let mapped: HashSet<AlgebraConcept> = SyntrometryConcept::variants()
             .into_iter()
@@ -846,7 +846,7 @@ mod tests {
         use crate::formal::meta::syntrometry::meta_ontology_functor::SyntrometryToMetaOntology;
         use crate::formal::meta::syntrometry::ontology::SyntrometryConcept;
         use hashbrown::HashSet;
-        use pr4xis::category::{Concept, Functor};
+        use pr4xis::category::{FinitelyGenerated, Functor};
 
         let mapped: HashSet<MetaEntity> = SyntrometryConcept::variants()
             .into_iter()

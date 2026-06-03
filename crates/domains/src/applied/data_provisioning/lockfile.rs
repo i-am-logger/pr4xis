@@ -37,6 +37,11 @@ pub enum LockfileWriteError {
     /// parser rejects mixed-case for canonical signatures, and we keep
     /// raw hashes consistent).
     InvalidSha256(String),
+    /// The lockfile text has no section by the requested name (e.g.
+    /// `[archive_signatures]`). Same fail-closed stance as
+    /// [`Self::MissingHashesSection`] — refuse to write blind into a
+    /// lockfile missing the section the value belongs in.
+    MissingSection(String),
 }
 
 impl core::fmt::Display for LockfileWriteError {
@@ -47,6 +52,9 @@ impl core::fmt::Display for LockfileWriteError {
             }
             LockfileWriteError::InvalidSha256(s) => {
                 write!(f, "not a 64-char lowercase hex SHA-256: {s:?}")
+            }
+            LockfileWriteError::MissingSection(name) => {
+                write!(f, "praxis.lock has no `[{name}]` section")
             }
         }
     }
@@ -73,34 +81,78 @@ impl std::error::Error for LockfileWriteError {}
 /// FIPS 180-4 §6.2). Mixed-case or off-length inputs are rejected with
 /// [`LockfileWriteError::InvalidSha256`].
 pub fn set_hash(lockfile_text: &str, key: &str, sha: &str) -> Result<String, LockfileWriteError> {
-    if !is_lowercase_hex_sha256(sha) {
-        return Err(LockfileWriteError::InvalidSha256(sha.to_string()));
+    // Preserve `set_hash`'s historical error contract: a `[hashes]`-less
+    // lockfile reports the specific `MissingHashesSection`, not the
+    // generic `MissingSection`.
+    set_in_section(lockfile_text, "hashes", key, sha).map_err(|e| match e {
+        LockfileWriteError::MissingSection(_) => LockfileWriteError::MissingHashesSection,
+        other => other,
+    })
+}
+
+/// Set the archive `MerkleRoot` signature for `key` (a `"name@version"`
+/// string, without quotes) to `sig` in the `[archive_signatures]` section
+/// of `lockfile_text`, returning the rewritten text.
+///
+/// This is the write-side companion to the fail-closed `.prx.gz` load
+/// gate: a loaded archive's re-derived `MerkleRoot` is checked against
+/// this pin (`owl::prx::load_prx_gz_from_lock` /
+/// `uslm::corpus::prx::load_usc_prx_gz_from_lock`). `pr4xis compile
+/// --lock` records the pin here once the archive has been emitted.
+///
+/// Identical comment-/order-preserving rewrite to [`set_hash`], only
+/// targeting `[archive_signatures]`. `sig` must be 64 lowercase hex
+/// characters (a SHA-256-rooted Merkle address per FIPS 180-4 §6.2);
+/// off-length/mixed-case inputs return [`LockfileWriteError::InvalidSha256`],
+/// a missing section returns [`LockfileWriteError::MissingSection`].
+pub fn set_archive_signature(
+    lockfile_text: &str,
+    key: &str,
+    sig: &str,
+) -> Result<String, LockfileWriteError> {
+    set_in_section(lockfile_text, "archive_signatures", key, sig)
+}
+
+/// Comment-/order-preserving rewrite of a `"key" = "value"` line within a
+/// named TOML section — the shared core of [`set_hash`] and
+/// [`set_archive_signature`]. Locates `[section]`, replaces the hex value
+/// on an existing `"key"` line byte-for-byte, or appends a new line at the
+/// section's end (before its trailing blank, or at EOF). Returns
+/// [`LockfileWriteError::MissingSection`] if `[section]` is absent.
+fn set_in_section(
+    lockfile_text: &str,
+    section: &str,
+    key: &str,
+    value: &str,
+) -> Result<String, LockfileWriteError> {
+    if !is_lowercase_hex_sha256(value) {
+        return Err(LockfileWriteError::InvalidSha256(value.to_string()));
     }
 
     let lines: Vec<&str> = lockfile_text.split_inclusive('\n').collect();
 
-    // Locate the [hashes] section's bounds. `hashes_start` is the line
-    // index immediately after the `[hashes]` header; `hashes_end` is the
-    // line index of the next `[section]` header, or `lines.len()` if
-    // `[hashes]` runs to end-of-file.
-    let Some(hashes_header_idx) = lines.iter().position(|l| is_section_header(l, "hashes")) else {
-        return Err(LockfileWriteError::MissingHashesSection);
+    // Locate the section's bounds. `section_start` is the line index
+    // immediately after the `[section]` header; `section_end` is the line
+    // index of the next `[section]` header, or `lines.len()` if the
+    // section runs to end-of-file.
+    let Some(header_idx) = lines.iter().position(|l| is_section_header(l, section)) else {
+        return Err(LockfileWriteError::MissingSection(section.to_string()));
     };
-    let hashes_start = hashes_header_idx + 1;
-    let hashes_end = lines[hashes_start..]
+    let section_start = header_idx + 1;
+    let section_end = lines[section_start..]
         .iter()
         .position(is_any_section_header)
-        .map(|offset| hashes_start + offset)
+        .map(|offset| section_start + offset)
         .unwrap_or(lines.len());
 
     // Scan the section for an existing `"key" = "..."` line. The TOML
     // spec allows arbitrary whitespace around `=`; we accept the same.
-    if let Some(existing_idx) = lines[hashes_start..hashes_end]
+    if let Some(existing_idx) = lines[section_start..section_end]
         .iter()
         .position(|l| line_assigns_key_to(l, key))
     {
-        let absolute = hashes_start + existing_idx;
-        let new_line = replace_value_on_line(lines[absolute], sha);
+        let absolute = section_start + existing_idx;
+        let new_line = replace_value_on_line(lines[absolute], value);
         let mut out = String::with_capacity(lockfile_text.len());
         for (i, line) in lines.iter().enumerate() {
             if i == absolute {
@@ -112,15 +164,15 @@ pub fn set_hash(lockfile_text: &str, key: &str, sha: &str) -> Result<String, Loc
         return Ok(out);
     }
 
-    // No existing line — append `"key" = "sha"` at the end of the
-    // `[hashes]` section, immediately before any trailing blank line
-    // that separates `[hashes]` from the next `[section]` header. This
-    // keeps the visual structure intact.
-    let mut insert_idx = hashes_end;
-    while insert_idx > hashes_start && lines[insert_idx - 1].trim().is_empty() {
+    // No existing line — append `"key" = "value"` at the end of the
+    // section, immediately before any trailing blank line that separates
+    // it from the next `[section]` header. Keeps the visual structure
+    // intact.
+    let mut insert_idx = section_end;
+    while insert_idx > section_start && lines[insert_idx - 1].trim().is_empty() {
         insert_idx -= 1;
     }
-    let new_line = format!("\"{key}\" = \"{sha}\"\n");
+    let new_line = format!("\"{key}\" = \"{value}\"\n");
     let mut out = String::with_capacity(lockfile_text.len() + new_line.len());
     for (i, line) in lines.iter().enumerate() {
         if i == insert_idx {

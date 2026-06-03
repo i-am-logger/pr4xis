@@ -1,6 +1,6 @@
 # Domain Catalog
 
-> **Note (2026-04-14):** This page is in transition. The previous catalog enumerated ~21 domains using a `science::math` / `games::chess` / `systems::*` organization that no longer matches the codebase. The current workspace contains 106 ontologies under a different structure (`formal/applied/social/natural/cognitive`), and a hand-maintained catalog of all 106 entries is not the right shape going forward. Instead, this page now points at the **canonical source**, the **current organization**, and the **two pieces of in-flight work** that will replace it: per-ontology READMEs ([#57](https://github.com/i-am-logger/pr4xis/issues/57)) and the source-of-truth report pipeline ([#60](https://github.com/i-am-logger/pr4xis/issues/60)).
+> **Note (2026-04-14):** This page is in transition. The previous catalog enumerated ~21 domains using a `science::math` / `games::chess` / `systems::*` organization that no longer matches the codebase. The current workspace contains more than 160 ontologies under a different structure (`formal/applied/social/natural/cognitive`), and a hand-maintained catalog of every entry is not the right shape going forward. Instead, this page now points at the **canonical source**, the **current organization**, and the **two pieces of in-flight work** that will replace it: per-ontology READMEs ([#57](https://github.com/i-am-logger/pr4xis/issues/57)) and the source-of-truth report pipeline ([#60](https://github.com/i-am-logger/pr4xis/issues/60)).
 
 ## Canonical source
 
@@ -10,7 +10,7 @@ Every ontology lives at exactly one path under `crates/domains/src/`. The full l
 find crates/domains/src -name ontology.rs
 ```
 
-Total: 106 ontologies.
+Pipe it to `| wc -l` to count; today that returns more than 160 ontologies.
 
 Every ontology directory contains an `ontology.rs` file with the `pr4xis::ontology!` invocation that declares its concepts, kinded morphisms, axioms, and metadata. To understand any specific ontology, read its `ontology.rs` directly. Per-ontology `README.md` and `citings.md` files are pending [#57](https://github.com/i-am-logger/pr4xis/issues/57).
 
@@ -24,7 +24,9 @@ crates/domains/src/
 │   ├── information/             communication, concurrency, dialogue, events, knowledge,
 │   │                            measurement, provenance, schema, storage, systems, diagnostics
 │   ├── calculator/              scientific calculator with exact rationals
-│   └── meta/                    ontology diagnostics, gap analysis
+│   └── meta/                    ontology diagnostics, gap analysis, archive,
+│                                knowledge-graph, artifact-identity,
+│                                well-behaved-lens, source-taxonomy
 │
 ├── applied/                     applied engineering domains
 │   ├── sensor_fusion/           Kalman filter, observation, state, time, frame, fusion
@@ -69,7 +71,7 @@ This tree is the schematic view; it is not exhaustive (some sub-modules are omit
 
 ## Cross-domain functors
 
-Domains are not isolated. They compose through proven functors — structure-preserving maps verified at test time. The current workspace contains 61 functor implementations:
+Domains are not isolated. They compose through proven functors — structure-preserving maps whose laws are checked at test time. To count the functor implementations in the workspace, run:
 
 ```bash
 grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ | wc -l

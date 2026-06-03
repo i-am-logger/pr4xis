@@ -86,7 +86,7 @@ pub fn max_sync_error(strategy: SyncStrategy, period: f64, max_dynamics: f64) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
 
     #[test]
     fn interpolate_midpoint() {

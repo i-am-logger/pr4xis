@@ -22,11 +22,15 @@ pub(crate) fn pr4xis_crate() -> TokenStream2 {
     }
 }
 
-/// Derive the `Concept` trait for an enum with unit variants.
+/// Derive the `Concept` (open-world) and `FinitelyGenerated` (closed-world)
+/// traits for an enum with unit variants.
 ///
-/// Generates:
-/// - `fn variants() -> Vec<Self>` — all enum variants (closed-world enumeration)
-/// - `fn name(&self) -> &'static str` — variant name as string (Lemon canonical form)
+/// Generates two impls — a derived unit enum is always closed-world, so it gets
+/// both:
+/// - `impl Concept` with `fn name(&self) -> &'static str` — variant name as
+///   string (Lemon canonical form)
+/// - `impl FinitelyGenerated` with `fn variants() -> Vec<Self>` — all enum
+///   variants (the finite closed-world enumeration)
 #[proc_macro_derive(Concept)]
 pub fn derive_concept(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as DeriveInput);
@@ -59,14 +63,16 @@ pub fn derive_concept(input: TokenStream) -> TokenStream {
     let pr4xis = pr4xis_crate();
     let expanded = quote! {
         impl #impl_generics #pr4xis::category::Concept for #name #ty_generics #where_clause {
-            fn variants() -> Vec<Self> {
-                vec![#(Self::#variant_idents),*]
-            }
-
             fn name(&self) -> &'static str {
                 match self {
                     #(Self::#variant_idents => #variant_names),*
                 }
+            }
+        }
+
+        impl #impl_generics #pr4xis::category::FinitelyGenerated for #name #ty_generics #where_clause {
+            fn variants() -> Vec<Self> {
+                vec![#(Self::#variant_idents),*]
             }
         }
     };

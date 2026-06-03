@@ -408,7 +408,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::Concept;
+    use crate::category::{Concept, FinitelyGenerated};
 
     // A tiny test category with kinded morphisms.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -418,7 +418,8 @@ mod tests {
         C,
     }
 
-    impl Concept for TestObj {
+    impl Concept for TestObj {}
+    impl FinitelyGenerated for TestObj {
         fn variants() -> Vec<Self> {
             vec![TestObj::A, TestObj::B, TestObj::C]
         }

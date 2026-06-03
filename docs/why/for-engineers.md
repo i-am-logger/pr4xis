@@ -4,13 +4,13 @@ You are an engineer evaluating whether to put pr4xis in your stack. This page is
 
 ## What it is
 
-pr4xis is **the domain engine** for systems that need to be correct, not just plausible. It is a different kind of AI — it derives its answers from formally proven axioms instead of statistical patterns — and it runs as a Rust workspace you embed directly in your code. There is no service, no GPU, no API key, no model weights. The engine carries the knowledge, the engine carries the intelligence, and the engine *runs* — it doesn't just check what something else produced.
+pr4xis is **a domain engine** for systems that need to be correct, not just plausible. It is a different kind of AI — it derives its answers from formally proven axioms instead of statistical patterns — and it runs as a Rust workspace you embed directly in your code. There is no service, no GPU, no API key, no model weights. The engine carries the knowledge and runs it: the worked examples in `crates/domains/src/` (the dialogue state engine, the HTTP and judicial-lifecycle state machines) execute their transitions against loaded axioms rather than merely checking something else. Running more of the workspace this way is the direction, not a finished claim.
 
 Concretely:
 
-- **A first-class state engine.** You define situations, actions, and preconditions; the engine validates every transition against its loaded ontologies and either applies it or names the exact rule that blocked it. No silent approximation, no probabilistic answer.
+- **A state engine, demonstrated end to end.** You define situations, actions, and preconditions; the engine validates a transition against its loaded ontologies and either applies it or names the exact rule that blocked it. The worked example is the dialogue engine the `pr4xis chat` binary drives, alongside the HTTP and judicial-lifecycle state machines under `crates/domains/src/`. No silent approximation, no probabilistic answer.
 - **An axiomatic reasoner.** When pr4xis tells you that a fact in one domain implies a claim in another, the implication is a chain of categorical morphisms back to a published source. You can ask which axioms participated; you can reproduce the derivation deterministically.
-- **A composable knowledge substrate.** pr4xis loads 106 ontologies today (biomedical, sensor fusion, navigation, perception, tracking, space, underwater, industrial, linguistics, formal mathematics, music, colors, judicial workflow), composed through 61 verified cross-domain functors. More ontologies are still to be added — that's the bigger opportunity, and the substrate exists precisely so the additions can be machine-checkable.
+- **A composable knowledge substrate.** pr4xis loads more than 160 ontologies today (biomedical, sensor fusion, navigation, perception, tracking, space, underwater, industrial, linguistics, formal mathematics, music, colors, judicial workflow), composed through cross-domain functors whose laws are checked at test time. To count either live, run `find crates/domains/src -name ontology.rs | wc -l` and `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ | wc -l`. More ontologies are still to be added — that's the bigger opportunity, and the substrate exists precisely so the additions can be machine-checkable.
 
 The contrast with statistical AI: where an LLM predicts the next token, pr4xis derives the next claim. Where an LLM hallucinates as a structural feature, pr4xis cannot — every claim it makes traces to a proof. Where an LLM is opaque, pr4xis names the failing axiom when something doesn't hold. See the [README](../../README.md) for the side-by-side comparison.
 
@@ -19,8 +19,10 @@ The contrast with statistical AI: where an LLM predicts the next token, pr4xis d
 | Capability | Where it lives |
 |---|---|
 | 5-layer stack (logic → category → ontology → engine → codegen) | [Architecture](../understand/architecture.md) |
-| 106 ontologies covering biomedical, sensor fusion, navigation, perception, tracking, space, underwater, industrial, linguistics, formal math | `crates/domains/src/` |
-| 61 cross-domain functor proofs (verified by `check_functor_laws()`) | `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/` |
+| More than 160 ontologies covering biomedical, sensor fusion, navigation, perception, tracking, space, underwater, industrial, linguistics, formal math | `find crates/domains/src -name ontology.rs \| wc -l` |
+| Cross-domain functors whose laws are checked at test time (`assert_functor_laws`) | `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ \| wc -l` |
+| `pr4xis update` — content-addressed source provisioning with a fail-closed verify gate | `crates/cli/src/main.rs`, `crates/domains/src/applied/data_provisioning/` |
+| `.prx` verifiable archive — packs a loaded source into a self-contained file that rebuilds byte-for-byte and refuses to load if altered; today over its own OWL ontologies and U.S. Code (USLM) text | `crates/domains/src/formal/meta/ontology_archive/`, `.../xml/owl/prx.rs`, `.../xml/uslm/corpus/prx.rs` |
 | Adjunction-based gap detection (the bioelectricity Kv discovery) | [Gap detection](../research/gap-detection.md) |
 | Engine with `back()`, `forward()`, branching, and full trace | `crates/pr4xis/src/engine/` |
 | WASM browser surface — runs entirely in-browser, no server | [pr4xis.dev](https://pr4xis.dev) |

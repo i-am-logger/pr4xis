@@ -11,7 +11,7 @@ use super::ontology::{
     VerifiabilityOffline, VerificationResult, ancestors_of, is_family, is_leaf,
 };
 use super::schemes::{raw_hash, xml_element_attribute};
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;

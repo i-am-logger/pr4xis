@@ -3,14 +3,15 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::interval::Interval;
 use super::note::Note;
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::ontology::Quality;
 
 // Note pitch classes (0-11) are the entities
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PitchClass(pub u8);
 
-impl Concept for PitchClass {
+impl Concept for PitchClass {}
+impl FinitelyGenerated for PitchClass {
     fn variants() -> Vec<Self> {
         (0..12).map(PitchClass).collect()
     }

@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::ontology::Quality;
 
 /// Data association strategies as an ontological classification.
@@ -39,7 +39,8 @@ pub enum AssociationStrategy {
     Auction,
 }
 
-impl Concept for AssociationStrategy {
+impl Concept for AssociationStrategy {}
+impl FinitelyGenerated for AssociationStrategy {
     fn variants() -> Vec<Self> {
         vec![
             Self::NearestNeighbor,

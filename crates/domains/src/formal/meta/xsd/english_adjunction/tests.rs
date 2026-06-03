@@ -25,7 +25,7 @@ use alloc::{
 };
 
 use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
-use pr4xis::category::{Adjunction, Arrow, Category, Concept, Functor};
+use pr4xis::category::{Adjunction, Arrow, Category, FinitelyGenerated, Functor};
 
 use super::super::english_projection::{
     XsdEnglishLabel, XsdEnglishLabelCategory, XsdToEnglish, canonical_english_phrase,

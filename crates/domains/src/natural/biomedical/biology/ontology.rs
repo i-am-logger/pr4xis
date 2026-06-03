@@ -27,7 +27,7 @@
 //!   maintenance in mice", *Nature Communications* 11:1429 — modern
 //!   single-progenitor formalisation of esophageal epithelial turnover.
 
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -725,7 +725,7 @@ impl Ontology for BiologyOntology {
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
-    use pr4xis::category::{Arrow, Category, Concept};
+    use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

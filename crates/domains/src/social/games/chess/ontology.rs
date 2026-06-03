@@ -227,7 +227,7 @@ pub struct KingSafety {
 
 impl Axiom for KingSafety {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
-        use pr4xis::category::Concept;
+        use pr4xis::category::FinitelyGenerated;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let color = self.board.to_move;
         for sq in Square::variants() {
@@ -323,7 +323,7 @@ pr4xis::register_axiom!(MaxPieces, "FIDE Laws of Chess Article 2.1");
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
-    use pr4xis::category::{Arrow, Category, Concept};
+    use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

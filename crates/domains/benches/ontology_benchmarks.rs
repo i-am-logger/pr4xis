@@ -2,7 +2,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 
 use pr4xis::category::laws::assert_category_laws;
-use pr4xis::category::{Category, Concept};
+use pr4xis::category::{Category, FinitelyGenerated};
 
 // Benchmark all ontologies — category law verification, morphism enumeration,
 // entity variant enumeration, and the linguistics pipeline.

@@ -30,7 +30,7 @@
 //!   *Entropy* 24(6):819 — morphospace navigation and the five-level
 //!   TAME hierarchy.
 
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 
@@ -570,7 +570,7 @@ impl Ontology for BioelectricOntology {
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_category_laws;
-    use pr4xis::category::{Arrow, Category, Concept};
+    use pr4xis::category::{Arrow, Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

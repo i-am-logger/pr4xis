@@ -366,7 +366,7 @@ pub struct EverySchemeHasAnExtractor;
 
 impl Axiom for EverySchemeHasAnExtractor {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
-        use pr4xis::category::Concept;
+        use pr4xis::category::FinitelyGenerated;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let all = IdentityConcept::variants()
             .into_iter()

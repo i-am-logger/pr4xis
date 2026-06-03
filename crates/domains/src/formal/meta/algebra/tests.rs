@@ -1,6 +1,6 @@
 use super::ontology::*;
 use pr4xis::category::laws::assert_category_laws;
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
 

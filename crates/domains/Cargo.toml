@@ -36,6 +36,21 @@ blake3 = { version = "1", default-features = false, features = ["pure"] }
 hex = "0.4"
 anyhow = "1"
 hashbrown = "0.17"
+
+# The runtime, with `emit`, so a loaded `.prx` ontology can be projected
+# from a compiled praxis `Category` and materialized into a queryable
+# `RuntimeOntology`. The `ComposedReasoner`
+# (cognitive/linguistics/composed.rs) grounds each loaded RuntimeOntology's
+# nodes into the English lexicon via the Lemon functor and answers
+# "what is X" from the loaded gloss.
+#
+# WASM-safe: pr4xis-runtime + its deps (sha2, serde_ipld_dagcbor → cbor4ii,
+# cid, ipld-core) all build for wasm32-unknown-unknown (verified: `cargo build
+# -p pr4xis-runtime --features emit --target wasm32-unknown-unknown`). No
+# feature-gating of the dependency is needed; the consuming `composed` module
+# is `std`-gated only because pr4xis-runtime is a std crate (and the WASM build
+# enables `std` via the `prx` feature anyway).
+pr4xis-runtime = { version = "0.22.0", path = "../pr4xis-runtime", features = ["emit"] }
 # Distributed-slice registration substrate. The well-behaved-lens
 # harness uses `#[linkme::distributed_slice]` to discover every
 # registered lens at link time without a central list. Same crate

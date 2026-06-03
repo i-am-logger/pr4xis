@@ -10,11 +10,14 @@
 //! kernel itself carries no compile-time coupling. The projection is faithful to
 //! the structure `Category` exposes: each `Concept` variant becomes a node, its
 //! edges the outgoing morphisms (the materialized transitive closure) as
-//! `(relation-kind, target)`. (Per-concept lexical glosses and the connection
-//! nodes — functors/adjunctions — are the next refinements; they need the
-//! registry's per-ontology axiom/constructor slices.)
+//! `(relation-kind, target)`, and its lexical grounding the concept's
+//! ONTOLEX-Lemon gloss via [`Concept::lexical`] — so a `.prx` loaded with no
+//! access to the compile-time `labels()` table (e.g. in the browser) still
+//! carries each concept's meaning. (The connection nodes — functors/adjunctions
+//! — are the next refinement; they need the registry's per-ontology
+//! axiom/constructor slices.)
 
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
 
 use crate::archive::Archive;
 use crate::definition::Definition;
@@ -22,8 +25,13 @@ use crate::definition::Definition;
 /// Project the compiled ontology `Cat` into a `.prx` [`Archive`]: one node per
 /// `Concept` variant, edges from `morphisms_from` as `(relation-kind, target)`,
 /// identity self-loops dropped, edges sorted for a canonical address.
-pub fn emit<Cat: Category>() -> Archive {
-    let nodes = <Cat::Object as Concept>::variants()
+pub fn emit<Cat: Category>() -> Archive
+where
+    // Emits one node per concept variant — enumerates the objects, so the
+    // compiled ontology being projected must be finitely generated (closed-world).
+    Cat::Object: FinitelyGenerated,
+{
+    let nodes = <Cat::Object as FinitelyGenerated>::variants()
         .iter()
         .map(|obj| {
             let mut edges: Vec<(String, String)> = Cat::morphisms_from(obj)
@@ -33,12 +41,20 @@ pub fn emit<Cat: Category>() -> Archive {
                 .collect();
             edges.sort();
             edges.dedup();
+            // Carry the concept's lexical grounding INTO the `.prx`: its
+            // ONTOLEX-Lemon gloss (the `Definition`/sense text). The runtime
+            // `Definition.lexical` is the serialized gloss string, so project
+            // the structured `Lexical` to its definition text here — sourced
+            // generically from `Concept::lexical()` (which the `ontology!`
+            // macro fills from its labels table), never a per-ontology hack.
+            // An ungrounded concept stays `None` (honest absence).
+            let lexical = obj.lexical().map(|lex| lex.definition.as_str().to_string());
             Definition {
                 kind: "Concept".to_string(),
                 name: obj.name().to_string(),
                 edges,
                 axioms: Vec::new(),
-                lexical: None,
+                lexical,
             }
         })
         .collect();
@@ -96,6 +112,48 @@ mod tests {
             targets.contains("Agent"),
             "closure Employer → Agent missing"
         );
+    }
+
+    #[test]
+    fn emits_each_concepts_gloss_as_its_lexical_and_round_trips() {
+        // The labels table the `ontology!` macro generated for this fixture —
+        // the authoritative source the emitted gloss must match (tuple shape:
+        // (variant, lang, surface, gloss)).
+        let glosses: HashMap<&str, &str> = OrgOntology::labels()
+            .iter()
+            .map(|(_, _, surface, gloss)| (*surface, *gloss))
+            .collect();
+
+        let archive = emit::<OrgCategory>();
+        // Every emitted node carries its concept's gloss — non-None and equal
+        // to the macro's labels table (proving the gloss travels IN the `.prx`,
+        // not only in the compile-time `labels()` side table).
+        for node in &archive.nodes {
+            let expected = glosses.get(node.name.as_str()).copied();
+            assert_eq!(
+                node.lexical.as_deref(),
+                expected,
+                "node {} must carry its labels-table gloss",
+                node.name
+            );
+            assert!(
+                node.lexical.is_some(),
+                "every glossed concept must emit a lexical; {} did not",
+                node.name
+            );
+        }
+        assert_eq!(
+            archive.nodes.iter().filter(|n| n.lexical.is_some()).count(),
+            glosses.len(),
+            "every labelled concept must contribute a gloss"
+        );
+
+        // The gloss survives the byte-exact round-trip through load.
+        let bytes = load::emit(&archive).unwrap();
+        let loaded = load::load(&bytes, archive.root().unwrap()).unwrap();
+        assert_eq!(loaded, archive);
+        let employer = loaded.nodes.iter().find(|n| n.name == "Employer").unwrap();
+        assert_eq!(employer.lexical.as_deref(), Some("One who employs."));
     }
 
     #[test]

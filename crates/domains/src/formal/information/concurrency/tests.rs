@@ -1,5 +1,5 @@
 use pr4xis::category::laws::assert_category_laws;
-use pr4xis::category::{Arrow, Category, Concept, Functor};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated, Functor};
 
 use super::ontology::*;
 use super::systems_functor::*;

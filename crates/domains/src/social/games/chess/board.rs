@@ -3,7 +3,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::piece::{Color, Piece, PieceKind};
 use super::square::Square;
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 
 /// A chess board with full rule enforcement.
 ///

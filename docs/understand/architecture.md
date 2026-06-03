@@ -8,7 +8,7 @@ This document covers the abstract structure. For specific ontologies — what co
 
 ```mermaid
 graph TB
-    domains["pr4xis-domains<br/>106 ontologies"]
+    domains["pr4xis-domains<br/>160+ ontologies"]
     engine["**engine**<br/>runtime enforcement"]
     ontology["**ontology**<br/>structural rules"]
     category["**category**<br/>category theory"]
@@ -22,7 +22,7 @@ graph TB
     codegen --> ontology
 ```
 
-The layer count and module layout are verifiable by `ls crates/pr4xis/src/` — exactly five top-level modules: `category`, `codegen`, `engine`, `logic`, `ontology`.
+These five layers are the conceptual frame; the crate also carries supporting modules (`entity_ref`, `xml_grammar`, `codegen_data`) alongside them. To see the actual top-level module list, run `ls crates/pr4xis/src/` or read the `pub mod` declarations in `crates/pr4xis/src/lib.rs`.
 
 ### `pr4xis::logic` — propositional foundation
 
@@ -30,7 +30,7 @@ Depends on nothing. Provides axioms, propositions, logical composition (`AllOf`,
 
 ### `pr4xis::category` — category theory primitives
 
-Depends on logic. Provides entities, relationships, categories, morphisms, functors, natural transformations, adjunctions, and the algebraic structures used throughout the stack: `Writer` monad (for tracing), `Monoid`, `Semigroup`, `Applicative`, `NonEmpty`, `Cofree` comonad, `Algebra` (F-algebras and recursion schemes), `Lens`. Validation functions verify category laws (identity, associativity, closure) exhaustively and via [property-based testing](https://en.wikipedia.org/wiki/Software_testing#Property_testing). Verified by `cargo test -p pr4xis category`.
+Depends on logic. Provides entities, relationships, categories, morphisms, functors, natural transformations, adjunctions, and the algebraic structures used throughout the stack: `Writer` monad (for tracing), `Monoid`, `Semigroup`, `Applicative`, `NonEmpty`, `Cofree` comonad, `Algebra` (F-algebras and recursion schemes), `Lens`. The category and functor laws live in `category::laws` as first-class `Axiom` impls — `assert_category_laws` and `assert_functor_laws` exercise them exhaustively and via [property-based testing](https://en.wikipedia.org/wiki/Software_testing#Property_testing), and each law's `verify()` returns a typed `Verdict` (a `Proof`, or a `Counterexample` naming what broke) rather than a boolean or an error string. Verified by `cargo test -p pr4xis category`.
 
 ### `pr4xis::ontology` — structural rules
 
@@ -68,6 +68,20 @@ Depends on ontology. The mechanism for getting authoritative ontology data into 
 All three produce the same ontology because each is a verified functor from the same source. The choice depends on deployment: build-time codegen for static binaries, async loading for hot reloading or for ontologies too large to embed, mmap for very large ontologies that need to share memory across processes.
 
 The runtime side of delivery — *which* external sources praxis knows about and how their on-disk bytes get verified — lives under `pr4xis_domains::applied::data_provisioning`. A workspace-root **manifest** (`praxis.toml`) declares each registered source by name, version, taxonomy type, and authoritative URL; a workspace-root **lock** (`praxis.lock`) pins the sha256 each source's bytes must match. The `LockManifestAgreement` axiom fails closed on any drift between manifest, lock, and the file on disk. The `pr4xis update` CLI is the operator's interface to the same subsystem — see [Register a Source](../use/register-a-source.md) for the contributor workflow.
+
+## Verifiable archives
+
+A loaded source can be frozen into a self-contained, content-addressed `.prx` file that rebuilds the original byte-for-byte and refuses to load if it has been altered. The ontology that describes this storage — content-addressable nodes, a Merkle DAG, a binary envelope, a source pin, and a load gate — lives in `crates/domains/src/formal/meta/ontology_archive/`; its runnable axioms exercise the real realisation.
+
+Three pieces hold the property together:
+
+- **A byte-exact round-trip.** The archived bytes reload to exactly what was packed; the content address re-derived from those bytes is the round-trip gate (`hash(out) == hash(in)`).
+- **A fail-closed load gate.** On load, the gate re-derives the content address from the node's own bytes and admits the node only when that re-derived address equals the trusted pin recorded in `praxis.lock`. It never trusts an embedded self-asserted label; on mismatch, an unverifiable claim, or an absent pin, nothing is installed.
+- **A typed, multi-algorithm `IntegrityClaim`.** Integrity is a verifiable claim binding a resource to its expected content hash (W3C Subresource Integrity, 2016), carried over a content-hash family that spans SHA-256, SHA-512, and BLAKE3 (`crates/domains/src/formal/meta/artifact_identity/`) rather than a single hard-coded algorithm.
+
+The first realisation is the OWL leaf (`crates/domains/src/social/software/markup/xml/owl/prx.rs`): a registered OWL vocabulary, parsed once and frozen into a content-addressed `.prx` envelope the runtime materialises back without re-parsing the XML. **U.S. Code (USLM) text is a second, non-OWL consumer of the same archive machinery** — it is verified against the same archive axioms (the same lens round-trip, source-faithfulness, and fail-closed-gate laws), demonstrating that the storage ontology is not tied to OWL.
+
+The same primitive extends to a **content-addressed graph slice** (`crates/domains/src/formal/meta/praxis_knowledge_graph/`): select a subgraph, emit it as a deterministic content-addressed binary, reload it through the fail-closed gate, and re-bind the behavioural nodes by name, with the slice's outgoing references surfaced. The whole graph is just the default selection. This is the slicing primitive only — the negotiation that would let one node learn what another holds is a separate, deferred layer, not part of this machinery.
 
 ## The Ontology trait
 
@@ -111,7 +125,7 @@ crates/domains/src/
 └── cognitive/     — linguistics, cognition (epistemics, metacognition)
 ```
 
-Total: 106 ontologies (`find crates/domains/src -name ontology.rs | wc -l`).
+Total: more than 160 ontologies; to count the current total, run `find crates/domains/src -name ontology.rs | wc -l`.
 
 ## Design decisions
 
@@ -141,4 +155,4 @@ Total: 106 ontologies (`find crates/domains/src -name ontology.rs | wc -l`).
 ---
 
 - **Document date:** 2026-04-14
-- **Verification:** every claim in this document is verifiable by `ls crates/pr4xis/src/`, `find crates/domains/src -name ontology.rs`, or one of the cited `cargo test` commands.
+- **Verification:** the module layout is in `crates/pr4xis/src/lib.rs` (or `ls crates/pr4xis/src/`); the ontology count comes from `find crates/domains/src -name ontology.rs | wc -l`; the layer behaviour from the cited `cargo test` commands; and the archive machinery under `crates/domains/src/formal/meta/{ontology_archive,artifact_identity,praxis_knowledge_graph}` and `crates/domains/src/social/software/markup/xml/owl/prx.rs`.

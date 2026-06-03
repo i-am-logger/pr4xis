@@ -280,7 +280,7 @@ mod tests {
     }
 
     // ── Property-based ─────────────────────────────────────────────
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
     use proptest::prelude::*;
 
     fn arb_concept() -> impl Strategy<Value = CitationQualityConcept> {

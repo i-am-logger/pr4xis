@@ -1,5 +1,5 @@
 use super::ontology::*;
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 
 mod prop {
     use super::*;

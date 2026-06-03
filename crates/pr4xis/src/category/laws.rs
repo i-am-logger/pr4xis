@@ -45,7 +45,7 @@ use std::marker::PhantomData;
 use super::adjunction::Adjunction;
 use super::arrow::Arrow;
 use super::category::Category;
-use super::entity::Concept;
+use super::entity::FinitelyGenerated;
 use super::functor::Functor;
 use crate::logic::axiom::Axiom;
 use crate::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
@@ -140,9 +140,12 @@ impl<C> Axiom for IdentityLaw<C>
 where
     C: Category + 'static,
     C::Morphism: PartialEq + 'static,
+    // The identity law is checked by enumerating every object — a closed-world
+    // (finite) verification.
+    C::Object: FinitelyGenerated,
 {
     fn verify(&self) -> Verdict {
-        for obj in <C::Object as Concept>::variants() {
+        for obj in <C::Object as FinitelyGenerated>::variants() {
             let id = C::identity(&obj);
             for m in C::morphisms_from(&obj) {
                 let left = C::compose(&id, &m);
@@ -241,6 +244,8 @@ pub fn category_law_axioms<C>() -> Vec<Box<dyn Axiom>>
 where
     C: Category + 'static,
     C::Morphism: PartialEq + 'static,
+    // IdentityLaw verifies by enumerating objects (closed-world).
+    C::Object: FinitelyGenerated,
 {
     vec![
         Box::new(ClosureLaw::<C>::new()),
@@ -257,6 +262,7 @@ pub fn assert_category_laws<C>()
 where
     C: Category + 'static,
     C::Morphism: PartialEq + 'static,
+    C::Object: FinitelyGenerated,
 {
     for law in category_law_axioms::<C>() {
         if let Err(c) = law.verify() {
@@ -293,9 +299,12 @@ impl<F> Axiom for FunctorIdentityLaw<F>
 where
     F: Functor + 'static,
     <F::Target as Category>::Morphism: PartialEq + 'static,
+    // Checked by enumerating every source object — a closed-world (finite)
+    // verification over the functor's source category.
+    <F::Source as Category>::Object: FinitelyGenerated,
 {
     fn verify(&self) -> Verdict {
-        for obj in <<F::Source as Category>::Object as Concept>::variants() {
+        for obj in <<F::Source as Category>::Object as FinitelyGenerated>::variants() {
             let id_source = F::Source::identity(&obj);
             let mapped_id = F::map_morphism(&id_source);
             let id_target = F::Target::identity(&F::map_object(&obj));
@@ -383,6 +392,8 @@ where
     F: Functor + 'static,
     <F::Source as Category>::Morphism: PartialEq + 'static,
     <F::Target as Category>::Morphism: PartialEq + 'static,
+    // FunctorIdentityLaw verifies by enumerating source objects (closed-world).
+    <F::Source as Category>::Object: FinitelyGenerated,
 {
     vec![
         Box::new(FunctorIdentityLaw::<F>::new()),
@@ -397,6 +408,7 @@ where
     F: Functor + 'static,
     <F::Source as Category>::Morphism: PartialEq + 'static,
     <F::Target as Category>::Morphism: PartialEq + 'static,
+    <F::Source as Category>::Object: FinitelyGenerated,
 {
     for law in functor_law_axioms::<F>() {
         if let Err(c) = law.verify() {
@@ -498,9 +510,12 @@ where
     F: Functor + 'static,
     <F::Source as Category>::Morphism: PartialEq + 'static,
     <F::Target as Category>::Morphism: PartialEq + 'static,
+    // Enumerates source objects to range over the hom-sets being checked for
+    // fullness-on-image — a closed-world (finite) verification.
+    <F::Source as Category>::Object: FinitelyGenerated,
 {
     fn verify(&self) -> Verdict {
-        let src_objs = <<F::Source as Category>::Object as Concept>::variants();
+        let src_objs = <<F::Source as Category>::Object as FinitelyGenerated>::variants();
         let src_ms = F::Source::morphisms();
         let tgt_ms = F::Target::morphisms();
         for a in &src_objs {
@@ -547,6 +562,9 @@ where
     F: Functor + 'static,
     <F::Source as Category>::Morphism: PartialEq + 'static,
     <F::Target as Category>::Morphism: PartialEq + 'static,
+    // FunctorFullOnImageLaw verifies by enumerating source objects (closed-world);
+    // FunctorFaithfulLaw ranges over morphisms() and needs no enumeration.
+    <F::Source as Category>::Object: FinitelyGenerated,
 {
     vec![
         Box::new(FunctorFaithfulLaw::<F>::new()),
@@ -585,10 +603,17 @@ where
     A: Adjunction + 'static,
     <<A::Left as Functor>::Source as Category>::Morphism: PartialEq + 'static,
     <<A::Left as Functor>::Target as Category>::Morphism: PartialEq + 'static,
+    // Both triangle identities are checked by enumerating every object — the
+    // left one ranges over C = F's source, the right over D = F's target — so
+    // both object concepts must be finitely generated (closed-world).
+    <<A::Left as Functor>::Source as Category>::Object: FinitelyGenerated,
+    <<A::Left as Functor>::Target as Category>::Object: FinitelyGenerated,
 {
     fn verify(&self) -> Verdict {
         // Left triangle: ε_{F(A)} ∘ F(η_A) = id_{F(A)}, for every A in C.
-        for a in <<<A::Left as Functor>::Source as Category>::Object as Concept>::variants() {
+        for a in
+            <<<A::Left as Functor>::Source as Category>::Object as FinitelyGenerated>::variants()
+        {
             let eta_a = A::unit(&a); // C-morphism A → G(F(A))
             let f_eta = <A::Left as Functor>::map_morphism(&eta_a); // D: F(A) → F(G(F(A)))
             let fa = <A::Left as Functor>::map_object(&a); // D-object F(A)
@@ -600,7 +625,9 @@ where
             }
         }
         // Right triangle: G(ε_B) ∘ η_{G(B)} = id_{G(B)}, for every B in D.
-        for b in <<<A::Left as Functor>::Target as Category>::Object as Concept>::variants() {
+        for b in
+            <<<A::Left as Functor>::Target as Category>::Object as FinitelyGenerated>::variants()
+        {
             let gb = <A::Right as Functor>::map_object(&b); // C-object G(B)
             let eta_gb = A::unit(&gb); // C: G(B) → G(F(G(B)))
             let eps_b = A::counit(&b); // D: F(G(B)) → B
@@ -633,6 +660,9 @@ where
     A: Adjunction + 'static,
     <<A::Left as Functor>::Source as Category>::Morphism: PartialEq + 'static,
     <<A::Left as Functor>::Target as Category>::Morphism: PartialEq + 'static,
+    // AdjunctionTriangleLaw enumerates both categories' objects (closed-world).
+    <<A::Left as Functor>::Source as Category>::Object: FinitelyGenerated,
+    <<A::Left as Functor>::Target as Category>::Object: FinitelyGenerated,
 {
     vec![Box::new(AdjunctionTriangleLaw::<A>::new())]
 }
@@ -644,6 +674,8 @@ where
     A: Adjunction + 'static,
     <<A::Left as Functor>::Source as Category>::Morphism: PartialEq + 'static,
     <<A::Left as Functor>::Target as Category>::Morphism: PartialEq + 'static,
+    <<A::Left as Functor>::Source as Category>::Object: FinitelyGenerated,
+    <<A::Left as Functor>::Target as Category>::Object: FinitelyGenerated,
 {
     for law in adjunction_law_axioms::<A>() {
         if let Err(c) = law.verify() {

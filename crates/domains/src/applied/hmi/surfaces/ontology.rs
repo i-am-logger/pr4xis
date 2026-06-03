@@ -21,7 +21,7 @@ use hashbrown::HashMap;
 /// - Mac Lane, "Categories for the Working Mathematician" (1971): functors, natural transformations
 /// - Harel, "Statecharts" (1987): parallel regions (surfaces update simultaneously)
 /// - Czaplicki & Chong, "Async FRP for GUIs" (2013): sync vs async propagation
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 /// A surface capability — what a rendering target can express.
@@ -39,7 +39,8 @@ pub enum SurfaceCapability {
     Media,
 }
 
-impl Concept for SurfaceCapability {
+impl Concept for SurfaceCapability {}
+impl FinitelyGenerated for SurfaceCapability {
     fn variants() -> Vec<Self> {
         vec![
             Self::Ansi16,
@@ -277,7 +278,7 @@ fn test_palette_light() -> Palette {
 }
 /// Build an example terminal surface functor.
 pub fn terminal_functor() -> SurfaceFunctor {
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
 
     let mut mappings = Vec::new();
 

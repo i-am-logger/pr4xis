@@ -259,7 +259,7 @@ pr4xis::register_adjunction!(BiologyBioelectricAdjunction);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
 
     // -----------------------------------------------------------------------
     // Adjunction 1: MolecularBioelectricAdjunction

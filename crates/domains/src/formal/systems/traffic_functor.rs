@@ -1,5 +1,5 @@
 use pr4xis::category::Arrow;
-use pr4xis::category::entity::Concept;
+use pr4xis::category::entity::{Concept, FinitelyGenerated};
 use pr4xis::category::{Category, Functor};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
@@ -34,7 +34,8 @@ pub enum TrafficSystemElement {
     SignalController,
 }
 
-impl Concept for TrafficSystemElement {
+impl Concept for TrafficSystemElement {}
+impl FinitelyGenerated for TrafficSystemElement {
     fn variants() -> Vec<Self> {
         vec![
             Self::Signal,

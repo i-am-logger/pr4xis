@@ -11,7 +11,7 @@ use super::ontology::{
     TypeDefinitionBinaryPartition, TypeDerivationStrictPartialOrder, XsdCategory, XsdConcept,
     XsdOntology, XsdPart, instantiable_leaves, is_root,
 };
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;

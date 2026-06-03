@@ -200,7 +200,7 @@ pr4xis::register_axiom!(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
 
     #[test]
     fn nine_concepts() {

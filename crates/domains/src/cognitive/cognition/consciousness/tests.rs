@@ -2,7 +2,7 @@
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
 use super::ontology::*;
-use pr4xis::category::entity::Concept;
+use pr4xis::category::entity::{Concept, FinitelyGenerated};
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology};
 

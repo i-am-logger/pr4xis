@@ -81,7 +81,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::{AdjunctionKind, Arrow, Category, Concept};
+use pr4xis::category::{AdjunctionKind, Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::Axiom;
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
@@ -696,7 +696,8 @@ impl Arrow for CitoEnglishLabelMorphism {
     }
 }
 
-impl Concept for CitoEnglishLabel {
+impl Concept for CitoEnglishLabel {}
+impl FinitelyGenerated for CitoEnglishLabel {
     fn variants() -> Vec<Self> {
         CitoCitationType::variants()
             .into_iter()

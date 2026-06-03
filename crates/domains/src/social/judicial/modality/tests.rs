@@ -9,7 +9,7 @@ use super::ontology::{
     ObligationModalityConcept, ObligationModalityOntology, ObligationModalityRelationKind,
     PartitionCompleteness, PermitsAction, classify_modal, classify_modal_pair, is_leaf, leaves,
 };
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::category::{Arrow, Category};
 use pr4xis::ontology::{Axiom, Ontology, Quality};

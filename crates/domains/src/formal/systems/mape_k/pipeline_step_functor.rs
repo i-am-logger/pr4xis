@@ -145,7 +145,7 @@ impl Category for PipelineStepCategory {
     }
 
     fn morphisms() -> Vec<PipelineStepMorphism> {
-        use pr4xis::category::Concept;
+        use pr4xis::category::FinitelyGenerated;
         PipelineStep::variants()
             .into_iter()
             .map(PipelineStepMorphism::identity)

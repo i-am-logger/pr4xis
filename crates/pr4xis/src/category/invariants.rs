@@ -1,6 +1,6 @@
 use super::arrow::Arrow;
 use super::category::Category;
-use super::entity::Concept;
+use super::entity::FinitelyGenerated;
 use super::terminal::TerminalTarget;
 use crate::logic::Axiom;
 use crate::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
@@ -24,7 +24,12 @@ impl<C: Category> Default for NoDeadStates<C> {
     }
 }
 
-impl<C: Category> Axiom for NoDeadStates<C> {
+impl<C: Category> Axiom for NoDeadStates<C>
+where
+    // Enumerates every object to check each has an outgoing morphism — a
+    // closed-world (finite) check.
+    C::Object: FinitelyGenerated,
+{
     fn verify(&self) -> Verdict {
         if C::Object::variants()
             .iter()
@@ -62,7 +67,12 @@ impl<C: Category> Default for FullyConnected<C> {
     }
 }
 
-impl<C: Category> Axiom for FullyConnected<C> {
+impl<C: Category> Axiom for FullyConnected<C>
+where
+    // Enumerates every object to seed the reachability BFS — a closed-world
+    // (finite) check.
+    C::Object: FinitelyGenerated,
+{
     fn verify(&self) -> Verdict {
         use std::collections::{HashSet, VecDeque};
 
@@ -137,16 +147,21 @@ where
     C: Category,
     T: TerminalTarget<Category = C>,
     <C as Category>::Morphism: PartialEq,
+    // Enumerates every object to check each has exactly one morphism to the
+    // terminal — a closed-world (finite) check.
+    C::Object: FinitelyGenerated,
 {
     fn verify(&self) -> Verdict {
         let t = T::target();
-        let terminal = <C::Object as Concept>::variants().iter().all(|a| {
-            C::morphisms_from(a)
-                .into_iter()
-                .filter(|m| m.target() == t)
-                .count()
-                == 1
-        });
+        let terminal = <C::Object as FinitelyGenerated>::variants()
+            .iter()
+            .all(|a| {
+                C::morphisms_from(a)
+                    .into_iter()
+                    .filter(|m| m.target() == t)
+                    .count()
+                    == 1
+            });
         if terminal {
             Ok(Box::new(SimpleProof::new(self.meta())))
         } else {

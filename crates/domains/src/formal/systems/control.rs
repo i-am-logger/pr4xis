@@ -156,8 +156,8 @@ impl Ontology for ControlOntology {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Category;
     use pr4xis::category::laws::assert_category_laws;
+    use pr4xis::category::{Category, FinitelyGenerated};
     use proptest::prelude::*;
 
     #[test]

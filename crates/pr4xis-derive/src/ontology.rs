@@ -514,6 +514,34 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         })
         .collect();
 
+    // Per-concept `Concept::lexical()` override arms — the same labels table,
+    // surfaced through the trait so each concept carries its ONTOLEX-Lemon
+    // entry (label + gloss + language) WITH it (e.g. into an emitted `.prx`),
+    // not only in the compile-time `labels()` side table. A concept with no
+    // label entry falls through to `None` (honest absence). Sourced from the
+    // macro's labels — never hardcoded.
+    let lexical_arms: Vec<TokenStream> = def
+        .labels
+        .iter()
+        .map(|l| {
+            let concept = &l.concept;
+            let lang = &l.lang;
+            let label = &l.label;
+            let def_str = l
+                .definition
+                .as_ref()
+                .map(|d| quote! { #d })
+                .unwrap_or(quote! { "" });
+            quote! {
+                #entity_name::#concept => Some(#pr4xis::ontology::meta::Lexical::new(
+                    #pr4xis::ontology::meta::Label::new_static(#label),
+                    #pr4xis::ontology::meta::Definition::new_static(#def_str),
+                    #pr4xis::ontology::meta::LanguageCode::new_static(#lang),
+                )),
+            }
+        })
+        .collect();
+
     // Source
     let source_tokens = def
         .source
@@ -799,7 +827,7 @@ pub fn generate(def: OntologyDef) -> TokenStream {
                 }
 
                 fn morphisms() -> Vec<#relation_name> {
-                    use #pr4xis::category::Concept;
+                    use #pr4xis::category::FinitelyGenerated;
                     let mut m = Vec::new();
                     // Identity morphisms
                     for c in #entity_name::variants() {
@@ -918,11 +946,44 @@ pub fn generate(def: OntologyDef) -> TokenStream {
         })
         .collect();
 
-    quote! {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, #pr4xis::category::Concept)]
+    // The concept enum + its `Concept`/`FinitelyGenerated` impls. We emit these
+    // by hand rather than via `#[derive(Concept)]` because the ontology carries
+    // label data the bare derive cannot see: the generated `Concept::lexical()`
+    // returns each concept's ONTOLEX-Lemon entry from the labels table above.
+    // `name()` (variant identifier) and `variants()` (finite enumeration) match
+    // the derive exactly, so a macro-built enum stays interchangeable with a
+    // `#[derive(Concept)]` one.
+    let concept_enum_and_impls = quote! {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub enum #entity_name {
             #(#concept_idents,)*
         }
+
+        impl #pr4xis::category::Concept for #entity_name {
+            fn name(&self) -> &'static str {
+                match self {
+                    #(#entity_name::#concept_idents => #concept_names,)*
+                }
+            }
+
+            fn lexical(&self) -> ::core::option::Option<#pr4xis::ontology::meta::Lexical> {
+                match self {
+                    #(#lexical_arms)*
+                    #[allow(unreachable_patterns)]
+                    _ => None,
+                }
+            }
+        }
+
+        impl #pr4xis::category::FinitelyGenerated for #entity_name {
+            fn variants() -> Vec<Self> {
+                vec![#(#entity_name::#concept_idents,)*]
+            }
+        }
+    };
+
+    quote! {
+        #concept_enum_and_impls
 
         #category_impl
 

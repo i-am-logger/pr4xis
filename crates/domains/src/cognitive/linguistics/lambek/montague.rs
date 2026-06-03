@@ -3,7 +3,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 
 use super::reduce::TypedToken;
 use super::types::LambekType;
-use crate::cognitive::linguistics::english::{ConceptId, English};
+use crate::cognitive::linguistics::english::{ConceptId, LexicalReasoner};
 
 // The Montague functor: Syntax → Semantics.
 //
@@ -86,7 +86,7 @@ impl Sem {
 
 /// Assign a lexical semantic value to a word based on its Lambek type.
 /// This is the LEXICAL part of the functor — mapping words to their semantic domains.
-fn lex(word: &str, ty: &LambekType, en: &English) -> Sem {
+fn lex(word: &str, ty: &LambekType, en: &dyn LexicalReasoner) -> Sem {
     let concepts: Vec<ConceptId> = en.lookup(word).to_vec();
 
     match ty {
@@ -110,7 +110,7 @@ fn lex(word: &str, ty: &LambekType, en: &English) -> Sem {
 
 /// Apply the functor: reduce semantic values in parallel with type reductions.
 /// Each type reduction (function application) corresponds to semantic function application.
-pub fn interpret(tokens: &[TypedToken], en: &English) -> Sem {
+pub fn interpret(tokens: &[TypedToken], en: &dyn LexicalReasoner) -> Sem {
     if tokens.is_empty() {
         return Sem::Pred {
             word: "empty".into(),

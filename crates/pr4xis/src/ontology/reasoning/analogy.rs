@@ -3,7 +3,7 @@ use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec}
 use core::marker::PhantomData;
 
 use crate::category::laws::functor_law_axioms;
-use crate::category::{Category, Functor};
+use crate::category::{Category, FinitelyGenerated, Functor};
 use crate::logic::proof::{Verdict, combine_verdicts};
 use crate::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 
@@ -22,6 +22,9 @@ impl<F: Functor> Analogy<F> {
         F: 'static,
         <F::Source as Category>::Morphism: PartialEq + 'static,
         <F::Target as Category>::Morphism: PartialEq + 'static,
+        // The functor identity law verifies by enumerating source objects
+        // (closed-world); an analogy between closed-world domains satisfies this.
+        <F::Source as Category>::Object: FinitelyGenerated,
     {
         let subverdicts: Vec<Verdict> = functor_law_axioms::<F>()
             .iter()

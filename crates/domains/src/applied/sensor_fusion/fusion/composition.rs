@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::ontology::Quality;
 
 /// Filter composition strategies for combining estimates from multiple filters.
@@ -46,7 +46,8 @@ pub enum CompositionStrategy {
     FederatedFusion,
 }
 
-impl Concept for CompositionStrategy {
+impl Concept for CompositionStrategy {}
+impl FinitelyGenerated for CompositionStrategy {
     fn variants() -> Vec<Self> {
         vec![
             Self::CovarianceIntersection,

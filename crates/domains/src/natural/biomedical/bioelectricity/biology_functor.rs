@@ -80,7 +80,7 @@ pr4xis::register_functor!(BioelectricToBiology);
 mod tests {
     use super::*;
     use pr4xis::category::laws::assert_functor_laws;
-    use pr4xis::category::{Category, Concept};
+    use pr4xis::category::{Category, FinitelyGenerated};
     use pr4xis::ontology::reasoning::analogy::Analogy;
 
     /// Verify both functor laws (identity + composition preservation).

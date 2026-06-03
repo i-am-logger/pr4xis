@@ -1417,17 +1417,34 @@ mod tests {
             );
         }
         // Load-bearing in both directions: every emitted archive is pinned
-        // (above) AND every pinned vocabulary was emitted — so a pin for a
+        // (above) AND every pinned OWL vocabulary was emitted — so a pin for a
         // vanished/renamed source, or a missing pin, is caught.
+        //
+        // `[archive_signatures]` is a SHARED keyspace: USC titles (a second
+        // consumer, #271) and WordNet pin alongside the OWL vocabularies. The
+        // OWL anchor test therefore owns only the OntologyVocabulary partition
+        // — exactly as `usc_archive_anchors_match_lock` owns the UsCodeTitle
+        // partition. Without this, adding a USC/WordNet pin would spuriously
+        // fail the OWL test.
+        use crate::applied::data_provisioning::registry::data_sources;
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+        let owl_keys: std::collections::BTreeSet<String> = data_sources()
+            .iter()
+            .filter(|e| e.kind == SourceTaxonomyConcept::OntologyVocabulary)
+            .map(|e| format!("{}@{}", e.name, e.version))
+            .collect();
         let emitted: std::collections::BTreeSet<String> = arts
             .iter()
             .map(|a| format!("{}@{}", a.name, a.version))
             .collect();
-        let pinned: std::collections::BTreeSet<String> =
-            lock_archive_signatures().keys().cloned().collect();
+        let pinned: std::collections::BTreeSet<String> = lock_archive_signatures()
+            .keys()
+            .filter(|k| owl_keys.contains(*k))
+            .cloned()
+            .collect();
         assert_eq!(
             emitted, pinned,
-            "emitted OWL archives must match [archive_signatures] exactly"
+            "emitted OWL archives must match their OntologyVocabulary [archive_signatures] pins exactly"
         );
     }
 

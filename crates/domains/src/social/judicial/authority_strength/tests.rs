@@ -10,7 +10,7 @@ use super::ontology::{
     SupremeCourtAtopPrecedentHierarchy, at_least_as_binding, binding_leaves, is_binding, is_leaf,
     is_persuasive, leaves, persuasive_leaves,
 };
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;

@@ -113,15 +113,20 @@ pub fn loaded() -> &'static UsCode {
     use std::sync::OnceLock;
     static INSTANCE: OnceLock<UsCode> = OnceLock::new();
     INSTANCE.get_or_init(|| {
-        // M4.δ.7.a: runtime XML loading replaces the build-time
-        // aggregate static that hit rustc's compile-time memory
-        // ceiling (~85 MB of XML across registered titles). Walks
-        // every UsCodeTitle source registered in `praxis.toml`, reads
-        // its `local_path()` from disk, parses via `read_uslm_title`,
-        // and assembles the unified corpus via
-        // `UsCode::from_uslm_titles_owned`. Mirrors the WordNet
-        // pattern (`English::cached`): first call pays the parse
-        // cost; OnceLock amortizes over process lifetime.
+        // Parse-once corpus load. Each registered USC title is loaded
+        // from its compiled `.prx` archive when one is present — the
+        // fast rkyv path `pr4xis compile` produces, admitted through the
+        // fail-closed `praxis.lock` gate — and parsed from USLM XML
+        // otherwise. Per-title corpora compose via `UsCode::concat`.
+        //
+        // On a fresh checkout no archive exists, so the XML path runs
+        // and pays the ~85 MB parse — the cost the build-time aggregate
+        // static once paid before it hit rustc's compile-time memory
+        // ceiling (M4.δ.7.a). `pr4xis compile` turns that into an
+        // O(rkyv) load: CI compiles once up front so each nextest
+        // process loads in ~ms instead of re-parsing the XML per
+        // process (nextest is process-per-test, so the OnceLock only
+        // amortizes within a single test).
         use crate::applied::data_provisioning::registry::data_sources;
         use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
         use crate::social::software::markup::xml::uslm::lens::read_uslm_title;
@@ -131,10 +136,52 @@ pub fn loaded() -> &'static UsCode {
                 .and_then(|p| p.parent())
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| std::path::PathBuf::from("."));
-        let mut titles: Vec<UsCodeTitle> = Vec::new();
+        let mut parts: alloc::vec::Vec<UsCode> = alloc::vec::Vec::new();
         for entry in data_sources() {
             if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
                 continue;
+            }
+            // Fast path: a compiled `.prx` archive carries the
+            // already-parsed corpus (rkyv), admitted through the
+            // fail-closed lock gate. A present-but-bad archive is a hard
+            // error — never a silent fall back to XML, which would mask
+            // tampering. Only an ABSENT archive falls through to XML.
+            #[cfg(feature = "prx")]
+            {
+                let prx_path = prx::usc_prx_cache_dir(&workspace_root).join(alloc::format!(
+                    "{}-{}.prx.gz",
+                    entry.name,
+                    entry.version
+                ));
+                if let Ok(prx_gz) = std::fs::read(&prx_path) {
+                    use crate::social::software::markup::xml::owl::prx::PrxError;
+                    match prx::load_usc_prx_gz_from_lock(&prx_gz) {
+                        Ok(corpus) => {
+                            parts.push(corpus);
+                            continue;
+                        }
+                        // Archive present but NOT pinned in `praxis.lock` — it
+                        // is not a trust anchor yet, so fall through to the
+                        // authoritative (`[hashes]`-verified) XML source. Run
+                        // `pr4xis compile --lock` to pin it and take the fast
+                        // path. (Native only: the source XML is the truth and
+                        // the archive is an optimization. The browser, with no
+                        // source to fall back to, has no such graceful path —
+                        // its gate is the only anchor.)
+                        Err(PrxError::NoArchivePin { .. } | PrxError::NoLockPin { .. }) => {}
+                        // Pinned, but the gate rejected it: the committed pin
+                        // and the emitted archive disagree (toolchain drift, a
+                        // stale source, or tampering). Fail LOUD — silently
+                        // parsing XML would mask a real contract violation and
+                        // re-create the per-process parse cost the cache exists
+                        // to remove. Re-run `pr4xis compile`.
+                        Err(e) => panic!(
+                            "loaded(): compiled archive {} is pinned but failed \
+                             the load gate: {e}",
+                            prx_path.display()
+                        ),
+                    }
+                }
             }
             let path = workspace_root.join(entry.local_path());
             let Ok(xml) = std::fs::read_to_string(&path) else {
@@ -144,14 +191,14 @@ pub fn loaded() -> &'static UsCode {
                 continue;
             };
             match read_uslm_title(&xml) {
-                Ok(title) => titles.push(title),
+                Ok(title) => parts.push(UsCode::from_uslm_titles_owned(alloc::vec![title])),
                 Err(e) => panic!(
                     "loaded() failed parsing registered title {}: {e}",
                     entry.name
                 ),
             }
         }
-        UsCode::from_uslm_titles_owned(titles)
+        UsCode::concat(parts)
     })
 }
 
@@ -507,6 +554,30 @@ impl UsCode {
                     relations,
                 });
             }
+        }
+        Self { sections, by_urn }
+    }
+
+    /// Compose per-title corpora into the unified corpus. Each part is a
+    /// single title materialised either from its compiled `.prx` archive
+    /// (rkyv, via the fail-closed lock gate) or from parsed USLM XML;
+    /// [`loaded`] picks the source per title and feeds the parts here.
+    ///
+    /// Section order is preserved (title-then-section, the order
+    /// [`data_sources`][crate::applied::data_provisioning::registry::data_sources]
+    /// yields registered titles); `by_urn` is re-indexed into the
+    /// concatenated `sections`. Composition — not a third corpus walker —
+    /// so an archive-loaded title and an XML-parsed title land in exactly
+    /// the same shape.
+    fn concat(parts: alloc::vec::Vec<UsCode>) -> Self {
+        let mut sections: Vec<UscSection> = Vec::new();
+        let mut by_urn: HashMap<String, usize> = HashMap::new();
+        for part in parts {
+            let base = sections.len();
+            for (urn, idx) in part.by_urn {
+                by_urn.insert(urn, base + idx);
+            }
+            sections.extend(part.sections);
         }
         Self { sections, by_urn }
     }

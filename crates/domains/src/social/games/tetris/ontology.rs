@@ -49,7 +49,7 @@ impl Quality for RotationCount {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
 
     #[test]
     fn test_7_piece_kinds() {

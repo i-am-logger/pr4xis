@@ -129,7 +129,7 @@ pub struct ContainmentChain;
 
 impl Axiom for ContainmentChain {
     fn verify(&self) -> pr4xis::logic::proof::Verdict {
-        use pr4xis::category::Concept;
+        use pr4xis::category::FinitelyGenerated;
         use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
         let order = DomainOrder;
         let domains = NumberConcept::variants();
@@ -155,7 +155,7 @@ pr4xis::register_axiom!(ContainmentChain, "Landau (1930) Grundlagen der Analysis
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pr4xis::category::Concept;
+    use pr4xis::category::FinitelyGenerated;
     use pr4xis::category::laws::assert_category_laws;
 
     #[test]

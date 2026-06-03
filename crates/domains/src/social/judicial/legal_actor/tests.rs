@@ -8,8 +8,8 @@ use super::ontology::{
     LegalActorOntology, OnlyPartiesCarryBurden, PartyAdjudicatorOpposition, adjudicator_leaves,
     is_leaf, is_party, parse_actor, party_leaves, witness_leaves,
 };
-use pr4xis::category::Concept;
 use pr4xis::category::laws::assert_category_laws;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
 

@@ -9,7 +9,7 @@ use hashbrown::HashMap;
 use super::base16::{ColorSlot, Polarity, SemanticRole};
 use crate::natural::colors::rgb::Rgb;
 use crate::natural::colors::srgb;
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::{Axiom, Quality};
 

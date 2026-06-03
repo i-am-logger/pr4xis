@@ -116,7 +116,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::category::Concept;
+    use crate::category::{Concept, FinitelyGenerated};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Obj {
@@ -125,7 +125,8 @@ mod tests {
         Z,
     }
 
-    impl Concept for Obj {
+    impl Concept for Obj {}
+    impl FinitelyGenerated for Obj {
         fn variants() -> Vec<Self> {
             vec![Obj::X, Obj::Y, Obj::Z]
         }

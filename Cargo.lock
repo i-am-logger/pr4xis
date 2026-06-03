@@ -1494,6 +1494,7 @@ dependencies = [
  "criterion",
  "pr4xis",
  "pr4xis-domains",
+ "pr4xis-runtime",
 ]
 
 [[package]]

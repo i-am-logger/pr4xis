@@ -62,14 +62,15 @@ where
 mod tests {
     use super::*;
     use crate::category::laws::assert_functor_laws;
-    use crate::category::{Arrow, Concept};
+    use crate::category::{Arrow, Concept, FinitelyGenerated};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     enum Light {
         Red,
         Green,
     }
-    impl Concept for Light {
+    impl Concept for Light {}
+    impl FinitelyGenerated for Light {
         fn variants() -> Vec<Self> {
             vec![Light::Red, Light::Green]
         }

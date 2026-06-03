@@ -7,7 +7,7 @@ use super::citation::PinpointCite;
 use super::lifecycle::PhaseTag;
 use super::source_text::SourceTextRef;
 use crate::formal::meta::identifier_format::Identifier;
-use pr4xis::category::{Arrow, Category, Concept};
+use pr4xis::category::{Arrow, Category, Concept, FinitelyGenerated};
 use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof, Verdict};
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
@@ -285,7 +285,8 @@ impl Default for OntologyRegistry {
 // =============================================================================
 
 /// Case phases as entities.
-impl Concept for PhaseTag {
+impl Concept for PhaseTag {}
+impl FinitelyGenerated for PhaseTag {
     fn variants() -> Vec<Self> {
         vec![
             PhaseTag::PreFiling,

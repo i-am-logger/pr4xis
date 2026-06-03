@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::ontology::Quality;
 
 /// Track status in the fusion engine context.
@@ -27,7 +27,8 @@ pub enum FusionTrackStatus {
     Lost,
 }
 
-impl Concept for FusionTrackStatus {
+impl Concept for FusionTrackStatus {}
+impl FinitelyGenerated for FusionTrackStatus {
     fn variants() -> Vec<Self> {
         vec![Self::Active, Self::Coasting, Self::Lost]
     }

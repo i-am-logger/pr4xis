@@ -40,7 +40,7 @@ use core::marker::PhantomData;
 
 use super::arrow::Arrow;
 use super::category::Category;
-use super::entity::Concept;
+use super::entity::{Concept, FinitelyGenerated};
 use super::functor::Functor;
 use super::kinds::FunctorKind;
 
@@ -153,7 +153,15 @@ impl<Q: Quiver> Arrow for Path<Q> {
 /// is represented by its finite generating set.
 pub struct FreeCategory<Q>(PhantomData<Q>);
 
-impl<Q: Quiver> Category for FreeCategory<Q> {
+impl<Q: Quiver> Category for FreeCategory<Q>
+where
+    // The free category lists its generating set (identities at each vertex plus
+    // the single edges) — `morphisms()` enumerates the vertices, which requires
+    // the vertex concept to be finitely generated (closed-world). The quiver's
+    // `Vertex: Concept` stays open-world (identities/composition need no
+    // enumeration); only the generating-set listing needs this.
+    Q::Vertex: FinitelyGenerated,
+{
     type Object = Q::Vertex;
     type Morphism = Path<Q>;
 
@@ -208,7 +216,13 @@ pub trait QuiverInterpretation {
 /// folding its edge images through the target's composition.
 pub struct FreeExtension<I>(PhantomData<I>);
 
-impl<I: QuiverInterpretation> Functor for FreeExtension<I> {
+impl<I: QuiverInterpretation> Functor for FreeExtension<I>
+where
+    // `Source = FreeCategory<I::Quiver>` is only a `Category` when the quiver's
+    // vertices are finitely generated (it lists its generating set). The functor
+    // out of the free category inherits that requirement.
+    <I::Quiver as Quiver>::Vertex: FinitelyGenerated,
+{
     type Source = FreeCategory<I::Quiver>;
     type Target = I::Target;
 
@@ -245,7 +259,8 @@ mod tests {
         A,
         B,
     }
-    impl Concept for V {
+    impl Concept for V {}
+    impl FinitelyGenerated for V {
         fn variants() -> Vec<Self> {
             vec![V::A, V::B]
         }

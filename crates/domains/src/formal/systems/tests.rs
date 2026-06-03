@@ -1,5 +1,5 @@
 use pr4xis::category::laws::{assert_category_laws, assert_functor_laws};
-use pr4xis::category::{Category, Concept, Functor};
+use pr4xis::category::{Category, FinitelyGenerated, Functor};
 
 use super::ontology::*;
 use super::traffic_functor::*;

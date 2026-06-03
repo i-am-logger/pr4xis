@@ -26,6 +26,13 @@ in
     pkgs.mdbook
     pkgs.miniserve
     pkgs.cargo-edit
+    # Rust-native search tooling. The host shell's grep/rg/find wrappers are
+    # broken in this environment ("-G: error while loading shared libraries"),
+    # so make the canonical Rust replacements first-class in the devenv:
+    # ripgrep = rg, fd = fd-find. Used by tooling + agents instead of the
+    # broken host binaries.
+    pkgs.ripgrep
+    pkgs.fd
     # Mutation testing — operational error-rate measurement
     # (Daubert prong 3). Each mutant alters one expression; if the
     # tests still pass, that's a blind spot in coverage.

@@ -16,7 +16,7 @@
 
 #[cfg(test)]
 mod tests {
-    use pr4xis::category::{Category, Concept, Functor};
+    use pr4xis::category::{Category, FinitelyGenerated, Functor};
 
     // -----------------------------------------------------------------------
     // Test 1: pharmacology -> molecular -> bioelectricity

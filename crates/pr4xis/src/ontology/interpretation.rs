@@ -113,6 +113,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::category::entity::FinitelyGenerated;
     use crate::category::{Arrow, Category};
     use crate::ontology::meta::MorphismKind;
 
@@ -123,7 +124,8 @@ mod tests {
         B,
     }
 
-    impl Concept for Obj {
+    impl Concept for Obj {}
+    impl FinitelyGenerated for Obj {
         fn variants() -> Vec<Self> {
             vec![Obj::A, Obj::B]
         }

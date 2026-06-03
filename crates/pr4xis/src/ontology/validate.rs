@@ -1,4 +1,4 @@
-use crate::category::Category;
+use crate::category::{Category, FinitelyGenerated};
 use crate::logic::proof::Verdict;
 use crate::ontology::Ontology;
 #[allow(unused_imports)]
@@ -13,6 +13,9 @@ pub fn check_ontology<O: Ontology>() -> Verdict
 where
     O::Cat: 'static,
     <O::Cat as Category>::Morphism: PartialEq + 'static,
+    // The category law checks enumerate objects (closed-world); forwarded from
+    // `Ontology::validate`.
+    <O::Cat as Category>::Object: FinitelyGenerated,
 {
     O::validate()
 }

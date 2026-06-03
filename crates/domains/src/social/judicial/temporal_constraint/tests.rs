@@ -9,8 +9,8 @@ use super::ontology::{
     TemporalConstraintCategory, TemporalConstraintConcept, TemporalConstraintOntology,
     granularity_leaves, is_leaf,
 };
-use pr4xis::category::Concept;
 use pr4xis::category::laws::assert_category_laws;
+use pr4xis::category::{Concept, FinitelyGenerated};
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 use proptest::prelude::*;
 

@@ -224,6 +224,20 @@ jobs:
         run: chmod +x target/release/pr4xis
       - name: Materialise external data (no-op on data-cache hit)
         run: ./target/release/pr4xis update
+      # Parse-once: compile each registered USC title into its `.prx.gz` ONCE,
+      # up front, so the corpus loader deserialises the archive (~ms) instead of
+      # re-parsing ~85 MB of USLM XML in every nextest process (process-per-test).
+      # Cached on praxis.lock so a warm run restores the archives and skips the
+      # emit entirely.
+      - name: Cache compiled .prx archives
+        id: prx-cache
+        uses: actions/cache@v4
+        with:
+          path: .prx-cache
+          key: prx-cache-${{ hashFiles('praxis.lock') }}
+      - name: Compile .prx archives (parse-once)
+        if: steps.prx-cache.outputs.cache-hit != 'true'
+        run: ./target/release/pr4xis compile
       - uses: actions/download-artifact@v4
         with:
           name: nextest-archive

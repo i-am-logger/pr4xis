@@ -168,6 +168,45 @@ pub struct Concept {
     pub examples: Vec<String>,
 }
 
+/// The lexical-reasoning surface the chat pipeline queries — the closed set of
+/// English operations it actually uses. Re-typing the pipeline onto this trait
+/// (instead of the concrete `English`) is what lets a COMPOSED ontology
+/// (English ⊕ a loaded corpus) later satisfy the same interface. English is the
+/// canonical implementor; the methods mirror its inherent query API 1:1.
+pub trait LexicalReasoner {
+    fn lookup(&self, word: &str) -> &[ConceptId];
+    fn concept(&self, id: ConceptId) -> Option<&Concept>;
+    fn concept_by_synset(&self, synset_id: &str) -> Option<&Concept>;
+    fn parents(&self, id: ConceptId) -> &[ConceptId];
+    fn children(&self, id: ConceptId) -> &[ConceptId];
+    fn is_a(&self, child: ConceptId, ancestor: ConceptId) -> bool;
+    fn concept_count(&self) -> usize;
+}
+
+impl LexicalReasoner for English {
+    fn lookup(&self, word: &str) -> &[ConceptId] {
+        English::lookup(self, word)
+    }
+    fn concept(&self, id: ConceptId) -> Option<&Concept> {
+        English::concept(self, id)
+    }
+    fn concept_by_synset(&self, s: &str) -> Option<&Concept> {
+        English::concept_by_synset(self, s)
+    }
+    fn parents(&self, id: ConceptId) -> &[ConceptId] {
+        English::parents(self, id)
+    }
+    fn children(&self, id: ConceptId) -> &[ConceptId] {
+        English::children(self, id)
+    }
+    fn is_a(&self, c: ConceptId, a: ConceptId) -> bool {
+        English::is_a(self, c, a)
+    }
+    fn concept_count(&self) -> usize {
+        English::concept_count(self)
+    }
+}
+
 impl English {
     /// Construct an English ontology from pre-computed parts.
     /// Used by the Language module's deployment functors (codegen, mmap, async).

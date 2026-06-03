@@ -348,7 +348,13 @@ impl fmt::Display for Morphism {
 ///
 /// Compile-time names are `Cow::Borrowed(&'static str)` — zero allocation.
 /// Runtime-composed names are `Cow::Owned(String)` — no leak, dropped with the Vocabulary.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+///
+/// `Ord` so a typed name can key a deterministic `BTreeMap`/`BTreeSet` — the
+/// runtime's content-addressed structures (e.g. the materialized closure keyed
+/// by `(ontology, name)`) need a total order, and a string-backed identifier
+/// has the natural lexicographic one. Same rationale as the other identifier
+/// wrappers in this module (`Label`, `ConceptName`, `MorphismKind`).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OntologyName(Cow<'static, str>);
 
 impl OntologyName {
@@ -725,7 +731,14 @@ impl Vocabulary {
     }
 
     /// Static Vocabulary — concepts/morphisms pulled from Category/Entity each call.
-    pub fn from_static<C: crate::category::Category, E: crate::category::entity::Concept>(
+    ///
+    /// `E` must be [`FinitelyGenerated`](crate::category::FinitelyGenerated):
+    /// the concepts closure enumerates `E::variants()` to list the vocabulary's
+    /// concepts (closed-world).
+    pub fn from_static<
+        C: crate::category::Category,
+        E: crate::category::entity::FinitelyGenerated,
+    >(
         name: impl Into<OntologyName>,
         module_path: impl Into<ModulePath>,
         source: impl Into<Citation>,
@@ -736,8 +749,8 @@ impl Vocabulary {
             source: source.into(),
             source_of_truth: Source::Static {
                 concepts: || {
-                    use crate::category::Concept;
-                    <E as Concept>::variants()
+                    use crate::category::FinitelyGenerated;
+                    <E as FinitelyGenerated>::variants()
                         .iter()
                         .map(|v| {
                             let name = v.name();
@@ -813,7 +826,14 @@ impl Vocabulary {
     }
 
     /// Compatibility shim for `manual::<C, E>()` calls in descriptor.rs.
-    pub fn from_ontology<C: crate::category::Category, E: crate::category::entity::Concept>(
+    ///
+    /// `E` must be [`FinitelyGenerated`](crate::category::FinitelyGenerated):
+    /// it delegates to [`from_static`](Self::from_static), which enumerates
+    /// `E::variants()`.
+    pub fn from_ontology<
+        C: crate::category::Category,
+        E: crate::category::entity::FinitelyGenerated,
+    >(
         name: impl Into<OntologyName>,
         module_path: impl Into<ModulePath>,
         source: impl Into<Citation>,

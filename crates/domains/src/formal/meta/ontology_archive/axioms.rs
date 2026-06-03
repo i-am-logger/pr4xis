@@ -33,6 +33,13 @@ use crate::social::software::markup::xml::uslm::corpus::prx::{
     OwnedUscSectionAux, OwnedUscSubdivision, UsCodePrxEnvelope, UscPrxMetadata, load_usc_prx_gz,
     usc_envelope_from_bytes, usc_envelope_to_bytes, usc_reconstruct_source,
 };
+// The WordNet / English consumer (Stage E0): the SAME archive axioms verify
+// against its FLAT, word-index-carrying envelope too — same realisation
+// pattern as the USC import above, no parallel axiom set.
+use crate::social::software::markup::xml::lmf::prx::{
+    WnPrxMetadata, WordNetPrxEnvelope, load_wordnet_prx_gz, wn_reconstruct_source,
+    wordnet_envelope_from_bytes, wordnet_envelope_to_bytes,
+};
 
 /// Distinct witness byte-strings the byte-level axioms run over —
 /// empty, ASCII, binary (incl. 0x00 / 0xFF), and a longer repeated run.
@@ -167,6 +174,60 @@ fn witness_usc_envelope(name: &str, source: &[u8]) -> UsCodePrxEnvelope {
             references: Vec::new(),
         },
         aux,
+        mode: RoundTripFidelity::RawBytesComplementFloor,
+        raw: Some(RawSource {
+            content_address: hash,
+            blob: source.to_vec(),
+        }),
+    }
+}
+
+/// A minimal WordNet `RawBytesComplementFloor` envelope carrying `source`
+/// content-addressed, with a NON-TRIVIAL POPULATED `word_index` (two words,
+/// one multi-sense) so the widened axioms genuinely exercise the
+/// word-index-carrying path: a dropped, reordered, or poisoned `word_index`
+/// entry is falsified.
+///
+/// Built directly — no `read_wordnet` — so the axioms run under
+/// `feature = "prx"` alone, exactly like [`witness_envelope`] and
+/// [`witness_usc_envelope`]. The WordNet consumer realises the SAME
+/// `OntologyArchiveStorage` axioms; this fixture is the witness they run
+/// against. The `word_index` is sorted (`"cat"` < `"dog"`) — the
+/// `binary_search` + reproducible-`MerkleRoot` invariant the real
+/// `wn_builder_to_owned` upholds.
+fn witness_wordnet_envelope(name: &str, source: &[u8]) -> WordNetPrxEnvelope {
+    let hash = source_content_hash(source);
+    WordNetPrxEnvelope {
+        metadata: WnPrxMetadata {
+            name: name.to_string(),
+            version: "1".to_string(),
+            lexicon_uri: String::new(),
+            source_url: String::new(),
+            source_sha256: hash.clone(),
+            number_of_synsets: 2,
+            number_of_senses: 2,
+        },
+        data: OwnedCodegenData {
+            entity_count: 2,
+            entity_ids: alloc::vec!["s-cat".to_string(), "s-dog".to_string()],
+            entity_kind: alloc::vec!["n".to_string(), "n".to_string()],
+            entity_labels: alloc::vec!["s-cat".to_string(), "s-dog".to_string()],
+            entity_defs: alloc::vec![
+                "a small feline".to_string(),
+                "a domesticated canine".to_string()
+            ],
+            // Sorted by word; "cat" → synset 0, "dog" → synset 1.
+            word_index: alloc::vec![
+                ("cat".to_string(), alloc::vec![0u64]),
+                ("dog".to_string(), alloc::vec![1u64]),
+            ],
+            taxonomy: Vec::new(),
+            mereology: Vec::new(),
+            opposition: Vec::new(),
+            equivalence: Vec::new(),
+            causation: Vec::new(),
+            references: Vec::new(),
+        },
         mode: RoundTripFidelity::RawBytesComplementFloor,
         raw: Some(RawSource {
             content_address: hash,
@@ -405,7 +466,38 @@ impl Axiom for EmitLoadWellBehaved {
             }
         }
         match usc_envelope_from_bytes(&usc_bytes) {
-            Ok(back) if back == usc => Ok(alloc::boxed::Box::new(SimpleProof::new(self.meta()))),
+            Ok(back) if back == usc => {}
+            _ => {
+                return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                    self.meta(),
+                )));
+            }
+        }
+        // WordNet consumer (Stage E0): the same GetPut lens law over the FLAT,
+        // word-index-carrying envelope. The round-tripped envelope must equal
+        // the original INCLUDING the full `word_index` — so a dropped or
+        // reordered entry is falsified here.
+        let wn = witness_wordnet_envelope("emit-load-wn", b"wordnet well-behaved lens witness");
+        let Ok(wn_bytes) = wordnet_envelope_to_bytes(&wn) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let Ok(wn_gz) = gzip(&wn_bytes) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        match gunzip(&wn_gz) {
+            Ok(b) if b == wn_bytes => {}
+            _ => {
+                return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                    self.meta(),
+                )));
+            }
+        }
+        match wordnet_envelope_from_bytes(&wn_bytes) {
+            Ok(back) if back == wn => Ok(alloc::boxed::Box::new(SimpleProof::new(self.meta()))),
             _ => Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                 self.meta(),
             ))),
@@ -453,6 +545,24 @@ impl Axiom for SourceHashFaithfulness {
         for source in &witness_sources() {
             let envelope = witness_usc_envelope("source-hash-usc", source);
             let Ok(reconstructed) = usc_reconstruct_source(&envelope) else {
+                return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                    self.meta(),
+                )));
+            };
+            if &reconstructed != source
+                || source_content_hash(&reconstructed) != envelope.metadata.source_sha256
+            {
+                return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                    self.meta(),
+                )));
+            }
+        }
+        // WordNet consumer (Stage E0): the same source-faithfulness over the
+        // word-index-carrying envelope — `wn_reconstruct_source` returns the
+        // exact bytes whose hash equals the recorded pin.
+        for source in &witness_sources() {
+            let envelope = witness_wordnet_envelope("source-hash-wn", source);
+            let Ok(reconstructed) = wn_reconstruct_source(&envelope) else {
                 return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
                     self.meta(),
                 )));
@@ -599,6 +709,63 @@ impl Axiom for LoadGateFailsClosed {
         };
         if !matches!(
             load_usc_prx_gz(&usc_poisoned_gz, &usc_archive_pin, &usc_source_pin),
+            Err(PrxError::HashMismatch { .. })
+        ) {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        }
+        // WordNet consumer (Stage E0): the same fail-closed gate over the FLAT,
+        // word-index-carrying envelope, with the teeth on the WORD INDEX —
+        // poisoning one `word_index` entry's word under a genuine source label
+        // changes the MerkleRoot and is refused even with the genuine source
+        // pin (the attack a label-only gate would admit).
+        let wn = witness_wordnet_envelope("load-gate-wn", b"wn gated source bytes");
+        let Ok(wn_bytes) = wordnet_envelope_to_bytes(&wn) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let Ok(wn_gz) = gzip(&wn_bytes) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let wn_archive_pin = source_content_hash(&wn_bytes);
+        let wn_source_pin = wn.metadata.source_sha256.clone();
+        // Accept-on-match.
+        if load_wordnet_prx_gz(&wn_gz, &wn_archive_pin, &wn_source_pin).is_err() {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        }
+        // Wrong MerkleRoot pin → HashMismatch.
+        if !matches!(
+            load_wordnet_prx_gz(&wn_gz, &wrong_pin, &wn_source_pin),
+            Err(PrxError::HashMismatch { .. })
+        ) {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        }
+        // Teeth: poison one `word_index` entry's word under the honest source
+        // label + raw leaf — the MerkleRoot binds the whole installed node
+        // (including the word index), so it is refused even with the genuine
+        // source pin.
+        let mut wn_poisoned = witness_wordnet_envelope("load-gate-wn", b"wn gated source bytes");
+        wn_poisoned.data.word_index[0].0 = "POISON".to_string();
+        let Ok(wn_poisoned_bytes) = wordnet_envelope_to_bytes(&wn_poisoned) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        let Ok(wn_poisoned_gz) = gzip(&wn_poisoned_bytes) else {
+            return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
+                self.meta(),
+            )));
+        };
+        if !matches!(
+            load_wordnet_prx_gz(&wn_poisoned_gz, &wn_archive_pin, &wn_source_pin),
             Err(PrxError::HashMismatch { .. })
         ) {
             return Err(alloc::boxed::Box::new(SimpleCounterexample::new(
@@ -754,6 +921,22 @@ mod tests {
         assert!(
             usc_reconstruct_source(&envelope).is_err(),
             "a tampered USC raw blob must be rejected (fail-closed)"
+        );
+    }
+
+    /// The WordNet leg of `SourceHashFaithfulness` has teeth too: a WordNet
+    /// envelope whose raw blob disagrees with its pin is rejected by
+    /// `wn_reconstruct_source` (so the widened axiom can FAIL on a WordNet
+    /// defect, not just pass).
+    #[test]
+    fn wn_reconstruct_source_rejects_a_lying_envelope() {
+        let mut envelope = witness_wordnet_envelope("wn-liar", b"honest wn source");
+        if let Some(raw) = envelope.raw.as_mut() {
+            raw.blob.push(b'!'); // blob no longer hashes to content_address
+        }
+        assert!(
+            wn_reconstruct_source(&envelope).is_err(),
+            "a tampered WordNet raw blob must be rejected (fail-closed)"
         );
     }
 }

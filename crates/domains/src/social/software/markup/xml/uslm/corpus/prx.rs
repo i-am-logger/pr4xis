@@ -663,6 +663,16 @@ fn workspace_root() -> std::path::PathBuf {
         .unwrap_or_else(|| std::path::PathBuf::from("."))
 }
 
+/// The compiled-USC-archive cache directory: `<workspace_root>/.prx-cache/usc`.
+/// `pr4xis compile` writes one `{name}-{version}.prx.gz` here per registered
+/// title, and [`loaded`][super::loaded] reads them as its fast rkyv load path
+/// (falling back to the XML parse when an archive is absent). Gitignored build
+/// output — never committed; CI restores it from the `praxis.lock`-keyed data
+/// cache. The filesystem analogue of the OWL emitter's `dist/ontologies`.
+pub fn usc_prx_cache_dir(workspace_root: &std::path::Path) -> std::path::PathBuf {
+    workspace_root.join(".prx-cache").join("usc")
+}
+
 /// Emit a USC `.prx.gz` artifact for EVERY registered [`UsCodeTitle`] source
 /// on disk into `out_dir`, round-trip-validating each before returning it —
 /// the USC analogue of `owl::prx::emit_all_prx_gz`, the release-distribution
@@ -1097,35 +1107,61 @@ mod tests {
 
     // ── emit-all + lock gate ────────────────────────────────────────────
 
-    /// `emit_all_usc_prx_gz` round-trip-validates every on-disk USC title it
-    /// emits, and any emitted title that carries a `praxis.lock`
-    /// `[archive_signatures]` pin must match it.
+    /// Emitting a registered USC title reproduces the exact `MerkleRoot` pinned
+    /// for it in `praxis.lock` `[archive_signatures]` — the emit→address→lock
+    /// anchor the fail-closed load gate relies on.
     ///
-    /// USC titles are externally provisioned (Title 18 ~12 MB … Title 42
-    /// ~108 MB; fetched via `pr4xis update`, NOT git-committed), so the emitted
-    /// set is environment-dependent — empty in a plain checkout, populated in a
-    /// data-provisioned one. `emit_all_usc_prx_gz` returning `Ok` already means
-    /// every emitted title passed the fail-closed gate (gunzip → bytecheck →
-    /// `MerkleRoot` + the committed `[hashes]` source pin) on the way out; this
-    /// additionally cross-checks any `[archive_signatures]` pin that exists.
-    /// `#271` pins none (the runtime load-from-lock path that consumes them is
-    /// the split-out perf rewire); the operator pins at release time, exactly
-    /// as the OWL `#256` path does. (The per-title emit→load round-trip is
-    /// exercised non-vacuously by `usc_emit_then_load_equals_corpus`.)
+    /// Uses the SMALLEST on-disk pinned title (Title 1 ≈ 58 KB) rather than
+    /// re-emitting every title (Title 42 ≈ 108 MB): re-emitting the whole corpus
+    /// is what tipped this test past the nextest `ci` profile's 30 s terminate-
+    /// after on CI's runner. The full-corpus emit + round-trip is `pr4xis
+    /// compile` (run in CI before the suite), and each title's emit→load
+    /// round-trip is exercised non-vacuously by `usc_emit_then_load_equals_corpus`;
+    /// this test pins the address↔lock anchor cheaply on a representative title.
+    ///
+    /// USC titles are externally provisioned (fetched via `pr4xis update`, NOT
+    /// git-committed), so in a plain checkout none are on disk and the test skips
+    /// gracefully — the same graceful-skip doctrine `loaded()` and the emitter use.
     #[test]
     fn usc_archive_anchors_match_lock() {
-        use crate::applied::data_provisioning::registry::lock_archive_signature;
-        let dir = std::env::temp_dir().join("usc_prx_archive_anchor");
-        let arts = emit_all_usc_prx_gz(&dir).expect("emit all USC archives must round-trip");
-        for a in &arts {
-            if let Some(pinned) = lock_archive_signature(&a.name, &a.version) {
-                assert_eq!(
-                    a.archive_address, pinned,
-                    "{}@{} .prx MerkleRoot must equal its [archive_signatures] pin",
-                    a.name, a.version
-                );
+        use crate::applied::data_provisioning::registry::{data_sources, lock_archive_signature};
+        use crate::formal::meta::source_taxonomy::ontology::SourceTaxonomyConcept;
+        let root = workspace_root();
+        // Pick the smallest on-disk, pinned USC title — emitting it reproduces
+        // its pinned MerkleRoot for a few KB of parse instead of ~85 MB.
+        let mut best: Option<(String, String, String, std::path::PathBuf, u64)> = None;
+        for entry in data_sources() {
+            if entry.kind != SourceTaxonomyConcept::UsCodeTitle {
+                continue;
+            }
+            if lock_archive_signature(&entry.name, &entry.version).is_none() {
+                continue;
+            }
+            let path = root.join(entry.local_path());
+            let Ok(meta) = std::fs::metadata(&path) else {
+                continue;
+            };
+            if best.as_ref().is_none_or(|b| meta.len() < b.4) {
+                best = Some((
+                    entry.name.clone(),
+                    entry.version.clone(),
+                    entry.url.clone(),
+                    path,
+                    meta.len(),
+                ));
             }
         }
+        let Some((name, version, url, path, _)) = best else {
+            return; // no pinned USC title provisioned on disk — skip
+        };
+        let src = std::fs::read(&path).expect("read smallest pinned USC title");
+        let prx_gz = emit_usc_prx_gz(&src, &name, &version, &url).expect("emit smallest USC title");
+        let addr = prx_archive_address(&prx_gz).expect("derive MerkleRoot");
+        let pinned = lock_archive_signature(&name, &version).expect("pinned (filtered above)");
+        assert_eq!(
+            addr, pinned,
+            "{name}@{version} .prx MerkleRoot must equal its [archive_signatures] pin"
+        );
     }
 
     /// The lock-driven load path fails closed for a USC envelope whose

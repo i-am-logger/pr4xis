@@ -24,7 +24,7 @@ Two laws govern these:
 - **Associativity:** `(h ∘ g) ∘ f = h ∘ (g ∘ f)` — the order of grouping does not matter.
 - **Identity:** `id_B ∘ f = f = f ∘ id_A` — composing with identity changes nothing.
 
-These laws sound trivial but they have a consequence pr4xis exploits everywhere: **if your domain model satisfies them, it has no dead states, no unreachable objects, and no broken compositions.** The compiler and `cargo test -p pr4xis category::validate::check_category_laws` verify the math for every category in the workspace.
+These laws sound trivial but they have a consequence pr4xis exploits everywhere: **if your domain model satisfies them, it has no dead states, no unreachable objects, and no broken compositions.** The laws are themselves first-class axioms: `category::laws::assert_category_laws` verifies them for every category in the workspace, and each underlying axiom's `verify()` returns a typed `Verdict` — a `Proof` when the law holds or a `Counterexample` that names what broke, never a bare boolean or an error string.
 
 ## Reasoning systems
 
@@ -47,9 +47,9 @@ A **functor** is a structure-preserving map between two categories. If `F: Sourc
 - Identities are preserved: `F(id_A) = id_{F(A)}`.
 - Composition is preserved: `F(g ∘ f) = F(g) ∘ F(f)`.
 
-The third and fourth conditions are the **functor laws**. If a Rust `impl Functor for X` passes `cargo test -p pr4xis category::validate::check_functor_laws`, the laws hold and the functor is a categorically valid claim that the source domain's structure embeds into the target.
+The third and fourth conditions are the **functor laws**. If a Rust `impl Functor for X` passes `category::laws::assert_functor_laws`, the laws hold and the functor is a categorically valid claim that the source domain's structure embeds into the target. Like the category laws, each functor law is an axiom whose `verify()` returns a typed `Verdict` — a `Proof` or a `Counterexample`, not a boolean.
 
-This is what pr4xis means when it says "domains compose with proof". A functor from `Pharmacology → Molecular` is not an analogy or a heuristic mapping — it is a verified theorem that pharmacological structure faithfully embeds in molecular structure. The current workspace has 61 such functor implementations (`grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ | wc -l`).
+This is what pr4xis means when it says "domains compose with proof". A functor from `Pharmacology → Molecular` is not an analogy or a heuristic mapping — it is a verified theorem that pharmacological structure faithfully embeds in molecular structure. The workspace ships more than 95 such functor implementations; to count the current total, run `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/ | wc -l`.
 
 ## Adjunctions and gap detection
 
@@ -63,15 +63,15 @@ For the live percentages of how much information is lost in each round-trip acro
 
 ## Composition is the point
 
-Categories are the substrate. Functors are the maps between them. Adjunctions are the paired functors that detect what's missing. Together they answer the question that no other ontology system can: **does this composition preserve structure, with proof?**
+Categories are the substrate. Functors are the maps between them. Adjunctions are the paired functors that detect what's missing. Together they answer one question directly: **does this composition preserve structure, with proof?**
 
-A functor between WordNet's lexical taxonomy and BioPortal's biomedical mereology is not just an alignment exercise. If the functor laws hold, the composition is a theorem. If they don't hold, you cannot pretend the two ontologies are saying the same thing — the system tells you exactly which morphism breaks.
+The functor from pharmacology to the molecular ontology is not just an alignment exercise. If the functor laws hold, the composition is a theorem. If they don't hold, you cannot pretend the two ontologies are saying the same thing — the system tells you exactly which morphism breaks. The biomedical adjunctions go further: a round-trip through the paired functors surfaces a distinction the target ontology cannot represent — the Kv-channel gap detection above is exactly such a case.
 
 This is what pr4xis adds to the existing landscape of formal ontologies. The ontologies have been there for decades; the categorical substrate that makes their composition machine-checkable is the missing piece.
 
 ## The Self-Model — categories all the way down
 
-Because pr4xis describes its own structure with the same machinery it uses for any other domain, there is a `Self-Model` ontology in `crates/domains/src/cognitive/cognition/` that describes pr4xis's own architectural concepts as objects in a category. The system can ask itself questions like "which ontologies are loaded?" and "what reasoning systems does each ontology implement?" through exactly the same `Ontology` trait it uses for biology or chess. Self-reference is modeled categorically as a natural transformation, not as a special case in the runtime.
+Because pr4xis describes its own structure with the same machinery it uses for any other domain, there is a self-model ontology (`crates/domains/src/cognitive/cognition/self_model.rs`) that models pr4xis's own architectural concepts — what an ontology is, what a reasoning system is, how they relate — as objects in a category, through exactly the same `Ontology` trait it uses for biology or chess. Self-reference is modeled categorically as a natural transformation, not as a special case in the runtime.
 
 This is a small but load-bearing detail: it is the reason pr4xis can extend itself without bolting on metaprogramming. Every new capability is just another ontology, and every new capability is automatically composable with everything that came before.
 
@@ -86,4 +86,4 @@ This is a small but load-bearing detail: it is the reason pr4xis can extend itse
 ---
 
 - **Document date:** 2026-04-14
-- **Verification:** every claim about the codebase is verifiable by `cargo test -p pr4xis category::validate::check_category_laws`, `cargo test -p pr4xis category::validate::check_functor_laws`, `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/`, or `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture`.
+- **Verification:** the category and functor law axioms (`category::laws::assert_category_laws` / `assert_functor_laws`) are exercised by `cargo test -p pr4xis category`; the functor count comes from `grep -rn "impl Functor" crates/domains/src/ crates/pr4xis/src/`; and the round-trip collapse measurement from `cargo test -p pr4xis-domains test_full_chain_collapse_measurement -- --nocapture`.

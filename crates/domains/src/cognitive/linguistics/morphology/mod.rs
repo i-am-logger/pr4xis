@@ -7,7 +7,7 @@ pub mod irregular;
 pub mod lemmatizer;
 pub mod tense;
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 use super::lexicon::pos::PosTag;
 
@@ -55,7 +55,8 @@ pub enum SemanticEffect {
     QualityNoun,
 }
 
-impl Concept for SemanticEffect {
+impl Concept for SemanticEffect {}
+impl FinitelyGenerated for SemanticEffect {
     fn variants() -> Vec<Self> {
         vec![
             Self::Negation,

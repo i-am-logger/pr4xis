@@ -52,7 +52,7 @@ pr4xis::adjunction! {
 mod tests {
     use super::*;
     use pr4xis::category::Adjunction;
-    use pr4xis::category::entity::Concept;
+    use pr4xis::category::entity::FinitelyGenerated;
 
     #[test]
     fn unit_is_valid() {

@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 
-use pr4xis::category::Concept;
+use pr4xis::category::{Concept, FinitelyGenerated};
 
 // Speech act taxonomy — Searle's 5 illocutionary types.
 //
@@ -50,7 +50,8 @@ pub enum SpeechAct {
     Greeting,
 }
 
-impl Concept for SpeechAct {
+impl Concept for SpeechAct {}
+impl FinitelyGenerated for SpeechAct {
     fn variants() -> Vec<Self> {
         vec![
             Self::Assertion,
@@ -104,7 +105,8 @@ pub enum SearleCategory {
     Declaration,
 }
 
-impl Concept for SearleCategory {
+impl Concept for SearleCategory {}
+impl FinitelyGenerated for SearleCategory {
     fn variants() -> Vec<Self> {
         vec![
             Self::Assertive,
@@ -132,7 +134,8 @@ pub enum Intent {
     Declare,
 }
 
-impl Concept for Intent {
+impl Concept for Intent {}
+impl FinitelyGenerated for Intent {
     fn variants() -> Vec<Self> {
         vec![
             Self::Inform,
@@ -174,7 +177,8 @@ pub enum DialogueType {
     Instructional,
 }
 
-impl Concept for DialogueType {
+impl Concept for DialogueType {}
+impl FinitelyGenerated for DialogueType {
     fn variants() -> Vec<Self> {
         vec![
             Self::GoalDirected,

@@ -1,5 +1,5 @@
 use crate::category::arrow::Arrow;
-use crate::category::entity::Concept;
+use crate::category::entity::{Concept, FinitelyGenerated};
 use crate::category::laws::assert_category_laws;
 use crate::category::{Category, Functor};
 use crate::ontology::Quality;
@@ -34,7 +34,8 @@ enum Animal {
     Eagle,
 }
 
-impl Concept for Animal {
+impl Concept for Animal {}
+impl FinitelyGenerated for Animal {
     fn variants() -> Vec<Self> {
         vec![
             Animal::LivingThing,
@@ -108,7 +109,8 @@ enum CarPart {
     Crankshaft,
 }
 
-impl Concept for CarPart {
+impl Concept for CarPart {}
+impl FinitelyGenerated for CarPart {
     fn variants() -> Vec<Self> {
         vec![
             CarPart::Car,
@@ -148,7 +150,8 @@ enum HeatState {
     Condensation,
 }
 
-impl Concept for HeatState {
+impl Concept for HeatState {}
+impl FinitelyGenerated for HeatState {
     fn variants() -> Vec<Self> {
         vec![
             HeatState::Heating,
@@ -181,7 +184,8 @@ enum EMConcept {
     CoulombLaw,
 }
 
-impl Concept for EMConcept {
+impl Concept for EMConcept {}
+impl FinitelyGenerated for EMConcept {
     fn variants() -> Vec<Self> {
         vec![
             EMConcept::Charge,
@@ -251,7 +255,8 @@ enum GravConcept {
     NewtonLaw,
 }
 
-impl Concept for GravConcept {
+impl Concept for GravConcept {}
+impl FinitelyGenerated for GravConcept {
     fn variants() -> Vec<Self> {
         vec![
             GravConcept::Mass,
@@ -785,7 +790,8 @@ enum Word {
     Cool,
 }
 
-impl Concept for Word {
+impl Concept for Word {}
+impl FinitelyGenerated for Word {
     fn variants() -> Vec<Self> {
         vec![
             Word::Big,
@@ -836,7 +842,8 @@ enum AmbiguousWord {
     Spring,
 }
 
-impl Concept for AmbiguousWord {
+impl Concept for AmbiguousWord {}
+impl FinitelyGenerated for AmbiguousWord {
     fn variants() -> Vec<Self> {
         vec![
             AmbiguousWord::Bank,
@@ -856,7 +863,8 @@ enum ContextSignal {
     Water,
 }
 
-impl Concept for ContextSignal {
+impl Concept for ContextSignal {}
+impl FinitelyGenerated for ContextSignal {
     fn variants() -> Vec<Self> {
         vec![
             ContextSignal::Money,
@@ -879,7 +887,8 @@ enum Meaning {
     WaterSpring,
 }
 
-impl Concept for Meaning {
+impl Concept for Meaning {}
+impl FinitelyGenerated for Meaning {
     fn variants() -> Vec<Self> {
         vec![
             Meaning::FinancialInstitution,

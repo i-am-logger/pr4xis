@@ -11,7 +11,7 @@ use super::ontology::{
 use crate::social::judicial::proof_standard::ontology::{
     ProofStandardConcept, StringencyOf as ReferenceStringency,
 };
-use pr4xis::category::Concept;
+use pr4xis::category::FinitelyGenerated;
 use pr4xis::category::laws::assert_category_laws;
 use pr4xis::ontology::{Axiom, Ontology, Quality};
 

@@ -301,7 +301,7 @@ mod tests {
         // cross-functor without panicking. Concept::variants() lists
         // the full set so adding a new variant forces a deliberate
         // mapping decision here.
-        use pr4xis::category::Concept;
+        use pr4xis::category::FinitelyGenerated;
         for effect in SemanticEffect::variants() {
             let _ = semantic_effect_to_olia_fragments(effect);
         }

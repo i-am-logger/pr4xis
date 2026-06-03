@@ -1,4 +1,4 @@
-use crate::category::Concept;
+use crate::category::{Concept, FinitelyGenerated};
 #[allow(unused_imports)]
 use alloc::{boxed::Box, format, string::String, string::ToString, vec, vec::Vec};
 use core::fmt::Debug;
@@ -84,7 +84,14 @@ pub trait Quality: Debug + Clone {
     fn get(&self, individual: &Self::Individual) -> Option<Self::Value>;
 
     /// All individuals that have this quality.
-    fn individuals_with(&self) -> Vec<Self::Individual> {
+    ///
+    /// Enumerates every individual, so it is available only when the individual
+    /// concept is [`FinitelyGenerated`] (closed-world). The rest of `Quality`
+    /// (`get`) uses the individual as a plain value and stays open-world.
+    fn individuals_with(&self) -> Vec<Self::Individual>
+    where
+        Self::Individual: FinitelyGenerated,
+    {
         Self::Individual::variants()
             .into_iter()
             .filter(|e| self.get(e).is_some())

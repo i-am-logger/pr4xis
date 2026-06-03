@@ -17,6 +17,7 @@ use pr4xis_domains::cognitive::linguistics::language::Language;
 use pr4xis_domains::cognitive::linguistics::pragmatics::speech_act::SpeechAct;
 use pr4xis_domains::formal::information::dialogue::engine::{self, DialogueAction};
 use pr4xis_domains::social::software::markup::xml::lmf;
+use pr4xis_domains::social::software::markup::xml::owl::prx::EmittedArtifact;
 use pr4xis_domains::social::software::markup::xml::uslm::corpus::UsCode;
 
 /// pr4xis — axiomatic intelligence via ontology.
@@ -58,6 +59,22 @@ enum Command {
         #[arg(long)]
         lock: bool,
     },
+    /// Compile registered sources into verifiable `.prx` archives.
+    ///
+    /// Emits one content-addressed `.prx.gz` per registered U.S. Code
+    /// title into the build cache (`.prx-cache/usc/`), round-trip-
+    /// validating each. This is the parse-once artifact the corpus loader
+    /// reads instead of re-parsing ~85 MB of USLM XML per process — what
+    /// CI runs before the test suite so each test loads in ~ms. Requires
+    /// the title XML on disk (run `pr4xis update` first).
+    Compile {
+        /// Write each emitted archive's `MerkleRoot` into the
+        /// `[archive_signatures]` section of `praxis.lock`. The fail-closed
+        /// load gate validates loaded archives against these pins. Like
+        /// `update --lock`, this is a write-only mode.
+        #[arg(long)]
+        lock: bool,
+    },
 }
 
 fn main() {
@@ -74,6 +91,12 @@ fn main() {
         } => {
             if let Err(e) = run_update(name.as_deref(), check, force, list, offline, lock) {
                 eprintln!("pr4xis update: {e}");
+                std::process::exit(1);
+            }
+        }
+        Command::Compile { lock } => {
+            if let Err(e) = run_compile(lock) {
+                eprintln!("pr4xis compile: {e}");
                 std::process::exit(1);
             }
         }
@@ -162,6 +185,86 @@ fn apply_lock_outcomes(outcomes: &[FetchOutcome], workspace_root: &Path) -> anyh
         println!("praxis.lock updated.");
     } else {
         println!("praxis.lock unchanged.");
+    }
+    Ok(())
+}
+
+// --------------------------------------------------------------------------
+// `pr4xis compile` — emit verifiable `.prx` archives (the parse-once cache)
+// --------------------------------------------------------------------------
+
+fn run_compile(lock: bool) -> anyhow::Result<()> {
+    use pr4xis_domains::social::software::markup::xml::lmf::prx::emit_all_wordnet_prx_gz;
+    use pr4xis_domains::social::software::markup::xml::uslm::corpus::prx::{
+        emit_all_usc_prx_gz, usc_prx_cache_dir,
+    };
+    let workspace_root = workspace_root()?;
+    let mut artifacts: Vec<EmittedArtifact> = Vec::new();
+
+    // U.S. Code titles → `.prx-cache/usc/` (the corpus loader's fast path).
+    let usc_dir = usc_prx_cache_dir(&workspace_root);
+    artifacts.extend(emit_all_usc_prx_gz(&usc_dir).map_err(|e| anyhow::anyhow!("emit USC: {e}"))?);
+    // WordNet/English → `.prx-cache/wordnet/` (the embedded reasoning base, once
+    // the runtime de-codegens onto it).
+    let wn_dir = workspace_root.join(".prx-cache").join("wordnet");
+    artifacts.extend(
+        emit_all_wordnet_prx_gz(&wn_dir).map_err(|e| anyhow::anyhow!("emit WordNet: {e}"))?,
+    );
+
+    let mut total_bytes: u64 = 0;
+    for a in &artifacts {
+        total_bytes += a.byte_len;
+        println!(
+            "  compiled  {}@{}  {} bytes  {}",
+            a.name, a.version, a.byte_len, a.archive_address
+        );
+    }
+    println!(
+        "{} archive(s), {total_bytes} bytes total → {}",
+        artifacts.len(),
+        workspace_root.join(".prx-cache").display()
+    );
+
+    if artifacts.is_empty() {
+        eprintln!("  [warn]    no registered source on disk — run `pr4xis update` first");
+    }
+    if lock {
+        apply_archive_signature_lock(&artifacts, &workspace_root)?;
+    }
+    Ok(())
+}
+
+/// Write each compiled archive's `MerkleRoot` into the
+/// `[archive_signatures]` section of `praxis.lock`, preserving comments and
+/// key ordering. The fail-closed `.prx.gz` load gate validates a loaded
+/// archive's re-derived `MerkleRoot` against this pin. Mirrors
+/// [`apply_lock_outcomes`]' `[hashes]` write.
+fn apply_archive_signature_lock(
+    artifacts: &[EmittedArtifact],
+    workspace_root: &Path,
+) -> anyhow::Result<()> {
+    if artifacts.is_empty() {
+        return Ok(());
+    }
+    let lock_path = workspace_root.join("praxis.lock");
+    let original = std::fs::read_to_string(&lock_path)
+        .map_err(|e| anyhow::anyhow!("read {}: {e}", lock_path.display()))?;
+    let mut text = original.clone();
+    for a in artifacts {
+        let key = format!("{}@{}", a.name, a.version);
+        text = pr4xis_domains::applied::data_provisioning::lockfile::set_archive_signature(
+            &text,
+            &key,
+            &a.archive_address,
+        )
+        .map_err(|e| anyhow::anyhow!("praxis.lock [archive_signatures] rewrite for {key}: {e}"))?;
+    }
+    if text != original {
+        std::fs::write(&lock_path, text)
+            .map_err(|e| anyhow::anyhow!("write {}: {e}", lock_path.display()))?;
+        println!("praxis.lock [archive_signatures] updated.");
+    } else {
+        println!("praxis.lock [archive_signatures] unchanged.");
     }
     Ok(())
 }

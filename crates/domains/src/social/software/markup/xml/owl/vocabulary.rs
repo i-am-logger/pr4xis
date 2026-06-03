@@ -75,7 +75,7 @@ use core::hash::Hash;
 
 use hashbrown::HashMap;
 
-use pr4xis::category::entity::Concept;
+use pr4xis::category::entity::{Concept, FinitelyGenerated};
 use pr4xis::category::{Arrow, Category};
 use pr4xis::codegen_data::CodegenData;
 use pr4xis::ontology::meta::{Citation, Label, ModulePath, OntologyName, Provenance};
@@ -451,7 +451,8 @@ impl OwlEntity {
     }
 }
 
-impl Concept for OwlEntity {
+impl Concept for OwlEntity {}
+impl FinitelyGenerated for OwlEntity {
     fn variants() -> Vec<Self> {
         match OwlVocabularyCategory::active() {
             Some(v) => (0..v.entity_count() as u32).map(OwlEntity).collect(),
