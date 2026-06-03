@@ -528,27 +528,41 @@ fn build_taxonomy_response(
     // ---- Stage 1: Content Determination ----
     // Gather all relevant knowledge from the ontology.
 
-    // The taxonomy chain: how child relates to parent
-    let mut chain_ids = vec![(child_word.to_string(), child_id)];
-    let mut current = child_id;
-    for _ in 0..10 {
-        if current == parent_id {
-            break;
-        }
-        if let Some(&p) = en.parents(current).first() {
-            if let Some(c) = en.concept(p) {
-                let label = c
-                    .lemmas
-                    .first()
-                    .map(|l| l.as_str())
-                    .unwrap_or(&c.original_id);
-                chain_ids.push((label.to_string(), p));
-            }
-            current = p;
-        } else {
-            break;
-        }
-    }
+    // The taxonomy chain: how child relates to parent. The ORDERED is-a evidence
+    // path is owned by the reasoner's MATERIALIZED hypernym closure — we ask for
+    // `ancestor_chain` rather than hand-walking `parents()` in a bounded loop, so
+    // even the justification is closure-derived, not re-walked. This function is
+    // only reached after `is_a(child, parent)` already proved (see the caller),
+    // so the chain is always present; an absent chain degrades to the endpoints
+    // rather than re-deriving anything.
+    let chain_ids: Vec<(
+        String,
+        pr4xis_domains::cognitive::linguistics::english::ConceptId,
+    )> = en
+        .ancestor_chain(child_id, parent_id)
+        .unwrap_or_else(|| vec![child_id, parent_id])
+        .into_iter()
+        .enumerate()
+        .map(|(i, id)| {
+            // The chain's first element is `child`; render it with the caller's
+            // surface word, not the lemma, so the evidence reads in the user's
+            // term. Every other rung uses its concept's primary lemma.
+            let label = if i == 0 {
+                child_word.to_string()
+            } else {
+                en.concept(id)
+                    .map(|c| {
+                        c.lemmas
+                            .first()
+                            .map(|l| l.as_str())
+                            .unwrap_or(&c.original_id)
+                            .to_string()
+                    })
+                    .unwrap_or_else(|| parent_word.to_string())
+            };
+            (label, id)
+        })
+        .collect();
 
     // Definitions for each concept in the chain
     let chain_defs: Vec<(&str, &str)> = chain_ids
@@ -635,24 +649,25 @@ fn explore_concepts(en: &dyn LexicalReasoner, words: &[&str]) -> String {
                 lines.push(format!("{word}: {def}"));
             }
 
-            // Trace taxonomy chain through the ontology
-            let mut chain = Vec::new();
-            let mut current = id;
-            for _ in 0..5 {
-                if let Some(&parent) = en.parents(current).first()
-                    && let Some(pc) = en.concept(parent)
-                {
-                    let label = pc
-                        .lemmas
-                        .first()
-                        .map(|l| l.as_str())
-                        .unwrap_or(&pc.original_id);
-                    chain.push(label.to_string());
-                    current = parent;
-                } else {
-                    break;
-                }
-            }
+            // Trace the taxonomy chain off the reasoner's MATERIALIZED hypernym
+            // closure: `ancestors(id)` is the reflexive is-a image, nearest-
+            // first, owned by the closure — never a hand-walk of `parents()`. We
+            // drop the reflexive head (`id` itself, distance 0) to render the
+            // STRICT ancestor lineage "word is a X → Y → Z".
+            let chain: Vec<String> = en
+                .ancestors(id)
+                .into_iter()
+                .skip(1)
+                .filter_map(|anc| {
+                    en.concept(anc).map(|pc| {
+                        pc.lemmas
+                            .first()
+                            .map(|l| l.as_str())
+                            .unwrap_or(&pc.original_id)
+                            .to_string()
+                    })
+                })
+                .collect();
             if !chain.is_empty() {
                 // Generate "word is a X → Y → Z" through grammar
                 let first = &chain[0];

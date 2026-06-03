@@ -105,6 +105,12 @@ pub struct ComposedReasoner {
     loaded_parents: HashMap<ConceptId, Vec<ConceptId>>,
     /// Pre-folded direct Subsumption children per loaded `ConceptId`.
     loaded_children: HashMap<ConceptId, Vec<ConceptId>>,
+    /// Reverse of `loaded_refs`: typed `ConceptRef` → its disjoint `ConceptId`.
+    /// Held so the materialized-closure answers (a `ConceptRef` set) can be
+    /// mapped back to the `LexicalReasoner`'s `ConceptId` surface without a
+    /// linear scan — the loaded-side `ancestors`/`common_ancestor`/
+    /// `ancestor_chain` read each ontology's closure and re-key through this map.
+    loaded_ids: BTreeMap<ConceptRef, ConceptId>,
     /// The id base above which all ids are loaded (== `english.concept_count()`).
     base: u64,
 }
@@ -193,9 +199,10 @@ impl ComposedReasoner {
             }
         }
 
-        // `loaded_ids` is a construction-time scratch map (ConceptRef → id) used
-        // to wire the parent/child edges above; it is not part of the reasoner's
-        // state and is dropped here.
+        // `loaded_ids` (ConceptRef → id) is retained as reasoner state so the
+        // loaded-side closure answers — a set of `ConceptRef`s read off each
+        // ontology's MATERIALIZED Subsumption closure — can be re-keyed back to
+        // the `LexicalReasoner`'s `ConceptId` surface without a linear scan.
         Self {
             english,
             loaded,
@@ -205,6 +212,7 @@ impl ComposedReasoner {
             loaded_concepts,
             loaded_parents,
             loaded_children,
+            loaded_ids,
             base,
         }
     }
@@ -321,16 +329,81 @@ impl LexicalReasoner for ComposedReasoner {
                 // Cross-ontology subsumption is not asserted in the
                 // single-ontology demo; same-ontology is the closure lookup.
                 self.ontology_of(&c)
-                    .map(|onto| {
-                        onto.reachable_from(&c, RelationKind::Subsumption)
-                            .contains(&a)
-                    })
+                    .map(|onto| onto.closure().reaches(&c, &a, RelationKind::Subsumption))
                     .unwrap_or(false)
             }
             // Mixed English/loaded: no cross-universe subsumption edges exist in
             // this composition, so the relation does not hold (honest false, not
             // a guess).
             _ => false,
+        }
+    }
+
+    fn ancestors(&self, id: ConceptId) -> Vec<ConceptId> {
+        match self.decode(id) {
+            // English: delegate to English's materialized hypernym closure.
+            Some(GroundedConcept::English(cid)) => self.english.ancestors(cid),
+            // Loaded: the reflexive Subsumption image over the owning ontology's
+            // MATERIALIZED closure, nearest-first by is-a distance, re-keyed back
+            // to the `ConceptId` surface. A lookup over the materialized set,
+            // never a BFS.
+            Some(GroundedConcept::Loaded(cref)) => {
+                let Some(onto) = self.ontology_of(&cref) else {
+                    return alloc::vec![id];
+                };
+                let mut image: Vec<(ConceptId, u32)> = alloc::vec![(id, 0)];
+                for (anc_ref, dist) in onto.closure().subsumption_image(&cref) {
+                    if let Some(&anc_id) = self.loaded_ids.get(&anc_ref) {
+                        image.push((anc_id, dist));
+                    }
+                }
+                image.sort_unstable_by(|(a, da), (b, db)| {
+                    da.cmp(db).then_with(|| a.value().cmp(&b.value()))
+                });
+                image.into_iter().map(|(v, _)| v).collect()
+            }
+            None => Vec::new(),
+        }
+    }
+
+    fn common_ancestor(&self, a: ConceptId, b: ConceptId) -> Option<ConceptId> {
+        match (self.decode(a), self.decode(b)) {
+            // Both English: English's closure lattice-meet.
+            (Some(GroundedConcept::English(ea)), Some(GroundedConcept::English(eb))) => {
+                self.english.common_ancestor(ea, eb)
+            }
+            // Both loaded in the same ontology: the lattice-meet over that
+            // ontology's MATERIALIZED Subsumption closure, re-keyed to a
+            // `ConceptId`. Never a hand-BFS.
+            (Some(GroundedConcept::Loaded(ra)), Some(GroundedConcept::Loaded(rb))) => {
+                let onto = self.ontology_of(&ra)?;
+                if self.ontology_of(&rb)?.id() != onto.id() {
+                    return None;
+                }
+                let meet = onto.closure().subsumption_meet(&ra, &rb)?;
+                self.loaded_ids.get(&meet).copied()
+            }
+            // Mixed: no shared hypernym across the two disjoint universes.
+            _ => None,
+        }
+    }
+
+    fn ancestor_chain(&self, child: ConceptId, ancestor: ConceptId) -> Option<Vec<ConceptId>> {
+        match (self.decode(child), self.decode(ancestor)) {
+            (Some(GroundedConcept::English(c)), Some(GroundedConcept::English(a))) => {
+                self.english.ancestor_chain(c, a)
+            }
+            (Some(GroundedConcept::Loaded(c)), Some(GroundedConcept::Loaded(a))) => {
+                let onto = self.ontology_of(&c)?;
+                let chain_refs = onto.closure().subsumption_chain(&c, &a)?;
+                // Re-key the ordered ConceptRef chain to ConceptIds.
+                let chain: Vec<ConceptId> = chain_refs
+                    .into_iter()
+                    .filter_map(|r| self.loaded_ids.get(&r).copied())
+                    .collect();
+                Some(chain)
+            }
+            _ => None,
         }
     }
 

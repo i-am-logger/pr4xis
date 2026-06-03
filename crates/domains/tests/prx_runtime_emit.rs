@@ -100,9 +100,13 @@ fn real_dependability_ontology_rebinds_against_itself() {
 /// well-behaved (`load ∘ emit == id`), deterministic (byte-identical re-emit),
 /// content-addressed (stable root). Returns the node count so the driver can
 /// confirm it exercised a non-trivial ontology.
-fn assert_format_round_trip_law<Cat: Category>(name: &str) -> usize
+fn assert_format_round_trip_law<Cat: Category + pr4xis::category::NamedCategory + 'static>(
+    name: &str,
+) -> usize
 where
     Cat::Object: FinitelyGenerated,
+    <Cat::Morphism as pr4xis::category::Arrow>::Kind:
+        core::fmt::Debug + PartialEq + Clone + 'static,
 {
     let archive: Archive = emit::<Cat>();
 
