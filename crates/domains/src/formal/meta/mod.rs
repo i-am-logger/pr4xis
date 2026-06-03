@@ -18,6 +18,7 @@ pub mod omv;
 pub mod ontology_archive;
 pub mod ontology_diagnostics;
 pub mod praxis_knowledge_graph;
+pub mod source_syntax;
 pub mod source_taxonomy;
 pub mod staging;
 pub mod syntrometry;
