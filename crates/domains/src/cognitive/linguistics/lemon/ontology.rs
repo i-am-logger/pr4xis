@@ -168,6 +168,88 @@ pr4xis::register_axiom!(
     "W3C Lexicon Model for Ontologies (Ontolex-Lemon) (2016) §3.4"
 );
 
+/// The domain-conditioned predominant-sense order is a STRICT PARTIAL ORDER.
+///
+/// "Elevation" — Koeling, McCarthy & Carroll (2005): the predominant sense of a
+/// polysemous word is domain-dependent — is realised in praxis as a per-query-
+/// domain ordering over an entry's senses
+/// ([`Sense::salience_in`](super::lexicon::Sense::salience_in)). For the lexicon
+/// to have a well-defined predominant sense, that order
+/// `a ≺_d b ⟺ salience_d(a) > salience_d(b)` must be a strict partial order —
+/// irreflexive, asymmetric, transitive — under every query domain. Since it is
+/// induced by a total grading into a totally-ordered codomain it is always such
+/// an order; this axiom discharges the three laws over a fixture entry carrying
+/// a general sense plus two domain-specific senses (the "person" case: general,
+/// legal, economics), spanning every distinct salience value.
+#[derive(Debug)]
+pub struct SenseOrderIsStrictPartialOrder;
+
+impl Axiom for SenseOrderIsStrictPartialOrder {
+    fn verify(&self) -> pr4xis::logic::proof::Verdict {
+        use super::lexicon::{ConceptRef, Sense};
+        use pr4xis::logic::proof::{SimpleCounterexample, SimpleProof};
+
+        // One entry's senses across domains — the elevation fixture.
+        let senses = [
+            Sense {
+                reference: ConceptRef {
+                    ontology: "english_wordnet".to_string(),
+                    concept: "person.n.01".to_string(),
+                },
+                domain: None,
+            },
+            Sense {
+                reference: ConceptRef {
+                    ontology: "us_legal_lexicon".to_string(),
+                    concept: "person".to_string(),
+                },
+                domain: Some("legal".to_string()),
+            },
+            Sense {
+                reference: ConceptRef {
+                    ontology: "economics".to_string(),
+                    concept: "person".to_string(),
+                },
+                domain: Some("economics".to_string()),
+            },
+        ];
+        let queries: [Option<&str>; 3] = [None, Some("legal"), Some("economics")];
+        let precedes = |a: &Sense, b: &Sense, d: Option<&str>| a.salience_in(d) > b.salience_in(d);
+
+        for d in queries {
+            for a in &senses {
+                // Irreflexive: ¬(a ≺ a).
+                if precedes(a, a, d) {
+                    return Err(Box::new(SimpleCounterexample::new(self.meta())));
+                }
+                for b in &senses {
+                    // Asymmetric: a ≺ b ⟹ ¬(b ≺ a).
+                    if precedes(a, b, d) && precedes(b, a, d) {
+                        return Err(Box::new(SimpleCounterexample::new(self.meta())));
+                    }
+                    // Transitive: a ≺ b ∧ b ≺ c ⟹ a ≺ c.
+                    for c in &senses {
+                        if precedes(a, b, d) && precedes(b, c, d) && !precedes(a, c, d) {
+                            return Err(Box::new(SimpleCounterexample::new(self.meta())));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(Box::new(SimpleProof::new(self.meta())))
+    }
+
+    pr4xis::axiom_meta!(
+        "SenseOrderIsStrictPartialOrder",
+        "the domain-conditioned predominant-sense order over an entry's senses is a strict partial order (irreflexive, asymmetric, transitive)",
+        "Koeling, McCarthy & Carroll (2005) Domain-Specific Sense Distributions and Predominant Sense Acquisition, HLT/EMNLP; W3C Ontolex-Lemon (2016) one-entry-many-senses"
+    );
+}
+pr4xis::register_axiom!(
+    SenseOrderIsStrictPartialOrder,
+    "Koeling, McCarthy & Carroll (2005) HLT/EMNLP; W3C Ontolex-Lemon (2016)"
+);
+
 impl Ontology for LemonOntology {
     type Cat = LemonCategory;
     type Qual = IsCoreConcept;
@@ -177,6 +259,7 @@ impl Ontology for LemonOntology {
         axioms.push(Box::new(DenotesIsPropertyChain));
         axioms.push(Box::new(CanonicalFormIsFunctional));
         axioms.push(Box::new(ReferenceIsFunctional));
+        axioms.push(Box::new(SenseOrderIsStrictPartialOrder));
         axioms
     }
 }
