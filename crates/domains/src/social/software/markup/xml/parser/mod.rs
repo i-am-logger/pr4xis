@@ -72,6 +72,7 @@ pub mod conformance;
 pub mod grammar;
 pub mod lens;
 pub mod serializer;
+pub mod source_syntax;
 pub mod xmlconf_audit;
 
 #[cfg(test)]

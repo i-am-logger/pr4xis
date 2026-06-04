@@ -29,6 +29,7 @@ use super::super::ontology::{
     XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlEntityKind, XmlExternalId,
     XmlGeneralEntity, XmlName, XmlNamespace, XmlNode,
 };
+use super::source_syntax::{CaptureCtx, EmptyForm, NodeDecisions, SyntaxDecisions};
 
 /// Failure modes when parsing XML 1.0 bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -175,6 +176,34 @@ impl std::error::Error for XmlParseError {}
 /// this normalization on input so that downstream productions never
 /// see CR.
 pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
+    parse_document_inner(input, &mut None)
+}
+
+/// Reader half of the serialized reverse lens — parse AND capture the
+/// concrete-syntax decisions ([`SyntaxDecisions`]) needed to reconstruct the
+/// exact source bytes with
+/// [`serialize_document_exact`](super::serializer::serialize_document_exact).
+///
+/// Identical to [`parse_document`] for the produced [`XmlDocument`]; it
+/// additionally threads a [`CaptureCtx`] through the element/content descent,
+/// assigning each element a pre-order index at entry and recording any
+/// non-canonical concrete-syntax decision against it (today: an explicit-empty
+/// `<a></a>` element). The returned `(doc, decisions)` satisfies the byte-exact
+/// round-trip law `serialize_document_exact(&doc, &decisions) == input` for any
+/// input whose only non-canonical feature is the empty-element form.
+pub fn parse_document_capturing(
+    input: &[u8],
+) -> Result<(XmlDocument, SyntaxDecisions), XmlParseError> {
+    let mut capture = Some(CaptureCtx::default());
+    let doc = parse_document_inner(input, &mut capture)?;
+    let decisions = capture.expect("capture was seeded with Some").decisions;
+    Ok((doc, decisions))
+}
+
+fn parse_document_inner(
+    input: &[u8],
+    capture: &mut Option<CaptureCtx>,
+) -> Result<XmlDocument, XmlParseError> {
     let (raw, detected_encoding) = decode_input(input)?;
     let normalized = normalize_line_endings(&raw);
     let mut cursor = Cursor::new(&normalized);
@@ -226,7 +255,7 @@ pub fn parse_document(input: &[u8]) -> Result<XmlDocument, XmlParseError> {
         (None, _) => true,
         (Some(dt), _) => dt.external_id.is_none() && !dt.internal_subset_had_pe_references,
     };
-    let root = parse_element(&mut cursor, &entity_map, strict_entity_declared)?;
+    let root = parse_element(&mut cursor, &entity_map, strict_entity_declared, capture)?;
     parse_misc_star(&mut cursor)?;
     cursor.skip_whitespace();
     if !cursor.is_eof() {
@@ -1631,7 +1660,20 @@ fn parse_element(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     strict_entity_declared: bool,
+    capture: &mut Option<CaptureCtx>,
 ) -> Result<XmlElement, XmlParseError> {
+    // Claim this element's PRE-ORDER index AT ENTRY — before either the
+    // self-closing or the explicit branch, and before descending into any
+    // children — so the index ordering matches the byte-exact serializer's
+    // emit counter (root = 0, children strictly after their parent, document
+    // order within a level). The self-closing path consumes the index and
+    // records nothing (`SelfClosing` is the serializer default); the explicit
+    // path records `Explicit` for a childless `<a></a>`.
+    let my_index = capture.as_mut().map(|ctx| {
+        let idx = ctx.counter;
+        ctx.counter += 1;
+        idx
+    });
     c.consume("<")?;
     let name = parse_name(c)?;
     let mut attributes: Vec<XmlAttribute> = Vec::new();
@@ -1701,8 +1743,10 @@ fn parse_element(
         }
     }
 
-    // content + ETag
-    let children = parse_content(c, entities, strict_entity_declared)?;
+    // content + ETag — the EXPLICIT (`STag content ETag`) form. The cursor is
+    // PAST the start-tag `>`; children come from `parse_content`, which threads
+    // the same `capture` so descendant elements claim later pre-order indices.
+    let children = parse_content(c, entities, strict_entity_declared, capture)?;
     c.consume("</")?;
     let close_name = parse_name(c)?;
     c.skip_whitespace();
@@ -1713,6 +1757,21 @@ fn parse_element(
             open: name.qualified(),
             close: close_name.qualified(),
         });
+    }
+
+    // Reader capture: a childless element written in the EXPLICIT `<a></a>`
+    // form is the one non-canonical decision this slice records — the canonical
+    // serializer would self-close it, so without this the bytes would not
+    // round-trip. A childless self-closing `<a/>` reached the early return
+    // above and recorded nothing (the serializer default). A non-empty element
+    // carries its form in its children and needs no decision.
+    if let (true, Some(ctx), Some(idx)) = (children.is_empty(), capture.as_mut(), my_index) {
+        ctx.decisions.set(
+            idx,
+            NodeDecisions {
+                empty_form: Some(EmptyForm::Explicit),
+            },
+        );
     }
 
     let namespace = namespaces.first().cloned();
@@ -2057,6 +2116,7 @@ fn parse_content(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
     strict_entity_declared: bool,
+    capture: &mut Option<CaptureCtx>,
 ) -> Result<Vec<XmlNode>, XmlParseError> {
     let mut visited = Vec::new();
     parse_content_with_terminator(
@@ -2065,6 +2125,7 @@ fn parse_content(
         &mut visited,
         strict_entity_declared,
         ContentTerminator::Etag,
+        capture,
     )
 }
 
@@ -2084,6 +2145,7 @@ fn parse_content_with_terminator(
     visited: &mut Vec<String>,
     strict_entity_declared: bool,
     term: ContentTerminator,
+    capture: &mut Option<CaptureCtx>,
 ) -> Result<Vec<XmlNode>, XmlParseError> {
     let mut nodes: Vec<XmlNode> = Vec::new();
     let mut text_buf = String::new();
@@ -2095,6 +2157,7 @@ fn parse_content_with_terminator(
         term,
         &mut nodes,
         &mut text_buf,
+        capture,
     )?;
     flush_text(&mut nodes, &mut text_buf);
     Ok(nodes)
@@ -2112,6 +2175,14 @@ fn parse_content_with_terminator(
 ///
 /// Returns on terminator without flushing `text_buf`; the
 /// outermost caller is responsible for flushing.
+///
+/// Each argument is a genuinely distinct threaded value of the
+/// content-loop (the cursor, the declared entities, the §4.1
+/// No-Recursion `visited` stack, the entity-declared strictness
+/// flag, the terminator, the two shared `nodes`/`text_buf`
+/// accumulators, and the reader `capture`), so the count is
+/// intrinsic rather than a flag-bag to be folded into a struct.
+#[allow(clippy::too_many_arguments)]
 fn parse_content_into_buffers(
     c: &mut Cursor<'_>,
     entities: &[XmlGeneralEntity],
@@ -2120,6 +2191,7 @@ fn parse_content_into_buffers(
     term: ContentTerminator,
     nodes: &mut Vec<XmlNode>,
     text_buf: &mut String,
+    capture: &mut Option<CaptureCtx>,
 ) -> Result<(), XmlParseError> {
     use crate::social::software::markup::xml::spec_1_0::{
         ContentItemKind, loaded_content_dispatch_table,
@@ -2175,7 +2247,7 @@ fn parse_content_into_buffers(
             }
             ContentItemKind::Element => {
                 flush_text(nodes, text_buf);
-                let child = parse_element(c, entities, strict_entity_declared)?;
+                let child = parse_element(c, entities, strict_entity_declared, capture)?;
                 nodes.push(XmlNode::Element(child));
                 continue;
             }
@@ -2231,6 +2303,7 @@ fn parse_content_into_buffers(
                         strict_entity_declared,
                         nodes,
                         text_buf,
+                        capture,
                     )?;
                 }
             }
@@ -2266,6 +2339,11 @@ fn parse_content_into_buffers(
 /// EntityValue) as a `content` fragment at the reference
 /// position. The resulting nodes are spliced into the parent's
 /// node list.
+///
+/// Mirrors [`parse_content_into_buffers`]'s threaded state (it
+/// forwards the same `nodes`/`text_buf`/`capture` accumulators into
+/// the §4.4.3 re-parse), so the argument count is intrinsic.
+#[allow(clippy::too_many_arguments)]
 fn include_user_general_entity_in_content(
     name: &str,
     ref_pos: usize,
@@ -2274,6 +2352,7 @@ fn include_user_general_entity_in_content(
     strict_entity_declared: bool,
     nodes: &mut Vec<XmlNode>,
     text_buf: &mut String,
+    capture: &mut Option<CaptureCtx>,
 ) -> Result<(), XmlParseError> {
     if visited.iter().any(|n| n == name) {
         return Err(XmlParseError::Syntax {
@@ -2337,6 +2416,11 @@ fn include_user_general_entity_in_content(
                 ContentTerminator::Eof,
                 nodes,
                 text_buf,
+                // §4.4.3 inclusion re-parses the entity's replacement text on
+                // the SAME capture context, so an element materialized from an
+                // entity still claims its pre-order index at entry — the
+                // counter threads straight through the inclusion boundary.
+                capture,
             );
             visited.pop();
             result
@@ -2479,4 +2563,170 @@ fn check_chars_in_range(
         offset_within_body += ch.len_utf8();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod reverse_lens_roundtrip_tests {
+    //! The correctness gate for the serialized reverse lens's empty-element-form
+    //! slice: `parse_document_capturing` records the concrete-syntax decisions
+    //! so that `serialize_document_exact(&doc, &decisions)` reproduces the input
+    //! BYTE-FOR-BYTE.
+    //!
+    //! Scope of this slice: the ONLY non-canonical concrete-syntax feature the
+    //! reader captures (and the writer honours) is the empty-element form —
+    //! `<a></a>` (explicit) versus the canonical `<a/>` (self-closing). The
+    //! byte-exact inputs below are therefore restricted to documents whose only
+    //! departure from the canonical serializer's output is that form. Other
+    //! byte-affecting decisions — entity-reference syntax (an `&ent;` reference
+    //! is RESOLVED by the parser, so the serializer re-emits the expanded
+    //! nodes, not the reference), attribute-value escaping style, and
+    //! white-space — are LATER slices, so an input exercising them would not yet
+    //! round-trip byte-for-byte and is deliberately out of scope here.
+
+    use super::super::serializer::serialize_document_exact;
+    use super::super::source_syntax::{EmptyForm, NodeDecisions};
+    use super::{XmlNode, parse_document_capturing};
+
+    /// Assert the full byte-exact round-trip law for an input whose only
+    /// non-canonical feature is the empty-element form.
+    fn assert_byte_exact_roundtrip(input: &[u8]) {
+        let (doc, decisions) = parse_document_capturing(input).expect("input parses");
+        let out = serialize_document_exact(&doc, &decisions);
+        assert_eq!(
+            out,
+            input.to_vec(),
+            "round-trip mismatch\n  in : {:?}\n  out: {:?}",
+            core::str::from_utf8(input),
+            core::str::from_utf8(&out),
+        );
+    }
+
+    #[test]
+    fn roundtrip_mixed_empty_forms_and_text() {
+        // (a) `a` explicit-empty, `b` self-closing, `c` has text — the three
+        // forms side by side. Uses the exact XML decl the serializer emits.
+        let input = br#"<?xml version="1.0" encoding="UTF-8"?><root><a></a><b/><c>text</c></root>"#;
+        assert_byte_exact_roundtrip(input);
+    }
+
+    #[test]
+    fn roundtrip_nested_explicit_empty() {
+        // (b) a NESTED explicit-empty: `y` (pre-order index 2) sits inside `x`
+        // (index 1) inside `root` (index 0).
+        let input = br#"<?xml version="1.0" encoding="UTF-8"?><root><x><y></y></x></root>"#;
+        assert_byte_exact_roundtrip(input);
+
+        // Pin the pre-order index the decision lands on: only `y` is recorded
+        // explicit, at index 2.
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        assert_eq!(
+            decisions.get(0),
+            None,
+            "root self-closes? no — it has children"
+        );
+        assert_eq!(decisions.get(1), None, "x has children, no decision");
+        assert_eq!(
+            decisions.get(2),
+            Some(&NodeDecisions {
+                empty_form: Some(EmptyForm::Explicit),
+            }),
+            "nested y captured explicit at pre-order index 2",
+        );
+    }
+
+    #[test]
+    fn roundtrip_explicit_empty_after_sibling_element_and_text() {
+        // (c) the explicit-empty `<e></e>` is preceded by a sibling ELEMENT
+        // (`<s/>`, which itself contains a nested element so the pre-order index
+        // of `e` is non-trivial) AND text. Pre-order entry order:
+        //   root=0, s=1, n=2, e=3.
+        // A naive sibling-count or child-path scheme would mis-key `e`; the
+        // pre-order counter places it at 3.
+        let input =
+            br#"<?xml version="1.0" encoding="UTF-8"?><root><s><n/></s>between<e></e></root>"#;
+        assert_byte_exact_roundtrip(input);
+
+        let (_, decisions) = parse_document_capturing(input).unwrap();
+        assert_eq!(
+            decisions.get(3),
+            Some(&NodeDecisions {
+                empty_form: Some(EmptyForm::Explicit),
+            }),
+            "e captured explicit at pre-order index 3 (root=0, s=1, n=2, e=3)",
+        );
+        // The self-closing siblings record nothing.
+        assert_eq!(decisions.get(1), None);
+        assert_eq!(decisions.get(2), None);
+    }
+
+    #[test]
+    fn entity_inclusion_threads_the_preorder_counter() {
+        // (d) a DOCTYPE-declared general entity whose replacement text contains
+        // an explicit-empty element, proving the §4.4.3 entity-inclusion path
+        // (`include_user_general_entity_in_content`) threads the pre-order
+        // counter: the element materialized FROM the entity still claims its
+        // index at entry and its `Explicit` form is captured.
+        //
+        // NOTE on scope: this is NOT a byte-exact round-trip. The parser
+        // RESOLVES the `&e;` reference (§4.4.3 "Included"), splicing the
+        // expanded `<m></m>` element into `root.children` — the reference is
+        // gone from the Infoset DOM. The serializer therefore re-emits the
+        // expanded element, never the `&e;` reference; preserving the
+        // entity-reference SYNTAX is a separate (later) concrete-syntax slice.
+        // What we DO assert here is the counter-threading invariant this slice
+        // owns: the entity-materialized element is captured at the correct
+        // pre-order index, and re-serializing the resulting DOM with those
+        // decisions reproduces the explicit `<m></m>` form (not the canonical
+        // `<m/>`).
+        let input =
+            br#"<?xml version="1.0"?><!DOCTYPE root [<!ENTITY e "<m></m>">]><root><a/>&e;</root>"#;
+        let (doc, decisions) = parse_document_capturing(input).expect("input parses");
+
+        // Expanded DOM: root has two element children — the self-closing `a`
+        // and the entity-materialized explicit-empty `m`.
+        assert_eq!(doc.root.children.len(), 2);
+        assert!(matches!(&doc.root.children[0], XmlNode::Element(el) if el.name.local == "a"));
+        assert!(matches!(&doc.root.children[1], XmlNode::Element(el) if el.name.local == "m"));
+
+        // Pre-order entry order: root=0, a=1, m=2. `a` self-closes (no
+        // decision); `m` (materialized through the entity-inclusion path) is
+        // captured explicit at index 2 — the counter threaded through the
+        // inclusion boundary.
+        assert_eq!(decisions.get(1), None, "self-closing a records nothing");
+        assert_eq!(
+            decisions.get(2),
+            Some(&NodeDecisions {
+                empty_form: Some(EmptyForm::Explicit),
+            }),
+            "entity-materialized m captured explicit at pre-order index 2",
+        );
+
+        // Re-serializing the EXPANDED DOM with the captured decisions yields the
+        // explicit `<m></m>` form (the entity-inclusion counter landed on the
+        // right element); the canonical serializer would have self-closed it.
+        let out = serialize_document_exact(&doc, &decisions);
+        let out_str = core::str::from_utf8(&out).unwrap();
+        assert!(
+            out_str.contains("<m></m>"),
+            "expanded element re-serializes in explicit form: {out_str}",
+        );
+        assert!(
+            out_str.contains("<a/>"),
+            "self-closing sibling stays self-closing: {out_str}",
+        );
+    }
+
+    #[test]
+    fn no_decision_recorded_for_fully_self_closing_document() {
+        // A document with only self-closing empties records NO decisions — the
+        // canonical serializer's default already reproduces it, so the exact
+        // serializer with empty decisions is byte-identical.
+        let input = br#"<?xml version="1.0" encoding="UTF-8"?><root><a/><b/></root>"#;
+        let (_doc, decisions) = parse_document_capturing(input).unwrap();
+        assert_eq!(
+            decisions,
+            super::super::source_syntax::SyntaxDecisions::new()
+        );
+        assert_byte_exact_roundtrip(input);
+    }
 }

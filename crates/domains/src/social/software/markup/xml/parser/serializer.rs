@@ -25,12 +25,13 @@
 //!   that the canonicalizer can normalize without ambiguity).
 
 #[allow(unused_imports)]
-use alloc::{collections::BTreeMap, format, string::String, vec, vec::Vec};
+use alloc::{format, string::String, vec, vec::Vec};
 
 use super::super::ontology::{
     XmlAttribute, XmlDoctype, XmlDocument, XmlElement, XmlExternalId, XmlName, XmlNamespace,
     XmlNode,
 };
+use super::source_syntax::{EmptyForm, SyntaxDecisions};
 
 /// Top-level entry point: emit a [`XmlDocument`] as W3C XML 1.0
 /// §2.1 `document` bytes.
@@ -55,56 +56,10 @@ pub fn serialize_document(doc: &XmlDocument) -> Vec<u8> {
 // lens — the one place that is irreducibly imperative (a byte stream is not a
 // category to fold through; Foster et al. 2007's `put` bottoms out in byte
 // emission), and it is XML-family-wide, written once rather than per format.
-
-/// The empty-element form decision (W3C XML 1.0 §3.1): `<a/>` (empty-element
-/// tag) versus `<a></a>` (start- plus end-tag) — the same Information Set,
-/// distinct bytes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EmptyForm {
-    /// `<a/>`.
-    SelfClosing,
-    /// `<a></a>`.
-    Explicit,
-}
-
-/// The concrete-syntax decisions for ONE node — the SourceSyntax residue the
-/// Information Set DOM does not carry, needed to reproduce its exact bytes.
-/// Today only the empty-element form; further decisions (entity-reference form,
-/// attribute-value escaping, white-space) extend this struct.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct NodeDecisions {
-    /// The empty-element form — only meaningful for a childless element.
-    pub empty_form: Option<EmptyForm>,
-}
-
-/// A document's concrete-syntax decisions, keyed by document-order PATH (the
-/// child-index sequence from the root; the root element is `[]`). The byte-exact
-/// serializer looks up each node's decisions as it walks.
-///
-/// This is the SourceSyntax COMPLEMENT, kept SEPARATE from the Infoset DOM: the
-/// decisions live in the per-source `.prx` envelope, never in the ontology or
-/// its content-address (so the same ontology serialized two ways keeps one
-/// root). It is the byte-exact `put`'s second input, beside the DOM.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct SyntaxDecisions {
-    by_path: BTreeMap<Vec<usize>, NodeDecisions>,
-}
-
-impl SyntaxDecisions {
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Record the concrete-syntax decisions for the node at `path`.
-    pub fn set(&mut self, path: Vec<usize>, decisions: NodeDecisions) {
-        self.by_path.insert(path, decisions);
-    }
-
-    fn get(&self, path: &[usize]) -> Option<&NodeDecisions> {
-        self.by_path.get(path)
-    }
-}
+//
+// The residue types ([`EmptyForm`], [`NodeDecisions`], [`SyntaxDecisions`]) live
+// in [`super::source_syntax`] so the reader (`grammar`) can CAPTURE the same
+// decisions this writer HONOURS without either depending on the other.
 
 /// Byte-exact serialization — exact source bytes from the Information Set DOM
 /// PLUS the recorded [`SyntaxDecisions`], with no stored raw source. Like
@@ -118,17 +73,25 @@ pub fn serialize_document_exact(doc: &XmlDocument, decisions: &SyntaxDecisions) 
     if let Some(doctype) = &doc.doctype {
         write_doctype(&mut out, doctype);
     }
-    let mut path = Vec::new();
-    write_element_exact(&mut out, &doc.root, &mut path, decisions);
+    // Pre-order element counter — incremented at every element's ENTRY in
+    // `write_element_exact`, mirroring the reader's capture counter so the two
+    // walks agree index-for-index (root = 0).
+    let mut index: usize = 0;
+    write_element_exact(&mut out, &doc.root, &mut index, decisions);
     out.into_bytes()
 }
 
 fn write_element_exact(
     out: &mut String,
     el: &XmlElement,
-    path: &mut Vec<usize>,
+    index: &mut usize,
     decisions: &SyntaxDecisions,
 ) {
+    // Take this element's pre-order index AT ENTRY, before descending into
+    // children — matching the reader, where `parse_element` claims its index at
+    // entry too.
+    let my_index = *index;
+    *index += 1;
     out.push('<');
     write_name(out, &el.name);
     if el.namespaces.is_empty() {
@@ -147,7 +110,7 @@ fn write_element_exact(
         // The empty-element form is a recorded decision; default to the
         // canonical self-closing form when none is recorded.
         let explicit = matches!(
-            decisions.get(path).and_then(|d| d.empty_form),
+            decisions.get(my_index).and_then(|d| d.empty_form),
             Some(EmptyForm::Explicit)
         );
         if explicit {
@@ -159,10 +122,8 @@ fn write_element_exact(
         }
     } else {
         out.push('>');
-        for (i, child) in el.children.iter().enumerate() {
-            path.push(i);
-            write_node_exact(out, child, path, decisions);
-            path.pop();
+        for child in &el.children {
+            write_node_exact(out, child, index, decisions);
         }
         out.push_str("</");
         write_name(out, &el.name);
@@ -173,14 +134,15 @@ fn write_element_exact(
 fn write_node_exact(
     out: &mut String,
     node: &XmlNode,
-    path: &mut Vec<usize>,
+    index: &mut usize,
     decisions: &SyntaxDecisions,
 ) {
     match node {
-        XmlNode::Element(el) => write_element_exact(out, el, path, decisions),
+        XmlNode::Element(el) => write_element_exact(out, el, index, decisions),
         // Non-element nodes render as in the canonical serializer; their own
         // byte-exact residue (comment white-space, entity style) lands in
-        // follow-up decisions.
+        // follow-up decisions. They occupy no pre-order ELEMENT slot, so the
+        // counter is untouched.
         other => write_node(out, other),
     }
 }
@@ -385,6 +347,7 @@ fn write_escaped_attr_value(out: &mut String, s: &str) {
 
 #[cfg(test)]
 mod exact_tests {
+    use super::super::source_syntax::NodeDecisions;
     use super::*;
 
     fn doc(root: XmlElement) -> XmlDocument {
@@ -414,10 +377,11 @@ mod exact_tests {
             serialize_document(&d),
             br#"<?xml version="1.0" encoding="UTF-8"?><a/>"#.to_vec()
         );
-        // …the byte-exact serializer honours an `Explicit` decision on it…
+        // …the byte-exact serializer honours an `Explicit` decision on it
+        // (the root element is pre-order index 0)…
         let mut decisions = SyntaxDecisions::new();
         decisions.set(
-            vec![],
+            0,
             NodeDecisions {
                 empty_form: Some(EmptyForm::Explicit),
             },
@@ -434,12 +398,13 @@ mod exact_tests {
     }
 
     #[test]
-    fn nested_explicit_empty_child_keyed_by_path() {
-        // `<root><a/></root>` with the child (path `[0]`) recorded `Explicit`.
+    fn nested_explicit_empty_child_keyed_by_index() {
+        // `<root><a/></root>` with the child (pre-order index 1, after the root
+        // at 0) recorded `Explicit`.
         let d = doc(el("root", vec![XmlNode::Element(el("a", vec![]))]));
         let mut decisions = SyntaxDecisions::new();
         decisions.set(
-            vec![0],
+            1,
             NodeDecisions {
                 empty_form: Some(EmptyForm::Explicit),
             },
